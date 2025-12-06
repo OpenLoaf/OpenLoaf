@@ -1,0 +1,41 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
+  "name": "teatime-ai",
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "react": {
+        "recommended": true
+      },
+      "typescript": {
+        "recommended": true
+      }
+    }
+  },
+  "organizeImports": {
+    "enabled": true
+  },
+  "files": {
+    "include": ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue,astro,svelte}"],
+    "ignore": ["node_modules", "dist", ".next", "*.generated.*"]
+  },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "es5",
+      "semicolons": "asNeeded"
+    }
+  }
+}
