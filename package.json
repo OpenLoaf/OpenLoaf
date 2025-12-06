@@ -1,0 +1,46 @@
+{
+  "name": "teatime-ai",
+  "private": true,
+  "type": "module",
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
+    "catalog": {
+      "hono": "^4.8.2",
+      "@trpc/server": "^11.5.0",
+      "dotenv": "^17.2.2",
+      "@trpc/client": "^11.5.0",
+      "@prisma/client": "^7.0.1"
+    }
+  },
+  "scripts": {
+    "prepare": "husky",
+    "ruler:apply": "bunx @intellectronica/ruler@latest apply --local-only",
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "check-types": "turbo check-types",
+    "dev:native": "turbo -F native dev",
+    "dev:web": "turbo -F web dev",
+    "dev:server": "turbo -F server dev",
+    "db:push": "turbo -F @teatime-ai/db db:push",
+    "db:studio": "turbo -F @teatime-ai/db db:studio",
+    "db:generate": "turbo -F @teatime-ai/db db:generate",
+    "db:migrate": "turbo -F @teatime-ai/db db:migrate"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
+    "@types/bun": "^1.2.6"
+  },
+  "lint-staged": {
+    "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue,astro,svelte}": ""
+  },
+  "packageManager": "bun@1.3.3"
+}
