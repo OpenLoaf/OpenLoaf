@@ -1,10 +1,121 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated"
-  moduleFormat = "esm"
-  runtime = "bun"
+  provider     = "prisma-client"
+  output       = "../generated" // 输出目录
+  moduleFormat = "esm" // 使用ES模块格式
+  runtime      = "bun" // 使用Bun作为运行时
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "sqlite" // 使用SQLite数据库
+}
+
+//
+// ================= TAG SYSTEM =================
+//
+
+// 标签模型
+// 用于对页面和资源进行分类和标记
+model Tag {
+  id        String   @id @default(cuid()) // 标签唯一标识
+  name      String // 标签名称
+  color     String? // 标签颜色（用于UI显示）
+  createdAt DateTime @default(now()) // 创建时间
+}
+
+//
+// ================= PAGE SYSTEM =================
+//
+
+// 页面模型
+// 用于组织和管理内容块的容器
+model Page {
+  id        String   @id @default(cuid()) // 页面唯一标识
+  title     String? // 页面标题
+  icon      String? // 页面图标
+  cover     String? // 页面封面图片URL
+  createdAt DateTime @default(now()) // 创建时间
+  updatedAt DateTime @updatedAt // 更新时间
+
+  // 页面文件夹结构（支持嵌套页面）
+  parentId String?
+  parent   Page?   @relation("PageToParent", fields: [parentId], references: [id]) // 父页面
+  children Page[]  @relation("PageToParent") // 子页面列表
+
+  // 页面下的内容块
+  blocks Block[]
+
+  // 页面关联的标签（直接存储为JSON数组）
+  tags Json? @default("[]") // 存储标签ID和基本信息的数组
+
+  // 页面关联的资源（1对多关系）
+  resources Resource[]
+}
+
+//
+// ================= BLOCK SYSTEM =================
+//
+
+// 内容块模型
+// 用于表示页面中的各种内容元素
+model Block {
+  id String @id @default(cuid()) // 内容块唯一标识
+
+  // 所属页面
+  pageId String
+  page   Page   @relation(fields: [pageId], references: [id])
+
+  // 内容块基本结构
+  type    String // 内容块类型：paragraph(段落), heading(标题), todo(待办), image(图片), resource(资源)...
+  props   Json? // 内容块属性配置
+  content Json? // 内容块内容（Slate JSON格式，Plate.js使用）
+
+  // 嵌套内容块结构
+  parentId String?
+  parent   Block?  @relation("BlockToParent", fields: [parentId], references: [id]) // 父内容块
+  children Block[] @relation("BlockToParent") // 子内容块列表
+
+  // 用于拖拽排序的顺序值
+  order Float
+
+  createdAt DateTime @default(now()) // 创建时间
+  updatedAt DateTime @updatedAt // 更新时间
+}
+
+//
+// ================= RESOURCE SYSTEM =================
+//
+
+// 资源模型
+// 用于存储和管理各种类型的资源
+model Resource {
+  id        String       @id @default(cuid()) // 资源唯一标识
+  name      String? // 资源显示名称
+  type      ResourceType // 资源类型：folder(文件夹), web(网页), github_repo(github仓库), file(文件), image(图片), video(视频), audio(音频)
+  url       String? // 资源URL（非folder类型需要）
+  metadata  Json? // 资源元数据：网页标题、仓库信息、文件信息等
+  createdAt DateTime     @default(now()) // 创建时间
+
+  // 资源所属页面ID（1对多关系）
+  pageId String?
+  page   Page?   @relation(fields: [pageId], references: [id])
+
+  // 资源文件夹结构（像操作系统文件夹）
+  parentId String?
+  parent   Resource?  @relation("ResourceToParent", fields: [parentId], references: [id]) // 父资源
+  children Resource[] @relation("ResourceToParent") // 子资源列表
+
+  // 资源关联的标签（直接存储为JSON数组）
+  tags Json? @default("[]") // 存储标签ID和基本信息的数组
+}
+
+// 资源类型枚举
+// 定义了系统支持的所有资源类型
+enum ResourceType {
+  folder // 文件夹类型
+  web // 网页类型
+  git_repo // Git仓库类型
+  file // 文件类型
+  image // 图片类型
+  video // 视频类型
+  audio // 音频类型
 }
