@@ -45,7 +45,7 @@ model Page {
   blocks Block[]
 
   // 页面关联的标签（直接存储为JSON数组）
-  tags Json? @default("[]") // 存储标签ID和基本信息的数组
+  tags Json? // 存储标签ID和基本信息的数组
 
   // 页面关联的资源（1对多关系）
   resources Resource[]
@@ -105,7 +105,7 @@ model Resource {
   children Resource[] @relation("ResourceToParent") // 子资源列表
 
   // 资源关联的标签（直接存储为JSON数组）
-  tags Json? @default("[]") // 存储标签ID和基本信息的数组
+  tags Json? // 存储标签ID和基本信息的数组
 }
 
 // 资源类型枚举

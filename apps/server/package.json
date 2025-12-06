@@ -10,13 +10,14 @@
     "start": "bun run dist/index.js"
   },
   "dependencies": {
-    "hono": "catalog:",
-    "@trpc/server": "catalog:",
     "@hono/trpc-server": "^0.4.0",
-    "dotenv": "catalog:",
-    "zod": "^4.1.11",
     "@teatime-ai/api": "workspace:*",
-    "@teatime-ai/db": "workspace:*"
+    "@teatime-ai/db": "workspace:*",
+    "@trpc/server": "catalog:",
+    "dotenv": "catalog:",
+    "hono": "catalog:",
+    "react-resizable-panels": "^3.0.6",
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "typescript": "^5.8.2",

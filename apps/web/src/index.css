@@ -11,6 +11,17 @@
 html,
 body {
   @apply bg-white dark:bg-gray-950;
+  height: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  /* 禁止右键菜单 */
+  -webkit-context-menu: none;
+  -moz-context-menu: none;
+  -ms-context-menu: none;
+  context-menu: none;
+  /* 禁止触控板上下弹性滑动 */
+  overscroll-behavior: none;
 
   @media (prefers-color-scheme: dark) {
     color-scheme: dark;
@@ -127,8 +138,99 @@ body {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    /* 禁止文字内容被鼠标选中 */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
   }
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* 允许 Context Menu 组件显示右键菜单 */
+[data-radix-context-menu-trigger] {
+  -webkit-context-menu: auto;
+  -moz-context-menu: auto;
+  -ms-context-menu: auto;
+  context-menu: auto;
+}
+
+/* 隐藏系统滚动条 - 全局设置 */
+.custom-scroll {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE/旧 Edge */
+}
+
+.custom-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* 隐藏所有默认滚动条 */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Firefox 滚动条样式 */
+* {
+  scrollbar-width: none;  /* 隐藏所有默认滚动条 */
+}
+
+/* 侧边栏动画 */
+.sidebar-animation {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.sidebar-expanded {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+  min-width: 200px;
+}
+
+.sidebar-collapsed {
+  opacity: 0;
+  transform: translateX(-100%);
+  pointer-events: none;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+/* 右侧边栏的特殊处理 */
+.sidebar-animation:nth-child(3).sidebar-expanded {
+  transform: translateX(0);
+}
+
+.sidebar-animation:nth-child(3).sidebar-collapsed {
+  transform: translateX(100%);
+}
+
+.is-resizing .sidebar-animation {
+  transition: none;
+}
+
+.is-resizing .main-content {
+  transition: none;
+}
+
+.workbench-grid {
+  display: grid;
+  grid-template-columns: var(--left-grid-width) 1fr var(--right-grid-width);
+  transition: grid-template-columns 0.18s ease;
+}
+
+.is-resizing .workbench-grid {
+  transition: none;
 }
