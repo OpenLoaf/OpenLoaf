@@ -22,7 +22,7 @@ const DEFAULT_STATE: Pick<
 > = {
   leftOpen: true,
   rightOpen: true,
-  leftPanelWidth: 18,
+  leftPanelWidth: 20,
   rightPanelWidth: 22,
 };
 

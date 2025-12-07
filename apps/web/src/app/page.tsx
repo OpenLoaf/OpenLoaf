@@ -35,7 +35,12 @@ export default function Home() {
     otherOpen: boolean,
     otherWidth: number
   ) => {
-    const max = Math.max(100 - (otherOpen ? otherWidth : 0) - MIN_MAIN, min);
+    const calculatedMax = Math.max(
+      100 - (otherOpen ? otherWidth : 0) - MIN_MAIN,
+      min
+    );
+    // 为左侧边栏添加最大宽度限制为30%
+    const max = min === MIN_LEFT ? Math.min(calculatedMax, 20) : calculatedMax;
     return Math.min(Math.max(value, min), max);
   };
 

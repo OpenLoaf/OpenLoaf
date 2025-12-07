@@ -16,6 +16,7 @@ export const pageUpdateInputSchema = z.object({
   icon: z.string().optional(),
   cover: z.string().optional(),
   parentId: z.string().optional(),
+  isExpanded: z.boolean().optional(),
 });
 
 // 导出类型
