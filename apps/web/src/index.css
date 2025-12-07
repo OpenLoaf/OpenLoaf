@@ -20,8 +20,12 @@ body {
   -moz-context-menu: none;
   -ms-context-menu: none;
   context-menu: none;
-  /* 禁止触控板上下弹性滑动 */
+  /* 禁止触控板上下弹性滑动和页面滚动 */
   overscroll-behavior: none;
+  touch-action: none;
+  /* 锁定视口，防止任何形式的滚动 */
+  position: fixed;
+  width: 100%;
 
   @media (prefers-color-scheme: dark) {
     color-scheme: dark;

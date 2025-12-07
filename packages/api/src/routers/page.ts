@@ -23,15 +23,43 @@ export type PageIdInput = z.infer<typeof pageIdInputSchema>;
 export type PageCreateInput = z.infer<typeof pageCreateInputSchema>;
 export type PageUpdateInput = z.infer<typeof pageUpdateInputSchema>;
 
+// 将扁平的页面列表转换为树形结构
+const buildTree = (pages: any[]) => {
+  const pageMap: Record<string, any> = {};
+  const rootPages: any[] = [];
+
+  // 首先将所有页面放入map中
+  for (const page of pages) {
+    pageMap[page.id] = { ...page, children: [] };
+  }
+
+  // 然后构建树形结构
+  for (const page of pages) {
+    if (page.parentId) {
+      // 如果有父页面，将其添加到父页面的children数组中
+      if (pageMap[page.parentId]) {
+        pageMap[page.parentId].children.push(pageMap[page.id]);
+      }
+    } else {
+      // 否则，将其添加到根页面数组中
+      rootPages.push(pageMap[page.id]);
+    }
+  }
+
+  return rootPages;
+};
+
 export const pageRouter = router({
   // 获取所有页面
   getAll: publicProcedure.query(async ({}) => {
-    return prisma.page.findMany({
+    const pages = await prisma.page.findMany({
       include: {
-        blocks: true,
+        children: true,
         resources: true,
       },
     });
+
+    return buildTree(pages);
   }),
 
   // 获取单个页面

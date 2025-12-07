@@ -17,12 +17,44 @@ const MIN_LEFT = 12;
 const MIN_RIGHT = 14;
 
 export default function Home() {
-  const { leftOpen, rightOpen, setLeftOpen, setRightOpen, setLeftPanelWidth } =
-    useSidebar();
+  const {
+    leftOpen,
+    rightOpen,
+    setLeftOpen,
+    setRightOpen,
+    setLeftPanelWidth,
+    setRightPanelWidth,
+    leftPanelWidth,
+    rightPanelWidth,
+  } = useSidebar();
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
-  const lastLeftSize = useRef(BASE_LAYOUT[0]);
-  const lastRightSize = useRef(BASE_LAYOUT[2]);
+  const lastLeftSize = useRef(leftPanelWidth);
+  const lastRightSize = useRef(rightPanelWidth);
+
+  // 组件初始化时设置初始宽度和状态
+  useEffect(() => {
+    const leftPanel = leftPanelRef.current;
+    const rightPanel = rightPanelRef.current;
+    if (!leftPanel || !rightPanel) return;
+
+    // 从 store 中获取保存的宽度
+    lastLeftSize.current = leftPanelWidth;
+    lastRightSize.current = rightPanelWidth;
+
+    // 根据保存的状态设置侧边栏展开/折叠
+    if (leftOpen) {
+      leftPanel.expand(Math.max(leftPanelWidth, MIN_LEFT));
+    } else {
+      leftPanel.collapse();
+    }
+
+    if (rightOpen) {
+      rightPanel.expand(Math.max(rightPanelWidth, MIN_RIGHT));
+    } else {
+      rightPanel.collapse();
+    }
+  }, [leftOpen, rightOpen, leftPanelWidth, rightPanelWidth]);
 
   // 监听左侧边栏状态变化
   useEffect(() => {
@@ -33,9 +65,10 @@ export default function Home() {
       leftPanel.expand(Math.max(lastLeftSize.current, MIN_LEFT));
     } else {
       lastLeftSize.current = Math.max(leftPanel.getSize(), MIN_LEFT);
+      setLeftPanelWidth(lastLeftSize.current);
       leftPanel.collapse();
     }
-  }, [leftOpen]);
+  }, [leftOpen, setLeftPanelWidth]);
 
   // 监听右侧边栏状态变化
   useEffect(() => {
@@ -46,20 +79,28 @@ export default function Home() {
       rightPanel.expand(Math.max(lastRightSize.current, MIN_RIGHT));
     } else {
       lastRightSize.current = Math.max(rightPanel.getSize(), MIN_RIGHT);
+      setRightPanelWidth(lastRightSize.current);
       rightPanel.collapse();
     }
-  }, [rightOpen]);
+  }, [rightOpen, setRightPanelWidth]);
 
   const handleLayout = (sizes: number[]) => {
-    if (leftOpen) lastLeftSize.current = Math.max(sizes[0], MIN_LEFT);
-    if (rightOpen) lastRightSize.current = Math.max(sizes[2], MIN_RIGHT);
-    setLeftPanelWidth(sizes[0]);
+    if (leftOpen) {
+      lastLeftSize.current = Math.max(sizes[0], MIN_LEFT);
+      setLeftPanelWidth(lastLeftSize.current);
+    }
+    if (rightOpen) {
+      lastRightSize.current = Math.max(sizes[2], MIN_RIGHT);
+      setRightPanelWidth(lastRightSize.current);
+    }
   };
+
+  console.log("size", leftPanelWidth);
 
   return (
     <div className="h-screen flex flex-col">
       <Header />
-      <div className="flex-1 mb-2">
+      <div className="flex-1 pb-1 bg-sidebar">
         <PanelGroup
           direction="horizontal"
           className="flex flex-1 h-full"
@@ -67,7 +108,7 @@ export default function Home() {
         >
           <Panel
             ref={leftPanelRef}
-            defaultSize={BASE_LAYOUT[0]}
+            defaultSize={leftPanelWidth}
             minSize={MIN_LEFT}
             maxSize={30}
             collapsible
@@ -78,10 +119,10 @@ export default function Home() {
             <SidebarLeft />
           </Panel>
           <PanelResizeHandle className="w-2 cursor-col-resize bg-sidebar hover:bg-gray-300" />
-          <Panel defaultSize={BASE_LAYOUT[1]} minSize={32}>
-            <div className="h-full p-4 bg-white border rounded-lg">
+          <Panel minSize={32}>
+            <div className="h-full p-4 bg-background border rounded-lg">
               <h1 className="text-xl font-bold mb-4">Editor</h1>
-              <div className="h-[calc(100%-2rem)] bg-gray-50 rounded border p-4">
+              <div className="h-[calc(100%-2rem)] rounded border p-4">
                 Editor placeholder
               </div>
             </div>
@@ -89,7 +130,7 @@ export default function Home() {
           <PanelResizeHandle className="w-2 cursor-col-resize bg-sidebar hover:bg-gray-300" />
           <Panel
             ref={rightPanelRef}
-            defaultSize={BASE_LAYOUT[2]}
+            defaultSize={rightPanelWidth}
             minSize={MIN_RIGHT}
             maxSize={50}
             collapsible
