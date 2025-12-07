@@ -12,7 +12,6 @@ import SidebarLeft from "@/components/layout/sidebar-left";
 import SidebarRight from "@/components/layout/sidebar-right";
 import { useSidebar } from "@/hooks/use-sidebar";
 
-const BASE_LAYOUT = [18, 56, 22] satisfies number[];
 const MIN_LEFT = 12;
 const MIN_RIGHT = 14;
 
@@ -63,38 +62,6 @@ export default function Home() {
     }
   }, [hydrated, leftOpen, rightOpen, leftPanelWidth, rightPanelWidth]);
 
-  // 监听左侧边栏状态变化
-  useEffect(() => {
-    if (!hydrated) return;
-
-    const leftPanel = leftPanelRef.current;
-    if (!leftPanel) return;
-
-    if (leftOpen) {
-      leftPanel.expand(Math.max(lastLeftSize.current, MIN_LEFT));
-    } else {
-      lastLeftSize.current = Math.max(leftPanel.getSize(), MIN_LEFT);
-      setLeftPanelWidth(lastLeftSize.current);
-      leftPanel.collapse();
-    }
-  }, [hydrated, leftOpen, setLeftPanelWidth]);
-
-  // 监听右侧边栏状态变化
-  useEffect(() => {
-    if (!hydrated) return;
-
-    const rightPanel = rightPanelRef.current;
-    if (!rightPanel) return;
-
-    if (rightOpen) {
-      rightPanel.expand(Math.max(lastRightSize.current, MIN_RIGHT));
-    } else {
-      lastRightSize.current = Math.max(rightPanel.getSize(), MIN_RIGHT);
-      setRightPanelWidth(lastRightSize.current);
-      rightPanel.collapse();
-    }
-  }, [hydrated, rightOpen, setRightPanelWidth]);
-
   const handleLayout = (sizes: number[]) => {
     if (leftOpen) {
       lastLeftSize.current = Math.max(sizes[0], MIN_LEFT);
@@ -115,6 +82,7 @@ export default function Home() {
         <PanelGroup
           direction="horizontal"
           className="flex flex-1 h-full"
+          autoSaveId="main-layout"
           onLayout={handleLayout}
         >
           <Panel
