@@ -1,4 +1,4 @@
-import { PrismaClient } from "../prisma/generated/client";
+import { PrismaClient } from "./prisma/generated/client";
 
 // 直接使用数据库URL连接，不依赖环境变量
 const DATABASE_URL =

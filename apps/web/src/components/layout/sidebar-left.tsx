@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, Home, BrainCircuit } from "lucide-react";
-import PageTreeComponent from "@/components/page/tree";
+import PageTreeComponent from "@/components/layout/header-tree";
 
 export default function SidebarLeft() {
   return (

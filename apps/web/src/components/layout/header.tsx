@@ -3,13 +3,15 @@ import { PanelLeft, PanelRight, Settings, Plus } from "lucide-react";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "./mode-toggle";
+import HeaderTabs from "./header-tabs";
 
 export default function Header() {
   const { toggleLeft, toggleRight, leftOpen, rightOpen, leftPanelWidth } =
     useSidebar();
 
   return (
-    <header className="bg-sidebar sticky top-0 z-50 flex w-full items-center">
+    <header className="bg-sidebar sticky top-0 z-50 flex flex-col w-full">
+      {/* 顶部工具栏 */}
       <div className="flex h-10 w-full items-center gap-2 px-2">
         <div
           className="flex items-center transition-all duration-200"
@@ -30,7 +32,10 @@ export default function Header() {
           </Button>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        {/* 标签页导航 - 放在 Settings 图标后面 */}
+        <HeaderTabs />
+
+        <div className="flex items-center gap-2">
           <ModeToggle />
           <Button
             className="h-8 w-8"

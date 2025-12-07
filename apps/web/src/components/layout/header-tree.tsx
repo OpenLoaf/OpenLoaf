@@ -18,6 +18,7 @@ import {
   ItemHeader,
 } from "@/components/ui/item";
 import { Button } from "@/components/ui/button";
+import { useTabs } from "@/hooks/use_tabs";
 
 // 定义页面类型
 interface Page {
@@ -44,6 +45,7 @@ const PageTree = ({
   updatePage: any;
 }) => {
   const [hoveredPage, setHoveredPage] = useState<string | null>(null);
+  const { addTab } = useTabs();
 
   const toggleExpand = (pageId: string, currentIsExpanded: boolean) => {
     const newExpandedState = !currentIsExpanded;
@@ -55,6 +57,15 @@ const PageTree = ({
     updatePage.mutate({
       id: pageId,
       isExpanded: newExpandedState,
+    });
+  };
+
+  const handlePageClick = (page: Page) => {
+    // 添加或切换标签页
+    addTab({
+      id: page.id,
+      title: page.title || "Untitled Page",
+      type: "page",
     });
   };
 
@@ -76,11 +87,11 @@ const PageTree = ({
               onMouseLeave={() => setHoveredPage(null)}
             >
               <ItemHeader className="p-0">
-                <div
-                  className="flex items-center gap-0.5 flex-1 cursor-pointer"
-                  onClick={() => toggleExpand(page.id, isExpanded)}
-                >
-                  <div className="w-4 flex items-center relative">
+                <div className="flex items-center gap-0.5 flex-1">
+                  <div
+                    className="w-4 flex items-center relative cursor-pointer"
+                    onClick={() => toggleExpand(page.id, isExpanded)}
+                  >
                     {/* 同时渲染两个元素，使用CSS过渡控制显示/隐藏 */}
                     <div
                       className={`absolute inset-0 flex items-center transition-all duration-200 ease-in-out ${
@@ -109,7 +120,13 @@ const PageTree = ({
                       )}
                     </div>
                   </div>
-                  <ItemTitle className="text-sm font-normal">
+                  <ItemTitle
+                    className="text-sm font-normal cursor-pointer flex-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePageClick(page);
+                    }}
+                  >
                     {page.title || "Untitled Page"}
                   </ItemTitle>
                 </div>
