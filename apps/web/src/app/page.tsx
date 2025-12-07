@@ -1,10 +1,5 @@
 "use client";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import Header from "@/components/layout/header";
 import SidebarLeft from "@/components/layout/sidebar-left";
@@ -40,10 +35,7 @@ export default function Home() {
     otherOpen: boolean,
     otherWidth: number
   ) => {
-    const max = Math.max(
-      100 - (otherOpen ? otherWidth : 0) - MIN_MAIN,
-      min
-    );
+    const max = Math.max(100 - (otherOpen ? otherWidth : 0) - MIN_MAIN, min);
     return Math.min(Math.max(value, min), max);
   };
 
@@ -88,10 +80,7 @@ export default function Home() {
     const grid = containerRef.current;
     if (!grid) return;
 
-    grid.style.setProperty(
-      "--left-grid-width",
-      leftOpen ? `${left}%` : "0px"
-    );
+    grid.style.setProperty("--left-grid-width", leftOpen ? `${left}%` : "0px");
     grid.style.setProperty(
       "--right-grid-width",
       rightOpen ? `${right}%` : "0px"
@@ -101,10 +90,7 @@ export default function Home() {
     } 8px 1fr 8px ${rightOpen ? `${right}%` : "0px"}`;
   };
 
-  const startResize = (
-    side: "left" | "right",
-    clientX: number
-  ) => {
+  const startResize = (side: "left" | "right", clientX: number) => {
     const containerWidth = getContainerWidth();
     const startLeft = leftPanelWidth;
     const startRight = rightPanelWidth;
@@ -131,10 +117,7 @@ export default function Home() {
 
     const stopResize = () => {
       setIsResizing(false);
-      window.removeEventListener(
-        "pointermove",
-        handlePointerMove
-      );
+      window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", stopResize);
       if (leftOpen && pendingLeft.current !== leftPanelWidth) {
         setLeftPanelWidth(pendingLeft.current);
@@ -148,29 +131,21 @@ export default function Home() {
     window.addEventListener("pointerup", stopResize);
   };
 
-  const handleLeftHandleDown = (
-    event: React.PointerEvent<HTMLDivElement>
-  ) => {
+  const handleLeftHandleDown = (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (!leftOpen) return;
     startResize("left", event.clientX);
   };
 
-  const handleRightHandleDown = (
-    event: React.PointerEvent<HTMLDivElement>
-  ) => {
+  const handleRightHandleDown = (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (!rightOpen) return;
     startResize("right", event.clientX);
   };
 
   const layoutStyle: CSSProperties = {
-    ["--left-grid-width" as string]: leftOpen
-      ? `${leftPanelWidth}%`
-      : "0px",
-    ["--right-grid-width" as string]: rightOpen
-      ? `${rightPanelWidth}%`
-      : "0px",
+    ["--left-grid-width" as string]: leftOpen ? `${leftPanelWidth}%` : "0px",
+    ["--right-grid-width" as string]: rightOpen ? `${rightPanelWidth}%` : "0px",
     gridTemplateColumns: `${
       leftOpen ? `${leftPanelWidth}%` : "0px"
     } 8px 1fr 8px ${rightOpen ? `${rightPanelWidth}%` : "0px"}`,
@@ -184,9 +159,7 @@ export default function Home() {
       <div className="flex-1 pb-1 bg-sidebar">
         <div
           ref={containerRef}
-          className={`workbench-grid h-full ${
-            isResizing ? "is-resizing" : ""
-          }`}
+          className={`workbench-grid h-full ${isResizing ? "is-resizing" : ""}`}
           style={layoutStyle}
         >
           <div
