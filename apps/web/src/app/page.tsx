@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type ImperativePanelHandle,
   Panel,
@@ -17,6 +17,7 @@ const MIN_LEFT = 12;
 const MIN_RIGHT = 14;
 
 export default function Home() {
+  const [hydrated, setHydrated] = useState(false);
   const {
     leftOpen,
     rightOpen,
@@ -32,8 +33,14 @@ export default function Home() {
   const lastLeftSize = useRef(leftPanelWidth);
   const lastRightSize = useRef(rightPanelWidth);
 
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
   // 组件初始化时设置初始宽度和状态
   useEffect(() => {
+    if (!hydrated) return;
+
     const leftPanel = leftPanelRef.current;
     const rightPanel = rightPanelRef.current;
     if (!leftPanel || !rightPanel) return;
@@ -54,10 +61,12 @@ export default function Home() {
     } else {
       rightPanel.collapse();
     }
-  }, [leftOpen, rightOpen, leftPanelWidth, rightPanelWidth]);
+  }, [hydrated, leftOpen, rightOpen, leftPanelWidth, rightPanelWidth]);
 
   // 监听左侧边栏状态变化
   useEffect(() => {
+    if (!hydrated) return;
+
     const leftPanel = leftPanelRef.current;
     if (!leftPanel) return;
 
@@ -68,10 +77,12 @@ export default function Home() {
       setLeftPanelWidth(lastLeftSize.current);
       leftPanel.collapse();
     }
-  }, [leftOpen, setLeftPanelWidth]);
+  }, [hydrated, leftOpen, setLeftPanelWidth]);
 
   // 监听右侧边栏状态变化
   useEffect(() => {
+    if (!hydrated) return;
+
     const rightPanel = rightPanelRef.current;
     if (!rightPanel) return;
 
@@ -82,7 +93,7 @@ export default function Home() {
       setRightPanelWidth(lastRightSize.current);
       rightPanel.collapse();
     }
-  }, [rightOpen, setRightPanelWidth]);
+  }, [hydrated, rightOpen, setRightPanelWidth]);
 
   const handleLayout = (sizes: number[]) => {
     if (leftOpen) {
@@ -95,7 +106,7 @@ export default function Home() {
     }
   };
 
-  console.log("size", leftPanelWidth);
+  if (!hydrated) return null;
 
   return (
     <div className="h-screen flex flex-col">
