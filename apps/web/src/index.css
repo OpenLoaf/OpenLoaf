@@ -193,6 +193,10 @@ body {
   overflow: hidden;
 }
 
+.sidebar-right-panel {
+  /* transition-duration: 0.45s; */
+}
+
 .sidebar-expanded {
   opacity: 1;
   transform: translateX(0);
@@ -212,12 +216,11 @@ body {
   border: none !important;
 }
 
-/* 右侧边栏的特殊处理 */
-.sidebar-animation:nth-child(3).sidebar-expanded {
+.sidebar-right-panel.sidebar-expanded {
   transform: translateX(0);
 }
 
-.sidebar-animation:nth-child(3).sidebar-collapsed {
+.sidebar-right-panel.sidebar-collapsed {
   transform: translateX(100%);
 }
 
@@ -231,10 +234,38 @@ body {
 
 .workbench-grid {
   display: grid;
-  grid-template-columns: var(--left-grid-width) 1fr var(--right-grid-width);
+  grid-template-columns: var(--left-grid-width) 8px 1fr 8px
+    var(--right-grid-width);
   transition: grid-template-columns 0.18s ease;
+  align-items: stretch;
 }
 
-.is-resizing .workbench-grid {
+.is-resizing .workbench-grid,
+.workbench-grid.is-resizing {
+  transition: none;
+}
+
+.resize-handle {
+  cursor: col-resize;
+  background: var(--color-sidebar);
+  position: relative;
+  touch-action: none;
+}
+
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.resize-handle:hover::after,
+.is-resizing .resize-handle::after {
+  background: color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.is-resizing .resize-handle,
+.is-resizing .resize-handle::after {
   transition: none;
 }

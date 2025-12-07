@@ -16,7 +16,6 @@
     "@trpc/server": "catalog:",
     "dotenv": "catalog:",
     "hono": "catalog:",
-    "react-resizable-panels": "^3.0.6",
     "zod": "^4.1.11"
   },
   "devDependencies": {

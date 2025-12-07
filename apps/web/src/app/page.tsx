@@ -1,11 +1,10 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
 import {
-  type ImperativePanelHandle,
-  Panel,
-  PanelGroup,
-  PanelResizeHandle,
-} from "react-resizable-panels";
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 
 import Header from "@/components/layout/header";
 import SidebarLeft from "@/components/layout/sidebar-left";
@@ -14,63 +13,167 @@ import { useSidebar } from "@/hooks/use-sidebar";
 
 const MIN_LEFT = 12;
 const MIN_RIGHT = 14;
+const MIN_MAIN = 32;
 
 export default function Home() {
   const [hydrated, setHydrated] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const {
     leftOpen,
     rightOpen,
-    setLeftOpen,
-    setRightOpen,
     setLeftPanelWidth,
     setRightPanelWidth,
     leftPanelWidth,
     rightPanelWidth,
   } = useSidebar();
-  const leftPanelRef = useRef<ImperativePanelHandle>(null);
-  const rightPanelRef = useRef<ImperativePanelHandle>(null);
-  const lastLeftSize = useRef(leftPanelWidth);
-  const lastRightSize = useRef(rightPanelWidth);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pendingLeft = useRef(leftPanelWidth);
+  const pendingRight = useRef(rightPanelWidth);
 
   useEffect(() => {
     setHydrated(true);
   }, []);
 
-  // 组件初始化时设置初始宽度和状态
+  const clampWidth = (
+    value: number,
+    min: number,
+    otherOpen: boolean,
+    otherWidth: number
+  ) => {
+    const max = Math.max(
+      100 - (otherOpen ? otherWidth : 0) - MIN_MAIN,
+      min
+    );
+    return Math.min(Math.max(value, min), max);
+  };
+
+  const clampLeftWidth = (value: number) =>
+    clampWidth(value, MIN_LEFT, rightOpen, rightPanelWidth);
+
+  const clampRightWidth = (value: number) =>
+    clampWidth(value, MIN_RIGHT, leftOpen, leftPanelWidth);
+
+  // 当任一侧折叠状态变化时，确保存储的宽度在合法范围
   useEffect(() => {
     if (!hydrated) return;
 
-    const leftPanel = leftPanelRef.current;
-    const rightPanel = rightPanelRef.current;
-    if (!leftPanel || !rightPanel) return;
-
-    // 从 store 中获取保存的宽度
-    lastLeftSize.current = leftPanelWidth;
-    lastRightSize.current = rightPanelWidth;
-
-    // 根据保存的状态设置侧边栏展开/折叠
     if (leftOpen) {
-      leftPanel.expand(Math.max(leftPanelWidth, MIN_LEFT));
-    } else {
-      leftPanel.collapse();
+      const clamped = clampLeftWidth(leftPanelWidth);
+      if (clamped !== leftPanelWidth) setLeftPanelWidth(clamped);
     }
 
     if (rightOpen) {
-      rightPanel.expand(Math.max(rightPanelWidth, MIN_RIGHT));
-    } else {
-      rightPanel.collapse();
+      const clamped = clampRightWidth(rightPanelWidth);
+      if (clamped !== rightPanelWidth) setRightPanelWidth(clamped);
     }
-  }, [hydrated, leftOpen, rightOpen, leftPanelWidth, rightPanelWidth]);
+  }, [
+    hydrated,
+    leftOpen,
+    rightOpen,
+    leftPanelWidth,
+    rightPanelWidth,
+    setLeftPanelWidth,
+    setRightPanelWidth,
+  ]);
 
-  const handleLayout = (sizes: number[]) => {
-    if (leftOpen) {
-      lastLeftSize.current = Math.max(sizes[0], MIN_LEFT);
-      setLeftPanelWidth(lastLeftSize.current);
-    }
-    if (rightOpen) {
-      lastRightSize.current = Math.max(sizes[2], MIN_RIGHT);
-      setRightPanelWidth(lastRightSize.current);
-    }
+  const getContainerWidth = () => {
+    return (
+      containerRef.current?.getBoundingClientRect().width ??
+      window.innerWidth ??
+      1
+    );
+  };
+
+  const applyGridStyles = (left: number, right: number) => {
+    const grid = containerRef.current;
+    if (!grid) return;
+
+    grid.style.setProperty(
+      "--left-grid-width",
+      leftOpen ? `${left}%` : "0px"
+    );
+    grid.style.setProperty(
+      "--right-grid-width",
+      rightOpen ? `${right}%` : "0px"
+    );
+    grid.style.gridTemplateColumns = `${
+      leftOpen ? `${left}%` : "0px"
+    } 8px 1fr 8px ${rightOpen ? `${right}%` : "0px"}`;
+  };
+
+  const startResize = (
+    side: "left" | "right",
+    clientX: number
+  ) => {
+    const containerWidth = getContainerWidth();
+    const startLeft = leftPanelWidth;
+    const startRight = rightPanelWidth;
+    const startX = clientX;
+
+    setIsResizing(true);
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const delta = event.clientX - startX;
+      const deltaPercent = (delta / containerWidth) * 100;
+
+      if (side === "left") {
+        if (!leftOpen) return;
+        const nextLeft = clampLeftWidth(startLeft + deltaPercent);
+        pendingLeft.current = nextLeft;
+        applyGridStyles(nextLeft, pendingRight.current);
+      } else {
+        if (!rightOpen) return;
+        const nextRight = clampRightWidth(startRight - deltaPercent);
+        pendingRight.current = nextRight;
+        applyGridStyles(pendingLeft.current, nextRight);
+      }
+    };
+
+    const stopResize = () => {
+      setIsResizing(false);
+      window.removeEventListener(
+        "pointermove",
+        handlePointerMove
+      );
+      window.removeEventListener("pointerup", stopResize);
+      if (leftOpen && pendingLeft.current !== leftPanelWidth) {
+        setLeftPanelWidth(pendingLeft.current);
+      }
+      if (rightOpen && pendingRight.current !== rightPanelWidth) {
+        setRightPanelWidth(pendingRight.current);
+      }
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResize);
+  };
+
+  const handleLeftHandleDown = (
+    event: React.PointerEvent<HTMLDivElement>
+  ) => {
+    event.preventDefault();
+    if (!leftOpen) return;
+    startResize("left", event.clientX);
+  };
+
+  const handleRightHandleDown = (
+    event: React.PointerEvent<HTMLDivElement>
+  ) => {
+    event.preventDefault();
+    if (!rightOpen) return;
+    startResize("right", event.clientX);
+  };
+
+  const layoutStyle: CSSProperties = {
+    ["--left-grid-width" as string]: leftOpen
+      ? `${leftPanelWidth}%`
+      : "0px",
+    ["--right-grid-width" as string]: rightOpen
+      ? `${rightPanelWidth}%`
+      : "0px",
+    gridTemplateColumns: `${
+      leftOpen ? `${leftPanelWidth}%` : "0px"
+    } 8px 1fr 8px ${rightOpen ? `${rightPanelWidth}%` : "0px"}`,
   };
 
   if (!hydrated) return null;
@@ -79,47 +182,48 @@ export default function Home() {
     <div className="h-screen flex flex-col">
       <Header />
       <div className="flex-1 pb-1 bg-sidebar">
-        <PanelGroup
-          direction="horizontal"
-          className="flex flex-1 h-full"
-          autoSaveId="main-layout"
-          onLayout={handleLayout}
+        <div
+          ref={containerRef}
+          className={`workbench-grid h-full ${
+            isResizing ? "is-resizing" : ""
+          }`}
+          style={layoutStyle}
         >
-          <Panel
-            ref={leftPanelRef}
-            defaultSize={leftPanelWidth}
-            minSize={MIN_LEFT}
-            maxSize={30}
-            collapsible
-            collapsedSize={0}
-            onCollapse={() => setLeftOpen(false)}
-            onExpand={() => setLeftOpen(true)}
+          <div
+            className={`sidebar-animation h-full ${
+              leftOpen ? "sidebar-expanded" : "sidebar-collapsed"
+            }`}
           >
             <SidebarLeft />
-          </Panel>
-          <PanelResizeHandle className="w-2 cursor-col-resize bg-sidebar hover:bg-gray-300" />
-          <Panel minSize={32}>
-            <div className="h-full p-4 bg-background border rounded-lg">
-              <h1 className="text-xl font-bold mb-4">Editor</h1>
-              <div className="h-[calc(100%-2rem)] rounded border p-4">
-                Editor placeholder
-              </div>
+          </div>
+          <div
+            className="resize-handle"
+            onPointerDown={handleLeftHandleDown}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize left panel"
+          />
+          <div className="main-content h-full p-4 bg-background border rounded-lg">
+            <h1 className="text-xl font-bold mb-4">Editor</h1>
+            <div className="h-[calc(100%-2rem)] rounded border p-4">
+              Editor placeholder
             </div>
-          </Panel>
-          <PanelResizeHandle className="w-2 cursor-col-resize bg-sidebar hover:bg-gray-300" />
-          <Panel
-            ref={rightPanelRef}
-            defaultSize={rightPanelWidth}
-            minSize={MIN_RIGHT}
-            maxSize={50}
-            collapsible
-            collapsedSize={0}
-            onCollapse={() => setRightOpen(false)}
-            onExpand={() => setRightOpen(true)}
+          </div>
+          <div
+            className="resize-handle"
+            onPointerDown={handleRightHandleDown}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize right panel"
+          />
+          <div
+            className={`sidebar-animation sidebar-right-panel h-full ${
+              rightOpen ? "sidebar-expanded" : "sidebar-collapsed"
+            }`}
           >
             <SidebarRight />
-          </Panel>
-        </PanelGroup>
+          </div>
+        </div>
       </div>
     </div>
   );
