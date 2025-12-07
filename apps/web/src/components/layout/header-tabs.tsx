@@ -4,7 +4,15 @@ import { useTabs } from "@/hooks/use_tabs";
 import { Button } from "@/components/ui/button";
 
 export default function HeaderTabs() {
-  const { tabs, activeTabId, setActiveTab, closeTab } = useTabs();
+  const { tabs, activeTabId, setActiveTab, closeTab, addTab } = useTabs();
+
+  const handleAddTab = () => {
+    addTab({
+      id: `page-${Date.now()}`,
+      title: "New Page",
+      type: "page",
+    });
+  };
 
   return (
     <Tabs
@@ -43,6 +51,7 @@ export default function HeaderTabs() {
           size="icon"
           className="h-6 w-6 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
           aria-label="Add new tab"
+          onClick={handleAddTab}
         >
           <Plus className="h-3.5 w-3.5" />
         </Button>

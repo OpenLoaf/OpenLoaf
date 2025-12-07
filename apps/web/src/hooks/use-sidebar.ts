@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { useRef, useState, useEffect, type React } from 'react';
+import { useRef, useState, useEffect } from "react";
 
 // 侧边栏状态接口
 interface SidebarState {
@@ -54,22 +54,27 @@ const MIN_MAIN = 32;
 
 // 侧边栏调整大小 hook
 export const useSidebarResize = () => {
-  const { 
-    leftOpen, 
-    rightOpen, 
-    leftPanelWidth, 
-    rightPanelWidth, 
-    setLeftPanelWidth, 
-    setRightPanelWidth 
+  const {
+    leftOpen,
+    rightOpen,
+    leftPanelWidth,
+    rightPanelWidth,
+    setLeftPanelWidth,
+    setRightPanelWidth,
   } = useSidebar();
-  
+
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const pendingLeft = useRef(leftPanelWidth);
   const pendingRight = useRef(rightPanelWidth);
-  
+
   // 计算宽度限制
-  const clampWidth = (value: number, min: number, otherOpen: boolean, otherWidth: number) => {
+  const clampWidth = (
+    value: number,
+    min: number,
+    otherOpen: boolean,
+    otherWidth: number
+  ) => {
     const calculatedMax = Math.max(
       100 - (otherOpen ? otherWidth : 0) - MIN_MAIN,
       min
@@ -77,13 +82,13 @@ export const useSidebarResize = () => {
     const max = min === MIN_LEFT ? Math.min(calculatedMax, 20) : calculatedMax;
     return Math.min(Math.max(value, min), max);
   };
-  
-  const clampLeftWidth = (value: number) => 
+
+  const clampLeftWidth = (value: number) =>
     clampWidth(value, MIN_LEFT, rightOpen, rightPanelWidth);
-  
-  const clampRightWidth = (value: number) => 
+
+  const clampRightWidth = (value: number) =>
     clampWidth(value, MIN_RIGHT, leftOpen, leftPanelWidth);
-  
+
   // 获取容器宽度
   const getContainerWidth = () => {
     return (
@@ -92,33 +97,36 @@ export const useSidebarResize = () => {
       1
     );
   };
-  
+
   // 应用网格样式
   const applyGridStyles = (left: number, right: number) => {
     const grid = containerRef.current;
     if (!grid) return;
-    
-    grid.style.setProperty('--left-grid-width', leftOpen ? `${left}%` : '0px');
-    grid.style.setProperty('--right-grid-width', rightOpen ? `${right}%` : '0px');
+
+    grid.style.setProperty("--left-grid-width", leftOpen ? `${left}%` : "0px");
+    grid.style.setProperty(
+      "--right-grid-width",
+      rightOpen ? `${right}%` : "0px"
+    );
     grid.style.gridTemplateColumns = `${
-      leftOpen ? `${left}%` : '0px'
-    } 8px 1fr 8px ${rightOpen ? `${right}%` : '0px'}`;
+      leftOpen ? `${left}%` : "0px"
+    } 8px 1fr 8px ${rightOpen ? `${right}%` : "0px"}`;
   };
-  
+
   // 开始调整大小
-  const startResize = (side: 'left' | 'right', clientX: number) => {
+  const startResize = (side: "left" | "right", clientX: number) => {
     const containerWidth = getContainerWidth();
     const startLeft = leftPanelWidth;
     const startRight = rightPanelWidth;
     const startX = clientX;
-    
+
     setIsResizing(true);
-    
+
     const handlePointerMove = (event: PointerEvent) => {
       const delta = event.clientX - startX;
       const deltaPercent = (delta / containerWidth) * 100;
-      
-      if (side === 'left') {
+
+      if (side === "left") {
         if (!leftOpen) return;
         const nextLeft = clampLeftWidth(startLeft + deltaPercent);
         pendingLeft.current = nextLeft;
@@ -130,12 +138,12 @@ export const useSidebarResize = () => {
         applyGridStyles(pendingLeft.current, nextRight);
       }
     };
-    
+
     const stopResize = () => {
       setIsResizing(false);
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', stopResize);
-      
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResize);
+
       if (leftOpen && pendingLeft.current !== leftPanelWidth) {
         setLeftPanelWidth(pendingLeft.current);
       }
@@ -143,50 +151,57 @@ export const useSidebarResize = () => {
         setRightPanelWidth(pendingRight.current);
       }
     };
-    
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', stopResize);
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResize);
   };
-  
+
   const handleLeftHandleDown = (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (!leftOpen) return;
-    startResize('left', event.clientX);
+    startResize("left", event.clientX);
   };
-  
+
   const handleRightHandleDown = (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (!rightOpen) return;
-    startResize('right', event.clientX);
+    startResize("right", event.clientX);
   };
-  
+
   // 当侧边栏状态变化时，确保宽度在合法范围
   useEffect(() => {
     if (leftOpen) {
       const clamped = clampLeftWidth(leftPanelWidth);
       if (clamped !== leftPanelWidth) setLeftPanelWidth(clamped);
     }
-    
+
     if (rightOpen) {
       const clamped = clampRightWidth(rightPanelWidth);
       if (clamped !== rightPanelWidth) setRightPanelWidth(clamped);
     }
-  }, [leftOpen, rightOpen, leftPanelWidth, rightPanelWidth, setLeftPanelWidth, setRightPanelWidth]);
-  
+  }, [
+    leftOpen,
+    rightOpen,
+    leftPanelWidth,
+    rightPanelWidth,
+    setLeftPanelWidth,
+    setRightPanelWidth,
+  ]);
+
   // 计算布局样式
   const layoutStyle = {
-    '--left-grid-width': leftOpen ? `${leftPanelWidth}%` : '0px',
-    '--right-grid-width': rightOpen ? `${rightPanelWidth}%` : '0px',
+    "--left-grid-width": leftOpen ? `${leftPanelWidth}%` : "0px",
+    "--right-grid-width": rightOpen ? `${rightPanelWidth}%` : "0px",
     gridTemplateColumns: `${
-      leftOpen ? `${leftPanelWidth}%` : '0px'
-    } 8px 1fr 8px ${rightOpen ? `${rightPanelWidth}%` : '0px'}`
+      leftOpen ? `${leftPanelWidth}%` : "0px"
+    } 8px 1fr 8px ${rightOpen ? `${rightPanelWidth}%` : "0px"}`,
   } as React.CSSProperties;
-  
+
   return {
     containerRef,
     isResizing,
     layoutStyle,
     handleLeftHandleDown,
-    handleRightHandleDown
+    handleRightHandleDown,
   };
 };

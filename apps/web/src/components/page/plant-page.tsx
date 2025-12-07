@@ -5,7 +5,7 @@ export default function Editor() {
   const activeTab = activeTabId ? getTabById(activeTabId) : undefined;
 
   return (
-    <div className="main-content h-full p-4 bg-background border rounded-lg">
+    <div>
       <h1 className="text-xl font-bold mb-4">
         {activeTab ? activeTab.title : "Editor"}
       </h1>
