@@ -13,9 +13,19 @@ const adapter = new PrismaLibSql({
 export const prisma = new PrismaClient({ adapter });
 
 export { PrismaEnums };
+export { ResourceType } from "../prisma/generated/enums";
 
 // 关键：只导出类型，不导出 runtime 内部实现
-export type { PrismaClient } from "../prisma/generated/client";
+export type {
+  PrismaClient,
+  Prisma,
+  Workspace,
+  Tag,
+  Page,
+  Block,
+  Resource,
+  Setting,
+} from "../prisma/generated/client";
 
 // 你要保留 default export 也可以
 export default prisma;

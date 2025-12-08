@@ -7,6 +7,14 @@
     },
     "./*": {
       "default": "./src/*.ts"
+    },
+    "./prisma/generated/client": {
+      "types": "./prisma/generated/client.ts",
+      "default": "./prisma/generated/client.ts"
+    },
+    "./prisma/generated/enums": {
+      "types": "./prisma/generated/enums.ts",
+      "default": "./prisma/generated/enums.ts"
     }
   },
   "scripts": {

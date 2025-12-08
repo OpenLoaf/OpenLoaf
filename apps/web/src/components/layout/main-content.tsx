@@ -3,7 +3,7 @@ import { useTabs } from "@/hooks/use_tabs";
 import { AiChat } from "@/components/page/ai-chat";
 import PlantPage from "@/components/page/plant-page";
 
-const MainLayout: React.FC = () => {
+const MainContent: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [leftWidth, setLeftWidth] = useState(50);
   const dividerRef = useRef<HTMLDivElement>(null);
@@ -157,4 +157,4 @@ const MainLayout: React.FC = () => {
   );
 };
 
-export default MainLayout;
+export default MainContent;

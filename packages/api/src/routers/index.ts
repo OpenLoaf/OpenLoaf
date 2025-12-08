@@ -4,7 +4,7 @@ import { blockRouter } from "./block";
 import { resourceRouter } from "./resource";
 import { workspaceRouter } from "./workspace";
 import { chatRouter } from "./chat";
-import prisma, { PrismaEnums as _PrismaEnums } from "@teatime-ai/db";
+import { settingRouter } from "./setting";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -15,5 +15,6 @@ export const appRouter = router({
   resource: resourceRouter,
   workspace: workspaceRouter,
   chat: chatRouter,
+  setting: settingRouter,
 });
 export type AppRouter = typeof appRouter;

@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, Home, BrainCircuit } from "lucide-react";
-import SidebarLeftPages from "@/components/layout/sidebar-left-pages";
+import SidebarLeftPages from "@/components/layout/sidebar/sidebar-pages";
 import { SidebarWorkspace } from "./sidebar-workspace";
 import { useTabs } from "@/hooks/use_tabs";
 import { useWorkspace } from "@/hooks/use_workspace";
@@ -17,7 +17,7 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar";
 
-export default function SidebarLeft({
+export default function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
   const { addTab } = useTabs();

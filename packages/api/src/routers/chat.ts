@@ -2,7 +2,6 @@ import { publicProcedure, router } from "../index";
 import { deepseek } from "@ai-sdk/deepseek";
 import { streamText } from "ai";
 import { z } from "zod";
-import prisma, { PrismaEnums as _PrismaEnums } from "@teatime-ai/db";
 
 export const chatRouter = router({
   chat: publicProcedure

@@ -1,5 +1,6 @@
 import { router, publicProcedure } from "../index";
 import prisma from "@teatime-ai/db";
+import type { Workspace } from "@teatime-ai/db";
 import z from "zod";
 
 // 定义zod schema
@@ -19,7 +20,7 @@ export type WorkspaceCreateInput = z.infer<typeof workspaceCreateInputSchema>;
 export type WorkspaceUpdateInput = z.infer<typeof workspaceUpdateInputSchema>;
 
 // 创建默认工作区的辅助函数
-const ensureDefaultWorkspace = async () => {
+const ensureDefaultWorkspace = async (): Promise<Workspace> => {
   // 使用事务确保默认工作区只会被创建一次
   return prisma.$transaction(async (prisma) => {
     // 先检查是否已经存在工作区
@@ -31,12 +32,14 @@ const ensureDefaultWorkspace = async () => {
     }
 
     // 否则创建默认工作区
-    return prisma.workspace.create({
+    const workspace = await prisma.workspace.create({
       data: {
         name: "Default Workspace",
         isActive: true,
       },
     });
+
+    return workspace;
   });
 };
 
@@ -46,11 +49,13 @@ export const workspaceRouter = router({
     // 确保默认工作区存在
     await ensureDefaultWorkspace();
 
-    return prisma.workspace.findMany();
+    const workspaces = await prisma.workspace.findMany();
+
+    return workspaces;
   }),
 
   // 获取当前激活的工作区
-  getActive: publicProcedure.query(async () => {
+  getActive: publicProcedure.query(async (): Promise<Workspace | null> => {
     // 确保默认工作区存在
     await ensureDefaultWorkspace();
 
@@ -60,7 +65,8 @@ export const workspaceRouter = router({
 
     // 如果没有激活的工作区，返回第一个工作区
     if (!activeWorkspace) {
-      return prisma.workspace.findFirst();
+      const fallbackWorkspace = await prisma.workspace.findFirst();
+      return fallbackWorkspace;
     }
 
     return activeWorkspace;
@@ -69,24 +75,26 @@ export const workspaceRouter = router({
   // 创建工作区
   create: publicProcedure
     .input(workspaceCreateInputSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input }): Promise<Workspace> => {
       // 检查是否有其他激活的工作区
       const activeWorkspaces = await prisma.workspace.count({
         where: { isActive: true },
       });
 
-      return prisma.workspace.create({
+      const workspace = await prisma.workspace.create({
         data: {
           ...input,
           isActive: activeWorkspaces === 0, // 如果是第一个工作区，设置为激活
         },
       });
+
+      return workspace;
     }),
 
   // 更新工作区
   update: publicProcedure
     .input(workspaceUpdateInputSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input }): Promise<Workspace> => {
       const { id, isActive, ...rest } = input;
 
       // 如果要设置为激活，先将其他工作区的isActive设置为false
@@ -96,19 +104,21 @@ export const workspaceRouter = router({
         });
       }
 
-      return prisma.workspace.update({
+      const workspace = await prisma.workspace.update({
         where: { id },
         data: {
           ...rest,
           ...(isActive !== undefined && { isActive }),
         },
       });
+
+      return workspace;
     }),
 
   // 删除工作区
   delete: publicProcedure
     .input(workspaceIdInputSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input }): Promise<Workspace> => {
       // 检查是否是最后一个工作区
       const workspaceCount = await prisma.workspace.count();
       if (workspaceCount <= 1) {

@@ -2,9 +2,9 @@
 import { useState, useEffect } from "react";
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { Header } from "@/components/layout/header";
-import SidebarLeft from "@/components/layout/sidebar-left";
-import MainLayout from "@/components/layout/main";
+import { Header } from "@/components/layout/header/header";
+import AppSidebar from "@/components/layout/sidebar/sidebar";
+import MainContent from "@/components/layout/main-content";
 
 export default function Page() {
   return (
@@ -12,9 +12,9 @@ export default function Page() {
       <SidebarProvider className="flex flex-col">
         <Header />
         <div className="flex flex-1">
-          <SidebarLeft />
+          <AppSidebar />
           <SidebarInset className=" mr-2 h-[calc(calc(100svh-var(--header-height))-0.5rem)]!">
-            <MainLayout />
+            <MainContent />
           </SidebarInset>
         </div>
       </SidebarProvider>
