@@ -2,6 +2,7 @@
 
 import { Search, Home, BrainCircuit } from "lucide-react";
 import SidebarLeftPages from "@/components/layout/sidebar-left-pages";
+import { SidebarWorkspace } from "./sidebar-workspace";
 import { useTabs } from "@/hooks/use_tabs";
 
 import {
@@ -13,6 +14,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarHeader,
 } from "@/components/ui/sidebar";
 
 export default function SidebarLeft({
@@ -25,6 +27,16 @@ export default function SidebarLeft({
       className="top-(--header-height) h-[calc(100svh-var(--header-height))]! border-r-0!"
       {...props}
     >
+      <SidebarHeader>
+        <SidebarWorkspace
+          workspaces={[
+            {
+              name: "Main Workspace",
+              logo: BrainCircuit,
+            },
+          ]}
+        />
+      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
@@ -69,12 +81,6 @@ export default function SidebarLeft({
 
         <SidebarLeftPages />
       </SidebarContent>
-
-      <SidebarFooter>
-        <div className="p-2 rounded hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-          User info placeholder
-        </div>
-      </SidebarFooter>
     </Sidebar>
   );
 }

@@ -137,22 +137,32 @@ export default function SidebarLeftPages() {
     {}
   );
 
+  // 控制 SidebarGroupContent 显示/隐藏的状态
+  const [isGroupExpanded, setIsGroupExpanded] = useState(true);
+
   // 使用 trpc 更新页面的 isExpanded 状态
   const updatePage = useMutation(trpc.page.update.mutationOptions());
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Pages</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          <PageTreeMenu
-            pages={pages}
-            expandedPages={expandedPages}
-            setExpandedPages={setExpandedPages}
-            updatePage={updatePage}
-          />
-        </SidebarMenu>
-      </SidebarGroupContent>
+      <SidebarGroupLabel
+        onClick={() => setIsGroupExpanded(!isGroupExpanded)}
+        className="cursor-pointer"
+      >
+        Pages
+      </SidebarGroupLabel>
+      {isGroupExpanded && (
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <PageTreeMenu
+              pages={pages}
+              expandedPages={expandedPages}
+              setExpandedPages={setExpandedPages}
+              updatePage={updatePage}
+            />
+          </SidebarMenu>
+        </SidebarGroupContent>
+      )}
     </SidebarGroup>
   );
 }
