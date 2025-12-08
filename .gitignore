@@ -48,6 +48,9 @@ coverage
 .cache
 tmp
 temp
+.cursor
+.ruler
+.trae
 
 # START Ruler Generated Files
 /.codex/config.json
