@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, skipToken } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { ChevronRight, MoreHorizontal, FileText } from "lucide-react";
 import {
@@ -17,6 +17,7 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { useTabs } from "@/hooks/use_tabs";
+import { useWorkspace } from "@/hooks/use_workspace";
 
 // 定义页面类型
 interface Page {
@@ -43,8 +44,11 @@ const PageTreeMenu = ({
   updatePage: any;
 }) => {
   const { addTab } = useTabs();
+  const { activeWorkspace } = useWorkspace();
 
   const handlePageClick = (page: Page) => {
+    if (!activeWorkspace) return;
+
     addTab({
       id: page.id,
       title: page.title || "Untitled Page",
@@ -56,6 +60,7 @@ const PageTreeMenu = ({
         component: "ai-chat",
         params: { pageId: page.id },
       },
+      workspaceId: activeWorkspace.id,
       createNew: false,
     });
   };
@@ -129,8 +134,14 @@ const PageTreeMenu = ({
 };
 
 export default function SidebarLeftPages() {
+  const { activeWorkspace } = useWorkspace();
+
   // 使用 trpc 接口获取页面树数据
-  const { data: pages = [] } = useQuery(trpc.page.getAll.queryOptions());
+  const { data: pages = [] } = useQuery(
+    trpc.page.getAll.queryOptions(
+      activeWorkspace ? { workspaceId: activeWorkspace.id } : skipToken
+    )
+  );
 
   // 将状态提升到顶层组件，确保整个页面树只有一个状态管理
   const [expandedPages, setExpandedPages] = useState<Record<string, boolean>>(

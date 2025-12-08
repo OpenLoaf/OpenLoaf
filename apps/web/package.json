@@ -11,6 +11,7 @@
     "desktop:build": "tauri build"
   },
   "dependencies": {
+    "@ai-sdk/react": "^3.0.0-beta.140",
     "@prisma/client": "catalog:",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",

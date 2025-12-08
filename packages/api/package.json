@@ -17,11 +17,14 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@trpc/server": "catalog:",
+    "@teatime-ai/db": "workspace:*",
     "@trpc/client": "catalog:",
-    "hono": "catalog:",
+    "@trpc/server": "catalog:",
+    "@ai-sdk/deepseek": "^2.0.0-beta.47",
+    "@ai-sdk/openai": "^3.0.0-beta.87",
+    "ai": "^6.0.0-beta.138",
     "dotenv": "catalog:",
-    "zod": "^4.1.11",
-    "@teatime-ai/db": "workspace:*"
+    "hono": "catalog:",
+    "zod": "^4.1.11"
   }
 }

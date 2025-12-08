@@ -1,5 +1,6 @@
 import type { Context as HonoContext } from "hono";
-import prisma from "@teatime-ai/db";
+// import prisma from "@teatime-ai/db";
+import prisma, { PrismaEnums as _PrismaEnums } from "@teatime-ai/db";
 
 export type CreateContextOptions = {
 	context: HonoContext;

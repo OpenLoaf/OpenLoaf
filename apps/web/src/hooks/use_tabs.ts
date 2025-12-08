@@ -14,6 +14,7 @@ interface Tab {
   title: string;
   leftPanel: PanelConfig;
   rightPanel: PanelConfig;
+  workspaceId: string;
 }
 
 interface TabsState {
@@ -37,6 +38,7 @@ interface TabsState {
   ) => void;
   getTabById: (tabId: string) => Tab | undefined;
   getShowPanelRightButton: () => boolean;
+  getWorkspaceTabs: (workspaceId: string) => Tab[];
 }
 
 const STORAGE_KEY = "tabs-storage";
@@ -230,6 +232,11 @@ export const useTabs = create<TabsState>()(
 
         // 3. 除非leftPanel为hidden或不存在，否则只要有rightPanel就显示按钮
         return Boolean(hasRightContent && !isLeftPanelHiddenOrMissing);
+      },
+
+      // 获取当前工作区的标签列表
+      getWorkspaceTabs: (workspaceId) => {
+        return get().tabs.filter((tab) => tab.workspaceId === workspaceId);
       },
     }),
     {

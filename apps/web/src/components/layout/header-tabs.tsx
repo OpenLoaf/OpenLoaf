@@ -1,15 +1,31 @@
 import { X, Plus } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTabs } from "@/hooks/use_tabs";
+import { useWorkspace } from "@/hooks/use_workspace";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef } from "react";
 
 export default function HeaderTabs() {
-  const { tabs, activeTabId, setActiveTab, closeTab, addTab } = useTabs();
+  const {
+    tabs,
+    activeTabId,
+    setActiveTab,
+    closeTab,
+    addTab,
+    getWorkspaceTabs,
+  } = useTabs();
+  const { activeWorkspace } = useWorkspace();
   const tabsListRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
 
+  // 获取当前工作区的标签列表
+  const workspaceTabs = activeWorkspace
+    ? getWorkspaceTabs(activeWorkspace.id)
+    : [];
+
   const handleAddTab = () => {
+    if (!activeWorkspace) return;
+
     addTab({
       id: `page-${Date.now()}`,
       title: "New Page",
@@ -21,6 +37,7 @@ export default function HeaderTabs() {
         component: "ai-chat",
         params: {},
       },
+      workspaceId: activeWorkspace.id,
       createNew: true,
     });
   };
@@ -55,7 +72,7 @@ export default function HeaderTabs() {
     // 添加resize监听，确保在窗口大小变化时更新位置
     window.addEventListener("resize", updateActiveTabPosition);
     return () => window.removeEventListener("resize", updateActiveTabPosition);
-  }, [activeTabId, tabs]);
+  }, [activeTabId, workspaceTabs]);
 
   return (
     <Tabs
@@ -78,7 +95,7 @@ export default function HeaderTabs() {
           }}
         />
 
-        {tabs.map((tab) => (
+        {workspaceTabs.map((tab) => (
           <div key={tab.id} className="relative inline-flex items-center group">
             <TabsTrigger
               ref={tab.id === activeTabId ? activeTabRef : null}

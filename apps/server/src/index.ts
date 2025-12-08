@@ -24,7 +24,7 @@ app.use(
     createContext: (_opts, context) => {
       return createContext({ context });
     },
-    onError: ({ error, path, input, ctx, type }) => {
+    onError: ({ error, path, input, type }) => {
       console.error(`tRPC Error: ${type} on ${path || "unknown path"}`, {
         error,
         input,

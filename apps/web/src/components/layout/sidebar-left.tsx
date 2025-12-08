@@ -4,7 +4,7 @@ import { Search, Home, BrainCircuit } from "lucide-react";
 import SidebarLeftPages from "@/components/layout/sidebar-left-pages";
 import { SidebarWorkspace } from "./sidebar-workspace";
 import { useTabs } from "@/hooks/use_tabs";
-
+import { useWorkspace } from "@/hooks/use_workspace";
 import {
   Sidebar,
   SidebarContent,
@@ -21,6 +21,7 @@ export default function SidebarLeft({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
   const { addTab } = useTabs();
+  const { activeWorkspace } = useWorkspace();
 
   return (
     <Sidebar
@@ -28,14 +29,7 @@ export default function SidebarLeft({
       {...props}
     >
       <SidebarHeader>
-        <SidebarWorkspace
-          workspaces={[
-            {
-              name: "Main Workspace",
-              logo: BrainCircuit,
-            },
-          ]}
-        />
+        <SidebarWorkspace />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -55,7 +49,9 @@ export default function SidebarLeft({
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() =>
+                  onClick={() => {
+                    if (!activeWorkspace) return;
+
                     addTab({
                       title: "AI Chat",
                       leftPanel: {
@@ -67,9 +63,10 @@ export default function SidebarLeft({
                         component: "ai-chat",
                         params: {},
                       },
+                      workspaceId: activeWorkspace.id,
                       createNew: true,
-                    })
-                  }
+                    });
+                  }}
                 >
                   <BrainCircuit className="h-4 w-4" />
                   <span>AI</span>

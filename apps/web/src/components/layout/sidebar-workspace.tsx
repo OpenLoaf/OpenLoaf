@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronsUpDown, Plus } from "lucide-react";
+import { ChevronsUpDown, Plus, Building2 } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -18,21 +18,27 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useWorkspace } from "@/hooks/use_workspace";
 
-export function SidebarWorkspace({
-  workspaces,
-}: {
-  workspaces: {
-    name: string;
-    logo: React.ElementType;
-  }[];
-}) {
+export function SidebarWorkspace() {
   const { isMobile } = useSidebar();
-  const [activeWorkspace, setActiveWorkspace] = React.useState(workspaces[0]);
+  const { workspaces, activeWorkspace, setActiveWorkspace, createWorkspace } =
+    useWorkspace();
+  const [newWorkspaceName, setNewWorkspaceName] = React.useState("");
+  const [showCreateForm, setShowCreateForm] = React.useState(false);
 
   if (!activeWorkspace) {
     return null;
   }
+
+  // 处理创建工作区
+  const handleCreateWorkspace = async () => {
+    if (newWorkspaceName.trim()) {
+      await createWorkspace(newWorkspaceName.trim());
+      setNewWorkspaceName("");
+      setShowCreateForm(false);
+    }
+  };
 
   return (
     <SidebarMenu>
@@ -44,7 +50,7 @@ export function SidebarWorkspace({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-6 items-center justify-center rounded-md">
-                <activeWorkspace.logo className="size-3" />
+                <Building2 className="size-3" />
               </div>
               <div className="flex-1 text-left text-sm font-medium truncate">
                 {activeWorkspace.name}
@@ -63,12 +69,12 @@ export function SidebarWorkspace({
             </DropdownMenuLabel>
             {workspaces.map((workspace, index) => (
               <DropdownMenuItem
-                key={workspace.name}
+                key={workspace.id}
                 onClick={() => setActiveWorkspace(workspace)}
                 className="gap-2 p-1.5"
               >
                 <div className="flex size-5 items-center justify-center rounded-md border">
-                  <workspace.logo className="size-3 shrink-0" />
+                  <Building2 className="size-3 shrink-0" />
                 </div>
                 {workspace.name}
                 <DropdownMenuShortcut className="text-xs">
@@ -77,14 +83,37 @@ export function SidebarWorkspace({
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-1.5">
-              <div className="flex size-5 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-3" />
-              </div>
-              <div className="text-muted-foreground font-medium text-sm">
-                Add workspace
-              </div>
-            </DropdownMenuItem>
+            {showCreateForm ? (
+              <DropdownMenuItem className="gap-2 p-1.5">
+                <input
+                  type="text"
+                  placeholder="Workspace name"
+                  value={newWorkspaceName}
+                  onChange={(e) => setNewWorkspaceName(e.target.value)}
+                  onKeyPress={(e) =>
+                    e.key === "Enter" && handleCreateWorkspace()
+                  }
+                  className="w-full px-2 py-1 text-sm border rounded-md"
+                  autoFocus
+                />
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                className="gap-2 p-1.5"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowCreateForm(true);
+                }}
+              >
+                <div className="flex size-5 items-center justify-center rounded-md border bg-transparent">
+                  <Plus className="size-3" />
+                </div>
+                <div className="text-muted-foreground font-medium text-sm">
+                  Add workspace
+                </div>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
