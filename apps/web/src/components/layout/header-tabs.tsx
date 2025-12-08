@@ -2,17 +2,60 @@ import { X, Plus } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTabs } from "@/hooks/use_tabs";
 import { Button } from "@/components/ui/button";
+import { useEffect, useRef } from "react";
 
 export default function HeaderTabs() {
   const { tabs, activeTabId, setActiveTab, closeTab, addTab } = useTabs();
+  const tabsListRef = useRef<HTMLDivElement>(null);
+  const activeTabRef = useRef<HTMLButtonElement>(null);
 
   const handleAddTab = () => {
     addTab({
       id: `page-${Date.now()}`,
       title: "New Page",
-      type: "page",
+      leftPanel: {
+        component: "plant-page",
+        params: {},
+      },
+      rightPanel: {
+        component: "ai-chat",
+        params: {},
+      },
+      createNew: true,
     });
   };
+
+  useEffect(() => {
+    const tabsList = tabsListRef.current;
+    if (!tabsList) return;
+
+    const updateActiveTabPosition = () => {
+      const activeTab = tabsList.querySelector(
+        '[data-state="active"]'
+      ) as HTMLButtonElement;
+      if (!activeTab) return;
+
+      const rect = activeTab.getBoundingClientRect();
+      const tabsListRect = tabsList.getBoundingClientRect();
+
+      tabsList.style.setProperty(
+        "--active-tab-left",
+        `${rect.left - tabsListRect.left}px`
+      );
+      tabsList.style.setProperty("--active-tab-width", `${rect.width}px`);
+      tabsList.style.setProperty(
+        "--active-tab-top",
+        `${rect.top - tabsListRect.top}px`
+      );
+      tabsList.style.setProperty("--active-tab-height", `${rect.height}px`);
+    };
+
+    updateActiveTabPosition();
+
+    // 添加resize监听，确保在窗口大小变化时更新位置
+    window.addEventListener("resize", updateActiveTabPosition);
+    return () => window.removeEventListener("resize", updateActiveTabPosition);
+  }, [activeTabId, tabs]);
 
   return (
     <Tabs
@@ -20,21 +63,34 @@ export default function HeaderTabs() {
       onValueChange={setActiveTab}
       className="flex-1"
     >
-      <TabsList className="h-6 bg-sidebar  border-sidebar-border rounded-none p-0">
+      <TabsList
+        ref={tabsListRef}
+        className="h-[calc(var(--header-height)*0.9)] bg-sidebar border-sidebar-border rounded-none p-0 relative overflow-hidden"
+      >
+        {/* 滑块元素 */}
+        <div
+          className="absolute bg-background rounded-md transition-all duration-300 ease-out pointer-events-none"
+          style={{
+            left: "var(--active-tab-left, 0px)",
+            width: "var(--active-tab-width, 0px)",
+            top: "var(--active-tab-top, 0px)",
+            height: "var(--active-tab-height, 100%)",
+          }}
+        />
+
         {tabs.map((tab) => (
           <div key={tab.id} className="relative inline-flex items-center group">
             <TabsTrigger
+              ref={tab.id === activeTabId ? activeTabRef : null}
               value={tab.id}
-              className="h-6 px-1.5 text-xs rounded-md text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm pr-7"
+              className="h-full px-1.5 text-xs rounded-md text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground pr-7 relative z-10 min-w-[120px] max-w-[120px]"
             >
-              <span className="truncate max-w-[150px]">
-                {tab.title || "Untitled"}
-              </span>
+              <span className="truncate">{tab.title || "Untitled"}</span>
             </TabsTrigger>
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-1 h-6 w-6 transition-opacity opacity-0 group-hover:opacity-100"
+              className=" right-1 h-full w-6 transition-opacity opacity-0 group-hover:opacity-100 relative z-10"
               onClick={(e) => {
                 e.stopPropagation();
                 closeTab(tab.id);
@@ -49,7 +105,7 @@ export default function HeaderTabs() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+          className="h-full w-6 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent relative z-10"
           aria-label="Add new tab"
           onClick={handleAddTab}
         >

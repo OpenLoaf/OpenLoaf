@@ -1,52 +1,80 @@
 "use client";
 
 import { Search, Home, BrainCircuit } from "lucide-react";
-import PageTreeComponent from "@/components/layout/header-tree";
+import SidebarLeftPages from "@/components/layout/sidebar-left-pages";
 import { useTabs } from "@/hooks/use_tabs";
 
-export default function SidebarLeft() {
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+} from "@/components/ui/sidebar";
+
+export default function SidebarLeft({
+  ...props
+}: React.ComponentProps<typeof Sidebar>) {
   const { addTab } = useTabs();
 
-  const handleAiClick = () => {
-    addTab({
-      id: `chat-${Date.now()}`,
-      title: "AI Chat",
-      type: "chat",
-    });
-  };
-
   return (
-    <div className="bg-sidebar text-sidebar-foreground flex h-full w-full flex-col">
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto custom-scroll">
-        {/* Main menu items */}
-        <div className="flex flex-col p-2">
-          <div className="p-2 rounded hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <span>Search</span>
-          </div>
-          <div className="p-2 rounded hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-2">
-            <Home className="h-4 w-4 text-muted-foreground" />
-            <span>Home</span>
-          </div>
-          <div
-            className="p-2 rounded hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-2 cursor-pointer"
-            onClick={handleAiClick}
-          >
-            <BrainCircuit className="h-4 w-4 text-muted-foreground" />
-            <span>AI</span>
-          </div>
-        </div>
+    <Sidebar
+      className="top-(--header-height) h-[calc(100svh-var(--header-height))]! border-r-0!"
+      {...props}
+    >
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton>
+                  <Search className="h-4 w-4" />
+                  <span>Search</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton>
+                  <Home className="h-4 w-4" />
+                  <span>Home</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() =>
+                    addTab({
+                      title: "AI Chat",
+                      leftPanel: {
+                        component: "",
+                        params: {},
+                        hidden: true,
+                      },
+                      rightPanel: {
+                        component: "ai-chat",
+                        params: {},
+                      },
+                      createNew: true,
+                    })
+                  }
+                >
+                  <BrainCircuit className="h-4 w-4" />
+                  <span>AI</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-        {/* Page tree */}
-        <div className="p-2">
-          <PageTreeComponent />
-        </div>
-      </div>
-      <div className="flex flex-col gap-2 p-2 border-t border-sidebar-border">
+        <SidebarLeftPages />
+      </SidebarContent>
+
+      <SidebarFooter>
         <div className="p-2 rounded hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
           User info placeholder
         </div>
-      </div>
-    </div>
+      </SidebarFooter>
+    </Sidebar>
   );
 }

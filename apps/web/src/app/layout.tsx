@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "../index.css";
 import Providers from "@/components/layout/providers";
-import Header from "@/components/layout/header";
 
 export const metadata: Metadata = {
   title: "teatime-ai",

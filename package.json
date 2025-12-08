@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "dotenv": "^17.2.2",
+    "simplebar-react": "^3.3.2",
     "zod": "^4.1.11",
     "zustand": "^5.0.9"
   },
