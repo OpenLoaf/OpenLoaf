@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useWorkspace } from "@/hooks/use_workspace";
 
-export function SidebarWorkspace() {
+export const SidebarWorkspace = () => {
   const { isMobile } = useSidebar();
   const { workspaces, activeWorkspace, setActiveWorkspace, createWorkspace } =
     useWorkspace();
@@ -119,4 +119,4 @@ export function SidebarWorkspace() {
       </SidebarMenuItem>
     </SidebarMenu>
   );
-}
+};

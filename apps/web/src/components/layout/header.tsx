@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useTabs } from "@/hooks/use_tabs";
 
-import HeaderTabs from "./header-tabs";
+import { HeaderTabs } from "./header/Tabs";
+import { ModeToggle } from "./header/ModeToggle";
 
-export function Header() {
+export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
   const { activeTabId, tabs, updateCurrentTabPanels, getShowPanelRightButton } =
     useTabs();
@@ -56,6 +57,7 @@ export function Header() {
           showPanelRightButton ? "opacity-100 visible" : "opacity-0 invisible"
         }`}
       >
+        <ModeToggle />
         <Button
           className="h-8 w-8"
           variant="ghost"
@@ -78,4 +80,4 @@ export function Header() {
       </div>
     </header>
   );
-}
+};

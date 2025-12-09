@@ -35,12 +35,21 @@ type PageNode = Prisma.PageGetPayload<{
     resources: true;
   };
 }>;
+// 上级页面信息类型
+type ParentPageInfo = {
+  id: string;
+  title: string | null;
+};
+
 type PageWithRelations = Prisma.PageGetPayload<{
   include: {
     blocks: true;
     resources: true;
   };
-}>;
+}> & {
+  // 添加上级页面列表字段
+  parentPages: ParentPageInfo[];
+};
 type PageTreeNode = Omit<PageNode, "children"> & { children: PageTreeNode[] };
 
 // 将扁平的页面列表转换为树形结构
@@ -77,6 +86,36 @@ const buildTree = (pages: PageNode[]): PageTreeNode[] => {
   return rootPages;
 };
 
+// 递归获取所有上级页面
+const getParentPages = async (
+  pageId: string,
+  workspaceId: string
+): Promise<ParentPageInfo[]> => {
+  const parentPages: ParentPageInfo[] = [];
+
+  let currentPage = await prisma.page.findUnique({
+    where: { id: pageId, workspaceId },
+    select: { parentId: true },
+  });
+
+  while (currentPage?.parentId) {
+    const parentPage = await prisma.page.findUnique({
+      where: { id: currentPage.parentId, workspaceId },
+      select: { id: true, title: true, parentId: true },
+    });
+
+    if (parentPage) {
+      // 添加到数组开头，确保顺序是从根到当前页面的父页面
+      parentPages.unshift({ id: parentPage.id, title: parentPage.title });
+      currentPage = { parentId: parentPage.parentId };
+    } else {
+      break;
+    }
+  }
+
+  return parentPages;
+};
+
 export const pageRouter = router({
   // 获取所有页面
   getAll: publicProcedure
@@ -104,7 +143,15 @@ export const pageRouter = router({
         },
       });
 
-      return page;
+      if (!page) {
+        return null;
+      }
+
+      // 获取所有上级页面
+      const parentPages = await getParentPages(input.id, input.workspaceId);
+
+      // 添加parentPages字段到返回结果
+      return { ...page, parentPages };
     }),
 
   // 创建页面

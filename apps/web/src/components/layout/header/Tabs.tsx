@@ -5,15 +5,9 @@ import { useWorkspace } from "@/hooks/use_workspace";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef } from "react";
 
-export default function HeaderTabs() {
-  const {
-    tabs,
-    activeTabId,
-    setActiveTab,
-    closeTab,
-    addTab,
-    getWorkspaceTabs,
-  } = useTabs();
+export const HeaderTabs = () => {
+  const { activeTabId, setActiveTab, closeTab, addTab, getWorkspaceTabs } =
+    useTabs();
   const { activeWorkspace } = useWorkspace();
   const tabsListRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
@@ -29,10 +23,6 @@ export default function HeaderTabs() {
     addTab({
       id: `page-${Date.now()}`,
       title: "New Page",
-      leftPanel: {
-        component: "plant-page",
-        params: {},
-      },
       rightPanel: {
         component: "ai-chat",
         params: {},
@@ -100,7 +90,7 @@ export default function HeaderTabs() {
             <TabsTrigger
               ref={tab.id === activeTabId ? activeTabRef : null}
               value={tab.id}
-              className="h-7 px-1.5 text-xs rounded-md text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground pr-2 relative z-10 min-w-[130px] max-w-[130px] flex items-center justify-between"
+              className="h-7 px-1.5 text-xs rounded-md text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none pr-2 relative z-10 min-w-[130px] max-w-[130px] flex items-center justify-between"
             >
               <span className="truncate flex-1">{tab.title || "Untitled"}</span>
               <span
@@ -130,4 +120,4 @@ export default function HeaderTabs() {
       </TabsList>
     </Tabs>
   );
-}
+};

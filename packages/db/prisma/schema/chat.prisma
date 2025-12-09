@@ -1,0 +1,50 @@
+model ChatSession {
+    id           String        @id @default(cuid())
+    title        String        @default("新对话")
+    agents       Json?
+    systemPrompt String?
+    contextId    String?
+    createdAt    DateTime      @default(now())
+    updatedAt    DateTime      @updatedAt
+    deletedAt    DateTime?
+    messages     ChatMessage[]
+
+    @@index([deletedAt])
+    @@index([deletedAt, createdAt])
+}
+
+model ChatMessage {
+    id                String            @id @default(cuid())
+    sessionId         String
+    previousMessageId String?
+    role              MessageRole       @default(USER)
+    meta              Json?
+    createdAt         DateTime          @default(now())
+    session           ChatSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+    parts             ChatMessagePart[]
+
+    @@index([sessionId, createdAt])
+    @@index([previousMessageId])
+    @@index([role])
+}
+
+model ChatMessagePart {
+    id        String      @id @default(cuid())
+    messageId String
+    index     Int
+    type      String // 直接使用字符串保存UIMessage的类型
+    errorText String?
+    uiState   String?
+    state     Json?
+    createdAt DateTime    @default(now())
+    message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+    @@index([messageId, index])
+}
+
+enum MessageRole {
+    USER
+    ASSISTANT
+    SYSTEM
+    TOOL
+}

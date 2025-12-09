@@ -21,10 +21,13 @@
     "apps/server": {
       "name": "server",
       "dependencies": {
+        "@ai-sdk/deepseek": "^2.0.0-beta.47",
+        "@ai-sdk/openai": "^3.0.0-beta.87",
         "@hono/trpc-server": "^0.4.0",
         "@teatime-ai/api": "workspace:*",
         "@teatime-ai/db": "workspace:*",
         "@trpc/server": "catalog:",
+        "ai": "^6.0.0-beta.138",
         "dotenv": "catalog:",
         "hono": "catalog:",
         "zod": "^4.1.11",
@@ -54,6 +57,7 @@
         "@trpc/client": "catalog:",
         "@trpc/server": "catalog:",
         "@trpc/tanstack-react-query": "^11.5.0",
+        "ai": "^6.0.0-beta.138",
         "babel-plugin-react-compiler": "^1.0.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",

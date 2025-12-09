@@ -1,5 +1,10 @@
 import { QueryCache, QueryClient } from "@tanstack/react-query";
-import { createTRPCClient, httpBatchLink } from "@trpc/client";
+import {
+  createTRPCClient,
+  httpBatchLink,
+  splitLink,
+  httpSubscriptionLink,
+} from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@teatime-ai/api/routers/index";
 import { toast } from "sonner";
@@ -19,10 +24,21 @@ export const queryClient = new QueryClient({
   }),
 });
 
+const baseUrl = `${process.env.NEXT_PUBLIC_SERVER_URL}/trpc`;
+
 export const trpcClient = createTRPCClient<AppRouter>({
   links: [
-    httpBatchLink({
-      url: `${process.env.NEXT_PUBLIC_SERVER_URL}/trpc`,
+    splitLink({ 
+      condition: (op) => op.type === "subscription",
+      true: httpSubscriptionLink({
+        url: baseUrl,
+        eventSourceOptions: {
+          withCredentials: true,
+        },
+      }),
+      false: httpBatchLink({
+        url: baseUrl,
+      }),
     }),
   ],
 });

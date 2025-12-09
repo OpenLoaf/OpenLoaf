@@ -39,7 +39,7 @@ export type SettingIdInput = z.infer<typeof settingIdInputSchema>;
 export type SettingCreateInput = z.infer<typeof settingCreateInputSchema>;
 export type SettingUpdateInput = z.infer<typeof settingUpdateInputSchema>;
 
-export const settingRouter = router({
+export const settingRouter: ReturnType<typeof router> = router({
   // 获取所有设置
   getAll: publicProcedure.query(async (): Promise<Setting[]> => {
     const settings = await prisma.setting.findMany();

@@ -12,8 +12,8 @@ interface PanelConfig {
 interface Tab {
   id: string;
   title: string;
-  leftPanel: PanelConfig;
-  rightPanel: PanelConfig;
+  leftPanel?: PanelConfig;
+  rightPanel?: PanelConfig;
   workspaceId: string;
 }
 

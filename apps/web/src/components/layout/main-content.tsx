@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { useTabs } from "@/hooks/use_tabs";
 import { AiChat } from "@/components/page/ai-chat";
 import PlantPage from "@/components/page/plant-page";
+import { ChatInterface } from "../page/chat-interface";
 
-const MainContent: React.FC = () => {
+export const MainContent: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [leftWidth, setLeftWidth] = useState(50);
   const dividerRef = useRef<HTMLDivElement>(null);
@@ -13,7 +14,7 @@ const MainContent: React.FC = () => {
 
   // 组件映射表
   const ComponentMap: Record<string, React.ComponentType<any>> = {
-    "ai-chat": AiChat,
+    "ai-chat": ChatInterface,
     "plant-page": PlantPage,
   };
 
@@ -60,7 +61,7 @@ const MainContent: React.FC = () => {
     const containerRect = container.getBoundingClientRect();
     const newWidth =
       ((_e.clientX - containerRect.left) / containerRect.width) * 100;
-    setLeftWidth(Math.max(10, Math.min(90, newWidth)));
+    setLeftWidth(Math.max(30, Math.min(70, newWidth)));
   };
 
   const handleMouseUp = () => {
@@ -113,7 +114,7 @@ const MainContent: React.FC = () => {
             className={`bg-sidebar rounded-4xl cursor-col-resize hover:bg-primary/10 transition-all duration-200 flex items-center justify-center ${
               !safeActiveTab.leftPanel.hidden &&
               !safeActiveTab.rightPanel.hidden
-                ? "opacity-100 visible pointer-events-auto w-2 "
+                ? "opacity-100 visible pointer-events-auto w-2.5 "
                 : "opacity-0 invisible pointer-events-none "
             }`}
             onMouseDown={handleMouseDown}
@@ -156,5 +157,3 @@ const MainContent: React.FC = () => {
     </div>
   );
 };
-
-export default MainContent;

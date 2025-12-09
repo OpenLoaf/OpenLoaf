@@ -1,14 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, skipToken } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
-import { ChevronRight, MoreHorizontal, FileText } from "lucide-react";
+import { useTabs } from "@/hooks/use_tabs";
+import { useWorkspace } from "@/hooks/use_workspace";
 import {
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -16,11 +10,10 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
-import { useTabs } from "@/hooks/use_tabs";
-import { useWorkspace } from "@/hooks/use_workspace";
+import { ChevronRight, FileText, MoreHorizontal } from "lucide-react";
 
 // 定义页面类型
-interface Page {
+export interface Page {
   id: string;
   title: string | null;
   icon: string | null;
@@ -29,20 +22,21 @@ interface Page {
   resources: any[];
 }
 
-// 递归渲染页面树
-const PageTreeMenu = ({
-  pages,
-  expandedPages,
-  setExpandedPages,
-  updatePage,
-}: {
+interface PageTreeMenuProps {
   pages: Page[];
   expandedPages: Record<string, boolean>;
   setExpandedPages: React.Dispatch<
     React.SetStateAction<Record<string, boolean>>
   >;
   updatePage: any;
-}) => {
+}
+
+export const PageTreeMenu = ({
+  pages,
+  expandedPages,
+  setExpandedPages,
+  updatePage,
+}: PageTreeMenuProps) => {
   const { addTab } = useTabs();
   const { activeWorkspace } = useWorkspace();
 
@@ -132,48 +126,3 @@ const PageTreeMenu = ({
     </>
   );
 };
-
-export default function SidebarLeftPages() {
-  const { activeWorkspace } = useWorkspace();
-
-  // 使用 trpc 接口获取页面树数据
-  const { data: pages = [] } = useQuery(
-    trpc.page.getAll.queryOptions(
-      activeWorkspace ? { workspaceId: activeWorkspace.id } : skipToken
-    )
-  );
-
-  // 将状态提升到顶层组件，确保整个页面树只有一个状态管理
-  const [expandedPages, setExpandedPages] = useState<Record<string, boolean>>(
-    {}
-  );
-
-  // 控制 SidebarGroupContent 显示/隐藏的状态
-  const [isGroupExpanded, setIsGroupExpanded] = useState(true);
-
-  // 使用 trpc 更新页面的 isExpanded 状态
-  const updatePage = useMutation(trpc.page.update.mutationOptions());
-
-  return (
-    <SidebarGroup>
-      <SidebarGroupLabel
-        onClick={() => setIsGroupExpanded(!isGroupExpanded)}
-        className="cursor-pointer"
-      >
-        Pages
-      </SidebarGroupLabel>
-      {isGroupExpanded && (
-        <SidebarGroupContent>
-          <SidebarMenu>
-            <PageTreeMenu
-              pages={pages}
-              expandedPages={expandedPages}
-              setExpandedPages={setExpandedPages}
-              updatePage={updatePage}
-            />
-          </SidebarMenu>
-        </SidebarGroupContent>
-      )}
-    </SidebarGroup>
-  );
-}
