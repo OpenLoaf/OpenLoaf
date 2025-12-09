@@ -9,6 +9,9 @@ model ChatSession {
     deletedAt    DateTime?
     messages     ChatMessage[]
 
+    // 对话会话关联的页面（多对多关系）
+    pageChatSessions PageChatSession[]
+
     @@index([deletedAt])
     @@index([deletedAt, createdAt])
 }

@@ -3,8 +3,8 @@ import { useState, useEffect } from "react";
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Header } from "@/components/layout/header";
-import AppSidebar from "@/components/layout/sidebar";
-import MainContent from "@/components/layout/main-content";
+import { AppSidebar } from "@/components/layout/sidebar";
+import { MainContent } from "@/components/layout/main-content";
 
 export default function Page() {
   return (

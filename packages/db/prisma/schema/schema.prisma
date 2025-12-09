@@ -18,7 +18,7 @@ datasource db {
 model Workspace {
   id        String   @id @default(cuid()) // 工作区唯一标识
   name      String // 工作区名称
-  isActive  Boolean @default(false) // 是否激活
+  isActive  Boolean  @default(false) // 是否激活
   createdAt DateTime @default(now()) // 创建时间
   updatedAt DateTime @updatedAt // 更新时间
 
@@ -42,8 +42,9 @@ model Tag {
   createdAt DateTime @default(now()) // 创建时间
 
   // 所属工作区
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspaceId      String
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
+  pageChatSessions PageChatSession[]
 }
 
 //
@@ -76,8 +77,9 @@ model Page {
   resources Resource[]
 
   // 所属工作区
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspaceId      String
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
+  pageChatSessions PageChatSession[]
 }
 
 //
@@ -173,4 +175,35 @@ enum SettingType {
   UI
   SYSTEM
   USER
+}
+
+// 页面和对话会话的关系类型枚举
+enum RelationType {
+  CREATE // 创建
+  REFERENCE // 引用
+  MODIFY // 修改
+  DELETE // 删除
+}
+
+// 页面和对话会话的多对多关联表
+model PageChatSession {
+  id            String       @id @default(cuid())
+  pageId        String
+  chatSessionId String
+  relationType  RelationType @default(REFERENCE)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // 关系定义
+  page        Page        @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  chatSession ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  tag         Tag?        @relation(fields: [tagId], references: [id])
+  tagId       String?
+
+  // 唯一约束，确保每个页面和对话会话的组合只有一条记录
+  @@unique([pageId, chatSessionId])
+  // 索引
+  @@index([pageId, relationType])
+  @@index([chatSessionId, relationType])
+  @@index([createdAt])
 }
