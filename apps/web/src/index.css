@@ -15,11 +15,8 @@ body {
   overflow: hidden;
   margin: 0;
   padding: 0;
-  /* 禁止右键菜单 */
-  -webkit-context-menu: none;
-  -moz-context-menu: none;
-  -ms-context-menu: none;
-  context-menu: none;
+  /* 禁止右键菜单（桌面在 Providers 中通过事件禁用，这里补充移动端长按菜单） */
+  -webkit-touch-callout: none;
   /* 禁止触控板上下弹性滑动和页面滚动 */
   overscroll-behavior: none;
   touch-action: none;
@@ -185,3 +182,55 @@ body {
   scrollbar-width: none;  /* 隐藏所有默认滚动条 */
 }
 
+/* ScrollArea 全局样式 */
+:root {
+  --scrollbar-size: 8px;
+}
+
+/* 滚动条容器样式 - 限定为 data-radix-scroll-area-viewport 的兄弟节点 */
+[data-radix-scroll-area-viewport] ~ [data-orientation] {
+  display: flex;
+  user-select: none;
+  touch-action: none;
+  padding: 0.5px;
+  background: transparent;
+  transition: background 160ms ease-out;
+  opacity: 1;
+  width: var(--scrollbar-size);
+}
+
+[data-radix-scroll-area-viewport] ~ [data-orientation="vertical"] {
+  width: var(--scrollbar-size);
+}
+
+[data-radix-scroll-area-viewport] ~ [data-orientation="horizontal"] {
+  flex-direction: column;
+  height: var(--scrollbar-size);
+}
+
+/* 滚动条滑块样式 - 限定为 data-radix-scroll-area-viewport 的兄弟节点下的子元素 */
+[data-radix-scroll-area-viewport] ~ [data-orientation] [data-state] {
+  flex: 1;
+  background: var(--muted-foreground);
+  opacity: 0.15;
+  border-radius: var(--scrollbar-size);
+  position: relative;
+}
+
+[data-radix-scroll-area-viewport] ~ [data-orientation] [data-state]:hover {
+  background: var(--muted-foreground);
+  opacity: 0.9;
+}
+
+/* increase target size for touch devices */
+[data-radix-scroll-area-viewport] ~ [data-orientation] [data-state]::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  min-width: 44px;
+  min-height: 44px;
+}

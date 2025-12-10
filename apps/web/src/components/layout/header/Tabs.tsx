@@ -1,9 +1,10 @@
 import { X, Plus } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList } from "@/components/ui/tabs";
 import { useTabs } from "@/hooks/use_tabs";
 import { useWorkspace } from "@/hooks/use_workspace";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef } from "react";
+import { TabMenu } from "./TabMenu";
 
 export const HeaderTabs = () => {
   const { activeTabId, setActiveTab, closeTab, addTab, getWorkspaceTabs } =
@@ -64,6 +65,23 @@ export const HeaderTabs = () => {
     return () => window.removeEventListener("resize", updateActiveTabPosition);
   }, [activeTabId, workspaceTabs]);
 
+  // 添加快捷键处理，关闭当前标签页
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // 检查是否按下了⌘W或Ctrl+W组合键
+      if (event.key === "w" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        // 关闭当前活跃的标签页
+        if (activeTabId) {
+          closeTab(activeTabId);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeTabId, closeTab]);
+
   return (
     <Tabs
       value={activeTabId || ""}
@@ -86,26 +104,14 @@ export const HeaderTabs = () => {
         />
 
         {workspaceTabs.map((tab) => (
-          <div key={tab.id} className="relative inline-flex items-center group">
-            <TabsTrigger
-              ref={tab.id === activeTabId ? activeTabRef : null}
-              value={tab.id}
-              className="h-7 px-1.5 text-xs rounded-md text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none pr-2 relative z-10 min-w-[130px] max-w-[130px] flex items-center justify-between"
-            >
-              <span className="truncate flex-1">{tab.title || "Untitled"}</span>
-              <span
-                className="ml-auto h-6 w-6 transition-opacity opacity-0 group-hover:opacity-100 relative z-10 p-0 cursor-pointer flex items-center justify-center rounded-full hover:bg-background"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeTab(tab.id);
-                }}
-                aria-label="Close tab"
-                role="button"
-              >
-                <X className="h-3.5 w-3.5" />
-              </span>
-            </TabsTrigger>
-          </div>
+          <TabMenu
+            key={tab.id}
+            tab={tab}
+            activeTabId={activeTabId}
+            activeTabRef={activeTabRef}
+            closeTab={closeTab}
+            workspaceTabs={workspaceTabs}
+          />
         ))}
         {/* 添加plus按钮 */}
         <Button

@@ -1,9 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useTabs } from "@/hooks/use_tabs";
 import PlantPage from "@/components/plant/Plant";
-import { ChatInterface } from "../chat/Chat";
+import { Chat } from "../chat/Chat";
+import { cn } from "@/lib/utils";
 
-export const MainContent: React.FC = () => {
+export const MainContent: React.FC<{ className?: string }> = ({
+  className,
+}) => {
   const [isDragging, setIsDragging] = useState(false);
   const [leftWidth, setLeftWidth] = useState(50);
   const dividerRef = useRef<HTMLDivElement>(null);
@@ -13,7 +16,7 @@ export const MainContent: React.FC = () => {
 
   // 组件映射表
   const ComponentMap: Record<string, React.ComponentType<any>> = {
-    "ai-chat": ChatInterface,
+    "ai-chat": Chat,
     "plant-page": PlantPage,
   };
 
@@ -80,7 +83,9 @@ export const MainContent: React.FC = () => {
   }, [isDragging]);
 
   return (
-    <div className="flex h-full  w-full overflow-hidden bg-sidebar">
+    <div
+      className={cn("flex h-full w-full overflow-hidden bg-sidebar", className)}
+    >
       {/* 只有当leftPanel不隐藏时才显示 */}
       {safeActiveTab ? (
         <>
