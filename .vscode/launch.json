@@ -15,7 +15,7 @@
       "name": "Bun: Debug Server",
       "program": "${workspaceFolder}/apps/server/src/index.ts",
       "cwd": "${workspaceFolder}/apps/server",
-      "runtimeArgs": ["--inspect", "run", "--hot"]
+      "runtimeArgs": ["--inspect:6785", "run", "--hot"]
     },
     {
       "type": "bun",
@@ -25,14 +25,25 @@
       "runtime": "bun",
       "args": ["dev", "--port", "3001"],
       "cwd": "${workspaceFolder}/apps/web",
-      "stopOnEntry": false
+      "runtimeArgs": ["--inspect=9229"],
+      "stopOnEntry": false,
+      "serverReadyAction": {
+        "pattern": "- Local:.+(https?://.+)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      }
     },
     {
       "type": "node",
       "request": "launch",
       "name": "React Scan",
       "runtimeExecutable": "npx",
-      "args": ["react-scan@latest", "localhost:3001"],
+      "args": [
+        "react-scan@latest",
+        "localhost:3001",
+        "--height=1080",
+        "--width=1920"
+      ],
       "cwd": "${workspaceFolder}",
       "stopOnEntry": false
     }
