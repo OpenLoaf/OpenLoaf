@@ -2,9 +2,9 @@
 import { useState, useEffect } from "react";
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { Header } from "@/components/layout/header";
-import { AppSidebar } from "@/components/layout/Sidebar";
-import { MainContent } from "@/components/layout/main-content";
+import { Header } from "@/components/layout/header/Header";
+import { AppSidebar } from "@/components/layout/sidebar/Sidebar";
+import { MainContent } from "@/components/layout/MainContext";
 
 export default function Page() {
   return (

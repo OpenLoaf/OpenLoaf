@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useTabs } from "@/hooks/use_tabs";
-import { AiChat } from "@/components/page/ai-chat";
-import PlantPage from "@/components/page/plant-page";
-import { ChatInterface } from "../page/chat-interface";
+import PlantPage from "@/components/plant/Plant";
+import { ChatInterface } from "../chat/Chat";
 
 export const MainContent: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);

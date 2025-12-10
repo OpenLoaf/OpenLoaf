@@ -35,15 +35,19 @@
     },
     {
       "type": "node",
+      "request": "attach",
+      "name": "Attach Next.js (Node/Bun SSR)",
+      "port": 9229,
+      "restart": true,
+      "cwd": "${workspaceFolder}/apps/web",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "type": "node",
       "request": "launch",
       "name": "React Scan",
       "runtimeExecutable": "npx",
-      "args": [
-        "react-scan@latest",
-        "localhost:3001",
-        "--height=1080",
-        "--width=1920"
-      ],
+      "args": ["react-scan@latest", "localhost:3001"],
       "cwd": "${workspaceFolder}",
       "stopOnEntry": false
     }
@@ -56,7 +60,11 @@
     },
     {
       "name": "Debug Web & Server",
-      "configurations": ["Bun: Debug Web", "Bun: Debug Server"],
+      "configurations": [
+        "Bun: Debug Web",
+        "Bun: Debug Server"
+        // "Attach Next.js (Node/Bun SSR)"
+      ],
       "stopAll": true
     }
   ]

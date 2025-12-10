@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useTabs } from "@/hooks/use_tabs";
 
-import { HeaderTabs } from "./header/Tabs";
-import { ModeToggle } from "./header/ModeToggle";
+import { HeaderTabs } from "./Tabs";
+import { ModeToggle } from "./ModeToggle";
 
 export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();

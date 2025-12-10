@@ -47,6 +47,7 @@ export const SidebarPage = () => {
         <SidebarGroupContent>
           <SidebarMenu>
             <PageTreeMenu
+              // @ts-ignore
               pages={pageTreeNodes}
               expandedPages={expandedPages}
               setExpandedPages={setExpandedPages}
