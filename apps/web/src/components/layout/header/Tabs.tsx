@@ -38,24 +38,26 @@ export const HeaderTabs = () => {
     if (!tabsList) return;
 
     const updateActiveTabPosition = () => {
+      // 查找活跃标签页，使用aria-selected="true"而不是data-state="active"
       const activeTab = tabsList.querySelector(
-        '[data-state="active"]'
+        '[aria-selected="true"]'
       ) as HTMLButtonElement;
       if (!activeTab) return;
 
       const rect = activeTab.getBoundingClientRect();
       const tabsListRect = tabsList.getBoundingClientRect();
 
-      tabsList.style.setProperty(
-        "--active-tab-left",
-        `${rect.left - tabsListRect.left}px`
-      );
-      tabsList.style.setProperty("--active-tab-width", `${rect.width}px`);
-      tabsList.style.setProperty(
-        "--active-tab-top",
-        `${rect.top - tabsListRect.top}px`
-      );
-      tabsList.style.setProperty("--active-tab-height", `${rect.height}px`);
+      // 计算相对位置
+      const left = rect.left - tabsListRect.left;
+      const width = rect.width;
+
+      // 直接设置样式，不使用CSS变量
+      const slider = tabsList.querySelector(".bg-background") as HTMLDivElement;
+      if (slider) {
+        slider.style.left = `${left}px`;
+        slider.style.width = `${width}px`;
+        slider.style.height = "28px"; /* h-7 = 28px */
+      }
     };
 
     updateActiveTabPosition();
@@ -94,12 +96,13 @@ export const HeaderTabs = () => {
       >
         {/* 滑块元素 */}
         <div
-          className="absolute bg-background rounded-md transition-all duration-300 ease-out pointer-events-none"
+          className="absolute bg-background rounded-md transition-all duration-300 ease-out pointer-events-none z-0"
           style={{
             left: "var(--active-tab-left, 0px)",
             width: "var(--active-tab-width, 0px)",
-            top: "var(--active-tab-top, 0px)",
-            height: "var(--active-tab-height, 100%)",
+            top: "50%",
+            transform: "translateY(-50%)",
+            height: "28px" /* h-7 = 28px */,
           }}
         />
 

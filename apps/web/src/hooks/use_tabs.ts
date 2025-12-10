@@ -9,7 +9,7 @@ interface PanelConfig {
 }
 
 // 定义标签页类型
-interface Tab {
+export interface Tab {
   id: string;
   title: string;
   leftPanel?: PanelConfig;

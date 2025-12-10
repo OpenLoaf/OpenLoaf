@@ -7,33 +7,22 @@ import {
   ContextMenuItem,
   ContextMenuShortcut,
 } from "@/components/ui/context-menu";
-
-interface Tab {
-  id: string;
-  title: string;
-  rightPanel: {
-    component: string;
-    params: Record<string, any>;
-  };
-  workspaceId: string;
-  createNew: boolean;
-}
+import type { Tab } from "@/hooks/use_tabs";
 
 interface TabMenuProps {
   tab: Tab;
-  activeTabId: string;
-  activeTabRef: React.RefObject<HTMLButtonElement>;
-  setActiveTab: (tabId: string) => void;
+  activeTabId: string | null;
+  activeTabRef: React.RefObject<HTMLButtonElement | null>;
   closeTab: (tabId: string) => void;
   workspaceTabs: Tab[];
 }
 
-export const TabMenu = ({ 
-  tab, 
-  activeTabId, 
-  activeTabRef, 
-  closeTab, 
-  workspaceTabs 
+export const TabMenu = ({
+  tab,
+  activeTabId,
+  activeTabRef,
+  closeTab,
+  workspaceTabs,
 }: TabMenuProps) => {
   return (
     <ContextMenu>
@@ -44,11 +33,9 @@ export const TabMenu = ({
         <TabsTrigger
           ref={tab.id === activeTabId ? activeTabRef : null}
           value={tab.id}
-          className="h-7 px-1.5 text-xs rounded-md text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none pr-2 relative z-10 min-w-[130px] max-w-[130px] flex items-center justify-between"
+          className="h-7 px-1.5 text-xs rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:border-transparent aria-selected:shadow-none pr-2 relative z-10 min-w-[130px] max-w-[130px] flex items-center justify-between"
         >
-          <span className="truncate flex-1">
-            {tab.title || "Untitled"}
-          </span>
+          <span className="truncate flex-1">{tab.title || "Untitled"}</span>
           <span
             className="ml-auto h-6 w-6 transition-opacity opacity-0 group-hover:opacity-100 relative z-10 p-0 cursor-pointer flex items-center justify-center rounded-full hover:bg-background"
             onClick={(e) => {
@@ -69,9 +56,7 @@ export const TabMenu = ({
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {
-            const tabsToClose = workspaceTabs.filter(
-              (t) => t.id !== tab.id
-            );
+            const tabsToClose = workspaceTabs.filter((t) => t.id !== tab.id);
             tabsToClose.forEach((t) => closeTab(t.id));
           }}
           disabled={workspaceTabs.length <= 1}
