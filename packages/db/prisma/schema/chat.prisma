@@ -1,12 +1,12 @@
 model ChatSession {
-    id           String        @id @default(cuid())
-    title        String        @default("新对话")
-    agents       Json?
-    systemPrompt String?
-    contextId    String?
+    id           String        @id @default(cuid()) /// @zod.cuid()
+    title        String        @default("新对话") /// @zod.min(1)
+    agents       Json? /// @zod.optional()
+    systemPrompt String? /// @zod.optional()
+    contextId    String? /// @zod.optional()
     createdAt    DateTime      @default(now())
     updatedAt    DateTime      @updatedAt
-    deletedAt    DateTime?
+    deletedAt    DateTime? /// @zod.optional()
     messages     ChatMessage[]
 
     // 对话会话关联的页面（多对多关系）
@@ -17,11 +17,11 @@ model ChatSession {
 }
 
 model ChatMessage {
-    id                String            @id @default(cuid())
-    sessionId         String
-    previousMessageId String?
+    id                String            @id @default(cuid()) /// @zod.cuid()
+    sessionId         String /// @zod.cuid()
+    previousMessageId String? /// @zod.cuid().optional()
     role              MessageRole       @default(USER)
-    meta              Json?
+    meta              Json? /// @zod.optional()
     createdAt         DateTime          @default(now())
     session           ChatSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
     parts             ChatMessagePart[]
@@ -32,13 +32,14 @@ model ChatMessage {
 }
 
 model ChatMessagePart {
-    id        String      @id @default(cuid())
-    messageId String
+    id        String      @id @default(cuid()) /// @zod.cuid()
+    messageId String /// @zod.cuid()
     index     Int
-    type      String // 直接使用字符串保存UIMessage的类型
-    errorText String?
-    uiState   String?
-    state     Json?
+    // 直接使用字符串保存UIMessage的类型
+    type      String
+    errorText String? /// @zod.optional()
+    uiState   String? /// @zod.optional()
+    state     Json? /// @zod.optional()
     createdAt DateTime    @default(now())
     message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 

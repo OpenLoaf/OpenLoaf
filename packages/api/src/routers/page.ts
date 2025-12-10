@@ -1,127 +1,75 @@
-import { router, publicProcedure } from "../index";
-import prisma from "@teatime-ai/db";
-import type { Page, Prisma } from "@teatime-ai/db";
-import z from "zod";
+import { z } from "zod";
+import { t, shieldedProcedure } from "../index";
 
-// 定义zod schema
-export const pageIdInputSchema = z.string({ message: "Invalid ID" });
-export const pageCreateInputSchema = z.object({
-  title: z.string().optional(),
-  icon: z.string().optional(),
-  cover: z.string().optional(),
-  parentId: z.string().optional(),
-  workspaceId: z.string(),
-});
-export const pageUpdateInputSchema = z.object({
-  id: z.string(),
-  title: z.string().optional(),
-  icon: z.string().optional(),
-  cover: z.string().optional(),
-  parentId: z.string().optional(),
-  isExpanded: z.boolean().optional(),
-  workspaceId: z.string().optional(),
-});
-export const pageGetAllInputSchema = z.object({
-  workspaceId: z.string(),
-});
-
-// 导出类型
-export type PageIdInput = z.infer<typeof pageIdInputSchema>;
-export type PageCreateInput = z.infer<typeof pageCreateInputSchema>;
-export type PageUpdateInput = z.infer<typeof pageUpdateInputSchema>;
-
-type PageNode = Prisma.PageGetPayload<{
-  include: {
-    resources: true;
-  };
-}>;
-// 上级页面信息类型
-type ParentPageInfo = {
+// 定义PageTreeNode类型
+export interface PageTreeNode {
   id: string;
   title: string | null;
-};
+  icon: string | null;
+  cover: string | null;
+  isExpanded: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  parentId: string | null;
+  children: PageTreeNode[];
+  resources: any[];
+  workspaceId: string;
+}
 
-type PageWithRelations = Prisma.PageGetPayload<{
-  include: {
-    blocks: true;
-    resources: true;
-  };
-}> & {
-  // 添加上级页面列表字段
-  parentPages: ParentPageInfo[];
-};
-type PageTreeNode = Omit<PageNode, "children"> & { children: PageTreeNode[] };
+const PageTreeNodeSchema: z.ZodType<PageTreeNode> = z.object({
+  id: z.string(),
+  title: z.string().nullable(),
+  icon: z.string().nullable(),
+  cover: z.string().nullable(),
+  isExpanded: z.boolean(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+  parentId: z.string().nullable(),
+  children: z.lazy(() => PageTreeNodeSchema.array()),
+  resources: z.array(z.any()),
+  workspaceId: z.string(),
+});
 
-// 将扁平的页面列表转换为树形结构
-const buildTree = (pages: PageNode[]): PageTreeNode[] => {
-  const pageMap: Record<string, PageTreeNode> = {};
+// 输入schema定义
+const pageGetAllInputSchema = z.object({
+  workspaceId: z.string(),
+});
+
+// 构建树结构的函数
+function buildTree(pages: any[]): PageTreeNode[] {
+  const pageMap = new Map<string, PageTreeNode>();
   const rootPages: PageTreeNode[] = [];
 
-  // 首先将所有页面放入map中
+  // 首先将所有页面转换为PageTreeNode并存储在map中
   for (const page of pages) {
-    pageMap[page.id] = { ...page, children: [] };
+    const treeNode: PageTreeNode = {
+      ...page,
+      children: [],
+    };
+    pageMap.set(page.id, treeNode);
   }
 
-  // 然后构建树形结构
+  // 然后构建树结构
   for (const page of pages) {
-    const current = pageMap[page.id];
-
-    // 在严格索引模式下显式检查父节点是否存在
+    const treeNode = pageMap.get(page.id)!;
     if (page.parentId) {
-      const parent = pageMap[page.parentId];
-
-      if (parent && current) {
-        // 如果有父页面，将其添加到父页面的children数组中
-        parent.children.push(current);
-        continue;
+      const parent = pageMap.get(page.parentId);
+      if (parent) {
+        parent.children.push(treeNode);
       }
-    }
-
-    // 否则，将其添加到根页面数组中
-    if (current) {
-      rootPages.push(current);
+    } else {
+      rootPages.push(treeNode);
     }
   }
 
   return rootPages;
-};
+}
 
-// 递归获取所有上级页面
-const getParentPages = async (
-  pageId: string,
-  workspaceId: string
-): Promise<ParentPageInfo[]> => {
-  const parentPages: ParentPageInfo[] = [];
-
-  let currentPage = await prisma.page.findUnique({
-    where: { id: pageId, workspaceId },
-    select: { parentId: true },
-  });
-
-  while (currentPage?.parentId) {
-    const parentPage = await prisma.page.findUnique({
-      where: { id: currentPage.parentId, workspaceId },
-      select: { id: true, title: true, parentId: true },
-    });
-
-    if (parentPage) {
-      // 添加到数组开头，确保顺序是从根到当前页面的父页面
-      parentPages.unshift({ id: parentPage.id, title: parentPage.title });
-      currentPage = { parentId: parentPage.parentId };
-    } else {
-      break;
-    }
-  }
-
-  return parentPages;
-};
-
-export const pageRouter = router({
-  // 获取所有页面
-  getAll: publicProcedure
+export const pageRouter = t.router({
+  getAll: shieldedProcedure
     .input(pageGetAllInputSchema)
-    .query(async ({ input }): Promise<PageTreeNode[]> => {
-      const pages = await prisma.page.findMany({
+    .query(async ({ ctx, input }): Promise<PageTreeNode[]> => {
+      const pages = await ctx.prisma.page.findMany({
         where: { workspaceId: input.workspaceId },
         include: {
           resources: true,
@@ -130,62 +78,6 @@ export const pageRouter = router({
 
       return buildTree(pages);
     }),
-
-  // 获取单个页面
-  getById: publicProcedure
-    .input(z.object({ id: pageIdInputSchema, workspaceId: z.string() }))
-    .query(async ({ input }): Promise<PageWithRelations | null> => {
-      const page = await prisma.page.findUnique({
-        where: { id: input.id, workspaceId: input.workspaceId },
-        include: {
-          blocks: true,
-          resources: true,
-        },
-      });
-
-      if (!page) {
-        return null;
-      }
-
-      // 获取所有上级页面
-      const parentPages = await getParentPages(input.id, input.workspaceId);
-
-      // 添加parentPages字段到返回结果
-      return { ...page, parentPages };
-    }),
-
-  // 创建页面
-  create: publicProcedure
-    .input(pageCreateInputSchema)
-    .mutation(async ({ input }): Promise<Page> => {
-      const page = await prisma.page.create({
-        data: input,
-      });
-
-      return page;
-    }),
-
-  // 更新页面
-  update: publicProcedure
-    .input(pageUpdateInputSchema)
-    .mutation(async ({ input }): Promise<Page> => {
-      const { id, ...rest } = input;
-      const page = await prisma.page.update({
-        where: { id },
-        data: rest,
-      });
-
-      return page;
-    }),
-
-  // 删除页面
-  delete: publicProcedure
-    .input(pageIdInputSchema)
-    .mutation(async ({ input }): Promise<Page> => {
-      const page = await prisma.page.delete({
-        where: { id: input },
-      });
-
-      return page;
-    }),
 });
+
+export type PageRouter = typeof pageRouter;

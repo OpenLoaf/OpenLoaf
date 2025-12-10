@@ -1,0 +1,52 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "bun",
+      "request": "launch",
+      "name": "Bun: Debug File",
+      "program": "${file}",
+      "cwd": "${workspaceFolder}",
+      "runtimeArgs": ["--inspect"]
+    },
+    {
+      "type": "bun",
+      "request": "launch",
+      "name": "Bun: Debug Server",
+      "program": "${workspaceFolder}/apps/server/src/index.ts",
+      "cwd": "${workspaceFolder}/apps/server",
+      "runtimeArgs": ["--inspect", "run", "--hot"]
+    },
+    {
+      "type": "bun",
+      "request": "launch",
+      "name": "Bun: Debug Web",
+      "program": "${workspaceFolder}/apps/web/node_modules/next/dist/bin/next",
+      "runtime": "bun",
+      "args": ["dev", "--port", "3001"],
+      "cwd": "${workspaceFolder}/apps/web",
+      "stopOnEntry": false
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "React Scan",
+      "runtimeExecutable": "npx",
+      "args": ["react-scan@latest", "localhost:3001"],
+      "cwd": "${workspaceFolder}",
+      "stopOnEntry": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug Web & Server & Scan",
+      "configurations": ["Bun: Debug Web", "Bun: Debug Server", "React Scan"],
+      "stopAll": true
+    },
+    {
+      "name": "Debug Web & Server",
+      "configurations": ["Bun: Debug Web", "Bun: Debug Server"],
+      "stopAll": true
+    }
+  ]
+}

@@ -23,35 +23,45 @@ interface WorkspaceState {
 export const useWorkspace = () => {
   // 获取工作区列表
   const { data: workspaces = [], refetch: refetchWorkspaces } = useQuery(
-    trpc.workspace.getAll.queryOptions()
+    // trpc.workspace.getAll.queryOptions()
+    trpc.workspace.findManyWorkspace.queryOptions({
+      where: {isActive:true}
+    })
+    // trpc.workspace.getAll.queryOptions(),
   );
 
   // 获取当前激活的工作区
   const { data: activeWorkspace } = useQuery(
-    trpc.workspace.getActive.queryOptions()
+    trpc.workspace.findFirstWorkspace.queryOptions({
+      where: { isActive: true },
+    })
   );
 
   // 创建工作区的mutation
   const createWorkspaceMutation = useMutation(
-    trpc.workspace.create.mutationOptions()
+    trpc.workspace.createOneWorkspace.mutationOptions()
   );
 
   // 更新工作区的mutation
   const updateWorkspaceMutation = useMutation(
-    trpc.workspace.update.mutationOptions()
+    trpc.workspace.updateOneWorkspace.mutationOptions()
   );
 
   // 删除工作区的mutation
   const deleteWorkspaceMutation = useMutation(
-    trpc.workspace.delete.mutationOptions()
+    trpc.workspace.deleteOneWorkspace.mutationOptions()
   );
 
   // 设置激活的工作区
   const setActiveWorkspace = async (workspace: Workspace) => {
     try {
       await updateWorkspaceMutation.mutateAsync({
-        id: workspace.id,
-        isActive: true,
+        data: {
+          isActive: true,
+        },
+        where: {
+          id: workspace.id,
+        },
       });
 
       // 刷新工作区列表
@@ -65,7 +75,9 @@ export const useWorkspace = () => {
   const createWorkspace = async (name: string) => {
     try {
       await createWorkspaceMutation.mutateAsync({
-        name,
+        data: {
+          name,
+        },
       });
 
       // 刷新工作区列表
@@ -79,8 +91,10 @@ export const useWorkspace = () => {
   const updateWorkspace = async (id: string, data: Partial<Workspace>) => {
     try {
       await updateWorkspaceMutation.mutateAsync({
-        id,
-        ...data,
+        data,
+        where: {
+          id,
+        },
       });
 
       // 刷新工作区列表
@@ -93,7 +107,11 @@ export const useWorkspace = () => {
   // 删除工作区
   const deleteWorkspace = async (id: string) => {
     try {
-      await deleteWorkspaceMutation.mutateAsync(id);
+      await deleteWorkspaceMutation.mutateAsync({
+        where: {
+          id,
+        },
+      });
 
       // 刷新工作区列表
       refetchWorkspaces();

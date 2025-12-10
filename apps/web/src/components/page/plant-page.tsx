@@ -22,33 +22,20 @@ export default function PlantPage({ pageId }: PlantPageProps) {
   const activeTab = activeTabId ? getTabById(activeTabId) : undefined;
   const { activeWorkspace } = useWorkspace();
 
-  // 使用tRPC获取页面数据，包括parentPages
+  // 使用tRPC获取页面数据
   const { data: pageData, isLoading } = useQuery(
-    trpc.page.getById.queryOptions(
-      activeWorkspace && pageId
-        ? { id: pageId, workspaceId: activeWorkspace.id }
-        : skipToken
+    trpc.page.findUniquePage.queryOptions(
+      activeWorkspace && pageId ? { where: { id: pageId } } : skipToken
     )
   );
 
-  // 动态生成面包屑项，仅包含页面层级
-  const breadcrumbItems = [];
-
-  // 添加所有上级页面
-  if (pageData?.parentPages) {
-    pageData.parentPages.forEach((parentPage: any) => {
-      breadcrumbItems.push({
-        label: parentPage.title || "Untitled Page",
-        href: `/page/${parentPage.id}`,
-      });
-    });
-  }
-
-  // 添加当前页面
-  breadcrumbItems.push({
-    label: pageData?.title || activeTab?.title || "Plant Page",
-    isCurrent: true,
-  });
+  // 添加当前页面到面包屑
+  const breadcrumbItems = [
+    {
+      label: pageData?.title || activeTab?.title || "Plant Page",
+      isCurrent: true,
+    },
+  ];
 
   return (
     <div className="main-content h-full p-4 bg-background  rounded-lg">
@@ -60,7 +47,7 @@ export default function PlantPage({ pageId }: PlantPageProps) {
                 {item.isCurrent ? (
                   <BreadcrumbPage>{item.label}</BreadcrumbPage>
                 ) : (
-                  <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
+                  <BreadcrumbLink>{item.label}</BreadcrumbLink>
                 )}
               </BreadcrumbItem>
               {index < breadcrumbItems.length - 1 && <BreadcrumbSeparator />}
@@ -69,7 +56,7 @@ export default function PlantPage({ pageId }: PlantPageProps) {
         </BreadcrumbList>
       </Breadcrumb>
       <h1 className="text-xl font-bold mb-4">
-        {pageData?.title || activeTab ? activeTab.title : "Plant Page"}
+        {pageData?.title || (activeTab ? activeTab.title : "Plant Page")}
       </h1>
       <div className="h-[calc(100%-2rem)] rounded  p-4">
         {isLoading

@@ -11,19 +11,10 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { ChevronRight, FileText, MoreHorizontal } from "lucide-react";
-
-// 定义页面类型
-export interface Page {
-  id: string;
-  title: string | null;
-  icon: string | null;
-  isExpanded: boolean;
-  children: Page[];
-  resources: any[];
-}
+import type { PageTreeNode } from "@teatime-ai/api/routers/page";
 
 interface PageTreeMenuProps {
-  pages: Page[];
+  pages: PageTreeNode[];
   expandedPages: Record<string, boolean>;
   setExpandedPages: React.Dispatch<
     React.SetStateAction<Record<string, boolean>>
@@ -40,7 +31,7 @@ export const PageTreeMenu = ({
   const { addTab } = useTabs();
   const { activeWorkspace } = useWorkspace();
 
-  const handlePageClick = (page: Page) => {
+  const handlePageClick = (page: PageTreeNode) => {
     if (!activeWorkspace) return;
 
     addTab({

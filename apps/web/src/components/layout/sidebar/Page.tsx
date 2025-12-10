@@ -16,11 +16,13 @@ export const SidebarPage = () => {
   const { activeWorkspace } = useWorkspace();
 
   // 使用 trpc 接口获取页面树数据
-  const { data: pages = [] } = useQuery(
-    trpc.page.getAll.queryOptions(
+  const { data: pageTreeNodes = [] } = useQuery(
+    trpc.pageCustom.getAll.queryOptions(
       activeWorkspace ? { workspaceId: activeWorkspace.id } : skipToken
     )
   );
+
+  console.log("pageTreeNodes", pageTreeNodes);
 
   // 将状态提升到顶层组件，确保整个页面树只有一个状态管理
   const [expandedPages, setExpandedPages] = useState<Record<string, boolean>>(
@@ -31,7 +33,7 @@ export const SidebarPage = () => {
   const [isGroupExpanded, setIsGroupExpanded] = useState(true);
 
   // 使用 trpc 更新页面的 isExpanded 状态
-  const updatePage = useMutation(trpc.page.update.mutationOptions());
+  const updatePage = useMutation(trpc.page.updateOnePage.mutationOptions());
 
   return (
     <SidebarGroup>
@@ -45,7 +47,7 @@ export const SidebarPage = () => {
         <SidebarGroupContent>
           <SidebarMenu>
             <PageTreeMenu
-              pages={pages}
+              pages={pageTreeNodes}
               expandedPages={expandedPages}
               setExpandedPages={setExpandedPages}
               updatePage={updatePage}

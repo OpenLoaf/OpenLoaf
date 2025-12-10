@@ -1,0 +1,15 @@
+{
+  "withZod": true,
+  "contextPath": "../../api/src/context",
+  "withMiddleware": false,
+  "withShield": "../../api/src/permissions",
+  "trpcOptionsPath": "../../api/src/options",
+  "dateTimeStrategy": "date",
+  "withMeta": false,
+  "postman": false,
+  "postmanExamples": "skeleton",
+  "openapi": true,
+  "withRequestId": false,
+  "withLogging": false,
+  "withServices": false
+}

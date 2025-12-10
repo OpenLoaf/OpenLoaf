@@ -5,6 +5,21 @@ generator client {
   runtime      = "bun" // 使用Bun作为运行时
 }
 
+// generator zod {
+//   provider     = "prisma-zod-generator"
+//   output       = "../../../api/generated/zod"
+//   moduleFormat = "esm"
+//   runtime      = "bun"
+// }
+
+generator trpc {
+  provider     = "prisma-trpc-generator"
+  output       = "../../../api/generated"
+  config       = "./trpc.config.json"
+  moduleFormat = "esm"
+  runtime      = "bun"
+}
+
 datasource db {
   provider = "sqlite" // 使用SQLite数据库
 }

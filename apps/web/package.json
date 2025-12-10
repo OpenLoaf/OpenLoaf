@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port=3001",
+    "scan": "next dev --port=3001 & npx react-scan@latest localhost:3001",
     "build": "next build",
     "start": "next start",
     "tauri": "tauri",

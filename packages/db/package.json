@@ -8,24 +8,21 @@
     "./*": {
       "default": "./src/*.ts"
     },
-    "./prisma/generated/client": {
-      "types": "./prisma/generated/client.ts",
-      "default": "./prisma/generated/client.ts"
-    },
-    "./prisma/generated/enums": {
-      "types": "./prisma/generated/enums.ts",
-      "default": "./prisma/generated/enums.ts"
+    "./prisma/generated/*": {
+      "default": "./prisma/generated/*.ts"
     }
   },
   "scripts": {
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:generate": "prisma generate",
+    "db:generate": "DEBUG=prisma:* prisma generate ",
     "db:migrate": "prisma migrate dev"
   },
   "devDependencies": {
+    "@teatime-ai/config": "workspace:*",
     "prisma": "^7.0.1",
-    "@teatime-ai/config": "workspace:*"
+    "prisma-trpc-generator": "^3.0.1",
+    "prisma-zod-generator": "^2.1.2"
   },
   "peerDependencies": {
     "typescript": "^5"
