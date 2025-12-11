@@ -15,6 +15,7 @@ export const HeaderTabs = () => {
     getWorkspaceTabs,
     tabs,
     reorderTabs,
+    setTabPinned,
   } = useTabs();
   const { activeWorkspace } = useWorkspace();
   const tabsListRef = useRef<HTMLDivElement>(null);
@@ -31,6 +32,8 @@ export const HeaderTabs = () => {
   const workspaceTabs = activeWorkspace
     ? getWorkspaceTabs(activeWorkspace.id)
     : [];
+  const pinnedTabs = workspaceTabs.filter((tab) => tab.isPin);
+  const regularTabs = workspaceTabs.filter((tab) => !tab.isPin);
 
   // 当工作区激活且没有标签页时，添加默认标签页
   useEffect(() => {
@@ -82,7 +85,7 @@ export const HeaderTabs = () => {
 
   const handleTabDragOver = (
     event: DragEvent<HTMLButtonElement>,
-    targetTabId: string
+    _targetTabId: string
   ) => {
     event.preventDefault();
     if (!activeWorkspace || !draggingTabId) return;
@@ -93,6 +96,37 @@ export const HeaderTabs = () => {
 
     const rect = target.getBoundingClientRect();
     const tabsListRect = tabsList.getBoundingClientRect();
+    const targetPinned = target.dataset.pinned === "true";
+    const sourcePinned = workspaceTabs.find(
+      (tab) => tab.id === draggingTabId
+    )?.isPin;
+
+    if (!sourcePinned && targetPinned) {
+      const pinnedElements = tabsList.querySelectorAll('[data-pinned="true"]');
+      const lastPinned = pinnedElements[
+        pinnedElements.length - 1
+      ] as HTMLButtonElement | null;
+      if (lastPinned) {
+        const lastRect = lastPinned.getBoundingClientRect();
+        setDropPlacement("before");
+        setDropIndicatorLeft(lastRect.right - tabsListRect.left);
+      }
+      return;
+    }
+
+    if (sourcePinned && !targetPinned) {
+      const pinnedElements = tabsList.querySelectorAll('[data-pinned="true"]');
+      const lastPinned = pinnedElements[
+        pinnedElements.length - 1
+      ] as HTMLButtonElement | null;
+      if (lastPinned) {
+        const lastRect = lastPinned.getBoundingClientRect();
+        setDropPlacement("after");
+        setDropIndicatorLeft(lastRect.right - tabsListRect.left);
+      }
+      return;
+    }
+
     const isAfter = event.clientX > rect.left + rect.width / 2;
 
     setDropPlacement(isAfter ? "after" : "before");
@@ -104,6 +138,10 @@ export const HeaderTabs = () => {
   const handleTabDragEnd = () => {
     setDraggingTabId(null);
     setDropIndicatorLeft(null);
+  };
+
+  const handleTogglePin = (tabId: string, pin: boolean) => {
+    setTabPinned(tabId, pin);
   };
 
   useEffect(() => {
@@ -185,7 +223,7 @@ export const HeaderTabs = () => {
           />
         )}
 
-        {workspaceTabs.map((tab) => (
+        {pinnedTabs.map((tab) => (
           <TabMenu
             key={tab.id}
             tab={tab}
@@ -198,6 +236,31 @@ export const HeaderTabs = () => {
             onDrop={handleTabDrop}
             onDragEnd={handleTabDragEnd}
             isDragging={draggingTabId === tab.id}
+            isPinned={tab.isPin}
+            onTogglePin={handleTogglePin}
+          />
+        ))}
+        {pinnedTabs.length > 0 && regularTabs.length > 0 && (
+          <div
+            className="h-7 w-px bg-sidebar-border ml-1 mr-2 select-none"
+            aria-hidden
+          />
+        )}
+        {regularTabs.map((tab) => (
+          <TabMenu
+            key={tab.id}
+            tab={tab}
+            activeTabId={activeTabId}
+            activeTabRef={activeTabRef}
+            closeTab={closeTab}
+            workspaceTabs={workspaceTabs}
+            onDragStart={handleTabDragStart}
+            onDragOver={handleTabDragOver}
+            onDrop={handleTabDrop}
+            onDragEnd={handleTabDragEnd}
+            isDragging={draggingTabId === tab.id}
+            isPinned={tab.isPin}
+            onTogglePin={handleTogglePin}
           />
         ))}
         {/* 添加plus按钮 */}

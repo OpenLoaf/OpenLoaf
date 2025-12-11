@@ -10,7 +10,7 @@ import {
 import {
   FileText,
   Info,
-  Layout,
+  Sparkles,
   CheckSquare,
   Database,
   Zap,
@@ -132,7 +132,7 @@ export default function PlantHeader({
               )}
             >
               <span className={tabIconWrapperClass}>
-                <Layout className={tabIconClass} />
+                <Sparkles className={tabIconClass} />
               </span>
               <span
                 className={cn(

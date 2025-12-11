@@ -21,6 +21,7 @@ export interface Tab {
   rightPanel?: PanelConfig;
   leftWidth?: number;
   workspaceId: string;
+  isPin?: boolean;
 }
 
 interface TabsState {
@@ -43,6 +44,7 @@ interface TabsState {
     targetTabId: string,
     position?: "before" | "after"
   ) => void;
+  setTabPinned: (tabId: string, isPin: boolean) => void;
 }
 
 const STORAGE_KEY = "tabs-storage";
@@ -104,6 +106,21 @@ const applyPanelUpdatesForTab = (
   return { tabs, updatedLeftPanel, updatedRightPanel };
 };
 
+const orderWorkspaceTabs = (tabs: Tab[]) => {
+  const pinned: Tab[] = [];
+  const regular: Tab[] = [];
+
+  tabs.forEach((tab) => {
+    if (tab.isPin) {
+      pinned.push(tab);
+    } else {
+      regular.push(tab);
+    }
+  });
+
+  return [...pinned, ...regular];
+};
+
 export const useTabs = create<TabsState>()(
   persist(
     (set, get) => ({
@@ -122,6 +139,7 @@ export const useTabs = create<TabsState>()(
             ...tabData,
             id: tabId,
             leftWidth: tabData.leftWidth || 50,
+            isPin: tabData.isPin ?? false,
           });
 
           // 检查标签页是否已存在
@@ -170,7 +188,7 @@ export const useTabs = create<TabsState>()(
         set((state) => {
           // 获取要关闭的标签页的工作区ID
           const tabToClose = state.tabs.find((tab) => tab.id === tabId);
-          if (!tabToClose) return state;
+          if (!tabToClose || tabToClose.isPin) return state;
 
           // 获取该工作区的所有标签页
           const workspaceTabs = state.tabs.filter(
@@ -271,8 +289,8 @@ export const useTabs = create<TabsState>()(
 
       // 获取当前工作区的标签列表
       getWorkspaceTabs: (workspaceId) => {
-        const workspaceTabs = get().tabs.filter(
-          (tab) => tab.workspaceId === workspaceId
+        const workspaceTabs = orderWorkspaceTabs(
+          get().tabs.filter((tab) => tab.workspaceId === workspaceId)
         );
 
         // 如果没有标签页，返回一个默认标签页
@@ -282,6 +300,7 @@ export const useTabs = create<TabsState>()(
             title: "New Page",
             workspaceId,
             rightPanel: createDefaultRightPanel(),
+            isPin: false,
           };
           return [defaultTab];
         }
@@ -293,9 +312,10 @@ export const useTabs = create<TabsState>()(
         set((state) => {
           if (sourceTabId === targetTabId) return state;
 
-          const workspaceTabs = state.tabs.filter(
-            (tab) => tab.workspaceId === workspaceId
+          const workspaceTabs = orderWorkspaceTabs(
+            state.tabs.filter((tab) => tab.workspaceId === workspaceId)
           );
+          const pinnedCount = workspaceTabs.filter((tab) => tab.isPin).length;
 
           const fromIndex = workspaceTabs.findIndex(
             (tab) => tab.id === sourceTabId
@@ -305,6 +325,9 @@ export const useTabs = create<TabsState>()(
           );
 
           if (fromIndex === -1 || toIndex === -1) return state;
+
+          const sourcePinned = workspaceTabs[fromIndex]?.isPin;
+          const targetPinned = workspaceTabs[toIndex]?.isPin;
 
           const reordered = [...workspaceTabs];
           const [moved] = reordered.splice(fromIndex, 1);
@@ -319,13 +342,50 @@ export const useTabs = create<TabsState>()(
             targetIndex += 1;
           }
 
-          const boundedIndex = Math.max(0, Math.min(targetIndex, reordered.length));
+          // keep pinned tabs before unpinned tabs
+          if (sourcePinned && !targetPinned) {
+            targetIndex = Math.min(targetIndex, Math.max(0, pinnedCount - 1));
+          } else if (!sourcePinned && targetPinned) {
+            targetIndex = Math.max(targetIndex, pinnedCount);
+          }
+
+          // enforce bounds
+          const lowerBound = sourcePinned ? 0 : pinnedCount;
+          const upperBound = sourcePinned ? Math.max(pinnedCount - 1, 0) : reordered.length;
+          const boundedIndex = Math.max(
+            lowerBound,
+            Math.min(targetIndex, upperBound)
+          );
           reordered.splice(boundedIndex, 0, moved);
 
           // rebuild tabs keeping other workspaces in place
           const workspaceQueue = [...reordered];
           const newTabs = state.tabs.map((tab) =>
             tab.workspaceId !== workspaceId ? tab : (workspaceQueue.shift() as Tab)
+          );
+
+          return { tabs: newTabs };
+        });
+      },
+
+      setTabPinned: (tabId, isPin) => {
+        set((state) => {
+          const target = state.tabs.find((tab) => tab.id === tabId);
+          if (!target) return state;
+
+          const updatedTabs = state.tabs.map((tab) =>
+            tab.id === tabId ? { ...tab, isPin } : tab
+          );
+
+          const workspaceTabs = orderWorkspaceTabs(
+            updatedTabs.filter((tab) => tab.workspaceId === target.workspaceId)
+          );
+
+          const workspaceQueue = [...workspaceTabs];
+          const newTabs = updatedTabs.map((tab) =>
+            tab.workspaceId !== target.workspaceId
+              ? tab
+              : (workspaceQueue.shift() as Tab)
           );
 
           return { tabs: newTabs };

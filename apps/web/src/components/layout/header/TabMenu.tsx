@@ -21,6 +21,8 @@ interface TabMenuProps {
   onDrop?: (tabId: string) => void;
   onDragEnd?: () => void;
   isDragging?: boolean;
+  isPinned?: boolean;
+  onTogglePin?: (tabId: string, pin: boolean) => void;
 }
 
 export const TabMenu = ({
@@ -34,6 +36,8 @@ export const TabMenu = ({
   onDrop,
   onDragEnd,
   isDragging = false,
+  isPinned = false,
+  onTogglePin,
 }: TabMenuProps) => {
   return (
     <ContextMenu>
@@ -45,6 +49,7 @@ export const TabMenu = ({
           ref={tab.id === activeTabId ? activeTabRef : null}
           value={tab.id}
           draggable
+          data-pinned={isPinned ? "true" : "false"}
           onDragStart={(event) => {
             event.dataTransfer.effectAllowed = "move";
             onDragStart?.(tab.id);
@@ -58,54 +63,64 @@ export const TabMenu = ({
             onDrop?.(tab.id);
           }}
           onDragEnd={onDragEnd}
-          aria-grabbed={isDragging}
-          className="h-7 px-1.5 text-xs rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:border-transparent aria-selected:shadow-none pr-2 relative z-10 min-w-[130px] max-w-[130px] flex items-center justify-between"
+          className={`h-7 px-1.5 text-xs rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:border-transparent aria-selected:shadow-none pr-2 relative z-10 flex items-center justify-between ${
+            isPinned ? "max-w-[200px]" : "min-w-[130px] max-w-[130px]"
+          }`}
         >
           <span className="truncate flex-1">{tab.title || "Untitled"}</span>
-          <span
-            className={`ml-auto h-6 w-6 transition-opacity ${workspaceTabs.length <= 1 ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'} relative z-10 p-0 cursor-pointer flex items-center justify-center rounded-full hover:bg-background`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (workspaceTabs.length > 1) {
-                closeTab(tab.id);
-              }
-            }}
-            aria-label="Close tab"
-            role="button"
-            style={{ pointerEvents: workspaceTabs.length <= 1 ? 'none' : 'auto' }}
-          >
-            <X className="h-3.5 w-3.5" />
-          </span>
+          {!isPinned && (
+            <span
+              className={`ml-auto h-6 w-6 transition-opacity ${workspaceTabs.length <= 1 ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'} relative z-10 p-0 cursor-pointer flex items-center justify-center rounded-full hover:bg-background`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (workspaceTabs.length > 1) {
+                  closeTab(tab.id);
+                }
+              }}
+              aria-label="Close tab"
+              role="button"
+              style={{ pointerEvents: workspaceTabs.length <= 1 ? 'none' : 'auto' }}
+            >
+              <X className="h-3.5 w-3.5" />
+            </span>
+          )}
         </TabsTrigger>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
-        <ContextMenuItem 
+        <ContextMenuItem onClick={() => onTogglePin?.(tab.id, !isPinned)}>
+          {isPinned ? "Unpin" : "Pin"}
+        </ContextMenuItem>
+        <ContextMenuItem
           onClick={() => {
-            if (workspaceTabs.length > 1) {
+            if (workspaceTabs.length > 1 && !isPinned) {
               closeTab(tab.id);
             }
           }}
-          disabled={workspaceTabs.length <= 1}
+          disabled={workspaceTabs.length <= 1 || isPinned}
         >
           Close
           <ContextMenuShortcut>⌘W</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {
-            const tabsToClose = workspaceTabs.filter((t) => t.id !== tab.id);
+            const tabsToClose = workspaceTabs.filter(
+              (t) => t.id !== tab.id && !t.isPin
+            );
             tabsToClose.forEach((t) => closeTab(t.id));
           }}
-          disabled={workspaceTabs.length <= 1}
+          disabled={workspaceTabs.filter((t) => !t.isPin).length <= 1}
         >
           Close Others
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {
             if (workspaceTabs.length > 1) {
-              workspaceTabs.forEach((t) => closeTab(t.id));
+              workspaceTabs.forEach((t) => {
+                if (!t.isPin) closeTab(t.id);
+              });
             }
           }}
-          disabled={workspaceTabs.length <= 1}
+          disabled={workspaceTabs.filter((t) => !t.isPin).length === 0}
         >
           Close All
         </ContextMenuItem>
