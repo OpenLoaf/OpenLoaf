@@ -8,6 +8,11 @@ interface PanelConfig {
   hidden?: boolean;
 }
 
+type PanelUpdates = Partial<{
+  leftPanel: Partial<PanelConfig>;
+  rightPanel: Partial<PanelConfig>;
+}>;
+
 // 定义标签页类型
 export interface Tab {
   id: string;
@@ -20,54 +25,90 @@ export interface Tab {
 interface TabsState {
   tabs: Tab[];
   activeTabId: string | null;
+  activeLeftPanel?: PanelConfig;
+  activeRightPanel?: PanelConfig;
   addTab: (tab: Omit<Tab, "id"> & { id?: string; createNew?: boolean }) => void;
   closeTab: (tabId: string) => void;
   setActiveTab: (tabId: string) => void;
-  updateCurrentTabPanels: (
-    panels: Partial<{
-      leftPanel: Partial<PanelConfig>;
-      rightPanel: Partial<PanelConfig>;
-    }>
-  ) => void;
-  updateTabPanels: (
-    tabId: string,
-    panels: Partial<{
-      leftPanel: Partial<PanelConfig>;
-      rightPanel: Partial<PanelConfig>;
-    }>
-  ) => void;
+  updateCurrentTabPanels: (panels: PanelUpdates) => void;
+  updateTabPanels: (tabId: string, panels: PanelUpdates) => void;
   getTabById: (tabId: string) => Tab | undefined;
-  getShowPanelRightButton: () => boolean;
   getWorkspaceTabs: (workspaceId: string) => Tab[];
 }
 
 const STORAGE_KEY = "tabs-storage";
+
+const createDefaultRightPanel = (): PanelConfig => ({
+  component: "ai-chat",
+  params: {},
+  hidden: false,
+});
+
+const withPanelDefaults = <
+  T extends { leftPanel?: PanelConfig; rightPanel?: PanelConfig }
+>(
+  tab: T
+) => ({
+  ...tab,
+  rightPanel: tab.rightPanel || createDefaultRightPanel(),
+});
+
+const mergePanels = (tab: Tab, panels: PanelUpdates): Tab => {
+  const normalizedTab = withPanelDefaults(tab);
+
+  const mergedLeftPanel = panels.leftPanel
+    ? normalizedTab.leftPanel
+      ? { ...normalizedTab.leftPanel, ...panels.leftPanel }
+      : (panels.leftPanel as PanelConfig)
+    : normalizedTab.leftPanel;
+
+  return {
+    ...normalizedTab,
+    leftPanel: mergedLeftPanel,
+    rightPanel: panels.rightPanel
+      ? { ...normalizedTab.rightPanel, ...panels.rightPanel }
+      : normalizedTab.rightPanel,
+  };
+};
+
+const applyPanelUpdatesForTab = (
+  state: TabsState,
+  targetTabId: string,
+  panels: PanelUpdates
+) => {
+  let updatedLeftPanel: PanelConfig | undefined;
+  let updatedRightPanel: PanelConfig | undefined;
+
+  const tabs = state.tabs.map((tab) => {
+    if (tab.id !== targetTabId) return tab;
+
+    const updatedTab = mergePanels(tab, panels);
+
+    if (targetTabId === state.activeTabId) {
+      updatedLeftPanel = updatedTab.leftPanel;
+      updatedRightPanel = updatedTab.rightPanel;
+    }
+
+    return updatedTab;
+  });
+
+  return { tabs, updatedLeftPanel, updatedRightPanel };
+};
 
 export const useTabs = create<TabsState>()(
   persist(
     (set, get) => ({
       tabs: [],
       activeTabId: null,
+      activeLeftPanel: undefined,
+      activeRightPanel: undefined,
 
       addTab: (tab) => {
         set((state) => {
           const { id, createNew = false, ...tabData } = tab;
           const tabId = id || `tab-${Date.now()}`;
 
-          // 确保leftPanel和rightPanel已经被正确初始化
-          const safeTabData = {
-            ...tabData,
-            leftPanel: tabData.leftPanel || {
-              component: "plant-page",
-              params: {},
-              hidden: false,
-            },
-            rightPanel: tabData.rightPanel || {
-              component: "ai-chat",
-              params: {},
-              hidden: false,
-            },
-          };
+          const normalizedTab = withPanelDefaults({ ...tabData, id: tabId });
 
           // 检查标签页是否已存在
           const existingTabIndex = state.tabs.findIndex((t) => t.id === tabId);
@@ -75,10 +116,12 @@ export const useTabs = create<TabsState>()(
           // 如果存在，更新该标签页并设为活跃
           if (existingTabIndex !== -1) {
             const newTabs = [...state.tabs];
-            newTabs[existingTabIndex] = { id: tabId, ...safeTabData };
+            newTabs[existingTabIndex] = normalizedTab;
             return {
               tabs: newTabs,
               activeTabId: tabId,
+              activeLeftPanel: normalizedTab.leftPanel,
+              activeRightPanel: normalizedTab.rightPanel,
             };
           }
 
@@ -89,24 +132,40 @@ export const useTabs = create<TabsState>()(
             );
             if (activeTabIndex !== -1) {
               const newTabs = [...state.tabs];
-              newTabs[activeTabIndex] = { id: tabId, ...safeTabData };
+              newTabs[activeTabIndex] = normalizedTab;
               return {
                 tabs: newTabs,
                 activeTabId: tabId,
+                activeLeftPanel: normalizedTab.leftPanel,
+                activeRightPanel: normalizedTab.rightPanel,
               };
             }
           }
 
           // 否则创建新标签页
           return {
-            tabs: [...state.tabs, { id: tabId, ...safeTabData }],
+            tabs: [...state.tabs, normalizedTab],
             activeTabId: tabId,
+            activeLeftPanel: normalizedTab.leftPanel,
+            activeRightPanel: normalizedTab.rightPanel,
           };
         });
       },
 
       closeTab: (tabId) => {
         set((state) => {
+          // 获取要关闭的标签页的工作区ID
+          const tabToClose = state.tabs.find((tab) => tab.id === tabId);
+          if (!tabToClose) return state;
+
+          // 获取该工作区的所有标签页
+          const workspaceTabs = state.tabs.filter(
+            (tab) => tab.workspaceId === tabToClose.workspaceId
+          );
+
+          // 如果该工作区只有一个标签页，不允许关闭
+          if (workspaceTabs.length <= 1) return state;
+
           const newTabs = state.tabs.filter((tab) => tab.id !== tabId);
           let newActiveTabId = state.activeTabId;
 
@@ -116,92 +175,57 @@ export const useTabs = create<TabsState>()(
               newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
           }
 
+          // 获取新的活跃标签页
+          const newActiveTab = newTabs.find((tab) => tab.id === newActiveTabId);
+
           return {
             tabs: newTabs,
             activeTabId: newActiveTabId,
+            activeLeftPanel: newActiveTab?.leftPanel,
+            activeRightPanel: newActiveTab?.rightPanel,
           };
         });
       },
 
       setActiveTab: (tabId) => {
-        set({ activeTabId: tabId });
+        const tab = get().tabs.find((t) => t.id === tabId);
+        set({
+          activeTabId: tabId,
+          activeLeftPanel: tab?.leftPanel,
+          activeRightPanel: tab?.rightPanel || createDefaultRightPanel(),
+        });
       },
 
       updateCurrentTabPanels: (panels) => {
         set((state) => {
           if (!state.activeTabId) return state;
 
-          const newTabs = state.tabs.map((tab) => {
-            if (tab.id === state.activeTabId) {
-              // 确保tab的左右面板已经被正确初始化
-              const safeTab = {
-                ...tab,
-                leftPanel: tab.leftPanel || {
-                  component: "plant-page",
-                  params: {},
-                  hidden: false,
-                },
-                rightPanel: tab.rightPanel || {
-                  component: "ai-chat",
-                  params: {},
-                  hidden: false,
-                },
-              };
-
-              return {
-                ...safeTab,
-                leftPanel: panels.leftPanel
-                  ? { ...safeTab.leftPanel, ...panels.leftPanel }
-                  : safeTab.leftPanel,
-                rightPanel: panels.rightPanel
-                  ? { ...safeTab.rightPanel, ...panels.rightPanel }
-                  : safeTab.rightPanel,
-              };
-            }
-            return tab;
-          });
+          const { tabs, updatedLeftPanel, updatedRightPanel } =
+            applyPanelUpdatesForTab(state, state.activeTabId, panels);
 
           return {
-            tabs: newTabs,
+            tabs,
+            activeLeftPanel: updatedLeftPanel,
+            activeRightPanel: updatedRightPanel,
           };
         });
       },
 
       updateTabPanels: (tabId, panels) => {
         set((state) => {
-          const newTabs = state.tabs.map((tab) => {
-            if (tab.id === tabId) {
-              // 确保tab的左右面板已经被正确初始化
-              const safeTab = {
-                ...tab,
-                leftPanel: tab.leftPanel || {
-                  component: "plant-page",
-                  params: {},
-                  hidden: false,
-                },
-                rightPanel: tab.rightPanel || {
-                  component: "ai-chat",
-                  params: {},
-                  hidden: false,
-                },
-              };
+          const { tabs, updatedLeftPanel, updatedRightPanel } =
+            applyPanelUpdatesForTab(state, tabId, panels);
 
-              return {
-                ...safeTab,
-                leftPanel: panels.leftPanel
-                  ? { ...safeTab.leftPanel, ...panels.leftPanel }
-                  : safeTab.leftPanel,
-                rightPanel: panels.rightPanel
-                  ? { ...safeTab.rightPanel, ...panels.rightPanel }
-                  : safeTab.rightPanel,
-              };
-            }
-            return tab;
-          });
+          const result: Partial<TabsState> = { tabs };
 
-          return {
-            tabs: newTabs,
-          };
+          if (updatedLeftPanel) {
+            result.activeLeftPanel = updatedLeftPanel;
+          }
+          if (updatedRightPanel) {
+            result.activeRightPanel = updatedRightPanel;
+          }
+
+          return result;
         });
       },
 
@@ -209,34 +233,24 @@ export const useTabs = create<TabsState>()(
         return get().tabs.find((tab) => tab.id === tabId);
       },
 
-      getShowPanelRightButton: () => {
-        const state = get();
-        const activeTab = state.tabs.find(
-          (tab) => tab.id === state.activeTabId
-        );
-
-        // 如果没有激活的tab，返回false
-        if (!activeTab) return false;
-
-        const { leftPanel, rightPanel } = activeTab;
-
-        // 1. 检查rightPanel是否存在且有内容
-        const hasRightContent = Boolean(
-          rightPanel &&
-            rightPanel.component &&
-            rightPanel.component.trim() !== ""
-        );
-
-        // 2. 检查leftPanel是否不存在或为hidden
-        const isLeftPanelHiddenOrMissing = !leftPanel || leftPanel.hidden;
-
-        // 3. 除非leftPanel为hidden或不存在，否则只要有rightPanel就显示按钮
-        return Boolean(hasRightContent && !isLeftPanelHiddenOrMissing);
-      },
-
       // 获取当前工作区的标签列表
       getWorkspaceTabs: (workspaceId) => {
-        return get().tabs.filter((tab) => tab.workspaceId === workspaceId);
+        const workspaceTabs = get().tabs.filter(
+          (tab) => tab.workspaceId === workspaceId
+        );
+
+        // 如果没有标签页，返回一个默认标签页
+        if (workspaceTabs.length === 0) {
+          const defaultTab: Tab = {
+            id: `default-tab-${workspaceId}`,
+            title: "New Page",
+            workspaceId,
+            rightPanel: createDefaultRightPanel(),
+          };
+          return [defaultTab];
+        }
+
+        return workspaceTabs;
       },
     }),
     {

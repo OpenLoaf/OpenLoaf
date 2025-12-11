@@ -37,20 +37,30 @@ export const TabMenu = ({
         >
           <span className="truncate flex-1">{tab.title || "Untitled"}</span>
           <span
-            className="ml-auto h-6 w-6 transition-opacity opacity-0 group-hover:opacity-100 relative z-10 p-0 cursor-pointer flex items-center justify-center rounded-full hover:bg-background"
+            className={`ml-auto h-6 w-6 transition-opacity ${workspaceTabs.length <= 1 ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'} relative z-10 p-0 cursor-pointer flex items-center justify-center rounded-full hover:bg-background`}
             onClick={(e) => {
               e.stopPropagation();
-              closeTab(tab.id);
+              if (workspaceTabs.length > 1) {
+                closeTab(tab.id);
+              }
             }}
             aria-label="Close tab"
             role="button"
+            style={{ pointerEvents: workspaceTabs.length <= 1 ? 'none' : 'auto' }}
           >
             <X className="h-3.5 w-3.5" />
           </span>
         </TabsTrigger>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
-        <ContextMenuItem onClick={() => closeTab(tab.id)}>
+        <ContextMenuItem 
+          onClick={() => {
+            if (workspaceTabs.length > 1) {
+              closeTab(tab.id);
+            }
+          }}
+          disabled={workspaceTabs.length <= 1}
+        >
           Close
           <ContextMenuShortcut>⌘W</ContextMenuShortcut>
         </ContextMenuItem>
@@ -65,8 +75,11 @@ export const TabMenu = ({
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {
-            workspaceTabs.forEach((t) => closeTab(t.id));
+            if (workspaceTabs.length > 1) {
+              workspaceTabs.forEach((t) => closeTab(t.id));
+            }
           }}
+          disabled={workspaceTabs.length <= 1}
         >
           Close All
         </ContextMenuItem>

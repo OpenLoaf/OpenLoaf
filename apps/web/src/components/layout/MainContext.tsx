@@ -10,9 +10,12 @@ export const MainContent: React.FC<{ className?: string }> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [leftWidth, setLeftWidth] = useState(50);
   const dividerRef = useRef<HTMLDivElement>(null);
-  const { activeTabId, getTabById } = useTabs();
+  const { activeLeftPanel, activeRightPanel } = useTabs();
 
-  const activeTab = activeTabId ? getTabById(activeTabId) : undefined;
+  const hasLeftPanel = Boolean(activeLeftPanel);
+  const hasRightPanel = Boolean(activeRightPanel);
+  const leftHidden = activeLeftPanel?.hidden ?? false;
+  const rightHidden = activeRightPanel?.hidden ?? false;
 
   // 组件映射表
   const ComponentMap: Record<string, React.ComponentType<any>> = {
@@ -32,23 +35,6 @@ export const MainContent: React.FC<{ className?: string }> = ({
     }
     return <Component {...params} />;
   };
-
-  // 确保activeTab的左右面板已经被正确初始化
-  const safeActiveTab = activeTab
-    ? {
-        ...activeTab,
-        leftPanel: activeTab.leftPanel || {
-          component: "plant-page",
-          params: {},
-          hidden: false,
-        },
-        rightPanel: activeTab.rightPanel || {
-          component: "ai-chat",
-          params: {},
-          hidden: false,
-        },
-      }
-    : undefined;
 
   const handleMouseDown = (_e: React.MouseEvent) => {
     setIsDragging(true);
@@ -86,72 +72,70 @@ export const MainContent: React.FC<{ className?: string }> = ({
     <div
       className={cn("flex h-full w-full overflow-hidden bg-sidebar", className)}
     >
-      {/* 只有当leftPanel不隐藏时才显示 */}
-      {safeActiveTab ? (
+      {hasLeftPanel || hasRightPanel ? (
         <>
           {/* 左侧面板 */}
-          <div
-            className={`flex flex-col bg-background  rounded-xl max-h-screen transition-all duration-300 ease-in-out overflow-hidden ${
-              isDragging ? "transition-none" : ""
-            } ${
-              safeActiveTab.leftPanel.hidden
-                ? "opacity-0 invisible pointer-events-none w-0"
-                : "opacity-100 visible pointer-events-auto p-4 pr-2"
-            }`}
-            style={{
-              width: safeActiveTab.leftPanel.hidden
-                ? "0%"
-                : safeActiveTab.rightPanel.hidden
-                ? "100%"
-                : `${leftWidth}%`,
-            }}
-          >
-            {renderPanel(
-              safeActiveTab.leftPanel.component,
-              safeActiveTab.leftPanel.params
-            )}
-          </div>
+          {activeLeftPanel && (
+            <div
+              className={`flex flex-col bg-background  rounded-xl max-h-screen transition-all duration-300 ease-in-out overflow-hidden ${
+                isDragging ? "transition-none" : ""
+              } ${
+                leftHidden
+                  ? "opacity-0 invisible pointer-events-none w-0"
+                  : "opacity-100 visible pointer-events-auto p-4 pr-2"
+              }`}
+              style={{
+                width: leftHidden
+                  ? "0%"
+                  : rightHidden
+                  ? "100%"
+              : `${leftWidth}%`,
+              }}
+            >
+              {renderPanel(activeLeftPanel.component, activeLeftPanel.params)}
+            </div>
+          )}
 
-          {/* 只有当左右面板都不隐藏时才显示分隔线 */}
-          <div
-            ref={dividerRef}
-            className={`bg-sidebar rounded-4xl cursor-col-resize hover:bg-primary/10 transition-all duration-200 flex items-center justify-center ${
-              !safeActiveTab.leftPanel.hidden &&
-              !safeActiveTab.rightPanel.hidden
-                ? "opacity-100 visible pointer-events-auto w-2.5 "
-                : "opacity-0 invisible pointer-events-none "
-            }`}
-            onMouseDown={handleMouseDown}
-          >
-            <div className="w-1 h-6 bg-muted/70 rounded-full" />
-          </div>
+          {/* 只有当左右面板都存在且不隐藏时才显示分隔线 */}
+          {activeLeftPanel &&
+            activeRightPanel &&
+            !leftHidden &&
+            !rightHidden && (
+            <div
+              ref={dividerRef}
+              className={`bg-sidebar rounded-4xl cursor-col-resize hover:bg-primary/10 transition-all duration-200 flex items-center justify-center ${
+                isDragging ? "transition-none" : ""
+              } opacity-100 visible pointer-events-auto w-2.5`}
+              onMouseDown={handleMouseDown}
+            >
+              <div className="w-1 h-6 bg-muted/70 rounded-full" />
+            </div>
+          )}
 
           {/* 右侧面板 */}
-          <div
-            className={`bg-background rounded-xl flex-1 transition-all duration-300 ease-in-out overflow-hidden ${
-              isDragging ? "transition-none" : ""
-            } ${
-              safeActiveTab.rightPanel.hidden
-                ? "opacity-0 invisible pointer-events-none w-0 "
-                : "opacity-100 visible pointer-events-auto  p-4"
-            }`}
-            style={{
-              width: safeActiveTab.leftPanel.hidden ? "100%" : undefined,
-            }}
-          >
-            {renderPanel(
-              safeActiveTab.rightPanel.component,
-              safeActiveTab.rightPanel.params
-            )}
-          </div>
+          {activeRightPanel && (
+            <div
+              className={`bg-background rounded-xl flex-1 transition-all duration-300 ease-in-out overflow-hidden ${
+                isDragging ? "transition-none" : ""
+              } ${
+                rightHidden
+                  ? "opacity-0 invisible pointer-events-none w-0 "
+                  : "opacity-100 visible pointer-events-auto  p-4"
+              }`}
+              style={{
+                width: !hasLeftPanel || leftHidden ? "100%" : undefined,
+              }}
+            >
+              {renderPanel(activeRightPanel.component, activeRightPanel.params)}
+            </div>
+          )}
 
           {/* 如果左右面板都隐藏，显示提示信息 */}
-          {safeActiveTab.leftPanel.hidden &&
-            safeActiveTab.rightPanel.hidden && (
-              <div className="w-full h-full flex items-center justify-center text-muted">
-                All panels are hidden
-              </div>
-            )}
+          {leftHidden && rightHidden && (
+            <div className="w-full h-full flex items-center justify-center text-muted">
+              All panels are hidden
+            </div>
+          )}
         </>
       ) : (
         <div className="w-full h-full flex items-center justify-center text-muted">

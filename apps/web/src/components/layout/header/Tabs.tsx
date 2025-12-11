@@ -7,8 +7,14 @@ import { useEffect, useRef } from "react";
 import { TabMenu } from "./TabMenu";
 
 export const HeaderTabs = () => {
-  const { activeTabId, setActiveTab, closeTab, addTab, getWorkspaceTabs } =
-    useTabs();
+  const {
+    activeTabId,
+    setActiveTab,
+    closeTab,
+    addTab,
+    getWorkspaceTabs,
+    tabs,
+  } = useTabs();
   const { activeWorkspace } = useWorkspace();
   const tabsListRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
@@ -18,16 +24,31 @@ export const HeaderTabs = () => {
     ? getWorkspaceTabs(activeWorkspace.id)
     : [];
 
+  // 当工作区激活且没有标签页时，添加默认标签页
+  useEffect(() => {
+    if (!activeWorkspace) return;
+
+    const actualWorkspaceTabs = tabs.filter(
+      (tab) => tab.workspaceId === activeWorkspace.id
+    );
+    if (actualWorkspaceTabs.length === 0) {
+      // 检查是否有默认标签页的引用
+      const defaultTabId = `default-tab-${activeWorkspace.id}`;
+      addTab({
+        id: defaultTabId,
+        title: "New Page",
+        workspaceId: activeWorkspace.id,
+        createNew: true,
+      });
+    }
+  }, [activeWorkspace, tabs, addTab]);
+
   const handleAddTab = () => {
     if (!activeWorkspace) return;
 
     addTab({
       id: `page-${Date.now()}`,
       title: "New Page",
-      rightPanel: {
-        component: "ai-chat",
-        params: {},
-      },
       workspaceId: activeWorkspace.id,
       createNew: true,
     });
@@ -73,8 +94,8 @@ export const HeaderTabs = () => {
       // 检查是否按下了⌘W或Ctrl+W组合键
       if (event.key === "w" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
-        // 关闭当前活跃的标签页
-        if (activeTabId) {
+        // 关闭当前活跃的标签页，但确保不是最后一个标签页
+        if (activeTabId && workspaceTabs.length > 1) {
           closeTab(activeTabId);
         }
       }
@@ -82,7 +103,7 @@ export const HeaderTabs = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTabId, closeTab]);
+  }, [activeTabId, closeTab, workspaceTabs]);
 
   return (
     <Tabs

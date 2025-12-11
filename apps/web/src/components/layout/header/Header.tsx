@@ -11,21 +11,16 @@ import { ModeToggle } from "./ModeToggle";
 
 export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
-  const { activeTabId, tabs, updateCurrentTabPanels, getShowPanelRightButton } =
+  const { activeRightPanel, activeTabId, tabs, updateCurrentTabPanels } =
     useTabs();
-
-  // 使用useState和useEffect来避免hydration mismatch
-  const [showPanelRightButton, setShowPanelRightButton] = useState(false);
 
   // 直接从tabs数组中查找当前激活的tab，确保获取最新状态
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   // 获取rightPanel的hidden状态，默认false
   const isRightPanelHidden = activeTab?.rightPanel?.hidden ?? false;
 
-  // 在客户端hydration完成后更新状态
-  useEffect(() => {
-    setShowPanelRightButton(getShowPanelRightButton());
-  }, [getShowPanelRightButton, activeTabId, tabs]);
+  // 直接判断activeRightPanel是否存在且有内容
+  const showPanelRightButton = Boolean(activeRightPanel);
 
   return (
     <header className="bg-sidebar sticky top-0 z-50 flex w-full items-center justify-between">
