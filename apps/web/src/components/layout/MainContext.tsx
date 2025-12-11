@@ -77,19 +77,19 @@ export const MainContent: React.FC<{ className?: string }> = ({
           {/* 左侧面板 */}
           {activeLeftPanel && (
             <div
-              className={`flex flex-col bg-background  rounded-xl max-h-screen transition-all duration-300 ease-in-out overflow-hidden ${
+              className={`flex flex-col bg-background rounded-xl max-h-screen transition-all duration-300 ease-in-out overflow-hidden transform ${
                 isDragging ? "transition-none" : ""
               } ${
                 leftHidden
-                  ? "opacity-0 invisible pointer-events-none w-0"
-                  : "opacity-100 visible pointer-events-auto p-4 pr-2"
+                  ? "opacity-0 -translate-x-full pointer-events-none"
+                  : "opacity-100 translate-x-0 pointer-events-auto p-4 pr-2"
               }`}
               style={{
                 width: leftHidden
                   ? "0%"
                   : rightHidden
                   ? "100%"
-              : `${leftWidth}%`,
+                  : `${leftWidth}%`,
               }}
             >
               {renderPanel(activeLeftPanel.component, activeLeftPanel.params)}
@@ -101,26 +101,30 @@ export const MainContent: React.FC<{ className?: string }> = ({
             activeRightPanel &&
             !leftHidden &&
             !rightHidden && (
-            <div
-              ref={dividerRef}
-              className={`bg-sidebar rounded-4xl cursor-col-resize hover:bg-primary/10 transition-all duration-200 flex items-center justify-center ${
-                isDragging ? "transition-none" : ""
-              } opacity-100 visible pointer-events-auto w-2.5`}
-              onMouseDown={handleMouseDown}
-            >
-              <div className="w-1 h-6 bg-muted/70 rounded-full" />
-            </div>
-          )}
+              <div
+                ref={dividerRef}
+                className={`bg-sidebar rounded-4xl cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-all duration-200 flex items-center justify-center ${
+                  isDragging ? "transition-none bg-primary/10 scale-x-125" : ""
+                } opacity-100 visible pointer-events-auto w-2.5`}
+                onMouseDown={handleMouseDown}
+              >
+                <div
+                  className={`w-1 h-6 bg-muted/70 rounded-full transition-all duration-200 ${
+                    isDragging ? "bg-primary/70 scale-y-125" : ""
+                  }`}
+                />
+              </div>
+            )}
 
           {/* 右侧面板 */}
           {activeRightPanel && (
             <div
-              className={`bg-background rounded-xl flex-1 transition-all duration-300 ease-in-out overflow-hidden ${
+              className={`bg-background rounded-xl flex-1 transition-all duration-300 ease-in-out overflow-hidden transform ${
                 isDragging ? "transition-none" : ""
               } ${
                 rightHidden
-                  ? "opacity-0 invisible pointer-events-none w-0 "
-                  : "opacity-100 visible pointer-events-auto  p-4"
+                  ? "opacity-0 translate-x-full pointer-events-none"
+                  : "opacity-100 translate-x-0 pointer-events-auto p-4"
               }`}
               style={{
                 width: !hasLeftPanel || leftHidden ? "100%" : undefined,
