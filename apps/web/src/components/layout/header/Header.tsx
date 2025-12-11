@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { PanelLeft, PanelRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -45,11 +44,13 @@ export const Header = () => {
         </Button>
       </div>
       <HeaderTabs />
-      <div className="flex h-(--header-height) items-center pr-2 gap-2">
+      <div className="flex h-(--header-height) items-center pr-2 ">
         <ModeToggle />
         <Button
-          className={`h-8 w-8 transition-opacity duration-200 ease-in-out ${
-            showPanelRightButton ? "opacity-100 visible" : "opacity-0 invisible"
+          className={`h-8 w-8 transition-all duration-200 ease-in-out ${
+            showPanelRightButton
+              ? "opacity-100 w-8"
+              : "opacity-0 w-0 pointer-events-none"
           }`}
           variant="ghost"
           size="icon"

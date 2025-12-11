@@ -73,6 +73,27 @@ export default function PlantHeader({
     },
   ];
 
+  // 标签页数据
+  const tabs = [
+    { value: "intro", label: "简介", icon: <Info className={tabIconClass} /> },
+    {
+      value: "canvas",
+      label: "画布",
+      icon: <Sparkles className={tabIconClass} />,
+    },
+    {
+      value: "tasks",
+      label: "任务",
+      icon: <CheckSquare className={tabIconClass} />,
+    },
+    {
+      value: "materials",
+      label: "资料",
+      icon: <Database className={tabIconClass} />,
+    },
+    { value: "skills", label: "技能", icon: <Zap className={tabIconClass} /> },
+  ];
+
   return (
     <div
       className={cn(
@@ -100,146 +121,37 @@ export default function PlantHeader({
       <div ref={tabsWrapperRef} className="flex justify-end flex-1">
         <Tabs defaultValue="intro">
           <TabsList>
-            <TabsTrigger
-              value="intro"
-              className={cn(
-                tabTriggerBaseClass,
-                showLabels ? "gap-1 px-3" : "px-2 gap-0"
-              )}
-            >
-              <span className={tabIconWrapperClass}>
-                <Info className={tabIconClass} />
-              </span>
-              <span
+            {tabs.map((tab) => (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
                 className={cn(
-                  tabTextWrapperBaseClass,
-                  showLabels ? tabTextWrapperShowClass : tabTextWrapperHideClass
+                  tabTriggerBaseClass,
+                  showLabels ? "gap-1 px-3" : "px-2 gap-0"
                 )}
-                style={tabTextWrapperStyle}
               >
+                <span className={tabIconWrapperClass}>{tab.icon}</span>
                 <span
                   className={cn(
-                    tabTextBaseClass,
-                    showLabels ? tabTextShowClass : tabTextHideClass
+                    tabTextWrapperBaseClass,
+                    showLabels
+                      ? tabTextWrapperShowClass
+                      : tabTextWrapperHideClass
                   )}
-                  style={tabTextStyle}
+                  style={tabTextWrapperStyle}
                 >
-                  简介
+                  <span
+                    className={cn(
+                      tabTextBaseClass,
+                      showLabels ? tabTextShowClass : tabTextHideClass
+                    )}
+                    style={tabTextStyle}
+                  >
+                    {tab.label}
+                  </span>
                 </span>
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="canvas"
-              className={cn(
-                tabTriggerBaseClass,
-                showLabels ? "gap-1 px-3" : "px-2 gap-0"
-              )}
-            >
-              <span className={tabIconWrapperClass}>
-                <Sparkles className={tabIconClass} />
-              </span>
-              <span
-                className={cn(
-                  tabTextWrapperBaseClass,
-                  showLabels ? tabTextWrapperShowClass : tabTextWrapperHideClass
-                )}
-                style={tabTextWrapperStyle}
-              >
-                <span
-                  className={cn(
-                    tabTextBaseClass,
-                    showLabels ? tabTextShowClass : tabTextHideClass
-                  )}
-                  style={tabTextStyle}
-                >
-                  画布
-                </span>
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="tasks"
-              className={cn(
-                tabTriggerBaseClass,
-                showLabels ? "gap-1 px-3" : "px-2 gap-0"
-              )}
-            >
-              <span className={tabIconWrapperClass}>
-                <CheckSquare className={tabIconClass} />
-              </span>
-              <span
-                className={cn(
-                  tabTextWrapperBaseClass,
-                  showLabels ? tabTextWrapperShowClass : tabTextWrapperHideClass
-                )}
-                style={tabTextWrapperStyle}
-              >
-                <span
-                  className={cn(
-                    tabTextBaseClass,
-                    showLabels ? tabTextShowClass : tabTextHideClass
-                  )}
-                  style={tabTextStyle}
-                >
-                  任务
-                </span>
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="materials"
-              className={cn(
-                tabTriggerBaseClass,
-                showLabels ? "gap-1 px-3" : "px-2 gap-0"
-              )}
-            >
-              <span className={tabIconWrapperClass}>
-                <Database className={tabIconClass} />
-              </span>
-              <span
-                className={cn(
-                  tabTextWrapperBaseClass,
-                  showLabels ? tabTextWrapperShowClass : tabTextWrapperHideClass
-                )}
-                style={tabTextWrapperStyle}
-              >
-                <span
-                  className={cn(
-                    tabTextBaseClass,
-                    showLabels ? tabTextShowClass : tabTextHideClass
-                  )}
-                  style={tabTextStyle}
-                >
-                  资料
-                </span>
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="skills"
-              className={cn(
-                tabTriggerBaseClass,
-                showLabels ? "gap-1 px-3" : "px-2 gap-0"
-              )}
-            >
-              <span className={tabIconWrapperClass}>
-                <Zap className={tabIconClass} />
-              </span>
-              <span
-                className={cn(
-                  tabTextWrapperBaseClass,
-                  showLabels ? tabTextWrapperShowClass : tabTextWrapperHideClass
-                )}
-                style={tabTextWrapperStyle}
-              >
-                <span
-                  className={cn(
-                    tabTextBaseClass,
-                    showLabels ? tabTextShowClass : tabTextHideClass
-                  )}
-                  style={tabTextStyle}
-                >
-                  技能
-                </span>
-              </span>
-            </TabsTrigger>
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
       </div>
