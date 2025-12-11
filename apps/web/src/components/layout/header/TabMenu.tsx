@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { TabsTrigger } from "@/components/ui/tabs";
+import { TabsTrigger } from "@/components/animate-ui/components/radix/tabs";
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -70,7 +70,11 @@ export const TabMenu = ({
           <span className="truncate flex-1">{tab.title || "Untitled"}</span>
           {!isPinned && (
             <span
-              className={`ml-auto h-6 w-6 transition-opacity ${workspaceTabs.length <= 1 ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'} relative z-10 p-0 cursor-pointer flex items-center justify-center rounded-full hover:bg-background`}
+              className={`ml-auto h-6 w-6 transition-opacity ${
+                workspaceTabs.length <= 1
+                  ? "opacity-0"
+                  : "opacity-0 group-hover:opacity-100"
+              } relative z-10 p-0 cursor-pointer flex items-center justify-center rounded-full hover:bg-background`}
               onClick={(e) => {
                 e.stopPropagation();
                 if (workspaceTabs.length > 1) {
@@ -79,7 +83,9 @@ export const TabMenu = ({
               }}
               aria-label="Close tab"
               role="button"
-              style={{ pointerEvents: workspaceTabs.length <= 1 ? 'none' : 'auto' }}
+              style={{
+                pointerEvents: workspaceTabs.length <= 1 ? "none" : "auto",
+              }}
             >
               <X className="h-3.5 w-3.5" />
             </span>

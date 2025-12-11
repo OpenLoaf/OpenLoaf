@@ -16,7 +16,11 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/animate-ui/components/radix/tabs";
 
 // 定义重复的className常量
 const tabTriggerBaseClass =

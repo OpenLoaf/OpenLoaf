@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react";
-import { Tabs, TabsList } from "@/components/ui/tabs";
+import { Tabs, TabsList } from "@/components/animate-ui/components/radix/tabs";
 import { useTabs } from "@/hooks/use_tabs";
 import { useWorkspace } from "@/hooks/use_workspace";
 import { Button } from "@/components/ui/button";
@@ -144,40 +144,6 @@ export const HeaderTabs = () => {
     setTabPinned(tabId, pin);
   };
 
-  useEffect(() => {
-    const tabsList = tabsListRef.current;
-    if (!tabsList) return;
-
-    const updateActiveTabPosition = () => {
-      // 查找活跃标签页，使用aria-selected="true"而不是data-state="active"
-      const activeTab = tabsList.querySelector(
-        '[aria-selected="true"]'
-      ) as HTMLButtonElement;
-      if (!activeTab) return;
-
-      const rect = activeTab.getBoundingClientRect();
-      const tabsListRect = tabsList.getBoundingClientRect();
-
-      // 计算相对位置
-      const left = rect.left - tabsListRect.left;
-      const width = rect.width;
-
-      // 直接设置样式，不使用CSS变量
-      const slider = tabsList.querySelector(".bg-background") as HTMLDivElement;
-      if (slider) {
-        slider.style.left = `${left}px`;
-        slider.style.width = `${width}px`;
-        slider.style.height = "28px"; /* h-7 = 28px */
-      }
-    };
-
-    updateActiveTabPosition();
-
-    // 添加resize监听，确保在窗口大小变化时更新位置
-    window.addEventListener("resize", updateActiveTabPosition);
-    return () => window.removeEventListener("resize", updateActiveTabPosition);
-  }, [activeTabId, workspaceTabs]);
-
   // 添加快捷键处理，关闭当前标签页
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -205,17 +171,6 @@ export const HeaderTabs = () => {
         ref={tabsListRef}
         className="h-[calc(var(--header-height))] bg-sidebar border-sidebar-border rounded-none p-0  relative overflow-hidden"
       >
-        {/* 滑块元素 */}
-        <div
-          className="absolute bg-background rounded-md transition-all duration-300 ease-out pointer-events-none z-0"
-          style={{
-            left: "var(--active-tab-left, 0px)",
-            width: "var(--active-tab-width, 0px)",
-            top: "50%",
-            transform: "translateY(-50%)",
-            height: "28px" /* h-7 = 28px */,
-          }}
-        />
         {draggingTabId && dropIndicatorLeft !== null && (
           <div
             className="absolute top-1/2 -translate-y-1/2 h-7 w-[2px] bg-primary z-20 transition-[left]"
