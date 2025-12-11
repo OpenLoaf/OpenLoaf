@@ -19,6 +19,7 @@ export interface Tab {
   title: string;
   leftPanel?: PanelConfig;
   rightPanel?: PanelConfig;
+  leftWidth?: number;
   workspaceId: string;
 }
 
@@ -27,11 +28,13 @@ interface TabsState {
   activeTabId: string | null;
   activeLeftPanel?: PanelConfig;
   activeRightPanel?: PanelConfig;
+  activeLeftWidth: number;
   addTab: (tab: Omit<Tab, "id"> & { id?: string; createNew?: boolean }) => void;
   closeTab: (tabId: string) => void;
   setActiveTab: (tabId: string) => void;
   updateCurrentTabPanels: (panels: PanelUpdates) => void;
   updateTabPanels: (tabId: string, panels: PanelUpdates) => void;
+  updateCurrentTabLeftWidth: (width: number) => void;
   getTabById: (tabId: string) => Tab | undefined;
   getWorkspaceTabs: (workspaceId: string) => Tab[];
 }
@@ -102,13 +105,18 @@ export const useTabs = create<TabsState>()(
       activeTabId: null,
       activeLeftPanel: undefined,
       activeRightPanel: undefined,
+      activeLeftWidth: 50,
 
       addTab: (tab) => {
         set((state) => {
           const { id, createNew = false, ...tabData } = tab;
           const tabId = id || `tab-${Date.now()}`;
 
-          const normalizedTab = withPanelDefaults({ ...tabData, id: tabId });
+          const normalizedTab = withPanelDefaults({
+            ...tabData,
+            id: tabId,
+            leftWidth: tabData.leftWidth || 50,
+          });
 
           // 检查标签页是否已存在
           const existingTabIndex = state.tabs.findIndex((t) => t.id === tabId);
@@ -193,6 +201,7 @@ export const useTabs = create<TabsState>()(
           activeTabId: tabId,
           activeLeftPanel: tab?.leftPanel,
           activeRightPanel: tab?.rightPanel || createDefaultRightPanel(),
+          activeLeftWidth: tab?.leftWidth || 50,
         });
       },
 
@@ -226,6 +235,27 @@ export const useTabs = create<TabsState>()(
           }
 
           return result;
+        });
+      },
+
+      updateCurrentTabLeftWidth: (width) => {
+        set((state) => {
+          if (!state.activeTabId) return state;
+
+          const newTabs = state.tabs.map((tab) => {
+            if (tab.id === state.activeTabId) {
+              return {
+                ...tab,
+                leftWidth: width,
+              };
+            }
+            return tab;
+          });
+
+          return {
+            tabs: newTabs,
+            activeLeftWidth: width,
+          };
         });
       },
 

@@ -8,14 +8,19 @@ export const MainContent: React.FC<{ className?: string }> = ({
   className,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [leftWidth, setLeftWidth] = useState(50);
   const dividerRef = useRef<HTMLDivElement>(null);
-  const { activeLeftPanel, activeRightPanel } = useTabs();
+  const {
+    activeLeftPanel: leftPanel,
+    activeRightPanel: rightPanel,
+    activeLeftWidth,
+    updateCurrentTabLeftWidth,
+  } = useTabs();
 
-  const hasLeftPanel = Boolean(activeLeftPanel);
-  const hasRightPanel = Boolean(activeRightPanel);
-  const leftHidden = activeLeftPanel?.hidden ?? false;
-  const rightHidden = activeRightPanel?.hidden ?? false;
+  const hasLeftPanel = Boolean(leftPanel);
+  const hasRightPanel = Boolean(rightPanel);
+  const leftHidden = leftPanel?.hidden ?? false;
+  const rightHidden = rightPanel?.hidden ?? false;
+  const computedLeftHidden = leftHidden || !hasLeftPanel;
 
   // 组件映射表
   const ComponentMap: Record<string, React.ComponentType<any>> = {
@@ -49,7 +54,8 @@ export const MainContent: React.FC<{ className?: string }> = ({
     const containerRect = container.getBoundingClientRect();
     const newWidth =
       ((_e.clientX - containerRect.left) / containerRect.width) * 100;
-    setLeftWidth(Math.max(30, Math.min(70, newWidth)));
+    const clampedWidth = Math.max(30, Math.min(70, newWidth));
+    updateCurrentTabLeftWidth(clampedWidth);
   };
 
   const handleMouseUp = () => {
@@ -75,32 +81,31 @@ export const MainContent: React.FC<{ className?: string }> = ({
       {hasLeftPanel || hasRightPanel ? (
         <>
           {/* 左侧面板 */}
-          {activeLeftPanel && (
+          {(hasLeftPanel || hasRightPanel) && (
             <div
               className={`flex flex-col bg-background rounded-xl max-h-screen transition-all duration-300 ease-in-out overflow-hidden transform ${
                 isDragging ? "transition-none" : ""
               } ${
-                leftHidden
+                computedLeftHidden
                   ? "opacity-0 -translate-x-full pointer-events-none"
                   : "opacity-100 translate-x-0 pointer-events-auto p-4 pr-2"
+              } ${
+                !hasLeftPanel ? "p-0" : ""
               }`}
               style={{
-                width: leftHidden
+                width: computedLeftHidden
                   ? "0%"
                   : rightHidden
                   ? "100%"
-                  : `${leftWidth}%`,
+                  : `${activeLeftWidth}%`,
               }}
             >
-              {renderPanel(activeLeftPanel.component, activeLeftPanel.params)}
+              {leftPanel && renderPanel(leftPanel.component, leftPanel.params)}
             </div>
           )}
 
           {/* 只有当左右面板都存在且不隐藏时才显示分隔线 */}
-          {activeLeftPanel &&
-            activeRightPanel &&
-            !leftHidden &&
-            !rightHidden && (
+          {leftPanel && rightPanel && !leftHidden && !rightHidden && (
               <div
                 ref={dividerRef}
                 className={`bg-sidebar rounded-4xl cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-all duration-200 flex items-center justify-center ${
@@ -117,7 +122,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
             )}
 
           {/* 右侧面板 */}
-          {activeRightPanel && (
+          {rightPanel && (
             <div
               className={`bg-background rounded-xl flex-1 transition-all duration-300 ease-in-out overflow-hidden transform ${
                 isDragging ? "transition-none" : ""
@@ -130,7 +135,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
                 width: !hasLeftPanel || leftHidden ? "100%" : undefined,
               }}
             >
-              {renderPanel(activeRightPanel.component, activeRightPanel.params)}
+              {renderPanel(rightPanel.component, rightPanel.params)}
             </div>
           )}
 
