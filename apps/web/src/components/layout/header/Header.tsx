@@ -11,16 +11,14 @@ import { ModeToggle } from "./ModeToggle";
 
 export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
-  const { activeRightPanel, activeTabId, tabs, updateCurrentTabPanels } =
+  const { activeRightPanel, activeLeftPanel, updateCurrentTabPanels } =
     useTabs();
 
-  // 直接从tabs数组中查找当前激活的tab，确保获取最新状态
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
   // 获取rightPanel的hidden状态，默认false
-  const isRightPanelHidden = activeTab?.rightPanel?.hidden ?? false;
+  const isRightPanelHidden = activeRightPanel?.hidden ?? false;
 
-  // 直接判断activeRightPanel是否存在且有内容
-  const showPanelRightButton = Boolean(activeRightPanel);
+  // 只有当左侧面板存在且右侧面板也存在时，才显示右侧面板按钮
+  const showPanelRightButton = Boolean(activeLeftPanel && activeRightPanel);
 
   return (
     <header className="bg-sidebar sticky top-0 z-50 flex w-full items-center justify-between">
@@ -47,22 +45,18 @@ export const Header = () => {
         </Button>
       </div>
       <HeaderTabs />
-      <div
-        className={`flex h-(--header-height) items-center pr-2 gap-2 transition-opacity duration-200 ease-in-out ${
-          showPanelRightButton ? "opacity-100 visible" : "opacity-0 invisible"
-        }`}
-      >
+      <div className="flex h-(--header-height) items-center pr-2 gap-2">
         <ModeToggle />
         <Button
-          className="h-8 w-8"
+          className={`h-8 w-8 transition-opacity duration-200 ease-in-out ${
+            showPanelRightButton ? "opacity-100 visible" : "opacity-0 invisible"
+          }`}
           variant="ghost"
           size="icon"
           onClick={() => {
-            // 直接使用当前状态计算新的hidden值
-            const currentTab = tabs.find((tab) => tab.id === activeTabId);
-            const currentHidden = currentTab?.rightPanel?.hidden ?? false;
+            // 直接使用activeRightPanel的hidden状态计算新值
             updateCurrentTabPanels({
-              rightPanel: { hidden: !currentHidden },
+              rightPanel: { hidden: !isRightPanelHidden },
             });
           }}
         >
