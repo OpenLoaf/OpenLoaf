@@ -1,9 +1,9 @@
-import { X, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Tabs, TabsList } from "@/components/ui/tabs";
 import { useTabs } from "@/hooks/use_tabs";
 import { useWorkspace } from "@/hooks/use_workspace";
 import { Button } from "@/components/ui/button";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { TabMenu } from "./TabMenu";
 
 export const HeaderTabs = () => {
@@ -14,10 +14,18 @@ export const HeaderTabs = () => {
     addTab,
     getWorkspaceTabs,
     tabs,
+    reorderTabs,
   } = useTabs();
   const { activeWorkspace } = useWorkspace();
   const tabsListRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
+  const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
+  const [dropIndicatorLeft, setDropIndicatorLeft] = useState<number | null>(
+    null
+  );
+  const [dropPlacement, setDropPlacement] = useState<"before" | "after">(
+    "before"
+  );
 
   // 获取当前工作区的标签列表
   const workspaceTabs = activeWorkspace
@@ -52,6 +60,50 @@ export const HeaderTabs = () => {
       workspaceId: activeWorkspace.id,
       createNew: true,
     });
+  };
+
+  const handleTabDrop = (targetTabId: string) => {
+    if (!activeWorkspace) return;
+
+    if (!draggingTabId || draggingTabId === targetTabId) {
+      setDraggingTabId(null);
+      setDropIndicatorLeft(null);
+      return;
+    }
+
+    reorderTabs(activeWorkspace.id, draggingTabId, targetTabId, dropPlacement);
+    setDraggingTabId(null);
+    setDropIndicatorLeft(null);
+  };
+
+  const handleTabDragStart = (tabId: string) => {
+    setDraggingTabId(tabId);
+  };
+
+  const handleTabDragOver = (
+    event: DragEvent<HTMLButtonElement>,
+    targetTabId: string
+  ) => {
+    event.preventDefault();
+    if (!activeWorkspace || !draggingTabId) return;
+
+    const target = event.currentTarget;
+    const tabsList = tabsListRef.current;
+    if (!tabsList) return;
+
+    const rect = target.getBoundingClientRect();
+    const tabsListRect = tabsList.getBoundingClientRect();
+    const isAfter = event.clientX > rect.left + rect.width / 2;
+
+    setDropPlacement(isAfter ? "after" : "before");
+    setDropIndicatorLeft(
+      isAfter ? rect.right - tabsListRect.left : rect.left - tabsListRect.left
+    );
+  };
+
+  const handleTabDragEnd = () => {
+    setDraggingTabId(null);
+    setDropIndicatorLeft(null);
   };
 
   useEffect(() => {
@@ -126,6 +178,12 @@ export const HeaderTabs = () => {
             height: "28px" /* h-7 = 28px */,
           }}
         />
+        {draggingTabId && dropIndicatorLeft !== null && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 h-7 w-[2px] bg-primary z-20 transition-[left]"
+            style={{ left: dropIndicatorLeft }}
+          />
+        )}
 
         {workspaceTabs.map((tab) => (
           <TabMenu
@@ -135,6 +193,11 @@ export const HeaderTabs = () => {
             activeTabRef={activeTabRef}
             closeTab={closeTab}
             workspaceTabs={workspaceTabs}
+            onDragStart={handleTabDragStart}
+            onDragOver={handleTabDragOver}
+            onDrop={handleTabDrop}
+            onDragEnd={handleTabDragEnd}
+            isDragging={draggingTabId === tab.id}
           />
         ))}
         {/* 添加plus按钮 */}

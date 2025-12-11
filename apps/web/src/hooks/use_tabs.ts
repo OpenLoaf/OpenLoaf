@@ -37,6 +37,12 @@ interface TabsState {
   updateCurrentTabLeftWidth: (width: number) => void;
   getTabById: (tabId: string) => Tab | undefined;
   getWorkspaceTabs: (workspaceId: string) => Tab[];
+  reorderTabs: (
+    workspaceId: string,
+    sourceTabId: string,
+    targetTabId: string,
+    position?: "before" | "after"
+  ) => void;
 }
 
 const STORAGE_KEY = "tabs-storage";
@@ -281,6 +287,49 @@ export const useTabs = create<TabsState>()(
         }
 
         return workspaceTabs;
+      },
+
+      reorderTabs: (workspaceId, sourceTabId, targetTabId, position = "before") => {
+        set((state) => {
+          if (sourceTabId === targetTabId) return state;
+
+          const workspaceTabs = state.tabs.filter(
+            (tab) => tab.workspaceId === workspaceId
+          );
+
+          const fromIndex = workspaceTabs.findIndex(
+            (tab) => tab.id === sourceTabId
+          );
+          const toIndex = workspaceTabs.findIndex(
+            (tab) => tab.id === targetTabId
+          );
+
+          if (fromIndex === -1 || toIndex === -1) return state;
+
+          const reordered = [...workspaceTabs];
+          const [moved] = reordered.splice(fromIndex, 1);
+          let targetIndex = toIndex;
+
+          // adjust target index after removal
+          if (fromIndex < toIndex) {
+            targetIndex -= 1;
+          }
+
+          if (position === "after") {
+            targetIndex += 1;
+          }
+
+          const boundedIndex = Math.max(0, Math.min(targetIndex, reordered.length));
+          reordered.splice(boundedIndex, 0, moved);
+
+          // rebuild tabs keeping other workspaces in place
+          const workspaceQueue = [...reordered];
+          const newTabs = state.tabs.map((tab) =>
+            tab.workspaceId !== workspaceId ? tab : (workspaceQueue.shift() as Tab)
+          );
+
+          return { tabs: newTabs };
+        });
       },
     }),
     {

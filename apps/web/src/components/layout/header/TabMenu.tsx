@@ -8,6 +8,7 @@ import {
   ContextMenuShortcut,
 } from "@/components/ui/context-menu";
 import type { Tab } from "@/hooks/use_tabs";
+import type { DragEvent } from "react";
 
 interface TabMenuProps {
   tab: Tab;
@@ -15,6 +16,11 @@ interface TabMenuProps {
   activeTabRef: React.RefObject<HTMLButtonElement | null>;
   closeTab: (tabId: string) => void;
   workspaceTabs: Tab[];
+  onDragStart?: (tabId: string) => void;
+  onDragOver?: (event: DragEvent<HTMLButtonElement>, tabId: string) => void;
+  onDrop?: (tabId: string) => void;
+  onDragEnd?: () => void;
+  isDragging?: boolean;
 }
 
 export const TabMenu = ({
@@ -23,6 +29,11 @@ export const TabMenu = ({
   activeTabRef,
   closeTab,
   workspaceTabs,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  isDragging = false,
 }: TabMenuProps) => {
   return (
     <ContextMenu>
@@ -33,6 +44,21 @@ export const TabMenu = ({
         <TabsTrigger
           ref={tab.id === activeTabId ? activeTabRef : null}
           value={tab.id}
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = "move";
+            onDragStart?.(tab.id);
+          }}
+          onDragOver={(event) => {
+            event.preventDefault();
+            onDragOver?.(event, tab.id);
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            onDrop?.(tab.id);
+          }}
+          onDragEnd={onDragEnd}
+          aria-grabbed={isDragging}
           className="h-7 px-1.5 text-xs rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:border-transparent aria-selected:shadow-none pr-2 relative z-10 min-w-[130px] max-w-[130px] flex items-center justify-between"
         >
           <span className="truncate flex-1">{tab.title || "Untitled"}</span>
