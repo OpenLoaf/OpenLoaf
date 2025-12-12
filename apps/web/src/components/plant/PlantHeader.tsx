@@ -92,21 +92,19 @@ export default function PlantHeader({
         className
       )}
     >
-      <h1 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+      <h1 className="text-xl font-semibold flex items-center gap-2">
         {titleIcon ? (
-          <span className="flex items-center text-xl leading-none shrink-0">
+          <span className="flex items-center text-xl leading-none">
             {titleIcon}
           </span>
         ) : null}
-        <span className="truncate">{pageTitle}</span>
+        <span>{pageTitle}</span>
       </h1>
-      <div className="flex justify-end flex-1 shrink-0">
+      <div className="flex justify-end flex-1">
         <Tabs defaultValue="intro">
           <TabsHighlight
-            className={cn(
-              "absolute z-0 inset-0 border border-transparent rounded-md bg-background dark:border-input dark:bg-input/30 shadow-sm transition-[filter] duration-150 ease-out",
-              isResizing ? "filter-[opacity(0)]" : "filter-[opacity(1)]"
-            )}
+            enabled={!isResizing}
+            className="absolute z-0 inset-0 border border-transparent rounded-md bg-background dark:border-input dark:bg-input/30 shadow-sm"
           >
             <TabsList className="bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]">
               {tabs.map((tab) => (
