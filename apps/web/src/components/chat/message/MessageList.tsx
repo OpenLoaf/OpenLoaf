@@ -7,6 +7,7 @@ import { useChatContext } from "../ChatProvider";
 import MessageAi from "./MessageAi";
 import MessageHuman from "./MessageHuman";
 import MessageHelper from "./MessageHelper";
+import MessageTool from "./MessageTool";
 import * as React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -154,6 +155,14 @@ export default function MessageList({ className }: MessageListProps) {
                               const key =
                                 message.id ?? `${message.role}-${index}`;
 
+                              // AI SDK v6：工具调用 part.type 通常是 `tool-${name}` 或 `dynamic-tool`
+                              const toolParts = (message.parts ?? []).filter(
+                                (part: any) =>
+                                  typeof part?.type === "string" &&
+                                  (part.type === "dynamic-tool" ||
+                                    part.type.startsWith("tool-"))
+                              );
+
                               return (
                                 <motion.div
                                   key={key}
@@ -183,7 +192,23 @@ export default function MessageList({ className }: MessageListProps) {
                                   {message.role === "user" ? (
                                     <MessageHuman message={message} />
                                   ) : (
-                                    <MessageAi message={message} />
+                                    <>
+                                      <MessageAi message={message} />
+
+                                      {/* 工具调用展示（MVP）：只显示工具名 + 返回结果 */}
+                                      {toolParts.length > 0 ? (
+                                        <div className="mt-2 space-y-2">
+                                          {toolParts.map(
+                                            (part: any, partIndex: number) => (
+                                              <MessageTool
+                                                key={`${key}-tool-${partIndex}`}
+                                                part={part}
+                                              />
+                                            )
+                                          )}
+                                        </div>
+                                      ) : null}
+                                    </>
                                   )}
                                 </motion.div>
                               );

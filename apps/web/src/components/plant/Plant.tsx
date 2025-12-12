@@ -1,42 +1,35 @@
-import React from "react";
-import { cn } from "@/lib/utils";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
-import { useTabs } from "@/hooks/use_tabs";
+import { Info, Sparkles, CheckSquare, Database, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, skipToken } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/app/page";
 import { Skeleton } from "@/components/ui/skeleton";
-import PlantHeader from "./PlantHeader";
+import {
+  Tabs,
+  TabsHighlight,
+  TabsHighlightItem,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  TabsContents,
+} from "@/components/animate-ui/primitives/radix/tabs";
+import PlantIntro from "./PlantIntro";
+import PlantCanvas from "./PlantCanvas";
+import PlantTasks from "./PlantTasks";
+import PlantMaterials from "./PlantMaterials";
+import PlantSkills from "./PlantSkills";
 
 interface PlantPageProps {
   pageId?: string;
   [key: string]: any;
 }
 
-function PlantContentSkeleton() {
+function PlantTitleSkeleton() {
   return (
-    <div className="space-y-4 mt-3">
-      <Skeleton className="h-24 w-full" />
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-[72%]" />
-        <Skeleton className="h-4 w-[56%]" />
-        <Skeleton className="h-4 w-[64%]" />
-      </div>
-      <Skeleton className="h-40 w-full" />
-    </div>
-  );
-}
-
-function PlantHeaderSkeleton() {
-  return (
-    <div className="flex items-center justify-between py-0 w-full">
-      <div className="flex items-center gap-2">
-        <Skeleton className="size-5 rounded-sm" />
-        <Skeleton className="h-6 w-[35vw] max-w-[180px]" />
-      </div>
-      <div className="flex justify-end flex-1 min-w-0">
-        <Skeleton className="h-9 w-full max-w-[360px] rounded-md" />
-      </div>
+    <div className="flex items-center gap-2">
+      <Skeleton className="size-5 rounded-sm" />
+      <Skeleton className="h-6 w-[35vw] max-w-[180px]" />
     </div>
   );
 }
@@ -51,33 +44,156 @@ export default function PlantPage({ pageId }: PlantPageProps) {
     )
   );
 
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isCompact, setIsCompact] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeEndTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    const updateCompact = () => {
+      const width = el.getBoundingClientRect().width;
+      setIsCompact(width < 800);
+    };
+
+    updateCompact();
+    const ro = new ResizeObserver(() => {
+      updateCompact();
+      setIsResizing(true);
+      if (resizeEndTimeoutRef.current !== null) {
+        window.clearTimeout(resizeEndTimeoutRef.current);
+      }
+      resizeEndTimeoutRef.current = window.setTimeout(() => {
+        setIsResizing(false);
+      }, 150);
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      if (resizeEndTimeoutRef.current !== null) {
+        window.clearTimeout(resizeEndTimeoutRef.current);
+        resizeEndTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const tabs = [
+    { value: "intro", icon: <Info className="size-4 shrink-0" />, label: "简介" },
+    {
+      value: "canvas",
+      icon: <Sparkles className="size-4 shrink-0" />,
+      label: "画布",
+    },
+    {
+      value: "tasks",
+      icon: <CheckSquare className="size-4 shrink-0" />,
+      label: "任务",
+    },
+    {
+      value: "materials",
+      icon: <Database className="size-4 shrink-0" />,
+      label: "资料",
+    },
+    { value: "skills", icon: <Zap className="size-4 shrink-0" />, label: "技能" },
+  ];
+
+  const pageTitle = pageData?.title || "Plant Page";
+  const titleIcon = pageData?.icon ?? undefined;
+
   return (
-    <>
-      {isLoading ? (
-        <PlantHeaderSkeleton />
-      ) : (
-        <PlantHeader
-          pageTitle={pageData?.title || "Plant Page"}
-          titleIcon={pageData?.icon ?? undefined}
-        />
-      )}
-      <ScrollArea.Root className="h-full w-full">
-        <ScrollArea.Viewport className="w-full h-full min-h-0">
-          <div className="space-y-4">
-            {isLoading ? (
-              <PlantContentSkeleton />
-            ) : pageData ? (
-              `${pageData.title} - Plant Page Content`
-            ) : (
-              "No page data available"
-            )}
-          </div>
+    <Tabs defaultValue="intro" className="flex h-full w-full flex-col min-h-0">
+      <div
+        ref={containerRef}
+        className="flex items-center justify-between py-0 w-full"
+      >
+        <h1 className="text-xl font-semibold flex items-center gap-2">
+          {isLoading ? (
+            <PlantTitleSkeleton />
+          ) : (
+            <>
+              {titleIcon ? (
+                <span className="flex items-center text-xl leading-none">
+                  {titleIcon}
+                </span>
+              ) : null}
+              <span>{pageTitle}</span>
+            </>
+          )}
+        </h1>
+
+        <div className="flex justify-end flex-1">
+          <TabsHighlight
+            enabled={!isResizing}
+            className="absolute z-0 inset-0 border border-transparent rounded-md bg-background dark:border-input dark:bg-input/30 shadow-sm"
+          >
+            <TabsList className="bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]">
+              {tabs.map((tab) => (
+                <TabsHighlightItem
+                  key={tab.value}
+                  value={tab.value}
+                  className="flex-1"
+                >
+                  <TabsTrigger
+                    value={tab.value}
+                    className={[
+                      "data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center rounded-md w-full px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors duration-500 ease-in-out focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+                      "flex items-center px-3 transition-all duration-300 ease-in-out",
+                      isCompact ? "gap-0" : "gap-1",
+                    ].join(" ")}
+                  >
+                    <span className="flex items-center justify-center w-5 h-5">
+                      {tab.icon}
+                    </span>
+                    <span
+                      className={[
+                        "whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out",
+                        isCompact
+                          ? "max-w-0 opacity-0 -translate-x-1"
+                          : "max-w-[200px] opacity-100 translate-x-0",
+                      ].join(" ")}
+                      aria-hidden={isCompact}
+                    >
+                      {tab.label}
+                    </span>
+                  </TabsTrigger>
+                </TabsHighlightItem>
+              ))}
+            </TabsList>
+          </TabsHighlight>
+        </div>
+      </div>
+
+      <ScrollArea.Root className="flex-1 min-h-0 w-full">
+        <ScrollArea.Viewport className="w-full h-full min-h-0 flex flex-col">
+          <TabsContents mode="layout" className="flex-1 min-h-0 w-full">
+            <TabsContent value="intro" className="w-full h-full min-h-0">
+              <PlantIntro isLoading={isLoading} pageTitle={pageTitle} />
+            </TabsContent>
+            <TabsContent value="canvas" className="w-full h-full min-h-0">
+              <PlantCanvas
+                isLoading={isLoading}
+                pageId={pageId}
+                pageTitle={pageTitle}
+              />
+            </TabsContent>
+            <TabsContent value="tasks" className="w-full h-full min-h-0">
+              <PlantTasks isLoading={isLoading} pageId={pageId} />
+            </TabsContent>
+            <TabsContent value="materials" className="w-full h-full min-h-0">
+              <PlantMaterials isLoading={isLoading} pageId={pageId} />
+            </TabsContent>
+            <TabsContent value="skills" className="w-full h-full min-h-0">
+              <PlantSkills isLoading={isLoading} pageId={pageId} />
+            </TabsContent>
+          </TabsContents>
         </ScrollArea.Viewport>
         <ScrollArea.Scrollbar orientation="vertical" style={{ right: "-7px" }}>
           <ScrollArea.Thumb />
         </ScrollArea.Scrollbar>
         <ScrollArea.Corner />
       </ScrollArea.Root>
-    </>
+    </Tabs>
   );
 }

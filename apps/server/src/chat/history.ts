@@ -204,6 +204,20 @@ export async function saveAndAppendMessage({
           },
         },
       });
+
+      // 如果是第一条消息（previous 为空）且是用户消息，直接提取文本作为标题
+      if (!previous && role === MessageRoleEnum.USER) {
+        const userText = extractUserText(incomingMessage);
+        if (userText) {
+          const title = normalizeTitle(userText);
+          if (title) {
+            await tx.chatSession.update({
+              where: { id: sessionId },
+              data: { title },
+            });
+          }
+        }
+      }
     }
 
     // 读取全量历史（升序），还原为 AI SDK v6 UIMessage[] 供 agent 使用。
