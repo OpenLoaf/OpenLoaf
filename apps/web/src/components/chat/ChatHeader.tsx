@@ -15,36 +15,11 @@ interface ChatHeaderProps {
 export default function ChatHeader({ className }: ChatHeaderProps) {
   const { newSession, selectSession } = useChatContext();
   const [historyOpen, setHistoryOpen] = React.useState(false);
-  const closeTimer = React.useRef<number | null>(null);
-  const hoveringRef = React.useRef(false);
   const menuLockRef = React.useRef(false);
-
-  const openHistory = () => {
-    hoveringRef.current = true;
-    if (closeTimer.current) {
-      window.clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-    setHistoryOpen(true);
-  };
-  const scheduleClose = () => {
-    hoveringRef.current = false;
-    if (menuLockRef.current) return;
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    closeTimer.current = window.setTimeout(() => setHistoryOpen(false), 160);
-  };
 
   const handleMenuOpenChange = (open: boolean) => {
     menuLockRef.current = open;
-    if (open) {
-      if (closeTimer.current) {
-        window.clearTimeout(closeTimer.current);
-        closeTimer.current = null;
-      }
-      setHistoryOpen(true);
-    } else if (!hoveringRef.current) {
-      setHistoryOpen(false);
-    }
+    if (open) setHistoryOpen(true);
   };
 
   return (
@@ -58,11 +33,6 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
           onClick={() => {
             setHistoryOpen(false);
             menuLockRef.current = false;
-            hoveringRef.current = false;
-            if (closeTimer.current) {
-              window.clearTimeout(closeTimer.current);
-              closeTimer.current = null;
-            }
             newSession();
           }}
         >
@@ -73,8 +43,6 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
             <Button
               variant="ghost"
               size="icon"
-              onMouseEnter={openHistory}
-              onMouseLeave={scheduleClose}
               aria-label="History"
             >
               <History size={20} />
@@ -85,8 +53,9 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
             className="flex w-64 max-h-[min(80svh,var(--radix-popover-content-available-height))] flex-col overflow-hidden p-2"
             collisionPadding={12}
             sideOffset={6}
-            onMouseEnter={openHistory}
-            onMouseLeave={scheduleClose}
+            onInteractOutside={(e) => {
+              if (menuLockRef.current) e.preventDefault();
+            }}
           >
             <SessionList
               onMenuOpenChange={handleMenuOpenChange}
@@ -94,11 +63,6 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
                 // 选中历史会话后：关闭弹层 + 切换会话并加载历史
                 setHistoryOpen(false);
                 menuLockRef.current = false;
-                hoveringRef.current = false;
-                if (closeTimer.current) {
-                  window.clearTimeout(closeTimer.current);
-                  closeTimer.current = null;
-                }
                 selectSession(session.id);
               }}
             />

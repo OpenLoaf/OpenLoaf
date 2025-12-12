@@ -1,61 +1,59 @@
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import {
-  FileText,
-  Info,
-  Sparkles,
-  CheckSquare,
-  Database,
-  Zap,
-} from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Info, Sparkles, CheckSquare, Database, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tabs,
+  TabsHighlight,
   TabsList,
+  TabsHighlightItem,
   TabsTrigger,
-} from "@/components/animate-ui/components/radix/tabs";
+} from "@/components/animate-ui/primitives/radix/tabs";
 
 interface PlantHeaderProps {
   pageTitle: string;
+  titleIcon?: ReactNode;
   className?: string;
 }
 
 export default function PlantHeader({
   pageTitle,
+  titleIcon,
   className,
 }: PlantHeaderProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isCompact, setIsCompact] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeEndTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
 
-    const update = () => {
+    const updateCompact = () => {
       const width = el.getBoundingClientRect().width;
       setIsCompact(width < 800);
     };
 
-    update();
-    const ro = new ResizeObserver(update);
+    updateCompact();
+    const ro = new ResizeObserver(() => {
+      updateCompact();
+      setIsResizing(true);
+      if (resizeEndTimeoutRef.current !== null) {
+        window.clearTimeout(resizeEndTimeoutRef.current);
+      }
+      resizeEndTimeoutRef.current = window.setTimeout(() => {
+        setIsResizing(false);
+      }, 150);
+    });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      if (resizeEndTimeoutRef.current !== null) {
+        window.clearTimeout(resizeEndTimeoutRef.current);
+        resizeEndTimeoutRef.current = null;
+      }
+    };
   }, []);
-
-  // 添加当前页面到面包屑
-  const breadcrumbItems = [
-    {
-      label: pageTitle,
-      isCurrent: true,
-    },
-  ];
 
   // tab配置列表
   const tabs = [
@@ -90,56 +88,58 @@ export default function PlantHeader({
     <div
       ref={containerRef}
       className={cn(
-        "flex items-center justify-between px-2 py-0 w-full",
+        "flex items-center justify-between  py-0 w-full",
         className
       )}
     >
-      <Breadcrumb className="mb-0">
-        <BreadcrumbList>
-          {breadcrumbItems.map((item, index) => (
-            <React.Fragment key={index}>
-              <BreadcrumbItem className="flex items-center gap-1">
-                <FileText className="size-4 text-muted-foreground" />
-                {item.isCurrent ? (
-                  <BreadcrumbPage>{item.label}</BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink>{item.label}</BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
-              {index < breadcrumbItems.length - 1 && <BreadcrumbSeparator />}
-            </React.Fragment>
-          ))}
-        </BreadcrumbList>
-      </Breadcrumb>
+      <h1 className="text-xl font-semibold flex items-center gap-2">
+        {titleIcon ? (
+          <span className="flex items-center text-xl leading-none">
+            {titleIcon}
+          </span>
+        ) : null}
+        <span>{pageTitle}</span>
+      </h1>
       <div className="flex justify-end flex-1">
         <Tabs defaultValue="intro">
-          <TabsList>
-            {tabs.map((tab) => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-                className={cn(
-                  "flex items-center px-3 transition-all duration-300 ease-in-out",
-                  isCompact ? "gap-0" : "gap-1"
-                )}
-              >
-                <span className="flex items-center justify-center w-5 h-5">
-                  {tab.icon}
-                </span>
-                <span
-                  className={cn(
-                    "whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out",
-                    isCompact
-                      ? "max-w-0 opacity-0 -translate-x-1"
-                      : "max-w-[200px] opacity-100 translate-x-0"
-                  )}
-                  aria-hidden={isCompact}
+          <TabsHighlight
+            enabled={!isResizing}
+            className="absolute z-0 inset-0 border border-transparent rounded-md bg-background dark:border-input dark:bg-input/30 shadow-sm"
+          >
+            <TabsList className="bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]">
+              {tabs.map((tab) => (
+                <TabsHighlightItem
+                  key={tab.value}
+                  value={tab.value}
+                  className="flex-1"
                 >
-                  {tab.label}
-                </span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+                  <TabsTrigger
+                    value={tab.value}
+                    className={cn(
+                      "data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center rounded-md w-full px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors duration-500 ease-in-out focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+                      "flex items-center px-3 transition-all duration-300 ease-in-out",
+                      isCompact ? "gap-0" : "gap-1"
+                    )}
+                  >
+                    <span className="flex items-center justify-center w-5 h-5">
+                      {tab.icon}
+                    </span>
+                    <span
+                      className={cn(
+                        "whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out",
+                        isCompact
+                          ? "max-w-0 opacity-0 -translate-x-1"
+                          : "max-w-[200px] opacity-100 translate-x-0"
+                      )}
+                      aria-hidden={isCompact}
+                    >
+                      {tab.label}
+                    </span>
+                  </TabsTrigger>
+                </TabsHighlightItem>
+              ))}
+            </TabsList>
+          </TabsHighlight>
         </Tabs>
       </div>
     </div>

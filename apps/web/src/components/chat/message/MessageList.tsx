@@ -2,18 +2,54 @@
 
 import { cn } from "@/lib/utils";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useChatContext } from "../ChatProvider";
 import MessageAi from "./MessageAi";
 import MessageHuman from "./MessageHuman";
 import MessageHelper from "./MessageHelper";
 import * as React from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface MessageListProps {
   className?: string;
 }
 
+function MessageHistorySkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-start">
+        <div className="max-w-[80%] w-[520px] rounded-lg bg-secondary p-3">
+          <Skeleton className="h-4 w-[72%]" />
+          <Skeleton className="mt-2 h-4 w-[56%]" />
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <div className="max-w-[80%] w-[460px] rounded-lg bg-primary/10 p-3">
+          <Skeleton className="h-4 w-[64%]" />
+          <Skeleton className="mt-2 h-4 w-[40%]" />
+        </div>
+      </div>
+      <div className="flex justify-start">
+        <div className="max-w-[80%] w-[560px] rounded-lg bg-secondary p-3">
+          <Skeleton className="h-4 w-[78%]" />
+          <Skeleton className="mt-2 h-4 w-[62%]" />
+          <Skeleton className="mt-2 h-4 w-[48%]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MessageList({ className }: MessageListProps) {
-  const { messages, status, error, scrollToBottomToken } = useChatContext();
+  const {
+    id: sessionId,
+    messages,
+    status,
+    error,
+    scrollToBottomToken,
+    isHistoryLoading,
+  } = useChatContext();
+  const reduceMotion = useReducedMotion();
   const viewportRef = React.useRef<HTMLDivElement | null>(null);
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
@@ -68,52 +104,163 @@ export default function MessageList({ className }: MessageListProps) {
           ref={viewportRef}
           className="w-full h-full min-h-0"
         >
-          <div ref={contentRef} className="space-y-4">
-            {messages.length === 0 ? (
-              <MessageHelper />
-            ) : (
-              <>
-                {messages.map((message, index) =>
-                  message.role === "user" ? (
-                    <MessageHuman
-                      key={`${message.id}-${index}`}
-                      message={message}
-                    />
+          <div ref={contentRef}>
+            <AnimatePresence initial={false} mode="wait">
+              <motion.div
+                key={sessionId}
+                className="space-y-4"
+                initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              >
+                <AnimatePresence initial={false} mode="wait">
+                  {isHistoryLoading && messages.length === 0 ? (
+                    <motion.div
+                      key="history-loading"
+                      initial={reduceMotion ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.12, ease: "easeOut" }}
+                    >
+                      <MessageHistorySkeleton />
+                    </motion.div>
                   ) : (
-                    <MessageAi
-                      key={`${message.id}-${index}`}
-                      message={message}
-                    />
-                  )
-                )}
+                    <motion.div
+                      key="history-ready"
+                      initial={reduceMotion ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.12, ease: "easeOut" }}
+                    >
+                      <AnimatePresence initial={false} mode="popLayout">
+                        {messages.length === 0 ? (
+                          <motion.div
+                            key="message-helper"
+                            initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={
+                              reduceMotion
+                                ? { opacity: 0 }
+                                : { opacity: 0, y: -6 }
+                            }
+                            transition={{ duration: 0.18, ease: "easeOut" }}
+                          >
+                            <MessageHelper />
+                          </motion.div>
+                        ) : (
+                          <>
+                            {messages.map((message, index) => {
+                              const key =
+                                message.id ?? `${message.role}-${index}`;
 
-                {(status === "submitted" || status === "streaming") && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[80%] p-3 rounded-lg bg-secondary text-secondary-foreground">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse"></div>
-                        <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse delay-150"></div>
-                        <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse delay-300"></div>
-                        <span className="text-xs text-muted-foreground">
-                          正在思考...
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                              return (
+                                <motion.div
+                                  key={key}
+                                  layout
+                                  initial={
+                                    reduceMotion
+                                      ? false
+                                      : { opacity: 0, y: 10, scale: 0.99 }
+                                  }
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={
+                                    reduceMotion
+                                      ? { opacity: 0 }
+                                      : { opacity: 0, y: -8, scale: 0.99 }
+                                  }
+                                  transition={
+                                    reduceMotion
+                                      ? { duration: 0.12 }
+                                      : {
+                                          type: "spring",
+                                          stiffness: 520,
+                                          damping: 38,
+                                          mass: 0.65,
+                                        }
+                                  }
+                                >
+                                  {message.role === "user" ? (
+                                    <MessageHuman message={message} />
+                                  ) : (
+                                    <MessageAi message={message} />
+                                  )}
+                                </motion.div>
+                              );
+                            })}
 
-                {error && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[80%] p-3 rounded-lg bg-destructive/10 text-destructive">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium">出错了</span>
-                      </div>
-                      <p className="text-xs mt-1">{error.message}</p>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+                            {(status === "submitted" ||
+                              status === "streaming") && (
+                              <motion.div
+                                key="message-thinking"
+                                layout
+                                initial={
+                                  reduceMotion ? false : { opacity: 0, y: 8 }
+                                }
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={
+                                  reduceMotion
+                                    ? { opacity: 0 }
+                                    : { opacity: 0, y: -8 }
+                                }
+                                transition={{
+                                  duration: 0.16,
+                                  ease: "easeOut",
+                                }}
+                                className="flex justify-start"
+                              >
+                                <div className="max-w-[80%] p-3 rounded-lg bg-secondary text-secondary-foreground">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse"></div>
+                                    <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse delay-150"></div>
+                                    <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse delay-300"></div>
+                                    <span className="text-xs text-muted-foreground">
+                                      正在思考...
+                                    </span>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+
+                            {error && (
+                              <motion.div
+                                key="message-error"
+                                layout
+                                initial={
+                                  reduceMotion ? false : { opacity: 0, y: 8 }
+                                }
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={
+                                  reduceMotion
+                                    ? { opacity: 0 }
+                                    : { opacity: 0, y: -8 }
+                                }
+                                transition={{
+                                  duration: 0.16,
+                                  ease: "easeOut",
+                                }}
+                                className="flex justify-start"
+                              >
+                                <div className="max-w-[80%] p-3 rounded-lg bg-destructive/10 text-destructive">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium">
+                                      出错了
+                                    </span>
+                                  </div>
+                                  <p className="text-xs mt-1">
+                                    {error.message}
+                                  </p>
+                                </div>
+                              </motion.div>
+                            )}
+                          </>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            </AnimatePresence>
 
             <div ref={bottomRef} />
           </div>

@@ -39,6 +39,8 @@ interface ChatContextType {
   >["addToolApprovalResponse"];
   /** 错误信息 */
   error: ReturnType<typeof useChat>["error"];
+  /** 是否正在加载/应用该 session 的历史消息 */
+  isHistoryLoading: boolean;
   /** 创建新会话（清空消息并切换 id） */
   newSession: () => void;
   /** 切换到某个历史会话，并加载历史消息 */
@@ -66,6 +68,10 @@ export function useChatContext() {
 export default function ChatProvider({ children }: { children: ReactNode }) {
   const [chatId, setChatId] = React.useState(() => generateId());
   const appliedHistorySessionIdRef = React.useRef<string | null>(null);
+  const [appliedHistorySessionId, setAppliedHistorySessionId] = React.useState<
+    string | null
+  >(null);
+  const [forceHistoryLoading, setForceHistoryLoading] = React.useState(false);
   const [scrollToBottomToken, setScrollToBottomToken] = React.useState(0);
 
   const chat = useChat({
@@ -108,6 +114,27 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
   );
   const historyData = historyQuery.data as HistoryResponse | undefined;
 
+  const isHistoryLoading =
+    forceHistoryLoading ||
+    (appliedHistorySessionId !== chatId &&
+      (historyQuery.isLoading || historyQuery.isFetching));
+
+  React.useEffect(() => {
+    if (!forceHistoryLoading) return;
+    // 避免历史接口失败/空响应时一直卡在 skeleton
+    if (historyQuery.isError || (historyQuery.isSuccess && !historyData)) {
+      appliedHistorySessionIdRef.current = chatId;
+      setAppliedHistorySessionId(chatId);
+      setForceHistoryLoading(false);
+    }
+  }, [
+    forceHistoryLoading,
+    historyQuery.isError,
+    historyQuery.isSuccess,
+    historyData,
+    chatId,
+  ]);
+
   React.useEffect(() => {
     if (!historyData) return;
     // 只在“切换 session”时应用一次，避免 refetch 把正在对话的消息覆盖掉
@@ -117,6 +144,8 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
     // API 返回倒序（最新在前），UI 展示通常需要正序（最早在前）
     const chronological = [...historyData.messages].reverse();
     chat.setMessages(chronological);
+    setAppliedHistorySessionId(chatId);
+    setForceHistoryLoading(false);
     // 应用历史后，滚动到最底部显示最新消息
     setScrollToBottomToken((n) => n + 1);
   }, [historyData, chatId, chat.setMessages]);
@@ -125,9 +154,11 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
     if (chat.status !== "ready") {
       chat.stop();
     }
+    setForceHistoryLoading(true);
     // 立即清空，避免 UI 闪回旧消息
     chat.setMessages([]);
     appliedHistorySessionIdRef.current = null;
+    setAppliedHistorySessionId(null);
     setChatId(generateId());
     // 新会话也滚动到底部（此时通常为空，属于安全操作）
     setScrollToBottomToken((n) => n + 1);
@@ -137,9 +168,11 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
     if (chat.status !== "ready") {
       chat.stop();
     }
+    setForceHistoryLoading(true);
     // 立即清空，避免 UI 闪回旧消息
     chat.setMessages([]);
     appliedHistorySessionIdRef.current = null;
+    setAppliedHistorySessionId(null);
     setChatId(sessionId);
     // 先触发一次滚动：避免短暂显示在顶部；历史加载后还会再触发一次
     setScrollToBottomToken((n) => n + 1);
@@ -147,7 +180,13 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
 
   return (
     <ChatContext.Provider
-      value={{ ...chat, scrollToBottomToken, newSession, selectSession }}
+      value={{
+        ...chat,
+        isHistoryLoading,
+        scrollToBottomToken,
+        newSession,
+        selectSession,
+      }}
     >
       {children}
     </ChatContext.Provider>

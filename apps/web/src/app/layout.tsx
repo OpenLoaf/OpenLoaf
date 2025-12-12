@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   description: "teatime-ai",
 };
 
+
 export default function RootLayout({
   children,
 }: Readonly<{

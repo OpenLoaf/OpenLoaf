@@ -7,6 +7,7 @@ import {
 } from "ai";
 import type { Hono } from "hono";
 import { saveAndAppendMessage } from "./history";
+import { systemTools } from "./tools";
 
 /**
  * 约定请求体（MVP）：
@@ -22,7 +23,8 @@ type ChatRequestBody = {
 const agent = new ToolLoopAgent({
   model: deepseek("deepseek-chat"),
   instructions: "You are a helpful assistant.",
-  tools: {},
+  // System Tools（MVP）：这里只注入“定义”，暂不实现内部逻辑。
+  tools: systemTools,
 });
 
 type AgentUIMessage = InferAgentUIMessage<typeof agent>;

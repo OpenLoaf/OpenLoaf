@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@teatime-ai/api/context";
-import { appRouterDefine, appRouter as baseAppRouter } from "@teatime-ai/api";
+import { appRouterDefine } from "@teatime-ai/api";
 import { t } from "@teatime-ai/api";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -31,6 +31,17 @@ app.use(
     credentials: true,
   })
 );
+
+// Dev-only: simulate slow network (300-600ms)
+if (process.env.NODE_ENV !== "production") {
+  app.use("*", async (c, next) => {
+    if (c.req.method === "OPTIONS") return next();
+    await new Promise((r) =>
+      setTimeout(r, 300 + Math.floor(Math.random() * 301))
+    );
+    return next();
+  });
+}
 
 registerChatSse(app);
 
