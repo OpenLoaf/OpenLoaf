@@ -17,6 +17,7 @@ type ChatSessionListItem = {
   id: string;
   title: string;
   createdAt: string | Date;
+  isPin: boolean;
 };
 
 function startOfDay(date: Date) {
@@ -93,8 +94,9 @@ export default function SessionList({
   const { data, isLoading } = useQuery(
     trpc.chatsession.findManyChatSession.queryOptions({
       where: { deletedAt: null },
-      orderBy: { updatedAt: "desc" },
-      select: { id: true, title: true, createdAt: true },
+      // 置顶优先，其次按更新时间倒序
+      orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }],
+      select: { id: true, title: true, createdAt: true, isPin: true },
     } as any) as any
   );
 
@@ -105,6 +107,7 @@ export default function SessionList({
       id: s.id,
       name: s.title,
       createdAt: s.createdAt,
+      pinned: s.isPin,
     }));
   }, [chatSessions]);
 

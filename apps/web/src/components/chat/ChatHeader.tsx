@@ -13,7 +13,7 @@ interface ChatHeaderProps {
 }
 
 export default function ChatHeader({ className }: ChatHeaderProps) {
-  const { newSession } = useChatContext();
+  const { newSession, selectSession } = useChatContext();
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const closeTimer = React.useRef<number | null>(null);
   const hoveringRef = React.useRef(false);
@@ -88,7 +88,20 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
             onMouseEnter={openHistory}
             onMouseLeave={scheduleClose}
           >
-            <SessionList onMenuOpenChange={handleMenuOpenChange} />
+            <SessionList
+              onMenuOpenChange={handleMenuOpenChange}
+              onSelect={(session) => {
+                // 选中历史会话后：关闭弹层 + 切换会话并加载历史
+                setHistoryOpen(false);
+                menuLockRef.current = false;
+                hoveringRef.current = false;
+                if (closeTimer.current) {
+                  window.clearTimeout(closeTimer.current);
+                  closeTimer.current = null;
+                }
+                selectSession(session.id);
+              }}
+            />
           </PopoverContent>
         </Popover>
       </div>

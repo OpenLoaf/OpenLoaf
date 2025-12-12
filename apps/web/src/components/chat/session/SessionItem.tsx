@@ -5,6 +5,9 @@ import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, PencilLine, Pin, Trash2, Layers } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { queryClient, trpc } from "@/utils/trpc";
+import { toast } from "sonner";
 
 export interface Session {
   id: string;
@@ -28,6 +31,7 @@ export default function SessionItem({
   className,
 }: SessionItemProps) {
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [isBusy, setIsBusy] = React.useState(false);
   const closeTimer = React.useRef<number | null>(null);
   const openTimer = React.useRef<number | null>(null);
   const triggerRef = React.useRef<HTMLButtonElement | null>(null);
@@ -49,6 +53,22 @@ export default function SessionItem({
       openTimer.current = null;
     }
   };
+
+  const closeMenuNow = () => {
+    clearOpenTimer();
+    clearCloseTimer();
+    setMenuOpen(false);
+    onMenuOpenChange?.(false);
+  };
+
+  // 更新会话（重命名/置顶/删除采用软删除）
+  const updateSession = useMutation({
+    ...(trpc.chatsession.updateOneChatSession.mutationOptions() as any),
+    onSuccess: () => {
+      // MVP：简单粗暴刷新所有查询即可
+      queryClient.invalidateQueries();
+    },
+  });
 
   const openMenu = () => {
     clearCloseTimer();
@@ -134,7 +154,30 @@ export default function SessionItem({
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                onClick={(e) => e.stopPropagation()}
+                disabled={isBusy}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  // MVP：用浏览器 prompt 作为重命名交互
+                  const nextTitle = window.prompt("请输入新的会话标题", session.name);
+                  if (!nextTitle) return;
+                  const title = nextTitle.trim();
+                  if (!title) return;
+
+                  try {
+                    setIsBusy(true);
+                    await updateSession.mutateAsync({
+                      where: { id: session.id },
+                      // 用户手动重命名后：标记 isUserRename=true，避免后台 AI 覆盖
+                      data: { title, isUserRename: true },
+                    } as any);
+                    toast.success("重命名成功");
+                    closeMenuNow();
+                  } catch (err: any) {
+                    toast.error(err?.message ?? "重命名失败");
+                  } finally {
+                    setIsBusy(false);
+                  }
+                }}
               >
                 <PencilLine size={16} className="text-muted-foreground" />
                 重命名
@@ -142,16 +185,54 @@ export default function SessionItem({
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                onClick={(e) => e.stopPropagation()}
+                disabled={isBusy}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  // 置顶/取消置顶：更新 isPin 字段
+                  const nextIsPin = !Boolean(session.pinned);
+                  try {
+                    setIsBusy(true);
+                    await updateSession.mutateAsync({
+                      where: { id: session.id },
+                      data: { isPin: nextIsPin },
+                    } as any);
+                    toast.success(nextIsPin ? "已置顶" : "已取消置顶");
+                    closeMenuNow();
+                  } catch (err: any) {
+                    toast.error(err?.message ?? "置顶操作失败");
+                  } finally {
+                    setIsBusy(false);
+                  }
+                }}
               >
                 <Pin size={16} className="text-muted-foreground" />
-                置顶
+                {session.pinned ? "取消置顶" : "置顶"}
               </button>
               <div className="my-1 h-px bg-border" />
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-destructive/10"
-                onClick={(e) => e.stopPropagation()}
+                disabled={isBusy}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  const ok = window.confirm("确定要删除这个会话吗？");
+                  if (!ok) return;
+
+                  try {
+                    setIsBusy(true);
+                    // MVP：软删除（仅设置 deletedAt），避免误删历史
+                    await updateSession.mutateAsync({
+                      where: { id: session.id },
+                      data: { deletedAt: new Date() },
+                    } as any);
+                    toast.success("已删除");
+                    closeMenuNow();
+                  } catch (err: any) {
+                    toast.error(err?.message ?? "删除失败");
+                  } finally {
+                    setIsBusy(false);
+                  }
+                }}
               >
                 <Trash2 size={16} className="text-destructive" />
                 删除

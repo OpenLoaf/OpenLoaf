@@ -25,26 +25,6 @@ datasource db {
 }
 
 //
-// ================= WORKSPACE SYSTEM =================
-//
-
-// 工作区模型
-// 用于组织和管理多个页面和资源
-model Workspace {
-  id        String   @id @default(cuid()) // 工作区唯一标识
-  name      String // 工作区名称
-  isActive  Boolean  @default(false) // 是否激活
-  createdAt DateTime @default(now()) // 创建时间
-  updatedAt DateTime @updatedAt // 更新时间
-
-  // 工作区下的页面
-  pages Page[]
-
-  // 工作区下的标签
-  tags Tag[]
-}
-
-//
 // ================= TAG SYSTEM =================
 //
 
@@ -56,9 +36,8 @@ model Tag {
   color     String? // 标签颜色（用于UI显示）
   createdAt DateTime @default(now()) // 创建时间
 
-  // 所属工作区
+  // 所属工作区（仅保留ID，不做外键关联）
   workspaceId      String
-  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
   pageChatSessions PageChatSession[]
 }
 
@@ -91,9 +70,8 @@ model Page {
   // 页面关联的资源（1对多关系）
   resources Resource[]
 
-  // 所属工作区
+  // 所属工作区（仅保留ID，不做外键关联）
   workspaceId      String
-  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
   pageChatSessions PageChatSession[]
 }
 

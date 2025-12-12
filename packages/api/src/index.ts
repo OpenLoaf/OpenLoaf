@@ -4,10 +4,12 @@ import { appRouter as internalAppRouter } from "../generated/routers";
 import { t } from "../generated/routers/helpers/createRouter";
 import { pageRouter } from "./routers/page";
 import { workspaceRouter, BaseWorkspaceRouter, workspaceSchemas } from "./routers/workspace";
+import { chatRouter } from "./routers/chat";
 
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
+  chat: chatRouter,
   pageCustom: pageRouter,
   workspace: workspaceRouter,
 }

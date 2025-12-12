@@ -1,54 +1,56 @@
 model ChatSession {
-    id           String        @id @default(cuid()) /// @zod.cuid()
-    title        String        @default("新对话") /// @zod.min(1)
-    agents       Json? /// @zod.optional()
-    systemPrompt String? /// @zod.optional()
-    contextId    String? /// @zod.optional()
-    createdAt    DateTime      @default(now())
-    updatedAt    DateTime      @updatedAt
-    deletedAt    DateTime? /// @zod.optional()
-    messages     ChatMessage[]
+  id           String        @id @default(cuid()) /// @zod.cuid()
+  title        String        @default("新对话") /// @zod.min(1)
+  agents       Json? /// @zod.optional()
+  systemPrompt String? /// @zod.optional()
+  contextId    String? /// @zod.optional()
+  isUserRename Boolean       @default(false)
+  isPin        Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime? /// @zod.optional()
+  messages     ChatMessage[]
 
-    // 对话会话关联的页面（多对多关系）
-    pageChatSessions PageChatSession[]
+  // 对话会话关联的页面（多对多关系）
+  pageChatSessions PageChatSession[]
 
-    @@index([deletedAt])
-    @@index([deletedAt, createdAt])
+  @@index([deletedAt])
+  @@index([deletedAt, createdAt])
 }
 
 model ChatMessage {
-    id                String            @id @default(cuid()) /// @zod.cuid()
-    sessionId         String /// @zod.cuid()
-    previousMessageId String? /// @zod.cuid().optional()
-    role              MessageRole       @default(USER)
-    meta              Json? /// @zod.optional()
-    createdAt         DateTime          @default(now())
-    session           ChatSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-    parts             ChatMessagePart[]
+  id                String            @id @default(cuid()) /// @zod.cuid()
+  sessionId         String /// @zod.cuid()
+  previousMessageId String? /// @zod.cuid().optional()
+  role              MessageRole       @default(USER)
+  meta              Json? /// @zod.optional()
+  createdAt         DateTime          @default(now())
+  session           ChatSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  parts             ChatMessagePart[]
 
-    @@index([sessionId, createdAt])
-    @@index([previousMessageId])
-    @@index([role])
+  @@index([sessionId, createdAt])
+  @@index([previousMessageId])
+  @@index([role])
 }
 
 model ChatMessagePart {
-    id        String      @id @default(cuid()) /// @zod.cuid()
-    messageId String /// @zod.cuid()
-    index     Int
-    // 直接使用字符串保存UIMessage的类型
-    type      String
-    errorText String? /// @zod.optional()
-    uiState   String? /// @zod.optional()
-    state     Json? /// @zod.optional()
-    createdAt DateTime    @default(now())
-    message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  id        String      @id @default(cuid()) /// @zod.cuid()
+  messageId String /// @zod.cuid()
+  index     Int
+  // 直接使用字符串保存UIMessage的类型
+  type      String
+  errorText String? /// @zod.optional()
+  uiState   String? /// @zod.optional()
+  state     Json? /// @zod.optional()
+  createdAt DateTime    @default(now())
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
-    @@index([messageId, index])
+  @@index([messageId, index])
 }
 
 enum MessageRole {
-    USER
-    ASSISTANT
-    SYSTEM
-    TOOL
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
 }
