@@ -4,35 +4,20 @@ import * as React from "react";
 import SessionItem, { type Session } from "./SessionItem";
 import { Separator } from "@/components/ui/separator";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
 
 interface SessionListProps {
-  sessions?: Session[];
   onSelect?: (session: Session) => void;
   onMenuOpenChange?: (open: boolean) => void;
   className?: string;
 }
 
-const mockSessions: Session[] = (() => {
-  const now = Date.now();
-  const day = 24 * 60 * 60 * 1000;
-  const d = (daysAgo: number) => new Date(now - daysAgo * day).toISOString();
-  return [
-    { id: "p1", name: "产品需求讨论", pinned: true, hasLayers: true, createdAt: d(40) },
-    { id: "t1", name: "写周报", createdAt: d(0) },
-    { id: "t2", name: "调试登录问题", createdAt: d(0) },
-    { id: "y1", name: "会议纪要", hasLayers: true, createdAt: d(1) },
-    { id: "w1", name: "旅行计划", createdAt: d(3) },
-    { id: "w2", name: "代码评审", hasLayers: true, createdAt: d(6) },
-    { id: "m1", name: "性能优化", createdAt: d(14) },
-    { id: "m2", name: "接口设计", createdAt: d(21) },
-    { id: "o1", name: "读书笔记", createdAt: d(65) },
-    {
-      id: "o2",
-      name: "年度总结",
-      createdAt: new Date(now - 400 * day).toISOString(),
-    },
-  ];
-})();
+type ChatSessionListItem = {
+  id: string;
+  title: string;
+  createdAt: string | Date;
+};
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -98,11 +83,31 @@ function groupSessions(sessions: Session[]) {
 }
 
 export default function SessionList({
-  sessions = mockSessions,
   onSelect,
   onMenuOpenChange,
   className,
 }: SessionListProps) {
+  // 使用 tRPC + TanStack React Query 获取会话列表（MVP：只读展示）
+  // 这里的 Prisma FindMany 类型推断非常深，TS 可能报 “excessively deep”；
+  // MVP 场景只需要 id/title/createdAt，直接收敛为轻量类型即可。
+  const { data, isLoading } = useQuery(
+    trpc.chatsession.findManyChatSession.queryOptions({
+      where: { deletedAt: null },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, title: true, createdAt: true },
+    } as any) as any
+  );
+
+  const chatSessions = (data ?? []) as ChatSessionListItem[];
+
+  const sessions: Session[] = React.useMemo(() => {
+    return chatSessions.map((s) => ({
+      id: s.id,
+      name: s.title,
+      createdAt: s.createdAt,
+    }));
+  }, [chatSessions]);
+
   const groups = React.useMemo(() => groupSessions(sessions), [sessions]);
 
   return (
@@ -110,24 +115,34 @@ export default function SessionList({
       className={`w-full ${className ?? ""}`}
     >
       <ScrollArea.Viewport className="w-full max-h-[min(80svh,var(--radix-popover-content-available-height))] touch-auto">
-        <div className="flex flex-col gap-2">
-          {groups.map((g, idx) => (
-            <div key={g.key} className="flex flex-col gap-1">
-              <div className="px-2 text-xs font-medium text-muted-foreground">
-                {g.label}
+        {isLoading ? (
+          <div className="px-2 py-3 text-sm text-muted-foreground">
+            正在加载会话...
+          </div>
+        ) : sessions.length === 0 ? (
+          <div className="px-2 py-3 text-sm text-muted-foreground">
+            暂无会话
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {groups.map((g, idx) => (
+              <div key={g.key} className="flex flex-col gap-1">
+                <div className="px-2 text-xs font-medium text-muted-foreground">
+                  {g.label}
+                </div>
+                {g.sessions.map((s) => (
+                  <SessionItem
+                    key={s.id}
+                    session={s}
+                    onSelect={onSelect}
+                    onMenuOpenChange={onMenuOpenChange}
+                  />
+                ))}
+                {idx < groups.length - 1 && <Separator className="my-1" />}
               </div>
-              {g.sessions.map((s) => (
-                <SessionItem
-                  key={s.id}
-                  session={s}
-                  onSelect={onSelect}
-                  onMenuOpenChange={onMenuOpenChange}
-                />
-              ))}
-              {idx < groups.length - 1 && <Separator className="my-1" />}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </ScrollArea.Viewport>
       <ScrollArea.Scrollbar orientation="vertical" style={{ right: "-7px" }}>
         <ScrollArea.Thumb />
