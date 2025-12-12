@@ -32,7 +32,12 @@ export type SystemToolResult<T> =
       ok: false;
       approvalRequired?: boolean;
       error: {
-        code: "NOT_IMPLEMENTED" | "APPROVAL_REQUIRED";
+        code:
+          | "NOT_IMPLEMENTED"
+          | "NOT_CONFIGURED"
+          | "APPROVAL_REQUIRED"
+          | "INVALID_INPUT"
+          | "EXECUTION_FAILED";
         message: string;
         riskType: RiskType;
       };

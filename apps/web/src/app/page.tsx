@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext, type CSSProperties } from "react";
 import type { Workspace } from "@teatime-ai/api";
 
 import {
@@ -45,7 +45,10 @@ export default function Page() {
   return (
     <div className="[--header-height:calc(--spacing(10))] bg-sidebar">
       <WorkspaceProvider>
-        <SidebarProvider className="flex flex-col">
+        <SidebarProvider
+          className="flex flex-col"
+          style={{ "--sidebar-width": "14rem" } as CSSProperties}
+        >
           <PageContent />
         </SidebarProvider>
       </WorkspaceProvider>
