@@ -69,6 +69,7 @@ export const pageRouter = t.router({
   getAll: shieldedProcedure
     .input(pageGetAllInputSchema)
     .query(async ({ ctx, input }): Promise<PageTreeNode[]> => {
+      console.log("==pageGetAllInputSchema==", input);
       const pages = await ctx.prisma.page.findMany({
         where: { workspaceId: input.workspaceId },
         include: {

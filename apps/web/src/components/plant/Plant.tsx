@@ -4,7 +4,7 @@ import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useTabs } from "@/hooks/use_tabs";
 import { useQuery, skipToken } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { useWorkspace } from "@/hooks/use_workspace";
+import { useWorkspace } from "@/app/page";
 import PlantHeader from "./PlantHeader";
 
 interface PlantPageProps {
@@ -13,7 +13,7 @@ interface PlantPageProps {
 }
 
 export default function PlantPage({ pageId }: PlantPageProps) {
-  const { activeWorkspace } = useWorkspace();
+  const { workspace: activeWorkspace } = useWorkspace();
 
   // 使用tRPC获取页面数据
   const { data: pageData, isLoading } = useQuery(

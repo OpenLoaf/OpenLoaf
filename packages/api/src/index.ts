@@ -3,10 +3,17 @@
 import { appRouter as internalAppRouter } from "../generated/routers";
 import { t } from "../generated/routers/helpers/createRouter";
 import { pageRouter } from "./routers/page";
+import { workspaceRouter, BaseWorkspaceRouter, workspaceSchemas } from "./routers/workspace";
 
-export const appRouter = t.router({
+
+export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
   pageCustom: pageRouter,
+  workspace: workspaceRouter,
+}
+
+export const appRouter = t.router({
+  ...appRouterDefine
 });
 
 export type AppRouter = typeof appRouter;
@@ -18,7 +25,14 @@ export * from "../generated/routers/helpers/createRouter";
 // Export generated zod schemas
 // export * as zodSchemas from "../generated/zod/schemas/index";
 
-// export const t = initTRPC.context<Context>().create({});
+// Export custom types
+export * from "./types/workspace";
+
+// Export workspace router components
+export { BaseWorkspaceRouter, workspaceSchemas };
+
+// export const t = initTRPC.context<Context>().create({
+// });
 
 // export const router = t.router;
 

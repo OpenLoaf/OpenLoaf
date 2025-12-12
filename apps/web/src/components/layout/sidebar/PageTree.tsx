@@ -1,7 +1,7 @@
 "use client";
 
 import { useTabs } from "@/hooks/use_tabs";
-import { useWorkspace } from "@/hooks/use_workspace";
+import { useWorkspace } from "@/app/page";
 import {
   SidebarMenuAction,
   SidebarMenuButton,
@@ -29,10 +29,10 @@ export const PageTreeMenu = ({
   updatePage,
 }: PageTreeMenuProps) => {
   const { addTab } = useTabs();
-  const { activeWorkspace } = useWorkspace();
+  const { workspace } = useWorkspace();
 
   const handlePageClick = (page: PageTreeNode) => {
-    if (!activeWorkspace) return;
+    if (!workspace?.id) return;
 
     addTab({
       id: page.id,
@@ -45,7 +45,7 @@ export const PageTreeMenu = ({
         component: "ai-chat",
         params: { pageId: page.id },
       },
-      workspaceId: activeWorkspace.id,
+      workspaceId: workspace.id,
       createNew: false,
     });
   };

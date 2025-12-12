@@ -1,7 +1,7 @@
 "use client";
 
 import { SidebarPage } from "@/components/layout/sidebar/Page";
-import { SidebarWorkspace } from "./Workspace";
+import { SidebarWorkspace } from "../../workspace/SidebarWorkspace";
 import {
   Sidebar,
   SidebarContent,

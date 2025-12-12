@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { Tabs, TabsList } from "@/components/animate-ui/components/radix/tabs";
 import { useTabs } from "@/hooks/use_tabs";
-import { useWorkspace } from "@/hooks/use_workspace";
+import { useWorkspace } from "@/app/page";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { TabMenu } from "./TabMenu";
@@ -17,7 +17,7 @@ export const HeaderTabs = () => {
     reorderTabs,
     setTabPinned,
   } = useTabs();
-  const { activeWorkspace } = useWorkspace();
+  const { workspace: activeWorkspace } = useWorkspace();
   const tabsListRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);

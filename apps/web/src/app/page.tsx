@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
+import type { Workspace } from "@teatime-ai/api";
 
 import {
   SidebarInset,
@@ -9,7 +10,20 @@ import {
 import { Header } from "@/components/layout/header/Header";
 import { AppSidebar } from "@/components/layout/sidebar/Sidebar";
 import { MainContent } from "@/components/layout/MainContext";
+import { WorkspaceProvider } from "@/components/workspace/WorkspaceProvider";
 import { cn } from "@/lib/utils";
+
+// 创建并导出 WorkspaceContext
+export const WorkspaceContext = createContext<{
+  workspace: Workspace;
+  isLoading: boolean;
+}>({
+  workspace: {} as Workspace,
+  isLoading: true,
+});
+
+// 导出自定义 hook 以便于使用
+export const useWorkspace = () => useContext(WorkspaceContext);
 
 function PageContent() {
   const { open } = useSidebar();
@@ -30,9 +44,11 @@ function PageContent() {
 export default function Page() {
   return (
     <div className="[--header-height:calc(--spacing(10))] bg-sidebar">
-      <SidebarProvider className="flex flex-col">
-        <PageContent />
-      </SidebarProvider>
+      <WorkspaceProvider>
+        <SidebarProvider className="flex flex-col">
+          <PageContent />
+        </SidebarProvider>
+      </WorkspaceProvider>
     </div>
   );
 }

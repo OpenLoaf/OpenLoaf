@@ -53,3 +53,5 @@ lerna-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+teatime.conf

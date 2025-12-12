@@ -9,17 +9,15 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
 } from "@/components/ui/sidebar";
-import { useWorkspace } from "@/hooks/use_workspace";
+import { useWorkspace } from "@/app/page";
 import { PageTreeMenu } from "./PageTree";
 
 export const SidebarPage = () => {
-  const { activeWorkspace } = useWorkspace();
-
+  const { workspace } = useWorkspace();
+  console.log("==workspace==", workspace);
   // 使用 trpc 接口获取页面树数据
   const { data: pageTreeNodes = [] } = useQuery(
-    trpc.pageCustom.getAll.queryOptions(
-      activeWorkspace ? { workspaceId: activeWorkspace.id } : skipToken
-    )
+    trpc.pageCustom.getAll.queryOptions({ workspaceId: workspace.id })
   );
 
   console.log("pageTreeNodes", pageTreeNodes);

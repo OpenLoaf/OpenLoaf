@@ -10,15 +10,17 @@
     "start": "bun run dist/index.js"
   },
   "dependencies": {
+    "@ai-sdk/deepseek": "^2.0.0-beta.47",
+    "@ai-sdk/openai": "^3.0.0-beta.87",
     "@hono/trpc-server": "^0.4.0",
     "@teatime-ai/api": "workspace:*",
     "@teatime-ai/db": "workspace:*",
     "@trpc/server": "catalog:",
-    "@ai-sdk/deepseek": "^2.0.0-beta.47",
-    "@ai-sdk/openai": "^3.0.0-beta.87",
+    "@types/uuid": "^11.0.0",
     "ai": "^6.0.0-beta.138",
     "dotenv": "catalog:",
     "hono": "catalog:",
+    "uuid": "^13.0.0",
     "zod": "^4.1.11"
   },
   "devDependencies": {
