@@ -39,6 +39,7 @@ export const TabMenu = ({
   isPinned = false,
   onTogglePin,
 }: TabMenuProps) => {
+  const isActive = tab.id === activeTabId;
   return (
     <ContextMenu>
       <ContextMenuTrigger
@@ -63,18 +64,22 @@ export const TabMenu = ({
             onDrop?.(tab.id);
           }}
           onDragEnd={onDragEnd}
-          className={`h-7 px-1.5 text-xs rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:border-transparent aria-selected:shadow-none pr-2 relative z-10 flex items-center justify-between ${
+          className={`h-7 px-1.5 text-xs gap-0 rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:border-transparent aria-selected:shadow-none relative z-10 flex items-center ${
             isPinned ? "max-w-[200px]" : "min-w-[130px] max-w-[130px]"
           }`}
         >
-          <span className="truncate flex-1">{tab.title || "Untitled"}</span>
+          <span className="truncate w-full">{tab.title || "Untitled"}</span>
           {!isPinned && (
             <span
-              className={`ml-auto h-6 w-6 transition-opacity ${
+              className={`absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 transition-opacity ${
                 workspaceTabs.length <= 1
                   ? "opacity-0"
                   : "opacity-0 group-hover:opacity-100"
-              } relative z-10 p-0 cursor-pointer flex items-center justify-center rounded-full hover:bg-background`}
+              } ${
+                isActive
+                  ? "group-hover:bg-background hover:bg-background"
+                  : "group-hover:bg-sidebar hover:bg-sidebar"
+              } z-20 p-0 cursor-pointer flex items-center justify-center rounded-full`}
               onClick={(e) => {
                 e.stopPropagation();
                 if (workspaceTabs.length > 1) {

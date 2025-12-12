@@ -9,8 +9,9 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from "@/components/ui/sidebar";
-import { ChevronRight, FileText, MoreHorizontal } from "lucide-react";
+} from "@/components/animate-ui/components/radix/sidebar";
+import { Collapsible as CollapsiblePrimitive } from "radix-ui";
+import { ChevronRight, FileText } from "lucide-react";
 import type { PageTreeNode } from "@teatime-ai/api/routers/page";
 
 interface PageTreeMenuProps {
@@ -31,6 +32,10 @@ export const PageTreeMenu = ({
   const { addTab } = useTabs();
   const { workspace } = useWorkspace();
 
+  const Collapsible = CollapsiblePrimitive.Root;
+  const CollapsibleTrigger = CollapsiblePrimitive.Trigger;
+  const CollapsibleContent = CollapsiblePrimitive.Content;
+
   const handlePageClick = (page: PageTreeNode) => {
     if (!workspace?.id) return;
 
@@ -50,16 +55,14 @@ export const PageTreeMenu = ({
     });
   };
 
-  const toggleExpand = (pageId: string) => {
-    const currentIsExpanded = expandedPages[pageId] || false;
-    const newExpandedState = !currentIsExpanded;
+  const setExpanded = (pageId: string, isExpanded: boolean) => {
     setExpandedPages((prev) => ({
       ...prev,
-      [pageId]: newExpandedState,
+      [pageId]: isExpanded,
     }));
     updatePage.mutate({
-      id: pageId,
-      isExpanded: newExpandedState,
+      where: { id: pageId },
+      data: { isExpanded },
     });
   };
 
@@ -68,50 +71,76 @@ export const PageTreeMenu = ({
       {pages.map((page) => {
         const isExpanded = expandedPages[page.id] ?? page.isExpanded;
         const hasChildren = page.children.length > 0;
+        const pageTitle = page.title || "Untitled Page";
+
+        if (!hasChildren) {
+          return (
+            <SidebarMenuItem key={page.id}>
+              <SidebarMenuButton
+                tooltip={pageTitle}
+                onClick={() => handlePageClick(page)}
+              >
+                {page.icon ? (
+                  <span className="text-sm">{page.icon}</span>
+                ) : (
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span>{pageTitle}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          );
+        }
 
         return (
-          <SidebarMenuItem key={page.id}>
-            <SidebarMenuButton onClick={() => handlePageClick(page)}>
-              {page.icon ? (
-                <span className="text-sm">{page.icon}</span>
-              ) : (
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span>{page.title || "Untitled Page"}</span>
-            </SidebarMenuButton>
-            {hasChildren && (
-              <SidebarMenuAction
-                className={`bg-sidebar-accent text-sidebar-accent-foreground left-2 transition-transform ${
-                  isExpanded ? "rotate-90" : ""
-                }`}
-                onClick={() => toggleExpand(page.id)}
-                showOnHover
+          <Collapsible
+            key={page.id}
+            asChild
+            open={isExpanded}
+            onOpenChange={(open) => setExpanded(page.id, open)}
+            className="group/collapsible"
+          >
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip={pageTitle}
+                onClick={() => handlePageClick(page)}
               >
-                <ChevronRight />
-              </SidebarMenuAction>
-            )}
-            <SidebarMenuAction showOnHover>
-              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-            </SidebarMenuAction>
-            {hasChildren && isExpanded && (
-              <SidebarMenuSub>
-                {page.children.map((child) => (
-                  <SidebarMenuSubItem key={child.id}>
-                    <SidebarMenuSubButton
-                      onClick={() => handlePageClick(child)}
-                    >
-                      {child.icon ? (
-                        <span className="text-sm">{child.icon}</span>
-                      ) : (
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <span>{child.title || "Untitled Page"}</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                ))}
-              </SidebarMenuSub>
-            )}
-          </SidebarMenuItem>
+                {page.icon ? (
+                  <span className="text-sm">{page.icon}</span>
+                ) : (
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span>{pageTitle}</span>
+              </SidebarMenuButton>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuAction aria-label="Toggle">
+                  <ChevronRight className="transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+                </SidebarMenuAction>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                <SidebarMenuSub>
+                  {page.children.map((child) => {
+                    const childTitle = child.title || "Untitled Page";
+
+                    return (
+                      <SidebarMenuSubItem key={child.id}>
+                        <SidebarMenuSubButton asChild>
+                          <a
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handlePageClick(child);
+                            }}
+                          >
+                            <span>{childTitle}</span>
+                          </a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    );
+                  })}
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
         );
       })}
     </>

@@ -23,8 +23,6 @@ interface ChatContextType {
   clearError: ReturnType<typeof useChat>["clearError"];
   /** 恢复流的方法 */
   resumeStream: ReturnType<typeof useChat>["resumeStream"];
-  /** 添加工具结果的方法 */
-  addToolResult: ReturnType<typeof useChat>["addToolResult"];
   /** 添加工具输出的方法 */
   addToolOutput: ReturnType<typeof useChat>["addToolOutput"];
   /** 添加工具批准响应的方法 */
@@ -59,7 +57,7 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
       api: `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`,
       prepareSendMessagesRequest({ id, messages, ...params }) {
         if (messages.length === 0) {
-          return { body: { params, id, messages: [] } };
+          return { body: { params, id, sessionId: id, messages: [] } };
         }
         const lastMessage = messages[messages.length - 1];
         console.log(
@@ -72,6 +70,7 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
           body: {
             params,
             id,
+            sessionId: id,
             messages: [lastMessage],
           },
         };

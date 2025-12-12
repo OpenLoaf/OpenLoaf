@@ -2,7 +2,7 @@
 
 import { PanelLeft, PanelRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useSidebar } from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/animate-ui/components/radix/sidebar";
 import { useTabs } from "@/hooks/use_tabs";
 
 import { HeaderTabs } from "./Tabs";

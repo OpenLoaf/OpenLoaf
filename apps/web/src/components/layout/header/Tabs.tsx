@@ -169,7 +169,7 @@ export const HeaderTabs = () => {
     >
       <TabsList
         ref={tabsListRef}
-        className="h-[calc(var(--header-height))] bg-sidebar border-sidebar-border rounded-none p-0  relative overflow-hidden"
+        className="h-[calc(var(--header-height))] bg-sidebar border-sidebar-border rounded-none p-0 relative overflow-hidden gap-1"
       >
         {draggingTabId && dropIndicatorLeft !== null && (
           <div

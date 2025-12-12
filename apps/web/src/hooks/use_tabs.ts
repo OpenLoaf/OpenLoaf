@@ -16,6 +16,8 @@ type PanelUpdates = Partial<{
 // 定义标签页类型
 export interface Tab {
   id: string;
+  // Logical resource identity for de-duping/activation (e.g. page id)
+  resourceId?: string;
   title: string;
   leftPanel?: PanelConfig;
   rightPanel?: PanelConfig;
@@ -30,7 +32,13 @@ interface TabsState {
   activeLeftPanel?: PanelConfig;
   activeRightPanel?: PanelConfig;
   activeLeftWidth: number;
-  addTab: (tab: Omit<Tab, "id"> & { id?: string; createNew?: boolean }) => void;
+  addTab: (
+    tab: Omit<Tab, "id" | "resourceId"> & {
+      id?: string;
+      resourceId?: string;
+      createNew?: boolean;
+    }
+  ) => void;
   closeTab: (tabId: string) => void;
   setActiveTab: (tabId: string) => void;
   updateCurrentTabPanels: (panels: PanelUpdates) => void;
@@ -132,54 +140,87 @@ export const useTabs = create<TabsState>()(
 
       addTab: (tab) => {
         set((state) => {
-          const { id, createNew = false, ...tabData } = tab;
-          const tabId = id || `tab-${Date.now()}`;
+          const {
+            id,
+            resourceId,
+            createNew = false,
+            ...tabData
+          } = tab;
 
-          const normalizedTab = withPanelDefaults({
-            ...tabData,
-            id: tabId,
-            leftWidth: tabData.leftWidth || 50,
-            isPin: tabData.isPin ?? false,
-          });
+          // Requested logical identity (e.g. page id). Falls back to id.
+          const requestedResourceId = resourceId ?? id;
 
-          // 检查标签页是否已存在
-          const existingTabIndex = state.tabs.findIndex((t) => t.id === tabId);
-
-          // 如果存在，更新该标签页并设为活跃
-          if (existingTabIndex !== -1) {
-            const newTabs = [...state.tabs];
-            newTabs[existingTabIndex] = normalizedTab;
-            return {
-              tabs: newTabs,
-              activeTabId: tabId,
-              activeLeftPanel: normalizedTab.leftPanel,
-              activeRightPanel: normalizedTab.rightPanel,
-            };
+          // If a tab for this resource already exists, just activate/update it.
+          if (requestedResourceId) {
+            const existingTabIndex = state.tabs.findIndex(
+              (t) =>
+                t.resourceId === requestedResourceId &&
+                t.workspaceId === tabData.workspaceId
+            );
+            if (existingTabIndex !== -1) {
+              const existing = state.tabs[existingTabIndex];
+              const updatedTab = withPanelDefaults({
+                ...existing,
+                ...tabData,
+                resourceId: requestedResourceId,
+                leftWidth: tabData.leftWidth || existing.leftWidth || 50,
+                isPin: tabData.isPin ?? existing.isPin ?? false,
+              });
+              const newTabs = [...state.tabs];
+              newTabs[existingTabIndex] = updatedTab;
+              return {
+                tabs: newTabs,
+                activeTabId: existing.id,
+                activeLeftPanel: updatedTab.leftPanel,
+                activeRightPanel: updatedTab.rightPanel,
+                activeLeftWidth: updatedTab.leftWidth || 50,
+              };
+            }
           }
 
-          // 如果createNew为false且有活跃标签页，替换当前活跃标签页
+          // If createNew is false, replace current active tab content but keep its id
+          // to avoid unmounting/selection flicker in the tab highlight.
           if (!createNew && state.activeTabId) {
             const activeTabIndex = state.tabs.findIndex(
               (t) => t.id === state.activeTabId
             );
             if (activeTabIndex !== -1) {
+              const stableTabId = state.activeTabId;
+              const normalizedTab = withPanelDefaults({
+                ...tabData,
+                id: stableTabId,
+                resourceId: requestedResourceId ?? stableTabId,
+                leftWidth: tabData.leftWidth || 50,
+                isPin: tabData.isPin ?? false,
+              });
               const newTabs = [...state.tabs];
               newTabs[activeTabIndex] = normalizedTab;
               return {
                 tabs: newTabs,
-                activeTabId: tabId,
+                activeTabId: stableTabId,
                 activeLeftPanel: normalizedTab.leftPanel,
                 activeRightPanel: normalizedTab.rightPanel,
+                activeLeftWidth: normalizedTab.leftWidth || 50,
               };
             }
           }
 
-          // 否则创建新标签页
+          // Otherwise, create a new tab slot.
+          const tabId = id || `tab-${Date.now()}`;
+          const normalizedTab = withPanelDefaults({
+            ...tabData,
+            id: tabId,
+            resourceId: requestedResourceId ?? tabId,
+            leftWidth: tabData.leftWidth || 50,
+            isPin: tabData.isPin ?? false,
+          });
+
           return {
             tabs: [...state.tabs, normalizedTab],
             activeTabId: tabId,
             activeLeftPanel: normalizedTab.leftPanel,
             activeRightPanel: normalizedTab.rightPanel,
+            activeLeftWidth: normalizedTab.leftWidth || 50,
           };
         });
       },
@@ -308,7 +349,12 @@ export const useTabs = create<TabsState>()(
         return workspaceTabs;
       },
 
-      reorderTabs: (workspaceId, sourceTabId, targetTabId, position = "before") => {
+      reorderTabs: (
+        workspaceId,
+        sourceTabId,
+        targetTabId,
+        position = "before"
+      ) => {
         set((state) => {
           if (sourceTabId === targetTabId) return state;
 
@@ -351,7 +397,9 @@ export const useTabs = create<TabsState>()(
 
           // enforce bounds
           const lowerBound = sourcePinned ? 0 : pinnedCount;
-          const upperBound = sourcePinned ? Math.max(pinnedCount - 1, 0) : reordered.length;
+          const upperBound = sourcePinned
+            ? Math.max(pinnedCount - 1, 0)
+            : reordered.length;
           const boundedIndex = Math.max(
             lowerBound,
             Math.min(targetIndex, upperBound)
@@ -361,7 +409,9 @@ export const useTabs = create<TabsState>()(
           // rebuild tabs keeping other workspaces in place
           const workspaceQueue = [...reordered];
           const newTabs = state.tabs.map((tab) =>
-            tab.workspaceId !== workspaceId ? tab : (workspaceQueue.shift() as Tab)
+            tab.workspaceId !== workspaceId
+              ? tab
+              : (workspaceQueue.shift() as Tab)
           );
 
           return { tabs: newTabs };

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -31,6 +31,24 @@ export default function PlantHeader({
   pageTitle,
   className,
 }: PlantHeaderProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isCompact, setIsCompact] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    const update = () => {
+      const width = el.getBoundingClientRect().width;
+      setIsCompact(width < 800);
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // 添加当前页面到面包屑
   const breadcrumbItems = [
     {
@@ -70,6 +88,7 @@ export default function PlantHeader({
 
   return (
     <div
+      ref={containerRef}
       className={cn(
         "flex items-center justify-between px-2 py-0 w-full",
         className
@@ -99,12 +118,25 @@ export default function PlantHeader({
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="flex items-center gap-1 px-3"
+                className={cn(
+                  "flex items-center px-3 transition-all duration-300 ease-in-out",
+                  isCompact ? "gap-0" : "gap-1"
+                )}
               >
                 <span className="flex items-center justify-center w-5 h-5">
                   {tab.icon}
                 </span>
-                <span className="whitespace-nowrap">{tab.label}</span>
+                <span
+                  className={cn(
+                    "whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out",
+                    isCompact
+                      ? "max-w-0 opacity-0 -translate-x-1"
+                      : "max-w-[200px] opacity-100 translate-x-0"
+                  )}
+                  aria-hidden={isCompact}
+                >
+                  {tab.label}
+                </span>
               </TabsTrigger>
             ))}
           </TabsList>

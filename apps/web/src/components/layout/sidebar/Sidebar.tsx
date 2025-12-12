@@ -6,7 +6,7 @@ import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
-} from "@/components/ui/sidebar";
+} from "@/components/animate-ui/components/radix/sidebar";
 
 export const AppSidebar = ({
   ...props
