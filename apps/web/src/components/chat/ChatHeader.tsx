@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import SessionList from "@/components/chat/session/SessionList";
 import * as React from "react";
+import { useChatContext } from "./ChatProvider";
 
 interface ChatHeaderProps {
   className?: string;
 }
 
 export default function ChatHeader({ className }: ChatHeaderProps) {
+  const { newSession } = useChatContext();
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const closeTimer = React.useRef<number | null>(null);
   const hoveringRef = React.useRef(false);
@@ -49,7 +51,21 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
     <div className={cn("flex items-center justify-between px-2 py-0", className)}>
       <div className="text-lg font-semibold">Chat</div>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="New Session"
+          onClick={() => {
+            setHistoryOpen(false);
+            menuLockRef.current = false;
+            hoveringRef.current = false;
+            if (closeTimer.current) {
+              window.clearTimeout(closeTimer.current);
+              closeTimer.current = null;
+            }
+            newSession();
+          }}
+        >
           <PlusCircle size={20} />
         </Button>
         <Popover open={historyOpen} onOpenChange={setHistoryOpen}>

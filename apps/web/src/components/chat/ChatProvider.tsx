@@ -2,13 +2,15 @@
 
 import React, { createContext, useContext, type ReactNode } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, generateId } from "ai";
 
 /**
  * 聊天上下文类型
  * 包含聊天所需的所有状态和方法
  */
 interface ChatContextType {
+  /** 当前会话 id（同时作为 sessionId 发给服务端） */
+  id: string;
   /** 消息列表 */
   messages: UIMessage[];
   /** 发送消息的方法 */
@@ -31,6 +33,8 @@ interface ChatContextType {
   >["addToolApprovalResponse"];
   /** 错误信息 */
   error: ReturnType<typeof useChat>["error"];
+  /** 创建新会话（清空消息并切换 id） */
+  newSession: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -52,12 +56,14 @@ export function useChatContext() {
  * 用于包裹聊天相关组件，提供聊天状态和方法
  */
 export default function ChatProvider({ children }: { children: ReactNode }) {
+  const [chatId, setChatId] = React.useState(() => generateId());
   const chat = useChat({
+    id: chatId,
     transport: new DefaultChatTransport({
       api: `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`,
       prepareSendMessagesRequest({ id, messages, ...params }) {
         if (messages.length === 0) {
-          return { body: { params, id, sessionId: id, messages: [] } };
+          return { body: { params, id, messages: [] } };
         }
         const lastMessage = messages[messages.length - 1];
         console.log(
@@ -70,7 +76,6 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
           body: {
             params,
             id,
-            sessionId: id,
             messages: [lastMessage],
           },
         };
@@ -78,5 +83,16 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
     }),
   });
 
-  return <ChatContext.Provider value={chat}>{children}</ChatContext.Provider>;
+  const newSession = () => {
+    if (chat.status !== "ready") {
+      chat.stop();
+    }
+    setChatId(generateId());
+  };
+
+  return (
+    <ChatContext.Provider value={{ ...chat, newSession }}>
+      {children}
+    </ChatContext.Provider>
+  );
 }

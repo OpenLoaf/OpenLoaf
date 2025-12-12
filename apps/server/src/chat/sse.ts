@@ -80,6 +80,14 @@ export const registerChatSse = (app: Hono) => {
       agent,
       // 将 DB 还原出来的完整历史传给 agent（类型用 InferAgentUIMessage 约束）。
       messages: messages as AgentUIMessage[],
+      messageMetadata: ({ part }) => {
+        // 当生成完成时发送完整的 token 使用信息
+        if (part.type === "finish") {
+          return {
+            totalUsage: part.totalUsage,
+          };
+        }
+      },
       // 流式结束后：记录 token 使用情况，并把 AI 返回的最终消息落库（含 usage）。
       onFinish: async ({ isAborted, messages, responseMessage }) => {
         if (isAborted) return;
