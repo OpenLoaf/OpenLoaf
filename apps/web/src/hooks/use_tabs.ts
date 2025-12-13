@@ -176,6 +176,11 @@ const orderWorkspaceTabs = (tabs: Tab[]) => {
   return [...pinned, ...regular];
 };
 
+export const DEFAULT_TAB_INFO = {
+  title: "Ai Chat",
+  icon: "bot",
+} as const;
+
 export const useTabs = create<TabsState>()(
   persist(
     (set, get) => ({
@@ -426,8 +431,7 @@ export const useTabs = create<TabsState>()(
         if (workspaceTabs.length === 0) {
           const defaultTab: Tab = {
             id: `default-tab-${workspaceId}`,
-            title: "New Page",
-            icon: "bot",
+            ...DEFAULT_TAB_INFO,
             workspaceId,
             rightPanel: createDefaultRightPanel(),
             isPin: false,

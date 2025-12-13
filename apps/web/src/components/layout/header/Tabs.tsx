@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 import { Tabs, TabsList } from "@/components/animate-ui/components/radix/tabs";
-import { useTabs } from "@/hooks/use_tabs";
+import { useTabs, DEFAULT_TAB_INFO } from "@/hooks/use_tabs";
 import { useWorkspace } from "@/app/page";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState, type DragEvent } from "react";
@@ -47,8 +47,7 @@ export const HeaderTabs = () => {
       const defaultTabId = `default-tab-${activeWorkspace.id}`;
       addTab({
         id: defaultTabId,
-        title: "New Page",
-        icon: "bot",
+        ...DEFAULT_TAB_INFO,
         workspaceId: activeWorkspace.id,
         createNew: true,
       });
@@ -60,8 +59,7 @@ export const HeaderTabs = () => {
 
     addTab({
       id: `page-${Date.now()}`,
-      title: "New Page",
-      icon: "bot",
+      ...DEFAULT_TAB_INFO,
       workspaceId: activeWorkspace.id,
       createNew: true,
     });
