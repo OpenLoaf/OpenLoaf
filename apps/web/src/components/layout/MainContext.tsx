@@ -44,7 +44,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
   const widthTransition =
     reduceMotion || isDragging
       ? { duration: 0 }
-      : { type: "spring" as const, stiffness: 260, damping: 30 };
+      : { type: "spring" as const, stiffness: 260, damping: 45 };
 
   const ComponentMap: Record<string, React.ComponentType<any>> = {
     "ai-chat": Chat,
@@ -108,13 +108,18 @@ export const MainContent: React.FC<{ className?: string }> = ({
         <>
           <motion.div
             className={cn(
-              "flex flex-col bg-background rounded-xl max-h-screen overflow-hidden",
+              "flex flex-col bg-background rounded-xl max-h-screen overflow-hidden min-w-0",
               computedLeftHidden
                 ? "pointer-events-none"
                 : "pointer-events-auto",
               !hasLeftPanel && "p-0"
             )}
-            style={{ flex: "0 0 auto" }}
+            style={{
+              flex: "0 0 auto",
+              minWidth: 0,
+              contain: "layout paint",
+              willChange: "width",
+            }}
             initial={false}
             animate={{ width: `${leftWidthPercent}%` }}
             transition={widthTransition}
@@ -158,7 +163,12 @@ export const MainContent: React.FC<{ className?: string }> = ({
                   ? "pointer-events-none"
                   : "pointer-events-auto"
               )}
-              style={{ flex: "0 0 auto" }}
+              style={{
+                flex: "0 0 auto",
+                minWidth: 0,
+                contain: "layout paint",
+                willChange: "width",
+              }}
               initial={false}
               animate={{ width: `${rightWidthPercent}%` }}
               transition={widthTransition}

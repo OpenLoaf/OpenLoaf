@@ -103,9 +103,9 @@ export default function PlantPage({ pageId }: PlantPageProps) {
     <div className="flex h-full w-full flex-col min-h-0">
       <div
         ref={containerRef}
-        className="flex items-center justify-between py-0 w-full"
+        className="flex items-center justify-between py-0 w-full min-w-0"
       >
-        <h1 className="text-xl font-semibold flex items-center gap-2">
+        <h1 className="text-xl font-semibold flex items-center gap-2 min-w-0">
           {isLoading ? (
             <PlantTitleSkeleton />
           ) : (
@@ -115,7 +115,7 @@ export default function PlantPage({ pageId }: PlantPageProps) {
                   {titleIcon}
                 </span>
               ) : null}
-              <span>{pageTitle}</span>
+              <span className="truncate">{pageTitle}</span>
             </>
           )}
         </h1>
