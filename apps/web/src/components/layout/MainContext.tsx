@@ -9,8 +9,12 @@ export const MainContent: React.FC<{ className?: string }> = ({
   className,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [isClosingLeft, setIsClosingLeft] = useState(false);
+  const [isClosingRight, setIsClosingRight] = useState(false);
   const dividerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const prevComputedLeftHiddenRef = useRef(false);
+  const prevComputedRightHiddenRef = useRef(false);
   const reduceMotion = useReducedMotion();
   const {
     activeLeftPanel: leftPanel,
@@ -28,7 +32,11 @@ export const MainContent: React.FC<{ className?: string }> = ({
 
   const showLeft = hasLeftPanel && !leftHidden;
   const showRight = hasRightPanel && !rightHidden;
-  const showDivider = showLeft && showRight;
+  const showDivider =
+    (hasLeftPanel || isClosingLeft) &&
+    (hasRightPanel || isClosingRight) &&
+    !(computedLeftHidden && computedRightHidden && !isClosingLeft && !isClosingRight);
+  const dividerInteractive = showLeft && showRight;
 
   const leftWidthPercent = computedLeftHidden
     ? 0
@@ -99,6 +107,26 @@ export const MainContent: React.FC<{ className?: string }> = ({
     };
   }, [isDragging]);
 
+  useEffect(() => {
+    const prevComputedLeftHidden = prevComputedLeftHiddenRef.current;
+    const prevComputedRightHidden = prevComputedRightHiddenRef.current;
+    prevComputedLeftHiddenRef.current = computedLeftHidden;
+    prevComputedRightHiddenRef.current = computedRightHidden;
+
+    if (reduceMotion) {
+      setIsClosingLeft(false);
+      setIsClosingRight(false);
+      return;
+    }
+
+    if (!prevComputedLeftHidden && computedLeftHidden) {
+      setIsClosingLeft(true);
+    }
+    if (!prevComputedRightHidden && computedRightHidden) {
+      setIsClosingRight(true);
+    }
+  }, [computedLeftHidden, computedRightHidden, reduceMotion]);
+
   return (
     <div
       ref={containerRef}
@@ -115,14 +143,17 @@ export const MainContent: React.FC<{ className?: string }> = ({
               !hasLeftPanel && "p-0"
             )}
             style={{
-              flex: "0 0 auto",
+              flexBasis: 0,
+              flexShrink: 1,
               minWidth: 0,
-              contain: "layout paint",
-              willChange: "width",
+              willChange: "flex-grow",
             }}
             initial={false}
-            animate={{ width: `${leftWidthPercent}%` }}
+            animate={{ flexGrow: leftWidthPercent }}
             transition={widthTransition}
+            onAnimationComplete={() => {
+              if (computedLeftHidden) setIsClosingLeft(false);
+            }}
           >
             {leftPanel && (
               <div
@@ -141,15 +172,18 @@ export const MainContent: React.FC<{ className?: string }> = ({
             <div
               ref={dividerRef}
               className={cn(
-                "bg-sidebar rounded-4xl cursor-col-resize hover:bg-primary/20 active:bg-primary/30 flex items-center justify-center w-2.5",
-                isDragging && "bg-primary/10"
+                "bg-sidebar rounded-4xl flex items-center justify-center w-2.5 shrink-0",
+                dividerInteractive
+                  ? "cursor-col-resize hover:bg-primary/20 active:bg-primary/30"
+                  : "pointer-events-none opacity-60",
+                isDragging && dividerInteractive && "bg-primary/10"
               )}
-              onMouseDown={handleMouseDown}
+              onMouseDown={dividerInteractive ? handleMouseDown : undefined}
             >
               <div
                 className={cn(
                   "w-1 h-6 bg-muted/70 rounded-full",
-                  isDragging && "bg-primary/70"
+                  isDragging && dividerInteractive && "bg-primary/70"
                 )}
               />
             </div>
@@ -164,14 +198,17 @@ export const MainContent: React.FC<{ className?: string }> = ({
                   : "pointer-events-auto"
               )}
               style={{
-                flex: "0 0 auto",
+                flexBasis: 0,
+                flexShrink: 1,
                 minWidth: 0,
-                contain: "layout paint",
-                willChange: "width",
+                willChange: "flex-grow",
               }}
               initial={false}
-              animate={{ width: `${rightWidthPercent}%` }}
+              animate={{ flexGrow: rightWidthPercent }}
               transition={widthTransition}
+              onAnimationComplete={() => {
+                if (computedRightHidden) setIsClosingRight(false);
+              }}
             >
               <div
                 className={cn("h-full w-full", !computedRightHidden && "p-4")}
