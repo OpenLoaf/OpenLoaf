@@ -20,6 +20,7 @@ export interface Tab {
   // Logical resource identity for de-duping/activation (e.g. page id)
   resourceId?: string;
   title: string;
+  icon?: string;
   leftPanel?: PanelConfig;
   rightPanel?: PanelConfig;
   leftWidth?: number;
@@ -426,6 +427,7 @@ export const useTabs = create<TabsState>()(
           const defaultTab: Tab = {
             id: `default-tab-${workspaceId}`,
             title: "New Page",
+            icon: "bot",
             workspaceId,
             rightPanel: createDefaultRightPanel(),
             isPin: false,

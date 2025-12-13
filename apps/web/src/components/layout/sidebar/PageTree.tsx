@@ -43,6 +43,7 @@ export const PageTreeMenu = ({
     addTab({
       id: page.id,
       title: page.title || "Untitled Page",
+      icon: page.icon ?? undefined,
       leftPanel: {
         component: "plant-page",
         panelKey: generateId(),

@@ -48,6 +48,7 @@ export const HeaderTabs = () => {
       addTab({
         id: defaultTabId,
         title: "New Page",
+        icon: "bot",
         workspaceId: activeWorkspace.id,
         createNew: true,
       });
@@ -60,6 +61,7 @@ export const HeaderTabs = () => {
     addTab({
       id: `page-${Date.now()}`,
       title: "New Page",
+      icon: "bot",
       workspaceId: activeWorkspace.id,
       createNew: true,
     });
