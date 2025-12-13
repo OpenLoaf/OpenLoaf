@@ -31,9 +31,11 @@ pub fn run() {
                         apply_macos_titlebar_hide_title(&window);
                         // 调整交通灯（关闭、最小化、最大化按钮）的偏移量
                         apply_macos_traffic_lights_offset(&window, 6.0, 6.0);
+                        // 初始化时系统可能会重新布局标题栏，这里延迟再执行一次以确保生效
+                        schedule_macos_traffic_lights_initial_adjustment(&window, 6.0, 6.0);
 
-                        // 监听窗口大小变化事件（防抖），动态调整交通灯位置，避免高频闪烁
-                        install_macos_traffic_lights_resize_debounced(&window, 6.0, 6.0);
+                        // 监听窗口缩放：缩放期间交通灯透明，鼠标释放后再显示并重定位
+                        install_macos_traffic_lights_resize_handling(&window, 6.0, 6.0);
                     }
                 }
             }
@@ -115,77 +117,132 @@ fn apply_macos_titlebar_hide_title(window: &tauri::WebviewWindow) {
     ns_window.setTitlebarAppearsTransparent(true);
 }
 
-/// macOS 平台：监听窗口缩放事件（防抖）并重置交通灯按钮位置
+/// macOS 平台：监听窗口 live resize（鼠标拖拽缩放）并重置交通灯按钮位置
 #[cfg(target_os = "macos")]
-fn install_macos_traffic_lights_resize_debounced(
+fn install_macos_traffic_lights_resize_handling(
     window: &tauri::WebviewWindow,
     y_offset: f64,
     x_offset: f64,
 ) {
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::mpsc;
-    use std::sync::Arc;
+    install_macos_traffic_lights_live_resize_notifications(window, y_offset, x_offset);
+}
+
+/// macOS 平台：窗口初始化后延迟重定位一次（避免刚打开时被系统布局覆盖）
+#[cfg(target_os = "macos")]
+fn schedule_macos_traffic_lights_initial_adjustment(
+    window: &tauri::WebviewWindow,
+    y_offset: f64,
+    x_offset: f64,
+) {
     use std::thread;
     use std::time::Duration;
 
-    // trailing-edge debounce：连续 Resized 事件停止一小段时间后，再执行一次重定位
-    const DEBOUNCE_MS: u64 = 80;
-    let debounce = Duration::from_millis(DEBOUNCE_MS);
-    const RESIZE_ALPHA: f64 = 0.0;
-
-    let (tx, rx) = mpsc::channel::<()>();
     let window_for_thread = window.clone();
-    let is_transparent = Arc::new(AtomicBool::new(false));
-    let is_transparent_for_thread = Arc::clone(&is_transparent);
+    let window_label = window.label().to_string();
 
     thread::spawn(move || {
-        loop {
-            // 等待第一次事件；窗口被销毁/程序退出时通道断开，线程自动结束
-            if rx.recv().is_err() {
-                break;
-            }
-
-            // 在防抖窗口内持续“吞掉”后续事件
-            while rx.recv_timeout(debounce).is_ok() {}
-
-            // UI 相关操作尽量在主线程执行
-            let window_for_main = window_for_thread.clone();
-            let is_transparent_for_main = Arc::clone(&is_transparent_for_thread);
-            let _ = window_for_thread.run_on_main_thread(move || {
-                // 缩放结束：先重定位，再恢复不透明，减少视觉跳动
-                apply_macos_traffic_lights_offset(&window_for_main, y_offset, x_offset);
-                set_macos_traffic_lights_alpha(&window_for_main, 1.0);
-                is_transparent_for_main.store(false, Ordering::SeqCst);
-            });
-        }
-    });
-
-    let tx_on_resize = tx.clone();
-    let window_for_resize = window.clone();
-    let is_transparent_for_resize = Arc::clone(&is_transparent);
-    window.on_window_event(move |event| {
-        if matches!(event, tauri::WindowEvent::Resized(..)) {
-            // 缩放中：只在第一次事件到来时置为透明一次，避免反复触发造成闪烁
-            if !is_transparent_for_resize.swap(true, Ordering::SeqCst) {
-                let window_for_main = window_for_resize.clone();
-                let _ = window_for_resize.run_on_main_thread(move || {
-                    set_macos_traffic_lights_alpha(&window_for_main, RESIZE_ALPHA);
-                });
-            }
-            let _ = tx_on_resize.send(());
-        }
+        // 给 titlebar/toolbar 一次布局机会
+        thread::sleep(Duration::from_millis(120));
+        let window_for_main = window_for_thread.clone();
+        let label_for_main = window_label.clone();
+        let _ = window_for_thread.run_on_main_thread(move || {
+            apply_macos_traffic_lights_offset(&window_for_main, y_offset, x_offset);
+            set_macos_traffic_lights_offset_dirty_by_label(&label_for_main, false);
+        });
     });
 }
 
-/// macOS 平台：设置交通灯按钮透明度（Close/Miniaturize/Zoom）
+/// macOS 平台：live resize 时交通灯透明；鼠标释放后恢复显示并重定位
 #[cfg(target_os = "macos")]
-fn set_macos_traffic_lights_alpha(window: &tauri::WebviewWindow, alpha: f64) {
-    use objc2_app_kit::{NSButton, NSWindow, NSWindowButton};
+fn install_macos_traffic_lights_live_resize_notifications(
+    window: &tauri::WebviewWindow,
+    y_offset: f64,
+    x_offset: f64,
+) {
+    use core::ptr::NonNull;
+    use objc2_app_kit::{
+        NSWindow, NSWindowDidEndLiveResizeNotification, NSWindowDidEnterFullScreenNotification,
+        NSWindowDidExitFullScreenNotification, NSWindowWillStartLiveResizeNotification,
+    };
+    use objc2_foundation::{NSNotification, NSNotificationCenter};
 
     let Ok(ns_window) = window.ns_window() else {
         return;
     };
     let ns_window = unsafe { &*(ns_window as *const NSWindow) };
+
+    let center = NSNotificationCenter::defaultCenter();
+    let window_label = window.label().to_string();
+
+    set_macos_traffic_lights_offset_dirty_by_label(&window_label, false);
+
+    let start_label = window_label.clone();
+    let start_block = block2::RcBlock::new(move |notification: NonNull<NSNotification>| {
+        let notification = unsafe { notification.as_ref() };
+        let Some(obj) = notification.object() else {
+            return;
+        };
+        let Some(ns_window) = obj.downcast_ref::<NSWindow>() else {
+            return;
+        };
+        set_macos_traffic_lights_alpha_nswindow(ns_window, 0.0);
+        set_macos_traffic_lights_offset_dirty_by_label(&start_label, true);
+    });
+
+    let end_label = window_label.clone();
+    let end_block = block2::RcBlock::new(move |notification: NonNull<NSNotification>| {
+        let notification = unsafe { notification.as_ref() };
+        let Some(obj) = notification.object() else {
+            return;
+        };
+        let Some(ns_window) = obj.downcast_ref::<NSWindow>() else {
+            return;
+        };
+        if is_macos_traffic_lights_offset_dirty_by_label(&end_label) {
+            apply_macos_traffic_lights_offset_nswindow(ns_window, y_offset, x_offset);
+            set_macos_traffic_lights_offset_dirty_by_label(&end_label, false);
+        }
+        set_macos_traffic_lights_alpha_nswindow(ns_window, 1.0);
+    });
+
+    // SAFETY: 订阅的通知名是有效的，object 过滤为当前 window，block 为可 Send 的 `'static` closure。
+    unsafe {
+        let start_observer = center.addObserverForName_object_queue_usingBlock(
+            Some(NSWindowWillStartLiveResizeNotification),
+            Some(ns_window),
+            None,
+            &start_block,
+        );
+        let end_observer = center.addObserverForName_object_queue_usingBlock(
+            Some(NSWindowDidEndLiveResizeNotification),
+            Some(ns_window),
+            None,
+            &end_block,
+        );
+        let fullscreen_enter_observer = center.addObserverForName_object_queue_usingBlock(
+            Some(NSWindowDidEnterFullScreenNotification),
+            Some(ns_window),
+            None,
+            &end_block,
+        );
+        let fullscreen_exit_observer = center.addObserverForName_object_queue_usingBlock(
+            Some(NSWindowDidExitFullScreenNotification),
+            Some(ns_window),
+            None,
+            &end_block,
+        );
+
+        // observer token 需要活到窗口结束；这里让其跟随进程生命周期
+        std::mem::forget(start_observer);
+        std::mem::forget(end_observer);
+        std::mem::forget(fullscreen_enter_observer);
+        std::mem::forget(fullscreen_exit_observer);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn set_macos_traffic_lights_alpha_nswindow(ns_window: &objc2_app_kit::NSWindow, alpha: f64) {
+    use objc2_app_kit::{NSButton, NSWindowButton};
 
     fn set_alpha(button: &NSButton, alpha: f64) {
         button.setAlphaValue(alpha);
@@ -208,9 +265,7 @@ fn set_macos_traffic_lights_alpha(window: &tauri::WebviewWindow, alpha: f64) {
 /// - 参数: x_offset - X 轴偏移量（向右为正）
 #[cfg(target_os = "macos")]
 fn apply_macos_traffic_lights_offset(window: &tauri::WebviewWindow, y_offset: f64, x_offset: f64) {
-    use objc2::rc::Retained;
-    use objc2_app_kit::{NSButton, NSWindow, NSWindowButton};
-    use objc2_foundation::NSPoint;
+    use objc2_app_kit::NSWindow;
 
     // 获取 NSWindow 实例，失败则返回
     let Ok(ns_window) = window.ns_window() else {
@@ -219,6 +274,18 @@ fn apply_macos_traffic_lights_offset(window: &tauri::WebviewWindow, y_offset: f6
 
     // 转换为 NSWindow 引用（不安全操作）
     let ns_window = unsafe { &*(ns_window as *const NSWindow) };
+    apply_macos_traffic_lights_offset_nswindow(ns_window, y_offset, x_offset);
+}
+
+#[cfg(target_os = "macos")]
+fn apply_macos_traffic_lights_offset_nswindow(
+    ns_window: &objc2_app_kit::NSWindow,
+    y_offset: f64,
+    x_offset: f64,
+) {
+    use objc2::rc::Retained;
+    use objc2_app_kit::{NSButton, NSWindowButton};
+    use objc2_foundation::NSPoint;
 
     /// 移动单个按钮的辅助函数
     /// - 参数: button - 要移动的按钮实例
@@ -248,5 +315,31 @@ fn apply_macos_traffic_lights_offset(window: &tauri::WebviewWindow, y_offset: f6
     // 调整最大化按钮位置
     if let Some(zoom) = ns_window.standardWindowButton(NSWindowButton::ZoomButton) {
         move_button(&zoom, y_offset, x_offset);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_traffic_lights_state() -> &'static std::sync::Mutex<std::collections::HashMap<String, bool>>
+{
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+
+    static STATE: OnceLock<Mutex<HashMap<String, bool>>> = OnceLock::new();
+    STATE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+#[cfg(target_os = "macos")]
+fn is_macos_traffic_lights_offset_dirty_by_label(window_label: &str) -> bool {
+    macos_traffic_lights_state()
+        .lock()
+        .ok()
+        .and_then(|map| map.get(window_label).copied())
+        .unwrap_or(false)
+}
+
+#[cfg(target_os = "macos")]
+fn set_macos_traffic_lights_offset_dirty_by_label(window_label: &str, dirty: bool) {
+    if let Ok(mut map) = macos_traffic_lights_state().lock() {
+        map.insert(window_label.to_string(), dirty);
     }
 }
