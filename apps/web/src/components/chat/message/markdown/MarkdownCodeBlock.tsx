@@ -106,7 +106,7 @@ export default function MarkdownCodeBlock({
       </div>
 
       {collapsed ? null : (
-        <div className="bg-muted/30">
+        <div className="bg-muted/30 font-mono">
           <SyntaxHighlighter
             style={oneDark as any}
             language={normalizedLanguage}
@@ -117,8 +117,10 @@ export default function MarkdownCodeBlock({
               margin: 0,
               background: "transparent",
               padding: "0.75rem",
-              fontSize: "11px",
+              fontSize: "12px",
               lineHeight: "1.5",
+              fontFamily: "inherit",
+              textShadow: "none",
             }}
             lineNumberStyle={{
               minWidth: "2.25em",
@@ -126,7 +128,7 @@ export default function MarkdownCodeBlock({
               opacity: 0.6,
             }}
             codeTagProps={{
-              style: { fontFamily: "inherit" },
+              style: { fontFamily: "inherit", textShadow: "none" },
             }}
           >
             {code}
@@ -136,4 +138,3 @@ export default function MarkdownCodeBlock({
     </div>
   );
 }
-
