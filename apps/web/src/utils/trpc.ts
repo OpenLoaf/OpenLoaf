@@ -8,6 +8,7 @@ import {
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@teatime-ai/api";
 import { toast } from "sonner";
+import superjson from "superjson";
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -35,9 +36,11 @@ export const trpcClient = createTRPCClient<AppRouter>({
         eventSourceOptions: {
           withCredentials: true,
         },
+        transformer: superjson,
       }),
       false: httpBatchLink({
         url: baseUrl,
+        transformer: superjson,
       }),
     }),
   ],

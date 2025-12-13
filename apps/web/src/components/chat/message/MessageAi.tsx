@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import MarkdownCode from "./markdown/MarkdownCodeInline";
 import MarkdownPre from "./markdown/MarkdownPre";
 import MarkdownTable from "./markdown/MarkdownTable";
+import MessageTool from "./MessageTool";
 
 interface MessageAiProps {
   message: UIMessage;
@@ -16,43 +17,58 @@ interface MessageAiProps {
 export default function MessageAi({ message, className }: MessageAiProps) {
   return (
     <div className={cn("flex justify-start min-w-0", className)}>
-      <div className="min-w-0 w-full">
+      <div className="min-w-0 w-full space-y-2">
         {message.parts.map((part: any, index: number) => {
-          if (part.type !== "text") return null;
-          return (
-            <div
-              key={index}
-              className={cn(
-                "min-w-0 w-full max-w-none font-sans prose prose-neutral dark:prose-invert break-words [overflow-wrap:anywhere]",
-                // Base text settings
-                "text-sm leading-relaxed",
-                // Element spacing adjustments
-                "prose-p:my-2 prose-p:leading-relaxed",
-                "prose-headings:my-3 prose-headings:font-semibold",
-                "prose-h1:text-xl prose-h2:text-lg prose-h3:text-base",
-                "prose-ul:my-2 prose-li:my-0.5",
-                // Code block styling (handled by components but resetting some defaults)
-                "prose-pre:p-0 prose-pre:bg-transparent prose-pre:m-0",
-                // Inline code styling
-                "prose-code:px-1 prose-code:py-0.5 prose-code:font-mono prose-code:text-[0.9em] prose-code:font-normal prose-code:bg-muted/50 prose-code:rounded-sm prose-code:before:content-none prose-code:after:content-none",
-                // Other elements
-                "prose-blockquote:not-italic prose-blockquote:border-l-primary/50 prose-blockquote:text-muted-foreground",
-                "prose-a:break-all prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
-                "prose-table:block prose-table:max-w-full prose-table:overflow-x-auto"
-              )}
-            >
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  pre: MarkdownPre as any,
-                  code: MarkdownCode as any,
-                  table: MarkdownTable as any,
-                }}
+          if (part?.type === "text") {
+            return (
+              <div
+                key={index}
+                className={cn(
+                  "min-w-0 w-full max-w-none font-sans prose prose-neutral dark:prose-invert break-words [overflow-wrap:anywhere]",
+                  // Base text settings
+                  "text-sm leading-relaxed",
+                  // Element spacing adjustments
+                  "prose-p:my-2 prose-p:leading-relaxed",
+                  "prose-headings:my-3 prose-headings:font-semibold",
+                  "prose-h1:text-xl prose-h2:text-lg prose-h3:text-base",
+                  "prose-ul:my-2 prose-li:my-0.5",
+                  // Code block styling (handled by components but resetting some defaults)
+                  "prose-pre:p-0 prose-pre:bg-transparent prose-pre:m-0",
+                  // Inline code styling
+                  "prose-code:px-1 prose-code:py-0.5 prose-code:font-mono prose-code:text-[0.9em] prose-code:font-normal prose-code:bg-muted/50 prose-code:rounded-sm prose-code:before:content-none prose-code:after:content-none",
+                  // Other elements
+                  "prose-blockquote:not-italic prose-blockquote:border-l-primary/50 prose-blockquote:text-muted-foreground",
+                  "prose-a:break-all prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
+                  "prose-table:block prose-table:max-w-full prose-table:overflow-x-auto"
+                )}
               >
-                {part.text}
-              </ReactMarkdown>
-            </div>
-          );
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    pre: MarkdownPre as any,
+                    code: MarkdownCode as any,
+                    table: MarkdownTable as any,
+                  }}
+                >
+                  {part.text}
+                </ReactMarkdown>
+              </div>
+            );
+          }
+
+          if (
+            typeof part?.type === "string" &&
+            (part.type === "dynamic-tool" || part.type.startsWith("tool-"))
+          ) {
+            return (
+              <MessageTool
+                key={part.toolCallId ?? `${part.type}-${index}`}
+                part={part}
+              />
+            );
+          }
+
+          return null;
         })}
       </div>
     </div>

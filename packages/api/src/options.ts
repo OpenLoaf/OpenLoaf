@@ -1,7 +1,9 @@
 import { ZodError } from "zod";
+import superjson from "superjson";
 import type { Context } from "./context";
 
 export default {
+  transformer: superjson,
   errorFormatter({
     shape,
     error,

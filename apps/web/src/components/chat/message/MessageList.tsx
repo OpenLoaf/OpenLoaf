@@ -104,7 +104,7 @@ export default function MessageList({ className }: MessageListProps) {
       <ScrollArea.Root className="h-full w-full min-w-0">
         <ScrollArea.Viewport
           ref={viewportRef}
-          className="w-full h-full min-h-0 min-w-0 overflow-x-hidden !select-text [&_*]:!select-text"
+          className="w-full h-full min-h-0 min-w-0 overflow-x-hidden !select-text [&_*:not(summary)]:!select-text"
         >
           <div ref={contentRef} className="min-w-0">
             <div key={sessionId} className="space-y-4 min-w-0">

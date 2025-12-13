@@ -1,6 +1,17 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import type { CSSProperties } from "react";
+import * as React from "react";
+import { useTheme } from "next-themes";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import {
+  oneDark,
+  oneLight,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
+import { Button } from "@/components/ui/button";
+import { Check, ChevronDown, ChevronUp, Copy } from "lucide-react";
+import { toast } from "sonner";
 
 // MVP：这里只关心工具名称和返回结果，不做复杂的状态/交互
 type AnyToolPart = {
@@ -34,8 +45,115 @@ function isEmptyInput(value: unknown) {
   if (value == null) return true;
   if (typeof value === "string") return value.trim().length === 0;
   if (Array.isArray(value)) return value.length === 0;
-  if (typeof value === "object") return Object.keys(value as object).length === 0;
+  if (typeof value === "object")
+    return Object.keys(value as object).length === 0;
   return false;
+}
+
+const CODE_CUSTOM_STYLE: CSSProperties = {
+  margin: 0,
+  background: "hsl(var(--background))",
+  padding: 0,
+  fontSize: "0.75rem",
+  lineHeight: "1.1rem",
+};
+
+const CODE_TAG_PROPS = {
+  style: { background: "hsl(var(--background))" } as CSSProperties,
+};
+
+const LINE_NUMBER_STYLE: CSSProperties = {
+  minWidth: "2.25em",
+  paddingRight: "1em",
+  opacity: 0.6,
+};
+
+function CodeBlockWithCopy({
+  code,
+  codeStyle,
+  maxHeightClassName,
+}: {
+  code: string;
+  codeStyle: any;
+  maxHeightClassName: string;
+}) {
+  const [copied, setCopied] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(false);
+
+  const handleCopy = async (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      toast.success("已复制");
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch (error) {
+      toast.error("复制失败");
+      console.error(error);
+    }
+  };
+
+  const handleToggleExpand = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setExpanded((v) => !v);
+  };
+
+  return (
+    <div
+      className={cn(
+        "relative mt-1 overflow-auto rounded bg-background p-2",
+        expanded ? undefined : maxHeightClassName
+      )}
+    >
+      <div className="absolute right-2 top-2 flex items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="h-7 w-7 bg-background/80 text-muted-foreground shadow-sm backdrop-blur-sm hover:bg-background hover:text-foreground"
+          onClick={handleToggleExpand}
+          aria-label={expanded ? "折叠" : "展开"}
+          title={expanded ? "折叠" : "展开"}
+        >
+          {expanded ? (
+            <ChevronUp className="size-3" />
+          ) : (
+            <ChevronDown className="size-3" />
+          )}
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="h-7 w-7 bg-background/80 text-muted-foreground shadow-sm backdrop-blur-sm hover:bg-background hover:text-foreground"
+          onClick={handleCopy}
+          aria-label="复制"
+          title="复制"
+        >
+          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+        </Button>
+      </div>
+
+      <SyntaxHighlighter
+        language="json"
+        style={codeStyle}
+        codeTagProps={CODE_TAG_PROPS}
+        customStyle={CODE_CUSTOM_STYLE}
+        showLineNumbers
+        lineNumberStyle={LINE_NUMBER_STYLE}
+        wrapLines
+        lineProps={() => ({
+          style: { backgroundColor: "hsl(var(--background))" } as CSSProperties,
+        })}
+        wrapLongLines
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  );
 }
 
 /**
@@ -50,10 +168,19 @@ export default function MessageTool({
   part: AnyToolPart;
   className?: string;
 }) {
+  const { resolvedTheme } = useTheme();
+  const codeStyle = (resolvedTheme === "dark" ? oneDark : oneLight) as any;
   const toolName = getToolName(part);
   const inputText = safeStringify(part.input);
   const outputText = safeStringify(part.output);
   const showInput = !isEmptyInput(part.input);
+  const outputDisplayText =
+    outputText ||
+    (part.state && part.state !== "output-available"
+      ? `（${part.state}）`
+      : part.errorText
+      ? `（错误：${part.errorText}）`
+      : "（暂无返回结果）");
 
   return (
     <div className={cn("flex justify-start", className)}>
@@ -68,9 +195,11 @@ export default function MessageTool({
           {showInput ? (
             <>
               <div className="text-[11px] text-muted-foreground">输入参数</div>
-              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-background p-2 text-xs">
-                {inputText}
-              </pre>
+              <CodeBlockWithCopy
+                code={inputText}
+                codeStyle={codeStyle}
+                maxHeightClassName="max-h-40"
+              />
             </>
           ) : null}
 
@@ -82,14 +211,11 @@ export default function MessageTool({
           >
             输出结果
           </div>
-          <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-background p-2 text-xs">
-            {outputText ||
-              (part.state && part.state !== "output-available"
-                ? `（${part.state}）`
-                : part.errorText
-                  ? `（错误：${part.errorText}）`
-                  : "（暂无返回结果）")}
-          </pre>
+          <CodeBlockWithCopy
+            code={outputDisplayText}
+            codeStyle={codeStyle}
+            maxHeightClassName="max-h-64"
+          />
         </div>
       </details>
     </div>
