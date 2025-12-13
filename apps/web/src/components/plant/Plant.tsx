@@ -12,7 +12,6 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-  TabsContents,
 } from "@/components/animate-ui/primitives/radix/tabs";
 import PlantIntro from "./PlantIntro";
 import PlantCanvas from "./PlantCanvas";
@@ -167,7 +166,7 @@ export default function PlantPage({ pageId }: PlantPageProps) {
 
       <ScrollArea.Root className="flex-1 min-h-0 w-full">
         <ScrollArea.Viewport className="w-full h-full min-h-0 flex flex-col">
-          <TabsContents mode="layout" className="flex-1 min-h-0 w-full">
+          <div className="flex-1 min-h-0 w-full">
             <TabsContent value="intro" className="w-full h-full min-h-0">
               <PlantIntro isLoading={isLoading} pageTitle={pageTitle} />
             </TabsContent>
@@ -187,7 +186,7 @@ export default function PlantPage({ pageId }: PlantPageProps) {
             <TabsContent value="skills" className="w-full h-full min-h-0">
               <PlantSkills isLoading={isLoading} pageId={pageId} />
             </TabsContent>
-          </TabsContents>
+          </div>
         </ScrollArea.Viewport>
         <ScrollArea.Scrollbar orientation="vertical" style={{ right: "-7px" }}>
           <ScrollArea.Thumb />

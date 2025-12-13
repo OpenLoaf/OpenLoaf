@@ -7,6 +7,7 @@ import { useTabs } from "@/hooks/use_tabs";
 
 import { HeaderTabs } from "./Tabs";
 import { ModeToggle } from "./ModeToggle";
+import { MacTrafficLights } from "./MacTrafficLights";
 
 export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
@@ -20,12 +21,17 @@ export const Header = () => {
   const showPanelRightButton = Boolean(activeLeftPanel && activeRightPanel);
 
   return (
-    <header className="bg-sidebar sticky top-0 z-50 flex w-full items-center justify-between">
+    <header className="bg-sidebar sticky top-0 z-50 flex w-full items-center justify-between relative">
+      <div
+        className="tauri-drag-region absolute inset-0 z-0"
+        data-tauri-drag-region
+      />
       <div
         className={`flex h-(--header-height) items-center pl-2 pr-2 gap-2 transition-[width] duration-200 ease-linear ${
           leftOpen ? "w-(--sidebar-width) mr-2" : "w-15 mr-4"
-        }`}
+        } relative z-10`}
       >
+        <MacTrafficLights />
         <Button
           className="h-8 w-4 ml-1"
           variant="ghost"
@@ -38,13 +44,13 @@ export const Header = () => {
             }`}
           />
         </Button>
-        <div className="flex-1"></div>
+        <div className="flex-1" data-tauri-drag-region></div>
         <Button className="h-8 w-4" variant="ghost" size="icon">
           <Settings className="h-4 w-4" />
         </Button>
       </div>
       <HeaderTabs />
-      <div className="flex h-(--header-height) items-center pr-2 ">
+      <div className="flex h-(--header-height) items-center pr-2 relative z-10">
         <ModeToggle />
         <Button
           className={`h-8 w-8 transition-all duration-200 ease-in-out ${

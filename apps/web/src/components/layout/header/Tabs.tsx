@@ -165,12 +165,16 @@ export const HeaderTabs = () => {
     <Tabs
       value={activeTabId || ""}
       onValueChange={setActiveTab}
-      className="flex-1"
+      className="flex-1 relative z-10"
     >
       <TabsList
         ref={tabsListRef}
         className="h-[calc(var(--header-height))] bg-sidebar border-sidebar-border rounded-none p-0 relative overflow-hidden gap-1"
       >
+        <div
+          className="tauri-drag-region absolute inset-0 z-0"
+          data-tauri-drag-region
+        />
         {draggingTabId && dropIndicatorLeft !== null && (
           <div
             className="absolute top-1/2 -translate-y-1/2 h-7 w-[2px] bg-primary z-20 transition-[left]"

@@ -69,4 +69,15 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
+const port = Number(process.env.PORT ?? 3000);
+const hostname = process.env.HOST ?? "127.0.0.1";
+
+const server = Bun.serve({
+  port,
+  hostname,
+  fetch: app.fetch,
+});
+
+console.log(`Server listening on ${server.url.toString()}`);
+
 export default app;

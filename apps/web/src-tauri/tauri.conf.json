@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../.next",
     "devUrl": "http://localhost:3001",
-    "beforeDevCommand": "bun run dev",
-    "beforeBuildCommand": "bun run build"
+    "beforeDevCommand": "bun run --cwd ../.. dev",
+    "beforeBuildCommand": "bun run --cwd ../.. build"
   },
   "app": {
     "windows": [
@@ -15,6 +15,8 @@
         "title": "teatime-ai",
         "width": 800,
         "height": 600,
+        "decorations": false,
+        "transparent": true,
         "resizable": true,
         "fullscreen": false
       }

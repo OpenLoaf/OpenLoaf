@@ -63,6 +63,7 @@
         "@radix-ui/react-tooltip": "^1.2.8",
         "@tanstack/react-form": "^1.12.3",
         "@tanstack/react-query": "^5.85.5",
+        "@tauri-apps/api": "^2.9.0",
         "@teatime-ai/api": "workspace:*",
         "@trpc/client": "catalog:",
         "@trpc/server": "catalog:",
@@ -669,6 +670,8 @@
     "@tanstack/react-store": ["@tanstack/react-store@0.8.0", "https://registry.npmmirror.com/@tanstack/react-store/-/react-store-0.8.0.tgz", { "dependencies": { "@tanstack/store": "0.8.0", "use-sync-external-store": "^1.6.0" }, "peerDependencies": { "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-1vG9beLIuB7q69skxK9r5xiLN3ztzIPfSQSs0GfeqWGO2tGIyInZx0x1COhpx97RKaONSoAb8C3dxacWksm1ow=="],
 
     "@tanstack/store": ["@tanstack/store@0.7.7", "https://registry.npmmirror.com/@tanstack/store/-/store-0.7.7.tgz", {}, "sha512-xa6pTan1bcaqYDS9BDpSiS63qa6EoDkPN9RsRaxHuDdVDNntzq3xNwR5YKTU/V3SkSyC9T4YVOPh2zRQN0nhIQ=="],
+
+    "@tauri-apps/api": ["@tauri-apps/api@2.9.1", "", {}, "sha512-IGlhP6EivjXHepbBic618GOmiWe4URJiIeZFlB7x3czM0yDHHYviH1Xvoiv4FefdkQtn6v7TuwWCRfOGdnVUGw=="],
 
     "@tauri-apps/cli": ["@tauri-apps/cli@2.9.5", "https://registry.npmmirror.com/@tauri-apps/cli/-/cli-2.9.5.tgz", { "optionalDependencies": { "@tauri-apps/cli-darwin-arm64": "2.9.5", "@tauri-apps/cli-darwin-x64": "2.9.5", "@tauri-apps/cli-linux-arm-gnueabihf": "2.9.5", "@tauri-apps/cli-linux-arm64-gnu": "2.9.5", "@tauri-apps/cli-linux-arm64-musl": "2.9.5", "@tauri-apps/cli-linux-riscv64-gnu": "2.9.5", "@tauri-apps/cli-linux-x64-gnu": "2.9.5", "@tauri-apps/cli-linux-x64-musl": "2.9.5", "@tauri-apps/cli-win32-arm64-msvc": "2.9.5", "@tauri-apps/cli-win32-ia32-msvc": "2.9.5", "@tauri-apps/cli-win32-x64-msvc": "2.9.5" }, "bin": { "tauri": "tauri.js" } }, "sha512-z88tX6O6kwTgMjYozhNGbehzQyBazgXejyH784CwSfBOWm06xFcogd0PY/jhcPsqzJF9kLRIkmlQy+cqdrioOQ=="],
 
