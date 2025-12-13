@@ -76,7 +76,7 @@ export const Header = () => {
           <Settings className="h-4 w-4" />
         </Button>
       </div>
-      <div className="flex-1" data-no-drag="true">
+      <div className="flex-1">
         <HeaderTabs />
       </div>
       <div className="flex h-(--header-height) items-center pr-2">

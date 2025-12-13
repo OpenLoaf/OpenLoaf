@@ -3,10 +3,8 @@ import { Tabs, TabsList } from "@/components/animate-ui/components/radix/tabs";
 import { useTabs } from "@/hooks/use_tabs";
 import { useWorkspace } from "@/app/page";
 import { Button } from "@/components/ui/button";
-import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { TabMenu } from "./TabMenu";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { checkIsRunningInTauri } from "@/utils/tauri";
 
 export const HeaderTabs = () => {
   const {
@@ -23,30 +21,11 @@ export const HeaderTabs = () => {
   const tabsListRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
-  const [isTauri, setIsTauri] = useState(false);
   const [dropIndicatorLeft, setDropIndicatorLeft] = useState<number | null>(
     null
   );
   const [dropPlacement, setDropPlacement] = useState<"before" | "after">(
     "before"
-  );
-
-  useEffect(() => {
-    setIsTauri(checkIsRunningInTauri());
-  }, []);
-
-  const handlePointerDown = useCallback(
-    (event: React.PointerEvent<HTMLElement>) => {
-      if (!isTauri) return;
-      if (event.pointerType !== "mouse") return;
-      if (event.button !== 0) return;
-
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('[data-no-drag="true"]')) return;
-
-      void getCurrentWindow().startDragging();
-    },
-    [isTauri]
   );
 
   // 获取当前工作区的标签列表
@@ -195,7 +174,6 @@ export const HeaderTabs = () => {
         <div
           className="tauri-drag-region absolute inset-0 z-0"
           data-tauri-drag-region
-          onPointerDown={handlePointerDown}
         />
         {draggingTabId && dropIndicatorLeft !== null && (
           <div
@@ -246,6 +224,7 @@ export const HeaderTabs = () => {
         ))}
         {/* 添加plus按钮 */}
         <Button
+          data-no-drag="true"
           variant="ghost"
           size="icon"
           className="h-full mx-2 w-6 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent relative z-10"

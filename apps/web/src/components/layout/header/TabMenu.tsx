@@ -50,6 +50,7 @@ export const TabMenu = ({
           ref={tab.id === activeTabId ? activeTabRef : null}
           value={tab.id}
           draggable
+          data-no-drag="true"
           data-pinned={isPinned ? "true" : "false"}
           onDragStart={(event) => {
             event.dataTransfer.effectAllowed = "move";
