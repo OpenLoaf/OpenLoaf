@@ -18,6 +18,38 @@ export function useChatScroll({
   bottomRef,
   contentRef,
 }: UseChatScrollProps) {
+  const isPinnedToBottomRef = React.useRef(true);
+
+  const getIsAtBottom = React.useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return true;
+    const threshold = 32;
+    const distanceFromBottom =
+      viewport.scrollHeight - (viewport.scrollTop + viewport.clientHeight);
+    return distanceFromBottom <= threshold;
+  }, [viewportRef]);
+
+  React.useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    isPinnedToBottomRef.current = getIsAtBottom();
+
+    let raf: number | null = null;
+    const onScroll = () => {
+      if (raf != null) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        isPinnedToBottomRef.current = getIsAtBottom();
+      });
+    };
+
+    viewport.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      if (raf != null) cancelAnimationFrame(raf);
+      viewport.removeEventListener("scroll", onScroll);
+    };
+  }, [viewportRef, getIsAtBottom]);
+
   const lastMessageTextLength = React.useMemo(() => {
     const last = messages[messages.length - 1];
     if (!last) return 0;
@@ -31,6 +63,7 @@ export function useChatScroll({
     const viewport = viewportRef.current;
     const bottom = bottomRef.current;
     if (!viewport || !bottom) return;
+    isPinnedToBottomRef.current = true;
     bottom.scrollIntoView({ block: "end", behavior });
   }, [viewportRef, bottomRef]);
 
@@ -43,7 +76,9 @@ export function useChatScroll({
 
   React.useLayoutEffect(() => {
     const raf = requestAnimationFrame(() => {
-      scrollToBottom("auto");
+      if (isPinnedToBottomRef.current) {
+        scrollToBottom("auto");
+      }
     });
     return () => cancelAnimationFrame(raf);
   }, [messages.length, lastMessageTextLength, status, scrollToBottom]);
@@ -54,7 +89,9 @@ export function useChatScroll({
     if (typeof ResizeObserver === "undefined") return;
 
     const observer = new ResizeObserver(() => {
-      scrollToBottom("auto");
+      if (isPinnedToBottomRef.current) {
+        scrollToBottom("auto");
+      }
     });
 
     observer.observe(content);

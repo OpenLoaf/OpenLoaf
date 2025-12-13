@@ -1,15 +1,17 @@
 "use client";
 
 import type { UIMessage } from "@ai-sdk/react";
+import MessageAction from "./MessageAction";
 import MessageAi from "./MessageAi";
 import MessageHuman from "./MessageHuman";
 import MessageTool from "./MessageTool";
 
 interface MessageItemProps {
   message: UIMessage;
+  isLast?: boolean;
 }
 
-export default function MessageItem({ message }: MessageItemProps) {
+export default function MessageItem({ message, isLast }: MessageItemProps) {
   // AI SDK v6：工具调用 part.type 通常是 `tool-${name}` 或 `dynamic-tool`
   const toolParts = (message.parts ?? []).filter(
     (part: any) =>
@@ -36,6 +38,8 @@ export default function MessageItem({ message }: MessageItemProps) {
               ))}
             </div>
           ) : null}
+
+          <MessageAction className="mt-1" message={message} canRetry={isLast} />
         </>
       )}
     </div>

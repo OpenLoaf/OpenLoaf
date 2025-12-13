@@ -1,5 +1,5 @@
 model ChatSession {
-  id           String        @id @default(cuid()) /// @zod.cuid()
+  id           String        @id @default(cuid())
   title        String        @default("新对话") /// @zod.min(1)
   agents       Json? /// @zod.optional()
   systemPrompt String? /// @zod.optional()
@@ -19,9 +19,9 @@ model ChatSession {
 }
 
 model ChatMessage {
-  id                String            @id @default(cuid()) /// @zod.cuid()
-  sessionId         String /// @zod.cuid()
-  previousMessageId String? /// @zod.cuid().optional()
+  id                String            @id @default(cuid())
+  sessionId         String
+  previousMessageId String?
   role              MessageRole       @default(USER)
   meta              Json? /// @zod.optional()
   createdAt         DateTime          @default(now())
@@ -34,8 +34,8 @@ model ChatMessage {
 }
 
 model ChatMessagePart {
-  id        String      @id @default(cuid()) /// @zod.cuid()
-  messageId String /// @zod.cuid()
+  id        String      @id @default(cuid())
+  messageId String
   index     Int
   // 直接使用字符串保存UIMessage的类型
   type      String

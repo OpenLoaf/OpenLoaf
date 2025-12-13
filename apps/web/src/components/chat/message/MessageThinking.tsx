@@ -1,12 +1,9 @@
 "use client";
 
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 
-interface MessageThinkingProps {
-  reduceMotion: boolean | null;
-}
-
-export default function MessageThinking({ reduceMotion }: MessageThinkingProps) {
+export default function MessageThinking() {
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
       key="message-thinking"

@@ -9,7 +9,6 @@ export const metadata: Metadata = {
   description: "teatime-ai",
 };
 
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -23,7 +22,7 @@ export default function RootLayout({
             <div className="grid grid-rows-[auto_1fr] h-svh">{children}</div>
           </ServerConnectionGate>
         </Providers>
-        <Toaster />
+        <Toaster position="bottom-left" />
       </body>
     </html>
   );

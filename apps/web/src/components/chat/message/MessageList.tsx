@@ -2,7 +2,6 @@
 
 import { cn } from "@/lib/utils";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useChatContext } from "../ChatProvider";
 import MessageHelper from "./MessageHelper";
 import * as React from "react";
@@ -51,7 +50,6 @@ export default function MessageList({ className }: MessageListProps) {
     scrollToBottomToken,
     isHistoryLoading,
   } = useChatContext();
-  const reduceMotion = useReducedMotion();
   const viewportRef = React.useRef<HTMLDivElement | null>(null);
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
@@ -66,88 +64,39 @@ export default function MessageList({ className }: MessageListProps) {
   });
 
   return (
-    <div className={cn("flex-1 mb-4 relative", className)}>
-      <ScrollArea.Root className="h-full w-full">
+    <div className={cn("flex-1 mb-4 relative min-w-0", className)}>
+      <ScrollArea.Root className="h-full w-full min-w-0">
         <ScrollArea.Viewport
           ref={viewportRef}
-          className="w-full h-full min-h-0"
+          className="w-full h-full min-h-0 min-w-0 overflow-x-hidden"
         >
-          <div ref={contentRef}>
-            <AnimatePresence initial={false} mode="wait">
-              <motion.div
-                key={sessionId}
-                className="space-y-4"
-                initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-              >
-                <AnimatePresence initial={false} mode="wait">
-                  {isHistoryLoading && messages.length === 0 ? (
-                    <motion.div
-                      key="history-loading"
-                      initial={reduceMotion ? false : { opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.12, ease: "easeOut" }}
-                    >
-                      <MessageHistorySkeleton />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="history-ready"
-                      initial={reduceMotion ? false : { opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.12, ease: "easeOut" }}
-                    >
-                      <AnimatePresence initial={false} mode="popLayout">
-                        {messages.length === 0 ? (
-                          <motion.div
-                            key="message-helper"
-                            initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={
-                              reduceMotion
-                                ? { opacity: 0 }
-                                : { opacity: 0, y: -6 }
-                            }
-                            transition={{ duration: 0.18, ease: "easeOut" }}
-                          >
-                            <MessageHelper />
-                          </motion.div>
-                        ) : (
-                          <>
-                            {messages.map((message, index) => {
-                              const key =
-                                message.id ?? `${message.role}-${index}`;
-                              return (
-                                <MessageItem
-                                  key={key}
-                                  message={message}
-                                />
-                              );
-                            })}
+          <div ref={contentRef} className="min-w-0">
+            <div key={sessionId} className="space-y-4 min-w-0">
+              {isHistoryLoading && messages.length === 0 ? (
+                <MessageHistorySkeleton />
+              ) : messages.length === 0 ? (
+                <MessageHelper />
+              ) : (
+                <>
+                  {messages.map((message, index) => {
+                    const key = message.id ?? `${message.role}-${index}`;
+                    return (
+                      <MessageItem
+                        key={key}
+                        message={message}
+                        isLast={index === messages.length - 1}
+                      />
+                    );
+                  })}
 
-                            {(status === "submitted" ||
-                              status === "streaming") && (
-                              <MessageThinking reduceMotion={reduceMotion} />
-                            )}
-
-                            {error && (
-                              <MessageError
-                                error={error}
-                                reduceMotion={reduceMotion}
-                              />
-                            )}
-                          </>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
+                  {(status === "submitted" || status === "streaming") && (
+                    <MessageThinking />
                   )}
-                </AnimatePresence>
-              </motion.div>
-            </AnimatePresence>
+
+                  {error && <MessageError error={error} />}
+                </>
+              )}
+            </div>
 
             <div ref={bottomRef} />
           </div>

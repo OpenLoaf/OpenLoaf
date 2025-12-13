@@ -1,9 +1,42 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { useTabs } from "@/hooks/use_tabs";
 import PlantPage from "@/components/plant/Plant";
 import { Chat } from "../chat/Chat";
 import { cn } from "@/lib/utils";
+
+const ComponentMap: Record<string, React.ComponentType<any>> = {
+  "ai-chat": Chat,
+  "plant-page": PlantPage,
+};
+
+const renderPanel = (panel: {
+  component: string;
+  params: Record<string, any>;
+  panelKey: string;
+}) => {
+  const { component: componentName, params, panelKey } = panel;
+  const Component = ComponentMap[componentName];
+  if (!Component) {
+    return (
+      <div className="h-full flex items-center justify-center text-muted">
+        Component not found: {componentName}
+      </div>
+    );
+  }
+  console.log("renderPanel", panelKey);
+  return (
+    <motion.div
+      key={panelKey}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.3 }}
+      className="h-full w-full"
+    >
+      <Component panelKey={panelKey} {...params} />
+    </motion.div>
+  );
+};
 
 export const MainContent: React.FC<{ className?: string }> = ({
   className,
@@ -59,37 +92,15 @@ export const MainContent: React.FC<{ className?: string }> = ({
       ? { duration: 0 }
       : { type: "spring" as const, stiffness: 260, damping: 45 };
 
-  const ComponentMap: Record<string, React.ComponentType<any>> = {
-    "ai-chat": Chat,
-    "plant-page": PlantPage,
-  };
+  const renderedLeftPanel = useMemo(() => {
+    if (!leftPanel || computedLeftHidden) return null;
+    return renderPanel(leftPanel);
+  }, [leftPanel, computedLeftHidden]);
 
-  const renderPanel = (panel: {
-    component: string;
-    params: Record<string, any>;
-    panelKey: string;
-  }) => {
-    const { component: componentName, params, panelKey } = panel;
-    const Component = ComponentMap[componentName];
-    if (!Component) {
-      return (
-        <div className="h-full flex items-center justify-center text-muted">
-          Component not found: {componentName}
-        </div>
-      );
-    }
-    return (
-      <motion.div
-        key={panelKey}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="h-full w-full"
-      >
-        <Component panelKey={panelKey} {...params} />
-      </motion.div>
-    );
-  };
+  const renderedRightPanel = useMemo(() => {
+    if (!rightPanel || computedRightHidden) return null;
+    return renderPanel(rightPanel);
+  }, [rightPanel, computedRightHidden]);
 
   const handleMouseDown = () => {
     setIsDragging(true);
@@ -179,7 +190,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
                   !computedLeftHidden && "p-4 pr-2"
                 )}
               >
-                {!computedLeftHidden && renderPanel(leftPanel)}
+                {renderedLeftPanel}
               </div>
             )}
           </motion.div>
@@ -229,7 +240,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
               <div
                 className={cn("h-full w-full", !computedRightHidden && "p-4")}
               >
-                {!computedRightHidden && renderPanel(rightPanel)}
+                {renderedRightPanel}
               </div>
             </motion.div>
           )}

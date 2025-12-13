@@ -1,13 +1,13 @@
 "use client";
 
-import { motion } from "motion/react";
-
 interface MessageErrorProps {
   error: Error;
-  reduceMotion: boolean | null;
 }
 
-export default function MessageError({ error, reduceMotion }: MessageErrorProps) {
+import { motion, useReducedMotion } from "motion/react";
+
+export default function MessageError({ error }: MessageErrorProps) {
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
       key="message-error"
