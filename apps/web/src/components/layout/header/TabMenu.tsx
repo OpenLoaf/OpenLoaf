@@ -65,9 +65,7 @@ export const TabMenu = ({
             onDrop?.(tab.id);
           }}
           onDragEnd={onDragEnd}
-          className={`h-7 px-1.5 text-xs gap-0 rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:border-transparent aria-selected:shadow-none relative z-10 flex items-center ${
-            isPinned ? "max-w-[200px]" : "min-w-[130px]"}
-          }`}
+          className={`h-7 pl-1.5 pr-3.5 text-xs gap-0 rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:border-transparent aria-selected:shadow-none relative z-10 flex items-center max-w-[200px]`}
         >
           {tab.icon === "bot" ? (
             <Bot className="h-3.5 w-3.5 mr-1.5 text-muted-foreground shrink-0" />
