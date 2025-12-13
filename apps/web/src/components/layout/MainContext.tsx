@@ -35,7 +35,12 @@ export const MainContent: React.FC<{ className?: string }> = ({
   const showDivider =
     (hasLeftPanel || isClosingLeft) &&
     (hasRightPanel || isClosingRight) &&
-    !(computedLeftHidden && computedRightHidden && !isClosingLeft && !isClosingRight);
+    !(
+      computedLeftHidden &&
+      computedRightHidden &&
+      !isClosingLeft &&
+      !isClosingRight
+    );
   const dividerInteractive = showLeft && showRight;
 
   const leftWidthPercent = computedLeftHidden
@@ -59,9 +64,11 @@ export const MainContent: React.FC<{ className?: string }> = ({
     "plant-page": PlantPage,
   };
 
-  const renderPanel = (
-    panel: { component: string; params: Record<string, any>; panelKey: string },
-  ) => {
+  const renderPanel = (panel: {
+    component: string;
+    params: Record<string, any>;
+    panelKey: string;
+  }) => {
     const { component: componentName, params, panelKey } = panel;
     const Component = ComponentMap[componentName];
     if (!Component) {
@@ -71,7 +78,17 @@ export const MainContent: React.FC<{ className?: string }> = ({
         </div>
       );
     }
-    return <Component key={panelKey} panelKey={panelKey} {...params} />;
+    return (
+      <motion.div
+        key={panelKey}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="h-full w-full"
+      >
+        <Component panelKey={panelKey} {...params} />
+      </motion.div>
+    );
   };
 
   const handleMouseDown = () => {
@@ -162,8 +179,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
                   !computedLeftHidden && "p-4 pr-2"
                 )}
               >
-                {!computedLeftHidden &&
-                  renderPanel(leftPanel)}
+                {!computedLeftHidden && renderPanel(leftPanel)}
               </div>
             )}
           </motion.div>
@@ -213,8 +229,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
               <div
                 className={cn("h-full w-full", !computedRightHidden && "p-4")}
               >
-                {!computedRightHidden &&
-                  renderPanel(rightPanel)}
+                {!computedRightHidden && renderPanel(rightPanel)}
               </div>
             </motion.div>
           )}
