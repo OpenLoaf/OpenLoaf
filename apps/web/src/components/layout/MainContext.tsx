@@ -30,13 +30,16 @@ export const MainContent: React.FC<{ className?: string }> = ({
   const showRight = hasRightPanel && !rightHidden;
   const showDivider = showLeft && showRight;
 
-  const leftWidthPercent =
-    computedLeftHidden ? 0 : showRight ? activeLeftWidth : 100;
+  const leftWidthPercent = computedLeftHidden
+    ? 0
+    : showRight
+    ? activeLeftWidth
+    : 100;
   const rightWidthPercent = computedRightHidden
     ? 0
     : showLeft
-      ? 100 - leftWidthPercent
-      : 100;
+    ? 100 - leftWidthPercent
+    : 100;
 
   const widthTransition =
     reduceMotion || isDragging
@@ -57,6 +60,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
         </div>
       );
     }
+    console.log("打开组件", componentName, params);
     return <Component {...params} />;
   };
 
@@ -103,8 +107,10 @@ export const MainContent: React.FC<{ className?: string }> = ({
           <motion.div
             className={cn(
               "flex flex-col bg-background rounded-xl max-h-screen overflow-hidden",
-              computedLeftHidden ? "pointer-events-none" : "pointer-events-auto",
-              !hasLeftPanel && "p-0",
+              computedLeftHidden
+                ? "pointer-events-none"
+                : "pointer-events-auto",
+              !hasLeftPanel && "p-0"
             )}
             style={{ flex: "0 0 auto" }}
             initial={false}
@@ -112,7 +118,12 @@ export const MainContent: React.FC<{ className?: string }> = ({
             transition={widthTransition}
           >
             {leftPanel && (
-              <div className={cn("h-full w-full", !computedLeftHidden && "p-4 pr-2")}>
+              <div
+                className={cn(
+                  "h-full w-full",
+                  !computedLeftHidden && "p-4 pr-2"
+                )}
+              >
                 {!computedLeftHidden &&
                   renderPanel(leftPanel.component, leftPanel.params)}
               </div>
@@ -124,14 +135,14 @@ export const MainContent: React.FC<{ className?: string }> = ({
               ref={dividerRef}
               className={cn(
                 "bg-sidebar rounded-4xl cursor-col-resize hover:bg-primary/20 active:bg-primary/30 flex items-center justify-center w-2.5",
-                isDragging && "bg-primary/10",
+                isDragging && "bg-primary/10"
               )}
               onMouseDown={handleMouseDown}
             >
               <div
                 className={cn(
                   "w-1 h-6 bg-muted/70 rounded-full",
-                  isDragging && "bg-primary/70",
+                  isDragging && "bg-primary/70"
                 )}
               />
             </div>
@@ -141,14 +152,18 @@ export const MainContent: React.FC<{ className?: string }> = ({
             <motion.div
               className={cn(
                 "bg-background rounded-xl overflow-hidden min-w-0",
-                computedRightHidden ? "pointer-events-none" : "pointer-events-auto",
+                computedRightHidden
+                  ? "pointer-events-none"
+                  : "pointer-events-auto"
               )}
               style={{ flex: "0 0 auto" }}
               initial={false}
               animate={{ width: `${rightWidthPercent}%` }}
               transition={widthTransition}
             >
-              <div className={cn("h-full w-full", !computedRightHidden && "p-4")}>
+              <div
+                className={cn("h-full w-full", !computedRightHidden && "p-4")}
+              >
                 {!computedRightHidden &&
                   renderPanel(rightPanel.component, rightPanel.params)}
               </div>
