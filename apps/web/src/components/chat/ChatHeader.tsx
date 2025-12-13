@@ -13,7 +13,8 @@ interface ChatHeaderProps {
 }
 
 export default function ChatHeader({ className }: ChatHeaderProps) {
-  const { newSession, selectSession, messages } = useChatContext();
+  const { id: activeSessionId, newSession, selectSession, messages } =
+    useChatContext();
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const menuLockRef = React.useRef(false);
 
@@ -60,6 +61,7 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
             }}
           >
             <SessionList
+              activeSessionId={activeSessionId}
               onMenuOpenChange={handleMenuOpenChange}
               onSelect={(session) => {
                 // 选中历史会话后：关闭弹层 + 切换会话并加载历史

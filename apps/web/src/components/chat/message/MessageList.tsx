@@ -6,6 +6,7 @@ import type { UIMessage } from "@ai-sdk/react";
 import { useChatContext } from "../ChatProvider";
 import MessageHelper from "./MessageHelper";
 import * as React from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatScroll } from "@/hooks/use-chat-scroll";
 import MessageItem from "./MessageItem";
@@ -107,23 +108,32 @@ export default function MessageList({ className }: MessageListProps) {
           className="w-full h-full min-h-0 min-w-0 overflow-x-hidden !select-text [&_*:not(summary)]:!select-text"
         >
           <div ref={contentRef} className="min-w-0">
-            <div key={sessionId} className="space-y-4 min-w-0">
-              {isHistoryLoading && messages.length === 0 ? (
-                <MessageHistorySkeleton />
-              ) : messages.length === 0 ? (
-                <MessageHelper />
-              ) : (
-                <>
-                  {messageItems}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={sessionId}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-4 min-w-0"
+              >
+                {isHistoryLoading && messages.length === 0 ? (
+                  <MessageHistorySkeleton />
+                ) : messages.length === 0 ? (
+                  <MessageHelper />
+                ) : (
+                  <>
+                    {messageItems}
 
-                  {(status === "submitted" || status === "streaming") && (
-                    <MessageThinking />
-                  )}
+                    {(status === "submitted" || status === "streaming") && (
+                      <MessageThinking />
+                    )}
 
-                  {error && <MessageError error={error} />}
-                </>
-              )}
-            </div>
+                    {error && <MessageError error={error} />}
+                  </>
+                )}
+              </motion.div>
+            </AnimatePresence>
 
             <div ref={bottomRef} />
           </div>

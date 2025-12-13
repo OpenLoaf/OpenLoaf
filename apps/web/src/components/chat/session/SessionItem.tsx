@@ -30,6 +30,7 @@ export interface Session {
 
 interface SessionItemProps {
   session: Session;
+  isActive?: boolean;
   onSelect?: (session: Session) => void;
   onMenuOpenChange?: (open: boolean) => void;
   className?: string;
@@ -37,6 +38,7 @@ interface SessionItemProps {
 
 export default function SessionItem({
   session,
+  isActive,
   onSelect,
   onMenuOpenChange,
   className,
@@ -168,8 +170,12 @@ export default function SessionItem({
       >
         <button
           type="button"
+          disabled={isActive}
           onClick={() => onSelect?.(session)}
-          className="flex-1 truncate px-2 py-1.5 text-left text-sm"
+          className={cn(
+            "flex-1 truncate px-2 py-1.5 text-left text-sm",
+            "disabled:cursor-not-allowed disabled:opacity-60"
+          )}
         >
           <span className="inline-flex items-center gap-1.5">
             <span className="truncate">{session.name}</span>

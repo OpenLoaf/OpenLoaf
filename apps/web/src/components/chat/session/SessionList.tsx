@@ -9,6 +9,7 @@ import { trpc } from "@/utils/trpc";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface SessionListProps {
+  activeSessionId?: string;
   onSelect?: (session: Session) => void;
   onMenuOpenChange?: (open: boolean) => void;
   className?: string;
@@ -85,6 +86,7 @@ function groupSessions(sessions: Session[]) {
 }
 
 export default function SessionList({
+  activeSessionId,
   onSelect,
   onMenuOpenChange,
   className,
@@ -140,6 +142,7 @@ export default function SessionList({
                   <SessionItem
                     key={s.id}
                     session={s}
+                    isActive={Boolean(activeSessionId && s.id === activeSessionId)}
                     onSelect={onSelect}
                     onMenuOpenChange={onMenuOpenChange}
                   />
