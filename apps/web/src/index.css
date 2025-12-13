@@ -29,26 +29,13 @@ body {
   }
 }
 
-html.tauri {
-  background: transparent;
-}
-
-/* 仅在 Tauri 桌面端启用拖拽区域，避免 Web 端拦截空白区点击 */
-.tauri-drag-region {
-  pointer-events: none;
-}
-
-html.tauri .tauri-drag-region {
-  pointer-events: auto;
-}
-
-html.tauri body {
-  border-radius: 12px;
-  overflow: hidden;
+html.tauri.macos {
+  --macos-traffic-lights-width: 76px;
 }
 
 :root {
   --radius: 0.625rem;
+  --macos-traffic-lights-width: 0px;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

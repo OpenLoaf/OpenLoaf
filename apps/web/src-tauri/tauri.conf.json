@@ -15,8 +15,7 @@
         "title": "teatime-ai",
         "width": 800,
         "height": 600,
-        "decorations": false,
-        "transparent": true,
+        "decorations": true,
         "resizable": true,
         "fullscreen": false
       }

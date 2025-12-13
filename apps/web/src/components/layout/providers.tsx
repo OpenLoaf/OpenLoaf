@@ -13,6 +13,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     document.documentElement.classList.toggle("tauri", checkIsRunningInTauri());
+    document.documentElement.classList.toggle(
+      "macos",
+      typeof navigator !== "undefined" &&
+        navigator.platform.toLowerCase().includes("mac")
+    );
   }, []);
 
   return (
