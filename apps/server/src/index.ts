@@ -27,7 +27,7 @@ app.use(
       .split(",")
       .map((o) => o.trim()),
     allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "User-Agent", "X-Requested-With"],
     credentials: true,
   })
 );

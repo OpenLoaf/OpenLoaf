@@ -13,15 +13,17 @@ interface ChatInputProps {
 }
 
 export default function ChatInput({ className }: ChatInputProps) {
-  const { sendMessage, status, stop } = useChatContext();
+  const { sendMessage, status, stop, clearError } = useChatContext();
   const [input, setInput] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
-    if (status !== "ready") {
-      return;
-    }
     e.preventDefault();
+    const canSubmit = status === "ready" || status === "error";
+    if (!canSubmit) return;
     if (input.trim()) {
+      if (status === "error") {
+        clearError();
+      }
       sendMessage({ text: input });
       setInput("");
     }
@@ -39,7 +41,7 @@ export default function ChatInput({ className }: ChatInputProps) {
     }
   };
 
-  const isLoading = status !== "ready";
+  const isLoading = status === "submitted" || status === "streaming";
 
   const [isFocused, setIsFocused] = useState(false);
 
