@@ -68,7 +68,7 @@ export default function MessageList({ className }: MessageListProps) {
       <ScrollArea.Root className="h-full w-full min-w-0">
         <ScrollArea.Viewport
           ref={viewportRef}
-          className="w-full h-full min-h-0 min-w-0 overflow-x-hidden"
+          className="w-full h-full min-h-0 min-w-0 overflow-x-hidden !select-text [&_*]:!select-text"
         >
           <div ref={contentRef} className="min-w-0">
             <div key={sessionId} className="space-y-4 min-w-0">
@@ -101,7 +101,7 @@ export default function MessageList({ className }: MessageListProps) {
             <div ref={bottomRef} />
           </div>
         </ScrollArea.Viewport>
-        <ScrollArea.Scrollbar orientation="vertical" style={{ right: "-8px" }}>
+        <ScrollArea.Scrollbar orientation="vertical" style={{ right: "-10px" }}>
           <ScrollArea.Thumb />
         </ScrollArea.Scrollbar>
         <ScrollArea.Corner />

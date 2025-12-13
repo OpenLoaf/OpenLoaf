@@ -4,7 +4,7 @@ import { type UIMessage } from "@ai-sdk/react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import MarkdownCode from "./markdown/MarkdownCode";
+import MarkdownCode from "./markdown/MarkdownCodeInline";
 import MarkdownPre from "./markdown/MarkdownPre";
 import MarkdownTable from "./markdown/MarkdownTable";
 
@@ -23,13 +23,21 @@ export default function MessageAi({ message, className }: MessageAiProps) {
             <div
               key={index}
               className={cn(
-                "min-w-0 w-full max-w-none font-sans prose prose-sm dark:prose-invert break-words [overflow-wrap:anywhere]",
-                "text-[12px] leading-5",
-                "prose-p:text-[12px] prose-li:text-[12px] prose-strong:text-[12px] prose-em:text-[12px] prose-blockquote:text-[12px]",
-                "prose-code:text-[11px] prose-pre:text-[11px]",
-                "prose-pre:max-w-full prose-pre:overflow-x-auto prose-pre:rounded prose-pre:bg-muted prose-pre:p-3",
-                "prose-pre:font-mono prose-code:font-mono",
-                "prose-a:break-all",
+                "min-w-0 w-full max-w-none font-sans prose prose-neutral dark:prose-invert break-words [overflow-wrap:anywhere]",
+                // Base text settings
+                "text-sm leading-relaxed",
+                // Element spacing adjustments
+                "prose-p:my-2 prose-p:leading-relaxed",
+                "prose-headings:my-3 prose-headings:font-semibold",
+                "prose-h1:text-xl prose-h2:text-lg prose-h3:text-base",
+                "prose-ul:my-2 prose-li:my-0.5",
+                // Code block styling (handled by components but resetting some defaults)
+                "prose-pre:p-0 prose-pre:bg-transparent prose-pre:m-0",
+                // Inline code styling
+                "prose-code:px-1 prose-code:py-0.5 prose-code:font-mono prose-code:text-[0.9em] prose-code:font-normal prose-code:bg-muted/50 prose-code:rounded-sm prose-code:before:content-none prose-code:after:content-none",
+                // Other elements
+                "prose-blockquote:not-italic prose-blockquote:border-l-primary/50 prose-blockquote:text-muted-foreground",
+                "prose-a:break-all prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
                 "prose-table:block prose-table:max-w-full prose-table:overflow-x-auto"
               )}
             >
