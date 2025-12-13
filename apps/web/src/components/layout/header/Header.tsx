@@ -43,12 +43,14 @@ export const Header = () => {
 
   return (
     <header
-      className="bg-sidebar sticky top-0 z-50 flex w-full items-center justify-between pl-[var(--macos-traffic-lights-width)]"
+      className="bg-sidebar sticky top-0 z-50 flex w-full items-center justify-between pl-(--macos-traffic-lights-width)"
       onPointerDown={handlePointerDown}
     >
       <div
         className={`flex h-(--header-height) items-center pl-2 pr-2 gap-2 transition-[width] duration-200 ease-linear ${
-          leftOpen ? "w-(--sidebar-width) mr-2" : "w-15 mr-4"
+          leftOpen
+            ? "w-[calc(var(--sidebar-width)-var(--macos-traffic-lights-width))] mr-2"
+            : "w-[max(3.75rem,calc(3.75rem-var(--macos-traffic-lights-width)))] mr-4"
         }`}
       >
         <Button

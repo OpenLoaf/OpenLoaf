@@ -18,7 +18,9 @@ pub fn run() {
 
           #[cfg(target_os = "macos")]
           {
+            let _ = window.set_title("");
             let _ = window.set_title_bar_style(tauri::TitleBarStyle::Overlay);
+            apply_macos_titlebar_hide_title(&window);
             apply_macos_traffic_lights_offset(&window, 6.0, 6.0);
 
             let window_clone = window.clone();
@@ -74,6 +76,19 @@ fn apply_window_size_from_screen_width(window: &tauri::WebviewWindow, width_rati
     x,
     y,
   }));
+}
+
+#[cfg(target_os = "macos")]
+fn apply_macos_titlebar_hide_title(window: &tauri::WebviewWindow) {
+  use objc2_app_kit::{NSWindow, NSWindowTitleVisibility};
+
+  let Ok(ns_window) = window.ns_window() else {
+    return;
+  };
+
+  let ns_window = unsafe { &*(ns_window as *const NSWindow) };
+  ns_window.setTitleVisibility(NSWindowTitleVisibility::Hidden);
+  ns_window.setTitlebarAppearsTransparent(true);
 }
 
 #[cfg(target_os = "macos")]
