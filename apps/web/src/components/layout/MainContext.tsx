@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { useTabs } from "@/hooks/use_tabs";
 import PlantPage from "@/components/plant/Plant";
 import { Chat } from "../chat/Chat";
@@ -9,6 +10,8 @@ export const MainContent: React.FC<{ className?: string }> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const dividerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
   const {
     activeLeftPanel: leftPanel,
     activeRightPanel: rightPanel,
@@ -27,33 +30,18 @@ export const MainContent: React.FC<{ className?: string }> = ({
   const showRight = hasRightPanel && !rightHidden;
   const showDivider = showLeft && showRight;
 
-  const leftWidthPercent = computedLeftHidden
-    ? 0
-    : showRight
-      ? activeLeftWidth
-      : 100;
-
+  const leftWidthPercent =
+    computedLeftHidden ? 0 : showRight ? activeLeftWidth : 100;
   const rightWidthPercent = computedRightHidden
     ? 0
     : showLeft
       ? 100 - leftWidthPercent
       : 100;
 
-  const halfDividerPx = 5;
-
-  const leftWidthCss =
-    leftWidthPercent === 0
-      ? "0px"
-      : showDivider
-        ? `calc(${leftWidthPercent}% - ${halfDividerPx}px)`
-        : `${leftWidthPercent}%`;
-
-  const rightWidthCss =
-    rightWidthPercent === 0
-      ? "0px"
-      : showDivider
-        ? `calc(${rightWidthPercent}% - ${halfDividerPx}px)`
-        : `${rightWidthPercent}%`;
+  const widthTransition =
+    reduceMotion || isDragging
+      ? { duration: 0 }
+      : { type: "spring" as const, stiffness: 260, damping: 30 };
 
   const ComponentMap: Record<string, React.ComponentType<any>> = {
     "ai-chat": Chat,
@@ -79,7 +67,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
   const handleMouseMove = (event: MouseEvent) => {
     if (!isDragging || !dividerRef.current) return;
 
-    const container = dividerRef.current.parentElement;
+    const container = containerRef.current;
     if (!container) return;
 
     const containerRect = container.getBoundingClientRect();
@@ -107,24 +95,29 @@ export const MainContent: React.FC<{ className?: string }> = ({
 
   return (
     <div
+      ref={containerRef}
       className={cn("flex h-full w-full overflow-hidden bg-sidebar", className)}
     >
       {hasLeftPanel || hasRightPanel ? (
         <>
-          <div
+          <motion.div
             className={cn(
               "flex flex-col bg-background rounded-xl max-h-screen overflow-hidden",
-              computedLeftHidden
-                ? "pointer-events-none p-0"
-                : "pointer-events-auto p-4 pr-2",
+              computedLeftHidden ? "pointer-events-none" : "pointer-events-auto",
               !hasLeftPanel && "p-0",
             )}
-            style={{ flex: "0 0 auto", width: leftWidthCss }}
+            style={{ flex: "0 0 auto" }}
+            initial={false}
+            animate={{ width: `${leftWidthPercent}%` }}
+            transition={widthTransition}
           >
-            {!computedLeftHidden &&
-              leftPanel &&
-              renderPanel(leftPanel.component, leftPanel.params)}
-          </div>
+            {leftPanel && (
+              <div className={cn("h-full w-full", !computedLeftHidden && "p-4 pr-2")}>
+                {!computedLeftHidden &&
+                  renderPanel(leftPanel.component, leftPanel.params)}
+              </div>
+            )}
+          </motion.div>
 
           {showDivider && (
             <div
@@ -145,18 +138,21 @@ export const MainContent: React.FC<{ className?: string }> = ({
           )}
 
           {rightPanel && (
-            <div
+            <motion.div
               className={cn(
                 "bg-background rounded-xl overflow-hidden min-w-0",
-                computedRightHidden
-                  ? "pointer-events-none p-0"
-                  : "pointer-events-auto p-4",
+                computedRightHidden ? "pointer-events-none" : "pointer-events-auto",
               )}
-              style={{ flex: "0 0 auto", width: rightWidthCss }}
+              style={{ flex: "0 0 auto" }}
+              initial={false}
+              animate={{ width: `${rightWidthPercent}%` }}
+              transition={widthTransition}
             >
-              {!computedRightHidden &&
-                renderPanel(rightPanel.component, rightPanel.params)}
-            </div>
+              <div className={cn("h-full w-full", !computedRightHidden && "p-4")}>
+                {!computedRightHidden &&
+                  renderPanel(rightPanel.component, rightPanel.params)}
+              </div>
+            </motion.div>
           )}
 
           {leftHidden && rightHidden && (
