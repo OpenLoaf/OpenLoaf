@@ -7,6 +7,9 @@ import { useSidebar } from "@/components/animate-ui/components/radix/sidebar";
 import { useTabs } from "@/hooks/use_tabs";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { checkIsRunningInTauri } from "@/utils/tauri";
+import { Bot } from "@/components/animate-ui/icons/bot";
+import { AnimateIcon } from "@/components/animate-ui/icons/icon";
+import { motion } from "motion/react";
 
 import { HeaderTabs } from "./Tabs";
 import { ModeToggle } from "./ModeToggle";
@@ -99,11 +102,27 @@ export const Header = () => {
             });
           }}
         >
-          <PanelRight
-            className={`h-4 w-4 transition-transform duration-200 ${
-              isRightPanelHidden ? "rotate-180" : ""
-            }`}
-          />
+          <motion.div
+            animate={{
+              x: [0, -5, 5, -5, 5, 0],
+            }}
+            transition={{
+              duration: 0.6,
+              ease: "easeInOut",
+            }}
+          >
+            {activeRightPanel?.component === "ai-chat" ? (
+              <AnimateIcon animate loop loopDelay={3000}>
+                <Bot className={`h-4 w-4`} />
+              </AnimateIcon>
+            ) : (
+              <PanelRight
+                className={`h-4 w-4 transition-transform duration-200 ${
+                  isRightPanelHidden ? "rotate-180" : ""
+                }`}
+              />
+            )}
+          </motion.div>
         </Button>
       </div>
     </header>
