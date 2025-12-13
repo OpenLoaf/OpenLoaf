@@ -83,7 +83,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
         key={panelKey}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.3 }}
         className="h-full w-full"
       >
         <Component panelKey={panelKey} {...params} />

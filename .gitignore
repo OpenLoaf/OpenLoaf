@@ -69,3 +69,7 @@ temp
 /CLAUDE.md.bak
 /GEMINI.md
 # END Ruler Generated Files
+
+.gemini/
+gha-creds-*.json
+.github
