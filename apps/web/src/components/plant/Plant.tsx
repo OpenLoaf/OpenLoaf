@@ -75,7 +75,11 @@ export default function PlantPage({ pageId }: PlantPageProps) {
   }, []);
 
   const tabs = [
-    { value: "intro", icon: <Info className="size-4 shrink-0" />, label: "简介" },
+    {
+      value: "intro",
+      icon: <Info className="size-4 shrink-0" />,
+      label: "简介",
+    },
     {
       value: "canvas",
       icon: <Sparkles className="size-4 shrink-0" />,
@@ -91,7 +95,11 @@ export default function PlantPage({ pageId }: PlantPageProps) {
       icon: <Database className="size-4 shrink-0" />,
       label: "资料",
     },
-    { value: "skills", icon: <Zap className="size-4 shrink-0" />, label: "技能" },
+    {
+      value: "skills",
+      icon: <Zap className="size-4 shrink-0" />,
+      label: "技能",
+    },
   ];
 
   const pageTitle = pageData?.title || "Plant Page";
@@ -121,12 +129,16 @@ export default function PlantPage({ pageId }: PlantPageProps) {
         </h1>
 
         <div className="flex justify-end flex-1">
-          <div
+          <motion.div
             className="relative"
             role="tablist"
             aria-label="Plant Tabs"
+            initial={{ opacity: 0, y: 0 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, ease: "easeOut", delay: 0.5 }}
             onKeyDown={(event) => {
-              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
+                return;
               event.preventDefault();
               const direction = event.key === "ArrowRight" ? 1 : -1;
               const current = activeIndex === -1 ? 0 : activeIndex;
@@ -197,7 +209,7 @@ export default function PlantPage({ pageId }: PlantPageProps) {
                 );
               })}
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
 
