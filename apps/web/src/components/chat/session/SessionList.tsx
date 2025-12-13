@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface SessionListProps {
   onSelect?: (session: Session) => void;
@@ -119,8 +120,10 @@ export default function SessionList({
     >
       <ScrollArea.Viewport className="w-full max-h-[min(80svh,var(--radix-popover-content-available-height))] touch-auto">
         {isLoading ? (
-          <div className="px-2 py-3 text-sm text-muted-foreground">
-            正在加载会话...
+          <div className="flex flex-col gap-2 px-2 py-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-9 w-full" />
+            ))}
           </div>
         ) : sessions.length === 0 ? (
           <div className="px-2 py-3 text-sm text-muted-foreground">

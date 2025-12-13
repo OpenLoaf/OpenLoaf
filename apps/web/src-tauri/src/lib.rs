@@ -51,8 +51,8 @@ pub fn run() {
 /// - 参数: width_ratio - 窗口宽度占屏幕宽度的比例
 fn apply_window_size_from_screen_width(window: &tauri::WebviewWindow, width_ratio: f64) {
     // 窗口初始化的最大宽度和高度
-    const MAX_INIT_WIDTH: u32 = 2800;
-    const MAX_INIT_HEIGHT: u32 = 1800;
+    const MAX_INIT_WIDTH: u32 = 1980;
+    const MAX_INIT_HEIGHT: u32 = 1280;
 
     // 获取当前显示器或主显示器
     let monitor = match window.current_monitor().ok().flatten() {
