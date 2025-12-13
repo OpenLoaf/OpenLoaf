@@ -22,7 +22,8 @@ type ChatRequestBody = {
 
 const agent = new ToolLoopAgent({
   model: deepseek("deepseek-chat"),
-  instructions: "You are a helpful assistant.",
+  instructions:
+    "You are a helpful assistant. Reply in Markdown, but do not use fenced code blocks or triple-backtick code fences in your output.",
   // System Tools（MVP）：这里只注入“定义”，暂不实现内部逻辑。
   tools: systemTools,
 });

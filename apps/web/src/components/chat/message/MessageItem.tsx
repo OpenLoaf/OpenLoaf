@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "motion/react";
 import type { UIMessage } from "@ai-sdk/react";
 import MessageAi from "./MessageAi";
 import MessageHuman from "./MessageHuman";
@@ -8,10 +7,9 @@ import MessageTool from "./MessageTool";
 
 interface MessageItemProps {
   message: UIMessage;
-  reduceMotion: boolean | null;
 }
 
-export default function MessageItem({ message, reduceMotion }: MessageItemProps) {
+export default function MessageItem({ message }: MessageItemProps) {
   // AI SDK v6：工具调用 part.type 通常是 `tool-${name}` 或 `dynamic-tool`
   const toolParts = (message.parts ?? []).filter(
     (part: any) =>
@@ -20,22 +18,7 @@ export default function MessageItem({ message, reduceMotion }: MessageItemProps)
   );
 
   return (
-    <motion.div
-      layout
-      initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.99 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.99 }}
-      transition={
-        reduceMotion
-          ? { duration: 0.12 }
-          : {
-              type: "spring",
-              stiffness: 520,
-              damping: 38,
-              mass: 0.65,
-            }
-      }
-    >
+    <div>
       {message.role === "user" ? (
         <MessageHuman message={message} />
       ) : (
@@ -55,6 +38,6 @@ export default function MessageItem({ message, reduceMotion }: MessageItemProps)
           ) : null}
         </>
       )}
-    </motion.div>
+    </div>
   );
 }

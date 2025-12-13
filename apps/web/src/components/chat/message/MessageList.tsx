@@ -125,7 +125,6 @@ export default function MessageList({ className }: MessageListProps) {
                                 <MessageItem
                                   key={key}
                                   message={message}
-                                  reduceMotion={reduceMotion}
                                 />
                               );
                             })}
