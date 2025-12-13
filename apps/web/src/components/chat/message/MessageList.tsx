@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
+import type { UIMessage } from "@ai-sdk/react";
 import { useChatContext } from "../ChatProvider";
 import MessageHelper from "./MessageHelper";
 import * as React from "react";
@@ -14,6 +15,8 @@ import MessageError from "./MessageError";
 interface MessageListProps {
   className?: string;
 }
+
+const SCROLLBAR_STYLE = { right: "-10px" } as const;
 
 function MessageHistorySkeleton() {
   return (
@@ -54,6 +57,28 @@ export default function MessageList({ className }: MessageListProps) {
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
 
+  const fallbackKeyMapRef = React.useRef<WeakMap<UIMessage, string>>(
+    new WeakMap()
+  );
+  const fallbackKeySeqRef = React.useRef(0);
+
+  React.useEffect(() => {
+    fallbackKeyMapRef.current = new WeakMap();
+    fallbackKeySeqRef.current = 0;
+  }, [sessionId]);
+
+  const getMessageKey = React.useCallback(
+    (message: UIMessage) => {
+      if (message.id) return message.id;
+      const existing = fallbackKeyMapRef.current.get(message);
+      if (existing) return existing;
+      const created = `m_${sessionId}_${fallbackKeySeqRef.current++}`;
+      fallbackKeyMapRef.current.set(message, created);
+      return created;
+    },
+    [sessionId]
+  );
+
   useChatScroll({
     messages,
     status,
@@ -62,6 +87,17 @@ export default function MessageList({ className }: MessageListProps) {
     bottomRef,
     contentRef,
   });
+
+  const messageItems = React.useMemo(() => {
+    const lastIndex = messages.length - 1;
+    return messages.map((message, index) => (
+      <MessageItem
+        key={getMessageKey(message)}
+        message={message}
+        isLast={index === lastIndex}
+      />
+    ));
+  }, [messages, getMessageKey]);
 
   return (
     <div className={cn("flex-1 mb-4 relative min-w-0", className)}>
@@ -78,16 +114,7 @@ export default function MessageList({ className }: MessageListProps) {
                 <MessageHelper />
               ) : (
                 <>
-                  {messages.map((message, index) => {
-                    const key = message.id ?? `${message.role}-${index}`;
-                    return (
-                      <MessageItem
-                        key={key}
-                        message={message}
-                        isLast={index === messages.length - 1}
-                      />
-                    );
-                  })}
+                  {messageItems}
 
                   {(status === "submitted" || status === "streaming") && (
                     <MessageThinking />
@@ -101,7 +128,7 @@ export default function MessageList({ className }: MessageListProps) {
             <div ref={bottomRef} />
           </div>
         </ScrollArea.Viewport>
-        <ScrollArea.Scrollbar orientation="vertical" style={{ right: "-10px" }}>
+        <ScrollArea.Scrollbar orientation="vertical" style={SCROLLBAR_STYLE}>
           <ScrollArea.Thumb />
         </ScrollArea.Scrollbar>
         <ScrollArea.Corner />

@@ -118,7 +118,9 @@ export default function MarkdownCodeBlock({
   }
 
   return (
-    <div className={cn("my-3 mr-2 overflow-hidden rounded-md border", className)}>
+    <div
+      className={cn("my-3 mr-2 overflow-hidden rounded-md border", className)}
+    >
       <div className="flex items-center justify-between gap-2 bg-muted/70 px-2 py-1">
         <button
           type="button"
@@ -132,10 +134,7 @@ export default function MarkdownCodeBlock({
           ) : (
             <ChevronDown className="size-3.5" />
           )}
-          <span className="truncate font-mono">
-            {normalizedLanguage}
-            {lineCount ? ` · ${lineCount} lines` : ""}
-          </span>
+          <span className="truncate font-mono">{normalizedLanguage}</span>
         </button>
 
         <Button

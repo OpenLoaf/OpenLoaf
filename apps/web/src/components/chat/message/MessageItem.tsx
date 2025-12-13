@@ -1,6 +1,7 @@
 "use client";
 
 import type { UIMessage } from "@ai-sdk/react";
+import * as React from "react";
 import MessageAction from "./MessageAction";
 import MessageAi from "./MessageAi";
 import MessageHuman from "./MessageHuman";
@@ -11,13 +12,14 @@ interface MessageItemProps {
   isLast?: boolean;
 }
 
-export default function MessageItem({ message, isLast }: MessageItemProps) {
-  // AI SDK v6：工具调用 part.type 通常是 `tool-${name}` 或 `dynamic-tool`
-  const toolParts = (message.parts ?? []).filter(
-    (part: any) =>
-      typeof part?.type === "string" &&
-      (part.type === "dynamic-tool" || part.type.startsWith("tool-"))
-  );
+function MessageItem({ message, isLast }: MessageItemProps) {
+  const toolParts = React.useMemo(() => {
+    // AI SDK v6：工具调用 part.type 通常是 `tool-${name}` 或 `dynamic-tool`
+    return (message.parts ?? []).filter((part: any) => {
+      if (typeof part?.type !== "string") return false;
+      return part.type === "dynamic-tool" || part.type.startsWith("tool-");
+    });
+  }, [message.parts]);
 
   return (
     <div>
@@ -45,3 +47,5 @@ export default function MessageItem({ message, isLast }: MessageItemProps) {
     </div>
   );
 }
+
+export default React.memo(MessageItem);
