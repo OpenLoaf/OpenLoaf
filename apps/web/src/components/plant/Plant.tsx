@@ -2,17 +2,10 @@ import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { Info, Sparkles, CheckSquare, Database, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, skipToken } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/app/page";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tabs,
-  TabsHighlight,
-  TabsHighlightItem,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/animate-ui/primitives/radix/tabs";
 import PlantIntro from "./PlantIntro";
 import PlantCanvas from "./PlantCanvas";
 import PlantTasks from "./PlantTasks";
@@ -47,6 +40,9 @@ export default function PlantPage({ pageId }: PlantPageProps) {
   const [isCompact, setIsCompact] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const resizeEndTimeoutRef = useRef<number | null>(null);
+
+  const [activeTab, setActiveTab] = useState("intro");
+  const tabButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -101,8 +97,10 @@ export default function PlantPage({ pageId }: PlantPageProps) {
   const pageTitle = pageData?.title || "Plant Page";
   const titleIcon = pageData?.icon ?? undefined;
 
+  const activeIndex = tabs.findIndex((tab) => tab.value === activeTab);
+
   return (
-    <Tabs defaultValue="intro" className="flex h-full w-full flex-col min-h-0">
+    <div className="flex h-full w-full flex-col min-h-0">
       <div
         ref={containerRef}
         className="flex items-center justify-between py-0 w-full"
@@ -123,31 +121,70 @@ export default function PlantPage({ pageId }: PlantPageProps) {
         </h1>
 
         <div className="flex justify-end flex-1">
-          <TabsHighlight
-            enabled={!isResizing}
-            className="absolute z-0 inset-0 border border-transparent rounded-md bg-background dark:border-input dark:bg-input/30 shadow-sm"
+          <div
+            className="relative"
+            role="tablist"
+            aria-label="Plant Tabs"
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+              event.preventDefault();
+              const direction = event.key === "ArrowRight" ? 1 : -1;
+              const current = activeIndex === -1 ? 0 : activeIndex;
+              const next = (current + direction + tabs.length) % tabs.length;
+              const nextValue = tabs[next]?.value;
+              if (!nextValue) return;
+              setActiveTab(nextValue);
+              tabButtonRefs.current[next]?.focus();
+            }}
           >
-            <TabsList className="bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]">
-              {tabs.map((tab) => (
-                <TabsHighlightItem
-                  key={tab.value}
-                  value={tab.value}
-                  className="flex-1"
-                >
-                  <TabsTrigger
-                    value={tab.value}
+            <div className="bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]">
+              {tabs.map((tab, index) => {
+                const isActive = tab.value === activeTab;
+                const tabId = `plant-tab-${tab.value}`;
+                const panelId = `plant-panel-${tab.value}`;
+
+                return (
+                  <button
+                    key={tab.value}
+                    ref={(el) => {
+                      tabButtonRefs.current[index] = el;
+                    }}
+                    id={tabId}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-controls={panelId}
+                    tabIndex={isActive ? 0 : -1}
+                    onClick={() => setActiveTab(tab.value)}
                     className={[
-                      "data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center rounded-md w-full px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors duration-500 ease-in-out focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+                      "relative text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center rounded-md w-full px-2 py-1 text-sm font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
                       "flex items-center px-3 transition-all duration-300 ease-in-out",
                       isCompact ? "gap-0" : "gap-1",
+                      isActive ? "text-foreground" : "",
                     ].join(" ")}
                   >
-                    <span className="flex items-center justify-center w-5 h-5">
+                    {isActive ? (
+                      isResizing ? (
+                        <div className="absolute inset-0 z-0 border border-transparent rounded-md bg-background dark:border-input dark:bg-input/30 shadow-sm" />
+                      ) : (
+                        <motion.div
+                          layoutId="plant-tabs-indicator"
+                          className="absolute inset-0 z-0 border border-transparent rounded-md bg-background dark:border-input dark:bg-input/30 shadow-sm"
+                          transition={{
+                            type: "spring",
+                            stiffness: 200,
+                            damping: 25,
+                          }}
+                        />
+                      )
+                    ) : null}
+
+                    <span className="relative z-10 flex items-center justify-center w-5 h-5">
                       {tab.icon}
                     </span>
                     <span
                       className={[
-                        "whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out",
+                        "relative z-10 whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out",
                         isCompact
                           ? "max-w-0 opacity-0 -translate-x-1"
                           : "max-w-[200px] opacity-100 translate-x-0",
@@ -156,36 +193,43 @@ export default function PlantPage({ pageId }: PlantPageProps) {
                     >
                       {tab.label}
                     </span>
-                  </TabsTrigger>
-                </TabsHighlightItem>
-              ))}
-            </TabsList>
-          </TabsHighlight>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
       <ScrollArea.Root className="flex-1 min-h-0 w-full">
         <ScrollArea.Viewport className="w-full h-full min-h-0 flex flex-col">
           <div className="flex-1 min-h-0 w-full">
-            <TabsContent value="intro" className="w-full h-full min-h-0">
-              <PlantIntro isLoading={isLoading} pageTitle={pageTitle} />
-            </TabsContent>
-            <TabsContent value="canvas" className="w-full h-full min-h-0">
-              <PlantCanvas
-                isLoading={isLoading}
-                pageId={pageId}
-                pageTitle={pageTitle}
-              />
-            </TabsContent>
-            <TabsContent value="tasks" className="w-full h-full min-h-0">
-              <PlantTasks isLoading={isLoading} pageId={pageId} />
-            </TabsContent>
-            <TabsContent value="materials" className="w-full h-full min-h-0">
-              <PlantMaterials isLoading={isLoading} pageId={pageId} />
-            </TabsContent>
-            <TabsContent value="skills" className="w-full h-full min-h-0">
-              <PlantSkills isLoading={isLoading} pageId={pageId} />
-            </TabsContent>
+            <div
+              id={`plant-panel-${activeTab}`}
+              role="tabpanel"
+              aria-labelledby={`plant-tab-${activeTab}`}
+              className="w-full h-full min-h-0"
+            >
+              {activeTab === "intro" ? (
+                <PlantIntro isLoading={isLoading} pageTitle={pageTitle} />
+              ) : null}
+              {activeTab === "canvas" ? (
+                <PlantCanvas
+                  isLoading={isLoading}
+                  pageId={pageId}
+                  pageTitle={pageTitle}
+                />
+              ) : null}
+              {activeTab === "tasks" ? (
+                <PlantTasks isLoading={isLoading} pageId={pageId} />
+              ) : null}
+              {activeTab === "materials" ? (
+                <PlantMaterials isLoading={isLoading} pageId={pageId} />
+              ) : null}
+              {activeTab === "skills" ? (
+                <PlantSkills isLoading={isLoading} pageId={pageId} />
+              ) : null}
+            </div>
           </div>
         </ScrollArea.Viewport>
         <ScrollArea.Scrollbar orientation="vertical" style={{ right: "-7px" }}>
@@ -193,6 +237,6 @@ export default function PlantPage({ pageId }: PlantPageProps) {
         </ScrollArea.Scrollbar>
         <ScrollArea.Corner />
       </ScrollArea.Root>
-    </Tabs>
+    </div>
   );
 }
