@@ -23,14 +23,10 @@ export function MacTrafficLights() {
     await appWindow.minimize();
   }, [appWindow]);
 
-  const toggleMaximize = useCallback(async () => {
+  const toggleFullscreen = useCallback(async () => {
     if (!appWindow) return;
-    const maximized = await appWindow.isMaximized();
-    if (maximized) {
-      await appWindow.unmaximize();
-    } else {
-      await appWindow.maximize();
-    }
+    const fullscreen = await appWindow.isFullscreen();
+    await appWindow.setFullscreen(!fullscreen);
   }, [appWindow]);
 
   if (!shouldRender) return null;
@@ -54,11 +50,10 @@ export function MacTrafficLights() {
       />
       <button
         type="button"
-        aria-label="Maximize"
-        onClick={toggleMaximize}
+        aria-label="Fullscreen"
+        onClick={toggleFullscreen}
         className={`${base} bg-[#28c840]`}
       />
     </div>
   );
 }
-

@@ -17,7 +17,10 @@ pub fn run() {
           apply_window_size_from_screen_width(&window, 0.8);
 
           #[cfg(target_os = "macos")]
-          apply_macos_rounded_corners(&window, 12.0);
+          {
+            let _ = window.set_title_bar_style(tauri::TitleBarStyle::Overlay);
+            apply_macos_rounded_corners(&window, 12.0);
+          }
         }
       }
       Ok(())
@@ -72,6 +75,7 @@ fn apply_macos_rounded_corners(window: &tauri::WebviewWindow, radius: f64) {
     msg_send,
     runtime::{AnyClass, AnyObject},
   };
+  use objc2_app_kit::{NSWindowButton, NSWindowTitleVisibility};
   use std::ffi::CStr;
 
   let Ok(ns_window) = window.ns_window() else {
@@ -81,12 +85,25 @@ fn apply_macos_rounded_corners(window: &tauri::WebviewWindow, radius: f64) {
   unsafe {
     let ns_window = &*(ns_window as *mut AnyObject);
     let _: () = msg_send![ns_window, setOpaque: false];
+    let _: () = msg_send![ns_window, setTitlebarAppearsTransparent: true];
+    let _: () = msg_send![ns_window, setTitleVisibility: NSWindowTitleVisibility::Hidden];
 
     let ns_color_name = CStr::from_bytes_with_nul(b"NSColor\0").unwrap();
     if let Some(ns_color) = AnyClass::get(ns_color_name) {
       let clear: *mut AnyObject = msg_send![ns_color, clearColor];
       if !clear.is_null() {
         let _: () = msg_send![ns_window, setBackgroundColor: clear];
+      }
+    }
+
+    for button in [
+      NSWindowButton::CloseButton,
+      NSWindowButton::MiniaturizeButton,
+      NSWindowButton::ZoomButton,
+    ] {
+      let button_view: *mut AnyObject = msg_send![ns_window, standardWindowButton: button];
+      if !button_view.is_null() {
+        let _: () = msg_send![button_view, setHidden: true];
       }
     }
 

@@ -8,9 +8,11 @@
   "permissions": [
     "core:default",
     "core:window:allow-close",
+    "core:window:allow-is-fullscreen",
     "core:window:allow-is-maximized",
     "core:window:allow-maximize",
     "core:window:allow-minimize",
+    "core:window:allow-set-fullscreen",
     "core:window:allow-start-dragging",
     "core:window:allow-unmaximize"
   ]
