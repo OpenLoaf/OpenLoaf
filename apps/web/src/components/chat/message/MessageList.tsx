@@ -4,12 +4,13 @@ import { cn } from "@/lib/utils";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useChatContext } from "../ChatProvider";
-import MessageAi from "./MessageAi";
-import MessageHuman from "./MessageHuman";
 import MessageHelper from "./MessageHelper";
-import MessageTool from "./MessageTool";
 import * as React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useChatScroll } from "@/hooks/use-chat-scroll";
+import MessageItem from "./MessageItem";
+import MessageThinking from "./MessageThinking";
+import MessageError from "./MessageError";
 
 interface MessageListProps {
   className?: string;
@@ -55,48 +56,14 @@ export default function MessageList({ className }: MessageListProps) {
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
 
-  const lastMessageTextLength = React.useMemo(() => {
-    const last = messages[messages.length - 1];
-    if (!last) return 0;
-    return (last.parts ?? []).reduce((sum: number, part: any) => {
-      if (part?.type !== "text") return sum;
-      return sum + (typeof part.text === "string" ? part.text.length : 0);
-    }, 0);
-  }, [messages]);
-
-  const scrollToBottom = React.useCallback((behavior: ScrollBehavior) => {
-    const viewport = viewportRef.current;
-    const bottom = bottomRef.current;
-    if (!viewport || !bottom) return;
-    bottom.scrollIntoView({ block: "end", behavior });
-  }, []);
-
-  React.useLayoutEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      scrollToBottom("auto");
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [scrollToBottomToken, scrollToBottom]);
-
-  React.useLayoutEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      scrollToBottom("auto");
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [messages.length, lastMessageTextLength, status, scrollToBottom]);
-
-  React.useEffect(() => {
-    const content = contentRef.current;
-    if (!content) return;
-    if (typeof ResizeObserver === "undefined") return;
-
-    const observer = new ResizeObserver(() => {
-      scrollToBottom("auto");
-    });
-
-    observer.observe(content);
-    return () => observer.disconnect();
-  }, [scrollToBottom]);
+  useChatScroll({
+    messages,
+    status,
+    scrollToBottomToken,
+    viewportRef,
+    bottomRef,
+    contentRef,
+  });
 
   return (
     <div className={cn("flex-1 mb-4 relative", className)}>
@@ -154,129 +121,25 @@ export default function MessageList({ className }: MessageListProps) {
                             {messages.map((message, index) => {
                               const key =
                                 message.id ?? `${message.role}-${index}`;
-
-                              // AI SDK v6：工具调用 part.type 通常是 `tool-${name}` 或 `dynamic-tool`
-                              const toolParts = (message.parts ?? []).filter(
-                                (part: any) =>
-                                  typeof part?.type === "string" &&
-                                  (part.type === "dynamic-tool" ||
-                                    part.type.startsWith("tool-"))
-                              );
-
                               return (
-                                <motion.div
+                                <MessageItem
                                   key={key}
-                                  layout
-                                  initial={
-                                    reduceMotion
-                                      ? false
-                                      : { opacity: 0, y: 10, scale: 0.99 }
-                                  }
-                                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                                  exit={
-                                    reduceMotion
-                                      ? { opacity: 0 }
-                                      : { opacity: 0, y: -8, scale: 0.99 }
-                                  }
-                                  transition={
-                                    reduceMotion
-                                      ? { duration: 0.12 }
-                                      : {
-                                          type: "spring",
-                                          stiffness: 520,
-                                          damping: 38,
-                                          mass: 0.65,
-                                        }
-                                  }
-                                >
-                                  {message.role === "user" ? (
-                                    <MessageHuman message={message} />
-                                  ) : (
-                                    <>
-                                      <MessageAi message={message} />
-
-                                      {/* 工具调用展示（MVP）：只显示工具名 + 返回结果 */}
-                                      {toolParts.length > 0 ? (
-                                        <div className="mt-2 space-y-2">
-                                          {toolParts.map(
-                                            (part: any, partIndex: number) => (
-                                              <MessageTool
-                                                key={`${key}-tool-${partIndex}`}
-                                                part={part}
-                                              />
-                                            )
-                                          )}
-                                        </div>
-                                      ) : null}
-                                    </>
-                                  )}
-                                </motion.div>
+                                  message={message}
+                                  reduceMotion={reduceMotion}
+                                />
                               );
                             })}
 
                             {(status === "submitted" ||
                               status === "streaming") && (
-                              <motion.div
-                                key="message-thinking"
-                                layout
-                                initial={
-                                  reduceMotion ? false : { opacity: 0, y: 8 }
-                                }
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={
-                                  reduceMotion
-                                    ? { opacity: 0 }
-                                    : { opacity: 0, y: -8 }
-                                }
-                                transition={{
-                                  duration: 0.16,
-                                  ease: "easeOut",
-                                }}
-                                className="flex justify-start"
-                              >
-                                <div className="max-w-[80%] p-3 rounded-lg bg-secondary text-secondary-foreground">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse"></div>
-                                    <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse delay-150"></div>
-                                    <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse delay-300"></div>
-                                    <span className="text-xs text-muted-foreground">
-                                      正在思考...
-                                    </span>
-                                  </div>
-                                </div>
-                              </motion.div>
+                              <MessageThinking reduceMotion={reduceMotion} />
                             )}
 
                             {error && (
-                              <motion.div
-                                key="message-error"
-                                layout
-                                initial={
-                                  reduceMotion ? false : { opacity: 0, y: 8 }
-                                }
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={
-                                  reduceMotion
-                                    ? { opacity: 0 }
-                                    : { opacity: 0, y: -8 }
-                                }
-                                transition={{
-                                  duration: 0.16,
-                                  ease: "easeOut",
-                                }}
-                                className="flex justify-start"
-                              >
-                                <div className="max-w-[80%] p-3 rounded-lg bg-destructive/10 text-destructive">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-medium">
-                                      出错了
-                                    </span>
-                                  </div>
-                                  <p className="text-xs mt-1">
-                                    {error.message}
-                                  </p>
-                                </div>
-                              </motion.div>
+                              <MessageError
+                                error={error}
+                                reduceMotion={reduceMotion}
+                              />
                             )}
                           </>
                         )}

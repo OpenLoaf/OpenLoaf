@@ -13,7 +13,7 @@ interface ChatHeaderProps {
 }
 
 export default function ChatHeader({ className }: ChatHeaderProps) {
-  const { newSession, selectSession } = useChatContext();
+  const { newSession, selectSession, messages } = useChatContext();
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const menuLockRef = React.useRef(false);
 
@@ -26,18 +26,20 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
     <div className={cn("flex items-center justify-between px-2 py-0", className)}>
       <div className="text-lg font-semibold">Chat</div>
       <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="New Session"
-          onClick={() => {
-            setHistoryOpen(false);
-            menuLockRef.current = false;
-            newSession();
-          }}
-        >
-          <PlusCircle size={20} />
-        </Button>
+        {messages.length > 0 && (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="New Session"
+            onClick={() => {
+              setHistoryOpen(false);
+              menuLockRef.current = false;
+              newSession();
+            }}
+          >
+            <PlusCircle size={20} />
+          </Button>
+        )}
         <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
           <PopoverTrigger asChild>
             <Button

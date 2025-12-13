@@ -2,7 +2,7 @@ import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { Info, Sparkles, CheckSquare, Database, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, skipToken } from "@tanstack/react-query";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/app/page";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -222,25 +222,36 @@ export default function PlantPage({ pageId }: PlantPageProps) {
               aria-labelledby={`plant-tab-${activeTab}`}
               className="w-full h-full min-h-0"
             >
-              {activeTab === "intro" ? (
-                <PlantIntro isLoading={isLoading} pageTitle={pageTitle} />
-              ) : null}
-              {activeTab === "canvas" ? (
-                <PlantCanvas
-                  isLoading={isLoading}
-                  pageId={pageId}
-                  pageTitle={pageTitle}
-                />
-              ) : null}
-              {activeTab === "tasks" ? (
-                <PlantTasks isLoading={isLoading} pageId={pageId} />
-              ) : null}
-              {activeTab === "materials" ? (
-                <PlantMaterials isLoading={isLoading} pageId={pageId} />
-              ) : null}
-              {activeTab === "skills" ? (
-                <PlantSkills isLoading={isLoading} pageId={pageId} />
-              ) : null}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full h-full"
+                >
+                  {activeTab === "intro" ? (
+                    <PlantIntro isLoading={isLoading} pageTitle={pageTitle} />
+                  ) : null}
+                  {activeTab === "canvas" ? (
+                    <PlantCanvas
+                      isLoading={isLoading}
+                      pageId={pageId}
+                      pageTitle={pageTitle}
+                    />
+                  ) : null}
+                  {activeTab === "tasks" ? (
+                    <PlantTasks isLoading={isLoading} pageId={pageId} />
+                  ) : null}
+                  {activeTab === "materials" ? (
+                    <PlantMaterials isLoading={isLoading} pageId={pageId} />
+                  ) : null}
+                  {activeTab === "skills" ? (
+                    <PlantSkills isLoading={isLoading} pageId={pageId} />
+                  ) : null}
+                </motion.div>
+              </AnimatePresence>
             </div>
           </div>
         </ScrollArea.Viewport>
