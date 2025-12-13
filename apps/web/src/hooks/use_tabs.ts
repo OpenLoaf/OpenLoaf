@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 interface PanelConfig {
   component: string;
   params: Record<string, any>;
+  panelKey: string;
   hidden?: boolean;
 }
 
@@ -43,6 +44,7 @@ interface TabsState {
   setActiveTab: (tabId: string) => void;
   updateCurrentTabPanels: (panels: PanelUpdates) => void;
   updateTabPanels: (tabId: string, panels: PanelUpdates) => void;
+  updatePanelParamsByKey: (panelKey: string, params: Record<string, any>) => void;
   updateCurrentTabLeftWidth: (width: number) => void;
   getTabById: (tabId: string) => Tab | undefined;
   getWorkspaceTabs: (workspaceId: string) => Tab[];
@@ -57,9 +59,22 @@ interface TabsState {
 
 const STORAGE_KEY = "tabs-storage";
 
+const generatePanelKey = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `panel-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const ensurePanelKey = (panel: PanelConfig): PanelConfig => {
+  if (panel.panelKey) return panel;
+  return { ...panel, panelKey: generatePanelKey() };
+};
+
 const createDefaultRightPanel = (): PanelConfig => ({
   component: "ai-chat",
   params: {},
+  panelKey: generatePanelKey(),
   hidden: false,
 });
 
@@ -67,26 +82,57 @@ const withPanelDefaults = <
   T extends { leftPanel?: PanelConfig; rightPanel?: PanelConfig }
 >(
   tab: T
-) => ({
-  ...tab,
-  rightPanel: tab.rightPanel || createDefaultRightPanel(),
-});
+) => {
+  const rightPanel = tab.rightPanel
+    ? ensurePanelKey(tab.rightPanel)
+    : createDefaultRightPanel();
+
+  const leftPanel = tab.leftPanel ? ensurePanelKey(tab.leftPanel) : undefined;
+
+  return {
+    ...tab,
+    leftPanel,
+    rightPanel,
+  };
+};
+
+const mergePanelConfig = (
+  current: PanelConfig | undefined,
+  update: Partial<PanelConfig> | undefined
+): PanelConfig | undefined => {
+  if (!update) return current;
+  if (!current) {
+    const created = update as PanelConfig;
+    return ensurePanelKey({
+      ...created,
+      panelKey: created.panelKey || generatePanelKey(),
+    });
+  }
+
+  const componentChanged =
+    typeof update.component === "string" && update.component !== current.component;
+
+  const nextPanelKey = update.panelKey
+    ? update.panelKey
+    : componentChanged
+      ? generatePanelKey()
+      : current.panelKey;
+
+  return {
+    ...current,
+    ...update,
+    panelKey: nextPanelKey,
+    params: { ...(current.params ?? {}), ...(update.params ?? {}) },
+  };
+};
 
 const mergePanels = (tab: Tab, panels: PanelUpdates): Tab => {
   const normalizedTab = withPanelDefaults(tab);
 
-  const mergedLeftPanel = panels.leftPanel
-    ? normalizedTab.leftPanel
-      ? { ...normalizedTab.leftPanel, ...panels.leftPanel }
-      : (panels.leftPanel as PanelConfig)
-    : normalizedTab.leftPanel;
-
   return {
     ...normalizedTab,
-    leftPanel: mergedLeftPanel,
-    rightPanel: panels.rightPanel
-      ? { ...normalizedTab.rightPanel, ...panels.rightPanel }
-      : normalizedTab.rightPanel,
+    leftPanel: mergePanelConfig(normalizedTab.leftPanel, panels.leftPanel),
+    rightPanel: mergePanelConfig(normalizedTab.rightPanel, panels.rightPanel)!,
   };
 };
 
@@ -249,7 +295,12 @@ export const useTabs = create<TabsState>()(
           }
 
           // 获取新的活跃标签页
-          const newActiveTab = newTabs.find((tab) => tab.id === newActiveTabId);
+          const rawNewActiveTab = newActiveTabId
+            ? newTabs.find((tab) => tab.id === newActiveTabId)
+            : undefined;
+          const newActiveTab = rawNewActiveTab
+            ? withPanelDefaults(rawNewActiveTab)
+            : undefined;
 
           return {
             tabs: newTabs,
@@ -262,11 +313,12 @@ export const useTabs = create<TabsState>()(
 
       setActiveTab: (tabId) => {
         const tab = get().tabs.find((t) => t.id === tabId);
+        const normalizedTab = tab ? withPanelDefaults(tab) : undefined;
         set({
           activeTabId: tabId,
-          activeLeftPanel: tab?.leftPanel,
-          activeRightPanel: tab?.rightPanel || createDefaultRightPanel(),
-          activeLeftWidth: tab?.leftWidth || 50,
+          activeLeftPanel: normalizedTab?.leftPanel,
+          activeRightPanel: normalizedTab?.rightPanel,
+          activeLeftWidth: normalizedTab?.leftWidth || 50,
         });
       },
 
@@ -300,6 +352,41 @@ export const useTabs = create<TabsState>()(
           }
 
           return result;
+        });
+      },
+
+      updatePanelParamsByKey: (panelKey, params) => {
+        set((state) => {
+          let activeLeftPanel = state.activeLeftPanel;
+          let activeRightPanel = state.activeRightPanel;
+
+          const tabs = state.tabs.map((tab) => {
+            const nextTab = withPanelDefaults(tab);
+            let didUpdate = false;
+
+            const updatePanel = (panel: PanelConfig | undefined) => {
+              if (!panel || panel.panelKey !== panelKey) return panel;
+              didUpdate = true;
+              return {
+                ...panel,
+                params: { ...(panel.params ?? {}), ...(params ?? {}) },
+              };
+            };
+
+            const leftPanel = updatePanel(nextTab.leftPanel);
+            const rightPanel = updatePanel(nextTab.rightPanel);
+
+            if (!didUpdate) return nextTab;
+
+            const updated = { ...nextTab, leftPanel, rightPanel };
+            if (tab.id === state.activeTabId) {
+              activeLeftPanel = leftPanel;
+              activeRightPanel = rightPanel;
+            }
+            return updated;
+          });
+
+          return { tabs, activeLeftPanel, activeRightPanel };
         });
       },
 

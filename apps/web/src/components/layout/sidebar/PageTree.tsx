@@ -13,6 +13,7 @@ import {
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { ChevronRight, FileText } from "lucide-react";
 import type { PageTreeNode } from "@teatime-ai/api/routers/page";
+import { generateId } from "ai";
 
 interface PageTreeMenuProps {
   pages: PageTreeNode[];
@@ -44,10 +45,12 @@ export const PageTreeMenu = ({
       title: page.title || "Untitled Page",
       leftPanel: {
         component: "plant-page",
+        panelKey: generateId(),
         params: { pageId: page.id },
       },
       rightPanel: {
         component: "ai-chat",
+        panelKey: generateId(),
         params: { pageId: page.id },
       },
       workspaceId: workspace.id,

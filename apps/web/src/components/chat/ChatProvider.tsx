@@ -3,7 +3,7 @@
 import React, { createContext, useContext, type ReactNode } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport, generateId } from "ai";
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
 /**
@@ -65,8 +65,22 @@ export function useChatContext() {
  * 聊天提供者组件
  * 用于包裹聊天相关组件，提供聊天状态和方法
  */
-export default function ChatProvider({ children }: { children: ReactNode }) {
-  const [chatId, setChatId] = React.useState(() => generateId());
+export default function ChatProvider({
+  children,
+  sessionId,
+  loadHistory,
+  params,
+  onSessionChange,
+}: {
+  children: ReactNode;
+  sessionId: string;
+  loadHistory?: boolean;
+  params?: Record<string, unknown>;
+  onSessionChange?: (
+    sessionId: string,
+    options?: { loadHistory?: boolean }
+  ) => void;
+}) {
   const appliedHistorySessionIdRef = React.useRef<string | null>(null);
   const [appliedHistorySessionId, setAppliedHistorySessionId] = React.useState<
     string | null
@@ -75,23 +89,25 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
   const [scrollToBottomToken, setScrollToBottomToken] = React.useState(0);
 
   const chat = useChat({
-    id: chatId,
+    id: sessionId,
     transport: new DefaultChatTransport({
       api: `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`,
-      prepareSendMessagesRequest({ id, messages, ...params }) {
+      prepareSendMessagesRequest({ id, messages, ...requestOptions }) {
+        const mergedParams = { ...(params ?? {}), ...(requestOptions ?? {}) };
         if (messages.length === 0) {
-          return { body: { params, id, messages: [] } };
+          return { body: { params: mergedParams, sessionId: id, id, messages: [] } };
         }
         const lastMessage = messages[messages.length - 1];
         console.log(
           `SendMessage Id: ${id} Messages: ${JSON.stringify(
             lastMessage
-          )} Params: ${JSON.stringify(params)}`
+          )} Params: ${JSON.stringify(mergedParams)}`
         );
 
         return {
           body: {
-            params,
+            params: mergedParams,
+            sessionId: id,
             id,
             messages: [lastMessage],
           },
@@ -105,26 +121,33 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
     nextCursor: string | null;
   };
 
+  const shouldLoadHistory = loadHistory !== false;
+
   // 使用 tRPC 拉取该 session 的历史消息（倒序返回）
   const historyQuery = useQuery(
-    trpc.chat.getChatMessageHistory.queryOptions({
-      sessionId: chatId,
-      take: 50,
-    } as any) as any
+    trpc.chat.getChatMessageHistory.queryOptions(
+      shouldLoadHistory
+        ? ({
+            sessionId,
+            take: 50,
+          } as any)
+        : (skipToken as any)
+    ) as any
   );
   const historyData = historyQuery.data as HistoryResponse | undefined;
 
   const isHistoryLoading =
-    forceHistoryLoading ||
-    (appliedHistorySessionId !== chatId &&
-      (historyQuery.isLoading || historyQuery.isFetching));
+    shouldLoadHistory &&
+    (forceHistoryLoading ||
+      (appliedHistorySessionId !== sessionId &&
+        (historyQuery.isLoading || historyQuery.isFetching)));
 
   React.useEffect(() => {
     if (!forceHistoryLoading) return;
     // 避免历史接口失败/空响应时一直卡在 skeleton
     if (historyQuery.isError || (historyQuery.isSuccess && !historyData)) {
-      appliedHistorySessionIdRef.current = chatId;
-      setAppliedHistorySessionId(chatId);
+      appliedHistorySessionIdRef.current = sessionId;
+      setAppliedHistorySessionId(sessionId);
       setForceHistoryLoading(false);
     }
   }, [
@@ -132,39 +155,39 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
     historyQuery.isError,
     historyQuery.isSuccess,
     historyData,
-    chatId,
+    sessionId,
   ]);
 
   React.useEffect(() => {
     if (!historyData) return;
     // 只在“切换 session”时应用一次，避免 refetch 把正在对话的消息覆盖掉
-    if (appliedHistorySessionIdRef.current === chatId) return;
-    appliedHistorySessionIdRef.current = chatId;
+    if (appliedHistorySessionIdRef.current === sessionId) return;
+    appliedHistorySessionIdRef.current = sessionId;
 
     // API 返回倒序（最新在前），UI 展示通常需要正序（最早在前）
     const chronological = [...historyData.messages].reverse();
     chat.setMessages(chronological);
-    setAppliedHistorySessionId(chatId);
+    setAppliedHistorySessionId(sessionId);
     setForceHistoryLoading(false);
     // 应用历史后，滚动到最底部显示最新消息
     setScrollToBottomToken((n) => n + 1);
-  }, [historyData, chatId, chat.setMessages]);
+  }, [historyData, sessionId, chat.setMessages]);
 
   const newSession = () => {
     if (chat.status !== "ready") {
       chat.stop();
     }
-    setForceHistoryLoading(true);
+    setForceHistoryLoading(false);
     // 立即清空，避免 UI 闪回旧消息
     chat.setMessages([]);
     appliedHistorySessionIdRef.current = null;
     setAppliedHistorySessionId(null);
-    setChatId(generateId());
+    onSessionChange?.(generateId(), { loadHistory: false });
     // 新会话也滚动到底部（此时通常为空，属于安全操作）
     setScrollToBottomToken((n) => n + 1);
   };
 
-  const selectSession = (sessionId: string) => {
+  const selectSession = (nextSessionId: string) => {
     if (chat.status !== "ready") {
       chat.stop();
     }
@@ -173,7 +196,7 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
     chat.setMessages([]);
     appliedHistorySessionIdRef.current = null;
     setAppliedHistorySessionId(null);
-    setChatId(sessionId);
+    onSessionChange?.(nextSessionId, { loadHistory: true });
     // 先触发一次滚动：避免短暂显示在顶部；历史加载后还会再触发一次
     setScrollToBottomToken((n) => n + 1);
   };

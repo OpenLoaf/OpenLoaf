@@ -51,7 +51,10 @@ export const MainContent: React.FC<{ className?: string }> = ({
     "plant-page": PlantPage,
   };
 
-  const renderPanel = (componentName: string, params: Record<string, any>) => {
+  const renderPanel = (
+    panel: { component: string; params: Record<string, any>; panelKey: string },
+  ) => {
+    const { component: componentName, params, panelKey } = panel;
     const Component = ComponentMap[componentName];
     if (!Component) {
       return (
@@ -60,8 +63,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
         </div>
       );
     }
-    console.log("打开组件", componentName, params);
-    return <Component {...params} />;
+    return <Component key={panelKey} panelKey={panelKey} {...params} />;
   };
 
   const handleMouseDown = () => {
@@ -125,7 +127,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
                 )}
               >
                 {!computedLeftHidden &&
-                  renderPanel(leftPanel.component, leftPanel.params)}
+                  renderPanel(leftPanel)}
               </div>
             )}
           </motion.div>
@@ -165,7 +167,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
                 className={cn("h-full w-full", !computedRightHidden && "p-4")}
               >
                 {!computedRightHidden &&
-                  renderPanel(rightPanel.component, rightPanel.params)}
+                  renderPanel(rightPanel)}
               </div>
             </motion.div>
           )}
