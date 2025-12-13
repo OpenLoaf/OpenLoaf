@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTabs } from "@/hooks/use_tabs";
 import PlantPage from "@/components/plant/Plant";
 import { Chat } from "../chat/Chat";
@@ -21,14 +21,45 @@ export const MainContent: React.FC<{ className?: string }> = ({
   const leftHidden = leftPanel?.hidden ?? false;
   const rightHidden = rightPanel?.hidden ?? false;
   const computedLeftHidden = leftHidden || !hasLeftPanel;
+  const computedRightHidden = rightHidden || !hasRightPanel;
 
-  // 组件映射表
+  const showLeft = hasLeftPanel && !leftHidden;
+  const showRight = hasRightPanel && !rightHidden;
+  const showDivider = showLeft && showRight;
+
+  const leftWidthPercent = computedLeftHidden
+    ? 0
+    : showRight
+      ? activeLeftWidth
+      : 100;
+
+  const rightWidthPercent = computedRightHidden
+    ? 0
+    : showLeft
+      ? 100 - leftWidthPercent
+      : 100;
+
+  const halfDividerPx = 5;
+
+  const leftWidthCss =
+    leftWidthPercent === 0
+      ? "0px"
+      : showDivider
+        ? `calc(${leftWidthPercent}% - ${halfDividerPx}px)`
+        : `${leftWidthPercent}%`;
+
+  const rightWidthCss =
+    rightWidthPercent === 0
+      ? "0px"
+      : showDivider
+        ? `calc(${rightWidthPercent}% - ${halfDividerPx}px)`
+        : `${rightWidthPercent}%`;
+
   const ComponentMap: Record<string, React.ComponentType<any>> = {
     "ai-chat": Chat,
     "plant-page": PlantPage,
   };
 
-  // 渲染面板组件
   const renderPanel = (componentName: string, params: Record<string, any>) => {
     const Component = ComponentMap[componentName];
     if (!Component) {
@@ -41,11 +72,11 @@ export const MainContent: React.FC<{ className?: string }> = ({
     return <Component {...params} />;
   };
 
-  const handleMouseDown = (_e: React.MouseEvent) => {
+  const handleMouseDown = () => {
     setIsDragging(true);
   };
 
-  const handleMouseMove = (_e: MouseEvent) => {
+  const handleMouseMove = (event: MouseEvent) => {
     if (!isDragging || !dividerRef.current) return;
 
     const container = dividerRef.current.parentElement;
@@ -53,7 +84,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
 
     const containerRect = container.getBoundingClientRect();
     const newWidth =
-      ((_e.clientX - containerRect.left) / containerRect.width) * 100;
+      ((event.clientX - containerRect.left) / containerRect.width) * 100;
     const clampedWidth = Math.max(30, Math.min(70, newWidth));
     updateCurrentTabLeftWidth(clampedWidth);
   };
@@ -63,15 +94,15 @@ export const MainContent: React.FC<{ className?: string }> = ({
   };
 
   useEffect(() => {
-    if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+    if (!isDragging) return;
 
-      return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
   }, [isDragging]);
 
   return (
@@ -80,66 +111,54 @@ export const MainContent: React.FC<{ className?: string }> = ({
     >
       {hasLeftPanel || hasRightPanel ? (
         <>
-          {/* 左侧面板 */}
-          {(hasLeftPanel || hasRightPanel) && (
+          <div
+            className={cn(
+              "flex flex-col bg-background rounded-xl max-h-screen overflow-hidden",
+              computedLeftHidden
+                ? "pointer-events-none p-0"
+                : "pointer-events-auto p-4 pr-2",
+              !hasLeftPanel && "p-0",
+            )}
+            style={{ flex: "0 0 auto", width: leftWidthCss }}
+          >
+            {!computedLeftHidden &&
+              leftPanel &&
+              renderPanel(leftPanel.component, leftPanel.params)}
+          </div>
+
+          {showDivider && (
             <div
-              className={`flex flex-col bg-background rounded-xl max-h-screen transition-all duration-300 ease-in-out overflow-hidden transform ${
-                isDragging ? "transition-none" : ""
-              } ${
-                computedLeftHidden
-                  ? "opacity-0 -translate-x-full pointer-events-none"
-                  : "opacity-100 translate-x-0 pointer-events-auto p-4 pr-2"
-              } ${
-                !hasLeftPanel ? "p-0" : ""
-              }`}
-              style={{
-                width: computedLeftHidden
-                  ? "0%"
-                  : rightHidden
-                  ? "100%"
-                  : `${activeLeftWidth}%`,
-              }}
+              ref={dividerRef}
+              className={cn(
+                "bg-sidebar rounded-4xl cursor-col-resize hover:bg-primary/20 active:bg-primary/30 flex items-center justify-center w-2.5",
+                isDragging && "bg-primary/10",
+              )}
+              onMouseDown={handleMouseDown}
             >
-              {leftPanel && renderPanel(leftPanel.component, leftPanel.params)}
+              <div
+                className={cn(
+                  "w-1 h-6 bg-muted/70 rounded-full",
+                  isDragging && "bg-primary/70",
+                )}
+              />
             </div>
           )}
 
-          {/* 只有当左右面板都存在且不隐藏时才显示分隔线 */}
-          {leftPanel && rightPanel && !leftHidden && !rightHidden && (
-              <div
-                ref={dividerRef}
-                className={`bg-sidebar rounded-4xl cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-all duration-200 flex items-center justify-center ${
-                  isDragging ? "transition-none bg-primary/10 scale-x-125" : ""
-                } opacity-100 visible pointer-events-auto w-2.5`}
-                onMouseDown={handleMouseDown}
-              >
-                <div
-                  className={`w-1 h-6 bg-muted/70 rounded-full transition-all duration-200 ${
-                    isDragging ? "bg-primary/70 scale-y-125" : ""
-                  }`}
-                />
-              </div>
-            )}
-
-          {/* 右侧面板 */}
           {rightPanel && (
             <div
-              className={`bg-background rounded-xl flex-1 transition-all duration-300 ease-in-out overflow-hidden transform ${
-                isDragging ? "transition-none" : ""
-              } ${
-                rightHidden
-                  ? "opacity-0 translate-x-full pointer-events-none"
-                  : "opacity-100 translate-x-0 pointer-events-auto p-4"
-              }`}
-              style={{
-                width: !hasLeftPanel || leftHidden ? "100%" : undefined,
-              }}
+              className={cn(
+                "bg-background rounded-xl overflow-hidden min-w-0",
+                computedRightHidden
+                  ? "pointer-events-none p-0"
+                  : "pointer-events-auto p-4",
+              )}
+              style={{ flex: "0 0 auto", width: rightWidthCss }}
             >
-              {renderPanel(rightPanel.component, rightPanel.params)}
+              {!computedRightHidden &&
+                renderPanel(rightPanel.component, rightPanel.params)}
             </div>
           )}
 
-          {/* 如果左右面板都隐藏，显示提示信息 */}
           {leftHidden && rightHidden && (
             <div className="w-full h-full flex items-center justify-center text-muted">
               All panels are hidden
