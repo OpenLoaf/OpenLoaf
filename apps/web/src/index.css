@@ -29,6 +29,22 @@ body {
   }
 }
 
+.electron .electron-drag {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.electron .electron-drag [data-no-drag="true"],
+.electron .electron-drag button,
+.electron .electron-drag a,
+.electron .electron-drag input,
+.electron .electron-drag textarea,
+.electron .electron-drag select,
+.electron .electron-drag [role="button"] {
+  -webkit-app-region: no-drag;
+  user-select: auto;
+}
+
 :root {
   --radius: 0.625rem;
   --macos-traffic-lights-width: 0px;
