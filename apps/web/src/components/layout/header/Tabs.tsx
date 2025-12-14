@@ -34,6 +34,10 @@ export const HeaderTabs = () => {
     lastX: number;
     didReorder: boolean;
   } | null>(null);
+  const cursorRestoreRef = useRef<{
+    cursor: string;
+    userSelect: string;
+  } | null>(null);
   const swapRafRef = useRef<number | null>(null);
   const lastSwapKeyRef = useRef<string | null>(null);
 
@@ -89,6 +93,11 @@ export const HeaderTabs = () => {
     pointerSessionRef.current = null;
     reorderingTabIdRef.current = null;
     setReorderingTabId(null);
+    if (cursorRestoreRef.current) {
+      document.body.style.cursor = cursorRestoreRef.current.cursor;
+      document.body.style.userSelect = cursorRestoreRef.current.userSelect;
+      cursorRestoreRef.current = null;
+    }
   };
 
   const handleReorderPointerDown = (
@@ -108,6 +117,14 @@ export const HeaderTabs = () => {
 
     reorderingTabIdRef.current = tabId;
     setReorderingTabId(tabId);
+
+    // Keep cursor as grabbing for the whole pointer session (even when leaving the tab).
+    cursorRestoreRef.current = {
+      cursor: document.body.style.cursor,
+      userSelect: document.body.style.userSelect,
+    };
+    document.body.style.cursor = "grabbing";
+    document.body.style.userSelect = "none";
 
     const onPointerMove = (moveEvent: PointerEvent) => {
       const session = pointerSessionRef.current;
