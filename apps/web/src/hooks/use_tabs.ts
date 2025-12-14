@@ -65,7 +65,7 @@ interface TabsState {
     sourceTabId: string,
     targetTabId: string,
     position?: "before" | "after"
-  ) => void;
+  ) => void; // 重新排序标签页
   setTabPinned: (tabId: string, isPin: boolean) => void;
 
   // Dialog methods
@@ -76,8 +76,9 @@ interface TabsState {
   removePanelDialog: (side: "left" | "right", dialogId: string) => void;
 }
 
-const STORAGE_KEY = "tabs-storage";
+const STORAGE_KEY = "tabs-storage"; // 存储键名，用于本地持久化
 
+// 生成面板唯一标识
 const generatePanelKey = () => {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -85,6 +86,7 @@ const generatePanelKey = () => {
   return `panel-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
+// 生成对话框唯一标识
 const generateDialogId = () => {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -92,11 +94,13 @@ const generateDialogId = () => {
   return `dialog-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
+// 确保面板配置中包含唯一标识
 const ensurePanelKey = (panel: PanelConfig): PanelConfig => {
   if (panel.panelKey) return panel;
   return { ...panel, panelKey: generatePanelKey() };
 };
 
+// 创建默认右侧面板配置
 const createDefaultRightPanel = (): PanelConfig => ({
   component: "ai-chat",
   params: {},
@@ -105,15 +109,18 @@ const createDefaultRightPanel = (): PanelConfig => ({
   dialogs: [],
 });
 
+// 为标签页添加默认面板配置
 const withPanelDefaults = <
   T extends { leftPanel?: PanelConfig; rightPanel?: PanelConfig },
 >(
   tab: T
 ) => {
+  // 确保右侧面板存在，不存在则创建默认面板
   const rightPanel = tab.rightPanel
     ? ensurePanelKey(tab.rightPanel)
     : createDefaultRightPanel();
 
+  // 左侧面板可选，存在则确保有panelKey
   const leftPanel = tab.leftPanel ? ensurePanelKey(tab.leftPanel) : undefined;
 
   return {
@@ -123,12 +130,14 @@ const withPanelDefaults = <
   };
 };
 
+// 合并面板配置 - 将更新内容合并到现有面板配置
 const mergePanelConfig = (
   current: PanelConfig | undefined,
   update: Partial<PanelConfig> | undefined
 ): PanelConfig | undefined => {
-  if (!update) return current;
+  if (!update) return current; // 没有更新则返回当前配置
   if (!current) {
+    // 不存在当前配置则创建新配置
     const created = update as PanelConfig;
     return ensurePanelKey({
       ...created,
@@ -137,10 +146,12 @@ const mergePanelConfig = (
     });
   }
 
+  // 检查组件是否变化
   const componentChanged =
     typeof update.component === "string" &&
     update.component !== current.component;
 
+  // 确定新的panelKey：如果提供了新的panelKey则使用，否则如果组件变化则生成新key，否则使用当前key
   const nextPanelKey = update.panelKey
     ? update.panelKey
     : componentChanged
@@ -151,11 +162,12 @@ const mergePanelConfig = (
     ...current,
     ...update,
     panelKey: nextPanelKey,
-    params: { ...(current.params ?? {}), ...(update.params ?? {}) },
-    dialogs: update.dialogs ?? current.dialogs ?? [],
+    params: { ...(current.params ?? {}), ...(update.params ?? {}) }, // 合并参数
+    dialogs: update.dialogs ?? current.dialogs ?? [], // 优先使用更新的对话框列表
   };
 };
 
+// 合并标签页的面板配置
 const mergePanels = (tab: Tab, panels: PanelUpdates): Tab => {
   const normalizedTab = withPanelDefaults(tab);
 
@@ -166,6 +178,7 @@ const mergePanels = (tab: Tab, panels: PanelUpdates): Tab => {
   };
 };
 
+// 为指定标签页应用面板更新
 const applyPanelUpdatesForTab = (
   state: TabsState,
   targetTabId: string,
@@ -179,6 +192,7 @@ const applyPanelUpdatesForTab = (
 
     const updatedTab = mergePanels(tab, panels);
 
+    // 如果更新的是当前激活标签页，同时更新活跃面板状态
     if (targetTabId === state.activeTabId) {
       updatedLeftPanel = updatedTab.leftPanel;
       updatedRightPanel = updatedTab.rightPanel;
@@ -190,6 +204,7 @@ const applyPanelUpdatesForTab = (
   return { tabs, updatedLeftPanel, updatedRightPanel };
 };
 
+// 对工作区标签页进行排序 - 固定标签页在前，普通标签页在后
 const orderWorkspaceTabs = (tabs: Tab[]) => {
   const pinned: Tab[] = [];
   const regular: Tab[] = [];
@@ -205,6 +220,7 @@ const orderWorkspaceTabs = (tabs: Tab[]) => {
   return [...pinned, ...regular];
 };
 
+// 默认标签页信息 - 当没有标签页时使用
 export const DEFAULT_TAB_INFO = {
   title: "Ai Chat",
   icon: "bot",
@@ -301,11 +317,12 @@ export const useTabs = create<TabsState>()(
         });
       },
 
+      // 关闭标签页方法
       closeTab: (tabId) => {
         set((state) => {
           // 获取要关闭的标签页的工作区ID
           const tabToClose = state.tabs.find((tab) => tab.id === tabId);
-          if (!tabToClose || tabToClose.isPin) return state;
+          if (!tabToClose || tabToClose.isPin) return state; // 固定标签页不允许关闭
 
           // 获取该工作区的所有标签页
           const workspaceTabs = state.tabs.filter(
@@ -318,13 +335,13 @@ export const useTabs = create<TabsState>()(
           const newTabs = state.tabs.filter((tab) => tab.id !== tabId);
           let newActiveTabId = state.activeTabId;
 
-          // 如果关闭的是当前活跃标签页，选择新的活跃标签页
+          // 如果关闭的是当前活跃标签页，选择新的活跃标签页（默认选择最后一个）
           if (newActiveTabId === tabId) {
             newActiveTabId =
               newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
           }
 
-          // 获取新的活跃标签页
+          // 获取新的活跃标签页并确保面板配置完整
           const rawNewActiveTab = newActiveTabId
             ? newTabs.find((tab) => tab.id === newActiveTabId)
             : undefined;
@@ -341,6 +358,7 @@ export const useTabs = create<TabsState>()(
         });
       },
 
+      // 设置激活标签页方法
       setActiveTab: (tabId) => {
         const tab = get().tabs.find((t) => t.id === tabId);
         const normalizedTab = tab ? withPanelDefaults(tab) : undefined;
@@ -352,6 +370,7 @@ export const useTabs = create<TabsState>()(
         });
       },
 
+      // 更新当前激活标签页的面板方法
       updateCurrentTabPanels: (panels) => {
         set((state) => {
           if (!state.activeTabId) return state;
@@ -367,6 +386,7 @@ export const useTabs = create<TabsState>()(
         });
       },
 
+      // 更新指定标签页的面板方法
       updateTabPanels: (tabId, panels) => {
         set((state) => {
           const { tabs, updatedLeftPanel, updatedRightPanel } =
@@ -374,6 +394,7 @@ export const useTabs = create<TabsState>()(
 
           const result: Partial<TabsState> = { tabs };
 
+          // 如果更新的是当前激活标签页，同时更新活跃面板状态
           if (updatedLeftPanel) {
             result.activeLeftPanel = updatedLeftPanel;
           }
@@ -385,6 +406,7 @@ export const useTabs = create<TabsState>()(
         });
       },
 
+      // 根据面板key更新面板参数方法
       updatePanelParamsByKey: (panelKey, params) => {
         set((state) => {
           let activeLeftPanel = state.activeLeftPanel;
@@ -394,12 +416,13 @@ export const useTabs = create<TabsState>()(
             const nextTab = withPanelDefaults(tab);
             let didUpdate = false;
 
+            // 更新匹配的面板参数
             const updatePanel = (panel: PanelConfig | undefined) => {
               if (!panel || panel.panelKey !== panelKey) return panel;
               didUpdate = true;
               return {
                 ...panel,
-                params: { ...(panel.params ?? {}), ...(params ?? {}) },
+                params: { ...(panel.params ?? {}), ...(params ?? {}) }, // 合并参数
               };
             };
 
@@ -409,6 +432,7 @@ export const useTabs = create<TabsState>()(
             if (!didUpdate) return nextTab;
 
             const updated = { ...nextTab, leftPanel, rightPanel };
+            // 如果更新的是当前激活标签页，同时更新活跃面板状态
             if (tab.id === state.activeTabId) {
               activeLeftPanel = leftPanel;
               activeRightPanel = rightPanel;
@@ -420,6 +444,7 @@ export const useTabs = create<TabsState>()(
         });
       },
 
+      // 更新当前激活标签页的左侧面板宽度方法
       updateCurrentTabLeftWidth: (width) => {
         set((state) => {
           if (!state.activeTabId) return state;
@@ -441,11 +466,12 @@ export const useTabs = create<TabsState>()(
         });
       },
 
+      // 根据ID获取标签页方法
       getTabById: (tabId) => {
         return get().tabs.find((tab) => tab.id === tabId);
       },
 
-      // 获取当前工作区的标签列表
+      // 获取当前工作区的标签列表方法
       getWorkspaceTabs: (workspaceId) => {
         const workspaceTabs = orderWorkspaceTabs(
           get().tabs.filter((tab) => tab.workspaceId === workspaceId)
@@ -466,6 +492,7 @@ export const useTabs = create<TabsState>()(
         return workspaceTabs;
       },
 
+      // 重新排序标签页方法
       reorderTabs: (
         workspaceId,
         sourceTabId,
@@ -475,6 +502,7 @@ export const useTabs = create<TabsState>()(
         set((state) => {
           if (sourceTabId === targetTabId) return state;
 
+          // 获取指定工作区的标签页并排序（固定在前，普通在后）
           const workspaceTabs = orderWorkspaceTabs(
             state.tabs.filter((tab) => tab.workspaceId === workspaceId)
           );
@@ -496,23 +524,24 @@ export const useTabs = create<TabsState>()(
           const [moved] = reordered.splice(fromIndex, 1);
           let targetIndex = toIndex;
 
-          // adjust target index after removal
+          // 移除源标签页后调整目标索引
           if (fromIndex < toIndex) {
             targetIndex -= 1;
           }
 
+          // 如果位置是after，目标索引+1
           if (position === "after") {
             targetIndex += 1;
           }
 
-          // keep pinned tabs before unpinned tabs
+          // 保持固定标签页在普通标签页之前
           if (sourcePinned && !targetPinned) {
             targetIndex = Math.min(targetIndex, Math.max(0, pinnedCount - 1));
           } else if (!sourcePinned && targetPinned) {
             targetIndex = Math.max(targetIndex, pinnedCount);
           }
 
-          // enforce bounds
+          // 确保索引在有效范围内
           const lowerBound = sourcePinned ? 0 : pinnedCount;
           const upperBound = sourcePinned
             ? Math.max(pinnedCount - 1, 0)
@@ -523,7 +552,7 @@ export const useTabs = create<TabsState>()(
           );
           reordered.splice(boundedIndex, 0, moved);
 
-          // rebuild tabs keeping other workspaces in place
+          // 重建标签页列表，保持其他工作区的标签页不变
           const workspaceQueue = [...reordered];
           const newTabs = state.tabs.map((tab) =>
             tab.workspaceId !== workspaceId
@@ -535,19 +564,23 @@ export const useTabs = create<TabsState>()(
         });
       },
 
+      // 设置标签页是否固定方法
       setTabPinned: (tabId, isPin) => {
         set((state) => {
           const target = state.tabs.find((tab) => tab.id === tabId);
           if (!target) return state;
 
+          // 更新标签页的固定状态
           const updatedTabs = state.tabs.map((tab) =>
             tab.id === tabId ? { ...tab, isPin } : tab
           );
 
+          // 重新排序该工作区的标签页（固定在前，普通在后）
           const workspaceTabs = orderWorkspaceTabs(
             updatedTabs.filter((tab) => tab.workspaceId === target.workspaceId)
           );
 
+          // 重建标签页列表，保持其他工作区的标签页不变
           const workspaceQueue = [...workspaceTabs];
           const newTabs = updatedTabs.map((tab) =>
             tab.workspaceId !== target.workspaceId
@@ -559,13 +592,14 @@ export const useTabs = create<TabsState>()(
         });
       },
 
+      // 向面板添加对话框方法
       addPanelDialog: (side, dialogInput) => {
         set((state) => {
           if (!state.activeTabId) return state;
 
           const newDialog: PanelDialog = {
             ...dialogInput,
-            id: generateDialogId(),
+            id: generateDialogId(), // 生成唯一对话框ID
           };
 
           const tabs = state.tabs.map((tab) => {
@@ -579,7 +613,7 @@ export const useTabs = create<TabsState>()(
                 ...normalizedTab,
                 leftPanel: {
                   ...normalizedTab.leftPanel!,
-                  dialogs: [...currentDialogs, newDialog],
+                  dialogs: [...currentDialogs, newDialog], // 添加新对话框
                 },
               };
             } else {
@@ -588,13 +622,13 @@ export const useTabs = create<TabsState>()(
                 ...normalizedTab,
                 rightPanel: {
                   ...normalizedTab.rightPanel!,
-                  dialogs: [...currentDialogs, newDialog],
+                  dialogs: [...currentDialogs, newDialog], // 添加新对话框
                 },
               };
             }
           });
 
-          // Update active panels
+          // 更新活跃面板
           const activeTab = tabs.find((t) => t.id === state.activeTabId);
           return {
             tabs,
@@ -604,6 +638,7 @@ export const useTabs = create<TabsState>()(
         });
       },
 
+      // 从面板移除对话框方法
       removePanelDialog: (side, dialogId) => {
         set((state) => {
           if (!state.activeTabId) return state;
@@ -617,37 +652,37 @@ export const useTabs = create<TabsState>()(
               const updatedDialogs = (
                 normalizedTab.leftPanel.dialogs || []
               ).filter((d) => d.id !== dialogId);
-              // Check if panel has no content after removing dialog
+              // 检查移除对话框后面板是否还有内容
               const hasContent =
                 normalizedTab.leftPanel.component || updatedDialogs.length > 0;
               return {
                 ...normalizedTab,
                 leftPanel: {
                   ...normalizedTab.leftPanel,
-                  dialogs: updatedDialogs,
-                  hidden: !hasContent, // Hide panel if no content
+                  dialogs: updatedDialogs, // 移除指定对话框
+                  hidden: !hasContent, // 如果没有内容则隐藏面板
                 },
               };
             } else if (side === "right" && normalizedTab.rightPanel) {
               const updatedDialogs = (
                 normalizedTab.rightPanel.dialogs || []
               ).filter((d) => d.id !== dialogId);
-              // Check if panel has no content after removing dialog
+              // 检查移除对话框后面板是否还有内容
               const hasContent =
                 normalizedTab.rightPanel.component || updatedDialogs.length > 0;
               return {
                 ...normalizedTab,
                 rightPanel: {
                   ...normalizedTab.rightPanel,
-                  dialogs: updatedDialogs,
-                  hidden: !hasContent, // Hide panel if no content
+                  dialogs: updatedDialogs, // 移除指定对话框
+                  hidden: !hasContent, // 如果没有内容则隐藏面板
                 },
               };
             }
             return normalizedTab;
           });
 
-          // Update active panels
+          // 更新活跃面板
           const activeTab = tabs.find((t) => t.id === state.activeTabId);
           return {
             tabs,

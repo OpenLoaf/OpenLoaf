@@ -1,6 +1,6 @@
 {
-  "name": "electron",
-  "productName": "electron",
+  "name": "teatime",
+  "productName": "Teatime",
   "version": "1.0.0",
   "description": "My Electron application description",
   "main": ".webpack/main",
