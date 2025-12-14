@@ -7,6 +7,7 @@ import {
   resolveInAllowedRoots,
   runCommandReadonly,
 } from "./utils";
+import { requestContextManager } from "../../../context/requestContext";
 
 /**
  * Shell 工具（MVP）
@@ -30,6 +31,11 @@ export const shellReadonlyTool = tool({
     SystemToolResult<{ stdout: string; stderr: string; exitCode: number }>
   > => {
     try {
+      // 示例：从请求上下文中获取sessionId和cookie
+      const sessionId = requestContextManager.getSessionId();
+      const tabsStorageCookie = requestContextManager.getCookie("tabs-storage");
+      console.log("当前请求上下文:", { sessionId, tabsStorageCookie });
+      
       const parts = parseSimpleCommand(input.cmd);
       const command = parts[0]!;
 

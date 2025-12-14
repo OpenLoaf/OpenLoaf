@@ -1,49 +1,11 @@
-import { deepseek } from "@ai-sdk/deepseek";
-import {
-  type InferAgentUIMessage,
-  type UIMessage,
-  ToolLoopAgent,
-  createAgentUIStreamResponse,
-} from "ai";
+import { createAgentUIStreamResponse } from "ai";
+import type { UIMessage } from "ai";
 import type { Hono } from "hono";
+import { getCookie } from "hono/cookie";
 import { saveAndAppendMessage } from "./history";
-import { systemTools } from "./tools";
-
-/**
- * 约定请求体（MVP）：
- * - `sessionId`：用于从 DB 读取/写入该会话的历史消息
- * - `messages`：前端当前要发送的 UIMessage 列表（当前实现只取最后一条作为“新消息”）
- */
-type ChatRequestBody = {
-  sessionId?: string;
-  id?: string;
-  messages?: UIMessage[];
-};
-
-const agent = new ToolLoopAgent({
-  model: deepseek("deepseek-chat"),
-  instructions:
-    `
-    你是一个帮助用户解决问题的助手，请根据用户的问题，给出最简短的回答。
-    返回的内容一定是markdown语法格式的
-    `,
-  // System Tools（MVP）：这里只注入“定义”，暂不实现内部逻辑。
-  tools: systemTools,
-});
-
-type AgentUIMessage = InferAgentUIMessage<typeof agent>;
-
-type TokenUsage = {
-  inputTokens?: number;
-  outputTokens?: number;
-  totalTokens?: number;
-  reasoningTokens?: number;
-  cachedInputTokens?: number;
-};
-
-type TokenUsageMessage = UIMessage<{
-  totalUsage?: TokenUsage;
-}>;
+import { requestContextManager } from "../context/requestContext";
+import type { ChatRequestBody, TokenUsageMessage } from "./types";
+import { createAgent, createRequestTools } from "./tools-config";
 
 /**
  * AI SDK v6：流式对话接口（SSE/数据流协议由 createAgentUIStreamResponse 负责）。
@@ -67,6 +29,15 @@ export const registerChatSse = (app: Hono) => {
       return c.json({ error: "sessionId is required" }, 400);
     }
 
+    // 从请求中获取所有cookie
+    const cookies = getCookie(c);
+
+    // 初始化请求上下文
+    requestContextManager.createContext({
+      sessionId,
+      cookies: cookies || {},
+    });
+
     const incomingMessages = body.messages;
     if (incomingMessages !== undefined && !Array.isArray(incomingMessages)) {
       return c.json({ error: "messages must be an array" }, 400);
@@ -82,10 +53,18 @@ export const registerChatSse = (app: Hono) => {
       incomingMessage: lastIncomingMessage,
     });
 
+    const requestTools = createRequestTools();
+
+    const agent = createAgent();
+
     return createAgentUIStreamResponse({
       agent,
-      // 将 DB 还原出来的完整历史传给 agent（类型用 InferAgentUIMessage 约束）。
-      messages: messages as AgentUIMessage[],
+      onError: (error) => {
+        console.error("Agent error:", error);
+        return "An error occurred.";
+      },
+      // 将 DB 还原出来的完整历史传给 agent
+      messages: messages as any[],
       messageMetadata: ({ part }) => {
         // 当生成完成时发送完整的 token 使用信息
         if (part.type === "finish") {

@@ -13,8 +13,7 @@ interface ChatInputProps {
 }
 
 export default function ChatInput({ className }: ChatInputProps) {
-  const { sendMessage, status, stop, clearError } = useChatContext();
-  const [input, setInput] = useState("");
+  const { sendMessage, status, stop, clearError, input, setInput } = useChatContext();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -31,6 +31,10 @@ interface ChatContextType {
   clearError: ReturnType<typeof useChat>["clearError"];
   /** 恢复流的方法 */
   resumeStream: ReturnType<typeof useChat>["resumeStream"];
+  /** 当前输入框的内容 */
+  input: string;
+  /** 设置输入框内容的方法 */
+  setInput: (value: string) => void;
   /** 添加工具输出的方法 */
   addToolOutput: ReturnType<typeof useChat>["addToolOutput"];
   /** 添加工具批准响应的方法 */
@@ -92,12 +96,20 @@ export default function ChatProvider({
     id: sessionId,
     transport: new DefaultChatTransport({
       api: `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`,
+      credentials: "include",
       prepareSendMessagesRequest({ id, messages, ...requestOptions }) {
         const mergedParams = { ...(params ?? {}), ...(requestOptions ?? {}) };
         if (messages.length === 0) {
-          return { body: { params: mergedParams, sessionId: id, id, messages: [] } };
+          return {
+            body: { params: mergedParams, sessionId: id, id, messages: [] },
+          };
         }
-        const lastMessage = messages[messages.length - 1];
+        const lastMessage = {
+          ...messages[messages.length - 1],
+          metadata: {
+            // workspaceId:
+          },
+        };
         console.log(
           `SendMessage Id: ${id} Messages: ${JSON.stringify(
             lastMessage
@@ -201,10 +213,19 @@ export default function ChatProvider({
     setScrollToBottomToken((n) => n + 1);
   };
 
+  // 兼容性处理：新版本useChat可能不返回input和setInput
+  const [input, setInput] = React.useState("");
+
+  const chatWithFallbacks = {
+    ...chat,
+    input,
+    setInput,
+  };
+
   return (
     <ChatContext.Provider
       value={{
-        ...chat,
+        ...chatWithFallbacks,
         isHistoryLoading,
         scrollToBottomToken,
         newSession,

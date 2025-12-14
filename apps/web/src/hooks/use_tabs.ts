@@ -1,40 +1,12 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-
-// 定义面板对话框接口
-export interface PanelDialog {
-  id: string;
-  component: string;
-  params: Record<string, any>;
-}
-
-// 定义面板配置接口
-export interface PanelConfig {
-  component: string;
-  params: Record<string, any>;
-  panelKey: string;
-  hidden?: boolean;
-  dialogs?: PanelDialog[];
-}
-
-type PanelUpdates = Partial<{
-  leftPanel: Partial<PanelConfig>;
-  rightPanel: Partial<PanelConfig>;
-}>;
-
-// 定义标签页类型
-export interface Tab {
-  id: string;
-  // Logical resource identity for de-duping/activation (e.g. page id)
-  resourceId?: string;
-  title: string;
-  icon?: string;
-  leftPanel?: PanelConfig;
-  rightPanel?: PanelConfig;
-  leftWidth?: number;
-  workspaceId: string;
-  isPin?: boolean;
-}
+import {
+  DEFAULT_TAB_INFO,
+  type PanelDialog,
+  type PanelConfig,
+  type PanelUpdates,
+  type Tab,
+} from "@teatime-ai/api/types/tabs";
 
 interface TabsState {
   tabs: Tab[];
@@ -219,12 +191,6 @@ const orderWorkspaceTabs = (tabs: Tab[]) => {
 
   return [...pinned, ...regular];
 };
-
-// 默认标签页信息 - 当没有标签页时使用
-export const DEFAULT_TAB_INFO = {
-  title: "Ai Chat",
-  icon: "bot",
-} as const;
 
 export const useTabs = create<TabsState>()(
   persist(
@@ -694,7 +660,24 @@ export const useTabs = create<TabsState>()(
     }),
     {
       name: STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => ({
+        getItem: (name: string) => {
+          if (typeof document === "undefined") return null;
+          const match = document.cookie.match(
+            new RegExp("(^| )" + name + "=([^;]+)")
+          );
+          if (match) return decodeURIComponent(match[2]);
+          return null;
+        },
+        setItem: (name: string, value: string) => {
+          if (typeof document === "undefined") return;
+          document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
+        },
+        removeItem: (name: string) => {
+          if (typeof document === "undefined") return;
+          document.cookie = `${name}=; path=/; max-age=0`;
+        },
+      })),
     }
   )
 );

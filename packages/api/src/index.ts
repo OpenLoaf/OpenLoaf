@@ -3,10 +3,13 @@
 import { appRouter as internalAppRouter } from "../generated/routers";
 import { t } from "../generated/routers/helpers/createRouter";
 import { pageRouter } from "./routers/page";
-import { workspaceRouter, BaseWorkspaceRouter, workspaceSchemas } from "./routers/workspace";
+import {
+  workspaceRouter,
+  BaseWorkspaceRouter,
+  workspaceSchemas,
+} from "./routers/workspace";
 import { chatRouter } from "./routers/chat";
 import { health } from "./routers/health";
-
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -14,10 +17,10 @@ export const appRouterDefine = {
   chat: chatRouter,
   pageCustom: pageRouter,
   workspace: workspaceRouter,
-}
+};
 
 export const appRouter = t.router({
-  ...appRouterDefine
+  ...appRouterDefine,
 });
 
 export type AppRouter = typeof appRouter;
@@ -31,6 +34,7 @@ export * from "../generated/routers/helpers/createRouter";
 
 // Export custom types
 export * from "./types/workspace";
+export * from "./types/tabs";
 
 // Export workspace router components
 export { BaseWorkspaceRouter, workspaceSchemas };

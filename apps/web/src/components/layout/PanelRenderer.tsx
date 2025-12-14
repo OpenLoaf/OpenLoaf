@@ -7,7 +7,7 @@ import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import type { PanelConfig } from "@/hooks/use_tabs";
+import type { PanelConfig } from "@teatime-ai/api/types/tabs";
 
 /**
  * 基础面板渲染属性接口

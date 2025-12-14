@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, createContext, useContext, type CSSProperties } from "react";
-import type { Workspace } from "@teatime-ai/api";
+import type { Workspace } from "@teatime-ai/api/types/workspace";
 
 import {
   SidebarInset,

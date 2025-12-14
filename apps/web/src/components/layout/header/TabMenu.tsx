@@ -7,7 +7,7 @@ import {
   ContextMenuItem,
   ContextMenuShortcut,
 } from "@/components/ui/context-menu";
-import type { Tab } from "@/hooks/use_tabs";
+import type { Tab } from "@teatime-ai/api/types/tabs";
 
 interface TabMenuProps {
   tab: Tab;

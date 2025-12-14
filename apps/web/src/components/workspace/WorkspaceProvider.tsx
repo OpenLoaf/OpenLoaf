@@ -2,7 +2,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { WorkspaceContext } from "@/app/page";
-import type { Workspace } from "@teatime-ai/api";
+import type { Workspace } from "@teatime-ai/api/types/workspace";
+import { useEffect } from "react";
 
 interface WorkspaceProviderProps {
   children: React.ReactNode;
@@ -13,6 +14,13 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
   const { data: workspace = {} as Workspace, isLoading } = useQuery(
     trpc.workspace.getActive.queryOptions()
   );
+
+  useEffect(() => {
+    if (!workspace?.id) return;
+    document.cookie = `workspace-id=${encodeURIComponent(
+      workspace.id
+    )}; path=/; max-age=31536000; SameSite=Lax`;
+  }, [workspace?.id]);
 
   return (
     <WorkspaceContext.Provider

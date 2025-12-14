@@ -2,12 +2,25 @@
 
 interface MessageErrorProps {
   error: Error;
+  canRetry?: boolean;
 }
 
 import { motion, useReducedMotion } from "motion/react";
+import { useChatContext } from "../ChatProvider";
+import { Button } from "@/components/ui/button";
+import { RotateCcw } from "lucide-react";
 
 export default function MessageError({ error }: MessageErrorProps) {
   const reduceMotion = useReducedMotion();
+  const { regenerate, clearError, status } = useChatContext();
+
+  const handleRetry = () => {
+    clearError();
+    regenerate();
+  };
+
+  const isBusy = status !== "ready";
+
   return (
     <motion.div
       key="message-error"
@@ -26,6 +39,21 @@ export default function MessageError({ error }: MessageErrorProps) {
           <span className="text-xs font-medium">出错了</span>
         </div>
         <p className="text-xs mt-1">{error.message}</p>
+        <div className="mt-2 flex justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/20"
+            onClick={handleRetry}
+            disabled={isBusy}
+            aria-label="重试"
+            title="重试"
+          >
+            <RotateCcw className="size-3 mr-1" />
+            重试
+          </Button>
+        </div>
       </div>
     </motion.div>
   );
