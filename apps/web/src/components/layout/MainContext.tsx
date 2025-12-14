@@ -4,10 +4,6 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { useTabs } from "@/hooks/use_tabs";
-import {
-  makePanelSnapshotKey,
-  usePanelSnapshots,
-} from "@/hooks/use_panel_snapshots";
 import { cn } from "@/lib/utils";
 import { PanelRenderer } from "./PanelRenderer";
 
@@ -36,54 +32,8 @@ export const MainContent: React.FC<{ className?: string }> = ({
     activeRightPanel: rightPanel,
     activeLeftWidth,
     updateCurrentTabLeftWidth,
+    removePanelDialog,
   } = useTabs();
-
-  // 生成左侧面板快照的唯一key
-  const leftSnapshotKey = useMemo(
-    () => (activeTabId ? makePanelSnapshotKey(activeTabId, "left") : null),
-    [activeTabId]
-  );
-  // 生成右侧面板快照的唯一key
-  const rightSnapshotKey = useMemo(
-    () => (activeTabId ? makePanelSnapshotKey(activeTabId, "right") : null),
-    [activeTabId]
-  );
-
-  // 获取左侧面板快照状态
-  const leftSnapshotState = usePanelSnapshots((state) =>
-    leftSnapshotKey ? state.byKey[leftSnapshotKey] : undefined
-  );
-  // 获取右侧面板快照状态
-  const rightSnapshotState = usePanelSnapshots((state) =>
-    rightSnapshotKey ? state.byKey[rightSnapshotKey] : undefined
-  );
-  // 面板快照操作函数
-  const moveSnapshotUp = usePanelSnapshots((state) => state.moveSnapshotUp);
-  const moveSnapshotDown = usePanelSnapshots((state) => state.moveSnapshotDown);
-  const toggleSnapshotHidden = usePanelSnapshots(
-    (state) => state.toggleSnapshotHidden
-  );
-  const setAllSnapshotsHidden = usePanelSnapshots(
-    (state) => state.setAllSnapshotsHidden
-  );
-  const closeSnapshot = usePanelSnapshots((state) => state.closeSnapshot);
-  const setHiddenAll = usePanelSnapshots((state) => state.setHiddenAll);
-
-  // 获取左侧面板最上层可见快照
-  const leftTopSnapshot =
-    leftSnapshotState &&
-    leftSnapshotState.layers.length > 0 &&
-    !leftSnapshotState.hiddenAll
-      ? [...leftSnapshotState.layers].reverse().find((l) => !l.hidden)
-      : undefined;
-
-  // 获取右侧面板最上层可见快照
-  const rightTopSnapshot =
-    rightSnapshotState &&
-    rightSnapshotState.layers.length > 0 &&
-    !rightSnapshotState.hiddenAll
-      ? [...rightSnapshotState.layers].reverse().find((l) => !l.hidden)
-      : undefined;
 
   // 计算面板显示状态
   const hasLeftPanel = Boolean(leftPanel);
@@ -125,95 +75,34 @@ export const MainContent: React.FC<{ className?: string }> = ({
       ? { duration: 0 } // 减少动画或拖拽时，无过渡效果
       : { type: "spring" as const, stiffness: 260, damping: 45 };
 
-  // 渲染左侧面板，包含快照功能
+  // 渲染左侧面板
   const renderedLeftPanel = useMemo(() => {
     if (!leftPanel || computedLeftHidden) return null;
     return (
       <PanelRenderer
         basePanel={leftPanel}
-        snapshotKey={leftSnapshotKey}
-        snapshotLayers={leftSnapshotState?.layers}
-        snapshotHiddenAll={leftSnapshotState?.hiddenAll}
-        onMoveUp={moveSnapshotUp}
-        onMoveDown={moveSnapshotDown}
-        onToggleHidden={toggleSnapshotHidden}
-        onClose={closeSnapshot}
-        onSetHiddenAll={setHiddenAll}
-        onSetAllSnapshotsHidden={setAllSnapshotsHidden}
+        onCloseDialog={(dialogId) => removePanelDialog("left", dialogId)}
       />
     );
   }, [
     leftPanel,
-    leftSnapshotKey,
     computedLeftHidden,
-    leftSnapshotState?.layers,
-    leftSnapshotState?.hiddenAll,
-    moveSnapshotUp,
-    moveSnapshotDown,
-    toggleSnapshotHidden,
-    closeSnapshot,
-    setHiddenAll,
-    setAllSnapshotsHidden,
+    removePanelDialog
   ]);
 
-  // 渲染右侧面板，包含快照功能
+  // 渲染右侧面板
   const renderedRightPanel = useMemo(() => {
     if (!rightPanel || computedRightHidden) return null;
     return (
       <PanelRenderer
         basePanel={rightPanel}
-        snapshotKey={rightSnapshotKey}
-        snapshotLayers={rightSnapshotState?.layers}
-        snapshotHiddenAll={rightSnapshotState?.hiddenAll}
-        onMoveUp={moveSnapshotUp}
-        onMoveDown={moveSnapshotDown}
-        onToggleHidden={toggleSnapshotHidden}
-        onClose={closeSnapshot}
-        onSetHiddenAll={setHiddenAll}
-        onSetAllSnapshotsHidden={setAllSnapshotsHidden}
+        onCloseDialog={(dialogId) => removePanelDialog("right", dialogId)}
       />
     );
   }, [
     rightPanel,
-    rightSnapshotKey,
     computedRightHidden,
-    rightSnapshotState?.layers,
-    rightSnapshotState?.hiddenAll,
-    moveSnapshotUp,
-    moveSnapshotDown,
-    toggleSnapshotHidden,
-    closeSnapshot,
-    setHiddenAll,
-    setAllSnapshotsHidden,
-  ]);
-
-  // 根据快照状态更新左侧面板宽度
-  useEffect(() => {
-    if (!activeTabId || !leftSnapshotKey || !leftSnapshotState) return;
-
-    let desiredWidth: number | undefined;
-
-    // 根据不同情况计算期望的宽度
-    if (leftSnapshotState.layers.length === 0) {
-      desiredWidth = leftSnapshotState.baseLeftWidth;
-    } else if (leftSnapshotState.hiddenAll) {
-      desiredWidth = leftSnapshotState.baseLeftWidth;
-    } else {
-      desiredWidth = leftTopSnapshot?.leftWidth;
-    }
-
-    // 如果宽度不同，更新当前标签页的左侧宽度
-    if (typeof desiredWidth === "number" && desiredWidth !== activeLeftWidth) {
-      updateCurrentTabLeftWidth(desiredWidth);
-    }
-  }, [
-    activeTabId,
-    activeLeftWidth,
-    leftSnapshotKey,
-    leftSnapshotState,
-    leftTopSnapshot?.id,
-    leftTopSnapshot?.leftWidth,
-    updateCurrentTabLeftWidth,
+    removePanelDialog
   ]);
 
   // 开始拖拽分隔线
@@ -235,16 +124,6 @@ export const MainContent: React.FC<{ className?: string }> = ({
     const clampedWidth = Math.max(30, Math.min(70, newWidth));
     // 更新当前标签页的左侧宽度
     updateCurrentTabLeftWidth(clampedWidth);
-
-    // 如果有激活的标签页，同时更新快照的宽度
-    if (activeTabId) {
-      const key = makePanelSnapshotKey(activeTabId, "left");
-      const store = usePanelSnapshots.getState();
-      const snapshot = store.byKey[key];
-      if (snapshot && snapshot.layers.length > 0 && !snapshot.hiddenAll) {
-        store.setTopLeftWidth(key, clampedWidth);
-      }
-    }
   };
 
   // 结束拖拽分隔线

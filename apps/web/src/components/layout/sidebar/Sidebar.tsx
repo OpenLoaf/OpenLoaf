@@ -9,32 +9,18 @@ import {
 } from "@/components/animate-ui/components/radix/sidebar";
 import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/use_tabs";
-import {
-  makePanelSnapshotKey,
-  usePanelSnapshots,
-} from "@/hooks/use_panel_snapshots";
 import { Globe } from "lucide-react";
 
 export const AppSidebar = ({
   ...props
 }: React.ComponentProps<typeof Sidebar>) => {
-  const { activeTabId, activeLeftPanel, activeLeftWidth } = useTabs();
-  const pushSnapshot = usePanelSnapshots((state) => state.pushSnapshot);
-  const closeTopSnapshot = usePanelSnapshots((state) => state.closeTopSnapshot);
-  const setHiddenAll = usePanelSnapshots((state) => state.setHiddenAll);
+  const { activeLeftPanel, addPanelDialog } = useTabs();
 
   const isElectron =
     process.env.NEXT_PUBLIC_ELECTRON === "1" ||
     (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
 
-  const leftSnapshotKey = activeTabId
-    ? makePanelSnapshotKey(activeTabId, "left")
-    : null;
-  const leftSnapshotState = usePanelSnapshots((state) =>
-    leftSnapshotKey ? state.byKey[leftSnapshotKey] : undefined
-  );
-  const leftSnapshotCount = leftSnapshotState?.layers.length ?? 0;
-  const leftHiddenAll = leftSnapshotState?.hiddenAll ?? false;
+  const dialogsCount = activeLeftPanel?.dialogs?.length ?? 0;
   const activePageId = (activeLeftPanel?.params as any)?.pageId as
     | string
     | undefined;
@@ -50,77 +36,47 @@ export const AppSidebar = ({
       <SidebarContent>
         <div className="px-2 py-2 space-y-2">
           <div className="text-xs text-muted-foreground">
-            Snapshots (left): {leftSnapshotCount}
+            Dialogs (left): {dialogsCount}
           </div>
           <Button
             size="sm"
             variant="outline"
             onClick={() => {
-              if (!leftSnapshotKey) return;
-              pushSnapshot(leftSnapshotKey, {
+              addPanelDialog("left", {
                 component: "ai-chat",
                 params: {},
-                leftWidth: activeLeftWidth,
               });
             }}
           >
-            Snapshot: AI Chat
+            Dialog: AI Chat
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => {
-              if (!leftSnapshotKey) return;
-              pushSnapshot(leftSnapshotKey, {
+              addPanelDialog("left", {
                 component: "plant-page",
                 params: activePageId ? { pageId: activePageId } : {},
-                leftWidth: activeLeftWidth,
               });
             }}
           >
-            Snapshot: Plant
+            Dialog: Plant
           </Button>
           {isElectron && (
             <Button
               size="sm"
               variant="outline"
               onClick={() => {
-                if (!leftSnapshotKey) return;
-                pushSnapshot(leftSnapshotKey, {
+                addPanelDialog("left", {
                   component: "electron-browser",
                   params: { url: "https://example.com" },
-                  leftWidth: activeLeftWidth,
                 });
               }}
             >
               <Globe className="mr-2 h-4 w-4" />
-              Snapshot: Browser
+              Dialog: Browser
             </Button>
           )}
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!leftSnapshotKey || leftSnapshotCount === 0}
-              onClick={() => {
-                if (!leftSnapshotKey) return;
-                closeTopSnapshot(leftSnapshotKey);
-              }}
-            >
-              Close Top
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!leftSnapshotKey || leftSnapshotCount === 0}
-              onClick={() => {
-                if (!leftSnapshotKey) return;
-                setHiddenAll(leftSnapshotKey, !leftHiddenAll);
-              }}
-            >
-              {leftHiddenAll ? "Show" : "Hide"} All
-            </Button>
-          </div>
         </div>
         <SidebarPage />
       </SidebarContent>

@@ -5,10 +5,8 @@
   "description": "My Electron application description",
   "main": ".webpack/main",
   "scripts": {
-    "dev": "electron-forge start",
     "desktop": "electron-forge start",
-    "build": "pnpm -w turbo build --filter=server --filter=web && electron-forge package",
-    "start": "electron-forge start"
+    "build": "pnpm -w turbo build --filter=server --filter=web && electron-forge package"
   },
   "keywords": [],
   "author": {

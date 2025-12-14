@@ -6,8 +6,8 @@ import { motion } from "motion/react";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, EyeOff, X } from "lucide-react";
-import { type SnapshotLayer } from "@/hooks/use_panel_snapshots";
+import { X } from "lucide-react";
+import type { PanelConfig } from "@/hooks/use_tabs";
 
 /**
  * 基础面板渲染属性接口
@@ -52,207 +52,111 @@ export const renderPanel = (panel: RenderPanelProps) => {
 };
 
 /**
- * 带快照的面板渲染属性接口
+ * 面板渲染器属性接口
  */
 interface PanelRendererProps {
-  basePanel: { component: string; params: Record<string, any>; panelKey: string }; // 基础面板配置
-  snapshotKey: string | null; // 快照唯一标识
-  snapshotLayers?: SnapshotLayer[]; // 快照层列表
-  snapshotHiddenAll?: boolean; // 是否隐藏所有快照
-  onMoveUp: (key: string, layerId: string) => void; // 上移快照层回调
-  onMoveDown: (key: string, layerId: string) => void; // 下移快照层回调
-  onToggleHidden: (key: string, layerId: string) => void; // 切换快照层隐藏状态回调
-  onClose: (key: string, layerId: string) => void; // 关闭快照层回调
-  onSetHiddenAll: (key: string, hiddenAll: boolean) => void; // 设置所有快照层隐藏状态回调
-  onSetAllSnapshotsHidden: (key: string, hidden: boolean) => void; // 设置所有快照隐藏状态回调
+  basePanel: PanelConfig; // 基础面板配置
+  onCloseDialog: (dialogId: string) => void; // 关闭对话框回调
 }
 
 /**
- * 带快照的面板渲染组件
- * 负责渲染基础面板和叠加的快照层
+ * 面板渲染组件
+ * 负责渲染基础面板和叠加的面板对话框
  */
 export const PanelRenderer: React.FC<PanelRendererProps> = ({
   basePanel,
-  snapshotKey,
-  snapshotLayers,
-  snapshotHiddenAll = false,
-  onMoveUp,
-  onMoveDown,
-  onToggleHidden,
-  onClose,
-  onSetHiddenAll,
-  onSetAllSnapshotsHidden,
+  onCloseDialog,
 }) => {
-  // 处理快照层列表，确保不为空
-  const allLayers = !snapshotLayers || snapshotLayers.length === 0 ? [] : snapshotLayers;
-  // 计算可见的快照层
-  const visibleLayers = snapshotHiddenAll
-    ? []
-    : allLayers.filter((layer) => !layer.hidden);
-  // 计算隐藏的快照层数量
-  const hiddenCount = allLayers.length - visibleLayers.length;
+  // 获取面板对话框列表
+  const dialogs = basePanel.dialogs || [];
 
-  // 是否有叠加的快照层
-  const hasOverlay = visibleLayers.length > 0;
+  // 是否有叠加的对话框
+  const hasOverlay = dialogs.length > 0;
 
   return (
     <>
       {/* 渲染基础面板 */}
       <div
         className={cn(
-          "h-full w-full",
-          hasOverlay && "pointer-events-none select-none" // 如果有叠加层，基础面板不可交互
+          "h-full w-full transition-all duration-300",
+          hasOverlay && "pointer-events-none select-none blur-sm opacity-80" // 如果有叠加层，基础面板不可交互并模糊
         )}
       >
         {renderPanel(basePanel)}
       </div>
 
-      {/* 显示快照按钮 - 当所有快照都被隐藏时 */}
-      {snapshotHiddenAll && snapshotKey && allLayers.length > 0 && (
-        <div className="absolute right-3 top-3 z-30 pointer-events-auto">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onSetHiddenAll(snapshotKey, false)}
-          >
-            Show snapshots ({allLayers.length})
-          </Button>
-        </div>
-      )}
-
-      {/* 显示隐藏的快照按钮 - 当有部分快照被隐藏时 */}
-      {!snapshotHiddenAll && snapshotKey && hiddenCount > 0 && (
-        <div className="absolute right-3 top-3 z-30 pointer-events-auto">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onSetAllSnapshotsHidden(snapshotKey, false)}
-          >
-            Show hidden ({hiddenCount})
-          </Button>
-        </div>
-      )}
-
-      {/* 渲染可见的快照层 */}
+      {/* 渲染叠加的对话框 */}
       {hasOverlay &&
-        visibleLayers.map((layer, index) => {
-          // 计算快照层从顶部开始的深度
-          const depthFromTop = visibleLayers.length - 1 - index;
-          // 是否为最顶层快照
+        dialogs.map((dialog, index) => {
+          // 计算对话框从顶部开始的深度
+          const depthFromTop = dialogs.length - 1 - index;
+          // 是否为最顶层对话框
           const isTop = depthFromTop === 0;
-          // 快照层透明度，越底层透明度越低
+          // 对话框透明度，越底层透明度越低
           const opacity = 1 - depthFromTop * 0.12;
-          // 基础内边距和叠加偏移量
-          const baseInset = 16;
-          const stackedOffset = depthFromTop * 10;
-          // 最终内边距，越顶层内边距越小
-          const inset = baseInset + stackedOffset;
-
-          // 是否为第一个快照层（在数组中的位置）
-          const isFirst = index === 0;
-          // 是否为最后一个快照层（在数组中的位置）
-          const isLast = index === visibleLayers.length - 1;
+          
+          // 统一内边距
+          const inset = 16;
+          // 顶部额外偏移
+          const topInset = inset + 18;
 
           return (
             <motion.div
-              key={layer.id}
+              key={dialog.id}
               className={cn(
-                "absolute rounded-xl overflow-hidden ring-1 ring-border/40 shadow-lg",
-                isTop ? "pointer-events-auto" : "pointer-events-none" // 只有最顶层快照可交互
+                "absolute rounded-xl overflow-hidden border border-border shadow-2xl",
+                isTop ? "pointer-events-auto" : "pointer-events-none" // 只有最顶层对话框可交互
               )}
               style={{
                 zIndex: 10 + index, // 越顶层z-index越高
               }}
               initial={{
                 opacity: 0,
-                top: inset + 6,
+                top: topInset + 10,
                 left: inset,
                 right: inset,
                 bottom: inset,
               }}
               animate={{
                 opacity,
-                top: inset,
+                top: topInset,
                 left: inset,
                 right: inset,
                 bottom: inset,
               }}
-              transition={{ duration: 0.15 }} // 快照层显示动画
+              transition={{ duration: 0.15 }} // 对话框显示动画
             >
-              <div className="h-full w-full bg-background/85 backdrop-blur-sm rounded-xl p-2">
+              <div className="h-full w-full bg-background/95 backdrop-blur-sm rounded-xl p-2">
                 <div className="flex h-full w-full flex-col">
-                  {/* 快照层标题栏 */}
+                  {/* 对话框标题栏 */}
                   <div className="shrink-0 border-b bg-background/70 backdrop-blur-sm">
                     <div className="flex items-center justify-between gap-2 px-3 py-2">
-                      {/* 快照标题 */}
+                      {/* 对话框标题 */}
                       <div className="min-w-0 text-sm font-medium">
                         <span className="truncate">
-                          {getPanelTitle(layer.component)}
+                          {getPanelTitle(dialog.component)}
                         </span>
                       </div>
-                      {/* 快照操作按钮 */}
+                      {/* 对话框操作按钮 */}
                       <div className="flex items-center gap-1">
-                        {/* 上移按钮 */}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={!snapshotKey || isLast}
-                          onClick={() => {
-                            if (!snapshotKey) return;
-                            onMoveUp(snapshotKey, layer.id);
-                          }}
-                          aria-label="Move snapshot up"
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </Button>
-                        {/* 下移按钮 */}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={!snapshotKey || isFirst}
-                          onClick={() => {
-                            if (!snapshotKey) return;
-                            onMoveDown(snapshotKey, layer.id);
-                          }}
-                          aria-label="Move snapshot down"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                        {/* 隐藏按钮 */}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={!snapshotKey}
-                          onClick={() => {
-                            if (!snapshotKey) return;
-                            onToggleHidden(snapshotKey, layer.id);
-                          }}
-                          aria-label="Hide snapshot"
-                        >
-                          <EyeOff className="h-4 w-4" />
-                        </Button>
                         {/* 关闭按钮 */}
                         <Button
                           size="sm"
                           variant="ghost"
-                          disabled={!snapshotKey}
-                          onClick={() => {
-                            if (!snapshotKey) return;
-                            onClose(snapshotKey, layer.id);
-                          }}
-                          aria-label="Close snapshot"
+                          onClick={() => onCloseDialog(dialog.id)}
+                          aria-label="Close dialog"
                         >
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
                   </div>
-                  {/* 快照内容区域 */}
+                  {/* 对话框内容区域 */}
                   <div className="min-h-0 flex-1">
                     {renderPanel({
-                      component: layer.component,
-                      params: layer.params ?? {},
-                      panelKey: layer.id,
+                      component: dialog.component,
+                      params: dialog.params ?? {},
+                      panelKey: dialog.id,
                     })}
                   </div>
                 </div>

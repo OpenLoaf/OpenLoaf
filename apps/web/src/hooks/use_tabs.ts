@@ -1,12 +1,20 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
+// 定义面板对话框接口
+export interface PanelDialog {
+  id: string;
+  component: string;
+  params: Record<string, any>;
+}
+
 // 定义面板配置接口
-interface PanelConfig {
+export interface PanelConfig {
   component: string;
   params: Record<string, any>;
   panelKey: string;
   hidden?: boolean;
+  dialogs?: PanelDialog[];
 }
 
 type PanelUpdates = Partial<{
@@ -56,6 +64,10 @@ interface TabsState {
     position?: "before" | "after"
   ) => void;
   setTabPinned: (tabId: string, isPin: boolean) => void;
+  
+  // Dialog methods
+  addPanelDialog: (side: "left" | "right", dialog: Omit<PanelDialog, "id">) => void;
+  removePanelDialog: (side: "left" | "right", dialogId: string) => void;
 }
 
 const STORAGE_KEY = "tabs-storage";
@@ -65,6 +77,13 @@ const generatePanelKey = () => {
     return crypto.randomUUID();
   }
   return `panel-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const generateDialogId = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `dialog-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
 const ensurePanelKey = (panel: PanelConfig): PanelConfig => {
@@ -77,6 +96,7 @@ const createDefaultRightPanel = (): PanelConfig => ({
   params: {},
   panelKey: generatePanelKey(),
   hidden: false,
+  dialogs: [],
 });
 
 const withPanelDefaults = <
@@ -107,6 +127,7 @@ const mergePanelConfig = (
     return ensurePanelKey({
       ...created,
       panelKey: created.panelKey || generatePanelKey(),
+      dialogs: created.dialogs || [],
     });
   }
 
@@ -124,6 +145,7 @@ const mergePanelConfig = (
     ...update,
     panelKey: nextPanelKey,
     params: { ...(current.params ?? {}), ...(update.params ?? {}) },
+    dialogs: update.dialogs ?? current.dialogs ?? [],
   };
 };
 
@@ -532,6 +554,90 @@ export const useTabs = create<TabsState>()(
           );
 
           return { tabs: newTabs };
+        });
+      },
+      
+      addPanelDialog: (side, dialogInput) => {
+        set((state) => {
+          if (!state.activeTabId) return state;
+
+          const newDialog: PanelDialog = {
+            ...dialogInput,
+            id: generateDialogId(),
+          };
+
+          const tabs = state.tabs.map((tab) => {
+            if (tab.id !== state.activeTabId) return tab;
+            
+            const normalizedTab = withPanelDefaults(tab);
+            
+            if (side === "left") {
+              const currentDialogs = normalizedTab.leftPanel?.dialogs || [];
+              return {
+                ...normalizedTab,
+                leftPanel: {
+                  ...normalizedTab.leftPanel!,
+                  dialogs: [...currentDialogs, newDialog],
+                },
+              };
+            } else {
+              const currentDialogs = normalizedTab.rightPanel?.dialogs || [];
+              return {
+                ...normalizedTab,
+                rightPanel: {
+                  ...normalizedTab.rightPanel!,
+                  dialogs: [...currentDialogs, newDialog],
+                },
+              };
+            }
+          });
+
+          // Update active panels
+          const activeTab = tabs.find(t => t.id === state.activeTabId);
+          return {
+             tabs,
+             activeLeftPanel: activeTab?.leftPanel,
+             activeRightPanel: activeTab?.rightPanel,
+          };
+        });
+      },
+
+      removePanelDialog: (side, dialogId) => {
+        set((state) => {
+          if (!state.activeTabId) return state;
+
+          const tabs = state.tabs.map((tab) => {
+            if (tab.id !== state.activeTabId) return tab;
+            
+            const normalizedTab = withPanelDefaults(tab);
+            
+            if (side === "left" && normalizedTab.leftPanel) {
+              return {
+                ...normalizedTab,
+                leftPanel: {
+                  ...normalizedTab.leftPanel,
+                  dialogs: (normalizedTab.leftPanel.dialogs || []).filter(d => d.id !== dialogId),
+                },
+              };
+            } else if (side === "right" && normalizedTab.rightPanel) {
+               return {
+                ...normalizedTab,
+                rightPanel: {
+                  ...normalizedTab.rightPanel,
+                  dialogs: (normalizedTab.rightPanel.dialogs || []).filter(d => d.id !== dialogId),
+                },
+              };
+            }
+            return normalizedTab;
+          });
+
+          // Update active panels
+          const activeTab = tabs.find(t => t.id === state.activeTabId);
+          return {
+             tabs,
+             activeLeftPanel: activeTab?.leftPanel,
+             activeRightPanel: activeTab?.rightPanel,
+          };
         });
       },
     }),
