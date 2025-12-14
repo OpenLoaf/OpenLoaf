@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { useTabs } from "@/hooks/use_tabs";
+import {
+  makePanelSnapshotKey,
+  usePanelSnapshots,
+} from "@/hooks/use_panel_snapshots";
 import PlantPage from "@/components/plant/Plant";
 import { Chat } from "../chat/Chat";
 import { cn } from "@/lib/utils";
@@ -50,11 +54,42 @@ export const MainContent: React.FC<{ className?: string }> = ({
   const prevComputedRightHiddenRef = useRef(false);
   const reduceMotion = useReducedMotion();
   const {
+    activeTabId,
     activeLeftPanel: leftPanel,
     activeRightPanel: rightPanel,
     activeLeftWidth,
     updateCurrentTabLeftWidth,
   } = useTabs();
+
+  const leftSnapshotKey = useMemo(
+    () => (activeTabId ? makePanelSnapshotKey(activeTabId, "left") : null),
+    [activeTabId]
+  );
+  const rightSnapshotKey = useMemo(
+    () => (activeTabId ? makePanelSnapshotKey(activeTabId, "right") : null),
+    [activeTabId]
+  );
+
+  const leftSnapshotState = usePanelSnapshots((state) =>
+    leftSnapshotKey ? state.byKey[leftSnapshotKey] : undefined
+  );
+  const rightSnapshotState = usePanelSnapshots((state) =>
+    rightSnapshotKey ? state.byKey[rightSnapshotKey] : undefined
+  );
+
+  const leftTopSnapshot =
+    leftSnapshotState &&
+    leftSnapshotState.layers.length > 0 &&
+    !leftSnapshotState.hiddenAll
+      ? leftSnapshotState.layers[leftSnapshotState.layers.length - 1]
+      : undefined;
+
+  const rightTopSnapshot =
+    rightSnapshotState &&
+    rightSnapshotState.layers.length > 0 &&
+    !rightSnapshotState.hiddenAll
+      ? rightSnapshotState.layers[rightSnapshotState.layers.length - 1]
+      : undefined;
 
   const hasLeftPanel = Boolean(leftPanel);
   const hasRightPanel = Boolean(rightPanel);
@@ -92,15 +127,61 @@ export const MainContent: React.FC<{ className?: string }> = ({
       ? { duration: 0 }
       : { type: "spring" as const, stiffness: 260, damping: 45 };
 
+  const effectiveLeftPanel = useMemo(() => {
+    if (!leftPanel) return null;
+    if (!leftTopSnapshot) return leftPanel;
+    return {
+      component: leftTopSnapshot.component,
+      params: leftTopSnapshot.params ?? {},
+      panelKey: leftTopSnapshot.id,
+    };
+  }, [leftPanel, leftTopSnapshot]);
+
+  const effectiveRightPanel = useMemo(() => {
+    if (!rightPanel) return null;
+    if (!rightTopSnapshot) return rightPanel;
+    return {
+      component: rightTopSnapshot.component,
+      params: rightTopSnapshot.params ?? {},
+      panelKey: rightTopSnapshot.id,
+    };
+  }, [rightPanel, rightTopSnapshot]);
+
   const renderedLeftPanel = useMemo(() => {
-    if (!leftPanel || computedLeftHidden) return null;
-    return renderPanel(leftPanel);
-  }, [leftPanel, computedLeftHidden]);
+    if (!effectiveLeftPanel || computedLeftHidden) return null;
+    return renderPanel(effectiveLeftPanel);
+  }, [effectiveLeftPanel, computedLeftHidden]);
 
   const renderedRightPanel = useMemo(() => {
-    if (!rightPanel || computedRightHidden) return null;
-    return renderPanel(rightPanel);
-  }, [rightPanel, computedRightHidden]);
+    if (!effectiveRightPanel || computedRightHidden) return null;
+    return renderPanel(effectiveRightPanel);
+  }, [effectiveRightPanel, computedRightHidden]);
+
+  useEffect(() => {
+    if (!activeTabId || !leftSnapshotKey || !leftSnapshotState) return;
+
+    let desiredWidth: number | undefined;
+
+    if (leftSnapshotState.layers.length === 0) {
+      desiredWidth = leftSnapshotState.baseLeftWidth;
+    } else if (leftSnapshotState.hiddenAll) {
+      desiredWidth = leftSnapshotState.baseLeftWidth;
+    } else {
+      desiredWidth = leftTopSnapshot?.leftWidth;
+    }
+
+    if (typeof desiredWidth === "number" && desiredWidth !== activeLeftWidth) {
+      updateCurrentTabLeftWidth(desiredWidth);
+    }
+  }, [
+    activeTabId,
+    activeLeftWidth,
+    leftSnapshotKey,
+    leftSnapshotState,
+    leftTopSnapshot?.id,
+    leftTopSnapshot?.leftWidth,
+    updateCurrentTabLeftWidth,
+  ]);
 
   const handleMouseDown = () => {
     setIsDragging(true);
@@ -117,6 +198,15 @@ export const MainContent: React.FC<{ className?: string }> = ({
       ((event.clientX - containerRect.left) / containerRect.width) * 100;
     const clampedWidth = Math.max(30, Math.min(70, newWidth));
     updateCurrentTabLeftWidth(clampedWidth);
+
+    if (activeTabId) {
+      const key = makePanelSnapshotKey(activeTabId, "left");
+      const store = usePanelSnapshots.getState();
+      const snapshot = store.byKey[key];
+      if (snapshot && snapshot.layers.length > 0 && !snapshot.hiddenAll) {
+        store.setTopLeftWidth(key, clampedWidth);
+      }
+    }
   };
 
   const handleMouseUp = () => {
@@ -186,7 +276,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
             {leftPanel && (
               <div
                 className={cn(
-                  "h-full w-full",
+                  "h-full w-full relative",
                   !computedLeftHidden && "p-4 pr-2"
                 )}
               >
@@ -238,7 +328,10 @@ export const MainContent: React.FC<{ className?: string }> = ({
               }}
             >
               <div
-                className={cn("h-full w-full", !computedRightHidden && "p-4")}
+                className={cn(
+                  "h-full w-full relative",
+                  !computedRightHidden && "p-4"
+                )}
               >
                 {renderedRightPanel}
               </div>
