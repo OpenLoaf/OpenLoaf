@@ -2,22 +2,9 @@
   "name": "teatime-ai",
   "private": true,
   "type": "module",
-  "workspaces": {
-    "packages": [
-      "apps/*",
-      "packages/*"
-    ],
-    "catalog": {
-      "hono": "^4.8.2",
-      "@trpc/server": "^11.5.0",
-      "dotenv": "^17.2.2",
-      "@trpc/client": "^11.5.0",
-      "@prisma/client": "^7.0.1"
-    }
-  },
   "scripts": {
     "prepare": "husky",
-    "ruler:apply": "bunx @intellectronica/ruler@latest apply --local-only",
+    "ruler:apply": "pnpm dlx @intellectronica/ruler@latest apply --local-only",
     "dev": "turbo dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
@@ -42,15 +29,16 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.6",
+    "@types/node": "^22.13.11",
     "biome": "^0.3.3",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.2",
     "shadcn": "^3.5.2",
-    "turbo": "^2.5.4"
+    "turbo": "^2.5.4",
+    "typescript": "catalog:"
   },
   "lint-staged": {
     "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue,astro,svelte}": "biome check --apply --write"
   },
-  "packageManager": "bun@1.3.3"
+  "packageManager": "pnpm@10.22.0"
 }

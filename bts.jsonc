@@ -8,7 +8,7 @@
   "database": "sqlite",
   "orm": "prisma",
   "backend": "hono",
-  "runtime": "bun",
+  "runtime": "node",
   "frontend": [
     "next"
   ],
@@ -21,7 +21,7 @@
   ],
   "examples": [],
   "auth": "none",
-  "packageManager": "bun",
+  "packageManager": "pnpm",
   "dbSetup": "none",
   "api": "trpc",
   "webDeploy": "none",

@@ -17,13 +17,14 @@
     "db:studio": "prisma studio",
     "db:generate": "DEBUG=prisma:* prisma generate ",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "bun src/seed.ts"
+    "db:seed": "tsx src/seed.ts"
   },
   "devDependencies": {
     "@teatime-ai/config": "workspace:*",
     "prisma": "^7.0.1",
     "prisma-trpc-generator": "^3.0.1",
-    "prisma-zod-generator": "^2.1.2"
+    "prisma-zod-generator": "^2.1.2",
+    "tsx": "^4.19.2"
   },
   "peerDependencies": {
     "typescript": "^5"

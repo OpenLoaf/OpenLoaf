@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../.next",
     "devUrl": "http://localhost:3001",
-    "beforeDevCommand": "bun run --cwd ../.. dev",
-    "beforeBuildCommand": "bun run --cwd ../.. build"
+    "beforeDevCommand": "pnpm run dev",
+    "beforeBuildCommand": "pnpm run build"
   },
   "app": {
     "windows": [

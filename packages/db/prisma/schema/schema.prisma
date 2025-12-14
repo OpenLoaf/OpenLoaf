@@ -2,14 +2,14 @@ generator client {
   provider     = "prisma-client"
   output       = "../generated" // 输出目录
   moduleFormat = "esm" // 使用ES模块格式
-  runtime      = "bun" // 使用Bun作为运行时
+  runtime      = "nodejs"
 }
 
 // generator zod {
 //   provider     = "prisma-zod-generator"
 //   output       = "../../../api/generated/zod"
 //   moduleFormat = "esm"
-//   runtime      = "bun"
+//   runtime      = "nodejs"
 // }
 
 generator trpc {
@@ -17,7 +17,7 @@ generator trpc {
   output       = "../../../api/generated"
   config       = "./trpc.config.json"
   moduleFormat = "esm"
-  runtime      = "bun"
+  runtime      = "nodejs"
 }
 
 datasource db {

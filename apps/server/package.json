@@ -5,15 +5,14 @@
   "scripts": {
     "build": "tsdown",
     "check-types": "tsc -b",
-    "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-    "dev": "bun --hot src/index.ts",
-    "dev:inspect": "bun --inspect run --hot src/index.ts",
-    "start": "bun run dist/index.js"
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.0-beta.47",
     "@ai-sdk/openai": "^3.0.0-beta.87",
     "@hono/trpc-server": "^0.4.0",
+    "@hono/node-server": "^1.14.4",
     "@teatime-ai/api": "workspace:*",
     "@teatime-ai/db": "workspace:*",
     "@trpc/server": "catalog:",
@@ -25,8 +24,9 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "typescript": "^5.8.2",
-    "@types/bun": "^1.2.6",
+    "@types/node": "^22.13.11",
+    "tsx": "^4.19.2",
+    "typescript": "catalog:",
     "tsdown": "^0.16.5",
     "@teatime-ai/config": "workspace:*"
   }

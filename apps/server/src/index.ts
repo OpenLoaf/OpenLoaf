@@ -6,6 +6,7 @@ import { t } from "@teatime-ai/api";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { serve } from "@hono/node-server";
 import { registerChatSse } from "./chat/sse";
 import { workspaceRouterImplementation } from "./routers/workspace";
 import { getTeatimeConfig } from "./config/index";
@@ -72,12 +73,15 @@ app.get("/", (c) => {
 const port = Number(process.env.PORT ?? 3000);
 const hostname = process.env.HOST ?? "127.0.0.1";
 
-const server = Bun.serve({
-  port,
-  hostname,
-  fetch: app.fetch,
-});
-
-console.log(`Server listening on ${server.url.toString()}`);
+serve(
+  {
+    fetch: app.fetch,
+    port,
+    hostname,
+  },
+  (info) => {
+    console.log(`Server listening on http://${hostname}:${info.port}`);
+  }
+);
 
 export default app;
