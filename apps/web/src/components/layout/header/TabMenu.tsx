@@ -8,7 +8,6 @@ import {
   ContextMenuShortcut,
 } from "@/components/ui/context-menu";
 import type { Tab } from "@/hooks/use_tabs";
-import type { DragEvent } from "react";
 
 interface TabMenuProps {
   tab: Tab;
@@ -16,10 +15,10 @@ interface TabMenuProps {
   activeTabRef: React.RefObject<HTMLButtonElement | null>;
   closeTab: (tabId: string) => void;
   workspaceTabs: Tab[];
-  onDragStart?: (tabId: string) => void;
-  onDragOver?: (event: DragEvent<HTMLButtonElement>, tabId: string) => void;
-  onDrop?: (tabId: string) => void;
-  onDragEnd?: () => void;
+  onReorderPointerDown?: (
+    event: React.PointerEvent<HTMLButtonElement>,
+    tabId: string
+  ) => void;
   isDragging?: boolean;
   isPinned?: boolean;
   onTogglePin?: (tabId: string, pin: boolean) => void;
@@ -31,10 +30,7 @@ export const TabMenu = ({
   activeTabRef,
   closeTab,
   workspaceTabs,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  onDragEnd,
+  onReorderPointerDown,
   isDragging = false,
   isPinned = false,
   onTogglePin,
@@ -49,22 +45,10 @@ export const TabMenu = ({
         <TabsTrigger
           ref={tab.id === activeTabId ? activeTabRef : null}
           value={tab.id}
-          draggable
           data-no-drag="true"
+          data-tab-id={tab.id}
           data-pinned={isPinned ? "true" : "false"}
-          onDragStart={(event) => {
-            event.dataTransfer.effectAllowed = "move";
-            onDragStart?.(tab.id);
-          }}
-          onDragOver={(event) => {
-            event.preventDefault();
-            onDragOver?.(event, tab.id);
-          }}
-          onDrop={(event) => {
-            event.preventDefault();
-            onDrop?.(tab.id);
-          }}
-          onDragEnd={onDragEnd}
+          onPointerDown={(event) => onReorderPointerDown?.(event, tab.id)}
           className={`h-7 pl-1.5 pr-3.5 text-xs gap-0 rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:border-transparent aria-selected:shadow-none relative z-10 flex items-center max-w-[200px] flex-none w-auto shrink-0`}
         >
           {tab.icon === "bot" ? (

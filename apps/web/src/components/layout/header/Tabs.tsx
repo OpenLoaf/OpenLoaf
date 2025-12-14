@@ -3,7 +3,7 @@ import { Tabs, TabsList } from "@/components/animate-ui/components/radix/tabs";
 import { useTabs, DEFAULT_TAB_INFO } from "@/hooks/use_tabs";
 import { useWorkspace } from "@/app/page";
 import { Button } from "@/components/ui/button";
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TabMenu } from "./TabMenu";
 
 export const HeaderTabs = () => {
@@ -18,21 +18,34 @@ export const HeaderTabs = () => {
     setTabPinned,
   } = useTabs();
   const { workspace: activeWorkspace } = useWorkspace();
+  const activeWorkspaceIdRef = useRef<string | null>(null);
   const tabsScrollViewportRef = useRef<HTMLDivElement>(null);
   const tabsScrollContentRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
-  const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
-  const [dropIndicatorLeft, setDropIndicatorLeft] = useState<number | null>(
-    null
-  );
-  const [dropPlacement, setDropPlacement] = useState<"before" | "after">(
-    "before"
-  );
+  const [reorderingTabId, setReorderingTabId] = useState<string | null>(null);
+  const reorderingTabIdRef = useRef<string | null>(null);
+  const workspaceTabsRef = useRef<
+    Array<{ id: string; isPin?: boolean | undefined }>
+  >([]);
+  const pointerSessionRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    lastX: number;
+    didReorder: boolean;
+  } | null>(null);
+  const swapRafRef = useRef<number | null>(null);
+  const lastSwapKeyRef = useRef<string | null>(null);
 
   // 获取当前工作区的标签列表
   const workspaceTabs = activeWorkspace
     ? getWorkspaceTabs(activeWorkspace.id)
     : [];
+  activeWorkspaceIdRef.current = activeWorkspace?.id ?? null;
+  workspaceTabsRef.current = workspaceTabs.map((t) => ({
+    id: t.id,
+    isPin: t.isPin,
+  }));
   const pinnedTabs = workspaceTabs.filter((tab) => tab.isPin);
   const regularTabs = workspaceTabs.filter((tab) => !tab.isPin);
 
@@ -55,6 +68,12 @@ export const HeaderTabs = () => {
     }
   }, [activeWorkspace, tabs, addTab]);
 
+  useEffect(() => {
+    return () => {
+      if (swapRafRef.current) cancelAnimationFrame(swapRafRef.current);
+    };
+  }, []);
+
   const handleAddTab = () => {
     if (!activeWorkspace) return;
 
@@ -66,83 +85,115 @@ export const HeaderTabs = () => {
     });
   };
 
-  const handleTabDrop = (targetTabId: string) => {
-    if (!activeWorkspace) return;
-
-    if (!draggingTabId || draggingTabId === targetTabId) {
-      setDraggingTabId(null);
-      setDropIndicatorLeft(null);
-      return;
-    }
-
-    reorderTabs(activeWorkspace.id, draggingTabId, targetTabId, dropPlacement);
-    setDraggingTabId(null);
-    setDropIndicatorLeft(null);
+  const clearPointerSession = () => {
+    pointerSessionRef.current = null;
+    reorderingTabIdRef.current = null;
+    setReorderingTabId(null);
   };
 
-  const handleTabDragStart = (tabId: string) => {
-    setDraggingTabId(tabId);
-  };
-
-  const handleTabDragOver = (
-    event: DragEvent<HTMLButtonElement>,
-    _targetTabId: string
+  const handleReorderPointerDown = (
+    event: React.PointerEvent<HTMLButtonElement>,
+    tabId: string
   ) => {
-    event.preventDefault();
-    if (!activeWorkspace || !draggingTabId) return;
+    if (event.button !== 0) return;
+    if (!activeWorkspaceIdRef.current) return;
 
-    const target = event.currentTarget;
-    const tabsScrollContent = tabsScrollContentRef.current;
-    if (!tabsScrollContent) return;
+    pointerSessionRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      lastX: event.clientX,
+      didReorder: false,
+    };
 
-    const rect = target.getBoundingClientRect();
-    const tabsScrollContentRect = tabsScrollContent.getBoundingClientRect();
-    const targetPinned = target.dataset.pinned === "true";
-    const sourcePinned = workspaceTabs.find(
-      (tab) => tab.id === draggingTabId
-    )?.isPin;
+    reorderingTabIdRef.current = tabId;
+    setReorderingTabId(tabId);
 
-    if (!sourcePinned && targetPinned) {
-      const pinnedElements =
-        tabsScrollContent.querySelectorAll('[data-pinned="true"]');
-      const lastPinned = pinnedElements[
-        pinnedElements.length - 1
-      ] as HTMLButtonElement | null;
-      if (lastPinned) {
-        const lastRect = lastPinned.getBoundingClientRect();
-        setDropPlacement("before");
-        setDropIndicatorLeft(lastRect.right - tabsScrollContentRect.left);
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const session = pointerSessionRef.current;
+      if (!session) return;
+      if (moveEvent.pointerId !== session.pointerId) return;
+
+      const dx = moveEvent.clientX - session.startX;
+      const dy = moveEvent.clientY - session.startY;
+
+      const threshold = 4;
+      if (!session.didReorder && Math.hypot(dx, dy) < threshold) {
+        session.lastX = moveEvent.clientX;
+        return;
       }
-      return;
-    }
 
-    if (sourcePinned && !targetPinned) {
-      const pinnedElements =
-        tabsScrollContent.querySelectorAll('[data-pinned="true"]');
-      const lastPinned = pinnedElements[
-        pinnedElements.length - 1
-      ] as HTMLButtonElement | null;
-      if (lastPinned) {
-        const lastRect = lastPinned.getBoundingClientRect();
-        setDropPlacement("after");
-        setDropIndicatorLeft(lastRect.right - tabsScrollContentRect.left);
+      const viewport = tabsScrollViewportRef.current;
+      if (viewport) {
+        const viewportRect = viewport.getBoundingClientRect();
+        const edge = 24;
+        if (moveEvent.clientX < viewportRect.left + edge) {
+          viewport.scrollLeft -= 12;
+        } else if (moveEvent.clientX > viewportRect.right - edge) {
+          viewport.scrollLeft += 12;
+        }
       }
-      return;
-    }
 
-    const isAfter = event.clientX > rect.left + rect.width / 2;
+      if (swapRafRef.current) return;
+      swapRafRef.current = requestAnimationFrame(() => {
+        swapRafRef.current = null;
+        const workspaceId = activeWorkspaceIdRef.current;
+        const sourceTabId = reorderingTabIdRef.current;
+        if (!workspaceId || !sourceTabId) return;
 
-    setDropPlacement(isAfter ? "after" : "before");
-    setDropIndicatorLeft(
-      isAfter
-        ? rect.right - tabsScrollContentRect.left
-        : rect.left - tabsScrollContentRect.left
-    );
-  };
+        const currentTabs = workspaceTabsRef.current;
+        const sourceIndex = currentTabs.findIndex((t) => t.id === sourceTabId);
+        if (sourceIndex === -1) return;
 
-  const handleTabDragEnd = () => {
-    setDraggingTabId(null);
-    setDropIndicatorLeft(null);
+        const direction =
+          moveEvent.clientX > session.lastX ? "right" : "left";
+        session.lastX = moveEvent.clientX;
+
+        const neighborIndex =
+          direction === "right" ? sourceIndex + 1 : sourceIndex - 1;
+        const neighbor = currentTabs[neighborIndex];
+        if (!neighbor) return;
+
+        const sourcePinned = currentTabs[sourceIndex]?.isPin ?? false;
+        const neighborPinned = neighbor.isPin ?? false;
+        if (sourcePinned !== neighborPinned) return;
+
+        const neighborEl =
+          tabsScrollContentRef.current?.querySelector<HTMLElement>(
+            `[data-tab-id="${neighbor.id}"]`
+          );
+        if (!neighborEl) return;
+
+        const rect = neighborEl.getBoundingClientRect();
+        const midX = rect.left + rect.width / 2;
+        const crossed =
+          direction === "right" ? moveEvent.clientX > midX : moveEvent.clientX < midX;
+        if (!crossed) return;
+
+        const placement = direction === "right" ? "after" : "before";
+        const swapKey = `${workspaceId}:${sourceTabId}:${neighbor.id}:${placement}`;
+        if (lastSwapKeyRef.current === swapKey) return;
+        lastSwapKeyRef.current = swapKey;
+
+        session.didReorder = true;
+        reorderTabs(workspaceId, sourceTabId, neighbor.id, placement);
+      });
+    };
+
+    const onPointerUpOrCancel = (upEvent: PointerEvent) => {
+      const session = pointerSessionRef.current;
+      if (!session) return;
+      if (upEvent.pointerId !== session.pointerId) return;
+
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUpOrCancel);
+      window.removeEventListener("pointercancel", onPointerUpOrCancel);
+      clearPointerSession();
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUpOrCancel);
+    window.addEventListener("pointercancel", onPointerUpOrCancel);
   };
 
   const handleTogglePin = (tabId: string, pin: boolean) => {
@@ -205,14 +256,14 @@ export const HeaderTabs = () => {
           <div
             ref={tabsScrollContentRef}
             className="relative flex w-max items-center gap-1 [&_[data-slot=tabs-highlight-item]]:flex-none"
+            onClickCapture={(event) => {
+              if (pointerSessionRef.current?.didReorder) {
+                event.preventDefault();
+                event.stopPropagation();
+                pointerSessionRef.current.didReorder = false;
+              }
+            }}
           >
-            {draggingTabId && dropIndicatorLeft !== null && (
-              <div
-                className="absolute top-1/2 -translate-y-1/2 h-7 w-[2px] bg-primary z-20 transition-[left]"
-                style={{ left: dropIndicatorLeft }}
-              />
-            )}
-
             {pinnedTabs.map((tab) => (
               <TabMenu
                 key={tab.id}
@@ -221,11 +272,8 @@ export const HeaderTabs = () => {
                 activeTabRef={activeTabRef}
                 closeTab={closeTab}
                 workspaceTabs={workspaceTabs}
-                onDragStart={handleTabDragStart}
-                onDragOver={handleTabDragOver}
-                onDrop={handleTabDrop}
-                onDragEnd={handleTabDragEnd}
-                isDragging={draggingTabId === tab.id}
+                onReorderPointerDown={handleReorderPointerDown}
+                isDragging={reorderingTabId === tab.id}
                 isPinned={tab.isPin}
                 onTogglePin={handleTogglePin}
               />
@@ -244,11 +292,8 @@ export const HeaderTabs = () => {
                 activeTabRef={activeTabRef}
                 closeTab={closeTab}
                 workspaceTabs={workspaceTabs}
-                onDragStart={handleTabDragStart}
-                onDragOver={handleTabDragOver}
-                onDrop={handleTabDrop}
-                onDragEnd={handleTabDragEnd}
-                isDragging={draggingTabId === tab.id}
+                onReorderPointerDown={handleReorderPointerDown}
+                isDragging={reorderingTabId === tab.id}
                 isPinned={tab.isPin}
                 onTogglePin={handleTogglePin}
               />
