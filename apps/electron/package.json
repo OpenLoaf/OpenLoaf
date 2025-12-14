@@ -5,8 +5,9 @@
   "description": "My Electron application description",
   "main": ".webpack/main",
   "scripts": {
+    "dev": "electron-forge start",
     "desktop": "electron-forge start",
-    "build": "electron-forge package",
+    "build": "pnpm -w turbo build --filter=server --filter=web && electron-forge package",
     "start": "electron-forge start"
   },
   "keywords": [],
@@ -21,6 +22,6 @@
     "@electron-forge/shared-types": "^7.10.2",
     "electron": "^39.2.7",
     "ts-loader": "^9.2.2",
-    "typescript": "~4.5.4"
+    "typescript": "catalog:"
   }
 }
