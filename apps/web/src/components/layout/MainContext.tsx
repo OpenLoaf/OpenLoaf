@@ -9,10 +9,23 @@ import {
 import PlantPage from "@/components/plant/Plant";
 import { Chat } from "../chat/Chat";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronUp, EyeOff, X } from "lucide-react";
 
 const ComponentMap: Record<string, React.ComponentType<any>> = {
   "ai-chat": Chat,
   "plant-page": PlantPage,
+};
+
+const getPanelTitle = (componentName: string) => {
+  switch (componentName) {
+    case "ai-chat":
+      return "AI Chat";
+    case "plant-page":
+      return "Plant";
+    default:
+      return componentName;
+  }
 };
 
 const renderPanel = (panel: {
@@ -44,19 +57,35 @@ const renderPanel = (panel: {
 
 const renderPanelWithSnapshots = ({
   basePanel,
+  snapshotKey,
   snapshotLayers,
   snapshotHiddenAll,
+  onMoveUp,
+  onMoveDown,
+  onToggleHidden,
+  onClose,
+  onSetHiddenAll,
+  onSetAllSnapshotsHidden,
 }: {
   basePanel: { component: string; params: Record<string, any>; panelKey: string };
+  snapshotKey: string | null;
   snapshotLayers?: SnapshotLayer[];
   snapshotHiddenAll?: boolean;
+  onMoveUp: (key: string, layerId: string) => void;
+  onMoveDown: (key: string, layerId: string) => void;
+  onToggleHidden: (key: string, layerId: string) => void;
+  onClose: (key: string, layerId: string) => void;
+  onSetHiddenAll: (key: string, hiddenAll: boolean) => void;
+  onSetAllSnapshotsHidden: (key: string, hidden: boolean) => void;
 }) => {
-  const layers =
-    snapshotHiddenAll || !snapshotLayers || snapshotLayers.length === 0
-      ? []
-      : snapshotLayers;
+  const allLayers =
+    !snapshotLayers || snapshotLayers.length === 0 ? [] : snapshotLayers;
+  const visibleLayers = snapshotHiddenAll
+    ? []
+    : allLayers.filter((layer) => !layer.hidden);
+  const hiddenCount = allLayers.length - visibleLayers.length;
 
-  const hasOverlay = layers.length > 0;
+  const hasOverlay = visibleLayers.length > 0;
 
   return (
     <>
@@ -69,12 +98,41 @@ const renderPanelWithSnapshots = ({
         {renderPanel(basePanel)}
       </div>
 
+      {snapshotHiddenAll && snapshotKey && allLayers.length > 0 && (
+        <div className="absolute right-3 top-3 z-30 pointer-events-auto">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => onSetHiddenAll(snapshotKey, false)}
+          >
+            Show snapshots ({allLayers.length})
+          </Button>
+        </div>
+      )}
+
+      {!snapshotHiddenAll && snapshotKey && hiddenCount > 0 && (
+        <div className="absolute right-3 top-3 z-30 pointer-events-auto">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => onSetAllSnapshotsHidden(snapshotKey, false)}
+          >
+            Show hidden ({hiddenCount})
+          </Button>
+        </div>
+      )}
+
       {hasOverlay &&
-        layers.map((layer, index) => {
-          const depthFromTop = layers.length - 1 - index;
+        visibleLayers.map((layer, index) => {
+          const depthFromTop = visibleLayers.length - 1 - index;
           const isTop = depthFromTop === 0;
           const opacity = 1 - depthFromTop * 0.12;
-          const inset = (depthFromTop + 1) * 10;
+          const baseInset = 16;
+          const stackedOffset = depthFromTop * 10;
+          const inset = baseInset + stackedOffset;
+
+          const isFirst = index === 0;
+          const isLast = index === visibleLayers.length - 1;
 
           return (
             <motion.div
@@ -102,12 +160,75 @@ const renderPanelWithSnapshots = ({
               }}
               transition={{ duration: 0.15 }}
             >
-              <div className="h-full w-full bg-background/85 backdrop-blur-sm">
-                {renderPanel({
-                  component: layer.component,
-                  params: layer.params ?? {},
-                  panelKey: layer.id,
-                })}
+              <div className="h-full w-full bg-background/85 backdrop-blur-sm rounded-xl p-2">
+                <div className="flex h-full w-full flex-col">
+                  <div className="shrink-0 border-b bg-background/70 backdrop-blur-sm">
+                    <div className="flex items-center justify-between gap-2 px-3 py-2">
+                      <div className="min-w-0 text-sm font-medium">
+                        <span className="truncate">
+                          {getPanelTitle(layer.component)}
+                        </span>
+                      </div>
+	                      <div className="flex items-center gap-1">
+	                        <Button
+	                          size="sm"
+	                          variant="ghost"
+	                          disabled={!snapshotKey || isLast}
+	                          onClick={() => {
+	                            if (!snapshotKey) return;
+	                            onMoveUp(snapshotKey, layer.id);
+	                          }}
+	                          aria-label="Move snapshot up"
+	                        >
+	                          <ChevronUp className="h-4 w-4" />
+	                        </Button>
+	                        <Button
+	                          size="sm"
+	                          variant="ghost"
+	                          disabled={!snapshotKey || isFirst}
+	                          onClick={() => {
+	                            if (!snapshotKey) return;
+	                            onMoveDown(snapshotKey, layer.id);
+	                          }}
+	                          aria-label="Move snapshot down"
+	                        >
+	                          <ChevronDown className="h-4 w-4" />
+	                        </Button>
+	                        <Button
+	                          size="sm"
+	                          variant="ghost"
+	                          disabled={!snapshotKey}
+	                          onClick={() => {
+	                            if (!snapshotKey) return;
+	                            onToggleHidden(snapshotKey, layer.id);
+	                          }}
+	                          aria-label="Hide snapshot"
+	                        >
+	                          <EyeOff className="h-4 w-4" />
+	                        </Button>
+	                        <Button
+	                          size="sm"
+	                          variant="ghost"
+	                          disabled={!snapshotKey}
+	                          onClick={() => {
+	                            if (!snapshotKey) return;
+	                            onClose(snapshotKey, layer.id);
+	                          }}
+	                          aria-label="Close snapshot"
+	                        >
+	                          <X className="h-4 w-4" />
+	                        </Button>
+	                      </div>
+	                    </div>
+	                  </div>
+                  <div className="min-h-0 flex-1">
+                    {renderPanel({
+                      component: layer.component,
+                      params: layer.params ?? {},
+                      panelKey: layer.id,
+                    })}
+                  </div>
+                </div>
               </div>
             </motion.div>
           );
@@ -150,19 +271,29 @@ export const MainContent: React.FC<{ className?: string }> = ({
   const rightSnapshotState = usePanelSnapshots((state) =>
     rightSnapshotKey ? state.byKey[rightSnapshotKey] : undefined
   );
+  const moveSnapshotUp = usePanelSnapshots((state) => state.moveSnapshotUp);
+  const moveSnapshotDown = usePanelSnapshots((state) => state.moveSnapshotDown);
+  const toggleSnapshotHidden = usePanelSnapshots(
+    (state) => state.toggleSnapshotHidden
+  );
+  const setAllSnapshotsHidden = usePanelSnapshots(
+    (state) => state.setAllSnapshotsHidden
+  );
+  const closeSnapshot = usePanelSnapshots((state) => state.closeSnapshot);
+  const setHiddenAll = usePanelSnapshots((state) => state.setHiddenAll);
 
   const leftTopSnapshot =
     leftSnapshotState &&
     leftSnapshotState.layers.length > 0 &&
     !leftSnapshotState.hiddenAll
-      ? leftSnapshotState.layers[leftSnapshotState.layers.length - 1]
+      ? [...leftSnapshotState.layers].reverse().find((l) => !l.hidden)
       : undefined;
 
   const rightTopSnapshot =
     rightSnapshotState &&
     rightSnapshotState.layers.length > 0 &&
     !rightSnapshotState.hiddenAll
-      ? rightSnapshotState.layers[rightSnapshotState.layers.length - 1]
+      ? [...rightSnapshotState.layers].reverse().find((l) => !l.hidden)
       : undefined;
 
   const hasLeftPanel = Boolean(leftPanel);
@@ -205,28 +336,56 @@ export const MainContent: React.FC<{ className?: string }> = ({
     if (!leftPanel || computedLeftHidden) return null;
     return renderPanelWithSnapshots({
       basePanel: leftPanel,
+      snapshotKey: leftSnapshotKey,
       snapshotLayers: leftSnapshotState?.layers,
       snapshotHiddenAll: leftSnapshotState?.hiddenAll,
+      onMoveUp: moveSnapshotUp,
+      onMoveDown: moveSnapshotDown,
+      onToggleHidden: toggleSnapshotHidden,
+      onClose: closeSnapshot,
+      onSetHiddenAll: setHiddenAll,
+      onSetAllSnapshotsHidden: setAllSnapshotsHidden,
     });
   }, [
     leftPanel,
+    leftSnapshotKey,
     computedLeftHidden,
     leftSnapshotState?.layers,
     leftSnapshotState?.hiddenAll,
+    moveSnapshotUp,
+    moveSnapshotDown,
+    toggleSnapshotHidden,
+    closeSnapshot,
+    setHiddenAll,
+    setAllSnapshotsHidden,
   ]);
 
   const renderedRightPanel = useMemo(() => {
     if (!rightPanel || computedRightHidden) return null;
     return renderPanelWithSnapshots({
       basePanel: rightPanel,
+      snapshotKey: rightSnapshotKey,
       snapshotLayers: rightSnapshotState?.layers,
       snapshotHiddenAll: rightSnapshotState?.hiddenAll,
+      onMoveUp: moveSnapshotUp,
+      onMoveDown: moveSnapshotDown,
+      onToggleHidden: toggleSnapshotHidden,
+      onClose: closeSnapshot,
+      onSetHiddenAll: setHiddenAll,
+      onSetAllSnapshotsHidden: setAllSnapshotsHidden,
     });
   }, [
     rightPanel,
+    rightSnapshotKey,
     computedRightHidden,
     rightSnapshotState?.layers,
     rightSnapshotState?.hiddenAll,
+    moveSnapshotUp,
+    moveSnapshotDown,
+    toggleSnapshotHidden,
+    closeSnapshot,
+    setHiddenAll,
+    setAllSnapshotsHidden,
   ]);
 
   useEffect(() => {

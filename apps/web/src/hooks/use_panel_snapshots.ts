@@ -9,6 +9,7 @@ export type SnapshotLayer = {
   component: string;
   params: Record<string, any>;
   leftWidth?: number;
+  hidden?: boolean;
   createdAt: number;
 };
 
@@ -30,6 +31,10 @@ type PanelSnapshotsStore = {
   pushSnapshot: (key: string, layer: SnapshotLayerInput) => SnapshotLayer;
   closeTopSnapshot: (key: string) => void;
   closeSnapshot: (key: string, layerId: string) => void;
+  moveSnapshotUp: (key: string, layerId: string) => void;
+  moveSnapshotDown: (key: string, layerId: string) => void;
+  toggleSnapshotHidden: (key: string, layerId: string) => void;
+  setAllSnapshotsHidden: (key: string, hidden: boolean) => void;
   setHiddenAll: (key: string, hiddenAll: boolean) => void;
   setTopLeftWidth: (key: string, leftWidth: number) => void;
 };
@@ -58,6 +63,7 @@ export const usePanelSnapshots = create<PanelSnapshotsStore>()((set) => ({
       component: layer.component,
       params: layer.params ?? {},
       leftWidth: layer.leftWidth,
+      hidden: false,
       createdAt: Date.now(),
     };
 
@@ -121,6 +127,103 @@ export const usePanelSnapshots = create<PanelSnapshotsStore>()((set) => ({
     });
   },
 
+  moveSnapshotUp: (key, layerId) => {
+    set((state) => {
+      const current = state.byKey[key];
+      if (!current || current.layers.length < 2) return state;
+
+      const index = current.layers.findIndex((l) => l.id === layerId);
+      if (index === -1 || index === current.layers.length - 1) return state;
+
+      const nextLayers = [...current.layers];
+      const tmp = nextLayers[index];
+      nextLayers[index] = nextLayers[index + 1];
+      nextLayers[index + 1] = tmp;
+
+      return {
+        byKey: {
+          ...state.byKey,
+          [key]: {
+            ...current,
+            layers: nextLayers,
+          },
+        },
+      };
+    });
+  },
+
+  moveSnapshotDown: (key, layerId) => {
+    set((state) => {
+      const current = state.byKey[key];
+      if (!current || current.layers.length < 2) return state;
+
+      const index = current.layers.findIndex((l) => l.id === layerId);
+      if (index <= 0) return state;
+
+      const nextLayers = [...current.layers];
+      const tmp = nextLayers[index];
+      nextLayers[index] = nextLayers[index - 1];
+      nextLayers[index - 1] = tmp;
+
+      return {
+        byKey: {
+          ...state.byKey,
+          [key]: {
+            ...current,
+            layers: nextLayers,
+          },
+        },
+      };
+    });
+  },
+
+  toggleSnapshotHidden: (key, layerId) => {
+    set((state) => {
+      const current = state.byKey[key];
+      if (!current || current.layers.length === 0) return state;
+
+      const index = current.layers.findIndex((l) => l.id === layerId);
+      if (index === -1) return state;
+
+      const target = current.layers[index];
+      const nextTarget = { ...target, hidden: !target.hidden };
+
+      const nextLayers = [...current.layers];
+      nextLayers[index] = nextTarget;
+
+      return {
+        byKey: {
+          ...state.byKey,
+          [key]: {
+            ...current,
+            layers: nextLayers,
+          },
+        },
+      };
+    });
+  },
+
+  setAllSnapshotsHidden: (key, hidden) => {
+    set((state) => {
+      const current = state.byKey[key];
+      if (!current || current.layers.length === 0) return state;
+
+      const nextLayers = current.layers.map((layer) =>
+        layer.hidden === hidden ? layer : { ...layer, hidden }
+      );
+
+      return {
+        byKey: {
+          ...state.byKey,
+          [key]: {
+            ...current,
+            layers: nextLayers,
+          },
+        },
+      };
+    });
+  },
+
   setHiddenAll: (key, hiddenAll) => {
     set((state) => {
       const current = ensureState(state.byKey, key);
@@ -160,4 +263,3 @@ export const usePanelSnapshots = create<PanelSnapshotsStore>()((set) => ({
     });
   },
 }));
-
