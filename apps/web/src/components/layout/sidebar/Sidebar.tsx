@@ -13,6 +13,7 @@ import {
   makePanelSnapshotKey,
   usePanelSnapshots,
 } from "@/hooks/use_panel_snapshots";
+import { Globe } from "lucide-react";
 
 export const AppSidebar = ({
   ...props
@@ -21,6 +22,10 @@ export const AppSidebar = ({
   const pushSnapshot = usePanelSnapshots((state) => state.pushSnapshot);
   const closeTopSnapshot = usePanelSnapshots((state) => state.closeTopSnapshot);
   const setHiddenAll = usePanelSnapshots((state) => state.setHiddenAll);
+
+  const isElectron =
+    process.env.NEXT_PUBLIC_ELECTRON === "1" ||
+    (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
 
   const leftSnapshotKey = activeTabId
     ? makePanelSnapshotKey(activeTabId, "left")
@@ -75,6 +80,23 @@ export const AppSidebar = ({
           >
             Snapshot: Plant
           </Button>
+          {isElectron && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (!leftSnapshotKey) return;
+                pushSnapshot(leftSnapshotKey, {
+                  component: "electron-browser",
+                  params: { url: "https://example.com" },
+                  leftWidth: activeLeftWidth,
+                });
+              }}
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              Snapshot: Browser
+            </Button>
+          )}
           <div className="flex gap-2">
             <Button
               size="sm"
