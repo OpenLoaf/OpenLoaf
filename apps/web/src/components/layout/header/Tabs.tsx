@@ -18,7 +18,8 @@ export const HeaderTabs = () => {
     setTabPinned,
   } = useTabs();
   const { workspace: activeWorkspace } = useWorkspace();
-  const tabsListRef = useRef<HTMLDivElement>(null);
+  const tabsScrollViewportRef = useRef<HTMLDivElement>(null);
+  const tabsScrollContentRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [dropIndicatorLeft, setDropIndicatorLeft] = useState<number | null>(
@@ -91,38 +92,40 @@ export const HeaderTabs = () => {
     if (!activeWorkspace || !draggingTabId) return;
 
     const target = event.currentTarget;
-    const tabsList = tabsListRef.current;
-    if (!tabsList) return;
+    const tabsScrollContent = tabsScrollContentRef.current;
+    if (!tabsScrollContent) return;
 
     const rect = target.getBoundingClientRect();
-    const tabsListRect = tabsList.getBoundingClientRect();
+    const tabsScrollContentRect = tabsScrollContent.getBoundingClientRect();
     const targetPinned = target.dataset.pinned === "true";
     const sourcePinned = workspaceTabs.find(
       (tab) => tab.id === draggingTabId
     )?.isPin;
 
     if (!sourcePinned && targetPinned) {
-      const pinnedElements = tabsList.querySelectorAll('[data-pinned="true"]');
+      const pinnedElements =
+        tabsScrollContent.querySelectorAll('[data-pinned="true"]');
       const lastPinned = pinnedElements[
         pinnedElements.length - 1
       ] as HTMLButtonElement | null;
       if (lastPinned) {
         const lastRect = lastPinned.getBoundingClientRect();
         setDropPlacement("before");
-        setDropIndicatorLeft(lastRect.right - tabsListRect.left);
+        setDropIndicatorLeft(lastRect.right - tabsScrollContentRect.left);
       }
       return;
     }
 
     if (sourcePinned && !targetPinned) {
-      const pinnedElements = tabsList.querySelectorAll('[data-pinned="true"]');
+      const pinnedElements =
+        tabsScrollContent.querySelectorAll('[data-pinned="true"]');
       const lastPinned = pinnedElements[
         pinnedElements.length - 1
       ] as HTMLButtonElement | null;
       if (lastPinned) {
         const lastRect = lastPinned.getBoundingClientRect();
         setDropPlacement("after");
-        setDropIndicatorLeft(lastRect.right - tabsListRect.left);
+        setDropIndicatorLeft(lastRect.right - tabsScrollContentRect.left);
       }
       return;
     }
@@ -131,7 +134,9 @@ export const HeaderTabs = () => {
 
     setDropPlacement(isAfter ? "after" : "before");
     setDropIndicatorLeft(
-      isAfter ? rect.right - tabsListRect.left : rect.left - tabsListRect.left
+      isAfter
+        ? rect.right - tabsScrollContentRect.left
+        : rect.left - tabsScrollContentRect.left
     );
   };
 
@@ -161,73 +166,101 @@ export const HeaderTabs = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeTabId, closeTab, workspaceTabs]);
 
+  useEffect(() => {
+    if (!activeTabRef.current) return;
+    activeTabRef.current.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeTabId]);
+
   return (
     <Tabs
       value={activeTabId || ""}
       onValueChange={setActiveTab}
-      className="flex-1 relative z-10"
+      className="relative z-10 w-full min-w-0"
     >
       <TabsList
-        ref={tabsListRef}
-        className="h-[calc(var(--header-height))] bg-sidebar border-sidebar-border rounded-none p-0 relative overflow-hidden gap-1"
+        className="h-[calc(var(--header-height))] w-full min-w-0 bg-sidebar border-sidebar-border rounded-none p-0 relative overflow-hidden flex items-center justify-start"
       >
         <div
           className="tauri-drag-region absolute inset-0 z-0"
           data-tauri-drag-region
         />
-        {draggingTabId && dropIndicatorLeft !== null && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 h-7 w-[2px] bg-primary z-20 transition-[left]"
-            style={{ left: dropIndicatorLeft }}
-          />
-        )}
+        <div
+          ref={tabsScrollViewportRef}
+          className="relative z-10 flex-1 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-hide"
+          onWheel={(event) => {
+            const viewport = tabsScrollViewportRef.current;
+            if (!viewport) return;
 
-        {pinnedTabs.map((tab) => (
-          <TabMenu
-            key={tab.id}
-            tab={tab}
-            activeTabId={activeTabId}
-            activeTabRef={activeTabRef}
-            closeTab={closeTab}
-            workspaceTabs={workspaceTabs}
-            onDragStart={handleTabDragStart}
-            onDragOver={handleTabDragOver}
-            onDrop={handleTabDrop}
-            onDragEnd={handleTabDragEnd}
-            isDragging={draggingTabId === tab.id}
-            isPinned={tab.isPin}
-            onTogglePin={handleTogglePin}
-          />
-        ))}
-        {pinnedTabs.length > 0 && regularTabs.length > 0 && (
+            const canScroll = viewport.scrollWidth > viewport.clientWidth;
+            if (!canScroll) return;
+            if (event.shiftKey) return;
+
+            const { deltaX, deltaY } = event;
+            if (Math.abs(deltaY) <= Math.abs(deltaX)) return;
+
+            viewport.scrollLeft += deltaY;
+            event.preventDefault();
+          }}
+        >
           <div
-            className="h-7 w-px bg-sidebar-border ml-1 mr-2 select-none"
-            aria-hidden
-          />
-        )}
-        {regularTabs.map((tab) => (
-          <TabMenu
-            key={tab.id}
-            tab={tab}
-            activeTabId={activeTabId}
-            activeTabRef={activeTabRef}
-            closeTab={closeTab}
-            workspaceTabs={workspaceTabs}
-            onDragStart={handleTabDragStart}
-            onDragOver={handleTabDragOver}
-            onDrop={handleTabDrop}
-            onDragEnd={handleTabDragEnd}
-            isDragging={draggingTabId === tab.id}
-            isPinned={tab.isPin}
-            onTogglePin={handleTogglePin}
-          />
-        ))}
+            ref={tabsScrollContentRef}
+            className="relative flex w-max items-center gap-1 [&_[data-slot=tabs-highlight-item]]:flex-none"
+          >
+            {draggingTabId && dropIndicatorLeft !== null && (
+              <div
+                className="absolute top-1/2 -translate-y-1/2 h-7 w-[2px] bg-primary z-20 transition-[left]"
+                style={{ left: dropIndicatorLeft }}
+              />
+            )}
+
+            {pinnedTabs.map((tab) => (
+              <TabMenu
+                key={tab.id}
+                tab={tab}
+                activeTabId={activeTabId}
+                activeTabRef={activeTabRef}
+                closeTab={closeTab}
+                workspaceTabs={workspaceTabs}
+                onDragStart={handleTabDragStart}
+                onDragOver={handleTabDragOver}
+                onDrop={handleTabDrop}
+                onDragEnd={handleTabDragEnd}
+                isDragging={draggingTabId === tab.id}
+                isPinned={tab.isPin}
+                onTogglePin={handleTogglePin}
+              />
+            ))}
+            {pinnedTabs.length > 0 && regularTabs.length > 0 && (
+              <div
+                className="h-7 w-px bg-sidebar-border ml-1 mr-2 select-none"
+                aria-hidden
+              />
+            )}
+            {regularTabs.map((tab) => (
+              <TabMenu
+                key={tab.id}
+                tab={tab}
+                activeTabId={activeTabId}
+                activeTabRef={activeTabRef}
+                closeTab={closeTab}
+                workspaceTabs={workspaceTabs}
+                onDragStart={handleTabDragStart}
+                onDragOver={handleTabDragOver}
+                onDrop={handleTabDrop}
+                onDragEnd={handleTabDragEnd}
+                isDragging={draggingTabId === tab.id}
+                isPinned={tab.isPin}
+                onTogglePin={handleTogglePin}
+              />
+            ))}
+          </div>
+        </div>
         {/* 添加plus按钮 */}
         <Button
           data-no-drag="true"
           variant="ghost"
           size="icon"
-          className="h-full mx-2 w-6 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent relative z-10"
+          className="h-full mx-2 w-6 shrink-0 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent relative z-10"
           aria-label="Add new tab"
           onClick={handleAddTab}
         >

@@ -46,11 +46,11 @@ export const Header = () => {
 
   return (
     <header
-      className="bg-sidebar sticky top-0 z-50 flex w-full items-center justify-between pl-(--macos-traffic-lights-width)"
+      className="bg-sidebar sticky top-0 z-50 grid w-full grid-cols-[auto_1fr_auto] items-center overflow-hidden pl-(--macos-traffic-lights-width)"
       onPointerDown={handlePointerDown}
     >
       <div
-        className={`flex h-(--header-height) items-center pl-2 pr-2 gap-2 transition-[width] duration-200 ease-linear ${
+        className={`flex shrink-0 h-(--header-height) items-center pl-2 pr-2 gap-2 transition-[width] duration-200 ease-linear ${
           leftOpen
             ? "w-[calc(var(--sidebar-width)-var(--macos-traffic-lights-width))] mr-2"
             : "w-[max(3.75rem,calc(3.75rem-var(--macos-traffic-lights-width)))] mr-4"
@@ -79,10 +79,10 @@ export const Header = () => {
           <Settings className="h-4 w-4" />
         </Button>
       </div>
-      <div className="flex-1">
+      <div className="min-w-0 overflow-hidden">
         <HeaderTabs />
       </div>
-      <div className="flex h-(--header-height) items-center pr-2">
+      <div className="flex shrink-0 h-(--header-height) items-center pr-2">
         <div data-no-drag="true">
           <ModeToggle />
         </div>
