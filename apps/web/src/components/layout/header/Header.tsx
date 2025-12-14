@@ -7,6 +7,7 @@ import { useTabs } from "@/hooks/use_tabs";
 import { Bot } from "@/components/animate-ui/icons/bot";
 import { AnimateIcon } from "@/components/animate-ui/icons/icon";
 import { motion } from "motion/react";
+import type { CSSProperties } from "react";
 
 import { HeaderTabs } from "./Tabs";
 import { ModeToggle } from "./ModeToggle";
@@ -15,6 +16,14 @@ export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
   const { activeRightPanel, activeLeftPanel, updateCurrentTabPanels } =
     useTabs();
+
+  const isElectron =
+    process.env.NEXT_PUBLIC_ELECTRON === "1" ||
+    (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
+  const isMac =
+    typeof navigator !== "undefined" &&
+    (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac"));
+  const trafficLightsWidth = isElectron && isMac ? "72px" : "0px";
 
   // 获取rightPanel的hidden状态，默认false
   const isRightPanelHidden = activeRightPanel?.hidden ?? false;
@@ -25,6 +34,11 @@ export const Header = () => {
   return (
     <header
       className="bg-sidebar sticky top-0 z-50 grid w-full grid-cols-[auto_1fr_auto] items-center overflow-hidden pl-(--macos-traffic-lights-width)"
+      style={
+        {
+          "--macos-traffic-lights-width": trafficLightsWidth,
+        } as CSSProperties
+      }
     >
       <div
         className={`flex shrink-0 h-(--header-height) items-center pl-2 pr-2 gap-2 transition-[width] duration-200 ease-linear ${

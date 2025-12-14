@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, screen } from 'electron';
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -129,6 +129,7 @@ async function ensureDevServices(serverUrl: string, webUrl: string) {
         ...envBase,
         NODE_ENV: 'development',
         NEXT_PUBLIC_SERVER_URL: serverUrl,
+        NEXT_PUBLIC_ELECTRON: '1',
       },
     });
   }
@@ -144,11 +145,46 @@ function stopManaged(child: ChildProcess | null) {
   }
 }
 
+function getDefaultWindowSize(): { width: number; height: number } {
+  const MIN_WIDTH = 800;
+  const MIN_HEIGHT = 640;
+  const MAX_WIDTH = 2000;
+  const ASPECT_W = 16;
+  const ASPECT_H = 10;
+
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const workAreaWidth = display.workAreaSize.width;
+
+  let width = Math.round(workAreaWidth * 0.8);
+  width = Math.min(width, MAX_WIDTH);
+  width = Math.max(width, MIN_WIDTH);
+
+  let height = Math.round((width * ASPECT_H) / ASPECT_W);
+  if (height < MIN_HEIGHT) {
+    height = MIN_HEIGHT;
+    width = Math.round((height * ASPECT_W) / ASPECT_H);
+    width = Math.min(width, MAX_WIDTH);
+    width = Math.max(width, MIN_WIDTH);
+  }
+
+  return { width, height };
+}
+
 const createWindow = (): void => {
+  const { width, height } = getDefaultWindowSize();
+  const isMac = process.platform === 'darwin';
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    height: 600,
-    width: 800,
+    height,
+    width,
+    minWidth: 800,
+    minHeight: 640,
+    ...(isMac
+      ? {
+          titleBarStyle: 'hiddenInset' as const,
+          trafficLightPosition: { x: 12, y: 12 },
+        }
+      : {}),
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
     },
