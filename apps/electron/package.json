@@ -5,7 +5,7 @@
   "description": "My Electron application description",
   "main": ".webpack/main",
   "scripts": {
-    "dev": "electron-forge start",
+    "desktop": "electron-forge start",
     "build": "electron-forge package",
     "start": "electron-forge start"
   },

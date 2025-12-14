@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { useTabs } from "@/hooks/use_tabs";
 import {
   makePanelSnapshotKey,
+  type SnapshotLayer,
   usePanelSnapshots,
 } from "@/hooks/use_panel_snapshots";
 import PlantPage from "@/components/plant/Plant";
@@ -28,7 +29,6 @@ const renderPanel = (panel: {
       </div>
     );
   }
-  console.log("renderPanel", panelKey);
   return (
     <motion.div
       key={panelKey}
@@ -39,6 +39,80 @@ const renderPanel = (panel: {
     >
       <Component panelKey={panelKey} {...params} />
     </motion.div>
+  );
+};
+
+const renderPanelWithSnapshots = ({
+  basePanel,
+  snapshotLayers,
+  snapshotHiddenAll,
+}: {
+  basePanel: { component: string; params: Record<string, any>; panelKey: string };
+  snapshotLayers?: SnapshotLayer[];
+  snapshotHiddenAll?: boolean;
+}) => {
+  const layers =
+    snapshotHiddenAll || !snapshotLayers || snapshotLayers.length === 0
+      ? []
+      : snapshotLayers;
+
+  const hasOverlay = layers.length > 0;
+
+  return (
+    <>
+      <div
+        className={cn(
+          "h-full w-full",
+          hasOverlay && "pointer-events-none select-none"
+        )}
+      >
+        {renderPanel(basePanel)}
+      </div>
+
+      {hasOverlay &&
+        layers.map((layer, index) => {
+          const depthFromTop = layers.length - 1 - index;
+          const isTop = depthFromTop === 0;
+          const opacity = 1 - depthFromTop * 0.12;
+          const inset = (depthFromTop + 1) * 10;
+
+          return (
+            <motion.div
+              key={layer.id}
+              className={cn(
+                "absolute rounded-xl overflow-hidden ring-1 ring-border/40 shadow-lg",
+                isTop ? "pointer-events-auto" : "pointer-events-none"
+              )}
+              style={{
+                zIndex: 10 + index,
+              }}
+              initial={{
+                opacity: 0,
+                top: inset + 6,
+                left: inset,
+                right: inset,
+                bottom: inset,
+              }}
+              animate={{
+                opacity,
+                top: inset,
+                left: inset,
+                right: inset,
+                bottom: inset,
+              }}
+              transition={{ duration: 0.15 }}
+            >
+              <div className="h-full w-full bg-background/85 backdrop-blur-sm">
+                {renderPanel({
+                  component: layer.component,
+                  params: layer.params ?? {},
+                  panelKey: layer.id,
+                })}
+              </div>
+            </motion.div>
+          );
+        })}
+    </>
   );
 };
 
@@ -127,35 +201,33 @@ export const MainContent: React.FC<{ className?: string }> = ({
       ? { duration: 0 }
       : { type: "spring" as const, stiffness: 260, damping: 45 };
 
-  const effectiveLeftPanel = useMemo(() => {
-    if (!leftPanel) return null;
-    if (!leftTopSnapshot) return leftPanel;
-    return {
-      component: leftTopSnapshot.component,
-      params: leftTopSnapshot.params ?? {},
-      panelKey: leftTopSnapshot.id,
-    };
-  }, [leftPanel, leftTopSnapshot]);
-
-  const effectiveRightPanel = useMemo(() => {
-    if (!rightPanel) return null;
-    if (!rightTopSnapshot) return rightPanel;
-    return {
-      component: rightTopSnapshot.component,
-      params: rightTopSnapshot.params ?? {},
-      panelKey: rightTopSnapshot.id,
-    };
-  }, [rightPanel, rightTopSnapshot]);
-
   const renderedLeftPanel = useMemo(() => {
-    if (!effectiveLeftPanel || computedLeftHidden) return null;
-    return renderPanel(effectiveLeftPanel);
-  }, [effectiveLeftPanel, computedLeftHidden]);
+    if (!leftPanel || computedLeftHidden) return null;
+    return renderPanelWithSnapshots({
+      basePanel: leftPanel,
+      snapshotLayers: leftSnapshotState?.layers,
+      snapshotHiddenAll: leftSnapshotState?.hiddenAll,
+    });
+  }, [
+    leftPanel,
+    computedLeftHidden,
+    leftSnapshotState?.layers,
+    leftSnapshotState?.hiddenAll,
+  ]);
 
   const renderedRightPanel = useMemo(() => {
-    if (!effectiveRightPanel || computedRightHidden) return null;
-    return renderPanel(effectiveRightPanel);
-  }, [effectiveRightPanel, computedRightHidden]);
+    if (!rightPanel || computedRightHidden) return null;
+    return renderPanelWithSnapshots({
+      basePanel: rightPanel,
+      snapshotLayers: rightSnapshotState?.layers,
+      snapshotHiddenAll: rightSnapshotState?.hiddenAll,
+    });
+  }, [
+    rightPanel,
+    computedRightHidden,
+    rightSnapshotState?.layers,
+    rightSnapshotState?.hiddenAll,
+  ]);
 
   useEffect(() => {
     if (!activeTabId || !leftSnapshotKey || !leftSnapshotState) return;
