@@ -15,7 +15,6 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **SQLite/Turso** - Database engine
 - **Turborepo** - Optimized monorepo build system
 - **PWA** - Progressive Web App support
-- **Tauri** - Build native desktop applications
 - **Husky** - Git hooks for code quality
 
 ## Getting Started
@@ -80,5 +79,3 @@ teatime-ai/
 - `pnpm run db:push`: Push schema changes to database
 - `pnpm run db:studio`: Open database studio UI
 - `cd apps/web && pnpm run generate-pwa-assets`: Generate PWA assets
-- `cd apps/web && pnpm run desktop:dev`: Start Tauri desktop app in development
-- `cd apps/web && pnpm run desktop:build`: Build Tauri desktop app

@@ -18,23 +18,47 @@ console.log("Configuration loaded successfully");
 
 const app = new Hono();
 
+const defaultCorsOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
+];
+
+const corsOrigins =
+  process.env.CORS_ORIGIN?.split(",").map((o) => o.trim()).filter(Boolean) ??
+  defaultCorsOrigins;
+
+const isDev = process.env.NODE_ENV !== "production";
+
 app.use(logger());
 app.use(
   "/*",
   cors({
-    origin: (
-      process.env.CORS_ORIGIN || "http://localhost:3000,http://localhost:3001"
-    )
-      .split(",")
-      .map((o) => o.trim()),
+    origin: (origin) => {
+      if (!origin) return null;
+      if (corsOrigins.includes(origin)) return origin;
+
+      if (isDev) {
+        try {
+          const url = new URL(origin);
+          const isLocalhost =
+            url.hostname === "localhost" || url.hostname === "127.0.0.1";
+          if (url.protocol === "http:" && isLocalhost) return origin;
+        } catch {
+          return null;
+        }
+      }
+
+      return null;
+    },
     allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "User-Agent", "X-Requested-With"],
     credentials: true,
   })
 );
 
 // Dev-only: simulate slow network (300-600ms)
-if (process.env.NODE_ENV !== "production") {
+if (isDev) {
   app.use("*", async (c, next) => {
     if (c.req.method === "OPTIONS") return next();
     await new Promise((r) =>

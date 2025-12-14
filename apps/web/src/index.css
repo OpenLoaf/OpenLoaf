@@ -29,10 +29,6 @@ body {
   }
 }
 
-html.tauri.macos {
-  --macos-traffic-lights-width: 76px;
-}
-
 :root {
   --radius: 0.625rem;
   --macos-traffic-lights-width: 0px;

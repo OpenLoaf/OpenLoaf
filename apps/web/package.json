@@ -6,10 +6,7 @@
     "dev": "next dev --port=3001",
     "scan": "next dev --port=3001 & npx react-scan@latest localhost:3001",
     "build": "next build",
-    "start": "next start",
-    "tauri": "tauri",
-    "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build"
+    "start": "next start"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.0-beta.140",
@@ -30,7 +27,6 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-form": "^1.12.3",
     "@tanstack/react-query": "^5.85.5",
-    "@tauri-apps/api": "^2.9.0",
     "@teatime-ai/api": "workspace:*",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
@@ -67,7 +63,6 @@
     "tailwindcss": "^4.1.10",
     "typescript": "^5",
     "@tanstack/react-query-devtools": "^5.85.5",
-    "@tauri-apps/cli": "^2.4.0",
     "@teatime-ai/config": "workspace:*"
   }
 }

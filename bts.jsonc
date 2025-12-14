@@ -15,7 +15,6 @@
   "addons": [
     "turborepo",
     "pwa",
-    "tauri",
     "husky",
     "ruler"
   ],

@@ -1,12 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { PanelLeft, PanelRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/animate-ui/components/radix/sidebar";
 import { useTabs } from "@/hooks/use_tabs";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { checkIsRunningInTauri } from "@/utils/tauri";
 import { Bot } from "@/components/animate-ui/icons/bot";
 import { AnimateIcon } from "@/components/animate-ui/icons/icon";
 import { motion } from "motion/react";
@@ -18,7 +15,6 @@ export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
   const { activeRightPanel, activeLeftPanel, updateCurrentTabPanels } =
     useTabs();
-  const [isTauri, setIsTauri] = useState(false);
 
   // 获取rightPanel的hidden状态，默认false
   const isRightPanelHidden = activeRightPanel?.hidden ?? false;
@@ -26,28 +22,9 @@ export const Header = () => {
   // 只有当左侧面板存在且右侧面板也存在时，才显示右侧面板按钮
   const showPanelRightButton = Boolean(activeLeftPanel && activeRightPanel);
 
-  useEffect(() => {
-    setIsTauri(checkIsRunningInTauri());
-  }, []);
-
-  const handlePointerDown = useCallback(
-    (event: React.PointerEvent<HTMLElement>) => {
-      if (!isTauri) return;
-      if (event.pointerType !== "mouse") return;
-      if (event.button !== 0) return;
-
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('[data-no-drag="true"]')) return;
-
-      void getCurrentWindow().startDragging();
-    },
-    [isTauri]
-  );
-
   return (
     <header
       className="bg-sidebar sticky top-0 z-50 grid w-full grid-cols-[auto_1fr_auto] items-center overflow-hidden pl-(--macos-traffic-lights-width)"
-      onPointerDown={handlePointerDown}
     >
       <div
         className={`flex shrink-0 h-(--header-height) items-center pl-2 pr-2 gap-2 transition-[width] duration-200 ease-linear ${

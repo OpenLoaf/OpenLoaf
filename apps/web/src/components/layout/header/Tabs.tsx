@@ -249,10 +249,6 @@ export const HeaderTabs = () => {
         className="h-[calc(var(--header-height))] w-full min-w-0 bg-sidebar border-sidebar-border rounded-none p-0 relative overflow-hidden flex items-center justify-start"
       >
         <div
-          className="tauri-drag-region absolute inset-0 z-0"
-          data-tauri-drag-region
-        />
-        <div
           ref={tabsScrollViewportRef}
           className="relative z-10 flex-1 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-hide"
           onWheel={(event) => {

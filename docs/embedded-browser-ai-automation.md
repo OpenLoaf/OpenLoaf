@@ -1,6 +1,6 @@
 # 嵌入浏览器 + AI 自动化（Electron 方案为主）
 
-本文记录“在前端显示一个嵌入浏览器，并让 AI 操作同一个浏览器实例”的可行技术方案，重点展开 **Electron（VS Code 类）**实现路径，并解释为什么在 Tauri 上做“同一个 WebView 的通用 CDP 自动化”存在平台差异与工程风险。
+本文记录“在前端显示一个嵌入浏览器，并让 AI 操作同一个浏览器实例”的可行技术方案，重点展开 **Electron（VS Code 类）**实现路径。
 
 > 目标：用户在前端看到一个“浏览器标签页/面板”，AI 的所有操作（打开网页、点击、输入、抓取信息、截图）都作用于这个正在显示的浏览器，而不是另起一个不可见的浏览器。
 
@@ -16,30 +16,7 @@ VS Code 的 Webview 文档也强调：Webview 在概念上类似 iframe（隔离
 
 ---
 
-## 2. Tauri 是否提供 CDP？
-
-### 2.1 默认情况：不提供“通用 CDP”
-
-Tauri（通过 `wry`）默认使用系统 WebView：
-
-- macOS：WKWebView（WebKit）
-- Windows：WebView2（Chromium，但 API 体系是 WebView2 COM）
-- Linux：WebKitGTK
-
-CDP（Chrome DevTools Protocol）是 Chromium 的协议，因此 **Tauri 并不具备跨平台一致的“CDP 控制同一个 WebView”的开箱能力**。
-
-### 2.2 Windows 特例：WebView2 可能支持 DevTools Protocol
-
-在 Windows 上，WebView2 提供与 DevTools Protocol 相关能力（可以认为是“能发 CDP 方法”的一条路径），但这通常需要你自行：
-
-- 写 Tauri Rust 插件/自定义 command
-- 将 WebView2 的 DevTools Protocol 调用能力封装为 JS 可调用接口
-
-同时，这条路对 macOS/Linux 并不等价（WebKit 的远程调试协议不同且偏调试用途），因此跨平台一致性与自动化覆盖面存在较大不确定性。
-
----
-
-## 3. 最接近 VS Code 的方案：Electron + 内嵌 WebContents + CDP 自动化
+## 2. 最接近 VS Code 的方案：Electron + 内嵌 WebContents + CDP 自动化
 
 ### 3.1 核心思想
 
@@ -134,7 +111,7 @@ Electron 支持按 partition/session 隔离存储。建议先按 `sessionId` 隔
 
 ---
 
-## 4. 与 Playwright 的关系：要不要同时用？
+## 3. 与 Playwright 的关系：要不要同时用？
 
 Electron CDP 能覆盖核心动作与抓取需求，因此可以先 **不引入 Playwright**，降低复杂度。
 
@@ -145,14 +122,12 @@ Electron CDP 能覆盖核心动作与抓取需求，因此可以先 **不引入 
 
 ---
 
-## 5. 取舍总结
+## 4. 取舍总结
 
 Electron 方案的核心 trade-off：
 
 - ✅ 最接近 VS Code：真正的“内嵌浏览器 tab”，且可对同一个 tab 做 CDP 自动化
 - ✅ 跨域/复杂网页自动化能力强（CDP 处在浏览器内部）
-- ❌ 相比 Tauri 包体与资源占用更高
 - ❌ 需要桌面端换壳或新增 Electron 运行时（工程结构需调整）
 
 如果目标是“像 VS Code 一样的嵌入浏览器 + AI 操作同一个浏览器”，Electron 是目前最直接、落地风险最低的路线。
-
