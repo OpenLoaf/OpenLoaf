@@ -45,11 +45,33 @@ export default function ElectronBrowser({ panelKey, url, className }: ElectronBr
   const [address, setAddress] = useState(initialUrl);
   const [currentUrl, setCurrentUrl] = useState(initialUrl);
   const viewRef = useRef<any>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [viewportSize, setViewportSize] = useState<{ width: number; height: number } | null>(
+    null
+  );
 
   useEffect(() => {
     setAddress(initialUrl);
     setCurrentUrl(initialUrl);
   }, [initialUrl]);
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const width = el.clientWidth;
+      const height = el.clientHeight;
+      setViewportSize((prev) =>
+        prev && prev.width === width && prev.height === height ? prev : { width, height }
+      );
+    };
+
+    update();
+    const ro = new ResizeObserver(() => update());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const canNavigate = Boolean(normalizeUrl(address));
 
@@ -72,7 +94,7 @@ export default function ElectronBrowser({ panelKey, url, className }: ElectronBr
   };
 
   return (
-    <div className={cn("flex h-full min-h-0 w-full flex-col", className)}>
+    <div className={cn("flex h-full min-h-0 min-w-0 w-full flex-col", className)}>
       <div className="shrink-0 border-b bg-background/70 backdrop-blur-sm">
         <div className="flex items-center gap-2 px-2 py-2">
           <Button
@@ -117,13 +139,17 @@ export default function ElectronBrowser({ panelKey, url, className }: ElectronBr
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 bg-background">
+      <div
+        ref={viewportRef}
+        className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
+      >
         {isElectron ? (
           <webview
             ref={viewRef}
             key={`${panelKey}:${currentUrl}`}
             src={currentUrl}
-            className="h-full w-full"
+            className="block h-full w-full min-w-0"
+            style={viewportSize ? viewportSize : { width: "100%", height: "100%" }}
             allowpopups
           />
         ) : (
@@ -131,7 +157,8 @@ export default function ElectronBrowser({ panelKey, url, className }: ElectronBr
             key={`${panelKey}:${currentUrl}`}
             title="Browser"
             src={currentUrl}
-            className="h-full w-full"
+            className="block h-full w-full min-w-0"
+            style={viewportSize ? viewportSize : { width: "100%", height: "100%" }}
             sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
           />
         )}
