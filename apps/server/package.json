@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "tsdown",
+    "build:prod": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/server.mjs --format=esm",
     "check-types": "tsc -b",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js"
@@ -11,8 +12,8 @@
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.0-beta.47",
     "@ai-sdk/openai": "^3.0.0-beta.87",
-    "@hono/trpc-server": "^0.4.0",
     "@hono/node-server": "^1.14.4",
+    "@hono/trpc-server": "^0.4.0",
     "@teatime-ai/api": "workspace:*",
     "@teatime-ai/db": "workspace:*",
     "@trpc/server": "catalog:",
@@ -24,10 +25,11 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@teatime-ai/config": "workspace:*",
     "@types/node": "^22.13.11",
-    "tsx": "^4.19.2",
-    "typescript": "catalog:",
+    "esbuild": "^0.27.1",
     "tsdown": "^0.16.5",
-    "@teatime-ai/config": "workspace:*"
+    "tsx": "^4.19.2",
+    "typescript": "catalog:"
   }
 }

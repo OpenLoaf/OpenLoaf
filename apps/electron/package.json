@@ -6,14 +6,16 @@
   "main": ".webpack/main",
   "scripts": {
     "desktop": "electron-forge start",
-    "build": "pnpm -w turbo build --filter=server --filter=web && electron-forge package"
+    "build": "pnpm --filter server run build:prod && pnpm --filter web run build && electron-forge package"
   },
   "keywords": [],
   "author": {
     "name": "zz@hexems.com",
     "email": "torykit@torykit.com"
   },
-  "dependencies": {},
+  "dependencies": {
+    "serve-handler": "^6.1.6"
+  },
   "devDependencies": {
     "@electron-forge/cli": "^7.10.2",
     "@electron-forge/plugin-webpack": "^7.10.2",

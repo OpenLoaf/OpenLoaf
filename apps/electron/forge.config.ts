@@ -7,6 +7,10 @@ import { rendererConfig } from './webpack.renderer.config';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    extraResource: [
+      '../../apps/server/dist/server.mjs',
+      '../../apps/web/out',
+    ],
   },
   rebuildConfig: {},
   plugins: [
@@ -21,6 +25,14 @@ const config: ForgeConfig = {
             html: './src/index.html',
             js: './src/renderer.ts',
             name: 'main_window',
+            preload: {
+              js: './src/preload.ts',
+            },
+          },
+          {
+            html: './src/loading.html',
+            js: './src/loading.ts',
+            name: 'loading_window',
             preload: {
               js: './src/preload.ts',
             },

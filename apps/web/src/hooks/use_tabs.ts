@@ -53,7 +53,10 @@ interface TabsState {
   setActiveTab: (tabId: string) => void;
   updateCurrentTabPanels: (panels: PanelUpdates) => void;
   updateTabPanels: (tabId: string, panels: PanelUpdates) => void;
-  updatePanelParamsByKey: (panelKey: string, params: Record<string, any>) => void;
+  updatePanelParamsByKey: (
+    panelKey: string,
+    params: Record<string, any>
+  ) => void;
   updateCurrentTabLeftWidth: (width: number) => void;
   getTabById: (tabId: string) => Tab | undefined;
   getWorkspaceTabs: (workspaceId: string) => Tab[];
@@ -64,9 +67,12 @@ interface TabsState {
     position?: "before" | "after"
   ) => void;
   setTabPinned: (tabId: string, isPin: boolean) => void;
-  
+
   // Dialog methods
-  addPanelDialog: (side: "left" | "right", dialog: Omit<PanelDialog, "id">) => void;
+  addPanelDialog: (
+    side: "left" | "right",
+    dialog: Omit<PanelDialog, "id">
+  ) => void;
   removePanelDialog: (side: "left" | "right", dialogId: string) => void;
 }
 
@@ -100,7 +106,7 @@ const createDefaultRightPanel = (): PanelConfig => ({
 });
 
 const withPanelDefaults = <
-  T extends { leftPanel?: PanelConfig; rightPanel?: PanelConfig }
+  T extends { leftPanel?: PanelConfig; rightPanel?: PanelConfig },
 >(
   tab: T
 ) => {
@@ -132,7 +138,8 @@ const mergePanelConfig = (
   }
 
   const componentChanged =
-    typeof update.component === "string" && update.component !== current.component;
+    typeof update.component === "string" &&
+    update.component !== current.component;
 
   const nextPanelKey = update.panelKey
     ? update.panelKey
@@ -214,12 +221,7 @@ export const useTabs = create<TabsState>()(
 
       addTab: (tab) => {
         set((state) => {
-          const {
-            id,
-            resourceId,
-            createNew = false,
-            ...tabData
-          } = tab;
+          const { id, resourceId, createNew = false, ...tabData } = tab;
 
           // Requested logical identity (e.g. page id). Falls back to id.
           const requestedResourceId = resourceId ?? id;
@@ -556,7 +558,7 @@ export const useTabs = create<TabsState>()(
           return { tabs: newTabs };
         });
       },
-      
+
       addPanelDialog: (side, dialogInput) => {
         set((state) => {
           if (!state.activeTabId) return state;
@@ -568,9 +570,9 @@ export const useTabs = create<TabsState>()(
 
           const tabs = state.tabs.map((tab) => {
             if (tab.id !== state.activeTabId) return tab;
-            
+
             const normalizedTab = withPanelDefaults(tab);
-            
+
             if (side === "left") {
               const currentDialogs = normalizedTab.leftPanel?.dialogs || [];
               return {
@@ -593,11 +595,11 @@ export const useTabs = create<TabsState>()(
           });
 
           // Update active panels
-          const activeTab = tabs.find(t => t.id === state.activeTabId);
+          const activeTab = tabs.find((t) => t.id === state.activeTabId);
           return {
-             tabs,
-             activeLeftPanel: activeTab?.leftPanel,
-             activeRightPanel: activeTab?.rightPanel,
+            tabs,
+            activeLeftPanel: activeTab?.leftPanel,
+            activeRightPanel: activeTab?.rightPanel,
           };
         });
       },
@@ -608,23 +610,37 @@ export const useTabs = create<TabsState>()(
 
           const tabs = state.tabs.map((tab) => {
             if (tab.id !== state.activeTabId) return tab;
-            
+
             const normalizedTab = withPanelDefaults(tab);
-            
+
             if (side === "left" && normalizedTab.leftPanel) {
+              const updatedDialogs = (
+                normalizedTab.leftPanel.dialogs || []
+              ).filter((d) => d.id !== dialogId);
+              // Check if panel has no content after removing dialog
+              const hasContent =
+                normalizedTab.leftPanel.component || updatedDialogs.length > 0;
               return {
                 ...normalizedTab,
                 leftPanel: {
                   ...normalizedTab.leftPanel,
-                  dialogs: (normalizedTab.leftPanel.dialogs || []).filter(d => d.id !== dialogId),
+                  dialogs: updatedDialogs,
+                  hidden: !hasContent, // Hide panel if no content
                 },
               };
             } else if (side === "right" && normalizedTab.rightPanel) {
-               return {
+              const updatedDialogs = (
+                normalizedTab.rightPanel.dialogs || []
+              ).filter((d) => d.id !== dialogId);
+              // Check if panel has no content after removing dialog
+              const hasContent =
+                normalizedTab.rightPanel.component || updatedDialogs.length > 0;
+              return {
                 ...normalizedTab,
                 rightPanel: {
                   ...normalizedTab.rightPanel,
-                  dialogs: (normalizedTab.rightPanel.dialogs || []).filter(d => d.id !== dialogId),
+                  dialogs: updatedDialogs,
+                  hidden: !hasContent, // Hide panel if no content
                 },
               };
             }
@@ -632,11 +648,11 @@ export const useTabs = create<TabsState>()(
           });
 
           // Update active panels
-          const activeTab = tabs.find(t => t.id === state.activeTabId);
+          const activeTab = tabs.find((t) => t.id === state.activeTabId);
           return {
-             tabs,
-             activeLeftPanel: activeTab?.leftPanel,
-             activeRightPanel: activeTab?.rightPanel,
+            tabs,
+            activeLeftPanel: activeTab?.leftPanel,
+            activeRightPanel: activeTab?.rightPanel,
           };
         });
       },

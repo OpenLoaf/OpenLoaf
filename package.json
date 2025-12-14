@@ -11,7 +11,7 @@
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F server dev",
-    "desktop": "turbo -F electron desktop",
+    "desktop": "TURBO_UI=0 turbo -F electron desktop ",
     "db:push": "turbo -F @teatime-ai/db db:push",
     "db:studio": "turbo -F @teatime-ai/db db:studio",
     "db:generate": "turbo -F @teatime-ai/db db:generate",
