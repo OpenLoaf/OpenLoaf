@@ -5,41 +5,21 @@
   "description": "My Electron application description",
   "main": ".webpack/main",
   "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
-    "lint": "eslint --ext .ts,.tsx ."
+    "dev": "electron-forge start",
+    "build": "electron-forge package",
+    "start": "electron-forge start"
   },
   "keywords": [],
   "author": {
     "name": "zz@hexems.com",
     "email": "torykit@torykit.com"
   },
-  "dependencies": {
-    "electron-squirrel-startup": "^1.0.1"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@electron-forge/cli": "^7.10.2",
-    "@electron-forge/maker-deb": "^7.10.2",
-    "@electron-forge/maker-rpm": "^7.10.2",
-    "@electron-forge/maker-squirrel": "^7.10.2",
-    "@electron-forge/maker-zip": "^7.10.2",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
-    "@electron-forge/plugin-fuses": "^7.10.2",
     "@electron-forge/plugin-webpack": "^7.10.2",
     "@electron-forge/shared-types": "^7.10.2",
-    "@electron/fuses": "^1.0.0",
-    "@typescript-eslint/eslint-plugin": "^5.0.0",
-    "@typescript-eslint/parser": "^5.0.0",
-    "@vercel/webpack-asset-relocator-loader": "1.7.3",
-    "css-loader": "^6.0.0",
     "electron": "^39.2.7",
-    "eslint": "^8.0.1",
-    "eslint-plugin-import": "^2.25.0",
-    "fork-ts-checker-webpack-plugin": "^7.2.13",
-    "node-loader": "^2.0.0",
-    "style-loader": "^3.0.0",
     "ts-loader": "^9.2.2",
     "typescript": "~4.5.4"
   }

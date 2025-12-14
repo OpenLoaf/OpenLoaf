@@ -50,14 +50,6 @@
       "args": ["react-scan@latest", "localhost:3001"],
       "cwd": "${workspaceFolder}",
       "stopOnEntry": false
-    },
-    {
-      "type": "bun",
-      "request": "launch",
-      "name": "Bun: Debug Desktop",
-      "cwd": "${workspaceFolder}/apps/web",
-      "program": "node_modules/.bin/tauri",
-      "args": ["dev"]
     }
   ],
   "compounds": [
