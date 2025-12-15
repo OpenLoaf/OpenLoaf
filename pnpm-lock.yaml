@@ -23,7 +23,7 @@ catalogs:
       version: 4.11.0
     typescript:
       specifier: ^5
-      version: 5.9.3
+      version: 4.5.5
 
 importers:
 
@@ -124,6 +124,9 @@ importers:
       hono:
         specifier: 'catalog:'
         version: 4.11.0
+      resumable-stream:
+        specifier: ^2.2.9
+        version: 2.2.9
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
@@ -230,9 +233,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      framer-motion:
-        specifier: ^12.23.26
-        version: 12.23.26(react-dom@19.1.2(react@19.1.2))(react@19.1.2)
       lucide-react:
         specifier: ^0.560.0
         version: 0.560.0(react@19.1.2)
@@ -6069,6 +6069,9 @@ packages:
   restore-cursor@5.1.0:
     resolution: {integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==}
     engines: {node: '>=18'}
+
+  resumable-stream@2.2.9:
+    resolution: {integrity: sha512-/fx2Mfx2h5sOOn+FTmNMHXoem6HUUATGGKAbM+eoI1L/Mkt+HXtcGTfL2U4Zfr3IbJoAh049sWThvFR6uq9AIg==}
 
   retry@0.12.0:
     resolution: {integrity: sha512-9LkiTwjUh6rT555DtE9rTX+BKByPfrMzEAtnlEtdEwr3Nkffwiihqe2bWADg+OQRjt9gl6ICdmB/ZFDCGAtSow==}
@@ -13582,6 +13585,8 @@ snapshots:
     dependencies:
       onetime: 7.0.0
       signal-exit: 4.1.0
+
+  resumable-stream@2.2.9: {}
 
   retry@0.12.0: {}
 

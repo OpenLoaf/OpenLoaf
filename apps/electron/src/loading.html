@@ -18,6 +18,16 @@
             -webkit-user-select: none;
         }
 
+        /* Top drag area */
+        .drag-region {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            -webkit-app-region: drag;
+        }
+
         .loader-container {
             display: flex;
             flex-direction: column;
@@ -53,6 +63,9 @@
     </style>
 </head>
 <body>
+    <!-- Top drag region for window movement -->
+    <div class="drag-region"></div>
+    
     <div class="loader-container">
         <div class="spinner"></div>
         <div class="text">Starting Teatime AI...</div>

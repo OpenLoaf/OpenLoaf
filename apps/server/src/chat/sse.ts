@@ -1,4 +1,4 @@
-import { createAgentUIStreamResponse } from "ai";
+import { createAgentUIStreamResponse, generateId } from "ai";
 import type { UIMessage } from "ai";
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
@@ -12,6 +12,7 @@ type ActiveSseStream = {
   subscribers: Set<ReadableStreamDefaultController<string>>;
   done: boolean;
   cleanupTimer?: ReturnType<typeof setTimeout>;
+  streamId: string;
 };
 
 const ACTIVE_SSE_STREAMS = new Map<string, ActiveSseStream>();
@@ -50,6 +51,7 @@ function replaceActiveStream(chatId: string): ActiveSseStream {
     chunks: [],
     subscribers: new Set(),
     done: false,
+    streamId: chatId, // Use sessionId as streamId to avoid duplicates
   };
   ACTIVE_SSE_STREAMS.set(chatId, next);
   return next;
@@ -72,52 +74,7 @@ const UI_MESSAGE_STREAM_HEADERS = {
  * 3) 将“完整历史（含新消息）”喂给 agent，进行流式生成
  */
 export const registerChatSse = (app: Hono) => {
-  // AI SDK v6 的 resumeStream() 默认会 GET `${api}/${chatId}/stream`
-  // 这里实现 `/chat/sse/:chatId/stream` 用于断线重连。
-  app.get("/chat/sse/:chatId/stream", async (c) => {
-    const chatId = c.req.param("chatId");
-    const entry = ACTIVE_SSE_STREAMS.get(chatId);
-    if (!entry) {
-      return new Response(null, { status: 204 });
-    }
-
-    const cursorRaw = c.req.query("cursor");
-    const cursor = Number(cursorRaw ?? "0");
-    const startIndex = Number.isFinite(cursor) && cursor > 0 ? cursor : 0;
-    const from = Math.min(Math.max(0, startIndex), entry.chunks.length);
-
-    let controllerRef: ReadableStreamDefaultController<string> | null = null;
-
-    const sseStream = new ReadableStream<string>({
-      start(controller) {
-        controllerRef = controller;
-
-        // 先重放缓存
-        for (let i = from; i < entry.chunks.length; i += 1) {
-          controller.enqueue(entry.chunks[i]);
-        }
-
-        // 如果已经结束，直接关闭
-        if (entry.done) {
-          controller.close();
-          return;
-        }
-
-        entry.subscribers.add(controller);
-      },
-      cancel() {
-        if (controllerRef) {
-          entry.subscribers.delete(controllerRef);
-        }
-      },
-    });
-
-    return new Response(sseStream.pipeThrough(new TextEncoderStream()), {
-      status: 200,
-      headers: UI_MESSAGE_STREAM_HEADERS,
-    });
-  });
-
+  // POST endpoint to create new streams
   app.post("/chat/sse", async (c) => {
     let body: ChatRequestBody;
     try {
@@ -159,42 +116,21 @@ export const registerChatSse = (app: Hono) => {
       incomingMessage: lastIncomingMessage,
     });
 
-    // NOTE: 当前文件里 requestTools 未被使用；如需 tools 注入，请在 createAgent()/tools-config 内部完成。
-    createRequestTools();
+    const requestTools = createRequestTools();
 
     const agent = createAgent();
 
-    const active = replaceActiveStream(sessionId);
+    // Get or create active stream for this chat
+    let activeStream = ACTIVE_SSE_STREAMS.get(sessionId);
+    if (!activeStream || activeStream.done) {
+      activeStream = replaceActiveStream(sessionId);
+    }
 
     return createAgentUIStreamResponse({
       agent,
-      // tee 一份 SSE 给服务端做缓存和广播，用于断线重连
-      consumeSseStream: async ({ stream }) => {
-        const reader = stream.getReader();
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            active.chunks.push(value);
-            for (const controller of active.subscribers) {
-              try {
-                controller.enqueue(value);
-              } catch {
-                active.subscribers.delete(controller);
-              }
-            }
-          }
-        } finally {
-          finalizeActiveStream(sessionId, active);
-          try {
-            reader.releaseLock();
-          } catch {
-            // ignore
-          }
-        }
-      },
       onError: (error) => {
         console.error("Agent error:", error);
+        finalizeActiveStream(sessionId, activeStream);
         return "An error occurred.";
       },
       // 将 DB 还原出来的完整历史传给 agent
@@ -209,7 +145,10 @@ export const registerChatSse = (app: Hono) => {
       },
       // 流式结束后：记录 token 使用情况，并把 AI 返回的最终消息落库（含 usage）。
       onFinish: async ({ isAborted, messages, responseMessage }) => {
-        if (isAborted) return;
+        if (isAborted) {
+          finalizeActiveStream(sessionId, activeStream);
+          return;
+        }
 
         const lastMessage = messages[messages.length - 1] as TokenUsageMessage;
         const usage =
@@ -228,7 +167,10 @@ export const registerChatSse = (app: Hono) => {
         }
 
         // 只保存 AI 的最终回复（MVP）；若需要保存整个 messages，可扩展为批量写入。
-        if (responseMessage?.role !== "assistant") return;
+        if (responseMessage?.role !== "assistant") {
+          finalizeActiveStream(sessionId, activeStream);
+          return;
+        }
 
         const messageToSave: UIMessage = usage
           ? {
@@ -244,7 +186,82 @@ export const registerChatSse = (app: Hono) => {
           sessionId,
           incomingMessage: messageToSave,
         });
+
+        finalizeActiveStream(sessionId, activeStream);
       },
+      // Use consumeSseStream to handle the stream for resumption
+      consumeSseStream: ({ stream }) => {
+        const reader = stream.getReader();
+
+        const processChunk = async () => {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            return;
+          }
+
+          // Store the chunk for resumption
+          activeStream.chunks.push(value);
+
+          // Broadcast to all subscribers
+          for (const controller of activeStream.subscribers) {
+            try {
+              controller.enqueue(value);
+            } catch {
+              // Remove subscribers that have closed
+              activeStream.subscribers.delete(controller);
+            }
+          }
+
+          await processChunk();
+        };
+
+        processChunk().catch((error) => {
+          console.error("Error processing stream chunk:", error);
+          finalizeActiveStream(sessionId, activeStream);
+        });
+      },
+    });
+  });
+
+  // GET endpoint to resume streams
+  app.get("/chat/sse/:id/stream", async (c) => {
+    const chatId = c.req.param("id");
+    const resumeAt = c.req.query("resumeAt");
+
+    const activeStream = ACTIVE_SSE_STREAMS.get(chatId);
+
+    if (!activeStream || activeStream.done) {
+      return new Response(null, { status: 204 });
+    }
+
+    // Create a new stream for this client
+    let currentController: ReadableStreamDefaultController<string> | null =
+      null;
+
+    const stream = new ReadableStream({
+      start: (controller) => {
+        currentController = controller;
+        // Add this client as a subscriber
+        activeStream.subscribers.add(controller);
+
+        // Send all previous chunks if resumeAt is not provided or is 0
+        if (!resumeAt || parseInt(resumeAt) === 0) {
+          for (const chunk of activeStream.chunks) {
+            controller.enqueue(chunk);
+          }
+        }
+      },
+      cancel: () => {
+        // Remove this client from subscribers
+        if (currentController) {
+          activeStream.subscribers.delete(currentController);
+        }
+      },
+    });
+
+    return new Response(stream as any, {
+      headers: UI_MESSAGE_STREAM_HEADERS,
     });
   });
 };

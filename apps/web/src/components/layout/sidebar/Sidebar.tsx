@@ -18,7 +18,8 @@ export const AppSidebar = ({
 
   const isElectron =
     process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-    (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
+    (typeof navigator !== "undefined" &&
+      navigator.userAgent.includes("Electron"));
 
   const dialogsCount = activeLeftPanel?.dialogs?.length ?? 0;
   const activePageId = (activeLeftPanel?.params as any)?.pageId as
@@ -34,7 +35,7 @@ export const AppSidebar = ({
         <SidebarWorkspace />
       </SidebarHeader>
       <SidebarContent>
-        <div className="px-2 py-2 space-y-2">
+        {/* <div className="px-2 py-2 space-y-2">
           <div className="text-xs text-muted-foreground">
             Dialogs (left): {dialogsCount}
           </div>
@@ -77,7 +78,7 @@ export const AppSidebar = ({
               Dialog: Browser
             </Button>
           )}
-        </div>
+        </div> */}
         <SidebarPage />
       </SidebarContent>
     </Sidebar>

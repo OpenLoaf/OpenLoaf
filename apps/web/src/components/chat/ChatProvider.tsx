@@ -11,39 +11,13 @@ import { useTabs } from "@/hooks/use_tabs";
  * 聊天上下文类型
  * 包含聊天所需的所有状态和方法
  */
-interface ChatContextType {
-  /** 当前会话 id（同时作为 sessionId 发给服务端） */
-  id: string;
-  /** 消息列表 */
-  messages: UIMessage[];
-  /** 本地覆写消息列表（用于加载历史） */
-  setMessages: ReturnType<typeof useChat>["setMessages"];
-  /** 用于触发消息列表滚动到底部的信号（自增即可） */
-  scrollToBottomToken: number;
-  /** 发送消息的方法 */
-  sendMessage: ReturnType<typeof useChat>["sendMessage"];
-  /** 聊天状态 */
-  status: ReturnType<typeof useChat>["status"];
-  /** 停止生成消息的方法 */
-  stop: ReturnType<typeof useChat>["stop"];
-  /** 重新生成消息的方法 */
-  regenerate: ReturnType<typeof useChat>["regenerate"];
-  /** 清除错误的方法 */
-  clearError: ReturnType<typeof useChat>["clearError"];
-  /** 恢复流的方法 */
-  resumeStream: ReturnType<typeof useChat>["resumeStream"];
+interface ChatContextType extends ReturnType<typeof useChat> {
   /** 当前输入框的内容 */
   input: string;
   /** 设置输入框内容的方法 */
   setInput: (value: string) => void;
-  /** 添加工具输出的方法 */
-  addToolOutput: ReturnType<typeof useChat>["addToolOutput"];
-  /** 添加工具批准响应的方法 */
-  addToolApprovalResponse: ReturnType<
-    typeof useChat
-  >["addToolApprovalResponse"];
-  /** 错误信息 */
-  error: ReturnType<typeof useChat>["error"];
+  /** 用于触发消息列表滚动到底部的信号（自增即可） */
+  scrollToBottomToken: number;
   /** 是否正在加载/应用该 session 的历史消息 */
   isHistoryLoading: boolean;
   /** 创建新会话（清空消息并切换 id） */
@@ -135,6 +109,12 @@ export default function ChatProvider({
           },
         };
       },
+      prepareReconnectToStreamRequest: ({ id }) => {
+        return {
+          api: `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse/${id}/stream`,
+          credentials: "include",
+        };
+      },
     }),
   });
 
@@ -205,10 +185,12 @@ export default function ChatProvider({
     // 2) 同步写回 React Query 的 history cache
     //    这样切走再切回同一个 session 时，缓存就是“被 updateMessage 改过的版本”，不会先闪旧
     queryClient.setQueryData(
-      (trpc.chat.getChatMessageHistory.queryOptions({
-        sessionId,
-        take: 50,
-      } as any) as any).queryKey,
+      (
+        trpc.chat.getChatMessageHistory.queryOptions({
+          sessionId,
+          take: 50,
+        } as any) as any
+      ).queryKey,
       (prev: HistoryResponse | undefined) => {
         if (!prev) return prev;
         return {
@@ -251,49 +233,6 @@ export default function ChatProvider({
 
   // 兼容性处理：新版本useChat可能不返回input和setInput
   const [input, setInput] = React.useState("");
-
-  // 网络断开后：自动尝试 resumeStream（简单退避重试）
-  const reconnectAttemptRef = React.useRef(0);
-  const reconnectTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-
-  React.useEffect(() => {
-    if (chat.status !== "error") return;
-
-    // 避免在用户主动 stop 后误触发；这里用最小策略：只要是 error 就尝试恢复
-    reconnectAttemptRef.current += 1;
-    const attempt = reconnectAttemptRef.current;
-
-    const delay = Math.min(10_000, 500 * 2 ** Math.min(6, attempt - 1));
-
-    if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current);
-    }
-
-    reconnectTimerRef.current = setTimeout(() => {
-      chat.clearError();
-      chat.resumeStream();
-    }, delay);
-
-    return () => {
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-    };
-  }, [chat.status, chat.clearError, chat.resumeStream]);
-
-  // 一旦恢复到 streaming/ready，清空重试计数
-  React.useEffect(() => {
-    if (chat.status === "streaming" || chat.status === "ready") {
-      reconnectAttemptRef.current = 0;
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-    }
-  }, [chat.status]);
 
   const chatWithFallbacks = {
     ...chat,

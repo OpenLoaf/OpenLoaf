@@ -19,6 +19,9 @@ const SYNTAX_HIGHLIGHTER_CUSTOM_STYLE: React.CSSProperties = {
   textShadow: "none",
   overflow: "visible",
   width: "100%",
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+  overflowWrap: "break-word",
 };
 
 const SYNTAX_HIGHLIGHTER_LINE_NUMBER_STYLE: React.CSSProperties = {
