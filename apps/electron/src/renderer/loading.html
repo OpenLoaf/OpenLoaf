@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Teatime AI - Loading...</title>
+    <style>
+      body {
+        background-color: #09090b;
+        color: #fafafa;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+          Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .drag-region {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 30px;
+        -webkit-app-region: drag;
+      }
+
+      .loader-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        border-top-color: #fafafa;
+        animation: spin 1s ease-in-out infinite;
+      }
+
+      .text {
+        font-size: 14px;
+        color: #a1a1aa;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="drag-region"></div>
+
+    <div class="loader-container">
+      <div class="spinner"></div>
+      <div class="text">Starting Teatime AI...</div>
+    </div>
+  </body>
+</html>
+

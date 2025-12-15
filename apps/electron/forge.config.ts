@@ -24,19 +24,19 @@ const config: ForgeConfig = {
         config: rendererConfig,
         entryPoints: [
           {
-            html: './src/index.html',
-            js: './src/renderer.ts',
+            html: './src/renderer/fallback.html',
+            js: './src/renderer/fallback.ts',
             name: 'main_window',
             preload: {
-              js: './src/preload.ts',
+              js: './src/preload/index.ts',
             },
           },
           {
-            html: './src/loading.html',
-            js: './src/loading.ts',
+            html: './src/renderer/loading.html',
+            js: './src/renderer/loading.ts',
             name: 'loading_window',
             preload: {
-              js: './src/preload.ts',
+              js: './src/preload/index.ts',
             },
           },
         ],
