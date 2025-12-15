@@ -13,7 +13,7 @@ export default function MarkdownCode({
   return (
     <code
       className={cn(
-        "rounded-sm bg-muted/50 px-1.5 py-0.5 font-mono text-[0.9em] font-normal text-foreground break-words",
+        "rounded-sm bg-muted px-2 py-1  font-mono text-[0.9em] font-normal text-foreground wrap-break-word",
         className
       )}
       {...(props as any)}

@@ -229,14 +229,14 @@ body {
 [data-radix-scroll-area-viewport] ~ [data-orientation] [data-state] {
   flex: 1;
   background: var(--muted-foreground);
-  opacity: 0.15;
+  opacity: 0.35;
   border-radius: var(--scrollbar-size);
   position: relative;
 }
 
 [data-radix-scroll-area-viewport] ~ [data-orientation] [data-state]:hover {
   background: var(--muted-foreground);
-  opacity: 0.9;
+  opacity: 0.65;
 }
 
 /* increase target size for touch devices */

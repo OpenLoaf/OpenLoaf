@@ -173,13 +173,16 @@ export const MainContent: React.FC<{ className?: string }> = ({
   return (
     <div
       ref={containerRef}
-      className={cn("flex h-full w-full overflow-hidden bg-sidebar", className)}
+      className={cn(
+        "flex h-full w-full overflow-x-visible overflow-y-hidden bg-sidebar",
+        className
+      )}
     >
       {hasLeftPanel || hasRightPanel ? (
         <>
           <motion.div
             className={cn(
-              "flex flex-col bg-background rounded-xl max-h-screen overflow-hidden min-w-0",
+              "relative z-10 flex flex-col bg-background rounded-xl max-h-screen overflow-x-visible overflow-y-hidden min-w-0",
               computedLeftHidden
                 ? "pointer-events-none"
                 : "pointer-events-auto",
@@ -214,7 +217,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
             <div
               ref={dividerRef}
               className={cn(
-                "bg-sidebar rounded-4xl flex items-center justify-center w-2.5 shrink-0",
+                "relative z-0 bg-sidebar rounded-4xl flex items-center justify-center w-2.5 shrink-0",
                 dividerInteractive
                   ? "cursor-col-resize hover:bg-primary/20 active:bg-primary/30"
                   : "pointer-events-none opacity-60",
@@ -234,7 +237,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
           {rightPanel && (
             <motion.div
               className={cn(
-                "bg-background rounded-xl overflow-hidden min-w-0",
+                "relative z-10 bg-background rounded-xl overflow-x-visible overflow-y-hidden min-w-0",
                 computedRightHidden
                   ? "pointer-events-none"
                   : "pointer-events-auto"

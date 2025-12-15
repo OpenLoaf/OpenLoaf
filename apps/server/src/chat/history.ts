@@ -227,19 +227,21 @@ export async function saveAndAppendMessage({
       include: { parts: { orderBy: { index: "asc" } } },
     });
 
-    return history.map((message) => {
-      const parts = message.parts.map((part) => {
-        // 优先还原 state（完整 part），否则只返回 type 占位。
-        if (part.state && typeof part.state === "object") return part.state;
-        return { type: part.type };
-      });
-      return {
-        id: message.id,
-        role: fromMessageRole(message.role),
-        metadata: message.meta ?? undefined,
-        parts: parts as AnyUIMessage["parts"],
-      } satisfies AnyUIMessage;
-    });
+    return history
+      .map((message) => {
+        const parts = message.parts.map((part) => {
+          // 优先还原 state（完整 part），否则只返回 type 占位。
+          if (part.state && typeof part.state === "object") return part.state;
+          return { type: part.type };
+        });
+        return {
+          id: message.id,
+          role: fromMessageRole(message.role),
+          metadata: message.meta ?? undefined,
+          parts: parts as AnyUIMessage["parts"],
+        } satisfies AnyUIMessage;
+      })
+      .filter((message) => message.parts.length > 0);
   });
 
   // 保存完成后：如果“用户输入”条数恰好为 2 或 5，则异步生成标题（不阻塞主流程）

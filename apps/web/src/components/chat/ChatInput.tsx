@@ -12,13 +12,20 @@ interface ChatInputProps {
   className?: string;
 }
 
+const MAX_CHARS = 2000;
+
 export default function ChatInput({ className }: ChatInputProps) {
-  const { sendMessage, status, stop, clearError, input, setInput } = useChatContext();
+  const { sendMessage, status, stop, clearError, input, setInput } =
+    useChatContext();
+
+  const isOverLimit = input.length > MAX_CHARS;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const canSubmit = status === "ready" || status === "error";
     if (!canSubmit) return;
+    if (isOverLimit) return;
+    
     if (input.trim()) {
       if (status === "error") {
         clearError();
@@ -47,14 +54,15 @@ export default function ChatInput({ className }: ChatInputProps) {
   return (
     <div
       className={cn(
-        "rounded-2xl bg-background border border-border overflow-hidden transition-all duration-200",
-        isFocused && "border-primary",
+        "relative mt-4 shrink-0 rounded-xl bg-background border transition-all duration-200 shadow-sm flex flex-col max-h-[30%]",
+        isFocused ? "border-primary ring-1 ring-primary/20" : "border-border",
+        isOverLimit && "border-destructive ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20",
         className
       )}
     >
-      <form onSubmit={handleSubmit} className="flex flex-col">
-        <div className="p-3 pb-0">
-          <ScrollArea.Root className="max-h-[192px]">
+      <form onSubmit={handleSubmit} className="flex flex-col min-h-[52px] overflow-hidden">
+        <div className="px-4 pt-3 pb-2 flex-1 min-h-0">
+          <ScrollArea.Root className="w-full h-full">
             <ScrollArea.Viewport className="w-full h-full min-h-0">
               <textarea
                 value={input}
@@ -68,8 +76,11 @@ export default function ChatInput({ className }: ChatInputProps) {
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 placeholder="Ask, search, or make anything…"
-                className="w-full border-none resize-none focus:outline-none focus:ring-0 bg-transparent text-foreground text-sm leading-5 min-h-[68px] overflow-visible"
-                style={{ fontSize: "14px", lineHeight: "20px", height: "auto" }}
+                className={cn(
+                  "w-full border-none resize-none focus:outline-none focus:ring-0 bg-transparent text-foreground text-sm leading-6 min-h-[48px] overflow-visible placeholder:text-muted-foreground/70",
+                  isOverLimit && "text-destructive"
+                )}
+                style={{ fontSize: "15px", height: "auto" }}
               />
             </ScrollArea.Viewport>
             <ScrollArea.Scrollbar orientation="vertical">
@@ -78,54 +89,85 @@ export default function ChatInput({ className }: ChatInputProps) {
           </ScrollArea.Root>
         </div>
 
-        <div className="flex justify-between items-center gap-2 p-2 pr-3 pt-0">
-          <div className="flex gap-2">
+        <div className="flex justify-between items-end gap-2 px-3 pb-3 shrink-0">
+          <div className="flex gap-1.5 items-center">
             <Button
               type="button"
-              className="rounded-full w-7 h-7 p-0 flex items-center justify-center bg-background hover:bg-muted/90"
+              variant="ghost"
+              size="icon"
+              className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
-              <AtSign className="w-3 h-3 text-muted-foreground" />
+              <AtSign className="w-4 h-4" />
             </Button>
             <Button
               type="button"
-              className="rounded-full w-7 h-7 p-0 flex items-center justify-center bg-background hover:bg-muted/90"
+              variant="ghost"
+              size="icon"
+              className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
-              <Hash className="w-3 h-3 text-muted-foreground" />
+              <Hash className="w-4 h-4" />
             </Button>
             <Button
               type="button"
-              className="rounded-full w-7 h-7 p-0 flex items-center justify-center bg-background hover:bg-muted/90"
+              variant="ghost"
+              size="icon"
+              className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
-              <Image className="w-3 h-3 text-muted-foreground" />
+              <Image className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex gap-2">
+
+          <div className="flex items-center gap-2">
+            {input.length > 0 && (
+              <span
+                className={cn(
+                  "text-[10px] font-medium transition-colors mr-2",
+                  isOverLimit ? "text-destructive" : "text-muted-foreground/60"
+                )}
+              >
+                {input.length} / {MAX_CHARS}
+              </span>
+            )}
+            
             <SelectMode />
+            
             <Button
               type="button"
-              className="rounded-full w-7 h-7 p-0 flex items-center justify-center bg-background hover:bg-muted/90"
+              variant="ghost"
+              size="icon"
+              className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
-              <Mic className="w-3 h-3 text-muted-foreground" />
+              <Mic className="w-4 h-4" />
             </Button>
+            
             <Button
               type={isLoading ? "button" : "submit"}
               onClick={isLoading ? stop : undefined}
-              disabled={!input.trim() && !isLoading}
+              disabled={(!input.trim() && !isLoading) || isOverLimit}
+              size="icon"
               className={cn(
-                "rounded-full w-7 h-7 p-0 flex items-center justify-center",
+                "rounded-full w-8 h-8 transition-all duration-200 shadow-none",
                 isLoading
-                  ? "bg-destructive hover:bg-destructive/90"
-                  : "bg-primary hover:bg-primary/90"
+                  ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                  : isOverLimit
+                  ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
               )}
             >
               {isLoading ? (
-                <Pause className="w-3 h-3 text-destructive-foreground" />
+                <Pause className="w-3.5 h-3.5" />
               ) : (
-                <ChevronUp className="w-3 h-3 text-primary-foreground" />
+                <ChevronUp className="w-4 h-4" />
               )}
             </Button>
           </div>
         </div>
+        
+        {isOverLimit && (
+           <div className="px-4 pb-2 text-xs text-destructive font-medium animate-in fade-in slide-in-from-top-1">
+             Content exceeds the {MAX_CHARS} character limit. Please shorten your message.
+           </div>
+        )}
       </form>
     </div>
   );

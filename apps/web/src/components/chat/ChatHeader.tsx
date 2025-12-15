@@ -24,7 +24,12 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
   };
 
   return (
-    <div className={cn("flex items-center justify-between px-2 py-0", className)}>
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-between px-2 py-0",
+        className
+      )}
+    >
       <div className="text-lg font-semibold">Chat</div>
       <div className="flex items-center gap-1">
         {messages.length > 0 && (

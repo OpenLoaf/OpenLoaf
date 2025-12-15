@@ -17,7 +17,7 @@ interface MessageListProps {
   className?: string;
 }
 
-const SCROLLBAR_STYLE = { right: "-10px" } as const;
+const SCROLLBAR_STYLE = { right: "0px" } as const;
 
 function MessageHistorySkeleton() {
   return (
@@ -90,21 +90,26 @@ export default function MessageList({ className }: MessageListProps) {
   });
 
   const messageItems = React.useMemo(() => {
-    const lastIndex = messages.length - 1;
+    const lastHumanIndex = messages.findLastIndex(
+      (message) => message.role === "user"
+    );
     return messages.map((message, index) => (
       <MessageItem
         key={getMessageKey(message)}
         message={message}
-        isLast={index === lastIndex}
+        isLastHumanMessage={index === lastHumanIndex}
       />
     ));
   }, [messages, getMessageKey]);
 
   return (
     <div
-      className={cn("flex-1 mb-4 relative min-w-0 flex flex-col", className)}
+      className={cn(
+        "flex-1 relative min-w-0 flex flex-col min-h-0 overflow-x-visible overflow-y-hidden",
+        className
+      )}
     >
-      <ScrollArea.Root className="flex-1 w-full min-w-0">
+      <ScrollArea.Root className="flex-1 w-full min-w-0 overflow-x-visible overflow-y-hidden">
         <ScrollArea.Viewport
           ref={viewportRef}
           className="w-full h-full min-h-0 min-w-0 overflow-x-hidden !select-text [&_*:not(summary)]:!select-text"
@@ -117,7 +122,7 @@ export default function MessageList({ className }: MessageListProps) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="space-y-4 min-w-0"
+                className="space-y-4 min-w-0 pb-4"
               >
                 {isHistoryLoading && messages.length === 0 ? (
                   <MessageHistorySkeleton />

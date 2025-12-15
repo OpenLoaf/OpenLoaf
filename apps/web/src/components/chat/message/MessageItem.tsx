@@ -8,19 +8,22 @@ import MessageHuman from "./MessageHuman";
 
 interface MessageItemProps {
   message: UIMessage;
-  isLast?: boolean;
+  isLastHumanMessage?: boolean;
 }
 
-function MessageItem({ message, isLast }: MessageItemProps) {
+function MessageItem({ message, isLastHumanMessage }: MessageItemProps) {
   return (
     <div>
       {message.role === "user" ? (
-        <MessageHuman message={message} />
+        <MessageHuman
+          message={message}
+          isLastHumanMessage={isLastHumanMessage}
+        />
       ) : (
         <>
           <MessageAi message={message} />
 
-          <MessageAction className="mt-1" message={message} canRetry={isLast} />
+          <MessageAction className="mt-1" message={message} canRetry={false} />
         </>
       )}
     </div>

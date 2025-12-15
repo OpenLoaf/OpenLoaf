@@ -90,7 +90,7 @@ export default function MarkdownCodeBlock({
     return (
       <div
         className={cn(
-          "my-2 mr-2 flex min-w-0 items-center gap-2 rounded-md border bg-muted/30 px-2 py-1",
+          "my-2 mr-4 flex min-w-0 items-center gap-2 rounded-md border bg-muted/30 px-2 py-1",
           className
         )}
       >
@@ -119,7 +119,7 @@ export default function MarkdownCodeBlock({
 
   return (
     <div
-      className={cn("my-3 mr-2 overflow-hidden rounded-md border", className)}
+      className={cn("my-3 mr-4 overflow-hidden rounded-md border", className)}
     >
       <div className="flex items-center justify-between gap-2 bg-muted/70 px-2 py-1">
         <button
