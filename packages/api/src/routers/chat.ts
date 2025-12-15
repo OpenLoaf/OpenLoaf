@@ -88,7 +88,7 @@ export const chatRouter = t.router({
         id: m.id,
         role: mapDbRoleToUiRole(m.role),
         // state 存的是 ai-sdk 的 part 原始结构；没有就退化成 { type }
-        parts: m.parts.map((p) => (p.state ?? { type: p.type })),
+        parts: m.parts.map((p) => p.state ?? { type: p.type }),
         metadata: m.meta ?? undefined,
       }));
 
@@ -116,4 +116,3 @@ export const chatRouter = t.router({
 });
 
 export type ChatRouter = typeof chatRouter;
-

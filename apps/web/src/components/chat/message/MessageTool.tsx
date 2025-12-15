@@ -78,7 +78,7 @@ function CodeBlockWithCopy({
   maxHeightClassName: string;
 }) {
   const [copied, setCopied] = React.useState(false);
-  const [expanded, setExpanded] = React.useState(false);
+  const [isFormatted, setIsFormatted] = React.useState(true);
 
   const handleCopy = async (event: React.MouseEvent) => {
     event.preventDefault();
@@ -94,18 +94,27 @@ function CodeBlockWithCopy({
     }
   };
 
-  const handleToggleExpand = (event: React.MouseEvent) => {
+  const handleToggleFormat = (event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    setExpanded((v) => !v);
+    setIsFormatted((v) => !v);
   };
+
+  const displayCode = React.useMemo(() => {
+    if (isFormatted) {
+      return code;
+    }
+    try {
+      const parsed = JSON.parse(code);
+      return JSON.stringify(parsed);
+    } catch {
+      return code;
+    }
+  }, [code, isFormatted]);
 
   return (
     <div
-      className={cn(
-        "relative mt-1 overflow-auto rounded bg-background p-2",
-        expanded ? undefined : maxHeightClassName
-      )}
+      className={cn("relative mt-1 overflow-auto rounded bg-background p-2")}
     >
       <div className="absolute right-2 top-2 flex items-center gap-1">
         <Button
@@ -113,14 +122,14 @@ function CodeBlockWithCopy({
           variant="ghost"
           size="icon-sm"
           className="h-7 w-7 bg-background/80 text-muted-foreground shadow-sm backdrop-blur-sm hover:bg-background hover:text-foreground"
-          onClick={handleToggleExpand}
-          aria-label={expanded ? "折叠" : "展开"}
-          title={expanded ? "折叠" : "展开"}
+          onClick={handleToggleFormat}
+          aria-label={isFormatted ? "压缩为单行" : "格式化"}
+          title={isFormatted ? "压缩为单行" : "格式化"}
         >
-          {expanded ? (
-            <ChevronUp className="size-3" />
-          ) : (
+          {isFormatted ? (
             <ChevronDown className="size-3" />
+          ) : (
+            <ChevronUp className="size-3" />
           )}
         </Button>
 
@@ -142,15 +151,15 @@ function CodeBlockWithCopy({
         style={codeStyle}
         codeTagProps={CODE_TAG_PROPS}
         customStyle={CODE_CUSTOM_STYLE}
-        showLineNumbers
+        showLineNumbers={isFormatted}
         lineNumberStyle={LINE_NUMBER_STYLE}
-        wrapLines
+        wrapLines={isFormatted}
         lineProps={() => ({
           style: { backgroundColor: "hsl(var(--background))" } as CSSProperties,
         })}
-        wrapLongLines
+        wrapLongLines={isFormatted}
       >
-        {code}
+        {displayCode}
       </SyntaxHighlighter>
     </div>
   );
@@ -179,8 +188,8 @@ export default function MessageTool({
     (part.state && part.state !== "output-available"
       ? `（${part.state}）`
       : part.errorText
-      ? `（错误：${part.errorText}）`
-      : "（暂无返回结果）");
+        ? `（错误：${part.errorText}）`
+        : "（暂无返回结果）");
 
   return (
     <div className={cn("flex justify-start", className)}>

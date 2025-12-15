@@ -2,27 +2,29 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "bun",
+      "type": "node",
       "request": "launch",
-      "name": "Bun: Debug File",
+      "name": "Node: Debug File",
       "program": "${file}",
       "cwd": "${workspaceFolder}",
       "runtimeArgs": ["--inspect"]
     },
     {
-      "type": "bun",
+      "type": "node",
       "request": "launch",
-      "name": "Bun: Debug Server",
+      "name": "Node: Debug Server",
       "program": "${workspaceFolder}/apps/server/src/index.ts",
       "cwd": "${workspaceFolder}/apps/server",
-      "runtimeArgs": ["--inspect:6785", "run", "--hot"]
+      "runtimeArgs": ["--inspect:6785", "--loader", "tsx"],
+      "env": {
+        "NODE_ENV": "development"
+      }
     },
     {
-      "type": "bun",
+      "type": "node",
       "request": "launch",
-      "name": "Bun: Debug Web",
+      "name": "Node: Debug Web",
       "program": "${workspaceFolder}/apps/web/node_modules/next/dist/bin/next",
-      "runtime": "bun",
       "args": ["dev", "--port", "3001"],
       "cwd": "${workspaceFolder}/apps/web",
       "runtimeArgs": ["--inspect=9229"],
@@ -36,7 +38,7 @@
     {
       "type": "node",
       "request": "attach",
-      "name": "Attach Next.js (Node/Bun SSR)",
+      "name": "Attach Next.js (Node SSR)",
       "port": 9229,
       "restart": true,
       "cwd": "${workspaceFolder}/apps/web",
@@ -55,16 +57,12 @@
   "compounds": [
     {
       "name": "Debug Web & Server & Scan",
-      "configurations": ["Bun: Debug Web", "Bun: Debug Server", "React Scan"],
+      "configurations": ["Node: Debug Web", "Node: Debug Server", "React Scan"],
       "stopAll": true
     },
     {
       "name": "Debug Web & Server",
-      "configurations": [
-        "Bun: Debug Web",
-        "Bun: Debug Server"
-        // "Attach Next.js (Node/Bun SSR)"
-      ],
+      "configurations": ["Node: Debug Web", "Node: Debug Server"],
       "stopAll": true
     }
   ]

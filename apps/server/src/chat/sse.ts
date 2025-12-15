@@ -7,6 +7,62 @@ import { requestContextManager } from "../context/requestContext";
 import type { ChatRequestBody, TokenUsageMessage } from "./types";
 import { createAgent, createRequestTools } from "./tools-config";
 
+type ActiveSseStream = {
+  chunks: string[];
+  subscribers: Set<ReadableStreamDefaultController<string>>;
+  done: boolean;
+  cleanupTimer?: ReturnType<typeof setTimeout>;
+};
+
+const ACTIVE_SSE_STREAMS = new Map<string, ActiveSseStream>();
+const STREAM_TTL_MS = 60_000;
+
+function finalizeActiveStream(chatId: string, entry: ActiveSseStream) {
+  if (entry.done) return;
+  entry.done = true;
+
+  for (const controller of entry.subscribers) {
+    try {
+      controller.close();
+    } catch {
+      // ignore
+    }
+  }
+  entry.subscribers.clear();
+
+  if (entry.cleanupTimer) clearTimeout(entry.cleanupTimer);
+  entry.cleanupTimer = setTimeout(() => {
+    ACTIVE_SSE_STREAMS.delete(chatId);
+  }, STREAM_TTL_MS);
+}
+
+function replaceActiveStream(chatId: string): ActiveSseStream {
+  const existing = ACTIVE_SSE_STREAMS.get(chatId);
+  if (existing) {
+    try {
+      finalizeActiveStream(chatId, existing);
+    } finally {
+      ACTIVE_SSE_STREAMS.delete(chatId);
+    }
+  }
+
+  const next: ActiveSseStream = {
+    chunks: [],
+    subscribers: new Set(),
+    done: false,
+  };
+  ACTIVE_SSE_STREAMS.set(chatId, next);
+  return next;
+}
+
+const UI_MESSAGE_STREAM_HEADERS = {
+  "content-type": "text/event-stream",
+  "cache-control": "no-cache",
+  connection: "keep-alive",
+  "x-vercel-ai-ui-message-stream": "v1",
+  "x-accel-buffering": "no",
+} as const;
+
 /**
  * AI SDK v6：流式对话接口（SSE/数据流协议由 createAgentUIStreamResponse 负责）。
  *
@@ -16,6 +72,52 @@ import { createAgent, createRequestTools } from "./tools-config";
  * 3) 将“完整历史（含新消息）”喂给 agent，进行流式生成
  */
 export const registerChatSse = (app: Hono) => {
+  // AI SDK v6 的 resumeStream() 默认会 GET `${api}/${chatId}/stream`
+  // 这里实现 `/chat/sse/:chatId/stream` 用于断线重连。
+  app.get("/chat/sse/:chatId/stream", async (c) => {
+    const chatId = c.req.param("chatId");
+    const entry = ACTIVE_SSE_STREAMS.get(chatId);
+    if (!entry) {
+      return new Response(null, { status: 204 });
+    }
+
+    const cursorRaw = c.req.query("cursor");
+    const cursor = Number(cursorRaw ?? "0");
+    const startIndex = Number.isFinite(cursor) && cursor > 0 ? cursor : 0;
+    const from = Math.min(Math.max(0, startIndex), entry.chunks.length);
+
+    let controllerRef: ReadableStreamDefaultController<string> | null = null;
+
+    const sseStream = new ReadableStream<string>({
+      start(controller) {
+        controllerRef = controller;
+
+        // 先重放缓存
+        for (let i = from; i < entry.chunks.length; i += 1) {
+          controller.enqueue(entry.chunks[i]);
+        }
+
+        // 如果已经结束，直接关闭
+        if (entry.done) {
+          controller.close();
+          return;
+        }
+
+        entry.subscribers.add(controller);
+      },
+      cancel() {
+        if (controllerRef) {
+          entry.subscribers.delete(controllerRef);
+        }
+      },
+    });
+
+    return new Response(sseStream.pipeThrough(new TextEncoderStream()), {
+      status: 200,
+      headers: UI_MESSAGE_STREAM_HEADERS,
+    });
+  });
+
   app.post("/chat/sse", async (c) => {
     let body: ChatRequestBody;
     try {
@@ -57,12 +159,40 @@ export const registerChatSse = (app: Hono) => {
       incomingMessage: lastIncomingMessage,
     });
 
-    const requestTools = createRequestTools();
+    // NOTE: 当前文件里 requestTools 未被使用；如需 tools 注入，请在 createAgent()/tools-config 内部完成。
+    createRequestTools();
 
     const agent = createAgent();
 
+    const active = replaceActiveStream(sessionId);
+
     return createAgentUIStreamResponse({
       agent,
+      // tee 一份 SSE 给服务端做缓存和广播，用于断线重连
+      consumeSseStream: async ({ stream }) => {
+        const reader = stream.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            active.chunks.push(value);
+            for (const controller of active.subscribers) {
+              try {
+                controller.enqueue(value);
+              } catch {
+                active.subscribers.delete(controller);
+              }
+            }
+          }
+        } finally {
+          finalizeActiveStream(sessionId, active);
+          try {
+            reader.releaseLock();
+          } catch {
+            // ignore
+          }
+        }
+      },
       onError: (error) => {
         console.error("Agent error:", error);
         return "An error occurred.";

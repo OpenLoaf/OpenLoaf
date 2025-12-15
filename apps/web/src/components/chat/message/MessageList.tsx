@@ -93,6 +93,7 @@ export default function MessageList({ className }: MessageListProps) {
     const lastHumanIndex = messages.findLastIndex(
       (message) => message.role === "user"
     );
+    console.log("开始渲染消息列表", messages);
     return messages.map((message, index) => (
       <MessageItem
         key={getMessageKey(message)}

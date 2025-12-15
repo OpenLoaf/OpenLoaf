@@ -90,16 +90,45 @@ export default function MarkdownCodeBlock({
     return (
       <div
         className={cn(
-          "my-2 mr-4 flex min-w-0 items-center gap-2 rounded-md border bg-muted/30 px-2 py-1",
+          "my-2 mr-4 flex min-w-0 items-center gap-2 rounded-md border px-2 py-1",
+          normalizedLanguage === "text" || normalizedLanguage === "bash"
+            ? "bg-muted/10"
+            : "bg-muted/30",
           className
         )}
       >
-        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <span
+          className={cn(
+            "shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px]",
+            normalizedLanguage === "text"
+              ? "bg-muted/50 text-muted-foreground"
+              : normalizedLanguage === "bash"
+                ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
+                : "bg-muted text-muted-foreground"
+          )}
+        >
           {normalizedLanguage}
         </span>
 
         <div className="min-w-0 flex-1 overflow-x-auto font-mono text-[11px] leading-5">
-          <code className="whitespace-pre">{code}</code>
+          <SyntaxHighlighter
+            style={oneDark as any}
+            language={normalizedLanguage}
+            PreTag="div"
+            showLineNumbers={false}
+            wrapLongLines
+            customStyle={{
+              ...SYNTAX_HIGHLIGHTER_CUSTOM_STYLE,
+              padding: 0,
+              margin: 0,
+              minWidth: 0,
+              overflow: "visible",
+              backgroundColor: "transparent",
+            }}
+            codeTagProps={SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS}
+          >
+            {code}
+          </SyntaxHighlighter>
         </div>
 
         <Button
