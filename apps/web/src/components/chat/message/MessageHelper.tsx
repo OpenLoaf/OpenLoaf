@@ -13,6 +13,7 @@ import { useChatContext } from "../ChatProvider";
 import { trpc } from "@/utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { MessageSquare } from "lucide-react";
+import { motion } from "motion/react";
 
 const SUGGESTIONS = [
   {
@@ -32,6 +33,22 @@ const SUGGESTIONS = [
     value: "帮我写一个 React 计数器组件，使用 TypeScript 和 Tailwind CSS。",
   },
 ];
+
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.5,
+    },
+  },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 },
+};
 
 export default function MessageHelper() {
   const { setInput, selectSession } = useChatContext();
@@ -58,18 +75,24 @@ export default function MessageHelper() {
             <p className="text-sm text-muted-foreground mb-2 text-center">
               你可以试着问我：
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <motion.div
+              variants={container}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+            >
               {SUGGESTIONS.map((suggestion) => (
-                <Button
-                  key={suggestion.label}
-                  variant="outline"
-                  className="justify-start h-auto py-3 px-4 text-left whitespace-normal font-normal"
-                  onClick={() => setInput(suggestion.value)}
-                >
-                  {suggestion.label}
-                </Button>
+                <motion.div key={suggestion.label} variants={item}>
+                  <Button
+                    variant="outline"
+                    className="justify-start h-auto py-3 px-4 text-left whitespace-normal font-normal w-full"
+                    onClick={() => setInput(suggestion.value)}
+                  >
+                    {suggestion.label}
+                  </Button>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </EmptyContent>
       </Empty>
@@ -103,7 +126,7 @@ export default function MessageHelper() {
                 </Button>
               );
             })}
-          </div> 
+          </div>
         </div>
       )}
     </div>
