@@ -12,6 +12,24 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use_tabs";
 
+const CLIENT_STREAM_CLIENT_ID_STORAGE_KEY = "teatime:chat:sse-client-id";
+
+function getStableClientStreamClientId() {
+  if (typeof window === "undefined") return "";
+  try {
+    const existing = window.sessionStorage.getItem(
+      CLIENT_STREAM_CLIENT_ID_STORAGE_KEY
+    );
+    if (existing) return existing;
+    const created =
+      globalThis.crypto?.randomUUID?.() ?? `cid_${generateId()}`;
+    window.sessionStorage.setItem(CLIENT_STREAM_CLIENT_ID_STORAGE_KEY, created);
+    return created;
+  } catch {
+    return globalThis.crypto?.randomUUID?.() ?? `cid_${generateId()}`;
+  }
+}
+
 function normalizeMessages(messages: UIMessage[]): UIMessage[] {
   const indexById = new Map<string, number>();
   const result: UIMessage[] = [];
@@ -169,8 +187,11 @@ export default function ChatProvider({
         };
       },
       prepareReconnectToStreamRequest: ({ id }) => {
+        const clientId = getStableClientStreamClientId();
         return {
-          api: `${apiBase}/${id}/stream`,
+          api: `${apiBase}/${id}/stream${
+            clientId ? `?clientId=${encodeURIComponent(clientId)}` : ""
+          }`,
           credentials: "include",
         };
       },

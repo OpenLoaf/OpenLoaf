@@ -22,6 +22,8 @@ type ActiveSseStream = {
 
 // streamId -> active stream data (in-memory)
 const ACTIVE_SSE_STREAMS = new Map<string, ActiveSseStream>();
+// streamId -> currently-following clientIds (in-memory, best-effort)
+const ACTIVE_SSE_STREAM_CLIENTS = new Map<string, Set<string>>();
 const STREAM_TTL_MS = 60_000;
 
 function finalizeActiveStream(streamId: string) {
@@ -40,6 +42,7 @@ function finalizeActiveStream(streamId: string) {
   if (entry.cleanupTimer) clearTimeout(entry.cleanupTimer);
   entry.cleanupTimer = setTimeout(() => {
     ACTIVE_SSE_STREAMS.delete(streamId);
+    ACTIVE_SSE_STREAM_CLIENTS.delete(streamId);
   }, STREAM_TTL_MS);
 }
 
@@ -141,8 +144,6 @@ export const registerChatSse = (app: Hono) => {
       incomingMessage: lastIncomingMessage,
     });
 
-    const requestTools = createRequestTools();
-
     const agent = createAgent();
 
     return createAgentUIStreamResponse({
@@ -220,11 +221,15 @@ export const registerChatSse = (app: Hono) => {
         const processChunk = async () => {
           while (true) {
             const { done, value } = await reader.read();
-            console.log(value?.delta);
             if (done) {
               console.log("Stream done");
               finalizeActiveStream(streamId);
               return;
+            }
+
+            if (typeof value !== "string") {
+              console.warn("Unexpected stream chunk type:", typeof value);
+              continue;
             }
 
             // Store the chunk for resumption
@@ -246,11 +251,74 @@ export const registerChatSse = (app: Hono) => {
   // GET endpoint to resume streams
   app.get("/chat/sse/:id/stream", async (c) => {
     const chatId = c.req.param("id");
+    const clientId = c.req.query("clientId") ?? "";
+
+    if (clientId) {
+      const key = chatId;
+      const existing = ACTIVE_SSE_STREAM_CLIENTS.get(key);
+      if (existing?.has(clientId)) {
+        // Same chatId + clientId already following: avoid duplicate consumers.
+        return new Response(null, { status: 204 });
+      }
+      const next = existing ?? new Set<string>();
+      next.add(clientId);
+      ACTIVE_SSE_STREAM_CLIENTS.set(key, next);
+    }
+
     const stream = resumeExistingStream(chatId);
 
     if (!stream) {
       // If no active stream exists, return 204 No Content
+      if (clientId) {
+        ACTIVE_SSE_STREAM_CLIENTS.get(chatId)?.delete(clientId);
+      }
       return new Response(null, { status: 204 });
+    }
+
+    if (clientId) {
+      const release = () => {
+        const set = ACTIVE_SSE_STREAM_CLIENTS.get(chatId);
+        if (!set) return;
+        set.delete(clientId);
+        if (set.size === 0) ACTIVE_SSE_STREAM_CLIENTS.delete(chatId);
+      };
+
+      c.req.raw.signal.addEventListener("abort", release, { once: true });
+
+      const streamWithRelease = new ReadableStream<string>({
+        start: async (controller) => {
+          const reader = stream.getReader();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              controller.enqueue(value);
+            }
+            controller.close();
+          } catch (error) {
+            controller.error(error);
+          } finally {
+            release();
+            try {
+              reader.releaseLock();
+            } catch {
+              // ignore
+            }
+          }
+        },
+        cancel: async () => {
+          release();
+          try {
+            await stream.cancel();
+          } catch {
+            // ignore
+          }
+        },
+      });
+
+      return new Response(streamWithRelease as any, {
+        headers: UI_MESSAGE_STREAM_HEADERS,
+      });
     }
 
     return new Response(stream as any, {
