@@ -121,7 +121,7 @@ export const MainContent: React.FC<{ className?: string }> = ({
     const containerRect = container.getBoundingClientRect();
     const newWidth = ((event.clientX - containerRect.left) / containerRect.width) * 100;
     // 限制宽度在30%-70%之间
-    const clampedWidth = Math.max(30, Math.min(70, newWidth));
+    const clampedWidth = Math.max(30, Math.min(80, newWidth));
     // 更新当前标签页的左侧宽度
     updateCurrentTabLeftWidth(clampedWidth);
   };
