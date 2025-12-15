@@ -45,10 +45,6 @@ export default function ElectronBrowser({ panelKey, url, className }: ElectronBr
   const [address, setAddress] = useState(initialUrl);
   const [currentUrl, setCurrentUrl] = useState(initialUrl);
   const viewRef = useRef<any>(null);
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const [viewportSize, setViewportSize] = useState<{ width: number; height: number } | null>(
-    null
-  );
 
   useEffect(() => {
     setAddress(initialUrl);
@@ -56,22 +52,11 @@ export default function ElectronBrowser({ panelKey, url, className }: ElectronBr
   }, [initialUrl]);
 
   useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-
-    const update = () => {
-      const width = el.clientWidth;
-      const height = el.clientHeight;
-      setViewportSize((prev) =>
-        prev && prev.width === width && prev.height === height ? prev : { width, height }
-      );
-    };
-
-    update();
-    const ro = new ResizeObserver(() => update());
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+    if (!isElectron) return;
+    const node = viewRef.current as HTMLElement | null;
+    if (!node?.setAttribute) return;
+    node.setAttribute("allowpopups", "");
+  }, [isElectron, panelKey, currentUrl]);
 
   const canNavigate = Boolean(normalizeUrl(address));
 
@@ -140,7 +125,6 @@ export default function ElectronBrowser({ panelKey, url, className }: ElectronBr
       </div>
 
       <div
-        ref={viewportRef}
         className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
       >
         {isElectron ? (
@@ -148,17 +132,17 @@ export default function ElectronBrowser({ panelKey, url, className }: ElectronBr
             ref={viewRef}
             key={`${panelKey}:${currentUrl}`}
             src={currentUrl}
-            className="block h-full w-full min-w-0"
-            style={viewportSize ? viewportSize : { width: "100%", height: "100%" }}
-            allowpopups
+            className="absolute inset-0 flex h-full w-full min-h-0 min-w-0"
+            style={{ width: "100%", height: "100%" }}
+            data-allow-context-menu="true"
           />
         ) : (
           <iframe
             key={`${panelKey}:${currentUrl}`}
             title="Browser"
             src={currentUrl}
-            className="block h-full w-full min-w-0"
-            style={viewportSize ? viewportSize : { width: "100%", height: "100%" }}
+            className="absolute inset-0 block h-full w-full min-h-0 min-w-0"
+            style={{ width: "100%", height: "100%" }}
             sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
           />
         )}

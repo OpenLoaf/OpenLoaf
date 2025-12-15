@@ -1,5 +1,12 @@
 import * as ScrollArea from "@radix-ui/react-scroll-area";
-import { Info, Sparkles, CheckSquare, Database, Zap } from "lucide-react";
+import {
+  Info,
+  Sparkles,
+  CheckSquare,
+  Database,
+  Zap,
+  FlaskConical,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, skipToken } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
@@ -11,6 +18,7 @@ import PlantCanvas from "./PlantCanvas";
 import PlantTasks from "./PlantTasks";
 import PlantMaterials from "./PlantMaterials";
 import PlantSkills from "./PlantSkills";
+import PlantTest from "./PlantTest";
 
 interface PlantPageProps {
   pageId?: string;
@@ -99,6 +107,11 @@ export default function PlantPage({ pageId }: PlantPageProps) {
       value: "skills",
       icon: <Zap className="size-4 shrink-0" />,
       label: "技能",
+    },
+    {
+      value: "test",
+      icon: <FlaskConical className="size-4 shrink-0" />,
+      label: "测试",
     },
   ];
 
@@ -250,6 +263,7 @@ export default function PlantPage({ pageId }: PlantPageProps) {
                   {activeTab === "skills" ? (
                     <PlantSkills isLoading={isLoading} pageId={pageId} />
                   ) : null}
+                  {activeTab === "test" ? <PlantTest pageId={pageId} /> : null}
                 </motion.div>
               </AnimatePresence>
             </div>

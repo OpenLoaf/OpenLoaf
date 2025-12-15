@@ -5,6 +5,7 @@ import React from "react";
 import PlantPage from "@/components/plant/Plant";
 import { Chat } from "@/components/chat/Chat";
 import ElectronBrowser from "@/components/browser/ElectronBrowser";
+import ElectrronBrowserWindow from "@/components/browser/ElectrronBrowserWindow";
 
 /**
  * 组件名称到组件的映射关系
@@ -14,6 +15,7 @@ export const ComponentMap: Record<string, React.ComponentType<any>> = {
   "ai-chat": Chat, // AI聊天组件
   "plant-page": PlantPage, // 植物页面组件
   "electron-browser": ElectronBrowser, // 内置浏览器组件
+  "electron-browser-window": ElectrronBrowserWindow, // 新窗口浏览器组件
 };
 
 /**
@@ -29,6 +31,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Plant";
     case "electron-browser":
       return "Browser";
+    case "electron-browser-window":
+      return "Browser Window";
     default:
       // 如果没有匹配的标题，直接返回组件名称
       return componentName;
