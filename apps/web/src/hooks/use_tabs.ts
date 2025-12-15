@@ -660,24 +660,7 @@ export const useTabs = create<TabsState>()(
     }),
     {
       name: STORAGE_KEY,
-      storage: createJSONStorage(() => ({
-        getItem: (name: string) => {
-          if (typeof document === "undefined") return null;
-          const match = document.cookie.match(
-            new RegExp("(^| )" + name + "=([^;]+)")
-          );
-          if (match) return decodeURIComponent(match[2]);
-          return null;
-        },
-        setItem: (name: string, value: string) => {
-          if (typeof document === "undefined") return;
-          document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
-        },
-        removeItem: (name: string) => {
-          if (typeof document === "undefined") return;
-          document.cookie = `${name}=; path=/; max-age=0`;
-        },
-      })),
+      storage: createJSONStorage(() => localStorage),
     }
   )
 );

@@ -101,8 +101,10 @@ export default function MessageList({ className }: MessageListProps) {
   }, [messages, getMessageKey]);
 
   return (
-    <div className={cn("flex-1 mb-4 relative min-w-0", className)}>
-      <ScrollArea.Root className="h-full w-full min-w-0">
+    <div
+      className={cn("flex-1 mb-4 relative min-w-0 flex flex-col", className)}
+    >
+      <ScrollArea.Root className="flex-1 w-full min-w-0">
         <ScrollArea.Viewport
           ref={viewportRef}
           className="w-full h-full min-h-0 min-w-0 overflow-x-hidden !select-text [&_*:not(summary)]:!select-text"
@@ -119,9 +121,7 @@ export default function MessageList({ className }: MessageListProps) {
               >
                 {isHistoryLoading && messages.length === 0 ? (
                   <MessageHistorySkeleton />
-                ) : messages.length === 0 ? (
-                  <MessageHelper />
-                ) : (
+                ) : messages.length > 0 ? (
                   <>
                     {messageItems}
 
@@ -131,7 +131,7 @@ export default function MessageList({ className }: MessageListProps) {
 
                     {error && <MessageError error={error} />}
                   </>
-                )}
+                ) : null}
               </motion.div>
             </AnimatePresence>
 
@@ -143,6 +143,9 @@ export default function MessageList({ className }: MessageListProps) {
         </ScrollArea.Scrollbar>
         <ScrollArea.Corner />
       </ScrollArea.Root>
+
+      {/* 将MessageHelper移到ScrollArea外 */}
+      {messages.length === 0 && !isHistoryLoading && <MessageHelper />}
     </div>
   );
 }

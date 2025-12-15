@@ -5,6 +5,7 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport, generateId } from "ai";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
+import { useTabs } from "@/hooks/use_tabs";
 
 /**
  * 聊天上下文类型
@@ -91,6 +92,7 @@ export default function ChatProvider({
   >(null);
   const [forceHistoryLoading, setForceHistoryLoading] = React.useState(false);
   const [scrollToBottomToken, setScrollToBottomToken] = React.useState(0);
+  const { tabs, activeTabId } = useTabs();
 
   const chat = useChat({
     id: sessionId,
@@ -104,10 +106,14 @@ export default function ChatProvider({
             body: { params: mergedParams, sessionId: id, id, messages: [] },
           };
         }
+        
+        const activeTab = tabs.find((tab) => tab.id === activeTabId);
+        
         const lastMessage = {
           ...messages[messages.length - 1],
           metadata: {
-            // workspaceId:
+            // activeTab:
+            activeTab,
           },
         };
         console.log(

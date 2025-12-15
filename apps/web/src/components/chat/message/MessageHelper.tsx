@@ -10,6 +10,9 @@ import {
 } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
 import { useChatContext } from "../ChatProvider";
+import { trpc } from "@/utils/trpc";
+import { useQuery } from "@tanstack/react-query";
+import { MessageSquare } from "lucide-react";
 
 const SUGGESTIONS = [
   {
@@ -31,38 +34,70 @@ const SUGGESTIONS = [
 ];
 
 export default function MessageHelper() {
-  const { setInput } = useChatContext();
+  const { setInput, selectSession } = useChatContext();
+  const { data: recentSessions } = useQuery(
+    trpc.chat.getRecentSessions.queryOptions({
+      limit: 3,
+    })
+  );
 
   return (
-    <Empty className="h-full">
-      <EmptyHeader>
-        <EmptyMedia>
-          <div className="text-muted-foreground text-4xl">💬</div>
-        </EmptyMedia>
-        <EmptyTitle>开始对话</EmptyTitle>
-        <EmptyDescription>
-          输入你的问题或想法，我会尽力为你提供帮助
-        </EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <div className="flex flex-col gap-2 max-w-md mx-auto mt-4">
+    <div className="flex flex-col h-full">
+      <Empty className="flex-1">
+        <EmptyHeader>
+          <EmptyMedia>
+            <div className="text-muted-foreground text-4xl">💬</div>
+          </EmptyMedia>
+          <EmptyTitle>开始对话</EmptyTitle>
+          <EmptyDescription>
+            输入你的问题或想法，我会尽力为你提供帮助
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <div className="flex flex-col gap-2 max-w-md mx-auto mt-4">
+            <p className="text-sm text-muted-foreground mb-2 text-center">
+              你可以试着问我：
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {SUGGESTIONS.map((suggestion) => (
+                <Button
+                  key={suggestion.label}
+                  variant="outline"
+                  className="justify-start h-auto py-3 px-4 text-left whitespace-normal font-normal"
+                  onClick={() => setInput(suggestion.value)}
+                >
+                  {suggestion.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </EmptyContent>
+      </Empty>
+
+      {/* 最近的对话固定显示在底部 */}
+      {recentSessions && recentSessions.length > 0 && (
+        <div className="mt-auto pt-4 border-t border-border">
           <p className="text-sm text-muted-foreground mb-2 text-center">
-            你可以试着问我：
+            最近的对话
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {SUGGESTIONS.map((suggestion) => (
+          <div className="grid grid-cols-1 gap-2 max-w-md mx-auto">
+            {recentSessions.map((session) => (
               <Button
-                key={suggestion.label}
-                variant="outline"
-                className="justify-start h-auto py-3 px-4 text-left whitespace-normal font-normal"
-                onClick={() => setInput(suggestion.value)}
+                key={session.id}
+                variant="ghost"
+                className="justify-start h-auto py-3 px-4 text-left font-normal border border-dashed"
+                onClick={() => selectSession(session.id)}
               >
-                {suggestion.label}
+                <MessageSquare className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 truncate">{session.title}</div>
+                <span className="text-xs text-muted-foreground ml-2 shrink-0">
+                  {new Date(session.updatedAt).toLocaleDateString()}
+                </span>
               </Button>
             ))}
           </div>
         </div>
-      </EmptyContent>
-    </Empty>
+      )}
+    </div>
   );
 }

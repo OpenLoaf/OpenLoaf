@@ -32,12 +32,6 @@ export const registerChatSse = (app: Hono) => {
     // 从请求中获取所有cookie
     const cookies = getCookie(c);
 
-    // 初始化请求上下文
-    requestContextManager.createContext({
-      sessionId,
-      cookies: cookies || {},
-    });
-
     const incomingMessages = body.messages;
     if (incomingMessages !== undefined && !Array.isArray(incomingMessages)) {
       return c.json({ error: "messages must be an array" }, 400);
@@ -47,6 +41,16 @@ export const registerChatSse = (app: Hono) => {
     const lastIncomingMessage = Array.isArray(incomingMessages)
       ? incomingMessages[incomingMessages.length - 1]
       : undefined;
+
+    // Extract activeTab from metadata
+    const activeTab = (lastIncomingMessage as any)?.metadata?.activeTab;
+    console.log("==activeTab==", activeTab);
+    // 初始化请求上下文
+    requestContextManager.createContext({
+      sessionId,
+      cookies: cookies || {},
+      activeTab,
+    });
 
     const messages = await saveAndAppendMessage({
       sessionId,

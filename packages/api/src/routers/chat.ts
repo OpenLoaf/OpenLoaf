@@ -94,6 +94,25 @@ export const chatRouter = t.router({
 
       return { messages, nextCursor };
     }),
+
+  /**
+   * 获取最近的会话列表
+   */
+  getRecentSessions: shieldedProcedure
+    .input(z.object({ limit: z.number().min(1).max(10).default(3) }).optional())
+    .query(async ({ ctx, input }) => {
+      const limit = input?.limit ?? 3;
+      return ctx.prisma.chatSession.findMany({
+        where: { deletedAt: null },
+        orderBy: { updatedAt: "desc" },
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          updatedAt: true,
+        },
+      });
+    }),
 });
 
 export type ChatRouter = typeof chatRouter;

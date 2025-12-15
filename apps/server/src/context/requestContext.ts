@@ -4,6 +4,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 type RequestContext = {
   sessionId: string;
   cookies: Record<string, string>;
+  activeTab?: Tab;
 };
 
 class RequestContextManager {
@@ -62,6 +63,14 @@ class RequestContextManager {
    * 获取tabs状态
    */
   getTabsState(): { tabs: Tab[]; activeTabId: string | null } | undefined {
+    const context = this.getContext();
+    if (context?.activeTab) {
+      return {
+        tabs: [context.activeTab],
+        activeTabId: context.activeTab.id,
+      };
+    }
+
     const tabsCookie = this.getCookie("tabs-storage");
     if (!tabsCookie) {
       return undefined;
