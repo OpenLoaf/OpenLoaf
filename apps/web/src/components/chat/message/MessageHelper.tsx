@@ -76,26 +76,34 @@ export default function MessageHelper() {
 
       {/* 最近的对话固定显示在底部 */}
       {recentSessions && recentSessions.length > 0 && (
-        <div className="mt-auto pt-4 border-t border-border">
-          <p className="text-sm text-muted-foreground mb-2 text-center">
-            最近的对话
-          </p>
-          <div className="grid grid-cols-1 gap-2 max-w-md mx-auto">
-            {recentSessions.map((session) => (
-              <Button
-                key={session.id}
-                variant="ghost"
-                className="justify-start h-auto py-3 px-4 text-left font-normal border border-dashed"
-                onClick={() => selectSession(session.id)}
-              >
-                <MessageSquare className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 truncate">{session.title}</div>
-                <span className="text-xs text-muted-foreground ml-2 shrink-0">
-                  {new Date(session.updatedAt).toLocaleDateString()}
-                </span>
-              </Button>
-            ))}
-          </div>
+        <div className="mt-auto pt-6  border-border/30">
+          <div className="grid grid-cols-1 gap-1 max-w-md mx-auto">
+            {recentSessions.map((session) => {
+              const date = new Date(session.updatedAt);
+              const isToday = date.toDateString() === new Date().toDateString();
+              return (
+                <Button
+                  key={session.id}
+                  variant="ghost"
+                  className="justify-start h-auto py-2 px-3 text-left font-normal text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors"
+                  onClick={() => selectSession(session.id)}
+                >
+                  <MessageSquare className="mr-2 h-3.5 w-3.5 opacity-50 shrink-0" />
+                  <div className="flex-1 truncate text-xs">{session.title}</div>
+                  <span className="text-[10px] opacity-40 ml-2 shrink-0">
+                    {isToday
+                      ? date.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                          hour12: false,
+                        })
+                      : date.toLocaleDateString()}
+                  </span>
+                </Button>
+              );
+            })}
+          </div> 
         </div>
       )}
     </div>
