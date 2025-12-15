@@ -1,69 +1,94 @@
-import { createAgentUIStreamResponse, generateId } from "ai";
+import { createAgentUIStreamResponse, UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { UIMessage } from "ai";
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
+import EventEmitter2 from "eventemitter2";
 import { saveAndAppendMessage } from "./history";
 import { requestContextManager } from "../context/requestContext";
 import type { ChatRequestBody, TokenUsageMessage } from "./types";
 import { createAgent, createRequestTools } from "./tools-config";
 
+// Use EventEmitter2 for more robust pub/sub pattern
+const eventEmitter = new EventEmitter2({
+  wildcard: false,
+  maxListeners: 1000, // Increase max listeners to handle many clients
+});
+
 type ActiveSseStream = {
   chunks: string[];
-  subscribers: Set<ReadableStreamDefaultController<string>>;
   done: boolean;
   cleanupTimer?: ReturnType<typeof setTimeout>;
-  streamId: string;
 };
 
+// streamId -> active stream data (in-memory)
 const ACTIVE_SSE_STREAMS = new Map<string, ActiveSseStream>();
 const STREAM_TTL_MS = 60_000;
 
-function finalizeActiveStream(chatId: string, entry: ActiveSseStream) {
-  if (entry.done) return;
+function finalizeActiveStream(streamId: string) {
+  const entry = ACTIVE_SSE_STREAMS.get(streamId);
+  if (!entry || entry.done) return;
+
   entry.done = true;
 
-  for (const controller of entry.subscribers) {
-    try {
-      controller.close();
-    } catch {
-      // ignore
-    }
-  }
-  entry.subscribers.clear();
+  // Emit done event to all subscribers
+  eventEmitter.emit(`${streamId}:done`);
+
+  // Cleanup event listeners for this stream
+  eventEmitter.removeAllListeners(`${streamId}:chunk`);
+  eventEmitter.removeAllListeners(`${streamId}:done`);
 
   if (entry.cleanupTimer) clearTimeout(entry.cleanupTimer);
   entry.cleanupTimer = setTimeout(() => {
-    ACTIVE_SSE_STREAMS.delete(chatId);
+    ACTIVE_SSE_STREAMS.delete(streamId);
   }, STREAM_TTL_MS);
 }
 
-function replaceActiveStream(chatId: string): ActiveSseStream {
-  const existing = ACTIVE_SSE_STREAMS.get(chatId);
-  if (existing) {
-    try {
-      finalizeActiveStream(chatId, existing);
-    } finally {
-      ACTIVE_SSE_STREAMS.delete(chatId);
-    }
-  }
+function resumeExistingStream(streamId: string): ReadableStream<string> | null {
+  const entry = ACTIVE_SSE_STREAMS.get(streamId);
+  if (!entry || entry.done) return null;
 
-  const next: ActiveSseStream = {
-    chunks: [],
-    subscribers: new Set(),
-    done: false,
-    streamId: chatId, // Use sessionId as streamId to avoid duplicates
-  };
-  ACTIVE_SSE_STREAMS.set(chatId, next);
-  return next;
+  return new ReadableStream<string>({
+    start: (controller) => {
+      // Replay existing chunks
+      (async () => {
+        for (const chunk of entry.chunks) {
+          try {
+            controller.enqueue(chunk);
+          } catch (error) {
+            console.error("Error replaying chunk:", error);
+            controller.close();
+            return;
+          }
+          // Allow the stream to process the chunk
+          await new Promise((resolve) => setImmediate(resolve));
+        }
+      })();
+
+      // Subscribe to new chunks
+      const chunkHandler = (chunk: string) => {
+        try {
+          controller.enqueue(chunk);
+        } catch (error) {
+          console.error("Error sending chunk to subscriber:", error);
+          controller.close();
+        }
+      };
+
+      const doneHandler = () => {
+        controller.close();
+      };
+
+      eventEmitter.on(`${streamId}:chunk`, chunkHandler);
+      eventEmitter.once(`${streamId}:done`, doneHandler);
+
+      // Save cleanup function
+      controller.desiredSize;
+    },
+    cancel: () => {
+      // No need to manually remove subscribers - EventEmitter2 handles this
+    },
+  });
 }
-
-const UI_MESSAGE_STREAM_HEADERS = {
-  "content-type": "text/event-stream",
-  "cache-control": "no-cache",
-  connection: "keep-alive",
-  "x-vercel-ai-ui-message-stream": "v1",
-  "x-accel-buffering": "no",
-} as const;
 
 /**
  * AI SDK v6：流式对话接口（SSE/数据流协议由 createAgentUIStreamResponse 负责）。
@@ -120,17 +145,10 @@ export const registerChatSse = (app: Hono) => {
 
     const agent = createAgent();
 
-    // Get or create active stream for this chat
-    let activeStream = ACTIVE_SSE_STREAMS.get(sessionId);
-    if (!activeStream || activeStream.done) {
-      activeStream = replaceActiveStream(sessionId);
-    }
-
     return createAgentUIStreamResponse({
       agent,
       onError: (error) => {
         console.error("Agent error:", error);
-        finalizeActiveStream(sessionId, activeStream);
         return "An error occurred.";
       },
       // 将 DB 还原出来的完整历史传给 agent
@@ -146,7 +164,6 @@ export const registerChatSse = (app: Hono) => {
       // 流式结束后：记录 token 使用情况，并把 AI 返回的最终消息落库（含 usage）。
       onFinish: async ({ isAborted, messages, responseMessage }) => {
         if (isAborted) {
-          finalizeActiveStream(sessionId, activeStream);
           return;
         }
 
@@ -168,7 +185,6 @@ export const registerChatSse = (app: Hono) => {
 
         // 只保存 AI 的最终回复（MVP）；若需要保存整个 messages，可扩展为批量写入。
         if (responseMessage?.role !== "assistant") {
-          finalizeActiveStream(sessionId, activeStream);
           return;
         }
 
@@ -186,39 +202,42 @@ export const registerChatSse = (app: Hono) => {
           sessionId,
           incomingMessage: messageToSave,
         });
-
-        finalizeActiveStream(sessionId, activeStream);
       },
       // Use consumeSseStream to handle the stream for resumption
       consumeSseStream: ({ stream }) => {
+        const streamId = sessionId;
+
+        // Create new stream entry
+        const activeStream: ActiveSseStream = {
+          chunks: [],
+          done: false,
+        };
+        ACTIVE_SSE_STREAMS.set(streamId, activeStream);
+
         const reader = stream.getReader();
 
+        // Use a loop instead of recursion to avoid stack overflow
         const processChunk = async () => {
-          const { done, value } = await reader.read();
-
-          if (done) {
-            return;
-          }
-
-          // Store the chunk for resumption
-          activeStream.chunks.push(value);
-
-          // Broadcast to all subscribers
-          for (const controller of activeStream.subscribers) {
-            try {
-              controller.enqueue(value);
-            } catch {
-              // Remove subscribers that have closed
-              activeStream.subscribers.delete(controller);
+          while (true) {
+            const { done, value } = await reader.read();
+            console.log(value?.delta);
+            if (done) {
+              console.log("Stream done");
+              finalizeActiveStream(streamId);
+              return;
             }
-          }
 
-          await processChunk();
+            // Store the chunk for resumption
+            activeStream.chunks.push(value);
+
+            // Publish chunk event to all subscribers using EventEmitter2
+            eventEmitter.emit(`${streamId}:chunk`, value);
+          }
         };
 
         processChunk().catch((error) => {
           console.error("Error processing stream chunk:", error);
-          finalizeActiveStream(sessionId, activeStream);
+          finalizeActiveStream(streamId);
         });
       },
     });
@@ -227,38 +246,12 @@ export const registerChatSse = (app: Hono) => {
   // GET endpoint to resume streams
   app.get("/chat/sse/:id/stream", async (c) => {
     const chatId = c.req.param("id");
-    const resumeAt = c.req.query("resumeAt");
+    const stream = resumeExistingStream(chatId);
 
-    const activeStream = ACTIVE_SSE_STREAMS.get(chatId);
-
-    if (!activeStream || activeStream.done) {
+    if (!stream) {
+      // If no active stream exists, return 204 No Content
       return new Response(null, { status: 204 });
     }
-
-    // Create a new stream for this client
-    let currentController: ReadableStreamDefaultController<string> | null =
-      null;
-
-    const stream = new ReadableStream({
-      start: (controller) => {
-        currentController = controller;
-        // Add this client as a subscriber
-        activeStream.subscribers.add(controller);
-
-        // Send all previous chunks if resumeAt is not provided or is 0
-        if (!resumeAt || parseInt(resumeAt) === 0) {
-          for (const chunk of activeStream.chunks) {
-            controller.enqueue(chunk);
-          }
-        }
-      },
-      cancel: () => {
-        // Remove this client from subscribers
-        if (currentController) {
-          activeStream.subscribers.delete(currentController);
-        }
-      },
-    });
 
     return new Response(stream as any, {
       headers: UI_MESSAGE_STREAM_HEADERS,
