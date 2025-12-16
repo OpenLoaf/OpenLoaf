@@ -32,6 +32,56 @@ function renderDockItem(tabId: string, item: DockItem) {
   );
 }
 
+function PanelFrame({
+  tabId,
+  item,
+  title,
+  onClose,
+  fillHeight,
+  floating,
+}: {
+  tabId: string;
+  item: DockItem;
+  title: string;
+  onClose: () => void;
+  fillHeight: boolean;
+  floating: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "overflow-hidden",
+        floating ? "rounded-xl border border-border shadow-2xl" : "rounded-none border-0 shadow-none",
+        fillHeight && "h-full w-full",
+      )}
+    >
+      <div
+        className={cn(
+          "flex w-full flex-col bg-background/95 backdrop-blur-sm",
+          fillHeight && "h-full",
+        )}
+      >
+        <div className="shrink-0 border-b bg-background/70 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-2 px-3 py-2">
+            <div className="min-w-0 text-sm font-medium">
+              <span className="truncate">{title}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className={cn("p-2", fillHeight && "min-h-0 flex-1")}>
+          {renderDockItem(tabId, item)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LeftDock({ tabId }: { tabId: string }) {
   const tab = useTabs((s) => s.tabs.find((t) => t.id === tabId));
   const removeStackItem = useTabs((s) => s.removeStackItem);
@@ -46,15 +96,24 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const hasOverlay = overlayStack.length > 0;
 
   return (
-    <div className="relative h-full w-full min-h-0 min-w-0 overflow-hidden ">
+    <div className="relative h-full w-full min-h-0 min-w-0 overflow-hidden">
       <div
         className={cn(
-          "h-full w-full transition-all duration-200  p-2",
+          "h-full w-full p-2 transition-all duration-200",
           hasOverlay && "pointer-events-none select-none blur-sm opacity-80",
         )}
       >
-        {base ? renderDockItem(tabId, base) : underlay ? (
-          renderDockItem(tabId, underlay)
+        {base ? (
+          renderDockItem(tabId, base)
+        ) : underlay ? (
+          <PanelFrame
+            tabId={tabId}
+            item={underlay}
+            title={underlay.title ?? getPanelTitle(underlay.component)}
+            onClose={() => removeStackItem(tabId, underlay.id)}
+            fillHeight
+            floating={false}
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             No project
@@ -78,47 +137,34 @@ export function LeftDock({ tabId }: { tabId: string }) {
               <motion.div
                 key={item.id}
                 className={cn(
-                  "absolute overflow-hidden rounded-xl border border-border shadow-2xl",
+                  "absolute",
                   isTop ? "pointer-events-auto" : "pointer-events-none",
                 )}
-                style={{ zIndex: 10 + index, maxHeight: `calc(100% - ${top + baseInset}px)` }}
+                style={{ zIndex: 10 + index }}
                 initial={{
                   opacity: 0,
                   top: top + 10,
                   left: inset,
                   right: inset,
+                  bottom: inset,
                 }}
                 animate={{
                   opacity,
                   top,
                   left: inset,
                   right: inset,
+                  bottom: inset,
                 }}
                 transition={{ duration: 0.15 }}
               >
-                <div className="flex w-full flex-col bg-background/95 backdrop-blur-sm">
-                  <div className="shrink-0 border-b bg-background/70 backdrop-blur-sm">
-                    <div className="flex items-center justify-between gap-2 px-3 py-2">
-                      <div className="min-w-0 text-sm font-medium">
-                        <span className="truncate">{title}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removeStackItem(tabId, item.id)}
-                          aria-label="Close"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-2">
-                    {renderDockItem(tabId, item)}
-                  </div>
-                </div>
+                <PanelFrame
+                  tabId={tabId}
+                  item={item}
+                  title={title}
+                  onClose={() => removeStackItem(tabId, item.id)}
+                  fillHeight
+                  floating
+                />
               </motion.div>
             );
           })

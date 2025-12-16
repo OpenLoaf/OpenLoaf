@@ -9,7 +9,7 @@ import type { SystemToolResult } from "./types";
  */
 export const timeNowTool = tool({
   description:
-    "【system/read】获取当前服务器时间信息。返回 nowIso(UTC ISO)、unixMs、timezone。",
+    "【system/read】获取当前服务器时间信息。返回 now(字符串时间)、unixMs、timezone。",
   inputSchema: zodSchema(
     z.object({
       timezone: z
@@ -21,7 +21,7 @@ export const timeNowTool = tool({
     }),
   ),
   execute: async (input, _options): Promise<
-    SystemToolResult<{ nowIso: string; unixMs: number; timezone: string }>
+    SystemToolResult<{ now: string; unixMs: number; timezone: string }>
   > => {
     const now = new Date();
     // 默认使用当前系统时区（MVP：仅回显时区，不做时区换算）。
@@ -29,12 +29,37 @@ export const timeNowTool = tool({
       Intl.DateTimeFormat().resolvedOptions().timeZone ??
       process.env.TZ ??
       "UTC";
-    const timezone = input?.timezone ?? systemTimezone;
+    const requestedTimezone = input?.timezone ?? systemTimezone;
+
+    const formatNow = (timeZone: string) => {
+      const parts = new Intl.DateTimeFormat("sv-SE", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).formatToParts(now);
+      const pick = (type: string) =>
+        parts.find((p) => p.type === type)?.value ?? "";
+      return `${pick("year")}-${pick("month")}-${pick("day")} ${pick("hour")}:${pick("minute")}:${pick("second")}`;
+    };
+
+    let timezone = requestedTimezone;
+    let nowString: string;
+    try {
+      nowString = formatNow(timezone);
+    } catch {
+      timezone = systemTimezone;
+      nowString = formatNow(timezone);
+    }
 
     return {
       ok: true,
       data: {
-        nowIso: now.toISOString(),
+        now: nowString,
         unixMs: now.getTime(),
         timezone,
       },

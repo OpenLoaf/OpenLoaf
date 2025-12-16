@@ -79,6 +79,7 @@ export default function MessageAiAction({
   });
 
   React.useEffect(() => {
+    if (!message.metadata) return;
     console.log("now", message.metadata);
   }, [message.metadata]);
 

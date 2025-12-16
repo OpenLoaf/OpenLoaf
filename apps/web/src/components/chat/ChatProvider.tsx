@@ -11,6 +11,7 @@ import { DefaultChatTransport, generateId } from "ai";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use_tabs";
+import { da } from "zod/v4/locales";
 
 const CLIENT_STREAM_CLIENT_ID_STORAGE_KEY = "teatime:chat:sse-client-id";
 
@@ -268,12 +269,26 @@ export default function ChatProvider({
       id: sessionId,
       // mount 时自动尝试恢复未完成的流（AI SDK v6 内部会触发 GET `${api}/${id}/stream`）
       resume: true,
-      transport,
+      transport
     }),
     [sessionId, transport]
   );
 
-  const chat = useChat(chatConfig);
+  const chat = useChat({
+    ...chatConfig,
+    onData: (data) => {
+      console.log("ChatProvider onData:", data);
+    },
+    onFinish: () => {
+      console.log("ChatProvider onFinish");
+    },
+    onError: (error) => {
+      console.error("ChatProvider onError:", error);
+    },
+    onToolCall(toolCall) {
+      console.log("ChatProvider onToolCall:", toolCall);
+    }
+  });
 
   const setMessages = useCallback(
     (
@@ -297,6 +312,7 @@ export default function ChatProvider({
 
   React.useEffect(() => {
     const source = activeMessageListSourceRef.current;
+    console.log("ChatProvider sync messages from useChat:", chat.messages);
     setMessageListMessagesFromSource(source, normalizeMessages(chat.messages));
   }, [chat.messages, setMessageListMessagesFromSource]);
 
