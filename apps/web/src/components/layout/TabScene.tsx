@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Chat } from "@/components/chat/Chat";
 import { useTabs, LEFT_DOCK_MIN_PX } from "@/hooks/use_tabs";
@@ -18,46 +18,53 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
   const [containerWidthPx, setContainerWidthPx] = React.useState(0);
-
-  const [isDragging, setIsDragging] = React.useState(false);
-  const dragLeftPxRef = React.useRef(LEFT_DOCK_MIN_PX);
-  const dragRafRef = React.useRef<number | null>(null);
-  const [dragLeftPx, setDragLeftPx] = React.useState<number | null>(null);
+  const containerWidthPxRef = React.useRef(0);
 
   const hasLeftContent = Boolean(tab?.base) || (tab?.stack?.length ?? 0) > 0;
   const chatCollapsed = Boolean(tab?.base) && Boolean(tab?.rightChatCollapsed);
-
   const storedLeftWidthPx = hasLeftContent ? tab?.leftWidthPx ?? 0 : 0;
-  const effectiveLeftWidthPx =
-    isDragging && dragLeftPx != null ? dragLeftPx : storedLeftWidthPx;
-
-  const computedLeftHidden = effectiveLeftWidthPx <= 0;
+  const computedLeftHidden = storedLeftWidthPx <= 0;
   const computedRightHidden = chatCollapsed;
+  const dividerVisible = !computedLeftHidden && !computedRightHidden;
 
-  const widthTransition =
-    reduceMotion || isDragging
-      ? { duration: 0 }
-      : { type: "spring" as const, stiffness: 260, damping: 45 };
+  const [isDragging, setIsDragging] = React.useState(false);
+  const dragLeftPxRef = React.useRef(LEFT_DOCK_MIN_PX);
+  const dragSessionRef = React.useRef<{
+    pointerId: number;
+    containerLeft: number;
+    containerWidth: number;
+  } | null>(null);
+  const cursorRestoreRef = React.useRef<{ cursor: string; userSelect: string } | null>(
+    null,
+  );
 
-  const leftGrow = React.useMemo(() => {
-    if (computedLeftHidden) return 0;
-    if (computedRightHidden) return 100;
-    const w = containerWidthPx > 0 ? containerWidthPx : 1;
-    const raw = (effectiveLeftWidthPx / w) * 100;
-    return Math.max(0, Math.min(100, raw));
-  }, [
-    computedLeftHidden,
-    computedRightHidden,
-    containerWidthPx,
-    effectiveLeftWidthPx,
-  ]);
-
-  const rightGrow = computedRightHidden
+  const fallbackWidthPx =
+    storedLeftWidthPx > 0 ? storedLeftWidthPx + RIGHT_CHAT_MIN_PX : RIGHT_CHAT_MIN_PX;
+  const denominator = containerWidthPx > 0 ? containerWidthPx : fallbackWidthPx;
+  const layoutLeftGrow = computedRightHidden
+    ? 100
+    : computedLeftHidden
+      ? 0
+      : Math.max(0, Math.min(100, (storedLeftWidthPx / Math.max(1, denominator)) * 100));
+  const layoutRightGrow = computedRightHidden
     ? 0
     : computedLeftHidden
       ? 100
-      : Math.max(0, 100 - leftGrow);
-  const dividerVisible = leftGrow > 0 && rightGrow > 0;
+      : Math.max(0, 100 - layoutLeftGrow);
+
+  const leftGrow = useMotionValue(layoutLeftGrow);
+  const rightGrow = useMotionValue(layoutRightGrow);
+  const growAnimationRef = React.useRef<{
+    left: ReturnType<typeof animate> | null;
+    right: ReturnType<typeof animate> | null;
+  }>({ left: null, right: null });
+
+  const instantTransition = React.useMemo(() => ({ duration: 0 }), []);
+  const springTransition = React.useMemo(
+    () => ({ type: "spring" as const, stiffness: 260, damping: 45 }),
+    [],
+  );
+  const dividerTransition = reduceMotion || isDragging ? instantTransition : springTransition;
 
   React.useEffect(() => {
     if (!active) return;
@@ -66,7 +73,9 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
 
     const measure = () => {
       const rect = container.getBoundingClientRect();
-      setContainerWidthPx(Math.max(0, Math.round(rect.width)));
+      const next = Math.max(0, Math.round(rect.width));
+      containerWidthPxRef.current = next;
+      setContainerWidthPx(next);
     };
 
     measure();
@@ -82,44 +91,109 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
   }, [active]);
 
   React.useEffect(() => {
+    if (!active) return;
+    if (isDragging) return;
+
+    growAnimationRef.current.left?.stop();
+    growAnimationRef.current.right?.stop();
+    growAnimationRef.current.left = null;
+    growAnimationRef.current.right = null;
+
+    if (reduceMotion) {
+      leftGrow.set(layoutLeftGrow);
+      rightGrow.set(layoutRightGrow);
+      return;
+    }
+
+    growAnimationRef.current.left = animate(leftGrow, layoutLeftGrow, springTransition);
+    growAnimationRef.current.right = animate(rightGrow, layoutRightGrow, springTransition);
+
+    return () => {
+      growAnimationRef.current.left?.stop();
+      growAnimationRef.current.right?.stop();
+      growAnimationRef.current.left = null;
+      growAnimationRef.current.right = null;
+    };
+  }, [
+    active,
+    animate,
+    isDragging,
+    layoutLeftGrow,
+    layoutRightGrow,
+    leftGrow,
+    reduceMotion,
+    rightGrow,
+    springTransition,
+  ]);
+
+  React.useEffect(() => {
     if (!isDragging) return;
 
-    const onMove = (event: MouseEvent) => {
-      const container = containerRef.current;
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const raw = Math.round(event.clientX - rect.left);
+    const endDrag = (commit: boolean) => {
+      if (!dragSessionRef.current) return;
+
+      setIsDragging(false);
+      dragSessionRef.current = null;
+
+      if (cursorRestoreRef.current) {
+        document.body.style.cursor = cursorRestoreRef.current.cursor;
+        document.body.style.userSelect = cursorRestoreRef.current.userSelect;
+        cursorRestoreRef.current = null;
+      }
+
+      if (commit) {
+        setTabLeftWidthPx(tabId, dragLeftPxRef.current);
+      }
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      const session = dragSessionRef.current;
+      if (!session) return;
+      if (event.pointerId !== session.pointerId) return;
+
+      const raw = Math.round(event.clientX - session.containerLeft);
       const maxLeft = Math.max(
         LEFT_DOCK_MIN_PX,
-        Math.round(rect.width - RIGHT_CHAT_MIN_PX),
+        Math.round(session.containerWidth - RIGHT_CHAT_MIN_PX),
       );
       const next = Math.max(LEFT_DOCK_MIN_PX, Math.min(maxLeft, raw));
       dragLeftPxRef.current = next;
 
-      if (dragRafRef.current != null) return;
-      dragRafRef.current = window.requestAnimationFrame(() => {
-        dragRafRef.current = null;
-        setDragLeftPx(dragLeftPxRef.current);
-      });
+      const w = session.containerWidth > 0 ? session.containerWidth : containerWidthPxRef.current;
+      const denominator = Math.max(1, w || fallbackWidthPx);
+      const nextLeftGrow = Math.max(0, Math.min(100, (next / denominator) * 100));
+      leftGrow.set(nextLeftGrow);
+      rightGrow.set(Math.max(0, 100 - nextLeftGrow));
     };
 
-    const onUp = () => {
-      setIsDragging(false);
-      if (dragRafRef.current != null) {
-        window.cancelAnimationFrame(dragRafRef.current);
-        dragRafRef.current = null;
-      }
-      setDragLeftPx(null);
-      setTabLeftWidthPx(tabId, dragLeftPxRef.current);
+    const onPointerUpOrCancel = (event: PointerEvent) => {
+      const session = dragSessionRef.current;
+      if (!session) return;
+      if (event.pointerId !== session.pointerId) return;
+      endDrag(true);
     };
 
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    const onWindowBlur = () => endDrag(true);
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUpOrCancel);
+    window.addEventListener("pointercancel", onPointerUpOrCancel);
+    window.addEventListener("blur", onWindowBlur);
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUpOrCancel);
+      window.removeEventListener("pointercancel", onPointerUpOrCancel);
+      window.removeEventListener("blur", onWindowBlur);
+      endDrag(false);
     };
-  }, [isDragging, setTabLeftWidthPx, tabId]);
+  }, [
+    fallbackWidthPx,
+    isDragging,
+    leftGrow,
+    rightGrow,
+    setTabLeftWidthPx,
+    tabId,
+  ]);
 
   if (!tab) return null;
 
@@ -140,13 +214,12 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
             )}
             style={{
               flexBasis: 0,
+              flexGrow: leftGrow,
               flexShrink: 1,
               minWidth: 0,
               willChange: "flex-grow",
             }}
             initial={false}
-            animate={{ flexGrow: leftGrow }}
-            transition={widthTransition}
           >
             <div className={cn("h-full w-full relative", computedLeftHidden ? "p-0" : "p-2")}>
               <LeftDock tabId={tabId} />
@@ -165,11 +238,41 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
               width: dividerVisible ? 10 : 0,
               opacity: dividerVisible ? 1 : 0,
             }}
-            transition={widthTransition}
-            onMouseDown={() => {
+            transition={dividerTransition}
+            onPointerDown={(event) => {
               if (!dividerVisible) return;
-              dragLeftPxRef.current = storedLeftWidthPx || LEFT_DOCK_MIN_PX;
-              setDragLeftPx(dragLeftPxRef.current);
+              if (event.button !== 0) return;
+              const container = containerRef.current;
+              if (!container) return;
+
+              const rect = container.getBoundingClientRect();
+              dragSessionRef.current = {
+                pointerId: event.pointerId,
+                containerLeft: rect.left,
+                containerWidth: rect.width,
+              };
+
+              const initialLeftPx = storedLeftWidthPx || LEFT_DOCK_MIN_PX;
+              dragLeftPxRef.current = initialLeftPx;
+
+              const denominator = Math.max(1, rect.width || fallbackWidthPx);
+              const nextLeftGrow = Math.max(0, Math.min(100, (initialLeftPx / denominator) * 100));
+              growAnimationRef.current.left?.stop();
+              growAnimationRef.current.right?.stop();
+              growAnimationRef.current.left = null;
+              growAnimationRef.current.right = null;
+              leftGrow.set(nextLeftGrow);
+              rightGrow.set(Math.max(0, 100 - nextLeftGrow));
+
+              cursorRestoreRef.current = {
+                cursor: document.body.style.cursor,
+                userSelect: document.body.style.userSelect,
+              };
+              document.body.style.cursor = "col-resize";
+              document.body.style.userSelect = "none";
+
+              event.preventDefault();
+              event.currentTarget.setPointerCapture(event.pointerId);
               setIsDragging(true);
             }}
             role="separator"
@@ -191,13 +294,12 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
             )}
             style={{
               flexBasis: 0,
+              flexGrow: rightGrow,
               flexShrink: 1,
               minWidth: 0,
               willChange: "flex-grow",
             }}
             initial={false}
-            animate={{ flexGrow: rightGrow }}
-            transition={widthTransition}
           >
             <div className={cn("h-full w-full relative", computedRightHidden ? "p-0" : "p-2")}>
               <Chat

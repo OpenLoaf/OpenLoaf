@@ -160,6 +160,8 @@ export const useTabs = create<TabsState>()(
           } = input;
 
           if (!createNew && resourceId) {
+            // 复用策略：同资源（resourceId）默认单击复用同一个 tab（不创建新 tab），
+            // 满足“最小化标签数量”的使用习惯。
             const existingIndex = state.tabs.findIndex(
               (tab) => tab.workspaceId === workspaceId && tab.resourceId === resourceId,
             );
@@ -181,6 +183,8 @@ export const useTabs = create<TabsState>()(
           }
 
           const tabId = generateId("tab");
+          // 关键约定：tabId 与 chatSessionId 解耦（随机生成、互不推导）。
+          // 这样同一个资源也可以在不同 tab 中拥有独立会话（未来扩展用）。
           const createdChatSessionId =
             requestedChatSessionId ?? generateId("chat");
           const createdChatLoadHistory =
@@ -214,6 +218,8 @@ export const useTabs = create<TabsState>()(
           const now = Date.now();
           const { workspaceId, resourceId, title, icon, base, chatParams } = input;
 
+          // 预览标签规则：每个 workspace 只保留一个 preview tab，
+          // 单击打开时复用它（避免 tab 膨胀）；双击/中键/ctrl/meta/右键“新标签打开”才升级为正式 tab。
           const previewIndex = state.tabs.findIndex(
             (tab) => tab.workspaceId === workspaceId && tab.isPreview,
           );
@@ -235,6 +241,7 @@ export const useTabs = create<TabsState>()(
               ...(sameResource && sameBase
                 ? { lastActiveAt: now }
                 : {
+                    // 预览标签切到新资源：重置 stack 与会话，避免把上一个资源的上下文/overlay 带过来。
                     stack: [],
                     chatSessionId: generateId("chat"),
                     chatLoadHistory: false,
@@ -273,6 +280,7 @@ export const useTabs = create<TabsState>()(
 
       promoteTab: (tabId) => {
         set((state) => ({
+          // 升级预览标签为正式标签：只改 isPreview=false，其它状态保持（包括 keep-alive 下的 UI 状态）。
           tabs: updateTabById(state.tabs, tabId, (tab) =>
             tab.isPreview ? { ...tab, isPreview: false } : tab,
           ),
@@ -438,6 +446,7 @@ export const useTabs = create<TabsState>()(
           tabs: updateTabById(state.tabs, tabId, (tab) =>
             normalizeDock({
               ...tab,
+              // tab 内切换会话：清空 stack（工具/资源 overlay 属于旧会话上下文），保留 base（项目面板）。
               chatSessionId,
               chatLoadHistory: options?.loadHistory,
               stack: [],
@@ -450,6 +459,8 @@ export const useTabs = create<TabsState>()(
         set((state) => ({
           tabs: updateTabById(state.tabs, tabId, (tab) => {
             const nextTab = normalizeDock(tab);
+            // 去重键：优先用 sourceKey（例如 toolCallId），否则回退到 item.id。
+            // 同一个结果重复出现时更新并保持顺序稳定，避免 stack 无限增长。
             const key = item.sourceKey ?? item.id;
             const existingIndex = nextTab.stack.findIndex(
               (s) => (s.sourceKey ?? s.id) === key,
@@ -466,6 +477,8 @@ export const useTabs = create<TabsState>()(
 
             return normalizeDock({
               ...nextTab,
+              // 触发 Stack 的行为（工具结果/overlay 出现）会自动把预览标签升级为正式标签，
+              // 避免“预览标签被后续单击复用覆盖”而丢失正在进行的任务上下文。
               isPreview: nextTab.isPreview ? false : nextTab.isPreview,
               stack: nextStack,
               leftWidthPx:

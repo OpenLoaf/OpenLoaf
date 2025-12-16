@@ -62,6 +62,7 @@ export const PageTreeMenu = ({
   const openInPreview = (page: PageTreeNode) => {
     const input = buildPreviewInput(page);
     if (!input) return;
+    // 单击默认打开“预览标签”：同 workspace 只保留一个，重复单击会复用该标签。
     openPreviewTab(input);
   };
 
@@ -72,11 +73,13 @@ export const PageTreeMenu = ({
     const activeTab = state.tabs.find((t) => t.id === activeTabId);
     if (!activeTab?.isPreview) return false;
     if (activeTab.resourceId !== `page:${page.id}`) return false;
+    // 双击同一条目：如果当前激活的就是这个预览标签，则直接“升级”为正式标签（不新开）。
     promoteTab(activeTabId);
     return true;
   };
 
   const openAndPromote = (page: PageTreeNode) => {
+    // 明确“新标签”语义：先打开（可能复用预览标签），再把激活 tab 升级为正式标签。
     openInPreview(page);
     const nextActiveTabId = useTabs.getState().activeTabId;
     if (nextActiveTabId) {
@@ -85,6 +88,7 @@ export const PageTreeMenu = ({
   };
 
   const handlePrimaryClick = (event: React.MouseEvent, page: PageTreeNode) => {
+    // Ctrl/⌘ + 单击：直接按“新标签”策略打开（升级为正式标签）。
     if (event.metaKey || event.ctrlKey) {
       event.preventDefault();
       openAndPromote(page);
@@ -94,12 +98,14 @@ export const PageTreeMenu = ({
   };
 
   const handleMouseDown = (event: React.MouseEvent, page: PageTreeNode) => {
+    // 中键：按“新标签”策略打开（升级为正式标签）。
     if (event.button !== 1) return;
     event.preventDefault();
     openAndPromote(page);
   };
 
   const handleDoubleClick = (event: React.MouseEvent, page: PageTreeNode) => {
+    // 双击：优先升级当前预览标签；否则按“新标签”策略打开。
     event.preventDefault();
     if (!promoteActiveIfPreviewMatches(page)) {
       openAndPromote(page);

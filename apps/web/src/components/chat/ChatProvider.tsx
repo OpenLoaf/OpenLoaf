@@ -414,6 +414,8 @@ export default function ChatProvider({
 
   const sendMessage = useCallback(
     (...args: Parameters<typeof chat.sendMessage>) => {
+      // 发送消息即代表“开始在这个 tab 内产生会话上下文”，因此把预览标签升级为正式标签，
+      // 避免预览标签后续被单击复用覆盖。
       if (tabId) promoteTab(tabId);
       return chat.sendMessage(...args);
     },
