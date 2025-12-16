@@ -23,6 +23,19 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "Server: Dev (inspect 6785)",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/pnpm",
+      "args": ["--filter", "server", "dev"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "development",
+        "NODE_OPTIONS": "--inspect=6785"
+      },
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "Node: Debug Web",
       "program": "${workspaceFolder}/node_modules/.bin/pnpm",
       "args": ["dev"],
