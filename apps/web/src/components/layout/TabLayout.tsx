@@ -2,9 +2,8 @@
 
 import * as React from "react";
 import {
-  animate,
   motion,
-  useMotionValue,
+  useSpring,
   useTransform,
   useReducedMotion,
 } from "motion/react";
@@ -141,17 +140,16 @@ export function TabLayout({
     }
   }
 
-  const splitPercent = useMotionValue(targetSplitPercent);
+  const splitPercent = useSpring(targetSplitPercent, SPRING_CONFIG);
   const [isDragging, setIsDragging] = React.useState(false);
-
-  // Opacity transforms to fade content out when panels get too small
-  const leftOpacity = useTransform(splitPercent, [0, 5], [0, 1]);
-  const rightOpacity = useTransform(splitPercent, [95, 100], [1, 0]);
 
   React.useEffect(() => {
     if (isDragging) return;
-    const config = reduceMotion ? { duration: 0 } : SPRING_CONFIG;
-    animate(splitPercent, targetSplitPercent, config);
+    if (reduceMotion) {
+      splitPercent.jump(targetSplitPercent);
+      return;
+    }
+    splitPercent.set(targetSplitPercent);
   }, [targetSplitPercent, isDragging, splitPercent, reduceMotion]);
 
   const handleDragStart = (e: React.PointerEvent) => {
@@ -172,7 +170,7 @@ export function TabLayout({
     const newLeftPx = Math.max(minLeft, Math.min(relativeX, maxLeft));
     
     const newPercent = (newLeftPx / rect.width) * 100;
-    splitPercent.set(newPercent);
+    splitPercent.jump(newPercent);
   };
 
   const handleDragEnd = (e: React.PointerEvent) => {
@@ -206,9 +204,14 @@ export function TabLayout({
           width: useTransform(splitPercent, (v) => `${v}%`),
         }}
       >
-        <motion.div 
+      <motion.div 
           className="h-full w-full relative"
-          style={{ opacity: leftOpacity }}
+          animate={{ opacity: isLeftVisible ? 1 : 0 }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: 0.4, ease: "easeInOut" }
+          }
         >
           {tabs.map((tab) => (
             <TabLayer key={`left:${tab.id}`} active={tab.id === activeTabId}>
@@ -247,7 +250,12 @@ export function TabLayout({
       <div className="flex-1 min-w-0 relative z-10 flex flex-col rounded-xl bg-background overflow-hidden">
         <motion.div 
           className="h-full w-full relative"
-          style={{ opacity: rightOpacity }}
+          animate={{ opacity: isRightVisible ? 1 : 0 }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: 0.4, ease: "easeInOut" }
+          }
         >
           {tabs.map((tab) => (
             <TabLayer key={`right:${tab.id}`} active={tab.id === activeTabId}>

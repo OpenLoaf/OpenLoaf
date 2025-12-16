@@ -41,6 +41,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const base = tab.base;
   const stack = tab.stack ?? [];
   const hasOverlay = stack.length > 0;
+  console.log("LeftDock render", { tabId, base, stack,hasOverlay });
 
   return (
     <div className="relative h-full w-full min-h-0 min-w-0 overflow-hidden">
