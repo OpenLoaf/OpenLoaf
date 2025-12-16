@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, skipToken } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { trpc } from "@/utils/trpc";
-import { useWorkspace } from "@/app/page";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import PlantIntro from "./PlantIntro";
 import PlantCanvas from "./PlantCanvas";

@@ -1,7 +1,7 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { WorkspaceContext } from "@/app/page";
+import { WorkspaceContext } from "@/components/workspace/workspaceContext";
 import type { Workspace } from "@teatime-ai/api/types/workspace";
 import { useEffect } from "react";
 

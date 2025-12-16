@@ -11,7 +11,7 @@ import {
 } from "@/components/animate-ui/components/radix/sidebar";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { ListCollapse, ListTree } from "lucide-react";
-import { useWorkspace } from "@/app/page";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { PageTreeMenu } from "./PageTree";
 
 export const SidebarPage = () => {

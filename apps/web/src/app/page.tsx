@@ -1,6 +1,5 @@
 "use client";
-import { useState, useEffect, createContext, useContext, type CSSProperties } from "react";
-import type { Workspace } from "@teatime-ai/api/types/workspace";
+import type { CSSProperties } from "react";
 
 import {
   SidebarInset,
@@ -12,18 +11,6 @@ import { AppSidebar } from "@/components/layout/sidebar/Sidebar";
 import { MainContent } from "@/components/layout/MainContext";
 import { WorkspaceProvider } from "@/components/workspace/WorkspaceProvider";
 import { cn } from "@/lib/utils";
-
-// 创建并导出 WorkspaceContext
-export const WorkspaceContext = createContext<{
-  workspace: Workspace;
-  isLoading: boolean;
-}>({
-  workspace: {} as Workspace,
-  isLoading: true,
-});
-
-// 导出自定义 hook 以便于使用
-export const useWorkspace = () => useContext(WorkspaceContext);
 
 function PageContent() {
   const { open } = useSidebar();

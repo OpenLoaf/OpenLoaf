@@ -1,7 +1,7 @@
 "use client";
 
 import { useTabs } from "@/hooks/use_tabs";
-import { useWorkspace } from "@/app/page";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 import {
   SidebarMenuAction,
   SidebarMenuButton,

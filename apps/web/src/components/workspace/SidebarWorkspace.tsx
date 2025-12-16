@@ -7,7 +7,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/animate-ui/components/radix/sidebar";
-import { useWorkspace } from "@/app/page";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 export const SidebarWorkspace = () => {
   const { workspace } = useWorkspace();

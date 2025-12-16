@@ -105,6 +105,7 @@ export async function startProductionServices(log: Logger): Promise<ProdServices
   const resourcesPath = process.resourcesPath;
   const userDataPath = app.getPath('userData');
   const dbPath = path.join(userDataPath, 'teatime.db');
+  const confPath = path.join(userDataPath, 'teatime.conf');
 
   /**
    * 后端：
@@ -124,6 +125,11 @@ export async function startProductionServices(log: Logger): Promise<ProdServices
           PORT: '3000',
           // sqlite db 放在 userData 下，避免应用更新覆盖 resources 导致数据丢失。
           DATABASE_URL: `file:${dbPath}`,
+          // App config also lives in userData so it survives upgrades.
+          TEATIME_CONF_PATH: confPath,
+          // Allow the bundled server to resolve shipped native deps (e.g. `@libsql/darwin-arm64`)
+          // that are copied into `process.resourcesPath` via Forge `extraResource`.
+          NODE_PATH: process.resourcesPath,
           NODE_ENV: 'production',
         },
         stdio: ['ignore', 'pipe', 'pipe'],

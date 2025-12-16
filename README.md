@@ -75,6 +75,9 @@ teatime-ai/
 - `pnpm run build`: Build all applications
 - `pnpm run dev:web`: Start only the web application
 - `pnpm run dev:server`: Start only the server
+- `pnpm run desktop`: Start the Electron app (dev)
+- `pnpm --filter teatime run make`: Build Electron distributables (DMG/ZIP) to `apps/electron/out/make`
+- `pnpm --filter teatime run make:noproxy`: Same as above but ignores proxy env vars (`http_proxy` / `https_proxy`)
 - `pnpm run check-types`: Check TypeScript types across all apps
 - `pnpm run db:push`: Push schema changes to database
 - `pnpm run db:studio`: Open database studio UI
