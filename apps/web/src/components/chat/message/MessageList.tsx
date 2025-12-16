@@ -48,7 +48,8 @@ function MessageHistorySkeleton() {
 export default function MessageList({ className }: MessageListProps) {
   const {
     id: sessionId,
-    messages,
+    historyMessages,
+    latestMessage,
     status,
     error,
     scrollToBottomToken,
@@ -80,8 +81,13 @@ export default function MessageList({ className }: MessageListProps) {
     [sessionId]
   );
 
+  const visibleMessages = React.useMemo(() => {
+    if (!latestMessage) return historyMessages;
+    return [...historyMessages, latestMessage];
+  }, [historyMessages, latestMessage]);
+
   useChatScroll({
-    messages,
+    messages: visibleMessages,
     status,
     scrollToBottomToken,
     viewportRef,
@@ -89,22 +95,42 @@ export default function MessageList({ className }: MessageListProps) {
     contentRef,
   });
 
-  const messageItems = React.useMemo(() => {
-    const lastHumanIndex = messages.findLastIndex(
+  const historyItems = React.useMemo(() => {
+    const lastHumanIndex = historyMessages.findLastIndex(
       (message) => message.role === "user"
     );
-    const lastAiIndex = messages.findLastIndex(
+    const lastAiIndex = historyMessages.findLastIndex(
       (message) => message.role !== "user"
     );
-    return messages.map((message, index) => (
+
+    const latestRole = latestMessage?.role ?? null;
+    const historyLastHumanIndex =
+      latestRole === "user" ? -1 : lastHumanIndex;
+    const historyLastAiIndex =
+      latestRole && latestRole !== "user" ? -1 : lastAiIndex;
+
+    return historyMessages.map((message, index) => (
       <MessageItem
         key={getMessageKey(message)}
         message={message}
-        isLastHumanMessage={index === lastHumanIndex}
-        isLastAiMessage={index === lastAiIndex}
+        isLastHumanMessage={index === historyLastHumanIndex}
+        isLastAiMessage={index === historyLastAiIndex}
       />
     ));
-  }, [messages, getMessageKey]);
+  }, [historyMessages, latestMessage?.role, getMessageKey]);
+
+  const latestItem = React.useMemo(() => {
+    if (!latestMessage) return null;
+    const isUser = latestMessage.role === "user";
+    return (
+      <MessageItem
+        key={getMessageKey(latestMessage)}
+        message={latestMessage}
+        isLastHumanMessage={isUser}
+        isLastAiMessage={!isUser}
+      />
+    );
+  }, [latestMessage, getMessageKey]);
 
   return (
     <div
@@ -128,11 +154,12 @@ export default function MessageList({ className }: MessageListProps) {
                 transition={{ duration: 0.2 }}
                 className="space-y-4 min-w-0 pb-4"
               >
-                {isHistoryLoading && messages.length === 0 ? (
+                {isHistoryLoading && visibleMessages.length === 0 ? (
                   <MessageHistorySkeleton />
-                ) : messages.length > 0 ? (
+                ) : visibleMessages.length > 0 ? (
                   <>
-                    {messageItems}
+                    {historyItems}
+                    {latestItem}
 
                     {(status === "submitted" || status === "streaming") && (
                       <MessageThinking />
@@ -154,7 +181,7 @@ export default function MessageList({ className }: MessageListProps) {
       </ScrollArea.Root>
 
       {/* 将MessageHelper移到ScrollArea外 */}
-      {messages.length === 0 && !isHistoryLoading && <MessageHelper />}
+      {visibleMessages.length === 0 && !isHistoryLoading && <MessageHelper />}
     </div>
   );
 }

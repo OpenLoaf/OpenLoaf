@@ -67,6 +67,17 @@ function ThemeToggler({
     resolved: resolvedTheme,
   });
 
+  const isTransitioning = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!isTransitioning.current) {
+      setCurrent({
+        effective: theme,
+        resolved: resolvedTheme,
+      });
+    }
+  }, [theme, resolvedTheme]);
+
   React.useEffect(() => {
     if (
       preview &&
@@ -81,6 +92,7 @@ function ThemeToggler({
 
   const toggleTheme = React.useCallback(
     async (theme: ThemeSelection) => {
+      isTransitioning.current = true;
       const resolved = theme === 'system' ? getSystemEffective() : theme;
 
       setCurrent({ effective: theme, resolved });
@@ -88,6 +100,7 @@ function ThemeToggler({
 
       if (theme === 'system' && resolved === resolvedTheme) {
         setTheme(theme);
+        isTransitioning.current = false;
         return;
       }
 
@@ -96,6 +109,7 @@ function ThemeToggler({
           setPreview({ effective: theme, resolved });
         });
         setTheme(theme);
+        isTransitioning.current = false;
         return;
       }
 
@@ -120,6 +134,7 @@ function ThemeToggler({
         )
         .finished.finally(() => {
           setTheme(theme);
+          isTransitioning.current = false;
         });
     },
     [onImmediateChange, resolvedTheme, fromClip, toClip, setTheme],

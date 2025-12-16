@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useTabs } from "@/hooks/use_tabs";
 import { KeyRound, Boxes, SlidersHorizontal } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -32,7 +33,7 @@ const MENU: Array<{
 
 export default function SettingsPage({
   panelKey: _panelKey,
-  tabId: _tabId,
+  tabId,
 }: {
   panelKey: string;
   tabId: string;
@@ -40,6 +41,13 @@ export default function SettingsPage({
   const [activeKey, setActiveKey] = useState<SettingsMenuKey>("basic");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const setTabMinLeftWidth = useTabs((s) => s.setTabMinLeftWidth);
+
+  useEffect(() => {
+    setTabMinLeftWidth(tabId, 500);
+    return () => setTabMinLeftWidth(tabId, undefined);
+  }, [tabId, setTabMinLeftWidth]);
 
   useEffect(() => {
     if (!containerRef.current) return;

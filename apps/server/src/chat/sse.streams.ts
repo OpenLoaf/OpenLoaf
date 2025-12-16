@@ -8,10 +8,8 @@ export type ActiveSseStream = {
   // 单调递增序号：用于避免“订阅+回放”期间产生的重复 chunk
   nextSeq: number;
   done: boolean;
-  cleanupTimer?: ReturnType<typeof setTimeout>;
 };
 
-const STREAM_TTL_MS = 60_000;
 // streamId -> active stream data（内存态，best-effort；进程重启会丢）
 const ACTIVE_SSE_STREAMS = new Map<string, ActiveSseStream>();
 
@@ -33,7 +31,6 @@ export function initActiveStream(streamId: string): ActiveSseStream {
     }
     sseEventBus.removeAllListeners(chunkEvent(streamId));
     sseEventBus.removeAllListeners(doneEvent(streamId));
-    if (existing.cleanupTimer) clearTimeout(existing.cleanupTimer);
   }
 
   const activeStream: ActiveSseStream = {
@@ -70,17 +67,14 @@ export function finalizeActiveStream(streamId: string) {
   // 清掉该 streamId 相关监听，避免监听函数长期累计。
   sseEventBus.removeAllListeners(chunkEvent(streamId));
   sseEventBus.removeAllListeners(doneEvent(streamId));
-
-  if (entry.cleanupTimer) clearTimeout(entry.cleanupTimer);
-  // 给一个 TTL：允许客户端在短时间内用 streamId 进行续传；超时后回收内存。
-  entry.cleanupTimer = setTimeout(() => {
-    ACTIVE_SSE_STREAMS.delete(streamId);
-  }, STREAM_TTL_MS);
+  // 生成已结束：不再允许 replay（避免刷新/切换会话时把同一条 assistant 重放成多条）
+  ACTIVE_SSE_STREAMS.delete(streamId);
 }
 
 export function resumeExistingStream(streamId: string): ReadableStream<string> | null {
   const entry = ACTIVE_SSE_STREAMS.get(streamId);
   if (!entry) return null;
+  if (entry.done) return null;
 
   let cleanupRef: (() => void) | undefined;
 

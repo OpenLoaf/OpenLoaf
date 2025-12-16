@@ -57,6 +57,7 @@ export interface TabsState {
 
   setTabBase: (tabId: string, base: DockItem | undefined) => void;
   setTabLeftWidthPx: (tabId: string, widthPx: number) => void;
+  setTabMinLeftWidth: (tabId: string, minWidth?: number) => void;
   setTabRightChatCollapsed: (tabId: string, collapsed: boolean) => void;
   setTabChatSession: (
     tabId: string,
@@ -319,6 +320,17 @@ export const useTabs = create<TabsState>()(
             normalizeDock({
               ...tab,
               leftWidthPx: widthPx,
+            }),
+          ),
+        }));
+      },
+
+      setTabMinLeftWidth: (tabId, minWidth) => {
+        set((state) => ({
+          tabs: updateTabById(state.tabs, tabId, (tab) =>
+            normalizeDock({
+              ...tab,
+              minLeftWidth: minWidth,
             }),
           ),
         }));

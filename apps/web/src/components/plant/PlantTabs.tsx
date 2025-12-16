@@ -72,7 +72,7 @@ export default function PlantTabs({ value, onValueChange }: PlantTabsProps) {
     const updateShowLabels = () => {
       const width = el.getBoundingClientRect().width;
       const pxPerTab = width / PLANT_TABS.length;
-      console.log("[PlantTabs] pxPerTab:", pxPerTab.toFixed(2));
+      // console.log("[PlantTabs] pxPerTab:", pxPerTab.toFixed(2));
       setShowLabels((prev) => {
         if (prev) {
           return pxPerTab >= MIN_PX_PER_TAB_TO_SHOW_LABEL - LABEL_HYSTERESIS_PX;

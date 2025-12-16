@@ -34,6 +34,8 @@ export interface Tab {
   stack: DockItem[];
   /** Left dock width in px; 0 means hidden. */
   leftWidthPx: number;
+  /** Optional minimum width for left dock in px. */
+  minLeftWidth?: number;
 
   createdAt: number;
   lastActiveAt: number;

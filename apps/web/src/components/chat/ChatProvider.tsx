@@ -11,7 +11,6 @@ import { DefaultChatTransport, generateId } from "ai";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use_tabs";
-import { da } from "zod/v4/locales";
 
 const CLIENT_STREAM_CLIENT_ID_STORAGE_KEY = "teatime:chat:sse-client-id";
 
@@ -55,11 +54,40 @@ function normalizeMessages(messages: UIMessage[]): UIMessage[] {
   return result;
 }
 
+type MessageSlices = {
+  history: UIMessage[];
+  latest: UIMessage | null;
+  latestId: string | null;
+};
+
+function getMessageId(message: UIMessage | null | undefined): string | null {
+  const id = message?.id;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
+function sliceMessages(messages: UIMessage[]): MessageSlices {
+  if (messages.length === 0) {
+    return { history: [], latest: null, latestId: null };
+  }
+  const latest = messages[messages.length - 1] ?? null;
+  return {
+    history: messages.length > 1 ? messages.slice(0, -1) : [],
+    latest,
+    latestId: getMessageId(latest),
+  };
+}
+
 /**
  * 聊天上下文类型
  * 包含聊天所需的所有状态和方法
  */
-interface ChatContextType extends ReturnType<typeof useChat> {
+interface ChatContextType extends Omit<ReturnType<typeof useChat>, "messages"> {
+  /** 完整消息列表（history + latest） */
+  messages: UIMessage[];
+  /** 历史消息（流式阶段保持引用稳定） */
+  historyMessages: UIMessage[];
+  /** 最新消息（流式只更新这一条） */
+  latestMessage: UIMessage | null;
   /** 当前输入框的内容 */
   input: string;
   /** 设置输入框内容的方法 */
@@ -119,33 +147,23 @@ export default function ChatProvider({
   const pushStackItem = useTabs((s) => s.pushStackItem);
   const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
 
-  const activeMessageListSourceRef = React.useRef<string>(generateId());
-  const [messageListMessages, setMessageListMessages] = React.useState<
-    UIMessage[]
-  >([]);
-
-  const setMessageListMessagesFromSource = useCallback(
-    (sourceId: string, nextMessages: UIMessage[]) => {
-      if (sourceId !== activeMessageListSourceRef.current) return;
-      setMessageListMessages(nextMessages);
-    },
-    []
-  );
-
-  const rotateMessageListSource = useCallback(() => {
-    activeMessageListSourceRef.current = generateId();
-  }, []);
+  const [messageSlices, setMessageSlices] = React.useState<MessageSlices>({
+    history: [],
+    latest: null,
+    latestId: null,
+  });
 
   React.useEffect(() => {
-    rotateMessageListSource();
-    setMessageListMessages([]);
+    setMessageSlices({ history: [], latest: null, latestId: null });
     appliedHistorySessionIdRef.current = null;
-  }, [sessionId, rotateMessageListSource]);
+  }, [sessionId]);
 
   const openedToolKeysRef = React.useRef<Set<string>>(new Set());
+  const scannedToolMessageIdsRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
     openedToolKeysRef.current = new Set();
+    scannedToolMessageIdsRef.current = new Set();
     if (tabId) {
       clearToolPartsForTab(tabId);
     }
@@ -157,10 +175,51 @@ export default function ChatProvider({
     paramsRef.current = params;
   }, [params]);
 
-  React.useEffect(() => {
-    if (!tabId) return;
+  const applyNextMessages = useCallback((nextMessages: UIMessage[]) => {
+    const normalized = normalizeMessages(nextMessages);
+    setMessageSlices((prev) => {
+      if (normalized.length === 0) {
+        if (prev.latest == null && prev.history.length === 0) return prev;
+        return { history: [], latest: null, latestId: null };
+      }
 
-    for (const message of messageListMessages) {
+      const nextLatest = normalized[normalized.length - 1]!;
+      const nextLatestId = getMessageId(nextLatest);
+
+      const expectedLen = prev.history.length + (prev.latest ? 1 : 0);
+      const isStreamingSameLatest =
+        prev.latestId != null &&
+        nextLatestId != null &&
+        prev.latestId === nextLatestId;
+
+      if (isStreamingSameLatest && expectedLen === normalized.length) {
+        return { ...prev, latest: nextLatest };
+      }
+
+      const nextSecondLast =
+        normalized.length > 1 ? normalized[normalized.length - 2] : null;
+      const isAppend =
+        prev.latestId != null &&
+        getMessageId(nextSecondLast) != null &&
+        getMessageId(nextSecondLast) === prev.latestId;
+
+      if (isAppend && prev.latest) {
+        return {
+          history: [...prev.history, prev.latest],
+          latest: nextLatest,
+          latestId: nextLatestId,
+        };
+      }
+
+      return sliceMessages(normalized);
+    });
+
+    return normalized;
+  }, []);
+
+  const scanToolPartsForMessage = useCallback(
+    (message: UIMessage) => {
+      if (!tabId) return;
       const messageId = typeof message.id === "string" ? message.id : "m";
       const parts = (message as any).parts ?? [];
 
@@ -198,16 +257,34 @@ export default function ChatProvider({
           part.toolName ||
           (type.startsWith("tool-") ? type.slice("tool-".length) : type);
 
-        pushStackItem(tabId, {
-          id: `tool:${toolKey}`,
-          sourceKey: toolKey,
-          title: displayName ? `Tool: ${displayName}` : "Tool Result",
-          component: "tool-result",
-          params: { toolKey },
-        });
+        // pushStackItem(tabId, {
+        //   id: `tool:${toolKey}`,
+        //   sourceKey: toolKey,
+        //   title: displayName ? `Tool: ${displayName}` : "Tool Result",
+        //   component: "tool-result",
+        //   params: { toolKey },
+        // });
       }
+    },
+    [pushStackItem, tabId, upsertToolPart]
+  );
+
+  React.useEffect(() => {
+    if (!tabId) return;
+    for (const message of messageSlices.history) {
+      const id = getMessageId(message);
+      if (!id) continue;
+      if (scannedToolMessageIdsRef.current.has(id)) continue;
+      scannedToolMessageIdsRef.current.add(id);
+      scanToolPartsForMessage(message);
     }
-  }, [messageListMessages, tabId, pushStackItem, upsertToolPart]);
+  }, [messageSlices.history, scanToolPartsForMessage, tabId]);
+
+  React.useEffect(() => {
+    if (!tabId) return;
+    if (!messageSlices.latest) return;
+    scanToolPartsForMessage(messageSlices.latest);
+  }, [messageSlices.latest, scanToolPartsForMessage, tabId]);
 
   const transport = React.useMemo(() => {
     const apiBase = `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`;
@@ -269,7 +346,7 @@ export default function ChatProvider({
       id: sessionId,
       // mount 时自动尝试恢复未完成的流（AI SDK v6 内部会触发 GET `${api}/${id}/stream`）
       resume: true,
-      transport
+      transport,
     }),
     [sessionId, transport]
   );
@@ -297,24 +374,19 @@ export default function ChatProvider({
         | ((prev: UIMessage[]) => UIMessage[])
         | undefined
     ) => {
-      const source = activeMessageListSourceRef.current;
       if (!updater) return;
 
       chat.setMessages((prev) => {
         const next = typeof updater === "function" ? updater(prev) : updater;
-        const normalized = normalizeMessages(next);
-        setMessageListMessagesFromSource(source, normalized);
-        return normalized;
+        return applyNextMessages(next);
       });
     },
-    [chat.setMessages, setMessageListMessagesFromSource]
+    [chat.setMessages, applyNextMessages]
   );
 
   React.useEffect(() => {
-    const source = activeMessageListSourceRef.current;
-    console.log("ChatProvider sync messages from useChat:", chat.messages);
-    setMessageListMessagesFromSource(source, normalizeMessages(chat.messages));
-  }, [chat.messages, setMessageListMessagesFromSource]);
+    applyNextMessages(chat.messages);
+  }, [chat.messages, applyNextMessages]);
 
   const shouldLoadHistory = loadHistory !== false;
 
@@ -386,7 +458,6 @@ export default function ChatProvider({
     if (chat.status !== "ready") {
       chat.stop();
     }
-    rotateMessageListSource();
     setForceHistoryLoading(false);
     // 立即清空，避免 UI 闪回旧消息
     setMessages([]);
@@ -394,14 +465,13 @@ export default function ChatProvider({
     onSessionChange?.(generateId(), { loadHistory: false });
     // 新会话也滚动到底部（此时通常为空，属于安全操作）
     setScrollToBottomToken((n) => n + 1);
-  }, [chat, onSessionChange, rotateMessageListSource, setMessages]);
+  }, [chat, onSessionChange, setMessages]);
 
   const selectSession = useCallback(
     (nextSessionId: string) => {
       if (chat.status !== "ready") {
         chat.stop();
       }
-      rotateMessageListSource();
       setForceHistoryLoading(true);
       // 立即清空，避免 UI 闪回旧消息
       setMessages([]);
@@ -410,7 +480,7 @@ export default function ChatProvider({
       // 先触发一次滚动：避免短暂显示在顶部；历史加载后还会再触发一次
       setScrollToBottomToken((n) => n + 1);
     },
-    [chat, onSessionChange, rotateMessageListSource, setMessages]
+    [chat, onSessionChange, setMessages]
   );
 
   // 兼容性处理：新版本useChat可能不返回input和setInput
@@ -430,11 +500,18 @@ export default function ChatProvider({
     sendMessage,
   };
 
+  const combinedMessages = React.useMemo(() => {
+    if (!messageSlices.latest) return messageSlices.history;
+    return [...messageSlices.history, messageSlices.latest];
+  }, [messageSlices.history, messageSlices.latest]);
+
   return (
     <ChatContext.Provider
       value={{
         ...chatWithFallbacks,
-        messages: messageListMessages,
+        messages: combinedMessages,
+        historyMessages: messageSlices.history,
+        latestMessage: messageSlices.latest,
         isHistoryLoading,
         scrollToBottomToken,
         newSession,

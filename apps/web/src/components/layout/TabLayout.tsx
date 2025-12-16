@@ -110,6 +110,8 @@ export function TabLayout({
   const storedLeftWidthPx = hasLeftContent ? activeTab?.leftWidthPx ?? 0 : 0;
   const isRightCollapsed = Boolean(activeTab?.base) && Boolean(activeTab?.rightChatCollapsed);
 
+  const effectiveMinLeft = activeTab?.minLeftWidth ?? LEFT_DOCK_MIN_PX;
+
   const isLeftVisible = storedLeftWidthPx > 0;
   const isRightVisible = !isRightCollapsed;
 
@@ -128,7 +130,7 @@ export function TabLayout({
     // Mode A: Both visible
     targetDividerWidth = DIVIDER_GAP_PX;
     if (containerWidth > 0) {
-      const minLeft = LEFT_DOCK_MIN_PX;
+      const minLeft = effectiveMinLeft;
       // We allow right panel to compress if needed, but ideally enforce min width logic
       // existing logic: fallbackWidthPx = storedLeftWidthPx ...
       const maxLeft = Math.max(minLeft, containerWidth - RIGHT_CHAT_MIN_PX);
@@ -165,7 +167,7 @@ export function TabLayout({
     const rect = containerRef.current.getBoundingClientRect();
     const relativeX = e.clientX - rect.left;
     
-    const minLeft = LEFT_DOCK_MIN_PX;
+    const minLeft = effectiveMinLeft;
     const maxLeft = Math.max(minLeft, rect.width - RIGHT_CHAT_MIN_PX);
     const newLeftPx = Math.max(minLeft, Math.min(relativeX, maxLeft));
     
@@ -202,6 +204,7 @@ export function TabLayout({
         className="relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden"
         style={{
           width: useTransform(splitPercent, (v) => `${v}%`),
+          minWidth: effectiveMinLeft,
         }}
         animate={{ opacity: isLeftVisible ? 1 : 0 }}
         transition={
@@ -215,7 +218,7 @@ export function TabLayout({
             <TabLayer key={`left:${tab.id}`} active={tab.id === activeTabId}>
               <div 
                 className="h-full w-full min-h-0 min-w-0"
-                style={{ minWidth: LEFT_DOCK_MIN_PX }}
+                style={{ minWidth: tab.minLeftWidth ?? LEFT_DOCK_MIN_PX }}
               >
                 <LeftDock tabId={tab.id} />
               </div>
