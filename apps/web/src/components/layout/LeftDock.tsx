@@ -40,19 +40,21 @@ export function LeftDock({ tabId }: { tabId: string }) {
 
   const base = tab.base;
   const stack = tab.stack ?? [];
-  const hasOverlay = stack.length > 0;
-  console.log("LeftDock render", { tabId, base, stack,hasOverlay });
+  const hasBase = Boolean(base);
+  const underlay = !hasBase ? stack[0] : undefined;
+  const overlayStack = !hasBase ? stack.slice(1) : stack;
+  const hasOverlay = overlayStack.length > 0;
 
   return (
-    <div className="relative h-full w-full min-h-0 min-w-0 overflow-hidden">
+    <div className="relative h-full w-full min-h-0 min-w-0 overflow-hidden ">
       <div
         className={cn(
-          "h-full w-full transition-all duration-200",
+          "h-full w-full transition-all duration-200  p-2",
           hasOverlay && "pointer-events-none select-none blur-sm opacity-80",
         )}
       >
-        {base ? (
-          renderDockItem(tabId, base)
+        {base ? renderDockItem(tabId, base) : underlay ? (
+          renderDockItem(tabId, underlay)
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             No project
@@ -61,12 +63,15 @@ export function LeftDock({ tabId }: { tabId: string }) {
       </div>
 
       {hasOverlay
-        ? stack.map((item, index) => {
-            const depthFromTop = stack.length - 1 - index;
-            const isTop = depthFromTop === 0;
+        ? overlayStack.map((item, index) => {
+            const depthFromTop = overlayStack.length - 1 - index;
+            const isTop = index === overlayStack.length - 1;
             const opacity = 1 - depthFromTop * 0.12;
-            const inset = 12;
-            const topInset = inset + 18;
+            const baseInset = 12;
+            const insetStep = 8;
+            const inset = baseInset + index * insetStep;
+            const topInset = baseInset + 18;
+            const top = topInset + index * insetStep;
             const title = item.title ?? getPanelTitle(item.component);
 
             return (
@@ -76,24 +81,22 @@ export function LeftDock({ tabId }: { tabId: string }) {
                   "absolute overflow-hidden rounded-xl border border-border shadow-2xl",
                   isTop ? "pointer-events-auto" : "pointer-events-none",
                 )}
-                style={{ zIndex: 10 + index }}
+                style={{ zIndex: 10 + index, maxHeight: `calc(100% - ${top + baseInset}px)` }}
                 initial={{
                   opacity: 0,
-                  top: topInset + 10,
+                  top: top + 10,
                   left: inset,
                   right: inset,
-                  bottom: inset,
                 }}
                 animate={{
                   opacity,
-                  top: topInset,
+                  top,
                   left: inset,
                   right: inset,
-                  bottom: inset,
                 }}
                 transition={{ duration: 0.15 }}
               >
-                <div className="flex h-full w-full flex-col bg-background/95 backdrop-blur-sm">
+                <div className="flex w-full flex-col bg-background/95 backdrop-blur-sm">
                   <div className="shrink-0 border-b bg-background/70 backdrop-blur-sm">
                     <div className="flex items-center justify-between gap-2 px-3 py-2">
                       <div className="min-w-0 text-sm font-medium">
@@ -112,7 +115,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 p-2">
+                  <div className="p-2">
                     {renderDockItem(tabId, item)}
                   </div>
                 </div>
@@ -123,4 +126,3 @@ export function LeftDock({ tabId }: { tabId: string }) {
     </div>
   );
 }
-
