@@ -243,8 +243,25 @@ export const HeaderTabs = () => {
   }, [activeTabId, closeTab, workspaceTabs]);
 
   useEffect(() => {
-    if (!activeTabRef.current) return;
-    activeTabRef.current.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const viewport = tabsScrollViewportRef.current;
+    const activeEl = activeTabRef.current;
+    if (!viewport || !activeEl) return;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const activeRect = activeEl.getBoundingClientRect();
+    const padding = 12;
+
+    const leftEdge = viewportRect.left + padding;
+    const rightEdge = viewportRect.right - padding;
+
+    if (activeRect.left < leftEdge) {
+      viewport.scrollLeft -= Math.ceil(leftEdge - activeRect.left);
+      return;
+    }
+
+    if (activeRect.right > rightEdge) {
+      viewport.scrollLeft += Math.ceil(activeRect.right - rightEdge);
+    }
   }, [activeTabId]);
 
   return (

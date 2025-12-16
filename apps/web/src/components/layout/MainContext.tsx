@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useTabs } from "@/hooks/use_tabs";
 import { cn } from "@/lib/utils";
-import { TabLayoutShell } from "./TabLayoutShell";
+import { TabLayout } from "./TabLayout";
 
 export const MainContent: React.FC<{ className?: string }> = ({ className }) => {
   const activeTabId = useTabs((s) => s.activeTabId);
@@ -60,7 +60,7 @@ export const MainContent: React.FC<{ className?: string }> = ({ className }) => 
 
   return (
     <div className={cn("relative h-full w-full", className)}>
-      <TabLayoutShell
+      <TabLayout
         tabs={tabs.filter((tab) => mounted[tab.id] || tab.id === activeTabId)}
         activeTabId={activeTabId}
       />

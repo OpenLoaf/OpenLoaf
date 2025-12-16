@@ -37,6 +37,7 @@ export const Header = () => {
 
   return (
     <header
+      data-slot="app-header"
       className={`bg-sidebar sticky top-0 z-50 grid w-full grid-cols-[auto_1fr_auto] items-center overflow-hidden pl-(--macos-traffic-lights-width) ${
         isElectron ? "electron-drag" : ""
       }`}

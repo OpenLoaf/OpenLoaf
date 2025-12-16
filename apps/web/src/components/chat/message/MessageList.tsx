@@ -109,11 +109,11 @@ export default function MessageList({ className }: MessageListProps) {
   return (
     <div
       className={cn(
-        "flex-1 relative min-w-0 flex flex-col min-h-0 overflow-x-visible overflow-y-hidden",
+        "flex-1 relative min-w-0 flex flex-col min-h-0 overflow-x-hidden overflow-y-hidden",
         className
       )}
     >
-      <ScrollArea.Root className="flex-1 w-full min-w-0 overflow-x-visible overflow-y-hidden">
+      <ScrollArea.Root className="flex-1 w-full min-w-0 overflow-x-hidden overflow-y-hidden">
         <ScrollArea.Viewport
           ref={viewportRef}
           className="w-full h-full min-h-0 min-w-0 overflow-x-hidden !select-text [&_*:not(summary)]:!select-text"

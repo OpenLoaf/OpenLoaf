@@ -60,7 +60,7 @@ export const TabMenu = ({
           <span className="min-w-0 flex-1 truncate">{tab.title || "Untitled"}</span>
           {!isPinned && (
             <span
-              className={`absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 transition-opacity ${
+              className={`absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 transition-opacity delay-0 group-hover:delay-300 ${
                 workspaceTabs.length <= 1
                   ? "opacity-0"
                   : "opacity-0 group-hover:opacity-100"

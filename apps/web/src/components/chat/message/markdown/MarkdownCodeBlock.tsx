@@ -17,10 +17,14 @@ const SYNTAX_HIGHLIGHTER_CUSTOM_STYLE: React.CSSProperties = {
   lineHeight: "1.6",
   fontFamily: "inherit",
   textShadow: "none",
-  overflow: "visible",
-  display: "inline-block",
-  width: "max-content",
-  minWidth: "100%",
+  boxSizing: "border-box",
+  display: "block",
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+  overflowX: "auto",
+  overflowY: "hidden",
+  WebkitOverflowScrolling: "touch",
   whiteSpace: "pre",
   wordBreak: "normal",
   overflowWrap: "normal",
@@ -94,7 +98,7 @@ export default function MarkdownCodeBlock({
     return (
       <div
         className={cn(
-          "not-prose my-2 mr-4 flex min-w-0 items-center gap-2 rounded-md border px-2 py-1",
+          "not-prose my-3 flex w-full min-w-0 max-w-full items-center gap-2 rounded-md border px-2 py-1",
           normalizedLanguage === "text" || normalizedLanguage === "bash"
             ? "bg-muted/10"
             : "bg-muted/30",
@@ -125,7 +129,9 @@ export default function MarkdownCodeBlock({
               padding: 0,
               margin: 0,
               minWidth: 0,
-              overflow: "visible",
+              width: "auto",
+              maxWidth: "100%",
+              overflowY: "hidden",
               backgroundColor: "transparent",
             }}
             codeTagProps={SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS}
@@ -152,7 +158,7 @@ export default function MarkdownCodeBlock({
   return (
     <div
       className={cn(
-        "not-prose my-3 mr-8 overflow-hidden rounded-md border",
+        "not-prose my-3 mr-10 min-w-0 max-w-full overflow-hidden rounded-md border",
         className
       )}
     >
@@ -190,9 +196,7 @@ export default function MarkdownCodeBlock({
         viewportClassName="max-h-[450px]"
         aria-hidden={collapsed}
       >
-        <div className="overflow-x-auto">
-          <MemoSyntaxHighlighter code={code} language={normalizedLanguage} />
-        </div>
+        <MemoSyntaxHighlighter code={code} language={normalizedLanguage} />
       </ScrollArea>
     </div>
   );

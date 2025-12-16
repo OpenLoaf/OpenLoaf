@@ -49,7 +49,7 @@ export function Chat({
     >
       <div
         className={cn(
-          "flex h-full w-full flex-col min-h-0 min-w-0 overflow-x-visible overflow-y-hidden",
+          "flex h-full w-full flex-col min-h-0 min-w-0 overflow-x-hidden overflow-y-hidden",
           className
         )}
       >

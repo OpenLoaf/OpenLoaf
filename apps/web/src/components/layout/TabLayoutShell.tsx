@@ -19,7 +19,7 @@ const RIGHT_CHAT_MIN_PX = 360;
 const DIVIDER_GAP_PX = 10;
 const INSTANT_TRANSITION = { duration: 0 } as const;
 const SPRING_TRANSITION = { type: "spring" as const, stiffness: 260, damping: 45 };
-const RESIZE_BLUR_PX = 6;
+const RESIZE_WASH_OPACITY = 0.22;
 const RESIZE_CLEAR_DURATION_S = 0.45;
 
 function TabLayer({
@@ -61,6 +61,11 @@ export function TabLayoutShell({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const leftPanelRef = React.useRef<HTMLDivElement>(null);
   const rightPanelRef = React.useRef<HTMLDivElement>(null);
+  const layoutDebugPrevRef = React.useRef<{
+    tabId: string;
+    leftHidden: boolean;
+    rightHidden: boolean;
+  } | null>(null);
   const chatSessionChangeHandlersRef = React.useRef<
     Map<string, (sessionId: string, options?: { loadHistory?: boolean }) => void>
   >(new Map());
@@ -75,6 +80,14 @@ export function TabLayoutShell({
   const computedLeftHidden = storedLeftWidthPx <= 0;
   const computedRightHidden = chatCollapsed;
   const dividerVisible = !computedLeftHidden && !computedRightHidden;
+
+  React.useLayoutEffect(() => {
+    // App should never horizontally scroll; prevent focus/scrollIntoView from shifting the page.
+    if (typeof window === "undefined") return;
+    if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+    const scrollingEl = document.scrollingElement as HTMLElement | null;
+    if (scrollingEl && scrollingEl.scrollLeft !== 0) scrollingEl.scrollLeft = 0;
+  }, [activeTabId]);
 
   const [isDragging, setIsDragging] = React.useState(false);
   const dragLeftPxRef = React.useRef(LEFT_DOCK_MIN_PX);
@@ -147,17 +160,14 @@ export function TabLayoutShell({
       : Math.max(0, 100 - layoutLeftGrow);
 
   const leftGrow = useMotionValue(layoutLeftGrow);
-  const rightGrow = useMotionValue(layoutRightGrow);
+  const rightGrow = useTransform(leftGrow, (value) => 100 - value);
   const growAnimationRef = React.useRef<{
     left: ReturnType<typeof animate> | null;
-    right: ReturnType<typeof animate> | null;
-  }>({ left: null, right: null });
+  }>({ left: null });
 
-  const leftBlur = useMotionValue(0);
-  const rightBlur = useMotionValue(0);
-  const leftFilter = useTransform(leftBlur, (value) => `blur(${value}px)`);
-  const rightFilter = useTransform(rightBlur, (value) => `blur(${value}px)`);
-  const blurAnimationRef = React.useRef<{
+  const leftWash = useMotionValue(0);
+  const rightWash = useMotionValue(0);
+  const washAnimationRef = React.useRef<{
     left: ReturnType<typeof animate> | null;
     right: ReturnType<typeof animate> | null;
   }>({ left: null, right: null });
@@ -328,24 +338,18 @@ export function TabLayoutShell({
     if (isDragging) return;
 
     growAnimationRef.current.left?.stop();
-    growAnimationRef.current.right?.stop();
     growAnimationRef.current.left = null;
-    growAnimationRef.current.right = null;
 
     if (reduceMotion) {
       leftGrow.set(layoutLeftGrow);
-      rightGrow.set(layoutRightGrow);
       return;
     }
 
     growAnimationRef.current.left = animate(leftGrow, layoutLeftGrow, SPRING_TRANSITION);
-    growAnimationRef.current.right = animate(rightGrow, layoutRightGrow, SPRING_TRANSITION);
 
     return () => {
       growAnimationRef.current.left?.stop();
-      growAnimationRef.current.right?.stop();
       growAnimationRef.current.left = null;
-      growAnimationRef.current.right = null;
     };
   }, [
     isDragging,
@@ -353,17 +357,16 @@ export function TabLayoutShell({
     layoutRightGrow,
     leftGrow,
     reduceMotion,
-    rightGrow,
   ]);
 
   React.useEffect(() => {
     if (reduceMotion || isDragging) {
-      blurAnimationRef.current.left?.stop();
-      blurAnimationRef.current.right?.stop();
-      blurAnimationRef.current.left = null;
-      blurAnimationRef.current.right = null;
-      leftBlur.set(0);
-      rightBlur.set(0);
+      washAnimationRef.current.left?.stop();
+      washAnimationRef.current.right?.stop();
+      washAnimationRef.current.left = null;
+      washAnimationRef.current.right = null;
+      leftWash.set(0);
+      rightWash.set(0);
       prevComputedLeftHiddenRef.current = computedLeftHidden;
       prevComputedRightHiddenRef.current = computedRightHidden;
       return;
@@ -387,30 +390,30 @@ export function TabLayoutShell({
     if (!shouldBlurLeft && !shouldBlurRight) return;
 
     const startAndClear = (which: "left" | "right") => {
-      const motionValue = which === "left" ? leftBlur : rightBlur;
+      const motionValue = which === "left" ? leftWash : rightWash;
       const existing =
-        which === "left" ? blurAnimationRef.current.left : blurAnimationRef.current.right;
+        which === "left" ? washAnimationRef.current.left : washAnimationRef.current.right;
 
       existing?.stop();
-      motionValue.set(RESIZE_BLUR_PX);
+      motionValue.set(RESIZE_WASH_OPACITY);
       const animation = animate(motionValue, 0, {
         duration: RESIZE_CLEAR_DURATION_S,
         ease: "easeOut",
       });
 
-      if (which === "left") blurAnimationRef.current.left = animation;
-      else blurAnimationRef.current.right = animation;
+      if (which === "left") washAnimationRef.current.left = animation;
+      else washAnimationRef.current.right = animation;
     };
 
     const startAndHold = (which: "left" | "right") => {
-      const motionValue = which === "left" ? leftBlur : rightBlur;
+      const motionValue = which === "left" ? leftWash : rightWash;
       const existing =
-        which === "left" ? blurAnimationRef.current.left : blurAnimationRef.current.right;
+        which === "left" ? washAnimationRef.current.left : washAnimationRef.current.right;
 
       existing?.stop();
-      motionValue.set(RESIZE_BLUR_PX);
-      if (which === "left") blurAnimationRef.current.left = null;
-      else blurAnimationRef.current.right = null;
+      motionValue.set(RESIZE_WASH_OPACITY);
+      if (which === "left") washAnimationRef.current.left = null;
+      else washAnimationRef.current.right = null;
     };
 
     if (leftBecameHidden) startAndHold("left");
@@ -420,10 +423,10 @@ export function TabLayoutShell({
     else if (shouldBlurRight) startAndClear("right");
 
     return () => {
-      blurAnimationRef.current.left?.stop();
-      blurAnimationRef.current.right?.stop();
-      blurAnimationRef.current.left = null;
-      blurAnimationRef.current.right = null;
+      washAnimationRef.current.left?.stop();
+      washAnimationRef.current.right?.stop();
+      washAnimationRef.current.left = null;
+      washAnimationRef.current.right = null;
     };
   }, [
     computedLeftHidden,
@@ -431,10 +434,10 @@ export function TabLayoutShell({
     isDragging,
     layoutLeftGrow,
     layoutRightGrow,
-    leftBlur,
+    leftWash,
     leftGrow,
     reduceMotion,
-    rightBlur,
+    rightWash,
     rightGrow,
   ]);
 
@@ -485,7 +488,6 @@ export function TabLayoutShell({
       const d = Math.max(1, w || fallbackWidthPx);
       const nextLeftGrow = Math.max(0, Math.min(100, (next / d) * 100));
       leftGrow.set(nextLeftGrow);
-      rightGrow.set(Math.max(0, 100 - nextLeftGrow));
     };
 
     const onPointerMove = (event: PointerEvent) => {
@@ -522,7 +524,7 @@ export function TabLayoutShell({
       window.removeEventListener("blur", onWindowBlur);
       endDrag(false);
     };
-  }, [fallbackWidthPx, isDragging, leftGrow, rightGrow, setTabLeftWidthPx]);
+  }, [fallbackWidthPx, isDragging, leftGrow, setTabLeftWidthPx]);
 
   React.useEffect(() => {
     const session = dragSessionRef.current;
@@ -530,10 +532,132 @@ export function TabLayoutShell({
     if (session.tabId !== activeTabId) cancelDrag();
   }, [activeTabId, cancelDrag, isDragging]);
 
+  React.useEffect(() => {
+    if (process.env.NEXT_PUBLIC_LAYOUT_DEBUG !== "1") return;
+    if (typeof window === "undefined") return;
+
+    const prev = layoutDebugPrevRef.current;
+    layoutDebugPrevRef.current = {
+      tabId: activeTabId,
+      leftHidden: computedLeftHidden,
+      rightHidden: computedRightHidden,
+    };
+
+    const shell = containerRef.current;
+    const header = document.querySelector<HTMLElement>('[data-slot="app-header"]');
+    const row = document.querySelector<HTMLElement>('[data-slot="page-main-row"]');
+    const gap = document.querySelector<HTMLElement>('[data-slot="sidebar-gap"]');
+    const sidebar = document.querySelector<HTMLElement>('[data-slot="sidebar-container"]');
+
+    const baseline = {
+      viewportWidth: window.innerWidth,
+      scrollX: window.scrollX,
+      scrollLeft: (document.scrollingElement as HTMLElement | null)?.scrollLeft ?? null,
+      headerClientWidth: header?.clientWidth ?? null,
+      headerScrollWidth: header?.scrollWidth ?? null,
+      rowClientWidth: row?.clientWidth ?? null,
+      rowScrollWidth: row?.scrollWidth ?? null,
+      shellClientWidth: shell?.clientWidth ?? null,
+      shellScrollWidth: shell?.scrollWidth ?? null,
+      gapWidth: gap?.getBoundingClientRect().width ?? null,
+    };
+
+    const worst = {
+      maxHeaderOverflow: 0,
+      maxRowOverflow: 0,
+      maxShellOverflow: 0,
+      maxSidebarShellOverlap: 0,
+      minGapWidth: baseline.gapWidth ?? Number.POSITIVE_INFINITY,
+      atMs: 0,
+      viewportWidth: baseline.viewportWidth,
+      headerRect: null as DOMRect | null,
+      rowRect: null as DOMRect | null,
+      shellRect: null as DOMRect | null,
+      sidebarRect: null as DOMRect | null,
+    };
+
+    const start = performance.now();
+    let rafId: number | null = null;
+
+    const tick = () => {
+      const elapsed = performance.now() - start;
+
+      const scrollX = window.scrollX;
+      const scrollLeft = (document.scrollingElement as HTMLElement | null)?.scrollLeft ?? 0;
+      const headerOverflow = header ? Math.max(0, header.scrollWidth - header.clientWidth) : 0;
+      const rowOverflow = row ? Math.max(0, row.scrollWidth - row.clientWidth) : 0;
+      const shellOverflow = shell ? Math.max(0, shell.scrollWidth - shell.clientWidth) : 0;
+
+      const gapWidth = gap?.getBoundingClientRect().width ?? null;
+      const shellRect = shell?.getBoundingClientRect() ?? null;
+      const sidebarRect = sidebar?.getBoundingClientRect() ?? null;
+
+      const sidebarShellOverlap =
+        shellRect && sidebarRect ? Math.max(0, sidebarRect.right - shellRect.left) : 0;
+
+      const overflowScore = headerOverflow + rowOverflow + shellOverflow + sidebarShellOverlap;
+      const shouldUpdate =
+        overflowScore >
+          worst.maxHeaderOverflow +
+            worst.maxRowOverflow +
+            worst.maxShellOverflow +
+            worst.maxSidebarShellOverlap ||
+        (gapWidth != null && gapWidth < worst.minGapWidth);
+
+      if (shouldUpdate) {
+        worst.maxHeaderOverflow = Math.max(worst.maxHeaderOverflow, headerOverflow);
+        worst.maxRowOverflow = Math.max(worst.maxRowOverflow, rowOverflow);
+        worst.maxShellOverflow = Math.max(worst.maxShellOverflow, shellOverflow);
+        worst.maxSidebarShellOverlap = Math.max(
+          worst.maxSidebarShellOverlap,
+          sidebarShellOverlap,
+        );
+        if (gapWidth != null) worst.minGapWidth = Math.min(worst.minGapWidth, gapWidth);
+        worst.atMs = Math.round(elapsed);
+        worst.viewportWidth = window.innerWidth;
+        (worst as any).scrollX = scrollX;
+        (worst as any).scrollLeft = scrollLeft;
+        worst.headerRect = header?.getBoundingClientRect() ?? null;
+        worst.rowRect = row?.getBoundingClientRect() ?? null;
+        worst.shellRect = shellRect;
+        worst.sidebarRect = sidebarRect;
+      }
+
+      if (elapsed < 900) {
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+
+      const hasAnomaly =
+        worst.maxHeaderOverflow > 0 ||
+        worst.maxRowOverflow > 0 ||
+        worst.maxShellOverflow > 0 ||
+        worst.maxSidebarShellOverlap > 0;
+
+      if (hasAnomaly) {
+        console.log("[layout-debug] tab switch", {
+          from: prev,
+          to: layoutDebugPrevRef.current,
+          baseline,
+          worst,
+        });
+      }
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
+  }, [activeTabId, computedLeftHidden, computedRightHidden]);
+
   if (!activeTab) return null;
 
   return (
-    <div ref={containerRef} className="flex h-full w-full overflow-hidden bg-sidebar pr-2">
+    <div
+      ref={containerRef}
+      data-slot="tab-layout-shell"
+      className="flex h-full w-full overflow-hidden bg-sidebar pr-2"
+    >
       <motion.div
         className={cn(
           "relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden",
@@ -545,11 +669,15 @@ export function TabLayoutShell({
           flexGrow: leftGrow,
           flexShrink: 1,
           minWidth: 0,
-          filter: leftFilter,
-          willChange: "flex-grow, filter",
+          willChange: "flex-grow",
         }}
         initial={false}
       >
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-30 bg-white"
+          style={{ opacity: leftWash, willChange: "opacity" }}
+        />
         <div className={cn("h-full w-full relative", leftPanelPaddingClass)}>
           <div
             className="relative h-full w-full min-h-0 min-w-0"
@@ -604,11 +732,8 @@ export function TabLayoutShell({
           const d = Math.max(1, rect.width || fallbackWidthPx);
           const nextLeftGrow = Math.max(0, Math.min(100, (initialLeftPx / d) * 100));
           growAnimationRef.current.left?.stop();
-          growAnimationRef.current.right?.stop();
           growAnimationRef.current.left = null;
-          growAnimationRef.current.right = null;
           leftGrow.set(nextLeftGrow);
-          rightGrow.set(Math.max(0, 100 - nextLeftGrow));
 
           cursorRestoreRef.current = {
             cursor: document.body.style.cursor,
@@ -644,11 +769,15 @@ export function TabLayoutShell({
           flexGrow: rightGrow,
           flexShrink: 1,
           minWidth: 0,
-          filter: rightFilter,
-          willChange: "flex-grow, filter",
+          willChange: "flex-grow",
         }}
         initial={false}
       >
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-30 bg-white"
+          style={{ opacity: rightWash, willChange: "opacity" }}
+        />
         <div className={cn("h-full w-full relative", rightPanelPaddingClass)}>
           <div
             className="relative h-full"
