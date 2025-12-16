@@ -1,11 +1,12 @@
 import { deepseek } from "@ai-sdk/deepseek";
 import { ToolLoopAgent } from "ai";
-import { browserTools, systemTools } from "./tools";
+import { browserTools, dbTools, systemTools } from "./tools";
 import { requestContextManager } from "@/context/requestContext";
 
 export const createRequestTools = () => ({
   ...systemTools,
   ...browserTools,
+  ...dbTools,
 });
 
 export const createAgent = () => {

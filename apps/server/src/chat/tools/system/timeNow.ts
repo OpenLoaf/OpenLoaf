@@ -8,8 +8,7 @@ import type { SystemToolResult } from "./types";
  * - 风险：read（无副作用）。
  */
 export const timeNowTool = tool({
-  description:
-    "【system/read】获取当前服务器时间信息。返回 now(字符串时间)、unixMs、timezone。",
+  description: "获取当前服务器时间信息，包括格式化的时间字符串、Unix时间戳（毫秒）和时区。当需要了解当前时间或进行时间相关计算时调用此工具，可通过可选参数指定时区。",
   inputSchema: zodSchema(
     z.object({
       timezone: z

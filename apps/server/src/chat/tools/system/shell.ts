@@ -17,17 +17,19 @@ import { requestContextManager } from "../../../context/requestContext";
 
 export const shellReadonlyTool = tool({
   description:
-    "【system/read】执行只读 shell 命令并返回输出。MVP：仅允许 date/uname/whoami/pwd/ls，禁止管道/重定向。",
+    "执行只读 shell 命令并返回输出，适用于获取系统信息、查看文件列表、查看当前目录等场景。仅允许执行安全的只读命令，包括 date、uname、whoami、pwd、ls，禁止使用管道、重定向等复杂操作。",
   inputSchema: zodSchema(
     z.object({
       cmd: z
         .string()
         .describe(
-          "要执行的命令。MVP allowlist：date、uname、whoami、pwd、ls。禁止 | ; && > 等。",
+          "要执行的命令。仅允许：date、uname、whoami、pwd、ls。禁止 | ; && > 等复杂操作。"
         ),
-    }),
+    })
   ),
-  execute: async (input): Promise<
+  execute: async (
+    input
+  ): Promise<
     SystemToolResult<{ stdout: string; stderr: string; exitCode: number }>
   > => {
     try {
@@ -35,7 +37,7 @@ export const shellReadonlyTool = tool({
       const sessionId = requestContextManager.getSessionId();
       const tabsStorageCookie = requestContextManager.getCookie("tabs-storage");
       console.log("当前请求上下文:", { sessionId, tabsStorageCookie });
-      
+
       const parts = parseSimpleCommand(input.cmd);
       const command = parts[0]!;
 
@@ -91,8 +93,7 @@ export const shellReadonlyTool = tool({
         const cwd = baseDir;
 
         const target =
-          paths[0] ??
-          "."; /* 未给路径时，按 cwd 列出，但 cwd 也必须在白名单 */
+          paths[0] ?? "."; /* 未给路径时，按 cwd 列出，但 cwd 也必须在白名单 */
         const resolvedTarget = resolveInAllowedRoots({
           baseDir: cwd,
           filePath: target,
@@ -118,7 +119,8 @@ export const shellReadonlyTool = tool({
         ok: false,
         error: {
           code: "EXECUTION_FAILED",
-          message: err instanceof Error ? err.message : "命令执行失败（未知错误）。",
+          message:
+            err instanceof Error ? err.message : "命令执行失败（未知错误）。",
           riskType: "read",
         },
       };
@@ -128,15 +130,15 @@ export const shellReadonlyTool = tool({
 
 export const shellWriteTool = tool({
   description:
-    "【system/write】执行可能修改文件系统的命令（需要审批）。MVP：仅支持 mkdir <path>（白名单目录内）。",
+    "执行可能修改文件系统的命令，需要审批。适用于创建目录等场景。当前仅支持 mkdir <path> 命令，且路径必须在白名单目录内。",
   inputSchema: zodSchema(
     z.object({
       cmd: z
         .string()
         .describe(
-          "要执行的命令。MVP allowlist：mkdir <path>。路径必须在白名单目录内。",
+          "要执行的命令。当前仅支持：mkdir <path>。路径必须在白名单目录内。"
         ),
-    }),
+    })
   ),
   // AI SDK v6 内置审批机制：需要审批时会触发 tool-approval-request（后续再接 UI）。
   needsApproval: true,
@@ -194,15 +196,15 @@ export const shellWriteTool = tool({
 
 export const shellDestructiveTool = tool({
   description:
-    "【system/destructive】执行破坏性命令（需要审批）。MVP：仅支持 rm <file>（白名单目录内，且只能删文件）。",
+    "执行破坏性命令，需要审批。适用于删除文件等场景。当前仅支持 rm <file> 命令，且路径必须在白名单目录内，只能删除文件，不能删除目录。",
   inputSchema: zodSchema(
     z.object({
       cmd: z
         .string()
         .describe(
-          "要执行的命令。MVP allowlist：rm <file>。路径必须在白名单目录内，且只能删除文件。",
+          "要执行的命令。当前仅支持：rm <file>。路径必须在白名单目录内，且只能删除文件。"
         ),
-    }),
+    })
   ),
   needsApproval: true,
   execute: async (input): Promise<SystemToolResult<{ ok: true }>> => {

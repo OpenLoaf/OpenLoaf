@@ -9,8 +9,7 @@ import { fetchTextWithLimits } from "./utils";
  * - 设计：MVP 采用“可配置 provider”，不内置爬虫式搜索；未配置时返回 NOT_CONFIGURED。
  */
 export const webSearchTool = tool({
-  description:
-    "【system/read】网络搜索并返回结果列表。MVP：需要配置 SEARCH_API_URL（返回 JSON）；超时为代码内固定值。",
+  description: "执行网络搜索并返回结果列表，包括标题、URL和摘要信息。适用于需要查找特定信息、获取最新数据或了解某个主题的场景。需要配置搜索服务API，可通过参数指定搜索关键词和返回结果数量上限。",
   inputSchema: zodSchema(
     z.object({
       query: z.string().describe("搜索关键词"),

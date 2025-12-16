@@ -9,14 +9,13 @@ import { resolveInAllowedRoots, readUtf8FileWithLimit } from "./utils";
  * - 安全：MVP 仅允许读取白名单目录 + 限制文件大小。
  */
 export const fileReadTool = tool({
-  description:
-    "【system/read】读取文件内容（utf-8）。仅允许读取白名单目录下的文件，并在代码中固定文件大小上限（MVP）。",
+  description: "读取指定文件的内容，返回UTF-8编码的文本。适用于需要访问项目内提示词、模板或文档片段的场景。仅允许读取白名单目录下的文件，并有文件大小限制。",
   inputSchema: zodSchema(
     z.object({
       path: z
         .string()
         .describe(
-          "文件路径（相对或绝对）。MVP：只允许白名单目录：apps/server/src/chat、apps/server/prompts、docs。",
+          "文件路径（相对或绝对）。仅允许访问白名单目录：apps/server/src/chat、apps/server/prompts、docs。",
         ),
     }),
   ),

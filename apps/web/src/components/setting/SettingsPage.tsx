@@ -1,9 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import type { ComponentType } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { KeyRound, Boxes, SlidersHorizontal } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -33,6 +38,19 @@ export default function SettingsPage({
   tabId: string;
 }) {
   const [activeKey, setActiveKey] = useState<SettingsMenuKey>("basic");
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setIsCollapsed(entry.contentRect.width < 700);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const ActiveComponent = useMemo(
     () => MENU.find((item) => item.key === activeKey)?.Component ?? (() => null),
@@ -40,35 +58,54 @@ export default function SettingsPage({
   );
 
   return (
-    <div className="h-full w-full min-h-0 min-w-0 overflow-hidden bg-background">
+    <div
+      ref={containerRef}
+      className="h-full w-full min-h-0 min-w-0 overflow-hidden bg-background"
+    >
       <div className="flex h-full min-h-0">
-        <div className="w-48 shrink-0 border-r border-border bg-muted/20">
+        <motion.div
+          animate={{ width: isCollapsed ? 60 : 192 }}
+          initial={false}
+          className="shrink-0 border-r border-border bg-muted/20"
+        >
           <ScrollArea className="h-full">
             <div className="p-3 space-y-2">
               {MENU.map((item) => {
                 const active = item.key === activeKey;
                 const Icon = item.Icon;
                 return (
-                  <Button
-                    key={item.key}
-                    variant={active ? "secondary" : "ghost"}
-                    size="sm"
-                    className={cn(
-                      "w-full justify-start h-9",
-                      active && "text-foreground",
+                  <Tooltip key={item.key} delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={active ? "secondary" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "w-full h-9",
+                          isCollapsed ? "justify-center px-0" : "justify-start",
+                          active && "text-foreground",
+                        )}
+                        onClick={() => setActiveKey(item.key)}
+                      >
+                        <Icon
+                          className={cn(
+                            "h-4 w-4 shrink-0",
+                            !isCollapsed && "mr-2",
+                          )}
+                        />
+                        {!isCollapsed && item.label}
+                      </Button>
+                    </TooltipTrigger>
+                    {isCollapsed && (
+                      <TooltipContent side="right">{item.label}</TooltipContent>
                     )}
-                    onClick={() => setActiveKey(item.key)}
-                  >
-                    <Icon className="mr-2 h-4 w-4 shrink-0" />
-                    {item.label}
-                  </Button>
+                  </Tooltip>
                 );
               })}
             </div>
           </ScrollArea>
-        </div>
+        </motion.div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[400px] flex-1">
           <ScrollArea className="h-full">
             <div className="p-4">
               <AnimatePresence mode="wait" initial={false}>
