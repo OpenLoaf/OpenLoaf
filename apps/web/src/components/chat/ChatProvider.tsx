@@ -114,8 +114,6 @@ export default function ChatProvider({
   const appliedHistorySessionIdRef = React.useRef<string | null>(null);
   const [forceHistoryLoading, setForceHistoryLoading] = React.useState(false);
   const [scrollToBottomToken, setScrollToBottomToken] = React.useState(0);
-  const tabs = useTabs((s) => s.tabs);
-  const activeTabId = useTabs((s) => s.activeTabId);
   const upsertToolPart = useTabs((s) => s.upsertToolPart);
   const pushStackItem = useTabs((s) => s.pushStackItem);
   const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
@@ -153,17 +151,10 @@ export default function ChatProvider({
   }, [tabId, sessionId, clearToolPartsForTab]);
 
   const paramsRef = React.useRef<Record<string, unknown> | undefined>(params);
-  const tabsRef = React.useRef(tabs);
-  const activeTabIdRef = React.useRef(activeTabId);
 
   React.useEffect(() => {
     paramsRef.current = params;
   }, [params]);
-
-  React.useEffect(() => {
-    tabsRef.current = tabs;
-    activeTabIdRef.current = activeTabId;
-  }, [tabs, activeTabId]);
 
   React.useEffect(() => {
     if (!tabId) return;
@@ -233,9 +224,8 @@ export default function ChatProvider({
           };
         }
 
-        const activeTab = tabsRef.current.find(
-          (tab) => tab.id === activeTabIdRef.current
-        );
+        const { tabs, activeTabId } = useTabs.getState();
+        const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
         const lastMessage = {
           ...messages[messages.length - 1],

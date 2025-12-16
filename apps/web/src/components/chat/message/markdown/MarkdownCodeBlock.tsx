@@ -18,10 +18,12 @@ const SYNTAX_HIGHLIGHTER_CUSTOM_STYLE: React.CSSProperties = {
   fontFamily: "inherit",
   textShadow: "none",
   overflow: "visible",
-  width: "100%",
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
-  overflowWrap: "break-word",
+  display: "inline-block",
+  width: "max-content",
+  minWidth: "100%",
+  whiteSpace: "pre",
+  wordBreak: "normal",
+  overflowWrap: "normal",
 };
 
 const SYNTAX_HIGHLIGHTER_LINE_NUMBER_STYLE: React.CSSProperties = {
@@ -47,7 +49,6 @@ const MemoSyntaxHighlighter = React.memo(function MemoSyntaxHighlighter({
       language={language}
       PreTag="div"
       showLineNumbers
-      wrapLongLines
       customStyle={SYNTAX_HIGHLIGHTER_CUSTOM_STYLE}
       lineNumberStyle={SYNTAX_HIGHLIGHTER_LINE_NUMBER_STYLE}
       codeTagProps={SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS}
@@ -119,7 +120,6 @@ export default function MarkdownCodeBlock({
             language={normalizedLanguage}
             PreTag="div"
             showLineNumbers={false}
-            wrapLongLines
             customStyle={{
               ...SYNTAX_HIGHLIGHTER_CUSTOM_STYLE,
               padding: 0,
@@ -152,7 +152,7 @@ export default function MarkdownCodeBlock({
   return (
     <div
       className={cn(
-        "not-prose my-3 mr-4 overflow-hidden rounded-md border",
+        "not-prose my-3 mr-8 overflow-hidden rounded-md border",
         className
       )}
     >
@@ -190,7 +190,9 @@ export default function MarkdownCodeBlock({
         viewportClassName="max-h-[450px]"
         aria-hidden={collapsed}
       >
-        <MemoSyntaxHighlighter code={code} language={normalizedLanguage} />
+        <div className="overflow-x-auto">
+          <MemoSyntaxHighlighter code={code} language={normalizedLanguage} />
+        </div>
       </ScrollArea>
     </div>
   );

@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from "motion/react";
 import { cn } from "@/lib/utils";
 import { Chat } from "@/components/chat/Chat";
 import { useTabs, LEFT_DOCK_MIN_PX } from "@/hooks/use_tabs";
@@ -11,6 +17,10 @@ import type { Tab } from "@teatime-ai/api/types/tabs";
 
 const RIGHT_CHAT_MIN_PX = 360;
 const DIVIDER_GAP_PX = 10;
+const INSTANT_TRANSITION = { duration: 0 } as const;
+const SPRING_TRANSITION = { type: "spring" as const, stiffness: 260, damping: 45 };
+const RESIZE_BLUR_PX = 6;
+const RESIZE_CLEAR_DURATION_S = 0.45;
 
 function TabLayer({
   active,
@@ -22,7 +32,7 @@ function TabLayer({
   return (
     <div
       className={cn(
-        "absolute inset-0 transition-opacity duration-150",
+        "absolute inset-0 will-change-opacity transition-opacity duration-180 ease-out",
         active ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
       )}
       aria-hidden={!active}
@@ -31,6 +41,8 @@ function TabLayer({
     </div>
   );
 }
+
+const MemoChat = React.memo(Chat);
 
 export function TabLayoutShell({
   tabs,
@@ -49,9 +61,13 @@ export function TabLayoutShell({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const leftPanelRef = React.useRef<HTMLDivElement>(null);
   const rightPanelRef = React.useRef<HTMLDivElement>(null);
+  const chatSessionChangeHandlersRef = React.useRef<
+    Map<string, (sessionId: string, options?: { loadHistory?: boolean }) => void>
+  >(new Map());
   const reduceMotion = useReducedMotion();
   const [containerWidthPx, setContainerWidthPx] = React.useState(0);
   const containerWidthPxRef = React.useRef(0);
+  const containerMeasureRafRef = React.useRef<number | null>(null);
 
   const hasLeftContent = Boolean(activeTab?.base) || (activeTab?.stack?.length ?? 0) > 0;
   const chatCollapsed = Boolean(activeTab?.base) && Boolean(activeTab?.rightChatCollapsed);
@@ -72,6 +88,28 @@ export function TabLayoutShell({
   const cursorRestoreRef = React.useRef<{ cursor: string; userSelect: string } | null>(
     null,
   );
+
+  const getOnChatSessionChange = React.useCallback(
+    (tabId: string) => {
+      const existing = chatSessionChangeHandlersRef.current.get(tabId);
+      if (existing) return existing;
+      const handler = (nextSessionId: string, options?: { loadHistory?: boolean }) => {
+        setTabChatSession(tabId, nextSessionId, options);
+      };
+      chatSessionChangeHandlersRef.current.set(tabId, handler);
+      return handler;
+    },
+    [setTabChatSession],
+  );
+
+  React.useEffect(() => {
+    // 清理已关闭 tab 的 handler，避免 Map 长期增长
+    const present = new Set(tabs.map((tab) => tab.id));
+    const map = chatSessionChangeHandlersRef.current;
+    for (const tabId of map.keys()) {
+      if (!present.has(tabId)) map.delete(tabId);
+    }
+  }, [tabs]);
 
   const cancelDrag = React.useCallback(() => {
     const session = dragSessionRef.current;
@@ -115,12 +153,19 @@ export function TabLayoutShell({
     right: ReturnType<typeof animate> | null;
   }>({ left: null, right: null });
 
-  const instantTransition = React.useMemo(() => ({ duration: 0 }), []);
-  const springTransition = React.useMemo(
-    () => ({ type: "spring" as const, stiffness: 260, damping: 45 }),
-    [],
-  );
-  const dividerTransition = reduceMotion || isDragging ? instantTransition : springTransition;
+  const leftBlur = useMotionValue(0);
+  const rightBlur = useMotionValue(0);
+  const leftFilter = useTransform(leftBlur, (value) => `blur(${value}px)`);
+  const rightFilter = useTransform(rightBlur, (value) => `blur(${value}px)`);
+  const blurAnimationRef = React.useRef<{
+    left: ReturnType<typeof animate> | null;
+    right: ReturnType<typeof animate> | null;
+  }>({ left: null, right: null });
+  const prevComputedLeftHiddenRef = React.useRef(computedLeftHidden);
+  const prevComputedRightHiddenRef = React.useRef(computedRightHidden);
+
+  const dividerTransition =
+    reduceMotion || isDragging ? INSTANT_TRANSITION : SPRING_TRANSITION;
 
   const [rightContentFrozenWidthPx, setRightContentFrozenWidthPx] = React.useState<
     number | null
@@ -133,6 +178,7 @@ export function TabLayoutShell({
   const wasLeftHiddenRef = React.useRef(false);
 
   const [collapseGapCanShrink, setCollapseGapCanShrink] = React.useState(false);
+  const [collapseGapCanShrinkLeft, setCollapseGapCanShrinkLeft] = React.useState(false);
 
   React.useEffect(() => {
     if (!computedRightHidden || computedLeftHidden) {
@@ -150,13 +196,44 @@ export function TabLayoutShell({
     return () => unsubscribe();
   }, [computedLeftHidden, computedRightHidden, rightGrow]);
 
+  React.useEffect(() => {
+    if (!computedLeftHidden || computedRightHidden) {
+      setCollapseGapCanShrinkLeft(false);
+      return;
+    }
+
+    setCollapseGapCanShrinkLeft(false);
+    const unsubscribe = leftGrow.on("change", (value) => {
+      if (value <= 0.01) {
+        setCollapseGapCanShrinkLeft(true);
+        unsubscribe();
+      }
+    });
+    return () => unsubscribe();
+  }, [computedLeftHidden, computedRightHidden, leftGrow]);
+
   const dividerGapTargetPx = dividerVisible
     ? DIVIDER_GAP_PX
-    : !computedLeftHidden && computedRightHidden
+    : computedLeftHidden && !computedRightHidden
+      ? collapseGapCanShrinkLeft
+        ? 0
+        : DIVIDER_GAP_PX
+      : !computedLeftHidden && computedRightHidden
       ? collapseGapCanShrink
         ? 0
         : DIVIDER_GAP_PX
       : 0;
+
+  const leftPanelPaddingClass = computedLeftHidden
+    ? collapseGapCanShrinkLeft
+      ? "p-0"
+      : "p-2"
+    : "p-2";
+  const rightPanelPaddingClass = computedRightHidden
+    ? collapseGapCanShrink
+      ? "p-0"
+      : "p-2"
+    : "p-2";
 
   React.useEffect(() => {
     const wasRightHidden = wasRightHiddenRef.current;
@@ -213,16 +290,38 @@ export function TabLayoutShell({
       setContainerWidthPx(next);
     };
 
-    measure();
+    const scheduleMeasure = () => {
+      if (containerMeasureRafRef.current != null) {
+        cancelAnimationFrame(containerMeasureRafRef.current);
+      }
+      containerMeasureRafRef.current = requestAnimationFrame(() => {
+        containerMeasureRafRef.current = null;
+        measure();
+      });
+    };
+
+    scheduleMeasure();
 
     if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", measure);
-      return () => window.removeEventListener("resize", measure);
+      window.addEventListener("resize", scheduleMeasure);
+      return () => {
+        window.removeEventListener("resize", scheduleMeasure);
+        if (containerMeasureRafRef.current != null) {
+          cancelAnimationFrame(containerMeasureRafRef.current);
+          containerMeasureRafRef.current = null;
+        }
+      };
     }
 
-    const ro = new ResizeObserver(() => measure());
+    const ro = new ResizeObserver(() => scheduleMeasure());
     ro.observe(container);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      if (containerMeasureRafRef.current != null) {
+        cancelAnimationFrame(containerMeasureRafRef.current);
+        containerMeasureRafRef.current = null;
+      }
+    };
   }, []);
 
   React.useEffect(() => {
@@ -239,8 +338,8 @@ export function TabLayoutShell({
       return;
     }
 
-    growAnimationRef.current.left = animate(leftGrow, layoutLeftGrow, springTransition);
-    growAnimationRef.current.right = animate(rightGrow, layoutRightGrow, springTransition);
+    growAnimationRef.current.left = animate(leftGrow, layoutLeftGrow, SPRING_TRANSITION);
+    growAnimationRef.current.right = animate(rightGrow, layoutRightGrow, SPRING_TRANSITION);
 
     return () => {
       growAnimationRef.current.left?.stop();
@@ -249,14 +348,94 @@ export function TabLayoutShell({
       growAnimationRef.current.right = null;
     };
   }, [
-    animate,
     isDragging,
     layoutLeftGrow,
     layoutRightGrow,
     leftGrow,
     reduceMotion,
     rightGrow,
-    springTransition,
+  ]);
+
+  React.useEffect(() => {
+    if (reduceMotion || isDragging) {
+      blurAnimationRef.current.left?.stop();
+      blurAnimationRef.current.right?.stop();
+      blurAnimationRef.current.left = null;
+      blurAnimationRef.current.right = null;
+      leftBlur.set(0);
+      rightBlur.set(0);
+      prevComputedLeftHiddenRef.current = computedLeftHidden;
+      prevComputedRightHiddenRef.current = computedRightHidden;
+      return;
+    }
+
+    const prevLeftHidden = prevComputedLeftHiddenRef.current;
+    const prevRightHidden = prevComputedRightHiddenRef.current;
+    prevComputedLeftHiddenRef.current = computedLeftHidden;
+    prevComputedRightHiddenRef.current = computedRightHidden;
+
+    const leftBecameHidden = !prevLeftHidden && computedLeftHidden;
+    const rightBecameHidden = !prevRightHidden && computedRightHidden;
+    const leftBecameVisible = prevLeftHidden && !computedLeftHidden;
+    const rightBecameVisible = prevRightHidden && !computedRightHidden;
+
+    const leftDelta = Math.abs(layoutLeftGrow - leftGrow.get());
+    const rightDelta = Math.abs(layoutRightGrow - rightGrow.get());
+
+    const shouldBlurLeft = leftDelta >= 0.5 || leftBecameHidden || leftBecameVisible;
+    const shouldBlurRight = rightDelta >= 0.5 || rightBecameHidden || rightBecameVisible;
+    if (!shouldBlurLeft && !shouldBlurRight) return;
+
+    const startAndClear = (which: "left" | "right") => {
+      const motionValue = which === "left" ? leftBlur : rightBlur;
+      const existing =
+        which === "left" ? blurAnimationRef.current.left : blurAnimationRef.current.right;
+
+      existing?.stop();
+      motionValue.set(RESIZE_BLUR_PX);
+      const animation = animate(motionValue, 0, {
+        duration: RESIZE_CLEAR_DURATION_S,
+        ease: "easeOut",
+      });
+
+      if (which === "left") blurAnimationRef.current.left = animation;
+      else blurAnimationRef.current.right = animation;
+    };
+
+    const startAndHold = (which: "left" | "right") => {
+      const motionValue = which === "left" ? leftBlur : rightBlur;
+      const existing =
+        which === "left" ? blurAnimationRef.current.left : blurAnimationRef.current.right;
+
+      existing?.stop();
+      motionValue.set(RESIZE_BLUR_PX);
+      if (which === "left") blurAnimationRef.current.left = null;
+      else blurAnimationRef.current.right = null;
+    };
+
+    if (leftBecameHidden) startAndHold("left");
+    else if (shouldBlurLeft) startAndClear("left");
+
+    if (rightBecameHidden) startAndHold("right");
+    else if (shouldBlurRight) startAndClear("right");
+
+    return () => {
+      blurAnimationRef.current.left?.stop();
+      blurAnimationRef.current.right?.stop();
+      blurAnimationRef.current.left = null;
+      blurAnimationRef.current.right = null;
+    };
+  }, [
+    computedLeftHidden,
+    computedRightHidden,
+    isDragging,
+    layoutLeftGrow,
+    layoutRightGrow,
+    leftBlur,
+    leftGrow,
+    reduceMotion,
+    rightBlur,
+    rightGrow,
   ]);
 
   React.useEffect(() => {
@@ -289,12 +468,12 @@ export function TabLayoutShell({
       }
     };
 
-    const onPointerMove = (event: PointerEvent) => {
+    let moveRaf: number | null = null;
+    let pendingClientX: number | null = null;
+    const applyClientX = (clientX: number) => {
       const session = dragSessionRef.current;
       if (!session) return;
-      if (event.pointerId !== session.pointerId) return;
-
-      const raw = Math.round(event.clientX - session.containerLeft);
+      const raw = Math.round(clientX - session.containerLeft);
       const maxLeft = Math.max(
         LEFT_DOCK_MIN_PX,
         Math.round(session.containerWidth - RIGHT_CHAT_MIN_PX),
@@ -307,6 +486,19 @@ export function TabLayoutShell({
       const nextLeftGrow = Math.max(0, Math.min(100, (next / d) * 100));
       leftGrow.set(nextLeftGrow);
       rightGrow.set(Math.max(0, 100 - nextLeftGrow));
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      const session = dragSessionRef.current;
+      if (!session) return;
+      if (event.pointerId !== session.pointerId) return;
+      pendingClientX = event.clientX;
+      if (moveRaf != null) return;
+      moveRaf = requestAnimationFrame(() => {
+        moveRaf = null;
+        if (pendingClientX == null) return;
+        applyClientX(pendingClientX);
+      });
     };
 
     const onPointerUpOrCancel = (event: PointerEvent) => {
@@ -323,6 +515,7 @@ export function TabLayoutShell({
     window.addEventListener("pointercancel", onPointerUpOrCancel);
     window.addEventListener("blur", onWindowBlur);
     return () => {
+      if (moveRaf != null) cancelAnimationFrame(moveRaf);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUpOrCancel);
       window.removeEventListener("pointercancel", onPointerUpOrCancel);
@@ -352,11 +545,12 @@ export function TabLayoutShell({
           flexGrow: leftGrow,
           flexShrink: 1,
           minWidth: 0,
-          willChange: "flex-grow",
+          filter: leftFilter,
+          willChange: "flex-grow, filter",
         }}
         initial={false}
       >
-        <div className={cn("h-full w-full relative", computedLeftHidden ? "p-0" : "p-2")}>
+        <div className={cn("h-full w-full relative", leftPanelPaddingClass)}>
           <div
             className="relative h-full w-full min-h-0 min-w-0"
             style={{
@@ -450,11 +644,12 @@ export function TabLayoutShell({
           flexGrow: rightGrow,
           flexShrink: 1,
           minWidth: 0,
-          willChange: "flex-grow",
+          filter: rightFilter,
+          willChange: "flex-grow, filter",
         }}
         initial={false}
       >
-        <div className={cn("h-full w-full relative", computedRightHidden ? "p-0" : "p-2")}>
+        <div className={cn("h-full w-full relative", rightPanelPaddingClass)}>
           <div
             className="relative h-full"
             style={{
@@ -466,15 +661,13 @@ export function TabLayoutShell({
               return (
                 <TabLayer key={`right:${tab.id}`} active={isActive}>
                   <div className="h-full w-full min-h-0 min-w-0">
-                    <Chat
+                    <MemoChat
                       panelKey={`chat:${tab.id}`}
                       sessionId={tab.chatSessionId}
                       loadHistory={tab.chatLoadHistory}
                       tabId={tab.id}
                       {...(tab.chatParams ?? {})}
-                      onSessionChange={(nextSessionId, options) => {
-                        setTabChatSession(tab.id, nextSessionId, options);
-                      }}
+                      onSessionChange={getOnChatSessionChange(tab.id)}
                     />
                   </div>
                 </TabLayer>

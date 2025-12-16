@@ -10,6 +10,8 @@ import type { CSSProperties } from "react";
 
 import { HeaderTabs } from "./Tabs";
 import { ModeToggle } from "./ModeToggle";
+import { AnimateIcon } from "@/components/animate-ui/icons/icon";
+import { Bot } from "@/components/animate-ui/icons/bot";
 
 export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
@@ -134,11 +136,14 @@ export const Header = () => {
               ease: "easeInOut",
             }}
           >
-            <PanelRight
+            {/* <PanelRight
               className={`h-4 w-4 transition-transform duration-200 ${
                 isChatCollapsed ? "rotate-180" : ""
               }`}
-            />
+            /> */}
+            <AnimateIcon animate loop loopDelay={3000}>
+                <Bot className={`h-4 w-4`} />
+              </AnimateIcon>
           </motion.div>
         </Button>
       </div>

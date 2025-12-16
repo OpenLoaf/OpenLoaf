@@ -4,9 +4,7 @@ import { type UIMessage } from "@ai-sdk/react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import MarkdownCode from "./markdown/MarkdownCodeInline";
-import MarkdownPre from "./markdown/MarkdownPre";
-import MarkdownTable from "./markdown/MarkdownTable";
+import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./MessageTool";
 
 interface MessageAiProps {
@@ -24,7 +22,7 @@ export default function MessageAi({ message, className }: MessageAiProps) {
               <div
                 key={index}
                 className={cn(
-                  "min-w-0 w-full max-w-none font-sans prose prose-neutral dark:prose-invert break-words [overflow-wrap:anywhere]",
+                  "min-w-0 w-full mx-3 max-w-none font-sans prose prose-neutral dark:prose-invert break-words [overflow-wrap:anywhere]",
                   // Base text settings
                   "text-sm leading-relaxed",
                   // Element spacing adjustments
@@ -44,11 +42,7 @@ export default function MessageAi({ message, className }: MessageAiProps) {
               >
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
-                  components={{
-                    pre: MarkdownPre as any,
-                    code: MarkdownCode as any,
-                    table: MarkdownTable as any,
-                  }}
+                  components={markdownComponents}
                 >
                   {part.text}
                 </ReactMarkdown>

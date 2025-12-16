@@ -319,19 +319,18 @@ export const HeaderTabs = () => {
                 onTogglePin={handleTogglePin}
               />
             ))}
+            <Button
+              data-no-drag="true"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+              aria-label="Add new tab"
+              onClick={handleAddTab}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
-        {/* 添加plus按钮 */}
-        <Button
-          data-no-drag="true"
-          variant="ghost"
-          size="icon"
-          className="h-full mx-2 w-6 shrink-0 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent relative z-10"
-          aria-label="Add new tab"
-          onClick={handleAddTab}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </Button>
       </TabsList>
     </Tabs>
   );
