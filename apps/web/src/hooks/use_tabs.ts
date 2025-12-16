@@ -29,6 +29,7 @@ type AddTabInput = {
   isPin?: boolean;
   createNew?: boolean;
   base?: DockItem;
+  leftWidthPx?: number;
   chatSessionId?: string;
   chatParams?: Record<string, unknown>;
   chatLoadHistory?: boolean;
@@ -140,6 +141,7 @@ export const useTabs = create<TabsState>()(
             title,
             icon,
             isPin,
+            leftWidthPx,
             chatSessionId: requestedChatSessionId,
             chatParams,
             chatLoadHistory,
@@ -165,7 +167,12 @@ export const useTabs = create<TabsState>()(
             rightChatCollapsed: false,
             base,
             stack: [],
-            leftWidthPx: base ? LEFT_DOCK_DEFAULT_PX : 0,
+            leftWidthPx: base
+              ? Math.max(
+                  LEFT_DOCK_MIN_PX,
+                  Number.isFinite(leftWidthPx) ? leftWidthPx! : LEFT_DOCK_DEFAULT_PX,
+                )
+              : 0,
             createdAt: now,
             lastActiveAt: now,
           });

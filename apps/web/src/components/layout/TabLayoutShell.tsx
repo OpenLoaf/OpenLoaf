@@ -47,6 +47,7 @@ export function TabLayoutShell({
   const setTabChatSession = useTabs((s) => s.setTabChatSession);
 
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const leftPanelRef = React.useRef<HTMLDivElement>(null);
   const rightPanelRef = React.useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
   const [containerWidthPx, setContainerWidthPx] = React.useState(0);
@@ -126,6 +127,11 @@ export function TabLayoutShell({
   >(null);
   const wasRightHiddenRef = React.useRef(false);
 
+  const [leftContentFrozenWidthPx, setLeftContentFrozenWidthPx] = React.useState<
+    number | null
+  >(null);
+  const wasLeftHiddenRef = React.useRef(false);
+
   const [collapseGapCanShrink, setCollapseGapCanShrink] = React.useState(false);
 
   React.useEffect(() => {
@@ -173,6 +179,28 @@ export function TabLayoutShell({
       setRightContentFrozenWidthPx(null);
     }
   }, [computedRightHidden, rightGrow]);
+
+  React.useEffect(() => {
+    const wasLeftHidden = wasLeftHiddenRef.current;
+    wasLeftHiddenRef.current = computedLeftHidden;
+
+    if (!wasLeftHidden && computedLeftHidden) {
+      const measured = leftPanelRef.current?.getBoundingClientRect().width ?? 0;
+      setLeftContentFrozenWidthPx(measured > 0 ? Math.round(measured) : null);
+
+      const unsubscribe = leftGrow.on("change", (value) => {
+        if (value <= 0.5) {
+          setLeftContentFrozenWidthPx(null);
+          unsubscribe();
+        }
+      });
+      return () => unsubscribe();
+    }
+
+    if (!computedLeftHidden) {
+      setLeftContentFrozenWidthPx(null);
+    }
+  }, [computedLeftHidden, leftGrow]);
 
   React.useEffect(() => {
     const container = containerRef.current;
@@ -318,6 +346,7 @@ export function TabLayoutShell({
           "relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden",
           computedLeftHidden ? "pointer-events-none" : "pointer-events-auto",
         )}
+        ref={leftPanelRef}
         style={{
           flexBasis: 0,
           flexGrow: leftGrow,
@@ -328,7 +357,12 @@ export function TabLayoutShell({
         initial={false}
       >
         <div className={cn("h-full w-full relative", computedLeftHidden ? "p-0" : "p-2")}>
-          <div className="relative h-full w-full min-h-0 min-w-0">
+          <div
+            className="relative h-full w-full min-h-0 min-w-0"
+            style={{
+              width: leftContentFrozenWidthPx ? `${leftContentFrozenWidthPx}px` : "100%",
+            }}
+          >
             {tabs.map((tab) => {
               const isActive = tab.id === activeTabId;
               return (
@@ -452,4 +486,3 @@ export function TabLayoutShell({
     </div>
   );
 }
-

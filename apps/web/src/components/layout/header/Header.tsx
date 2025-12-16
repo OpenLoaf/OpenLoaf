@@ -4,6 +4,7 @@ import { PanelLeft, PanelRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/animate-ui/components/radix/sidebar";
 import { useTabs } from "@/hooks/use_tabs";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { motion } from "motion/react";
 import type { CSSProperties } from "react";
 
@@ -12,11 +13,14 @@ import { ModeToggle } from "./ModeToggle";
 
 export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
+  const { workspace } = useWorkspace();
   const activeTabId = useTabs((s) => s.activeTabId);
   const activeTab = useTabs((s) =>
     s.activeTabId ? s.tabs.find((t) => t.id === s.activeTabId) : undefined,
   );
   const setTabRightChatCollapsed = useTabs((s) => s.setTabRightChatCollapsed);
+  const addTab = useTabs((s) => s.addTab);
+  const setActiveTab = useTabs((s) => s.setActiveTab);
 
   const isElectron =
     process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -44,12 +48,12 @@ export const Header = () => {
         className={`flex shrink-0 h-(--header-height) items-center pl-2 pr-2 gap-2 transition-[width] duration-200 ease-linear ${
           leftOpen
             ? "w-[calc(var(--sidebar-width)-var(--macos-traffic-lights-width))] mr-2"
-            : "w-[max(3.75rem,calc(3.75rem-var(--macos-traffic-lights-width)))] mr-4"
+            : "w-[max(6rem,calc(6rem-var(--macos-traffic-lights-width)))] mr-2"
         }`}
       >
         <Button
           data-no-drag="true"
-          className="h-8 w-4 ml-1"
+          className="ml-1 h-8 w-8 shrink-0"
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
@@ -63,9 +67,39 @@ export const Header = () => {
         <div className="flex-1"></div>
         <Button
           data-no-drag="true"
-          className="h-8 w-4"
+          className="h-8 w-8 shrink-0"
           variant="ghost"
           size="icon"
+          onClick={() => {
+            if (!workspace?.id) return;
+
+            const baseId = "base:settings";
+            const state = useTabs.getState();
+            const existing = state.tabs.find(
+              (tab) => tab.workspaceId === workspace.id && tab.base?.id === baseId,
+            );
+            if (existing) {
+              setActiveTab(existing.id);
+              return;
+            }
+
+            const viewportWidth =
+              typeof document !== "undefined"
+                ? document.documentElement.clientWidth || window.innerWidth
+                : 0;
+
+            addTab({
+              workspaceId: workspace.id,
+              createNew: true,
+              title: "Settings",
+              icon: "⚙️",
+              leftWidthPx: viewportWidth > 0 ? Math.round(viewportWidth * 0.7) : undefined,
+              base: {
+                id: baseId,
+                component: "settings-page",
+              },
+            });
+          }}
         >
           <Settings className="h-4 w-4" />
         </Button>
