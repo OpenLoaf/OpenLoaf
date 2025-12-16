@@ -118,14 +118,16 @@ export const PageTreeMenu = ({
                 <ContextMenuTrigger asChild>
                   <SidebarMenuButton
                     tooltip={pageTitle}
+                    size="sm"
+                    className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
                     onClick={(event) => handlePrimaryClick(event, page)}
                     onMouseDown={(event) => handleMouseDown(event, page)}
                     onDoubleClick={(event) => handleDoubleClick(event, page)}
                   >
                     {page.icon ? (
-                      <span className="text-sm">{page.icon}</span>
+                      <span className="text-xs leading-none">{page.icon}</span>
                     ) : (
-                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <FileText className="h-4 w-4" />
                     )}
                     <span>{pageTitle}</span>
                   </SidebarMenuButton>
@@ -153,14 +155,16 @@ export const PageTreeMenu = ({
                 <ContextMenuTrigger asChild>
                   <SidebarMenuButton
                     tooltip={pageTitle}
+                    size="sm"
+                    className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
                     onClick={(event) => handlePrimaryClick(event, page)}
                     onMouseDown={(event) => handleMouseDown(event, page)}
                     onDoubleClick={(event) => handleDoubleClick(event, page)}
                   >
                     {page.icon ? (
-                      <span className="text-sm">{page.icon}</span>
+                      <span className="text-xs leading-none">{page.icon}</span>
                     ) : (
-                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <FileText className="h-4 w-4" />
                     )}
                     <span>{pageTitle}</span>
                   </SidebarMenuButton>
@@ -172,39 +176,47 @@ export const PageTreeMenu = ({
                 </ContextMenuContent>
               </ContextMenu>
               <CollapsibleTrigger asChild>
-                <SidebarMenuAction aria-label="Toggle">
+                <SidebarMenuAction
+                  aria-label="Toggle"
+                  className="peer-data-[size=sm]/menu-button:top-0.5 text-muted-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                >
                   <ChevronRight className="transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
                 </SidebarMenuAction>
               </CollapsibleTrigger>
               <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-                <SidebarMenuSub>
+                <SidebarMenuSub className="mx-1 px-1">
                   {page.children.map((child) => {
                     const childTitle = child.title || "Untitled Page";
 
                     return (
                       <SidebarMenuSubItem key={child.id}>
-                        <SidebarMenuSubButton asChild>
-                          <ContextMenu>
-                            <ContextMenuTrigger asChild>
-                              <a
-                                href="#"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  handlePrimaryClick(event, child);
-                                }}
-                                onMouseDown={(event) => handleMouseDown(event, child)}
-                                onDoubleClick={(event) => handleDoubleClick(event, child)}
-                              >
-                                <span>{childTitle}</span>
-                              </a>
-                            </ContextMenuTrigger>
-                            <ContextMenuContent className="w-52">
-                              <ContextMenuItem onClick={() => openInNewTab(child)}>
-                                Open in new tab
-                              </ContextMenuItem>
-                            </ContextMenuContent>
-                          </ContextMenu>
-                        </SidebarMenuSubButton>
+                        <ContextMenu>
+                          <ContextMenuTrigger asChild>
+                            <SidebarMenuSubButton
+                              href="#"
+                              size="sm"
+                              className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                handlePrimaryClick(event, child);
+                              }}
+                              onMouseDown={(event) => handleMouseDown(event, child)}
+                              onDoubleClick={(event) => handleDoubleClick(event, child)}
+                            >
+                              {child.icon ? (
+                                <span className="text-xs leading-none">{child.icon}</span>
+                              ) : (
+                                <FileText className="h-4 w-4" />
+                              )}
+                              <span>{childTitle}</span>
+                            </SidebarMenuSubButton>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="w-52">
+                            <ContextMenuItem onClick={() => openInNewTab(child)}>
+                              Open in new tab
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
                       </SidebarMenuSubItem>
                     );
                   })}

@@ -7,12 +7,42 @@ import { Chat } from "@/components/chat/Chat";
 import { useTabs, LEFT_DOCK_MIN_PX } from "@/hooks/use_tabs";
 import { LeftDock } from "./LeftDock";
 import { TabActiveProvider } from "./TabActiveContext";
+import type { Tab } from "@teatime-ai/api/types/tabs";
 
 const RIGHT_CHAT_MIN_PX = 360;
 const DIVIDER_GAP_PX = 10;
 
-export function TabScene({ tabId, active }: { tabId: string; active: boolean }) {
-  const tab = useTabs((s) => s.tabs.find((t) => t.id === tabId));
+function TabLayer({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "absolute inset-0 transition-opacity duration-150",
+        active ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+      )}
+      aria-hidden={!active}
+    >
+      <TabActiveProvider active={active}>{children}</TabActiveProvider>
+    </div>
+  );
+}
+
+export function TabLayoutShell({
+  tabs,
+  activeTabId,
+}: {
+  tabs: Tab[];
+  activeTabId: string;
+}) {
+  const activeTab = React.useMemo(
+    () => tabs.find((tab) => tab.id === activeTabId) ?? null,
+    [activeTabId, tabs],
+  );
   const setTabLeftWidthPx = useTabs((s) => s.setTabLeftWidthPx);
   const setTabChatSession = useTabs((s) => s.setTabChatSession);
 
@@ -22,9 +52,9 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
   const [containerWidthPx, setContainerWidthPx] = React.useState(0);
   const containerWidthPxRef = React.useRef(0);
 
-  const hasLeftContent = Boolean(tab?.base) || (tab?.stack?.length ?? 0) > 0;
-  const chatCollapsed = Boolean(tab?.base) && Boolean(tab?.rightChatCollapsed);
-  const storedLeftWidthPx = hasLeftContent ? tab?.leftWidthPx ?? 0 : 0;
+  const hasLeftContent = Boolean(activeTab?.base) || (activeTab?.stack?.length ?? 0) > 0;
+  const chatCollapsed = Boolean(activeTab?.base) && Boolean(activeTab?.rightChatCollapsed);
+  const storedLeftWidthPx = hasLeftContent ? activeTab?.leftWidthPx ?? 0 : 0;
   const computedLeftHidden = storedLeftWidthPx <= 0;
   const computedRightHidden = chatCollapsed;
   const dividerVisible = !computedLeftHidden && !computedRightHidden;
@@ -36,6 +66,7 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
     containerLeft: number;
     containerWidth: number;
     captureTarget: HTMLDivElement | null;
+    tabId: string;
   } | null>(null);
   const cursorRestoreRef = React.useRef<{ cursor: string; userSelect: string } | null>(
     null,
@@ -98,17 +129,11 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
   const [collapseGapCanShrink, setCollapseGapCanShrink] = React.useState(false);
 
   React.useEffect(() => {
-    if (!active) return;
-    if (!computedRightHidden) {
-      setCollapseGapCanShrink(false);
-      return;
-    }
-    if (computedLeftHidden) {
+    if (!computedRightHidden || computedLeftHidden) {
       setCollapseGapCanShrink(false);
       return;
     }
 
-    // Delay shrinking the divider gap until the right panel collapse animation is effectively done.
     setCollapseGapCanShrink(false);
     const unsubscribe = rightGrow.on("change", (value) => {
       if (value <= 0.01) {
@@ -117,7 +142,7 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
       }
     });
     return () => unsubscribe();
-  }, [active, computedLeftHidden, computedRightHidden, rightGrow]);
+  }, [computedLeftHidden, computedRightHidden, rightGrow]);
 
   const dividerGapTargetPx = dividerVisible
     ? DIVIDER_GAP_PX
@@ -128,12 +153,9 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
       : 0;
 
   React.useEffect(() => {
-    if (!active) return;
-
     const wasRightHidden = wasRightHiddenRef.current;
     wasRightHiddenRef.current = computedRightHidden;
 
-    // On collapse start, freeze inner content width to avoid reflow during shrink.
     if (!wasRightHidden && computedRightHidden) {
       const measured = rightPanelRef.current?.getBoundingClientRect().width ?? 0;
       setRightContentFrozenWidthPx(measured > 0 ? Math.round(measured) : null);
@@ -150,10 +172,9 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
     if (!computedRightHidden) {
       setRightContentFrozenWidthPx(null);
     }
-  }, [active, computedRightHidden, rightGrow]);
+  }, [computedRightHidden, rightGrow]);
 
   React.useEffect(() => {
-    if (!active) return;
     const container = containerRef.current;
     if (!container) return;
 
@@ -174,10 +195,9 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
     const ro = new ResizeObserver(() => measure());
     ro.observe(container);
     return () => ro.disconnect();
-  }, [active]);
+  }, []);
 
   React.useEffect(() => {
-    if (!active) return;
     if (isDragging) return;
 
     growAnimationRef.current.left?.stop();
@@ -201,7 +221,6 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
       growAnimationRef.current.right = null;
     };
   }, [
-    active,
     animate,
     isDragging,
     layoutLeftGrow,
@@ -227,6 +246,7 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
         }
       }
 
+      const sessionTabId = dragSessionRef.current.tabId;
       setIsDragging(false);
       dragSessionRef.current = null;
 
@@ -237,7 +257,7 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
       }
 
       if (commit) {
-        setTabLeftWidthPx(tabId, dragLeftPxRef.current);
+        setTabLeftWidthPx(sessionTabId, dragLeftPxRef.current);
       }
     };
 
@@ -255,8 +275,8 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
       dragLeftPxRef.current = next;
 
       const w = session.containerWidth > 0 ? session.containerWidth : containerWidthPxRef.current;
-      const denominator = Math.max(1, w || fallbackWidthPx);
-      const nextLeftGrow = Math.max(0, Math.min(100, (next / denominator) * 100));
+      const d = Math.max(1, w || fallbackWidthPx);
+      const nextLeftGrow = Math.max(0, Math.min(100, (next / d) * 100));
       leftGrow.set(nextLeftGrow);
       rightGrow.set(Math.max(0, 100 - nextLeftGrow));
     };
@@ -281,153 +301,155 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
       window.removeEventListener("blur", onWindowBlur);
       endDrag(false);
     };
-  }, [
-    active,
-    fallbackWidthPx,
-    isDragging,
-    leftGrow,
-    rightGrow,
-    setTabLeftWidthPx,
-    tabId,
-  ]);
+  }, [fallbackWidthPx, isDragging, leftGrow, rightGrow, setTabLeftWidthPx]);
 
   React.useEffect(() => {
-    if (active) return;
-    if (!isDragging) return;
-    cancelDrag();
-  }, [active, cancelDrag, isDragging]);
+    const session = dragSessionRef.current;
+    if (!isDragging || !session) return;
+    if (session.tabId !== activeTabId) cancelDrag();
+  }, [activeTabId, cancelDrag, isDragging]);
 
-  if (!tab) return null;
+  if (!activeTab) return null;
 
   return (
-    <div
-      className={cn(
-        "absolute inset-0 transition-opacity duration-150",
-        active ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
-      )}
-      aria-hidden={!active}
-    >
-      <TabActiveProvider active={active}>
-        <div ref={containerRef} className="flex h-full w-full overflow-hidden bg-sidebar pr-2">
-          <motion.div
-            className={cn(
-              "relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden",
-              computedLeftHidden ? "pointer-events-none" : "pointer-events-auto",
-            )}
-            style={{
-              flexBasis: 0,
-              flexGrow: leftGrow,
-              flexShrink: 1,
-              minWidth: 0,
-              willChange: "flex-grow",
-            }}
-            initial={false}
-          >
-            <div className={cn("h-full w-full relative", computedLeftHidden ? "p-0" : "p-2")}>
-              <LeftDock tabId={tabId} />
-            </div>
-          </motion.div>
-
-          <motion.div
-            className={cn(
-              "relative z-20 flex shrink-0 items-center justify-center rounded-4xl bg-sidebar pointer-events-auto touch-none",
-              dividerVisible ? "cursor-col-resize hover:bg-primary/20 active:bg-primary/30" : "",
-              dividerVisible ? "" : "pointer-events-none",
-            )}
-            initial={false}
-            animate={{
-              width: dividerGapTargetPx,
-              opacity: dividerVisible ? 1 : 0,
-            }}
-            transition={dividerTransition}
-            onPointerDown={(event) => {
-              if (!dividerVisible) return;
-              if (event.button !== 0) return;
-              const container = containerRef.current;
-              if (!container) return;
-
-              const rect = container.getBoundingClientRect();
-              dragSessionRef.current = {
-                pointerId: event.pointerId,
-                containerLeft: rect.left,
-                containerWidth: rect.width,
-                captureTarget: event.currentTarget,
-              };
-
-              const initialLeftPx = storedLeftWidthPx || LEFT_DOCK_MIN_PX;
-              dragLeftPxRef.current = initialLeftPx;
-
-              const denominator = Math.max(1, rect.width || fallbackWidthPx);
-              const nextLeftGrow = Math.max(0, Math.min(100, (initialLeftPx / denominator) * 100));
-              growAnimationRef.current.left?.stop();
-              growAnimationRef.current.right?.stop();
-              growAnimationRef.current.left = null;
-              growAnimationRef.current.right = null;
-              leftGrow.set(nextLeftGrow);
-              rightGrow.set(Math.max(0, 100 - nextLeftGrow));
-
-              cursorRestoreRef.current = {
-                cursor: document.body.style.cursor,
-                userSelect: document.body.style.userSelect,
-              };
-              document.body.style.cursor = "col-resize";
-              document.body.style.userSelect = "none";
-
-              event.preventDefault();
-              event.currentTarget.setPointerCapture(event.pointerId);
-              setIsDragging(true);
-            }}
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize panels"
-          >
-            <div
-              className={cn(
-                "h-6 w-1 rounded-full bg-muted/70",
-                isDragging && dividerVisible && "bg-primary/70",
-              )}
-            />
-          </motion.div>
-
-          <motion.div
-            className={cn(
-              "relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden",
-              computedRightHidden ? "pointer-events-none" : "pointer-events-auto",
-            )}
-            ref={rightPanelRef}
-            style={{
-              flexBasis: 0,
-              flexGrow: rightGrow,
-              flexShrink: 1,
-              minWidth: 0,
-              willChange: "flex-grow",
-            }}
-            initial={false}
-          >
-            <div className={cn("h-full w-full relative", computedRightHidden ? "p-0" : "p-2")}>
-              <div
-                className="h-full shrink-0"
-                style={{
-                  width: rightContentFrozenWidthPx
-                    ? `${rightContentFrozenWidthPx}px`
-                    : "100%",
-                }}
-              >
-                <Chat
-                  panelKey={`chat:${tabId}`}
-                  sessionId={tab.chatSessionId}
-                  loadHistory={tab.chatLoadHistory}
-                  tabId={tabId}
-                  {...(tab.chatParams ?? {})}
-                  onSessionChange={(nextSessionId, options) => {
-                    setTabChatSession(tabId, nextSessionId, options);
-                  }}
-                />
-              </div>
-            </div>
-          </motion.div>
+    <div ref={containerRef} className="flex h-full w-full overflow-hidden bg-sidebar pr-2">
+      <motion.div
+        className={cn(
+          "relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden",
+          computedLeftHidden ? "pointer-events-none" : "pointer-events-auto",
+        )}
+        style={{
+          flexBasis: 0,
+          flexGrow: leftGrow,
+          flexShrink: 1,
+          minWidth: 0,
+          willChange: "flex-grow",
+        }}
+        initial={false}
+      >
+        <div className={cn("h-full w-full relative", computedLeftHidden ? "p-0" : "p-2")}>
+          <div className="relative h-full w-full min-h-0 min-w-0">
+            {tabs.map((tab) => {
+              const isActive = tab.id === activeTabId;
+              return (
+                <TabLayer key={`left:${tab.id}`} active={isActive}>
+                  <div className="h-full w-full min-h-0 min-w-0">
+                    <LeftDock tabId={tab.id} />
+                  </div>
+                </TabLayer>
+              );
+            })}
+          </div>
         </div>
-      </TabActiveProvider>
+      </motion.div>
+
+      <motion.div
+        className={cn(
+          "relative z-20 flex shrink-0 items-center justify-center rounded-4xl bg-sidebar pointer-events-auto touch-none",
+          dividerVisible ? "cursor-col-resize hover:bg-primary/20 active:bg-primary/30" : "",
+          dividerVisible ? "" : "pointer-events-none",
+        )}
+        initial={false}
+        animate={{
+          width: dividerGapTargetPx,
+          opacity: dividerVisible ? 1 : 0,
+        }}
+        transition={dividerTransition}
+        onPointerDown={(event) => {
+          if (!dividerVisible) return;
+          if (event.button !== 0) return;
+          const container = containerRef.current;
+          if (!container) return;
+
+          const rect = container.getBoundingClientRect();
+          dragSessionRef.current = {
+            pointerId: event.pointerId,
+            containerLeft: rect.left,
+            containerWidth: rect.width,
+            captureTarget: event.currentTarget,
+            tabId: activeTabId,
+          };
+
+          const initialLeftPx = storedLeftWidthPx || LEFT_DOCK_MIN_PX;
+          dragLeftPxRef.current = initialLeftPx;
+
+          const d = Math.max(1, rect.width || fallbackWidthPx);
+          const nextLeftGrow = Math.max(0, Math.min(100, (initialLeftPx / d) * 100));
+          growAnimationRef.current.left?.stop();
+          growAnimationRef.current.right?.stop();
+          growAnimationRef.current.left = null;
+          growAnimationRef.current.right = null;
+          leftGrow.set(nextLeftGrow);
+          rightGrow.set(Math.max(0, 100 - nextLeftGrow));
+
+          cursorRestoreRef.current = {
+            cursor: document.body.style.cursor,
+            userSelect: document.body.style.userSelect,
+          };
+          document.body.style.cursor = "col-resize";
+          document.body.style.userSelect = "none";
+
+          event.preventDefault();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setIsDragging(true);
+        }}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize panels"
+      >
+        <div
+          className={cn(
+            "h-6 w-1 rounded-full bg-muted/70",
+            isDragging && dividerVisible && "bg-primary/70",
+          )}
+        />
+      </motion.div>
+
+      <motion.div
+        className={cn(
+          "relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden",
+          computedRightHidden ? "pointer-events-none" : "pointer-events-auto",
+        )}
+        ref={rightPanelRef}
+        style={{
+          flexBasis: 0,
+          flexGrow: rightGrow,
+          flexShrink: 1,
+          minWidth: 0,
+          willChange: "flex-grow",
+        }}
+        initial={false}
+      >
+        <div className={cn("h-full w-full relative", computedRightHidden ? "p-0" : "p-2")}>
+          <div
+            className="relative h-full"
+            style={{
+              width: rightContentFrozenWidthPx ? `${rightContentFrozenWidthPx}px` : "100%",
+            }}
+          >
+            {tabs.map((tab) => {
+              const isActive = tab.id === activeTabId;
+              return (
+                <TabLayer key={`right:${tab.id}`} active={isActive}>
+                  <div className="h-full w-full min-h-0 min-w-0">
+                    <Chat
+                      panelKey={`chat:${tab.id}`}
+                      sessionId={tab.chatSessionId}
+                      loadHistory={tab.chatLoadHistory}
+                      tabId={tab.id}
+                      {...(tab.chatParams ?? {})}
+                      onSessionChange={(nextSessionId, options) => {
+                        setTabChatSession(tab.id, nextSessionId, options);
+                      }}
+                    />
+                  </div>
+                </TabLayer>
+              );
+            })}
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }
+
