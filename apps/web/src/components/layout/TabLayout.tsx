@@ -143,6 +143,10 @@ export function TabLayout({
   const splitPercent = useSpring(targetSplitPercent, SPRING_CONFIG);
   const [isDragging, setIsDragging] = React.useState(false);
 
+  // Fade panels out as they collapse
+  const leftOpacity = useTransform(splitPercent, [0, 5], [0, 1]);
+  const rightOpacity = useTransform(splitPercent, [95, 100], [1, 0]);
+
   React.useEffect(() => {
     if (isDragging) return;
     if (reduceMotion) {
@@ -202,17 +206,10 @@ export function TabLayout({
         className="relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden"
         style={{
           width: useTransform(splitPercent, (v) => `${v}%`),
+          opacity: leftOpacity,
         }}
       >
-      <motion.div 
-          className="h-full w-full relative"
-          animate={{ opacity: isLeftVisible ? 1 : 0 }}
-          transition={
-            reduceMotion
-              ? { duration: 0 }
-              : { duration: 0.4, ease: "easeInOut" }
-          }
-        >
+        <div className="h-full w-full relative">
           {tabs.map((tab) => (
             <TabLayer key={`left:${tab.id}`} active={tab.id === activeTabId}>
               <div 
@@ -223,7 +220,7 @@ export function TabLayout({
               </div>
             </TabLayer>
           ))}
-        </motion.div>
+        </div>
       </motion.div>
 
       <motion.div
@@ -247,16 +244,11 @@ export function TabLayout({
         <div className={cn("h-6 w-1 rounded-full bg-muted/70", isDragging && "bg-primary/70")} />
       </motion.div>
 
-      <div className="flex-1 min-w-0 relative z-10 flex flex-col rounded-xl bg-background overflow-hidden">
-        <motion.div 
-          className="h-full w-full relative"
-          animate={{ opacity: isRightVisible ? 1 : 0 }}
-          transition={
-            reduceMotion
-              ? { duration: 0 }
-              : { duration: 0.4, ease: "easeInOut" }
-          }
-        >
+      <motion.div
+        className="flex-1 min-w-0 relative z-10 flex flex-col rounded-xl bg-background overflow-hidden"
+        style={{ opacity: rightOpacity }}
+      >
+        <div className="h-full w-full relative">
           {tabs.map((tab) => (
             <TabLayer key={`right:${tab.id}`} active={tab.id === activeTabId}>
               <div 
@@ -274,8 +266,8 @@ export function TabLayout({
               </div>
             </TabLayer>
           ))}
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
     </div>
   );
 }
