@@ -14,25 +14,50 @@ interface ChatInputProps {
 
 const MAX_CHARS = 2000;
 
-export default function ChatInput({ className }: ChatInputProps) {
-  const { sendMessage, status, stop, clearError, input, setInput } =
-    useChatContext();
+export interface ChatInputBoxProps {
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+  placeholder?: string;
+  autoFocus?: boolean;
+  compact?: boolean;
+  variant?: "default" | "inline";
+  actionVariant?: "icon" | "text";
+  submitLabel?: string;
+  cancelLabel?: string;
+  isLoading?: boolean;
+  submitDisabled?: boolean;
+  onSubmit?: (value: string) => void;
+  onStop?: () => void;
+  onCancel?: () => void;
+}
 
-  const isOverLimit = input.length > MAX_CHARS;
+export function ChatInputBox({
+  value,
+  onChange,
+  className,
+  placeholder = "Ask, search, or make anything…",
+  autoFocus,
+  compact,
+  variant = "default",
+  actionVariant = "icon",
+  submitLabel = "发送",
+  cancelLabel = "取消",
+  isLoading,
+  submitDisabled,
+  onSubmit,
+  onStop,
+  onCancel,
+}: ChatInputBoxProps) {
+  const isOverLimit = value.length > MAX_CHARS;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const canSubmit = status === "ready" || status === "error";
-    if (!canSubmit) return;
+    if (!onSubmit) return;
+    if (submitDisabled) return;
     if (isOverLimit) return;
-    
-    if (input.trim()) {
-      if (status === "error") {
-        clearError();
-      }
-      sendMessage({ text: input });
-      setInput("");
-    }
+    if (!value.trim()) return;
+    onSubmit(value);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -41,33 +66,39 @@ export default function ChatInput({ className }: ChatInputProps) {
       return;
     }
 
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (onSubmit && e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e as unknown as React.FormEvent);
     }
   };
 
-  const isLoading = status === "submitted" || status === "streaming";
-
   const [isFocused, setIsFocused] = useState(false);
+  const canSubmit = Boolean(onSubmit) && !submitDisabled && !isOverLimit;
+  const isSendDisabled =
+    submitDisabled || isOverLimit || (!value.trim() && !isLoading);
 
   return (
     <div
       className={cn(
-        "relative mt-4 shrink-0 rounded-xl bg-background border transition-all duration-200 flex flex-col max-h-[30%]",
+        "relative shrink-0 rounded-xl bg-background border transition-all duration-200 flex flex-col",
+        variant === "default" ? "mt-4 max-h-[30%]" : "max-h-none",
         isFocused ? "border-primary ring-1 ring-primary/20" : "border-border",
-        isOverLimit && "border-destructive ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20",
+        isOverLimit &&
+          "border-destructive ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20",
         className
       )}
     >
-      <form onSubmit={handleSubmit} className="flex flex-col min-h-[52px] overflow-hidden">
-        <div className="px-4 pt-3 pb-2 flex-1 min-h-0">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col min-h-[52px] overflow-hidden"
+      >
+        <div className={cn("px-4 pt-3 pb-2 flex-1 min-h-0", compact && "pb-3")}>
           <ScrollArea.Root className="w-full h-full">
             <ScrollArea.Viewport className="w-full h-full min-h-0">
               <textarea
-                value={input}
+                value={value}
                 onChange={(e) => {
-                  setInput(e.target.value);
+                  onChange(e.target.value);
                   const textarea = e.target as HTMLTextAreaElement;
                   textarea.style.height = "auto";
                   textarea.style.height = textarea.scrollHeight + "px";
@@ -75,7 +106,8 @@ export default function ChatInput({ className }: ChatInputProps) {
                 onKeyDown={handleKeyDown}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
-                placeholder="Ask, search, or make anything…"
+                placeholder={placeholder}
+                autoFocus={autoFocus}
                 className={cn(
                   "w-full border-none resize-none focus:outline-none focus:ring-0 bg-transparent text-foreground text-sm leading-6 min-h-[48px] overflow-visible placeholder:text-muted-foreground/70",
                   isOverLimit && "text-destructive"
@@ -90,76 +122,112 @@ export default function ChatInput({ className }: ChatInputProps) {
         </div>
 
         <div className="flex justify-between items-end gap-2 px-3 pb-3 shrink-0">
-          <div className="flex gap-1.5 items-center">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <AtSign className="w-4 h-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <Hash className="w-4 h-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <Image className="w-4 h-4" />
-            </Button>
-          </div>
+          {!compact ? (
+            <div className="flex gap-1.5 items-center">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <AtSign className="w-4 h-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <Hash className="w-4 h-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <Image className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <div />
+          )}
 
           <div className="flex items-center gap-2">
-            {input.length > 0 && (
+            {isOverLimit && (
               <span
                 className={cn(
                   "text-[10px] font-medium transition-colors mr-2",
-                  isOverLimit ? "text-destructive" : "text-muted-foreground/60"
+                  "text-destructive"
                 )}
               >
-                {input.length} / {MAX_CHARS}
+                {value.length} / {MAX_CHARS}
               </span>
             )}
             
-            <SelectMode />
-            
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <Mic className="w-4 h-4" />
-            </Button>
-            
-            <Button
-              type={isLoading ? "button" : "submit"}
-              onClick={isLoading ? stop : undefined}
-              disabled={(!input.trim() && !isLoading) || isOverLimit}
-              size="icon"
-              className={cn(
-                "rounded-full w-8 h-8 transition-all duration-200 shadow-none",
-                isLoading
-                  ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                  : isOverLimit
-                  ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-              )}
-            >
-              {isLoading ? (
-                <Pause className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronUp className="w-4 h-4" />
-              )}
-            </Button>
+            {!compact && <SelectMode />}
+
+            {!compact && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <Mic className="w-4 h-4" />
+              </Button>
+            )}
+
+            {actionVariant === "text" && onCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 rounded-full px-2.5 text-xs shadow-none"
+                onClick={onCancel}
+              >
+                {cancelLabel}
+              </Button>
+            )}
+
+            {actionVariant === "text" ? (
+              <Button
+                type={canSubmit ? "submit" : "button"}
+                disabled={isSendDisabled}
+                size="sm"
+                className={cn(
+                  "h-7 rounded-full px-2.5 text-xs",
+                  canSubmit
+                    ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                    : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                )}
+              >
+                {submitLabel}
+              </Button>
+            ) : (
+              <Button
+                type={isLoading ? "button" : canSubmit ? "submit" : "button"}
+                onClick={isLoading ? onStop : undefined}
+                disabled={isSendDisabled || (isLoading && !onStop)}
+                size="icon"
+                className={cn(
+                  "rounded-full w-8 h-8 transition-all duration-200 shadow-none",
+                  isLoading
+                    ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                    : isOverLimit
+                      ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                      : canSubmit
+                        ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                        : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                )}
+              >
+                {isLoading ? (
+                  <Pause className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronUp className="w-4 h-4" />
+                )}
+              </Button>
+            )}
           </div>
         </div>
         
@@ -170,5 +238,35 @@ export default function ChatInput({ className }: ChatInputProps) {
         )}
       </form>
     </div>
+  );
+}
+
+export default function ChatInput({ className }: ChatInputProps) {
+  const { sendMessage, status, stop, clearError, input, setInput } =
+    useChatContext();
+
+  const isLoading = status === "submitted" || status === "streaming";
+
+  const handleSubmit = (value: string) => {
+    const canSubmit = status === "ready" || status === "error";
+    if (!canSubmit) return;
+    if (!value.trim()) return;
+    if (status === "error") clearError();
+    sendMessage({ text: value });
+    setInput("");
+  };
+
+  return (
+    <ChatInputBox
+      value={input}
+      onChange={setInput}
+      className={className}
+      variant="default"
+      compact={false}
+      isLoading={isLoading}
+      submitDisabled={status !== "ready" && status !== "error"}
+      onSubmit={handleSubmit}
+      onStop={stop}
+    />
   );
 }
