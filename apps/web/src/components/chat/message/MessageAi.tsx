@@ -28,10 +28,10 @@ export default function MessageAi({ message, className }: MessageAiProps) {
                   // Base text settings
                   "text-sm leading-relaxed",
                   // Element spacing adjustments
-                  "prose-p:my-2 prose-p:leading-relaxed",
-                  "prose-headings:my-3 prose-headings:font-semibold",
-                  "prose-h1:text-xl prose-h2:text-lg prose-h3:text-base",
-                  "prose-ul:my-2 prose-li:my-0.5",
+                  "prose-p:my-2 prose-p:leading-relaxed prose-p:first:mt-0 prose-p:last:mb-0",
+                  "prose-headings:mt-4 prose-headings:mb-2 prose-headings:font-semibold prose-headings:tracking-tight prose-headings:first:mt-0",
+                  "prose-h1:text-base prose-h2:text-[15px] prose-h3:text-sm prose-h4:text-sm",
+                  "prose-ul:my-2 prose-ul:pl-5 prose-ol:my-2 prose-ol:pl-5 prose-li:my-0.5 prose-li:marker:text-muted-foreground",
                   // Code block styling (handled by components but resetting some defaults)
                   "prose-pre:p-0 prose-pre:bg-transparent prose-pre:m-0",
                   // Inline code styling

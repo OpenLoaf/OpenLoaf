@@ -93,7 +93,7 @@ export default function MarkdownCodeBlock({
     return (
       <div
         className={cn(
-          "my-2 mr-4 flex min-w-0 items-center gap-2 rounded-md border px-2 py-1",
+          "not-prose my-2 mr-4 flex min-w-0 items-center gap-2 rounded-md border px-2 py-1",
           normalizedLanguage === "text" || normalizedLanguage === "bash"
             ? "bg-muted/10"
             : "bg-muted/30",
@@ -151,7 +151,10 @@ export default function MarkdownCodeBlock({
 
   return (
     <div
-      className={cn("my-3 mr-4 overflow-hidden rounded-md border", className)}
+      className={cn(
+        "not-prose my-3 mr-4 overflow-hidden rounded-md border",
+        className
+      )}
     >
       <div className="flex items-center justify-between gap-2 bg-muted/70 px-2 py-1">
         <button
