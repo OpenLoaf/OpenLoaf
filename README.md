@@ -82,3 +82,10 @@ teatime-ai/
 - `pnpm run db:push`: Push schema changes to database
 - `pnpm run db:studio`: Open database studio UI
 - `cd apps/web && pnpm run generate-pwa-assets`: Generate PWA assets
+
+## Desktop Production Config
+
+- Packaged app reads env from `~/Library/Application Support/Teatime/.env` (API keys, paths, etc.)
+- Default data directory: `~/Library/Application Support/Teatime/data`
+- Default DB path: `~/Library/Application Support/Teatime/data/teatime.db` (auto-initialized on first run)
+- Optional overrides in that `.env`: `TEATIME_DATA_DIR`, `TEATIME_DB_PATH`, `DATABASE_URL`, `TEATIME_CONF_PATH`

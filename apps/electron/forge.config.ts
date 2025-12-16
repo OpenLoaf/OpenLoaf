@@ -13,6 +13,8 @@ const config: ForgeConfig = {
     appBundleId: 'com.hexems.teatime',
     extraResource: [
       '../../apps/server/dist/server.mjs',
+      // Pre-built SQLite DB with schema applied (copied to userData on first run).
+      '../../apps/server/dist/seed.db',
       '../../apps/web/out',
       // Prisma libsql adapter loads a native binding at runtime (e.g. `@libsql/darwin-arm64`).
       // Since `server.mjs` is executed from `process.resourcesPath`, ship the `@libsql/*` packages
