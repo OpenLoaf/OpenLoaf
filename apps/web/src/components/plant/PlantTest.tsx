@@ -15,6 +15,7 @@ export default function PlantTest({ pageId }: PlantTestProps) {
   });
   const pushStackItem = useTabs((s) => s.pushStackItem);
   const clearStack = useTabs((s) => s.clearStack);
+  const upsertToolPart = useTabs((s) => s.upsertToolPart);
 
   const isElectron =
     process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -31,10 +32,21 @@ export default function PlantTest({ pageId }: PlantTestProps) {
         variant="outline"
         onClick={() => {
           if (!activeTabId) return;
+          const toolKey = `demo:${Date.now()}`;
+          upsertToolPart(activeTabId, toolKey, {
+            type: "tool-demo",
+            title: "Demo Result",
+            input: { from: "PlantTest", pageId: pageId ?? null },
+            output: {
+              ok: true,
+              message: "pushStackItem -> ToolResultPanel 渲染成功",
+              timestamp: new Date().toISOString(),
+            },
+          });
           pushStackItem(activeTabId, {
-            id: `tool-demo:${Date.now()}`,
+            id: `tool-demo:${toolKey}`,
             component: "tool-result",
-            params: { toolKey: "demo" },
+            params: { toolKey },
             title: "Tool Result (demo)",
           });
         }}
