@@ -35,19 +35,19 @@ export const PageTreeMenu = ({
   setExpandedPages,
   updatePage,
 }: PageTreeMenuProps) => {
-  const openPreviewTab = useTabs((s) => s.openPreviewTab);
-  const promoteTab = useTabs((s) => s.promoteTab);
+  const addTab = useTabs((s) => s.addTab);
+  const setActiveTab = useTabs((s) => s.setActiveTab);
   const { workspace } = useWorkspace();
 
   const Collapsible = CollapsiblePrimitive.Root;
   const CollapsibleTrigger = CollapsiblePrimitive.Trigger;
   const CollapsibleContent = CollapsiblePrimitive.Content;
 
-  const buildPreviewInput = (page: PageTreeNode) => {
+  const buildTabInput = (page: PageTreeNode) => {
     if (!workspace?.id) return;
     return {
       workspaceId: workspace.id,
-      resourceId: `page:${page.id}`,
+      createNew: true,
       title: page.title || "Untitled Page",
       icon: page.icon ?? undefined,
       base: {
@@ -59,57 +59,38 @@ export const PageTreeMenu = ({
     };
   };
 
-  const openInPreview = (page: PageTreeNode) => {
-    const input = buildPreviewInput(page);
+  const openInNewTab = (page: PageTreeNode) => {
+    const input = buildTabInput(page);
     if (!input) return;
-    // 单击默认打开“预览标签”：同 workspace 只保留一个，重复单击会复用该标签。
-    openPreviewTab(input);
-  };
-
-  const promoteActiveIfPreviewMatches = (page: PageTreeNode) => {
-    const state = useTabs.getState();
-    const activeTabId = state.activeTabId;
-    if (!activeTabId) return false;
-    const activeTab = state.tabs.find((t) => t.id === activeTabId);
-    if (!activeTab?.isPreview) return false;
-    if (activeTab.resourceId !== `page:${page.id}`) return false;
-    // 双击同一条目：如果当前激活的就是这个预览标签，则直接“升级”为正式标签（不新开）。
-    promoteTab(activeTabId);
-    return true;
-  };
-
-  const openAndPromote = (page: PageTreeNode) => {
-    // 明确“新标签”语义：先打开（可能复用预览标签），再把激活 tab 升级为正式标签。
-    openInPreview(page);
-    const nextActiveTabId = useTabs.getState().activeTabId;
-    if (nextActiveTabId) {
-      promoteTab(nextActiveTabId);
+    const baseId = input.base?.id;
+    if (baseId) {
+      const state = useTabs.getState();
+      const existing = state.tabs.find(
+        (tab) => tab.workspaceId === input.workspaceId && tab.base?.id === baseId,
+      );
+      if (existing) {
+        setActiveTab(existing.id);
+        return;
+      }
     }
+
+    addTab(input);
   };
 
   const handlePrimaryClick = (event: React.MouseEvent, page: PageTreeNode) => {
-    // Ctrl/⌘ + 单击：直接按“新标签”策略打开（升级为正式标签）。
-    if (event.metaKey || event.ctrlKey) {
-      event.preventDefault();
-      openAndPromote(page);
-      return;
-    }
-    openInPreview(page);
+    event.preventDefault();
+    openInNewTab(page);
   };
 
   const handleMouseDown = (event: React.MouseEvent, page: PageTreeNode) => {
-    // 中键：按“新标签”策略打开（升级为正式标签）。
     if (event.button !== 1) return;
     event.preventDefault();
-    openAndPromote(page);
+    openInNewTab(page);
   };
 
   const handleDoubleClick = (event: React.MouseEvent, page: PageTreeNode) => {
-    // 双击：优先升级当前预览标签；否则按“新标签”策略打开。
     event.preventDefault();
-    if (!promoteActiveIfPreviewMatches(page)) {
-      openAndPromote(page);
-    }
+    openInNewTab(page);
   };
 
   const setExpanded = (pageId: string, isExpanded: boolean) => {
@@ -150,7 +131,7 @@ export const PageTreeMenu = ({
                   </SidebarMenuButton>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-52">
-                  <ContextMenuItem onClick={() => openAndPromote(page)}>
+                  <ContextMenuItem onClick={() => openInNewTab(page)}>
                     Open in new tab
                   </ContextMenuItem>
                 </ContextMenuContent>
@@ -185,7 +166,7 @@ export const PageTreeMenu = ({
                   </SidebarMenuButton>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-52">
-                  <ContextMenuItem onClick={() => openAndPromote(page)}>
+                  <ContextMenuItem onClick={() => openInNewTab(page)}>
                     Open in new tab
                   </ContextMenuItem>
                 </ContextMenuContent>
@@ -218,7 +199,7 @@ export const PageTreeMenu = ({
                               </a>
                             </ContextMenuTrigger>
                             <ContextMenuContent className="w-52">
-                              <ContextMenuItem onClick={() => openAndPromote(child)}>
+                              <ContextMenuItem onClick={() => openInNewTab(child)}>
                                 Open in new tab
                               </ContextMenuItem>
                             </ContextMenuContent>

@@ -26,22 +26,12 @@ type AddTabInput = {
   workspaceId: string;
   title?: string;
   icon?: string;
-  resourceId?: string;
   isPin?: boolean;
   createNew?: boolean;
   base?: DockItem;
   chatSessionId?: string;
   chatParams?: Record<string, unknown>;
   chatLoadHistory?: boolean;
-};
-
-type OpenPreviewInput = {
-  workspaceId: string;
-  resourceId: string;
-  title?: string;
-  icon?: string;
-  base?: DockItem;
-  chatParams?: Record<string, unknown>;
 };
 
 export interface TabsState {
@@ -52,8 +42,6 @@ export interface TabsState {
   toolPartsByTabId: Record<string, Record<string, ToolPartSnapshot>>;
 
   addTab: (input: AddTabInput) => void;
-  openPreviewTab: (input: OpenPreviewInput) => void;
-  promoteTab: (tabId: string) => void;
   closeTab: (tabId: string) => void;
   setActiveTab: (tabId: string) => void;
   getTabById: (tabId: string) => Tab | undefined;
@@ -119,7 +107,6 @@ function normalizeDock(tab: Tab): Tab {
     ...tab,
     stack,
     leftWidthPx,
-    isPreview: Boolean(tab.isPreview),
     rightChatCollapsed: tab.base ? Boolean(tab.rightChatCollapsed) : false,
   };
 }
@@ -149,7 +136,6 @@ export const useTabs = create<TabsState>()(
           const {
             createNew = false,
             workspaceId,
-            resourceId,
             base,
             title,
             icon,
@@ -158,29 +144,6 @@ export const useTabs = create<TabsState>()(
             chatParams,
             chatLoadHistory,
           } = input;
-
-          if (!createNew && resourceId) {
-            // 复用策略：同资源（resourceId）默认单击复用同一个 tab（不创建新 tab），
-            // 满足“最小化标签数量”的使用习惯。
-            const existingIndex = state.tabs.findIndex(
-              (tab) => tab.workspaceId === workspaceId && tab.resourceId === resourceId,
-            );
-            if (existingIndex !== -1) {
-              const existing = state.tabs[existingIndex]!;
-              const updated = normalizeDock({
-                ...existing,
-                title: title ?? existing.title,
-                icon: icon ?? existing.icon,
-                isPin: isPin ?? existing.isPin,
-                base: base ?? existing.base,
-                chatParams: chatParams ?? existing.chatParams,
-                lastActiveAt: now,
-              });
-              const nextTabs = [...state.tabs];
-              nextTabs[existingIndex] = updated;
-              return { tabs: nextTabs, activeTabId: updated.id };
-            }
-          }
 
           const tabId = generateId("tab");
           // 关键约定：tabId 与 chatSessionId 解耦（随机生成、互不推导）。
@@ -192,12 +155,10 @@ export const useTabs = create<TabsState>()(
 
           const nextTab = normalizeDock({
             id: tabId,
-            resourceId,
             workspaceId,
             title: title ?? DEFAULT_TAB_INFO.title,
             icon: icon ?? DEFAULT_TAB_INFO.icon,
             isPin: isPin ?? false,
-            isPreview: false,
             chatSessionId: createdChatSessionId,
             chatParams,
             chatLoadHistory: createdChatLoadHistory,
@@ -211,80 +172,6 @@ export const useTabs = create<TabsState>()(
 
           return { tabs: [...state.tabs, nextTab], activeTabId: nextTab.id };
         });
-      },
-
-      openPreviewTab: (input) => {
-        set((state) => {
-          const now = Date.now();
-          const { workspaceId, resourceId, title, icon, base, chatParams } = input;
-
-          // 预览标签规则：每个 workspace 只保留一个 preview tab，
-          // 单击打开时复用它（避免 tab 膨胀）；双击/中键/ctrl/meta/右键“新标签打开”才升级为正式 tab。
-          const previewIndex = state.tabs.findIndex(
-            (tab) => tab.workspaceId === workspaceId && tab.isPreview,
-          );
-
-          if (previewIndex !== -1) {
-            const existing = state.tabs[previewIndex]!;
-            const sameResource = existing.resourceId === resourceId;
-            const sameBase = (existing.base?.id ?? null) === (base?.id ?? null);
-
-            const updated = normalizeDock({
-              ...existing,
-              isPreview: true,
-              title: title ?? existing.title,
-              icon: icon ?? existing.icon,
-              resourceId,
-              base,
-              chatParams: chatParams ?? existing.chatParams,
-              rightChatCollapsed: false,
-              ...(sameResource && sameBase
-                ? { lastActiveAt: now }
-                : {
-                    // 预览标签切到新资源：重置 stack 与会话，避免把上一个资源的上下文/overlay 带过来。
-                    stack: [],
-                    chatSessionId: generateId("chat"),
-                    chatLoadHistory: false,
-                    lastActiveAt: now,
-                  }),
-            });
-
-            const nextTabs = [...state.tabs];
-            nextTabs[previewIndex] = updated;
-            return { tabs: nextTabs, activeTabId: updated.id };
-          }
-
-          const tabId = generateId("tab");
-          const nextTab = normalizeDock({
-            id: tabId,
-            resourceId,
-            workspaceId,
-            title: title ?? DEFAULT_TAB_INFO.title,
-            icon: icon ?? DEFAULT_TAB_INFO.icon,
-            isPin: false,
-            isPreview: true,
-            chatSessionId: generateId("chat"),
-            chatParams,
-            chatLoadHistory: false,
-            rightChatCollapsed: false,
-            base,
-            stack: [],
-            leftWidthPx: base ? LEFT_DOCK_DEFAULT_PX : 0,
-            createdAt: now,
-            lastActiveAt: now,
-          });
-
-          return { tabs: [...state.tabs, nextTab], activeTabId: nextTab.id };
-        });
-      },
-
-      promoteTab: (tabId) => {
-        set((state) => ({
-          // 升级预览标签为正式标签：只改 isPreview=false，其它状态保持（包括 keep-alive 下的 UI 状态）。
-          tabs: updateTabById(state.tabs, tabId, (tab) =>
-            tab.isPreview ? { ...tab, isPreview: false } : tab,
-          ),
-        }));
       },
 
       closeTab: (tabId) => {
@@ -477,9 +364,6 @@ export const useTabs = create<TabsState>()(
 
             return normalizeDock({
               ...nextTab,
-              // 触发 Stack 的行为（工具结果/overlay 出现）会自动把预览标签升级为正式标签，
-              // 避免“预览标签被后续单击复用覆盖”而丢失正在进行的任务上下文。
-              isPreview: nextTab.isPreview ? false : nextTab.isPreview,
               stack: nextStack,
               leftWidthPx:
                 nextTab.leftWidthPx > 0 ? nextTab.leftWidthPx : LEFT_DOCK_DEFAULT_PX,

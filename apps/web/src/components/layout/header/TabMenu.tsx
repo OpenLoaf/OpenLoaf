@@ -57,10 +57,7 @@ export const TabMenu = ({
           ) : (
             tab.icon && <span className="mr-1.5 shrink-0">{tab.icon}</span>
           )}
-          {/* 预览标签默认用斜体提示：同 workspace 仅保留一个，单击复用；升级后恢复正常字体。 */}
-          <span className={`truncate w-full ${tab.isPreview ? "italic" : ""}`}>
-            {tab.title || "Untitled"}
-          </span>
+          <span className="truncate w-full">{tab.title || "Untitled"}</span>
           {!isPinned && (
             <span
               className={`absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 transition-opacity ${

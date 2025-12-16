@@ -119,7 +119,6 @@ export default function ChatProvider({
   const upsertToolPart = useTabs((s) => s.upsertToolPart);
   const pushStackItem = useTabs((s) => s.pushStackItem);
   const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
-  const promoteTab = useTabs((s) => s.promoteTab);
 
   const activeMessageListSourceRef = React.useRef<string>(generateId());
   const [messageListMessages, setMessageListMessages] = React.useState<
@@ -241,14 +240,13 @@ export default function ChatProvider({
         const lastMessage = {
           ...messages[messages.length - 1],
           metadata: {
-            activeTab: activeTab
-              ? {
-                  id: activeTab.id,
-                  resourceId: activeTab.resourceId,
-                  workspaceId: activeTab.workspaceId,
-                  title: activeTab.title,
-                  icon: activeTab.icon,
-                  chatSessionId: activeTab.chatSessionId,
+                activeTab: activeTab
+                  ? {
+                      id: activeTab.id,
+                      workspaceId: activeTab.workspaceId,
+                      title: activeTab.title,
+                      icon: activeTab.icon,
+                      chatSessionId: activeTab.chatSessionId,
                 }
               : null,
           },
@@ -414,12 +412,9 @@ export default function ChatProvider({
 
   const sendMessage = useCallback(
     (...args: Parameters<typeof chat.sendMessage>) => {
-      // 发送消息即代表“开始在这个 tab 内产生会话上下文”，因此把预览标签升级为正式标签，
-      // 避免预览标签后续被单击复用覆盖。
-      if (tabId) promoteTab(tabId);
       return chat.sendMessage(...args);
     },
-    [chat.sendMessage, promoteTab, tabId],
+    [chat.sendMessage],
   );
 
   const chatWithFallbacks = {

@@ -63,7 +63,6 @@ export const HeaderTabs = () => {
       addTab({
         workspaceId: activeWorkspace.id,
         createNew: true,
-        resourceId: `default:${activeWorkspace.id}`,
         title: DEFAULT_TAB_INFO.title,
         icon: DEFAULT_TAB_INFO.icon,
       });

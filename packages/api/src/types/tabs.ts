@@ -14,14 +14,10 @@ export type DockItem = {
 export interface Tab {
   /** Random tab id (tabId), independent from chat session id. */
   id: string;
-  /** Logical resource identity for de-duping/activation (e.g. `page:${id}`). */
-  resourceId?: string;
   workspaceId: string;
   title: string;
   icon?: string;
   isPin?: boolean;
-  /** Ephemeral preview tab (only one per workspace). */
-  isPreview?: boolean;
 
   /** Right-side chat session. */
   chatSessionId: string;

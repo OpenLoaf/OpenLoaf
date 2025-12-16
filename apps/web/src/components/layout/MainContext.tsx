@@ -61,7 +61,7 @@ export const MainContent: React.FC<{ className?: string }> = ({ className }) => 
   return (
     <div className={cn("relative h-full w-full", className)}>
       {tabs
-        .filter((tab) => mounted[tab.id])
+        .filter((tab) => mounted[tab.id] || tab.id === activeTabId)
         .map((tab) => (
           <TabScene key={tab.id} tabId={tab.id} active={tab.id === activeTabId} />
         ))}

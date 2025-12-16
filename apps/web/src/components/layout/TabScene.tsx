@@ -33,10 +33,32 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
     pointerId: number;
     containerLeft: number;
     containerWidth: number;
+    captureTarget: HTMLDivElement | null;
   } | null>(null);
   const cursorRestoreRef = React.useRef<{ cursor: string; userSelect: string } | null>(
     null,
   );
+
+  const cancelDrag = React.useCallback(() => {
+    const session = dragSessionRef.current;
+    if (!session) return;
+    if (session.captureTarget) {
+      try {
+        session.captureTarget.releasePointerCapture(session.pointerId);
+      } catch {
+        // ignore
+      }
+    }
+
+    dragSessionRef.current = null;
+    setIsDragging(false);
+
+    if (cursorRestoreRef.current) {
+      document.body.style.cursor = cursorRestoreRef.current.cursor;
+      document.body.style.userSelect = cursorRestoreRef.current.userSelect;
+      cursorRestoreRef.current = null;
+    }
+  }, []);
 
   const fallbackWidthPx =
     storedLeftWidthPx > 0 ? storedLeftWidthPx + RIGHT_CHAT_MIN_PX : RIGHT_CHAT_MIN_PX;
@@ -131,6 +153,15 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
 
     const endDrag = (commit: boolean) => {
       if (!dragSessionRef.current) return;
+      if (dragSessionRef.current.captureTarget) {
+        try {
+          dragSessionRef.current.captureTarget.releasePointerCapture(
+            dragSessionRef.current.pointerId,
+          );
+        } catch {
+          // ignore
+        }
+      }
 
       setIsDragging(false);
       dragSessionRef.current = null;
@@ -187,6 +218,7 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
       endDrag(false);
     };
   }, [
+    active,
     fallbackWidthPx,
     isDragging,
     leftGrow,
@@ -194,6 +226,12 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
     setTabLeftWidthPx,
     tabId,
   ]);
+
+  React.useEffect(() => {
+    if (active) return;
+    if (!isDragging) return;
+    cancelDrag();
+  }, [active, cancelDrag, isDragging]);
 
   if (!tab) return null;
 
@@ -228,7 +266,7 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
 
           <motion.div
             className={cn(
-              "relative z-0 flex shrink-0 items-center justify-center rounded-4xl bg-sidebar",
+              "relative z-20 flex shrink-0 items-center justify-center rounded-4xl bg-sidebar pointer-events-auto touch-none",
               dividerVisible
                 ? "cursor-col-resize hover:bg-primary/20 active:bg-primary/30"
                 : "pointer-events-none",
@@ -250,6 +288,7 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
                 pointerId: event.pointerId,
                 containerLeft: rect.left,
                 containerWidth: rect.width,
+                captureTarget: event.currentTarget,
               };
 
               const initialLeftPx = storedLeftWidthPx || LEFT_DOCK_MIN_PX;
