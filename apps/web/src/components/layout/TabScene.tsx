@@ -9,6 +9,7 @@ import { LeftDock } from "./LeftDock";
 import { TabActiveProvider } from "./TabActiveContext";
 
 const RIGHT_CHAT_MIN_PX = 360;
+const DIVIDER_GAP_PX = 10;
 
 export function TabScene({ tabId, active }: { tabId: string; active: boolean }) {
   const tab = useTabs((s) => s.tabs.find((t) => t.id === tabId));
@@ -16,6 +17,7 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
   const setTabChatSession = useTabs((s) => s.setTabChatSession);
 
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const rightPanelRef = React.useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
   const [containerWidthPx, setContainerWidthPx] = React.useState(0);
   const containerWidthPxRef = React.useRef(0);
@@ -87,6 +89,68 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
     [],
   );
   const dividerTransition = reduceMotion || isDragging ? instantTransition : springTransition;
+
+  const [rightContentFrozenWidthPx, setRightContentFrozenWidthPx] = React.useState<
+    number | null
+  >(null);
+  const wasRightHiddenRef = React.useRef(false);
+
+  const [collapseGapCanShrink, setCollapseGapCanShrink] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!active) return;
+    if (!computedRightHidden) {
+      setCollapseGapCanShrink(false);
+      return;
+    }
+    if (computedLeftHidden) {
+      setCollapseGapCanShrink(false);
+      return;
+    }
+
+    // Delay shrinking the divider gap until the right panel collapse animation is effectively done.
+    setCollapseGapCanShrink(false);
+    const unsubscribe = rightGrow.on("change", (value) => {
+      if (value <= 0.01) {
+        setCollapseGapCanShrink(true);
+        unsubscribe();
+      }
+    });
+    return () => unsubscribe();
+  }, [active, computedLeftHidden, computedRightHidden, rightGrow]);
+
+  const dividerGapTargetPx = dividerVisible
+    ? DIVIDER_GAP_PX
+    : !computedLeftHidden && computedRightHidden
+      ? collapseGapCanShrink
+        ? 0
+        : DIVIDER_GAP_PX
+      : 0;
+
+  React.useEffect(() => {
+    if (!active) return;
+
+    const wasRightHidden = wasRightHiddenRef.current;
+    wasRightHiddenRef.current = computedRightHidden;
+
+    // On collapse start, freeze inner content width to avoid reflow during shrink.
+    if (!wasRightHidden && computedRightHidden) {
+      const measured = rightPanelRef.current?.getBoundingClientRect().width ?? 0;
+      setRightContentFrozenWidthPx(measured > 0 ? Math.round(measured) : null);
+
+      const unsubscribe = rightGrow.on("change", (value) => {
+        if (value <= 0.5) {
+          setRightContentFrozenWidthPx(null);
+          unsubscribe();
+        }
+      });
+      return () => unsubscribe();
+    }
+
+    if (!computedRightHidden) {
+      setRightContentFrozenWidthPx(null);
+    }
+  }, [active, computedRightHidden, rightGrow]);
 
   React.useEffect(() => {
     if (!active) return;
@@ -244,7 +308,7 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
       aria-hidden={!active}
     >
       <TabActiveProvider active={active}>
-        <div ref={containerRef} className="flex h-full w-full overflow-hidden bg-sidebar p-2">
+        <div ref={containerRef} className="flex h-full w-full overflow-hidden bg-sidebar pr-2">
           <motion.div
             className={cn(
               "relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden",
@@ -267,13 +331,12 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
           <motion.div
             className={cn(
               "relative z-20 flex shrink-0 items-center justify-center rounded-4xl bg-sidebar pointer-events-auto touch-none",
-              dividerVisible
-                ? "cursor-col-resize hover:bg-primary/20 active:bg-primary/30"
-                : "pointer-events-none",
+              dividerVisible ? "cursor-col-resize hover:bg-primary/20 active:bg-primary/30" : "",
+              dividerVisible ? "" : "pointer-events-none",
             )}
             initial={false}
             animate={{
-              width: dividerVisible ? 10 : 0,
+              width: dividerGapTargetPx,
               opacity: dividerVisible ? 1 : 0,
             }}
             transition={dividerTransition}
@@ -331,6 +394,7 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
               "relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden",
               computedRightHidden ? "pointer-events-none" : "pointer-events-auto",
             )}
+            ref={rightPanelRef}
             style={{
               flexBasis: 0,
               flexGrow: rightGrow,
@@ -341,16 +405,25 @@ export function TabScene({ tabId, active }: { tabId: string; active: boolean }) 
             initial={false}
           >
             <div className={cn("h-full w-full relative", computedRightHidden ? "p-0" : "p-2")}>
-              <Chat
-                panelKey={`chat:${tabId}`}
-                sessionId={tab.chatSessionId}
-                loadHistory={tab.chatLoadHistory}
-                tabId={tabId}
-                {...(tab.chatParams ?? {})}
-                onSessionChange={(nextSessionId, options) => {
-                  setTabChatSession(tabId, nextSessionId, options);
+              <div
+                className="h-full shrink-0"
+                style={{
+                  width: rightContentFrozenWidthPx
+                    ? `${rightContentFrozenWidthPx}px`
+                    : "100%",
                 }}
-              />
+              >
+                <Chat
+                  panelKey={`chat:${tabId}`}
+                  sessionId={tab.chatSessionId}
+                  loadHistory={tab.chatLoadHistory}
+                  tabId={tabId}
+                  {...(tab.chatParams ?? {})}
+                  onSessionChange={(nextSessionId, options) => {
+                    setTabChatSession(tabId, nextSessionId, options);
+                  }}
+                />
+              </div>
             </div>
           </motion.div>
         </div>

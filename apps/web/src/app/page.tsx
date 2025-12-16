@@ -33,7 +33,7 @@ function PageContent() {
       <Header />
       <div className={cn("flex flex-1", !open && "ml-2")}>
         <AppSidebar />
-        <SidebarInset className=" mr-2 h-[calc(calc(100svh-var(--header-height))-0.5rem)]!">
+        <SidebarInset className=" h-[calc(calc(100svh-var(--header-height))-0.5rem)]!">
           <MainContent />
         </SidebarInset>
       </div>
