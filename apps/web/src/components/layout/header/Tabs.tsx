@@ -8,16 +8,14 @@ import { useEffect, useRef, useState } from "react";
 import { TabMenu } from "./TabMenu";
 
 export const HeaderTabs = () => {
-  const {
-    activeTabId,
-    setActiveTab,
-    closeTab,
-    addTab,
-    getWorkspaceTabs,
-    tabs,
-    reorderTabs,
-    setTabPinned,
-  } = useTabs();
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const setActiveTab = useTabs((s) => s.setActiveTab);
+  const closeTab = useTabs((s) => s.closeTab);
+  const addTab = useTabs((s) => s.addTab);
+  const getWorkspaceTabs = useTabs((s) => s.getWorkspaceTabs);
+  const tabs = useTabs((s) => s.tabs);
+  const reorderTabs = useTabs((s) => s.reorderTabs);
+  const setTabPinned = useTabs((s) => s.setTabPinned);
   const { workspace: activeWorkspace } = useWorkspace();
   const activeWorkspaceIdRef = useRef<string | null>(null);
   const tabsScrollViewportRef = useRef<HTMLDivElement>(null);
@@ -62,16 +60,26 @@ export const HeaderTabs = () => {
       (tab) => tab.workspaceId === activeWorkspace.id
     );
     if (actualWorkspaceTabs.length === 0) {
-      // 检查是否有默认标签页的引用
-      const defaultTabId = `default-tab-${activeWorkspace.id}`;
       addTab({
-        id: defaultTabId,
-        ...DEFAULT_TAB_INFO,
         workspaceId: activeWorkspace.id,
         createNew: true,
+        resourceId: `default:${activeWorkspace.id}`,
+        title: DEFAULT_TAB_INFO.title,
+        icon: DEFAULT_TAB_INFO.icon,
       });
     }
   }, [activeWorkspace, tabs, addTab]);
+
+  useEffect(() => {
+    if (!activeWorkspace) return;
+    if (workspaceTabs.length === 0) return;
+    const inWorkspace = activeTabId
+      ? workspaceTabs.some((tab) => tab.id === activeTabId)
+      : false;
+    if (!inWorkspace) {
+      setActiveTab(workspaceTabs[0]!.id);
+    }
+  }, [activeTabId, activeWorkspace, setActiveTab, workspaceTabs]);
 
   useEffect(() => {
     return () => {
@@ -83,10 +91,10 @@ export const HeaderTabs = () => {
     if (!activeWorkspace) return;
 
     addTab({
-      id: `page-${Date.now()}`,
-      ...DEFAULT_TAB_INFO,
       workspaceId: activeWorkspace.id,
       createNew: true,
+      title: DEFAULT_TAB_INFO.title,
+      icon: DEFAULT_TAB_INFO.icon,
     });
   };
 

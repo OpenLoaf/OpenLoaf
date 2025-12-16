@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
+import { useTabActive } from "@/components/layout/TabActiveContext";
 
 type ElectrronBrowserWindowProps = {
   panelKey: string;
@@ -27,6 +28,7 @@ export default function ElectrronBrowserWindow({
   autoOpen,
   className,
 }: ElectrronBrowserWindowProps) {
+  const tabActive = useTabActive();
   const isElectron = useMemo(
     () =>
       process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -37,7 +39,9 @@ export default function ElectrronBrowserWindow({
   const initialUrl = useMemo(() => normalizeUrl(url ?? "https://www.baidu.com"), [url]);
   const [address, setAddress] = useState(initialUrl);
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const lastSentRef = useRef<{ url: string; bounds: TeatimeViewBounds } | null>(null);
+  const lastSentRef = useRef<
+    { url: string; bounds: TeatimeViewBounds; visible: boolean } | null
+  >(null);
 
   const canOpen = Boolean(normalizeUrl(address));
 
@@ -80,7 +84,7 @@ export default function ElectrronBrowserWindow({
     if (!isElectron || !api?.upsertWebContentsView) return;
 
     let rafId = 0;
-    const sync = async () => {
+    const sync = async (visible: boolean) => {
       const host = hostRef.current;
       if (!host) return;
 
@@ -88,8 +92,9 @@ export default function ElectrronBrowserWindow({
       if (!target) return;
 
       const rect = host.getBoundingClientRect();
-      const next: { url: string; bounds: TeatimeViewBounds } = {
+      const next: { url: string; bounds: TeatimeViewBounds; visible: boolean } = {
         url: target,
+        visible,
         bounds: {
           x: Math.round(rect.left),
           y: Math.round(rect.top),
@@ -102,6 +107,7 @@ export default function ElectrronBrowserWindow({
       const changed =
         !prev ||
         prev.url !== next.url ||
+        prev.visible !== next.visible ||
         prev.bounds.x !== next.bounds.x ||
         prev.bounds.y !== next.bounds.y ||
         prev.bounds.width !== next.bounds.width ||
@@ -114,7 +120,7 @@ export default function ElectrronBrowserWindow({
             key: panelKey,
             url: next.url,
             bounds: next.bounds,
-            visible: true,
+            visible,
           });
         } catch {
           // ignore
@@ -122,8 +128,14 @@ export default function ElectrronBrowserWindow({
       }
     };
 
+    if (!tabActive) {
+      window.cancelAnimationFrame(rafId);
+      void sync(false);
+      return;
+    }
+
     const tick = () => {
-      void sync();
+      void sync(true);
       rafId = window.requestAnimationFrame(tick);
     };
 
@@ -131,10 +143,18 @@ export default function ElectrronBrowserWindow({
 
     return () => {
       window.cancelAnimationFrame(rafId);
+      void sync(false);
+    };
+  }, [address, isElectron, panelKey, tabActive]);
+
+  useEffect(() => {
+    const api = window.teatimeElectron;
+    if (!isElectron || !api?.destroyWebContentsView) return;
+    return () => {
       lastSentRef.current = null;
       void api.destroyWebContentsView?.(panelKey);
     };
-  }, [address, isElectron, panelKey]);
+  }, [isElectron, panelKey]);
 
   return (
     <div className={cn("flex h-full w-full flex-col gap-2 p-2", className)}>

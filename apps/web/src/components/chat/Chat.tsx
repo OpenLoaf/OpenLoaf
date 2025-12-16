@@ -7,47 +7,45 @@ import ChatInput from "./ChatInput";
 import ChatHeader from "./ChatHeader";
 import { generateId } from "ai";
 import * as React from "react";
-import { useTabs } from "@/hooks/use_tabs";
 
 type ChatProps = {
   className?: string;
-  panelKey: string;
+  panelKey?: string;
+  tabId?: string;
   sessionId?: string;
   loadHistory?: boolean;
+  onSessionChange?: (
+    sessionId: string,
+    options?: { loadHistory?: boolean }
+  ) => void;
 } & Record<string, unknown>;
 
 export function Chat({
   className,
-  panelKey,
+  panelKey: _panelKey,
+  tabId,
   sessionId,
   loadHistory,
+  onSessionChange,
   ...params
 }: ChatProps) {
   const sessionIdRef = React.useRef<string>(sessionId ?? generateId());
   const effectiveSessionId = sessionId ?? sessionIdRef.current;
   const effectiveLoadHistory = loadHistory ?? Boolean(sessionId);
-  const { updatePanelParamsByKey } = useTabs();
 
   React.useEffect(() => {
     if (sessionId) return;
-    updatePanelParamsByKey(panelKey, {
-      sessionId: effectiveSessionId,
-      loadHistory: false,
-    });
-  }, [sessionId, panelKey, effectiveSessionId, updatePanelParamsByKey]);
+    onSessionChange?.(effectiveSessionId, { loadHistory: false });
+  }, [sessionId, effectiveSessionId, onSessionChange]);
 
   return (
     <ChatProvider
       key={effectiveSessionId}
+      tabId={tabId}
       sessionId={effectiveSessionId}
       loadHistory={effectiveLoadHistory}
       params={params}
-      onSessionChange={(nextSessionId, options) => {
-        updatePanelParamsByKey(panelKey, {
-          sessionId: nextSessionId,
-          loadHistory: options?.loadHistory,
-        });
-      }}
+      onSessionChange={onSessionChange}
     >
       <div
         className={cn(

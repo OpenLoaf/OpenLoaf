@@ -4,8 +4,6 @@ import { PanelLeft, PanelRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/animate-ui/components/radix/sidebar";
 import { useTabs } from "@/hooks/use_tabs";
-import { Bot } from "@/components/animate-ui/icons/bot";
-import { AnimateIcon } from "@/components/animate-ui/icons/icon";
 import { motion } from "motion/react";
 import type { CSSProperties } from "react";
 
@@ -14,8 +12,11 @@ import { ModeToggle } from "./ModeToggle";
 
 export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
-  const { activeRightPanel, activeLeftPanel, updateCurrentTabPanels } =
-    useTabs();
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const activeTab = useTabs((s) =>
+    s.activeTabId ? s.tabs.find((t) => t.id === s.activeTabId) : undefined,
+  );
+  const setTabRightChatCollapsed = useTabs((s) => s.setTabRightChatCollapsed);
 
   const isElectron =
     process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -25,11 +26,8 @@ export const Header = () => {
     (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac"));
   const trafficLightsWidth = isElectron && isMac ? "72px" : "0px";
 
-  // 获取rightPanel的hidden状态，默认false
-  const isRightPanelHidden = activeRightPanel?.hidden ?? false;
-
-  // 只有当左侧面板存在且右侧面板也存在时，才显示右侧面板按钮
-  const showPanelRightButton = Boolean(activeLeftPanel && activeRightPanel);
+  const canToggleChat = Boolean(activeTab?.base);
+  const isChatCollapsed = Boolean(activeTab?.rightChatCollapsed);
 
   return (
     <header
@@ -82,17 +80,15 @@ export const Header = () => {
         <Button
           data-no-drag="true"
           className={`h-8 w-8 transition-all duration-200 ease-in-out ${
-            showPanelRightButton
+            canToggleChat
               ? "opacity-100 w-8"
               : "opacity-0 w-0 pointer-events-none"
           }`}
           variant="ghost"
           size="icon"
           onClick={() => {
-            // 直接使用activeRightPanel的hidden状态计算新值
-            updateCurrentTabPanels({
-              rightPanel: { hidden: !isRightPanelHidden },
-            });
+            if (!activeTabId) return;
+            setTabRightChatCollapsed(activeTabId, !isChatCollapsed);
           }}
         >
           <motion.div
@@ -104,17 +100,11 @@ export const Header = () => {
               ease: "easeInOut",
             }}
           >
-            {activeRightPanel?.component === "ai-chat" ? (
-              <AnimateIcon animate loop loopDelay={3000}>
-                <Bot className={`h-4 w-4`} />
-              </AnimateIcon>
-            ) : (
-              <PanelRight
-                className={`h-4 w-4 transition-transform duration-200 ${
-                  isRightPanelHidden ? "rotate-180" : ""
-                }`}
-              />
-            )}
+            <PanelRight
+              className={`h-4 w-4 transition-transform duration-200 ${
+                isChatCollapsed ? "rotate-180" : ""
+              }`}
+            />
           </motion.div>
         </Button>
       </div>

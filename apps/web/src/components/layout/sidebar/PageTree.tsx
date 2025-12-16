@@ -10,10 +10,15 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/animate-ui/components/radix/sidebar";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { ChevronRight, FileText } from "lucide-react";
 import type { PageTreeNode } from "@teatime-ai/api/routers/page";
-import { generateId } from "ai";
 
 interface PageTreeMenuProps {
   pages: PageTreeNode[];
@@ -30,33 +35,75 @@ export const PageTreeMenu = ({
   setExpandedPages,
   updatePage,
 }: PageTreeMenuProps) => {
-  const { addTab } = useTabs();
+  const openPreviewTab = useTabs((s) => s.openPreviewTab);
+  const promoteTab = useTabs((s) => s.promoteTab);
   const { workspace } = useWorkspace();
 
   const Collapsible = CollapsiblePrimitive.Root;
   const CollapsibleTrigger = CollapsiblePrimitive.Trigger;
   const CollapsibleContent = CollapsiblePrimitive.Content;
 
-  const handlePageClick = (page: PageTreeNode) => {
+  const buildPreviewInput = (page: PageTreeNode) => {
     if (!workspace?.id) return;
-
-    addTab({
-      id: page.id,
+    return {
+      workspaceId: workspace.id,
+      resourceId: `page:${page.id}`,
       title: page.title || "Untitled Page",
       icon: page.icon ?? undefined,
-      leftPanel: {
+      base: {
+        id: `base:${page.id}`,
         component: "plant-page",
-        panelKey: generateId(),
         params: { pageId: page.id },
       },
-      rightPanel: {
-        component: "ai-chat",
-        panelKey: generateId(),
-        params: { pageId: page.id },
-      },
-      workspaceId: workspace.id,
-      createNew: false,
-    });
+      chatParams: { pageId: page.id },
+    };
+  };
+
+  const openInPreview = (page: PageTreeNode) => {
+    const input = buildPreviewInput(page);
+    if (!input) return;
+    openPreviewTab(input);
+  };
+
+  const promoteActiveIfPreviewMatches = (page: PageTreeNode) => {
+    const state = useTabs.getState();
+    const activeTabId = state.activeTabId;
+    if (!activeTabId) return false;
+    const activeTab = state.tabs.find((t) => t.id === activeTabId);
+    if (!activeTab?.isPreview) return false;
+    if (activeTab.resourceId !== `page:${page.id}`) return false;
+    promoteTab(activeTabId);
+    return true;
+  };
+
+  const openAndPromote = (page: PageTreeNode) => {
+    openInPreview(page);
+    const nextActiveTabId = useTabs.getState().activeTabId;
+    if (nextActiveTabId) {
+      promoteTab(nextActiveTabId);
+    }
+  };
+
+  const handlePrimaryClick = (event: React.MouseEvent, page: PageTreeNode) => {
+    if (event.metaKey || event.ctrlKey) {
+      event.preventDefault();
+      openAndPromote(page);
+      return;
+    }
+    openInPreview(page);
+  };
+
+  const handleMouseDown = (event: React.MouseEvent, page: PageTreeNode) => {
+    if (event.button !== 1) return;
+    event.preventDefault();
+    openAndPromote(page);
+  };
+
+  const handleDoubleClick = (event: React.MouseEvent, page: PageTreeNode) => {
+    event.preventDefault();
+    if (!promoteActiveIfPreviewMatches(page)) {
+      openAndPromote(page);
+    }
   };
 
   const setExpanded = (pageId: string, isExpanded: boolean) => {
@@ -80,17 +127,28 @@ export const PageTreeMenu = ({
         if (!hasChildren) {
           return (
             <SidebarMenuItem key={page.id}>
-              <SidebarMenuButton
-                tooltip={pageTitle}
-                onClick={() => handlePageClick(page)}
-              >
-                {page.icon ? (
-                  <span className="text-sm">{page.icon}</span>
-                ) : (
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                )}
-                <span>{pageTitle}</span>
-              </SidebarMenuButton>
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <SidebarMenuButton
+                    tooltip={pageTitle}
+                    onClick={(event) => handlePrimaryClick(event, page)}
+                    onMouseDown={(event) => handleMouseDown(event, page)}
+                    onDoubleClick={(event) => handleDoubleClick(event, page)}
+                  >
+                    {page.icon ? (
+                      <span className="text-sm">{page.icon}</span>
+                    ) : (
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span>{pageTitle}</span>
+                  </SidebarMenuButton>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-52">
+                  <ContextMenuItem onClick={() => openAndPromote(page)}>
+                    Open in new tab
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             </SidebarMenuItem>
           );
         }
@@ -104,17 +162,28 @@ export const PageTreeMenu = ({
             className="group/collapsible"
           >
             <SidebarMenuItem>
-              <SidebarMenuButton
-                tooltip={pageTitle}
-                onClick={() => handlePageClick(page)}
-              >
-                {page.icon ? (
-                  <span className="text-sm">{page.icon}</span>
-                ) : (
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                )}
-                <span>{pageTitle}</span>
-              </SidebarMenuButton>
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <SidebarMenuButton
+                    tooltip={pageTitle}
+                    onClick={(event) => handlePrimaryClick(event, page)}
+                    onMouseDown={(event) => handleMouseDown(event, page)}
+                    onDoubleClick={(event) => handleDoubleClick(event, page)}
+                  >
+                    {page.icon ? (
+                      <span className="text-sm">{page.icon}</span>
+                    ) : (
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span>{pageTitle}</span>
+                  </SidebarMenuButton>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-52">
+                  <ContextMenuItem onClick={() => openAndPromote(page)}>
+                    Open in new tab
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
               <CollapsibleTrigger asChild>
                 <SidebarMenuAction aria-label="Toggle">
                   <ChevronRight className="transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
@@ -128,15 +197,26 @@ export const PageTreeMenu = ({
                     return (
                       <SidebarMenuSubItem key={child.id}>
                         <SidebarMenuSubButton asChild>
-                          <a
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handlePageClick(child);
-                            }}
-                          >
-                            <span>{childTitle}</span>
-                          </a>
+                          <ContextMenu>
+                            <ContextMenuTrigger asChild>
+                              <a
+                                href="#"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  handlePrimaryClick(event, child);
+                                }}
+                                onMouseDown={(event) => handleMouseDown(event, child)}
+                                onDoubleClick={(event) => handleDoubleClick(event, child)}
+                              >
+                                <span>{childTitle}</span>
+                              </a>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="w-52">
+                              <ContextMenuItem onClick={() => openAndPromote(child)}>
+                                Open in new tab
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     );

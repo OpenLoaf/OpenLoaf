@@ -7,43 +7,54 @@ interface PlantTestProps {
 }
 
 export default function PlantTest({ pageId }: PlantTestProps) {
-  const { activeLeftPanel, addPanelDialog } = useTabs();
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const activeStackCount = useTabs((s) => {
+    const id = s.activeTabId;
+    const tab = id ? s.tabs.find((t) => t.id === id) : undefined;
+    return tab?.stack?.length ?? 0;
+  });
+  const pushStackItem = useTabs((s) => s.pushStackItem);
+  const clearStack = useTabs((s) => s.clearStack);
 
   const isElectron =
     process.env.NEXT_PUBLIC_ELECTRON === "1" ||
     (typeof navigator !== "undefined" &&
       navigator.userAgent.includes("Electron"));
 
-  const dialogsCount = activeLeftPanel?.dialogs?.length ?? 0;
-
   return (
     <div className="px-2 py-2 space-y-2">
       <div className="text-xs text-muted-foreground">
-        Dialogs (left): {dialogsCount}
+        Stack items: {activeStackCount}
       </div>
       <Button
         size="sm"
         variant="outline"
         onClick={() => {
-          addPanelDialog("left", {
-            component: "ai-chat",
-            params: {},
+          if (!activeTabId) return;
+          pushStackItem(activeTabId, {
+            id: `tool-demo:${Date.now()}`,
+            component: "tool-result",
+            params: { toolKey: "demo" },
+            title: "Tool Result (demo)",
           });
         }}
       >
-        Dialog: AI Chat
+        Stack: Tool Result (demo)
       </Button>
       <Button
         size="sm"
         variant="outline"
         onClick={() => {
-          addPanelDialog("left", {
+          if (!activeTabId) return;
+          pushStackItem(activeTabId, {
+            id: `plant:${pageId ?? "current"}`,
             component: "plant-page",
             params: pageId ? { pageId } : {},
+            title: "Plant (overlay)",
           });
         }}
       >
-        Dialog: Plant
+        Stack: Plant (overlay)
       </Button>
       {isElectron && (
         <>
@@ -51,30 +62,48 @@ export default function PlantTest({ pageId }: PlantTestProps) {
             size="sm"
             variant="outline"
             onClick={() => {
-              addPanelDialog("left", {
+              if (!activeTabId) return;
+              pushStackItem(activeTabId, {
+                id: `browser:${Date.now()}`,
                 component: "electron-browser",
                 params: { url: "https://inside.hexems.com" },
+                title: "Browser",
               });
             }}
           >
             <Globe className="mr-2 h-4 w-4" />
-            Dialog: Browser
+            Stack: Browser
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => {
-              addPanelDialog("left", {
+              if (!activeTabId) return;
+              pushStackItem(activeTabId, {
+                id: `browser-window:${Date.now()}`,
                 component: "electron-browser-window",
                 params: { url: "https://inside.hexems.com", autoOpen: true },
+                title: "Browser Window",
               });
             }}
           >
             <Globe className="mr-2 h-4 w-4" />
-            Test: BrowserWindow
+            Stack: BrowserWindow
           </Button>
         </>
       )}
+
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => {
+          if (!activeTabId) return;
+          clearStack(activeTabId);
+        }}
+        disabled={activeStackCount === 0}
+      >
+        Clear stack
+      </Button>
     </div>
   );
 }

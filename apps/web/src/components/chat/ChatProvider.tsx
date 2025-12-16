@@ -95,12 +95,14 @@ export function useChatContext() {
  */
 export default function ChatProvider({
   children,
+  tabId,
   sessionId,
   loadHistory,
   params,
   onSessionChange,
 }: {
   children: ReactNode;
+  tabId?: string;
   sessionId: string;
   loadHistory?: boolean;
   params?: Record<string, unknown>;
@@ -112,7 +114,12 @@ export default function ChatProvider({
   const appliedHistorySessionIdRef = React.useRef<string | null>(null);
   const [forceHistoryLoading, setForceHistoryLoading] = React.useState(false);
   const [scrollToBottomToken, setScrollToBottomToken] = React.useState(0);
-  const { tabs, activeTabId } = useTabs();
+  const tabs = useTabs((s) => s.tabs);
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const upsertToolPart = useTabs((s) => s.upsertToolPart);
+  const pushStackItem = useTabs((s) => s.pushStackItem);
+  const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
+  const promoteTab = useTabs((s) => s.promoteTab);
 
   const activeMessageListSourceRef = React.useRef<string>(generateId());
   const [messageListMessages, setMessageListMessages] = React.useState<
@@ -137,6 +144,15 @@ export default function ChatProvider({
     appliedHistorySessionIdRef.current = null;
   }, [sessionId, rotateMessageListSource]);
 
+  const openedToolKeysRef = React.useRef<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    openedToolKeysRef.current = new Set();
+    if (tabId) {
+      clearToolPartsForTab(tabId);
+    }
+  }, [tabId, sessionId, clearToolPartsForTab]);
+
   const paramsRef = React.useRef<Record<string, unknown> | undefined>(params);
   const tabsRef = React.useRef(tabs);
   const activeTabIdRef = React.useRef(activeTabId);
@@ -149,6 +165,58 @@ export default function ChatProvider({
     tabsRef.current = tabs;
     activeTabIdRef.current = activeTabId;
   }, [tabs, activeTabId]);
+
+  React.useEffect(() => {
+    if (!tabId) return;
+
+    for (const message of messageListMessages) {
+      const messageId = typeof message.id === "string" ? message.id : "m";
+      const parts = (message as any).parts ?? [];
+
+      for (let index = 0; index < parts.length; index += 1) {
+        const part = parts[index];
+        const type = typeof part?.type === "string" ? part.type : "";
+        const isTool = type === "dynamic-tool" || type.startsWith("tool-");
+        if (!isTool) continue;
+
+        const toolKey = String(part.toolCallId ?? `${messageId}:${index}`);
+        upsertToolPart(tabId, toolKey, {
+          type,
+          toolCallId: part.toolCallId,
+          toolName: part.toolName,
+          title: part.title,
+          state: part.state,
+          input: part.input,
+          output: part.output,
+          errorText: part.errorText,
+        });
+
+        const hasResult =
+          typeof part.output !== "undefined" ||
+          (typeof part.errorText === "string" && part.errorText.length > 0);
+        const isDone =
+          part.state === "output-available" ||
+          part.state === "done" ||
+          part.state === "complete";
+        if (!hasResult && !isDone) continue;
+        if (openedToolKeysRef.current.has(toolKey)) continue;
+        openedToolKeysRef.current.add(toolKey);
+
+        const displayName =
+          part.title ||
+          part.toolName ||
+          (type.startsWith("tool-") ? type.slice("tool-".length) : type);
+
+        pushStackItem(tabId, {
+          id: `tool:${toolKey}`,
+          sourceKey: toolKey,
+          title: displayName ? `Tool: ${displayName}` : "Tool Result",
+          component: "tool-result",
+          params: { toolKey },
+        });
+      }
+    }
+  }, [messageListMessages, tabId, pushStackItem, upsertToolPart]);
 
   const transport = React.useMemo(() => {
     const apiBase = `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`;
@@ -173,7 +241,16 @@ export default function ChatProvider({
         const lastMessage = {
           ...messages[messages.length - 1],
           metadata: {
-            activeTab,
+            activeTab: activeTab
+              ? {
+                  id: activeTab.id,
+                  resourceId: activeTab.resourceId,
+                  workspaceId: activeTab.workspaceId,
+                  title: activeTab.title,
+                  icon: activeTab.icon,
+                  chatSessionId: activeTab.chatSessionId,
+                }
+              : null,
           },
         };
 
@@ -335,10 +412,19 @@ export default function ChatProvider({
   // 兼容性处理：新版本useChat可能不返回input和setInput
   const [input, setInput] = React.useState("");
 
+  const sendMessage = useCallback(
+    (...args: Parameters<typeof chat.sendMessage>) => {
+      if (tabId) promoteTab(tabId);
+      return chat.sendMessage(...args);
+    },
+    [chat.sendMessage, promoteTab, tabId],
+  );
+
   const chatWithFallbacks = {
     ...chat,
     input,
     setInput,
+    sendMessage,
   };
 
   return (

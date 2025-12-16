@@ -57,7 +57,9 @@ export const TabMenu = ({
           ) : (
             tab.icon && <span className="mr-1.5 shrink-0">{tab.icon}</span>
           )}
-          <span className="truncate w-full">{tab.title || "Untitled"}</span>
+          <span className={`truncate w-full ${tab.isPreview ? "italic" : ""}`}>
+            {tab.title || "Untitled"}
+          </span>
           {!isPinned && (
             <span
               className={`absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 transition-opacity ${
