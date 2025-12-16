@@ -7,6 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import SessionList from "@/components/chat/session/SessionList";
 import * as React from "react";
 import { useChatContext } from "./ChatProvider";
+import { skipToken, useQuery } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
 
 interface ChatHeaderProps {
   className?: string;
@@ -18,6 +20,21 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const menuLockRef = React.useRef(false);
 
+  const sessionTitleQuery = useQuery(
+    trpc.chatsession.findUniqueChatSession.queryOptions(
+      activeSessionId
+        ? ({
+            where: { id: activeSessionId },
+            select: { title: true },
+          } as any)
+        : skipToken
+    ) as any
+  );
+
+  const sessionTitle = String(
+    (sessionTitleQuery.data as any)?.title ?? ""
+  ).trim();
+
   const handleMenuOpenChange = (open: boolean) => {
     menuLockRef.current = open;
     if (open) setHistoryOpen(true);
@@ -26,12 +43,15 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-between px-2 py-0",
+        "grid shrink-0 grid-cols-[1fr_auto_1fr] items-center px-2 py-0",
         className
       )}
     >
       <div className="text-lg font-semibold">Chat</div>
-      <div className="flex items-center gap-1">
+      <div className="max-w-[min(60vw,32rem)] truncate px-2 text-center text-sm font-medium">
+        {sessionTitle.length > 0 ? sessionTitle : null}
+      </div>
+      <div className="flex items-center justify-end gap-1">
         {messages.length > 0 && (
           <Button
             variant="ghost"

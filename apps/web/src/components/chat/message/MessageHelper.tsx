@@ -79,13 +79,13 @@ export default function MessageHelper() {
               variants={container}
               initial="hidden"
               animate="show"
-              className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-stretch"
             >
               {SUGGESTIONS.map((suggestion) => (
-                <motion.div key={suggestion.label} variants={item}>
+                <motion.div key={suggestion.label} variants={item} className="h-full">
                   <Button
                     variant="outline"
-                    className="justify-start h-auto py-3 px-4 text-left whitespace-normal font-normal w-full"
+                    className="justify-start items-start h-full py-3 px-4 text-left whitespace-normal font-normal w-full"
                     onClick={() => setInput(suggestion.value)}
                   >
                     {suggestion.label}

@@ -20,7 +20,7 @@ function getMessagePlainText(message: UIMessage) {
     .trim();
 }
 
-export default function MessageAction({
+export default function MessageAiAction({
   message,
   className,
   canRetry,

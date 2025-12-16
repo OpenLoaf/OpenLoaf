@@ -93,11 +93,15 @@ export default function MessageList({ className }: MessageListProps) {
     const lastHumanIndex = messages.findLastIndex(
       (message) => message.role === "user"
     );
+    const lastAiIndex = messages.findLastIndex(
+      (message) => message.role !== "user"
+    );
     return messages.map((message, index) => (
       <MessageItem
         key={getMessageKey(message)}
         message={message}
         isLastHumanMessage={index === lastHumanIndex}
+        isLastAiMessage={index === lastAiIndex}
       />
     ));
   }, [messages, getMessageKey]);

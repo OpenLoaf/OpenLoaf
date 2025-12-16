@@ -54,7 +54,7 @@ export default function ChatInput({ className }: ChatInputProps) {
   return (
     <div
       className={cn(
-        "relative mt-4 shrink-0 rounded-xl bg-background border transition-all duration-200 shadow-sm flex flex-col max-h-[30%]",
+        "relative mt-4 shrink-0 rounded-xl bg-background border transition-all duration-200 flex flex-col max-h-[30%]",
         isFocused ? "border-primary ring-1 ring-primary/20" : "border-border",
         isOverLimit && "border-destructive ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20",
         className
