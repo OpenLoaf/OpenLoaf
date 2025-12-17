@@ -1,11 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface PlantIntroProps {
+interface ProjectIntroProps {
   isLoading: boolean;
   pageTitle: string;
 }
 
-export default function PlantIntro({ isLoading, pageTitle }: PlantIntroProps) {
+export default function ProjectIntro({ isLoading, pageTitle }: ProjectIntroProps) {
   if (isLoading) {
     return (
       <div className="h-full space-y-4 mt-3">
@@ -22,7 +22,7 @@ export default function PlantIntro({ isLoading, pageTitle }: PlantIntroProps) {
 
   return (
     <div className="h-full space-y-3 mt-3">
-      <div className="text-sm text-muted-foreground">Plant / 简介</div>
+      <div className="text-sm text-muted-foreground">Project / 简介</div>
       <div className="text-base">{pageTitle}</div>
     </div>
   );

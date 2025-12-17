@@ -9,7 +9,7 @@ import {
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-export const PLANT_TABS = [
+export const PROJECT_TABS = [
   {
     value: "intro",
     icon: <Info className="size-4 shrink-0" />,
@@ -42,17 +42,17 @@ export const PLANT_TABS = [
   },
 ] as const;
 
-export type PlantTabValue = (typeof PLANT_TABS)[number]["value"];
+export type ProjectTabValue = (typeof PROJECT_TABS)[number]["value"];
 
-type PlantTabsProps = {
-  value: PlantTabValue;
-  onValueChange: (value: PlantTabValue) => void;
+type ProjectTabsProps = {
+  value: ProjectTabValue;
+  onValueChange: (value: ProjectTabValue) => void;
 };
 
 const MIN_PX_PER_TAB_TO_SHOW_LABEL = 156;
 const LABEL_HYSTERESIS_PX = 8;
 
-export default function PlantTabs({ value, onValueChange }: PlantTabsProps) {
+export default function ProjectTabs({ value, onValueChange }: ProjectTabsProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const tabButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -61,7 +61,7 @@ export default function PlantTabs({ value, onValueChange }: PlantTabsProps) {
   const resizeEndTimeoutRef = useRef<number | null>(null);
 
   const activeIndex = useMemo(
-    () => PLANT_TABS.findIndex((tab) => tab.value === value),
+    () => PROJECT_TABS.findIndex((tab) => tab.value === value),
     [value]
   );
 
@@ -71,8 +71,8 @@ export default function PlantTabs({ value, onValueChange }: PlantTabsProps) {
 
     const updateShowLabels = () => {
       const width = el.getBoundingClientRect().width;
-      const pxPerTab = width / PLANT_TABS.length;
-      // console.log("[PlantTabs] pxPerTab:", pxPerTab.toFixed(2));
+      const pxPerTab = width / PROJECT_TABS.length;
+      // console.log("[ProjectTabs] pxPerTab:", pxPerTab.toFixed(2));
       setShowLabels((prev) => {
         if (prev) {
           return pxPerTab >= MIN_PX_PER_TAB_TO_SHOW_LABEL - LABEL_HYSTERESIS_PX;
@@ -107,7 +107,7 @@ export default function PlantTabs({ value, onValueChange }: PlantTabsProps) {
       <motion.div
         className="relative"
         role="tablist"
-        aria-label="Plant Tabs"
+        aria-label="Project Tabs"
         initial={{ opacity: 0, y: 0 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.24, ease: "easeOut", delay: 0.5 }}
@@ -116,18 +116,18 @@ export default function PlantTabs({ value, onValueChange }: PlantTabsProps) {
           event.preventDefault();
           const direction = event.key === "ArrowRight" ? 1 : -1;
           const current = activeIndex === -1 ? 0 : activeIndex;
-          const next = (current + direction + PLANT_TABS.length) % PLANT_TABS.length;
-          const nextValue = PLANT_TABS[next]?.value;
+          const next = (current + direction + PROJECT_TABS.length) % PROJECT_TABS.length;
+          const nextValue = PROJECT_TABS[next]?.value;
           if (!nextValue) return;
           onValueChange(nextValue);
           tabButtonRefs.current[next]?.focus();
         }}
       >
         <div className="bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]">
-          {PLANT_TABS.map((tab, index) => {
+          {PROJECT_TABS.map((tab, index) => {
             const isActive = tab.value === value;
-            const tabId = `plant-tab-${tab.value}`;
-            const panelId = `plant-panel-${tab.value}`;
+            const tabId = `project-tab-${tab.value}`;
+            const panelId = `project-panel-${tab.value}`;
 
             return (
               <button
@@ -151,7 +151,7 @@ export default function PlantTabs({ value, onValueChange }: PlantTabsProps) {
               >
                 {isActive ? (
                   <motion.div
-                    layoutId="plant-tabs-indicator"
+                    layoutId="project-tabs-indicator"
                     className="absolute inset-0 z-0 border border-transparent rounded-md bg-background dark:border-input dark:bg-input/30 shadow-sm"
                     transition={
                       isResizing

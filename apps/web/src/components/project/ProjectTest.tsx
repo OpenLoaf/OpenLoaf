@@ -2,11 +2,11 @@ import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/use_tabs";
 import { Globe } from "lucide-react";
 
-interface PlantTestProps {
+interface ProjectTestProps {
   pageId?: string;
 }
 
-export default function PlantTest({ pageId }: PlantTestProps) {
+export default function ProjectTest({ pageId }: ProjectTestProps) {
   const activeTabId = useTabs((s) => s.activeTabId);
   const activeStackCount = useTabs((s) => {
     const id = s.activeTabId;
@@ -36,7 +36,7 @@ export default function PlantTest({ pageId }: PlantTestProps) {
           upsertToolPart(activeTabId, toolKey, {
             type: "tool-demo",
             title: "Demo Result",
-            input: { from: "PlantTest", pageId: pageId ?? null },
+            input: { from: "ProjectTest", pageId: pageId ?? null },
             output: {
               ok: true,
               message: "pushStackItem -> ToolResultPanel 渲染成功",
@@ -59,14 +59,14 @@ export default function PlantTest({ pageId }: PlantTestProps) {
         onClick={() => {
           if (!activeTabId) return;
           pushStackItem(activeTabId, {
-            id: `plant:${pageId ?? "current"}`,
-            component: "plant-page",
+            id: `project:${pageId ?? "current"}`,
+            component: "project-page",
             params: pageId ? { pageId } : {},
-            title: "Plant (overlay)",
+            title: "Project (overlay)",
           });
         }}
       >
-        Stack: Plant (overlay)
+        Stack: Project (overlay)
       </Button>
       {isElectron && (
         <>

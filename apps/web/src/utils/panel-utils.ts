@@ -2,7 +2,7 @@
  * 面板工具函数，包含组件映射和面板标题处理
  */
 import React from "react";
-import PlantPage from "@/components/plant/Plant";
+import PlantPage from "@/components/project/Project";
 import { Chat } from "@/components/chat/Chat";
 import ElectronBrowser from "@/components/browser/ElectronBrowser";
 import ElectrronBrowserWindow from "@/components/browser/ElectrronBrowserWindow";

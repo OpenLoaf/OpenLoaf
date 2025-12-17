@@ -5,20 +5,20 @@ import { AnimatePresence, motion } from "motion/react";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import PlantIntro from "./PlantIntro";
-import PlantCanvas from "./PlantCanvas";
-import PlantTasks from "./PlantTasks";
-import PlantMaterials from "./PlantMaterials";
-import PlantSkills from "./PlantSkills";
-import PlantTest from "./PlantTest";
-import PlantTabs, { type PlantTabValue } from "./PlantTabs";
+import ProjectIntro from "./ProjectIntro";
+import ProjectCanvas from "./ProjectCanvas";
+import ProjectTasks from "./ProjectTasks";
+import ProjectMaterials from "./ProjectMaterials";
+import ProjectSkills from "./ProjectSkills";
+import ProjectTest from "./ProjectTest";
+import ProjectTabs, { type ProjectTabValue } from "./ProjectTabs";
 
-interface PlantPageProps {
+interface ProjectPageProps {
   pageId?: string;
   [key: string]: any;
 }
 
-function PlantTitleSkeleton() {
+function ProjectTitleSkeleton() {
   return (
     <div className="flex items-center gap-2">
       <Skeleton className="size-5 rounded-sm" />
@@ -27,7 +27,7 @@ function PlantTitleSkeleton() {
   );
 }
 
-export default function PlantPage({ pageId }: PlantPageProps) {
+export default function ProjectPage({ pageId }: ProjectPageProps) {
   const { workspace: activeWorkspace } = useWorkspace();
 
   // 使用tRPC获取页面数据
@@ -37,9 +37,9 @@ export default function PlantPage({ pageId }: PlantPageProps) {
     )
   );
 
-  const [activeTab, setActiveTab] = useState<PlantTabValue>("intro");
+  const [activeTab, setActiveTab] = useState<ProjectTabValue>("intro");
 
-  const pageTitle = pageData?.title || "Plant Page";
+  const pageTitle = pageData?.title || "Project Page";
   const titleIcon = pageData?.icon ?? undefined;
 
   return (
@@ -47,7 +47,7 @@ export default function PlantPage({ pageId }: PlantPageProps) {
       <div className="flex items-center justify-between py-0 w-full min-w-0">
         <h1 className="text-xl font-semibold flex items-center gap-2 min-w-0 ml-2">
           {isLoading ? (
-            <PlantTitleSkeleton />
+            <ProjectTitleSkeleton />
           ) : (
             <>
               {titleIcon ? (
@@ -60,16 +60,16 @@ export default function PlantPage({ pageId }: PlantPageProps) {
           )}
         </h1>
 
-        <PlantTabs value={activeTab} onValueChange={setActiveTab} />
+        <ProjectTabs value={activeTab} onValueChange={setActiveTab} />
       </div>
 
       <ScrollArea.Root className="flex-1 min-h-0 w-full">
         <ScrollArea.Viewport className="w-full h-full min-h-0 flex flex-col">
           <div className="flex-1 min-h-0 w-full">
             <div
-              id={`plant-panel-${activeTab}`}
+              id={`project-panel-${activeTab}`}
               role="tabpanel"
-              aria-labelledby={`plant-tab-${activeTab}`}
+              aria-labelledby={`project-tab-${activeTab}`}
               className="w-full h-full min-h-0"
             >
               <AnimatePresence mode="wait">
@@ -82,25 +82,27 @@ export default function PlantPage({ pageId }: PlantPageProps) {
                   className="w-full h-full"
                 >
                   {activeTab === "intro" ? (
-                    <PlantIntro isLoading={isLoading} pageTitle={pageTitle} />
+                    <ProjectIntro isLoading={isLoading} pageTitle={pageTitle} />
                   ) : null}
                   {activeTab === "canvas" ? (
-                    <PlantCanvas
+                    <ProjectCanvas
                       isLoading={isLoading}
                       pageId={pageId}
                       pageTitle={pageTitle}
                     />
                   ) : null}
                   {activeTab === "tasks" ? (
-                    <PlantTasks isLoading={isLoading} pageId={pageId} />
+                    <ProjectTasks isLoading={isLoading} pageId={pageId} />
                   ) : null}
                   {activeTab === "materials" ? (
-                    <PlantMaterials isLoading={isLoading} pageId={pageId} />
+                    <ProjectMaterials isLoading={isLoading} pageId={pageId} />
                   ) : null}
                   {activeTab === "skills" ? (
-                    <PlantSkills isLoading={isLoading} pageId={pageId} />
+                    <ProjectSkills isLoading={isLoading} pageId={pageId} />
                   ) : null}
-                  {activeTab === "test" ? <PlantTest pageId={pageId} /> : null}
+                  {activeTab === "test" ? (
+                    <ProjectTest pageId={pageId} />
+                  ) : null}
                 </motion.div>
               </AnimatePresence>
             </div>
