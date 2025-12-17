@@ -10,6 +10,7 @@ export const LEFT_DOCK_MIN_PX = 360;
 export const LEFT_DOCK_DEFAULT_PERCENT = 30;
 
 function clampPercent(value: number) {
+  // 约束百分比到 [0, 100]，并且对 NaN/Infinity 做兜底。
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(100, value));
 }
@@ -43,7 +44,7 @@ export interface TabsState {
   tabs: Tab[];
   activeTabId: string | null;
 
-  /** Runtime-only tool parts cache (not persisted). */
+  /** 运行时缓存：工具调用片段（不落盘，避免 localStorage 过大/频繁写入）。 */
   toolPartsByTabId: Record<string, Record<string, ToolPartSnapshot>>;
 
   addTab: (input: AddTabInput) => void;
@@ -79,6 +80,7 @@ export interface TabsState {
 }
 
 function generateId(prefix = "id") {
+  // 生成稳定的本地 ID：优先 randomUUID，降级到时间戳 + 随机数。
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}_${crypto.randomUUID()}`;
   }
@@ -86,6 +88,7 @@ function generateId(prefix = "id") {
 }
 
 function orderWorkspaceTabs(tabs: Tab[]) {
+  // 固定标签始终排在前面；普通标签保持相对顺序。
   const pinned: Tab[] = [];
   const regular: Tab[] = [];
 
@@ -98,6 +101,10 @@ function orderWorkspaceTabs(tabs: Tab[]) {
 }
 
 function normalizeDock(tab: Tab): Tab {
+  // 归一化/修复 Tab 的布局字段：
+  // - stack 必须是数组
+  // - 没有左侧内容时 leftWidthPercent 强制为 0（左面板彻底隐藏）
+  // - 只有在 base 存在时才允许 rightChatCollapsed（避免“空 base 仍折叠右侧”）
   const stack = Array.isArray(tab.stack) ? tab.stack : [];
   const hasLeftContent = Boolean(tab.base) || stack.length > 0;
   const leftWidthPercent = hasLeftContent
@@ -113,6 +120,7 @@ function normalizeDock(tab: Tab): Tab {
 }
 
 function updateTabById(tabs: Tab[], tabId: string, updater: (tab: Tab) => Tab) {
+  // immutable 更新指定 tab，保持数组引用变化以触发订阅更新。
   const index = tabs.findIndex((tab) => tab.id === tabId);
   if (index === -1) return tabs;
   const nextTabs = [...tabs];
@@ -129,6 +137,7 @@ export const useTabs = create<TabsState>()(
 
       addTab: (input) => {
         set((state) => {
+          // 新建标签：同时创建一个 chatSessionId（即使右侧暂时折叠）。
           const now = Date.now();
           const {
             createNew = false,
@@ -179,6 +188,10 @@ export const useTabs = create<TabsState>()(
 
       closeTab: (tabId) => {
         set((state) => {
+          // 关闭标签规则：
+          // - 固定标签不可关闭
+          // - 工作区至少保留 1 个标签
+          // - 如果关闭的是当前激活标签，回退到该工作区 lastActiveAt 最新的标签
           const tabToClose = state.tabs.find((tab) => tab.id === tabId);
           if (!tabToClose || tabToClose.isPin) return state;
 
@@ -210,6 +223,7 @@ export const useTabs = create<TabsState>()(
 
       setActiveTab: (tabId) => {
         set((state) => {
+          // 激活标签：更新 lastActiveAt，供 closeTab 做“最近使用”回退。
           const existing = state.tabs.find((tab) => tab.id === tabId);
           if (!existing) return state;
           const now = Date.now();
@@ -225,6 +239,9 @@ export const useTabs = create<TabsState>()(
 
       reorderTabs: (workspaceId, sourceTabId, targetTabId, position = "before") => {
         set((state) => {
+          // 拖拽排序：
+          // - 固定区/非固定区各自独立排序，禁止跨区混排
+          // - position 控制插入到目标前/后
           if (sourceTabId === targetTabId) return state;
 
           const workspaceTabs = orderWorkspaceTabs(state.tabs.filter((tab) => tab.workspaceId === workspaceId));
@@ -245,8 +262,10 @@ export const useTabs = create<TabsState>()(
           if (position === "after") targetIndex += 1;
 
           if (sourcePinned && !targetPinned) {
+            // 固定标签不能被拖到非固定区
             targetIndex = Math.min(targetIndex, Math.max(0, pinnedCount - 1));
           } else if (!sourcePinned && targetPinned) {
+            // 非固定标签不能被拖到固定区
             targetIndex = Math.max(targetIndex, pinnedCount);
           }
 
@@ -298,6 +317,7 @@ export const useTabs = create<TabsState>()(
             normalizeDock({
               ...tab,
               base,
+              // 当首次设置 base 时，如果之前 leftWidthPercent 为 0，则给一个默认宽度（让左栏出现）。
               leftWidthPercent: base ? tab.leftWidthPercent || LEFT_DOCK_DEFAULT_PERCENT : tab.leftWidthPercent,
             }),
           ),
@@ -343,7 +363,9 @@ export const useTabs = create<TabsState>()(
             normalizeDock({
               ...tab,
               chatSessionId,
+              // loadHistory 是一次性的“下一次是否补历史”的开关，由 Chat 侧消费。
               chatLoadHistory: options?.loadHistory,
+              // 切换 chatSession 时清空左侧 stack（避免旧的工具/页面残留在左侧栈里）。
               stack: [],
             }),
           ),
@@ -353,6 +375,7 @@ export const useTabs = create<TabsState>()(
       pushStackItem: (tabId, item, percent) => {
         set((state) => ({
           tabs: updateTabById(state.tabs, tabId, (tab) => {
+            // 左侧 stack：同 sourceKey/id 视为同一条目（upsert），用于“同一个来源的面板重复打开”。
             const nextTab = normalizeDock(tab);
             const key = item.sourceKey ?? item.id;
             const existingIndex = nextTab.stack.findIndex((s) => (s.sourceKey ?? s.id) === key);
@@ -369,6 +392,7 @@ export const useTabs = create<TabsState>()(
             return normalizeDock({
               ...nextTab,
               stack: nextStack,
+              // 打开 stack 时自动撑开左栏：如果传了 percent 用它，否则保持原值/回退默认值。
               leftWidthPercent: clampPercent(
                 Number.isFinite(percent)
                   ? percent!
@@ -426,7 +450,7 @@ export const useTabs = create<TabsState>()(
       storage: createJSONStorage(() => localStorage),
       version: 2,
       migrate: (persisted: any) => {
-        // MVP：清理历史字段（leftWidthPx -> leftWidthPercent）
+        // 存储迁移（v2）：清理历史字段（leftWidthPx -> leftWidthPercent）。
         const tabs = Array.isArray(persisted?.tabs) ? persisted.tabs : [];
         return {
           ...persisted,
@@ -445,6 +469,7 @@ export const useTabs = create<TabsState>()(
           }),
         };
       },
+      // 只落盘 tabs 与 activeTabId；toolPartsByTabId 属于运行时大对象，不持久化。
       partialize: (state) => ({ tabs: state.tabs, activeTabId: state.activeTabId }),
     },
   ),

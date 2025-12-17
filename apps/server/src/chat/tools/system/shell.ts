@@ -1,6 +1,6 @@
 import { tool, zodSchema } from "ai";
 import fs from "node:fs/promises";
-import type { SystemToolResult } from "./types";
+import type { SystemToolResult } from "@teatime-ai/api/types/toolResult";
 import {
   parseSimpleCommand,
   resolveInAllowedRoots,

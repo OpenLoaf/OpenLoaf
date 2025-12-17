@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import type { SystemToolResult } from "./types";
+import type { SystemToolResult } from "@teatime-ai/api/types/toolResult";
 import { resolveInAllowedRoots, readUtf8FileWithLimit } from "./utils";
 import { fileReadToolDef } from "@teatime-ai/api/types/tools/system";
 

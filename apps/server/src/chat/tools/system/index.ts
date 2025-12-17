@@ -3,7 +3,7 @@ import { shellDestructiveTool, shellReadonlyTool, shellWriteTool } from "./shell
 import { timeNowTool } from "./timeNow";
 import { webFetchTool } from "./webFetch";
 import { webSearchTool } from "./webSearch";
-import type { RiskType } from "./types";
+import type { RiskType } from "@teatime-ai/api/types/toolResult";
 
 /**
  * System Tools（MVP）

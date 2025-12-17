@@ -9,4 +9,3 @@ export function stableIdFromUrl(url: string) {
   }
   return `open-url:${Math.abs(hash)}`;
 }
-

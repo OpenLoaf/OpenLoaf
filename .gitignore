@@ -63,10 +63,10 @@ temp
 /.mcp.json.bak
 /.trae/rules/project_rules.md
 /.trae/rules/project_rules.md.bak
-/AGENTS.md
-/AGENTS.md.bak
-/CLAUDE.md
-/CLAUDE.md.bak
+AGENTS.md
+AGENTS.md.bak
+CLAUDE.md
+CLAUDE.md.bak
 /GEMINI.md
 # END Ruler Generated Files
 

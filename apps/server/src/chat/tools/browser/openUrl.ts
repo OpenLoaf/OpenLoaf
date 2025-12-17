@@ -1,7 +1,7 @@
 import type { DockItem } from "@teatime-ai/api/common";
 import { tool, zodSchema } from "ai";
 import { emitUiEvent, requireActiveTab } from "@/chat/ui/emit";
-import { stableIdFromUrl } from "@/chat/ui/ids";
+import { stableIdFromUrl } from "@teatime-ai/api/common";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 
 // ==========

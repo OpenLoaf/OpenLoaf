@@ -1,15 +1,18 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
 export function SettingsGroup({
   title,
   action,
   children,
+  showBorder,
 }: {
   title: string;
   action?: ReactNode;
   children: ReactNode;
+  showBorder?: boolean;
 }) {
   return (
     <section className="space-y-2">
@@ -18,7 +21,7 @@ export function SettingsGroup({
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
 
-      <div className="rounded-lg border border-border p-3">{children}</div>
+      <div className={showBorder ? "rounded-lg border border-border p-3":""}>{children}</div>
     </section>
   );
 }

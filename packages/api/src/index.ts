@@ -37,6 +37,7 @@ export * from "./types/workspace";
 export * from "./types/parts";
 export * from "./types/event";
 export * from "./types/message";
+export * from "./types/toolResult";
 export * from "./common";
 
 // Export workspace router components

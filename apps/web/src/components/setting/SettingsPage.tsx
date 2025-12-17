@@ -28,7 +28,7 @@ import { AccountSettings } from "./menus/AccountSettings";
 import { AboutTeatime } from "./menus/AboutTeatime";
 import { KeyManagement } from "./menus/KeyManagement";
 import { ModelManagement } from "./menus/ModelManagement";
-import { AgentManagement } from "./menus/AgentManagement";
+import { AgentManagement } from "./menus/agent/AgentManagement";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
 
@@ -67,10 +67,14 @@ export default function SettingsPage({
 }) {
   const [activeKey, setActiveKey] = useState<SettingsMenuKey>("basic");
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [menuAnimationEnabled, setMenuAnimationEnabled] = useState(true);
   const [openTooltipKey, setOpenTooltipKey] = useState<SettingsMenuKey | null>(
     null,
   );
   const containerRef = useRef<HTMLDivElement>(null);
+  const playedMenuAnimationRef = useRef(false);
+  const disableMenuAnimationTimeoutRef = useRef<number | null>(null);
+  const prevActiveKeyRef = useRef<SettingsMenuKey>(activeKey);
 
   const setTabMinLeftWidth = useTabs((s) => s.setTabMinLeftWidth);
   const activeTabId = useTabs((s) => s.activeTabId);
@@ -85,6 +89,31 @@ export default function SettingsPage({
     if (isActiveTab) return;
     setOpenTooltipKey(null);
   }, [isActiveTab]);
+
+  useEffect(() => {
+    const prevKey = prevActiveKeyRef.current;
+    prevActiveKeyRef.current = activeKey;
+    if (prevKey === activeKey) return;
+
+    if (!menuAnimationEnabled) return;
+    if (playedMenuAnimationRef.current) return;
+
+    // Only disable the menu transition after it has played once (i.e. after the first menu switch).
+    playedMenuAnimationRef.current = true;
+    disableMenuAnimationTimeoutRef.current = window.setTimeout(() => {
+      setMenuAnimationEnabled(false);
+      disableMenuAnimationTimeoutRef.current = null;
+    }, 220);
+  }, [activeKey, menuAnimationEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (disableMenuAnimationTimeoutRef.current) {
+        window.clearTimeout(disableMenuAnimationTimeoutRef.current);
+        disableMenuAnimationTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -184,17 +213,23 @@ export default function SettingsPage({
         <div className="min-w-[400px] flex-1">
           <ScrollArea className="h-full">
             <div className="p-3 pr-1">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={activeKey}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.18, ease: "easeOut" }}
-                >
+              {menuAnimationEnabled ? (
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={activeKey}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                  >
+                    <ActiveComponent />
+                  </motion.div>
+                </AnimatePresence>
+              ) : (
+                <div key={activeKey}>
                   <ActiveComponent />
-                </motion.div>
-              </AnimatePresence>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </div>
