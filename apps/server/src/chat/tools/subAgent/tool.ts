@@ -1,7 +1,7 @@
 import { createAgentUIStream, generateId, tool, zodSchema } from "ai";
 import type { UIMessage } from "ai";
 import { requestContextManager } from "@/context/requestContext";
-import { decideAgentMode } from "@/chat/agents/mode";
+import { decideAgentMode } from "@teatime-ai/api/common";
 import { getSubAgent } from "@/chat/agents/sub/registry";
 import { saveAndAppendMessage } from "@/chat/history";
 import { setSubAgentToolRef } from "./globals";

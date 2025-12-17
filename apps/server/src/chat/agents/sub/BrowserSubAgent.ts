@@ -1,6 +1,6 @@
 import { deepseek } from "@ai-sdk/deepseek";
 import { ToolLoopAgent } from "ai";
-import type { AgentMode } from "@/chat/agents/mode";
+import type { AgentMode } from "@teatime-ai/api/common";
 import { browserReadonlyTools, browserTools } from "@/chat/tools/browser";
 import { systemTools } from "@/chat/tools/system";
 import { subAgentTool } from "@/chat/tools/subAgent";

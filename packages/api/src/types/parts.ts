@@ -5,4 +5,3 @@
 
 export const CLIENT_CONTEXT_PART_TYPE = "data-client-context" as const;
 export const UI_EVENT_PART_TYPE = "data-ui-event" as const;
-

@@ -1,3 +1,3 @@
-export { decideAgentMode } from "./mode";
-export type { AgentMode } from "./mode";
+export { decideAgentMode } from "@teatime-ai/api/common";
+export type { AgentMode } from "@teatime-ai/api/common";
 export { MasterAgent } from "./MasterAgent";

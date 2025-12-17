@@ -12,7 +12,7 @@ import { requestContextManager } from "@/context/requestContext";
 import { MasterAgent, decideAgentMode } from "@/chat/agents";
 import { saveAndAppendMessage } from "@/chat/history";
 import type { ChatRequestBody, TokenUsageMessage } from "@/chat/types";
-import { CLIENT_CONTEXT_PART_TYPE } from "@/chat/ui/parts";
+import { CLIENT_CONTEXT_PART_TYPE } from "@teatime-ai/api/types/parts";
 import {
   appendStreamChunk,
   finalizeActiveStream,

@@ -1,7 +1,7 @@
 import type { Tab } from "@teatime-ai/api/common";
 import { requestContextManager } from "@/context/requestContext";
-import { UI_EVENT_PART_TYPE } from "./parts";
-import type { UiEvent } from "./types";
+import { UI_EVENT_PART_TYPE } from "@teatime-ai/api/types/parts";
+import type { UiEvent } from "@teatime-ai/api/types/event";
 
 // ==========
 // MVP：唯一出口：通过 writer.write 往前端推 UI 事件

@@ -1,4 +1,4 @@
-import type { AgentMode } from "@/chat/agents/mode";
+import type { AgentMode } from "@teatime-ai/api/common";
 import type { AgentFrame } from "@/context/requestContext";
 import type { ToolSet } from "ai";
 

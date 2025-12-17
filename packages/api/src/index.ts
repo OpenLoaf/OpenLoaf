@@ -34,6 +34,8 @@ export * from "../generated/routers/helpers/createRouter";
 
 // Export custom types
 export * from "./types/workspace";
+export * from "./types/parts";
+export * from "./types/event";
 export * from "./common";
 
 // Export workspace router components

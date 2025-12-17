@@ -1,6 +1,6 @@
 "use client";
 
-import { UI_EVENT_PART_TYPE } from "@teatime-ai/api/common";
+import { UI_EVENT_PART_TYPE } from "@teatime-ai/api/types/parts";
 import { useTabs } from "@/hooks/use-tabs";
 
 export function handleChatDataPart({

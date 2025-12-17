@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
   User,
   Info,
+  Keyboard,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -27,8 +28,16 @@ import { AboutTeatime } from "./menus/AboutTeatime";
 import { KeyManagement } from "./menus/KeyManagement";
 import { ModelManagement } from "./menus/ModelManagement";
 import { AgentManagement } from "./menus/AgentManagement";
+import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 
-type SettingsMenuKey = "basic" | "account" | "about" | "models" | "keys" | "agents";
+type SettingsMenuKey =
+  | "basic"
+  | "account"
+  | "about"
+  | "models"
+  | "keys"
+  | "agents"
+  | "shortcuts";
 
 const MENU: Array<{
   key: SettingsMenuKey;
@@ -41,6 +50,7 @@ const MENU: Array<{
   { key: "models", label: "模型管理", Icon: Boxes, Component: ModelManagement },
   { key: "keys", label: "密钥管理", Icon: KeyRound, Component: KeyManagement },
   { key: "agents", label: "Agent管理", Icon: Bot, Component: AgentManagement },
+  { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
   { key: "about", label: "关于Teatime", Icon: Info, Component: AboutTeatime },
 ];
 
@@ -93,7 +103,7 @@ export default function SettingsPage({
     return [
       [byKey.get("basic"), byKey.get("account")].filter(Boolean),
       [byKey.get("models"), byKey.get("keys"), byKey.get("agents")].filter(Boolean),
-      [byKey.get("about")].filter(Boolean),
+      [byKey.get("shortcuts"), byKey.get("about")].filter(Boolean),
     ] as Array<typeof MENU>;
   }, []);
 

@@ -1,7 +1,7 @@
 import { deepseek } from "@ai-sdk/deepseek";
 import { ToolLoopAgent } from "ai";
 import { requestContextManager, type AgentFrame } from "@/context/requestContext";
-import type { AgentMode } from "./mode";
+import type { AgentMode } from "@teatime-ai/api/common";
 import { createToolsByMode } from "./tools";
 
 const MASTER_AGENT_NAME = "master";

@@ -4,7 +4,7 @@ import { browserReadonlyTools, browserTools } from "@/chat/tools/browser";
 import { dbTools } from "@/chat/tools/db";
 import { subAgentToolRef } from "@/chat/tools/subAgent";
 import { requestContextManager } from "@/context/requestContext";
-import type { AgentMode } from "@/chat/agents/mode";
+import type { AgentMode } from "@teatime-ai/api/common";
 import { ToolLoopAgent, stepCountIs } from "ai";
 import { deepseek } from "@ai-sdk/deepseek";
 import type { SubAgent } from "./SubAgent";
