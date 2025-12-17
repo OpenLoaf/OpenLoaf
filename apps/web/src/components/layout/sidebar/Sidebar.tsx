@@ -132,7 +132,7 @@ export const AppSidebar = ({
               <Search />
               <span className="flex-1 truncate">搜索</span>
               <span className="ml-auto group-data-[collapsible=icon]:hidden">
-                <KbdGroup className="gap-0">
+                <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">K</Kbd>
                 </KbdGroup>
@@ -156,7 +156,7 @@ export const AppSidebar = ({
               <CalendarDays />
               <span className="flex-1 truncate">日历</span>
               <span className="ml-auto group-data-[collapsible=icon]:hidden">
-                <KbdGroup className="gap-0">
+                <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">L</Kbd>
                 </KbdGroup>
@@ -180,7 +180,7 @@ export const AppSidebar = ({
               <Sparkles />
               <span className="flex-1 truncate">AI助手</span>
               <span className="ml-auto group-data-[collapsible=icon]:hidden">
-                <KbdGroup className="gap-0">
+                <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">J</Kbd>
                 </KbdGroup>
@@ -204,7 +204,7 @@ export const AppSidebar = ({
               <Inbox />
               <span className="flex-1 truncate">收集箱</span>
               <span className="ml-auto group-data-[collapsible=icon]:hidden">
-                <KbdGroup className="gap-0">
+                <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">I</Kbd>
                 </KbdGroup>

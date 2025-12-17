@@ -90,7 +90,7 @@ export function Search({
         return;
       }
 
-      if (event.shiftKey && key === "c") {
+      if (key === "l") {
         event.preventDefault();
         event.stopPropagation();
         openSingletonTab({
@@ -102,7 +102,7 @@ export function Search({
         return;
       }
 
-      if (event.shiftKey && key === "b") {
+      if (key === "i") {
         event.preventDefault();
         event.stopPropagation();
         openSingletonTab({
@@ -114,7 +114,7 @@ export function Search({
         return;
       }
 
-      if (event.shiftKey && key === "a") {
+      if (key === "j") {
         event.preventDefault();
         event.stopPropagation();
         openSingletonTab({
@@ -164,10 +164,9 @@ export function Search({
             <CalendarDays className="h-5 w-5" />
             <span>日历</span>
             <CommandShortcut>
-              <KbdGroup>
+              <KbdGroup className="gap-1">
                 <Kbd>⌘</Kbd>
-                <Kbd>⇧</Kbd>
-                <Kbd>C</Kbd>
+                <Kbd>L</Kbd>
               </KbdGroup>
             </CommandShortcut>
           </CommandItem>
@@ -185,10 +184,9 @@ export function Search({
             <Inbox className="h-5 w-5" />
             <span>收集箱</span>
             <CommandShortcut>
-              <KbdGroup>
+              <KbdGroup className="gap-1">
                 <Kbd>⌘</Kbd>
-                <Kbd>⇧</Kbd>
-                <Kbd>B</Kbd>
+                <Kbd>I</Kbd>
               </KbdGroup>
             </CommandShortcut>
           </CommandItem>
@@ -206,10 +204,9 @@ export function Search({
             <Sparkles className="h-5 w-5" />
             <span>AI助手</span>
             <CommandShortcut>
-              <KbdGroup>
+              <KbdGroup className="gap-1">
                 <Kbd>⌘</Kbd>
-                <Kbd>⇧</Kbd>
-                <Kbd>A</Kbd>
+                <Kbd>J</Kbd>
               </KbdGroup>
             </CommandShortcut>
           </CommandItem>
