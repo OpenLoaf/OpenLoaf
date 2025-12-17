@@ -9,6 +9,7 @@ import ToolResultPanel from "@/components/tools/ToolResultPanel";
 import SettingsPage from "@/components/setting/SettingsPage";
 import CalendarPage from "@/components/calendar/Calendar";
 import InboxPage from "@/components/inbox/Inbox";
+import TemplatePage from "@/components/template/Template";
 
 /**
  * 组件名称到组件的映射关系
@@ -22,6 +23,7 @@ export const ComponentMap: Record<string, React.ComponentType<any>> = {
   "settings-page": SettingsPage,
   "calendar-page": CalendarPage,
   "inbox-page": InboxPage,
+  "template-page": TemplatePage,
 };
 
 /**
@@ -45,6 +47,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Calendar";
     case "inbox-page":
       return "Inbox";
+    case "template-page":
+      return "Template";
     default:
       // 如果没有匹配的标题，直接返回组件名称
       return componentName;

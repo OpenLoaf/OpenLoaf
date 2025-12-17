@@ -13,7 +13,7 @@ import {
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
-import { CalendarDays, Inbox, Sparkles } from "lucide-react";
+import { CalendarDays, Inbox, LayoutTemplate, Sparkles } from "lucide-react";
 
 export function Search({
   open,
@@ -62,6 +62,7 @@ export function Search({
         createNew: true,
         title: input.title,
         icon: input.icon,
+        leftWidthPercent: 70,
         base: {
           id: input.baseId,
           component: input.component,
@@ -122,6 +123,18 @@ export function Search({
           component: "ai-chat",
           title: "AI助手",
           icon: "✨",
+        });
+        return;
+      }
+
+      if (key === "t") {
+        event.preventDefault();
+        event.stopPropagation();
+        openSingletonTab({
+          baseId: "base:template",
+          component: "template-page",
+          title: "模版",
+          icon: "📄",
         });
       }
     };
@@ -207,6 +220,26 @@ export function Search({
               <KbdGroup className="gap-1">
                 <Kbd>⌘</Kbd>
                 <Kbd>J</Kbd>
+              </KbdGroup>
+            </CommandShortcut>
+          </CommandItem>
+          <CommandItem
+            value="template"
+            onSelect={() =>
+              openSingletonTab({
+                baseId: "base:template",
+                component: "template-page",
+                title: "模版",
+                icon: "📄",
+              })
+            }
+          >
+            <LayoutTemplate className="h-5 w-5" />
+            <span>模版</span>
+            <CommandShortcut>
+              <KbdGroup className="gap-1">
+                <Kbd>⌘</Kbd>
+                <Kbd>T</Kbd>
               </KbdGroup>
             </CommandShortcut>
           </CommandItem>

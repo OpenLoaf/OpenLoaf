@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/animate-ui/components/radix/sidebar";
-import { CalendarDays, Inbox, Search, Sparkles } from "lucide-react";
+import { CalendarDays, Inbox, LayoutTemplate, Search, Sparkles } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Search as SearchDialog } from "@/components/search/Search";
@@ -45,6 +45,7 @@ export const AppSidebar = ({
         createNew: true,
         title: input.title,
         icon: input.icon,
+        leftWidthPercent: 100,
         base: input.component === 'ai-chat' ?  undefined:{ id: input.baseId, component: input.component },
       });
     },
@@ -107,6 +108,18 @@ export const AppSidebar = ({
           title: "AI助手",
           icon: "✨",
         });
+        return;
+      }
+
+      if (key === "t") {
+        event.preventDefault();
+        setSearchOpen(false);
+        openSingletonTab({
+          baseId: "base:template",
+          component: "template-page",
+          title: "模版",
+          icon: "📄",
+        });
       }
     };
 
@@ -135,6 +148,30 @@ export const AppSidebar = ({
                 <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">K</Kbd>
+                </KbdGroup>
+              </span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="模版"
+              className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              onClick={() =>
+                openSingletonTab({
+                  baseId: "base:template",
+                  component: "template-page",
+                  title: "模版",
+                  icon: "📄",
+                })
+              }
+              type="button"
+            >
+              <LayoutTemplate />
+              <span className="flex-1 truncate">模版</span>
+              <span className="ml-auto group-data-[collapsible=icon]:hidden">
+                <KbdGroup className="gap-1">
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">T</Kbd>
                 </KbdGroup>
               </span>
             </SidebarMenuButton>

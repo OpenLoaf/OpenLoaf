@@ -136,7 +136,8 @@ export function TabLayout({
       // reserve divider width; otherwise right side can end up smaller than RIGHT_CHAT_MIN_PX.
       const maxLeft = Math.max(minLeft, containerWidth - RIGHT_CHAT_MIN_PX - targetDividerWidth);
 
-      const storedLeftPx = (storedLeftWidthPercent / 100) * containerWidth;
+      // storedLeftWidthPercent is relative to left panel's max width, not the full container.
+      const storedLeftPx = (storedLeftWidthPercent / 100) * maxLeft;
       const targetPx = Math.max(minLeft, Math.min(storedLeftPx, maxLeft));
       targetSplitPercent = (targetPx / containerWidth) * 100;
     } else {
@@ -182,8 +183,15 @@ export function TabLayout({
     setIsDragging(false);
     e.currentTarget.releasePointerCapture(e.pointerId);
 
-    const currentPercent = splitPercent.get();
-    if (activeTabId) setTabLeftWidthPercent(activeTabId, Math.round(currentPercent * 10) / 10);
+    const container = containerRef.current;
+    if (!container || !activeTabId) return;
+
+    const rect = container.getBoundingClientRect();
+    const minLeft = effectiveMinLeft;
+    const maxLeft = Math.max(minLeft, rect.width - RIGHT_CHAT_MIN_PX - targetDividerWidth);
+    const currentLeftPx = (splitPercent.get() / 100) * rect.width;
+    const nextPercentOfMax = (currentLeftPx / maxLeft) * 100;
+    setTabLeftWidthPercent(activeTabId, Math.round(nextPercentOfMax * 10) / 10);
   };
 
   const isDividerHidden = targetDividerWidth === 0;
