@@ -1,21 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { ExternalLink } from "lucide-react";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 
 type ElectrronBrowserWindowProps = {
   panelKey: string;
   url?: string;
-  autoOpen?: boolean;
   className?: string;
 };
 
 function normalizeUrl(raw: string): string {
-  const value = raw.trim();
+  const value = raw?.trim();
   if (!value) return "";
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value)) return value;
   if (/^localhost(:\d+)?(\/|$)/.test(value)) return `http://${value}`;
@@ -25,59 +21,28 @@ function normalizeUrl(raw: string): string {
 export default function ElectrronBrowserWindow({
   panelKey,
   url,
-  autoOpen,
   className,
 }: ElectrronBrowserWindowProps) {
   const tabActive = useTabActive();
   const isElectron = useMemo(
     () =>
       process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-      (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron")),
+      (typeof navigator !== "undefined" &&
+        navigator.userAgent.includes("Electron")),
     []
   );
 
-  const initialUrl = useMemo(() => normalizeUrl(url ?? "https://www.baidu.com"), [url]);
-  const [address, setAddress] = useState(initialUrl);
+  const targetUrl = useMemo(
+    () => normalizeUrl(url ?? "https://www.baidu.com"),
+    [url]
+  );
+
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const lastSentRef = useRef<
-    { url: string; bounds: TeatimeViewBounds; visible: boolean } | null
-  >(null);
-
-  const canOpen = Boolean(normalizeUrl(address));
-
-  const open = useCallback(async () => {
-    const target = normalizeUrl(address);
-    if (!target) return;
-
-    const api = window.teatimeElectron;
-    if (!isElectron || !api?.upsertWebContentsView) {
-      window.open(target, "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    const host = hostRef.current;
-    if (!host) return;
-
-    const rect = host.getBoundingClientRect();
-    const bounds: TeatimeViewBounds = {
-      x: Math.round(rect.left),
-      y: Math.round(rect.top),
-      width: Math.max(0, Math.round(rect.width)),
-      height: Math.max(0, Math.round(rect.height)),
-    };
-
-    await api.upsertWebContentsView({
-      key: panelKey,
-      url: target,
-      bounds,
-      visible: true,
-    });
-  }, [address, isElectron, panelKey]);
-
-  useEffect(() => {
-    if (!autoOpen) return;
-    void open();
-  }, [autoOpen, open]);
+  const lastSentRef = useRef<{
+    url: string;
+    bounds: TeatimeViewBounds;
+    visible: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const api = window.teatimeElectron;
@@ -88,20 +53,20 @@ export default function ElectrronBrowserWindow({
       const host = hostRef.current;
       if (!host) return;
 
-      const target = normalizeUrl(address);
-      if (!target) return;
+      if (!targetUrl) return;
 
       const rect = host.getBoundingClientRect();
-      const next: { url: string; bounds: TeatimeViewBounds; visible: boolean } = {
-        url: target,
-        visible,
-        bounds: {
-          x: Math.round(rect.left),
-          y: Math.round(rect.top),
-          width: Math.max(0, Math.round(rect.width)),
-          height: Math.max(0, Math.round(rect.height)),
-        },
-      };
+      const next: { url: string; bounds: TeatimeViewBounds; visible: boolean } =
+        {
+          url: targetUrl,
+          visible,
+          bounds: {
+            x: Math.round(rect.left),
+            y: Math.round(rect.top),
+            width: Math.max(0, Math.round(rect.width)),
+            height: Math.max(0, Math.round(rect.height)),
+          },
+        };
 
       const prev = lastSentRef.current;
       const changed =
@@ -145,7 +110,7 @@ export default function ElectrronBrowserWindow({
       window.cancelAnimationFrame(rafId);
       void sync(false);
     };
-  }, [address, isElectron, panelKey, tabActive]);
+  }, [targetUrl, isElectron, panelKey, tabActive]);
 
   useEffect(() => {
     const api = window.teatimeElectron;
@@ -157,51 +122,22 @@ export default function ElectrronBrowserWindow({
   }, [isElectron, panelKey]);
 
   return (
-    <div className={cn("flex h-full w-full flex-col gap-2 p-2", className)}>
-      <div className="text-xs text-muted-foreground">
-        Embed current URL via Electron `WebContentsView`.
-      </div>
-
-      <form
-        className="flex min-w-0 items-center gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void open();
-        }}
-      >
-        <Input
-          data-no-drag="true"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="Enter URL (e.g. https://openai.com)"
-          className="h-8"
-          spellCheck={false}
-          autoCapitalize="off"
-          autoCorrect="off"
-          inputMode="url"
-        />
-        <Button
-          data-no-drag="true"
-          size="sm"
-          variant="secondary"
-          type="submit"
-          className="h-8"
-          disabled={!canOpen}
-        >
-          <ExternalLink className="h-4 w-4" />
-        </Button>
-      </form>
-
+    <div
+      className={cn(
+        "flex h-full w-full flex-col overflow-hidden bg-background",
+        className
+      )}
+    >
       {isElectron ? (
         <div
           ref={hostRef}
-          className="relative min-h-0 flex-1 overflow-hidden rounded-md border bg-background"
+          className="relative min-h-0 flex-1 overflow-hidden"
         />
       ) : (
         <iframe
           title="Browser"
-          src={normalizeUrl(address)}
-          className="min-h-0 flex-1 w-full rounded-md border"
+          src={targetUrl}
+          className="min-h-0 flex-1 w-full border-0"
           sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
         />
       )}

@@ -33,10 +33,9 @@ export const shellReadonlyTool = tool({
     SystemToolResult<{ stdout: string; stderr: string; exitCode: number }>
   > => {
     try {
-      // 示例：从请求上下文中获取sessionId和cookie
+      // 示例：从请求上下文中获取 sessionId（MVP 日志）
       const sessionId = requestContextManager.getSessionId();
-      const tabsStorageCookie = requestContextManager.getCookie("tabs-storage");
-      console.log("当前请求上下文:", { sessionId, tabsStorageCookie });
+      console.log("当前请求上下文:", { sessionId });
 
       const parts = parseSimpleCommand(input.cmd);
       const command = parts[0]!;

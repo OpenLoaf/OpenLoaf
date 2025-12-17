@@ -3,6 +3,8 @@ import "../index.css";
 import Providers from "@/components/layout/Providers";
 import { Toaster } from "@/components/ui/sonner";
 import ServerConnectionGate from "@/components/layout/ServerConnectionGate";
+import { DisableRefresh } from "@/components/layout/DisableRefresh";
+import { DisableLinks } from "@/components/layout/DisableLinks";
 
 export const metadata: Metadata = {
   title: "teatime-ai",
@@ -17,6 +19,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
+        <DisableRefresh />
+        <DisableLinks />
         <Providers>
           <ServerConnectionGate>
             <div className="grid grid-rows-[auto_1fr] h-svh">{children}</div>

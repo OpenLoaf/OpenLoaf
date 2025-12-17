@@ -1,4 +1,4 @@
-import { createAgentUIStreamResponse } from "ai";
+import { createAgentUIStream, createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import type { UIMessage } from "ai";
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
@@ -10,7 +10,24 @@ import {
   initActiveStream,
 } from "./sse.streams";
 import type { ChatRequestBody, TokenUsageMessage } from "./types";
-import { createAgent } from "./tools-config";
+import { createMainAgent } from "./tools-config";
+import type { Tab } from "@teatime-ai/api/types/tabs";
+
+const CLIENT_CONTEXT_PART_TYPE = "data-client-context" as const;
+
+function extractActiveTab(message: UIMessage | undefined): Tab | undefined {
+  const parts = (message as any)?.parts;
+  if (!Array.isArray(parts)) return undefined;
+  const ctxPart = parts.find((p: any) => p?.type === CLIENT_CONTEXT_PART_TYPE);
+  return ctxPart?.data?.activeTab as Tab | undefined;
+}
+
+function decideAgentMode(activeTab: Tab | undefined) {
+  // MVP：仅用 base.component 判断场景；后续可扩展更细的路由策略
+  const component = activeTab?.base?.component;
+  if (component === "settings-page") return "settings" as const;
+  return "project" as const;
+}
 
 /**
  * POST `/chat/sse`
@@ -43,9 +60,8 @@ export function registerChatSseCreateRoute(app: Hono) {
       ? incomingMessages[incomingMessages.length - 1]
       : undefined;
 
-    // Extract activeTab from metadata
-    const activeTab = (lastIncomingMessage as any)?.metadata?.activeTab;
-    console.log("==activeTab==", activeTab);
+    // 关键：从 user message 的 data-client-context 里拿 activeTab（MVP）
+    const activeTab = extractActiveTab(lastIncomingMessage);
 
     // 初始化请求上下文：后续 tools / agent 内部调用可拿到 sessionId、cookie、activeTab 等信息
     requestContextManager.createContext({
@@ -59,30 +75,19 @@ export function registerChatSseCreateRoute(app: Hono) {
       incomingMessage: lastIncomingMessage,
     });
 
-    const agent = createAgent();
+    const mode = decideAgentMode(activeTab);
+    const agent = createMainAgent(mode);
 
-    return createAgentUIStreamResponse({
-      agent,
+    const stream = createUIMessageStream({
+      // 持久化模式：把历史消息作为 originalMessages，最终 responseMessage 可用于落库
+      originalMessages: messages as any[],
       onError: (error) => {
-        console.error("Agent error:", error);
+        console.error("UI stream error:", error);
         return "An error occurred.";
-      },
-      // 将 DB 还原出来的完整历史传给 agent
-      messages: messages as any[],
-      // execute: ({})
-      messageMetadata: ({ part }) => {
-        // 当生成完成时发送完整的 token 使用信息
-        if (part.type === "finish") {
-          return {
-            totalUsage: part.totalUsage,
-          };
-        }
       },
       // 流式结束后：记录 token 使用情况，并把 AI 返回的最终消息落库（含 usage）。
       onFinish: async ({ isAborted, messages, responseMessage }) => {
-        if (isAborted) {
-          return;
-        }
+        if (isAborted) return;
 
         const lastMessage = messages[messages.length - 1] as TokenUsageMessage;
         const usage =
@@ -100,10 +105,7 @@ export function registerChatSseCreateRoute(app: Hono) {
           });
         }
 
-        // 只保存 AI 的最终回复（MVP）；若需要保存整个 messages，可扩展为批量写入。
-        if (responseMessage?.role !== "assistant") {
-          return;
-        }
+        if (responseMessage?.role !== "assistant") return;
 
         const messageToSave: UIMessage = usage
           ? {
@@ -115,11 +117,34 @@ export function registerChatSseCreateRoute(app: Hono) {
             }
           : responseMessage;
 
-        await saveAndAppendMessage({
-          sessionId,
-          incomingMessage: messageToSave,
-        });
+        await saveAndAppendMessage({ sessionId, incomingMessage: messageToSave });
       },
+      execute: async ({ writer }) => {
+        // 关键：把 writer 放进请求上下文，tools 执行时可 writer 自定义事件给前端
+        requestContextManager.setUIWriter(writer as any);
+
+        const agentStream = await createAgentUIStream({
+          agent,
+          // 将 DB 还原出来的完整历史传给 agent
+          messages: messages as any[],
+          onError: (error) => {
+            console.error("Agent error:", error);
+            return "An error occurred.";
+          },
+          messageMetadata: ({ part }) => {
+            // 当生成完成时发送完整的 token 使用信息
+            if (part.type === "finish") {
+              return { totalUsage: part.totalUsage };
+            }
+          },
+        });
+
+        writer.merge(agentStream as any);
+      },
+    });
+
+    return createUIMessageStreamResponse({
+      stream,
       consumeSseStream: ({ stream }) => {
         const streamId = sessionId;
 
@@ -134,15 +159,11 @@ export function registerChatSseCreateRoute(app: Hono) {
             while (true) {
               const { done, value } = await reader.read();
               if (done) {
-                console.log("Stream done");
                 finalizeActiveStream(streamId);
                 return;
               }
 
-              if (typeof value !== "string") {
-                console.warn("Unexpected stream chunk type:", typeof value);
-                continue;
-              }
+              if (typeof value !== "string") continue;
 
               // 写入“可续传的历史”并广播给所有跟随 SSE 客户端
               appendStreamChunk(streamId, value);

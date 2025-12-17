@@ -6,7 +6,8 @@ import {
   type Tab,
 } from "@teatime-ai/api/types/tabs";
 
-export const TABS_STORAGE_KEY = "tabs-storage";
+// MVP：不再使用历史的 storage key（不需要兼容老数据）。
+export const TABS_STORAGE_KEY = "teatime:tabs";
 
 export const LEFT_DOCK_MIN_PX = 360;
 export const LEFT_DOCK_DEFAULT_PX = 480;

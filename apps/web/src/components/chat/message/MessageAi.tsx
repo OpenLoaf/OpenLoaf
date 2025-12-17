@@ -7,6 +7,21 @@ import remarkGfm from "remark-gfm";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./MessageTool";
 
+// 修复 CJK 环境下 markdown 自动链接识别错误的问题（例如 "https://example.com）。" 会被误识别）
+// 在 URL 和全角符号/CJK字符之间插入空格
+function preprocessText(text: string) {
+  if (!text) return text;
+  // 匹配 URL 后紧跟全角字符或 CJK 字符的情况
+  // 排除掉 URL 本身可能包含的字符，然后检测是否紧跟了 CJK 范围的字符
+  // \u4e00-\u9fa5: 常见汉字
+  // \u3000-\u303f: CJK 标点
+  // \uff00-\uffef: 全角字符
+  return text.replace(
+    /(https?:\/\/[^\s\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]+)([\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef])/g,
+    "$1 $2"
+  );
+}
+
 interface MessageAiProps {
   message: UIMessage;
   className?: string;
@@ -44,7 +59,7 @@ export default function MessageAi({ message, className }: MessageAiProps) {
                   remarkPlugins={[remarkGfm]}
                   components={markdownComponents}
                 >
-                  {part.text}
+                  {preprocessText(part.text)}
                 </ReactMarkdown>
               </div>
             );

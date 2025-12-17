@@ -4,7 +4,6 @@
 import React from "react";
 import PlantPage from "@/components/project/Project";
 import { Chat } from "@/components/chat/Chat";
-import ElectronBrowser from "@/components/browser/ElectronBrowser";
 import ElectrronBrowserWindow from "@/components/browser/ElectrronBrowserWindow";
 import ToolResultPanel from "@/components/tools/ToolResultPanel";
 import SettingsPage from "@/components/setting/SettingsPage";
@@ -16,7 +15,6 @@ import SettingsPage from "@/components/setting/SettingsPage";
 export const ComponentMap: Record<string, React.ComponentType<any>> = {
   "ai-chat": Chat, // AI聊天组件
   "plant-page": PlantPage, // 植物页面组件
-  "electron-browser": ElectronBrowser, // 内置浏览器组件
   "electron-browser-window": ElectrronBrowserWindow, // 新窗口浏览器组件
   "tool-result": ToolResultPanel,
   "settings-page": SettingsPage,
@@ -33,8 +31,6 @@ export const getPanelTitle = (componentName: string) => {
       return "AI Chat";
     case "plant-page":
       return "Plant";
-    case "electron-browser":
-      return "Browser";
     case "electron-browser-window":
       return "Browser Window";
     case "tool-result":

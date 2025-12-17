@@ -204,7 +204,8 @@ export function TabLayout({
         className="relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden"
         style={{
           width: useTransform(splitPercent, (v) => `${v}%`),
-          minWidth: effectiveMinLeft,
+          // 关键：左侧不可见时必须允许宽度为 0，否则 minWidth 会“顶开”右侧聊天区。
+          minWidth: isLeftVisible ? effectiveMinLeft : 0,
         }}
         animate={{ opacity: isLeftVisible ? 1 : 0 }}
         transition={
@@ -218,7 +219,12 @@ export function TabLayout({
             <TabLayer key={`left:${tab.id}`} active={tab.id === activeTabId}>
               <div 
                 className="h-full w-full min-h-0 min-w-0"
-                style={{ minWidth: tab.minLeftWidth ?? LEFT_DOCK_MIN_PX }}
+                style={{
+                  // 关键：隐藏左栏时不要再强制最小宽度，避免布局被撑开。
+                  minWidth: isLeftVisible
+                    ? (tab.minLeftWidth ?? LEFT_DOCK_MIN_PX)
+                    : 0,
+                }}
               >
                 <LeftDock tabId={tab.id} />
               </div>

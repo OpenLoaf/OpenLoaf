@@ -58,7 +58,7 @@ class RequestContextManager {
   }
 
   getWorkspaceId(): string | undefined {
-    // 优先用前端传来的 activeTab（去耦 tabs-storage / cookie 依赖）
+    // 优先用前端传来的 activeTab（去耦历史持久化 key / cookie 依赖）
     return this.getContext()?.activeTab?.workspaceId ?? this.getCookie("workspace-id");
   }
 

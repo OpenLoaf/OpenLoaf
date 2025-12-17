@@ -12,6 +12,8 @@ import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 
 const CLIENT_STREAM_CLIENT_ID_STORAGE_KEY = "teatime:chat:sse-client-id";
+const CLIENT_CONTEXT_PART_TYPE = "data-client-context";
+const UI_EVENT_PART_TYPE = "data-ui-event";
 
 function getStableClientStreamClientId() {
   if (typeof window === "undefined") return "";
@@ -48,6 +50,8 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   selectSession: (sessionId: string) => void;
   /** 更新单个消息的方法（同时写回 history query cache，确保切回时仍是最新） */
   updateMessage: (id: string, updates: Partial<UIMessage>) => void;
+  /** 当前聊天所属的 Tab ID */
+  tabId?: string;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -158,20 +162,18 @@ export default function ChatProvider({
         const { tabs, activeTabId } = useTabs.getState();
         const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
+        const rawLastMessage = messages[messages.length - 1] as any;
         const lastMessage = {
-          ...messages[messages.length - 1],
-          metadata: {
-                activeTab: activeTab
-                  ? {
-                      id: activeTab.id,
-                      workspaceId: activeTab.workspaceId,
-                      title: activeTab.title,
-                      icon: activeTab.icon,
-                      chatSessionId: activeTab.chatSessionId,
-                }
-              : null,
-          },
-        };
+          ...rawLastMessage,
+          // 关键：通过 data part 把当前 tab 传给后端（服务端可用于 agent 路由/权限/工具）
+          parts: [
+            ...(Array.isArray(rawLastMessage?.parts) ? rawLastMessage.parts : []),
+            {
+              type: CLIENT_CONTEXT_PART_TYPE,
+              data: { activeTab: activeTab ?? null },
+            },
+          ],
+        } as any;
 
         return {
           body: {
@@ -201,6 +203,15 @@ export default function ChatProvider({
       resume: true,
       transport,
       onData: (dataPart: any) => {
+        // MVP：只处理后端通过 Streaming Custom Data 推来的 UI 事件
+        if (dataPart?.type === UI_EVENT_PART_TYPE) {
+          const event = dataPart?.data;
+          if (event?.kind === "push-stack-item" && event?.tabId && event?.item) {
+            useTabs.getState().pushStackItem(event.tabId, event.item);
+          }
+          return;
+        }
+
         if (!tabId) return;
         switch (dataPart?.type) {
           case "tool-input-start": {
@@ -350,6 +361,7 @@ export default function ChatProvider({
         newSession,
         selectSession,
         updateMessage,
+        tabId,
       }}
     >
       {children}

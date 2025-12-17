@@ -2,14 +2,14 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
-import { X } from "lucide-react";
+import { X, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
 import { useTabs } from "@/hooks/use-tabs";
 import type { DockItem } from "@teatime-ai/api/types/tabs";
 
-function renderDockItem(tabId: string, item: DockItem) {
+function renderDockItem(tabId: string, item: DockItem, refreshKey = 0) {
   const Component = ComponentMap[item.component];
   if (!Component) {
     return (
@@ -27,7 +27,12 @@ function renderDockItem(tabId: string, item: DockItem) {
       transition={{ duration: 0.15 }}
       className="h-full w-full"
     >
-      <Component panelKey={item.id} tabId={tabId} {...(item.params ?? {})} />
+      <Component
+        key={refreshKey > 0 ? `${item.id}-${refreshKey}` : undefined}
+        panelKey={item.id}
+        tabId={tabId}
+        {...(item.params ?? {})}
+      />
     </motion.div>
   );
 }
@@ -47,18 +52,22 @@ function PanelFrame({
   fillHeight: boolean;
   floating: boolean;
 }) {
+  const [refreshKey, setRefreshKey] = React.useState(0);
+
   return (
     <div
       className={cn(
         "overflow-hidden",
-        floating ? "rounded-xl border border-border shadow-2xl" : "rounded-none border-0 shadow-none",
-        fillHeight && "h-full w-full",
+        floating
+          ? "rounded-xl border border-border shadow-2xl"
+          : "rounded-none border-0 shadow-none",
+        fillHeight && "h-full w-full"
       )}
     >
       <div
         className={cn(
           "flex w-full flex-col bg-background/95 backdrop-blur-sm",
-          fillHeight && "h-full",
+          fillHeight && "h-full"
         )}
       >
         <div className="shrink-0 border-b bg-background/70 backdrop-blur-sm">
@@ -67,7 +76,20 @@ function PanelFrame({
               <span className="truncate">{title}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setRefreshKey((k) => k + 1)}
+                aria-label="Refresh"
+              >
+                <RotateCw className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onClose}
+                aria-label="Close"
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -75,7 +97,7 @@ function PanelFrame({
         </div>
 
         <div className={cn("p-2", fillHeight && "min-h-0 flex-1")}>
-          {renderDockItem(tabId, item)}
+          {renderDockItem(tabId, item, refreshKey)}
         </div>
       </div>
     </div>
