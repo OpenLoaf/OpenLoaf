@@ -1,4 +1,4 @@
-import type { Tab } from "@teatime-ai/api/types/tabs";
+import type { Tab } from "@teatime-ai/api/common";
 import { requestContextManager } from "@/context/requestContext";
 import { UI_EVENT_PART_TYPE } from "./parts";
 import type { UiEvent } from "./types";
@@ -20,4 +20,3 @@ export function emitUiEvent(event: UiEvent) {
   // 关键：transient=true，避免把 UI 操作写进 message 历史（仅用于驱动 UI）
   writer.write({ type: UI_EVENT_PART_TYPE, data: event, transient: true } as any);
 }
-

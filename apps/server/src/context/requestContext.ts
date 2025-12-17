@@ -1,4 +1,4 @@
-import type { Tab } from "@teatime-ai/api/types/tabs";
+import type { Tab } from "@teatime-ai/api/common";
 import type { UIMessageStreamWriter } from "ai";
 import { AsyncLocalStorage } from "node:async_hooks";
 

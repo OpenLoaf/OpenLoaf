@@ -39,7 +39,7 @@ export interface Tab {
 
   createdAt: number;
   lastActiveAt: number;
-}
+};
 
 export const DEFAULT_TAB_INFO = {
   title: "Ai Chat",

@@ -1,12 +1,9 @@
+"use client";
+
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import {
-  DEFAULT_TAB_INFO,
-  type DockItem,
-  type Tab,
-} from "@teatime-ai/api/types/tabs";
+import { DEFAULT_TAB_INFO, type DockItem, type Tab } from "@teatime-ai/api/common";
 
-// MVP：不再使用历史的 storage key（不需要兼容老数据）。
 export const TABS_STORAGE_KEY = "teatime:tabs";
 
 export const LEFT_DOCK_MIN_PX = 360;
@@ -91,11 +88,8 @@ function orderWorkspaceTabs(tabs: Tab[]) {
   const regular: Tab[] = [];
 
   for (const tab of tabs) {
-    if (tab.isPin) {
-      pinned.push(tab);
-    } else {
-      regular.push(tab);
-    }
+    if (tab.isPin) pinned.push(tab);
+    else regular.push(tab);
   }
 
   return [...pinned, ...regular];
@@ -105,9 +99,7 @@ function normalizeDock(tab: Tab): Tab {
   const stack = Array.isArray(tab.stack) ? tab.stack : [];
   const hasLeftContent = Boolean(tab.base) || stack.length > 0;
   const leftWidthPercent = hasLeftContent
-    ? clampPercent(
-        tab.leftWidthPercent > 0 ? tab.leftWidthPercent : LEFT_DOCK_DEFAULT_PERCENT,
-      )
+    ? clampPercent(tab.leftWidthPercent > 0 ? tab.leftWidthPercent : LEFT_DOCK_DEFAULT_PERCENT)
     : 0;
 
   return {
@@ -118,11 +110,7 @@ function normalizeDock(tab: Tab): Tab {
   };
 }
 
-function updateTabById(
-  tabs: Tab[],
-  tabId: string,
-  updater: (tab: Tab) => Tab,
-) {
+function updateTabById(tabs: Tab[], tabId: string, updater: (tab: Tab) => Tab) {
   const index = tabs.findIndex((tab) => tab.id === tabId);
   if (index === -1) return tabs;
   const nextTabs = [...tabs];
@@ -154,12 +142,8 @@ export const useTabs = create<TabsState>()(
           } = input;
 
           const tabId = generateId("tab");
-          // 关键约定：tabId 与 chatSessionId 解耦（随机生成、互不推导）。
-          // 这样同一个资源也可以在不同 tab 中拥有独立会话（未来扩展用）。
-          const createdChatSessionId =
-            requestedChatSessionId ?? generateId("chat");
-          const createdChatLoadHistory =
-            chatLoadHistory ?? Boolean(requestedChatSessionId);
+          const createdChatSessionId = requestedChatSessionId ?? generateId("chat");
+          const createdChatLoadHistory = chatLoadHistory ?? Boolean(requestedChatSessionId);
 
           const nextTab = normalizeDock({
             id: tabId,
@@ -193,9 +177,7 @@ export const useTabs = create<TabsState>()(
           const tabToClose = state.tabs.find((tab) => tab.id === tabId);
           if (!tabToClose || tabToClose.isPin) return state;
 
-          const workspaceTabs = state.tabs.filter(
-            (tab) => tab.workspaceId === tabToClose.workspaceId,
-          );
+          const workspaceTabs = state.tabs.filter((tab) => tab.workspaceId === tabToClose.workspaceId);
           if (workspaceTabs.length <= 1) return state;
 
           const nextTabs = state.tabs.filter((tab) => tab.id !== tabId);
@@ -204,13 +186,10 @@ export const useTabs = create<TabsState>()(
 
           let nextActiveTabId = state.activeTabId;
           if (state.activeTabId === tabId) {
-            const remaining = nextTabs.filter(
-              (tab) => tab.workspaceId === tabToClose.workspaceId,
-            );
+            const remaining = nextTabs.filter((tab) => tab.workspaceId === tabToClose.workspaceId);
             const fallback =
               remaining.reduce<Tab | null>(
-                (best, tab) =>
-                  !best || tab.lastActiveAt > best.lastActiveAt ? tab : best,
+                (best, tab) => (!best || tab.lastActiveAt > best.lastActiveAt ? tab : best),
                 null,
               ) ?? null;
             nextActiveTabId = fallback?.id ?? null;
@@ -229,10 +208,7 @@ export const useTabs = create<TabsState>()(
           const existing = state.tabs.find((tab) => tab.id === tabId);
           if (!existing) return state;
           const now = Date.now();
-          const nextTabs = updateTabById(state.tabs, tabId, (tab) => ({
-            ...tab,
-            lastActiveAt: now,
-          }));
+          const nextTabs = updateTabById(state.tabs, tabId, (tab) => ({ ...tab, lastActiveAt: now }));
           return { tabs: nextTabs, activeTabId: tabId };
         });
       },
@@ -246,9 +222,7 @@ export const useTabs = create<TabsState>()(
         set((state) => {
           if (sourceTabId === targetTabId) return state;
 
-          const workspaceTabs = orderWorkspaceTabs(
-            state.tabs.filter((tab) => tab.workspaceId === workspaceId),
-          );
+          const workspaceTabs = orderWorkspaceTabs(state.tabs.filter((tab) => tab.workspaceId === workspaceId));
           const pinnedCount = workspaceTabs.filter((tab) => tab.isPin).length;
 
           const fromIndex = workspaceTabs.findIndex((tab) => tab.id === sourceTabId);
@@ -272,9 +246,7 @@ export const useTabs = create<TabsState>()(
           }
 
           const lowerBound = sourcePinned ? 0 : pinnedCount;
-          const upperBound = sourcePinned
-            ? Math.max(pinnedCount - 1, 0)
-            : reordered.length;
+          const upperBound = sourcePinned ? Math.max(pinnedCount - 1, 0) : reordered.length;
           const boundedIndex = Math.max(lowerBound, Math.min(targetIndex, upperBound));
           reordered.splice(boundedIndex, 0, moved!);
 
@@ -292,13 +264,9 @@ export const useTabs = create<TabsState>()(
           const target = state.tabs.find((tab) => tab.id === tabId);
           if (!target) return state;
 
-          const updatedTabs = state.tabs.map((tab) =>
-            tab.id === tabId ? { ...tab, isPin } : tab,
-          );
+          const updatedTabs = state.tabs.map((tab) => (tab.id === tabId ? { ...tab, isPin } : tab));
 
-          const workspaceTabs = orderWorkspaceTabs(
-            updatedTabs.filter((tab) => tab.workspaceId === target.workspaceId),
-          );
+          const workspaceTabs = orderWorkspaceTabs(updatedTabs.filter((tab) => tab.workspaceId === target.workspaceId));
           const workspaceQueue = [...workspaceTabs];
           const nextTabs = updatedTabs.map((tab) =>
             tab.workspaceId !== target.workspaceId ? tab : (workspaceQueue.shift() as Tab),
@@ -314,9 +282,7 @@ export const useTabs = create<TabsState>()(
             normalizeDock({
               ...tab,
               base,
-              leftWidthPercent: base
-                ? tab.leftWidthPercent || LEFT_DOCK_DEFAULT_PERCENT
-                : tab.leftWidthPercent,
+              leftWidthPercent: base ? tab.leftWidthPercent || LEFT_DOCK_DEFAULT_PERCENT : tab.leftWidthPercent,
             }),
           ),
         }));
@@ -360,7 +326,6 @@ export const useTabs = create<TabsState>()(
           tabs: updateTabById(state.tabs, tabId, (tab) =>
             normalizeDock({
               ...tab,
-              // tab 内切换会话：清空 stack（工具/资源 overlay 属于旧会话上下文），保留 base（项目面板）。
               chatSessionId,
               chatLoadHistory: options?.loadHistory,
               stack: [],
@@ -373,12 +338,8 @@ export const useTabs = create<TabsState>()(
         set((state) => ({
           tabs: updateTabById(state.tabs, tabId, (tab) => {
             const nextTab = normalizeDock(tab);
-            // 去重键：优先用 sourceKey（例如 toolCallId），否则回退到 item.id。
-            // 同一个结果重复出现时更新并保持顺序稳定，避免 stack 无限增长。
             const key = item.sourceKey ?? item.id;
-            const existingIndex = nextTab.stack.findIndex(
-              (s) => (s.sourceKey ?? s.id) === key,
-            );
+            const existingIndex = nextTab.stack.findIndex((s) => (s.sourceKey ?? s.id) === key);
 
             const nextStack =
               existingIndex === -1
@@ -392,10 +353,7 @@ export const useTabs = create<TabsState>()(
             return normalizeDock({
               ...nextTab,
               stack: nextStack,
-              leftWidthPercent:
-                nextTab.leftWidthPercent > 0
-                  ? nextTab.leftWidthPercent
-                  : LEFT_DOCK_DEFAULT_PERCENT,
+              leftWidthPercent: nextTab.leftWidthPercent > 0 ? nextTab.leftWidthPercent : LEFT_DOCK_DEFAULT_PERCENT,
             });
           }),
         }));
@@ -427,10 +385,7 @@ export const useTabs = create<TabsState>()(
         set((state) => {
           const current = state.toolPartsByTabId[tabId] ?? {};
           return {
-            toolPartsByTabId: {
-              ...state.toolPartsByTabId,
-              [tabId]: { ...current, [key]: part },
-            },
+            toolPartsByTabId: { ...state.toolPartsByTabId, [tabId]: { ...current, [key]: part } },
           };
         });
       },
@@ -446,46 +401,29 @@ export const useTabs = create<TabsState>()(
     }),
     {
       name: TABS_STORAGE_KEY,
-      version: 3,
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        tabs: state.tabs.map(normalizeDock),
-        activeTabId: state.activeTabId,
-      }),
-      migrate: (persisted, version) => {
-        if (version === 3) return persisted as any;
-
-        const viewportWidth =
-          typeof document !== "undefined"
-            ? document.documentElement.clientWidth || window.innerWidth
-            : 0;
-
-        const raw = persisted as any;
-        const tabs: any[] = Array.isArray(raw?.tabs) ? raw.tabs : [];
-        const migratedTabs = tabs.map((tab) => {
-          const hasLeftContent =
-            Boolean(tab?.base) || (Array.isArray(tab?.stack) && tab.stack.length > 0);
-
-          const legacyPx = Number(tab?.leftWidthPx);
-          const legacyPercent =
-            viewportWidth > 0 && Number.isFinite(legacyPx)
-              ? clampPercent((legacyPx / viewportWidth) * 100)
-              : 0;
-
-          return {
-            ...tab,
-            leftWidthPercent: hasLeftContent
+      version: 2,
+      migrate: (persisted: any) => {
+        // MVP：清理历史字段（leftWidthPx -> leftWidthPercent）
+        const tabs = Array.isArray(persisted?.tabs) ? persisted.tabs : [];
+        return {
+          ...persisted,
+          tabs: tabs.map((tab: any) => {
+            const stack = Array.isArray(tab?.stack) ? tab.stack : [];
+            const hasLeftContent = Boolean(tab?.base) || stack.length > 0;
+            const legacyPx = Number(tab?.leftWidthPx);
+            const leftWidthPercent = hasLeftContent
               ? (Number.isFinite(tab?.leftWidthPercent)
                   ? clampPercent(tab.leftWidthPercent)
-                  : legacyPercent > 0
-                    ? legacyPercent
+                  : Number.isFinite(legacyPx)
+                    ? LEFT_DOCK_DEFAULT_PERCENT
                     : LEFT_DOCK_DEFAULT_PERCENT)
-              : 0,
-          };
-        });
-
-        return { tabs: migratedTabs, activeTabId: raw?.activeTabId ?? null };
+              : 0;
+            return normalizeDock({ ...tab, stack, leftWidthPercent } as Tab);
+          }),
+        };
       },
+      partialize: (state) => ({ tabs: state.tabs, activeTabId: state.activeTabId }),
     },
   ),
 );

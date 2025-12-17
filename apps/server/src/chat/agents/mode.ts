@@ -1,4 +1,4 @@
-import type { Tab } from "@teatime-ai/api/types/tabs";
+import type { Tab } from "@teatime-ai/api/common";
 
 export type AgentMode = "project" | "settings";
 
@@ -8,4 +8,3 @@ export function decideAgentMode(activeTab: Tab | undefined): AgentMode {
   if (component === "settings-page") return "settings";
   return "project";
 }
-

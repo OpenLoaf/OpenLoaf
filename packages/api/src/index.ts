@@ -34,7 +34,7 @@ export * from "../generated/routers/helpers/createRouter";
 
 // Export custom types
 export * from "./types/workspace";
-export * from "./types/tabs";
+export * from "./common";
 
 // Export workspace router components
 export { BaseWorkspaceRouter, workspaceSchemas };

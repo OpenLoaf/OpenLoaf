@@ -12,7 +12,7 @@ import { Chat } from "@/components/chat/Chat";
 import { useTabs, LEFT_DOCK_MIN_PX } from "@/hooks/use-tabs";
 import { LeftDock } from "./LeftDock";
 import { TabActiveProvider } from "./TabActiveContext";
-import type { Tab } from "@teatime-ai/api/types/tabs";
+import type { Tab } from "@teatime-ai/api/common";
 
 const RIGHT_CHAT_MIN_PX = 360;
 const DIVIDER_GAP_PX = 10;

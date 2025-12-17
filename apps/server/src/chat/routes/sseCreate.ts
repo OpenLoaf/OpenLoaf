@@ -6,7 +6,7 @@ import {
 import type { UIMessage } from "ai";
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
-import type { Tab } from "@teatime-ai/api/types/tabs";
+import type { Tab } from "@teatime-ai/api/common";
 import { requestContextManager } from "@/context/requestContext";
 import { createMainAgent, decideAgentMode } from "@/chat/agents";
 import { saveAndAppendMessage } from "@/chat/history";
@@ -170,4 +170,3 @@ export function registerChatSseCreateRoute(app: Hono) {
     });
   });
 }
-

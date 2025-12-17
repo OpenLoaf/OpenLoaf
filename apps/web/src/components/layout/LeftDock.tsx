@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
 import { useTabs } from "@/hooks/use-tabs";
-import type { DockItem } from "@teatime-ai/api/types/tabs";
+import type { DockItem } from "@teatime-ai/api/common";
 
 function renderDockItem(tabId: string, item: DockItem, refreshKey = 0) {
   const Component = ComponentMap[item.component];

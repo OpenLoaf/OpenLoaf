@@ -1,4 +1,4 @@
-import type { DockItem } from "@teatime-ai/api/types/tabs";
+import type { DockItem } from "@teatime-ai/api/common";
 import { tool, zodSchema } from "ai";
 import { z } from "zod";
 import { emitUiEvent, requireActiveTab } from "@/chat/ui/emit";
@@ -44,4 +44,3 @@ export const openUrlTool = tool({
     return { ok: true };
   },
 });
-

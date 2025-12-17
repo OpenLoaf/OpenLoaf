@@ -11,14 +11,15 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useTabs } from "@/hooks/use-tabs";
-import { KeyRound, Boxes, SlidersHorizontal } from "lucide-react";
+import { KeyRound, Boxes, SlidersHorizontal, User } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { BasicSettings } from "./menus/BasicSettings";
+import { AccountSettings } from "./menus/AccountSettings";
 import { KeyManagement } from "./menus/KeyManagement";
 import { ModelManagement } from "./menus/ModelManagement";
 
-type SettingsMenuKey = "basic" | "models" | "keys";
+type SettingsMenuKey = "basic" | "account" | "models" | "keys";
 
 const MENU: Array<{
   key: SettingsMenuKey;
@@ -27,6 +28,7 @@ const MENU: Array<{
   Component: ComponentType;
 }> = [
   { key: "basic", label: "基础设置", Icon: SlidersHorizontal, Component: BasicSettings },
+  { key: "account", label: "账户", Icon: User, Component: AccountSettings },
   { key: "models", label: "模型管理", Icon: Boxes, Component: ModelManagement },
   { key: "keys", label: "密钥管理", Icon: KeyRound, Component: KeyManagement },
 ];

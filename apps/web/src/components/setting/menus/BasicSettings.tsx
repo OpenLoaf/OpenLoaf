@@ -6,10 +6,13 @@ import { Switch } from "@/components/animate-ui/components/radix/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggler } from "@/components/layout/ThemeProvider";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type FontSizeKey = "small" | "medium" | "large";
 const FONT_SIZE_STORAGE_KEY = "teatime:font-size";
 const CUSTOM_RULES_STORAGE_KEY = "teatime:custom-rules";
+const LOCAL_STORAGE_DIR_STORAGE_KEY = "teatime:local-storage-dir";
+const AUTO_BACKUP_DIR_STORAGE_KEY = "teatime:auto-backup-dir";
 
 export function BasicSettings() {
   const { theme, resolvedTheme, setTheme } = useTheme();
@@ -21,6 +24,8 @@ export function BasicSettings() {
   const [fontSize, setFontSize] = useState<FontSizeKey>("medium");
   const [savedCustomRules, setSavedCustomRules] = useState("");
   const [customRules, setCustomRules] = useState("");
+  const [localStorageDir, setLocalStorageDir] = useState("");
+  const [autoBackupDir, setAutoBackupDir] = useState("");
   useEffect(() => {
     const stored = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
     if (stored === "small" || stored === "medium" || stored === "large") {
@@ -34,6 +39,13 @@ export function BasicSettings() {
     const stored = localStorage.getItem(CUSTOM_RULES_STORAGE_KEY) ?? "";
     setSavedCustomRules(stored);
     setCustomRules(stored);
+  }, []);
+
+  useEffect(() => {
+    setLocalStorageDir(
+      localStorage.getItem(LOCAL_STORAGE_DIR_STORAGE_KEY) ?? "",
+    );
+    setAutoBackupDir(localStorage.getItem(AUTO_BACKUP_DIR_STORAGE_KEY) ?? "");
   }, []);
 
   useEffect(() => {
@@ -59,6 +71,38 @@ export function BasicSettings() {
         const isAutoTheme = effective === "system";
         const themeTabsValue = resolved;
         const isCustomRulesDirty = customRules !== savedCustomRules;
+
+        const pickDirectory = async ({
+          storageKey,
+          currentValue,
+          setValue,
+          promptLabel,
+        }: {
+          storageKey: string;
+          currentValue: string;
+          setValue: (value: string) => void;
+          promptLabel: string;
+        }) => {
+          const showDirectoryPicker = (window as any)
+            .showDirectoryPicker as undefined | (() => Promise<any>);
+
+          if (typeof showDirectoryPicker === "function") {
+            try {
+              const handle = await showDirectoryPicker();
+              const next = String(handle?.name ?? "");
+              setValue(next);
+              localStorage.setItem(storageKey, next);
+              return;
+            } catch {
+              return;
+            }
+          }
+
+          const manual = window.prompt(promptLabel, currentValue);
+          if (manual === null) return;
+          setValue(manual);
+          localStorage.setItem(storageKey, manual);
+        };
 
         return (
           <div className="space-y-4">
@@ -128,6 +172,72 @@ export function BasicSettings() {
                       <TabsTrigger value="large">大</TabsTrigger>
                     </TabsList>
                   </Tabs>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border p-3">
+              <div className="divide-y divide-border">
+                <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="min-w-0 sm:w-56">
+                    <div className="text-sm font-medium">本地文件存储路径</div>
+                    <div className="text-xs text-muted-foreground">
+                      用于保存导出文件等本地内容
+                    </div>
+                  </div>
+
+                  <div className="flex flex-1 items-center gap-2">
+                    <Input
+                      value={localStorageDir}
+                      readOnly
+                      placeholder="未选择"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        pickDirectory({
+                          storageKey: LOCAL_STORAGE_DIR_STORAGE_KEY,
+                          currentValue: localStorageDir,
+                          setValue: setLocalStorageDir,
+                          promptLabel: "请输入本地文件存储路径",
+                        })
+                      }
+                    >
+                      选择
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="min-w-0 sm:w-56">
+                    <div className="text-sm font-medium">自动备份文件夹路径</div>
+                    <div className="text-xs text-muted-foreground">
+                      备份文件的保存位置
+                    </div>
+                  </div>
+
+                  <div className="flex flex-1 items-center gap-2">
+                    <Input
+                      value={autoBackupDir}
+                      readOnly
+                      placeholder="未选择"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        pickDirectory({
+                          storageKey: AUTO_BACKUP_DIR_STORAGE_KEY,
+                          currentValue: autoBackupDir,
+                          setValue: setAutoBackupDir,
+                          promptLabel: "请输入自动备份文件夹路径",
+                        })
+                      }
+                    >
+                      选择
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

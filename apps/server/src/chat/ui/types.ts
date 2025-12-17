@@ -1,4 +1,4 @@
-import type { DockItem, Tab } from "@teatime-ai/api/types/tabs";
+import type { DockItem, Tab } from "@teatime-ai/api/common";
 
 // ==========
 // MVP：前端 -> 后端的上下文（通过 data-client-context 传递）
@@ -18,4 +18,3 @@ export type UiEvent =
       tabId: string;
       item: DockItem;
     };
-
