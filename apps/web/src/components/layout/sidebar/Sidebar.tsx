@@ -16,7 +16,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Search as SearchDialog } from "@/components/search/Search";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
-import { DEFAULT_TAB_INFO } from "@teatime-ai/api/common/tabs/types";
+import { DEFAULT_TAB_INFO } from "@teatime-ai/api/common";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 
 export const AppSidebar = ({

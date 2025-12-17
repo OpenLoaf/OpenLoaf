@@ -9,6 +9,8 @@ export type DockItem = {
   title?: string;
   /** Optional de-dupe key (e.g. toolCallId). */
   sourceKey?: string;
+  
+  denyClose?: boolean;
 };
 
 export interface Tab {

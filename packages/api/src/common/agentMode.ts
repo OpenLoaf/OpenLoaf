@@ -1,4 +1,4 @@
-import type { Tab } from "./tabs/types";
+import type { Tab } from "./tabs";
 
 export type AgentMode = "project" | "settings";
 

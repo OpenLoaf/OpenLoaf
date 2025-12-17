@@ -252,6 +252,18 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
   if (keyLower === "w" && withMod) {
     event.preventDefault();
     const state = useTabs.getState();
-    if (state.activeTabId) state.closeTab(state.activeTabId);
+    const tabId = state.activeTabId;
+    if (!tabId) return;
+
+    const tab = state.getTabById(tabId);
+    const stack = Array.isArray(tab?.stack) ? tab.stack : [];
+    const top = stack.at(-1);
+
+    if (top) {
+      if (top.denyClose !== true) state.removeStackItem(tabId, top.id);
+      return;
+    }
+
+    state.closeTab(tabId);
   }
 }

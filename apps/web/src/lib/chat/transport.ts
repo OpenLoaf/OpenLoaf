@@ -3,14 +3,14 @@
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "@ai-sdk/react";
 import { CLIENT_CONTEXT_PART_TYPE } from "@teatime-ai/api/types/parts";
-import type { MutableRefObject } from "react";
+import type { RefObject } from "react";
 import { useTabs } from "@/hooks/use-tabs";
 import { getStableClientStreamClientId } from "./streamClientId";
 
 export function createChatTransport({
   paramsRef,
 }: {
-  paramsRef: MutableRefObject<Record<string, unknown> | undefined>;
+  paramsRef: RefObject<Record<string, unknown> | undefined>;
 }) {
   const apiBase = `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`;
 

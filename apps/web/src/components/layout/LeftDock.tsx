@@ -53,6 +53,7 @@ function PanelFrame({
   floating: boolean;
 }) {
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const canClose = item.denyClose !== true;
 
   return (
     <div
@@ -84,14 +85,11 @@ function PanelFrame({
               >
                 <RotateCw className="h-4 w-4" />
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={onClose}
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              {canClose ? (
+                <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close">
+                  <X className="h-4 w-4" />
+                </Button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -122,7 +120,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
       <div
         className={cn(
           "h-full w-full p-2 transition-all duration-200",
-          hasOverlay && "pointer-events-none select-none blur-sm opacity-80",
+          hasOverlay && "pointer-events-none select-none blur-sm opacity-80"
         )}
       >
         {base ? (
@@ -136,11 +134,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
             fillHeight
             floating={false}
           />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-            No project
-          </div>
-        )}
+        ) : null}
       </div>
 
       {hasOverlay
@@ -160,7 +154,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
                 key={item.id}
                 className={cn(
                   "absolute",
-                  isTop ? "pointer-events-auto" : "pointer-events-none",
+                  isTop ? "pointer-events-auto" : "pointer-events-none"
                 )}
                 style={{ zIndex: 10 + index }}
                 initial={{

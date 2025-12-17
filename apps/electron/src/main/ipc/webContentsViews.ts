@@ -9,6 +9,86 @@ export type UpsertWebContentsViewArgs = {
 };
 
 const viewMapsByWindowId = new Map<number, Map<string, WebContentsView>>();
+const shortcutBridgeInstalled = new WeakSet<WebContentsView>();
+
+/**
+ * Convert `before-input-event`'s `input.key` into an Electron `sendInputEvent`
+ * `keyCode` that works well with accelerators (e.g. `'w'` -> `'W'`).
+ */
+function toAcceleratorKeyCode(key: string): string {
+  if (!key) return '';
+  if (key.length === 1) return key.toUpperCase();
+  return key;
+}
+
+/**
+ * Decide which shortcuts should be "owned" by the host app even when the
+ * embedded WebContentsView is focused.
+ *
+ * Problem this solves:
+ * - When WebContentsView has focus, Electron's default menu/window shortcuts
+ *   can run and override the app's own shortcut handling.
+ * - On macOS, `Cmd+W` commonly closes tabs in apps, but Electron may close the
+ *   entire BrowserWindow if the embedded view is focused.
+ *
+ * We keep this allowlist small to avoid breaking normal website shortcuts.
+ */
+function shouldForwardShortcut(input: Electron.Input): boolean {
+  const key = input.key?.toLowerCase();
+  if (!key) return false;
+
+  const cmdOrCtrl = process.platform === 'darwin' ? input.meta : input.control;
+  if (!cmdOrCtrl) return false;
+
+  // Keep this list minimal and focused on app-level shortcuts that would
+  // otherwise fall back to the default Electron window/menu behaviors.
+  return key === 'w';
+}
+
+/**
+ * Install a "shortcut bridge" for a given embedded view:
+ * - intercepts specific shortcuts in the view
+ * - prevents Electron default handling (menu/window)
+ * - re-dispatches the same keyboard event to the host renderer so the app's
+ *   shortcut system continues to work even when the embedded view is focused
+ */
+function installShortcutBridge(win: BrowserWindow, view: WebContentsView) {
+  if (shortcutBridgeInstalled.has(view)) return;
+  shortcutBridgeInstalled.add(view);
+
+  view.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' && input.type !== 'keyUp') return;
+    if (!shouldForwardShortcut(input)) return;
+
+    // Prevent default page key handling and Electron menu shortcuts (e.g. Cmd+W
+    // closing the window), then re-dispatch to the host renderer so the app's
+    // own shortcut handler can run even when the embedded view is focused.
+    event.preventDefault();
+
+    const keyCode = toAcceleratorKeyCode(input.key);
+    if (!keyCode) return;
+
+    const modifiers: Array<
+      | 'shift'
+      | 'control'
+      | 'ctrl'
+      | 'alt'
+      | 'meta'
+      | 'command'
+      | 'cmd'
+    > = [];
+    if (input.shift) modifiers.push('shift');
+    if (input.control) modifiers.push('control');
+    if (input.alt) modifiers.push('alt');
+    if (input.meta) modifiers.push(process.platform === 'darwin' ? 'command' : 'meta');
+
+    win.webContents.sendInputEvent({
+      type: input.type,
+      keyCode,
+      modifiers,
+    });
+  });
+}
 
 /**
  * 将 bounds 规整为安全值（取整、非负），避免传入 NaN/负值导致渲染异常或崩溃。
@@ -123,6 +203,8 @@ export function upsertWebContentsView(
   let view = map.get(key);
 
   if (!view) {
+    // Each embedded panel is its own WebContentsView. Once created, we keep it
+    // alive and only update bounds / URL.
     view = new WebContentsView({
       webPreferences: {
         contextIsolation: true,
@@ -132,6 +214,9 @@ export function upsertWebContentsView(
     });
     map.set(key, view);
     win.contentView.addChildView(view);
+    // Install once per view; this prevents app-level shortcuts (e.g. Cmd+W)
+    // from being hijacked by the embedded web contents.
+    installShortcutBridge(win, view);
   }
 
   try {
