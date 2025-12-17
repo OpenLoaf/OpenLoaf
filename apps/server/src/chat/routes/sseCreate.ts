@@ -2,6 +2,7 @@ import {
   createAgentUIStream,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  generateId,
 } from "ai";
 import type { UIMessage } from "ai";
 import type { Hono } from "hono";
@@ -122,6 +123,8 @@ export function registerChatSseCreateRoute(app: Hono) {
         const agentStream = await createAgentUIStream({
           agent,
           messages: messages as any[],
+          // 关键：服务端生成 messageId，确保可用于 DB 主键（Phase B）
+          generateMessageId: generateId,
           onError: (error) => {
             console.error("Agent error:", error);
             return "An error occurred.";

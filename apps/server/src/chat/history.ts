@@ -171,50 +171,65 @@ export async function saveAndAppendMessage({
     });
 
     if (incomingMessage) {
-      const role = toMessageRole(incomingMessage.role);
-      const parts = normalizeParts(incomingMessage);
+      // messageId 必须由应用侧提供（与 DB 主键一致）
+      if (!incomingMessage.id) {
+        throw new Error("incomingMessage.id is required.");
+      }
 
-      // 取上一条消息，用于串联 previousMessageId（便于追溯）。
-      const previous = await tx.chatMessage.findFirst({
-        where: { sessionId },
-        orderBy: { createdAt: "desc" },
+      // 关键：幂等写入，避免断线重试/重复 onFinish 导致重复消息
+      const existing = await tx.chatMessage.findUnique({
+        where: { id: incomingMessage.id },
         select: { id: true },
       });
+      if (existing) {
+        // 已保存过：直接走读取历史流程
+      } else {
+        const role = toMessageRole(incomingMessage.role);
+        const parts = normalizeParts(incomingMessage);
 
-      await tx.chatMessage.create({
-        data: {
-          sessionId,
-          previousMessageId: previous?.id ?? null,
-          role,
-          // UIMessage.metadata -> ChatMessage.meta
-          meta: (incomingMessage as AnyUIMessage).metadata ?? undefined,
-          parts: {
-            create: parts.map((part, index) => {
-              const type =
-                part && typeof part === "object" && "type" in part
-                  ? String((part as { type: unknown }).type)
-                  : "unknown";
-              return {
-                index,
-                type,
-                // 整个 part 作为 JSON 存起来，方便完整还原 UIMessage.parts
-                state: part as any,
-              };
-            }),
+        // 取上一条消息，用于串联 previousMessageId（便于追溯）。
+        const previous = await tx.chatMessage.findFirst({
+          where: { sessionId },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
+        });
+
+        await tx.chatMessage.create({
+          data: {
+            id: incomingMessage.id,
+            sessionId,
+            previousMessageId: previous?.id ?? null,
+            role,
+            // UIMessage.metadata -> ChatMessage.meta
+            meta: (incomingMessage as AnyUIMessage).metadata ?? undefined,
+            parts: {
+              create: parts.map((part, index) => {
+                const type =
+                  part && typeof part === "object" && "type" in part
+                    ? String((part as { type: unknown }).type)
+                    : "unknown";
+                return {
+                  index,
+                  type,
+                  // 整个 part 作为 JSON 存起来，方便完整还原 UIMessage.parts
+                  state: part as any,
+                };
+              }),
+            },
           },
-        },
-      });
+        });
 
-      // 如果是第一条消息（previous 为空）且是用户消息，直接提取文本作为标题
-      if (!previous && role === MessageRoleEnum.USER) {
-        const userText = extractUserText(incomingMessage);
-        if (userText) {
-          const title = normalizeTitle(userText);
-          if (title) {
-            await tx.chatSession.update({
-              where: { id: sessionId },
-              data: { title },
-            });
+        // 如果是第一条消息（previous 为空）且是用户消息，直接提取文本作为标题
+        if (!previous && role === MessageRoleEnum.USER) {
+          const userText = extractUserText(incomingMessage);
+          if (userText) {
+            const title = normalizeTitle(userText);
+            if (title) {
+              await tx.chatSession.update({
+                where: { id: sessionId },
+                data: { title },
+              });
+            }
           }
         }
       }

@@ -1,4 +1,4 @@
-import { createAgentUIStream, tool, zodSchema } from "ai";
+import { createAgentUIStream, generateId, tool, zodSchema } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
 import { requestContextManager } from "@/context/requestContext";
@@ -83,6 +83,8 @@ export const subAgentTool = tool({
     const stream = await createAgentUIStream({
       agent,
       messages: messages as any[],
+      // 关键：服务端生成 messageId，确保可用于 DB 主键（Phase B）
+      generateMessageId: generateId,
       onError: () => "SubAgent error.",
       messageMetadata: ({ part }) => {
         if (part.type === "finish") {

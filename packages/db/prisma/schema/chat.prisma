@@ -1,5 +1,5 @@
 model ChatSession {
-  id           String        @id @default(cuid())
+  id           String        @id
   title        String        @default("新对话") /// @zod.min(1)
   agents       Json? /// @zod.optional()
   systemPrompt String? /// @zod.optional()
@@ -19,7 +19,7 @@ model ChatSession {
 }
 
 model ChatMessage {
-  id                String            @id @default(cuid())
+  id                String            @id
   sessionId         String
   previousMessageId String?
   role              MessageRole       @default(USER)
