@@ -1,0 +1,55 @@
+import { deepseek } from "@ai-sdk/deepseek";
+import { ToolLoopAgent } from "ai";
+import { requestContextManager, type AgentFrame } from "@/context/requestContext";
+import type { AgentMode } from "./mode";
+import { createToolsByMode } from "./tools";
+import { listSubAgentNames } from "./sub/registry";
+
+const MASTER_AGENT_NAME = "master";
+const MASTER_MAX_DEPTH = 4;
+
+function buildMasterInstructions(mode: AgentMode) {
+  const workspaceId = requestContextManager.getWorkspaceId();
+  const activeTab = requestContextManager.getContext()?.activeTab;
+
+  return `
+你是 Teatime 的AI助手。
+- 你的职责：理解用户意图、选择合适的工具/子 agent 来完成任务。
+- 返回必须是 Markdown。
+- 除非用户明确要求，否则不要把工具返回的原始数据直接贴给用户。
+
+权限范围：
+- mode=${mode}
+- project 模式：允许查询项目数据，并可通过 open_url 在当前 Tab 打开网页。
+- settings 模式：不允许操作项目数据，也不允许触发网页打开（仅做设置相关的答疑/指导）。
+
+当前 workspaceId：${workspaceId ?? "unknown"}
+当前 tabId：${activeTab?.id ?? "unknown"}
+当前页面：${activeTab?.base?.component ?? "unknown"}
+`;
+}
+
+// 关键：MasterAgent 用面向对象封装“配置 + tools + instructions”
+export class MasterAgent {
+  constructor(readonly mode: AgentMode) {}
+
+  createAgent() {
+    return new ToolLoopAgent({
+      model: deepseek("deepseek-chat"),
+      instructions: buildMasterInstructions(this.mode),
+      tools: createToolsByMode(this.mode),
+    });
+  }
+
+  // 关键：用于 subAgent 递归检测与前端标识
+  createFrame(): AgentFrame {
+    return {
+      kind: "master",
+      name: MASTER_AGENT_NAME,
+      allowedSubAgents: listSubAgentNames(),
+      maxDepth: MASTER_MAX_DEPTH,
+      path: [MASTER_AGENT_NAME],
+    };
+  }
+}
+

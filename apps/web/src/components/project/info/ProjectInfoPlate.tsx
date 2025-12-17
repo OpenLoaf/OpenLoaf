@@ -9,15 +9,15 @@ import { Plate, usePlateEditor } from 'platejs/react';
 import { BasicNodesKit } from '@/components/editor/plugins/basic-nodes-kit';
 import { Editor, EditorContainer } from '@/components/ui/editor';
 
-interface ProjectIntroPlateProps {
+interface ProjectInfoPlateProps {
   markdown: string;
   readOnly?: boolean;
 }
 
-export function ProjectIntroPlate({
+export function ProjectInfoPlate({
   markdown,
   readOnly = true,
-}: ProjectIntroPlateProps) {
+}: ProjectInfoPlateProps) {
   const editor = usePlateEditor(
     {
       plugins: [

@@ -28,9 +28,21 @@ interface MessageAiProps {
 }
 
 export default function MessageAi({ message, className }: MessageAiProps) {
+  // 关键：subAgent 的消息会带 metadata.agent，前端用它做单独 UI 处理
+  const agentMeta = (message.metadata as any)?.agent as
+    | { kind?: string; name?: string; displayName?: string }
+    | undefined;
+  const subAgentLabel =
+    agentMeta?.kind === "sub" ? agentMeta.displayName ?? agentMeta.name ?? "subAgent" : null;
+
   return (
     <div className={cn("flex justify-start min-w-0", className)}>
       <div className="min-w-0 w-full space-y-2">
+        {subAgentLabel ? (
+          <div className="px-3 text-xs text-muted-foreground font-sans">
+            {subAgentLabel}
+          </div>
+        ) : null}
         {message.parts.map((part: any, index: number) => {
           if (part?.type === "text") {
             return (

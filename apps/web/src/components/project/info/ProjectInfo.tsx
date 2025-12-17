@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { ProjectIntroPlate } from "./ProjectIntroPlate";
+import { ProjectInfoPlate } from "./ProjectInfoPlate";
 
 interface ProjectIntroProps {
   isLoading: boolean;
@@ -7,7 +7,7 @@ interface ProjectIntroProps {
   introMarkdown?: string;
 }
 
-export default function ProjectIntro({
+export default function ProjectInfo({
   isLoading,
   pageTitle,
   introMarkdown,
@@ -31,7 +31,7 @@ export default function ProjectIntro({
       <div className="text-sm text-muted-foreground">Project / 简介</div>
       <div className="text-base">{pageTitle}</div>
       <div className="flex-1 min-h-0">
-        <ProjectIntroPlate
+        <ProjectInfoPlate
           markdown={
             introMarkdown ??
             `# ${pageTitle}\n\n在这里写项目简介（支持 **Markdown** / _MDX_）。\n`

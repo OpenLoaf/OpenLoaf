@@ -8,7 +8,7 @@ import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { Tab } from "@teatime-ai/api/common";
 import { requestContextManager } from "@/context/requestContext";
-import { createMainAgent, decideAgentMode } from "@/chat/agents";
+import { MasterAgent, decideAgentMode } from "@/chat/agents";
 import { saveAndAppendMessage } from "@/chat/history";
 import type { ChatRequestBody, TokenUsageMessage } from "@/chat/types";
 import { CLIENT_CONTEXT_PART_TYPE } from "@/chat/ui/parts";
@@ -72,7 +72,8 @@ export function registerChatSseCreateRoute(app: Hono) {
     });
 
     const mode = decideAgentMode(activeTab);
-    const agent = createMainAgent(mode);
+    const master = new MasterAgent(mode);
+    const agent = master.createAgent();
 
     const stream = createUIMessageStream({
       originalMessages: messages as any[],
@@ -116,6 +117,7 @@ export function registerChatSseCreateRoute(app: Hono) {
       execute: async ({ writer }) => {
         // 关键：tools 需要能拿到 writer -> write(data-ui-event)
         requestContextManager.setUIWriter(writer as any);
+        requestContextManager.pushAgentFrame(master.createFrame());
 
         const agentStream = await createAgentUIStream({
           agent,
@@ -125,7 +127,23 @@ export function registerChatSseCreateRoute(app: Hono) {
             return "An error occurred.";
           },
           messageMetadata: ({ part }) => {
-            if (part.type === "finish") return { totalUsage: part.totalUsage };
+            const frame = requestContextManager.getCurrentAgentFrame();
+            const agentMeta = frame
+              ? {
+                  agent: {
+                    kind: frame.kind,
+                    name: frame.name,
+                    depth: frame.path.length - 1,
+                    path: frame.path,
+                  },
+                }
+              : undefined;
+            if (part.type === "finish") return { ...(agentMeta ?? {}), totalUsage: (part as any).totalUsage } as any;
+            if (part.type === "start") return agentMeta as any;
+          },
+          onFinish: () => {
+            // 关键：确保 master 结束后清理 agent 栈
+            requestContextManager.popAgentFrame();
           },
         });
 

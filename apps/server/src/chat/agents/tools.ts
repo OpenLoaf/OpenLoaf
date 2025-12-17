@@ -1,5 +1,6 @@
 import { browserReadonlyTools, browserTools } from "@/chat/tools/browser";
 import { dbTools } from "@/chat/tools/db";
+import { subAgentTool } from "@/chat/tools/subAgent";
 import { systemTools } from "@/chat/tools/system";
 import type { AgentMode } from "./mode";
 
@@ -9,6 +10,7 @@ export function createToolsByMode(mode: AgentMode) {
     return {
       ...systemTools,
       ...browserReadonlyTools,
+      subAgent: subAgentTool,
     };
   }
 
@@ -16,6 +18,6 @@ export function createToolsByMode(mode: AgentMode) {
     ...systemTools,
     ...browserTools,
     ...dbTools,
+    subAgent: subAgentTool,
   };
 }
-

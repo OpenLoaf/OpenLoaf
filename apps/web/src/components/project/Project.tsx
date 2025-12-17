@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import { usePage } from "@/hooks/use-page";
-import ProjectIntro from "./ProjectIntro";
+import ProjectInfo from "./info/ProjectInfo";
 import ProjectCanvas from "./ProjectCanvas";
 import ProjectTasks from "./ProjectTasks";
 import ProjectMaterials from "./ProjectMaterials";
@@ -337,7 +337,7 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
                   className="w-full h-full"
                 >
                   {activeTab === "intro" ? (
-                    <ProjectIntro isLoading={isLoading} pageTitle={pageTitle} />
+                    <ProjectInfo isLoading={isLoading} pageTitle={pageTitle} />
                   ) : null}
                   {activeTab === "canvas" ? (
                     <ProjectCanvas
