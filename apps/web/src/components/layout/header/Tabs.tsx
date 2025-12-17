@@ -4,7 +4,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { DEFAULT_TAB_INFO } from "@teatime-ai/api/common";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Button } from "@/components/ui/button";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TabMenu } from "./TabMenu";
 
 export const HeaderTabs = () => {
@@ -86,7 +86,7 @@ export const HeaderTabs = () => {
     };
   }, []);
 
-  const handleAddTab = () => {
+  const handleAddTab = useCallback(() => {
     if (!activeWorkspace) return;
 
     addTab({
@@ -95,7 +95,44 @@ export const HeaderTabs = () => {
       title: DEFAULT_TAB_INFO.title,
       icon: DEFAULT_TAB_INFO.icon,
     });
-  };
+  }, [activeWorkspace, addTab]);
+
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return true;
+      return target.isContentEditable;
+    };
+
+    const handler = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (isEditableTarget(event.target)) return;
+
+      const withMod = event.metaKey || event.ctrlKey;
+      if (!withMod) return;
+      if (event.shiftKey || event.altKey) return;
+
+      const key = event.key;
+      if (key === "0") {
+        event.preventDefault();
+        handleAddTab();
+        return;
+      }
+
+      if (key.length === 1 && key >= "1" && key <= "9") {
+        if (!activeWorkspace) return;
+        const index = Number.parseInt(key, 10) - 1;
+        const tab = workspaceTabs[index];
+        if (!tab) return;
+        event.preventDefault();
+        setActiveTab(tab.id);
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [activeWorkspace, handleAddTab, setActiveTab, workspaceTabs]);
 
   const clearPointerSession = () => {
     pointerSessionRef.current = null;

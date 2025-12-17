@@ -74,7 +74,7 @@ export const AppSidebar = ({
         return;
       }
 
-      if (key === "1") {
+      if (key === "l") {
         event.preventDefault();
         setSearchOpen(false);
         openSingletonTab({
@@ -86,7 +86,7 @@ export const AppSidebar = ({
         return;
       }
 
-      if (key === "2") {
+      if (key === "i") {
         event.preventDefault();
         setSearchOpen(false);
         openSingletonTab({
@@ -98,7 +98,7 @@ export const AppSidebar = ({
         return;
       }
 
-      if (key === "3") {
+      if (key === "j") {
         event.preventDefault();
         setSearchOpen(false);
         openSingletonTab({
@@ -132,9 +132,9 @@ export const AppSidebar = ({
               <Search />
               <span className="flex-1 truncate">搜索</span>
               <span className="ml-auto group-data-[collapsible=icon]:hidden">
-                <KbdGroup>
-                  <Kbd>⌘</Kbd>
-                  <Kbd>K</Kbd>
+                <KbdGroup className="gap-0">
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">K</Kbd>
                 </KbdGroup>
               </span>
             </SidebarMenuButton>
@@ -156,9 +156,9 @@ export const AppSidebar = ({
               <CalendarDays />
               <span className="flex-1 truncate">日历</span>
               <span className="ml-auto group-data-[collapsible=icon]:hidden">
-                <KbdGroup>
-                  <Kbd>⌘</Kbd>
-                  <Kbd>1</Kbd>
+                <KbdGroup className="gap-0">
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">L</Kbd>
                 </KbdGroup>
               </span>
             </SidebarMenuButton>
@@ -180,9 +180,9 @@ export const AppSidebar = ({
               <Sparkles />
               <span className="flex-1 truncate">AI助手</span>
               <span className="ml-auto group-data-[collapsible=icon]:hidden">
-                <KbdGroup>
-                  <Kbd>⌘</Kbd>
-                  <Kbd>3</Kbd>
+                <KbdGroup className="gap-0">
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">J</Kbd>
                 </KbdGroup>
               </span>
             </SidebarMenuButton>
@@ -204,9 +204,9 @@ export const AppSidebar = ({
               <Inbox />
               <span className="flex-1 truncate">收集箱</span>
               <span className="ml-auto group-data-[collapsible=icon]:hidden">
-                <KbdGroup>
-                  <Kbd>⌘</Kbd>
-                  <Kbd>2</Kbd>
+                <KbdGroup className="gap-0">
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">I</Kbd>
                 </KbdGroup>
               </span>
             </SidebarMenuButton>

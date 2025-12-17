@@ -90,7 +90,7 @@ export function Search({
         return;
       }
 
-      if (key === "1") {
+      if (event.shiftKey && key === "c") {
         event.preventDefault();
         event.stopPropagation();
         openSingletonTab({
@@ -102,7 +102,7 @@ export function Search({
         return;
       }
 
-      if (key === "2") {
+      if (event.shiftKey && key === "b") {
         event.preventDefault();
         event.stopPropagation();
         openSingletonTab({
@@ -114,7 +114,7 @@ export function Search({
         return;
       }
 
-      if (key === "3") {
+      if (event.shiftKey && key === "a") {
         event.preventDefault();
         event.stopPropagation();
         openSingletonTab({
@@ -166,7 +166,8 @@ export function Search({
             <CommandShortcut>
               <KbdGroup>
                 <Kbd>⌘</Kbd>
-                <Kbd>1</Kbd>
+                <Kbd>⇧</Kbd>
+                <Kbd>C</Kbd>
               </KbdGroup>
             </CommandShortcut>
           </CommandItem>
@@ -186,7 +187,8 @@ export function Search({
             <CommandShortcut>
               <KbdGroup>
                 <Kbd>⌘</Kbd>
-                <Kbd>2</Kbd>
+                <Kbd>⇧</Kbd>
+                <Kbd>B</Kbd>
               </KbdGroup>
             </CommandShortcut>
           </CommandItem>
@@ -206,7 +208,8 @@ export function Search({
             <CommandShortcut>
               <KbdGroup>
                 <Kbd>⌘</Kbd>
-                <Kbd>3</Kbd>
+                <Kbd>⇧</Kbd>
+                <Kbd>A</Kbd>
               </KbdGroup>
             </CommandShortcut>
           </CommandItem>
