@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import {
@@ -11,6 +11,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { TriangleAlert } from "lucide-react";
+import { Loader } from "@/components/animate-ui/icons/loader";
 
 type ElectrronBrowserWindowProps = {
   panelKey: string;
@@ -32,6 +33,12 @@ export default function ElectrronBrowserWindow({
   className,
 }: ElectrronBrowserWindowProps) {
   const tabActive = useTabActive();
+  const [loading, setLoading] = useState(true);
+  const [overlayBlocked, setOverlayBlocked] = useState(false);
+  const loadingTokenRef = useRef(0);
+  const loadingSinceRef = useRef(0);
+  const overlayBlockedRef = useRef(false);
+  const overlayIdsRef = useRef<Set<string>>(new Set());
   const isElectron = useMemo(
     () =>
       process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -44,6 +51,22 @@ export default function ElectrronBrowserWindow({
     () => normalizeUrl(url ?? "https://www.baidu.com"),
     [url]
   );
+
+  const loadingRef = useRef(loading);
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  const tabActiveRef = useRef(tabActive);
+  useEffect(() => {
+    tabActiveRef.current = tabActive;
+  }, [tabActive]);
+
+  useEffect(() => {
+    loadingTokenRef.current += 1;
+    loadingSinceRef.current = performance.now();
+    setLoading(true);
+  }, [targetUrl]);
 
   if (!isElectron) {
     return (
@@ -81,6 +104,40 @@ export default function ElectrronBrowserWindow({
 
   useEffect(() => {
     const api = window.teatimeElectron;
+    if (!isElectron) return;
+
+    const handleOverlay = (event: Event) => {
+      const detail = (event as CustomEvent<{ id: string; open: boolean }>)
+        .detail;
+      if (!detail?.id) return;
+
+      if (detail.open) {
+        overlayIdsRef.current.add(detail.id);
+        overlayBlockedRef.current = overlayIdsRef.current.size > 0;
+        setOverlayBlocked(overlayBlockedRef.current);
+        const prev = lastSentRef.current;
+        if (api?.upsertWebContentsView && tabActiveRef.current && prev) {
+          void api.upsertWebContentsView({
+            key: panelKey,
+            url: prev.url,
+            bounds: prev.bounds,
+            visible: false,
+          });
+          lastSentRef.current = { ...prev, visible: false };
+        }
+      } else {
+        overlayIdsRef.current.delete(detail.id);
+        overlayBlockedRef.current = overlayIdsRef.current.size > 0;
+        setOverlayBlocked(overlayBlockedRef.current);
+      }
+    };
+
+    window.addEventListener("teatime:overlay", handleOverlay);
+    return () => window.removeEventListener("teatime:overlay", handleOverlay);
+  }, [isElectron, panelKey]);
+
+  useEffect(() => {
+    const api = window.teatimeElectron;
     if (!isElectron || !api?.upsertWebContentsView) return;
 
     let rafId = 0;
@@ -94,7 +151,8 @@ export default function ElectrronBrowserWindow({
       const next: { url: string; bounds: TeatimeViewBounds; visible: boolean } =
         {
           url: targetUrl,
-          visible,
+          visible:
+            visible && !loadingRef.current && !overlayBlockedRef.current,
           bounds: {
             x: Math.round(rect.left),
             y: Math.round(rect.top),
@@ -120,8 +178,20 @@ export default function ElectrronBrowserWindow({
             key: panelKey,
             url: next.url,
             bounds: next.bounds,
-            visible,
+            visible: next.visible,
           });
+          if (loadingRef.current) {
+            const token = loadingTokenRef.current;
+            const minLoadingMs = 500;
+            const elapsed = performance.now() - loadingSinceRef.current;
+            const remaining = Math.max(0, minLoadingMs - elapsed);
+
+            window.setTimeout(() => {
+              if (token !== loadingTokenRef.current) return;
+              loadingRef.current = false;
+              setLoading(false);
+            }, remaining);
+          }
         } catch {
           // ignore
         }
@@ -163,7 +233,26 @@ export default function ElectrronBrowserWindow({
         className
       )}
     >
-      <div ref={hostRef} className="relative min-h-0 flex-1 overflow-hidden" />
+      <div ref={hostRef} className="relative min-h-0 flex-1 overflow-hidden">
+        {loading ? (
+          <div className="absolute inset-0 z-10 grid place-items-center bg-background/70">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader size={18} />
+              <span>Loading…</span>
+            </div>
+          </div>
+        ) : null}
+        {overlayBlocked ? (
+          <div className="absolute inset-0 z-20 grid place-items-center bg-background/80">
+            <div className="text-center text-sm text-muted-foreground">
+              <div>内容已临时隐藏</div>
+              <div className="mt-1 text-xs">
+                关闭右键菜单或搜索后恢复显示
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

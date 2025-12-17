@@ -6,11 +6,21 @@ import { Switch } from "@/components/animate-ui/components/radix/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggler } from "@/components/layout/ThemeProvider";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { SettingsGroup } from "./SettingsGroup";
+import { ChevronDown } from "lucide-react";
 
-type FontSizeKey = "small" | "medium" | "large";
+type FontSizeKey = "small" | "medium" | "large" | "xlarge";
+type LanguageId = "zh-CN" | "en-US" | "ja-JP" | "ko-KR" | "fr-FR" | "de-DE" | "es-ES";
 const FONT_SIZE_STORAGE_KEY = "teatime:font-size";
+const UI_LANGUAGE_STORAGE_KEY = "teatime:ui-language";
 const CUSTOM_RULES_STORAGE_KEY = "teatime:custom-rules";
 const LOCAL_STORAGE_DIR_STORAGE_KEY = "teatime:local-storage-dir";
 const AUTO_BACKUP_DIR_STORAGE_KEY = "teatime:auto-backup-dir";
@@ -22,19 +32,46 @@ export function BasicSettings() {
     resolvedTheme === "dark" ? "dark" : "light",
   );
 
+  const [uiLanguage, setUiLanguage] = useState<LanguageId>("zh-CN");
   const [fontSize, setFontSize] = useState<FontSizeKey>("medium");
   const [savedCustomRules, setSavedCustomRules] = useState("");
   const [customRules, setCustomRules] = useState("");
   const [localStorageDir, setLocalStorageDir] = useState("");
   const [autoBackupDir, setAutoBackupDir] = useState("");
   useEffect(() => {
+    const stored = localStorage.getItem(UI_LANGUAGE_STORAGE_KEY);
+    if (
+      stored === "zh-CN" ||
+      stored === "en-US" ||
+      stored === "ja-JP" ||
+      stored === "ko-KR" ||
+      stored === "fr-FR" ||
+      stored === "de-DE" ||
+      stored === "es-ES"
+    ) {
+      setUiLanguage(stored);
+      return;
+    }
+    setUiLanguage("zh-CN");
+  }, []);
+
+  useEffect(() => {
     const stored = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
-    if (stored === "small" || stored === "medium" || stored === "large") {
+    if (
+      stored === "small" ||
+      stored === "medium" ||
+      stored === "large" ||
+      stored === "xlarge"
+    ) {
       setFontSize(stored);
       return;
     }
     setFontSize("medium");
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, uiLanguage);
+  }, [uiLanguage]);
 
   useEffect(() => {
     const stored = localStorage.getItem(CUSTOM_RULES_STORAGE_KEY) ?? "";
@@ -51,7 +88,13 @@ export function BasicSettings() {
 
   useEffect(() => {
     const px =
-      fontSize === "small" ? "14px" : fontSize === "medium" ? "16px" : "18px";
+      fontSize === "small"
+        ? "14px"
+        : fontSize === "medium"
+          ? "16px"
+          : fontSize === "large"
+            ? "18px"
+            : "20px";
     document.documentElement.style.fontSize = px;
     localStorage.setItem(FONT_SIZE_STORAGE_KEY, fontSize);
   }, [fontSize]);
@@ -72,6 +115,15 @@ export function BasicSettings() {
         const isAutoTheme = effective === "system";
         const themeTabsValue = resolved;
         const isCustomRulesDirty = customRules !== savedCustomRules;
+        const languageLabelById: Record<LanguageId, string> = {
+          "zh-CN": "中文（简体）",
+          "en-US": "English",
+          "ja-JP": "日本語",
+          "ko-KR": "한국어",
+          "fr-FR": "Français",
+          "de-DE": "Deutsch",
+          "es-ES": "Español",
+        };
 
         const pickDirectory = async ({
           storageKey,
@@ -107,8 +159,48 @@ export function BasicSettings() {
 
         return (
           <div className="space-y-6">
-            <SettingsGroup title="外观">
+            <SettingsGroup title="系统配置">
               <div className="divide-y divide-border">
+                <div className="flex items-center justify-between gap-4 py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">语言</div>
+                    <div className="text-xs text-muted-foreground">
+                      暂不支持切换，仅保存偏好
+                    </div>
+                  </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-[200px] justify-between font-normal"
+                      >
+                        <span className="truncate">
+                          {languageLabelById[uiLanguage]}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[220px]">
+                      <DropdownMenuRadioGroup
+                        value={uiLanguage}
+                        onValueChange={(next) =>
+                          setUiLanguage(next as LanguageId)
+                        }
+                      >
+                        {Object.entries(languageLabelById).map(
+                          ([id, label]) => (
+                            <DropdownMenuRadioItem key={id} value={id}>
+                              {label}
+                            </DropdownMenuRadioItem>
+                          ),
+                        )}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
                 <div className="flex items-center justify-between gap-4 py-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium">主题</div>
@@ -158,7 +250,7 @@ export function BasicSettings() {
                   <div className="min-w-0">
                     <div className="text-sm font-medium">字体大小</div>
                     <div className="text-xs text-muted-foreground">
-                      小 / 中 / 大
+                      小 / 中 / 大 / 特大
                     </div>
                   </div>
 
@@ -171,6 +263,7 @@ export function BasicSettings() {
                       <TabsTrigger value="small">小</TabsTrigger>
                       <TabsTrigger value="medium">中</TabsTrigger>
                       <TabsTrigger value="large">大</TabsTrigger>
+                      <TabsTrigger value="xlarge">特大</TabsTrigger>
                     </TabsList>
                   </Tabs>
                 </div>

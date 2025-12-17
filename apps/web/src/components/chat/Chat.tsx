@@ -53,7 +53,7 @@ export function Chat({
           className
         )}
       >
-        <ChatHeader />
+        <ChatHeader loadHistory={effectiveLoadHistory} />
         <MessageList className="flex-1 min-h-0" />
         <ChatInput />
       </div>

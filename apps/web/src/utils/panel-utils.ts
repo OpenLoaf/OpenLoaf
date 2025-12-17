@@ -7,6 +7,8 @@ import { Chat } from "@/components/chat/Chat";
 import ElectrronBrowserWindow from "@/components/browser/ElectrronBrowserWindow";
 import ToolResultPanel from "@/components/tools/ToolResultPanel";
 import SettingsPage from "@/components/setting/SettingsPage";
+import CalendarPage from "@/components/calendar/Calendar";
+import InboxPage from "@/components/inbox/Inbox";
 
 /**
  * 组件名称到组件的映射关系
@@ -18,6 +20,8 @@ export const ComponentMap: Record<string, React.ComponentType<any>> = {
   "electron-browser-window": ElectrronBrowserWindow, // 新窗口浏览器组件
   "tool-result": ToolResultPanel,
   "settings-page": SettingsPage,
+  "calendar-page": CalendarPage,
+  "inbox-page": InboxPage,
 };
 
 /**
@@ -37,6 +41,10 @@ export const getPanelTitle = (componentName: string) => {
       return "Tool Result";
     case "settings-page":
       return "Settings";
+    case "calendar-page":
+      return "Calendar";
+    case "inbox-page":
+      return "Inbox";
     default:
       // 如果没有匹配的标题，直接返回组件名称
       return componentName;

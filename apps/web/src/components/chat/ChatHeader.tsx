@@ -7,25 +7,29 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import SessionList from "@/components/chat/session/SessionList";
 import * as React from "react";
 import { useChatContext } from "./ChatProvider";
-import { skipToken, useQuery } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
+import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
+import { queryClient, trpc } from "@/utils/trpc";
+import { useTabs } from "@/hooks/use-tabs";
 
 interface ChatHeaderProps {
   className?: string;
+  loadHistory?: boolean;
 }
 
-export default function ChatHeader({ className }: ChatHeaderProps) {
-  const { id: activeSessionId, newSession, selectSession, messages } =
+export default function ChatHeader({ className, loadHistory }: ChatHeaderProps) {
+  const { id: activeSessionId, newSession, selectSession, messages, tabId } =
     useChatContext();
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const menuLockRef = React.useRef(false);
+  const tab = useTabs((s) => (tabId ? s.tabs.find((t) => t.id === tabId) : undefined));
+  const setTabTitle = useTabs((s) => s.setTabTitle);
 
   const sessionTitleQuery = useQuery(
     trpc.chatsession.findUniqueChatSession.queryOptions(
       activeSessionId
         ? ({
             where: { id: activeSessionId },
-            select: { title: true },
+            select: { title: true, isUserRename: true },
           } as any)
         : skipToken
     ) as any
@@ -34,11 +38,32 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
   const sessionTitle = String(
     (sessionTitleQuery.data as any)?.title ?? ""
   ).trim();
+  const isUserRename = Boolean((sessionTitleQuery.data as any)?.isUserRename);
+
+  const tabTitle = String(tab?.title ?? "").trim();
+  const hasTabBase = Boolean(tab?.base);
+
+  const syncHistoryTitleToTabTitle = useMutation({
+    ...(trpc.chatsession.updateManyChatSession.mutationOptions() as any),
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+    },
+  });
 
   const handleMenuOpenChange = (open: boolean) => {
     menuLockRef.current = open;
     if (open) setHistoryOpen(true);
   };
+
+  // Chat-only tab：让 Tab 标题跟随 chatSession.title（避免一直显示默认 “AI Chat”）
+  React.useEffect(() => {
+    if (!tabId) return;
+    if (hasTabBase) return;
+    if (!loadHistory) return;
+    if (sessionTitle.length === 0) return;
+    if (tabTitle === sessionTitle) return;
+    setTabTitle(tabId, sessionTitle);
+  }, [tabId, hasTabBase, loadHistory, sessionTitle, tabTitle, setTabTitle]);
 
   return (
     <div
@@ -47,7 +72,7 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
         className
       )}
     >
-      <div className="min-w-0 text-lg font-semibold">Chat</div>
+      <div className="min-w-0 text-lg font-semibold">AI助手</div>
       <div className="min-w-0 w-full truncate px-2 text-center text-sm font-medium">
         {sessionTitle.length > 0 ? sessionTitle : null}
       </div>
@@ -92,6 +117,18 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
                 // 选中历史会话后：关闭弹层 + 切换会话并加载历史
                 setHistoryOpen(false);
                 menuLockRef.current = false;
+                // 无左侧 base 的 tab：如果历史会话还没被用户重命名/仍是默认标题，则用当前 tab title 覆盖它
+                if (
+                  !hasTabBase &&
+                  tabTitle.length > 0 &&
+                  !isUserRename &&
+                  (session.name.trim().length === 0 || session.name.trim() === "新对话")
+                ) {
+                  syncHistoryTitleToTabTitle.mutate({
+                    where: { id: session.id, isUserRename: false },
+                    data: { title: tabTitle },
+                  } as any);
+                }
                 selectSession(session.id);
               }}
             />

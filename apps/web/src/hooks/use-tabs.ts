@@ -57,6 +57,7 @@ export interface TabsState {
     position?: "before" | "after",
   ) => void;
   setTabPinned: (tabId: string, isPin: boolean) => void;
+  setTabTitle: (tabId: string, title: string) => void;
 
   setTabBase: (tabId: string, base: DockItem | undefined) => void;
   setTabLeftWidthPercent: (tabId: string, percent: number) => void;
@@ -68,7 +69,7 @@ export interface TabsState {
     options?: { loadHistory?: boolean },
   ) => void;
 
-  pushStackItem: (tabId: string, item: DockItem) => void;
+  pushStackItem: (tabId: string, item: DockItem, percent?: number) => void;
   removeStackItem: (tabId: string, itemId: string) => void;
   clearStack: (tabId: string) => void;
 
@@ -141,6 +142,8 @@ export const useTabs = create<TabsState>()(
             chatLoadHistory,
           } = input;
 
+          const normalizedBase = base?.component === "ai-chat" ? undefined : base;
+
           const tabId = generateId("tab");
           const createdChatSessionId = requestedChatSessionId ?? generateId("chat");
           const createdChatLoadHistory = chatLoadHistory ?? Boolean(requestedChatSessionId);
@@ -155,9 +158,9 @@ export const useTabs = create<TabsState>()(
             chatParams,
             chatLoadHistory: createdChatLoadHistory,
             rightChatCollapsed: false,
-            base,
+            base: normalizedBase,
             stack: [],
-            leftWidthPercent: base
+            leftWidthPercent: normalizedBase
               ? clampPercent(
                   Number.isFinite(leftWidthPercent)
                     ? leftWidthPercent!
@@ -276,6 +279,17 @@ export const useTabs = create<TabsState>()(
         });
       },
 
+      setTabTitle: (tabId, title) => {
+        set((state) => ({
+          tabs: updateTabById(state.tabs, tabId, (tab) =>
+            normalizeDock({
+              ...tab,
+              title,
+            }),
+          ),
+        }));
+      },
+
       setTabBase: (tabId, base) => {
         set((state) => ({
           tabs: updateTabById(state.tabs, tabId, (tab) =>
@@ -334,7 +348,7 @@ export const useTabs = create<TabsState>()(
         }));
       },
 
-      pushStackItem: (tabId, item) => {
+      pushStackItem: (tabId, item, percent) => {
         set((state) => ({
           tabs: updateTabById(state.tabs, tabId, (tab) => {
             const nextTab = normalizeDock(tab);
@@ -353,7 +367,13 @@ export const useTabs = create<TabsState>()(
             return normalizeDock({
               ...nextTab,
               stack: nextStack,
-              leftWidthPercent: nextTab.leftWidthPercent > 0 ? nextTab.leftWidthPercent : LEFT_DOCK_DEFAULT_PERCENT,
+              leftWidthPercent: clampPercent(
+                Number.isFinite(percent)
+                  ? percent!
+                  : nextTab.leftWidthPercent > 0
+                    ? nextTab.leftWidthPercent
+                    : LEFT_DOCK_DEFAULT_PERCENT,
+              ),
             });
           }),
         }));

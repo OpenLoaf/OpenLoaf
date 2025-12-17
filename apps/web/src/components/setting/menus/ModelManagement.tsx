@@ -31,6 +31,17 @@ type ModelEntry = {
   apiKey: string;
 };
 
+type ModelResponseLanguageId =
+  | "zh-CN"
+  | "en-US"
+  | "ja-JP"
+  | "ko-KR"
+  | "fr-FR"
+  | "de-DE"
+  | "es-ES";
+
+const MODEL_RESPONSE_LANGUAGE_STORAGE_KEY = "teatime:model-response-language";
+
 const PROVIDERS: Array<{ id: ProviderId; label: string }> = [
   { id: "anthropic", label: "anthropic" },
   { id: "deepseek", label: "deepseek" },
@@ -65,6 +76,8 @@ export function ModelManagement() {
   const [error, setError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
+  const [modelResponseLanguage, setModelResponseLanguage] =
+    useState<ModelResponseLanguageId>("zh-CN");
   const [workspaceProjectRule, setWorkspaceProjectRule] =
     useState("按项目划分");
   const [defaultChatModelId, setDefaultChatModelId] = useState<string>("");
@@ -77,6 +90,17 @@ export function ModelManagement() {
     for (const provider of PROVIDERS) map[provider.id] = provider.label;
     return map as Record<ProviderId, string>;
   }, []);
+
+  const modelResponseLanguageLabelById: Record<ModelResponseLanguageId, string> =
+    {
+      "zh-CN": "中文（简体）",
+      "en-US": "English",
+      "ja-JP": "日本語",
+      "ko-KR": "한국어",
+      "fr-FR": "Français",
+      "de-DE": "Deutsch",
+      "es-ES": "Español",
+    };
 
   useEffect(() => {
     if (entries.length === 0) {
@@ -91,10 +115,76 @@ export function ModelManagement() {
     if (!exists) setDefaultChatModelId(entries[0]!.id);
   }, [defaultChatModelId, entries]);
 
+  useEffect(() => {
+    const stored = localStorage.getItem(MODEL_RESPONSE_LANGUAGE_STORAGE_KEY);
+    if (
+      stored === "zh-CN" ||
+      stored === "en-US" ||
+      stored === "ja-JP" ||
+      stored === "ko-KR" ||
+      stored === "fr-FR" ||
+      stored === "de-DE" ||
+      stored === "es-ES"
+    ) {
+      setModelResponseLanguage(stored);
+      return;
+    }
+    setModelResponseLanguage("zh-CN");
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(
+      MODEL_RESPONSE_LANGUAGE_STORAGE_KEY,
+      modelResponseLanguage,
+    );
+  }, [modelResponseLanguage]);
+
   return (
     <div className="space-y-3">
       <SettingsGroup title="模型设置">
         <div className="divide-y divide-border">
+          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="min-w-0 sm:w-56">
+              <div className="text-sm font-medium">模型返回语言</div>
+              <div className="text-xs text-muted-foreground">
+                暂不支持切换，仅保存偏好
+              </div>
+            </div>
+
+            <div className="flex flex-1 items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                  >
+                    <span className="truncate">
+                      {modelResponseLanguageLabelById[modelResponseLanguage]}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[320px]">
+                  <DropdownMenuRadioGroup
+                    value={modelResponseLanguage}
+                    onValueChange={(next) =>
+                      setModelResponseLanguage(next as ModelResponseLanguageId)
+                    }
+                  >
+                    {Object.entries(modelResponseLanguageLabelById).map(
+                      ([id, label]) => (
+                        <DropdownMenuRadioItem key={id} value={id}>
+                          {label}
+                        </DropdownMenuRadioItem>
+                      ),
+                    )}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
             <div className="min-w-0 sm:w-56">
               <div className="text-sm font-medium">工作空间项目划分规范</div>
@@ -250,17 +340,32 @@ export function ModelManagement() {
           <div className="space-y-4">
             <div className="space-y-2">
               <div className="text-sm font-medium">供应商</div>
-              <select
-                className="border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-                value={draftProvider}
-                onChange={(event) => setDraftProvider(event.target.value as ProviderId)}
-              >
-                {PROVIDERS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                  >
+                    <span className="truncate">
+                      {providerLabelById[draftProvider]}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[320px]">
+                  <DropdownMenuRadioGroup
+                    value={draftProvider}
+                    onValueChange={(next) => setDraftProvider(next as ProviderId)}
+                  >
+                    {PROVIDERS.map((p) => (
+                      <DropdownMenuRadioItem key={p.id} value={p.id}>
+                        {p.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <div className="space-y-2">

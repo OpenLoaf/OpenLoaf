@@ -36,7 +36,7 @@ export function DisableLinks() {
           component: "electron-browser-window",
           title: title,
           params: { url: href },
-        } as any);
+        } as any, 70);
       } else {
         console.warn("GlobalLinkHandler: No active tab found to open link.");
       }

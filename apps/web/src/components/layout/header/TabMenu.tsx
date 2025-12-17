@@ -37,7 +37,16 @@ export const TabMenu = ({
 }: TabMenuProps) => {
   const isActive = tab.id === activeTabId;
   return (
-    <ContextMenu>
+    <ContextMenu
+      onOpenChange={(open) => {
+        if (typeof window === "undefined") return;
+        window.dispatchEvent(
+          new CustomEvent("teatime:overlay", {
+            detail: { id: `tabmenu:${tab.id}`, open },
+          })
+        );
+      }}
+    >
       <ContextMenuTrigger
         asChild
         className="relative inline-flex items-center group"

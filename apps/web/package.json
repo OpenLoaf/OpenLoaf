@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.0-beta.140",
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
     "@floating-ui/react": "^0.27.16",
     "@platejs/basic-nodes": "^52.0.11",
     "@platejs/markdown": "^52.0.11",
@@ -39,6 +41,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "lucide-react": "^0.560.0",
     "motion": "^12.23.26",
     "next": "^16.0.7",
