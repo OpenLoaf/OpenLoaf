@@ -96,7 +96,7 @@ export const Header = () => {
               createNew: true,
               title: "Settings",
               icon: "⚙️",
-              leftWidthPx: viewportWidth > 0 ? Math.round(viewportWidth * 0.7) : undefined,
+              leftWidthPercent: viewportWidth > 0 ? 70 : undefined,
               base: {
                 id: baseId,
                 component: "settings-page",

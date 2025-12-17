@@ -51,7 +51,7 @@ export function TabLayout({
     () => tabs.find((tab) => tab.id === activeTabId) ?? null,
     [activeTabId, tabs],
   );
-  const setTabLeftWidthPx = useTabs((s) => s.setTabLeftWidthPx);
+  const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
   const setTabChatSession = useTabs((s) => s.setTabChatSession);
   const reduceMotion = useReducedMotion();
 
@@ -107,12 +107,12 @@ export function TabLayout({
   }, []);
 
   const hasLeftContent = Boolean(activeTab?.base) || (activeTab?.stack?.length ?? 0) > 0;
-  const storedLeftWidthPx = hasLeftContent ? activeTab?.leftWidthPx ?? 0 : 0;
+  const storedLeftWidthPercent = hasLeftContent ? activeTab?.leftWidthPercent ?? 0 : 0;
   const isRightCollapsed = Boolean(activeTab?.base) && Boolean(activeTab?.rightChatCollapsed);
 
   const effectiveMinLeft = activeTab?.minLeftWidth ?? LEFT_DOCK_MIN_PX;
 
-  const isLeftVisible = storedLeftWidthPx > 0;
+  const isLeftVisible = storedLeftWidthPercent > 0;
   const isRightVisible = !isRightCollapsed;
 
   let targetSplitPercent = 50;
@@ -132,10 +132,10 @@ export function TabLayout({
     if (containerWidth > 0) {
       const minLeft = effectiveMinLeft;
       // We allow right panel to compress if needed, but ideally enforce min width logic
-      // existing logic: fallbackWidthPx = storedLeftWidthPx ...
       const maxLeft = Math.max(minLeft, containerWidth - RIGHT_CHAT_MIN_PX);
-      const targetPx = Math.max(minLeft, Math.min(storedLeftWidthPx, maxLeft));
-      
+
+      const storedLeftPx = (storedLeftWidthPercent / 100) * containerWidth;
+      const targetPx = Math.max(minLeft, Math.min(storedLeftPx, maxLeft));
       targetSplitPercent = (targetPx / containerWidth) * 100;
     } else {
       targetSplitPercent = 30; // Default before measure
@@ -180,13 +180,8 @@ export function TabLayout({
     setIsDragging(false);
     e.currentTarget.releasePointerCapture(e.pointerId);
 
-    if (containerWidth > 0) {
-      const currentPercent = splitPercent.get();
-      const currentPx = (currentPercent / 100) * containerWidth;
-      if (activeTabId) {
-        setTabLeftWidthPx(activeTabId, Math.round(currentPx));
-      }
-    }
+    const currentPercent = splitPercent.get();
+    if (activeTabId) setTabLeftWidthPercent(activeTabId, Math.round(currentPercent * 10) / 10);
   };
 
   const isDividerHidden = targetDividerWidth === 0;

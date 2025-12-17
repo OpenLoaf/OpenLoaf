@@ -32,8 +32,8 @@ export interface Tab {
   base?: DockItem;
   /** Left dock stack overlays. */
   stack: DockItem[];
-  /** Left dock width in px; 0 means hidden. */
-  leftWidthPx: number;
+  /** Left dock width in percent (0-100). */
+  leftWidthPercent: number;
   /** Optional minimum width for left dock in px. */
   minLeftWidth?: number;
 

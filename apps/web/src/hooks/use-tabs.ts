@@ -10,7 +10,12 @@ import {
 export const TABS_STORAGE_KEY = "teatime:tabs";
 
 export const LEFT_DOCK_MIN_PX = 360;
-export const LEFT_DOCK_DEFAULT_PX = 480;
+export const LEFT_DOCK_DEFAULT_PERCENT = 30;
+
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, value));
+}
 
 export type ToolPartSnapshot = {
   type: string;
@@ -30,7 +35,7 @@ type AddTabInput = {
   isPin?: boolean;
   createNew?: boolean;
   base?: DockItem;
-  leftWidthPx?: number;
+  leftWidthPercent?: number;
   chatSessionId?: string;
   chatParams?: Record<string, unknown>;
   chatLoadHistory?: boolean;
@@ -57,7 +62,7 @@ export interface TabsState {
   setTabPinned: (tabId: string, isPin: boolean) => void;
 
   setTabBase: (tabId: string, base: DockItem | undefined) => void;
-  setTabLeftWidthPx: (tabId: string, widthPx: number) => void;
+  setTabLeftWidthPercent: (tabId: string, percent: number) => void;
   setTabMinLeftWidth: (tabId: string, minWidth?: number) => void;
   setTabRightChatCollapsed: (tabId: string, collapsed: boolean) => void;
   setTabChatSession: (
@@ -99,17 +104,16 @@ function orderWorkspaceTabs(tabs: Tab[]) {
 function normalizeDock(tab: Tab): Tab {
   const stack = Array.isArray(tab.stack) ? tab.stack : [];
   const hasLeftContent = Boolean(tab.base) || stack.length > 0;
-  const leftWidthPx = hasLeftContent
-    ? Math.max(
-        LEFT_DOCK_MIN_PX,
-        Number.isFinite(tab.leftWidthPx) ? tab.leftWidthPx : LEFT_DOCK_DEFAULT_PX,
+  const leftWidthPercent = hasLeftContent
+    ? clampPercent(
+        tab.leftWidthPercent > 0 ? tab.leftWidthPercent : LEFT_DOCK_DEFAULT_PERCENT,
       )
     : 0;
 
   return {
     ...tab,
     stack,
-    leftWidthPx,
+    leftWidthPercent,
     rightChatCollapsed: tab.base ? Boolean(tab.rightChatCollapsed) : false,
   };
 }
@@ -143,7 +147,7 @@ export const useTabs = create<TabsState>()(
             title,
             icon,
             isPin,
-            leftWidthPx,
+            leftWidthPercent,
             chatSessionId: requestedChatSessionId,
             chatParams,
             chatLoadHistory,
@@ -169,10 +173,11 @@ export const useTabs = create<TabsState>()(
             rightChatCollapsed: false,
             base,
             stack: [],
-            leftWidthPx: base
-              ? Math.max(
-                  LEFT_DOCK_MIN_PX,
-                  Number.isFinite(leftWidthPx) ? leftWidthPx! : LEFT_DOCK_DEFAULT_PX,
+            leftWidthPercent: base
+              ? clampPercent(
+                  Number.isFinite(leftWidthPercent)
+                    ? leftWidthPercent!
+                    : LEFT_DOCK_DEFAULT_PERCENT,
                 )
               : 0,
             createdAt: now,
@@ -309,18 +314,20 @@ export const useTabs = create<TabsState>()(
             normalizeDock({
               ...tab,
               base,
-              leftWidthPx: base ? tab.leftWidthPx || LEFT_DOCK_DEFAULT_PX : tab.leftWidthPx,
+              leftWidthPercent: base
+                ? tab.leftWidthPercent || LEFT_DOCK_DEFAULT_PERCENT
+                : tab.leftWidthPercent,
             }),
           ),
         }));
       },
 
-      setTabLeftWidthPx: (tabId, widthPx) => {
+      setTabLeftWidthPercent: (tabId, percent) => {
         set((state) => ({
           tabs: updateTabById(state.tabs, tabId, (tab) =>
             normalizeDock({
               ...tab,
-              leftWidthPx: widthPx,
+              leftWidthPercent: clampPercent(percent),
             }),
           ),
         }));
@@ -385,8 +392,10 @@ export const useTabs = create<TabsState>()(
             return normalizeDock({
               ...nextTab,
               stack: nextStack,
-              leftWidthPx:
-                nextTab.leftWidthPx > 0 ? nextTab.leftWidthPx : LEFT_DOCK_DEFAULT_PX,
+              leftWidthPercent:
+                nextTab.leftWidthPercent > 0
+                  ? nextTab.leftWidthPercent
+                  : LEFT_DOCK_DEFAULT_PERCENT,
             });
           }),
         }));
@@ -437,15 +446,45 @@ export const useTabs = create<TabsState>()(
     }),
     {
       name: TABS_STORAGE_KEY,
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         tabs: state.tabs.map(normalizeDock),
         activeTabId: state.activeTabId,
       }),
       migrate: (persisted, version) => {
-        if (version === 2) return persisted as any;
-        return { tabs: [], activeTabId: null };
+        if (version === 3) return persisted as any;
+
+        const viewportWidth =
+          typeof document !== "undefined"
+            ? document.documentElement.clientWidth || window.innerWidth
+            : 0;
+
+        const raw = persisted as any;
+        const tabs: any[] = Array.isArray(raw?.tabs) ? raw.tabs : [];
+        const migratedTabs = tabs.map((tab) => {
+          const hasLeftContent =
+            Boolean(tab?.base) || (Array.isArray(tab?.stack) && tab.stack.length > 0);
+
+          const legacyPx = Number(tab?.leftWidthPx);
+          const legacyPercent =
+            viewportWidth > 0 && Number.isFinite(legacyPx)
+              ? clampPercent((legacyPx / viewportWidth) * 100)
+              : 0;
+
+          return {
+            ...tab,
+            leftWidthPercent: hasLeftContent
+              ? (Number.isFinite(tab?.leftWidthPercent)
+                  ? clampPercent(tab.leftWidthPercent)
+                  : legacyPercent > 0
+                    ? legacyPercent
+                    : LEFT_DOCK_DEFAULT_PERCENT)
+              : 0,
+          };
+        });
+
+        return { tabs: migratedTabs, activeTabId: raw?.activeTabId ?? null };
       },
     },
   ),
