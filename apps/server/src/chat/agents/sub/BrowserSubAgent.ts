@@ -10,16 +10,6 @@ import { SubAgent } from "./SubAgent";
 export class BrowserSubAgent extends SubAgent {
   readonly name = "browser";
 
-  createTools(mode: AgentMode) {
-    // 关键：subAgent 也允许再委派 subAgent（多重 subAgent 的基础）
-    const base = mode === "settings" ? browserReadonlyTools : browserTools;
-    return {
-      ...systemTools,
-      ...base,
-      [subAgentToolDef.id]: subAgentTool,
-    };
-  }
-
   createSystemPrompt(mode: AgentMode) {
     return `
 你是 Teatime 的浏览器子 Agent。
@@ -31,10 +21,24 @@ export class BrowserSubAgent extends SubAgent {
   }
 
   createAgent(mode: AgentMode) {
+    // 关键：BrowserSubAgent 的 tools 需要显式定义（避免被抽象层包装/遗漏）
+    const tools =
+      mode === "settings"
+        ? {
+            ...systemTools,
+            ...browserReadonlyTools,
+            [subAgentToolDef.id]: subAgentTool,
+          }
+        : {
+            ...systemTools,
+            ...browserTools,
+            [subAgentToolDef.id]: subAgentTool,
+          };
+
     return new ToolLoopAgent({
       model: deepseek("deepseek-chat"),
       instructions: this.createSystemPrompt(mode),
-      tools: this.createTools(mode),
+      tools,
     });
   }
 }

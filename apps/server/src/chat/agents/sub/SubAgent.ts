@@ -1,6 +1,5 @@
 import type { AgentMode } from "@teatime-ai/api/common";
 import type { AgentFrame } from "@/context/requestContext";
-import type { ToolSet } from "ai";
 
 export const DEFAULT_SUBAGENT_MAX_DEPTH = 4;
 
@@ -13,7 +12,6 @@ export abstract class SubAgent {
   // 最大嵌套深度（从 master 开始算）
   maxDepth = DEFAULT_SUBAGENT_MAX_DEPTH;
 
-  abstract createTools(mode: AgentMode): ToolSet;
   abstract createSystemPrompt(mode: AgentMode): string;
   // 关键：MVP 只要求可运行即可，避免被泛型类型限制
   abstract createAgent(mode: AgentMode): any;

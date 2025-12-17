@@ -5,6 +5,12 @@ import { uiCloseStackTool } from "./closeStack";
 import { uiRefreshPageTreeTool } from "./refreshPageTree";
 import { uiRefreshBasePanelTool } from "./refreshBasePanel";
 import { playwrightDslTool } from "./playwrightDsl";
+import {
+  playwrightDomSnapshotTool,
+  playwrightGetAccessibilityTreeTool,
+  playwrightNetworkGetResponseBodyTool,
+  playwrightRuntimeEvaluateTool,
+} from "./playwrightCdp";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 import {
   browserGetTabsToolDef,
@@ -14,6 +20,12 @@ import {
   uiRefreshBasePanelToolDef,
 } from "@teatime-ai/api/types/tools/browser";
 import { playwrightDslToolDef } from "@teatime-ai/api/types/tools/playwright";
+import {
+  playwrightDomSnapshotToolDef,
+  playwrightGetAccessibilityTreeToolDef,
+  playwrightNetworkGetResponseBodyToolDef,
+  playwrightRuntimeEvaluateToolDef,
+} from "@teatime-ai/api/types/tools/playwright";
 
 export const browserTools = {
   // ======
@@ -47,6 +59,14 @@ export const browserTools = {
   // MVP：Playwright DSL（仅控制应用内打开的 embedded browser window）
   // ======
   [playwrightDslToolDef.id]: playwrightDslTool,
+
+  // ======
+  // MVP：Playwright / CDP（读取页面结构、执行表达式、抓取快照、读取响应体）
+  // ======
+  [playwrightGetAccessibilityTreeToolDef.id]: playwrightGetAccessibilityTreeTool,
+  [playwrightRuntimeEvaluateToolDef.id]: playwrightRuntimeEvaluateTool,
+  [playwrightDomSnapshotToolDef.id]: playwrightDomSnapshotTool,
+  [playwrightNetworkGetResponseBodyToolDef.id]: playwrightNetworkGetResponseBodyTool,
 
   // ======
   // MVP：通用 UI 事件（通过 SSE 推送给前端）

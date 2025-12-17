@@ -232,3 +232,61 @@ export const playwrightDslToolDef = {
   }),
   component: null,
 } as const;
+
+export const playwrightGetAccessibilityTreeToolDef = {
+  id: "playwright-get-accessibility-tree",
+  description:
+    "获取指定页面的 Accessibility Tree（用于让 agent 以文本方式理解页面结构与可交互元素）。必须指定 `pageTargetId`。",
+  parameters: z.object({
+    pageTargetId: z.string().min(1).describe("必填：目标页面 ID（由 open-url 返回）。"),
+    interestingOnly: z
+      .boolean()
+      .optional()
+      .describe("是否只返回“有意义”的节点（Playwright 默认行为类似 true）。"),
+  }),
+  component: null,
+} as const;
+
+export const playwrightRuntimeEvaluateToolDef = {
+  id: "playwright-runtime-evaluate",
+  description:
+    "通过 Chrome DevTools Protocol 的 Runtime.evaluate 在页面里执行表达式，并返回结果（适合调试/探测）。必须指定 `pageTargetId`。",
+  parameters: z.object({
+    pageTargetId: z.string().min(1).describe("必填：目标页面 ID（由 open-url 返回）。"),
+    expression: z
+      .string()
+      .min(1)
+      .max(MAX_SCRIPT_CHARS)
+      .describe("要执行的 JS expression（CDP Runtime.evaluate）。"),
+    awaitPromise: z.boolean().optional().describe("是否等待 Promise（默认 true）。"),
+    returnByValue: z.boolean().optional().describe("是否按值返回（默认 true）。"),
+  }),
+  component: null,
+} as const;
+
+export const playwrightDomSnapshotToolDef = {
+  id: "playwright-dom-snapshot",
+  description:
+    "通过 Chrome DevTools Protocol 的 DOMSnapshot.captureSnapshot 获取 DOM Snapshot（用于结构分析/调试）。必须指定 `pageTargetId`。",
+  parameters: z.object({
+    pageTargetId: z.string().min(1).describe("必填：目标页面 ID（由 open-url 返回）。"),
+    computedStyles: z
+      .array(z.string().min(1))
+      .optional()
+      .describe("要采集的 computed style 字段名数组（不传则为空数组）。"),
+    includeDOMRects: z.boolean().optional().describe("是否包含 DOM rect 信息。"),
+    includePaintOrder: z.boolean().optional().describe("是否包含 paint order 信息。"),
+  }),
+  component: null,
+} as const;
+
+export const playwrightNetworkGetResponseBodyToolDef = {
+  id: "playwright-network-get-response-body",
+  description:
+    "通过 Chrome DevTools Protocol 的 Network.getResponseBody 获取某个 requestId 的响应体。必须指定 `pageTargetId`。",
+  parameters: z.object({
+    pageTargetId: z.string().min(1).describe("必填：目标页面 ID（由 open-url 返回）。"),
+    requestId: z.string().min(1).describe("CDP Network requestId（需要你从 Network 事件或日志中获得）。"),
+  }),
+  component: null,
+} as const;
