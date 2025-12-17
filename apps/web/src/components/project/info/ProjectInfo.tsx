@@ -27,9 +27,7 @@ export default function ProjectInfo({
   }
 
   return (
-    <div className="h-full space-y-3 mt-3">
-      <div className="text-sm text-muted-foreground">Project / 简介</div>
-      <div className="text-base">{pageTitle}</div>
+    <div className="h-full space-y-3">
       <div className="flex-1 min-h-0">
         <ProjectInfoPlate
           markdown={

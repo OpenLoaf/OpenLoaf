@@ -109,8 +109,7 @@ AI SDK v6 的推荐模式是 Orchestrator-Worker / Routing（编排器 + 专家�
 建议接口（概念，不是代码）：
 
 - `name: string`（唯一标识，如 `browser`）
-- `displayName?: string`（前端可展示）
-- `instructions(ctx): string | SystemModelMessage[]`（可基于 workspaceId/tab 注入）
+- `systemPrompt(ctx): string`（可基于 workspaceId/tab 注入）
 - `getTools(ctx): ToolSet`（返回该 subAgent 的 tool 集合）
 - `allowedSubAgents: string[]`（允许委派的子 agent 名称）
 - `maxDepth?: number`（可覆盖默认）
@@ -126,7 +125,7 @@ MVP 建议：
   - `web_fetch` / `web_search`（系统只读）
   - `open_url`（会触发 UI 打开网页，按 mode 限制）
   - `getCurrentTab/getTabs`（读取上下文）
-- instructions：强调“总结、引用来源、避免贴 raw HTML”
+- systemPrompt：强调“总结、引用来源、避免贴 raw HTML”
 - loop control：比如 `stopWhen: stepCountIs(10)`（避免过长）
 
 ### 4.3 `MasterAgent`
@@ -273,40 +272,40 @@ tool 执行时：
 
 ---
 
-## 7. 未来：从 DB 读取 prompt + tools（但仍然安全）
+## 7. 未来：从 DB 读取 systemPrompt + tools（但仍然安全）
 
 ### 7.1 为什么不能把 tools 的执行逻辑放 DB
 
 DB 不应承载可执行代码。DB 只能承载：
 
-- prompt/instructions
+- systemPrompt
 - toolKeys（从 allowlist 选择）
 - 参数（例如模型名、步数上限、某些工具的开关）
 
 执行逻辑必须仍在代码层（ToolFactoryRegistry）。
 
-### 7.2 AgentDefinition 表（建议新增，草案）
+### 7.2 SubAgentDefinition 表（建议新增，草案）
 
-新增 `AgentDefinition`（可加 workspace 维度）：
+新增 `SubAgentDefinition`（可加 workspace 维度）：
 
 - `id: String @id`（应用侧生成）
 - `workspaceId?: String`（可选，若要多租户）
 - `name: String @unique`（或 `(workspaceId,name)` unique）
-- `kind: String`（`MASTER|SUB`）
 - `enabled: Boolean`
-- `instructions: String`（可模板化）
+- `systemPrompt: String`（可模板化）
 - `model: Json`（provider/modelId/params）
 - `toolKeys: Json`（string[]）
 - `allowedSubAgents: Json`（string[]）
 - `maxDepth?: Int`
-- `stopWhen?: Json`（或只存 stepCount 上限）
+- `maxSteps?: Int`
 - `version: Int` / `updatedAt`
+- `pageIds: Json`（string[]）
 
 ### 7.3 运行时装配流程（DB -> SubAgent）
 
 1) SubAgentTool 收到 `name`
 2) Registry 查询：若本地硬编码存在（BrowserSubAgent），优先用代码版（MVP）
-3) 否则从 DB 读取 AgentDefinition
+3) 否则从 DB 读取 SubAgentDefinition
 4) ToolFactoryRegistry 用 `toolKeys` 构建 ToolSet
 5) 构造 DbBackedSubAgent（临时对象），跑起来
 
@@ -344,7 +343,7 @@ DB 不应承载可执行代码。DB 只能承载：
 
 ### Phase 3：DB 驱动 SubAgent（可选）
 
-- 新增 AgentDefinition
+- 新增 SubAgentDefinition
 - ToolFactoryRegistry allowlist 化
 - Registry 支持从 DB 加载定义
 
@@ -356,4 +355,3 @@ DB 不应承载可执行代码。DB 只能承载：
 - **幂等更新 parts 的策略**：若要实时写入部分 chunk（未来可能想做），需要更细粒度 part upsert；当前可先 onFinish 一次性写入完整 parts。
 - **subAgent 的 tool 输出 vs message 输出**：工具返回给模型的是 `summary`，展示给用户的是 subAgent message（两者需避免重复/冲突）。
 - **权限边界**：DB 驱动 tools 只能选择 allowlist，且仍需按 mode 过滤（settings 模式禁 `open_url`）。
-

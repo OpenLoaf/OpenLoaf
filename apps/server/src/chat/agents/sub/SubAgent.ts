@@ -6,7 +6,6 @@ export const DEFAULT_SUBAGENT_MAX_DEPTH = 4;
 
 export abstract class SubAgent {
   abstract readonly name: string;
-  abstract readonly displayName: string;
 
   // 允许在该 subAgent 内继续委派的 subAgent 列表
   allowedSubAgents: string[] = [];
@@ -15,7 +14,7 @@ export abstract class SubAgent {
   maxDepth = DEFAULT_SUBAGENT_MAX_DEPTH;
 
   abstract createTools(mode: AgentMode): ToolSet;
-  abstract createInstructions(mode: AgentMode): string;
+  abstract createSystemPrompt(mode: AgentMode): string;
   // 关键：MVP 只要求可运行即可，避免被泛型类型限制
   abstract createAgent(mode: AgentMode): any;
 

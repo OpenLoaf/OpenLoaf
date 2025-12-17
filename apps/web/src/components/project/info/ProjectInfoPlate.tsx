@@ -4,9 +4,10 @@ import * as React from 'react';
 
 import remarkGfm from 'remark-gfm';
 import { MarkdownPlugin, remarkMdx } from '@platejs/markdown';
-import { Plate, usePlateEditor } from 'platejs/react';
+import { Plate, createPlateEditor } from 'platejs/react';
 
-import { BasicNodesKit } from '@/components/editor/plugins/basic-nodes-kit';
+import { BasicBlocksKit } from '@/components/editor/plugins/basic-blocks-kit';
+import { BasicMarksKit } from '@/components/editor/plugins/basic-marks-kit';
 import { Editor, EditorContainer } from '@/components/ui/editor';
 
 interface ProjectInfoPlateProps {
@@ -18,16 +19,18 @@ export function ProjectInfoPlate({
   markdown,
   readOnly = true,
 }: ProjectInfoPlateProps) {
-  const editor = usePlateEditor(
-    {
-      plugins: [
-        ...BasicNodesKit,
-        MarkdownPlugin.configure({
-          options: { remarkPlugins: [remarkGfm, remarkMdx] },
-        }),
-      ],
-      value: [],
-    },
+  const editor = React.useMemo(
+    () =>
+      createPlateEditor({
+        plugins: [
+          ...BasicBlocksKit,
+          ...BasicMarksKit,
+          MarkdownPlugin.configure({
+            options: { remarkPlugins: [remarkGfm, remarkMdx] },
+          }),
+        ],
+        value: [],
+      }),
     []
   );
 
@@ -38,11 +41,11 @@ export function ProjectInfoPlate({
 
   return (
     <Plate editor={editor}>
-      <EditorContainer className="rounded-md border bg-background">
+      <EditorContainer className="bg-background">
         <Editor
           readOnly={readOnly}
           variant="none"
-          className="px-3 py-2 text-sm"
+          className="px-3 py-0 text-sm"
         />
       </EditorContainer>
     </Plate>

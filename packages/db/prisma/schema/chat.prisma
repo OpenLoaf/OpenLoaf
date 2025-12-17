@@ -54,3 +54,43 @@ enum MessageRole {
   SYSTEM
   TOOL
 }
+
+model SubAgentDefinition {
+  id String @id
+
+  // 所属工作区（仅保留ID，不做外键关联）
+  workspaceId String
+
+  // subAgent 名称（前端展示也用它）
+  name String
+
+  enabled Boolean @default(true)
+
+  // 子 agent 的 system prompt（AI SDK v6: instructions）
+  systemPrompt String
+
+  // 模型参数（MVP 暂不强依赖；后续可按 provider/model 配置）
+  model Json? /// @zod.optional()
+
+  // 工具白名单（字符串数组），由代码内 ToolFactoryRegistry 解析
+  toolKeys Json
+
+  // 允许继续委派的 subAgent 名称数组（可选）
+  allowedSubAgents Json? /// @zod.optional()
+
+  // 最大嵌套深度（可选）
+  maxDepth Int? /// @zod.optional()
+
+  // 最大步数（用 stepCountIs(maxSteps) 转成 stopWhen）
+  maxSteps Int? /// @zod.optional()
+
+  // 绑定的 pageId 数组（可选；用于路由/启用范围）
+  pageIds Json? /// @zod.optional()
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, enabled])
+  @@index([workspaceId, updatedAt])
+}

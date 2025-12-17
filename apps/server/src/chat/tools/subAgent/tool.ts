@@ -5,6 +5,7 @@ import { requestContextManager } from "@/context/requestContext";
 import { decideAgentMode } from "@/chat/agents/mode";
 import { getSubAgent } from "@/chat/agents/sub/registry";
 import { saveAndAppendMessage } from "@/chat/history";
+import { setSubAgentToolRef } from "./globals";
 
 const MAX_TASK_CHARS = 6000;
 
@@ -60,7 +61,7 @@ export const subAgentTool = tool({
       }
     }
 
-    const sub = getSubAgent(name);
+    const sub = await getSubAgent(name);
     if (!sub) {
       return { ok: false, error: { code: "NOT_FOUND", message: "未找到该 subAgent。" } };
     }
@@ -121,3 +122,6 @@ export const subAgentTool = tool({
     return { ok: true, data: { name: sub.name } };
   },
 });
+
+// 关键：把 tool 暴露给 DB subAgent 装配（通过 globals 引用，避免循环依赖）
+setSubAgentToolRef(subAgentTool);

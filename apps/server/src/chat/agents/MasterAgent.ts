@@ -3,7 +3,6 @@ import { ToolLoopAgent } from "ai";
 import { requestContextManager, type AgentFrame } from "@/context/requestContext";
 import type { AgentMode } from "./mode";
 import { createToolsByMode } from "./tools";
-import { listSubAgentNames } from "./sub/registry";
 
 const MASTER_AGENT_NAME = "master";
 const MASTER_MAX_DEPTH = 4;
@@ -46,10 +45,10 @@ export class MasterAgent {
     return {
       kind: "master",
       name: MASTER_AGENT_NAME,
-      allowedSubAgents: listSubAgentNames(),
+      // 关键：master 默认允许调用任意 subAgent（找不到会由 subAgentTool 返回 NOT_FOUND）
+      allowedSubAgents: [],
       maxDepth: MASTER_MAX_DEPTH,
       path: [MASTER_AGENT_NAME],
     };
   }
 }
-

@@ -8,7 +8,6 @@ import { SubAgent } from "./SubAgent";
 
 export class BrowserSubAgent extends SubAgent {
   readonly name = "browser";
-  readonly displayName = "Browser SubAgent";
 
   createTools(mode: AgentMode) {
     // 关键：subAgent 也允许再委派 subAgent（多重 subAgent 的基础）
@@ -20,7 +19,7 @@ export class BrowserSubAgent extends SubAgent {
     };
   }
 
-  createInstructions(mode: AgentMode) {
+  createSystemPrompt(mode: AgentMode) {
     return `
 你是 Teatime 的浏览器子 Agent。
 - 你的职责：帮助主 Agent 完成“查资料/打开网页/解释网页内容”等任务。
@@ -33,9 +32,8 @@ export class BrowserSubAgent extends SubAgent {
   createAgent(mode: AgentMode) {
     return new ToolLoopAgent({
       model: deepseek("deepseek-chat"),
-      instructions: this.createInstructions(mode),
+      instructions: this.createSystemPrompt(mode),
       tools: this.createTools(mode),
     });
   }
 }
-
