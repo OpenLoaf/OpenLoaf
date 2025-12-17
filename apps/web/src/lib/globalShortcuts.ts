@@ -11,7 +11,8 @@ export type GlobalShortcutDefinition = {
 };
 
 export const GLOBAL_SHORTCUTS: GlobalShortcutDefinition[] = [
-  { id: "sidebar.toggle", label: "Toggle sidebar", keys: "Mod+B" },
+  { id: "sidebar.toggle", label: "Toggle sidebar", keys: "Mod+Shift+B" },
+  { id: "chat.toggle", label: "Toggle chat panel", keys: "Mod+B" },
   { id: "search.toggle", label: "Search", keys: "Mod+K" },
   { id: "open.calendar", label: "Open Calendar", keys: "Mod+L" },
   { id: "open.inbox", label: "Open Inbox", keys: "Mod+I" },
@@ -109,6 +110,7 @@ export function openSettingsTab(workspaceId: string) {
     title: "Settings",
     icon: "⚙️",
     leftWidthPercent: viewportWidth > 0 ? 70 : undefined,
+    rightChatCollapsed: true,
     base: { id: baseId, component: "settings-page" },
   });
 }
@@ -162,6 +164,18 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
   }
 
   if (keyLower === "b" && withMod && !event.shiftKey && !event.altKey) {
+    const state = useTabs.getState();
+    const tabId = state.activeTabId;
+    if (!tabId) return;
+    const tab = state.tabs.find((t) => t.id === tabId);
+    if (!tab?.base) return;
+
+    event.preventDefault();
+    state.setTabRightChatCollapsed(tabId, !tab.rightChatCollapsed);
+    return;
+  }
+
+  if (keyLower === "b" && withMod && event.shiftKey && !event.altKey) {
     event.preventDefault();
     window.dispatchEvent(new CustomEvent("teatime:toggle-sidebar"));
     return;

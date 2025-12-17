@@ -19,6 +19,7 @@ import {
   User,
   Info,
   Keyboard,
+  Building2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -29,6 +30,7 @@ import { KeyManagement } from "./menus/KeyManagement";
 import { ModelManagement } from "./menus/ModelManagement";
 import { AgentManagement } from "./menus/AgentManagement";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
+import { WorkspaceSettings } from "./menus/Workspace";
 
 type SettingsMenuKey =
   | "basic"
@@ -37,6 +39,7 @@ type SettingsMenuKey =
   | "models"
   | "keys"
   | "agents"
+  | "workspace"
   | "shortcuts";
 
 const MENU: Array<{
@@ -45,11 +48,12 @@ const MENU: Array<{
   Icon: ComponentType<{ className?: string }>;
   Component: ComponentType;
 }> = [
-  { key: "basic", label: "基础设置", Icon: SlidersHorizontal, Component: BasicSettings },
-  { key: "account", label: "账户管理", Icon: User, Component: AccountSettings },
-  { key: "models", label: "模型管理", Icon: Boxes, Component: ModelManagement },
-  { key: "keys", label: "密钥管理", Icon: KeyRound, Component: KeyManagement },
-  { key: "agents", label: "Agent管理", Icon: Bot, Component: AgentManagement },
+  { key: "basic", label: "基础", Icon: SlidersHorizontal, Component: BasicSettings },
+  { key: "account", label: "账户", Icon: User, Component: AccountSettings },
+  { key: "workspace", label: "工作空间", Icon: Building2, Component: WorkspaceSettings },
+  { key: "models", label: "模型", Icon: Boxes, Component: ModelManagement },
+  { key: "keys", label: "密钥", Icon: KeyRound, Component: KeyManagement },
+  { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
   { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
   { key: "about", label: "关于Teatime", Icon: Info, Component: AboutTeatime },
 ];
@@ -101,7 +105,7 @@ export default function SettingsPage({
   const menuGroups = useMemo(() => {
     const byKey = new Map(MENU.map((item) => [item.key, item]));
     return [
-      [byKey.get("basic"), byKey.get("account")].filter(Boolean),
+      [byKey.get("basic"), byKey.get("account"), byKey.get("workspace")].filter(Boolean),
       [byKey.get("models"), byKey.get("keys"), byKey.get("agents")].filter(Boolean),
       [byKey.get("shortcuts"), byKey.get("about")].filter(Boolean),
     ] as Array<typeof MENU>;

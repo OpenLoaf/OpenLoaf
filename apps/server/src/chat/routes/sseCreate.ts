@@ -11,7 +11,7 @@ import type { Tab } from "@teatime-ai/api/common";
 import { requestContextManager } from "@/context/requestContext";
 import { MasterAgent, decideAgentMode } from "@/chat/agents";
 import { saveAndAppendMessage } from "@/chat/history";
-import type { ChatRequestBody, TokenUsageMessage } from "@/chat/types";
+import type { ChatRequestBody, TokenUsageMessage } from "@teatime-ai/api/types/message";
 import { CLIENT_CONTEXT_PART_TYPE } from "@teatime-ai/api/types/parts";
 import {
   appendStreamChunk,

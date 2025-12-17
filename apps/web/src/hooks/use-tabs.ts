@@ -26,16 +26,17 @@ export type ToolPartSnapshot = {
 };
 
 type AddTabInput = {
-  workspaceId: string;
-  title?: string;
-  icon?: string;
-  isPin?: boolean;
-  createNew?: boolean;
-  base?: DockItem;
-  leftWidthPercent?: number;
-  chatSessionId?: string;
-  chatParams?: Record<string, unknown>;
-  chatLoadHistory?: boolean;
+  workspaceId: string; // 所属工作区ID
+  title?: string; // 标签页标题
+  icon?: string; // 标签页图标
+  isPin?: boolean; // 是否固定标签页
+  createNew?: boolean; // 是否强制创建新标签页
+  base?: DockItem; // 基础面板内容
+  leftWidthPercent?: number; // 左侧面板宽度百分比
+  rightChatCollapsed?: boolean; // 右侧聊天栏是否折叠
+  chatSessionId?: string; // 聊天会话ID
+  chatParams?: Record<string, unknown>; // 聊天参数
+  chatLoadHistory?: boolean; // 是否加载聊天历史
 };
 
 export interface TabsState {
@@ -137,6 +138,7 @@ export const useTabs = create<TabsState>()(
             icon,
             isPin,
             leftWidthPercent,
+            rightChatCollapsed,
             chatSessionId: requestedChatSessionId,
             chatParams,
             chatLoadHistory,
@@ -157,7 +159,7 @@ export const useTabs = create<TabsState>()(
             chatSessionId: createdChatSessionId,
             chatParams,
             chatLoadHistory: createdChatLoadHistory,
-            rightChatCollapsed: false,
+            rightChatCollapsed: rightChatCollapsed ?? false,
             base: normalizedBase,
             stack: [],
             leftWidthPercent: normalizedBase

@@ -2,7 +2,7 @@
 
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { ThemeToggler } from "../ThemeProvider";
+import { ThemeToggler } from "../../ThemeProvider";
 import { Sun } from "@/components/animate-ui/icons/sun";
 import { Moon } from "@/components/animate-ui/icons/moon";
 import { AnimateIcon } from "@/components/animate-ui/icons/icon";

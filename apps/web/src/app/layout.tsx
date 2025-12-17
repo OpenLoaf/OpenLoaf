@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import "../index.css";
-import Providers from "@/components/layout/Providers";
+import Providers from "@/components/Providers";
 import { Toaster } from "@/components/ui/sonner";
 import ServerConnectionGate from "@/components/layout/ServerConnectionGate";
-import { DisableLinks } from "@/components/layout/DisableLinks";
-import GlobalShortcuts from "@/app/GlobalShortcuts";
+import { DisableLinks } from "@/components/DisableLinks";
+import GlobalShortcuts from "@/components/GlobalShortcuts";
 
 export const metadata: Metadata = {
   title: "teatime-ai",
