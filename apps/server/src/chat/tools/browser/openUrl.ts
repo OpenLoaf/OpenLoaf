@@ -3,6 +3,7 @@ import { tool, zodSchema } from "ai";
 import { emitUiEvent, requireActiveTab } from "@/chat/ui/emit";
 import { stableIdFromUrl } from "@teatime-ai/api/common";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
+import { uiEvents } from "@teatime-ai/api/types/event";
 
 // ==========
 // MVP：浏览器能力（通过 UI 事件驱动前端打开 BrowserWindow）
@@ -30,11 +31,13 @@ export const openUrlTool = tool({
   inputSchema: zodSchema(openUrlToolDef.parameters),
   execute: async ({ url, title }) => {
     const activeTab = requireActiveTab();
-    emitUiEvent({
-      kind: "push-stack-item",
-      tabId: activeTab.id,
-      item: buildBrowserWindowDockItem({ url, title }),
-    });
+    // 统一通过 uiEvents 生成事件，避免业务侧手写 kind/字段。
+    emitUiEvent(
+      uiEvents.pushStackItem({
+        tabId: activeTab.id,
+        item: buildBrowserWindowDockItem({ url, title }),
+      }),
+    );
     return { ok: true };
   },
 });

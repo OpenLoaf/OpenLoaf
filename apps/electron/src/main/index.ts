@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import { createStartupLogger, registerProcessErrorLogging } from './logging/startupLogger';
 import { registerIpcHandlers } from './ipc';
 import { createServiceManager, type ServiceManager } from './services/serviceManager';
@@ -30,6 +30,72 @@ app.commandLine.appendSwitch(
 let services: ServiceManager | null = null;
 let mainWindow: BrowserWindow | null = null;
 
+function installApplicationMenu() {
+  // On macOS, Electron will create a default menu that includes "Close Window"
+  // with the `Cmd+W` accelerator. This conflicts with our app-level shortcut
+  // (Cmd+W closes a tab/stack in the renderer). Provide an explicit app menu and
+  // rebind "Close Window" to `Cmd+Shift+W` instead.
+  if (process.platform !== 'darwin') return;
+
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'pasteAndMatchStyle' },
+        { role: 'delete' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        { role: 'front' },
+        { type: 'separator' },
+        { role: 'close', accelerator: 'Command+Shift+W' },
+      ],
+    },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 /**
  * 应用启动主流程：
  * - 注册 IPC
@@ -37,6 +103,8 @@ let mainWindow: BrowserWindow | null = null;
  * - 创建主窗口并加载 apps/web
  */
 async function boot() {
+  installApplicationMenu();
+
   // IPC handlers 必须先注册，避免渲染端（apps/web）调用时找不到处理器。
   registerIpcHandlers({ log });
 

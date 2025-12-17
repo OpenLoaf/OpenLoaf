@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
+import { useTabs } from "@/hooks/use-tabs";
 import {
   Empty,
   EmptyDescription,
@@ -15,6 +16,7 @@ import { Loader } from "@/components/animate-ui/icons/loader";
 
 type ElectrronBrowserWindowProps = {
   panelKey: string;
+  tabId?: string;
   url?: string;
   className?: string;
 };
@@ -29,15 +31,26 @@ function normalizeUrl(raw: string): string {
 
 export default function ElectrronBrowserWindow({
   panelKey,
+  tabId,
   url,
   className,
 }: ElectrronBrowserWindowProps) {
   const tabActive = useTabActive();
+  const coveredByAnotherStackItem = useTabs((s) => {
+    if (!tabId) return false;
+    if (s.activeTabId !== tabId) return false;
+    const tab = s.tabs.find((t) => t.id === tabId);
+    const stack = tab?.stack ?? [];
+    const index = stack.findIndex((item) => item.id === panelKey);
+    if (index === -1) return false;
+    return index !== stack.length - 1;
+  });
   const [loading, setLoading] = useState(true);
   const [overlayBlocked, setOverlayBlocked] = useState(false);
   const loadingTokenRef = useRef(0);
   const loadingSinceRef = useRef(0);
   const overlayBlockedRef = useRef(false);
+  const coveredByAnotherStackItemRef = useRef(false);
   const overlayIdsRef = useRef<Set<string>>(new Set());
   const isElectron = useMemo(
     () =>
@@ -61,6 +74,8 @@ export default function ElectrronBrowserWindow({
   useEffect(() => {
     tabActiveRef.current = tabActive;
   }, [tabActive]);
+
+  coveredByAnotherStackItemRef.current = coveredByAnotherStackItem;
 
   useEffect(() => {
     loadingTokenRef.current += 1;
@@ -106,6 +121,28 @@ export default function ElectrronBrowserWindow({
     const api = window.teatimeElectron;
     if (!isElectron) return;
 
+    const hideIfNeeded = () => {
+      const prev = lastSentRef.current;
+      if (
+        !api?.upsertWebContentsView ||
+        !tabActiveRef.current ||
+        !prev ||
+        !prev.visible
+      ) {
+        return;
+      }
+
+      if (coveredByAnotherStackItemRef.current) {
+        void api.upsertWebContentsView({
+          key: panelKey,
+          url: prev.url,
+          bounds: prev.bounds,
+          visible: false,
+        });
+        lastSentRef.current = { ...prev, visible: false };
+      }
+    };
+
     const handleOverlay = (event: Event) => {
       const detail = (event as CustomEvent<{ id: string; open: boolean }>)
         .detail;
@@ -129,9 +166,11 @@ export default function ElectrronBrowserWindow({
         overlayIdsRef.current.delete(detail.id);
         overlayBlockedRef.current = overlayIdsRef.current.size > 0;
         setOverlayBlocked(overlayBlockedRef.current);
+        hideIfNeeded();
       }
     };
 
+    hideIfNeeded();
     window.addEventListener("teatime:overlay", handleOverlay);
     return () => window.removeEventListener("teatime:overlay", handleOverlay);
   }, [isElectron, panelKey]);
@@ -152,7 +191,10 @@ export default function ElectrronBrowserWindow({
         {
           url: targetUrl,
           visible:
-            visible && !loadingRef.current && !overlayBlockedRef.current,
+            visible &&
+            !loadingRef.current &&
+            !overlayBlockedRef.current &&
+            !coveredByAnotherStackItemRef.current,
           bounds: {
             x: Math.round(rect.left),
             y: Math.round(rect.top),
@@ -204,6 +246,12 @@ export default function ElectrronBrowserWindow({
       return;
     }
 
+    if (coveredByAnotherStackItem) {
+      window.cancelAnimationFrame(rafId);
+      void sync(false);
+      return;
+    }
+
     const tick = () => {
       void sync(true);
       rafId = window.requestAnimationFrame(tick);
@@ -215,7 +263,7 @@ export default function ElectrronBrowserWindow({
       window.cancelAnimationFrame(rafId);
       void sync(false);
     };
-  }, [targetUrl, isElectron, panelKey, tabActive]);
+  }, [targetUrl, isElectron, panelKey, tabActive, coveredByAnotherStackItem]);
 
   useEffect(() => {
     const api = window.teatimeElectron;
@@ -242,12 +290,14 @@ export default function ElectrronBrowserWindow({
             </div>
           </div>
         ) : null}
-        {overlayBlocked ? (
+        {overlayBlocked || coveredByAnotherStackItem ? (
           <div className="absolute inset-0 z-20 grid place-items-center bg-background/80">
             <div className="text-center text-sm text-muted-foreground">
               <div>内容已临时隐藏</div>
               <div className="mt-1 text-xs">
-                关闭右键菜单或搜索后恢复显示
+                {overlayBlocked
+                  ? "关闭右键菜单或搜索后恢复显示"
+                  : "切回顶部窗口后恢复显示"}
               </div>
             </div>
           </div>

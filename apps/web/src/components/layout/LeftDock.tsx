@@ -19,6 +19,12 @@ function renderDockItem(tabId: string, item: DockItem, refreshKey = 0) {
     );
   }
 
+  // __refreshKey：用于外部触发“强制刷新面板”（改变 key -> remount）
+  const derivedRefreshKey =
+    refreshKey > 0
+      ? refreshKey
+      : Number((item.params as any)?.__refreshKey ?? 0);
+
   return (
     <motion.div
       key={item.id}
@@ -28,7 +34,7 @@ function renderDockItem(tabId: string, item: DockItem, refreshKey = 0) {
       className="h-full w-full"
     >
       <Component
-        key={refreshKey > 0 ? `${item.id}-${refreshKey}` : undefined}
+        key={derivedRefreshKey > 0 ? `${item.id}-${derivedRefreshKey}` : undefined}
         panelKey={item.id}
         tabId={tabId}
         {...(item.params ?? {})}
