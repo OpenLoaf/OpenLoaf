@@ -1,6 +1,7 @@
 import { tool, zodSchema } from "ai";
 import { requestContextManager } from "@/context/requestContext";
 import { openUrlTool } from "./openUrl";
+import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 import {
   browserGetTabsToolDef,
   browserGetCurrentTabToolDef,
@@ -32,7 +33,7 @@ export const browserTools = {
   // ======
   // MVP：打开网址（UI 驱动）
   // ======
-  open_url: openUrlTool,
+  [openUrlToolDef.id]: openUrlTool,
 };
 
 // settings 模式用：不暴露 UI 操作能力（MVP 权限边界）

@@ -1,6 +1,7 @@
 "use client";
 
 import type { UiEvent } from "@teatime-ai/api/types/event";
+import { UiEventKind } from "@teatime-ai/api/types/event";
 import { useTabs } from "@/hooks/use-tabs";
 import { queryClient, trpc } from "@/utils/trpc";
 
@@ -13,20 +14,20 @@ export function handleUiEvent(event: UiEvent | undefined) {
 
   // 事件分发表：新增 kind 时，只需要补这里。
   const handlers: Record<UiEvent["kind"], (event: any) => void> = {
-    "push-stack-item": (e: Extract<UiEvent, { kind: "push-stack-item" }>) => {
+    [UiEventKind.PushStackItem]: (e: Extract<UiEvent, { kind: UiEventKind.PushStackItem }>) => {
       useTabs.getState().pushStackItem(e.tabId, e.item);
     },
-    "close-stack": (e: Extract<UiEvent, { kind: "close-stack" }>) => {
+    [UiEventKind.CloseStack]: (e: Extract<UiEvent, { kind: UiEventKind.CloseStack }>) => {
       useTabs.getState().clearStack(e.tabId);
     },
-    "refresh-page-tree": (e: Extract<UiEvent, { kind: "refresh-page-tree" }>) => {
+    [UiEventKind.RefreshPageTree]: (e: Extract<UiEvent, { kind: UiEventKind.RefreshPageTree }>) => {
       const tab = useTabs.getState().tabs.find((t) => t.id === e.tabId);
       const workspaceId = tab?.workspaceId;
       if (!workspaceId) return;
       const queryKey = trpc.pageCustom.getAll.queryOptions({ workspaceId }).queryKey;
       void queryClient.invalidateQueries({ queryKey });
     },
-    "refresh-base-panel": (e: Extract<UiEvent, { kind: "refresh-base-panel" }>) => {
+    [UiEventKind.RefreshBasePanel]: (e: Extract<UiEvent, { kind: UiEventKind.RefreshBasePanel }>) => {
       const state = useTabs.getState();
       const tab = state.tabs.find((t) => t.id === e.tabId);
       const base = tab?.base;
@@ -45,4 +46,3 @@ export function handleUiEvent(event: UiEvent | undefined) {
   if (!handler) return;
   handler(event as any);
 }
-

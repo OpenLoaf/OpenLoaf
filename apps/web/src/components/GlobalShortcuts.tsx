@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { handleGlobalKeyDown } from "@/lib/globalShortcuts";
 
+/** 从 Cookie 中读取指定值，用于获取当前 workspaceId。 */
 function getCookieValue(name: string) {
   if (typeof document === "undefined") return undefined;
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -14,6 +15,7 @@ function getCookieValue(name: string) {
   }
 }
 
+/** 绑定全局快捷键监听器（仅在客户端运行）。 */
 export default function GlobalShortcuts() {
   const isElectron = useMemo(
     () =>

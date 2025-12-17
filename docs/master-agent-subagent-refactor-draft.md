@@ -123,7 +123,7 @@ MVP 建议：
 
 - tools：优先使用现有 browser/system read-only 工具，例如
   - `web_fetch` / `web_search`（系统只读）
-  - `open_url`（会触发 UI 打开网页，按 mode 限制）
+  - `open-url`（会触发 UI 打开网页，按 mode 限制）
   - `getCurrentTab/getTabs`（读取上下文）
 - systemPrompt：强调“总结、引用来源、避免贴 raw HTML”
 - loop control：比如 `stopWhen: stepCountIs(10)`（避免过长）
@@ -153,7 +153,7 @@ MVP 建议：
 
 **责任：把 DB 中的 `toolKey` 映射到代码中的 Tool 实例**
 
-- DB 只存 `toolKeys: string[]`（例如 `web_fetch`、`open_url`）
+- DB 只存 `toolKeys: string[]`（例如 `web_fetch`、`open-url`）
 - 代码中维护 `toolKey -> Tool` 的 allowlist（防止 DB 注入任意执行逻辑）
 - 可按 `AgentMode` / 权限再过滤一次
 
@@ -354,4 +354,4 @@ DB 不应承载可执行代码。DB 只能承载：
 - **AI SDK v6 messageId 控制点**：Master/sub 都需要稳定 messageId 才能做主键；落地时需统一“服务端生成 id”的策略（推荐）。
 - **幂等更新 parts 的策略**：若要实时写入部分 chunk（未来可能想做），需要更细粒度 part upsert；当前可先 onFinish 一次性写入完整 parts。
 - **subAgent 的 tool 输出 vs message 输出**：工具返回给模型的是 `summary`，展示给用户的是 subAgent message（两者需避免重复/冲突）。
-- **权限边界**：DB 驱动 tools 只能选择 allowlist，且仍需按 mode 过滤（settings 模式禁 `open_url`）。
+- **权限边界**：DB 驱动 tools 只能选择 allowlist，且仍需按 mode 过滤（settings 模式禁 `open-url`）。

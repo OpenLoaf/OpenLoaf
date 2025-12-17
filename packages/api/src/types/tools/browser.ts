@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { id } from "zod/v4/locales";
 
 export const openUrlToolDef = {
+  id: "open-url",
   description:
     "在用户当前 Tab 中打开一个网址（以左侧 stack overlay 的方式打开 BrowserWindow）。仅负责打开页面，不做其它网页操作。",
   parameters: z.object({

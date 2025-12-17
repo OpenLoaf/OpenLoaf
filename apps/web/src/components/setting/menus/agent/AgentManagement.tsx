@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SettingsGroup } from "../SettingsGroup";
 import { AgentList } from "./AgentList";
 import { AgentDetailsDialog, DeleteAgentDialog } from "./AgentDialogs";
+import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 
 export type AgentKind = "master" | "sub";
 
@@ -35,7 +36,7 @@ const SAMPLE_AGENTS: AgentRow[] = [
     kind: "sub",
     description: "网页/浏览器相关任务（占位）",
     model: "gpt-4o-mini",
-    tools: ["web_fetch", "open_url"],
+    tools: ["web_fetch", openUrlToolDef.id],
     subAgents: [],
   },
 ];

@@ -19,7 +19,7 @@ function buildMasterInstructions(mode: AgentMode) {
 
 权限范围：
 - mode=${mode}
-- project 模式：允许查询项目数据，并可通过 open_url 在当前 Tab 打开网页。
+- project 模式：允许查询项目数据，并可通过 open-url 在当前 Tab 打开网页。
 - settings 模式：不允许操作项目数据，也不允许触发网页打开（仅做设置相关的答疑/指导）。
 
 当前 workspaceId：${workspaceId ?? "unknown"}

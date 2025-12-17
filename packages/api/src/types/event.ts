@@ -13,45 +13,52 @@ export type ClientContext = {
 // - 约定：只能在这里新增/修改 kind，业务侧不要手写 kind 字符串
 // ==========
 
+export enum UiEventKind {
+  PushStackItem = "push-stack-item",
+  CloseStack = "close-stack",
+  RefreshPageTree = "refresh-page-tree",
+  RefreshBasePanel = "refresh-base-panel",
+}
+
 export type UiEvent =
   | {
-      kind: "push-stack-item";
+      kind: UiEventKind.PushStackItem;
       tabId: string;
       item: DockItem;
     }
   | {
       // 关闭左侧 stack（仅关闭 overlay stack，不影响 base）
-      kind: "close-stack";
+      kind: UiEventKind.CloseStack;
       tabId: string;
     }
   | {
       // 刷新 Page Tree（通常用于侧边栏页面树）
-      kind: "refresh-page-tree";
+      kind: UiEventKind.RefreshPageTree;
       tabId: string;
     }
   | {
       // 刷新当前 tab 的 base 面板（通过变更 refreshKey 强制 remount）
-      kind: "refresh-base-panel";
+      kind: UiEventKind.RefreshBasePanel;
       tabId: string;
     };
 
 // 事件工厂：避免业务侧手拼对象/拼错字段，统一从这里生成 UiEvent。
 export const uiEvents = {
   pushStackItem: (input: { tabId: string; item: DockItem }): UiEvent => ({
-    kind: "push-stack-item",
+    kind: UiEventKind.PushStackItem,
     tabId: input.tabId,
     item: input.item,
   }),
   closeStack: (input: { tabId: string }): UiEvent => ({
-    kind: "close-stack",
+    kind: UiEventKind.CloseStack,
     tabId: input.tabId,
   }),
   refreshPageTree: (input: { tabId: string }): UiEvent => ({
-    kind: "refresh-page-tree",
+    kind: UiEventKind.RefreshPageTree,
     tabId: input.tabId,
   }),
   refreshBasePanel: (input: { tabId: string }): UiEvent => ({
-    kind: "refresh-base-panel",
+    kind: UiEventKind.RefreshBasePanel,
     tabId: input.tabId,
   }),
 } as const;

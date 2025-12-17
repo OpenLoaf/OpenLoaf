@@ -16,8 +16,8 @@ export const GLOBAL_SHORTCUTS: GlobalShortcutDefinition[] = [
   { id: "search.toggle", label: "Search", keys: "Mod+K" },
   { id: "open.calendar", label: "Open Calendar", keys: "Mod+L" },
   { id: "open.inbox", label: "Open Inbox", keys: "Mod+I" },
-  { id: "open.ai", label: "Open AI", keys: "Mod+J" },
-  { id: "open.template", label: "Open Template", keys: "Mod+T" },
+  { id: "open.ai", label: "Open AI", keys: "Mod+T" },
+  { id: "open.template", label: "Open Template", keys: "Mod+J" },
   { id: "tab.new", label: "New tab", keys: "Mod+0" },
   { id: "tab.switch", label: "Switch tabs", keys: "Mod+1..9" },
   { id: "tab.close", label: "Close tab", keys: "Mod+W" },
@@ -47,6 +47,7 @@ export const useGlobalOverlay = create<GlobalOverlayState>((set) => ({
   toggleSearchOpen: () => set((state) => ({ searchOpen: !state.searchOpen })),
 }));
 
+/** 判断当前事件目标是否为可编辑输入区域，避免快捷键打断输入。 */
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
@@ -59,6 +60,7 @@ function isEditableTarget(target: EventTarget | null) {
   );
 }
 
+/** 打开一个“单例 Tab”：若已存在则激活，否则创建并可选关闭搜索浮层。 */
 function openSingletonTab(
   workspaceId: string,
   input: { baseId: string; component: string; title: string; icon: string },
@@ -87,6 +89,7 @@ function openSingletonTab(
   if (options?.closeSearch) useGlobalOverlay.getState().setSearchOpen(false);
 }
 
+/** 打开设置页（单例 Tab）。 */
 export function openSettingsTab(workspaceId: string) {
   const { tabs, addTab, setActiveTab } = useTabs.getState();
 
@@ -121,6 +124,7 @@ export type GlobalShortcutContext = {
   isMac: boolean;
 };
 
+/** 全局快捷键入口：统一处理 Mod/Cmd 组合键（包含打开模版/AI 助手等）。 */
 export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutContext) {
   if (event.defaultPrevented) return;
 
@@ -206,21 +210,23 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
       return;
     }
 
+    // Cmd/Ctrl + J：打开模版
     if (keyLower === "j" && withMod && !event.shiftKey && !event.altKey) {
       event.preventDefault();
       openSingletonTab(
         ctx.workspaceId,
-        { baseId: "base:ai-chat", component: "ai-chat", title: "AI助手", icon: "✨" },
+        { baseId: "base:template", component: "template-page", title: "模版", icon: "📄" },
         { leftWidthPercent: quickOpenLeftWidthPercent, closeSearch: true },
       );
       return;
     }
 
+    // Cmd/Ctrl + T：打开 AI 助手（注意：浏览器环境可能会被系统/浏览器占用）
     if (keyLower === "t" && withMod && !event.shiftKey && !event.altKey) {
       event.preventDefault();
       openSingletonTab(
         ctx.workspaceId,
-        { baseId: "base:template", component: "template-page", title: "模版", icon: "📄" },
+        { baseId: "base:ai-chat", component: "ai-chat", title: "AI助手", icon: "✨" },
         { leftWidthPercent: quickOpenLeftWidthPercent, closeSearch: true },
       );
       return;
