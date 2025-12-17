@@ -15,7 +15,7 @@ export function handleUiEvent(event: UiEvent | undefined) {
   // 事件分发表：新增 kind 时，只需要补这里。
   const handlers: Record<UiEvent["kind"], (event: any) => void> = {
     [UiEventKind.PushStackItem]: (e: Extract<UiEvent, { kind: UiEventKind.PushStackItem }>) => {
-      useTabs.getState().pushStackItem(e.tabId, e.item);
+      useTabs.getState().pushStackItem(e.tabId, e.item,100);
     },
     [UiEventKind.CloseStack]: (e: Extract<UiEvent, { kind: UiEventKind.CloseStack }>) => {
       useTabs.getState().clearStack(e.tabId);

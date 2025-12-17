@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RiskType } from "../toolResult";
 
 export const fileReadToolDef = {
   id: "file-read",
@@ -27,6 +28,93 @@ export const shellReadonlyToolDef = {
   }),
   component: null,
 } as const;
+
+/**
+ * Shell 工具命令白名单（MVP）
+ * - 说明：这里的配置作为“单一事实来源”，供 server 执行校验与 web 设置页展示共用。
+ */
+export const shellReadonlyAllowNoArgs = [
+  "date",
+  "uname",
+  "whoami",
+  "pwd",
+] as const;
+
+export const shellReadonlyLsAllowedFlags = ["-l", "-a", "-la"] as const;
+
+export const shellReadonlyLsAllowedRoots = [
+  "apps/server/src/chat",
+  "apps/server/prompts",
+  "docs",
+] as const;
+
+export const shellWriteAllowedCommand = "mkdir" as const;
+export const shellWriteAllowedRoots = ["apps/server/src/chat"] as const;
+
+export const shellDestructiveAllowedCommand = "rm" as const;
+export const shellDestructiveAllowedRoots = ["apps/server/src/chat"] as const;
+
+export type ShellCommandAllowlistEntry = {
+  id: string;
+  command: string;
+  riskType: RiskType;
+  description: string;
+};
+
+/**
+ * 用于 UI 展示的白名单列表（MVP）
+ * - 说明：该列表是“人类可读”的摘要，详细规则以 server 校验逻辑为准。
+ */
+export const shellCommandAllowlistEntries = [
+  {
+    id: "date",
+    command: "date",
+    riskType: RiskType.Read,
+    description: "获取当前时间（MVP：不允许带参数）。",
+  },
+  {
+    id: "uname",
+    command: "uname",
+    riskType: RiskType.Read,
+    description: "获取系统信息（MVP：不允许带参数）。",
+  },
+  {
+    id: "whoami",
+    command: "whoami",
+    riskType: RiskType.Read,
+    description: "获取当前用户（MVP：不允许带参数）。",
+  },
+  {
+    id: "pwd",
+    command: "pwd",
+    riskType: RiskType.Read,
+    description: "获取当前工作目录（MVP：不允许带参数）。",
+  },
+  {
+    id: "ls",
+    command: "ls",
+    riskType: RiskType.Read,
+    description: `列出文件列表（允许参数：${shellReadonlyLsAllowedFlags.join(
+      ", ",
+    )}；仅允许访问目录：${shellReadonlyLsAllowedRoots.join(", ")}）。`,
+  },
+  {
+    id: "mkdir",
+    command: "mkdir <path>",
+    riskType: RiskType.Write,
+    description: `创建目录（需要审批；仅允许在目录：${shellWriteAllowedRoots.join(
+      ", ",
+    )}）。`,
+  },
+  {
+    id: "rm",
+    command: "rm <file>",
+    riskType: RiskType.Destructive,
+    description: `删除文件（需要审批；仅允许在目录：${shellDestructiveAllowedRoots.join(
+      ", ",
+    )}；MVP：只能删除文件，不能删除目录）。`,
+  },
+] as const satisfies ReadonlyArray<ShellCommandAllowlistEntry>;
 
 export const shellWriteToolDef = {
   id: "shell-write",
@@ -96,4 +184,18 @@ export const webSearchToolDef = {
       .describe("返回条数上限"),
   }),
   component: null,
+} as const;
+
+/**
+ * System Tool 风险分级（统一在 api 包内维护，供 server/web 共用）
+ * - 说明：AI SDK v6 beta 的 Tool 类型没有 `metadata` 字段，因此用映射表维护。
+ */
+export const systemToolMeta = {
+  [timeNowToolDef.id]: { riskType: RiskType.Read },
+  [webFetchToolDef.id]: { riskType: RiskType.Read },
+  [webSearchToolDef.id]: { riskType: RiskType.Read },
+  [fileReadToolDef.id]: { riskType: RiskType.Read },
+  [shellReadonlyToolDef.id]: { riskType: RiskType.Read },
+  [shellWriteToolDef.id]: { riskType: RiskType.Write },
+  [shellDestructiveToolDef.id]: { riskType: RiskType.Destructive },
 } as const;

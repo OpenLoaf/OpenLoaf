@@ -1,11 +1,19 @@
 import { tool, zodSchema } from "ai";
 import { requestContextManager } from "@/context/requestContext";
 import { openUrlTool } from "./openUrl";
+import { uiCloseStackTool } from "./closeStack";
+import { uiRefreshPageTreeTool } from "./refreshPageTree";
+import { uiRefreshBasePanelTool } from "./refreshBasePanel";
+import { playwrightDslTool } from "./playwrightDsl";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 import {
   browserGetTabsToolDef,
   browserGetCurrentTabToolDef,
+  uiCloseStackToolDef,
+  uiRefreshPageTreeToolDef,
+  uiRefreshBasePanelToolDef,
 } from "@teatime-ai/api/types/tools/browser";
+import { playwrightDslToolDef } from "@teatime-ai/api/types/tools/playwright";
 
 export const browserTools = {
   // ======
@@ -34,6 +42,18 @@ export const browserTools = {
   // MVP：打开网址（UI 驱动）
   // ======
   [openUrlToolDef.id]: openUrlTool,
+
+  // ======
+  // MVP：Playwright DSL（仅控制应用内打开的 embedded browser window）
+  // ======
+  [playwrightDslToolDef.id]: playwrightDslTool,
+
+  // ======
+  // MVP：通用 UI 事件（通过 SSE 推送给前端）
+  // ======
+  [uiCloseStackToolDef.id]: uiCloseStackTool,
+  [uiRefreshPageTreeToolDef.id]: uiRefreshPageTreeTool,
+  [uiRefreshBasePanelToolDef.id]: uiRefreshBasePanelTool,
 } as const;
 
 // settings 模式用：不暴露 UI 操作能力（MVP 权限边界）

@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import type { SystemToolResult } from "@teatime-ai/api/types/toolResult";
+import { RiskType, type SystemToolResult } from "@teatime-ai/api/types/toolResult";
 import { resolveInAllowedRoots, readUtf8FileWithLimit } from "./utils";
 import { fileReadToolDef } from "@teatime-ai/api/types/tools/system";
 
@@ -38,7 +38,7 @@ export const fileReadTool = tool({
           code: "EXECUTION_FAILED",
           message:
             err instanceof Error ? err.message : "读取文件失败（未知错误）。",
-          riskType: "read",
+          riskType: RiskType.Read,
         },
       };
     }

@@ -18,6 +18,7 @@ type ElectrronBrowserWindowProps = {
   panelKey: string;
   tabId?: string;
   url?: string;
+  pageTargetId?: string;
   className?: string;
 };
 

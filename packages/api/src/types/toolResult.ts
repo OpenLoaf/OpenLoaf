@@ -10,7 +10,11 @@
  * - write：会产生修改，但非破坏性（需要 human-in-the-loop）
  * - destructive：破坏性操作（需要 human-in-the-loop，且通常需要更严格的审批）
  */
-export type RiskType = "read" | "write" | "destructive";
+export enum RiskType {
+  Read = "read",
+  Write = "write",
+  Destructive = "destructive",
+}
 
 /**
  * human-in-the-loop 审批信息（MVP）
@@ -53,7 +57,7 @@ export const notImplemented = <T>(riskType: RiskType): SystemToolResult<T> => ({
 });
 
 export const approvalRequired = <T>(
-  riskType: Exclude<RiskType, "read">,
+  riskType: Exclude<RiskType, RiskType.Read>,
 ): SystemToolResult<T> => ({
   ok: false,
   approvalRequired: true,

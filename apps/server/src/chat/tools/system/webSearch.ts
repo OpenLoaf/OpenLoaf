@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import type { SystemToolResult } from "@teatime-ai/api/types/toolResult";
+import { RiskType, type SystemToolResult } from "@teatime-ai/api/types/toolResult";
 import { fetchTextWithLimits } from "./utils";
 import { webSearchToolDef } from "@teatime-ai/api/types/tools/system";
 
@@ -25,7 +25,7 @@ export const webSearchTool = tool({
           code: "NOT_CONFIGURED",
           message:
             "未配置 SEARCH_API_URL（MVP 搜索 provider）。请先配置一个返回 JSON 的搜索服务。",
-          riskType: "read",
+          riskType: RiskType.Read,
         },
       };
     }
@@ -47,7 +47,7 @@ export const webSearchTool = tool({
           error: {
             code: "EXECUTION_FAILED",
             message: `搜索服务返回非 2xx：${status}`,
-            riskType: "read",
+            riskType: RiskType.Read,
           },
         };
       }
@@ -58,7 +58,7 @@ export const webSearchTool = tool({
           error: {
             code: "EXECUTION_FAILED",
             message: "搜索服务未返回 JSON（content-type 非 application/json）。",
-            riskType: "read",
+            riskType: RiskType.Read,
           },
         };
       }
@@ -83,7 +83,7 @@ export const webSearchTool = tool({
           code: "EXECUTION_FAILED",
           message:
             err instanceof Error ? err.message : "搜索失败（未知错误）。",
-          riskType: "read",
+          riskType: RiskType.Read,
         },
       };
     }

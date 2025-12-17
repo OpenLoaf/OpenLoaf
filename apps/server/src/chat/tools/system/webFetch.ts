@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import type { SystemToolResult } from "@teatime-ai/api/types/toolResult";
+import { RiskType, type SystemToolResult } from "@teatime-ai/api/types/toolResult";
 import { stripHtmlToText, fetchTextWithLimits, isProbablyPrivateHostname } from "./utils";
 import { webFetchToolDef } from "@teatime-ai/api/types/tools/system";
 
@@ -28,7 +28,7 @@ export const webFetchTool = tool({
         error: {
           code: "INVALID_INPUT",
           message: "url 不是合法的 URL。",
-          riskType: "read",
+          riskType: RiskType.Read,
         },
       };
     }
@@ -39,7 +39,7 @@ export const webFetchTool = tool({
         error: {
           code: "INVALID_INPUT",
           message: "仅支持 http/https 协议。",
-          riskType: "read",
+          riskType: RiskType.Read,
         },
       };
     }
@@ -50,7 +50,7 @@ export const webFetchTool = tool({
         error: {
           code: "INVALID_INPUT",
           message: "出于安全考虑（SSRF），MVP 默认禁止访问 localhost/私网地址。",
-          riskType: "read",
+          riskType: RiskType.Read,
         },
       };
     }
@@ -83,7 +83,7 @@ export const webFetchTool = tool({
           code: "EXECUTION_FAILED",
           message:
             err instanceof Error ? err.message : "抓取失败（未知错误）。",
-          riskType: "read",
+          riskType: RiskType.Read,
         },
       };
     }

@@ -17,6 +17,7 @@
     "@hono/node-server": "^1.14.4",
     "@hono/trpc-server": "^0.4.0",
     "@teatime-ai/api": "workspace:*",
+    "@teatime-ai/config": "workspace:*",
     "@teatime-ai/db": "workspace:*",
     "@trpc/server": "catalog:",
     "ai": "^6.0.0-beta.138",
@@ -25,10 +26,10 @@
     "hono": "catalog:",
     "resumable-stream": "^2.2.9",
     "uuid": "^13.0.0",
+    "playwright-core": "^1.51.0",
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "@teatime-ai/config": "workspace:*",
     "@types/node": "^22.13.11",
     "esbuild": "^0.27.1",
     "tsdown": "^0.16.5",

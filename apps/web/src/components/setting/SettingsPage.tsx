@@ -20,6 +20,7 @@ import {
   Info,
   Keyboard,
   Building2,
+  ShieldCheck,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -31,6 +32,7 @@ import { ModelManagement } from "./menus/ModelManagement";
 import { AgentManagement } from "./menus/agent/AgentManagement";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
+import { CommandAllowlist } from "./menus/CommandAllowlist";
 
 type SettingsMenuKey =
   | "basic"
@@ -40,7 +42,8 @@ type SettingsMenuKey =
   | "keys"
   | "agents"
   | "workspace"
-  | "shortcuts";
+  | "shortcuts"
+  | "whitelist";
 
 const MENU: Array<{
   key: SettingsMenuKey;
@@ -53,6 +56,7 @@ const MENU: Array<{
   { key: "workspace", label: "工作空间", Icon: Building2, Component: WorkspaceSettings },
   { key: "models", label: "模型", Icon: Boxes, Component: ModelManagement },
   { key: "keys", label: "密钥", Icon: KeyRound, Component: KeyManagement },
+  { key: "whitelist", label: "白名单", Icon: ShieldCheck, Component: CommandAllowlist },
   { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
   { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
   { key: "about", label: "关于Teatime", Icon: Info, Component: AboutTeatime },
@@ -135,7 +139,7 @@ export default function SettingsPage({
     const byKey = new Map(MENU.map((item) => [item.key, item]));
     return [
       [byKey.get("basic"), byKey.get("account"), byKey.get("workspace")].filter(Boolean),
-      [byKey.get("models"), byKey.get("keys"), byKey.get("agents")].filter(Boolean),
+      [byKey.get("models"), byKey.get("keys"), byKey.get("whitelist"), byKey.get("agents")].filter(Boolean),
       [byKey.get("shortcuts"), byKey.get("about")].filter(Boolean),
     ] as Array<typeof MENU>;
   }, []);

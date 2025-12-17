@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Check, ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { toast } from "sonner";
+import OpenUrlTool from "./OpenUrlTool";
+import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 
 // MVP：这里只关心工具名称和返回结果，不做复杂的状态/交互
 type AnyToolPart = {
@@ -26,6 +28,16 @@ type AnyToolPart = {
 
 function getToolName(part: AnyToolPart) {
   if (part.title) return part.title;
+  if (part.toolName) return part.toolName;
+  if (part.type.startsWith("tool-")) return part.type.slice("tool-".length);
+  return part.type;
+}
+
+/**
+ * 从 streaming part 中提取工具 ID（用于匹配 ToolDef.id）。
+ * - 兼容：`tool-xxx`、`toolName`、以及直接用 id 作为 type 的情况。
+ */
+function getToolId(part: AnyToolPart) {
   if (part.toolName) return part.toolName;
   if (part.type.startsWith("tool-")) return part.type.slice("tool-".length);
   return part.type;
@@ -180,6 +192,15 @@ export default function MessageTool({
   part: AnyToolPart;
   className?: string;
 }) {
+  // 优先渲染“可重放”的工具组件（用于历史消息/刷新后再次执行 UI 行为）。
+  if (getToolId(part) === openUrlToolDef.id) {
+    return (
+      <div className={cn("flex w-full min-w-0 max-w-full justify-start", className)}>
+        <OpenUrlTool part={part} />
+      </div>
+    );
+  }
+
   const { resolvedTheme } = useTheme();
   const codeStyle = (resolvedTheme === "dark" ? oneDark : oneLight) as any;
   const toolName = getToolName(part);
@@ -195,8 +216,8 @@ export default function MessageTool({
         : "（暂无返回结果）");
 
   return (
-    <div className={cn("flex min-w-0 justify-start", className)}>
-      <details className="max-w-[80%] w-full min-w-0 rounded-lg bg-muted/40 px-3 py-2 text-foreground">
+    <div className={cn("flex w-full min-w-0 max-w-full justify-start", className)}>
+      <details className="w-full min-w-0 max-w-full rounded-lg bg-muted/40 px-3 py-2 text-foreground">
         {/* summary 默认折叠展示：工具名称（MVP） */}
         <summary className="cursor-pointer select-none text-xs text-muted-foreground">
           工具：{toolName}

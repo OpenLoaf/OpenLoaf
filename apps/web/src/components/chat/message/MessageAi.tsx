@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { markdownComponents } from "./markdown/MarkdownComponents";
-import MessageTool from "./MessageTool";
+import MessageTool from "./tools/MessageTool";
 
 // 修复 CJK 环境下 markdown 自动链接识别错误的问题（例如 "https://example.com）。" 会被误识别）
 // 在 URL 和全角符号/CJK字符之间插入空格

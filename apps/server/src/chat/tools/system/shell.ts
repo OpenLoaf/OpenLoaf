@@ -1,6 +1,6 @@
 import { tool, zodSchema } from "ai";
 import fs from "node:fs/promises";
-import type { SystemToolResult } from "@teatime-ai/api/types/toolResult";
+import { RiskType, type SystemToolResult } from "@teatime-ai/api/types/toolResult";
 import {
   parseSimpleCommand,
   resolveInAllowedRoots,
@@ -11,6 +11,13 @@ import {
   shellReadonlyToolDef,
   shellWriteToolDef,
   shellDestructiveToolDef,
+  shellReadonlyAllowNoArgs,
+  shellReadonlyLsAllowedFlags,
+  shellReadonlyLsAllowedRoots,
+  shellWriteAllowedCommand,
+  shellWriteAllowedRoots,
+  shellDestructiveAllowedCommand,
+  shellDestructiveAllowedRoots,
 } from "@teatime-ai/api/types/tools/system";
 
 /**
@@ -36,7 +43,7 @@ export const shellReadonlyTool = tool({
       const command = parts[0]!;
 
       // MVP：严格 allowlist，避免模型“误用”命令造成信息泄露或副作用
-      const allowNoArgs = new Set(["date", "uname", "whoami", "pwd"]);
+      const allowNoArgs = new Set<string>(shellReadonlyAllowNoArgs);
       if (allowNoArgs.has(command)) {
         if (parts.length !== 1) {
           return {
@@ -44,7 +51,7 @@ export const shellReadonlyTool = tool({
             error: {
               code: "INVALID_INPUT",
               message: `${command} 在 MVP 模式下不允许带参数。`,
-              riskType: "read",
+              riskType: RiskType.Read,
             },
           };
         }
@@ -56,7 +63,7 @@ export const shellReadonlyTool = tool({
 
       if (command === "ls") {
         // 允许：ls、ls -l、ls -a、ls -la、ls <path>
-        const flags = new Set(["-l", "-a", "-la"]);
+        const flags = new Set<string>(shellReadonlyLsAllowedFlags);
         const args: string[] = [];
         const paths: string[] = [];
         for (const arg of parts.slice(1)) {
@@ -67,7 +74,7 @@ export const shellReadonlyTool = tool({
                 error: {
                   code: "INVALID_INPUT",
                   message: `ls 不支持该参数：${arg}`,
-                  riskType: "read",
+                  riskType: RiskType.Read,
                 },
               };
             }
@@ -78,11 +85,7 @@ export const shellReadonlyTool = tool({
         }
 
         // MVP：仅允许在白名单目录里 ls
-        const allowedRoots = [
-          "apps/server/src/chat",
-          "apps/server/prompts",
-          "docs",
-        ];
+        const allowedRoots = [...shellReadonlyLsAllowedRoots];
         const baseDir = process.cwd();
         const cwd = baseDir;
 
@@ -105,7 +108,7 @@ export const shellReadonlyTool = tool({
         error: {
           code: "INVALID_INPUT",
           message: `不支持的只读命令：${command}（MVP allowlist 限制）。`,
-          riskType: "read",
+          riskType: RiskType.Read,
         },
       };
     } catch (err) {
@@ -115,7 +118,7 @@ export const shellReadonlyTool = tool({
           code: "EXECUTION_FAILED",
           message:
             err instanceof Error ? err.message : "命令执行失败（未知错误）。",
-          riskType: "read",
+          riskType: RiskType.Read,
         },
       };
     }
@@ -131,15 +134,15 @@ export const shellWriteTool = tool({
     try {
       const parts = parseSimpleCommand(input.cmd);
       const command = parts[0];
-      const allowedRoots = ["apps/server/src/chat"];
+      const allowedRoots = [...shellWriteAllowedRoots];
 
-      if (command !== "mkdir") {
+      if (command !== shellWriteAllowedCommand) {
         return {
           ok: false,
           error: {
             code: "INVALID_INPUT",
             message: `不支持的写入命令：${command}（MVP allowlist 限制）。`,
-            riskType: "write",
+            riskType: RiskType.Write,
           },
         };
       }
@@ -151,7 +154,7 @@ export const shellWriteTool = tool({
           error: {
             code: "INVALID_INPUT",
             message: "mkdir 缺少目标路径参数。",
-            riskType: "write",
+            riskType: RiskType.Write,
           },
         };
       }
@@ -172,7 +175,7 @@ export const shellWriteTool = tool({
           code: "EXECUTION_FAILED",
           message:
             err instanceof Error ? err.message : "写入操作失败（未知错误）。",
-          riskType: "write",
+          riskType: RiskType.Write,
         },
       };
     }
@@ -187,15 +190,15 @@ export const shellDestructiveTool = tool({
     try {
       const parts = parseSimpleCommand(input.cmd);
       const command = parts[0];
-      const allowedRoots = ["apps/server/src/chat"];
+      const allowedRoots = [...shellDestructiveAllowedRoots];
 
-      if (command !== "rm") {
+      if (command !== shellDestructiveAllowedCommand) {
         return {
           ok: false,
           error: {
             code: "INVALID_INPUT",
             message: `不支持的破坏性命令：${command}（MVP allowlist 限制）。`,
-            riskType: "destructive",
+            riskType: RiskType.Destructive,
           },
         };
       }
@@ -207,7 +210,7 @@ export const shellDestructiveTool = tool({
           error: {
             code: "INVALID_INPUT",
             message: "rm 缺少目标路径参数。",
-            riskType: "destructive",
+            riskType: RiskType.Destructive,
           },
         };
       }
@@ -225,7 +228,7 @@ export const shellDestructiveTool = tool({
           error: {
             code: "INVALID_INPUT",
             message: "MVP 仅允许删除文件，不允许删除目录。",
-            riskType: "destructive",
+            riskType: RiskType.Destructive,
           },
         };
       }
@@ -240,7 +243,7 @@ export const shellDestructiveTool = tool({
           code: "EXECUTION_FAILED",
           message:
             err instanceof Error ? err.message : "删除操作失败（未知错误）。",
-          riskType: "destructive",
+          riskType: RiskType.Destructive,
         },
       };
     }
