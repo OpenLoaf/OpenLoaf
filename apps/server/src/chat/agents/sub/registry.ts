@@ -10,6 +10,7 @@ import { deepseek } from "@ai-sdk/deepseek";
 import type { SubAgent } from "./SubAgent";
 import { BrowserSubAgent } from "./BrowserSubAgent";
 import { SubAgent as SubAgentBase } from "./SubAgent";
+import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 
 // 关键：内置 subAgent（MVP fallback）
 const BUILTIN_SUB_AGENTS = new Map<string, SubAgent>([["browser", new BrowserSubAgent()]]);
@@ -20,7 +21,7 @@ function toolMapByMode(mode: AgentMode) {
     ...systemTools,
     ...base,
     ...(mode === "settings" ? {} : dbTools),
-    subAgent: subAgentToolRef,
+    [subAgentToolDef.id]: subAgentToolRef,
   } as any;
 }
 

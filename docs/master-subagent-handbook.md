@@ -214,10 +214,10 @@ Phase C 的 DB subAgent 只能通过 `toolKeys` 选择**已有工具**，不能�
    - `name`: `"xxx"`
    - `enabled`: `true`
    - `systemPrompt`: 子 agent 的系统提示词
-   - `toolKeys`: `["web_fetch","web_search","subAgent"]`（示例）
+   - `toolKeys`: `["web-fetch","web-search","sub-agent"]`（示例）
    - 可选：`allowedSubAgents/maxDepth/maxSteps/pageIds`
 2) 由 Master 或其它 SubAgent 调用：
-   - `subAgent({ name: "xxx", task: "..." })`
+   - `sub-agent({ name: "xxx", task: "..." })`
 
 ---
 
@@ -231,4 +231,3 @@ Phase C 的 DB subAgent 只能通过 `toolKeys` 选择**已有工具**，不能�
 迁移前注意：
 
 - `ChatSession.id`、`ChatMessage.id` 现在必须由应用提供；旧数据/旧写入路径如果没有 id，会直接失败。
-

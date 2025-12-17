@@ -58,7 +58,7 @@ export const webFetchTool = tool({
     try {
       const { status, contentType, text } = await fetchTextWithLimits({
         url: parsed.toString(),
-        userAgent: "teatime-ai/1.0 (system tool web_fetch)",
+        userAgent: `teatime-ai/1.0 (system tool ${webFetchToolDef.id})`,
       });
 
       const shouldStrip = true;

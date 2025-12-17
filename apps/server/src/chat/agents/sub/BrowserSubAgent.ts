@@ -4,6 +4,7 @@ import type { AgentMode } from "@teatime-ai/api/common";
 import { browserReadonlyTools, browserTools } from "@/chat/tools/browser";
 import { systemTools } from "@/chat/tools/system";
 import { subAgentTool } from "@/chat/tools/subAgent";
+import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import { SubAgent } from "./SubAgent";
 
 export class BrowserSubAgent extends SubAgent {
@@ -15,7 +16,7 @@ export class BrowserSubAgent extends SubAgent {
     return {
       ...systemTools,
       ...base,
-      subAgent: subAgentTool,
+      [subAgentToolDef.id]: subAgentTool,
     };
   }
 

@@ -16,7 +16,7 @@ function requireWorkspaceId(): string {
 }
 
 export const projectTools = {
-  project_list: tool({
+  [projectListToolDef.id]: tool({
     description: projectListToolDef.description,
     inputSchema: zodSchema(projectListToolDef.parameters),
     execute: async () => {
@@ -26,7 +26,7 @@ export const projectTools = {
     },
   }),
 
-  project_get: tool({
+  [projectGetToolDef.id]: tool({
     description: projectGetToolDef.description,
     inputSchema: zodSchema(projectGetToolDef.parameters),
     execute: async (input) => {
@@ -39,7 +39,7 @@ export const projectTools = {
     },
   }),
 
-  project_create: tool({
+  [projectCreateToolDef.id]: tool({
     description: projectCreateToolDef.description,
     inputSchema: zodSchema(projectCreateToolDef.parameters),
     needsApproval: projectCreateToolDef.needsApproval,
@@ -61,7 +61,7 @@ export const projectTools = {
     },
   }),
 
-  project_update: tool({
+  [projectUpdateToolDef.id]: tool({
     description: projectUpdateToolDef.description,
     inputSchema: zodSchema(projectUpdateToolDef.parameters),
     execute: async (input) => {
@@ -88,4 +88,4 @@ export const projectTools = {
       return { ok: true, data: project };
     },
   }),
-};
+} as const;

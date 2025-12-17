@@ -7,7 +7,7 @@
 ### 0.1 范围（本草案覆盖）
 
 - 面向对象 Agent 架构：`MasterAgent`、`SubAgent`、`BrowserSubAgent`（先手写一个）
-- `subAgent` tool：允许 Master/SubAgent 相互委派，支持多重（嵌套）subAgent
+- `sub-agent` tool：允许 Master/SubAgent 相互委派，支持多重（嵌套）subAgent
 - Streaming：子 agent 的 streaming 输出需要被前端区分（按 subAgent name）
 - Persistence：子 agent 结束后也要保存；并确保 messageId 与 DB 主键一致
 - DB 配置：为未来从 DB 读取 SubAgent 的 prompt + tool 集合提供 schema 草案与装配机制
@@ -81,7 +81,7 @@ AI SDK v6 的推荐模式是 Orchestrator-Worker / Routing（编排器 + 专家�
 
 - `MasterAgent`：编排器（orchestrator），负责对话主流程与工具编排
 - `SubAgent`：专家（worker/sub-agent），专注单一领域（browser/db/...）
-- `subAgent` tool：委派机制（由 agent 调用），负责运行子 agent，并将其输出合并到同一 SSE
+- `sub-agent` tool：委派机制（由 agent 调用），负责运行子 agent，并将其输出合并到同一 SSE
 
 ### 3.1 目录结构建议
 
@@ -122,9 +122,9 @@ AI SDK v6 的推荐模式是 Orchestrator-Worker / Routing（编排器 + 专家�
 MVP 建议：
 
 - tools：优先使用现有 browser/system read-only 工具，例如
-  - `web_fetch` / `web_search`（系统只读）
+  - `web-fetch` / `web-search`（系统只读）
   - `open-url`（会触发 UI 打开网页，按 mode 限制）
-  - `getCurrentTab/getTabs`（读取上下文）
+  - `browser-get-current-tab` / `browser-get-tabs`（读取上下文）
 - systemPrompt：强调“总结、引用来源、避免贴 raw HTML”
 - loop control：比如 `stopWhen: stepCountIs(10)`（避免过长）
 
@@ -137,7 +137,7 @@ MVP 建议：
 - 负责 mode 决策（现有 `decideAgentMode(activeTab)` 可内聚进类或保留工具函数）
 - 负责“Master 的 tools 合集”：
   - 现有 system/db/browser tools
-  - **新增 `subAgent` tool**（核心委派入口）
+  - **新增 `sub-agent` tool**（核心委派入口）
 - 负责 Master instructions（当前 `mainAgent.ts` 的字符串模板可迁入）
 
 ### 4.4 `SubAgentRegistry`
@@ -153,15 +153,15 @@ MVP 建议：
 
 **责任：把 DB 中的 `toolKey` 映射到代码中的 Tool 实例**
 
-- DB 只存 `toolKeys: string[]`（例如 `web_fetch`、`open-url`）
+- DB 只存 `toolKeys: string[]`（例如 `web-fetch`、`open-url`）
 - 代码中维护 `toolKey -> Tool` 的 allowlist（防止 DB 注入任意执行逻辑）
 - 可按 `AgentMode` / 权限再过滤一次
 
 ---
 
-## 5. `subAgent` tool 设计（核心：运行 + merge + 持久化 + 标识）
+## 5. `sub-agent` tool 设计（核心：运行 + merge + 持久化 + 标识）
 
-`subAgent` tool 是“多重 subAgent”的唯一入口，Master/SubAgent 的 tools 都包含它。
+`sub-agent` tool 是“多重 subAgent”的唯一入口，Master/SubAgent 的 tools 都包含它。
 
 ### 5.1 输入输出（建议）
 

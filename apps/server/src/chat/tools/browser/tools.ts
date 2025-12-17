@@ -11,7 +11,7 @@ export const browserTools = {
   // ======
   // MVP：读取前端传来的 tab 上下文（用于 agent 感知用户环境）
   // ======
-  getTabs: tool({
+  [browserGetTabsToolDef.id]: tool({
     description: browserGetTabsToolDef.description,
     inputSchema: zodSchema(browserGetTabsToolDef.parameters),
     execute: async () => {
@@ -20,7 +20,7 @@ export const browserTools = {
     },
   }),
 
-  getCurrentTab: tool({
+  [browserGetCurrentTabToolDef.id]: tool({
     description: browserGetCurrentTabToolDef.description,
     inputSchema: zodSchema(browserGetCurrentTabToolDef.parameters),
     execute: async () => {
@@ -34,11 +34,11 @@ export const browserTools = {
   // MVP：打开网址（UI 驱动）
   // ======
   [openUrlToolDef.id]: openUrlTool,
-};
+} as const;
 
 // settings 模式用：不暴露 UI 操作能力（MVP 权限边界）
 export const browserReadonlyTools = {
-  getTabs: browserTools.getTabs,
-  getCurrentTab: browserTools.getCurrentTab,
-};
-
+  [browserGetTabsToolDef.id]: browserTools[browserGetTabsToolDef.id],
+  [browserGetCurrentTabToolDef.id]:
+    browserTools[browserGetCurrentTabToolDef.id],
+} as const;
