@@ -3,6 +3,14 @@
 import { useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { TriangleAlert } from "lucide-react";
 
 type ElectrronBrowserWindowProps = {
   panelKey: string;
@@ -36,6 +44,33 @@ export default function ElectrronBrowserWindow({
     () => normalizeUrl(url ?? "https://www.baidu.com"),
     [url]
   );
+
+  if (!isElectron) {
+    return (
+      <div className={cn("flex h-full w-full flex-col p-4", className)}>
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <TriangleAlert />
+            </EmptyMedia>
+            <EmptyTitle>仅支持 Electron</EmptyTitle>
+            <EmptyDescription>
+              这个面板依赖桌面端的 Electron 能力（WebContentsView）。请在 Electron
+              客户端打开，或直接访问：
+              {targetUrl ? (
+                <>
+                  {" "}
+                  <a href={targetUrl} target="_blank" rel="noreferrer">
+                    {targetUrl}
+                  </a>
+                </>
+              ) : null}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
+    );
+  }
 
   const hostRef = useRef<HTMLDivElement | null>(null);
   const lastSentRef = useRef<{
@@ -128,19 +163,7 @@ export default function ElectrronBrowserWindow({
         className
       )}
     >
-      {isElectron ? (
-        <div
-          ref={hostRef}
-          className="relative min-h-0 flex-1 overflow-hidden"
-        />
-      ) : (
-        <iframe
-          title="Browser"
-          src={targetUrl}
-          className="min-h-0 flex-1 w-full border-0"
-          sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
-        />
-      )}
+      <div ref={hostRef} className="relative min-h-0 flex-1 overflow-hidden" />
     </div>
   );
 }

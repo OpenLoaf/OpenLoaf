@@ -1,10 +1,12 @@
 import * as ScrollArea from "@radix-ui/react-scroll-area";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, skipToken } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTabActive } from "@/components/layout/TabActiveContext";
+import { useTabs } from "@/hooks/use-tabs";
 import ProjectIntro from "./ProjectIntro";
 import ProjectCanvas from "./ProjectCanvas";
 import ProjectTasks from "./ProjectTasks";
@@ -14,6 +16,7 @@ import ProjectTest from "./ProjectTest";
 import ProjectTabs, { type ProjectTabValue } from "./ProjectTabs";
 
 interface ProjectPageProps {
+  tabId?: string;
   pageId?: string;
   [key: string]: any;
 }
@@ -27,8 +30,11 @@ function ProjectTitleSkeleton() {
   );
 }
 
-export default function ProjectPage({ pageId }: ProjectPageProps) {
+export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
   const { workspace: activeWorkspace } = useWorkspace();
+  const tabActive = useTabActive();
+  const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
+  const appliedWidthRef = useRef(false);
 
   // 使用tRPC获取页面数据
   const { data: pageData, isLoading } = useQuery(
@@ -41,6 +47,18 @@ export default function ProjectPage({ pageId }: ProjectPageProps) {
 
   const pageTitle = pageData?.title || "Project Page";
   const titleIcon = pageData?.icon ?? undefined;
+
+  useEffect(() => {
+    appliedWidthRef.current = false;
+  }, [pageId, tabId]);
+
+  useEffect(() => {
+    if (!tabActive) return;
+    if (appliedWidthRef.current) return;
+    if (!tabId) return;
+    setTabLeftWidthPercent(tabId, 70);
+    appliedWidthRef.current = true;
+  }, [tabActive, tabId, setTabLeftWidthPercent]);
 
   return (
     <div className="flex h-full w-full flex-col min-h-0">
