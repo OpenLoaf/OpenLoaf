@@ -1,7 +1,7 @@
 import { tool, zodSchema } from "ai";
-import { z } from "zod";
 import type { SystemToolResult } from "./types";
 import { fetchTextWithLimits } from "./utils";
+import { webSearchToolDef } from "@teatime-ai/api/types/tools/system";
 
 /**
  * 搜索（只读）
@@ -9,13 +9,8 @@ import { fetchTextWithLimits } from "./utils";
  * - 设计：MVP 采用“可配置 provider”，不内置爬虫式搜索；未配置时返回 NOT_CONFIGURED。
  */
 export const webSearchTool = tool({
-  description: "执行网络搜索并返回结果列表，包括标题、URL和摘要信息。适用于需要查找特定信息、获取最新数据或了解某个主题的场景。需要配置搜索服务API，可通过参数指定搜索关键词和返回结果数量上限。",
-  inputSchema: zodSchema(
-    z.object({
-      query: z.string().describe("搜索关键词"),
-      limit: z.number().int().min(1).max(20).optional().describe("返回条数上限"),
-    }),
-  ),
+  description: webSearchToolDef.description,
+  inputSchema: zodSchema(webSearchToolDef.parameters),
   execute: async (input): Promise<
     SystemToolResult<{
       query: string;

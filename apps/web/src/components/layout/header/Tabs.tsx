@@ -97,43 +97,6 @@ export const HeaderTabs = () => {
     });
   }, [activeWorkspace, addTab]);
 
-  useEffect(() => {
-    const isEditableTarget = (target: EventTarget | null) => {
-      if (!(target instanceof HTMLElement)) return false;
-      const tag = target.tagName.toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select") return true;
-      return target.isContentEditable;
-    };
-
-    const handler = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      if (isEditableTarget(event.target)) return;
-
-      const withMod = event.metaKey || event.ctrlKey;
-      if (!withMod) return;
-      if (event.shiftKey || event.altKey) return;
-
-      const key = event.key;
-      if (key === "0") {
-        event.preventDefault();
-        handleAddTab();
-        return;
-      }
-
-      if (key.length === 1 && key >= "1" && key <= "9") {
-        if (!activeWorkspace) return;
-        const index = Number.parseInt(key, 10) - 1;
-        const tab = workspaceTabs[index];
-        if (!tab) return;
-        event.preventDefault();
-        setActiveTab(tab.id);
-      }
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [activeWorkspace, handleAddTab, setActiveTab, workspaceTabs]);
-
   const clearPointerSession = () => {
     pointerSessionRef.current = null;
     reorderingTabIdRef.current = null;
@@ -261,23 +224,6 @@ export const HeaderTabs = () => {
   const handleTogglePin = (tabId: string, pin: boolean) => {
     setTabPinned(tabId, pin);
   };
-
-  // 添加快捷键处理，关闭当前标签页
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // 检查是否按下了⌘W或Ctrl+W组合键
-      if (event.key === "w" && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault();
-        // 关闭当前活跃的标签页，但确保不是最后一个标签页
-        if (activeTabId && workspaceTabs.length > 1) {
-          closeTab(activeTabId);
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTabId, closeTab, workspaceTabs]);
 
   useEffect(() => {
     const viewport = tabsScrollViewportRef.current;

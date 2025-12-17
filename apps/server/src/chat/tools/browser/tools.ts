@@ -1,15 +1,18 @@
 import { tool, zodSchema } from "ai";
-import { z } from "zod";
 import { requestContextManager } from "@/context/requestContext";
 import { openUrlTool } from "./openUrl";
+import {
+  browserGetTabsToolDef,
+  browserGetCurrentTabToolDef,
+} from "@teatime-ai/api/types/tools/browser";
 
 export const browserTools = {
   // ======
   // MVP：读取前端传来的 tab 上下文（用于 agent 感知用户环境）
   // ======
   getTabs: tool({
-    description: "获取用户当前可见的 tabs（MVP：仅包含 activeTab）。",
-    inputSchema: zodSchema(z.object({})),
+    description: browserGetTabsToolDef.description,
+    inputSchema: zodSchema(browserGetTabsToolDef.parameters),
     execute: async () => {
       const state = requestContextManager.getTabsState();
       return { ok: true, data: state?.tabs ?? [] };
@@ -17,8 +20,8 @@ export const browserTools = {
   }),
 
   getCurrentTab: tool({
-    description: "获取用户当前激活的 tab（MVP）。",
-    inputSchema: zodSchema(z.object({})),
+    description: browserGetCurrentTabToolDef.description,
+    inputSchema: zodSchema(browserGetCurrentTabToolDef.parameters),
     execute: async () => {
       const state = requestContextManager.getTabsState();
       const activeTab = state?.tabs?.find((t) => t.id === state.activeTabId);

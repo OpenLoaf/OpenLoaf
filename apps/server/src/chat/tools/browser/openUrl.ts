@@ -1,8 +1,8 @@
 import type { DockItem } from "@teatime-ai/api/common";
 import { tool, zodSchema } from "ai";
-import { z } from "zod";
 import { emitUiEvent, requireActiveTab } from "@/chat/ui/emit";
 import { stableIdFromUrl } from "@/chat/ui/ids";
+import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 
 // ==========
 // MVP：浏览器能力（通过 UI 事件驱动前端打开 BrowserWindow）
@@ -26,14 +26,8 @@ function buildBrowserWindowDockItem({
 }
 
 export const openUrlTool = tool({
-  description:
-    "在用户当前 Tab 中打开一个网址（以左侧 stack overlay 的方式打开 BrowserWindow）。仅负责打开页面，不做其它网页操作。",
-  inputSchema: zodSchema(
-    z.object({
-      url: z.string().describe("要打开的 URL（支持 https/http）"),
-      title: z.string().optional().describe("可选标题，用于面板显示"),
-    })
-  ),
+  description: openUrlToolDef.description,
+  inputSchema: zodSchema(openUrlToolDef.parameters),
   execute: async ({ url, title }) => {
     const activeTab = requireActiveTab();
     emitUiEvent({

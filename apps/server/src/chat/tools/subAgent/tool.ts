@@ -1,13 +1,11 @@
 import { createAgentUIStream, generateId, tool, zodSchema } from "ai";
 import type { UIMessage } from "ai";
-import { z } from "zod";
 import { requestContextManager } from "@/context/requestContext";
 import { decideAgentMode } from "@/chat/agents/mode";
 import { getSubAgent } from "@/chat/agents/sub/registry";
 import { saveAndAppendMessage } from "@/chat/history";
 import { setSubAgentToolRef } from "./globals";
-
-const MAX_TASK_CHARS = 6000;
+import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 
 function agentMetadataFromStack() {
   const frame = requestContextManager.getCurrentAgentFrame();
@@ -23,18 +21,8 @@ function agentMetadataFromStack() {
 }
 
 export const subAgentTool = tool({
-  description:
-    "调用一个子 Agent 来完成特定任务，并把子 Agent 的流式输出合并到当前对话中。适合需要专业化处理的场景（例如浏览器检索与网页总结）。",
-  inputSchema: zodSchema(
-    z.object({
-      name: z.string().describe("子 Agent 名称，例如：browser"),
-      task: z
-        .string()
-        .min(1)
-        .max(MAX_TASK_CHARS)
-        .describe("交给子 Agent 执行的任务描述（尽量包含必要上下文）"),
-    })
-  ),
+  description: subAgentToolDef.description,
+  inputSchema: zodSchema(subAgentToolDef.parameters),
   execute: async ({ name, task }) => {
     const writer = requestContextManager.getUIWriter();
     if (!writer) throw new Error("UI writer is not available.");

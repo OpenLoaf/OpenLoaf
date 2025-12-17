@@ -7,6 +7,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { motion } from "motion/react";
 import type { CSSProperties } from "react";
+import { openSettingsTab } from "@/lib/globalShortcuts";
 
 import { HeaderTabs } from "./Tabs";
 import { ModeToggle } from "./ModeToggle";
@@ -16,13 +17,12 @@ import { Bot } from "@/components/animate-ui/icons/bot";
 export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
   const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id;
   const activeTabId = useTabs((s) => s.activeTabId);
   const activeTab = useTabs((s) =>
     s.activeTabId ? s.tabs.find((t) => t.id === s.activeTabId) : undefined,
   );
   const setTabRightChatCollapsed = useTabs((s) => s.setTabRightChatCollapsed);
-  const addTab = useTabs((s) => s.addTab);
-  const setActiveTab = useTabs((s) => s.setActiveTab);
 
   const isElectron =
     process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -74,34 +74,8 @@ export const Header = () => {
           variant="ghost"
           size="icon"
           onClick={() => {
-            if (!workspace?.id) return;
-
-            const baseId = "base:settings";
-            const state = useTabs.getState();
-            const existing = state.tabs.find(
-              (tab) => tab.workspaceId === workspace.id && tab.base?.id === baseId,
-            );
-            if (existing) {
-              setActiveTab(existing.id);
-              return;
-            }
-
-            const viewportWidth =
-              typeof document !== "undefined"
-                ? document.documentElement.clientWidth || window.innerWidth
-                : 0;
-
-            addTab({
-              workspaceId: workspace.id,
-              createNew: true,
-              title: "Settings",
-              icon: "⚙️",
-              leftWidthPercent: viewportWidth > 0 ? 70 : undefined,
-              base: {
-                id: baseId,
-                component: "settings-page",
-              },
-            });
+            if (!workspaceId) return;
+            openSettingsTab(workspaceId);
           }}
         >
           <Settings className="h-4 w-4" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { SidebarPage } from "@/components/layout/sidebar/Page";
 import { SidebarWorkspace } from "../../workspace/SidebarWorkspace";
 import {
@@ -17,6 +17,7 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Search as SearchDialog } from "@/components/search/Search";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { DEFAULT_TAB_INFO } from "@teatime-ai/api/common/tabs/types";
+import { useGlobalOverlay } from "@/lib/globalShortcuts";
 
 export const AppSidebar = ({
   ...props
@@ -24,7 +25,8 @@ export const AppSidebar = ({
   const { workspace: activeWorkspace } = useWorkspace();
   const addTab = useTabs((s) => s.addTab);
   const setActiveTab = useTabs((s) => s.setActiveTab);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const searchOpen = useGlobalOverlay((s) => s.searchOpen);
+  const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
 
   const openSingletonTab = useCallback(
     (input: { baseId: string; component: string; title: string; icon: string }) => {
@@ -51,81 +53,6 @@ export const AppSidebar = ({
     },
     [activeWorkspace, addTab, setActiveTab],
   );
-
-  useEffect(() => {
-    const isEditableTarget = (target: EventTarget | null) => {
-      if (!(target instanceof HTMLElement)) return false;
-      const tag = target.tagName.toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select") return true;
-      return target.isContentEditable;
-    };
-
-    const handler = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      if (isEditableTarget(event.target)) return;
-
-      const withMod = event.metaKey || event.ctrlKey;
-      if (!withMod) return;
-
-      const key = event.key.toLowerCase();
-
-      if (key === "k") {
-        event.preventDefault();
-        setSearchOpen((open) => !open);
-        return;
-      }
-
-      if (key === "l") {
-        event.preventDefault();
-        setSearchOpen(false);
-        openSingletonTab({
-          baseId: "base:calendar",
-          component: "calendar-page",
-          title: "日历",
-          icon: "🗓️",
-        });
-        return;
-      }
-
-      if (key === "i") {
-        event.preventDefault();
-        setSearchOpen(false);
-        openSingletonTab({
-          baseId: "base:inbox",
-          component: "inbox-page",
-          title: "收集箱",
-          icon: "📥",
-        });
-        return;
-      }
-
-      if (key === "j") {
-        event.preventDefault();
-        setSearchOpen(false);
-        openSingletonTab({
-          baseId: "base:ai-chat",
-          component: "ai-chat",
-          title: "AI助手",
-          icon: "✨",
-        });
-        return;
-      }
-
-      if (key === "t") {
-        event.preventDefault();
-        setSearchOpen(false);
-        openSingletonTab({
-          baseId: "base:template",
-          component: "template-page",
-          title: "模版",
-          icon: "📄",
-        });
-      }
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [openSingletonTab]);
 
   return (
     <Sidebar

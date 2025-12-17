@@ -11,7 +11,14 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useTabs } from "@/hooks/use-tabs";
-import { KeyRound, Boxes, SlidersHorizontal, User, Info } from "lucide-react";
+import {
+  Bot,
+  KeyRound,
+  Boxes,
+  SlidersHorizontal,
+  User,
+  Info,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { BasicSettings } from "./menus/BasicSettings";
@@ -19,8 +26,9 @@ import { AccountSettings } from "./menus/AccountSettings";
 import { AboutTeatime } from "./menus/AboutTeatime";
 import { KeyManagement } from "./menus/KeyManagement";
 import { ModelManagement } from "./menus/ModelManagement";
+import { AgentManagement } from "./menus/AgentManagement";
 
-type SettingsMenuKey = "basic" | "account" | "about" | "models" | "keys";
+type SettingsMenuKey = "basic" | "account" | "about" | "models" | "keys" | "agents";
 
 const MENU: Array<{
   key: SettingsMenuKey;
@@ -32,6 +40,7 @@ const MENU: Array<{
   { key: "account", label: "账户管理", Icon: User, Component: AccountSettings },
   { key: "models", label: "模型管理", Icon: Boxes, Component: ModelManagement },
   { key: "keys", label: "密钥管理", Icon: KeyRound, Component: KeyManagement },
+  { key: "agents", label: "Agent管理", Icon: Bot, Component: AgentManagement },
   { key: "about", label: "关于Teatime", Icon: Info, Component: AboutTeatime },
 ];
 
@@ -83,7 +92,7 @@ export default function SettingsPage({
     const byKey = new Map(MENU.map((item) => [item.key, item]));
     return [
       [byKey.get("basic"), byKey.get("account")].filter(Boolean),
-      [byKey.get("models"), byKey.get("keys")].filter(Boolean),
+      [byKey.get("models"), byKey.get("keys"), byKey.get("agents")].filter(Boolean),
       [byKey.get("about")].filter(Boolean),
     ] as Array<typeof MENU>;
   }, []);

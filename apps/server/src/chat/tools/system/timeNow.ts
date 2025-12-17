@@ -1,6 +1,6 @@
 import { tool, zodSchema } from "ai";
-import { z } from "zod";
 import type { SystemToolResult } from "./types";
+import { timeNowToolDef } from "@teatime-ai/api/types/tools/system";
 
 /**
  * 获取当前时间（只读）
@@ -8,17 +8,8 @@ import type { SystemToolResult } from "./types";
  * - 风险：read（无副作用）。
  */
 export const timeNowTool = tool({
-  description: "获取当前服务器时间信息，包括格式化的时间字符串、Unix时间戳（毫秒）和时区。当需要了解当前时间或进行时间相关计算时调用此工具，可通过可选参数指定时区。",
-  inputSchema: zodSchema(
-    z.object({
-      timezone: z
-        .string()
-        .optional()
-        .describe(
-          "可选：时区名称（例如 Asia/Shanghai）。不传则使用当前系统时区。",
-        ),
-    }),
-  ),
+  description: timeNowToolDef.description,
+  inputSchema: zodSchema(timeNowToolDef.parameters),
   execute: async (input, _options): Promise<
     SystemToolResult<{ now: string; unixMs: number; timezone: string }>
   > => {

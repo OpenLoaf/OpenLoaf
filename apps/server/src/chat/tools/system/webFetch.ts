@@ -1,7 +1,7 @@
 import { tool, zodSchema } from "ai";
-import { z } from "zod";
 import type { SystemToolResult } from "./types";
 import { stripHtmlToText, fetchTextWithLimits, isProbablyPrivateHostname } from "./utils";
+import { webFetchToolDef } from "@teatime-ai/api/types/tools/system";
 
 /**
  * 抓取网页内容（只读）
@@ -9,12 +9,8 @@ import { stripHtmlToText, fetchTextWithLimits, isProbablyPrivateHostname } from 
  * - 安全：MVP 只支持 GET，限制超时/大小，并默认阻止 localhost/私网地址（SSRF 保护的最小版本）。
  */
 export const webFetchTool = tool({
-  description: "通过 HTTP GET 请求抓取指定网页的内容并返回文本格式。适用于需要获取网页内容（如文档、文章、新闻等）的场景。默认禁止访问 localhost 和私有网络地址以防止安全风险，有超时和最大字节数限制。",
-  inputSchema: zodSchema(
-    z.object({
-      url: z.string().describe("目标网页 URL（仅支持 http/https）。"),
-    }),
-  ),
+  description: webFetchToolDef.description,
+  inputSchema: zodSchema(webFetchToolDef.parameters),
   execute: async (input): Promise<
     SystemToolResult<{
       url: string;

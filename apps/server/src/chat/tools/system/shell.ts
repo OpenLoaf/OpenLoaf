@@ -1,5 +1,4 @@
 import { tool, zodSchema } from "ai";
-import { z } from "zod";
 import fs from "node:fs/promises";
 import type { SystemToolResult } from "./types";
 import {
@@ -8,6 +7,11 @@ import {
   runCommandReadonly,
 } from "./utils";
 import { requestContextManager } from "../../../context/requestContext";
+import {
+  shellReadonlyToolDef,
+  shellWriteToolDef,
+  shellDestructiveToolDef,
+} from "@teatime-ai/api/types/tools/system";
 
 /**
  * Shell 工具（MVP）
@@ -16,17 +20,8 @@ import { requestContextManager } from "../../../context/requestContext";
  */
 
 export const shellReadonlyTool = tool({
-  description:
-    "执行只读 shell 命令并返回输出，适用于获取系统信息、查看文件列表、查看当前目录等场景。仅允许执行安全的只读命令，包括 date、uname、whoami、pwd、ls，禁止使用管道、重定向等复杂操作。",
-  inputSchema: zodSchema(
-    z.object({
-      cmd: z
-        .string()
-        .describe(
-          "要执行的命令。仅允许：date、uname、whoami、pwd、ls。禁止 | ; && > 等复杂操作。"
-        ),
-    })
-  ),
+  description: shellReadonlyToolDef.description,
+  inputSchema: zodSchema(shellReadonlyToolDef.parameters),
   execute: async (
     input
   ): Promise<
@@ -128,17 +123,8 @@ export const shellReadonlyTool = tool({
 });
 
 export const shellWriteTool = tool({
-  description:
-    "执行可能修改文件系统的命令，需要审批。适用于创建目录等场景。当前仅支持 mkdir <path> 命令，且路径必须在白名单目录内。",
-  inputSchema: zodSchema(
-    z.object({
-      cmd: z
-        .string()
-        .describe(
-          "要执行的命令。当前仅支持：mkdir <path>。路径必须在白名单目录内。"
-        ),
-    })
-  ),
+  description: shellWriteToolDef.description,
+  inputSchema: zodSchema(shellWriteToolDef.parameters),
   // AI SDK v6 内置审批机制：需要审批时会触发 tool-approval-request（后续再接 UI）。
   needsApproval: true,
   execute: async (input): Promise<SystemToolResult<{ ok: true }>> => {
@@ -194,17 +180,8 @@ export const shellWriteTool = tool({
 });
 
 export const shellDestructiveTool = tool({
-  description:
-    "执行破坏性命令，需要审批。适用于删除文件等场景。当前仅支持 rm <file> 命令，且路径必须在白名单目录内，只能删除文件，不能删除目录。",
-  inputSchema: zodSchema(
-    z.object({
-      cmd: z
-        .string()
-        .describe(
-          "要执行的命令。当前仅支持：rm <file>。路径必须在白名单目录内，且只能删除文件。"
-        ),
-    })
-  ),
+  description: shellDestructiveToolDef.description,
+  inputSchema: zodSchema(shellDestructiveToolDef.parameters),
   needsApproval: true,
   execute: async (input): Promise<SystemToolResult<{ ok: true }>> => {
     try {
