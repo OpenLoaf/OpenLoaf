@@ -37,7 +37,8 @@ export default function MessageAi({ message, className }: MessageAiProps) {
               <div
                 key={index}
                 className={cn(
-                  "min-w-0 w-full mx-3 max-w-none font-sans prose prose-neutral dark:prose-invert break-words [overflow-wrap:anywhere]",
+                  // Avoid `w-full` + horizontal margins causing width overflow.
+                  "min-w-0 w-full max-w-full px-3 font-sans prose prose-neutral dark:prose-invert break-words [overflow-wrap:anywhere]",
                   // Base text settings
                   "text-sm leading-relaxed",
                   // Element spacing adjustments
@@ -52,7 +53,9 @@ export default function MessageAi({ message, className }: MessageAiProps) {
                   // Other elements
                   "prose-blockquote:not-italic prose-blockquote:border-l-primary/50 prose-blockquote:text-muted-foreground",
                   "prose-a:break-all prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
-                  "prose-table:block prose-table:max-w-full prose-table:overflow-x-auto"
+                  "prose-table:block prose-table:max-w-full prose-table:overflow-x-auto",
+                  // Ensure media never overflows the chat width.
+                  "prose-img:max-w-full prose-img:h-auto"
                 )}
               >
                 <ReactMarkdown

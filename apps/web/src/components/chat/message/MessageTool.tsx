@@ -114,7 +114,10 @@ function CodeBlockWithCopy({
 
   return (
     <div
-      className={cn("relative mt-1 overflow-auto rounded bg-background p-2")}
+      className={cn(
+        "relative mt-1 max-w-full overflow-auto rounded bg-background p-2",
+        maxHeightClassName
+      )}
     >
       <div className="absolute right-2 top-2 flex items-center gap-1">
         <Button
@@ -192,8 +195,8 @@ export default function MessageTool({
         : "（暂无返回结果）");
 
   return (
-    <div className={cn("flex justify-start", className)}>
-      <details className="max-w-[80%] w-full rounded-lg bg-muted/40 px-3 py-2 text-foreground">
+    <div className={cn("flex min-w-0 justify-start", className)}>
+      <details className="max-w-[80%] w-full min-w-0 rounded-lg bg-muted/40 px-3 py-2 text-foreground">
         {/* summary 默认折叠展示：工具名称（MVP） */}
         <summary className="cursor-pointer select-none text-xs text-muted-foreground">
           工具：{toolName}

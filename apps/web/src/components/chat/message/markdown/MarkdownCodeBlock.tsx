@@ -158,7 +158,7 @@ export default function MarkdownCodeBlock({
   return (
     <div
       className={cn(
-        "not-prose my-3 mr-10 min-w-0 max-w-full overflow-hidden rounded-md border",
+        "not-prose my-3 w-full min-w-0 max-w-full overflow-hidden rounded-md border",
         className
       )}
     >

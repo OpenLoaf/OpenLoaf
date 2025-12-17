@@ -13,10 +13,13 @@ export default function MessageHuman({
   className,
 }: MessageHumanProps) {
   return (
-    <div className={cn("flex justify-end", className)}>
-      <div className="max-w-[80%] p-3 rounded-lg bg-primary text-primary-foreground">
+    <div className={cn("flex justify-end min-w-0", className)}>
+      <div className="max-w-[80%] min-w-0 p-3 rounded-lg bg-primary text-primary-foreground">
         {message.parts.map((part: any, index: number) => (
-          <div key={index} className="whitespace-pre-wrap text-sm">
+          <div
+            key={index}
+            className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm"
+          >
             {part.type === "text" && part.text}
           </div>
         ))}

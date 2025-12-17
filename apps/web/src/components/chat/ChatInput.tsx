@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronUp, Pause, Mic, AtSign, Hash, Image } from "lucide-react";
+import { ChevronUp, Square, Mic, AtSign, Hash, Image } from "lucide-react";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useChatContext } from "./ChatProvider";
 import { cn } from "@/lib/utils";
@@ -211,9 +211,9 @@ export function ChatInputBox({
                 disabled={isSendDisabled || (isLoading && !onStop)}
                 size="icon"
                 className={cn(
-                  "rounded-full w-8 h-8 transition-all duration-200 shadow-none",
+                  "h-8 w-8 rounded-full transition-all duration-200 shadow-none",
                   isLoading
-                    ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                    ? "border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/15"
                     : isOverLimit
                       ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                       : canSubmit
@@ -222,7 +222,7 @@ export function ChatInputBox({
                 )}
               >
                 {isLoading ? (
-                  <Pause className="w-3.5 h-3.5" />
+                  <Square className="h-3.5 w-3.5 fill-current" />
                 ) : (
                   <ChevronUp className="w-4 h-4" />
                 )}

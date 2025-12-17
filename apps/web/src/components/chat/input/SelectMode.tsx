@@ -34,11 +34,11 @@ export default function SelectMode({ className }: SelectModeProps) {
         <Button
           type="button"
           className={cn(
-            "h-7 px-2 w-[130px] flex items-center justify-between gap-1 rounded-md text-xs font-medium text-muted-foreground bg-transparent hover:bg-muted/50 transition-colors",
+            "h-7 w-auto inline-flex items-center gap-1.5 rounded-md bg-transparent px-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors",
             className
           )}
         >
-          <span className="flex-1 text-right truncate">
+          <span className="max-w-[10rem] truncate whitespace-nowrap">
             {isAuto ? "Auto" : selectedModel}
           </span>
           {open ? (
