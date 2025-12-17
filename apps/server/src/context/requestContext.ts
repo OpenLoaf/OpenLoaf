@@ -1,10 +1,12 @@
 import type { Tab } from "@teatime-ai/api/types/tabs";
+import type { UIMessageStreamWriter } from "ai";
 import { AsyncLocalStorage } from "node:async_hooks";
 
 type RequestContext = {
   sessionId: string;
   cookies: Record<string, string>;
   activeTab?: Tab;
+  uiWriter?: UIMessageStreamWriter<any>;
 };
 
 class RequestContextManager {
@@ -56,35 +58,26 @@ class RequestContextManager {
   }
 
   getWorkspaceId(): string | undefined {
-    return this.getCookie("workspace-id");
+    // 优先用前端传来的 activeTab（去耦 tabs-storage / cookie 依赖）
+    return this.getContext()?.activeTab?.workspaceId ?? this.getCookie("workspace-id");
   }
 
-  /**
-   * 获取tabs状态
-   */
+  // 仅保留“请求内上下文”中的 tabs（MVP：当前只需要 activeTab）
   getTabsState(): { tabs: Tab[]; activeTabId: string | null } | undefined {
-    const context = this.getContext();
-    if (context?.activeTab) {
-      return {
-        tabs: [context.activeTab],
-        activeTabId: context.activeTab.id,
-      };
-    }
+    const activeTab = this.getContext()?.activeTab;
+    if (!activeTab) return undefined;
+    return { tabs: [activeTab], activeTabId: activeTab.id };
+  }
 
-    const tabsCookie = this.getCookie("tabs-storage");
-    if (!tabsCookie) {
-      return undefined;
-    }
-    try {
-      const decoded = decodeURIComponent(tabsCookie);
-      const parsed = JSON.parse(decoded);
-      if (parsed && parsed.state) {
-        return parsed.state;
-      }
-    } catch (e) {
-      console.error("Failed to parse tabs cookie", e);
-    }
-    return undefined;
+  // 关键：Streaming Custom Data 需要 tools 里可拿到 writer 往前端推事件
+  setUIWriter(writer: UIMessageStreamWriter<any>) {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    ctx.uiWriter = writer;
+  }
+
+  getUIWriter(): UIMessageStreamWriter<any> | undefined {
+    return this.getContext()?.uiWriter;
   }
 }
 

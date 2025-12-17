@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useTabs } from "@/hooks/use_tabs";
+import { useTabs } from "@/hooks/use-tabs";
 import { cn } from "@/lib/utils";
 import { TabLayout } from "./TabLayout";
 

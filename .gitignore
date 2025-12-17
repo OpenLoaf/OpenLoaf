@@ -73,3 +73,5 @@ temp
 .gemini/
 gha-creds-*.json
 .github
+
+update_codex_cdp.sh

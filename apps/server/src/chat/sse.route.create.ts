@@ -69,6 +69,7 @@ export function registerChatSseCreateRoute(app: Hono) {
       },
       // 将 DB 还原出来的完整历史传给 agent
       messages: messages as any[],
+      // execute: ({})
       messageMetadata: ({ part }) => {
         // 当生成完成时发送完整的 token 使用信息
         if (part.type === "finish") {
@@ -163,4 +164,3 @@ export function registerChatSseCreateRoute(app: Hono) {
     });
   });
 }
-

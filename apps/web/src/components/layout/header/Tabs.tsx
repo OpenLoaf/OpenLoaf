@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 import { Tabs, TabsList } from "@/components/animate-ui/components/radix/tabs";
-import { useTabs } from "@/hooks/use_tabs";
+import { useTabs } from "@/hooks/use-tabs";
 import { DEFAULT_TAB_INFO } from "@teatime-ai/api/types/tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Button } from "@/components/ui/button";

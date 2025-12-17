@@ -18,6 +18,7 @@
     "email": "torykit@torykit.com"
   },
   "dependencies": {
+    "@teatime-ai/config": "workspace:*",
     "serve-handler": "^6.1.6"
   },
   "devDependencies": {

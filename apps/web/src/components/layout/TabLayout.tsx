@@ -9,7 +9,7 @@ import {
 } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Chat } from "@/components/chat/Chat";
-import { useTabs, LEFT_DOCK_MIN_PX } from "@/hooks/use_tabs";
+import { useTabs, LEFT_DOCK_MIN_PX } from "@/hooks/use-tabs";
 import { LeftDock } from "./LeftDock";
 import { TabActiveProvider } from "./TabActiveContext";
 import type { Tab } from "@teatime-ai/api/types/tabs";

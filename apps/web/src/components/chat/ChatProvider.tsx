@@ -9,7 +9,7 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport, generateId } from "ai";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { useTabs } from "@/hooks/use_tabs";
+import { useTabs } from "@/hooks/use-tabs";
 
 const CLIENT_STREAM_CLIENT_ID_STORAGE_KEY = "teatime:chat:sse-client-id";
 

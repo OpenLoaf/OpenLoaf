@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { useTabs } from "@/hooks/use_tabs";
+import { useTabs } from "@/hooks/use-tabs";
 import { Globe } from "lucide-react";
 
 interface ProjectTestProps {

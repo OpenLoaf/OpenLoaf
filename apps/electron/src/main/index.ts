@@ -4,6 +4,7 @@ import { registerIpcHandlers } from './ipc';
 import { createServiceManager, type ServiceManager } from './services/serviceManager';
 import { WEBPACK_ENTRIES } from './webpackEntries';
 import { createMainWindow } from './windows/mainWindow';
+import { getCdpConfig } from '@teatime-ai/config';
 
 /**
  * A 方案架构说明：
@@ -23,7 +24,7 @@ log(`Resources Path: ${process.resourcesPath}`);
 
 app.commandLine.appendSwitch(
   'remote-debugging-port',
-  process.env.TEATIME_REMOTE_DEBUGGING_PORT ?? '9777'
+  String(getCdpConfig().port)
 );
 
 let services: ServiceManager | null = null;

@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { useTabs } from "@/hooks/use_tabs";
+import { useTabs } from "@/hooks/use-tabs";
 import { KeyRound, Boxes, SlidersHorizontal } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 

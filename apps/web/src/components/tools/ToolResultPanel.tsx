@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { useTabs } from "@/hooks/use_tabs";
-import type { ToolPartSnapshot } from "@/hooks/use_tabs";
+import { useTabs } from "@/hooks/use-tabs";
+import type { ToolPartSnapshot } from "@/hooks/use-tabs";
 
 function safeStringify(value: unknown) {
   if (value == null) return "";
