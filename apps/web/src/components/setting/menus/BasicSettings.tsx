@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggler } from "@/components/layout/ThemeProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SettingsGroup } from "./SettingsGroup";
 
 type FontSizeKey = "small" | "medium" | "large";
 const FONT_SIZE_STORAGE_KEY = "teatime:font-size";
@@ -105,8 +106,8 @@ export function BasicSettings() {
         };
 
         return (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-border p-3">
+          <div className="space-y-6">
+            <SettingsGroup title="外观">
               <div className="divide-y divide-border">
                 <div className="flex items-center justify-between gap-4 py-3">
                   <div className="min-w-0">
@@ -174,9 +175,9 @@ export function BasicSettings() {
                   </Tabs>
                 </div>
               </div>
-            </div>
+            </SettingsGroup>
 
-            <div className="rounded-lg border border-border p-3">
+            <SettingsGroup title="本地存储">
               <div className="divide-y divide-border">
                 <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
                   <div className="min-w-0 sm:w-56">
@@ -240,9 +241,56 @@ export function BasicSettings() {
                   </div>
                 </div>
               </div>
-            </div>
+            </SettingsGroup>
 
-            <div className="rounded-lg border border-border p-3">
+            <SettingsGroup
+              title="全局自定义规则"
+              action={
+                isCustomRulesDirty ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCustomRules(savedCustomRules)}
+                    >
+                      取消
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        localStorage.setItem(
+                          CUSTOM_RULES_STORAGE_KEY,
+                          customRules,
+                        );
+                        setSavedCustomRules(customRules);
+                      }}
+                    >
+                      保存
+                    </Button>
+                  </div>
+                ) : null
+              }
+            >
+              <div className="divide-y divide-border">
+                <div className="py-3 text-xs text-muted-foreground">
+                  所有 AI agent 都会使用这些规则（例如：你的名字、偏好、项目分类方式等）
+                </div>
+                <div className="py-3">
+                  <div className="relative rounded-xl bg-background shadow-xs transition-all duration-200 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 border border-border/50">
+                    <textarea
+                      value={customRules}
+                      onChange={(e) => {
+                        setCustomRules(e.target.value);
+                      }}
+                      placeholder="例如：我叫XXX；我喜欢YYY；项目按 A/B/C 分类；回答尽量简洁并给出可执行步骤…"
+                      className="h-48 w-full resize-none overflow-y-auto border-none bg-transparent px-3 py-3 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0"
+                    />
+                  </div>
+                </div>
+              </div>
+            </SettingsGroup>
+
+            <SettingsGroup title="工具">
               <div className="flex items-center justify-between gap-4 py-3">
                 <div className="min-w-0">
                   <div className="text-sm font-medium">界面重新加载</div>
@@ -261,55 +309,7 @@ export function BasicSettings() {
                   </Button>
                 </div>
               </div>
-            </div>
-
-            <div className="rounded-lg border border-border p-3">
-              <div className="space-y-2 py-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">用户自定义规则</div>
-                    <div className="text-xs text-muted-foreground">
-                      设置全局自定义规则，所有 AI agent 都会使用这些规则（例如：你的名字、偏好、项目分类方式等）
-                    </div>
-                  </div>
-
-                  {isCustomRulesDirty ? (
-                    <div className="flex shrink-0 justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCustomRules(savedCustomRules)}
-                      >
-                        取消
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          localStorage.setItem(
-                            CUSTOM_RULES_STORAGE_KEY,
-                            customRules,
-                          );
-                          setSavedCustomRules(customRules);
-                        }}
-                      >
-                        保存
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="relative rounded-xl border border-border bg-background shadow-xs transition-all duration-200 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
-                  <textarea
-                    value={customRules}
-                    onChange={(e) => {
-                      setCustomRules(e.target.value);
-                    }}
-                    placeholder="例如：我叫XXX；我喜欢YYY；项目按 A/B/C 分类；回答尽量简洁并给出可执行步骤…"
-                    className="h-48 w-full resize-none overflow-y-auto border-none bg-transparent px-3 py-3 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0"
-                  />
-                </div>
-              </div>
-            </div>
+            </SettingsGroup>
           </div>
         );
       }}

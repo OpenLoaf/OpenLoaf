@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,8 +10,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import { SettingsGroup } from "./SettingsGroup";
 
 type ProviderId = "anthropic" | "deepseek" | "openai" | "xai";
 
@@ -56,14 +65,125 @@ export function ModelManagement() {
   const [error, setError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
+  const [workspaceProjectRule, setWorkspaceProjectRule] =
+    useState("按项目划分");
+  const [defaultChatModelId, setDefaultChatModelId] = useState<string>("");
+  const [chatModelQuality, setChatModelQuality] = useState<
+    "high" | "medium" | "low"
+  >("medium");
+
   const providerLabelById = useMemo(() => {
     const map: Record<string, string> = {};
     for (const provider of PROVIDERS) map[provider.id] = provider.label;
     return map as Record<ProviderId, string>;
   }, []);
 
+  useEffect(() => {
+    if (entries.length === 0) {
+      setDefaultChatModelId("");
+      return;
+    }
+    if (!defaultChatModelId) {
+      setDefaultChatModelId(entries[0]!.id);
+      return;
+    }
+    const exists = entries.some((entry) => entry.id === defaultChatModelId);
+    if (!exists) setDefaultChatModelId(entries[0]!.id);
+  }, [defaultChatModelId, entries]);
+
   return (
     <div className="space-y-3">
+      <SettingsGroup title="模型设置">
+        <div className="divide-y divide-border">
+          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="min-w-0 sm:w-56">
+              <div className="text-sm font-medium">工作空间项目划分规范</div>
+              <div className="text-xs text-muted-foreground">
+                影响项目/会话的分类与组织方式
+              </div>
+            </div>
+
+            <div className="flex flex-1 items-center gap-2">
+              <Input
+                value={workspaceProjectRule}
+                onChange={(event) => setWorkspaceProjectRule(event.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="min-w-0 sm:w-56">
+              <div className="text-sm font-medium">默认聊天模型</div>
+              <div className="text-xs text-muted-foreground">
+                新对话默认使用的模型
+              </div>
+            </div>
+
+            <div className="flex flex-1 items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                    disabled={entries.length === 0}
+                  >
+                    <span className="truncate">
+                      {entries.length === 0
+                        ? "暂无模型"
+                        : (entries.find((e) => e.id === defaultChatModelId)
+                            ?.model ?? "选择模型")}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[320px]">
+                  <DropdownMenuRadioGroup
+                    value={defaultChatModelId}
+                    onValueChange={(next) => setDefaultChatModelId(next)}
+                  >
+                    {entries.map((entry) => (
+                      <DropdownMenuRadioItem key={entry.id} value={entry.id}>
+                        <div className="min-w-0">
+                          <div className="truncate">{entry.model}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {providerLabelById[entry.provider]}
+                          </div>
+                        </div>
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="min-w-0 sm:w-56">
+              <div className="text-sm font-medium">聊天模型质量</div>
+              <div className="text-xs text-muted-foreground">
+                高 / 中 / 低（UI 预设）
+              </div>
+            </div>
+
+            <div className="flex flex-1 items-center justify-end">
+              <Tabs
+                value={chatModelQuality}
+                onValueChange={(next) =>
+                  setChatModelQuality(next as "high" | "medium" | "low")
+                }
+              >
+                <TabsList>
+                  <TabsTrigger value="high">高</TabsTrigger>
+                  <TabsTrigger value="medium">中</TabsTrigger>
+                  <TabsTrigger value="low">低</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          </div>
+        </div>
+      </SettingsGroup>
+
       <div className="flex items-center justify-end">
         <Button
           size="sm"

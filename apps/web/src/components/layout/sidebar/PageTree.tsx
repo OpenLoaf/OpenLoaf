@@ -118,14 +118,14 @@ export const PageTreeMenu = ({
                 <ContextMenuTrigger asChild>
                   <SidebarMenuButton
                     tooltip={pageTitle}
-                    size="sm"
+                    size="default"
                     className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
                     onClick={(event) => handlePrimaryClick(event, page)}
                     onMouseDown={(event) => handleMouseDown(event, page)}
                     onDoubleClick={(event) => handleDoubleClick(event, page)}
                   >
                     {page.icon ? (
-                      <span className="text-xs leading-none">{page.icon}</span>
+                      <span className="text-sm leading-none">{page.icon}</span>
                     ) : (
                       <FileText className="h-4 w-4" />
                     )}
@@ -155,14 +155,14 @@ export const PageTreeMenu = ({
                 <ContextMenuTrigger asChild>
                   <SidebarMenuButton
                     tooltip={pageTitle}
-                    size="sm"
+                    size="default"
                     className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
                     onClick={(event) => handlePrimaryClick(event, page)}
                     onMouseDown={(event) => handleMouseDown(event, page)}
                     onDoubleClick={(event) => handleDoubleClick(event, page)}
                   >
                     {page.icon ? (
-                      <span className="text-xs leading-none">{page.icon}</span>
+                      <span className="text-sm leading-none">{page.icon}</span>
                     ) : (
                       <FileText className="h-4 w-4" />
                     )}
@@ -178,7 +178,7 @@ export const PageTreeMenu = ({
               <CollapsibleTrigger asChild>
                 <SidebarMenuAction
                   aria-label="Toggle"
-                  className="peer-data-[size=sm]/menu-button:top-0.5 text-muted-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                  className="text-muted-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                 >
                   <ChevronRight className="transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
                 </SidebarMenuAction>
@@ -194,7 +194,7 @@ export const PageTreeMenu = ({
                           <ContextMenuTrigger asChild>
                             <SidebarMenuSubButton
                               href="#"
-                              size="sm"
+                              size="md"
                               className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
                               onClick={(event) => {
                                 event.preventDefault();
@@ -204,7 +204,7 @@ export const PageTreeMenu = ({
                               onDoubleClick={(event) => handleDoubleClick(event, child)}
                             >
                               {child.icon ? (
-                                <span className="text-xs leading-none">{child.icon}</span>
+                                <span className="text-sm leading-none">{child.icon}</span>
                               ) : (
                                 <FileText className="h-4 w-4" />
                               )}

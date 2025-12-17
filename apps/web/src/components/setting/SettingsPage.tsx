@@ -4,7 +4,6 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import type { ComponentType } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
@@ -45,14 +44,24 @@ export default function SettingsPage({
 }) {
   const [activeKey, setActiveKey] = useState<SettingsMenuKey>("basic");
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [openTooltipKey, setOpenTooltipKey] = useState<SettingsMenuKey | null>(
+    null,
+  );
   const containerRef = useRef<HTMLDivElement>(null);
 
   const setTabMinLeftWidth = useTabs((s) => s.setTabMinLeftWidth);
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const isActiveTab = activeTabId === tabId;
 
   useEffect(() => {
     setTabMinLeftWidth(tabId, 500);
     return () => setTabMinLeftWidth(tabId, undefined);
   }, [tabId, setTabMinLeftWidth]);
+
+  useEffect(() => {
+    if (isActiveTab) return;
+    setOpenTooltipKey(null);
+  }, [isActiveTab]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -91,53 +100,58 @@ export default function SettingsPage({
           className="shrink-0 border-r border-border bg-muted/20"
         >
           <ScrollArea className="h-full">
-            <div className="p-3 space-y-2">
+            <div className="p-3 pl-1 space-y-2">
               {menuGroups.map((group, groupIndex) => (
                 <div key={`group_${groupIndex}`} className="space-y-2">
                   {group.map((item) => {
                     const active = item.key === activeKey;
                     const Icon = item.Icon;
-                    return (
-                      <Tooltip key={item.key} delayDuration={0}>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant={active ? "secondary" : "ghost"}
-                            size="sm"
-                            className={cn(
-                              "w-full h-9",
-                              isCollapsed
-                                ? "justify-center px-0"
-                                : "justify-start",
-                              active && "text-foreground",
-                            )}
-                            onClick={() => setActiveKey(item.key)}
-                          >
-                            <Icon
-                              className={cn(
-                                "h-4 w-4 shrink-0",
-                                !isCollapsed && "mr-2",
-                              )}
-                            />
-                            {!isCollapsed && item.label}
-                          </Button>
-                        </TooltipTrigger>
-                        {isCollapsed && (
-                          <TooltipContent side="right">
-                            {item.label}
-                          </TooltipContent>
+                    const tooltipEnabled = isCollapsed && isActiveTab;
+                    const button = (
+                      <Button
+                        variant={active ? "secondary" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "w-full h-9",
+                          isCollapsed ? "justify-center px-0" : "justify-start",
+                          active && "text-foreground",
                         )}
+                        onClick={() => setActiveKey(item.key)}
+                      >
+                        <Icon
+                          className={cn(
+                            "h-4 w-4 shrink-0",
+                            !isCollapsed && "mr-2",
+                          )}
+                        />
+                        {!isCollapsed && item.label}
+                      </Button>
+                    );
+
+                    if (!tooltipEnabled) return <div key={item.key}>{button}</div>;
+
+                    return (
+                      <Tooltip
+                        key={item.key}
+                        delayDuration={0}
+                        open={openTooltipKey === item.key}
+                        onOpenChange={(open) => {
+                          if (open) {
+                            setOpenTooltipKey(item.key);
+                            return;
+                          }
+                          setOpenTooltipKey((prev) =>
+                            prev === item.key ? null : prev,
+                          );
+                        }}
+                      >
+                        <TooltipTrigger asChild>
+                          {button}
+                        </TooltipTrigger>
+                        <TooltipContent side="right">{item.label}</TooltipContent>
                       </Tooltip>
                     );
                   })}
-
-                  {groupIndex < menuGroups.length - 1 ? (
-                    <Separator
-                      className={cn(
-                        "my-3",
-                        isCollapsed ? "mx-2" : "mx-1",
-                      )}
-                    />
-                  ) : null}
                 </div>
               ))}
             </div>
@@ -146,7 +160,7 @@ export default function SettingsPage({
 
         <div className="min-w-[400px] flex-1">
           <ScrollArea className="h-full">
-            <div className="p-4">
+            <div className="p-3 pr-1">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={activeKey}
