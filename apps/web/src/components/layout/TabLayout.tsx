@@ -132,7 +132,9 @@ export function TabLayout({
     if (containerWidth > 0) {
       const minLeft = effectiveMinLeft;
       // We allow right panel to compress if needed, but ideally enforce min width logic
-      const maxLeft = Math.max(minLeft, containerWidth - RIGHT_CHAT_MIN_PX);
+      // NOTE: containerWidth is the flex container content-box width, so we must also
+      // reserve divider width; otherwise right side can end up smaller than RIGHT_CHAT_MIN_PX.
+      const maxLeft = Math.max(minLeft, containerWidth - RIGHT_CHAT_MIN_PX - targetDividerWidth);
 
       const storedLeftPx = (storedLeftWidthPercent / 100) * containerWidth;
       const targetPx = Math.max(minLeft, Math.min(storedLeftPx, maxLeft));
@@ -168,7 +170,7 @@ export function TabLayout({
     const relativeX = e.clientX - rect.left;
     
     const minLeft = effectiveMinLeft;
-    const maxLeft = Math.max(minLeft, rect.width - RIGHT_CHAT_MIN_PX);
+    const maxLeft = Math.max(minLeft, rect.width - RIGHT_CHAT_MIN_PX - targetDividerWidth);
     const newLeftPx = Math.max(minLeft, Math.min(relativeX, maxLeft));
     
     const newPercent = (newLeftPx / rect.width) * 100;
