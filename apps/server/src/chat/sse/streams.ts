@@ -1,4 +1,4 @@
-import { sseEventBus } from "./sse.bus";
+import { sseEventBus } from "./bus";
 
 type SseChunk = { seq: number; value: string };
 

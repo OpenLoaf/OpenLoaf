@@ -1,7 +1,7 @@
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { Hono } from "hono";
-import { removeSseClient, tryAddSseClient } from "./sse.clients";
-import { resumeExistingStream } from "./sse.streams";
+import { removeSseClient, tryAddSseClient } from "@/chat/sse/clients";
+import { resumeExistingStream } from "@/chat/sse/streams";
 
 /**
  * GET `/chat/sse/:id/stream`
@@ -12,24 +12,18 @@ export function registerChatSseStreamRoute(app: Hono) {
     const chatId = c.req.param("id");
     const clientId = c.req.query("clientId") ?? "";
 
-    // 对同一个 chatId + clientId 做去重，避免重复消费同一份流
     if (!tryAddSseClient(chatId, clientId)) {
       return new Response(null, { status: 204 });
     }
 
     const stream = resumeExistingStream(chatId);
-
     if (!stream) {
-      // 没有活跃流：返回 204
       removeSseClient(chatId, clientId);
       return new Response(null, { status: 204 });
     }
 
     if (clientId) {
-      const release = () => {
-        removeSseClient(chatId, clientId);
-      };
-
+      const release = () => removeSseClient(chatId, clientId);
       c.req.raw.signal.addEventListener("abort", release, { once: true });
 
       const streamWithRelease = new ReadableStream<string>({
@@ -68,9 +62,7 @@ export function registerChatSseStreamRoute(app: Hono) {
       });
     }
 
-    return new Response(stream as any, {
-      headers: UI_MESSAGE_STREAM_HEADERS,
-    });
+    return new Response(stream as any, { headers: UI_MESSAGE_STREAM_HEADERS });
   });
 }
 
