@@ -54,7 +54,10 @@ export const subAgentTool = tool({
       return { ok: false, error: { code: "NOT_FOUND", message: "未找到该 subAgent。" } };
     }
 
-    const mode = decideAgentMode(requestContextManager.getContext()?.activeTab);
+    // 关键：mode 由 master 在请求上下文中确定（subAgent 侧不再自行判断 mode）
+    const mode =
+      requestContextManager.getAgentMode() ??
+      decideAgentMode(requestContextManager.getContext()?.activeTab);
     const agent = sub.createAgent(mode);
 
     const parentPath = parent?.path ?? ["master"];
@@ -69,45 +72,70 @@ export const subAgentTool = tool({
       } as any,
     ];
 
-    const stream = await createAgentUIStream({
-      agent,
-      messages: messages as any[],
-      // 关键：服务端生成 messageId，确保可用于 DB 主键（Phase B）
-      generateMessageId: generateId,
-      onError: () => "SubAgent error.",
-      messageMetadata: ({ part }) => {
-        if (part.type === "finish") {
-          return {
-            ...(agentMetadataFromStack() ?? {}),
-            totalUsage: (part as any).totalUsage,
-          } as any;
-        }
-        if (part.type === "start") return agentMetadataFromStack() as any;
-      },
-      onFinish: async ({ isAborted, responseMessage }) => {
-        try {
-          if (isAborted) return;
-          if (!responseMessage || responseMessage.role !== "assistant") return;
-
-          // 关键：把 subAgent 标识写入 metadata，保存到 DB（用于历史回放 + 前端区分）
-          const messageToSave: UIMessage = {
-            ...responseMessage,
-            metadata: {
-              ...(responseMessage as any).metadata,
-              ...(agentMetadataFromStack() ?? {}),
-            },
-          } as any;
-
-          await saveAndAppendMessage({ sessionId, incomingMessage: messageToSave });
-        } finally {
-          requestContextManager.popAgentFrame();
-        }
-      },
+    // 关键：subAgent 的 UI stream 必须“阻塞”当前 tool，直到 subAgent 完整结束；
+    // 否则主 agent 会在 tool 提前返回后继续生成，导致两路输出交叉/顺序错乱。
+    let finishCalled = false;
+    let resolveStreamFinished: (() => void) | undefined;
+    const streamFinished = new Promise<void>((resolve) => {
+      resolveStreamFinished = resolve;
     });
 
-    writer.merge(stream as any);
+    try {
+      const stream = await createAgentUIStream({
+        agent,
+        messages: messages as any[],
+        // 关键：服务端生成 messageId，确保可用于 DB 主键（Phase B）
+        generateMessageId: generateId,
+        onError: () => "SubAgent error.",
+        messageMetadata: ({ part }) => {
+          if (part.type === "finish") {
+            return {
+              ...(agentMetadataFromStack() ?? {}),
+              totalUsage: (part as any).totalUsage,
+            } as any;
+          }
+          if (part.type === "start") return agentMetadataFromStack() as any;
+        },
+        onFinish: async ({ isAborted, responseMessage }) => {
+          try {
+            if (isAborted) return;
+            if (!responseMessage || responseMessage.role !== "assistant") return;
 
-    return { ok: true, data: { name: sub.name } };
+            // 关键：把 subAgent 标识写入 metadata，保存到 DB（用于历史回放 + 前端区分）
+            const messageToSave: UIMessage = {
+              ...responseMessage,
+              metadata: {
+                ...(responseMessage as any).metadata,
+                ...(agentMetadataFromStack() ?? {}),
+              },
+            } as any;
+
+            await saveAndAppendMessage({ sessionId, incomingMessage: messageToSave });
+          } finally {
+            finishCalled = true;
+            resolveStreamFinished?.();
+            requestContextManager.popAgentFrame();
+          }
+        },
+      });
+
+      writer.merge(stream as any);
+
+      // 关键：等待 subAgent 完整输出结束，才允许主 agent 继续运行
+      await streamFinished;
+
+      return { ok: true, data: { name: sub.name } };
+    } catch (error) {
+      // 关键：如果 stream 在创建/merge 阶段失败，onFinish 不会触发，需要手动清理 agent 栈
+      if (!finishCalled) {
+        try {
+          requestContextManager.popAgentFrame();
+        } catch {
+          // ignore
+        }
+      }
+      throw error;
+    }
   },
 });
 

@@ -1,8 +1,4 @@
 import { prisma } from "@teatime-ai/db";
-import { systemTools } from "@/chat/tools/system";
-import { browserReadonlyTools, browserTools } from "@/chat/tools/browser";
-import { dbTools } from "@/chat/tools/db";
-import { subAgentToolRef } from "@/chat/tools/subAgent";
 import { requestContextManager } from "@/context/requestContext";
 import type { AgentMode } from "@teatime-ai/api/common";
 import { ToolLoopAgent, stepCountIs } from "ai";
@@ -10,20 +6,14 @@ import { deepseek } from "@ai-sdk/deepseek";
 import type { SubAgent } from "./SubAgent";
 import { BrowserSubAgent } from "./BrowserSubAgent";
 import { SubAgent as SubAgentBase } from "./SubAgent";
+import { browserReadonlyTools, browserTools } from "@/chat/tools/browser";
+import { dbTools } from "@/chat/tools/db";
+import { systemTools } from "@/chat/tools/system";
+import { subAgentToolRef } from "@/chat/tools/subAgent/globals";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 
 // 关键：内置 subAgent（MVP fallback）
 const BUILTIN_SUB_AGENTS = new Map<string, SubAgent>([["browser", new BrowserSubAgent()]]);
-
-function toolMapByMode(mode: AgentMode) {
-  const base = mode === "settings" ? browserReadonlyTools : browserTools;
-  return {
-    ...systemTools,
-    ...base,
-    ...(mode === "settings" ? {} : dbTools),
-    [subAgentToolDef.id]: subAgentToolRef,
-  } as any;
-}
 
 class DbSubAgent extends SubAgentBase {
   readonly name: string;
@@ -50,25 +40,34 @@ class DbSubAgent extends SubAgentBase {
     if (typeof def.maxSteps === "number") this.maxSteps = def.maxSteps;
   }
 
-  createTools(mode: AgentMode) {
-    const map = toolMapByMode(mode);
-    const tools: any = {};
-    for (const key of this.toolKeys) {
-      const tool = (map as any)[key];
-      if (tool) tools[key] = tool;
-    }
-    return tools;
-  }
-
   createSystemPrompt(_mode: AgentMode) {
     return this.systemPrompt;
   }
 
   createAgent(mode: AgentMode) {
+    const basePool =
+      mode === "settings"
+        ? {
+            ...systemTools,
+            ...browserReadonlyTools,
+            ...(subAgentToolRef ? { [subAgentToolDef.id]: subAgentToolRef } : {}),
+          }
+        : {
+            ...systemTools,
+            ...browserTools,
+            ...dbTools,
+            ...(subAgentToolRef ? { [subAgentToolDef.id]: subAgentToolRef } : {}),
+          };
+    const tools: any = {};
+    for (const key of this.toolKeys) {
+      const tool = (basePool as any)?.[key];
+      if (tool) tools[key] = tool;
+    }
+
     return new ToolLoopAgent({
       model: deepseek("deepseek-chat"),
       instructions: this.createSystemPrompt(mode),
-      tools: this.createTools(mode),
+      tools,
       stopWhen: stepCountIs(this.maxSteps),
     });
   }

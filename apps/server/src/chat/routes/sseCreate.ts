@@ -19,6 +19,43 @@ import {
   initActiveStream,
 } from "@/chat/sse/streams";
 
+const DEBUG_AI_STREAM = process.env.TEATIME_DEBUG_AI_STREAM === "1";
+
+function safeJsonSize(value: unknown): number {
+  try {
+    return JSON.stringify(value).length;
+  } catch {
+    return -1;
+  }
+}
+
+function summarizeMessagesForDebug(messages: UIMessage[]): Array<{
+  id: string;
+  role: string;
+  parts: Array<{ type: string; size: number }>;
+  metaSize: number;
+  totalPartsSize: number;
+}> {
+  return messages.map((m: any) => {
+    const parts = Array.isArray(m?.parts) ? m.parts : [];
+    const partsSummary: Array<{ type: string; size: number }> = parts.map((p: any) => ({
+      type: typeof p?.type === "string" ? p.type : "unknown",
+      size: safeJsonSize(p),
+    }));
+    const totalPartsSize = partsSummary.reduce(
+      (acc, p) => acc + (p.size > 0 ? p.size : 0),
+      0,
+    );
+    return {
+      id: String(m?.id ?? ""),
+      role: String(m?.role ?? ""),
+      parts: partsSummary,
+      metaSize: safeJsonSize(m?.metadata),
+      totalPartsSize,
+    };
+  });
+}
+
 function extractActiveTab(message: UIMessage | undefined): Tab | undefined {
   const parts = (message as any)?.parts;
   if (!Array.isArray(parts)) return undefined;
@@ -60,11 +97,14 @@ export function registerChatSseCreateRoute(app: Hono) {
     // 关键：从 data-client-context 取 activeTab（不依赖历史持久化 key）
     const activeTab = extractActiveTab(lastIncomingMessage);
 
+    const mode = decideAgentMode(activeTab);
+
     // 关键：初始化请求上下文（tools/agent 内部可读取 activeTab/workspaceId）
     requestContextManager.createContext({
       sessionId,
       cookies: cookies || {},
       activeTab,
+      mode,
     });
 
     const messages = await saveAndAppendMessage({
@@ -72,7 +112,27 @@ export function registerChatSseCreateRoute(app: Hono) {
       incomingMessage: lastIncomingMessage,
     });
 
-    const mode = decideAgentMode(activeTab);
+    if (DEBUG_AI_STREAM) {
+      const summary = summarizeMessagesForDebug(messages as any);
+      const total = summary.reduce((acc, m) => acc + m.totalPartsSize, 0);
+      const top = [...summary]
+        .sort((a, b) => b.totalPartsSize - a.totalPartsSize)
+        .slice(0, 5);
+      console.log("[debug][ai-stream] history summary", {
+        sessionId,
+        mode,
+        activeTabId: activeTab?.id ?? null,
+        messageCount: summary.length,
+        approxTotalChars: total,
+        topMessages: top.map((m) => ({
+          id: m.id,
+          role: m.role,
+          totalPartsSize: m.totalPartsSize,
+          parts: m.parts.slice(0, 8),
+        })),
+      });
+    }
+
     const master = new MasterAgent(mode);
     const agent = master.createAgent();
 
@@ -120,6 +180,16 @@ export function registerChatSseCreateRoute(app: Hono) {
         requestContextManager.setUIWriter(writer as any);
         requestContextManager.pushAgentFrame(master.createFrame());
 
+        if (DEBUG_AI_STREAM) {
+          console.log("[debug][ai-stream] createAgentUIStream start", {
+            sessionId,
+            mode,
+            activeTabId: activeTab?.id ?? null,
+            messageCount: (messages as any[])?.length ?? 0,
+            approxMessagesChars: safeJsonSize(messages),
+          });
+        }
+
         const agentStream = await createAgentUIStream({
           agent,
           messages: messages as any[],
@@ -161,6 +231,8 @@ export function registerChatSseCreateRoute(app: Hono) {
         initActiveStream(streamId);
 
         const reader = stream.getReader();
+        let chunkCount = 0;
+        let lastChunkPreview = "";
 
         // 关键：把 SSE 字符串写入内存流（断线续传/新订阅者回放）
         const processChunk = async () => {
@@ -172,6 +244,10 @@ export function registerChatSseCreateRoute(app: Hono) {
                 return;
               }
               if (typeof value !== "string") continue;
+              chunkCount += 1;
+              if (DEBUG_AI_STREAM) {
+                lastChunkPreview = value.slice(0, 200);
+              }
               appendStreamChunk(streamId, value);
             }
           } finally {
@@ -184,7 +260,11 @@ export function registerChatSseCreateRoute(app: Hono) {
         };
 
         processChunk().catch((error) => {
-          console.error("Error processing stream chunk:", error);
+          console.error("Error processing stream chunk:", error, {
+            sessionId,
+            chunkCount,
+            lastChunkPreview: DEBUG_AI_STREAM ? lastChunkPreview : undefined,
+          });
           finalizeActiveStream(streamId);
         });
       },

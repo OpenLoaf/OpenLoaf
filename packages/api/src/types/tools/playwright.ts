@@ -10,6 +10,7 @@ const urlMatch = z.discriminatedUnion("mode", [
 ]);
 
 const loadState = z.enum(["load", "domcontentloaded", "networkidle"]);
+const waitUntil = z.enum(["load", "domcontentloaded", "networkidle"]);
 
 const screenshotOptions = z.object({
   fullPage: z.boolean().optional(),
@@ -33,6 +34,12 @@ const routeHandler = z.discriminatedUnion("mode", [
 const dslStep = z
   .discriminatedUnion("type", [
     z.object({
+      type: z.literal("goto"),
+      url: z.string().min(1).describe("在当前页面中导航到新的 URL（不会打开新 tab/page）。"),
+      waitUntil: waitUntil.optional(),
+      timeoutMs: z.number().int().min(0).optional(),
+    }),
+    z.object({
       type: z.literal("waitForLoadState"),
       state: loadState.optional(),
       timeoutMs: z.number().int().min(0).optional(),
@@ -45,11 +52,11 @@ const dslStep = z
     z.object({
       type: z.literal("getInfo"),
       fields: z
-        .array(z.enum(["url", "title", "contentHtml"]))
+        .array(z.enum(["url", "title"]))
         .min(1)
         .describe("一次性获取多个页面信息字段。"),
     }),
-    z.object({ type: z.literal("screenshot"), options: screenshotOptions.optional() }),
+    // 注意：为了避免超大输出（base64 截图），DSL 不提供 screenshot。
 
     z.object({
       type: z.literal("click"),
@@ -203,7 +210,6 @@ const dslStep = z
     z.object({
       type: z.literal("capture.start"),
       includeHeaders: z.boolean().optional(),
-      includeBody: z.boolean().optional().describe("可能很大，谨慎开启。"),
       maxEntries: z.number().int().min(1).max(10_000).optional(),
     }),
     z.object({ type: z.literal("capture.stop") }),

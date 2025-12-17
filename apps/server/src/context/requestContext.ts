@@ -1,4 +1,5 @@
 import type { Tab } from "@teatime-ai/api/common";
+import type { AgentMode } from "@teatime-ai/api/common";
 import type { UIMessageStreamWriter } from "ai";
 import { AsyncLocalStorage } from "node:async_hooks";
 
@@ -14,6 +15,7 @@ type RequestContext = {
   sessionId: string;
   cookies: Record<string, string>;
   activeTab?: Tab;
+  mode?: AgentMode;
   uiWriter?: UIMessageStreamWriter<any>;
   agentStack?: AgentFrame[];
 };
@@ -69,6 +71,13 @@ class RequestContextManager {
   getWorkspaceId(): string | undefined {
     // 优先用前端传来的 activeTab（去耦历史持久化 key / cookie 依赖）
     return this.getContext()?.activeTab?.workspaceId ?? this.getCookie("workspace-id");
+  }
+
+  /**
+   * 获取当前请求的 agent mode
+   */
+  getAgentMode(): AgentMode | undefined {
+    return this.getContext()?.mode;
   }
 
   // 仅保留“请求内上下文”中的 tabs（MVP：当前只需要 activeTab）

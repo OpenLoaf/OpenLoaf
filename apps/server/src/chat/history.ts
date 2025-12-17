@@ -7,6 +7,24 @@ import { deepseek } from "@ai-sdk/deepseek";
 import type { UIMessage } from "ai";
 import { generateText } from "ai";
 
+const DEBUG_AI_STREAM = process.env.TEATIME_DEBUG_AI_STREAM === "1";
+
+function safeJsonSize(value: unknown): number {
+  try {
+    return JSON.stringify(value).length;
+  } catch {
+    return -1;
+  }
+}
+
+function summarizeParts(parts: any[]) {
+  return parts.map((p, index) => ({
+    index,
+    type: p && typeof p === "object" && "type" in p ? String((p as any).type) : "unknown",
+    size: safeJsonSize(p),
+  }));
+}
+
 /**
  * 将 AI SDK v6 的 `UIMessage` 做持久化（MVP）：
  * - `UIMessage.metadata` -> `ChatMessage.meta`（JSON）
@@ -161,6 +179,24 @@ export async function saveAndAppendMessage({
   sessionId: string;
   incomingMessage?: AnyUIMessage;
 }): Promise<AnyUIMessage[]> {
+  if (DEBUG_AI_STREAM && incomingMessage) {
+    const parts = normalizeParts(incomingMessage);
+    const summary = summarizeParts(parts as any[]);
+    const total = summary.reduce((acc, p) => acc + (p.size > 0 ? p.size : 0), 0);
+    const large = summary.filter((p) => p.size >= 50_000).slice(0, 10);
+    if (total >= 200_000 || large.length > 0) {
+      console.warn("[debug][ai-stream] incomingMessage size warning", {
+        sessionId,
+        messageId: incomingMessage.id,
+        role: incomingMessage.role,
+        partsCount: summary.length,
+        approxPartsChars: total,
+        metaChars: safeJsonSize((incomingMessage as any).metadata),
+        largeParts: large,
+      });
+    }
+  }
+
   // 用同一事务保证：追加/读取的顺序一致，previousMessageId 稳定。
   const history = await prisma.$transaction(async (tx) => {
     // MVP：确保 session 存在（title 等字段使用 Prisma 默认值）。
@@ -268,6 +304,25 @@ export async function saveAndAppendMessage({
     if (userCount === 2 || userCount === 5) {
       // fire-and-forget：失败不影响聊天
       void generateAndSaveSessionTitle({ sessionId, history });
+    }
+  }
+
+  if (DEBUG_AI_STREAM) {
+    const sizes = history.map((m) => ({
+      id: m.id,
+      role: m.role,
+      partsCount: Array.isArray((m as any).parts) ? (m as any).parts.length : 0,
+      approxChars: safeJsonSize(m),
+    }));
+    const total = sizes.reduce((acc, s) => acc + (s.approxChars > 0 ? s.approxChars : 0), 0);
+    const top = [...sizes].sort((a, b) => b.approxChars - a.approxChars).slice(0, 5);
+    if (total >= 500_000) {
+      console.warn("[debug][ai-stream] history size warning", {
+        sessionId,
+        messageCount: history.length,
+        approxTotalChars: total,
+        topMessages: top,
+      });
     }
   }
 

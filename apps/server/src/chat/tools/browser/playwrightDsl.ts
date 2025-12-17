@@ -30,6 +30,24 @@ function toPlaywrightUrlMatcher(rule: UrlMatch): string | RegExp {
   return new RegExp(rule.pattern);
 }
 
+function safeJsonSize(value: unknown): number {
+  try {
+    return JSON.stringify(value).length;
+  } catch {
+    return -1;
+  }
+}
+
+function truncateText(value: string, maxChars: number) {
+  if (value.length <= maxChars) return value;
+  return value.slice(0, maxChars) + `…[truncated ${value.length - maxChars} chars]`;
+}
+
+function maybeTruncateStringValue(value: unknown, maxChars: number): unknown {
+  if (typeof value === "string") return truncateText(value, maxChars);
+  return value;
+}
+
 async function getWebSocketDebuggerUrl(): Promise<string> {
   const { versionUrl } = getCdpConfig(process.env);
   const res = await fetch(versionUrl);
@@ -112,7 +130,6 @@ export const playwrightDslTool = tool({
     const capture = {
       enabled: false,
       includeHeaders: false,
-      includeBody: false,
       maxEntries: 1000,
       entries: [] as any[],
     };
@@ -135,6 +152,21 @@ export const playwrightDslTool = tool({
         };
       }
 
+      // 关键约束：禁止产生/保留新的 page（popup/new tab）。
+      // - 允许在“当前 page”内导航（page.goto），但不允许打开新页面。
+      const closeIfNotCurrent = async (p: any) => {
+        if (!p || p === page) return;
+        try {
+          await p.close?.();
+        } catch {}
+      };
+      try {
+        page.on?.("popup", closeIfNotCurrent);
+      } catch {}
+      try {
+        page.context?.().on?.("page", closeIfNotCurrent);
+      } catch {}
+
       const onRequest = (req: any) => {
         if (!capture.enabled) return;
         const entry: any = {
@@ -152,21 +184,14 @@ export const playwrightDslTool = tool({
 
       const onResponse = (res: any) => {
         if (!capture.enabled) return;
-        void (async () => {
-          const entry: any = {
-            kind: "response",
-            url: res.url?.(),
-            status: res.status?.(),
-          };
-          if (capture.includeHeaders) entry.headers = res.headers?.();
-          if (capture.includeBody) {
-            try {
-              entry.bodyText = await res.text?.();
-            } catch {}
-          }
-          capture.entries.push(entry);
-          if (capture.entries.length > capture.maxEntries) capture.entries.shift();
-        })();
+        const entry: any = {
+          kind: "response",
+          url: res.url?.(),
+          status: res.status?.(),
+        };
+        if (capture.includeHeaders) entry.headers = res.headers?.();
+        capture.entries.push(entry);
+        if (capture.entries.length > capture.maxEntries) capture.entries.shift();
       };
 
       page.on?.("request", onRequest);
@@ -188,6 +213,13 @@ export const playwrightDslTool = tool({
 
         try {
           switch (step.type) {
+            case "goto":
+              await page.goto(step.url, {
+                waitUntil: step.waitUntil,
+                timeout: step.timeoutMs,
+              });
+              results.push({ index: i, type: step.type, ok: true });
+              break;
             case "waitForLoadState":
               await page.waitForLoadState(step.state, { timeout: step.timeoutMs });
               results.push({ index: i, type: step.type, ok: true });
@@ -208,19 +240,8 @@ export const playwrightDslTool = tool({
               for (const f of step.fields) {
                 if (f === "url") data.url = page.url();
                 if (f === "title") data.title = await page.title();
-                if (f === "contentHtml") data.contentHtml = await page.content();
               }
               results.push({ index: i, type: step.type, ok: true, data });
-              break;
-            }
-            case "screenshot": {
-              const buf = await page.screenshot(step.options ?? {});
-              results.push({
-                index: i,
-                type: step.type,
-                ok: true,
-                data: { base64: Buffer.from(buf).toString("base64") },
-              });
               break;
             }
 
@@ -277,10 +298,11 @@ export const playwrightDslTool = tool({
               if (typeof step.timeoutMs === "number") await loc.waitFor({ timeout: step.timeoutMs });
               const data: any = {};
               for (const f of step.fields) {
-                if (f === "textContent") data.textContent = await loc.textContent();
-                if (f === "innerText") data.innerText = await loc.innerText();
-                if (f === "innerHTML") data.innerHTML = await loc.innerHTML();
-                if (f === "value") data.value = await loc.inputValue();
+                const MAX_FIELD_CHARS = 5000;
+                if (f === "textContent") data.textContent = truncateText((await loc.textContent()) ?? "", MAX_FIELD_CHARS);
+                if (f === "innerText") data.innerText = truncateText(await loc.innerText(), MAX_FIELD_CHARS);
+                if (f === "innerHTML") data.innerHTML = truncateText(await loc.innerHTML(), MAX_FIELD_CHARS);
+                if (f === "value") data.value = truncateText(await loc.inputValue(), MAX_FIELD_CHARS);
                 if (f === "isVisible") data.isVisible = await loc.isVisible();
                 if (f === "isEnabled") data.isEnabled = await loc.isEnabled();
                 if (f === "isChecked") data.isChecked = await loc.isChecked();
@@ -295,7 +317,23 @@ export const playwrightDslTool = tool({
                 step.arg === undefined
                   ? await page.evaluate(step.expression)
                   : await page.evaluate(step.expression, step.arg);
-              results.push({ index: i, type: step.type, ok: true, data });
+              const approxChars = safeJsonSize(data);
+              const MAX_EVAL_CHARS = 20_000;
+              if (approxChars > MAX_EVAL_CHARS) {
+                results.push({
+                  index: i,
+                  type: step.type,
+                  ok: true,
+                  data: { truncated: true, approxChars, maxChars: MAX_EVAL_CHARS },
+                });
+              } else {
+                results.push({
+                  index: i,
+                  type: step.type,
+                  ok: true,
+                  data: maybeTruncateStringValue(data, 5000),
+                });
+              }
               break;
             }
             case "addInitScript":
@@ -341,7 +379,10 @@ export const playwrightDslTool = tool({
                 }
                 if (!keys || keys.length === 0) return all;
                 const picked: Record<string, string> = {};
-                for (const k of keys) if (k in all) picked[k] = all[k];
+                for (const k of keys) {
+                  const value = all[k];
+                  if (value !== undefined) picked[k] = value;
+                }
                 return picked;
               }, step.keys);
               results.push({ index: i, type: step.type, ok: true, data });
@@ -374,7 +415,10 @@ export const playwrightDslTool = tool({
                 }
                 if (!keys || keys.length === 0) return all;
                 const picked: Record<string, string> = {};
-                for (const k of keys) if (k in all) picked[k] = all[k];
+                for (const k of keys) {
+                  const value = all[k];
+                  if (value !== undefined) picked[k] = value;
+                }
                 return picked;
               }, step.keys);
               results.push({ index: i, type: step.type, ok: true, data });
@@ -445,7 +489,6 @@ export const playwrightDslTool = tool({
             case "capture.start":
               capture.enabled = true;
               capture.includeHeaders = step.includeHeaders ?? false;
-              capture.includeBody = step.includeBody ?? false;
               capture.maxEntries = step.maxEntries ?? capture.maxEntries;
               results.push({ index: i, type: step.type, ok: true });
               break;
@@ -454,7 +497,15 @@ export const playwrightDslTool = tool({
               results.push({ index: i, type: step.type, ok: true });
               break;
             case "capture.get":
-              results.push({ index: i, type: step.type, ok: true, data: { entries: capture.entries } });
+              results.push({
+                index: i,
+                type: step.type,
+                ok: true,
+                data: {
+                  entryCount: capture.entries.length,
+                  entries: capture.entries.slice(-100),
+                },
+              });
               break;
             case "capture.clear":
               capture.entries = [];

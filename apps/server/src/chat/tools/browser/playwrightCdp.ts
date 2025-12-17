@@ -25,6 +25,14 @@ function matchesUrl(url: string, rule: UrlMatch): boolean {
   }
 }
 
+function safeJsonSize(value: unknown): number {
+  try {
+    return JSON.stringify(value).length;
+  } catch {
+    return -1;
+  }
+}
+
 async function getWebSocketDebuggerUrl(): Promise<string> {
   const { versionUrl } = getCdpConfig(process.env);
   const res = await fetch(versionUrl);
@@ -121,11 +129,35 @@ export const playwrightGetAccessibilityTreeTool = tool({
   description: playwrightGetAccessibilityTreeToolDef.description,
   inputSchema: zodSchema(playwrightGetAccessibilityTreeToolDef.parameters),
   execute: async ({ pageTargetId, interestingOnly }) => {
-    return await withCdpPage(pageTargetId, async ({ page }) => {
-      const snapshot = await page.accessibility.snapshot({
-        interestingOnly: interestingOnly ?? true,
-      });
-      return { snapshot };
+    return await withCdpPage(pageTargetId, async ({ page, cdp }) => {
+      // Prefer Playwright snapshot when available, but CDP-connected pages may not expose `page.accessibility`.
+      try {
+        const snapshotFn = (page as any)?.accessibility?.snapshot;
+        if (typeof snapshotFn === "function") {
+          const snapshot = await snapshotFn.call((page as any).accessibility, {
+            interestingOnly: interestingOnly ?? true,
+          });
+          const approxChars = safeJsonSize(snapshot);
+          const MAX_CHARS = 60_000;
+          if (approxChars > MAX_CHARS) {
+            return {
+              summary: { approxChars, maxChars: MAX_CHARS, truncated: true },
+            };
+          }
+          return { snapshot };
+        }
+      } catch {
+        // fall through to CDP
+      }
+
+      await cdp.send("Accessibility.enable").catch(() => {});
+      const tree = await cdp.send("Accessibility.getFullAXTree");
+      const approxChars = safeJsonSize(tree);
+      const MAX_CHARS = 60_000;
+      if (approxChars > MAX_CHARS) {
+        return { summary: { approxChars, maxChars: MAX_CHARS, truncated: true } };
+      }
+      return { tree };
     });
   },
 });
@@ -141,6 +173,11 @@ export const playwrightRuntimeEvaluateTool = tool({
         awaitPromise: awaitPromise ?? true,
         returnByValue: returnByValue ?? true,
       });
+      const approxChars = safeJsonSize(result);
+      const MAX_CHARS = 40_000;
+      if (approxChars > MAX_CHARS) {
+        return { summary: { approxChars, maxChars: MAX_CHARS, truncated: true } };
+      }
       return result;
     });
   },
@@ -152,12 +189,29 @@ export const playwrightDomSnapshotTool = tool({
   execute: async ({ pageTargetId, computedStyles, includeDOMRects, includePaintOrder }) => {
     return await withCdpPage(pageTargetId, async ({ cdp }) => {
       await cdp.send("DOMSnapshot.enable").catch(() => {});
-      const result = await cdp.send("DOMSnapshot.captureSnapshot", {
+      const snapshot = await cdp.send("DOMSnapshot.captureSnapshot", {
         computedStyles: computedStyles ?? [],
         includeDOMRects: includeDOMRects ?? false,
         includePaintOrder: includePaintOrder ?? false,
       });
-      return result;
+      const approxChars = safeJsonSize(snapshot);
+
+      const summary = {
+        approxChars,
+        documentsCount: Array.isArray((snapshot as any)?.documents)
+          ? (snapshot as any).documents.length
+          : 0,
+        stringsCount: Array.isArray((snapshot as any)?.strings)
+          ? (snapshot as any).strings.length
+          : 0,
+        hasLayout: Boolean((snapshot as any)?.layout),
+        computedStylesCount: Array.isArray(computedStyles)
+          ? computedStyles.length
+          : 0,
+        includeDOMRects: includeDOMRects ?? false,
+        includePaintOrder: includePaintOrder ?? false,
+      };
+      return { summary };
     });
   },
 });
@@ -169,8 +223,16 @@ export const playwrightNetworkGetResponseBodyTool = tool({
     return await withCdpPage(pageTargetId, async ({ cdp }) => {
       await cdp.send("Network.enable");
       const result = await cdp.send("Network.getResponseBody", { requestId });
-      return result;
+      const body: string = (result as any)?.body ?? "";
+      const base64Encoded: boolean = Boolean((result as any)?.base64Encoded);
+      const MAX_PREVIEW_CHARS = 2000;
+      return {
+        requestId,
+        base64Encoded,
+        bodyChars: body.length,
+        bodyPreview: body.slice(0, MAX_PREVIEW_CHARS),
+        truncated: body.length > MAX_PREVIEW_CHARS,
+      };
     });
   },
 });
-
