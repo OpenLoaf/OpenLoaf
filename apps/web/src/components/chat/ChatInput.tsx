@@ -121,9 +121,9 @@ export function ChatInputBox({
           </ScrollArea.Root>
         </div>
 
-        <div className="flex justify-between items-end gap-2 px-3 pb-3 shrink-0">
+        <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-2 px-3 pb-3 shrink-0 min-w-0">
           {!compact ? (
-            <div className="flex gap-1.5 items-center">
+            <div className="flex shrink-0 items-center gap-1.5">
               <Button
                 type="button"
                 variant="ghost"
@@ -153,7 +153,7 @@ export function ChatInputBox({
             <div />
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
             {isOverLimit && (
               <span
                 className={cn(

@@ -43,15 +43,15 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
   return (
     <div
       className={cn(
-        "grid shrink-0 grid-cols-[1fr_auto_1fr] items-center px-2 py-0",
+        "grid w-full min-w-0 shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(0,1fr)] items-center px-2 py-0",
         className
       )}
     >
-      <div className="text-lg font-semibold">Chat</div>
-      <div className="max-w-[min(60vw,32rem)] truncate px-2 text-center text-sm font-medium">
+      <div className="min-w-0 text-lg font-semibold">Chat</div>
+      <div className="min-w-0 max-w-[min(60vw,32rem)] truncate px-2 text-center text-sm font-medium">
         {sessionTitle.length > 0 ? sessionTitle : null}
       </div>
-      <div className="flex items-center justify-end gap-1">
+      <div className="min-w-0 flex items-center justify-end gap-1">
         {messages.length > 0 && (
           <Button
             variant="ghost"

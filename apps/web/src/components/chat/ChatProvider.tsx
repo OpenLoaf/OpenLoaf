@@ -6,30 +6,13 @@ import React, {
   type ReactNode,
 } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
-import { DefaultChatTransport, generateId } from "ai";
+import { generateId } from "ai";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
-
-const CLIENT_STREAM_CLIENT_ID_STORAGE_KEY = "teatime:chat:sse-client-id";
-const CLIENT_CONTEXT_PART_TYPE = "data-client-context";
-const UI_EVENT_PART_TYPE = "data-ui-event";
-
-function getStableClientStreamClientId() {
-  if (typeof window === "undefined") return "";
-  try {
-    const existing = window.sessionStorage.getItem(
-      CLIENT_STREAM_CLIENT_ID_STORAGE_KEY
-    );
-    if (existing) return existing;
-    const created =
-      globalThis.crypto?.randomUUID?.() ?? `cid_${generateId()}`;
-    window.sessionStorage.setItem(CLIENT_STREAM_CLIENT_ID_STORAGE_KEY, created);
-    return created;
-  } catch {
-    return globalThis.crypto?.randomUUID?.() ?? `cid_${generateId()}`;
-  }
-}
+import { createChatTransport } from "@/lib/chat/transport";
+import { handleChatDataPart } from "@/lib/chat/dataPart";
+import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
 
 /**
  * 聊天上下文类型
@@ -115,85 +98,8 @@ export default function ChatProvider({
     [tabId, upsertToolPart]
   );
 
-  const syncToolPartsFromMessages = React.useCallback(
-    (messages: UIMessage[]) => {
-      if (!tabId) return;
-      for (const message of messages) {
-        const messageId = typeof message.id === "string" ? message.id : "m";
-        const parts = (message as any).parts ?? [];
-        for (let index = 0; index < parts.length; index += 1) {
-          const part = parts[index];
-          const type = typeof part?.type === "string" ? part.type : "";
-          const isTool = type === "dynamic-tool" || type.startsWith("tool-");
-          if (!isTool) continue;
-          const toolKey = String(part.toolCallId ?? `${messageId}:${index}`);
-          upsertToolPartMerged(toolKey, {
-            type,
-            toolCallId: part.toolCallId,
-            toolName: part.toolName,
-            title: part.title,
-            state: part.state,
-            input: part.input,
-            output: part.output,
-            errorText: part.errorText,
-          });
-        }
-      }
-    },
-    [tabId, upsertToolPartMerged]
-  );
-
   const transport = React.useMemo(() => {
-    const apiBase = `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`;
-    return new DefaultChatTransport({
-      api: apiBase,
-      credentials: "include",
-      prepareSendMessagesRequest({ id, messages, ...requestOptions }) {
-        const mergedParams = {
-          ...(paramsRef.current ?? {}),
-          ...(requestOptions ?? {}),
-        };
-        if (messages.length === 0) {
-          return {
-            body: { params: mergedParams, sessionId: id, id, messages: [] },
-          };
-        }
-
-        const { tabs, activeTabId } = useTabs.getState();
-        const activeTab = tabs.find((tab) => tab.id === activeTabId);
-
-        const rawLastMessage = messages[messages.length - 1] as any;
-        const lastMessage = {
-          ...rawLastMessage,
-          // 关键：通过 data part 把当前 tab 传给后端（服务端可用于 agent 路由/权限/工具）
-          parts: [
-            ...(Array.isArray(rawLastMessage?.parts) ? rawLastMessage.parts : []),
-            {
-              type: CLIENT_CONTEXT_PART_TYPE,
-              data: { activeTab: activeTab ?? null },
-            },
-          ],
-        } as any;
-
-        return {
-          body: {
-            params: mergedParams,
-            sessionId: id,
-            id,
-            messages: [lastMessage],
-          },
-        };
-      },
-      prepareReconnectToStreamRequest: ({ id }) => {
-        const clientId = getStableClientStreamClientId();
-        return {
-          api: `${apiBase}/${id}/stream${
-            clientId ? `?clientId=${encodeURIComponent(clientId)}` : ""
-          }`,
-          credentials: "include",
-        };
-      },
-    });
+    return createChatTransport({ paramsRef });
   }, []);
 
   const chatConfig = React.useMemo(
@@ -203,79 +109,7 @@ export default function ChatProvider({
       resume: true,
       transport,
       onData: (dataPart: any) => {
-        // MVP：只处理后端通过 Streaming Custom Data 推来的 UI 事件
-        if (dataPart?.type === UI_EVENT_PART_TYPE) {
-          const event = dataPart?.data;
-          if (event?.kind === "push-stack-item" && event?.tabId && event?.item) {
-            useTabs.getState().pushStackItem(event.tabId, event.item);
-          }
-          return;
-        }
-
-        if (!tabId) return;
-        switch (dataPart?.type) {
-          case "tool-input-start": {
-            upsertToolPartMerged(String(dataPart.toolCallId), {
-              type: dataPart.dynamic ? "dynamic-tool" : `tool-${dataPart.toolName}`,
-              toolCallId: dataPart.toolCallId,
-              toolName: dataPart.toolName,
-              title: dataPart.title,
-              state: "input-streaming",
-            });
-            break;
-          }
-          case "tool-input-available": {
-            upsertToolPartMerged(String(dataPart.toolCallId), {
-              type: dataPart.dynamic ? "dynamic-tool" : `tool-${dataPart.toolName}`,
-              toolCallId: dataPart.toolCallId,
-              toolName: dataPart.toolName,
-              title: dataPart.title,
-              state: "input-available",
-              input: dataPart.input,
-            });
-            break;
-          }
-          case "tool-approval-request": {
-            upsertToolPartMerged(String(dataPart.toolCallId), {
-              state: "approval-requested",
-            });
-            break;
-          }
-          case "tool-output-available": {
-            upsertToolPartMerged(String(dataPart.toolCallId), {
-              state: "output-available",
-              output: dataPart.output,
-            });
-            break;
-          }
-          case "tool-output-error": {
-            upsertToolPartMerged(String(dataPart.toolCallId), {
-              state: "output-error",
-              errorText: dataPart.errorText,
-            });
-            break;
-          }
-          case "tool-output-denied": {
-            upsertToolPartMerged(String(dataPart.toolCallId), {
-              state: "output-denied",
-            });
-            break;
-          }
-          case "tool-input-error": {
-            upsertToolPartMerged(String(dataPart.toolCallId), {
-              type: dataPart.dynamic ? "dynamic-tool" : `tool-${dataPart.toolName}`,
-              toolCallId: dataPart.toolCallId,
-              toolName: dataPart.toolName,
-              title: dataPart.title,
-              state: "output-error",
-              input: dataPart.input,
-              errorText: dataPart.errorText,
-            });
-            break;
-          }
-          default:
-            break;
-        }
+        handleChatDataPart({ dataPart, tabId, upsertToolPartMerged });
       },
     }),
     [sessionId, tabId, transport, upsertToolPartMerged]
@@ -312,11 +146,11 @@ export default function ChatProvider({
       .filter((msg): msg is UIMessage => msg.role !== "tool");
     if (chronological.length > 0) {
       chat.setMessages(chronological);
-      syncToolPartsFromMessages(chronological);
+      syncToolPartsFromMessages({ tabId, messages: chronological });
     }
     // 应用历史后，滚动到最底部显示最新消息
     setScrollToBottomToken((n) => n + 1);
-  }, [historyQuery.data, chat.setMessages, syncToolPartsFromMessages]);
+  }, [historyQuery.data, chat.setMessages, tabId]);
 
   const updateMessage = React.useCallback(
     (id: string, updates: Partial<UIMessage>) => {

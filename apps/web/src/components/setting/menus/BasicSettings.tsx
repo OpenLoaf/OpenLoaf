@@ -159,7 +159,7 @@ export function BasicSettings() {
                   <div className="min-w-0">
                     <div className="text-sm font-medium">用户自定义规则</div>
                     <div className="text-xs text-muted-foreground">
-                      在这里填写你的个性化规则（支持多行）
+                      设置全局自定义规则，所有 AI agent 都会使用这些规则（例如：你的名字、偏好、项目分类方式等）
                     </div>
                   </div>
 
@@ -188,14 +188,16 @@ export function BasicSettings() {
                   ) : null}
                 </div>
 
-                <textarea
-                  value={customRules}
-                  onChange={(e) => {
-                    setCustomRules(e.target.value);
-                  }}
-                  placeholder="例如：回答尽量简洁；优先给出可执行步骤；避免使用表情符号…"
-                  className="min-h-32 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                />
+                <div className="relative rounded-xl border border-border bg-background shadow-xs transition-all duration-200 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+                  <textarea
+                    value={customRules}
+                    onChange={(e) => {
+                      setCustomRules(e.target.value);
+                    }}
+                    placeholder="例如：我叫XXX；我喜欢YYY；项目按 A/B/C 分类；回答尽量简洁并给出可执行步骤…"
+                    className="h-48 w-full resize-none overflow-y-auto border-none bg-transparent px-3 py-3 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0"
+                  />
+                </div>
               </div>
             </div>
           </div>
