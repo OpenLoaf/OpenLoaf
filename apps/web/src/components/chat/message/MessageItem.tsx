@@ -13,12 +13,14 @@ interface MessageItemProps {
   message: UIMessage;
   isLastHumanMessage?: boolean;
   isLastAiMessage?: boolean;
+  hideAiActions?: boolean;
 }
 
 function MessageItem({
   message,
   isLastHumanMessage,
   isLastAiMessage,
+  hideAiActions,
 }: MessageItemProps) {
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
@@ -87,12 +89,14 @@ function MessageItem({
       ) : (
         <>
           <MessageAi message={message} />
-          <div className={cn("mt-1", actionVisibility(isLastAiMessage))}>
-            <MessageAiAction
-              message={message}
-              canRetry={Boolean(isLastAiMessage)}
-            />
-          </div>
+          {!hideAiActions && (
+            <div className={cn("mt-1", actionVisibility(isLastAiMessage))}>
+              <MessageAiAction
+                message={message}
+                canRetry={Boolean(isLastAiMessage)}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

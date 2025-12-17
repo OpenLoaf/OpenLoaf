@@ -61,9 +61,6 @@ export default function MessageAiAction({
     ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
     onSuccess: (result, variables) => {
       // 成功后，用服务端返回的 meta 更新到 useChatContext
-      console.log("id", message.id);
-      console.log("result", (result as any).meta);
-      console.log("orgin", message.metadata);
       updateMessage(message.id, {
         ...message,
         metadata: {
@@ -77,11 +74,6 @@ export default function MessageAiAction({
       toast.error("评价失败，请稍后重试");
     },
   });
-
-  React.useEffect(() => {
-    if (!message.metadata) return;
-    console.log("now", message.metadata);
-  }, [message.metadata]);
 
   const isRating = updateRatingMutation.isPending;
 

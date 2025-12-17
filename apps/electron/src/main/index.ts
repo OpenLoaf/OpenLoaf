@@ -23,7 +23,7 @@ log(`Resources Path: ${process.resourcesPath}`);
 
 app.commandLine.appendSwitch(
   'remote-debugging-port',
-  process.env.TEATIME_REMOTE_DEBUGGING_PORT ?? '0'
+  process.env.TEATIME_REMOTE_DEBUGGING_PORT ?? '9777'
 );
 
 let services: ServiceManager | null = null;

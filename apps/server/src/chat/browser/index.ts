@@ -1,6 +1,6 @@
 import { tool, zodSchema } from "ai";
 import { z } from "zod";
-import { requestContextManager } from "../../../context/requestContext";
+import { requestContextManager } from "../../context/requestContext";
 
 export const browserTools = {
   getTabs: tool({
