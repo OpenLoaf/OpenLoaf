@@ -10,8 +10,17 @@ import {
   oneLight,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronDown, ChevronUp, Copy } from "lucide-react";
+import {
+  Braces,
+  Brackets,
+  Check,
+  ChevronRight,
+  Copy,
+  LoaderCircle,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
+import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 
 // MVP：这里只关心工具名称和返回结果，不做复杂的状态/交互
 type AnyToolPart = {
@@ -60,6 +69,31 @@ function isEmptyInput(value: unknown) {
   return false;
 }
 
+/**
+ * 从工具 output 中提取 `ok` 字段（用于标题栏状态图标）。
+ * - 约定：`{ ok: true }` 表示成功；`{ ok: false }` 表示失败；未定义表示仍在等待/加载。
+ */
+function extractOkFlag(output: unknown): boolean | undefined {
+  if (output == null) return undefined;
+
+  if (typeof output === "object") {
+    const ok = (output as any)?.ok;
+    return typeof ok === "boolean" ? ok : undefined;
+  }
+
+  if (typeof output === "string") {
+    try {
+      const parsed = JSON.parse(output);
+      const ok = (parsed as any)?.ok;
+      return typeof ok === "boolean" ? ok : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
 const CODE_CUSTOM_STYLE: CSSProperties = {
   margin: 0,
   background: "hsl(var(--background))",
@@ -82,34 +116,13 @@ function CodeBlockWithCopy({
   code,
   codeStyle,
   maxHeightClassName,
+  isFormatted,
 }: {
   code: string;
   codeStyle: any;
   maxHeightClassName: string;
+  isFormatted: boolean;
 }) {
-  const [copied, setCopied] = React.useState(false);
-  const [isFormatted, setIsFormatted] = React.useState(true);
-
-  const handleCopy = async (event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      toast.success("已复制");
-      window.setTimeout(() => setCopied(false), 1200);
-    } catch (error) {
-      toast.error("复制失败");
-      console.error(error);
-    }
-  };
-
-  const handleToggleFormat = (event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setIsFormatted((v) => !v);
-  };
-
   const displayCode = React.useMemo(() => {
     if (isFormatted) {
       return code;
@@ -125,40 +138,10 @@ function CodeBlockWithCopy({
   return (
     <div
       className={cn(
-        "relative mt-1 max-w-full overflow-auto rounded bg-background p-2",
+        "mt-1 max-w-full overflow-auto rounded bg-background p-2",
         maxHeightClassName
       )}
     >
-      <div className="absolute right-2 top-2 flex items-center gap-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="h-7 w-7 bg-background/80 text-muted-foreground shadow-sm backdrop-blur-sm hover:bg-background hover:text-foreground"
-          onClick={handleToggleFormat}
-          aria-label={isFormatted ? "压缩为单行" : "格式化"}
-          title={isFormatted ? "压缩为单行" : "格式化"}
-        >
-          {isFormatted ? (
-            <ChevronDown className="size-3" />
-          ) : (
-            <ChevronUp className="size-3" />
-          )}
-        </Button>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="h-7 w-7 bg-background/80 text-muted-foreground shadow-sm backdrop-blur-sm hover:bg-background hover:text-foreground"
-          onClick={handleCopy}
-          aria-label="复制"
-          title="复制"
-        >
-          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-        </Button>
-      </div>
-
       <SyntaxHighlighter
         language="json"
         style={codeStyle}
@@ -196,50 +179,168 @@ export default function MessageTool({
   const inputText = safeStringify(part.input);
   const outputText = safeStringify(part.output);
   const showInput = !isEmptyInput(part.input);
+  const [headerCopied, setHeaderCopied] = React.useState(false);
+  // 默认“压缩为单行”，避免工具消息占用太多高度
+  const [isInputFormatted, setIsInputFormatted] = React.useState(false);
+  const [isOutputFormatted, setIsOutputFormatted] = React.useState(false);
+  const okFlag = extractOkFlag(part.output);
   const outputDisplayText =
     outputText ||
     (part.state && part.state !== "output-available"
       ? `（${part.state}）`
       : part.errorText
-        ? `（错误：${part.errorText}）`
-        : "（暂无返回结果）");
+         ? `（错误：${part.errorText}）`
+         : "（暂无返回结果）");
+
+  // 复制：标题栏内容 + input + output，一次性方便粘贴排查
+  const handleCopyAll = async (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const titleText = `工具：${toolName}`;
+    const copyText = [
+      titleText,
+      `输入参数\n${showInput ? inputText : "（无）"}`,
+      `输出结果\n${outputDisplayText}`,
+    ].join("\n\n");
+
+    try {
+      await navigator.clipboard.writeText(copyText);
+      setHeaderCopied(true);
+      toast.success("已复制");
+      window.setTimeout(() => setHeaderCopied(false), 1200);
+    } catch (error) {
+      toast.error("复制失败");
+      console.error(error);
+    }
+  };
 
   return (
-    <div className={cn("flex w-full min-w-0 max-w-full justify-start", className)}>
-      <details className="w-full min-w-0 max-w-full rounded-lg bg-muted/40 px-3 py-2 text-foreground">
-        {/* summary 默认折叠展示：工具名称（MVP） */}
-        <summary className="cursor-pointer select-none text-xs text-muted-foreground">
-          工具：{toolName}
-        </summary>
+    <div className={cn("flex ml-2 w-full min-w-0 max-w-full justify-start", className)}>
+      <CollapsiblePrimitive.Root className="w-full min-w-0 max-w-[80%] rounded-lg bg-muted/40 px-3 py-2 text-foreground">
+        <div className="group/message-tool-header flex items-center justify-between gap-2">
+          {/* 默认折叠展示：工具名称（MVP） */}
+          <CollapsiblePrimitive.Trigger asChild>
+            <button
+              type="button"
+              className="group/message-tool-trigger min-w-0 flex flex-1 items-center gap-1 cursor-pointer select-none text-left text-xs text-muted-foreground"
+            >
+              <ChevronRight className="size-3 shrink-0 transition-transform duration-200 group-data-[state=open]/message-tool-trigger:rotate-90" />
+              <span className="shrink-0">工具：</span>
+              <span
+                className="cursor-text select-text"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {toolName}
+              </span>
+              {okFlag === true ? (
+                <Check className="ml-1 h-3 w-3 shrink-0 text-emerald-500" />
+              ) : okFlag === false || part.errorText ? (
+                <X className="ml-1 h-3 w-3 shrink-0 text-destructive" />
+              ) : (
+                <LoaderCircle className="ml-1 h-3 w-3 shrink-0 animate-spin text-muted-foreground" />
+              )}
+            </button>
+          </CollapsiblePrimitive.Trigger>
 
-        {/* 展开后显示输入/输出 */}
-        <div className="mt-2">
-          {showInput ? (
-            <>
-              <div className="text-[11px] text-muted-foreground">输入参数</div>
-              <CodeBlockWithCopy
-                code={inputText}
-                codeStyle={codeStyle}
-                maxHeightClassName="max-h-40"
-              />
-            </>
-          ) : null}
-
-          <div
-            className={cn(
-              "text-[11px] text-muted-foreground",
-              showInput ? "mt-2" : undefined
-            )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="h-7 w-7 shrink-0 bg-transparent text-muted-foreground shadow-none opacity-0 transition-opacity duration-150 group-hover/message-tool-header:opacity-100 group-focus-within/message-tool-header:opacity-100 hover:bg-transparent hover:text-foreground"
+            onClick={handleCopyAll}
+            aria-label="复制工具信息"
+            title="复制：标题 + 输入 + 输出"
           >
-            输出结果
-          </div>
-          <CodeBlockWithCopy
-            code={outputDisplayText}
-            codeStyle={codeStyle}
-            maxHeightClassName="max-h-64"
-          />
+            {headerCopied ? <Check className="size-3" /> : <Copy className="size-3" />}
+          </Button>
         </div>
-      </details>
+
+        {/* 展开/收起动画：由 Radix data-state + tw-animate-css 驱动 */}
+        <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+          <div className="mt-2">
+            {showInput ? (
+              <CollapsiblePrimitive.Root defaultOpen>
+                <div className="flex items-center gap-1">
+                  <CollapsiblePrimitive.Trigger asChild>
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 select-none text-left text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      输入参数
+                    </button>
+                  </CollapsiblePrimitive.Trigger>
+                  <button
+                    type="button"
+                    className="inline-flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground"
+                    aria-label={isInputFormatted ? "压缩为单行" : "格式化"}
+                    title={isInputFormatted ? "压缩为单行" : "格式化"}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setIsInputFormatted((v) => !v);
+                    }}
+                  >
+                    {isInputFormatted ? (
+                      <Braces className="h-3 w-3" />
+                    ) : (
+                      <Brackets className="h-3 w-3" />
+                    )}
+                  </button>
+                </div>
+                <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                  <CodeBlockWithCopy
+                    code={inputText}
+                    codeStyle={codeStyle}
+                    maxHeightClassName="max-h-40"
+                    isFormatted={isInputFormatted}
+                  />
+                </CollapsiblePrimitive.Content>
+              </CollapsiblePrimitive.Root>
+            ) : null}
+
+            <div className={showInput ? "mt-2" : undefined}>
+              <CollapsiblePrimitive.Root defaultOpen>
+                <div className="flex items-center gap-1">
+                  <CollapsiblePrimitive.Trigger asChild>
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 select-none text-left text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      输出结果
+                    </button>
+                  </CollapsiblePrimitive.Trigger>
+                  <button
+                    type="button"
+                    className="inline-flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground"
+                    aria-label={isOutputFormatted ? "压缩为单行" : "格式化"}
+                    title={isOutputFormatted ? "压缩为单行" : "格式化"}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setIsOutputFormatted((v) => !v);
+                    }}
+                  >
+                    {isOutputFormatted ? (
+                      <Braces className="h-3 w-3" />
+                    ) : (
+                      <Brackets className="h-3 w-3" />
+                    )}
+                  </button>
+                </div>
+                <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                  <CodeBlockWithCopy
+                    code={outputDisplayText}
+                    codeStyle={codeStyle}
+                    maxHeightClassName="max-h-64"
+                    isFormatted={isOutputFormatted}
+                  />
+                </CollapsiblePrimitive.Content>
+              </CollapsiblePrimitive.Root>
+            </div>
+          </div>
+        </CollapsiblePrimitive.Content>
+      </CollapsiblePrimitive.Root>
     </div>
   );
 }
