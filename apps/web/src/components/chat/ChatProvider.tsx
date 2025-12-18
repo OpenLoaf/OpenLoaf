@@ -35,6 +35,10 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   updateMessage: (id: string, updates: Partial<UIMessage>) => void;
   /** 当前聊天所属的 Tab ID */
   tabId?: string;
+  /** 当前会话 ID（与 useChat 的 id 一致） */
+  sessionId: string;
+  /** 用户手动停止生成（同时通知服务端终止内存流，避免 resume 继续） */
+  stopGenerating: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -184,6 +188,20 @@ export default function ChatProvider({
 
   const [input, setInput] = React.useState("");
 
+  const stopGenerating = React.useCallback(() => {
+    chat.stop();
+
+    const base = process.env.NEXT_PUBLIC_SERVER_URL ?? "";
+    // 关键：因为启用了 resume + 内存流续传，单纯 stop()（中断连接）会被自动续传“接着推”。
+    // 这里额外通知服务端 stop，使其 abort agent 并删除内存流，彻底停止本次生成。
+    fetch(`${base}/chat/sse/${encodeURIComponent(sessionId)}/stop`, {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {
+      // ignore
+    });
+  }, [chat.stop, sessionId]);
+
   return (
     <ChatContext.Provider
       value={{
@@ -196,6 +214,8 @@ export default function ChatProvider({
         selectSession,
         updateMessage,
         tabId,
+        sessionId,
+        stopGenerating,
       }}
     >
       {children}

@@ -52,7 +52,8 @@ export default function MessageAiAction({
     regenerate();
   };
 
-  const isBusy = status !== "ready";
+  // 仅在“正在提交/流式输出”时禁用交互；error/ready 状态都允许重试
+  const isBusy = status === "submitted" || status === "streaming";
 
   const ratingValue = (message.metadata as any)?.isGood ?? null;
 

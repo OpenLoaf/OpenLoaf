@@ -14,6 +14,7 @@ import { saveAndAppendMessage } from "@/chat/history";
 import type { ChatRequestBody, TokenUsageMessage } from "@teatime-ai/api/types/message";
 import { CLIENT_CONTEXT_PART_TYPE } from "@teatime-ai/api/types/parts";
 import {
+  attachAbortControllerToActiveStream,
   appendStreamChunk,
   finalizeActiveStream,
   initActiveStream,
@@ -136,6 +137,13 @@ export function registerChatSseCreateRoute(app: Hono) {
     const master = new MasterAgent(mode);
     const agent = master.createAgent();
 
+    // 关键：支持“用户手动停止生成”而不影响断线续传（resume）。
+    // - 断线：保持生成继续进行，内存流持续写入，客户端可通过 GET /stream 续传
+    // - 手动停止：前端调用 stop endpoint -> stopActiveStream -> abort 这个 controller
+    const abortController = new AbortController();
+    initActiveStream(sessionId);
+    attachAbortControllerToActiveStream(sessionId, abortController);
+
     const stream = createUIMessageStream({
       originalMessages: messages as any[],
       onError: (error) => {
@@ -193,6 +201,7 @@ export function registerChatSseCreateRoute(app: Hono) {
         const agentStream = await createAgentUIStream({
           agent,
           messages: messages as any[],
+          abortSignal: abortController.signal,
           // 关键：服务端生成 messageId，确保可用于 DB 主键（Phase B）
           generateMessageId: generateId,
           onError: (error) => {
@@ -228,7 +237,6 @@ export function registerChatSseCreateRoute(app: Hono) {
       stream,
       consumeSseStream: ({ stream }) => {
         const streamId = sessionId;
-        initActiveStream(streamId);
 
         const reader = stream.getReader();
         let chunkCount = 0;

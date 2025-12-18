@@ -120,7 +120,8 @@ export default function MessageError({ error }: MessageErrorProps) {
     regenerate();
   };
 
-  const isBusy = status !== "ready";
+  // 仅在“正在提交/流式输出”时禁用重试；error 状态需要允许用户重试
+  const isBusy = status === "submitted" || status === "streaming";
 
   return (
     <motion.div

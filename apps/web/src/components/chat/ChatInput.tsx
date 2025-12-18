@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronUp, Square, Mic, AtSign, Hash, Image } from "lucide-react";
+import { ChevronUp, CircleStop, Mic, AtSign, Hash, Image } from "lucide-react";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useChatContext } from "./ChatProvider";
 import { cn } from "@/lib/utils";
@@ -74,8 +74,10 @@ export function ChatInputBox({
 
   const [isFocused, setIsFocused] = useState(false);
   const canSubmit = Boolean(onSubmit) && !submitDisabled && !isOverLimit;
-  const isSendDisabled =
-    submitDisabled || isOverLimit || (!value.trim() && !isLoading);
+  // 流式生成时按钮变为“停止”，不应被 submitDisabled 禁用
+  const isSendDisabled = isLoading
+    ? false
+    : submitDisabled || isOverLimit || !value.trim();
 
   return (
     <div
@@ -221,9 +223,7 @@ export function ChatInputBox({
                         : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                 )}
               >
-                {isLoading ? (
-                  <Square className="h-3.5 w-3.5 fill-current" />
-                ) : (
+                {isLoading ? <CircleStop className="h-4 w-4" /> : (
                   <ChevronUp className="w-4 h-4" />
                 )}
               </Button>
@@ -242,7 +242,7 @@ export function ChatInputBox({
 }
 
 export default function ChatInput({ className }: ChatInputProps) {
-  const { sendMessage, status, stop, clearError, input, setInput } =
+  const { sendMessage, status, stopGenerating, clearError, input, setInput } =
     useChatContext();
 
   const isLoading = status === "submitted" || status === "streaming";
@@ -266,7 +266,7 @@ export default function ChatInput({ className }: ChatInputProps) {
       isLoading={isLoading}
       submitDisabled={status !== "ready" && status !== "error"}
       onSubmit={handleSubmit}
-      onStop={stop}
+      onStop={stopGenerating}
     />
   );
 }

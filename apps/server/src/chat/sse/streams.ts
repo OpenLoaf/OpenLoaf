@@ -8,6 +8,10 @@ export type ActiveSseStream = {
   // 单调递增序号：用于避免“订阅+回放”期间产生的重复 chunk
   nextSeq: number;
   done: boolean;
+  // 对应的生成任务取消控制器（用于“用户手动停止生成”）
+  abortController?: AbortController;
+  // 是否被用户手动停止（用于上层逻辑判断）
+  stoppedByUser?: boolean;
 };
 
 // streamId -> active stream data（内存态，best-effort；进程重启会丢）
@@ -44,6 +48,37 @@ export function initActiveStream(streamId: string): ActiveSseStream {
 
 export function getActiveStream(streamId: string) {
   return ACTIVE_SSE_STREAMS.get(streamId);
+}
+
+export function attachAbortControllerToActiveStream(
+  streamId: string,
+  abortController: AbortController,
+) {
+  const entry = ACTIVE_SSE_STREAMS.get(streamId);
+  if (!entry || entry.done) return;
+  entry.abortController = abortController;
+}
+
+/**
+ * 用户手动停止某个 streamId 的生成：
+ * - abort agent（触发 UI stream 的 abort chunk，从而让 onFinish 收到 isAborted）
+ * - 结束并删除内存流，防止 resume 继续回放/继续订阅
+ */
+export function stopActiveStream(streamId: string, reason = "stopped by user") {
+  const entry = ACTIVE_SSE_STREAMS.get(streamId);
+  if (!entry || entry.done) return false;
+
+  entry.stoppedByUser = true;
+
+  try {
+    entry.abortController?.abort(reason);
+  } catch {
+    // ignore
+  }
+
+  // 立即终止内存流：resume 将返回 204，避免“停止后又自动续传”
+  finalizeActiveStream(streamId);
+  return true;
 }
 
 export function appendStreamChunk(streamId: string, value: string) {
