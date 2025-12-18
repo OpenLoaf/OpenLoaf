@@ -143,6 +143,23 @@ export function startBrowserRuntimeClient(input: {
   };
 
   const handleCommand = async (command: RuntimeCommand) => {
+    if (command.kind === "uiEvent") {
+      try {
+        const win = input.getMainWindow();
+        if (!win) throw new Error("No main window");
+
+        win.webContents.send("teatime:ui-event", command.event);
+        sendAck({ requestId: command.requestId, ok: true });
+      } catch (err) {
+        sendAck({
+          requestId: command.requestId,
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      return;
+    }
+
     if (command.kind !== "openPage") return;
 
     try {

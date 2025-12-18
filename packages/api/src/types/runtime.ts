@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { uiEventSchema } from "./event";
 
 // ==========
 // Browser Runtime 协议（MVP）
@@ -61,8 +62,19 @@ export const runtimeOpenPageCommandSchema = z.object({
 });
 export type RuntimeOpenPageCommand = z.infer<typeof runtimeOpenPageCommandSchema>;
 
+/**
+ * server -> runtime：下发 UI 事件（由 Electron main 通过 IPC 推送给 renderer）。
+ */
+export const runtimeUiEventCommandSchema = z.object({
+  kind: z.literal("uiEvent"),
+  requestId: z.string().min(1),
+  event: uiEventSchema,
+});
+export type RuntimeUiEventCommand = z.infer<typeof runtimeUiEventCommandSchema>;
+
 export const runtimeCommandSchema = z.discriminatedUnion("kind", [
   runtimeOpenPageCommandSchema,
+  runtimeUiEventCommandSchema,
 ]);
 export type RuntimeCommand = z.infer<typeof runtimeCommandSchema>;
 
@@ -101,4 +113,3 @@ export const runtimeClientMessageSchema = z.discriminatedUnion("type", [
   runtimeAckSchema,
 ]);
 export type RuntimeClientMessage = z.infer<typeof runtimeClientMessageSchema>;
-

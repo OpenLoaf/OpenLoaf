@@ -5,8 +5,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/utils/trpc";
 import { useDisableContextMenu } from "@/lib/useDisableContextMenu";
 import { ThemeProvider } from "./ThemeProvider";
-import { UiEventKind, type UiEvent } from "@teatime-ai/api/types/event";
-import { useTabs } from "@/hooks/use-tabs";
+import type { UiEvent } from "@teatime-ai/api/types/event";
+import { handleUiEvent } from "@/lib/chat/ui-event";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   useDisableContextMenu();
@@ -29,11 +29,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     // Electron 主进程会通过 preload 桥接 `teatime:ui-event`，这里统一交给 handleUiEvent 分发。
     const onUiEvent = (event: Event) => {
       const detail = (event as CustomEvent<UiEvent>).detail;
-      if (!detail?.kind) return;
-      // 当前仅保留 push-stack-item（其余 UI 控制已从 SSE/tool 体系移除）。
-      if (detail.kind === UiEventKind.PushStackItem) {
-        useTabs.getState().pushStackItem(detail.tabId, detail.item, 100);
-      }
+      handleUiEvent(detail);
     };
     window.addEventListener("teatime:ui-event", onUiEvent);
     return () => window.removeEventListener("teatime:ui-event", onUiEvent);

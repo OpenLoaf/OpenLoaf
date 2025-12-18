@@ -8,6 +8,8 @@ import {
   projectCreateToolDef,
   projectUpdateToolDef,
 } from "@teatime-ai/api/types/tools/db";
+import { uiEvents } from "@teatime-ai/api/types/event";
+import { emitRuntimeUiEvent } from "@/chat/ui/runtimeUi";
 
 function requireWorkspaceId(): string {
   const workspaceId = requestContextManager.getWorkspaceId();
@@ -57,6 +59,12 @@ export const projectTools = {
             : {}),
         },
       });
+      // 尽力触发 UI 刷新（Electron 环境通过 runtime -> IPC；非 Electron 环境忽略）。
+      try {
+        await emitRuntimeUiEvent(uiEvents.refreshPageTree());
+      } catch {
+        // ignore
+      }
       return { ok: true, data: project };
     },
   }),

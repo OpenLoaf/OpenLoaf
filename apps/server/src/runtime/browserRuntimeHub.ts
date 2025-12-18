@@ -2,6 +2,7 @@ import { runtimeClientMessageSchema } from "@teatime-ai/api/types/runtime";
 import type {
   RuntimeAck,
   RuntimeHello,
+  RuntimeCommand,
   RuntimeOpenPageCommand,
   RuntimeOpenPageResult,
 } from "@teatime-ai/api/types/runtime";
@@ -10,6 +11,7 @@ import crypto from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocketServer } from "ws";
+import type { UiEvent } from "@teatime-ai/api/types/event";
 
 type RuntimeConnection = {
   ws: import("ws").WebSocket;
@@ -98,6 +100,26 @@ class BrowserRuntimeHub {
   }
 
   /**
+   * 让 Electron runtime 通过 IPC 下发一个 UiEvent 给 renderer。
+   */
+  async emitUiEventOnElectron(input: {
+    electronClientId: string;
+    event: UiEvent;
+    timeoutMs?: number;
+  }): Promise<void> {
+    const requestId = crypto.randomUUID();
+    const ack = await this.sendCommandToElectron({
+      electronClientId: input.electronClientId,
+      requestId,
+      command: { kind: "uiEvent", requestId, event: input.event },
+      timeoutMs: input.timeoutMs ?? 8_000,
+    });
+    if (!ack.ok) {
+      throw new Error(ack.error || "Runtime uiEvent failed");
+    }
+  }
+
+  /**
    * 判断某个 electronClientId 是否在线（用于调度/兜底）。
    */
   hasElectronRuntime(electronClientId: string): boolean {
@@ -169,7 +191,7 @@ class BrowserRuntimeHub {
   private async sendCommandToElectron(input: {
     electronClientId: string;
     requestId: string;
-    command: RuntimeOpenPageCommand;
+    command: RuntimeCommand;
     timeoutMs: number;
   }): Promise<RuntimeAck> {
     const runtime = this.runtimesByElectronClientId.get(input.electronClientId);

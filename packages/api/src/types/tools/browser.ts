@@ -17,6 +17,30 @@ export const openUrlToolDef = {
   component: null,
 } as const;
 
+export const uiCloseStackToolDef = {
+  id: "ui-close-stack",
+  description:
+    "关闭用户当前 Tab 的左侧 stack overlay（不影响 base）。需要 Electron runtime 在线。",
+  parameters: z.object({}),
+  component: null,
+} as const;
+
+export const uiRefreshPageTreeToolDef = {
+  id: "ui-refresh-page-tree",
+  description:
+    "刷新用户当前 Tab 的 Page Tree（通常用于侧边栏页面树）。需要 Electron runtime 在线。",
+  parameters: z.object({}),
+  component: null,
+} as const;
+
+export const uiRefreshBasePanelToolDef = {
+  id: "ui-refresh-base-panel",
+  description:
+    "刷新用户当前 Tab 的 base 面板（通过触发 remount）。需要 Electron runtime 在线。",
+  parameters: z.object({}),
+  component: null,
+} as const;
+
 export const browserGetTabsToolDef = {
   id: "browser-get-tabs",
   description: "获取用户当前可见的 tabs（MVP：仅包含 activeTab）。",
