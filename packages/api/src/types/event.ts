@@ -34,7 +34,6 @@ export type UiEvent =
   | {
       // 刷新 Page Tree（通常用于侧边栏页面树）
       kind: UiEventKind.RefreshPageTree;
-      tabId: string;
     }
   | {
       // 刷新当前 tab 的 base 面板（通过变更 refreshKey 强制 remount）
@@ -53,12 +52,11 @@ export const uiEvents = {
     kind: UiEventKind.CloseStack,
     tabId: input.tabId,
   }),
-  refreshPageTree: (input: { tabId: string }): UiEvent => ({
+  refreshPageTree: (): UiEvent => ({
     kind: UiEventKind.RefreshPageTree,
-    tabId: input.tabId,
   }),
   refreshBasePanel: (input: { tabId: string }): UiEvent => ({
     kind: UiEventKind.RefreshBasePanel,
     tabId: input.tabId,
-  }),
+  })
 } as const;

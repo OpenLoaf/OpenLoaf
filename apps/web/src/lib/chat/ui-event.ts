@@ -20,8 +20,9 @@ export function handleUiEvent(event: UiEvent | undefined) {
     [UiEventKind.CloseStack]: (e: Extract<UiEvent, { kind: UiEventKind.CloseStack }>) => {
       useTabs.getState().clearStack(e.tabId);
     },
-    [UiEventKind.RefreshPageTree]: (e: Extract<UiEvent, { kind: UiEventKind.RefreshPageTree }>) => {
-      const tab = useTabs.getState().tabs.find((t) => t.id === e.tabId);
+    [UiEventKind.RefreshPageTree]: (_e: Extract<UiEvent, { kind: UiEventKind.RefreshPageTree }>) => {
+      const state = useTabs.getState();
+      const tab = state.tabs.find((t) => t.id === state.activeTabId);
       const workspaceId = tab?.workspaceId;
       if (!workspaceId) return;
       const queryKey = trpc.pageCustom.getAll.queryOptions({ workspaceId }).queryKey;

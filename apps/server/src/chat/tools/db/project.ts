@@ -8,6 +8,8 @@ import {
   projectCreateToolDef,
   projectUpdateToolDef,
 } from "@teatime-ai/api/types/tools/db";
+import { emitUiEvent } from "@/chat/ui/emit";
+import { uiEvents } from "@teatime-ai/api/types/event";
 
 function requireWorkspaceId(): string {
   const workspaceId = requestContextManager.getWorkspaceId();
@@ -57,6 +59,7 @@ export const projectTools = {
             : {}),
         },
       });
+      emitUiEvent(uiEvents.refreshPageTree());
       return { ok: true, data: project };
     },
   }),

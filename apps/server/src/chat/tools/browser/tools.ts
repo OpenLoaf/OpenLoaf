@@ -4,27 +4,53 @@ import { openUrlTool } from "./openUrl";
 import { uiCloseStackTool } from "./closeStack";
 import { uiRefreshPageTreeTool } from "./refreshPageTree";
 import { uiRefreshBasePanelTool } from "./refreshBasePanel";
-import { playwrightDslTool } from "./playwrightDsl";
 import {
+  playwrightClickTool,
+  playwrightCookiesTool,
   playwrightDomSnapshotTool,
-  playwrightGetAccessibilityTreeTool,
+  playwrightDragTool,
+  playwrightEvaluateScriptTool,
+  playwrightFillFormTool,
+  playwrightFillTool,
+  playwrightGetConsoleMessageTool,
+  playwrightGetNetworkRequestTool,
+  playwrightHoverTool,
+  playwrightListConsoleMessagesTool,
+  playwrightListNetworkRequestsTool,
+  playwrightNavigatePageTool,
   playwrightNetworkGetResponseBodyTool,
-  playwrightRuntimeEvaluateTool,
-} from "./playwrightCdp";
-import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
+  playwrightPressKeyTool,
+  playwrightStorageTool,
+  playwrightTakeSnapshotTool,
+  playwrightWaitForTool,
+} from "./playwrightMcp";
 import {
   browserGetTabsToolDef,
   browserGetCurrentTabToolDef,
+  openUrlToolDef,
   uiCloseStackToolDef,
   uiRefreshPageTreeToolDef,
   uiRefreshBasePanelToolDef,
 } from "@teatime-ai/api/types/tools/browser";
-import { playwrightDslToolDef } from "@teatime-ai/api/types/tools/playwright";
 import {
+  playwrightClickToolDef,
+  playwrightCookiesToolDef,
   playwrightDomSnapshotToolDef,
-  playwrightGetAccessibilityTreeToolDef,
+  playwrightDragToolDef,
+  playwrightEvaluateScriptToolDef,
+  playwrightFillFormToolDef,
+  playwrightFillToolDef,
+  playwrightGetConsoleMessageToolDef,
+  playwrightGetNetworkRequestToolDef,
+  playwrightHoverToolDef,
+  playwrightListConsoleMessagesToolDef,
+  playwrightListNetworkRequestsToolDef,
+  playwrightNavigatePageToolDef,
   playwrightNetworkGetResponseBodyToolDef,
-  playwrightRuntimeEvaluateToolDef,
+  playwrightPressKeyToolDef,
+  playwrightStorageToolDef,
+  playwrightTakeSnapshotToolDef,
+  playwrightWaitForToolDef,
 } from "@teatime-ai/api/types/tools/playwright";
 
 export const browserTools = {
@@ -56,17 +82,26 @@ export const browserTools = {
   [openUrlToolDef.id]: openUrlTool,
 
   // ======
-  // MVP：Playwright DSL（仅控制应用内打开的 embedded browser window）
+  // MVP：Playwright / CDP（参考 chrome-devtools-mcp 的交互方式）
   // ======
-  [playwrightDslToolDef.id]: playwrightDslTool,
-
-  // ======
-  // MVP：Playwright / CDP（读取页面结构、执行表达式、抓取快照、读取响应体）
-  // ======
-  [playwrightGetAccessibilityTreeToolDef.id]: playwrightGetAccessibilityTreeTool,
-  [playwrightRuntimeEvaluateToolDef.id]: playwrightRuntimeEvaluateTool,
+  [playwrightTakeSnapshotToolDef.id]: playwrightTakeSnapshotTool,
+  [playwrightClickToolDef.id]: playwrightClickTool,
+  [playwrightHoverToolDef.id]: playwrightHoverTool,
+  [playwrightDragToolDef.id]: playwrightDragTool,
+  [playwrightFillToolDef.id]: playwrightFillTool,
+  [playwrightFillFormToolDef.id]: playwrightFillFormTool,
+  [playwrightPressKeyToolDef.id]: playwrightPressKeyTool,
+  [playwrightNavigatePageToolDef.id]: playwrightNavigatePageTool,
+  [playwrightWaitForToolDef.id]: playwrightWaitForTool,
+  [playwrightEvaluateScriptToolDef.id]: playwrightEvaluateScriptTool,
   [playwrightDomSnapshotToolDef.id]: playwrightDomSnapshotTool,
+  [playwrightListNetworkRequestsToolDef.id]: playwrightListNetworkRequestsTool,
+  [playwrightGetNetworkRequestToolDef.id]: playwrightGetNetworkRequestTool,
   [playwrightNetworkGetResponseBodyToolDef.id]: playwrightNetworkGetResponseBodyTool,
+  [playwrightListConsoleMessagesToolDef.id]: playwrightListConsoleMessagesTool,
+  [playwrightGetConsoleMessageToolDef.id]: playwrightGetConsoleMessageTool,
+  [playwrightStorageToolDef.id]: playwrightStorageTool,
+  [playwrightCookiesToolDef.id]: playwrightCookiesTool,
 
   // ======
   // MVP：通用 UI 事件（通过 SSE 推送给前端）

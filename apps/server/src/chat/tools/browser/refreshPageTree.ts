@@ -14,9 +14,7 @@ export const uiRefreshPageTreeTool = tool({
   description: uiRefreshPageTreeToolDef.description,
   inputSchema: zodSchema(uiRefreshPageTreeToolDef.parameters),
   execute: async () => {
-    const activeTab = requireActiveTab();
-    emitUiEvent(uiEvents.refreshPageTree({ tabId: activeTab.id }));
+    emitUiEvent(uiEvents.refreshPageTree());
     return { ok: true };
   },
 });
-
