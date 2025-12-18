@@ -224,6 +224,15 @@ function getOrCreateViewMapForWindow(
 }
 
 /**
+ * 获取指定窗口内某个 key 对应的 WebContentsView（只读）。
+ * - 用于 runtime/tool 在主进程侧做后续操作（例如获取 webContentsId / debugger attach）
+ */
+export function getWebContentsView(win: BrowserWindow, key: string): WebContentsView | undefined {
+  const map = viewMapsByWindowId.get(win.id);
+  return map?.get(key);
+}
+
+/**
  * 在指定窗口内创建或更新一个 WebContentsView：
  * - key 用于标识某个“嵌入面板”
  * - bounds 用于定位/大小（来自渲染端 DOM rect）

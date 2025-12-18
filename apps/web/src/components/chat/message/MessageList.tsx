@@ -9,6 +9,7 @@ import { useChatScroll } from "@/hooks/use-chat-scroll";
 import MessageItem from "./MessageItem";
 import MessageThinking from "./MessageThinking";
 import MessageError from "./MessageError";
+import { AnimatePresence } from "motion/react";
 
 interface MessageListProps {
   className?: string;
@@ -47,6 +48,21 @@ export default function MessageList({ className }: MessageListProps) {
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
 
+  // 判断 assistant 消息是否已有“可见内容”（文本/工具卡片等），用于决定是否显示“正在思考中”
+  const hasVisibleContent = React.useCallback((message: any) => {
+    const parts = message?.parts ?? [];
+    const hasText = parts.some(
+      (part: any) =>
+        part?.type === "text" && typeof part?.text === "string" && part.text.trim().length > 0
+    );
+    if (hasText) return true;
+    return parts.some(
+      (part: any) =>
+        typeof part?.type === "string" &&
+        (part.type === "dynamic-tool" || part.type.startsWith("tool-"))
+    );
+  }, []);
+
   const lastHumanIndex = React.useMemo(
     () => messages.findLastIndex((message) => message.role === "user"),
     [messages]
@@ -57,8 +73,22 @@ export default function MessageList({ className }: MessageListProps) {
   );
   const hideAiActions = status === "submitted" || status === "streaming";
 
+  // 发送消息后，在 AI 还没返回任何可见内容前显示“正在思考中”
+  const shouldShowThinking = React.useMemo(() => {
+    if (error) return false;
+    if (!(status === "submitted" || status === "streaming")) return false;
+    const last = messages[messages.length - 1] as any;
+    if (!last) return false;
+    if (last.role === "user") return true;
+    // assistant 已创建但还没产出内容（例如刚进入 streaming）
+    return last.role === "assistant" && !hasVisibleContent(last);
+  }, [messages, status, error, hasVisibleContent]);
+
   useChatScroll({
     scrollToBottomToken,
+    // AI 输出过程中/结束瞬间：仅当用户贴底时跟随滚动（避免用户上滑时被强制拉回底部）
+    followToBottomToken:
+      messages.length + (status === "ready" ? 1 : 0) + (error ? 1 : 0),
     viewportRef,
     bottomRef,
     contentRef,
@@ -103,9 +133,9 @@ export default function MessageList({ className }: MessageListProps) {
                 />
               ))}
 
-              {/* {(status === "submitted" || status === "streaming") && (
-                <MessageThinking />
-              )} */}
+              <AnimatePresence initial={false}>
+                {shouldShowThinking ? <MessageThinking /> : null}
+              </AnimatePresence>
 
               {error && <MessageError error={error} />}
             </>

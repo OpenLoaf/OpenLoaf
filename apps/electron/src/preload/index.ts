@@ -5,10 +5,19 @@ type OkResult = { ok: true };
 type ViewBounds = { x: number; y: number; width: number; height: number };
 
 /**
+ * 读取 Electron runtime 的稳定设备标识（同步）：
+ * - 用于 Web UI 在发送 /chat/sse 时携带 electronClientId，让 server 能精确调度到当前桌面端。
+ */
+const electronClientId: string =
+  (ipcRenderer.sendSync('teatime:get-electron-client-id-sync') as string) || '';
+
+/**
  * preload 运行在隔离上下文中，是我们向 web UI（apps/web）暴露安全 API 的唯一入口。
  * 需要保持暴露面尽量小，并且用类型约束好输入/输出。
  */
 contextBridge.exposeInMainWorld('teatimeElectron', {
+  electronClientId,
+  getElectronClientId: (): Promise<string> => ipcRenderer.invoke('teatime:get-electron-client-id'),
   // 请求主进程在独立窗口中打开外部 URL。
   openBrowserWindow: (url: string): Promise<OpenBrowserWindowResult> =>
     ipcRenderer.invoke('teatime:open-browser-window', { url }),
@@ -22,4 +31,17 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
   // 请求主进程移除某个嵌入的 WebContentsView。
   destroyWebContentsView: (key: string): Promise<OkResult> =>
     ipcRenderer.invoke('teatime:webcontents-view:destroy', { key }),
+});
+
+/**
+ * 将主进程推送的 UiEvent 桥接到 web 侧：
+ * - Electron main 通过 `win.webContents.send('teatime:ui-event', event)` 推送
+ * - renderer（apps/web）通过监听 window 的 CustomEvent 统一进入 handleUiEvent()
+ */
+ipcRenderer.on('teatime:ui-event', (_event, payload) => {
+  try {
+    window.dispatchEvent(new CustomEvent('teatime:ui-event', { detail: payload }));
+  } catch {
+    // ignore
+  }
 });

@@ -1,9 +1,10 @@
 import type { DockItem } from "@teatime-ai/api/common";
 import { tool, zodSchema } from "ai";
-import { emitUiEvent, requireActiveTab } from "@/chat/ui/emit";
+import { requireActiveTab } from "@/chat/ui/emit";
+import { requestContextManager } from "@/context/requestContext";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
-import { uiEvents } from "@teatime-ai/api/types/event";
-import { registerPageTarget } from "./pageTargets";
+import { browserRuntimeHub } from "@/runtime/browserRuntimeHub";
+import { registerPageTarget, updatePageTargetRuntimeInfo } from "./pageTargets";
 
 // ==========
 // MVP：浏览器能力（通过 UI 事件驱动前端打开 BrowserWindow）
@@ -41,22 +42,45 @@ export const openUrlTool = tool({
   execute: async ({ url, title, pageTargetId }) => {
     const activeTab = requireActiveTab();
     const normalizedUrl = normalizeUrl(url);
-    const record = registerPageTarget({
+
+    const electronClientId = requestContextManager.getElectronClientId();
+    if (!electronClientId) {
+      throw new Error("open-url 需要 Electron 客户端（缺少 electronClientId）。");
+    }
+    if (!browserRuntimeHub.hasElectronRuntime(electronClientId)) {
+      throw new Error(
+        `open-url 需要 Electron runtime 在线（electronClientId=${electronClientId} 未连接 /runtime-ws）。`,
+      );
+    }
+
+    // 统一走 “server 调度 -> runtime 执行 -> IPC 触发 UI” 的一段式流程。
+    registerPageTarget({
       pageTargetId,
       tabId: activeTab.id,
       url: normalizedUrl,
+      backend: "electron",
+      electronClientId,
     });
-    // 统一通过 uiEvents 生成事件，避免业务侧手写 kind/字段。
-    emitUiEvent(
-      uiEvents.pushStackItem({
-        tabId: activeTab.id,
-        item: buildBrowserWindowDockItem({
-          url: normalizedUrl,
-          title,
-          pageTargetId,
-        }),
-      }),
-    );
-    return { ok: true, data: { pageTargetId: record.pageTargetId } };
+
+    const result = await browserRuntimeHub.openPageOnElectron({
+      electronClientId,
+      pageTargetId,
+      url: normalizedUrl,
+      tabId: activeTab.id,
+      title,
+    });
+
+    if (!result.cdpTargetId) {
+      throw new Error("open-url 失败：runtime 未返回 cdpTargetId。");
+    }
+
+    updatePageTargetRuntimeInfo(pageTargetId, {
+      backend: "electron",
+      electronClientId,
+      cdpTargetId: result.cdpTargetId,
+      webContentsId: result.webContentsId,
+    });
+
+    return { ok: true, data: { pageTargetId, cdpTargetId: result.cdpTargetId } };
   },
 });

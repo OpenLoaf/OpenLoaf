@@ -44,7 +44,7 @@ export async function createMainWindow(args: {
   entries: typeof WEBPACK_ENTRIES;
   initialServerUrl: string;
   initialWebUrl: string;
-}): Promise<BrowserWindow> {
+}): Promise<{ win: BrowserWindow; serverUrl: string; webUrl: string }> {
   args.log('createMainWindow called');
 
   const { width, height } = getDefaultWindowSize();
@@ -78,7 +78,7 @@ export async function createMainWindow(args: {
 
   try {
     // 确保服务可用：dev 下复用/启动 server & web；prod 下启动 server.mjs + 本地静态站点服务。该调用是幂等的。
-    const { webUrl } = await args.services.start({
+    const { webUrl, serverUrl } = await args.services.start({
       initialServerUrl: args.initialServerUrl,
       initialWebUrl: args.initialWebUrl,
     });
@@ -95,16 +95,16 @@ export async function createMainWindow(args: {
     if (ok) {
       args.log(`Web URL ok: ${targetUrl}. Loading...`);
       await mainWindow.loadURL(targetUrl);
-      return mainWindow;
+      return { win: mainWindow, serverUrl, webUrl };
     }
 
     args.log('Web URL check failed. Loading fallback renderer entry.');
     // fallback 是 Forge 打包进来的极小本地页面，用于排查“为什么 web 没启动/没加载”。
     await mainWindow.loadURL(args.entries.mainWindow);
-    return mainWindow;
+    return { win: mainWindow, serverUrl, webUrl };
   } catch (err) {
     args.log(`Failed to start/load services: ${String(err)}`);
     await mainWindow.loadURL(args.entries.mainWindow);
-    return mainWindow;
+    return { win: mainWindow, serverUrl: args.initialServerUrl, webUrl: args.initialWebUrl };
   }
 }

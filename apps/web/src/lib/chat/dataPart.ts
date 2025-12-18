@@ -1,8 +1,5 @@
 "use client";
 
-import { UI_EVENT_PART_TYPE } from "@teatime-ai/api/types/parts";
-import { handleUiEvent } from "@/lib/chat/ui-event";
-
 export function handleChatDataPart({
   dataPart,
   tabId,
@@ -12,12 +9,6 @@ export function handleChatDataPart({
   tabId: string | undefined;
   upsertToolPartMerged: (key: string, next: any) => void;
 }) {
-  // 后端 UI 事件（Streaming Custom Data）：统一入口，避免在各处散落 if/switch。
-  if (dataPart?.type === UI_EVENT_PART_TYPE) {
-    handleUiEvent(dataPart?.data);
-    return;
-  }
-
   // AI SDK 内置的 tool streaming chunks：单独处理（用于 ToolResultPanel 渲染）。
   handleToolChunk({ dataPart, tabId, upsertToolPartMerged });
 }

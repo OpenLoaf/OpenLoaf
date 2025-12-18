@@ -188,6 +188,15 @@ export default function ChatProvider({
 
   const [input, setInput] = React.useState("");
 
+  // 发送消息后立即滚动到底部（即使 AI 还没开始返回内容）
+  const sendMessage = React.useCallback(
+    (...args: Parameters<typeof chat.sendMessage>) => {
+      setScrollToBottomToken((n) => n + 1);
+      return chat.sendMessage(...args);
+    },
+    [chat.sendMessage]
+  );
+
   const stopGenerating = React.useCallback(() => {
     chat.stop();
 
@@ -206,6 +215,7 @@ export default function ChatProvider({
     <ChatContext.Provider
       value={{
         ...chat,
+        sendMessage,
         input,
         setInput,
         isHistoryLoading,

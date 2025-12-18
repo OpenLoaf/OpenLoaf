@@ -26,6 +26,8 @@ export function createChatTransport({
 
       const { tabs, activeTabId } = useTabs.getState();
       const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+      const webClientId = getStableClientStreamClientId();
+      const electronClientId = window.teatimeElectron?.electronClientId;
 
       const rawLastMessage = messages[messages.length - 1] as UIMessage & { parts?: any[] };
       const lastMessage = {
@@ -33,7 +35,7 @@ export function createChatTransport({
         // 关键：通过 data part 把当前 tab 传给后端（agent 路由/权限/工具上下文）
         parts: [
           ...(Array.isArray(rawLastMessage?.parts) ? rawLastMessage.parts : []),
-          { type: CLIENT_CONTEXT_PART_TYPE, data: { activeTab } },
+          { type: CLIENT_CONTEXT_PART_TYPE, data: { activeTab, webClientId, electronClientId } },
         ],
       } as any;
 

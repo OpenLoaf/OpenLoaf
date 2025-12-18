@@ -6,18 +6,19 @@ import type { DockItem, Tab } from "../common";
 
 export type ClientContext = {
   activeTab: Tab | null;
+  /** Web UI 侧稳定 clientId（用于 runtime 调度/断线续传关联） */
+  webClientId: string;
+  /** Electron runtime 设备标识（仅 Electron 环境提供） */
+  electronClientId?: string;
 };
 
 // ==========
-// MVP：后端 -> 前端的 UI 事件（通过 data-ui-event 传递）
+// UI 事件（Electron runtime -> renderer 通过 IPC 推送）
 // - 约定：只能在这里新增/修改 kind，业务侧不要手写 kind 字符串
 // ==========
 
 export enum UiEventKind {
   PushStackItem = "push-stack-item",
-  CloseStack = "close-stack",
-  RefreshPageTree = "refresh-page-tree",
-  RefreshBasePanel = "refresh-base-panel",
 }
 
 export type UiEvent =
@@ -25,20 +26,6 @@ export type UiEvent =
       kind: UiEventKind.PushStackItem;
       tabId: string;
       item: DockItem;
-    }
-  | {
-      // 关闭左侧 stack（仅关闭 overlay stack，不影响 base）
-      kind: UiEventKind.CloseStack;
-      tabId: string;
-    }
-  | {
-      // 刷新 Page Tree（通常用于侧边栏页面树）
-      kind: UiEventKind.RefreshPageTree;
-    }
-  | {
-      // 刷新当前 tab 的 base 面板（通过变更 refreshKey 强制 remount）
-      kind: UiEventKind.RefreshBasePanel;
-      tabId: string;
     };
 
 // 事件工厂：避免业务侧手拼对象/拼错字段，统一从这里生成 UiEvent。
@@ -48,15 +35,4 @@ export const uiEvents = {
     tabId: input.tabId,
     item: input.item,
   }),
-  closeStack: (input: { tabId: string }): UiEvent => ({
-    kind: UiEventKind.CloseStack,
-    tabId: input.tabId,
-  }),
-  refreshPageTree: (): UiEvent => ({
-    kind: UiEventKind.RefreshPageTree,
-  }),
-  refreshBasePanel: (input: { tabId: string }): UiEvent => ({
-    kind: UiEventKind.RefreshBasePanel,
-    tabId: input.tabId,
-  })
 } as const;

@@ -1,6 +1,4 @@
 import { tool, zodSchema } from "ai";
-import { requireActiveTab } from "@/chat/ui/emit";
-import { getCdpConfig } from "@teatime-ai/config";
 import {
   playwrightClickToolDef,
   playwrightCookiesToolDef,
@@ -21,7 +19,19 @@ import {
   playwrightTakeSnapshotToolDef,
   playwrightWaitForToolDef,
 } from "@teatime-ai/api/types/tools/playwright";
-import { getPageTarget, updatePageTargetUrl } from "./pageTargets";
+import { updatePageTargetUrl } from "./pageTargets";
+import { buildAxSnapshotText } from "./playwrightMcp/axSnapshot";
+import {
+  dispatchClickAtPoint,
+  dispatchMouseMoveAtPoint,
+  getNodeCenterPoint,
+  parseBackendNodeId,
+} from "./playwrightMcp/dom";
+import { requireActiveTabPageTarget } from "./playwrightMcp/guards";
+import { summarizeHeaders } from "./playwrightMcp/networkSummary";
+import { getOrCreateConsoleStore, getOrCreateNetworkStore } from "./playwrightMcp/stores";
+import { safeJsonSize, truncateText } from "./playwrightMcp/text";
+import { withCdpPage } from "./playwrightMcp/withCdpPage";
 
 /**
  * 注意：本文件运行在 Node 端，但会把部分函数体传入浏览器执行（page.evaluate / page.waitForFunction）。
@@ -30,538 +40,103 @@ import { getPageTarget, updatePageTargetUrl } from "./pageTargets";
 declare const window: any;
 declare const document: any;
 
-type UrlMatch = { mode: "includes"; url: string };
-
-type NetworkRecord = {
-  requestId: string;
-  url?: string;
-  method?: string;
-  resourceType?: string;
-  requestHeaders?: Record<string, string>;
-  status?: number;
-  statusText?: string;
-  mimeType?: string;
-  responseHeaders?: Record<string, string>;
-  fromDiskCache?: boolean;
-  fromServiceWorker?: boolean;
-  encodedDataLength?: number;
-  tsRequest?: number;
-  tsResponse?: number;
-  updatedAt: number;
-};
-
-type NetworkStore = {
-  order: string[];
-  records: Map<string, NetworkRecord>;
-  max: number;
-};
-
-type ConsoleRecord = {
-  msgId: number;
-  type: string;
-  text: string;
-  timestamp: number;
-  url?: string;
-  lineNumber?: number;
-  columnNumber?: number;
-  argsPreview?: string[];
-};
-
-type ConsoleStore = {
-  nextId: number;
-  records: ConsoleRecord[];
-  max: number;
-};
-
-const networkStores = new Map<string, NetworkStore>();
-const consoleStores = new Map<string, ConsoleStore>();
-
 /**
- * 获取或创建指定 pageTargetId 的网络记录缓存。
- * - 仅用于“摘要展示/定位 requestId”，避免把大字段写进对话上下文。
+ * 获取“全选”快捷键（Mac 用 Meta，其他平台用 Control）。
  */
-function getOrCreateNetworkStore(pageTargetId: string): NetworkStore {
-  const existing = networkStores.get(pageTargetId);
-  if (existing) return existing;
-  const created: NetworkStore = { order: [], records: new Map(), max: 1000 };
-  networkStores.set(pageTargetId, created);
-  return created;
+function getSelectAllShortcut() {
+  return process.platform === "darwin" ? "Meta+A" : "Control+A";
 }
 
 /**
- * 获取或创建指定 pageTargetId 的 console 记录缓存。
- * - 仅保存短文本预览，避免输出过长导致上下文溢出。
+ * 在页面上下文内判断 body 文本是否包含目标字符串。
+ * - 注意：该函数会被序列化后注入浏览器执行（用于 page.waitForFunction）。
  */
-function getOrCreateConsoleStore(pageTargetId: string): ConsoleStore {
-  const existing = consoleStores.get(pageTargetId);
-  if (existing) return existing;
-  const created: ConsoleStore = { nextId: 1, records: [], max: 1000 };
-  consoleStores.set(pageTargetId, created);
-  return created;
+function pageBodyIncludesText(t: string) {
+  return Boolean(document.body?.innerText) && document.body.innerText.includes(t);
 }
 
 /**
- * 粗略估算 JSON 序列化后的字符长度（用于提前截断超大返回）。
+ * 在页面上下文内执行 storage 操作（keys/get/set/remove/clear）。
+ * - 注意：该函数会被序列化后注入浏览器执行（用于 page.evaluate）。
  */
-function safeJsonSize(value: unknown): number {
-  try {
-    return JSON.stringify(value).length;
-  } catch {
-    return -1;
+function evalStorageOperationInPage({
+  storage,
+  op,
+  keyList,
+  entryObj,
+  include,
+  max,
+}: any) {
+  const s: any = storage === "sessionStorage" ? window.sessionStorage : window.localStorage;
+
+  const allKeys: string[] = [];
+  for (let i = 0; i < s.length; i++) {
+    const k = s.key(i);
+    if (k) allKeys.push(k);
   }
-}
+  const MAX_KEYS = 200;
 
-/**
- * 对长文本做截断，避免 tool 输出过长写入对话历史。
- */
-function truncateText(value: string, maxChars: number) {
-  if (value.length <= maxChars) return value;
-  return value.slice(0, maxChars) + `…[truncated ${value.length - maxChars} chars]`;
-}
-
-/**
- * 将 take-snapshot 返回的 uid（backendDOMNodeId）解析成数字。
- */
-function parseBackendNodeId(uid: string): number {
-  const raw = String(uid ?? "").trim();
-  if (!raw) throw new Error("Missing uid");
-  if (!/^\d+$/.test(raw)) throw new Error(`Invalid uid: ${raw}`);
-  const num = Number(raw);
-  if (!Number.isFinite(num) || num <= 0) throw new Error(`Invalid uid: ${raw}`);
-  return num;
-}
-
-/**
- * 将 URL 匹配规则转换为匹配函数（MVP：仅支持 includes）。
- */
-function toUrlMatcher(rule: UrlMatch): (url: string) => boolean {
-  return (url: string) => url.includes(rule.url);
-}
-
-/**
- * 从 /json/version 拉取 CDP webSocketDebuggerUrl（由 @teatime-ai/config 提供 versionUrl）。
- */
-async function getWebSocketDebuggerUrl(): Promise<string> {
-  const { versionUrl } = getCdpConfig(process.env);
-  const res = await fetch(versionUrl);
-  if (!res.ok) {
-    throw new Error(
-      `Failed to fetch CDP version info: ${res.status} ${res.statusText}`,
-    );
-  }
-  const data = (await res.json()) as { webSocketDebuggerUrl?: string };
-  if (!data.webSocketDebuggerUrl) {
-    throw new Error("CDP version info missing webSocketDebuggerUrl");
-  }
-  return data.webSocketDebuggerUrl;
-}
-
-/**
- * 在现有 CDP browser 连接里选中一个“已存在的 page”。
- * - 约束：不允许通过 CDP 创建/切换标签页，只能 attach 到 open-url 打开的页面。
- */
-async function pickExistingPage({
-  browser,
-  preferredUrlRule,
-  timeoutMs,
-}: {
-  browser: any;
-  preferredUrlRule: UrlMatch;
-  timeoutMs: number;
-}) {
-  const startedAt = Date.now();
-  const matches = toUrlMatcher(preferredUrlRule);
-
-  while (Date.now() - startedAt < timeoutMs) {
-    const contexts = browser.contexts?.() ?? [];
-    const pages = contexts.flatMap((ctx: any) => (ctx.pages?.() ?? []));
-    const match = [...pages].reverse().find((p: any) => matches(p.url?.() ?? ""));
-    if (match) return match;
-    await new Promise((r) => setTimeout(r, 150));
-  }
-  return null;
-}
-
-/**
- * 安装“禁止新页面”的约束：
- * - 如果页面内产生 popup/new tab，自动关闭，只允许在当前 page 内导航。
- */
-function installNoNewPageConstraint(page: any) {
-  const closeIfNotCurrent = async (p: any) => {
-    if (!p || p === page) return;
-    try {
-      await p.close?.();
-    } catch {
-      // ignore
-    }
-  };
-  try {
-    page.on?.("popup", closeIfNotCurrent);
-  } catch {
-    // ignore
-  }
-  try {
-    page.context?.().on?.("page", closeIfNotCurrent);
-  } catch {
-    // ignore
-  }
-}
-
-/**
- * 将 CDP 网络/console 事件收敛到内存缓存中（仅短摘要）。
- * 注意：此缓存只在当前 node 进程内有效。
- */
-async function installCdpCollectors(pageTargetId: string, cdp: any) {
-  const networkStore = getOrCreateNetworkStore(pageTargetId);
-  const consoleStore = getOrCreateConsoleStore(pageTargetId);
-
-  await cdp.send("Network.enable").catch(() => {});
-  await cdp.send("Runtime.enable").catch(() => {});
-
-  cdp.on("Network.requestWillBeSent", (evt: any) => {
-    const requestId = String(evt?.requestId ?? "");
-    if (!requestId) return;
-
-    const url = String(evt?.request?.url ?? "");
-    const method = String(evt?.request?.method ?? "");
-    const resourceType = typeof evt?.type === "string" ? evt.type : undefined;
-    const headers = evt?.request?.headers;
-
-    let record = networkStore.records.get(requestId);
-    if (!record) {
-      record = { requestId, updatedAt: Date.now() };
-      networkStore.records.set(requestId, record);
-      networkStore.order.push(requestId);
-      if (networkStore.order.length > networkStore.max) {
-        const removed = networkStore.order.splice(
-          0,
-          networkStore.order.length - networkStore.max,
-        );
-        for (const id of removed) networkStore.records.delete(id);
-      }
-    }
-
-    record.url = url || record.url;
-    record.method = method || record.method;
-    record.resourceType = resourceType || record.resourceType;
-    if (headers && typeof headers === "object") {
-      record.requestHeaders = headers as Record<string, string>;
-    }
-    record.tsRequest = typeof evt?.timestamp === "number" ? evt.timestamp : record.tsRequest;
-    record.updatedAt = Date.now();
-  });
-
-  cdp.on("Network.responseReceived", (evt: any) => {
-    const requestId = String(evt?.requestId ?? "");
-    if (!requestId) return;
-
-    const response = evt?.response ?? {};
-    const status = typeof response?.status === "number" ? response.status : undefined;
-    const statusText = typeof response?.statusText === "string" ? response.statusText : undefined;
-    const mimeType = typeof response?.mimeType === "string" ? response.mimeType : undefined;
-    const headers = response?.headers;
-    const fromDiskCache = Boolean(response?.fromDiskCache);
-    const fromServiceWorker = Boolean(response?.fromServiceWorker);
-
-    let record = networkStore.records.get(requestId);
-    if (!record) {
-      record = { requestId, updatedAt: Date.now() };
-      networkStore.records.set(requestId, record);
-      networkStore.order.push(requestId);
-      if (networkStore.order.length > networkStore.max) {
-        const removed = networkStore.order.splice(
-          0,
-          networkStore.order.length - networkStore.max,
-        );
-        for (const id of removed) networkStore.records.delete(id);
-      }
-    }
-
-    record.status = status ?? record.status;
-    record.statusText = statusText ?? record.statusText;
-    record.mimeType = mimeType ?? record.mimeType;
-    record.fromDiskCache = fromDiskCache;
-    record.fromServiceWorker = fromServiceWorker;
-    if (headers && typeof headers === "object") {
-      record.responseHeaders = headers as Record<string, string>;
-    }
-    record.tsResponse = typeof evt?.timestamp === "number" ? evt.timestamp : record.tsResponse;
-    record.updatedAt = Date.now();
-  });
-
-  cdp.on("Network.loadingFinished", (evt: any) => {
-    const requestId = String(evt?.requestId ?? "");
-    if (!requestId) return;
-    const record = networkStore.records.get(requestId);
-    if (!record) return;
-    if (typeof evt?.encodedDataLength === "number") {
-      record.encodedDataLength = evt.encodedDataLength;
-      record.updatedAt = Date.now();
-    }
-  });
-
-  const pushConsoleRecord = (record: Omit<ConsoleRecord, "msgId">) => {
-    const msgId = consoleStore.nextId++;
-    const item: ConsoleRecord = { msgId, ...record };
-    consoleStore.records.push(item);
-    if (consoleStore.records.length > consoleStore.max) {
-      consoleStore.records.splice(0, consoleStore.records.length - consoleStore.max);
-    }
-  };
-
-  cdp.on("Runtime.consoleAPICalled", (evt: any) => {
-    const type = typeof evt?.type === "string" ? evt.type : "log";
-    const args = Array.isArray(evt?.args) ? evt.args : [];
-    const preview = args
-      .map((a: any) => {
-        if (typeof a?.value === "string") return truncateText(a.value, 200);
-        if (typeof a?.value === "number") return String(a.value);
-        if (typeof a?.value === "boolean") return String(a.value);
-        if (a?.type === "undefined") return "undefined";
-        if (a?.type === "object" && a?.subtype === "null") return "null";
-        if (typeof a?.description === "string") return truncateText(a.description, 200);
-        return truncateText(String(a?.type ?? "unknown"), 50);
-      })
-      .slice(0, 10);
-    const text = preview.join(" ");
-    pushConsoleRecord({
-      type,
-      text,
-      timestamp: typeof evt?.timestamp === "number" ? evt.timestamp : Date.now(),
-      argsPreview: preview,
-    });
-  });
-
-  cdp.on("Runtime.exceptionThrown", (evt: any) => {
-    const details = evt?.exceptionDetails ?? {};
-    const text =
-      typeof details?.text === "string"
-        ? details.text
-        : typeof evt?.exceptionDetails?.exception?.description === "string"
-          ? evt.exceptionDetails.exception.description
-          : "exceptionThrown";
-    pushConsoleRecord({
-      type: "exception",
-      text: truncateText(text, 500),
-      timestamp: typeof evt?.timestamp === "number" ? evt.timestamp : Date.now(),
-      url:
-        typeof details?.url === "string"
-          ? details.url
-          : undefined,
-      lineNumber: typeof details?.lineNumber === "number" ? details.lineNumber : undefined,
-      columnNumber: typeof details?.columnNumber === "number" ? details.columnNumber : undefined,
-    });
-  });
-}
-
-/**
- * 计算元素的中心点坐标（用于鼠标点击/hover/拖拽）。
- */
-async function getNodeCenterPoint(cdp: any, backendNodeId: number) {
-  await cdp.send("DOM.enable").catch(() => {});
-  await cdp.send("DOM.scrollIntoViewIfNeeded", { backendNodeId }).catch(() => {});
-
-  try {
-    const res = await cdp.send("DOM.getContentQuads", { backendNodeId });
-    const quad = (res as any)?.quads?.[0];
-    if (Array.isArray(quad) && quad.length === 8) {
-      const x = (quad[0] + quad[2] + quad[4] + quad[6]) / 4;
-      const y = (quad[1] + quad[3] + quad[5] + quad[7]) / 4;
-      return { x, y };
-    }
-  } catch {
-    // fall through
-  }
-
-  const res = await cdp.send("DOM.getBoxModel", { backendNodeId });
-  const quad = (res as any)?.model?.content;
-  if (!Array.isArray(quad) || quad.length !== 8) {
-    throw new Error("Cannot compute element center point.");
-  }
-  const x = (quad[0] + quad[2] + quad[4] + quad[6]) / 4;
-  const y = (quad[1] + quad[3] + quad[5] + quad[7]) / 4;
-  return { x, y };
-}
-
-/**
- * 用 CDP Input.dispatchMouseEvent 在坐标点执行一次点击。
- */
-async function dispatchClickAtPoint(cdp: any, point: { x: number; y: number }, clickCount: number) {
-  const x = Math.max(0, point.x);
-  const y = Math.max(0, point.y);
-  await cdp.send("Input.dispatchMouseEvent", {
-    type: "mousePressed",
-    x,
-    y,
-    button: "left",
-    clickCount,
-  });
-  await cdp.send("Input.dispatchMouseEvent", {
-    type: "mouseReleased",
-    x,
-    y,
-    button: "left",
-    clickCount,
-  });
-}
-
-/**
- * 通用的 CDP Page wrapper：
- * - 校验 pageTargetId 归属当前 activeTab
- * - connectOverCDP + attach page
- * - 安装“禁止新页面”与网络/console 收敛器
- */
-async function withCdpPage<T>(
-  pageTargetId: string,
-  fn: (input: { page: any; cdp: any }) => Promise<T>,
-): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
-  const activeTab = requireActiveTab();
-  const record = getPageTarget(pageTargetId);
-  if (!record) {
+  if (op === "keys") {
     return {
-      ok: false,
-      error: `Unknown pageTargetId=${pageTargetId}. Call \`open-url\` first and use the returned pageTargetId.`,
-    };
-  }
-  if (record.tabId !== activeTab.id) {
-    return {
-      ok: false,
-      error: `pageTargetId=${pageTargetId} does not belong to activeTab.id=${activeTab.id}`,
+      keyCount: allKeys.length,
+      keys: allKeys.slice(0, MAX_KEYS),
+      truncated: allKeys.length > MAX_KEYS,
     };
   }
 
-  let browser: any;
-  try {
-    const wsUrl = await getWebSocketDebuggerUrl();
-    const { chromium } = await import("playwright-core");
-    browser = await chromium.connectOverCDP(wsUrl);
-
-    const page = await pickExistingPage({
-      browser,
-      preferredUrlRule: { mode: "includes", url: record.url },
-      timeoutMs: 10_000,
-    });
-    if (!page) {
+  if (op === "get") {
+    const raw = keyList.length > 0 ? keyList : allKeys;
+    const targetKeys = raw.slice(0, MAX_KEYS);
+    const truncatedKeys = raw.length > MAX_KEYS;
+    if (!include) {
+      const valueChars: Record<string, number> = {};
+      for (const k of targetKeys) {
+        const v = s.getItem(k) ?? "";
+        valueChars[k] = v.length;
+      }
       return {
-        ok: false,
-        error: `No matching CDP page found for pageTargetId=${pageTargetId}. Re-run \`open-url\` with the same pageTargetId to reopen it.`,
+        keyCount: raw.length,
+        keys: targetKeys,
+        truncatedKeys,
+        valueChars,
       };
     }
 
-    installNoNewPageConstraint(page);
-
-    const context = page.context?.();
-    if (!context?.newCDPSession) {
-      return { ok: false, error: "CDP session is not available for this page." };
+    const values: Record<string, string> = {};
+    const truncated: Record<string, boolean> = {};
+    for (const k of targetKeys) {
+      const v = s.getItem(k) ?? "";
+      values[k] = v.slice(0, max);
+      truncated[k] = v.length > max;
     }
-
-    const cdp = await context.newCDPSession(page);
-    await installCdpCollectors(pageTargetId, cdp);
-
-    return { ok: true, data: await fn({ page, cdp }) };
-  } catch (err: any) {
-    return { ok: false, error: err?.message ?? String(err) };
-  } finally {
-    try {
-      await browser?.close?.();
-    } catch {
-      // ignore
-    }
-  }
-}
-
-/**
- * 将 CDP AXValue 转换为可读字符串。
- */
-function axValueToText(v: any): string {
-  const value = v?.value;
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return String(value);
-  if (typeof value === "boolean") return String(value);
-  if (value == null) return "";
-  return String(value);
-}
-
-/**
- * 粗略判断“更可能可操作/可定位”的 a11y role。
- */
-function isInterestingAxRole(role: string) {
-  return (
-    role === "button" ||
-    role === "link" ||
-    role === "textbox" ||
-    role === "searchbox" ||
-    role === "combobox" ||
-    role === "checkbox" ||
-    role === "radio" ||
-    role === "switch" ||
-    role === "tab" ||
-    role === "menuitem" ||
-    role === "option" ||
-    role === "listbox" ||
-    role === "slider" ||
-    role === "spinbutton" ||
-    role === "heading"
-  );
-}
-
-/**
- * 将 Accessibility Tree 收敛为“可读文本 + uid 列表”。
- * - 默认只输出“更可能可操作/可定位”的节点，避免返回整棵树导致超长。
- */
-function buildAxSnapshotText(input: {
-  nodes: any[];
-  verbose: boolean;
-  maxChars: number;
-}) {
-  const { nodes, verbose, maxChars } = input;
-  const lines: string[] = [];
-  let currentChars = 0;
-
-  const pushLine = (line: string) => {
-    const next = currentChars + line.length + (lines.length > 0 ? 1 : 0);
-    if (next > maxChars) return false;
-    lines.push(line);
-    currentChars = next;
-    return true;
-  };
-
-  let shown = 0;
-  for (const node of nodes) {
-    if (!node || node.ignored === true) continue;
-    const role = axValueToText(node.role);
-    const name = axValueToText(node.name);
-    const value = axValueToText(node.value);
-    const uid =
-      typeof node.backendDOMNodeId === "number"
-        ? String(node.backendDOMNodeId)
-        : undefined;
-
-    const interesting =
-      verbose ||
-      Boolean(uid) ||
-      isInterestingAxRole(role) ||
-      Boolean(name) ||
-      Boolean(value);
-    if (!interesting) continue;
-
-    const parts: string[] = [];
-    if (uid) parts.push(`uid=${uid}`);
-    if (role) parts.push(`role=${role}`);
-    if (name) parts.push(`name=${JSON.stringify(truncateText(name, 200))}`);
-    if (value) parts.push(`value=${JSON.stringify(truncateText(value, 200))}`);
-
-    if (parts.length === 0) continue;
-    if (!pushLine(`- ${parts.join(" ")}`)) break;
-    shown++;
-    if (!verbose && shown >= 300) {
-      pushLine("- …[truncated: too many nodes]");
-      break;
-    }
+    return {
+      keyCount: raw.length,
+      keys: targetKeys,
+      truncatedKeys,
+      values,
+      truncated,
+    };
   }
 
-  const text = lines.join("\n");
-  return { text: truncateText(text, maxChars), shown };
+  if (op === "set") {
+    const list = Object.entries(entryObj ?? {});
+    for (const [k, v] of list) s.setItem(k, String(v));
+    return { setCount: list.length };
+  }
+
+  if (op === "remove") {
+    const targetKeys = keyList.length > 0 ? keyList : [];
+    for (const k of targetKeys) s.removeItem(k);
+    return { removedCount: targetKeys.length };
+  }
+
+  if (op === "clear") {
+    const before = s.length;
+    s.clear();
+    return { cleared: true, before };
+  }
+
+  return { error: `Unsupported op: ${op}` };
 }
 
 export const playwrightTakeSnapshotTool = tool({
@@ -627,11 +202,7 @@ export const playwrightHoverTool = tool({
     const backendNodeId = parseBackendNodeId(uid);
     return await withCdpPage(pageTargetId, async ({ cdp }) => {
       const point = await getNodeCenterPoint(cdp, backendNodeId);
-      await cdp.send("Input.dispatchMouseEvent", {
-        type: "mouseMoved",
-        x: Math.max(0, point.x),
-        y: Math.max(0, point.y),
-      });
+      await dispatchMouseMoveAtPoint(cdp, point);
       return { hovered: true };
     });
   },
@@ -693,7 +264,7 @@ export const playwrightFillTool = tool({
       const point = await getNodeCenterPoint(cdp, backendNodeId);
       await dispatchClickAtPoint(cdp, point, 1);
 
-      const selectAll = process.platform === "darwin" ? "Meta+A" : "Control+A";
+      const selectAll = getSelectAllShortcut();
       try {
         await page.keyboard?.press?.(selectAll);
         await page.keyboard?.press?.("Backspace");
@@ -719,7 +290,7 @@ export const playwrightFillFormTool = tool({
           const point = await getNodeCenterPoint(cdp, backendNodeId);
           await dispatchClickAtPoint(cdp, point, 1);
 
-          const selectAll = process.platform === "darwin" ? "Meta+A" : "Control+A";
+          const selectAll = getSelectAllShortcut();
           try {
             await page.keyboard?.press?.(selectAll);
             await page.keyboard?.press?.("Backspace");
@@ -784,9 +355,7 @@ export const playwrightWaitForTool = tool({
     return await withCdpPage(pageTargetId, async ({ page }) => {
       const timeout = typeof timeoutMs === "number" ? timeoutMs : 0;
       await page.waitForFunction(
-        (t: string) =>
-          Boolean(document.body?.innerText) &&
-          document.body.innerText.includes(t),
+        pageBodyIncludesText,
         text,
         { timeout: timeout || undefined },
       );
@@ -893,14 +462,8 @@ export const playwrightListNetworkRequestsTool = tool({
   description: playwrightListNetworkRequestsToolDef.description,
   inputSchema: zodSchema(playwrightListNetworkRequestsToolDef.parameters),
   execute: async ({ pageTargetId, limit, kind }) => {
-    const activeTab = requireActiveTab();
-    const record = getPageTarget(pageTargetId);
-    if (!record) {
-      return { ok: false, error: `Unknown pageTargetId=${pageTargetId}. Call \`open-url\` first.` };
-    }
-    if (record.tabId !== activeTab.id) {
-      return { ok: false, error: `pageTargetId=${pageTargetId} does not belong to activeTab.id=${activeTab.id}` };
-    }
+    const guard = requireActiveTabPageTarget(pageTargetId);
+    if (!guard.ok) return guard;
 
     const store = getOrCreateNetworkStore(pageTargetId);
     const take = typeof limit === "number" ? limit : 50;
@@ -936,41 +499,14 @@ export const playwrightGetNetworkRequestTool = tool({
   description: playwrightGetNetworkRequestToolDef.description,
   inputSchema: zodSchema(playwrightGetNetworkRequestToolDef.parameters),
   execute: async ({ pageTargetId, requestId }) => {
-    const activeTab = requireActiveTab();
-    const record = getPageTarget(pageTargetId);
-    if (!record) {
-      return { ok: false, error: `Unknown pageTargetId=${pageTargetId}. Call \`open-url\` first.` };
-    }
-    if (record.tabId !== activeTab.id) {
-      return { ok: false, error: `pageTargetId=${pageTargetId} does not belong to activeTab.id=${activeTab.id}` };
-    }
+    const guard = requireActiveTabPageTarget(pageTargetId);
+    if (!guard.ok) return guard;
 
     const store = getOrCreateNetworkStore(pageTargetId);
     const rec = store.records.get(String(requestId));
     if (!rec) {
       return { ok: false, error: `Unknown requestId=${requestId} (not captured yet).` };
     }
-
-    const summarizeHeaders = (headers?: Record<string, string>) => {
-      if (!headers) return undefined;
-      const allKeys = Object.keys(headers);
-      const keys = allKeys.slice(0, 50);
-      const important: Record<string, string> = {};
-      const pick = (k: string) => {
-        const v = headers[k];
-        if (typeof v !== "string") return;
-        important[k] = truncateText(v, 500);
-      };
-      pick("content-type");
-      pick("location");
-      pick("referer");
-      pick("user-agent");
-      return {
-        count: allKeys.length,
-        keys,
-        important,
-      };
-    };
 
     return {
       ok: true,
@@ -1018,14 +554,8 @@ export const playwrightListConsoleMessagesTool = tool({
   description: playwrightListConsoleMessagesToolDef.description,
   inputSchema: zodSchema(playwrightListConsoleMessagesToolDef.parameters),
   execute: async ({ pageTargetId, limit, types }) => {
-    const activeTab = requireActiveTab();
-    const record = getPageTarget(pageTargetId);
-    if (!record) {
-      return { ok: false, error: `Unknown pageTargetId=${pageTargetId}. Call \`open-url\` first.` };
-    }
-    if (record.tabId !== activeTab.id) {
-      return { ok: false, error: `pageTargetId=${pageTargetId} does not belong to activeTab.id=${activeTab.id}` };
-    }
+    const guard = requireActiveTabPageTarget(pageTargetId);
+    if (!guard.ok) return guard;
 
     const store = getOrCreateConsoleStore(pageTargetId);
     const take = typeof limit === "number" ? limit : 50;
@@ -1053,14 +583,8 @@ export const playwrightGetConsoleMessageTool = tool({
   description: playwrightGetConsoleMessageToolDef.description,
   inputSchema: zodSchema(playwrightGetConsoleMessageToolDef.parameters),
   execute: async ({ pageTargetId, msgId }) => {
-    const activeTab = requireActiveTab();
-    const record = getPageTarget(pageTargetId);
-    if (!record) {
-      return { ok: false, error: `Unknown pageTargetId=${pageTargetId}. Call \`open-url\` first.` };
-    }
-    if (record.tabId !== activeTab.id) {
-      return { ok: false, error: `pageTargetId=${pageTargetId} does not belong to activeTab.id=${activeTab.id}` };
-    }
+    const guard = requireActiveTabPageTarget(pageTargetId);
+    if (!guard.ok) return guard;
 
     const store = getOrCreateConsoleStore(pageTargetId);
     const found = store.records.find((m) => m.msgId === msgId);
@@ -1100,79 +624,7 @@ export const playwrightStorageTool = tool({
       const entryObj = (entries ?? {}) as Record<string, string>;
 
       const data = await page.evaluate(
-        ({ storage, op, keyList, entryObj, include, max }: any) => {
-          const s: any =
-            storage === "sessionStorage" ? window.sessionStorage : window.localStorage;
-
-          const allKeys: string[] = [];
-          for (let i = 0; i < s.length; i++) {
-            const k = s.key(i);
-            if (k) allKeys.push(k);
-          }
-          const MAX_KEYS = 200;
-
-          if (op === "keys") {
-            return {
-              keyCount: allKeys.length,
-              keys: allKeys.slice(0, MAX_KEYS),
-              truncated: allKeys.length > MAX_KEYS,
-            };
-          }
-
-          if (op === "get") {
-            const raw = keyList.length > 0 ? keyList : allKeys;
-            const targetKeys = raw.slice(0, MAX_KEYS);
-            const truncatedKeys = raw.length > MAX_KEYS;
-            if (!include) {
-              const valueChars: Record<string, number> = {};
-              for (const k of targetKeys) {
-                const v = s.getItem(k) ?? "";
-                valueChars[k] = v.length;
-              }
-              return {
-                keyCount: raw.length,
-                keys: targetKeys,
-                truncatedKeys,
-                valueChars,
-              };
-            }
-
-            const values: Record<string, string> = {};
-            const truncated: Record<string, boolean> = {};
-            for (const k of targetKeys) {
-              const v = s.getItem(k) ?? "";
-              values[k] = v.slice(0, max);
-              truncated[k] = v.length > max;
-            }
-            return {
-              keyCount: raw.length,
-              keys: targetKeys,
-              truncatedKeys,
-              values,
-              truncated,
-            };
-          }
-
-          if (op === "set") {
-            const list = Object.entries(entryObj ?? {});
-            for (const [k, v] of list) s.setItem(k, String(v));
-            return { setCount: list.length };
-          }
-
-          if (op === "remove") {
-            const targetKeys = keyList.length > 0 ? keyList : [];
-            for (const k of targetKeys) s.removeItem(k);
-            return { removedCount: targetKeys.length };
-          }
-
-          if (op === "clear") {
-            const before = s.length;
-            s.clear();
-            return { cleared: true, before };
-          }
-
-          return { error: `Unsupported op: ${op}` };
-        },
+        evalStorageOperationInPage,
         { storage, op, keyList, entryObj, include, max },
       );
 

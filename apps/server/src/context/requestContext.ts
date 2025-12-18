@@ -15,6 +15,8 @@ type RequestContext = {
   sessionId: string;
   cookies: Record<string, string>;
   activeTab?: Tab;
+  webClientId?: string;
+  electronClientId?: string;
   mode?: AgentMode;
   uiWriter?: UIMessageStreamWriter<any>;
   agentStack?: AgentFrame[];
@@ -71,6 +73,20 @@ class RequestContextManager {
   getWorkspaceId(): string | undefined {
     // 优先用前端传来的 activeTab（去耦历史持久化 key / cookie 依赖）
     return this.getContext()?.activeTab?.workspaceId ?? this.getCookie("workspace-id");
+  }
+
+  /**
+   * 获取 webClientId（前端稳定标识，用于 runtime 调度/关联）。
+   */
+  getWebClientId(): string | undefined {
+    return this.getContext()?.webClientId;
+  }
+
+  /**
+   * 获取 electronClientId（桌面端 runtime 标识；非 Electron 环境可能为空）。
+   */
+  getElectronClientId(): string | undefined {
+    return this.getContext()?.electronClientId;
   }
 
   /**

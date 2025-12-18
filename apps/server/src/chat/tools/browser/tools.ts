@@ -1,9 +1,6 @@
 import { tool, zodSchema } from "ai";
 import { requestContextManager } from "@/context/requestContext";
 import { openUrlTool } from "./openUrl";
-import { uiCloseStackTool } from "./closeStack";
-import { uiRefreshPageTreeTool } from "./refreshPageTree";
-import { uiRefreshBasePanelTool } from "./refreshBasePanel";
 import {
   playwrightClickTool,
   playwrightCookiesTool,
@@ -28,9 +25,6 @@ import {
   browserGetTabsToolDef,
   browserGetCurrentTabToolDef,
   openUrlToolDef,
-  uiCloseStackToolDef,
-  uiRefreshPageTreeToolDef,
-  uiRefreshBasePanelToolDef,
 } from "@teatime-ai/api/types/tools/browser";
 import {
   playwrightClickToolDef,
@@ -106,9 +100,6 @@ export const browserTools = {
   // ======
   // MVP：通用 UI 事件（通过 SSE 推送给前端）
   // ======
-  [uiCloseStackToolDef.id]: uiCloseStackTool,
-  [uiRefreshPageTreeToolDef.id]: uiRefreshPageTreeTool,
-  [uiRefreshBasePanelToolDef.id]: uiRefreshBasePanelTool,
 } as const;
 
 // settings 模式用：不暴露 UI 操作能力（MVP 权限边界）

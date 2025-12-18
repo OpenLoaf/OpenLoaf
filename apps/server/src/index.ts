@@ -6,10 +6,11 @@ import { t } from "@teatime-ai/api";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { serve } from "@hono/node-server";
+import { createAdaptorServer } from "@hono/node-server";
 import { registerChatSse } from "./chat/sse";
 import { workspaceRouterImplementation } from "./routers/workspace";
 import { getTeatimeConfig } from "./config/index";
+import { browserRuntimeHub } from "./runtime/browserRuntimeHub";
 
 // Load config at startup to ensure it exists
 console.log("Loading configuration...");
@@ -97,15 +98,20 @@ app.get("/", (c) => {
 const port = Number(process.env.PORT ?? 3000);
 const hostname = process.env.HOST ?? "127.0.0.1";
 
-serve(
-  {
-    fetch: app.fetch,
-    port,
-    hostname,
-  },
-  (info) => {
-    console.log(`Server listening on http://${hostname}:${info.port}`);
-  }
-);
+const server = createAdaptorServer({
+  fetch: app.fetch,
+  hostname,
+});
+
+// Browser Runtime Hub（WS）：用于 Electron/Headless runtime 连接与命令调度。
+// createAdaptorServer 的返回类型是 ServerType（包含 http2），这里实际运行环境为 http server（支持 upgrade）。
+browserRuntimeHub.attachToServer(server as unknown as import("node:http").Server);
+
+server.listen(port, hostname, () => {
+  const info = server.address();
+  const actualPort =
+    typeof info === "object" && info && "port" in info ? (info as any).port : port;
+  console.log(`Server listening on http://${hostname}:${actualPort}`);
+});
 
 export default app;

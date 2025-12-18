@@ -13,6 +13,7 @@ import { MasterAgent, decideAgentMode } from "@/chat/agents";
 import { saveAndAppendMessage } from "@/chat/history";
 import type { ChatRequestBody, TokenUsageMessage } from "@teatime-ai/api/types/message";
 import { CLIENT_CONTEXT_PART_TYPE } from "@teatime-ai/api/types/parts";
+import type { ClientContext } from "@teatime-ai/api/types/event";
 import {
   attachAbortControllerToActiveStream,
   appendStreamChunk,
@@ -57,11 +58,24 @@ function summarizeMessagesForDebug(messages: UIMessage[]): Array<{
   });
 }
 
-function extractActiveTab(message: UIMessage | undefined): Tab | undefined {
+/**
+ * 从 data-client-context 提取 client 侧上下文：
+ * - activeTab：用于 agent/tools 绑定到当前 Tab
+ * - webClientId / electronClientId：用于 Browser Runtime 调度（Phase 1）
+ */
+function extractClientContext(message: UIMessage | undefined): Partial<ClientContext> {
   const parts = (message as any)?.parts;
-  if (!Array.isArray(parts)) return undefined;
+  if (!Array.isArray(parts)) return {};
   const ctxPart = parts.find((p: any) => p?.type === CLIENT_CONTEXT_PART_TYPE);
-  return (ctxPart?.data?.activeTab ?? undefined) as Tab | undefined;
+  const data = (ctxPart?.data ?? {}) as any;
+  return {
+    activeTab: (data?.activeTab ?? null) as Tab | null,
+    webClientId: typeof data?.webClientId === "string" ? data.webClientId : "",
+    electronClientId:
+      typeof data?.electronClientId === "string" && data.electronClientId
+        ? data.electronClientId
+        : undefined,
+  };
 }
 
 /**
@@ -95,8 +109,9 @@ export function registerChatSseCreateRoute(app: Hono) {
       ? incomingMessages[incomingMessages.length - 1]
       : undefined;
 
-    // 关键：从 data-client-context 取 activeTab（不依赖历史持久化 key）
-    const activeTab = extractActiveTab(lastIncomingMessage);
+    // 关键：从 data-client-context 取 client context（避免依赖 cookie/history）
+    const clientContext = extractClientContext(lastIncomingMessage);
+    const activeTab: Tab | undefined = (clientContext.activeTab ?? undefined) as Tab | undefined;
 
     const mode = decideAgentMode(activeTab);
 
@@ -105,6 +120,8 @@ export function registerChatSseCreateRoute(app: Hono) {
       sessionId,
       cookies: cookies || {},
       activeTab,
+      webClientId: clientContext.webClientId || undefined,
+      electronClientId: clientContext.electronClientId || undefined,
       mode,
     });
 
@@ -184,7 +201,7 @@ export function registerChatSseCreateRoute(app: Hono) {
         await saveAndAppendMessage({ sessionId, incomingMessage: messageToSave });
       },
       execute: async ({ writer }) => {
-        // 关键：tools 需要能拿到 writer -> write(data-ui-event)
+        // 说明：保留 writer 供 tool streaming chunks 使用；UI 控制不再通过 SSE data part 下发。
         requestContextManager.setUIWriter(writer as any);
         requestContextManager.pushAgentFrame(master.createFrame());
 

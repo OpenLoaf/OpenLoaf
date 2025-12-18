@@ -5,6 +5,7 @@ import { createServiceManager, type ServiceManager } from './services/serviceMan
 import { WEBPACK_ENTRIES } from './webpackEntries';
 import { createMainWindow } from './windows/mainWindow';
 import { getCdpConfig } from '@teatime-ai/config';
+import { startBrowserRuntimeClient } from './runtime/runtimeClient';
 
 /**
  * A 方案架构说明：
@@ -29,6 +30,7 @@ app.commandLine.appendSwitch(
 
 let services: ServiceManager | null = null;
 let mainWindow: BrowserWindow | null = null;
+let runtimeClient: { stop: () => void } | null = null;
 
 function installApplicationMenu() {
   // On macOS, Electron will create a default menu that includes "Close Window"
@@ -115,12 +117,21 @@ async function boot() {
   const initialWebUrl = process.env.TEATIME_WEB_URL ?? DEFAULT_WEB_URL;
 
   // 主窗口先展示轻量 loading 页面，待 `apps/web` 可用后再切换到真实 UI。
-  mainWindow = await createMainWindow({
+  const created = await createMainWindow({
     log,
     services,
     entries: WEBPACK_ENTRIES,
     initialServerUrl,
     initialWebUrl,
+  });
+  mainWindow = created.win;
+
+  // 启动 Browser Runtime client：让 server 能通过 /runtime-ws 调度 Electron 执行 openPage。
+  runtimeClient?.stop();
+  runtimeClient = startBrowserRuntimeClient({
+    serverUrl: created.serverUrl,
+    getMainWindow: () => mainWindow,
+    log,
   });
 
   if (!app.isPackaged) {
@@ -149,6 +160,7 @@ if (!gotTheLock) {
   app.on('before-quit', () => {
     log('Before quit.');
     // 尽力清理：关闭我们启动的子进程/本地服务，避免退出卡住。
+    runtimeClient?.stop();
     services?.stop();
   });
 

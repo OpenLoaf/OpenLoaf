@@ -12,8 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Check, ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { toast } from "sonner";
-import OpenUrlTool from "./OpenUrlTool";
-import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 
 // MVP：这里只关心工具名称和返回结果，不做复杂的状态/交互
 type AnyToolPart = {
@@ -192,15 +190,6 @@ export default function MessageTool({
   part: AnyToolPart;
   className?: string;
 }) {
-  // 优先渲染“可重放”的工具组件（用于历史消息/刷新后再次执行 UI 行为）。
-  if (getToolId(part) === openUrlToolDef.id) {
-    return (
-      <div className={cn("flex w-full min-w-0 max-w-full justify-start", className)}>
-        <OpenUrlTool part={part} />
-      </div>
-    );
-  }
-
   const { resolvedTheme } = useTheme();
   const codeStyle = (resolvedTheme === "dark" ? oneDark : oneLight) as any;
   const toolName = getToolName(part);
