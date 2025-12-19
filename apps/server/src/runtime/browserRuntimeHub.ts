@@ -13,6 +13,8 @@ import type { Duplex } from "node:stream";
 import { WebSocketServer } from "ws";
 import type { UiEvent } from "@teatime-ai/api/types/event";
 
+const DEBUG_RUNTIME_WS = process.env.TEATIME_DEBUG_RUNTIME_WS === "1";
+
 type RuntimeConnection = {
   ws: import("ws").WebSocket;
   hello: RuntimeHello;
@@ -49,8 +51,16 @@ class BrowserRuntimeHub {
     server.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
       const url = new URL(req.url ?? "", "http://localhost");
       if (url.pathname !== path) {
-        socket.destroy();
+        // 关键：不要在这里直接 destroy，避免拦截/破坏其他 upgrade handler（例如 dev server 的 HMR WS）。
         return;
+      }
+
+      if (DEBUG_RUNTIME_WS) {
+        console.log("[runtime-ws] upgrade", {
+          path: url.pathname,
+          electronClientId: url.searchParams.get("electronClientId") ?? undefined,
+          remoteAddress: (req.socket as any)?.remoteAddress,
+        });
       }
 
       this.wss.handleUpgrade(req, socket, head, (ws) => {
@@ -129,6 +139,10 @@ class BrowserRuntimeHub {
   private async handleConnection(ws: import("ws").WebSocket, _req: IncomingMessage) {
     let boundElectronClientId: string | null = null;
 
+    if (DEBUG_RUNTIME_WS) {
+      console.log("[runtime-ws] connected");
+    }
+
     ws.on("message", (data) => {
       const text = typeof data === "string" ? data : data.toString("utf-8");
       let raw: unknown;
@@ -162,9 +176,22 @@ class BrowserRuntimeHub {
             hello: msg,
             connectedAt: Date.now(),
           });
+
+          if (DEBUG_RUNTIME_WS) {
+            console.log("[runtime-ws] hello", {
+              runtimeType: msg.runtimeType,
+              electronClientId: boundElectronClientId,
+              instanceId: msg.instanceId,
+            });
+          }
         }
 
         ws.send(JSON.stringify({ type: "helloAck", ok: true, serverTime: Date.now() }));
+        return;
+      }
+
+      if (msg.type === "ping") {
+        ws.send(JSON.stringify({ type: "pong", serverTime: Date.now() }));
         return;
       }
 
@@ -176,6 +203,12 @@ class BrowserRuntimeHub {
     ws.on("close", () => {
       if (boundElectronClientId) {
         this.runtimesByElectronClientId.delete(boundElectronClientId);
+      }
+
+      if (DEBUG_RUNTIME_WS) {
+        console.log("[runtime-ws] closed", {
+          electronClientId: boundElectronClientId ?? undefined,
+        });
       }
     });
   }

@@ -29,6 +29,30 @@ import {
 
 const DEBUG_AI_STREAM = process.env.TEATIME_DEBUG_AI_STREAM === "1";
 
+/**
+ * 将服务端异常转换为可发送给前端的错误文本：
+ * - AI SDK 的 `onError` 需要返回 string，前端会显示为 tool-output-error.errorText
+ * - 这里尽量保留可读信息，便于排查（MVP：不做脱敏/分级）
+ */
+function toClientErrorText(error: unknown): string {
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : (() => {
+            try {
+              return JSON.stringify(error);
+            } catch {
+              return String(error);
+            }
+          })();
+
+  const text = raw?.trim() || "Unknown error";
+  // 避免极端情况下错误内容过大导致 SSE/日志异常。
+  return text.length > 800 ? `${text.slice(0, 800)}…` : text;
+}
+
 function safeJsonSize(value: unknown): number {
   try {
     return JSON.stringify(value).length;
@@ -179,7 +203,7 @@ export function registerChatSseCreateRoute(app: Hono) {
       originalMessages: messages as any[],
       onError: (error) => {
         console.error("UI stream error:", error);
-        return "An error occurred.";
+        return toClientErrorText(error);
       },
       onFinish: async ({ isAborted, messages, responseMessage }) => {
         // if (isAborted) return;
@@ -257,7 +281,7 @@ export function registerChatSseCreateRoute(app: Hono) {
           generateMessageId: generateId,
           onError: (error: unknown) => {
             console.error("Agent error:", error);
-            return "An error occurred.";
+            return toClientErrorText(error);
           },
           messageMetadata: ({ part }: any) => {
             const frame = requestContextManager.getCurrentAgentFrame();
@@ -281,20 +305,6 @@ export function registerChatSseCreateRoute(app: Hono) {
             requestContextManager.popAgentFrame();
           },
         });
-
-        // stop 后尽快终止 UI stream 的消费，避免底层仍在缓慢产出/触发工具调用导致日志刷屏。
-        // 注意：取消 ReadableStream 会向下游传播 cancel，有助于更快释放资源。
-        abortController.signal.addEventListener(
-          "abort",
-          () => {
-            try {
-              void uiStream.cancel(abortController.signal.reason);
-            } catch {
-              // ignore
-            }
-          },
-          { once: true },
-        );
 
         writer.merge(uiStream as any);
       },

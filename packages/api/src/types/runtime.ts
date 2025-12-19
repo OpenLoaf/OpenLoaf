@@ -48,6 +48,23 @@ export const runtimeHelloAckSchema = z.object({
 });
 export type RuntimeHelloAck = z.infer<typeof runtimeHelloAckSchema>;
 
+/**
+ * 心跳（MVP）：
+ * - client 定时发送 ping，server 回 pong
+ * - 用于检测“半开连接/静默断线”，并触发 runtime 侧重连
+ */
+export const runtimePingSchema = z.object({
+  type: z.literal("ping"),
+  clientTime: z.number().int().optional(),
+});
+export type RuntimePing = z.infer<typeof runtimePingSchema>;
+
+export const runtimePongSchema = z.object({
+  type: z.literal("pong"),
+  serverTime: z.number().int(),
+});
+export type RuntimePong = z.infer<typeof runtimePongSchema>;
+
 // ==========
 // Server -> Runtime：命令
 // ==========
@@ -84,6 +101,7 @@ export const runtimeServerMessageSchema = z.discriminatedUnion("type", [
     command: runtimeCommandSchema,
   }),
   runtimeHelloAckSchema,
+  runtimePongSchema,
 ]);
 export type RuntimeServerMessage = z.infer<typeof runtimeServerMessageSchema>;
 
@@ -111,5 +129,6 @@ export type RuntimeAck = z.infer<typeof runtimeAckSchema>;
 export const runtimeClientMessageSchema = z.discriminatedUnion("type", [
   runtimeHelloSchema,
   runtimeAckSchema,
+  runtimePingSchema,
 ]);
 export type RuntimeClientMessage = z.infer<typeof runtimeClientMessageSchema>;

@@ -77,18 +77,43 @@ export function startBrowserRuntimeClient(input: {
   let ws: WebSocket | null = null;
   let stopped = false;
   let reconnectTimer: NodeJS.Timeout | null = null;
+  let heartbeatTimer: NodeJS.Timeout | null = null;
+  let lastPongAt = 0;
+  let reconnectAttempt = 0;
 
-  const connect = () => {
-    if (stopped) return;
+  const clearTimers = () => {
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+  };
+
+  const scheduleReconnect = (reason: string) => {
+    if (stopped) return;
+    clearTimers();
+    // 关键：断线立即尝试重连；若持续失败，则指数退避避免疯狂刷连接。
+    const delayMs = reconnectAttempt === 0 ? 0 : Math.min(5000, 200 * 2 ** (reconnectAttempt - 1));
+    reconnectAttempt += 1;
+    log(`[runtime] reconnect scheduled: ${delayMs}ms (${reason})`);
+    reconnectTimer = setTimeout(connect, delayMs);
+  };
+
+  const connect = () => {
+    if (stopped) return;
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+    clearTimers();
 
     log(`[runtime] connecting: ${wsUrl}`);
     ws = new WebSocket(wsUrl);
 
     ws.addEventListener("open", () => {
+      reconnectAttempt = 0;
       const hello: RuntimeHello = {
         type: "hello",
         runtimeType: "electron",
@@ -97,6 +122,26 @@ export function startBrowserRuntimeClient(input: {
         capabilities: { openPage: true },
       };
       ws?.send(JSON.stringify(hello));
+
+      // 关键：心跳检测 half-open 连接；若长时间没有 pong，则主动断开触发重连。
+      lastPongAt = Date.now();
+      heartbeatTimer = setInterval(() => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const now = Date.now();
+        try {
+          ws.send(JSON.stringify({ type: "ping", clientTime: now }));
+        } catch {
+          // ignore
+        }
+        if (now - lastPongAt > 45_000) {
+          log("[runtime] heartbeat timeout; closing ws");
+          try {
+            ws.close();
+          } catch {
+            // ignore
+          }
+        }
+      }, 15_000);
     });
 
     ws.addEventListener("message", (evt) => {
@@ -122,6 +167,11 @@ export function startBrowserRuntimeClient(input: {
         return;
       }
 
+      if (msg.type === "pong") {
+        lastPongAt = Date.now();
+        return;
+      }
+
       if (msg.type === "command") {
         void handleCommand(msg.command);
       }
@@ -129,12 +179,17 @@ export function startBrowserRuntimeClient(input: {
 
     ws.addEventListener("close", () => {
       ws = null;
-      if (stopped) return;
-      reconnectTimer = setTimeout(connect, 1200);
+      clearTimers();
+      scheduleReconnect("close");
     });
 
     ws.addEventListener("error", () => {
-      // close 事件会触发重连
+      // 关键：某些情况下只触发 error 不触发 close；主动 close 统一走重连逻辑。
+      try {
+        ws?.close();
+      } catch {
+        // ignore
+      }
     });
   };
 
@@ -215,8 +270,7 @@ export function startBrowserRuntimeClient(input: {
   return {
     stop: () => {
       stopped = true;
-      reconnectTimer && clearTimeout(reconnectTimer);
-      reconnectTimer = null;
+      clearTimers();
       try {
         ws?.close();
       } catch {

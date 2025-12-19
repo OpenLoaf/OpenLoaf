@@ -15,6 +15,52 @@ interface MessageListProps {
   className?: string;
 }
 
+const SUB_AGENT_TOOL_ID = "sub-agent";
+
+function isSubAgentMessage(message: any) {
+  return (message as any)?.metadata?.agent?.kind === "sub";
+}
+
+function messageHasSubAgentToolCall(message: any) {
+  const parts = (message as any)?.parts ?? [];
+  return (parts as any[]).some((p: any) => {
+    if (!p || typeof p !== "object") return false;
+    if (typeof p.toolName === "string" && p.toolName) return p.toolName === SUB_AGENT_TOOL_ID;
+    if (typeof p.type === "string" && p.type === SUB_AGENT_TOOL_ID) return true;
+    if (typeof p.type === "string" && p.type.startsWith("tool-"))
+      return p.type.slice("tool-".length) === SUB_AGENT_TOOL_ID;
+    return false;
+  });
+}
+
+function groupMessagesForRender(messages: any[]) {
+  const items: Array<{ message: any; subAgentMessages?: any[] }> = [];
+
+  for (let i = 0; i < messages.length; i += 1) {
+    const message = messages[i];
+    if (!message) continue;
+
+    // 关键：subAgent 的输出消息会被嵌套到 sub-agent tool 卡片里，这里不单独渲染。
+    if (isSubAgentMessage(message)) continue;
+
+    if (message.role === "assistant" && messageHasSubAgentToolCall(message)) {
+      const subAgentMessages: any[] = [];
+      let j = i + 1;
+      while (j < messages.length && isSubAgentMessage(messages[j])) {
+        subAgentMessages.push(messages[j]);
+        j += 1;
+      }
+      items.push({ message, subAgentMessages });
+      i = j - 1;
+      continue;
+    }
+
+    items.push({ message });
+  }
+
+  return items;
+}
+
 function MessageHistorySkeleton() {
   return (
     <div className="space-y-4">
@@ -63,13 +109,18 @@ export default function MessageList({ className }: MessageListProps) {
     );
   }, []);
 
-  const lastHumanIndex = React.useMemo(
-    () => messages.findLastIndex((message) => message.role === "user"),
+  const renderItems = React.useMemo(
+    () => groupMessagesForRender(messages as any[]),
     [messages]
   );
+
+  const lastHumanIndex = React.useMemo(
+    () => renderItems.findLastIndex((item) => item.message?.role === "user"),
+    [renderItems]
+  );
   const lastAiIndex = React.useMemo(
-    () => messages.findLastIndex((message) => message.role !== "user"),
-    [messages]
+    () => renderItems.findLastIndex((item) => item.message?.role !== "user"),
+    [renderItems]
   );
   const hideAiActions = status === "submitted" || status === "streaming";
 
@@ -123,10 +174,11 @@ export default function MessageList({ className }: MessageListProps) {
             <MessageHistorySkeleton />
           ) : (
             <>
-              {messages.map((message, index) => (
+              {renderItems.map((item, index) => (
                 <MessageItem
-                  key={message.id ?? `m_${index}`}
-                  message={message}
+                  key={item.message?.id ?? `m_${index}`}
+                  message={item.message}
+                  subAgentMessages={item.subAgentMessages}
                   isLastHumanMessage={index === lastHumanIndex}
                   isLastAiMessage={index === lastAiIndex}
                   hideAiActions={hideAiActions}

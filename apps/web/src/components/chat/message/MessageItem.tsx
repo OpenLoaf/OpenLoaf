@@ -11,6 +11,7 @@ import MessageHumanAction from "./MessageHumanAction";
 
 interface MessageItemProps {
   message: UIMessage;
+  subAgentMessages?: UIMessage[];
   isLastHumanMessage?: boolean;
   isLastAiMessage?: boolean;
   hideAiActions?: boolean;
@@ -18,6 +19,7 @@ interface MessageItemProps {
 
 function MessageItem({
   message,
+  subAgentMessages,
   isLastHumanMessage,
   isLastAiMessage,
   hideAiActions,
@@ -103,7 +105,7 @@ function MessageItem({
         </>
       ) : (
         <>
-          <MessageAi message={message} />
+          <MessageAi message={message} subAgentMessages={subAgentMessages} />
           {!hideAiActions && hasVisibleContent && (
             <div className={cn("mt-1", actionVisibility(isLastAiMessage))}>
               <MessageAiAction

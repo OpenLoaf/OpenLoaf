@@ -39,7 +39,7 @@ function buildBrowserWindowDockItem({
 export const openUrlTool = tool({
   description: openUrlToolDef.description,
   inputSchema: zodSchema(openUrlToolDef.parameters),
-  execute: async ({ url, title, pageTargetId }) => {
+  execute: async ({ url, title, pageTargetId }, options) => {
     const activeTab = requireActiveTab();
     const normalizedUrl = normalizeUrl(url);
 

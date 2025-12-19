@@ -5,7 +5,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/utils/trpc";
 import { useDisableContextMenu } from "@/lib/useDisableContextMenu";
 import { ThemeProvider } from "./ThemeProvider";
-import { installUiEventElectronIpcListener } from "@/lib/chat/uiEventElectronIpc";
 import { handleUiEvent } from "@/lib/chat/uiEvent";
 import type { UiEvent } from "@teatime-ai/api";
 

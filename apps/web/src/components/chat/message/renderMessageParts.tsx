@@ -5,12 +5,23 @@ import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
+import type { ReactNode } from "react";
 
 type AnyMessagePart = {
   type?: string;
   text?: string;
   toolCallId?: string;
+  toolName?: string;
 };
+
+const SUB_AGENT_TOOL_ID = "sub-agent";
+
+function getToolId(part: AnyMessagePart) {
+  if (typeof part.toolName === "string" && part.toolName) return part.toolName;
+  if (typeof part.type === "string" && part.type.startsWith("tool-"))
+    return part.type.slice("tool-".length);
+  return String(part.type ?? "");
+}
 
 // 修复 CJK 环境下 markdown 自动链接识别错误的问题（例如 "https://example.com）。" 会被误识别）
 // 在 URL 和全角符号/CJK字符之间插入空格
@@ -49,10 +60,19 @@ export function renderMessageParts(
   options?: {
     textClassName?: string;
     toolClassName?: string;
+    /** 是否渲染工具卡片（subAgent 消息内可禁用） */
+    renderTools?: boolean;
+    /** 是否渲染文本（当 output 已有时，可隐藏 message 段的文本避免重复） */
+    renderText?: boolean;
+    /** 自定义 sub-agent tool 的渲染（用于三段式展示） */
+    renderSubAgentTool?: (part: AnyMessagePart, index: number) => ReactNode;
   },
 ) {
+  const renderTools = options?.renderTools !== false;
+  const renderText = options?.renderText !== false;
   return (parts ?? []).map((part: any, index: number) => {
     if (part?.type === "text") {
+      if (!renderText) return null;
       return (
         <div key={index} className={cn(MESSAGE_TEXT_CLASSNAME, options?.textClassName)}>
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
@@ -67,6 +87,12 @@ export function renderMessageParts(
       typeof part?.type === "string" &&
       (part.type === "dynamic-tool" || part.type.startsWith("tool-"))
     ) {
+      if (!renderTools) return null;
+      if (getToolId(part) === SUB_AGENT_TOOL_ID) {
+        // 关键：subAgent tool 需要三段式 UI，不走默认 MessageTool。
+        if (options?.renderSubAgentTool) return options.renderSubAgentTool(part, index);
+        return null;
+      }
       return (
         <MessageTool
           key={part.toolCallId ?? `${part.type}-${index}`}
@@ -79,4 +105,3 @@ export function renderMessageParts(
     return null;
   });
 }
-

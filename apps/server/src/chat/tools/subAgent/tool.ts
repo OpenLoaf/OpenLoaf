@@ -20,6 +20,15 @@ function agentMetadataFromStack() {
   };
 }
 
+function extractMarkdownFromUiMessage(message: UIMessage): string {
+  const parts = Array.isArray((message as any).parts) ? ((message as any).parts as any[]) : [];
+  return parts
+    .filter((p) => p?.type === "text" && typeof p?.text === "string")
+    .map((p) => p.text)
+    .join("\n")
+    .trim();
+}
+
 export const subAgentTool = tool({
   description: subAgentToolDef.description,
   inputSchema: zodSchema(subAgentToolDef.parameters),
@@ -62,6 +71,7 @@ export const subAgentTool = tool({
     // 关键：subAgent 的 UI stream 必须“阻塞”当前 tool，直到 subAgent 完整结束；
     // 否则主 agent 会在 tool 提前返回后继续生成，导致两路输出交叉/顺序错乱。
     let finishCalled = false;
+    let outputMarkdown = "";
     let resolveStreamFinished: (() => void) | undefined;
     const streamFinished = new Promise<void>((resolve) => {
       resolveStreamFinished = resolve;
@@ -88,6 +98,9 @@ export const subAgentTool = tool({
             if (isAborted) return;
             if (!responseMessage || responseMessage.role !== "assistant") return;
 
+            // 关键：subAgent 工具的 output 需要给前端展示用（markdown 总结）。
+            outputMarkdown = extractMarkdownFromUiMessage(responseMessage as any);
+
             // 关键：把 subAgent 标识写入 metadata，保存到 DB（用于历史回放 + 前端区分）
             const messageToSave: UIMessage = {
               ...responseMessage,
@@ -111,7 +124,7 @@ export const subAgentTool = tool({
       // 关键：等待 subAgent 完整输出结束，才允许主 agent 继续运行
       await streamFinished;
 
-      return { ok: true, data: { name: sub.name, agentId: sub.agentId } };
+      return { ok: true, data: { name: sub.name, agentId: sub.agentId, outputMarkdown } };
     } catch (error) {
       // 关键：如果 stream 在创建/merge 阶段失败，onFinish 不会触发，需要手动清理 agent 栈
       if (!finishCalled) {

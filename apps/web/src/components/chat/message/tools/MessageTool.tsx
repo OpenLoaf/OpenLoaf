@@ -179,6 +179,7 @@ export default function MessageTool({
   const inputText = safeStringify(part.input);
   const outputText = safeStringify(part.output);
   const showInput = !isEmptyInput(part.input);
+  const hasErrorText = typeof part.errorText === "string" && part.errorText.trim().length > 0;
   const [headerCopied, setHeaderCopied] = React.useState(false);
   // 默认“压缩为单行”，避免工具消息占用太多高度
   const [isInputFormatted, setIsInputFormatted] = React.useState(false);
@@ -186,11 +187,11 @@ export default function MessageTool({
   const okFlag = extractOkFlag(part.output);
   const outputDisplayText =
     outputText ||
-    (part.state && part.state !== "output-available"
-      ? `（${part.state}）`
-      : part.errorText
-         ? `（错误：${part.errorText}）`
-         : "（暂无返回结果）");
+    (part.errorText
+      ? `（错误：${part.errorText}）`
+      : part.state && part.state !== "output-available"
+        ? `（${part.state}）`
+        : "（暂无返回结果）");
 
   // 复制：标题栏内容 + input + output，一次性方便粘贴排查
   const handleCopyAll = async (event: React.MouseEvent) => {
@@ -300,43 +301,68 @@ export default function MessageTool({
             ) : null}
 
             <div className={showInput ? "mt-2" : undefined}>
-              <CollapsiblePrimitive.Root defaultOpen>
-                <div className="flex items-center gap-1">
-                  <CollapsiblePrimitive.Trigger asChild>
+              {/* 关键：tool-output-error 时，输出结果就是 errorText，因此隐藏“输出结果”，单独展示错误信息块 */}
+              {!hasErrorText ? (
+                <CollapsiblePrimitive.Root defaultOpen>
+                  <div className="flex items-center gap-1">
+                    <CollapsiblePrimitive.Trigger asChild>
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 select-none text-left text-[11px] text-muted-foreground hover:text-foreground"
+                      >
+                        输出结果
+                      </button>
+                    </CollapsiblePrimitive.Trigger>
                     <button
                       type="button"
-                      className="min-w-0 flex-1 select-none text-left text-[11px] text-muted-foreground hover:text-foreground"
+                      className="inline-flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground"
+                      aria-label={isOutputFormatted ? "压缩为单行" : "格式化"}
+                      title={isOutputFormatted ? "压缩为单行" : "格式化"}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setIsOutputFormatted((v) => !v);
+                      }}
                     >
-                      输出结果
+                      {isOutputFormatted ? (
+                        <Braces className="h-3 w-3" />
+                      ) : (
+                        <Brackets className="h-3 w-3" />
+                      )}
                     </button>
-                  </CollapsiblePrimitive.Trigger>
-                  <button
-                    type="button"
-                    className="inline-flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground"
-                    aria-label={isOutputFormatted ? "压缩为单行" : "格式化"}
-                    title={isOutputFormatted ? "压缩为单行" : "格式化"}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setIsOutputFormatted((v) => !v);
-                    }}
-                  >
-                    {isOutputFormatted ? (
-                      <Braces className="h-3 w-3" />
-                    ) : (
-                      <Brackets className="h-3 w-3" />
-                    )}
-                  </button>
-                </div>
-                <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-                  <CodeBlockWithCopy
-                    code={outputDisplayText}
-                    codeStyle={codeStyle}
-                    maxHeightClassName="max-h-64"
-                    isFormatted={isOutputFormatted}
-                  />
-                </CollapsiblePrimitive.Content>
-              </CollapsiblePrimitive.Root>
+                  </div>
+                  <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                    <CodeBlockWithCopy
+                      code={outputDisplayText}
+                      codeStyle={codeStyle}
+                      maxHeightClassName="max-h-64"
+                      isFormatted={isOutputFormatted}
+                    />
+                  </CollapsiblePrimitive.Content>
+                </CollapsiblePrimitive.Root>
+              ) : null}
+
+              {hasErrorText ? (
+                <CollapsiblePrimitive.Root defaultOpen>
+                  <div className="flex items-center gap-1">
+                    <CollapsiblePrimitive.Trigger asChild>
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 select-none text-left text-[11px] text-muted-foreground hover:text-foreground"
+                      >
+                        错误信息
+                      </button>
+                    </CollapsiblePrimitive.Trigger>
+                  </div>
+                  <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                    <div className={cn("mt-1 max-w-full overflow-auto bg-background p-2", "max-h-64")}>
+                      <div className="whitespace-pre-wrap break-words text-xs text-destructive/80">
+                        {part.errorText}
+                      </div>
+                    </div>
+                  </CollapsiblePrimitive.Content>
+                </CollapsiblePrimitive.Root>
+              ) : null}
             </div>
           </div>
         </CollapsiblePrimitive.Content>
