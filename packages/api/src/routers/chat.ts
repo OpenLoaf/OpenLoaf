@@ -93,51 +93,85 @@ function toUserParts(userText: string | null | undefined) {
 }
 
 /** 计算当前消息在 siblings（同 parent）里的 prev/next（按 index 顺序） */
-async function getSiblingNav({
+async function buildSiblingNavByMessageId({
   prisma,
   sessionId,
-  parentMessageId,
-  index,
+  branchRows,
 }: {
   prisma: any;
   sessionId: string;
-  parentMessageId: string | null;
-  index: number;
-}) {
-  const prev = await prisma.chatMessage.findFirst({
+  branchRows: Array<{ id: string; parentMessageId: string | null }>;
+}): Promise<
+  Record<
+    string,
+    {
+      parentMessageId: string | null;
+      prevSiblingId: string | null;
+      nextSiblingId: string | null;
+      siblingIndex: number;
+      siblingTotal: number;
+    }
+  >
+> {
+  // 说明：分支链最多 take 条（默认 50），没必要为每条消息做 4 次 DB roundtrip。
+  // 这里按 parentMessageId 批量拉取 siblings，并在内存中计算 prev/next/idx/total。
+  const parentIds = new Set<string>();
+  let needsRoot = false;
+  for (const row of branchRows) {
+    if (row.parentMessageId === null) needsRoot = true;
+    else parentIds.add(row.parentMessageId);
+  }
+
+  const or: any[] = [];
+  const parentIdList = Array.from(parentIds);
+  if (parentIdList.length > 0) or.push({ parentMessageId: { in: parentIdList } });
+  if (needsRoot) or.push({ parentMessageId: null });
+
+  if (or.length === 0) return {};
+
+  const siblings = await prisma.chatMessage.findMany({
     where: {
       sessionId,
-      parentMessageId: parentMessageId ?? null,
-      index: { lt: index },
+      OR: or,
     },
-    orderBy: [{ index: "desc" }],
-    select: { id: true },
+    orderBy: [{ parentMessageId: "asc" }, { index: "asc" }, { id: "asc" }],
+    select: { id: true, parentMessageId: true },
   });
-  const next = await prisma.chatMessage.findFirst({
-    where: {
-      sessionId,
-      parentMessageId: parentMessageId ?? null,
-      index: { gt: index },
-    },
-    orderBy: [{ index: "asc" }],
-    select: { id: true },
-  });
-  const siblingTotal = await prisma.chatMessage.count({
-    where: { sessionId, parentMessageId: parentMessageId ?? null },
-  });
-  const beforeCount = await prisma.chatMessage.count({
-    where: {
-      sessionId,
-      parentMessageId: parentMessageId ?? null,
-      index: { lt: index },
-    },
-  });
-  return {
-    prevSiblingId: prev?.id ?? null,
-    nextSiblingId: next?.id ?? null,
-    siblingIndex: beforeCount + 1,
-    siblingTotal,
-  };
+
+  const byParent = new Map<string, Array<{ id: string; parentMessageId: string | null }>>();
+  for (const s of siblings) {
+    const key = String(s.parentMessageId ?? "__root__");
+    const list = byParent.get(key) ?? [];
+    list.push({ id: String(s.id), parentMessageId: (s.parentMessageId ?? null) as any });
+    byParent.set(key, list);
+  }
+
+  const navById: Record<
+    string,
+    {
+      parentMessageId: string | null;
+      prevSiblingId: string | null;
+      nextSiblingId: string | null;
+      siblingIndex: number;
+      siblingTotal: number;
+    }
+  > = {};
+
+  for (const [, list] of byParent) {
+    const total = list.length;
+    for (let i = 0; i < list.length; i += 1) {
+      const current = list[i]!;
+      navById[current.id] = {
+        parentMessageId: current.parentMessageId,
+        prevSiblingId: list[i - 1]?.id ?? null,
+        nextSiblingId: list[i + 1]?.id ?? null,
+        siblingIndex: i + 1,
+        siblingTotal: total,
+      };
+    }
+  }
+
+  return navById;
 }
 
 const getChatBranchInputSchema = z.object({
@@ -284,6 +318,15 @@ export const chatRouter = t.router({
         }
       > = {};
 
+      const siblingNavById = await buildSiblingNavByMessageId({
+        prisma: ctx.prisma,
+        sessionId: input.sessionId,
+        branchRows: chainRows.map((r) => ({
+          id: String(r.id),
+          parentMessageId: (r.parentMessageId ?? null) as string | null,
+        })),
+      });
+
       for (const id of branchMessageIds) {
         const row = byId.get(id);
         if (!row) continue;
@@ -306,13 +349,16 @@ export const chatRouter = t.router({
           pushRow(child);
         }
 
-        const nav = await getSiblingNav({
-          prisma: ctx.prisma,
-          sessionId: input.sessionId,
-          parentMessageId: row.parentMessageId ?? null,
-          index: row.index,
-        });
-        siblingNav[row.id] = { parentMessageId: row.parentMessageId ?? null, ...nav };
+        const nav =
+          siblingNavById[String(row.id)] ??
+          ({
+            parentMessageId: row.parentMessageId ?? null,
+            prevSiblingId: null,
+            nextSiblingId: null,
+            siblingIndex: 1,
+            siblingTotal: 1,
+          } as const);
+        siblingNav[String(row.id)] = nav;
       }
 
       return { leafMessageId, branchMessageIds, messages, nextCursor, siblingNav };

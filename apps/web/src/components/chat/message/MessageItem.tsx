@@ -9,6 +9,7 @@ import MessageAi from "./MessageAi";
 import MessageHuman from "./MessageHuman";
 import MessageHumanAction from "./MessageHumanAction";
 import { useChatContext } from "../ChatProvider";
+import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 
 interface MessageItemProps {
   message: UIMessage;
@@ -38,18 +39,8 @@ function MessageItem({
 
   // 判断消息是否有可见内容（避免空消息也渲染底部操作按钮）
   const hasVisibleContent = React.useMemo(() => {
-    const parts = message.parts ?? [];
-    const hasText = parts.some(
-      (part: any) =>
-        part?.type === "text" && typeof part?.text === "string" && part.text.trim().length > 0
-    );
-    if (hasText) return true;
-    return parts.some(
-      (part: any) =>
-        typeof part?.type === "string" &&
-        (part.type === "dynamic-tool" || part.type.startsWith("tool-"))
-    );
-  }, [message.parts]);
+    return messageHasVisibleContent(message);
+  }, [message]);
 
   const toggleEdit = React.useCallback(() => {
     setIsEditing((prev) => {

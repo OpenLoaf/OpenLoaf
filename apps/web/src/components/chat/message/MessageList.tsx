@@ -10,6 +10,7 @@ import MessageItem from "./MessageItem";
 import MessageThinking from "./MessageThinking";
 import MessageError from "./MessageError";
 import { AnimatePresence } from "motion/react";
+import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 
 interface MessageListProps {
   className?: string;
@@ -100,21 +101,6 @@ export default function MessageList({ className }: MessageListProps) {
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
 
-  // 判断 assistant 消息是否已有“可见内容”（文本/工具卡片等），用于决定是否显示“正在思考中”
-  const hasVisibleContent = React.useCallback((message: any) => {
-    const parts = message?.parts ?? [];
-    const hasText = parts.some(
-      (part: any) =>
-        part?.type === "text" && typeof part?.text === "string" && part.text.trim().length > 0
-    );
-    if (hasText) return true;
-    return parts.some(
-      (part: any) =>
-        typeof part?.type === "string" &&
-        (part.type === "dynamic-tool" || part.type.startsWith("tool-"))
-    );
-  }, []);
-
   const renderItems = React.useMemo(
     () => groupMessagesForRender(messages as any[]),
     [messages]
@@ -138,8 +124,8 @@ export default function MessageList({ className }: MessageListProps) {
     if (!last) return false;
     if (last.role === "user") return true;
     // assistant 已创建但还没产出内容（例如刚进入 streaming）
-    return last.role === "assistant" && !hasVisibleContent(last);
-  }, [messages, status, error, hasVisibleContent]);
+    return last.role === "assistant" && !messageHasVisibleContent(last);
+  }, [messages, status, error]);
 
   useChatScroll({
     scrollToBottomToken,
