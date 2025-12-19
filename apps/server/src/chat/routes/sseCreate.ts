@@ -1,8 +1,9 @@
 import {
-  createAgentUIStream,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  convertToModelMessages,
   generateId,
+  validateUIMessages,
 } from "ai";
 import type { UIMessage } from "ai";
 import type { Hono } from "hono";
@@ -10,10 +11,15 @@ import { getCookie } from "hono/cookie";
 import type { Tab } from "@teatime-ai/api/common";
 import { requestContextManager } from "@/context/requestContext";
 import { MasterAgent, decideAgentMode } from "@/chat/agents";
+import { browserTools } from "@/chat/tools/browser";
+import { dbTools } from "@/chat/tools/db";
 import { saveAndAppendMessage } from "@/chat/history";
+import { systemTools } from "@/chat/tools/system";
+import { subAgentTool } from "@/chat/tools/subAgent";
 import type { ChatRequestBody, TokenUsageMessage } from "@teatime-ai/api/types/message";
 import { CLIENT_CONTEXT_PART_TYPE } from "@teatime-ai/api/types/parts";
 import type { ClientContext } from "@teatime-ai/api/types/event";
+import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import {
   attachAbortControllerToActiveStream,
   appendStreamChunk,
@@ -115,6 +121,14 @@ export function registerChatSseCreateRoute(app: Hono) {
 
     const mode = decideAgentMode(activeTab);
 
+    console.log("[sse] create: request", {
+      sessionId,
+      mode,
+      webClientId: clientContext.webClientId || "",
+      electronClientId: clientContext.electronClientId || "",
+      activeTabId: activeTab?.id ?? null,
+    });
+
     // 关键：初始化请求上下文（tools/agent 内部可读取 activeTab/workspaceId）
     requestContextManager.createContext({
       sessionId,
@@ -168,7 +182,7 @@ export function registerChatSseCreateRoute(app: Hono) {
         return "An error occurred.";
       },
       onFinish: async ({ isAborted, messages, responseMessage }) => {
-        if (isAborted) return;
+        // if (isAborted) return;
 
         const lastMessage = messages[messages.length - 1] as TokenUsageMessage;
         const usage =
@@ -176,7 +190,7 @@ export function registerChatSseCreateRoute(app: Hono) {
           (responseMessage as TokenUsageMessage)?.metadata?.totalUsage;
 
         if (usage) {
-          console.log("Token 使用情况:", {
+          console.log("=== Token 使用情况:", {
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
             totalTokens: usage.totalTokens,
@@ -197,12 +211,14 @@ export function registerChatSseCreateRoute(app: Hono) {
               },
             }
           : responseMessage;
-
+      
         await saveAndAppendMessage({ sessionId, incomingMessage: messageToSave });
       },
       execute: async ({ writer }) => {
         // 说明：保留 writer 供 tool streaming chunks 使用；UI 控制不再通过 SSE data part 下发。
         requestContextManager.setUIWriter(writer as any);
+        // 关键：把 stop 的 AbortSignal 注入请求上下文，供 tools 内部协作式退出（例如 pagePicker 轮询）。
+        requestContextManager.setAbortSignal(abortController.signal);
         requestContextManager.pushAgentFrame(master.createFrame());
 
         if (DEBUG_AI_STREAM) {
@@ -215,17 +231,35 @@ export function registerChatSseCreateRoute(app: Hono) {
           });
         }
 
-        const agentStream = await createAgentUIStream({
-          agent,
+        const toolSchemasForValidation = {
+          ...systemTools,
+          ...browserTools,
+          ...dbTools,
+          [subAgentToolDef.id]: subAgentTool,
+        } as const;
+
+        const validatedMessages = await validateUIMessages({
           messages: messages as any[],
+          tools: toolSchemasForValidation as any,
+        });
+
+        const modelMessages = convertToModelMessages(validatedMessages, {
+          tools: toolSchemasForValidation as any,
+        });
+
+        const result = await agent.stream({
+          prompt: modelMessages as any,
           abortSignal: abortController.signal,
+        });
+
+        const uiStream = result.toUIMessageStream({
           // 关键：服务端生成 messageId，确保可用于 DB 主键（Phase B）
           generateMessageId: generateId,
-          onError: (error) => {
+          onError: (error: unknown) => {
             console.error("Agent error:", error);
             return "An error occurred.";
           },
-          messageMetadata: ({ part }) => {
+          messageMetadata: ({ part }: any) => {
             const frame = requestContextManager.getCurrentAgentFrame();
             const agentMeta = frame
               ? {
@@ -237,7 +271,8 @@ export function registerChatSseCreateRoute(app: Hono) {
                   },
                 }
               : undefined;
-            if (part.type === "finish") return { ...(agentMeta ?? {}), totalUsage: (part as any).totalUsage } as any;
+            if (part.type === "finish")
+              return { ...(agentMeta ?? {}), totalUsage: (part as any).totalUsage } as any;
             if (part.type === "start") return agentMeta as any;
           },
           onFinish: () => {
@@ -246,7 +281,21 @@ export function registerChatSseCreateRoute(app: Hono) {
           },
         });
 
-        writer.merge(agentStream as any);
+        // stop 后尽快终止 UI stream 的消费，避免底层仍在缓慢产出/触发工具调用导致日志刷屏。
+        // 注意：取消 ReadableStream 会向下游传播 cancel，有助于更快释放资源。
+        abortController.signal.addEventListener(
+          "abort",
+          () => {
+            try {
+              void uiStream.cancel(abortController.signal.reason);
+            } catch {
+              // ignore
+            }
+          },
+          { once: true },
+        );
+
+        writer.merge(uiStream as any);
       },
     });
 

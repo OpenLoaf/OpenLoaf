@@ -19,6 +19,7 @@ type RequestContext = {
   electronClientId?: string;
   mode?: AgentMode;
   uiWriter?: UIMessageStreamWriter<any>;
+  abortSignal?: AbortSignal;
   agentStack?: AgentFrame[];
 };
 
@@ -112,6 +113,22 @@ class RequestContextManager {
 
   getUIWriter(): UIMessageStreamWriter<any> | undefined {
     return this.getContext()?.uiWriter;
+  }
+
+  /**
+   * 设置当前请求的 AbortSignal（用于 stop 时中断 tools 内部的长轮询/等待）。
+   */
+  setAbortSignal(signal: AbortSignal) {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    ctx.abortSignal = signal;
+  }
+
+  /**
+   * 获取当前请求的 AbortSignal。
+   */
+  getAbortSignal(): AbortSignal | undefined {
+    return this.getContext()?.abortSignal;
   }
 
   // ======

@@ -11,6 +11,7 @@ export function registerChatSseStopRoute(app: Hono) {
   app.post("/chat/sse/:id/stop", async (c) => {
     const chatId = c.req.param("id");
     const ok = stopActiveStream(chatId);
+    console.log("[sse] stop", { chatId, ok });
     if (ok) return c.json({ ok: true });
     return c.body(null, 204);
   });

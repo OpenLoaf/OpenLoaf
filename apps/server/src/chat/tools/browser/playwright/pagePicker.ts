@@ -1,3 +1,6 @@
+import { AbortError, sleepWithAbort } from "./abort";
+import { pwDebugLog } from "./log";
+
 type UrlMatch = { mode: "includes"; url: string };
 
 /**
@@ -16,31 +19,63 @@ export async function pickExistingPage({
   preferredUrlRule,
   preferredTargetId,
   timeoutMs,
+  abortSignal,
 }: {
   browser: any;
   preferredUrlRule: UrlMatch;
   preferredTargetId?: string;
   timeoutMs: number;
+  abortSignal?: AbortSignal;
 }) {
   const startedAt = Date.now();
   const matches = toUrlMatcher(preferredUrlRule);
 
+  pwDebugLog("pagePicker:start", {
+    preferredTargetId: preferredTargetId ?? null,
+    timeoutMs,
+    preferredUrlIncludes: preferredUrlRule.url,
+  });
+
   while (Date.now() - startedAt < timeoutMs) {
+    if (abortSignal?.aborted) {
+      pwDebugLog("pagePicker:aborted", { elapsedMs: Date.now() - startedAt });
+      throw new AbortError();
+    }
+
     const contexts = browser.contexts?.() ?? [];
     const pages = contexts.flatMap((ctx: any) => (ctx.pages?.() ?? []));
     const reversed = [...pages].reverse();
 
-    // 只允许按 cdpTargetId 精确匹配，避免多 tab/同 URL 串页（不再提供 URL 猜测兜底）。
-    if (!preferredTargetId) return null;
+    pwDebugLog("pagePicker:enumerate", {
+      contexts: contexts.length,
+      pages: pages.length,
+      elapsedMs: Date.now() - startedAt,
+    });
 
+    // 只允许按 cdpTargetId 精确匹配，避免多 tab/同 URL 串页（不再提供 URL 猜测兜底）。
+    if (!preferredTargetId) {
+      pwDebugLog("pagePicker:missingPreferredTargetId", {});
+      return null;
+    }
+
+    let inspected = 0;
     for (const p of reversed) {
+      inspected++;
       try {
+        if (abortSignal?.aborted) throw new AbortError();
         const ctx = p.context?.();
         if (!ctx?.newCDPSession) continue;
         const cdp = await ctx.newCDPSession(p);
         try {
           const info = await cdp.send("Target.getTargetInfo");
           const id = String((info as any)?.targetInfo?.targetId ?? "");
+          // 仅在开启 debug 时输出少量采样，避免刷屏
+          if (inspected <= 20) {
+            pwDebugLog("pagePicker:seenTarget", {
+              seenTargetId: id || null,
+              pageUrl: typeof p?.url === "function" ? p.url() : undefined,
+            });
+          }
           if (id && id === preferredTargetId) return p;
         } finally {
           try {
@@ -56,8 +91,12 @@ export async function pickExistingPage({
 
     // 注意：保留一次 URL 读取是为了尽量减少未来改动（避免上层类型变更），但不再用于匹配兜底。
     void matches;
-    await new Promise((r) => setTimeout(r, 150));
+    await sleepWithAbort(150, abortSignal);
   }
+  pwDebugLog("pagePicker:timeout", {
+    preferredTargetId: preferredTargetId ?? null,
+    timeoutMs,
+  });
   return null;
 }
 

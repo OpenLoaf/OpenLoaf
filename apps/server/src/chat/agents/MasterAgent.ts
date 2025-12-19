@@ -2,12 +2,14 @@ import { deepseek } from "@ai-sdk/deepseek";
 import { ToolLoopAgent } from "ai";
 import { requestContextManager, type AgentFrame } from "@/context/requestContext";
 import type { AgentMode } from "@teatime-ai/api/common";
-import { browserReadonlyTools } from "@/chat/tools/browser";
+import { browserReadonlyTools, openUrlTool } from "@/chat/tools/browser";
 import { dbTools } from "@/chat/tools/db";
 import { subAgentTool } from "@/chat/tools/subAgent";
 import { systemTools } from "@/chat/tools/system";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import { timeNowToolDef } from "@teatime-ai/api/types/tools/system";
+import { open } from "fs";
+import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 
 const MASTER_AGENT_NAME = "master";
 const MASTER_MAX_DEPTH = 4;
@@ -24,8 +26,8 @@ function createMasterTools(mode: AgentMode) {
 
   return {
     [timeNowToolDef.id]: systemTools[timeNowToolDef.id],
-    // ...browserTools,
     ...dbTools,
+    [openUrlToolDef.id]: openUrlTool,
     [subAgentToolDef.id]: subAgentTool,
   };
 }

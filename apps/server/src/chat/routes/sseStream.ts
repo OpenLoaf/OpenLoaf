@@ -13,18 +13,31 @@ export function registerChatSseStreamRoute(app: Hono) {
     const clientId = c.req.query("clientId") ?? "";
 
     if (!tryAddSseClient(chatId, clientId)) {
+      console.log("[sse] stream: duplicate follower", { chatId, clientId });
       return new Response(null, { status: 204 });
     }
 
     const stream = resumeExistingStream(chatId);
     if (!stream) {
       removeSseClient(chatId, clientId);
+      console.log("[sse] stream: no active stream", { chatId, clientId });
       return new Response(null, { status: 204 });
     }
 
     if (clientId) {
-      const release = () => removeSseClient(chatId, clientId);
-      c.req.raw.signal.addEventListener("abort", release, { once: true });
+      console.log("[sse] stream: follower connected", { chatId, clientId });
+
+      let released = false;
+      const release = (reason: "abort" | "done" | "cancel") => {
+        if (released) return;
+        released = true;
+        removeSseClient(chatId, clientId);
+        console.log("[sse] stream: follower disconnected", { chatId, clientId, reason });
+      };
+
+      c.req.raw.signal.addEventListener("abort", () => release("abort"), {
+        once: true,
+      });
 
       const streamWithRelease = new ReadableStream<string>({
         start: async (controller) => {
@@ -39,7 +52,7 @@ export function registerChatSseStreamRoute(app: Hono) {
           } catch (error) {
             controller.error(error);
           } finally {
-            release();
+            release("done");
             try {
               reader.releaseLock();
             } catch {
@@ -48,7 +61,7 @@ export function registerChatSseStreamRoute(app: Hono) {
           }
         },
         cancel: async () => {
-          release();
+          release("cancel");
           try {
             await stream.cancel();
           } catch {
@@ -62,7 +75,7 @@ export function registerChatSseStreamRoute(app: Hono) {
       });
     }
 
+    console.log("[sse] stream: anonymous follower connected", { chatId });
     return new Response(stream as any, { headers: UI_MESSAGE_STREAM_HEADERS });
   });
 }
-

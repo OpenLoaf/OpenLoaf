@@ -3,9 +3,10 @@ import { getPageTarget } from "../pageTargets";
 
 /**
  * 校验 pageTargetId 是否存在且归属当前 activeTab。
- * - 用于“仅查内存缓存”的工具（网络/console 列表与详情），避免重复手写校验逻辑。
+ * - 用于“仅查内存缓存”的工具（例如 diagnostics），避免重复手写校验逻辑。
  */
-export function requireActiveTabPageTarget(pageTargetId: string) {
+export function requireActiveTabPageTarget(input: { pageTargetId: string; targetId?: string }) {
+  const { pageTargetId, targetId } = input;
   const activeTab = requireActiveTab();
   const record = getPageTarget(pageTargetId);
   if (!record) {
@@ -20,6 +21,11 @@ export function requireActiveTabPageTarget(pageTargetId: string) {
       error: `pageTargetId=${pageTargetId} does not belong to activeTab.id=${activeTab.id}`,
     };
   }
+  if (targetId && record.cdpTargetId && record.cdpTargetId !== targetId) {
+    return {
+      ok: false as const,
+      error: `targetId mismatch: record.cdpTargetId=${record.cdpTargetId} input.targetId=${targetId}`,
+    };
+  }
   return { ok: true as const, record };
 }
-

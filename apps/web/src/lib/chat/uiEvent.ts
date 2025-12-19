@@ -5,10 +5,10 @@ import { UiEventKind } from "@teatime-ai/api/types/event";
 import { useTabs } from "@/hooks/use-tabs";
 import { queryClient, trpc } from "@/utils/trpc";
 
-// 统一处理 Electron runtime 通过 IPC 推送的 UI 事件（teatime:ui-event）。
-// 约定：新增 kind 时，同时更新：
-// - packages/api/src/types/event.ts（UiEvent + uiEvents + uiEventSchema）
-// - apps/web/src/lib/chat/ui-event.ts（handlers 分发）
+/**
+ * UI 事件分发器（传输层无关）。
+ * - 说明：不关心事件来自 Electron IPC / 未来的 WS / 其它通道，只负责把 UiEvent 应用到本地 UI 状态。
+ */
 export function handleUiEvent(event: UiEvent | undefined) {
   if (!event?.kind) return;
 
@@ -23,9 +23,7 @@ export function handleUiEvent(event: UiEvent | undefined) {
     ) => {
       useTabs.getState().clearStack(e.tabId);
     },
-    [UiEventKind.RefreshPageTree]: (
-      _e: Extract<UiEvent, { kind: UiEventKind.RefreshPageTree }>,
-    ) => {
+    [UiEventKind.RefreshPageTree]: () => {
       const state = useTabs.getState();
       const tab = state.tabs.find((t) => t.id === state.activeTabId);
       const workspaceId = tab?.workspaceId;

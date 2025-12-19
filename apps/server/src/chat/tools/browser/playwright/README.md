@@ -1,6 +1,6 @@
-# PlaywrightMcp（Server 侧 CDP 工具实现）
+# Playwright（Server 侧 CDP 工具实现）
 
-本目录用于承载 `apps/server/src/chat/tools/browser/playwrightMcp.ts` 相关的拆分实现：在 **Node(server)** 里通过 **Playwright 的 `chromium.connectOverCDP`** 连接到 **Chromium CDP WebSocket**，并以 **CDP 命令/事件** 为主完成浏览器自动化能力（点击、输入、导航、抓取 network/console 等）。
+本目录用于承载 server 侧的 Playwright/CDP 工具实现：在 **Node(server)** 里通过 **Playwright 的 `chromium.connectOverCDP`** 连接到 **Chromium CDP WebSocket**，并以 **CDP 命令/事件** 为主完成浏览器自动化能力（快照、动作、等待、验证、诊断、页面控制等）。
 
 > 重要背景：本项目的页面通常由 `open-url` 在 Electron 侧打开；server 侧不负责创建新 tab，只负责 **attach 到已存在页面** 并进行操作。
 
@@ -48,9 +48,9 @@
 
 ## 与入口文件的关系
 
-真正的 tool 定义仍集中在：
+真正的 tool 定义集中在：
 
-- `apps/server/src/chat/tools/browser/playwrightMcp.ts`
+- `apps/server/src/chat/tools/browser/playwright/tools.ts`
 
 该文件负责：
 
@@ -69,7 +69,6 @@
 如果要新增一个 CDP/Playwright 工具：
 
 1. 优先把“通用能力”放到本目录模块（例如：新的 collector、DOM helper、摘要逻辑）
-2. 在 `apps/server/src/chat/tools/browser/playwrightMcp.ts` 里新增导出的 tool，并尽量复用 `withCdpPage`
+2. 在 `apps/server/src/chat/tools/browser/playwright/tools.ts` 里新增导出的 tool，并尽量复用 `withCdpPage`
 3. 在 `apps/server/src/chat/tools/browser/tools.ts` 注册 toolId -> tool
 4. 若返回数据可能很大，务必用 `truncateText` / `safeJsonSize` 做保护
-

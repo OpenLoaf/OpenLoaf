@@ -5,25 +5,13 @@ import { uiCloseStackTool } from "./closeStack";
 import { uiRefreshPageTreeTool } from "./refreshPageTree";
 import { uiRefreshBasePanelTool } from "./refreshBasePanel";
 import {
-  playwrightClickTool,
-  playwrightCookiesTool,
-  playwrightDomSnapshotTool,
-  playwrightDragTool,
-  playwrightEvaluateScriptTool,
-  playwrightFillFormTool,
-  playwrightFillTool,
-  playwrightGetConsoleMessageTool,
-  playwrightGetNetworkRequestTool,
-  playwrightHoverTool,
-  playwrightListConsoleMessagesTool,
-  playwrightListNetworkRequestsTool,
-  playwrightNavigatePageTool,
-  playwrightNetworkGetResponseBodyTool,
-  playwrightPressKeyTool,
-  playwrightStorageTool,
-  playwrightTakeSnapshotTool,
-  playwrightWaitForTool,
-} from "./playwrightMcp";
+  playwrightActTool,
+  playwrightDiagnosticsTool,
+  playwrightPageTool,
+  playwrightSnapshotTool,
+  playwrightVerifyTool,
+  playwrightWaitTool,
+} from "./playwright";
 import {
   browserGetTabsToolDef,
   browserGetCurrentTabToolDef,
@@ -33,24 +21,12 @@ import {
   uiRefreshBasePanelToolDef,
 } from "@teatime-ai/api/types/tools/browser";
 import {
-  playwrightClickToolDef,
-  playwrightCookiesToolDef,
-  playwrightDomSnapshotToolDef,
-  playwrightDragToolDef,
-  playwrightEvaluateScriptToolDef,
-  playwrightFillFormToolDef,
-  playwrightFillToolDef,
-  playwrightGetConsoleMessageToolDef,
-  playwrightGetNetworkRequestToolDef,
-  playwrightHoverToolDef,
-  playwrightListConsoleMessagesToolDef,
-  playwrightListNetworkRequestsToolDef,
-  playwrightNavigatePageToolDef,
-  playwrightNetworkGetResponseBodyToolDef,
-  playwrightPressKeyToolDef,
-  playwrightStorageToolDef,
-  playwrightTakeSnapshotToolDef,
-  playwrightWaitForToolDef,
+  playwrightActToolDef,
+  playwrightDiagnosticsToolDef,
+  playwrightPageToolDef,
+  playwrightSnapshotToolDef,
+  playwrightVerifyToolDef,
+  playwrightWaitToolDef,
 } from "@teatime-ai/api/types/tools/playwright";
 
 export const browserTools = {
@@ -84,24 +60,12 @@ export const browserTools = {
   // ======
   // MVP：Playwright / CDP（参考 chrome-devtools-mcp 的交互方式）
   // ======
-  [playwrightTakeSnapshotToolDef.id]: playwrightTakeSnapshotTool,
-  [playwrightClickToolDef.id]: playwrightClickTool,
-  [playwrightHoverToolDef.id]: playwrightHoverTool,
-  [playwrightDragToolDef.id]: playwrightDragTool,
-  [playwrightFillToolDef.id]: playwrightFillTool,
-  [playwrightFillFormToolDef.id]: playwrightFillFormTool,
-  [playwrightPressKeyToolDef.id]: playwrightPressKeyTool,
-  [playwrightNavigatePageToolDef.id]: playwrightNavigatePageTool,
-  [playwrightWaitForToolDef.id]: playwrightWaitForTool,
-  [playwrightEvaluateScriptToolDef.id]: playwrightEvaluateScriptTool,
-  [playwrightDomSnapshotToolDef.id]: playwrightDomSnapshotTool,
-  [playwrightListNetworkRequestsToolDef.id]: playwrightListNetworkRequestsTool,
-  [playwrightGetNetworkRequestToolDef.id]: playwrightGetNetworkRequestTool,
-  [playwrightNetworkGetResponseBodyToolDef.id]: playwrightNetworkGetResponseBodyTool,
-  [playwrightListConsoleMessagesToolDef.id]: playwrightListConsoleMessagesTool,
-  [playwrightGetConsoleMessageToolDef.id]: playwrightGetConsoleMessageTool,
-  [playwrightStorageToolDef.id]: playwrightStorageTool,
-  [playwrightCookiesToolDef.id]: playwrightCookiesTool,
+  [playwrightSnapshotToolDef.id]: playwrightSnapshotTool,
+  [playwrightActToolDef.id]: playwrightActTool,
+  [playwrightWaitToolDef.id]: playwrightWaitTool,
+  [playwrightVerifyToolDef.id]: playwrightVerifyTool,
+  [playwrightDiagnosticsToolDef.id]: playwrightDiagnosticsTool,
+  [playwrightPageToolDef.id]: playwrightPageTool,
 
   // ======
   // UI 控制（通过 runtime -> IPC）
