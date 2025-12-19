@@ -60,7 +60,6 @@ function handleToolChunk({
       break;
     }
     case "tool-output-error": {
-      console.log("tool-output-error", dataPart);
       upsertToolPartMerged(String(dataPart.toolCallId), {
         state: "output-error",
         errorText: dataPart.errorText,

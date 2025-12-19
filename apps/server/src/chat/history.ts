@@ -145,6 +145,53 @@ export type SavedChatMessageNode = {
 };
 
 /**
+ * 读取已存在的消息节点（用于 retry / 只读场景）
+ * - 关键：retry 时不能再次保存同 id 的 user 消息，否则会造成“覆盖/串链/冲突”
+ */
+export async function requireExistingChatMessageNode({
+  sessionId,
+  messageId,
+}: {
+  sessionId: string;
+  messageId: string;
+}): Promise<SavedChatMessageNode & { role: MessageRoleType }> {
+  const row = await prisma.chatMessage.findUnique({
+    where: { id: messageId },
+    select: {
+      id: true,
+      sessionId: true,
+      parentMessageId: true,
+      depth: true,
+      index: true,
+      path: true,
+      role: true,
+    },
+  });
+  if (!row || row.sessionId !== sessionId) {
+    throw new Error("messageId not found in this session.");
+  }
+  return {
+    id: row.id,
+    parentMessageId: row.parentMessageId ?? null,
+    depth: row.depth,
+    index: row.index,
+    path: row.path,
+    role: row.role,
+  };
+}
+
+function extractAgentId(message: AnyUIMessage): string | undefined {
+  const id = (message as any)?.metadata?.agent?.id;
+  return typeof id === "string" && id ? id : undefined;
+}
+
+function toUserParts(userText: string | null | undefined) {
+  const text = (userText ?? "").trim();
+  if (!text) return [];
+  return [{ type: "text", text }];
+}
+
+/**
  * 保存一条消息节点（消息树）
  * - 必须提供 message.id
  * - parentMessageId 不传则默认为 null（根节点）
@@ -166,7 +213,14 @@ export async function saveChatMessageNode({
 
     const existing = await tx.chatMessage.findUnique({
       where: { id: message.id },
-      select: { id: true, sessionId: true, parentMessageId: true, depth: true, index: true, path: true },
+      select: {
+        id: true,
+        sessionId: true,
+        parentMessageId: true,
+        depth: true,
+        index: true,
+        path: true,
+      },
     });
 
     if (existing) {
@@ -178,29 +232,38 @@ export async function saveChatMessageNode({
         throw new Error("message.id already exists with a different parentMessageId.");
       }
 
-      const parts = normalizeParts(message);
-      const agentId =
-        typeof (message as any)?.metadata?.agent?.id === "string"
-          ? String((message as any).metadata.agent.id)
-          : undefined;
+      const role = toMessageRole(message.role);
+      const agentId = extractAgentId(message);
 
-      await tx.chatMessage.update({
-        where: { id: existing.id },
-        data: {
-          role: toMessageRole(message.role),
-          meta: message.metadata ?? undefined,
-          parts: {
-            deleteMany: {},
-            create: parts.map((part, index) => {
-              const type =
-                part && typeof part === "object" && "type" in part
-                  ? String((part as { type: unknown }).type)
-                  : "unknown";
-              return { index, type, agentId, state: part as any };
-            }),
+      if (role === MessageRoleEnum.USER) {
+        // 关键：用户消息只存 userText，不再存 parts（避免存一整坨 JSON）
+        const userText = extractUserText(message);
+        await tx.chatMessage.update({
+          where: { id: existing.id },
+          data: {
+            role,
+            userText,
+            agentId: null,
+            meta: message.metadata ?? undefined,
+            parts: { deleteMany: {} },
           },
-        },
-      });
+        });
+      } else {
+        const parts = normalizeParts(message);
+        await tx.chatMessage.update({
+          where: { id: existing.id },
+          data: {
+            role,
+            userText: null,
+            agentId,
+            meta: message.metadata ?? undefined,
+            parts: {
+              deleteMany: {},
+              create: parts.map((part, index) => ({ index, state: part as any })),
+            },
+          },
+        });
+      }
 
       return {
         id: existing.id,
@@ -217,11 +280,9 @@ export async function saveChatMessageNode({
     const index = await getNextSiblingIndex(tx, sessionId, parentId);
     const { depth, path } = computeNodePosition({ index, parent });
     const role = toMessageRole(message.role);
-    const parts = normalizeParts(message);
-    const agentId =
-      typeof (message as any)?.metadata?.agent?.id === "string"
-        ? String((message as any).metadata.agent.id)
-        : undefined;
+    const agentId = extractAgentId(message);
+    const userText = role === MessageRoleEnum.USER ? extractUserText(message) : null;
+    const parts = role === MessageRoleEnum.USER ? [] : normalizeParts(message);
 
     await tx.chatMessage.create({
       data: {
@@ -232,22 +293,17 @@ export async function saveChatMessageNode({
         index,
         path,
         role,
+        userText,
+        agentId: role === MessageRoleEnum.USER ? null : agentId,
         meta: message.metadata ?? undefined,
         parts: {
-          create: parts.map((part, index) => {
-            const type =
-              part && typeof part === "object" && "type" in part
-                ? String((part as { type: unknown }).type)
-                : "unknown";
-            return { index, type, agentId, state: part as any };
-          }),
+          create: parts.map((part, index) => ({ index, state: part as any })),
         },
       },
     });
 
     // 关键：首条用户消息作为标题（MVP）
     if (!parent && role === MessageRoleEnum.USER) {
-      const userText = extractUserText(message);
       const title = userText ? normalizeTitle(userText) : "";
       if (title) {
         await tx.chatSession.update({
@@ -279,7 +335,12 @@ export async function resolveLatestLeafMessageId({
   if (!start || start.sessionId !== sessionId) return null;
 
   const leaf = await prisma.chatMessage.findFirst({
-    where: { sessionId, path: { startsWith: start.path } },
+    where: {
+      sessionId,
+      path: { startsWith: start.path },
+      // 关键：跳过“占位 assistant”（无 parts），避免默认分支选中空消息
+      OR: [{ role: MessageRoleEnum.USER }, { parts: { some: {} } }],
+    },
     orderBy: [{ path: "desc" }],
     select: { id: true },
   });
@@ -327,8 +388,10 @@ export async function loadBranchMessages({
   for (const id of slice) {
     const row = byId.get(id);
     if (!row) continue;
-    const parts = row.parts
-      .map((p) => (p.state && typeof p.state === "object" ? p.state : { type: p.type }));
+    const parts =
+      row.role === MessageRoleEnum.USER
+        ? toUserParts((row as any).userText)
+        : (row.parts.map((p: any) => p.state) as any[]);
     if (parts.length === 0) continue;
 
     messages.push({

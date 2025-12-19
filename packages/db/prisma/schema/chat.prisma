@@ -30,6 +30,12 @@ model ChatMessage {
   // 物化路径：用于子树查询与“最右叶子”选择（格式：00000001/00000002/...）
   path              String
   role              MessageRole       @default(USER)
+  // 用户输入内容（仅 USER 角色使用；assistant/tool/system 为空）
+  userText          String? /// @zod.optional()
+  // 预留：上传/引用资源（MVP 暂不使用）
+  resources         Json? /// @zod.optional()
+  // 产出该消息的 agentId（仅 assistant/tool/system 可能使用；USER 为空）
+  agentId           String? /// @zod.optional()
   meta              Json? /// @zod.optional()
   createdAt         DateTime          @default(now())
   session           ChatSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -40,6 +46,7 @@ model ChatMessage {
   @@index([sessionId, parentMessageId, createdAt])
   @@index([sessionId, parentMessageId, index])
   @@index([sessionId, path])
+  @@index([agentId])
   @@index([role])
 }
 
@@ -47,18 +54,12 @@ model ChatMessagePart {
   id        String      @id @default(cuid())
   messageId String
   index     Int
-  // 直接使用字符串保存UIMessage的类型
-  type      String
-  // 该 part 由哪个 agent 生成（用于查询/追溯；从 UIMessage.metadata.agent.id 写入）
-  agentId   String? /// @zod.optional()
-  errorText String? /// @zod.optional()
-  uiState   String? /// @zod.optional()
-  state     Json? /// @zod.optional()
+  // 统一把 UIMessage.parts 原始对象存进 state（包含 type/状态/工具输出等）
+  state     Json
   createdAt DateTime    @default(now())
   message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@index([messageId, index])
-  @@index([agentId])
 }
 
 enum MessageRole {

@@ -15,21 +15,26 @@ export function createChatTransport({
   return new DefaultChatTransport({
     api: apiBase,
     credentials: "include",
-    prepareSendMessagesRequest({ id, messages, ...requestOptions }) {
-      const mergedParams = { ...(paramsRef.current ?? {}), ...(requestOptions ?? {}) };
+    prepareSendMessagesRequest({ id, messages, body, trigger, messageId, headers }) {
+      const mergedParams = { ...(paramsRef.current ?? {}) };
       const webClientId = getStableClientStreamClientId();
       const electronClientId = window.teatimeElectron?.electronClientId;
+      const extraBody = body && typeof body === "object" ? body : {};
 
       if (messages.length === 0) {
         return {
           body: {
+            ...extraBody,
             params: mergedParams,
             sessionId: id,
             id,
             webClientId,
             electronClientId,
+            trigger,
+            messageId,
             messages: [],
           },
+          headers,
         };
       }
 
@@ -38,13 +43,17 @@ export function createChatTransport({
 
       return {
         body: {
+          ...extraBody,
           params: mergedParams,
           sessionId: id,
           id,
           webClientId,
           electronClientId,
+          trigger,
+          messageId,
           messages: [lastMessage],
         },
+        headers,
       };
     },
     prepareReconnectToStreamRequest: ({ id }) => {

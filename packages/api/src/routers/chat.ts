@@ -54,7 +54,12 @@ async function resolveLatestLeafId({
   if (!start || start.sessionId !== sessionId) return null;
 
   const leaf = await prisma.chatMessage.findFirst({
-    where: { sessionId, path: { startsWith: start.path } },
+    where: {
+      sessionId,
+      path: { startsWith: start.path },
+      // 关键：跳过“占位 assistant”（无 parts），避免默认分支选中空消息
+      OR: [{ role: "USER" }, { parts: { some: {} } }],
+    },
     // 关键：path 为 index 片段，按 path 倒序即可得到“最右叶子”
     orderBy: [{ path: "desc" }],
     select: { id: true },
@@ -71,11 +76,20 @@ async function resolveSessionRightmostLeafId({
   sessionId: string;
 }): Promise<string | null> {
   const leaf = await prisma.chatMessage.findFirst({
-    where: { sessionId },
+    where: {
+      sessionId,
+      OR: [{ role: "USER" }, { parts: { some: {} } }],
+    },
     orderBy: [{ path: "desc" }],
     select: { id: true },
   });
   return leaf?.id ?? null;
+}
+
+function toUserParts(userText: string | null | undefined) {
+  const text = (userText ?? "").trim();
+  if (!text) return [];
+  return [{ type: "text", text }];
 }
 
 /** 计算当前消息在 siblings（同 parent）里的 prev/next（按 index 顺序） */
@@ -236,7 +250,7 @@ export const chatRouter = t.router({
 
       // 关键：返回“分支链 + 分支节点的直接子消息（不在链上）”
       // - 分支链用于主对话显示
-      // - 子消息用于 subAgent 输出等“挂在某条链节点下”的内容展示
+      // - 子消息仅用于 subAgent 输出（避免把 sibling/分支内容混进当前链导致重复显示）
       const childrenRows = await ctx.prisma.chatMessage.findMany({
         where: {
           sessionId: input.sessionId,
@@ -246,8 +260,12 @@ export const chatRouter = t.router({
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         include: { parts: { orderBy: { index: "asc" } } },
       });
+      // 关键：只回放 subAgent 输出，避免把 sibling/分支内容混进当前链导致重复显示
+      const filteredChildrenRows = childrenRows.filter(
+        (r: any) => r?.meta && (r.meta as any)?.agent?.kind === "sub",
+      );
       const childrenByParentId = new Map<string, any[]>();
-      for (const row of childrenRows) {
+      for (const row of filteredChildrenRows) {
         const pid = String(row.parentMessageId);
         const arr = childrenByParentId.get(pid) ?? [];
         arr.push(row);
@@ -270,7 +288,10 @@ export const chatRouter = t.router({
         const row = byId.get(id);
         if (!row) continue;
         const pushRow = (r: any) => {
-          const parts = r.parts.map((p: any) => p.state ?? { type: p.type });
+          const parts =
+            r.role === "USER" ? toUserParts(r.userText) : r.parts.map((p: any) => p.state);
+          // 关键：占位 assistant 没有任何内容，不应该被返回给前端渲染
+          if (!parts || parts.length === 0) return;
           messages.push({
             id: r.id,
             role: mapDbRoleToUiRole(r.role),

@@ -54,6 +54,10 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   >;
   /** 切换到同父的前一个/后一个分支节点 */
   switchSibling: (messageId: string, direction: "prev" | "next") => void;
+  /** 重试 assistant：复用其 parent user 消息重新生成（不重复保存 user） */
+  retryAssistantMessage: (assistantMessageId: string) => void;
+  /** 编辑重发 user：在同 parent 下创建新的 sibling 分支 */
+  resendUserMessage: (userMessageId: string, nextText: string) => void;
   /** 用户手动停止生成（同时通知服务端终止内存流，避免 resume 继续） */
   stopGenerating: () => void;
 }
@@ -116,6 +120,32 @@ export default function ChatProvider({
   const upsertToolPart = useTabs((s) => s.upsertToolPart);
   const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
   const queryClient = useQueryClient();
+
+  function dedupeMessagesById(next: UIMessage[]) {
+    const seen = new Set<string>();
+    const out: UIMessage[] = [];
+    for (const m of next) {
+      const id = String((m as any)?.id ?? "");
+      if (!id) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(m);
+    }
+    return out;
+  }
+
+  function getTopLevelParentMessageId(message: any): string | null | undefined {
+    const pid =
+      typeof message?.parentMessageId === "string" || message?.parentMessageId === null
+        ? message.parentMessageId
+        : undefined;
+    if (pid !== undefined) return pid;
+    const metaPid =
+      typeof message?.metadata?.parentMessageId === "string" || message?.metadata?.parentMessageId === null
+        ? message.metadata.parentMessageId
+        : undefined;
+    return metaPid;
+  }
 
   React.useEffect(() => {
     if (tabId) {
@@ -234,6 +264,28 @@ export default function ChatProvider({
     [queryClient, sessionId]
   );
 
+  const applyBranchSnapshot = React.useCallback(
+    (data: any, { setMessages }: { setMessages: boolean }) => {
+      const incoming = Array.isArray(data?.messages) ? (data.messages as any[]) : [];
+      const visible = incoming.filter((m) => m?.role !== "tool") as UIMessage[];
+
+      if (setMessages) {
+        const nextMessages = dedupeMessagesById(visible);
+        chat.setMessages(nextMessages);
+        if (tabId) {
+          clearToolPartsForTab(tabId);
+          syncToolPartsFromMessages({ tabId, messages: nextMessages });
+        }
+      }
+
+      setLeafMessageId(data?.leafMessageId ?? null);
+      setBranchMessageIds(data?.branchMessageIds ?? []);
+      setSiblingNav(data?.siblingNav ?? {});
+      setBranchStart(data?.leafMessageId ? { startMessageId: data.leafMessageId } : {});
+    },
+    [chat.setMessages, tabId, clearToolPartsForTab]
+  );
+
   const lastRefreshedLeafRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     // 关键：重试/生成结束后，需要刷新 siblingNav，否则 “< idx/total >” 要 F5 才会出现
@@ -322,11 +374,6 @@ export default function ChatProvider({
 
       chat.stop();
 
-      // 关键：左右切换只刷新该节点“往下”的最新叶子链，不清空整个消息列表
-      const currentBranchIndex = branchMessageIds.indexOf(messageId);
-      const prefixChainIds =
-        currentBranchIndex >= 0 ? branchMessageIds.slice(0, currentBranchIndex) : [];
-
       const data = await queryClient.fetchQuery(
         trpc.chat.getChatBranch.queryOptions({
           sessionId,
@@ -335,59 +382,107 @@ export default function ChatProvider({
           resolveToLatestLeaf: true,
         })
       );
-
-      const newBranchIds = data.branchMessageIds ?? [];
-      const targetIndexInNew = newBranchIds.indexOf(targetId);
-      const keepPrefixCount = targetIndexInNew >= 0 ? targetIndexInNew : prefixChainIds.length;
-      const keepPrefixIds = prefixChainIds.slice(0, keepPrefixCount);
-      const suffixChainIds = newBranchIds.slice(keepPrefixCount);
-
-      const keepPrefixSet = new Set(keepPrefixIds);
-      const suffixSet = new Set(suffixChainIds);
-
-      const currentMessages = chat.messages as any[];
-      const prefixMessages = currentMessages.filter((m: any) => {
-        const id = String(m?.id ?? "");
-        const pid =
-          (m as any)?.parentMessageId ??
-          (m as any)?.metadata?.parentMessageId;
-        return keepPrefixSet.has(id) || (typeof pid === "string" && keepPrefixSet.has(pid));
-      });
-
-      const incomingMessages = (data.messages ?? []).filter((m: any) => m?.role !== "tool");
-      const suffixMessages = incomingMessages.filter((m: any) => {
-        const id = String(m?.id ?? "");
-        const pid =
-          (m as any)?.parentMessageId ??
-          (m as any)?.metadata?.parentMessageId;
-        return suffixSet.has(id) || (typeof pid === "string" && suffixSet.has(pid));
-      });
-
-      const nextMessages = [...prefixMessages, ...suffixMessages] as UIMessage[];
-      chat.setMessages(nextMessages);
-
-      // 关键：同步 tool parts，避免残留旧分支的 tool 卡片
-      if (tabId) {
-        clearToolPartsForTab(tabId);
-        syncToolPartsFromMessages({ tabId, messages: nextMessages });
-      }
-
-      setLeafMessageId(data.leafMessageId ?? null);
-      setBranchMessageIds(newBranchIds);
-      setSiblingNav(data.siblingNav ?? {});
-      setBranchStart(data.leafMessageId ? { startMessageId: data.leafMessageId } : {});
+      // 关键：切分支时，直接用服务端返回的“当前链快照”覆盖（避免前端拼接导致重复 key/重复渲染）
+      applyBranchSnapshot(data, { setMessages: true });
       setScrollToBottomToken((n) => n + 1);
     },
     [
       siblingNav,
-      branchMessageIds,
+      chat.stop,
+      applyBranchSnapshot,
+      queryClient,
+      sessionId,
+    ]
+  );
+
+  const retryAssistantMessage = React.useCallback(
+    async (assistantMessageId: string) => {
+      const assistant = (chat.messages as any[]).find((m) => String(m?.id) === assistantMessageId);
+      if (!assistant) return;
+
+      // 关键：AI 重试 = 重发该 assistant 的 parent user 消息（但不重复保存 user 到 DB）
+      const parentUserMessageId = getTopLevelParentMessageId(assistant);
+      if (!parentUserMessageId) return;
+
+      chat.stop();
+
+      // 关键：先把 UI 切回到“parent user 为 leaf”的链快照，隐藏原有后续分支
+      const base = await queryClient.fetchQuery(
+        trpc.chat.getChatBranch.queryOptions({
+          sessionId,
+          take: 50,
+          startMessageId: parentUserMessageId,
+        })
+      );
+      applyBranchSnapshot(base, { setMessages: true });
+
+      const userMsg = (base.messages as any[]).find(
+        (m) => String(m?.id) === parentUserMessageId && m?.role === "user"
+      );
+      const userParentMessageId = getTopLevelParentMessageId(userMsg) ?? null;
+
+      // 关键：使用 messageId 替换“同一条 user 消息”，触发新一轮生成，但服务端不再落库该 user
+      await (chat.sendMessage as any)(
+        {
+          ...(userMsg ?? {}),
+          id: parentUserMessageId,
+          role: "user",
+          parts: (userMsg as any)?.parts ?? [{ type: "text", text: "" }],
+          parentMessageId: userParentMessageId,
+          messageId: parentUserMessageId,
+        },
+        { body: { retry: true } }
+      );
+      setScrollToBottomToken((n) => n + 1);
+    },
+    [chat.stop, chat.messages, chat.sendMessage, queryClient, sessionId, applyBranchSnapshot]
+  );
+
+  const resendUserMessage = React.useCallback(
+    async (userMessageId: string, nextText: string) => {
+      const user = (chat.messages as any[]).find((m) => String(m?.id) === userMessageId);
+      if (!user || user.role !== "user") return;
+      const parentMessageId = getTopLevelParentMessageId(user) ?? null;
+
+      chat.stop();
+
+      // 关键：编辑重发会产生新 sibling 分支，先把 UI 切回到 parent 节点（隐藏旧分支的后续内容）
+      if (parentMessageId) {
+        const base = await queryClient.fetchQuery(
+          trpc.chat.getChatBranch.queryOptions({
+            sessionId,
+            take: 50,
+            startMessageId: parentMessageId,
+          })
+        );
+        applyBranchSnapshot(base, { setMessages: true });
+      } else {
+        chat.setMessages([]);
+        if (tabId) clearToolPartsForTab(tabId);
+        setLeafMessageId(null);
+        setBranchMessageIds([]);
+        setSiblingNav({});
+        setBranchStart({});
+      }
+
+      await (chat.sendMessage as any)({
+        id: generateId(),
+        role: "user",
+        parts: [{ type: "text", text: nextText }],
+        parentMessageId,
+      });
+      setScrollToBottomToken((n) => n + 1);
+    },
+    [
       chat.stop,
       chat.messages,
       chat.setMessages,
+      chat.sendMessage,
       queryClient,
       sessionId,
       tabId,
       clearToolPartsForTab,
+      applyBranchSnapshot,
     ]
   );
 
@@ -423,6 +518,8 @@ export default function ChatProvider({
         branchMessageIds,
         siblingNav,
         switchSibling,
+        retryAssistantMessage,
+        resendUserMessage,
         stopGenerating,
       }}
     >

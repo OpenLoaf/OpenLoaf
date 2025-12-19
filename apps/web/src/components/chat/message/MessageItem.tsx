@@ -2,7 +2,6 @@
 
 import type { UIMessage } from "@ai-sdk/react";
 import * as React from "react";
-import { generateId } from "ai";
 import { cn } from "@/lib/utils";
 import { ChatInputBox } from "../ChatInput";
 import MessageAiAction from "./MessageAiAction";
@@ -26,7 +25,7 @@ function MessageItem({
   isLastAiMessage,
   hideAiActions,
 }: MessageItemProps) {
-  const { sendMessage, status, clearError } = useChatContext();
+  const { resendUserMessage, status, clearError } = useChatContext();
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
 
@@ -72,19 +71,12 @@ function MessageItem({
       if (!value.trim()) return;
       if (status === "error") clearError();
 
-      // 关键：编辑重发 = 新建一条 user 消息作为 sibling（不覆盖旧消息）
-      // - parentMessageId 继承旧消息（首条 user 的 parentMessageId 必须为 null）
-      // - id 必须重新生成，避免 DB 主键冲突
-      sendMessage({
-        id: generateId(),
-        role: "user",
-        parts: [{ type: "text", text: value }],
-        parentMessageId: (message as any).parentMessageId ?? null,
-      } as any);
+      // 关键：编辑重发 = 在同 parent 下创建新 sibling，并把 UI 切到新分支
+      resendUserMessage(message.id, value);
 
       setIsEditing(false);
     },
-    [sendMessage, status, clearError, message]
+    [resendUserMessage, status, clearError, message]
   );
 
   const actionVisibility = (showAlways?: boolean) =>

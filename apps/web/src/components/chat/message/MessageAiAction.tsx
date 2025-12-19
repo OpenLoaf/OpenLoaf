@@ -28,7 +28,7 @@ export default function MessageAiAction({
   message: UIMessage;
   className?: string;
 }) {
-  const { regenerate, clearError, status, updateMessage } = useChatContext();
+  const { retryAssistantMessage, clearError, status, updateMessage } = useChatContext();
   const [isCopying, setIsCopying] = React.useState(false);
   const text = getMessagePlainText(message);
 
@@ -49,7 +49,7 @@ export default function MessageAiAction({
   const handleRetry = () => {
     clearError();
     // 关键：允许对任意 assistant 消息重试（会在该节点处产生新分支）
-    regenerate({ messageId: message.id } as any);
+    retryAssistantMessage(message.id);
   };
 
   // 仅在“正在提交/流式输出”时禁用交互；error/ready 状态都允许重试

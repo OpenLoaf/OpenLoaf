@@ -35,10 +35,16 @@ function messageHasSubAgentToolCall(message: any) {
 
 function groupMessagesForRender(messages: any[]) {
   const items: Array<{ message: any; subAgentMessages?: any[] }> = [];
+  const seen = new Set<string>();
 
   for (let i = 0; i < messages.length; i += 1) {
     const message = messages[i];
     if (!message) continue;
+    const id = String((message as any)?.id ?? "");
+    if (id) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+    }
 
     // 关键：subAgent 的输出消息会被嵌套到 sub-agent tool 卡片里，这里不单独渲染。
     if (isSubAgentMessage(message)) continue;

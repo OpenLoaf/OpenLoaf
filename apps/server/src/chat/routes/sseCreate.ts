@@ -14,6 +14,7 @@ import { browserTools } from "@/chat/tools/browser";
 import { dbTools } from "@/chat/tools/db";
 import {
   loadBranchMessages,
+  requireExistingChatMessageNode,
   saveChatMessageNode,
 } from "@/chat/history";
 import { systemTools } from "@/chat/tools/system";
@@ -69,6 +70,9 @@ export function registerChatSseCreateRoute(app: Hono) {
     const sessionId = body.sessionId ?? body.id;
     if (!sessionId) return c.json({ error: "sessionId is required" }, 400);
 
+    // 关键：retry = 复用已存在的 user 消息重新生成 assistant（不能再次保存该 user 消息）
+    const isRetry = Boolean((body as any)?.retry);
+
     // 从请求中获取 cookie（workspace-id 等仍可能存在）
     const cookies = getCookie(c);
 
@@ -83,6 +87,9 @@ export function registerChatSseCreateRoute(app: Hono) {
       : undefined;
     if (!lastIncomingMessage) {
       return c.json({ error: "last message is required" }, 400);
+    }
+    if ((lastIncomingMessage as any).role !== "user") {
+      return c.json({ error: "last message must be a user message" }, 400);
     }
     
     // 关键：每次发送都必须指定 parentMessageId（消息树）
@@ -110,12 +117,20 @@ export function registerChatSseCreateRoute(app: Hono) {
       electronClientId,
     });
 
-    // 保存用户消息节点（消息树）
-    const userNode = await saveChatMessageNode({
-      sessionId,
-      message: lastIncomingMessage as any,
-      parentMessageId,
-    });
+    // 关键：新发送 -> 保存用户消息；retry -> 读取已存在的用户消息节点
+    const userNode = isRetry
+      ? await requireExistingChatMessageNode({
+          sessionId,
+          messageId: String((lastIncomingMessage as any).id),
+        })
+      : await saveChatMessageNode({
+          sessionId,
+          message: lastIncomingMessage as any,
+          parentMessageId,
+        });
+    if (isRetry && (userNode as any).role !== "USER") {
+      return c.json({ error: "retry requires an existing user message" }, 400);
+    }
 
     // 发给 LLM 的上下文：只取 parentMessageId 这条链 + 当前用户消息（MVP 截断）
     const messages = await loadBranchMessages({
@@ -137,7 +152,9 @@ export function registerChatSseCreateRoute(app: Hono) {
         id: assistantMessageId,
         role: "assistant",
         parts: [],
-        metadata: undefined,
+        metadata: {
+          parentMessageId: userNode.id,
+        },
       } as any,
       parentMessageId: userNode.id,
     });
