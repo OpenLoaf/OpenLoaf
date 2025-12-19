@@ -136,7 +136,7 @@ function computeNodePosition({
   return { depth, path };
 }
 
-export type SavedChatMessageNode = {
+type SavedChatMessageNode = {
   id: string;
   parentMessageId: string | null;
   depth: number;
@@ -321,33 +321,6 @@ export async function saveChatMessageNode({
  * 查询某个节点子树内的最新叶子（用于“切换 sibling 后自动跳到该分支的最新链”）
  * - 依赖 ChatMessage.path（物化路径）
  */
-export async function resolveLatestLeafMessageId({
-  sessionId,
-  startMessageId,
-}: {
-  sessionId: string;
-  startMessageId: string;
-}): Promise<string | null> {
-  const start = await prisma.chatMessage.findUnique({
-    where: { id: startMessageId },
-    select: { sessionId: true, path: true },
-  });
-  if (!start || start.sessionId !== sessionId) return null;
-
-  const leaf = await prisma.chatMessage.findFirst({
-    where: {
-      sessionId,
-      path: { startsWith: start.path },
-      // 关键：跳过“占位 assistant”（无 parts），避免默认分支选中空消息
-      OR: [{ role: MessageRoleEnum.USER }, { parts: { some: {} } }],
-    },
-    orderBy: [{ path: "desc" }],
-    select: { id: true },
-  });
-
-  return leaf?.id ?? null;
-}
-
 /**
  * 读取某个 leaf 的祖先链（用于渲染与发给 LLM）
  * - 返回按时间顺序（root -> leaf）

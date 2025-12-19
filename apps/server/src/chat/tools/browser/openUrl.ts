@@ -1,4 +1,3 @@
-import type { DockItem } from "@teatime-ai/api/common";
 import { tool, zodSchema } from "ai";
 import { requireActiveTab } from "@/chat/ui/emit";
 import { requestContextManager } from "@/context/requestContext";
@@ -18,28 +17,10 @@ function normalizeUrl(raw: string): string {
   return `https://${value}`;
 }
 
-function buildBrowserWindowDockItem({
-  url,
-  title,
-  pageTargetId,
-}: {
-  url: string;
-  title?: string;
-  pageTargetId: string;
-}): DockItem {
-  return {
-    id: `browser-window:${pageTargetId}`,
-    sourceKey: `browser-window:${pageTargetId}`,
-    component: "electron-browser-window",
-    title: title ?? "Browser Window",
-    params: { url, autoOpen: true, pageTargetId },
-  };
-}
-
 export const openUrlTool = tool({
   description: openUrlToolDef.description,
   inputSchema: zodSchema(openUrlToolDef.parameters),
-  execute: async ({ url, title, pageTargetId }, options) => {
+  execute: async ({ url, title, pageTargetId }) => {
     const activeTab = requireActiveTab();
     const normalizedUrl = normalizeUrl(url);
 

@@ -2,7 +2,7 @@ import { sseEventBus } from "./bus";
 
 type SseChunk = { seq: number; value: string };
 
-export type ActiveSseStream = {
+type ActiveSseStream = {
   // 历史 chunk（用于断线续传/新订阅者回放）
   chunks: SseChunk[];
   // 单调递增序号：用于避免“订阅+回放”期间产生的重复 chunk
@@ -10,8 +10,6 @@ export type ActiveSseStream = {
   done: boolean;
   // 对应的生成任务取消控制器（用于“用户手动停止生成”）
   abortController?: AbortController;
-  // 是否被用户手动停止（用于上层逻辑判断）
-  stoppedByUser?: boolean;
 };
 
 // streamId -> active stream data（内存态，best-effort；进程重启会丢）
@@ -46,10 +44,6 @@ export function initActiveStream(streamId: string): ActiveSseStream {
   return activeStream;
 }
 
-export function getActiveStream(streamId: string) {
-  return ACTIVE_SSE_STREAMS.get(streamId);
-}
-
 export function attachAbortControllerToActiveStream(
   streamId: string,
   abortController: AbortController,
@@ -67,8 +61,6 @@ export function attachAbortControllerToActiveStream(
 export function stopActiveStream(streamId: string, reason = "stopped by user") {
   const entry = ACTIVE_SSE_STREAMS.get(streamId);
   if (!entry || entry.done) return false;
-
-  entry.stoppedByUser = true;
 
   try {
     entry.abortController?.abort(reason);
