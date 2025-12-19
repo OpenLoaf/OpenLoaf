@@ -1,17 +1,5 @@
 import { z } from "zod";
-import type { DockItem, Tab } from "../common";
-
-// ==========
-// MVP：前端 -> 后端的上下文（通过 data-client-context 传递）
-// ==========
-
-export type ClientContext = {
-  activeTab: Tab | null;
-  /** Web UI 侧稳定 clientId（用于 runtime 调度/断线续传关联） */
-  webClientId: string;
-  /** Electron runtime 设备标识（仅 Electron 环境提供） */
-  electronClientId?: string;
-};
+import type { DockItem } from "../common";
 
 // ==========
 // UI 事件（Electron runtime -> renderer 通过 IPC 推送）

@@ -1,40 +1,27 @@
 import { deepseek } from "@ai-sdk/deepseek";
 import { ToolLoopAgent } from "ai";
 import { requestContextManager, type AgentFrame } from "@/context/requestContext";
-import type { AgentMode } from "@teatime-ai/api/common";
-import { browserReadonlyTools, openUrlTool } from "@/chat/tools/browser";
+import { openUrlTool } from "@/chat/tools/browser";
 import { dbTools } from "@/chat/tools/db";
 import { subAgentTool } from "@/chat/tools/subAgent";
 import { systemTools } from "@/chat/tools/system";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
-import { timeNowToolDef } from "@teatime-ai/api/types/tools/system";
-import { open } from "fs";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 
 const MASTER_AGENT_NAME = "master";
 const MASTER_AGENT_ID = "master";
 
-function createMasterTools(mode: AgentMode) {
-  // 关键：通过“只暴露允许的 tools”做权限边界（MVP）
-  if (mode === "settings") {
-    return {
-      ...systemTools,
-      ...browserReadonlyTools,
-      [subAgentToolDef.id]: subAgentTool,
-    };
-  }
-
+function createMasterTools() {
   return {
-    [timeNowToolDef.id]: systemTools[timeNowToolDef.id],
+    ...systemTools,
     ...dbTools,
     [openUrlToolDef.id]: openUrlTool,
     [subAgentToolDef.id]: subAgentTool,
   };
 }
 
-function buildMasterInstructions(mode: AgentMode) {
+function buildMasterInstructions() {
   const workspaceId = requestContextManager.getWorkspaceId();
-  const activeTab = requestContextManager.getContext()?.activeTab;
 
   return `
 你是 Teatime 的AI助手。
@@ -47,26 +34,17 @@ function buildMasterInstructions(mode: AgentMode) {
   - 只有在执行会产生明显歧义/风险时才向用户提问澄清；否则先按最合理默认值推进并说明假设。
 - 子 agent 使用原则：遇到网页理解/自动化优先交给 browser sub-agent；需要项目数据/数据库操作优先使用 db tools；复杂任务优先拆解并逐步验证结果。
 
-权限范围：
-- mode=${mode}
-- project 模式：允许查询项目数据，并可通过 open-url 在当前 Tab 打开网页。
-- settings 模式：不允许操作项目数据，也不允许触发网页打开（仅做设置相关的答疑/指导）。
-
 当前 workspaceId：${workspaceId ?? "unknown"}
-当前 tabId：${activeTab?.id ?? "unknown"}
-当前页面：${activeTab?.base?.component ?? "unknown"}
 `;
 }
 
 // 关键：MasterAgent 用面向对象封装“配置 + tools + instructions”
 export class MasterAgent {
-  constructor(readonly mode: AgentMode) {}
-
   createAgent() {
     return new ToolLoopAgent({
       model: deepseek("deepseek-chat"),
-      instructions: buildMasterInstructions(this.mode),
-      tools: createMasterTools(this.mode),
+      instructions: buildMasterInstructions(),
+      tools: createMasterTools(),
     });
   }
 

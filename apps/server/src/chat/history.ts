@@ -4,26 +4,13 @@ import {
   type MessageRole as MessageRoleType,
   type Prisma,
 } from "@teatime-ai/db/prisma/generated/client";
-import { deepseek } from "@ai-sdk/deepseek";
 import type { UIMessage } from "ai";
-import { generateText } from "ai";
 
-/**
- * 将 AI SDK v6 的 `UIMessage` 做持久化（MVP）：
- * - `UIMessage.metadata` -> `ChatMessage.meta`（JSON）
- * - `UIMessage.parts[]` -> `ChatMessagePart.state`（JSON，按 index 排序）
- *
- * 备注：
- * - UIMessage 的 role 只包含 'system' | 'user' | 'assistant'，不包含 'tool'。
- * - Prisma schema 虽然有 TOOL 角色，但当前这条 UI 聊天流只按 UIMessage 处理。
- */
 type AnyUIMessage = UIMessage<any, any, any>;
 
-/**
- * 标题长度上限（MVP）
- * - `SessionItem.tsx` 里会做 `truncate`，但这里仍限制长度，避免生成过长标题
- */
 const MAX_SESSION_TITLE_CHARS = 16;
+const DEFAULT_BRANCH_TAKE = 50;
+const PATH_SEGMENT_WIDTH = 8;
 
 /** UIMessage.role -> DB enum */
 function toMessageRole(role: AnyUIMessage["role"]): MessageRoleType {
@@ -51,237 +38,217 @@ function fromMessageRole(role: MessageRoleType): AnyUIMessage["role"] {
   }
 }
 
-/** MVP：不做 parts 转换，直接保存/还原。 */
-function normalizeParts(message: AnyUIMessage): AnyUIMessage["parts"] {
-  const parts = Array.isArray(message.parts) ? message.parts : [];
-  // 跳过 AI SDK 的 step 边界标记（例如 step-start），避免污染持久化历史与后续重放。
-  return parts.filter((part) => !isSkippablePartForHistory(part));
-}
-
 /**
  * 判断该 part 是否应该跳过持久化
- * - 目前仅跳过 `type === "step-start"`（AI SDK v6 的步骤开始标记，非实际内容）
+ * - `step-start` 属于步骤边界标记，不是用户/模型内容
  */
-function isSkippablePartForHistory(part: unknown): boolean {
+function isSkippablePart(part: unknown): boolean {
   if (!part || typeof part !== "object") return false;
   return (part as any).type === "step-start";
 }
 
+/** parts 直接保存/还原，但会过滤掉不应持久化的 part */
+function normalizeParts(message: AnyUIMessage): AnyUIMessage["parts"] {
+  const parts = Array.isArray(message.parts) ? message.parts : [];
+  return parts.filter((part) => !isSkippablePart(part));
+}
+
 function extractUserText(message: AnyUIMessage): string {
-  if (!Array.isArray(message.parts)) return "";
+  const parts = Array.isArray(message.parts) ? (message.parts as any[]) : [];
   const chunks: string[] = [];
-  for (const part of message.parts as any[]) {
+  for (const part of parts) {
     if (!part || typeof part !== "object") continue;
-    // AI SDK v6：用户输入一般是 { type: 'text', text: '...' }
-    if (
-      (part as any).type === "text" &&
-      typeof (part as any).text === "string"
-    ) {
-      chunks.push((part as any).text);
+    if (part.type === "text" && typeof part.text === "string") {
+      chunks.push(part.text);
       continue;
     }
-    // 兜底：某些 part 可能只有 text 字段
-    if (typeof (part as any).text === "string") {
-      chunks.push((part as any).text);
-    }
+    if (typeof part.text === "string") chunks.push(part.text);
   }
   return chunks.join("\n").trim();
 }
 
 function normalizeTitle(raw: string): string {
   let title = (raw ?? "").trim();
-  // 去掉常见的包裹符号（引号/书名号等）
   title = title.replace(/^["'“”‘’《》]+/, "").replace(/["'“”‘’《》]+$/, "");
-  // 只取第一行，避免模型输出多行
   title = title.split("\n")[0]?.trim() ?? "";
-  // 过长则截断
-  if (title.length > MAX_SESSION_TITLE_CHARS) {
-    title = title.slice(0, MAX_SESSION_TITLE_CHARS);
-  }
+  if (title.length > MAX_SESSION_TITLE_CHARS) title = title.slice(0, MAX_SESSION_TITLE_CHARS);
   return title.trim();
 }
 
-/**
- * 异步生成并保存会话标题
- * - 触发时机：用户消息数恰好为 2 或 5
- * - 注意：不要阻塞主流程；失败只打印日志（MVP）
- */
-async function generateAndSaveSessionTitle({
-  sessionId,
-  history,
-}: {
-  sessionId: string;
-  history: AnyUIMessage[];
-}) {
-  try {
-    // 如果用户已经手动重命名过标题，则跳过 AI 自动生成（避免覆盖用户意图）
-    // 注意：当前 Prisma Client 可能尚未重新生成类型，这里用 any 读取新字段（MVP）。
-    const session = await (prisma.chatSession as any).findUnique({
-      where: { id: sessionId },
-      select: { isUserRename: true },
-    });
-    if (session?.isUserRename) return;
-
-    // 只用“用户输入”生成标题
-    const userText = history
-      .filter((m) => m.role === "user")
-      .map((m) => extractUserText(m))
-      .filter(Boolean)
-      .slice(-10) // 取最近 10 条，避免过长
-      .join("\n\n");
-
-    if (!userText) return;
-
-    // 与 SSE 使用同一模型，避免多模型配置（MVP）
-    const result = await generateText({
-      model: deepseek("deepseek-chat"),
-      system:
-        "你是一个对话标题生成器。请根据用户输入总结一个简短标题。只输出标题文本，不要加引号、不要加前后缀。",
-      prompt: [
-        "标题要求：",
-        "- 尽量精炼，中文优先",
-        `- 最长不超过 ${MAX_SESSION_TITLE_CHARS} 个字符`,
-        "- 不要换行",
-        "",
-        "用户输入：",
-        userText.slice(0, 6000), // 限长，避免 prompt 过大
-      ].join("\n"),
-      maxOutputTokens: 64,
-    });
-
-    const title = normalizeTitle(result.text);
-    if (!title) return;
-
-    await prisma.chatSession.update({
-      where: { id: sessionId },
-      data: { title },
-    });
-  } catch (err) {
-    console.warn("[chat] generate session title failed", { sessionId, err });
-  }
+async function ensureSession(tx: Prisma.TransactionClient, sessionId: string) {
+  await tx.chatSession.upsert({
+    where: { id: sessionId },
+    update: {},
+    create: { id: sessionId },
+  });
 }
 
 /**
- * 持久化新消息（如有）并返回完整历史（升序）
- * - 保存与读取放在同一事务里，保证 previousMessageId 串联稳定
+ * 获取父节点信息（用于计算 depth/path）
+ * - 这里只允许同 session 内的引用，避免错误串链
  */
-async function persistMessageAndLoadHistory({
+async function getParentNode(
+  tx: Prisma.TransactionClient,
+  sessionId: string,
+  parentMessageId: string,
+) {
+  const parent = await tx.chatMessage.findUnique({
+    where: { id: parentMessageId },
+    select: { id: true, sessionId: true, depth: true, path: true },
+  });
+  if (!parent) return null;
+  if (parent.sessionId !== sessionId) return null;
+  return parent;
+}
+
+function toPathSegment(index: number): string {
+  // 关键：path 用固定宽度的 index 片段，保证字符串排序 === 分支“最右”策略
+  return String(index).padStart(PATH_SEGMENT_WIDTH, "0");
+}
+
+/**
+ * 获取同 parent 下的下一个 index（从 1 开始递增）
+ * - 关键：这是消息树“最右叶子”策略的基础（按 index 决定 sibling 顺序）
+ */
+async function getNextSiblingIndex(
+  tx: Prisma.TransactionClient,
+  sessionId: string,
+  parentMessageId: string | null,
+): Promise<number> {
+  const agg = await tx.chatMessage.aggregate({
+    where: { sessionId, parentMessageId: parentMessageId ?? null },
+    _max: { index: true },
+  });
+  return (agg._max.index ?? 0) + 1;
+}
+
+/** 计算新节点的 depth/index/path */
+function computeNodePosition({
+  index,
+  parent,
+}: {
+  index: number;
+  parent: { depth: number; path: string } | null;
+}) {
+  const depth = parent ? parent.depth + 1 : 0;
+  const seg = toPathSegment(index);
+  const path = parent ? `${parent.path}/${seg}` : seg;
+  return { depth, path };
+}
+
+export type SavedChatMessageNode = {
+  id: string;
+  parentMessageId: string | null;
+  depth: number;
+  index: number;
+  path: string;
+};
+
+/**
+ * 保存一条消息节点（消息树）
+ * - 必须提供 message.id
+ * - parentMessageId 不传则默认为 null（根节点）
+ */
+export async function saveChatMessageNode({
   sessionId,
-  incomingMessage,
+  message,
+  parentMessageId,
 }: {
   sessionId: string;
-  incomingMessage?: AnyUIMessage;
-}): Promise<AnyUIMessage[]> {
-  // 用同一事务保证：追加/读取的顺序一致，previousMessageId 稳定。
-  const history = await prisma.$transaction(async (tx) => {
-    // MVP：确保 session 存在（title 等字段使用 Prisma 默认值）。
-    await tx.chatSession.upsert({
-      where: { id: sessionId },
-      update: {},
-      create: { id: sessionId },
+  message: AnyUIMessage;
+  parentMessageId?: string | null;
+}): Promise<SavedChatMessageNode> {
+  if (!message?.id) throw new Error("message.id is required.");
+  const parentId = parentMessageId ?? null;
+
+  return prisma.$transaction(async (tx) => {
+    await ensureSession(tx, sessionId);
+
+    const existing = await tx.chatMessage.findUnique({
+      where: { id: message.id },
+      select: { id: true, sessionId: true, parentMessageId: true, depth: true, index: true, path: true },
     });
 
-    if (incomingMessage) {
-      await persistIncomingMessage({ tx, sessionId, incomingMessage });
+    if (existing) {
+      if (existing.sessionId !== sessionId) {
+        throw new Error("message.id already exists in another session.");
+      }
+      const existingParentId = existing.parentMessageId ?? null;
+      if (existingParentId !== parentId) {
+        throw new Error("message.id already exists with a different parentMessageId.");
+      }
+
+      const parts = normalizeParts(message);
+      const agentId =
+        typeof (message as any)?.metadata?.agent?.id === "string"
+          ? String((message as any).metadata.agent.id)
+          : undefined;
+
+      await tx.chatMessage.update({
+        where: { id: existing.id },
+        data: {
+          role: toMessageRole(message.role),
+          meta: message.metadata ?? undefined,
+          parts: {
+            deleteMany: {},
+            create: parts.map((part, index) => {
+              const type =
+                part && typeof part === "object" && "type" in part
+                  ? String((part as { type: unknown }).type)
+                  : "unknown";
+              return { index, type, agentId, state: part as any };
+            }),
+          },
+        },
+      });
+
+      return {
+        id: existing.id,
+        parentMessageId: existingParentId,
+        depth: existing.depth,
+        index: existing.index,
+        path: existing.path,
+      };
     }
 
-    // 读取全量历史（升序），还原为 AI SDK v6 UIMessage[] 供 agent 使用。
-    const history = await tx.chatMessage.findMany({
-      where: { sessionId },
-      orderBy: { createdAt: "asc" },
-      include: { parts: { orderBy: { index: "asc" } } },
+    const parent = parentId ? await getParentNode(tx, sessionId, parentId) : null;
+    if (parentId && !parent) throw new Error("parentMessageId not found in this session.");
+
+    const index = await getNextSiblingIndex(tx, sessionId, parentId);
+    const { depth, path } = computeNodePosition({ index, parent });
+    const role = toMessageRole(message.role);
+    const parts = normalizeParts(message);
+    const agentId =
+      typeof (message as any)?.metadata?.agent?.id === "string"
+        ? String((message as any).metadata.agent.id)
+        : undefined;
+
+    await tx.chatMessage.create({
+      data: {
+        id: message.id,
+        sessionId,
+        parentMessageId: parentId,
+        depth,
+        index,
+        path,
+        role,
+        meta: message.metadata ?? undefined,
+        parts: {
+          create: parts.map((part, index) => {
+            const type =
+              part && typeof part === "object" && "type" in part
+                ? String((part as { type: unknown }).type)
+                : "unknown";
+            return { index, type, agentId, state: part as any };
+          }),
+        },
+      },
     });
 
-    return history
-      .map((message) => {
-        const parts = message.parts.map((part) => {
-          // 优先还原 state（完整 part），否则只返回 type 占位。
-          if (part.state && typeof part.state === "object") return part.state;
-          return { type: part.type };
-        });
-        return {
-          id: message.id,
-          role: fromMessageRole(message.role),
-          metadata: message.meta ?? undefined,
-          parts: parts as AnyUIMessage["parts"],
-        } satisfies AnyUIMessage;
-      })
-      .filter((message) => message.parts.length > 0);
-  });
-
-  return history;
-}
-
-/**
- * 持久化 incomingMessage（幂等）
- * - 跳过 step-start 等非内容 part
- */
-async function persistIncomingMessage({
-  tx,
-  sessionId,
-  incomingMessage,
-}: {
-  tx: Prisma.TransactionClient;
-  sessionId: string;
-  incomingMessage: AnyUIMessage;
-}) {
-  // messageId 必须由应用侧提供（与 DB 主键一致）
-  if (!incomingMessage.id) {
-    throw new Error("incomingMessage.id is required.");
-  }
-
-  // 关键：幂等写入，避免断线重试/重复 onFinish 导致重复消息
-  const existing = await tx.chatMessage.findUnique({
-    where: { id: incomingMessage.id },
-    select: { id: true },
-  });
-  if (existing) return;
-
-  const role = toMessageRole(incomingMessage.role);
-  const parts = normalizeParts(incomingMessage);
-  const agentId =
-    typeof (incomingMessage as any)?.metadata?.agent?.id === "string"
-      ? String((incomingMessage as any).metadata.agent.id)
-      : undefined;
-
-  // 取上一条消息，用于串联 previousMessageId（便于追溯）。
-  const previous = await tx.chatMessage.findFirst({
-    where: { sessionId },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-
-  await tx.chatMessage.create({
-    data: {
-      id: incomingMessage.id,
-      sessionId,
-      previousMessageId: previous?.id ?? null,
-      role,
-      // UIMessage.metadata -> ChatMessage.meta
-      meta: (incomingMessage as AnyUIMessage).metadata ?? undefined,
-      parts: {
-        create: parts.map((part, index) => {
-          const type =
-            part && typeof part === "object" && "type" in part
-              ? String((part as { type: unknown }).type)
-              : "unknown";
-          return {
-            index,
-            type,
-            agentId,
-            // 整个 part 作为 JSON 存起来，方便完整还原 UIMessage.parts
-            state: part as any,
-          };
-        }),
-      },
-    },
-  });
-
-  // 如果是第一条消息（previous 为空）且是用户消息，直接提取文本作为标题
-  if (!previous && role === MessageRoleEnum.USER) {
-    const userText = extractUserText(incomingMessage);
-    if (userText) {
-      const title = normalizeTitle(userText);
+    // 关键：首条用户消息作为标题（MVP）
+    if (!parent && role === MessageRoleEnum.USER) {
+      const userText = extractUserText(message);
+      const title = userText ? normalizeTitle(userText) : "";
       if (title) {
         await tx.chatSession.update({
           where: { id: sessionId },
@@ -289,34 +256,88 @@ async function persistIncomingMessage({
         });
       }
     }
-  }
+
+    return { id: message.id, parentMessageId: parentId, depth, index, path };
+  });
 }
 
 /**
- * 输入新消息，先保存到数据库，并返回完整历史消息列表（按时间升序）。
- * - `sessionId`：对话会话 ID
- * - `incomingMessage`：刚接收到的消息（通常是 UIMessage 的最后一条）
+ * 查询某个节点子树内的最新叶子（用于“切换 sibling 后自动跳到该分支的最新链”）
+ * - 依赖 ChatMessage.path（物化路径）
  */
-export async function saveAndAppendMessage({
+export async function resolveLatestLeafMessageId({
   sessionId,
-  incomingMessage,
+  startMessageId,
 }: {
   sessionId: string;
-  incomingMessage?: AnyUIMessage;
-}): Promise<AnyUIMessage[]> {
-  const history = await persistMessageAndLoadHistory({ sessionId, incomingMessage });
+  startMessageId: string;
+}): Promise<string | null> {
+  const start = await prisma.chatMessage.findUnique({
+    where: { id: startMessageId },
+    select: { sessionId: true, path: true },
+  });
+  if (!start || start.sessionId !== sessionId) return null;
 
-  // 保存完成后：如果“用户输入”条数恰好为 2 或 5，则异步生成标题（不阻塞主流程）
-  if (incomingMessage?.role === "user") {
-    const userCount = history.reduce(
-      (acc, m) => acc + (m.role === "user" ? 1 : 0),
-      0
-    );
-    if (userCount === 2 || userCount === 5) {
-      // fire-and-forget：失败不影响聊天
-      void generateAndSaveSessionTitle({ sessionId, history });
-    }
+  const leaf = await prisma.chatMessage.findFirst({
+    where: { sessionId, path: { startsWith: start.path } },
+    orderBy: [{ path: "desc" }],
+    select: { id: true },
+  });
+
+  return leaf?.id ?? null;
+}
+
+/**
+ * 读取某个 leaf 的祖先链（用于渲染与发给 LLM）
+ * - 返回按时间顺序（root -> leaf）
+ * - take 为链路长度上限（从 leaf 往上截断）
+ */
+export async function loadBranchMessages({
+  sessionId,
+  leafMessageId,
+  take = DEFAULT_BRANCH_TAKE,
+}: {
+  sessionId: string;
+  leafMessageId: string;
+  take?: number;
+}): Promise<AnyUIMessage[]> {
+  // 关键：path 不再保存 messageId（改为 index 片段），祖先链需要沿 parentMessageId 向上回溯
+  const chain: string[] = [];
+  let currentId: string | null = leafMessageId;
+  for (let i = 0; i < take && currentId; i += 1) {
+    const row: { id: string; sessionId: string; parentMessageId: string | null } | null =
+      await prisma.chatMessage.findUnique({
+      where: { id: currentId },
+      select: { id: true, sessionId: true, parentMessageId: true },
+      });
+    if (!row || row.sessionId !== sessionId) break;
+    chain.push(row.id);
+    currentId = row.parentMessageId ?? null;
+  }
+  const slice = chain.reverse();
+  if (slice.length === 0) return [];
+
+  const rows = await prisma.chatMessage.findMany({
+    where: { id: { in: slice } },
+    include: { parts: { orderBy: { index: "asc" } } },
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+
+  const messages: AnyUIMessage[] = [];
+  for (const id of slice) {
+    const row = byId.get(id);
+    if (!row) continue;
+    const parts = row.parts
+      .map((p) => (p.state && typeof p.state === "object" ? p.state : { type: p.type }));
+    if (parts.length === 0) continue;
+
+    messages.push({
+      id: row.id,
+      role: fromMessageRole(row.role),
+      metadata: (row.meta as any) ?? undefined,
+      parts: parts as AnyUIMessage["parts"],
+    });
   }
 
-  return history;
+  return messages;
 }

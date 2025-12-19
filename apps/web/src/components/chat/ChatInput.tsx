@@ -252,7 +252,8 @@ export default function ChatInput({ className }: ChatInputProps) {
     if (!canSubmit) return;
     if (!value.trim()) return;
     if (status === "error") clearError();
-    sendMessage({ text: value });
+    // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
+    sendMessage({ parts: [{ type: "text", text: value }] } as any);
     setInput("");
   };
 

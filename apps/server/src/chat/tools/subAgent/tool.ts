@@ -1,9 +1,8 @@
 import { createAgentUIStream, generateId, tool, zodSchema } from "ai";
 import type { UIMessage } from "ai";
 import { requestContextManager } from "@/context/requestContext";
-import { decideAgentMode } from "@teatime-ai/api/common";
 import { getSubAgent } from "@/chat/agents/sub/SubAgentDbRegistry";
-import { saveAndAppendMessage } from "@/chat/history";
+import { saveChatMessageNode } from "@/chat/history";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 
 function agentMetadataFromStack() {
@@ -50,11 +49,7 @@ export const subAgentTool = tool({
       return { ok: false, error: { code: "NOT_FOUND", message: "未找到该 subAgent。" } };
     }
 
-    // 关键：mode 由 master 在请求上下文中确定（subAgent 侧不再自行判断 mode）
-    const mode =
-      requestContextManager.getAgentMode() ??
-      decideAgentMode(requestContextManager.getContext()?.activeTab);
-    const agent = sub.createAgent(mode);
+    const agent = sub.createAgent();
 
     const parentPath = parent?.path ?? ["master"];
     requestContextManager.pushAgentFrame(sub.createFrame(parentPath));
@@ -110,7 +105,13 @@ export const subAgentTool = tool({
               },
             } as any;
 
-            await saveAndAppendMessage({ sessionId, incomingMessage: messageToSave });
+            const parentMessageId = requestContextManager.getCurrentAssistantMessageId();
+            if (!parentMessageId) throw new Error("parentMessageId is required.");
+            await saveChatMessageNode({
+              sessionId,
+              message: messageToSave as any,
+              parentMessageId,
+            });
           } finally {
             finishCalled = true;
             resolveStreamFinished?.();

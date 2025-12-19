@@ -5,6 +5,7 @@ import { type UIMessage } from "@ai-sdk/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Pencil, X } from "lucide-react";
+import MessageBranchNav from "./MessageBranchNav";
 
 interface MessageHumanActionProps {
   message: UIMessage;
@@ -37,6 +38,8 @@ export default function MessageHumanAction({
   return (
     <div className={className}>
       <div className={cn("flex justify-end mt-1", actionsClassName)}>
+        <MessageBranchNav messageId={message.id} />
+
         <Button
           type="button"
           variant="ghost"

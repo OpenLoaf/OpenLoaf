@@ -13,10 +13,10 @@
     }
   },
   "scripts": {
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio",
-    "db:generate": "DEBUG=prisma:* prisma generate ",
-    "db:migrate": "prisma migrate dev",
+    "db:push": "NODE_OPTIONS=--experimental-require-module prisma db push",
+    "db:studio": "NODE_OPTIONS=--experimental-require-module prisma studio",
+    "db:generate": "NODE_OPTIONS=--experimental-require-module DEBUG=prisma:* prisma generate",
+    "db:migrate": "NODE_OPTIONS=--experimental-require-module prisma migrate dev",
     "db:seed": "tsx src/seed.ts"
   },
   "devDependencies": {

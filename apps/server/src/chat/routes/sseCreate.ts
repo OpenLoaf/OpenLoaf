@@ -8,17 +8,17 @@ import {
 import type { UIMessage } from "ai";
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
-import type { Tab } from "@teatime-ai/api/common";
 import { requestContextManager } from "@/context/requestContext";
-import { MasterAgent, decideAgentMode } from "@/chat/agents";
+import { MasterAgent } from "@/chat/agents";
 import { browserTools } from "@/chat/tools/browser";
 import { dbTools } from "@/chat/tools/db";
-import { saveAndAppendMessage } from "@/chat/history";
+import {
+  loadBranchMessages,
+  saveChatMessageNode,
+} from "@/chat/history";
 import { systemTools } from "@/chat/tools/system";
 import { subAgentTool } from "@/chat/tools/subAgent";
 import type { ChatRequestBody, TokenUsageMessage } from "@teatime-ai/api/types/message";
-import { CLIENT_CONTEXT_PART_TYPE } from "@teatime-ai/api/types/parts";
-import type { ClientContext } from "@teatime-ai/api/types/event";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import {
   attachAbortControllerToActiveStream,
@@ -26,8 +26,6 @@ import {
   finalizeActiveStream,
   initActiveStream,
 } from "@/chat/sse/streams";
-
-const DEBUG_AI_STREAM = process.env.TEATIME_DEBUG_AI_STREAM === "1";
 
 /**
  * 将服务端异常转换为可发送给前端的错误文本：
@@ -51,61 +49,6 @@ function toClientErrorText(error: unknown): string {
   const text = raw?.trim() || "Unknown error";
   // 避免极端情况下错误内容过大导致 SSE/日志异常。
   return text.length > 800 ? `${text.slice(0, 800)}…` : text;
-}
-
-function safeJsonSize(value: unknown): number {
-  try {
-    return JSON.stringify(value).length;
-  } catch {
-    return -1;
-  }
-}
-
-function summarizeMessagesForDebug(messages: UIMessage[]): Array<{
-  id: string;
-  role: string;
-  parts: Array<{ type: string; size: number }>;
-  metaSize: number;
-  totalPartsSize: number;
-}> {
-  return messages.map((m: any) => {
-    const parts = Array.isArray(m?.parts) ? m.parts : [];
-    const partsSummary: Array<{ type: string; size: number }> = parts.map((p: any) => ({
-      type: typeof p?.type === "string" ? p.type : "unknown",
-      size: safeJsonSize(p),
-    }));
-    const totalPartsSize = partsSummary.reduce(
-      (acc, p) => acc + (p.size > 0 ? p.size : 0),
-      0,
-    );
-    return {
-      id: String(m?.id ?? ""),
-      role: String(m?.role ?? ""),
-      parts: partsSummary,
-      metaSize: safeJsonSize(m?.metadata),
-      totalPartsSize,
-    };
-  });
-}
-
-/**
- * 从 data-client-context 提取 client 侧上下文：
- * - activeTab：用于 agent/tools 绑定到当前 Tab
- * - webClientId / electronClientId：用于 Browser Runtime 调度（Phase 1）
- */
-function extractClientContext(message: UIMessage | undefined): Partial<ClientContext> {
-  const parts = (message as any)?.parts;
-  if (!Array.isArray(parts)) return {};
-  const ctxPart = parts.find((p: any) => p?.type === CLIENT_CONTEXT_PART_TYPE);
-  const data = (ctxPart?.data ?? {}) as any;
-  return {
-    activeTab: (data?.activeTab ?? null) as Tab | null,
-    webClientId: typeof data?.webClientId === "string" ? data.webClientId : "",
-    electronClientId:
-      typeof data?.electronClientId === "string" && data.electronClientId
-        ? data.electronClientId
-        : undefined,
-  };
 }
 
 /**
@@ -138,59 +81,66 @@ export function registerChatSseCreateRoute(app: Hono) {
     const lastIncomingMessage = Array.isArray(incomingMessages)
       ? incomingMessages[incomingMessages.length - 1]
       : undefined;
+    if (!lastIncomingMessage) {
+      return c.json({ error: "last message is required" }, 400);
+    }
+    
+    // 关键：每次发送都必须指定 parentMessageId（消息树）
+    const messageParentMessageId =
+      typeof (lastIncomingMessage as any).parentMessageId === "string" ||
+      (lastIncomingMessage as any).parentMessageId === null
+        ? ((lastIncomingMessage as any).parentMessageId as string | null)
+        : undefined;
+    if (messageParentMessageId === undefined) {
+      return c.json({ error: "parentMessageId is required" }, 400);
+    }
+    const parentMessageId = messageParentMessageId;
 
-    // 关键：从 data-client-context 取 client context（避免依赖 cookie/history）
-    const clientContext = extractClientContext(lastIncomingMessage);
-    const activeTab: Tab | undefined = (clientContext.activeTab ?? undefined) as Tab | undefined;
+    const webClientId = typeof body.webClientId === "string" ? body.webClientId : "";
+    const electronClientId =
+      typeof body.electronClientId === "string" && body.electronClientId
+        ? body.electronClientId
+        : undefined;
 
-    const mode = decideAgentMode(activeTab);
-
-    console.log("[sse] create: request", {
-      sessionId,
-      mode,
-      webClientId: clientContext.webClientId || "",
-      electronClientId: clientContext.electronClientId || "",
-      activeTabId: activeTab?.id ?? null,
-    });
-
-    // 关键：初始化请求上下文（tools/agent 内部可读取 activeTab/workspaceId）
+    // 关键：初始化请求上下文（tools/agent 内部读取 workspaceId/clientId）
     requestContextManager.createContext({
       sessionId,
       cookies: cookies || {},
-      activeTab,
-      webClientId: clientContext.webClientId || undefined,
-      electronClientId: clientContext.electronClientId || undefined,
-      mode,
+      webClientId: webClientId || undefined,
+      electronClientId,
     });
 
-    const messages = await saveAndAppendMessage({
+    // 保存用户消息节点（消息树）
+    const userNode = await saveChatMessageNode({
       sessionId,
-      incomingMessage: lastIncomingMessage,
+      message: lastIncomingMessage as any,
+      parentMessageId,
     });
 
-    if (DEBUG_AI_STREAM) {
-      const summary = summarizeMessagesForDebug(messages as any);
-      const total = summary.reduce((acc, m) => acc + m.totalPartsSize, 0);
-      const top = [...summary]
-        .sort((a, b) => b.totalPartsSize - a.totalPartsSize)
-        .slice(0, 5);
-      console.log("[debug][ai-stream] history summary", {
-        sessionId,
-        mode,
-        activeTabId: activeTab?.id ?? null,
-        messageCount: summary.length,
-        approxTotalChars: total,
-        topMessages: top.map((m) => ({
-          id: m.id,
-          role: m.role,
-          totalPartsSize: m.totalPartsSize,
-          parts: m.parts.slice(0, 8),
-        })),
-      });
-    }
+    // 发给 LLM 的上下文：只取 parentMessageId 这条链 + 当前用户消息（MVP 截断）
+    const messages = await loadBranchMessages({
+      sessionId,
+      leafMessageId: userNode.id,
+      take: 50,
+    });
 
-    const master = new MasterAgent(mode);
+    const master = new MasterAgent();
     const agent = master.createAgent();
+
+    // 关键：提前生成本次 master assistant 的 messageId，供 tool 落库挂父节点用
+    const assistantMessageId = generateId();
+    requestContextManager.setCurrentAssistantMessageId(assistantMessageId);
+    // 关键：先落一个占位节点，保证 tool（subAgent）落库时父节点已存在
+    await saveChatMessageNode({
+      sessionId,
+      message: {
+        id: assistantMessageId,
+        role: "assistant",
+        parts: [],
+        metadata: undefined,
+      } as any,
+      parentMessageId: userNode.id,
+    });
 
     // 关键：支持“用户手动停止生成”而不影响断线续传（resume）。
     // - 断线：保持生成继续进行，内存流持续写入，客户端可通过 GET /stream 续传
@@ -213,17 +163,6 @@ export function registerChatSseCreateRoute(app: Hono) {
           lastMessage?.metadata?.totalUsage ??
           (responseMessage as TokenUsageMessage)?.metadata?.totalUsage;
 
-        if (usage) {
-          console.log("=== Token 使用情况:", {
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            totalTokens: usage.totalTokens,
-            reasoningTokens: usage.reasoningTokens,
-            cachedInputTokens: usage.cachedInputTokens,
-            chatId: sessionId,
-          });
-        }
-
         if (responseMessage?.role !== "assistant") return;
 
         const messageToSave: UIMessage = usage
@@ -236,7 +175,11 @@ export function registerChatSseCreateRoute(app: Hono) {
             }
           : responseMessage;
       
-        await saveAndAppendMessage({ sessionId, incomingMessage: messageToSave });
+        await saveChatMessageNode({
+          sessionId,
+          message: messageToSave as any,
+          parentMessageId: userNode.id,
+        });
       },
       execute: async ({ writer }) => {
         // 说明：保留 writer 供 tool streaming chunks 使用；UI 控制不再通过 SSE data part 下发。
@@ -244,16 +187,6 @@ export function registerChatSseCreateRoute(app: Hono) {
         // 关键：把 stop 的 AbortSignal 注入请求上下文，供 tools 内部协作式退出（例如 pagePicker 轮询）。
         requestContextManager.setAbortSignal(abortController.signal);
         requestContextManager.pushAgentFrame(master.createFrame());
-
-        if (DEBUG_AI_STREAM) {
-          console.log("[debug][ai-stream] createAgentUIStream start", {
-            sessionId,
-            mode,
-            activeTabId: activeTab?.id ?? null,
-            messageCount: (messages as any[])?.length ?? 0,
-            approxMessagesChars: safeJsonSize(messages),
-          });
-        }
 
         const toolSchemasForValidation = {
           ...systemTools,
@@ -278,7 +211,7 @@ export function registerChatSseCreateRoute(app: Hono) {
 
         const uiStream = result.toUIMessageStream({
           // 关键：服务端生成 messageId，确保可用于 DB 主键（Phase B）
-          generateMessageId: generateId,
+          generateMessageId: () => assistantMessageId,
           onError: (error: unknown) => {
             console.error("Agent error:", error);
             return toClientErrorText(error);
@@ -296,9 +229,21 @@ export function registerChatSseCreateRoute(app: Hono) {
                   },
                 }
               : undefined;
-            if (part.type === "finish")
-              return { ...(agentMeta ?? {}), totalUsage: (part as any).totalUsage } as any;
-            if (part.type === "start") return agentMeta as any;
+
+            // 关键：把消息树信息写进 metadata，前端才能分组渲染/切换分支
+            if (part.type === "start") {
+              return {
+                ...(agentMeta ?? {}),
+                parentMessageId: userNode.id,
+                depth: userNode.depth + 1,
+              } as any;
+            }
+            if (part.type === "finish") {
+              return {
+                ...(agentMeta ?? {}),
+                totalUsage: (part as any).totalUsage,
+              } as any;
+            }
           },
           onFinish: () => {
             // 关键：确保 master 结束后清理 agent 栈
@@ -316,8 +261,6 @@ export function registerChatSseCreateRoute(app: Hono) {
         const streamId = sessionId;
 
         const reader = stream.getReader();
-        let chunkCount = 0;
-        let lastChunkPreview = "";
 
         // 关键：把 SSE 字符串写入内存流（断线续传/新订阅者回放）
         const processChunk = async () => {
@@ -329,10 +272,6 @@ export function registerChatSseCreateRoute(app: Hono) {
                 return;
               }
               if (typeof value !== "string") continue;
-              chunkCount += 1;
-              if (DEBUG_AI_STREAM) {
-                lastChunkPreview = value.slice(0, 200);
-              }
               appendStreamChunk(streamId, value);
             }
           } finally {
@@ -345,11 +284,7 @@ export function registerChatSseCreateRoute(app: Hono) {
         };
 
         processChunk().catch((error) => {
-          console.error("Error processing stream chunk:", error, {
-            sessionId,
-            chunkCount,
-            lastChunkPreview: DEBUG_AI_STREAM ? lastChunkPreview : undefined,
-          });
+          console.error("Error processing stream chunk:", error, { sessionId });
           finalizeActiveStream(streamId);
         });
       },

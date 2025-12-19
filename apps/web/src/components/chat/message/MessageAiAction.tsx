@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useChatContext } from "../ChatProvider";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
+import MessageBranchNav from "./MessageBranchNav";
 
 function getMessagePlainText(message: UIMessage) {
   const parts = (message.parts ?? []).filter(
@@ -23,11 +24,9 @@ function getMessagePlainText(message: UIMessage) {
 export default function MessageAiAction({
   message,
   className,
-  canRetry,
 }: {
   message: UIMessage;
   className?: string;
-  canRetry?: boolean;
 }) {
   const { regenerate, clearError, status, updateMessage } = useChatContext();
   const [isCopying, setIsCopying] = React.useState(false);
@@ -49,7 +48,8 @@ export default function MessageAiAction({
 
   const handleRetry = () => {
     clearError();
-    regenerate();
+    // 关键：允许对任意 assistant 消息重试（会在该节点处产生新分支）
+    regenerate({ messageId: message.id } as any);
   };
 
   // 仅在“正在提交/流式输出”时禁用交互；error/ready 状态都允许重试
@@ -110,6 +110,8 @@ export default function MessageAiAction({
 
   return (
     <div className={cn("inline-flex items-center gap-0.5", className)}>
+      <MessageBranchNav messageId={message.id} />
+
       <Button
         type="button"
         variant="ghost"
@@ -129,9 +131,9 @@ export default function MessageAiAction({
         size="icon-sm"
         className="h-7 w-7 text-muted-foreground hover:text-foreground"
         onClick={handleRetry}
-        disabled={!canRetry || isBusy}
+        disabled={isBusy}
         aria-label="重试"
-        title={canRetry ? "重试" : "仅支持重试最新回复"}
+        title="重试"
       >
         <RotateCcw className="size-3" />
       </Button>

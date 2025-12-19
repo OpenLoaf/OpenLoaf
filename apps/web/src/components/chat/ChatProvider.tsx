@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import { generateId } from "ai";
-import { skipToken, useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 import { createChatTransport } from "@/lib/chat/transport";
@@ -37,6 +37,23 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   tabId?: string;
   /** 当前会话 ID（与 useChat 的 id 一致） */
   sessionId: string;
+  /** 当前分支的叶子节点（消息树） */
+  leafMessageId: string | null;
+  /** 当前分支链上的 messageId（用于判断哪些消息可切换 sibling） */
+  branchMessageIds: string[];
+  /** messageId -> sibling 导航信息 */
+  siblingNav: Record<
+    string,
+    {
+      parentMessageId: string | null;
+      prevSiblingId: string | null;
+      nextSiblingId: string | null;
+      siblingIndex: number;
+      siblingTotal: number;
+    }
+  >;
+  /** 切换到同父的前一个/后一个分支节点 */
+  switchSibling: (messageId: string, direction: "prev" | "next") => void;
   /** 用户手动停止生成（同时通知服务端终止内存流，避免 resume 继续） */
   stopGenerating: () => void;
 }
@@ -78,8 +95,27 @@ export default function ChatProvider({
   ) => void;
 }) {
   const [scrollToBottomToken, setScrollToBottomToken] = React.useState(0);
+  const [leafMessageId, setLeafMessageId] = React.useState<string | null>(null);
+  const [branchMessageIds, setBranchMessageIds] = React.useState<string[]>([]);
+  const [siblingNav, setSiblingNav] = React.useState<
+    Record<
+      string,
+      {
+        parentMessageId: string | null;
+        prevSiblingId: string | null;
+        nextSiblingId: string | null;
+        siblingIndex: number;
+        siblingTotal: number;
+      }
+    >
+  >({});
+  const [branchStart, setBranchStart] = React.useState<{
+    startMessageId?: string;
+    resolveToLatestLeaf?: boolean;
+  }>({});
   const upsertToolPart = useTabs((s) => s.upsertToolPart);
   const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
+  const queryClient = useQueryClient();
 
   React.useEffect(() => {
     if (tabId) {
@@ -123,38 +159,92 @@ export default function ChatProvider({
 
   const shouldLoadHistory = loadHistory !== false;
 
-  // 使用 tRPC 拉取该 session 的历史消息（倒序返回）
-  const historyQuery = useQuery(
-    trpc.chat.getChatMessageHistory.queryOptions(
+  // 使用 tRPC 拉取“当前分支链”（消息树）
+  const branchQuery = useQuery(
+    trpc.chat.getChatBranch.queryOptions(
       shouldLoadHistory
         ? {
             sessionId,
             take: 50,
+            ...(branchStart.startMessageId ? { startMessageId: branchStart.startMessageId } : {}),
+            ...(branchStart.resolveToLatestLeaf ? { resolveToLatestLeaf: true } : {}),
           }
         : skipToken
     )
   );
 
   const isHistoryLoading =
-    shouldLoadHistory && (historyQuery.isLoading || historyQuery.isFetching);
+    shouldLoadHistory && (branchQuery.isLoading || branchQuery.isFetching);
 
   React.useEffect(() => {
-    const historyData = historyQuery.data;
-    if (!historyData) return;
+    const data = branchQuery.data;
+    if (!data) return;
 
-    if (chat.messages.length > 0) return;
-
-    // API 返回倒序（最新在前），UI 展示通常需要正序（最早在前）
-    const chronological = [...historyData.messages]
-      .reverse()
-      .filter((msg): msg is UIMessage => msg.role !== "tool");
-    if (chronological.length > 0) {
-      chat.setMessages(chronological);
-      syncToolPartsFromMessages({ tabId, messages: chronological });
+    // 关键：API 已按正序返回（最早在前），可直接渲染
+    // - 首次加载：写入 messages
+    // - 后续刷新（例如重试/分支切换）：只更新分支元信息（siblingNav 等），避免覆盖流式消息内容
+    if (chat.messages.length === 0) {
+      const messages = (data.messages ?? []).filter((msg): msg is UIMessage => msg.role !== "tool");
+      chat.setMessages(messages);
+      syncToolPartsFromMessages({ tabId, messages });
+      // 应用历史后，滚动到最底部显示最新消息
+      setScrollToBottomToken((n) => n + 1);
     }
-    // 应用历史后，滚动到最底部显示最新消息
-    setScrollToBottomToken((n) => n + 1);
-  }, [historyQuery.data, chat.setMessages, tabId]);
+    setLeafMessageId(data.leafMessageId ?? null);
+    setBranchMessageIds(data.branchMessageIds ?? []);
+    setSiblingNav(data.siblingNav ?? {});
+  }, [branchQuery.data, chat.setMessages, tabId]);
+
+  // 关键：流式生成完成后，把 leafMessageId 移动到最新的“主 assistant”（排除 subAgent）
+  React.useEffect(() => {
+    const last = chat.messages[chat.messages.length - 1] as any;
+    if (!last) return;
+    if (last.role !== "assistant") return;
+    if (last?.metadata?.agent?.kind === "sub") return;
+    setLeafMessageId(String(last.id));
+  }, [chat.messages]);
+
+  const fetchBranchMeta = React.useCallback(
+    async ({
+      startMessageId,
+      resolveToLatestLeaf,
+    }: {
+      startMessageId: string;
+      resolveToLatestLeaf?: boolean;
+    }) => {
+      // 关键：只拉取分支链/导航信息；不覆盖当前流式 messages
+      const data = await queryClient.fetchQuery(
+        trpc.chat.getChatBranch.queryOptions({
+          sessionId,
+          take: 50,
+          startMessageId,
+          ...(resolveToLatestLeaf ? { resolveToLatestLeaf: true } : {}),
+        })
+      );
+      setLeafMessageId(data.leafMessageId ?? null);
+      setBranchMessageIds(data.branchMessageIds ?? []);
+      setSiblingNav(data.siblingNav ?? {});
+      // 关键：把当前“选中的 leaf”写入分支查询 key，避免后续 refetch 又回到默认分支
+      setBranchStart(
+        data.leafMessageId
+          ? { startMessageId: data.leafMessageId }
+          : { startMessageId }
+      );
+    },
+    [queryClient, sessionId]
+  );
+
+  const lastRefreshedLeafRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    // 关键：重试/生成结束后，需要刷新 siblingNav，否则 “< idx/total >” 要 F5 才会出现
+    if (chat.status !== "ready") return;
+    if (!leafMessageId) return;
+    if (lastRefreshedLeafRef.current === leafMessageId) return;
+    lastRefreshedLeafRef.current = leafMessageId;
+    fetchBranchMeta({ startMessageId: leafMessageId }).catch(() => {
+      // ignore（MVP：不打断主流程）
+    });
+  }, [chat.status, leafMessageId, fetchBranchMeta]);
 
   const updateMessage = React.useCallback(
     (id: string, updates: Partial<UIMessage>) => {
@@ -169,6 +259,11 @@ export default function ChatProvider({
     chat.stop();
     // 立即清空，避免 UI 闪回旧消息
     chat.setMessages([]);
+    setLeafMessageId(null);
+    setBranchMessageIds([]);
+    setSiblingNav({});
+    setBranchStart({});
+    lastRefreshedLeafRef.current = null;
     onSessionChange?.(generateId(), { loadHistory: false });
     // 新会话也滚动到底部（此时通常为空，属于安全操作）
     setScrollToBottomToken((n) => n + 1);
@@ -179,6 +274,11 @@ export default function ChatProvider({
       chat.stop();
       // 立即清空，避免 UI 闪回旧消息
       chat.setMessages([]);
+      setLeafMessageId(null);
+      setBranchMessageIds([]);
+      setSiblingNav({});
+      setBranchStart({});
+      lastRefreshedLeafRef.current = null;
       onSessionChange?.(nextSessionId, { loadHistory: true });
       // 先触发一次滚动：避免短暂显示在顶部；历史加载后还会再触发一次
       setScrollToBottomToken((n) => n + 1);
@@ -192,9 +292,103 @@ export default function ChatProvider({
   const sendMessage = React.useCallback(
     (...args: Parameters<typeof chat.sendMessage>) => {
       setScrollToBottomToken((n) => n + 1);
-      return chat.sendMessage(...args);
+      const [message, options] = args as any[];
+      if (!message) return (chat.sendMessage as any)(message, options);
+
+      // 关键：parentMessageId 是消息树的核心字段，必须挂在 UIMessage 顶层（不放 metadata）
+      const explicitParentMessageId =
+        typeof message?.parentMessageId === "string" || message?.parentMessageId === null
+          ? message.parentMessageId
+          : undefined;
+      // 关键：explicitParentMessageId 允许为 null（根节点），不能被 leafMessageId 覆盖
+      const parentMessageId =
+        explicitParentMessageId !== undefined ? explicitParentMessageId : leafMessageId ?? null;
+      const nextMessage =
+        message && typeof message === "object" && "text" in message
+          ? { parts: [{ type: "text", text: String((message as any).text ?? "") }], parentMessageId }
+          : { ...(message ?? {}), parentMessageId };
+
+      return (chat.sendMessage as any)(nextMessage, options);
     },
-    [chat.sendMessage]
+    [chat.sendMessage, leafMessageId]
+  );
+
+  const switchSibling = React.useCallback(
+    async (messageId: string, direction: "prev" | "next") => {
+      const nav = siblingNav?.[messageId];
+      if (!nav) return;
+      const targetId = direction === "prev" ? nav.prevSiblingId : nav.nextSiblingId;
+      if (!targetId) return;
+
+      chat.stop();
+
+      // 关键：左右切换只刷新该节点“往下”的最新叶子链，不清空整个消息列表
+      const currentBranchIndex = branchMessageIds.indexOf(messageId);
+      const prefixChainIds =
+        currentBranchIndex >= 0 ? branchMessageIds.slice(0, currentBranchIndex) : [];
+
+      const data = await queryClient.fetchQuery(
+        trpc.chat.getChatBranch.queryOptions({
+          sessionId,
+          take: 50,
+          startMessageId: targetId,
+          resolveToLatestLeaf: true,
+        })
+      );
+
+      const newBranchIds = data.branchMessageIds ?? [];
+      const targetIndexInNew = newBranchIds.indexOf(targetId);
+      const keepPrefixCount = targetIndexInNew >= 0 ? targetIndexInNew : prefixChainIds.length;
+      const keepPrefixIds = prefixChainIds.slice(0, keepPrefixCount);
+      const suffixChainIds = newBranchIds.slice(keepPrefixCount);
+
+      const keepPrefixSet = new Set(keepPrefixIds);
+      const suffixSet = new Set(suffixChainIds);
+
+      const currentMessages = chat.messages as any[];
+      const prefixMessages = currentMessages.filter((m: any) => {
+        const id = String(m?.id ?? "");
+        const pid =
+          (m as any)?.parentMessageId ??
+          (m as any)?.metadata?.parentMessageId;
+        return keepPrefixSet.has(id) || (typeof pid === "string" && keepPrefixSet.has(pid));
+      });
+
+      const incomingMessages = (data.messages ?? []).filter((m: any) => m?.role !== "tool");
+      const suffixMessages = incomingMessages.filter((m: any) => {
+        const id = String(m?.id ?? "");
+        const pid =
+          (m as any)?.parentMessageId ??
+          (m as any)?.metadata?.parentMessageId;
+        return suffixSet.has(id) || (typeof pid === "string" && suffixSet.has(pid));
+      });
+
+      const nextMessages = [...prefixMessages, ...suffixMessages] as UIMessage[];
+      chat.setMessages(nextMessages);
+
+      // 关键：同步 tool parts，避免残留旧分支的 tool 卡片
+      if (tabId) {
+        clearToolPartsForTab(tabId);
+        syncToolPartsFromMessages({ tabId, messages: nextMessages });
+      }
+
+      setLeafMessageId(data.leafMessageId ?? null);
+      setBranchMessageIds(newBranchIds);
+      setSiblingNav(data.siblingNav ?? {});
+      setBranchStart(data.leafMessageId ? { startMessageId: data.leafMessageId } : {});
+      setScrollToBottomToken((n) => n + 1);
+    },
+    [
+      siblingNav,
+      branchMessageIds,
+      chat.stop,
+      chat.messages,
+      chat.setMessages,
+      queryClient,
+      sessionId,
+      tabId,
+      clearToolPartsForTab,
+    ]
   );
 
   const stopGenerating = React.useCallback(() => {
@@ -225,6 +419,10 @@ export default function ChatProvider({
         updateMessage,
         tabId,
         sessionId,
+        leafMessageId,
+        branchMessageIds,
+        siblingNav,
+        switchSibling,
         stopGenerating,
       }}
     >

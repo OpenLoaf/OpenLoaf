@@ -1,12 +1,11 @@
 import { prisma } from "@teatime-ai/db";
 import { requestContextManager } from "@/context/requestContext";
-import type { AgentMode } from "@teatime-ai/api/common";
 import { ToolLoopAgent, stepCountIs } from "ai";
 import { deepseek } from "@ai-sdk/deepseek";
 import type { SubAgent } from "./SubAgent";
 import { BrowserSubAgent } from "./BrowserSubAgent";
 import { SubAgent as SubAgentBase } from "./SubAgent";
-import { browserReadonlyTools, browserTools } from "@/chat/tools/browser";
+import { browserTools } from "@/chat/tools/browser";
 import { dbTools } from "@/chat/tools/db";
 import { systemTools } from "@/chat/tools/system";
 
@@ -38,25 +37,15 @@ class DbSubAgent extends SubAgentBase {
   /**
    * 返回 subAgent 的系统提示词（DB 配置）。
    */
-  createSystemPrompt(_mode: AgentMode) {
+  createSystemPrompt() {
     return this.systemPrompt;
   }
 
   /**
    * 创建 subAgent（从 tool 池中按 toolKeys 精确挑选）。
    */
-  createAgent(mode: AgentMode) {
-    const basePool =
-      mode === "settings"
-        ? {
-            ...systemTools,
-            ...browserReadonlyTools,
-          }
-        : {
-            ...systemTools,
-            ...browserTools,
-            ...dbTools,
-          };
+  createAgent() {
+    const basePool = { ...systemTools, ...browserTools, ...dbTools };
     const tools: any = {};
     for (const key of this.toolKeys) {
       const tool = (basePool as any)?.[key];
@@ -65,7 +54,7 @@ class DbSubAgent extends SubAgentBase {
 
     return new ToolLoopAgent({
       model: deepseek("deepseek-chat"),
-      instructions: this.createSystemPrompt(mode),
+      instructions: this.createSystemPrompt(),
       tools,
       stopWhen: stepCountIs(this.maxSteps),
     });

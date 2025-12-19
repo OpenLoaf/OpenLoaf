@@ -1,5 +1,3 @@
-import type { Tab } from "@teatime-ai/api/common";
-import type { AgentMode } from "@teatime-ai/api/common";
 import type { UIMessageStreamWriter } from "ai";
 import { AsyncLocalStorage } from "node:async_hooks";
 
@@ -14,13 +12,13 @@ export type AgentFrame = {
 type RequestContext = {
   sessionId: string;
   cookies: Record<string, string>;
-  activeTab?: Tab;
   webClientId?: string;
   electronClientId?: string;
-  mode?: AgentMode;
   uiWriter?: UIMessageStreamWriter<any>;
   abortSignal?: AbortSignal;
   agentStack?: AgentFrame[];
+  // 当前 master assistant 的 messageId（用于 tools 落库挂父节点）
+  currentAssistantMessageId?: string;
 };
 
 class RequestContextManager {
@@ -36,75 +34,46 @@ class RequestContextManager {
     return RequestContextManager.instance;
   }
 
-  /**
-   * 创建请求上下文
-   */
+  /** 创建请求上下文（每次 SSE 请求都会调用一次） */
   createContext(context: RequestContext): void {
     this.storage.enterWith(context);
   }
 
-  /**
-   * 获取当前请求上下文
-   */
   getContext(): RequestContext | undefined {
     return this.storage.getStore();
   }
 
-  /**
-   * 获取当前会话ID
-   */
   getSessionId(): string | undefined {
     return this.getContext()?.sessionId;
   }
 
-  /**
-   * 获取当前请求的cookie
-   */
   getCookies(): Record<string, string> | undefined {
     return this.getContext()?.cookies;
   }
 
-  /**
-   * 获取指定cookie值
-   */
   getCookie(name: string): string | undefined {
     return this.getCookies()?.[name];
   }
 
+  /** 当前工作区（MVP：只从 cookie 读取） */
   getWorkspaceId(): string | undefined {
-    // 优先用前端传来的 activeTab（去耦历史持久化 key / cookie 依赖）
-    return this.getContext()?.activeTab?.workspaceId ?? this.getCookie("workspace-id");
+    return this.getCookie("workspace-id");
   }
 
-  /**
-   * 获取 webClientId（前端稳定标识，用于 runtime 调度/关联）。
-   */
   getWebClientId(): string | undefined {
     return this.getContext()?.webClientId;
   }
 
-  /**
-   * 获取 electronClientId（桌面端 runtime 标识；非 Electron 环境可能为空）。
-   */
   getElectronClientId(): string | undefined {
     return this.getContext()?.electronClientId;
   }
 
-  /**
-   * 获取当前请求的 agent mode
-   */
-  getAgentMode(): AgentMode | undefined {
-    return this.getContext()?.mode;
+  /** 兼容旧接口：activeTab 已移除，这里永远返回 undefined */
+  getTabsState(): { tabs: any[]; activeTabId: string | null } | undefined {
+    return undefined;
   }
 
-  // 仅保留“请求内上下文”中的 tabs（MVP：当前只需要 activeTab）
-  getTabsState(): { tabs: Tab[]; activeTabId: string | null } | undefined {
-    const activeTab = this.getContext()?.activeTab;
-    if (!activeTab) return undefined;
-    return { tabs: [activeTab], activeTabId: activeTab.id };
-  }
-
-  // 关键：Streaming Custom Data 需要 tools 里可拿到 writer 往前端推事件
+  /** tools 需要 writer 往前端推送 tool chunks */
   setUIWriter(writer: UIMessageStreamWriter<any>) {
     const ctx = this.getContext();
     if (!ctx) return;
@@ -115,24 +84,19 @@ class RequestContextManager {
     return this.getContext()?.uiWriter;
   }
 
-  /**
-   * 设置当前请求的 AbortSignal（用于 stop 时中断 tools 内部的长轮询/等待）。
-   */
+  /** stopGenerating 需要 AbortSignal 协作式中断 tools */
   setAbortSignal(signal: AbortSignal) {
     const ctx = this.getContext();
     if (!ctx) return;
     ctx.abortSignal = signal;
   }
 
-  /**
-   * 获取当前请求的 AbortSignal。
-   */
   getAbortSignal(): AbortSignal | undefined {
     return this.getContext()?.abortSignal;
   }
 
   // ======
-  // agent 栈（用于前端标识消息来源）
+  // agent 栈（用于给消息打来源标识）
   // ======
 
   getAgentStack(): AgentFrame[] {
@@ -155,6 +119,18 @@ class RequestContextManager {
     const stack = this.getAgentStack();
     return stack.pop();
   }
+
+  /** subAgent 输出需要挂到当前 master assistant 节点下 */
+  setCurrentAssistantMessageId(messageId: string) {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    ctx.currentAssistantMessageId = messageId;
+  }
+
+  getCurrentAssistantMessageId(): string | undefined {
+    return this.getContext()?.currentAssistantMessageId;
+  }
 }
 
 export const requestContextManager = RequestContextManager.getInstance();
+

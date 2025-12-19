@@ -21,7 +21,14 @@ model ChatSession {
 model ChatMessage {
   id                String            @id
   sessionId         String
-  previousMessageId String?
+  // 消息树：父消息 ID（根节点为 null）
+  parentMessageId   String?
+  // 节点层数（根为 0）
+  depth             Int
+  // sibling 序号（从 1 开始；每个 parentMessageId 维度独立递增）
+  index             Int
+  // 物化路径：用于子树查询与“最右叶子”选择（格式：00000001/00000002/...）
+  path              String
   role              MessageRole       @default(USER)
   meta              Json? /// @zod.optional()
   createdAt         DateTime          @default(now())
@@ -29,7 +36,10 @@ model ChatMessage {
   parts             ChatMessagePart[]
 
   @@index([sessionId, createdAt])
-  @@index([previousMessageId])
+  @@index([sessionId, depth, createdAt])
+  @@index([sessionId, parentMessageId, createdAt])
+  @@index([sessionId, parentMessageId, index])
+  @@index([sessionId, path])
   @@index([role])
 }
 
