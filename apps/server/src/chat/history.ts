@@ -222,6 +222,10 @@ export async function saveAndAppendMessage({
       } else {
         const role = toMessageRole(incomingMessage.role);
         const parts = normalizeParts(incomingMessage);
+        const agentId =
+          typeof (incomingMessage as any)?.metadata?.agent?.id === "string"
+            ? String((incomingMessage as any).metadata.agent.id)
+            : undefined;
 
         // 取上一条消息，用于串联 previousMessageId（便于追溯）。
         const previous = await tx.chatMessage.findFirst({
@@ -247,6 +251,7 @@ export async function saveAndAppendMessage({
                 return {
                   index,
                   type,
+                  agentId,
                   // 整个 part 作为 JSON 存起来，方便完整还原 UIMessage.parts
                   state: part as any,
                 };

@@ -2,9 +2,8 @@ import { createAgentUIStream, generateId, tool, zodSchema } from "ai";
 import type { UIMessage } from "ai";
 import { requestContextManager } from "@/context/requestContext";
 import { decideAgentMode } from "@teatime-ai/api/common";
-import { getSubAgent } from "@/chat/agents/sub/registry";
+import { getSubAgent } from "@/chat/agents/sub/SubAgentDbRegistry";
 import { saveAndAppendMessage } from "@/chat/history";
-import { setSubAgentToolRef } from "./globals";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 
 function agentMetadataFromStack() {
@@ -14,6 +13,7 @@ function agentMetadataFromStack() {
     agent: {
       kind: frame.kind,
       name: frame.name,
+      id: frame.agentId,
       depth: frame.path.length - 1,
       path: frame.path,
     },
@@ -31,22 +31,9 @@ export const subAgentTool = tool({
     if (!sessionId) throw new Error("sessionId is required.");
 
     const parent = requestContextManager.getCurrentAgentFrame();
-    const stack = requestContextManager.getAgentStack();
-
-    // 关键：递归/环检测（允许多重 subAgent，但不能无限递归）
-    if (stack.some((f) => f.name === name)) {
-      return { ok: false, error: { code: "RECURSION", message: "检测到 subAgent 递归调用。" } };
-    }
-
-    const maxDepth = parent?.maxDepth ?? 4;
-    if (stack.length >= maxDepth) {
-      return { ok: false, error: { code: "MAX_DEPTH", message: "subAgent 嵌套过深。" } };
-    }
-
-    if (parent && parent.allowedSubAgents.length > 0) {
-      if (!parent.allowedSubAgents.includes(name)) {
-        return { ok: false, error: { code: "NOT_ALLOWED", message: "当前 agent 不允许调用该 subAgent。" } };
-      }
+    // 关键：仅 master 允许调用 subAgent 工具，禁止 subAgent 内部再委派（避免嵌套与递归）。
+    if (!parent || parent.kind !== "master") {
+      return { ok: false, error: { code: "NOT_ALLOWED", message: "仅 master agent 允许调用 subAgent。" } };
     }
 
     const sub = await getSubAgent(name);
@@ -124,7 +111,7 @@ export const subAgentTool = tool({
       // 关键：等待 subAgent 完整输出结束，才允许主 agent 继续运行
       await streamFinished;
 
-      return { ok: true, data: { name: sub.name } };
+      return { ok: true, data: { name: sub.name, agentId: sub.agentId } };
     } catch (error) {
       // 关键：如果 stream 在创建/merge 阶段失败，onFinish 不会触发，需要手动清理 agent 栈
       if (!finishCalled) {
@@ -138,6 +125,3 @@ export const subAgentTool = tool({
     }
   },
 });
-
-// 关键：把 tool 暴露给 DB subAgent 装配（通过 globals 引用，避免循环依赖）
-setSubAgentToolRef(subAgentTool);

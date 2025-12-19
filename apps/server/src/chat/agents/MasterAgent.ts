@@ -12,7 +12,7 @@ import { open } from "fs";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 
 const MASTER_AGENT_NAME = "master";
-const MASTER_MAX_DEPTH = 4;
+const MASTER_AGENT_ID = "master";
 
 function createMasterTools(mode: AgentMode) {
   // 关键：通过“只暴露允许的 tools”做权限边界（MVP）
@@ -70,14 +70,12 @@ export class MasterAgent {
     });
   }
 
-  // 关键：用于 subAgent 递归检测与前端标识
+  // 关键：用于前端标识该条消息由 master 生成
   createFrame(): AgentFrame {
     return {
       kind: "master",
       name: MASTER_AGENT_NAME,
-      // 关键：master 默认允许调用任意 subAgent（找不到会由 subAgentTool 返回 NOT_FOUND）
-      allowedSubAgents: [],
-      maxDepth: MASTER_MAX_DEPTH,
+      agentId: MASTER_AGENT_ID,
       path: [MASTER_AGENT_NAME],
     };
   }

@@ -3,21 +3,19 @@ import { ToolLoopAgent } from "ai";
 import type { AgentMode } from "@teatime-ai/api/common";
 import { browserReadonlyTools, browserTools } from "@/chat/tools/browser";
 import { systemTools } from "@/chat/tools/system";
-import { subAgentTool } from "@/chat/tools/subAgent";
-import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import { SubAgent } from "./SubAgent";
 
 export class BrowserSubAgent extends SubAgent {
   readonly name = "browser";
+  readonly agentId = "browser";
 
   /**
    * 根据模式（正常/设置页）返回可用工具集合。
    */
   createTools(mode: AgentMode) {
     return {
-      ...browserTools,
+      ...(mode === "settings" ? browserReadonlyTools : browserTools),
       ...systemTools,
-      [subAgentToolDef.id]: subAgentTool,
     };
   }
 

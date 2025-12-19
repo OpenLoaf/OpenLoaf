@@ -6,8 +6,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 export type AgentFrame = {
   kind: "master" | "sub";
   name: string;
-  allowedSubAgents: string[];
-  maxDepth: number;
+  /** agent 唯一标识（用于落库与追溯） */
+  agentId: string;
   path: string[];
 };
 
@@ -132,7 +132,7 @@ class RequestContextManager {
   }
 
   // ======
-  // agent 栈（用于 subAgent 递归检测、前端标识）
+  // agent 栈（用于前端标识消息来源）
   // ======
 
   getAgentStack(): AgentFrame[] {

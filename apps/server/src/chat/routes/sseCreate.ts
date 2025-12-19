@@ -266,6 +266,7 @@ export function registerChatSseCreateRoute(app: Hono) {
                   agent: {
                     kind: frame.kind,
                     name: frame.name,
+                    id: frame.agentId,
                     depth: frame.path.length - 1,
                     path: frame.path,
                   },

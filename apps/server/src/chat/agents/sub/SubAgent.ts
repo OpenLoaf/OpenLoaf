@@ -1,16 +1,10 @@
 import type { AgentMode } from "@teatime-ai/api/common";
 import type { AgentFrame } from "@/context/requestContext";
 
-export const DEFAULT_SUBAGENT_MAX_DEPTH = 4;
-
 export abstract class SubAgent {
   abstract readonly name: string;
-
-  // 允许在该 subAgent 内继续委派的 subAgent 列表
-  allowedSubAgents: string[] = [];
-
-  // 最大嵌套深度（从 master 开始算）
-  maxDepth = DEFAULT_SUBAGENT_MAX_DEPTH;
+  /** subAgent 唯一标识（用于落库与追溯） */
+  abstract readonly agentId: string;
 
   abstract createSystemPrompt(mode: AgentMode): string;
   // 关键：MVP 只要求可运行即可，避免被泛型类型限制
@@ -21,8 +15,7 @@ export abstract class SubAgent {
     return {
       kind: "sub",
       name: this.name,
-      allowedSubAgents: this.allowedSubAgents,
-      maxDepth: this.maxDepth,
+      agentId: this.agentId,
       path: [...parentPath, this.name],
     };
   }
