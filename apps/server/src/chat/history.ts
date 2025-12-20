@@ -11,6 +11,7 @@ type AnyUIMessage = UIMessage<any, any, any>;
 const MAX_SESSION_TITLE_CHARS = 16;
 const DEFAULT_BRANCH_TAKE = 50;
 const PATH_SEGMENT_WIDTH = 8;
+const REDUNDANT_METADATA_KEYS = ["parentMessageId", "depth", "totalUsage"] as const;
 
 /** UIMessage.role -> DB enum */
 function toMessageRole(role: AnyUIMessage["role"]): MessageRoleType {
@@ -71,16 +72,47 @@ function extractUserText(message: AnyUIMessage): string {
 }
 
 /**
+ * 从 UIMessage.metadata 中提取 totalUsage（用于单独列存储）
+ * - 只做结构透传，不做强校验（MVP）
+ */
+function extractTotalUsage(message: AnyUIMessage): unknown | null {
+  const usage = (message as any)?.metadata?.totalUsage;
+  return usage === undefined ? null : usage;
+}
+
+/** 移除 metadata 中的冗余字段（parent/depth/totalUsage 等） */
+function stripRedundantMetadata(metadata: unknown): Record<string, unknown> | undefined {
+  if (!metadata || typeof metadata !== "object") return undefined;
+  const raw = metadata as Record<string, unknown>;
+  const next: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if ((REDUNDANT_METADATA_KEYS as readonly string[]).includes(k)) continue;
+    next[k] = v;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+/**
  * 规范化待写入 DB 的 UIMessage：
  * - 确保 parts 为数组
  * - 过滤掉不应持久化的 part
+ * - 去掉冗余字段：id/parentMessageId/depth/totalUsage 等
  */
-function normalizeUiMessageForDb(message: AnyUIMessage): AnyUIMessage {
+function normalizeUiMessageForDb(
+  message: AnyUIMessage,
+): { uiMessageJson: Record<string, unknown>; totalUsage: unknown | null } {
   const normalizedParts = normalizeParts(message);
+  const totalUsage = extractTotalUsage(message);
+  const metadata = stripRedundantMetadata((message as any)?.metadata);
+
+  // 关键：uiMessageJson 只保存“渲染快照”，消息树信息以列为准（避免冗余/不一致）
   return {
-    ...(message as any),
-    parts: normalizedParts as any,
-  } as AnyUIMessage;
+    totalUsage,
+    uiMessageJson: {
+      parts: normalizedParts as any,
+      ...(metadata ? { metadata } : {}),
+    },
+  };
 }
 
 /**
@@ -252,7 +284,11 @@ export async function saveChatMessageNode({
 
       const role = toMessageRole(message.role);
       const normalized = normalizeUiMessageForDb(message);
-      if (!allowEmpty && role !== MessageRoleEnum.USER && !hasRenderableParts(normalized)) {
+      if (
+        !allowEmpty &&
+        role !== MessageRoleEnum.USER &&
+        !hasRenderableParts({ ...(message as any), parts: normalized.uiMessageJson.parts } as any)
+      ) {
         // 关键：空 assistant/system/tool 没有渲染价值，也不应成为 leaf
         return {
           id: existing.id,
@@ -267,7 +303,8 @@ export async function saveChatMessageNode({
         where: { id: existing.id },
         data: {
           role,
-          uiMessageJson: normalized as any,
+          totalUsage: normalized.totalUsage as any,
+          uiMessageJson: normalized.uiMessageJson as any,
         },
       });
 
@@ -287,7 +324,11 @@ export async function saveChatMessageNode({
     const { depth, path } = computeNodePosition({ index: siblingIndex, parent });
     const role = toMessageRole(message.role);
     const normalized = normalizeUiMessageForDb(message);
-    if (!allowEmpty && role !== MessageRoleEnum.USER && !hasRenderableParts(normalized)) {
+    if (
+      !allowEmpty &&
+      role !== MessageRoleEnum.USER &&
+      !hasRenderableParts({ ...(message as any), parts: normalized.uiMessageJson.parts } as any)
+    ) {
       // 关键：空 assistant/system/tool 直接跳过落库（避免默认分支选中空消息）
       return { id: message.id, parentMessageId: parentId, depth, siblingIndex, path };
     }
@@ -301,13 +342,14 @@ export async function saveChatMessageNode({
         siblingIndex,
         path,
         role,
-        uiMessageJson: normalized as any,
+        totalUsage: normalized.totalUsage as any,
+        uiMessageJson: normalized.uiMessageJson as any,
       },
     });
 
     // 关键：首条用户消息作为标题（MVP）
     if (!parent && role === MessageRoleEnum.USER) {
-      const title = normalizeTitle(extractUserText(normalized));
+      const title = normalizeTitle(extractUserText({ ...(message as any), parts: normalized.uiMessageJson.parts } as any));
       if (title) {
         await tx.chatSession.update({
           where: { id: sessionId },
@@ -362,7 +404,6 @@ export async function loadBranchMessages({
     if (!row) continue;
     const raw = (row.uiMessageJson as any) ?? {};
     const message: AnyUIMessage = {
-      ...(raw as any),
       id: row.id,
       role: fromMessageRole(row.role as any),
       parts: (Array.isArray(raw?.parts) ? raw.parts : []) as any,

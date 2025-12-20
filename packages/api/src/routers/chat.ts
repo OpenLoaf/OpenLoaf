@@ -281,6 +281,7 @@ export const chatRouter = t.router({
             parentMessageId: true,
             role: true,
             uiMessageJson: true,
+            totalUsage: true,
           },
         });
         if (!row || row.sessionId !== input.sessionId) break;
@@ -307,6 +308,7 @@ export const chatRouter = t.router({
           parentMessageId: true,
           role: true,
           uiMessageJson: true,
+          totalUsage: true,
         },
       });
       // 关键：只回放 subAgent 输出，避免把 sibling/分支内容混进当前链导致重复显示
@@ -355,7 +357,10 @@ export const chatRouter = t.router({
             role: mapDbRoleToUiRole(r.role),
             parentMessageId: r.parentMessageId ?? null,
             parts,
-            metadata: raw?.metadata ?? undefined,
+            metadata: {
+              ...(raw?.metadata ?? {}),
+              ...(r.totalUsage ? { totalUsage: r.totalUsage } : {}),
+            },
           });
         };
 

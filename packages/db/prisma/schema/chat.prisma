@@ -28,6 +28,9 @@ model ChatMessage {
   // 物化路径：用于子树查询与“最右叶子”选择（格式：00000001/00000002/...）
   path            String
   role            MessageRole @default(USER)
+  // AI 用量统计（从 UIMessage.metadata.totalUsage 剥离出来）
+  // - 只用于历史展示/统计，不参与消息树逻辑
+  totalUsage      Json? /// @zod.optional()
   // 完整 UIMessage（兼容 ai-sdk v6 / @ai-sdk/react）
   // - 只存一条消息（含 parts/metadata）
   // - parentMessageId 以列为准；UIMessage 内若有同名字段仅作冗余
