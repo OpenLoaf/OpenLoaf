@@ -39,7 +39,6 @@ try {
 const wipeSql = [
   "PRAGMA foreign_keys=OFF;",
   "BEGIN;",
-  "DELETE FROM ChatMessagePart;",
   "DELETE FROM ChatMessage;",
   "DELETE FROM ChatSession;",
   "DELETE FROM PageChatSession;",

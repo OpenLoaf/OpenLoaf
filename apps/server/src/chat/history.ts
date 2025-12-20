@@ -47,7 +47,10 @@ function isSkippablePart(part: unknown): boolean {
   return (part as any).type === "step-start";
 }
 
-/** parts 直接保存/还原，但会过滤掉不应持久化的 part */
+/**
+ * 标准化 UIMessage.parts：
+ * - 过滤掉不应持久化的 part（例如 step-start）
+ */
 function normalizeParts(message: AnyUIMessage): AnyUIMessage["parts"] {
   const parts = Array.isArray(message.parts) ? message.parts : [];
   return parts.filter((part) => !isSkippablePart(part));
@@ -65,6 +68,29 @@ function extractUserText(message: AnyUIMessage): string {
     if (typeof part.text === "string") chunks.push(part.text);
   }
   return chunks.join("\n").trim();
+}
+
+/**
+ * 规范化待写入 DB 的 UIMessage：
+ * - 确保 parts 为数组
+ * - 过滤掉不应持久化的 part
+ */
+function normalizeUiMessageForDb(message: AnyUIMessage): AnyUIMessage {
+  const normalizedParts = normalizeParts(message);
+  return {
+    ...(message as any),
+    parts: normalizedParts as any,
+  } as AnyUIMessage;
+}
+
+/**
+ * 判断一条消息是否有可渲染内容（用于跳过“空 assistant”）
+ * - USER 允许只存 text part
+ * - ASSISTANT/SYSTEM/TOOL 如果 parts 为空，则直接跳过落库/回放
+ */
+function hasRenderableParts(message: AnyUIMessage): boolean {
+  const parts = Array.isArray(message.parts) ? message.parts : [];
+  return parts.length > 0;
 }
 
 function normalizeTitle(raw: string): string {
@@ -117,9 +143,9 @@ async function getNextSiblingIndex(
 ): Promise<number> {
   const agg = await tx.chatMessage.aggregate({
     where: { sessionId, parentMessageId: parentMessageId ?? null },
-    _max: { index: true },
+    _max: { siblingIndex: true },
   });
-  return (agg._max.index ?? 0) + 1;
+  return (agg._max.siblingIndex ?? 0) + 1;
 }
 
 /** 计算新节点的 depth/index/path */
@@ -140,7 +166,7 @@ type SavedChatMessageNode = {
   id: string;
   parentMessageId: string | null;
   depth: number;
-  index: number;
+  siblingIndex: number;
   path: string;
 };
 
@@ -162,7 +188,7 @@ export async function requireExistingChatMessageNode({
       sessionId: true,
       parentMessageId: true,
       depth: true,
-      index: true,
+      siblingIndex: true,
       path: true,
       role: true,
     },
@@ -174,21 +200,10 @@ export async function requireExistingChatMessageNode({
     id: row.id,
     parentMessageId: row.parentMessageId ?? null,
     depth: row.depth,
-    index: row.index,
+    siblingIndex: row.siblingIndex,
     path: row.path,
     role: row.role,
   };
-}
-
-function extractAgentId(message: AnyUIMessage): string | undefined {
-  const id = (message as any)?.metadata?.agent?.id;
-  return typeof id === "string" && id ? id : undefined;
-}
-
-function toUserParts(userText: string | null | undefined) {
-  const text = (userText ?? "").trim();
-  if (!text) return [];
-  return [{ type: "text", text }];
 }
 
 /**
@@ -200,10 +215,13 @@ export async function saveChatMessageNode({
   sessionId,
   message,
   parentMessageId,
+  allowEmpty,
 }: {
   sessionId: string;
   message: AnyUIMessage;
   parentMessageId?: string | null;
+  /** 是否允许保存空消息（用于“占位 assistant”父节点） */
+  allowEmpty?: boolean;
 }): Promise<SavedChatMessageNode> {
   if (!message?.id) throw new Error("message.id is required.");
   const parentId = parentMessageId ?? null;
@@ -218,7 +236,7 @@ export async function saveChatMessageNode({
         sessionId: true,
         parentMessageId: true,
         depth: true,
-        index: true,
+        siblingIndex: true,
         path: true,
       },
     });
@@ -233,43 +251,31 @@ export async function saveChatMessageNode({
       }
 
       const role = toMessageRole(message.role);
-      const agentId = extractAgentId(message);
-
-      if (role === MessageRoleEnum.USER) {
-        // 关键：用户消息只存 userText，不再存 parts（避免存一整坨 JSON）
-        const userText = extractUserText(message);
-        await tx.chatMessage.update({
-          where: { id: existing.id },
-          data: {
-            role,
-            userText,
-            agentId: null,
-            meta: message.metadata ?? undefined,
-            parts: { deleteMany: {} },
-          },
-        });
-      } else {
-        const parts = normalizeParts(message);
-        await tx.chatMessage.update({
-          where: { id: existing.id },
-          data: {
-            role,
-            userText: null,
-            agentId,
-            meta: message.metadata ?? undefined,
-            parts: {
-              deleteMany: {},
-              create: parts.map((part, index) => ({ index, state: part as any })),
-            },
-          },
-        });
+      const normalized = normalizeUiMessageForDb(message);
+      if (!allowEmpty && role !== MessageRoleEnum.USER && !hasRenderableParts(normalized)) {
+        // 关键：空 assistant/system/tool 没有渲染价值，也不应成为 leaf
+        return {
+          id: existing.id,
+          parentMessageId: existingParentId,
+          depth: existing.depth,
+          siblingIndex: existing.siblingIndex,
+          path: existing.path,
+        };
       }
+
+      await tx.chatMessage.update({
+        where: { id: existing.id },
+        data: {
+          role,
+          uiMessageJson: normalized as any,
+        },
+      });
 
       return {
         id: existing.id,
         parentMessageId: existingParentId,
         depth: existing.depth,
-        index: existing.index,
+        siblingIndex: existing.siblingIndex,
         path: existing.path,
       };
     }
@@ -277,12 +283,14 @@ export async function saveChatMessageNode({
     const parent = parentId ? await getParentNode(tx, sessionId, parentId) : null;
     if (parentId && !parent) throw new Error("parentMessageId not found in this session.");
 
-    const index = await getNextSiblingIndex(tx, sessionId, parentId);
-    const { depth, path } = computeNodePosition({ index, parent });
+    const siblingIndex = await getNextSiblingIndex(tx, sessionId, parentId);
+    const { depth, path } = computeNodePosition({ index: siblingIndex, parent });
     const role = toMessageRole(message.role);
-    const agentId = extractAgentId(message);
-    const userText = role === MessageRoleEnum.USER ? extractUserText(message) : null;
-    const parts = role === MessageRoleEnum.USER ? [] : normalizeParts(message);
+    const normalized = normalizeUiMessageForDb(message);
+    if (!allowEmpty && role !== MessageRoleEnum.USER && !hasRenderableParts(normalized)) {
+      // 关键：空 assistant/system/tool 直接跳过落库（避免默认分支选中空消息）
+      return { id: message.id, parentMessageId: parentId, depth, siblingIndex, path };
+    }
 
     await tx.chatMessage.create({
       data: {
@@ -290,21 +298,16 @@ export async function saveChatMessageNode({
         sessionId,
         parentMessageId: parentId,
         depth,
-        index,
+        siblingIndex,
         path,
         role,
-        userText,
-        agentId: role === MessageRoleEnum.USER ? null : agentId,
-        meta: message.metadata ?? undefined,
-        parts: {
-          create: parts.map((part, index) => ({ index, state: part as any })),
-        },
+        uiMessageJson: normalized as any,
       },
     });
 
     // 关键：首条用户消息作为标题（MVP）
     if (!parent && role === MessageRoleEnum.USER) {
-      const title = userText ? normalizeTitle(userText) : "";
+      const title = normalizeTitle(extractUserText(normalized));
       if (title) {
         await tx.chatSession.update({
           where: { id: sessionId },
@@ -313,14 +316,10 @@ export async function saveChatMessageNode({
       }
     }
 
-    return { id: message.id, parentMessageId: parentId, depth, index, path };
+    return { id: message.id, parentMessageId: parentId, depth, siblingIndex, path };
   });
 }
 
-/**
- * 查询某个节点子树内的最新叶子（用于“切换 sibling 后自动跳到该分支的最新链”）
- * - 依赖 ChatMessage.path（物化路径）
- */
 /**
  * 读取某个 leaf 的祖先链（用于渲染与发给 LLM）
  * - 返回按时间顺序（root -> leaf）
@@ -341,8 +340,8 @@ export async function loadBranchMessages({
   for (let i = 0; i < take && currentId; i += 1) {
     const row: { id: string; sessionId: string; parentMessageId: string | null } | null =
       await prisma.chatMessage.findUnique({
-      where: { id: currentId },
-      select: { id: true, sessionId: true, parentMessageId: true },
+        where: { id: currentId },
+        select: { id: true, sessionId: true, parentMessageId: true },
       });
     if (!row || row.sessionId !== sessionId) break;
     chain.push(row.id);
@@ -353,7 +352,7 @@ export async function loadBranchMessages({
 
   const rows = await prisma.chatMessage.findMany({
     where: { id: { in: slice } },
-    include: { parts: { orderBy: { index: "asc" } } },
+    select: { id: true, role: true, uiMessageJson: true },
   });
   const byId = new Map(rows.map((r) => [r.id, r]));
 
@@ -361,18 +360,16 @@ export async function loadBranchMessages({
   for (const id of slice) {
     const row = byId.get(id);
     if (!row) continue;
-    const parts =
-      row.role === MessageRoleEnum.USER
-        ? toUserParts((row as any).userText)
-        : (row.parts.map((p: any) => p.state) as any[]);
-    if (parts.length === 0) continue;
-
-    messages.push({
+    const raw = (row.uiMessageJson as any) ?? {};
+    const message: AnyUIMessage = {
+      ...(raw as any),
       id: row.id,
-      role: fromMessageRole(row.role),
-      metadata: (row.meta as any) ?? undefined,
-      parts: parts as AnyUIMessage["parts"],
-    });
+      role: fromMessageRole(row.role as any),
+      parts: (Array.isArray(raw?.parts) ? raw.parts : []) as any,
+      metadata: raw?.metadata ?? undefined,
+    };
+    if (!hasRenderableParts(message)) continue;
+    messages.push(message);
   }
 
   return messages;

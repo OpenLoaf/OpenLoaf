@@ -53,18 +53,23 @@ async function resolveLatestLeafId({
   });
   if (!start || start.sessionId !== sessionId) return null;
 
-  const leaf = await prisma.chatMessage.findFirst({
+  // 说明：占位 assistant 会落库（用于 subAgent 挂载），但它没有 parts，不应作为 leaf。
+  // Prisma/SQLite 对 JSON path 过滤支持有限，这里用“按 path 倒序取一批候选 + JS 过滤”实现。
+  const candidates = await prisma.chatMessage.findMany({
     where: {
       sessionId,
       path: { startsWith: start.path },
-      // 关键：跳过“占位 assistant”（无 parts），避免默认分支选中空消息
-      OR: [{ role: "USER" }, { parts: { some: {} } }],
     },
-    // 关键：path 为 index 片段，按 path 倒序即可得到“最右叶子”
     orderBy: [{ path: "desc" }],
-    select: { id: true },
+    take: 50,
+    select: { id: true, role: true, uiMessageJson: true },
   });
-  return leaf?.id ?? null;
+  for (const row of candidates) {
+    if (row.role === "USER") return row.id;
+    const parts = (row.uiMessageJson as any)?.parts;
+    if (Array.isArray(parts) && parts.length > 0) return row.id;
+  }
+  return null;
 }
 
 /** 查询整个会话的“最右叶子”（默认选中分支） */
@@ -75,21 +80,20 @@ async function resolveSessionRightmostLeafId({
   prisma: any;
   sessionId: string;
 }): Promise<string | null> {
-  const leaf = await prisma.chatMessage.findFirst({
+  const candidates = await prisma.chatMessage.findMany({
     where: {
       sessionId,
-      OR: [{ role: "USER" }, { parts: { some: {} } }],
     },
     orderBy: [{ path: "desc" }],
-    select: { id: true },
+    take: 50,
+    select: { id: true, role: true, uiMessageJson: true },
   });
-  return leaf?.id ?? null;
-}
-
-function toUserParts(userText: string | null | undefined) {
-  const text = (userText ?? "").trim();
-  if (!text) return [];
-  return [{ type: "text", text }];
+  for (const row of candidates) {
+    if (row.role === "USER") return row.id;
+    const parts = (row.uiMessageJson as any)?.parts;
+    if (Array.isArray(parts) && parts.length > 0) return row.id;
+  }
+  return null;
 }
 
 /** 计算当前消息在 siblings（同 parent）里的 prev/next（按 index 顺序） */
@@ -134,7 +138,7 @@ async function buildSiblingNavByMessageId({
       sessionId,
       OR: or,
     },
-    orderBy: [{ parentMessageId: "asc" }, { index: "asc" }, { id: "asc" }],
+    orderBy: [{ parentMessageId: "asc" }, { siblingIndex: "asc" }, { id: "asc" }],
     select: { id: true, parentMessageId: true },
   });
 
@@ -271,7 +275,13 @@ export const chatRouter = t.router({
       for (let i = 0; i < take && currentId; i += 1) {
         const row: any = await ctx.prisma.chatMessage.findUnique({
           where: { id: currentId },
-          include: { parts: { orderBy: { index: "asc" } } },
+          select: {
+            id: true,
+            sessionId: true,
+            parentMessageId: true,
+            role: true,
+            uiMessageJson: true,
+          },
         });
         if (!row || row.sessionId !== input.sessionId) break;
         chainRows.push(row);
@@ -292,11 +302,16 @@ export const chatRouter = t.router({
           id: { notIn: branchMessageIds },
         },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        include: { parts: { orderBy: { index: "asc" } } },
+        select: {
+          id: true,
+          parentMessageId: true,
+          role: true,
+          uiMessageJson: true,
+        },
       });
       // 关键：只回放 subAgent 输出，避免把 sibling/分支内容混进当前链导致重复显示
       const filteredChildrenRows = childrenRows.filter(
-        (r: any) => r?.meta && (r.meta as any)?.agent?.kind === "sub",
+        (r: any) => (r?.uiMessageJson as any)?.metadata?.agent?.kind === "sub",
       );
       const childrenByParentId = new Map<string, any[]>();
       for (const row of filteredChildrenRows) {
@@ -331,8 +346,8 @@ export const chatRouter = t.router({
         const row = byId.get(id);
         if (!row) continue;
         const pushRow = (r: any) => {
-          const parts =
-            r.role === "USER" ? toUserParts(r.userText) : r.parts.map((p: any) => p.state);
+          const raw = (r.uiMessageJson as any) ?? {};
+          const parts = Array.isArray(raw?.parts) ? raw.parts : [];
           // 关键：占位 assistant 没有任何内容，不应该被返回给前端渲染
           if (!parts || parts.length === 0) return;
           messages.push({
@@ -340,7 +355,7 @@ export const chatRouter = t.router({
             role: mapDbRoleToUiRole(r.role),
             parentMessageId: r.parentMessageId ?? null,
             parts,
-            metadata: r.meta ?? undefined,
+            metadata: raw?.metadata ?? undefined,
           });
         };
 

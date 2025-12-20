@@ -155,8 +155,10 @@ export function registerChatSseCreateRoute(app: Hono) {
         metadata: {
           parentMessageId: userNode.id,
         },
+        parentMessageId: userNode.id,
       } as any,
       parentMessageId: userNode.id,
+      allowEmpty: true,
     });
 
     // 关键：支持“用户手动停止生成”而不影响断线续传（resume）。
@@ -191,10 +193,14 @@ export function registerChatSseCreateRoute(app: Hono) {
               },
             }
           : responseMessage;
+        const messageToSaveWithParent = {
+          ...(messageToSave as any),
+          parentMessageId: userNode.id,
+        } as UIMessage;
       
         await saveChatMessageNode({
           sessionId,
-          message: messageToSave as any,
+          message: messageToSaveWithParent as any,
           parentMessageId: userNode.id,
         });
       },

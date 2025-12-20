@@ -109,7 +109,7 @@ export const subAgentTool = tool({
             if (!parentMessageId) throw new Error("parentMessageId is required.");
             await saveChatMessageNode({
               sessionId,
-              message: messageToSave as any,
+              message: { ...(messageToSave as any), parentMessageId } as any,
               parentMessageId,
             });
           } finally {

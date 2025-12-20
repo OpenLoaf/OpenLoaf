@@ -1,9 +1,6 @@
 model ChatSession {
   id           String        @id
   title        String        @default("新对话") /// @zod.min(1)
-  agents       Json? /// @zod.optional()
-  systemPrompt String? /// @zod.optional()
-  contextId    String? /// @zod.optional()
   isUserRename Boolean       @default(false)
   isPin        Boolean       @default(false)
   createdAt    DateTime      @default(now())
@@ -16,50 +13,35 @@ model ChatSession {
 
   @@index([deletedAt])
   @@index([deletedAt, createdAt])
+  @@index([isPin, updatedAt])
 }
 
 model ChatMessage {
-  id                String            @id
-  sessionId         String
+  id              String      @id
+  sessionId       String
   // 消息树：父消息 ID（根节点为 null）
-  parentMessageId   String?
+  parentMessageId String?
   // 节点层数（根为 0）
-  depth             Int
+  depth           Int
   // sibling 序号（从 1 开始；每个 parentMessageId 维度独立递增）
-  index             Int
+  siblingIndex    Int
   // 物化路径：用于子树查询与“最右叶子”选择（格式：00000001/00000002/...）
-  path              String
-  role              MessageRole       @default(USER)
-  // 用户输入内容（仅 USER 角色使用；assistant/tool/system 为空）
-  userText          String? /// @zod.optional()
-  // 预留：上传/引用资源（MVP 暂不使用）
-  resources         Json? /// @zod.optional()
-  // 产出该消息的 agentId（仅 assistant/tool/system 可能使用；USER 为空）
-  agentId           String? /// @zod.optional()
-  meta              Json? /// @zod.optional()
-  createdAt         DateTime          @default(now())
-  session           ChatSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  parts             ChatMessagePart[]
+  path            String
+  role            MessageRole @default(USER)
+  // 完整 UIMessage（兼容 ai-sdk v6 / @ai-sdk/react）
+  // - 只存一条消息（含 parts/metadata）
+  // - parentMessageId 以列为准；UIMessage 内若有同名字段仅作冗余
+  uiMessageJson   Json
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  session         ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, createdAt])
   @@index([sessionId, depth, createdAt])
   @@index([sessionId, parentMessageId, createdAt])
-  @@index([sessionId, parentMessageId, index])
+  @@index([sessionId, parentMessageId, siblingIndex])
   @@index([sessionId, path])
-  @@index([agentId])
   @@index([role])
-}
-
-model ChatMessagePart {
-  id        String      @id @default(cuid())
-  messageId String
-  index     Int
-  // 统一把 UIMessage.parts 原始对象存进 state（包含 type/状态/工具输出等）
-  state     Json
-  createdAt DateTime    @default(now())
-  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-
-  @@index([messageId, index])
 }
 
 enum MessageRole {
