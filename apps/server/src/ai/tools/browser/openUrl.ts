@@ -1,9 +1,9 @@
 import { tool, zodSchema } from "ai";
 import { requireTabId } from "@/shared/tabContext";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
-import { getAppId } from "@/shared/requestContext";
+import { getAppId, getWorkspaceId } from "@/shared/requestContext";
 import { runtimeHub } from "@/modules/runtime/infrastructure/ws/runtimeHub";
-import { registerPageTarget, updatePageTargetRuntimeInfo } from "./pageTargets";
+import { browserSessionRegistry } from "@/modules/browser/infrastructure/memory/browserSessionRegistryMemory";
 
 // ==========
 // MVP：浏览器能力（通过 UI 事件驱动前端打开 BrowserWindow）
@@ -21,6 +21,8 @@ export const openUrlTool = tool({
   description: openUrlToolDef.description,
   inputSchema: zodSchema(openUrlToolDef.parameters),
   execute: async ({ url, title, pageTargetId }) => {
+    const workspaceId = getWorkspaceId();
+    if (!workspaceId) throw new Error("workspaceId is required.");
     const tabId = requireTabId();
     const normalizedUrl = normalizeUrl(url);
 
@@ -35,8 +37,9 @@ export const openUrlTool = tool({
     }
 
     // 统一走 “server 调度 -> runtime 执行 -> IPC 触发 UI” 的一段式流程。
-    registerPageTarget({
+    browserSessionRegistry.register({
       pageTargetId,
+      workspaceId,
       tabId,
       url: normalizedUrl,
       backend: "electron",
@@ -55,7 +58,7 @@ export const openUrlTool = tool({
       throw new Error("open-url 失败：runtime 未返回 cdpTargetId。");
     }
 
-    updatePageTargetRuntimeInfo(pageTargetId, {
+    browserSessionRegistry.updateRuntimeInfo(pageTargetId, {
       backend: "electron",
       appId,
       cdpTargetId: result.cdpTargetId,

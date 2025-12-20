@@ -7,7 +7,7 @@ import {
   playwrightVerifyToolDef,
   playwrightWaitToolDef,
 } from "@teatime-ai/api/types/tools/playwright";
-import { updatePageTargetUrl } from "../pageTargets";
+import { browserSessionRegistry } from "@/modules/browser/infrastructure/memory/browserSessionRegistryMemory";
 import { requireActiveTabPageTarget } from "./guards";
 import { getOrCreateConsoleStore, getOrCreateNetworkStore } from "./stores";
 import { truncateText } from "./text";
@@ -140,7 +140,7 @@ export const playwrightSnapshotTool = tool({
       // 顺带刷新内存态 URL（用于后续 attach 的 URL rule，不作为匹配兜底）。
       try {
         const nextUrl = typeof page?.url === "function" ? page.url() : undefined;
-        if (nextUrl) updatePageTargetUrl(pageTargetId, nextUrl);
+        if (nextUrl) browserSessionRegistry.updateUrl(pageTargetId, nextUrl);
       } catch {
         // ignore
       }
@@ -210,7 +210,7 @@ export const playwrightActTool = tool({
       }
 
       const postUrl = typeof page?.url === "function" ? page.url() : undefined;
-      if (postUrl) updatePageTargetUrl(pageTargetId, postUrl);
+      if (postUrl) browserSessionRegistry.updateUrl(pageTargetId, postUrl);
       return { acted: true, action, used: "selector", selector: sel, postUrl };
     });
   },
@@ -368,7 +368,7 @@ export const playwrightDiagnosticsTool = tool({
           // ignore
         }
         const url = typeof page?.url === "function" ? page.url() : undefined;
-        if (url) updatePageTargetUrl(pageTargetId, url);
+        if (url) browserSessionRegistry.updateUrl(pageTargetId, url);
         return { url, title };
       });
     }
@@ -399,7 +399,7 @@ export const playwrightPageTool = tool({
       }
 
       const nextUrl = typeof page?.url === "function" ? page.url() : undefined;
-      if (nextUrl) updatePageTargetUrl(pageTargetId, nextUrl);
+      if (nextUrl) browserSessionRegistry.updateUrl(pageTargetId, nextUrl);
       return { navigated: true, action, url: nextUrl };
     });
   },

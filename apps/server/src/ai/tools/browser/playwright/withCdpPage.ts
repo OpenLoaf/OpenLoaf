@@ -1,6 +1,6 @@
 import { requireTabId } from "@/shared/tabContext";
-import { getAbortSignal } from "@/shared/requestContext";
-import { getPageTarget, updatePageTargetRuntimeInfo } from "../pageTargets";
+import { getAbortSignal, getWorkspaceId } from "@/shared/requestContext";
+import { browserSessionRegistry } from "@/modules/browser/infrastructure/memory/browserSessionRegistryMemory";
 import { getWebSocketDebuggerUrl } from "./cdpWs";
 import { installPlaywrightCollectors } from "./collectors";
 import { AbortError } from "./abort";
@@ -22,12 +22,20 @@ export async function withCdpPage<T>(
   let browser: any;
   try {
     const abortSignal = getAbortSignal();
+    const workspaceId = getWorkspaceId();
+    if (!workspaceId) return { ok: false, error: "workspaceId is required." };
     const tabId = requireTabId();
-    const record = getPageTarget(pageTargetId);
+    const record = browserSessionRegistry.get(pageTargetId);
     if (!record) {
       return {
         ok: false,
         error: `Unknown pageTargetId=${pageTargetId}. Call \`open-url\` first and use the returned pageTargetId.`,
+      };
+    }
+    if (record.workspaceId !== workspaceId) {
+      return {
+        ok: false,
+        error: `pageTargetId=${pageTargetId} does not belong to workspaceId=${workspaceId}`,
       };
     }
     if (record.tabId !== tabId) {
@@ -40,7 +48,7 @@ export async function withCdpPage<T>(
     // 重要：由工具输入传入 targetId（cdpTargetId）作为“精确 attach”依据。
     // - open-url 会返回 cdpTargetId，但中间可能发生页面重建/重连；这里以入参为准更新内存态映射。
     if (!record.cdpTargetId || record.cdpTargetId !== targetId) {
-      updatePageTargetRuntimeInfo(pageTargetId, { cdpTargetId: targetId });
+      browserSessionRegistry.updateRuntimeInfo(pageTargetId, { cdpTargetId: targetId });
     }
 
     // stop 后应尽量“静默且快速”退出：不要继续连接，也不要刷无意义日志

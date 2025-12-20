@@ -1,5 +1,6 @@
 import { requireTabId } from "@/shared/tabContext";
-import { getPageTarget } from "../pageTargets";
+import { getWorkspaceId } from "@/shared/requestContext";
+import { browserSessionRegistry } from "@/modules/browser/infrastructure/memory/browserSessionRegistryMemory";
 
 /**
  * 校验 pageTargetId 是否存在且归属当前 activeTab。
@@ -7,12 +8,22 @@ import { getPageTarget } from "../pageTargets";
  */
 export function requireActiveTabPageTarget(input: { pageTargetId: string; targetId?: string }) {
   const { pageTargetId, targetId } = input;
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    return { ok: false as const, error: "workspaceId is required." };
+  }
   const tabId = requireTabId();
-  const record = getPageTarget(pageTargetId);
+  const record = browserSessionRegistry.get(pageTargetId);
   if (!record) {
     return {
       ok: false as const,
       error: `Unknown pageTargetId=${pageTargetId}. Call \`open-url\` first.`,
+    };
+  }
+  if (record.workspaceId !== workspaceId) {
+    return {
+      ok: false as const,
+      error: `pageTargetId=${pageTargetId} does not belong to workspaceId=${workspaceId}`,
     };
   }
   if (record.tabId !== tabId) {
