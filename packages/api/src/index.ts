@@ -11,6 +11,7 @@ import {
 } from "./routers/absWorkspace";
 import { tabRouter, BaseTabRouter, tabSchemas } from "./routers/absTab";
 import { chatRouter } from "./routers/chat";
+import { BaseChatRouter, chatSchemas } from "./routers/absChat";
 import { health } from "./routers/health";
 import {
   runtimeRouter,
@@ -58,6 +59,9 @@ export { BaseTabRouter, tabSchemas };
 
 // Export runtime router components
 export { BaseRuntimeRouter, runtimeSchemas };
+
+// Export chat router components
+export { BaseChatRouter, chatSchemas };
 
 // export const t = initTRPC.context<Context>().create({
 // });

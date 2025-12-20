@@ -8,6 +8,7 @@ import { registerChatSseRoutes } from "@/modules/chat/ChatSseRoutes";
 import { workspaceRouterImplementation } from "@/transport/trpc/routers/workspace";
 import { tabRouterImplementation } from "@/transport/trpc/routers/tab";
 import { runtimeRouterImplementation } from "@/transport/trpc/routers/runtime";
+import { chatRouterImplementation } from "@/transport/trpc/routers/chat";
 
 const defaultCorsOrigins = [
   "http://localhost:3000",
@@ -63,6 +64,7 @@ export function createApp() {
     trpcServer({
       router: t.router({
         ...appRouterDefine,
+        chat: chatRouterImplementation,
         workspace: workspaceRouterImplementation,
         tab: tabRouterImplementation,
         runtime: runtimeRouterImplementation,

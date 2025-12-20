@@ -6,6 +6,25 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { SettingsGroup } from "./SettingsGroup";
 
+const TOKEN_K = 1000;
+const TOKEN_M = 1000 * 1000;
+
+function formatTokenCount(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  const abs = Math.abs(value);
+  if (abs >= TOKEN_M) {
+    const next = value / TOKEN_M;
+    const fixed = abs % TOKEN_M === 0 ? next.toFixed(0) : next.toFixed(1);
+    return `${fixed.replace(/\.0$/, "")}M`;
+  }
+  if (abs >= TOKEN_K) {
+    const next = value / TOKEN_K;
+    const fixed = abs % TOKEN_K === 0 ? next.toFixed(0) : next.toFixed(1);
+    return `${fixed.replace(/\.0$/, "")}K`;
+  }
+  return String(value);
+}
+
 export function WorkspaceSettings() {
   const statsQuery = useQuery({
     ...trpc.chat.getChatStats.queryOptions(),
@@ -48,13 +67,19 @@ export function WorkspaceSettings() {
           <div className="flex items-center justify-between gap-4 px-3 py-3">
             <div className="text-sm font-medium">Token 总计</div>
             <div className="text-xs text-muted-foreground">
-              {usage ? usage.totalTokens : "—"}
+              {usage ? formatTokenCount(usage.totalTokens) : "—"}
             </div>
           </div>
           <div className="flex items-center justify-between gap-4 px-3 py-3">
             <div className="text-sm font-medium">Token 输入 / 输出</div>
             <div className="text-xs text-muted-foreground">
-              {usage ? `${usage.inputTokens} / ${usage.outputTokens}` : "—"}
+              {usage
+                ? `${formatTokenCount(usage.inputTokens)}（input: ${formatTokenCount(
+                    Math.max(0, usage.inputTokens - usage.cachedInputTokens),
+                  )} + cache: ${formatTokenCount(usage.cachedInputTokens)}） / ${formatTokenCount(
+                    usage.outputTokens,
+                  )}`
+                : "—"}
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { t, shieldedProcedure } from "../index";
+import { chatSchemas } from "./absChat";
 
 /**
  * Chat UIMessage 结构（MVP）
@@ -572,6 +573,17 @@ export const chatRouter = t.router({
       deletedPageLinks: pageLinks.count,
     };
   }),
+
+  /**
+   * 根据会话历史自动生成标题（MVP）
+   * - 具体实现放在 server（tRPC router override）
+   */
+  autoTitle: shieldedProcedure
+    .input(chatSchemas.autoTitle.input)
+    .output(chatSchemas.autoTitle.output)
+    .mutation(async () => {
+      throw new Error("Not implemented: override in server chat router.");
+    }),
 });
 
 export type ChatRouter = typeof chatRouter;
