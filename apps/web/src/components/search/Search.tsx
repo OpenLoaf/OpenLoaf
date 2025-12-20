@@ -13,6 +13,7 @@ import {
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
+import { AI_CHAT_TAB_INPUT } from "@teatime-ai/api/common";
 import { CalendarDays, Inbox, LayoutTemplate, Sparkles } from "lucide-react";
 
 export function Search({
@@ -47,10 +48,13 @@ export function Search({
       if (!activeWorkspace) return;
 
       const state = useTabs.getState();
-      const existing = state.tabs.find(
-        (tab) =>
-          tab.workspaceId === activeWorkspace.id && tab.base?.id === input.baseId,
-      );
+      const existing = state.tabs.find((tab) => {
+        if (tab.workspaceId !== activeWorkspace.id) return false;
+        if (tab.base?.id === input.baseId) return true;
+        // 中文备注：ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
+        if (input.component === "ai-chat" && !tab.base && tab.title === input.title) return true;
+        return false;
+      });
       if (existing) {
         setActiveTab(existing.id);
         handleOpenChange(false);
@@ -136,12 +140,7 @@ export function Search({
           <CommandItem
             value="ai"
             onSelect={() =>
-              openSingletonTab({
-                baseId: "base:ai-chat",
-                component: "ai-chat",
-                title: "AI助手",
-                icon: "✨",
-              })
+              openSingletonTab(AI_CHAT_TAB_INPUT)
             }
           >
             <Sparkles className="h-5 w-5" />

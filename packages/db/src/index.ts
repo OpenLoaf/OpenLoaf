@@ -8,9 +8,9 @@ import { PrismaClient } from "../prisma/generated/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import dotenv from "dotenv";
 
-// 中文备注：加载数据库相关环境变量（优先使用已存在的 process.env，其次尝试读取 monorepo 里的 apps/server/.env）。
+// 加载数据库相关环境变量（优先使用已存在的 process.env，其次尝试读取 monorepo 里的 apps/server/.env）。
 function loadDatabaseEnv() {
-  // 中文备注：db workspace 运行脚本时 cwd 在 packages/db，dotenv 默认找不到 apps/server/.env，这里做一次兜底加载。
+  // db workspace 运行脚本时 cwd 在 packages/db，dotenv 默认找不到 apps/server/.env，这里做一次兜底加载。
   if (process.env.DATABASE_URL) return;
 
   const currentDir = path.dirname(fileURLToPath(import.meta.url));

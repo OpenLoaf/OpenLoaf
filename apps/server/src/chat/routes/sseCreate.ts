@@ -62,7 +62,7 @@ function toClientErrorText(error: unknown): string {
  * - consumeSseStream：写入“可续传内存流”，供断线续传使用
  */
 async function resolveSessionParentMessageId(sessionId: string): Promise<string | null> {
-  // 中文备注：当客户端不传 parentMessageId 时，默认把“会话里最后一条消息”作为 parent。
+  // 当客户端不传 parentMessageId 时，默认把“会话里最后一条消息”作为 parent。
   // - 新会话无消息时为 null（根节点）
   // - 占位 assistant 也可以作为 parent（保证树连续）
   const row = await prisma.chatMessage.findFirst({
@@ -218,7 +218,7 @@ export function registerChatSseCreateRoute(app: Hono) {
       } catch (error) {
         // 关键：parentMessageId 不存在属于客户端参数错误，不应作为 500 抛到前端
         if (error instanceof Error && error.message === "parentMessageId not found in this session.") {
-          // 中文备注：前端偶发会把“旧会话 leaf”带进新会话（或历史未加载时 leaf 脏），这里兜底回退到服务端推断的 parent。
+          // 前端偶发会把“旧会话 leaf”带进新会话（或历史未加载时 leaf 脏），这里兜底回退到服务端推断的 parent。
           const fallbackParentMessageId = await resolveSessionParentMessageId(sessionId);
           try {
             userNode = await saveChatMessageNode({

@@ -174,7 +174,7 @@ async function seed() {
   }
 }
 
-// 中文备注：Node.js 没有 import.meta.main，这里用 entrypoint 判断当前文件是否被直接执行。
+// Node.js 没有 import.meta.main，这里用 entrypoint 判断当前文件是否被直接执行。
 const isDirectRun =
   typeof process.argv[1] === "string" &&
   import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;

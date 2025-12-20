@@ -302,7 +302,7 @@ export default function ChatInput({
   const handleSubmit = (value: string) => {
     const canSubmit = status === "ready" || status === "error";
     if (!canSubmit) return;
-    // 中文备注：切换 session 的历史加载期间禁止发送，避免 parentMessageId 与当前会话链不一致
+    // 切换 session 的历史加载期间禁止发送，避免 parentMessageId 与当前会话链不一致
     if (isHistoryLoading) return;
     if (!value.trim()) return;
     if (status === "error") clearError();

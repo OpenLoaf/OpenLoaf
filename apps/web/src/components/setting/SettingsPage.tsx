@@ -87,14 +87,14 @@ export default function SettingsPage({
   const isActiveTab = activeTabId === tabId;
 
   /**
-   * 中文备注：把 runtime 连接状态轮询放在 SettingsPage（父组件）里：
+   * 把 runtime 连接状态轮询放在 SettingsPage（父组件）里：
    * - 避免只在“关于Teatime”页面打开时才轮询
    * - 用户切换设置菜单时仍可持续刷新状态（同一个 query key，子页面直接读缓存即可）
    */
   const appId = typeof window !== "undefined" ? window.teatimeElectron?.appId : undefined;
   useQuery({
     ...trpc.runtime.getAppStatus.queryOptions({ appId: appId ?? "" }),
-    // 中文备注：仅在“关于Teatime”菜单激活时轮询，避免设置页其他菜单也持续刷接口。
+    // 仅在“关于Teatime”菜单激活时轮询，避免设置页其他菜单也持续刷接口。
     enabled: Boolean(appId) && isActiveTab && activeKey === "about",
     refetchInterval: 2000,
     staleTime: 1000,

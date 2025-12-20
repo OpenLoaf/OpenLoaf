@@ -25,12 +25,12 @@ export function AboutTeatime() {
   const appStatusQuery = useQuery({
     ...trpc.runtime.getAppStatus.queryOptions({ appId: appId ?? "" }),
     enabled: Boolean(appId),
-    // 中文备注：轮询放在 SettingsPage（父组件）里；这里读取缓存即可。
+    // 轮询放在 SettingsPage（父组件）里；这里读取缓存即可。
     staleTime: 1000,
     meta: { silent: true },
   });
 
-  /** 中文备注：复制到剪贴板（navigator.clipboard 不可用时做降级）。 */
+  /** 复制到剪贴板（navigator.clipboard 不可用时做降级）。 */
   const copyToClipboard = async (text: string, key: "appId" | "clientId") => {
     if (!text) return;
     try {
@@ -127,7 +127,7 @@ export function AboutTeatime() {
                 "已连接"
               ) : (
                 /**
-                 * 中文备注：未连接/检测中都只显示转圈，避免给用户造成“断开”的负反馈。
+                 * 未连接/检测中都只显示转圈，避免给用户造成“断开”的负反馈。
                  */
                 <Loader2
                   className="inline-block h-4 w-4 animate-spin text-muted-foreground"

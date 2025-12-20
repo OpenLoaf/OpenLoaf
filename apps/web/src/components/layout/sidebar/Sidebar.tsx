@@ -16,7 +16,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Search as SearchDialog } from "@/components/search/Search";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
-import { DEFAULT_TAB_INFO } from "@teatime-ai/api/common";
+import { AI_CHAT_TAB_INPUT } from "@teatime-ai/api/common";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 
 export const AppSidebar = ({
@@ -33,10 +33,13 @@ export const AppSidebar = ({
       if (!activeWorkspace) return;
 
       const state = useTabs.getState();
-      const existing = state.tabs.find(
-        (tab) =>
-          tab.workspaceId === activeWorkspace.id && tab.base?.id === input.baseId,
-      );
+      const existing = state.tabs.find((tab) => {
+        if (tab.workspaceId !== activeWorkspace.id) return false;
+        if (tab.base?.id === input.baseId) return true;
+        // 中文备注：ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
+        if (input.component === "ai-chat" && !tab.base && tab.title === input.title) return true;
+        return false;
+      });
       if (existing) {
         setActiveTab(existing.id);
         return;
@@ -48,7 +51,10 @@ export const AppSidebar = ({
         title: input.title,
         icon: input.icon,
         leftWidthPercent: 100,
-        base: input.component === 'ai-chat' ?  undefined:{ id: input.baseId, component: input.component },
+        base:
+          input.component === "ai-chat"
+            ? undefined
+            : { id: input.baseId, component: input.component },
       });
     },
     [activeWorkspace, addTab, setActiveTab],
@@ -98,7 +104,7 @@ export const AppSidebar = ({
               <span className="ml-auto group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
-                  <Kbd className="bg-transparent px-0 h-auto rounded-none">T</Kbd>
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">J</Kbd>
                 </KbdGroup>
               </span>
             </SidebarMenuButton>
@@ -131,14 +137,7 @@ export const AppSidebar = ({
             <SidebarMenuButton
               tooltip="AI"
               className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
-              onClick={() =>
-                openSingletonTab({
-                  baseId: "base:ai-chat",
-                  component: "ai-chat",
-                  title: DEFAULT_TAB_INFO.title,
-                  icon: DEFAULT_TAB_INFO.icon,
-                })
-              }
+              onClick={() => openSingletonTab(AI_CHAT_TAB_INPUT)}
               type="button"
             >
               <Sparkles />
@@ -146,7 +145,7 @@ export const AppSidebar = ({
               <span className="ml-auto group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
-                  <Kbd className="bg-transparent px-0 h-auto rounded-none">J</Kbd>
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">T</Kbd>
                 </KbdGroup>
               </span>
             </SidebarMenuButton>

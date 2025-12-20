@@ -19,7 +19,7 @@ type ChatImageAttachmentsProps = {
 };
 
 /**
- * 中文备注：聊天输入框图片附件 UI（缩略图列表 + 预览 + 选择器），不包含上传业务逻辑。
+ * 聊天输入框图片附件 UI（缩略图列表 + 预览 + 选择器），不包含上传业务逻辑。
  */
 export const ChatImageAttachments = React.forwardRef<
   ChatImageAttachmentsHandle,
@@ -215,7 +215,7 @@ export const ChatImageAttachments = React.forwardRef<
                     const dy = touch.clientY - start.y;
                     if (Math.abs(dx) < 40) return;
                     if (Math.abs(dx) < Math.abs(dy)) return;
-                    // 中文备注：向左滑动切到下一张，向右滑动切到上一张。
+                    // 向左滑动切到下一张，向右滑动切到上一张。
                     if (dx < 0) goToNextPreview();
                     else goToPrevPreview();
                   }}

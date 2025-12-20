@@ -7,6 +7,9 @@ import ChatInput from "./ChatInput";
 import ChatHeader from "./ChatHeader";
 import { generateId } from "ai";
 import * as React from "react";
+import { useTabs } from "@/hooks/use-tabs";
+import { useTabActive } from "@/components/layout/TabActiveContext";
+import { focusChatInput } from "@/lib/focus-chat-input";
 import {
   CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES,
   formatFileSize,
@@ -36,6 +39,7 @@ export function Chat({
   ...params
 }: ChatProps) {
   const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const isTabActive = useTabActive();
   const dragCounterRef = React.useRef(0);
   const attachmentsRef = React.useRef<ChatAttachment[]>([]);
   const sessionIdRef = React.useRef<string>(sessionId ?? generateId());
@@ -56,7 +60,7 @@ export function Chat({
 
   React.useEffect(() => {
     /**
-     * 中文备注：组件卸载时回收 objectUrl，避免内存泄漏。
+     * 组件卸载时回收 objectUrl，避免内存泄漏。
      */
     return () => {
       for (const attachment of attachmentsRef.current) {
@@ -117,7 +121,7 @@ export function Chat({
     setAttachments((prev) => [...prev, ...next]);
 
     /**
-     * 中文备注：仅用于 UI “loading”，通过预加载图片来判断何时可展示缩略图。
+     * 仅用于 UI “loading”，通过预加载图片来判断何时可展示缩略图。
      */
     for (const item of next) {
       if (item.status !== "loading") continue;
@@ -148,7 +152,7 @@ export function Chat({
 
   React.useEffect(() => {
     /**
-     * 中文备注：监听 Tab 快捷键，按下后强制聚焦到输入框，便于快速进入输入状态。
+     * 监听 Tab 快捷键，按下后强制聚焦到输入框，便于快速进入输入状态。
      */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Tab") return;
@@ -167,6 +171,66 @@ export function Chat({
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, []);
+
+  const isRightVisible = useTabs(
+    React.useCallback(
+      (state) => {
+        if (!tabId) return true;
+        const tab = state.getTabById(tabId);
+        if (!tab) return true;
+        // 只有 base 存在时才允许折叠右侧聊天栏（见 use-tabs.normalizeDock）
+        return !tab.base || !tab.rightChatCollapsed;
+      },
+      [tabId],
+    ),
+  );
+
+  const isLeftVisible = useTabs(
+    React.useCallback(
+      (state) => {
+        if (!tabId) return false;
+        const tab = state.getTabById(tabId);
+        if (!tab) return false;
+        const hasLeftContent = Boolean(tab.base) || (tab.stack?.length ?? 0) > 0;
+        const leftWidthPercent = hasLeftContent ? (tab.leftWidthPercent ?? 0) : 0;
+        return leftWidthPercent > 0;
+      },
+      [tabId],
+    ),
+  );
+
+  const prevFocusStateRef = React.useRef({
+    isTabActive: false,
+    isRightVisible: false,
+  });
+
+  React.useEffect(() => {
+    /**
+     * 统一处理“打开 AI Chat 时自动聚焦输入框”的场景：
+     * 1) 右侧聊天栏从折叠 -> 展开（Header bot 按钮 / Mod+B）
+     * 2) 切换到“右独占/AI Chat”标签页（新建标签页 / 侧边栏 AI / 快捷键打开 AI）
+     *
+     * 说明：为了避免切换到普通“双栏 tab”时强行抢焦点，这里只在“右独占”或“右侧刚展开”时触发聚焦。
+     */
+    const prev = prevFocusStateRef.current;
+    const becameActive = !prev.isTabActive && isTabActive;
+    const becameRightVisible = !prev.isRightVisible && isRightVisible;
+
+    prevFocusStateRef.current = { isTabActive, isRightVisible };
+
+    if (!isTabActive) return;
+
+    // Case A：右侧刚展开（无论左侧是否可见，都应把输入焦点交给 ChatInput）
+    if (becameRightVisible) {
+      focusChatInput({ root: rootRef.current });
+      return;
+    }
+
+    // Case B：切换到“右独占”tab：只要右侧可见且左侧不可见，就自动聚焦
+    if (becameActive && isRightVisible && !isLeftVisible) {
+      focusChatInput({ root: rootRef.current });
+    }
+  }, [isTabActive, isRightVisible, isLeftVisible]);
 
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
     if (!event.dataTransfer?.types?.includes("Files")) return;

@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { useTabs } from "@/hooks/use-tabs";
+import { AI_CHAT_TAB_INPUT } from "@teatime-ai/api/common";
 
 export type GlobalShortcutDefinition = {
   id: string;
@@ -68,9 +69,13 @@ function openSingletonTab(
 ) {
   const { tabs, addTab, setActiveTab } = useTabs.getState();
 
-  const existing = tabs.find(
-    (tab) => tab.workspaceId === workspaceId && tab.base?.id === input.baseId,
-  );
+  const existing = tabs.find((tab) => {
+    if (tab.workspaceId !== workspaceId) return false;
+    if (tab.base?.id === input.baseId) return true;
+    // 中文备注：ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
+    if (input.component === "ai-chat" && !tab.base && tab.title === input.title) return true;
+    return false;
+  });
   if (existing) {
     setActiveTab(existing.id);
     if (options?.closeSearch) useGlobalOverlay.getState().setSearchOpen(false);
@@ -132,6 +137,40 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
   const withMod = event.metaKey || event.ctrlKey;
 
   const keyLower = event.key.toLowerCase();
+
+  // 中文备注：Cmd/Ctrl + W 应视为“全局快捷键”，即使当前焦点在输入框里也要生效（关闭当前标签/面板）
+  // 否则在自动聚焦 ChatInput 后会导致无法再用快捷键关闭 tab。
+  if (keyLower === "w" && withMod) {
+    event.preventDefault();
+    const state = useTabs.getState();
+    const tabId = state.activeTabId;
+    if (!tabId) return;
+
+    const tab = state.getTabById(tabId);
+    const stack = Array.isArray(tab?.stack) ? tab.stack : [];
+    const top = stack.at(-1);
+
+    if (top) {
+      if (top.denyClose !== true) state.removeStackItem(tabId, top.id);
+      return;
+    }
+
+    state.closeTab(tabId);
+    return;
+  }
+
+  // 中文备注：Cmd/Ctrl + T 也应视为“全局快捷键”，即使当前焦点在输入框里也要生效（打开 AI 助手）。
+  // 注意：浏览器环境可能会被系统/浏览器占用；这里仍然尽量拦截并执行应用内行为。
+  if (ctx.workspaceId && keyLower === "t" && withMod && !event.shiftKey && !event.altKey) {
+    const quickOpenLeftWidthPercent = overlay.searchOpen ? 70 : 100;
+    event.preventDefault();
+    openSingletonTab(
+      ctx.workspaceId,
+      AI_CHAT_TAB_INPUT,
+      { leftWidthPercent: quickOpenLeftWidthPercent, closeSearch: true },
+    );
+    return;
+  }
 
   if (process.env.NODE_ENV !== "development") {
     if (event.key === "F5") {
@@ -221,17 +260,6 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
       return;
     }
 
-    // Cmd/Ctrl + T：打开 AI 助手（注意：浏览器环境可能会被系统/浏览器占用）
-    if (keyLower === "t" && withMod && !event.shiftKey && !event.altKey) {
-      event.preventDefault();
-      openSingletonTab(
-        ctx.workspaceId,
-        { baseId: "base:ai-chat", component: "ai-chat", title: "AI助手", icon: "✨" },
-        { leftWidthPercent: quickOpenLeftWidthPercent, closeSearch: true },
-      );
-      return;
-    }
-
     if (withMod && !event.shiftKey && !event.altKey) {
       const key = event.key;
       if (key === "0") {
@@ -253,23 +281,5 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
         return;
       }
     }
-  }
-
-  if (keyLower === "w" && withMod) {
-    event.preventDefault();
-    const state = useTabs.getState();
-    const tabId = state.activeTabId;
-    if (!tabId) return;
-
-    const tab = state.getTabById(tabId);
-    const stack = Array.isArray(tab?.stack) ? tab.stack : [];
-    const top = stack.at(-1);
-
-    if (top) {
-      if (top.denyClose !== true) state.removeStackItem(tabId, top.id);
-      return;
-    }
-
-    state.closeTab(tabId);
   }
 }

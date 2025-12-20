@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { messageActionIconButtonClassName } from "./message-action-styles";
 
 /**
- * 中文备注：把 token 数值格式化为更易读的字符串（例如：5,824）。
+ * 把 token 数值格式化为更易读的字符串（例如：5,824）。
  */
 function formatTokenCount(value: unknown): string {
   const numberValue = typeof value === "number" ? value : Number(value);
@@ -91,7 +91,7 @@ export default function MessageAiAction({
     | undefined;
 
   const buildNextMetadata = (nextIsGood: boolean | null) => {
-    // 中文备注：点赞/点踩为“单选”状态；重复点击同一选项则取消（回到 null）
+    // 点赞/点踩为“单选”状态；重复点击同一选项则取消（回到 null）
     const nextMetadata = { ...((message.metadata as any) ?? {}) } as Record<string, unknown>;
     if (nextIsGood === null) {
       delete nextMetadata.isGood;

@@ -95,7 +95,7 @@ const JSON_SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS = {
 };
 
 /**
- * 中文备注：工具输入/输出中的 JSON 代码块展示（语法高亮 + 容器滚动）。
+ * 工具输入/输出中的 JSON 代码块展示（语法高亮 + 容器滚动）。
  */
 function JsonSyntaxBlock({
   code,
