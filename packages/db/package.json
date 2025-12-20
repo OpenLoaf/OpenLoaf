@@ -17,7 +17,9 @@
     "db:studio": "NODE_OPTIONS=--experimental-require-module prisma studio",
     "db:generate": "NODE_OPTIONS=--experimental-require-module DEBUG=prisma:* prisma generate",
     "db:migrate": "NODE_OPTIONS=--experimental-require-module prisma migrate dev",
-    "db:seed": "node --import tsx src/seed.ts"
+    "db:seed": "node --import tsx src/seed.ts",
+    "check-types": "pnpm -w exec tsc -p packages/db/tsconfig.check.json",
+    "lint": "eslint src"
   },
   "devDependencies": {
     "@teatime-ai/config": "workspace:*",

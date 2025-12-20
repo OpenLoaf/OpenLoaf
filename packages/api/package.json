@@ -9,7 +9,10 @@
     }
   },
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "check-types": "pnpm -w exec tsc -p packages/api/tsconfig.check.json",
+    "lint": "eslint src"
+  },
   "devDependencies": {
     "@teatime-ai/config": "workspace:*"
   },

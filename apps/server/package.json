@@ -5,9 +5,10 @@
   "scripts": {
     "build": "tsdown",
     "build:prod": "node scripts/build-prod.mjs",
-    "check-types": "tsc -b",
+    "check-types": "pnpm -w exec tsc -p apps/server/tsconfig.json --noEmit",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "lint": "eslint src scripts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.56",

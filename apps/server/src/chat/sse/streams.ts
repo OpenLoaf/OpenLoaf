@@ -112,35 +112,33 @@ export function resumeExistingStream(streamId: string): ReadableStream<string> |
       // 订阅先建立，再回放 snapshot；通过 seq 去重，避免重复发送
       const replayedMaxSeq = snapshot.at(-1)?.seq ?? -1;
 
-      let cleanedUp = false;
-      let chunkHandler: ((chunk: SseChunk) => void) | undefined;
-      let doneHandler: (() => void) | undefined;
+	      let cleanedUp = false;
 
-      const cleanup = () => {
-        if (cleanedUp) return;
-        cleanedUp = true;
-        if (chunkHandler) sseEventBus.off(chunkEvent(streamId), chunkHandler);
-        if (doneHandler) sseEventBus.off(doneEvent(streamId), doneHandler);
-      };
+	      const cleanup = () => {
+	        if (cleanedUp) return;
+	        cleanedUp = true;
+	        sseEventBus.off(chunkEvent(streamId), chunkHandler);
+	        sseEventBus.off(doneEvent(streamId), doneHandler);
+	      };
 
-      cleanupRef = cleanup;
+	      cleanupRef = cleanup;
 
-      chunkHandler = (chunk: SseChunk) => {
-        // 如果 chunk 属于回放区间（<= replayedMaxSeq），忽略；避免“订阅+回放”期间重复。
-        if (chunk.seq <= replayedMaxSeq) return;
-        try {
-          controller.enqueue(chunk.value);
+	      const chunkHandler = (chunk: SseChunk) => {
+	        // 如果 chunk 属于回放区间（<= replayedMaxSeq），忽略；避免“订阅+回放”期间重复。
+	        if (chunk.seq <= replayedMaxSeq) return;
+	        try {
+	          controller.enqueue(chunk.value);
         } catch (error) {
           console.error("Error sending chunk to subscriber:", error);
           cleanup();
           controller.close();
-        }
-      };
+	        }
+	      };
 
-      doneHandler = () => {
-        cleanup();
-        controller.close();
-      };
+	      const doneHandler = () => {
+	        cleanup();
+	        controller.close();
+	      };
 
       sseEventBus.on(chunkEvent(streamId), chunkHandler);
       sseEventBus.once(doneEvent(streamId), doneHandler);

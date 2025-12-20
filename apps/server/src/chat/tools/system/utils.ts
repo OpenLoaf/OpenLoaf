@@ -151,11 +151,13 @@ export async function runCommandReadonly(opts: {
       stderr: "pipe",
     });
 
-    const timeout = setTimeout(() => {
-      try {
-        proc.kill();
-      } catch {}
-    }, timeoutMs);
+	    const timeout = setTimeout(() => {
+	      try {
+	        proc.kill();
+	      } catch {
+	        // ignore
+	      }
+	    }, timeoutMs);
 
     try {
       const [stdout, stderr] = await Promise.all([

@@ -7,7 +7,9 @@
 		"outDir": "dist",
 		"composite": true
 	},
+	"include": ["src/**/*.ts", "prisma/generated/**/*.ts"],
 	"exclude": [
-		"prisma/generated/**/*"
+		"dist/**",
+		"node_modules/**"
 	]
 }

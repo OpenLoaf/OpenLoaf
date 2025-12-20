@@ -177,10 +177,14 @@ export function registerChatSseCreateRoute(app: Hono) {
       if (messageParentMessageId === undefined) {
         return c.json({ error: "parentMessageId is required" }, 400);
       }
+      const normalizedParentMessageId =
+        typeof messageParentMessageId === "string" && messageParentMessageId.trim().length === 0
+          ? null
+          : messageParentMessageId;
       userNode = await saveChatMessageNode({
         sessionId,
         message: lastIncomingMessage as any,
-        parentMessageId: messageParentMessageId,
+        parentMessageId: normalizedParentMessageId,
       });
     }
     if (isRetry && (userNode as any).role !== MessageRoleEnum.user) {

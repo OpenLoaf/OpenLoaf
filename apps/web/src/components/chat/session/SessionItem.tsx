@@ -230,14 +230,14 @@ export default function SessionItem({
                   type="button"
                   className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
                   disabled={isBusy}
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    // 置顶/取消置顶：更新 isPin 字段
-                    const nextIsPin = !Boolean(session.pinned);
-                    try {
-                      setIsBusy(true);
-                      await updateSession.mutateAsync({
-                        where: { id: session.id },
+	                  onClick={async (e) => {
+	                    e.stopPropagation();
+	                    // 置顶/取消置顶：更新 isPin 字段
+	                    const nextIsPin = !session.pinned;
+	                    try {
+	                      setIsBusy(true);
+	                      await updateSession.mutateAsync({
+	                        where: { id: session.id },
                         data: { isPin: nextIsPin },
                       } as any);
                       toast.success(nextIsPin ? "已置顶" : "已取消置顶");

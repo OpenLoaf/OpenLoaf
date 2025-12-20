@@ -84,33 +84,6 @@ export default function ElectrronBrowserWindow({
     setLoading(true);
   }, [targetUrl]);
 
-  if (!isElectron) {
-    return (
-      <div className={cn("flex h-full w-full flex-col p-4", className)}>
-        <Empty className="border">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <TriangleAlert />
-            </EmptyMedia>
-            <EmptyTitle>仅支持 Electron</EmptyTitle>
-            <EmptyDescription>
-              这个面板依赖桌面端的 Electron 能力（WebContentsView）。请在 Electron
-              客户端打开，或直接访问：
-              {targetUrl ? (
-                <>
-                  {" "}
-                  <a href={targetUrl} target="_blank" rel="noreferrer">
-                    {targetUrl}
-                  </a>
-                </>
-              ) : null}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </div>
-    );
-  }
-
   const hostRef = useRef<HTMLDivElement | null>(null);
   const lastSentRef = useRef<{
     url: string;
@@ -282,28 +255,53 @@ export default function ElectrronBrowserWindow({
         className
       )}
     >
-      <div ref={hostRef} className="relative min-h-0 flex-1 overflow-hidden">
-        {loading ? (
-          <div className="absolute inset-0 z-10 grid place-items-center bg-background/70">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader size={18} />
-              <span>Loading…</span>
-            </div>
-          </div>
-        ) : null}
-        {overlayBlocked || coveredByAnotherStackItem ? (
-          <div className="absolute inset-0 z-20 grid place-items-center bg-background/80">
-            <div className="text-center text-sm text-muted-foreground">
-              <div>内容已临时隐藏</div>
-              <div className="mt-1 text-xs">
-                {overlayBlocked
-                  ? "关闭右键菜单或搜索后恢复显示"
-                  : "切回顶部窗口后恢复显示"}
+      {!isElectron ? (
+        <div className="flex h-full w-full flex-col p-4">
+          <Empty className="border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <TriangleAlert />
+              </EmptyMedia>
+              <EmptyTitle>仅支持 Electron</EmptyTitle>
+              <EmptyDescription>
+                这个面板依赖桌面端的 Electron 能力（WebContentsView）。请在 Electron
+                客户端打开，或直接访问：
+                {targetUrl ? (
+                  <>
+                    {" "}
+                    <a href={targetUrl} target="_blank" rel="noreferrer">
+                      {targetUrl}
+                    </a>
+                  </>
+                ) : null}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </div>
+      ) : (
+        <div ref={hostRef} className="relative min-h-0 flex-1 overflow-hidden">
+          {loading ? (
+            <div className="absolute inset-0 z-10 grid place-items-center bg-background/70">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader size={18} />
+                <span>Loading…</span>
               </div>
             </div>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+          {overlayBlocked || coveredByAnotherStackItem ? (
+            <div className="absolute inset-0 z-20 grid place-items-center bg-background/80">
+              <div className="text-center text-sm text-muted-foreground">
+                <div>内容已临时隐藏</div>
+                <div className="mt-1 text-xs">
+                  {overlayBlocked
+                    ? "关闭右键菜单或搜索后恢复显示"
+                    : "切回顶部窗口后恢复显示"}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

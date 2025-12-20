@@ -7,5 +7,6 @@
     "outDir": "dist",
     "composite": true
   },
-  "exclude": ["generated/**/*"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["generated/**/*", "dist/**", "node_modules/**"]
 }

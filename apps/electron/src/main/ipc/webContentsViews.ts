@@ -1,4 +1,4 @@
-import { BrowserWindow, WebContentsView, shell } from 'electron';
+import { BrowserWindow, WebContents, WebContentsView, shell } from 'electron';
 
 type ViewBounds = { x: number; y: number; width: number; height: number };
 export type UpsertWebContentsViewArgs = {
@@ -12,6 +12,22 @@ const viewMapsByWindowId = new Map<number, Map<string, WebContentsView>>();
 const shortcutBridgeInstalled = new WeakSet<WebContentsView>();
 const openInCurrentTabInstalled = new WeakSet<WebContentsView>();
 const desiredUrlByView = new WeakMap<WebContentsView, string>();
+
+/**
+ * 安全释放 WebContents：
+ * - Electron 的类型定义中未暴露 `webContents.destroy()`，但部分运行时对象确实存在该方法
+ * - 优先调用 destroy，兜底调用 close
+ */
+function safeDisposeWebContents(webContents: WebContents) {
+  const maybe = webContents as unknown as { destroy?: () => void; close?: () => void };
+  if (typeof maybe.destroy === 'function') {
+    maybe.destroy();
+    return;
+  }
+  if (typeof maybe.close === 'function') {
+    maybe.close();
+  }
+}
 
 /**
  * 禁止网页在「新标签页/新窗口」中打开内容（例如 target=_blank / window.open）：
@@ -212,7 +228,7 @@ function getOrCreateViewMapForWindow(
         // ignore
       }
       try {
-        view.webContents.destroy();
+        safeDisposeWebContents(view.webContents);
       } catch {
         // ignore
       }
@@ -275,7 +291,6 @@ export function upsertWebContentsView(
   }
 
   try {
-    // @ts-expect-error Electron runtime provides setVisible on View.
     view.setVisible(args.visible !== false);
   } catch {
     // ignore
@@ -308,7 +323,7 @@ export function destroyWebContentsView(win: BrowserWindow, key: string) {
     // ignore
   }
   try {
-    view.webContents.destroy();
+    safeDisposeWebContents(view.webContents);
   } catch {
     // ignore
   }

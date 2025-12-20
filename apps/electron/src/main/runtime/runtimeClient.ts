@@ -43,7 +43,9 @@ async function getCdpTargetId(webContents: Electron.WebContents): Promise<string
       dbg.attach("1.3");
       attachedHere = true;
     }
-    const info = (await dbg.sendCommand("Target.getTargetInfo")) as any;
+    const info = (await dbg.sendCommand("Target.getTargetInfo")) as {
+      targetInfo?: { targetId?: string };
+    };
     const id = String(info?.targetInfo?.targetId ?? "");
     return id || undefined;
   } catch {

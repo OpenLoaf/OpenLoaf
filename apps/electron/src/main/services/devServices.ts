@@ -141,7 +141,7 @@ export async function ensureDevServices(args: {
   const pnpm = commandName('pnpm');
   const envBase = { ...process.env };
 
-  let serverHost = new URL(serverUrl).hostname || '127.0.0.1';
+  const serverHost = new URL(serverUrl).hostname || '127.0.0.1';
   let serverPort = Number(new URL(serverUrl).port || 3000);
   if (!serverOk && !(await isPortFree(serverHost, serverPort))) {
     // 默认端口被占用时，自动选择可用端口，避免 spawn 后才失败。
@@ -150,7 +150,7 @@ export async function ensureDevServices(args: {
     args.log(`Server port in use; switched to ${serverUrl}`);
   }
 
-  let webHost = new URL(webUrl).hostname || '127.0.0.1';
+  const webHost = new URL(webUrl).hostname || '127.0.0.1';
   let webPort = Number(new URL(webUrl).port || 3001);
   if (!webOk && !(await isPortFree(webHost, webPort))) {
     webPort = await getFreePort(webHost);

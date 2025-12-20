@@ -17,8 +17,9 @@
     "db:generate": "turbo -F @teatime-ai/db db:generate",
     "db:migrate": "turbo -F @teatime-ai/db db:migrate",
     "db:seed": "turbo -F @teatime-ai/db db:seed",
-    "lint": "biome lint .",
-    "lint:fix": "biome lint --fix .",
+    "lint": "turbo lint",
+    "lint:biome": "biome lint .",
+    "lint:biome:fix": "biome lint --fix .",
     "format": "biome format .",
     "format:fix": "biome format --write .",
     "check": "biome check ."
@@ -30,13 +31,18 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/node": "^22.13.11",
     "biome": "^0.3.3",
+    "eslint": "^9.39.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.2",
     "shadcn": "^3.5.2",
     "turbo": "^2.5.4",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "typescript-eslint": "^8.50.0"
   },
   "lint-staged": {
     "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue,astro,svelte}": "biome check --apply --write"

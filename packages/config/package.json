@@ -16,5 +16,9 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "scripts": {
+    "check-types": "pnpm -w exec tsc -p packages/config/tsconfig.json --noEmit",
+    "lint": "eslint src"
   }
 }

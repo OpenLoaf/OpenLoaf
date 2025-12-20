@@ -16,8 +16,6 @@ const FORBIDDEN_METADATA_KEYS = [
   "sessionId",
   "parentMessageId",
   "path",
-  "branchMessageIds",
-  "leafMessageId",
 ] as const;
 
 /** 将 UIMessage.role 映射到 DB enum（小写） */
@@ -131,7 +129,7 @@ function toPathSegment(index: number): string {
 
 /**
  * 获取同 parent 下的下一个 path 分段序号（从 1 开始递增）
- * - 不再单独存 siblingIndex/depth，全靠 path 驱动（更简单）
+ * - 消息树只用 parentMessageId + path 表达（减少冗余字段）
  */
 async function getNextPathIndex(
   tx: Prisma.TransactionClient,
@@ -221,7 +219,10 @@ export async function saveChatMessageNode({
   allowEmpty?: boolean;
 }): Promise<SavedChatMessageNode> {
   if (!message?.id) throw new Error("message.id is required.");
-  const parentId = parentMessageId ?? null;
+  // 关键：允许前端把“根节点 parentMessageId”传空字符串（视为 null），避免误判为缺失父节点。
+  const parentIdRaw = parentMessageId ?? null;
+  const parentId =
+    typeof parentIdRaw === "string" && parentIdRaw.trim().length === 0 ? null : parentIdRaw;
 
   return prisma.$transaction(async (tx) => {
     await ensureSession(tx, sessionId);
@@ -352,7 +353,7 @@ export async function loadBranchMessages({
     if (!hasRenderableParts(role, parts)) continue;
 
     const agent = (row.metadata as any)?.agent;
-    messages.push({
+    const uiMessage = {
       id: row.id,
       role: fromDbRole(role),
       parts: parts as any,
@@ -360,7 +361,8 @@ export async function loadBranchMessages({
       parentMessageId: row.parentMessageId ?? null,
       // 关键：agent 信息来自 metadata.agent（持久化层不再拆列）
       agent: agent ?? undefined,
-    } as TeatimeUIMessage);
+    } satisfies TeatimeUIMessage;
+    messages.push(uiMessage);
   }
 
   return messages;
