@@ -117,6 +117,8 @@ export default function ChatProvider({
   const upsertToolPart = useTabs((s) => s.upsertToolPart);
   const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
   const queryClient = useQueryClient();
+  const sessionIdRef = React.useRef(sessionId);
+  sessionIdRef.current = sessionId;
 
   // 关键：记录一次请求对应的 userMessageId（用于在 onFinish 补齐 assistant.parentMessageId）
   const pendingUserMessageIdRef = React.useRef<string | null>(null);
@@ -124,12 +126,13 @@ export default function ChatProvider({
   const needsBranchMetaRefreshRef = React.useRef(false);
   // 关键：useChat 的 onFinish 里需要 setMessages，但 chat 在 hook 调用之后才可用
   const setMessagesRef = React.useRef<ReturnType<typeof useChat>["setMessages"] | null>(null);
+  const didResumeRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (tabId) {
       clearToolPartsForTab(tabId);
     }
-  }, [tabId, sessionId, clearToolPartsForTab]);
+  }, [tabId, clearToolPartsForTab]);
 
   const paramsRef = React.useRef<Record<string, unknown> | undefined>(params);
 
@@ -168,6 +171,8 @@ export default function ChatProvider({
 
   const onFinish = React.useCallback(
     ({ message }: { message: UIMessage }) => {
+      // 关键：切换 session 后，旧请求的 onFinish 可能晚到；必须忽略，避免污染新会话的 leafMessageId。
+      if (sessionIdRef.current !== sessionId) return;
       const assistantId = String((message as any)?.id ?? "");
       if (!assistantId) return;
 
@@ -195,17 +200,19 @@ export default function ChatProvider({
         void refreshBranchMeta(assistantId);
       }
     },
-    [refreshBranchMeta]
+    [refreshBranchMeta, sessionId]
   );
 
   const chatConfig = React.useMemo(
     () => ({
       id: sessionId,
-      // mount 时自动尝试恢复未完成的流（AI SDK v6 内部会触发 GET `${api}/${id}/stream`）
-      resume: true,
+      // 关键：不要用 useChat 的 auto-resume（StrictMode 下可能触发两次并发 resumeStream，导致 ai SDK 内部 activeResponse 竞态崩溃）
+      resume: false,
       transport,
       onFinish,
       onData: (dataPart: any) => {
+        // 关键：切换 session 后忽略旧流的 dataPart，避免 toolParts 被写回新会话 UI。
+        if (sessionIdRef.current !== sessionId) return;
         handleChatDataPart({ dataPart, tabId, upsertToolPartMerged });
       },
     }),
@@ -214,6 +221,26 @@ export default function ChatProvider({
 
   const chat = useChat(chatConfig);
   setMessagesRef.current = chat.setMessages;
+
+  React.useEffect(() => {
+    // 关键：手动 resume（每个 sessionId 只做一次），避免 StrictMode 并发调用导致崩溃。
+    if (didResumeRef.current === sessionId) return;
+    didResumeRef.current = sessionId;
+    void chat.resumeStream();
+  }, [sessionId, chat.resumeStream]);
+
+  React.useLayoutEffect(() => {
+    // 关键：sessionId 可能由外部状态直接切换（不一定走 newSession/selectSession）。
+    // 必须在浏览器可交互前完成清理，否则首条消息会错误复用旧 leaf 作为 parentMessageId。
+    chat.stop();
+    chat.setMessages([]);
+    pendingUserMessageIdRef.current = null;
+    needsBranchMetaRefreshRef.current = false;
+    setLeafMessageId(null);
+    setBranchMessageIds([]);
+    setSiblingNav({});
+    if (tabId) clearToolPartsForTab(tabId);
+  }, [sessionId, tabId, clearToolPartsForTab, chat.stop, chat.setMessages]);
 
   const shouldLoadHistory = loadHistory !== false;
 
@@ -292,6 +319,13 @@ export default function ChatProvider({
 
   const [input, setInput] = React.useState("");
 
+  React.useEffect(() => {
+    // 关键：空消息列表时不应存在 leafMessageId（否则会把“脏 leaf”带进首条消息的 parentMessageId）
+    if ((chat.messages?.length ?? 0) === 0 && leafMessageId) {
+      setLeafMessageId(null);
+    }
+  }, [chat.messages?.length, leafMessageId]);
+
   // 发送消息后立即滚动到底部（即使 AI 还没开始返回内容）
   const sendMessage = React.useCallback(
     (...args: Parameters<typeof chat.sendMessage>) => {
@@ -304,9 +338,21 @@ export default function ChatProvider({
         typeof message?.parentMessageId === "string" || message?.parentMessageId === null
           ? message.parentMessageId
           : undefined;
+      const lastMessageId =
+        (chat.messages?.length ?? 0) === 0
+          ? null
+          : (String((chat.messages as any[])?.at(-1)?.id ?? "") || null);
+      const isLeafInCurrentMessages =
+        typeof leafMessageId === "string" &&
+        leafMessageId.length > 0 &&
+        Boolean((chat.messages as any[])?.some((m) => String((m as any)?.id) === leafMessageId));
+      const fallbackParentMessageId =
+        (chat.messages?.length ?? 0) === 0
+          ? null
+          : (isLeafInCurrentMessages ? leafMessageId : null) ?? lastMessageId;
       // 关键：explicitParentMessageId 允许为 null（根节点），不能被 leafMessageId 覆盖
       const parentMessageId =
-        explicitParentMessageId !== undefined ? explicitParentMessageId : leafMessageId ?? null;
+        explicitParentMessageId !== undefined ? explicitParentMessageId : fallbackParentMessageId;
       const nextMessageRaw =
         message && typeof message === "object" && "text" in message
           ? { parts: [{ type: "text", text: String((message as any).text ?? "") }] }
@@ -329,7 +375,7 @@ export default function ChatProvider({
 
       return (chat.sendMessage as any)(nextMessage, options);
     },
-    [chat.sendMessage, leafMessageId]
+    [chat.sendMessage, chat.messages, leafMessageId]
   );
 
   const switchSibling = React.useCallback(

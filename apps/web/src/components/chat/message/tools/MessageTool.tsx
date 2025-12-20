@@ -3,7 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Check, Copy } from "lucide-react";
+import { Check, ChevronDown, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 // MVP：只展示工具名称 + 输入 + 输出（去掉语法高亮/格式化/多层折叠）
@@ -32,6 +32,41 @@ function safeStringify(value: unknown) {
   } catch {
     return String(value);
   }
+}
+
+/**
+ * 尝试把值识别为 JSON，并同时给出“默认折叠/展开后格式化”的两种展示文本。
+ * - 默认折叠：紧凑单行（便于快速扫一眼）
+ * - 展开后：2 空格缩进格式化
+ */
+function getJsonDisplay(value: unknown): null | { collapsedText: string; expandedText: string } {
+  if (value == null) return null;
+
+  try {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      // 关键：先做轻量前置判断，避免对普通文本频繁 JSON.parse
+      const maybeJson = trimmed.startsWith("{") || trimmed.startsWith("[");
+      if (!maybeJson) return null;
+
+      const parsed = JSON.parse(trimmed) as unknown;
+      return {
+        collapsedText: JSON.stringify(parsed),
+        expandedText: JSON.stringify(parsed, null, 2),
+      };
+    }
+
+    if (typeof value === "object") {
+      return {
+        collapsedText: JSON.stringify(value),
+        expandedText: JSON.stringify(value, null, 2),
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function isEmptyInput(value: unknown) {
@@ -76,6 +111,11 @@ export default function MessageTool({
         : "（暂无返回结果）");
 
   const [copied, setCopied] = React.useState(false);
+  const [inputJsonExpanded, setInputJsonExpanded] = React.useState(false);
+  const [outputJsonExpanded, setOutputJsonExpanded] = React.useState(false);
+
+  const inputJsonDisplay = React.useMemo(() => getJsonDisplay(part.input), [part.input]);
+  const outputJsonDisplay = React.useMemo(() => getJsonDisplay(part.output), [part.output]);
 
   const handleCopyAll = async (event: React.MouseEvent) => {
     // 关键：summary 内点击按钮不应触发折叠开关
@@ -125,22 +165,70 @@ export default function MessageTool({
         <div className="mt-2 space-y-2">
           {showInput ? (
             <div>
-              <div className="text-[11px] text-muted-foreground">输入参数</div>
-              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words bg-background p-2 text-xs">
-                {inputText}
+              <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <div>输入参数</div>
+                {inputJsonDisplay ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="h-6 w-6 shrink-0 bg-transparent text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground"
+                    onClick={() => setInputJsonExpanded((value) => !value)}
+                    aria-label={inputJsonExpanded ? "收起 JSON" : "展开 JSON"}
+                    title={inputJsonExpanded ? "收起（紧凑）" : "展开（格式化）"}
+                  >
+                    <ChevronDown className={cn("size-3 transition-transform", inputJsonExpanded ? "rotate-180" : "rotate-0")} />
+                  </Button>
+                ) : null}
+              </div>
+              <pre
+                className={cn(
+                  "mt-1 overflow-auto whitespace-pre bg-background p-2 text-xs",
+                  inputJsonDisplay ? (inputJsonExpanded ? "max-h-96" : "max-h-28") : "max-h-40 whitespace-pre-wrap break-words",
+                )}
+              >
+                {inputJsonDisplay ? (inputJsonExpanded ? inputJsonDisplay.expandedText : inputJsonDisplay.collapsedText) : inputText}
               </pre>
             </div>
           ) : null}
 
           <div>
-            <div className="text-[11px] text-muted-foreground">{hasErrorText ? "错误信息" : "输出结果"}</div>
+            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+              <div>{hasErrorText ? "错误信息" : "输出结果"}</div>
+              {!hasErrorText && outputJsonDisplay ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="h-6 w-6 shrink-0 bg-transparent text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground"
+                  onClick={() => setOutputJsonExpanded((value) => !value)}
+                  aria-label={outputJsonExpanded ? "收起 JSON" : "展开 JSON"}
+                  title={outputJsonExpanded ? "收起（紧凑）" : "展开（格式化）"}
+                >
+                  <ChevronDown className={cn("size-3 transition-transform", outputJsonExpanded ? "rotate-180" : "rotate-0")} />
+                </Button>
+              ) : null}
+            </div>
             <pre
               className={cn(
-                "mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words bg-background p-2 text-xs",
+                "mt-1 overflow-auto bg-background p-2 text-xs",
+                hasErrorText
+                  ? "max-h-64 whitespace-pre-wrap break-words"
+                  : outputJsonDisplay
+                    ? outputJsonExpanded
+                      ? "max-h-[36rem] whitespace-pre"
+                      : "max-h-32 whitespace-pre"
+                    : "max-h-64 whitespace-pre-wrap break-words",
                 hasErrorText && "text-destructive/80",
               )}
             >
-              {hasErrorText ? part.errorText : outputDisplayText}
+              {hasErrorText
+                ? part.errorText
+                : outputJsonDisplay
+                  ? outputJsonExpanded
+                    ? outputJsonDisplay.expandedText
+                    : outputJsonDisplay.collapsedText
+                  : outputDisplayText}
             </pre>
           </div>
         </div>
@@ -148,4 +236,3 @@ export default function MessageTool({
     </div>
   );
 }
-

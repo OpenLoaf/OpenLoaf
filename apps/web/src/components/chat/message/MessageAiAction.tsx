@@ -52,13 +52,8 @@ export default function MessageAiAction({
   const updateRatingMutation = useMutation({
     ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
     onSuccess: (result) => {
-      // 成功后，用服务端返回的 meta 更新到 useChatContext
-      updateMessage(message.id, {
-        ...message,
-        metadata: {
-          ...(result as any).meta,
-        },
-      });
+      // 成功后，用服务端返回的 metadata 更新到 useChatContext（可能为 null）
+      updateMessage(message.id, { metadata: (result as any).metadata ?? null });
       toast.success("评价成功");
     },
     onError: () => {
@@ -68,6 +63,17 @@ export default function MessageAiAction({
 
   const isRating = updateRatingMutation.isPending;
 
+  const buildNextMetadata = (nextIsGood: boolean | null) => {
+    // 中文备注：点赞/点踩为“单选”状态；重复点击同一选项则取消（回到 null）
+    const nextMetadata = { ...((message.metadata as any) ?? {}) } as Record<string, unknown>;
+    if (nextIsGood === null) {
+      delete nextMetadata.isGood;
+    } else {
+      nextMetadata.isGood = nextIsGood;
+    }
+    return Object.keys(nextMetadata).length > 0 ? nextMetadata : null;
+  };
+
   // 处理好评点击
   const handleGoodRating = () => {
     if (!message.id) return;
@@ -75,10 +81,7 @@ export default function MessageAiAction({
     updateRatingMutation.mutate({
       where: { id: message.id },
       data: {
-        meta: {
-          ...(message.metadata as any),
-          isGood: true,
-        },
+        metadata: buildNextMetadata(ratingValue === true ? null : true),
       },
     });
   };
@@ -90,29 +93,24 @@ export default function MessageAiAction({
     updateRatingMutation.mutate({
       where: { id: message.id },
       data: {
-        meta: {
-          ...(message.metadata as any),
-          isGood: false,
-        },
+        metadata: buildNextMetadata(ratingValue === false ? null : false),
       },
     });
   };
 
   return (
-    <div className={cn("inline-flex items-center gap-0.5", className)}>
-      <MessageBranchNav messageId={message.id} />
-
+    <div className={cn("flex ml-1 items-center justify-start gap-0.5", className)}>
       <Button
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+        className="h-7 w-7 text-muted-foreground hover:text-foreground transition-all duration-200 hover:scale-110 active:scale-95"
         onClick={handleCopy}
         disabled={!text || isCopying}
         aria-label="复制"
         title="复制"
       >
-        <Copy className="size-3" />
+        <Copy className="size-3.5" strokeWidth={2.5} />
       </Button>
 
       <Button
@@ -163,6 +161,8 @@ export default function MessageAiAction({
           )}
         />
       </Button>
+
+      <MessageBranchNav messageId={message.id} />
     </div>
   );
 }

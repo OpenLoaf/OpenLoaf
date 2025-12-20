@@ -21,6 +21,7 @@ import { systemTools } from "@/chat/tools/system";
 import { subAgentTool } from "@/chat/tools/subAgent";
 import type { ChatRequestBody, TokenUsageMessage } from "@teatime-ai/api/types/message";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
+import { prisma } from "@teatime-ai/db";
 import { MessageRole as MessageRoleEnum } from "@teatime-ai/db/prisma/generated/client";
 import {
   attachAbortControllerToActiveStream,
@@ -60,6 +61,18 @@ function toClientErrorText(error: unknown): string {
  * - createAgentUIStream：运行主 agent 并合并到 UI stream
  * - consumeSseStream：写入“可续传内存流”，供断线续传使用
  */
+async function resolveSessionParentMessageId(sessionId: string): Promise<string | null> {
+  // 中文备注：当客户端不传 parentMessageId 时，默认把“会话里最后一条消息”作为 parent。
+  // - 新会话无消息时为 null（根节点）
+  // - 占位 assistant 也可以作为 parent（保证树连续）
+  const row = await prisma.chatMessage.findFirst({
+    where: { sessionId },
+    orderBy: [{ path: "desc" }, { id: "desc" }],
+    select: { id: true },
+  });
+  return row?.id ? String(row.id) : null;
+}
+
 export function registerChatSseCreateRoute(app: Hono) {
   app.post("/chat/sse", async (c) => {
     let body: ChatRequestBody;
@@ -168,24 +181,43 @@ export function registerChatSseCreateRoute(app: Hono) {
       if ((lastIncomingMessage as any).role !== "user") {
         return c.json({ error: "last message must be a user message" }, 400);
       }
-      // 关键：非 retry 才要求显式 parentMessageId（消息树）
+      // 关键：非 retry 的 submit-message 允许不传 parentMessageId（由服务端按会话最右叶子推断）
       const messageParentMessageId =
         typeof (lastIncomingMessage as any).parentMessageId === "string" ||
         (lastIncomingMessage as any).parentMessageId === null
           ? ((lastIncomingMessage as any).parentMessageId as string | null)
           : undefined;
-      if (messageParentMessageId === undefined) {
-        return c.json({ error: "parentMessageId is required" }, 400);
-      }
       const normalizedParentMessageId =
         typeof messageParentMessageId === "string" && messageParentMessageId.trim().length === 0
           ? null
           : messageParentMessageId;
-      userNode = await saveChatMessageNode({
-        sessionId,
-        message: lastIncomingMessage as any,
-        parentMessageId: normalizedParentMessageId,
-      });
+      const parentMessageIdToUse =
+        normalizedParentMessageId === undefined
+          ? await resolveSessionParentMessageId(sessionId)
+          : normalizedParentMessageId;
+      try {
+        userNode = await saveChatMessageNode({
+          sessionId,
+          message: lastIncomingMessage as any,
+          parentMessageId: parentMessageIdToUse,
+        });
+      } catch (error) {
+        // 关键：parentMessageId 不存在属于客户端参数错误，不应作为 500 抛到前端
+        if (error instanceof Error && error.message === "parentMessageId not found in this session.") {
+          // 中文备注：前端偶发会把“旧会话 leaf”带进新会话（或历史未加载时 leaf 脏），这里兜底回退到服务端推断的 parent。
+          const fallbackParentMessageId = await resolveSessionParentMessageId(sessionId);
+          try {
+            userNode = await saveChatMessageNode({
+              sessionId,
+              message: lastIncomingMessage as any,
+              parentMessageId: fallbackParentMessageId,
+            });
+          } catch {
+            return c.json({ error: error.message }, 400);
+          }
+        }
+        throw error;
+      }
     }
     if (isRetry && (userNode as any).role !== MessageRoleEnum.user) {
       return c.json({ error: "retry requires an existing user message" }, 400);

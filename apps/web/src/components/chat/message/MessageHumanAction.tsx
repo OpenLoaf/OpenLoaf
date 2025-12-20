@@ -57,7 +57,7 @@ export default function MessageHumanAction({
                   : "opacity-100 scale-100 rotate-0"
               )}
             >
-              <Copy className="size-3" />
+              <Copy className="size-3.5" strokeWidth={2.5} />
             </div>
             <div
               className={cn(
@@ -67,7 +67,7 @@ export default function MessageHumanAction({
                   : "opacity-0 scale-90 -rotate-12"
               )}
             >
-              <Check className="size-3" />
+              <Check className="size-3.5" strokeWidth={2.5} />
             </div>
           </div>
         </Button>
@@ -81,7 +81,29 @@ export default function MessageHumanAction({
           title={isEditing ? "取消编辑" : "编辑"}
           onClick={onToggleEdit}
         >
-          {isEditing ? <X className="size-3" /> : <Pencil className="size-3" />}
+          <div className="relative flex items-center justify-center">
+            {/* 编辑/取消编辑图标做淡入淡出切换，避免“瞬间跳变” */}
+            <div
+              className={cn(
+                "absolute transition-all duration-300 ease-in-out",
+                isEditing
+                  ? "opacity-0 scale-90 rotate-12"
+                  : "opacity-100 scale-100 rotate-0"
+              )}
+            >
+              <Pencil className="size-3" />
+            </div>
+            <div
+              className={cn(
+                "absolute transition-all duration-300 ease-in-out",
+                isEditing
+                  ? "opacity-100 scale-100 rotate-0"
+                  : "opacity-0 scale-90 -rotate-12"
+              )}
+            >
+              <X className="size-3" />
+            </div>
+          </div>
         </Button>
       </div>
     </div>

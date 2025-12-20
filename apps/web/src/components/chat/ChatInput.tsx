@@ -242,7 +242,7 @@ export function ChatInputBox({
 }
 
 export default function ChatInput({ className }: ChatInputProps) {
-  const { sendMessage, status, stopGenerating, clearError, input, setInput } =
+  const { sendMessage, status, stopGenerating, clearError, input, setInput, isHistoryLoading } =
     useChatContext();
 
   const isLoading = status === "submitted" || status === "streaming";
@@ -250,6 +250,8 @@ export default function ChatInput({ className }: ChatInputProps) {
   const handleSubmit = (value: string) => {
     const canSubmit = status === "ready" || status === "error";
     if (!canSubmit) return;
+    // 中文备注：切换 session 的历史加载期间禁止发送，避免 parentMessageId 与当前会话链不一致
+    if (isHistoryLoading) return;
     if (!value.trim()) return;
     if (status === "error") clearError();
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
@@ -265,7 +267,7 @@ export default function ChatInput({ className }: ChatInputProps) {
       variant="default"
       compact={false}
       isLoading={isLoading}
-      submitDisabled={status !== "ready" && status !== "error"}
+      submitDisabled={isHistoryLoading || (status !== "ready" && status !== "error")}
       onSubmit={handleSubmit}
       onStop={stopGenerating}
     />
