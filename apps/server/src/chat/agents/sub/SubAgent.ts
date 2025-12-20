@@ -1,5 +1,7 @@
 import type { AgentFrame } from "@/context/requestContext";
 
+const DEFAULT_SUB_AGENT_MODEL = { provider: "deepseek", modelId: "deepseek-chat" } as const;
+
 export abstract class SubAgent {
   abstract readonly name: string;
   /** subAgent 唯一标识（用于落库与追溯） */
@@ -16,6 +18,7 @@ export abstract class SubAgent {
       name: this.name,
       agentId: this.agentId,
       path: [...parentPath, this.name],
+      model: DEFAULT_SUB_AGENT_MODEL,
     };
   }
 }

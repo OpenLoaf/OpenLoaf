@@ -135,16 +135,12 @@ export default function ChatProvider({
   }
 
   function getTopLevelParentMessageId(message: any): string | null | undefined {
+    // 关键：parentMessageId 必须在顶层（metadata 禁止保存消息树字段）
     const pid =
       typeof message?.parentMessageId === "string" || message?.parentMessageId === null
         ? message.parentMessageId
         : undefined;
-    if (pid !== undefined) return pid;
-    const metaPid =
-      typeof message?.metadata?.parentMessageId === "string" || message?.metadata?.parentMessageId === null
-        ? message.metadata.parentMessageId
-        : undefined;
-    return metaPid;
+    return pid;
   }
 
   React.useEffect(() => {
@@ -214,7 +210,7 @@ export default function ChatProvider({
     // - 首次加载：写入 messages
     // - 后续刷新（例如重试/分支切换）：只更新分支元信息（siblingNav 等），避免覆盖流式消息内容
     if (chat.messages.length === 0) {
-      const messages = (data.messages ?? []).filter((msg): msg is UIMessage => msg.role !== "tool");
+      const messages = (data.messages ?? []) as UIMessage[];
       chat.setMessages(messages);
       syncToolPartsFromMessages({ tabId, messages });
       // 应用历史后，滚动到最底部显示最新消息
@@ -230,7 +226,9 @@ export default function ChatProvider({
     const last = chat.messages[chat.messages.length - 1] as any;
     if (!last) return;
     if (last.role !== "assistant") return;
-    if (last?.metadata?.agent?.kind === "sub") return;
+    // 关键：历史接口会把 metadata.agent 提升到顶层 agent；流式阶段仍可能只出现在 metadata.agent
+    const agentKind = last?.agent?.kind ?? last?.metadata?.agent?.kind;
+    if (agentKind === "sub") return;
     setLeafMessageId(String(last.id));
   }, [chat.messages]);
 
@@ -242,9 +240,9 @@ export default function ChatProvider({
       startMessageId: string;
       resolveToLatestLeaf?: boolean;
     }) => {
-      // 关键：只拉取分支链/导航信息；不覆盖当前流式 messages
+      // 关键：只拉取分支元信息；不覆盖当前流式 messages
       const data = await queryClient.fetchQuery(
-        trpc.chat.getChatBranch.queryOptions({
+        trpc.chat.getChatBranchMeta.queryOptions({
           sessionId,
           take: 50,
           startMessageId,
@@ -267,7 +265,7 @@ export default function ChatProvider({
   const applyBranchSnapshot = React.useCallback(
     (data: any, { setMessages }: { setMessages: boolean }) => {
       const incoming = Array.isArray(data?.messages) ? (data.messages as any[]) : [];
-      const visible = incoming.filter((m) => m?.role !== "tool") as UIMessage[];
+      const visible = incoming as UIMessage[];
 
       if (setMessages) {
         const nextMessages = dedupeMessagesById(visible);
@@ -286,13 +284,16 @@ export default function ChatProvider({
     [chat.setMessages, tabId, clearToolPartsForTab]
   );
 
+  const needsBranchMetaRefreshRef = React.useRef(false);
   const lastRefreshedLeafRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    // 关键：重试/生成结束后，需要刷新 siblingNav，否则 “< idx/total >” 要 F5 才会出现
+    // 关键：仅在 retry/resend（会产生 sibling 分支）后刷新 siblingNav，否则 “< idx/total >” 要 F5 才会出现
     if (chat.status !== "ready") return;
     if (!leafMessageId) return;
+    if (!needsBranchMetaRefreshRef.current) return;
     if (lastRefreshedLeafRef.current === leafMessageId) return;
     lastRefreshedLeafRef.current = leafMessageId;
+    needsBranchMetaRefreshRef.current = false;
     fetchBranchMeta({ startMessageId: leafMessageId }).catch(() => {
       // ignore（MVP：不打断主流程）
     });
@@ -401,7 +402,20 @@ export default function ChatProvider({
       if (!assistant) return;
 
       // 关键：AI 重试 = 重发该 assistant 的 parent user 消息（但不重复保存 user 到 DB）
-      const parentUserMessageId = getTopLevelParentMessageId(assistant);
+      let parentUserMessageId =
+        getTopLevelParentMessageId(assistant) ?? siblingNav?.[assistantMessageId]?.parentMessageId ?? null;
+      if (!parentUserMessageId) {
+        // 兜底：部分流式消息可能没有 parentMessageId（由服务端历史接口回填）
+        const snap = await queryClient.fetchQuery(
+          trpc.chat.getChatBranch.queryOptions({
+            sessionId,
+            take: 50,
+            startMessageId: assistantMessageId,
+          })
+        );
+        const row = (snap.messages as any[])?.find((m) => String(m?.id) === assistantMessageId);
+        parentUserMessageId = getTopLevelParentMessageId(row) ?? null;
+      }
       if (!parentUserMessageId) return;
 
       chat.stop();
@@ -433,9 +447,11 @@ export default function ChatProvider({
         },
         { body: { retry: true } }
       );
+      // 关键：retry 会新增 assistant sibling，生成结束后需要刷新 siblingNav
+      needsBranchMetaRefreshRef.current = true;
       setScrollToBottomToken((n) => n + 1);
     },
-    [chat.stop, chat.messages, chat.sendMessage, queryClient, sessionId, applyBranchSnapshot]
+    [chat.stop, chat.messages, chat.sendMessage, queryClient, sessionId, applyBranchSnapshot, siblingNav]
   );
 
   const resendUserMessage = React.useCallback(
@@ -471,6 +487,8 @@ export default function ChatProvider({
         parts: [{ type: "text", text: nextText }],
         parentMessageId,
       });
+      // 关键：resend 会新增 user sibling（以及后续 assistant sibling），生成结束后需要刷新 siblingNav
+      needsBranchMetaRefreshRef.current = true;
       setScrollToBottomToken((n) => n + 1);
     },
     [

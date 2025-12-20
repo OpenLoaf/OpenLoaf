@@ -7,34 +7,28 @@ import { t, shieldedProcedure } from "../index";
  */
 export type ChatUIMessage = {
   id: string;
-  role: "system" | "user" | "assistant" | "tool";
+  role: "system" | "user" | "assistant";
   /** 消息树：父消息 ID（根节点为 null） */
   parentMessageId: string | null;
   parts: any[];
   metadata?: any;
+  /** 产生该消息的 agent 信息（便于 UI 直接读取） */
+  agent?: any;
 };
 
 const messageSchema = z.object({
   id: z.string(),
-  role: z.enum(["system", "user", "assistant", "tool"]),
+  role: z.enum(["system", "user", "assistant"]),
   parentMessageId: z.string().nullable(),
   parts: z.array(z.any()),
   metadata: z.any().optional(),
+  agent: z.any().optional(),
 });
 
-function mapDbRoleToUiRole(role: string): ChatUIMessage["role"] {
-  switch (role) {
-    case "USER":
-      return "user";
-    case "ASSISTANT":
-      return "assistant";
-    case "SYSTEM":
-      return "system";
-    case "TOOL":
-      return "tool";
-    default:
-      return "assistant";
-  }
+function isRenderableRow(row: { role: string; parts: unknown }): boolean {
+  if (row.role === "user") return true;
+  const parts = row.parts;
+  return Array.isArray(parts) && parts.length > 0;
 }
 
 /** 查询某个节点子树内最新的叶子节点 */
@@ -62,12 +56,10 @@ async function resolveLatestLeafId({
     },
     orderBy: [{ path: "desc" }],
     take: 50,
-    select: { id: true, role: true, uiMessageJson: true },
+    select: { id: true, role: true, parts: true },
   });
   for (const row of candidates) {
-    if (row.role === "USER") return row.id;
-    const parts = (row.uiMessageJson as any)?.parts;
-    if (Array.isArray(parts) && parts.length > 0) return row.id;
+    if (isRenderableRow(row)) return row.id;
   }
   return null;
 }
@@ -86,12 +78,10 @@ async function resolveSessionRightmostLeafId({
     },
     orderBy: [{ path: "desc" }],
     take: 50,
-    select: { id: true, role: true, uiMessageJson: true },
+    select: { id: true, role: true, parts: true },
   });
   for (const row of candidates) {
-    if (row.role === "USER") return row.id;
-    const parts = (row.uiMessageJson as any)?.parts;
-    if (Array.isArray(parts) && parts.length > 0) return row.id;
+    if (isRenderableRow(row)) return row.id;
   }
   return null;
 }
@@ -138,15 +128,23 @@ async function buildSiblingNavByMessageId({
       sessionId,
       OR: or,
     },
-    orderBy: [{ parentMessageId: "asc" }, { siblingIndex: "asc" }, { id: "asc" }],
-    select: { id: true, parentMessageId: true },
+    // 关键：不再存 siblingIndex，按 path（固定宽度分段）排序即可得到稳定的 sibling 顺序
+    orderBy: [{ parentMessageId: "asc" }, { path: "asc" }, { id: "asc" }],
+    select: { id: true, parentMessageId: true, path: true },
   });
 
-  const byParent = new Map<string, Array<{ id: string; parentMessageId: string | null }>>();
+  const byParent = new Map<
+    string,
+    Array<{ id: string; parentMessageId: string | null; path: string }>
+  >();
   for (const s of siblings) {
     const key = String(s.parentMessageId ?? "__root__");
     const list = byParent.get(key) ?? [];
-    list.push({ id: String(s.id), parentMessageId: (s.parentMessageId ?? null) as any });
+    list.push({
+      id: String(s.id),
+      parentMessageId: (s.parentMessageId ?? null) as any,
+      path: String(s.path),
+    });
     byParent.set(key, list);
   }
 
@@ -220,17 +218,27 @@ const getChatBranchOutputSchema = z.object({
   ),
 });
 
+const getChatBranchMetaOutputSchema = z.object({
+  /** 本次返回对应的 leafMessageId（用于前端维护“当前分支”） */
+  leafMessageId: z.string().nullable(),
+  /** 当前分支链上的 messageId 列表（按时间正序） */
+  branchMessageIds: z.array(z.string()),
+  /** messageId -> siblings 导航信息（用于左右切换分支） */
+  siblingNav: z.record(
+    z.string(),
+    z.object({
+      parentMessageId: z.string().nullable(),
+      prevSiblingId: z.string().nullable(),
+      nextSiblingId: z.string().nullable(),
+      siblingIndex: z.number().int().min(1),
+      siblingTotal: z.number().int().min(1),
+    }),
+  ),
+});
+
 const resolveLatestLeafInputSchema = z.object({
   sessionId: z.string().min(1),
   startMessageId: z.string().min(1),
-});
-
-const listChatMessagesInputSchema = z.object({
-  sessionId: z.string().min(1),
-  /** 同 depth 的消息列表（可选） */
-  depth: z.number().int().min(0).optional(),
-  take: z.number().min(1).max(200).default(50),
-  cursor: z.string().optional(),
 });
 
 export const chatRouter = t.router({
@@ -280,8 +288,8 @@ export const chatRouter = t.router({
             sessionId: true,
             parentMessageId: true,
             role: true,
-            uiMessageJson: true,
-            totalUsage: true,
+            parts: true,
+            metadata: true,
           },
         });
         if (!row || row.sessionId !== input.sessionId) break;
@@ -307,13 +315,13 @@ export const chatRouter = t.router({
           id: true,
           parentMessageId: true,
           role: true,
-          uiMessageJson: true,
-          totalUsage: true,
+          parts: true,
+          metadata: true,
         },
       });
       // 关键：只回放 subAgent 输出，避免把 sibling/分支内容混进当前链导致重复显示
       const filteredChildrenRows = childrenRows.filter(
-        (r: any) => (r?.uiMessageJson as any)?.metadata?.agent?.kind === "sub",
+        (r: any) => (r?.metadata as any)?.agent?.kind === "sub",
       );
       const childrenByParentId = new Map<string, any[]>();
       for (const row of filteredChildrenRows) {
@@ -348,19 +356,16 @@ export const chatRouter = t.router({
         const row = byId.get(id);
         if (!row) continue;
         const pushRow = (r: any) => {
-          const raw = (r.uiMessageJson as any) ?? {};
-          const parts = Array.isArray(raw?.parts) ? raw.parts : [];
+          const parts = Array.isArray(r.parts) ? r.parts : [];
           // 关键：占位 assistant 没有任何内容，不应该被返回给前端渲染
           if (!parts || parts.length === 0) return;
           messages.push({
             id: r.id,
-            role: mapDbRoleToUiRole(r.role),
+            role: r.role,
             parentMessageId: r.parentMessageId ?? null,
             parts,
-            metadata: {
-              ...(raw?.metadata ?? {}),
-              ...(r.totalUsage ? { totalUsage: r.totalUsage } : {}),
-            },
+            metadata: r.metadata ?? undefined,
+            agent: (r.metadata as any)?.agent ?? undefined,
           });
         };
 
@@ -384,6 +389,92 @@ export const chatRouter = t.router({
       return { leafMessageId, branchMessageIds, messages, nextCursor, siblingNav };
     }),
 
+  /**
+   * 仅获取分支元信息（不返回 messages）
+   * - 用于 retry/resend 后刷新 siblingNav，而不覆盖当前流式消息
+   */
+  getChatBranchMeta: shieldedProcedure
+    .input(getChatBranchInputSchema)
+    .output(getChatBranchMetaOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const take = input.take ?? 50;
+
+      const baseId =
+        input.cursor ??
+        input.startMessageId ??
+        (await resolveSessionRightmostLeafId({
+          prisma: ctx.prisma,
+          sessionId: input.sessionId,
+        }));
+      if (!baseId) {
+        return { leafMessageId: null, branchMessageIds: [], siblingNav: {} };
+      }
+
+      const leafMessageId =
+        !input.cursor && input.resolveToLatestLeaf
+          ? await resolveLatestLeafId({
+              prisma: ctx.prisma,
+              sessionId: input.sessionId,
+              startMessageId: baseId,
+            })
+          : baseId;
+      if (!leafMessageId) {
+        return { leafMessageId: null, branchMessageIds: [], siblingNav: {} };
+      }
+
+      const chainRows: any[] = [];
+      let currentId: string | null = leafMessageId;
+      for (let i = 0; i < take && currentId; i += 1) {
+        const row: any = await ctx.prisma.chatMessage.findUnique({
+          where: { id: currentId },
+          select: {
+            id: true,
+            sessionId: true,
+            parentMessageId: true,
+          },
+        });
+        if (!row || row.sessionId !== input.sessionId) break;
+        chainRows.push(row);
+        currentId = row.parentMessageId ?? null;
+      }
+      chainRows.reverse();
+      const branchMessageIds = chainRows.map((r) => String(r.id));
+
+      const siblingNavById = await buildSiblingNavByMessageId({
+        prisma: ctx.prisma,
+        sessionId: input.sessionId,
+        branchRows: chainRows.map((r) => ({
+          id: String(r.id),
+          parentMessageId: (r.parentMessageId ?? null) as string | null,
+        })),
+      });
+
+      const siblingNav: Record<
+        string,
+        {
+          parentMessageId: string | null;
+          prevSiblingId: string | null;
+          nextSiblingId: string | null;
+          siblingIndex: number;
+          siblingTotal: number;
+        }
+      > = {};
+      for (const row of chainRows) {
+        const nav =
+          siblingNavById[String(row.id)] ??
+          ({
+            parentMessageId: row.parentMessageId ?? null,
+            prevSiblingId: null,
+            nextSiblingId: null,
+            siblingIndex: 1,
+            siblingTotal: 1,
+          } as const);
+        siblingNav[String(row.id)] = nav;
+      }
+
+      return { leafMessageId, branchMessageIds, siblingNav };
+    }),
+
   /** 获取某个节点子树内最新叶子 */
   resolveLatestLeaf: shieldedProcedure
     .input(resolveLatestLeafInputSchema)
@@ -394,39 +485,6 @@ export const chatRouter = t.router({
         startMessageId: input.startMessageId,
       });
       return { leafMessageId };
-    }),
-
-  /**
-   * 会话消息列表（倒序分页）
-   * - 支持按 depth 过滤（用于“同 depth 消息”视图）
-   */
-  listChatMessages: shieldedProcedure
-    .input(listChatMessagesInputSchema)
-    .query(async ({ ctx, input }) => {
-      const take = input.take ?? 50;
-      const rows = await ctx.prisma.chatMessage.findMany({
-        where: {
-          sessionId: input.sessionId,
-          ...(typeof input.depth === "number" ? { depth: input.depth } : {}),
-        },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        take: take + 1,
-        cursor: input.cursor ? { id: input.cursor } : undefined,
-        skip: input.cursor ? 1 : undefined,
-        select: {
-          id: true,
-          role: true,
-          parentMessageId: true,
-          depth: true,
-          createdAt: true,
-        },
-      });
-
-      const hasMore = rows.length > take;
-      const sliced = hasMore ? rows.slice(0, take) : rows;
-      const nextCursor = hasMore ? sliced[sliced.length - 1]!.id : null;
-
-      return { messages: sliced, nextCursor };
     }),
 
   /**

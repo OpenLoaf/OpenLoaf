@@ -10,11 +10,11 @@ function agentMetadataFromStack() {
   if (!frame) return undefined;
   return {
     agent: {
+      version: "agent-v1",
       kind: frame.kind,
       name: frame.name,
       id: frame.agentId,
-      depth: frame.path.length - 1,
-      path: frame.path,
+      model: frame.model,
     },
   };
 }

@@ -21,37 +21,27 @@ model ChatMessage {
   sessionId       String
   // 消息树：父消息 ID（根节点为 null）
   parentMessageId String?
-  // 节点层数（根为 0）
-  depth           Int
-  // sibling 序号（从 1 开始；每个 parentMessageId 维度独立递增）
-  siblingIndex    Int
   // 物化路径：用于子树查询与“最右叶子”选择（格式：00000001/00000002/...）
   path            String
-  role            MessageRole @default(USER)
-  // AI 用量统计（从 UIMessage.metadata.totalUsage 剥离出来）
-  // - 只用于历史展示/统计，不参与消息树逻辑
-  totalUsage      Json? /// @zod.optional()
-  // 完整 UIMessage（兼容 ai-sdk v6 / @ai-sdk/react）
-  // - 只存一条消息（含 parts/metadata）
-  // - parentMessageId 以列为准；UIMessage 内若有同名字段仅作冗余
-  uiMessageJson   Json
+  // 角色：与 AI SDK UIMessage.role 保持一致（小写）
+  role            MessageRole @default(user)
+  // UIMessage.parts 原始数组（只存可渲染/可回放的 parts）
+  parts           Json
+  // UIMessage.metadata（禁止保存消息树信息：id/sessionId/parentMessageId/path）
+  metadata        Json? /// @zod.optional()
   createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
   session         ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, createdAt])
-  @@index([sessionId, depth, createdAt])
   @@index([sessionId, parentMessageId, createdAt])
-  @@index([sessionId, parentMessageId, siblingIndex])
   @@index([sessionId, path])
   @@index([role])
 }
 
 enum MessageRole {
-  USER
-  ASSISTANT
-  SYSTEM
-  TOOL
+  user
+  assistant
+  system
 }
 
 model SubAgentDefinition {

@@ -7,6 +7,8 @@ export type AgentFrame = {
   /** agent 唯一标识（用于落库与追溯） */
   agentId: string;
   path: string[];
+  /** agent 使用的模型信息（MVP：只存 provider + modelId） */
+  model?: { provider: string; modelId: string };
 };
 
 type RequestContext = {
@@ -133,4 +135,3 @@ class RequestContextManager {
 }
 
 export const requestContextManager = RequestContextManager.getInstance();
-

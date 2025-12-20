@@ -19,7 +19,8 @@ interface MessageListProps {
 const SUB_AGENT_TOOL_ID = "sub-agent";
 
 function isSubAgentMessage(message: any) {
-  return (message as any)?.metadata?.agent?.kind === "sub";
+  // 关键：历史接口会把 metadata.agent 提升到顶层 agent；流式阶段仍可能只出现在 metadata.agent
+  return (message as any)?.agent?.kind === "sub" || (message as any)?.metadata?.agent?.kind === "sub";
 }
 
 function messageHasSubAgentToolCall(message: any) {

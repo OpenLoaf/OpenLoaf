@@ -10,6 +10,7 @@ import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 
 const MASTER_AGENT_NAME = "master";
 const MASTER_AGENT_ID = "master";
+const MASTER_AGENT_MODEL = { provider: "deepseek", modelId: "deepseek-chat" } as const;
 
 function createMasterTools() {
   return {
@@ -55,6 +56,7 @@ export class MasterAgent {
       name: MASTER_AGENT_NAME,
       agentId: MASTER_AGENT_ID,
       path: [MASTER_AGENT_NAME],
+      model: MASTER_AGENT_MODEL,
     };
   }
 }

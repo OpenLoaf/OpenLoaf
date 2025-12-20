@@ -21,6 +21,7 @@ import { systemTools } from "@/chat/tools/system";
 import { subAgentTool } from "@/chat/tools/subAgent";
 import type { ChatRequestBody, TokenUsageMessage } from "@teatime-ai/api/types/message";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
+import { MessageRole as MessageRoleEnum } from "@teatime-ai/db/prisma/generated/client";
 import {
   attachAbortControllerToActiveStream,
   appendStreamChunk,
@@ -128,7 +129,7 @@ export function registerChatSseCreateRoute(app: Hono) {
           message: lastIncomingMessage as any,
           parentMessageId,
         });
-    if (isRetry && (userNode as any).role !== "USER") {
+    if (isRetry && (userNode as any).role !== MessageRoleEnum.user) {
       return c.json({ error: "retry requires an existing user message" }, 400);
     }
 
@@ -152,9 +153,6 @@ export function registerChatSseCreateRoute(app: Hono) {
         id: assistantMessageId,
         role: "assistant",
         parts: [],
-        metadata: {
-          parentMessageId: userNode.id,
-        },
         parentMessageId: userNode.id,
       } as any,
       parentMessageId: userNode.id,
@@ -244,23 +242,19 @@ export function registerChatSseCreateRoute(app: Hono) {
             const agentMeta = frame
               ? {
                   agent: {
+                    // 关键：对齐 AI SDK Agent 的标识（仅用于展示/追溯，运行时不依赖）
+                    version: "agent-v1",
                     kind: frame.kind,
                     name: frame.name,
                     id: frame.agentId,
-                    depth: frame.path.length - 1,
-                    path: frame.path,
+                    // 关键：模型信息用于历史展示（MVP：由 AgentFrame 提供可序列化描述）
+                    model: frame.model,
                   },
                 }
               : undefined;
 
-            // 关键：把消息树信息写进 metadata，前端才能分组渲染/切换分支
-            if (part.type === "start") {
-              return {
-                ...(agentMeta ?? {}),
-                parentMessageId: userNode.id,
-                depth: userNode.depth + 1,
-              } as any;
-            }
+            // 关键：metadata 禁止写入消息树字段（parentMessageId/path/...），消息树只存在于列
+            if (part.type === "start") return (agentMeta ?? {}) as any;
             if (part.type === "finish") {
               return {
                 ...(agentMeta ?? {}),
