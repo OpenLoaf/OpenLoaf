@@ -11,9 +11,11 @@ import { getCookie } from "hono/cookie";
 import type { ChatRequestBody } from "@teatime-ai/api/types/message";
 import { MasterAgent } from "@/ai/agents/MasterAgent";
 import { streamStore } from "@/modules/chat/StreamStoreAdapter";
+import { chatRepository } from "@/modules/chat/ChatRepositoryAdapter";
 import {
   popAgentFrame,
   pushAgentFrame,
+  getSessionId,
   setAbortSignal,
   setRequestContext,
   setUiWriter,
@@ -54,11 +56,49 @@ export function registerChatSseRoutes(app: Hono) {
     const agent = master.createAgent();
     const messages = (body.messages ?? []) as UIMessage[];
 
+    // 中文注释：MVP 只保存“最后一条 user 消息”与最终 assistant 响应。
+    const last = messages.at(-1) as any;
+    if (!last || last.role !== "user" || !last.id) {
+      return c.json({ error: "last message must be a user message with id" }, 400);
+    }
+    const explicitParent =
+      typeof last.parentMessageId === "string" || last.parentMessageId === null
+        ? (last.parentMessageId as string | null)
+        : undefined;
+    const parentMessageIdToUse =
+      explicitParent === undefined
+        ? await chatRepository.resolveSessionRightmostLeafId(sessionId)
+        : explicitParent;
+
+    const userNode = await chatRepository.saveMessageNode({
+      sessionId,
+      message: last as any,
+      parentMessageId: parentMessageIdToUse ?? null,
+    });
+
+    // 中文注释：固定 assistantMessageId，确保 stream 与落库是同一条消息。
+    const assistantMessageId = generateId();
+
     const stream = createUIMessageStream({
       originalMessages: messages as any[],
       onError: (err) => {
         console.error("[chat] ui stream error", err);
         return err instanceof Error ? err.message : "Unknown error";
+      },
+      onFinish: async ({ isAborted, responseMessage }) => {
+        if (isAborted) return;
+        if (!responseMessage || responseMessage.role !== "assistant") return;
+
+        const currentSessionId = getSessionId() ?? sessionId;
+        try {
+          await chatRepository.saveMessageNode({
+            sessionId: currentSessionId,
+            message: { ...(responseMessage as any), id: assistantMessageId } as any,
+            parentMessageId: userNode.id,
+          });
+        } catch (err) {
+          console.error("[chat] save assistant failed", err);
+        }
       },
       execute: async ({ writer }) => {
         setUiWriter(writer as any);
@@ -70,7 +110,7 @@ export function registerChatSseRoutes(app: Hono) {
             agent,
             messages: messages as any[],
             abortSignal: abortController.signal,
-            generateMessageId: generateId,
+            generateMessageId: () => assistantMessageId,
             onFinish: () => {
               popAgentFrame();
             },
