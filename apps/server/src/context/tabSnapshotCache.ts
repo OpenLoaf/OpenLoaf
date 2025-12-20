@@ -14,11 +14,11 @@ const cache = new Map<CacheKey, Entry>();
 
 export function buildTabSnapshotCacheKey(input: {
   sessionId: string;
-  webClientId: string;
+  clientId: string;
   tabId: string;
 }): string {
   // 中文注释：key 需要足够唯一，避免多窗口/多会话互相覆盖。
-  return `tabSnapshot:${input.sessionId}:${input.webClientId}:${input.tabId}`;
+  return `tabSnapshot:${input.sessionId}:${input.clientId}:${input.tabId}`;
 }
 
 export function upsertTabSnapshot(input: {
@@ -47,4 +47,3 @@ export function getTabSnapshot(key: string, now = Date.now()): Tab | null {
   }
   return entry.tab;
 }
-

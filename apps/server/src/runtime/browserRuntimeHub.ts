@@ -22,7 +22,7 @@ type RuntimeConnection = {
 };
 
 type PendingRequest = {
-  electronClientId: string;
+  appId: string;
   resolve: (value: RuntimeAck) => void;
   reject: (err: Error) => void;
   timeout: NodeJS.Timeout;
@@ -35,7 +35,7 @@ type PendingRequest = {
  */
 class BrowserRuntimeHub {
   private wss = new WebSocketServer({ noServer: true });
-  private runtimesByElectronClientId = new Map<string, RuntimeConnection>();
+  private runtimesByAppId = new Map<string, RuntimeConnection>();
   private pendingByRequestId = new Map<string, PendingRequest>();
 
   constructor() {
@@ -56,9 +56,14 @@ class BrowserRuntimeHub {
       }
 
       if (DEBUG_RUNTIME_WS) {
+        // 中文注释：兼容旧 query param electronClientId，但项目内部统一改为 appId。
+        const appIdFromQuery =
+          url.searchParams.get("appId") ??
+          url.searchParams.get("electronClientId") ??
+          undefined;
         console.log("[runtime-ws] upgrade", {
           path: url.pathname,
-          electronClientId: url.searchParams.get("electronClientId") ?? undefined,
+          appId: appIdFromQuery,
           remoteAddress: (req.socket as any)?.remoteAddress,
         });
       }
@@ -73,7 +78,7 @@ class BrowserRuntimeHub {
    * 向指定 Electron runtime 下发 openPage，并等待回执。
    */
   async openPageOnElectron(input: {
-    electronClientId: string;
+    appId: string;
     pageTargetId: string;
     url: string;
     tabId: string;
@@ -91,7 +96,7 @@ class BrowserRuntimeHub {
     };
 
     const ack = await this.sendCommandToElectron({
-      electronClientId: input.electronClientId,
+      appId: input.appId,
       requestId,
       command: cmd,
       timeoutMs: input.timeoutMs ?? 15_000,
@@ -113,13 +118,13 @@ class BrowserRuntimeHub {
    * 让 Electron runtime 通过 IPC 下发一个 UiEvent 给 renderer。
    */
   async emitUiEventOnElectron(input: {
-    electronClientId: string;
+    appId: string;
     event: UiEvent;
     timeoutMs?: number;
   }): Promise<void> {
     const requestId = crypto.randomUUID();
     const ack = await this.sendCommandToElectron({
-      electronClientId: input.electronClientId,
+      appId: input.appId,
       requestId,
       command: { kind: "uiEvent", requestId, event: input.event },
       timeoutMs: input.timeoutMs ?? 8_000,
@@ -130,14 +135,28 @@ class BrowserRuntimeHub {
   }
 
   /**
-   * 判断某个 electronClientId 是否在线（用于调度/兜底）。
+   * 判断某个 appId 是否在线（用于调度/兜底）。
    */
-  hasElectronRuntime(electronClientId: string): boolean {
-    return this.runtimesByElectronClientId.has(electronClientId);
+  hasElectronRuntime(appId: string): boolean {
+    return this.runtimesByAppId.has(appId);
+  }
+
+  /**
+   * 获取 appId 对应的 runtime 连接信息（用于 UI 展示）。
+   * - 注意：这是内存态在线信息，server 重启后会清空。
+   */
+  getElectronRuntimeStatus(appId: string): { connected: boolean; connectedAt?: number; instanceId?: string } {
+    const runtime = this.runtimesByAppId.get(appId);
+    if (!runtime) return { connected: false };
+    return {
+      connected: true,
+      connectedAt: runtime.connectedAt,
+      instanceId: runtime.hello.instanceId,
+    };
   }
 
   private async handleConnection(ws: import("ws").WebSocket, _req: IncomingMessage) {
-    let boundElectronClientId: string | null = null;
+    let boundAppId: string | null = null;
 
     if (DEBUG_RUNTIME_WS) {
       console.log("[runtime-ws] connected");
@@ -157,30 +176,36 @@ class BrowserRuntimeHub {
 
       const msg = parsed.data;
       if (msg.type === "hello") {
-        if (msg.runtimeType === "electron" && !msg.electronClientId) {
+        // 中文注释：兼容旧 runtime 字段 electronClientId，但项目内部统一改为 appId。
+        const appId =
+          msg.runtimeType === "electron"
+            ? msg.appId ?? (typeof (raw as any)?.electronClientId === "string" ? (raw as any).electronClientId : "")
+            : "";
+
+        if (msg.runtimeType === "electron" && !appId) {
           ws.send(
             JSON.stringify({
               type: "helloAck",
               ok: false,
               serverTime: Date.now(),
-              error: "Missing electronClientId",
+              error: "Missing appId",
             }),
           );
           return;
         }
 
         if (msg.runtimeType === "electron") {
-          boundElectronClientId = msg.electronClientId!;
-          this.runtimesByElectronClientId.set(boundElectronClientId, {
+          boundAppId = appId;
+          this.runtimesByAppId.set(appId, {
             ws,
-            hello: msg,
+            hello: { ...msg, appId } as RuntimeHello,
             connectedAt: Date.now(),
           });
 
           if (DEBUG_RUNTIME_WS) {
             console.log("[runtime-ws] hello", {
               runtimeType: msg.runtimeType,
-              electronClientId: boundElectronClientId,
+              appId: boundAppId,
               instanceId: msg.instanceId,
             });
           }
@@ -201,13 +226,13 @@ class BrowserRuntimeHub {
     });
 
     ws.on("close", () => {
-      if (boundElectronClientId) {
-        this.runtimesByElectronClientId.delete(boundElectronClientId);
+      if (boundAppId) {
+        this.runtimesByAppId.delete(boundAppId);
       }
 
       if (DEBUG_RUNTIME_WS) {
         console.log("[runtime-ws] closed", {
-          electronClientId: boundElectronClientId ?? undefined,
+          appId: boundAppId ?? undefined,
         });
       }
     });
@@ -222,14 +247,14 @@ class BrowserRuntimeHub {
   }
 
   private async sendCommandToElectron(input: {
-    electronClientId: string;
+    appId: string;
     requestId: string;
     command: RuntimeCommand;
     timeoutMs: number;
   }): Promise<RuntimeAck> {
-    const runtime = this.runtimesByElectronClientId.get(input.electronClientId);
+    const runtime = this.runtimesByAppId.get(input.appId);
     if (!runtime) {
-      throw new Error(`Electron runtime offline: electronClientId=${input.electronClientId}`);
+      throw new Error(`Electron runtime offline: appId=${input.appId}`);
     }
 
     return await new Promise<RuntimeAck>((resolve, reject) => {
@@ -239,7 +264,7 @@ class BrowserRuntimeHub {
       }, input.timeoutMs);
 
       this.pendingByRequestId.set(input.requestId, {
-        electronClientId: input.electronClientId,
+        appId: input.appId,
         resolve,
         reject,
         timeout,

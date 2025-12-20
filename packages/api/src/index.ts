@@ -11,6 +11,7 @@ import {
 import { tabRouter, BaseTabRouter, tabSchemas } from "./routers/tab";
 import { chatRouter } from "./routers/chat";
 import { health } from "./routers/health";
+import { runtimeRouter, BaseRuntimeRouter, runtimeSchemas } from "./routers/runtime";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -19,6 +20,7 @@ export const appRouterDefine = {
   pageCustom: pageRouter,
   workspace: workspaceRouter,
   tab: tabRouter,
+  runtime: runtimeRouter,
 };
 
 export const appRouter = t.router({
@@ -47,6 +49,9 @@ export { BaseWorkspaceRouter, workspaceSchemas };
 
 // Export tab router components
 export { BaseTabRouter, tabSchemas };
+
+// Export runtime router components
+export { BaseRuntimeRouter, runtimeSchemas };
 
 // export const t = initTRPC.context<Context>().create({
 // });

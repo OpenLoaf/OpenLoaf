@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTabs } from "./use-tabs";
-import { getStableClientStreamClientId } from "@/lib/chat/streamClientId";
+import { getWebClientId } from "@/lib/chat/streamClientId";
 import { trpc } from "@/utils/trpc";
 
 /**
@@ -26,7 +26,7 @@ export function useTabSnapshotSync(input: {
     if (!input.sessionId) return;
     if (!input.tabId) return;
 
-    const webClientId = getStableClientStreamClientId();
+    const clientId = getWebClientId();
     const tabId = input.tabId;
 
     // 中文注释：发送一次“当前状态”，确保 server 缓存立刻可用。
@@ -44,7 +44,7 @@ export function useTabSnapshotSync(input: {
       seqRef.current += 1;
       mutation.mutate({
         sessionId: input.sessionId,
-        webClientId,
+        clientId,
         tabId,
         seq: seqRef.current,
         tab,

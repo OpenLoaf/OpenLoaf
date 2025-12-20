@@ -10,7 +10,7 @@ export class TabRouterImpl extends BaseTabRouter {
         .mutation(async ({ input }) => {
           const key = buildTabSnapshotCacheKey({
             sessionId: input.sessionId,
-            webClientId: input.webClientId,
+            clientId: input.clientId,
             tabId: input.tabId,
           });
 
@@ -24,7 +24,7 @@ export class TabRouterImpl extends BaseTabRouter {
         .query(async ({ input }) => {
           const key = buildTabSnapshotCacheKey({
             sessionId: input.sessionId,
-            webClientId: input.webClientId,
+            clientId: input.clientId,
             tabId: input.tabId,
           });
           const tab = getTabSnapshot(key);

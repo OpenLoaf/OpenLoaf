@@ -119,11 +119,20 @@ export function registerChatSseCreateRoute(app: Hono) {
       trigger === "regenerate-message" ||
       (trigger === "submit-message" && Boolean(replacementMessageId));
 
-    const webClientId = typeof body.webClientId === "string" ? body.webClientId : "";
-    const electronClientId =
-      typeof body.electronClientId === "string" && body.electronClientId
-        ? body.electronClientId
-        : undefined;
+    // 中文注释：兼容旧字段（webClientId/electronClientId），但项目内部统一改用 clientId/appId。
+    const clientId =
+      typeof (body as any).clientId === "string"
+        ? String((body as any).clientId)
+        : typeof (body as any).webClientId === "string"
+          ? String((body as any).webClientId)
+          : "";
+    const appIdRaw =
+      typeof (body as any).appId === "string"
+        ? String((body as any).appId)
+        : typeof (body as any).electronClientId === "string"
+          ? String((body as any).electronClientId)
+          : "";
+    const appId = appIdRaw.trim() ? appIdRaw : undefined;
     const tabId = typeof (body as any)?.tabId === "string" ? String((body as any).tabId).trim() : "";
     // if (!tabId) {
     //   return c.json({ error: "tabId is required" }, 400);
@@ -133,8 +142,8 @@ export function registerChatSseCreateRoute(app: Hono) {
     requestContextManager.createContext({
       sessionId,
       cookies: cookies || {},
-      webClientId: webClientId || undefined,
-      electronClientId,
+      clientId: clientId || undefined,
+      appId,
       tabId,
     });
 

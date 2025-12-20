@@ -24,13 +24,13 @@ export const openUrlTool = tool({
     const tabId = requireTabId();
     const normalizedUrl = normalizeUrl(url);
 
-    const electronClientId = requestContextManager.getElectronClientId();
-    if (!electronClientId) {
-      throw new Error("open-url 需要 Electron 客户端（缺少 electronClientId）。");
+    const appId = requestContextManager.getAppId();
+    if (!appId) {
+      throw new Error("open-url 需要 Electron 客户端（缺少 appId）。");
     }
-    if (!browserRuntimeHub.hasElectronRuntime(electronClientId)) {
+    if (!browserRuntimeHub.hasElectronRuntime(appId)) {
       throw new Error(
-        `open-url 需要 Electron runtime 在线（electronClientId=${electronClientId} 未连接 /runtime-ws）。`,
+        `open-url 需要 Electron runtime 在线（appId=${appId} 未连接 /runtime-ws）。`,
       );
     }
 
@@ -40,11 +40,11 @@ export const openUrlTool = tool({
       tabId,
       url: normalizedUrl,
       backend: "electron",
-      electronClientId,
+      appId,
     });
 
     const result = await browserRuntimeHub.openPageOnElectron({
-      electronClientId,
+      appId,
       pageTargetId,
       url: normalizedUrl,
       tabId,
@@ -57,7 +57,7 @@ export const openUrlTool = tool({
 
     updatePageTargetRuntimeInfo(pageTargetId, {
       backend: "electron",
-      electronClientId,
+      appId,
       cdpTargetId: result.cdpTargetId,
       webContentsId: result.webContentsId,
     });

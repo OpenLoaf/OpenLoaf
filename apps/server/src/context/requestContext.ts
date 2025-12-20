@@ -14,8 +14,8 @@ export type AgentFrame = {
 type RequestContext = {
   sessionId: string;
   cookies: Record<string, string>;
-  webClientId?: string;
-  electronClientId?: string;
+  clientId?: string;
+  appId?: string;
   tabId?: string;
   uiWriter?: UIMessageStreamWriter<any>;
   abortSignal?: AbortSignal;
@@ -63,12 +63,12 @@ class RequestContextManager {
     return this.getCookie("workspace-id");
   }
 
-  getWebClientId(): string | undefined {
-    return this.getContext()?.webClientId;
+  getClientId(): string | undefined {
+    return this.getContext()?.clientId;
   }
 
-  getElectronClientId(): string | undefined {
-    return this.getContext()?.electronClientId;
+  getAppId(): string | undefined {
+    return this.getContext()?.appId;
   }
 
   getTabId(): string | undefined {

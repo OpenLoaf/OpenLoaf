@@ -12,7 +12,7 @@ export const tabSchemas = {
   upsertSnapshot: {
     input: z.object({
       sessionId: z.string().min(1),
-      webClientId: z.string().min(1),
+      clientId: z.string().min(1),
       tabId: z.string().min(1),
       seq: z.number().int().min(0),
       // MVP：不做深度校验，Tab 结构由同项目 Web 端产生，按 TS 类型约束即可。
@@ -23,7 +23,7 @@ export const tabSchemas = {
   getSnapshot: {
     input: z.object({
       sessionId: z.string().min(1),
-      webClientId: z.string().min(1),
+      clientId: z.string().min(1),
       tabId: z.string().min(1),
     }),
     output: z.object({

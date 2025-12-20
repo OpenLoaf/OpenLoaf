@@ -30,9 +30,9 @@
 
 ### 2.2 身份与隔离
 
-- Electron main 会生成并持久化 `electronClientId`。
-- Web 侧会生成 `webClientId`（稳定），并在 `/chat/sse` 请求时把 `webClientId`（以及 Electron 环境下的 `electronClientId`）传给 server。
-- server 需要基于账号/绑定关系校验 `electronClientId` 是否允许（未来有认证服务时实现；MVP 可先留接口）。
+- Electron main 会生成并持久化 `appId`。
+- Web 侧会生成 `clientId`（稳定），并在 `/chat/sse` 请求时把 `clientId`（以及 Electron 环境下的 `appId`）传给 server。
+- server 需要基于账号/绑定关系校验 `appId` 是否允许（未来有认证服务时实现；MVP 可先留接口）。
 
 ### 2.3 多端策略（预留）
 
@@ -62,8 +62,8 @@
 
 ### 4.1 Client IDs
 
-- `electronClientId`：由 Electron main 生成并持久化，用于标识一台“可视化 runtime 设备”。
-- `webClientId`：由 Web UI 生成并稳定化，用于标识某次 UI 连接（可复用现有 SSE `clientId` 的机制）。
+- `appId`：由 Electron main 生成并持久化，用于标识一台“可视化 runtime 设备”。
+- `clientId`：由 Web UI 生成并稳定化，用于标识某次 UI 连接（可复用现有 SSE 断线续传 clientId 机制）。
 
 ### 4.2 Browser Session（建议新增的 server 内存态 registry）
 
@@ -75,7 +75,7 @@
 - `ownerChatSessionId`：当前 AI 会话（server `/chat/sse` 的 `sessionId`）。
 - `ownerTabId?`：可视化模式下绑定到具体应用 Tab（保证“tab 内网页只被该 tab 的 agent 控制”）。
 - `backend`：`"electron"` / `"headless"` / `"vnc"`（预留）。
-- `electronClientId?`：backend=electron 时绑定到具体设备。
+- `appId?`：backend=electron 时绑定到具体设备。
 - `cdpTargetId?`：backend=electron 时必填，用于 Playwright/CDP 精确定位 page。
 - `url` / `createdAt` / `lastSeenAt`：用于调试与 TTL 回收。
 
@@ -86,18 +86,18 @@
 ### 5.1 Runtime → Server：注册（hello）
 
 - `runtime.hello`（mutation）
-  - 入参：`{ runtimeType, electronClientId?, instanceId, capabilities, auth }`
+  - 入参：`{ runtimeType, appId?, instanceId, capabilities, auth }`
   - 返回：`{ ok: true, serverTime, policyHints? }`
 
 说明：
-- Electron runtime 必须上报 `electronClientId`。
+- Electron runtime 必须上报 `appId`。
 - Headless runtime 可上报 `instanceId`（用于调度）。
 - `auth` 用于鉴权（MVP 可先用共享 token；后续接入账户体系）。
 
 ### 5.2 Server → Runtime：命令流（subscription）
 
 - `runtime.subscribeCommands`（subscription）
-  - 入参：`{ instanceId }`（或 `{ electronClientId }`）
+  - 入参：`{ instanceId }`（或 `{ appId }`）
   - 输出：统一 `RuntimeCommand`：
     - `openPage`
     - `closePage`
@@ -119,11 +119,11 @@
 
 1) `/chat/sse` 请求携带：
    - `activeTab`（已有）
-   - `webClientId`（新增）
-   - `electronClientId`（Electron 环境新增）
+   - `clientId`（新增）
+   - `appId`（Electron 环境新增）
 2) server 侧工具调用 “打开网页”入口（可继续叫 `open-url`，但语义升级为 `browserOpen`）：
    - 生成 `pageTargetId`
-   - 创建 `BrowserSession`（ownerChatSessionId/ownerTabId/electronClientId）
+   - 创建 `BrowserSession`（ownerChatSessionId/ownerTabId/appId）
    - 通过 Hub 向 electron runtime 下发 `openPage`
    - 等待 `ack(openPage)` 返回 `cdpTargetId`
 
@@ -147,7 +147,7 @@
 
 ### 7.1 选择策略（server）
 
-- 当 client context 不含 `electronClientId`，或账户策略指定不使用 Electron 时：
+- 当 client context 不含 `appId`，或账户策略指定不使用 Electron 时：
   - `BrowserSession.backend = "headless"`
   - 由 server 本进程启动 headless Playwright，创建 page 并 `goto(url)`
   - 返回 `pageTargetId`
@@ -179,13 +179,13 @@
 ### 9.1 MVP 最小安全要求
 
 - runtime 连接 Hub 必须带 `auth`（共享 token 或本机密钥），避免任意进程伪装 runtime。
-- `/chat/sse` 传来的 `electronClientId` 不能直接信任；至少要验证该 `electronClientId` 当前在线，且与该账号/设备绑定关系匹配（后续认证服务落地后补齐）。
+- `/chat/sse` 传来的 `appId` 不能直接信任；至少要验证该 `appId` 当前在线，且与该账号/设备绑定关系匹配（后续认证服务落地后补齐）。
 
 ### 9.2 后续认证服务接入点
 
 - server 在执行 `openPage` 前做：
-  - `accountId` 下是否绑定该 `electronClientId`
-  - 是否允许该 `webClientId` 发起对该 `electronClientId` 的控制请求
+  - `accountId` 下是否绑定该 `appId`
+  - 是否允许该 `clientId` 发起对该 `appId` 的控制请求
 
 ## 10. 详细改动建议清单（按仓库结构分组）
 
@@ -194,7 +194,7 @@
 ### 10.1 `packages/api`（协议与类型单一事实来源）
 
 - `packages/api/src/types/event.ts`
-  - 扩展 `ClientContext`：新增 `webClientId`、`electronClientId?`、`runtime?`
+  - 扩展 `ClientContext`：新增 `clientId`、`appId?`、`runtime?`
   - （可选）为 Electron IPC UI 消息复用 `UiEvent` 结构，不新增新的 kind
 - 新增 `packages/api/src/types/runtime.ts`（建议）
   - 定义 `RuntimeHello`、`RuntimeCommand`、`RuntimeAck` 的 zod schema 与 TS 类型
@@ -203,12 +203,12 @@
 ### 10.2 `apps/web`（把 clientId 传给 server + 接 IPC UI 事件）
 
 - `apps/web/src/lib/chat/transport.ts`
-  - 在 `data-client-context` 里附加 `webClientId`（可复用 `getStableClientStreamClientId()` 的值）
-  - Electron 环境下附加 `electronClientId`（由 preload 暴露给 renderer 获取）
+  - 在 `data-client-context` 里附加 `clientId`（可复用 `getStableClientStreamClientId()` 的值）
+  - Electron 环境下附加 `appId`（由 preload 暴露给 renderer 获取）
 - `apps/web/src/lib/chat/ui-event.ts`
   - 复用现有 handler：新增一个入口从 Electron IPC 收到 `UiEvent` 后直接 `handleUiEvent(event)`
 - `apps/web/src/types/electron.d.ts`
-  - 扩展 `window.teatimeElectron`：提供读取 `electronClientId` 的只读方法/字段（例如 `getElectronClientId()`）
+  - 扩展 `window.teatimeElectron`：提供读取 `appId` 的只读方法/字段（例如 `getAppId()`）
 
 ### 10.3 `apps/electron`（runtime client + IPC 推 UI event）
 
@@ -219,12 +219,12 @@
   - 通过 `win.webContents.send` 推 `UiEvent` 给 renderer（用于创建 stack 容器）
 - `apps/electron/src/preload/index.ts`
   - 新增 `ipcRenderer.on("teatime:ui-event", ...)`，把事件桥接给 renderer（例如 `window.dispatchEvent(new CustomEvent("teatime:ui-event", { detail }))`）
-  - 暴露 `getElectronClientId()` 给 renderer
+  - 暴露 `getAppId()` 给 renderer
 
 ### 10.4 `apps/server`（Hub + Provider + registry + 选择策略）
 
 - 新增 Browser Runtime Hub（tRPC ws）
-  - 注册 runtime：维护在线 runtime 列表（按 `electronClientId/instanceId` 索引）
+  - 注册 runtime：维护在线 runtime 列表（按 `appId/instanceId` 索引）
   - 命令下发与回执：维护 pending requestId，做超时/断线失败处理
 - 新增/升级 BrowserSessionRegistry
   - 替代或扩展现有 `pageTargets`，保存 owner 与 backend 选择器（cdpTargetId）
@@ -240,14 +240,14 @@
 
 ### Phase 1（最小闭环）
 
-- 引入 `electronClientId/webClientId` 传递
+- 引入 `appId/clientId` 传递
 - Hub 上线（electron runtime 只实现 `openPage`）
 - Electron main `openPage` 返回 `cdpTargetId`，并通过 IPC 触发 renderer `pushStackItem`
 - `playwrightMcp` 仍可暂时保留 URL 匹配作为 fallback，但优先用 `cdpTargetId`
 
 ### Phase 2（后台与多端策略）
 
-- server 增加策略配置：非 Electron 客户端默认 headless；可配置“优先使用某个 electronClientId”
+- server 增加策略配置：非 Electron 客户端默认 headless；可配置“优先使用某个 appId”
 - 完善账户绑定校验与授权
 
 ### Phase 3（VNC/远程可视化，预留）
@@ -259,8 +259,7 @@
 
 ## 12. 关键注意事项（避免踩坑）
 
-- **不要信任浏览器传入的 `electronClientId`**：必须走账号绑定校验（你们后续会做认证服务，这里要预留接口）。
+- **不要信任浏览器传入的 `appId`**：必须走账号绑定校验（你们后续会做认证服务，这里要预留接口）。
 - **UI 显示与网页创建分离**：electron runtime 打开页面可以先创建 view，但真正“显示在哪”仍由 renderer 计算 bounds 决定。
 - **pageTargetId 必须全局唯一**：建议 server 生成 UUID/ULID，避免多端/多会话碰撞导致串页。
 - **断线处理**：Hub 需要处理 runtime 断线时 pending `openPage` 超时失败；BrowserSessionRegistry 需要 TTL 清理。
-

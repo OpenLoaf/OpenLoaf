@@ -3,7 +3,7 @@ type PageTargetRecord = {
   tabId: string;
   url: string;
   backend: "electron" | "headless";
-  electronClientId?: string;
+  appId?: string;
   cdpTargetId?: string;
   webContentsId?: number;
   createdAt: number;
@@ -16,7 +16,7 @@ export function registerPageTarget(input: {
   tabId: string;
   url: string;
   backend: PageTargetRecord["backend"];
-  electronClientId?: string;
+  appId?: string;
   cdpTargetId?: string;
   webContentsId?: number;
 }) {
@@ -25,7 +25,7 @@ export function registerPageTarget(input: {
     tabId: input.tabId,
     url: input.url,
     backend: input.backend,
-    electronClientId: input.electronClientId,
+    appId: input.appId,
     cdpTargetId: input.cdpTargetId,
     webContentsId: input.webContentsId,
     createdAt: Date.now(),
@@ -57,7 +57,7 @@ export function updatePageTargetRuntimeInfo(
   pageTargetId: string,
   input: {
     backend?: PageTargetRecord["backend"];
-    electronClientId?: string;
+    appId?: string;
     cdpTargetId?: string;
     webContentsId?: number;
   },
@@ -65,7 +65,7 @@ export function updatePageTargetRuntimeInfo(
   const record = pageTargets.get(pageTargetId);
   if (!record) return undefined;
   if (input.backend) record.backend = input.backend;
-  if (input.electronClientId !== undefined) record.electronClientId = input.electronClientId;
+  if (input.appId !== undefined) record.appId = input.appId;
   if (input.cdpTargetId !== undefined) record.cdpTargetId = input.cdpTargetId;
   if (input.webContentsId !== undefined) record.webContentsId = input.webContentsId;
   return record;

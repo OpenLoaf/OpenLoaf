@@ -23,14 +23,14 @@ export type RuntimeCapabilities = z.infer<typeof runtimeCapabilitiesSchema>;
 
 /**
  * runtime 首次连接时的 hello 消息。
- * - Electron runtime 必须提供 `electronClientId`
+ * - Electron runtime 必须提供 `appId`
  * - Headless runtime 使用 `instanceId` 标识进程/实例即可
  */
 export const runtimeHelloSchema = z.object({
   type: z.literal("hello"),
   runtimeType: runtimeTypeSchema,
   instanceId: z.string().min(1),
-  electronClientId: z.string().min(1).optional(),
+  appId: z.string().min(1).optional(),
   capabilities: runtimeCapabilitiesSchema.default({}),
   auth: z
     .object({

@@ -1,15 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronUp, X, Mic, AtSign, Hash, Image } from "lucide-react";
+import {
+  ChevronUp,
+  X,
+  Mic,
+  AtSign,
+  Hash,
+  Image,
+} from "lucide-react";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useChatContext } from "./ChatProvider";
 import { cn } from "@/lib/utils";
 import SelectMode from "./input/SelectMode";
+import type { ChatAttachment } from "./chat-attachments";
+import {
+  ChatImageAttachments,
+  type ChatImageAttachmentsHandle,
+} from "./file/ChatImageAttachments";
 
 interface ChatInputProps {
   className?: string;
+  attachments?: ChatAttachment[];
+  onAddAttachments?: (files: FileList | File[]) => void;
+  onRemoveAttachment?: (attachmentId: string) => void;
+  onClearAttachments?: () => void;
 }
 
 const MAX_CHARS = 2000;
@@ -30,6 +46,9 @@ export interface ChatInputBoxProps {
   onSubmit?: (value: string) => void;
   onStop?: () => void;
   onCancel?: () => void;
+  attachments?: ChatAttachment[];
+  onAddAttachments?: (files: FileList | File[]) => void;
+  onRemoveAttachment?: (attachmentId: string) => void;
 }
 
 export function ChatInputBox({
@@ -48,8 +67,12 @@ export function ChatInputBox({
   onSubmit,
   onStop,
   onCancel,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
 }: ChatInputBoxProps) {
   const isOverLimit = value.length > MAX_CHARS;
+  const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,7 +117,20 @@ export function ChatInputBox({
         onSubmit={handleSubmit}
         className="flex flex-col min-h-[52px] overflow-hidden"
       >
-        <div className={cn("px-4 pt-3 pb-2 flex-1 min-h-0", compact && "pb-3")}>
+        <ChatImageAttachments
+          ref={imageAttachmentsRef}
+          attachments={attachments}
+          onAddAttachments={onAddAttachments}
+          onRemoveAttachment={onRemoveAttachment}
+        />
+
+        <div
+          className={cn(
+            "px-4 pt-3 pb-2 flex-1 min-h-0",
+            compact && "pb-3",
+            attachments && attachments.length > 0 && "pt-2"
+          )}
+        >
           <ScrollArea.Root className="w-full h-full">
             <ScrollArea.Viewport className="w-full h-full min-h-0">
               <textarea
@@ -148,6 +184,8 @@ export function ChatInputBox({
                 variant="ghost"
                 size="icon"
                 className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                onClick={() => imageAttachmentsRef.current?.openPicker()}
+                disabled={!onAddAttachments}
               >
                 <Image className="w-4 h-4" />
               </Button>
@@ -242,9 +280,22 @@ export function ChatInputBox({
   );
 }
 
-export default function ChatInput({ className }: ChatInputProps) {
-  const { sendMessage, status, stopGenerating, clearError, input, setInput, isHistoryLoading } =
-    useChatContext();
+export default function ChatInput({
+  className,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
+  onClearAttachments,
+}: ChatInputProps) {
+  const {
+    sendMessage,
+    status,
+    stopGenerating,
+    clearError,
+    input,
+    setInput,
+    isHistoryLoading,
+  } = useChatContext();
 
   const isLoading = status === "submitted" || status === "streaming";
 
@@ -258,6 +309,7 @@ export default function ChatInput({ className }: ChatInputProps) {
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
     sendMessage({ parts: [{ type: "text", text: value }] } as any);
     setInput("");
+    onClearAttachments?.();
   };
 
   return (
@@ -271,6 +323,9 @@ export default function ChatInput({ className }: ChatInputProps) {
       submitDisabled={isHistoryLoading || (status !== "ready" && status !== "error")}
       onSubmit={handleSubmit}
       onStop={stopGenerating}
+      attachments={attachments}
+      onAddAttachments={onAddAttachments}
+      onRemoveAttachment={onRemoveAttachment}
     />
   );
 }

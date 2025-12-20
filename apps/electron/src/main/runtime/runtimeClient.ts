@@ -4,7 +4,7 @@ import { uiEvents } from "../../../../../packages/api/src/types/event";
 import type { RuntimeCommand, RuntimeHello, RuntimeServerMessage } from "../../../../../packages/api/src/types/runtime";
 import { runtimeServerMessageSchema } from "../../../../../packages/api/src/types/runtime";
 import { getWebContentsView, upsertWebContentsView } from "../ipc/webContentsViews";
-import { getElectronClientId } from "./electronClientId";
+import { getAppId } from "./appId";
 
 type Logger = (msg: string) => void;
 
@@ -64,7 +64,7 @@ async function getCdpTargetId(webContents: Electron.WebContents): Promise<string
 /**
  * 启动 Electron Browser Runtime client：
  * - 连接 server 的 /runtime-ws
- * - hello 注册（携带 electronClientId）
+ * - hello 注册（携带 appId）
  * - 接收 openPage 命令，在主进程创建/复用 WebContentsView，并通过 IPC 推 UiEvent 让 renderer 渲染 stack
  */
 export function startBrowserRuntimeClient(input: {
@@ -74,7 +74,7 @@ export function startBrowserRuntimeClient(input: {
 }) {
   const log = input.log ?? (() => {});
   const wsUrl = toRuntimeWsUrl(input.serverUrl);
-  const electronClientId = getElectronClientId();
+  const appId = getAppId();
 
   let ws: WebSocket | null = null;
   let stopped = false;
@@ -119,8 +119,8 @@ export function startBrowserRuntimeClient(input: {
       const hello: RuntimeHello = {
         type: "hello",
         runtimeType: "electron",
-        instanceId: `${electronClientId}:${process.pid}`,
-        electronClientId,
+        instanceId: `${appId}:${process.pid}`,
+        appId,
         capabilities: { openPage: true },
       };
       ws?.send(JSON.stringify(hello));
@@ -164,7 +164,7 @@ export function startBrowserRuntimeClient(input: {
           log(`[runtime] hello rejected: ${msg.error ?? "unknown"}`);
           ws?.close();
         } else {
-          log(`[runtime] hello ok: electronClientId=${electronClientId}`);
+          log(`[runtime] hello ok: appId=${appId}`);
         }
         return;
       }

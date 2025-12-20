@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import type { Logger } from '../logging/startupLogger';
-import { getElectronClientId } from '../runtime/electronClientId';
+import { getAppId } from '../runtime/appId';
 import {
   createBrowserWindowForUrl,
   destroyWebContentsView,
@@ -19,12 +19,12 @@ export function registerIpcHandlers(args: { log: Logger }) {
   if (ipcHandlersRegistered) return;
   ipcHandlersRegistered = true;
 
-  // 提供 Electron runtime 设备标识给渲染端（apps/web），用于请求中携带 electronClientId。
-  ipcMain.handle('teatime:get-electron-client-id', async () => {
-    return getElectronClientId();
+  // 提供 Electron appId 给渲染端（apps/web），用于请求中携带 appId。
+  ipcMain.handle('teatime:get-app-id', async () => {
+    return getAppId();
   });
-  ipcMain.on('teatime:get-electron-client-id-sync', (event) => {
-    event.returnValue = getElectronClientId();
+  ipcMain.on('teatime:get-app-id-sync', (event) => {
+    event.returnValue = getAppId();
   });
 
   // 为用户输入的 URL 打开独立窗口（通常用于外部链接）。

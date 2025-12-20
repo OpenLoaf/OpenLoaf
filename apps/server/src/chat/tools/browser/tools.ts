@@ -39,10 +39,10 @@ export const browserTools = {
     inputSchema: zodSchema(browserGetTabsToolDef.parameters),
     execute: async () => {
       const sessionId = requestContextManager.getSessionId();
-      const webClientId = requestContextManager.getWebClientId();
+      const clientId = requestContextManager.getClientId();
       const tabId = requestContextManager.getTabId();
-      if (!sessionId || !webClientId || !tabId) return { ok: true, data: [] };
-      const key = buildTabSnapshotCacheKey({ sessionId, webClientId, tabId });
+      if (!sessionId || !clientId || !tabId) return { ok: true, data: [] };
+      const key = buildTabSnapshotCacheKey({ sessionId, clientId, tabId });
       const tab = getTabSnapshot(key);
       return { ok: true, data: tab ? [tab] : [] };
     },
@@ -53,10 +53,10 @@ export const browserTools = {
     inputSchema: zodSchema(browserGetCurrentTabToolDef.parameters),
     execute: async () => {
       const sessionId = requestContextManager.getSessionId();
-      const webClientId = requestContextManager.getWebClientId();
+      const clientId = requestContextManager.getClientId();
       const tabId = requestContextManager.getTabId();
-      if (!sessionId || !webClientId || !tabId) return { ok: true, data: null };
-      const key = buildTabSnapshotCacheKey({ sessionId, webClientId, tabId });
+      if (!sessionId || !clientId || !tabId) return { ok: true, data: null };
+      const key = buildTabSnapshotCacheKey({ sessionId, clientId, tabId });
       const tab = getTabSnapshot(key);
       return { ok: true, data: tab ?? null };
     },

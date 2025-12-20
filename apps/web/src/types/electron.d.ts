@@ -6,9 +6,9 @@ declare global {
   interface Window {
     teatimeElectron?: {
       /** Electron runtime 设备标识（启动时生成并持久化） */
-      electronClientId?: string;
-      /** 获取 Electron runtime 设备标识（异步兜底） */
-      getElectronClientId?: () => Promise<string>;
+      appId?: string;
+      /** 获取 Electron appId（异步兜底） */
+      getAppId?: () => Promise<string>;
       openBrowserWindow: (url: string) => Promise<{ id: number }>;
       upsertWebContentsView: (args: {
         key: string;

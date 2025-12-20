@@ -3,7 +3,7 @@
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "@ai-sdk/react";
 import type { RefObject } from "react";
-import { getStableClientStreamClientId } from "./streamClientId";
+import { getWebClientId } from "./streamClientId";
 
 export function createChatTransport({
   paramsRef,
@@ -19,8 +19,8 @@ export function createChatTransport({
     credentials: "include",
     prepareSendMessagesRequest({ id, messages, body, trigger, messageId, headers }) {
       const mergedParams = { ...(paramsRef.current ?? {}) };
-      const webClientId = getStableClientStreamClientId();
-      const electronClientId = window.teatimeElectron?.electronClientId;
+      const clientId = getWebClientId();
+      const appId = window.teatimeElectron?.appId;
       const tabId = typeof tabIdRef.current === "string" ? tabIdRef.current : undefined;
       const extraBody = body && typeof body === "object" ? body : {};
 
@@ -31,8 +31,8 @@ export function createChatTransport({
             params: mergedParams,
             sessionId: id,
             id,
-            webClientId,
-            electronClientId,
+            clientId,
+            appId,
             tabId,
             trigger,
             messageId,
@@ -51,8 +51,8 @@ export function createChatTransport({
           params: mergedParams,
           sessionId: id,
           id,
-          webClientId,
-          electronClientId,
+          clientId,
+          appId,
           tabId,
           trigger,
           messageId,
@@ -62,7 +62,7 @@ export function createChatTransport({
       };
     },
     prepareReconnectToStreamRequest: ({ id }) => {
-      const clientId = getStableClientStreamClientId();
+      const clientId = getWebClientId();
       return {
         api: `${apiBase}/${id}/stream${clientId ? `?clientId=${encodeURIComponent(clientId)}` : ""}`,
         credentials: "include",
