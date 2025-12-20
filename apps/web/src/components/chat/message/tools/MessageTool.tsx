@@ -4,6 +4,8 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronDown, Copy } from "lucide-react";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { toast } from "sonner";
 
 // MVP：只展示工具名称 + 输入 + 输出（去掉语法高亮/格式化/多层折叠）
@@ -67,6 +69,55 @@ function getJsonDisplay(value: unknown): null | { collapsedText: string; expande
   }
 
   return null;
+}
+
+const JSON_SYNTAX_HIGHLIGHTER_STYLE: React.CSSProperties = {
+  margin: 0,
+  background: "transparent",
+  padding: "0.5rem",
+  fontSize: "12px",
+  lineHeight: "1.6",
+  fontFamily: "inherit",
+  textShadow: "none",
+  boxSizing: "border-box",
+  display: "block",
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+  overflow: "visible",
+  whiteSpace: "pre",
+  wordBreak: "normal",
+  overflowWrap: "normal",
+};
+
+const JSON_SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS = {
+  style: { fontFamily: "inherit", textShadow: "none" } as React.CSSProperties,
+};
+
+/**
+ * 中文备注：工具输入/输出中的 JSON 代码块展示（语法高亮 + 容器滚动）。
+ */
+function JsonSyntaxBlock({
+  code,
+  className,
+}: {
+  code: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("mt-1 overflow-auto bg-background", className)}>
+      <SyntaxHighlighter
+        style={oneDark as any}
+        language="json"
+        PreTag="div"
+        showLineNumbers={false}
+        customStyle={JSON_SYNTAX_HIGHLIGHTER_STYLE}
+        codeTagProps={JSON_SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS}
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  );
 }
 
 function isEmptyInput(value: unknown) {
@@ -181,14 +232,16 @@ export default function MessageTool({
                   </Button>
                 ) : null}
               </div>
-              <pre
-                className={cn(
-                  "mt-1 overflow-auto whitespace-pre bg-background p-2 text-xs",
-                  inputJsonDisplay ? (inputJsonExpanded ? "max-h-96" : "max-h-28") : "max-h-40 whitespace-pre-wrap break-words",
-                )}
-              >
-                {inputJsonDisplay ? (inputJsonExpanded ? inputJsonDisplay.expandedText : inputJsonDisplay.collapsedText) : inputText}
-              </pre>
+              {inputJsonDisplay ? (
+                <JsonSyntaxBlock
+                  code={inputJsonExpanded ? inputJsonDisplay.expandedText : inputJsonDisplay.collapsedText}
+                  className={inputJsonExpanded ? "max-h-96" : "max-h-28"}
+                />
+              ) : (
+                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words bg-background p-2 text-xs">
+                  {inputText}
+                </pre>
+              )}
             </div>
           ) : null}
 
@@ -206,30 +259,23 @@ export default function MessageTool({
                   title={outputJsonExpanded ? "收起（紧凑）" : "展开（格式化）"}
                 >
                   <ChevronDown className={cn("size-3 transition-transform", outputJsonExpanded ? "rotate-180" : "rotate-0")} />
-                </Button>
-              ) : null}
+                  </Button>
+                ) : null}
             </div>
-            <pre
-              className={cn(
-                "mt-1 overflow-auto bg-background p-2 text-xs",
-                hasErrorText
-                  ? "max-h-64 whitespace-pre-wrap break-words"
-                  : outputJsonDisplay
-                    ? outputJsonExpanded
-                      ? "max-h-[36rem] whitespace-pre"
-                      : "max-h-32 whitespace-pre"
-                    : "max-h-64 whitespace-pre-wrap break-words",
-                hasErrorText && "text-destructive/80",
-              )}
-            >
-              {hasErrorText
-                ? part.errorText
-                : outputJsonDisplay
-                  ? outputJsonExpanded
-                    ? outputJsonDisplay.expandedText
-                    : outputJsonDisplay.collapsedText
-                  : outputDisplayText}
-            </pre>
+            {hasErrorText ? (
+              <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words bg-background p-2 text-xs text-destructive/80">
+                {part.errorText}
+              </pre>
+            ) : outputJsonDisplay ? (
+              <JsonSyntaxBlock
+                code={outputJsonExpanded ? outputJsonDisplay.expandedText : outputJsonDisplay.collapsedText}
+                className={outputJsonExpanded ? "max-h-[36rem]" : "max-h-32"}
+              />
+            ) : (
+              <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words bg-background p-2 text-xs">
+                {outputDisplayText}
+              </pre>
+            )}
           </div>
         </div>
       </details>

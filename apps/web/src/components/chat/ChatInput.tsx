@@ -98,6 +98,7 @@ export function ChatInputBox({
           <ScrollArea.Root className="w-full h-full">
             <ScrollArea.Viewport className="w-full h-full min-h-0">
               <textarea
+                data-teatime-chat-input="true"
                 value={value}
                 onChange={(e) => {
                   onChange(e.target.value);

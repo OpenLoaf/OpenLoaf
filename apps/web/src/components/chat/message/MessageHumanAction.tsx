@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Check, Copy, Pencil, X } from "lucide-react";
 import MessageBranchNav from "./MessageBranchNav";
 import { getMessagePlainText } from "@/lib/chat/message-text";
+import { messageActionIconButtonClassName } from "./message-action-styles";
 
 interface MessageHumanActionProps {
   message: UIMessage;
@@ -43,7 +44,7 @@ export default function MessageHumanAction({
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="h-7 w-7 text-muted-foreground hover:text-foreground transition-all duration-200 hover:scale-110 active:scale-95"
+          className={messageActionIconButtonClassName}
           aria-label={isCopied ? "已复制" : "复制"}
           title={isCopied ? "已复制" : "复制"}
           onClick={copyMessage}
@@ -76,7 +77,7 @@ export default function MessageHumanAction({
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="h-7 w-7 text-muted-foreground hover:text-foreground transition-all duration-200 hover:scale-110 active:scale-95"
+          className={messageActionIconButtonClassName}
           aria-label={isEditing ? "取消编辑" : "编辑"}
           title={isEditing ? "取消编辑" : "编辑"}
           onClick={onToggleEdit}

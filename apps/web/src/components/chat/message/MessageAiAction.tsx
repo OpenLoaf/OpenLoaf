@@ -4,13 +4,24 @@ import * as React from "react";
 import type { UIMessage } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Copy, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Copy, Hash, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
 import { toast } from "sonner";
 import { useChatContext } from "../ChatProvider";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import MessageBranchNav from "./MessageBranchNav";
 import { getMessagePlainText } from "@/lib/chat/message-text";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { messageActionIconButtonClassName } from "./message-action-styles";
+
+/**
+ * 中文备注：把 token 数值格式化为更易读的字符串（例如：5,824）。
+ */
+function formatTokenCount(value: unknown): string {
+  const numberValue = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numberValue)) return "-";
+  return new Intl.NumberFormat("en-US").format(numberValue);
+}
 
 export default function MessageAiAction({
   message,
@@ -63,6 +74,22 @@ export default function MessageAiAction({
 
   const isRating = updateRatingMutation.isPending;
 
+  const usage = (message.metadata as any)?.totalUsage as
+    | {
+        inputTokens?: number;
+        outputTokens?: number;
+        totalTokens?: number;
+        reasoningTokens?: number;
+        cachedInputTokens?: number;
+        inputTokenDetails?: { noCacheTokens?: number; cacheReadTokens?: number };
+        outputTokenDetails?: { textTokens?: number; reasoningTokens?: number };
+      }
+    | undefined;
+
+  const agentModel = (message.metadata as any)?.agent?.model as
+    | { provider?: string; modelId?: string }
+    | undefined;
+
   const buildNextMetadata = (nextIsGood: boolean | null) => {
     // 中文备注：点赞/点踩为“单选”状态；重复点击同一选项则取消（回到 null）
     const nextMetadata = { ...((message.metadata as any) ?? {}) } as Record<string, unknown>;
@@ -104,7 +131,7 @@ export default function MessageAiAction({
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="h-7 w-7 text-muted-foreground hover:text-foreground transition-all duration-200 hover:scale-110 active:scale-95"
+        className={messageActionIconButtonClassName}
         onClick={handleCopy}
         disabled={!text || isCopying}
         aria-label="复制"
@@ -117,7 +144,7 @@ export default function MessageAiAction({
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+        className={messageActionIconButtonClassName}
         onClick={handleRetry}
         disabled={isBusy}
         aria-label="重试"
@@ -130,7 +157,7 @@ export default function MessageAiAction({
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="h-6 w-6 text-muted-foreground hover:text-foreground transition-all active:scale-100"
+        className={messageActionIconButtonClassName}
         onClick={handleGoodRating}
         disabled={isRating}
         aria-label="好评"
@@ -148,7 +175,7 @@ export default function MessageAiAction({
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="h-6 w-6 text-muted-foreground hover:text-foreground transition-all active:scale-100"
+        className={messageActionIconButtonClassName}
         onClick={handleBadRating}
         disabled={isRating}
         aria-label="差评"
@@ -161,6 +188,54 @@ export default function MessageAiAction({
           )}
         />
       </Button>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className={messageActionIconButtonClassName}
+            disabled={!usage}
+            aria-label="查看 token 用量"
+            title="Token 用量"
+          >
+            <Hash className="size-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6} className="max-w-xs">
+          {usage ? (
+            <div className="space-y-1">
+              <div className="font-medium">Token 用量（本地）</div>
+              {agentModel?.provider || agentModel?.modelId ? (
+                <div className="opacity-90">
+                  {agentModel?.provider ?? "-"} / {agentModel?.modelId ?? "-"}
+                </div>
+              ) : null}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 opacity-95">
+                <div>输入</div>
+                <div className="text-right tabular-nums">{formatTokenCount(usage.inputTokens)}</div>
+                <div>输出</div>
+                <div className="text-right tabular-nums">{formatTokenCount(usage.outputTokens)}</div>
+                <div>总计</div>
+                <div className="text-right tabular-nums">{formatTokenCount(usage.totalTokens)}</div>
+                <div>缓存输入</div>
+                <div className="text-right tabular-nums">{formatTokenCount(usage.cachedInputTokens)}</div>
+                <div>缓存读取</div>
+                <div className="text-right tabular-nums">
+                  {formatTokenCount(usage.inputTokenDetails?.cacheReadTokens)}
+                </div>
+                <div>非缓存</div>
+                <div className="text-right tabular-nums">
+                  {formatTokenCount(usage.inputTokenDetails?.noCacheTokens)}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div>暂无 token 信息</div>
+          )}
+        </TooltipContent>
+      </Tooltip>
 
       <MessageBranchNav messageId={message.id} />
     </div>
