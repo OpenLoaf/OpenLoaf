@@ -8,11 +8,22 @@ import { getAppId } from "./appId";
 
 type Logger = (msg: string) => void;
 
-function toRuntimeWsUrl(serverUrl: string): string {
+function toRuntimeWsUrl(
+  serverUrl: string,
+  query?: Record<string, string | undefined>
+): string {
   const url = new URL(serverUrl);
   const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = new URL("/runtime-ws", url);
   wsUrl.protocol = wsProtocol;
+  // 中文注释：把 appId 等关键信息放到 query，便于 server 侧 upgrade 日志快速定位是哪台客户端在连。
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      if (typeof value === "string" && value.length > 0) {
+        wsUrl.searchParams.set(key, value);
+      }
+    }
+  }
   return wsUrl.toString();
 }
 
@@ -73,8 +84,14 @@ export function startBrowserRuntimeClient(input: {
   log?: Logger;
 }) {
   const log = input.log ?? (() => {});
-  const wsUrl = toRuntimeWsUrl(input.serverUrl);
   const appId = getAppId();
+  const instanceId = `${appId}:${process.pid}`;
+  const wsUrl = toRuntimeWsUrl(input.serverUrl, {
+    appId,
+    instanceId,
+    // 中文注释：兼容旧日志字段，便于排查历史版本（server 侧会优先读 appId）。
+    electronClientId: appId,
+  });
 
   let ws: WebSocket | null = null;
   let stopped = false;
@@ -119,7 +136,7 @@ export function startBrowserRuntimeClient(input: {
       const hello: RuntimeHello = {
         type: "hello",
         runtimeType: "electron",
-        instanceId: `${appId}:${process.pid}`,
+        instanceId,
         appId,
         capabilities: { openPage: true },
       };

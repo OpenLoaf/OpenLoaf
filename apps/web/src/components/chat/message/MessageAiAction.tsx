@@ -137,7 +137,7 @@ export default function MessageAiAction({
         aria-label="复制"
         title="复制"
       >
-        <Copy className="size-3.5" strokeWidth={2.5} />
+        <Copy className="size-3" strokeWidth={2.5} />
       </Button>
 
       <Button
@@ -165,7 +165,7 @@ export default function MessageAiAction({
       >
         <ThumbsUp
           className={cn(
-            "size-3.5 transition-all",
+            "size-3 transition-all",
             ratingValue === true && "fill-primary  text-primary"
           )}
         />
@@ -183,7 +183,7 @@ export default function MessageAiAction({
       >
         <ThumbsDown
           className={cn(
-            "size-3.5 transition-all",
+            "size-3 transition-all",
             ratingValue === false && "fill-primary  text-primary"
           )}
         />
@@ -200,7 +200,7 @@ export default function MessageAiAction({
             aria-label="查看 token 用量"
             title="Token 用量"
           >
-            <Hash className="size-3.5" />
+            <Hash className="size-3" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" sideOffset={6} className="max-w-xs">

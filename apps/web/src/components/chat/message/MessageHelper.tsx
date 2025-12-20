@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   Empty,
   EmptyContent,
@@ -58,6 +59,21 @@ export default function MessageHelper() {
     })
   );
 
+  const focusChatInput = React.useCallback(() => {
+    // 中文备注：点击建议后需要立刻聚焦到输入框，方便用户直接按 Enter 发送或继续编辑
+    // 注意：输入框在 ChatInput.tsx 内部；这里通过 data attribute 定位，避免引入跨组件 ref 依赖
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLTextAreaElement>(
+        'textarea[data-teatime-chat-input="true"]'
+      );
+      if (!el) return;
+      el.focus();
+      // 中文备注：将光标移动到末尾，便于继续补充内容
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    });
+  }, []);
+
   return (
     <div className="flex flex-col h-full">
       <Empty className="flex-1">
@@ -86,7 +102,10 @@ export default function MessageHelper() {
                   <Button
                     variant="outline"
                     className="justify-start items-start h-full py-3 px-4 text-left whitespace-normal font-normal w-full"
-                    onClick={() => setInput(suggestion.value)}
+                    onClick={() => {
+                      setInput(suggestion.value);
+                      focusChatInput();
+                    }}
                   >
                     {suggestion.label}
                   </Button>

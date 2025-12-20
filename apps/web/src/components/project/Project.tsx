@@ -315,7 +315,11 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
           )}
         </h1>
 
-        <ProjectTabs value={activeTab} onValueChange={setActiveTab} />
+        <ProjectTabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          isActive={tabActive}
+        />
       </div>
 
       <ScrollArea.Root className="flex-1 min-h-0 w-full">

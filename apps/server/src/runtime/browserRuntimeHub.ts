@@ -68,9 +68,20 @@ class BrowserRuntimeHub {
         });
       }
 
-      this.wss.handleUpgrade(req, socket, head, (ws) => {
-        this.wss.emit("connection", ws, req);
-      });
+      try {
+        this.wss.handleUpgrade(req, socket, head, (ws) => {
+          this.wss.emit("connection", ws, req);
+        });
+      } catch (err) {
+        if (DEBUG_RUNTIME_WS) {
+          console.error("[runtime-ws] handleUpgrade failed", err);
+        }
+        try {
+          socket.destroy();
+        } catch {
+          // ignore
+        }
+      }
     });
   }
 
@@ -162,17 +173,51 @@ class BrowserRuntimeHub {
       console.log("[runtime-ws] connected");
     }
 
+    ws.on("error", (err) => {
+      if (DEBUG_RUNTIME_WS) {
+        console.error("[runtime-ws] ws error", err);
+      }
+    });
+
     ws.on("message", (data) => {
-      const text = typeof data === "string" ? data : data.toString("utf-8");
+      // 中文注释：ws 的 message data 可能是 Buffer/ArrayBuffer/Buffer[]/TypedArray，统一转成文本。
+      const toText = (raw: unknown): string | null => {
+        if (typeof raw === "string") return raw;
+        if (Buffer.isBuffer(raw)) return raw.toString("utf-8");
+        if (raw instanceof ArrayBuffer) return Buffer.from(raw).toString("utf-8");
+        if (ArrayBuffer.isView(raw)) {
+          return Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength).toString("utf-8");
+        }
+        if (Array.isArray(raw) && raw.every((x) => Buffer.isBuffer(x))) {
+          return Buffer.concat(raw).toString("utf-8");
+        }
+        return null;
+      };
+
+      const text = toText(data);
+      if (!text) {
+        if (DEBUG_RUNTIME_WS) {
+          console.warn("[runtime-ws] ignore non-text message");
+        }
+        return;
+      }
       let raw: unknown;
       try {
         raw = JSON.parse(text);
       } catch {
+        if (DEBUG_RUNTIME_WS) {
+          console.warn("[runtime-ws] invalid json message", text.slice(0, 200));
+        }
         return;
       }
 
       const parsed = runtimeClientMessageSchema.safeParse(raw);
-      if (!parsed.success) return;
+      if (!parsed.success) {
+        if (DEBUG_RUNTIME_WS) {
+          console.warn("[runtime-ws] invalid client message", parsed.error.issues);
+        }
+        return;
+      }
 
       const msg = parsed.data;
       if (msg.type === "hello") {
@@ -191,6 +236,9 @@ class BrowserRuntimeHub {
               error: "Missing appId",
             }),
           );
+          if (DEBUG_RUNTIME_WS) {
+            console.warn("[runtime-ws] hello rejected: missing appId");
+          }
           return;
         }
 

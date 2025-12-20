@@ -1,5 +1,6 @@
 // import superjson from "superjson";
 // Export generated routers
+// @ts-ignore
 import { appRouter as internalAppRouter } from "../generated/routers";
 import { t } from "../generated/routers/helpers/createRouter";
 import { pageRouter } from "./routers/page";
@@ -30,6 +31,7 @@ export const appRouter = t.router({
 export type AppRouter = typeof appRouter;
 
 // Export generated schemas
+// @ts-ignore
 export * from "../generated/schemas";
 export * from "../generated/routers/helpers/createRouter";
 

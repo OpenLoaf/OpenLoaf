@@ -25,7 +25,7 @@ export function AboutTeatime() {
   const appStatusQuery = useQuery({
     ...trpc.runtime.getAppStatus.queryOptions({ appId: appId ?? "" }),
     enabled: Boolean(appId),
-    refetchInterval: 2000,
+    // 中文备注：轮询放在 SettingsPage（父组件）里；这里读取缓存即可。
     staleTime: 1000,
     meta: { silent: true },
   });

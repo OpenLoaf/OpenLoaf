@@ -55,13 +55,13 @@ export default function MessageBranchNav({ messageId }: { messageId: string }) {
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+        className="h-6 w-6 text-muted-foreground hover:text-foreground"
         disabled={isBusy || !effectiveNav.prevSiblingId}
         aria-label="切换到前一个分支"
         title="切换到前一个分支"
         onClick={() => switchSibling(messageId, "prev")}
       >
-        <ChevronLeft className="size-3.5" />
+        <ChevronLeft className="size-3" />
       </Button>
 
       <span className="text-xs tabular-nums text-muted-foreground select-none">{`${effectiveNav.siblingIndex}/${effectiveNav.siblingTotal}`}</span>
@@ -70,13 +70,13 @@ export default function MessageBranchNav({ messageId }: { messageId: string }) {
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+        className="h-6 w-6 text-muted-foreground hover:text-foreground"
         disabled={isBusy || !effectiveNav.nextSiblingId}
         aria-label="切换到后一个分支"
         title="切换到后一个分支"
         onClick={() => switchSibling(messageId, "next")}
       >
-        <ChevronRight className="size-3.5" />
+        <ChevronRight className="size-3" />
       </Button>
     </div>
   );

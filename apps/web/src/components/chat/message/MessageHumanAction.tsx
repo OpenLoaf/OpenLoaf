@@ -58,7 +58,7 @@ export default function MessageHumanAction({
                   : "opacity-100 scale-100 rotate-0"
               )}
             >
-              <Copy className="size-3.5" strokeWidth={2.5} />
+              <Copy className="size-3" strokeWidth={2.5} />
             </div>
             <div
               className={cn(
@@ -68,7 +68,7 @@ export default function MessageHumanAction({
                   : "opacity-0 scale-90 -rotate-12"
               )}
             >
-              <Check className="size-3.5" strokeWidth={2.5} />
+              <Check className="size-3" strokeWidth={2.5} />
             </div>
           </div>
         </Button>
