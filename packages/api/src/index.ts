@@ -8,11 +8,15 @@ import {
   workspaceRouter,
   BaseWorkspaceRouter,
   workspaceSchemas,
-} from "./routers/workspace";
-import { tabRouter, BaseTabRouter, tabSchemas } from "./routers/tab";
+} from "./routers/absWorkspace";
+import { tabRouter, BaseTabRouter, tabSchemas } from "./routers/absTab";
 import { chatRouter } from "./routers/chat";
 import { health } from "./routers/health";
-import { runtimeRouter, BaseRuntimeRouter, runtimeSchemas } from "./routers/runtime";
+import {
+  runtimeRouter,
+  BaseRuntimeRouter,
+  runtimeSchemas,
+} from "./routers/absRuntime";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,

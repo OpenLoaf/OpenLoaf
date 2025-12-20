@@ -16,6 +16,57 @@ export type ChatUIMessage = {
   agent?: any;
 };
 
+type UsageTotals = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  reasoningTokens: number;
+  cachedInputTokens: number;
+};
+
+const ZERO_USAGE: UsageTotals = {
+  inputTokens: 0,
+  outputTokens: 0,
+  totalTokens: 0,
+  reasoningTokens: 0,
+  cachedInputTokens: 0,
+};
+
+/** Extract token usage from message metadata (best-effort). */
+function extractUsageTotals(metadata: unknown): UsageTotals {
+  const meta = metadata as any;
+  const usage = meta?.totalUsage ?? meta?.usage ?? meta?.tokenUsage ?? null;
+  if (!usage || typeof usage !== "object") return ZERO_USAGE;
+
+  const toNumber = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value)
+      ? value
+      : typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))
+        ? Number(value)
+        : 0;
+
+  return {
+    inputTokens: toNumber(usage.inputTokens ?? usage.promptTokens ?? usage.input_tokens),
+    outputTokens: toNumber(usage.outputTokens ?? usage.completionTokens ?? usage.output_tokens),
+    totalTokens: toNumber(usage.totalTokens ?? usage.total_tokens),
+    reasoningTokens: toNumber(usage.reasoningTokens ?? usage.reasoning_tokens),
+    cachedInputTokens: toNumber(usage.cachedInputTokens ?? usage.cached_input_tokens),
+  };
+}
+
+/** Merge multiple UsageTotals into one. */
+function sumUsageTotals(list: UsageTotals[]): UsageTotals {
+  const total = { ...ZERO_USAGE };
+  for (const item of list) {
+    total.inputTokens += item.inputTokens;
+    total.outputTokens += item.outputTokens;
+    total.totalTokens += item.totalTokens;
+    total.reasoningTokens += item.reasoningTokens;
+    total.cachedInputTokens += item.cachedInputTokens;
+  }
+  return total;
+}
+
 function isRenderableRow(row: { role: string; parts: unknown }): boolean {
   if (row.role === "user") return true;
   const parts = row.parts;
@@ -481,6 +532,46 @@ export const chatRouter = t.router({
         },
       });
     }),
+
+  /**
+   * 获取聊天数据统计（MVP）
+   * - 会话数：未删除会话数量
+   * - token 统计：从消息 metadata 中提取并累加（尽力而为）
+   */
+  getChatStats: shieldedProcedure.query(async ({ ctx }) => {
+    const [sessionCount, assistantRows] = await ctx.prisma.$transaction([
+      ctx.prisma.chatSession.count({ where: { deletedAt: null } }),
+      ctx.prisma.chatMessage.findMany({
+        where: { role: "assistant", session: { deletedAt: null } },
+        select: { metadata: true },
+      }),
+    ]);
+
+    // 说明：SQLite/Prisma 对 JSON 查询能力有限，这里用“拉取 metadata + JS 汇总”实现最小可用统计。
+    const usageTotals = sumUsageTotals(
+      assistantRows.map((r: any) => extractUsageTotals(r?.metadata)),
+    );
+
+    return { sessionCount, usageTotals };
+  }),
+
+  /**
+   * 清除所有聊天数据（MVP）
+   * - 直接物理删除：会话 / 消息 / 关联表
+   */
+  clearAllChat: shieldedProcedure.mutation(async ({ ctx }) => {
+    const [pageLinks, messages, sessions] = await ctx.prisma.$transaction([
+      ctx.prisma.pageChatSession.deleteMany({}),
+      ctx.prisma.chatMessage.deleteMany({}),
+      ctx.prisma.chatSession.deleteMany({}),
+    ]);
+
+    return {
+      deletedSessions: sessions.count,
+      deletedMessages: messages.count,
+      deletedPageLinks: pageLinks.count,
+    };
+  }),
 });
 
 export type ChatRouter = typeof chatRouter;
