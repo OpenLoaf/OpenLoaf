@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import SessionList from "@/components/chat/session/SessionList";
 import * as React from "react";
 import { useChatContext } from "./ChatProvider";
-import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 
@@ -24,20 +24,15 @@ export default function ChatHeader({ className, loadHistory }: ChatHeaderProps) 
   const tab = useTabs((s) => (tabId ? s.tabs.find((t) => t.id === tabId) : undefined));
   const setTabTitle = useTabs((s) => s.setTabTitle);
 
-  const sessionTitleQuery = useQuery(
-    trpc.chatsession.findUniqueChatSession.queryOptions(
-      activeSessionId
-        ? ({
-            where: { id: activeSessionId },
-            select: { title: true, isUserRename: true },
-          } as any)
-        : skipToken
-    ) as any
-  );
+  const sessionTitleQuery = useQuery({
+    ...(trpc.chatsession.findUniqueChatSession.queryOptions({
+      where: { id: activeSessionId },
+      select: { title: true, isUserRename: true },
+    } as any) as any),
+    enabled: Boolean(activeSessionId && loadHistory),
+  });
 
-  const sessionTitle = String(
-    (sessionTitleQuery.data as any)?.title ?? ""
-  ).trim();
+  const sessionTitle = String((sessionTitleQuery.data as any)?.title ?? "").trim();
   const isUserRename = Boolean((sessionTitleQuery.data as any)?.isUserRename);
 
   const tabTitle = String(tab?.title ?? "").trim();

@@ -156,6 +156,15 @@ function computeNodePath({ parentPath, nextIndex }: { parentPath: string | null;
   return parentPath ? `${parentPath}/${seg}` : seg;
 }
 
+function getPathPrefixes(path: string): string[] {
+  const segments = path.split("/").filter(Boolean);
+  const prefixes: string[] = [];
+  for (let i = 0; i < segments.length; i += 1) {
+    prefixes.push(segments.slice(0, i + 1).join("/"));
+  }
+  return prefixes;
+}
+
 export type SavedChatMessageNode = {
   id: string;
   parentMessageId: string | null;
@@ -318,30 +327,24 @@ export async function loadBranchMessages({
   leafMessageId: string;
   take?: number;
 }): Promise<TeatimeUIMessage[]> {
-  const chain: string[] = [];
-  let currentId: string | null = leafMessageId;
-  for (let i = 0; i < take && currentId; i += 1) {
-    const row: { id: string; sessionId: string; parentMessageId: string | null } | null =
-      await prisma.chatMessage.findUnique({
-        where: { id: currentId },
-        select: { id: true, sessionId: true, parentMessageId: true },
-      });
-    if (!row || row.sessionId !== sessionId) break;
-    chain.push(row.id);
-    currentId = row.parentMessageId ?? null;
-  }
-  const slice = chain.reverse();
-  if (slice.length === 0) return [];
+  const leaf = await prisma.chatMessage.findUnique({
+    where: { id: leafMessageId },
+    select: { id: true, sessionId: true, path: true },
+  });
+  if (!leaf || leaf.sessionId !== sessionId) return [];
+
+  // 关键：基于物化路径一次性取完整链路（避免逐条 findUnique 回溯）
+  const allPaths = getPathPrefixes(String(leaf.path));
+  const selectedPaths = allPaths.length > take ? allPaths.slice(-take) : allPaths;
 
   const rows = await prisma.chatMessage.findMany({
-    where: { id: { in: slice } },
+    where: { sessionId, path: { in: selectedPaths } },
+    orderBy: [{ path: "asc" }],
     select: { id: true, role: true, parentMessageId: true, parts: true, metadata: true },
   });
-  const byId = new Map(rows.map((r) => [r.id, r]));
 
   const messages: TeatimeUIMessage[] = [];
-  for (const id of slice) {
-    const row = byId.get(id);
+  for (const row of rows) {
     if (!row) continue;
 
     const role = row.role;

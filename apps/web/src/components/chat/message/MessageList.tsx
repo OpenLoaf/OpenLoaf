@@ -11,47 +11,25 @@ import MessageThinking from "./MessageThinking";
 import MessageError from "./MessageError";
 import { AnimatePresence } from "motion/react";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
+import { isSubAgentMessage, isSubAgentToolPart } from "@/lib/chat/message-parts";
 
 interface MessageListProps {
   className?: string;
 }
 
-const SUB_AGENT_TOOL_ID = "sub-agent";
-
-function isSubAgentMessage(message: any) {
-  // 关键：历史接口会把 metadata.agent 提升到顶层 agent；流式阶段仍可能只出现在 metadata.agent
-  return (message as any)?.agent?.kind === "sub" || (message as any)?.metadata?.agent?.kind === "sub";
-}
-
-function messageHasSubAgentToolCall(message: any) {
-  const parts = (message as any)?.parts ?? [];
-  return (parts as any[]).some((p: any) => {
-    if (!p || typeof p !== "object") return false;
-    if (typeof p.toolName === "string" && p.toolName) return p.toolName === SUB_AGENT_TOOL_ID;
-    if (typeof p.type === "string" && p.type === SUB_AGENT_TOOL_ID) return true;
-    if (typeof p.type === "string" && p.type.startsWith("tool-"))
-      return p.type.slice("tool-".length) === SUB_AGENT_TOOL_ID;
-    return false;
-  });
-}
-
 function groupMessagesForRender(messages: any[]) {
   const items: Array<{ message: any; subAgentMessages?: any[] }> = [];
-  const seen = new Set<string>();
 
   for (let i = 0; i < messages.length; i += 1) {
     const message = messages[i];
     if (!message) continue;
-    const id = String((message as any)?.id ?? "");
-    if (id) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-    }
 
     // 关键：subAgent 的输出消息会被嵌套到 sub-agent tool 卡片里，这里不单独渲染。
     if (isSubAgentMessage(message)) continue;
 
-    if (message.role === "assistant" && messageHasSubAgentToolCall(message)) {
+    const parts = (message as any)?.parts ?? [];
+    const hasSubAgentToolCall = (parts as any[]).some(isSubAgentToolPart);
+    if (message.role === "assistant" && hasSubAgentToolCall) {
       const subAgentMessages: any[] = [];
       let j = i + 1;
       while (j < messages.length && isSubAgentMessage(messages[j])) {

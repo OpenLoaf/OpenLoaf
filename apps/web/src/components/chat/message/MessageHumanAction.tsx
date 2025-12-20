@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Pencil, X } from "lucide-react";
 import MessageBranchNav from "./MessageBranchNav";
+import { getMessagePlainText } from "@/lib/chat/message-text";
 
 interface MessageHumanActionProps {
   message: UIMessage;
@@ -25,10 +26,8 @@ export default function MessageHumanAction({
   const [isCopied, setIsCopied] = React.useState(false);
 
   const copyMessage = async () => {
-    const text = (message.parts ?? [])
-      .filter((part: any) => part?.type === "text")
-      .map((part: any) => part.text)
-      .join("");
+    const text = getMessagePlainText(message);
+    if (!text) return;
 
     await navigator.clipboard.writeText(text);
     setIsCopied(true);

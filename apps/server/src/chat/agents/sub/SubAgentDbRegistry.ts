@@ -95,8 +95,3 @@ export class SubAgentDbRegistry {
 }
 
 export const subAgentDbRegistry = new SubAgentDbRegistry();
-
-// 兼容旧调用方式：保留函数导出，避免大面积改动
-export async function getSubAgent(name: string): Promise<SubAgent | undefined> {
-  return subAgentDbRegistry.getSubAgent(name);
-}

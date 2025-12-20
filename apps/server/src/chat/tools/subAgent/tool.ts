@@ -1,23 +1,10 @@
 import { createAgentUIStream, generateId, tool, zodSchema } from "ai";
 import type { UIMessage } from "ai";
 import { requestContextManager } from "@/context/requestContext";
-import { getSubAgent } from "@/chat/agents/sub/SubAgentDbRegistry";
+import { subAgentDbRegistry } from "@/chat/agents/sub/SubAgentDbRegistry";
 import { saveChatMessageNode } from "@/chat/history";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
-
-function agentMetadataFromStack() {
-  const frame = requestContextManager.getCurrentAgentFrame();
-  if (!frame) return undefined;
-  return {
-    agent: {
-      version: "agent-v1",
-      kind: frame.kind,
-      name: frame.name,
-      id: frame.agentId,
-      model: frame.model,
-    },
-  };
-}
+import { agentMetadataFromStack, messageMetadataFromStackPart } from "@/chat/agentMetadata";
 
 function extractMarkdownFromUiMessage(message: UIMessage): string {
   const parts = Array.isArray((message as any).parts) ? ((message as any).parts as any[]) : [];
@@ -44,7 +31,7 @@ export const subAgentTool = tool({
       return { ok: false, error: { code: "NOT_ALLOWED", message: "仅 master agent 允许调用 subAgent。" } };
     }
 
-    const sub = await getSubAgent(name);
+    const sub = await subAgentDbRegistry.getSubAgent(name);
     if (!sub) {
       return { ok: false, error: { code: "NOT_FOUND", message: "未找到该 subAgent。" } };
     }
@@ -79,15 +66,7 @@ export const subAgentTool = tool({
         // 关键：服务端生成 messageId，确保可用于 DB 主键（Phase B）
         generateMessageId: generateId,
         onError: () => "SubAgent error.",
-        messageMetadata: ({ part }) => {
-          if (part.type === "finish") {
-            return {
-              ...(agentMetadataFromStack() ?? {}),
-              totalUsage: (part as any).totalUsage,
-            } as any;
-          }
-          if (part.type === "start") return agentMetadataFromStack() as any;
-        },
+        messageMetadata: ({ part }) => messageMetadataFromStackPart(part as any),
         onFinish: async ({ isAborted, responseMessage }) => {
           try {
             if (isAborted) return;

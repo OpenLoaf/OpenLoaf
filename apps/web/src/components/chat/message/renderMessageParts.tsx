@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
 import type { ReactNode } from "react";
+import { isToolPart, isSubAgentToolPart } from "@/lib/chat/message-parts";
 
 type AnyMessagePart = {
   type?: string;
@@ -13,15 +14,6 @@ type AnyMessagePart = {
   toolCallId?: string;
   toolName?: string;
 };
-
-const SUB_AGENT_TOOL_ID = "sub-agent";
-
-function getToolId(part: AnyMessagePart) {
-  if (typeof part.toolName === "string" && part.toolName) return part.toolName;
-  if (typeof part.type === "string" && part.type.startsWith("tool-"))
-    return part.type.slice("tool-".length);
-  return String(part.type ?? "");
-}
 
 // 修复 CJK 环境下 markdown 自动链接识别错误的问题（例如 "https://example.com）。" 会被误识别）
 // 在 URL 和全角符号/CJK字符之间插入空格
@@ -83,12 +75,9 @@ export function renderMessageParts(
     }
 
     // 关键：tool part 也属于消息内容的一部分，需要保持与 MessageList 一致的渲染规则（支持嵌套）。
-    if (
-      typeof part?.type === "string" &&
-      (part.type === "dynamic-tool" || part.type.startsWith("tool-"))
-    ) {
+    if (isToolPart(part)) {
       if (!renderTools) return null;
-      if (getToolId(part) === SUB_AGENT_TOOL_ID) {
+      if (isSubAgentToolPart(part)) {
         // 关键：subAgent tool 需要三段式 UI，不走默认 MessageTool。
         if (options?.renderSubAgentTool) return options.renderSubAgentTool(part, index);
         return null;

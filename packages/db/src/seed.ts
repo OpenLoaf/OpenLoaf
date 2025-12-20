@@ -1,5 +1,8 @@
 import "dotenv/config";
 
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
 import { prisma } from "./index";
 
 const WORKSPACE_ID = "4b70de76-268f-4a7a-9664-41732a4924dc";
@@ -171,7 +174,12 @@ async function seed() {
   }
 }
 
-if (import.meta.main) {
+// 中文备注：Node.js 没有 import.meta.main，这里用 entrypoint 判断当前文件是否被直接执行。
+const isDirectRun =
+  typeof process.argv[1] === "string" &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+if (isDirectRun) {
   seed()
     .then(() => {
       console.log("Seed complete.");
@@ -186,4 +194,3 @@ if (import.meta.main) {
 }
 
 export { seed };
-

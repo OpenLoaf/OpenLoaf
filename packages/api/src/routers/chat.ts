@@ -16,19 +16,63 @@ export type ChatUIMessage = {
   agent?: any;
 };
 
-const messageSchema = z.object({
-  id: z.string(),
-  role: z.enum(["system", "user", "assistant"]),
-  parentMessageId: z.string().nullable(),
-  parts: z.array(z.any()),
-  metadata: z.any().optional(),
-  agent: z.any().optional(),
-});
-
 function isRenderableRow(row: { role: string; parts: unknown }): boolean {
   if (row.role === "user") return true;
   const parts = row.parts;
   return Array.isArray(parts) && parts.length > 0;
+}
+
+function getPathPrefixes(path: string): string[] {
+  const segments = path.split("/").filter(Boolean);
+  const prefixes: string[] = [];
+  for (let i = 0; i < segments.length; i += 1) {
+    prefixes.push(segments.slice(0, i + 1).join("/"));
+  }
+  return prefixes;
+}
+
+/**
+ * 读取某个 leaf 的祖先链（基于 path 一次查询，减少 DB roundtrip）
+ * - 返回按 path 正序（root -> leaf）
+ * - take 为链路长度上限（从 leaf 往上截断）
+ */
+async function loadBranchChainRows({
+  prisma,
+  sessionId,
+  leafMessageId,
+  take,
+}: {
+  prisma: any;
+  sessionId: string;
+  leafMessageId: string;
+  take: number;
+}): Promise<{ chainRows: any[]; nextCursor: string | null }> {
+  const leaf = await prisma.chatMessage.findUnique({
+    where: { id: leafMessageId },
+    select: { id: true, sessionId: true, path: true },
+  });
+  if (!leaf || leaf.sessionId !== sessionId) return { chainRows: [], nextCursor: null };
+
+  const allPaths = getPathPrefixes(String(leaf.path));
+  const selectedPaths = allPaths.length > take ? allPaths.slice(-take) : allPaths;
+
+  const chainRows = await prisma.chatMessage.findMany({
+    where: { sessionId, path: { in: selectedPaths } },
+    orderBy: [{ path: "asc" }],
+    select: {
+      id: true,
+      sessionId: true,
+      parentMessageId: true,
+      role: true,
+      parts: true,
+      metadata: true,
+    },
+  });
+
+  // 关键：当链路被截断时，nextCursor 为“本页最早节点”的 parentMessageId（继续向上翻页用）
+  const isTruncated = allPaths.length > take;
+  const nextCursor = isTruncated ? (chainRows[0]?.parentMessageId ?? null) : null;
+  return { chainRows, nextCursor };
 }
 
 /** 查询某个节点子树内最新的叶子节点 */
@@ -196,46 +240,6 @@ const getChatBranchInputSchema = z.object({
   cursor: z.string().optional(),
 });
 
-const getChatBranchOutputSchema = z.object({
-  /** 本次返回对应的 leafMessageId（用于前端维护“当前分支”） */
-  leafMessageId: z.string().nullable(),
-  /** 当前分支链上的 messageId 列表（按时间正序） */
-  branchMessageIds: z.array(z.string()),
-  /** 按时间正序返回（最早在前） */
-  messages: z.array(messageSchema),
-  /** 继续向更早祖先翻页用的 cursor；没有更多则为 null */
-  nextCursor: z.string().nullable(),
-  /** messageId -> siblings 导航信息（用于左右切换分支） */
-  siblingNav: z.record(
-    z.string(),
-    z.object({
-      parentMessageId: z.string().nullable(),
-      prevSiblingId: z.string().nullable(),
-      nextSiblingId: z.string().nullable(),
-      siblingIndex: z.number().int().min(1),
-      siblingTotal: z.number().int().min(1),
-    }),
-  ),
-});
-
-const getChatBranchMetaOutputSchema = z.object({
-  /** 本次返回对应的 leafMessageId（用于前端维护“当前分支”） */
-  leafMessageId: z.string().nullable(),
-  /** 当前分支链上的 messageId 列表（按时间正序） */
-  branchMessageIds: z.array(z.string()),
-  /** messageId -> siblings 导航信息（用于左右切换分支） */
-  siblingNav: z.record(
-    z.string(),
-    z.object({
-      parentMessageId: z.string().nullable(),
-      prevSiblingId: z.string().nullable(),
-      nextSiblingId: z.string().nullable(),
-      siblingIndex: z.number().int().min(1),
-      siblingTotal: z.number().int().min(1),
-    }),
-  ),
-});
-
 const resolveLatestLeafInputSchema = z.object({
   sessionId: z.string().min(1),
   startMessageId: z.string().min(1),
@@ -249,7 +253,6 @@ export const chatRouter = t.router({
    */
   getChatBranch: shieldedProcedure
     .input(getChatBranchInputSchema)
-    .output(getChatBranchOutputSchema)
     .query(async ({ ctx, input }) => {
       const take = input.take ?? 50;
 
@@ -276,28 +279,12 @@ export const chatRouter = t.router({
         return { leafMessageId: null, branchMessageIds: [], messages: [], nextCursor: null, siblingNav: {} };
       }
 
-      // 关键：path 不再保存 messageId（改为 index 片段），分支链需要沿 parentMessageId 回溯
-      const chainRows: any[] = [];
-      let currentId: string | null = leafMessageId;
-      let nextCursor: string | null = null;
-      for (let i = 0; i < take && currentId; i += 1) {
-        const row: any = await ctx.prisma.chatMessage.findUnique({
-          where: { id: currentId },
-          select: {
-            id: true,
-            sessionId: true,
-            parentMessageId: true,
-            role: true,
-            parts: true,
-            metadata: true,
-          },
-        });
-        if (!row || row.sessionId !== input.sessionId) break;
-        chainRows.push(row);
-        currentId = row.parentMessageId ?? null;
-        if (i === take - 1) nextCursor = row.parentMessageId ?? null;
-      }
-      chainRows.reverse();
+      const { chainRows, nextCursor } = await loadBranchChainRows({
+        prisma: ctx.prisma,
+        sessionId: input.sessionId,
+        leafMessageId,
+        take,
+      });
       const branchMessageIds = chainRows.map((r) => String(r.id));
       const byId = new Map(chainRows.map((r: any) => [r.id, r]));
 
@@ -395,7 +382,6 @@ export const chatRouter = t.router({
    */
   getChatBranchMeta: shieldedProcedure
     .input(getChatBranchInputSchema)
-    .output(getChatBranchMetaOutputSchema)
     .query(async ({ ctx, input }) => {
       const take = input.take ?? 50;
 
@@ -422,22 +408,12 @@ export const chatRouter = t.router({
         return { leafMessageId: null, branchMessageIds: [], siblingNav: {} };
       }
 
-      const chainRows: any[] = [];
-      let currentId: string | null = leafMessageId;
-      for (let i = 0; i < take && currentId; i += 1) {
-        const row: any = await ctx.prisma.chatMessage.findUnique({
-          where: { id: currentId },
-          select: {
-            id: true,
-            sessionId: true,
-            parentMessageId: true,
-          },
-        });
-        if (!row || row.sessionId !== input.sessionId) break;
-        chainRows.push(row);
-        currentId = row.parentMessageId ?? null;
-      }
-      chainRows.reverse();
+      const { chainRows } = await loadBranchChainRows({
+        prisma: ctx.prisma,
+        sessionId: input.sessionId,
+        leafMessageId,
+        take,
+      });
       const branchMessageIds = chainRows.map((r) => String(r.id));
 
       const siblingNavById = await buildSiblingNavByMessageId({

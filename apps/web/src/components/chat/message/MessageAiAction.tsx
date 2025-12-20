@@ -10,16 +10,7 @@ import { useChatContext } from "../ChatProvider";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import MessageBranchNav from "./MessageBranchNav";
-
-function getMessagePlainText(message: UIMessage) {
-  const parts = (message.parts ?? []).filter(
-    (part: any) => part?.type === "text" && typeof part?.text === "string"
-  );
-  return parts
-    .map((p: any) => p.text)
-    .join("\n")
-    .trim();
-}
+import { getMessagePlainText } from "@/lib/chat/message-text";
 
 export default function MessageAiAction({
   message,
@@ -60,7 +51,7 @@ export default function MessageAiAction({
   // 使用 TanStack React Query 调用接口更新评价
   const updateRatingMutation = useMutation({
     ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
-    onSuccess: (result, variables) => {
+    onSuccess: (result) => {
       // 成功后，用服务端返回的 meta 更新到 useChatContext
       updateMessage(message.id, {
         ...message,
@@ -68,7 +59,6 @@ export default function MessageAiAction({
           ...(result as any).meta,
         },
       });
-      // selectSession(sessionId);
       toast.success("评价成功");
     },
     onError: () => {

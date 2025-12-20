@@ -28,6 +28,7 @@ import {
   finalizeActiveStream,
   initActiveStream,
 } from "@/chat/sse/streams";
+import { messageMetadataFromStackPart } from "@/chat/agentMetadata";
 
 /**
  * 将服务端异常转换为可发送给前端的错误文本：
@@ -71,9 +72,6 @@ export function registerChatSseCreateRoute(app: Hono) {
     const sessionId = body.sessionId ?? body.id;
     if (!sessionId) return c.json({ error: "sessionId is required" }, 400);
 
-    // 关键：retry = 复用已存在的 user 消息重新生成 assistant（不能再次保存该 user 消息）
-    const isRetry = Boolean((body as any)?.retry);
-
     // 从请求中获取 cookie（workspace-id 等仍可能存在）
     const cookies = getCookie(c);
 
@@ -82,27 +80,31 @@ export function registerChatSseCreateRoute(app: Hono) {
       return c.json({ error: "messages must be an array" }, 400);
     }
 
-    // MVP：仅取最后一条用户消息作为“新消息”写入 DB
+    const trigger = typeof (body as any)?.trigger === "string" ? String((body as any).trigger) : "submit-message";
+    const explicitRetry = Boolean((body as any)?.retry);
+
     const lastIncomingMessage = Array.isArray(incomingMessages)
       ? incomingMessages[incomingMessages.length - 1]
       : undefined;
-    if (!lastIncomingMessage) {
-      return c.json({ error: "last message is required" }, 400);
-    }
-    if ((lastIncomingMessage as any).role !== "user") {
-      return c.json({ error: "last message must be a user message" }, 400);
-    }
-    
-    // 关键：每次发送都必须指定 parentMessageId（消息树）
-    const messageParentMessageId =
-      typeof (lastIncomingMessage as any).parentMessageId === "string" ||
-      (lastIncomingMessage as any).parentMessageId === null
-        ? ((lastIncomingMessage as any).parentMessageId as string | null)
-        : undefined;
-    if (messageParentMessageId === undefined) {
-      return c.json({ error: "parentMessageId is required" }, 400);
-    }
-    const parentMessageId = messageParentMessageId;
+
+    // 关键：AI SDK transport 会把 regenerate 的 messageId 放在 request 顶层 messageId
+    const requestMessageId =
+      typeof (body as any)?.messageId === "string" && String((body as any).messageId).trim()
+        ? String((body as any).messageId)
+        : null;
+    // 兼容旧链路：replacement mode（sendMessage.messageId）
+    const messageMessageId =
+      typeof (lastIncomingMessage as any)?.messageId === "string" &&
+      String((lastIncomingMessage as any).messageId).trim()
+        ? String((lastIncomingMessage as any).messageId)
+        : null;
+    const replacementMessageId = requestMessageId ?? messageMessageId;
+
+    // 关键：regenerate-message 等价于 retry（复用已存在 user 消息，不再新建 user）
+    const isRetry =
+      explicitRetry ||
+      trigger === "regenerate-message" ||
+      (trigger === "submit-message" && Boolean(replacementMessageId));
 
     const webClientId = typeof body.webClientId === "string" ? body.webClientId : "";
     const electronClientId =
@@ -118,17 +120,69 @@ export function registerChatSseCreateRoute(app: Hono) {
       electronClientId,
     });
 
-    // 关键：新发送 -> 保存用户消息；retry -> 读取已存在的用户消息节点
-    const userNode = isRetry
-      ? await requireExistingChatMessageNode({
+    // 关键：新发送 -> 保存用户消息；retry/regenerate -> 读取已存在的 user 消息节点（禁止新建 user）
+    let userNode: Awaited<ReturnType<typeof saveChatMessageNode>> & { role?: any };
+    if (isRetry) {
+      // regenerate-message:
+      // - 有 messageId：可能是 assistant 或 user
+      // - 没有 messageId：按“最后一条 user 消息”重试（前端会先切链到目标 user）
+      let targetUserMessageId: string | null = null;
+      if (trigger === "regenerate-message" && replacementMessageId) {
+        try {
+          const node = await requireExistingChatMessageNode({
+            sessionId,
+            messageId: replacementMessageId,
+          });
+          if ((node as any).role === MessageRoleEnum.assistant) {
+            targetUserMessageId = node.parentMessageId ?? null;
+          } else if ((node as any).role === MessageRoleEnum.user) {
+            targetUserMessageId = node.id;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!targetUserMessageId) {
+        if (!lastIncomingMessage) {
+          return c.json({ error: "last message is required" }, 400);
+        }
+        if ((lastIncomingMessage as any).role !== "user") {
+          return c.json({ error: "last message must be a user message" }, 400);
+        }
+        targetUserMessageId = replacementMessageId ?? String((lastIncomingMessage as any).id);
+      }
+
+      try {
+        userNode = await requireExistingChatMessageNode({
           sessionId,
-          messageId: String((lastIncomingMessage as any).id),
-        })
-      : await saveChatMessageNode({
-          sessionId,
-          message: lastIncomingMessage as any,
-          parentMessageId,
+          messageId: targetUserMessageId,
         });
+      } catch {
+        return c.json({ error: "retry requires an existing user message" }, 400);
+      }
+    } else {
+      if (!lastIncomingMessage) {
+        return c.json({ error: "last message is required" }, 400);
+      }
+      if ((lastIncomingMessage as any).role !== "user") {
+        return c.json({ error: "last message must be a user message" }, 400);
+      }
+      // 关键：非 retry 才要求显式 parentMessageId（消息树）
+      const messageParentMessageId =
+        typeof (lastIncomingMessage as any).parentMessageId === "string" ||
+        (lastIncomingMessage as any).parentMessageId === null
+          ? ((lastIncomingMessage as any).parentMessageId as string | null)
+          : undefined;
+      if (messageParentMessageId === undefined) {
+        return c.json({ error: "parentMessageId is required" }, 400);
+      }
+      userNode = await saveChatMessageNode({
+        sessionId,
+        message: lastIncomingMessage as any,
+        parentMessageId: messageParentMessageId,
+      });
+    }
     if (isRetry && (userNode as any).role !== MessageRoleEnum.user) {
       return c.json({ error: "retry requires an existing user message" }, 400);
     }
@@ -237,31 +291,7 @@ export function registerChatSseCreateRoute(app: Hono) {
             console.error("Agent error:", error);
             return toClientErrorText(error);
           },
-          messageMetadata: ({ part }: any) => {
-            const frame = requestContextManager.getCurrentAgentFrame();
-            const agentMeta = frame
-              ? {
-                  agent: {
-                    // 关键：对齐 AI SDK Agent 的标识（仅用于展示/追溯，运行时不依赖）
-                    version: "agent-v1",
-                    kind: frame.kind,
-                    name: frame.name,
-                    id: frame.agentId,
-                    // 关键：模型信息用于历史展示（MVP：由 AgentFrame 提供可序列化描述）
-                    model: frame.model,
-                  },
-                }
-              : undefined;
-
-            // 关键：metadata 禁止写入消息树字段（parentMessageId/path/...），消息树只存在于列
-            if (part.type === "start") return (agentMeta ?? {}) as any;
-            if (part.type === "finish") {
-              return {
-                ...(agentMeta ?? {}),
-                totalUsage: (part as any).totalUsage,
-              } as any;
-            }
-          },
+          messageMetadata: ({ part }: any) => messageMetadataFromStackPart(part),
           onFinish: () => {
             // 关键：确保 master 结束后清理 agent 栈
             requestContextManager.popAgentFrame();
