@@ -3,7 +3,10 @@ import type { MessageRole as DbMessageRole, Prisma } from "@teatime-ai/db/prisma
 import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
 
 const MAX_SESSION_TITLE_CHARS = 16;
-const PATH_SEGMENT_WIDTH = 8;
+// 中文注释：物化路径每段固定 2 位（01..99），用于保证 DB 按字符串排序时等价于按数字排序。
+// 中文注释：产品约束：同级最多 99 个节点；超过后直接报错，避免出现 3 位段导致排序与查询不稳定。
+const PATH_SEGMENT_WIDTH = 2;
+const MAX_PATH_SEGMENT_SEQ = 99;
 
 // 中文注释：metadata 禁止保存消息树字段，避免冗余与不一致。
 const FORBIDDEN_METADATA_KEYS = ["id", "sessionId", "parentMessageId", "path"] as const;
@@ -53,6 +56,8 @@ function normalizeTitle(raw: string): string {
 }
 
 function toPathSegment(seq: number): string {
+  if (!Number.isInteger(seq) || seq <= 0) throw new Error("Invalid path segment seq.");
+  if (seq > MAX_PATH_SEGMENT_SEQ) throw new Error(`Too many sibling nodes (max ${MAX_PATH_SEGMENT_SEQ}).`);
   return String(seq).padStart(PATH_SEGMENT_WIDTH, "0");
 }
 

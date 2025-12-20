@@ -19,8 +19,8 @@ import {
  */
 export const systemTools = {
   [timeNowToolDef.id]: timeNowTool,
-  [webFetchToolDef.id]: webFetchTool,
-  [webSearchToolDef.id]: webSearchTool,
+  // [webFetchToolDef.id]: webFetchTool,
+  // [webSearchToolDef.id]: webSearchTool,
   [fileReadToolDef.id]: fileReadTool,
   [shellReadonlyToolDef.id]: shellReadonlyTool,
   [shellWriteToolDef.id]: shellWriteTool,

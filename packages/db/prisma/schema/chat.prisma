@@ -21,7 +21,7 @@ model ChatMessage {
   sessionId       String
   // 消息树：父消息 ID（根节点为 null）
   parentMessageId String?
-  // 物化路径：用于子树查询与“最右叶子”选择（格式：00000001/00000002/...）
+  // 物化路径：用于子树查询与“最右叶子”选择（格式：01/02/...；同级最多 99）
   path            String
   // 角色：与 AI SDK UIMessage.role 保持一致（小写）
   role            MessageRole @default(user)

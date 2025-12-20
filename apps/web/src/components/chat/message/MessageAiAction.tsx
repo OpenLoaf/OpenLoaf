@@ -23,6 +23,59 @@ function formatTokenCount(value: unknown): string {
   return new Intl.NumberFormat("en-US").format(numberValue);
 }
 
+type NormalizedTokenUsage = {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  reasoningTokens?: number;
+  cachedInputTokens?: number;
+  noCacheTokens?: number;
+};
+
+/**
+ * 从 message.metadata 中提取 token usage（best-effort）。
+ * - 兼容 totalUsage / usage / tokenUsage 以及不同字段命名
+ * - 当缺少细分字段时，用 cachedInputTokens 推导“非缓存”
+ */
+function extractTokenUsage(metadata: unknown): NormalizedTokenUsage | undefined {
+  const meta = metadata as any;
+  const raw = meta?.totalUsage ?? meta?.usage ?? meta?.tokenUsage ?? null;
+  if (!raw || typeof raw !== "object") return;
+
+  const toNumberOrUndefined = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value)
+      ? value
+      : typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))
+        ? Number(value)
+        : undefined;
+
+  const inputTokens = toNumberOrUndefined(raw.inputTokens ?? raw.promptTokens ?? raw.input_tokens);
+  const outputTokens = toNumberOrUndefined(
+    raw.outputTokens ?? raw.completionTokens ?? raw.output_tokens,
+  );
+  const totalTokens = toNumberOrUndefined(raw.totalTokens ?? raw.total_tokens);
+  const reasoningTokens = toNumberOrUndefined(raw.reasoningTokens ?? raw.reasoning_tokens);
+  const cachedInputTokens = toNumberOrUndefined(raw.cachedInputTokens ?? raw.cached_input_tokens);
+
+  const noCacheTokens =
+    toNumberOrUndefined(raw?.inputTokenDetails?.noCacheTokens) ??
+    (typeof inputTokens === "number" && typeof cachedInputTokens === "number"
+      ? Math.max(0, inputTokens - cachedInputTokens)
+      : undefined);
+
+  const usage: NormalizedTokenUsage = {
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    reasoningTokens,
+    cachedInputTokens,
+    noCacheTokens,
+  };
+
+  if (Object.values(usage).every((v) => v === undefined)) return;
+  return usage;
+}
+
 export default function MessageAiAction({
   message,
   className,
@@ -74,19 +127,9 @@ export default function MessageAiAction({
 
   const isRating = updateRatingMutation.isPending;
 
-  const usage = (message.metadata as any)?.totalUsage as
-    | {
-        inputTokens?: number;
-        outputTokens?: number;
-        totalTokens?: number;
-        reasoningTokens?: number;
-        cachedInputTokens?: number;
-        inputTokenDetails?: { noCacheTokens?: number; cacheReadTokens?: number };
-        outputTokenDetails?: { textTokens?: number; reasoningTokens?: number };
-      }
-    | undefined;
+  const usage = extractTokenUsage(message.metadata);
 
-  const agentModel = (message.metadata as any)?.agent?.model as
+  const agentModel = ((message as any)?.agent?.model ?? (message.metadata as any)?.agent?.model) as
     | { provider?: string; modelId?: string }
     | undefined;
 
@@ -215,20 +258,34 @@ export default function MessageAiAction({
               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 opacity-95">
                 <div>输入</div>
                 <div className="text-right tabular-nums">{formatTokenCount(usage.inputTokens)}</div>
+                {typeof usage.cachedInputTokens === "number" ? (
+                  <>
+                    <div>缓存输入</div>
+                    <div className="text-right tabular-nums">
+                      {formatTokenCount(usage.cachedInputTokens)}
+                    </div>
+                  </>
+                ) : null}
+                {typeof usage.noCacheTokens === "number" ? (
+                  <>
+                    <div>非缓存</div>
+                    <div className="text-right tabular-nums">
+                      {formatTokenCount(usage.noCacheTokens)}
+                    </div>
+                  </>
+                ) : null}
+                {typeof usage.reasoningTokens === "number" ? (
+                  <>
+                    <div>推理</div>
+                    <div className="text-right tabular-nums">
+                      {formatTokenCount(usage.reasoningTokens)}
+                    </div>
+                  </>
+                ) : null}
                 <div>输出</div>
                 <div className="text-right tabular-nums">{formatTokenCount(usage.outputTokens)}</div>
                 <div>总计</div>
                 <div className="text-right tabular-nums">{formatTokenCount(usage.totalTokens)}</div>
-                <div>缓存输入</div>
-                <div className="text-right tabular-nums">{formatTokenCount(usage.cachedInputTokens)}</div>
-                <div>缓存读取</div>
-                <div className="text-right tabular-nums">
-                  {formatTokenCount(usage.inputTokenDetails?.cacheReadTokens)}
-                </div>
-                <div>非缓存</div>
-                <div className="text-right tabular-nums">
-                  {formatTokenCount(usage.inputTokenDetails?.noCacheTokens)}
-                </div>
               </div>
             </div>
           ) : (

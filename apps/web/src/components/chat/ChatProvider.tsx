@@ -27,6 +27,8 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   setInput: (value: string) => void;
   /** 用于触发消息列表滚动到底部的信号（自增即可） */
   scrollToBottomToken: number;
+  /** 用于触发消息列表滚动到指定消息的信号（自增即可） */
+  scrollToMessageToken: { messageId: string; token: number } | null;
   /** 是否正在加载/应用该 session 的历史消息 */
   isHistoryLoading: boolean;
   /** 创建新会话（清空消息并切换 id） */
@@ -101,6 +103,10 @@ export default function ChatProvider({
   ) => void;
 }) {
   const [scrollToBottomToken, setScrollToBottomToken] = React.useState(0);
+  const [scrollToMessageToken, setScrollToMessageToken] = React.useState<{
+    messageId: string;
+    token: number;
+  } | null>(null);
   const [leafMessageId, setLeafMessageId] = React.useState<string | null>(null);
   const [branchMessageIds, setBranchMessageIds] = React.useState<string[]>([]);
   const [siblingNav, setSiblingNav] = React.useState<
@@ -341,7 +347,6 @@ export default function ChatProvider({
   // 发送消息后立即滚动到底部（即使 AI 还没开始返回内容）
   const sendMessage = React.useCallback(
     (...args: Parameters<typeof chat.sendMessage>) => {
-      setScrollToBottomToken((n) => n + 1);
       const [message, options] = args as any[];
       if (!message) return (chat.sendMessage as any)(message, options);
 
@@ -385,7 +390,11 @@ export default function ChatProvider({
 
       pendingUserMessageIdRef.current = String(nextMessage.id);
 
-      return (chat.sendMessage as any)(nextMessage, options);
+      const result = (chat.sendMessage as any)(nextMessage, options);
+      // 关键：在下一帧触发滚动，确保 user 消息已渲染进 DOM，避免 pinned 被误判为 false，
+      // 从而导致流式输出期间不再自动跟随。
+      requestAnimationFrame(() => setScrollToBottomToken((n) => n + 1));
+      return result;
     },
     [chat.sendMessage, chat.messages, leafMessageId]
   );
@@ -417,7 +426,14 @@ export default function ChatProvider({
       setLeafMessageId(data?.leafMessageId ?? null);
       setBranchMessageIds(data?.branchMessageIds ?? []);
       setSiblingNav(data?.siblingNav ?? {});
-      setScrollToBottomToken((n) => n + 1);
+      // 关键：切分支是“浏览历史/对比内容”的交互，不应强制滚动到底部（否则会打断阅读）。
+      // 若用户本来就在底部，useChatScroll 的 pinned/ResizeObserver 机制会自然维持贴底体验。
+      // 但切到更短分支时，浏览器可能会把 scrollTop clamp 到新最大值，看起来像“跳到底部”。
+      // 这里用一个 token 通知 MessageList 定位到目标 sibling 节点，并抑制一次“贴底跟随”。
+      setScrollToMessageToken((prev) => ({
+        messageId: String(targetId),
+        token: (prev?.token ?? 0) + 1,
+      }));
     },
     [
       siblingNav,
@@ -573,6 +589,7 @@ export default function ChatProvider({
         setInput,
         isHistoryLoading,
         scrollToBottomToken,
+        scrollToMessageToken,
         newSession,
         selectSession,
         updateMessage,

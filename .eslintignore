@@ -1,0 +1,8 @@
+**/node_modules/**
+**/.next/**
+**/out/**
+**/dist/**
+**/.turbo/**
+**/.webpack/**
+packages/api/generated/**
+packages/db/prisma/generated/**

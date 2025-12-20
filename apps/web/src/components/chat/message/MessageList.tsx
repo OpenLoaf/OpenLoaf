@@ -74,7 +74,7 @@ function MessageHistorySkeleton() {
 }
 
 export default function MessageList({ className }: MessageListProps) {
-  const { messages, status, error, scrollToBottomToken, isHistoryLoading } =
+  const { messages, status, error, scrollToBottomToken, scrollToMessageToken, isHistoryLoading } =
     useChatContext();
   const viewportRef = React.useRef<HTMLDivElement | null>(null);
   const contentRef = React.useRef<HTMLDivElement | null>(null);
@@ -108,6 +108,7 @@ export default function MessageList({ className }: MessageListProps) {
 
   useChatScroll({
     scrollToBottomToken,
+    scrollToMessageToken,
     // AI 输出过程中/结束瞬间：仅当用户贴底时跟随滚动（避免用户上滑时被强制拉回底部）
     followToBottomToken:
       messages.length + (status === "ready" ? 1 : 0) + (error ? 1 : 0),
