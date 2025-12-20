@@ -5,8 +5,7 @@ import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
-import type { ReactNode } from "react";
-import { isToolPart, isSubAgentToolPart } from "@/lib/chat/message-parts";
+import { isToolPart } from "@/lib/chat/message-parts";
 
 type AnyMessagePart = {
   type?: string;
@@ -52,12 +51,10 @@ export function renderMessageParts(
   options?: {
     textClassName?: string;
     toolClassName?: string;
-    /** 是否渲染工具卡片（subAgent 消息内可禁用） */
+    /** 是否渲染工具卡片 */
     renderTools?: boolean;
     /** 是否渲染文本（当 output 已有时，可隐藏 message 段的文本避免重复） */
     renderText?: boolean;
-    /** 自定义 sub-agent tool 的渲染（用于三段式展示） */
-    renderSubAgentTool?: (part: AnyMessagePart, index: number) => ReactNode;
   },
 ) {
   const renderTools = options?.renderTools !== false;
@@ -77,11 +74,6 @@ export function renderMessageParts(
     // 关键：tool part 也属于消息内容的一部分，需要保持与 MessageList 一致的渲染规则（支持嵌套）。
     if (isToolPart(part)) {
       if (!renderTools) return null;
-      if (isSubAgentToolPart(part)) {
-        // 关键：subAgent tool 需要三段式 UI，不走默认 MessageTool。
-        if (options?.renderSubAgentTool) return options.renderSubAgentTool(part, index);
-        return null;
-      }
       return (
         <MessageTool
           key={part.toolCallId ?? `${part.type}-${index}`}

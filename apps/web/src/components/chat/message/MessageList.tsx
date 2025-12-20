@@ -11,40 +11,9 @@ import MessageThinking from "./MessageThinking";
 import MessageError from "./MessageError";
 import { AnimatePresence } from "motion/react";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
-import { isSubAgentMessage, isSubAgentToolPart } from "@/lib/chat/message-parts";
 
 interface MessageListProps {
   className?: string;
-}
-
-function groupMessagesForRender(messages: any[]) {
-  const items: Array<{ message: any; subAgentMessages?: any[] }> = [];
-
-  for (let i = 0; i < messages.length; i += 1) {
-    const message = messages[i];
-    if (!message) continue;
-
-    // 关键：subAgent 的输出消息会被嵌套到 sub-agent tool 卡片里，这里不单独渲染。
-    if (isSubAgentMessage(message)) continue;
-
-    const parts = (message as any)?.parts ?? [];
-    const hasSubAgentToolCall = (parts as any[]).some(isSubAgentToolPart);
-    if (message.role === "assistant" && hasSubAgentToolCall) {
-      const subAgentMessages: any[] = [];
-      let j = i + 1;
-      while (j < messages.length && isSubAgentMessage(messages[j])) {
-        subAgentMessages.push(messages[j]);
-        j += 1;
-      }
-      items.push({ message, subAgentMessages });
-      i = j - 1;
-      continue;
-    }
-
-    items.push({ message });
-  }
-
-  return items;
 }
 
 function MessageHistorySkeleton() {
@@ -80,18 +49,13 @@ export default function MessageList({ className }: MessageListProps) {
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
 
-  const renderItems = React.useMemo(
-    () => groupMessagesForRender(messages as any[]),
+  const lastHumanIndex = React.useMemo(
+    () => (messages as any[]).findLastIndex((m) => m?.role === "user"),
     [messages]
   );
-
-  const lastHumanIndex = React.useMemo(
-    () => renderItems.findLastIndex((item) => item.message?.role === "user"),
-    [renderItems]
-  );
   const lastAiIndex = React.useMemo(
-    () => renderItems.findLastIndex((item) => item.message?.role !== "user"),
-    [renderItems]
+    () => (messages as any[]).findLastIndex((m) => m?.role !== "user"),
+    [messages]
   );
   const hideAiActions = status === "submitted" || status === "streaming";
 
@@ -146,11 +110,10 @@ export default function MessageList({ className }: MessageListProps) {
             <MessageHistorySkeleton />
           ) : (
             <>
-              {renderItems.map((item, index) => (
+              {(messages as any[]).map((message, index) => (
                 <MessageItem
-                  key={item.message?.id ?? `m_${index}`}
-                  message={item.message}
-                  subAgentMessages={item.subAgentMessages}
+                  key={message?.id ?? `m_${index}`}
+                  message={message}
                   isLastHumanMessage={index === lastHumanIndex}
                   isLastAiMessage={index === lastAiIndex}
                   hideAiActions={hideAiActions}

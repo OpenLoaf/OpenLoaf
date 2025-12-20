@@ -13,7 +13,6 @@ import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 
 interface MessageItemProps {
   message: UIMessage;
-  subAgentMessages?: UIMessage[];
   isLastHumanMessage?: boolean;
   isLastAiMessage?: boolean;
   hideAiActions?: boolean;
@@ -21,12 +20,11 @@ interface MessageItemProps {
 
 function MessageItem({
   message,
-  subAgentMessages,
   isLastHumanMessage,
   isLastAiMessage,
   hideAiActions,
 }: MessageItemProps) {
-  const { resendUserMessage, status, clearError } = useChatContext();
+  const { resendUserMessage, status, clearError, branchMessageIds, siblingNav } = useChatContext();
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
 
@@ -41,6 +39,15 @@ function MessageItem({
   const hasVisibleContent = React.useMemo(() => {
     return messageHasVisibleContent(message);
   }, [message]);
+
+  // 中文注释：当消息本身没有可见内容时，如果它是“分支节点”，仍然要显示分支切换（否则切到边界会“消失”）。
+  const shouldShowBranchNav = React.useMemo(() => {
+    const id = String((message as any)?.id ?? "");
+    if (!id) return false;
+    if (!branchMessageIds.includes(id)) return false;
+    const nav = siblingNav?.[id];
+    return Boolean(nav && nav.siblingTotal > 1);
+  }, [message, branchMessageIds, siblingNav]);
 
   const toggleEdit = React.useCallback(() => {
     setIsEditing((prev) => {
@@ -117,8 +124,8 @@ function MessageItem({
         </>
       ) : (
         <>
-          <MessageAi message={message} subAgentMessages={subAgentMessages} />
-          {!hideAiActions && hasVisibleContent && (
+          <MessageAi message={message} />
+          {!hideAiActions && (hasVisibleContent || shouldShowBranchNav) && (
             <div className={cn("mt-1", actionVisibility(isLastAiMessage))}>
               <MessageAiAction message={message} />
             </div>

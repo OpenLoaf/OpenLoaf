@@ -14,7 +14,6 @@ import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
 import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
-import { getMessageAgentKind } from "@/lib/chat/message-parts";
 
 /**
  * 聊天上下文类型
@@ -168,10 +167,11 @@ export default function ChatProvider({
   const refreshBranchMeta = React.useCallback(
     async (startMessageId: string) => {
       const data = await queryClient.fetchQuery(
-        trpc.chat.getChatBranchMeta.queryOptions({
+        trpc.chat.getChatView.queryOptions({
           sessionId,
-          take: 50,
-          startMessageId,
+          anchor: { messageId: startMessageId, strategy: "self" },
+          window: { limit: 50 },
+          include: { messages: false, siblingNav: true },
         })
       );
       setLeafMessageId(data.leafMessageId ?? null);
@@ -187,10 +187,7 @@ export default function ChatProvider({
       if (sessionIdRef.current !== sessionId) return;
       const assistantId = String((message as any)?.id ?? "");
       if (!assistantId) return;
-
-      const agentKind = getMessageAgentKind(message);
-      // 关键：subAgent 的输出不应推进主对话的 leaf
-      if (agentKind !== "sub") setLeafMessageId(assistantId);
+      setLeafMessageId(assistantId);
 
       const parentUserMessageId = pendingUserMessageIdRef.current;
       pendingUserMessageIdRef.current = null;
@@ -262,10 +259,10 @@ export default function ChatProvider({
 
   const shouldLoadHistory = loadHistory !== false;
 
-  // 使用 tRPC 拉取“当前分支链”（消息树）
+  // 使用 tRPC 拉取“当前视图”（主链消息 + sibling 导航）
   const branchQuery = useQuery(
     {
-      ...trpc.chat.getChatBranch.queryOptions({ sessionId, take: 50 }),
+      ...trpc.chat.getChatView.queryOptions({ sessionId, window: { limit: 50 } }),
       enabled: shouldLoadHistory && chat.messages.length === 0,
       staleTime: Number.POSITIVE_INFINITY,
       refetchOnWindowFocus: false,
@@ -409,11 +406,10 @@ export default function ChatProvider({
       chat.stop();
 
       const data = await queryClient.fetchQuery(
-        trpc.chat.getChatBranch.queryOptions({
+        trpc.chat.getChatView.queryOptions({
           sessionId,
-          take: 50,
-          startMessageId: targetId,
-          resolveToLatestLeaf: true,
+          anchor: { messageId: targetId, strategy: "latestLeafInSubtree" },
+          window: { limit: 50 },
         })
       );
       // 关键：切分支时，用服务端返回的“当前链快照”覆盖本地 messages（避免前端拼接导致重复渲染）
@@ -471,7 +467,7 @@ export default function ChatProvider({
 
       chat.stop();
 
-      // 关键：retry 不应在 SSE 完成前请求 getChatBranch（肯定拿不到新 assistant sibling）。
+      // 关键：retry 不应在 SSE 完成前请求历史接口（此时 DB 还没落库，拿不到新 sibling）。
       // 这里直接在前端本地“切链”：保留到 parent user 为止，隐藏其后的旧分支内容。
       const currentMessages = chat.messages as any[];
       const userIndex = currentMessages.findIndex((m) => String(m?.id) === parentUserMessageId);
@@ -520,7 +516,7 @@ export default function ChatProvider({
 
       chat.stop();
 
-      // 关键：编辑重发只需要本地切链（不提前请求 getChatBranch）。
+      // 关键：编辑重发只需要本地切链（不提前请求历史接口）。
       // - 有 parent：保留到 parent 节点为止，隐藏旧 user 及其后续内容
       // - 无 parent：清空对话，从根重新开始
       if (parentMessageId) {

@@ -17,6 +17,10 @@ export type ChatUIMessage = {
   agent?: any;
 };
 
+const DEFAULT_VIEW_LIMIT = 50;
+const MAX_VIEW_LIMIT = 200;
+const LEAF_CANDIDATES = 50;
+
 type UsageTotals = {
   inputTokens: number;
   outputTokens: number;
@@ -84,29 +88,31 @@ function getPathPrefixes(path: string): string[] {
 }
 
 /**
- * 读取某个 leaf 的祖先链（基于 path 一次查询，减少 DB roundtrip）
- * - 返回按 path 正序（root -> leaf）
- * - take 为链路长度上限（从 leaf 往上截断）
+ * Load main-chain rows for a leaf node.
+ * - Returns ordered rows (root -> leaf)
+ * - Supports truncation from the leaf side via `limit`
  */
-async function loadBranchChainRows({
+async function loadMainChainRows({
   prisma,
   sessionId,
   leafMessageId,
-  take,
+  limit,
 }: {
   prisma: any;
   sessionId: string;
   leafMessageId: string;
-  take: number;
-}): Promise<{ chainRows: any[]; nextCursor: string | null }> {
+  limit: number;
+}): Promise<{ chainRows: any[]; nextCursorBeforeMessageId: string | null }> {
   const leaf = await prisma.chatMessage.findUnique({
     where: { id: leafMessageId },
     select: { id: true, sessionId: true, path: true },
   });
-  if (!leaf || leaf.sessionId !== sessionId) return { chainRows: [], nextCursor: null };
+  if (!leaf || leaf.sessionId !== sessionId) {
+    return { chainRows: [], nextCursorBeforeMessageId: null };
+  }
 
   const allPaths = getPathPrefixes(String(leaf.path));
-  const selectedPaths = allPaths.length > take ? allPaths.slice(-take) : allPaths;
+  const selectedPaths = allPaths.length > limit ? allPaths.slice(-limit) : allPaths;
 
   const chainRows = await prisma.chatMessage.findMany({
     where: { sessionId, path: { in: selectedPaths } },
@@ -121,13 +127,13 @@ async function loadBranchChainRows({
     },
   });
 
-  // 关键：当链路被截断时，nextCursor 为“本页最早节点”的 parentMessageId（继续向上翻页用）
-  const isTruncated = allPaths.length > take;
-  const nextCursor = isTruncated ? (chainRows[0]?.parentMessageId ?? null) : null;
-  return { chainRows, nextCursor };
+  // 中文注释：当链路被截断时，用“本页最早节点 id”作为游标；下一页从它的 parent 往上继续取。
+  const isTruncated = allPaths.length > limit;
+  const nextCursorBeforeMessageId = isTruncated ? (chainRows[0]?.id ?? null) : null;
+  return { chainRows, nextCursorBeforeMessageId };
 }
 
-/** 查询某个节点子树内最新的叶子节点 */
+/** Resolve latest renderable leaf id in a subtree. */
 async function resolveLatestLeafId({
   prisma,
   sessionId,
@@ -143,15 +149,14 @@ async function resolveLatestLeafId({
   });
   if (!start || start.sessionId !== sessionId) return null;
 
-  // 说明：占位 assistant 会落库（用于 subAgent 挂载），但它没有 parts，不应作为 leaf。
-  // Prisma/SQLite 对 JSON path 过滤支持有限，这里用“按 path 倒序取一批候选 + JS 过滤”实现。
+  // 中文注释：SQLite/Prisma 对 JSON 过滤支持有限，这里用“按 path 倒序取候选 + JS 过滤”实现。
   const candidates = await prisma.chatMessage.findMany({
     where: {
       sessionId,
       path: { startsWith: start.path },
     },
     orderBy: [{ path: "desc" }],
-    take: 50,
+    take: LEAF_CANDIDATES,
     select: { id: true, role: true, parts: true },
   });
   for (const row of candidates) {
@@ -173,7 +178,7 @@ async function resolveSessionRightmostLeafId({
       sessionId,
     },
     orderBy: [{ path: "desc" }],
-    take: 50,
+    take: LEAF_CANDIDATES,
     select: { id: true, role: true, parts: true },
   });
   for (const row of candidates) {
@@ -272,210 +277,151 @@ async function buildSiblingNavByMessageId({
   return navById;
 }
 
-const getChatBranchInputSchema = z.object({
+const getChatViewInputSchema = z.object({
   /** 会话 id（等同于 SSE 的 sessionId / useChat 的 id） */
   sessionId: z.string().min(1),
   /**
-   * 起点 messageId：
-   * - 不传：默认使用“最右叶子”
-   * - 传了但不是叶子：可配合 resolveToLatestLeaf 跳转到该子树最新链
+   * 视图锚点：
+   * - 不传：默认使用会话“最右叶子”
+   * - 传了：用于切换 sibling 或定位到某个节点
    */
-  startMessageId: z.string().optional(),
-  /** 是否把 startMessageId 解析为“该子树最新叶子” */
-  resolveToLatestLeaf: z.boolean().optional(),
-  /** 分支链分页大小（从 leaf 往上截断） */
-  take: z.number().min(1).max(200).default(50),
-  /**
-   * 分页游标：上一页最早消息的 parentMessageId
-   * - 传了 cursor 后，将从 cursor 作为“当前 leaf”继续向上翻页
-   */
-  cursor: z.string().optional(),
+  anchor: z
+    .object({
+      messageId: z.string().min(1),
+      /** 解析策略：切分支时通常希望跳到该子树的最新叶子 */
+      strategy: z.enum(["self", "latestLeafInSubtree"]).optional(),
+    })
+    .optional(),
+  /** 主链窗口（用于向上翻历史） */
+  window: z
+    .object({
+      limit: z.number().min(1).max(MAX_VIEW_LIMIT).optional(),
+      cursor: z
+        .object({
+          /** 上一页最早消息 id（下一页从该节点的 parent 往上继续取） */
+          beforeMessageId: z.string().min(1),
+        })
+        .optional(),
+    })
+    .optional(),
+  /** 返回内容开关（同一接口覆盖“只刷新导航”和“拉取消息”） */
+  include: z
+    .object({
+      messages: z.boolean().optional(),
+      siblingNav: z.boolean().optional(),
+    })
+    .optional(),
 });
 
-const resolveLatestLeafInputSchema = z.object({
-  sessionId: z.string().min(1),
-  startMessageId: z.string().min(1),
-});
+/** Resolve view leaf id from cursor. */
+async function resolveLeafIdFromCursor({
+  prisma,
+  sessionId,
+  beforeMessageId,
+}: {
+  prisma: any;
+  sessionId: string;
+  beforeMessageId: string;
+}): Promise<string | null> {
+  const row = await prisma.chatMessage.findUnique({
+    where: { id: beforeMessageId },
+    select: { sessionId: true, parentMessageId: true },
+  });
+  if (!row || row.sessionId !== sessionId) return null;
+  return (row.parentMessageId ?? null) as string | null;
+}
 
 export const chatRouter = t.router({
   /**
-   * 获取当前分支链（消息树）
-   * - 默认从“最右叶子”开始
-   * - 支持 resolveToLatestLeaf：用于“切换 sibling 后跳到该分支最新链”
+   * Get chat view (MVP).
+   * - Returns: main-chain messages (for render) + sibling nav (for branch switch)
    */
-  getChatBranch: shieldedProcedure
-    .input(getChatBranchInputSchema)
+  getChatView: shieldedProcedure
+    .input(getChatViewInputSchema)
     .query(async ({ ctx, input }) => {
-      const take = input.take ?? 50;
+      const includeMessages = input.include?.messages !== false;
+      const includeSiblingNav = input.include?.siblingNav !== false;
+      const limit = input.window?.limit ?? DEFAULT_VIEW_LIMIT;
+      const anchorStrategy = input.anchor?.strategy ?? "latestLeafInSubtree";
 
-      const baseId =
-        input.cursor ??
-        input.startMessageId ??
+      const leafFromCursor = input.window?.cursor?.beforeMessageId
+        ? await resolveLeafIdFromCursor({
+            prisma: ctx.prisma,
+            sessionId: input.sessionId,
+            beforeMessageId: input.window.cursor.beforeMessageId,
+          })
+        : null;
+
+      const baseAnchorId =
+        leafFromCursor ??
+        input.anchor?.messageId ??
         (await resolveSessionRightmostLeafId({
           prisma: ctx.prisma,
           sessionId: input.sessionId,
         }));
-      if (!baseId) {
-        return { leafMessageId: null, branchMessageIds: [], messages: [], nextCursor: null, siblingNav: {} };
+
+      if (!baseAnchorId) {
+        return {
+          leafMessageId: null,
+          branchMessageIds: [],
+          ...(includeMessages ? { messages: [] as ChatUIMessage[] } : {}),
+          ...(includeSiblingNav ? { siblingNav: {} as Record<string, any> } : {}),
+          pageInfo: { nextCursor: null, hasMore: false },
+        };
       }
 
       const leafMessageId =
-        !input.cursor && input.resolveToLatestLeaf
+        !leafFromCursor && anchorStrategy === "latestLeafInSubtree"
           ? await resolveLatestLeafId({
               prisma: ctx.prisma,
               sessionId: input.sessionId,
-              startMessageId: baseId,
+              startMessageId: baseAnchorId,
             })
-          : baseId;
+          : baseAnchorId;
+
       if (!leafMessageId) {
-        return { leafMessageId: null, branchMessageIds: [], messages: [], nextCursor: null, siblingNav: {} };
+        return {
+          leafMessageId: null,
+          branchMessageIds: [],
+          ...(includeMessages ? { messages: [] as ChatUIMessage[] } : {}),
+          ...(includeSiblingNav ? { siblingNav: {} as Record<string, any> } : {}),
+          pageInfo: { nextCursor: null, hasMore: false },
+        };
       }
 
-      const { chainRows, nextCursor } = await loadBranchChainRows({
+      const { chainRows, nextCursorBeforeMessageId } = await loadMainChainRows({
         prisma: ctx.prisma,
         sessionId: input.sessionId,
         leafMessageId,
-        take,
+        limit,
       });
-      const branchMessageIds = chainRows.map((r) => String(r.id));
-      const byId = new Map(chainRows.map((r: any) => [r.id, r]));
 
-      // 关键：返回“分支链 + 分支节点的直接子消息（不在链上）”
-      // - 分支链用于主对话显示
-      // - 子消息仅用于 subAgent 输出（避免把 sibling/分支内容混进当前链导致重复显示）
-      const childrenRows = await ctx.prisma.chatMessage.findMany({
-        where: {
-          sessionId: input.sessionId,
-          parentMessageId: { in: branchMessageIds },
-          id: { notIn: branchMessageIds },
-        },
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        select: {
-          id: true,
-          parentMessageId: true,
-          role: true,
-          parts: true,
-          metadata: true,
-        },
-      });
-      // 关键：只回放 subAgent 输出，避免把 sibling/分支内容混进当前链导致重复显示
-      const filteredChildrenRows = childrenRows.filter(
-        (r: any) => (r?.metadata as any)?.agent?.kind === "sub",
-      );
-      const childrenByParentId = new Map<string, any[]>();
-      for (const row of filteredChildrenRows) {
-        const pid = String(row.parentMessageId);
-        const arr = childrenByParentId.get(pid) ?? [];
-        arr.push(row);
-        childrenByParentId.set(pid, arr);
-      }
+      const branchMessageIds = chainRows.map((r) => String(r.id));
 
       const messages: ChatUIMessage[] = [];
-      const siblingNav: Record<
-        string,
-        {
-          parentMessageId: string | null;
-          prevSiblingId: string | null;
-          nextSiblingId: string | null;
-          siblingIndex: number;
-          siblingTotal: number;
-        }
-      > = {};
-
-      const siblingNavById = await buildSiblingNavByMessageId({
-        prisma: ctx.prisma,
-        sessionId: input.sessionId,
-        branchRows: chainRows.map((r) => ({
-          id: String(r.id),
-          parentMessageId: (r.parentMessageId ?? null) as string | null,
-        })),
-      });
-
-      for (const id of branchMessageIds) {
-        const row = byId.get(id);
-        if (!row) continue;
-        const pushRow = (r: any) => {
-          const parts = Array.isArray(r.parts) ? r.parts : [];
-          // 关键：占位 assistant 没有任何内容，不应该被返回给前端渲染
-          if (!parts || parts.length === 0) return;
+      if (includeMessages) {
+        for (const row of chainRows) {
           messages.push({
-            id: r.id,
-            role: r.role,
-            parentMessageId: r.parentMessageId ?? null,
-            parts,
-            metadata: r.metadata ?? undefined,
-            agent: (r.metadata as any)?.agent ?? undefined,
-          });
-        };
-
-        pushRow(row);
-        for (const child of childrenByParentId.get(row.id) ?? []) {
-          pushRow(child);
-        }
-
-        const nav =
-          siblingNavById[String(row.id)] ??
-          ({
+            id: String(row.id),
+            role: row.role,
             parentMessageId: row.parentMessageId ?? null,
-            prevSiblingId: null,
-            nextSiblingId: null,
-            siblingIndex: 1,
-            siblingTotal: 1,
-          } as const);
-        siblingNav[String(row.id)] = nav;
+            parts: Array.isArray(row.parts) ? row.parts : [],
+            metadata: row.metadata ?? undefined,
+            agent: (row.metadata as any)?.agent ?? undefined,
+          });
+        }
       }
 
-      return { leafMessageId, branchMessageIds, messages, nextCursor, siblingNav };
-    }),
-
-  /**
-   * 仅获取分支元信息（不返回 messages）
-   * - 用于 retry/resend 后刷新 siblingNav，而不覆盖当前流式消息
-   */
-  getChatBranchMeta: shieldedProcedure
-    .input(getChatBranchInputSchema)
-    .query(async ({ ctx, input }) => {
-      const take = input.take ?? 50;
-
-      const baseId =
-        input.cursor ??
-        input.startMessageId ??
-        (await resolveSessionRightmostLeafId({
-          prisma: ctx.prisma,
-          sessionId: input.sessionId,
-        }));
-      if (!baseId) {
-        return { leafMessageId: null, branchMessageIds: [], siblingNav: {} };
-      }
-
-      const leafMessageId =
-        !input.cursor && input.resolveToLatestLeaf
-          ? await resolveLatestLeafId({
-              prisma: ctx.prisma,
-              sessionId: input.sessionId,
-              startMessageId: baseId,
-            })
-          : baseId;
-      if (!leafMessageId) {
-        return { leafMessageId: null, branchMessageIds: [], siblingNav: {} };
-      }
-
-      const { chainRows } = await loadBranchChainRows({
-        prisma: ctx.prisma,
-        sessionId: input.sessionId,
-        leafMessageId,
-        take,
-      });
-      const branchMessageIds = chainRows.map((r) => String(r.id));
-
-      const siblingNavById = await buildSiblingNavByMessageId({
-        prisma: ctx.prisma,
-        sessionId: input.sessionId,
-        branchRows: chainRows.map((r) => ({
-          id: String(r.id),
-          parentMessageId: (r.parentMessageId ?? null) as string | null,
-        })),
-      });
+      const siblingNavById = includeSiblingNav
+        ? await buildSiblingNavByMessageId({
+            prisma: ctx.prisma,
+            sessionId: input.sessionId,
+            branchRows: chainRows.map((r) => ({
+              id: String(r.id),
+              parentMessageId: (r.parentMessageId ?? null) as string | null,
+            })),
+          })
+        : {};
 
       const siblingNav: Record<
         string,
@@ -487,32 +433,34 @@ export const chatRouter = t.router({
           siblingTotal: number;
         }
       > = {};
-      for (const row of chainRows) {
-        const nav =
-          siblingNavById[String(row.id)] ??
-          ({
-            parentMessageId: row.parentMessageId ?? null,
-            prevSiblingId: null,
-            nextSiblingId: null,
-            siblingIndex: 1,
-            siblingTotal: 1,
-          } as const);
-        siblingNav[String(row.id)] = nav;
+      if (includeSiblingNav) {
+        // 中文注释：保证主链每个节点都有 siblingNav（即使只有 1 个 sibling 也要有），避免前端短暂缺失导致闪烁。
+        for (const row of chainRows) {
+          const id = String(row.id);
+          siblingNav[id] =
+            siblingNavById[id] ??
+            ({
+              parentMessageId: row.parentMessageId ?? null,
+              prevSiblingId: null,
+              nextSiblingId: null,
+              siblingIndex: 1,
+              siblingTotal: 1,
+            } as const);
+        }
       }
 
-      return { leafMessageId, branchMessageIds, siblingNav };
-    }),
-
-  /** 获取某个节点子树内最新叶子 */
-  resolveLatestLeaf: shieldedProcedure
-    .input(resolveLatestLeafInputSchema)
-    .query(async ({ ctx, input }) => {
-      const leafMessageId = await resolveLatestLeafId({
-        prisma: ctx.prisma,
-        sessionId: input.sessionId,
-        startMessageId: input.startMessageId,
-      });
-      return { leafMessageId };
+      return {
+        leafMessageId,
+        branchMessageIds,
+        ...(includeMessages ? { messages } : {}),
+        ...(includeSiblingNav ? { siblingNav } : {}),
+        pageInfo: {
+          nextCursor: nextCursorBeforeMessageId
+            ? { beforeMessageId: String(nextCursorBeforeMessageId) }
+            : null,
+          hasMore: Boolean(nextCursorBeforeMessageId),
+        },
+      };
     }),
 
   /**

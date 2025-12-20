@@ -112,7 +112,7 @@ export class ChatRouterImpl extends BaseChatRouter {
   /** Chat tRPC 端点实现：自动取名（MVP）。 */
   public static createRouter() {
     return t.router({
-      // 中文注释：复用 packages/api 的 chat router（getChatBranch 等），这里只补齐 server 实现。
+      // 中文注释：复用 packages/api 的 chat router（getChatView 等），这里只补齐 server 实现。
       ...appRouterDefine.chat._def.procedures,
 
       autoTitle: shieldedProcedure
@@ -154,4 +154,3 @@ export class ChatRouterImpl extends BaseChatRouter {
 }
 
 export const chatRouterImplementation = ChatRouterImpl.createRouter();
-

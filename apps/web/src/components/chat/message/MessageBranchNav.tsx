@@ -7,24 +7,26 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useChatContext } from "../ChatProvider";
 
 export default function MessageBranchNav({ messageId }: { messageId: string }) {
-  const { status, branchMessageIds, siblingNav, switchSibling } = useChatContext();
+  const { status, siblingNav, switchSibling } = useChatContext();
 
   const isBusy = status === "submitted" || status === "streaming";
-  const isBranchNode = branchMessageIds.includes(messageId);
   const nav = siblingNav[messageId];
 
   type SiblingNav = ReturnType<typeof useChatContext>["siblingNav"][string];
 
-  const shouldShow = Boolean(isBranchNode && nav && nav.siblingTotal > 1);
-
-  const [isRendered, setIsRendered] = React.useState(shouldShow);
-  const [isVisible, setIsVisible] = React.useState(shouldShow);
+  // 中文注释：消息列表只渲染“当前主链”，因此不再需要 branchMessageIds 作为额外判定；
+  // 只要 siblingNav 提供了信息，就应显示（避免切分支时状态更新顺序导致短暂消失）。
+  const [isRendered, setIsRendered] = React.useState(Boolean(nav && nav.siblingTotal > 1));
+  const [isVisible, setIsVisible] = React.useState(Boolean(nav && nav.siblingTotal > 1));
   const [displayNav, setDisplayNav] = React.useState<SiblingNav | null>(nav ?? null);
 
   // 关键：支持分支切换栏的淡入淡出（避免条件渲染导致“瞬间消失”）
   React.useEffect(() => {
     if (nav) setDisplayNav(nav);
   }, [nav]);
+
+  const effectiveNav = nav ?? displayNav;
+  const shouldShow = Boolean(effectiveNav && effectiveNav.siblingTotal > 1);
 
   React.useEffect(() => {
     if (shouldShow) {
@@ -41,7 +43,6 @@ export default function MessageBranchNav({ messageId }: { messageId: string }) {
 
   if (!isRendered) return null;
 
-  const effectiveNav = nav ?? displayNav;
   if (!effectiveNav) return null;
 
   return (
