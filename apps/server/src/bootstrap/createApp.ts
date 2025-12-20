@@ -1,0 +1,84 @@
+import { trpcServer } from "@hono/trpc-server";
+import { appRouterDefine, t } from "@teatime-ai/api";
+import { createContext } from "@teatime-ai/api/context";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
+import { registerChatSseRoutes } from "@/modules/chat/transport/sse/registerChatSseRoutes";
+import { workspaceRouterImplementation } from "@/transport/trpc/routers/workspace";
+import { tabRouterImplementation } from "@/transport/trpc/routers/tab";
+import { runtimeRouterImplementation } from "@/transport/trpc/routers/runtime";
+
+const defaultCorsOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
+];
+
+function getCorsOrigins(): string[] {
+  const fromEnv = process.env.CORS_ORIGIN?.split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+  return fromEnv?.length ? fromEnv : defaultCorsOrigins;
+}
+
+/**
+ * 创建 Hono app（MVP）：
+ * - 只负责组装中间件与路由
+ * - 运行环境相关（listen/upgrade）的逻辑在 startServer 中处理
+ */
+export function createApp() {
+  const app = new Hono();
+  const corsOrigins = getCorsOrigins();
+  const isDev = process.env.NODE_ENV !== "production";
+
+  app.use(logger());
+  app.use(
+    "/*",
+    cors({
+      origin: (origin) => {
+        if (!origin) return null;
+        if (corsOrigins.includes(origin)) return origin;
+        if (!isDev) return null;
+        try {
+          const url = new URL(origin);
+          const isLocalhost =
+            url.hostname === "localhost" || url.hostname === "127.0.0.1";
+          if (url.protocol === "http:" && isLocalhost) return origin;
+        } catch {
+          return null;
+        }
+        return null;
+      },
+      allowMethods: ["GET", "POST", "OPTIONS"],
+      credentials: true,
+    }),
+  );
+
+  registerChatSseRoutes(app);
+
+  app.use(
+    "/trpc/*",
+    trpcServer({
+      router: t.router({
+        ...appRouterDefine,
+        workspace: workspaceRouterImplementation,
+        tab: tabRouterImplementation,
+        runtime: runtimeRouterImplementation,
+      }),
+      createContext: (_opts, context) => createContext({ context }),
+      onError: ({ error, path, input, type }) => {
+        console.error(`tRPC Error: ${type} on ${path || "unknown path"}`, {
+          error,
+          input,
+        });
+      },
+    }),
+  );
+
+  app.get("/", (c) => c.text("OK"));
+
+  return app;
+}
+
