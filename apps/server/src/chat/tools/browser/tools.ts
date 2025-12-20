@@ -1,5 +1,6 @@
 import { tool, zodSchema } from "ai";
 import { requestContextManager } from "@/context/requestContext";
+import { buildTabSnapshotCacheKey, getTabSnapshot } from "@/context/tabSnapshotCache";
 import { openUrlTool } from "./openUrl";
 import { uiCloseStackTool } from "./closeStack";
 import { uiRefreshPageTreeTool } from "./refreshPageTree";
@@ -31,14 +32,19 @@ import {
 
 export const browserTools = {
   // ======
-  // MVP：读取前端传来的 tab 上下文（用于 agent 感知用户环境）
+  // MVP：从 server 侧 TTL 缓存读取 Tab 快照（Web 在 SSE 期间持续上报）
   // ======
   [browserGetTabsToolDef.id]: tool({
     description: browserGetTabsToolDef.description,
     inputSchema: zodSchema(browserGetTabsToolDef.parameters),
     execute: async () => {
-      const state = requestContextManager.getTabsState();
-      return { ok: true, data: state?.tabs ?? [] };
+      const sessionId = requestContextManager.getSessionId();
+      const webClientId = requestContextManager.getWebClientId();
+      const tabId = requestContextManager.getTabId();
+      if (!sessionId || !webClientId || !tabId) return { ok: true, data: [] };
+      const key = buildTabSnapshotCacheKey({ sessionId, webClientId, tabId });
+      const tab = getTabSnapshot(key);
+      return { ok: true, data: tab ? [tab] : [] };
     },
   }),
 
@@ -46,9 +52,13 @@ export const browserTools = {
     description: browserGetCurrentTabToolDef.description,
     inputSchema: zodSchema(browserGetCurrentTabToolDef.parameters),
     execute: async () => {
-      const state = requestContextManager.getTabsState();
-      const activeTab = state?.tabs?.find((t) => t.id === state.activeTabId);
-      return { ok: true, data: activeTab ?? null };
+      const sessionId = requestContextManager.getSessionId();
+      const webClientId = requestContextManager.getWebClientId();
+      const tabId = requestContextManager.getTabId();
+      if (!sessionId || !webClientId || !tabId) return { ok: true, data: null };
+      const key = buildTabSnapshotCacheKey({ sessionId, webClientId, tabId });
+      const tab = getTabSnapshot(key);
+      return { ok: true, data: tab ?? null };
     },
   }),
 

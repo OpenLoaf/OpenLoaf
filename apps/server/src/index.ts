@@ -9,6 +9,7 @@ import { logger } from "hono/logger";
 import { createAdaptorServer } from "@hono/node-server";
 import { registerChatSse } from "./chat/sse";
 import { workspaceRouterImplementation } from "./routers/workspace";
+import { tabRouterImplementation } from "./routers/tab";
 import { getTeatimeConfig } from "./config/index";
 import { browserRuntimeHub } from "./runtime/browserRuntimeHub";
 
@@ -78,6 +79,7 @@ app.use(
       ...appRouterDefine,
       // 替换为实现后的路由
       workspace: workspaceRouterImplementation,
+      tab: tabRouterImplementation,
     }),
     createContext: (_opts, context) => {
       return createContext({ context });

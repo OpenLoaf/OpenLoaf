@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import { requireActiveTab } from "@/chat/ui/emit";
+import { requireTabId } from "@/chat/ui/tabContext";
 import { requestContextManager } from "@/context/requestContext";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 import { browserRuntimeHub } from "@/runtime/browserRuntimeHub";
@@ -21,7 +21,7 @@ export const openUrlTool = tool({
   description: openUrlToolDef.description,
   inputSchema: zodSchema(openUrlToolDef.parameters),
   execute: async ({ url, title, pageTargetId }) => {
-    const activeTab = requireActiveTab();
+    const tabId = requireTabId();
     const normalizedUrl = normalizeUrl(url);
 
     const electronClientId = requestContextManager.getElectronClientId();
@@ -37,7 +37,7 @@ export const openUrlTool = tool({
     // 统一走 “server 调度 -> runtime 执行 -> IPC 触发 UI” 的一段式流程。
     registerPageTarget({
       pageTargetId,
-      tabId: activeTab.id,
+      tabId,
       url: normalizedUrl,
       backend: "electron",
       electronClientId,
@@ -47,7 +47,7 @@ export const openUrlTool = tool({
       electronClientId,
       pageTargetId,
       url: normalizedUrl,
-      tabId: activeTab.id,
+      tabId,
       title,
     });
 

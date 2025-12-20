@@ -1,4 +1,4 @@
-import { requireActiveTab } from "@/chat/ui/emit";
+import { requireTabId } from "@/chat/ui/tabContext";
 import { requestContextManager } from "@/context/requestContext";
 import { getPageTarget, updatePageTargetRuntimeInfo } from "../pageTargets";
 import { getWebSocketDebuggerUrl } from "./cdpWs";
@@ -22,7 +22,7 @@ export async function withCdpPage<T>(
   let browser: any;
   try {
     const abortSignal = requestContextManager.getAbortSignal();
-    const activeTab = requireActiveTab();
+    const tabId = requireTabId();
     const record = getPageTarget(pageTargetId);
     if (!record) {
       return {
@@ -30,10 +30,10 @@ export async function withCdpPage<T>(
         error: `Unknown pageTargetId=${pageTargetId}. Call \`open-url\` first and use the returned pageTargetId.`,
       };
     }
-    if (record.tabId !== activeTab.id) {
+    if (record.tabId !== tabId) {
       return {
         ok: false,
-        error: `pageTargetId=${pageTargetId} does not belong to activeTab.id=${activeTab.id}`,
+        error: `pageTargetId=${pageTargetId} does not belong to tabId=${tabId}`,
       };
     }
 
@@ -49,7 +49,7 @@ export async function withCdpPage<T>(
     pwDebugLog("withCdpPage:start", {
       pageTargetId,
       targetId,
-      activeTabId: activeTab.id,
+      tabId,
       recordUrl: record.url,
       recordCdpTargetId: record.cdpTargetId,
       backend: record.backend,

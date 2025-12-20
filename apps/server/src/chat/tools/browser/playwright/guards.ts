@@ -1,4 +1,4 @@
-import { requireActiveTab } from "@/chat/ui/emit";
+import { requireTabId } from "@/chat/ui/tabContext";
 import { getPageTarget } from "../pageTargets";
 
 /**
@@ -7,7 +7,7 @@ import { getPageTarget } from "../pageTargets";
  */
 export function requireActiveTabPageTarget(input: { pageTargetId: string; targetId?: string }) {
   const { pageTargetId, targetId } = input;
-  const activeTab = requireActiveTab();
+  const tabId = requireTabId();
   const record = getPageTarget(pageTargetId);
   if (!record) {
     return {
@@ -15,10 +15,10 @@ export function requireActiveTabPageTarget(input: { pageTargetId: string; target
       error: `Unknown pageTargetId=${pageTargetId}. Call \`open-url\` first.`,
     };
   }
-  if (record.tabId !== activeTab.id) {
+  if (record.tabId !== tabId) {
     return {
       ok: false as const,
-      error: `pageTargetId=${pageTargetId} does not belong to activeTab.id=${activeTab.id}`,
+      error: `pageTargetId=${pageTargetId} does not belong to tabId=${tabId}`,
     };
   }
   if (targetId && record.cdpTargetId && record.cdpTargetId !== targetId) {

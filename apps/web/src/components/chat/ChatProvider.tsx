@@ -10,6 +10,7 @@ import { generateId } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
 import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
@@ -135,10 +136,15 @@ export default function ChatProvider({
   }, [tabId, clearToolPartsForTab]);
 
   const paramsRef = React.useRef<Record<string, unknown> | undefined>(params);
+  const tabIdRef = React.useRef<string | null | undefined>(tabId);
 
   React.useEffect(() => {
     paramsRef.current = params;
   }, [params]);
+
+  React.useEffect(() => {
+    tabIdRef.current = tabId;
+  }, [tabId]);
 
   const upsertToolPartMerged = React.useCallback(
     (key: string, next: Partial<Parameters<typeof upsertToolPart>[2]>) => {
@@ -150,7 +156,7 @@ export default function ChatProvider({
   );
 
   const transport = React.useMemo(() => {
-    return createChatTransport({ paramsRef });
+    return createChatTransport({ paramsRef, tabIdRef });
   }, []);
 
   const refreshBranchMeta = React.useCallback(
@@ -221,6 +227,12 @@ export default function ChatProvider({
 
   const chat = useChat(chatConfig);
   setMessagesRef.current = chat.setMessages;
+
+  useTabSnapshotSync({
+    enabled: chat.status !== "ready",
+    sessionId,
+    tabId,
+  });
 
   React.useEffect(() => {
     // 关键：手动 resume（每个 sessionId 只做一次），避免 StrictMode 并发调用导致崩溃。

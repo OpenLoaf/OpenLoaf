@@ -124,6 +124,10 @@ export function registerChatSseCreateRoute(app: Hono) {
       typeof body.electronClientId === "string" && body.electronClientId
         ? body.electronClientId
         : undefined;
+    const tabId = typeof (body as any)?.tabId === "string" ? String((body as any).tabId).trim() : "";
+    // if (!tabId) {
+    //   return c.json({ error: "tabId is required" }, 400);
+    // }
 
     // 关键：初始化请求上下文（tools/agent 内部读取 workspaceId/clientId）
     requestContextManager.createContext({
@@ -131,6 +135,7 @@ export function registerChatSseCreateRoute(app: Hono) {
       cookies: cookies || {},
       webClientId: webClientId || undefined,
       electronClientId,
+      tabId,
     });
 
     // 关键：新发送 -> 保存用户消息；retry/regenerate -> 读取已存在的 user 消息节点（禁止新建 user）

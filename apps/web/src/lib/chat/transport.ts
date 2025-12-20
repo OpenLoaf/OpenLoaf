@@ -7,8 +7,10 @@ import { getStableClientStreamClientId } from "./streamClientId";
 
 export function createChatTransport({
   paramsRef,
+  tabIdRef,
 }: {
   paramsRef: RefObject<Record<string, unknown> | undefined>;
+  tabIdRef: RefObject<string | null | undefined>;
 }) {
   const apiBase = `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`;
 
@@ -19,6 +21,7 @@ export function createChatTransport({
       const mergedParams = { ...(paramsRef.current ?? {}) };
       const webClientId = getStableClientStreamClientId();
       const electronClientId = window.teatimeElectron?.electronClientId;
+      const tabId = typeof tabIdRef.current === "string" ? tabIdRef.current : undefined;
       const extraBody = body && typeof body === "object" ? body : {};
 
       if (messages.length === 0) {
@@ -30,6 +33,7 @@ export function createChatTransport({
             id,
             webClientId,
             electronClientId,
+            tabId,
             trigger,
             messageId,
             messages: [],
@@ -49,6 +53,7 @@ export function createChatTransport({
           id,
           webClientId,
           electronClientId,
+          tabId,
           trigger,
           messageId,
           messages: [lastMessage],

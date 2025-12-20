@@ -8,6 +8,7 @@ import {
   BaseWorkspaceRouter,
   workspaceSchemas,
 } from "./routers/workspace";
+import { tabRouter, BaseTabRouter, tabSchemas } from "./routers/tab";
 import { chatRouter } from "./routers/chat";
 import { health } from "./routers/health";
 
@@ -17,6 +18,7 @@ export const appRouterDefine = {
   chat: chatRouter,
   pageCustom: pageRouter,
   workspace: workspaceRouter,
+  tab: tabRouter,
 };
 
 export const appRouter = t.router({
@@ -42,6 +44,9 @@ export * from "./common";
 
 // Export workspace router components
 export { BaseWorkspaceRouter, workspaceSchemas };
+
+// Export tab router components
+export { BaseTabRouter, tabSchemas };
 
 // export const t = initTRPC.context<Context>().create({
 // });

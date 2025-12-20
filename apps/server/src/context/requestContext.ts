@@ -16,6 +16,7 @@ type RequestContext = {
   cookies: Record<string, string>;
   webClientId?: string;
   electronClientId?: string;
+  tabId?: string;
   uiWriter?: UIMessageStreamWriter<any>;
   abortSignal?: AbortSignal;
   agentStack?: AgentFrame[];
@@ -70,9 +71,8 @@ class RequestContextManager {
     return this.getContext()?.electronClientId;
   }
 
-  /** 兼容旧接口：activeTab 已移除，这里永远返回 undefined */
-  getTabsState(): { tabs: any[]; activeTabId: string | null } | undefined {
-    return undefined;
+  getTabId(): string | undefined {
+    return this.getContext()?.tabId;
   }
 
   /** tools 需要 writer 往前端推送 tool chunks */

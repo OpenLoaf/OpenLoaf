@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import { requireActiveTab } from "@/chat/ui/emit";
+import { requireTabId } from "@/chat/ui/tabContext";
 import { emitRuntimeUiEvent } from "@/chat/ui/runtimeUi";
 import { uiEvents } from "@teatime-ai/api/types/event";
 import { uiCloseStackToolDef } from "@teatime-ai/api/types/tools/browser";
@@ -12,9 +12,8 @@ export const uiCloseStackTool = tool({
   description: uiCloseStackToolDef.description,
   inputSchema: zodSchema(uiCloseStackToolDef.parameters),
   execute: async () => {
-    const activeTab = requireActiveTab();
-    await emitRuntimeUiEvent(uiEvents.closeStack({ tabId: activeTab.id }));
+    const tabId = requireTabId();
+    await emitRuntimeUiEvent(uiEvents.closeStack({ tabId }));
     return { ok: true };
   },
 });
-
