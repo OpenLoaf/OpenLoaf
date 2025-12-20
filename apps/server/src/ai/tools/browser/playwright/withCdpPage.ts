@@ -1,6 +1,6 @@
 import { requireTabId } from "@/shared/tabContext";
 import { getAbortSignal, getWorkspaceId } from "@/shared/requestContext";
-import { browserSessionRegistry } from "@/modules/browser/infrastructure/memory/browserSessionRegistryMemory";
+import { browserSessionRegistry } from "@/modules/browser/BrowserSessionRegistryAdapter";
 import { getWebSocketDebuggerUrl } from "./cdpWs";
 import { installPlaywrightCollectors } from "./collectors";
 import { AbortError } from "./abort";

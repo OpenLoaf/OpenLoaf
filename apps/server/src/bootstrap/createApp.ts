@@ -4,7 +4,7 @@ import { createContext } from "@teatime-ai/api/context";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { registerChatSseRoutes } from "@/modules/chat/transport/sse/registerChatSseRoutes";
+import { registerChatSseRoutes } from "@/modules/chat/ChatSseRoutes";
 import { workspaceRouterImplementation } from "@/transport/trpc/routers/workspace";
 import { tabRouterImplementation } from "@/transport/trpc/routers/tab";
 import { runtimeRouterImplementation } from "@/transport/trpc/routers/runtime";
@@ -81,4 +81,3 @@ export function createApp() {
 
   return app;
 }
-

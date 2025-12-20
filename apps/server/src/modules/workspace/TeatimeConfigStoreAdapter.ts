@@ -55,4 +55,3 @@ export const teatimeConfigStore = {
     cached = parsed;
   },
 } as const;
-

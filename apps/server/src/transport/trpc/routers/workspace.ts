@@ -6,7 +6,7 @@ import {
   workspaceSchemas,
 } from "@teatime-ai/api";
 import { v4 as uuidv4 } from "uuid";
-import { teatimeConfigStore } from "@/modules/workspace/infrastructure/file/teatimeConfigStoreFile";
+import { teatimeConfigStore } from "@/modules/workspace/TeatimeConfigStoreAdapter";
 
 export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
   /** Workspace CRUD（MVP）：基于本地配置文件。 */
@@ -85,4 +85,3 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
 }
 
 export const workspaceRouterImplementation = WorkspaceRouterImpl.createRouter();
-

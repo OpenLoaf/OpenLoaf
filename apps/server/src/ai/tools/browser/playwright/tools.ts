@@ -7,7 +7,7 @@ import {
   playwrightVerifyToolDef,
   playwrightWaitToolDef,
 } from "@teatime-ai/api/types/tools/playwright";
-import { browserSessionRegistry } from "@/modules/browser/infrastructure/memory/browserSessionRegistryMemory";
+import { browserSessionRegistry } from "@/modules/browser/BrowserSessionRegistryAdapter";
 import { requireActiveTabPageTarget } from "./guards";
 import { getOrCreateConsoleStore, getOrCreateNetworkStore } from "./stores";
 import { truncateText } from "./text";

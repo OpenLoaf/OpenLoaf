@@ -3,13 +3,14 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   generateId,
+  UI_MESSAGE_STREAM_HEADERS,
   type UIMessage,
 } from "ai";
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ChatRequestBody } from "@teatime-ai/api/types/message";
 import { MasterAgent } from "@/ai/agents/MasterAgent";
-import { streamStore } from "@/modules/chat/infrastructure/memory/streamStoreMemory";
+import { streamStore } from "@/modules/chat/StreamStoreAdapter";
 import {
   popAgentFrame,
   pushAgentFrame,
@@ -19,12 +20,12 @@ import {
 } from "@/shared/requestContext";
 
 /**
- * POST `/chat/sse`（MVP）：
- * - 运行 master agent 并返回 UI stream
- * - 断线续传：consumeSseStream 写入内存 streamStore
- * - 停止生成：/stop 会 abort controller（要求 tools 协作式退出）
+ * Chat SSE 路由（MVP）：
+ * - POST /chat/sse：创建并开始生成
+ * - GET  /chat/sse/:id/stream：断线续传
+ * - POST /chat/sse/:id/stop：停止生成
  */
-export function registerChatSseCreateRoute(app: Hono) {
+export function registerChatSseRoutes(app: Hono) {
   app.post("/chat/sse", async (c) => {
     let body: ChatRequestBody;
     try {
@@ -110,5 +111,18 @@ export function registerChatSseCreateRoute(app: Hono) {
         });
       },
     });
+  });
+
+  app.get("/chat/sse/:id/stream", async (c) => {
+    const streamId = c.req.param("id");
+    const stream = streamStore.subscribe(streamId);
+    if (!stream) return new Response(null, { status: 204 });
+    return new Response(stream as any, { headers: UI_MESSAGE_STREAM_HEADERS });
+  });
+
+  app.post("/chat/sse/:id/stop", async (c) => {
+    const streamId = c.req.param("id");
+    const ok = streamStore.stop(streamId);
+    return c.json({ ok });
   });
 }

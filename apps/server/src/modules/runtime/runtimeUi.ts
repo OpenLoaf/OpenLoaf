@@ -1,6 +1,6 @@
 import type { UiEvent } from "@teatime-ai/api/types/event";
 import { getAppId } from "@/shared/requestContext";
-import { runtimeHub } from "@/modules/runtime/infrastructure/ws/runtimeHub";
+import { runtimeHub } from "@/modules/runtime/RuntimeHubAdapter";
 
 /**
  * 通过 Browser Runtime（WS）把 UiEvent 下发给 Electron，并由 Electron main 通过 IPC 推给 renderer。

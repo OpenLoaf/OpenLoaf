@@ -1,6 +1,6 @@
 import { requireTabId } from "@/shared/tabContext";
 import { getWorkspaceId } from "@/shared/requestContext";
-import { browserSessionRegistry } from "@/modules/browser/infrastructure/memory/browserSessionRegistryMemory";
+import { browserSessionRegistry } from "@/modules/browser/BrowserSessionRegistryAdapter";
 
 /**
  * 校验 pageTargetId 是否存在且归属当前 activeTab。

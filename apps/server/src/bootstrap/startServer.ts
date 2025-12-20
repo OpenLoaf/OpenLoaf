@@ -1,7 +1,7 @@
 import { createAdaptorServer } from "@hono/node-server";
 import type { Server } from "node:http";
 import { createApp } from "./createApp";
-import { runtimeHub } from "@/modules/runtime/infrastructure/ws/runtimeHub";
+import { runtimeHub } from "@/modules/runtime/RuntimeHubAdapter";
 
 /**
  * 启动 HTTP server（MVP）：
@@ -33,4 +33,3 @@ export function startServer() {
 
   return { app, server };
 }
-

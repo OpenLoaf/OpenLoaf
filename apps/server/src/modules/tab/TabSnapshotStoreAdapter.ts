@@ -50,4 +50,3 @@ export const tabSnapshotStore = {
     return entry.tab;
   },
 } as const;
-

@@ -1,5 +1,5 @@
 import { BaseTabRouter, tabSchemas, t, shieldedProcedure } from "@teatime-ai/api";
-import { tabSnapshotStore } from "@/modules/tab/infrastructure/memory/tabSnapshotStoreMemory";
+import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 
 export class TabRouterImpl extends BaseTabRouter {
   /** Tab 快照读写（MVP）：server 侧 TTL 缓存。 */
@@ -35,4 +35,3 @@ export class TabRouterImpl extends BaseTabRouter {
 }
 
 export const tabRouterImplementation = TabRouterImpl.createRouter();
-

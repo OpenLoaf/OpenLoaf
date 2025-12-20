@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import { emitRuntimeUiEvent } from "@/modules/runtime/application/runtimeUi";
+import { emitRuntimeUiEvent } from "@/modules/runtime/runtimeUi";
 import { uiEvents } from "@teatime-ai/api/types/event";
 import { uiRefreshPageTreeToolDef } from "@teatime-ai/api/types/tools/browser";
 

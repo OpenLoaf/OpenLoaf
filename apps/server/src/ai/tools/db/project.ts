@@ -9,7 +9,7 @@ import {
   projectUpdateToolDef,
 } from "@teatime-ai/api/types/tools/db";
 import { uiEvents } from "@teatime-ai/api/types/event";
-import { emitRuntimeUiEvent } from "@/modules/runtime/application/runtimeUi";
+import { emitRuntimeUiEvent } from "@/modules/runtime/runtimeUi";
 
 function requireWorkspaceId(): string {
   const workspaceId = getWorkspaceId();

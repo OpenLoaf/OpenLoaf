@@ -2,8 +2,8 @@ import { tool, zodSchema } from "ai";
 import { requireTabId } from "@/shared/tabContext";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 import { getAppId, getWorkspaceId } from "@/shared/requestContext";
-import { runtimeHub } from "@/modules/runtime/infrastructure/ws/runtimeHub";
-import { browserSessionRegistry } from "@/modules/browser/infrastructure/memory/browserSessionRegistryMemory";
+import { runtimeHub } from "@/modules/runtime/RuntimeHubAdapter";
+import { browserSessionRegistry } from "@/modules/browser/BrowserSessionRegistryAdapter";
 
 // ==========
 // MVP：浏览器能力（通过 UI 事件驱动前端打开 BrowserWindow）

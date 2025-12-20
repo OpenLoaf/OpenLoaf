@@ -1,5 +1,5 @@
 import { BaseRuntimeRouter, runtimeSchemas, shieldedProcedure, t } from "@teatime-ai/api";
-import { runtimeHub } from "@/modules/runtime/infrastructure/ws/runtimeHub";
+import { runtimeHub } from "@/modules/runtime/RuntimeHubAdapter";
 
 export class RuntimeRouterImpl extends BaseRuntimeRouter {
   /** 运行时状态查询（MVP）：仅用于 UI 展示在线状态。 */
@@ -17,4 +17,3 @@ export class RuntimeRouterImpl extends BaseRuntimeRouter {
 }
 
 export const runtimeRouterImplementation = RuntimeRouterImpl.createRouter();
-

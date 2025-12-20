@@ -70,4 +70,3 @@ export const browserSessionRegistry = {
     return record;
   },
 } as const;
-
