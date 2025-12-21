@@ -82,11 +82,11 @@ export const Header = () => {
           <Settings className="h-4 w-4" />
         </Button>
       </div>
-      <div className="flex min-w-0 items-center gap-2 overflow-hidden pl-0">
+      <div className="flex min-w-0 items-center gap-2 overflow-hidden pl-1">
         <div data-no-drag="true" className="shrink-0">
           <WebContentsViewButton />
         </div>
-        <div className="h-7 w-px bg-sidebar-border shrink-0" aria-hidden />
+        <div className="h-8 w-px bg-sidebar-border shrink-0" aria-hidden />
         <div className="min-w-0 flex-1 overflow-hidden">
           <HeaderTabs />
         </div>

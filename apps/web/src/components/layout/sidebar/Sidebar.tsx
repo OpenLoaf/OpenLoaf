@@ -71,13 +71,14 @@ export const AppSidebar = ({
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="搜索"
-              className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
               onClick={() => setSearchOpen(true)}
               type="button"
             >
               <Search />
               <span className="flex-1 truncate">搜索</span>
-              <span className="ml-auto group-data-[collapsible=icon]:hidden">
+              {/* 中文备注：快捷键提示默认隐藏，仅在 hover / focus 时显示，避免侧边栏视觉噪音。 */}
+              <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">K</Kbd>
@@ -88,7 +89,7 @@ export const AppSidebar = ({
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="模版"
-              className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
               onClick={() =>
                 openSingletonTab({
                   baseId: "base:template",
@@ -101,7 +102,7 @@ export const AppSidebar = ({
             >
               <LayoutTemplate />
               <span className="flex-1 truncate">模版</span>
-              <span className="ml-auto group-data-[collapsible=icon]:hidden">
+              <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">J</Kbd>
@@ -112,7 +113,7 @@ export const AppSidebar = ({
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="日历"
-              className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
               onClick={() =>
                 openSingletonTab({
                   baseId: "base:calendar",
@@ -125,7 +126,7 @@ export const AppSidebar = ({
             >
               <CalendarDays />
               <span className="flex-1 truncate">日历</span>
-              <span className="ml-auto group-data-[collapsible=icon]:hidden">
+              <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">L</Kbd>
@@ -136,13 +137,13 @@ export const AppSidebar = ({
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="AI"
-              className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
               onClick={() => openSingletonTab(AI_CHAT_TAB_INPUT)}
               type="button"
             >
               <Sparkles />
               <span className="flex-1 truncate">AI助手</span>
-              <span className="ml-auto group-data-[collapsible=icon]:hidden">
+              <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">T</Kbd>
@@ -153,7 +154,7 @@ export const AppSidebar = ({
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="收集箱"
-              className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
               onClick={() =>
                 openSingletonTab({
                   baseId: "base:inbox",
@@ -166,7 +167,7 @@ export const AppSidebar = ({
             >
               <Inbox />
               <span className="flex-1 truncate">收集箱</span>
-              <span className="ml-auto group-data-[collapsible=icon]:hidden">
+              <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">I</Kbd>

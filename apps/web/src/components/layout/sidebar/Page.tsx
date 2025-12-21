@@ -43,7 +43,7 @@ export const SidebarPage = () => {
         <SidebarGroup className="group pt-0">
           <CollapsiblePrimitive.Trigger asChild>
             <SidebarGroupLabel className="cursor-pointer">
-              项目
+              <span className="text-muted-foreground">项目</span>
             </SidebarGroupLabel>
           </CollapsiblePrimitive.Trigger>
           <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
