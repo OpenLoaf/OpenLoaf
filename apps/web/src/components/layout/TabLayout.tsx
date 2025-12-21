@@ -21,10 +21,11 @@ const TAB_FADE_MS = 180;
 
 type PanelMode = "both" | "left-only" | "right-only" | "none";
 
-function getPanelMode(tab: Tab | null): PanelMode {
+function getPanelMode(tab: Tab | null, options?: { stackHidden?: boolean }): PanelMode {
   // 根据 tab 的“左右可见性”抽象出模式，用于决定“切换时是否应该禁用宽度动画”。
   if (!tab) return "none";
-  const hasLeftContent = Boolean(tab.base) || (tab.stack?.length ?? 0) > 0;
+  const stackHidden = Boolean(options?.stackHidden);
+  const hasLeftContent = Boolean(tab.base) || (!stackHidden && (tab.stack?.length ?? 0) > 0);
   const storedLeftWidthPercent = hasLeftContent ? tab.leftWidthPercent ?? 0 : 0;
   const isRightCollapsed = Boolean(tab.base) && Boolean(tab.rightChatCollapsed);
 
@@ -91,6 +92,7 @@ export function TabLayout({
   );
   const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
   const setTabChatSession = useTabs((s) => s.setTabChatSession);
+  const stackHiddenByTabId = useTabs((s) => s.stackHiddenByTabId);
   const reduceMotion = useReducedMotion();
 
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -164,8 +166,12 @@ export function TabLayout({
       crossfadeTimeoutsRef.current.phase2 = null;
     }
 
-    const previousMode = getPanelMode(layoutTab);
-    const nextMode = getPanelMode(activeTab);
+    const previousMode = getPanelMode(layoutTab, {
+      stackHidden: Boolean(stackHiddenByTabId[layoutTabId]),
+    });
+    const nextMode = getPanelMode(activeTab, {
+      stackHidden: Boolean(stackHiddenByTabId[activeTabId]),
+    });
     const isLeftRightOnlySwitch =
       (previousMode === "left-only" && nextMode === "right-only") ||
       (previousMode === "right-only" && nextMode === "left-only");
@@ -193,7 +199,7 @@ export function TabLayout({
     setIsExclusiveCrossfade(false);
     setLayoutTabId(activeTabId);
     setVisibleTabId(activeTabId);
-  }, [activeTabId, activeTab, layoutTabId, layoutTab, visibleTabId, reduceMotion]);
+  }, [activeTabId, activeTab, layoutTabId, layoutTab, visibleTabId, reduceMotion, stackHiddenByTabId]);
 
   React.useLayoutEffect(() => {
     // App should never horizontally scroll; prevent focus/scrollIntoView from shifting the page.
@@ -218,7 +224,8 @@ export function TabLayout({
   }, []);
 
   const hasLeftContent =
-    Boolean(layoutTab?.base) || (layoutTab?.stack?.length ?? 0) > 0;
+    Boolean(layoutTab?.base) ||
+    (!Boolean(stackHiddenByTabId[layoutTabId]) && (layoutTab?.stack?.length ?? 0) > 0);
   const storedLeftWidthPercent = hasLeftContent ? layoutTab?.leftWidthPercent ?? 0 : 0;
   const isRightCollapsed = Boolean(layoutTab?.base) && Boolean(layoutTab?.rightChatCollapsed);
 

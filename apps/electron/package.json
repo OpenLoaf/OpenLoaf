@@ -5,6 +5,7 @@
   "description": "My Electron application description",
   "main": ".webpack/main",
   "scripts": {
+    "predesktop": "node scripts/fixElectronInstall.mjs",
     "desktop": "electron-forge start",
     "package": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package",
     "package:noproxy": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u all_proxy -u ALL_PROXY -u no_proxy -u NO_PROXY electron-forge package",

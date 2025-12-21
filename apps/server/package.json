@@ -25,6 +25,7 @@
     "dotenv": "catalog:",
     "eventemitter3": "^5.0.1",
     "hono": "catalog:",
+    "keyv": "^5.5.5",
     "pino": "^10.1.0",
     "playwright-core": "^1.51.0",
     "resumable-stream": "^2.2.9",

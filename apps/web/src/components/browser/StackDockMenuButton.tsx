@@ -103,10 +103,7 @@ export function StackDockMenuButton() {
             <DropdownMenuItem
               key={item.id}
               className="flex items-center justify-between gap-2"
-              onSelect={(e) => {
-                e.preventDefault();
-                openStackItem(item);
-              }}
+              onSelect={() => openStackItem(item)}
             >
               <div className="flex min-w-0 items-center gap-2">
                 <span
@@ -137,10 +134,7 @@ export function StackDockMenuButton() {
         <DropdownMenuItem
           variant="destructive"
           className="justify-center"
-          onSelect={(e) => {
-            e.preventDefault();
-            closeAll();
-          }}
+          onSelect={() => closeAll()}
         >
           关闭全部
         </DropdownMenuItem>

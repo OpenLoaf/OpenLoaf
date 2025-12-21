@@ -112,7 +112,8 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const base = tab.base;
   const stack = tab.stack ?? [];
   const activeStackId = stack.at(-1)?.id ?? "";
-  const hasOverlay = stack.length > 0 && !stackHidden;
+  const hasOverlay = Boolean(base) && stack.length > 0 && !stackHidden;
+  const floating = Boolean(base);
 
   return (
     <div className="relative h-full w-full min-h-0 min-w-0 overflow-hidden">
@@ -142,7 +143,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
                   onClose={() => removeStackItem(tabId, item.id)}
                   onMinimize={() => setStackHidden(tabId, true)}
                   fillHeight
-                  floating
+                  floating={floating}
                 />
               </div>
             );
