@@ -10,6 +10,7 @@ import {
   ContextMenuShortcut,
 } from "@/components/ui/context-menu";
 import type { Tab } from "@teatime-ai/api/common";
+import type { CSSProperties } from "react";
 
 interface TabMenuProps {
   tab: Tab;
@@ -40,7 +41,15 @@ export const TabMenu = ({
   const isActive = tab.id === activeTabId;
   const hasBrowserWindow = Array.isArray(tab.stack) && tab.stack.some((s) => s.component === "electron-browser-window");
   const chatStatus = useTabs((s) => s.chatStatusByTabId[tab.id]);
-  const showThinkingBorder = isActive && chatStatus === "streaming";
+  const showThinkingBorder = chatStatus === "streaming";
+  const thinkingBorderStyle = showThinkingBorder
+    ? ({
+        // 中文注释：Tab 上的彩虹边框只需要“外框”，内部填充保持与当前区域一致，避免未激活 Tab 看起来像“被选中”。
+        ["--teatime-thinking-border-fill" as any]: isActive
+          ? "var(--color-background)"
+          : "var(--color-sidebar)",
+      } as CSSProperties)
+    : undefined;
   return (
     <ContextMenu
       onOpenChange={(open) => {
@@ -64,9 +73,10 @@ export const TabMenu = ({
           data-pinned={isPinned ? "true" : "false"}
           data-reordering={isDragging ? "true" : "false"}
           onPointerDown={(event) => onReorderPointerDown?.(event, tab.id)}
+          style={thinkingBorderStyle}
           className={cn(
             "h-7 pl-2 pr-7 text-xs gap-0 rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:shadow-none relative z-10 flex items-center max-w-[180px] flex-none w-auto shrink-0 cursor-default active:cursor-grabbing data-[reordering=true]:cursor-grabbing border border-transparent",
-            // 中文注释：流式生成中，为当前激活 Tab 追加“彩虹流动边框”，与 ChatInput 的提示保持一致。
+            // 中文注释：流式生成中，为对应 Tab 追加“彩虹流动边框”，与 ChatInput 的提示保持一致。
             showThinkingBorder && "teatime-thinking-border"
           )}
         >

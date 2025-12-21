@@ -273,7 +273,7 @@ body {
 .teatime-thinking-border {
   /* 关键：用双背景 + background-clip 实现“挖空”，避免 mask 在圆角处产生锯齿 */
   background:
-    linear-gradient(var(--color-background), var(--color-background)) padding-box,
+    linear-gradient(var(--teatime-thinking-border-fill, var(--color-background)), var(--teatime-thinking-border-fill, var(--color-background))) padding-box,
     linear-gradient(
       90deg,
       hsl(0 100% 60%),
