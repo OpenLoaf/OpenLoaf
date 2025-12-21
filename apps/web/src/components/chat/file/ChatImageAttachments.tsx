@@ -114,52 +114,73 @@ export const ChatImageAttachments = React.forwardRef<
                       ? attachment.errorMessage
                       : attachment.file.name
                   }
-                  className="relative h-14 w-14 rounded-lg border bg-muted/30 overflow-hidden"
+                  className={cn(
+                    "group relative flex h-11 w-[200px] max-w-full overflow-hidden rounded-md border bg-muted/30",
+                    isError && "border-destructive/40"
+                  )}
                 >
                   <button
                     type="button"
                     className={cn(
-                      "h-full w-full outline-none",
-                      isReady ? "cursor-zoom-in" : "cursor-default"
+                      "flex h-full w-full items-stretch text-left outline-none",
+                      isReady
+                        ? "cursor-zoom-in hover:bg-muted/40"
+                        : "cursor-default"
                     )}
                     onClick={() => {
                       if (!isReady) return;
                       setPreviewAttachmentId(attachment.id);
                     }}
                   >
-                    <img
-                      src={attachment.objectUrl}
-                      alt={attachment.file.name}
-                      className={cn(
-                        "h-full w-full object-cover",
-                        isLoading && "opacity-50",
-                        isError && "opacity-40 grayscale"
+                    <div className="relative h-full w-11 shrink-0 overflow-hidden border-r bg-muted/40">
+                      <img
+                        src={attachment.objectUrl}
+                        alt={attachment.file.name}
+                        className={cn(
+                          "h-full w-full object-cover",
+                          isLoading && "opacity-60",
+                          isError && "opacity-40 grayscale"
+                        )}
+                        draggable={false}
+                      />
+                      {isLoading && (
+                        <div className="absolute inset-0 grid place-items-center bg-background/25">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        </div>
                       )}
-                      draggable={false}
-                    />
-                    {isLoading && (
-                      <div className="absolute inset-0 grid place-items-center bg-background/35">
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="absolute bottom-1 left-1 rounded bg-black/55 px-1 py-0.5 text-[10px] leading-none text-white">
-                      {formatFileSize(attachment.file.size)}
+                      {isError && (
+                        <div className="absolute left-1 top-1 rounded bg-destructive/80 px-1 py-0.5 text-[10px] leading-none text-white">
+                          失败
+                        </div>
+                      )}
                     </div>
-                    {isError && (
-                      <div className="absolute inset-x-1 top-1 rounded bg-destructive/80 px-1 py-0.5 text-[10px] leading-none text-white">
-                        失败
+
+                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-0 px-2 pr-6">
+                      <div className="truncate text-[11px] leading-4 text-foreground">
+                        {attachment.file.name}
                       </div>
-                    )}
+                      <div
+                        className={cn(
+                          "text-[9px] leading-3.5 text-muted-foreground",
+                          isError && "text-destructive"
+                        )}
+                      >
+                        {formatFileSize(attachment.file.size)}
+                      </div>
+                    </div>
                   </button>
 
                   {onRemoveAttachment && (
                     <button
                       type="button"
-                      className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/70"
-                      onClick={() => onRemoveAttachment(attachment.id)}
+                      className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-background/70 text-foreground shadow-sm ring-1 ring-border/50 backdrop-blur transition-transform duration-150 ease-out hover:scale-125 hover:bg-background focus-visible:scale-125"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onRemoveAttachment(attachment.id);
+                      }}
                       aria-label="移除附件"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-2.5 w-2.5" />
                     </button>
                   )}
                 </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ChevronUp,
@@ -73,6 +73,18 @@ export function ChatInputBox({
 }: ChatInputBoxProps) {
   const isOverLimit = value.length > MAX_CHARS;
   const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [textareaHeight, setTextareaHeight] = useState(48);
+
+  /**
+   * Animate the textarea height to match its content.
+   */
+  const syncTextareaHeight = (textarea: HTMLTextAreaElement) => {
+    // 关键：必须临时清空高度再读 scrollHeight，否则在删字时可能无法正确“回缩”。
+    textarea.style.height = "0px";
+    const nextHeight = Math.max(48, textarea.scrollHeight);
+    setTextareaHeight(nextHeight);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +114,12 @@ export function ChatInputBox({
     ? false
     : submitDisabled || isOverLimit || !value.trim();
 
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    syncTextareaHeight(textarea);
+  }, [value]);
+
   return (
     <div
       className={cn(
@@ -126,7 +144,7 @@ export function ChatInputBox({
 
         <div
           className={cn(
-            "px-4 pt-3 pb-2 flex-1 min-h-0",
+            "px-4 pt-3 pb-2 flex-1 min-h-0 transition-[padding] duration-500 ease-out",
             compact && "pb-3",
             attachments && attachments.length > 0 && "pt-2"
           )}
@@ -135,12 +153,10 @@ export function ChatInputBox({
             <ScrollArea.Viewport className="w-full h-full min-h-0">
               <textarea
                 data-teatime-chat-input="true"
+                ref={textareaRef}
                 value={value}
                 onChange={(e) => {
                   onChange(e.target.value);
-                  const textarea = e.target as HTMLTextAreaElement;
-                  textarea.style.height = "auto";
-                  textarea.style.height = textarea.scrollHeight + "px";
                 }}
                 onKeyDown={handleKeyDown}
                 onFocus={() => setIsFocused(true)}
@@ -148,10 +164,10 @@ export function ChatInputBox({
                 placeholder={placeholder}
                 autoFocus={autoFocus}
                 className={cn(
-                  "w-full border-none resize-none focus:outline-none focus:ring-0 bg-transparent text-foreground text-sm leading-6 min-h-[48px] overflow-visible placeholder:text-muted-foreground/70",
+                  "w-full border-none resize-none focus:outline-none focus:ring-0 bg-transparent text-foreground text-sm leading-6 min-h-[48px] overflow-visible placeholder:text-muted-foreground/70 transition-[height] duration-500 ease-out",
                   isOverLimit && "text-destructive"
                 )}
-                style={{ fontSize: "15px", height: "auto" }}
+                style={{ fontSize: "15px", height: `${textareaHeight}px` }}
               />
             </ScrollArea.Viewport>
             <ScrollArea.Scrollbar orientation="vertical">

@@ -13,6 +13,7 @@ import { HeaderTabs } from "./Tabs";
 import { ModeToggle } from "./ModeToggle";
 import { AnimateIcon } from "@/components/animate-ui/icons/icon";
 import { Bot } from "@/components/animate-ui/icons/bot";
+import { WebContentsViewButton } from "./WebContentsViewButton";
 
 export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
@@ -48,10 +49,10 @@ export const Header = () => {
       }
     >
       <div
-        className={`flex shrink-0 h-(--header-height) items-center pl-2 pr-2 gap-2 transition-[width] duration-200 ease-linear ${
+        className={`flex shrink-0 h-(--header-height) items-center  transition-[width] duration-200 ease-linear ${
           leftOpen
-            ? "w-[calc(var(--sidebar-width)-var(--macos-traffic-lights-width))] mr-2"
-            : "w-[max(6rem,calc(6rem-var(--macos-traffic-lights-width)))] mr-2"
+            ? "w-[calc(var(--sidebar-width)-var(--macos-traffic-lights-width))] "
+            : "w-[max(5rem,calc(6rem-var(--macos-traffic-lights-width)))] "
         }`}
       >
         <Button
@@ -81,8 +82,14 @@ export const Header = () => {
           <Settings className="h-4 w-4" />
         </Button>
       </div>
-      <div className="min-w-0 overflow-hidden">
-        <HeaderTabs />
+      <div className="flex min-w-0 items-center gap-2 overflow-hidden pl-0">
+        <div data-no-drag="true" className="shrink-0">
+          <WebContentsViewButton />
+        </div>
+        <div className="h-7 w-px bg-sidebar-border shrink-0" aria-hidden />
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <HeaderTabs />
+        </div>
       </div>
       <div className="flex shrink-0 h-(--header-height) items-center pr-2">
         <div data-no-drag="true">
