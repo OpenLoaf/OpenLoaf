@@ -12,6 +12,150 @@ const viewMapsByWindowId = new Map<number, Map<string, WebContentsView>>();
 const shortcutBridgeInstalled = new WeakSet<WebContentsView>();
 const openInCurrentTabInstalled = new WeakSet<WebContentsView>();
 const desiredUrlByView = new WeakMap<WebContentsView, string>();
+const viewStatusEmitterInstalled = new WeakSet<WebContentsView>();
+
+type WebContentsViewLoadFailed = {
+  errorCode: number;
+  errorDescription: string;
+  validatedURL: string;
+};
+
+export type WebContentsViewStatus = {
+  key: string;
+  webContentsId: number;
+  url?: string;
+  title?: string;
+  loading?: boolean;
+  ready?: boolean;
+  failed?: WebContentsViewLoadFailed;
+  destroyed?: boolean;
+  ts: number;
+};
+
+const viewStatusByWindowId = new Map<number, Map<string, WebContentsViewStatus>>();
+
+function getOrCreateStatusMapForWindow(win: BrowserWindow) {
+  const existing = viewStatusByWindowId.get(win.id);
+  if (existing) return existing;
+  const map = new Map<string, WebContentsViewStatus>();
+  viewStatusByWindowId.set(win.id, map);
+  win.on('closed', () => {
+    viewStatusByWindowId.delete(win.id);
+  });
+  return map;
+}
+
+function emitViewStatus(
+  win: BrowserWindow,
+  key: string,
+  next: Omit<WebContentsViewStatus, 'key' | 'ts'> & Partial<Pick<WebContentsViewStatus, 'url' | 'title' | 'loading' | 'ready' | 'failed' | 'destroyed'>>
+) {
+  if (win.isDestroyed()) return;
+  const map = getOrCreateStatusMapForWindow(win);
+  const prev = map.get(key);
+  const payload: WebContentsViewStatus = {
+    ...prev,
+    ...next,
+    key,
+    ts: Date.now(),
+  };
+  map.set(key, payload);
+  try {
+    win.webContents.send('teatime:webcontents-view:status', payload);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * 将 WebContentsView 的真实加载状态（dom-ready 等）推送到渲染端：
+ * - 由主进程监听 webContents 事件，避免渲染端用定时器猜测
+ * - 用于精准控制 loading UI，以及决定何时真正展示 WebContentsView
+ */
+function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebContentsView) {
+  if (viewStatusEmitterInstalled.has(view)) return;
+  viewStatusEmitterInstalled.add(view);
+
+  const wc = view.webContents;
+
+  emitViewStatus(win, key, {
+    webContentsId: wc.id,
+    url: wc.getURL() || undefined,
+    loading: wc.isLoading(),
+    ready: false,
+  });
+
+  wc.on('did-start-loading', () => {
+    emitViewStatus(win, key, {
+      webContentsId: wc.id,
+      url: wc.getURL() || undefined,
+      loading: true,
+      ready: false,
+      failed: undefined,
+      destroyed: false,
+    });
+  });
+
+  // 中文注释：用户选择以 dom-ready 作为“页面可展示”的 ready 信号。
+  wc.on('dom-ready', () => {
+    emitViewStatus(win, key, {
+      webContentsId: wc.id,
+      url: wc.getURL() || undefined,
+      ready: true,
+      failed: undefined,
+      destroyed: false,
+    });
+  });
+
+  wc.on('did-stop-loading', () => {
+    emitViewStatus(win, key, {
+      webContentsId: wc.id,
+      url: wc.getURL() || undefined,
+      loading: false,
+      destroyed: false,
+    });
+  });
+
+  wc.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    if (!isMainFrame) return;
+    emitViewStatus(win, key, {
+      webContentsId: wc.id,
+      url: wc.getURL() || undefined,
+      loading: false,
+      ready: false,
+      failed: { errorCode, errorDescription, validatedURL },
+      destroyed: false,
+    });
+  });
+
+  wc.on('did-navigate', (_event, url) => {
+    emitViewStatus(win, key, {
+      webContentsId: wc.id,
+      url,
+      ready: false,
+      failed: undefined,
+      destroyed: false,
+    });
+  });
+
+  wc.on('did-navigate-in-page', (_event, url) => {
+    emitViewStatus(win, key, {
+      webContentsId: wc.id,
+      url,
+      // 中文注释：in-page navigation（hash/history）不一定触发 dom-ready，保持 ready=true。
+      ready: true,
+      destroyed: false,
+    });
+  });
+
+  wc.on('page-title-updated', (_event, title) => {
+    emitViewStatus(win, key, {
+      webContentsId: wc.id,
+      title: title || undefined,
+      destroyed: false,
+    });
+  });
+}
 
 /**
  * 安全释放 WebContents：
@@ -297,6 +441,8 @@ export function upsertWebContentsView(
     installShortcutBridge(win, view);
     // Install once per view; force "new tab" navigations to stay in the same view.
     installOpenInCurrentTab(view);
+    // 中文注释：把 WebContentsView 的真实加载状态（dom-ready 等）推送到渲染端。
+    installViewStatusEmitter(win, key, view);
   }
 
   try {
@@ -326,6 +472,15 @@ export function destroyWebContentsView(win: BrowserWindow, key: string) {
   if (!map || !view) return;
 
   map.delete(key);
+  // 中文注释：通知渲染端该 viewKey 已销毁，避免 UI 继续使用旧状态。
+  emitViewStatus(win, key, {
+    webContentsId: view.webContents.id,
+    destroyed: true,
+    loading: false,
+    ready: false,
+  });
+  const statusMap = viewStatusByWindowId.get(win.id);
+  statusMap?.delete(key);
   try {
     win.contentView.removeChildView(view);
   } catch {

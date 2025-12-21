@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { BROWSER_WINDOW_PANEL_ID, useTabs } from "@/hooks/use-tabs";
@@ -22,6 +23,18 @@ type ElectrronBrowserWindowProps = {
   browserTabs?: Array<{ id: string; url: string; title?: string; viewKey: string; cdpTargetId?: string }>;
   activeBrowserTabId?: string;
   className?: string;
+};
+
+type TeatimeWebContentsViewStatus = {
+  key: string;
+  webContentsId: number;
+  url?: string;
+  title?: string;
+  loading?: boolean;
+  ready?: boolean;
+  failed?: { errorCode: number; errorDescription: string; validatedURL: string };
+  destroyed?: boolean;
+  ts: number;
 };
 
 function normalizeUrl(raw: string): string {
@@ -61,11 +74,11 @@ export default function ElectrronBrowserWindow({
   });
   const [loading, setLoading] = useState(true);
   const [overlayBlocked, setOverlayBlocked] = useState(false);
-  const loadingTokenRef = useRef(0);
-  const loadingSinceRef = useRef(0);
   const overlayBlockedRef = useRef(false);
   const coveredByAnotherStackItemRef = useRef(false);
   const overlayIdsRef = useRef<Set<string>>(new Set());
+  const viewStatusByKeyRef = useRef<Map<string, TeatimeWebContentsViewStatus>>(new Map());
+  const [activeViewStatus, setActiveViewStatus] = useState<TeatimeWebContentsViewStatus | null>(null);
   const isElectron = useMemo(
     () =>
       process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -145,24 +158,69 @@ export default function ElectrronBrowserWindow({
     loadingRef.current = loading;
   }, [loading]);
 
+  useEffect(() => {
+    if (!isElectron) return;
+
+    const handleStatus = (event: Event) => {
+      const detail = (event as CustomEvent<TeatimeWebContentsViewStatus>).detail;
+      if (!detail?.key) return;
+
+      if (detail.destroyed) {
+        viewStatusByKeyRef.current.delete(detail.key);
+      } else {
+        viewStatusByKeyRef.current.set(detail.key, detail);
+      }
+
+      if (detail.key !== activeViewKey) return;
+
+      setActiveViewStatus(detail.destroyed ? null : detail);
+
+      // 中文注释：以 dom-ready 作为“可展示”的 ready 信号，loading UI 不再用定时器猜测。
+      if (!targetUrl) {
+        loadingRef.current = false;
+        setLoading(false);
+        return;
+      }
+      if (detail.failed) {
+        loadingRef.current = false;
+        setLoading(false);
+        return;
+      }
+      const nextLoading = detail.ready !== true;
+      loadingRef.current = nextLoading;
+      setLoading(nextLoading);
+    };
+
+    window.addEventListener("teatime:webcontents-view:status", handleStatus);
+    return () => window.removeEventListener("teatime:webcontents-view:status", handleStatus);
+  }, [isElectron, activeViewKey, targetUrl]);
+
+  useEffect(() => {
+    // 中文注释：切换浏览器子标签时，立即使用已缓存的状态刷新 loading/ready，避免“切换后一直 loading”。
+    const cached = viewStatusByKeyRef.current.get(activeViewKey) ?? null;
+    setActiveViewStatus(cached);
+
+    if (!targetUrl) {
+      loadingRef.current = false;
+      setLoading(false);
+      return;
+    }
+    if (cached?.failed) {
+      loadingRef.current = false;
+      setLoading(false);
+      return;
+    }
+    const nextLoading = cached?.ready !== true;
+    loadingRef.current = nextLoading;
+    setLoading(nextLoading);
+  }, [activeViewKey, targetUrl]);
+
   const tabActiveRef = useRef(tabActive);
   useEffect(() => {
     tabActiveRef.current = tabActive;
   }, [tabActive]);
 
   coveredByAnotherStackItemRef.current = coveredByAnotherStackItem;
-
-  useEffect(() => {
-    // 中文注释：没有 URL 时不触发加载态，避免新建标签（空 URL）一直转圈。
-    if (!targetUrl) {
-      loadingRef.current = false;
-      setLoading(false);
-      return;
-    }
-    loadingTokenRef.current += 1;
-    loadingSinceRef.current = performance.now();
-    setLoading(true);
-  }, [targetUrl]);
 
   const hostRef = useRef<HTMLDivElement | null>(null);
   const lastSentByKeyRef = useRef<
@@ -274,18 +332,6 @@ export default function ElectrronBrowserWindow({
             bounds: next.bounds,
             visible: next.visible,
           });
-          if (loadingRef.current) {
-            const token = loadingTokenRef.current;
-            const minLoadingMs = 500;
-            const elapsed = performance.now() - loadingSinceRef.current;
-            const remaining = Math.max(0, minLoadingMs - elapsed);
-
-            window.setTimeout(() => {
-              if (token !== loadingTokenRef.current) return;
-              loadingRef.current = false;
-              setLoading(false);
-            }, remaining);
-          }
         } catch {
           // ignore
         }
@@ -459,16 +505,23 @@ export default function ElectrronBrowserWindow({
                   const title = t.title ?? "Untitled";
                   const url = normalizeUrl(t.url ?? "");
                   return (
-                    <button
+                    <div
                       key={t.id}
-                      type="button"
                       className={cn(
                         "group flex h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-sm",
                         isActive
                           ? "bg-sidebar-accent text-foreground min-w-[320px]"
                           : "bg-transparent text-muted-foreground hover:bg-sidebar/60 hover:text-foreground max-w-[180px]",
                       )}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => onSelectBrowserTab(t.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelectBrowserTab(t.id);
+                        }
+                      }}
                       title={title}
                     >
                       {isActive ? (
@@ -489,7 +542,7 @@ export default function ElectrronBrowserWindow({
                             }}
                             onBlur={() => onCommitUrl()}
                             placeholder="输入网址，回车跳转"
-                            className="min-w-0 flex-1 rounded-md bg-background/70 px-2 py-1 text-xs text-foreground outline-none"
+                            className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-xs text-foreground outline-none"
                             onClick={(e) => e.stopPropagation()}
                           />
                         ) : (
@@ -509,8 +562,8 @@ export default function ElectrronBrowserWindow({
                       ) : (
                         <span className="min-w-0 flex-1 truncate">{title}</span>
                       )}
-                      <span
-                        role="button"
+                      <button
+                        type="button"
                         className="grid h-6 w-6 place-items-center rounded-md opacity-0 transition-opacity group-hover:opacity-100"
                         onClick={(e) => {
                           e.preventDefault();
@@ -520,8 +573,8 @@ export default function ElectrronBrowserWindow({
                         aria-label="Close"
                       >
                         <X className="h-3.5 w-3.5" />
-                      </span>
-                    </button>
+                      </button>
+                    </div>
                   );
                 })
               )}
@@ -542,11 +595,43 @@ export default function ElectrronBrowserWindow({
           </StackHeader>
 
           <div ref={hostRef} className="relative min-h-0 flex-1 overflow-hidden">
-            {loading ? (
+            <AnimatePresence>
+              {loading ? (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute inset-0 z-10 grid place-items-center bg-background/70"
+                >
+                  <motion.div
+                    initial={{ scale: 0.98, opacity: 0.85 }}
+                    animate={{ scale: [0.98, 1, 0.98], opacity: [0.85, 1, 0.85] }}
+                    transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                  >
+                    <Loader size={18} />
+                    <span>Loading…</span>
+                  </motion.div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+            {activeViewStatus?.failed ? (
               <div className="absolute inset-0 z-10 grid place-items-center bg-background/70">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader size={18} />
-                  <span>Loading…</span>
+                <div className="max-w-[360px] rounded-lg border bg-background p-4 text-sm">
+                  <div className="flex items-center gap-2 font-medium">
+                    <TriangleAlert className="h-4 w-4" />
+                    <span>页面加载失败</span>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {activeViewStatus.failed.errorDescription || "Load failed"}
+                  </div>
+                  {activeViewStatus.failed.validatedURL ? (
+                    <div className="mt-1 truncate text-xs text-muted-foreground">
+                      {activeViewStatus.failed.validatedURL}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : null}
