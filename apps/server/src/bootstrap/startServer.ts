@@ -2,6 +2,7 @@ import { createAdaptorServer } from "@hono/node-server";
 import type { Server } from "node:http";
 import { createApp } from "./createApp";
 import { runtimeHub } from "@/modules/runtime/RuntimeHubAdapter";
+import { logger } from "@/common/logger";
 
 /**
  * 启动 HTTP server（MVP）：
@@ -28,7 +29,7 @@ export function startServer() {
       typeof info === "object" && info && "port" in info
         ? (info as any).port
         : port;
-    console.log(`Server listening on http://${hostname}:${actualPort}`);
+    logger.info({ hostname, port: actualPort }, `Server listening on http://${hostname}:${actualPort}`);
   });
 
   return { app, server };

@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@teatime-ai/config": "workspace:*",
+    "pino": "^10.1.0",
     "serve-handler": "^6.1.6"
   },
   "devDependencies": {

@@ -1,7 +1,7 @@
 import { tool, zodSchema } from "ai";
-import { requireTabId } from "@/shared/tabContext";
+import { requireTabId } from "@/common/tabContext";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
-import { getAppId, getWorkspaceId } from "@/shared/requestContext";
+import { getAppId, getWorkspaceId } from "@/common/requestContext";
 import { runtimeHub } from "@/modules/runtime/RuntimeHubAdapter";
 import { browserSessionRegistry } from "@/modules/browser/BrowserSessionRegistryAdapter";
 

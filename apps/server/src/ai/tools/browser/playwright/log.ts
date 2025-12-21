@@ -3,7 +3,8 @@
  * - 默认不输出，避免污染服务端日志
  * - 通过环境变量开启：TEATIME_PLAYWRIGHT_DEBUG=1 / true
  */
-import { getSessionId } from "@/shared/requestContext";
+import { getSessionId } from "@/common/requestContext";
+import { logger } from "@/common/logger";
 
 export function isPlaywrightDebugEnabled() {
   const raw = String(process.env.TEATIME_PLAYWRIGHT_DEBUG ?? "").toLowerCase().trim();
@@ -15,15 +16,10 @@ export function isPlaywrightDebugEnabled() {
  */
 export function pwDebugLog(message: string, data?: Record<string, unknown>) {
   if (!isPlaywrightDebugEnabled()) return;
-  const prefix = "[playwright]";
   const sessionId = getSessionId();
-  const sessionPart = sessionId ? `[chatId=${sessionId}]` : "";
-  const fullPrefix = sessionPart ? `${prefix} ${sessionPart}` : prefix;
   if (data && Object.keys(data).length > 0) {
-    // eslint-disable-next-line no-console
-    console.log(fullPrefix, message, data);
+    logger.debug({ scope: "playwright", sessionId, ...data }, message);
     return;
   }
-  // eslint-disable-next-line no-console
-  console.log(fullPrefix, message);
+  logger.debug({ scope: "playwright", sessionId }, message);
 }

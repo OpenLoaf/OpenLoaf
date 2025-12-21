@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import { requireTabId } from "@/shared/tabContext";
+import { requireTabId } from "@/common/tabContext";
 import { emitRuntimeUiEvent } from "@/modules/runtime/runtimeUi";
 import { uiEvents } from "@teatime-ai/api/types/event";
 import { uiCloseStackToolDef } from "@teatime-ai/api/types/tools/browser";

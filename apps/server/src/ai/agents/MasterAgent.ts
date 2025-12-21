@@ -1,6 +1,6 @@
 import { deepseek } from "@ai-sdk/deepseek";
 import { ToolLoopAgent } from "ai";
-import { getWorkspaceId, type AgentFrame } from "@/shared/requestContext";
+import { getWorkspaceId, type AgentFrame } from "@/common/requestContext";
 import { systemTools } from "@/ai/tools/system";
 import { dbTools } from "@/ai/tools/db";
 import { openUrlTool } from "@/ai/tools/browser";

@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import { getClientId, getSessionId, getTabId } from "@/shared/requestContext";
+import { getClientId, getSessionId, getTabId } from "@/common/requestContext";
 import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 import { openUrlTool } from "./openUrl";
 import { uiCloseStackTool } from "./closeStack";

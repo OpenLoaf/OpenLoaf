@@ -19,7 +19,8 @@ import {
   setAbortSignal,
   setRequestContext,
   setUiWriter,
-} from "@/shared/requestContext";
+} from "@/common/requestContext";
+import { logger } from "@/common/logger";
 
 /** Map agent stream finish usage into UIMessage.metadata (for DB persistence + stats). */
 function toTokenUsageMetadata(part: unknown): { totalUsage: TokenUsage } | undefined {
@@ -104,7 +105,7 @@ export function registerChatSseRoutes(app: Hono) {
     const stream = createUIMessageStream({
       originalMessages: messages as any[],
       onError: (err) => {
-        console.error("[chat] ui stream error", err);
+        logger.error({ err }, "[chat] ui stream error");
         return err instanceof Error ? err.message : "Unknown error";
       },
       onFinish: async ({ isAborted, responseMessage }) => {
@@ -119,7 +120,7 @@ export function registerChatSseRoutes(app: Hono) {
             parentMessageId: userNode.id,
           });
         } catch (err) {
-          console.error("[chat] save assistant failed", err);
+          logger.error({ err }, "[chat] save assistant failed");
         }
       },
       execute: async ({ writer }) => {
@@ -169,7 +170,7 @@ export function registerChatSseRoutes(app: Hono) {
             }
           }
         })().catch((err) => {
-          console.error("[chat] consumeSseStream failed", err);
+          logger.error({ err }, "[chat] consumeSseStream failed");
           streamStore.finalize(sessionId);
         });
       },

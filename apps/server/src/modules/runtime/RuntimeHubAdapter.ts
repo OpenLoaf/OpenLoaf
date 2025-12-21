@@ -12,6 +12,7 @@ import {
   type RuntimeOpenPageCommand,
   type RuntimeOpenPageResult,
 } from "@teatime-ai/api/types/runtime";
+import { logger } from "@/common/logger";
 
 const DEBUG_RUNTIME_WS = process.env.TEATIME_DEBUG_RUNTIME_WS === "1";
 
@@ -47,7 +48,7 @@ function createRuntimeHub() {
           wss.emit("connection", ws, req);
         });
       } catch (err) {
-        if (DEBUG_RUNTIME_WS) console.error("[runtime-ws] handleUpgrade failed", err);
+        if (DEBUG_RUNTIME_WS) logger.debug({ err }, "[runtime-ws] handleUpgrade failed");
         try {
           socket.destroy();
         } catch {
@@ -178,7 +179,7 @@ function createRuntimeHub() {
           boundAppId = appId;
           runtimesByAppId.set(appId, { ws, hello: { ...msg, appId } as RuntimeHello, connectedAt: Date.now() });
           ws.send(JSON.stringify({ type: "helloAck", ok: true, serverTime: Date.now() }));
-          if (DEBUG_RUNTIME_WS) console.log("[runtime-ws] hello", { appId, instanceId: msg.instanceId });
+          if (DEBUG_RUNTIME_WS) logger.debug({ appId, instanceId: msg.instanceId }, "[runtime-ws] hello");
         }
         return;
       }

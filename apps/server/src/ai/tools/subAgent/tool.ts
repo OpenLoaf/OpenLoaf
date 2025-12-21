@@ -10,7 +10,7 @@ import {
   popAgentFrame,
   pushAgentFrame,
   type AgentFrame,
-} from "@/shared/requestContext";
+} from "@/common/requestContext";
 
 function extractMarkdown(message: UIMessage): string {
   const parts = Array.isArray((message as any).parts) ? ((message as any).parts as any[]) : [];

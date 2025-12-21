@@ -3,6 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import pino from "pino";
+
+const logger = pino({
+  level: process.env.LOG_LEVEL ?? "info",
+  base: { service: "teatime-server", script: "build-prod" },
+  timestamp: pino.stdTimeFunctions.isoTime,
+});
 
 await build({
   entryPoints: ["src/index.ts"],
@@ -27,9 +34,9 @@ try {
   fs.mkdirSync(path.dirname(seedDbPath), { recursive: true });
   fs.copyFileSync(localDbPath, seedDbPath);
 } catch (err) {
-  console.error(
-    `[build-prod] Failed to copy seed DB from ${localDbPath} -> ${seedDbPath}:`,
-    err
+  logger.error(
+    { err, localDbPath, seedDbPath },
+    `[build-prod] Failed to copy seed DB from ${localDbPath} -> ${seedDbPath}`,
   );
   process.exit(1);
 }

@@ -6,7 +6,8 @@ import {
   resolveInAllowedRoots,
   runCommandReadonly,
 } from "./utils";
-import { getSessionId } from "@/shared/requestContext";
+import { getSessionId } from "@/common/requestContext";
+import { logger } from "@/common/logger";
 import {
   shellReadonlyToolDef,
   shellWriteToolDef,
@@ -37,7 +38,7 @@ export const shellReadonlyTool = tool({
     try {
       // 中文注释：保留 sessionId 便于排查工具调用来源。
       const sessionId = getSessionId();
-      if (sessionId) console.log("当前请求上下文:", { sessionId });
+      if (sessionId) logger.debug({ sessionId }, "当前请求上下文");
 
       const parts = parseSimpleCommand(input.cmd);
       const command = parts[0]!;

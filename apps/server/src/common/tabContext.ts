@@ -1,4 +1,4 @@
-import { getTabId } from "@/shared/requestContext";
+import { getTabId } from "@/common/requestContext";
 
 /**
  * 读取本次 /chat/sse 绑定的 TabId（apps/web 的 useTabs Tab.id）。

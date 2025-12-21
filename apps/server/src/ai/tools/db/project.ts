@@ -1,7 +1,7 @@
 import { prisma } from "@teatime-ai/db";
 import { tool, zodSchema } from "ai";
 import { getProjectList } from "@teatime-ai/api/services/pageService";
-import { getWorkspaceId } from "@/shared/requestContext";
+import { getWorkspaceId } from "@/common/requestContext";
 import {
   projectListToolDef,
   projectGetToolDef,

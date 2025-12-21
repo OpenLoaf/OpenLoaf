@@ -25,9 +25,10 @@
     "dotenv": "catalog:",
     "eventemitter3": "^5.0.1",
     "hono": "catalog:",
+    "pino": "^10.1.0",
+    "playwright-core": "^1.51.0",
     "resumable-stream": "^2.2.9",
     "uuid": "^13.0.0",
-    "playwright-core": "^1.51.0",
     "zod": "^4.1.11"
   },
   "devDependencies": {

@@ -3,12 +3,13 @@ import { appRouterDefine, t } from "@teatime-ai/api";
 import { createContext } from "@teatime-ai/api/context";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
+import { logger as honoLogger } from "hono/logger";
 import { registerChatSseRoutes } from "@/modules/chat/ChatSseRoutes";
-import { workspaceRouterImplementation } from "@/transport/trpc/routers/workspace";
-import { tabRouterImplementation } from "@/transport/trpc/routers/tab";
-import { runtimeRouterImplementation } from "@/transport/trpc/routers/runtime";
-import { chatRouterImplementation } from "@/transport/trpc/routers/chat";
+import { workspaceRouterImplementation } from "@/routers/workspace";
+import { tabRouterImplementation } from "@/routers/tab";
+import { runtimeRouterImplementation } from "@/routers/runtime";
+import { chatRouterImplementation } from "@/routers/chat";
+import { logger } from "@/common/logger";
 
 const defaultCorsOrigins = [
   "http://localhost:3000",
@@ -34,7 +35,7 @@ export function createApp() {
   const corsOrigins = getCorsOrigins();
   const isDev = process.env.NODE_ENV !== "production";
 
-  app.use(logger());
+  app.use(honoLogger());
   app.use(
     "/*",
     cors({
@@ -71,10 +72,10 @@ export function createApp() {
       }),
       createContext: (_opts, context) => createContext({ context }),
       onError: ({ error, path, input, type }) => {
-        console.error(`tRPC Error: ${type} on ${path || "unknown path"}`, {
-          error,
-          input,
-        });
+        logger.error(
+          { err: error, input, type, path: path || "unknown path" },
+          `tRPC Error: ${type} on ${path || "unknown path"}`,
+        );
       },
     }),
   );

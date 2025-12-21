@@ -1,5 +1,5 @@
-import { requireTabId } from "@/shared/tabContext";
-import { getWorkspaceId } from "@/shared/requestContext";
+import { requireTabId } from "@/common/tabContext";
+import { getWorkspaceId } from "@/common/requestContext";
 import { browserSessionRegistry } from "@/modules/browser/BrowserSessionRegistryAdapter";
 
 /**

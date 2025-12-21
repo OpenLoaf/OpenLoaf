@@ -1,5 +1,5 @@
 import type { UiEvent } from "@teatime-ai/api/types/event";
-import { getAppId } from "@/shared/requestContext";
+import { getAppId } from "@/common/requestContext";
 import { runtimeHub } from "@/modules/runtime/RuntimeHubAdapter";
 
 /**
