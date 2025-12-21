@@ -133,6 +133,9 @@ export interface TabsState {
   tabs: Tab[];
   activeTabId: string | null;
 
+  /** 当前 tab 的 stack 是否被最小化（隐藏） */
+  stackHiddenByTabId: Record<string, boolean>;
+
   /** 运行时缓存：工具调用片段（不落盘，避免 localStorage 过大/频繁写入）。 */
   toolPartsByTabId: Record<string, Record<string, ToolPartSnapshot>>;
 
@@ -163,6 +166,7 @@ export interface TabsState {
   pushStackItem: (tabId: string, item: DockItem, percent?: number) => void;
   removeStackItem: (tabId: string, itemId: string) => void;
   clearStack: (tabId: string) => void;
+  setStackHidden: (tabId: string, hidden: boolean) => void;
 
   upsertToolPart: (tabId: string, key: string, part: ToolPartSnapshot) => void;
   clearToolPartsForTab: (tabId: string) => void;
@@ -222,6 +226,7 @@ export const useTabs = create<TabsState>()(
     (set, get) => ({
       tabs: [],
       activeTabId: null,
+      stackHiddenByTabId: {},
       toolPartsByTabId: {},
 
       addTab: (input) => {
@@ -271,7 +276,11 @@ export const useTabs = create<TabsState>()(
             lastActiveAt: now,
           });
 
-          return { tabs: [...state.tabs, nextTab], activeTabId: nextTab.id };
+          return {
+            tabs: [...state.tabs, nextTab],
+            activeTabId: nextTab.id,
+            stackHiddenByTabId: { ...state.stackHiddenByTabId, [nextTab.id]: false },
+          };
         });
       },
 
@@ -290,6 +299,8 @@ export const useTabs = create<TabsState>()(
           const nextTabs = state.tabs.filter((tab) => tab.id !== tabId);
           const nextToolPartsByTabId = { ...state.toolPartsByTabId };
           delete nextToolPartsByTabId[tabId];
+          const nextHidden = { ...state.stackHiddenByTabId };
+          delete nextHidden[tabId];
 
           let nextActiveTabId = state.activeTabId;
           if (state.activeTabId === tabId) {
@@ -306,6 +317,7 @@ export const useTabs = create<TabsState>()(
             tabs: nextTabs,
             activeTabId: nextActiveTabId,
             toolPartsByTabId: nextToolPartsByTabId,
+            stackHiddenByTabId: nextHidden,
           };
         });
       },
@@ -448,6 +460,7 @@ export const useTabs = create<TabsState>()(
 
       setTabChatSession: (tabId, chatSessionId, options) => {
         set((state) => ({
+          stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
           tabs: updateTabById(state.tabs, tabId, (tab) =>
             normalizeDock({
               ...tab,
@@ -463,6 +476,8 @@ export const useTabs = create<TabsState>()(
 
       pushStackItem: (tabId, item, percent) => {
         set((state) => ({
+          // 中文注释：打开/切换 stack 时自动解除“最小化隐藏”。
+          stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
           tabs: updateTabById(state.tabs, tabId, (tab) => {
             // 左侧 stack：同 sourceKey/id 视为同一条目（upsert），用于“同一个来源的面板重复打开”。
             const nextTab = normalizeDock(tab);
@@ -512,24 +527,39 @@ export const useTabs = create<TabsState>()(
       },
 
       removeStackItem: (tabId, itemId) => {
-        set((state) => ({
-          tabs: updateTabById(state.tabs, tabId, (tab) =>
-            normalizeDock({
-              ...tab,
-              stack: (tab.stack ?? []).filter((item) => item.id !== itemId),
-            }),
-          ),
-        }));
+        set((state) => {
+          const current = state.tabs.find((t) => t.id === tabId);
+          const nextStack = (current?.stack ?? []).filter((item) => item.id !== itemId);
+          return {
+            stackHiddenByTabId:
+              nextStack.length === 0
+                ? { ...state.stackHiddenByTabId, [tabId]: false }
+                : state.stackHiddenByTabId,
+            tabs: updateTabById(state.tabs, tabId, (tab) =>
+              normalizeDock({
+                ...tab,
+                stack: (tab.stack ?? []).filter((item) => item.id !== itemId),
+              }),
+            ),
+          };
+        });
       },
 
       clearStack: (tabId) => {
         set((state) => ({
+          stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
           tabs: updateTabById(state.tabs, tabId, (tab) =>
             normalizeDock({
               ...tab,
               stack: [],
             }),
           ),
+        }));
+      },
+
+      setStackHidden: (tabId, hidden) => {
+        set((state) => ({
+          stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: Boolean(hidden) },
         }));
       },
 
@@ -554,7 +584,7 @@ export const useTabs = create<TabsState>()(
     {
       name: TABS_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      version: 2,
+      version: 3,
       migrate: (persisted: any) => {
         // 存储迁移（v2）：清理历史字段（leftWidthPx -> leftWidthPercent）。
         const tabs = Array.isArray(persisted?.tabs) ? persisted.tabs : [];
@@ -573,10 +603,16 @@ export const useTabs = create<TabsState>()(
               : 0;
             return normalizeDock({ ...tab, stack, leftWidthPercent } as Tab);
           }),
+          // 中文注释：v3 新增 stackHiddenByTabId，默认不隐藏。
+          stackHiddenByTabId: persisted?.stackHiddenByTabId ?? {},
         };
       },
       // 只落盘 tabs 与 activeTabId；toolPartsByTabId 属于运行时大对象，不持久化。
-      partialize: (state) => ({ tabs: state.tabs, activeTabId: state.activeTabId }),
+      partialize: (state) => ({
+        tabs: state.tabs,
+        activeTabId: state.activeTabId,
+        stackHiddenByTabId: state.stackHiddenByTabId,
+      }),
     },
   ),
 );

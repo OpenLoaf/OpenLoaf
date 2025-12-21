@@ -16,6 +16,7 @@ export function StackHeader({
   onRefresh,
   onClose,
   showMinimize = false,
+  onMinimize,
   canClose = true,
   className,
 }: {
@@ -24,6 +25,7 @@ export function StackHeader({
   onRefresh?: () => void;
   onClose?: () => void;
   showMinimize?: boolean;
+  onMinimize?: () => void;
   canClose?: boolean;
   className?: string;
 }) {
@@ -40,7 +42,13 @@ export function StackHeader({
             </Button>
           ) : null}
           {showMinimize ? (
-            <Button size="sm" variant="ghost" aria-label="Minimize">
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label="Minimize"
+              onClick={onMinimize}
+              disabled={!onMinimize}
+            >
               <Minus className="h-4 w-4" />
             </Button>
           ) : null}

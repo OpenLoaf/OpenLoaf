@@ -1,10 +1,9 @@
-import { createAgentUIStream, tool, zodSchema } from "ai";
+import { createAgentUIStream, readUIMessageStream, tool, zodSchema } from "ai";
 import type { UIMessage } from "ai";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import { createBrowserWorkerAgent } from "@/ai/agents/createBrowserWorkerAgent";
 import {
   getCurrentAgentFrame,
-  getUiWriter,
   popAgentFrame,
   pushAgentFrame,
   type AgentFrame,
@@ -38,9 +37,6 @@ export const subAgentTool = tool({
   description: subAgentToolDef.description,
   inputSchema: zodSchema(subAgentToolDef.parameters),
   execute: async ({ name, task }) => {
-    const writer = getUiWriter();
-    if (!writer) throw new Error("UI writer is not available.");
-
     const parent = getCurrentAgentFrame();
     // 中文注释：只允许 master 调用 sub-agent，避免递归委派。
     if (!parent || parent.kind !== "master") {
@@ -64,30 +60,23 @@ export const subAgentTool = tool({
     ];
 
     let outputMarkdown = "";
-    let resolveFinished: (() => void) | undefined;
-    const finished = new Promise<void>((resolve) => {
-      resolveFinished = resolve;
-    });
     try {
       const stream = await createAgentUIStream({
         agent,
         messages: messages as any[],
-        onError: () => "SubAgent error.",
-        onFinish: ({ responseMessage }) => {
-          if (responseMessage?.role === "assistant") {
-            outputMarkdown = extractMarkdown(responseMessage as any);
-          }
-          popAgentFrame();
-          resolveFinished?.();
-        },
       });
-      writer.merge(stream as any);
-      // 中文注释：等待 sub-agent 完整结束，避免与主 agent 输出交叉。
-      await finished;
+
+      // 中文注释：sub-agent 的 UI 行为（open-url/browser-command 等）仍会通过共享 writer 下发；
+      // 这里只在服务端消费 sub-agent 的文本输出，避免把另一条 UIMessageStream 协议 merge 进主流。
+      const messageStream = readUIMessageStream({ stream: stream as any });
+      for await (const message of messageStream as any) {
+        if (message?.role === "assistant") outputMarkdown = extractMarkdown(message as any);
+      }
+
+      popAgentFrame();
       return { ok: true, data: { name: "browser", agentId: "browser", outputMarkdown } };
     } catch (err) {
       popAgentFrame();
-      resolveFinished?.();
       throw err;
     }
   },

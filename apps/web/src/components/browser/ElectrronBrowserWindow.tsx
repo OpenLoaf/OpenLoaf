@@ -41,6 +41,7 @@ export default function ElectrronBrowserWindow({
 }: ElectrronBrowserWindowProps) {
   const tabActive = useTabActive();
   const safeTabId = typeof tabId === "string" ? tabId : undefined;
+  const stackHidden = useTabs((s) => (safeTabId ? Boolean(s.stackHiddenByTabId[safeTabId]) : false));
 
   const tabs = Array.isArray(browserTabs) ? browserTabs : [];
   const activeId = activeBrowserTabId ?? tabs[0]?.id ?? "";
@@ -292,6 +293,7 @@ export default function ElectrronBrowserWindow({
           visible:
             visible &&
             !loadingRef.current &&
+            !stackHidden &&
             !overlayBlockedRef.current &&
             !coveredByAnotherStackItemRef.current,
           bounds: {
@@ -333,6 +335,12 @@ export default function ElectrronBrowserWindow({
       return;
     }
 
+    if (stackHidden) {
+      window.cancelAnimationFrame(rafId);
+      void sync(false);
+      return;
+    }
+
     if (coveredByAnotherStackItem) {
       window.cancelAnimationFrame(rafId);
       void sync(false);
@@ -350,7 +358,7 @@ export default function ElectrronBrowserWindow({
       window.cancelAnimationFrame(rafId);
       void sync(false);
     };
-  }, [targetUrl, isElectron, activeViewKey, tabActive, coveredByAnotherStackItem]);
+  }, [targetUrl, isElectron, activeViewKey, tabActive, coveredByAnotherStackItem, stackHidden]);
 
   useEffect(() => {
     const api = window.teatimeElectron;
@@ -506,6 +514,11 @@ export default function ElectrronBrowserWindow({
             onClose={onClosePanel}
             onRefresh={onRefreshPanel}
             showMinimize
+            onMinimize={() => {
+              if (!safeTabId) return;
+              // 中文注释：最小化仅隐藏 stack，不销毁内部标签页。
+              useTabs.getState().setStackHidden(safeTabId, true);
+            }}
           >
             <BrowserTabsBar
               tabs={tabs}

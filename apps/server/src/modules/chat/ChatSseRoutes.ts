@@ -1,8 +1,8 @@
 import {
   createAgentUIStream,
   createUIMessageStream,
-  createUIMessageStreamResponse,
   generateId,
+  JsonToSseTransformStream,
   UI_MESSAGE_STREAM_HEADERS,
   type UIMessage,
 } from "ai";
@@ -124,33 +124,21 @@ export function registerChatSseRoutes(app: Hono) {
     // 中文注释：固定 assistantMessageId，确保 stream 与落库是同一条消息。
     const assistantMessageId = generateId();
 
+    const popAgentFrameOnce = (() => {
+      let popped = false;
+      return () => {
+        if (popped) return;
+        popped = true;
+        popAgentFrame();
+      };
+    })();
+
     const stream = createUIMessageStream({
       originalMessages: messages as any[],
       onError: (err) => {
+        // 中文注释：只在最外层记录一次流错误，避免 SDK 内部 error chunk 触发重复日志。
         logger.error({ err }, "[chat] ui stream error");
         return err instanceof Error ? err.message : "Unknown error";
-      },
-      onFinish: async ({ isAborted, responseMessage, finishReason }) => {
-        if (!responseMessage || responseMessage.role !== "assistant") return;
-
-        const currentSessionId = getSessionId() ?? sessionId;
-        try {
-          await chatRepository.saveMessageNode({
-            sessionId: currentSessionId,
-            message: {
-              ...(responseMessage as any),
-              id: assistantMessageId,
-              metadata: mergeMetadataWithAbortInfo((responseMessage as any).metadata, {
-                isAborted,
-                finishReason,
-              }),
-            } as any,
-            parentMessageId: userNode.id,
-            allowEmpty: isAborted,
-          });
-        } catch (err) {
-          logger.error({ err }, "[chat] save assistant failed");
-        }
       },
       execute: async ({ writer }) => {
         setUiWriter(writer as any);
@@ -164,46 +152,68 @@ export function registerChatSseRoutes(app: Hono) {
             abortSignal: abortController.signal,
             generateMessageId: () => assistantMessageId,
             messageMetadata: ({ part }) => toTokenUsageMetadata(part),
-            onFinish: () => {
-              popAgentFrame();
+            onFinish: async ({ isAborted, responseMessage, finishReason }) => {
+              // 中文注释：主 agent 的输出只在这里触发一次 finish（避免双重 state machine）。
+              try {
+                if (!responseMessage || responseMessage.role !== "assistant") return;
+
+                const currentSessionId = getSessionId() ?? sessionId;
+                await chatRepository.saveMessageNode({
+                  sessionId: currentSessionId,
+                  message: {
+                    ...(responseMessage as any),
+                    id: assistantMessageId,
+                    metadata: mergeMetadataWithAbortInfo((responseMessage as any).metadata, {
+                      isAborted,
+                      finishReason,
+                    }),
+                  } as any,
+                  parentMessageId: userNode.id,
+                  allowEmpty: isAborted,
+                });
+              } catch (err) {
+                logger.error({ err }, "[chat] save assistant failed");
+              } finally {
+                popAgentFrameOnce();
+              }
             },
-            onError: (err) => "Agent error." + (err instanceof Error ? err.message : ""),
           });
           writer.merge(uiStream as any);
         } catch (err) {
-          popAgentFrame();
+          popAgentFrameOnce();
           throw err;
         }
       },
     });
 
-    return createUIMessageStreamResponse({
-      stream,
-      consumeSseStream: ({ stream }) => {
-        const reader = stream.getReader();
-        (async () => {
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) {
-                streamStore.finalize(sessionId);
-                return;
-              }
-              if (typeof value === "string") streamStore.append(sessionId, value);
-            }
-          } finally {
-            try {
-              reader.releaseLock();
-            } catch {
-              // ignore
-            }
+    // 中文注释：将 UIMessageChunk 流转成 SSE 字符串并写入内存流，避免 tee() 导致的断线竞态。
+    const sseStream = stream.pipeThrough(new JsonToSseTransformStream());
+    const reader = sseStream.getReader();
+    (async () => {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            streamStore.finalize(sessionId);
+            return;
           }
-        })().catch((err) => {
-          logger.error({ err }, "[chat] consumeSseStream failed");
-          streamStore.finalize(sessionId);
-        });
-      },
-    });
+          if (typeof value === "string") streamStore.append(sessionId, value);
+        }
+      } catch (err) {
+        logger.error({ err }, "[chat] pump sse stream failed");
+        streamStore.finalize(sessionId);
+      } finally {
+        try {
+          reader.releaseLock();
+        } catch {
+          // ignore
+        }
+      }
+    })();
+
+    const subscription = streamStore.subscribe(sessionId);
+    if (!subscription) return new Response(null, { status: 204 });
+    return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
   });
 
   app.get("/chat/sse/:id/stream", async (c) => {

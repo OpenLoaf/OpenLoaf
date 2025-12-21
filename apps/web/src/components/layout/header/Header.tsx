@@ -13,6 +13,7 @@ import { HeaderTabs } from "./Tabs";
 import { ModeToggle } from "./ModeToggle";
 import { AnimateIcon } from "@/components/animate-ui/icons/icon";
 import { Bot } from "@/components/animate-ui/icons/bot";
+import { StackDockMenuButton } from "@/components/browser/StackDockMenuButton";
 
 export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
@@ -87,6 +88,9 @@ export const Header = () => {
         </div>
       </div>
       <div className="flex shrink-0 h-(--header-height) items-center pr-2">
+        <div data-no-drag="true">
+          <StackDockMenuButton />
+        </div>
         <div data-no-drag="true">
           <ModeToggle />
         </div>

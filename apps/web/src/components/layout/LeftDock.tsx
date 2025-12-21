@@ -47,6 +47,7 @@ function PanelFrame({
   item,
   title,
   onClose,
+  onMinimize,
   fillHeight,
   floating,
   header,
@@ -55,6 +56,7 @@ function PanelFrame({
   item: DockItem;
   title: string;
   onClose: () => void;
+  onMinimize?: () => void;
   fillHeight: boolean;
   floating: boolean;
   header?: React.ReactNode;
@@ -84,6 +86,8 @@ function PanelFrame({
             title={title}
             onRefresh={() => setRefreshKey((k) => k + 1)}
             onClose={canClose ? onClose : undefined}
+            showMinimize
+            onMinimize={onMinimize}
           >
             {header}
           </StackHeader>
@@ -100,15 +104,15 @@ function PanelFrame({
 export function LeftDock({ tabId }: { tabId: string }) {
   const tab = useTabs((s) => s.tabs.find((t) => t.id === tabId));
   const removeStackItem = useTabs((s) => s.removeStackItem);
+  const stackHidden = useTabs((s) => Boolean(s.stackHiddenByTabId[tabId]));
+  const setStackHidden = useTabs((s) => s.setStackHidden);
 
   if (!tab) return null;
 
   const base = tab.base;
   const stack = tab.stack ?? [];
-  const hasBase = Boolean(base);
-  const underlay = !hasBase ? stack[0] : undefined;
-  const overlayStack = !hasBase ? stack.slice(1) : stack;
-  const hasOverlay = overlayStack.length > 0;
+  const activeStackId = stack.at(-1)?.id ?? "";
+  const hasOverlay = stack.length > 0 && !stackHidden;
 
   return (
     <div className="relative h-full w-full min-h-0 min-w-0 overflow-hidden">
@@ -118,68 +122,33 @@ export function LeftDock({ tabId }: { tabId: string }) {
           hasOverlay && "pointer-events-none select-none blur-sm opacity-80"
         )}
       >
-        {base ? (
-          renderDockItem(tabId, base)
-        ) : underlay ? (
-          <PanelFrame
-            tabId={tabId}
-            item={underlay}
-            title={underlay.title ?? getPanelTitle(underlay.component)}
-            onClose={() => removeStackItem(tabId, underlay.id)}
-            fillHeight
-            floating={false}
-          />
-        ) : null}
+        {base ? renderDockItem(tabId, base) : null}
       </div>
 
-      {hasOverlay
-        ? overlayStack.map((item, index) => {
-            const depthFromTop = overlayStack.length - 1 - index;
-            const isTop = index === overlayStack.length - 1;
-            const opacity = 1 - depthFromTop * 0.12;
-            const baseInset = 12;
-            const insetStep = 8;
-            const inset = baseInset + index * insetStep;
-            const topInset = baseInset + 18;
-            const top = topInset + index * insetStep;
-            const title = item.title ?? getPanelTitle(item.component);
-
+      {stack.length > 0 ? (
+        <div className="absolute inset-0" style={{ zIndex: 20 }}>
+          {stack.map((item) => {
+            const visible = !stackHidden && item.id === activeStackId;
             return (
-              <motion.div
+              <div
                 key={item.id}
-                className={cn(
-                  "absolute",
-                  isTop ? "pointer-events-auto" : "pointer-events-none"
-                )}
-                style={{ zIndex: 10 + index }}
-                initial={{
-                  opacity: 0,
-                  top: top + 10,
-                  left: inset,
-                  right: inset,
-                  bottom: inset,
-                }}
-                animate={{
-                  opacity,
-                  top,
-                  left: inset,
-                  right: inset,
-                  bottom: inset,
-                }}
-                transition={{ duration: 0.15 }}
+                // 中文注释：stack 不再堆叠，只显示一个；其它 stack 保持挂载但隐藏，便于通过 Header 右上角按钮切换。
+                className={cn("absolute inset-0 p-2", !visible && "hidden")}
               >
                 <PanelFrame
                   tabId={tabId}
                   item={item}
-                  title={title}
+                  title={item.title ?? getPanelTitle(item.component)}
                   onClose={() => removeStackItem(tabId, item.id)}
+                  onMinimize={() => setStackHidden(tabId, true)}
                   fillHeight
                   floating
                 />
-              </motion.div>
+              </div>
             );
-          })
-        : null}
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
