@@ -148,7 +148,8 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
 
     const tab = state.getTabById(tabId);
     const stack = Array.isArray(tab?.stack) ? tab.stack : [];
-    const top = stack.at(-1);
+    const activeStackId = String(state.activeStackItemIdByTabId?.[tabId] ?? "");
+    const top = (activeStackId ? stack.find((i) => i.id === activeStackId) : undefined) ?? stack.at(-1);
 
     if (top) {
       if (top.denyClose !== true) state.removeStackItem(tabId, top.id);

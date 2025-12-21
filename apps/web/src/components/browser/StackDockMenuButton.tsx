@@ -50,16 +50,25 @@ export function StackDockMenuButton() {
     const tab = s.activeTabId ? s.tabs.find((t) => t.id === s.activeTabId) : undefined;
     return tab?.stack ?? [];
   });
+  const activeTabTitle = useTabs((s) => {
+    const tab = s.activeTabId ? s.tabs.find((t) => t.id === s.activeTabId) : undefined;
+    return String(tab?.title ?? "");
+  });
+  const activeStackItemId = useTabs((s) =>
+    s.activeTabId ? s.activeStackItemIdByTabId[s.activeTabId] : "",
+  );
   const stackHidden = useTabs((s) =>
     s.activeTabId ? Boolean(s.stackHiddenByTabId[s.activeTabId]) : false,
   );
 
   if (!activeTabId || stack.length === 0) return null;
+  // 中文注释：只有一个 stack 且正在显示时，不需要入口按钮（避免 UI 冗余）。
+  if (!stackHidden && stack.length === 1) return null;
 
-  const topId = stack.at(-1)?.id ?? "";
+  const topId = activeStackItemId || stack.at(-1)?.id || "";
 
   const openStackItem = (item: DockItem) => {
-    // 中文注释：恢复显示并把目标 item 移到顶部（LeftDock 只展示最后一个）。
+    // 中文注释：恢复显示并切换到目标 item（不再重排 stack 数组）。
     useTabs.getState().setStackHidden(activeTabId, false);
     useTabs.getState().pushStackItem(activeTabId, item);
   };
@@ -80,17 +89,42 @@ export function StackDockMenuButton() {
     useTabs.getState().setStackHidden(activeTabId, false);
   };
 
+  if (stackHidden && stack.length === 1) {
+    // 中文注释：只有一个 stack item 时，隐藏后点击按钮直接恢复显示，不再弹出列表。
+    return (
+      <Button
+        data-no-drag="true"
+        className="h-8 w-8"
+        variant="ghost"
+        size="icon"
+        onClick={() => openStackItem(stack[0]!)}
+      >
+        <span className="relative">
+          <Layers className="h-4 w-4" />
+        </span>
+      </Button>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button data-no-drag="true" className="h-8 w-8" variant="ghost" size="icon">
-          <Layers className="h-4 w-4" />
+          <span className="relative">
+            <Layers className="h-4 w-4" />
+            {stack.length > 1 ? (
+              <span className="absolute -right-1.5 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-primary px-0.5 text-[9px] leading-none text-primary-foreground">
+                {stack.length}
+              </span>
+            ) : null}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className="w-[260px]">
         <DropdownMenuLabel className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            Stack{stackHidden ? "（已最小化）" : ""}
+            {activeTabTitle || "Stack"}
+            {stackHidden ? "（已最小化）" : ""}
           </span>
           <span className="text-xs text-muted-foreground">{stack.length}</span>
         </DropdownMenuLabel>
@@ -98,7 +132,8 @@ export function StackDockMenuButton() {
 
         {stack.map((item) => {
           const title = getStackItemTitle(item);
-          const isActive = !stackHidden && item.id === topId;
+          // 中文注释：以“顶部 item”为选中态；即使处于最小化隐藏，也要保持选中态一致。
+          const isTop = item.id === topId;
           return (
             <DropdownMenuItem
               key={item.id}
@@ -109,7 +144,7 @@ export function StackDockMenuButton() {
                 <span
                   className={[
                     "h-1.5 w-1.5 shrink-0 rounded-full",
-                    isActive ? "bg-primary" : "bg-muted-foreground/30",
+                    isTop ? (stackHidden ? "bg-primary/50" : "bg-primary") : "bg-muted-foreground/30",
                   ].join(" ")}
                 />
                 <span className="min-w-0 flex-1 truncate">{title}</span>

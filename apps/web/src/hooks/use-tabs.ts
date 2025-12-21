@@ -136,6 +136,9 @@ export interface TabsState {
   /** 当前 tab 的 stack 是否被最小化（隐藏） */
   stackHiddenByTabId: Record<string, boolean>;
 
+  /** 当前 tab 的激活 stack item（不再通过“重排数组”来表示选中态） */
+  activeStackItemIdByTabId: Record<string, string>;
+
   /** 运行时缓存：工具调用片段（不落盘，避免 localStorage 过大/频繁写入）。 */
   toolPartsByTabId: Record<string, Record<string, ToolPartSnapshot>>;
 
@@ -227,6 +230,7 @@ export const useTabs = create<TabsState>()(
       tabs: [],
       activeTabId: null,
       stackHiddenByTabId: {},
+      activeStackItemIdByTabId: {},
       toolPartsByTabId: {},
 
       addTab: (input) => {
@@ -280,6 +284,7 @@ export const useTabs = create<TabsState>()(
             tabs: [...state.tabs, nextTab],
             activeTabId: nextTab.id,
             stackHiddenByTabId: { ...state.stackHiddenByTabId, [nextTab.id]: false },
+            activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId },
           };
         });
       },
@@ -301,6 +306,8 @@ export const useTabs = create<TabsState>()(
           delete nextToolPartsByTabId[tabId];
           const nextHidden = { ...state.stackHiddenByTabId };
           delete nextHidden[tabId];
+          const nextActiveStack = { ...state.activeStackItemIdByTabId };
+          delete nextActiveStack[tabId];
 
           let nextActiveTabId = state.activeTabId;
           if (state.activeTabId === tabId) {
@@ -318,6 +325,7 @@ export const useTabs = create<TabsState>()(
             activeTabId: nextActiveTabId,
             toolPartsByTabId: nextToolPartsByTabId,
             stackHiddenByTabId: nextHidden,
+            activeStackItemIdByTabId: nextActiveStack,
           };
         });
       },
@@ -461,6 +469,7 @@ export const useTabs = create<TabsState>()(
       setTabChatSession: (tabId, chatSessionId, options) => {
         set((state) => ({
           stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
+          activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId, [tabId]: "" },
           tabs: updateTabById(state.tabs, tabId, (tab) =>
             normalizeDock({
               ...tab,
@@ -475,66 +484,77 @@ export const useTabs = create<TabsState>()(
       },
 
       pushStackItem: (tabId, item, percent) => {
-        set((state) => ({
+        set((state) => {
           // 中文注释：打开/切换 stack 时自动解除“最小化隐藏”。
-          stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
-          tabs: updateTabById(state.tabs, tabId, (tab) => {
-            // 左侧 stack：同 sourceKey/id 视为同一条目（upsert），用于“同一个来源的面板重复打开”。
-            const nextTab = normalizeDock(tab);
-            const isBrowser = item.component === BROWSER_WINDOW_COMPONENT;
-            const key = isBrowser ? BROWSER_WINDOW_PANEL_ID : (item.sourceKey ?? item.id);
-            const existingIndex = nextTab.stack.findIndex((s) =>
-              isBrowser ? s.component === BROWSER_WINDOW_COMPONENT : (s.sourceKey ?? s.id) === key,
-            );
+          const nextHidden = { ...state.stackHiddenByTabId, [tabId]: false };
 
-            const existing = existingIndex === -1 ? undefined : nextTab.stack[existingIndex];
-            const normalizedItem = isBrowser
-              ? normalizeBrowserWindowItem(isBrowserWindowItem(existing) ? existing : undefined, {
-                  ...item,
-                  id: BROWSER_WINDOW_PANEL_ID,
-                  sourceKey: BROWSER_WINDOW_PANEL_ID,
-                })
-              : item;
+          const isBrowser = item.component === BROWSER_WINDOW_COMPONENT;
+          const activeId = isBrowser ? BROWSER_WINDOW_PANEL_ID : item.id;
 
-            const nextStack =
-              existingIndex === -1
-                ? [...nextTab.stack, normalizedItem]
-                : [
-                    ...nextTab.stack.slice(0, existingIndex),
-                    ...nextTab.stack.slice(existingIndex + 1),
-                    isBrowser
-                      ? normalizedItem
-                      : { ...nextTab.stack[existingIndex]!, ...item },
-                  ];
+          return {
+            stackHiddenByTabId: nextHidden,
+            // 中文注释：选中态用单独字段保存，不再通过“把 item 移到数组末尾”来表示顶部。
+            activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId, [tabId]: activeId },
+            tabs: updateTabById(state.tabs, tabId, (tab) => {
+              // 左侧 stack：同 sourceKey/id 视为同一条目（upsert），用于“同一个来源的面板重复打开”。
+              const nextTab = normalizeDock(tab);
+              const key = isBrowser ? BROWSER_WINDOW_PANEL_ID : (item.sourceKey ?? item.id);
+              const existingIndex = nextTab.stack.findIndex((s) =>
+                isBrowser ? s.component === BROWSER_WINDOW_COMPONENT : (s.sourceKey ?? s.id) === key,
+              );
 
-            return normalizeDock({
-              ...nextTab,
-              // 中文注释：每个 Tab 的 stack 中只允许一个 electron-browser-window。
-              stack: isBrowser
-                ? [...nextStack.filter((s) => s.component !== BROWSER_WINDOW_COMPONENT), normalizedItem]
-                : nextStack,
-              // 打开 stack 时自动撑开左栏：如果传了 percent 用它，否则保持原值/回退默认值。
-              leftWidthPercent: clampPercent(
-                Number.isFinite(percent)
-                  ? percent!
-                  : nextTab.leftWidthPercent > 0
-                    ? nextTab.leftWidthPercent
-                    : LEFT_DOCK_DEFAULT_PERCENT,
-              ),
-            });
-          }),
-        }));
+              const existing = existingIndex === -1 ? undefined : nextTab.stack[existingIndex];
+              const normalizedItem = isBrowser
+                ? normalizeBrowserWindowItem(isBrowserWindowItem(existing) ? existing : undefined, {
+                    ...item,
+                    id: BROWSER_WINDOW_PANEL_ID,
+                    sourceKey: BROWSER_WINDOW_PANEL_ID,
+                  })
+                : item;
+
+              const nextStack = [...nextTab.stack];
+              if (existingIndex === -1) nextStack.push(normalizedItem);
+              else {
+                nextStack[existingIndex] = isBrowser
+                  ? normalizedItem
+                  : { ...nextStack[existingIndex]!, ...item };
+              }
+
+              return normalizeDock({
+                ...nextTab,
+                // 中文注释：每个 Tab 的 stack 中只允许一个 electron-browser-window。
+                stack: isBrowser
+                  ? [...nextStack.filter((s) => s.component !== BROWSER_WINDOW_COMPONENT), normalizedItem]
+                  : nextStack,
+                // 打开 stack 时自动撑开左栏：如果传了 percent 用它，否则保持原值/回退默认值。
+                leftWidthPercent: clampPercent(
+                  Number.isFinite(percent)
+                    ? percent!
+                    : nextTab.leftWidthPercent > 0
+                      ? nextTab.leftWidthPercent
+                      : LEFT_DOCK_DEFAULT_PERCENT,
+                ),
+              });
+            }),
+          };
+        });
       },
 
       removeStackItem: (tabId, itemId) => {
         set((state) => {
           const current = state.tabs.find((t) => t.id === tabId);
           const nextStack = (current?.stack ?? []).filter((item) => item.id !== itemId);
+          const currentActiveId = String(state.activeStackItemIdByTabId[tabId] ?? "");
+          const nextActiveId =
+            currentActiveId && currentActiveId !== itemId
+              ? currentActiveId
+              : (nextStack.at(-1)?.id ?? "");
           return {
             stackHiddenByTabId:
               nextStack.length === 0
                 ? { ...state.stackHiddenByTabId, [tabId]: false }
                 : state.stackHiddenByTabId,
+            activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId, [tabId]: nextActiveId },
             tabs: updateTabById(state.tabs, tabId, (tab) =>
               normalizeDock({
                 ...tab,
@@ -548,6 +568,7 @@ export const useTabs = create<TabsState>()(
       clearStack: (tabId) => {
         set((state) => ({
           stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
+          activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId, [tabId]: "" },
           tabs: updateTabById(state.tabs, tabId, (tab) =>
             normalizeDock({
               ...tab,
@@ -584,7 +605,7 @@ export const useTabs = create<TabsState>()(
     {
       name: TABS_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      version: 3,
+      version: 4,
       migrate: (persisted: any) => {
         // 存储迁移（v2）：清理历史字段（leftWidthPx -> leftWidthPercent）。
         const tabs = Array.isArray(persisted?.tabs) ? persisted.tabs : [];
@@ -605,6 +626,8 @@ export const useTabs = create<TabsState>()(
           }),
           // 中文注释：v3 新增 stackHiddenByTabId，默认不隐藏。
           stackHiddenByTabId: persisted?.stackHiddenByTabId ?? {},
+          // 中文注释：v4 新增 activeStackItemIdByTabId，默认不指定（用 stack 最后一个兜底）。
+          activeStackItemIdByTabId: persisted?.activeStackItemIdByTabId ?? {},
         };
       },
       // 只落盘 tabs 与 activeTabId；toolPartsByTabId 属于运行时大对象，不持久化。
@@ -612,6 +635,7 @@ export const useTabs = create<TabsState>()(
         tabs: state.tabs,
         activeTabId: state.activeTabId,
         stackHiddenByTabId: state.stackHiddenByTabId,
+        activeStackItemIdByTabId: state.activeStackItemIdByTabId,
       }),
     },
   ),

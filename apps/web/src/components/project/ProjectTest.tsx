@@ -22,100 +22,145 @@ export default function ProjectTest({ pageId }: ProjectTestProps) {
     (typeof navigator !== "undefined" &&
       navigator.userAgent.includes("Electron"));
 
-  return (
-    <div className="px-2 py-2 space-y-2">
-      <div className="text-xs text-muted-foreground">
-        Stack items: {activeStackCount}
-      </div>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => {
-          if (!activeTabId) return;
-          const toolKey = `demo:${Date.now()}`;
-          upsertToolPart(activeTabId, toolKey, {
-            type: "tool-demo",
-            title: "Demo Result",
-            input: { from: "ProjectTest", pageId: pageId ?? null },
-            output: {
-              ok: true,
-              message: "pushStackItem -> ToolResultPanel 渲染成功",
-              timestamp: new Date().toISOString(),
-            },
-          });
-          pushStackItem(activeTabId, {
-            id: `tool-demo:${toolKey}`,
-            component: "tool-result",
-            params: { toolKey },
-            title: "Tool Result (demo)",
-          });
-        }}
-      >
-        Stack: Tool Result (demo)
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => {
-          if (!activeTabId) return;
-          pushStackItem(activeTabId, {
-            id: `project:${pageId ?? "current"}`,
-            component: "project-page",
-            params: pageId ? { pageId } : {},
-            title: "Project (overlay)",
-          });
-        }}
-      >
-        Stack: Project (overlay)
-      </Button>
-      {isElectron && (
-        <>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              if (!activeTabId) return;
-              pushStackItem(activeTabId, {
-                id: `browser:${Date.now()}`,
-                component: "electron-browser",
-                params: { url: "https://inside.hexems.com" },
-                title: "Browser",
-              });
-            }}
-          >
-            <Globe className="mr-2 h-4 w-4" />
-            Stack: Browser
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              if (!activeTabId) return;
-              pushStackItem(activeTabId, {
-                id: `browser-window:${Date.now()}`,
-                component: "electron-browser-window",
-                params: { url: "https://inside.hexems.com", autoOpen: true },
-                title: "Browser Window",
-              });
-            }}
-          >
-            <Globe className="mr-2 h-4 w-4" />
-            Stack: BrowserWindow
-          </Button>
-        </>
-      )}
+  /**
+   * Pushes 3 demo stack items into the active tab for quick UI testing.
+   */
+  function handleCreateThreeStacks() {
+    if (!activeTabId) return;
 
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => {
-          if (!activeTabId) return;
-          clearStack(activeTabId);
-        }}
-        disabled={activeStackCount === 0}
-      >
-        Clear stack
-      </Button>
+    // 中文注释：这里用三个 tool-result 作为通用 demo（非 Electron 环境也能正常渲染）。
+    for (let index = 0; index < 3; index += 1) {
+      const toolKey = `demo:${Date.now()}:${index + 1}`;
+      upsertToolPart(activeTabId, toolKey, {
+        type: "tool-demo",
+        title: `Demo Result #${index + 1}`,
+        input: { from: "ProjectTest", pageId: pageId ?? null, index: index + 1 },
+        output: {
+          ok: true,
+          message: "批量创建 stack：pushStackItem -> ToolResultPanel 渲染成功",
+          timestamp: new Date().toISOString(),
+        },
+      });
+      pushStackItem(activeTabId, {
+        id: `tool-demo:${toolKey}`,
+        component: "tool-result",
+        params: { toolKey },
+        title: `Tool Result (demo #${index + 1})`,
+      });
+    }
+  }
+
+  return (
+    <div className="h-full space-y-3 mt-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm text-muted-foreground">Project / Test</div>
+        <div className="inline-flex items-center gap-2 rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground">
+          <span>Stack items</span>
+          <span className="font-medium text-foreground tabular-nums">
+            {activeStackCount}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button size="sm" variant="secondary" onClick={handleCreateThreeStacks}>
+          Stack: Create 3 (demo)
+        </Button>
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            if (!activeTabId) return;
+            const toolKey = `demo:${Date.now()}`;
+            upsertToolPart(activeTabId, toolKey, {
+              type: "tool-demo",
+              title: "Demo Result",
+              input: { from: "ProjectTest", pageId: pageId ?? null },
+              output: {
+                ok: true,
+                message: "pushStackItem -> ToolResultPanel 渲染成功",
+                timestamp: new Date().toISOString(),
+              },
+            });
+            pushStackItem(activeTabId, {
+              id: `tool-demo:${toolKey}`,
+              component: "tool-result",
+              params: { toolKey },
+              title: "Tool Result (demo)",
+            });
+          }}
+        >
+          Stack: Tool Result (demo)
+        </Button>
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            if (!activeTabId) return;
+            pushStackItem(activeTabId, {
+              id: `project:${pageId ?? "current"}`,
+              component: "project-page",
+              params: pageId ? { pageId } : {},
+              title: "Project (overlay)",
+            });
+          }}
+        >
+          Stack: Project (overlay)
+        </Button>
+
+        {isElectron ? (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (!activeTabId) return;
+                pushStackItem(activeTabId, {
+                  id: `browser:${Date.now()}`,
+                  component: "electron-browser",
+                  params: { url: "https://inside.hexems.com" },
+                  title: "Browser",
+                });
+              }}
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              Stack: Browser
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (!activeTabId) return;
+                pushStackItem(activeTabId, {
+                  id: `browser-window:${Date.now()}`,
+                  component: "electron-browser-window",
+                  params: { url: "https://inside.hexems.com", autoOpen: true },
+                  title: "Browser Window",
+                });
+              }}
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              Stack: BrowserWindow
+            </Button>
+          </>
+        ) : null}
+      </div>
+
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            if (!activeTabId) return;
+            clearStack(activeTabId);
+          }}
+          disabled={activeStackCount === 0}
+        >
+          Clear stack
+        </Button>
+      </div>
     </div>
   );
 }

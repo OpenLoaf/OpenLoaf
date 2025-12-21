@@ -89,10 +89,10 @@ export const Header = () => {
       </div>
       <div className="flex shrink-0 h-(--header-height) items-center pr-2">
         <div data-no-drag="true">
-          <ModeToggle />
+          <StackDockMenuButton />
         </div>
         <div data-no-drag="true">
-          <StackDockMenuButton />
+          <ModeToggle />
         </div>
         <Button
           data-no-drag="true"

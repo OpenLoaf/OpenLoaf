@@ -77,7 +77,7 @@ function PanelFrame({
     >
       <div
         className={cn(
-          "flex w-full flex-col bg-background/95 backdrop-blur-sm",
+          "flex w-full flex-col bg-background/95 backdrop-blur-sm pt-2",
           fillHeight && "h-full"
         )}
       >
@@ -105,13 +105,15 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const tab = useTabs((s) => s.tabs.find((t) => t.id === tabId));
   const removeStackItem = useTabs((s) => s.removeStackItem);
   const stackHidden = useTabs((s) => Boolean(s.stackHiddenByTabId[tabId]));
+  const activeStackItemId = useTabs((s) => s.activeStackItemIdByTabId[tabId]);
   const setStackHidden = useTabs((s) => s.setStackHidden);
 
   if (!tab) return null;
 
   const base = tab.base;
   const stack = tab.stack ?? [];
-  const activeStackId = stack.at(-1)?.id ?? "";
+  // 中文注释：stack 的选中态不再依赖“最后一个=顶部”，而是由 activeStackItemIdByTabId 决定。
+  const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
   const hasOverlay = Boolean(base) && stack.length > 0 && !stackHidden;
   const floating = Boolean(base);
 

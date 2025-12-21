@@ -69,7 +69,7 @@ export const TabMenu = ({
           )}
           <span className="min-w-0 flex-1 truncate">{tab.title || "Untitled"}</span>
           {hasBrowserWindow ? (
-            <Globe className="ml-1 h-3 w-3 shrink-0 text-muted-foreground/80" />
+            <Globe className="ml-1 size-3 shrink-0 text-muted-foreground/80" />
           ) : null}
           {!isPinned && (
             <span

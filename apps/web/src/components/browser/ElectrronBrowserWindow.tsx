@@ -56,9 +56,10 @@ export default function ElectrronBrowserWindow({
     if (s.activeTabId !== safeTabId) return false;
     const tab = s.tabs.find((t) => t.id === safeTabId);
     const stack = tab?.stack ?? [];
-    const index = stack.findIndex((item) => item.id === panelKey);
-    if (index === -1) return false;
-    return index !== stack.length - 1;
+    if (!stack.some((item) => item.id === panelKey)) return false;
+
+    const activeStackId = s.activeStackItemIdByTabId[safeTabId] || stack.at(-1)?.id || "";
+    return Boolean(activeStackId) && activeStackId !== panelKey;
   });
   const [loading, setLoading] = useState(true);
   const [overlayBlocked, setOverlayBlocked] = useState(false);
