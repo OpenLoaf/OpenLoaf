@@ -82,7 +82,7 @@ export function OpenUrlTool({ part }: { part: AnyToolPart }) {
         title: title ?? "Browser",
         params: { url, viewKey },
       } as any,
-      70,
+      100,
     );
   }, [tabId, url, finished, hasError, title]);
 

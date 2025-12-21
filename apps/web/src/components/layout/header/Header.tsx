@@ -84,7 +84,7 @@ export const Header = () => {
       </div>
       <div className="flex min-w-0 items-center gap-2 overflow-hidden pl-1">
         <div data-no-drag="true" className="shrink-0">
-          <WebContentsViewButton />
+          <WebContentsViewButton workspaceId={workspaceId} />
         </div>
         <div className="h-8 w-px bg-sidebar-border shrink-0" aria-hidden />
         <div className="min-w-0 flex-1 overflow-hidden">

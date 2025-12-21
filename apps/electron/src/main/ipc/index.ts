@@ -4,6 +4,7 @@ import {
   createBrowserWindowForUrl,
   destroyWebContentsView,
   getWebContentsView,
+  getWebContentsViewCount,
   upsertWebContentsView,
   type UpsertWebContentsViewArgs,
 } from './webContentsViews';
@@ -93,6 +94,13 @@ export function registerIpcHandlers(args: { log: Logger }) {
     if (!win) throw new Error('No BrowserWindow for sender');
     destroyWebContentsView(win, String(payload?.key ?? ''));
     return { ok: true };
+  });
+
+  // 获取当前窗口内 WebContentsView 数量（渲染端用于展示/诊断）。
+  ipcMain.handle('teatime:webcontents-view:count', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return { ok: false as const };
+    return { ok: true as const, count: getWebContentsViewCount(win) };
   });
 
   args.log('IPC handlers registered');

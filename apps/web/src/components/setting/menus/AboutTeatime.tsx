@@ -18,6 +18,13 @@ const ITEMS: Array<{ key: string; label: string }> = [
 export function AboutTeatime() {
   const clientId = getWebClientId();
   const [copiedKey, setCopiedKey] = React.useState<"clientId" | null>(null);
+  const [webContentsViewCount, setWebContentsViewCount] = React.useState<number | null>(null);
+  const isElectron = React.useMemo(
+    () =>
+      process.env.NEXT_PUBLIC_ELECTRON === "1" ||
+      (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron")),
+    [],
+  );
 
   /** 复制到剪贴板（navigator.clipboard 不可用时做降级）。 */
   const copyToClipboard = async (text: string, key: "clientId") => {
@@ -38,6 +45,37 @@ export function AboutTeatime() {
     setCopiedKey(key);
     window.setTimeout(() => setCopiedKey((prev) => (prev === key ? null : prev)), 800);
   };
+
+  /** Fetch WebContentsView count from Electron main process via IPC. */
+  const fetchWebContentsViewCount = React.useCallback(async () => {
+    const api = window.teatimeElectron;
+    if (!isElectron || !api?.getWebContentsViewCount) return;
+    try {
+      const res = await api.getWebContentsViewCount();
+      if (res?.ok) setWebContentsViewCount(res.count);
+    } catch {
+      // ignore
+    }
+  }, [isElectron]);
+
+  React.useEffect(() => {
+    if (!isElectron) return;
+
+    // 中文注释：设置页打开时拉取一次，并在窗口重新聚焦/重新可见时刷新，避免数值长期陈旧。
+    void fetchWebContentsViewCount();
+
+    const onFocus = () => void fetchWebContentsViewCount();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") onFocus();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [isElectron, fetchWebContentsViewCount]);
 
   return (
     <div className="space-y-6">
@@ -84,6 +122,27 @@ export function AboutTeatime() {
               </button>
             </div>
           </div>
+          {isElectron ? (
+            <div className="flex items-center justify-between gap-4 px-3 py-3">
+              <div className="text-sm font-medium">WebContentsView数</div>
+              <div className="min-w-0 max-w-[70%]">
+                <button
+                  type="button"
+                  aria-label="点击刷新 WebContentsView 数"
+                  title="点击刷新"
+                  className={[
+                    "w-full text-right",
+                    "bg-transparent p-0",
+                    "text-xs truncate",
+                    "text-muted-foreground hover:text-foreground hover:underline cursor-pointer",
+                  ].join(" ")}
+                  onClick={() => void fetchWebContentsViewCount()}
+                >
+                  {webContentsViewCount == null ? "—" : String(webContentsViewCount)}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </SettingsGroup>
 

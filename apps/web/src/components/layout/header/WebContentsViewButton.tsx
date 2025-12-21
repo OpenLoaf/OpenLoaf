@@ -13,24 +13,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTabs } from "@/hooks/use-tabs";
+import type { DockItem } from "@teatime-ai/api/common";
 
-type MockWebContentsView = {
-  id: number;
+type BrowserView = {
+  workspaceId: string;
   tabId: string;
+  item: DockItem;
   title: string;
   url: string;
 };
-
-const FALLBACK_TABS = [
-  { id: "tab_mock_1", title: "标签页 1", icon: "bot" },
-  { id: "tab_mock_2", title: "标签页 2", icon: "bot" },
-] as const;
-
-const FALLBACK_WEB_CONTENTS_VIEWS: Omit<MockWebContentsView, "tabId">[] = [
-  { id: 1, title: "Home", url: "https://teatime.local/" },
-  { id: 2, title: "Workspace", url: "https://teatime.local/workspace" },
-  { id: 3, title: "Settings", url: "https://teatime.local/settings" },
-];
 
 /** Renders a compact tab chip aligned with header tab styles. */
 const TabChip = ({
@@ -63,40 +54,58 @@ const SectionDivider = () => {
   );
 };
 
+function getDockUrl(item: DockItem): string {
+  const url = (item.params as any)?.url;
+  return typeof url === "string" ? url : "";
+}
+
+function deriveTitle(input: { item: DockItem; url: string }): string {
+  if (input.item.title) return input.item.title;
+  if (!input.url) return "Untitled";
+  try {
+    return new URL(input.url).hostname || input.url;
+  } catch {
+    return input.url;
+  }
+}
+
 /** Renders a tab-like trigger that previews mock WebContentsView entries. */
-export const WebContentsViewButton = () => {
+export const WebContentsViewButton = ({ workspaceId }: { workspaceId?: string }) => {
   const [open, setOpen] = React.useState(false);
   const activeTabId = useTabs((s) => s.activeTabId);
   const tabs = useTabs((s) => s.tabs);
+  const setActiveTab = useTabs((s) => s.setActiveTab);
+  const pushStackItem = useTabs((s) => s.pushStackItem);
 
-  // 先做 UI 设计：用 tabs store 来区分“当前标签页/其他标签页”，列表内容暂用 mock 数据。
-  const effectiveTabs = tabs.length > 0 ? tabs : FALLBACK_TABS;
-  const effectiveActiveTabId = activeTabId ?? effectiveTabs[0]?.id ?? null;
+  const [currentTabViews, otherTabViews, tabById] = React.useMemo(() => {
+    if (!workspaceId) return [[], [], new Map()] as const;
+    const workspaceTabs = tabs.filter((t) => t.workspaceId === workspaceId);
+    const map = new Map(workspaceTabs.map((tab) => [tab.id, tab]));
 
-  const tabById = React.useMemo(() => {
-    return new Map(effectiveTabs.map((tab) => [tab.id, tab]));
-  }, [effectiveTabs]);
+    const views: BrowserView[] = [];
+    for (const tab of workspaceTabs) {
+      for (const item of tab.stack ?? []) {
+        if (item.component !== "electron-browser-window") continue;
+        const url = getDockUrl(item);
+        views.push({
+          workspaceId,
+          tabId: tab.id,
+          item,
+          url,
+          title: deriveTitle({ item, url }),
+        });
+      }
+    }
 
-  const [currentTabViews, otherTabViews] = React.useMemo(() => {
-    const currentTab =
-      effectiveTabs.find((tab) => tab.id === effectiveActiveTabId) ??
-      effectiveTabs[0];
-    if (!currentTab) return [[], []] as const;
+    const current: BrowserView[] = [];
+    const others: BrowserView[] = [];
+    for (const view of views) {
+      if (activeTabId && view.tabId === activeTabId) current.push(view);
+      else others.push(view);
+    }
 
-    const otherTabs = effectiveTabs.filter((tab) => tab.id !== currentTab.id);
-    const current = FALLBACK_WEB_CONTENTS_VIEWS.slice(0, 2).map((view) => ({
-      ...view,
-      tabId: currentTab.id,
-    }));
-
-    const others = FALLBACK_WEB_CONTENTS_VIEWS.slice(2).map((view, index) => {
-      const targetTab =
-        otherTabs[index % Math.max(1, otherTabs.length)] ?? currentTab;
-      return { ...view, tabId: targetTab.id };
-    });
-
-    return [current, others] as const;
-  }, [effectiveActiveTabId, effectiveTabs]);
+    return [current, others, map] as const;
+  }, [workspaceId, tabs, activeTabId]);
 
   const viewCount = currentTabViews.length + otherTabViews.length;
   const displayCount = viewCount > 99 ? "99+" : String(viewCount);
@@ -129,20 +138,29 @@ export const WebContentsViewButton = () => {
         sideOffset={8}
         className="w-80 rounded-xl p-2"
       >
-        <DropdownMenuLabel className="px-2 text-xs text-muted-foreground">
-          当前打开的网页（模拟）
-        </DropdownMenuLabel>
+        <DropdownMenuLabel className="px-2 text-xs text-muted-foreground">当前打开的网页</DropdownMenuLabel>
         <DropdownMenuSeparator className="my-2" />
         <div className="space-y-1">
-          {/* 先做 UI 设计：这里暂不接入 Electron WebContentsView 的真实数据与切换逻辑 */}
+          {viewCount === 0 ? (
+            <DropdownMenuItem
+              className="rounded-lg text-xs text-muted-foreground"
+              disabled
+            >
+              暂无打开网页
+            </DropdownMenuItem>
+          ) : null}
+
           {currentTabViews.map((view) => {
             return (
               <DropdownMenuItem
-                key={`current:${view.id}`}
+                key={`current:${view.item.id}`}
                 className="rounded-lg"
                 onSelect={(event) => {
-                  // 先做 UI 设计：暂不切换/激活
                   event.preventDefault();
+                  // 中文注释：激活对应 tab，并把该网页面板置顶（stack 最后一个）。
+                  setActiveTab(view.tabId);
+                  pushStackItem(view.tabId, view.item, 70);
+                  setOpen(false);
                 }}
               >
                 <div className="min-w-0 flex-1">
@@ -164,11 +182,14 @@ export const WebContentsViewButton = () => {
                 const tab = tabById.get(view.tabId);
                 return (
                   <DropdownMenuItem
-                    key={`other:${view.id}`}
+                    key={`other:${view.item.id}`}
                     className="rounded-lg"
                     onSelect={(event) => {
-                      // 先做 UI 设计：暂不切换/激活
                       event.preventDefault();
+                      // 中文注释：跨 tab 打开：先切 tab，再把目标网页面板置顶。
+                      setActiveTab(view.tabId);
+                      pushStackItem(view.tabId, view.item, 70);
+                      setOpen(false);
                     }}
                   >
                     <div className="min-w-0 flex-1">

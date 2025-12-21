@@ -249,6 +249,15 @@ export function getWebContentsView(win: BrowserWindow, key: string): WebContents
 }
 
 /**
+ * Get the number of WebContentsViews created for the given BrowserWindow.
+ * This uses the internal view map as the single source of truth.
+ */
+export function getWebContentsViewCount(win: BrowserWindow): number {
+  const map = viewMapsByWindowId.get(win.id);
+  return map?.size ?? 0;
+}
+
+/**
  * 在指定窗口内创建或更新一个 WebContentsView：
  * - key 用于标识某个“嵌入面板”
  * - bounds 用于定位/大小（来自渲染端 DOM rect）

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 type OpenBrowserWindowResult = { id: number };
 type OkResult = { ok: true };
+type CountResult = { ok: true; count: number } | { ok: false };
 type ViewBounds = { x: number; y: number; width: number; height: number };
 
 /**
@@ -25,4 +26,7 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
   // 请求主进程移除某个嵌入的 WebContentsView。
   destroyWebContentsView: (key: string): Promise<OkResult> =>
     ipcRenderer.invoke('teatime:webcontents-view:destroy', { key }),
+  // 获取当前窗口内 WebContentsView 数量（用于设置页展示/诊断）。
+  getWebContentsViewCount: (): Promise<CountResult> =>
+    ipcRenderer.invoke('teatime:webcontents-view:count'),
 });
