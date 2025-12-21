@@ -3,6 +3,7 @@ import { ToolLoopAgent } from "ai";
 import { getWorkspaceId, type AgentFrame } from "@/common/requestContext";
 import { systemTools } from "@/ai/tools/system";
 import { dbTools } from "@/ai/tools/db";
+import { openUrlTool } from "../tools/browser";
 
 const MASTER_AGENT_NAME = "master";
 const MASTER_AGENT_ID = "master";
@@ -12,6 +13,7 @@ function createMasterTools() {
   return {
     ...systemTools,
     ...dbTools,
+    openUrlTool
   };
 }
 

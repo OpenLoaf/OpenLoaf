@@ -130,8 +130,9 @@ export function ChatInputBox({
         isFocused ? "border-primary ring-1 ring-primary/20" : "border-border",
         isOverLimit &&
           "border-destructive ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20",
+        "teatime-thinking-border",
         // 流式生成中：给输入框加边框流动动画，提示 AI 正在思考
-        isStreaming && !isOverLimit && "teatime-thinking-border border-transparent",
+        isStreaming && !isOverLimit && "teatime-thinking-border-on border-transparent",
         className
       )}
     >
