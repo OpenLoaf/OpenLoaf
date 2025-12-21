@@ -44,6 +44,29 @@ function toTokenUsageMetadata(part: unknown): { totalUsage: TokenUsage } | undef
   return { totalUsage: usage };
 }
 
+/** Merge UIMessage.metadata with abort info for persistence (best-effort). */
+function mergeMetadataWithAbortInfo(
+  metadata: unknown,
+  input: { isAborted: boolean; finishReason?: string },
+): Record<string, unknown> | undefined {
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+  const base = isRecord(metadata) ? { ...metadata } : {};
+  if (!input.isAborted) return Object.keys(base).length ? base : undefined;
+
+  // 中文注释：aborted 的流也需要落库；把“被中止”的状态写进 metadata，方便 UI/统计侧识别。
+  const existingTeatime = isRecord(base.teatime) ? base.teatime : {};
+  base.teatime = {
+    ...existingTeatime,
+    isAborted: true,
+    abortedAt: new Date().toISOString(),
+    ...(input.finishReason ? { finishReason: input.finishReason } : {}),
+  };
+
+  return base;
+}
+
 /**
  * Chat SSE 路由（MVP）：
  * - POST /chat/sse：创建并开始生成
@@ -107,16 +130,23 @@ export function registerChatSseRoutes(app: Hono) {
         logger.error({ err }, "[chat] ui stream error");
         return err instanceof Error ? err.message : "Unknown error";
       },
-      onFinish: async ({ isAborted, responseMessage }) => {
-        if (isAborted) return;
+      onFinish: async ({ isAborted, responseMessage, finishReason }) => {
         if (!responseMessage || responseMessage.role !== "assistant") return;
 
         const currentSessionId = getSessionId() ?? sessionId;
         try {
           await chatRepository.saveMessageNode({
             sessionId: currentSessionId,
-            message: { ...(responseMessage as any), id: assistantMessageId } as any,
+            message: {
+              ...(responseMessage as any),
+              id: assistantMessageId,
+              metadata: mergeMetadataWithAbortInfo((responseMessage as any).metadata, {
+                isAborted,
+                finishReason,
+              }),
+            } as any,
             parentMessageId: userNode.id,
+            allowEmpty: isAborted,
           });
         } catch (err) {
           logger.error({ err }, "[chat] save assistant failed");

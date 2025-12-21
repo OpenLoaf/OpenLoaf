@@ -15,6 +15,9 @@ import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
 import type { TeatimeUIDataTypes } from "@teatime-ai/api/types/message";
+import { executeBrowserCommand } from "@/lib/browser/execute-browser-command";
+import { trpcClient } from "@/utils/trpc";
+import { getWebClientId } from "@/lib/chat/streamClientId";
 
 function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
   if (input.dataPart?.type !== "data-open-browser") return false;
@@ -39,6 +42,39 @@ function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: strin
     } as any,
     100,
   );
+
+  return true;
+}
+
+function handleBrowserCommandDataPart(input: { dataPart: any; sessionId: string; fallbackTabId?: string }) {
+  if (input.dataPart?.type !== "data-browser-command") return false;
+  const data = input.dataPart?.data as TeatimeUIDataTypes["browser-command"] | undefined;
+  if (!data) return true;
+
+  const tabId = String(data.tabId || input.fallbackTabId || "");
+  if (!tabId) return true;
+
+  // 中文注释：异步执行，避免阻塞 React 渲染；执行完成后通过 tRPC 把结果回传给 server（工具调用在等待）。
+  void (async () => {
+    try {
+      const result = await executeBrowserCommand({ payload: { ...data, tabId } });
+      await trpcClient.tab.reportBrowserCommandResult.mutate({
+        sessionId: input.sessionId,
+        clientId: getWebClientId(),
+        tabId,
+        commandId: data.commandId,
+        result,
+      });
+    } catch (err) {
+      await trpcClient.tab.reportBrowserCommandResult.mutate({
+        sessionId: input.sessionId,
+        clientId: getWebClientId(),
+        tabId,
+        commandId: data.commandId,
+        result: { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
+      });
+    }
+  })();
 
   return true;
 }
@@ -251,6 +287,7 @@ export default function ChatProvider({
         // 关键：切换 session 后忽略旧流的 dataPart，避免 toolParts 被写回新会话 UI。
         if (sessionIdRef.current !== sessionId) return;
         if (handleOpenBrowserDataPart({ dataPart, fallbackTabId: tabId })) return;
+        if (handleBrowserCommandDataPart({ dataPart, sessionId, fallbackTabId: tabId })) return;
         handleChatDataPart({ dataPart, tabId, upsertToolPartMerged });
       },
     }),

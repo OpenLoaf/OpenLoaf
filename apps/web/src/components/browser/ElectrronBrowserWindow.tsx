@@ -1,12 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { BROWSER_WINDOW_PANEL_ID, useTabs } from "@/hooks/use-tabs";
 import { upsertTabSnapshotNow } from "@/lib/tab-snapshot";
 import { StackHeader } from "@/components/layout/StackHeader";
+import { BrowserTabsBar } from "@/components/browser/BrowserTabsBar";
+import { BrowserProgressBar } from "@/components/browser/BrowserProgressBar";
+import { BrowserLoadingOverlay } from "@/components/browser/BrowserLoadingOverlay";
+import { BrowserErrorOverlay } from "@/components/browser/BrowserErrorOverlay";
+import { normalizeUrl } from "@/components/browser/browser-utils";
+import type {
+  BrowserTab,
+  TeatimeWebContentsViewStatus,
+} from "@/components/browser/browser-types";
 import {
   Empty,
   EmptyDescription,
@@ -14,36 +22,15 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Plus, TriangleAlert, X } from "lucide-react";
-import { Loader } from "@/components/animate-ui/icons/loader";
+import { TriangleAlert } from "lucide-react";
 
 type ElectrronBrowserWindowProps = {
   panelKey: string;
   tabId?: string;
-  browserTabs?: Array<{ id: string; url: string; title?: string; viewKey: string; cdpTargetId?: string }>;
+  browserTabs?: BrowserTab[];
   activeBrowserTabId?: string;
   className?: string;
 };
-
-type TeatimeWebContentsViewStatus = {
-  key: string;
-  webContentsId: number;
-  url?: string;
-  title?: string;
-  loading?: boolean;
-  ready?: boolean;
-  failed?: { errorCode: number; errorDescription: string; validatedURL: string };
-  destroyed?: boolean;
-  ts: number;
-};
-
-function normalizeUrl(raw: string): string {
-  const value = raw?.trim();
-  if (!value) return "";
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value)) return value;
-  if (/^localhost(:\d+)?(\/|$)/.test(value)) return `http://${value}`;
-  return `https://${value}`;
-}
 
 export default function ElectrronBrowserWindow({
   panelKey,
@@ -88,6 +75,7 @@ export default function ElectrronBrowserWindow({
   );
 
   const targetUrl = useMemo(() => activeUrl, [activeUrl]);
+  const showProgress = Boolean(targetUrl) && activeViewStatus?.ready !== true && !activeViewStatus?.failed;
 
   const ensuredTargetIdRef = useRef<string | null>(null);
   const tabsRef = useRef(tabs);
@@ -175,7 +163,7 @@ export default function ElectrronBrowserWindow({
 
       setActiveViewStatus(detail.destroyed ? null : detail);
 
-      // 中文注释：以 dom-ready 作为“可展示”的 ready 信号，loading UI 不再用定时器猜测。
+      // 中文注释：loading overlay 和进度条都以 dom-ready 为准（更接近“可交互/可展示”的时机）。
       if (!targetUrl) {
         loadingRef.current = false;
         setLoading(false);
@@ -210,7 +198,8 @@ export default function ElectrronBrowserWindow({
       setLoading(false);
       return;
     }
-    const nextLoading = cached?.ready !== true;
+    // 中文注释：没有拿到状态前，默认按 loading 处理，避免页面“还没 ready”就被展示出来。
+    const nextLoading = cached ? cached.ready !== true : true;
     loadingRef.current = nextLoading;
     setLoading(nextLoading);
   }, [activeViewKey, targetUrl]);
@@ -432,7 +421,25 @@ export default function ElectrronBrowserWindow({
 
   const onClosePanel = () => {
     if (!safeTabId) return;
-    // 中文注释：关闭整个浏览器面板（stack item），并由 useEffect cleanup 负责销毁所有 view。
+    // 中文注释：关闭整个浏览器面板会同时关闭全部浏览器子标签（并销毁 Electron WebContentsView）。
+    const ok = window.confirm("关闭浏览器将关闭全部标签页，确定继续？");
+    if (!ok) return;
+
+    const api = window.teatimeElectron;
+    if (isElectron) {
+      // 中文注释：先主动销毁所有 view，保证 Electron 页面同步关闭。
+      for (const t of tabsRef.current) {
+        if (t?.viewKey) {
+          try {
+            void api?.destroyWebContentsView?.(String(t.viewKey));
+          } catch {
+            // ignore
+          }
+        }
+      }
+      lastSentByKeyRef.current.clear();
+    }
+
     useTabs.getState().removeStackItem(safeTabId, panelKey);
   };
 
@@ -494,147 +501,32 @@ export default function ElectrronBrowserWindow({
         </div>
       ) : (
         <>
-          <StackHeader title="Browser" onClose={onClosePanel} onRefresh={onRefreshPanel}>
-            <div className="flex min-w-0 items-center gap-1 overflow-x-auto scrollbar-hide">
-              {tabs.length === 0 ? (
-                <div className="text-xs text-muted-foreground px-2 py-1">暂无页面</div>
-              ) : (
-                tabs.map((t) => {
-                  const isActive = t.id === activeId;
-                  const isEditing = isActive && editingTabId === t.id;
-                  const title = t.title ?? "Untitled";
-                  const url = normalizeUrl(t.url ?? "");
-                  return (
-                    <div
-                      key={t.id}
-                      className={cn(
-                        "group flex h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-sm",
-                        isActive
-                          ? "bg-sidebar-accent text-foreground min-w-[320px]"
-                          : "bg-transparent text-muted-foreground hover:bg-sidebar/60 hover:text-foreground max-w-[180px]",
-                      )}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => onSelectBrowserTab(t.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          onSelectBrowserTab(t.id);
-                        }
-                      }}
-                      title={title}
-                    >
-                      {isActive ? (
-                        isEditing ? (
-                          <input
-                            autoFocus
-                            value={editingUrl}
-                            onChange={(e) => setEditingUrl(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                onCommitUrl();
-                              }
-                              if (e.key === "Escape") {
-                                e.preventDefault();
-                                setEditingTabId(null);
-                              }
-                            }}
-                            onBlur={() => onCommitUrl()}
-                            placeholder="输入网址，回车跳转"
-                            className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-xs text-foreground outline-none"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            className="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground hover:underline"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onStartEditUrl();
-                            }}
-                            title={url}
-                          >
-                            {url || "点击输入网址"}
-                          </button>
-                        )
-                      ) : (
-                        <span className="min-w-0 flex-1 truncate">{title}</span>
-                      )}
-                      <button
-                        type="button"
-                        className="grid h-6 w-6 place-items-center rounded-md opacity-0 transition-opacity group-hover:opacity-100"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          onCloseBrowserTab(t.id);
-                        }}
-                        aria-label="Close"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-              <button
-                type="button"
-                className="ml-1 grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-transparent text-muted-foreground hover:bg-sidebar/60 hover:text-foreground"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onNewTab();
-                }}
-                aria-label="New tab"
-                title="新建标签"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
+          <StackHeader
+            title="Browser"
+            onClose={onClosePanel}
+            onRefresh={onRefreshPanel}
+            showMinimize
+          >
+            <BrowserTabsBar
+              tabs={tabs}
+              activeId={activeId}
+              editingTabId={editingTabId}
+              editingUrl={editingUrl}
+              onSelect={onSelectBrowserTab}
+              onClose={onCloseBrowserTab}
+              onNew={onNewTab}
+              onStartEditUrl={onStartEditUrl}
+              onChangeEditingUrl={setEditingUrl}
+              onCommitUrl={onCommitUrl}
+              onCancelEdit={() => setEditingTabId(null)}
+            />
           </StackHeader>
 
+          <BrowserProgressBar visible={showProgress} />
+
           <div ref={hostRef} className="relative min-h-0 flex-1 overflow-hidden">
-            <AnimatePresence>
-              {loading ? (
-                <motion.div
-                  key="loading"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute inset-0 z-10 grid place-items-center bg-background/70"
-                >
-                  <motion.div
-                    initial={{ scale: 0.98, opacity: 0.85 }}
-                    animate={{ scale: [0.98, 1, 0.98], opacity: [0.85, 1, 0.85] }}
-                    transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-                    className="flex items-center gap-2 text-sm text-muted-foreground"
-                  >
-                    <Loader size={18} />
-                    <span>Loading…</span>
-                  </motion.div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-            {activeViewStatus?.failed ? (
-              <div className="absolute inset-0 z-10 grid place-items-center bg-background/70">
-                <div className="max-w-[360px] rounded-lg border bg-background p-4 text-sm">
-                  <div className="flex items-center gap-2 font-medium">
-                    <TriangleAlert className="h-4 w-4" />
-                    <span>页面加载失败</span>
-                  </div>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    {activeViewStatus.failed.errorDescription || "Load failed"}
-                  </div>
-                  {activeViewStatus.failed.validatedURL ? (
-                    <div className="mt-1 truncate text-xs text-muted-foreground">
-                      {activeViewStatus.failed.validatedURL}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
+            <BrowserLoadingOverlay visible={loading} />
+            <BrowserErrorOverlay failed={activeViewStatus?.failed} />
             {overlayBlocked || coveredByAnotherStackItem ? (
               <div className="absolute inset-0 z-20 grid place-items-center bg-background/80">
                 <div className="text-center text-sm text-muted-foreground">

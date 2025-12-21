@@ -259,3 +259,40 @@ body {
   min-width: 44px;
   min-height: 44px;
 }
+
+/* AI 流式生成时输入框边框流动动画（提示“正在思考”） */
+@keyframes teatime-thinking-border-flow {
+  0% {
+    background-position: 0 0, 0% 50%;
+  }
+  100% {
+    background-position: 0 0, 200% 50%;
+  }
+}
+
+.teatime-thinking-border {
+  /* 关键：用双背景 + background-clip 实现“挖空”，避免 mask 在圆角处产生锯齿 */
+  background:
+    linear-gradient(var(--color-background), var(--color-background)) padding-box,
+    linear-gradient(
+      90deg,
+      hsl(0 100% 60%),
+      hsl(30 100% 60%),
+      hsl(60 100% 60%),
+      hsl(120 100% 55%),
+      hsl(180 100% 55%),
+      hsl(210 100% 60%),
+      hsl(270 100% 65%),
+      hsl(330 100% 60%),
+      hsl(0 100% 60%)
+    ) border-box;
+  background-size: auto, 200% 200%;
+  background-position: 0 0, 0% 50%;
+  animation: teatime-thinking-border-flow 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teatime-thinking-border {
+    animation: none;
+  }
+}

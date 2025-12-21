@@ -42,6 +42,7 @@ export interface ChatInputBoxProps {
   submitLabel?: string;
   cancelLabel?: string;
   isLoading?: boolean;
+  isStreaming?: boolean;
   submitDisabled?: boolean;
   onSubmit?: (value: string) => void;
   onStop?: () => void;
@@ -63,6 +64,7 @@ export function ChatInputBox({
   submitLabel = "发送",
   cancelLabel = "取消",
   isLoading,
+  isStreaming,
   submitDisabled,
   onSubmit,
   onStop,
@@ -128,6 +130,8 @@ export function ChatInputBox({
         isFocused ? "border-primary ring-1 ring-primary/20" : "border-border",
         isOverLimit &&
           "border-destructive ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20",
+        // 流式生成中：给输入框加边框流动动画，提示 AI 正在思考
+        isStreaming && !isOverLimit && "teatime-thinking-border border-transparent",
         className
       )}
     >
@@ -314,6 +318,7 @@ export default function ChatInput({
   } = useChatContext();
 
   const isLoading = status === "submitted" || status === "streaming";
+  const isStreaming = status === "streaming";
 
   const handleSubmit = (value: string) => {
     const canSubmit = status === "ready" || status === "error";
@@ -336,6 +341,7 @@ export default function ChatInput({
       variant="default"
       compact={false}
       isLoading={isLoading}
+      isStreaming={isStreaming}
       submitDisabled={isHistoryLoading || (status !== "ready" && status !== "error")}
       onSubmit={handleSubmit}
       onStop={stopGenerating}

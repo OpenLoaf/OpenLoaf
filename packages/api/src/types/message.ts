@@ -49,6 +49,17 @@ export interface TeatimeUIDataTypes extends UIDataTypes {
     viewKey: string;
     panelKey: string;
   };
+  "browser-command": {
+    /** 用于把一次浏览器命令的结果回传给 server（工具调用需要同步返回）。 */
+    commandId: string;
+    tabId: string;
+    viewKey: string;
+    cdpTargetId?: string;
+    command: {
+      kind: "snapshot" | "act" | "observe" | "extract" | "wait";
+      input?: Record<string, unknown>;
+    };
+  };
 }
 
 /**

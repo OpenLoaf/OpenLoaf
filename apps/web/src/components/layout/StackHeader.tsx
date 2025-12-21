@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { RotateCw, X } from "lucide-react";
+import { Minus, RotateCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -15,6 +15,7 @@ export function StackHeader({
   children,
   onRefresh,
   onClose,
+  showMinimize = false,
   canClose = true,
   className,
 }: {
@@ -22,12 +23,13 @@ export function StackHeader({
   children?: React.ReactNode;
   onRefresh?: () => void;
   onClose?: () => void;
+  showMinimize?: boolean;
   canClose?: boolean;
   className?: string;
 }) {
   return (
-    <div className={cn("shrink-0 border-b bg-background/70 backdrop-blur-sm", className)}>
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
+    <div className={cn("shrink-0 bg-background/70 backdrop-blur-sm", className)}>
+      <div className="flex items-center justify-between gap-2 px-1 pt-0 py-2">
         <div className="min-w-0 flex-1 text-sm font-medium">
           {children ? children : <span className="truncate">{title}</span>}
         </div>
@@ -35,6 +37,11 @@ export function StackHeader({
           {onRefresh ? (
             <Button size="sm" variant="ghost" onClick={onRefresh} aria-label="Refresh">
               <RotateCw className="h-4 w-4" />
+            </Button>
+          ) : null}
+          {showMinimize ? (
+            <Button size="sm" variant="ghost" aria-label="Minimize">
+              <Minus className="h-4 w-4" />
             </Button>
           ) : null}
           {canClose && onClose ? (
@@ -47,4 +54,3 @@ export function StackHeader({
     </div>
   );
 }
-

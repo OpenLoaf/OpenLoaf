@@ -11,6 +11,14 @@ import {
 
 let ipcHandlersRegistered = false;
 
+type BrowserCommandPayload = {
+  commandId: string;
+  tabId: string;
+  viewKey: string;
+  cdpTargetId?: string;
+  command: { kind: 'snapshot' | 'act' | 'observe' | 'extract' | 'wait'; input?: Record<string, unknown> };
+};
+
 /**
  * Get CDP targetId for a given webContents using Electron's debugger API.
  */
@@ -39,6 +47,199 @@ async function getCdpTargetId(webContents: Electron.WebContents): Promise<string
       }
     }
   }
+}
+
+/**
+ * Execute a browser command on a WebContentsView (user-visible).
+ */
+async function runBrowserCommand(win: BrowserWindow, payload: BrowserCommandPayload) {
+  const viewKey = String(payload?.viewKey ?? '').trim();
+  if (!viewKey) throw new Error('Missing viewKey');
+
+  const view = getWebContentsView(win, viewKey);
+  const wc = view?.webContents;
+  if (!wc) throw new Error('WebContentsView not found');
+
+  const kind = payload?.command?.kind;
+  const input = payload?.command?.input ?? {};
+
+  const evalInPage = async <T>(expression: string): Promise<T> => {
+    // 中文注释：executeJavaScript 运行在页面上下文；MVP 仅用于读写 DOM，不注入第三方脚本。
+    return (await wc.executeJavaScript(expression, true)) as T;
+  };
+
+  const toStr = (v: unknown) => (typeof v === 'string' ? v : '');
+
+  const nowSnapshot = async () => {
+    const url = wc.getURL();
+    const title = wc.getTitle();
+    const readyState = await evalInPage<string>('document.readyState');
+    const text = await evalInPage<string>(
+      `(() => (document.body && (document.body.innerText || document.body.textContent) || '').toString())()`,
+    );
+    // 中文注释：限制文本长度，避免回传过大影响 SSE/上下文。
+    const clippedText = text.length > 10_000 ? text.slice(0, 10_000) : text;
+
+    const elements = await evalInPage<Array<{ selector: string; text?: string; tag: string }>>(
+      `(() => {
+        const pick = (el) => {
+          const tag = (el.tagName || '').toLowerCase();
+          const text = (el.innerText || el.value || el.getAttribute('aria-label') || '').toString().trim().slice(0, 80);
+          let selector = '';
+          if (el.id) selector = '#' + CSS.escape(el.id);
+          else if (el.name) selector = tag + '[name="' + CSS.escape(el.name) + '"]';
+          else selector = tag;
+          return { selector, text, tag };
+        };
+        const nodes = Array.from(document.querySelectorAll('a,button,input,select,textarea,[role="button"],[role="link"]'));
+        return nodes.slice(0, 40).map(pick);
+      })()`,
+    );
+
+    return { ok: true, data: { url, title, readyState, text: clippedText, elements } };
+  };
+
+  const sleep = (ms: number) =>
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, ms);
+    });
+
+  const waitUntil = async (opts: { timeoutMs: number; check: () => Promise<boolean> }) => {
+    const start = Date.now();
+    while (true) {
+      if (await opts.check()) return;
+      if (Date.now() - start >= opts.timeoutMs) throw new Error('wait timeout');
+      await sleep(150);
+    }
+  };
+
+  if (kind === 'snapshot') {
+    return await nowSnapshot();
+  }
+
+  if (kind === 'extract') {
+    // 中文注释：MVP 先不做“按 instruction 提取”，统一回传可读文本，让 Worker 自己总结/结构化。
+    return await nowSnapshot();
+  }
+
+  if (kind === 'observe') {
+    // 中文注释：MVP 先用 snapshot 的 elements 作为候选动作线索；observe 直接复用 snapshot。
+    return await nowSnapshot();
+  }
+
+  if (kind === 'wait') {
+    const type = toStr((input as any)?.type);
+    const timeoutMs = Math.max(0, Math.min(120_000, Number((input as any)?.timeoutMs ?? 30_000)));
+    const urlIncludes = toStr((input as any)?.url);
+    const textIncludes = toStr((input as any)?.text);
+
+    if (type === 'timeout') {
+      await sleep(timeoutMs);
+      return { ok: true, data: { waitedMs: timeoutMs } };
+    }
+
+    if (type === 'load') {
+      await waitUntil({ timeoutMs, check: async () => (await evalInPage<string>('document.readyState')) === 'complete' });
+      return { ok: true, data: { type } };
+    }
+
+    if (type === 'networkidle') {
+      // 中文注释：MVP：没有网络事件 hook，先按 load 近似处理。
+      await waitUntil({ timeoutMs, check: async () => (await evalInPage<string>('document.readyState')) === 'complete' });
+      return { ok: true, data: { type, approx: 'load' } };
+    }
+
+    if (type === 'urlIncludes') {
+      await waitUntil({ timeoutMs, check: async () => wc.getURL().includes(urlIncludes) });
+      return { ok: true, data: { type, urlIncludes } };
+    }
+
+    if (type === 'textIncludes') {
+      await waitUntil({
+        timeoutMs,
+        check: async () => {
+          const text = await evalInPage<string>(
+            `(() => (document.body && (document.body.innerText || document.body.textContent) || '').toString())()`,
+          );
+          return text.includes(textIncludes);
+        },
+      });
+      return { ok: true, data: { type, textIncludes } };
+    }
+
+    throw new Error(`Unsupported wait type: ${type}`);
+  }
+
+  if (kind === 'act') {
+    const action = toStr((input as any)?.action);
+    const trimmed = action.trim();
+    if (!trimmed) throw new Error('Missing action');
+
+    // 中文注释：MVP 只支持“可解析的结构化动作格式”，避免自然语言歧义导致误操作。
+    const clickMatch = /^click\s+css="([^"]+)"$/i.exec(trimmed);
+    const typeMatch = /^type\s+css="([^"]+)"\s+text="([^"]*)"$/i.exec(trimmed);
+    const fillMatch = /^fill\s+css="([^"]+)"\s+text="([^"]*)"$/i.exec(trimmed);
+    const pressMatch = /^press\s+key="([^"]+)"$/i.exec(trimmed);
+    const scrollMatch = /^scroll\s+y="(-?\d+)"$/i.exec(trimmed);
+
+    if (clickMatch) {
+      const sel = clickMatch[1]!;
+      await evalInPage<void>(
+        `(() => {
+          const el = document.querySelector(${JSON.stringify(sel)});
+          if (!el) throw new Error('element not found');
+          el.scrollIntoView({ block: 'center', inline: 'center' });
+          el.click();
+        })()`,
+      );
+      return { ok: true, data: { action: 'click', selector: sel } };
+    }
+
+    if (typeMatch || fillMatch) {
+      const sel = (typeMatch ?? fillMatch)![1]!;
+      const text = (typeMatch ?? fillMatch)![2] ?? '';
+      await evalInPage<void>(
+        `(() => {
+          const el = document.querySelector(${JSON.stringify(sel)});
+          if (!el) throw new Error('element not found');
+          el.scrollIntoView({ block: 'center', inline: 'center' });
+          el.focus && el.focus();
+          if ('value' in el) el.value = '';
+          const v = ${JSON.stringify(text)};
+          if ('value' in el) el.value = v;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        })()`,
+      );
+      return { ok: true, data: { action: typeMatch ? 'type' : 'fill', selector: sel, text } };
+    }
+
+    if (pressMatch) {
+      const key = pressMatch[1]!;
+      // 中文注释：MVP：简单 key 事件模拟；复杂组合键后续再补。
+      await evalInPage<void>(
+        `(() => {
+          const k = ${JSON.stringify(key)};
+          const el = document.activeElement;
+          const down = new KeyboardEvent('keydown', { key: k, bubbles: true });
+          const up = new KeyboardEvent('keyup', { key: k, bubbles: true });
+          (el || document).dispatchEvent(down);
+          (el || document).dispatchEvent(up);
+        })()`,
+      );
+      return { ok: true, data: { action: 'press', key } };
+    }
+
+    if (scrollMatch) {
+      const y = Number(scrollMatch[1] ?? 0);
+      await evalInPage<void>(`window.scrollBy(0, ${Math.trunc(y)});`);
+      return { ok: true, data: { action: 'scroll', y } };
+    }
+
+    throw new Error('Unsupported action format');
+  }
+
+  throw new Error(`Unsupported command kind: ${String(kind)}`);
 }
 
 /**
@@ -101,6 +302,12 @@ export function registerIpcHandlers(args: { log: Logger }) {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return { ok: false as const };
     return { ok: true as const, count: getWebContentsViewCount(win) };
+  });
+
+  ipcMain.handle('teatime:browser-command', async (event, payload: BrowserCommandPayload) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) throw new Error('No BrowserWindow for sender');
+    return await runBrowserCommand(win, payload);
   });
 
   args.log('IPC handlers registered');

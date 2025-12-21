@@ -4,7 +4,7 @@ import * as React from "react";
 import type { UIMessage } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Copy, Hash, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
+import { BarChart3, Copy, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
 import { toast } from "sonner";
 import { useChatContext } from "../ChatProvider";
 import { trpc } from "@/utils/trpc";
@@ -243,13 +243,13 @@ export default function MessageAiAction({
             aria-label="查看 token 用量"
             title="Token 用量"
           >
-            <Hash className="size-3" />
+            <BarChart3 className="size-3" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" sideOffset={6} className="max-w-xs">
           {usage ? (
             <div className="space-y-1">
-              <div className="font-medium">Token 用量（本地）</div>
+              <div className="font-medium">Token 用量</div>
               {agentModel?.provider || agentModel?.modelId ? (
                 <div className="opacity-90">
                   {agentModel?.provider ?? "-"} / {agentModel?.modelId ?? "-"}

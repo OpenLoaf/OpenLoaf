@@ -3,10 +3,8 @@ import { ToolLoopAgent } from "ai";
 import { getWorkspaceId, type AgentFrame } from "@/common/requestContext";
 import { systemTools } from "@/ai/tools/system";
 import { dbTools } from "@/ai/tools/db";
-import { openUrlTool } from "@/ai/tools/browser";
 import { subAgentTool } from "@/ai/tools/subAgent";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
-import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 
 const MASTER_AGENT_NAME = "master";
 const MASTER_AGENT_ID = "master";
@@ -16,8 +14,7 @@ function createMasterTools() {
   return {
     ...systemTools,
     ...dbTools,
-    [openUrlToolDef.id]: openUrlTool,
-    // [subAgentToolDef.id]: subAgentTool,
+    [subAgentToolDef.id]: subAgentTool,
   };
 }
 
@@ -28,6 +25,7 @@ function buildMasterInstructions() {
 你是 Teatime 的AI助手。
 - 返回必须是 Markdown。
 - 核心要求：优先使用工具完成用户指令。
+- 浏览器相关任务：必须调用 sub-agent（name=stagehand 或 name=browser）完成；主控不要自行尝试操作浏览器。
 
 当前 workspaceId：${workspaceId ?? "unknown"}
 `;

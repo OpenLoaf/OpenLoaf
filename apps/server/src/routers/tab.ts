@@ -1,5 +1,6 @@
 import { BaseTabRouter, tabSchemas, t, shieldedProcedure } from "@teatime-ai/api";
 import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
+import { resolveBrowserCommandPending } from "@/modules/tab/BrowserCommandStoreAdapter";
 
 export class TabRouterImpl extends BaseTabRouter {
   /** Tab 快照读写（MVP）：server 侧 TTL 缓存。 */
@@ -29,6 +30,15 @@ export class TabRouterImpl extends BaseTabRouter {
             tabId: input.tabId,
           });
           return { ok: true, tab };
+        }),
+
+      reportBrowserCommandResult: shieldedProcedure
+        .input(tabSchemas.reportBrowserCommandResult.input)
+        .output(tabSchemas.reportBrowserCommandResult.output)
+        .mutation(async ({ input }) => {
+          // 中文注释：浏览器命令的执行发生在 Electron（用户可见 WebContentsView），server 只负责把结果回传给工具等待方。
+          resolveBrowserCommandPending({ commandId: input.commandId, result: input.result });
+          return { ok: true };
         }),
     });
   }

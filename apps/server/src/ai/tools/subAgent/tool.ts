@@ -1,9 +1,7 @@
-import { deepseek } from "@ai-sdk/deepseek";
-import { createAgentUIStream, tool, zodSchema, ToolLoopAgent } from "ai";
+import { createAgentUIStream, tool, zodSchema } from "ai";
 import type { UIMessage } from "ai";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
-import { browserTools } from "@/ai/tools/browser";
-import { systemTools } from "@/ai/tools/system";
+import { createBrowserWorkerAgent } from "@/ai/agents/createBrowserWorkerAgent";
 import {
   getCurrentAgentFrame,
   getUiWriter,
@@ -19,19 +17,6 @@ function extractMarkdown(message: UIMessage): string {
     .map((p) => p.text)
     .join("\n")
     .trim();
-}
-
-function createBrowserSubAgent() {
-  // 中文注释：子 agent 只做浏览器相关工具（open-url + tab snapshot）。
-  return new ToolLoopAgent({
-    model: deepseek("deepseek-chat"),
-    instructions: `
-你是 Teatime 的浏览器子 Agent。
-- 输出必须是 Markdown。
-- 先 open-url 打开页面；再通过 browser-get-current-tab / browser-get-tabs 获取快照并给出下一步操作建议。
-`,
-    tools: { ...browserTools, ...systemTools },
-  });
 }
 
 function createSubFrame(parentPath: string[], name: string): AgentFrame {
@@ -62,11 +47,12 @@ export const subAgentTool = tool({
       return { ok: false, error: { code: "NOT_ALLOWED", message: "仅 master agent 允许调用 subAgent。" } };
     }
 
-    if (name !== "browser") {
-      return { ok: false, error: { code: "NOT_FOUND", message: "仅支持 browser 子 agent。" } };
+    const normalizedName = String(name ?? "").trim().toLowerCase();
+    if (normalizedName !== "browser" && normalizedName !== "stagehand") {
+      return { ok: false, error: { code: "NOT_FOUND", message: "仅支持 browser/stagehand 子 agent。" } };
     }
 
-    const agent = createBrowserSubAgent();
+    const agent = createBrowserWorkerAgent();
     pushAgentFrame(createSubFrame(parent.path, "browser"));
 
     const messages: UIMessage[] = [
