@@ -42,6 +42,13 @@ export interface TeatimeUIMessage extends UIMessage<unknown, TeatimeUIDataTypes,
  */
 export interface TeatimeUIDataTypes extends UIDataTypes {
   "sub-agent": TeatimeUIMessage;
+  "open-browser": {
+    tabId: string;
+    url: string;
+    title?: string;
+    viewKey: string;
+    panelKey: string;
+  };
 }
 
 /**

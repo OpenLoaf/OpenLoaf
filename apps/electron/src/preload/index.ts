@@ -12,6 +12,9 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
   // 请求主进程在独立窗口中打开外部 URL。
   openBrowserWindow: (url: string): Promise<OpenBrowserWindowResult> =>
     ipcRenderer.invoke('teatime:open-browser-window', { url }),
+  // 确保某个 viewKey 对应的 WebContentsView 已存在，并返回 cdpTargetId（供 server attach）。
+  ensureWebContentsView: (args: { key: string; url: string }): Promise<{ ok: true; webContentsId: number; cdpTargetId?: string } | { ok: false }> =>
+    ipcRenderer.invoke('teatime:webcontents-view:ensure', args),
   // 请求主进程使用 WebContentsView 将 URL 嵌入当前窗口。
   upsertWebContentsView: (args: {
     key: string;

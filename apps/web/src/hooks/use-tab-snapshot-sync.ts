@@ -1,10 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useMutation } from "@tanstack/react-query";
 import { useTabs } from "./use-tabs";
-import { getWebClientId } from "@/lib/chat/streamClientId";
-import { trpc } from "@/utils/trpc";
+import { upsertTabSnapshotNow } from "@/lib/tab-snapshot";
 
 /**
  * SSE 期间同步 Tab 快照（MVP）：
@@ -16,9 +14,6 @@ export function useTabSnapshotSync(input: {
   sessionId: string;
   tabId: string | null | undefined;
 }) {
-  const mutation = useMutation(trpc.tab.upsertSnapshot.mutationOptions());
-  const seqRef = React.useRef(0);
-  const lastJsonRef = React.useRef<string>("");
   const debounceTimerRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
@@ -26,29 +21,11 @@ export function useTabSnapshotSync(input: {
     if (!input.sessionId) return;
     if (!input.tabId) return;
 
-    const clientId = getWebClientId();
     const tabId = input.tabId;
 
     // 中文注释：发送一次“当前状态”，确保 server 缓存立刻可用。
     const sendNow = () => {
-      const tab = useTabs.getState().getTabById(tabId);
-      if (!tab) return;
-      let json = "";
-      try {
-        json = JSON.stringify(tab);
-      } catch {
-        return;
-      }
-      if (json === lastJsonRef.current) return;
-      lastJsonRef.current = json;
-      seqRef.current += 1;
-      mutation.mutate({
-        sessionId: input.sessionId,
-        clientId,
-        tabId,
-        seq: seqRef.current,
-        tab,
-      });
+      void upsertTabSnapshotNow({ sessionId: input.sessionId, tabId });
     };
 
     sendNow();
@@ -71,5 +48,5 @@ export function useTabSnapshotSync(input: {
         debounceTimerRef.current = null;
       }
     };
-  }, [input.enabled, input.sessionId, input.tabId, mutation]);
+  }, [input.enabled, input.sessionId, input.tabId]);
 }

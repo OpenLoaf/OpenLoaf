@@ -7,6 +7,7 @@ import { Check, ChevronDown, Copy } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { toast } from "sonner";
+import { OpenUrlTool } from "./OpenUrlTool";
 
 // MVP：只展示工具名称 + 输入 + 输出（去掉语法高亮/格式化/多层折叠）
 type AnyToolPart = {
@@ -147,6 +148,11 @@ export default function MessageTool({
   part: AnyToolPart;
   className?: string;
 }) {
+  // 中文注释：open-url 使用专用组件，支持“流结束后手动点击打开左侧网页”。
+  if (part.toolName === "open-url" || part.type === "tool-open-url") {
+    return <OpenUrlTool part={part} />;
+  }
+
   const toolName = getToolName(part);
   const statusText = getToolStatusText(part);
   const showInput = !isEmptyInput(part.input);

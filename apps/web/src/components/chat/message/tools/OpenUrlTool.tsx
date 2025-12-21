@@ -1,0 +1,137 @@
+"use client";
+
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card";
+import { useTabs } from "@/hooks/use-tabs";
+import { useChatContext } from "@/components/chat/ChatProvider";
+import { Globe } from "lucide-react";
+
+type AnyToolPart = {
+  type: string;
+  toolName?: string;
+  state?: string;
+  input?: unknown;
+  output?: unknown;
+  errorText?: string;
+};
+
+function getInputUrl(input: unknown): string {
+  if (!input || typeof input !== "object") return "";
+  const url = (input as any).url;
+  return typeof url === "string" ? url.trim() : "";
+}
+
+function getInputTitle(input: unknown): string | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const title = (input as any).title;
+  return typeof title === "string" && title.trim() ? title.trim() : undefined;
+}
+
+function isToolFinished(part: AnyToolPart) {
+  if (typeof part.errorText === "string" && part.errorText.trim()) return true;
+  if (part.state === "output-available") return true;
+  if (part.output != null) return true;
+  return false;
+}
+
+function buildViewKey(input: { workspaceId: string; tabId: string; chatSessionId: string }) {
+  // 中文注释：用 workspaceId/tabId/chatSessionId 组合成稳定 key，确保同一会话重复点击会复用同一 WebContentsView。
+  return `browser:${input.workspaceId}:${input.tabId}:${input.chatSessionId}`;
+}
+
+/**
+ * OpenUrlTool renders a "manual open" button after the tool stream finishes.
+ */
+export function OpenUrlTool({ part }: { part: AnyToolPart }) {
+  const { tabId: contextTabId } = useChatContext();
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const tabId = contextTabId ?? activeTabId ?? undefined;
+
+  const url = getInputUrl(part.input);
+  const title = getInputTitle(part.input);
+  const finished = isToolFinished(part);
+  const hasError = typeof part.errorText === "string" && part.errorText.trim().length > 0;
+
+  const onOpen = React.useCallback(() => {
+    if (!tabId) return;
+    if (!url) return;
+    if (!finished) return;
+    if (hasError) return;
+
+    const state = useTabs.getState();
+    const tab = state.getTabById(tabId);
+    if (!tab) return;
+
+    const viewKey = buildViewKey({
+      workspaceId: tab.workspaceId,
+      tabId,
+      chatSessionId: tab.chatSessionId,
+    });
+
+    // 中文注释：写入 stack，由 ElectrronBrowserWindow 负责 ensureWebContentsView 并写回 cdpTargetId。
+    state.pushStackItem(
+      tabId,
+      {
+        id: viewKey,
+        sourceKey: viewKey,
+        component: "electron-browser-window",
+        title: title ?? "Browser",
+        params: { url, viewKey },
+      } as any,
+      70,
+    );
+  }, [tabId, url, finished, hasError, title]);
+
+  return (
+    <div className="flex ml-2 w-full min-w-0 max-w-full justify-start">
+      <Card className="w-full min-w-0 max-w-[520px] py-2 shadow-none mr-6">
+        <CardContent className="px-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="shrink-0 text-muted-foreground">
+              <Globe className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm text-foreground/90">
+                {title ?? "—"}
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                {url ? (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:underline"
+                    title={url}
+                  >
+                    {url}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </div>
+              {hasError ? (
+                <div className="mt-1 truncate text-xs text-destructive">
+                  {String(part.errorText)}
+                </div>
+              ) : null}
+            </div>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={!finished || hasError || !url || !tabId}
+              onClick={onOpen}
+            >
+              打开
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

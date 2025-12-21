@@ -1,6 +1,7 @@
 import { tool, zodSchema } from "ai";
 import { getClientId, getSessionId, getTabId } from "@/common/requestContext";
 import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
+import { openUrlTool } from "./openUrl";
 import {
   playwrightActTool,
   playwrightDiagnosticsTool,
@@ -12,6 +13,7 @@ import {
 import {
   browserGetTabsToolDef,
   browserGetCurrentTabToolDef,
+  openUrlToolDef,
 } from "@teatime-ai/api/types/tools/browser";
 import {
   playwrightActToolDef,
@@ -51,6 +53,11 @@ export const browserTools = {
       return { ok: true, data: tab ?? null };
     },
   }),
+
+  // ======
+  // MVP：打开网址（UI 驱动）
+  // ======
+  [openUrlToolDef.id]: openUrlTool,
 
   // ======
   // MVP：Playwright / CDP（参考 chrome-devtools-mcp 的交互方式）

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useTabs } from "@/hooks/use-tabs";
+import { upsertTabSnapshotNow } from "@/lib/tab-snapshot";
 import {
   Empty,
   EmptyDescription,
@@ -19,6 +20,7 @@ type ElectrronBrowserWindowProps = {
   tabId?: string;
   url?: string;
   pageTargetId?: string;
+  viewKey?: string;
   className?: string;
 };
 
@@ -34,6 +36,7 @@ export default function ElectrronBrowserWindow({
   panelKey,
   tabId,
   url,
+  viewKey,
   className,
 }: ElectrronBrowserWindowProps) {
   const tabActive = useTabActive();
@@ -65,6 +68,53 @@ export default function ElectrronBrowserWindow({
     () => normalizeUrl(url ?? "https://www.baidu.com"),
     [url]
   );
+
+  const ensuredTargetIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const api = window.teatimeElectron;
+    if (!isElectron || !tabId) return;
+    const ensureWebContentsView = api?.ensureWebContentsView;
+    if (!ensureWebContentsView) return;
+    if (!targetUrl) return;
+
+    const key = String(viewKey ?? panelKey);
+    let canceled = false;
+
+    (async () => {
+      const res = await ensureWebContentsView({ key, url: targetUrl });
+      if (canceled || !res?.ok) return;
+      if (!res.cdpTargetId) return;
+      if (ensuredTargetIdRef.current === res.cdpTargetId) return;
+      ensuredTargetIdRef.current = res.cdpTargetId;
+
+      // 中文注释：把 cdpTargetId 写回 tab 的 stack item（单一事实来源：TabSnapshot）。
+      const state = useTabs.getState();
+      const tab = state.getTabById(tabId);
+      const item = tab?.stack?.find((x) => x.id === panelKey);
+      if (item) {
+        state.pushStackItem(tabId, {
+          ...item,
+          params: { ...(item.params ?? {}), cdpTargetId: res.cdpTargetId, viewKey: key, url: targetUrl },
+          sourceKey: item.sourceKey ?? key,
+        } as any);
+      }
+
+      // 中文注释：cdpTargetId 已就绪，立即上报一次快照，确保 server 能马上 attach 控制。
+      const sessionId = tab?.chatSessionId;
+      if (sessionId) {
+        try {
+          await upsertTabSnapshotNow({ sessionId, tabId });
+        } catch {
+          // ignore
+        }
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, [isElectron, tabId, panelKey, viewKey, targetUrl]);
 
   const loadingRef = useRef(loading);
   useEffect(() => {
@@ -191,7 +241,7 @@ export default function ElectrronBrowserWindow({
         lastSentRef.current = next;
         try {
           await api.upsertWebContentsView({
-            key: panelKey,
+            key: String(viewKey ?? panelKey),
             url: next.url,
             bounds: next.bounds,
             visible: next.visible,
@@ -244,9 +294,9 @@ export default function ElectrronBrowserWindow({
     if (!isElectron || !api?.destroyWebContentsView) return;
     return () => {
       lastSentRef.current = null;
-      void api.destroyWebContentsView?.(panelKey);
+      void api.destroyWebContentsView?.(String(viewKey ?? panelKey));
     };
-  }, [isElectron, panelKey]);
+  }, [isElectron, panelKey, viewKey]);
 
   return (
     <div

@@ -6,6 +6,12 @@ declare global {
   interface Window {
     teatimeElectron?: {
       openBrowserWindow: (url: string) => Promise<{ id: number }>;
+      ensureWebContentsView?: (args: {
+        key: string;
+        url: string;
+      }) => Promise<
+        { ok: true; webContentsId: number; cdpTargetId?: string } | { ok: false }
+      >;
       upsertWebContentsView: (args: {
         key: string;
         url: string;

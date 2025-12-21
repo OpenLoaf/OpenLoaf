@@ -14,6 +14,36 @@ import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
 import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
+import type { TeatimeUIDataTypes } from "@teatime-ai/api/types/message";
+
+function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
+  if (input.dataPart?.type !== "data-open-browser") return false;
+  const data = input.dataPart?.data as TeatimeUIDataTypes["open-browser"] | undefined;
+  if (!data) return true;
+
+  const tabId = String(data.tabId || input.fallbackTabId || "");
+  if (!tabId) return true;
+
+  const viewKey = String(data.viewKey || "");
+  const panelKey = String(data.panelKey || viewKey || `browser:${Date.now()}`);
+  const url = String(data.url || "");
+  const title = typeof data.title === "string" ? data.title : undefined;
+
+  // 中文注释：用 sourceKey 做去重/upsert，避免同一个页面重复打开多个 stack。
+  useTabs.getState().pushStackItem(
+    tabId,
+    {
+      id: panelKey,
+      sourceKey: viewKey || panelKey,
+      component: "electron-browser-window",
+      title,
+      params: { url, viewKey },
+    } as any,
+    100,
+  );
+
+  return true;
+}
 
 /**
  * 聊天上下文类型
@@ -222,6 +252,7 @@ export default function ChatProvider({
       onData: (dataPart: any) => {
         // 关键：切换 session 后忽略旧流的 dataPart，避免 toolParts 被写回新会话 UI。
         if (sessionIdRef.current !== sessionId) return;
+        if (handleOpenBrowserDataPart({ dataPart, fallbackTabId: tabId })) return;
         handleChatDataPart({ dataPart, tabId, upsertToolPartMerged });
       },
     }),

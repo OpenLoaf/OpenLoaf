@@ -3,11 +3,42 @@ import type { Logger } from '../logging/startupLogger';
 import {
   createBrowserWindowForUrl,
   destroyWebContentsView,
+  getWebContentsView,
   upsertWebContentsView,
   type UpsertWebContentsViewArgs,
 } from './webContentsViews';
 
 let ipcHandlersRegistered = false;
+
+/**
+ * Get CDP targetId for a given webContents using Electron's debugger API.
+ */
+async function getCdpTargetId(webContents: Electron.WebContents): Promise<string | undefined> {
+  const dbg = webContents.debugger;
+  let attachedHere = false;
+  try {
+    if (!dbg.isAttached()) {
+      dbg.attach('1.3');
+      attachedHere = true;
+    }
+    // 中文注释：通过 Target.getTargetInfo 获取当前 webContents 对应的 CDP targetId。
+    const info = (await dbg.sendCommand('Target.getTargetInfo')) as {
+      targetInfo?: { targetId?: string };
+    };
+    const id = String(info?.targetInfo?.targetId ?? '');
+    return id || undefined;
+  } catch {
+    return undefined;
+  } finally {
+    if (attachedHere) {
+      try {
+        dbg.detach();
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
 
 /**
  * 注册主进程 IPC handlers（只注册一次）：
@@ -30,6 +61,30 @@ export function registerIpcHandlers(args: { log: Logger }) {
     if (!win) throw new Error('No BrowserWindow for sender');
     upsertWebContentsView(win, payload);
     return { ok: true };
+  });
+
+  // 中文注释：确保某个 viewKey 对应的 WebContentsView 已存在，并返回其 cdpTargetId，供 server attach 控制。
+  ipcMain.handle('teatime:webcontents-view:ensure', async (event, payload: { key: string; url: string }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) throw new Error('No BrowserWindow for sender');
+    const key = String(payload?.key ?? '').trim();
+    const url = String(payload?.url ?? '').trim();
+    if (!key) throw new Error('Missing view key');
+    if (!url) throw new Error('Missing url');
+
+    // 中文注释：先创建/复用 view；bounds 由渲染端后续 upsert 时持续同步。
+    upsertWebContentsView(win, { key, url, bounds: { x: 0, y: 0, width: 0, height: 0 }, visible: false });
+
+    const view = getWebContentsView(win, key);
+    const wc = view?.webContents;
+    if (!wc) return { ok: false as const };
+
+    const cdpTargetId = await getCdpTargetId(wc);
+    return {
+      ok: true as const,
+      webContentsId: wc.id,
+      cdpTargetId,
+    };
   });
 
   // 销毁先前通过 `upsert` 创建的 WebContentsView。
