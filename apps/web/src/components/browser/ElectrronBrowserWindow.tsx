@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
-import { useTabs } from "@/hooks/use-tabs";
+import { BROWSER_WINDOW_PANEL_ID, useTabs } from "@/hooks/use-tabs";
 import { upsertTabSnapshotNow } from "@/lib/tab-snapshot";
+import { StackHeader } from "@/components/layout/StackHeader";
 import {
   Empty,
   EmptyDescription,
@@ -12,15 +13,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { TriangleAlert } from "lucide-react";
+import { Plus, TriangleAlert, X } from "lucide-react";
 import { Loader } from "@/components/animate-ui/icons/loader";
 
 type ElectrronBrowserWindowProps = {
   panelKey: string;
   tabId?: string;
-  url?: string;
-  pageTargetId?: string;
-  viewKey?: string;
+  browserTabs?: Array<{ id: string; url: string; title?: string; viewKey: string; cdpTargetId?: string }>;
+  activeBrowserTabId?: string;
   className?: string;
 };
 
@@ -35,15 +35,25 @@ function normalizeUrl(raw: string): string {
 export default function ElectrronBrowserWindow({
   panelKey,
   tabId,
-  url,
-  viewKey,
+  browserTabs,
+  activeBrowserTabId,
   className,
 }: ElectrronBrowserWindowProps) {
   const tabActive = useTabActive();
+  const safeTabId = typeof tabId === "string" ? tabId : undefined;
+
+  const tabs = Array.isArray(browserTabs) ? browserTabs : [];
+  const activeId = activeBrowserTabId ?? tabs[0]?.id ?? "";
+  const active = tabs.find((t) => t.id === activeId) ?? tabs[0] ?? null;
+  const activeUrl = normalizeUrl(active?.url ?? "");
+  const activeViewKey = String(active?.viewKey ?? panelKey);
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editingUrl, setEditingUrl] = useState("");
+
   const coveredByAnotherStackItem = useTabs((s) => {
-    if (!tabId) return false;
-    if (s.activeTabId !== tabId) return false;
-    const tab = s.tabs.find((t) => t.id === tabId);
+    if (!safeTabId) return false;
+    if (s.activeTabId !== safeTabId) return false;
+    const tab = s.tabs.find((t) => t.id === safeTabId);
     const stack = tab?.stack ?? [];
     const index = stack.findIndex((item) => item.id === panelKey);
     if (index === -1) return false;
@@ -64,21 +74,48 @@ export default function ElectrronBrowserWindow({
     []
   );
 
-  const targetUrl = useMemo(
-    () => normalizeUrl(url ?? "https://www.baidu.com"),
-    [url]
-  );
+  const targetUrl = useMemo(() => activeUrl, [activeUrl]);
 
   const ensuredTargetIdRef = useRef<string | null>(null);
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+
+  const createBrowserTabId = () => {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+    return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  };
+
+  const buildViewKey = (browserTabId: string) => {
+    if (!safeTabId) return `${BROWSER_WINDOW_PANEL_ID}:${browserTabId}`;
+    const tab = useTabs.getState().getTabById(safeTabId);
+    const workspaceId = tab?.workspaceId ?? "unknown";
+    const chatSessionId = tab?.chatSessionId ?? "unknown";
+    return `browser:${workspaceId}:${safeTabId}:${chatSessionId}:${browserTabId}`;
+  };
+
+  const updateBrowserState = (nextTabs: ElectrronBrowserWindowProps["browserTabs"], nextActiveId?: string) => {
+    if (!safeTabId) return;
+    // 中文注释：浏览器面板内的状态（tabs/active）统一写回到 tab.stack，作为单一事实来源。
+    useTabs.getState().pushStackItem(
+      safeTabId,
+      {
+        id: BROWSER_WINDOW_PANEL_ID,
+        sourceKey: BROWSER_WINDOW_PANEL_ID,
+        component: "electron-browser-window",
+        params: { __customHeader: true, browserTabs: nextTabs ?? [], activeBrowserTabId: nextActiveId },
+      } as any,
+      100,
+    );
+  };
 
   useEffect(() => {
     const api = window.teatimeElectron;
-    if (!isElectron || !tabId) return;
+    if (!isElectron || !safeTabId) return;
     const ensureWebContentsView = api?.ensureWebContentsView;
     if (!ensureWebContentsView) return;
     if (!targetUrl) return;
 
-    const key = String(viewKey ?? panelKey);
+    const key = activeViewKey;
     let canceled = false;
 
     (async () => {
@@ -88,33 +125,20 @@ export default function ElectrronBrowserWindow({
       if (ensuredTargetIdRef.current === res.cdpTargetId) return;
       ensuredTargetIdRef.current = res.cdpTargetId;
 
-      // 中文注释：把 cdpTargetId 写回 tab 的 stack item（单一事实来源：TabSnapshot）。
-      const state = useTabs.getState();
-      const tab = state.getTabById(tabId);
-      const item = tab?.stack?.find((x) => x.id === panelKey);
-      if (item) {
-        state.pushStackItem(tabId, {
-          ...item,
-          params: { ...(item.params ?? {}), cdpTargetId: res.cdpTargetId, viewKey: key, url: targetUrl },
-          sourceKey: item.sourceKey ?? key,
-        } as any);
-      }
+      // 中文注释：把 cdpTargetId 写回当前激活的浏览器子标签，并立即上报快照给 server。
+      const nextTabs = tabsRef.current.map((t) =>
+        t.viewKey === key ? { ...t, cdpTargetId: res.cdpTargetId } : t,
+      );
+      updateBrowserState(nextTabs, activeId);
 
-      // 中文注释：cdpTargetId 已就绪，立即上报一次快照，确保 server 能马上 attach 控制。
-      const sessionId = tab?.chatSessionId;
-      if (sessionId) {
-        try {
-          await upsertTabSnapshotNow({ sessionId, tabId });
-        } catch {
-          // ignore
-        }
-      }
+      const sessionId = useTabs.getState().getTabById(safeTabId)?.chatSessionId;
+      if (sessionId) void upsertTabSnapshotNow({ sessionId, tabId: safeTabId });
     })();
 
     return () => {
       canceled = true;
     };
-  }, [isElectron, tabId, panelKey, viewKey, targetUrl]);
+  }, [isElectron, safeTabId, targetUrl, activeViewKey, activeId]);
 
   const loadingRef = useRef(loading);
   useEffect(() => {
@@ -129,24 +153,28 @@ export default function ElectrronBrowserWindow({
   coveredByAnotherStackItemRef.current = coveredByAnotherStackItem;
 
   useEffect(() => {
+    // 中文注释：没有 URL 时不触发加载态，避免新建标签（空 URL）一直转圈。
+    if (!targetUrl) {
+      loadingRef.current = false;
+      setLoading(false);
+      return;
+    }
     loadingTokenRef.current += 1;
     loadingSinceRef.current = performance.now();
     setLoading(true);
   }, [targetUrl]);
 
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const lastSentRef = useRef<{
-    url: string;
-    bounds: TeatimeViewBounds;
-    visible: boolean;
-  } | null>(null);
+  const lastSentByKeyRef = useRef<
+    Map<string, { url: string; bounds: TeatimeViewBounds; visible: boolean }>
+  >(new Map());
 
   useEffect(() => {
     const api = window.teatimeElectron;
     if (!isElectron) return;
 
     const hideIfNeeded = () => {
-      const prev = lastSentRef.current;
+      const prev = lastSentByKeyRef.current.get(activeViewKey) ?? null;
       if (
         !api?.upsertWebContentsView ||
         !tabActiveRef.current ||
@@ -158,12 +186,12 @@ export default function ElectrronBrowserWindow({
 
       if (coveredByAnotherStackItemRef.current) {
         void api.upsertWebContentsView({
-          key: panelKey,
+          key: activeViewKey,
           url: prev.url,
           bounds: prev.bounds,
           visible: false,
         });
-        lastSentRef.current = { ...prev, visible: false };
+        lastSentByKeyRef.current.set(activeViewKey, { ...prev, visible: false });
       }
     };
 
@@ -176,15 +204,15 @@ export default function ElectrronBrowserWindow({
         overlayIdsRef.current.add(detail.id);
         overlayBlockedRef.current = overlayIdsRef.current.size > 0;
         setOverlayBlocked(overlayBlockedRef.current);
-        const prev = lastSentRef.current;
+        const prev = lastSentByKeyRef.current.get(activeViewKey) ?? null;
         if (api?.upsertWebContentsView && tabActiveRef.current && prev) {
           void api.upsertWebContentsView({
-            key: panelKey,
+            key: activeViewKey,
             url: prev.url,
             bounds: prev.bounds,
             visible: false,
           });
-          lastSentRef.current = { ...prev, visible: false };
+          lastSentByKeyRef.current.set(activeViewKey, { ...prev, visible: false });
         }
       } else {
         overlayIdsRef.current.delete(detail.id);
@@ -197,7 +225,7 @@ export default function ElectrronBrowserWindow({
     hideIfNeeded();
     window.addEventListener("teatime:overlay", handleOverlay);
     return () => window.removeEventListener("teatime:overlay", handleOverlay);
-  }, [isElectron, panelKey]);
+  }, [isElectron, activeViewKey]);
 
   useEffect(() => {
     const api = window.teatimeElectron;
@@ -227,7 +255,7 @@ export default function ElectrronBrowserWindow({
           },
         };
 
-      const prev = lastSentRef.current;
+      const prev = lastSentByKeyRef.current.get(activeViewKey) ?? null;
       const changed =
         !prev ||
         prev.url !== next.url ||
@@ -238,10 +266,10 @@ export default function ElectrronBrowserWindow({
         prev.bounds.height !== next.bounds.height;
 
       if (changed) {
-        lastSentRef.current = next;
+        lastSentByKeyRef.current.set(activeViewKey, next);
         try {
           await api.upsertWebContentsView({
-            key: String(viewKey ?? panelKey),
+            key: activeViewKey,
             url: next.url,
             bounds: next.bounds,
             visible: next.visible,
@@ -287,16 +315,94 @@ export default function ElectrronBrowserWindow({
       window.cancelAnimationFrame(rafId);
       void sync(false);
     };
-  }, [targetUrl, isElectron, panelKey, tabActive, coveredByAnotherStackItem]);
+  }, [targetUrl, isElectron, activeViewKey, tabActive, coveredByAnotherStackItem]);
 
   useEffect(() => {
     const api = window.teatimeElectron;
     if (!isElectron || !api?.destroyWebContentsView) return;
     return () => {
-      lastSentRef.current = null;
-      void api.destroyWebContentsView?.(String(viewKey ?? panelKey));
+      // 中文注释：关闭整个浏览器面板时，销毁所有子标签对应的 WebContentsView，避免泄漏。
+      for (const t of tabsRef.current) {
+        if (t?.viewKey) void api.destroyWebContentsView?.(String(t.viewKey));
+      }
+      lastSentByKeyRef.current.clear();
     };
-  }, [isElectron, panelKey, viewKey]);
+  }, [isElectron]);
+
+  // ======
+  // 内部“Safari tabs”交互：切换/关闭
+  // ======
+
+  const onSelectBrowserTab = (id: string) => {
+    if (!id) return;
+    setEditingTabId(null);
+    updateBrowserState(tabsRef.current, id);
+  };
+
+  const onCloseBrowserTab = (id: string) => {
+    if (!id) return;
+    if (editingTabId === id) setEditingTabId(null);
+    const api = window.teatimeElectron;
+    const current = tabsRef.current;
+    const closing = current.find((t) => t.id === id);
+    if (closing?.viewKey && isElectron) {
+      try {
+        void api?.destroyWebContentsView?.(String(closing.viewKey));
+      } catch {
+        // ignore
+      }
+    }
+
+    const nextTabs = current.filter((t) => t.id !== id);
+    const nextActive =
+      activeId === id ? (nextTabs.at(-1)?.id ?? nextTabs[0]?.id) : activeId;
+    updateBrowserState(nextTabs, nextActive);
+  };
+
+  const onStartEditUrl = () => {
+    if (!activeId) return;
+    setEditingTabId(activeId);
+    setEditingUrl(activeUrl);
+  };
+
+  const onCommitUrl = () => {
+    if (!editingTabId) return;
+    const next = normalizeUrl(editingUrl);
+    setEditingTabId(null);
+    if (!next) return;
+    const nextTabs = tabsRef.current.map((t) => (t.id === editingTabId ? { ...t, url: next } : t));
+    updateBrowserState(nextTabs, editingTabId);
+  };
+
+  const onNewTab = () => {
+    if (!safeTabId) return;
+    const id = createBrowserTabId();
+    const viewKey = buildViewKey(id);
+    const nextTabs = [...tabsRef.current, { id, viewKey, url: "", title: "New Tab" }];
+    setEditingTabId(id);
+    setEditingUrl("");
+    updateBrowserState(nextTabs, id);
+  };
+
+  const onClosePanel = () => {
+    if (!safeTabId) return;
+    // 中文注释：关闭整个浏览器面板（stack item），并由 useEffect cleanup 负责销毁所有 view。
+    useTabs.getState().removeStackItem(safeTabId, panelKey);
+  };
+
+  const onRefreshPanel = () => {
+    if (!safeTabId) return;
+    const state = useTabs.getState();
+    const tab = state.getTabById(safeTabId);
+    const item = tab?.stack?.find((x) => x.id === panelKey);
+    if (!item) return;
+    const current = Number((item.params as any)?.__refreshKey ?? 0);
+    state.pushStackItem(
+      safeTabId,
+      { ...item, params: { ...(item.params ?? {}), __refreshKey: current + 1 } } as any,
+      100,
+    );
+  };
 
   return (
     <div
@@ -328,29 +434,136 @@ export default function ElectrronBrowserWindow({
             </EmptyHeader>
           </Empty>
         </div>
+      ) : !safeTabId ? (
+        <div className="flex h-full w-full flex-col p-4">
+          <Empty className="border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <TriangleAlert />
+              </EmptyMedia>
+              <EmptyTitle>缺少 Tab</EmptyTitle>
+              <EmptyDescription>无法定位当前 TabId。</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </div>
       ) : (
-        <div ref={hostRef} className="relative min-h-0 flex-1 overflow-hidden">
-          {loading ? (
-            <div className="absolute inset-0 z-10 grid place-items-center bg-background/70">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader size={18} />
-                <span>Loading…</span>
-              </div>
+        <>
+          <StackHeader title="Browser" onClose={onClosePanel} onRefresh={onRefreshPanel}>
+            <div className="flex min-w-0 items-center gap-1 overflow-x-auto scrollbar-hide">
+              {tabs.length === 0 ? (
+                <div className="text-xs text-muted-foreground px-2 py-1">暂无页面</div>
+              ) : (
+                tabs.map((t) => {
+                  const isActive = t.id === activeId;
+                  const isEditing = isActive && editingTabId === t.id;
+                  const title = t.title ?? "Untitled";
+                  const url = normalizeUrl(t.url ?? "");
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={cn(
+                        "group flex h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-sm",
+                        isActive
+                          ? "bg-sidebar-accent text-foreground min-w-[320px]"
+                          : "bg-transparent text-muted-foreground hover:bg-sidebar/60 hover:text-foreground max-w-[180px]",
+                      )}
+                      onClick={() => onSelectBrowserTab(t.id)}
+                      title={title}
+                    >
+                      {isActive ? (
+                        isEditing ? (
+                          <input
+                            autoFocus
+                            value={editingUrl}
+                            onChange={(e) => setEditingUrl(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                onCommitUrl();
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                setEditingTabId(null);
+                              }
+                            }}
+                            onBlur={() => onCommitUrl()}
+                            placeholder="输入网址，回车跳转"
+                            className="min-w-0 flex-1 rounded-md bg-background/70 px-2 py-1 text-xs text-foreground outline-none"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground hover:underline"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onStartEditUrl();
+                            }}
+                            title={url}
+                          >
+                            {url || "点击输入网址"}
+                          </button>
+                        )
+                      ) : (
+                        <span className="min-w-0 flex-1 truncate">{title}</span>
+                      )}
+                      <span
+                        role="button"
+                        className="grid h-6 w-6 place-items-center rounded-md opacity-0 transition-opacity group-hover:opacity-100"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onCloseBrowserTab(t.id);
+                        }}
+                        aria-label="Close"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+              <button
+                type="button"
+                className="ml-1 grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-transparent text-muted-foreground hover:bg-sidebar/60 hover:text-foreground"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onNewTab();
+                }}
+                aria-label="New tab"
+                title="新建标签"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
             </div>
-          ) : null}
-          {overlayBlocked || coveredByAnotherStackItem ? (
-            <div className="absolute inset-0 z-20 grid place-items-center bg-background/80">
-              <div className="text-center text-sm text-muted-foreground">
-                <div>内容已临时隐藏</div>
-                <div className="mt-1 text-xs">
-                  {overlayBlocked
-                    ? "关闭右键菜单或搜索后恢复显示"
-                    : "切回顶部窗口后恢复显示"}
+          </StackHeader>
+
+          <div ref={hostRef} className="relative min-h-0 flex-1 overflow-hidden">
+            {loading ? (
+              <div className="absolute inset-0 z-10 grid place-items-center bg-background/70">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader size={18} />
+                  <span>Loading…</span>
                 </div>
               </div>
-            </div>
-          ) : null}
-        </div>
+            ) : null}
+            {overlayBlocked || coveredByAnotherStackItem ? (
+              <div className="absolute inset-0 z-20 grid place-items-center bg-background/80">
+                <div className="text-center text-sm text-muted-foreground">
+                  <div>内容已临时隐藏</div>
+                  <div className="mt-1 text-xs">
+                    {overlayBlocked
+                      ? "关闭右键菜单或搜索后恢复显示"
+                      : "切回顶部窗口后恢复显示"}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </>
       )}
     </div>
   );

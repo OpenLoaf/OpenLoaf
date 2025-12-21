@@ -39,8 +39,13 @@ function isToolFinished(part: AnyToolPart) {
 }
 
 function buildViewKey(input: { workspaceId: string; tabId: string; chatSessionId: string }) {
-  // 中文注释：用 workspaceId/tabId/chatSessionId 组合成稳定 key，确保同一会话重复点击会复用同一 WebContentsView。
+  // 中文注释：baseKey 用于定位“浏览器面板”，实际每个网页子标签用 baseKey + browserTabId 区分。
   return `browser:${input.workspaceId}:${input.tabId}:${input.chatSessionId}`;
+}
+
+function createBrowserTabId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
 /**
@@ -66,21 +71,21 @@ export function OpenUrlTool({ part }: { part: AnyToolPart }) {
     const tab = state.getTabById(tabId);
     if (!tab) return;
 
-    const viewKey = buildViewKey({
+    const baseKey = buildViewKey({
       workspaceId: tab.workspaceId,
       tabId,
       chatSessionId: tab.chatSessionId,
     });
+    const viewKey = `${baseKey}:${createBrowserTabId()}`;
 
     // 中文注释：写入 stack，由 ElectrronBrowserWindow 负责 ensureWebContentsView 并写回 cdpTargetId。
     state.pushStackItem(
       tabId,
       {
-        id: viewKey,
-        sourceKey: viewKey,
+        id: "browser-window",
+        sourceKey: "browser-window",
         component: "electron-browser-window",
-        title: title ?? "Browser",
-        params: { url, viewKey },
+        params: { __customHeader: true, __open: { url, title, viewKey } },
       } as any,
       100,
     );

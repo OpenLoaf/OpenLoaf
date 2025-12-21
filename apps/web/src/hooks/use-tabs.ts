@@ -8,6 +8,95 @@ export const TABS_STORAGE_KEY = "teatime:tabs";
 
 export const LEFT_DOCK_MIN_PX = 360;
 export const LEFT_DOCK_DEFAULT_PERCENT = 30;
+export const BROWSER_WINDOW_COMPONENT = "electron-browser-window";
+export const BROWSER_WINDOW_PANEL_ID = "browser-window";
+
+type BrowserTab = { id: string; url: string; title?: string; viewKey: string; cdpTargetId?: string };
+
+function isBrowserWindowItem(item: DockItem | undefined): item is DockItem {
+  return Boolean(item && item.component === BROWSER_WINDOW_COMPONENT);
+}
+
+function getBrowserTabs(item: DockItem | undefined): BrowserTab[] {
+  if (!item) return [];
+  const raw = (item.params as any)?.browserTabs;
+  return Array.isArray(raw) ? (raw as BrowserTab[]) : [];
+}
+
+function getActiveBrowserTabId(item: DockItem | undefined): string | undefined {
+  const id = (item?.params as any)?.activeBrowserTabId;
+  return typeof id === "string" ? id : undefined;
+}
+
+function normalizeBrowserWindowItem(existing: DockItem | undefined, incoming: DockItem): DockItem {
+  const open = (incoming.params as any)?.__open as
+    | { url?: string; title?: string; viewKey?: string }
+    | undefined;
+  const legacyUrl = typeof (incoming.params as any)?.url === "string" ? String((incoming.params as any).url) : "";
+  const legacyViewKey =
+    typeof (incoming.params as any)?.viewKey === "string" ? String((incoming.params as any).viewKey) : "";
+  const refreshKey =
+    typeof (incoming.params as any)?.__refreshKey === "number"
+      ? (incoming.params as any).__refreshKey
+      : typeof (existing?.params as any)?.__refreshKey === "number"
+        ? (existing?.params as any).__refreshKey
+        : undefined;
+  const customHeader =
+    typeof (incoming.params as any)?.__customHeader === "boolean"
+      ? (incoming.params as any).__customHeader
+      : typeof (existing?.params as any)?.__customHeader === "boolean"
+        ? (existing?.params as any).__customHeader
+        : undefined;
+
+  const currentTabs = getBrowserTabs(existing);
+  const currentActive = getActiveBrowserTabId(existing);
+
+  // 中文注释：两种写入方式：
+  // 1) params.__open：追加/激活一个浏览器子标签（open-url / agent 事件使用）
+  // 2) params.browserTabs：整体覆盖（由 ElectrronBrowserWindow 内部切换/关闭使用）
+  const nextTabs = Array.isArray((incoming.params as any)?.browserTabs)
+    ? ((incoming.params as any).browserTabs as BrowserTab[])
+    : [...currentTabs];
+
+  let nextActive = typeof (incoming.params as any)?.activeBrowserTabId === "string"
+    ? String((incoming.params as any).activeBrowserTabId)
+    : currentActive;
+
+  const openUrl = String(open?.url ?? legacyUrl ?? "").trim();
+  const openViewKey = String(open?.viewKey ?? legacyViewKey ?? "").trim();
+  if (openUrl) {
+    const id = openViewKey || `${BROWSER_WINDOW_PANEL_ID}:${Date.now()}`;
+    const idx = nextTabs.findIndex((t) => String((t as any)?.id ?? "") === id);
+    const patch: BrowserTab = {
+      id,
+      viewKey: openViewKey || id,
+      url: openUrl,
+      title: typeof open?.title === "string" ? open.title : undefined,
+      cdpTargetId: (incoming.params as any)?.cdpTargetId as any,
+    };
+    if (idx === -1) nextTabs.push(patch);
+    else nextTabs[idx] = { ...nextTabs[idx], ...patch };
+    nextActive = id;
+  }
+
+  if (!nextActive && nextTabs.length > 0) nextActive = nextTabs[0]!.id;
+  if (nextActive && !nextTabs.some((t) => t.id === nextActive)) nextActive = nextTabs[0]?.id;
+
+  return {
+    ...existing,
+    ...incoming,
+    id: existing?.id ?? incoming.id ?? BROWSER_WINDOW_PANEL_ID,
+    component: BROWSER_WINDOW_COMPONENT,
+    sourceKey: existing?.sourceKey ?? incoming.sourceKey ?? BROWSER_WINDOW_PANEL_ID,
+    title: existing?.title ?? incoming.title,
+    params: {
+      browserTabs: nextTabs,
+      activeBrowserTabId: nextActive,
+      ...(typeof refreshKey === "number" ? { __refreshKey: refreshKey } : {}),
+      ...(typeof customHeader === "boolean" ? { __customHeader: customHeader } : {}),
+    },
+  };
+}
 
 function clampPercent(value: number) {
   // 约束百分比到 [0, 100]，并且对 NaN/Infinity 做兜底。
@@ -377,21 +466,38 @@ export const useTabs = create<TabsState>()(
           tabs: updateTabById(state.tabs, tabId, (tab) => {
             // 左侧 stack：同 sourceKey/id 视为同一条目（upsert），用于“同一个来源的面板重复打开”。
             const nextTab = normalizeDock(tab);
-            const key = item.sourceKey ?? item.id;
-            const existingIndex = nextTab.stack.findIndex((s) => (s.sourceKey ?? s.id) === key);
+            const isBrowser = item.component === BROWSER_WINDOW_COMPONENT;
+            const key = isBrowser ? BROWSER_WINDOW_PANEL_ID : (item.sourceKey ?? item.id);
+            const existingIndex = nextTab.stack.findIndex((s) =>
+              isBrowser ? s.component === BROWSER_WINDOW_COMPONENT : (s.sourceKey ?? s.id) === key,
+            );
+
+            const existing = existingIndex === -1 ? undefined : nextTab.stack[existingIndex];
+            const normalizedItem = isBrowser
+              ? normalizeBrowserWindowItem(isBrowserWindowItem(existing) ? existing : undefined, {
+                  ...item,
+                  id: BROWSER_WINDOW_PANEL_ID,
+                  sourceKey: BROWSER_WINDOW_PANEL_ID,
+                })
+              : item;
 
             const nextStack =
               existingIndex === -1
-                ? [...nextTab.stack, item]
+                ? [...nextTab.stack, normalizedItem]
                 : [
                     ...nextTab.stack.slice(0, existingIndex),
                     ...nextTab.stack.slice(existingIndex + 1),
-                    { ...nextTab.stack[existingIndex]!, ...item },
+                    isBrowser
+                      ? normalizedItem
+                      : { ...nextTab.stack[existingIndex]!, ...item },
                   ];
 
             return normalizeDock({
               ...nextTab,
-              stack: nextStack,
+              // 中文注释：每个 Tab 的 stack 中只允许一个 electron-browser-window。
+              stack: isBrowser
+                ? [...nextStack.filter((s) => s.component !== BROWSER_WINDOW_COMPONENT), normalizedItem]
+                : nextStack,
               // 打开 stack 时自动撑开左栏：如果传了 percent 用它，否则保持原值/回退默认值。
               leftWidthPercent: clampPercent(
                 Number.isFinite(percent)

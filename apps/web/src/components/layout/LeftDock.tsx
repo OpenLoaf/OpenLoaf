@@ -2,12 +2,11 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
-import { X, RotateCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
 import { useTabs } from "@/hooks/use-tabs";
 import type { DockItem } from "@teatime-ai/api/common";
+import { StackHeader } from "./StackHeader";
 
 function renderDockItem(tabId: string, item: DockItem, refreshKey = 0) {
   const Component = ComponentMap[item.component];
@@ -50,6 +49,7 @@ function PanelFrame({
   onClose,
   fillHeight,
   floating,
+  header,
 }: {
   tabId: string;
   item: DockItem;
@@ -57,9 +57,11 @@ function PanelFrame({
   onClose: () => void;
   fillHeight: boolean;
   floating: boolean;
+  header?: React.ReactNode;
 }) {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const canClose = item.denyClose !== true;
+  const customHeader = Boolean((item.params as any)?.__customHeader);
 
   return (
     <div
@@ -77,30 +79,17 @@ function PanelFrame({
           fillHeight && "h-full"
         )}
       >
-        <div className="shrink-0 border-b bg-background/70 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-2 px-3 py-2">
-            <div className="min-w-0 text-sm font-medium">
-              <span className="truncate">{title}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setRefreshKey((k) => k + 1)}
-                aria-label="Refresh"
-              >
-                <RotateCw className="h-4 w-4" />
-              </Button>
-              {canClose ? (
-                <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close">
-                  <X className="h-4 w-4" />
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        </div>
+        {!customHeader ? (
+          <StackHeader
+            title={title}
+            onRefresh={() => setRefreshKey((k) => k + 1)}
+            onClose={canClose ? onClose : undefined}
+          >
+            {header}
+          </StackHeader>
+        ) : null}
 
-        <div className={cn("p-2", fillHeight && "min-h-0 flex-1")}>
+        <div className={cn(customHeader ? "p-0" : "p-2", fillHeight && "min-h-0 flex-1")}>
           {renderDockItem(tabId, item, refreshKey)}
         </div>
       </div>

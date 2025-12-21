@@ -2,6 +2,7 @@ import { tool, zodSchema } from "ai";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 import { requireTabId } from "@/common/tabContext";
 import { getSessionId, getUiWriter, getWorkspaceId } from "@/common/requestContext";
+import crypto from "node:crypto";
 
 function normalizeUrl(raw: string): string {
   const value = raw?.trim();
@@ -11,8 +12,8 @@ function normalizeUrl(raw: string): string {
   return `https://${value}`;
 }
 
-function buildViewKey(input: { workspaceId: string; tabId: string; chatSessionId: string }) {
-  // 中文注释：viewKey 是“逻辑页面标识”，用于前端创建/复用 WebContentsView，并写回 cdpTargetId。
+function buildBrowserBaseKey(input: { workspaceId: string; tabId: string; chatSessionId: string }) {
+  // 中文注释：baseKey 对应“同一个聊天会话内的浏览器面板”。
   return `browser:${input.workspaceId}:${input.tabId}:${input.chatSessionId}`;
 }
 
@@ -36,8 +37,10 @@ export const openUrlTool = tool({
     const normalizedUrl = normalizeUrl(url);
     if (!normalizedUrl) throw new Error("url is required.");
 
-    const viewKey = buildViewKey({ workspaceId, tabId, chatSessionId });
-    const panelKey = viewKey;
+    const baseKey = buildBrowserBaseKey({ workspaceId, tabId, chatSessionId });
+    const browserTabId = crypto.randomUUID();
+    const viewKey = `${baseKey}:${browserTabId}`;
+    const panelKey = "browser-window";
 
     // 中文注释：通过 data part 让前端在对应 tab 的 stack 打开浏览面板。
     writer.write({
@@ -48,4 +51,3 @@ export const openUrlTool = tool({
     return { ok: true, data: { tabId, url: normalizedUrl, viewKey, panelKey } };
   },
 });
-

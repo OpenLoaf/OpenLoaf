@@ -1,4 +1,4 @@
-import { X, Bot } from "lucide-react";
+import { X, Bot, Globe } from "lucide-react";
 import { TabsTrigger } from "@/components/animate-ui/components/radix/tabs";
 import {
   ContextMenu,
@@ -36,6 +36,7 @@ export const TabMenu = ({
   onTogglePin,
 }: TabMenuProps) => {
   const isActive = tab.id === activeTabId;
+  const hasBrowserWindow = Array.isArray(tab.stack) && tab.stack.some((s) => s.component === "electron-browser-window");
   return (
     <ContextMenu
       onOpenChange={(open) => {
@@ -67,6 +68,9 @@ export const TabMenu = ({
             tab.icon && <span className="mr-1.5 shrink-0">{tab.icon}</span>
           )}
           <span className="min-w-0 flex-1 truncate">{tab.title || "Untitled"}</span>
+          {hasBrowserWindow ? (
+            <Globe className="ml-1 h-3 w-3 shrink-0 text-muted-foreground/80" />
+          ) : null}
           {!isPinned && (
             <span
               className={`absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 transition-opacity delay-0 group-hover:delay-300 ${

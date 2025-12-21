@@ -25,19 +25,17 @@ function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: strin
   if (!tabId) return true;
 
   const viewKey = String(data.viewKey || "");
-  const panelKey = String(data.panelKey || viewKey || `browser:${Date.now()}`);
   const url = String(data.url || "");
   const title = typeof data.title === "string" ? data.title : undefined;
 
-  // 中文注释：用 sourceKey 做去重/upsert，避免同一个页面重复打开多个 stack。
+  // 中文注释：每个 Tab 的 stack 中只保留一个 browser 面板，新的 url 作为子标签追加并激活。
   useTabs.getState().pushStackItem(
     tabId,
     {
-      id: panelKey,
-      sourceKey: viewKey || panelKey,
       component: "electron-browser-window",
-      title,
-      params: { url, viewKey },
+      id: "browser-window",
+      sourceKey: "browser-window",
+      params: { __customHeader: true, __open: { url, title, viewKey } },
     } as any,
     100,
   );
