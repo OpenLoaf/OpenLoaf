@@ -1,16 +1,16 @@
 import { BaseTabRouter, tabSchemas, t, shieldedProcedure } from "@teatime-ai/api";
-import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
+import { chatContextStore } from "@/modules/chat/ChatContextAdapter";
 import { resolveBrowserCommandPending } from "@/modules/tab/BrowserCommandStoreAdapter";
 
 export class TabRouterImpl extends BaseTabRouter {
-  /** Tab 快照读写（MVP）：server 侧 TTL 缓存。 */
+  /** Tab snapshot read/write (server-side TTL cache, MVP). */
   public static createRouter() {
     return t.router({
       upsertSnapshot: shieldedProcedure
         .input(tabSchemas.upsertSnapshot.input)
         .output(tabSchemas.upsertSnapshot.output)
         .mutation(async ({ input }) => {
-          tabSnapshotStore.upsert({
+          await chatContextStore.upsertTabSnapshot({
             sessionId: input.sessionId,
             clientId: input.clientId,
             tabId: input.tabId,
@@ -24,7 +24,7 @@ export class TabRouterImpl extends BaseTabRouter {
         .input(tabSchemas.getSnapshot.input)
         .output(tabSchemas.getSnapshot.output)
         .query(async ({ input }) => {
-          const tab = tabSnapshotStore.get({
+          const tab = await chatContextStore.getTabSnapshot({
             sessionId: input.sessionId,
             clientId: input.clientId,
             tabId: input.tabId,

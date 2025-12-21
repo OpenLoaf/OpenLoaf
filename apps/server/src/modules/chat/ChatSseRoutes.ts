@@ -11,6 +11,7 @@ import { getCookie } from "hono/cookie";
 import type { ChatRequestBody, TokenUsage } from "@teatime-ai/api/types/message";
 import { MasterAgent } from "@/ai/agents/MasterAgent";
 import { streamStore } from "@/modules/chat/StreamStoreAdapter";
+import { chatContextStore } from "@/modules/chat/ChatContextAdapter";
 import { chatRepository } from "@/modules/chat/ChatRepositoryAdapter";
 import {
   popAgentFrame,
@@ -195,6 +196,10 @@ export function registerChatSseRoutes(app: Hono) {
           const { done, value } = await reader.read();
           if (done) {
             streamStore.finalize(sessionId);
+            // 中文注释：会话结束后主动清理 chat context（例如 tab 快照），避免缓存长期占用内存。
+            void chatContextStore.clearSession({ sessionId }).catch((err) => {
+              logger.error({ err }, "[chat] clear session context failed");
+            });
             return;
           }
           if (typeof value === "string") streamStore.append(sessionId, value);
@@ -202,6 +207,10 @@ export function registerChatSseRoutes(app: Hono) {
       } catch (err) {
         logger.error({ err }, "[chat] pump sse stream failed");
         streamStore.finalize(sessionId);
+        // 中文注释：异常结束也需要清理，避免遗留缓存。
+        void chatContextStore.clearSession({ sessionId }).catch((clearErr) => {
+          logger.error({ err: clearErr }, "[chat] clear session context failed");
+        });
       } finally {
         try {
           reader.releaseLock();
@@ -226,6 +235,12 @@ export function registerChatSseRoutes(app: Hono) {
   app.post("/chat/sse/:id/stop", async (c) => {
     const streamId = c.req.param("id");
     const ok = streamStore.stop(streamId);
+    if (ok) {
+      // 中文注释：主动停止也视为会话结束，立即清理缓存。
+      void chatContextStore.clearSession({ sessionId: streamId }).catch((err) => {
+        logger.error({ err }, "[chat] clear session context failed");
+      });
+    }
     return c.json({ ok });
   });
 }
