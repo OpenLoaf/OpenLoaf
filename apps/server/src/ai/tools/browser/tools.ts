@@ -1,10 +1,6 @@
 import { tool, zodSchema } from "ai";
 import { getClientId, getSessionId, getTabId } from "@/common/requestContext";
 import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
-import { openUrlTool } from "./openUrl";
-import { uiCloseStackTool } from "./closeStack";
-import { uiRefreshPageTreeTool } from "./refreshPageTree";
-import { uiRefreshBasePanelTool } from "./refreshBasePanel";
 import {
   playwrightActTool,
   playwrightDiagnosticsTool,
@@ -16,10 +12,6 @@ import {
 import {
   browserGetTabsToolDef,
   browserGetCurrentTabToolDef,
-  openUrlToolDef,
-  uiCloseStackToolDef,
-  uiRefreshPageTreeToolDef,
-  uiRefreshBasePanelToolDef,
 } from "@teatime-ai/api/types/tools/browser";
 import {
   playwrightActToolDef,
@@ -61,11 +53,6 @@ export const browserTools = {
   }),
 
   // ======
-  // MVP：打开网址（UI 驱动）
-  // ======
-  [openUrlToolDef.id]: openUrlTool,
-
-  // ======
   // MVP：Playwright / CDP（参考 chrome-devtools-mcp 的交互方式）
   // ======
   [playwrightSnapshotToolDef.id]: playwrightSnapshotTool,
@@ -74,13 +61,6 @@ export const browserTools = {
   [playwrightVerifyToolDef.id]: playwrightVerifyTool,
   [playwrightDiagnosticsToolDef.id]: playwrightDiagnosticsTool,
   [playwrightPageToolDef.id]: playwrightPageTool,
-
-  // ======
-  // UI 控制（通过 runtime -> IPC）
-  // ======
-  [uiCloseStackToolDef.id]: uiCloseStackTool,
-  [uiRefreshPageTreeToolDef.id]: uiRefreshPageTreeTool,
-  [uiRefreshBasePanelToolDef.id]: uiRefreshBasePanelTool,
 } as const;
 
 // settings 模式用：不暴露 UI 操作能力（MVP 权限边界）

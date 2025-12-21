@@ -20,7 +20,6 @@ export function createChatTransport({
     prepareSendMessagesRequest({ id, messages, body, trigger, messageId, headers }) {
       const mergedParams = { ...(paramsRef.current ?? {}) };
       const clientId = getWebClientId();
-      const appId = window.teatimeElectron?.appId;
       const tabId = typeof tabIdRef.current === "string" ? tabIdRef.current : undefined;
       const extraBody = body && typeof body === "object" ? body : {};
 
@@ -32,7 +31,6 @@ export function createChatTransport({
             sessionId: id,
             id,
             clientId,
-            appId,
             tabId,
             trigger,
             messageId,
@@ -52,7 +50,6 @@ export function createChatTransport({
           sessionId: id,
           id,
           clientId,
-          appId,
           tabId,
           trigger,
           messageId,

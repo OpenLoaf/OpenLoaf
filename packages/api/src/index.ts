@@ -13,11 +13,6 @@ import { tabRouter, BaseTabRouter, tabSchemas } from "./routers/absTab";
 import { chatRouter } from "./routers/chat";
 import { BaseChatRouter, chatSchemas } from "./routers/absChat";
 import { health } from "./routers/health";
-import {
-  runtimeRouter,
-  BaseRuntimeRouter,
-  runtimeSchemas,
-} from "./routers/absRuntime";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -26,7 +21,6 @@ export const appRouterDefine = {
   pageCustom: pageRouter,
   workspace: workspaceRouter,
   tab: tabRouter,
-  runtime: runtimeRouter,
 };
 
 export const appRouter = t.router({
@@ -48,7 +42,6 @@ export * from "./types/workspace";
 export * from "./types/event";
 export * from "./types/message";
 export * from "./types/toolResult";
-export * from "./types/runtime";
 export * from "./common";
 
 // Export workspace router components
@@ -56,9 +49,6 @@ export { BaseWorkspaceRouter, workspaceSchemas };
 
 // Export tab router components
 export { BaseTabRouter, tabSchemas };
-
-// Export runtime router components
-export { BaseRuntimeRouter, runtimeSchemas };
 
 // Export chat router components
 export { BaseChatRouter, chatSchemas };

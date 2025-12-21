@@ -27,7 +27,6 @@ export const logger = pino({
     return {
       sessionId: ctx?.sessionId,
       clientId: ctx?.clientId,
-      appId: ctx?.appId,
       tabId: ctx?.tabId,
       agent: frame
         ? { kind: frame.kind, name: frame.name, agentId: frame.agentId, path: frame.path }
@@ -35,4 +34,3 @@ export const logger = pino({
     };
   },
 });
-

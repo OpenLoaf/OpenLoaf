@@ -69,8 +69,6 @@ export type ChatRequestBody = {
   retry?: boolean;
   /** Web UI 侧稳定 clientId（用于断线续传关联） */
   clientId?: string;
-  /** Electron appId（仅 Electron 环境提供；用于调度到具体桌面端） */
-  appId?: string;
 };
 
 export type TokenUsage = {

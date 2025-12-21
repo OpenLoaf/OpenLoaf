@@ -68,7 +68,6 @@ export function registerChatSseRoutes(app: Hono) {
       sessionId,
       cookies,
       clientId: body.clientId || undefined,
-      appId: body.appId || undefined,
       tabId: body.tabId || undefined,
     });
 

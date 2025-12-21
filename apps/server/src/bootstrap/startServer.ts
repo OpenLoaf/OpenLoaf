@@ -1,13 +1,10 @@
 import { createAdaptorServer } from "@hono/node-server";
-import type { Server } from "node:http";
 import { createApp } from "./createApp";
-import { runtimeHub } from "@/modules/runtime/RuntimeHubAdapter";
 import { logger } from "@/common/logger";
 
 /**
  * 启动 HTTP server（MVP）：
  * - 绑定 Hono fetch handler
- * - 挂载 runtime-ws（upgrade）
  */
 export function startServer() {
   const app = createApp();
@@ -19,9 +16,6 @@ export function startServer() {
     fetch: app.fetch,
     hostname,
   });
-
-  // 中文注释：createAdaptorServer 的类型包含 http2，这里只用 http upgrade 能力。
-  runtimeHub.attachToServer(server as unknown as Server);
 
   server.listen(port, hostname, () => {
     const info = server.address();

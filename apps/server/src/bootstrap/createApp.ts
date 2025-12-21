@@ -7,7 +7,6 @@ import { logger as honoLogger } from "hono/logger";
 import { registerChatSseRoutes } from "@/modules/chat/ChatSseRoutes";
 import { workspaceRouterImplementation } from "@/routers/workspace";
 import { tabRouterImplementation } from "@/routers/tab";
-import { runtimeRouterImplementation } from "@/routers/runtime";
 import { chatRouterImplementation } from "@/routers/chat";
 import { logger } from "@/common/logger";
 
@@ -68,7 +67,6 @@ export function createApp() {
         chat: chatRouterImplementation,
         workspace: workspaceRouterImplementation,
         tab: tabRouterImplementation,
-        runtime: runtimeRouterImplementation,
       }),
       createContext: (_opts, context) => createContext({ context }),
       onError: ({ error, path, input, type }) => {

@@ -2,9 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { getWebClientId } from "@/lib/chat/streamClientId";
-import { trpc } from "@/utils/trpc";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import * as React from "react";
 import { SettingsGroup } from "./SettingsGroup";
 
@@ -19,19 +17,10 @@ const ITEMS: Array<{ key: string; label: string }> = [
 
 export function AboutTeatime() {
   const clientId = getWebClientId();
-  const appId = typeof window !== "undefined" ? window.teatimeElectron?.appId : undefined;
-  const [copiedKey, setCopiedKey] = React.useState<"appId" | "clientId" | null>(null);
-
-  const appStatusQuery = useQuery({
-    ...trpc.runtime.getAppStatus.queryOptions({ appId: appId ?? "" }),
-    enabled: Boolean(appId),
-    // 轮询放在 SettingsPage（父组件）里；这里读取缓存即可。
-    staleTime: 1000,
-    meta: { silent: true },
-  });
+  const [copiedKey, setCopiedKey] = React.useState<"clientId" | null>(null);
 
   /** 复制到剪贴板（navigator.clipboard 不可用时做降级）。 */
-  const copyToClipboard = async (text: string, key: "appId" | "clientId") => {
+  const copyToClipboard = async (text: string, key: "clientId") => {
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -73,29 +62,6 @@ export function AboutTeatime() {
       <SettingsGroup title="状态">
         <div className="divide-y divide-border">
           <div className="flex items-center justify-between gap-4 px-3 py-3">
-            <div className="text-sm font-medium">应用程序ID</div>
-            <div className="min-w-0 max-w-[70%]">
-              <button
-                type="button"
-                aria-label="点击复制应用程序ID"
-                disabled={!appId}
-                title={appId || undefined}
-                className={[
-                  "w-full text-right",
-                  "bg-transparent p-0",
-                  "text-xs truncate",
-                  appId
-                    ? "text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
-                    : "text-muted-foreground cursor-default",
-                  copiedKey === "appId" ? "text-foreground" : "",
-                ].join(" ")}
-                onClick={() => void copyToClipboard(appId ?? "", "appId")}
-              >
-                {copiedKey === "appId" ? "已复制" : appId || "—"}
-              </button>
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-4 px-3 py-3">
             <div className="text-sm font-medium">客户端ID</div>
             <div className="min-w-0 max-w-[70%]">
               <button
@@ -116,24 +82,6 @@ export function AboutTeatime() {
               >
                 {copiedKey === "clientId" ? "已复制" : clientId || "—"}
               </button>
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-4 px-3 py-3">
-            <div className="text-sm font-medium">应用程序状态</div>
-            <div className="text-xs text-muted-foreground">
-              {!appId ? (
-                "—"
-              ) : appStatusQuery.data?.connected ? (
-                "已连接"
-              ) : (
-                /**
-                 * 未连接/检测中都只显示转圈，避免给用户造成“断开”的负反馈。
-                 */
-                <Loader2
-                  className="inline-block h-4 w-4 animate-spin text-muted-foreground"
-                  aria-label="连接中"
-                />
-              )}
             </div>
           </div>
         </div>

@@ -13,7 +13,6 @@ export type RequestContext = {
   sessionId: string;
   cookies: Record<string, string>;
   clientId?: string;
-  appId?: string;
   tabId?: string;
   uiWriter?: UIMessageStreamWriter<any>;
   abortSignal?: AbortSignal;
@@ -55,11 +54,6 @@ export function getWorkspaceId(): string | undefined {
 /** 获取 web clientId（用于断线续传/会话隔离）。 */
 export function getClientId(): string | undefined {
   return getRequestContext()?.clientId;
-}
-
-/** 获取 Electron appId（用于调度到具体桌面端）。 */
-export function getAppId(): string | undefined {
-  return getRequestContext()?.appId;
 }
 
 /** 获取当前应用 TabId（用于绑定 UI 操作目标）。 */
@@ -115,4 +109,3 @@ export function popAgentFrame(): AgentFrame | undefined {
   const stack = getAgentStack();
   return stack.pop();
 }
-
