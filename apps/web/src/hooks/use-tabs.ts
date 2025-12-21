@@ -115,6 +115,8 @@ export type ToolPartSnapshot = {
   errorText?: string;
 };
 
+export type ChatStatus = "ready" | "submitted" | "streaming" | "error";
+
 type AddTabInput = {
   workspaceId: string; // 所属工作区ID
   title?: string; // 标签页标题
@@ -142,6 +144,9 @@ export interface TabsState {
   /** 运行时缓存：工具调用片段（不落盘，避免 localStorage 过大/频繁写入）。 */
   toolPartsByTabId: Record<string, Record<string, ToolPartSnapshot>>;
 
+  /** 运行时缓存：每个 tab 的 chat 状态（用于 Header Tabs 等 UI 提示）。 */
+  chatStatusByTabId: Record<string, ChatStatus>;
+
   addTab: (input: AddTabInput) => void;
   closeTab: (tabId: string) => void;
   setActiveTab: (tabId: string) => void;
@@ -165,6 +170,11 @@ export interface TabsState {
     chatSessionId: string,
     options?: { loadHistory?: boolean },
   ) => void;
+
+  /**
+   * Update runtime chat status for a tab.
+   */
+  setTabChatStatus: (tabId: string, status: ChatStatus | null) => void;
 
   pushStackItem: (tabId: string, item: DockItem, percent?: number) => void;
   removeStackItem: (tabId: string, itemId: string) => void;
@@ -232,6 +242,7 @@ export const useTabs = create<TabsState>()(
       stackHiddenByTabId: {},
       activeStackItemIdByTabId: {},
       toolPartsByTabId: {},
+      chatStatusByTabId: {},
 
       addTab: (input) => {
         set((state) => {
@@ -304,6 +315,8 @@ export const useTabs = create<TabsState>()(
           const nextTabs = state.tabs.filter((tab) => tab.id !== tabId);
           const nextToolPartsByTabId = { ...state.toolPartsByTabId };
           delete nextToolPartsByTabId[tabId];
+          const nextChatStatusByTabId = { ...state.chatStatusByTabId };
+          delete nextChatStatusByTabId[tabId];
           const nextHidden = { ...state.stackHiddenByTabId };
           delete nextHidden[tabId];
           const nextActiveStack = { ...state.activeStackItemIdByTabId };
@@ -324,6 +337,7 @@ export const useTabs = create<TabsState>()(
             tabs: nextTabs,
             activeTabId: nextActiveTabId,
             toolPartsByTabId: nextToolPartsByTabId,
+            chatStatusByTabId: nextChatStatusByTabId,
             stackHiddenByTabId: nextHidden,
             activeStackItemIdByTabId: nextActiveStack,
           };
@@ -481,6 +495,20 @@ export const useTabs = create<TabsState>()(
             }),
           ),
         }));
+      },
+
+      setTabChatStatus: (tabId, status) => {
+        set((state) => {
+          const current = state.chatStatusByTabId[tabId];
+          if (status === null) {
+            if (!current) return state;
+            const next = { ...state.chatStatusByTabId };
+            delete next[tabId];
+            return { chatStatusByTabId: next };
+          }
+          if (current === status) return state;
+          return { chatStatusByTabId: { ...state.chatStatusByTabId, [tabId]: status } };
+        });
       },
 
       pushStackItem: (tabId, item, percent) => {

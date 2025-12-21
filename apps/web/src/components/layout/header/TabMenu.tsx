@@ -1,5 +1,7 @@
 import { X, Bot, Globe } from "lucide-react";
 import { TabsTrigger } from "@/components/animate-ui/components/radix/tabs";
+import { useTabs } from "@/hooks/use-tabs";
+import { cn } from "@/lib/utils";
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -37,6 +39,8 @@ export const TabMenu = ({
 }: TabMenuProps) => {
   const isActive = tab.id === activeTabId;
   const hasBrowserWindow = Array.isArray(tab.stack) && tab.stack.some((s) => s.component === "electron-browser-window");
+  const chatStatus = useTabs((s) => s.chatStatusByTabId[tab.id]);
+  const showThinkingBorder = isActive && chatStatus === "streaming";
   return (
     <ContextMenu
       onOpenChange={(open) => {
@@ -60,7 +64,11 @@ export const TabMenu = ({
           data-pinned={isPinned ? "true" : "false"}
           data-reordering={isDragging ? "true" : "false"}
           onPointerDown={(event) => onReorderPointerDown?.(event, tab.id)}
-          className={`h-7 pl-2 pr-7 text-xs gap-0 rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:border-transparent aria-selected:shadow-none relative z-10 flex items-center max-w-[180px] flex-none w-auto shrink-0 cursor-default active:cursor-grabbing data-[reordering=true]:cursor-grabbing`}
+          className={cn(
+            "h-7 pl-2 pr-7 text-xs gap-0 rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:shadow-none relative z-10 flex items-center max-w-[180px] flex-none w-auto shrink-0 cursor-default active:cursor-grabbing data-[reordering=true]:cursor-grabbing border border-transparent",
+            // 中文注释：流式生成中，为当前激活 Tab 追加“彩虹流动边框”，与 ChatInput 的提示保持一致。
+            showThinkingBorder && "teatime-thinking-border"
+          )}
         >
           {tab.icon === "bot" ? (
             <Bot className="h-3.5 w-3.5 mr-1.5 text-muted-foreground shrink-0" />

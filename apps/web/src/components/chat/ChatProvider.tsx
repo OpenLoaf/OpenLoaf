@@ -9,7 +9,7 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import { generateId } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabs, type ChatStatus } from "@/hooks/use-tabs";
 import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
 import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";
@@ -186,6 +186,7 @@ export default function ChatProvider({
   >({});
   const upsertToolPart = useTabs((s) => s.upsertToolPart);
   const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
+  const setTabChatStatus = useTabs((s) => s.setTabChatStatus);
   const queryClient = useQueryClient();
   const sessionIdRef = React.useRef(sessionId);
   sessionIdRef.current = sessionId;
@@ -302,6 +303,15 @@ export default function ChatProvider({
     sessionId,
     tabId,
   });
+
+  React.useEffect(() => {
+    if (!tabId) return;
+    // 中文注释：把每个 Tab 的 chat.status 写入 zustand，Header Tabs 可以据此渲染“流式生成中”的彩虹边框提示。
+    setTabChatStatus(tabId, chat.status as ChatStatus);
+    return () => {
+      setTabChatStatus(tabId, null);
+    };
+  }, [tabId, chat.status, setTabChatStatus]);
 
   React.useEffect(() => {
     // 关键：手动 resume（每个 sessionId 只做一次），避免 StrictMode 并发调用导致崩溃。
