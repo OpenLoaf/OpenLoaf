@@ -3,26 +3,10 @@ import { getClientId, getSessionId, getTabId } from "@/common/requestContext";
 import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 import { openUrlTool } from "./openUrl";
 import {
-  playwrightActTool,
-  playwrightDiagnosticsTool,
-  playwrightPageTool,
-  playwrightSnapshotTool,
-  playwrightVerifyTool,
-  playwrightWaitTool,
-} from "./playwright";
-import {
   browserGetTabsToolDef,
   browserGetCurrentTabToolDef,
   openUrlToolDef,
 } from "@teatime-ai/api/types/tools/browser";
-import {
-  playwrightActToolDef,
-  playwrightDiagnosticsToolDef,
-  playwrightPageToolDef,
-  playwrightSnapshotToolDef,
-  playwrightVerifyToolDef,
-  playwrightWaitToolDef,
-} from "@teatime-ai/api/types/tools/playwright";
 
 export const browserTools = {
   // ======
@@ -58,16 +42,6 @@ export const browserTools = {
   // MVP：打开网址（UI 驱动）
   // ======
   [openUrlToolDef.id]: openUrlTool,
-
-  // ======
-  // MVP：Playwright / CDP（参考 chrome-devtools-mcp 的交互方式）
-  // ======
-  [playwrightSnapshotToolDef.id]: playwrightSnapshotTool,
-  [playwrightActToolDef.id]: playwrightActTool,
-  [playwrightWaitToolDef.id]: playwrightWaitTool,
-  [playwrightVerifyToolDef.id]: playwrightVerifyTool,
-  [playwrightDiagnosticsToolDef.id]: playwrightDiagnosticsTool,
-  [playwrightPageToolDef.id]: playwrightPageTool,
 } as const;
 
 // settings 模式用：不暴露 UI 操作能力（MVP 权限边界）

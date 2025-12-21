@@ -22,13 +22,13 @@ function extractMarkdown(message: UIMessage): string {
 }
 
 function createBrowserSubAgent() {
-  // 中文注释：子 agent 只做浏览器自动化（open-url + playwright-*）。
+  // 中文注释：子 agent 只做浏览器相关工具（open-url + tab snapshot）。
   return new ToolLoopAgent({
     model: deepseek("deepseek-chat"),
     instructions: `
 你是 Teatime 的浏览器子 Agent。
 - 输出必须是 Markdown。
-- 先 open-url，再用 playwright 工具执行与验证。
+- 先 open-url 打开页面；再通过 browser-get-current-tab / browser-get-tabs 获取快照并给出下一步操作建议。
 `,
     tools: { ...browserTools, ...systemTools },
   });
