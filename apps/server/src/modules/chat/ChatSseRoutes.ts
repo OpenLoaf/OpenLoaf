@@ -96,7 +96,7 @@ export function registerChatSseRoutes(app: Hono) {
     });
 
     const abortController = new AbortController();
-    streamStore.start(sessionId, abortController);
+    await streamStore.start(sessionId, abortController);
 
     const master = new MasterAgent();
     const agent = master.createAgent();
@@ -195,18 +195,18 @@ export function registerChatSseRoutes(app: Hono) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
-            streamStore.finalize(sessionId);
+            await streamStore.finalize(sessionId);
             // 中文注释：会话结束后主动清理 chat context（例如 tab 快照），避免缓存长期占用内存。
             void chatContextStore.clearSession({ sessionId }).catch((err) => {
               logger.error({ err }, "[chat] clear session context failed");
             });
             return;
           }
-          if (typeof value === "string") streamStore.append(sessionId, value);
+          if (typeof value === "string") await streamStore.append(sessionId, value);
         }
       } catch (err) {
         logger.error({ err }, "[chat] pump sse stream failed");
-        streamStore.finalize(sessionId);
+        await streamStore.finalize(sessionId);
         // 中文注释：异常结束也需要清理，避免遗留缓存。
         void chatContextStore.clearSession({ sessionId }).catch((clearErr) => {
           logger.error({ err: clearErr }, "[chat] clear session context failed");
@@ -220,21 +220,21 @@ export function registerChatSseRoutes(app: Hono) {
       }
     })();
 
-    const subscription = streamStore.subscribe(sessionId);
+    const subscription = await streamStore.subscribe(sessionId);
     if (!subscription) return new Response(null, { status: 204 });
     return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
   });
 
   app.get("/chat/sse/:id/stream", async (c) => {
     const streamId = c.req.param("id");
-    const stream = streamStore.subscribe(streamId);
+    const stream = await streamStore.subscribe(streamId);
     if (!stream) return new Response(null, { status: 204 });
     return new Response(stream as any, { headers: UI_MESSAGE_STREAM_HEADERS });
   });
 
   app.post("/chat/sse/:id/stop", async (c) => {
     const streamId = c.req.param("id");
-    const ok = streamStore.stop(streamId);
+    const ok = await streamStore.stop(streamId);
     if (ok) {
       // 中文注释：主动停止也视为会话结束，立即清理缓存。
       void chatContextStore.clearSession({ sessionId: streamId }).catch((err) => {

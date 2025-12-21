@@ -5,6 +5,30 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { GLOBAL_SHORTCUTS } from "@/lib/globalShortcuts";
 import { SettingsGroup } from "./SettingsGroup";
 
+const SHORTCUT_TRANSLATIONS: Record<string, { label: string; note?: string }> = {
+  "sidebar.toggle": { label: "切换侧边栏" },
+  "chat.toggle": { label: "切换聊天面板" },
+  "search.toggle": { label: "搜索" },
+  "open.calendar": { label: "打开日历" },
+  "open.inbox": { label: "打开收件箱" },
+  "open.ai": { label: "打开 AI" },
+  "open.template": { label: "打开模板" },
+  "tab.new": { label: "新建标签页" },
+  "tab.switch": { label: "切换标签页" },
+  "tab.close": { label: "关闭标签页" },
+  "settings.open": { label: "打开设置", note: "仅限 Electron + macOS" },
+  "refresh.disable": { label: "禁用刷新", note: "仅限生产环境" },
+};
+
+/** Returns the localized label/note for a shortcut, falling back to the original text. */
+function getShortcutText(input: { id: string; label: string; note?: string }) {
+  const translated = SHORTCUT_TRANSLATIONS[input.id];
+  return {
+    label: translated?.label ?? input.label,
+    note: translated?.note ?? input.note,
+  };
+}
+
 function useIsMac() {
   return useMemo(
     () =>
@@ -66,27 +90,27 @@ export function KeyboardShortcuts() {
     <div className="space-y-6">
       <SettingsGroup title="快捷键">
         <div className="divide-y divide-border">
-          {GLOBAL_SHORTCUTS.map((shortcut) => (
-            <div
-              key={shortcut.id}
-              className="flex items-start justify-between gap-6 px-3 py-3"
-            >
-              <div className="min-w-0">
-                <div className="text-sm font-medium">{shortcut.label}</div>
-                {shortcut.note ? (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {shortcut.note}
-                  </div>
-                ) : null}
+          {GLOBAL_SHORTCUTS.map((shortcut) => {
+            const text = getShortcutText(shortcut);
+            return (
+              <div
+                key={shortcut.id}
+                className="flex items-start justify-between gap-6 px-3 py-3"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{text.label}</div>
+                  {text.note ? (
+                    <div className="text-xs text-muted-foreground mt-1">{text.note}</div>
+                  ) : null}
+                </div>
+                <div className="shrink-0">
+                  <ShortcutKeys keys={shortcut.keys} isMac={isMac} />
+                </div>
               </div>
-              <div className="shrink-0">
-                <ShortcutKeys keys={shortcut.keys} isMac={isMac} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </SettingsGroup>
     </div>
   );
 }
-
