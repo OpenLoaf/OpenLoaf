@@ -13,7 +13,7 @@ export interface PageTreeNode {
   workspaceId: string;
 }
 
-// 构建树结构的函数
+/** Build page tree structure. */
 function buildTree(pages: any[]): PageTreeNode[] {
   const pageMap = new Map<string, PageTreeNode>();
   const rootPages: PageTreeNode[] = [];
@@ -43,7 +43,7 @@ function buildTree(pages: any[]): PageTreeNode[] {
   return rootPages;
 }
 
-// 获取项目列表
+/** Get project list as tree nodes. */
 export async function getProjectList(workspaceId: string, prisma: any): Promise<PageTreeNode[]> {
   const pages = await prisma.page.findMany({
     where: { workspaceId },

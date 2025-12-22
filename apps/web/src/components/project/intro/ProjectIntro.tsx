@@ -19,11 +19,10 @@ export default function ProjectInfo({
   introMarkdown,
 }: ProjectIntroProps) {
   const markdownQuery = useQuery(
-    trpc.page.findUniquePage.queryOptions(
+    trpc.pageCustom.getMarkdown.queryOptions(
       pageId
         ? {
-            where: { id: pageId },
-            select: { markdown: true },
+            pageId,
           }
         : skipToken
     )

@@ -1,6 +1,7 @@
 import { createAdaptorServer } from "@hono/node-server";
 import { createApp } from "./createApp";
 import { logger } from "@/common/logger";
+import { startPageMarkdownCache } from "@/modules/page/markdownCache";
 
 /**
  * 启动 HTTP server（MVP）：
@@ -25,6 +26,9 @@ export function startServer() {
         : port;
     logger.info({ hostname, port: actualPort }, `Server listening on http://${hostname}:${actualPort}`);
   });
+
+  // 启动 Markdown 缓存定时刷新
+  startPageMarkdownCache();
 
   return { app, server };
 }

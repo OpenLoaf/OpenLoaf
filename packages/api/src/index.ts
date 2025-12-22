@@ -44,6 +44,7 @@ export * from "./types/message";
 export * from "./types/toolResult";
 export * from "./common";
 export * from "./markdown/block-markdown";
+export * from "./services/pageMarkdownService";
 
 // Export workspace router components
 export { BaseWorkspaceRouter, workspaceSchemas };

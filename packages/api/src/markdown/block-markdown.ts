@@ -12,6 +12,13 @@ import remarkMath from "remark-math";
 const MARKDOWN_PLUGINS = [
   MarkdownPlugin.configure({
     options: {
+      // 保持默认规则，预留 rules/allowedNodes/allowNode 的扩展入口
+      rules: null,
+      allowedNodes: null,
+      allowNode: {
+        deserialize: () => true,
+        serialize: () => true,
+      },
       remarkPlugins: [remarkMath, remarkGfm, remarkMdx, remarkMention],
     },
   }),

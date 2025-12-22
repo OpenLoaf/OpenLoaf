@@ -63,24 +63,32 @@ async function runBrowserCommand(win: BrowserWindow, payload: BrowserCommandPayl
   const kind = payload?.command?.kind;
   const input = payload?.command?.input ?? {};
 
+  /**
+   * Evaluate a script in the page context and return the result.
+   */
   const evalInPage = async <T>(expression: string): Promise<T> => {
-    // executeJavaScript 运行在页面上下文；MVP 仅用于读写 DOM，不注入第三方脚本。
+    // MVP：仅做 DOM 读写，不注入第三方脚本。
     return (await wc.executeJavaScript(expression, true)) as T;
   };
 
   const toStr = (v: unknown) => (typeof v === 'string' ? v : '');
 
-  const nowSnapshot = async () => {
-    const url = wc.getURL();
-    const title = wc.getTitle();
-    const readyState = await evalInPage<string>('document.readyState');
+  /**
+   * Read visible text from the current document body.
+   */
+  const readPageText = async () => {
     const text = await evalInPage<string>(
       `(() => (document.body && (document.body.innerText || document.body.textContent) || '').toString())()`,
     );
-    // 限制文本长度，避免回传过大影响 SSE/上下文。
-    const clippedText = text.length > 10_000 ? text.slice(0, 10_000) : text;
+    // 控制文本体积，避免拖慢 SSE/上下文。
+    return text.length > 10_000 ? text.slice(0, 10_000) : text;
+  };
 
-    const elements = await evalInPage<Array<{ selector: string; text?: string; tag: string }>>(
+  /**
+   * Collect a small set of interactive elements for guidance.
+   */
+  const listInteractiveElements = async () => {
+    return await evalInPage<Array<{ selector: string; text?: string; tag: string }>>(
       `(() => {
         const pick = (el) => {
           const tag = (el.tagName || '').toLowerCase();
@@ -95,8 +103,18 @@ async function runBrowserCommand(win: BrowserWindow, payload: BrowserCommandPayl
         return nodes.slice(0, 40).map(pick);
       })()`,
     );
+  };
 
-    return { ok: true, data: { url, title, readyState, text: clippedText, elements } };
+  /**
+   * Build a minimal page snapshot for LLM tools.
+   */
+  const buildPageSnapshot = async () => {
+    const url = wc.getURL();
+    const title = wc.getTitle();
+    const readyState = await evalInPage<string>('document.readyState');
+    const text = await readPageText();
+    const elements = await listInteractiveElements();
+    return { ok: true, data: { url, title, readyState, text, elements } };
   };
 
   const sleep = (ms: number) =>
@@ -114,17 +132,17 @@ async function runBrowserCommand(win: BrowserWindow, payload: BrowserCommandPayl
   };
 
   if (kind === 'snapshot') {
-    return await nowSnapshot();
+    return await buildPageSnapshot();
   }
 
   if (kind === 'extract') {
     // MVP 先不做“按 instruction 提取”，统一回传可读文本，让 Worker 自己总结/结构化。
-    return await nowSnapshot();
+    return await buildPageSnapshot();
   }
 
   if (kind === 'observe') {
     // MVP 先用 snapshot 的 elements 作为候选动作线索；observe 直接复用 snapshot。
-    return await nowSnapshot();
+    return await buildPageSnapshot();
   }
 
   if (kind === 'wait') {
