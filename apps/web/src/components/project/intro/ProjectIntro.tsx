@@ -9,28 +9,27 @@ interface ProjectIntroProps {
   isLoading: boolean;
   pageId?: string;
   pageTitle: string;
-  introMarkdown?: string;
 }
 
+/** Project intro panel. */
 export default function ProjectInfo({
   isLoading,
   pageId,
   pageTitle,
-  introMarkdown,
 }: ProjectIntroProps) {
-  const markdownQuery = useQuery(
-    trpc.pageCustom.getMarkdown.queryOptions(
+  const blocksQuery = useQuery(
+    trpc.pageCustom.getBlocks.queryOptions(
       pageId
         ? {
-            pageId,
-          }
+          pageId,
+        }
         : skipToken
     )
   );
 
-  const markdown = markdownQuery.data?.markdown ?? introMarkdown;
+  const blocks = blocksQuery.data?.blocks ?? [];
 
-  const showLoading = isLoading || (!!pageId && markdownQuery.isLoading && !introMarkdown);
+  const showLoading = isLoading || (!!pageId && blocksQuery.isLoading);
 
   if (showLoading) {
     return (
@@ -51,10 +50,8 @@ export default function ProjectInfo({
       <ProjectInfoPlate
         readOnly={false}
         pageId={pageId}
-        markdown={
-          markdown ??
-          `# ${pageTitle}\n\n在这里写项目简介（支持 **Markdown** / _MDX_）。\n`
-        }
+        blocks={blocks}
+        pageTitle={pageTitle}
       />
     </div>
   );

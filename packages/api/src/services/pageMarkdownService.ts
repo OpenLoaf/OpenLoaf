@@ -3,16 +3,6 @@ import { blocksToMarkdown, type BlockInput } from "../markdown/block-markdown";
 
 const EMPTY_MARKDOWN = "";
 
-/** Get latest block version for a page. */
-const getBlockVersion = async (prisma: PrismaClient, pageId: string) => {
-  const result = await prisma.block.aggregate({
-    where: { pageId, parentId: null },
-    _max: { updatedAt: true },
-  });
-
-  return result._max.updatedAt ? result._max.updatedAt.getTime() : 0;
-};
-
 /** Load top-level blocks ordered by position. */
 const loadTopLevelBlocks = async (prisma: PrismaClient, pageId: string) => {
   return prisma.block.findMany({
@@ -50,23 +40,12 @@ export const refreshPageMarkdownCache = async (
 
   if (!page) return null;
 
-  const blockVersion = await getBlockVersion(prisma, pageId);
-  const shouldUpdateMarkdown = blockVersion !== page.markdownVersion;
-  const shouldUpdateBlockVersion = blockVersion !== page.blockVersion;
-
-  if (!shouldUpdateMarkdown && shouldUpdateBlockVersion) {
-    // 仅同步 Block 版本，避免无意义的 Markdown 重算
-    await prisma.page.update({
-      where: { id: pageId },
-      data: { blockVersion },
-    });
-  }
-
-  if (!shouldUpdateMarkdown) {
+  // 中文注释：版本一致时直接返回缓存，避免重复转换。
+  if (page.blockVersion === page.markdownVersion) {
     return {
       markdown: page.markdown ?? EMPTY_MARKDOWN,
       updated: false,
-      blockVersion,
+      blockVersion: page.blockVersion,
       markdownVersion: page.markdownVersion,
     };
   }
@@ -78,16 +57,15 @@ export const refreshPageMarkdownCache = async (
     where: { id: pageId },
     data: {
       markdown,
-      blockVersion,
-      markdownVersion: blockVersion,
+      markdownVersion: page.blockVersion,
     },
   });
 
   return {
     markdown,
     updated: true,
-    blockVersion,
-    markdownVersion: blockVersion,
+    blockVersion: page.blockVersion,
+    markdownVersion: page.blockVersion,
   };
 };
 

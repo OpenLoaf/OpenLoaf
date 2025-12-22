@@ -26,7 +26,6 @@
     "@teatime-ai/db": "workspace:*",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
-    "ai": "^6.0.0-beta.138",
     "dotenv": "catalog:",
     "hono": "catalog:",
     "platejs": "^52.0.11",

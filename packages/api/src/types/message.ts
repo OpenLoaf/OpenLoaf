@@ -1,4 +1,11 @@
-import type { UIDataTypes, UIMessage, UITools } from "ai";
+type UIDataTypes = Record<string, unknown>;
+type UITools = Record<string, unknown>;
+type UIMessage<D = unknown, DT = UIDataTypes, T = UITools> = {
+  id: string;
+  role: "system" | "user" | "assistant";
+  parts: any[];
+  metadata?: any;
+};
 
 /**
  * Teatime 的 Agent 信息（参考 AI SDK 的 Agent/ToolLoopAgentSettings 设计）
