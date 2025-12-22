@@ -1,8 +1,8 @@
 import { deepseek } from "@ai-sdk/deepseek";
 import { ToolLoopAgent } from "ai";
 import { getWorkspaceId, type AgentFrame } from "@/common/requestContext";
-import { systemTools } from "@/ai/tools/system";
-import { dbTools } from "@/ai/tools/db";
+import { systemTools } from "@/ai-legacy/tools/system";
+import { dbTools } from "@/ai-legacy/tools/db";
 import { openUrlTool } from "../tools/browser";
 
 const MASTER_AGENT_NAME = "master";

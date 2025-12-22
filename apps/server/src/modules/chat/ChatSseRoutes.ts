@@ -9,7 +9,7 @@ import {
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ChatRequestBody, TokenUsage } from "@teatime-ai/api/types/message";
-import { MasterAgent } from "@/ai/agents/MasterAgent";
+import { MasterAgent } from "@/ai-legacy/agents/MasterAgent";
 import { streamStore } from "@/modules/chat/StreamStoreAdapter";
 import { chatContextStore } from "@/modules/chat/ChatContextAdapter";
 import { chatRepository } from "@/modules/chat/ChatRepositoryAdapter";

@@ -1,3 +1,8 @@
+> Teatime 项目补充文档：
+>
+> - `docs/stagehand-core-agent.md`：Stagehand（packages/core）Agent 架构、instructions 生成、内容压缩、tools/MCP 管理、缓存重放（含时序图）
+> - `docs/server-ai-architecture-v2.md`：本项目 server AI 重构方案（参考 Stagehand + orchestrator/worker，含新的目录设计与时序图）
+
 Our Research feature uses multiple Claude agents to explore complex topics more effectively. We share the engineering challenges and the lessons we learned from building this system.
 Claude now has Research capabilities that allow it to search across the web, Google Workspace, and any integrations to accomplish complex tasks.
 
