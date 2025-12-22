@@ -3,7 +3,7 @@ export type BrowserTab = {
   url: string;
   title?: string;
   viewKey: string;
-  cdpTargetId?: string;
+  cdpTargetIds?: string[];
 };
 
 export type TeatimeWebContentsViewStatus = {
@@ -17,4 +17,3 @@ export type TeatimeWebContentsViewStatus = {
   destroyed?: boolean;
   ts: number;
 };
-

@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 
-import { isLangSupported } from '@platejs/code-block';
 import { useMutation } from '@tanstack/react-query';
 import type { Value } from 'platejs';
 import { Plate, usePlateEditor } from 'platejs/react';
@@ -38,30 +37,6 @@ export function ProjectInfoPlate({
   const lastValueRef = React.useRef<string>('');
   const isHydratingRef = React.useRef(false);
 
-  /** Normalize unsupported code block languages. */
-  const normalizeValue = React.useCallback((value: Value): Value => {
-    const normalizeNode = (node: unknown): unknown => {
-      if (!node || typeof node !== 'object') return node;
-      const next = { ...(node as Record<string, unknown>) };
-      if (next.type === 'code_block') {
-        const lang = typeof next.lang === 'string' ? next.lang : undefined;
-        // 中文注释：保留 mermaid，其它不支持的语言降级为纯文本，避免高亮报错。
-        next.lang =
-          lang === 'mermaid'
-            ? 'mermaid'
-            : lang && isLangSupported(lang)
-              ? lang
-              : 'plaintext';
-      }
-      if (Array.isArray(next.children)) {
-        next.children = next.children.map(normalizeNode);
-      }
-      return next;
-    };
-
-    return value.map((node) => normalizeNode(node)) as Value;
-  }, []);
-
   React.useEffect(() => {
     const ordered = [...blocks].sort((a, b) => a.order - b.order);
     const fallbackValue: Value = [
@@ -75,16 +50,15 @@ export function ProjectInfoPlate({
       ordered.length > 0
         ? ordered.map((block) => block.content).filter(Boolean)
         : fallbackValue;
-    const normalizedValue = normalizeValue(nextValue as Value);
 
     // 中文注释：初始化内容时跳过自动保存，避免误写。
     isHydratingRef.current = true;
-    editor.tf.setValue(normalizedValue);
-    lastValueRef.current = JSON.stringify(normalizedValue);
+    editor.tf.setValue(nextValue as Value);
+    lastValueRef.current = JSON.stringify(nextValue);
     queueMicrotask(() => {
       isHydratingRef.current = false;
     });
-  }, [editor, blocks, pageTitle, normalizeValue]);
+  }, [editor, blocks, pageTitle]);
 
   /** Debounced block save handler. */
   const scheduleSave = React.useCallback(
@@ -121,9 +95,9 @@ export function ProjectInfoPlate({
       <EditorContainer className="bg-background" data-allow-context-menu>
         <Editor
           readOnly={readOnly}
-          variant="fullWidth"
-          // variant="select"
-          className="px-3 py-0 text-sm"
+          // variant="fullWidth"
+          variant="none"
+          className="px-10 pt-1 text-sm"
         />
       </EditorContainer>
     </Plate>

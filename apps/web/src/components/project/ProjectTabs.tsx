@@ -7,7 +7,7 @@ import {
   Zap,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 export const PROJECT_TABS = [
   {
@@ -48,6 +48,7 @@ type ProjectTabsProps = {
   value: ProjectTabValue;
   onValueChange: (value: ProjectTabValue) => void;
   isActive?: boolean;
+  revealDelayMs?: number;
 };
 
 const LABEL_HYSTERESIS_PX = 8;
@@ -57,11 +58,13 @@ export default function ProjectTabs({
   value,
   onValueChange,
   isActive = true,
+  revealDelayMs = 300,
 }: ProjectTabsProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelMeasureRef = useRef<HTMLDivElement | null>(null);
   const tabButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
+  const [isReady, setIsReady] = useState(false);
   const [showLabels, setShowLabels] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const resizeEndTimeoutRef = useRef<number | null>(null);
@@ -73,6 +76,21 @@ export default function ProjectTabs({
     () => PROJECT_TABS.findIndex((tab) => tab.value === value),
     [value]
   );
+
+  useEffect(() => {
+    // 延迟展示 tab 组件，等容器就绪后再执行动画
+    if (!isActive) {
+      setIsReady(false);
+      return;
+    }
+    setIsReady(false);
+    const timer = window.setTimeout(() => {
+      setIsReady(true);
+    }, revealDelayMs);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [isActive, revealDelayMs]);
 
   useLayoutEffect(() => {
     const containerEl = containerRef.current;
@@ -182,86 +200,88 @@ export default function ProjectTabs({
         </div>
       </div>
 
-      <motion.div
-        className="relative"
-        role="tablist"
-        aria-label="Project Tabs"
-        initial={{ opacity: 0, y: 0 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.24, ease: "easeOut", delay: 0.5 }}
-        onKeyDown={(event) => {
-          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-          event.preventDefault();
-          const direction = event.key === "ArrowRight" ? 1 : -1;
-          const current = activeIndex === -1 ? 0 : activeIndex;
-          const next = (current + direction + PROJECT_TABS.length) % PROJECT_TABS.length;
-          const nextValue = PROJECT_TABS[next]?.value;
-          if (!nextValue) return;
-          onValueChange(nextValue);
-          tabButtonRefs.current[next]?.focus();
-        }}
-      >
-        <div className="bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]">
-          {PROJECT_TABS.map((tab, index) => {
-            const isActive = tab.value === value;
-            const tabId = `project-tab-${tab.value}`;
-            const panelId = `project-panel-${tab.value}`;
+      {isReady ? (
+        <motion.div
+          className="relative"
+          role="tablist"
+          aria-label="Project Tabs"
+          initial={{ opacity: 0, y: 0 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, ease: "easeOut" }}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            const direction = event.key === "ArrowRight" ? 1 : -1;
+            const current = activeIndex === -1 ? 0 : activeIndex;
+            const next = (current + direction + PROJECT_TABS.length) % PROJECT_TABS.length;
+            const nextValue = PROJECT_TABS[next]?.value;
+            if (!nextValue) return;
+            onValueChange(nextValue);
+            tabButtonRefs.current[next]?.focus();
+          }}
+        >
+          <div className="bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]">
+            {PROJECT_TABS.map((tab, index) => {
+              const isActive = tab.value === value;
+              const tabId = `project-tab-${tab.value}`;
+              const panelId = `project-panel-${tab.value}`;
 
-            return (
-              <button
-                key={tab.value}
-                ref={(el) => {
-                  tabButtonRefs.current[index] = el;
-                }}
-                id={tabId}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                aria-controls={panelId}
-                tabIndex={isActive ? 0 : -1}
-                onClick={() => onValueChange(tab.value)}
-                className={[
-                  "relative text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center rounded-md w-full px-2 py-1 text-sm font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-                  "flex items-center px-3 transition-all duration-700 ease-in-out",
-                  showLabels ? "gap-1" : "gap-0",
-                  isActive ? "text-foreground" : "",
-                ].join(" ")}
-              >
-                {isActive ? (
-                  <motion.div
-                    layoutId="project-tabs-indicator"
-                    className="absolute inset-0 z-0 border border-transparent rounded-md bg-background dark:border-input dark:bg-input/30 shadow-sm"
-                    transition={
-                      isResizing
-                        ? { duration: 0 }
-                          : {
-                            type: "spring",
-                            stiffness: 110,
-                            damping: 24,
-                          }
-                    }
-                  />
-                ) : null}
-
-                <span className="relative z-10 flex items-center justify-center w-5 h-5">
-                  {tab.icon}
-                </span>
-                <span
+              return (
+                <button
+                  key={tab.value}
+                  ref={(el) => {
+                    tabButtonRefs.current[index] = el;
+                  }}
+                  id={tabId}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={panelId}
+                  tabIndex={isActive ? 0 : -1}
+                  onClick={() => onValueChange(tab.value)}
                   className={[
-                    "relative z-10 whitespace-nowrap overflow-hidden transition-all duration-700 ease-in-out",
-                    showLabels
-                      ? "max-w-[200px] opacity-100 translate-x-0"
-                      : "max-w-0 opacity-0 -translate-x-1",
+                    "relative text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center rounded-md w-full px-2 py-1 text-sm font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+                    "flex items-center px-3 transition-all duration-700 ease-in-out",
+                    showLabels ? "gap-1" : "gap-0",
+                    isActive ? "text-foreground" : "",
                   ].join(" ")}
-                  aria-hidden={!showLabels}
                 >
-                  {tab.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </motion.div>
+                  {isActive ? (
+                    <motion.div
+                      layoutId="project-tabs-indicator"
+                      className="absolute inset-0 z-0 border border-transparent rounded-md bg-background dark:border-input dark:bg-input/30 shadow-sm"
+                      transition={
+                        isResizing
+                          ? { duration: 0 }
+                            : {
+                              type: "spring",
+                              stiffness: 110,
+                              damping: 24,
+                            }
+                      }
+                    />
+                  ) : null}
+
+                  <span className="relative z-10 flex items-center justify-center w-5 h-5">
+                    {tab.icon}
+                  </span>
+                  <span
+                    className={[
+                      "relative z-10 whitespace-nowrap overflow-hidden transition-all duration-700 ease-in-out",
+                      showLabels
+                        ? "max-w-[200px] opacity-100 translate-x-0"
+                        : "max-w-0 opacity-0 -translate-x-1",
+                    ].join(" ")}
+                    aria-hidden={!showLabels}
+                  >
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+      ) : null}
     </div>
   );
 }

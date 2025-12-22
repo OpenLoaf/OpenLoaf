@@ -78,7 +78,7 @@ export function OpenUrlTool({ part }: { part: AnyToolPart }) {
     });
     const viewKey = `${baseKey}:${createBrowserTabId()}`;
 
-    // 写入 stack，由 ElectrronBrowserWindow 负责 ensureWebContentsView 并写回 cdpTargetId。
+    // 写入 stack，由 ElectrronBrowserWindow 负责 ensureWebContentsView 并写回 cdpTargetIds。
     state.pushStackItem(
       tabId,
       {

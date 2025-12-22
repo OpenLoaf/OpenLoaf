@@ -161,11 +161,12 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
           value={activeTab}
           onValueChange={setActiveTab}
           isActive={tabActive}
+          revealDelayMs={1000}
         />{" "}
       </div>
 
       <ScrollArea.Root className="flex-1 min-h-0 w-full">
-        <ScrollArea.Viewport className="w-full h-full min-h-0 flex flex-col">
+        <ScrollArea.Viewport className="w-full h-full min-h-0 min-w-0 flex flex-col [&>div]:!min-w-0 [&>div]:!w-full [&>div]:!block">
           <div className="flex-1 min-h-0 w-full">
             <div
               id={`project-panel-${activeTab}`}

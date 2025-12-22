@@ -11,7 +11,7 @@ export const LEFT_DOCK_DEFAULT_PERCENT = 30;
 export const BROWSER_WINDOW_COMPONENT = "electron-browser-window";
 export const BROWSER_WINDOW_PANEL_ID = "browser-window";
 
-type BrowserTab = { id: string; url: string; title?: string; viewKey: string; cdpTargetId?: string };
+type BrowserTab = { id: string; url: string; title?: string; viewKey: string; cdpTargetIds?: string[] };
 
 function isBrowserWindowItem(item: DockItem | undefined): item is DockItem {
   return Boolean(item && item.component === BROWSER_WINDOW_COMPONENT);
@@ -50,6 +50,11 @@ function normalizeBrowserWindowItem(existing: DockItem | undefined, incoming: Do
 
   const currentTabs = getBrowserTabs(existing);
   const currentActive = getActiveBrowserTabId(existing);
+  const mergeTargetIds = (base?: string[], next?: string[]) => {
+    // 合并目标列表，避免重复写入。
+    const set = new Set<string>([...(base ?? []), ...(next ?? [])].filter(Boolean));
+    return set.size ? Array.from(set) : undefined;
+  };
 
   // 两种写入方式：
   // 1) params.__open：追加/激活一个浏览器子标签（open-url / agent 事件使用）
@@ -72,10 +77,18 @@ function normalizeBrowserWindowItem(existing: DockItem | undefined, incoming: Do
       viewKey: openViewKey || id,
       url: openUrl,
       title: typeof open?.title === "string" ? open.title : undefined,
-      cdpTargetId: (incoming.params as any)?.cdpTargetId as any,
+      cdpTargetIds: (incoming.params as any)?.cdpTargetIds as any,
     };
-    if (idx === -1) nextTabs.push(patch);
-    else nextTabs[idx] = { ...nextTabs[idx], ...patch };
+    if (idx === -1) {
+      nextTabs.push(patch);
+    } else {
+      const existingTab = nextTabs[idx];
+      nextTabs[idx] = {
+        ...existingTab,
+        ...patch,
+        cdpTargetIds: mergeTargetIds(existingTab?.cdpTargetIds, patch.cdpTargetIds),
+      };
+    }
     nextActive = id;
   }
 

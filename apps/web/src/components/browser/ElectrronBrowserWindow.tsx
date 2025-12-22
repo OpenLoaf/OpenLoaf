@@ -81,7 +81,7 @@ export default function ElectrronBrowserWindow({
   const showProgress = Boolean(targetUrl) && activeViewStatus?.ready !== true && !activeViewStatus?.failed;
   const showHome = !targetUrl;
 
-  const ensuredTargetIdRef = useRef<string | null>(null);
+  const ensuredTargetIdRef = useRef<Set<string>>(new Set());
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
 
@@ -127,12 +127,19 @@ export default function ElectrronBrowserWindow({
       const res = await ensureWebContentsView({ key, url: targetUrl });
       if (canceled || !res?.ok) return;
       if (!res.cdpTargetId) return;
-      if (ensuredTargetIdRef.current === res.cdpTargetId) return;
-      ensuredTargetIdRef.current = res.cdpTargetId;
+      if (ensuredTargetIdRef.current.has(res.cdpTargetId)) return;
+      ensuredTargetIdRef.current.add(res.cdpTargetId);
 
-      // 把 cdpTargetId 写回当前激活的浏览器子标签，并立即上报快照给 server。
+      // 把 cdpTargetIds 写回当前激活的浏览器子标签，并立即上报快照给 server。
       const nextTabs = tabsRef.current.map((t) =>
-        t.viewKey === key ? { ...t, cdpTargetId: res.cdpTargetId } : t,
+        t.viewKey === key
+          ? {
+              ...t,
+              cdpTargetIds: Array.from(
+                new Set([...(t.cdpTargetIds ?? []), res.cdpTargetId].filter(Boolean)),
+              ),
+            }
+          : t,
       );
       updateBrowserState(nextTabs, activeId);
 

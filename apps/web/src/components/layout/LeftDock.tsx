@@ -47,7 +47,7 @@ function renderDockItem(tabId: string, item: DockItem, refreshKey = 0) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15 }}
-      className="h-full w-full"
+      className="h-full w-full min-w-0"
     >
       {/* 中文注释：懒加载的面板通过 Suspense 隔离，避免阻塞其他区域渲染。 */}
       <React.Suspense fallback={<PanelFallback />}>
@@ -113,7 +113,13 @@ function PanelFrame({
           </StackHeader>
         ) : null}
 
-        <div className={cn(customHeader ? "p-0" : "p-2", fillHeight && "min-h-0 flex-1")}>
+        <div
+          className={cn(
+            customHeader ? "p-0" : "p-2",
+            fillHeight && "min-h-0 flex-1",
+            "min-w-0"
+          )}
+        >
           {renderDockItem(tabId, item, refreshKey)}
         </div>
       </div>
@@ -138,10 +144,14 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const floating = Boolean(base);
 
   return (
-    <div className="relative h-full w-full min-h-0 min-w-0 overflow-hidden">
+    <div
+      className="relative h-full w-full min-h-0 min-w-0 overflow-hidden"
+      data-allow-context-menu
+    >
       <div
         className={cn(
           "h-full w-full p-2 transition-all duration-200",
+          "min-w-0",
           hasOverlay && "pointer-events-none select-none blur-sm opacity-80"
         )}
       >
