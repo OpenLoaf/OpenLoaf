@@ -1,5 +1,5 @@
 import { BaseTabRouter, tabSchemas, t, shieldedProcedure } from "@teatime-ai/api";
-import { chatContextStore } from "@/modules/chat/ChatContextAdapter";
+import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 import { resolveBrowserCommandPending } from "@/modules/tab/BrowserCommandStoreAdapter";
 
 export class TabRouterImpl extends BaseTabRouter {
@@ -10,7 +10,8 @@ export class TabRouterImpl extends BaseTabRouter {
         .input(tabSchemas.upsertSnapshot.input)
         .output(tabSchemas.upsertSnapshot.output)
         .mutation(async ({ input }) => {
-          await chatContextStore.upsertTabSnapshot({
+          // 只写入 TabSnapshotStore，作为 server 侧唯一 tab 快照来源。
+          tabSnapshotStore.upsert({
             sessionId: input.sessionId,
             clientId: input.clientId,
             tabId: input.tabId,
@@ -24,7 +25,7 @@ export class TabRouterImpl extends BaseTabRouter {
         .input(tabSchemas.getSnapshot.input)
         .output(tabSchemas.getSnapshot.output)
         .query(async ({ input }) => {
-          const tab = await chatContextStore.getTabSnapshot({
+          const tab = tabSnapshotStore.get({
             sessionId: input.sessionId,
             clientId: input.clientId,
             tabId: input.tabId,

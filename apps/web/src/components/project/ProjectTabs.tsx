@@ -281,7 +281,22 @@ export default function ProjectTabs({
             })}
           </div>
         </motion.div>
-      ) : null}
+      ) : (
+        // 延迟期间保留高度，避免布局跳动
+        <div className="bg-muted/0 text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px] opacity-0">
+          {PROJECT_TABS.map((tab) => (
+            <div
+              key={tab.value}
+              className="relative inline-flex h-[calc(100%-1px)] items-center justify-center rounded-md px-3 py-1 text-sm font-medium"
+            >
+              <span className="flex items-center justify-center w-5 h-5">
+                {tab.icon}
+              </span>
+              <span className="whitespace-nowrap">{tab.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

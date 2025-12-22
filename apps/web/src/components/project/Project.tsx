@@ -161,7 +161,7 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
           value={activeTab}
           onValueChange={setActiveTab}
           isActive={tabActive}
-          revealDelayMs={1000}
+          revealDelayMs={800}
         />{" "}
       </div>
 
@@ -174,43 +174,63 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
               aria-labelledby={`project-tab-${activeTab}`}
               className="w-full h-full min-h-0"
             >
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-full h-full"
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className="w-full h-full"
+              >
+                <div
+                  className={
+                    activeTab === "intro" ? "w-full h-full" : "hidden"
+                  }
+                  aria-hidden={activeTab !== "intro"}
                 >
-                  {activeTab === "intro" ? (
-                    <ProjectInfo
-                      isLoading={isLoading}
-                      pageId={pageId}
-                      pageTitle={pageTitle}
-                    />
-                  ) : null}
-                  {activeTab === "canvas" ? (
-                    <ProjectCanvas
-                      isLoading={isLoading}
-                      pageId={pageId}
-                      pageTitle={pageTitle}
-                    />
-                  ) : null}
-                  {activeTab === "tasks" ? (
-                    <ProjectTasks isLoading={isLoading} pageId={pageId} />
-                  ) : null}
-                  {activeTab === "materials" ? (
-                    <ProjectMaterials isLoading={isLoading} pageId={pageId} />
-                  ) : null}
-                  {activeTab === "skills" ? (
-                    <ProjectSkills isLoading={isLoading} pageId={pageId} />
-                  ) : null}
-                  {activeTab === "test" ? (
-                    <ProjectTest pageId={pageId} />
-                  ) : null}
-                </motion.div>
-              </AnimatePresence>
+                  <ProjectInfo
+                    isLoading={isLoading}
+                    pageId={pageId}
+                    pageTitle={pageTitle}
+                  />
+                </div>
+                <div
+                  className={
+                    activeTab === "canvas" ? "w-full h-full" : "hidden"
+                  }
+                  aria-hidden={activeTab !== "canvas"}
+                >
+                  <ProjectCanvas
+                    isLoading={isLoading}
+                    pageId={pageId}
+                    pageTitle={pageTitle}
+                  />
+                </div>
+                <div
+                  className={activeTab === "tasks" ? "w-full h-full" : "hidden"}
+                  aria-hidden={activeTab !== "tasks"}
+                >
+                  <ProjectTasks isLoading={isLoading} pageId={pageId} />
+                </div>
+                <div
+                  className={
+                    activeTab === "materials" ? "w-full h-full" : "hidden"
+                  }
+                  aria-hidden={activeTab !== "materials"}
+                >
+                  <ProjectMaterials isLoading={isLoading} pageId={pageId} />
+                </div>
+                <div
+                  className={activeTab === "skills" ? "w-full h-full" : "hidden"}
+                  aria-hidden={activeTab !== "skills"}
+                >
+                  <ProjectSkills isLoading={isLoading} pageId={pageId} />
+                </div>
+                <div
+                  className={activeTab === "test" ? "w-full h-full" : "hidden"}
+                  aria-hidden={activeTab !== "test"}
+                >
+                  <ProjectTest pageId={pageId} />
+                </div>
+              </motion.div>
             </div>
           </div>
         </ScrollArea.Viewport>
