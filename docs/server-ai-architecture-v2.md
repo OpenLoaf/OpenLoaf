@@ -433,16 +433,13 @@ SSE2-->>UI: SSE stream
 
 ---
 
-## 7. 新的文件夹设计方案（建议目录树）
+## 7. 新的文件夹设计方案（当前目录树）
 
-> 目标：本次不需要兼容老版本；可以先把旧实现重命名为 `ai-legacy`，然后直接在 `apps/server/src/ai/` 创建新实现，最后删除旧实现（避免临时维护两套协议/逻辑）。
-
-### 7.1 建议树（以 `apps/server/src/ai/` 为例）
+### 7.1 当前树（以 `apps/server/src/ai/` 为例）
 
 ```text
 apps/server/src/ai/
   registry/
-    agentRegistry.ts          # 聚合内置 agent + DB SubAgentDefinition
     toolRegistry.ts           # tool 注册与元信息（强制 ToolDef.id key）
     toolPacks.ts              # MasterAgent/SubAgent 按包发放工具
     policies.ts               # 风险/审批/模式开关策略
@@ -450,53 +447,47 @@ apps/server/src/ai/
   runners/
     masterAgentRunner.ts      # 统一执行 MasterAgent（stream）
     subAgentRunner.ts         # 统一执行 SubAgent（sync serial / future parallel）
-    aiSdkMiddleware.ts        # 调用前压缩/注入 usage/可观测性
 
   prompts/
-    systemPromptBuilder.ts    # 结构化 system prompt（类似 Stagehand）
-    taskPromptBuilder.ts      # 子任务描述模板（objective/scope/schema/budget）
-    profiles.ts               # 不同 agent 的 prompt profile（MasterAgent/SubAgent）
+    systemPromptBuilder.ts    # 结构化 system prompt
+    subAgentPromptBuilder.ts  # 子任务描述模板
 
   context/
-    historyLoader.ts          # 从 DB 拉主链（基于 parentMessageId 追溯）
-    contextAssembler.ts       # 拼接 history + memory + ui state
-    messageCompressor.ts      # 调用前压缩（保留最近K个大块）
+    index.ts                  # 预留上下文装配入口
 
   memory/
-    memoryStore.ts            # 长会话记忆（计划/阶段结论）
-    memorySchemas.ts          # memory 的结构化 schema（推荐本次就上）
+    index.ts                  # 预留 memory 入口
 
   artifacts/
-    artifactStore.ts          # 产物化存储（本地/OSS 文件系统，最后开发）
-    artifactSchemas.ts        # artifact 元数据 schema（可选）
+    index.ts                  # 预留 artifact 入口
 
   agents/
     masterAgent/
-      masterAgent.ts          # 仅负责拆解/委派/合并（工具最小化）
-    subAgents/
-      researchSubAgent.ts     # 只读检索/压缩
-      projectSubAgent.ts      # 项目数据操作（含审批）
-      timeSubAgent.ts         # 测试用：调用 time-now 返回当前时间（打通 sub-agent 全链路）
+      masterAgent.ts          # 主对话入口
+    index.ts                  # agents 聚合
 
   tools/
     delegation/
-      subAgentTool.ts         # 真正启用 sub-agent（对接 AgentRegistry/SubAgentRunner）
+      subAgentTool.ts         # SubAgent 工具
     ui/
-      uiTools.ts              # 所有 UI side-effect 工具收口（审批/策略）
+      openUrl.ts              # open-url UI 行为
+    system/
+      timeNow.ts              # time-now
+    test/
+      testApprovalTool.ts     # test-approval
+    index.ts                  # tools 聚合
 ```
 
-### 7.2 与现有目录的关系（迁移建议）
+### 7.2 与现有目录的关系（已完成）
 
-- 直接把现有 `apps/server/src/ai/` 重命名为 `apps/server/src/ai-legacy/`（不需要做兼容层）。
-- 新的 V2 实现从 `apps/server/src/ai/` 开始重建（必要时从 legacy 复制/改造单个 tool）。
-- `apps/server/src/modules/chat/ChatSseRoutes.ts` 直接切换到新 runner（不需要同时支持两套 agent）。
+- 新的 V2 实现已落到 `apps/server/src/ai/`，旧实现已移除。
+- `apps/server/src/modules/chat/ChatSseRoutes.ts` 已切换到新 runner。
 
 ---
 
 ## 8. 分阶段落地路径（最小闭环优先）
 
-1. **重命名旧 AI，实现新入口**  
-   - 旧代码：`apps/server/src/ai/` → `apps/server/src/ai-legacy/`
+1. **实现新入口**  
    - 新代码：直接在 `apps/server/src/ai/` 创建新 runner/registry（不做兼容）
 
 2. **ToolRegistry 收口（id 强制）**  
@@ -534,7 +525,7 @@ apps/server/src/ai/
 ## Plan / TODO（按步骤）
 
 - [x] 1) 基础改造与脚手架（为 MVP 准备）
-  - [x] 1.1) 将旧实现改名：`apps/server/src/ai/` → `apps/server/src/ai-legacy/`（不做兼容层）
+  - [x] 1.1) 旧实现已清理（不做兼容层）
   - [x] 1.2) 新建 V2 基础目录：`apps/server/src/ai/registry|runners|prompts|context|memory|agents|tools|artifacts`
   - [x] 1.3) 搭好最小可运行入口：`ChatSseRoutes.ts` 切到新 runner（先只跑通一条主 agent 流）
 
@@ -560,6 +551,6 @@ apps/server/src/ai/
   - [ ] 5.2) 在需要的 tool/SubAgent 中启用：长内容落 `artifactId`，消息里只保摘要 + 引用
   - [ ] 5.3) 增加 OSS provider（可选）：实现 `getSignedUrl` 供前端展示大文件
 
-- [ ] 6) 收尾：删除 legacy 与清理无用实现
-  - [ ] 6.1) 确认新链路稳定后移除 `apps/server/src/ai-legacy/` 及相关未使用代码
-  - [ ] 6.2) 文档与配置收口：把最终入口/目录结构/关键协议更新到相关 docs
+- [x] 6) 收尾：删除 legacy 与清理无用实现
+  - [x] 6.1) 移除 `apps/server/src/ai-legacy/` 及相关未使用代码
+  - [x] 6.2) 文档与配置收口：把最终入口/目录结构/关键协议更新到相关 docs

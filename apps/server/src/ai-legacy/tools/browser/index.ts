@@ -1,1 +1,0 @@
-export { openUrlTool } from "./openUrl";
