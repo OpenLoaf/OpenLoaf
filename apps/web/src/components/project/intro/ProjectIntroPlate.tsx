@@ -2,14 +2,15 @@
 
 import * as React from 'react';
 
-import remarkGfm from 'remark-gfm';
-import { MarkdownPlugin, remarkMdx } from '@platejs/markdown';
 import { Plate, usePlateEditor } from 'platejs/react';
+import { BlockSelectionPlugin } from '@platejs/selection/react';
 
 import { BasicBlocksKit } from '@/components/editor/plugins/basic-blocks-kit';
 import { BasicMarksKit } from '@/components/editor/plugins/basic-marks-kit';
 import { Editor, EditorContainer } from '@/components/ui/editor';
 import { MarkdownKit } from '@/components/editor/plugins/markdown-kit';
+import { DndKit } from '@/components/editor/plugins/dnd-kit';
+import { EditorKit } from '@/components/editor/editor-kit';
 
 interface ProjectInfoPlateProps {
   markdown: string;
@@ -22,12 +23,13 @@ export function ProjectInfoPlate({
 }: ProjectInfoPlateProps) {
   const editor = usePlateEditor({
     plugins: [
-      ...BasicBlocksKit,
-      ...BasicMarksKit,
-      ...MarkdownKit,
-      // MarkdownPlugin.configure({
-      //   options: { remarkPlugins: [remarkGfm, remarkMdx] },
-      // }),
+      // BlockSelectionPlugin 提供 blockSelection API，BlockDraggable 会用到（如 getNodes/focus/add）。
+      // BlockSelectionPlugin,
+      // ...BasicBlocksKit,
+      // ...BasicMarksKit,
+      // ...MarkdownKit,
+      // ...DndKit,
+      ...EditorKit
     ],
     value: [],
   });

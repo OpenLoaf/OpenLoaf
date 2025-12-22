@@ -48,16 +48,14 @@ export default function ProjectInfo({
   }
 
   return (
-    <div className="h-full space-y-3">
-      <div className="flex-1 min-h-0">
-        <ProjectInfoPlate
-          readOnly={false}
-          markdown={
-            markdown ??
-            `# ${pageTitle}\n\n在这里写项目简介（支持 **Markdown** / _MDX_）。\n`
-          }
-        />
-      </div>
+    <div className="h-full space-y-3 flex-1 min-h-0">
+      <ProjectInfoPlate
+        readOnly={false}
+        markdown={
+          markdown ??
+          `# ${pageTitle}\n\n在这里写项目简介（支持 **Markdown** / _MDX_）。\n`
+        }
+      />
     </div>
   );
 }
