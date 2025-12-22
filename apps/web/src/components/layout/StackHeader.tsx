@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 export function StackHeader({
   title,
   children,
+  rightSlot,
   onRefresh,
   onClose,
   showMinimize = false,
@@ -22,6 +23,7 @@ export function StackHeader({
 }: {
   title?: string;
   children?: React.ReactNode;
+  rightSlot?: React.ReactNode;
   onRefresh?: () => void;
   onClose?: () => void;
   showMinimize?: boolean;
@@ -36,6 +38,7 @@ export function StackHeader({
           {children ? children : <span className="truncate">{title}</span>}
         </div>
         <div className="flex items-center gap-1">
+          {rightSlot}
           {onRefresh ? (
             <Button size="sm" variant="ghost" onClick={onRefresh} aria-label="Refresh">
               <RotateCw className="h-4 w-4" />

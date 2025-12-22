@@ -5,11 +5,16 @@ const EMPTY_MARKDOWN = "";
 
 /** Load top-level blocks ordered by position. */
 const loadTopLevelBlocks = async (prisma: PrismaClient, pageId: string) => {
-  return prisma.block.findMany({
+  const rows = await prisma.block.findMany({
     where: { pageId, parentId: null },
     orderBy: { order: "asc" },
     select: { content: true, order: true },
   });
+  return rows.map((row) => ({
+    order: row.order,
+    content:
+      row.content && typeof row.content === "object" ? (row.content as BlockInput["content"]) : null,
+  }));
 };
 
 /** Convert blocks to markdown string. */

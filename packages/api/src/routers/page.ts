@@ -28,10 +28,10 @@ const pageSaveBlocksInputSchema: z.ZodType<{
   pageId: z.string(),
   blocks: z.array(
     z.object({
-      content: z.record(z.string(), z.unknown()).nullable(),
+      content: z.any().nullable(),
       order: z.number().optional().nullable(),
       type: z.string().optional().nullable(),
-      props: z.record(z.string(), z.unknown()).optional().nullable(),
+      props: z.any().optional().nullable(),
     })
   ),
 });

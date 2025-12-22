@@ -93,7 +93,7 @@ export default function ProjectTitle({
   };
 
   return (
-    <h1 className="text-xl font-semibold flex items-center gap-2 min-w-0 ml-2">
+    <h1 className="text-xl font-semibold flex items-center gap-2 min-w-0">
       {isLoading ? null : (
         <>
           <Popover open={iconPickerOpen} onOpenChange={setIconPickerOpen}>

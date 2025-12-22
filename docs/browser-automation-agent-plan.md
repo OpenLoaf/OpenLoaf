@@ -181,18 +181,18 @@
 ## 10. 执行计划（Plan / TODO）
 
 ### 10.1 数据结构调整
-- [ ] `BrowserTab.cdpTargetIds`：从单值改为列表（`apps/web/src/components/browser/browser-types.ts`）。
-- [ ] `use-tabs.normalizeBrowserWindowItem(...)`：支持 `cdpTargetIds` 写入与合并。
-- [ ] `ElectrronBrowserWindow`：写回 `cdpTargetIds` 并触发 `upsertTabSnapshotNow(...)`。
+- [x] `BrowserTab.cdpTargetIds`：从单值改为列表（`apps/web/src/components/browser/browser-types.ts`）。
+- [x] `use-tabs.normalizeBrowserWindowItem(...)`：支持 `cdpTargetIds` 写入与合并。
+- [x] `ElectrronBrowserWindow`：写回 `cdpTargetIds` 并触发 `upsertTabSnapshotNow(...)`。
 
 ### 10.2 快照链路修正
-- [ ] `routers/tab.ts`：`upsertSnapshot` 写入 `TabSnapshotStoreAdapter`（替换 `ChatContextAdapter`）。
-- [ ] `TabSnapshotStoreAdapter`：提供提取 `cdpTargetIds` 的 helper。
+- [x] `routers/tab.ts`：`upsertSnapshot` 写入 `TabSnapshotStoreAdapter`（替换 `ChatContextAdapter`）。
+- [x] `TabSnapshotStoreAdapter`：提供提取 `cdpTargetIds` 的 helper。
 
 ### 10.3 Server CDP 执行能力
-- [ ] 新增 `apps/server/src/modules/browser/cdpSessionPool.ts`：管理 targetId 的连接与复用。
-- [ ] 新增 `apps/server/src/modules/browser/cdpClient.ts`：封装 `sendCdpCommand`。
-- [ ] 浏览器工具（`snapshot/observe/act/extract/wait`）改为直接调用 CDP。
+- [x] 新增 `apps/server/src/modules/browser/cdpSessionPool.ts`：管理 targetId 的连接与复用。
+- [x] 新增 `apps/server/src/modules/browser/cdpClient.ts`：封装 `sendCdpCommand`。
+- [x] 浏览器工具（`snapshot/observe/act/extract/wait`）改为直接调用 CDP。
 
 ### 10.4 验证与回归
 - [ ] 打开 URL 后 `cdpTargetIds` 正确上报并持久化。

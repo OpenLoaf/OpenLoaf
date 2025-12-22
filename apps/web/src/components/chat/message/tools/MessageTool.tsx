@@ -180,6 +180,7 @@ export default function MessageTool({
         : "（暂无返回结果）");
 
   const [copied, setCopied] = React.useState(false);
+  const [isExpanded, setIsExpanded] = React.useState(Boolean(hasErrorText));
   const [inputJsonExpanded, setInputJsonExpanded] = React.useState(false);
   const [outputJsonExpanded, setOutputJsonExpanded] = React.useState(false);
 
@@ -213,9 +214,21 @@ export default function MessageTool({
 
   return (
     <div className={cn("flex ml-2 w-full min-w-0 max-w-full justify-start", className)}>
-      <details className="w-full min-w-0 max-w-[80%] rounded-lg bg-muted/40 px-3 py-2 text-foreground" open={hasErrorText}>
+      <details
+        className="w-full min-w-0 max-w-[80%] rounded-lg bg-muted/40 px-3 py-2 text-foreground"
+        open={isExpanded}
+        onToggle={(event) => setIsExpanded(event.currentTarget.open)}
+      >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs text-muted-foreground">
-          <div className="min-w-0 flex-1 truncate">
+          <div className="flex min-w-0 flex-1 items-center gap-1 truncate">
+            <span className="flex h-5 w-5 items-center justify-center text-muted-foreground">
+              <ChevronDown
+                className={cn(
+                  "size-3 transition-transform",
+                  isExpanded ? "rotate-0" : "-rotate-90",
+                )}
+              />
+            </span>
             <span className="shrink-0">工具：</span>
             <span className="text-foreground/80">{toolName}</span>
             <span className="ml-2 text-[11px] text-muted-foreground/80">{statusText}</span>

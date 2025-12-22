@@ -1,17 +1,46 @@
+import { memo } from "react";
+
 interface ProjectSkillsProps {
   isLoading: boolean;
   pageId?: string;
 }
 
-export default function ProjectSkills({ isLoading, pageId }: ProjectSkillsProps) {
+interface ProjectSkillsHeaderProps {
+  isLoading: boolean;
+  pageTitle: string;
+}
+
+/** Project skills header. */
+const ProjectSkillsHeader = memo(function ProjectSkillsHeader({
+  isLoading,
+  pageTitle,
+}: ProjectSkillsHeaderProps) {
   if (isLoading) {
     return null;
   }
 
   return (
-    <div className="h-full space-y-3 mt-3">
-      <div className="text-sm text-muted-foreground">Project / 技能</div>
+    <div className="flex items-center gap-2 min-w-0">
+      <span className="text-base font-semibold">技能</span>
+      <span className="text-xs text-muted-foreground truncate">{pageTitle}</span>
+    </div>
+  );
+});
+
+const ProjectSkills = memo(function ProjectSkills({
+  isLoading,
+  pageId,
+}: ProjectSkillsProps) {
+  if (isLoading) {
+    return null;
+  }
+
+  return (
+    <div className="h-full space-y-3">
       <div className="text-xs text-muted-foreground">pageId: {pageId ?? "-"}</div>
     </div>
   );
-}
+});
+
+export { ProjectSkillsHeader };
+export default ProjectSkills;

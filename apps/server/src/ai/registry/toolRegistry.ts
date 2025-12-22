@@ -4,9 +4,23 @@ import { subAgentTool } from "@/ai/tools/delegation/subAgentTool";
 import { testApprovalTool } from "@/ai/tools/test/testApprovalTool";
 import { resolveNeedsApproval, type ToolPolicyMeta } from "@/ai/registry/policies";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
+import {
+  browserActToolDef,
+  browserExtractToolDef,
+  browserObserveToolDef,
+  browserSnapshotToolDef,
+  browserWaitToolDef,
+} from "@teatime-ai/api/types/tools/browserAutomation";
 import { timeNowToolDef } from "@teatime-ai/api/types/tools/system";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import { testApprovalToolDef } from "@teatime-ai/api/types/tools/approvalTest";
+import {
+  browserActTool,
+  browserExtractTool,
+  browserObserveTool,
+  browserSnapshotTool,
+  browserWaitTool,
+} from "@/ai/tools/browserAutomation/browserAutomationTools";
 
 type ToolEntry = {
   tool: any;
@@ -29,6 +43,26 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [testApprovalToolDef.id]: {
     tool: testApprovalTool,
     meta: { needsApproval: true },
+  },
+  [browserSnapshotToolDef.id]: {
+    tool: browserSnapshotTool,
+    meta: { needsApproval: false },
+  },
+  [browserObserveToolDef.id]: {
+    tool: browserObserveTool,
+    meta: { needsApproval: false },
+  },
+  [browserExtractToolDef.id]: {
+    tool: browserExtractTool,
+    meta: { needsApproval: false },
+  },
+  [browserActToolDef.id]: {
+    tool: browserActTool,
+    meta: { needsApproval: false },
+  },
+  [browserWaitToolDef.id]: {
+    tool: browserWaitTool,
+    meta: { needsApproval: false },
   },
 };
 

@@ -215,7 +215,14 @@ export const chatRepository = {
 
       const existing = await tx.chatMessage.findUnique({
         where: { id: messageId },
-        select: { id: true, sessionId: true, parentMessageId: true, path: true, metadata: true },
+        select: {
+          id: true,
+          sessionId: true,
+          parentMessageId: true,
+          path: true,
+          metadata: true,
+          parts: true,
+        },
       });
       if (existing) {
         if (existing.sessionId !== input.sessionId) {

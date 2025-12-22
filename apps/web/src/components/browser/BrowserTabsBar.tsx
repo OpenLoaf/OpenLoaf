@@ -49,7 +49,7 @@ export function BrowserTabsBar({
                 className={cn(
                   "group relative flex h-10 shrink-0 items-center gap-2 overflow-hidden rounded-lg px-3 text-sm",
                   isActive
-                    ? "min-w-[216px] text-foreground"
+                    ? "min-w-[216px] max-w-[300px] text-foreground"
                     : "max-w-[180px] bg-sidebar/30 text-muted-foreground hover:bg-sidebar/60 hover:text-foreground",
                 )}
                 role="button"

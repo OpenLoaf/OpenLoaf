@@ -1,9 +1,9 @@
 import { createAgentUIStream, generateId, type UIMessage } from "ai";
-import { deepseek } from "@ai-sdk/deepseek";
 import { ToolLoopAgent } from "ai";
 import { buildSubAgentSystemPrompt } from "@/ai/prompts/subAgentPromptBuilder";
 import { logger } from "@/common/logger";
 import { getAbortSignal, getCurrentAgentFrame, popAgentFrame, pushAgentFrame, type AgentFrame } from "@/common/requestContext";
+import { xaiOpenAI } from "@/ai/xaiOpenAI";
 
 export type SubAgentRunProgress = {
   text: string;
@@ -20,7 +20,7 @@ function createSubAgentFrame(input: { name: string }): AgentFrame {
     name: input.name,
     agentId: `sub-agent:${input.name}`,
     path: [...(parent?.path ?? []), input.name],
-    model: { provider: "deepseek", modelId: "deepseek-chat" },
+    model: { provider: "xai", modelId: "grok-4-1-fast-reasoning" },
   };
 }
 
@@ -81,9 +81,9 @@ export async function* runSubAgentStreaming(input: { name: string; task: string;
   // 优先复用主请求的 abortSignal（stop 会中止 MasterAgent + SubAgent）。
   const abortSignal = input.abortSignal ?? getAbortSignal();
 
-  // MVP 先统一用 deepseek-chat + 无工具 SubAgent，把“sub-agent tool 输出流”链路跑通。
+  // MVP 先统一用 grok-4-1-fast-reasoning + 无工具 SubAgent，把“sub-agent tool 输出流”链路跑通。
   const agent = new ToolLoopAgent({
-    model: deepseek("deepseek-chat"),
+    model: xaiOpenAI("grok-4-1-fast-reasoning"),
     instructions: buildSubAgentSystemPrompt({ name }),
     tools: {},
   });

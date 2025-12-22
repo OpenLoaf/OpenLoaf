@@ -2,9 +2,12 @@ import { BrowserWindow, ipcMain } from 'electron';
 import type { Logger } from '../logging/startupLogger';
 import {
   createBrowserWindowForUrl,
+  destroyAllWebContentsViews,
   destroyWebContentsView,
   getWebContentsView,
   getWebContentsViewCount,
+  goBackWebContentsView,
+  goForwardWebContentsView,
   upsertWebContentsView,
   type UpsertWebContentsViewArgs,
 } from './webContentsViews';
@@ -93,6 +96,30 @@ export function registerIpcHandlers(args: { log: Logger }) {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     destroyWebContentsView(win, String(payload?.key ?? ''));
+    return { ok: true };
+  });
+
+  // WebContentsView 后退导航。
+  ipcMain.handle('teatime:webcontents-view:go-back', async (event, payload: { key: string }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) throw new Error('No BrowserWindow for sender');
+    goBackWebContentsView(win, String(payload?.key ?? ''));
+    return { ok: true };
+  });
+
+  // WebContentsView 前进导航。
+  ipcMain.handle('teatime:webcontents-view:go-forward', async (event, payload: { key: string }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) throw new Error('No BrowserWindow for sender');
+    goForwardWebContentsView(win, String(payload?.key ?? ''));
+    return { ok: true };
+  });
+
+  // 清除当前窗口内所有 WebContentsView。
+  ipcMain.handle('teatime:webcontents-view:clear', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) throw new Error('No BrowserWindow for sender');
+    destroyAllWebContentsViews(win);
     return { ok: true };
   });
 

@@ -1,8 +1,27 @@
 "use client";
 
-import { ProjectInfoPlate } from "./ProjectIntroPlate";
+import { lazy, memo, Suspense } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
+import ProjectTitle from "../ProjectTitle";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const LazyProjectInfoPlate = lazy(() =>
+  import("./ProjectIntroPlate").then((module) => ({
+    default: module.ProjectInfoPlate,
+  }))
+);
+
+interface ProjectIntroHeaderProps {
+  isLoading: boolean;
+  pageId?: string;
+  pageTitle: string;
+  titleIcon?: string;
+  currentTitle?: string;
+  isUpdating: boolean;
+  onUpdateTitle: (nextTitle: string) => void;
+  onUpdateIcon: (nextIcon: string) => void;
+}
 
 interface ProjectIntroProps {
   isLoading: boolean;
@@ -10,8 +29,20 @@ interface ProjectIntroProps {
   pageTitle: string;
 }
 
+/** Fallback content while the intro editor loads. */
+function ProjectIntroFallback() {
+  return (
+    <div className="space-y-3 px-10 pt-1">
+      <Skeleton className="h-5 w-[35%]" />
+      <Skeleton className="h-4 w-[60%]" />
+      <Skeleton className="h-4 w-[48%]" />
+      <Skeleton className="h-32 w-full" />
+    </div>
+  );
+}
+
 /** Project intro panel. */
-export default function ProjectInfo({
+const ProjectInfo = memo(function ProjectInfo({
   isLoading,
   pageId,
   pageTitle,
@@ -36,12 +67,42 @@ export default function ProjectInfo({
 
   return (
     <div className="h-full space-y-3 flex-1 min-h-0">
-      <ProjectInfoPlate
-        readOnly={false}
-        pageId={pageId}
-        blocks={blocks}
-        pageTitle={pageTitle}
-      />
+      <Suspense fallback={<ProjectIntroFallback />}>
+        <LazyProjectInfoPlate
+          readOnly={false}
+          pageId={pageId}
+          blocks={blocks}
+          pageTitle={pageTitle}
+        />
+      </Suspense>
     </div>
   );
-}
+});
+
+/** Project intro header. */
+const ProjectIntroHeader = memo(function ProjectIntroHeader({
+  isLoading,
+  pageId,
+  pageTitle,
+  titleIcon,
+  currentTitle,
+  isUpdating,
+  onUpdateTitle,
+  onUpdateIcon,
+}: ProjectIntroHeaderProps) {
+  return (
+    <ProjectTitle
+      isLoading={isLoading}
+      pageId={pageId}
+      pageTitle={pageTitle}
+      titleIcon={titleIcon}
+      currentTitle={currentTitle}
+      isUpdating={isUpdating}
+      onUpdateTitle={onUpdateTitle}
+      onUpdateIcon={onUpdateIcon}
+    />
+  );
+});
+
+export { ProjectIntroHeader };
+export default ProjectInfo;

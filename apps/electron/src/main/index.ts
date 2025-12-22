@@ -1,5 +1,9 @@
-import { app, BrowserWindow, Menu } from 'electron';
-import { createStartupLogger, registerProcessErrorLogging } from './logging/startupLogger';
+import { app, BrowserWindow, Menu, session } from 'electron';
+import {
+  createStartupLogger,
+  registerProcessErrorLogging,
+  type Logger,
+} from './logging/startupLogger';
 import { registerIpcHandlers } from './ipc';
 import { createServiceManager, type ServiceManager } from './services/serviceManager';
 import { WEBPACK_ENTRIES } from './webpackEntries';
@@ -29,6 +33,145 @@ app.commandLine.appendSwitch(
 
 let services: ServiceManager | null = null;
 let mainWindow: BrowserWindow | null = null;
+
+type ProxyConfig = {
+  rules: string;
+  bypassRules?: string;
+};
+
+/**
+ * Reads the first non-empty environment variable from a list of keys.
+ */
+function getEnvValue(keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+/**
+ * Parses a proxy string into a Chromium-compatible host token.
+ */
+function parseProxyTarget(raw: string): { hostPort: string; protocol?: string } | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // 带协议的代理用 URL 解析，避免重复拼接协议导致 Chromium 无法识别。
+  const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed);
+  if (!hasScheme) return { hostPort: trimmed };
+
+  try {
+    const url = new URL(trimmed);
+    if (!url.host) return { hostPort: trimmed };
+    const auth =
+      url.username && url.password
+        ? `${url.username}:${url.password}@`
+        : url.username
+          ? `${url.username}@`
+          : '';
+    return {
+      hostPort: `${auth}${url.host}`,
+      protocol: url.protocol.replace(':', '').toLowerCase(),
+    };
+  } catch {
+    return { hostPort: trimmed };
+  }
+}
+
+/**
+ * Masks proxy credentials in log output.
+ */
+function maskProxyValue(value: string): string {
+  if (!value) return value;
+  return value
+    .replace(/\/\/([^/@:]+):([^/@]+)@/g, (_match, user) => `//${user}:***@`)
+    .replace(/([^/@:]+):([^/@]+)@/g, (_match, user) => `${user}:***@`);
+}
+
+/**
+ * Builds a proxy rules string for Electron's session.setProxy.
+ */
+function buildProxyRules(input: {
+  http?: string;
+  https?: string;
+  all?: string;
+}): string | null {
+  const httpTarget = input.http ? parseProxyTarget(input.http) : null;
+  const httpsTarget = input.https ? parseProxyTarget(input.https) : null;
+  const allTarget = input.all ? parseProxyTarget(input.all) : null;
+
+  const rules: string[] = [];
+  if (httpTarget) rules.push(`http=${httpTarget.hostPort}`);
+  if (httpsTarget) rules.push(`https=${httpsTarget.hostPort}`);
+
+  if (rules.length > 0) return rules.join(';');
+
+  if (!allTarget) return null;
+  if (allTarget.protocol) return `${allTarget.protocol}://${allTarget.hostPort}`;
+  return allTarget.hostPort;
+}
+
+/**
+ * Normalizes the no_proxy list into Chromium bypass rules.
+ */
+function buildProxyBypassRules(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const rules = raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (rules.length === 0) return undefined;
+  return rules.join(',');
+}
+
+/**
+ * Resolves proxy settings from environment variables.
+ */
+function resolveProxyConfig(): ProxyConfig | null {
+  const httpProxy = getEnvValue(['http_proxy', 'HTTP_PROXY']);
+  const httpsProxy = getEnvValue(['https_proxy', 'HTTPS_PROXY']);
+  const allProxy = getEnvValue(['all_proxy', 'ALL_PROXY']);
+  const noProxy = getEnvValue(['no_proxy', 'NO_PROXY']);
+
+  // 未设置任何代理时保持系统默认设置。
+  if (!httpProxy && !httpsProxy && !allProxy) return null;
+
+  const rules = buildProxyRules({ http: httpProxy, https: httpsProxy, all: allProxy });
+  if (!rules) return null;
+
+  return {
+    rules,
+    bypassRules: buildProxyBypassRules(noProxy),
+  };
+}
+
+/**
+ * Applies proxy configuration to the default Electron session.
+ */
+async function configureProxy(log: Logger) {
+  const config = resolveProxyConfig();
+  if (!config) return;
+
+  // 仅当环境变量提供代理时才显式设置，避免覆盖用户系统代理。
+  try {
+    await session.defaultSession.setProxy({
+      proxyRules: config.rules,
+      proxyBypassRules: config.bypassRules,
+    });
+    const maskedRules = maskProxyValue(config.rules);
+    const maskedBypass = config.bypassRules ? maskProxyValue(config.bypassRules) : undefined;
+    const message = maskedBypass
+      ? `Proxy configured: ${maskedRules} (bypass: ${maskedBypass})`
+      : `Proxy configured: ${maskedRules}`;
+    log(message);
+    console.info(message);
+  } catch (error) {
+    const maskedRules = maskProxyValue(config.rules);
+    log(`Proxy setup failed: ${String(error)} (rules: ${maskedRules})`);
+    console.warn(`Proxy setup failed: ${String(error)} (rules: ${maskedRules})`);
+  }
+}
 
 function installApplicationMenu() {
   // On macOS, Electron will create a default menu that includes "Close Window"
@@ -104,6 +247,8 @@ function installApplicationMenu() {
  */
 async function boot() {
   installApplicationMenu();
+
+  await configureProxy(log);
 
   // IPC handlers 必须先注册，避免渲染端（apps/web）调用时找不到处理器。
   registerIpcHandlers({ log });

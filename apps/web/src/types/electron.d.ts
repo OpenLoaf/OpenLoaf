@@ -19,6 +19,9 @@ declare global {
         visible?: boolean;
       }) => Promise<{ ok: true }>;
       destroyWebContentsView: (key: string) => Promise<{ ok: true }>;
+      goBackWebContentsView?: (key: string) => Promise<{ ok: true }>;
+      goForwardWebContentsView?: (key: string) => Promise<{ ok: true }>;
+      clearWebContentsViews?: () => Promise<{ ok: true }>;
       getWebContentsViewCount?: () => Promise<{ ok: true; count: number } | { ok: false }>;
     };
   }

@@ -14,13 +14,28 @@ import { getMessagePlainText } from "@/lib/chat/message-text";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { messageActionIconButtonClassName } from "./message-action-styles";
 
+const TOKEN_K = 1000;
+const TOKEN_M = 1000 * 1000;
+
 /**
- * 把 token 数值格式化为更易读的字符串（例如：5,824）。
+ * Format token count into a compact K/M notation.
  */
 function formatTokenCount(value: unknown): string {
   const numberValue = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numberValue)) return "-";
-  return new Intl.NumberFormat("en-US").format(numberValue);
+  if (numberValue === 0) return "0";
+  const abs = Math.abs(numberValue);
+  if (abs >= TOKEN_M) {
+    const next = numberValue / TOKEN_M;
+    const fixed = next.toFixed(1);
+    return `${fixed}M`;
+  }
+  if (abs >= TOKEN_K) {
+    const next = numberValue / TOKEN_K;
+    const fixed = next.toFixed(1);
+    return `${fixed}K`;
+  }
+  return Number.isInteger(numberValue) ? numberValue.toFixed(1) : String(numberValue);
 }
 
 type NormalizedTokenUsage = {
@@ -33,9 +48,9 @@ type NormalizedTokenUsage = {
 };
 
 /**
- * 从 message.metadata 中提取 token usage（best-effort）。
- * - 兼容 totalUsage / usage / tokenUsage 以及不同字段命名
- * - 当缺少细分字段时，用 cachedInputTokens 推导“非缓存”
+ * Extract token usage from message.metadata (best-effort).
+ * - Compatible with totalUsage / usage / tokenUsage plus alternate field names
+ * - Derive noCacheTokens from cachedInputTokens when needed
  */
 function extractTokenUsage(metadata: unknown): NormalizedTokenUsage | undefined {
   const meta = metadata as any;

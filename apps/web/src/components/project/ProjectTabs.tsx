@@ -1,11 +1,4 @@
-import {
-  CheckSquare,
-  Database,
-  FlaskConical,
-  Info,
-  Sparkles,
-  Zap,
-} from "lucide-react";
+import { CheckSquare, Database, Info, Sparkles, Zap } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -34,11 +27,6 @@ export const PROJECT_TABS = [
     value: "skills",
     icon: <Zap className="size-4 shrink-0" />,
     label: "技能",
-  },
-  {
-    value: "test",
-    icon: <FlaskConical className="size-4 shrink-0" />,
-    label: "测试",
   },
 ] as const;
 

@@ -74,9 +74,9 @@ export function WorkspaceSettings() {
             <div className="text-sm font-medium">Token 输入 / 输出</div>
             <div className="text-xs text-muted-foreground">
               {usage
-                ? `${formatTokenCount(usage.inputTokens)}（input: ${formatTokenCount(
+                ? `${formatTokenCount(usage.inputTokens)}（输入: ${formatTokenCount(
                     Math.max(0, usage.inputTokens - usage.cachedInputTokens),
-                  )} + cache: ${formatTokenCount(usage.cachedInputTokens)}） / ${formatTokenCount(
+                  )} + 缓存: ${formatTokenCount(usage.cachedInputTokens)}） / ${formatTokenCount(
                     usage.outputTokens,
                   )}`
                 : "—"}

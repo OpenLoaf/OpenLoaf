@@ -79,7 +79,6 @@ export default function MarkdownCodeBlock({
     [code]
   );
   const isSingleLine = lineCount <= 1;
-
   const handleCopy = async (event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();

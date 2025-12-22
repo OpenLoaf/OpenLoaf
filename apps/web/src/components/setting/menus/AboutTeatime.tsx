@@ -58,6 +58,20 @@ export function AboutTeatime() {
     }
   }, [isElectron]);
 
+  /** Clear all WebContentsViews via Electron IPC. */
+  const clearWebContentsViews = React.useCallback(async () => {
+    const api = window.teatimeElectron;
+    if (!isElectron || !api?.clearWebContentsViews) return;
+    try {
+      const res = await api.clearWebContentsViews();
+      if (res?.ok) setWebContentsViewCount(0);
+      // 清除后再刷新一次，避免计数残留。
+      await fetchWebContentsViewCount();
+    } catch {
+      // ignore
+    }
+  }, [isElectron, fetchWebContentsViewCount]);
+
   React.useEffect(() => {
     if (!isElectron) return;
 
@@ -126,20 +140,33 @@ export function AboutTeatime() {
             <div className="flex items-center justify-between gap-4 px-3 py-3">
               <div className="text-sm font-medium">WebContentsView数</div>
               <div className="min-w-0 max-w-[70%]">
-                <button
-                  type="button"
-                  aria-label="点击刷新 WebContentsView 数"
-                  title="点击刷新"
-                  className={[
-                    "w-full text-right",
-                    "bg-transparent p-0",
-                    "text-xs truncate",
-                    "text-muted-foreground hover:text-foreground hover:underline cursor-pointer",
-                  ].join(" ")}
-                  onClick={() => void fetchWebContentsViewCount()}
-                >
-                  {webContentsViewCount == null ? "—" : String(webContentsViewCount)}
-                </button>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    aria-label="点击刷新 WebContentsView 数"
+                    title="点击刷新"
+                    className={[
+                      "text-right",
+                      "bg-transparent p-0",
+                      "text-xs truncate",
+                      "text-muted-foreground hover:text-foreground hover:underline cursor-pointer",
+                    ].join(" ")}
+                    onClick={() => void fetchWebContentsViewCount()}
+                  >
+                    {webContentsViewCount == null ? "—" : String(webContentsViewCount)}
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    aria-label="清除 WebContentsView"
+                    disabled={webContentsViewCount == null || webContentsViewCount === 0}
+                    onClick={() => void clearWebContentsViews()}
+                  >
+                    清除
+                  </Button>
+                </div>
               </div>
             </div>
           ) : null}

@@ -12,6 +12,7 @@ const viewMapsByWindowId = new Map<number, Map<string, WebContentsView>>();
 const shortcutBridgeInstalled = new WeakSet<WebContentsView>();
 const desiredUrlByView = new WeakMap<WebContentsView, string>();
 const viewStatusEmitterInstalled = new WeakSet<WebContentsView>();
+const windowOpenHandlerInstalled = new WeakSet<WebContentsView>();
 
 type WebContentsViewLoadFailed = {
   errorCode: number;
@@ -24,11 +25,21 @@ export type WebContentsViewStatus = {
   webContentsId: number;
   url?: string;
   title?: string;
+  faviconUrl?: string;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
   loading?: boolean;
   ready?: boolean;
   failed?: WebContentsViewLoadFailed;
   destroyed?: boolean;
   ts: number;
+};
+
+export type WebContentsViewWindowOpen = {
+  key: string;
+  url: string;
+  disposition?: string;
+  frameName?: string;
 };
 
 const viewStatusByWindowId = new Map<number, Map<string, WebContentsViewStatus>>();
@@ -67,6 +78,45 @@ function emitViewStatus(
 }
 
 /**
+ * Get navigation availability for a WebContents instance.
+ */
+function getNavigationState(webContents: WebContents): { canGoBack: boolean; canGoForward: boolean } {
+  return {
+    canGoBack: webContents.canGoBack(),
+    canGoForward: webContents.canGoForward(),
+  };
+}
+
+function emitWindowOpen(win: BrowserWindow, payload: WebContentsViewWindowOpen) {
+  if (win.isDestroyed()) return;
+  try {
+    console.log('[webcontents-view] window-open', payload);
+    win.webContents.send('teatime:webcontents-view:window-open', payload);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Install handler to intercept window.open / target=_blank and forward to renderer.
+ */
+function installWindowOpenHandler(win: BrowserWindow, key: string, view: WebContentsView) {
+  if (windowOpenHandlerInstalled.has(view)) return;
+  windowOpenHandlerInstalled.add(view);
+
+  view.webContents.setWindowOpenHandler((details) => {
+    // 拦截新窗口，交由渲染端决定是否创建浏览器标签页。
+    emitWindowOpen(win, {
+      key,
+      url: details.url,
+      disposition: details.disposition,
+      frameName: details.frameName,
+    });
+    return { action: 'deny' };
+  });
+}
+
+/**
  * 将 WebContentsView 的真实加载状态（dom-ready 等）推送到渲染端：
  * - 由主进程监听 webContents 事件，避免渲染端用定时器猜测
  * - 用于精准控制 loading UI，以及决定何时真正展示 WebContentsView
@@ -81,6 +131,7 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
     webContentsId: wc.id,
     url: wc.getURL() || undefined,
     loading: wc.isLoading(),
+    ...getNavigationState(wc),
     ready: false,
   });
 
@@ -89,6 +140,7 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
       webContentsId: wc.id,
       url: wc.getURL() || undefined,
       loading: true,
+      ...getNavigationState(wc),
       ready: false,
       failed: undefined,
       destroyed: false,
@@ -100,6 +152,7 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
     emitViewStatus(win, key, {
       webContentsId: wc.id,
       url: wc.getURL() || undefined,
+      ...getNavigationState(wc),
       ready: true,
       failed: undefined,
       destroyed: false,
@@ -111,6 +164,7 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
       webContentsId: wc.id,
       url: wc.getURL() || undefined,
       loading: false,
+      ...getNavigationState(wc),
       destroyed: false,
     });
   });
@@ -121,6 +175,7 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
       webContentsId: wc.id,
       url: wc.getURL() || undefined,
       loading: false,
+      ...getNavigationState(wc),
       ready: false,
       failed: { errorCode, errorDescription, validatedURL },
       destroyed: false,
@@ -131,6 +186,7 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
     emitViewStatus(win, key, {
       webContentsId: wc.id,
       url,
+      ...getNavigationState(wc),
       ready: false,
       failed: undefined,
       destroyed: false,
@@ -141,6 +197,7 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
     emitViewStatus(win, key, {
       webContentsId: wc.id,
       url,
+      ...getNavigationState(wc),
       // in-page navigation（hash/history）不一定触发 dom-ready，保持 ready=true。
       ready: true,
       destroyed: false,
@@ -151,6 +208,18 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
     emitViewStatus(win, key, {
       webContentsId: wc.id,
       title: title || undefined,
+      ...getNavigationState(wc),
+      destroyed: false,
+    });
+  });
+
+  wc.on('page-favicon-updated', (_event, favicons) => {
+    const faviconUrl = Array.isArray(favicons) ? favicons[0] : undefined;
+    emitViewStatus(win, key, {
+      webContentsId: wc.id,
+      url: wc.getURL() || undefined,
+      faviconUrl,
+      ...getNavigationState(wc),
       destroyed: false,
     });
   });
@@ -392,11 +461,14 @@ export function upsertWebContentsView(
         sandbox: true,
       },
     });
+    console.log('[webcontents-view] create', { key, url });
     map.set(key, view);
     win.contentView.addChildView(view);
     // Install once per view; this prevents app-level shortcuts (e.g. Cmd+W)
     // from being hijacked by the embedded web contents.
     installShortcutBridge(win, view);
+    // 拦截 window.open，避免弹出独立窗口。
+    installWindowOpenHandler(win, key, view);
     // 把 WebContentsView 的真实加载状态（dom-ready 等）推送到渲染端。
     installViewStatusEmitter(win, key, view);
   }
@@ -415,6 +487,7 @@ export function upsertWebContentsView(
   const lastDesiredUrl = desiredUrlByView.get(view);
   if (lastDesiredUrl !== desiredUrl) {
     desiredUrlByView.set(view, desiredUrl);
+    console.log('[webcontents-view] load-url', { key, url: desiredUrl });
     void view.webContents.loadURL(desiredUrl);
   }
 }
@@ -425,6 +498,7 @@ export function upsertWebContentsView(
 export function destroyWebContentsView(win: BrowserWindow, key: string) {
   const map = viewMapsByWindowId.get(win.id);
   const view = map?.get(key);
+  console.log('[webcontents-view] destroy', { key, exists: Boolean(view) });
   if (!map || !view) return;
 
   map.delete(key);
@@ -446,5 +520,39 @@ export function destroyWebContentsView(win: BrowserWindow, key: string) {
     safeDisposeWebContents(view.webContents);
   } catch {
     // ignore
+  }
+}
+
+/**
+ * Navigate backward for the given WebContentsView if available.
+ */
+export function goBackWebContentsView(win: BrowserWindow, key: string) {
+  const view = getWebContentsView(win, key);
+  const wc = view?.webContents;
+  if (!wc || !wc.canGoBack()) return;
+  wc.goBack();
+}
+
+/**
+ * Navigate forward for the given WebContentsView if available.
+ */
+export function goForwardWebContentsView(win: BrowserWindow, key: string) {
+  const view = getWebContentsView(win, key);
+  const wc = view?.webContents;
+  if (!wc || !wc.canGoForward()) return;
+  wc.goForward();
+}
+
+/**
+ * Destroy all WebContentsViews for the given BrowserWindow.
+ */
+export function destroyAllWebContentsViews(win: BrowserWindow) {
+  const map = viewMapsByWindowId.get(win.id);
+  if (!map || map.size === 0) return;
+
+  // 复制 key 列表，避免遍历过程中 map 被修改。
+  const keys = Array.from(map.keys());
+  for (const key of keys) {
+    destroyWebContentsView(win, key);
   }
 }

@@ -1,0 +1,355 @@
+import { tool, zodSchema } from "ai";
+import {
+  browserActToolDef,
+  browserExtractToolDef,
+  browserObserveToolDef,
+  browserSnapshotToolDef,
+  browserWaitToolDef,
+} from "@teatime-ai/api/types/tools/browserAutomation";
+import { getClientId, getSessionId } from "@/common/requestContext";
+import { requireTabId } from "@/common/tabContext";
+import { sendCdpCommand } from "@/modules/browser/cdpClient";
+import { getTabCdpTargetIds, tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
+
+const MAX_TEXT_LENGTH = 10_000;
+
+/** Ensure sessionId is available for tab snapshot lookup. */
+function requireSessionId(): string {
+  const sessionId = getSessionId();
+  if (!sessionId) throw new Error("sessionId is required.");
+  return sessionId;
+}
+
+/** Ensure clientId is available for tab snapshot lookup. */
+function requireClientId(): string {
+  const clientId = getClientId();
+  if (!clientId) throw new Error("clientId is required.");
+  return clientId;
+}
+
+/** Resolve the latest available targetId for the current tab. */
+function pickActiveTargetId(): string {
+  const sessionId = requireSessionId();
+  const clientId = requireClientId();
+  const tabId = requireTabId();
+  const tab = tabSnapshotStore.get({ sessionId, clientId, tabId });
+  const ids = getTabCdpTargetIds(tab);
+  if (ids.length === 0) throw new Error("cdpTargetId is not available.");
+  // 优先取最后一个，避免旧 target 覆盖最新页面。
+  return ids[ids.length - 1]!;
+}
+
+/** Evaluate a JavaScript expression in the target context. */
+async function evalInTarget<T>(targetId: string, expression: string): Promise<T> {
+  const result = (await sendCdpCommand({
+    targetId,
+    method: "Runtime.evaluate",
+    params: {
+      expression,
+      awaitPromise: true,
+      returnByValue: true,
+    },
+  })) as {
+    result?: { value?: T };
+    exceptionDetails?: { text?: string };
+  };
+
+  if (result?.exceptionDetails) {
+    throw new Error(result.exceptionDetails.text ?? "Runtime.evaluate failed");
+  }
+
+  return result?.result?.value as T;
+}
+
+/** Send a keyboard event through CDP. */
+async function dispatchKeyEvent(targetId: string, key: string) {
+  const normalized = String(key || "").trim();
+  if (!normalized) throw new Error("key is required.");
+  const upper = normalized.length === 1 ? normalized.toUpperCase() : normalized;
+  const keyCode = normalized === "Enter" ? 13 : normalized.length === 1 ? upper.charCodeAt(0) : 0;
+  const text = normalized.length === 1 ? normalized : normalized === "Enter" ? "\r" : "";
+  const payload = {
+    key: normalized,
+    code: normalized === "Enter" ? "Enter" : normalized.length === 1 ? `Key${upper}` : normalized,
+    text,
+    unmodifiedText: text,
+    windowsVirtualKeyCode: keyCode,
+    nativeVirtualKeyCode: keyCode,
+  };
+  await sendCdpCommand({ targetId, method: "Input.dispatchKeyEvent", params: { type: "keyDown", ...payload } });
+  await sendCdpCommand({ targetId, method: "Input.dispatchKeyEvent", params: { type: "keyUp", ...payload } });
+}
+
+/** Focus element before keyboard input. */
+async function focusSelector(targetId: string, selector: string) {
+  await evalInTarget<void>(
+    targetId,
+    `(() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (!el) throw new Error('element not found');
+      el.scrollIntoView({ block: 'center', inline: 'center' });
+      el.focus && el.focus();
+    })()`,
+  );
+}
+
+/** Try to submit the closest form for a selector. */
+async function submitClosestForm(targetId: string, selector: string) {
+  await evalInTarget<void>(
+    targetId,
+    `(() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (!el) return;
+      const form = el.closest && el.closest('form');
+      if (form && typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+        return;
+      }
+      if (form && typeof form.submit === 'function') {
+        form.submit();
+      }
+    })()`,
+  );
+}
+
+/** Build a minimal snapshot expression to run in the browser context. */
+function buildSnapshotExpression() {
+  return `(() => {
+    const body = document.body;
+    const text = (body && (body.innerText || body.textContent) || '').toString();
+    const limited = text.length > ${MAX_TEXT_LENGTH} ? text.slice(0, ${MAX_TEXT_LENGTH}) : text;
+    const elements = Array.from(document.querySelectorAll('a,button,input,select,textarea,[role="button"],[role="link"]'))
+      .slice(0, 40)
+      .map((el) => {
+        const tag = (el.tagName || '').toLowerCase();
+        const label = (el.innerText || el.value || el.getAttribute('aria-label') || '').toString().trim().slice(0, 80);
+        let selector = '';
+        if (el.id) selector = '#' + CSS.escape(el.id);
+        else if (el.name) selector = tag + '[name="' + CSS.escape(el.name) + '"]';
+        else selector = tag;
+        return { selector, text: label, tag };
+      });
+    return {
+      url: location.href,
+      title: document.title,
+      readyState: document.readyState,
+      text: limited,
+      elements,
+    };
+  })()`;
+}
+
+/** Poll until a condition matches or a timeout occurs. */
+async function waitUntil(input: { targetId: string; timeoutMs: number; check: () => Promise<boolean> }) {
+  const start = Date.now();
+  while (true) {
+    if (await input.check()) return;
+    if (Date.now() - start >= input.timeoutMs) throw new Error("wait timeout");
+    await new Promise<void>((resolve) => setTimeout(resolve, 150));
+  }
+}
+
+export const browserSnapshotTool = tool({
+  description: browserSnapshotToolDef.description,
+  inputSchema: zodSchema(browserSnapshotToolDef.parameters),
+  execute: async () => {
+    const targetId = pickActiveTargetId();
+    const data = await evalInTarget(targetId, buildSnapshotExpression());
+    return { ok: true, data };
+  },
+});
+
+export const browserObserveTool = tool({
+  description: browserObserveToolDef.description,
+  inputSchema: zodSchema(browserObserveToolDef.parameters),
+  execute: async ({ task }) => {
+    const targetId = pickActiveTargetId();
+    const data = await evalInTarget(targetId, buildSnapshotExpression());
+    return { ok: true, data: { task, snapshot: data } };
+  },
+});
+
+export const browserExtractTool = tool({
+  description: browserExtractToolDef.description,
+  inputSchema: zodSchema(browserExtractToolDef.parameters),
+  execute: async ({ query }) => {
+    const targetId = pickActiveTargetId();
+    const text = await evalInTarget<string>(
+      targetId,
+      `(() => (document.body && (document.body.innerText || document.body.textContent) || '').toString())()`,
+    );
+    const trimmed = text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
+    return { ok: true, data: { query, text: trimmed } };
+  },
+});
+
+export const browserActTool = tool({
+  description: browserActToolDef.description,
+  inputSchema: zodSchema(browserActToolDef.parameters),
+  execute: async ({ action }) => {
+    const targetId = pickActiveTargetId();
+    const trimmed = action.trim();
+    if (!trimmed) throw new Error("action is required.");
+
+    // MVP：只支持结构化动作，避免自然语言歧义导致误操作。
+    const clickMatch = /^click\s+css="([^"]+)"$/i.exec(trimmed);
+    const clickTextMatch = /^click\s+text="([^"]+)"$/i.exec(trimmed);
+    const typeMatch = /^type\s+css="([^"]+)"\s+text="([^"]*)"$/i.exec(trimmed);
+    const fillMatch = /^fill\s+css="([^"]+)"\s+text="([^"]*)"$/i.exec(trimmed);
+    const pressMatch = /^press\s+key="([^"]+)"$/i.exec(trimmed);
+    const pressOnMatch = /^press\s+css="([^"]+)"\s+key="([^"]+)"$/i.exec(trimmed);
+    const scrollMatch = /^scroll\s+y="(-?\d+)"$/i.exec(trimmed);
+
+    if (clickMatch) {
+      const selector = clickMatch[1]!;
+      await evalInTarget<void>(
+        targetId,
+        `(() => {
+          const el = document.querySelector(${JSON.stringify(selector)});
+          if (!el) throw new Error('element not found');
+          el.scrollIntoView({ block: 'center', inline: 'center' });
+          el.click();
+        })()`,
+      );
+      return { ok: true, data: { action: "click", selector } };
+    }
+
+    if (clickTextMatch) {
+      const text = clickTextMatch[1]!;
+      // 中文注释：按可见文本匹配可交互元素，找到后执行点击。
+      await evalInTarget<void>(
+        targetId,
+        `(() => {
+          const normalize = (value) => (value || '').toString().replace(/\\s+/g, ' ').trim();
+          const wanted = normalize(${JSON.stringify(text)});
+          const candidates = Array.from(document.querySelectorAll('a,button,[role="button"],[role="link"],input[type="button"],input[type="submit"]'));
+          const match = candidates.find((el) => {
+            const label = normalize(el.innerText || el.value || el.getAttribute('aria-label') || '');
+            return label.includes(wanted);
+          });
+          if (!match) throw new Error('element not found');
+          match.scrollIntoView({ block: 'center', inline: 'center' });
+          match.click();
+        })()`,
+      );
+      return { ok: true, data: { action: "click", text } };
+    }
+
+    if (typeMatch || fillMatch) {
+      const selector = (typeMatch ?? fillMatch)![1]!;
+      const text = (typeMatch ?? fillMatch)![2] ?? "";
+      await evalInTarget<void>(
+        targetId,
+        `(() => {
+          const el = document.querySelector(${JSON.stringify(selector)});
+          if (!el) throw new Error('element not found');
+          el.scrollIntoView({ block: 'center', inline: 'center' });
+          el.focus && el.focus();
+          if ('value' in el) el.value = '';
+          const v = ${JSON.stringify(text)};
+          if ('value' in el) el.value = v;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        })()`,
+      );
+      return {
+        ok: true,
+        data: { action: typeMatch ? "type" : "fill", selector, text },
+      };
+    }
+
+    if (pressOnMatch) {
+      const selector = pressOnMatch[1]!;
+      const key = pressOnMatch[2]!;
+      // 中文注释：先聚焦目标元素，再走 CDP 触发按键，避免页面忽略非信任事件。
+      await focusSelector(targetId, selector);
+      await dispatchKeyEvent(targetId, key);
+      if (String(key).toLowerCase() === "enter") {
+        // 中文注释：Enter 无效时，兜底尝试提交最近的表单。
+        await submitClosestForm(targetId, selector);
+      }
+      return { ok: true, data: { action: "press", selector, key } };
+    }
+
+    if (pressMatch) {
+      const key = pressMatch[1]!;
+      await dispatchKeyEvent(targetId, key);
+      return { ok: true, data: { action: "press", key } };
+    }
+
+    if (scrollMatch) {
+      const y = Number(scrollMatch[1] ?? 0);
+      await evalInTarget<void>(targetId, `window.scrollBy(0, ${Math.trunc(y)});`);
+      return { ok: true, data: { action: "scroll", y } };
+    }
+
+    throw new Error("Unsupported action format");
+  },
+});
+
+export const browserWaitTool = tool({
+  description: browserWaitToolDef.description,
+  inputSchema: zodSchema(browserWaitToolDef.parameters),
+  execute: async ({ type, timeoutMs, url, text }) => {
+    const targetId = pickActiveTargetId();
+    const maxWait = Math.max(0, Math.min(120_000, Number(timeoutMs ?? 30_000)));
+
+    if (type === "timeout") {
+      await new Promise<void>((resolve) => setTimeout(resolve, maxWait));
+      return { ok: true, data: { waitedMs: maxWait } };
+    }
+
+    if (type === "load") {
+      await waitUntil({
+        targetId,
+        timeoutMs: maxWait,
+        check: async () =>
+          (await evalInTarget<string>(targetId, "document.readyState")) === "complete",
+      });
+      return { ok: true, data: { type } };
+    }
+
+    if (type === "networkidle") {
+      // MVP：无网络事件 hook，先按 load 近似处理。
+      await waitUntil({
+        targetId,
+        timeoutMs: maxWait,
+        check: async () =>
+          (await evalInTarget<string>(targetId, "document.readyState")) === "complete",
+      });
+      return { ok: true, data: { type, approx: "load" } };
+    }
+
+    if (type === "urlIncludes") {
+      const keyword = String(url ?? "");
+      if (!keyword) throw new Error("url is required for urlIncludes");
+      await waitUntil({
+        targetId,
+        timeoutMs: maxWait,
+        check: async () =>
+          (await evalInTarget<string>(targetId, "location.href"))
+            .includes(keyword),
+      });
+      return { ok: true, data: { type, urlIncludes: keyword } };
+    }
+
+    if (type === "textIncludes") {
+      const keyword = String(text ?? "");
+      if (!keyword) throw new Error("text is required for textIncludes");
+      await waitUntil({
+        targetId,
+        timeoutMs: maxWait,
+        check: async () => {
+          const pageText = await evalInTarget<string>(
+            targetId,
+            `(() => (document.body && (document.body.innerText || document.body.textContent) || '').toString())()`,
+          );
+          return pageText.includes(keyword);
+        },
+      });
+      return { ok: true, data: { type, textIncludes: keyword } };
+    }
+
+    throw new Error("Unsupported wait type");
+  },
+});

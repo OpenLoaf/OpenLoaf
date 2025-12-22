@@ -26,6 +26,15 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
   // 请求主进程移除某个嵌入的 WebContentsView。
   destroyWebContentsView: (key: string): Promise<OkResult> =>
     ipcRenderer.invoke('teatime:webcontents-view:destroy', { key }),
+  // Navigate back within a WebContentsView.
+  goBackWebContentsView: (key: string): Promise<OkResult> =>
+    ipcRenderer.invoke('teatime:webcontents-view:go-back', { key }),
+  // Navigate forward within a WebContentsView.
+  goForwardWebContentsView: (key: string): Promise<OkResult> =>
+    ipcRenderer.invoke('teatime:webcontents-view:go-forward', { key }),
+  // Clear all WebContentsViews for the current window.
+  clearWebContentsViews: (): Promise<OkResult> =>
+    ipcRenderer.invoke('teatime:webcontents-view:clear'),
   // 获取当前窗口内 WebContentsView 数量（用于设置页展示/诊断）。
   getWebContentsViewCount: (): Promise<CountResult> =>
     ipcRenderer.invoke('teatime:webcontents-view:count'),
@@ -36,6 +45,16 @@ ipcRenderer.on('teatime:webcontents-view:status', (_event, detail) => {
   try {
     window.dispatchEvent(
       new CustomEvent('teatime:webcontents-view:status', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+ipcRenderer.on('teatime:webcontents-view:window-open', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('teatime:webcontents-view:window-open', { detail })
     );
   } catch {
     // ignore

@@ -3,7 +3,8 @@
 import * as React from 'react';
 
 import { formatCodeBlock, isLangSupported } from '@platejs/code-block';
-import { BracesIcon, Check, CheckIcon, CopyIcon } from 'lucide-react';
+import { deserializeMd } from '@platejs/markdown';
+import { BracesIcon, Check, CheckIcon, CopyIcon, FileText } from 'lucide-react';
 import { type TCodeBlockElement, type TCodeSyntaxLeaf, NodeApi } from 'platejs';
 import {
   type PlateElementProps,
@@ -31,6 +32,35 @@ import { cn } from '@/lib/utils';
 
 export function CodeBlockElement(props: PlateElementProps<TCodeBlockElement>) {
   const { editor, element } = props;
+  const readOnly = useReadOnly();
+  const normalizedLanguage = (element.lang || 'text').toLowerCase();
+  const isMarkdown =
+    normalizedLanguage === 'markdown' ||
+    normalizedLanguage === 'md' ||
+    normalizedLanguage === 'mdx';
+
+  /** Build markdown text from the code block lines. */
+  const getMarkdownText = React.useCallback(() => {
+    if (!Array.isArray(element.children) || element.children.length === 0) {
+      return NodeApi.string(element);
+    }
+    return element.children.map((line) => NodeApi.string(line)).join('\n');
+  }, [element]);
+
+  /** Convert markdown code into Plate blocks. */
+  const handleConvertMarkdown = React.useCallback(() => {
+    if (readOnly) return;
+    const path = editor.api.findPath(element);
+    if (!path) return;
+    const markdown = getMarkdownText();
+    const nodes = deserializeMd(editor, markdown);
+    if (!nodes.length) return;
+    // 中文注释：替换当前 code block，避免残留旧节点。
+    editor.tf.withoutNormalizing(() => {
+      editor.tf.removeNodes({ at: path });
+      editor.tf.insertNodes(nodes, { at: path, select: true });
+    });
+  }, [editor, element, getMarkdownText, readOnly]);
 
   return (
     <PlateElement
@@ -38,7 +68,7 @@ export function CodeBlockElement(props: PlateElementProps<TCodeBlockElement>) {
       {...props}
     >
       <div className="relative rounded-md bg-muted/50">
-        <pre className="overflow-x-auto p-8 pr-4 font-mono text-sm leading-[normal] [tab-size:2] print:break-inside-avoid">
+        <pre className="overflow-x-auto p-4 pt-8 pr-4 font-mono text-xs leading-[normal] [tab-size:2] print:break-inside-avoid">
           <code>{props.children}</code>
         </pre>
 
@@ -66,6 +96,17 @@ export function CodeBlockElement(props: PlateElementProps<TCodeBlockElement>) {
             className="size-6 gap-1 text-muted-foreground text-xs"
             value={() => NodeApi.string(element)}
           />
+          {isMarkdown && !readOnly ? (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-6 text-xs text-muted-foreground"
+              onClick={handleConvertMarkdown}
+              title="转换为 Block"
+            >
+              <FileText className="!size-3.5" />
+            </Button>
+          ) : null}
         </div>
       </div>
     </PlateElement>

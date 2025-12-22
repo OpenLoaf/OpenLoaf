@@ -1,20 +1,20 @@
-import type { PrismaClient } from "@teatime-ai/db/prisma/generated/client";
+import { Prisma, type PrismaClient } from "@teatime-ai/db/prisma/generated/client";
 
 const DEFAULT_BLOCK_TYPE = "paragraph";
 
 export type PageBlockInput = {
-  content: Record<string, unknown> | null;
+  content: Prisma.InputJsonValue | null;
   order?: number | null;
   type?: string | null;
-  props?: Record<string, unknown> | null;
+  props?: Prisma.InputJsonValue | null;
 };
 
 export type PageBlockOutput = {
   id: string;
-  content: Record<string, unknown> | null;
+  content: Prisma.JsonValue | null;
   order: number;
   type: string;
-  props: Record<string, unknown> | null;
+  props: Prisma.JsonValue | null;
 };
 
 /** Load top-level blocks for a page. */
@@ -54,10 +54,10 @@ export const savePageBlocks = async (
           pageId,
           type:
             block.type ??
-            (block.content as { type?: string })?.type ??
+            ((block.content as { type?: string } | null) ?? undefined)?.type ??
             DEFAULT_BLOCK_TYPE,
-          props: block.props ?? null,
-          content: block.content ?? null,
+          props: block.props ?? Prisma.JsonNull,
+          content: block.content ?? Prisma.JsonNull,
           parentId: null,
           order: block.order ?? index,
           createdAt: blockTimestamp,

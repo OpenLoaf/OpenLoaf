@@ -193,6 +193,10 @@ export interface TabsState {
   removeStackItem: (tabId: string, itemId: string) => void;
   clearStack: (tabId: string) => void;
   setStackHidden: (tabId: string, hidden: boolean) => void;
+  /**
+   * Replace browser tabs state for the embedded browser panel.
+   */
+  setBrowserTabs: (tabId: string, tabs: BrowserTab[], activeId?: string) => void;
 
   upsertToolPart: (tabId: string, key: string, part: ToolPartSnapshot) => void;
   clearToolPartsForTab: (tabId: string) => void;
@@ -577,6 +581,44 @@ export const useTabs = create<TabsState>()(
                 ),
               });
             }),
+          };
+        });
+      },
+
+      setBrowserTabs: (tabId, tabs, activeId) => {
+        set((state) => {
+          const nextTabs = Array.isArray(tabs) ? tabs : [];
+          const nextActiveId =
+            typeof activeId === "string" ? activeId : nextTabs[0]?.id ?? "";
+          return {
+            tabs: updateTabById(state.tabs, tabId, (tab) => {
+              const nextTab = normalizeDock(tab);
+              const nextStack = (nextTab.stack ?? []).filter(
+                (item) => item.component !== BROWSER_WINDOW_COMPONENT,
+              );
+              // 中文注释：直接替换浏览器面板状态，避免 merge 造成“关闭又回滚”。
+              nextStack.push(
+                normalizeBrowserWindowItem(undefined, {
+                  id: BROWSER_WINDOW_PANEL_ID,
+                  sourceKey: BROWSER_WINDOW_PANEL_ID,
+                  component: BROWSER_WINDOW_COMPONENT,
+                  params: {
+                    __customHeader: true,
+                    browserTabs: nextTabs,
+                    activeBrowserTabId: nextActiveId,
+                  },
+                } as DockItem),
+              );
+              return normalizeDock({
+                ...nextTab,
+                stack: nextStack,
+              });
+            }),
+            activeStackItemIdByTabId: {
+              ...state.activeStackItemIdByTabId,
+              [tabId]: BROWSER_WINDOW_PANEL_ID,
+            },
+            stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
           };
         });
       },

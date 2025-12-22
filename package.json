@@ -47,5 +47,12 @@
   "lint-staged": {
     "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue,astro,svelte}": "biome check --apply --write"
   },
-  "packageManager": "pnpm@10.22.0"
+  "packageManager": "pnpm@10.22.0",
+  "pnpm": {
+    "overrides": {
+      "@ai-sdk/gateway": "2.0.0-beta.91",
+      "@ai-sdk/provider": "3.0.0-beta.31",
+      "@ai-sdk/provider-utils": "4.0.0-beta.58"
+    }
+  }
 }

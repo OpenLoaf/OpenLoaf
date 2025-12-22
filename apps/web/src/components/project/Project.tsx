@@ -1,22 +1,19 @@
 "use client";
 
 import * as ScrollArea from "@radix-ui/react-scroll-area";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "motion/react";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { usePage } from "@/hooks/use-page";
-import ProjectInfo from "./intro/ProjectIntro";
-import ProjectCanvas from "./ProjectCanvas";
-import ProjectTasks from "./ProjectTasks";
-import ProjectMaterials from "./ProjectMaterials";
-import ProjectSkills from "./ProjectSkills";
-import ProjectTest from "./ProjectTest";
+import ProjectInfo, { ProjectIntroHeader } from "./intro/ProjectIntro";
+import ProjectCanvas, { ProjectCanvasHeader } from "./convas/ProjectCanvas";
+import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
+import ProjectMaterials, { ProjectMaterialsHeader } from "./ProjectMaterials";
+import ProjectSkills, { ProjectSkillsHeader } from "./ProjectSkills";
 import ProjectTabs, { type ProjectTabValue } from "./ProjectTabs";
-import ProjectTitle from "./ProjectTitle";
 
 interface ProjectPageProps {
   tabId?: string;
@@ -51,6 +48,10 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
   const tabActive = useTabActive();
   const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
   const appliedWidthRef = useRef(false);
+  const mountedScopeRef = useRef<{ pageId?: string; tabId?: string }>({
+    pageId,
+    tabId,
+  });
   const queryClient = useQueryClient();
   const pageSelect = useRef({ id: true, title: true, icon: true }).current;
 
@@ -62,9 +63,18 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
   } = usePage(pageId);
 
   const [activeTab, setActiveTab] = useState<ProjectTabValue>("intro");
+  const [mountedTabs, setMountedTabs] = useState<Set<ProjectTabValue>>(
+    () => new Set<ProjectTabValue>(["intro"])
+  );
 
   const pageTitle = pageData?.title || "Untitled Page";
   const titleIcon: string | undefined = pageData?.icon ?? undefined;
+  const shouldRenderIntro = activeTab === "intro" || mountedTabs.has("intro");
+  const shouldRenderCanvas = activeTab === "canvas" || mountedTabs.has("canvas");
+  const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
+  const shouldRenderMaterials =
+    activeTab === "materials" || mountedTabs.has("materials");
+  const shouldRenderSkills = activeTab === "skills" || mountedTabs.has("skills");
 
   const pageQueryKey =
     activeWorkspace && pageId
@@ -126,9 +136,47 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
     })
   );
 
+  /** Update project title with optimistic cache. */
+  const handleUpdateTitle = useCallback(
+    (nextTitle: string) => {
+      if (!pageId) return;
+      updatePage.mutate({ where: { id: pageId }, data: { title: nextTitle } });
+    },
+    [pageId, updatePage]
+  );
+
+  /** Update project icon with optimistic cache. */
+  const handleUpdateIcon = useCallback(
+    (nextIcon: string) => {
+      if (!pageId) return;
+      updatePage.mutate({ where: { id: pageId }, data: { icon: nextIcon } });
+    },
+    [pageId, updatePage]
+  );
+
   useEffect(() => {
     appliedWidthRef.current = false;
   }, [pageId, tabId]);
+
+  // 面板首次访问后保留挂载状态，避免初始化时一次性渲染所有重组件。
+  // 记录页面上下文变化，避免仅切换子 tab 时重置挂载缓存。
+  /** Reset mounted panels when the page context changes. */
+  useEffect(() => {
+    const prevScope = mountedScopeRef.current;
+    if (prevScope.pageId === pageId && prevScope.tabId === tabId) return;
+    mountedScopeRef.current = { pageId, tabId };
+    setMountedTabs(new Set<ProjectTabValue>([activeTab]));
+  }, [pageId, tabId, activeTab]);
+
+  /** Mark the active panel as mounted. */
+  useEffect(() => {
+    setMountedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
   useEffect(() => {
     if (!tabActive) return;
@@ -138,123 +186,172 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
     appliedWidthRef.current = true;
   }, [tabActive, tabId, setTabLeftWidthPercent]);
 
+  // 面板按需挂载，header 常驻渲染并用 CSS 过渡控制显示与交互。
+  const headerBaseClass =
+    "absolute inset-0 flex items-center pl-2 transition-opacity duration-240 ease-out";
+  const panelBaseClass =
+    "absolute inset-0 box-border pt-0 transition-opacity duration-240 ease-out";
+
   return (
     <div className="flex h-full w-full flex-col min-h-0">
-      <div className="relative flex items-center py-0 w-full min-w-0">
-        {/* <ProjectTitle
-          isLoading={isLoading}
-          pageId={pageId}
-          pageTitle={pageTitle}
-          titleIcon={titleIcon}
-          currentTitle={pageData?.title ?? undefined}
-          isUpdating={updatePage.isPending}
-          onUpdateTitle={(nextTitle) => {
-            if (!pageId) return;
-            updatePage.mutate({ where: { id: pageId }, data: { title: nextTitle } });
-          }}
-          onUpdateIcon={(nextIcon) => {
-            if (!pageId) return;
-            updatePage.mutate({ where: { id: pageId }, data: { icon: nextIcon } });
-          }}
-        /> */}
-        <ProjectTabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          isActive={tabActive}
-          revealDelayMs={800}
-        />{" "}
+      <div className="relative flex items-center py-0 w-full min-w-0 gap-3 pb-2">
+        <div className="relative flex-1 min-w-0 min-h-[36px]">
+          <div
+            className={`${headerBaseClass} ${
+              activeTab === "intro"
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }`}
+            aria-hidden={activeTab !== "intro"}
+          >
+            <ProjectIntroHeader
+              isLoading={isLoading}
+              pageId={pageId}
+              pageTitle={pageTitle}
+              titleIcon={titleIcon}
+              currentTitle={pageData?.title ?? undefined}
+              isUpdating={updatePage.isPending}
+              onUpdateTitle={handleUpdateTitle}
+              onUpdateIcon={handleUpdateIcon}
+            />
+          </div>
+          <div
+            className={`${headerBaseClass} ${
+              activeTab === "canvas"
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }`}
+            aria-hidden={activeTab !== "canvas"}
+          >
+            <ProjectCanvasHeader isLoading={isLoading} pageTitle={pageTitle} />
+          </div>
+          <div
+            className={`${headerBaseClass} ${
+              activeTab === "tasks"
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }`}
+            aria-hidden={activeTab !== "tasks"}
+          >
+            <ProjectTasksHeader isLoading={isLoading} pageTitle={pageTitle} />
+          </div>
+          <div
+            className={`${headerBaseClass} ${
+              activeTab === "materials"
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }`}
+            aria-hidden={activeTab !== "materials"}
+          >
+            <ProjectMaterialsHeader isLoading={isLoading} pageTitle={pageTitle} />
+          </div>
+          <div
+            className={`${headerBaseClass} ${
+              activeTab === "skills"
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }`}
+            aria-hidden={activeTab !== "skills"}
+          >
+            <ProjectSkillsHeader isLoading={isLoading} pageTitle={pageTitle} />
+          </div>
+        </div>
+        <div className="shrink-0">
+          <ProjectTabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            isActive={tabActive}
+            revealDelayMs={800}
+          />
+        </div>
       </div>
 
       <ScrollArea.Root className="flex-1 min-h-0 w-full">
         <ScrollArea.Viewport className="w-full h-full min-h-0 min-w-0 flex flex-col [&>div]:!min-w-0 [&>div]:!w-full [&>div]:!h-full [&>div]:!block">
           <div className="flex-1 min-h-0 w-full h-full">
-            <div
-              id={`project-panel-${activeTab}`}
-              role="tabpanel"
-              aria-labelledby={`project-tab-${activeTab}`}
-              className="w-full h-full min-h-0 flex flex-col"
-            >
-              <div className="w-full h-full min-h-0 flex-1 relative">
-                <motion.div
-                  className="absolute inset-0 w-full h-full"
-                  animate={
-                    activeTab === "intro"
-                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
-                      : { opacity: 0, y: 8, pointerEvents: "none" }
-                  }
-                  transition={{ duration: 0.2 }}
-                  aria-hidden={activeTab !== "intro"}
-                >
+            <div className="relative w-full h-full min-h-0">
+              <div
+                id="project-panel-intro"
+                role="tabpanel"
+                aria-labelledby="project-tab-intro"
+                className={`${panelBaseClass} ${
+                  activeTab === "intro"
+                    ? "opacity-100 pointer-events-auto"
+                    : "opacity-0 pointer-events-none"
+                }`}
+                aria-hidden={activeTab !== "intro"}
+              >
+                {shouldRenderIntro ? (
                   <ProjectInfo
                     isLoading={isLoading}
                     pageId={pageId}
                     pageTitle={pageTitle}
                   />
-                </motion.div>
-                <motion.div
-                  className="absolute inset-0 w-full h-full"
-                  animate={
-                    activeTab === "canvas"
-                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
-                      : { opacity: 0, y: 8, pointerEvents: "none" }
-                  }
-                  transition={{ duration: 0.2 }}
-                  aria-hidden={activeTab !== "canvas"}
-                >
+                ) : null}
+              </div>
+              <div
+                id="project-panel-canvas"
+                role="tabpanel"
+                aria-labelledby="project-tab-canvas"
+                className={`${panelBaseClass} ${
+                  activeTab === "canvas"
+                    ? "opacity-100 pointer-events-auto"
+                    : "opacity-0 pointer-events-none"
+                }`}
+                aria-hidden={activeTab !== "canvas"}
+              >
+                {shouldRenderCanvas ? (
                   <ProjectCanvas
                     isLoading={isLoading}
                     pageId={pageId}
                     pageTitle={pageTitle}
                   />
-                </motion.div>
-                <motion.div
-                  className="absolute inset-0 w-full h-full"
-                  animate={
-                    activeTab === "tasks"
-                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
-                      : { opacity: 0, y: 8, pointerEvents: "none" }
-                  }
-                  transition={{ duration: 0.2 }}
-                  aria-hidden={activeTab !== "tasks"}
-                >
+                ) : null}
+              </div>
+              <div
+                id="project-panel-tasks"
+                role="tabpanel"
+                aria-labelledby="project-tab-tasks"
+                className={`${panelBaseClass} ${
+                  activeTab === "tasks"
+                    ? "opacity-100 pointer-events-auto"
+                    : "opacity-0 pointer-events-none"
+                }`}
+                aria-hidden={activeTab !== "tasks"}
+              >
+                {shouldRenderTasks ? (
                   <ProjectTasks isLoading={isLoading} pageId={pageId} />
-                </motion.div>
-                <motion.div
-                  className="absolute inset-0 w-full h-full"
-                  animate={
-                    activeTab === "materials"
-                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
-                      : { opacity: 0, y: 8, pointerEvents: "none" }
-                  }
-                  transition={{ duration: 0.2 }}
-                  aria-hidden={activeTab !== "materials"}
-                >
+                ) : null}
+              </div>
+              <div
+                id="project-panel-materials"
+                role="tabpanel"
+                aria-labelledby="project-tab-materials"
+                className={`${panelBaseClass} ${
+                  activeTab === "materials"
+                    ? "opacity-100 pointer-events-auto"
+                    : "opacity-0 pointer-events-none"
+                }`}
+                aria-hidden={activeTab !== "materials"}
+              >
+                {shouldRenderMaterials ? (
                   <ProjectMaterials isLoading={isLoading} pageId={pageId} />
-                </motion.div>
-                <motion.div
-                  className="absolute inset-0 w-full h-full"
-                  animate={
-                    activeTab === "skills"
-                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
-                      : { opacity: 0, y: 8, pointerEvents: "none" }
-                  }
-                  transition={{ duration: 0.2 }}
-                  aria-hidden={activeTab !== "skills"}
-                >
+                ) : null}
+              </div>
+              <div
+                id="project-panel-skills"
+                role="tabpanel"
+                aria-labelledby="project-tab-skills"
+                className={`${panelBaseClass} ${
+                  activeTab === "skills"
+                    ? "opacity-100 pointer-events-auto"
+                    : "opacity-0 pointer-events-none"
+                }`}
+                aria-hidden={activeTab !== "skills"}
+              >
+                {shouldRenderSkills ? (
                   <ProjectSkills isLoading={isLoading} pageId={pageId} />
-                </motion.div>
-                <motion.div
-                  className="absolute inset-0 w-full h-full"
-                  animate={
-                    activeTab === "test"
-                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
-                      : { opacity: 0, y: 8, pointerEvents: "none" }
-                  }
-                  transition={{ duration: 0.2 }}
-                  aria-hidden={activeTab !== "test"}
-                >
-                  <ProjectTest pageId={pageId} />
-                </motion.div>
+                ) : null}
               </div>
             </div>
           </div>

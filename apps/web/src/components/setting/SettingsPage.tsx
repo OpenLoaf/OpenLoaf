@@ -21,6 +21,7 @@ import {
   Keyboard,
   Building2,
   ShieldCheck,
+  FlaskConical,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -33,6 +34,7 @@ import { AgentManagement } from "./menus/agent/AgentManagement";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
 import { CommandAllowlist } from "./menus/CommandAllowlist";
+import ProjectTest from "./menus/ProjectTest";
 
 type SettingsMenuKey =
   | "basic"
@@ -43,7 +45,8 @@ type SettingsMenuKey =
   | "agents"
   | "workspace"
   | "shortcuts"
-  | "whitelist";
+  | "whitelist"
+  | "projectTest";
 
 const MENU: Array<{
   key: SettingsMenuKey;
@@ -59,6 +62,7 @@ const MENU: Array<{
   { key: "whitelist", label: "白名单", Icon: ShieldCheck, Component: CommandAllowlist },
   { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
   { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
+  { key: "projectTest", label: "测试", Icon: FlaskConical, Component: ProjectTest },
   { key: "about", label: "关于Teatime", Icon: Info, Component: AboutTeatime },
 ];
 
@@ -140,7 +144,7 @@ export default function SettingsPage({
     return [
       [byKey.get("basic"), byKey.get("account"), byKey.get("workspace")].filter(Boolean),
       [byKey.get("models"), byKey.get("keys"), byKey.get("whitelist"), byKey.get("agents")].filter(Boolean),
-      [byKey.get("shortcuts"), byKey.get("about")].filter(Boolean),
+      [byKey.get("shortcuts"), byKey.get("projectTest"), byKey.get("about")].filter(Boolean),
     ] as Array<typeof MENU>;
   }, []);
 

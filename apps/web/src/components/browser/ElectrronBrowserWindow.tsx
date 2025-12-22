@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { BROWSER_WINDOW_PANEL_ID, useTabs } from "@/hooks/use-tabs";
@@ -11,10 +12,20 @@ import { BrowserProgressBar } from "@/components/browser/BrowserProgressBar";
 import { BrowserLoadingOverlay } from "@/components/browser/BrowserLoadingOverlay";
 import { BrowserErrorOverlay } from "@/components/browser/BrowserErrorOverlay";
 import { BrowserHome } from "@/components/browser/BrowserHome";
+import { Button } from "@/components/ui/button";
 import { normalizeUrl } from "@/components/browser/browser-utils";
+import {
+  addFavoriteSite,
+  addRecentlyClosedSite,
+  getFavoriteSites,
+  onBrowserStorageChange,
+  removeFavoriteSite,
+  setFavoriteIconByUrl,
+} from "@/components/browser/browser-storage";
 import type {
   BrowserTab,
   TeatimeWebContentsViewStatus,
+  TeatimeWebContentsViewWindowOpen,
 } from "@/components/browser/browser-types";
 import {
   Empty,
@@ -23,7 +34,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { TriangleAlert } from "lucide-react";
+import { Star, TriangleAlert } from "lucide-react";
 
 type ElectrronBrowserWindowProps = {
   panelKey: string;
@@ -80,10 +91,26 @@ export default function ElectrronBrowserWindow({
   const targetUrl = useMemo(() => activeUrl, [activeUrl]);
   const showProgress = Boolean(targetUrl) && activeViewStatus?.ready !== true && !activeViewStatus?.failed;
   const showHome = !targetUrl;
+  const canGoBack = Boolean(activeViewStatus?.canGoBack);
+  const canGoForward = Boolean(activeViewStatus?.canGoForward);
+  const showNavigation = canGoBack || canGoForward;
+  const canFavorite = Boolean(activeUrl);
+  const [favoriteUrls, setFavoriteUrls] = useState<string[]>([]);
+  const isFavorite = Boolean(activeUrl && favoriteUrls.includes(activeUrl));
 
   const ensuredTargetIdRef = useRef<Set<string>>(new Set());
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
+  const viewKeyPatchedRef = useRef(false);
+
+  useEffect(() => {
+    // Sync favorites from local cache for star state.
+    const syncFavorites = () => {
+      setFavoriteUrls(getFavoriteSites().map((item) => item.url));
+    };
+    syncFavorites();
+    return onBrowserStorageChange(syncFavorites);
+  }, []);
 
   const createBrowserTabId = () => {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -98,20 +125,57 @@ export default function ElectrronBrowserWindow({
     return `browser:${workspaceId}:${safeTabId}:${chatSessionId}:${browserTabId}`;
   };
 
+  // Sync tab title from WebContents status events.
+  const syncTabTitleFromStatus = (status: TeatimeWebContentsViewStatus) => {
+    if (!safeTabId) return;
+    const nextTitle = status.title?.trim();
+    if (!nextTitle) return;
+    const currentTabs = tabsRef.current;
+    const target = currentTabs.find((t) => t.viewKey === status.key);
+    if (!target || target.title === nextTitle) return;
+    // 中文注释：收到标题后立即同步到标签页状态，保证标题展示正确。
+    const nextTabs = currentTabs.map((t) =>
+      t.viewKey === status.key ? { ...t, title: nextTitle } : t,
+    );
+    updateBrowserState(nextTabs, activeId);
+  };
+
+  // Sync favorite icon when a page reports its favicon.
+  const syncFavoriteIconFromStatus = (status: TeatimeWebContentsViewStatus) => {
+    if (!status.url || !status.faviconUrl) return;
+    // 中文注释：只有页面真实打开后才会触发 favicon 更新，避免未打开时写入。
+    setFavoriteIconByUrl(status.url, status.faviconUrl);
+  };
+
+  const guessTitleFromUrl = (url: string) => {
+    try {
+      return new URL(url).hostname || "New Tab";
+    } catch {
+      return "New Tab";
+    }
+  };
+
   const updateBrowserState = (nextTabs: ElectrronBrowserWindowProps["browserTabs"], nextActiveId?: string) => {
     if (!safeTabId) return;
+    // 中文注释：立即更新运行时引用，避免并发事件把已关闭的标签重新写回。
+    const normalizedTabs = Array.isArray(nextTabs) ? nextTabs : [];
+    tabsRef.current = normalizedTabs;
     // 浏览器面板内的状态（tabs/active）统一写回到 tab.stack，作为单一事实来源。
-    useTabs.getState().pushStackItem(
-      safeTabId,
-      {
-        id: BROWSER_WINDOW_PANEL_ID,
-        sourceKey: BROWSER_WINDOW_PANEL_ID,
-        component: "electron-browser-window",
-        params: { __customHeader: true, browserTabs: nextTabs ?? [], activeBrowserTabId: nextActiveId },
-      } as any,
-      100,
-    );
+    useTabs.getState().setBrowserTabs(safeTabId, normalizedTabs, nextActiveId);
   };
+
+  useEffect(() => {
+    if (!safeTabId || viewKeyPatchedRef.current) return;
+    const missing = tabs.some((t) => !t.viewKey && t.id);
+    if (!missing) return;
+
+    // 中文注释：补齐历史遗留的 viewKey，避免关闭时无法定位对应的 WebContentsView。
+    const nextTabs = tabs.map((t) =>
+      t.viewKey || !t.id ? t : { ...t, viewKey: buildViewKey(t.id) },
+    );
+    viewKeyPatchedRef.current = true;
+    updateBrowserState(nextTabs, activeId);
+  }, [tabs, safeTabId, activeId]);
 
   useEffect(() => {
     const api = window.teatimeElectron;
@@ -119,6 +183,9 @@ export default function ElectrronBrowserWindow({
     const ensureWebContentsView = api?.ensureWebContentsView;
     if (!ensureWebContentsView) return;
     if (!targetUrl) return;
+
+    const viewAlive = tabsRef.current.some((t) => t.viewKey === activeViewKey);
+    if (!viewAlive) return;
 
     const key = activeViewKey;
     let canceled = false;
@@ -170,6 +237,9 @@ export default function ElectrronBrowserWindow({
         viewStatusByKeyRef.current.set(detail.key, detail);
       }
 
+      syncTabTitleFromStatus(detail);
+      syncFavoriteIconFromStatus(detail);
+
       if (detail.key !== activeViewKey) return;
 
       setActiveViewStatus(detail.destroyed ? null : detail);
@@ -192,7 +262,37 @@ export default function ElectrronBrowserWindow({
 
     window.addEventListener("teatime:webcontents-view:status", handleStatus);
     return () => window.removeEventListener("teatime:webcontents-view:status", handleStatus);
-  }, [isElectron, activeViewKey, targetUrl]);
+  }, [isElectron, activeViewKey, targetUrl, activeId, safeTabId]);
+
+  useEffect(() => {
+    if (!isElectron || !safeTabId) return;
+
+  const handleWindowOpen = (event: Event) => {
+    const detail = (event as CustomEvent<TeatimeWebContentsViewWindowOpen>).detail;
+    if (!detail?.key || !detail?.url) return;
+    console.log("[browser-tabs] window-open", detail);
+    const nextUrl = normalizeUrl(detail.url);
+    if (!nextUrl) return;
+
+      const currentTabs = tabsRef.current;
+      const fromTab = currentTabs.find((t) => t.viewKey === detail.key);
+      if (!fromTab) return;
+
+      // 拦截到新窗口时，转为浏览器标签页创建，避免弹出独立窗口。
+      const id = createBrowserTabId();
+      const viewKey = buildViewKey(id);
+      const nextTabs = [
+        ...currentTabs,
+        { id, viewKey, url: nextUrl, title: guessTitleFromUrl(nextUrl) },
+      ];
+      const openInBackground = detail.disposition === "background-tab";
+      updateBrowserState(nextTabs, openInBackground ? activeId : id);
+    };
+
+    window.addEventListener("teatime:webcontents-view:window-open", handleWindowOpen);
+    return () =>
+      window.removeEventListener("teatime:webcontents-view:window-open", handleWindowOpen);
+  }, [isElectron, safeTabId, activeId]);
 
   useEffect(() => {
     // 切换浏览器子标签时，立即使用已缓存的状态刷新 loading/ready，避免“切换后一直 loading”。
@@ -295,6 +395,8 @@ export default function ElectrronBrowserWindow({
       if (!host) return;
 
       if (!targetUrl) return;
+      const viewAlive = tabsRef.current.some((t) => t.viewKey === activeViewKey);
+      if (!viewAlive) return;
 
       const rect = host.getBoundingClientRect();
       const next: { url: string; bounds: TeatimeViewBounds; visible: boolean } =
@@ -398,18 +500,31 @@ export default function ElectrronBrowserWindow({
     const api = window.teatimeElectron;
     const current = tabsRef.current;
     const closing = current.find((t) => t.id === id);
-    if (closing?.viewKey && isElectron) {
+    const fallbackKey = closing?.id ? buildViewKey(closing.id) : "";
+    const targetViewKey =
+      closing?.viewKey || (closing?.id === activeId ? activeViewKey : fallbackKey);
+    const nextTabs = current.filter((t) => t.id !== id);
+    const nextActive =
+      activeId === id ? (nextTabs.at(-1)?.id ?? nextTabs[0]?.id ?? "") : activeId;
+    updateBrowserState(nextTabs, nextActive);
+    if (closing?.url) {
+      // 中文注释：关闭标签时把页面记录进最近关闭列表，方便快速恢复。
+      addRecentlyClosedSite({ url: closing.url, title: closing.title });
+    }
+    if (targetViewKey && isElectron) {
+      console.log("[browser-tabs] close", { id, targetViewKey, hasViewKey: Boolean(closing?.viewKey) });
+      lastSentByKeyRef.current.delete(targetViewKey);
+      viewStatusByKeyRef.current.delete(targetViewKey);
+      if (activeViewKey === targetViewKey) {
+        setActiveViewStatus(null);
+        setLoading(false);
+      }
       try {
-        void api?.destroyWebContentsView?.(String(closing.viewKey));
+        void api?.destroyWebContentsView?.(String(targetViewKey));
       } catch {
         // ignore
       }
     }
-
-    const nextTabs = current.filter((t) => t.id !== id);
-    const nextActive =
-      activeId === id ? (nextTabs.at(-1)?.id ?? nextTabs[0]?.id) : activeId;
-    updateBrowserState(nextTabs, nextActive);
   };
 
   const onStartEditUrl = () => {
@@ -485,6 +600,38 @@ export default function ElectrronBrowserWindow({
     );
   };
 
+  // Add the current page to favorites.
+  const onAddFavorite = () => {
+    if (!activeUrl) {
+      return;
+    }
+    if (isFavorite) {
+      removeFavoriteSite(activeUrl);
+      return;
+    }
+    addFavoriteSite({
+      url: activeUrl,
+      title: active?.title,
+      iconUrl: activeViewStatus?.faviconUrl,
+    });
+  };
+
+  // Navigate back within the active WebContentsView.
+  const onGoBack = () => {
+    if (!isElectron || !activeViewKey) return;
+    const api = window.teatimeElectron;
+    if (!api?.goBackWebContentsView) return;
+    void api.goBackWebContentsView(activeViewKey);
+  };
+
+  // Navigate forward within the active WebContentsView.
+  const onGoForward = () => {
+    if (!isElectron || !activeViewKey) return;
+    const api = window.teatimeElectron;
+    if (!api?.goForwardWebContentsView) return;
+    void api.goForwardWebContentsView(activeViewKey);
+  };
+
   return (
     <div
       className={cn(
@@ -531,6 +678,24 @@ export default function ElectrronBrowserWindow({
         <>
           <StackHeader
             title="Browser"
+            rightSlot={
+              !showHome ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onAddFavorite}
+                disabled={!canFavorite}
+                aria-label="Favorite"
+                aria-pressed={isFavorite}
+                title={isFavorite ? "已收藏" : "收藏"}
+              >
+                <Star
+                  className={cn("h-4 w-4", isFavorite ? "text-foreground" : "")}
+                  fill={isFavorite ? "currentColor" : "none"}
+                />
+              </Button>
+              ) : null
+            }
             onClose={onClosePanel}
             onRefresh={onRefreshPanel}
             showMinimize
@@ -540,19 +705,57 @@ export default function ElectrronBrowserWindow({
               useTabs.getState().setStackHidden(safeTabId, true);
             }}
           >
-            <BrowserTabsBar
-              tabs={tabs}
-              activeId={activeId}
-              editingTabId={editingTabId}
-              editingUrl={editingUrl}
-              onSelect={onSelectBrowserTab}
-              onClose={onCloseBrowserTab}
-              onNew={onNewTab}
-              onStartEditUrl={onStartEditUrl}
-              onChangeEditingUrl={setEditingUrl}
-              onCommitUrl={onCommitUrl}
-              onCancelEdit={() => setEditingTabId(null)}
-            />
+            <div className="flex min-w-0 items-center gap-2">
+              <motion.div
+                className="flex shrink-0 items-center gap-1"
+                style={{ overflow: "hidden", pointerEvents: showNavigation ? "auto" : "none" }}
+                initial={false}
+                animate={{
+                  opacity: showNavigation ? 1 : 0,
+                  width: showNavigation ? 68 : 0,
+                  x: showNavigation ? 0 : -6,
+                }}
+                transition={{
+                  duration: 0.18,
+                  ease: "easeOut",
+                  delay: showNavigation ? 0.18 : 0,
+                }}
+              >
+                <button
+                  type="button"
+                  className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition hover:bg-sidebar/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                  onClick={onGoBack}
+                  disabled={!canGoBack}
+                  aria-label="Back"
+                  title="后退"
+                >
+                  {"<"}
+                </button>
+                <button
+                  type="button"
+                  className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition hover:bg-sidebar/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                  onClick={onGoForward}
+                  disabled={!canGoForward}
+                  aria-label="Forward"
+                  title="前进"
+                >
+                  {">"}
+                </button>
+              </motion.div>
+              <BrowserTabsBar
+                tabs={tabs}
+                activeId={activeId}
+                editingTabId={editingTabId}
+                editingUrl={editingUrl}
+                onSelect={onSelectBrowserTab}
+                onClose={onCloseBrowserTab}
+                onNew={onNewTab}
+                onStartEditUrl={onStartEditUrl}
+                onChangeEditingUrl={setEditingUrl}
+                onCommitUrl={onCommitUrl}
+                onCancelEdit={() => setEditingTabId(null)}
+              />
+            </div>
           </StackHeader>
 
           <BrowserProgressBar visible={showProgress} />

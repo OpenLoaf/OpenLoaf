@@ -121,22 +121,6 @@ export const models: Model[] = [
   { label: 'Command R', value: 'cohere/command-r' },
   { label: 'Command R Plus', value: 'cohere/command-r-plus' },
 
-  // DeepSeek Models
-  { label: 'DeepSeek R1', value: 'deepseek/deepseek-r1' },
-  {
-    label: 'DeepSeek R1 Distill Llama 70B',
-    value: 'deepseek/deepseek-r1-distill-llama-70b',
-  },
-  { label: 'DeepSeek V3', value: 'deepseek/deepseek-v3' },
-  { label: 'DeepSeek V3.1', value: 'deepseek/deepseek-v3.1' },
-  { label: 'DeepSeek V3.1 Base', value: 'deepseek/deepseek-v3.1-base' },
-  { label: 'DeepSeek V3.1 Terminus', value: 'deepseek/deepseek-v3.1-terminus' },
-  { label: 'DeepSeek V3.2 Exp', value: 'deepseek/deepseek-v3.2-exp' },
-  {
-    label: 'DeepSeek V3.2 Exp Thinking',
-    value: 'deepseek/deepseek-v3.2-exp-thinking',
-  },
-
   // Inception Models
   { label: 'Mercury Coder Small', value: 'inception/mercury-coder-small' },
 
@@ -207,7 +191,7 @@ export const models: Model[] = [
     label: 'Grok 4 Fast Non-Reasoning',
     value: 'xai/grok-4-fast-non-reasoning',
   },
-  { label: 'Grok 4 Fast Reasoning', value: 'xai/grok-4-fast-reasoning' },
+  { label: 'Grok 4.1 Fast Reasoning', value: 'xai/grok-4-1-fast-reasoning' },
 
   // ZAI Models
   { label: 'GLM 4.5', value: 'zai/glm-4.5' },
