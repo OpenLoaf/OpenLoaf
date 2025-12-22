@@ -10,6 +10,7 @@ import { BrowserTabsBar } from "@/components/browser/BrowserTabsBar";
 import { BrowserProgressBar } from "@/components/browser/BrowserProgressBar";
 import { BrowserLoadingOverlay } from "@/components/browser/BrowserLoadingOverlay";
 import { BrowserErrorOverlay } from "@/components/browser/BrowserErrorOverlay";
+import { BrowserHome } from "@/components/browser/BrowserHome";
 import { normalizeUrl } from "@/components/browser/browser-utils";
 import type {
   BrowserTab,
@@ -78,6 +79,7 @@ export default function ElectrronBrowserWindow({
 
   const targetUrl = useMemo(() => activeUrl, [activeUrl]);
   const showProgress = Boolean(targetUrl) && activeViewStatus?.ready !== true && !activeViewStatus?.failed;
+  const showHome = !targetUrl;
 
   const ensuredTargetIdRef = useRef<string | null>(null);
   const tabsRef = useRef(tabs);
@@ -418,6 +420,16 @@ export default function ElectrronBrowserWindow({
     updateBrowserState(nextTabs, editingTabId);
   };
 
+  const onOpenUrl = (url: string) => {
+    if (!url || !activeId) return;
+    const next = normalizeUrl(url);
+    if (!next) return;
+    // 中文注释：新标签页/首页中点击站点后，直接把 URL 写回当前激活标签，随后由 Electron view 管理逻辑接管加载。
+    setEditingTabId(null);
+    const nextTabs = tabsRef.current.map((t) => (t.id === activeId ? { ...t, url: next } : t));
+    updateBrowserState(nextTabs, activeId);
+  };
+
   const onNewTab = () => {
     if (!safeTabId) return;
     const id = createBrowserTabId();
@@ -539,8 +551,14 @@ export default function ElectrronBrowserWindow({
           <BrowserProgressBar visible={showProgress} />
 
           <div ref={hostRef} className="relative min-h-0 flex-1 overflow-hidden">
-            <BrowserLoadingOverlay visible={loading} />
-            <BrowserErrorOverlay failed={activeViewStatus?.failed} />
+            {showHome ? (
+              <BrowserHome onOpenUrl={onOpenUrl} />
+            ) : (
+              <>
+                <BrowserLoadingOverlay visible={loading} />
+                <BrowserErrorOverlay failed={activeViewStatus?.failed} />
+              </>
+            )}
             {overlayBlocked || coveredByAnotherStackItem ? (
               <div className="absolute inset-0 z-20 grid place-items-center bg-background/80">
                 <div className="text-center text-sm text-muted-foreground">

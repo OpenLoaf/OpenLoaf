@@ -18,8 +18,8 @@ import { motion } from "motion/react";
 
 const SUGGESTIONS = [
   {
-    label: "如何学习编程？",
-    value: "作为初学者，我应该如何开始学习编程？推荐先学习哪种语言？",
+    label: "测试审批",
+    value: "测试审批：请调用 test-approval 工具（用于测试 needsApproval 的 stop/resume 流程），然后等待我在工具卡片里点击允许/拒绝。",
   },
   {
     label: "打开B站播放视频",

@@ -129,7 +129,15 @@ export function LeftDock({ tabId }: { tabId: string }) {
       </div>
 
       {stack.length > 0 ? (
-        <div className="absolute inset-0" style={{ zIndex: 20 }}>
+        <div
+          className={cn(
+            "absolute inset-0",
+            // 中文注释：stack 最小化后仍保持挂载（便于恢复状态），但不能挡住 base 的点击/交互。
+            stackHidden && "pointer-events-none",
+          )}
+          style={{ zIndex: 20 }}
+          aria-hidden={stackHidden}
+        >
           {stack.map((item) => {
             const visible = !stackHidden && item.id === activeStackId;
             return (

@@ -50,7 +50,7 @@ export function BrowserTabsBar({
                   "group relative flex h-10 shrink-0 items-center gap-2 overflow-hidden rounded-lg px-3 text-sm",
                   isActive
                     ? "min-w-[216px] text-foreground"
-                    : "max-w-[180px] bg-transparent text-muted-foreground hover:bg-sidebar/60 hover:text-foreground",
+                    : "max-w-[180px] bg-sidebar/30 text-muted-foreground hover:bg-sidebar/60 hover:text-foreground",
                 )}
                 role="button"
                 tabIndex={0}
@@ -154,4 +154,3 @@ export function BrowserTabsBar({
     </div>
   );
 }
-
