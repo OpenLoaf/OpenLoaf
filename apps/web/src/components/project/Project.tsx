@@ -52,9 +52,14 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
   const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
   const appliedWidthRef = useRef(false);
   const queryClient = useQueryClient();
+  const pageSelect = useRef({ id: true, title: true, icon: true }).current;
 
-  const { data: pageData, isLoading, invalidatePage, invalidatePageTree } =
-    usePage(pageId);
+  const {
+    data: pageData,
+    isLoading,
+    invalidatePage,
+    invalidatePageTree,
+  } = usePage(pageId);
 
   const [activeTab, setActiveTab] = useState<ProjectTabValue>("intro");
 
@@ -63,7 +68,10 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
 
   const pageQueryKey =
     activeWorkspace && pageId
-      ? trpc.page.findUniquePage.queryOptions({ where: { id: pageId } }).queryKey
+      ? trpc.page.findUniquePage.queryOptions({
+          where: { id: pageId },
+          select: pageSelect,
+        }).queryKey
       : undefined;
   const pageTreeQueryKey = activeWorkspace?.id
     ? trpc.pageCustom.getAll.queryOptions({ workspaceId: activeWorkspace.id })
@@ -74,8 +82,10 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
     trpc.page.updateOnePage.mutationOptions({
       onMutate: async (variables: any) => {
         const patch: any = {};
-        if (variables?.data?.icon !== undefined) patch.icon = variables.data.icon;
-        if (variables?.data?.title !== undefined) patch.title = variables.data.title;
+        if (variables?.data?.icon !== undefined)
+          patch.icon = variables.data.icon;
+        if (variables?.data?.title !== undefined)
+          patch.title = variables.data.title;
         if (!pageId || Object.keys(patch).length === 0) return;
 
         const previousPage = pageQueryKey
@@ -130,8 +140,8 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
 
   return (
     <div className="flex h-full w-full flex-col min-h-0">
-      <div className="flex items-center justify-between py-0 w-full min-w-0">
-        <ProjectTitle
+      <div className="relative flex items-center py-0 w-full min-w-0">
+        {/* <ProjectTitle
           isLoading={isLoading}
           pageId={pageId}
           pageTitle={pageTitle}
@@ -146,13 +156,12 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
             if (!pageId) return;
             updatePage.mutate({ where: { id: pageId }, data: { icon: nextIcon } });
           }}
-        />
-
+        /> */}
         <ProjectTabs
           value={activeTab}
           onValueChange={setActiveTab}
           isActive={tabActive}
-        />
+        />{" "}
       </div>
 
       <ScrollArea.Root className="flex-1 min-h-0 w-full">
@@ -174,7 +183,11 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
                   className="w-full h-full"
                 >
                   {activeTab === "intro" ? (
-                    <ProjectInfo isLoading={isLoading} pageTitle={pageTitle} />
+                    <ProjectInfo
+                      isLoading={isLoading}
+                      pageId={pageId}
+                      pageTitle={pageTitle}
+                    />
                   ) : null}
                   {activeTab === "canvas" ? (
                     <ProjectCanvas

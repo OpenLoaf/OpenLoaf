@@ -4,11 +4,12 @@ import * as React from 'react';
 
 import remarkGfm from 'remark-gfm';
 import { MarkdownPlugin, remarkMdx } from '@platejs/markdown';
-import { Plate, createPlateEditor } from 'platejs/react';
+import { Plate, usePlateEditor } from 'platejs/react';
 
 import { BasicBlocksKit } from '@/components/editor/plugins/basic-blocks-kit';
 import { BasicMarksKit } from '@/components/editor/plugins/basic-marks-kit';
 import { Editor, EditorContainer } from '@/components/ui/editor';
+import { MarkdownKit } from '@/components/editor/plugins/markdown-kit';
 
 interface ProjectInfoPlateProps {
   markdown: string;
@@ -19,20 +20,17 @@ export function ProjectInfoPlate({
   markdown,
   readOnly = true,
 }: ProjectInfoPlateProps) {
-  const editor = React.useMemo(
-    () =>
-      createPlateEditor({
-        plugins: [
-          ...BasicBlocksKit,
-          ...BasicMarksKit,
-          MarkdownPlugin.configure({
-            options: { remarkPlugins: [remarkGfm, remarkMdx] },
-          }),
-        ],
-        value: [],
-      }),
-    []
-  );
+  const editor = usePlateEditor({
+    plugins: [
+      ...BasicBlocksKit,
+      ...BasicMarksKit,
+      ...MarkdownKit,
+      // MarkdownPlugin.configure({
+      //   options: { remarkPlugins: [remarkGfm, remarkMdx] },
+      // }),
+    ],
+    value: [],
+  });
 
   React.useEffect(() => {
     const nextValue = editor.api.markdown.deserialize(markdown);

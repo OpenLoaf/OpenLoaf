@@ -76,9 +76,10 @@ export const TabMenu = ({
           style={thinkingBorderStyle}
           className={cn(
             "h-7 pl-2 pr-7 text-xs gap-0 rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:shadow-none relative z-10 flex items-center max-w-[180px] flex-none w-auto shrink-0 cursor-default active:cursor-grabbing data-[reordering=true]:cursor-grabbing border border-transparent",
-            // 中文注释：流式生成中，为对应 Tab 追加“彩虹流动边框”，与 ChatInput 的提示保持一致。
-            "teatime-thinking-border",
-            showThinkingBorder && "teatime-thinking-border-on"
+            // 中文注释：teatime-thinking-border 默认会设置 padding-box 的填充色（fallback 为 background）。
+            // 如果把它常驻在所有 Tab 上，会导致“未激活 Tab 也像被选中”（背景被覆盖）。
+            // 因此这里仅在流式生成中才挂载该类名。
+            showThinkingBorder && "teatime-thinking-border teatime-thinking-border-on"
           )}
         >
           {tab.icon === "bot" ? (

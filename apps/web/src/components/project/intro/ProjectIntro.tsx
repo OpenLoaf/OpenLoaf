@@ -1,18 +1,39 @@
+"use client";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectInfoPlate } from "./ProjectIntroPlate";
+import { skipToken, useQuery } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
 
 interface ProjectIntroProps {
   isLoading: boolean;
+  pageId?: string;
   pageTitle: string;
   introMarkdown?: string;
 }
 
 export default function ProjectInfo({
   isLoading,
+  pageId,
   pageTitle,
   introMarkdown,
 }: ProjectIntroProps) {
-  if (isLoading) {
+  const markdownQuery = useQuery(
+    trpc.page.findUniquePage.queryOptions(
+      pageId
+        ? {
+            where: { id: pageId },
+            select: { markdown: true },
+          }
+        : skipToken
+    )
+  );
+
+  const markdown = markdownQuery.data?.markdown ?? introMarkdown;
+
+  const showLoading = isLoading || (!!pageId && markdownQuery.isLoading && !introMarkdown);
+
+  if (showLoading) {
     return (
       <div className="h-full space-y-4 mt-3">
         <Skeleton className="h-24 w-full" />
@@ -30,8 +51,9 @@ export default function ProjectInfo({
     <div className="h-full space-y-3">
       <div className="flex-1 min-h-0">
         <ProjectInfoPlate
+          readOnly={false}
           markdown={
-            introMarkdown ??
+            markdown ??
             `# ${pageTitle}\n\n在这里写项目简介（支持 **Markdown** / _MDX_）。\n`
           }
         />
