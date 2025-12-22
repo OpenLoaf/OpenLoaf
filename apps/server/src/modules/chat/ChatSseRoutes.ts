@@ -9,10 +9,12 @@ import {
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ChatRequestBody, TokenUsage } from "@teatime-ai/api/types/message";
-import { MasterAgent } from "@/ai-legacy/agents/MasterAgent";
+import { manualStopToolDef } from "@teatime-ai/api/types/tools/system";
+import { createMasterAgentRunner } from "@/ai";
 import { streamStore } from "@/modules/chat/StreamStoreAdapter";
 import { chatContextStore } from "@/modules/chat/ChatContextAdapter";
 import { chatRepository } from "@/modules/chat/ChatRepositoryAdapter";
+import { loadMessageChain } from "@/modules/chat/loadMessageChain";
 import {
   popAgentFrame,
   pushAgentFrame,
@@ -27,7 +29,7 @@ import { logger } from "@/common/logger";
 function toTokenUsageMetadata(part: unknown): { totalUsage: TokenUsage } | undefined {
   if (!part || typeof part !== "object") return;
   const totalUsage = (part as any).totalUsage;
-  // 中文注释：AI SDK 的 totalUsage 只在 finish part 出现；这里做 best-effort 适配并确保可序列化。
+  // AI SDK 的 totalUsage 只在 finish part 出现；这里做 best-effort 适配并确保可序列化。
   if (!totalUsage || typeof totalUsage !== "object") return;
 
   const toNumberOrUndefined = (value: unknown) =>
@@ -56,7 +58,7 @@ function mergeMetadataWithAbortInfo(
   const base = isRecord(metadata) ? { ...metadata } : {};
   if (!input.isAborted) return Object.keys(base).length ? base : undefined;
 
-  // 中文注释：aborted 的流也需要落库；把“被中止”的状态写进 metadata，方便 UI/统计侧识别。
+  // aborted 的流也需要落库；把“被中止”的状态写进 metadata，方便 UI/统计侧识别。
   const existingTeatime = isRecord(base.teatime) ? base.teatime : {};
   base.teatime = {
     ...existingTeatime,
@@ -66,6 +68,32 @@ function mergeMetadataWithAbortInfo(
   };
 
   return base;
+}
+
+/**
+ * Builds a minimal SSE data chunk for UIMessageStream clients.
+ */
+function toSseChunk(value: unknown): string {
+  return `data: ${JSON.stringify(value)}\n\n`;
+}
+
+/**
+ * Emits a manual-stop data chunk so the UI can show a stop marker.
+ */
+async function emitManualStopChunk(streamId: string, reason?: string) {
+  const toolCallId = `manual-stop-${generateId()}`;
+  // 通过 data part 追加“手动中断”标记，保证前端可见且可回放。
+  await streamStore.append(
+    streamId,
+    toSseChunk({
+      type: "data-manual-stop",
+      data: {
+        toolCallId,
+        reason: reason || "用户手动中断",
+        toolName: manualStopToolDef.id,
+      },
+    }),
+  );
 }
 
 /**
@@ -98,32 +126,60 @@ export function registerChatSseRoutes(app: Hono) {
     const abortController = new AbortController();
     await streamStore.start(sessionId, abortController);
 
-    const master = new MasterAgent();
-    const agent = master.createAgent();
-    const messages = (body.messages ?? []) as UIMessage[];
+    const masterAgent = createMasterAgentRunner();
+    const incomingMessages = (body.messages ?? []) as UIMessage[];
+    // AI SDK 的 useChat 会把本次生成的 messageId 传给服务端；续跑/审批继续应复用同一个 messageId，以便在 UI 侧作为同一条 assistant message 继续更新。
+    const assistantMessageId =
+      typeof body.messageId === "string" && body.messageId ? body.messageId : generateId();
 
-    // 中文注释：MVP 只保存“最后一条 user 消息”与最终 assistant 响应。
-    const last = messages.at(-1) as any;
-    if (!last || last.role !== "user" || !last.id) {
-      return c.json({ error: "last message must be a user message with id" }, 400);
+    // 前端只发送最后一条消息；后端通过 messageId + parentMessageId 从 DB 补全完整链路再喂给 agent。
+    const last = incomingMessages.at(-1) as any;
+    if (!last || !last.role || !last.id) {
+      return c.json({ error: "last message must have role and id" }, 400);
     }
-    const explicitParent =
-      typeof last.parentMessageId === "string" || last.parentMessageId === null
-        ? (last.parentMessageId as string | null)
-        : undefined;
-    const parentMessageIdToUse =
-      explicitParent === undefined
-        ? await chatRepository.resolveSessionRightmostLeafId(sessionId)
-        : explicitParent;
 
-    const userNode = await chatRepository.saveMessageNode({
-      sessionId,
-      message: last as any,
-      parentMessageId: parentMessageIdToUse ?? null,
-    });
+    // 先把“最后一条消息”落库，确保后端补全链路能读到最新状态（例如 approval-responded）。
+    let leafMessageId = String(last.id);
+    let assistantParentUserId: string | null = null;
 
-    // 中文注释：固定 assistantMessageId，确保 stream 与落库是同一条消息。
-    const assistantMessageId = generateId();
+    if (last.role === "user") {
+      const explicitParent =
+        typeof last.parentMessageId === "string" || last.parentMessageId === null
+          ? (last.parentMessageId as string | null)
+          : undefined;
+      const parentMessageIdToUse =
+        explicitParent === undefined
+          ? await chatRepository.resolveSessionRightmostLeafId(sessionId)
+          : explicitParent;
+
+      const saved = await chatRepository.saveMessageNode({
+        sessionId,
+        message: last as any,
+        parentMessageId: parentMessageIdToUse ?? null,
+      });
+      leafMessageId = saved.id;
+      assistantParentUserId = saved.id;
+    } else if (last.role === "assistant") {
+      const parentId = typeof last.parentMessageId === "string" ? last.parentMessageId : null;
+      if (!parentId) return c.json({ error: "assistant message missing parentMessageId" }, 400);
+      assistantParentUserId = parentId;
+
+      await chatRepository.saveMessageNode({
+        sessionId,
+        message: last as any,
+        parentMessageId: parentId,
+        allowEmpty: true,
+      });
+      leafMessageId = String(last.id);
+    } else {
+      return c.json({ error: "unsupported last message role" }, 400);
+    }
+
+    const messages = await loadMessageChain({ sessionId, leafMessageId, maxMessages: 80 });
+    if (messages.length === 0) return c.json({ error: "history not found" }, 404);
+    if (!assistantParentUserId) return c.json({ error: "parent user message not found" }, 400);
+
+    const userNode = { id: assistantParentUserId };
 
     const popAgentFrameOnce = (() => {
       let popped = false;
@@ -137,24 +193,27 @@ export function registerChatSseRoutes(app: Hono) {
     const stream = createUIMessageStream({
       originalMessages: messages as any[],
       onError: (err) => {
-        // 中文注释：只在最外层记录一次流错误，避免 SDK 内部 error chunk 触发重复日志。
+        // 只在最外层记录一次流错误，避免 SDK 内部 error chunk 触发重复日志。
         logger.error({ err }, "[chat] ui stream error");
         return err instanceof Error ? err.message : "Unknown error";
       },
       execute: async ({ writer }) => {
         setUiWriter(writer as any);
         setAbortSignal(abortController.signal);
-        pushAgentFrame(master.createFrame());
+        pushAgentFrame(masterAgent.frame);
 
         try {
           const uiStream = await createAgentUIStream({
-            agent,
+            agent: masterAgent.agent,
             messages: messages as any[],
+            // 启用 persistence mode（对齐 AI SDK 官方 needsApproval 流程的“两次调用”）。
+            // 第二次调用会直接产出 tool-output-*（复用同一个 toolCallId）；必须基于 originalMessages 的 tool invocation 才能正确更新状态。
+            originalMessages: messages as any[],
             abortSignal: abortController.signal,
             generateMessageId: () => assistantMessageId,
             messageMetadata: ({ part }) => toTokenUsageMetadata(part),
             onFinish: async ({ isAborted, responseMessage, finishReason }) => {
-              // 中文注释：主 agent 的输出只在这里触发一次 finish（避免双重 state machine）。
+              // 主 agent 的输出只在这里触发一次 finish（避免双重 state machine）。
               try {
                 if (!responseMessage || responseMessage.role !== "assistant") return;
 
@@ -179,6 +238,8 @@ export function registerChatSseRoutes(app: Hono) {
               }
             },
           });
+
+          // 直接 merge agent stream；前端审批（addToolApprovalResponse）后再次请求即可继续执行。
           writer.merge(uiStream as any);
         } catch (err) {
           popAgentFrameOnce();
@@ -187,7 +248,7 @@ export function registerChatSseRoutes(app: Hono) {
       },
     });
 
-    // 中文注释：将 UIMessageChunk 流转成 SSE 字符串并写入内存流，避免 tee() 导致的断线竞态。
+    // 将 UIMessageChunk 流转成 SSE 字符串并写入内存流，避免 tee() 导致的断线竞态。
     const sseStream = stream.pipeThrough(new JsonToSseTransformStream());
     const reader = sseStream.getReader();
     (async () => {
@@ -196,7 +257,7 @@ export function registerChatSseRoutes(app: Hono) {
           const { done, value } = await reader.read();
           if (done) {
             await streamStore.finalize(sessionId);
-            // 中文注释：会话结束后主动清理 chat context（例如 tab 快照），避免缓存长期占用内存。
+            // 会话结束后主动清理 chat context（例如 tab 快照），避免缓存长期占用内存。
             void chatContextStore.clearSession({ sessionId }).catch((err) => {
               logger.error({ err }, "[chat] clear session context failed");
             });
@@ -207,7 +268,7 @@ export function registerChatSseRoutes(app: Hono) {
       } catch (err) {
         logger.error({ err }, "[chat] pump sse stream failed");
         await streamStore.finalize(sessionId);
-        // 中文注释：异常结束也需要清理，避免遗留缓存。
+        // 异常结束也需要清理，避免遗留缓存。
         void chatContextStore.clearSession({ sessionId }).catch((clearErr) => {
           logger.error({ err: clearErr }, "[chat] clear session context failed");
         });
@@ -234,9 +295,10 @@ export function registerChatSseRoutes(app: Hono) {
 
   app.post("/chat/sse/:id/stop", async (c) => {
     const streamId = c.req.param("id");
+    await emitManualStopChunk(streamId);
     const ok = await streamStore.stop(streamId);
     if (ok) {
-      // 中文注释：主动停止也视为会话结束，立即清理缓存。
+      // 主动停止也视为会话结束，立即清理缓存。
       void chatContextStore.clearSession({ sessionId: streamId }).catch((err) => {
         logger.error({ err }, "[chat] clear session context failed");
       });

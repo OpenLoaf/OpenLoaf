@@ -13,7 +13,7 @@ function normalizeUrl(raw: string): string {
 }
 
 function buildBrowserBaseKey(input: { workspaceId: string; tabId: string; chatSessionId: string }) {
-  // 中文注释：baseKey 对应“同一个聊天会话内的浏览器面板”。
+  // baseKey 对应“同一个聊天会话内的浏览器面板”。
   return `browser:${input.workspaceId}:${input.tabId}:${input.chatSessionId}`;
 }
 
@@ -42,7 +42,7 @@ export const openUrlTool = tool({
     const viewKey = `${baseKey}:${browserTabId}`;
     const panelKey = "browser-window";
 
-    // 中文注释：通过 data part 让前端在对应 tab 的 stack 打开浏览面板。
+    // 通过 data part 让前端在对应 tab 的 stack 打开浏览面板。
     writer.write({
       type: "data-open-browser",
       data: { tabId, url: normalizedUrl, title, viewKey, panelKey },

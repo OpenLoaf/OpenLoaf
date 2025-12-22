@@ -39,7 +39,7 @@ function isToolFinished(part: AnyToolPart) {
 }
 
 function buildViewKey(input: { workspaceId: string; tabId: string; chatSessionId: string }) {
-  // 中文注释：baseKey 用于定位“浏览器面板”，实际每个网页子标签用 baseKey + browserTabId 区分。
+  // baseKey 用于定位“浏览器面板”，实际每个网页子标签用 baseKey + browserTabId 区分。
   return `browser:${input.workspaceId}:${input.tabId}:${input.chatSessionId}`;
 }
 
@@ -78,7 +78,7 @@ export function OpenUrlTool({ part }: { part: AnyToolPart }) {
     });
     const viewKey = `${baseKey}:${createBrowserTabId()}`;
 
-    // 中文注释：写入 stack，由 ElectrronBrowserWindow 负责 ensureWebContentsView 并写回 cdpTargetId。
+    // 写入 stack，由 ElectrronBrowserWindow 负责 ensureWebContentsView 并写回 cdpTargetId。
     state.pushStackItem(
       tabId,
       {

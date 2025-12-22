@@ -8,6 +8,8 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { toast } from "sonner";
 import { OpenUrlTool } from "./OpenUrlTool";
+import { TestApprovalTool } from "./TestApprovalTool";
+import { useChatContext } from "../../ChatProvider";
 
 // MVP：只展示工具名称 + 输入 + 输出（去掉语法高亮/格式化/多层折叠）
 type AnyToolPart = {
@@ -18,6 +20,7 @@ type AnyToolPart = {
   input?: unknown;
   output?: unknown;
   errorText?: string;
+  approval?: { id?: string; approved?: boolean; reason?: string };
 };
 
 function getToolName(part: AnyToolPart) {
@@ -148,9 +151,14 @@ export default function MessageTool({
   part: AnyToolPart;
   className?: string;
 }) {
-  // 中文注释：open-url 使用专用组件，支持“流结束后手动点击打开左侧网页”。
+  const chat = useChatContext();
+
+  // open-url 使用专用组件，支持“流结束后手动点击打开左侧网页”。
   if (part.toolName === "open-url" || part.type === "tool-open-url") {
     return <OpenUrlTool part={part} />;
+  }
+  if (part.toolName === "test-approval" || part.type === "tool-test-approval") {
+    return <TestApprovalTool part={part} />;
   }
 
   const toolName = getToolName(part);
@@ -173,6 +181,9 @@ export default function MessageTool({
 
   const inputJsonDisplay = React.useMemo(() => getJsonDisplay(part.input), [part.input]);
   const outputJsonDisplay = React.useMemo(() => getJsonDisplay(part.output), [part.output]);
+
+  const approvalId = typeof part.approval?.id === "string" ? part.approval?.id : undefined;
+  const showApprovalActions = part.state === "approval-requested" && Boolean(approvalId);
 
   const handleCopyAll = async (event: React.MouseEvent) => {
     // 关键：summary 内点击按钮不应触发折叠开关
@@ -220,6 +231,37 @@ export default function MessageTool({
         </summary>
 
         <div className="mt-2 space-y-2">
+          {showApprovalActions ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-[11px] text-muted-foreground">需要审批</div>
+              <Button
+                type="button"
+                size="sm"
+                variant="default"
+                disabled={chat.status === "streaming" || chat.status === "submitted"}
+                onClick={async () => {
+                  await chat.addToolApprovalResponse({ id: approvalId!, approved: true });
+                  // 按 AI SDK 官方流程，审批回应写入 messages 后需要再触发一次 sendMessage 才会执行工具并继续生成。
+                  await chat.sendMessage();
+                }}
+              >
+                允许
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={chat.status === "streaming" || chat.status === "submitted"}
+                onClick={async () => {
+                  await chat.addToolApprovalResponse({ id: approvalId!, approved: false });
+                  await chat.sendMessage();
+                }}
+              >
+                拒绝
+              </Button>
+            </div>
+          ) : null}
+
           {showInput ? (
             <div>
               <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">

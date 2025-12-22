@@ -30,7 +30,7 @@ async function getCdpTargetId(webContents: Electron.WebContents): Promise<string
       dbg.attach('1.3');
       attachedHere = true;
     }
-    // 中文注释：通过 Target.getTargetInfo 获取当前 webContents 对应的 CDP targetId。
+    // 通过 Target.getTargetInfo 获取当前 webContents 对应的 CDP targetId。
     const info = (await dbg.sendCommand('Target.getTargetInfo')) as {
       targetInfo?: { targetId?: string };
     };
@@ -64,7 +64,7 @@ async function runBrowserCommand(win: BrowserWindow, payload: BrowserCommandPayl
   const input = payload?.command?.input ?? {};
 
   const evalInPage = async <T>(expression: string): Promise<T> => {
-    // 中文注释：executeJavaScript 运行在页面上下文；MVP 仅用于读写 DOM，不注入第三方脚本。
+    // executeJavaScript 运行在页面上下文；MVP 仅用于读写 DOM，不注入第三方脚本。
     return (await wc.executeJavaScript(expression, true)) as T;
   };
 
@@ -77,7 +77,7 @@ async function runBrowserCommand(win: BrowserWindow, payload: BrowserCommandPayl
     const text = await evalInPage<string>(
       `(() => (document.body && (document.body.innerText || document.body.textContent) || '').toString())()`,
     );
-    // 中文注释：限制文本长度，避免回传过大影响 SSE/上下文。
+    // 限制文本长度，避免回传过大影响 SSE/上下文。
     const clippedText = text.length > 10_000 ? text.slice(0, 10_000) : text;
 
     const elements = await evalInPage<Array<{ selector: string; text?: string; tag: string }>>(
@@ -118,12 +118,12 @@ async function runBrowserCommand(win: BrowserWindow, payload: BrowserCommandPayl
   }
 
   if (kind === 'extract') {
-    // 中文注释：MVP 先不做“按 instruction 提取”，统一回传可读文本，让 Worker 自己总结/结构化。
+    // MVP 先不做“按 instruction 提取”，统一回传可读文本，让 Worker 自己总结/结构化。
     return await nowSnapshot();
   }
 
   if (kind === 'observe') {
-    // 中文注释：MVP 先用 snapshot 的 elements 作为候选动作线索；observe 直接复用 snapshot。
+    // MVP 先用 snapshot 的 elements 作为候选动作线索；observe 直接复用 snapshot。
     return await nowSnapshot();
   }
 
@@ -144,7 +144,7 @@ async function runBrowserCommand(win: BrowserWindow, payload: BrowserCommandPayl
     }
 
     if (type === 'networkidle') {
-      // 中文注释：MVP：没有网络事件 hook，先按 load 近似处理。
+      // MVP：没有网络事件 hook，先按 load 近似处理。
       await waitUntil({ timeoutMs, check: async () => (await evalInPage<string>('document.readyState')) === 'complete' });
       return { ok: true, data: { type, approx: 'load' } };
     }
@@ -175,7 +175,7 @@ async function runBrowserCommand(win: BrowserWindow, payload: BrowserCommandPayl
     const trimmed = action.trim();
     if (!trimmed) throw new Error('Missing action');
 
-    // 中文注释：MVP 只支持“可解析的结构化动作格式”，避免自然语言歧义导致误操作。
+    // MVP 只支持“可解析的结构化动作格式”，避免自然语言歧义导致误操作。
     const clickMatch = /^click\s+css="([^"]+)"$/i.exec(trimmed);
     const typeMatch = /^type\s+css="([^"]+)"\s+text="([^"]*)"$/i.exec(trimmed);
     const fillMatch = /^fill\s+css="([^"]+)"\s+text="([^"]*)"$/i.exec(trimmed);
@@ -216,7 +216,7 @@ async function runBrowserCommand(win: BrowserWindow, payload: BrowserCommandPayl
 
     if (pressMatch) {
       const key = pressMatch[1]!;
-      // 中文注释：MVP：简单 key 事件模拟；复杂组合键后续再补。
+      // MVP：简单 key 事件模拟；复杂组合键后续再补。
       await evalInPage<void>(
         `(() => {
           const k = ${JSON.stringify(key)};
@@ -265,7 +265,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
     return { ok: true };
   });
 
-  // 中文注释：确保某个 viewKey 对应的 WebContentsView 已存在，并返回其 cdpTargetId，供 server attach 控制。
+  // 确保某个 viewKey 对应的 WebContentsView 已存在，并返回其 cdpTargetId，供 server attach 控制。
   ipcMain.handle('teatime:webcontents-view:ensure', async (event, payload: { key: string; url: string }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
@@ -274,7 +274,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
     if (!key) throw new Error('Missing view key');
     if (!url) throw new Error('Missing url');
 
-    // 中文注释：先创建/复用 view；bounds 由渲染端后续 upsert 时持续同步。
+    // 先创建/复用 view；bounds 由渲染端后续 upsert 时持续同步。
     upsertWebContentsView(win, { key, url, bounds: { x: 0, y: 0, width: 0, height: 0 }, visible: false });
 
     const view = getWebContentsView(win, key);

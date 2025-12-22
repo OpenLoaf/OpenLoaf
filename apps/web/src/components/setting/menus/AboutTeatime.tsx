@@ -61,7 +61,7 @@ export function AboutTeatime() {
   React.useEffect(() => {
     if (!isElectron) return;
 
-    // 中文注释：设置页打开时拉取一次，并在窗口重新聚焦/重新可见时刷新，避免数值长期陈旧。
+    // 设置页打开时拉取一次，并在窗口重新聚焦/重新可见时刷新，避免数值长期陈旧。
     void fetchWebContentsViewCount();
 
     const onFocus = () => void fetchWebContentsViewCount();

@@ -51,7 +51,7 @@ export function Search({
       const existing = state.tabs.find((tab) => {
         if (tab.workspaceId !== activeWorkspace.id) return false;
         if (tab.base?.id === input.baseId) return true;
-        // 中文备注：ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
+        // ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
         if (input.component === "ai-chat" && !tab.base && tab.title === input.title) return true;
         return false;
       });

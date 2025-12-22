@@ -31,7 +31,7 @@ function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: strin
   const url = String(data.url || "");
   const title = typeof data.title === "string" ? data.title : undefined;
 
-  // 中文注释：每个 Tab 的 stack 中只保留一个 browser 面板，新的 url 作为子标签追加并激活。
+  // 每个 Tab 的 stack 中只保留一个 browser 面板，新的 url 作为子标签追加并激活。
   useTabs.getState().pushStackItem(
     tabId,
     {
@@ -54,7 +54,7 @@ function handleBrowserCommandDataPart(input: { dataPart: any; sessionId: string;
   const tabId = String(data.tabId || input.fallbackTabId || "");
   if (!tabId) return true;
 
-  // 中文注释：异步执行，避免阻塞 React 渲染；执行完成后通过 tRPC 把结果回传给 server（工具调用在等待）。
+  // 异步执行，避免阻塞 React 渲染；执行完成后通过 tRPC 把结果回传给 server（工具调用在等待）。
   void (async () => {
     try {
       const result = await executeBrowserCommand({ payload: { ...data, tabId } });
@@ -306,7 +306,7 @@ export default function ChatProvider({
 
   React.useEffect(() => {
     if (!tabId) return;
-    // 中文注释：把每个 Tab 的 chat.status 写入 zustand，Header Tabs 可以据此渲染“流式生成中”的彩虹边框提示。
+    // 把每个 Tab 的 chat.status 写入 zustand，Header Tabs 可以据此渲染“流式生成中”的彩虹边框提示。
     setTabChatStatus(tabId, chat.status as ChatStatus);
     return () => {
       setTabChatStatus(tabId, null);
@@ -639,18 +639,15 @@ export default function ChatProvider({
   );
 
   const stopGenerating = React.useCallback(() => {
-    chat.stop();
-
     const base = process.env.NEXT_PUBLIC_SERVER_URL ?? "";
-    // 关键：因为启用了 resume + 内存流续传，单纯 stop()（中断连接）会被自动续传“接着推”。
-    // 这里额外通知服务端 stop，使其 abort agent 并删除内存流，彻底停止本次生成。
+    // 关键：通知服务端 stop，让其输出 data-manual-stop 并终止流；不要先本地 stop，避免丢失 stop chunk。
     fetch(`${base}/chat/sse/${encodeURIComponent(sessionId)}/stop`, {
       method: "POST",
       credentials: "include",
     }).catch(() => {
       // ignore
     });
-  }, [chat.stop, sessionId]);
+  }, [sessionId]);
 
   return (
     <ChatContext.Provider

@@ -31,7 +31,7 @@ export async function upsertTabSnapshotNow(input: {
   }
 
   const key = buildKey(input);
-  // 中文注释：如果 tab 没变就不重复上报，减少服务端写入与网络开销。
+  // 如果 tab 没变就不重复上报，减少服务端写入与网络开销。
   if (json === lastJsonByKey.get(key)) return;
   lastJsonByKey.set(key, json);
 

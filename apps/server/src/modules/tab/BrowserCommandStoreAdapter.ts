@@ -10,7 +10,7 @@ type Entry = {
 const TTL_MS = 60 * 1000;
 const cache = new Keyv<Entry>({
   namespace: "tab:browserCommandPending",
-  // 中文注释：这里需要缓存 promise/resolve/reject（不可 JSON 序列化），禁用默认序列化以使用 raw 存储。
+  // 这里需要缓存 promise/resolve/reject（不可 JSON 序列化），禁用默认序列化以使用 raw 存储。
   serialize: undefined as any,
   deserialize: undefined as any,
 });
@@ -31,7 +31,7 @@ export async function createBrowserCommandPending(input: { commandId: string }) 
   });
 
   const timeout = setTimeout(() => {
-    // 中文注释：兜底超时，避免 pending 一直挂住导致内存无法释放。
+    // 兜底超时，避免 pending 一直挂住导致内存无法释放。
     void rejectBrowserCommandPending({ commandId: key, error: new Error("Browser command timeout") });
   }, TTL_MS);
   timeout.unref?.();

@@ -14,7 +14,7 @@ export default function MessageBranchNav({ messageId }: { messageId: string }) {
 
   type SiblingNav = ReturnType<typeof useChatContext>["siblingNav"][string];
 
-  // 中文注释：消息列表只渲染“当前主链”，因此不再需要 branchMessageIds 作为额外判定；
+  // 消息列表只渲染“当前主链”，因此不再需要 branchMessageIds 作为额外判定；
   // 只要 siblingNav 提供了信息，就应显示（避免切分支时状态更新顺序导致短暂消失）。
   const [isRendered, setIsRendered] = React.useState(Boolean(nav && nav.siblingTotal > 1));
   const [isVisible, setIsVisible] = React.useState(Boolean(nav && nav.siblingTotal > 1));

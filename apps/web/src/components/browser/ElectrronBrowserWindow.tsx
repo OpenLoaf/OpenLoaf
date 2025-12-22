@@ -100,7 +100,7 @@ export default function ElectrronBrowserWindow({
 
   const updateBrowserState = (nextTabs: ElectrronBrowserWindowProps["browserTabs"], nextActiveId?: string) => {
     if (!safeTabId) return;
-    // 中文注释：浏览器面板内的状态（tabs/active）统一写回到 tab.stack，作为单一事实来源。
+    // 浏览器面板内的状态（tabs/active）统一写回到 tab.stack，作为单一事实来源。
     useTabs.getState().pushStackItem(
       safeTabId,
       {
@@ -130,7 +130,7 @@ export default function ElectrronBrowserWindow({
       if (ensuredTargetIdRef.current === res.cdpTargetId) return;
       ensuredTargetIdRef.current = res.cdpTargetId;
 
-      // 中文注释：把 cdpTargetId 写回当前激活的浏览器子标签，并立即上报快照给 server。
+      // 把 cdpTargetId 写回当前激活的浏览器子标签，并立即上报快照给 server。
       const nextTabs = tabsRef.current.map((t) =>
         t.viewKey === key ? { ...t, cdpTargetId: res.cdpTargetId } : t,
       );
@@ -167,7 +167,7 @@ export default function ElectrronBrowserWindow({
 
       setActiveViewStatus(detail.destroyed ? null : detail);
 
-      // 中文注释：loading overlay 和进度条都以 dom-ready 为准（更接近“可交互/可展示”的时机）。
+      // loading overlay 和进度条都以 dom-ready 为准（更接近“可交互/可展示”的时机）。
       if (!targetUrl) {
         loadingRef.current = false;
         setLoading(false);
@@ -188,7 +188,7 @@ export default function ElectrronBrowserWindow({
   }, [isElectron, activeViewKey, targetUrl]);
 
   useEffect(() => {
-    // 中文注释：切换浏览器子标签时，立即使用已缓存的状态刷新 loading/ready，避免“切换后一直 loading”。
+    // 切换浏览器子标签时，立即使用已缓存的状态刷新 loading/ready，避免“切换后一直 loading”。
     const cached = viewStatusByKeyRef.current.get(activeViewKey) ?? null;
     setActiveViewStatus(cached);
 
@@ -202,7 +202,7 @@ export default function ElectrronBrowserWindow({
       setLoading(false);
       return;
     }
-    // 中文注释：没有拿到状态前，默认按 loading 处理，避免页面“还没 ready”就被展示出来。
+    // 没有拿到状态前，默认按 loading 处理，避免页面“还没 ready”就被展示出来。
     const nextLoading = cached ? cached.ready !== true : true;
     loadingRef.current = nextLoading;
     setLoading(nextLoading);
@@ -367,7 +367,7 @@ export default function ElectrronBrowserWindow({
     const api = window.teatimeElectron;
     if (!isElectron || !api?.destroyWebContentsView) return;
     return () => {
-      // 中文注释：关闭整个浏览器面板时，销毁所有子标签对应的 WebContentsView，避免泄漏。
+      // 关闭整个浏览器面板时，销毁所有子标签对应的 WebContentsView，避免泄漏。
       for (const t of tabsRef.current) {
         if (t?.viewKey) void api.destroyWebContentsView?.(String(t.viewKey));
       }
@@ -424,7 +424,7 @@ export default function ElectrronBrowserWindow({
     if (!url || !activeId) return;
     const next = normalizeUrl(url);
     if (!next) return;
-    // 中文注释：新标签页/首页中点击站点后，直接把 URL 写回当前激活标签，随后由 Electron view 管理逻辑接管加载。
+    // 新标签页/首页中点击站点后，直接把 URL 写回当前激活标签，随后由 Electron view 管理逻辑接管加载。
     setEditingTabId(null);
     const nextTabs = tabsRef.current.map((t) => (t.id === activeId ? { ...t, url: next } : t));
     updateBrowserState(nextTabs, activeId);
@@ -442,13 +442,13 @@ export default function ElectrronBrowserWindow({
 
   const onClosePanel = () => {
     if (!safeTabId) return;
-    // 中文注释：关闭整个浏览器面板会同时关闭全部浏览器子标签（并销毁 Electron WebContentsView）。
+    // 关闭整个浏览器面板会同时关闭全部浏览器子标签（并销毁 Electron WebContentsView）。
     const ok = window.confirm("关闭浏览器将关闭全部标签页，确定继续？");
     if (!ok) return;
 
     const api = window.teatimeElectron;
     if (isElectron) {
-      // 中文注释：先主动销毁所有 view，保证 Electron 页面同步关闭。
+      // 先主动销毁所有 view，保证 Electron 页面同步关闭。
       for (const t of tabsRef.current) {
         if (t?.viewKey) {
           try {
@@ -529,7 +529,7 @@ export default function ElectrronBrowserWindow({
             showMinimize
             onMinimize={() => {
               if (!safeTabId) return;
-              // 中文注释：最小化仅隐藏 stack，不销毁内部标签页。
+              // 最小化仅隐藏 stack，不销毁内部标签页。
               useTabs.getState().setStackHidden(safeTabId, true);
             }}
           >

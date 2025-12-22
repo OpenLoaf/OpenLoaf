@@ -62,7 +62,7 @@ async function loadRightmostChainRows(prisma: any, sessionId: string): Promise<a
   if (!leaf || leaf.sessionId !== sessionId) return [];
 
   const allPaths = getPathPrefixes(String(leaf.path));
-  // 中文注释：只取最近一段链路用于取名，避免超长会话导致 prompt 过大。
+  // 只取最近一段链路用于取名，避免超长会话导致 prompt 过大。
   const selectedPaths =
     allPaths.length > TITLE_CONTEXT_TAKE ? allPaths.slice(-TITLE_CONTEXT_TAKE) : allPaths;
 
@@ -112,7 +112,7 @@ export class ChatRouterImpl extends BaseChatRouter {
   /** Chat tRPC 端点实现：自动取名（MVP）。 */
   public static createRouter() {
     return t.router({
-      // 中文注释：复用 packages/api 的 chat router（getChatView 等），这里只补齐 server 实现。
+      // 复用 packages/api 的 chat router（getChatView 等），这里只补齐 server 实现。
       ...appRouterDefine.chat._def.procedures,
 
       autoTitle: shieldedProcedure
@@ -125,7 +125,7 @@ export class ChatRouterImpl extends BaseChatRouter {
           });
           if (!session || session.deletedAt) throw new Error("session not found");
 
-          // 中文注释：用户手动改名后不再自动覆盖，避免把用户标题“改回去”。
+          // 用户手动改名后不再自动覆盖，避免把用户标题“改回去”。
           if (session.isUserRename) return { ok: true, title: session.title };
 
           const chainRows = await loadRightmostChainRows(ctx.prisma, input.sessionId);
@@ -136,7 +136,7 @@ export class ChatRouterImpl extends BaseChatRouter {
           try {
             title = await generateTitleFromHistory(historyText);
           } catch {
-            // 中文注释：模型不可用时保持现状（MVP）。
+            // 模型不可用时保持现状（MVP）。
             return { ok: true, title: session.title };
           }
 

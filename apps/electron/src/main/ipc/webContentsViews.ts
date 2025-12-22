@@ -96,7 +96,7 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
     });
   });
 
-  // 中文注释：用户选择以 dom-ready 作为“页面可展示”的 ready 信号。
+  // 用户选择以 dom-ready 作为“页面可展示”的 ready 信号。
   wc.on('dom-ready', () => {
     emitViewStatus(win, key, {
       webContentsId: wc.id,
@@ -142,7 +142,7 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
     emitViewStatus(win, key, {
       webContentsId: wc.id,
       url,
-      // 中文注释：in-page navigation（hash/history）不一定触发 dom-ready，保持 ready=true。
+      // in-page navigation（hash/history）不一定触发 dom-ready，保持 ready=true。
       ready: true,
       destroyed: false,
     });
@@ -441,7 +441,7 @@ export function upsertWebContentsView(
     installShortcutBridge(win, view);
     // Install once per view; force "new tab" navigations to stay in the same view.
     installOpenInCurrentTab(view);
-    // 中文注释：把 WebContentsView 的真实加载状态（dom-ready 等）推送到渲染端。
+    // 把 WebContentsView 的真实加载状态（dom-ready 等）推送到渲染端。
     installViewStatusEmitter(win, key, view);
   }
 
@@ -472,7 +472,7 @@ export function destroyWebContentsView(win: BrowserWindow, key: string) {
   if (!map || !view) return;
 
   map.delete(key);
-  // 中文注释：通知渲染端该 viewKey 已销毁，避免 UI 继续使用旧状态。
+  // 通知渲染端该 viewKey 已销毁，避免 UI 继续使用旧状态。
   emitViewStatus(win, key, {
     webContentsId: view.webContents.id,
     destroyed: true,

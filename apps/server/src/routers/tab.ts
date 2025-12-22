@@ -36,7 +36,7 @@ export class TabRouterImpl extends BaseTabRouter {
         .input(tabSchemas.reportBrowserCommandResult.input)
         .output(tabSchemas.reportBrowserCommandResult.output)
         .mutation(async ({ input }) => {
-          // 中文注释：浏览器命令的执行发生在 Electron（用户可见 WebContentsView），server 只负责把结果回传给工具等待方。
+          // 浏览器命令的执行发生在 Electron（用户可见 WebContentsView），server 只负责把结果回传给工具等待方。
           await resolveBrowserCommandPending({ commandId: input.commandId, result: input.result });
           return { ok: true };
         }),

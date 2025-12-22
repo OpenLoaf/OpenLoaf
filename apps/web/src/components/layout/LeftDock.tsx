@@ -112,7 +112,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
 
   const base = tab.base;
   const stack = tab.stack ?? [];
-  // 中文注释：stack 的选中态不再依赖“最后一个=顶部”，而是由 activeStackItemIdByTabId 决定。
+  // stack 的选中态不再依赖“最后一个=顶部”，而是由 activeStackItemIdByTabId 决定。
   const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
   const hasOverlay = Boolean(base) && stack.length > 0 && !stackHidden;
   const floating = Boolean(base);
@@ -132,7 +132,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
         <div
           className={cn(
             "absolute inset-0",
-            // 中文注释：stack 最小化后仍保持挂载（便于恢复状态），但不能挡住 base 的点击/交互。
+            // stack 最小化后仍保持挂载（便于恢复状态），但不能挡住 base 的点击/交互。
             stackHidden && "pointer-events-none",
           )}
           style={{ zIndex: 20 }}
@@ -143,7 +143,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
             return (
               <div
                 key={item.id}
-                // 中文注释：stack 不再堆叠，只显示一个；其它 stack 保持挂载但隐藏，便于通过 Header 右上角按钮切换。
+                // stack 不再堆叠，只显示一个；其它 stack 保持挂载但隐藏，便于通过 Header 右上角按钮切换。
                 className={cn("absolute inset-0 p-2", !visible && "hidden")}
               >
                 <PanelFrame

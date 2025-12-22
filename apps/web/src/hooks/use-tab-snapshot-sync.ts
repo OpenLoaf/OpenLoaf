@@ -23,14 +23,14 @@ export function useTabSnapshotSync(input: {
 
     const tabId = input.tabId;
 
-    // 中文注释：发送一次“当前状态”，确保 server 缓存立刻可用。
+    // 发送一次“当前状态”，确保 server 缓存立刻可用。
     const sendNow = () => {
       void upsertTabSnapshotNow({ sessionId: input.sessionId, tabId });
     };
 
     sendNow();
 
-    // 中文注释：MVP 不引入 subscribeWithSelector；订阅全量变化，但用 JSON 对比避免重复上报。
+    // MVP 不引入 subscribeWithSelector；订阅全量变化，但用 JSON 对比避免重复上报。
     const unsubscribe = useTabs.subscribe(() => {
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current);

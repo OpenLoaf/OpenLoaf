@@ -32,7 +32,7 @@ function destroyBrowserViewsIfNeeded(item: DockItem) {
   const tabs = (item.params as any)?.browserTabs;
   if (!Array.isArray(tabs)) return;
 
-  // 中文注释：关闭 browser-window stack 时，销毁所有子标签对应的 WebContentsView。
+  // 关闭 browser-window stack 时，销毁所有子标签对应的 WebContentsView。
   for (const t of tabs) {
     const key = String(t?.viewKey ?? "");
     if (!key) continue;
@@ -62,13 +62,13 @@ export function StackDockMenuButton() {
   );
 
   if (!activeTabId || stack.length === 0) return null;
-  // 中文注释：只有一个 stack 且正在显示时，不需要入口按钮（避免 UI 冗余）。
+  // 只有一个 stack 且正在显示时，不需要入口按钮（避免 UI 冗余）。
   if (!stackHidden && stack.length === 1) return null;
 
   const topId = activeStackItemId || stack.at(-1)?.id || "";
 
   const openStackItem = (item: DockItem) => {
-    // 中文注释：恢复显示并切换到目标 item（不再重排 stack 数组）。
+    // 恢复显示并切换到目标 item（不再重排 stack 数组）。
     useTabs.getState().setStackHidden(activeTabId, false);
     useTabs.getState().pushStackItem(activeTabId, item);
   };
@@ -76,7 +76,7 @@ export function StackDockMenuButton() {
   const closeStackItem = (item: DockItem) => {
     destroyBrowserViewsIfNeeded(item);
     useTabs.getState().removeStackItem(activeTabId, item.id);
-    // 中文注释：如果关闭后 stack 为空，自动解除隐藏。
+    // 如果关闭后 stack 为空，自动解除隐藏。
     const nextTab = useTabs.getState().getTabById(activeTabId);
     if ((nextTab?.stack ?? []).length === 0) {
       useTabs.getState().setStackHidden(activeTabId, false);
@@ -90,7 +90,7 @@ export function StackDockMenuButton() {
   };
 
   if (stackHidden && stack.length === 1) {
-    // 中文注释：只有一个 stack item 时，隐藏后点击按钮直接恢复显示，不再弹出列表。
+    // 只有一个 stack item 时，隐藏后点击按钮直接恢复显示，不再弹出列表。
     return (
       <Button
         data-no-drag="true"
@@ -132,7 +132,7 @@ export function StackDockMenuButton() {
 
         {stack.map((item) => {
           const title = getStackItemTitle(item);
-          // 中文注释：以“顶部 item”为选中态；即使处于最小化隐藏，也要保持选中态一致。
+          // 以“顶部 item”为选中态；即使处于最小化隐藏，也要保持选中态一致。
           const isTop = item.id === topId;
           return (
             <DropdownMenuItem

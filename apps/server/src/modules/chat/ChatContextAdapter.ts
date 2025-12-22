@@ -23,7 +23,7 @@ function buildSessionIndexKey(input: { sessionId: string }) {
 async function registerKeyInSessionIndex(input: { sessionId: string; key: CacheKey }) {
   const indexKey = buildSessionIndexKey(input);
   const list = (await sessionIndexCache.get(indexKey)) ?? [];
-  // 中文注释：用 list 做轻量索引，保证在不支持 key 枚举的后端也能按 session 清理。
+  // 用 list 做轻量索引，保证在不支持 key 枚举的后端也能按 session 清理。
   if (!list.includes(input.key)) {
     list.push(input.key);
   }
@@ -40,7 +40,7 @@ export const chatContextStore = {
     tab: Tab;
   }) => {
     const key = buildKey(input);
-    // 中文注释：用 seq 解决乱序/重复包，避免旧快照覆盖新快照。
+    // 用 seq 解决乱序/重复包，避免旧快照覆盖新快照。
     const existing = await tabSnapshotCache.get(key);
     if (existing && input.seq <= existing.seq) return;
     await tabSnapshotCache.set(key, { seq: input.seq, tab: input.tab }, CHAT_CONTEXT_TTL_MS);

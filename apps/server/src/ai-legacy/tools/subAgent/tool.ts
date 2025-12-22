@@ -9,7 +9,7 @@ export const subAgentTool = tool({
   description: subAgentToolDef.description,
   inputSchema: zodSchema(subAgentToolDef.parameters),
   execute: async () => {
-    // 中文注释：browser worker / browser automation 链路已移除，避免旧对话提示词调用时报错，保留占位返回。
+    // browser worker / browser automation 链路已移除，避免旧对话提示词调用时报错，保留占位返回。
     return { ok: false, error: { code: "DISABLED", message: "subAgent 已禁用。" } };
   },
 });

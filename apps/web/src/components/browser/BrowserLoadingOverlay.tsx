@@ -22,7 +22,7 @@ export function BrowserLoadingOverlay({
         >
           <div className="flex flex-col items-center gap-5">
             <motion.div
-              // 中文注释：动画参考 apps/electron/src/renderer/loading.html
+              // 动画参考 apps/electron/src/renderer/loading.html
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
               className="h-10 w-10 rounded-full border-[3px] border-foreground/10 border-t-foreground"

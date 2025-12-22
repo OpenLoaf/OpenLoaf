@@ -36,7 +36,7 @@ export const shellReadonlyTool = tool({
     SystemToolResult<{ stdout: string; stderr: string; exitCode: number }>
   > => {
     try {
-      // 中文注释：保留 sessionId 便于排查工具调用来源。
+      // 保留 sessionId 便于排查工具调用来源。
       const sessionId = getSessionId();
       if (sessionId) logger.debug({ sessionId }, "当前请求上下文");
 

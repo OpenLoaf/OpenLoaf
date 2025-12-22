@@ -52,6 +52,7 @@ model Page {
   title      String? // 页面标题
   icon       String? // 页面图标
   cover      String? // 页面封面图片URL
+  markdown   String? // 页面 Markdown 内容
   isExpanded Boolean  @default(false) // 页面是否展开
   createdAt  DateTime @default(now()) // 创建时间
   updatedAt  DateTime @updatedAt // 更新时间

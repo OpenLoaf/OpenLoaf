@@ -72,7 +72,7 @@ function openSingletonTab(
   const existing = tabs.find((tab) => {
     if (tab.workspaceId !== workspaceId) return false;
     if (tab.base?.id === input.baseId) return true;
-    // 中文备注：ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
+    // ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
     if (input.component === "ai-chat" && !tab.base && tab.title === input.title) return true;
     return false;
   });
@@ -138,7 +138,7 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
 
   const keyLower = event.key.toLowerCase();
 
-  // 中文备注：Cmd/Ctrl + W 应视为“全局快捷键”，即使当前焦点在输入框里也要生效（关闭当前标签/面板）
+  // Cmd/Ctrl + W 应视为“全局快捷键”，即使当前焦点在输入框里也要生效（关闭当前标签/面板）
   // 否则在自动聚焦 ChatInput 后会导致无法再用快捷键关闭 tab。
   if (keyLower === "w" && withMod) {
     event.preventDefault();
@@ -160,7 +160,7 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
     return;
   }
 
-  // 中文备注：Cmd/Ctrl + T 也应视为“全局快捷键”，即使当前焦点在输入框里也要生效（打开 AI 助手）。
+  // Cmd/Ctrl + T 也应视为“全局快捷键”，即使当前焦点在输入框里也要生效（打开 AI 助手）。
   // 注意：浏览器环境可能会被系统/浏览器占用；这里仍然尽量拦截并执行应用内行为。
   if (ctx.workspaceId && keyLower === "t" && withMod && !event.shiftKey && !event.altKey) {
     const quickOpenLeftWidthPercent = overlay.searchOpen ? 70 : 100;

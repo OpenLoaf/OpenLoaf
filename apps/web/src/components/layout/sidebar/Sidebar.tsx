@@ -36,7 +36,7 @@ export const AppSidebar = ({
       const existing = state.tabs.find((tab) => {
         if (tab.workspaceId !== activeWorkspace.id) return false;
         if (tab.base?.id === input.baseId) return true;
-        // 中文备注：ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
+        // ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
         if (input.component === "ai-chat" && !tab.base && tab.title === input.title) return true;
         return false;
       });
@@ -77,7 +77,7 @@ export const AppSidebar = ({
             >
               <Search />
               <span className="flex-1 truncate">搜索</span>
-              {/* 中文备注：快捷键提示默认隐藏，仅在 hover / focus 时显示，避免侧边栏视觉噪音。 */}
+              {/* 快捷键提示默认隐藏，仅在 hover / focus 时显示，避免侧边栏视觉噪音。 */}
               <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>

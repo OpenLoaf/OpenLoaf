@@ -40,7 +40,7 @@ function MessageItem({
     return messageHasVisibleContent(message);
   }, [message]);
 
-  // 中文注释：当消息本身没有可见内容时，如果它是“分支节点”，仍然要显示分支切换（否则切到边界会“消失”）。
+  // 当消息本身没有可见内容时，如果它是“分支节点”，仍然要显示分支切换（否则切到边界会“消失”）。
   const shouldShowBranchNav = React.useMemo(() => {
     const id = String((message as any)?.id ?? "");
     if (!id) return false;

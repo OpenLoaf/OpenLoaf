@@ -51,7 +51,7 @@ function normalizeBrowserWindowItem(existing: DockItem | undefined, incoming: Do
   const currentTabs = getBrowserTabs(existing);
   const currentActive = getActiveBrowserTabId(existing);
 
-  // 中文注释：两种写入方式：
+  // 两种写入方式：
   // 1) params.__open：追加/激活一个浏览器子标签（open-url / agent 事件使用）
   // 2) params.browserTabs：整体覆盖（由 ElectrronBrowserWindow 内部切换/关闭使用）
   const nextTabs = Array.isArray((incoming.params as any)?.browserTabs)
@@ -513,7 +513,7 @@ export const useTabs = create<TabsState>()(
 
       pushStackItem: (tabId, item, percent) => {
         set((state) => {
-          // 中文注释：打开/切换 stack 时自动解除“最小化隐藏”。
+          // 打开/切换 stack 时自动解除“最小化隐藏”。
           const nextHidden = { ...state.stackHiddenByTabId, [tabId]: false };
 
           const isBrowser = item.component === BROWSER_WINDOW_COMPONENT;
@@ -521,7 +521,7 @@ export const useTabs = create<TabsState>()(
 
           return {
             stackHiddenByTabId: nextHidden,
-            // 中文注释：选中态用单独字段保存，不再通过“把 item 移到数组末尾”来表示顶部。
+            // 选中态用单独字段保存，不再通过“把 item 移到数组末尾”来表示顶部。
             activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId, [tabId]: activeId },
             tabs: updateTabById(state.tabs, tabId, (tab) => {
               // 左侧 stack：同 sourceKey/id 视为同一条目（upsert），用于“同一个来源的面板重复打开”。
@@ -550,7 +550,7 @@ export const useTabs = create<TabsState>()(
 
               return normalizeDock({
                 ...nextTab,
-                // 中文注释：每个 Tab 的 stack 中只允许一个 electron-browser-window。
+                // 每个 Tab 的 stack 中只允许一个 electron-browser-window。
                 stack: isBrowser
                   ? [...nextStack.filter((s) => s.component !== BROWSER_WINDOW_COMPONENT), normalizedItem]
                   : nextStack,
@@ -652,9 +652,9 @@ export const useTabs = create<TabsState>()(
               : 0;
             return normalizeDock({ ...tab, stack, leftWidthPercent } as Tab);
           }),
-          // 中文注释：v3 新增 stackHiddenByTabId，默认不隐藏。
+          // v3 新增 stackHiddenByTabId，默认不隐藏。
           stackHiddenByTabId: persisted?.stackHiddenByTabId ?? {},
-          // 中文注释：v4 新增 activeStackItemIdByTabId，默认不指定（用 stack 最后一个兜底）。
+          // v4 新增 activeStackItemIdByTabId，默认不指定（用 stack 最后一个兜底）。
           activeStackItemIdByTabId: persisted?.activeStackItemIdByTabId ?? {},
         };
       },

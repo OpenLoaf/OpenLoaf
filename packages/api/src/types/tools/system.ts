@@ -159,6 +159,15 @@ export const timeNowToolDef = {
   component: null,
 } as const;
 
+export const manualStopToolDef = {
+  id: "manual-stop",
+  description: "标记一次对话被手动中断，用于在 UI 中展示中断状态。",
+  parameters: z.object({
+    reason: z.string().optional().describe("中断原因（用于展示）。"),
+  }),
+  component: null,
+} as const;
+
 export const webFetchToolDef = {
   id: "web-fetch",
   description:
@@ -192,6 +201,7 @@ export const webSearchToolDef = {
  */
 export const systemToolMeta = {
   [timeNowToolDef.id]: { riskType: RiskType.Read },
+  [manualStopToolDef.id]: { riskType: RiskType.Read },
   [webFetchToolDef.id]: { riskType: RiskType.Read },
   [webSearchToolDef.id]: { riskType: RiskType.Read },
   [fileReadToolDef.id]: { riskType: RiskType.Read },

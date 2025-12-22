@@ -56,7 +56,7 @@ async function withStreamLock<T>(streamId: string, fn: () => Promise<T>): Promis
 
 function enforceActiveStreamsCap(now: number) {
   if (activeControls.size <= MAX_ACTIVE_STREAMS) return;
-  // 中文注释：兜底保护，避免异常情况下 active stream 无限增长导致内存压力。
+  // 兜底保护，避免异常情况下 active stream 无限增长导致内存压力。
   const candidates = Array.from(activeControls.entries()).sort((a, b) => a[1].lastActiveAt - b[1].lastActiveAt);
   const toEvict = candidates.slice(0, Math.max(0, activeControls.size - MAX_ACTIVE_STREAMS));
   for (const [streamId] of toEvict) {
@@ -66,7 +66,7 @@ function enforceActiveStreamsCap(now: number) {
 }
 
 function scheduleStaleSweep() {
-  // 中文注释：惰性 TTL 可能在长时间无请求时不触发；用定时 sweep 兜底释放资源。
+  // 惰性 TTL 可能在长时间无请求时不触发；用定时 sweep 兜底释放资源。
   const interval = setInterval(() => {
     const now = Date.now();
     for (const [streamId, control] of activeControls.entries()) {
@@ -132,7 +132,7 @@ export const streamStore = {
       entry.totalBytes += bytes;
       entry.updatedAt = now;
 
-      // 中文注释：限制 buffer，避免长对话/异常输出导致内存无限增长（断线续传会退化为“只回放最近一段”）。
+      // 限制 buffer，避免长对话/异常输出导致内存无限增长（断线续传会退化为“只回放最近一段”）。
       while (entry.chunks.length > MAX_STREAM_CHUNKS || entry.totalBytes > MAX_STREAM_BUFFER_BYTES) {
         const removed = entry.chunks.shift();
         if (!removed) break;
@@ -147,7 +147,7 @@ export const streamStore = {
     });
   },
 
-  /** 结束 stream（不再允许订阅/回放）。 */
+  /** 结束 stream（保留回放窗口）。 */
   finalize: async (streamId: string) => {
     const now = Date.now();
     touchControl(streamId, now);
@@ -164,7 +164,8 @@ export const streamStore = {
         activeControls.delete(streamId);
       }
 
-      await streamCache.delete(streamId);
+      // 保留一段时间用于断线续传（done=true 但仍可回放）。
+      await streamCache.set(streamId, entry, STREAM_IDLE_TTL_MS);
     });
   },
 
@@ -193,9 +194,26 @@ export const streamStore = {
 
     const entry = await streamCache.get(streamId);
     const control = activeControls.get(streamId);
-    if (!entry || entry.done || !control) return null;
+    if (!entry) return null;
 
-    // 中文注释：subscribe 也算“活跃”，刷新 idle TTL，避免断线续传窗口过早过期。
+    if (entry.done && !control) {
+      const snapshot = entry.chunks.slice();
+      return new ReadableStream<string>({
+        start: (controller) => {
+          (async () => {
+            for (const chunk of snapshot) {
+              controller.enqueue(chunk.value);
+              await new Promise<void>((r) => setImmediate(r));
+            }
+            controller.close();
+          })().catch((err) => controller.error(err));
+        },
+      });
+    }
+
+    if (!control) return null;
+
+    // subscribe 也算“活跃”，刷新 idle TTL，避免断线续传窗口过早过期。
     entry.updatedAt = now;
     await streamCache.set(streamId, entry, STREAM_IDLE_TTL_MS);
 
@@ -243,7 +261,7 @@ export const streamStore = {
         });
       },
       cancel: () => {
-        // 中文注释：客户端断开/取消订阅时，确保移除监听器，避免 event listener 泄漏。
+        // 客户端断开/取消订阅时，确保移除监听器，避免 event listener 泄漏。
         cleanupListener?.();
       },
     });

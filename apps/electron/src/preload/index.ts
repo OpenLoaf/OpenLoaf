@@ -39,7 +39,7 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
     ipcRenderer.invoke('teatime:webcontents-view:count'),
 });
 
-// 中文注释：主进程会推送 WebContentsView 的真实加载状态（dom-ready 等），这里转成 window 事件给 web UI 消费。
+// 主进程会推送 WebContentsView 的真实加载状态（dom-ready 等），这里转成 window 事件给 web UI 消费。
 ipcRenderer.on('teatime:webcontents-view:status', (_event, detail) => {
   try {
     window.dispatchEvent(

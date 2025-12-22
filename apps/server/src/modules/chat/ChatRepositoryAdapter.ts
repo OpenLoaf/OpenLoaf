@@ -3,12 +3,12 @@ import type { MessageRole as DbMessageRole, Prisma } from "@teatime-ai/db/prisma
 import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
 
 const MAX_SESSION_TITLE_CHARS = 16;
-// 中文注释：物化路径每段固定 2 位（01..99），用于保证 DB 按字符串排序时等价于按数字排序。
-// 中文注释：产品约束：同级最多 99 个节点；超过后直接报错，避免出现 3 位段导致排序与查询不稳定。
+// 物化路径每段固定 2 位（01..99），用于保证 DB 按字符串排序时等价于按数字排序。
+// 产品约束：同级最多 99 个节点；超过后直接报错，避免出现 3 位段导致排序与查询不稳定。
 const PATH_SEGMENT_WIDTH = 2;
 const MAX_PATH_SEGMENT_SEQ = 99;
 
-// 中文注释：metadata 禁止保存消息树字段，避免冗余与不一致。
+// metadata 禁止保存消息树字段，避免冗余与不一致。
 const FORBIDDEN_METADATA_KEYS = ["id", "sessionId", "parentMessageId", "path"] as const;
 
 function normalizeRole(role: unknown): DbMessageRole {
@@ -35,6 +35,54 @@ function sanitizeMetadata(metadata: unknown): Record<string, unknown> | null {
     next[k] = v;
   }
   return Object.keys(next).length ? next : null;
+}
+
+function toNumberOrUndefined(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function mergeTotalUsage(prev: unknown, next: unknown): unknown | undefined {
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+  const prevUsage = isRecord(prev) ? prev : undefined;
+  const nextUsage = isRecord(next) ? next : undefined;
+  if (!prevUsage && !nextUsage) return undefined;
+
+  // totalUsage 按字段累加（适配审批续跑/重试等多次写入同一条 assistant message 的场景）。
+  const keys = [
+    "inputTokens",
+    "outputTokens",
+    "totalTokens",
+    "reasoningTokens",
+    "cachedInputTokens",
+  ] as const;
+
+  const out: Record<string, number> = {};
+  for (const key of keys) {
+    const a = toNumberOrUndefined(prevUsage?.[key]);
+    const b = toNumberOrUndefined(nextUsage?.[key]);
+    if (a == null && b == null) continue;
+    out[key] = (a ?? 0) + (b ?? 0);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function mergeMetadataWithAccumulatedUsage(prev: unknown, next: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!next) return null;
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  const prevRecord = isRecord(prev) ? prev : {};
+
+  const merged: Record<string, unknown> = { ...prevRecord, ...next };
+
+  const prevTotal = isRecord(prevRecord.totalUsage) ? prevRecord.totalUsage : undefined;
+  const nextTotal = isRecord(next.totalUsage) ? next.totalUsage : undefined;
+  const combinedTotal = mergeTotalUsage(prevTotal, nextTotal);
+  if (combinedTotal) merged.totalUsage = combinedTotal;
+  else if ("totalUsage" in merged) delete merged.totalUsage;
+
+  return Object.keys(merged).length ? merged : null;
 }
 
 function extractTitleTextFromParts(parts: unknown[]): string {
@@ -65,7 +113,7 @@ async function ensureSession(tx: Prisma.TransactionClient, sessionId: string, ti
   await tx.chatSession.upsert({
     where: { id: sessionId },
     update: {},
-    // 中文注释：会话首次创建时，把“第一条 user 消息文本”作为标题（后续不自动更新）。
+    // 会话首次创建时，把“第一条 user 消息文本”作为标题（后续不自动更新）。
     create: { id: sessionId, ...(title ? { title } : {}) },
   });
 }
@@ -139,7 +187,7 @@ export const chatRepository = {
 
     const allowEmpty = Boolean(input.allowEmpty);
     if (!allowEmpty && role !== "user" && parts.length === 0) {
-      // 中文注释：空 assistant/system 没有回放价值，直接跳过保存。
+      // 空 assistant/system 没有回放价值，直接跳过保存。
       return { id: messageId, parentMessageId: input.parentMessageId, path: "" };
     }
 
@@ -148,12 +196,25 @@ export const chatRepository = {
 
       const existing = await tx.chatMessage.findUnique({
         where: { id: messageId },
-        select: { id: true, sessionId: true, parentMessageId: true, path: true },
+        select: { id: true, sessionId: true, parentMessageId: true, path: true, metadata: true },
       });
       if (existing) {
         if (existing.sessionId !== input.sessionId) {
           throw new Error("message.id already exists in another session.");
         }
+
+        // assistant/system 在“续跑”场景下需要更新 parts/metadata（同一条 messageId 继续补全）。
+        if (role !== "user") {
+          const mergedMetadata = mergeMetadataWithAccumulatedUsage(existing.metadata as any, metadata);
+          await tx.chatMessage.update({
+            where: { id: messageId },
+            data: {
+              ...(parts.length ? { parts: parts as any } : {}),
+              ...(mergedMetadata ? { metadata: mergedMetadata as any } : {}),
+            },
+          });
+        }
+
         return {
           id: existing.id,
           parentMessageId: existing.parentMessageId ?? null,

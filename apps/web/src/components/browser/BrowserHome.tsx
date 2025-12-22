@@ -54,7 +54,7 @@ function SiteIcon({
 }
 
 export function BrowserHome({ onOpenUrl }: { onOpenUrl?: (url: string) => void }) {
-  // 中文注释：页面首次展示时做轻量动效（淡入 + 上移 + 轻微缩放），更接近 Safari 的新标签页观感。
+  // 页面首次展示时做轻量动效（淡入 + 上移 + 轻微缩放），更接近 Safari 的新标签页观感。
   const listVariants = {
     hidden: { opacity: 0, y: 10 },
     show: {

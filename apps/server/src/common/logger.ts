@@ -16,7 +16,7 @@ function normalizeLogLevel(raw: unknown): LogLevel | undefined {
 const defaultLevel: LogLevel = process.env.NODE_ENV === "production" ? "info" : "debug";
 const level: LogLevel = normalizeLogLevel(process.env.LOG_LEVEL) ?? defaultLevel;
 
-// 中文注释：统一 server 侧日志入口；同时把请求上下文（session/app/tab/agent）自动注入到每条日志里，方便排查。
+// 统一 server 侧日志入口；同时把请求上下文（session/app/tab/agent）自动注入到每条日志里，方便排查。
 export const logger = pino({
   level,
   base: { service: "teatime-server" },

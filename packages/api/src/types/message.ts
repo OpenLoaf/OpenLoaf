@@ -60,6 +60,10 @@ export interface TeatimeUIDataTypes extends UIDataTypes {
       input?: Record<string, unknown>;
     };
   };
+  "manual-stop": {
+    toolCallId: string;
+    reason?: string;
+  };
 }
 
 /**

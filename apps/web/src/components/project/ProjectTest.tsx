@@ -28,7 +28,7 @@ export default function ProjectTest({ pageId }: ProjectTestProps) {
   function handleCreateThreeStacks() {
     if (!activeTabId) return;
 
-    // 中文注释：这里用三个 tool-result 作为通用 demo（非 Electron 环境也能正常渲染）。
+    // 这里用三个 tool-result 作为通用 demo（非 Electron 环境也能正常渲染）。
     for (let index = 0; index < 3; index += 1) {
       const toolKey = `demo:${Date.now()}:${index + 1}`;
       upsertToolPart(activeTabId, toolKey, {

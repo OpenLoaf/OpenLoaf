@@ -37,7 +37,7 @@
     "./.next/types/**/*.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
-  ],
+, "src/components/editor/editor-kit.tsx2"  ],
   "exclude": [
     "./node_modules"
   ]

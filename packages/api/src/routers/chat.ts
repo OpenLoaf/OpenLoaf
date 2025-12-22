@@ -127,7 +127,7 @@ async function loadMainChainRows({
     },
   });
 
-  // 中文注释：当链路被截断时，用“本页最早节点 id”作为游标；下一页从它的 parent 往上继续取。
+  // 当链路被截断时，用“本页最早节点 id”作为游标；下一页从它的 parent 往上继续取。
   const isTruncated = allPaths.length > limit;
   const nextCursorBeforeMessageId = isTruncated ? (chainRows[0]?.id ?? null) : null;
   return { chainRows, nextCursorBeforeMessageId };
@@ -149,7 +149,7 @@ async function resolveLatestLeafId({
   });
   if (!start || start.sessionId !== sessionId) return null;
 
-  // 中文注释：SQLite/Prisma 对 JSON 过滤支持有限，这里用“按 path 倒序取候选 + JS 过滤”实现。
+  // SQLite/Prisma 对 JSON 过滤支持有限，这里用“按 path 倒序取候选 + JS 过滤”实现。
   const candidates = await prisma.chatMessage.findMany({
     where: {
       sessionId,
@@ -434,7 +434,7 @@ export const chatRouter = t.router({
         }
       > = {};
       if (includeSiblingNav) {
-        // 中文注释：保证主链每个节点都有 siblingNav（即使只有 1 个 sibling 也要有），避免前端短暂缺失导致闪烁。
+        // 保证主链每个节点都有 siblingNav（即使只有 1 个 sibling 也要有），避免前端短暂缺失导致闪烁。
         for (const row of chainRows) {
           const id = String(row.id);
           siblingNav[id] =

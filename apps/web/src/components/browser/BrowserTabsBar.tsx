@@ -66,7 +66,7 @@ export function BrowserTabsBar({
                 <AnimatePresence>
                   {isActive ? (
                     <motion.div
-                      // 中文注释：参考 Header Tabs 的交互，高亮背景用 layoutId 让切换更顺滑。
+                      // 参考 Header Tabs 的交互，高亮背景用 layoutId 让切换更顺滑。
                       layoutId="browser-tab-active"
                       layout="position"
                       transition={{ type: "spring", stiffness: 500, damping: 42 }}
@@ -83,7 +83,7 @@ export function BrowserTabsBar({
                         value={editingUrl}
                         onChange={(e) => onChangeEditingUrl(e.target.value)}
                         onFocus={(e) => {
-                          // 中文注释：进入编辑态时默认全选，方便直接覆盖输入。
+                          // 进入编辑态时默认全选，方便直接覆盖输入。
                           e.currentTarget.select();
                         }}
                         onKeyDown={(e) => {
