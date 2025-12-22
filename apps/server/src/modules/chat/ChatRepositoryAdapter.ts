@@ -26,6 +26,25 @@ function normalizeParts(parts: unknown): unknown[] {
   return arr.filter((p) => !isSkippablePart(p));
 }
 
+/**
+ * Checks whether parts already contain a manual-stop marker.
+ */
+function hasManualStopPart(parts: unknown[]): boolean {
+  return parts.some(
+    (part) => (part as any)?.type === "data-manual-stop",
+  );
+}
+
+/**
+ * Ensures manual-stop markers are not lost on message updates.
+ */
+function mergeManualStopPart(existingParts: unknown[], nextParts: unknown[]): unknown[] {
+  if (!hasManualStopPart(existingParts)) return nextParts;
+  if (hasManualStopPart(nextParts)) return nextParts;
+  // 中文注释：保留手动中断标记，避免后续更新覆盖。
+  return [...nextParts, ...existingParts.filter((part) => (part as any)?.type === "data-manual-stop")];
+}
+
 function sanitizeMetadata(metadata: unknown): Record<string, unknown> | null {
   if (!metadata || typeof metadata !== "object") return null;
   const raw = metadata as Record<string, unknown>;
@@ -206,10 +225,14 @@ export const chatRepository = {
         // assistant/system 在“续跑”场景下需要更新 parts/metadata（同一条 messageId 继续补全）。
         if (role !== "user") {
           const mergedMetadata = mergeMetadataWithAccumulatedUsage(existing.metadata as any, metadata);
+          const updatedParts =
+            parts.length && Array.isArray(existing.parts)
+              ? mergeManualStopPart(existing.parts as unknown[], parts)
+              : parts;
           await tx.chatMessage.update({
             where: { id: messageId },
             data: {
-              ...(parts.length ? { parts: parts as any } : {}),
+              ...(updatedParts.length ? { parts: updatedParts as any } : {}),
               ...(mergedMetadata ? { metadata: mergedMetadata as any } : {}),
             },
           });
@@ -248,6 +271,25 @@ export const chatRepository = {
         path: created.path,
       };
     });
+  },
+  /** 追加一个 part 到指定 messageId（MVP）。 */
+  appendMessagePartById: async (input: {
+    sessionId: string;
+    messageId: string;
+    part: unknown;
+  }): Promise<boolean> => {
+    const existing = await prisma.chatMessage.findUnique({
+      where: { id: input.messageId },
+      select: { id: true, sessionId: true, parts: true },
+    });
+    if (!existing || existing.sessionId !== input.sessionId) return false;
+    const parts = Array.isArray(existing.parts) ? [...existing.parts] : [];
+    parts.push(input.part as any);
+    await prisma.chatMessage.update({
+      where: { id: existing.id },
+      data: { parts: parts as any },
+    });
+    return true;
   },
 } as const;
 

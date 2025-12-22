@@ -7,6 +7,23 @@ import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
 import { useTabs } from "@/hooks/use-tabs";
 import type { DockItem } from "@teatime-ai/api/common";
 import { StackHeader } from "./StackHeader";
+import { Skeleton } from "@/components/ui/skeleton";
+
+/**
+ * Fallback UI while lazy-loaded panels are initializing.
+ */
+function PanelFallback() {
+  return (
+    <div className="h-full w-full p-3">
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-6 w-[40%]" />
+        <Skeleton className="h-4 w-[72%]" />
+        <Skeleton className="h-4 w-[56%]" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    </div>
+  );
+}
 
 function renderDockItem(tabId: string, item: DockItem, refreshKey = 0) {
   const Component = ComponentMap[item.component];
@@ -32,12 +49,15 @@ function renderDockItem(tabId: string, item: DockItem, refreshKey = 0) {
       transition={{ duration: 0.15 }}
       className="h-full w-full"
     >
-      <Component
-        key={derivedRefreshKey > 0 ? `${item.id}-${derivedRefreshKey}` : undefined}
-        panelKey={item.id}
-        tabId={tabId}
-        {...(item.params ?? {})}
-      />
+      {/* 中文注释：懒加载的面板通过 Suspense 隔离，避免阻塞其他区域渲染。 */}
+      <React.Suspense fallback={<PanelFallback />}>
+        <Component
+          key={derivedRefreshKey > 0 ? `${item.id}-${derivedRefreshKey}` : undefined}
+          panelKey={item.id}
+          tabId={tabId}
+          {...(item.params ?? {})}
+        />
+      </React.Suspense>
     </motion.div>
   );
 }

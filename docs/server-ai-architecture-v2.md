@@ -548,7 +548,7 @@ apps/server/src/ai/
 - [x] 3) MVP+：稳定性与可观测（把链路跑稳）
   - [x] 3.1) 断线续传/回放覆盖：确保 SubAgent tool output 与 `tool-approval-request` 都能进入 `StreamStoreAdapter` buffer 并可 replay
   - [x] 3.2) 强制中断覆盖：`POST /chat/sse/:id/stop` 能中止 MasterAgent + SubAgent（同一 abortSignal），并发送 `data-manual-stop`
-  - [ ] 3.3) 错误兜底与状态落库：审批拒绝/超时/无效 messageId 等场景输出明确的 tool error/result
+  - [x] 3.3) 错误兜底与状态落库：请求校验失败/历史缺失等场景输出可见错误并落库
 
 - [ ] 4) MemoryStore（结构化）接入与压缩策略（让长会话可持续）
   - [ ] 4.1) 定义并落库结构化 memory schema（增量合并，不重写全量自由文本）

@@ -78,6 +78,71 @@ function toSseChunk(value: unknown): string {
 }
 
 /**
+ * Persists a visible error message into the chat tree.
+ */
+async function saveErrorMessage(input: {
+  sessionId: string;
+  assistantMessageId: string;
+  parentMessageId: string | null;
+  errorText: string;
+}) {
+  const part = { type: "text", text: input.errorText, state: "done" };
+  const appended = await chatRepository.appendMessagePartById({
+    sessionId: input.sessionId,
+    messageId: input.assistantMessageId,
+    part,
+  });
+  if (appended) return;
+  if (!input.parentMessageId) return;
+  // 中文注释：找不到目标消息时，新建一条 assistant 错误消息。
+  await chatRepository.saveMessageNode({
+    sessionId: input.sessionId,
+    message: {
+      id: input.assistantMessageId,
+      role: "assistant",
+      parts: [part],
+    } as any,
+    parentMessageId: input.parentMessageId,
+    allowEmpty: false,
+  });
+}
+
+/**
+ * Responds with a minimal SSE error stream and persists the error message.
+ */
+async function respondWithErrorStream(input: {
+  sessionId: string;
+  assistantMessageId: string;
+  parentMessageId: string | null;
+  errorText: string;
+}) {
+  await saveErrorMessage(input);
+
+  // 中文注释：用最小 UIMessageChunk 输出错误文本，让前端可见。
+  await streamStore.append(
+    input.sessionId,
+    toSseChunk({ type: "start", messageId: input.assistantMessageId }),
+  );
+  await streamStore.append(
+    input.sessionId,
+    toSseChunk({ type: "text-start", id: input.assistantMessageId }),
+  );
+  await streamStore.append(
+    input.sessionId,
+    toSseChunk({ type: "text-delta", id: input.assistantMessageId, delta: input.errorText }),
+  );
+  await streamStore.append(
+    input.sessionId,
+    toSseChunk({ type: "text-end", id: input.assistantMessageId }),
+  );
+  await streamStore.append(
+    input.sessionId,
+    toSseChunk({ type: "finish", finishReason: "error" }),
+  );
+  await streamStore.finalize(input.sessionId);
+}
+
+/**
  * Emits a manual-stop data chunk so the UI can show a stop marker.
  */
 async function emitManualStopChunk(streamId: string, reason?: string) {
@@ -94,6 +159,7 @@ async function emitManualStopChunk(streamId: string, reason?: string) {
       },
     }),
   );
+  return toolCallId;
 }
 
 /**
@@ -131,53 +197,113 @@ export function registerChatSseRoutes(app: Hono) {
     // AI SDK 的 useChat 会把本次生成的 messageId 传给服务端；续跑/审批继续应复用同一个 messageId，以便在 UI 侧作为同一条 assistant message 继续更新。
     const assistantMessageId =
       typeof body.messageId === "string" && body.messageId ? body.messageId : generateId();
+    streamStore.setAssistantMessageId(sessionId, assistantMessageId);
 
     // 前端只发送最后一条消息；后端通过 messageId + parentMessageId 从 DB 补全完整链路再喂给 agent。
     const last = incomingMessages.at(-1) as any;
     if (!last || !last.role || !last.id) {
-      return c.json({ error: "last message must have role and id" }, 400);
+      await respondWithErrorStream({
+        sessionId,
+        assistantMessageId,
+        parentMessageId: await chatRepository.resolveSessionRightmostLeafId(sessionId),
+        errorText: "请求无效：缺少最后一条消息。",
+      });
+      const subscription = await streamStore.subscribe(sessionId);
+      if (!subscription) return c.json({ error: "stream not found" }, 404);
+      return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
     }
 
     // 先把“最后一条消息”落库，确保后端补全链路能读到最新状态（例如 approval-responded）。
     let leafMessageId = String(last.id);
     let assistantParentUserId: string | null = null;
 
-    if (last.role === "user") {
-      const explicitParent =
-        typeof last.parentMessageId === "string" || last.parentMessageId === null
-          ? (last.parentMessageId as string | null)
-          : undefined;
-      const parentMessageIdToUse =
-        explicitParent === undefined
-          ? await chatRepository.resolveSessionRightmostLeafId(sessionId)
-          : explicitParent;
+    try {
+      if (last.role === "user") {
+        const explicitParent =
+          typeof last.parentMessageId === "string" || last.parentMessageId === null
+            ? (last.parentMessageId as string | null)
+            : undefined;
+        const parentMessageIdToUse =
+          explicitParent === undefined
+            ? await chatRepository.resolveSessionRightmostLeafId(sessionId)
+            : explicitParent;
 
-      const saved = await chatRepository.saveMessageNode({
-        sessionId,
-        message: last as any,
-        parentMessageId: parentMessageIdToUse ?? null,
-      });
-      leafMessageId = saved.id;
-      assistantParentUserId = saved.id;
-    } else if (last.role === "assistant") {
-      const parentId = typeof last.parentMessageId === "string" ? last.parentMessageId : null;
-      if (!parentId) return c.json({ error: "assistant message missing parentMessageId" }, 400);
-      assistantParentUserId = parentId;
+        const saved = await chatRepository.saveMessageNode({
+          sessionId,
+          message: last as any,
+          parentMessageId: parentMessageIdToUse ?? null,
+        });
+        leafMessageId = saved.id;
+        assistantParentUserId = saved.id;
+      } else if (last.role === "assistant") {
+        const parentId = typeof last.parentMessageId === "string" ? last.parentMessageId : null;
+        if (!parentId) {
+          await respondWithErrorStream({
+            sessionId,
+            assistantMessageId,
+            parentMessageId: await chatRepository.resolveSessionRightmostLeafId(sessionId),
+            errorText: "请求无效：assistant 缺少 parentMessageId。",
+          });
+          const subscription = await streamStore.subscribe(sessionId);
+          if (!subscription) return c.json({ error: "stream not found" }, 404);
+          return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
+        }
+        assistantParentUserId = parentId;
 
-      await chatRepository.saveMessageNode({
+        await chatRepository.saveMessageNode({
+          sessionId,
+          message: last as any,
+          parentMessageId: parentId,
+          allowEmpty: true,
+        });
+        leafMessageId = String(last.id);
+      } else {
+        await respondWithErrorStream({
+          sessionId,
+          assistantMessageId,
+          parentMessageId: await chatRepository.resolveSessionRightmostLeafId(sessionId),
+          errorText: "请求无效：不支持的消息角色。",
+        });
+        const subscription = await streamStore.subscribe(sessionId);
+        if (!subscription) return c.json({ error: "stream not found" }, 404);
+        return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
+      }
+    } catch (err) {
+      logger.error({ err }, "[chat] save last message failed");
+      await respondWithErrorStream({
         sessionId,
-        message: last as any,
-        parentMessageId: parentId,
-        allowEmpty: true,
+        assistantMessageId,
+        parentMessageId: await chatRepository.resolveSessionRightmostLeafId(sessionId),
+        errorText: "请求失败：保存消息出错。",
       });
-      leafMessageId = String(last.id);
-    } else {
-      return c.json({ error: "unsupported last message role" }, 400);
+      const subscription = await streamStore.subscribe(sessionId);
+      if (!subscription) return c.json({ error: "stream not found" }, 404);
+      return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
     }
 
     const messages = await loadMessageChain({ sessionId, leafMessageId, maxMessages: 80 });
-    if (messages.length === 0) return c.json({ error: "history not found" }, 404);
-    if (!assistantParentUserId) return c.json({ error: "parent user message not found" }, 400);
+    if (messages.length === 0) {
+      await respondWithErrorStream({
+        sessionId,
+        assistantMessageId,
+        parentMessageId: assistantParentUserId ?? (await chatRepository.resolveSessionRightmostLeafId(sessionId)),
+        errorText: "请求失败：历史消息不存在。",
+      });
+      const subscription = await streamStore.subscribe(sessionId);
+      if (!subscription) return c.json({ error: "stream not found" }, 404);
+      return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
+    }
+    if (!assistantParentUserId) {
+      await respondWithErrorStream({
+        sessionId,
+        assistantMessageId,
+        parentMessageId: await chatRepository.resolveSessionRightmostLeafId(sessionId),
+        errorText: "请求失败：找不到父消息。",
+      });
+      const subscription = await streamStore.subscribe(sessionId);
+      if (!subscription) return c.json({ error: "stream not found" }, 404);
+      return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
+    }
 
     const userNode = { id: assistantParentUserId };
 
@@ -193,8 +319,20 @@ export function registerChatSseRoutes(app: Hono) {
     const stream = createUIMessageStream({
       originalMessages: messages as any[],
       onError: (err) => {
-        // 只在最外层记录一次流错误，避免 SDK 内部 error chunk 触发重复日志。
+        // 中文注释：只在最外层记录一次流错误，避免 SDK 内部 error chunk 触发重复日志。
         logger.error({ err }, "[chat] ui stream error");
+        // 中文注释：手动中断不写错误消息，避免覆盖原始内容。
+        if (abortController.signal.aborted) {
+          return "aborted";
+        }
+        void saveErrorMessage({
+          sessionId,
+          assistantMessageId,
+          parentMessageId: assistantParentUserId ?? null,
+          errorText: err instanceof Error ? err.message : "Unknown error",
+        }).catch((error) => {
+          logger.error({ err: error }, "[chat] save stream error failed");
+        });
         return err instanceof Error ? err.message : "Unknown error";
       },
       execute: async ({ writer }) => {
@@ -216,6 +354,22 @@ export function registerChatSseRoutes(app: Hono) {
               // 主 agent 的输出只在这里触发一次 finish（避免双重 state machine）。
               try {
                 if (!responseMessage || responseMessage.role !== "assistant") return;
+
+                if (isAborted) {
+                  const parts = Array.isArray((responseMessage as any).parts)
+                    ? (responseMessage as any).parts
+                    : [];
+                  // 中文注释：手动中断时追加标记，确保历史回放可见。
+                  parts.push({
+                    type: "data-manual-stop",
+                    data: {
+                      toolCallId: `manual-stop-${generateId()}`,
+                      reason: "用户手动中断",
+                      toolName: manualStopToolDef.id,
+                    },
+                  });
+                  (responseMessage as any).parts = parts;
+                }
 
                 const currentSessionId = getSessionId() ?? sessionId;
                 await chatRepository.saveMessageNode({

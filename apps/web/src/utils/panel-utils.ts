@@ -2,7 +2,6 @@
  * 面板工具函数，包含组件映射和面板标题处理
  */
 import React from "react";
-import PlantPage from "@/components/project/Project";
 import { Chat } from "@/components/chat/Chat";
 import ElectrronBrowserWindow from "@/components/browser/ElectrronBrowserWindow";
 import ToolResultPanel from "@/components/tools/ToolResultPanel";
@@ -15,9 +14,14 @@ import TemplatePage from "@/components/template/Template";
  * 组件名称到组件的映射关系
  * 用于根据字符串名称动态渲染不同组件
  */
-export const ComponentMap: Record<string, React.ComponentType<any>> = {
+// 中文注释：项目页包含 Plate 编辑器，使用 lazy 避免首屏被重组件阻塞。
+const LazyProjectPage = React.lazy(() => import("@/components/project/Project"));
+
+type PanelComponent = React.ComponentType<any> | React.LazyExoticComponent<React.ComponentType<any>>;
+
+export const ComponentMap: Record<string, PanelComponent> = {
   "ai-chat": Chat, // AI聊天组件
-  "plant-page": PlantPage, // 植物页面组件
+  "plant-page": LazyProjectPage, // 植物页面组件
   "electron-browser-window": ElectrronBrowserWindow, // 新窗口浏览器组件
   "tool-result": ToolResultPanel,
   "settings-page": SettingsPage,

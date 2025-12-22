@@ -8,6 +8,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { toast } from "sonner";
 import { OpenUrlTool } from "./OpenUrlTool";
+import { ManualStopTool } from "./ManualStopTool";
 import { TestApprovalTool } from "./TestApprovalTool";
 import { useChatContext } from "../../ChatProvider";
 
@@ -156,6 +157,9 @@ export default function MessageTool({
   // open-url 使用专用组件，支持“流结束后手动点击打开左侧网页”。
   if (part.toolName === "open-url" || part.type === "tool-open-url") {
     return <OpenUrlTool part={part} />;
+  }
+  if (part.toolName === "manual-stop" || part.type === "tool-manual-stop") {
+    return <ManualStopTool part={part} />;
   }
   if (part.toolName === "test-approval" || part.type === "tool-test-approval") {
     return <TestApprovalTool part={part} />;

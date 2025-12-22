@@ -313,12 +313,17 @@ export default function ChatProvider({
     };
   }, [tabId, chat.status, setTabChatStatus]);
 
+  // 中文注释：有 sessionId 时始终拉取历史，避免刷新后丢失主链消息。
+  const shouldLoadHistory = Boolean(sessionId);
+
   React.useEffect(() => {
+    // 中文注释：有历史时优先加载历史，避免 refresh 只恢复到最后一条 assistant。
+    if (shouldLoadHistory) return;
     // 关键：手动 resume（每个 sessionId 只做一次），避免 StrictMode 并发调用导致崩溃。
     if (didResumeRef.current === sessionId) return;
     didResumeRef.current = sessionId;
     void chat.resumeStream();
-  }, [sessionId, chat.resumeStream]);
+  }, [sessionId, chat.resumeStream, shouldLoadHistory]);
 
   React.useLayoutEffect(() => {
     // 关键：sessionId 可能由外部状态直接切换（不一定走 newSession/selectSession）。
@@ -332,8 +337,6 @@ export default function ChatProvider({
     setSiblingNav({});
     if (tabId) clearToolPartsForTab(tabId);
   }, [sessionId, tabId, clearToolPartsForTab, chat.stop, chat.setMessages]);
-
-  const shouldLoadHistory = loadHistory !== false;
 
   // 使用 tRPC 拉取“当前视图”（主链消息 + sibling 导航）
   const branchQuery = useQuery(

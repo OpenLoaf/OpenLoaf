@@ -17,6 +17,7 @@ type ActiveControl = {
   events: EventEmitter;
   lastActiveAt: number;
   lock: Promise<void>;
+  assistantMessageId?: string;
 };
 
 const STREAM_IDLE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -115,6 +116,16 @@ export const streamStore = {
       updatedAt: now,
     };
     await streamCache.set(streamId, entry, STREAM_IDLE_TTL_MS);
+  },
+  /** 记录当前流的 assistant messageId（用于 stop 时定位消息）。 */
+  setAssistantMessageId: (streamId: string, assistantMessageId: string) => {
+    const control = activeControls.get(streamId);
+    if (!control) return;
+    control.assistantMessageId = assistantMessageId;
+  },
+  /** 读取当前流的 assistant messageId。 */
+  getAssistantMessageId: (streamId: string): string | undefined => {
+    return activeControls.get(streamId)?.assistantMessageId;
   },
 
   /** 追加 SSE 字符串 chunk（供订阅者消费）。 */

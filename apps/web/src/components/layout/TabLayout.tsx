@@ -344,6 +344,7 @@ export function TabLayout({
             : { duration: 0.18, ease: "easeOut" }
         }
       >
+        {/* 左面板 */}
         <div className="h-full w-full relative">
           {tabs.map((tab) => (
             <TabLayer key={`left:${tab.id}`} active={tab.id === visibleTabId}>
@@ -388,6 +389,7 @@ export function TabLayout({
             : { duration: 0.18, ease: "easeOut" }
         }
       >
+        {/* 右面板 */}
         <div className="h-full w-full relative">
           {tabs.map((tab) => (
             <TabLayer key={`right:${tab.id}`} active={tab.id === visibleTabId}>

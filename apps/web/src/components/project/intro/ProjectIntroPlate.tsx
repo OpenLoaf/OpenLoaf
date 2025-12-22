@@ -15,11 +15,13 @@ import { EditorKit } from '@/components/editor/editor-kit';
 interface ProjectInfoPlateProps {
   markdown: string;
   readOnly?: boolean;
+  pageId?: string;
 }
 
 export function ProjectInfoPlate({
   markdown,
   readOnly = true,
+  pageId,
 }: ProjectInfoPlateProps) {
   const editor = usePlateEditor({
     plugins: [
@@ -35,8 +37,18 @@ export function ProjectInfoPlate({
   });
 
   React.useEffect(() => {
+    // 中文注释：输出 markdown 反序列化耗时，便于定位初始化卡顿。
+    const start = performance.now();
     const nextValue = editor.api.markdown.deserialize(markdown);
     editor.tf.setValue(nextValue);
+    const durationMs = performance.now() - start;
+    const markdownBytes = new Blob([markdown]).size;
+    const markdownKb = (markdownBytes / 1024).toFixed(2);
+    console.log(
+      `[Plate] markdown deserialize: ${durationMs.toFixed(2)}ms` +
+        (pageId ? ` (pageId=${pageId})` : "") +
+        ` (markdownKb=${markdownKb})`,
+    );
   }, [editor, markdown]);
 
   return (
@@ -44,7 +56,8 @@ export function ProjectInfoPlate({
       <EditorContainer className="bg-background">
         <Editor
           readOnly={readOnly}
-          variant="none"
+          variant="fullWidth"
+          // variant="select"
           className="px-3 py-0 text-sm"
         />
       </EditorContainer>
