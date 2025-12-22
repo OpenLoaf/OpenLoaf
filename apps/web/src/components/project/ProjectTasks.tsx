@@ -1,5 +1,3 @@
-import { Skeleton } from "@/components/ui/skeleton";
-
 interface ProjectTasksProps {
   isLoading: boolean;
   pageId?: string;
@@ -7,13 +5,7 @@ interface ProjectTasksProps {
 
 export default function ProjectTasks({ isLoading, pageId }: ProjectTasksProps) {
   if (isLoading) {
-    return (
-      <div className="h-full space-y-3 mt-3">
-        <Skeleton className="h-10 w-[32%]" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-      </div>
-    );
+    return null;
   }
 
   return (

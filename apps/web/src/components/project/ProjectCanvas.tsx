@@ -1,4 +1,7 @@
-import { Skeleton } from "@/components/ui/skeleton";
+"use client";
+
+import { Excalidraw } from "@excalidraw/excalidraw";
+import "@excalidraw/excalidraw/index.css";
 
 interface ProjectCanvasProps {
   isLoading: boolean;
@@ -6,25 +9,26 @@ interface ProjectCanvasProps {
   pageTitle: string;
 }
 
+/**
+ * Render the project drawing canvas.
+ */
 export default function ProjectCanvas({
   isLoading,
   pageId,
   pageTitle,
 }: ProjectCanvasProps) {
   if (isLoading) {
-    return (
-      <div className="h-full space-y-4 mt-3">
-        <Skeleton className="h-10 w-[40%]" />
-        <Skeleton className="h-[420px] w-full" />
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className="h-full space-y-3 mt-3">
-      <div className="text-sm text-muted-foreground">Project / 画布</div>
-      <div className="text-base">{pageTitle}</div>
-      <div className="text-xs text-muted-foreground">pageId: {pageId ?? "-"}</div>
+    <div className="h-full mt-3">
+      <div className="relative h-full min-h-[480px]">
+        <Excalidraw />
+        <div className="sr-only">
+          {pageTitle} {pageId ?? "-"}
+        </div>
+      </div>
     </div>
   );
 }

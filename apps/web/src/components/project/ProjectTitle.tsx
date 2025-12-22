@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, SmilePlus } from "lucide-react";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
@@ -17,15 +16,6 @@ interface ProjectTitleProps {
   isUpdating: boolean;
   onUpdateTitle: (nextTitle: string) => void;
   onUpdateIcon: (nextIcon: string) => void;
-}
-
-function ProjectTitleSkeleton() {
-  return (
-    <div className="flex items-center gap-2">
-      <Skeleton className="size-5 rounded-sm" />
-      <Skeleton className="h-6 w-[35vw] max-w-[180px]" />
-    </div>
-  );
 }
 
 export default function ProjectTitle({
@@ -104,9 +94,7 @@ export default function ProjectTitle({
 
   return (
     <h1 className="text-xl font-semibold flex items-center gap-2 min-w-0 ml-2">
-      {isLoading ? (
-        <ProjectTitleSkeleton />
-      ) : (
+      {isLoading ? null : (
         <>
           <Popover open={iconPickerOpen} onOpenChange={setIconPickerOpen}>
             <PopoverTrigger asChild>

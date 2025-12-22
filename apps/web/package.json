@@ -16,6 +16,7 @@
     "@ariakit/react": "^0.4.20",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
+    "@excalidraw/excalidraw": "^0.18.0",
     "@faker-js/faker": "^10.1.0",
     "@floating-ui/react": "^0.27.16",
     "@lightenna/react-mermaid-diagram": "^1.0.22",

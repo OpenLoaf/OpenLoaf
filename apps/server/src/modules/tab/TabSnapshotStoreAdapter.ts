@@ -54,6 +54,7 @@ export const tabSnapshotStore = {
 
 export type TabBrowserTarget = { viewKey?: string; cdpTargetIds?: string[] };
 
+/** Collect de-duplicated CDP target ids from a tab snapshot. */
 export function getTabCdpTargetIds(tab: Tab | null): string[] {
   if (!tab) return [];
   const stack = Array.isArray(tab.stack) ? tab.stack : [];

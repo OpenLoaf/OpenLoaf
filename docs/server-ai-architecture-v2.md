@@ -21,8 +21,8 @@
    - 业务规则不变：打开浏览器面板/切换 UI viewKey，并触发 web 侧回传 tab snapshot（实现文件路径允许调整）。  
    - server 发起：`apps/server/src/ai/tools/ui/openUrl.ts`（写入 `data-open-browser`）  
    - web 执行 UI 打开：`apps/web/src/components/chat/ChatProvider.tsx`（`handleOpenBrowserDataPart`）  
-   - web 同步 tab 状态给 server：`apps/web/src/hooks/use-tab-snapshot-sync.ts` → `apps/server/src/routers/tab.ts` → `apps/server/src/modules/chat/ChatContextAdapter.ts`  
-   - 说明：这条链路决定了“AI 能影响 UI（打开浏览器/切换 viewKey）”以及“server 能读到 web 的最新状态（tab snapshot）”，后续任何 browser SubAgent / browser-command 都依赖它。
+   - web 同步 tab 状态给 server：`apps/web/src/hooks/use-tab-snapshot-sync.ts` → `apps/server/src/routers/tab.ts` → `apps/server/src/modules/tab/TabSnapshotStoreAdapter.ts`  
+   - 说明：这条链路决定了“AI 能影响 UI（打开浏览器/切换 viewKey）”以及“server 能读到 web 的最新状态（tab snapshot）”，后续任何 browser SubAgent 都依赖它。
 2. **AI SDK 流式入口与自定义断点续传/强制中断必须保留**  
    - 主 SSE：`apps/server/src/modules/chat/ChatSseRoutes.ts`（`createUIMessageStream` + `createAgentUIStream`）  
    - 断线续传 buffer：`apps/server/src/modules/chat/StreamStoreAdapter.ts`（replay chunks）  
@@ -55,7 +55,7 @@
   - 物化路径 `path`，支持分支与“最右叶子”的选择；V2 以 lastMessage 的 `parentMessageId` 追溯主链
 - schema：`packages/db/prisma/schema/chat.prisma`
   - `ChatSession` / `ChatMessage` / `SubAgentDefinition`
-- Tab UI 快照：`apps/server/src/modules/chat/ChatContextAdapter.ts`（TTL cache）
+- Tab UI 快照：`apps/server/src/modules/tab/TabSnapshotStoreAdapter.ts`（TTL cache）
   - tRPC 写入/读取：`apps/server/src/routers/tab.ts`
 
 ### 1.3 Tools 的定义与实现
@@ -75,7 +75,7 @@
 
 - 已定义 UI Event 协议（runtime WS 校验用）：`packages/api/src/types/event.ts`
 - 已预留 UI data parts：
-  - `sub-agent` / `open-browser` / `browser-command`：`packages/api/src/types/message.ts`
+  - `sub-agent` / `open-browser`：`packages/api/src/types/message.ts`
 - DB 已有 `SubAgentDefinition`：`packages/db/prisma/schema/chat.prisma`
   - 说明：本项目已经具备“DB 驱动 sub-agent”的结构基础，但 server 端还没有真正启用。
 
@@ -394,19 +394,15 @@ participant OU as openUrlTool (server)
 participant UI as apps/web (ChatProvider + useTabs)
 participant SNAP as use-tab-snapshot-sync
 participant TAB as tabRouter (tRPC)
-participant CTX as ChatContextAdapter (server cache)
+participant CTX as TabSnapshotStoreAdapter (server cache)
 
 OA->>OU: call tool open-url(url,title)
 OU-->>UI: SSE data part: data-open-browser(tabId,url,viewKey,panelKey)
 UI->>UI: pushStackItem(electron-browser-window)
 SNAP->>TAB: upsertSnapshot(sessionId,clientId,tabId,seq,tab)
-TAB->>CTX: upsertTabSnapshot(TTL cache)
+TAB->>CTX: upsert(Tab snapshot cache)
 CTX-->>OA: (future) read tab snapshot for context/tools
 ```
-
-> 备注：未来如果补齐 `browser-command` 工具链，web 侧已经具备“执行命令并回传结果”的通道：  
-> - web 执行：`apps/web/src/components/chat/ChatProvider.tsx`（`handleBrowserCommandDataPart` → `executeBrowserCommand`）  
-> - server 等待/回传：`apps/server/src/modules/tab/BrowserCommandStoreAdapter.ts`（pending promise） + `apps/server/src/routers/tab.ts`（`reportBrowserCommandResult`）
 
 ### 6.4 `needsApproval` 审批（SSE 停止/续跑）
 

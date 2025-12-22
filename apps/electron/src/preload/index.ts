@@ -16,14 +16,6 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
   // 确保某个 viewKey 对应的 WebContentsView 已存在，并返回 cdpTargetId（供 server attach）。
   ensureWebContentsView: (args: { key: string; url: string }): Promise<{ ok: true; webContentsId: number; cdpTargetId?: string } | { ok: false }> =>
     ipcRenderer.invoke('teatime:webcontents-view:ensure', args),
-  // 执行浏览器命令（由 server 下发），用于让 agent 以“用户可见 WebContentsView”为目标进行自动化。
-  runBrowserCommand: (args: {
-    commandId: string;
-    tabId: string;
-    viewKey: string;
-    cdpTargetId?: string;
-    command: { kind: 'snapshot' | 'act' | 'observe' | 'extract' | 'wait'; input?: Record<string, unknown> };
-  }): Promise<unknown> => ipcRenderer.invoke('teatime:browser-command', args),
   // 请求主进程使用 WebContentsView 将 URL 嵌入当前窗口。
   upsertWebContentsView: (args: {
     key: string;

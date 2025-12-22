@@ -31,17 +31,6 @@ export const tabSchemas = {
       tab: (z.any() as z.ZodType<Tab>).nullable(),
     }),
   },
-  reportBrowserCommandResult: {
-    input: z.object({
-      sessionId: z.string().min(1),
-      clientId: z.string().min(1),
-      tabId: z.string().min(1),
-      commandId: z.string().min(1),
-      // MVP：工具结果由本项目 Web/Electron 产生，server 只做透传与等待协调，不做深度校验。
-      result: z.any(),
-    }),
-    output: z.object({ ok: z.literal(true) }),
-  },
 };
 
 export abstract class BaseTabRouter {
@@ -60,13 +49,6 @@ export abstract class BaseTabRouter {
         .input(tabSchemas.getSnapshot.input)
         .output(tabSchemas.getSnapshot.output)
         .query(async () => {
-          throw new Error("Not implemented in base class");
-        }),
-
-      reportBrowserCommandResult: shieldedProcedure
-        .input(tabSchemas.reportBrowserCommandResult.input)
-        .output(tabSchemas.reportBrowserCommandResult.output)
-        .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),
     });

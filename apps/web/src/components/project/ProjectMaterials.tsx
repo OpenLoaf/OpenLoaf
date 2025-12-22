@@ -1,5 +1,3 @@
-import { Skeleton } from "@/components/ui/skeleton";
-
 interface ProjectMaterialsProps {
   isLoading: boolean;
   pageId?: string;
@@ -10,13 +8,7 @@ export default function ProjectMaterials({
   pageId,
 }: ProjectMaterialsProps) {
   if (isLoading) {
-    return (
-      <div className="h-full space-y-3 mt-3">
-        <Skeleton className="h-10 w-[32%]" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    );
+    return null;
   }
 
   return (

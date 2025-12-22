@@ -1,5 +1,3 @@
-import { Skeleton } from "@/components/ui/skeleton";
-
 interface ProjectSkillsProps {
   isLoading: boolean;
   pageId?: string;
@@ -7,12 +5,7 @@ interface ProjectSkillsProps {
 
 export default function ProjectSkills({ isLoading, pageId }: ProjectSkillsProps) {
   if (isLoading) {
-    return (
-      <div className="h-full space-y-3 mt-3">
-        <Skeleton className="h-10 w-[32%]" />
-        <Skeleton className="h-28 w-full" />
-      </div>
-    );
+    return null;
   }
 
   return (

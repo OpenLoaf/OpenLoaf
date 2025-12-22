@@ -1,6 +1,5 @@
 "use client";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectInfoPlate } from "./ProjectIntroPlate";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
@@ -32,17 +31,7 @@ export default function ProjectInfo({
   const showLoading = isLoading || (!!pageId && blocksQuery.isLoading);
 
   if (showLoading) {
-    return (
-      <div className="h-full space-y-4 mt-3">
-        <Skeleton className="h-24 w-full" />
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-[72%]" />
-          <Skeleton className="h-4 w-[56%]" />
-          <Skeleton className="h-4 w-[64%]" />
-        </div>
-        <Skeleton className="h-40 w-full" />
-      </div>
-    );
+    return null;
   }
 
   return (

@@ -166,24 +166,23 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
       </div>
 
       <ScrollArea.Root className="flex-1 min-h-0 w-full">
-        <ScrollArea.Viewport className="w-full h-full min-h-0 min-w-0 flex flex-col [&>div]:!min-w-0 [&>div]:!w-full [&>div]:!block">
-          <div className="flex-1 min-h-0 w-full">
+        <ScrollArea.Viewport className="w-full h-full min-h-0 min-w-0 flex flex-col [&>div]:!min-w-0 [&>div]:!w-full [&>div]:!h-full [&>div]:!block">
+          <div className="flex-1 min-h-0 w-full h-full">
             <div
               id={`project-panel-${activeTab}`}
               role="tabpanel"
               aria-labelledby={`project-tab-${activeTab}`}
-              className="w-full h-full min-h-0"
+              className="w-full h-full min-h-0 flex flex-col"
             >
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-                className="w-full h-full"
-              >
-                <div
-                  className={
-                    activeTab === "intro" ? "w-full h-full" : "hidden"
+              <div className="w-full h-full min-h-0 flex-1 relative">
+                <motion.div
+                  className="absolute inset-0 w-full h-full"
+                  animate={
+                    activeTab === "intro"
+                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
+                      : { opacity: 0, y: 8, pointerEvents: "none" }
                   }
+                  transition={{ duration: 0.2 }}
                   aria-hidden={activeTab !== "intro"}
                 >
                   <ProjectInfo
@@ -191,11 +190,15 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
                     pageId={pageId}
                     pageTitle={pageTitle}
                   />
-                </div>
-                <div
-                  className={
-                    activeTab === "canvas" ? "w-full h-full" : "hidden"
+                </motion.div>
+                <motion.div
+                  className="absolute inset-0 w-full h-full"
+                  animate={
+                    activeTab === "canvas"
+                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
+                      : { opacity: 0, y: 8, pointerEvents: "none" }
                   }
+                  transition={{ duration: 0.2 }}
                   aria-hidden={activeTab !== "canvas"}
                 >
                   <ProjectCanvas
@@ -203,34 +206,56 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
                     pageId={pageId}
                     pageTitle={pageTitle}
                   />
-                </div>
-                <div
-                  className={activeTab === "tasks" ? "w-full h-full" : "hidden"}
+                </motion.div>
+                <motion.div
+                  className="absolute inset-0 w-full h-full"
+                  animate={
+                    activeTab === "tasks"
+                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
+                      : { opacity: 0, y: 8, pointerEvents: "none" }
+                  }
+                  transition={{ duration: 0.2 }}
                   aria-hidden={activeTab !== "tasks"}
                 >
                   <ProjectTasks isLoading={isLoading} pageId={pageId} />
-                </div>
-                <div
-                  className={
-                    activeTab === "materials" ? "w-full h-full" : "hidden"
+                </motion.div>
+                <motion.div
+                  className="absolute inset-0 w-full h-full"
+                  animate={
+                    activeTab === "materials"
+                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
+                      : { opacity: 0, y: 8, pointerEvents: "none" }
                   }
+                  transition={{ duration: 0.2 }}
                   aria-hidden={activeTab !== "materials"}
                 >
                   <ProjectMaterials isLoading={isLoading} pageId={pageId} />
-                </div>
-                <div
-                  className={activeTab === "skills" ? "w-full h-full" : "hidden"}
+                </motion.div>
+                <motion.div
+                  className="absolute inset-0 w-full h-full"
+                  animate={
+                    activeTab === "skills"
+                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
+                      : { opacity: 0, y: 8, pointerEvents: "none" }
+                  }
+                  transition={{ duration: 0.2 }}
                   aria-hidden={activeTab !== "skills"}
                 >
                   <ProjectSkills isLoading={isLoading} pageId={pageId} />
-                </div>
-                <div
-                  className={activeTab === "test" ? "w-full h-full" : "hidden"}
+                </motion.div>
+                <motion.div
+                  className="absolute inset-0 w-full h-full"
+                  animate={
+                    activeTab === "test"
+                      ? { opacity: 1, y: 0, pointerEvents: "auto" }
+                      : { opacity: 0, y: 8, pointerEvents: "none" }
+                  }
+                  transition={{ duration: 0.2 }}
                   aria-hidden={activeTab !== "test"}
                 >
                   <ProjectTest pageId={pageId} />
-                </div>
-              </motion.div>
+                </motion.div>
+              </div>
             </div>
           </div>
         </ScrollArea.Viewport>
