@@ -1,4 +1,4 @@
-import { BrowserWindow, WebContents, WebContentsView, shell } from 'electron';
+import { BrowserWindow, WebContents, WebContentsView } from 'electron';
 
 type ViewBounds = { x: number; y: number; width: number; height: number };
 export type UpsertWebContentsViewArgs = {
@@ -10,7 +10,6 @@ export type UpsertWebContentsViewArgs = {
 
 const viewMapsByWindowId = new Map<number, Map<string, WebContentsView>>();
 const shortcutBridgeInstalled = new WeakSet<WebContentsView>();
-const openInCurrentTabInstalled = new WeakSet<WebContentsView>();
 const desiredUrlByView = new WeakMap<WebContentsView, string>();
 const viewStatusEmitterInstalled = new WeakSet<WebContentsView>();
 
@@ -173,47 +172,6 @@ function safeDisposeWebContents(webContents: WebContents) {
   }
 }
 
-/**
- * 禁止网页在「新标签页/新窗口」中打开内容（例如 target=_blank / window.open）：
- * - 统一改为在当前 WebContentsView 中跳转
- * - 避免 Electron 默认创建新窗口导致“一个标签页打开另一个标签页”的体验
- */
-function installOpenInCurrentTab(view: WebContentsView) {
-  if (openInCurrentTabInstalled.has(view)) return;
-  openInCurrentTabInstalled.add(view);
-
-  const navigateInCurrentView = (rawUrl: string) => {
-    try {
-      const url = normalizeExternalUrl(rawUrl);
-      const parsed = new URL(url);
-      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-        // 注意：这里是“用户侧导航”，不要更新 desiredUrlByView，
-        // 否则下一次渲染端 upsert 可能会把页面强制拉回到旧 URL。
-        setImmediate(() => void view.webContents.loadURL(parsed.toString()));
-        return;
-      }
-      void shell.openExternal(parsed.toString());
-    } catch {
-      // ignore
-    }
-  };
-
-  // Electron >= 13: 用 setWindowOpenHandler 拦截 window.open / target=_blank。
-  if (typeof view.webContents.setWindowOpenHandler === 'function') {
-    view.webContents.setWindowOpenHandler((details) => {
-      navigateInCurrentView(details.url);
-      return { action: 'deny' };
-    });
-    return;
-  }
-
-  // 兼容旧版本 Electron：使用 deprecated 的 new-window 事件。
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (view.webContents as any).on('new-window', (event: Electron.Event, url: string) => {
-    event.preventDefault();
-    navigateInCurrentView(url);
-  });
-}
 
 /**
  * Convert `before-input-event`'s `input.key` into an Electron `sendInputEvent`
@@ -439,8 +397,6 @@ export function upsertWebContentsView(
     // Install once per view; this prevents app-level shortcuts (e.g. Cmd+W)
     // from being hijacked by the embedded web contents.
     installShortcutBridge(win, view);
-    // Install once per view; force "new tab" navigations to stay in the same view.
-    installOpenInCurrentTab(view);
     // 把 WebContentsView 的真实加载状态（dom-ready 等）推送到渲染端。
     installViewStatusEmitter(win, key, view);
   }

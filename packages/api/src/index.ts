@@ -43,6 +43,7 @@ export * from "./types/event";
 export * from "./types/message";
 export * from "./types/toolResult";
 export * from "./common";
+export * from "./markdown/block-markdown";
 
 // Export workspace router components
 export { BaseWorkspaceRouter, workspaceSchemas };
