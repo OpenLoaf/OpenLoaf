@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { ProjectInfoPlate } from "./ProjectInfoPlate";
+import { ProjectInfoPlate } from "./ProjectIntroPlate";
 
 interface ProjectIntroProps {
   isLoading: boolean;

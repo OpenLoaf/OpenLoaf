@@ -9,7 +9,7 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { usePage } from "@/hooks/use-page";
-import ProjectInfo from "./info/ProjectInfo";
+import ProjectInfo from "./intro/ProjectIntro";
 import ProjectCanvas from "./ProjectCanvas";
 import ProjectTasks from "./ProjectTasks";
 import ProjectMaterials from "./ProjectMaterials";
