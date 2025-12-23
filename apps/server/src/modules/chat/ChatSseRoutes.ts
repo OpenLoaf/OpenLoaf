@@ -107,6 +107,20 @@ async function saveErrorMessage(input: {
 }
 
 /**
+ * Builds assistant timing metadata for persistence.
+ */
+function buildAssistantTimingMetadata(input: { startedAt: Date; finishedAt: Date }): Record<string, unknown> {
+  const elapsedMs = Math.max(0, input.finishedAt.getTime() - input.startedAt.getTime());
+  return {
+    teatime: {
+      assistantStartedAt: input.startedAt.toISOString(),
+      assistantFinishedAt: input.finishedAt.toISOString(),
+      assistantElapsedMs: elapsedMs,
+    },
+  };
+}
+
+/**
  * Responds with a minimal SSE error stream and persists the error message.
  */
 async function respondWithErrorStream(input: {
@@ -191,6 +205,8 @@ export function registerChatSseRoutes(app: Hono) {
     const abortController = new AbortController();
     await streamStore.start(sessionId, abortController);
 
+    const requestStartAt = new Date();
+
     const masterAgent = createMasterAgentRunner();
     const incomingMessages = (body.messages ?? []) as UIMessage[];
     // AI SDK 的 useChat 会把本次生成的 messageId 传给服务端；续跑/审批继续应复用同一个 messageId，以便在 UI 侧作为同一条 assistant message 继续更新。
@@ -231,6 +247,7 @@ export function registerChatSseRoutes(app: Hono) {
           sessionId,
           message: last as any,
           parentMessageId: parentMessageIdToUse ?? null,
+          createdAt: requestStartAt,
         });
         leafMessageId = saved.id;
         assistantParentUserId = saved.id;
@@ -254,6 +271,7 @@ export function registerChatSseRoutes(app: Hono) {
           message: last as any,
           parentMessageId: parentId,
           allowEmpty: true,
+          createdAt: requestStartAt,
         });
         leafMessageId = String(last.id);
       } else {
@@ -370,7 +388,22 @@ export function registerChatSseRoutes(app: Hono) {
             originalMessages: messages as any[],
             abortSignal: abortController.signal,
             generateMessageId: () => assistantMessageId,
-            messageMetadata: ({ part }) => toTokenUsageMetadata(part),
+            messageMetadata: ({ part }) => {
+              const usageMetadata = toTokenUsageMetadata(part);
+              if (part?.type !== "finish") return usageMetadata;
+              const timingMetadata = buildAssistantTimingMetadata({
+                startedAt: requestStartAt,
+                finishedAt: new Date(),
+              });
+              if (!usageMetadata) return timingMetadata;
+              return {
+                ...usageMetadata,
+                teatime: {
+                  ...(usageMetadata as any)?.teatime,
+                  ...(timingMetadata as any).teatime,
+                },
+              };
+            },
             onFinish: async ({ isAborted, responseMessage, finishReason }) => {
               // 主 agent 的输出只在这里触发一次 finish（避免双重 state machine）。
               try {
@@ -393,18 +426,45 @@ export function registerChatSseRoutes(app: Hono) {
                 }
 
                 const currentSessionId = getSessionId() ?? sessionId;
+                // 中文注释：统计本次 assistant 实际运行耗时（审批续跑会累计）。
+                const timingMetadata = buildAssistantTimingMetadata({
+                  startedAt: requestStartAt,
+                  finishedAt: new Date(),
+                });
+                const baseMetadata =
+                  responseMessage && typeof responseMessage === "object"
+                    ? ((responseMessage as any).metadata as unknown)
+                    : undefined;
+                const baseRecord =
+                  baseMetadata && typeof baseMetadata === "object" && !Array.isArray(baseMetadata)
+                    ? (baseMetadata as Record<string, unknown>)
+                    : {};
+                const mergedMetadata: Record<string, unknown> = {
+                  ...baseRecord,
+                  ...timingMetadata,
+                };
+                const baseTeatime =
+                  baseRecord.teatime && typeof baseRecord.teatime === "object" && !Array.isArray(baseRecord.teatime)
+                    ? (baseRecord.teatime as Record<string, unknown>)
+                    : {};
+                const timingTeatime =
+                  timingMetadata.teatime && typeof timingMetadata.teatime === "object"
+                    ? (timingMetadata.teatime as Record<string, unknown>)
+                    : {};
+                mergedMetadata.teatime = { ...baseTeatime, ...timingTeatime };
                 await chatRepository.saveMessageNode({
                   sessionId: currentSessionId,
                   message: {
                     ...(responseMessage as any),
                     id: assistantMessageId,
-                    metadata: mergeMetadataWithAbortInfo((responseMessage as any).metadata, {
+                    metadata: mergeMetadataWithAbortInfo(mergedMetadata, {
                       isAborted,
                       finishReason,
                     }),
                   } as any,
                   parentMessageId: userNode.id,
                   allowEmpty: isAborted,
+                  createdAt: requestStartAt,
                 });
               } catch (err) {
                 logger.error({ err }, "[chat] save assistant failed");

@@ -247,8 +247,11 @@ export function BrowserHome({ onOpenUrl }: { onOpenUrl?: (url: string) => void }
                       variants={itemVariants}
                       draggable
                       onDragStart={(event) => {
-                        event.dataTransfer.effectAllowed = "move";
-                        event.dataTransfer.setData("text/plain", s.id);
+                        // Framer Motion types on onDragStart are pointer/mouse/touch.
+                        // Cast to native DragEvent to use dataTransfer for DnD.
+                        const e = event as unknown as React.DragEvent<HTMLButtonElement>;
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", s.id);
                         setDraggingId(s.id);
                       }}
                       onDragOver={(event) => {

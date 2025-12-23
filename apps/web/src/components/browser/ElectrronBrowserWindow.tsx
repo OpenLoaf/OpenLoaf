@@ -202,8 +202,13 @@ export default function ElectrronBrowserWindow({
         t.viewKey === key
           ? {
               ...t,
+              // 仅保留有效的字符串 id，去重
               cdpTargetIds: Array.from(
-                new Set([...(t.cdpTargetIds ?? []), res.cdpTargetId].filter(Boolean)),
+                new Set(
+                  [...(t.cdpTargetIds ?? []), res.cdpTargetId].filter(
+                    (id): id is string => typeof id === "string" && id.length > 0,
+                  ),
+                ),
               ),
             }
           : t,

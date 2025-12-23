@@ -9,7 +9,6 @@ import type {
 } from '@radix-ui/react-dropdown-menu';
 
 import { useComposedRef } from '@udecode/cn';
-import debounce from 'lodash/debounce.js';
 import { EraserIcon, PlusIcon } from 'lucide-react';
 import { useEditorRef, useEditorSelector } from 'platejs/react';
 
@@ -29,6 +28,15 @@ import {
 import { cn } from '@/lib/utils';
 
 import { ToolbarButton, ToolbarMenuGroup } from './toolbar';
+
+// 简易防抖：用于颜色选择器输入，避免频繁状态更新
+function debounce<T extends (...args: any[]) => void>(fn: T, wait = 100) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), wait);
+  };
+}
 
 export function FontColorToolbarButton({
   children,

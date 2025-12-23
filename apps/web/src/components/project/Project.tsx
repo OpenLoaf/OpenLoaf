@@ -66,6 +66,7 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
   const [mountedTabs, setMountedTabs] = useState<Set<ProjectTabValue>>(
     () => new Set<ProjectTabValue>(["intro"])
   );
+  const [introReadOnly, setIntroReadOnly] = useState(true);
 
   const pageTitle = pageData?.title || "Untitled Page";
   const titleIcon: string | undefined = pageData?.icon ?? undefined;
@@ -158,6 +159,11 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
     appliedWidthRef.current = false;
   }, [pageId, tabId]);
 
+  // 页面切换时重置只读状态，避免沿用旧页面的编辑状态。
+  useEffect(() => {
+    setIntroReadOnly(true);
+  }, [pageId]);
+
   // 面板首次访问后保留挂载状态，避免初始化时一次性渲染所有重组件。
   // 记录页面上下文变化，避免仅切换子 tab 时重置挂载缓存。
   /** Reset mounted panels when the page context changes. */
@@ -192,6 +198,11 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
   const panelBaseClass =
     "absolute inset-0 box-border pt-0 transition-opacity duration-240 ease-out";
 
+  /** Toggle read-only mode for the intro plate. */
+  const handleSetIntroReadOnly = useCallback((nextReadOnly: boolean) => {
+    setIntroReadOnly(nextReadOnly);
+  }, []);
+
   return (
     <div className="flex h-full w-full flex-col min-h-0">
       <div className="relative flex items-center py-0 w-full min-w-0 gap-3 pb-2">
@@ -213,6 +224,8 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
               isUpdating={updatePage.isPending}
               onUpdateTitle={handleUpdateTitle}
               onUpdateIcon={handleUpdateIcon}
+              isReadOnly={introReadOnly}
+              onSetReadOnly={handleSetIntroReadOnly}
             />
           </div>
           <div
@@ -291,6 +304,7 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
                     isActive={tabActive && activeTab === "intro"}
                     pageId={pageId}
                     pageTitle={pageTitle}
+                    readOnly={introReadOnly}
                   />
                 ) : null}
               </div>

@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/context-menu";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { ChevronRight, FileText } from "lucide-react";
-import type { PageTreeNode } from "@teatime-ai/api/routers/page";
+import type { PageTreeNode } from "@teatime-ai/api/services/pageService";
 
 interface PageTreeMenuProps {
   pages: PageTreeNode[];
@@ -188,7 +188,7 @@ export const PageTreeMenu = ({
               </CollapsibleTrigger>
               <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
                 <SidebarMenuSub className="mx-1 px-1">
-                  {page.children.map((child) => {
+                  {page.children.map((child: PageTreeNode) => {
                     const childTitle = child.title || "Untitled Page";
 
                     return (

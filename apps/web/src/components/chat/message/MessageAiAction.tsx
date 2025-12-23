@@ -4,7 +4,7 @@ import * as React from "react";
 import type { UIMessage } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { BarChart3, Copy, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
+import { BarChart3, Clock3, Copy, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
 import { toast } from "sonner";
 import { useChatContext } from "../ChatProvider";
 import { trpc } from "@/utils/trpc";
@@ -91,6 +91,33 @@ function extractTokenUsage(metadata: unknown): NormalizedTokenUsage | undefined 
   return usage;
 }
 
+/**
+ * Extract assistant elapsed time (ms) from metadata.teatime.
+ */
+function extractAssistantElapsedMs(metadata: unknown): number | undefined {
+  const meta = metadata as any;
+  const elapsed = meta?.teatime?.assistantElapsedMs;
+  if (typeof elapsed === "number" && Number.isFinite(elapsed)) return elapsed;
+  if (typeof elapsed === "string" && elapsed.trim() !== "" && Number.isFinite(Number(elapsed))) {
+    return Number(elapsed);
+  }
+  return;
+}
+
+/**
+ * Format milliseconds into a compact duration label.
+ */
+function formatDurationMs(value?: number): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "-";
+  const seconds = value / 1000;
+  if (seconds >= 60) {
+    const minutes = Math.floor(seconds / 60);
+    const restSeconds = seconds - minutes * 60;
+    return `${minutes}m ${restSeconds.toFixed(1)}s`;
+  }
+  return `${seconds.toFixed(1)}s`;
+}
+
 export default function MessageAiAction({
   message,
   className,
@@ -143,6 +170,7 @@ export default function MessageAiAction({
   const isRating = updateRatingMutation.isPending;
 
   const usage = extractTokenUsage(message.metadata);
+  const assistantElapsedMs = extractAssistantElapsedMs(message.metadata);
 
   const agentModel = ((message as any)?.agent?.model ?? (message.metadata as any)?.agent?.model) as
     | { provider?: string; modelId?: string }
@@ -184,7 +212,7 @@ export default function MessageAiAction({
   };
 
   return (
-    <div className={cn("flex ml-1 items-center justify-start gap-0.5", className)}>
+    <div className={cn("group flex ml-1 select-none items-center justify-start gap-0.5", className)}>
       <Button
         type="button"
         variant="ghost"
@@ -310,6 +338,13 @@ export default function MessageAiAction({
       </Tooltip>
 
       <MessageBranchNav messageId={message.id} />
+
+      {typeof assistantElapsedMs === "number" ? (
+        <span className="ml-1 inline-flex select-none items-center gap-1 text-xs text-muted-foreground/60 tabular-nums opacity-0 transition-opacity group-hover:opacity-100">
+          <Clock3 className="size-3" />
+          {formatDurationMs(assistantElapsedMs)}
+        </span>
+      ) : null}
     </div>
   );
 }

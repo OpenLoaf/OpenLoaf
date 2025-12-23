@@ -48,7 +48,7 @@ export default function MessageBranchNav({ messageId }: { messageId: string }) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1 transition-opacity duration-200",
+        "inline-flex select-none items-center gap-1 transition-opacity duration-200",
         isVisible ? "opacity-100" : "opacity-0"
       )}
     >

@@ -7,9 +7,12 @@ import { useDisableContextMenu } from "@/lib/useDisableContextMenu";
 import { ThemeProvider } from "./ThemeProvider";
 import { handleUiEvent } from "@/lib/chat/uiEvent";
 import type { UiEvent } from "@teatime-ai/api";
+import { usePrewarmPlate } from "@/hooks/use-prewarm-plate";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   useDisableContextMenu();
+  // 中文注释：应用空闲时预热编辑器相关模块，降低首次打开时的卡顿峰值。
+  usePrewarmPlate();
 
   useEffect(() => {
     const isElectron =

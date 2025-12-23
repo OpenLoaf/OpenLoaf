@@ -101,6 +101,24 @@ function mergeMetadataWithAccumulatedUsage(prev: unknown, next: Record<string, u
   if (combinedTotal) merged.totalUsage = combinedTotal;
   else if ("totalUsage" in merged) delete merged.totalUsage;
 
+  const prevTeatime = isRecord(prevRecord.teatime) ? prevRecord.teatime : undefined;
+  const nextTeatime = isRecord(next.teatime) ? next.teatime : undefined;
+  if (prevTeatime || nextTeatime) {
+    // 中文注释：assistantElapsedMs 需要在多次写入同一条 assistant 消息时累加。
+    const mergedTeatime: Record<string, unknown> = {
+      ...(prevTeatime ?? {}),
+      ...(nextTeatime ?? {}),
+    };
+    const prevElapsed = toNumberOrUndefined(prevTeatime?.assistantElapsedMs);
+    const nextElapsed = toNumberOrUndefined(nextTeatime?.assistantElapsedMs);
+    if (prevElapsed != null || nextElapsed != null) {
+      mergedTeatime.assistantElapsedMs = (prevElapsed ?? 0) + (nextElapsed ?? 0);
+    } else {
+      delete mergedTeatime.assistantElapsedMs;
+    }
+    merged.teatime = Object.keys(mergedTeatime).length ? mergedTeatime : undefined;
+  }
+
   return Object.keys(merged).length ? merged : null;
 }
 
@@ -194,6 +212,7 @@ export const chatRepository = {
     message: TeatimeUIMessage | UIMessageLike;
     parentMessageId: string | null;
     allowEmpty?: boolean;
+    createdAt?: Date;
   }): Promise<{ id: string; parentMessageId: string | null; path: string }> => {
     const messageId = String((input.message as any)?.id ?? "").trim();
     if (!messageId) throw new Error("message.id is required.");
@@ -268,6 +287,7 @@ export const chatRepository = {
           role,
           parts: parts as any,
           metadata: (metadata as any) ?? undefined,
+          createdAt: input.createdAt,
         },
         select: { id: true, parentMessageId: true, path: true },
       });

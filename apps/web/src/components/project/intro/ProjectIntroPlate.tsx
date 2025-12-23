@@ -13,10 +13,88 @@ import { Editor, EditorContainer } from '@/components/ui/editor';
 import { trpc } from '@/utils/trpc';
 
 interface ProjectInfoPlateProps {
-  blocks: { content: Record<string, unknown> | null; order: number }[];
+  // content 可能是任意可序列化的 JSON，渲染前再做校验与转换
+  blocks: { content: unknown | null; order: number }[];
   pageTitle: string;
   readOnly?: boolean;
   pageId?: string;
+}
+
+/** 只读视图组件，避免创建完整编辑器实例 */
+function ProjectInfoPlateView({
+  initialValue,
+  pageId,
+}: {
+  initialValue: Value;
+  pageId?: string;
+}) {
+  // 中文注释：记录只读视图初始化耗时，便于定位首开卡顿
+  const t0Ref = React.useRef<number>(performance.now());
+  const loggedRef = React.useRef(false);
+  const viewEditor = usePlateViewEditor(
+    {
+      id: pageId ? `${pageId}-view` : 'project-intro-view',
+      enabled: true,
+      plugins: BaseEditorKit,
+      value: initialValue,
+    },
+    [pageId]
+  );
+  React.useEffect(() => {
+    if (viewEditor && !loggedRef.current) {
+      loggedRef.current = true;
+      const dt = Math.round(performance.now() - t0Ref.current);
+      // 仅在浏览器控制台输出简单耗时信息
+      // eslint-disable-next-line no-console
+      console.log(`[Plate][view] init ${pageId ?? 'project-intro'}: ${dt}ms`);
+    }
+  }, [viewEditor, pageId]);
+  if (!viewEditor) return null;
+  return (
+    <div className="bg-background">
+      <EditorStatic editor={viewEditor} value={initialValue} className="px-10 pt-1 text-sm" />
+    </div>
+  );
+}
+
+/** 可编辑视图组件，仅在需要时创建重型编辑器实例 */
+function ProjectInfoPlateEdit({
+  initialValue,
+  pageId,
+  onChange,
+}: {
+  initialValue: Value;
+  pageId?: string;
+  onChange: (value: Value) => void;
+}) {
+  // 中文注释：记录编辑器初始化耗时，重点观察重型实例的创建时间
+  const t0Ref = React.useRef<number>(performance.now());
+  const loggedRef = React.useRef(false);
+  const editor = usePlateEditor(
+    {
+      id: pageId ?? 'project-intro',
+      enabled: true,
+      plugins: EditorKit,
+      value: initialValue,
+    },
+    [pageId]
+  );
+  React.useEffect(() => {
+    if (editor && !loggedRef.current) {
+      loggedRef.current = true;
+      const dt = Math.round(performance.now() - t0Ref.current);
+      // eslint-disable-next-line no-console
+      console.log(`[Plate][edit] init ${pageId ?? 'project-intro'}: ${dt}ms`);
+    }
+  }, [editor, pageId]);
+  if (!editor) return null;
+  return (
+    <Plate editor={editor} onValueChange={({ value }) => onChange(value)}>
+      <EditorContainer className="bg-background" data-allow-context-menu>
+        <Editor readOnly={false} variant="none" className="px-10 pt-1 text-sm" />
+      </EditorContainer>
+    </Plate>
+  );
 }
 
 /** Project intro editor. */
@@ -65,26 +143,6 @@ export function ProjectInfoPlate({
     return (shouldUseFallback ? fallbackValue : orderedBlocks) as Value;
   }, [blocks, pageTitle, isEmptyNode]);
 
-  const editor = usePlateEditor(
-    {
-      id: pageId ?? 'project-intro',
-      enabled: !readOnly,
-      plugins: EditorKit,
-      value: initialValue,
-    },
-    [pageId]
-  );
-  const viewEditor = usePlateViewEditor(
-    {
-      id: pageId ? `${pageId}-view` : 'project-intro-view',
-      enabled: readOnly,
-      // 中文注释：只读视图用基础插件，避免依赖 Plate 上下文的交互组件。
-      plugins: BaseEditorKit,
-      value: initialValue,
-    },
-    [pageId]
-  );
-
   React.useEffect(() => {
     // 中文注释：初始化内容时跳过自动保存，避免误写。
     isHydratingRef.current = true;
@@ -124,32 +182,13 @@ export function ProjectInfoPlate({
     };
   }, []);
 
-  if (readOnly) {
-    if (!viewEditor) return null;
-    return (
-      <div className="bg-background">
-        {/* 中文注释：只读模式使用静态渲染，减少事件与编辑开销。 */}
-        <EditorStatic
-          editor={viewEditor}
-          value={initialValue}
-          className="px-10 pt-1 text-sm"
-        />
-      </div>
-    );
-  }
-
-  if (!editor) return null;
-
-  return (
-    <Plate editor={editor} onValueChange={({ value }) => scheduleSave(value)}>
-      <EditorContainer className="bg-background" data-allow-context-menu>
-        <Editor
-          readOnly={readOnly}
-          // variant="fullWidth"
-          variant="none"
-          className="px-10 pt-1 text-sm"
-        />
-      </EditorContainer>
-    </Plate>
+  return readOnly ? (
+    <ProjectInfoPlateView initialValue={initialValue} pageId={pageId} />
+  ) : (
+    <ProjectInfoPlateEdit
+      initialValue={initialValue}
+      pageId={pageId}
+      onChange={(v) => scheduleSave(v)}
+    />
   );
 }
