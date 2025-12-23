@@ -8,6 +8,23 @@ type ProxyConfig = {
 };
 
 /**
+ * Appends local loopback hosts to a no_proxy list.
+ */
+function ensureLocalNoProxy(raw?: string): string {
+  const items = (raw ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const existing = new Set(items);
+  const required = ['localhost', '127.0.0.1', '::1'];
+  // 追加本地回环地址，避免服务端内部请求被代理拦截。
+  for (const host of required) {
+    if (!existing.has(host)) items.push(host);
+  }
+  return items.join(',');
+}
+
+/**
  * Read proxy settings from env vars with Teatime overrides.
  */
 function readProxyConfig(env: Record<string, string | undefined> = process.env): ProxyConfig {
@@ -37,6 +54,7 @@ function hasProxyConfig(config: ProxyConfig): boolean {
 export function installHttpProxy(): void {
   const config = readProxyConfig();
   if (!hasProxyConfig(config)) return;
+  const mergedNoProxy = ensureLocalNoProxy(config.noProxy);
 
   // 流程说明：
   // 1) 读取 Teatime 覆盖与标准代理环境变量
@@ -50,9 +68,9 @@ export function installHttpProxy(): void {
     process.env.HTTPS_PROXY = config.httpsProxy;
     process.env.https_proxy = config.httpsProxy;
   }
-  if (config.noProxy) {
-    process.env.NO_PROXY = config.noProxy;
-    process.env.no_proxy = config.noProxy;
+  if (mergedNoProxy) {
+    process.env.NO_PROXY = mergedNoProxy;
+    process.env.no_proxy = mergedNoProxy;
   }
 
   setGlobalDispatcher(new EnvHttpProxyAgent());

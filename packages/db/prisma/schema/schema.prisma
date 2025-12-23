@@ -153,7 +153,7 @@ model Setting {
   key         String      @unique
   value       String
   secret      Boolean     @default(false)
-  type        SettingType @default(APP)
+  type        SettingType @default(PUBLIC)
   category    String      @default("general")
   description String?
   isReadonly  Boolean     @default(false)
@@ -167,10 +167,9 @@ model Setting {
 }
 
 enum SettingType {
-  APP
-  UI
-  SYSTEM
-  USER
+  WEB
+  SERVER
+  PUBLIC
 }
 
 // 页面和对话会话的关系类型枚举

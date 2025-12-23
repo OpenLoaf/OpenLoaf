@@ -188,7 +188,7 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
     if (!tabActive) return;
     if (appliedWidthRef.current) return;
     if (!tabId) return;
-    setTabLeftWidthPercent(tabId, 70);
+    setTabLeftWidthPercent(tabId, 90);
     appliedWidthRef.current = true;
   }, [tabActive, tabId, setTabLeftWidthPercent]);
 

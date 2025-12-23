@@ -21,6 +21,8 @@ import {
 import { cn } from "@/lib/utils";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { SettingsGroup } from "./SettingsGroup";
+import { useSetting } from "@/hooks/use-settings";
+import { WebSettingDefs } from "@/lib/setting-defs";
 
 type ProviderId = "anthropic" | "deepseek" | "openai" | "xai";
 
@@ -28,7 +30,6 @@ type ModelEntry = {
   id: string;
   model: string;
   provider: ProviderId;
-  apiKey: string;
 };
 
 type ModelResponseLanguageId =
@@ -40,8 +41,6 @@ type ModelResponseLanguageId =
   | "de-DE"
   | "es-ES";
 
-const MODEL_RESPONSE_LANGUAGE_STORAGE_KEY = "teatime:model-response-language";
-
 const PROVIDERS: Array<{ id: ProviderId; label: string }> = [
   { id: "anthropic", label: "anthropic" },
   { id: "deepseek", label: "deepseek" },
@@ -49,41 +48,52 @@ const PROVIDERS: Array<{ id: ProviderId; label: string }> = [
   { id: "xai", label: "xai" },
 ];
 
+/** Generate a stable row id for model entries. */
 function generateRowId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
 export function ModelManagement() {
-  const [entries, setEntries] = useState<ModelEntry[]>([
-    {
-      id: generateRowId(),
-      model: "gpt-4o-mini",
-      provider: "openai",
-      apiKey: "********",
-    },
-    {
-      id: generateRowId(),
-      model: "claude-3-5-sonnet-latest",
-      provider: "anthropic",
-      apiKey: "********",
-    },
-  ]);
+  const { value: entriesRaw, setValue: setEntriesValue } = useSetting(
+    WebSettingDefs.ModelProviders,
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draftProvider, setDraftProvider] = useState<ProviderId>("openai");
   const [draftModel, setDraftModel] = useState("");
-  const [draftApiKey, setDraftApiKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const [modelResponseLanguage, setModelResponseLanguage] =
-    useState<ModelResponseLanguageId>("zh-CN");
-  const [workspaceProjectRule, setWorkspaceProjectRule] =
-    useState("按项目划分");
-  const [defaultChatModelId, setDefaultChatModelId] = useState<string>("");
-  const [chatModelQuality, setChatModelQuality] = useState<
-    "high" | "medium" | "low"
-  >("medium");
+  const { value: modelResponseLanguageRaw, setValue: setModelResponseLanguage } =
+    useSetting(WebSettingDefs.ModelResponseLanguage);
+  const { value: workspaceProjectRuleRaw, setValue: setWorkspaceProjectRule } =
+    useSetting(WebSettingDefs.AppProjectRule);
+  const { value: defaultChatModelIdRaw, setValue: setDefaultChatModelId } =
+    useSetting(WebSettingDefs.ModelDefaultChatModelId);
+  const { value: chatModelQualityRaw, setValue: setChatModelQuality } =
+    useSetting(WebSettingDefs.ModelChatQuality);
+
+  const entries = Array.isArray(entriesRaw) ? (entriesRaw as ModelEntry[]) : [];
+  const modelResponseLanguage: ModelResponseLanguageId =
+    modelResponseLanguageRaw === "zh-CN" ||
+    modelResponseLanguageRaw === "en-US" ||
+    modelResponseLanguageRaw === "ja-JP" ||
+    modelResponseLanguageRaw === "ko-KR" ||
+    modelResponseLanguageRaw === "fr-FR" ||
+    modelResponseLanguageRaw === "de-DE" ||
+    modelResponseLanguageRaw === "es-ES"
+      ? modelResponseLanguageRaw
+      : "zh-CN";
+  const workspaceProjectRule =
+    typeof workspaceProjectRuleRaw === "string" ? workspaceProjectRuleRaw : "";
+  const defaultChatModelId =
+    typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw : "";
+  const chatModelQuality: "high" | "medium" | "low" =
+    chatModelQualityRaw === "high" ||
+    chatModelQualityRaw === "medium" ||
+    chatModelQualityRaw === "low"
+      ? chatModelQualityRaw
+      : "medium";
 
   const providerLabelById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -104,40 +114,16 @@ export function ModelManagement() {
 
   useEffect(() => {
     if (entries.length === 0) {
-      setDefaultChatModelId("");
+      if (defaultChatModelId) void setDefaultChatModelId("");
       return;
     }
     if (!defaultChatModelId) {
-      setDefaultChatModelId(entries[0]!.id);
+      void setDefaultChatModelId(entries[0]!.id);
       return;
     }
     const exists = entries.some((entry) => entry.id === defaultChatModelId);
-    if (!exists) setDefaultChatModelId(entries[0]!.id);
-  }, [defaultChatModelId, entries]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(MODEL_RESPONSE_LANGUAGE_STORAGE_KEY);
-    if (
-      stored === "zh-CN" ||
-      stored === "en-US" ||
-      stored === "ja-JP" ||
-      stored === "ko-KR" ||
-      stored === "fr-FR" ||
-      stored === "de-DE" ||
-      stored === "es-ES"
-    ) {
-      setModelResponseLanguage(stored);
-      return;
-    }
-    setModelResponseLanguage("zh-CN");
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(
-      MODEL_RESPONSE_LANGUAGE_STORAGE_KEY,
-      modelResponseLanguage,
-    );
-  }, [modelResponseLanguage]);
+    if (!exists) void setDefaultChatModelId(entries[0]!.id);
+  }, [defaultChatModelId, entries, setDefaultChatModelId]);
 
   return (
     <div className="space-y-3">
@@ -169,7 +155,7 @@ export function ModelManagement() {
                   <DropdownMenuRadioGroup
                     value={modelResponseLanguage}
                     onValueChange={(next) =>
-                      setModelResponseLanguage(next as ModelResponseLanguageId)
+                      void setModelResponseLanguage(next as ModelResponseLanguageId)
                     }
                   >
                     {Object.entries(modelResponseLanguageLabelById).map(
@@ -196,7 +182,7 @@ export function ModelManagement() {
             <div className="flex flex-1 items-center gap-2">
               <Input
                 value={workspaceProjectRule}
-                onChange={(event) => setWorkspaceProjectRule(event.target.value)}
+                onChange={(event) => void setWorkspaceProjectRule(event.target.value)}
               />
             </div>
           </div>
@@ -230,7 +216,7 @@ export function ModelManagement() {
                 <DropdownMenuContent align="start" className="w-[320px]">
                   <DropdownMenuRadioGroup
                     value={defaultChatModelId}
-                    onValueChange={(next) => setDefaultChatModelId(next)}
+                    onValueChange={(next) => void setDefaultChatModelId(next)}
                   >
                     {entries.map((entry) => (
                       <DropdownMenuRadioItem key={entry.id} value={entry.id}>
@@ -260,7 +246,7 @@ export function ModelManagement() {
               <Tabs
                 value={chatModelQuality}
                 onValueChange={(next) =>
-                  setChatModelQuality(next as "high" | "medium" | "low")
+                  void setChatModelQuality(next as "high" | "medium" | "low")
                 }
               >
                 <TabsList>
@@ -277,11 +263,10 @@ export function ModelManagement() {
       <div className="flex items-center justify-end">
         <Button
           size="sm"
-          onClick={() => {
+        onClick={() => {
             setError(null);
             setDraftProvider("openai");
             setDraftModel("");
-            setDraftApiKey("");
             setDialogOpen(true);
           }}
         >
@@ -377,16 +362,6 @@ export function ModelManagement() {
               />
             </div>
 
-            <div className="space-y-2">
-              <div className="text-sm font-medium">密钥</div>
-              <Input
-                type="password"
-                value={draftApiKey}
-                placeholder="输入 API Key"
-                onChange={(event) => setDraftApiKey(event.target.value)}
-              />
-            </div>
-
             {error ? <div className="text-sm text-destructive">{error}</div> : null}
           </div>
 
@@ -397,23 +372,17 @@ export function ModelManagement() {
             <Button
               onClick={() => {
                 const model = draftModel.trim();
-                const apiKey = draftApiKey.trim();
                 if (!model) {
                   setError("请填写模型名称");
                   return;
                 }
-                if (!apiKey) {
-                  setError("请填写密钥");
-                  return;
-                }
 
-                setEntries((prev) => [
-                  ...prev,
+                void setEntriesValue([
+                  ...entries,
                   {
                     id: generateRowId(),
                     provider: draftProvider,
                     model,
-                    apiKey,
                   },
                 ]);
                 setDialogOpen(false);
@@ -441,7 +410,9 @@ export function ModelManagement() {
               variant="destructive"
               onClick={() => {
                 if (!confirmDeleteId) return;
-                setEntries((prev) => prev.filter((row) => row.id !== confirmDeleteId));
+                void setEntriesValue(
+                  entries.filter((row) => row.id !== confirmDeleteId),
+                );
                 setConfirmDeleteId(null);
               }}
             >

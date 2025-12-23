@@ -40,6 +40,27 @@ type ProxyConfig = {
 };
 
 /**
+ * Ensures localhost and loopback hosts are bypassed by proxy settings.
+ */
+function ensureLocalNoProxy(): void {
+  const raw = process.env.NO_PROXY ?? process.env.no_proxy ?? '';
+  const items = raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const existing = new Set(items);
+  const required = ['localhost', '127.0.0.1', '::1'];
+  // 追加本地回环地址，避免 dev 启动期请求被代理卡住。
+  for (const host of required) {
+    if (!existing.has(host)) items.push(host);
+  }
+  if (items.length === 0) return;
+  const merged = items.join(',');
+  process.env.NO_PROXY = merged;
+  process.env.no_proxy = merged;
+}
+
+/**
  * Reads the first non-empty environment variable from a list of keys.
  */
 function getEnvValue(keys: string[]): string | undefined {
@@ -248,6 +269,7 @@ function installApplicationMenu() {
 async function boot() {
   installApplicationMenu();
 
+  ensureLocalNoProxy();
   await configureProxy(log);
 
   // IPC handlers 必须先注册，避免渲染端（apps/web）调用时找不到处理器。

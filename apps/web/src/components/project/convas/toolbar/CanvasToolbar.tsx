@@ -12,13 +12,12 @@ import {
   Image as ImageIcon,
   Video,
   FileText,
-  Pencil,
-  Eraser,
   StickyNote,
   Type as TypeIcon,
   Shapes,
 } from "lucide-react";
 import { cn } from "@udecode/cn";
+import { HoverPanel, IconBtn, PanelItem } from "./ToolbarParts";
 
 type ToolKind =
   | "select"
@@ -28,102 +27,12 @@ type ToolKind =
   | "group"
   | "arrow-straight"
   | "arrow-curve"
-  | "resource"
-  | "pen"
-  | "eraser"
-  | "note"
-  | "text"
-  | "flow"
-  | "emoji"
-  | "sticker";
+  | "resource";
 
 export interface CanvasToolbarProps {
   activeTool?: ToolKind;
   onToolChange?: (tool: ToolKind) => void;
   onInsert?: (type: "note" | "text") => void;
-  // 画笔样式控制（颜色/粗细）
-  penColor?: string;
-  penSize?: number; // 像素
-  onPenColorChange?: (color: string) => void;
-  onPenSizeChange?: (size: number) => void;
-}
-
-/** 仅图标的按钮组件（玻璃风格工具条中的按钮） */
-function IconBtn(props: {
-  title: string;
-  active?: boolean;
-  children: React.ReactNode;
-  onClick?: () => void;
-  className?: string;
-}) {
-  const { title, active, children, onClick, className } = props;
-  return (
-    <button
-      type="button"
-      aria-label={title}
-      title={title}
-      onClick={onClick}
-      className={cn(
-        "inline-flex h-9 w-9 items-center justify-center rounded-lg",
-        "transition-colors",
-        active ? "bg-accent text-accent-foreground" : "hover:bg-accent/60",
-        className
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** 悬停展开的小面板（用于同类操作），hover 显示、离开隐藏 */
-function HoverPanel(props: {
-  open: boolean;
-  children: React.ReactNode;
-  className?: string;
-  onMouseEnter?: () => void;
-  onMouseLeave?: () => void;
-}) {
-  const { open, children, className, onMouseEnter, onMouseLeave } = props;
-  return (
-    <div
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      className={cn(
-        "pointer-events-auto absolute -top-3 left-1/2 z-10 -translate-y-full -translate-x-1/2",
-        // 悬浮面板不透明，去除毛玻璃
-        "rounded-xl bg-background p-2.5 ring-1 ring-border",
-        "transition-all duration-150 ease-out",
-        open ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95",
-        className
-      )}
-    >
-      <div className="flex items-center gap-1.5">{children}</div>
-    </div>
-  );
-}
-
-/** 悬浮面板中的条目：图标 + 文案说明 */
-function PanelItem(props: {
-  title: string;
-  children: React.ReactNode;
-  onClick?: () => void;
-  active?: boolean;
-}) {
-  const { title, children, onClick, active } = props;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        // 面板条目：上下排列（图标在上、文字在下）
-        "inline-flex flex-col items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px]",
-        active ? "bg-accent text-accent-foreground" : "hover:bg-accent"
-      )}
-    >
-      {children}
-      <span className="whitespace-nowrap leading-none">{title}</span>
-    </button>
-  );
 }
 
 /** 画布底部工具栏（仅 UI） */
@@ -131,10 +40,6 @@ const CanvasToolbar = memo(function CanvasToolbar({
   activeTool,
   onToolChange,
   onInsert,
-  penColor,
-  penSize,
-  onPenColorChange,
-  onPenSizeChange,
 }: CanvasToolbarProps) {
   // 面板关闭的延迟时间（毫秒）
   const CLOSE_DELAY_MS = 600;
@@ -148,10 +53,9 @@ const CanvasToolbar = memo(function CanvasToolbar({
   const [frameSel, setFrameSel] = useState<"frame" | "group">("frame");
   const [arrowSel, setArrowSel] = useState<"arrow-straight" | "arrow-curve">("arrow-straight");
   const [resSel, setResSel] = useState<"page" | "image" | "video" | "text">("page");
-  const [penSel, setPenSel] = useState<"pen" | "eraser">("pen");
   const [widgetSel, setWidgetSel] = useState<"note" | "text">("note");
   // 当前激活的分组（全局唯一选中态）
-  const [activeGroup, setActiveGroup] = useState<"mode" | "frame" | "arrows" | "resource" | "pen" | "widgets">("mode");
+  const [activeGroup, setActiveGroup] = useState<"mode" | "frame" | "arrows" | "resource" | "widgets">("mode");
 
   // 事件：切换工具
   const setTool = useCallback(
@@ -208,6 +112,7 @@ const CanvasToolbar = memo(function CanvasToolbar({
   return (
     <div
       ref={containerRef}
+      data-canvas-toolbar
       className={cn(
         "pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2",
         "rounded-2xl bg-background/70 px-2 py-1.5 ring-1 ring-border backdrop-blur-md"
@@ -436,120 +341,7 @@ const CanvasToolbar = memo(function CanvasToolbar({
           </HoverPanel>
         </div>
 
-        {/* 5) 笔（仅切换） */}
-        <div className="relative" onMouseEnter={() => openGroup("pen")}>
-          <IconBtn
-            title="铅笔"
-            active={activeGroup === "pen"}
-            onClick={() => {
-              setActiveGroup("pen");
-              openGroup("pen");
-              setTool(penSel === "pen" ? "pen" : "eraser");
-            }}
-          >
-            {penSel === "pen" ? <Pencil size={iconSize} /> : <Eraser size={iconSize} />}
-          </IconBtn>
-          <HoverPanel
-            open={hoverGroup === "pen"}
-            onMouseEnter={() => openGroup("pen")}
-          >
-            <PanelItem
-              title="铅笔"
-              active={penSel === "pen"}
-              onClick={() => {
-                setPenSel("pen");
-                setTool("pen");
-                setActiveGroup("pen");
-              }}
-            >
-              <Pencil size={iconSize} />
-            </PanelItem>
-            <PanelItem
-              title="橡皮擦"
-              active={penSel === "eraser"}
-              onClick={() => {
-                setPenSel("eraser");
-                setTool("eraser");
-                setActiveGroup("pen");
-              }}
-            >
-              <Eraser size={iconSize} />
-            </PanelItem>
-            <div className="mx-1 my-1 h-px w-full bg-border" />
-            <div className="flex items-center gap-1.5">
-              <PanelItem
-                title="黑色"
-                active={penColor === "#111827"}
-                onClick={() => onPenColorChange?.("#111827")}
-              >
-                <span
-                  aria-hidden
-                  className="block rounded-full"
-                  style={{ width: 14, height: 14, backgroundColor: "#111827" }}
-                />
-              </PanelItem>
-              <PanelItem
-                title="灰色"
-                active={penColor === "#6b7280"}
-                onClick={() => onPenColorChange?.("#6b7280")}
-              >
-                <span
-                  aria-hidden
-                  className="block rounded-full"
-                  style={{ width: 14, height: 14, backgroundColor: "#6b7280" }}
-                />
-              </PanelItem>
-              <PanelItem
-                title="蓝色"
-                active={penColor === "#2563eb"}
-                onClick={() => onPenColorChange?.("#2563eb")}
-              >
-                <span
-                  aria-hidden
-                  className="block rounded-full"
-                  style={{ width: 14, height: 14, backgroundColor: "#2563eb" }}
-                />
-              </PanelItem>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <PanelItem
-                title="细"
-                active={penSize === 4}
-                onClick={() => onPenSizeChange?.(4)}
-              >
-                <span
-                  aria-hidden
-                  className="block rounded-full bg-foreground/80"
-                  style={{ width: 14, height: 4 }}
-                />
-              </PanelItem>
-              <PanelItem
-                title="中"
-                active={penSize === 6}
-                onClick={() => onPenSizeChange?.(6)}
-              >
-                <span
-                  aria-hidden
-                  className="block rounded-full bg-foreground/80"
-                  style={{ width: 14, height: 6 }}
-                />
-              </PanelItem>
-              <PanelItem
-                title="粗"
-                active={penSize === 8}
-                onClick={() => onPenSizeChange?.(8)}
-              >
-                <span
-                  aria-hidden
-                  className="block rounded-full bg-foreground/80"
-                  style={{ width: 14, height: 8 }}
-                />
-              </PanelItem>
-            </div>
-          </HoverPanel>
-        </div>
-
-        {/* 6) 小组件（先实现便签/文字） */}
+        {/* 5) 小组件（先实现便签/文字） */}
         <div className="relative" onMouseEnter={() => openGroup("widgets")}>
           <IconBtn
             title="小组件"

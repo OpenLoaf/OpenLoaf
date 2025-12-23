@@ -14,6 +14,9 @@ import { getPanelTitle } from "@/utils/panel-utils";
 import { BROWSER_WINDOW_COMPONENT, useTabs } from "@/hooks/use-tabs";
 import type { DockItem } from "@teatime-ai/api/common";
 
+// 保持空数组引用稳定，避免 useSyncExternalStore 报错。
+const EMPTY_STACK: DockItem[] = [];
+
 function getStackItemTitle(item: DockItem): string {
   return item.title ?? getPanelTitle(item.component);
 }
@@ -48,7 +51,7 @@ export function StackDockMenuButton() {
   const activeTabId = useTabs((s) => s.activeTabId);
   const stack = useTabs((s) => {
     const tab = s.activeTabId ? s.tabs.find((t) => t.id === s.activeTabId) : undefined;
-    return tab?.stack ?? [];
+    return tab?.stack ?? EMPTY_STACK;
   });
   const activeTabTitle = useTabs((s) => {
     const tab = s.activeTabId ? s.tabs.find((t) => t.id === s.activeTabId) : undefined;

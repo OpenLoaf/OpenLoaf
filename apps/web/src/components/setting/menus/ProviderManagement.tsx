@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,17 +20,21 @@ import {
 import { cn } from "@/lib/utils";
 import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
 import { SettingsGroup } from "./SettingsGroup";
+import { useSetting } from "@/hooks/use-settings";
+import { WebSettingDefs } from "@/lib/setting-defs";
 
 type ProviderId = "anthropic" | "deepseek" | "openai" | "xai" | "custom";
+
+type ProviderTypeId = "modelProvider";
 
 type KeyEntry = {
   id: string;
   provider: ProviderId;
+  name: string;
+  type: ProviderTypeId;
   apiUrl: string;
   apiKey: string;
 };
-
-const STORAGE_KEY = "teatime:key-entries";
 
 const PROVIDERS: Array<{ id: ProviderId; label: string }> = [
   { id: "openai", label: "openai" },
@@ -41,7 +45,7 @@ const PROVIDERS: Array<{ id: ProviderId; label: string }> = [
 ];
 
 /**
- * 生成表格行 ID（优先使用浏览器原生 UUID）。
+ * Generate a row id, preferring the browser UUID API when available.
  */
 function generateRowId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -49,61 +53,53 @@ function generateRowId() {
 }
 
 /**
- * 将 API Key 显示为掩码，避免误暴露。
+ * Mask the API key to show the first and last 6 characters.
  */
 function maskKey(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return "";
-  if (trimmed.length <= 8) return "********";
-  return `****${trimmed.slice(-4)}`;
+  return `${trimmed.slice(0, 6)}-${trimmed.slice(-6)}`;
 }
 
 /**
- * 从 localStorage 读取并做最小化校验（MVP）。
+ * Provide the default API URL for known providers.
  */
-function loadEntriesFromStorage(): KeyEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed
-      .filter((item): item is KeyEntry => {
-        if (!item || typeof item !== "object") return false;
-        const it = item as Partial<KeyEntry>;
-        return (
-          typeof it.id === "string" &&
-          typeof it.provider === "string" &&
-          typeof it.apiUrl === "string" &&
-          typeof it.apiKey === "string"
-        );
-      })
-      .map((it) => ({
-        id: it.id,
-        provider: (it.provider as ProviderId) ?? "custom",
-        apiUrl: it.apiUrl,
-        apiKey: it.apiKey,
-      }));
-  } catch {
-    return [];
-  }
+function getDefaultApiUrl(provider: ProviderId) {
+  const defaults: Record<ProviderId, string> = {
+    openai: "https://api.openai.com/v1",
+    anthropic: "https://api.anthropic.com/v1",
+    deepseek: "https://api.deepseek.com/v1",
+    xai: "https://api.x.ai/v1",
+    custom: "",
+  };
+  return defaults[provider];
 }
 
 /**
- * 保存到 localStorage（MVP）。
+ * Provide the default display name for a provider.
  */
-function saveEntriesToStorage(entries: KeyEntry[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+function getDefaultProviderName(provider: ProviderId) {
+  const defaults: Record<ProviderId, string> = {
+    openai: "OPENAI",
+    anthropic: "ANTHROPIC",
+    deepseek: "DEEPSEEK",
+    xai: "XAI",
+    custom: "自定义",
+  };
+  return defaults[provider];
 }
 
-export function KeyManagement() {
-  const [entries, setEntries] = useState<KeyEntry[]>([]);
+export function ProviderManagement() {
+  const { value: entriesRaw, setValue: setEntriesValue } = useSetting(
+    WebSettingDefs.KeyEntries,
+  );
+  const entries = Array.isArray(entriesRaw) ? (entriesRaw as KeyEntry[]) : [];
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const [draftProvider, setDraftProvider] = useState<ProviderId>("openai");
+  const [draftName, setDraftName] = useState("");
   const [draftApiUrl, setDraftApiUrl] = useState("");
   const [draftApiKey, setDraftApiKey] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -114,32 +110,31 @@ export function KeyManagement() {
     return map as Record<ProviderId, string>;
   }, []);
 
-  useEffect(() => {
-    setEntries(loadEntriesFromStorage());
-  }, []);
-
-  useEffect(() => {
-    saveEntriesToStorage(entries);
-  }, [entries]);
-
   /**
-   * 打开“新增/编辑”弹窗，并初始化草稿数据。
+   * Open the editor dialog and hydrate the draft fields.
    */
   function openEditor(entry?: KeyEntry) {
     setError(null);
     setEditingId(entry?.id ?? null);
-    setDraftProvider(entry?.provider ?? "openai");
-    setDraftApiUrl(entry?.apiUrl ?? "");
-    setDraftApiKey(entry?.apiKey ?? "");
+    const provider = entry?.provider ?? "openai";
+    setDraftProvider(provider);
+    setDraftName(entry?.name ?? getDefaultProviderName(provider));
+    setDraftApiUrl(entry?.apiUrl ?? getDefaultApiUrl(provider));
+    setDraftApiKey("");
     setDialogOpen(true);
   }
 
   /**
-   * 提交草稿：新增或更新条目。
+   * Submit the draft to create or update an entry.
    */
   function submitDraft() {
+    const name = draftName.trim();
     const apiUrl = draftApiUrl.trim();
     const apiKey = draftApiKey.trim();
+    if (!name) {
+      setError("请填写名称");
+      return;
+    }
     if (!apiUrl) {
       setError("请填写 API URL");
       return;
@@ -150,11 +145,13 @@ export function KeyManagement() {
     }
 
     if (!editingId) {
-      setEntries((prev) => [
-        ...prev,
+      void setEntriesValue([
+        ...entries,
         {
           id: generateRowId(),
           provider: draftProvider,
+          name,
+          type: "modelProvider",
           apiUrl,
           apiKey,
         },
@@ -163,10 +160,17 @@ export function KeyManagement() {
       return;
     }
 
-    setEntries((prev) =>
-      prev.map((row) =>
+    void setEntriesValue(
+      entries.map((row) =>
         row.id === editingId
-          ? { ...row, provider: draftProvider, apiUrl, apiKey }
+          ? {
+              ...row,
+              provider: draftProvider,
+              name,
+              type: "modelProvider",
+              apiUrl,
+              apiKey,
+            }
           : row,
       ),
     );
@@ -176,22 +180,24 @@ export function KeyManagement() {
   return (
     <div className="space-y-3">
       <SettingsGroup
-        title="密钥"
+        title="服务商"
         action={
           <Button size="sm" onClick={() => openEditor()}>
             <Plus className="h-4 w-4" />
-            添加密钥
+            添加服务商
           </Button>
         }
       >
         <div className="text-xs text-muted-foreground">
-          配置不同服务商的 API URL 与 API KEY（MVP：仅保存在本地浏览器）。
+          配置模型服务商的 API URL 与 API KEY。
         </div>
       </SettingsGroup>
 
       <div className="rounded-lg border border-border overflow-hidden">
-        <div className="grid grid-cols-[180px_2fr_1fr_auto] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
+        <div className="grid grid-cols-[180px_180px_160px_2fr_1fr_auto] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
           <div>服务商</div>
+          <div>名称</div>
+          <div>类型</div>
           <div>API URL</div>
           <div>API KEY</div>
           <div className="text-right">操作</div>
@@ -202,12 +208,20 @@ export function KeyManagement() {
             <div
               key={entry.id}
               className={cn(
-                "grid grid-cols-[180px_2fr_1fr_auto] gap-3 items-center px-4 py-3",
+                "grid grid-cols-[180px_180px_160px_2fr_1fr_auto] gap-3 items-center px-4 py-3",
                 "bg-background hover:bg-muted/15 transition-colors",
               )}
             >
               <div className="text-sm font-medium">
                 {providerLabelById[entry.provider]}
+              </div>
+
+              <div className="text-sm">{entry.name}</div>
+
+              <div className="text-sm text-muted-foreground">
+                {(entry.type ?? "modelProvider") === "modelProvider"
+                  ? "模型服务商"
+                  : entry.type}
               </div>
 
               <div className="min-w-0">
@@ -241,7 +255,7 @@ export function KeyManagement() {
 
           {entries.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground">
-              暂无密钥，点击右上角添加。
+              暂无服务商，点击右上角添加。
             </div>
           ) : null}
         </div>
@@ -250,7 +264,7 @@ export function KeyManagement() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingId ? "编辑密钥" : "添加密钥"}</DialogTitle>
+            <DialogTitle>{editingId ? "编辑服务商" : "添加服务商"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -270,20 +284,40 @@ export function KeyManagement() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-[320px]">
-                  <DropdownMenuRadioGroup
-                    value={draftProvider}
-                    onValueChange={(next) =>
-                      setDraftProvider(next as ProviderId)
-                    }
-                  >
-                    {PROVIDERS.map((p) => (
-                      <DropdownMenuRadioItem key={p.id} value={p.id}>
-                        {p.label}
-                      </DropdownMenuRadioItem>
-                    ))}
+              <DropdownMenuRadioGroup
+                value={draftProvider}
+                onValueChange={(next) => {
+                  const provider = next as ProviderId;
+                  const currentDefault = getDefaultApiUrl(draftProvider);
+                  const nextDefault = getDefaultApiUrl(provider);
+                  const currentDefaultName = getDefaultProviderName(draftProvider);
+                  const nextDefaultName = getDefaultProviderName(provider);
+                  setDraftProvider(provider);
+                  if (!draftApiUrl.trim() || draftApiUrl.trim() === currentDefault) {
+                    setDraftApiUrl(nextDefault);
+                  }
+                  if (!draftName.trim() || draftName.trim() === currentDefaultName) {
+                    setDraftName(nextDefaultName);
+                  }
+                }}
+              >
+                {PROVIDERS.map((p) => (
+                  <DropdownMenuRadioItem key={p.id} value={p.id}>
+                    {p.label}
+                  </DropdownMenuRadioItem>
+                ))}
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-sm font-medium">名称</div>
+              <Input
+                value={draftName}
+                placeholder="例如：OPENAI"
+                onChange={(event) => setDraftName(event.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
@@ -326,7 +360,7 @@ export function KeyManagement() {
             <DialogTitle>确认删除</DialogTitle>
           </DialogHeader>
           <div className="text-sm text-muted-foreground">
-            确认要删除这个密钥配置吗？
+            确认要删除这个服务商配置吗？
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>
@@ -336,8 +370,8 @@ export function KeyManagement() {
               variant="destructive"
               onClick={() => {
                 if (!confirmDeleteId) return;
-                setEntries((prev) =>
-                  prev.filter((row) => row.id !== confirmDeleteId),
+                void setEntriesValue(
+                  entries.filter((row) => row.id !== confirmDeleteId),
                 );
                 setConfirmDeleteId(null);
               }}

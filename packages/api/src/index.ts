@@ -13,6 +13,11 @@ import { tabRouter, BaseTabRouter, tabSchemas } from "./routers/absTab";
 import { chatRouter } from "./routers/chat";
 import { BaseChatRouter, chatSchemas } from "./routers/absChat";
 import { health } from "./routers/health";
+import {
+  settingRouter,
+  BaseSettingRouter,
+  settingSchemas,
+} from "./routers/absSetting";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -21,6 +26,7 @@ export const appRouterDefine = {
   pageCustom: pageRouter,
   workspace: workspaceRouter,
   tab: tabRouter,
+  settings: settingRouter,
 };
 
 export const appRouter = t.router({
@@ -42,6 +48,7 @@ export * from "./types/workspace";
 export * from "./types/event";
 export * from "./types/message";
 export * from "./types/toolResult";
+export * from "./types/setting";
 export * from "./common";
 export * from "./markdown/block-markdown";
 export * from "./services/pageMarkdownService";
@@ -54,6 +61,9 @@ export { BaseTabRouter, tabSchemas };
 
 // Export chat router components
 export { BaseChatRouter, chatSchemas };
+
+// Export setting router components
+export { BaseSettingRouter, settingSchemas };
 
 // export const t = initTRPC.context<Context>().create({
 // });

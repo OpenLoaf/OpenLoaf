@@ -98,7 +98,9 @@ function serveStatic(
       return;
     }
 
-    let filePath = path.join(root, url);
+    // path.join 遇到以 "/" 开头的路径会忽略 root，需去掉前导 "/"。
+    const relativePath = url.startsWith('/') ? url.slice(1) : url;
+    let filePath = path.join(root, relativePath);
 
     if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
       filePath = path.join(filePath, 'index.html');

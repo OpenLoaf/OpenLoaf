@@ -25,6 +25,8 @@ export function startServer() {
         ? (info as any).port
         : port;
     logger.info({ hostname, port: actualPort }, `Server listening on http://${hostname}:${actualPort}`);
+    // 启动完成后输出统一成功日志，便于启动脚本/监控识别。
+    logger.info({ hostname, port: actualPort }, "Server started successfully");
   });
 
   // 启动 Markdown 缓存定时刷新

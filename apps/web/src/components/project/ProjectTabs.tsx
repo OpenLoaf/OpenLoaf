@@ -57,6 +57,7 @@ export default function ProjectTabs({
   const [isResizing, setIsResizing] = useState(false);
   const resizeEndTimeoutRef = useRef<number | null>(null);
   const revealTimeoutRef = useRef<number | null>(null);
+  const resizeRafRef = useRef<number | null>(null);
   const canRevealLabelsRef = useRef(false);
   const updateShowLabelsRef = useRef<(() => void) | null>(null);
 
@@ -105,21 +106,35 @@ export default function ProjectTabs({
     };
     updateShowLabelsRef.current = updateShowLabels;
 
+    // Schedule resize-driven state updates on the next frame.
+    const scheduleResizeUpdate = () => {
+      if (resizeRafRef.current !== null) return;
+      resizeRafRef.current = window.requestAnimationFrame(() => {
+        resizeRafRef.current = null;
+        updateShowLabels();
+        setIsResizing((prev) => (prev ? prev : true));
+        if (resizeEndTimeoutRef.current !== null) {
+          window.clearTimeout(resizeEndTimeoutRef.current);
+        }
+        resizeEndTimeoutRef.current = window.setTimeout(() => {
+          setIsResizing(false);
+        }, 150);
+      });
+    };
+
     const ro = new ResizeObserver(() => {
-      updateShowLabels();
-      setIsResizing(true);
-      if (resizeEndTimeoutRef.current !== null) {
-        window.clearTimeout(resizeEndTimeoutRef.current);
-      }
-      resizeEndTimeoutRef.current = window.setTimeout(() => {
-        setIsResizing(false);
-      }, 150);
+      // 避免 ResizeObserver 回调内直接触发多次 setState，改为下一帧统一处理。
+      scheduleResizeUpdate();
     });
     ro.observe(containerEl);
     ro.observe(measureEl);
     return () => {
       ro.disconnect();
       updateShowLabelsRef.current = null;
+      if (resizeRafRef.current !== null) {
+        window.cancelAnimationFrame(resizeRafRef.current);
+        resizeRafRef.current = null;
+      }
       if (resizeEndTimeoutRef.current !== null) {
         window.clearTimeout(resizeEndTimeoutRef.current);
         resizeEndTimeoutRef.current = null;

@@ -12,8 +12,13 @@ function normalizeLogLevel(raw: unknown): LogLevel | undefined {
   return (allowed as string[]).includes(level) ? (level as LogLevel) : undefined;
 }
 
-const defaultLevel: LogLevel = process.env.NODE_ENV === "production" ? "info" : "debug";
-const level: LogLevel = normalizeLogLevel((process.env as any)?.LOG_LEVEL) ?? defaultLevel;
+// renderer 环境可能没有 process，避免直接引用导致报错。
+const nodeEnv =
+  typeof process === "undefined" ? undefined : (process.env as any)?.NODE_ENV;
+const defaultLevel: LogLevel = nodeEnv === "production" ? "info" : "debug";
+const level: LogLevel = normalizeLogLevel(
+  typeof process === "undefined" ? undefined : (process.env as any)?.LOG_LEVEL,
+) ?? defaultLevel;
 
 // renderer 侧仅用于最小入口日志；输出到浏览器控制台（pino browser 模式）。
 export const logger = pino({
@@ -21,4 +26,3 @@ export const logger = pino({
   base: { service: "teatime-electron", process: "renderer" },
   browser: { asObject: true },
 });
-

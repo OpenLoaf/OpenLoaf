@@ -51,6 +51,7 @@ export const PageTreeMenu = ({
       createNew: true,
       title: page.title || "Untitled Page",
       icon: page.icon ?? undefined,
+      leftWidthPercent: 90,
       base: {
         id: `base:${page.id}`,
         component: "plant-page",

@@ -16,6 +16,8 @@ export function useAutoHeight<T extends HTMLElement = HTMLDivElement>(
 ) {
   const ref = React.useRef<T | null>(null);
   const roRef = React.useRef<ResizeObserver | null>(null);
+  const rafRef = React.useRef<number | null>(null);
+  const pendingHeightRef = React.useRef<number | null>(null);
   const [height, setHeight] = React.useState(0);
 
   const measure = React.useCallback(() => {
@@ -61,11 +63,16 @@ export function useAutoHeight<T extends HTMLElement = HTMLDivElement>(
     return total;
   }, [options.includeParentBox, options.includeSelfBox]);
 
+  // Commit height updates only when the value actually changes.
+  const commitHeight = React.useCallback((next: number) => {
+    setHeight((prev) => (prev === next ? prev : next));
+  }, []);
+
   React.useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    setHeight(measure());
+    commitHeight(measure());
 
     if (roRef.current) {
       roRef.current.disconnect();
@@ -73,8 +80,15 @@ export function useAutoHeight<T extends HTMLElement = HTMLDivElement>(
     }
 
     const ro = new ResizeObserver(() => {
-      const next = measure();
-      requestAnimationFrame(() => setHeight(next));
+      // ResizeObserver 回调只记录尺寸，避免同步 setState 引发布局循环。
+      pendingHeightRef.current = measure();
+      if (rafRef.current !== null) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        const next = pendingHeightRef.current;
+        if (next === null) return;
+        commitHeight(next);
+      });
     });
 
     ro.observe(el);
@@ -87,6 +101,10 @@ export function useAutoHeight<T extends HTMLElement = HTMLDivElement>(
     return () => {
       ro.disconnect();
       roRef.current = null;
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);

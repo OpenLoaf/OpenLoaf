@@ -465,3 +465,6 @@ Stagehand 在 `createAgentTools(...)` 中构建 ToolSet，并根据 `mode` 做�
 ### 14.9 搜索工具（可选）
 - **Brave 搜索工具**：`packages/core/lib/v3/agent/tools/search.ts`  
 - **工具启用条件**：`packages/core/lib/v3/agent/tools/index.ts`  
+
+
+codex resume 019b43f3-06d6-75c2-be37-b90b66aece16

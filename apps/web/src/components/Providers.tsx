@@ -29,6 +29,19 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    /** Suppress ResizeObserver loop errors from dev overlay noise. */
+    const handleResizeObserverError = (event: ErrorEvent) => {
+      if (event.message !== "ResizeObserver loop completed with undelivered notifications.") return;
+      // 过滤 ResizeObserver 循环错误，避免开发环境叠加报错。
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener("error", handleResizeObserverError, true);
+    return () => window.removeEventListener("error", handleResizeObserverError, true);
+  }, []);
+
+  useEffect(() => {
     // Electron 主进程会通过 preload 桥接 `teatime:ui-event`，这里统一交给 handleUiEvent 分发。
     const onUiEvent = (event: Event) => {
       const detail = (event as CustomEvent<UiEvent>).detail;

@@ -3,7 +3,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import type { ComponentType } from "react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
@@ -16,19 +15,16 @@ import {
   KeyRound,
   Boxes,
   SlidersHorizontal,
-  User,
   Info,
   Keyboard,
   Building2,
   ShieldCheck,
   FlaskConical,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 
 import { BasicSettings } from "./menus/BasicSettings";
-import { AccountSettings } from "./menus/AccountSettings";
 import { AboutTeatime } from "./menus/AboutTeatime";
-import { KeyManagement } from "./menus/KeyManagement";
+import { ProviderManagement } from "./menus/ProviderManagement";
 import { ModelManagement } from "./menus/ModelManagement";
 import { AgentManagement } from "./menus/agent/AgentManagement";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
@@ -38,7 +34,6 @@ import ProjectTest from "./menus/ProjectTest";
 
 type SettingsMenuKey =
   | "basic"
-  | "account"
   | "about"
   | "models"
   | "keys"
@@ -55,10 +50,9 @@ const MENU: Array<{
   Component: ComponentType;
 }> = [
   { key: "basic", label: "基础", Icon: SlidersHorizontal, Component: BasicSettings },
-  { key: "account", label: "账户", Icon: User, Component: AccountSettings },
   { key: "workspace", label: "工作空间", Icon: Building2, Component: WorkspaceSettings },
   { key: "models", label: "模型", Icon: Boxes, Component: ModelManagement },
-  { key: "keys", label: "密钥", Icon: KeyRound, Component: KeyManagement },
+  { key: "keys", label: "服务商", Icon: KeyRound, Component: ProviderManagement },
   { key: "whitelist", label: "白名单", Icon: ShieldCheck, Component: CommandAllowlist },
   { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
   { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
@@ -75,14 +69,13 @@ export default function SettingsPage({
 }) {
   const [activeKey, setActiveKey] = useState<SettingsMenuKey>("basic");
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [menuAnimationEnabled, setMenuAnimationEnabled] = useState(true);
   const [openTooltipKey, setOpenTooltipKey] = useState<SettingsMenuKey | null>(
     null,
   );
   const containerRef = useRef<HTMLDivElement>(null);
-  const playedMenuAnimationRef = useRef(false);
-  const disableMenuAnimationTimeoutRef = useRef<number | null>(null);
-  const prevActiveKeyRef = useRef<SettingsMenuKey>(activeKey);
+  const collapseRafRef = useRef<number | null>(null);
+  const pendingWidthRef = useRef<number | null>(null);
+  const lastCollapsedRef = useRef<boolean | null>(null);
 
   const setTabMinLeftWidth = useTabs((s) => s.setTabMinLeftWidth);
   const activeTabId = useTabs((s) => s.activeTabId);
@@ -99,39 +92,40 @@ export default function SettingsPage({
   }, [isActiveTab]);
 
   useEffect(() => {
-    const prevKey = prevActiveKeyRef.current;
-    prevActiveKeyRef.current = activeKey;
-    if (prevKey === activeKey) return;
+    if (!containerRef.current) return;
+    const container = containerRef.current;
 
-    if (!menuAnimationEnabled) return;
-    if (playedMenuAnimationRef.current) return;
+    // Update collapse state based on width on the next animation frame.
+    const applyCollapseState = (width: number) => {
+      const nextCollapsed = width < 700;
+      if (lastCollapsedRef.current === nextCollapsed) return;
+      lastCollapsedRef.current = nextCollapsed;
+      setIsCollapsed(nextCollapsed);
+    };
 
-    // Only disable the menu transition after it has played once (i.e. after the first menu switch).
-    playedMenuAnimationRef.current = true;
-    disableMenuAnimationTimeoutRef.current = window.setTimeout(() => {
-      setMenuAnimationEnabled(false);
-      disableMenuAnimationTimeoutRef.current = null;
-    }, 220);
-  }, [activeKey, menuAnimationEnabled]);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      // ResizeObserver 回调内只记录宽度，避免同步 setState 引发布局循环。
+      pendingWidthRef.current = entry.contentRect.width;
+      if (collapseRafRef.current !== null) return;
+      collapseRafRef.current = window.requestAnimationFrame(() => {
+        collapseRafRef.current = null;
+        const width = pendingWidthRef.current;
+        if (width == null) return;
+        applyCollapseState(width);
+      });
+    });
 
-  useEffect(() => {
+    observer.observe(container);
+    applyCollapseState(container.getBoundingClientRect().width);
     return () => {
-      if (disableMenuAnimationTimeoutRef.current) {
-        window.clearTimeout(disableMenuAnimationTimeoutRef.current);
-        disableMenuAnimationTimeoutRef.current = null;
+      observer.disconnect();
+      if (collapseRafRef.current !== null) {
+        window.cancelAnimationFrame(collapseRafRef.current);
+        collapseRafRef.current = null;
       }
     };
-  }, []);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setIsCollapsed(entry.contentRect.width < 700);
-      }
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
   }, []);
 
   const ActiveComponent = useMemo(
@@ -142,7 +136,7 @@ export default function SettingsPage({
   const menuGroups = useMemo(() => {
     const byKey = new Map(MENU.map((item) => [item.key, item]));
     return [
-      [byKey.get("basic"), byKey.get("account"), byKey.get("workspace")].filter(Boolean),
+      [byKey.get("basic"), byKey.get("workspace")].filter(Boolean),
       [byKey.get("models"), byKey.get("keys"), byKey.get("whitelist"), byKey.get("agents")].filter(Boolean),
       [byKey.get("shortcuts"), byKey.get("projectTest"), byKey.get("about")].filter(Boolean),
     ] as Array<typeof MENU>;
@@ -154,12 +148,13 @@ export default function SettingsPage({
       className="h-full w-full min-h-0 min-w-0 overflow-hidden bg-background"
     >
       <div className="flex h-full min-h-0">
-        <motion.div
-          animate={{ width: isCollapsed ? 60 : 192 }}
-          initial={false}
-          className="shrink-0 border-r border-border bg-muted/20"
+        <div
+          className={cn(
+            "shrink-0 border-r border-border bg-muted/20",
+            isCollapsed ? "w-[60px]" : "w-[192px]",
+          )}
         >
-          <ScrollArea className="h-full">
+          <div className="h-full overflow-auto">
             <div className="p-3 pl-1 space-y-2">
               {menuGroups.map((group, groupIndex) => (
                 <div key={`group_${groupIndex}`} className="space-y-2">
@@ -215,31 +210,17 @@ export default function SettingsPage({
                 </div>
               ))}
             </div>
-          </ScrollArea>
-        </motion.div>
+          </div>
+        </div>
 
         <div className="min-w-[400px] flex-1">
-          <ScrollArea className="h-full">
+          <div className="h-full overflow-auto">
             <div className="p-3 pr-1">
-              {menuAnimationEnabled ? (
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={activeKey}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.18, ease: "easeOut" }}
-                  >
-                    <ActiveComponent />
-                  </motion.div>
-                </AnimatePresence>
-              ) : (
-                <div key={activeKey}>
-                  <ActiveComponent />
-                </div>
-              )}
+              <div key={activeKey}>
+                <ActiveComponent />
+              </div>
             </div>
-          </ScrollArea>
+          </div>
         </div>
       </div>
     </div>

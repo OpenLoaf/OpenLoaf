@@ -202,9 +202,39 @@ body {
   display: none;
 }
 
+/* 统一 React Flow 光标，避免非手型模式被强制成抓手 */
+.canvas-flow .react-flow__pane {
+  cursor: var(--canvas-cursor, default) !important;
+}
+
+.canvas-flow .react-flow__pane.dragging {
+  cursor: var(--canvas-cursor-dragging, var(--canvas-cursor, default)) !important;
+}
+
 /* Firefox 滚动条样式 */
 * {
   scrollbar-width: none;  /* 隐藏所有默认滚动条 */
+}
+
+/* 允许显式开启滚动条的容器（覆盖全局隐藏规则） */
+.show-scrollbar {
+  scrollbar-width: auto;
+  -ms-overflow-style: auto;
+}
+.show-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  display: block;
+}
+.show-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(127,127,127,0.35);
+  border-radius: 6px;
+}
+.show-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(127,127,127,0.55);
+}
+.show-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ScrollArea 全局样式 */

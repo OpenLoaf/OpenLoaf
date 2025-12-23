@@ -1,4 +1,5 @@
 const canFetch = typeof fetch === 'function';
+const DEFAULT_TIMEOUT_MS = 3000;
 
 /**
  * 简单的 sleep 工具，用于轮询等待时控制间隔。
@@ -7,15 +8,25 @@ const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
- * 检测 URL 是否可访问（HTTP 2xx/3xx 视为 ok）。
+ * Checks whether a URL responds within a short timeout.
  */
-export async function isUrlOk(url: string): Promise<boolean> {
+export async function isUrlOk(
+  url: string,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
+): Promise<boolean> {
   if (!canFetch) return false;
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const timeoutId = controller
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : null;
   try {
-    const res = await fetch(url, { method: 'GET' });
-    return res.ok;
+    const res = await fetch(url, { method: 'GET', signal: controller?.signal });
+    // fetch 默认跟随重定向，但这里仍保留对 3xx 的兼容判断。
+    return res.ok || (res.status >= 300 && res.status < 400);
   } catch {
     return false;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
 

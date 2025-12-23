@@ -16,14 +16,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { SettingsGroup } from "./SettingsGroup";
 import { ChevronDown } from "lucide-react";
+import { useSetting } from "@/hooks/use-settings";
+import { WebSettingDefs } from "@/lib/setting-defs";
 
 type FontSizeKey = "small" | "medium" | "large" | "xlarge";
 type LanguageId = "zh-CN" | "en-US" | "ja-JP" | "ko-KR" | "fr-FR" | "de-DE" | "es-ES";
-const FONT_SIZE_STORAGE_KEY = "teatime:font-size";
-const UI_LANGUAGE_STORAGE_KEY = "teatime:ui-language";
-const CUSTOM_RULES_STORAGE_KEY = "teatime:custom-rules";
-const LOCAL_STORAGE_DIR_STORAGE_KEY = "teatime:local-storage-dir";
-const AUTO_BACKUP_DIR_STORAGE_KEY = "teatime:auto-backup-dir";
 
 export function BasicSettings() {
   const { theme, resolvedTheme, setTheme } = useTheme();
@@ -32,59 +29,64 @@ export function BasicSettings() {
     resolvedTheme === "dark" ? "dark" : "light",
   );
 
-  const [uiLanguage, setUiLanguage] = useState<LanguageId>("zh-CN");
-  const [fontSize, setFontSize] = useState<FontSizeKey>("medium");
+  const { value: uiLanguageRaw, setValue: setUiLanguage } = useSetting(
+    WebSettingDefs.UiLanguage,
+  );
+  const { value: fontSizeRaw, setValue: setFontSize } = useSetting(
+    WebSettingDefs.UiFontSize,
+  );
+  const { value: localStorageDirRaw, setValue: setLocalStorageDir } = useSetting(
+    WebSettingDefs.AppLocalStorageDir,
+  );
+  const { value: autoBackupDirRaw, setValue: setAutoBackupDir } = useSetting(
+    WebSettingDefs.AppAutoBackupDir,
+  );
+  const {
+    value: savedCustomRulesValue,
+    setValue: setSavedCustomRulesValue,
+    loaded: customRulesLoaded,
+  } = useSetting(WebSettingDefs.AppCustomRules);
+  const { value: uiTheme, setValue: setUiTheme, loaded: themeLoaded } = useSetting(
+    WebSettingDefs.UiTheme,
+  );
+  const {
+    value: uiThemeManual,
+    setValue: setUiThemeManual,
+    loaded: themeManualLoaded,
+  } = useSetting(WebSettingDefs.UiThemeManual);
+
   const [savedCustomRules, setSavedCustomRules] = useState("");
   const [customRules, setCustomRules] = useState("");
-  const [localStorageDir, setLocalStorageDir] = useState("");
-  const [autoBackupDir, setAutoBackupDir] = useState("");
-  useEffect(() => {
-    const stored = localStorage.getItem(UI_LANGUAGE_STORAGE_KEY);
-    if (
-      stored === "zh-CN" ||
-      stored === "en-US" ||
-      stored === "ja-JP" ||
-      stored === "ko-KR" ||
-      stored === "fr-FR" ||
-      stored === "de-DE" ||
-      stored === "es-ES"
-    ) {
-      setUiLanguage(stored);
-      return;
-    }
-    setUiLanguage("zh-CN");
-  }, []);
+
+  const uiLanguage: LanguageId =
+    uiLanguageRaw === "zh-CN" ||
+    uiLanguageRaw === "en-US" ||
+    uiLanguageRaw === "ja-JP" ||
+    uiLanguageRaw === "ko-KR" ||
+    uiLanguageRaw === "fr-FR" ||
+    uiLanguageRaw === "de-DE" ||
+    uiLanguageRaw === "es-ES"
+      ? uiLanguageRaw
+      : "zh-CN";
+
+  const fontSize: FontSizeKey =
+    fontSizeRaw === "small" ||
+    fontSizeRaw === "medium" ||
+    fontSizeRaw === "large" ||
+    fontSizeRaw === "xlarge"
+      ? fontSizeRaw
+      : "medium";
+  const localStorageDir =
+    typeof localStorageDirRaw === "string" ? localStorageDirRaw : "";
+  const autoBackupDir =
+    typeof autoBackupDirRaw === "string" ? autoBackupDirRaw : "";
 
   useEffect(() => {
-    const stored = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
-    if (
-      stored === "small" ||
-      stored === "medium" ||
-      stored === "large" ||
-      stored === "xlarge"
-    ) {
-      setFontSize(stored);
-      return;
-    }
-    setFontSize("medium");
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, uiLanguage);
-  }, [uiLanguage]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(CUSTOM_RULES_STORAGE_KEY) ?? "";
-    setSavedCustomRules(stored);
-    setCustomRules(stored);
-  }, []);
-
-  useEffect(() => {
-    setLocalStorageDir(
-      localStorage.getItem(LOCAL_STORAGE_DIR_STORAGE_KEY) ?? "",
-    );
-    setAutoBackupDir(localStorage.getItem(AUTO_BACKUP_DIR_STORAGE_KEY) ?? "");
-  }, []);
+    if (!customRulesLoaded) return;
+    const next = typeof savedCustomRulesValue === "string" ? savedCustomRulesValue : "";
+    setSavedCustomRules(next);
+    setCustomRules(next);
+  }, [customRulesLoaded, savedCustomRulesValue]);
 
   useEffect(() => {
     const px =
@@ -96,8 +98,21 @@ export function BasicSettings() {
             ? "18px"
             : "20px";
     document.documentElement.style.fontSize = px;
-    localStorage.setItem(FONT_SIZE_STORAGE_KEY, fontSize);
   }, [fontSize]);
+
+  useEffect(() => {
+    if (!themeLoaded) return;
+    if (uiTheme === "dark" || uiTheme === "light" || uiTheme === "system") {
+      setTheme(uiTheme);
+    }
+  }, [themeLoaded, uiTheme, setTheme]);
+
+  useEffect(() => {
+    if (!themeManualLoaded) return;
+    if (uiThemeManual === "dark" || uiThemeManual === "light") {
+      lastManualThemeRef.current = uiThemeManual;
+    }
+  }, [themeManualLoaded, uiThemeManual]);
 
   return (
     <ThemeToggler
@@ -125,15 +140,14 @@ export function BasicSettings() {
           "es-ES": "Español",
         };
 
+        /** Pick a directory or prompt for manual input. */
         const pickDirectory = async ({
-          storageKey,
           currentValue,
           setValue,
           promptLabel,
         }: {
-          storageKey: string;
           currentValue: string;
-          setValue: (value: string) => void;
+          setValue: (value: string) => void | Promise<void>;
           promptLabel: string;
         }) => {
           const showDirectoryPicker = (window as any)
@@ -144,7 +158,6 @@ export function BasicSettings() {
               const handle = await showDirectoryPicker();
               const next = String(handle?.name ?? "");
               setValue(next);
-              localStorage.setItem(storageKey, next);
               return;
             } catch {
               return;
@@ -154,7 +167,6 @@ export function BasicSettings() {
           const manual = window.prompt(promptLabel, currentValue);
           if (manual === null) return;
           setValue(manual);
-          localStorage.setItem(storageKey, manual);
         };
 
         return (
@@ -185,9 +197,7 @@ export function BasicSettings() {
                     <DropdownMenuContent align="end" className="w-[220px]">
                       <DropdownMenuRadioGroup
                         value={uiLanguage}
-                        onValueChange={(next) =>
-                          setUiLanguage(next as LanguageId)
-                        }
+                        onValueChange={(next) => void setUiLanguage(next as LanguageId)}
                       >
                         {Object.entries(languageLabelById).map(
                           ([id, label]) => (
@@ -211,7 +221,13 @@ export function BasicSettings() {
 
                   <Tabs
                     value={themeTabsValue}
-                    onValueChange={(next) => toggleTheme(next as any)}
+                    onValueChange={(next) => {
+                      const nextTheme = next as "dark" | "light";
+                      lastManualThemeRef.current = nextTheme;
+                      toggleTheme(nextTheme);
+                      void setUiTheme(nextTheme);
+                      void setUiThemeManual(nextTheme);
+                    }}
                     className="shrink-0"
                   >
                     <TabsList>
@@ -236,9 +252,13 @@ export function BasicSettings() {
                         onCheckedChange={(checked) => {
                           if (checked) {
                             toggleTheme("system");
+                            void setUiTheme("system");
                             return;
                           }
-                          toggleTheme(lastManualThemeRef.current);
+                          const nextManual = lastManualThemeRef.current;
+                          toggleTheme(nextManual);
+                          void setUiTheme(nextManual);
+                          void setUiThemeManual(nextManual);
                         }}
                         aria-label="Auto theme"
                       />
@@ -256,7 +276,7 @@ export function BasicSettings() {
 
                   <Tabs
                     value={fontSize}
-                    onValueChange={(next) => setFontSize(next as FontSizeKey)}
+                    onValueChange={(next) => void setFontSize(next as FontSizeKey)}
                     className="shrink-0"
                   >
                     <TabsList>
@@ -291,7 +311,6 @@ export function BasicSettings() {
                       size="sm"
                       onClick={() =>
                         pickDirectory({
-                          storageKey: LOCAL_STORAGE_DIR_STORAGE_KEY,
                           currentValue: localStorageDir,
                           setValue: setLocalStorageDir,
                           promptLabel: "请输入本地文件存储路径",
@@ -322,7 +341,6 @@ export function BasicSettings() {
                       size="sm"
                       onClick={() =>
                         pickDirectory({
-                          storageKey: AUTO_BACKUP_DIR_STORAGE_KEY,
                           currentValue: autoBackupDir,
                           setValue: setAutoBackupDir,
                           promptLabel: "请输入自动备份文件夹路径",
@@ -351,10 +369,7 @@ export function BasicSettings() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        localStorage.setItem(
-                          CUSTOM_RULES_STORAGE_KEY,
-                          customRules,
-                        );
+                        void setSavedCustomRulesValue(customRules);
                         setSavedCustomRules(customRules);
                       }}
                     >
