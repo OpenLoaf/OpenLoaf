@@ -1,5 +1,6 @@
 "use client";
 
+import { startTransition } from "react";
 import { create } from "zustand";
 import { useTabs } from "@/hooks/use-tabs";
 import { AI_CHAT_TAB_INPUT } from "@teatime-ai/api/common";
@@ -77,7 +78,9 @@ function openSingletonTab(
     return false;
   });
   if (existing) {
-    setActiveTab(existing.id);
+    startTransition(() => {
+      setActiveTab(existing.id);
+    });
     if (options?.closeSearch) useGlobalOverlay.getState().setSearchOpen(false);
     return;
   }
@@ -103,7 +106,9 @@ export function openSettingsTab(workspaceId: string) {
     (tab) => tab.workspaceId === workspaceId && tab.base?.id === baseId,
   );
   if (existing) {
-    setActiveTab(existing.id);
+    startTransition(() => {
+      setActiveTab(existing.id);
+    });
     return;
   }
 
@@ -278,7 +283,9 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
         const tab = workspaceTabs[index];
         if (!tab) return;
         event.preventDefault();
-        useTabs.getState().setActiveTab(tab.id);
+        startTransition(() => {
+          useTabs.getState().setActiveTab(tab.id);
+        });
         return;
       }
     }

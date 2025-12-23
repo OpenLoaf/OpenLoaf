@@ -3,7 +3,7 @@ import type { AgentFrame } from "@/common/requestContext";
 import { buildMasterAgentSystemPrompt } from "@/ai/prompts/systemPromptBuilder";
 import { buildToolset } from "@/ai/registry/toolRegistry";
 import { toolPacks } from "@/ai/registry/toolPacks";
-import { xaiOpenAI } from "@/ai/xaiOpenAI";
+import { xai } from "@ai-sdk/xai";
 
 const MASTER_AGENT_NAME = "MasterAgent";
 const MASTER_AGENT_ID = "master-agent";
@@ -14,7 +14,7 @@ const MASTER_AGENT_MODEL = { provider: "xai", modelId: "grok-4-1-fast-reasoning"
  */
 export function createMasterAgent() {
   return new ToolLoopAgent({
-    model: xaiOpenAI(MASTER_AGENT_MODEL.modelId),
+    model: xai(MASTER_AGENT_MODEL.modelId),
     instructions: buildMasterAgentSystemPrompt(),
     tools: buildToolset(toolPacks.masterAgent),
   });

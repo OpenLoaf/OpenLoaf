@@ -76,16 +76,21 @@ export function ChatInputBox({
   const isOverLimit = value.length > MAX_CHARS;
   const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const resizeRafRef = useRef<number | null>(null);
   const [textareaHeight, setTextareaHeight] = useState(48);
 
   /**
    * Animate the textarea height to match its content.
    */
   const syncTextareaHeight = (textarea: HTMLTextAreaElement) => {
-    // 关键：必须临时清空高度再读 scrollHeight，否则在删字时可能无法正确“回缩”。
-    textarea.style.height = "0px";
-    const nextHeight = Math.max(48, textarea.scrollHeight);
-    setTextareaHeight(nextHeight);
+    // 中文注释：用 rAF 合并高度测量，避免同步读写触发布局抖动。
+    if (resizeRafRef.current) {
+      window.cancelAnimationFrame(resizeRafRef.current);
+    }
+    resizeRafRef.current = window.requestAnimationFrame(() => {
+      const nextHeight = Math.max(48, textarea.scrollHeight);
+      setTextareaHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -121,6 +126,14 @@ export function ChatInputBox({
     if (!textarea) return;
     syncTextareaHeight(textarea);
   }, [value]);
+
+  useLayoutEffect(() => {
+    return () => {
+      if (!resizeRafRef.current) return;
+      window.cancelAnimationFrame(resizeRafRef.current);
+      resizeRafRef.current = null;
+    };
+  }, []);
 
   return (
     <div

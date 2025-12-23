@@ -12,7 +12,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@ai-sdk/react": "3.0.0-beta.169",
+    "@ai-sdk/react": "^3.0.1",
     "@ariakit/react": "^0.4.20",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",

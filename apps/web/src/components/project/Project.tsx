@@ -1,7 +1,7 @@
 "use client";
 
 import * as ScrollArea from "@radix-ui/react-scroll-area";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -259,7 +259,11 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
         <div className="shrink-0">
           <ProjectTabs
             value={activeTab}
-            onValueChange={setActiveTab}
+            onValueChange={(nextTab) => {
+              startTransition(() => {
+                setActiveTab(nextTab);
+              });
+            }}
             isActive={tabActive}
             revealDelayMs={800}
           />
@@ -284,6 +288,7 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
                 {shouldRenderIntro ? (
                   <ProjectInfo
                     isLoading={isLoading}
+                    isActive={tabActive && activeTab === "intro"}
                     pageId={pageId}
                     pageTitle={pageTitle}
                   />
@@ -303,6 +308,7 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
                 {shouldRenderCanvas ? (
                   <ProjectCanvas
                     isLoading={isLoading}
+                    isActive={tabActive && activeTab === "canvas"}
                     pageId={pageId}
                     pageTitle={pageTitle}
                   />

@@ -133,7 +133,7 @@ export default function ElectrronBrowserWindow({
     const currentTabs = tabsRef.current;
     const target = currentTabs.find((t) => t.viewKey === status.key);
     if (!target || target.title === nextTitle) return;
-    // 中文注释：收到标题后立即同步到标签页状态，保证标题展示正确。
+    // 收到标题后立即同步到标签页状态，保证标题展示正确。
     const nextTabs = currentTabs.map((t) =>
       t.viewKey === status.key ? { ...t, title: nextTitle } : t,
     );
@@ -143,7 +143,7 @@ export default function ElectrronBrowserWindow({
   // Sync favorite icon when a page reports its favicon.
   const syncFavoriteIconFromStatus = (status: TeatimeWebContentsViewStatus) => {
     if (!status.url || !status.faviconUrl) return;
-    // 中文注释：只有页面真实打开后才会触发 favicon 更新，避免未打开时写入。
+    // 只有页面真实打开后才会触发 favicon 更新，避免未打开时写入。
     setFavoriteIconByUrl(status.url, status.faviconUrl);
   };
 
@@ -157,7 +157,7 @@ export default function ElectrronBrowserWindow({
 
   const updateBrowserState = (nextTabs: ElectrronBrowserWindowProps["browserTabs"], nextActiveId?: string) => {
     if (!safeTabId) return;
-    // 中文注释：立即更新运行时引用，避免并发事件把已关闭的标签重新写回。
+    // 立即更新运行时引用，避免并发事件把已关闭的标签重新写回。
     const normalizedTabs = Array.isArray(nextTabs) ? nextTabs : [];
     tabsRef.current = normalizedTabs;
     // 浏览器面板内的状态（tabs/active）统一写回到 tab.stack，作为单一事实来源。
@@ -169,7 +169,7 @@ export default function ElectrronBrowserWindow({
     const missing = tabs.some((t) => !t.viewKey && t.id);
     if (!missing) return;
 
-    // 中文注释：补齐历史遗留的 viewKey，避免关闭时无法定位对应的 WebContentsView。
+    // 补齐历史遗留的 viewKey，避免关闭时无法定位对应的 WebContentsView。
     const nextTabs = tabs.map((t) =>
       t.viewKey || !t.id ? t : { ...t, viewKey: buildViewKey(t.id) },
     );
@@ -508,7 +508,7 @@ export default function ElectrronBrowserWindow({
       activeId === id ? (nextTabs.at(-1)?.id ?? nextTabs[0]?.id ?? "") : activeId;
     updateBrowserState(nextTabs, nextActive);
     if (closing?.url) {
-      // 中文注释：关闭标签时把页面记录进最近关闭列表，方便快速恢复。
+      // 关闭标签时把页面记录进最近关闭列表，方便快速恢复。
       addRecentlyClosedSite({ url: closing.url, title: closing.title });
     }
     if (targetViewKey && isElectron) {

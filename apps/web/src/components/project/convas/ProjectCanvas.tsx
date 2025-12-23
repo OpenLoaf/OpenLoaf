@@ -4,6 +4,7 @@ import "@excalidraw/excalidraw/index.css";
 import { lazy, memo, Suspense } from "react";
 import { useTheme } from "next-themes";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useIdleMount } from "@/hooks/use-idle-mount";
 
 const LazyExcalidraw = lazy(() =>
   import("@excalidraw/excalidraw").then((module) => ({
@@ -13,6 +14,7 @@ const LazyExcalidraw = lazy(() =>
 
 interface ProjectCanvasProps {
   isLoading: boolean;
+  isActive: boolean;
   pageId?: string;
   pageTitle: string;
 }
@@ -47,12 +49,15 @@ const ProjectCanvasHeader = memo(function ProjectCanvasHeader({
 /** Render the project drawing canvas. */
 const ProjectCanvas = memo(function ProjectCanvas({
   isLoading,
+  isActive,
   pageId,
   pageTitle,
 }: ProjectCanvasProps) {
   const { resolvedTheme } = useTheme();
   // 根据当前系统主题切换 Excalidraw 主题
   const excalidrawTheme = resolvedTheme === "dark" ? "dark" : "light";
+  const shouldMountCanvas = useIdleMount(isActive && !isLoading, { timeoutMs: 420 });
+  const showFallback = isActive && !shouldMountCanvas;
 
   if (isLoading) {
     return null;
@@ -61,9 +66,13 @@ const ProjectCanvas = memo(function ProjectCanvas({
   return (
     <div className="h-full">
       <div className="relative h-full min-h-[480px]">
-        <Suspense fallback={<ProjectCanvasFallback />}>
-          <LazyExcalidraw theme={excalidrawTheme} />
-        </Suspense>
+        {shouldMountCanvas ? (
+          <Suspense fallback={<ProjectCanvasFallback />}>
+            <LazyExcalidraw theme={excalidrawTheme} />
+          </Suspense>
+        ) : showFallback ? (
+          <ProjectCanvasFallback />
+        ) : null}
         <div className="sr-only">
           {pageTitle} {pageId ?? "-"}
         </div>

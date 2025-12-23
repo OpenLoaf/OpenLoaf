@@ -1,5 +1,6 @@
 "use client";
 
+import { startTransition } from "react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import {
@@ -69,7 +70,9 @@ export const PageTreeMenu = ({
         (tab) => tab.workspaceId === input.workspaceId && tab.base?.id === baseId,
       );
       if (existing) {
-        setActiveTab(existing.id);
+        startTransition(() => {
+          setActiveTab(existing.id);
+        });
         return;
       }
     }

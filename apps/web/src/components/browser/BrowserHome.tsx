@@ -105,7 +105,7 @@ export function BrowserHome({ onOpenUrl }: { onOpenUrl?: (url: string) => void }
   const [editDialogValue, setEditDialogValue] = useState("");
 
   useEffect(() => {
-    // 中文注释：初始化时从本地缓存读取，保证多次打开一致。
+    // 初始化时从本地缓存读取，保证多次打开一致。
     setFavorites(getFavoriteSites());
     setRecentlyClosed(getRecentlyClosedSites());
     return onBrowserStorageChange(() => {
@@ -155,7 +155,7 @@ export function BrowserHome({ onOpenUrl }: { onOpenUrl?: (url: string) => void }
       void navigator.clipboard.writeText(url);
       return;
     }
-    // 中文注释：剪贴板 API 不可用时使用降级方案。
+    // 剪贴板 API 不可用时使用降级方案。
     const textarea = document.createElement("textarea");
     textarea.value = url;
     textarea.style.position = "fixed";
@@ -196,7 +196,7 @@ export function BrowserHome({ onOpenUrl }: { onOpenUrl?: (url: string) => void }
     const [moved] = next.splice(fromIndex, 1);
     const toIndex = toId ? next.findIndex((item) => item.id === toId) : next.length;
     const insertIndex = toIndex < 0 ? next.length : toIndex;
-    // 中文注释：拖动排序只改变展示顺序，保持条目内容不变。
+    // 拖动排序只改变展示顺序，保持条目内容不变。
     next.splice(insertIndex, 0, moved);
     setFavoriteSites(next);
   };
@@ -226,7 +226,7 @@ export function BrowserHome({ onOpenUrl }: { onOpenUrl?: (url: string) => void }
               onDrop={(event) => {
                 if (!draggingId) return;
                 event.preventDefault();
-                // 中文注释：拖到空白区域时，默认移动到末尾。
+                // 拖到空白区域时，默认移动到末尾。
                 handleReorderFavorites(draggingId, null);
                 setDraggingId(null);
                 setDragOverId(null);
@@ -352,7 +352,7 @@ export function BrowserHome({ onOpenUrl }: { onOpenUrl?: (url: string) => void }
         onOpenChange={(open) => {
           setEditDialogOpen(open);
           if (!open) {
-            // 中文注释：关闭弹窗时清空编辑状态，避免下次复用旧数据。
+            // 关闭弹窗时清空编辑状态，避免下次复用旧数据。
             setEditDialogSite(null);
             setEditDialogValue("");
           }

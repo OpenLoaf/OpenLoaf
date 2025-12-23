@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { startTransition, useCallback } from "react";
 import { SidebarPage } from "@/components/layout/sidebar/Page";
 import { SidebarWorkspace } from "../../workspace/SidebarWorkspace";
 import {
@@ -41,7 +41,9 @@ export const AppSidebar = ({
         return false;
       });
       if (existing) {
-        setActiveTab(existing.id);
+        startTransition(() => {
+          setActiveTab(existing.id);
+        });
         return;
       }
 

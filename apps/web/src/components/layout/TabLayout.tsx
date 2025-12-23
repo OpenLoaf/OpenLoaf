@@ -59,6 +59,8 @@ function TabLayer({
 }
 
 const MemoChat = React.memo(Chat);
+// 缓存 LeftDock，降低切换 tab 时的渲染成本。
+const MemoLeftDock = React.memo(LeftDock);
 
 export function TabLayout({
   tabs,
@@ -73,6 +75,8 @@ export function TabLayout({
   const [layoutTabId, setLayoutTabId] = React.useState(activeTabId);
   const [visibleTabId, setVisibleTabId] = React.useState<string | null>(activeTabId);
   const [isExclusiveCrossfade, setIsExclusiveCrossfade] = React.useState(false);
+  // 逻辑：用 deferred 值延后内容切换，避免主线程被重组件占满。
+  const deferredActiveTabId = React.useDeferredValue(activeTabId);
   // 关闭 tab（Mod+W）时，旧 tab 会从 tabs 数组移除；这里缓存最后快照，保证还能拿到“上一帧布局状态”做动画判定。
   const tabSnapshotRef = React.useRef<Map<string, Tab>>(new Map());
   const crossfadeTimeoutsRef = React.useRef<{ phase1: number | null; phase2: number | null }>({
@@ -83,8 +87,11 @@ export function TabLayout({
   const skipNextWidthAnimationRef = React.useRef(false);
 
   const activeTab = React.useMemo(
-    () => tabs.find((tab) => tab.id === activeTabId) ?? tabSnapshotRef.current.get(activeTabId) ?? null,
-    [activeTabId, tabs],
+    () =>
+      tabs.find((tab) => tab.id === deferredActiveTabId) ??
+      tabSnapshotRef.current.get(deferredActiveTabId) ??
+      null,
+    [deferredActiveTabId, tabs],
   );
   const layoutTab = React.useMemo(
     () => tabs.find((tab) => tab.id === layoutTabId) ?? tabSnapshotRef.current.get(layoutTabId) ?? null,
@@ -140,22 +147,22 @@ export function TabLayout({
 
   React.useEffect(() => {
     // tabs 变更（例如 closeTab）时的兜底：
-    // - layoutTabId 如果已不存在（且快照也没有），重置到 activeTabId
+    // - layoutTabId 如果已不存在（且快照也没有），重置到 deferredActiveTabId
     // - visibleTabId 仅在非 crossfade 阶段做兜底，避免打断“先隐藏再显示”的动画流程
     const present = new Set(tabs.map((tab) => tab.id));
 
     const hasLayout = present.has(layoutTabId) || tabSnapshotRef.current.has(layoutTabId);
-    if (!hasLayout) setLayoutTabId(activeTabId);
+    if (!hasLayout) setLayoutTabId(deferredActiveTabId);
 
     if (!isExclusiveCrossfade && visibleTabId && !present.has(visibleTabId))
-      setVisibleTabId(activeTabId);
-  }, [tabs, layoutTabId, visibleTabId, activeTabId, isExclusiveCrossfade]);
+      setVisibleTabId(deferredActiveTabId);
+  }, [tabs, layoutTabId, visibleTabId, deferredActiveTabId, isExclusiveCrossfade]);
 
   React.useEffect(() => {
     // 切换 tab 的动画策略：
     // - 普通切换：直接更新 layoutTabId + visibleTabId
     // - “左独占 ↔ 右独占”：内容淡出 ->（无宽度动画）切布局 -> 内容淡入
-    if (activeTabId === layoutTabId && visibleTabId === activeTabId) return;
+    if (deferredActiveTabId === layoutTabId && visibleTabId === deferredActiveTabId) return;
 
     if (crossfadeTimeoutsRef.current.phase1) {
       window.clearTimeout(crossfadeTimeoutsRef.current.phase1);
@@ -170,7 +177,7 @@ export function TabLayout({
       stackHidden: Boolean(stackHiddenByTabId[layoutTabId]),
     });
     const nextMode = getPanelMode(activeTab, {
-      stackHidden: Boolean(stackHiddenByTabId[activeTabId]),
+      stackHidden: Boolean(stackHiddenByTabId[deferredActiveTabId]),
     });
     const isLeftRightOnlySwitch =
       (previousMode === "left-only" && nextMode === "right-only") ||
@@ -184,8 +191,8 @@ export function TabLayout({
       skipNextWidthAnimationRef.current = true;
       crossfadeTimeoutsRef.current.phase1 = window.setTimeout(() => {
         // Phase 1：隐藏完成后切换布局 tab，同时显示新内容（淡入）
-        setLayoutTabId(activeTabId);
-        setVisibleTabId(activeTabId);
+        setLayoutTabId(deferredActiveTabId);
+        setVisibleTabId(deferredActiveTabId);
         crossfadeTimeoutsRef.current.phase1 = null;
       }, TAB_FADE_MS);
       crossfadeTimeoutsRef.current.phase2 = window.setTimeout(() => {
@@ -197,9 +204,17 @@ export function TabLayout({
     }
 
     setIsExclusiveCrossfade(false);
-    setLayoutTabId(activeTabId);
-    setVisibleTabId(activeTabId);
-  }, [activeTabId, activeTab, layoutTabId, layoutTab, visibleTabId, reduceMotion, stackHiddenByTabId]);
+    setLayoutTabId(deferredActiveTabId);
+    setVisibleTabId(deferredActiveTabId);
+  }, [
+    deferredActiveTabId,
+    activeTab,
+    layoutTabId,
+    layoutTab,
+    visibleTabId,
+    reduceMotion,
+    stackHiddenByTabId,
+  ]);
 
   React.useLayoutEffect(() => {
     // App should never horizontally scroll; prevent focus/scrollIntoView from shifting the page.
@@ -307,14 +322,14 @@ export function TabLayout({
     e.currentTarget.releasePointerCapture(e.pointerId);
 
     const container = containerRef.current;
-    if (!container || !activeTabId) return;
+    if (!container || !layoutTabId) return;
 
     const rect = container.getBoundingClientRect();
     const minLeft = effectiveMinLeft;
     const maxLeft = Math.max(minLeft, rect.width - RIGHT_CHAT_MIN_PX - targetDividerWidth);
     const currentLeftPx = (splitPercent.get() / 100) * rect.width;
     const nextPercentOfMax = (currentLeftPx / maxLeft) * 100;
-    setTabLeftWidthPercent(activeTabId, Math.round(nextPercentOfMax * 10) / 10);
+    setTabLeftWidthPercent(layoutTabId, Math.round(nextPercentOfMax * 10) / 10);
   };
 
   const isDividerHidden = targetDividerWidth === 0;
@@ -357,7 +372,7 @@ export function TabLayout({
                     : 0,
                 }}
               >
-                <LeftDock tabId={tab.id} />
+                <MemoLeftDock tabId={tab.id} />
               </div>
             </TabLayer>
           ))}

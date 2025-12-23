@@ -49,7 +49,7 @@ function renderDockItem(tabId: string, item: DockItem, refreshKey = 0) {
       transition={{ duration: 0.15 }}
       className="h-full w-full min-w-0"
     >
-      {/* 中文注释：懒加载的面板通过 Suspense 隔离，避免阻塞其他区域渲染。 */}
+      {/* 懒加载的面板通过 Suspense 隔离，避免阻塞其他区域渲染。 */}
       <React.Suspense fallback={<PanelFallback />}>
         <Component
           key={derivedRefreshKey > 0 ? `${item.id}-${derivedRefreshKey}` : undefined}
@@ -127,15 +127,16 @@ function PanelFrame({
   );
 }
 
+// Render the left dock contents for a tab.
 export function LeftDock({ tabId }: { tabId: string }) {
   const tab = useTabs((s) => s.tabs.find((t) => t.id === tabId));
-  const removeStackItem = useTabs((s) => s.removeStackItem);
   const stackHidden = useTabs((s) => Boolean(s.stackHiddenByTabId[tabId]));
   const activeStackItemId = useTabs((s) => s.activeStackItemIdByTabId[tabId]);
+  const removeStackItem = useTabs((s) => s.removeStackItem);
   const setStackHidden = useTabs((s) => s.setStackHidden);
 
   if (!tab) return null;
-
+  // 只订阅面板渲染必需字段，避免切换 tab 时触发无关渲染。
   const base = tab.base;
   const stack = tab.stack ?? [];
   // stack 的选中态不再依赖“最后一个=顶部”，而是由 activeStackItemIdByTabId 决定。

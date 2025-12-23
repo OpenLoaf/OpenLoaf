@@ -4,7 +4,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { DEFAULT_TAB_INFO } from "@teatime-ai/api/common";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Button } from "@/components/ui/button";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { TabMenu } from "./TabMenu";
 
 export const HeaderTabs = () => {
@@ -76,7 +76,9 @@ export const HeaderTabs = () => {
       ? workspaceTabs.some((tab) => tab.id === activeTabId)
       : false;
     if (!inWorkspace) {
-      setActiveTab(workspaceTabs[0]!.id);
+      startTransition(() => {
+        setActiveTab(workspaceTabs[0]!.id);
+      });
     }
   }, [activeTabId, activeWorkspace, setActiveTab, workspaceTabs]);
 
@@ -250,7 +252,11 @@ export const HeaderTabs = () => {
   return (
     <Tabs
       value={activeTabId || ""}
-      onValueChange={setActiveTab}
+      onValueChange={(nextTabId) => {
+        startTransition(() => {
+          setActiveTab(nextTabId);
+        });
+      }}
       className="relative z-10 w-full min-w-0"
     >
       <TabsList

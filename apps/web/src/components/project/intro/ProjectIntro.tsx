@@ -5,6 +5,7 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import ProjectTitle from "../ProjectTitle";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useIdleMount } from "@/hooks/use-idle-mount";
 
 const LazyProjectInfoPlate = lazy(() =>
   import("./ProjectIntroPlate").then((module) => ({
@@ -25,6 +26,7 @@ interface ProjectIntroHeaderProps {
 
 interface ProjectIntroProps {
   isLoading: boolean;
+  isActive: boolean;
   pageId?: string;
   pageTitle: string;
 }
@@ -44,6 +46,7 @@ function ProjectIntroFallback() {
 /** Project intro panel. */
 const ProjectInfo = memo(function ProjectInfo({
   isLoading,
+  isActive,
   pageId,
   pageTitle,
 }: ProjectIntroProps) {
@@ -60,6 +63,8 @@ const ProjectInfo = memo(function ProjectInfo({
   const blocks = blocksQuery.data?.blocks ?? [];
 
   const showLoading = isLoading || (!!pageId && blocksQuery.isLoading);
+  const shouldMountEditor = useIdleMount(isActive && !showLoading, { timeoutMs: 420 });
+  const showFallback = isActive && !shouldMountEditor;
 
   if (showLoading) {
     return null;
@@ -67,14 +72,18 @@ const ProjectInfo = memo(function ProjectInfo({
 
   return (
     <div className="h-full space-y-3 flex-1 min-h-0">
-      <Suspense fallback={<ProjectIntroFallback />}>
-        <LazyProjectInfoPlate
-          readOnly={false}
-          pageId={pageId}
-          blocks={blocks}
-          pageTitle={pageTitle}
-        />
-      </Suspense>
+      {shouldMountEditor ? (
+        <Suspense fallback={<ProjectIntroFallback />}>
+          <LazyProjectInfoPlate
+            readOnly={true}
+            pageId={pageId}
+            blocks={blocks}
+            pageTitle={pageTitle}
+          />
+        </Suspense>
+      ) : showFallback ? (
+        <ProjectIntroFallback />
+      ) : null}
     </div>
   );
 });

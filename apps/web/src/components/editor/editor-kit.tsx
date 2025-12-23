@@ -1,6 +1,6 @@
 'use client';
 
-import { type Value, TrailingBlockPlugin } from 'platejs';
+import { ChunkingPlugin, type Value, TrailingBlockPlugin } from 'platejs';
 import { type TPlateEditor, useEditorRef } from 'platejs/react';
 
 import { AIKit } from '@/components/editor/plugins/ai-kit';
@@ -39,6 +39,8 @@ import { TocKit } from '@/components/editor/plugins/toc-kit';
 import { ToggleKit } from '@/components/editor/plugins/toggle-kit';
 
 export const EditorKit = [
+  // 中文注释：启用块级分片渲染，减少大文档编辑时的卡顿。
+  ChunkingPlugin,
   ...CopilotKit,
   ...AIKit,
 

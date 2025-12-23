@@ -3,7 +3,7 @@ import { ToolLoopAgent } from "ai";
 import { buildSubAgentSystemPrompt } from "@/ai/prompts/subAgentPromptBuilder";
 import { logger } from "@/common/logger";
 import { getAbortSignal, getCurrentAgentFrame, popAgentFrame, pushAgentFrame, type AgentFrame } from "@/common/requestContext";
-import { xaiOpenAI } from "@/ai/xaiOpenAI";
+import { xai } from "@ai-sdk/xai";
 
 export type SubAgentRunProgress = {
   text: string;
@@ -83,7 +83,7 @@ export async function* runSubAgentStreaming(input: { name: string; task: string;
 
   // MVP 先统一用 grok-4-1-fast-reasoning + 无工具 SubAgent，把“sub-agent tool 输出流”链路跑通。
   const agent = new ToolLoopAgent({
-    model: xaiOpenAI("grok-4-1-fast-reasoning"),
+    model: xai("grok-4-1-fast-reasoning"),
     instructions: buildSubAgentSystemPrompt({ name }),
     tools: {},
   });
@@ -104,7 +104,7 @@ export async function* runSubAgentStreaming(input: { name: string; task: string;
   try {
     const stream = await createAgentUIStream({
       agent,
-      messages: messages as any[],
+      uiMessages: messages as any[],
       abortSignal,
       generateMessageId: () => generateId(),
     });

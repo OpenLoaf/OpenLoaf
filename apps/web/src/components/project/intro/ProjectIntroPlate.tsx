@@ -4,9 +4,11 @@ import * as React from 'react';
 
 import { useMutation } from '@tanstack/react-query';
 import type { Value } from 'platejs';
-import { Plate, usePlateEditor } from 'platejs/react';
+import { Plate, usePlateEditor, usePlateViewEditor } from 'platejs/react';
 
 import { EditorKit } from '@/components/editor/editor-kit';
+import { BaseEditorKit } from '@/components/editor/editor-base-kit';
+import { EditorStatic } from '@/components/ui/editor-static';
 import { Editor, EditorContainer } from '@/components/ui/editor';
 import { trpc } from '@/utils/trpc';
 
@@ -24,12 +26,6 @@ export function ProjectInfoPlate({
   readOnly = true,
   pageId,
 }: ProjectInfoPlateProps) {
-  const editor = usePlateEditor({
-    plugins: [
-      ...EditorKit,
-    ],
-    value: [],
-  });
   const saveBlocks = useMutation(
     trpc.pageCustom.saveBlocks.mutationOptions()
   );
@@ -37,7 +33,22 @@ export function ProjectInfoPlate({
   const lastValueRef = React.useRef<string>('');
   const isHydratingRef = React.useRef(false);
 
-  React.useEffect(() => {
+  /** Check whether the editor node is empty. */
+  const isEmptyNode = React.useCallback((node: unknown): boolean => {
+    if (!node || typeof node !== 'object') return true;
+    if ('text' in node) {
+      const textValue = (node as { text?: string }).text ?? '';
+      return textValue.trim().length === 0;
+    }
+    if ('children' in node) {
+      const childrenValue = (node as { children?: unknown[] }).children ?? [];
+      if (!Array.isArray(childrenValue) || childrenValue.length === 0) return true;
+      return childrenValue.every(isEmptyNode);
+    }
+    return false;
+  }, []);
+
+  const initialValue = React.useMemo(() => {
     const ordered = [...blocks].sort((a, b) => a.order - b.order);
     const fallbackValue: Value = [
       { type: 'h1', children: [{ text: pageTitle }] },
@@ -46,19 +57,42 @@ export function ProjectInfoPlate({
         children: [{ text: '在这里写项目简介（支持 Markdown / MDX）。' }],
       },
     ];
-    const nextValue =
-      ordered.length > 0
-        ? ordered.map((block) => block.content).filter(Boolean)
-        : fallbackValue;
+    const orderedBlocks = ordered.map((block) => block.content).filter(Boolean);
+    // 中文注释：全部为空内容时显示默认文案，避免渲染一个空段落。
+    const shouldUseFallback =
+      orderedBlocks.length === 0 ||
+      orderedBlocks.every((block) => isEmptyNode(block));
+    return (shouldUseFallback ? fallbackValue : orderedBlocks) as Value;
+  }, [blocks, pageTitle, isEmptyNode]);
 
+  const editor = usePlateEditor(
+    {
+      id: pageId ?? 'project-intro',
+      enabled: !readOnly,
+      plugins: EditorKit,
+      value: initialValue,
+    },
+    [pageId]
+  );
+  const viewEditor = usePlateViewEditor(
+    {
+      id: pageId ? `${pageId}-view` : 'project-intro-view',
+      enabled: readOnly,
+      // 中文注释：只读视图用基础插件，避免依赖 Plate 上下文的交互组件。
+      plugins: BaseEditorKit,
+      value: initialValue,
+    },
+    [pageId]
+  );
+
+  React.useEffect(() => {
     // 中文注释：初始化内容时跳过自动保存，避免误写。
     isHydratingRef.current = true;
-    editor.tf.setValue(nextValue as Value);
-    lastValueRef.current = JSON.stringify(nextValue);
+    lastValueRef.current = JSON.stringify(initialValue);
     queueMicrotask(() => {
       isHydratingRef.current = false;
     });
-  }, [editor, blocks, pageTitle]);
+  }, [initialValue]);
 
   /** Debounced block save handler. */
   const scheduleSave = React.useCallback(
@@ -89,6 +123,22 @@ export function ProjectInfoPlate({
       clearTimeout(saveTimerRef.current);
     };
   }, []);
+
+  if (readOnly) {
+    if (!viewEditor) return null;
+    return (
+      <div className="bg-background">
+        {/* 中文注释：只读模式使用静态渲染，减少事件与编辑开销。 */}
+        <EditorStatic
+          editor={viewEditor}
+          value={initialValue}
+          className="px-10 pt-1 text-sm"
+        />
+      </div>
+    );
+  }
+
+  if (!editor) return null;
 
   return (
     <Plate editor={editor} onValueChange={({ value }) => scheduleSave(value)}>

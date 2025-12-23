@@ -213,7 +213,7 @@ function getTitleFallback(url: string): string {
 export function getFavoriteSites(): FavoriteSite[] {
   const stored = readStorage<FavoriteSite[]>(FAVORITES_KEY);
   if (stored && Array.isArray(stored)) return stored;
-  // 中文注释：首次进入时落盘默认收藏，后续用户操作就能覆盖。
+  // 首次进入时落盘默认收藏，后续用户操作就能覆盖。
   writeStorage(FAVORITES_KEY, DEFAULT_FAVORITES);
   return DEFAULT_FAVORITES;
 }
@@ -222,7 +222,7 @@ export function getFavoriteSites(): FavoriteSite[] {
  * Persist favorite sites to local cache.
  */
 export function setFavoriteSites(sites: FavoriteSite[]): void {
-  // 中文注释：强制裁剪，避免缓存无限增长。
+  // 强制裁剪，避免缓存无限增长。
   const next = Array.isArray(sites) ? sites.slice(0, MAX_FAVORITES) : [];
   writeStorage(FAVORITES_KEY, next);
   emitStorageUpdate();
@@ -237,7 +237,7 @@ export function addFavoriteSite(input: { url: string; title?: string; iconUrl?: 
   const title = input.title?.trim() || getTitleFallback(normalizedUrl);
   const iconUrl = input.iconUrl?.trim();
   const current = getFavoriteSites();
-  // 中文注释：同 URL 视为同一收藏，优先移除旧的再插入到头部。
+  // 同 URL 视为同一收藏，优先移除旧的再插入到头部。
   const filtered = current.filter((item) => item.url !== normalizedUrl);
   const next: FavoriteSite[] = [
     {
@@ -288,7 +288,7 @@ export function updateFavoriteSite(
   if (changes.url && !nextUrl) return current;
   const nextTitle = changes.title?.trim();
   const nextIconUrl = typeof changes.iconUrl === "string" ? changes.iconUrl.trim() : undefined;
-  // 中文注释：更新目标条目，并在 URL 变化时刷新标题/颜色。
+  // 更新目标条目，并在 URL 变化时刷新标题/颜色。
   let next = current.map((item) => {
     if (item.id !== id) return item;
     const url = nextUrl || item.url;
@@ -302,7 +302,7 @@ export function updateFavoriteSite(
     };
   });
   if (nextUrl) {
-    // 中文注释：URL 修改后需要去重，避免出现多个相同地址的收藏。
+    // URL 修改后需要去重，避免出现多个相同地址的收藏。
     next = next.filter((item) => item.id === id || item.url !== nextUrl);
   }
   setFavoriteSites(next);
@@ -338,7 +338,7 @@ export function setFavoriteIconByUrl(url: string, iconUrl?: string): FavoriteSit
 export function getRecentlyClosedSites(): RecentlyClosedSite[] {
   const stored = readStorage<RecentlyClosedSite[]>(RECENTS_KEY);
   if (stored && Array.isArray(stored)) return stored;
-  // 中文注释：首次进入时写入示例数据，方便新用户有内容可见。
+  // 首次进入时写入示例数据，方便新用户有内容可见。
   writeStorage(RECENTS_KEY, DEFAULT_RECENTS);
   return DEFAULT_RECENTS;
 }
@@ -351,7 +351,7 @@ export function addRecentlyClosedSite(input: { url: string; title?: string }): R
   if (!normalizedUrl) return getRecentlyClosedSites();
   const title = input.title?.trim() || getTitleFallback(normalizedUrl);
   const current = getRecentlyClosedSites();
-  // 中文注释：先去重，再插入到头部，并裁剪到最大数量。
+  // 先去重，再插入到头部，并裁剪到最大数量。
   const filtered = current.filter((item) => item.url !== normalizedUrl);
   const next: RecentlyClosedSite[] = [
     {

@@ -1,6 +1,6 @@
 import { BaseChatRouter, chatSchemas, t, shieldedProcedure, appRouterDefine } from "@teatime-ai/api";
 import { generateText } from "ai";
-import { xaiOpenAI } from "@/ai/xaiOpenAI";
+import { xai } from "@ai-sdk/xai";
 
 const TITLE_MAX_CHARS = 16;
 const LEAF_CANDIDATES = 50;
@@ -88,7 +88,7 @@ function buildTitlePrompt(chainRows: Array<{ role: string; parts: unknown }>): s
 function createTitleAgent() {
   return {
     name: TITLE_AGENT_NAME,
-    model: xaiOpenAI("grok-4-1-fast-reasoning"),
+    model: xai("grok-4-1-fast-reasoning"),
     system: `
 你是一个“对话标题生成器”。
 - 只输出一个标题，不要解释。

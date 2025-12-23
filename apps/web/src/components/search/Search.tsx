@@ -56,7 +56,9 @@ export function Search({
         return false;
       });
       if (existing) {
-        setActiveTab(existing.id);
+        React.startTransition(() => {
+          setActiveTab(existing.id);
+        });
         handleOpenChange(false);
         return;
       }

@@ -281,6 +281,15 @@ export function registerChatSseRoutes(app: Hono) {
     }
 
     const messages = await loadMessageChain({ sessionId, leafMessageId, maxMessages: 80 });
+    logger.debug(
+      {
+        sessionId,
+        leafMessageId,
+        messageCount: Array.isArray(messages) ? messages.length : null,
+        messageType: typeof messages,
+      },
+      "[chat] load message chain"
+    );
     if (messages.length === 0) {
       await respondWithErrorStream({
         sessionId,
@@ -340,9 +349,22 @@ export function registerChatSseRoutes(app: Hono) {
         pushAgentFrame(masterAgent.frame);
 
         try {
+          logger.debug(
+            {
+              sessionId,
+              assistantMessageId,
+              messageCount: Array.isArray(messages) ? messages.length : null,
+              messageType: typeof messages,
+              firstMessageId:
+                Array.isArray(messages) && messages[0] ? (messages[0] as any).id : null,
+              lastMessageId:
+                Array.isArray(messages) && messages.at(-1) ? (messages.at(-1) as any).id : null,
+            },
+            "[chat] create agent ui stream"
+          );
           const uiStream = await createAgentUIStream({
             agent: masterAgent.agent,
-            messages: messages as any[],
+            uiMessages: messages as any[],
             // 启用 persistence mode（对齐 AI SDK 官方 needsApproval 流程的“两次调用”）。
             // 第二次调用会直接产出 tool-output-*（复用同一个 toolCallId）；必须基于 originalMessages 的 tool invocation 才能正确更新状态。
             originalMessages: messages as any[],
