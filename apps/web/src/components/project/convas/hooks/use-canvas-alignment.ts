@@ -7,6 +7,8 @@ import {
   type Edge,
   type Node as RFNode,
   type NodeChange,
+  type NodeDimensionChange,
+  type NodePositionChange,
   type ReactFlowInstance,
 } from "reactflow";
 import { adjustGroupBounds } from "../utils/group-node";
@@ -39,6 +41,16 @@ interface UseCanvasAlignmentResult {
   clearAlignmentGuides: () => void;
 }
 
+/** Check whether the change is a dragging position update. */
+function isDraggingPositionChange(change: NodeChange): change is NodePositionChange {
+  return change.type === "position" && change.dragging === true;
+}
+
+/** Check whether the change is a dimension update. */
+function isNodeDimensionChange(change: NodeChange): change is NodeDimensionChange {
+  return change.type === "dimensions";
+}
+
 /** Build alignment guide and snapping logic for node changes. */
 export function useCanvasAlignment({
   isLocked,
@@ -66,19 +78,14 @@ export function useCanvasAlignment({
     (changes: NodeChange[]) => {
       const nodeMap = new Map(nodes.map((node) => [node.id, node]));
       let nextGuides: AlignmentGuidesState = { x: [], y: [] };
-      const draggingIndex = changes.findIndex(
-        (change) => change.type === "position" && change.dragging,
-      );
-      const draggingIds = new Set(
-        changes
-          .filter((change) => change.type === "position" && change.dragging)
-          .map((change) => change.id),
-      );
+      const draggingChanges = changes.filter(isDraggingPositionChange);
+      const draggingIds = new Set(draggingChanges.map((change) => change.id));
+      const draggingChange = draggingChanges.length === 1 ? draggingChanges[0] : null;
+      const draggingIndex = draggingChange ? changes.indexOf(draggingChange) : -1;
       let alignedChanges = changes;
 
       // 逻辑：多选或 group 拖动时关闭对齐线，避免多节点同步对齐造成卡顿
-      if (!isLocked && draggingIndex >= 0 && draggingIds.size === 1) {
-        const draggingChange = changes[draggingIndex];
+      if (!isLocked && draggingChange && draggingIndex >= 0 && draggingIds.size === 1) {
         const node = nodeMap.get(draggingChange.id);
         const dragPosition = draggingChange.position ?? node?.position;
         if (node && dragPosition && node.type !== "group") {
@@ -129,7 +136,7 @@ export function useCanvasAlignment({
 
       // 逻辑：过滤图片节点的非 resize 尺寸变化，避免循环触发
       const filteredChanges = alignedChanges.filter((change) => {
-        if (change.type !== "dimensions") return true;
+        if (!isNodeDimensionChange(change)) return true;
         if (typeof change.resizing === "boolean") return true;
         const node = nodeMap.get(change.id);
         return !node || node.type !== "image";

@@ -7,6 +7,7 @@ import ReactFlow, {
   MiniMap,
   addEdge,
   type Connection,
+  type Node as RFNode,
   type ReactFlowInstance,
   PanOnScrollMode,
 } from "reactflow";
@@ -143,7 +144,7 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
 
   /** Check whether a node is inside any selected group. */
   const isDescendantOfSelectedGroup = useCallback(
-    (node: { id: string }, nodeMap: Map<string, { id: string }>, selectedGroups: Set<string>) => {
+    (node: RFNode, nodeMap: Map<string, RFNode>, selectedGroups: Set<string>) => {
       let parentId = getNodeParentId(node);
       // 流程：沿父链向上查找，命中任一选中 group 即视为后代
       while (parentId) {

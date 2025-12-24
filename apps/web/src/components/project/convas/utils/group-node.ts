@@ -107,7 +107,7 @@ export function getSelectionBounds(
  * Create a group node that wraps the current selection and re-parents child nodes.
  * Only groups when all selected nodes share the same parent to avoid cross-level nesting.
  */
-export function groupSelectedNodes(nodes: RFNode[]) {
+export function groupSelectedNodes(nodes: RFNode[]): RFNode[] {
   const selectedNodes = nodes.filter((node) => node.selected);
   if (selectedNodes.length < 2) return nodes;
 
@@ -144,20 +144,21 @@ export function groupSelectedNodes(nodes: RFNode[]) {
     selected: true,
   };
 
-  const nextNodes = nodes.map((node) => {
+  const nextNodes: RFNode[] = nodes.map((node) => {
     if (!node.selected) return node;
     if (getNodeParentId(node) !== parentId) return node;
     const nextPosition = {
       x: node.position.x - groupPosition.x,
       y: node.position.y - groupPosition.y,
     };
-    return {
+    const nextNode: RFNode = {
       ...node,
       parentId: groupId,
       extent: "parent",
       position: nextPosition,
       selected: false,
     };
+    return nextNode;
   });
 
   return [groupNode, ...nextNodes];

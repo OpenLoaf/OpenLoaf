@@ -47,7 +47,7 @@ export const PublicSettingDefs = {
   },
   ModelChatSource: {
     key: "model.chatSource",
-    defaultValue: "local" as string,
+    defaultValue: "" as string,
     scope: "PUBLIC",
     category: "model",
   },

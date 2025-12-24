@@ -154,7 +154,7 @@ export function pasteSubgraph(options: {
   edges: Edge[];
   payload: NodeClipboardPayload;
   targetCenter: { x: number; y: number };
-}) {
+}): { nodes: RFNode[]; edges: Edge[] } | null {
   const { nodes, edges, payload, targetCenter } = options;
   if (payload.nodes.length === 0) return null;
   const nodeMap = buildNodeMap(nodes);
@@ -177,7 +177,7 @@ export function pasteSubgraph(options: {
   }
 
   const clearedNodes = nodes.map((node) => (node.selected ? { ...node, selected: false } : node));
-  const nextNodes = payload.nodes.map((node) => {
+  const nextNodes: RFNode[] = payload.nodes.map((node) => {
     const oldAbs = absMap.get(node.id);
     if (!oldAbs) return node;
     const newAbs = { x: oldAbs.x + delta.x, y: oldAbs.y + delta.y };
@@ -193,7 +193,7 @@ export function pasteSubgraph(options: {
           y: newAbs.y - (parentAbs.y + delta.y),
         }
       : newAbs;
-    return {
+    const nextNode: RFNode = {
       ...node,
       id: idMap.get(node.id) ?? node.id,
       parentId: mappedParentId ?? undefined,
@@ -201,6 +201,7 @@ export function pasteSubgraph(options: {
       position: nextPosition,
       selected: true,
     };
+    return nextNode;
   });
 
   let edgeIndex = 0;

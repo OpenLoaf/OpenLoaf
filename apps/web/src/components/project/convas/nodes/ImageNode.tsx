@@ -2,7 +2,7 @@
 
 import "@reactflow/node-resizer/dist/style.css";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, SyntheticEvent } from "react";
 import { NodeResizer } from "@reactflow/node-resizer";
 import { Check, Crop, ImagePlus, RotateCw, Trash2, X } from "lucide-react";
 import { NodeToolbar, Position, type Node, type NodeProps } from "reactflow";
