@@ -10,6 +10,8 @@ import { resolveRuntimePorts, type RuntimePorts } from './services/portAllocatio
 import { WEBPACK_ENTRIES } from './webpackEntries';
 import { createMainWindow } from './windows/mainWindow';
 
+const APP_DISPLAY_NAME = 'TeaTime';
+
 /**
  * A 方案架构说明：
  * - Electron 只做原生“壳”，不承载业务渲染逻辑
@@ -18,6 +20,11 @@ import { createMainWindow } from './windows/mainWindow';
  */
 const { log } = createStartupLogger();
 registerProcessErrorLogging(log);
+
+// 强制对齐 macOS 菜单栏与 Dock 的应用显示名（dev 模式默认会显示 Electron）。
+app.setName(APP_DISPLAY_NAME);
+// 同步 macOS 关于面板的应用显示名，避免 dev 模式仍显示 Electron。
+app.setAboutPanelOptions({ applicationName: APP_DISPLAY_NAME });
 
 log(`App starting. UserData: ${app.getPath('userData')}`);
 log(`Executable: ${process.execPath}`);
@@ -214,9 +221,12 @@ function installApplicationMenu() {
 
   const template: Electron.MenuItemConstructorOptions[] = [
     {
-      label: app.name,
+      label: APP_DISPLAY_NAME,
       submenu: [
-        { role: 'about' },
+        {
+          label: `About ${APP_DISPLAY_NAME}`,
+          click: () => app.showAboutPanel(),
+        },
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },

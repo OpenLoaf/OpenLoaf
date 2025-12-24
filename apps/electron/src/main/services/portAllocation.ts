@@ -84,10 +84,21 @@ export async function resolveRuntimePorts(args: {
   const defaultHost = args.defaultHost ?? '127.0.0.1';
   const usedPorts = new Set<number>();
 
+  const defaultServerPort = 53662;
+  const defaultWebPort = 53663;
+  const defaultCdpPort = 53664;
+
   // 中文注释：如果用户显式提供 URL，则直接复用，默认情况下才随机分配。
   let serverUrl = args.serverUrlEnv?.trim() ?? '';
   if (!serverUrl) {
-    const serverPort = await getUniqueFreePort(defaultHost, usedPorts);
+    const preferredPort = defaultServerPort;
+    const canUsePreferred =
+      !usedPorts.has(preferredPort) &&
+      (await isPortFree(defaultHost, preferredPort));
+    const serverPort = canUsePreferred
+      ? preferredPort
+      : await getUniqueFreePort(defaultHost, usedPorts);
+    if (canUsePreferred) usedPorts.add(preferredPort);
     serverUrl = `http://${defaultHost}:${serverPort}`;
   } else {
     const port = tryExtractPort(serverUrl);
@@ -96,7 +107,13 @@ export async function resolveRuntimePorts(args: {
 
   let webUrl = args.webUrlEnv?.trim() ?? '';
   if (!webUrl) {
-    const webPort = await getUniqueFreePort(defaultHost, usedPorts);
+    const preferredPort = defaultWebPort;
+    const canUsePreferred =
+      !usedPorts.has(preferredPort) && (await isPortFree(defaultHost, preferredPort));
+    const webPort = canUsePreferred
+      ? preferredPort
+      : await getUniqueFreePort(defaultHost, usedPorts);
+    if (canUsePreferred) usedPorts.add(preferredPort);
     webUrl = `http://${defaultHost}:${webPort}`;
   } else {
     const port = tryExtractPort(webUrl);
@@ -115,8 +132,16 @@ export async function resolveRuntimePorts(args: {
     usedPorts.add(cdpPortParsed);
     cdpPort = cdpPortParsed;
   } else {
-    // 中文注释：避免 CDP 端口与 web/server 冲突，必要时重新分配。
-    cdpPort = await getUniqueFreePort(cdpHost, usedPorts);
+    const preferredPort = defaultCdpPort;
+    const canUsePreferred =
+      !usedPorts.has(preferredPort) && (await isPortFree(cdpHost, preferredPort));
+    if (canUsePreferred) {
+      usedPorts.add(preferredPort);
+      cdpPort = preferredPort;
+    } else {
+      // 中文注释：避免 CDP 端口与 web/server 冲突，必要时重新分配。
+      cdpPort = await getUniqueFreePort(cdpHost, usedPorts);
+    }
   }
 
   return { serverUrl, webUrl, cdpPort };

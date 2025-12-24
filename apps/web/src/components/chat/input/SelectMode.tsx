@@ -123,7 +123,7 @@ export default function SelectMode({ className }: SelectModeProps) {
             className
           )}
         >
-          <span className="max-w-[10rem] truncate whitespace-nowrap">
+          <span className="max-w-[8rem] truncate whitespace-nowrap text-right">
             {isAuto
               ? "Auto"
               : (modelOptions.find((option) => option.id === selectedModel)?.modelId ??
@@ -199,21 +199,21 @@ export default function SelectMode({ className }: SelectModeProps) {
                     const priceLabel = formatModelPrice(option.modelDefinition);
                     return (
                       <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => void setDefaultChatModelId(option.id)}
-                        className={cn(
-                          "w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
-                          selectedModel === option.id && "border-border/70 bg-muted/70"
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-medium text-foreground">
-                              {option.modelId}
-                            </div>
-                            <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
-                              <span className="min-w-0 truncate">
+                      key={option.id}
+                      type="button"
+                      onClick={() => void setDefaultChatModelId(option.id)}
+                      className={cn(
+                        "w-full rounded-lg border border-transparent px-3 py-2 text-right transition-colors hover:border-border/70 hover:bg-muted/60",
+                        selectedModel === option.id && "border-border/70 bg-muted/70"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1 text-right">
+                          <div className="truncate text-sm font-medium text-foreground">
+                            {option.modelId}
+                          </div>
+                            <div className="mt-1 flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted-foreground">
+                              <span className="min-w-0 truncate text-right">
                                 {option.providerName}
                               </span>
                               <span className="flex flex-wrap items-center justify-end gap-1">

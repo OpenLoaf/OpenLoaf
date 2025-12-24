@@ -1,8 +1,8 @@
 {
   "name": "teatime",
-  "productName": "Teatime",
+  "productName": "TeaTime",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "TeaTime desktop app",
   "main": ".webpack/main",
   "scripts": {
     "predesktop": "node scripts/fixElectronInstall.mjs",

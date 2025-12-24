@@ -9,7 +9,6 @@ import { rendererConfig } from './webpack.renderer.config';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    appId: 'com.hexems.teatime',
     appBundleId: 'com.hexems.teatime',
     extraResource: [
       '../../apps/server/dist/server.mjs',

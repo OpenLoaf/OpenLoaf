@@ -1,4 +1,4 @@
-import { BrowserWindow, screen } from 'electron';
+import { app, BrowserWindow, screen } from 'electron';
 import type { Logger } from '../logging/startupLogger';
 import type { ServiceManager } from '../services/serviceManager';
 import { waitForUrlOk } from '../services/urlHealth';
@@ -30,6 +30,19 @@ function getDefaultWindowSize(): { width: number; height: number } {
   }
 
   return { width, height };
+}
+
+/**
+ * Keeps the window title pinned to the app display name.
+ */
+function bindWindowTitle(win: BrowserWindow): void {
+  const displayName = app.name || 'TeaTime';
+  // 固定窗口标题，避免被 web 的 <title> 覆盖。
+  win.setTitle(displayName);
+  win.on('page-title-updated', (event) => {
+    event.preventDefault();
+    win.setTitle(displayName);
+  });
 }
 
 /**
@@ -74,6 +87,7 @@ export async function createMainWindow(args: {
     },
   });
 
+  bindWindowTitle(mainWindow);
   args.log('Window created. Loading loading screen...');
   await mainWindow.loadURL(args.entries.loadingWindow);
 
