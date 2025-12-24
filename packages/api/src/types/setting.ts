@@ -1,73 +1,97 @@
-export type SettingScope = "WEB" | "SERVER" | "PUBLIC";
-
 export type SettingDef<T> = {
   key: string;
   defaultValue: T;
-  scope: SettingScope;
   secret?: boolean;
   category?: string;
+  syncToCloud?: boolean;
 };
 
 export const PublicSettingDefs = {
   AppLocalStorageDir: {
     key: "app.localStorageDir",
     defaultValue: "" as string,
-    scope: "PUBLIC",
     category: "storage",
   },
   AppAutoBackupDir: {
     key: "app.autoBackupDir",
     defaultValue: "" as string,
-    scope: "PUBLIC",
     category: "storage",
   },
   AppCustomRules: {
     key: "app.customRules",
     defaultValue: "" as string,
-    scope: "PUBLIC",
     category: "rules",
   },
   ModelResponseLanguage: {
     key: "model.responseLanguage",
     defaultValue: "zh-CN" as string,
-    scope: "PUBLIC",
     category: "model",
   },
   ModelDefaultChatModelId: {
     key: "model.defaultChatModelId",
     defaultValue: "" as string,
-    scope: "PUBLIC",
     category: "model",
   },
   ModelChatQuality: {
     key: "model.chatQuality",
     defaultValue: "medium" as string,
-    scope: "PUBLIC",
     category: "model",
   },
   ModelChatSource: {
     key: "model.chatSource",
     defaultValue: "" as string,
-    scope: "PUBLIC",
     category: "model",
   },
   AppProjectRule: {
     key: "app.projectRule",
     defaultValue: "按项目划分" as string,
-    scope: "PUBLIC",
     category: "model",
+  },
+  StepUpInitialized: {
+    key: "stepUp.initialized",
+    defaultValue: false as boolean,
+    category: "stepUp",
   },
   ModelProviders: {
     key: "model.providers",
     defaultValue: [] as unknown[],
-    scope: "PUBLIC",
     secret: true,
     category: "model",
+  },
+  ProxyEnabled: {
+    key: "proxy.enabled",
+    defaultValue: false as boolean,
+    category: "proxy",
+    syncToCloud: false,
+  },
+  ProxyHost: {
+    key: "proxy.host",
+    defaultValue: "" as string,
+    category: "proxy",
+    syncToCloud: false,
+  },
+  ProxyPort: {
+    key: "proxy.port",
+    defaultValue: "" as string,
+    category: "proxy",
+    syncToCloud: false,
+  },
+  ProxyUsername: {
+    key: "proxy.username",
+    defaultValue: "" as string,
+    category: "proxy",
+    syncToCloud: false,
+  },
+  ProxyPassword: {
+    key: "proxy.password",
+    defaultValue: "" as string,
+    secret: true,
+    category: "proxy",
+    syncToCloud: false,
   },
   AgentConfigs: {
     key: "agent.configs",
     defaultValue: [] as unknown[],
-    scope: "PUBLIC",
     category: "agent",
   },
 } as const satisfies Record<string, SettingDef<unknown>>;

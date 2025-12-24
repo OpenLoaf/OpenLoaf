@@ -70,6 +70,17 @@ function mergeMetadataWithAbortInfo(
   return base;
 }
 
+/** Read request fields from top-level or params (backward compatible). */
+function readRequestValue<T = unknown>(body: ChatRequestBody, key: string): T | undefined {
+  const direct = (body as any)[key];
+  // 中文注释：优先兼容旧版顶层字段，未命中再读取 params。
+  if (direct !== undefined) return direct as T;
+  const params = body.params;
+  if (!params || typeof params !== "object" || Array.isArray(params)) return;
+  if (!(key in params)) return;
+  return (params as Record<string, unknown>)[key] as T;
+}
+
 /**
  * Builds a minimal SSE data chunk for UIMessageStream clients.
  */
@@ -191,16 +202,26 @@ export function registerChatSseRoutes(app: Hono) {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
 
-    const sessionId = body.sessionId ?? body.id;
+    const sessionId = body.sessionId ?? body.id ?? readRequestValue<string>(body, "sessionId");
     if (!sessionId) return c.json({ error: "sessionId is required" }, 400);
 
     const cookies = getCookie(c) || {};
+    const clientId = readRequestValue<string>(body, "clientId");
+    const tabId = readRequestValue<string>(body, "tabId");
+    const messageId = readRequestValue<string>(body, "messageId");
+    const chatModelId = readRequestValue<string>(body, "chatModelId");
+    const chatModelSource = readRequestValue<ChatRequestBody["chatModelSource"]>(
+      body,
+      "chatModelSource",
+    );
+    const pageIdValue = readRequestValue<unknown>(body, "pageId");
+    const pageId = typeof pageIdValue === "string" && pageIdValue ? pageIdValue : undefined;
 
     setRequestContext({
       sessionId,
       cookies,
-      clientId: body.clientId || undefined,
-      tabId: body.tabId || undefined,
+      clientId: clientId || undefined,
+      tabId: tabId || undefined,
     });
 
     const abortController = new AbortController();
@@ -211,7 +232,7 @@ export function registerChatSseRoutes(app: Hono) {
     const incomingMessages = (body.messages ?? []) as UIMessage[];
     // AI SDK 的 useChat 会把本次生成的 messageId 传给服务端；续跑/审批继续应复用同一个 messageId，以便在 UI 侧作为同一条 assistant message 继续更新。
     const assistantMessageId =
-      typeof body.messageId === "string" && body.messageId ? body.messageId : generateId();
+      typeof messageId === "string" && messageId ? messageId : generateId();
     streamStore.setAssistantMessageId(sessionId, assistantMessageId);
 
     // 前端只发送最后一条消息；后端通过 messageId + parentMessageId 从 DB 补全完整链路再喂给 agent。
@@ -248,6 +269,7 @@ export function registerChatSseRoutes(app: Hono) {
           message: last as any,
           parentMessageId: parentMessageIdToUse ?? null,
           createdAt: requestStartAt,
+          pageId,
         });
         leafMessageId = saved.id;
         assistantParentUserId = saved.id;
@@ -272,6 +294,7 @@ export function registerChatSseRoutes(app: Hono) {
           parentMessageId: parentId,
           allowEmpty: true,
           createdAt: requestStartAt,
+          pageId,
         });
         leafMessageId = String(last.id);
       } else {
@@ -336,8 +359,8 @@ export function registerChatSseRoutes(app: Hono) {
     // 中文注释：优先使用请求传入的 chatModelId，失败后按 fallback 规则选择模型。
     try {
       const resolved = await resolveChatModel({
-        chatModelId: body.chatModelId,
-        chatModelSource: body.chatModelSource,
+        chatModelId,
+        chatModelSource,
       });
       masterAgent = createMasterAgentRunner({
         model: resolved.model,
@@ -509,6 +532,7 @@ export function registerChatSseRoutes(app: Hono) {
                   parentMessageId: userNode.id,
                   allowEmpty: isAborted,
                   createdAt: requestStartAt,
+                  pageId,
                 });
               } catch (err) {
                 logger.error({ err }, "[chat] save assistant failed");

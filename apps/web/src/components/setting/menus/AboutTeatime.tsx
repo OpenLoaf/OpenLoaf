@@ -5,6 +5,10 @@ import { getWebClientId } from "@/lib/chat/streamClientId";
 import { ChevronRight } from "lucide-react";
 import * as React from "react";
 import { SettingsGroup } from "./SettingsGroup";
+import { setSettingValue } from "@/hooks/use-settings";
+import { WebSettingDefs } from "@/lib/setting-defs";
+
+const STEP_UP_ROUTE = "/step-up";
 
 const ITEMS: Array<{ key: string; label: string }> = [
   { key: "license", label: "用户协议" },
@@ -19,6 +23,10 @@ export function AboutTeatime() {
   const clientId = getWebClientId();
   const [copiedKey, setCopiedKey] = React.useState<"clientId" | null>(null);
   const [webContentsViewCount, setWebContentsViewCount] = React.useState<number | null>(null);
+  const [appVersion, setAppVersion] = React.useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = React.useState<TeatimeAutoUpdateStatus | null>(
+    null,
+  );
   const isElectron = React.useMemo(
     () =>
       process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -45,6 +53,42 @@ export function AboutTeatime() {
     setCopiedKey(key);
     window.setTimeout(() => setCopiedKey((prev) => (prev === key ? null : prev)), 800);
   };
+
+  /** Fetch app version from Electron main process. */
+  const fetchAppVersion = React.useCallback(async () => {
+    const api = window.teatimeElectron;
+    if (!isElectron || !api?.getAppVersion) return;
+    try {
+      const version = await api.getAppVersion();
+      if (version) setAppVersion(version);
+    } catch {
+      // ignore
+    }
+  }, [isElectron]);
+
+  /** Fetch latest update status snapshot from Electron main process. */
+  const fetchUpdateStatus = React.useCallback(async () => {
+    const api = window.teatimeElectron;
+    if (!isElectron || !api?.getAutoUpdateStatus) return;
+    try {
+      const status = await api.getAutoUpdateStatus();
+      if (status) setUpdateStatus(status);
+    } catch {
+      // ignore
+    }
+  }, [isElectron]);
+
+  /** Trigger update check or install depending on current state. */
+  const triggerUpdateAction = React.useCallback(async () => {
+    const api = window.teatimeElectron;
+    if (!isElectron || !api) return;
+    // 已下载则直接重启安装，否则触发更新检查。
+    if (updateStatus?.state === "downloaded") {
+      await api.installUpdate?.();
+      return;
+    }
+    await api.checkForUpdates?.();
+  }, [isElectron, updateStatus?.state]);
 
   /** Fetch WebContentsView count from Electron main process via IPC. */
   const fetchWebContentsViewCount = React.useCallback(async () => {
@@ -91,6 +135,69 @@ export function AboutTeatime() {
     };
   }, [isElectron, fetchWebContentsViewCount]);
 
+  React.useEffect(() => {
+    if (!isElectron) return;
+    void fetchAppVersion();
+    void fetchUpdateStatus();
+  }, [isElectron, fetchAppVersion, fetchUpdateStatus]);
+
+  React.useEffect(() => {
+    if (!isElectron) return;
+
+    const onUpdateStatus = (event: Event) => {
+      const detail = (event as CustomEvent<TeatimeAutoUpdateStatus>).detail;
+      if (!detail) return;
+      setUpdateStatus(detail);
+    };
+
+    window.addEventListener("teatime:auto-update:status", onUpdateStatus);
+    return () => window.removeEventListener("teatime:auto-update:status", onUpdateStatus);
+  }, [isElectron]);
+
+  /** Re-enter the setup flow by resetting step-up status. */
+  const restartSetup = React.useCallback(async () => {
+    // 流程：先重置初始化标记，再跳转到初始化页面；写入异常时也进入页面，避免卡在当前页。
+    try {
+      await setSettingValue(WebSettingDefs.StepUpInitialized, false);
+    } finally {
+      if (typeof window !== "undefined") {
+        window.location.assign(STEP_UP_ROUTE);
+      }
+    }
+  }, []);
+
+  const currentVersion = appVersion ?? updateStatus?.currentVersion ?? "—";
+  const downloadPercent = updateStatus?.progress?.percent;
+  const updateLabel = React.useMemo(() => {
+    if (!isElectron) return "网页版不支持自动更新";
+    if (!updateStatus) return "等待检测更新";
+    const next = updateStatus.nextVersion ? `v${updateStatus.nextVersion}` : "新版本";
+    switch (updateStatus.state) {
+      case "checking":
+        return "正在检查更新...";
+      case "available":
+        return `发现 ${next}，正在下载`;
+      case "downloading":
+        return `正在下载更新 ${Math.round(downloadPercent ?? 0)}%`;
+      case "downloaded":
+        return `${next} 已下载，等待重启`;
+      case "not-available":
+        return "当前已是最新版本";
+      case "error":
+        return updateStatus.error ? `更新失败：${updateStatus.error}` : "更新失败";
+      case "idle":
+      default:
+        return "等待检测更新";
+    }
+  }, [isElectron, updateStatus, downloadPercent]);
+
+  const updateActionLabel = updateStatus?.state === "downloaded" ? "立即重启" : "检测更新";
+  const updateActionDisabled =
+    !isElectron ||
+    updateStatus?.state === "checking" ||
+    updateStatus?.state === "available" ||
+    updateStatus?.state === "downloading";
+
   return (
     <div className="space-y-6">
       <SettingsGroup title="版本">
@@ -98,14 +205,19 @@ export function AboutTeatime() {
           <div className="min-w-0">
             <div className="flex items-baseline gap-2">
               <div className="text-sm font-medium">Teatime</div>
-              <div className="text-xs text-muted-foreground">v0.1.0</div>
+              <div className="text-xs text-muted-foreground">v{currentVersion}</div>
             </div>
-            <div className="text-xs text-muted-foreground">当前已是最新版本</div>
+            <div className="text-xs text-muted-foreground">{updateLabel}</div>
           </div>
 
           <div className="shrink-0">
-            <Button variant="outline" size="sm">
-              检测更新
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={updateActionDisabled}
+              onClick={() => void triggerUpdateAction()}
+            >
+              {updateActionLabel}
             </Button>
           </div>
         </div>
@@ -170,6 +282,17 @@ export function AboutTeatime() {
               </div>
             </div>
           ) : null}
+        </div>
+      </SettingsGroup>
+
+      <SettingsGroup title="操作">
+        <div className="flex items-center justify-between gap-4 px-3 py-3">
+          <div className="text-sm font-medium">重新进入初始化</div>
+          <div className="shrink-0">
+            <Button type="button" variant="outline" size="sm" onClick={() => void restartSetup()}>
+              进入
+            </Button>
+          </div>
         </div>
       </SettingsGroup>
 

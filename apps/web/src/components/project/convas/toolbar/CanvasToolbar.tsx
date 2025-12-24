@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import {
   MousePointer2,
   Hand,
@@ -8,16 +9,15 @@ import {
   Square,
   ArrowRight,
   Route,
-  Link2,
   Image as ImageIcon,
   Video,
-  FileText,
   StickyNote,
   Type as TypeIcon,
   Shapes,
 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import { HoverPanel, IconBtn, PanelItem } from "./ToolbarParts";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type ToolKind =
   | "select"
@@ -27,19 +27,24 @@ type ToolKind =
   | "group"
   | "arrow-straight"
   | "arrow-curve"
+  | "text"
   | "resource";
 
 export interface CanvasToolbarProps {
-  activeTool?: ToolKind;
   onToolChange?: (tool: ToolKind) => void;
-  onInsert?: (type: "note" | "text") => void;
+  onInsertNote?: () => void;
+  onInsertText?: () => void;
+  onInsertImageFiles?: (files: File[]) => void;
+  onInsertVideoUrl?: (url: string) => void;
 }
 
 /** 画布底部工具栏（仅 UI） */
 const CanvasToolbar = memo(function CanvasToolbar({
-  activeTool,
   onToolChange,
-  onInsert,
+  onInsertNote,
+  onInsertText,
+  onInsertImageFiles,
+  onInsertVideoUrl,
 }: CanvasToolbarProps) {
   // 面板关闭的延迟时间（毫秒）
   const CLOSE_DELAY_MS = 600;
@@ -47,15 +52,16 @@ const CanvasToolbar = memo(function CanvasToolbar({
   const [hoverGroup, setHoverGroup] = useState<string | null>(null);
   const closeTimerRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   // 每个分组当前选中项（底部显示该图标）
   const [modeSel, setModeSel] = useState<"pointer" | "hand" | "marked">("pointer");
   const [frameSel, setFrameSel] = useState<"frame" | "group">("frame");
   const [arrowSel, setArrowSel] = useState<"arrow-straight" | "arrow-curve">("arrow-straight");
-  const [resSel, setResSel] = useState<"page" | "image" | "video" | "text">("page");
-  const [widgetSel, setWidgetSel] = useState<"note" | "text">("note");
   // 当前激活的分组（全局唯一选中态）
-  const [activeGroup, setActiveGroup] = useState<"mode" | "frame" | "arrows" | "resource" | "widgets">("mode");
+  const [activeGroup, setActiveGroup] = useState<"mode" | "frame" | "arrows">("mode");
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+  const [videoInput, setVideoInput] = useState("");
 
   // 事件：切换工具
   const setTool = useCallback(
@@ -65,11 +71,53 @@ const CanvasToolbar = memo(function CanvasToolbar({
     [onToolChange]
   );
 
-  // 事件：插入节点（先只支持便签/文本）
-  const insert = useCallback(
-    (type: "note" | "text") => onInsert?.(type),
-    [onInsert]
+  /** Extract the src URL from an iframe snippet or a raw URL input. */
+  const extractEmbedUrl = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    if (trimmed.includes("<iframe")) {
+      const doc = new DOMParser().parseFromString(trimmed, "text/html");
+      const iframe = doc.querySelector("iframe");
+      const src = iframe?.getAttribute("src")?.trim() ?? "";
+      if (src) return src;
+      const match = trimmed.match(/src\\s*=\\s*["']([^"']+)["']/i);
+      if (!match?.[1]) return "";
+      const decoded = new DOMParser().parseFromString(match[1], "text/html");
+      return decoded.documentElement.textContent?.trim() ?? match[1];
+    }
+    return trimmed;
+  }, []);
+
+  /** Trigger the native image picker. */
+  const handlePickImage = useCallback(() => {
+    imageInputRef.current?.click();
+  }, []);
+
+  /** Handle inserting selected image files. */
+  const handleImageChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files ?? []);
+      if (files.length === 0) return;
+      onInsertImageFiles?.(files);
+      // 逻辑：清空输入，保证再次选择同一文件可触发 change
+      event.target.value = "";
+    },
+    [onInsertImageFiles],
   );
+
+  /** Open the video input dialog. */
+  const handleOpenVideoDialog = useCallback(() => {
+    setVideoInput("");
+    setVideoDialogOpen(true);
+  }, []);
+
+  /** Confirm and insert a video URL. */
+  const handleConfirmVideo = useCallback(() => {
+    const url = extractEmbedUrl(videoInput);
+    if (!url) return;
+    onInsertVideoUrl?.(url);
+    setVideoDialogOpen(false);
+  }, [extractEmbedUrl, onInsertVideoUrl, videoInput]);
 
   // 分组 hover 处理：仅打开，不在移出时关闭（点击空白才关闭）
   const openGroup = useCallback((id: string) => {
@@ -271,121 +319,86 @@ const CanvasToolbar = memo(function CanvasToolbar({
           </HoverPanel>
         </div>
 
-        {/* 4) 资源（仅 UI 占位） */}
-        <div className="relative" onMouseEnter={() => openGroup("resource")}>
-          <IconBtn
-            title="资源/关联"
-            active={activeGroup === "resource"}
-            onClick={() => {
-              setActiveGroup("resource");
-              openGroup("resource");
-              // 资源组：默认进入资源模式
-              setTool("resource");
-            }}
-          >
-            {resSel === "page" ? (
-              <Link2 size={iconSize} />
-            ) : resSel === "image" ? (
-              <ImageIcon size={iconSize} />
-            ) : resSel === "video" ? (
-              <Video size={iconSize} />
-            ) : (
-              <FileText size={iconSize} />
-            )}
-          </IconBtn>
-          <HoverPanel
-            open={hoverGroup === "resource"}
-            onMouseEnter={() => openGroup("resource")}
-          >
-            <PanelItem
-              title="关联页面"
-              active={resSel === "page"}
-              onClick={() => {
-                setResSel("page");
-                setTool("resource");
-                setActiveGroup("resource");
-              }}
-            >
-              <Link2 size={iconSize} />
-            </PanelItem>
-            <PanelItem
-              title="图片"
-              active={resSel === "image"}
-              onClick={() => {
-                setResSel("image");
-                setActiveGroup("resource");
-              }}
-            >
-              <ImageIcon size={iconSize} />
-            </PanelItem>
-            <PanelItem
-              title="视频"
-              active={resSel === "video"}
-              onClick={() => {
-                setResSel("video");
-                setActiveGroup("resource");
-              }}
-            >
-              <Video size={iconSize} />
-            </PanelItem>
-            <PanelItem
-              title="文本"
-              active={resSel === "text"}
-              onClick={() => {
-                setResSel("text");
-                setActiveGroup("resource");
-              }}
-            >
-              <FileText size={iconSize} />
-            </PanelItem>
-          </HoverPanel>
-        </div>
+        <span className="mx-1 text-muted-foreground">|</span>
 
-        {/* 5) 小组件（先实现便签/文字） */}
-        <div className="relative" onMouseEnter={() => openGroup("widgets")}>
-          <IconBtn
-            title="小组件"
-            active={activeGroup === "widgets"}
-            onClick={() => {
-              setActiveGroup("widgets");
-              openGroup("widgets");
-              // 小组件：点击底部按钮时应用当前项（便签/文字）
-              if (widgetSel === "note") insert("note");
-              else insert("text");
-            }}
-          >
-            {widgetSel === "note" ? <StickyNote size={iconSize} /> : <TypeIcon size={iconSize} />}
+        {/* 右侧组件区：点击即触发插入 */}
+        <div className="flex items-center gap-1.5">
+          <IconBtn title="图片" onClick={handlePickImage}>
+            <ImageIcon size={iconSize} />
           </IconBtn>
-          <HoverPanel
-            open={hoverGroup === "widgets"}
-            onMouseEnter={() => openGroup("widgets")}
-          >
-            <PanelItem
-              title="便签"
-              active={widgetSel === "note"}
-              onClick={() => {
-                setWidgetSel("note");
-                insert("note");
-                setActiveGroup("widgets");
-              }}
-            >
-              <StickyNote size={iconSize} />
-            </PanelItem>
-            <PanelItem
-              title="文字"
-              active={widgetSel === "text"}
-              onClick={() => {
-                setWidgetSel("text");
-                insert("text");
-                setActiveGroup("widgets");
-              }}
-            >
-              <TypeIcon size={iconSize} />
-            </PanelItem>
-            {/* 仅保留已实现的组件：便签 / 文字 */}
-          </HoverPanel>
+          <IconBtn title="视频" onClick={handleOpenVideoDialog}>
+            <Video size={iconSize} />
+          </IconBtn>
+          <IconBtn title="便签" onClick={onInsertNote}>
+            <StickyNote size={iconSize} />
+          </IconBtn>
+          <IconBtn title="文字" onClick={onInsertText}>
+            <TypeIcon size={iconSize} />
+          </IconBtn>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleImageChange}
+          />
         </div>
       </div>
+      <Dialog
+        open={videoDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setVideoDialogOpen(false);
+            return;
+          }
+          setVideoDialogOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>插入视频</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <div className="text-xs text-muted-foreground">
+              支持输入链接，或粘贴 iframe 代码自动提取 src。
+            </div>
+            <input
+              type="text"
+              value={videoInput}
+              placeholder="粘贴链接或 iframe 代码"
+              className="h-9 rounded-md border border-border bg-transparent px-3 text-sm"
+              onChange={(event) => setVideoInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleConfirmVideo();
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setVideoDialogOpen(false);
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              className="h-8 rounded-md border border-border px-3 text-sm text-muted-foreground hover:bg-accent"
+              onClick={() => setVideoDialogOpen(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="h-8 rounded-md border border-border px-3 text-sm hover:bg-accent"
+              onClick={handleConfirmVideo}
+            >
+              确定
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 });

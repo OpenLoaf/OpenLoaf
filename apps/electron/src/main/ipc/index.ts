@@ -1,5 +1,6 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import type { Logger } from '../logging/startupLogger';
+import { checkForUpdates, getAutoUpdateStatus, installUpdate } from '../autoUpdate';
 import {
   createBrowserWindowForUrl,
   destroyAllWebContentsViews,
@@ -52,6 +53,9 @@ async function getCdpTargetId(webContents: Electron.WebContents): Promise<string
 export function registerIpcHandlers(args: { log: Logger }) {
   if (ipcHandlersRegistered) return;
   ipcHandlersRegistered = true;
+
+  // 提供应用版本号给渲染端展示。
+  ipcMain.handle('teatime:app:version', async () => app.getVersion());
 
   // 为用户输入的 URL 打开独立窗口（通常用于外部链接）。
   ipcMain.handle('teatime:open-browser-window', async (_event, payload: { url: string }) => {
@@ -128,6 +132,21 @@ export function registerIpcHandlers(args: { log: Logger }) {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return { ok: false as const };
     return { ok: true as const, count: getWebContentsViewCount(win) };
+  });
+
+  // 手动触发更新检查（用于设置页“检测更新”按钮）。
+  ipcMain.handle('teatime:auto-update:check', async () => {
+    return await checkForUpdates('manual');
+  });
+
+  // 获取最新更新状态快照（用于设置页首次渲染）。
+  ipcMain.handle('teatime:auto-update:status', async () => {
+    return getAutoUpdateStatus();
+  });
+
+  // 安装已下载的更新并重启。
+  ipcMain.handle('teatime:auto-update:install', async () => {
+    return installUpdate();
   });
 
   args.log('IPC handlers registered');

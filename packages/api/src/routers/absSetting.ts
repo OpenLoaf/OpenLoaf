@@ -1,14 +1,13 @@
 import { z } from "zod";
 import { t, shieldedProcedure } from "../index";
-const settingScopeSchema = z.enum(["WEB", "SERVER", "PUBLIC"]);
 
 const settingItemSchema = z.object({
   key: z.string(),
   value: z.any(),
-  scope: settingScopeSchema,
   secret: z.boolean(),
   category: z.string().optional(),
   isReadonly: z.boolean(),
+  syncToCloud: z.boolean().optional(),
 });
 
 export const settingSchemas = {

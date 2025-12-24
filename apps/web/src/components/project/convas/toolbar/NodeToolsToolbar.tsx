@@ -9,6 +9,10 @@ export interface NodeToolItem {
   title: string;
   icon: React.ReactNode;
   onClick?: () => void;
+  onPointerDown?: () => void;
+  onPointerUp?: () => void;
+  onPointerLeave?: () => void;
+  onPointerCancel?: () => void;
   active?: boolean;
   tone?: "danger";
 }
@@ -45,6 +49,10 @@ const NodeToolsToolbar = memo(function NodeToolsToolbar({
             title={item.title}
             size={size}
             onClick={item.onClick}
+            onPointerDown={item.onPointerDown}
+            onPointerUp={item.onPointerUp}
+            onPointerLeave={item.onPointerLeave}
+            onPointerCancel={item.onPointerCancel}
             active={item.active}
             className={item.tone === "danger" ? "text-destructive hover:bg-destructive/10" : ""}
           >

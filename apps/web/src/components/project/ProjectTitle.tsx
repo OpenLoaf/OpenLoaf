@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Copy, SmilePlus } from "lucide-react";
+import { Copy, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -90,6 +90,12 @@ export default function ProjectTitle({
     const latestTitle = currentTitle ?? "";
     if (nextTitle === latestTitle) return;
     onUpdateTitle(nextTitle);
+  };
+
+  /** Clear the current title back to default. */
+  const handleDeleteTitle = () => {
+    if (!pageId || isUpdating) return;
+    onUpdateTitle("Untitled Page");
   };
 
   return (
@@ -184,6 +190,22 @@ export default function ProjectTitle({
                 }}
               >
                 <Copy className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="shrink-0 opacity-0 group-hover/title:opacity-100 focus-visible:opacity-100 text-muted-foreground hover:text-foreground"
+                aria-label="Delete title"
+                title="Delete title"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDeleteTitle();
+                }}
+                disabled={!pageId || isUpdating}
+              >
+                <Trash2 className="size-4" />
               </Button>
             </span>
           )}

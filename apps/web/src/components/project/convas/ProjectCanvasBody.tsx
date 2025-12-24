@@ -2,7 +2,7 @@
 
 import "reactflow/dist/style.css";
 import { memo, useCallback, useEffect, useRef } from "react";
-import type { PointerEvent } from "react";
+import type { MouseEvent, PointerEvent } from "react";
 import ReactFlow, {
   MiniMap,
   addEdge,
@@ -13,11 +13,13 @@ import ReactFlow, {
 } from "reactflow";
 import { useIdleMount } from "@/hooks/use-idle-mount";
 import CanvasControls from "./controls/CanvasControls";
-import CanvasAlignmentGuides from "./components/CanvasAlignmentGuides";
 import CanvasMultiSelectionToolbar from "./components/CanvasMultiSelectionToolbar";
+import CanvasSnapOverlay from "./components/CanvasSnapOverlay";
 import { useCanvasState } from "./CanvasProvider";
 import ImageNode from "./nodes/ImageNode";
 import GroupNode from "./nodes/GroupNode";
+import TextNode from "./nodes/TextNode";
+import VideoIFrameNode from "./nodes/VideoIFrameNode";
 import { adjustGroupBounds, buildNodeMap, getNodeParentId } from "./utils/group-node";
 import {
   collectSelectedSubgraph,
@@ -50,6 +52,8 @@ export interface ProjectCanvasProps {
 const NODE_TYPES = {
   image: ImageNode,
   group: GroupNode,
+  text: TextNode,
+  "video-iframe": VideoIFrameNode,
 };
 
 /** Render the project drawing canvas. */
@@ -106,6 +110,7 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
     handleCanvasPointerMove: handleCanvasImagePointerMove,
     handleCanvasDragOver,
     handleCanvasDrop,
+    insertImageFiles,
   } = useCanvasImages({
     isCanvasActive,
     isLocked,
@@ -114,12 +119,12 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
     setNodes,
   });
 
-  const { alignmentGuides, clearAlignmentGuides, handleNodesChange } = useCanvasAlignment({
-    isLocked,
+  const { handleNodesChange, snapLines, clearSnapLines } = useCanvasAlignment({
     nodes,
-    flowRef,
     setEdges,
     setNodes,
+    flowRef,
+    isLocked,
   });
 
   const { onNodeClick } = useCanvasEdgeCreation({
@@ -130,17 +135,6 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
     setPendingEdgeSource,
     setSuppressSingleNodeToolbar,
   });
-
-  /** Begin tracking node drag for history coalescing. */
-  const handleNodeDragStart = useCallback(() => {
-    beginNodeDrag();
-  }, [beginNodeDrag]);
-
-  /** End node drag tracking and clear guides. */
-  const handleNodeDragStop = useCallback(() => {
-    endNodeDrag();
-    clearAlignmentGuides();
-  }, [clearAlignmentGuides, endNodeDrag]);
 
   /** Check whether a node is inside any selected group. */
   const isDescendantOfSelectedGroup = useCallback(
@@ -169,6 +163,17 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
   const { onMoveStart, onMoveEnd } = useCanvasMovement({ setIsMoving });
 
   useCanvasWheelZoom({ canvasRef, flowRef, isCanvasActive });
+
+  /** Begin tracking node drag for history coalescing. */
+  const handleNodeDragStart = useCallback(() => {
+    beginNodeDrag();
+  }, [beginNodeDrag]);
+
+  /** End node drag tracking. */
+  const handleNodeDragStop = useCallback(() => {
+    endNodeDrag();
+    clearSnapLines();
+  }, [clearSnapLines, endNodeDrag]);
 
   /** Refresh the React Flow viewport when the canvas becomes active. */
   useEffect(() => {
@@ -202,6 +207,12 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
       const isEditingTarget =
         target?.closest("input, textarea, [contenteditable='true']") !== null;
       if (isEditingTarget) return;
+      if (event.key === "Escape" && mode === "text") {
+        // 逻辑：退出文字工具模式，回到指针状态
+        setMode("select");
+        event.preventDefault();
+        return;
+      }
       const isUndo = (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z";
       const isRedo =
         (event.metaKey || event.ctrlKey) &&
@@ -292,9 +303,11 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
     isCanvasActive,
     isDescendantOfSelectedGroup,
     isLocked,
+    mode,
     nodes,
     redo,
     setEdges,
+    setMode,
     setNodes,
     setSuppressSingleNodeToolbar,
     undo,
@@ -362,26 +375,123 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
     return () => window.removeEventListener("paste", handlePaste, true);
   }, [edges, isCanvasActive, isLocked, nodes, setEdges, setNodes]);
 
-  /** Insert a basic note/text node. */
-  const onInsert = useCallback(
-    (type: "note" | "text") => {
+  /** Build a text node at the specified flow position. */
+  const insertTextNodeAt = useCallback(
+    (position: { x: number; y: number }) => {
       if (isLocked) return;
       const id = `n-${nodes.length + 1}`;
-      const x = 120 + nodes.length * 36;
-      const y = 120 + nodes.length * 20;
-      const label = type === "note" ? "便签" : "文字";
-      // 逻辑：基于当前节点数量生成轻微错位的初始位置
+      // 逻辑：写入新节点并进入编辑态
       setNodes((nds) => [
         ...nds,
         {
           id,
-          position: { x, y },
-          data: { label },
-          type: "default",
+          position,
+          data: { text: "", autoEdit: true },
+          type: "text",
         },
       ]);
     },
     [isLocked, nodes.length, setNodes],
+  );
+
+  /** Build a video iframe node at the specified flow position. */
+  const insertVideoIFrameNodeAt = useCallback(
+    (position: { x: number; y: number }, options?: { src?: string; autoEdit?: boolean }) => {
+      if (isLocked) return;
+      const id = `video-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      // 逻辑：新建视频节点并进入链接编辑态
+      setNodes((nds) => [
+        ...nds,
+        {
+          id,
+          position,
+          type: "video-iframe",
+          width: 360,
+          height: 220,
+          data: {
+            src: options?.src ?? "",
+            autoEdit: options?.autoEdit ?? true,
+          },
+        },
+      ]);
+    },
+    [isLocked, setNodes],
+  );
+
+
+  /** Resolve the canvas center position in flow coordinates. */
+  const getCanvasCenterPosition = useCallback(() => {
+    const inst = flowRef.current;
+    const el = canvasRef.current;
+    if (!inst || !el) {
+      return { x: 0, y: 0 };
+    }
+    const rect = el.getBoundingClientRect();
+    return inst.screenToFlowPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    });
+  }, []);
+
+  /** Insert a note node at the canvas center. */
+  const handleInsertNoteAtCenter = useCallback(() => {
+    if (isLocked) return;
+    const id = `n-${nodes.length + 1}`;
+    const position = getCanvasCenterPosition();
+    // 逻辑：中心点插入便签节点
+    setNodes((nds) => [
+      ...nds,
+      {
+        id,
+        position,
+        data: { label: "便签" },
+        type: "default",
+      },
+    ]);
+  }, [getCanvasCenterPosition, isLocked, nodes.length, setNodes]);
+
+  /** Insert a text node at the canvas center. */
+  const handleInsertTextAtCenter = useCallback(() => {
+    const position = getCanvasCenterPosition();
+    insertTextNodeAt(position);
+  }, [getCanvasCenterPosition, insertTextNodeAt]);
+
+  /** Insert image files at the canvas center. */
+  const handleInsertImageFiles = useCallback(
+    (files: File[]) => {
+      if (isLocked) return;
+      const position = getCanvasCenterPosition();
+      insertImageFiles(files, { position });
+    },
+    [getCanvasCenterPosition, insertImageFiles, isLocked],
+  );
+
+  /** Insert a video iframe node at the canvas center. */
+  const handleInsertVideoUrl = useCallback(
+    (url: string) => {
+      if (isLocked) return;
+      const trimmed = url.trim();
+      if (!trimmed) return;
+      const position = getCanvasCenterPosition();
+      insertVideoIFrameNodeAt(position, { src: trimmed, autoEdit: false });
+    },
+    [getCanvasCenterPosition, insertVideoIFrameNodeAt, isLocked],
+  );
+
+  /** Handle background click for text insertion mode. */
+  const handlePaneClick = useCallback(
+    (event: MouseEvent) => {
+      if (mode !== "text") return;
+      const inst = flowRef.current;
+      if (!inst) return;
+      // 逻辑：把点击坐标映射为画布坐标后插入文字节点
+      const position = inst.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      insertTextNodeAt(position);
+    },
+    [insertTextNodeAt, mode],
   );
 
   if (isLoading) {
@@ -418,10 +528,13 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
             onSelectionEnd={handleSelectionEnd}
             onNodeDragStart={handleNodeDragStart}
             onNodeDragStop={handleNodeDragStop}
+            onPaneClick={handlePaneClick}
             nodesDraggable={mode !== "hand" && !isLocked}
             nodesConnectable={!isLocked}
             elementsSelectable={!isLocked}
             edgesUpdatable={!isLocked}
+            // 逻辑：框选时避免自动提升选中节点层级，防止 z-index 随鼠标抖动
+            elevateNodesOnSelect={false}
             // 手型模式：启用拖拽平移，禁用拖选
             // 支持触控板双指平移 + 鼠标中键拖动
             panOnScroll
@@ -438,6 +551,7 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
               } as React.CSSProperties
             }
           >
+            <CanvasSnapOverlay lines={snapLines} />
             {showMiniMap ? (
               <div
                 className="transition-opacity duration-200 ease-out"
@@ -464,14 +578,18 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
                 />
               </div>
             ) : null}
-            <CanvasAlignmentGuides guides={alignmentGuides} />
             <CanvasMultiSelectionToolbar />
             <CanvasControls />
           </ReactFlow>
         ) : null}
         {/* 底部工具栏（仅 UI）：玻璃风格、宽松间距、hover 展开 */}
-        {/* 说明：onToolChange 驱动画布模式；onInsert 用于插入简单节点 */}
-        <CanvasToolbar onToolChange={setMode} onInsert={onInsert} />
+        <CanvasToolbar
+          onToolChange={setMode}
+          onInsertNote={handleInsertNoteAtCenter}
+          onInsertText={handleInsertTextAtCenter}
+          onInsertImageFiles={handleInsertImageFiles}
+          onInsertVideoUrl={handleInsertVideoUrl}
+        />
         <div className="sr-only">
           {pageTitle} {pageId ?? "-"}
         </div>

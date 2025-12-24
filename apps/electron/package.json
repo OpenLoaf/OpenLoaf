@@ -4,6 +4,46 @@
   "version": "1.0.0",
   "description": "TeaTime desktop app",
   "main": ".webpack/main",
+  "build": {
+    "appId": "com.hexems.teatime",
+    "productName": "TeaTime",
+    "asar": true,
+    "files": [
+      ".webpack/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../../apps/server/dist/server.mjs",
+        "to": "server.mjs"
+      },
+      {
+        "from": "../../apps/server/dist/seed.db",
+        "to": "seed.db"
+      },
+      {
+        "from": "../../apps/web/out",
+        "to": "out"
+      },
+      {
+        "from": "../../node_modules/@libsql",
+        "to": "@libsql"
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_OWNER",
+        "repo": "YOUR_GITHUB_REPO"
+      }
+    ]
+  },
   "scripts": {
     "predesktop": "node scripts/fixElectronInstall.mjs",
     "desktop": "electron-forge start",
@@ -12,6 +52,8 @@
     "make": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge make",
     "make:noproxy": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u all_proxy -u ALL_PROXY -u no_proxy -u NO_PROXY electron-forge make",
     "build": "pnpm run package",
+    "dist:builder": "pnpm run package && electron-builder",
+    "dist:builder:publish": "pnpm run package && electron-builder --publish=always",
     "check-types": "pnpm -w exec tsc -p apps/electron/tsconfig.json --noEmit",
     "lint": "eslint src"
   },
@@ -22,6 +64,7 @@
   },
   "dependencies": {
     "@teatime-ai/config": "workspace:*",
+    "electron-updater": "^6.3.0",
     "pino": "^10.1.0",
     "serve-handler": "^6.1.6"
   },
@@ -31,6 +74,7 @@
     "@electron-forge/maker-zip": "^7.10.2",
     "@electron-forge/plugin-webpack": "^7.10.2",
     "@electron-forge/shared-types": "^7.10.2",
+    "electron-builder": "^24.13.3",
     "electron": "^39.2.7",
     "ts-loader": "^9.2.2",
     "typescript": "catalog:"

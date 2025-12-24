@@ -1,16 +1,24 @@
 import prisma from "@teatime-ai/db";
-import type { SettingDef, SettingScope } from "@teatime-ai/api/types/setting";
+import type { SettingDef } from "@teatime-ai/api/types/setting";
 import { ServerSettingDefs } from "@/settings/settingDefs";
-import type { ModelDefinition } from "@teatime-ai/api/common";
+import type { ModelCapabilityId, ModelDefinition } from "@teatime-ai/api/common";
 
 type SettingItem = {
   key: string;
   value: unknown;
-  scope: SettingScope;
   secret: boolean;
   category?: string;
   isReadonly: boolean;
+  syncToCloud: boolean;
 };
+
+function getRowSyncToCloud(row: unknown, fallback: boolean) {
+  if (row && typeof row === "object" && "syncToCloud" in row) {
+    const value = (row as { syncToCloud?: boolean }).syncToCloud;
+    return typeof value === "boolean" ? value : fallback;
+  }
+  return fallback;
+}
 
 export type ProviderSettingEntry = {
   key: string;
@@ -41,7 +49,6 @@ function resolveSettingDef(key: string, category?: string) {
     return {
       key,
       defaultValue: null,
-      scope: "PUBLIC",
       secret: true,
       category: "provider",
     } satisfies SettingDef<unknown>;
@@ -136,10 +143,10 @@ async function getSettingsByDefs(
     return {
       key: def.key,
       value,
-      scope: def.scope,
       secret: Boolean(def.secret),
       category: def.category,
       isReadonly: row?.isReadonly ?? false,
+      syncToCloud: getRowSyncToCloud(row, Boolean(def.syncToCloud)),
     } satisfies SettingItem;
   });
 }
@@ -156,10 +163,10 @@ async function getProviderSettingsForWeb({ maskSecret }: { maskSecret: boolean }
     return {
       key: row.key,
       value,
-      scope: row.type as SettingScope,
       secret: row.secret,
       category: row.category,
       isReadonly: row.isReadonly,
+      syncToCloud: getRowSyncToCloud(row, false),
     } satisfies SettingItem;
   });
 }
@@ -213,6 +220,52 @@ function normalizeProviderSettingRow(row: {
   };
 }
 
+const CAPABILITY_ALIASES: Record<string, ModelCapabilityId[]> = {
+  text: ["text_input", "text_output"],
+  vision_input: ["image_input"],
+  vision_output: ["image_output"],
+};
+
+const SUPPORTED_CAPABILITIES = new Set<ModelCapabilityId>([
+  "text_input",
+  "text_output",
+  "image_input",
+  "image_output",
+  "video_input",
+  "video_output",
+  "audio_input",
+  "audio_output",
+  "reasoning",
+  "tools",
+  "rerank",
+  "embedding",
+  "structured_output",
+]);
+
+function normalizeCapabilities(raw: unknown): ModelCapabilityId[] {
+  if (!Array.isArray(raw)) return [];
+  const normalized: ModelCapabilityId[] = [];
+  const seen = new Set<ModelCapabilityId>();
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const trimmed = item.trim();
+    if (!trimmed) continue;
+    const mapped = CAPABILITY_ALIASES[trimmed] ?? [trimmed as ModelCapabilityId];
+    // 中文注释：统一转换旧能力字段，并过滤掉未支持的标记。
+    for (const capability of mapped) {
+      if (!SUPPORTED_CAPABILITIES.has(capability)) continue;
+      if (seen.has(capability)) continue;
+      seen.add(capability);
+      normalized.push(capability);
+    }
+  }
+  return normalized;
+}
+
+function readFiniteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
 /**
  * Normalize model definitions from provider settings.
  */
@@ -223,32 +276,35 @@ function normalizeModelDefinitions(value: unknown): ModelDefinition[] {
     if (!item || typeof item !== "object") continue;
     const model = item as ModelDefinition;
     if (typeof model.id !== "string" || !model.id.trim()) continue;
-    if (!Array.isArray(model.capability)) continue;
+    const capability = normalizeCapabilities(model.capability);
+    if (capability.length === 0) continue;
     if (typeof model.maxContextK !== "number" || !Number.isFinite(model.maxContextK)) continue;
-    if (
-      typeof model.priceInPerMillion !== "number" ||
-      !Number.isFinite(model.priceInPerMillion)
-    ) {
-      continue;
-    }
-    if (
-      typeof model.priceOutPerMillion !== "number" ||
-      !Number.isFinite(model.priceOutPerMillion)
-    ) {
-      continue;
-    }
+    const priceTextInput =
+      readFiniteNumber((model as ModelDefinition).priceTextInputPerMillion) ??
+      readFiniteNumber((model as { priceInPerMillion?: number }).priceInPerMillion);
+    const priceTextOutput =
+      readFiniteNumber((model as ModelDefinition).priceTextOutputPerMillion) ??
+      readFiniteNumber((model as { priceOutPerMillion?: number }).priceOutPerMillion);
+    if (typeof priceTextInput !== "number" || typeof priceTextOutput !== "number") continue;
     if (typeof model.currencySymbol !== "string") continue;
     models.push({
       id: model.id.trim(),
-      capability: model.capability,
+      capability,
       maxContextK: model.maxContextK,
-      priceInPerMillion: model.priceInPerMillion,
-      priceOutPerMillion: model.priceOutPerMillion,
-      cachedInputPerMillion:
-        typeof model.cachedInputPerMillion === "number" &&
-        Number.isFinite(model.cachedInputPerMillion)
-          ? model.cachedInputPerMillion
-          : undefined,
+      priceTextInputPerMillion: priceTextInput,
+      priceTextOutputPerMillion: priceTextOutput,
+      priceImageInputPerMillion: readFiniteNumber(model.priceImageInputPerMillion),
+      priceImageOutputPerMillion: readFiniteNumber(model.priceImageOutputPerMillion),
+      priceVideoInputPerMillion: readFiniteNumber(model.priceVideoInputPerMillion),
+      priceVideoOutputPerMillion: readFiniteNumber(model.priceVideoOutputPerMillion),
+      priceAudioInputPerMillion: readFiniteNumber(model.priceAudioInputPerMillion),
+      priceAudioOutputPerMillion: readFiniteNumber(model.priceAudioOutputPerMillion),
+      cachedTextInputPerMillion:
+        readFiniteNumber(model.cachedTextInputPerMillion) ??
+        readFiniteNumber((model as { cachedInputPerMillion?: number }).cachedInputPerMillion),
+      cachedImageInputPerMillion: readFiniteNumber(model.cachedImageInputPerMillion),
+      cachedVideoInputPerMillion: readFiniteNumber(model.cachedVideoInputPerMillion),
+      cachedAudioInputPerMillion: readFiniteNumber(model.cachedAudioInputPerMillion),
       currencySymbol: model.currencySymbol,
     });
   }
@@ -268,9 +324,7 @@ export async function getProviderSettings(): Promise<ProviderSettingEntry[]> {
 
 /** Return WEB + PUBLIC settings with secret masking for UI. */
 export async function getSettingsForWeb() {
-  const defs = Object.values(ServerSettingDefs).filter(
-    (def) => def.scope === "WEB" || def.scope === "PUBLIC",
-  );
+  const defs = Object.values(ServerSettingDefs);
   const [knownSettings, providerSettings] = await Promise.all([
     getSettingsByDefs(defs, { maskSecret: true }),
     getProviderSettingsForWeb({ maskSecret: true }),
@@ -298,8 +352,8 @@ export async function setSettingValue(
   const payload = {
     value: serializeSettingValue(value),
     secret: Boolean(def.secret),
-    type: def.scope as any,
     category: resolvedCategory,
+    syncToCloud: Boolean(def.syncToCloud),
   };
   const existing = await findSettingRow(key, resolvedCategory);
   if (existing) {
@@ -318,7 +372,7 @@ export async function setSettingValue(
   });
 }
 
-/** Upsert setting value from web, reject server-only scope. */
+/** Upsert setting value from web. */
 export async function setSettingValueFromWeb(
   key: string,
   value: unknown,
@@ -328,20 +382,14 @@ export async function setSettingValueFromWeb(
   if (category && def.category && category !== def.category) {
     throw new Error("Setting category mismatch");
   }
-  if (def.scope === "SERVER") {
-    throw new Error("Setting is server-only");
-  }
   await setSettingValue(key, value, category);
 }
 
-/** Delete setting value from web, rejects server-only scope. */
+/** Delete setting value from web. */
 export async function deleteSettingValueFromWeb(key: string, category?: string) {
   const def = getSettingDef(key, category);
   if (category && def.category && category !== def.category) {
     throw new Error("Setting category mismatch");
-  }
-  if (def.scope === "SERVER") {
-    throw new Error("Setting is server-only");
   }
   const resolvedCategory = resolveSettingCategory(def, category);
   const existing = await findSettingRow(key, resolvedCategory);

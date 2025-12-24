@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import ServerConnectionGate from "@/components/layout/ServerConnectionGate";
 import { DisableLinks } from "@/components/DisableLinks";
 import GlobalShortcuts from "@/components/GlobalShortcuts";
+import StepUpGate from "@/components/layout/StepUpGate";
 
 export const metadata: Metadata = {
   title: "teatime-ai",
@@ -23,7 +24,9 @@ export default function RootLayout({
         <GlobalShortcuts />
         <Providers>
           <ServerConnectionGate>
-            <div className="grid grid-rows-[auto_1fr] h-svh">{children}</div>
+            <StepUpGate>
+              <div className="grid grid-rows-[auto_1fr] h-svh">{children}</div>
+            </StepUpGate>
           </ServerConnectionGate>
         </Providers>
         <Toaster position="bottom-left" />

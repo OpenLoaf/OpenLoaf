@@ -18,6 +18,7 @@ interface UseCanvasImagesResult {
   handleCanvasPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
   handleCanvasDragOver: (event: DragEvent<HTMLDivElement>) => void;
   handleCanvasDrop: (event: DragEvent<HTMLDivElement>) => void;
+  insertImageFiles: (files: File[], options?: { position?: { x: number; y: number } }) => void;
 }
 
 /** Manage image paste/drag-drop behavior on the canvas. */
@@ -131,6 +132,23 @@ export function useCanvasImages({
     [getPastePosition, setNodes],
   );
 
+  /** Insert image nodes from selected files. */
+  const insertImageFiles = useCallback(
+    (files: File[], options?: { position?: { x: number; y: number } }) => {
+      if (!files || files.length === 0) return;
+      const basePosition = options?.position ?? getPastePosition();
+      files.forEach((file, index) => {
+        const offset = index * 24;
+        void insertImageNode(file, {
+          position: basePosition,
+          offset,
+          alt: file.name || "图片",
+        });
+      });
+    },
+    [getPastePosition, insertImageNode],
+  );
+
   /** Check whether a data transfer payload has image files. */
   const hasImageFilesInTransfer = useCallback((dataTransfer: DataTransfer | null) => {
     if (!dataTransfer) return false;
@@ -233,5 +251,6 @@ export function useCanvasImages({
     handleCanvasPointerMove,
     handleCanvasDragOver,
     handleCanvasDrop,
+    insertImageFiles,
   };
 }

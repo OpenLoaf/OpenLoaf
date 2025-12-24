@@ -1,7 +1,12 @@
 export type ModelCapabilityId =
-  | "text" // 文本（输入/输出）
-  | "vision_input" // 视觉输入
-  | "vision_output" // 视觉输出
+  | "text_input" // 文本输入
+  | "text_output" // 文本输出
+  | "image_input" // 图片输入
+  | "image_output" // 图片输出
+  | "video_input" // 视频输入
+  | "video_output" // 视频输出
+  | "audio_input" // 音频输入
+  | "audio_output" // 音频输出
   | "reasoning" // 推理
   | "tools" // 工具
   | "rerank" // 重排
@@ -14,9 +19,18 @@ export type ModelDefinition = {
   id: string;
   capability: ModelCapabilityId[];
   maxContextK: number;
-  priceInPerMillion: number;
-  priceOutPerMillion: number;
-  cachedInputPerMillion?: number;
+  priceTextInputPerMillion: number;
+  priceTextOutputPerMillion: number;
+  priceImageInputPerMillion?: number;
+  priceImageOutputPerMillion?: number;
+  priceVideoInputPerMillion?: number;
+  priceVideoOutputPerMillion?: number;
+  priceAudioInputPerMillion?: number;
+  priceAudioOutputPerMillion?: number;
+  cachedTextInputPerMillion?: number;
+  cachedImageInputPerMillion?: number;
+  cachedVideoInputPerMillion?: number;
+  cachedAudioInputPerMillion?: number;
   currencySymbol: string;
 };
 

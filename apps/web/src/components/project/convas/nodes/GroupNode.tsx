@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Palette, Ungroup } from "lucide-react";
-import { NodeToolbar, Position, type NodeProps } from "reactflow";
+import { NodeToolbar, type NodeProps } from "reactflow";
 import { useCanvasState } from "../CanvasProvider";
 import { useNodeBase } from "../hooks/use-node-base";
 import NodeToolsToolbar, { type NodeToolItem } from "../toolbar/NodeToolsToolbar";
@@ -30,16 +30,18 @@ const GROUP_COLOR_SWATCHES = [
 ];
 
 /** Render a lightweight group container node. */
-const GroupNode = memo(function GroupNode({ data, id, selected }: NodeProps<GroupNodeData>) {
+const GroupNode = memo(function GroupNode({ data, id, selected, xPos, yPos }: NodeProps<GroupNodeData>) {
   const { nodes, setEdges, setNodes, suppressSingleNodeToolbar } = useCanvasState();
   const baseClassName =
     "relative h-full w-full rounded-2xl border border-border/40 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.55)]";
   const selectedClassName = selected ? " bg-amber-100/70" : "";
   const [isEditing, setIsEditing] = useState(false);
-  const { isToolbarVisible, handleShowToolbar } = useNodeBase({
+  const { isToolbarVisible, handleShowToolbar, toolbarPosition, toolbarPanelPosition } = useNodeBase({
     selected,
     nodes,
     suppressSingleNodeToolbar,
+    xPos,
+    yPos,
   });
   const inputRef = useRef<HTMLInputElement | null>(null);
   const labelValue = data?.label ?? "组";
@@ -159,13 +161,14 @@ const GroupNode = memo(function GroupNode({ data, id, selected }: NodeProps<Grou
     >
       <HiddenHandles ids={IMAGE_HANDLE_IDS} />
       <NodeToolbar
-        position={Position.Top}
+        position={toolbarPosition}
         offset={8}
+        align="center"
         className="nodrag nopan pointer-events-auto"
         isVisible={isToolbarVisible}
       >
         <NodeToolbarStack
-          panelPosition="above"
+          panelPosition={toolbarPanelPosition}
           panel={
             activePanel === "background" ? (
               <NodeToolbarPanel onPointerDown={(event) => event.stopPropagation()}>

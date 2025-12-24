@@ -1,15 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
@@ -23,8 +15,14 @@ import { SettingsGroup } from "./SettingsGroup";
 import { useSetting, useSettingsValues } from "@/hooks/use-settings";
 import { WebSettingDefs } from "@/lib/setting-defs";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
+import {
+  AddModelProviderDialog,
+  type AddModelProviderPayload,
+  type ModelProviderOption,
+} from "@/components/setting/menus/model/AddModelProviderDialog";
+import { Input } from "@/components/ui/input";
 
-type ProviderId = "anthropic" | "deepseek" | "openai" | "xai";
+type ProviderId = "anthropic" | "deepseek" | "google" | "openai" | "xai";
 
 type ModelEntry = {
   id: string;
@@ -41,9 +39,10 @@ type ModelResponseLanguageId =
   | "de-DE"
   | "es-ES";
 
-const PROVIDERS: Array<{ id: ProviderId; label: string }> = [
+const PROVIDERS: ModelProviderOption[] = [
   { id: "anthropic", label: "anthropic" },
   { id: "deepseek", label: "deepseek" },
+  { id: "google", label: "google" },
   { id: "openai", label: "openai" },
   { id: "xai", label: "xai" },
 ];
@@ -60,9 +59,6 @@ export function ModelManagement() {
   );
   const { items } = useSettingsValues();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [draftProvider, setDraftProvider] = useState<ProviderId>("openai");
-  const [draftModel, setDraftModel] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   const { value: modelResponseLanguageRaw, setValue: setModelResponseLanguage } =
     useSetting(WebSettingDefs.ModelResponseLanguage);
@@ -98,12 +94,6 @@ export function ModelManagement() {
       ? chatModelQualityRaw
       : "medium";
 
-  const providerLabelById = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const provider of PROVIDERS) map[provider.id] = provider.label;
-    return map as Record<ProviderId, string>;
-  }, []);
-
   const modelOptions = useMemo(
     () => buildChatModelOptions(chatModelSource, items),
     [chatModelSource, items],
@@ -126,6 +116,21 @@ export function ModelManagement() {
     const exists = modelOptions.some((option) => option.id === defaultChatModelId);
     if (!exists) void setDefaultChatModelId("");
   }, [defaultChatModelId, modelOptions, setDefaultChatModelId]);
+
+  /** Save a new provider model entry. */
+  const handleAddModelProvider = useCallback(
+    (payload: AddModelProviderPayload) => {
+      void setEntriesValue([
+        ...entries,
+        {
+          id: generateRowId(),
+          provider: payload.providerId as ProviderId,
+          model: payload.model,
+        },
+      ]);
+    },
+    [entries, setEntriesValue],
+  );
 
   return (
     <div className="space-y-3">
@@ -294,95 +299,19 @@ export function ModelManagement() {
       <div className="flex items-center justify-end">
         <Button
           size="sm"
-        onClick={() => {
-            setError(null);
-            setDraftProvider("openai");
-            setDraftModel("");
-            setDialogOpen(true);
-          }}
+          onClick={() => setDialogOpen(true)}
         >
           <Plus className="h-4 w-4" />
           添加模型
         </Button>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>添加模型</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="text-sm font-medium">供应商</div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full justify-between font-normal"
-                  >
-                    <span className="truncate">
-                      {providerLabelById[draftProvider]}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[320px]">
-                  <DropdownMenuRadioGroup
-                    value={draftProvider}
-                    onValueChange={(next) => setDraftProvider(next as ProviderId)}
-                  >
-                    {PROVIDERS.map((p) => (
-                      <DropdownMenuRadioItem key={p.id} value={p.id}>
-                        {p.label}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-sm font-medium">模型</div>
-              <Input
-                value={draftModel}
-                placeholder="例如：gpt-4o-mini"
-                onChange={(event) => setDraftModel(event.target.value)}
-              />
-            </div>
-
-            {error ? <div className="text-sm text-destructive">{error}</div> : null}
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
-              取消
-            </Button>
-            <Button
-              onClick={() => {
-                const model = draftModel.trim();
-                if (!model) {
-                  setError("请填写模型名称");
-                  return;
-                }
-
-                void setEntriesValue([
-                  ...entries,
-                  {
-                    id: generateRowId(),
-                    provider: draftProvider,
-                    model,
-                  },
-                ]);
-                setDialogOpen(false);
-              }}
-            >
-              保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddModelProviderDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        providers={PROVIDERS}
+        onSave={handleAddModelProvider}
+      />
     </div>
   );
 }

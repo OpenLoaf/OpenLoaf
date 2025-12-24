@@ -18,6 +18,7 @@ export type CanvasMode =
   | "group"
   | "arrow-straight"
   | "arrow-curve"
+  | "text"
   | "resource";
 
 type CanvasStoragePayload = {

@@ -109,7 +109,19 @@ export async function createMainWindow(args: {
     });
 
     if (ok) {
-      args.log(`Web URL ok: ${targetUrl}. Loading...`);
+      const healthUrl = `${serverUrl}/trpc/health`;
+      args.log(`Web URL ok: ${targetUrl}. Waiting for server health: ${healthUrl}`);
+      // 流程：先确认 apps/web 可访问，再等待 server health 正常后切换到主界面，避免 UI 先加载但后端未就绪。
+      const healthOk = await waitForUrlOk(healthUrl, {
+        timeoutMs: 60_000,
+        intervalMs: 300,
+      });
+      if (!healthOk) {
+        args.log('Server health check failed. Loading fallback renderer entry.');
+        await mainWindow.loadURL(args.entries.mainWindow);
+        return { win: mainWindow, serverUrl, webUrl };
+      }
+      args.log(`Server health ok. Loading ${targetUrl}...`);
       await mainWindow.loadURL(targetUrl);
       return { win: mainWindow, serverUrl, webUrl };
     }

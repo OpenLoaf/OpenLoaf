@@ -5,7 +5,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, SyntheticEvent } from "react";
 import { NodeResizer } from "@reactflow/node-resizer";
 import { Check, Crop, ImagePlus, RotateCw, Trash2, X } from "lucide-react";
-import { NodeToolbar, Position, type Node, type NodeProps } from "reactflow";
+import { NodeToolbar, type Node, type NodeProps } from "reactflow";
 import { useCanvasState } from "../CanvasProvider";
 import { useNodeBase } from "../hooks/use-node-base";
 import { IconBtn } from "../toolbar/ToolbarParts";
@@ -93,7 +93,7 @@ function getPreviewMaxDimension(size: ImageSize | null) {
 
 
 /** Render a resizable image node. */
-const ImageNode = memo(function ImageNode({ id, data, selected }: NodeProps<ImageNodeData>) {
+const ImageNode = memo(function ImageNode({ id, data, selected, xPos, yPos }: NodeProps<ImageNodeData>) {
   const iconSize = 16;
   const {
     nodes,
@@ -104,10 +104,12 @@ const ImageNode = memo(function ImageNode({ id, data, selected }: NodeProps<Imag
     endNodeResize,
   } = useCanvasState();
   const currentNode = useMemo(() => nodes.find((node) => node.id === id) ?? null, [id, nodes]);
-  const { isSingleSelection, isToolbarVisible, handleShowToolbar } = useNodeBase({
+  const { isSingleSelection, isToolbarVisible, handleShowToolbar, toolbarPosition, toolbarPanelPosition } = useNodeBase({
     selected,
     nodes,
     suppressSingleNodeToolbar,
+    xPos,
+    yPos,
   });
   const [activeTool, setActiveTool] = useState<ImageTool>(null);
   const [cropRect, setCropRect] = useState<CropRect>(DEFAULT_CROP_RECT);
@@ -507,8 +509,9 @@ const ImageNode = memo(function ImageNode({ id, data, selected }: NodeProps<Imag
       <HiddenHandles ids={IMAGE_HANDLE_IDS} />
       {/* 选中图片时显示上方工具栏 */}
       <NodeToolbar
-        position={Position.Top}
+        position={toolbarPosition}
         offset={8}
+        align="center"
         className="nodrag nopan pointer-events-auto"
         isVisible={isToolbarVisible}
         onPointerDown={handleToolbarEvent}
@@ -516,6 +519,7 @@ const ImageNode = memo(function ImageNode({ id, data, selected }: NodeProps<Imag
       >
         <NodeToolbarStack
           panel={activeToolPanel}
+          panelPosition={toolbarPanelPosition}
           toolbar={<NodeToolsToolbar items={toolbarItems} size="md" />}
         />
       </NodeToolbar>

@@ -5,20 +5,20 @@ export const DEEPSEEK_API_URL = "https://api.deepseek.com";
 export const DEEPSEEK_MODELS: ModelDefinition[] = [
   {
     id: "deepseek-chat",
-    capability: ["text"],
+    capability: ["text_input", "text_output"],
     maxContextK: 128,
-    priceInPerMillion: 2,
-    priceOutPerMillion: 3,
-    cachedInputPerMillion: 0.2,
+    priceTextInputPerMillion: 2,
+    priceTextOutputPerMillion: 3,
+    cachedTextInputPerMillion: 0.2,
     currencySymbol: "¥",
   },
   {
     id: "deepseek-reasoner",
-    capability: ["text"],
+    capability: ["text_input", "text_output"],
     maxContextK: 128,
-    priceInPerMillion: 2,
-    priceOutPerMillion: 3,
-    cachedInputPerMillion: 0.2,
+    priceTextInputPerMillion: 2,
+    priceTextOutputPerMillion: 3,
+    cachedTextInputPerMillion: 0.2,
     currencySymbol: "¥",
   },
 ];

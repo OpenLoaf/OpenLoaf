@@ -23,9 +23,15 @@ import { cn } from "@/lib/utils";
 import { Check, ChevronDown, Copy, Eye, EyeOff, Menu, Pencil, Trash2 } from "lucide-react";
 import { SettingsGroup } from "./SettingsGroup";
 import { useSettingsValues } from "@/hooks/use-settings";
-import { DEEPSEEK_MODEL_CATALOG, XAI_MODEL_CATALOG, type ModelDefinition } from "@teatime-ai/api/common";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DEEPSEEK_MODEL_CATALOG,
+  GOOGLE_MODEL_CATALOG,
+  XAI_MODEL_CATALOG,
+  type ModelDefinition,
+} from "@teatime-ai/api/common";
 
-type ProviderId = "anthropic" | "deepseek" | "openai" | "xai" | "custom";
+type ProviderId = "anthropic" | "deepseek" | "google" | "openai" | "xai" | "custom";
 
 type KeyEntry = {
   provider: ProviderId;
@@ -39,9 +45,26 @@ type ProviderEntry = KeyEntry & {
   key: string;
 };
 
+const MODEL_CAPABILITY_LABELS: Record<string, string> = {
+  text_input: "文本输入",
+  text_output: "文本输出",
+  image_input: "图片输入",
+  image_output: "图片输出",
+  video_input: "视频输入",
+  video_output: "视频输出",
+  audio_input: "音频输入",
+  audio_output: "音频输出",
+  reasoning: "推理",
+  tools: "工具",
+  rerank: "重排",
+  embedding: "嵌入",
+  structured_output: "结构化输出",
+};
+
 const PROVIDERS: Array<{ id: ProviderId; label: string }> = [
   { id: "openai", label: "openai" },
   { id: "anthropic", label: "anthropic" },
+  { id: "google", label: "Google" },
   { id: "deepseek", label: "deepseek" },
   { id: "xai", label: "xai" },
   { id: "custom", label: "自定义" },
@@ -50,6 +73,7 @@ const PROVIDERS: Array<{ id: ProviderId; label: string }> = [
 const MODEL_CATALOG_BY_PROVIDER: Partial<Record<ProviderId, typeof XAI_MODEL_CATALOG>> = {
   xai: XAI_MODEL_CATALOG,
   deepseek: DEEPSEEK_MODEL_CATALOG,
+  google: GOOGLE_MODEL_CATALOG,
 };
 
 /**
@@ -71,6 +95,98 @@ function maskKey(value: string) {
 function truncateDisplay(value: string, maxLength = 32) {
   if (value.length <= maxLength) return value;
   return `${value.slice(0, maxLength - 3)}...`;
+}
+
+/**
+ * Format model price value for display.
+ */
+function formatPrice(value: number, currencySymbol: string) {
+  const abs = Math.abs(value);
+  const decimals = abs >= 1 ? 2 : abs >= 0.1 ? 3 : abs >= 0.01 ? 4 : 6;
+  return `${currencySymbol}${value.toFixed(decimals)}`;
+}
+
+/**
+ * Build detail rows for model pricing.
+ */
+function buildPriceRows(model: ModelDefinition) {
+  const currencySymbol = model.currencySymbol ?? "";
+  const rows: Array<{ label: string; value: string }> = [];
+
+  if (typeof model.priceTextInputPerMillion === "number") {
+    rows.push({
+      label: "文本输入",
+      value: `${formatPrice(model.priceTextInputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+  if (typeof model.priceTextOutputPerMillion === "number") {
+    rows.push({
+      label: "文本输出",
+      value: `${formatPrice(model.priceTextOutputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+  if (typeof model.priceImageInputPerMillion === "number") {
+    rows.push({
+      label: "图片输入",
+      value: `${formatPrice(model.priceImageInputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+  if (typeof model.priceImageOutputPerMillion === "number") {
+    rows.push({
+      label: "图片输出",
+      value: `${formatPrice(model.priceImageOutputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+  if (typeof model.priceVideoInputPerMillion === "number") {
+    rows.push({
+      label: "视频输入",
+      value: `${formatPrice(model.priceVideoInputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+  if (typeof model.priceVideoOutputPerMillion === "number") {
+    rows.push({
+      label: "视频输出",
+      value: `${formatPrice(model.priceVideoOutputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+  if (typeof model.priceAudioInputPerMillion === "number") {
+    rows.push({
+      label: "音频输入",
+      value: `${formatPrice(model.priceAudioInputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+  if (typeof model.priceAudioOutputPerMillion === "number") {
+    rows.push({
+      label: "音频输出",
+      value: `${formatPrice(model.priceAudioOutputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+  if (typeof model.cachedTextInputPerMillion === "number") {
+    rows.push({
+      label: "缓存文本输入",
+      value: `${formatPrice(model.cachedTextInputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+  if (typeof model.cachedImageInputPerMillion === "number") {
+    rows.push({
+      label: "缓存图片输入",
+      value: `${formatPrice(model.cachedImageInputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+  if (typeof model.cachedVideoInputPerMillion === "number") {
+    rows.push({
+      label: "缓存视频输入",
+      value: `${formatPrice(model.cachedVideoInputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+  if (typeof model.cachedAudioInputPerMillion === "number") {
+    rows.push({
+      label: "缓存音频输入",
+      value: `${formatPrice(model.cachedAudioInputPerMillion, currencySymbol)} / 1M`,
+    });
+  }
+
+  return rows;
 }
 
 /**
@@ -100,6 +216,7 @@ function getDefaultApiUrl(provider: ProviderId) {
   const defaults: Record<ProviderId, string> = {
     openai: "https://api.openai.com/v1",
     anthropic: "https://api.anthropic.com/v1",
+    google: "https://generativelanguage.googleapis.com/v1beta",
     deepseek: "https://api.deepseek.com/v1",
     xai: "https://api.x.ai/v1",
     custom: "",
@@ -114,6 +231,7 @@ function getDefaultProviderName(provider: ProviderId) {
   const defaults: Record<ProviderId, string> = {
     openai: "OPENAI",
     anthropic: "ANTHROPIC",
+    google: "Google",
     deepseek: "Deepseek",
     xai: "XAI",
     custom: "",
@@ -322,7 +440,7 @@ export function ProviderManagement() {
       </SettingsGroup>
 
       <div className="rounded-lg border border-border overflow-hidden">
-        <div className="grid grid-cols-[160px_120px_200px_2fr_1fr_auto] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
+        <div className="grid grid-cols-[160px_120px_260px_1.5fr_0.8fr_auto] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
           <div>名称</div>
           <div>类型</div>
           <div>模型</div>
@@ -336,7 +454,7 @@ export function ProviderManagement() {
             <div
               key={entry.key}
               className={cn(
-                "group grid grid-cols-[160px_120px_200px_2fr_1fr_auto] gap-3 items-center px-4 py-3",
+                "group grid grid-cols-[160px_120px_260px_1.5fr_0.8fr_auto] gap-3 items-center px-4 py-3",
                 "bg-background hover:bg-muted/15 transition-colors",
               )}
             >
@@ -344,8 +462,58 @@ export function ProviderManagement() {
 
               <div className="text-sm text-muted-foreground">模型服务商</div>
 
-              <div className="text-sm text-muted-foreground">
-                {truncateDisplay(getSelectedModelLabels(entry.modelDefinitions))}
+              <div className="text-sm text-muted-foreground break-words whitespace-normal">
+                <div className="flex flex-col gap-2">
+                  {entry.modelDefinitions.map((model) => {
+                    const capabilities = Array.isArray(model.capability)
+                      ? model.capability
+                      : [];
+                    const capabilityLabels = capabilities.map(
+                      (capability) => MODEL_CAPABILITY_LABELS[capability] ?? capability,
+                    );
+                    const priceRows = buildPriceRows(model);
+                    return (
+                      <Tooltip key={model.id}>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex w-full items-start">
+                            <span className="inline-flex w-full rounded-md border border-primary/40 bg-primary/5 px-2 py-1 text-[11px] text-primary">
+                              {model.id}
+                            </span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <div className="space-y-2">
+                            <div className="text-sm font-semibold text-primary">
+                              {model.id}
+                            </div>
+                            {capabilityLabels.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {capabilityLabels.map((label) => (
+                                  <span
+                                    key={`${model.id}-${label}`}
+                                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] text-primary"
+                                  >
+                                    {label}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                            {priceRows.length > 0 ? (
+                              <div className="space-y-1 text-[11px] text-primary/80">
+                                {priceRows.map((row) => (
+                                  <div key={`${model.id}-${row.label}`} className="flex gap-2">
+                                    <span className="w-20 shrink-0">{row.label}</span>
+                                    <span className="text-primary">{row.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="min-w-0 flex items-center gap-2">
@@ -371,7 +539,7 @@ export function ProviderManagement() {
                 </Button>
               </div>
 
-              <div className="text-sm font-mono">
+              <div className="min-w-0 text-sm font-mono truncate">
                 {truncateDisplay(maskKey(entry.apiKey))}
               </div>
 

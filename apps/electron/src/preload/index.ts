@@ -4,6 +4,28 @@ type OpenBrowserWindowResult = { id: number };
 type OkResult = { ok: true };
 type CountResult = { ok: true; count: number } | { ok: false };
 type ViewBounds = { x: number; y: number; width: number; height: number };
+type AutoUpdateStatus = {
+  state:
+    | 'idle'
+    | 'checking'
+    | 'available'
+    | 'not-available'
+    | 'downloading'
+    | 'downloaded'
+    | 'error';
+  currentVersion: string;
+  nextVersion?: string;
+  releaseNotes?: string;
+  lastCheckedAt?: number;
+  progress?: {
+    percent: number;
+    transferred: number;
+    total: number;
+    bytesPerSecond: number;
+  };
+  error?: string;
+  ts: number;
+};
 
 /**
  * preload 运行在隔离上下文中，是我们向 web UI（apps/web）暴露安全 API 的唯一入口。
@@ -38,6 +60,17 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
   // 获取当前窗口内 WebContentsView 数量（用于设置页展示/诊断）。
   getWebContentsViewCount: (): Promise<CountResult> =>
     ipcRenderer.invoke('teatime:webcontents-view:count'),
+  // 获取应用版本号。
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('teatime:app:version'),
+  // 手动触发更新检查。
+  checkForUpdates: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('teatime:auto-update:check'),
+  // 获取最新更新状态快照。
+  getAutoUpdateStatus: (): Promise<AutoUpdateStatus> =>
+    ipcRenderer.invoke('teatime:auto-update:status'),
+  // 安装已下载的更新并重启。
+  installUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('teatime:auto-update:install'),
 });
 
 // 主进程会推送 WebContentsView 的真实加载状态（dom-ready 等），这里转成 window 事件给 web UI 消费。
@@ -55,6 +88,16 @@ ipcRenderer.on('teatime:webcontents-view:window-open', (_event, detail) => {
   try {
     window.dispatchEvent(
       new CustomEvent('teatime:webcontents-view:window-open', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+ipcRenderer.on('teatime:auto-update:status', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('teatime:auto-update:status', { detail })
     );
   } catch {
     // ignore

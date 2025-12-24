@@ -99,7 +99,6 @@ function MessageItem({
                 onChange={setDraft}
                 variant="inline"
                 compact
-                autoFocus
                 placeholder="编辑消息…"
                 className="w-full max-w-[70%]"
                 actionVariant="text"

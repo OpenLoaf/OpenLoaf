@@ -65,11 +65,27 @@ function PanelItem(props: {
   title: string;
   children: React.ReactNode;
   onClick?: () => void;
+  onPointerDown?: () => void;
+  onPointerUp?: () => void;
+  onPointerLeave?: () => void;
+  onPointerCancel?: () => void;
   active?: boolean;
   size?: "md" | "sm";
   className?: string;
 }) {
-  const { title, children, onClick, active, size = "md", className } = props;
+  const {
+    title,
+    children,
+    onClick,
+    onPointerDown,
+    onPointerUp,
+    onPointerLeave,
+    onPointerCancel,
+    active,
+    size = "md",
+    className,
+  } = props;
+  const hasPointerHandler = Boolean(onPointerDown || onPointerUp || onPointerLeave || onPointerCancel);
   const sizeClassName =
     size === "sm"
       ? "gap-1 rounded-md px-2 py-1 text-[10px]"
@@ -80,7 +96,35 @@ function PanelItem(props: {
     // 逻辑：优先响应按下，避免 click 被画布层吞掉
     pointerHandledRef.current = true;
     event.stopPropagation();
+    if (onPointerDown) {
+      onPointerDown();
+      return;
+    }
     onClick?.();
+  };
+  /** Stop pointer-driven actions when released. */
+  const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (hasPointerHandler) {
+      pointerHandledRef.current = false;
+    }
+    onPointerUp?.();
+  };
+  /** Stop pointer-driven actions when leaving. */
+  const handlePointerLeave = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (hasPointerHandler) {
+      pointerHandledRef.current = false;
+    }
+    onPointerLeave?.();
+  };
+  /** Stop pointer-driven actions when canceled. */
+  const handlePointerCancel = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (hasPointerHandler) {
+      pointerHandledRef.current = false;
+    }
+    onPointerCancel?.();
   };
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (pointerHandledRef.current) {
@@ -95,6 +139,9 @@ function PanelItem(props: {
       type="button"
       onClick={handleClick}
       onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
+      onPointerCancel={handlePointerCancel}
       className={cn(
         // 面板条目：上下排列（图标在上、文字在下）
         "inline-flex flex-col items-center",

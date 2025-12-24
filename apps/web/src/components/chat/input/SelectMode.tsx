@@ -24,9 +24,14 @@ interface SelectModeProps {
 
 // 能力标签显示文案映射。
 const MODEL_CAPABILITY_LABELS: Record<ModelCapabilityId, string> = {
-  text: "文本",
-  vision_input: "图片输入",
-  vision_output: "图片输出",
+  text_input: "文本输入",
+  text_output: "文本输出",
+  image_input: "图片输入",
+  image_output: "图片输出",
+  video_input: "视频输入",
+  video_output: "视频输出",
+  audio_input: "音频输入",
+  audio_output: "音频输出",
   reasoning: "推理",
   tools: "工具",
   rerank: "重排",
@@ -46,8 +51,8 @@ function formatModelPrice(definition?: ModelDefinition): string | null {
   if (!definition) return null;
   const currencySymbol = definition.currencySymbol ?? "";
   // 价格按每 1,000,000 tokens 展示。
-  const inputLabel = `${currencySymbol}${formatPriceValue(definition.priceInPerMillion)}`;
-  const outputLabel = `${currencySymbol}${formatPriceValue(definition.priceOutPerMillion)}`;
+  const inputLabel = `${currencySymbol}${formatPriceValue(definition.priceTextInputPerMillion)}`;
+  const outputLabel = `${currencySymbol}${formatPriceValue(definition.priceTextOutputPerMillion)}`;
   return `输入 ${inputLabel} / 1M · 输出 ${outputLabel} / 1M`;
 }
 
@@ -119,11 +124,11 @@ export default function SelectMode({ className }: SelectModeProps) {
         <Button
           type="button"
           className={cn(
-            "h-7 w-auto inline-flex items-center gap-1.5 rounded-md bg-transparent px-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors",
+            "h-7 w-auto min-w-0 max-w-[12rem] inline-flex items-center gap-1.5 rounded-md bg-transparent px-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors",
             className
           )}
         >
-          <span className="max-w-[8rem] truncate whitespace-nowrap text-right">
+          <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right">
             {isAuto
               ? "Auto"
               : (modelOptions.find((option) => option.id === selectedModel)?.modelId ??
@@ -136,7 +141,7 @@ export default function SelectMode({ className }: SelectModeProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 max-w-[90vw] p-2">
+      <PopoverContent className="w-96 max-w-[90vw] p-2">
         <div className="space-y-2">
           <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
             <div className="flex items-center justify-between">
@@ -191,11 +196,11 @@ export default function SelectMode({ className }: SelectModeProps) {
               {showModelList ? (
                 <div className="space-y-1">
                   {modelOptions.map((option) => {
-                    // 未标注能力时默认展示 text，避免空白。
+                    // 未标注能力时默认展示 text_input，避免空白。
                     const capabilityIds: ModelCapabilityId[] =
                       option.capabilityIds && option.capabilityIds.length > 0
                         ? option.capabilityIds
-                        : ["text"];
+                        : ["text_input"];
                     const priceLabel = formatModelPrice(option.modelDefinition);
                     return (
                       <button
@@ -210,12 +215,9 @@ export default function SelectMode({ className }: SelectModeProps) {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1 text-right">
                           <div className="truncate text-sm font-medium text-foreground">
-                            {option.modelId}
+                            {option.providerName}/{option.modelId}
                           </div>
                             <div className="mt-1 flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted-foreground">
-                              <span className="min-w-0 truncate text-right">
-                                {option.providerName}
-                              </span>
                               <span className="flex flex-wrap items-center justify-end gap-1">
                                 {capabilityIds.map((capability) => (
                                   <span

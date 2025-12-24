@@ -11,6 +11,8 @@ export function getCursorForMode(mode: CanvasMode) {
     case "frame":
     case "group":
       return "crosshair";
+    case "text":
+      return "text";
     default:
       return "default";
   }

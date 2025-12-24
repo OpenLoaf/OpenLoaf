@@ -35,7 +35,6 @@ export interface ChatInputBoxProps {
   onChange: (value: string) => void;
   className?: string;
   placeholder?: string;
-  autoFocus?: boolean;
   compact?: boolean;
   variant?: "default" | "inline";
   actionVariant?: "icon" | "text";
@@ -57,7 +56,6 @@ export function ChatInputBox({
   onChange,
   className,
   placeholder = "Ask, search, or make anything…",
-  autoFocus,
   compact,
   variant = "default",
   actionVariant = "icon",
@@ -180,7 +178,6 @@ export function ChatInputBox({
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 placeholder={placeholder}
-                autoFocus={autoFocus}
                 className={cn(
                   "w-full border-none resize-none focus:outline-none focus:ring-0 bg-transparent text-foreground text-sm leading-6 min-h-[48px] overflow-visible placeholder:text-muted-foreground/70 transition-[height] duration-500 ease-out",
                   isOverLimit && "text-destructive"

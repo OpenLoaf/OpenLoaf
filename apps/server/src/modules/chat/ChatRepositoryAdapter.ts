@@ -146,12 +146,26 @@ function toPathSegment(seq: number): string {
   return String(seq).padStart(PATH_SEGMENT_WIDTH, "0");
 }
 
-async function ensureSession(tx: Prisma.TransactionClient, sessionId: string, title?: string) {
+/** Ensure chat session exists and bind it to a page when requested. */
+async function ensureSession(
+  tx: Prisma.TransactionClient,
+  sessionId: string,
+  title?: string,
+  pageId?: string,
+) {
   await tx.chatSession.upsert({
     where: { id: sessionId },
     update: {},
     // 会话首次创建时，把“第一条 user 消息文本”作为标题（后续不自动更新）。
     create: { id: sessionId, ...(title ? { title } : {}) },
+  });
+
+  if (!pageId) return;
+  // 中文注释：首次出现 pageId 时绑定到 PageChatSession，避免重复创建。
+  await tx.pageChatSession.upsert({
+    where: { pageId_chatSessionId: { pageId, chatSessionId: sessionId } },
+    update: {},
+    create: { pageId, chatSessionId: sessionId },
   });
 }
 
@@ -213,6 +227,7 @@ export const chatRepository = {
     parentMessageId: string | null;
     allowEmpty?: boolean;
     createdAt?: Date;
+    pageId?: string;
   }): Promise<{ id: string; parentMessageId: string | null; path: string }> => {
     const messageId = String((input.message as any)?.id ?? "").trim();
     if (!messageId) throw new Error("message.id is required.");
@@ -230,7 +245,7 @@ export const chatRepository = {
     }
 
     return prisma.$transaction(async (tx) => {
-      await ensureSession(tx, input.sessionId, title || undefined);
+      await ensureSession(tx, input.sessionId, title || undefined, input.pageId);
 
       const existing = await tx.chatMessage.findUnique({
         where: { id: messageId },

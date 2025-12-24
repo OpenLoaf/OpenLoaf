@@ -164,7 +164,7 @@ export default function SessionItem({
     <>
       <div
         className={cn(
-          "group flex w-full items-center gap-1 rounded-sm pr-1 hover:bg-accent hover:text-accent-foreground",
+          "group flex w-full min-w-0 items-center gap-1 rounded-sm pr-1 hover:bg-accent hover:text-accent-foreground",
           className
         )}
       >
@@ -173,11 +173,11 @@ export default function SessionItem({
           disabled={isActive}
           onClick={() => onSelect?.(session)}
           className={cn(
-            "flex-1 truncate px-2 py-1.5 text-left text-sm",
+            "min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm",
             "disabled:cursor-not-allowed disabled:opacity-60"
           )}
         >
-          <span className="inline-flex items-center gap-1.5">
+          <span className="flex min-w-0 items-center gap-1.5">
             <span className="truncate">{session.name}</span>
             {session.hasLayers && (
               <Layers size={14} className="text-muted-foreground" />
@@ -185,7 +185,7 @@ export default function SessionItem({
           </span>
         </button>
         <div
-          className="relative"
+          className="relative shrink-0"
           onMouseEnter={openMenu}
           onMouseLeave={scheduleClose}
         >

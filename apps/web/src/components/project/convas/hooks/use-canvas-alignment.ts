@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import {
   applyNodeChanges,
@@ -8,42 +8,25 @@ import {
   type Node as RFNode,
   type NodeChange,
   type NodeDimensionChange,
-  type NodePositionChange,
   type ReactFlowInstance,
 } from "reactflow";
-import { adjustGroupBounds } from "../utils/group-node";
-import { resolveNodeSize } from "../utils/node-size";
-import { createAlignmentGridIndex } from "../utils/canvas-alignment-grid";
-import { getAlignmentForNode } from "../utils/canvas-alignment";
+import { adjustGroupBounds, buildNodeMap, createAbsolutePositionGetter } from "../utils/group-node";
 import { updateAutoHandleEdges } from "../utils/canvas-auto-handle";
-import {
-  ALIGNMENT_GRID_CELL_PX,
-  ALIGNMENT_SCAN_RANGE_PX,
-  ALIGNMENT_THRESHOLD_PX,
-} from "../utils/canvas-constants";
-
-type AlignmentGuidesState = {
-  x: number[];
-  y: number[];
-};
+import { buildSnapBound, computeSnap, type SnapLine } from "../utils/canvas-snap";
+import { resolveNodeSize } from "../utils/node-size";
 
 interface UseCanvasAlignmentOptions {
-  isLocked: boolean;
   nodes: RFNode[];
-  flowRef: RefObject<ReactFlowInstance | null>;
   setNodes: Dispatch<SetStateAction<RFNode[]>>;
   setEdges: Dispatch<SetStateAction<Edge[]>>;
+  flowRef: RefObject<ReactFlowInstance | null>;
+  isLocked: boolean;
 }
 
 interface UseCanvasAlignmentResult {
-  alignmentGuides: AlignmentGuidesState;
   handleNodesChange: (changes: NodeChange[]) => void;
-  clearAlignmentGuides: () => void;
-}
-
-/** Check whether the change is a dragging position update. */
-function isDraggingPositionChange(change: NodeChange): change is NodePositionChange {
-  return change.type === "position" && change.dragging === true;
+  snapLines: SnapLine[];
+  clearSnapLines: () => void;
 }
 
 /** Check whether the change is a dimension update. */
@@ -51,120 +34,196 @@ function isNodeDimensionChange(change: NodeChange): change is NodeDimensionChang
   return change.type === "dimensions";
 }
 
-/** Build alignment guide and snapping logic for node changes. */
+/** Check whether a node is nested under any moving root. */
+function isDescendantOfMovingRoot(
+  node: RFNode,
+  nodeMap: Map<string, RFNode>,
+  movingRootIds: Set<string>,
+): boolean {
+  let parentId = node.parentId ?? node.parentNode ?? null;
+  // 流程：沿父链向上查找，命中任一移动 root 即视为后代
+  while (parentId) {
+    if (movingRootIds.has(parentId)) return true;
+    const parent = nodeMap.get(parentId);
+    if (!parent) break;
+    parentId = parent.parentId ?? parent.parentNode ?? null;
+  }
+  return false;
+}
+
+/** Apply a snap delta to moving root nodes. */
+function applySnapDeltaToNodes(
+  nodes: RFNode[],
+  movingRootIds: Set<string>,
+  dx: number,
+  dy: number,
+): RFNode[] {
+  if (movingRootIds.size === 0) return nodes;
+  let changed = false;
+  const nextNodes = nodes.map((node) => {
+    if (!movingRootIds.has(node.id)) return node;
+    const nextPosition = {
+      x: node.position.x + dx,
+      y: node.position.y + dy,
+    };
+    if (
+      Math.abs(nextPosition.x - node.position.x) < 0.01 &&
+      Math.abs(nextPosition.y - node.position.y) < 0.01
+    ) {
+      return node;
+    }
+    changed = true;
+    return { ...node, position: nextPosition };
+  });
+  return changed ? nextNodes : nodes;
+}
+
+/** Build node change handler without alignment guides. */
 export function useCanvasAlignment({
-  isLocked,
   nodes,
-  flowRef,
   setNodes,
   setEdges,
+  flowRef,
+  isLocked,
 }: UseCanvasAlignmentOptions): UseCanvasAlignmentResult {
-  const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuidesState>({
-    x: [],
-    y: [],
-  });
-  const alignmentGrid = useMemo(
-    () => createAlignmentGridIndex(nodes, ALIGNMENT_GRID_CELL_PX),
-    [nodes],
-  );
+  const [snapLines, setSnapLines] = useState<SnapLine[]>([]);
 
-  /** Reset alignment guides. */
-  const clearAlignmentGuides = useCallback(() => {
-    setAlignmentGuides({ x: [], y: [] });
-  }, []);
-
-  /** Apply node changes with alignment guides and snapping. */
+  /** Apply node changes and keep group bounds/auto handles in sync. */
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-      let nextGuides: AlignmentGuidesState = { x: [], y: [] };
-      const draggingChanges = changes.filter(isDraggingPositionChange);
-      const draggingIds = new Set(draggingChanges.map((change) => change.id));
-      const draggingChange = draggingChanges.length === 1 ? draggingChanges[0] : null;
-      const draggingIndex = draggingChange ? changes.indexOf(draggingChange) : -1;
-      let alignedChanges = changes;
-
-      // 逻辑：多选或 group 拖动时关闭对齐线，避免多节点同步对齐造成卡顿
-      if (!isLocked && draggingChange && draggingIndex >= 0 && draggingIds.size === 1) {
-        const node = nodeMap.get(draggingChange.id);
-        const dragPosition = draggingChange.position ?? node?.position;
-        if (node && dragPosition && node.type !== "group") {
-          const dragSize = resolveNodeSize(node);
-          if (dragSize) {
-            const viewport = flowRef.current?.getViewport();
-            const zoom = Math.max(viewport?.zoom ?? 1, 0.1);
-            const threshold = ALIGNMENT_THRESHOLD_PX / zoom;
-            const scanRange = ALIGNMENT_SCAN_RANGE_PX / zoom;
-            const range = {
-              minX: dragPosition.x - scanRange,
-              minY: dragPosition.y - scanRange,
-              maxX: dragPosition.x + dragSize.width + scanRange,
-              maxY: dragPosition.y + dragSize.height + scanRange,
-            };
-            const candidates = alignmentGrid
-              .queryRange(range)
-              .filter((candidate) => candidate.id !== node.id);
-            const alignment = getAlignmentForNode({
-              dragId: node.id,
-              dragPosition,
-              dragSize,
-              nodes: candidates,
-              threshold,
-            });
-            if (alignment) {
-              // 逻辑：找到最接近的对齐点 -> 修正位置 -> 输出对齐线
-              const snappedPosition = { ...dragPosition };
-              if (typeof alignment.snapX === "number") {
-                snappedPosition.x = alignment.snapX;
-              }
-              if (typeof alignment.snapY === "number") {
-                snappedPosition.y = alignment.snapY;
-              }
-              nextGuides = {
-                x: alignment.guideX,
-                y: alignment.guideY,
-              };
-              alignedChanges = changes.map((change, index) =>
-                index === draggingIndex
-                  ? { ...change, position: snappedPosition }
-                  : change,
-              );
-            }
-          }
-        }
-      }
-
+      const nodeMap = buildNodeMap(nodes);
       // 逻辑：过滤图片节点的非 resize 尺寸变化，避免循环触发
-      const filteredChanges = alignedChanges.filter((change) => {
+      const filteredChanges = changes.filter((change) => {
         if (!isNodeDimensionChange(change)) return true;
         if (typeof change.resizing === "boolean") return true;
         const node = nodeMap.get(change.id);
         return !node || node.type !== "image";
       });
 
-      setAlignmentGuides(nextGuides);
-
       if (filteredChanges.length === 0) {
         return;
       }
+      const positionChanges = filteredChanges.filter((change) => change.type === "position");
+      const isDragging = positionChanges.some(
+        (change) => typeof change.dragging === "boolean" && change.dragging,
+      );
+      // 逻辑：只在拖拽过程中启用对齐/吸附，避免点击选中时触发
+      const shouldSnap = positionChanges.length > 0 && isDragging && !isLocked;
       // 逻辑：节点移动/缩放时刷新自动连线方向
       const shouldUpdateHandles = filteredChanges.some(
         (change) => change.type === "position" || change.type === "dimensions",
       );
-      setNodes((currentNodes) => {
-        const nextNodes = adjustGroupBounds(applyNodeChanges(filteredChanges, currentNodes));
+      let nextNodes = applyNodeChanges(filteredChanges, nodes);
+      if (!shouldSnap) {
+        setSnapLines([]);
+        nextNodes = adjustGroupBounds(nextNodes);
         if (shouldUpdateHandles) {
           setEdges((currentEdges) => updateAutoHandleEdges(currentEdges, nextNodes));
         }
-        return nextNodes;
+        setNodes(nextNodes);
+        return;
+      }
+
+      const movingIds = new Set(positionChanges.map((change) => change.id));
+      const nextNodeMap = buildNodeMap(nextNodes);
+      const hasEditingNode = Array.from(movingIds).some((id) => {
+        const node = nextNodeMap.get(id);
+        return Boolean((node?.data as { editing?: boolean } | undefined)?.editing);
       });
+      if (hasEditingNode) {
+        setSnapLines([]);
+        nextNodes = adjustGroupBounds(nextNodes);
+        if (shouldUpdateHandles) {
+          setEdges((currentEdges) => updateAutoHandleEdges(currentEdges, nextNodes));
+        }
+        setNodes(nextNodes);
+        return;
+      }
+      const movingRootIds = new Set(
+        Array.from(movingIds).filter((id) => {
+          const node = nextNodeMap.get(id);
+          if (!node) return false;
+          return !isDescendantOfMovingRoot(node, nextNodeMap, movingIds);
+        }),
+      );
+      const getAbsolutePosition = createAbsolutePositionGetter(nextNodeMap);
+      const movingItems = Array.from(movingRootIds)
+        .map((id) => {
+          const node = nextNodeMap.get(id);
+          if (!node) return null;
+          const size = resolveNodeSize(node);
+          if (!size) return null;
+          const position = getAbsolutePosition(node);
+          return buildSnapBound(position, size);
+        })
+        .filter((item): item is ReturnType<typeof buildSnapBound> => Boolean(item));
+
+      if (movingItems.length === 0) {
+        setSnapLines([]);
+        nextNodes = adjustGroupBounds(nextNodes);
+        if (shouldUpdateHandles) {
+          setEdges((currentEdges) => updateAutoHandleEdges(currentEdges, nextNodes));
+        }
+        setNodes(nextNodes);
+        return;
+      }
+
+      let minX = Number.POSITIVE_INFINITY;
+      let minY = Number.POSITIVE_INFINITY;
+      let maxX = Number.NEGATIVE_INFINITY;
+      let maxY = Number.NEGATIVE_INFINITY;
+      for (const item of movingItems) {
+        minX = Math.min(minX, item.minX);
+        minY = Math.min(minY, item.minY);
+        maxX = Math.max(maxX, item.maxX);
+        maxY = Math.max(maxY, item.maxY);
+      }
+      const selectionBound = {
+        minX,
+        minY,
+        maxX,
+        maxY,
+        width: maxX - minX,
+        height: maxY - minY,
+        centerX: (minX + maxX) / 2,
+        centerY: (minY + maxY) / 2,
+      };
+
+      const referenceBounds = nextNodes
+        .filter((node) => {
+          if (movingIds.has(node.id)) return false;
+          if (isDescendantOfMovingRoot(node, nextNodeMap, movingRootIds)) return false;
+          return true;
+        })
+        .map((node) => {
+          const size = resolveNodeSize(node);
+          if (!size) return null;
+          const position = getAbsolutePosition(node);
+          return buildSnapBound(position, size);
+        })
+        .filter((item): item is ReturnType<typeof buildSnapBound> => Boolean(item));
+
+      const zoom = flowRef.current?.getViewport().zoom ?? 1;
+      const threshold = 8 / zoom;
+      const snap = computeSnap(selectionBound, referenceBounds, threshold);
+      setSnapLines(snap.lines);
+
+      if (Math.abs(snap.dx) > 0.01 || Math.abs(snap.dy) > 0.01) {
+        nextNodes = applySnapDeltaToNodes(nextNodes, movingRootIds, snap.dx, snap.dy);
+      }
+
+      nextNodes = adjustGroupBounds(nextNodes);
+      if (shouldUpdateHandles) {
+        setEdges((currentEdges) => updateAutoHandleEdges(currentEdges, nextNodes));
+      }
+      setNodes(nextNodes);
     },
     [flowRef, isLocked, nodes, setEdges, setNodes],
   );
 
   return {
-    alignmentGuides,
-    clearAlignmentGuides,
     handleNodesChange,
+    snapLines,
+    clearSnapLines: () => setSnapLines([]),
   };
 }

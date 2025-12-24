@@ -144,6 +144,8 @@ function ensurePanelEntry(side: PanelSide, tabId: string) {
 function applyPanelVisibility(entry: PanelEntry) {
   entry.node.style.opacity = entry.active ? "1" : "0";
   entry.node.style.pointerEvents = entry.active ? "auto" : "none";
+  // 逻辑：激活面板提升层级，避免被后创建的面板遮挡导致事件丢失
+  entry.node.style.zIndex = entry.active ? "1" : "0";
 }
 
 // Bind a DOM host for panel roots.

@@ -1,6 +1,7 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createDeepSeek } from "@ai-sdk/deepseek";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
@@ -21,6 +22,7 @@ const PROVIDER_FACTORIES: Record<
 > = {
   openai: ({ apiUrl, apiKey }) => createOpenAI({ baseURL: apiUrl, apiKey }),
   anthropic: ({ apiUrl, apiKey }) => createAnthropic({ baseURL: apiUrl, apiKey }),
+  google: ({ apiUrl, apiKey }) => createGoogleGenerativeAI({ baseURL: apiUrl, apiKey }),
   deepseek: ({ apiUrl, apiKey }) => createDeepSeek({ baseURL: apiUrl, apiKey }),
   xai: ({ apiUrl, apiKey }) => createXai({ baseURL: apiUrl, apiKey }),
 };

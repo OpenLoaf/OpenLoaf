@@ -6,25 +6,21 @@ export const WebSettingDefs = {
   UiLanguage: {
     key: "ui.language",
     defaultValue: "zh-CN" as string,
-    scope: "WEB",
     category: "basic",
   },
   UiFontSize: {
     key: "ui.fontSize",
     defaultValue: "medium" as string,
-    scope: "WEB",
     category: "basic",
   },
   UiTheme: {
     key: "ui.theme",
     defaultValue: "system" as string,
-    scope: "WEB",
     category: "basic",
   },
   UiThemeManual: {
     key: "ui.themeManual",
     defaultValue: "light" as string,
-    scope: "WEB",
     category: "basic",
   },
 } as const satisfies Record<string, SettingDef<unknown>>;

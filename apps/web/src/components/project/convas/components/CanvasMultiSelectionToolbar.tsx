@@ -11,6 +11,8 @@ import {
   AlignStartVertical,
   AlignVerticalDistributeCenter,
   Group,
+  LayoutGrid,
+  Maximize2,
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
@@ -107,61 +109,86 @@ const CanvasMultiSelectionToolbar = memo(function CanvasMultiSelectionToolbar() 
       >
         <div className="flex flex-col items-center gap-1.5">
           {activeTool === "align" ? (
-            <NodeToolsToolbar
-              items={[
-                {
-                  id: "align-left",
-                  title: "左对齐",
-                  icon: <AlignStartVertical size={MULTI_SELECTION_ICON_SIZE} />,
-                  onClick: () => handleAlign("left"),
-                },
-                {
-                  id: "align-center-vertical",
-                  title: "水平居中",
-                  icon: <AlignCenterVertical size={MULTI_SELECTION_ICON_SIZE} />,
-                  onClick: () => handleAlign("center-vertical"),
-                },
-                {
-                  id: "align-right",
-                  title: "右对齐",
-                  icon: <AlignEndVertical size={MULTI_SELECTION_ICON_SIZE} />,
-                  onClick: () => handleAlign("right"),
-                },
-                {
-                  id: "align-top",
-                  title: "上对齐",
-                  icon: <AlignStartHorizontal size={MULTI_SELECTION_ICON_SIZE} />,
-                  onClick: () => handleAlign("top"),
-                },
-                {
-                  id: "align-center-horizontal",
-                  title: "垂直居中",
-                  icon: <AlignCenterHorizontal size={MULTI_SELECTION_ICON_SIZE} />,
-                  onClick: () => handleAlign("center-horizontal"),
-                },
-                {
-                  id: "align-bottom",
-                  title: "下对齐",
-                  icon: <AlignEndHorizontal size={MULTI_SELECTION_ICON_SIZE} />,
-                  onClick: () => handleAlign("bottom"),
-                },
-                {
-                  id: "distribute-horizontal",
-                  title: "水平分布",
-                  icon: <AlignHorizontalDistributeCenter size={MULTI_SELECTION_ICON_SIZE} />,
-                  onClick: () => handleAlign("distribute-horizontal"),
-                },
-                {
-                  id: "distribute-vertical",
-                  title: "垂直分布",
-                  icon: <AlignVerticalDistributeCenter size={MULTI_SELECTION_ICON_SIZE} />,
-                  onClick: () => handleAlign("distribute-vertical"),
-                },
-              ]}
-              size="sm"
-              containerClassName="p-1"
-              className="gap-0.5"
-            />
+            <div className="flex flex-col items-center gap-1.5">
+              <NodeToolsToolbar
+                items={[
+                  {
+                    id: "align-left",
+                    title: "左对齐",
+                    icon: <AlignStartVertical size={MULTI_SELECTION_ICON_SIZE} />,
+                    onClick: () => handleAlign("left"),
+                  },
+                  {
+                    id: "align-center-vertical",
+                    title: "水平居中",
+                    icon: <AlignCenterVertical size={MULTI_SELECTION_ICON_SIZE} />,
+                    onClick: () => handleAlign("center-vertical"),
+                  },
+                  {
+                    id: "align-right",
+                    title: "右对齐",
+                    icon: <AlignEndVertical size={MULTI_SELECTION_ICON_SIZE} />,
+                    onClick: () => handleAlign("right"),
+                  },
+                  {
+                    id: "align-top",
+                    title: "上对齐",
+                    icon: <AlignStartHorizontal size={MULTI_SELECTION_ICON_SIZE} />,
+                    onClick: () => handleAlign("top"),
+                  },
+                  {
+                    id: "align-center-horizontal",
+                    title: "垂直居中",
+                    icon: <AlignCenterHorizontal size={MULTI_SELECTION_ICON_SIZE} />,
+                    onClick: () => handleAlign("center-horizontal"),
+                  },
+                  {
+                    id: "align-bottom",
+                    title: "下对齐",
+                    icon: <AlignEndHorizontal size={MULTI_SELECTION_ICON_SIZE} />,
+                    onClick: () => handleAlign("bottom"),
+                  },
+                  ...(selection.count >= 3
+                    ? [
+                        {
+                          id: "distribute-horizontal",
+                          title: "水平分布",
+                          icon: <AlignHorizontalDistributeCenter size={MULTI_SELECTION_ICON_SIZE} />,
+                          onClick: () => handleAlign("distribute-horizontal"),
+                        },
+                        {
+                          id: "distribute-vertical",
+                          title: "垂直分布",
+                          icon: <AlignVerticalDistributeCenter size={MULTI_SELECTION_ICON_SIZE} />,
+                          onClick: () => handleAlign("distribute-vertical"),
+                        },
+                      ]
+                    : []),
+                ]}
+                size="sm"
+                containerClassName="p-1"
+                className="gap-0.5"
+              />
+              <NodeToolsToolbar
+                items={[
+                  {
+                    id: "auto-arrange",
+                    title: "自动排列",
+                    icon: <LayoutGrid size={MULTI_SELECTION_ICON_SIZE} />,
+                    onClick: () => handleAlign("auto-arrange"),
+                  },
+                  {
+                    id: "auto-resize",
+                    title: "统一高度排列",
+                    icon: <Maximize2 size={MULTI_SELECTION_ICON_SIZE} />,
+                    onClick: () => handleAlign("auto-resize"),
+                  },
+                ]}
+                size="sm"
+                containerClassName="p-1"
+                className="gap-0.5"
+              />
+            </div>
           ) : null}
           <NodeToolsToolbar items={toolbarItems} />
         </div>

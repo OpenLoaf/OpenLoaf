@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, session } from 'electron';
+import { installAutoUpdate } from './autoUpdate';
 import {
   createStartupLogger,
   registerProcessErrorLogging,
@@ -314,6 +315,9 @@ async function boot() {
     initialCdpPort,
   });
   mainWindow = created.win;
+
+  // 打包版自动检查更新；dev 模式会自动跳过。
+  installAutoUpdate({ log });
 
   if (!app.isPackaged) {
     // 开发体验：dev 模式默认打开 DevTools。

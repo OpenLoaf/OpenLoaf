@@ -114,11 +114,11 @@ function calculateUsageCost(
 
   const { inputTokens, outputTokens, cachedInputTokens, noCacheTokens } = usage;
   const reasoningTokens = usage.reasoningTokens;
-  const inputPrice = modelDefinition.priceInPerMillion;
-  const outputPrice = modelDefinition.priceOutPerMillion;
+  const inputPrice = modelDefinition.priceTextInputPerMillion;
+  const outputPrice = modelDefinition.priceTextOutputPerMillion;
   const cachedPrice =
-    typeof modelDefinition.cachedInputPerMillion === "number"
-      ? modelDefinition.cachedInputPerMillion
+    typeof modelDefinition.cachedTextInputPerMillion === "number"
+      ? modelDefinition.cachedTextInputPerMillion
       : undefined;
 
   const cachedInputCost =
@@ -133,10 +133,10 @@ function calculateUsageCost(
       ? (noCacheTokens * inputPrice) / PRICE_PER_MILLION
       : undefined;
 
-  // 推理 token 按输入单价计费（非缓存）。
+  // 推理 token 按文本输出单价计费（非缓存）。
   const reasoningCost =
     typeof reasoningTokens === "number" && Number.isFinite(reasoningTokens)
-      ? (reasoningTokens * inputPrice) / PRICE_PER_MILLION
+      ? (reasoningTokens * outputPrice) / PRICE_PER_MILLION
       : undefined;
 
   let inputCost: number | undefined;

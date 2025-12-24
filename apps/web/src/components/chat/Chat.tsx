@@ -8,8 +8,6 @@ import ChatHeader from "./ChatHeader";
 import { generateId } from "ai";
 import * as React from "react";
 import { useTabs } from "@/hooks/use-tabs";
-import { useTabActive } from "@/components/layout/TabActiveContext";
-import { focusChatInput } from "@/lib/focus-chat-input";
 import {
   CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES,
   formatFileSize,
@@ -38,8 +36,8 @@ export function Chat({
   onSessionChange,
   ...params
 }: ChatProps) {
+  const pageId = typeof params.pageId === "string" ? params.pageId : undefined;
   const rootRef = React.useRef<HTMLDivElement | null>(null);
-  const isTabActive = useTabActive();
   const dragCounterRef = React.useRef(0);
   const attachmentsRef = React.useRef<ChatAttachment[]>([]);
   const sessionIdRef = React.useRef<string>(sessionId ?? generateId());
@@ -150,64 +148,6 @@ export function Chat({
     }
   }, []);
 
-  React.useEffect(() => {
-    /**
-     * 监听 Tab 快捷键，按下后强制聚焦到输入框，便于快速进入输入状态。
-     */
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Tab") return;
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
-
-      const inputElement = rootRef.current?.querySelector<HTMLTextAreaElement>(
-        'textarea[data-teatime-chat-input="true"]'
-      );
-      if (!inputElement) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      inputElement.focus();
-    };
-
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, []);
-
-  const isRightVisible = useTabs(
-    React.useCallback(
-      (state) => {
-        if (!tabId) return true;
-        const tab = state.getTabById(tabId);
-        if (!tab) return true;
-        // 只有 base 存在时才允许折叠右侧聊天栏（见 use-tabs.normalizeDock）
-        return !tab.base || !tab.rightChatCollapsed;
-      },
-      [tabId],
-    ),
-  );
-
-  const prevFocusStateRef = React.useRef({
-    isRightVisible: false,
-  });
-
-  React.useEffect(() => {
-    /**
-     * 统一处理“打开 AI Chat 时自动聚焦输入框”的场景：
-     * 仅在右侧聊天栏从折叠 -> 展开时触发，避免切换 tab 时抢焦点。
-     */
-    const prev = prevFocusStateRef.current;
-    const becameRightVisible = !prev.isRightVisible && isRightVisible;
-
-    prevFocusStateRef.current = { isRightVisible };
-
-    if (!isTabActive) return;
-
-    // Case A：右侧刚展开（无论左侧是否可见，都应把输入焦点交给 ChatInput）
-    if (becameRightVisible) {
-      focusChatInput({ root: rootRef.current });
-      return;
-    }
-  }, [isTabActive, isRightVisible]);
-
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
     if (!event.dataTransfer?.types?.includes("Files")) return;
     dragCounterRef.current += 1;
@@ -258,7 +198,7 @@ export function Chat({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <ChatHeader loadHistory={effectiveLoadHistory} />
+      <ChatHeader loadHistory={effectiveLoadHistory} pageId={pageId} />
         <MessageList className="flex-1 min-h-0" />
         <ChatInput
           attachments={attachments}

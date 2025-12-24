@@ -11,6 +11,7 @@ import type { UiEvent } from "@teatime-ai/api";
 import { usePrewarmPlate } from "@/hooks/use-prewarm-plate";
 import { useSetting } from "@/hooks/use-settings";
 import { WebSettingDefs } from "@/lib/setting-defs";
+import AutoUpdateGate from "@/components/layout/AutoUpdateGate";
 
 type ThemeSelection = "light" | "dark" | "system";
 
@@ -155,6 +156,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <ThemeSettingsBootstrap />
       <QueryClientProvider client={queryClient}>
         {children}
+        <AutoUpdateGate />
         {/* <ReactQueryDevtools initialIsOpen={false} /> */}
       </QueryClientProvider>
     </ThemeProvider>
