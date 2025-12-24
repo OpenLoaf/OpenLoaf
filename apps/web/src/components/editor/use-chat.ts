@@ -42,9 +42,11 @@ export const useChat = () => {
   const editor = useEditorRef();
   const options = usePluginOption(aiChatPlugin, 'chatOptions');
   const { value: defaultChatModelIdRaw } = useSetting(WebSettingDefs.ModelDefaultChatModelId);
+  const { value: chatModelSourceRaw } = useSetting(WebSettingDefs.ModelChatSource);
   const chatModelIdRef = React.useRef<string | null>(
     typeof defaultChatModelIdRaw === 'string' ? defaultChatModelIdRaw.trim() || null : null
   );
+  const chatModelSourceRef = React.useRef<string>('local');
 
   // remove when you implement the route /api/ai/command
   const abortControllerRef = React.useRef<AbortController | null>(null);
@@ -73,17 +75,29 @@ export const useChat = () => {
           typeof bodyOptionsRecord.chatModelId === 'string'
             ? bodyOptionsRecord.chatModelId
             : undefined;
+        const explicitChatModelSource =
+          typeof bodyOptionsRecord.chatModelSource === 'string'
+            ? bodyOptionsRecord.chatModelSource
+            : undefined;
         const refChatModelId =
           typeof chatModelIdRef.current === 'string' ? chatModelIdRef.current : undefined;
+        const refChatModelSource =
+          typeof chatModelSourceRef.current === 'string'
+            ? chatModelSourceRef.current
+            : undefined;
         // 中文注释：显式 chatModelId 优先，其次使用最新设置值。
         const normalizedChatModelId =
           (explicitChatModelId ?? refChatModelId)?.trim() || undefined;
-        const { chatModelId: _ignored, ...restBodyOptions } = bodyOptionsRecord;
+        const normalizedChatModelSource =
+          (explicitChatModelSource ?? refChatModelSource)?.trim() || undefined;
+        const { chatModelId: _ignored, chatModelSource: _ignoredSource, ...restBodyOptions } =
+          bodyOptionsRecord;
 
         const body = {
           ...initBody,
           ...restBodyOptions,
           ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
+          ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
         };
 
         const res = await fetch(input, {
@@ -209,6 +223,13 @@ export const useChat = () => {
     // 中文注释：为空代表 Auto，不透传 chatModelId。
     chatModelIdRef.current = normalized || null;
   }, [defaultChatModelIdRaw]);
+
+  React.useEffect(() => {
+    const normalized =
+      typeof chatModelSourceRaw === 'string' ? chatModelSourceRaw.trim() : '';
+    // 中文注释：仅允许 local/cloud，其他值默认本地。
+    chatModelSourceRef.current = normalized === 'cloud' ? 'cloud' : 'local';
+  }, [chatModelSourceRaw]);
 
   const chat = {
     ...baseChat,

@@ -20,10 +20,12 @@ export function createChatTransport({
   paramsRef,
   tabIdRef,
   chatModelIdRef,
+  chatModelSourceRef,
 }: {
   paramsRef: RefObject<Record<string, unknown> | undefined>;
   tabIdRef: RefObject<string | null | undefined>;
   chatModelIdRef?: RefObject<string | null | undefined>;
+  chatModelSourceRef?: RefObject<string | null | undefined>;
 }) {
   const apiBase = `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`;
 
@@ -38,18 +40,30 @@ export function createChatTransport({
       const bodyRecord = extraBody as Record<string, unknown>;
       const explicitChatModelId =
         typeof bodyRecord.chatModelId === "string" ? bodyRecord.chatModelId : undefined;
+      const explicitChatModelSource =
+        typeof bodyRecord.chatModelSource === "string" ? bodyRecord.chatModelSource : undefined;
       const refChatModelId =
         typeof chatModelIdRef?.current === "string" ? chatModelIdRef.current : undefined;
+      const refChatModelSource =
+        typeof chatModelSourceRef?.current === "string"
+          ? chatModelSourceRef.current
+          : undefined;
       // 中文注释：显式 chatModelId 优先，其次使用最新设置值。
       const normalizedChatModelId =
         (explicitChatModelId ?? refChatModelId)?.trim() || undefined;
-      const { chatModelId: _ignored, ...restBody } = bodyRecord;
+      const normalizedChatModelSource =
+        (explicitChatModelSource ?? refChatModelSource)?.trim() || undefined;
+      const { chatModelId: _ignored, chatModelSource: _ignoredSource, ...restBody } =
+        bodyRecord;
 
       if (messages.length === 0) {
         return {
           body: {
             ...restBody,
             ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
+            ...(normalizedChatModelSource
+              ? { chatModelSource: normalizedChatModelSource }
+              : {}),
             params: mergedParams,
             sessionId: id,
             id,
@@ -70,6 +84,7 @@ export function createChatTransport({
         body: {
           ...restBody,
           ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
+          ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
           params: mergedParams,
           sessionId: id,
           id,

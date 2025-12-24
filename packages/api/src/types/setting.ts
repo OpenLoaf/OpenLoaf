@@ -45,6 +45,12 @@ export const PublicSettingDefs = {
     scope: "PUBLIC",
     category: "model",
   },
+  ModelChatSource: {
+    key: "model.chatSource",
+    defaultValue: "local" as string,
+    scope: "PUBLIC",
+    category: "model",
+  },
   AppProjectRule: {
     key: "app.projectRule",
     defaultValue: "按项目划分" as string,

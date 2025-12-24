@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useTabs } from "@/hooks/use-tabs";
 import { useSetting, useSettingsValues } from "@/hooks/use-settings";
-import { buildProviderModelOptions } from "@/lib/provider-models";
+import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { WebSettingDefs } from "@/lib/setting-defs";
 import { useChatContext } from "../ChatProvider";
 import type { ModelCapabilityId, ModelDefinition } from "@teatime-ai/api/common";
@@ -53,19 +53,27 @@ function formatModelPrice(definition?: ModelDefinition): string | null {
 
 export default function SelectMode({ className }: SelectModeProps) {
   const { items } = useSettingsValues();
+  const { value: chatModelSourceRaw, setValue: setChatModelSource } =
+    useSetting(WebSettingDefs.ModelChatSource);
   const { value: defaultChatModelIdRaw, setValue: setDefaultChatModelId } =
     useSetting(WebSettingDefs.ModelDefaultChatModelId);
   const [open, setOpen] = useState(false);
   const { tabId } = useChatContext();
   const pushStackItem = useTabs((s) => s.pushStackItem);
-  const modelOptions = useMemo(() => buildProviderModelOptions(items), [items]);
+  const chatModelSource = normalizeChatModelSource(chatModelSourceRaw);
+  const isCloudSource = chatModelSource === "cloud";
+  const modelOptions = useMemo(
+    () => buildChatModelOptions(chatModelSource, items),
+    [chatModelSource, items],
+  );
   const selectedModel =
     typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw : "";
   const isAuto = !selectedModel;
   const hasModels = modelOptions.length > 0;
+  const showCloudEmpty = isCloudSource && !hasModels;
   const showAuto = hasModels;
   const showModelList = hasModels && !isAuto;
-  const showAddButton = !isAuto || !hasModels;
+  const showAddButton = !isCloudSource && (!isAuto || !hasModels);
   const showTopSection = showAuto || showModelList;
   useEffect(() => {
     if (isAuto) return;
@@ -95,6 +103,16 @@ export default function SelectMode({ className }: SelectModeProps) {
     setOpen(false);
   };
 
+  /** Toggle model source between local and cloud. */
+  const handleToggleCloudSource = (next: boolean) => {
+    const normalized = next ? "cloud" : "local";
+    void setChatModelSource(normalized);
+    if (normalized === "cloud") {
+      // 中文注释：切换到云端时清空本地选择，避免透传无效 modelId。
+      void setDefaultChatModelId("");
+    }
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -119,98 +137,118 @@ export default function SelectMode({ className }: SelectModeProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 max-w-[90vw] p-2">
-        {showTopSection ? (
-          <div className="space-y-2">
-            {showAuto ? (
-              <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-muted-foreground" />
-                    <Label htmlFor="auto-switch" className="text-sm">
-                      Auto
-                    </Label>
-                  </div>
-                  <Switch
-                    id="auto-switch"
-                    checked={isAuto}
-                    onCheckedChange={(next) => {
-                      if (next) {
-                        void setDefaultChatModelId("");
-                        return;
-                      }
-                      if (modelOptions.length === 0) return;
-                      void setDefaultChatModelId(modelOptions[0]!.id);
-                    }}
-                  />
-                </div>
-                {isAuto && (
-                  <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-                    基于效果与速度帮助您选择最优模型
-                  </p>
-                )}
-              </div>
-            ) : null}
-
-            {showModelList ? (
-              <div className="space-y-1">
-                {modelOptions.map((option) => {
-                  // 未标注能力时默认展示 text，避免空白。
-                  const capabilityIds: ModelCapabilityId[] =
-                    option.capabilityIds && option.capabilityIds.length > 0
-                      ? option.capabilityIds
-                      : ["text"];
-                  const priceLabel = formatModelPrice(option.modelDefinition);
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => void setDefaultChatModelId(option.id)}
-                      className={cn(
-                        "w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
-                        selectedModel === option.id && "border-border/70 bg-muted/70"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium text-foreground">
-                            {option.modelId}
-                          </div>
-                          <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
-                            <span className="min-w-0 truncate">
-                              {option.providerName}
-                            </span>
-                            <span className="flex flex-wrap items-center justify-end gap-1">
-                              {capabilityIds.map((capability) => (
-                                <span
-                                  key={`${option.id}-${capability}`}
-                                  className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
-                                >
-                                  {MODEL_CAPABILITY_LABELS[capability] ?? capability}
-                                </span>
-                              ))}
-                            </span>
-                          </div>
-                          {priceLabel ? (
-                            <div className="mt-1 text-[11px] text-muted-foreground">
-                              {priceLabel}
-                            </div>
-                          ) : null}
-                        </div>
-                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-                          {selectedModel === option.id ? (
-                            <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
-                          ) : null}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+        <div className="space-y-2">
+          <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="cloud-switch" className="text-sm">
+                云端模型
+              </Label>
+              <Switch
+                id="cloud-switch"
+                checked={isCloudSource}
+                onCheckedChange={handleToggleCloudSource}
+              />
+            </div>
+            {showCloudEmpty ? (
+              <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                云端模型暂未开放
+              </p>
             ) : null}
           </div>
-        ) : null}
+
+          {showTopSection ? (
+            <div className="space-y-2">
+              {showAuto ? (
+                <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="auto-switch" className="text-sm">
+                        Auto
+                      </Label>
+                    </div>
+                    <Switch
+                      id="auto-switch"
+                      checked={isAuto}
+                      onCheckedChange={(next) => {
+                        if (next) {
+                          void setDefaultChatModelId("");
+                          return;
+                        }
+                        if (modelOptions.length === 0) return;
+                        void setDefaultChatModelId(modelOptions[0]!.id);
+                      }}
+                    />
+                  </div>
+                  {isAuto && (
+                    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                      基于效果与速度帮助您选择最优模型
+                    </p>
+                  )}
+                </div>
+              ) : null}
+
+              {showModelList ? (
+                <div className="space-y-1">
+                  {modelOptions.map((option) => {
+                    // 未标注能力时默认展示 text，避免空白。
+                    const capabilityIds: ModelCapabilityId[] =
+                      option.capabilityIds && option.capabilityIds.length > 0
+                        ? option.capabilityIds
+                        : ["text"];
+                    const priceLabel = formatModelPrice(option.modelDefinition);
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => void setDefaultChatModelId(option.id)}
+                        className={cn(
+                          "w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
+                          selectedModel === option.id && "border-border/70 bg-muted/70"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium text-foreground">
+                              {option.modelId}
+                            </div>
+                            <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+                              <span className="min-w-0 truncate">
+                                {option.providerName}
+                              </span>
+                              <span className="flex flex-wrap items-center justify-end gap-1">
+                                {capabilityIds.map((capability) => (
+                                  <span
+                                    key={`${option.id}-${capability}`}
+                                    className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
+                                  >
+                                    {MODEL_CAPABILITY_LABELS[capability] ?? capability}
+                                  </span>
+                                ))}
+                              </span>
+                            </div>
+                            {priceLabel ? (
+                              <div className="mt-1 text-[11px] text-muted-foreground">
+                                {priceLabel}
+                              </div>
+                            ) : null}
+                          </div>
+                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+                            {selectedModel === option.id ? (
+                              <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
+                            ) : null}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
         {showAddButton ? (
-          <div className={cn(showTopSection && "border-t border-border/70 pt-2")}>
+          <div className={cn((showTopSection || showCloudEmpty) && "border-t border-border/70 pt-2")}>
             <Button
               type="button"
               variant="outline"

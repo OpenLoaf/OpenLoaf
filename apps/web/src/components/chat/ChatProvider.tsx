@@ -157,9 +157,11 @@ export default function ChatProvider({
   const sessionIdRef = React.useRef(sessionId);
   sessionIdRef.current = sessionId;
   const { value: defaultChatModelIdRaw } = useSetting(WebSettingDefs.ModelDefaultChatModelId);
+  const { value: chatModelSourceRaw } = useSetting(WebSettingDefs.ModelChatSource);
   const chatModelIdRef = React.useRef<string | null>(
     typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw.trim() || null : null,
   );
+  const chatModelSourceRef = React.useRef<string>("local");
 
   // 关键：记录一次请求对应的 userMessageId（用于在 onFinish 补齐 assistant.parentMessageId）
   const pendingUserMessageIdRef = React.useRef<string | null>(null);
@@ -193,6 +195,13 @@ export default function ChatProvider({
     chatModelIdRef.current = normalized || null;
   }, [defaultChatModelIdRaw]);
 
+  React.useEffect(() => {
+    const normalized =
+      typeof chatModelSourceRaw === "string" ? chatModelSourceRaw.trim() : "";
+    // 中文注释：仅允许 local/cloud，其他值默认本地。
+    chatModelSourceRef.current = normalized === "cloud" ? "cloud" : "local";
+  }, [chatModelSourceRaw]);
+
   const upsertToolPartMerged = React.useCallback(
     (key: string, next: Partial<Parameters<typeof upsertToolPart>[2]>) => {
       if (!tabId) return;
@@ -203,7 +212,7 @@ export default function ChatProvider({
   );
 
   const transport = React.useMemo(() => {
-    return createChatTransport({ paramsRef, tabIdRef, chatModelIdRef });
+    return createChatTransport({ paramsRef, tabIdRef, chatModelIdRef, chatModelSourceRef });
   }, []);
 
   const refreshBranchMeta = React.useCallback(

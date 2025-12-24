@@ -169,6 +169,21 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
 
   useCanvasWheelZoom({ canvasRef, flowRef, isCanvasActive });
 
+  /** Refresh the React Flow viewport when the canvas becomes active. */
+  useEffect(() => {
+    if (!isCanvasActive) return;
+    const inst = flowRef.current;
+    if (!inst) return;
+    // 逻辑：Tab 切换后刷新视口，避免 React Flow 交互层失活
+    const rafId = window.requestAnimationFrame(() => {
+      const viewport = inst.getViewport();
+      inst.setViewport(viewport, { duration: 0 });
+    });
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [isCanvasActive]);
+
   /** Track pointer position for clipboard paste. */
   const handleCanvasPointerMove = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -179,6 +194,7 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
   );
 
   useEffect(() => {
+    if (!isCanvasActive) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isCanvasActive || isLocked) return;
       const target = event.target as HTMLElement | null;
@@ -284,6 +300,7 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
   ]);
 
   useEffect(() => {
+    if (!isCanvasActive) return;
     const handlePaste = (event: ClipboardEvent) => {
       if (!isCanvasActive || isLocked) return;
       const target = event.target as Node | null;

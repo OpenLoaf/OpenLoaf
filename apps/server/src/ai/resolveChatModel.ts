@@ -4,7 +4,7 @@ import { createDeepSeek } from "@ai-sdk/deepseek";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
-import type { ModelDefinition } from "@teatime-ai/api/common";
+import type { ChatModelSource, ModelDefinition } from "@teatime-ai/api/common";
 
 type ResolvedChatModel = {
   model: LanguageModelV3;
@@ -53,6 +53,12 @@ function parseChatModelId(chatModelId: string): { providerKey: string; modelId: 
   return { providerKey, modelId };
 }
 
+/** Normalize chat model source input. */
+function normalizeChatModelSource(raw?: string | null): ChatModelSource {
+  // 中文注释：只允许 local/cloud，非法值默认回落到 local。
+  return raw === "cloud" ? "cloud" : "local";
+}
+
 /** Build chatModelId candidates from provider settings. */
 function buildChatModelCandidates(
   providers: ProviderSettingEntry[],
@@ -74,8 +80,8 @@ function buildChatModelCandidates(
   return candidates;
 }
 
-/** Resolve chat model from candidates with fallback attempts. */
-export async function resolveChatModel(input: {
+/** Resolve chat model from local provider settings. */
+async function resolveLocalChatModel(input: {
   chatModelId?: string | null;
 }): Promise<ResolvedChatModel> {
   const normalized = normalizeChatModelId(input.chatModelId);
@@ -129,4 +135,24 @@ export async function resolveChatModel(input: {
   }
 
   throw lastError ?? new Error("模型解析失败");
+}
+
+/** Resolve chat model from cloud config. */
+async function resolveCloudChatModel(_input: {
+  chatModelId?: string | null;
+}): Promise<ResolvedChatModel> {
+  // 中文注释：云端模型列表尚未接入，先返回明确错误。
+  throw new Error("云端模型暂未开放");
+}
+
+/** Resolve chat model by selected source. */
+export async function resolveChatModel(input: {
+  chatModelId?: string | null;
+  chatModelSource?: ChatModelSource | null;
+}): Promise<ResolvedChatModel> {
+  const source = normalizeChatModelSource(input.chatModelSource);
+  if (source === "cloud") {
+    return resolveCloudChatModel({ chatModelId: input.chatModelId });
+  }
+  return resolveLocalChatModel({ chatModelId: input.chatModelId });
 }

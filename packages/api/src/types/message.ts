@@ -1,4 +1,4 @@
-import type { ModelDefinition } from "../common/modelTypes";
+import type { ChatModelSource, ModelDefinition } from "../common/modelTypes";
 
 type UIDataTypes = Record<string, unknown>;
 type UITools = Record<string, unknown>;
@@ -93,6 +93,8 @@ export type ChatRequestBody = {
   retry?: boolean;
   /** 选择的聊天模型 ID（为空代表 Auto） */
   chatModelId?: string;
+  /** 选择的模型来源（本地/云端） */
+  chatModelSource?: ChatModelSource;
   /** Web UI 侧稳定 clientId（用于断线续传关联） */
   clientId?: string;
 };

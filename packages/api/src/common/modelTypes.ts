@@ -8,6 +8,8 @@ export type ModelCapabilityId =
   | "embedding" // 嵌入
   | "structured_output"; // 结构化输出
 
+export type ChatModelSource = "local" | "cloud";
+
 export type ModelDefinition = {
   id: string;
   capability: ModelCapabilityId[];

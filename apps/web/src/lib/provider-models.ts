@@ -1,6 +1,6 @@
 "use client";
 
-import type { ModelCapabilityId, ModelDefinition } from "@teatime-ai/api/common";
+import type { ChatModelSource, ModelCapabilityId, ModelDefinition } from "@teatime-ai/api/common";
 
 type ProviderKeyEntry = {
   provider: string;
@@ -16,6 +16,12 @@ export type ProviderModelOption = {
   capabilityIds?: ModelCapabilityId[];
   modelDefinition?: ModelDefinition;
 };
+
+/** Normalize model source to local/cloud. */
+export function normalizeChatModelSource(value: unknown): ChatModelSource {
+  // 中文注释：只允许 local/cloud，非法值一律回退为 local。
+  return value === "cloud" ? "cloud" : "local";
+}
 
 /**
  * Build model options from provider settings.
@@ -64,4 +70,20 @@ export function buildProviderModelOptions(
     }
   }
   return options;
+}
+
+/** Build model options from cloud models (placeholder). */
+export function buildCloudModelOptions(): ProviderModelOption[] {
+  // 中文注释：云端模型列表暂未接入，先返回空数组。
+  return [];
+}
+
+/** Build model options from source selection. */
+export function buildChatModelOptions(
+  source: ChatModelSource,
+  items: Array<{ key: string; value: unknown; category?: string }>,
+) {
+  // 中文注释：云端模式不读取本地服务商配置。
+  if (source === "cloud") return buildCloudModelOptions();
+  return buildProviderModelOptions(items);
 }

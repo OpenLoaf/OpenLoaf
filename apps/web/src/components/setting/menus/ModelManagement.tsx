@@ -22,7 +22,7 @@ import { ChevronDown, Plus } from "lucide-react";
 import { SettingsGroup } from "./SettingsGroup";
 import { useSetting, useSettingsValues } from "@/hooks/use-settings";
 import { WebSettingDefs } from "@/lib/setting-defs";
-import { buildProviderModelOptions } from "@/lib/provider-models";
+import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 
 type ProviderId = "anthropic" | "deepseek" | "openai" | "xai";
 
@@ -68,6 +68,8 @@ export function ModelManagement() {
     useSetting(WebSettingDefs.ModelResponseLanguage);
   const { value: workspaceProjectRuleRaw, setValue: setWorkspaceProjectRule } =
     useSetting(WebSettingDefs.AppProjectRule);
+  const { value: chatModelSourceRaw, setValue: setChatModelSource } =
+    useSetting(WebSettingDefs.ModelChatSource);
   const { value: defaultChatModelIdRaw, setValue: setDefaultChatModelId } =
     useSetting(WebSettingDefs.ModelDefaultChatModelId);
   const { value: chatModelQualityRaw, setValue: setChatModelQuality } =
@@ -86,6 +88,7 @@ export function ModelManagement() {
       : "zh-CN";
   const workspaceProjectRule =
     typeof workspaceProjectRuleRaw === "string" ? workspaceProjectRuleRaw : "";
+  const chatModelSource = normalizeChatModelSource(chatModelSourceRaw);
   const defaultChatModelId =
     typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw : "";
   const chatModelQuality: "high" | "medium" | "low" =
@@ -101,7 +104,11 @@ export function ModelManagement() {
     return map as Record<ProviderId, string>;
   }, []);
 
-  const providerModelOptions = useMemo(() => buildProviderModelOptions(items), [items]);
+  const modelOptions = useMemo(
+    () => buildChatModelOptions(chatModelSource, items),
+    [chatModelSource, items],
+  );
+  const emptyModelLabel = chatModelSource === "cloud" ? "云端模型暂未开放" : "暂无模型";
 
   const modelResponseLanguageLabelById: Record<ModelResponseLanguageId, string> =
     {
@@ -116,9 +123,9 @@ export function ModelManagement() {
 
   useEffect(() => {
     if (!defaultChatModelId) return;
-    const exists = providerModelOptions.some((option) => option.id === defaultChatModelId);
+    const exists = modelOptions.some((option) => option.id === defaultChatModelId);
     if (!exists) void setDefaultChatModelId("");
-  }, [defaultChatModelId, providerModelOptions, setDefaultChatModelId]);
+  }, [defaultChatModelId, modelOptions, setDefaultChatModelId]);
 
   return (
     <div className="space-y-3">
@@ -184,6 +191,29 @@ export function ModelManagement() {
 
           <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
             <div className="min-w-0 sm:w-56">
+              <div className="text-sm font-medium">模型来源</div>
+              <div className="text-xs text-muted-foreground">
+                选择本地服务商或云端模型
+              </div>
+            </div>
+
+            <div className="flex flex-1 items-center justify-end">
+              <Tabs
+                value={chatModelSource}
+                onValueChange={(next) =>
+                  void setChatModelSource(normalizeChatModelSource(next))
+                }
+              >
+                <TabsList>
+                  <TabsTrigger value="local">本地</TabsTrigger>
+                  <TabsTrigger value="cloud">云端</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="min-w-0 sm:w-56">
               <div className="text-sm font-medium">默认聊天模型</div>
               <div className="text-xs text-muted-foreground">
                 新对话默认使用的模型
@@ -200,7 +230,7 @@ export function ModelManagement() {
                   >
                     <span className="truncate">
                       {defaultChatModelId
-                        ? (providerModelOptions.find(
+                        ? (modelOptions.find(
                             (option) => option.id === defaultChatModelId,
                           )?.modelId ?? "Auto")
                         : "Auto"}
@@ -214,12 +244,12 @@ export function ModelManagement() {
                     onValueChange={(next) => void setDefaultChatModelId(next)}
                   >
                     <DropdownMenuRadioItem value="">Auto</DropdownMenuRadioItem>
-                    {providerModelOptions.length === 0 ? (
+                    {modelOptions.length === 0 ? (
                       <DropdownMenuRadioItem value="__empty__" disabled>
-                        暂无模型
+                        {emptyModelLabel}
                       </DropdownMenuRadioItem>
                     ) : null}
-                    {providerModelOptions.map((option) => (
+                    {modelOptions.map((option) => (
                       <DropdownMenuRadioItem key={option.id} value={option.id}>
                         <div className="min-w-0">
                           <div className="truncate">{option.modelId}</div>

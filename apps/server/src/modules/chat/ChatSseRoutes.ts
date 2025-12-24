@@ -335,7 +335,10 @@ export function registerChatSseRoutes(app: Hono) {
     let agentMetadata: Record<string, unknown> = {};
     // 中文注释：优先使用请求传入的 chatModelId，失败后按 fallback 规则选择模型。
     try {
-      const resolved = await resolveChatModel({ chatModelId: body.chatModelId });
+      const resolved = await resolveChatModel({
+        chatModelId: body.chatModelId,
+        chatModelSource: body.chatModelSource,
+      });
       masterAgent = createMasterAgentRunner({
         model: resolved.model,
         modelInfo: resolved.modelInfo,
