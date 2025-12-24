@@ -150,7 +150,7 @@ enum ResourceType {
 
 model Setting {
   id          String      @id @default(cuid())
-  key         String      @unique
+  key         String
   value       String
   secret      Boolean     @default(false)
   type        SettingType @default(PUBLIC)
@@ -164,6 +164,7 @@ model Setting {
   @@index([category])
   @@index([type, category])
   @@index([isReadonly])
+  @@unique([category, key])
 }
 
 enum SettingType {

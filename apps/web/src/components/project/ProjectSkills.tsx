@@ -37,7 +37,6 @@ const ProjectSkills = memo(function ProjectSkills({
 
   return (
     <div className="h-full space-y-3">
-      <div className="text-xs text-muted-foreground">pageId: {pageId ?? "-"}</div>
     </div>
   );
 });

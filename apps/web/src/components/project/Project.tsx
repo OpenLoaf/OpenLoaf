@@ -13,11 +13,12 @@ import ProjectCanvas, { ProjectCanvasHeader } from "./convas/ProjectCanvas";
 import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
 import ProjectMaterials, { ProjectMaterialsHeader } from "./ProjectMaterials";
 import ProjectSkills, { ProjectSkillsHeader } from "./ProjectSkills";
-import ProjectTabs, { type ProjectTabValue } from "./ProjectTabs";
+import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
 
 interface ProjectPageProps {
   tabId?: string;
   pageId?: string;
+  projectTab?: ProjectTabValue;
   [key: string]: any;
 }
 
@@ -43,10 +44,11 @@ function updateTreeNode(pages: any[], pageId: string, patch: any) {
   return changed ? nextPages : pages;
 }
 
-export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
+export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPageProps) {
   const { workspace: activeWorkspace } = useWorkspace();
   const tabActive = useTabActive();
   const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
+  const setTabBaseParams = useTabs((s) => s.setTabBaseParams);
   const appliedWidthRef = useRef(false);
   const mountedScopeRef = useRef<{ pageId?: string; tabId?: string }>({
     pageId,
@@ -62,9 +64,14 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
     invalidatePageTree,
   } = usePage(pageId);
 
-  const [activeTab, setActiveTab] = useState<ProjectTabValue>("intro");
+  // 从持久化参数恢复上次的 Project 子标签，刷新后保持位置。
+  const initialProjectTab =
+    projectTab && PROJECT_TABS.some((tab) => tab.value === projectTab)
+      ? projectTab
+      : "intro";
+  const [activeTab, setActiveTab] = useState<ProjectTabValue>(initialProjectTab);
   const [mountedTabs, setMountedTabs] = useState<Set<ProjectTabValue>>(
-    () => new Set<ProjectTabValue>(["intro"])
+    () => new Set<ProjectTabValue>([initialProjectTab])
   );
   const [introReadOnly, setIntroReadOnly] = useState(true);
 
@@ -164,6 +171,14 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
     setIntroReadOnly(true);
   }, [pageId]);
 
+  useEffect(() => {
+    if (!projectTab) return;
+    if (!PROJECT_TABS.some((tab) => tab.value === projectTab)) return;
+    if (projectTab === activeTab) return;
+    // 恢复持久化的子标签，避免 F5 后回到默认页。
+    setActiveTab(projectTab);
+  }, [projectTab, activeTab]);
+
   // 面板首次访问后保留挂载状态，避免初始化时一次性渲染所有重组件。
   // 记录页面上下文变化，避免仅切换子 tab 时重置挂载缓存。
   /** Reset mounted panels when the page context changes. */
@@ -202,6 +217,19 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
   const handleSetIntroReadOnly = useCallback((nextReadOnly: boolean) => {
     setIntroReadOnly(nextReadOnly);
   }, []);
+
+  /** Persist the active project tab into the dock base params. */
+  const handleProjectTabChange = useCallback(
+    (nextTab: ProjectTabValue) => {
+      startTransition(() => {
+        setActiveTab(nextTab);
+      });
+      if (!tabId) return;
+      // 同步写入 base.params，刷新后保持位置。
+      setTabBaseParams(tabId, { projectTab: nextTab });
+    },
+    [setTabBaseParams, tabId]
+  );
 
   return (
     <div className="flex h-full w-full flex-col min-h-0">
@@ -272,11 +300,7 @@ export default function ProjectPage({ pageId, tabId }: ProjectPageProps) {
         <div className="shrink-0">
           <ProjectTabs
             value={activeTab}
-            onValueChange={(nextTab) => {
-              startTransition(() => {
-                setActiveTab(nextTab);
-              });
-            }}
+            onValueChange={handleProjectTabChange}
             isActive={tabActive}
             revealDelayMs={800}
           />

@@ -121,7 +121,7 @@ export const TabMenu = ({
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
         <ContextMenuItem onClick={() => onTogglePin?.(tab.id, !isPinned)}>
-          {isPinned ? "Unpin" : "Pin"}
+          {isPinned ? "取消置顶" : "置顶"}
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {
@@ -131,7 +131,7 @@ export const TabMenu = ({
           }}
           disabled={workspaceTabs.length <= 1 || isPinned}
         >
-          Close
+          关闭
           <ContextMenuShortcut>⌘W</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem
@@ -143,19 +143,7 @@ export const TabMenu = ({
           }}
           disabled={workspaceTabs.filter((t) => !t.isPin).length <= 1}
         >
-          Close Others
-        </ContextMenuItem>
-        <ContextMenuItem
-          onClick={() => {
-            if (workspaceTabs.length > 1) {
-              workspaceTabs.forEach((t) => {
-                if (!t.isPin) closeTab(t.id);
-              });
-            }
-          }}
-          disabled={workspaceTabs.filter((t) => !t.isPin).length === 0}
-        >
-          Close All
+          关闭其他
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

@@ -1,5 +1,9 @@
 import { BaseSettingRouter, settingSchemas, t, shieldedProcedure } from "@teatime-ai/api";
-import { getSettingsForWeb, setSettingValueFromWeb } from "@/modules/settings/settingsService";
+import {
+  deleteSettingValueFromWeb,
+  getSettingsForWeb,
+  setSettingValueFromWeb,
+} from "@/modules/settings/settingsService";
 
 export class SettingRouterImpl extends BaseSettingRouter {
   /** Settings read/write (server-side). */
@@ -14,7 +18,14 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .input(settingSchemas.set.input)
         .output(settingSchemas.set.output)
         .mutation(async ({ input }) => {
-          await setSettingValueFromWeb(input.key, input.value);
+          await setSettingValueFromWeb(input.key, input.value, input.category);
+          return { ok: true };
+        }),
+      remove: shieldedProcedure
+        .input(settingSchemas.remove.input)
+        .output(settingSchemas.remove.output)
+        .mutation(async ({ input }) => {
+          await deleteSettingValueFromWeb(input.key, input.category);
           return { ok: true };
         }),
     });

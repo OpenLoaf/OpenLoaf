@@ -77,9 +77,14 @@ export function TabLayout({
   const rightHostRef = React.useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = React.useState(0);
   const [isDragging, setIsDragging] = React.useState(false);
+  const [minLeftEnabled, setMinLeftEnabled] = React.useState(true);
   const activeTabIdRef = React.useRef<string | null>(null);
   const mountTimerRef = React.useRef<number | null>(null);
   const switchTokenRef = React.useRef(0);
+  const prevLeftVisibleRef = React.useRef<boolean | null>(null);
+  const pendingMinLeftEnableRef = React.useRef(false);
+  const leftVisibleRef = React.useRef(false);
+  const minLeftEnableRafRef = React.useRef<number | null>(null);
 
   React.useLayoutEffect(() => {
     bindPanelHost("left", leftHostRef.current);
@@ -219,6 +224,69 @@ export function TabLayout({
   const splitPercent = useSpring(targetSplitPercent, SPRING_CONFIG);
 
   React.useEffect(() => {
+    leftVisibleRef.current = isLeftVisible;
+  }, [isLeftVisible]);
+
+  // 中文注释：左侧从隐藏切到显示时先关闭 minWidth，让宽度从 0 动画到目标，动画完成后再恢复 minWidth，避免 30% 闪动。
+  React.useLayoutEffect(() => {
+    const prevLeftVisible = prevLeftVisibleRef.current;
+    prevLeftVisibleRef.current = isLeftVisible;
+
+    if (!isLeftVisible) {
+      pendingMinLeftEnableRef.current = false;
+      if (minLeftEnableRafRef.current !== null) {
+        cancelAnimationFrame(minLeftEnableRafRef.current);
+        minLeftEnableRafRef.current = null;
+      }
+      if (minLeftEnabled) setMinLeftEnabled(false);
+      return;
+    }
+
+    if (prevLeftVisible === false) {
+      if (reduceMotion) {
+        pendingMinLeftEnableRef.current = false;
+        setMinLeftEnabled(true);
+      } else {
+        pendingMinLeftEnableRef.current = true;
+        setMinLeftEnabled(false);
+      }
+      return;
+    }
+
+    if (prevLeftVisible === null && !minLeftEnabled) {
+      setMinLeftEnabled(true);
+    }
+  }, [isLeftVisible, reduceMotion, minLeftEnabled]);
+
+  React.useEffect(() => {
+    // Enable min width after the split animation settles.
+    const handleComplete = () => {
+      if (!pendingMinLeftEnableRef.current) return;
+      pendingMinLeftEnableRef.current = false;
+      if (!leftVisibleRef.current) return;
+      // 中文注释：动画完成后下一帧再开启 minWidth，避开 ResizeObserver 循环警告。
+      if (minLeftEnableRafRef.current !== null) {
+        cancelAnimationFrame(minLeftEnableRafRef.current);
+      }
+      minLeftEnableRafRef.current = requestAnimationFrame(() => {
+        minLeftEnableRafRef.current = null;
+        if (leftVisibleRef.current) setMinLeftEnabled(true);
+      });
+    };
+
+    const unsubComplete = splitPercent.on("animationComplete", handleComplete);
+    const unsubCancel = splitPercent.on("animationCancel", handleComplete);
+    return () => {
+      unsubComplete();
+      unsubCancel();
+      if (minLeftEnableRafRef.current !== null) {
+        cancelAnimationFrame(minLeftEnableRafRef.current);
+        minLeftEnableRafRef.current = null;
+      }
+    };
+  }, [splitPercent]);
+
+  React.useEffect(() => {
     if (isDragging) return;
     if (reduceMotion) {
       splitPercent.jump(targetSplitPercent);
@@ -288,7 +356,7 @@ export function TabLayout({
         className="relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden"
         style={{
           width: useTransform(splitPercent, (v) => `${v}%`),
-          minWidth: isLeftVisible ? effectiveMinLeft : 0,
+          minWidth: isLeftVisible && minLeftEnabled ? effectiveMinLeft : 0,
         }}
         animate={{ opacity: isLeftVisible ? 1 : 0 }}
         transition={

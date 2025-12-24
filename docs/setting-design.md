@@ -17,7 +17,7 @@
 - 客户端：统一 hook + 缓存 + 乐观更新
 
 ## Setting 表字段建议
-- `key`：唯一键，命名遵循 `domain.subkey` 或 `domain.subkey.detail`
+- `key`：分类内唯一键（与 `category` 组成唯一主键）
 - `value`：字符串（JSON 存复杂结构）
 - `secret`：敏感标记（API Key 等）
 - `type`：WEB/SERVER/PUBLIC（用于读写范围与暴露边界）
@@ -55,9 +55,11 @@
 - `model.providers` | type: PUBLIC | category: model | secret: true
   - JSON：[{ id, provider, model, apiKey }]
 
-### 密钥（KeyManagement）
-- `key.entries` | type: PUBLIC | category: key | secret: true
-  - JSON：[{ id, provider, apiUrl, apiKey }]
+### 服务商（ProviderManagement）
+- 单条记录单独存储，category 固定为 `provider`
+- key 命名：服务商名称（`name`）
+  - 示例：`OPENAI`
+- value（JSON）：{ provider, apiUrl, apiKey, modelIds }
 
 ### Agent（AgentManagement）
 - `agent.configs` | type: PUBLIC | category: agent | secret: false

@@ -175,6 +175,10 @@ export interface TabsState {
   setTabTitle: (tabId: string, title: string) => void;
 
   setTabBase: (tabId: string, base: DockItem | undefined) => void;
+  /**
+   * Update base params for a tab.
+   */
+  setTabBaseParams: (tabId: string, params: Record<string, unknown>) => void;
   setTabLeftWidthPercent: (tabId: string, percent: number) => void;
   setTabMinLeftWidth: (tabId: string, minWidth?: number) => void;
   setTabRightChatCollapsed: (tabId: string, collapsed: boolean) => void;
@@ -462,6 +466,35 @@ export const useTabs = create<TabsState>()(
             }),
           ),
         }));
+      },
+
+      /** Update dock base params for a tab. */
+      setTabBaseParams: (tabId, params) => {
+        set((state) => {
+          const index = state.tabs.findIndex((tab) => tab.id === tabId);
+          if (index === -1) return state;
+          const target = state.tabs[index];
+          if (!target?.base) return state;
+
+          const currentParams = (target.base.params ?? {}) as Record<string, unknown>;
+          const nextParams = { ...currentParams, ...params };
+          // 只在参数变化时更新，避免重复写入触发持久化。
+          const same =
+            Object.keys(nextParams).length === Object.keys(currentParams).length &&
+            Object.entries(nextParams).every(([key, value]) => currentParams[key] === value);
+          if (same) return state;
+
+          const nextTabs = [...state.tabs];
+          nextTabs[index] = normalizeDock({
+            ...target,
+            base: {
+              ...target.base,
+              params: nextParams,
+            },
+          });
+
+          return { tabs: nextTabs };
+        });
       },
 
       setTabLeftWidthPercent: (tabId, percent) => {

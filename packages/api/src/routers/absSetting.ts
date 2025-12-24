@@ -19,6 +19,14 @@ export const settingSchemas = {
     input: z.object({
       key: z.string(),
       value: z.any(),
+      category: z.string().optional(),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
+  remove: {
+    input: z.object({
+      key: z.string(),
+      category: z.string().optional(),
     }),
     output: z.object({ ok: z.boolean() }),
   },
@@ -38,6 +46,12 @@ export abstract class BaseSettingRouter {
       set: shieldedProcedure
         .input(settingSchemas.set.input)
         .output(settingSchemas.set.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      remove: shieldedProcedure
+        .input(settingSchemas.remove.input)
+        .output(settingSchemas.remove.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

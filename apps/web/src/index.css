@@ -83,6 +83,12 @@ body {
   --sidebar-ring: oklch(0.708 0 0);
   --brand: oklch(0.623 0.214 259.815);
   --highlight: oklch(0.852 0.199 91.936);
+  --canvas-minimap-bg: color-mix(in oklch, var(--background) 88%, transparent);
+  --canvas-minimap-node: color-mix(in oklch, var(--foreground) 18%, transparent);
+  --canvas-minimap-node-stroke: color-mix(in oklch, var(--foreground) 30%, transparent);
+  --canvas-minimap-mask: color-mix(in oklch, var(--foreground) 10%, transparent);
+  --canvas-minimap-mask-stroke: color-mix(in oklch, var(--foreground) 22%, transparent);
+  --canvas-guide: color-mix(in oklch, var(--primary) 55%, transparent);
 }
 
 .dark {
@@ -209,6 +215,45 @@ body {
 
 .canvas-flow .react-flow__pane.dragging {
   cursor: var(--canvas-cursor-dragging, var(--canvas-cursor, default)) !important;
+}
+
+/* Group 节点使用自定义样式，移除默认边框 */
+.canvas-flow .react-flow__node-group {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
+.canvas-flow .react-flow__node-group.selected {
+  outline: none;
+  box-shadow: none;
+}
+
+.canvas-flow .react-flow__node-image {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
+.canvas-flow .react-flow__node-image.selected {
+  outline: none;
+  box-shadow: none;
+}
+
+.canvas-flow .react-flow__node-group:focus,
+.canvas-flow .react-flow__node-group:focus-visible,
+.canvas-flow .react-flow__node-group.selectable {
+  outline: none;
+  box-shadow: none;
+}
+
+.canvas-flow .react-flow__node-image:focus,
+.canvas-flow .react-flow__node-image:focus-visible,
+.canvas-flow .react-flow__node-image.selectable {
+  outline: none;
+  box-shadow: none;
 }
 
 /* Firefox 滚动条样式 */

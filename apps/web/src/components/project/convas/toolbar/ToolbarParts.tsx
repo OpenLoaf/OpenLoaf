@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { cn } from "@udecode/cn";
 
 /** 仅图标的按钮组件（玻璃风格工具条中的按钮） */
@@ -9,18 +10,21 @@ function IconBtn(props: {
   children: React.ReactNode;
   onClick?: () => void;
   className?: string;
+  disabled?: boolean;
 }) {
-  const { title, active, children, onClick, className } = props;
+  const { title, active, children, onClick, className, disabled } = props;
   return (
     <button
       type="button"
       aria-label={title}
       title={title}
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         "inline-flex h-9 w-9 items-center justify-center rounded-lg",
         "transition-colors",
         active ? "bg-accent text-accent-foreground" : "hover:bg-accent/60",
+        disabled ? "cursor-not-allowed opacity-40" : "",
         className
       )}
     >
@@ -56,21 +60,44 @@ function HoverPanel(props: {
   );
 }
 
-/** 悬浮面板中的条目：图标 + 文案说明 */
+/** Render a panel item with icon + label. */
 function PanelItem(props: {
   title: string;
   children: React.ReactNode;
   onClick?: () => void;
   active?: boolean;
+  size?: "md" | "sm";
 }) {
-  const { title, children, onClick, active } = props;
+  const { title, children, onClick, active, size = "md" } = props;
+  const sizeClassName =
+    size === "sm"
+      ? "gap-1 rounded-md px-2 py-1 text-[10px]"
+      : "gap-1 rounded-md px-2.5 py-1.5 text-[11px]";
+  /** Handle tool activation on pointer down to avoid click loss. */
+  const pointerHandledRef = useRef(false);
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    // 逻辑：优先响应按下，避免 click 被画布层吞掉
+    pointerHandledRef.current = true;
+    event.stopPropagation();
+    onClick?.();
+  };
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (pointerHandledRef.current) {
+      pointerHandledRef.current = false;
+      event.stopPropagation();
+      return;
+    }
+    onClick?.();
+  };
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
       className={cn(
         // 面板条目：上下排列（图标在上、文字在下）
-        "inline-flex flex-col items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px]",
+        "inline-flex flex-col items-center",
+        sizeClassName,
         active ? "bg-accent text-accent-foreground" : "hover:bg-accent"
       )}
     >

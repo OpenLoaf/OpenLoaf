@@ -6,7 +6,10 @@ import { ThemeToggler } from "../../ThemeProvider";
 import { Sun } from "@/components/animate-ui/icons/sun";
 import { Moon } from "@/components/animate-ui/icons/moon";
 import { AnimateIcon } from "@/components/animate-ui/icons/icon";
+import { setSettingValue } from "@/hooks/use-settings";
+import { WebSettingDefs } from "@/lib/setting-defs";
 
+/** Toggle theme and persist the selection. */
 export const ModeToggle = () => {
   const { theme, resolvedTheme, setTheme } = useTheme();
 
@@ -22,7 +25,11 @@ export const ModeToggle = () => {
           variant="ghost"
           size="icon"
           onClick={() => {
-            toggleTheme(effective === "light" ? "dark" : "light");
+            const nextTheme = effective === "light" ? "dark" : "light";
+            toggleTheme(nextTheme);
+            // 同步主题选择到设置存储，便于下次启动恢复。
+            void setSettingValue(WebSettingDefs.UiTheme, nextTheme);
+            void setSettingValue(WebSettingDefs.UiThemeManual, nextTheme);
           }}
         >
           {effective === "light" ? (

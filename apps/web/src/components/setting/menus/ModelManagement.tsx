@@ -18,11 +18,11 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
-import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { SettingsGroup } from "./SettingsGroup";
-import { useSetting } from "@/hooks/use-settings";
+import { useSetting, useSettingsValues } from "@/hooks/use-settings";
 import { WebSettingDefs } from "@/lib/setting-defs";
+import { buildProviderModelOptions } from "@/lib/provider-models";
 
 type ProviderId = "anthropic" | "deepseek" | "openai" | "xai";
 
@@ -58,11 +58,11 @@ export function ModelManagement() {
   const { value: entriesRaw, setValue: setEntriesValue } = useSetting(
     WebSettingDefs.ModelProviders,
   );
+  const { items } = useSettingsValues();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draftProvider, setDraftProvider] = useState<ProviderId>("openai");
   const [draftModel, setDraftModel] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const { value: modelResponseLanguageRaw, setValue: setModelResponseLanguage } =
     useSetting(WebSettingDefs.ModelResponseLanguage);
@@ -101,6 +101,8 @@ export function ModelManagement() {
     return map as Record<ProviderId, string>;
   }, []);
 
+  const providerModelOptions = useMemo(() => buildProviderModelOptions(items), [items]);
+
   const modelResponseLanguageLabelById: Record<ModelResponseLanguageId, string> =
     {
       "zh-CN": "中文（简体）",
@@ -113,17 +115,10 @@ export function ModelManagement() {
     };
 
   useEffect(() => {
-    if (entries.length === 0) {
-      if (defaultChatModelId) void setDefaultChatModelId("");
-      return;
-    }
-    if (!defaultChatModelId) {
-      void setDefaultChatModelId(entries[0]!.id);
-      return;
-    }
-    const exists = entries.some((entry) => entry.id === defaultChatModelId);
-    if (!exists) void setDefaultChatModelId(entries[0]!.id);
-  }, [defaultChatModelId, entries, setDefaultChatModelId]);
+    if (!defaultChatModelId) return;
+    const exists = providerModelOptions.some((option) => option.id === defaultChatModelId);
+    if (!exists) void setDefaultChatModelId("");
+  }, [defaultChatModelId, providerModelOptions, setDefaultChatModelId]);
 
   return (
     <div className="space-y-3">
@@ -202,13 +197,13 @@ export function ModelManagement() {
                     type="button"
                     variant="outline"
                     className="w-full justify-between font-normal"
-                    disabled={entries.length === 0}
                   >
                     <span className="truncate">
-                      {entries.length === 0
-                        ? "暂无模型"
-                        : (entries.find((e) => e.id === defaultChatModelId)
-                            ?.model ?? "选择模型")}
+                      {defaultChatModelId
+                        ? (providerModelOptions.find(
+                            (option) => option.id === defaultChatModelId,
+                          )?.modelId ?? "Auto")
+                        : "Auto"}
                     </span>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </Button>
@@ -218,12 +213,18 @@ export function ModelManagement() {
                     value={defaultChatModelId}
                     onValueChange={(next) => void setDefaultChatModelId(next)}
                   >
-                    {entries.map((entry) => (
-                      <DropdownMenuRadioItem key={entry.id} value={entry.id}>
+                    <DropdownMenuRadioItem value="">Auto</DropdownMenuRadioItem>
+                    {providerModelOptions.length === 0 ? (
+                      <DropdownMenuRadioItem value="__empty__" disabled>
+                        暂无模型
+                      </DropdownMenuRadioItem>
+                    ) : null}
+                    {providerModelOptions.map((option) => (
+                      <DropdownMenuRadioItem key={option.id} value={option.id}>
                         <div className="min-w-0">
-                          <div className="truncate">{entry.model}</div>
+                          <div className="truncate">{option.modelId}</div>
                           <div className="text-xs text-muted-foreground">
-                            {providerLabelById[entry.provider]}
+                            {option.providerName}
                           </div>
                         </div>
                       </DropdownMenuRadioItem>
@@ -273,47 +274,6 @@ export function ModelManagement() {
           <Plus className="h-4 w-4" />
           添加模型
         </Button>
-      </div>
-
-      <div className="rounded-lg border border-border overflow-hidden">
-        <div className="grid grid-cols-[2fr_1fr_auto] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
-          <div>模型</div>
-          <div>服务商</div>
-          <div className="text-right">操作</div>
-        </div>
-
-        <div className="divide-y divide-border">
-          {entries.map((entry) => (
-            <div
-              key={entry.id}
-              className={cn(
-                "grid grid-cols-[2fr_1fr_auto] gap-3 items-center px-4 py-3",
-                "bg-background hover:bg-muted/15 transition-colors",
-              )}
-            >
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{entry.model}</div>
-              </div>
-
-              <div className="text-sm">{providerLabelById[entry.provider]}</div>
-
-              <div className="flex items-center justify-end">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-9 w-9"
-                  onClick={() => setConfirmDeleteId(entry.id)}
-                  aria-label="Delete model"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
-          {entries.length === 0 ? (
-            <div className="p-6 text-sm text-muted-foreground">暂无模型，点击右上角添加。</div>
-          ) : null}
-        </div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -389,34 +349,6 @@ export function ModelManagement() {
               }}
             >
               保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(confirmDeleteId)} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>确认删除</DialogTitle>
-          </DialogHeader>
-          <div className="text-sm text-muted-foreground">
-            确认要删除这个模型配置吗？
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>
-              取消
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (!confirmDeleteId) return;
-                void setEntriesValue(
-                  entries.filter((row) => row.id !== confirmDeleteId),
-                );
-                setConfirmDeleteId(null);
-              }}
-            >
-              删除
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -60,14 +60,28 @@ const MENU: Array<{
   { key: "about", label: "关于Teatime", Icon: Info, Component: AboutTeatime },
 ];
 
+const MENU_KEY_SET = new Set<SettingsMenuKey>(MENU.map((item) => item.key));
+
+/** Check whether the value is a valid settings menu key. */
+function isSettingsMenuKey(value: unknown): value is SettingsMenuKey {
+  if (typeof value !== "string") return false;
+  return MENU_KEY_SET.has(value as SettingsMenuKey);
+}
+
+type SettingsPageProps = {
+  panelKey: string;
+  tabId: string;
+  settingsMenu?: SettingsMenuKey;
+};
+
 export default function SettingsPage({
   panelKey: _panelKey,
   tabId,
-}: {
-  panelKey: string;
-  tabId: string;
-}) {
-  const [activeKey, setActiveKey] = useState<SettingsMenuKey>("basic");
+  settingsMenu,
+}: SettingsPageProps) {
+  const [activeKey, setActiveKey] = useState<SettingsMenuKey>(() =>
+    isSettingsMenuKey(settingsMenu) ? settingsMenu : "basic",
+  );
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openTooltipKey, setOpenTooltipKey] = useState<SettingsMenuKey | null>(
     null,
@@ -78,6 +92,7 @@ export default function SettingsPage({
   const lastCollapsedRef = useRef<boolean | null>(null);
 
   const setTabMinLeftWidth = useTabs((s) => s.setTabMinLeftWidth);
+  const setTabBaseParams = useTabs((s) => s.setTabBaseParams);
   const activeTabId = useTabs((s) => s.activeTabId);
   const isActiveTab = activeTabId === tabId;
 
@@ -90,6 +105,13 @@ export default function SettingsPage({
     if (isActiveTab) return;
     setOpenTooltipKey(null);
   }, [isActiveTab]);
+
+  useEffect(() => {
+    if (!isSettingsMenuKey(settingsMenu)) return;
+    if (settingsMenu === activeKey) return;
+    // 从持久化参数恢复上次选中的菜单，刷新后保持位置。
+    setActiveKey(settingsMenu);
+  }, [settingsMenu, activeKey]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -142,6 +164,14 @@ export default function SettingsPage({
     ] as Array<typeof MENU>;
   }, []);
 
+  /** Persist the active menu into the dock base params. */
+  const handleMenuChange = (nextKey: SettingsMenuKey) => {
+    setActiveKey(nextKey);
+    if (!tabId) return;
+    // 切换菜单时同步写入 base.params，确保刷新后可恢复。
+    setTabBaseParams(tabId, { settingsMenu: nextKey });
+  };
+
   return (
     <div
       ref={containerRef}
@@ -171,7 +201,7 @@ export default function SettingsPage({
                           isCollapsed ? "justify-center px-0" : "justify-start",
                           active && "text-foreground",
                         )}
-                        onClick={() => setActiveKey(item.key)}
+                        onClick={() => handleMenuChange(item.key)}
                       >
                         <Icon
                           className={cn(

@@ -58,13 +58,6 @@ export const PublicSettingDefs = {
     secret: true,
     category: "model",
   },
-  KeyEntries: {
-    key: "key.entries",
-    defaultValue: [] as unknown[],
-    scope: "PUBLIC",
-    secret: true,
-    category: "key",
-  },
   AgentConfigs: {
     key: "agent.configs",
     defaultValue: [] as unknown[],
