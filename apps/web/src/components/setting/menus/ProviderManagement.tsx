@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { Check, ChevronDown, Copy, Eye, EyeOff, Menu, Pencil, Trash2 } from "lucide-react";
 import { SettingsGroup } from "./SettingsGroup";
 import { useSettingsValues } from "@/hooks/use-settings";
-import { DEEPSEEK_MODEL_CATALOG, XAI_MODEL_CATALOG } from "@teatime-ai/api/common";
+import { DEEPSEEK_MODEL_CATALOG, XAI_MODEL_CATALOG, type ModelDefinition } from "@teatime-ai/api/common";
 
 type ProviderId = "anthropic" | "deepseek" | "openai" | "xai" | "custom";
 
@@ -32,6 +32,7 @@ type KeyEntry = {
   apiUrl: string;
   apiKey: string;
   modelIds: string[];
+  modelDefinitions: ModelDefinition[];
 };
 
 type ProviderEntry = KeyEntry & {
@@ -113,7 +114,7 @@ function getDefaultProviderName(provider: ProviderId) {
   const defaults: Record<ProviderId, string> = {
     openai: "OPENAI",
     anthropic: "ANTHROPIC",
-    deepseek: "DEEPSEEK",
+    deepseek: "Deepseek",
     xai: "XAI",
     custom: "",
   };
@@ -146,11 +147,21 @@ function getModelSummary(models: { id: string }[], selected: string[]) {
 /**
  * Build labels for all selected models.
  */
-function getSelectedModelLabels(provider: ProviderId, selected: string[]) {
-  if (selected.length === 0) return "未选择";
+function getSelectedModelLabels(models: ModelDefinition[]) {
+  if (!Array.isArray(models) || models.length === 0) return "未配置";
+  return models.map((model) => model.id).join("、");
+}
+
+/**
+ * Resolve model definitions from the provider catalog.
+ */
+function resolveModelDefinitions(provider: ProviderId, modelIds: string[]): ModelDefinition[] {
   const catalog = MODEL_CATALOG_BY_PROVIDER[provider];
-  const labelById = new Map(catalog?.getModels().map((model) => [model.id, model.id]));
-  return selected.map((id) => labelById.get(id) ?? id).join("、");
+  if (!catalog) return [];
+  const modelById = new Map(catalog.getModels().map((model) => [model.id, model]));
+  return modelIds
+    .map((modelId) => modelById.get(modelId))
+    .filter((model): model is ModelDefinition => Boolean(model));
 }
 
 export function ProviderManagement() {
@@ -168,6 +179,9 @@ export function ProviderManagement() {
         apiUrl: entry.apiUrl,
         apiKey: entry.apiKey,
         modelIds: Array.isArray(entry.modelIds) ? entry.modelIds : [],
+        modelDefinitions: Array.isArray(entry.modelDefinitions)
+          ? (entry.modelDefinitions as ModelDefinition[])
+          : [],
       });
     }
     return list;
@@ -241,11 +255,18 @@ export function ProviderManagement() {
       return;
     }
 
+    const modelDefinitions = resolveModelDefinitions(draftProvider, draftModelIds);
+    if (modelDefinitions.length === 0) {
+      setError("模型定义缺失");
+      return;
+    }
+    // 中文注释：模型 ID 以定义为准，确保存储字段同步。
     const entryValue: KeyEntry = {
       provider: draftProvider,
       apiUrl,
       apiKey,
-      modelIds: draftModelIds,
+      modelIds: modelDefinitions.map((model) => model.id),
+      modelDefinitions,
     };
 
     if (!editingKey) {
@@ -324,7 +345,7 @@ export function ProviderManagement() {
               <div className="text-sm text-muted-foreground">模型服务商</div>
 
               <div className="text-sm text-muted-foreground">
-                {truncateDisplay(getSelectedModelLabels(entry.provider, entry.modelIds))}
+                {truncateDisplay(getSelectedModelLabels(entry.modelDefinitions))}
               </div>
 
               <div className="min-w-0 flex items-center gap-2">

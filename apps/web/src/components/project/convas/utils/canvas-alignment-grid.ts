@@ -1,5 +1,5 @@
 import type { Node as RFNode } from "reactflow";
-import { resolveNodeSize } from "../nodes/GroupNode";
+import { resolveNodeSize } from "./node-size";
 
 type GridIndex = {
   queryRange: (range: { minX: number; minY: number; maxX: number; maxY: number }) => RFNode[];

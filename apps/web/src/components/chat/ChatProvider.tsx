@@ -11,10 +11,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs, type ChatStatus } from "@/hooks/use-tabs";
 import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
+import { useSetting } from "@/hooks/use-settings";
 import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
 import type { TeatimeUIDataTypes } from "@teatime-ai/api/types/message";
+import { WebSettingDefs } from "@/lib/setting-defs";
 
 function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
   if (input.dataPart?.type !== "data-open-browser") return false;
@@ -154,6 +156,10 @@ export default function ChatProvider({
   const queryClient = useQueryClient();
   const sessionIdRef = React.useRef(sessionId);
   sessionIdRef.current = sessionId;
+  const { value: defaultChatModelIdRaw } = useSetting(WebSettingDefs.ModelDefaultChatModelId);
+  const chatModelIdRef = React.useRef<string | null>(
+    typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw.trim() || null : null,
+  );
 
   // 关键：记录一次请求对应的 userMessageId（用于在 onFinish 补齐 assistant.parentMessageId）
   const pendingUserMessageIdRef = React.useRef<string | null>(null);
@@ -180,6 +186,13 @@ export default function ChatProvider({
     tabIdRef.current = tabId;
   }, [tabId]);
 
+  React.useEffect(() => {
+    const normalized =
+      typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw.trim() : "";
+    // 中文注释：为空代表 Auto，不透传 chatModelId。
+    chatModelIdRef.current = normalized || null;
+  }, [defaultChatModelIdRaw]);
+
   const upsertToolPartMerged = React.useCallback(
     (key: string, next: Partial<Parameters<typeof upsertToolPart>[2]>) => {
       if (!tabId) return;
@@ -190,7 +203,7 @@ export default function ChatProvider({
   );
 
   const transport = React.useMemo(() => {
-    return createChatTransport({ paramsRef, tabIdRef });
+    return createChatTransport({ paramsRef, tabIdRef, chatModelIdRef });
   }, []);
 
   const refreshBranchMeta = React.useCallback(

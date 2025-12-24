@@ -1,80 +1,122 @@
 import type { Node as RFNode } from "reactflow";
-import {
-  buildNodeMap,
-  createAbsolutePositionGetter,
-  getNodeParentId,
-  resolveNodeSize,
-} from "../nodes/GroupNode";
+import { buildNodeMap, createAbsolutePositionGetter, getNodeParentId } from "./group-node";
+import { resolveNodeSize } from "./node-size";
 
-/** Align selected nodes along the given axis. */
-export function alignSelectedNodes(nodes: RFNode[], axis: "horizontal" | "vertical") {
+export type AlignMode =
+  | "center-horizontal"
+  | "center-vertical"
+  | "left"
+  | "right"
+  | "top"
+  | "bottom"
+  | "distribute-horizontal"
+  | "distribute-vertical";
+
+/**
+ * Align or distribute selected nodes based on the requested mode.
+ * This works in absolute space and then maps positions back to each node's parent.
+ * The function ignores nodes without measurable size to avoid unstable snapping.
+ */
+export function alignSelectedNodes(nodes: RFNode[], mode: AlignMode) {
   const selectedNodes = nodes.filter((node) => node.selected);
   if (selectedNodes.length < 2) return nodes;
   const nodeMap = buildNodeMap(nodes);
   const getAbsolutePosition = createAbsolutePositionGetter(nodeMap);
+  const items = selectedNodes
+    .map((node) => {
+      const size = resolveNodeSize(node);
+      if (!size) return null;
+      return { node, size, abs: getAbsolutePosition(node) };
+    })
+    .filter((item): item is { node: RFNode; size: { width: number; height: number }; abs: { x: number; y: number } } =>
+      Boolean(item),
+    );
+  if (items.length < 2) return nodes;
+
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
-  let count = 0;
 
-  for (const node of selectedNodes) {
-    const size = resolveNodeSize(node);
-    if (!size) continue;
-    const abs = getAbsolutePosition(node);
-    minX = Math.min(minX, abs.x);
-    minY = Math.min(minY, abs.y);
-    maxX = Math.max(maxX, abs.x + size.width);
-    maxY = Math.max(maxY, abs.y + size.height);
-    count += 1;
+  for (const item of items) {
+    minX = Math.min(minX, item.abs.x);
+    minY = Math.min(minY, item.abs.y);
+    maxX = Math.max(maxX, item.abs.x + item.size.width);
+    maxY = Math.max(maxY, item.abs.y + item.size.height);
   }
 
-  if (count < 2 || !Number.isFinite(minX) || !Number.isFinite(minY)) {
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
     return nodes;
   }
 
+  const nextAbsMap = new Map<string, { x: number; y: number }>();
   const targetX = (minX + maxX) / 2;
   const targetY = (minY + maxY) / 2;
-  let changed = false;
 
-  const nextNodes = nodes.map((node) => {
-    if (!node.selected) return node;
-    const size = resolveNodeSize(node);
-    if (!size) return node;
-    const abs = getAbsolutePosition(node);
-    const nextAbs = { x: abs.x, y: abs.y };
-    // 逻辑：基于绝对坐标对齐中心线，保持节点尺寸不变
-    if (axis === "horizontal") {
-      nextAbs.y = targetY - size.height / 2;
-    } else {
-      nextAbs.x = targetX - size.width / 2;
-    }
-    const parentId = getNodeParentId(node);
-    if (parentId) {
-      const parent = nodeMap.get(parentId);
-      if (!parent) return node;
-      const parentAbs = getAbsolutePosition(parent);
-      const nextPosition = {
-        x: nextAbs.x - parentAbs.x,
-        y: nextAbs.y - parentAbs.y,
-      };
-      if (
-        Math.abs(nextPosition.x - node.position.x) < 0.01 &&
-        Math.abs(nextPosition.y - node.position.y) < 0.01
-      ) {
-        return node;
+  // 逻辑：根据对齐模式生成绝对坐标，避免在父级坐标系内反复换算
+  if (mode === "distribute-horizontal" || mode === "distribute-vertical") {
+    if (items.length < 3) return nodes;
+    if (mode === "distribute-horizontal") {
+      const sorted = [...items].sort((a, b) => a.abs.x - b.abs.x);
+      const totalWidth = sorted.reduce((sum, item) => sum + item.size.width, 0);
+      const spacing = (maxX - minX - totalWidth) / (sorted.length - 1);
+      let cursor = minX;
+      // 流程：按 x 排序 -> 计算总宽与间距 -> 逐个放置
+      for (const item of sorted) {
+        nextAbsMap.set(item.node.id, { x: cursor, y: item.abs.y });
+        cursor += item.size.width + spacing;
       }
-      changed = true;
-      return { ...node, position: nextPosition };
+    } else {
+      const sorted = [...items].sort((a, b) => a.abs.y - b.abs.y);
+      const totalHeight = sorted.reduce((sum, item) => sum + item.size.height, 0);
+      const spacing = (maxY - minY - totalHeight) / (sorted.length - 1);
+      let cursor = minY;
+      // 流程：按 y 排序 -> 计算总高与间距 -> 逐个放置
+      for (const item of sorted) {
+        nextAbsMap.set(item.node.id, { x: item.abs.x, y: cursor });
+        cursor += item.size.height + spacing;
+      }
     }
+  } else {
+    for (const item of items) {
+      const nextAbs = { x: item.abs.x, y: item.abs.y };
+      // 逻辑：对齐到指定边或中心线
+      if (mode === "center-horizontal") {
+        nextAbs.y = targetY - item.size.height / 2;
+      } else if (mode === "center-vertical") {
+        nextAbs.x = targetX - item.size.width / 2;
+      } else if (mode === "left") {
+        nextAbs.x = minX;
+      } else if (mode === "right") {
+        nextAbs.x = maxX - item.size.width;
+      } else if (mode === "top") {
+        nextAbs.y = minY;
+      } else if (mode === "bottom") {
+        nextAbs.y = maxY - item.size.height;
+      }
+      nextAbsMap.set(item.node.id, nextAbs);
+    }
+  }
+
+  let changed = false;
+  const nextNodes = nodes.map((node) => {
+    const nextAbs = nextAbsMap.get(node.id);
+    if (!nextAbs) return node;
+    const parentId = getNodeParentId(node);
+    const parent = parentId ? nodeMap.get(parentId) : null;
+    const parentAbs = parent ? getAbsolutePosition(parent) : { x: 0, y: 0 };
+    const nextPosition = {
+      x: nextAbs.x - parentAbs.x,
+      y: nextAbs.y - parentAbs.y,
+    };
     if (
-      Math.abs(nextAbs.x - node.position.x) < 0.01 &&
-      Math.abs(nextAbs.y - node.position.y) < 0.01
+      Math.abs(nextPosition.x - node.position.x) < 0.01 &&
+      Math.abs(nextPosition.y - node.position.y) < 0.01
     ) {
       return node;
     }
     changed = true;
-    return { ...node, position: nextAbs };
+    return { ...node, position: nextPosition };
   });
 
   return changed ? nextNodes : nodes;

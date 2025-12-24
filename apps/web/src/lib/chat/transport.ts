@@ -19,9 +19,11 @@ function stripTotalUsageFromMetadata(message: any) {
 export function createChatTransport({
   paramsRef,
   tabIdRef,
+  chatModelIdRef,
 }: {
   paramsRef: RefObject<Record<string, unknown> | undefined>;
   tabIdRef: RefObject<string | null | undefined>;
+  chatModelIdRef?: RefObject<string | null | undefined>;
 }) {
   const apiBase = `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`;
 
@@ -33,11 +35,21 @@ export function createChatTransport({
       const clientId = getWebClientId();
       const tabId = typeof tabIdRef.current === "string" ? tabIdRef.current : undefined;
       const extraBody = body && typeof body === "object" ? body : {};
+      const bodyRecord = extraBody as Record<string, unknown>;
+      const explicitChatModelId =
+        typeof bodyRecord.chatModelId === "string" ? bodyRecord.chatModelId : undefined;
+      const refChatModelId =
+        typeof chatModelIdRef?.current === "string" ? chatModelIdRef.current : undefined;
+      // 中文注释：显式 chatModelId 优先，其次使用最新设置值。
+      const normalizedChatModelId =
+        (explicitChatModelId ?? refChatModelId)?.trim() || undefined;
+      const { chatModelId: _ignored, ...restBody } = bodyRecord;
 
       if (messages.length === 0) {
         return {
           body: {
-            ...extraBody,
+            ...restBody,
+            ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
             params: mergedParams,
             sessionId: id,
             id,
@@ -56,7 +68,8 @@ export function createChatTransport({
 
       return {
         body: {
-          ...extraBody,
+          ...restBody,
+          ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
           params: mergedParams,
           sessionId: id,
           id,

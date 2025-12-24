@@ -1,6 +1,7 @@
 import prisma from "@teatime-ai/db";
 import type { SettingDef, SettingScope } from "@teatime-ai/api/types/setting";
 import { ServerSettingDefs } from "@/settings/settingDefs";
+import type { ModelDefinition } from "@teatime-ai/api/common";
 
 type SettingItem = {
   key: string;
@@ -9,6 +10,16 @@ type SettingItem = {
   secret: boolean;
   category?: string;
   isReadonly: boolean;
+};
+
+export type ProviderSettingEntry = {
+  key: string;
+  provider: string;
+  apiUrl: string;
+  apiKey: string;
+  modelIds: string[];
+  modelDefinitions: ModelDefinition[];
+  updatedAt: Date;
 };
 
 const settingDefByKey = new Map<string, SettingDef<unknown>>(
@@ -151,6 +162,108 @@ async function getProviderSettingsForWeb({ maskSecret }: { maskSecret: boolean }
       isReadonly: row.isReadonly,
     } satisfies SettingItem;
   });
+}
+
+/** Normalize provider setting row for server usage. */
+function normalizeProviderSettingRow(row: {
+  key: string;
+  value: string;
+  updatedAt: Date;
+}): ProviderSettingEntry | null {
+  const parsed = parseSettingValue(row.value);
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const entry = parsed as Partial<ProviderSettingEntry>;
+  const provider = typeof entry.provider === "string" ? entry.provider.trim() : "";
+  const apiUrl = typeof entry.apiUrl === "string" ? entry.apiUrl.trim() : "";
+  const apiKey = typeof entry.apiKey === "string" ? entry.apiKey.trim() : "";
+  const modelDefinitions = normalizeModelDefinitions(entry.modelDefinitions);
+  const modelDefinitionIds = new Set(modelDefinitions.map((model) => model.id));
+  const modelIds = Array.isArray(entry.modelIds)
+    ? entry.modelIds
+        .filter((id): id is string => typeof id === "string")
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .filter((id) => modelDefinitionIds.has(id))
+    : modelDefinitions.map((model) => model.id);
+
+  const syncedModelDefinitions = modelDefinitions.filter((model) =>
+    modelIds.includes(model.id),
+  );
+
+  // 中文注释：provider/apiUrl/apiKey/modelIds/modelDefinitions 任意缺失都视为无效配置。
+  if (
+    !provider ||
+    !apiUrl ||
+    !apiKey ||
+    modelIds.length === 0 ||
+    syncedModelDefinitions.length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    key: row.key,
+    provider,
+    apiUrl,
+    apiKey,
+    modelIds,
+    modelDefinitions: syncedModelDefinitions,
+    updatedAt: row.updatedAt,
+  };
+}
+
+/**
+ * Normalize model definitions from provider settings.
+ */
+function normalizeModelDefinitions(value: unknown): ModelDefinition[] {
+  if (!Array.isArray(value)) return [];
+  const models: ModelDefinition[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const model = item as ModelDefinition;
+    if (typeof model.id !== "string" || !model.id.trim()) continue;
+    if (!Array.isArray(model.capability)) continue;
+    if (typeof model.maxContextK !== "number" || !Number.isFinite(model.maxContextK)) continue;
+    if (
+      typeof model.priceInPerMillion !== "number" ||
+      !Number.isFinite(model.priceInPerMillion)
+    ) {
+      continue;
+    }
+    if (
+      typeof model.priceOutPerMillion !== "number" ||
+      !Number.isFinite(model.priceOutPerMillion)
+    ) {
+      continue;
+    }
+    if (typeof model.currencySymbol !== "string") continue;
+    models.push({
+      id: model.id.trim(),
+      capability: model.capability,
+      maxContextK: model.maxContextK,
+      priceInPerMillion: model.priceInPerMillion,
+      priceOutPerMillion: model.priceOutPerMillion,
+      cachedInputPerMillion:
+        typeof model.cachedInputPerMillion === "number" &&
+        Number.isFinite(model.cachedInputPerMillion)
+          ? model.cachedInputPerMillion
+          : undefined,
+      currencySymbol: model.currencySymbol,
+    });
+  }
+  return models;
+}
+
+/** Load provider settings for server usage (sorted by latest update). */
+export async function getProviderSettings(): Promise<ProviderSettingEntry[]> {
+  const rows = await prisma.setting.findMany({
+    where: { category: "provider" },
+    orderBy: { updatedAt: "desc" },
+  });
+  return rows
+    .map((row) => normalizeProviderSettingRow(row))
+    .filter((row): row is ProviderSettingEntry => Boolean(row));
 }
 
 /** Return WEB + PUBLIC settings with secret masking for UI. */

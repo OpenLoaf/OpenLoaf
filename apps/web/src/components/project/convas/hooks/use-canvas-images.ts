@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { Dispatch, DragEvent, PointerEvent, RefObject, SetStateAction } from "react";
 import type { Node as RFNode, ReactFlowInstance } from "reactflow";
 import type { ImageNodeData } from "../nodes/ImageNode";
+import { createImagePreviewFromSrc } from "../utils/create-image-preview";
 
 interface UseCanvasImagesOptions {
   isCanvasActive: boolean;
@@ -100,6 +101,13 @@ export function useCanvasImages({
         pasteOffsetRef.current = (offset + 24) % 120;
       }
       const altText = options?.alt ?? (file.name ? file.name : "图片");
+      // 流程：生成低分辨率预览 -> 避免原图直接上画布
+      let previewSrc = dataUrl;
+      try {
+        previewSrc = await createImagePreviewFromSrc(dataUrl, { maxDimension: 512 });
+      } catch {
+        // 逻辑：预览生成失败时回退原图
+      }
       // 流程：计算最终位置 -> 写入节点
       const rawPosition = { x: basePosition.x + offset, y: basePosition.y + offset };
 
@@ -107,7 +115,7 @@ export function useCanvasImages({
         nds.concat({
           id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           position: rawPosition,
-          data: { src: dataUrl, alt: altText } satisfies ImageNodeData,
+          data: { src: dataUrl, previewSrc, alt: altText } satisfies ImageNodeData,
           width,
           height,
           style: {
@@ -191,6 +199,10 @@ export function useCanvasImages({
       const canvasEl = canvasRef.current;
       // 仅在画布区域或无输入焦点时处理，避免影响表单粘贴
       if (canvasEl && target && !canvasEl.contains(target) && document.activeElement !== document.body) {
+        return;
+      }
+      const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
+      if (clipboardText.startsWith("teatime:canvas:nodes:")) {
         return;
       }
       const items = event.clipboardData?.items;

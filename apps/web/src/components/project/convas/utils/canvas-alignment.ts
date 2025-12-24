@@ -1,5 +1,5 @@
 import type { Node as RFNode } from "reactflow";
-import { resolveNodeSize } from "../nodes/GroupNode";
+import { resolveNodeSize } from "./node-size";
 
 /** Compute best alignment guides and snap offsets for a dragging node. */
 export function getAlignmentForNode(options: {

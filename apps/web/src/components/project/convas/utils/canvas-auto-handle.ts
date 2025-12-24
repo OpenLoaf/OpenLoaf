@@ -1,5 +1,5 @@
 import type { Edge, Node as RFNode } from "reactflow";
-import { resolveNodeSize } from "../nodes/GroupNode";
+import { resolveNodeSize } from "./node-size";
 import { IMAGE_HANDLE_IDS } from "./canvas-constants";
 
 /** Resolve the node center point for handle calculations. */

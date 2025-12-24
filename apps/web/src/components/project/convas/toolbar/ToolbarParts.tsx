@@ -67,8 +67,9 @@ function PanelItem(props: {
   onClick?: () => void;
   active?: boolean;
   size?: "md" | "sm";
+  className?: string;
 }) {
-  const { title, children, onClick, active, size = "md" } = props;
+  const { title, children, onClick, active, size = "md", className } = props;
   const sizeClassName =
     size === "sm"
       ? "gap-1 rounded-md px-2 py-1 text-[10px]"
@@ -98,7 +99,8 @@ function PanelItem(props: {
         // 面板条目：上下排列（图标在上、文字在下）
         "inline-flex flex-col items-center",
         sizeClassName,
-        active ? "bg-accent text-accent-foreground" : "hover:bg-accent"
+        active ? "bg-accent text-accent-foreground" : "hover:bg-accent",
+        className
       )}
     >
       {children}

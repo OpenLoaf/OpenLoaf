@@ -1,3 +1,5 @@
+import type { ModelDefinition } from "../common/modelTypes";
+
 type UIDataTypes = Record<string, unknown>;
 type UITools = Record<string, unknown>;
 type UIMessage<D = unknown, DT = UIDataTypes, T = UITools> = {
@@ -25,6 +27,10 @@ export type TeatimeAgentInfo = {
     provider: string;
     modelId: string;
   };
+  /** 业务选择的 chatModelId */
+  chatModelId?: string;
+  /** 模型定义信息（用于展示/统计） */
+  modelDefinition?: ModelDefinition;
 };
 
 /**
@@ -85,6 +91,8 @@ export type ChatRequestBody = {
    * - false/undefined：正常新消息
    */
   retry?: boolean;
+  /** 选择的聊天模型 ID（为空代表 Auto） */
+  chatModelId?: string;
   /** Web UI 侧稳定 clientId（用于断线续传关联） */
   clientId?: string;
 };

@@ -16,7 +16,7 @@ import { useSetting, useSettingsValues } from "@/hooks/use-settings";
 import { buildProviderModelOptions } from "@/lib/provider-models";
 import { WebSettingDefs } from "@/lib/setting-defs";
 import { useChatContext } from "../ChatProvider";
-import type { ModelCapabilityId } from "@teatime-ai/api/common";
+import type { ModelCapabilityId, ModelDefinition } from "@teatime-ai/api/common";
 
 interface SelectModeProps {
   className?: string;
@@ -34,6 +34,23 @@ const MODEL_CAPABILITY_LABELS: Record<ModelCapabilityId, string> = {
   structured_output: "结构化输出",
 };
 
+/** Format a price value with adaptive precision. */
+function formatPriceValue(value: number): string {
+  const abs = Math.abs(value);
+  const decimals = abs >= 1 ? 2 : abs >= 0.1 ? 3 : abs >= 0.01 ? 4 : 6;
+  return value.toFixed(decimals);
+}
+
+/** Format input/output pricing label for a model definition. */
+function formatModelPrice(definition?: ModelDefinition): string | null {
+  if (!definition) return null;
+  const currencySymbol = definition.currencySymbol ?? "";
+  // 价格按每 1,000,000 tokens 展示。
+  const inputLabel = `${currencySymbol}${formatPriceValue(definition.priceInPerMillion)}`;
+  const outputLabel = `${currencySymbol}${formatPriceValue(definition.priceOutPerMillion)}`;
+  return `输入 ${inputLabel} / 1M · 输出 ${outputLabel} / 1M`;
+}
+
 export default function SelectMode({ className }: SelectModeProps) {
   const { items } = useSettingsValues();
   const { value: defaultChatModelIdRaw, setValue: setDefaultChatModelId } =
@@ -45,7 +62,11 @@ export default function SelectMode({ className }: SelectModeProps) {
   const selectedModel =
     typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw : "";
   const isAuto = !selectedModel;
-
+  const hasModels = modelOptions.length > 0;
+  const showAuto = hasModels;
+  const showModelList = hasModels && !isAuto;
+  const showAddButton = !isAuto || !hasModels;
+  const showTopSection = showAuto || showModelList;
   useEffect(() => {
     if (isAuto) return;
     if (modelOptions.length === 0) {
@@ -98,48 +119,47 @@ export default function SelectMode({ className }: SelectModeProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 max-w-[90vw] p-2">
-        <div className="space-y-2">
-          <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="auto-switch" className="text-sm">
-                  Auto
-                </Label>
-              </div>
-              <Switch
-                id="auto-switch"
-                checked={isAuto}
-                onCheckedChange={(next) => {
-                  if (next) {
-                    void setDefaultChatModelId("");
-                    return;
-                  }
-                  if (modelOptions.length === 0) return;
-                  void setDefaultChatModelId(modelOptions[0]!.id);
-                }}
-              />
-            </div>
-            {isAuto && (
-              <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-                基于效果与速度帮助您选择最优模型
-              </p>
-            )}
-          </div>
-
-          {!isAuto && (
-            <div className="space-y-1">
-              {modelOptions.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
-                  暂无模型
+        {showTopSection ? (
+          <div className="space-y-2">
+            {showAuto ? (
+              <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="auto-switch" className="text-sm">
+                      Auto
+                    </Label>
+                  </div>
+                  <Switch
+                    id="auto-switch"
+                    checked={isAuto}
+                    onCheckedChange={(next) => {
+                      if (next) {
+                        void setDefaultChatModelId("");
+                        return;
+                      }
+                      if (modelOptions.length === 0) return;
+                      void setDefaultChatModelId(modelOptions[0]!.id);
+                    }}
+                  />
                 </div>
-              ) : (
-                modelOptions.map((option) => {
+                {isAuto && (
+                  <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                    基于效果与速度帮助您选择最优模型
+                  </p>
+                )}
+              </div>
+            ) : null}
+
+            {showModelList ? (
+              <div className="space-y-1">
+                {modelOptions.map((option) => {
                   // 未标注能力时默认展示 text，避免空白。
                   const capabilityIds: ModelCapabilityId[] =
                     option.capabilityIds && option.capabilityIds.length > 0
                       ? option.capabilityIds
                       : ["text"];
+                  const priceLabel = formatModelPrice(option.modelDefinition);
                   return (
                     <button
                       key={option.id}
@@ -170,6 +190,11 @@ export default function SelectMode({ className }: SelectModeProps) {
                               ))}
                             </span>
                           </div>
+                          {priceLabel ? (
+                            <div className="mt-1 text-[11px] text-muted-foreground">
+                              {priceLabel}
+                            </div>
+                          ) : null}
                         </div>
                         <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
                           {selectedModel === option.id ? (
@@ -179,21 +204,23 @@ export default function SelectMode({ className }: SelectModeProps) {
                       </div>
                     </button>
                   );
-                })
-              )}
-            </div>
-          )}
-        </div>
-        <div className="border-t border-border/70 pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-8 w-full text-xs"
-            onClick={handleOpenProviderSettings}
-          >
-            新增添加模型
-          </Button>
-        </div>
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {showAddButton ? (
+          <div className={cn(showTopSection && "border-t border-border/70 pt-2")}>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 w-full text-xs"
+              onClick={handleOpenProviderSettings}
+            >
+              新增添加模型
+            </Button>
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );

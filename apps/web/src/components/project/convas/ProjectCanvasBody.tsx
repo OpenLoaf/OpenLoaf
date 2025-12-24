@@ -1,7 +1,7 @@
 "use client";
 
 import "reactflow/dist/style.css";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef } from "react";
 import type { PointerEvent } from "react";
 import ReactFlow, {
   MiniMap,
@@ -13,19 +13,24 @@ import ReactFlow, {
 import { useIdleMount } from "@/hooks/use-idle-mount";
 import CanvasControls from "./controls/CanvasControls";
 import CanvasAlignmentGuides from "./components/CanvasAlignmentGuides";
-import CanvasGroupDuplicateGhost from "./components/CanvasGroupDuplicateGhost";
 import CanvasMultiSelectionToolbar from "./components/CanvasMultiSelectionToolbar";
 import { useCanvasState } from "./CanvasProvider";
 import ImageNode from "./nodes/ImageNode";
-import GroupNode, {
-  adjustGroupBounds,
-  buildNodeMap,
-  createAbsolutePositionGetter,
-  duplicateGroupAtPosition,
-  resolveNodeSize,
-} from "./nodes/GroupNode";
+import GroupNode from "./nodes/GroupNode";
+import { adjustGroupBounds, buildNodeMap, getNodeParentId } from "./utils/group-node";
+import {
+  collectSelectedSubgraph,
+  collectSubgraphByIds,
+  pasteSubgraph,
+} from "./utils/node-copy-paste";
+import {
+  buildImageClipboardItem,
+  parseCanvasClipboard,
+  serializeCanvasClipboard,
+  serializeCanvasClipboardIds,
+} from "./utils/node-clipboard";
+import { buildCanvasStorageKey, readCanvasStorage } from "./utils/canvas-storage";
 import CanvasToolbar from "./toolbar/CanvasToolbar";
-import ProjectCanvasFallback from "./ProjectCanvasFallback";
 import { useCanvasAlignment } from "./hooks/use-canvas-alignment";
 import { useCanvasEdgeCreation } from "./hooks/use-canvas-edge-creation";
 import { useCanvasImages } from "./hooks/use-canvas-images";
@@ -63,21 +68,23 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
     nodes,
     onEdgesChange,
     pendingEdgeSource,
-    pendingGroupDuplicateId,
+    setIsSelecting,
     setEdges,
     setIsMoving,
     setMode,
     setNodes,
     setPendingEdgeSource,
-    setPendingGroupDuplicateId,
     setSuppressSingleNodeToolbar,
     showMiniMap,
+    undo,
+    redo,
+    beginNodeDrag,
+    endNodeDrag,
   } = useCanvasState();
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const flowRef = useRef<ReactFlowInstance | null>(null);
-  const [duplicatePointer, setDuplicatePointer] = useState<{ x: number; y: number } | null>(
-    null,
-  );
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const pasteOffsetRef = useRef(0);
 
   /** Capture the React Flow instance for later use. */
   const handleInit = useCallback((instance: ReactFlowInstance) => {
@@ -123,9 +130,38 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
     setSuppressSingleNodeToolbar,
   });
 
+  /** Begin tracking node drag for history coalescing. */
+  const handleNodeDragStart = useCallback(() => {
+    beginNodeDrag();
+  }, [beginNodeDrag]);
+
+  /** End node drag tracking and clear guides. */
+  const handleNodeDragStop = useCallback(() => {
+    endNodeDrag();
+    clearAlignmentGuides();
+  }, [clearAlignmentGuides, endNodeDrag]);
+
+  /** Check whether a node is inside any selected group. */
+  const isDescendantOfSelectedGroup = useCallback(
+    (node: { id: string }, nodeMap: Map<string, { id: string }>, selectedGroups: Set<string>) => {
+      let parentId = getNodeParentId(node);
+      // 流程：沿父链向上查找，命中任一选中 group 即视为后代
+      while (parentId) {
+        if (selectedGroups.has(parentId)) return true;
+        const parent = nodeMap.get(parentId);
+        if (!parent) break;
+        parentId = getNodeParentId(parent);
+      }
+      return false;
+    },
+    [],
+  );
+
   const { handleSelectionStart, handleSelectionEnd } = useCanvasSelection({
     flowRef,
     nodes,
+    setNodes,
+    setIsSelecting,
     setSuppressSingleNodeToolbar,
   });
 
@@ -133,79 +169,180 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
 
   useCanvasWheelZoom({ canvasRef, flowRef, isCanvasActive });
 
-  useEffect(() => {
-    if (!pendingGroupDuplicateId || duplicatePointer) return;
-    const groupNode = nodes.find((node) => node.id === pendingGroupDuplicateId);
-    const size = groupNode ? resolveNodeSize(groupNode) : null;
-    if (!groupNode || !size) return;
-    const nodeMap = buildNodeMap(nodes);
-    const getAbsolutePosition = createAbsolutePositionGetter(nodeMap);
-    const abs = getAbsolutePosition(groupNode);
-    // 逻辑：首次进入复制模式时，默认将虚影放在原节点中心
-    setDuplicatePointer({ x: abs.x + size.width / 2, y: abs.y + size.height / 2 });
-  }, [duplicatePointer, nodes, pendingGroupDuplicateId, setDuplicatePointer]);
-
-  useEffect(() => {
-    if (pendingGroupDuplicateId) return;
-    if (!duplicatePointer) return;
-    // 逻辑：退出复制模式时清理虚影指针状态
-    setDuplicatePointer(null);
-  }, [duplicatePointer, pendingGroupDuplicateId, setDuplicatePointer]);
-
-  /** Track pointer position for group duplication previews. */
+  /** Track pointer position for clipboard paste. */
   const handleCanvasPointerMove = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       handleCanvasImagePointerMove(event);
-      if (!pendingGroupDuplicateId) return;
-      const inst = flowRef.current;
-      if (!inst) return;
-      const nextPointer = inst.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      setDuplicatePointer(nextPointer);
+      lastPointerRef.current = { x: event.clientX, y: event.clientY };
     },
-    [handleCanvasImagePointerMove, pendingGroupDuplicateId, setDuplicatePointer],
+    [handleCanvasImagePointerMove],
   );
 
-  /** Place the duplicated group on pointer down. */
-  const handleCanvasPointerDownCapture = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (isLocked || !pendingGroupDuplicateId) return;
-      if (event.button !== 0) return;
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isCanvasActive || isLocked) return;
+      const target = event.target as HTMLElement | null;
+      const isEditingTarget =
+        target?.closest("input, textarea, [contenteditable='true']") !== null;
+      if (isEditingTarget) return;
+      const isUndo = (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z";
+      const isRedo =
+        (event.metaKey || event.ctrlKey) &&
+        (event.key.toLowerCase() === "y" || (event.shiftKey && event.key.toLowerCase() === "z"));
+      if (isUndo) {
+        undo();
+        event.preventDefault();
+        return;
+      }
+      if (isRedo) {
+        redo();
+        event.preventDefault();
+        return;
+      }
+      const isCopy = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c";
+      const isSelectAll = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a";
+      if (isSelectAll) {
+        const nodeMap = buildNodeMap(nodes);
+        const selectedGroups = new Set(
+          nodes.filter((node) => node.type === "group").map((node) => node.id),
+        );
+        // 流程：选中全部 -> group 子节点取消选中 -> 刷新工具栏抑制状态
+        const selectedCount = nodes.reduce((count, node) => {
+          if (node.type === "group") return count + 1;
+          if (
+            selectedGroups.size > 0 &&
+            isDescendantOfSelectedGroup(node, nodeMap, selectedGroups)
+          ) {
+            return count;
+          }
+          return count + 1;
+        }, 0);
+        setNodes((prevNodes) =>
+          prevNodes.map((node) => {
+            if (node.type === "group") {
+              return { ...node, selected: true };
+            }
+            if (
+              selectedGroups.size > 0 &&
+              isDescendantOfSelectedGroup(node, nodeMap, selectedGroups)
+            ) {
+              return { ...node, selected: false };
+            }
+            return { ...node, selected: true };
+          }),
+        );
+        setSuppressSingleNodeToolbar(selectedCount > 1);
+        event.preventDefault();
+        return;
+      }
+      if (isCopy) {
+        const payload = collectSelectedSubgraph(nodes, edges);
+        if (payload) {
+          // 逻辑：同步写入系统剪贴板，支持跨应用粘贴
+          void (async () => {
+            try {
+              const selectedRoots = nodes.filter((node) => node.selected).map((node) => node.id);
+              const hasIdsCopyMode = nodes.some(
+                (node) =>
+                  node.selected &&
+                  (node.data as { copyMode?: string } | undefined)?.copyMode === "ids",
+              );
+              if (hasIdsCopyMode) {
+                await navigator.clipboard.writeText(
+                  serializeCanvasClipboardIds(selectedRoots, pageId),
+                );
+                return;
+              }
+              const imageItem = await buildImageClipboardItem(payload);
+              if (imageItem) {
+                await navigator.clipboard.write([imageItem]);
+                return;
+              }
+              await navigator.clipboard.writeText(serializeCanvasClipboard(payload, pageId));
+            } catch {
+              // ignore
+            }
+          })();
+          event.preventDefault();
+        }
+        return;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    edges,
+    isCanvasActive,
+    isDescendantOfSelectedGroup,
+    isLocked,
+    nodes,
+    redo,
+    setEdges,
+    setNodes,
+    setSuppressSingleNodeToolbar,
+    undo,
+  ]);
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      if (!isCanvasActive || isLocked) return;
+      const target = event.target as Node | null;
+      const canvasEl = canvasRef.current;
+      if (
+        canvasEl &&
+        target &&
+        !canvasEl.contains(target) &&
+        document.activeElement !== document.body
+      ) {
+        return;
+      }
+      const items = event.clipboardData?.items ?? [];
+      const hasImage = Array.from(items).some((item) => item.type.startsWith("image/"));
+      const text = event.clipboardData?.getData("text/plain") ?? "";
+      const parsedPayload = parseCanvasClipboard(text);
+      let payload = parsedPayload?.kind === "payload" ? parsedPayload.payload : null;
+      if (parsedPayload?.kind === "ids") {
+        if (parsedPayload.pageId && parsedPayload.pageId !== pageId) {
+          const stored = readCanvasStorage(buildCanvasStorageKey(parsedPayload.pageId));
+          payload = stored
+            ? collectSubgraphByIds(stored.nodes, stored.edges, parsedPayload.ids)
+            : null;
+        } else {
+          payload = collectSubgraphByIds(nodes, edges, parsedPayload.ids);
+        }
+      }
+      if (!payload) {
+        if (hasImage) return;
+        return;
+      }
       const inst = flowRef.current;
-      if (!inst) return;
-      const groupNode = nodes.find((node) => node.id === pendingGroupDuplicateId);
-      const size = groupNode ? resolveNodeSize(groupNode) : null;
-      if (!size) return;
-      const pointer = inst.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      const targetAbs = {
-        x: pointer.x - size.width / 2,
-        y: pointer.y - size.height / 2,
-      };
-      const result = duplicateGroupAtPosition({
+      const pointer = lastPointerRef.current;
+      const targetCenter =
+        inst && pointer
+          ? inst.screenToFlowPosition({ x: pointer.x, y: pointer.y })
+          : {
+              x: payload.bounds.centerX + pasteOffsetRef.current,
+              y: payload.bounds.centerY + pasteOffsetRef.current,
+            };
+      if (!inst || !pointer) {
+        pasteOffsetRef.current = (pasteOffsetRef.current + 24) % 120;
+      }
+      const result = pasteSubgraph({
         nodes,
         edges,
-        groupId: pendingGroupDuplicateId,
-        targetAbs,
+        payload,
+        targetCenter,
       });
       if (!result) return;
-      // 逻辑：放置副本后清理状态，避免继续生成
+      // 逻辑：粘贴后刷新 group 边界并写入新节点/连线
       setNodes(adjustGroupBounds(result.nodes));
       setEdges(result.edges);
-      setPendingGroupDuplicateId(null);
-      setDuplicatePointer(null);
       event.preventDefault();
-      event.stopPropagation();
-    },
-    [
-      edges,
-      isLocked,
-      nodes,
-      pendingGroupDuplicateId,
-      setDuplicatePointer,
-      setEdges,
-      setNodes,
-      setPendingGroupDuplicateId,
-    ],
-  );
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener("paste", handlePaste, true);
+    return () => window.removeEventListener("paste", handlePaste, true);
+  }, [edges, isCanvasActive, isLocked, nodes, setEdges, setNodes]);
 
   /** Insert a basic note/text node. */
   const onInsert = useCallback(
@@ -242,7 +379,6 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
         ref={canvasRef}
         className="relative h-full min-h-[480px]"
         onPointerMove={handleCanvasPointerMove}
-        onPointerDownCapture={handleCanvasPointerDownCapture}
         onDragOver={handleCanvasDragOver}
         onDrop={handleCanvasDrop}
       >
@@ -262,7 +398,8 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
             onNodeClick={onNodeClick}
             onSelectionStart={handleSelectionStart}
             onSelectionEnd={handleSelectionEnd}
-            onNodeDragStop={clearAlignmentGuides}
+            onNodeDragStart={handleNodeDragStart}
+            onNodeDragStop={handleNodeDragStop}
             nodesDraggable={mode !== "hand" && !isLocked}
             nodesConnectable={!isLocked}
             elementsSelectable={!isLocked}
@@ -311,14 +448,8 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
             ) : null}
             <CanvasAlignmentGuides guides={alignmentGuides} />
             <CanvasMultiSelectionToolbar />
-            <CanvasGroupDuplicateGhost
-              groupId={pendingGroupDuplicateId}
-              pointer={duplicatePointer}
-            />
             <CanvasControls />
           </ReactFlow>
-        ) : isActive ? (
-          <ProjectCanvasFallback />
         ) : null}
         {/* 底部工具栏（仅 UI）：玻璃风格、宽松间距、hover 展开 */}
         {/* 说明：onToolChange 驱动画布模式；onInsert 用于插入简单节点 */}

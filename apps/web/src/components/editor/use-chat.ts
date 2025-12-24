@@ -13,6 +13,8 @@ import { type TNode, KEYS, nanoid, NodeApi, TextApi } from 'platejs';
 import { type PlateEditor, useEditorRef, usePluginOption } from 'platejs/react';
 
 import { aiChatPlugin } from '@/components/editor/plugins/ai-kit';
+import { useSetting } from '@/hooks/use-settings';
+import { WebSettingDefs } from '@/lib/setting-defs';
 
 import { discussionPlugin } from './plugins/discussion-kit';
 
@@ -39,6 +41,10 @@ export type ChatMessage = UIMessage<{}, MessageDataPart>;
 export const useChat = () => {
   const editor = useEditorRef();
   const options = usePluginOption(aiChatPlugin, 'chatOptions');
+  const { value: defaultChatModelIdRaw } = useSetting(WebSettingDefs.ModelDefaultChatModelId);
+  const chatModelIdRef = React.useRef<string | null>(
+    typeof defaultChatModelIdRaw === 'string' ? defaultChatModelIdRaw.trim() || null : null
+  );
 
   // remove when you implement the route /api/ai/command
   const abortControllerRef = React.useRef<AbortController | null>(null);
@@ -59,9 +65,25 @@ export const useChat = () => {
 
         const initBody = JSON.parse(init?.body as string);
 
+        const bodyOptionsRecord =
+          bodyOptions && typeof bodyOptions === 'object'
+            ? (bodyOptions as Record<string, unknown>)
+            : {};
+        const explicitChatModelId =
+          typeof bodyOptionsRecord.chatModelId === 'string'
+            ? bodyOptionsRecord.chatModelId
+            : undefined;
+        const refChatModelId =
+          typeof chatModelIdRef.current === 'string' ? chatModelIdRef.current : undefined;
+        // 中文注释：显式 chatModelId 优先，其次使用最新设置值。
+        const normalizedChatModelId =
+          (explicitChatModelId ?? refChatModelId)?.trim() || undefined;
+        const { chatModelId: _ignored, ...restBodyOptions } = bodyOptionsRecord;
+
         const body = {
           ...initBody,
-          ...bodyOptions,
+          ...restBodyOptions,
+          ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
         };
 
         const res = await fetch(input, {
@@ -180,6 +202,13 @@ export const useChat = () => {
 
     ...options,
   });
+
+  React.useEffect(() => {
+    const normalized =
+      typeof defaultChatModelIdRaw === 'string' ? defaultChatModelIdRaw.trim() : '';
+    // 中文注释：为空代表 Auto，不透传 chatModelId。
+    chatModelIdRef.current = normalized || null;
+  }, [defaultChatModelIdRaw]);
 
   const chat = {
     ...baseChat,

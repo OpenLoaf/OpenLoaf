@@ -9,7 +9,8 @@ import {
   type NodeChange,
   type ReactFlowInstance,
 } from "reactflow";
-import { adjustGroupBounds, resolveNodeSize } from "../nodes/GroupNode";
+import { adjustGroupBounds } from "../utils/group-node";
+import { resolveNodeSize } from "../utils/node-size";
 import { createAlignmentGridIndex } from "../utils/canvas-alignment-grid";
 import { getAlignmentForNode } from "../utils/canvas-alignment";
 import { updateAutoHandleEdges } from "../utils/canvas-auto-handle";

@@ -11,6 +11,7 @@ import { getCookie } from "hono/cookie";
 import type { ChatRequestBody, TokenUsage } from "@teatime-ai/api/types/message";
 import { manualStopToolDef } from "@teatime-ai/api/types/tools/system";
 import { createMasterAgentRunner } from "@/ai";
+import { resolveChatModel } from "@/ai/resolveChatModel";
 import { streamStore } from "@/modules/chat/StreamStoreAdapter";
 import { chatRepository } from "@/modules/chat/ChatRepositoryAdapter";
 import { loadMessageChain } from "@/modules/chat/loadMessageChain";
@@ -207,7 +208,6 @@ export function registerChatSseRoutes(app: Hono) {
 
     const requestStartAt = new Date();
 
-    const masterAgent = createMasterAgentRunner();
     const incomingMessages = (body.messages ?? []) as UIMessage[];
     // AI SDK 的 useChat 会把本次生成的 messageId 传给服务端；续跑/审批继续应复用同一个 messageId，以便在 UI 侧作为同一条 assistant message 继续更新。
     const assistantMessageId =
@@ -331,6 +331,37 @@ export function registerChatSseRoutes(app: Hono) {
       return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
     }
 
+    let masterAgent: ReturnType<typeof createMasterAgentRunner>;
+    let agentMetadata: Record<string, unknown> = {};
+    // 中文注释：优先使用请求传入的 chatModelId，失败后按 fallback 规则选择模型。
+    try {
+      const resolved = await resolveChatModel({ chatModelId: body.chatModelId });
+      masterAgent = createMasterAgentRunner({
+        model: resolved.model,
+        modelInfo: resolved.modelInfo,
+      });
+      agentMetadata = {
+        id: masterAgent.frame.agentId,
+        name: masterAgent.frame.name,
+        kind: masterAgent.frame.kind,
+        model: masterAgent.frame.model,
+        chatModelId: resolved.chatModelId,
+        modelDefinition: resolved.modelDefinition,
+      };
+    } catch (err) {
+      const errorText =
+        err instanceof Error ? `请求失败：${err.message}` : "请求失败：模型解析失败。";
+      await respondWithErrorStream({
+        sessionId,
+        assistantMessageId,
+        parentMessageId: assistantParentUserId,
+        errorText,
+      });
+      const subscription = await streamStore.subscribe(sessionId);
+      if (!subscription) return c.json({ error: "stream not found" }, 404);
+      return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
+    }
+
     const userNode = { id: assistantParentUserId };
 
     const popAgentFrameOnce = (() => {
@@ -395,14 +426,22 @@ export function registerChatSseRoutes(app: Hono) {
                 startedAt: requestStartAt,
                 finishedAt: new Date(),
               });
-              if (!usageMetadata) return timingMetadata;
-              return {
-                ...usageMetadata,
-                teatime: {
-                  ...(usageMetadata as any)?.teatime,
-                  ...(timingMetadata as any).teatime,
-                },
-              };
+              const mergedMetadata: Record<string, unknown> = {};
+              if (usageMetadata) Object.assign(mergedMetadata, usageMetadata);
+              Object.assign(mergedMetadata, timingMetadata);
+
+              const usageTeatime = (usageMetadata as any)?.teatime;
+              const timingTeatime = (timingMetadata as any).teatime;
+              if (usageTeatime && timingTeatime) {
+                mergedMetadata.teatime = { ...usageTeatime, ...timingTeatime };
+              }
+
+              if (Object.keys(agentMetadata).length > 0) {
+                // 中文注释：把本次请求的 agent 信息放进 SSE finish metadata。
+                mergedMetadata.agent = agentMetadata;
+              }
+
+              return mergedMetadata;
             },
             onFinish: async ({ isAborted, responseMessage, finishReason }) => {
               // 主 agent 的输出只在这里触发一次 finish（避免双重 state machine）。
@@ -443,6 +482,8 @@ export function registerChatSseRoutes(app: Hono) {
                   ...baseRecord,
                   ...timingMetadata,
                 };
+                // 中文注释：保存当前请求的 agent 信息到 metadata。
+                mergedMetadata.agent = agentMetadata;
                 const baseTeatime =
                   baseRecord.teatime && typeof baseRecord.teatime === "object" && !Array.isArray(baseRecord.teatime)
                     ? (baseRecord.teatime as Record<string, unknown>)

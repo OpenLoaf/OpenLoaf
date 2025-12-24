@@ -185,38 +185,19 @@ export function Chat({
     ),
   );
 
-  const isLeftVisible = useTabs(
-    React.useCallback(
-      (state) => {
-        if (!tabId) return false;
-        const tab = state.getTabById(tabId);
-        if (!tab) return false;
-        const hasLeftContent = Boolean(tab.base) || (tab.stack?.length ?? 0) > 0;
-        const leftWidthPercent = hasLeftContent ? (tab.leftWidthPercent ?? 0) : 0;
-        return leftWidthPercent > 0;
-      },
-      [tabId],
-    ),
-  );
-
   const prevFocusStateRef = React.useRef({
-    isTabActive: false,
     isRightVisible: false,
   });
 
   React.useEffect(() => {
     /**
      * 统一处理“打开 AI Chat 时自动聚焦输入框”的场景：
-     * 1) 右侧聊天栏从折叠 -> 展开（Header bot 按钮 / Mod+B）
-     * 2) 切换到“右独占/AI Chat”标签页（新建标签页 / 侧边栏 AI / 快捷键打开 AI）
-     *
-     * 说明：为了避免切换到普通“双栏 tab”时强行抢焦点，这里只在“右独占”或“右侧刚展开”时触发聚焦。
+     * 仅在右侧聊天栏从折叠 -> 展开时触发，避免切换 tab 时抢焦点。
      */
     const prev = prevFocusStateRef.current;
-    const becameActive = !prev.isTabActive && isTabActive;
     const becameRightVisible = !prev.isRightVisible && isRightVisible;
 
-    prevFocusStateRef.current = { isTabActive, isRightVisible };
+    prevFocusStateRef.current = { isRightVisible };
 
     if (!isTabActive) return;
 
@@ -225,12 +206,7 @@ export function Chat({
       focusChatInput({ root: rootRef.current });
       return;
     }
-
-    // Case B：切换到“右独占”tab：只要右侧可见且左侧不可见，就自动聚焦
-    if (becameActive && isRightVisible && !isLeftVisible) {
-      focusChatInput({ root: rootRef.current });
-    }
-  }, [isTabActive, isRightVisible, isLeftVisible]);
+  }, [isTabActive, isRightVisible]);
 
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
     if (!event.dataTransfer?.types?.includes("Files")) return;

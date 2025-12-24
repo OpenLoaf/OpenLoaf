@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback } from "react";
-import { Lock, Maximize2, Unlock, ZoomIn, ZoomOut } from "lucide-react";
+import { Lock, Maximize2, Redo2, Undo2, Unlock, ZoomIn, ZoomOut } from "lucide-react";
 import { Panel, useReactFlow, useStore, type ReactFlowState } from "reactflow";
 import { shallow } from "zustand/shallow";
 import { useCanvasState } from "../CanvasProvider";
@@ -20,7 +20,7 @@ function selectZoomState(state: ReactFlowState) {
 /** Render custom canvas controls for zoom, fit view, and lock. */
 const CanvasControls = memo(function CanvasControls() {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
-  const { isLocked, setIsLocked } = useCanvasState();
+  const { isLocked, setIsLocked, canUndo, canRedo, undo, redo } = useCanvasState();
   const { minZoomReached, maxZoomReached } = useStore(selectZoomState, shallow);
 
   const handleZoomIn = useCallback(() => {
@@ -40,12 +40,38 @@ const CanvasControls = memo(function CanvasControls() {
     setIsLocked((prev) => !prev);
   }, [setIsLocked]);
 
+  /** Trigger a canvas undo action. */
+  const handleUndo = useCallback(() => {
+    undo();
+  }, [undo]);
+
+  /** Trigger a canvas redo action. */
+  const handleRedo = useCallback(() => {
+    redo();
+  }, [redo]);
+
   return (
     <Panel
       position="top-left"
       style={{ top: "50%", left: "1rem", transform: "translateY(-50%)", margin: 0 }}
     >
       <div className="pointer-events-auto flex flex-col items-center gap-1 rounded-2xl bg-background/70 px-1.5 py-1 ring-1 ring-border backdrop-blur-md">
+        <IconBtn
+          title="撤销"
+          onClick={handleUndo}
+          disabled={!canUndo}
+          className="h-8 w-8"
+        >
+          <Undo2 size={iconSize} />
+        </IconBtn>
+        <IconBtn
+          title="前进"
+          onClick={handleRedo}
+          disabled={!canRedo}
+          className="h-8 w-8"
+        >
+          <Redo2 size={iconSize} />
+        </IconBtn>
         <IconBtn
           title="放大"
           onClick={handleZoomIn}

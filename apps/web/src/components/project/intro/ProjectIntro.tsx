@@ -5,9 +5,7 @@ import { Eye, PencilLine } from "lucide-react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import ProjectTitle from "../ProjectTitle";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { useIdleMount } from "@/hooks/use-idle-mount";
 
 const LazyProjectInfoPlate = lazy(() =>
   import("./ProjectIntroPlate").then((module) => ({
@@ -36,18 +34,6 @@ interface ProjectIntroProps {
   readOnly: boolean;
 }
 
-/** Fallback content while the intro editor loads. */
-function ProjectIntroFallback() {
-  return (
-    <div className="space-y-3 px-10 pt-1">
-      <Skeleton className="h-5 w-[35%]" />
-      <Skeleton className="h-4 w-[60%]" />
-      <Skeleton className="h-4 w-[48%]" />
-      <Skeleton className="h-32 w-full" />
-    </div>
-  );
-}
-
 /** Project intro panel. */
 const ProjectInfo = memo(function ProjectInfo({
   isLoading,
@@ -69,8 +55,6 @@ const ProjectInfo = memo(function ProjectInfo({
   const blocks = blocksQuery.data?.blocks ?? [];
 
   const showLoading = isLoading || (!!pageId && blocksQuery.isLoading);
-  const shouldMountEditor = useIdleMount(isActive && !showLoading, { timeoutMs: 420 });
-  const showFallback = isActive && !shouldMountEditor;
 
   if (showLoading) {
     return null;
@@ -78,8 +62,8 @@ const ProjectInfo = memo(function ProjectInfo({
 
   return (
     <div className="h-full space-y-3 flex-1 min-h-0">
-      {shouldMountEditor ? (
-        <Suspense fallback={<ProjectIntroFallback />}>
+      {isActive ? (
+        <Suspense fallback={null}>
           <LazyProjectInfoPlate
             readOnly={readOnly}
             pageId={pageId}
@@ -87,8 +71,6 @@ const ProjectInfo = memo(function ProjectInfo({
             pageTitle={pageTitle}
           />
         </Suspense>
-      ) : showFallback ? (
-        <ProjectIntroFallback />
       ) : null}
     </div>
   );

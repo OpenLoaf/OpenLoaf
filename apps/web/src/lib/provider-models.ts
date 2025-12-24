@@ -1,23 +1,11 @@
 "use client";
 
-import {
-  DEEPSEEK_MODEL_CATALOG,
-  XAI_MODEL_CATALOG,
-  type ModelCapabilityId,
-} from "@teatime-ai/api/common";
-
-type ProviderModelEntry =
-  | string
-  | {
-      id?: string;
-      modelId?: string;
-      capability?: ModelCapabilityId[];
-      capabilities?: ModelCapabilityId[];
-    };
+import type { ModelCapabilityId, ModelDefinition } from "@teatime-ai/api/common";
 
 type ProviderKeyEntry = {
   provider: string;
-  modelIds?: ProviderModelEntry[];
+  modelIds?: string[];
+  modelDefinitions?: ModelDefinition[];
 };
 
 export type ProviderModelOption = {
@@ -26,18 +14,8 @@ export type ProviderModelOption = {
   providerId: string;
   providerName: string;
   capabilityIds?: ModelCapabilityId[];
+  modelDefinition?: ModelDefinition;
 };
-
-const MODEL_CAPABILITY_BY_PROVIDER = new Map<string, Map<string, ModelCapabilityId[]>>([
-  [
-    DEEPSEEK_MODEL_CATALOG.getProviderId(),
-    new Map(DEEPSEEK_MODEL_CATALOG.getModels().map((model) => [model.id, model.capability])),
-  ],
-  [
-    XAI_MODEL_CATALOG.getProviderId(),
-    new Map(XAI_MODEL_CATALOG.getModels().map((model) => [model.id, model.capability])),
-  ],
-]);
 
 /**
  * Build model options from provider settings.
@@ -50,38 +28,38 @@ export function buildProviderModelOptions(
     if ((item.category ?? "general") !== "provider") continue;
     if (!item.value || typeof item.value !== "object") continue;
     const entry = item.value as ProviderKeyEntry;
-    if (!entry.provider || !Array.isArray(entry.modelIds)) continue;
+    if (!entry.provider) continue;
+    const rawDefinitions = Array.isArray(entry.modelDefinitions)
+      ? entry.modelDefinitions
+      : [];
+    // 中文注释：仅使用配置中已有的模型定义，避免回退到模板数据。
+    if (rawDefinitions.length === 0) continue;
     const providerName = item.key;
-    for (const modelEntry of entry.modelIds) {
-      const normalized =
-        typeof modelEntry === "string"
-          ? { modelId: modelEntry, capabilityIds: undefined }
-          : {
-              modelId:
-                typeof modelEntry.modelId === "string"
-                  ? modelEntry.modelId
-                  : typeof modelEntry.id === "string"
-                    ? modelEntry.id
-                    : "",
-              capabilityIds: Array.isArray(modelEntry.capability)
-                ? modelEntry.capability
-                : Array.isArray(modelEntry.capabilities)
-                  ? modelEntry.capabilities
-                  : undefined,
-            };
-      const trimmed = typeof normalized.modelId === "string" ? normalized.modelId.trim() : "";
+    const modelDefinitionById = new Map(
+      rawDefinitions
+        .filter((model) => model && typeof model.id === "string" && model.id.trim())
+        .map((model) => [model.id.trim(), model]),
+    );
+    const modelIds =
+      Array.isArray(entry.modelIds) && entry.modelIds.length > 0
+        ? entry.modelIds
+        : Array.from(modelDefinitionById.keys());
+
+    for (const modelId of modelIds) {
+      const trimmed = typeof modelId === "string" ? modelId.trim() : "";
       if (!trimmed) continue;
-      // 优先使用配置中的能力信息，缺失时从内置 catalog 补齐。
-      const capabilityIds =
-        (Array.isArray(normalized.capabilityIds) && normalized.capabilityIds.length > 0
-          ? normalized.capabilityIds
-          : MODEL_CAPABILITY_BY_PROVIDER.get(entry.provider)?.get(trimmed)) ?? undefined;
+      const modelDefinition = modelDefinitionById.get(trimmed);
+      if (!modelDefinition) continue;
+      const capabilityIds = Array.isArray(modelDefinition.capability)
+        ? modelDefinition.capability
+        : undefined;
       options.push({
         id: `${item.key}:${trimmed}`,
         modelId: trimmed,
         providerId: entry.provider,
         providerName,
         capabilityIds,
+        modelDefinition,
       });
     }
   }

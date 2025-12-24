@@ -20,6 +20,14 @@ const SHORTCUT_TRANSLATIONS: Record<string, { label: string; note?: string }> = 
   "refresh.disable": { label: "禁用刷新", note: "仅限生产环境" },
 };
 
+const PROJECT_SHORTCUTS = [
+  { id: "project.tab.intro", label: "项目 · 简介", keys: "Alt+1" },
+  { id: "project.tab.canvas", label: "项目 · 画布", keys: "Alt+2" },
+  { id: "project.tab.tasks", label: "项目 · 任务", keys: "Alt+3" },
+  { id: "project.tab.materials", label: "项目 · 资料", keys: "Alt+4" },
+  { id: "project.tab.skills", label: "项目 · 技能", keys: "Alt+5" },
+];
+
 /** Returns the localized label/note for a shortcut, falling back to the original text. */
 function getShortcutText(input: { id: string; label: string; note?: string }) {
   const translated = SHORTCUT_TRANSLATIONS[input.id];
@@ -42,6 +50,7 @@ function renderKeysPart(part: string, isMac: boolean) {
   if (part === "Mod") return isMac ? "⌘" : "Ctrl";
   if (part === "Cmd") return "⌘";
   if (part === "Ctrl") return "Ctrl";
+  if (part === "Alt") return isMac ? "⌥" : "Alt";
   if (/^[a-z]$/i.test(part)) return part.toUpperCase();
   return part;
 }
@@ -109,6 +118,23 @@ export function KeyboardShortcuts() {
               </div>
             );
           })}
+        </div>
+      </SettingsGroup>
+      <SettingsGroup title="项目快捷键">
+        <div className="divide-y divide-border">
+          {PROJECT_SHORTCUTS.map((shortcut) => (
+            <div
+              key={shortcut.id}
+              className="flex items-start justify-between gap-6 px-3 py-3"
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-medium">{shortcut.label}</div>
+              </div>
+              <div className="shrink-0">
+                <ShortcutKeys keys={shortcut.keys} isMac={isMac} />
+              </div>
+            </div>
+          ))}
         </div>
       </SettingsGroup>
     </div>

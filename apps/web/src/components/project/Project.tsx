@@ -44,6 +44,24 @@ function updateTreeNode(pages: any[], pageId: string, patch: any) {
   return changed ? nextPages : pages;
 }
 
+/** Returns true when the event target is an editable element. */
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return (
+    target.isContentEditable ||
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.getAttribute("role") === "textbox"
+  );
+}
+
+/** Returns the project tab value for a numeric shortcut index. */
+function getProjectTabByIndex(index: number) {
+  return PROJECT_TABS[index]?.value;
+}
+
 export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPageProps) {
   const { workspace: activeWorkspace } = useWorkspace();
   const tabActive = useTabActive();
@@ -230,6 +248,34 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
     },
     [setTabBaseParams, tabId]
   );
+
+  // 项目快捷键流程：只有当前 tab 处于激活态才拦截按键；
+  // 避免在输入框中打断编辑；识别 Alt + 数字并切换到对应子标签，同时保持参数持久化。
+  const handleProjectTabShortcut = useCallback(
+    (event: KeyboardEvent) => {
+      if (!tabActive) return;
+      if (event.defaultPrevented) return;
+      if (!event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
+      if (isEditableTarget(event.target)) return;
+
+      const key = event.key;
+      if (key.length !== 1 || key < "1" || key > "9") return;
+
+      const nextTab = getProjectTabByIndex(Number.parseInt(key, 10) - 1);
+      if (!nextTab) return;
+
+      event.preventDefault();
+      handleProjectTabChange(nextTab);
+    },
+    [handleProjectTabChange, tabActive]
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleProjectTabShortcut);
+    return () => {
+      window.removeEventListener("keydown", handleProjectTabShortcut);
+    };
+  }, [handleProjectTabShortcut]);
 
   return (
     <div className="flex h-full w-full flex-col min-h-0">

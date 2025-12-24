@@ -10,6 +10,7 @@ export interface NodeToolItem {
   icon: React.ReactNode;
   onClick?: () => void;
   active?: boolean;
+  tone?: "danger";
 }
 
 export interface NodeToolsToolbarProps {
@@ -45,6 +46,7 @@ const NodeToolsToolbar = memo(function NodeToolsToolbar({
             size={size}
             onClick={item.onClick}
             active={item.active}
+            className={item.tone === "danger" ? "text-destructive hover:bg-destructive/10" : ""}
           >
             {item.icon}
           </PanelItem>

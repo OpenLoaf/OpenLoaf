@@ -1,4 +1,6 @@
-import { memo } from "react";
+import { memo, useState } from "react";
+
+import { Calendar } from "@/components/ui/calendar";
 
 interface ProjectTasksProps {
   isLoading: boolean;
@@ -27,13 +29,13 @@ const ProjectTasksHeader = memo(function ProjectTasksHeader({
   );
 });
 
-const WEEK_DAYS = ["一", "二", "三", "四", "五", "六", "日"];
-
 /** Project tasks panel. */
 const ProjectTasks = memo(function ProjectTasks({
   isLoading,
   pageId,
 }: ProjectTasksProps) {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+
   if (isLoading) {
     return null;
   }
@@ -41,29 +43,16 @@ const ProjectTasks = memo(function ProjectTasks({
   return (
     <div className="h-full flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-        <section className="rounded-2xl border border-border/60 bg-card/60 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-foreground">任务日历</div>
-            <div className="text-xs text-muted-foreground">2024 / 09</div>
-          </div>
-          <div className="mt-4 grid grid-cols-7 gap-2 text-[11px] text-muted-foreground">
-            {WEEK_DAYS.map((day) => (
-              <div key={day} className="text-center">
-                {day}
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 grid grid-cols-7 gap-2">
-            {Array.from({ length: 35 }).map((_, index) => (
-              <div
-                key={`calendar-cell-${index}`}
-                className="aspect-square rounded-lg border border-dashed border-border/60 bg-background/80"
-              />
-            ))}
-          </div>
+        <section>
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            className="w-full rounded-xl border border-border/60 bg-background/80 p-3"
+          />
         </section>
 
-        <section className="rounded-2xl border border-border/60 bg-card/60 p-4 shadow-sm">
+        <section className="rounded-2xl border border-border/60 bg-card/60 p-4">
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold text-foreground">任务列表</div>
             <div className="text-xs text-muted-foreground">本周 · 12 项</div>
@@ -85,7 +74,7 @@ const ProjectTasks = memo(function ProjectTasks({
         </section>
       </div>
 
-      <section className="rounded-2xl border border-border/60 bg-card/60 p-4 shadow-sm">
+      <section className="rounded-2xl border border-border/60 bg-card/60 p-4">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-foreground">任务历史</div>
           <div className="text-xs text-muted-foreground">最近 7 天</div>
