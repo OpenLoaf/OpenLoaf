@@ -6,9 +6,9 @@ import {
 } from './logging/startupLogger';
 import { registerIpcHandlers } from './ipc';
 import { createServiceManager, type ServiceManager } from './services/serviceManager';
+import { resolveRuntimePorts, type RuntimePorts } from './services/portAllocation';
 import { WEBPACK_ENTRIES } from './webpackEntries';
 import { createMainWindow } from './windows/mainWindow';
-import { getCdpConfig } from '@teatime-ai/config';
 
 /**
  * A 方案架构说明：
@@ -16,9 +16,6 @@ import { getCdpConfig } from '@teatime-ai/config';
  * - UI 来自 `apps/web` (Next.js)，通过 `webUrl` 加载（dev: next dev；prod: 本地静态导出并由 Electron 内置 http 服务提供）
  * - Backend 来自 `apps/server`，通过 `serverUrl` 访问（dev: `pnpm --filter server dev`；prod: `server.mjs`）
  */
-const DEFAULT_SERVER_URL = 'http://127.0.0.1:3000';
-const DEFAULT_WEB_URL = 'http://127.0.0.1:3001';
-
 const { log } = createStartupLogger();
 registerProcessErrorLogging(log);
 
@@ -26,10 +23,24 @@ log(`App starting. UserData: ${app.getPath('userData')}`);
 log(`Executable: ${process.execPath}`);
 log(`Resources Path: ${process.resourcesPath}`);
 
-app.commandLine.appendSwitch(
-  'remote-debugging-port',
-  String(getCdpConfig().port)
-);
+let runtimePorts: RuntimePorts | null = null;
+const runtimePortsReady = resolveRuntimePorts({
+  serverUrlEnv: process.env.TEATIME_SERVER_URL,
+  webUrlEnv: process.env.TEATIME_WEB_URL,
+  cdpPortEnv: process.env.TEATIME_REMOTE_DEBUGGING_PORT,
+  cdpHostEnv: process.env.TEATIME_REMOTE_DEBUGGING_HOST,
+})
+  .then((ports) => {
+    // 中文注释：提前锁定随机端口并写回环境变量，保证 web/server/CDP 同步。
+    process.env.TEATIME_REMOTE_DEBUGGING_PORT = String(ports.cdpPort);
+    app.commandLine.appendSwitch('remote-debugging-port', String(ports.cdpPort));
+    runtimePorts = ports;
+    return ports;
+  })
+  .catch((err) => {
+    log(`Failed to resolve runtime ports: ${err instanceof Error ? err.message : String(err)}`);
+    throw err;
+  });
 
 let services: ServiceManager | null = null;
 let mainWindow: BrowserWindow | null = null;
@@ -278,8 +289,10 @@ async function boot() {
   // service manager 统一管理：dev 下的子进程（server/web），prod 下的本地静态服务 + server 进程。
   services = createServiceManager(log);
 
-  const initialServerUrl = process.env.TEATIME_SERVER_URL ?? DEFAULT_SERVER_URL;
-  const initialWebUrl = process.env.TEATIME_WEB_URL ?? DEFAULT_WEB_URL;
+  const ports = runtimePorts ?? (await runtimePortsReady);
+  const initialServerUrl = ports.serverUrl;
+  const initialWebUrl = ports.webUrl;
+  const initialCdpPort = ports.cdpPort;
 
   // 主窗口先展示轻量 loading 页面，待 `apps/web` 可用后再切换到真实 UI。
   const created = await createMainWindow({
@@ -288,6 +301,7 @@ async function boot() {
     entries: WEBPACK_ENTRIES,
     initialServerUrl,
     initialWebUrl,
+    initialCdpPort,
   });
   mainWindow = created.win;
 

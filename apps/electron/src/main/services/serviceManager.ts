@@ -5,7 +5,11 @@ import { ensureDevServices } from './devServices';
 import { startProductionServices } from './prodServices';
 
 export type ServiceManager = {
-  start: (args: { initialServerUrl: string; initialWebUrl: string }) => Promise<{
+  start: (args: {
+    initialServerUrl: string;
+    initialWebUrl: string;
+    cdpPort: number;
+  }) => Promise<{
     serverUrl: string;
     webUrl: string;
   }>;
@@ -45,6 +49,7 @@ export function createServiceManager(log: Logger): ServiceManager {
   const start: ServiceManager['start'] = async ({
     initialServerUrl,
     initialWebUrl,
+    cdpPort,
   }) => {
     // Electron 可能会多次触发启动流程（例如 macOS activate），因此这里必须保持启动幂等。
     if (started) return { serverUrl: initialServerUrl, webUrl: initialWebUrl };
@@ -52,7 +57,12 @@ export function createServiceManager(log: Logger): ServiceManager {
 
     if (app.isPackaged) {
       // 生产环境：启动打包后的 server，并在本地提供静态 web 导出站点。
-      const prod = await startProductionServices(log);
+      const prod = await startProductionServices({
+        log,
+        serverUrl: initialServerUrl,
+        webUrl: initialWebUrl,
+        cdpPort,
+      });
       managedServer = prod.managedServer;
       productionWebServer = prod.productionWebServer;
       return { serverUrl: initialServerUrl, webUrl: initialWebUrl };
@@ -63,6 +73,7 @@ export function createServiceManager(log: Logger): ServiceManager {
       log,
       initialServerUrl,
       initialWebUrl,
+      cdpPort,
     });
     managedServer = dev.managedServer;
     managedWeb = dev.managedWeb;

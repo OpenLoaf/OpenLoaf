@@ -78,6 +78,31 @@ function ensureDir(dirPath: string) {
 }
 
 /**
+ * Extracts the hostname from a URL string with a fallback.
+ */
+function resolveHost(rawUrl: string, fallback: string): string {
+  try {
+    return new URL(rawUrl).hostname || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Extracts the port from a URL string with a fallback.
+ */
+function resolvePort(rawUrl: string, fallback: number): number {
+  try {
+    const port = new URL(rawUrl).port;
+    if (!port) return fallback;
+    const parsed = Number.parseInt(port, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * 简易静态文件服务：
  * - 用于在生产环境把 `apps/web/out` 通过本地 http server 提供给 BrowserWindow 加载
  * - 兼容 Next.js export 的常见路径（目录 index.html、路径补 .html、404.html）
@@ -147,11 +172,17 @@ export type ProdServices = {
 };
 
 /**
- * 生产环境启动服务：
- * - 启动打包进 Resources 的 `server.mjs`
- * - 启动本地静态服务，提供 `Resources/out`（Next.js export）
+ * Starts production services:
+ * - Launches the bundled `server.mjs` from Resources
+ * - Serves the exported `Resources/out` via a local HTTP server
  */
-export async function startProductionServices(log: Logger): Promise<ProdServices> {
+export async function startProductionServices(args: {
+  log: Logger;
+  serverUrl: string;
+  webUrl: string;
+  cdpPort: number;
+}): Promise<ProdServices> {
+  const log = args.log;
   if (!app.isPackaged) {
     return { managedServer: null, productionWebServer: null };
   }
@@ -226,6 +257,9 @@ export async function startProductionServices(log: Logger): Promise<ProdServices
   const serverPath = path.join(resourcesPath, 'server.mjs');
   log(`Looking for server at: ${serverPath}`);
 
+  const serverHost = resolveHost(args.serverUrl, '127.0.0.1');
+  const serverPort = resolvePort(args.serverUrl, 3000);
+
   let managedServer: ChildProcess | null = null;
   if (fs.existsSync(serverPath)) {
     try {
@@ -234,7 +268,8 @@ export async function startProductionServices(log: Logger): Promise<ProdServices
           ...process.env,
           // Defaults (may be overridden by userData/.env via spread below + DOTENV_CONFIG_OVERRIDE).
           ELECTRON_RUN_AS_NODE: '1',
-          PORT: '3000',
+          PORT: String(serverPort),
+          HOST: serverHost,
           DATABASE_URL: databaseUrl,
           TEATIME_CONF_PATH: confPath,
           // Allow the bundled server to resolve shipped native deps (e.g. `@libsql/darwin-arm64`)
@@ -244,6 +279,8 @@ export async function startProductionServices(log: Logger): Promise<ProdServices
           DOTENV_CONFIG_PATH: userEnvPath,
           DOTENV_CONFIG_OVERRIDE: '1',
           ...userEnv,
+          // 中文注释：强制对齐 Electron 与 Server 的 CDP 端口，避免运行时不一致。
+          TEATIME_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -266,6 +303,9 @@ export async function startProductionServices(log: Logger): Promise<ProdServices
   const webRoot = path.join(resourcesPath, 'out');
   log(`Looking for web root at: ${webRoot}`);
 
+  const webHost = resolveHost(args.webUrl, '127.0.0.1');
+  const webPort = resolvePort(args.webUrl, 3001);
+
   let productionWebServer: http.Server | null = null;
   if (fs.existsSync(webRoot)) {
     try {
@@ -279,8 +319,8 @@ export async function startProductionServices(log: Logger): Promise<ProdServices
       });
 
       await new Promise<void>((resolve, reject) => {
-        productionWebServer?.listen(3001, () => {
-          log('Web server running at http://localhost:3001');
+        productionWebServer?.listen(webPort, webHost, () => {
+          log(`Web server running at http://${webHost}:${webPort}`);
           resolve();
         });
         productionWebServer?.on('error', reject);

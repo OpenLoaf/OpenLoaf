@@ -33,10 +33,10 @@ function getDefaultWindowSize(): { width: number; height: number } {
 }
 
 /**
- * 创建主窗口并加载 UI：
- * - 先加载本地 loading 页面（快速、无依赖）
- * - 启动/确认 apps/web 可用后，切换到 webUrl
- * - 若失败则加载 fallback 页面用于排查
+ * Creates the main window and loads UI:
+ * - Load the local loading page first (fast, no dependencies)
+ * - Switch to webUrl after apps/web is available
+ * - Fall back to the bundled page when loading fails
  */
 export async function createMainWindow(args: {
   log: Logger;
@@ -44,6 +44,7 @@ export async function createMainWindow(args: {
   entries: typeof WEBPACK_ENTRIES;
   initialServerUrl: string;
   initialWebUrl: string;
+  initialCdpPort: number;
 }): Promise<{ win: BrowserWindow; serverUrl: string; webUrl: string }> {
   args.log('createMainWindow called');
 
@@ -81,6 +82,7 @@ export async function createMainWindow(args: {
     const { webUrl, serverUrl } = await args.services.start({
       initialServerUrl: args.initialServerUrl,
       initialWebUrl: args.initialWebUrl,
+      cdpPort: args.initialCdpPort,
     });
 
     const targetUrl = `${webUrl}/`;

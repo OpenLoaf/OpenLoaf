@@ -1,9 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
-import net from 'node:net';
 import path from 'node:path';
 import { delay, isUrlOk, waitForUrlOk } from './urlHealth';
 import type { Logger } from '../logging/startupLogger';
+import { getFreePort, isPortFree } from './portAllocation';
 
 /**
  * 从当前工作目录向上查找 monorepo 根目录。
@@ -58,43 +58,6 @@ function spawnLogged(
   return child;
 }
 
-/**
- * 判断指定 host:port 是否空闲（可绑定则认为空闲）。
- */
-async function isPortFree(host: string, port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const server = net.createServer();
-    server.once('error', () => resolve(false));
-    server.once('listening', () => {
-      server.close(() => resolve(true));
-    });
-    server.listen(port, host);
-  });
-}
-
-/**
- * 获取一个可用的随机端口（由系统分配 0 端口）。
- */
-async function getFreePort(host: string): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.unref();
-    server.once('error', reject);
-    server.listen(0, host, () => {
-      const addr = server.address();
-      if (!addr || typeof addr === 'string') {
-        server.close(() => reject(new Error('Failed to allocate a free port')));
-        return;
-      }
-      const port = addr.port;
-      server.close((err) => {
-        if (err) reject(err);
-        else resolve(port);
-      });
-    });
-  });
-}
-
 export type DevServices = {
   serverUrl: string;
   webUrl: string;
@@ -103,14 +66,15 @@ export type DevServices = {
 };
 
 /**
- * dev 环境确保 apps/server 与 apps/web 可访问：
- * - 若本地已有服务在跑：直接复用
- * - 否则从 monorepo 根目录拉起对应 workspace 的 dev server
+ * Ensures apps/server and apps/web are reachable in development:
+ * - Reuse existing services if they're already running
+ * - Otherwise start the dev servers from the monorepo root
  */
 export async function ensureDevServices(args: {
   log: Logger;
   initialServerUrl: string;
   initialWebUrl: string;
+  cdpPort: number;
 }): Promise<DevServices> {
   // dev 环境默认在 monorepo 内运行；若不在仓库根目录附近，避免自动拉起子进程。
   const repoRoot = findRepoRoot(process.cwd());
@@ -170,6 +134,7 @@ export async function ensureDevServices(args: {
         PORT: String(serverPort),
         HOST: serverHost,
         NODE_ENV: 'development',
+        TEATIME_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
         // 允许 web dev server 作为 Origin 访问后端。
         CORS_ORIGIN: `${webUrl},${envBase.CORS_ORIGIN ?? ''}`,
       },
