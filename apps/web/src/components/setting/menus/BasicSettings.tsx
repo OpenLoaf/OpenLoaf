@@ -126,8 +126,8 @@ export function BasicSettings() {
         }
       }}
     >
-      {({ effective, resolved, toggleTheme }) => {
-        const isAutoTheme = effective === "system";
+      {({ resolved, toggleTheme }) => {
+        const isAutoTheme = uiTheme === "system";
         const themeTabsValue = resolved;
         const isCustomRulesDirty = customRules !== savedCustomRules;
         const languageLabelById: Record<LanguageId, string> = {

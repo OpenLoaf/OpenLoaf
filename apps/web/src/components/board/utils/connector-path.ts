@@ -23,13 +23,34 @@ export type CanvasConnectorPath =
 /** Resolve a connector endpoint to a world point. */
 export function resolveConnectorEndpoint(
   end: CanvasConnectorEnd,
-  anchors: CanvasAnchorMap
+  anchors: CanvasAnchorMap,
+  hint?: CanvasPoint | null
 ): CanvasPoint | null {
   if ("point" in end) return end.point;
   const anchorList = anchors[end.elementId];
   if (!anchorList || anchorList.length === 0) return null;
-  if (!end.anchorId) return anchorList[0]?.point ?? null;
+  if (!end.anchorId) {
+    if (!hint) return anchorList[0]?.point ?? null;
+    return pickClosestAnchor(anchorList, hint);
+  }
   return anchorList.find(anchor => anchor.id === end.anchorId)?.point ?? null;
+}
+
+/** Pick the closest anchor point relative to the hint. */
+function pickClosestAnchor(
+  anchorList: { id: string; point: CanvasPoint }[],
+  hint: CanvasPoint
+): CanvasPoint {
+  let closest = anchorList[0]?.point ?? null;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  anchorList.forEach(anchor => {
+    const distance = Math.hypot(anchor.point[0] - hint[0], anchor.point[1] - hint[1]);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closest = anchor.point;
+    }
+  });
+  return closest ?? hint;
 }
 
 /** Build a connector path based on style. */

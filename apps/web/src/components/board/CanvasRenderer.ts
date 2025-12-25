@@ -39,7 +39,6 @@ export class CanvasRenderer {
     this.drawConnectorDraft(snapshot);
     this.drawAlignmentGuides(snapshot);
     this.drawSelectionBox(snapshot);
-    this.drawAnchors(snapshot);
   }
 
   /** Resize the canvas to match viewport size. */
@@ -94,8 +93,18 @@ export class CanvasRenderer {
     if (connectors.length === 0) return;
 
     connectors.forEach(connector => {
-      const source = resolveConnectorEndpoint(connector.source, snapshot.anchors);
-      const target = resolveConnectorEndpoint(connector.target, snapshot.anchors);
+      const sourceHint = resolveConnectorHint(connector.target, snapshot);
+      const targetHint = resolveConnectorHint(connector.source, snapshot);
+      const source = resolveConnectorEndpoint(
+        connector.source,
+        snapshot.anchors,
+        sourceHint
+      );
+      const target = resolveConnectorEndpoint(
+        connector.target,
+        snapshot.anchors,
+        targetHint
+      );
       if (!source || !target) return;
       const style = connector.style ?? snapshot.connectorStyle;
       const path = buildConnectorPath(style, source, target);
@@ -111,8 +120,18 @@ export class CanvasRenderer {
   private drawConnectorDraft(snapshot: CanvasSnapshot): void {
     const draft = snapshot.connectorDraft;
     if (!draft) return;
-    const source = resolveConnectorEndpoint(draft.source, snapshot.anchors);
-    const target = resolveConnectorEndpoint(draft.target, snapshot.anchors);
+    const sourceHint = resolveConnectorHint(draft.target, snapshot);
+    const targetHint = resolveConnectorHint(draft.source, snapshot);
+    const source = resolveConnectorEndpoint(
+      draft.source,
+      snapshot.anchors,
+      sourceHint
+    );
+    const target = resolveConnectorEndpoint(
+      draft.target,
+      snapshot.anchors,
+      targetHint
+    );
     if (!source || !target) return;
     const style = draft.style ?? snapshot.connectorStyle;
     const path = buildConnectorPath(style, source, target);
@@ -129,15 +148,26 @@ export class CanvasRenderer {
     ) as CanvasConnectorElement[];
     if (connectors.length === 0) return;
 
+    const palette = this.getConnectorPalette();
     const ctx = this.ctx;
     ctx.save();
     ctx.lineWidth = 1.5 * this.dpr;
-    ctx.fillStyle = "#ffffff";
-    ctx.strokeStyle = "#0f172a";
+    ctx.fillStyle = palette.handleFill;
+    ctx.strokeStyle = palette.handleStroke;
 
     connectors.forEach(connector => {
-      const source = resolveConnectorEndpoint(connector.source, snapshot.anchors);
-      const target = resolveConnectorEndpoint(connector.target, snapshot.anchors);
+      const sourceHint = resolveConnectorHint(connector.target, snapshot);
+      const targetHint = resolveConnectorHint(connector.source, snapshot);
+      const source = resolveConnectorEndpoint(
+        connector.source,
+        snapshot.anchors,
+        sourceHint
+      );
+      const target = resolveConnectorEndpoint(
+        connector.target,
+        snapshot.anchors,
+        targetHint
+      );
       if (!source || !target) return;
       const radius = (snapshot.draggingId === connector.id ? 5.5 : 4.5) * this.dpr;
       const sourceScreen = this.toScreen(source, snapshot);
@@ -207,43 +237,37 @@ export class CanvasRenderer {
 
   /** Draw anchor points for connectable nodes. */
   private drawAnchors(snapshot: CanvasSnapshot): void {
-    const shouldShow =
-      snapshot.activeToolId === "connector" ||
-      snapshot.connectorDraft ||
-      snapshot.connectorHover;
-    if (!shouldShow) return;
-
     const sourceAnchor = getDraftAnchor(snapshot.connectorDraft);
     const hoverAnchor = snapshot.connectorHover;
+    if (!sourceAnchor && !hoverAnchor) return;
     const ctx = this.ctx;
 
+    const palette = this.getConnectorPalette();
     ctx.save();
     ctx.lineWidth = 1 * this.dpr;
 
-    Object.entries(snapshot.anchors).forEach(([elementId, anchors]) => {
-      anchors.forEach(anchor => {
-        const screen = this.toScreen(anchor.point, snapshot);
-        const isSource =
-          sourceAnchor?.elementId === elementId &&
-          sourceAnchor.anchorId === anchor.id;
-        const isHover =
-          hoverAnchor?.elementId === elementId &&
-          hoverAnchor.anchorId === anchor.id;
-        const radius = (isSource || isHover ? 5.5 : 3.5) * this.dpr;
-        const fill = isHover
-          ? "#0f172a"
-          : isSource
-            ? "#1d4ed8"
-            : "rgba(148, 163, 184, 0.75)";
-        const stroke = isHover || isSource ? "#ffffff" : "rgba(15, 23, 42, 0.2)";
+    [sourceAnchor, hoverAnchor].forEach(anchorKey => {
+      if (!anchorKey) return;
+      const resolved = resolveAnchorPoint(anchorKey, snapshot);
+      if (!resolved) return;
+      const screen = this.toScreen(resolved.point, snapshot);
+      const isSource =
+        sourceAnchor?.elementId === resolved.elementId &&
+        sourceAnchor.anchorId === resolved.anchorId;
+      const isHover =
+        hoverAnchor?.elementId === resolved.elementId &&
+        hoverAnchor.anchorId === resolved.anchorId;
+      const radius = (isSource || isHover ? 5.5 : 3.5) * this.dpr;
+      const fill = isHover ? palette.anchorHover : palette.anchor;
+      const stroke = palette.handleFill;
+      const offset = resolveAnchorOffset(resolved.anchorId, radius);
 
-        ctx.beginPath();
-        ctx.arc(screen[0], screen[1], radius, 0, Math.PI * 2);
-        ctx.fillStyle = fill;
-        ctx.strokeStyle = stroke;
-        ctx.fill();
-        ctx.stroke();
-      });
+      ctx.beginPath();
+      ctx.arc(screen[0] + offset[0], screen[1] + offset[1], radius, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = stroke;
+      ctx.fill();
+      ctx.stroke();
     });
 
     ctx.restore();
@@ -262,8 +286,9 @@ export class CanvasRenderer {
     const ctx = this.ctx;
     const isDraft = options.draft ?? false;
     const selected = options.selected ?? false;
-    const strokeColor = selected ? "#0f172a" : "rgba(30, 41, 59, 0.7)";
-    const draftColor = "rgba(100, 116, 139, 0.8)";
+    const palette = this.getConnectorPalette();
+    const strokeColor = selected ? palette.selected : palette.stroke;
+    const draftColor = palette.draft;
     const lineWidth = (selected ? 2.6 : options.style === "hand" ? 2.2 : 2) * this.dpr;
 
     ctx.save();
@@ -357,6 +382,45 @@ export class CanvasRenderer {
     ];
   }
 
+  /** Resolve connector colors from CSS variables for theme awareness. */
+  private getConnectorPalette(): {
+    stroke: string;
+    selected: string;
+    draft: string;
+    anchor: string;
+    anchorHover: string;
+    handleFill: string;
+    handleStroke: string;
+  } {
+    if (typeof window === "undefined") {
+      return {
+        stroke: "#475569",
+        selected: "#0f172a",
+        draft: "#64748b",
+        anchor: "#2563eb",
+        anchorHover: "#0f172a",
+        handleFill: "#ffffff",
+        handleStroke: "#0f172a",
+      };
+    }
+    const styles = window.getComputedStyle(this.canvas);
+    const read = (name: string) => styles.getPropertyValue(name).trim();
+    const fallbackForeground = read("--foreground") || "#0f172a";
+    const fallbackMuted = read("--muted-foreground") || "#475569";
+    const fallbackPrimary = read("--primary") || fallbackForeground;
+    const fallbackBackground = read("--background") || "#ffffff";
+    const readVar = (name: string, fallback: string) => read(name) || fallback;
+    return {
+      stroke: readVar("--canvas-connector", fallbackMuted),
+      selected: readVar("--canvas-connector-selected", fallbackForeground),
+      draft: readVar("--canvas-connector-draft", fallbackMuted),
+      anchor: readVar("--canvas-connector-anchor", fallbackPrimary),
+      anchorHover: readVar("--canvas-connector-anchor-hover", fallbackForeground),
+      handleFill: readVar("--canvas-connector-handle-fill", fallbackBackground),
+      handleStroke: readVar("--canvas-connector-handle-stroke", fallbackForeground),
+    };
+  }
+
   /** Draw a circular handle at a screen point. */
   private drawHandleCircle(point: CanvasPoint, radius: number): void {
     this.ctx.beginPath();
@@ -378,4 +442,44 @@ function getDraftAnchor(draft: CanvasConnectorDraft | null): AnchorKey | null {
     };
   }
   return null;
+}
+
+function resolveAnchorPoint(
+  key: AnchorKey,
+  snapshot: CanvasSnapshot
+): { elementId: string; anchorId: string; point: CanvasPoint } | null {
+  const anchors = snapshot.anchors[key.elementId];
+  if (!anchors) return null;
+  const anchor = anchors.find(item => item.id === key.anchorId);
+  if (!anchor) return null;
+  return { elementId: key.elementId, anchorId: key.anchorId, point: anchor.point };
+}
+
+function resolveAnchorOffset(anchorId: string, offset: number): CanvasPoint {
+  switch (anchorId) {
+    case "top":
+      return [0, -offset];
+    case "right":
+      return [offset, 0];
+    case "bottom":
+      return [0, offset];
+    case "left":
+      return [-offset, 0];
+    default:
+      return [0, 0];
+  }
+}
+
+/** Resolve a hint point for auto-anchored connectors. */
+function resolveConnectorHint(
+  end: CanvasConnectorDraft["source"],
+  snapshot: CanvasSnapshot
+): CanvasPoint | null {
+  if ("point" in end) return end.point;
+  const element = snapshot.elements.find(
+    item => item.kind === "node" && item.id === end.elementId
+  );
+  if (!element || element.kind !== "node") return null;
+  const [x, y, w, h] = element.xywh;
+  return [x + w / 2, y + h / 2];
 }

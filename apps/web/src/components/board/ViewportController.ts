@@ -6,6 +6,10 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export class ViewportController {
+  /** Minimum zoom value for the viewport. */
+  private readonly minZoom = 0.4;
+  /** Maximum zoom value for the viewport. */
+  private readonly maxZoom = 1.8;
   /** Current zoom level. */
   private zoom = 1;
   /** Viewport translation in screen coordinates. */
@@ -40,14 +44,14 @@ export class ViewportController {
 
   /** Set both zoom and offset at once. */
   setViewport(zoom: number, offset: CanvasPoint): void {
-    this.zoom = clamp(zoom, 0.1, 8);
+    this.zoom = clamp(zoom, this.minZoom, this.maxZoom);
     this.offset = offset;
     this.emitChange();
   }
 
   /** Set the zoom level with an optional screen anchor. */
   setZoom(nextZoom: number, anchor?: CanvasPoint): void {
-    const clamped = clamp(nextZoom, 0.1, 8);
+    const clamped = clamp(nextZoom, this.minZoom, this.maxZoom);
     if (!anchor) {
       this.zoom = clamped;
       this.emitChange();
@@ -88,5 +92,10 @@ export class ViewportController {
       offset: this.offset,
       size: this.size,
     };
+  }
+
+  /** Return the zoom limits for the viewport. */
+  getZoomLimits(): { min: number; max: number } {
+    return { min: this.minZoom, max: this.maxZoom };
   }
 }

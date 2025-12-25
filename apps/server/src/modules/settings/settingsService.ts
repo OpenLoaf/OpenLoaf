@@ -4,6 +4,7 @@ import { ServerSettingDefs } from "@/settings/settingDefs";
 import { ModelCapabilityId, type ModelDefinition, type ModelPrice } from "@teatime-ai/api/common";
 
 type SettingItem = {
+  id?: string;
   key: string;
   value: unknown;
   secret: boolean;
@@ -21,6 +22,7 @@ function getRowSyncToCloud(row: unknown, fallback: boolean) {
 }
 
 export type ProviderSettingEntry = {
+  id: string;
   key: string;
   provider: string;
   apiUrl: string;
@@ -146,6 +148,7 @@ async function getSettingsByDefs(
     const parsedValue = parseSettingValue(rawValue);
     const value = def.secret && maskSecret ? maskSecretValue(parsedValue) : parsedValue;
     return {
+      id: row?.id,
       key: def.key,
       value,
       secret: Boolean(def.secret),
@@ -177,6 +180,7 @@ async function getCategorySettingsForWeb({
       row.category !== S3_PROVIDER_CATEGORY;
     const value = shouldMask ? maskSecretValue(parsedValue) : parsedValue;
     return {
+      id: row.id,
       key: row.key,
       value,
       secret: row.secret,
@@ -189,6 +193,7 @@ async function getCategorySettingsForWeb({
 
 /** Normalize provider setting row for server usage. */
 function normalizeProviderSettingRow(row: {
+  id: string;
   key: string;
   value: string;
   updatedAt: Date;
@@ -226,6 +231,7 @@ function normalizeProviderSettingRow(row: {
   }
 
   return {
+    id: row.id,
     key: row.key,
     provider,
     apiUrl,

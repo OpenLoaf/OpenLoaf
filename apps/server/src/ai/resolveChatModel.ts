@@ -46,13 +46,13 @@ function normalizeChatModelId(raw?: string | null): string | null {
 }
 
 /** Parse chatModelId into provider key and model id. */
-function parseChatModelId(chatModelId: string): { providerKey: string; modelId: string } | null {
+function parseChatModelId(chatModelId: string): { profileId: string; modelId: string } | null {
   const separatorIndex = chatModelId.indexOf(":");
   if (separatorIndex <= 0 || separatorIndex >= chatModelId.length - 1) return null;
-  const providerKey = chatModelId.slice(0, separatorIndex).trim();
+  const profileId = chatModelId.slice(0, separatorIndex).trim();
   const modelId = chatModelId.slice(separatorIndex + 1).trim();
-  if (!providerKey || !modelId) return null;
-  return { providerKey, modelId };
+  if (!profileId || !modelId) return null;
+  return { profileId, modelId };
 }
 
 /** Normalize chat model source input. */
@@ -71,7 +71,7 @@ function buildChatModelCandidates(
 
   for (const provider of providers) {
     for (const modelId of provider.modelIds) {
-      const chatModelId = `${provider.key}:${modelId}`;
+      const chatModelId = `${provider.id}:${modelId}`;
       if (exclude && chatModelId === exclude) continue;
       if (seen.has(chatModelId)) continue;
       seen.add(chatModelId);
@@ -88,7 +88,7 @@ async function resolveLocalChatModel(input: {
 }): Promise<ResolvedChatModel> {
   const normalized = normalizeChatModelId(input.chatModelId);
   const providers = await getProviderSettings();
-  const providerByKey = new Map(providers.map((entry) => [entry.key, entry]));
+  const providerById = new Map(providers.map((entry) => [entry.id, entry]));
 
   // 中文注释：流程=生成候选列表 -> 顺序解析/创建模型 -> 失败后按次数 fallback。
   const fallbackCandidates = buildChatModelCandidates(providers, normalized);
@@ -108,7 +108,8 @@ async function resolveLocalChatModel(input: {
       const parsed = parseChatModelId(candidate);
       if (!parsed) throw new Error("chatModelId 格式无效");
 
-      const providerEntry = providerByKey.get(parsed.providerKey);
+      // 中文注释：chatModelId 前缀固定使用 settings.id，避免 key 重命名导致失效。
+      const providerEntry = providerById.get(parsed.profileId);
       if (!providerEntry) throw new Error("模型服务商未配置");
 
       if (!providerEntry.modelIds.includes(parsed.modelId)) {

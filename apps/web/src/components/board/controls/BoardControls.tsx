@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback } from "react";
+import { memo, useCallback, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Lock, Maximize2, Redo2, Undo2, Unlock, ZoomIn, ZoomOut } from "lucide-react";
 
@@ -15,27 +15,67 @@ export interface BoardControlsProps {
   snapshot: CanvasSnapshot;
 }
 
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 8;
-const ZOOM_STEP = 1.1;
+const ZOOM_STEP = 1.08;
 const iconSize = 16;
+const ZOOM_HOLD_DELAY = 260;
+const ZOOM_HOLD_INTERVAL = 80;
 
 /** Render the left-side toolbar for the board canvas. */
 const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardControlsProps) {
   const { zoom, size } = snapshot.viewport;
-  const minZoomReached = zoom <= MIN_ZOOM;
-  const maxZoomReached = zoom >= MAX_ZOOM;
+  const zoomLimits = engine.viewport.getZoomLimits();
+  const minZoomReached = zoom <= zoomLimits.min;
+  const maxZoomReached = zoom >= zoomLimits.max;
+  const holdTimerRef = useRef<number | null>(null);
+  const holdIntervalRef = useRef<number | null>(null);
 
-  const handleZoomIn = useCallback(() => {
-    // 逻辑：以视口中心为锚点放大，保持缩放体验稳定。
-    engine.viewport.setZoom(zoom * ZOOM_STEP, [size[0] / 2, size[1] / 2]);
-  }, [engine, size, zoom]);
+  /** Stop the current zoom-hold behavior. */
+  const stopZoomHold = useCallback(() => {
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (holdIntervalRef.current) {
+      window.clearInterval(holdIntervalRef.current);
+      holdIntervalRef.current = null;
+    }
+  }, []);
 
-  const handleZoomOut = useCallback(() => {
-    engine.viewport.setZoom(zoom / ZOOM_STEP, [size[0] / 2, size[1] / 2]);
-  }, [engine, size, zoom]);
+  /** Start continuous zooming on long press. */
+  const startZoomHold = useCallback((direction: "in" | "out") => {
+    return (event: ReactPointerEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      stopZoomHold();
+      const zoomOnce = () => {
+        const anchor: [number, number] = [size[0] / 2, size[1] / 2];
+        if (direction === "in") {
+          engine.viewport.setZoom(engine.viewport.getState().zoom * ZOOM_STEP, anchor);
+        } else {
+          engine.viewport.setZoom(engine.viewport.getState().zoom / ZOOM_STEP, anchor);
+        }
+      };
+      zoomOnce();
+      // 逻辑：长按触发连续缩放，松开时停止。
+      holdTimerRef.current = window.setTimeout(() => {
+        holdIntervalRef.current = window.setInterval(zoomOnce, ZOOM_HOLD_INTERVAL);
+      }, ZOOM_HOLD_DELAY);
 
-  const handleFitView = useCallback(() => {
+      const handlePointerUp = () => {
+        stopZoomHold();
+        window.removeEventListener("pointerup", handlePointerUp);
+        window.removeEventListener("pointercancel", handlePointerUp);
+        window.removeEventListener("blur", handlePointerUp);
+      };
+      window.addEventListener("pointerup", handlePointerUp);
+      window.addEventListener("pointercancel", handlePointerUp);
+      window.addEventListener("blur", handlePointerUp);
+    };
+  }, [engine, size, stopZoomHold]);
+
+  const handleFitView = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     engine.fitToElements();
   }, [engine]);
 
@@ -51,7 +91,9 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
     engine.redo();
   }, [engine]);
 
-  const toggleLock = useCallback(() => {
+  const toggleLock = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     engine.setLocked(!snapshot.locked);
   }, [engine, snapshot.locked]);
 
@@ -90,7 +132,7 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
         </IconBtn>
         <IconBtn
           title="放大"
-          onClick={handleZoomIn}
+          onPointerDown={startZoomHold("in")}
           disabled={maxZoomReached}
           className="h-8 w-8"
         >
@@ -98,22 +140,22 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
         </IconBtn>
         <IconBtn
           title="缩小"
-          onClick={handleZoomOut}
+          onPointerDown={startZoomHold("out")}
           disabled={minZoomReached}
           className="h-8 w-8"
         >
           <ZoomOut size={iconSize} />
         </IconBtn>
-        <IconBtn title="全屏" onClick={handleFitView} className="h-8 w-8">
+        <IconBtn title="全屏" onPointerDown={handleFitView} className="h-8 w-8">
           <Maximize2 size={iconSize} />
         </IconBtn>
         <IconBtn
           title={snapshot.locked ? "解锁" : "锁定"}
-          onClick={toggleLock}
+          onPointerDown={toggleLock}
           active={snapshot.locked}
           className="h-8 w-8"
         >
-          {snapshot.locked ? <Lock size={iconSize} /> : <Unlock size={iconSize} />}
+          {snapshot.locked ? <Unlock size={iconSize} /> : <Lock size={iconSize} />}
         </IconBtn>
       </div>
     </div>

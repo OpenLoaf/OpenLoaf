@@ -35,6 +35,8 @@ export class ToolManager {
   private activeToolId: string | null = null;
   /** Engine reference used for dispatching. */
   private readonly engine: CanvasEngine;
+  /** Whether middle-button panning is active. */
+  private middlePanning = false;
 
   /** Create a new tool manager. */
   constructor(engine: CanvasEngine) {
@@ -78,6 +80,17 @@ export class ToolManager {
       target.setPointerCapture(event.pointerId);
     }
 
+    if (event.button === 1) {
+      // 逻辑：中键按下时临时进入拖拽平移模式，不改变当前工具。
+      const handTool = this.tools.get("hand");
+      this.middlePanning = Boolean(handTool?.onPointerDown);
+      if (this.middlePanning) {
+        event.preventDefault();
+        handTool?.onPointerDown?.(ctx);
+        return;
+      }
+    }
+
     // 将输入事件统一转换为世界坐标，再交由工具处理。
     this.getActiveTool()?.onPointerDown?.(ctx);
   }
@@ -86,6 +99,10 @@ export class ToolManager {
   handlePointerMove(event: PointerEvent): void {
     const ctx = this.buildContext(event);
     if (!ctx) return;
+    if (this.middlePanning) {
+      this.tools.get("hand")?.onPointerMove?.(ctx);
+      return;
+    }
     this.getActiveTool()?.onPointerMove?.(ctx);
   }
 
@@ -97,6 +114,11 @@ export class ToolManager {
     const target = event.currentTarget;
     if (target instanceof HTMLElement) {
       target.releasePointerCapture(event.pointerId);
+    }
+    if (this.middlePanning) {
+      this.tools.get("hand")?.onPointerUp?.(ctx);
+      this.middlePanning = false;
+      return;
     }
     this.getActiveTool()?.onPointerUp?.(ctx);
   }
@@ -131,6 +153,10 @@ export class SelectTool implements CanvasTool {
   readonly id = "select";
   /** Dragging element id. */
   private draggingId: string | null = null;
+  /** Draft connector source anchor. */
+  private connectorSource: CanvasAnchorHit | null = null;
+  /** Whether a new connector is being dragged. */
+  private connectorDrafting = false;
   /** Dragging start point in world coordinates. */
   private dragStart: CanvasPoint | null = null;
   /** Dragging start bounds for the element. */
@@ -166,6 +192,36 @@ export class SelectTool implements CanvasTool {
   onPointerDown(ctx: ToolContext): void {
     if (ctx.event.button !== 0) return;
     ctx.event.preventDefault();
+    if (!ctx.engine.isLocked()) {
+      if (ctx.event.target instanceof HTMLElement) {
+        // 逻辑：命中缩放手柄时不触发连线。
+        if (ctx.event.target.closest("[data-resize-handle]")) {
+          return;
+        }
+      }
+      const hoverAnchor = ctx.engine.getConnectorHover();
+      // 逻辑：只有在锚点已显示并命中时才开始连线，避免误触。
+      if (hoverAnchor) {
+        const edgeHit = ctx.engine.findEdgeAnchorHit(ctx.worldPoint);
+        if (
+          edgeHit &&
+          edgeHit.elementId === hoverAnchor.elementId &&
+          edgeHit.anchorId === hoverAnchor.anchorId
+        ) {
+          this.connectorSource = edgeHit;
+          this.connectorDrafting = true;
+          ctx.engine.selection.setSelection([edgeHit.elementId]);
+          ctx.engine.setConnectorDraft({
+            source: { elementId: edgeHit.elementId, anchorId: edgeHit.anchorId },
+            target: { point: ctx.worldPoint },
+            style: ctx.engine.getConnectorStyle(),
+          });
+          ctx.engine.setConnectorHover(edgeHit);
+          return;
+        }
+      }
+    }
+
     const hit = ctx.engine.pickElementAt(ctx.worldPoint);
     if (!hit) {
       const selectedIds = ctx.engine.selection.getSelectedIds();
@@ -261,19 +317,61 @@ export class SelectTool implements CanvasTool {
 
   /** Handle pointer move to drag selected nodes. */
   onPointerMove(ctx: ToolContext): void {
+    if (this.connectorDrafting && this.connectorSource) {
+      const targetNode = ctx.engine.findNodeAt(ctx.worldPoint);
+      if (targetNode && targetNode.id !== this.connectorSource.elementId) {
+        // 逻辑：拖拽过程中只要进入节点即可吸附，不要求命中边缘锚点。
+        const hover = ctx.engine.getNearestEdgeAnchorHit(
+          targetNode.id,
+          this.connectorSource.point
+        );
+        if (hover) {
+          ctx.engine.setConnectorHover(hover);
+          ctx.engine.setConnectorDraft({
+            source: {
+              elementId: this.connectorSource.elementId,
+              anchorId: this.connectorSource.anchorId,
+            },
+            target: { elementId: targetNode.id },
+            style: ctx.engine.getConnectorStyle(),
+          });
+          return;
+        }
+      }
+
+      const edgeHover = ctx.engine.findEdgeAnchorHit(ctx.worldPoint, {
+        elementId: this.connectorSource.elementId,
+        anchorId: this.connectorSource.anchorId,
+      });
+      ctx.engine.setConnectorHover(edgeHover);
+      ctx.engine.setConnectorDraft({
+        source: {
+          elementId: this.connectorSource.elementId,
+          anchorId: this.connectorSource.anchorId,
+        },
+        target: { point: ctx.worldPoint },
+        style: ctx.engine.getConnectorStyle(),
+      });
+      return;
+    }
     if (this.connectorDragId && this.connectorDragRole) {
       if (ctx.engine.isLocked()) return;
-      const hit = ctx.engine.findAnchorHit(ctx.worldPoint);
-      const end = hit
-        ? { elementId: hit.elementId, anchorId: hit.anchorId }
-        : { point: ctx.worldPoint };
+      const hit = ctx.engine.findNodeAt(ctx.worldPoint);
+      const hover = hit
+        ? ctx.engine.getNearestEdgeAnchorHit(hit.id, ctx.worldPoint)
+        : null;
+      const end = hover ? { elementId: hit!.id } : { point: ctx.worldPoint };
       ctx.engine.updateConnectorEndpoint(
         this.connectorDragId,
         this.connectorDragRole,
         end
       );
-      ctx.engine.setConnectorHover(hit);
+      ctx.engine.setConnectorHover(hover);
       return;
+    }
+    if (!this.selectionStartWorld && !this.draggingId) {
+      const hover = ctx.engine.findEdgeAnchorHit(ctx.worldPoint);
+      ctx.engine.setConnectorHover(hover);
     }
     if (this.selectionStartWorld && this.selectionStartScreen) {
       const dx = ctx.screenPoint[0] - this.selectionStartScreen[0];
@@ -350,6 +448,29 @@ export class SelectTool implements CanvasTool {
 
   /** Handle pointer up to stop dragging. */
   onPointerUp(ctx: ToolContext): void {
+    if (this.connectorDrafting && this.connectorSource) {
+      const draft = ctx.engine.getConnectorDraft();
+      if (draft) {
+        const isSameElement =
+          "elementId" in draft.target &&
+          draft.target.elementId === this.connectorSource.elementId;
+        if ("point" in draft.target) {
+          // 逻辑：拖到空白处触发组件选择面板。
+          ctx.engine.setConnectorDrop({
+            source: draft.source,
+            point: draft.target.point,
+          });
+        } else if (!isSameElement) {
+          ctx.engine.addConnectorElement(draft);
+        }
+      }
+
+      ctx.engine.setConnectorDraft(null);
+      ctx.engine.setConnectorHover(null);
+      this.connectorSource = null;
+      this.connectorDrafting = false;
+      return;
+    }
     if (this.connectorDragId) {
       ctx.engine.setDraggingElementId(null);
       ctx.engine.setConnectorHover(null);
@@ -540,99 +661,5 @@ export class HandTool implements CanvasTool {
     ctx.engine.setPanning(false);
     this.panStart = null;
     this.panOffset = null;
-  }
-}
-
-export class ConnectorTool implements CanvasTool {
-  /** Tool identifier. */
-  readonly id = "connector";
-  /** Source anchor for the draft connector. */
-  private source: CanvasAnchorHit | null = null;
-  /** Whether the connector tool is dragging. */
-  private dragging = false;
-
-  /** Begin creating a connector from an anchor. */
-  onPointerDown(ctx: ToolContext): void {
-    if (ctx.event.button !== 0) return;
-    ctx.event.preventDefault();
-    if (ctx.engine.isLocked()) return;
-
-    const hit = ctx.engine.findAnchorHit(ctx.worldPoint);
-    if (!hit) {
-      ctx.engine.selection.clear();
-      ctx.engine.setConnectorHover(null);
-      return;
-    }
-
-    this.source = hit;
-    this.dragging = true;
-    ctx.engine.selection.setSelection([hit.elementId]);
-    ctx.engine.setConnectorDraft({
-      source: { elementId: hit.elementId, anchorId: hit.anchorId },
-      target: { point: ctx.worldPoint },
-      style: ctx.engine.getConnectorStyle(),
-    });
-    ctx.engine.setConnectorHover(hit);
-  }
-
-  /** Update connector draft while dragging. */
-  onPointerMove(ctx: ToolContext): void {
-    if (!this.dragging || !this.source) {
-      const hover = ctx.engine.findAnchorHit(ctx.worldPoint);
-      ctx.engine.setConnectorHover(hover);
-      return;
-    }
-
-    const hit = ctx.engine.findAnchorHit(ctx.worldPoint, {
-      elementId: this.source.elementId,
-      anchorId: this.source.anchorId,
-    });
-
-    if (hit) {
-      ctx.engine.setConnectorHover(hit);
-      ctx.engine.setConnectorDraft({
-        source: {
-          elementId: this.source.elementId,
-          anchorId: this.source.anchorId,
-        },
-        target: { elementId: hit.elementId, anchorId: hit.anchorId },
-        style: ctx.engine.getConnectorStyle(),
-      });
-      return;
-    }
-
-    ctx.engine.setConnectorHover(null);
-    ctx.engine.setConnectorDraft({
-      source: {
-        elementId: this.source.elementId,
-        anchorId: this.source.anchorId,
-      },
-      target: { point: ctx.worldPoint },
-      style: ctx.engine.getConnectorStyle(),
-    });
-  }
-
-  /** Finish creating the connector. */
-  onPointerUp(ctx: ToolContext): void {
-    if (!this.dragging || !this.source) {
-      ctx.engine.setConnectorHover(null);
-      return;
-    }
-
-    const draft = ctx.engine.getConnectorDraft();
-    if (draft) {
-      const isSameAnchor =
-        "elementId" in draft.target &&
-        draft.target.elementId === this.source.elementId &&
-        draft.target.anchorId === this.source.anchorId;
-      if (!isSameAnchor) {
-        ctx.engine.addConnectorElement(draft);
-      }
-    }
-
-    ctx.engine.setConnectorDraft(null);
-    ctx.engine.setConnectorHover(null);
-    this.source = null;
-    this.dragging = false;
   }
 }

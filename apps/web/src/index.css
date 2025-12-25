@@ -89,6 +89,14 @@ body {
   --canvas-minimap-mask: color-mix(in oklch, var(--foreground) 10%, transparent);
   --canvas-minimap-mask-stroke: color-mix(in oklch, var(--foreground) 22%, transparent);
   --canvas-guide: color-mix(in oklch, var(--primary) 55%, transparent);
+  --canvas-connector: rgba(30, 41, 59, 0.7);
+  --canvas-connector-selected: #0f172a;
+  --canvas-connector-draft: rgba(100, 116, 139, 0.8);
+  --canvas-connector-anchor: #1d4ed8;
+  --canvas-connector-anchor-hover: #0f172a;
+  --canvas-connector-handle-fill: #ffffff;
+  --canvas-connector-handle-stroke: #0f172a;
+  --canvas-drag-shadow: rgba(15, 23, 42, 0.18);
 }
 
 .dark {
@@ -125,6 +133,14 @@ body {
   --sidebar-ring: oklch(0.556 0 0);
   --brand: oklch(0.707 0.165 254.624);
   --highlight: oklch(0.852 0.199 91.936);
+  --canvas-connector: rgba(226, 232, 240, 0.7);
+  --canvas-connector-selected: #f8fafc;
+  --canvas-connector-draft: rgba(148, 163, 184, 0.7);
+  --canvas-connector-anchor: #60a5fa;
+  --canvas-connector-anchor-hover: #f8fafc;
+  --canvas-connector-handle-fill: #0f172a;
+  --canvas-connector-handle-stroke: #f8fafc;
+  --canvas-drag-shadow: rgba(0, 0, 0, 0.6);
 }
 
 @theme inline {

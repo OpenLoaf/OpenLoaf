@@ -15,23 +15,21 @@ export function PlaceholderNodeView({
 }: CanvasNodeViewProps<PlaceholderNodeProps>) {
   return (
     <div
-      style={{
-        width: "100%",
-        height: "100%",
-        borderRadius: 12,
-        padding: 16,
-        boxSizing: "border-box",
-        border: selected ? "2px solid #0f172a" : "1px solid #cbd5f5",
-        background: selected ? "#f8fafc" : "#ffffff",
-        boxShadow: selected
-          ? "0 12px 30px rgba(15, 23, 42, 0.15)"
-          : "0 8px 20px rgba(15, 23, 42, 0.08)",
-      }}
+      className={[
+        "h-full w-full rounded-xl border box-border p-4",
+        selected
+          ? "border-slate-900 bg-slate-50 shadow-[0_12px_30px_rgba(15,23,42,0.15)]"
+          : "border-slate-300 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.08)]",
+        "dark:border-slate-700 dark:bg-slate-900",
+        selected
+          ? "dark:border-sky-400 dark:shadow-[0_16px_36px_rgba(0,0,0,0.55)]"
+          : "dark:shadow-[0_12px_28px_rgba(0,0,0,0.4)]",
+      ].join(" ")}
     >
-      <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
+      <div className="text-[14px] font-semibold text-slate-900 dark:text-slate-100">
         {element.props.title}
       </div>
-      <div style={{ fontSize: 12, color: "#475569", marginTop: 8 }}>
+      <div className="mt-2 text-[12px] text-slate-600 dark:text-slate-300">
         {element.props.description}
       </div>
     </div>
@@ -55,5 +53,7 @@ export const PlaceholderNodeDefinition: CanvasNodeDefinition<PlaceholderNodeProp
       resizable: true,
       rotatable: false,
       connectable: "anchors",
+      minSize: { w: 220, h: 140 },
+      maxSize: { w: 720, h: 420 },
     },
   };

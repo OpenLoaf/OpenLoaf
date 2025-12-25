@@ -146,6 +146,14 @@ export type CanvasConnectorDraft = {
   style?: CanvasConnectorStyle;
 };
 
+/** Pending connector drop information for node creation. */
+export type CanvasConnectorDrop = {
+  /** Source endpoint of the connector. */
+  source: CanvasConnectorEnd;
+  /** World point where the drop occurred. */
+  point: CanvasPoint;
+};
+
 /** Union of all supported element types. */
 export type CanvasElement = CanvasNodeElement | CanvasConnectorElement;
 
@@ -191,6 +199,8 @@ export type CanvasSnapshot = {
   connectorHover: CanvasAnchorHit | null;
   /** Active connector style for tooling. */
   connectorStyle: CanvasConnectorStyle;
+  /** Pending connector drop used for node creation. */
+  connectorDrop: CanvasConnectorDrop | null;
 };
 
 /** Props delivered to a node renderer component. */
@@ -213,6 +223,10 @@ export type CanvasNodeCapabilities = {
   rotatable?: boolean;
   /** Allow connecting to this node. */
   connectable?: "auto" | "anchors";
+  /** Minimum size for resize constraints. */
+  minSize?: { w: number; h: number };
+  /** Maximum size for resize constraints. */
+  maxSize?: { w: number; h: number };
 };
 
 /** Toolbar action descriptor for node-level UI. */

@@ -5,6 +5,7 @@ import type {
   CanvasAnchorMap,
   CanvasAlignmentGuide,
   CanvasConnectorDraft,
+  CanvasConnectorDrop,
   CanvasConnectorElement,
   CanvasConnectorEnd,
   CanvasConnectorEndpointHit,
@@ -20,7 +21,7 @@ import type {
 } from "./CanvasTypes";
 import { NodeRegistry } from "./NodeRegistry";
 import { SelectionManager } from "./SelectionManager";
-import { ConnectorTool, HandTool, SelectTool, ToolManager } from "./ToolManager";
+import { HandTool, SelectTool, ToolManager } from "./ToolManager";
 import { ViewportController } from "./ViewportController";
 import {
   buildConnectorPath,
@@ -65,6 +66,8 @@ export class CanvasEngine {
   private connectorHover: CanvasAnchorHit | null = null;
   /** Active connector style for new links. */
   private connectorStyle: CanvasConnectorStyle = "curve";
+  /** Pending connector drop for node creation. */
+  private connectorDrop: CanvasConnectorDrop | null = null;
   /** Alignment guides for snapping feedback. */
   private alignmentGuides: CanvasAlignmentGuide[] = [];
   /** Selection box for rectangle selection. */
@@ -120,7 +123,6 @@ export class CanvasEngine {
     this.tools = new ToolManager(this);
     this.tools.register(new SelectTool());
     this.tools.register(new HandTool());
-    this.tools.register(new ConnectorTool());
     this.tools.setActive("select");
     this.historyPast.push(this.captureHistoryState());
   }
@@ -199,6 +201,8 @@ export class CanvasEngine {
       this.connectorDraft = null;
       this.connectorHover = null;
     }
+    // 逻辑：切换工具时清空待处理的连线面板。
+    this.connectorDrop = null;
     // 逻辑：离开选择工具时清理对齐线，避免残留显示。
     if (toolId !== "select") {
       this.alignmentGuides = [];
@@ -225,6 +229,7 @@ export class CanvasEngine {
       connectorDraft: this.connectorDraft,
       connectorHover: this.connectorHover,
       connectorStyle: this.connectorStyle,
+      connectorDrop: this.connectorDrop,
     };
   }
 
@@ -309,6 +314,70 @@ export class CanvasEngine {
     return this.connectorHover;
   }
 
+  /** Return the pending connector drop. */
+  getConnectorDrop(): CanvasConnectorDrop | null {
+    return this.connectorDrop;
+  }
+
+  /** Update the pending connector drop. */
+  setConnectorDrop(drop: CanvasConnectorDrop | null): void {
+    this.connectorDrop = drop;
+    this.emitChange();
+  }
+
+  /** Find the top-most node element at the given world point. */
+  findNodeAt(point: CanvasPoint): CanvasNodeElement | null {
+    const elements = this.getOrderedElements().filter(
+      element => element.kind === "node"
+    ) as CanvasNodeElement[];
+
+    // 反向遍历保证命中最上层元素。
+    for (let i = elements.length - 1; i >= 0; i -= 1) {
+      const element = elements[i];
+      const [x, y, w, h] = element.xywh;
+      const within =
+        point[0] >= x &&
+        point[0] <= x + w &&
+        point[1] >= y &&
+        point[1] <= y + h;
+      if (within) return element;
+    }
+    return null;
+  }
+
+  /** Resolve the nearest edge-center anchor for a node. */
+  getNearestEdgeAnchorHit(
+    elementId: string,
+    hint: CanvasPoint
+  ): CanvasAnchorHit | null {
+    const element = this.doc.getElementById(elementId);
+    if (!element || element.kind !== "node") return null;
+    const definition = this.nodes.getDefinition(element.type);
+    const connectable = definition?.capabilities?.connectable ?? "auto";
+    if (connectable !== "auto" && connectable !== "anchors") return null;
+    const [x, y, w, h] = element.xywh;
+    const edges = [
+      { id: "top", point: [x + w / 2, y] as CanvasPoint },
+      { id: "right", point: [x + w, y + h / 2] as CanvasPoint },
+      { id: "bottom", point: [x + w / 2, y + h] as CanvasPoint },
+      { id: "left", point: [x, y + h / 2] as CanvasPoint },
+    ];
+    let closest = edges[0];
+    let closestDistance = Number.POSITIVE_INFINITY;
+    edges.forEach(edge => {
+      const distance = Math.hypot(edge.point[0] - hint[0], edge.point[1] - hint[1]);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closest = edge;
+      }
+    });
+    return {
+      elementId,
+      anchorId: closest.id,
+      point: closest.point,
+    };
+  }
+
   /** Find the nearest connector endpoint hit. */
   findConnectorEndpointHit(
     point: CanvasPoint,
@@ -323,13 +392,16 @@ export class CanvasEngine {
       : connectors;
     const { zoom } = this.viewport.getState();
     // 逻辑：端点命中半径按缩放换算。
-    const hitRadius = 10 / Math.max(zoom, 0.1);
+    const hitRadius = 6 / Math.max(zoom, 0.1);
     let closest: CanvasConnectorEndpointHit | null = null;
     let closestDistance = hitRadius;
 
     filtered.forEach(connector => {
-      const source = this.resolveConnectorPoint(connector.source, anchors);
-      const target = this.resolveConnectorPoint(connector.target, anchors);
+      const { source, target } = this.resolveConnectorEndpoints(
+        connector.source,
+        connector.target,
+        anchors
+      );
       if (source) {
         const dist = Math.hypot(point[0] - source[0], point[1] - source[1]);
         if (dist <= closestDistance) {
@@ -366,11 +438,16 @@ export class CanvasEngine {
     const element = this.doc.getElementById(connectorId);
     if (!element || element.kind !== "connector") return;
 
-    const nextSource = role === "source" ? end : element.source;
-    const nextTarget = role === "target" ? end : element.target;
+    // 逻辑：端点绑定到节点时不固化锚点，保持最短路径自动选择。
+    const normalizedEnd = "elementId" in end ? { elementId: end.elementId } : end;
+    const nextSource = role === "source" ? normalizedEnd : element.source;
+    const nextTarget = role === "target" ? normalizedEnd : element.target;
     const anchors = this.getAnchorMap();
-    const sourcePoint = this.resolveConnectorPoint(nextSource, anchors);
-    const targetPoint = this.resolveConnectorPoint(nextTarget, anchors);
+    const { source: sourcePoint, target: targetPoint } = this.resolveConnectorEndpoints(
+      nextSource,
+      nextTarget,
+      anchors
+    );
     let nextXYWH: [number, number, number, number] | undefined;
     if (sourcePoint && targetPoint) {
       // 逻辑：端点变化后重新计算包围盒，便于后续命中与布局。
@@ -382,7 +459,7 @@ export class CanvasEngine {
     }
 
     this.doc.updateElement(connectorId, {
-      [role]: end,
+      [role]: normalizedEnd,
       ...(nextXYWH ? { xywh: nextXYWH } : {}),
     });
   }
@@ -488,6 +565,7 @@ export class CanvasEngine {
     this.selection.setSelection(nextSelection);
     this.connectorDraft = null;
     this.connectorHover = null;
+    this.connectorDrop = null;
     this.alignmentGuides = [];
     this.selectionBox = null;
     this.historyPaused = false;
@@ -765,9 +843,9 @@ export class CanvasEngine {
     type: string,
     props: Partial<P>,
     xywh?: [number, number, number, number]
-  ): void {
+  ): string | null {
     const definition = this.nodes.getDefinition(type);
-    if (!definition) return;
+    if (!definition) return null;
 
     const id = this.generateId(type);
     // 逻辑：默认在视口中心插入节点，保证插入位置可见。
@@ -792,13 +870,26 @@ export class CanvasEngine {
     // 逻辑：插入后默认选中新节点，便于后续编辑。
     this.selection.setSelection([id]);
     this.commitHistory();
+    return id;
   }
 
   /** Add a new connector element to the document. */
   addConnectorElement(draft: CanvasConnectorDraft): void {
+    // 逻辑：新连线默认以节点自动锚点保存，移动时动态选择最短路径。
+    const normalizedSource =
+      "elementId" in draft.source
+        ? { elementId: draft.source.elementId }
+        : draft.source;
+    const normalizedTarget =
+      "elementId" in draft.target
+        ? { elementId: draft.target.elementId }
+        : draft.target;
     const anchors = this.getAnchorMap();
-    const sourcePoint = this.resolveConnectorPoint(draft.source, anchors);
-    const targetPoint = this.resolveConnectorPoint(draft.target, anchors);
+    const { source: sourcePoint, target: targetPoint } = this.resolveConnectorEndpoints(
+      normalizedSource,
+      normalizedTarget,
+      anchors
+    );
     if (!sourcePoint || !targetPoint) return;
 
     const style = draft.style ?? this.connectorStyle;
@@ -812,8 +903,8 @@ export class CanvasEngine {
       kind: "connector",
       type: "connector",
       xywh: [bounds.x, bounds.y, bounds.w, bounds.h],
-      source: draft.source,
-      target: draft.target,
+      source: normalizedSource,
+      target: normalizedTarget,
       style,
       zIndex: 0,
     });
@@ -874,12 +965,93 @@ export class CanvasEngine {
     return closest;
   }
 
+  /** Find the closest edge-center anchor hit for nodes. */
+  findEdgeAnchorHit(
+    point: CanvasPoint,
+    exclude?: { elementId: string; anchorId: string }
+  ): CanvasAnchorHit | null {
+    const elements = this.getOrderedElements().filter(
+      element => element.kind === "node"
+    ) as CanvasNodeElement[];
+    const { zoom } = this.viewport.getState();
+    // 逻辑：边缘命中半径随缩放换算，保证交互手感稳定。
+    const hitRadius = 6 / Math.max(zoom, 0.1);
+    const centerRange = 18 / Math.max(zoom, 0.1);
+
+    for (let i = elements.length - 1; i >= 0; i -= 1) {
+      const element = elements[i];
+      const definition = this.nodes.getDefinition(element.type);
+      const connectable = definition?.capabilities?.connectable ?? "auto";
+      if (connectable === "auto" || connectable === "anchors") {
+        const [x, y, w, h] = element.xywh;
+        const withinX = point[0] >= x - hitRadius && point[0] <= x + w + hitRadius;
+        const withinY = point[1] >= y - hitRadius && point[1] <= y + h + hitRadius;
+        if (!withinX || !withinY) continue;
+
+        const edgeHits: Array<{ id: string; distance: number; point: CanvasPoint }> = [];
+        const centerY = y + h / 2;
+        const centerX = x + w / 2;
+        if (
+          point[0] >= x - hitRadius &&
+          point[0] <= x + hitRadius &&
+          Math.abs(point[1] - centerY) <= centerRange
+        ) {
+          edgeHits.push({ id: "left", distance: Math.abs(point[0] - x), point: [x, centerY] });
+        }
+        if (
+          point[0] >= x + w - hitRadius &&
+          point[0] <= x + w + hitRadius &&
+          Math.abs(point[1] - centerY) <= centerRange
+        ) {
+          edgeHits.push({
+            id: "right",
+            distance: Math.abs(point[0] - (x + w)),
+            point: [x + w, centerY],
+          });
+        }
+        if (
+          point[1] >= y - hitRadius &&
+          point[1] <= y + hitRadius &&
+          Math.abs(point[0] - centerX) <= centerRange
+        ) {
+          edgeHits.push({ id: "top", distance: Math.abs(point[1] - y), point: [centerX, y] });
+        }
+        if (
+          point[1] >= y + h - hitRadius &&
+          point[1] <= y + h + hitRadius &&
+          Math.abs(point[0] - centerX) <= centerRange
+        ) {
+          edgeHits.push({
+            id: "bottom",
+            distance: Math.abs(point[1] - (y + h)),
+            point: [centerX, y + h],
+          });
+        }
+
+        if (edgeHits.length === 0) continue;
+        edgeHits.sort((a, b) => a.distance - b.distance);
+        const hit = edgeHits[0];
+        if (hit.distance > hitRadius) continue;
+        if (exclude && exclude.elementId === element.id && exclude.anchorId === hit.id) {
+          continue;
+        }
+        return {
+          elementId: element.id,
+          anchorId: hit.id,
+          point: hit.point,
+        };
+      }
+    }
+
+    return null;
+  }
+
   /** Resolve anchors for a node element. */
   private resolveAnchors(element: CanvasNodeElement): CanvasAnchor[] {
     const [x, y, w, h] = element.xywh;
     const bounds: CanvasRect = { x, y, w, h };
     const definition = this.nodes.getDefinition(element.type);
-    // 逻辑：优先使用节点定义锚点，缺省时回退到四边中心锚点。
+    // 逻辑：节点锚点合并自定义锚点与默认四边中心锚点，保证连线锚点稳定。
     const anchorDefs =
       definition?.anchors?.(element.props as never, bounds) ?? [];
     const anchors = anchorDefs.map((anchor, index) => {
@@ -889,22 +1061,29 @@ export class CanvasEngine {
       return { id: anchor.id, point: anchor.point };
     });
 
-    if (anchors.length > 0) return anchors;
-
-    return [
+    const edgeAnchors: CanvasAnchor[] = [
       { id: "top", point: [x + w / 2, y] },
       { id: "right", point: [x + w, y + h / 2] },
       { id: "bottom", point: [x + w / 2, y + h] },
       { id: "left", point: [x, y + h / 2] },
     ];
+    if (anchors.length === 0) return edgeAnchors;
+    const anchorIds = new Set(anchors.map(anchor => anchor.id));
+    edgeAnchors.forEach(anchor => {
+      if (!anchorIds.has(anchor.id)) {
+        anchors.push(anchor);
+      }
+    });
+    return anchors;
   }
 
   /** Resolve connector endpoints with fallback positions. */
   private resolveConnectorPoint(
     end: CanvasConnectorEnd,
-    anchors: CanvasAnchorMap
+    anchors: CanvasAnchorMap,
+    hint?: CanvasPoint | null
   ): CanvasPoint | null {
-    const resolved = resolveConnectorEndpoint(end, anchors);
+    const resolved = resolveConnectorEndpoint(end, anchors, hint ?? null);
     if (resolved) return resolved;
     if ("elementId" in end) {
       const element = this.doc.getElementById(end.elementId);
@@ -914,6 +1093,29 @@ export class CanvasEngine {
       }
     }
     return null;
+  }
+
+  /** Resolve connector endpoints with dynamic anchor hints. */
+  private resolveConnectorEndpoints(
+    source: CanvasConnectorEnd,
+    target: CanvasConnectorEnd,
+    anchors: CanvasAnchorMap
+  ): { source: CanvasPoint | null; target: CanvasPoint | null } {
+    const sourceHint = this.resolveConnectorHint(target);
+    const targetHint = this.resolveConnectorHint(source);
+    return {
+      source: this.resolveConnectorPoint(source, anchors, sourceHint),
+      target: this.resolveConnectorPoint(target, anchors, targetHint),
+    };
+  }
+
+  /** Resolve a hint point for dynamic anchor selection. */
+  private resolveConnectorHint(end: CanvasConnectorEnd): CanvasPoint | null {
+    if ("point" in end) return end.point;
+    const element = this.doc.getElementById(end.elementId);
+    if (!element || element.kind !== "node") return null;
+    const [x, y, w, h] = element.xywh;
+    return [x + w / 2, y + h / 2];
   }
 
   /** Compute the viewport center in world coordinates. */
@@ -1012,8 +1214,11 @@ export class CanvasEngine {
 
     for (let i = elements.length - 1; i >= 0; i -= 1) {
       const element = elements[i];
-      const source = this.resolveConnectorPoint(element.source, anchors);
-      const target = this.resolveConnectorPoint(element.target, anchors);
+      const { source, target } = this.resolveConnectorEndpoints(
+        element.source,
+        element.target,
+        anchors
+      );
       if (!source || !target) continue;
       const style = element.style ?? this.connectorStyle;
       const path = buildConnectorPath(style, source, target);
@@ -1046,7 +1251,7 @@ export class CanvasEngine {
     if (event.ctrlKey || event.metaKey) {
       // 逻辑：按住 Ctrl/Meta 时缩放视图，以指针位置为锚点。
       const { zoom } = this.viewport.getState();
-      const nextZoom = zoom * (event.deltaY > 0 ? 0.92 : 1.08);
+      const nextZoom = zoom * (event.deltaY > 0 ? 0.96 : 1.04);
       this.viewport.setZoom(nextZoom, anchor);
       return;
     }
@@ -1058,6 +1263,11 @@ export class CanvasEngine {
   /** Emit change notifications to subscribers. */
   private emitChange(): void {
     this.listeners.forEach(listener => listener());
+  }
+
+  /** Force a view refresh without mutating document state. */
+  refreshView(): void {
+    this.emitChange();
   }
 
   /** Return elements sorted by zIndex with stable fallback. */

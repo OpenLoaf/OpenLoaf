@@ -2,6 +2,7 @@ import { z } from "zod";
 import { t, shieldedProcedure } from "../index";
 
 const settingItemSchema = z.object({
+  id: z.string().optional(),
   key: z.string(),
   value: z.any(),
   secret: z.boolean(),

@@ -27,7 +27,7 @@ export function normalizeChatModelSource(value: unknown): ChatModelSource {
  * Build model options from provider settings.
  */
 export function buildProviderModelOptions(
-  items: Array<{ key: string; value: unknown; category?: string }>,
+  items: Array<{ id?: string; key: string; value: unknown; category?: string }>,
 ) {
   const options: ProviderModelOption[] = [];
   for (const item of items) {
@@ -35,6 +35,7 @@ export function buildProviderModelOptions(
     if (!item.value || typeof item.value !== "object") continue;
     const entry = item.value as ProviderKeyEntry;
     if (!entry.provider) continue;
+    if (!item.id) continue;
     const rawDefinitions = Array.isArray(entry.modelDefinitions)
       ? entry.modelDefinitions
       : [];
@@ -60,7 +61,8 @@ export function buildProviderModelOptions(
         ? modelDefinition.capability
         : undefined;
       options.push({
-        id: `${item.key}:${trimmed}`,
+        // 中文注释：chatModelId 前缀使用 settings.id，确保稳定可追踪。
+        id: `${item.id}:${trimmed}`,
         modelId: trimmed,
         providerId: entry.provider,
         providerName,

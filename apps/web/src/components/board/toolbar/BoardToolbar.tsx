@@ -28,7 +28,7 @@ export interface BoardToolbarProps {
   snapshot: CanvasSnapshot;
 }
 
-type ToolMode = "select" | "hand" | "connector";
+type ToolMode = "select" | "hand";
 
 /** Render the bottom toolbar for the board canvas. */
 const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolbarProps) {
@@ -38,7 +38,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const isSelectTool = snapshot.activeToolId === "select";
   const isHandTool = snapshot.activeToolId === "hand";
-  const isConnectorTool = snapshot.activeToolId === "connector";
   const connectorStyle = snapshot.connectorStyle;
 
   useEffect(() => {
@@ -67,7 +66,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const handleConnectorStyleChange = useCallback(
     (style: CanvasConnectorStyle) => {
       engine.setConnectorStyle(style);
-      engine.setActiveTool("connector");
     },
     [engine]
   );
@@ -125,7 +123,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           <IconBtn
             title="选择/拖拽"
             active={hoverGroup === "mode" || isSelectTool || isHandTool}
-            onClick={() => {
+            onPointerDown={() => {
               setHoverGroup(current => (current === "mode" ? null : "mode"));
             }}
           >
@@ -141,7 +139,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             <PanelItem
               title="指针"
               active={isSelectTool}
-              onClick={() => {
+              onPointerDown={() => {
                 handleToolChange("select");
               }}
             >
@@ -150,7 +148,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             <PanelItem
               title="拖拽"
               active={isHandTool}
-              onClick={() => {
+              onPointerDown={() => {
                 handleToolChange("hand");
               }}
             >
@@ -165,12 +163,11 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         <div className="relative">
           <IconBtn
             title="连线"
-            active={hoverGroup === "connector" || isConnectorTool}
-            onClick={() => {
+            active={hoverGroup === "connector"}
+            onPointerDown={() => {
               setHoverGroup(current =>
                 current === "connector" ? null : "connector"
               );
-              handleToolChange("connector");
             }}
           >
             <Link2 size={iconSize} />
@@ -181,7 +178,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             <PanelItem
               title="直线"
               active={connectorStyle === "straight"}
-              onClick={() => {
+              onPointerDown={() => {
                 handleConnectorStyleChange("straight");
               }}
             >
@@ -190,7 +187,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             <PanelItem
               title="折线"
               active={connectorStyle === "elbow"}
-              onClick={() => {
+              onPointerDown={() => {
                 handleConnectorStyleChange("elbow");
               }}
             >
@@ -199,7 +196,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             <PanelItem
               title="曲线"
               active={connectorStyle === "curve"}
-              onClick={() => {
+              onPointerDown={() => {
                 handleConnectorStyleChange("curve");
               }}
             >
@@ -208,7 +205,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             <PanelItem
               title="手绘"
               active={connectorStyle === "hand"}
-              onClick={() => {
+              onPointerDown={() => {
                 handleConnectorStyleChange("hand");
               }}
             >
@@ -217,7 +214,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             <PanelItem
               title="飞行"
               active={connectorStyle === "fly"}
-              onClick={() => {
+              onPointerDown={() => {
                 handleConnectorStyleChange("fly");
               }}
             >
@@ -230,12 +227,12 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
 
         {/* 右侧组件区：点击即触发插入 */}
         <div className="flex items-center gap-1.5">
-          <IconBtn title="图片" onClick={handlePickImage} disabled={snapshot.locked}>
+          <IconBtn title="图片" onPointerDown={handlePickImage} disabled={snapshot.locked}>
             <ImageIcon size={iconSize} />
           </IconBtn>
           <IconBtn
             title="便签"
-            onClick={() =>
+            onPointerDown={() =>
               addPlaceholder("Note", "Quick note placeholder card.")
             }
             disabled={snapshot.locked}
@@ -244,7 +241,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           </IconBtn>
           <IconBtn
             title="文字"
-            onClick={() =>
+            onPointerDown={() =>
               addPlaceholder("Text", "Simple text placeholder node.")
             }
             disabled={snapshot.locked}
