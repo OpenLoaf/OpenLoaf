@@ -5,7 +5,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, SyntheticEvent } from "react";
 import { NodeResizer } from "@reactflow/node-resizer";
 import { Check, Crop, ImagePlus, RotateCw, Trash2, X } from "lucide-react";
-import { NodeToolbar, type Node, type NodeProps } from "reactflow";
+import { NodeToolbar, type Node, type NodeProps, useUpdateNodeInternals } from "reactflow";
 import { useCanvasState } from "../CanvasProvider";
 import { useNodeBase } from "../hooks/use-node-base";
 import { IconBtn } from "../toolbar/ToolbarParts";
@@ -114,6 +114,7 @@ const ImageNode = memo(function ImageNode({ id, data, selected, xPos, yPos }: No
   const [activeTool, setActiveTool] = useState<ImageTool>(null);
   const [cropRect, setCropRect] = useState<CropRect>(DEFAULT_CROP_RECT);
   const [rotationAngle, setRotationAngle] = useState(0);
+  const updateNodeInternals = useUpdateNodeInternals();
   const [imageSize, setImageSize] = useState<ImageSize | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const imageContainerRef = useRef<HTMLDivElement | null>(null);
@@ -441,6 +442,10 @@ const ImageNode = memo(function ImageNode({ id, data, selected, xPos, yPos }: No
       ? { transform: `rotate(${displayRotation}deg)`, transformOrigin: "center" }
       : undefined;
 
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [displayRotation, id, updateNodeInternals]);
+
   const selectedClassName = "";
 
   // 逻辑：根据当前工具切换对应的操作面板
@@ -506,7 +511,6 @@ const ImageNode = memo(function ImageNode({ id, data, selected, xPos, yPos }: No
       className={`relative h-full w-full border-0${selectedClassName}`}
       onPointerDown={handleShowToolbar}
     >
-      <HiddenHandles ids={IMAGE_HANDLE_IDS} />
       {/* 选中图片时显示上方工具栏 */}
       <NodeToolbar
         position={toolbarPosition}
@@ -524,6 +528,7 @@ const ImageNode = memo(function ImageNode({ id, data, selected, xPos, yPos }: No
         />
       </NodeToolbar>
       <div className="absolute inset-0" style={rotationStyle}>
+        <HiddenHandles ids={IMAGE_HANDLE_IDS} />
         <NodeResizer
           isVisible={showResizer}
           minWidth={MIN_NODE_WIDTH}

@@ -20,49 +20,49 @@ const HiddenHandles = memo(function HiddenHandles({ ids }: HiddenHandlesProps) {
         id={ids.target.top}
         type="target"
         position={Position.Top}
-        className="pointer-events-none opacity-0"
+        className="canvas-handle"
       />
       <Handle
         id={ids.target.right}
         type="target"
         position={Position.Right}
-        className="pointer-events-none opacity-0"
+        className="canvas-handle"
       />
       <Handle
         id={ids.target.bottom}
         type="target"
         position={Position.Bottom}
-        className="pointer-events-none opacity-0"
+        className="canvas-handle"
       />
       <Handle
         id={ids.target.left}
         type="target"
         position={Position.Left}
-        className="pointer-events-none opacity-0"
+        className="canvas-handle"
       />
       <Handle
         id={ids.source.top}
         type="source"
         position={Position.Top}
-        className="pointer-events-none opacity-0"
+        className="canvas-handle"
       />
       <Handle
         id={ids.source.right}
         type="source"
         position={Position.Right}
-        className="pointer-events-none opacity-0"
+        className="canvas-handle"
       />
       <Handle
         id={ids.source.bottom}
         type="source"
         position={Position.Bottom}
-        className="pointer-events-none opacity-0"
+        className="canvas-handle"
       />
       <Handle
         id={ids.source.left}
         type="source"
         position={Position.Left}
-        className="pointer-events-none opacity-0"
+        className="canvas-handle"
       />
     </>
   );

@@ -217,6 +217,31 @@ body {
   cursor: var(--canvas-cursor-dragging, var(--canvas-cursor, default)) !important;
 }
 
+/* 允许锚点超出节点边界显示 */
+.canvas-flow .react-flow__node {
+  overflow: visible;
+}
+
+/* 放大连线锚点，提升可点击性 */
+.canvas-flow .react-flow__handle {
+  width: 14px;
+  height: 14px;
+}
+
+.canvas-flow .canvas-handle {
+  opacity: 0;
+  pointer-events: none;
+  border: 1px solid rgba(15, 23, 42, 0.5);
+  background: rgba(255, 255, 255, 0.9);
+  z-index: 9999;
+}
+
+.canvas-flow .react-flow__node:hover .canvas-handle,
+.canvas-flow .react-flow__node.selected .canvas-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* Group 节点使用自定义样式，移除默认边框 */
 .canvas-flow .react-flow__node-group {
   border: 0;
