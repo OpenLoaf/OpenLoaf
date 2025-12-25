@@ -202,10 +202,14 @@ export function dissolveGroup(nodes: RFNode[], groupId: string): RFNode[] {
  * Auto-resize group nodes based on their children bounds while preserving child positions.
  * This keeps groups tight around content without visually shifting children.
  */
-export function adjustGroupBounds(nodes: RFNode[]) {
+export function adjustGroupBounds(
+  nodes: RFNode[],
+  options: { skipChildIds?: Set<string> } = {},
+) {
   const nodeMap = buildNodeMap(nodes);
   const groupNodes = nodes.filter((node) => node.type === "group");
   if (groupNodes.length === 0) return nodes;
+  const skipChildIds = options.skipChildIds ?? null;
 
   const depthCache = new Map<string, number>();
   const getDepth = (node: RFNode) => {
@@ -298,6 +302,7 @@ export function adjustGroupBounds(nodes: RFNode[]) {
     if (positionChanged) {
       // 逻辑：父级移动后修正子节点相对位置，保持绝对位置不变
       for (const child of children) {
+        if (skipChildIds?.has(child.id)) continue;
         const nextPosition = {
           x: child.position.x - deltaX,
           y: child.position.y - deltaY,

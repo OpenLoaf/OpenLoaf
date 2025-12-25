@@ -9,6 +9,7 @@ import { workspaceRouterImplementation } from "@/routers/workspace";
 import { tabRouterImplementation } from "@/routers/tab";
 import { chatRouterImplementation } from "@/routers/chat";
 import { settingsRouterImplementation } from "@/routers/settings";
+import { aiRouterImplementation } from "@/routers/ai";
 import { logger } from "@/common/logger";
 
 const defaultCorsOrigins = [
@@ -69,6 +70,7 @@ export function createApp() {
         workspace: workspaceRouterImplementation,
         tab: tabRouterImplementation,
         settings: settingsRouterImplementation,
+        ai: aiRouterImplementation,
       }),
       createContext: (_opts, context) => createContext({ context }),
       onError: ({ error, path, input, type }) => {

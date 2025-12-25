@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { UIMessage } from "@ai-sdk/react";
-import type { ModelDefinition } from "@teatime-ai/api/common";
+import { ModelCapabilityId, type ModelDefinition, getModelPrice } from "@teatime-ai/api/common";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BarChart3, Clock3, Copy, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
@@ -114,18 +114,16 @@ function calculateUsageCost(
 
   const { inputTokens, outputTokens, cachedInputTokens, noCacheTokens } = usage;
   const reasoningTokens = usage.reasoningTokens;
-  const inputPrice = modelDefinition.priceTextInputPerMillion;
-  const outputPrice = modelDefinition.priceTextOutputPerMillion;
-  const cachedPrice =
-    typeof modelDefinition.cachedTextInputPerMillion === "number"
-      ? modelDefinition.cachedTextInputPerMillion
-      : undefined;
+  const inputPrice = getModelPrice(modelDefinition, ModelCapabilityId.TextInput) ?? 0;
+  const outputPrice = getModelPrice(modelDefinition, ModelCapabilityId.TextOutput) ?? 0;
+  const cachedPrice = getModelPrice(modelDefinition, ModelCapabilityId.TextInput, {
+    isCache: true,
+  });
 
+  const cachedUnitPrice = typeof cachedPrice === "number" ? cachedPrice : inputPrice;
   const cachedInputCost =
-    typeof cachedPrice === "number" &&
-    typeof cachedInputTokens === "number" &&
-    Number.isFinite(cachedInputTokens)
-      ? (cachedInputTokens * cachedPrice) / PRICE_PER_MILLION
+    typeof cachedInputTokens === "number" && Number.isFinite(cachedInputTokens)
+      ? (cachedInputTokens * cachedUnitPrice) / PRICE_PER_MILLION
       : undefined;
 
   const noCacheCost =
@@ -141,14 +139,10 @@ function calculateUsageCost(
 
   let inputCost: number | undefined;
   if (typeof inputTokens === "number" && Number.isFinite(inputTokens)) {
-    if (
-      typeof cachedPrice === "number" &&
-      typeof cachedInputTokens === "number" &&
-      typeof noCacheTokens === "number"
-    ) {
+    if (typeof cachedInputTokens === "number" && typeof noCacheTokens === "number") {
       // 关键逻辑：缓存/非缓存输入按各自单价拆分计费。
       inputCost =
-        (noCacheTokens * inputPrice + cachedInputTokens * cachedPrice) / PRICE_PER_MILLION;
+        (noCacheTokens * inputPrice + cachedInputTokens * cachedUnitPrice) / PRICE_PER_MILLION;
     } else {
       inputCost = (inputTokens * inputPrice) / PRICE_PER_MILLION;
     }

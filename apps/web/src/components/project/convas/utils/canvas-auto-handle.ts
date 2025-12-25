@@ -3,7 +3,7 @@ import { resolveNodeSize } from "./node-size";
 import { IMAGE_HANDLE_IDS } from "./canvas-constants";
 
 /** Resolve the node center point for handle calculations. */
-function resolveNodeCenter(node: RFNode): { x: number; y: number } | null {
+export function resolveNodeCenter(node: RFNode): { x: number; y: number } | null {
   const size = resolveNodeSize(node);
   if (!size) return null;
   const position =
@@ -14,8 +14,8 @@ function resolveNodeCenter(node: RFNode): { x: number; y: number } | null {
 
 /** Check whether an edge should auto-update handle positions. */
 function isAutoHandleEdge(edge: Edge): boolean {
-  const label = typeof edge.label === "string" ? edge.label : null;
-  return edge.data?.autoHandle === true || label === "裁切";
+  // 逻辑：默认开启自动锚点，只有显式关闭时才跳过
+  return edge.data?.autoHandle !== false;
 }
 
 /** Resolve handle ids based on source/target positions. */

@@ -130,6 +130,7 @@ const ProjectCanvasBody = memo(function ProjectCanvasBody({
   const { onNodeClick } = useCanvasEdgeCreation({
     isLocked,
     mode,
+    nodes,
     pendingEdgeSource,
     setEdges,
     setPendingEdgeSource,

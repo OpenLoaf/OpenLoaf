@@ -56,7 +56,7 @@ const VideoIFrameNode = memo(function VideoIFrameNode({
   const [isInteractive, setIsInteractive] = useState(false);
   const [draftUrl, setDraftUrl] = useState(data?.src ?? "");
   const displayUrl = data?.src?.trim() ?? "";
-  const title = data?.title ?? "嵌入视频";
+  const title = "嵌入视频";
 
   /** Extract the src URL from an iframe snippet or a raw URL input. */
   const extractEmbedUrl = useCallback((value: string) => {
@@ -200,22 +200,24 @@ const VideoIFrameNode = memo(function VideoIFrameNode({
       </NodeToolbar>
       <HiddenHandles ids={IMAGE_HANDLE_IDS} />
       <div className="group h-full w-full overflow-hidden rounded-lg border border-border/60 bg-muted/20">
-        <div className="h-full w-full overflow-auto">
-          {displayUrl ? (
-            <iframe
-              title={title}
-              src={displayUrl}
-              className="h-full w-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-              allowFullScreen
-              referrerPolicy="no-referrer"
-              style={{ pointerEvents: isInteractive ? "auto" : "none" }}
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-              需要输入嵌入视频链接
-            </div>
-          )}
+        <div className="flex h-full w-full flex-col">
+          <div className="flex-1 overflow-auto">
+            {displayUrl ? (
+              <iframe
+                title={title}
+                src={displayUrl}
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                allowFullScreen
+                referrerPolicy="no-referrer"
+                style={{ pointerEvents: isInteractive ? "auto" : "none" }}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                需要输入嵌入视频链接
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -1,36 +1,42 @@
-export type ModelCapabilityId =
-  | "text_input" // 文本输入
-  | "text_output" // 文本输出
-  | "image_input" // 图片输入
-  | "image_output" // 图片输出
-  | "video_input" // 视频输入
-  | "video_output" // 视频输出
-  | "audio_input" // 音频输入
-  | "audio_output" // 音频输出
-  | "reasoning" // 推理
-  | "tools" // 工具
-  | "rerank" // 重排
-  | "embedding" // 嵌入
-  | "structured_output"; // 结构化输出
+export enum ModelCapabilityId {
+  TextInput = "text_input",
+  TextOutput = "text_output",
+  ImageInput = "image_input",
+  ImageOutput = "image_output",
+  VideoInput = "video_input",
+  VideoOutput = "video_output",
+  AudioInput = "audio_input",
+  AudioOutput = "audio_output",
+  Reasoning = "reasoning",
+  Tools = "tools",
+  Rerank = "rerank",
+  Embedding = "embedding",
+  StructuredOutput = "structured_output",
+}
 
 export type ChatModelSource = "local" | "cloud";
 
+export type ModelPrice = {
+  /** 价格对应的能力类型 */
+  capabilityId: ModelCapabilityId;
+  /** 价格数值（按每 1,000,000 tokens 或按能力单位计） */
+  price: number;
+  /** 是否为缓存价格 */
+  isCache?: boolean;
+};
+
 export type ModelDefinition = {
+  /** 模型唯一 ID */
   id: string;
+  /** 模型展示名称（可为空） */
+  label?: string;
+  /** 模型能力列表 */
   capability: ModelCapabilityId[];
+  /** 上下文窗口大小（K） */
   maxContextK: number;
-  priceTextInputPerMillion: number;
-  priceTextOutputPerMillion: number;
-  priceImageInputPerMillion?: number;
-  priceImageOutputPerMillion?: number;
-  priceVideoInputPerMillion?: number;
-  priceVideoOutputPerMillion?: number;
-  priceAudioInputPerMillion?: number;
-  priceAudioOutputPerMillion?: number;
-  cachedTextInputPerMillion?: number;
-  cachedImageInputPerMillion?: number;
-  cachedVideoInputPerMillion?: number;
-  cachedAudioInputPerMillion?: number;
+  /** 价格列表 */
+  prices: ModelPrice[];
+  /** 货币符号 */
   currencySymbol: string;
 };
 
@@ -39,6 +45,20 @@ export type ModelCatalogOptions = {
   apiUrl: string;
   models: ModelDefinition[];
 };
+
+/** Resolve model price by capability and cache flag. */
+export function getModelPrice(
+  definition: ModelDefinition | undefined,
+  capabilityId: ModelCapabilityId,
+  options?: { isCache?: boolean },
+): number | undefined {
+  if (!definition || !Array.isArray(definition.prices)) return;
+  const targetCache = options?.isCache ?? false;
+  const match = definition.prices.find(
+    (item) => item.capabilityId === capabilityId && Boolean(item.isCache) === targetCache,
+  );
+  return typeof match?.price === "number" ? match.price : undefined;
+}
 
 export class ModelCatalog {
   readonly providerId: string;

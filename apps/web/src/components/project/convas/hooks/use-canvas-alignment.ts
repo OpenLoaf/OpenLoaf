@@ -10,7 +10,12 @@ import {
   type NodeDimensionChange,
   type ReactFlowInstance,
 } from "reactflow";
-import { adjustGroupBounds, buildNodeMap, createAbsolutePositionGetter } from "../utils/group-node";
+import {
+  adjustGroupBounds,
+  buildNodeMap,
+  createAbsolutePositionGetter,
+  getNodeParentId,
+} from "../utils/group-node";
 import { updateAutoHandleEdges } from "../utils/canvas-auto-handle";
 import { buildSnapBound, computeSnap, type SnapLine } from "../utils/canvas-snap";
 import { resolveNodeSize } from "../utils/node-size";
@@ -107,6 +112,7 @@ export function useCanvasAlignment({
       const isDragging = positionChanges.some(
         (change) => typeof change.dragging === "boolean" && change.dragging,
       );
+      const draggingIds = isDragging ? new Set(positionChanges.map((change) => change.id)) : null;
       // 逻辑：只在拖拽过程中启用对齐/吸附，避免点击选中时触发
       const shouldSnap = positionChanges.length > 0 && isDragging && !isLocked;
       // 逻辑：节点移动/缩放时刷新自动连线方向
@@ -116,7 +122,10 @@ export function useCanvasAlignment({
       let nextNodes = applyNodeChanges(filteredChanges, nodes);
       if (!shouldSnap) {
         setSnapLines([]);
-        nextNodes = adjustGroupBounds(nextNodes);
+        nextNodes = adjustGroupBounds(
+          nextNodes,
+          draggingIds ? { skipChildIds: draggingIds } : undefined,
+        );
         if (shouldUpdateHandles) {
           setEdges((currentEdges) => updateAutoHandleEdges(currentEdges, nextNodes));
         }
@@ -132,7 +141,10 @@ export function useCanvasAlignment({
       });
       if (hasEditingNode) {
         setSnapLines([]);
-        nextNodes = adjustGroupBounds(nextNodes);
+        nextNodes = adjustGroupBounds(
+          nextNodes,
+          draggingIds ? { skipChildIds: draggingIds } : undefined,
+        );
         if (shouldUpdateHandles) {
           setEdges((currentEdges) => updateAutoHandleEdges(currentEdges, nextNodes));
         }
@@ -146,6 +158,34 @@ export function useCanvasAlignment({
           return !isDescendantOfMovingRoot(node, nextNodeMap, movingIds);
         }),
       );
+      let snapScopeParentId: string | null = null;
+      let hasMixedParents = false;
+      for (const id of movingRootIds) {
+        const node = nextNodeMap.get(id);
+        if (!node) continue;
+        const parentId = getNodeParentId(node);
+        if (snapScopeParentId === null) {
+          snapScopeParentId = parentId ?? null;
+          continue;
+        }
+        if (snapScopeParentId !== (parentId ?? null)) {
+          hasMixedParents = true;
+          break;
+        }
+      }
+      if (hasMixedParents) {
+        // 逻辑：跨 group 的节点不参与自动对齐，避免跨层级吸附
+        setSnapLines([]);
+        nextNodes = adjustGroupBounds(
+          nextNodes,
+          draggingIds ? { skipChildIds: draggingIds } : undefined,
+        );
+        if (shouldUpdateHandles) {
+          setEdges((currentEdges) => updateAutoHandleEdges(currentEdges, nextNodes));
+        }
+        setNodes(nextNodes);
+        return;
+      }
       const getAbsolutePosition = createAbsolutePositionGetter(nextNodeMap);
       const movingItems = Array.from(movingRootIds)
         .map((id) => {
@@ -160,7 +200,10 @@ export function useCanvasAlignment({
 
       if (movingItems.length === 0) {
         setSnapLines([]);
-        nextNodes = adjustGroupBounds(nextNodes);
+        nextNodes = adjustGroupBounds(
+          nextNodes,
+          draggingIds ? { skipChildIds: draggingIds } : undefined,
+        );
         if (shouldUpdateHandles) {
           setEdges((currentEdges) => updateAutoHandleEdges(currentEdges, nextNodes));
         }
@@ -193,6 +236,10 @@ export function useCanvasAlignment({
         .filter((node) => {
           if (movingIds.has(node.id)) return false;
           if (isDescendantOfMovingRoot(node, nextNodeMap, movingRootIds)) return false;
+          // 逻辑：group 内节点只与同一 parentId 的节点对齐
+          if (snapScopeParentId !== null) {
+            return (getNodeParentId(node) ?? null) === snapScopeParentId;
+          }
           return true;
         })
         .map((node) => {
@@ -212,7 +259,10 @@ export function useCanvasAlignment({
         nextNodes = applySnapDeltaToNodes(nextNodes, movingRootIds, snap.dx, snap.dy);
       }
 
-      nextNodes = adjustGroupBounds(nextNodes);
+      nextNodes = adjustGroupBounds(
+        nextNodes,
+        draggingIds ? { skipChildIds: draggingIds } : undefined,
+      );
       if (shouldUpdateHandles) {
         setEdges((currentEdges) => updateAutoHandleEdges(currentEdges, nextNodes));
       }

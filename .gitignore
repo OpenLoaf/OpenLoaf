@@ -75,3 +75,12 @@ gha-creds-*.json
 .github
 
 update_codex_cdp.sh
+.serena/.gitignore
+.serena/project.yml
+.serena/memories/completion_checklist.md
+.serena/memories/project_overview.md
+.serena/memories/style_conventions.md
+.serena/memories/suggested_commands.md
+.serena/memories/tool_ui_event_rules.md
+docs/canvas-architecture-spec.md
+docs/canvas/board-user-manual.md

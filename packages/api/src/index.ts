@@ -18,6 +18,7 @@ import {
   BaseSettingRouter,
   settingSchemas,
 } from "./routers/absSetting";
+import { aiRouter, BaseAiRouter, aiSchemas } from "./routers/ai";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -27,6 +28,7 @@ export const appRouterDefine = {
   workspace: workspaceRouter,
   tab: tabRouter,
   settings: settingRouter,
+  ai: aiRouter,
 };
 
 export const appRouter = t.router({
@@ -64,6 +66,9 @@ export { BaseChatRouter, chatSchemas };
 
 // Export setting router components
 export { BaseSettingRouter, settingSchemas };
+
+// Export ai router components
+export { BaseAiRouter, aiSchemas };
 
 // export const t = initTRPC.context<Context>().create({
 // });

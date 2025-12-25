@@ -5,10 +5,12 @@ import type { Dispatch, MouseEvent, SetStateAction } from "react";
 import type { Edge, Node as RFNode } from "reactflow";
 import { MarkerType } from "reactflow";
 import type { CanvasMode } from "../CanvasProvider";
+import { getAutoHandleIds, resolveNodeCenter } from "../utils/canvas-auto-handle";
 
 interface UseCanvasEdgeCreationOptions {
   isLocked: boolean;
   mode: CanvasMode;
+  nodes: RFNode[];
   pendingEdgeSource: string | null;
   setPendingEdgeSource: Dispatch<SetStateAction<string | null>>;
   setEdges: Dispatch<SetStateAction<Edge[]>>;
@@ -23,6 +25,7 @@ interface UseCanvasEdgeCreationResult {
 export function useCanvasEdgeCreation({
   isLocked,
   mode,
+  nodes,
   pendingEdgeSource,
   setEdges,
   setPendingEdgeSource,
@@ -40,18 +43,28 @@ export function useCanvasEdgeCreation({
           return;
         }
         if (pendingEdgeSource === node.id) return;
+        // 逻辑：根据当前几何中心推算最近的锚点，确保后续移动可动态更新
+        const sourceNode = nodes.find((item) => item.id === pendingEdgeSource);
+        const targetNode = nodes.find((item) => item.id === node.id);
+        const sourceCenter = sourceNode ? resolveNodeCenter(sourceNode) : null;
+        const targetCenter = targetNode ? resolveNodeCenter(targetNode) : null;
+        const handles =
+          sourceCenter && targetCenter ? getAutoHandleIds(sourceCenter, targetCenter) : null;
         const id = `e-${pendingEdgeSource}-${node.id}-${Date.now()}`;
         setEdges((eds) =>
           eds.concat({
             id,
             source: pendingEdgeSource,
             target: node.id,
+            sourceHandle: handles?.sourceHandle,
+            targetHandle: handles?.targetHandle,
             type: mode === "arrow-curve" ? "smoothstep" : "straight",
             markerEnd: {
               type: MarkerType.ArrowClosed,
               width: 18,
               height: 18,
             },
+            data: { autoHandle: true },
           }),
         );
         setPendingEdgeSource(null);
@@ -60,6 +73,7 @@ export function useCanvasEdgeCreation({
     [
       isLocked,
       mode,
+      nodes,
       pendingEdgeSource,
       setEdges,
       setPendingEdgeSource,

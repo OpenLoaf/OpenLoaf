@@ -21,8 +21,7 @@ import {
   type ModelProviderOption,
 } from "@/components/setting/menus/model/AddModelProviderDialog";
 import { Input } from "@/components/ui/input";
-
-type ProviderId = "anthropic" | "deepseek" | "google" | "openai" | "xai";
+import { PROVIDER_OPTIONS, getModelLabel, type ProviderId } from "@teatime-ai/api/common";
 
 type ModelEntry = {
   id: string;
@@ -39,13 +38,10 @@ type ModelResponseLanguageId =
   | "de-DE"
   | "es-ES";
 
-const PROVIDERS: ModelProviderOption[] = [
-  { id: "anthropic", label: "anthropic" },
-  { id: "deepseek", label: "deepseek" },
-  { id: "google", label: "google" },
-  { id: "openai", label: "openai" },
-  { id: "xai", label: "xai" },
-];
+const PROVIDERS: ModelProviderOption[] = PROVIDER_OPTIONS.map((provider) => ({
+  id: provider.id,
+  label: provider.label,
+}));
 
 /** Generate a stable row id for model entries. */
 function generateRowId() {
@@ -235,9 +231,15 @@ export function ModelManagement() {
                   >
                     <span className="truncate">
                       {defaultChatModelId
-                        ? (modelOptions.find(
-                            (option) => option.id === defaultChatModelId,
-                          )?.modelId ?? "Auto")
+                        ? (() => {
+                            const option = modelOptions.find(
+                              (item) => item.id === defaultChatModelId,
+                            );
+                            if (!option) return "Auto";
+                            return option.modelDefinition
+                              ? getModelLabel(option.modelDefinition)
+                              : option.modelId;
+                          })()
                         : "Auto"}
                     </span>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -254,16 +256,21 @@ export function ModelManagement() {
                         {emptyModelLabel}
                       </DropdownMenuRadioItem>
                     ) : null}
-                    {modelOptions.map((option) => (
-                      <DropdownMenuRadioItem key={option.id} value={option.id}>
-                        <div className="min-w-0">
-                          <div className="truncate">{option.modelId}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {option.providerName}
+                    {modelOptions.map((option) => {
+                      const modelLabel = option.modelDefinition
+                        ? getModelLabel(option.modelDefinition)
+                        : option.modelId;
+                      return (
+                        <DropdownMenuRadioItem key={option.id} value={option.id}>
+                          <div className="min-w-0">
+                            <div className="truncate">{modelLabel}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {option.providerName}
+                            </div>
                           </div>
-                        </div>
-                      </DropdownMenuRadioItem>
-                    ))}
+                        </DropdownMenuRadioItem>
+                      );
+                    })}
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>

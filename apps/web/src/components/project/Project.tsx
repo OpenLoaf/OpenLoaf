@@ -9,7 +9,8 @@ import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { usePage } from "@/hooks/use-page";
 import ProjectInfo, { ProjectIntroHeader } from "./intro/ProjectIntro";
-import ProjectCanvas, { ProjectCanvasHeader } from "./convas/ProjectCanvas";
+import ProjectCanvasHeader from "./convas/ProjectCanvasHeader";
+import ProjectBoardCanvas from "../board/ProjectBoardCanvas";
 import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
 import ProjectMaterials, { ProjectMaterialsHeader } from "./ProjectMaterials";
 import ProjectSkills, { ProjectSkillsHeader } from "./ProjectSkills";
@@ -390,7 +391,7 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
                 aria-hidden={activeTab !== "canvas"}
               >
                 {shouldRenderCanvas ? (
-                  <ProjectCanvas
+                  <ProjectBoardCanvas
                     isLoading={isLoading}
                     isActive={tabActive && activeTab === "canvas"}
                     pageId={pageId}

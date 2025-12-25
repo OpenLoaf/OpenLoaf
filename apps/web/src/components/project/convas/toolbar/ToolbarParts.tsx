@@ -9,16 +9,33 @@ function IconBtn(props: {
   active?: boolean;
   children: React.ReactNode;
   onClick?: () => void;
+  onPointerDown?: (event: React.PointerEvent<HTMLButtonElement>) => void;
   className?: string;
   disabled?: boolean;
 }) {
-  const { title, active, children, onClick, className, disabled } = props;
+  const { title, active, children, onClick, onPointerDown, className, disabled } = props;
+  const pointerHandledRef = useRef(false);
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!onPointerDown) return;
+    pointerHandledRef.current = true;
+    event.stopPropagation();
+    onPointerDown(event);
+  };
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (pointerHandledRef.current) {
+      pointerHandledRef.current = false;
+      event.stopPropagation();
+      return;
+    }
+    onClick?.();
+  };
   return (
     <button
       type="button"
       aria-label={title}
       title={title}
-      onClick={onClick}
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
       disabled={disabled}
       className={cn(
         "inline-flex h-9 w-9 items-center justify-center rounded-lg",

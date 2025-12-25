@@ -16,7 +16,7 @@ import { useSetting, useSettingsValues } from "@/hooks/use-settings";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { WebSettingDefs } from "@/lib/setting-defs";
 import { useChatContext } from "../ChatProvider";
-import type { ModelCapabilityId, ModelDefinition } from "@teatime-ai/api/common";
+import { ModelCapabilityId, type ModelDefinition, getModelPrice } from "@teatime-ai/api/common";
 
 interface SelectModeProps {
   className?: string;
@@ -24,19 +24,19 @@ interface SelectModeProps {
 
 // 能力标签显示文案映射。
 const MODEL_CAPABILITY_LABELS: Record<ModelCapabilityId, string> = {
-  text_input: "文本输入",
-  text_output: "文本输出",
-  image_input: "图片输入",
-  image_output: "图片输出",
-  video_input: "视频输入",
-  video_output: "视频输出",
-  audio_input: "音频输入",
-  audio_output: "音频输出",
-  reasoning: "推理",
-  tools: "工具",
-  rerank: "重排",
-  embedding: "嵌入",
-  structured_output: "结构化输出",
+  [ModelCapabilityId.TextInput]: "文本输入",
+  [ModelCapabilityId.TextOutput]: "文本输出",
+  [ModelCapabilityId.ImageInput]: "图片输入",
+  [ModelCapabilityId.ImageOutput]: "图片输出",
+  [ModelCapabilityId.VideoInput]: "视频输入",
+  [ModelCapabilityId.VideoOutput]: "视频输出",
+  [ModelCapabilityId.AudioInput]: "音频输入",
+  [ModelCapabilityId.AudioOutput]: "音频输出",
+  [ModelCapabilityId.Reasoning]: "推理",
+  [ModelCapabilityId.Tools]: "工具",
+  [ModelCapabilityId.Rerank]: "重排",
+  [ModelCapabilityId.Embedding]: "嵌入",
+  [ModelCapabilityId.StructuredOutput]: "结构化输出",
 };
 
 /** Format a price value with adaptive precision. */
@@ -51,8 +51,10 @@ function formatModelPrice(definition?: ModelDefinition): string | null {
   if (!definition) return null;
   const currencySymbol = definition.currencySymbol ?? "";
   // 价格按每 1,000,000 tokens 展示。
-  const inputLabel = `${currencySymbol}${formatPriceValue(definition.priceTextInputPerMillion)}`;
-  const outputLabel = `${currencySymbol}${formatPriceValue(definition.priceTextOutputPerMillion)}`;
+  const inputPrice = getModelPrice(definition, ModelCapabilityId.TextInput) ?? 0;
+  const outputPrice = getModelPrice(definition, ModelCapabilityId.TextOutput) ?? 0;
+  const inputLabel = `${currencySymbol}${formatPriceValue(inputPrice)}`;
+  const outputLabel = `${currencySymbol}${formatPriceValue(outputPrice)}`;
   return `输入 ${inputLabel} / 1M · 输出 ${outputLabel} / 1M`;
 }
 
@@ -200,7 +202,7 @@ export default function SelectMode({ className }: SelectModeProps) {
                     const capabilityIds: ModelCapabilityId[] =
                       option.capabilityIds && option.capabilityIds.length > 0
                         ? option.capabilityIds
-                        : ["text_input"];
+                        : [ModelCapabilityId.TextInput];
                     const priceLabel = formatModelPrice(option.modelDefinition);
                     return (
                       <button

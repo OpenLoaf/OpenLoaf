@@ -1,4 +1,4 @@
-import { ModelCatalog, type ModelDefinition } from "../modelTypes";
+import { ModelCapabilityId, ModelCatalog, type ModelDefinition } from "../modelTypes";
 
 export const XAI_API_URL = "https://api.x.ai/v1";
 
@@ -6,47 +6,73 @@ export const XAI_API_URL = "https://api.x.ai/v1";
 export const XAI_MODELS: ModelDefinition[] = [
   {
     id: "grok-4-1-fast-reasoning",
-    capability: ["text_input", "text_output", "image_input"],
+    capability: [
+      ModelCapabilityId.TextInput,
+      ModelCapabilityId.TextOutput,
+      ModelCapabilityId.ImageInput,
+    ],
     maxContextK: 2000,
-    priceTextInputPerMillion: 0.2,
-    priceTextOutputPerMillion: 0.5,
-    cachedTextInputPerMillion: 0.02,
+    prices: [
+      { capabilityId: ModelCapabilityId.TextInput, price: 0.2 },
+      { capabilityId: ModelCapabilityId.TextOutput, price: 0.5 },
+      { capabilityId: ModelCapabilityId.TextInput, price: 0.02, isCache: true },
+    ],
     currencySymbol: "$",
   },
   {
     id: "grok-4-1-fast-non-reasoning",
-    capability: ["text_input", "text_output", "image_input"],
+    capability: [
+      ModelCapabilityId.TextInput,
+      ModelCapabilityId.TextOutput,
+      ModelCapabilityId.ImageInput,
+    ],
     maxContextK: 2000,
-    priceTextInputPerMillion: 0.2,
-    priceTextOutputPerMillion: 0.5,
-    cachedTextInputPerMillion: 0.02,
+    prices: [
+      { capabilityId: ModelCapabilityId.TextInput, price: 0.2 },
+      { capabilityId: ModelCapabilityId.TextOutput, price: 0.5 },
+      { capabilityId: ModelCapabilityId.TextInput, price: 0.02, isCache: true },
+    ],
     currencySymbol: "$",
   },
   {
     id: "grok-code-fast-1",
-    capability: ["text_input", "text_output"],
+    capability: [ModelCapabilityId.TextInput, ModelCapabilityId.TextOutput],
     maxContextK: 256,
-    priceTextInputPerMillion: 0.2,
-    priceTextOutputPerMillion: 1.5,
-    cachedTextInputPerMillion: 0.02,
+    prices: [
+      { capabilityId: ModelCapabilityId.TextInput, price: 0.2 },
+      { capabilityId: ModelCapabilityId.TextOutput, price: 1.5 },
+      { capabilityId: ModelCapabilityId.TextInput, price: 0.02, isCache: true },
+    ],
     currencySymbol: "$",
   },
   {
     id: "grok-4-fast-reasoning",
-    capability: ["text_input", "text_output", "image_input"],
+    capability: [
+      ModelCapabilityId.TextInput,
+      ModelCapabilityId.TextOutput,
+      ModelCapabilityId.ImageInput,
+    ],
     maxContextK: 2000,
-    priceTextInputPerMillion: 0.2,
-    priceTextOutputPerMillion: 0.5,
-    cachedTextInputPerMillion: 0.02,
+    prices: [
+      { capabilityId: ModelCapabilityId.TextInput, price: 0.2 },
+      { capabilityId: ModelCapabilityId.TextOutput, price: 0.5 },
+      { capabilityId: ModelCapabilityId.TextInput, price: 0.02, isCache: true },
+    ],
     currencySymbol: "$",
   },
   {
     id: "grok-4-fast-non-reasoning",
-    capability: ["text_input", "text_output", "image_input"],
+    capability: [
+      ModelCapabilityId.TextInput,
+      ModelCapabilityId.TextOutput,
+      ModelCapabilityId.ImageInput,
+    ],
     maxContextK: 2000,
-    priceTextInputPerMillion: 0.2,
-    priceTextOutputPerMillion: 0.5,
-    cachedTextInputPerMillion: 0.02,
+    prices: [
+      { capabilityId: ModelCapabilityId.TextInput, price: 0.2 },
+      { capabilityId: ModelCapabilityId.TextOutput, price: 0.5 },
+      { capabilityId: ModelCapabilityId.TextInput, price: 0.02, isCache: true },
+    ],
     currencySymbol: "$",
   },
 ];

@@ -20,13 +20,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, Eye, EyeOff } from "lucide-react";
 import {
-  DEEPSEEK_MODEL_CATALOG,
-  GOOGLE_MODEL_CATALOG,
-  XAI_MODEL_CATALOG,
+  MODEL_CATALOG_BY_PROVIDER,
+  PROVIDER_OPTIONS,
+  getDefaultApiUrl,
+  getDefaultModelIds,
+  getDefaultProviderName,
+  getModelLabel,
+  getModelSummary,
+  resolveModelDefinitions,
+  type ProviderId,
   type ModelDefinition,
 } from "@teatime-ai/api/common";
-
-type ProviderId = "anthropic" | "deepseek" | "google" | "openai" | "xai" | "custom";
+const VOLCENGINE_PROVIDER_ID = "volcengine";
 
 export type ProviderEntryPayload = {
   key: string;
@@ -37,84 +42,11 @@ export type ProviderEntryPayload = {
   modelDefinitions: ModelDefinition[];
 };
 
-const PROVIDERS: Array<{ id: ProviderId; label: string }> = [
-  { id: "openai", label: "openai" },
-  { id: "anthropic", label: "anthropic" },
-  { id: "google", label: "Google" },
-  { id: "deepseek", label: "deepseek" },
-  { id: "xai", label: "xai" },
-  { id: "custom", label: "自定义" },
-];
-
-const MODEL_CATALOG_BY_PROVIDER: Partial<Record<ProviderId, typeof XAI_MODEL_CATALOG>> = {
-  xai: XAI_MODEL_CATALOG,
-  deepseek: DEEPSEEK_MODEL_CATALOG,
-  google: GOOGLE_MODEL_CATALOG,
-};
-
 /**
- * Provide the default API URL for known providers.
+ * Compose Volcengine key pair into a single string.
  */
-function getDefaultApiUrl(provider: ProviderId) {
-  const defaults: Record<ProviderId, string> = {
-    openai: "https://api.openai.com/v1",
-    anthropic: "https://api.anthropic.com/v1",
-    google: "https://generativelanguage.googleapis.com/v1beta",
-    deepseek: "https://api.deepseek.com/v1",
-    xai: "https://api.x.ai/v1",
-    custom: "",
-  };
-  return defaults[provider];
-}
-
-/**
- * Provide the default display name for a provider.
- */
-function getDefaultProviderName(provider: ProviderId) {
-  const defaults: Record<ProviderId, string> = {
-    openai: "OPENAI",
-    anthropic: "ANTHROPIC",
-    google: "Google",
-    deepseek: "Deepseek",
-    xai: "XAI",
-    custom: "",
-  };
-  return defaults[provider];
-}
-
-/**
- * Get model ids from the provider catalog.
- */
-function getDefaultModelIds(provider: ProviderId) {
-  const catalog = MODEL_CATALOG_BY_PROVIDER[provider];
-  if (!catalog) return [];
-  const [first] = catalog.getModels();
-  return first ? [first.id] : [];
-}
-
-/**
- * Build a label for selected models.
- */
-function getModelSummary(models: { id: string }[], selected: string[]) {
-  if (models.length === 0) return "暂无可选模型";
-  if (selected.length === 0) return "请选择模型";
-  const selectedSet = new Set(selected);
-  const visible = models.filter((model) => selectedSet.has(model.id)).slice(0, 2);
-  const labels = visible.map((model) => model.id);
-  if (selected.length <= 2) return labels.join("、");
-  return `${labels.join("、")} +${selected.length - 2}`;
-}
-
-/**
- * Resolve model definitions from the provider catalog.
- */
-function resolveModelDefinitions(provider: ProviderId, modelIds: string[]): ModelDefinition[] {
-  const catalog = MODEL_CATALOG_BY_PROVIDER[provider];
-  if (!catalog) return [];
-  const modelById = new Map(catalog.getModels().map((model) => [model.id, model]));
-  return modelIds
-    .map((modelId) => modelById.get(modelId))
-    .filter((model): model is ModelDefinition => Boolean(model));
+function formatVolcengineKey(accessKeyId: string, secretAccessKey: string) {
+  return `${accessKeyId.trim()}:${secretAccessKey.trim()}`;
 }
 
 type ProviderEditorDialogProps = {
@@ -135,13 +67,15 @@ export function ProviderEditorDialog({
   const [draftName, setDraftName] = useState("");
   const [draftApiUrl, setDraftApiUrl] = useState("");
   const [draftApiKey, setDraftApiKey] = useState("");
+  const [draftAccessKeyId, setDraftAccessKeyId] = useState("");
+  const [draftSecretAccessKey, setDraftSecretAccessKey] = useState("");
   const [draftModelIds, setDraftModelIds] = useState<string[]>([]);
   const [showApiKey, setShowApiKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const providerLabelById = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const provider of PROVIDERS) map[provider.id] = provider.label;
+    for (const provider of PROVIDER_OPTIONS) map[provider.id] = provider.label;
     return map as Record<ProviderId, string>;
   }, []);
 
@@ -156,6 +90,8 @@ export function ProviderEditorDialog({
     setDraftName(getDefaultProviderName("openai"));
     setDraftApiUrl(getDefaultApiUrl("openai"));
     setDraftApiKey("");
+    setDraftAccessKeyId("");
+    setDraftSecretAccessKey("");
     setDraftModelIds(getDefaultModelIds("openai"));
     setShowApiKey(false);
   };
@@ -170,7 +106,10 @@ export function ProviderEditorDialog({
   const submitDraft = async () => {
     const name = draftName.trim();
     const apiUrl = draftApiUrl.trim();
-    const apiKey = draftApiKey.trim();
+    const apiKey =
+      draftProvider === VOLCENGINE_PROVIDER_ID
+        ? formatVolcengineKey(draftAccessKeyId, draftSecretAccessKey)
+        : draftApiKey.trim();
     const normalizedName = name.toLowerCase();
     if (!name) {
       setError("请填写名称");
@@ -180,9 +119,17 @@ export function ProviderEditorDialog({
       setError("请填写 API URL");
       return;
     }
-    if (!apiKey) {
-      setError("请填写 API KEY");
-      return;
+    // 中文注释：火山引擎使用 AK/SK 双字段校验。
+    if (draftProvider === VOLCENGINE_PROVIDER_ID) {
+      if (!draftAccessKeyId.trim() || !draftSecretAccessKey.trim()) {
+        setError("请填写 AccessKeyID 和 SecretAccessKey");
+        return;
+      }
+    } else {
+      if (!apiKey) {
+        setError("请填写 API KEY");
+        return;
+      }
     }
     if (draftModelIds.length === 0) {
       setError("请选择模型");
@@ -248,6 +195,11 @@ export function ProviderEditorDialog({
                     if (!draftName.trim() || draftName.trim() === currentDefaultName) {
                       setDraftName(nextDefaultName);
                     }
+                    if (provider === VOLCENGINE_PROVIDER_ID) {
+                      setDraftApiKey("");
+                      setDraftAccessKeyId("");
+                      setDraftSecretAccessKey("");
+                    }
                     setDraftModelIds((prev) => {
                       if (prev.length === 0) return nextDefaultModels;
                       const nextSet = new Set(nextDefaultModels);
@@ -256,7 +208,7 @@ export function ProviderEditorDialog({
                     });
                   }}
                 >
-                  {PROVIDERS.map((provider) => (
+                  {PROVIDER_OPTIONS.map((provider) => (
                     <DropdownMenuRadioItem key={provider.id} value={provider.id}>
                       {provider.label}
                     </DropdownMenuRadioItem>
@@ -319,7 +271,7 @@ export function ProviderEditorDialog({
                         });
                       }}
                     >
-                      {model.id}
+                      {getModelLabel(model)}
                     </DropdownMenuCheckboxItem>
                   ))
                 )}
@@ -328,26 +280,63 @@ export function ProviderEditorDialog({
           </div>
 
           <div className="space-y-2">
-            <div className="text-sm font-medium">API KEY</div>
-            <div className="relative">
-              <Input
-                type={showApiKey ? "text" : "password"}
-                value={draftApiKey}
-                placeholder="输入 API KEY"
-                onChange={(event) => setDraftApiKey(event.target.value)}
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                onClick={() => setShowApiKey((prev) => !prev)}
-                aria-label={showApiKey ? "隐藏 API KEY" : "显示 API KEY"}
-              >
-                {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-            </div>
+            <div className="text-sm font-medium">认证信息</div>
+            {draftProvider === VOLCENGINE_PROVIDER_ID ? (
+              <div className="space-y-2">
+                <Input
+                  value={draftAccessKeyId}
+                  placeholder="AccessKeyID"
+                  onChange={(event) => setDraftAccessKeyId(event.target.value)}
+                />
+                <div className="relative">
+                  <Input
+                    type={showApiKey ? "text" : "password"}
+                    value={draftSecretAccessKey}
+                    placeholder="SecretAccessKey"
+                    onChange={(event) => setDraftSecretAccessKey(event.target.value)}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                    onClick={() => setShowApiKey((prev) => !prev)}
+                    aria-label={showApiKey ? "隐藏 SecretAccessKey" : "显示 SecretAccessKey"}
+                  >
+                    {showApiKey ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <Input
+                  type={showApiKey ? "text" : "password"}
+                  value={draftApiKey}
+                  placeholder="输入 API KEY"
+                  onChange={(event) => setDraftApiKey(event.target.value)}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                  onClick={() => setShowApiKey((prev) => !prev)}
+                  aria-label={showApiKey ? "隐藏 API KEY" : "显示 API KEY"}
+                >
+                  {showApiKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
 
           {error ? <div className="text-sm text-destructive">{error}</div> : null}
