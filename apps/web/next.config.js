@@ -5,6 +5,7 @@ const nextConfig = {
   typedRoutes: true,
   reactCompiler: true,
   output: "export",
+  transpilePackages: ["@teatime-ai/board"],
   eslint: {
     // 只 lint 源码目录，避免 Next/Eslint 扫描到 .next 生成产物导致告警
     dirs: ["src"],

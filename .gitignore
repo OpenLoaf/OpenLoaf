@@ -74,6 +74,8 @@ CLAUDE.md.bak
 gha-creds-*.json
 .github
 
+packages/board
+
 update_codex_cdp.sh
 .serena/.gitignore
 .serena/project.yml

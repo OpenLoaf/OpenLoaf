@@ -23,7 +23,7 @@ catalogs:
       version: 4.11.0
     typescript:
       specifier: ^5
-      version: 4.5.5
+      version: 5.9.3
 
 importers:
 
@@ -45,6 +45,9 @@ importers:
       '@eslint/js':
         specifier: ^9.39.2
         version: 9.39.2
+      '@tailwindcss/cli':
+        specifier: ^4.1.18
+        version: 4.1.18
       '@types/node':
         specifier: ^25.0.3
         version: 25.0.3
@@ -69,6 +72,9 @@ importers:
       shadcn:
         specifier: ^3.6.2
         version: 3.6.2(@types/node@25.0.3)(babel-plugin-macros@3.1.0)(hono@4.11.1)(typescript@5.9.3)
+      tailwindcss:
+        specifier: ^4.1.10
+        version: 4.1.18
       turbo:
         specifier: ^2.7.1
         version: 2.7.1
@@ -383,6 +389,9 @@ importers:
       '@teatime-ai/api':
         specifier: workspace:*
         version: link:../../packages/api
+      '@teatime-ai/board':
+        specifier: workspace:*
+        version: link:../../packages/board
       '@trpc/client':
         specifier: 'catalog:'
         version: 11.8.0(@trpc/server@11.8.0(typescript@5.9.3))(typescript@5.9.3)
@@ -598,6 +607,37 @@ importers:
       '@teatime-ai/config':
         specifier: workspace:*
         version: link:../config
+
+  packages/board:
+    dependencies:
+      '@teatime-ai/api':
+        specifier: workspace:*
+        version: link:../api
+      '@udecode/cn':
+        specifier: ^52.0.11
+        version: 52.0.11(@types/react@19.2.7)(class-variance-authority@0.7.1)(react-dom@19.1.2(react@19.1.2))(react@19.1.2)(tailwind-merge@3.4.0)
+      lucide-react:
+        specifier: ^0.560.0
+        version: 0.560.0(react@19.1.2)
+      react:
+        specifier: '>=18'
+        version: 19.1.2
+      react-dom:
+        specifier: '>=18'
+        version: 19.1.2(react@19.1.2)
+      zod:
+        specifier: ^4.1.0
+        version: 4.2.1
+    devDependencies:
+      '@teatime-ai/config':
+        specifier: workspace:*
+        version: link:../config
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      tailwindcss:
+        specifier: ^4.1.10
+        version: 4.1.18
 
   packages/config:
     dependencies:
@@ -1018,8 +1058,8 @@ packages:
     resolution: {integrity: sha512-F+nKc0xW+kVbBRhFzaMgPy3KwmuNTYX1fx6+FxxoSnNgwYX6LD7AKBTWkU0MQ6IBoe7dz069CNkR673sPAgkCQ==}
     engines: {node: '>=14'}
 
-  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
-    resolution: {tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
+  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
+    resolution: {commit: 06b29aafb7708acef8b3669835c8a7857ebc92d2, repo: git@github.com:electron/node-gyp.git, type: git}
     version: 10.2.0-electron.1
     engines: {node: '>=12.13.0'}
     hasBin: true
@@ -3768,6 +3808,10 @@ packages:
   '@szmarczak/http-timer@4.0.6':
     resolution: {integrity: sha512-4BAffykYOgO+5nzBWYwE3W90sBgLJoUPRWWcL8wlyiM8IB8ipJz3UMJ9KXQd1RKQXpKp8Tutn80HZtWsu2u76w==}
     engines: {node: '>=10'}
+
+  '@tailwindcss/cli@4.1.18':
+    resolution: {integrity: sha512-sMZ+lZbDyxwjD2E0L7oRUjJ01Ffjtme5OtjvvnC+cV4CEDcbqzbp25TCpxHj6kWLU9+DlqJOiNgSOgctC2aZmg==}
+    hasBin: true
 
   '@tailwindcss/node@4.1.18':
     resolution: {integrity: sha512-DoR7U1P7iYhw16qJ49fgXUlry1t4CpXeErJHnQ44JgTSKMaZUdf17cfn5mHchfJ4KRBZRFA/Coo+MUF5+gOaCQ==}
@@ -11343,7 +11387,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
+  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
     dependencies:
       env-paths: 2.2.1
       exponential-backoff: 3.1.3
@@ -11425,7 +11469,7 @@ snapshots:
 
   '@electron/rebuild@3.7.2':
     dependencies:
-      '@electron/node-gyp': https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2
+      '@electron/node-gyp': git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2
       '@malept/cross-spawn-promise': 2.0.0
       chalk: 4.1.2
       debug: 4.4.3
@@ -12409,7 +12453,6 @@ snapshots:
       '@parcel/watcher-win32-arm64': 2.5.1
       '@parcel/watcher-win32-ia32': 2.5.1
       '@parcel/watcher-win32-x64': 2.5.1
-    optional: true
 
   '@pdf-lib/standard-fonts@1.0.0':
     dependencies:
@@ -13185,6 +13228,12 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.2
 
+  '@radix-ui/react-compose-refs@1.1.2(@types/react@19.2.7)(react@19.1.2)':
+    dependencies:
+      react: 19.1.2
+    optionalDependencies:
+      '@types/react': 19.2.7
+
   '@radix-ui/react-compose-refs@1.1.2(@types/react@19.2.7)(react@19.2.3)':
     dependencies:
       react: 19.2.3
@@ -13832,6 +13881,13 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.2
 
+  '@radix-ui/react-slot@1.2.4(@types/react@19.2.7)(react@19.1.2)':
+    dependencies:
+      '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.2.7)(react@19.1.2)
+      react: 19.1.2
+    optionalDependencies:
+      '@types/react': 19.2.7
+
   '@radix-ui/react-slot@1.2.4(@types/react@19.2.7)(react@19.2.3)':
     dependencies:
       '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.2.7)(react@19.2.3)
@@ -14289,6 +14345,16 @@ snapshots:
   '@szmarczak/http-timer@4.0.6':
     dependencies:
       defer-to-connect: 2.0.1
+
+  '@tailwindcss/cli@4.1.18':
+    dependencies:
+      '@parcel/watcher': 2.5.1
+      '@tailwindcss/node': 4.1.18
+      '@tailwindcss/oxide': 4.1.18
+      enhanced-resolve: 5.18.4
+      mri: 1.2.0
+      picocolors: 1.1.1
+      tailwindcss: 4.1.18
 
   '@tailwindcss/node@4.1.18':
     dependencies:
@@ -14888,6 +14954,17 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
+  '@udecode/cn@52.0.11(@types/react@19.2.7)(class-variance-authority@0.7.1)(react-dom@19.1.2(react@19.1.2))(react@19.1.2)(tailwind-merge@3.4.0)':
+    dependencies:
+      '@udecode/react-utils': 52.0.11(@types/react@19.2.7)(react-dom@19.1.2(react@19.1.2))(react@19.1.2)
+      class-variance-authority: 0.7.1
+      react: 19.1.2
+      react-compiler-runtime: 1.0.0(react@19.1.2)
+      react-dom: 19.1.2(react@19.1.2)
+      tailwind-merge: 3.4.0
+    transitivePeerDependencies:
+      - '@types/react'
+
   '@udecode/react-hotkeys@52.0.11(react-dom@19.1.2(react@19.1.2))(react@19.1.2)':
     dependencies:
       react: 19.1.2
@@ -14903,6 +14980,17 @@ snapshots:
   '@udecode/react-utils@52.0.11(@types/react@19.2.2)(react-dom@19.1.2(react@19.1.2))(react@19.1.2)':
     dependencies:
       '@radix-ui/react-slot': 1.2.4(@types/react@19.2.2)(react@19.1.2)
+      '@udecode/utils': 52.0.1
+      clsx: 2.1.1
+      react: 19.1.2
+      react-compiler-runtime: 1.0.0(react@19.1.2)
+      react-dom: 19.1.2(react@19.1.2)
+    transitivePeerDependencies:
+      - '@types/react'
+
+  '@udecode/react-utils@52.0.11(@types/react@19.2.7)(react-dom@19.1.2(react@19.1.2))(react@19.1.2)':
+    dependencies:
+      '@radix-ui/react-slot': 1.2.4(@types/react@19.2.7)(react@19.1.2)
       '@udecode/utils': 52.0.1
       clsx: 2.1.1
       react: 19.1.2
@@ -16363,8 +16451,7 @@ snapshots:
 
   destroy@1.2.0: {}
 
-  detect-libc@1.0.3:
-    optional: true
+  detect-libc@1.0.3: {}
 
   detect-libc@2.0.2: {}
 
@@ -19669,8 +19756,7 @@ snapshots:
   node-addon-api@1.7.2:
     optional: true
 
-  node-addon-api@7.1.1:
-    optional: true
+  node-addon-api@7.1.1: {}
 
   node-api-version@0.2.1:
     dependencies:
