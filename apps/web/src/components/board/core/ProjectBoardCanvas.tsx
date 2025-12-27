@@ -3,7 +3,6 @@
 import { memo } from "react";
 
 import { BoardCanvas } from "./BoardCanvas";
-import type { BoardTrpcClient } from "./BoardProvider";
 import { PlaceholderNodeDefinition } from "../nodes/PlaceholderNode";
 import { ImageNodeDefinition } from "../nodes/ImageNode";
 import { CalendarNodeDefinition } from "../nodes/CalendarNode";
@@ -16,8 +15,6 @@ export interface ProjectBoardCanvasProps {
   isLoading: boolean;
   /** Active state for the project tab. */
   isActive: boolean;
-  /** Optional injected tRPC instance. */
-  trpc?: BoardTrpcClient;
   /** Workspace id used for storage isolation. */
   workspaceId?: string;
   /** Current project page id. */
@@ -30,7 +27,6 @@ export interface ProjectBoardCanvasProps {
 const ProjectBoardCanvas = memo(function ProjectBoardCanvas({
   isLoading,
   isActive,
-  trpc,
   workspaceId,
   pageId,
   pageTitle,
@@ -51,7 +47,6 @@ const ProjectBoardCanvas = memo(function ProjectBoardCanvas({
           GroupNodeDefinition,
           ImageGroupNodeDefinition,
         ]}
-        trpc={trpc}
         workspaceId={workspaceId}
         boardId={pageId}
       />

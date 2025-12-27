@@ -32,7 +32,6 @@ import { getWorkspaceIdFromCookie } from "./boardStorage";
 import type { BoardStorageState } from "./boardStorage";
 import { useBoardSnapshot } from "./useBoardSnapshot";
 import type { ImageNodeProps } from "../nodes/ImageNode";
-import type { BoardTrpcClient } from "./BoardProvider";
 
 const VIEWPORT_SAVE_DELAY = 800;
 
@@ -43,8 +42,6 @@ export type BoardCanvasProps = {
   nodes?: CanvasNodeDefinition<any>[];
   /** Initial elements inserted once when mounted. */
   initialElements?: CanvasElement[];
-  /** Optional injected tRPC instance. */
-  trpc?: BoardTrpcClient;
   /** Workspace id for storage isolation. */
   workspaceId?: string;
   /** Optional board identifier used for storage scoping. */
@@ -58,7 +55,6 @@ export function BoardCanvas({
   engine: externalEngine,
   nodes,
   initialElements,
-  trpc,
   workspaceId,
   boardId,
   className,
@@ -448,7 +444,7 @@ export function BoardCanvas({
   };
 
   return (
-    <BoardProvider engine={engine} trpc={trpc}>
+    <BoardProvider engine={engine}>
       <div
         ref={containerRef}
         className={cn(

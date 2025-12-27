@@ -4,9 +4,10 @@ import type {
   CanvasToolbarContext,
 } from "../engine/types";
 import { useCallback, useEffect, useRef } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 import { Info, RotateCw } from "lucide-react";
-import { useBoardTrpc } from "../board/BoardProvider";
+import { trpc } from "@/utils/trpc";
 
 /** Default screenshot size for link previews. */
 const DEFAULT_PREVIEW_SIZE = { width: 800, height: 450 };
@@ -24,19 +25,6 @@ export type LinkNodeProps = {
   imageSrc: string;
   /** Refresh token used to trigger reloads. */
   refreshToken: number;
-};
-
-type LinkPreviewCaller = {
-  mutation?: (path: string, input: unknown) => Promise<unknown>;
-  linkPreview?: {
-    capture?: {
-      /** Direct mutation call on the link preview router. */
-      mutate?: (input: unknown) => Promise<unknown>;
-      mutationOptions?: (opts?: unknown) => {
-        mutationFn?: (input: unknown) => Promise<unknown>;
-      };
-    };
-  };
 };
 
 /** Build toolbar items for link nodes. */
@@ -71,7 +59,8 @@ export function LinkNodeView({
   onUpdate,
 }: CanvasNodeViewProps<LinkNodeProps>) {
   const { url, title, description, imageSrc, logoSrc } = element.props;
-  const trpc = useBoardTrpc<LinkPreviewCaller>();
+  /** Mutation handler for link preview capture. */
+  const captureLinkPreview = useMutation(trpc.linkPreview.capture.mutationOptions());
   /** Track the last screenshot request key. */
   const requestedKeyRef = useRef<string | null>(null);
   /** Track in-flight screenshot requests. */
@@ -102,7 +91,7 @@ export function LinkNodeView({
   /** Request a screenshot from the server. */
   const fetchScreenshot = useCallback(
     async (requestKey: string) => {
-      if (!trpc || !url) return;
+      if (!url) return;
       if (requestInFlightRef.current && requestedKeyRef.current === requestKey) return;
       requestInFlightRef.current = true;
       requestedKeyRef.current = requestKey;
@@ -114,25 +103,7 @@ export function LinkNodeView({
           height: DEFAULT_PREVIEW_SIZE.height,
           fullPage: false,
         };
-        const callCapture = async () => {
-          const mutate = trpc.linkPreview?.capture?.mutate;
-          if (typeof mutate === "function") {
-            return mutate(captureInput);
-          }
-          if (typeof trpc.mutation === "function") {
-            return trpc.mutation("linkPreview.capture", captureInput);
-          }
-          const mutationOptions = trpc.linkPreview?.capture?.mutationOptions;
-          if (typeof mutationOptions === "function") {
-            const options = mutationOptions({});
-            if (typeof options?.mutationFn === "function") {
-              return options.mutationFn(captureInput);
-            }
-          }
-          return null;
-        };
-
-        const result = await callCapture();
+        const result = await captureLinkPreview.mutateAsync(captureInput);
         if (!result) return;
         const payload = result as {
           ok?: boolean;
@@ -163,11 +134,11 @@ export function LinkNodeView({
         requestInFlightRef.current = false;
       }
     },
-    [trpc, url]
+    [captureLinkPreview, url]
   );
 
   useEffect(() => {
-    if (!trpc || !url) return;
+    if (!url) return;
     /** Listen for manual refresh requests. */
     const handleRefresh = (event: Event) => {
       const detail = (event as CustomEvent<{ id?: string }>).detail;
@@ -178,7 +149,7 @@ export function LinkNodeView({
     return () => {
       window.removeEventListener("board-link-refresh", handleRefresh);
     };
-  }, [trpc, url, element.id, fetchScreenshot]);
+  }, [url, element.id, fetchScreenshot]);
 
   return (
     <div
