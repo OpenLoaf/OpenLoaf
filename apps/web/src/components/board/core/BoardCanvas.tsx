@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@udecode/cn";
-import { BoardProvider } from "./BoardProvider";
+import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import { MINIMAP_HIDE_DELAY } from "../engine/constants";
 import BoardControls from "../controls/BoardControls";
@@ -31,8 +30,6 @@ import { ConnectorDropPanel, type ConnectorDropItem } from "./ConnectorDropPanel
 import { getWorkspaceIdFromCookie } from "./boardStorage";
 import type { BoardStorageState } from "./boardStorage";
 import { useBoardSnapshot } from "./useBoardSnapshot";
-import type { ImageNodeProps } from "../nodes/ImageNode";
-
 const VIEWPORT_SAVE_DELAY = 800;
 
 export type BoardCanvasProps = {
@@ -99,14 +96,7 @@ export function BoardCanvas({
   /** Timeout id for hiding the minimap. */
   const miniMapTimeoutRef = useRef<number | null>(null);
   /** Image preview payload for the fullscreen viewer. */
-  const [imagePreview, setImagePreview] = useState<{
-    /** Original image data url. */
-    originalSrc: string;
-    /** Preview image data url. */
-    previewSrc: string;
-    /** File name for alt text. */
-    fileName: string;
-  } | null>(null);
+  const [imagePreview, setImagePreview] = useState<ImagePreviewPayload | null>(null);
   /** Last viewport snapshot to detect changes. */
   const lastViewportRef = useRef(snapshot.viewport);
   /** Last panning state to detect transitions. */
@@ -126,37 +116,17 @@ export function BoardCanvas({
     };
   }, [engine]);
 
-  /** Handle double click for image previews. */
-  const handleDoubleClick = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const worldPoint = engine.screenToWorld([
-        event.clientX - rect.left,
-        event.clientY - rect.top,
-      ]);
-      const hit = engine.pickElementAt(worldPoint);
-      if (process.env.NODE_ENV !== "production") {
-        const targetName =
-          event.target instanceof Node ? event.target.nodeName : typeof event.target;
-        console.debug("[BoardCanvas] dblclick", {
-          targetName,
-          hitKind: hit?.kind ?? null,
-          hitType: hit?.type ?? null,
-          hitId: hit?.id ?? null,
-          activeToolId: snapshot.activeToolId ?? null,
-        });
-      }
-      if (!hit || hit.kind !== "node") return;
-      if (hit.type !== "image") return;
-      const props = hit.props as ImageNodeProps;
-      setImagePreview({
-        originalSrc: props.originalSrc,
-        previewSrc: props.previewSrc,
-        fileName: props.fileName,
-      });
-    },
-    [engine, snapshot.activeToolId]
+  const openImagePreview = useCallback((payload: ImagePreviewPayload) => {
+    // 逻辑：节点请求预览时直接替换当前预览数据。
+    setImagePreview(payload);
+  }, []);
+  const closeImagePreview = useCallback(() => {
+    // 逻辑：关闭预览时清空当前预览数据。
+    setImagePreview(null);
+  }, []);
+  const boardActions = useMemo(
+    () => ({ openImagePreview, closeImagePreview }),
+    [openImagePreview, closeImagePreview]
   );
 
   useEffect(() => {
@@ -456,7 +426,7 @@ export function BoardCanvas({
   };
 
   return (
-    <BoardProvider engine={engine}>
+    <BoardProvider engine={engine} actions={boardActions}>
       <div
         ref={containerRef}
         className={cn(
@@ -468,7 +438,6 @@ export function BoardCanvas({
           className
         )}
         tabIndex={0}
-        onDoubleClick={handleDoubleClick}
         onPointerDown={event => {
           // 逻辑：确保画布获取焦点，保证快捷键可用。
           containerRef.current?.focus();
@@ -563,7 +532,7 @@ export function BoardCanvas({
         ? createPortal(
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
-              onClick={() => setImagePreview(null)}
+              onClick={closeImagePreview}
               role="dialog"
               aria-label="Image preview"
             >

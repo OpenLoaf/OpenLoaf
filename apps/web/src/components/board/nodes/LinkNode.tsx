@@ -112,17 +112,9 @@ export function LinkNodeView({
     if (!url) return;
     const state = useTabs.getState();
     const tabId = activeTabId ?? state.activeTabId;
-    if (process.env.NODE_ENV !== "production") {
-      console.debug("[LinkNode] open stack", { tabId, activeTabId, url });
-    }
     if (!tabId) return;
     const tab = state.getTabById(tabId);
-    if (!tab) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("[LinkNode] tab not found", { tabId });
-      }
-      return;
-    }
+    if (!tab) return;
 
     const viewKey = buildBrowserViewKey({
       workspaceId: tab.workspaceId ?? "unknown",
@@ -130,13 +122,6 @@ export function LinkNodeView({
       chatSessionId: tab.chatSessionId ?? "unknown",
       browserTabId: createBrowserTabId(),
     });
-    if (process.env.NODE_ENV !== "production") {
-      console.debug("[LinkNode] push stack", {
-        tabId,
-        viewKey,
-        title: displayTitle,
-      });
-    }
 
     // 逻辑：双击链接节点时在当前 tab 打开浏览器 stack。
     state.pushStackItem(
@@ -222,25 +207,8 @@ export function LinkNodeView({
         "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
         selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",
       ].join(" ")}
-      onClick={(event) => {
-        if (process.env.NODE_ENV !== "production") {
-          const targetName =
-            event.target instanceof Node ? event.target.nodeName : typeof event.target;
-          console.debug("[LinkNode] click", { id: element.id, targetName });
-        }
-      }}
-      onPointerDown={(event) => {
-        if (process.env.NODE_ENV !== "production") {
-          const targetName =
-            event.target instanceof Node ? event.target.nodeName : typeof event.target;
-          console.debug("[LinkNode] pointerdown", { id: element.id, targetName });
-        }
-      }}
       onDoubleClick={(event) => {
         event.stopPropagation();
-        if (process.env.NODE_ENV !== "production") {
-          console.debug("[LinkNode] dblclick", { id: element.id, url });
-        }
         openLinkInStack();
       }}
     >

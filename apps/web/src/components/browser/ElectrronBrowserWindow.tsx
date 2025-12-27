@@ -569,9 +569,13 @@ export default function ElectrronBrowserWindow({
 
   const onClosePanel = () => {
     if (!safeTabId) return;
-    // 关闭整个浏览器面板会同时关闭全部浏览器子标签（并销毁 Electron WebContentsView）。
-    const ok = window.confirm("关闭浏览器将关闭全部标签页，确定继续？");
-    if (!ok) return;
+    // 多标签时才需要提示，单标签直接关闭。
+    const shouldConfirm = tabsRef.current.length > 1;
+    if (shouldConfirm) {
+      // 关闭整个浏览器面板会同时关闭全部浏览器子标签（并销毁 Electron WebContentsView）。
+      const ok = window.confirm("关闭浏览器将关闭全部标签页，确定继续？");
+      if (!ok) return;
+    }
 
     const api = window.teatimeElectron;
     if (isElectron) {

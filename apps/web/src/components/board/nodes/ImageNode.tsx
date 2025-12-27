@@ -6,6 +6,7 @@ import type {
 import { useCallback } from "react";
 import { z } from "zod";
 import { Download, Info } from "lucide-react";
+import { useBoardContext } from "../core/BoardProvider";
 
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
@@ -56,17 +57,17 @@ export function ImageNodeView({
 }: CanvasNodeViewProps<ImageNodeProps>) {
   const previewSrc = element.props.previewSrc;
   const hasPreview = Boolean(previewSrc);
+  /** Board actions for preview requests. */
+  const { actions } = useBoardContext();
   /** Request opening the image preview on the canvas. */
   const requestPreview = useCallback(() => {
-    const previewEvent = new CustomEvent("board-image-preview", {
-      detail: {
-        originalSrc: element.props.originalSrc,
-        previewSrc,
-        fileName: element.props.fileName,
-      },
+    // 逻辑：节点双击触发预览，由 board action 统一接管显示。
+    actions.openImagePreview({
+      originalSrc: element.props.originalSrc,
+      previewSrc,
+      fileName: element.props.fileName,
     });
-    window.dispatchEvent(previewEvent);
-  }, [element.props.fileName, element.props.originalSrc, previewSrc]);
+  }, [actions, element.props.fileName, element.props.originalSrc, previewSrc]);
 
   return (
     <>
