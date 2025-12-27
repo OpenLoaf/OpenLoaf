@@ -9,7 +9,7 @@ import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { usePage } from "@/hooks/use-page";
 import ProjectInfo, { ProjectIntroHeader } from "./intro/ProjectIntro";
-import { ProjectBoardCanvas } from "@teatime-ai/board";
+import { ProjectBoardCanvas } from "@/components/board";
 import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
 import ProjectMaterials, { ProjectMaterialsHeader } from "./ProjectMaterials";
 import ProjectSkills, { ProjectSkillsHeader } from "./ProjectSkills";

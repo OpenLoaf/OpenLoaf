@@ -1,0 +1,254 @@
+import type {
+  CanvasNodeDefinition,
+  CanvasNodeViewProps,
+  CanvasToolbarContext,
+} from "../engine/types";
+import { useCallback, useEffect, useRef } from "react";
+import { z } from "zod";
+import { Info, RotateCw } from "lucide-react";
+import { useBoardTrpc } from "../board/BoardProvider";
+
+/** Default screenshot size for link previews. */
+const DEFAULT_PREVIEW_SIZE = { width: 800, height: 450 };
+
+export type LinkNodeProps = {
+  /** Destination URL. */
+  url: string;
+  /** Title text shown in card mode. */
+  title: string;
+  /** Description text shown in card mode. */
+  description: string;
+  /** Logo URL for title/card mode. */
+  logoSrc: string;
+  /** Preview image URL for card mode. */
+  imageSrc: string;
+  /** Refresh token used to trigger reloads. */
+  refreshToken: number;
+};
+
+type LinkPreviewCaller = {
+  mutation?: (path: string, input: unknown) => Promise<unknown>;
+  linkPreview?: {
+    capture?: {
+      /** Direct mutation call on the link preview router. */
+      mutate?: (input: unknown) => Promise<unknown>;
+      mutationOptions?: (opts?: unknown) => {
+        mutationFn?: (input: unknown) => Promise<unknown>;
+      };
+    };
+  };
+};
+
+/** Build toolbar items for link nodes. */
+function createLinkToolbarItems(ctx: CanvasToolbarContext<LinkNodeProps>) {
+  return [
+    {
+      id: "refresh",
+      label: "刷新",
+      icon: <RotateCw size={14} />,
+      onSelect: () => {
+        if (typeof window !== "undefined") {
+          const refreshEvent = new CustomEvent("board-link-refresh", {
+            detail: { id: ctx.element.id },
+          });
+          window.dispatchEvent(refreshEvent);
+        }
+      },
+    },
+    {
+      id: "inspect",
+      label: "详情",
+      icon: <Info size={14} />,
+      onSelect: () => ctx.openInspector(ctx.element.id),
+    },
+  ];
+}
+
+/** Render a link node with different display modes. */
+export function LinkNodeView({
+  element,
+  selected,
+  onUpdate,
+}: CanvasNodeViewProps<LinkNodeProps>) {
+  const { url, title, description, imageSrc, logoSrc } = element.props;
+  const trpc = useBoardTrpc<LinkPreviewCaller>();
+  /** Track the last screenshot request key. */
+  const requestedKeyRef = useRef<string | null>(null);
+  /** Track in-flight screenshot requests. */
+  const requestInFlightRef = useRef(false);
+  /** Keep the latest node props for async updates. */
+  const propsRef = useRef({ imageSrc, title, description });
+  /** Keep the latest update handler to avoid re-creating callbacks. */
+  const onUpdateRef = useRef(onUpdate);
+  let displayHost = url;
+  try {
+    displayHost = new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    // Keep the raw URL when parsing fails.
+  }
+  const displayTitle = title || displayHost || url;
+  const previewSrc = imageSrc || logoSrc;
+
+  useEffect(() => {
+    // 逻辑：同步最新 props，供异步回调判断是否需要更新。
+    propsRef.current = { imageSrc, title, description };
+  }, [imageSrc, title, description]);
+
+  useEffect(() => {
+    // 逻辑：同步最新 onUpdate，避免闭包引用旧方法。
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
+
+  /** Request a screenshot from the server. */
+  const fetchScreenshot = useCallback(
+    async (requestKey: string) => {
+      if (!trpc || !url) return;
+      if (requestInFlightRef.current && requestedKeyRef.current === requestKey) return;
+      requestInFlightRef.current = true;
+      requestedKeyRef.current = requestKey;
+      try {
+        /** 逻辑：复用请求输入，避免多处拼装参数。 */
+        const captureInput = {
+          url,
+          width: DEFAULT_PREVIEW_SIZE.width,
+          height: DEFAULT_PREVIEW_SIZE.height,
+          fullPage: false,
+        };
+        const callCapture = async () => {
+          const mutate = trpc.linkPreview?.capture?.mutate;
+          if (typeof mutate === "function") {
+            return mutate(captureInput);
+          }
+          if (typeof trpc.mutation === "function") {
+            return trpc.mutation("linkPreview.capture", captureInput);
+          }
+          const mutationOptions = trpc.linkPreview?.capture?.mutationOptions;
+          if (typeof mutationOptions === "function") {
+            const options = mutationOptions({});
+            if (typeof options?.mutationFn === "function") {
+              return options.mutationFn(captureInput);
+            }
+          }
+          return null;
+        };
+
+        const result = await callCapture();
+        if (!result) return;
+        const payload = result as {
+          ok?: boolean;
+          imageUrl?: string;
+          title?: string;
+          description?: string;
+        };
+        if (payload?.ok) {
+          const patch: Partial<LinkNodeProps> = {};
+          const current = propsRef.current;
+          if (payload.imageUrl && current.imageSrc !== payload.imageUrl) {
+            patch.imageSrc = payload.imageUrl;
+          }
+          if (payload.title && payload.title !== current.title) {
+            patch.title = payload.title;
+          }
+          if (payload.description && payload.description !== current.description) {
+            patch.description = payload.description;
+          }
+          if (Object.keys(patch).length > 0) {
+            // 逻辑：只在数据有变化时更新节点，避免重复渲染。
+            onUpdateRef.current(patch);
+          }
+        }
+      } catch {
+        // 逻辑：截图失败时保持静默，避免干扰用户操作。
+      } finally {
+        requestInFlightRef.current = false;
+      }
+    },
+    [trpc, url]
+  );
+
+  useEffect(() => {
+    if (!trpc || !url) return;
+    /** Listen for manual refresh requests. */
+    const handleRefresh = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string }>).detail;
+      if (!detail?.id || detail.id !== element.id) return;
+      void fetchScreenshot(`${url}:manual:${Date.now()}`);
+    };
+    window.addEventListener("board-link-refresh", handleRefresh);
+    return () => {
+      window.removeEventListener("board-link-refresh", handleRefresh);
+    };
+  }, [trpc, url, element.id, fetchScreenshot]);
+
+  return (
+    <div
+      className={[
+        "h-full w-full rounded-xl border box-border",
+        "border-slate-200 bg-white text-slate-900",
+        "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+        selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",
+      ].join(" ")}
+    >
+      <div className="flex h-full w-full">
+        <div className="h-full w-32 shrink-0 overflow-hidden rounded-l-xl bg-slate-100 dark:bg-slate-800">
+          {previewSrc ? (
+            <div className="flex h-full w-full items-center justify-center p-4">
+              <img
+                src={previewSrc}
+                alt={displayTitle}
+                className="max-h-full max-w-full object-contain"
+                draggable={false}
+              />
+            </div>
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
+              Preview
+            </div>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-between p-3">
+          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {displayTitle}
+          </div>
+          <div className="text-xs text-slate-600 dark:text-slate-300">
+            {description || displayHost}
+          </div>
+          <div className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+            {url}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Definition for the link node. */
+export const LinkNodeDefinition: CanvasNodeDefinition<LinkNodeProps> = {
+  type: "link",
+  schema: z.object({
+    url: z.string(),
+    title: z.string(),
+    description: z.string(),
+    logoSrc: z.string(),
+    imageSrc: z.string(),
+    refreshToken: z.number(),
+  }),
+  defaultProps: {
+    url: "",
+    title: "",
+    description: "",
+    logoSrc: "",
+    imageSrc: "",
+    refreshToken: 0,
+  },
+  view: LinkNodeView,
+  capabilities: {
+    resizable: true,
+    rotatable: false,
+    connectable: "anchors",
+    minSize: { w: 220, h: 120 },
+    maxSize: { w: 720, h: 480 },
+  },
+  // Link nodes expose refresh actions in the selection toolbar.
+  toolbar: ctx => createLinkToolbarItems(ctx),
+};

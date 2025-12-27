@@ -1,7 +1,5 @@
 @import "tailwindcss";
-@source "../../../packages/board/src/**/*.{ts,tsx}";
-@source "../../../packages/board/dist/**/*.{js,ts,tsx}";
-@source "../../node_modules/@teatime-ai/board/dist/**/*.{js,ts,tsx}";
+@source "./components/board/**/*.{ts,tsx}";
 
 @plugin "tailwind-scrollbar-hide";
 @import "tw-animate-css";
