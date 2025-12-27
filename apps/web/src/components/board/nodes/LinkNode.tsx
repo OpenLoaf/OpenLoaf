@@ -8,9 +8,26 @@ import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 import { Info, RotateCw } from "lucide-react";
 import { trpc } from "@/utils/trpc";
+import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID, useTabs } from "@/hooks/use-tabs";
 
 /** Default screenshot size for link previews. */
 const DEFAULT_PREVIEW_SIZE = { width: 800, height: 450 };
+
+/** Create a unique browser sub-tab id. */
+function createBrowserTabId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+/** Build the browser view key for stack entries. */
+function buildBrowserViewKey(input: {
+  workspaceId: string;
+  tabId: string;
+  chatSessionId: string;
+  browserTabId: string;
+}) {
+  return `browser:${input.workspaceId}:${input.tabId}:${input.chatSessionId}:${input.browserTabId}`;
+}
 
 export type LinkNodeProps = {
   /** Destination URL. */
@@ -77,6 +94,8 @@ export function LinkNodeView({
   }
   const displayTitle = title || displayHost || url;
   const previewSrc = imageSrc || logoSrc;
+  /** Active tab id used for stack operations. */
+  const activeTabId = useTabs((state) => state.activeTabId);
 
   useEffect(() => {
     // 逻辑：同步最新 props，供异步回调判断是否需要更新。
@@ -87,6 +106,50 @@ export function LinkNodeView({
     // 逻辑：同步最新 onUpdate，避免闭包引用旧方法。
     onUpdateRef.current = onUpdate;
   }, [onUpdate]);
+
+  /** Open the link in the current tab's browser stack. */
+  const openLinkInStack = useCallback(() => {
+    if (!url) return;
+    const state = useTabs.getState();
+    const tabId = activeTabId ?? state.activeTabId;
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[LinkNode] open stack", { tabId, activeTabId, url });
+    }
+    if (!tabId) return;
+    const tab = state.getTabById(tabId);
+    if (!tab) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[LinkNode] tab not found", { tabId });
+      }
+      return;
+    }
+
+    const viewKey = buildBrowserViewKey({
+      workspaceId: tab.workspaceId ?? "unknown",
+      tabId,
+      chatSessionId: tab.chatSessionId ?? "unknown",
+      browserTabId: createBrowserTabId(),
+    });
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[LinkNode] push stack", {
+        tabId,
+        viewKey,
+        title: displayTitle,
+      });
+    }
+
+    // 逻辑：双击链接节点时在当前 tab 打开浏览器 stack。
+    state.pushStackItem(
+      tabId,
+      {
+        component: BROWSER_WINDOW_COMPONENT,
+        id: BROWSER_WINDOW_PANEL_ID,
+        sourceKey: BROWSER_WINDOW_PANEL_ID,
+        params: { __customHeader: true, __open: { url, title: displayTitle, viewKey } },
+      } as any,
+      100
+    );
+  }, [activeTabId, displayTitle, url]);
 
   /** Request a screenshot from the server. */
   const fetchScreenshot = useCallback(
@@ -159,6 +222,27 @@ export function LinkNodeView({
         "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
         selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",
       ].join(" ")}
+      onClick={(event) => {
+        if (process.env.NODE_ENV !== "production") {
+          const targetName =
+            event.target instanceof Node ? event.target.nodeName : typeof event.target;
+          console.debug("[LinkNode] click", { id: element.id, targetName });
+        }
+      }}
+      onPointerDown={(event) => {
+        if (process.env.NODE_ENV !== "production") {
+          const targetName =
+            event.target instanceof Node ? event.target.nodeName : typeof event.target;
+          console.debug("[LinkNode] pointerdown", { id: element.id, targetName });
+        }
+      }}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        if (process.env.NODE_ENV !== "production") {
+          console.debug("[LinkNode] dblclick", { id: element.id, url });
+        }
+        openLinkInStack();
+      }}
     >
       <div className="flex h-full w-full">
         <div className="h-full w-32 shrink-0 overflow-hidden rounded-l-xl bg-slate-100 dark:bg-slate-800">

@@ -120,6 +120,7 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
   view: ImageNodeView,
   capabilities: {
     resizable: true,
+    resizeMode: "uniform",
     rotatable: false,
     connectable: "anchors",
     minSize: { w: 160, h: 120 },

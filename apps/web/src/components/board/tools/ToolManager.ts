@@ -13,6 +13,8 @@ export class ToolManager {
   private readonly engine: CanvasEngine;
   /** Whether middle-button panning is active. */
   private middlePanning = false;
+  /** Pointer capture target for the active interaction. */
+  private pointerCaptureTarget: Element | null = null;
 
   /** Create a new tool manager. */
   constructor(engine: CanvasEngine) {
@@ -52,9 +54,10 @@ export class ToolManager {
     const ctx = this.buildContext(event);
     if (!ctx) return;
 
-    const target = event.currentTarget;
-    if (target instanceof HTMLElement) {
-      target.setPointerCapture(event.pointerId);
+    const captureTarget = this.resolvePointerCaptureTarget(event.target, event.currentTarget);
+    if (captureTarget) {
+      captureTarget.setPointerCapture(event.pointerId);
+      this.pointerCaptureTarget = captureTarget;
     }
 
     const pendingInsert = this.engine.getPendingInsert();
@@ -116,9 +119,14 @@ export class ToolManager {
       return;
     }
 
-    const target = event.currentTarget;
-    if (target instanceof HTMLElement) {
-      target.releasePointerCapture(event.pointerId);
+    if (this.pointerCaptureTarget) {
+      this.pointerCaptureTarget.releasePointerCapture(event.pointerId);
+      this.pointerCaptureTarget = null;
+    } else {
+      const target = event.currentTarget;
+      if (target instanceof Element) {
+        target.releasePointerCapture(event.pointerId);
+      }
     }
     if (this.middlePanning) {
       this.tools.get("hand")?.onPointerUp?.(ctx);
@@ -157,5 +165,22 @@ export class ToolManager {
       screenPoint,
       worldPoint,
     };
+  }
+
+  /** Resolve the element that should receive pointer capture. */
+  private resolvePointerCaptureTarget(
+    target: EventTarget | null,
+    fallback: EventTarget | null
+  ): Element | null {
+    const element =
+      target instanceof Element
+        ? target
+        : target instanceof Node
+          ? target.parentElement
+          : null;
+    if (element?.closest("[data-board-node]")) {
+      return element;
+    }
+    return fallback instanceof Element ? fallback : null;
   }
 }

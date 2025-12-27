@@ -136,7 +136,19 @@ export function BoardCanvas({
         event.clientY - rect.top,
       ]);
       const hit = engine.pickElementAt(worldPoint);
-      if (!hit || hit.kind !== "node" || hit.type !== "image") return;
+      if (process.env.NODE_ENV !== "production") {
+        const targetName =
+          event.target instanceof Node ? event.target.nodeName : typeof event.target;
+        console.debug("[BoardCanvas] dblclick", {
+          targetName,
+          hitKind: hit?.kind ?? null,
+          hitType: hit?.type ?? null,
+          hitId: hit?.id ?? null,
+          activeToolId: snapshot.activeToolId ?? null,
+        });
+      }
+      if (!hit || hit.kind !== "node") return;
+      if (hit.type !== "image") return;
       const props = hit.props as ImageNodeProps;
       setImagePreview({
         originalSrc: props.originalSrc,
@@ -144,7 +156,7 @@ export function BoardCanvas({
         fileName: props.fileName,
       });
     },
-    [engine]
+    [engine, snapshot.activeToolId]
   );
 
   useEffect(() => {

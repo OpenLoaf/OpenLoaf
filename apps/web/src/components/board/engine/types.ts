@@ -272,6 +272,8 @@ export type CanvasNodeViewProps<P> = {
 export type CanvasNodeCapabilities = {
   /** Allow resize handles on this node. */
   resizable?: boolean;
+  /** Resize behavior for single-node handles (ratio-range uses minSize/maxSize ratios). */
+  resizeMode?: "free" | "uniform" | "ratio-range";
   /** Allow rotation handles on this node. */
   rotatable?: boolean;
   /** Allow connecting to this node. */

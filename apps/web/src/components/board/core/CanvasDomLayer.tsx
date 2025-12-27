@@ -78,7 +78,7 @@ export function CanvasDomLayer({ engine, snapshot }: CanvasDomLayerProps) {
               data-board-node
               data-node-type={element.type}
               data-selected={selected || undefined}
-              className="pointer-events-auto absolute"
+              className="pointer-events-auto absolute select-none"
               style={{
                 left,
                 top,
@@ -176,6 +176,10 @@ function ResizeHandle({ engine, element, isDragging }: ResizeHandleProps) {
     const definition = engine.nodes.getDefinition(element.type);
     const minSize = definition?.capabilities?.minSize ?? { w: 80, h: 60 };
     const maxSize = definition?.capabilities?.maxSize;
+    const resizeMode = definition?.capabilities?.resizeMode ?? "free";
+    const useRatioRange = resizeMode === "ratio-range" && Boolean(maxSize);
+    const useUniformResize =
+      resizeMode === "uniform" || (resizeMode === "ratio-range" && !maxSize);
 
     engine.setDraggingElementId(element.id);
     engine.setAlignmentGuides([]);
@@ -188,12 +192,11 @@ function ResizeHandle({ engine, element, isDragging }: ResizeHandleProps) {
       const nextWorld = engine.screenToWorld(nextPoint);
       const dx = nextWorld[0] - startWorld[0];
       const dy = nextWorld[1] - startWorld[1];
-      const isImageNode = element.type === "image";
+      const useWidth = Math.abs(dx) >= Math.abs(dy);
       let nextW = startW + dx;
       let nextH = startH + dy;
-      if (isImageNode) {
-        // 逻辑：图片缩放按统一比例，确保始终保持原始宽高比。
-        const useWidth = Math.abs(dx) >= Math.abs(dy);
+      if (useUniformResize) {
+        // 逻辑：等比例缩放时按统一比例计算，确保宽高比不变。
         const rawScale = useWidth
           ? (startW + dx) / startW
           : (startH + dy) / startH;
@@ -207,6 +210,25 @@ function ResizeHandle({ engine, element, isDragging }: ResizeHandleProps) {
         const scale = Math.min(maxScale, Math.max(minScale, rawScale));
         nextW = startW * scale;
         nextH = startH * scale;
+      } else if (useRatioRange && maxSize) {
+        // 逻辑：按拖拽主轴在 min/max 区间线性插值宽高比。
+        const minRatio = minSize.w / Math.max(minSize.h, 1);
+        const maxRatio = maxSize.w / Math.max(maxSize.h, 1);
+        if (useWidth) {
+          const clampedW = Math.min(maxSize.w, Math.max(minSize.w, nextW));
+          const widthRange = maxSize.w - minSize.w;
+          const t = widthRange === 0 ? 0 : (clampedW - minSize.w) / widthRange;
+          const ratio = minRatio + (maxRatio - minRatio) * t;
+          nextW = clampedW;
+          nextH = clampedW / Math.max(ratio, 0.001);
+        } else {
+          const clampedH = Math.min(maxSize.h, Math.max(minSize.h, nextH));
+          const heightRange = maxSize.h - minSize.h;
+          const t = heightRange === 0 ? 0 : (clampedH - minSize.h) / heightRange;
+          const ratio = minRatio + (maxRatio - minRatio) * t;
+          nextH = clampedH;
+          nextW = clampedH * ratio;
+        }
       }
       // 逻辑：保持最小尺寸，避免节点缩放到不可操作。
       const baseRect = {
@@ -237,8 +259,16 @@ function ResizeHandle({ engine, element, isDragging }: ResizeHandleProps) {
           return { x, y, w: width, h: height };
         });
 
-      if (isImageNode) {
-        // 逻辑：图片保持比例时不参与吸附，避免吸附调整破坏比例。
+      if (useUniformResize) {
+        // 逻辑：等比例缩放时不参与吸附，避免吸附调整破坏比例。
+        engine.doc.updateElement(element.id, {
+          xywh: [clampedRect.x, clampedRect.y, clampedRect.w, clampedRect.h],
+        });
+        engine.setAlignmentGuides([]);
+        return;
+      }
+      if (useRatioRange) {
+        // 逻辑：比例区间缩放时不参与吸附，避免吸附调整破坏比例。
         engine.doc.updateElement(element.id, {
           xywh: [clampedRect.x, clampedRect.y, clampedRect.w, clampedRect.h],
         });
