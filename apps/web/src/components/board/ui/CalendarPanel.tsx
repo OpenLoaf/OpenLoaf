@@ -27,15 +27,10 @@ export default function CalendarPanel(props: {
   const themeStyle = useMemo(
     () =>
       ({
-        // @ts-expect-error: DayPicker 支持 CSS 变量自定义
         "--rdp-accent-color": "#0f172a",
-        // @ts-expect-error: DayPicker 支持 CSS 变量自定义
         "--rdp-accent-background-color": "#e2e8f0",
-        // @ts-expect-error: DayPicker 支持 CSS 变量自定义
         "--rdp-range-middle-background-color": "#f1f5f9",
-        // @ts-expect-error: DayPicker 支持 CSS 变量自定义
         "--rdp-outline": "2px solid #0f172a",
-        // @ts-expect-error: DayPicker 支持 CSS 变量自定义
         "--rdp-cell-size": `${cellSize}px`,
       }) as CSSProperties,
     [cellSize]

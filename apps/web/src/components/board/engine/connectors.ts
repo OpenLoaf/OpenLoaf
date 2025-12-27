@@ -96,7 +96,11 @@ function buildConnectorEndpointUpdate(
     [role]: normalizedEnd,
     ...(nextXYWH ? { xywh: nextXYWH } : {}),
   };
-  return { update, sourcePoint, targetPoint };
+  return {
+    update,
+    sourcePoint: sourcePoint ?? undefined,
+    targetPoint: targetPoint ?? undefined,
+  };
 }
 
 /** Resolve connector endpoints for connector previews. */

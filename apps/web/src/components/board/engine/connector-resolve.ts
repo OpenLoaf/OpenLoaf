@@ -25,13 +25,15 @@ function resolveConnectorEndpointsWithBounds(
     if (bounds) boundsMap[target.elementId] = bounds;
   }
   const resolved = resolveConnectorEndpointsSmart(source, target, anchors, boundsMap);
+  const sourceAnchorId =
+    "elementId" in source ? source.anchorId ?? resolved.sourceAnchorId : resolved.sourceAnchorId;
+  const targetAnchorId =
+    "elementId" in target ? target.anchorId ?? resolved.targetAnchorId : resolved.targetAnchorId;
   return {
     source: resolved.source,
     target: resolved.target,
-    sourceAnchorId:
-      "elementId" in source && !source.anchorId ? resolved.sourceAnchorId : source.anchorId,
-    targetAnchorId:
-      "elementId" in target && !target.anchorId ? resolved.targetAnchorId : target.anchorId,
+    sourceAnchorId,
+    targetAnchorId,
   };
 }
 

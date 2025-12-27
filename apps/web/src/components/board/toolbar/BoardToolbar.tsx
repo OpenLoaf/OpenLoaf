@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import type { ChangeEvent, CSSProperties } from "react";
+import type { ChangeEvent, CSSProperties, ReactElement } from "react";
 import { cn } from "@udecode/cn";
 import { Calendar, Hand } from "lucide-react";
 
@@ -32,7 +32,7 @@ type InsertItem = {
   id: string;
   title: string;
   description: string;
-  icon: (props: IconProps) => JSX.Element;
+  icon: (props: IconProps) => ReactElement;
   /** Node type inserted by this item. */
   nodeType?: string;
   /** Optional custom props for the inserted node. */
@@ -45,7 +45,7 @@ type ShapeItem = {
   id: string;
   title: string;
   description: string;
-  icon: (props: IconProps) => JSX.Element;
+  icon: (props: IconProps) => ReactElement;
   size: [number, number];
 };
 
@@ -168,6 +168,11 @@ function HandIcon({ size = 20, className }: IconProps) {
   return (
     <Hand size={size} className={className} style={{ userSelect: "none", flexShrink: 0 }} />
   );
+}
+
+/** Render the calendar icon with shared sizing props. */
+function CalendarIcon(props: IconProps) {
+  return <Calendar {...props} />;
 }
 
 function ShapeIcon({ size = 20, className }: IconProps) {
@@ -488,7 +493,7 @@ const INSERT_ITEMS: InsertItem[] = [
     id: "calendar",
     title: "Calendar",
     description: "Calendar panel block.",
-    icon: Calendar,
+    icon: CalendarIcon,
     nodeType: "calendar",
     props: {},
     size: [360, 320],

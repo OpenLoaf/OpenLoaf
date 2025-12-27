@@ -21,7 +21,7 @@ import {
   MIN_ZOOM,
   STROKE_HIT_RADIUS,
 } from "./constants";
-import type { NodeRegistry } from "../NodeRegistry";
+import type { NodeRegistry } from "./NodeRegistry";
 import { resolveConnectorEndpointsWithBounds } from "./connector-resolve";
 import {
   buildConnectorPath,
@@ -357,7 +357,7 @@ function resolveConnectorPoint(
 function computeConnectorBounds(
   source: CanvasPoint,
   target: CanvasPoint,
-  style: "curve" | "elbow",
+  style: CanvasConnectorStyle,
   sourceAnchorId?: string,
   targetAnchorId?: string
 ): { x: number; y: number; w: number; h: number } {

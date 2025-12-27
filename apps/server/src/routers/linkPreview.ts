@@ -79,7 +79,8 @@ function parseTagAttributes(tag: string): Record<string, string> {
   const attrPattern = /([a-zA-Z:-]+)\s*=\s*(".*?"|'.*?'|[^'"\s>]+)/g;
   let match: RegExpExecArray | null;
   while ((match = attrPattern.exec(tag))) {
-    const name = match[1].toLowerCase();
+    const name = match[1]?.toLowerCase();
+    if (!name) continue;
     let value = match[2] ?? "";
     if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1);
@@ -109,7 +110,8 @@ function extractTitle(html: string): string {
   const metaTitle = extractMetaContent(html, ["og:title", "twitter:title", "title"]);
   if (metaTitle) return metaTitle;
   const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  return match ? normalizeText(match[1]) : "";
+  const rawTitle = match?.[1];
+  return rawTitle ? normalizeText(rawTitle) : "";
 }
 
 /** Extract description text from HTML. */

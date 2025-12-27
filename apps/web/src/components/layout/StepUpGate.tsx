@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import { LoadingScreen } from "@/components/layout/LoadingScreen";
 import { useSetting } from "@/hooks/use-settings";
 import { WebSettingDefs } from "@/lib/setting-defs";
 
-const STEP_UP_ROUTE = "/step-up";
+/** Step-up flow route path. */
+const STEP_UP_ROUTE = "/step-up" as Route;
 
 /** Determine whether the route targets the step-up flow. */
 function isStepUpRoute(pathname: string) {

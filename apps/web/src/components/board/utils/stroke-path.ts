@@ -36,7 +36,11 @@ export function buildStrokeOutline(
   if (points.length === 0) return [];
   const strokeOptions =
     options.tool === "highlighter" ? HIGHLIGHTER_STROKE_OPTIONS : PEN_STROKE_OPTIONS;
-  const outline = getStroke(points, {
+  const strokePoints = points.map(([x, y, pressure]) =>
+    pressure === undefined ? { x, y } : { x, y, pressure }
+  );
+  // 逻辑：将画笔点转换为库可识别的格式，避免可选压力值引发类型错误。
+  const outline = getStroke(strokePoints, {
     ...strokeOptions,
     size: options.size,
     last: true,

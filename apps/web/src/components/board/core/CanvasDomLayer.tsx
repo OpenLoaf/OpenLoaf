@@ -45,7 +45,7 @@ export function CanvasDomLayer({ engine, snapshot }: CanvasDomLayerProps) {
         pendingInsertPoint[1] - pendingInsertSize[1] / 2,
         pendingInsertSize[0],
         pendingInsertSize[1],
-      ] as const)
+      ] as [number, number, number, number])
     : null;
 
   return (
@@ -116,7 +116,7 @@ export function CanvasDomLayer({ engine, snapshot }: CanvasDomLayerProps) {
             </div>
           );
         })}
-      {PendingInsertView && pendingInsertXYWH ? (
+      {PendingInsertView && pendingInsert && pendingInsertXYWH ? (
         <div
           data-board-node-preview
           className="pointer-events-none absolute opacity-70"
@@ -129,7 +129,6 @@ export function CanvasDomLayer({ engine, snapshot }: CanvasDomLayerProps) {
         >
           <div className="h-full w-full">
             <PendingInsertView
-              // @ts-expect-error preview-only element wrapper
               element={{
                 id: "pending-insert-preview",
                 kind: "node",

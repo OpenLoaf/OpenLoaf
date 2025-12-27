@@ -389,9 +389,6 @@ importers:
       '@teatime-ai/api':
         specifier: workspace:*
         version: link:../../packages/api
-      '@teatime-ai/board':
-        specifier: workspace:*
-        version: link:../../packages/board
       '@trpc/client':
         specifier: 'catalog:'
         version: 11.8.0(@trpc/server@11.8.0(typescript@5.9.3))(typescript@5.9.3)
@@ -607,46 +604,6 @@ importers:
       '@teatime-ai/config':
         specifier: workspace:*
         version: link:../config
-
-  packages/board:
-    dependencies:
-      '@teatime-ai/api':
-        specifier: workspace:*
-        version: link:../api
-      '@trpc/client':
-        specifier: 'catalog:'
-        version: 11.8.0(@trpc/server@11.8.0(typescript@5.9.3))(typescript@5.9.3)
-      '@udecode/cn':
-        specifier: ^52.0.11
-        version: 52.0.11(@types/react@19.2.7)(class-variance-authority@0.7.1)(react-dom@19.1.2(react@19.1.2))(react@19.1.2)(tailwind-merge@3.4.0)
-      lucide-react:
-        specifier: ^0.560.0
-        version: 0.560.0(react@19.1.2)
-      perfect-freehand:
-        specifier: ^1.2.0
-        version: 1.2.0
-      react:
-        specifier: '>=18'
-        version: 19.1.2
-      react-day-picker:
-        specifier: ^9.7.0
-        version: 9.13.0(react@19.1.2)
-      react-dom:
-        specifier: '>=18'
-        version: 19.1.2(react@19.1.2)
-      zod:
-        specifier: ^4.1.0
-        version: 4.2.1
-    devDependencies:
-      '@teatime-ai/config':
-        specifier: workspace:*
-        version: link:../config
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      tailwindcss:
-        specifier: ^4.1.10
-        version: 4.1.18
 
   packages/config:
     dependencies:
