@@ -49,475 +49,9 @@ type ShapeItem = {
   size: [number, number];
 };
 
-const AFFINE_BRUSH_SVG = `<svg
-  width="36"
-  height="60"
-  viewBox="0 0 36 60"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
->
-  <g filter="url(#filter0_d_5310_64454)">
-    <path
-      d="M8 38.8965L12.2828 37.4689V106.538H8V38.8965Z"
-      fill="currentColor"
-    />
-    <path
-      d="M8 38.8965L12.2828 37.4689V106.538H8V38.8965Z"
-      fill="white"
-      fill-opacity="0.1"
-    />
-    <path
-      d="M12.2832 36.993H17.5177V106.538H12.2832V36.993Z"
-      fill="currentColor"
-    />
-    <path
-      d="M17.5176 36.993H22.7521V106.538H17.5176V36.993Z"
-      fill="currentColor"
-    />
-    <path
-      d="M17.5176 36.993H22.7521V106.538H17.5176V36.993Z"
-      fill="black"
-      fill-opacity="0.1"
-    />
-    <path
-      d="M22.752 30.9448L27.0347 38.8965V106.538H22.752V30.9448Z"
-      fill="currentColor"
-    />
-    <path
-      d="M22.752 30.9448L27.0347 38.8965V106.538H22.752V30.9448Z"
-      fill="black"
-      fill-opacity="0.2"
-    />
-    <path
-      d="M16.5909 2.88078C16.8233 1.90625 18.2099 1.90623 18.4423 2.88075L19.896 8.97414L22.2755 18.9483L27.0345 38.8965L23.9871 38.0231C23.1982 37.7969 22.3511 37.9039 21.6431 38.3189L18.023 40.4414C17.7107 40.6245 17.3238 40.6245 17.0115 40.4414L13.0218 38.1023C12.5499 37.8256 11.9851 37.7543 11.4592 37.905L8 38.8965L12.7583 18.9483L15.1374 8.97414L16.5909 2.88078Z"
-      fill="#F1F1F1"
-    />
-    <path
-      d="M16.5909 2.88078C16.8233 1.90625 18.2099 1.90623 18.4423 2.88075L19.896 8.97414L22.2755 18.9483L27.0345 38.8965L23.9871 38.0231C23.1982 37.7969 22.3511 37.9039 21.6431 38.3189L18.023 40.4414C17.7107 40.6245 17.3238 40.6245 17.0115 40.4414L13.0218 38.1023C12.5499 37.8256 11.9851 37.7543 11.4592 37.905L8 38.8965L12.7583 18.9483L15.1374 8.97414L16.5909 2.88078Z"
-      fill="url(#paint0_linear_5310_64454)"
-      fill-opacity="0.1"
-    />
-    <g filter="url(#filter1_b_5310_64454)">
-      <path
-        d="M16.7391 2.26209C16.9345 1.44293 18.1 1.44293 18.2954 2.26209L20.3725 10.969H14.6621L16.7391 2.26209Z"
-        fill="currentColor"
-      />
-    </g>
-  </g>
-  <defs>
-    <filter
-      id="filter0_d_5310_64454"
-      x="0"
-      y="-5"
-      width="35.0352"
-      height="124"
-      filterUnits="userSpaceOnUse"
-      color-interpolation-filters="sRGB"
-    >
-      <feFlood flood-opacity="0" result="BackgroundImageFix" />
-      <feColorMatrix
-        in="SourceAlpha"
-        type="matrix"
-        values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-        result="hardAlpha"
-      />
-      <feOffset dy="4" />
-      <feGaussianBlur stdDeviation="4" />
-      <feComposite in2="hardAlpha" operator="out" />
-      <feColorMatrix
-        type="matrix"
-        values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0"
-      />
-      <feBlend
-        mode="normal"
-        in2="BackgroundImageFix"
-        result="effect1_dropShadow_5310_64454"
-      />
-      <feBlend
-        mode="normal"
-        in="SourceGraphic"
-        in2="effect1_dropShadow_5310_64454"
-        result="shape"
-      />
-    </filter>
-    <filter
-      id="filter1_b_5310_64454"
-      x="12.7587"
-      y="-0.255743"
-      width="9.51686"
-      height="13.1282"
-      filterUnits="userSpaceOnUse"
-      color-interpolation-filters="sRGB"
-    >
-      <feFlood flood-opacity="0" result="BackgroundImageFix" />
-      <feGaussianBlur in="BackgroundImageFix" stdDeviation="0.951724" />
-      <feComposite
-        in2="SourceAlpha"
-        operator="in"
-        result="effect1_backgroundBlur_5310_64454"
-      />
-      <feBlend
-        mode="normal"
-        in="SourceGraphic"
-        in2="effect1_backgroundBlur_5310_64454"
-        result="shape"
-      />
-    </filter>
-    <linearGradient
-      id="paint0_linear_5310_64454"
-      x1="22.1949"
-      y1="19.2552"
-      x2="11.0983"
-      y2="21.5941"
-      gradientUnits="userSpaceOnUse"
-    >
-      <stop />
-      <stop offset="0.3125" stop-opacity="0" />
-      <stop offset="1" stop-opacity="0" />
-    </linearGradient>
-  </defs>
-</svg>`;
-
-const AFFINE_HIGHLIGHTER_SVG = `<svg
-  xmlns="http://www.w3.org/2000/svg"
-  width="29"
-  height="63"
-  viewBox="0 0 29 63"
-  fill="none"
->
-  <g filter="url(#filter0_d_4665_35356)">
-    <g filter="url(#filter1_i_4665_35356)">
-      <path
-        d="M11.4922 5.7205C11.4922 5.2902 11.7675 4.90814 12.1756 4.77193L16.1689 3.43934C16.8165 3.22323 17.4855 3.70522 17.4855 4.38792V12H11.4922V5.7205Z"
-        fill="currentColor"
-      />
-    </g>
-    <rect x="4.5" y="32.5" width="20" height="75.5" fill="#F3F3F3" />
-    <rect
-      x="4.5"
-      y="32.5"
-      width="20"
-      height="75.5"
-      fill="url(#paint0_linear_4665_35356)"
-      fill-opacity="0.1"
-    />
-    <path
-      d="M9.24747 11.5H19.7525V13.3774C19.7525 19.0605 20.9635 24.6784 23.3049 29.8568L24.5 32.5H4.5L5.69508 29.8568C8.03645 24.6784 9.24747 19.0605 9.24747 13.3774V11.5Z"
-      fill="#FAFAFA"
-    />
-    <path
-      d="M9.24747 11.5H19.7525V13.3774C19.7525 19.0605 20.9635 24.6784 23.3049 29.8568L24.5 32.5H4.5L5.69508 29.8568C8.03645 24.6784 9.24747 19.0605 9.24747 13.3774V11.5Z"
-      fill="url(#paint1_linear_4665_35356)"
-      fill-opacity="0.1"
-    />
-    <rect x="4.5" y="37" width="20" height="8" fill="currentColor" />
-    <rect
-      x="4.5"
-      y="37"
-      width="20"
-      height="8"
-      fill="url(#paint2_linear_4665_35356)"
-      fill-opacity="0.2"
-    />
-  </g>
-  <defs>
-    <filter
-      id="filter0_d_4665_35356"
-      x="0.5"
-      y="0"
-      width="28"
-      height="116"
-      filterUnits="userSpaceOnUse"
-      color-interpolation-filters="sRGB"
-    >
-      <feFlood flood-opacity="0" result="BackgroundImageFix" />
-      <feColorMatrix
-        in="SourceAlpha"
-        type="matrix"
-        values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-        result="hardAlpha"
-      />
-      <feOffset dy="4" />
-      <feGaussianBlur stdDeviation="2" />
-      <feComposite in2="hardAlpha" operator="out" />
-      <feColorMatrix
-        type="matrix"
-        values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"
-      />
-      <feBlend
-        mode="normal"
-        in2="BackgroundImageFix"
-        result="effect1_dropShadow_4665_35356"
-      />
-      <feBlend
-        mode="normal"
-        in="SourceGraphic"
-        in2="effect1_dropShadow_4665_35356"
-        result="shape"
-      />
-    </filter>
-    <filter
-      id="filter1_i_4665_35356"
-      x="11.4922"
-      y="3.39331"
-      width="5.99335"
-      height="8.60669"
-      filterUnits="userSpaceOnUse"
-      color-interpolation-filters="sRGB"
-    >
-      <feFlood flood-opacity="0" result="BackgroundImageFix" />
-      <feBlend
-        mode="normal"
-        in="SourceGraphic"
-        in2="BackgroundImageFix"
-        result="shape"
-      />
-      <feColorMatrix
-        in="SourceAlpha"
-        type="matrix"
-        values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-        result="hardAlpha"
-      />
-      <feOffset dy="-0.0468842" />
-      <feGaussianBlur stdDeviation="0.781404" />
-      <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" />
-      <feColorMatrix
-        type="matrix"
-        values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0"
-      />
-      <feBlend mode="normal" in2="shape" result="effect1_innerShadow_4665_35356" />
-    </filter>
-    <linearGradient
-      id="paint0_linear_4665_35356"
-      x1="14.5"
-      y1="32.5"
-      x2="14.5"
-      y2="108"
-      gradientUnits="userSpaceOnUse"
-    >
-      <stop stop-color="white" />
-      <stop offset="1" stop-opacity="0" />
-    </linearGradient>
-    <linearGradient
-      id="paint1_linear_4665_35356"
-      x1="14.5"
-      y1="11.5"
-      x2="14.5"
-      y2="32.5"
-      gradientUnits="userSpaceOnUse"
-    >
-      <stop stop-opacity="0" />
-      <stop offset="1" />
-    </linearGradient>
-    <linearGradient
-      id="paint2_linear_4665_35356"
-      x1="14.5"
-      y1="37"
-      x2="14.5"
-      y2="45"
-      gradientUnits="userSpaceOnUse"
-    >
-      <stop stop-color="white" />
-      <stop offset="1" stop-opacity="0" />
-    </linearGradient>
-  </defs>
-</svg>`;
-
-const AFFINE_ERASER_SVG = `<svg
-  width="44"
-  height="49"
-  viewBox="0 0 44 49"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
-  id="edgeless-eraser-icon"
->
-  <g filter="url(#filter0_d_5310_64451)">
-    <rect x="6" y="2" width="32" height="59" rx="5.75" fill="#F1F1F1" />
-    <rect x="6.5" y="2.5" width="31" height="58" rx="5.25" stroke="#E3E2E4" />
-  </g>
-  <g filter="url(#filter1_f_5310_64451)">
-    <rect
-      x="36.2002"
-      y="4.44995"
-      width="18.4"
-      height="3.45"
-      rx="1.725"
-      transform="rotate(90 36.2002 4.44995)"
-      fill="white"
-      fill-opacity="0.78"
-    />
-  </g>
-  <g filter="url(#filter2_f_5310_64451)">
-    <path
-      d="M4 60H40V22C40 18.6863 37.3137 16 34 16H10C6.68629 16 4 18.6863 4 22V60Z"
-      fill="#343434"
-      fill-opacity="0.22"
-    />
-  </g>
-  <path
-    d="M16.5 16.5H11H9.37046C8.79521 16.5 8.29403 16.8921 8.15566 17.4505L8.14174 17.5067C7.93847 18.3269 7.27583 18.9534 6.44553 19.1105C5.89708 19.2142 5.5 19.6934 5.5 20.2516V21.75V27.5V39V61.5H16.5V16.5Z"
-    fill="#173654"
-  />
-  <path
-    d="M16.5 16.5H11H9.37046C8.79521 16.5 8.29403 16.8921 8.15566 17.4505L8.14174 17.5067C7.93847 18.3269 7.27583 18.9534 6.44553 19.1105C5.89708 19.2142 5.5 19.6934 5.5 20.2516V21.75V27.5V39V61.5H16.5V16.5Z"
-    fill="url(#paint0_linear_5310_64451)"
-    fill-opacity="0.2"
-  />
-  <path
-    d="M16.5 16.5H11H9.37046C8.79521 16.5 8.29403 16.8921 8.15566 17.4505L8.14174 17.5067C7.93847 18.3269 7.27583 18.9534 6.44553 19.1105C5.89708 19.2142 5.5 19.6934 5.5 20.2516V21.75V27.5V39V61.5H16.5V16.5Z"
-    stroke="#E7E7E7"
-  />
-  <path
-    d="M27.5 16.5H33H34.6295C35.2048 16.5 35.706 16.8921 35.8443 17.4505L35.8583 17.5067C36.0615 18.3269 36.7242 18.9534 37.5545 19.1105C38.1029 19.2142 38.5 19.6934 38.5 20.2516V21.75V27.5V39V61.5H27.5V16.5Z"
-    fill="#1E96EB"
-  />
-  <path
-    d="M27.5 16.5H33H34.6295C35.2048 16.5 35.706 16.8921 35.8443 17.4505L35.8583 17.5067C36.0615 18.3269 36.7242 18.9534 37.5545 19.1105C38.1029 19.2142 38.5 19.6934 38.5 20.2516V21.75V27.5V39V61.5H27.5V16.5Z"
-    fill="url(#paint1_linear_5310_64451)"
-    fill-opacity="0.2"
-  />
-  <path
-    d="M27.5 16.5H33H34.6295C35.2048 16.5 35.706 16.8921 35.8443 17.4505L35.8583 17.5067C36.0615 18.3269 36.7242 18.9534 37.5545 19.1105C38.1029 19.2142 38.5 19.6934 38.5 20.2516V21.75V27.5V39V61.5H27.5V16.5Z"
-    stroke="#E7E7E7"
-  />
-  <rect
-    x="-0.5"
-    y="0.5"
-    width="11"
-    height="45"
-    transform="matrix(-1 0 0 1 27 16)"
-    fill="#EFFAFF"
-  />
-  <rect
-    x="-0.5"
-    y="0.5"
-    width="11"
-    height="45"
-    transform="matrix(-1 0 0 1 27 16)"
-    fill="url(#paint2_linear_5310_64451)"
-    fill-opacity="0.2"
-  />
-  <rect
-    x="-0.5"
-    y="0.5"
-    width="11"
-    height="45"
-    transform="matrix(-1 0 0 1 27 16)"
-    stroke="#E7E7E7"
-  />
-  <defs>
-    <filter
-      id="filter0_d_5310_64451"
-      x="2"
-      y="2"
-      width="40"
-      height="67"
-      filterUnits="userSpaceOnUse"
-      color-interpolation-filters="sRGB"
-    >
-      <feFlood flood-opacity="0" result="BackgroundImageFix" />
-      <feColorMatrix
-        in="SourceAlpha"
-        type="matrix"
-        values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-        result="hardAlpha"
-      />
-      <feOffset dy="4" />
-      <feGaussianBlur stdDeviation="2" />
-      <feComposite in2="hardAlpha" operator="out" />
-      <feColorMatrix
-        type="matrix"
-        values="0 0 0 0 0.258824 0 0 0 0 0.254902 0 0 0 0 0.286275 0 0 0 0.18 0"
-      />
-      <feBlend
-        mode="normal"
-        in2="BackgroundImageFix"
-        result="effect1_dropShadow_5310_64451"
-      />
-      <feBlend
-        mode="normal"
-        in="SourceGraphic"
-        in2="effect1_dropShadow_5310_64451"
-        result="shape"
-      />
-    </filter>
-    <filter
-      id="filter1_f_5310_64451"
-      x="30.45"
-      y="2.14995"
-      width="8.0502"
-      height="23"
-      filterUnits="userSpaceOnUse"
-      color-interpolation-filters="sRGB"
-    >
-      <feFlood flood-opacity="0" result="BackgroundImageFix" />
-      <feBlend
-        mode="normal"
-        in="SourceGraphic"
-        in2="BackgroundImageFix"
-        result="shape"
-      />
-      <feGaussianBlur
-        stdDeviation="1.15"
-        result="effect1_foregroundBlur_5310_64451"
-      />
-    </filter>
-    <filter
-      id="filter2_f_5310_64451"
-      x="0"
-      y="12"
-      width="44"
-      height="52"
-      filterUnits="userSpaceOnUse"
-      color-interpolation-filters="sRGB"
-    >
-      <feFlood flood-opacity="0" result="BackgroundImageFix" />
-      <feBlend
-        mode="normal"
-        in="SourceGraphic"
-        in2="BackgroundImageFix"
-        result="shape"
-      />
-      <feGaussianBlur
-        stdDeviation="2"
-        result="effect1_foregroundBlur_5310_64451"
-      />
-    </filter>
-    <linearGradient
-      id="paint0_linear_5310_64451"
-      x1="11"
-      y1="16"
-      x2="11"
-      y2="62"
-      gradientUnits="userSpaceOnUse"
-    >
-      <stop stop-opacity="0" />
-      <stop offset="1" />
-    </linearGradient>
-    <linearGradient
-      id="paint1_linear_5310_64451"
-      x1="33"
-      y1="16"
-      x2="33"
-      y2="62"
-      gradientUnits="userSpaceOnUse"
-    >
-      <stop stop-color="white" />
-      <stop offset="1" stop-opacity="0" />
-    </linearGradient>
-    <linearGradient
-      id="paint2_linear_5310_64451"
-      x1="6"
-      y1="0"
-      x2="6"
-      y2="46"
-      gradientUnits="userSpaceOnUse"
-    >
-      <stop stop-color="#FFF8F8" stop-opacity="0" />
-      <stop offset="1" />
-    </linearGradient>
-  </defs>
-</svg>`;
+const BRUSH_SVG_SRC = "/board/brush.svg";
+const HIGHLIGHTER_SVG_SRC = "/board/highlighter.svg";
+const ERASER_SVG_SRC = "/board/eraser.svg";
 
 const prefixSvgIds = (svg: string, prefix: string) => {
   const safePrefix = prefix.replace(/:/g, "");
@@ -532,6 +66,9 @@ const normalizeSvgRootSize = (svg: string) => {
   const withWidth = svg.replace(/<svg([^>]*?)width="[^"]*"/, '<svg$1width="100%"');
   return withWidth.replace(/<svg([^>]*?)height="[^"]*"/, '<svg$1height="100%"');
 };
+
+/** Cache for loaded public svg markup. */
+const svgCache = new Map<string, string>();
 
 function InlineSvg(props: {
   svg: string;
@@ -552,6 +89,58 @@ function InlineSvg(props: {
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
+}
+
+/** Load svg markup from public assets with a small client cache. */
+function usePublicSvg(src: string) {
+  const [svg, setSvg] = useState<string | null>(() => svgCache.get(src) ?? null);
+
+  useEffect(() => {
+    if (svgCache.has(src)) {
+      setSvg(svgCache.get(src) ?? null);
+      return;
+    }
+    let active = true;
+    // 逻辑：首次加载时从 public 拉取 svg 文本并缓存，避免重复请求。
+    fetch(src)
+      .then((response) => (response.ok ? response.text() : ""))
+      .then((text) => {
+        if (!active || !text) return;
+        svgCache.set(src, text);
+        setSvg(text);
+      })
+      .catch(() => {
+        // 逻辑：加载失败时保持静默，避免影响工具栏交互。
+      });
+    return () => {
+      active = false;
+    };
+  }, [src]);
+
+  return svg;
+}
+
+/** Render inline svg loaded from public path. */
+function InlineSvgFile({
+  src,
+  className,
+  style,
+}: {
+  src: string;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const svg = usePublicSvg(src);
+  if (!svg) {
+    return (
+      <span
+        className={cn("inline-flex", className)}
+        style={style}
+        aria-hidden="true"
+      />
+    );
+  }
+  return <InlineSvg svg={svg} className={className} style={style} />;
 }
 
 function SelectIcon({ size = 20, className }: IconProps) {
@@ -861,22 +450,22 @@ function ScribbledTriangleIcon({ size = 20, className }: IconProps) {
   );
 }
 
-function AffineBrushIcon({ className, style }: { className?: string; style?: CSSProperties }) {
-  return <InlineSvg svg={AFFINE_BRUSH_SVG} className={className} style={style} />;
+function BrushToolIcon({ className, style }: { className?: string; style?: CSSProperties }) {
+  return <InlineSvgFile src={BRUSH_SVG_SRC} className={className} style={style} />;
 }
 
-function AffineHighlighterIcon({
+function HighlighterToolIcon({
   className,
   style,
 }: {
   className?: string;
   style?: CSSProperties;
 }) {
-  return <InlineSvg svg={AFFINE_HIGHLIGHTER_SVG} className={className} style={style} />;
+  return <InlineSvgFile src={HIGHLIGHTER_SVG_SRC} className={className} style={style} />;
 }
 
-function AffineEraserIcon({ className }: { className?: string }) {
-  return <InlineSvg svg={AFFINE_ERASER_SVG} className={className} />;
+function EraserToolIcon({ className }: { className?: string }) {
+  return <InlineSvgFile src={ERASER_SVG_SRC} className={className} />;
 }
 
 const INSERT_ITEMS: InsertItem[] = [
@@ -1182,7 +771,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             >
               <span className="relative">
                 {penVariant === "highlighter" ? (
-                  <AffineHighlighterIcon
+                  <HighlighterToolIcon
                     className={cn(
                       "h-10 w-5 transition-transform duration-300 ease-in-out group-hover:translate-y-0",
                       isPenTool ? "translate-y-0" : "translate-y-2"
@@ -1190,7 +779,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     style={{ color: penColor }}
                   />
                 ) : (
-                  <AffineBrushIcon
+                  <BrushToolIcon
                     className={cn(
                       "h-10 w-5 transition-transform duration-300 ease-in-out group-hover:translate-y-0",
                       isPenTool ? "translate-y-0" : "translate-y-2"
@@ -1210,7 +799,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     size="sm"
                     showLabel={false}
                   >
-                    <AffineBrushIcon className="h-8 w-4" style={{ color: penColor }} />
+                    <BrushToolIcon className="h-8 w-4" style={{ color: penColor }} />
                   </PanelItem>
                   <PanelItem
                     title="Highlighter"
@@ -1219,7 +808,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     size="sm"
                     showLabel={false}
                   >
-                    <AffineHighlighterIcon className="h-8 w-4" style={{ color: penColor }} />
+                    <HighlighterToolIcon className="h-8 w-4" style={{ color: penColor }} />
                   </PanelItem>
                 </div>
                 <span className="h-6 w-px bg-border/70" />
@@ -1273,7 +862,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             onPointerDown={() => handleToolChange("eraser")}
             className="group h-10 w-9 overflow-hidden"
           >
-            <AffineEraserIcon
+            <EraserToolIcon
               className={cn(
                 "h-10 w-8 transition-transform duration-300 ease-in-out group-hover:translate-y-0",
                 isEraserTool ? "translate-y-0" : "translate-y-2"
