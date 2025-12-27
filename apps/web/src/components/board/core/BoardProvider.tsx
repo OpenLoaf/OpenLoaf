@@ -28,6 +28,7 @@ export type BoardContextValue = {
   actions: BoardActions;
 };
 
+// 逻辑：节点事件由节点自身处理，跨层 UI 通过 actions 统一触发，避免画布层特判。
 /** React context storing the current board metadata. */
 const BoardContext = createContext<BoardContextValue | null>(null);
 

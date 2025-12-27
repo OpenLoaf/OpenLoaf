@@ -39,11 +39,11 @@ export function PlaceholderNodeView({
     <div
       className={[
         "h-full w-full rounded-xl border box-border p-4",
-        "border-slate-300 bg-white shadow-[0_4px_10px_rgba(15,23,42,0.06)]",
+        "border-slate-300 bg-white ",
         "dark:border-slate-700 dark:bg-slate-900",
         selected
           ? "dark:border-sky-400 dark:shadow-[0_6px_14px_rgba(0,0,0,0.35)]"
-          : "dark:shadow-[0_4px_10px_rgba(0,0,0,0.28)]",
+          : "",
       ].join(" ")}
     >
       <div className="text-[14px] font-semibold text-slate-900 dark:text-slate-100">

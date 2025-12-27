@@ -1,7 +1,6 @@
 "use client";
 
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Streamdown } from "streamdown";
 import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
@@ -56,18 +55,25 @@ export function renderMessageParts(
     renderTools?: boolean;
     /** 是否渲染文本（当 output 已有时，可隐藏 message 段的文本避免重复） */
     renderText?: boolean;
+    /** Whether to animate streaming text output. */
+    isAnimating?: boolean;
   },
 ) {
   const renderTools = options?.renderTools !== false;
   const renderText = options?.renderText !== false;
+  const isAnimating = Boolean(options?.isAnimating);
   return (parts ?? []).map((part: any, index: number) => {
     if (part?.type === "text") {
       if (!renderText) return null;
       return (
         <div key={index} className={cn(MESSAGE_TEXT_CLASSNAME, options?.textClassName)}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+          <Streamdown
+            components={markdownComponents}
+            parseIncompleteMarkdown
+            isAnimating={isAnimating}
+          >
             {preprocessText(String(part.text ?? ""))}
-          </ReactMarkdown>
+          </Streamdown>
         </div>
       );
     }

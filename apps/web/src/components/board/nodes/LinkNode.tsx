@@ -6,7 +6,7 @@ import type {
 import { useCallback, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
-import { Info, RotateCw } from "lucide-react";
+import { Copy, ExternalLink, RotateCw } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID, useTabs } from "@/hooks/use-tabs";
 
@@ -48,6 +48,19 @@ export type LinkNodeProps = {
 function createLinkToolbarItems(ctx: CanvasToolbarContext<LinkNodeProps>) {
   return [
     {
+      id: "open",
+      label: "打开",
+      icon: <ExternalLink size={14} />,
+      onSelect: () => {
+        if (typeof window !== "undefined") {
+          const openEvent = new CustomEvent("board-link-open", {
+            detail: { id: ctx.element.id },
+          });
+          window.dispatchEvent(openEvent);
+        }
+      },
+    },
+    {
       id: "refresh",
       label: "刷新",
       icon: <RotateCw size={14} />,
@@ -61,10 +74,33 @@ function createLinkToolbarItems(ctx: CanvasToolbarContext<LinkNodeProps>) {
       },
     },
     {
-      id: "inspect",
-      label: "详情",
-      icon: <Info size={14} />,
-      onSelect: () => ctx.openInspector(ctx.element.id),
+      id: "copy-url",
+      label: "复制URL",
+      icon: <Copy size={14} />,
+      onSelect: () => {
+        const targetUrl = ctx.element.props.url;
+        if (!targetUrl) return;
+        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+          void navigator.clipboard.writeText(targetUrl);
+          return;
+        }
+        if (typeof document !== "undefined") {
+          const textarea = document.createElement("textarea");
+          textarea.value = targetUrl;
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          try {
+            document.execCommand("copy");
+          } catch {
+            // 逻辑：剪贴板失败时保持静默，避免影响主流程。
+          } finally {
+            document.body.removeChild(textarea);
+          }
+        }
+      },
     },
   ];
 }
@@ -193,11 +229,20 @@ export function LinkNodeView({
       if (!detail?.id || detail.id !== element.id) return;
       void fetchScreenshot(`${url}:manual:${Date.now()}`);
     };
+    /** Listen for manual open requests. */
+    const handleOpen = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string }>).detail;
+      if (!detail?.id || detail.id !== element.id) return;
+      // 逻辑：响应工具栏打开事件，复用双击逻辑。
+      openLinkInStack();
+    };
     window.addEventListener("board-link-refresh", handleRefresh);
+    window.addEventListener("board-link-open", handleOpen);
     return () => {
       window.removeEventListener("board-link-refresh", handleRefresh);
+      window.removeEventListener("board-link-open", handleOpen);
     };
-  }, [url, element.id, fetchScreenshot]);
+  }, [url, element.id, fetchScreenshot, openLinkInStack]);
 
   return (
     <div
@@ -230,13 +275,13 @@ export function LinkNodeView({
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col justify-between p-3">
-          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <div className="line-clamp-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
             {displayTitle}
           </div>
-          <div className="text-xs text-slate-600 dark:text-slate-300">
+          <div className="line-clamp-2 text-xs text-slate-600 dark:text-slate-300">
             {description || displayHost}
           </div>
-          <div className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="line-clamp-1 text-[11px] text-slate-500 dark:text-slate-400">
             {url}
           </div>
         </div>
@@ -269,8 +314,8 @@ export const LinkNodeDefinition: CanvasNodeDefinition<LinkNodeProps> = {
     resizable: true,
     rotatable: false,
     connectable: "anchors",
-    minSize: { w: 220, h: 120 },
-    maxSize: { w: 720, h: 480 },
+    minSize: { w: 300, h: 120 },
+    maxSize: { w: 720, h: 120 },
   },
   // Link nodes expose refresh actions in the selection toolbar.
   toolbar: ctx => createLinkToolbarItems(ctx),

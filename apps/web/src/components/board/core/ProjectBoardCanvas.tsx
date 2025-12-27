@@ -9,6 +9,7 @@ import { CalendarNodeDefinition } from "../nodes/CalendarNode";
 import { LinkNodeDefinition } from "../nodes/LinkNode";
 import { GroupNodeDefinition, ImageGroupNodeDefinition } from "../nodes/GroupNode";
 import { StrokeNodeDefinition } from "../nodes/StrokeNode";
+import { TextNodeDefinition } from "../nodes/TextNode";
 
 export interface ProjectBoardCanvasProps {
   /** Loading state for the project page. */
@@ -44,6 +45,7 @@ const ProjectBoardCanvas = memo(function ProjectBoardCanvas({
           CalendarNodeDefinition,
           LinkNodeDefinition,
           StrokeNodeDefinition,
+          TextNodeDefinition,
           GroupNodeDefinition,
           ImageGroupNodeDefinition,
         ]}

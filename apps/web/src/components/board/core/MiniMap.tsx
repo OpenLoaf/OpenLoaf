@@ -1,3 +1,4 @@
+import { cn } from "@udecode/cn";
 import type { CanvasElement, CanvasRect, CanvasSnapshot } from "../engine/types";
 import {
   MINIMAP_HEIGHT,
@@ -10,10 +11,12 @@ import {
 type MiniMapProps = {
   /** Snapshot for rendering the minimap. */
   snapshot: CanvasSnapshot;
+  /** Whether the minimap should be visible. */
+  visible: boolean;
 };
 
 /** Render a lightweight minimap for viewport context. */
-export function MiniMap({ snapshot }: MiniMapProps) {
+export function MiniMap({ snapshot, visible }: MiniMapProps) {
   const mapWidth = MINIMAP_WIDTH;
   const mapHeight = MINIMAP_HEIGHT;
   const elementsBounds = computeElementsBounds(snapshot.elements);
@@ -47,8 +50,13 @@ export function MiniMap({ snapshot }: MiniMapProps) {
   const viewRect = mapRectToMiniMap(viewportBounds, paddedBounds, scale);
 
   return (
-    <div className="pointer-events-none absolute left-4 top-4 z-30">
-      <div className="rounded-lg bg-background/70 p-2 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur">
+    <div
+      className={cn(
+        "pointer-events-none absolute left-4 top-4 z-30 transition-opacity duration-200 ease-out",
+        visible ? "opacity-100" : "opacity-0"
+      )}
+    >
+      <div className="rounded-lg bg-background p-2 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur">
         <svg
           width={mapWidth}
           height={mapHeight}
@@ -60,7 +68,7 @@ export function MiniMap({ snapshot }: MiniMapProps) {
             y={0}
             width={mapWidth}
             height={mapHeight}
-            fill="rgba(248, 250, 252, 0.65)"
+            fill="var(--canvas-minimap-bg)"
             rx={10}
             ry={10}
           />
@@ -71,8 +79,8 @@ export function MiniMap({ snapshot }: MiniMapProps) {
               y={rect.y}
               width={rect.w}
               height={rect.h}
-              fill="rgba(148, 163, 184, 0.4)"
-              stroke="rgba(100, 116, 139, 0.45)"
+              fill="var(--canvas-minimap-node)"
+              stroke="var(--canvas-minimap-node-stroke)"
               strokeWidth={1}
               rx={2}
               ry={2}
@@ -83,8 +91,8 @@ export function MiniMap({ snapshot }: MiniMapProps) {
             y={viewRect.y}
             width={viewRect.w}
             height={viewRect.h}
-            fill="rgba(15, 23, 42, 0.08)"
-            stroke="rgba(15, 23, 42, 0.55)"
+            fill="var(--canvas-minimap-mask)"
+            stroke="var(--canvas-minimap-mask-stroke)"
             strokeWidth={1.4}
             rx={4}
             ry={4}

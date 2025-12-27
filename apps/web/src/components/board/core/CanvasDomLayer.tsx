@@ -1,5 +1,5 @@
 import { cn } from "@udecode/cn";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MoveDiagonal2 } from "lucide-react";
 import {
   DEFAULT_NODE_SIZE,
@@ -21,6 +21,9 @@ type CanvasDomLayerProps = {
 /** Render the DOM-based node layer. */
 export function CanvasDomLayer({ engine, snapshot }: CanvasDomLayerProps) {
   const { zoom, offset } = snapshot.viewport;
+  const [isZooming, setIsZooming] = useState(false);
+  const lastZoomRef = useRef(zoom);
+  const zoomTimeoutRef = useRef<number | null>(null);
   const selectedNodeIds = new Set(
     snapshot.selectedIds.filter(id => {
       const element = snapshot.elements.find(item => item.id === id);
@@ -48,9 +51,34 @@ export function CanvasDomLayer({ engine, snapshot }: CanvasDomLayerProps) {
       ] as [number, number, number, number])
     : null;
 
+  useEffect(() => {
+    if (lastZoomRef.current === zoom) return;
+    // 逻辑：缩放期间启用 will-change，结束后移除以触发清晰重绘。
+    lastZoomRef.current = zoom;
+    setIsZooming(true);
+    if (zoomTimeoutRef.current) {
+      window.clearTimeout(zoomTimeoutRef.current);
+    }
+    zoomTimeoutRef.current = window.setTimeout(() => {
+      setIsZooming(false);
+      zoomTimeoutRef.current = null;
+    }, 160);
+  }, [zoom]);
+
+  useEffect(() => {
+    return () => {
+      if (zoomTimeoutRef.current) {
+        window.clearTimeout(zoomTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div
-      className="pointer-events-none absolute inset-0 origin-top-left will-change-transform"
+      className={cn(
+        "pointer-events-none absolute inset-0 origin-top-left",
+        (snapshot.panning || isZooming) && "will-change-transform"
+      )}
       style={{
         transform: `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`,
       }}

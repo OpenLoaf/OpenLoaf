@@ -84,11 +84,11 @@ body {
   --sidebar-ring: oklch(0.708 0 0);
   --brand: oklch(0.623 0.214 259.815);
   --highlight: oklch(0.852 0.199 91.936);
-  --canvas-minimap-bg: color-mix(in oklch, var(--background) 88%, transparent);
-  --canvas-minimap-node: color-mix(in oklch, var(--foreground) 18%, transparent);
-  --canvas-minimap-node-stroke: color-mix(in oklch, var(--foreground) 30%, transparent);
-  --canvas-minimap-mask: color-mix(in oklch, var(--foreground) 10%, transparent);
-  --canvas-minimap-mask-stroke: color-mix(in oklch, var(--foreground) 22%, transparent);
+  --canvas-minimap-bg: var(--background);
+  --canvas-minimap-node: color-mix(in oklch, var(--foreground) 18%, var(--background));
+  --canvas-minimap-node-stroke: color-mix(in oklch, var(--foreground) 30%, var(--background));
+  --canvas-minimap-mask: color-mix(in oklch, var(--foreground) 10%, var(--background));
+  --canvas-minimap-mask-stroke: color-mix(in oklch, var(--foreground) 22%, var(--background));
   --canvas-guide: color-mix(in oklch, var(--primary) 55%, transparent);
   --canvas-connector: rgba(30, 41, 59, 0.7);
   --canvas-connector-selected: #0f172a;

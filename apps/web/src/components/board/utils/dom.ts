@@ -3,6 +3,7 @@ const BOARD_UI_SELECTORS = [
   "[data-board-controls]",
   "[data-node-toolbar]",
   "[data-node-inspector]",
+  "[data-board-editor]",
 ] as const;
 
 function isBoardUiTarget(

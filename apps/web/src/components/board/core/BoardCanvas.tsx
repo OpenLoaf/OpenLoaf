@@ -31,6 +31,8 @@ import { getWorkspaceIdFromCookie } from "./boardStorage";
 import type { BoardStorageState } from "./boardStorage";
 import { useBoardSnapshot } from "./useBoardSnapshot";
 const VIEWPORT_SAVE_DELAY = 800;
+/** Default size for auto-created text nodes. */
+const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
 
 export type BoardCanvasProps = {
   /** External engine instance, optional for integration scenarios. */
@@ -116,14 +118,17 @@ export function BoardCanvas({
     };
   }, [engine]);
 
+  /** Open the fullscreen image preview overlay. */
   const openImagePreview = useCallback((payload: ImagePreviewPayload) => {
     // 逻辑：节点请求预览时直接替换当前预览数据。
     setImagePreview(payload);
   }, []);
+  /** Close the fullscreen image preview overlay. */
   const closeImagePreview = useCallback(() => {
     // 逻辑：关闭预览时清空当前预览数据。
     setImagePreview(null);
   }, []);
+  /** Shared board actions exposed to node components. */
   const boardActions = useMemo(
     () => ({ openImagePreview, closeImagePreview }),
     [openImagePreview, closeImagePreview]
@@ -439,9 +444,17 @@ export function BoardCanvas({
         )}
         tabIndex={0}
         onPointerDown={event => {
-          // 逻辑：确保画布获取焦点，保证快捷键可用。
-          containerRef.current?.focus();
-          const target = event.target as Element | null;
+          const rawTarget = event.target as EventTarget | null;
+          const target =
+            rawTarget instanceof Element
+              ? rawTarget
+              : rawTarget instanceof Node
+                ? rawTarget.parentElement
+                : null;
+          if (!target?.closest("[data-board-editor]")) {
+            // 逻辑：非文本编辑区域点击时才抢占画布焦点，避免打断输入。
+            containerRef.current?.focus();
+          }
           const rect = containerRef.current?.getBoundingClientRect();
           const worldPoint =
             rect && containerRef.current
@@ -467,6 +480,50 @@ export function BoardCanvas({
             engine.selection.clear();
           }
         }}
+        onDoubleClick={event => {
+          const rawTarget = event.target as EventTarget | null;
+          const target =
+            rawTarget instanceof Element
+              ? rawTarget
+              : rawTarget instanceof Node
+                ? rawTarget.parentElement
+                : null;
+          if (!target) return;
+          if (snapshot.activeToolId !== "select") return;
+          if (snapshot.pendingInsert || snapshot.toolbarDragging) return;
+          if (engine.isLocked()) return;
+          if (
+            isBoardUiTarget(target, [
+              "[data-board-node]",
+              "[data-connector-drop-panel]",
+            ])
+          ) {
+            return;
+          }
+          const rect = containerRef.current?.getBoundingClientRect();
+          if (!rect) return;
+          const worldPoint = engine.screenToWorld([
+            event.clientX - rect.left,
+            event.clientY - rect.top,
+          ]);
+          const hitElement = engine.pickElementAt(worldPoint);
+          if (hitElement) return;
+          const [width, height] = TEXT_NODE_DEFAULT_SIZE;
+          // 逻辑：双击空白处创建文本节点并立即进入编辑。
+          engine.addNodeElement(
+            "text",
+            {
+              autoFocus: true,
+              value: [{ type: "p", children: [{ text: "" }] }],
+            },
+            [
+              worldPoint[0] - width / 2,
+              worldPoint[1] - height / 2,
+              width,
+              height,
+            ]
+          );
+        }}
       >
         <div
           className="absolute left-0 top-0 z-20 h-24 w-24"
@@ -488,7 +545,7 @@ export function BoardCanvas({
         <CanvasSurface snapshot={snapshot} />
         <CanvasDomLayer engine={engine} snapshot={snapshot} />
         <AnchorOverlay snapshot={snapshot} />
-        {shouldShowMiniMap ? <MiniMap snapshot={snapshot} /> : null}
+        <MiniMap snapshot={snapshot} visible={shouldShowMiniMap} />
         <BoardControls engine={engine} snapshot={snapshot} />
         <BoardToolbar engine={engine} snapshot={snapshot} />
         {selectedConnector ? (

@@ -35,6 +35,10 @@ function MessageItem({
       .join("");
   }, [message.parts]);
 
+  // 仅对当前流式输出的最后一条 assistant 消息启用动画。
+  const isAnimating =
+    status === "streaming" && Boolean(isLastAiMessage) && message.role !== "user";
+
   // 判断消息是否有可见内容（避免空消息也渲染底部操作按钮）
   const hasVisibleContent = React.useMemo(() => {
     return messageHasVisibleContent(message);
@@ -123,7 +127,7 @@ function MessageItem({
         </>
       ) : (
         <>
-          <MessageAi message={message} />
+          <MessageAi message={message} isAnimating={isAnimating} />
           {!hideAiActions && (hasVisibleContent || shouldShowBranchNav) && (
             <div className={cn("mt-1", actionVisibility(isLastAiMessage))}>
               <MessageAiAction message={message} />
