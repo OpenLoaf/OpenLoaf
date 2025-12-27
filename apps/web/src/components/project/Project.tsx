@@ -3,7 +3,7 @@
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
+import { trpc, trpcClient } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useTabs } from "@/hooks/use-tabs";
@@ -394,7 +394,7 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
                   <ProjectBoardCanvas
                     isLoading={isLoading}
                     isActive={tabActive && activeTab === "canvas"}
-                    trpc={trpc}
+                    trpc={trpcClient}
                     workspaceId={activeWorkspace?.id}
                     pageId={pageId}
                     pageTitle={pageTitle}

@@ -19,6 +19,11 @@ import {
   settingSchemas,
 } from "./routers/absSetting";
 import { aiRouter, BaseAiRouter, aiSchemas } from "./routers/ai";
+import {
+  linkPreviewRouter,
+  BaseLinkPreviewRouter,
+  linkPreviewSchemas,
+} from "./routers/absLinkPreview";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -29,6 +34,7 @@ export const appRouterDefine = {
   tab: tabRouter,
   settings: settingRouter,
   ai: aiRouter,
+  linkPreview: linkPreviewRouter,
 };
 
 export const appRouter = t.router({
@@ -69,6 +75,9 @@ export { BaseSettingRouter, settingSchemas };
 
 // Export ai router components
 export { BaseAiRouter, aiSchemas };
+
+// Export link preview router components
+export { BaseLinkPreviewRouter, linkPreviewSchemas };
 
 // export const t = initTRPC.context<Context>().create({
 // });
