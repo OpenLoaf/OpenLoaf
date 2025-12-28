@@ -41,11 +41,12 @@ export const savePageBlocks = async (
   pageId: string,
   blocks: PageBlockInput[]
 ) => {
-  const blockVersion = Date.now();
-  const blockTimestamp = new Date(blockVersion);
+  // 逻辑：用时间戳作为本次批次版本，便于快速判断内容是否变化。
+  const version = Date.now();
+  const timestamp = new Date(version);
 
   await prisma.$transaction(async (tx) => {
-    // 只保留顶层块，避免嵌套结构重复存储
+    // 逻辑：只保留顶层块，避免嵌套结构重复存储。
     await tx.block.deleteMany({ where: { pageId } });
 
     if (blocks.length > 0) {
@@ -60,17 +61,18 @@ export const savePageBlocks = async (
           content: block.content ?? Prisma.JsonNull,
           parentId: null,
           order: block.order ?? index,
-          createdAt: blockTimestamp,
-          updatedAt: blockTimestamp,
+          version,
+          createdAt: timestamp,
+          updatedAt: timestamp,
         })),
       });
     }
 
     await tx.page.update({
       where: { id: pageId },
-      data: { blockVersion },
+      data: { updatedAt: timestamp },
     });
   });
 
-  return { blockVersion };
+  return { version };
 };

@@ -40,17 +40,24 @@ export const refreshPageMarkdownCache = async (
 ): Promise<PageMarkdownResult | null> => {
   const page = await prisma.page.findUnique({
     where: { id: pageId },
-    select: { id: true, markdown: true, blockVersion: true, markdownVersion: true },
+    select: { id: true, markdown: true, markdownVersion: true },
   });
 
   if (!page) return null;
 
+  // 逻辑：取顶层块最大版本作为内容版本判断依据。
+  const blockVersionResult = await prisma.block.aggregate({
+    where: { pageId, parentId: null },
+    _max: { version: true },
+  });
+  const blockVersion = blockVersionResult._max.version ?? 0;
+
   // 中文注释：版本一致时直接返回缓存，避免重复转换。
-  if (page.blockVersion === page.markdownVersion) {
+  if (blockVersion === page.markdownVersion) {
     return {
       markdown: page.markdown ?? EMPTY_MARKDOWN,
       updated: false,
-      blockVersion: page.blockVersion,
+      blockVersion,
       markdownVersion: page.markdownVersion,
     };
   }
@@ -62,22 +69,22 @@ export const refreshPageMarkdownCache = async (
     where: { id: pageId },
     data: {
       markdown,
-      markdownVersion: page.blockVersion,
+      markdownVersion: blockVersion,
     },
   });
 
   return {
     markdown,
     updated: true,
-    blockVersion: page.blockVersion,
-    markdownVersion: page.blockVersion,
+    blockVersion,
+    markdownVersion: blockVersion,
   };
 };
 
 /** Refresh markdown cache for all pages. */
 export const refreshAllPageMarkdownCache = async (prisma: PrismaClient) => {
   const pages = await prisma.page.findMany({
-    select: { id: true, blockVersion: true, markdownVersion: true },
+    select: { id: true },
   });
 
   if (pages.length === 0) {

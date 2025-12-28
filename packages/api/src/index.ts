@@ -24,12 +24,14 @@ import {
   BaseLinkPreviewRouter,
   linkPreviewSchemas,
 } from "./routers/absLinkPreview";
+import { boardRouter } from "./routers/board";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
   health,
   chat: chatRouter,
   pageCustom: pageRouter,
+  boardCustom: boardRouter,
   workspace: workspaceRouter,
   tab: tabRouter,
   settings: settingRouter,

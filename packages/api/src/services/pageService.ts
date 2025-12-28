@@ -47,8 +47,17 @@ function buildTree(pages: any[]): PageTreeNode[] {
 export async function getProjectList(workspaceId: string, prisma: any): Promise<PageTreeNode[]> {
   const pages = await prisma.page.findMany({
     where: { workspaceId },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      icon: true,
+      cover: true,
+      isExpanded: true,
+      createdAt: true,
+      updatedAt: true,
+      parentId: true,
       resources: true,
+      workspaceId: true,
     },
   });
 

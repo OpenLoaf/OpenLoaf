@@ -53,7 +53,6 @@ model Page {
   icon       String? // 页面图标
   cover      String? // 页面封面图片URL
   markdown   String? // 页面 Markdown 内容
-  blockVersion    Int @default(0) // Block 版本
   markdownVersion Int @default(0) // Markdown 版本
   isExpanded Boolean  @default(false) // 页面是否展开
   createdAt  DateTime @default(now()) // 创建时间
@@ -72,6 +71,9 @@ model Page {
 
   // 页面关联的资源（1对多关系）
   resources Resource[]
+
+  // 页面关联的画布（1对1关系）
+  board Board?
 
   // 所属工作区（仅保留ID，不做外键关联）
   workspaceId      String
@@ -104,8 +106,60 @@ model Block {
   // 用于拖拽排序的顺序值
   order Float
 
+  version Int @default(0) // 内容版本号
   createdAt DateTime @default(now()) // 创建时间
   updatedAt DateTime @updatedAt // 更新时间
+}
+
+//
+// ================= BOARD SYSTEM =================
+//
+
+// 画布模型
+// 用于存储页面画布的快照数据
+model Board {
+  id            String   @id @default(cuid()) // 画布唯一标识
+  workspaceId   String // 所属工作区（仅保留ID，不做外键关联）
+  pageId        String   @unique // 关联页面ID
+  schemaVersion Int      @default(1) // 快照结构版本
+  nodes         Json // 画布节点快照
+  connectors    Json // 画布连线快照
+  viewport      Json // 画布视口快照
+  revision      Int      @default(0) // 当前版本号
+  createdAt     DateTime @default(now()) // 创建时间
+  updatedAt     DateTime @updatedAt // 更新时间
+
+  page Page? @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, updatedAt])
+}
+
+//
+// ================= REVISION SYSTEM =================
+//
+
+// 历史快照类型枚举
+enum RevisionTarget {
+  page // 页面快照
+  block // 内容块快照
+  board // 画布快照
+}
+
+// 历史快照模型
+// 用于保存 Page/Block/Board 的只读历史记录
+model Revision {
+  id          String         @id @default(cuid()) // 历史快照唯一标识
+  workspaceId String // 所属工作区（仅保留ID，不做外键关联）
+  targetType  RevisionTarget // 目标类型
+  targetId    String // 目标ID
+  revision    Int // 目标版本号
+  payload     Json // 快照内容
+  groupId     String? // 批次分组ID
+  createdAt   DateTime       @default(now()) // 创建时间
+
+  @@unique([targetType, targetId, revision])
+  @@index([workspaceId, createdAt])
+  @@index([targetType, targetId, createdAt])
 }
 
 //

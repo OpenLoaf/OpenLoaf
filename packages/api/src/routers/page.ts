@@ -50,16 +50,16 @@ export const pageRouter = t.router({
       const blocks = await getPageBlocks(ctx.prisma, input.pageId);
       return { blocks };
     }),
-  /** Save blocks and update block version. */
+  /** Save blocks and update version. */
   saveBlocks: shieldedProcedure
     .input(pageSaveBlocksInputSchema)
-    .mutation(async ({ ctx, input }): Promise<{ blockVersion: number }> => {
+    .mutation(async ({ ctx, input }): Promise<{ version: number }> => {
       const result = await savePageBlocks(
         ctx.prisma,
         input.pageId,
         input.blocks
       );
-      return { blockVersion: result.blockVersion };
+      return { version: result.version };
     }),
   /** Get page markdown with cache refresh. */
   getMarkdown: shieldedProcedure

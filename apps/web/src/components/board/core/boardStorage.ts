@@ -1,10 +1,15 @@
-import type { CanvasElement, CanvasPoint } from "../engine/types";
+import type { CanvasConnectorElement, CanvasNodeElement, CanvasPoint } from "../engine/types";
 
-type BoardStorageState = {
-  /** Storage schema version. */
-  version: number;
-  /** Persisted canvas elements. */
-  elements: CanvasElement[];
+/** Current board snapshot schema version. */
+const BOARD_SCHEMA_VERSION = 1;
+
+type BoardSnapshotState = {
+  /** Snapshot schema version. */
+  schemaVersion: number;
+  /** Persisted node elements. */
+  nodes: CanvasNodeElement[];
+  /** Persisted connector elements. */
+  connectors: CanvasConnectorElement[];
   /** Persisted viewport state. */
   viewport: {
     /** Viewport zoom level. */
@@ -14,19 +19,5 @@ type BoardStorageState = {
   };
 };
 
-/** Read workspace id from document cookies. */
-function getWorkspaceIdFromCookie(): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|;\s*)workspace-id=([^;]+)/);
-  if (!match) return null;
-  const rawValue = match[1];
-  if (!rawValue) return null;
-  try {
-    return decodeURIComponent(rawValue);
-  } catch {
-    return rawValue;
-  }
-}
-
-export type { BoardStorageState };
-export { getWorkspaceIdFromCookie };
+export type { BoardSnapshotState };
+export { BOARD_SCHEMA_VERSION };

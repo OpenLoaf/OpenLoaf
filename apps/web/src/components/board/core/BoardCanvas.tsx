@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@udecode/cn";
+import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import { MINIMAP_HIDE_DELAY } from "../engine/constants";
@@ -12,6 +14,7 @@ import { isBoardUiTarget } from "../utils/dom";
 import { toScreenPoint } from "../utils/coordinates";
 import type {
   CanvasElement,
+  CanvasConnectorElement,
   CanvasNodeDefinition,
   CanvasNodeElement,
   CanvasSnapshot,
@@ -27,12 +30,31 @@ import {
   SingleSelectionToolbar,
 } from "./SelectionOverlay";
 import { ConnectorDropPanel, type ConnectorDropItem } from "./ConnectorDropPanel";
-import { getWorkspaceIdFromCookie } from "./boardStorage";
-import type { BoardStorageState } from "./boardStorage";
+import { BOARD_SCHEMA_VERSION, type BoardSnapshotState } from "./boardStorage";
 import { useBoardSnapshot } from "./useBoardSnapshot";
 const VIEWPORT_SAVE_DELAY = 800;
 /** Default size for auto-created text nodes. */
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
+
+/** Split elements into nodes and connectors. */
+const splitElements = (elements: CanvasElement[]) => {
+  const nodes: CanvasNodeElement[] = [];
+  const connectors: CanvasConnectorElement[] = [];
+  elements.forEach((element) => {
+    if (element.kind === "connector") {
+      connectors.push(element);
+      return;
+    }
+    nodes.push(element as CanvasNodeElement);
+  });
+  return { nodes, connectors };
+};
+
+/** Merge nodes and connectors into a single element list. */
+const mergeElements = (
+  nodes: CanvasNodeElement[],
+  connectors: CanvasConnectorElement[]
+): CanvasElement[] => [...nodes, ...connectors];
 
 export type BoardCanvasProps = {
   /** External engine instance, optional for integration scenarios. */
@@ -75,14 +97,10 @@ export function BoardCanvas({
   const connectorDropRef = useRef<HTMLDivElement | null>(null);
   /** Node inspector target id. */
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
-  /** Last restored storage key. */
-  const restoredKeyRef = useRef<string | null>(null);
-  /** Whether the current storage key has been hydrated. */
+  /** Guard for first-time snapshot hydration. */
+  const restoredRef = useRef(false);
+  /** Whether the server snapshot has been hydrated. */
   const hydratedRef = useRef(false);
-  /** Skip the next save until a non-empty snapshot arrives. */
-  const skipSaveOnceRef = useRef(false);
-  /** Whether storage already has non-empty elements. */
-  const hasStoredElementsRef = useRef(false);
   /** Last saved elements snapshot for change detection. */
   const lastSavedElementsRef = useRef<string>("");
   /** Last saved viewport snapshot for change detection. */
@@ -103,12 +121,17 @@ export function BoardCanvas({
   const lastViewportRef = useRef(snapshot.viewport);
   /** Last panning state to detect transitions. */
   const lastPanningRef = useRef(snapshot.panning);
-  /** Local storage key for this board. */
-  const storageKey = useMemo(() => {
-    // 逻辑：workspaceId 未就绪时尝试从 cookie 兜底，避免无法持久化。
-    const scope = workspaceId ?? getWorkspaceIdFromCookie() ?? "default";
-    return `teatime-board:${scope}:${boardId ?? "default"}`;
+  /** Board scope used for remote persistence. */
+  const boardScope = useMemo(() => {
+    if (!workspaceId || !boardId) return null;
+    return { workspaceId, pageId: boardId };
   }, [boardId, workspaceId]);
+  /** Remote snapshot query for the board. */
+  const boardQuery = useQuery(
+    trpc.boardCustom.get.queryOptions(boardScope ?? skipToken)
+  );
+  /** Mutation handler for persisting snapshots. */
+  const saveBoard = useMutation(trpc.boardCustom.save.mutationOptions());
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -132,6 +155,26 @@ export function BoardCanvas({
   const boardActions = useMemo(
     () => ({ openImagePreview, closeImagePreview }),
     [openImagePreview, closeImagePreview]
+  );
+  /** Persist the current snapshot to the server. */
+  const persistSnapshot = useCallback(
+    (nodes: CanvasNodeElement[], connectors: CanvasConnectorElement[], viewport: BoardSnapshotState["viewport"]) => {
+      if (!boardScope) return;
+      // 逻辑：转成 JSON 安全对象，避免 undefined 写库失败。
+      const payload = JSON.parse(
+        JSON.stringify({ nodes, connectors, viewport })
+      ) as Pick<BoardSnapshotState, "nodes" | "connectors" | "viewport">;
+      // 逻辑：统一在此处拼装存储数据，避免多处重复。
+      saveBoard.mutate({
+        workspaceId: boardScope.workspaceId,
+        pageId: boardScope.pageId,
+        schemaVersion: BOARD_SCHEMA_VERSION,
+        nodes: payload.nodes,
+        connectors: payload.connectors,
+        viewport: payload.viewport,
+      });
+    },
+    [boardScope, saveBoard]
   );
 
   useEffect(() => {
@@ -165,81 +208,66 @@ export function BoardCanvas({
   useEffect(() => {
     if (initialElementsRef.current) return;
     if (!initialElements || initialElements.length === 0) return;
-    // 初始化元素一次性写入文档，保证首屏内容可复现。
+    if (boardScope && !boardQuery.isFetched) return;
+    const stored = boardQuery.data?.board as BoardSnapshotState | null;
+    const hasRemoteSnapshot = Boolean(
+      stored &&
+      (Array.isArray(stored.nodes) && stored.nodes.length > 0 ||
+        Array.isArray(stored.connectors) && stored.connectors.length > 0)
+    );
+    if (hasRemoteSnapshot) return;
+    // 逻辑：确认远端无快照后再写入初始元素，避免闪烁覆盖。
     engine.setInitialElements(initialElements);
     initialElementsRef.current = true;
-  }, [engine, initialElements]);
+  }, [boardQuery.data, boardQuery.isFetched, boardScope, engine, initialElements]);
 
   useEffect(() => {
-    if (!storageKey) return;
-    if (restoredKeyRef.current === storageKey) return;
-    // 逻辑：切换存储 key 时先重置标记，再恢复缓存与视口，最后更新同步标志。
+    if (!boardScope) return;
+    if (!boardQuery.isFetched) return;
+    if (restoredRef.current) return;
+    // 逻辑：远端快照只恢复一次，避免覆盖后续编辑。
+    restoredRef.current = true;
     hydratedRef.current = false;
     lastSavedElementsRef.current = "";
-    skipSaveOnceRef.current = true;
-    restoredKeyRef.current = storageKey;
 
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) {
-      // 逻辑：无缓存时避免首次渲染就写入空数组覆盖历史数据。
-      lastSavedElementsRef.current = JSON.stringify(engine.doc.getElements());
-      const viewportState = engine.viewport.getState();
-      lastSavedViewportRef.current = JSON.stringify({
-        zoom: viewportState.zoom,
-        offset: viewportState.offset,
-      });
+    const stored = boardQuery.data?.board as BoardSnapshotState | null;
+    if (stored && Array.isArray(stored.nodes) && Array.isArray(stored.connectors)) {
+      const elements = mergeElements(stored.nodes, stored.connectors);
+      if (elements.length > 0) {
+        // 逻辑：已有快照时优先恢复，避免初始节点覆盖。
+        engine.doc.setElements(elements);
+        initialElementsRef.current = true;
+      }
+      if (stored.viewport) {
+        const viewportPayload = {
+          zoom: stored.viewport.zoom,
+          offset: stored.viewport.offset,
+        };
+        engine.viewport.setViewport(viewportPayload.zoom, viewportPayload.offset);
+        lastSavedViewportRef.current = JSON.stringify(viewportPayload);
+      }
+      engine.commitHistory();
+      lastSavedElementsRef.current = JSON.stringify(elements);
       hydratedRef.current = true;
       return;
     }
-    try {
-      const stored = JSON.parse(raw) as BoardStorageState;
-      if (Array.isArray(stored.elements) && stored.elements.length > 0) {
-        // 逻辑：本地有缓存时优先恢复，避免初始节点覆盖。
-        engine.doc.setElements(stored.elements);
-        if (stored.viewport) {
-          engine.viewport.setViewport(stored.viewport.zoom, stored.viewport.offset);
-        }
-        engine.commitHistory();
-        initialElementsRef.current = true;
-        hasStoredElementsRef.current = true;
-      }
-      // 逻辑：读取缓存后同步最后保存快照，避免覆盖现有数据。
-      if (Array.isArray(stored.elements)) {
-        lastSavedElementsRef.current = JSON.stringify(stored.elements);
-        if (stored.elements.length > 0) {
-          hasStoredElementsRef.current = true;
-        }
-      }
-      if (stored.viewport) {
-        lastSavedViewportRef.current = JSON.stringify(stored.viewport);
-      }
-    } catch {
-      // 逻辑：本地缓存异常时忽略，避免阻塞渲染。
-    }
+
+    // 逻辑：无快照时以当前引擎状态为基准，避免首次写入空数据。
+    lastSavedElementsRef.current = JSON.stringify(engine.doc.getElements());
+    const viewportState = engine.viewport.getState();
+    lastSavedViewportRef.current = JSON.stringify({
+      zoom: viewportState.zoom,
+      offset: viewportState.offset,
+    });
     hydratedRef.current = true;
-  }, [engine, storageKey]);
+  }, [boardQuery.data, boardQuery.isFetched, boardScope, engine]);
 
   useEffect(() => {
-    if (!storageKey) return;
+    if (!boardScope) return;
     if (!hydratedRef.current) return;
-    // 逻辑：保存流程先过滤空数组与拖拽中间态，再做差异化写入。
-    if (skipSaveOnceRef.current) {
-      if (snapshot.elements.length === 0) {
-        return;
-      }
-      skipSaveOnceRef.current = false;
-    }
-    if (snapshot.elements.length === 0 && hasStoredElementsRef.current) {
-      // 逻辑：热更新期间不写入空数组，避免覆盖已有缓存。
-      return;
-    }
     if (snapshot.draggingId) {
-      // 逻辑：拖拽过程中暂存，等放开后再保存。
+      // 逻辑：拖拽过程中先标记，等放开后再保存。
       pendingSaveRef.current = true;
-      return;
-    }
-    if (snapshot.elements.length === 0 && lastSavedElementsRef.current === "") {
-      // 逻辑：首次空数组不写入，避免热更新时清空已有缓存。
       return;
     }
     const elementsPayload = JSON.stringify(snapshot.elements);
@@ -252,63 +280,41 @@ export function BoardCanvas({
       viewportSaveTimeoutRef.current = null;
     }
     const viewportState = engine.viewport.getState();
-    lastSavedViewportRef.current = JSON.stringify({
+    const viewportPayload = {
       zoom: viewportState.zoom,
       offset: viewportState.offset,
-    });
-    const payload: BoardStorageState = {
-      version: 1,
-      elements: snapshot.elements,
-      viewport: {
-        zoom: viewportState.zoom,
-        offset: viewportState.offset,
-      },
     };
-    // 逻辑：仅在组件数据变化时保存，避免频繁写入。
-    console.log("[board] save", storageKey, payload);
-    window.localStorage.setItem(storageKey, JSON.stringify(payload));
-  }, [
-    engine,
-    snapshot.draggingId,
-    snapshot.elements,
-    storageKey,
-  ]);
+    lastSavedViewportRef.current = JSON.stringify(viewportPayload);
+    const { nodes, connectors } = splitElements(snapshot.elements);
+    persistSnapshot(nodes, connectors, viewportPayload);
+  }, [boardScope, engine, snapshot.draggingId, snapshot.elements, persistSnapshot]);
 
   useEffect(() => {
-    if (!storageKey) return;
+    if (!boardScope) return;
     if (!hydratedRef.current) return;
     const viewportState = engine.viewport.getState();
-    const viewportPayload = JSON.stringify({
+    const viewportPayload = {
       zoom: viewportState.zoom,
       offset: viewportState.offset,
-    });
-    const viewportChanged = viewportPayload !== lastSavedViewportRef.current;
+    };
+    const viewportKey = JSON.stringify(viewportPayload);
+    const viewportChanged = viewportKey !== lastSavedViewportRef.current;
     if (!viewportChanged) return;
     if (viewportSaveTimeoutRef.current) {
       window.clearTimeout(viewportSaveTimeoutRef.current);
     }
     viewportSaveTimeoutRef.current = window.setTimeout(() => {
-      if (!storageKey || !hydratedRef.current) return;
-      if (snapshot.elements.length === 0 && hasStoredElementsRef.current) return;
-      if (snapshot.elements.length === 0 && lastSavedElementsRef.current === "") return;
-      lastSavedViewportRef.current = viewportPayload;
-      const payload: BoardStorageState = {
-        version: 1,
-        elements: snapshot.elements,
-        viewport: {
-          zoom: viewportState.zoom,
-          offset: viewportState.offset,
-        },
-      };
-      console.log("[board] save", storageKey, payload);
-      window.localStorage.setItem(storageKey, JSON.stringify(payload));
+      if (!boardScope || !hydratedRef.current) return;
+      lastSavedViewportRef.current = viewportKey;
+      const { nodes, connectors } = splitElements(snapshot.elements);
+      persistSnapshot(nodes, connectors, viewportPayload);
     }, VIEWPORT_SAVE_DELAY);
     return () => {
       if (viewportSaveTimeoutRef.current) {
         window.clearTimeout(viewportSaveTimeoutRef.current);
       }
     };
-  }, [engine, snapshot.elements, snapshot.panning, snapshot.viewport, storageKey]);
+  }, [boardScope, engine, snapshot.elements, snapshot.panning, snapshot.viewport, persistSnapshot]);
 
   useEffect(() => {
     const lastViewport = lastViewportRef.current;

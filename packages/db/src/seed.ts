@@ -170,6 +170,7 @@ async function seed() {
         tags: page.tags,
         workspaceId: WORKSPACE_ID,
       },
+      select: { id: true },
     });
   }
 }

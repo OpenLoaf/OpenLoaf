@@ -159,5 +159,5 @@ type PageRevisionPayload = {
 ## 注意事项
 - Board 当前态仍然使用 blockId；只有历史 payload 使用 blockRevisionId。
 - Block.version 必须在内容变更时递增，否则历史会错误复用。
-- Page.blockVersion 若保留，应作为聚合版本使用，避免与 Block.version 混淆。
+- Page.markdownVersion 仅用于 Markdown 缓存刷新判断。
 - Board.revision 用于乐观锁或快速判断变更，可与 Revision.revision 保持一致节奏。
