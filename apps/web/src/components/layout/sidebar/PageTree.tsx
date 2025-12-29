@@ -3,7 +3,7 @@
 import { startTransition, useMemo, useState } from "react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   SidebarMenuAction,
   SidebarMenuButton,
@@ -32,25 +32,189 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
-import { ChevronRight, FileText } from "lucide-react";
+import { ChevronRight, FileText, Folder } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { toast } from "sonner";
-import type { PageTreeNode } from "@teatime-ai/api/services/pageService";
+
+type ProjectInfo = {
+  projectId: string;
+  title: string;
+  icon?: string;
+  rootUri: string;
+};
+
+type FileNode = {
+  uri: string;
+  name: string;
+  kind: "folder" | "file";
+  ext?: string;
+  isProjectRoot?: boolean;
+  projectId?: string;
+  projectIcon?: string;
+};
+
+type RenameTarget = {
+  node: FileNode;
+  nextName: string;
+};
 
 interface PageTreeMenuProps {
-  pages: PageTreeNode[];
-  expandedPages: Record<string, boolean>;
-  setExpandedPages: React.Dispatch<
-    React.SetStateAction<Record<string, boolean>>
-  >;
-  updatePage: any;
+  projects: ProjectInfo[];
+  expandedNodes: Record<string, boolean>;
+  setExpandedNodes: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+}
+
+interface FileTreeNodeProps {
+  node: FileNode;
+  depth: number;
+  activeUri: string | null;
+  expandedNodes: Record<string, boolean>;
+  setExpanded: (uri: string, isExpanded: boolean) => void;
+  onPrimaryClick: (node: FileNode) => void;
+  renderContextMenuContent: (node: FileNode) => React.ReactNode;
+  contextSelectedUri: string | null;
+  onContextMenuOpenChange: (node: FileNode, open: boolean) => void;
+}
+
+function resolveFileComponent(ext?: string) {
+  if (!ext) return "file-viewer";
+  if (ext === "ttdoc") return "file-viewer";
+  if (ext === "ttcanvas") return "file-viewer";
+  if (ext === "ttskill") return "file-viewer";
+  return "file-viewer";
+}
+
+function buildNextUri(uri: string, nextName: string) {
+  const url = new URL(uri);
+  const segments = url.pathname.split("/");
+  segments[segments.length - 1] = nextName;
+  url.pathname = segments.join("/");
+  return url.toString();
+}
+
+function getParentUri(uri: string) {
+  const url = new URL(uri);
+  const segments = url.pathname.split("/");
+  segments.pop();
+  const nextPath = segments.join("/") || "/";
+  url.pathname = nextPath;
+  return url.toString();
+}
+
+/** Render a file tree node recursively. */
+function FileTreeNode({
+  node,
+  depth,
+  activeUri,
+  expandedNodes,
+  setExpanded,
+  onPrimaryClick,
+  renderContextMenuContent,
+  contextSelectedUri,
+  onContextMenuOpenChange,
+}: FileTreeNodeProps) {
+  const isExpanded = expandedNodes[node.uri] ?? false;
+  const isActive = activeUri === node.uri || contextSelectedUri === node.uri;
+  const listQuery = useQuery(
+    trpc.fs.list.queryOptions(
+      node.kind === "folder" && isExpanded ? { uri: node.uri } : skipToken
+    )
+  );
+  const children = listQuery.data?.entries ?? [];
+
+  const Item = depth === 0 ? SidebarMenuItem : SidebarMenuSubItem;
+  const Button = depth === 0 ? SidebarMenuButton : SidebarMenuSubButton;
+
+  if (node.kind === "file") {
+    return (
+      <Item key={node.uri}>
+        <ContextMenu onOpenChange={(open) => onContextMenuOpenChange(node, open)}>
+          <ContextMenuTrigger asChild>
+            <Button
+              tooltip={node.name}
+              size="default"
+              isActive={isActive}
+              className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              onClick={() => onPrimaryClick(node)}
+            >
+              <FileText className="h-4 w-4" />
+              <span>{node.name}</span>
+            </Button>
+          </ContextMenuTrigger>
+          {renderContextMenuContent(node)}
+        </ContextMenu>
+      </Item>
+    );
+  }
+
+  return (
+    <Collapsible
+      key={node.uri}
+      asChild
+      open={isExpanded}
+      onOpenChange={(open) => setExpanded(node.uri, open)}
+      className="group/collapsible"
+    >
+      <Item>
+        <ContextMenu onOpenChange={(open) => onContextMenuOpenChange(node, open)}>
+          <ContextMenuTrigger asChild>
+            <Button
+              tooltip={node.name}
+              size="default"
+              isActive={isActive}
+              className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              onClick={() => onPrimaryClick(node)}
+            >
+              {node.projectIcon ? (
+                <span className="text-sm leading-none">{node.projectIcon}</span>
+              ) : (
+                <Folder className="h-4 w-4" />
+              )}
+              <span>{node.name}</span>
+            </Button>
+          </ContextMenuTrigger>
+          {renderContextMenuContent(node)}
+        </ContextMenu>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuAction
+            aria-label="Toggle"
+            className="text-muted-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+          >
+            <ChevronRight className="transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+          </SidebarMenuAction>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+          <SidebarMenuSub className="mx-1 px-1">
+            {children.map((child: any) => (
+              <FileTreeNode
+                key={child.uri}
+                node={{
+                  uri: child.uri,
+                  name: child.name,
+                  kind: child.kind,
+                  ext: child.ext,
+                }}
+                depth={depth + 1}
+                activeUri={activeUri}
+                expandedNodes={expandedNodes}
+                setExpanded={setExpanded}
+                onPrimaryClick={onPrimaryClick}
+                renderContextMenuContent={renderContextMenuContent}
+                contextSelectedUri={contextSelectedUri}
+                onContextMenuOpenChange={onContextMenuOpenChange}
+              />
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </Item>
+    </Collapsible>
+  );
 }
 
 export const PageTreeMenu = ({
-  pages,
-  expandedPages,
-  setExpandedPages,
-  updatePage,
+  projects,
+  expandedNodes,
+  setExpandedNodes,
 }: PageTreeMenuProps) => {
   const addTab = useTabs((s) => s.addTab);
   const setActiveTab = useTabs((s) => s.setActiveTab);
@@ -58,125 +222,141 @@ export const PageTreeMenu = ({
   const tabs = useTabs((s) => s.tabs);
   const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
-  const deletePage = useMutation(trpc.page.deleteOnePage.mutationOptions());
-  const [renameValue, setRenameValue] = useState("");
-  const [renameTarget, setRenameTarget] = useState<PageTreeNode | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<PageTreeNode | null>(null);
-  const [contextSelectedPageId, setContextSelectedPageId] = useState<string | null>(null);
+  const renameProject = useMutation(trpc.project.update.mutationOptions());
+  const renameFile = useMutation(trpc.fs.rename.mutationOptions());
+  const deleteFile = useMutation(trpc.fs.delete.mutationOptions());
+  const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FileNode | null>(null);
+  const [contextSelectedUri, setContextSelectedUri] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
-  const Collapsible = CollapsiblePrimitive.Root;
-  const CollapsibleTrigger = CollapsiblePrimitive.Trigger;
-  const CollapsibleContent = CollapsiblePrimitive.Content;
+  const activeUri = useMemo(() => {
+    const activeTab = tabs.find((tab) => tab.id === activeTabId);
+    const params = activeTab?.base?.params as any;
+    if (params?.rootUri && typeof params.rootUri === "string") return params.rootUri;
+    if (params?.uri && typeof params.uri === "string") return params.uri;
+    return null;
+  }, [activeTabId, tabs]);
 
-  const buildTabInput = (page: PageTreeNode) => {
-    if (!workspace?.id) return;
-    return {
-      workspaceId: workspace.id,
-      createNew: true,
-      title: page.title || "Untitled Page",
-      icon: page.icon ?? undefined,
-      leftWidthPercent: 90,
-      base: {
-        id: `base:${page.id}`,
-        component: "plant-page",
-        params: { pageId: page.id },
-      },
-      chatParams: { pageId: page.id },
-    };
+  const setExpanded = (uri: string, isExpanded: boolean) => {
+    setExpandedNodes((prev) => ({
+      ...prev,
+      [uri]: isExpanded,
+    }));
   };
 
-  const openInNewTab = (page: PageTreeNode) => {
-    const input = buildTabInput(page);
-    if (!input) return;
-    const baseId = input.base?.id;
-    if (baseId) {
-      const state = useTabs.getState();
-      const existing = state.tabs.find(
-        (tab) => tab.workspaceId === input.workspaceId && tab.base?.id === baseId,
-      );
-      if (existing) {
-        startTransition(() => {
-          setActiveTab(existing.id);
-        });
-        return;
-      }
+  const openProjectTab = (project: ProjectInfo) => {
+    if (!workspace?.id) return;
+    const baseId = `project:${project.projectId}`;
+    const existing = tabs.find(
+      (tab) => tab.workspaceId === workspace.id && tab.base?.id === baseId,
+    );
+    if (existing) {
+      startTransition(() => {
+        setActiveTab(existing.id);
+      });
+      return;
     }
 
-    addTab(input);
-  };
-
-  const handlePrimaryClick = (event: React.MouseEvent, page: PageTreeNode) => {
-    event.preventDefault();
-    openInNewTab(page);
-  };
-
-  const handleMouseDown = (event: React.MouseEvent, page: PageTreeNode) => {
-    if (event.button !== 1) return;
-    event.preventDefault();
-    openInNewTab(page);
-  };
-
-  const handleDoubleClick = (event: React.MouseEvent, page: PageTreeNode) => {
-    event.preventDefault();
-    openInNewTab(page);
-  };
-
-  const setExpanded = (pageId: string, isExpanded: boolean) => {
-    setExpandedPages((prev) => ({
-      ...prev,
-      [pageId]: isExpanded,
-    }));
-    updatePage.mutate({
-      where: { id: pageId },
-      data: { isExpanded },
+    addTab({
+      workspaceId: workspace.id,
+      createNew: true,
+      title: project.title || "Untitled Project",
+      icon: project.icon ?? undefined,
+      leftWidthPercent: 90,
+      base: {
+        id: baseId,
+        component: "plant-page",
+        params: { projectId: project.projectId, rootUri: project.rootUri },
+      },
+      chatParams: { resourceUri: project.rootUri },
     });
   };
 
-  /** Return the active page id derived from the active tab base id. */
-  const activePageId = useMemo(() => {
-    const activeTab = tabs.find((tab) => tab.id === activeTabId);
-    const baseId = String(activeTab?.base?.id ?? "");
-    if (!baseId.startsWith("base:")) return null;
-    return baseId.replace("base:", "");
-  }, [activeTabId, tabs]);
-
-  /** Check whether the given page should be highlighted as active. */
-  const isActivePage = (page: PageTreeNode) => {
-    return Boolean(activePageId && activePageId === page.id);
-  };
-
-  /** Open rename dialog for the selected page. */
-  const openRenameDialog = (page: PageTreeNode) => {
-    setRenameValue(page.title || "未命名页面");
-    setRenameTarget(page);
-  };
-
-  /** Open delete dialog for the selected page. */
-  const openDeleteDialog = (page: PageTreeNode) => {
-    if (page.children.length > 0) {
-      toast.error("请先删除子页面");
+  const openFileTab = (node: FileNode) => {
+    if (!workspace?.id) return;
+    const component = resolveFileComponent(node.ext);
+    const baseId = `file:${node.uri}`;
+    const existing = tabs.find(
+      (tab) => tab.workspaceId === workspace.id && tab.base?.id === baseId,
+    );
+    if (existing) {
+      startTransition(() => {
+        setActiveTab(existing.id);
+      });
       return;
     }
-    setDeleteTarget(page);
+
+    addTab({
+      workspaceId: workspace.id,
+      createNew: true,
+      title: node.name,
+      icon: "📄",
+      leftWidthPercent: 70,
+      base: {
+        id: baseId,
+        component,
+        params: { uri: node.uri, name: node.name, ext: node.ext },
+      },
+      chatParams: { resourceUri: node.uri },
+    });
   };
 
-  /** Rename the selected page. */
+  const handlePrimaryClick = (node: FileNode) => {
+    if (node.isProjectRoot) {
+      openProjectTab({
+        projectId: node.projectId ?? node.uri,
+        title: node.name,
+        icon: node.projectIcon,
+        rootUri: node.uri,
+      });
+      return;
+    }
+    if (node.kind === "file") {
+      openFileTab(node);
+      return;
+    }
+    setExpanded(node.uri, !(expandedNodes[node.uri] ?? false));
+  };
+
+  const openRenameDialog = (node: FileNode) => {
+    setRenameTarget({ node, nextName: node.name });
+  };
+
+  const openDeleteDialog = (node: FileNode) => {
+    if (node.isProjectRoot) return;
+    setDeleteTarget(node);
+  };
+
   const handleRename = async () => {
     if (!renameTarget) return;
-    const title = renameValue.trim();
-    if (!title) return;
-
+    const nextName = renameTarget.nextName.trim();
+    if (!nextName) return;
     try {
       setIsBusy(true);
-      await updatePage.mutateAsync({
-        where: { id: renameTarget.id },
-        data: { title },
-      });
+      if (renameTarget.node.isProjectRoot) {
+        await renameProject.mutateAsync({
+          rootUri: renameTarget.node.uri,
+          title: nextName,
+        });
+      } else {
+        const nextUri = buildNextUri(renameTarget.node.uri, nextName);
+        await renameFile.mutateAsync({
+          from: renameTarget.node.uri,
+          to: nextUri,
+        });
+      }
       toast.success("重命名成功");
       setRenameTarget(null);
-      setRenameValue("");
-      queryClient.invalidateQueries();
+      await queryClient.invalidateQueries({
+        queryKey: trpc.project.list.queryOptions().queryKey,
+      });
+      if (!renameTarget.node.isProjectRoot) {
+        const parentUri = getParentUri(renameTarget.node.uri);
+        await queryClient.invalidateQueries({
+          queryKey: trpc.fs.list.queryOptions({ uri: parentUri }).queryKey,
+        });
+      }
     } catch (err: any) {
       toast.error(err?.message ?? "重命名失败");
     } finally {
@@ -184,16 +364,17 @@ export const PageTreeMenu = ({
     }
   };
 
-  /** Delete the selected page. */
   const handleDelete = async () => {
     if (!deleteTarget) return;
-
     try {
       setIsBusy(true);
-      await deletePage.mutateAsync({ where: { id: deleteTarget.id } });
+      await deleteFile.mutateAsync({ uri: deleteTarget.uri, recursive: true });
       toast.success("已删除");
+      const parentUri = getParentUri(deleteTarget.uri);
+      await queryClient.invalidateQueries({
+        queryKey: trpc.fs.list.queryOptions({ uri: parentUri }).queryKey,
+      });
       setDeleteTarget(null);
-      queryClient.invalidateQueries();
     } catch (err: any) {
       toast.error(err?.message ?? "删除失败");
     } finally {
@@ -201,166 +382,74 @@ export const PageTreeMenu = ({
     }
   };
 
-  /** Render context menu items for a page entry. */
-  const renderContextMenuContent = (page: PageTreeNode) => (
+  const renderContextMenuContent = (node: FileNode) => (
     <ContextMenuContent className="w-52">
-      <ContextMenuItem onClick={() => openInNewTab(page)}>
-        在新标签页打开
-      </ContextMenuItem>
+      {node.kind === "file" || node.isProjectRoot ? (
+        <ContextMenuItem onClick={() => handlePrimaryClick(node)}>
+          在新标签页打开
+        </ContextMenuItem>
+      ) : null}
       <ContextMenuSeparator />
-      <ContextMenuItem onClick={() => openRenameDialog(page)}>
-        重命名
-      </ContextMenuItem>
-      <ContextMenuItem
-        onClick={() => openDeleteDialog(page)}
-        disabled={page.children.length > 0}
-      >
+      <ContextMenuItem onClick={() => openRenameDialog(node)}>重命名</ContextMenuItem>
+      <ContextMenuItem onClick={() => openDeleteDialog(node)} disabled={node.isProjectRoot}>
         删除
       </ContextMenuItem>
     </ContextMenuContent>
   );
 
-  /** Track context menu selection state for highlight. */
-  const handleContextMenuOpenChange = (page: PageTreeNode, open: boolean) => {
-    setContextSelectedPageId(open ? page.id : null);
+  const handleContextMenuOpenChange = (node: FileNode, open: boolean) => {
+    setContextSelectedUri(open ? node.uri : null);
   };
 
   return (
     <>
-      {pages.map((page) => {
-        const isExpanded = expandedPages[page.id] ?? page.isExpanded;
-        const hasChildren = page.children.length > 0;
-        const pageTitle = page.title || "Untitled Page";
-        const isActive = isActivePage(page) || contextSelectedPageId === page.id;
+      {projects.map((project) => (
+        <FileTreeNode
+          key={project.rootUri}
+          node={{
+            uri: project.rootUri,
+            name: project.title || "Untitled Project",
+            kind: "folder",
+            isProjectRoot: true,
+            projectId: project.projectId,
+            projectIcon: project.icon,
+          }}
+          depth={0}
+          activeUri={activeUri}
+          expandedNodes={expandedNodes}
+          setExpanded={setExpanded}
+          onPrimaryClick={handlePrimaryClick}
+          renderContextMenuContent={renderContextMenuContent}
+          contextSelectedUri={contextSelectedUri}
+          onContextMenuOpenChange={handleContextMenuOpenChange}
+        />
+      ))}
 
-        if (!hasChildren) {
-          return (
-            <SidebarMenuItem key={page.id}>
-              <ContextMenu onOpenChange={(open) => handleContextMenuOpenChange(page, open)}>
-                <ContextMenuTrigger asChild>
-                  <SidebarMenuButton
-                    tooltip={pageTitle}
-                    size="default"
-                    isActive={isActive}
-                    className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
-                    onClick={(event) => handlePrimaryClick(event, page)}
-                    onMouseDown={(event) => handleMouseDown(event, page)}
-                    onDoubleClick={(event) => handleDoubleClick(event, page)}
-                  >
-                    {page.icon ? (
-                      <span className="text-sm leading-none">{page.icon}</span>
-                    ) : (
-                      <FileText className="h-4 w-4" />
-                    )}
-                    <span>{pageTitle}</span>
-                  </SidebarMenuButton>
-                </ContextMenuTrigger>
-                {renderContextMenuContent(page)}
-              </ContextMenu>
-            </SidebarMenuItem>
-          );
-        }
-
-        return (
-          <Collapsible
-            key={page.id}
-            asChild
-            open={isExpanded}
-            onOpenChange={(open) => setExpanded(page.id, open)}
-            className="group/collapsible"
-          >
-            <SidebarMenuItem>
-              <ContextMenu onOpenChange={(open) => handleContextMenuOpenChange(page, open)}>
-                <ContextMenuTrigger asChild>
-                  <SidebarMenuButton
-                    tooltip={pageTitle}
-                    size="default"
-                    isActive={isActive}
-                    className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
-                    onClick={(event) => handlePrimaryClick(event, page)}
-                    onMouseDown={(event) => handleMouseDown(event, page)}
-                    onDoubleClick={(event) => handleDoubleClick(event, page)}
-                  >
-                    {page.icon ? (
-                      <span className="text-sm leading-none">{page.icon}</span>
-                    ) : (
-                      <FileText className="h-4 w-4" />
-                    )}
-                    <span>{pageTitle}</span>
-                  </SidebarMenuButton>
-                </ContextMenuTrigger>
-                {renderContextMenuContent(page)}
-              </ContextMenu>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuAction
-                  aria-label="Toggle"
-                  className="text-muted-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-                >
-                  <ChevronRight className="transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
-                </SidebarMenuAction>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-                <SidebarMenuSub className="mx-1 px-1">
-                  {page.children.map((child: PageTreeNode) => {
-                    const childTitle = child.title || "Untitled Page";
-                    const isChildActive =
-                      isActivePage(child) || contextSelectedPageId === child.id;
-
-                    return (
-                      <SidebarMenuSubItem key={child.id}>
-                        <ContextMenu onOpenChange={(open) => handleContextMenuOpenChange(child, open)}>
-                          <ContextMenuTrigger asChild>
-                            <SidebarMenuSubButton
-                              href="#"
-                              size="md"
-                              isActive={isChildActive}
-                              className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
-                              onClick={(event) => {
-                                event.preventDefault();
-                                handlePrimaryClick(event, child);
-                              }}
-                              onMouseDown={(event) => handleMouseDown(event, child)}
-                              onDoubleClick={(event) => handleDoubleClick(event, child)}
-                            >
-                              {child.icon ? (
-                                <span className="text-sm leading-none">{child.icon}</span>
-                              ) : (
-                                <FileText className="h-4 w-4" />
-                              )}
-                              <span>{childTitle}</span>
-                            </SidebarMenuSubButton>
-                          </ContextMenuTrigger>
-                          {renderContextMenuContent(child)}
-                        </ContextMenu>
-                      </SidebarMenuSubItem>
-                    );
-                  })}
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </SidebarMenuItem>
-          </Collapsible>
-        );
-      })}
-
-      <Dialog open={Boolean(renameTarget)} onOpenChange={(open) => {
-        if (open) return;
-        setRenameTarget(null);
-        setRenameValue("");
-      }}>
+      <Dialog
+        open={Boolean(renameTarget)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setRenameTarget(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>重命名页面</DialogTitle>
-            <DialogDescription>请输入新的页面名称。</DialogDescription>
+            <DialogTitle>重命名</DialogTitle>
+            <DialogDescription>请输入新的名称。</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="page-title" className="text-right">
+              <Label htmlFor="node-title" className="text-right">
                 名称
               </Label>
               <Input
-                id="page-title"
-                value={renameValue}
-                onChange={(event) => setRenameValue(event.target.value)}
+                id="node-title"
+                value={renameTarget?.nextName ?? ""}
+                onChange={(event) =>
+                  setRenameTarget((prev) =>
+                    prev ? { ...prev, nextName: event.target.value } : prev
+                  )
+                }
                 className="col-span-3"
                 autoFocus
                 onKeyDown={(event) => {
@@ -373,25 +462,34 @@ export const PageTreeMenu = ({
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline" type="button">取消</Button>
+              <Button variant="outline" type="button">
+                取消
+              </Button>
             </DialogClose>
-            <Button onClick={handleRename} disabled={isBusy}>保存</Button>
+            <Button onClick={handleRename} disabled={isBusy}>
+              保存
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => {
-        if (open) return;
-        setDeleteTarget(null);
-      }}>
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setDeleteTarget(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>确认删除</DialogTitle>
-            <DialogDescription>确定要删除这个页面吗？此操作无法撤销。</DialogDescription>
+            <DialogDescription>确定要删除这个文件吗？此操作无法撤销。</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline" type="button">取消</Button>
+              <Button variant="outline" type="button">
+                取消
+              </Button>
             </DialogClose>
             <Button variant="destructive" onClick={handleDelete} disabled={isBusy}>
               删除

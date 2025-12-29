@@ -15,8 +15,8 @@ const LazyProjectInfoPlate = lazy(() =>
 
 interface ProjectIntroHeaderProps {
   isLoading: boolean;
-  pageId?: string;
-  pageTitle: string;
+  projectId?: string;
+  projectTitle: string;
   titleIcon?: string;
   currentTitle?: string;
   isUpdating: boolean;
@@ -29,8 +29,9 @@ interface ProjectIntroHeaderProps {
 interface ProjectIntroProps {
   isLoading: boolean;
   isActive: boolean;
-  pageId?: string;
-  pageTitle: string;
+  projectId?: string;
+  rootUri?: string;
+  projectTitle: string;
   readOnly: boolean;
 }
 
@@ -38,15 +39,16 @@ interface ProjectIntroProps {
 const ProjectInfo = memo(function ProjectInfo({
   isLoading,
   isActive,
-  pageId,
-  pageTitle,
+  projectId,
+  rootUri,
+  projectTitle,
   readOnly,
 }: ProjectIntroProps) {
   const blocksQuery = useQuery(
-    trpc.pageCustom.getBlocks.queryOptions(
-      pageId
+    trpc.project.getIntro.queryOptions(
+      rootUri
         ? {
-          pageId,
+          rootUri,
         }
         : skipToken
     )
@@ -54,7 +56,7 @@ const ProjectInfo = memo(function ProjectInfo({
 
   const blocks = blocksQuery.data?.blocks ?? [];
 
-  const showLoading = isLoading || (!!pageId && blocksQuery.isLoading);
+  const showLoading = isLoading || (!!rootUri && blocksQuery.isLoading);
 
   if (showLoading) {
     return null;
@@ -66,9 +68,10 @@ const ProjectInfo = memo(function ProjectInfo({
         <Suspense fallback={null}>
           <LazyProjectInfoPlate
             readOnly={readOnly}
-            pageId={pageId}
+            projectId={projectId}
+            rootUri={rootUri}
             blocks={blocks}
-            pageTitle={pageTitle}
+            projectTitle={projectTitle}
           />
         </Suspense>
       ) : null}
@@ -79,8 +82,8 @@ const ProjectInfo = memo(function ProjectInfo({
 /** Project intro header. */
 const ProjectIntroHeader = memo(function ProjectIntroHeader({
   isLoading,
-  pageId,
-  pageTitle,
+  projectId,
+  projectTitle,
   titleIcon,
   currentTitle,
   isUpdating,
@@ -97,8 +100,8 @@ const ProjectIntroHeader = memo(function ProjectIntroHeader({
     <div className="flex items-center gap-2 min-w-0">
       <ProjectTitle
         isLoading={isLoading}
-        pageId={pageId}
-        pageTitle={pageTitle}
+        projectId={projectId}
+        projectTitle={projectTitle}
         titleIcon={titleIcon}
         currentTitle={currentTitle}
         isUpdating={isUpdating}
@@ -111,7 +114,7 @@ const ProjectIntroHeader = memo(function ProjectIntroHeader({
           variant="ghost"
           size="sm"
           className="shrink-0"
-          disabled={!pageId}
+          disabled={!projectId}
           onClick={() => onSetReadOnly(!isReadOnly)}
           aria-label={toggleTitle}
           title={toggleTitle}

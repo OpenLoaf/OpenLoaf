@@ -2,7 +2,6 @@ import { memo, useState } from "react";
 
 interface ProjectMaterialsProps {
   isLoading: boolean;
-  pageId?: string;
 }
 
 interface ProjectMaterialsHeaderProps {

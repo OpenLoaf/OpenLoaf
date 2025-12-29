@@ -2,12 +2,12 @@
 
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useTabs } from "@/hooks/use-tabs";
-import { usePage } from "@/hooks/use-page";
+import { useProject } from "@/hooks/use-project";
 import ProjectInfo, { ProjectIntroHeader } from "./intro/ProjectIntro";
 import { ProjectBoardCanvas } from "@/components/board";
 import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
@@ -17,31 +17,10 @@ import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
 
 interface ProjectPageProps {
   tabId?: string;
-  pageId?: string;
+  projectId?: string;
+  rootUri?: string;
   projectTab?: ProjectTabValue;
   [key: string]: any;
-}
-
-function updateTreeNode(pages: any[], pageId: string, patch: any) {
-  let changed = false;
-  const nextPages = pages.map((page) => {
-    const next: any = { ...page };
-    if (next.id === pageId) {
-      for (const [key, value] of Object.entries(patch)) {
-        if (next[key] !== value) changed = true;
-        next[key] = value;
-      }
-    }
-    if (Array.isArray(next.children) && next.children.length > 0) {
-      const nextChildren = updateTreeNode(next.children, pageId, patch);
-      if (nextChildren !== next.children) {
-        changed = true;
-        next.children = nextChildren;
-      }
-    }
-    return next;
-  });
-  return changed ? nextPages : pages;
 }
 
 /** Returns true when the event target is an editable element. */
@@ -62,25 +41,23 @@ function getProjectTabByIndex(index: number) {
   return PROJECT_TABS[index]?.value;
 }
 
-export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPageProps) {
+export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: ProjectPageProps) {
   const { workspace: activeWorkspace } = useWorkspace();
   const tabActive = useTabActive();
   const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
   const setTabBaseParams = useTabs((s) => s.setTabBaseParams);
   const appliedWidthRef = useRef(false);
-  const mountedScopeRef = useRef<{ pageId?: string; tabId?: string }>({
-    pageId,
+  const mountedScopeRef = useRef<{ rootUri?: string; tabId?: string }>({
+    rootUri,
     tabId,
   });
-  const queryClient = useQueryClient();
-  const pageSelect = useRef({ id: true, title: true, icon: true }).current;
 
   const {
-    data: pageData,
+    data: projectData,
     isLoading,
-    invalidatePage,
-    invalidatePageTree,
-  } = usePage(pageId);
+    invalidateProject,
+    invalidateProjectList,
+  } = useProject(rootUri);
 
   // 从持久化参数恢复上次的 Project 子标签，刷新后保持位置。
   const initialProjectTab =
@@ -93,8 +70,8 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
   );
   const [introReadOnly, setIntroReadOnly] = useState(true);
 
-  const pageTitle = pageData?.title || "Untitled Page";
-  const titleIcon: string | undefined = pageData?.icon ?? undefined;
+  const pageTitle = projectData?.project?.title || "Untitled Project";
+  const titleIcon: string | undefined = projectData?.project?.icon ?? undefined;
   const shouldRenderIntro = activeTab === "intro" || mountedTabs.has("intro");
   const shouldRenderCanvas = activeTab === "canvas" || mountedTabs.has("canvas");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
@@ -102,62 +79,11 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
     activeTab === "materials" || mountedTabs.has("materials");
   const shouldRenderSkills = activeTab === "skills" || mountedTabs.has("skills");
 
-  const pageQueryKey =
-    activeWorkspace && pageId
-      ? trpc.page.findUniquePage.queryOptions({
-          where: { id: pageId },
-          select: pageSelect,
-        }).queryKey
-      : undefined;
-  const pageTreeQueryKey = activeWorkspace?.id
-    ? trpc.pageCustom.getAll.queryOptions({ workspaceId: activeWorkspace.id })
-        .queryKey
-    : undefined;
-
-  const updatePage = useMutation(
-    trpc.page.updateOnePage.mutationOptions({
-      onMutate: async (variables: any) => {
-        const patch: any = {};
-        if (variables?.data?.icon !== undefined)
-          patch.icon = variables.data.icon;
-        if (variables?.data?.title !== undefined)
-          patch.title = variables.data.title;
-        if (!pageId || Object.keys(patch).length === 0) return;
-
-        const previousPage = pageQueryKey
-          ? queryClient.getQueryData(pageQueryKey)
-          : undefined;
-        const previousPageTree = pageTreeQueryKey
-          ? queryClient.getQueryData(pageTreeQueryKey)
-          : undefined;
-
-        if (pageQueryKey) {
-          queryClient.setQueryData(pageQueryKey, (oldData: any) => {
-            if (!oldData) return oldData;
-            return { ...oldData, ...patch };
-          });
-        }
-
-        if (pageTreeQueryKey) {
-          queryClient.setQueryData(pageTreeQueryKey, (oldData: any) => {
-            if (!Array.isArray(oldData)) return oldData;
-            return updateTreeNode(oldData, pageId, patch);
-          });
-        }
-
-        return { previousPage, previousPageTree };
-      },
-      onError: (_error, _variables, context) => {
-        if (pageQueryKey && context?.previousPage !== undefined) {
-          queryClient.setQueryData(pageQueryKey, context.previousPage);
-        }
-        if (pageTreeQueryKey && context?.previousPageTree !== undefined) {
-          queryClient.setQueryData(pageTreeQueryKey, context.previousPageTree);
-        }
-      },
-      onSettled: async () => {
-        await invalidatePage();
-        await invalidatePageTree();
+  const updateProject = useMutation(
+    trpc.project.update.mutationOptions({
+      onSuccess: async () => {
+        await invalidateProject();
+        await invalidateProjectList();
       },
     })
   );
@@ -165,29 +91,29 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
   /** Update project title with optimistic cache. */
   const handleUpdateTitle = useCallback(
     (nextTitle: string) => {
-      if (!pageId) return;
-      updatePage.mutate({ where: { id: pageId }, data: { title: nextTitle } });
+      if (!rootUri) return;
+      updateProject.mutate({ rootUri, title: nextTitle });
     },
-    [pageId, updatePage]
+    [rootUri, updateProject]
   );
 
   /** Update project icon with optimistic cache. */
   const handleUpdateIcon = useCallback(
     (nextIcon: string) => {
-      if (!pageId) return;
-      updatePage.mutate({ where: { id: pageId }, data: { icon: nextIcon } });
+      if (!rootUri) return;
+      updateProject.mutate({ rootUri, icon: nextIcon });
     },
-    [pageId, updatePage]
+    [rootUri, updateProject]
   );
 
   useEffect(() => {
     appliedWidthRef.current = false;
-  }, [pageId, tabId]);
+  }, [projectId, rootUri, tabId]);
 
   // 页面切换时重置只读状态，避免沿用旧页面的编辑状态。
   useEffect(() => {
     setIntroReadOnly(true);
-  }, [pageId]);
+  }, [projectId, rootUri]);
 
   useEffect(() => {
     if (!projectTab) return;
@@ -202,10 +128,10 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
   /** Reset mounted panels when the page context changes. */
   useEffect(() => {
     const prevScope = mountedScopeRef.current;
-    if (prevScope.pageId === pageId && prevScope.tabId === tabId) return;
-    mountedScopeRef.current = { pageId, tabId };
+    if (prevScope.rootUri === rootUri && prevScope.tabId === tabId) return;
+    mountedScopeRef.current = { rootUri, tabId };
     setMountedTabs(new Set<ProjectTabValue>([activeTab]));
-  }, [pageId, tabId, activeTab]);
+  }, [rootUri, tabId, activeTab]);
 
   /** Mark the active panel as mounted. */
   useEffect(() => {
@@ -291,11 +217,11 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
           >
             <ProjectIntroHeader
               isLoading={isLoading}
-              pageId={pageId}
-              pageTitle={pageTitle}
+              projectId={projectId}
+              projectTitle={pageTitle}
               titleIcon={titleIcon}
-              currentTitle={pageData?.title ?? undefined}
-              isUpdating={updatePage.isPending}
+              currentTitle={projectData?.project?.title ?? undefined}
+              isUpdating={updateProject.isPending}
               onUpdateTitle={handleUpdateTitle}
               onUpdateIcon={handleUpdateIcon}
               isReadOnly={introReadOnly}
@@ -371,8 +297,9 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
                   <ProjectInfo
                     isLoading={isLoading}
                     isActive={tabActive && activeTab === "intro"}
-                    pageId={pageId}
-                    pageTitle={pageTitle}
+                    projectId={projectId}
+                    rootUri={rootUri}
+                    projectTitle={pageTitle}
                     readOnly={introReadOnly}
                   />
                 ) : null}
@@ -393,7 +320,8 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
                     isLoading={isLoading}
                     isActive={tabActive && activeTab === "canvas"}
                     workspaceId={activeWorkspace?.id}
-                    pageId={pageId}
+                    projectId={projectId}
+                    rootUri={rootUri}
                     pageTitle={pageTitle}
                   />
                 ) : null}
@@ -410,7 +338,7 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
                 aria-hidden={activeTab !== "tasks"}
               >
                 {shouldRenderTasks ? (
-                  <ProjectTasks isLoading={isLoading} pageId={pageId} />
+                  <ProjectTasks isLoading={isLoading} />
                 ) : null}
               </div>
               <div
@@ -425,7 +353,7 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
                 aria-hidden={activeTab !== "materials"}
               >
                 {shouldRenderMaterials ? (
-                  <ProjectMaterials isLoading={isLoading} pageId={pageId} />
+                  <ProjectMaterials isLoading={isLoading} />
                 ) : null}
               </div>
               <div
@@ -440,7 +368,7 @@ export default function ProjectPage({ pageId, tabId, projectTab }: ProjectPagePr
                 aria-hidden={activeTab !== "skills"}
               >
                 {shouldRenderSkills ? (
-                  <ProjectSkills isLoading={isLoading} pageId={pageId} />
+                  <ProjectSkills isLoading={isLoading} />
                 ) : null}
               </div>
             </div>

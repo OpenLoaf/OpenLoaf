@@ -1,14 +1,14 @@
 import type { BoardSnapshotState } from "./boardStorage";
 
 const BOARD_DB_NAME = "teatime-board";
-const BOARD_DB_VERSION = 1;
-const SNAPSHOT_STORE_NAME = "board_snapshots";
+const BOARD_DB_VERSION = 2;
+const SNAPSHOT_STORE_NAME = "board_snapshots_v2";
 
 type BoardSnapshotCacheRecord = BoardSnapshotState & {
   /** Workspace id used for cache scope. */
   workspaceId: string;
-  /** Page id used for cache scope. */
-  pageId: string;
+  /** Board id used for cache scope. */
+  boardId: string;
 };
 
 let boardDbPromise: Promise<IDBDatabase> | null = null;
@@ -19,11 +19,12 @@ const openBoardSnapshotDb = (): Promise<IDBDatabase> => {
     const request = indexedDB.open(BOARD_DB_NAME, BOARD_DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(SNAPSHOT_STORE_NAME)) {
-        db.createObjectStore(SNAPSHOT_STORE_NAME, {
-          keyPath: ["workspaceId", "pageId"],
-        });
-      }
+    if (!db.objectStoreNames.contains(SNAPSHOT_STORE_NAME)) {
+      // 逻辑：版本升级时重建 store，避免旧 keyPath 影响读取。
+      db.createObjectStore(SNAPSHOT_STORE_NAME, {
+        keyPath: ["workspaceId", "boardId"],
+      });
+    }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -42,7 +43,7 @@ const getBoardSnapshotDb = (): Promise<IDBDatabase> | null => {
 /** Load a snapshot from local cache. */
 const readBoardSnapshotCache = async (
   workspaceId: string,
-  pageId: string
+  boardId: string
 ): Promise<BoardSnapshotCacheRecord | null> => {
   const dbPromise = getBoardSnapshotDb();
   if (!dbPromise) return null;
@@ -51,7 +52,7 @@ const readBoardSnapshotCache = async (
     return await new Promise((resolve) => {
       const tx = db.transaction(SNAPSHOT_STORE_NAME, "readonly");
       const store = tx.objectStore(SNAPSHOT_STORE_NAME);
-      const request = store.get([workspaceId, pageId]);
+      const request = store.get([workspaceId, boardId]);
       request.onsuccess = () => resolve((request.result as BoardSnapshotCacheRecord) ?? null);
       request.onerror = () => resolve(null);
     });

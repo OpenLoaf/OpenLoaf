@@ -2,7 +2,6 @@ import { memo } from "react";
 
 interface ProjectSkillsProps {
   isLoading: boolean;
-  pageId?: string;
 }
 
 interface ProjectSkillsHeaderProps {
@@ -29,7 +28,6 @@ const ProjectSkillsHeader = memo(function ProjectSkillsHeader({
 
 const ProjectSkills = memo(function ProjectSkills({
   isLoading,
-  pageId,
 }: ProjectSkillsProps) {
   if (isLoading) {
     return null;

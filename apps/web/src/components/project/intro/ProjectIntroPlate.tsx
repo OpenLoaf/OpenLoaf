@@ -15,18 +15,19 @@ import { trpc } from '@/utils/trpc';
 interface ProjectInfoPlateProps {
   // content 可能是任意可序列化的 JSON，渲染前再做校验与转换
   blocks: { content: unknown | null; order: number }[];
-  pageTitle: string;
+  projectTitle: string;
   readOnly?: boolean;
-  pageId?: string;
+  projectId?: string;
+  rootUri?: string;
 }
 
 /** 只读视图组件，避免创建完整编辑器实例 */
 function ProjectInfoPlateView({
   initialValue,
-  pageId,
+  projectId,
 }: {
   initialValue: Value;
-  pageId?: string;
+  projectId?: string;
 }) {
   // 中文注释：变量高度虚拟化（章节级）。精确滚动条 + 只渲染视区附近内容。
   const MAX_BLOCKS_PER_SECTION = 80; // 章节切分的兜底块数
@@ -200,10 +201,10 @@ function ProjectInfoPlateView({
       loggedRef.current = true;
       const dt = Math.round(performance.now() - t0Ref.current);
       // eslint-disable-next-line no-console
-      console.log(`[Plate][view] init ${pageId ?? "project-intro"}: ${dt}ms (sections=${sections.length})`);
+      console.log(`[Plate][view] init ${projectId ?? "project-intro"}: ${dt}ms (sections=${sections.length})`);
     });
     return () => cancelAnimationFrame(h);
-  }, [pageId, sections.length]);
+  }, [projectId, sections.length]);
 
   // 计算顶部/底部占位高度，确保滚动条精确
   const topSpacer = React.useMemo(() => sumHeights(0, range.start), [sumHeights, range.start]);
@@ -223,7 +224,7 @@ function ProjectInfoPlateView({
           return (
             <MeasuredSection key={`sec-${i}`} index={i} onMeasure={handleMeasure}>
               <SectionStatic
-                pageId={pageId}
+                projectId={projectId}
                 sectionIndex={i}
                 totalSections={sections.length}
                 value={slice}
@@ -274,23 +275,23 @@ function MeasuredSection({
 /** 单节静态渲染组件（内部创建只读 editor） */
 function SectionStatic({
   value,
-  pageId,
+  projectId,
   sectionIndex,
   totalSections,
 }: {
   value: Value;
-  pageId?: string;
+  projectId?: string;
   sectionIndex: number;
   totalSections: number;
 }) {
   const editor = usePlateViewEditor(
     {
-      id: `${pageId ?? "project-intro"}-view-${sectionIndex}`,
+      id: `${projectId ?? "project-intro"}-view-${sectionIndex}`,
       enabled: true,
       plugins: BaseEditorKit,
       value,
     },
-    [pageId, sectionIndex],
+    [projectId, sectionIndex],
   );
   if (!editor) return null;
   return (
@@ -306,11 +307,11 @@ function SectionStatic({
 /** 可编辑视图组件，仅在需要时创建重型编辑器实例 */
 function ProjectInfoPlateEdit({
   initialValue,
-  pageId,
+  projectId,
   onChange,
 }: {
   initialValue: Value;
-  pageId?: string;
+  projectId?: string;
   onChange: (value: Value) => void;
 }) {
   // 中文注释：记录编辑器初始化耗时，重点观察重型实例的创建时间
@@ -318,21 +319,21 @@ function ProjectInfoPlateEdit({
   const loggedRef = React.useRef(false);
   const editor = usePlateEditor(
     {
-      id: pageId ?? 'project-intro',
+      id: projectId ?? 'project-intro',
       enabled: true,
       plugins: EditorKit,
       value: initialValue,
     },
-    [pageId]
+    [projectId]
   );
   React.useEffect(() => {
     if (editor && !loggedRef.current) {
       loggedRef.current = true;
       const dt = Math.round(performance.now() - t0Ref.current);
       // eslint-disable-next-line no-console
-      console.log(`[Plate][edit] init ${pageId ?? 'project-intro'}: ${dt}ms`);
+      console.log(`[Plate][edit] init ${projectId ?? 'project-intro'}: ${dt}ms`);
     }
-  }, [editor, pageId]);
+  }, [editor, projectId]);
   if (!editor) return null;
   return (
     <Plate editor={editor} onValueChange={({ value }) => onChange(value)}>
@@ -346,12 +347,13 @@ function ProjectInfoPlateEdit({
 /** Project intro editor. */
 export function ProjectInfoPlate({
   blocks,
-  pageTitle,
+  projectTitle,
   readOnly = true,
-  pageId,
+  projectId,
+  rootUri,
 }: ProjectInfoPlateProps) {
   const saveBlocks = useMutation(
-    trpc.pageCustom.saveBlocks.mutationOptions()
+    trpc.project.saveIntro.mutationOptions()
   );
   const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastValueRef = React.useRef<string>('');
@@ -375,7 +377,7 @@ export function ProjectInfoPlate({
   const initialValue = React.useMemo(() => {
     const ordered = [...blocks].sort((a, b) => a.order - b.order);
     const fallbackValue: Value = [
-      { type: 'h1', children: [{ text: pageTitle }] },
+      { type: 'h1', children: [{ text: projectTitle }] },
       {
         type: 'p',
         children: [{ text: '在这里写项目简介（支持 Markdown / MDX）。' }],
@@ -387,7 +389,7 @@ export function ProjectInfoPlate({
       orderedBlocks.length === 0 ||
       orderedBlocks.every((block) => isEmptyNode(block));
     return (shouldUseFallback ? fallbackValue : orderedBlocks) as Value;
-  }, [blocks, pageTitle, isEmptyNode]);
+  }, [blocks, projectTitle, isEmptyNode]);
 
   React.useEffect(() => {
     // 中文注释：初始化内容时跳过自动保存，避免误写。
@@ -401,7 +403,7 @@ export function ProjectInfoPlate({
   /** Debounced block save handler. */
   const scheduleSave = React.useCallback(
     (value: Value) => {
-      if (!pageId || readOnly || isHydratingRef.current) return;
+      if (!rootUri || readOnly || isHydratingRef.current) return;
       const nextValue = JSON.stringify(value);
       if (nextValue === lastValueRef.current) return;
       lastValueRef.current = nextValue;
@@ -415,10 +417,10 @@ export function ProjectInfoPlate({
           order: index,
           type: (node as { type?: string }).type ?? 'paragraph',
         }));
-        saveBlocks.mutate({ pageId, blocks: blockPayload });
+        saveBlocks.mutate({ rootUri, blocks: blockPayload });
       }, 800);
     },
-    [pageId, readOnly, saveBlocks]
+    [rootUri, readOnly, saveBlocks]
   );
 
   React.useEffect(() => {
@@ -429,11 +431,11 @@ export function ProjectInfoPlate({
   }, []);
 
   return readOnly ? (
-    <ProjectInfoPlateView initialValue={initialValue} pageId={pageId} />
+    <ProjectInfoPlateView initialValue={initialValue} projectId={projectId} />
   ) : (
     <ProjectInfoPlateEdit
       initialValue={initialValue}
-      pageId={pageId}
+      projectId={projectId}
       onChange={(v) => scheduleSave(v)}
     />
   );

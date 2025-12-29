@@ -24,11 +24,7 @@ export function handleUiEvent(event: UiEvent | undefined) {
       useTabs.getState().clearStack(e.tabId);
     },
     [UiEventKind.RefreshPageTree]: () => {
-      const state = useTabs.getState();
-      const tab = state.tabs.find((t) => t.id === state.activeTabId);
-      const workspaceId = tab?.workspaceId;
-      if (!workspaceId) return;
-      const queryKey = trpc.pageCustom.getAll.queryOptions({ workspaceId }).queryKey;
+      const queryKey = trpc.project.list.queryOptions().queryKey;
       void queryClient.invalidateQueries({ queryKey });
     },
     [UiEventKind.RefreshBasePanel]: (
@@ -51,4 +47,3 @@ export function handleUiEvent(event: UiEvent | undefined) {
   if (!handler) return;
   handler(event as any);
 }
-

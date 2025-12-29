@@ -36,7 +36,8 @@ export function Chat({
   onSessionChange,
   ...params
 }: ChatProps) {
-  const pageId = typeof params.pageId === "string" ? params.pageId : undefined;
+  const resourceUri =
+    typeof params.resourceUri === "string" ? params.resourceUri : undefined;
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const dragCounterRef = React.useRef(0);
   const attachmentsRef = React.useRef<ChatAttachment[]>([]);
@@ -198,7 +199,7 @@ export function Chat({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-      <ChatHeader loadHistory={effectiveLoadHistory} pageId={pageId} />
+      <ChatHeader loadHistory={effectiveLoadHistory} resourceUri={resourceUri} />
         <MessageList className="flex-1 min-h-0" />
         <ChatInput
           attachments={attachments}

@@ -18,8 +18,10 @@ export interface ProjectBoardCanvasProps {
   isActive: boolean;
   /** Workspace id used for storage isolation. */
   workspaceId?: string;
-  /** Current project page id. */
-  pageId?: string;
+  /** Current project id. */
+  projectId?: string;
+  /** Project root URI for persistence. */
+  rootUri?: string;
   /** Current project page title. */
   pageTitle: string;
 }
@@ -29,7 +31,8 @@ const ProjectBoardCanvas = memo(function ProjectBoardCanvas({
   isLoading,
   isActive,
   workspaceId,
-  pageId,
+  projectId,
+  rootUri,
   pageTitle,
 }: ProjectBoardCanvasProps) {
   if (isLoading) return null;
@@ -37,7 +40,7 @@ const ProjectBoardCanvas = memo(function ProjectBoardCanvas({
   return (
     <div data-board-active={isActive ? "true" : "false"} className="h-full w-full">
       <BoardCanvas
-        key={pageId ?? "board"}
+        key={rootUri ?? projectId ?? "board"}
         className="h-full w-full"
         nodes={[
           PlaceholderNodeDefinition,
@@ -50,7 +53,8 @@ const ProjectBoardCanvas = memo(function ProjectBoardCanvas({
           ImageGroupNodeDefinition,
         ]}
         workspaceId={workspaceId}
-        boardId={pageId}
+        boardId={rootUri ?? projectId}
+        rootUri={rootUri}
       />
     </div>
   );

@@ -3,7 +3,6 @@
 // @ts-ignore
 import { appRouter as internalAppRouter } from "../generated/routers";
 import { t } from "../generated/routers/helpers/createRouter";
-import { pageRouter } from "./routers/page";
 import {
   workspaceRouter,
   BaseWorkspaceRouter,
@@ -13,6 +12,7 @@ import { tabRouter, BaseTabRouter, tabSchemas } from "./routers/absTab";
 import { chatRouter } from "./routers/chat";
 import { BaseChatRouter, chatSchemas } from "./routers/absChat";
 import { health } from "./routers/health";
+import { fsRouter } from "./routers/fs";
 import {
   settingRouter,
   BaseSettingRouter,
@@ -24,14 +24,14 @@ import {
   BaseLinkPreviewRouter,
   linkPreviewSchemas,
 } from "./routers/absLinkPreview";
-import { boardRouter } from "./routers/board";
+import { projectRouter } from "./routers/project";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
   health,
   chat: chatRouter,
-  pageCustom: pageRouter,
-  boardCustom: boardRouter,
+  project: projectRouter,
+  fs: fsRouter,
   workspace: workspaceRouter,
   tab: tabRouter,
   settings: settingRouter,
@@ -61,8 +61,6 @@ export * from "./types/toolResult";
 export * from "./types/setting";
 export * from "./common";
 export * from "./markdown/block-markdown";
-export * from "./services/pageMarkdownService";
-export * from "./services/boardService";
 
 // Export workspace router components
 export { BaseWorkspaceRouter, workspaceSchemas };

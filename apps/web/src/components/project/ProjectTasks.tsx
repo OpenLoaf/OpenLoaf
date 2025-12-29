@@ -4,7 +4,6 @@ import { Calendar } from "@/components/ui/calendar";
 
 interface ProjectTasksProps {
   isLoading: boolean;
-  pageId?: string;
 }
 
 interface ProjectTasksHeaderProps {
@@ -32,7 +31,6 @@ const ProjectTasksHeader = memo(function ProjectTasksHeader({
 /** Project tasks panel. */
 const ProjectTasks = memo(function ProjectTasks({
   isLoading,
-  pageId,
 }: ProjectTasksProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 

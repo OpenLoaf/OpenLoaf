@@ -509,8 +509,7 @@ export const chatRouter = t.router({
    * - 直接物理删除：会话 / 消息 / 关联表
    */
   clearAllChat: shieldedProcedure.mutation(async ({ ctx }) => {
-    const [pageLinks, messages, sessions] = await ctx.prisma.$transaction([
-      ctx.prisma.pageChatSession.deleteMany({}),
+    const [messages, sessions] = await ctx.prisma.$transaction([
       ctx.prisma.chatMessage.deleteMany({}),
       ctx.prisma.chatSession.deleteMany({}),
     ]);
@@ -518,7 +517,6 @@ export const chatRouter = t.router({
     return {
       deletedSessions: sessions.count,
       deletedMessages: messages.count,
-      deletedPageLinks: pageLinks.count,
     };
   }),
 

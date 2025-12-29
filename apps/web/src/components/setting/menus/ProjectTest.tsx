@@ -4,11 +4,7 @@ import { Globe } from "lucide-react";
 import { memo } from "react";
 import { SettingsGroup } from "./SettingsGroup";
 
-interface ProjectTestProps {
-  pageId?: string;
-}
-
-const ProjectTest = memo(function ProjectTest({ pageId }: ProjectTestProps) {
+const ProjectTest = memo(function ProjectTest() {
   const activeTabId = useTabs((s) => s.activeTabId);
   const activeStackCount = useTabs((s) => {
     const id = s.activeTabId;
@@ -36,7 +32,7 @@ const ProjectTest = memo(function ProjectTest({ pageId }: ProjectTestProps) {
       upsertToolPart(activeTabId, toolKey, {
         type: "tool-demo",
         title: `Demo Result #${index + 1}`,
-        input: { from: "ProjectTest", pageId: pageId ?? null, index: index + 1 },
+        input: { from: "ProjectTest", index: index + 1 },
         output: {
           ok: true,
           message: "批量创建 stack：pushStackItem -> ToolResultPanel 渲染成功",
@@ -76,7 +72,7 @@ const ProjectTest = memo(function ProjectTest({ pageId }: ProjectTestProps) {
                   upsertToolPart(activeTabId, toolKey, {
                     type: "tool-demo",
                     title: "Demo Result",
-                    input: { from: "ProjectTest", pageId: pageId ?? null },
+                    input: { from: "ProjectTest" },
                     output: {
                       ok: true,
                       message: "pushStackItem -> ToolResultPanel 渲染成功",
@@ -110,9 +106,9 @@ const ProjectTest = memo(function ProjectTest({ pageId }: ProjectTestProps) {
                 onClick={() => {
                   if (!activeTabId) return;
                   pushStackItem(activeTabId, {
-                    id: `project:${pageId ?? "current"}`,
-                    component: "project-page",
-                    params: pageId ? { pageId } : {},
+                    id: "project:current",
+                    component: "plant-page",
+                    params: {},
                     title: "Project (overlay)",
                   });
                 }}

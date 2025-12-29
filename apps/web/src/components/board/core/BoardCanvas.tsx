@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@udecode/cn";
-import { skipToken, useQuery } from "@tanstack/react-query";
+import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
@@ -89,6 +89,8 @@ export type BoardCanvasProps = {
   workspaceId?: string;
   /** Optional board identifier used for storage scoping. */
   boardId?: string;
+  /** Project root URI used for remote persistence. */
+  rootUri?: string;
   /** Optional container class name. */
   className?: string;
 };
@@ -100,6 +102,7 @@ export function BoardCanvas({
   initialElements,
   workspaceId,
   boardId,
+  rootUri,
   className,
 }: BoardCanvasProps) {
   /** Root container element for canvas interactions. */
@@ -129,6 +132,10 @@ export function BoardCanvas({
   const pendingSaveRef = useRef(false);
   /** Timeout id for debounced viewport save. */
   const viewportSaveTimeoutRef = useRef<number | null>(null);
+  /** Timeout id for debounced remote snapshot save. */
+  const remoteSaveTimeoutRef = useRef<number | null>(null);
+  /** Latest payload queued for remote save. */
+  const pendingRemoteSnapshotRef = useRef<BoardSnapshotState | null>(null);
   /** Whether the minimap should stay visible. */
   const [showMiniMap, setShowMiniMap] = useState(false);
   /** Whether the minimap hover zone is active. */
@@ -151,16 +158,25 @@ export function BoardCanvas({
   const currentVersionRef = useRef(0);
   /** Workspace id resolved from props or cookie. */
   const resolvedWorkspaceId = workspaceId ?? getWorkspaceIdFromCookie();
-  /** Board scope used for remote persistence. */
+  /** Board scope used for local cache. */
   const boardScope = useMemo(() => {
     if (!resolvedWorkspaceId || !boardId) return null;
-    return { workspaceId: resolvedWorkspaceId, pageId: boardId };
+    return { workspaceId: resolvedWorkspaceId, boardId };
   }, [boardId, resolvedWorkspaceId]);
+  /** Remote scope used for file persistence. */
+  const remoteScope = useMemo(() => {
+    if (!rootUri) return null;
+    return { rootUri };
+  }, [rootUri]);
   /** Log guard for missing scope. */
   const missingScopeLoggedRef = useRef(false);
   /** Remote snapshot query for the board. */
   const boardQuery = useQuery(
-    trpc.boardCustom.get.queryOptions(boardScope ?? skipToken)
+    trpc.project.getBoard.queryOptions(remoteScope ?? skipToken)
+  );
+  /** Remote snapshot save mutation. */
+  const saveBoardSnapshot = useMutation(
+    trpc.project.saveBoard.mutationOptions()
   );
   useEffect(() => {
     if (!containerRef.current) return;
@@ -235,7 +251,7 @@ export function BoardCanvas({
       // 逻辑：统一在此处拼装存储数据，避免多处重复。
       const localSnapshotPayload: BoardSnapshotCacheRecord = {
         workspaceId: boardScope.workspaceId,
-        pageId: boardScope.pageId,
+        boardId: boardScope.boardId,
         schemaVersion: BOARD_SCHEMA_VERSION,
         nodes: payload.nodes,
         connectors: payload.connectors,
@@ -245,8 +261,34 @@ export function BoardCanvas({
       currentVersionRef.current = nextVersion;
       setLocalSnapshot(localSnapshotPayload);
       void writeBoardSnapshotCache(localSnapshotPayload);
+
+      if (remoteScope) {
+        // 中文注释：合并短时间内的远端保存，避免频繁写文件。
+        pendingRemoteSnapshotRef.current = {
+          schemaVersion: BOARD_SCHEMA_VERSION,
+          nodes: payload.nodes,
+          connectors: payload.connectors,
+          viewport: payload.viewport,
+          version: nextVersion,
+        };
+        if (remoteSaveTimeoutRef.current) {
+          window.clearTimeout(remoteSaveTimeoutRef.current);
+        }
+        remoteSaveTimeoutRef.current = window.setTimeout(() => {
+          const pending = pendingRemoteSnapshotRef.current;
+          if (!pending) return;
+          saveBoardSnapshot.mutate({
+            rootUri: remoteScope.rootUri,
+            schemaVersion: pending.schemaVersion,
+            nodes: pending.nodes,
+            connectors: pending.connectors,
+            viewport: pending.viewport,
+            version: pending.version,
+          });
+        }, VIEWPORT_SAVE_DELAY);
+      }
     },
-    [boardScope]
+    [boardScope, remoteScope, saveBoardSnapshot]
   );
 
   useEffect(() => {
@@ -283,8 +325,8 @@ export function BoardCanvas({
 
   useEffect(() => {
     if (!boardScope && !missingScopeLoggedRef.current) {
-      // 逻辑：workspaceId/pageId 缺失时记录一次，避免误判无保存请求。
-      console.warn("[board] save skipped: missing workspaceId/pageId", {
+      // 逻辑：workspaceId/boardId 缺失时记录一次，避免误判无保存请求。
+      console.warn("[board] save skipped: missing workspaceId/boardId", {
         workspaceId: resolvedWorkspaceId,
         boardId,
       });
@@ -300,7 +342,7 @@ export function BoardCanvas({
     const loadLocalSnapshot = async () => {
       const local = await readBoardSnapshotCache(
         boardScope.workspaceId,
-        boardScope.pageId
+        boardScope.boardId
       );
       if (cancelled) return;
       setLocalSnapshot(local);
@@ -338,7 +380,7 @@ export function BoardCanvas({
       applySnapshot(remote);
       const snapshot: BoardSnapshotCacheRecord = {
         workspaceId: boardScope.workspaceId,
-        pageId: boardScope.pageId,
+        boardId: boardScope.boardId,
         schemaVersion: remote.schemaVersion ?? BOARD_SCHEMA_VERSION,
         nodes: remote.nodes,
         connectors: remote.connectors,
@@ -361,7 +403,7 @@ export function BoardCanvas({
       applySnapshot(remote);
       const snapshot: BoardSnapshotCacheRecord = {
         workspaceId: boardScope.workspaceId,
-        pageId: boardScope.pageId,
+        boardId: boardScope.boardId,
         schemaVersion: remote.schemaVersion ?? BOARD_SCHEMA_VERSION,
         nodes: remote.nodes,
         connectors: remote.connectors,
@@ -481,6 +523,14 @@ export function BoardCanvas({
     return () => {
       if (miniMapTimeoutRef.current) {
         window.clearTimeout(miniMapTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (remoteSaveTimeoutRef.current) {
+        window.clearTimeout(remoteSaveTimeoutRef.current);
       }
     };
   }, []);

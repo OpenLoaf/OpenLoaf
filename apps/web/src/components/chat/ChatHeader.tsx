@@ -14,10 +14,10 @@ import { useTabs } from "@/hooks/use-tabs";
 interface ChatHeaderProps {
   className?: string;
   loadHistory?: boolean;
-  pageId?: string;
+  resourceUri?: string;
 }
 
-export default function ChatHeader({ className, loadHistory, pageId }: ChatHeaderProps) {
+export default function ChatHeader({ className, loadHistory, resourceUri }: ChatHeaderProps) {
   const { id: activeSessionId, newSession, selectSession, messages, tabId } =
     useChatContext();
   const [historyOpen, setHistoryOpen] = React.useState(false);
@@ -108,7 +108,7 @@ export default function ChatHeader({ className, loadHistory, pageId }: ChatHeade
           >
             <SessionList
               activeSessionId={activeSessionId}
-              pageId={pageId}
+              resourceUri={resourceUri}
               onMenuOpenChange={handleMenuOpenChange}
               onSelect={(session) => {
                 // 选中历史会话后：关闭弹层 + 切换会话并加载历史

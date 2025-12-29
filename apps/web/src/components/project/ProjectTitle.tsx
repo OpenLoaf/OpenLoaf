@@ -9,8 +9,8 @@ import { EmojiPicker } from "@/components/ui/emoji-picker";
 
 interface ProjectTitleProps {
   isLoading: boolean;
-  pageId?: string;
-  pageTitle: string;
+  projectId?: string;
+  projectTitle: string;
   titleIcon?: string;
   currentTitle?: string;
   isUpdating: boolean;
@@ -20,8 +20,8 @@ interface ProjectTitleProps {
 
 export default function ProjectTitle({
   isLoading,
-  pageId,
-  pageTitle,
+  projectId,
+  projectTitle,
   titleIcon,
   currentTitle,
   isUpdating,
@@ -84,7 +84,7 @@ export default function ProjectTitle({
 
   const commitTitle = () => {
     setIsEditingTitle(false);
-    if (!pageId) return;
+    if (!projectId) return;
     const nextTitle =
       (titleEditableRef.current?.innerText ?? draftTitle).trim() || "Untitled Page";
     const latestTitle = currentTitle ?? "";
@@ -94,7 +94,7 @@ export default function ProjectTitle({
 
   /** Clear the current title back to default. */
   const handleDeleteTitle = () => {
-    if (!pageId || isUpdating) return;
+    if (!projectId || isUpdating) return;
     onUpdateTitle("Untitled Page");
   };
 
@@ -109,7 +109,7 @@ export default function ProjectTitle({
                 variant="ghost"
                 size="icon-sm"
                 className="shrink-0"
-                disabled={!pageId || isUpdating}
+                disabled={!projectId || isUpdating}
                 aria-label="Choose project icon"
                 title="Choose project icon"
               >
@@ -126,7 +126,7 @@ export default function ProjectTitle({
                 width="100%"
                 onSelect={(nextIcon) => {
                   setIconPickerOpen(false);
-                  if (!pageId) return;
+                  if (!projectId) return;
                   onUpdateIcon(nextIcon);
                 }}
               />
@@ -169,7 +169,7 @@ export default function ProjectTitle({
                 aria-label="Edit project title"
                 title="Click to edit"
               >
-                {pageTitle}
+                {projectTitle}
               </button>
               <Button
                 type="button"
@@ -182,7 +182,7 @@ export default function ProjectTitle({
                   e.preventDefault();
                   e.stopPropagation();
                   try {
-                    await navigator.clipboard.writeText(pageTitle);
+                    await navigator.clipboard.writeText(projectTitle);
                     toast.success("已复制标题");
                   } catch {
                     toast.error("复制失败");
@@ -203,7 +203,7 @@ export default function ProjectTitle({
                   e.stopPropagation();
                   handleDeleteTitle();
                 }}
-                disabled={!pageId || isUpdating}
+                disabled={!projectId || isUpdating}
               >
                 <Trash2 className="size-4" />
               </Button>

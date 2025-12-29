@@ -12,7 +12,7 @@ interface SessionListProps {
   onSelect?: (session: Session) => void;
   onMenuOpenChange?: (open: boolean) => void;
   className?: string;
-  pageId?: string;
+  resourceUri?: string;
 }
 
 type ChatSessionListItem = {
@@ -20,6 +20,7 @@ type ChatSessionListItem = {
   title: string;
   createdAt: string | Date;
   isPin: boolean;
+  resourceUris?: unknown;
 };
 
 function startOfDay(date: Date) {
@@ -90,33 +91,37 @@ export default function SessionList({
   onSelect,
   onMenuOpenChange,
   className,
-  pageId,
+  resourceUri,
 }: SessionListProps) {
   // 使用 tRPC + TanStack React Query 获取会话列表（MVP：只读展示）
   // 这里的 Prisma FindMany 类型推断非常深，TS 可能报 “excessively deep”；
   // MVP 场景只需要 id/title/createdAt，直接收敛为轻量类型即可。
   const { data, isLoading } = useQuery(
     trpc.chatsession.findManyChatSession.queryOptions({
-      // 中文注释：有 pageId 时只取当前页面关联的会话列表。
-      where: pageId
-        ? { deletedAt: null, pageChatSessions: { some: { pageId } } }
-        : { deletedAt: null },
+      // 中文注释：先按删除状态过滤，资源关联在前端做兜底过滤。
+      where: { deletedAt: null },
       // 置顶优先，其次按更新时间倒序
       orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }],
-      select: { id: true, title: true, createdAt: true, isPin: true },
+      select: { id: true, title: true, createdAt: true, isPin: true, resourceUris: true },
     } as any) as any
   );
 
   const chatSessions = (data ?? []) as ChatSessionListItem[];
+  const scopedSessions = resourceUri
+    ? chatSessions.filter((s) => {
+        const uris = Array.isArray(s.resourceUris) ? s.resourceUris : [];
+        return uris.includes(resourceUri);
+      })
+    : chatSessions;
 
   const sessions: Session[] = React.useMemo(() => {
-    return chatSessions.map((s) => ({
+    return scopedSessions.map((s) => ({
       id: s.id,
       name: s.title,
       createdAt: s.createdAt,
       pinned: s.isPin,
     }));
-  }, [chatSessions]);
+  }, [scopedSessions]);
 
   const groups = React.useMemo(() => groupSessions(sessions), [sessions]);
 

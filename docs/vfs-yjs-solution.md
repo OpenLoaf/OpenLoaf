@@ -38,6 +38,7 @@
       canvas.ttcanvas
       canvas.ttcanvas.teatime/
         9a1f.bin
+```
 
 ### project.json（项目配置）
 ```json
@@ -97,6 +98,7 @@ Provider 注册表示例：
 
 ### 资源与附件存储规则
 - 附件与二进制资源存放在同名目录：`<file>.ttdoc.teatime/`。
+- 资源目录后缀固定为 `.teatime`，与文件同级，不做嵌套分组。
 - JSON 内部使用相对路径引用，保证移动/拷贝项目不丢资源。
 - 文件名建议使用 hash/uuid，避免重名冲突并支持去重。
 - 重命名文件时同步重命名资源目录，删除文件时同步删除资源目录。
@@ -141,6 +143,7 @@ Provider 注册表示例：
 
 ### WAL 格式与截断策略
 - WAL 为追加写文件，内容是 Yjs update 的二进制字节序列。
+- WAL 只保存二进制更新，不额外存 JSON 结构。
 - 建议具备可恢复结构：文件头 + 追加帧。
 - 帧结构建议包含 `length + type + payload + crc`，便于检测尾部半写入。
 - 截断触发条件：体积/条数/时间阈值（如 5MB / 500 updates / 30min）。
@@ -345,14 +348,15 @@ sequenceDiagram
 规则：以下清单是落地执行的唯一计划；每完成一步必须在本文件将对应项更新为 `- [x]`；不兼容旧数据，旧代码可直接删除或改名。
 
 - [x] Prisma：在 `packages/db/prisma/schema/chat.prisma` 的 `ChatSession` 添加 `resourceUris` 字段，作为后续资源关联入口。
-- [ ] Prisma：删除 `packages/db/prisma/schema/schema.prisma` 的 `Tag`/`Page`/`Block`/`Board`/`Snapshot`/`Resource`/`PageChatSession`/`RelationType`，保留 `Setting`/`ChatSession`/`ChatMessage`/`SubAgentDefinition`。
-- [ ] 清理 DB 种子与脚本：删除 `packages/db/src/seed.ts` 中 Page/Tag 初始化，并移除 `apps/server/scripts/build-prod.mjs` 的 PageChatSession 清理语句。
-- [ ] 移除 DB 版页面/画布服务与路由：删除 `packages/api/src/services/pageService.ts`/`pageBlockService.ts`/`pageMarkdownService.ts`/`boardService.ts` 与 `packages/api/src/routers/page.ts`/`board.ts`。
-- [ ] 新增 file-based API：在 server 新增 `project.list`/`fs.*`/`yjs-ws` 文件化实现，替换现有 Page/Board tRPC。
-- [ ] 前端文件树替换 PageTree：改造 `apps/web/src/components/layout/sidebar/PageTree.tsx`、`apps/web/src/components/layout/sidebar/Page.tsx`、`apps/web/src/hooks/use-page.ts` 使用 `fs.list`/`fs.stat`，并按扩展名打开 `ttdoc/ttcanvas/ttskill`。
-- [ ] 项目 Intro/Board 改为文件格式：更新 `apps/web/src/components/project/intro/ProjectIntro.tsx`、`apps/web/src/components/project/intro/ProjectIntroPlate.tsx` 与 `apps/web/src/components/board/core/ProjectBoardCanvas.tsx` 走文件读写与 Yjs。
-- [ ] Chat 关联改为 resourceUris：调整 `apps/server/src/modules/chat/ChatRepositoryAdapter.ts`/`apps/server/src/modules/chat/ChatSseRoutes.ts`/`packages/api/src/routers/chat.ts` 去掉 `pageChatSession`，并更新 `apps/web/src/components/chat/session/SessionList.tsx` 按 `resourceUris` 过滤。
-- [ ] Tool/类型同步：更新 `packages/api/src/types/tools/db.ts`（项目相关 tool）与 `packages/api/src/types/message.ts` 的 params 语义，统一使用资源 URI。
+- [x] Prisma：删除 `packages/db/prisma/schema/schema.prisma` 的 `Tag`/`Page`/`Block`/`Board`/`Snapshot`/`Resource`/`PageChatSession`/`RelationType`，仅保留 `Setting`（Chat 相关模型放在 `packages/db/prisma/schema/chat.prisma`）。
+- [x] 清理 DB 种子与脚本：删除 `packages/db/src/seed.ts` 中 Page/Tag 初始化，并移除 `apps/server/scripts/build-prod.mjs` 的 PageChatSession 清理语句。
+- [x] 移除 DB 版页面/画布服务与路由：删除 `packages/api/src/services/pageService.ts`/`pageBlockService.ts`/`pageMarkdownService.ts`/`boardService.ts` 与 `packages/api/src/routers/page.ts`/`board.ts`。
+- [x] 新增 file-based API：在 server 新增 `project.list`/`fs.*`（文件化实现），替换现有 Page/Board tRPC。
+- [ ] Yjs WS 文件化落地：实现快照/WAL 读取与持久化写回。
+- [x] 前端文件树替换 PageTree：改造 `apps/web/src/components/layout/sidebar/PageTree.tsx`、`apps/web/src/components/layout/sidebar/Page.tsx`、`apps/web/src/hooks/use-page.ts` 使用 `fs.list`/`fs.stat`，并按扩展名打开 `ttdoc/ttcanvas/ttskill`。
+- [x] 项目 Intro/Board 改为文件格式：更新 `apps/web/src/components/project/intro/ProjectIntro.tsx`、`apps/web/src/components/project/intro/ProjectIntroPlate.tsx` 与 `apps/web/src/components/board/core/ProjectBoardCanvas.tsx` 走文件读写与 Yjs。
+- [x] Chat 关联改为 resourceUris：调整 `apps/server/src/modules/chat/ChatRepositoryAdapter.ts`/`apps/server/src/modules/chat/ChatSseRoutes.ts`/`packages/api/src/routers/chat.ts` 去掉 `pageChatSession`，并更新 `apps/web/src/components/chat/session/SessionList.tsx` 按 `resourceUris` 过滤。
+- [x] Tool/类型同步：更新 `packages/api/src/types/tools/db.ts`（项目相关 tool）与 `packages/api/src/types/message.ts` 的 params 语义，统一使用资源 URI。
 - [ ] 搜索/索引落地：在 server 接入 `rg --json` 扫描与 `.teatime/index/` 更新策略，并在 Web 搜索入口调用 `fs.search`。
 
 ## 关键注意点

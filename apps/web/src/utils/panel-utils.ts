@@ -9,6 +9,7 @@ import SettingsPage from "@/components/setting/SettingsPage";
 import CalendarPage from "@/components/calendar/Calendar";
 import InboxPage from "@/components/inbox/Inbox";
 import TemplatePage from "@/components/template/Template";
+import FileViewer from "@/components/file/FileViewer";
 
 /**
  * 组件名称到组件的映射关系
@@ -28,6 +29,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "calendar-page": CalendarPage,
   "inbox-page": InboxPage,
   "template-page": TemplatePage,
+  "file-viewer": FileViewer,
 };
 
 /**
@@ -53,6 +55,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Inbox";
     case "template-page":
       return "Template";
+    case "file-viewer":
+      return "File";
     default:
       // 如果没有匹配的标题，直接返回组件名称
       return componentName;
