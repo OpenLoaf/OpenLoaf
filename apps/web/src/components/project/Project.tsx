@@ -1,8 +1,15 @@
 "use client";
 
 import * as ScrollArea from "@radix-ui/react-scroll-area";
-import { startTransition, useCallback, useEffect, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabActive } from "@/components/layout/TabActiveContext";
@@ -14,6 +21,10 @@ import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
 import ProjectMaterials, { ProjectMaterialsHeader } from "./ProjectMaterials";
 import ProjectSkills, { ProjectSkillsHeader } from "./ProjectSkills";
 import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
+import ProjectFileSystem, {
+  ProjectFileSystemHeader,
+  type ProjectBreadcrumbInfo,
+} from "./filesystem/ProjectFileSystem";
 
 interface ProjectPageProps {
   tabId?: string;
@@ -39,6 +50,30 @@ function isEditableTarget(target: EventTarget | null) {
 /** Returns the project tab value for a numeric shortcut index. */
 function getProjectTabByIndex(index: number) {
   return PROJECT_TABS[index]?.value;
+}
+
+type ProjectTreeNode = {
+  rootUri: string;
+  title: string;
+  icon?: string;
+  children?: ProjectTreeNode[];
+};
+
+/** Flatten project tree into a lookup map. */
+function buildProjectLookup(projects: ProjectTreeNode[] | undefined) {
+  const map = new Map<string, ProjectBreadcrumbInfo>();
+  const walk = (nodes: ProjectTreeNode[]) => {
+    nodes.forEach((node) => {
+      map.set(node.rootUri, { title: node.title, icon: node.icon ?? undefined });
+      if (node.children?.length) {
+        walk(node.children);
+      }
+    });
+  };
+  if (projects?.length) {
+    walk(projects);
+  }
+  return map;
 }
 
 export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: ProjectPageProps) {
@@ -69,11 +104,13 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
     () => new Set<ProjectTabValue>([initialProjectTab])
   );
   const [introReadOnly, setIntroReadOnly] = useState(true);
+  const [fileUri, setFileUri] = useState<string | null>(rootUri ?? null);
 
   const pageTitle = projectData?.project?.title || "Untitled Project";
   const titleIcon: string | undefined = projectData?.project?.icon ?? undefined;
   const shouldRenderIntro = activeTab === "intro" || mountedTabs.has("intro");
   const shouldRenderCanvas = activeTab === "canvas" || mountedTabs.has("canvas");
+  const shouldRenderFiles = activeTab === "files" || mountedTabs.has("files");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
   const shouldRenderMaterials =
     activeTab === "materials" || mountedTabs.has("materials");
@@ -114,6 +151,16 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   useEffect(() => {
     setIntroReadOnly(true);
   }, [projectId, rootUri]);
+
+  useEffect(() => {
+    setFileUri(rootUri ?? null);
+  }, [rootUri]);
+
+  const projectListQuery = useQuery(trpc.project.list.queryOptions());
+  const projectLookup = useMemo(
+    () => buildProjectLookup(projectListQuery.data as ProjectTreeNode[] | undefined),
+    [projectListQuery.data]
+  );
 
   useEffect(() => {
     if (!projectTab) return;
@@ -239,6 +286,22 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
           </div>
           <div
             className={`${headerBaseClass} ${
+              activeTab === "files"
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }`}
+            aria-hidden={activeTab !== "files"}
+          >
+            <ProjectFileSystemHeader
+              isLoading={isLoading}
+              rootUri={rootUri}
+              currentUri={fileUri}
+              projectLookup={projectLookup}
+              onNavigate={setFileUri}
+            />
+          </div>
+          <div
+            className={`${headerBaseClass} ${
               activeTab === "tasks"
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none"
@@ -323,6 +386,25 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
                     projectId={projectId}
                     rootUri={rootUri}
                     pageTitle={pageTitle}
+                  />
+                ) : null}
+              </div>
+              <div
+                id="project-panel-files"
+                role="tabpanel"
+                aria-labelledby="project-tab-files"
+                className={`${panelBaseClass} ${
+                  activeTab === "files"
+                    ? "opacity-100 pointer-events-auto"
+                    : "opacity-0 pointer-events-none"
+                }`}
+                aria-hidden={activeTab !== "files"}
+              >
+                {shouldRenderFiles ? (
+                  <ProjectFileSystem
+                    rootUri={rootUri}
+                    currentUri={fileUri}
+                    onNavigate={setFileUri}
                   />
                 ) : null}
               </div>

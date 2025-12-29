@@ -23,6 +23,7 @@
     "@teatime-ai/db": "workspace:*",
     "@trpc/server": "catalog:",
     "ai": "^6.0.1",
+    "chokidar": "^5.0.0",
     "dotenv": "catalog:",
     "eventemitter3": "^5.0.1",
     "hono": "catalog:",

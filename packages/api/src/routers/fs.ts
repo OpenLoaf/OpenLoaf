@@ -13,6 +13,11 @@ const fsListSchema = z.object({
   includeHidden: z.boolean().optional(),
 });
 
+const fsCopySchema = z.object({
+  from: z.string(),
+  to: z.string(),
+});
+
 /** Build a file node for UI consumption. */
 function buildFileNode(input: { name: string; fullPath: string; stat: Awaited<ReturnType<typeof fs.stat>> }) {
   const ext = path.extname(input.name).replace(/^\./, "");
@@ -102,6 +107,15 @@ export const fsRouter = t.router({
       return { ok: true };
     }),
 
+  /** Copy a file/folder. */
+  copy: shieldedProcedure.input(fsCopySchema).mutation(async ({ input }) => {
+    const fromPath = resolveWorkspacePathFromUri(input.from);
+    const toPath = resolveWorkspacePathFromUri(input.to);
+    await fs.mkdir(path.dirname(toPath), { recursive: true });
+    await fs.cp(fromPath, toPath, { recursive: true });
+    return { ok: true };
+  }),
+
   /** Delete a file/folder. */
   delete: shieldedProcedure
     .input(
@@ -113,6 +127,22 @@ export const fsRouter = t.router({
     .mutation(async ({ input }) => {
       const fullPath = resolveWorkspacePathFromUri(input.uri);
       await fs.rm(fullPath, { recursive: input.recursive ?? true, force: true });
+      return { ok: true };
+    }),
+
+  /** Write a binary file (base64 payload). */
+  writeBinary: shieldedProcedure
+    .input(
+      z.object({
+        uri: z.string(),
+        contentBase64: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const fullPath = resolveWorkspacePathFromUri(input.uri);
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      const buffer = Buffer.from(input.contentBase64, "base64");
+      await fs.writeFile(fullPath, buffer);
       return { ok: true };
     }),
 

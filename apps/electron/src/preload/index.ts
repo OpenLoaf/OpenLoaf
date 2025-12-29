@@ -71,6 +71,12 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
   // 安装已下载的更新并重启。
   installUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('teatime:auto-update:install'),
+  // 使用系统默认程序打开文件/目录。
+  openPath: (payload: { uri: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('teatime:fs:open-path', payload),
+  // 在系统文件管理器中定位文件/目录。
+  showItemInFolder: (payload: { uri: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('teatime:fs:show-in-folder', payload),
 });
 
 // 主进程会推送 WebContentsView 的真实加载状态（dom-ready 等），这里转成 window 事件给 web UI 消费。

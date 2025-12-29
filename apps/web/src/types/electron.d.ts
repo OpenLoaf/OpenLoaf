@@ -50,6 +50,8 @@ declare global {
       checkForUpdates?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
       getAutoUpdateStatus?: () => Promise<TeatimeAutoUpdateStatus>;
       installUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
+      openPath?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      showItemInFolder?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
     };
   }
 }

@@ -10,6 +10,8 @@ const MAX_PATH_SEGMENT_SEQ = 99;
 
 // metadata 禁止保存消息树字段，避免冗余与不一致。
 const FORBIDDEN_METADATA_KEYS = ["id", "sessionId", "parentMessageId", "path"] as const;
+// 用于 resourceUris 读取的最小结果类型。
+type SessionResourceUris = { resourceUris?: unknown } | null;
 
 function normalizeRole(role: unknown): DbMessageRole {
   if (role === "assistant" || role === "system" || role === "user") return role;
@@ -161,17 +163,18 @@ async function ensureSession(
   });
 
   if (!resourceUri) return;
-  const existing = await tx.chatSession.findUnique({
+  // 中文注释：类型生成可能出现字段不同步，使用最小类型保证读取 resourceUris。
+  const existing = (await tx.chatSession.findUnique({
     where: { id: sessionId },
-    select: { resourceUris: true },
-  });
+    select: { resourceUris: true } as Prisma.ChatSessionSelect,
+  })) as SessionResourceUris;
   const current = Array.isArray(existing?.resourceUris)
     ? (existing?.resourceUris as string[])
     : [];
   if (current.includes(resourceUri)) return;
   await tx.chatSession.update({
     where: { id: sessionId },
-    data: { resourceUris: [...current, resourceUri] as any },
+    data: { resourceUris: [...current, resourceUri] } as Prisma.ChatSessionUpdateInput,
   });
 }
 

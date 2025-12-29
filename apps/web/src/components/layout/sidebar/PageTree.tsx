@@ -11,7 +11,9 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarProvider,
 } from "@/components/animate-ui/components/radix/sidebar";
+import { Highlight } from "@/components/animate-ui/primitives/effects/highlight";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -41,14 +43,15 @@ type ProjectInfo = {
   title: string;
   icon?: string;
   rootUri: string;
+  children?: ProjectInfo[];
 };
 
 type FileNode = {
   uri: string;
   name: string;
-  kind: "folder" | "file";
+  kind: "project" | "folder" | "file";
   ext?: string;
-  isProjectRoot?: boolean;
+  children?: FileNode[];
   projectId?: string;
   projectIcon?: string;
 };
@@ -101,6 +104,21 @@ function getParentUri(uri: string) {
   return url.toString();
 }
 
+/** Build project nodes recursively from API payload. */
+function buildProjectNode(project: ProjectInfo): FileNode {
+  const children = Array.isArray(project.children)
+    ? project.children.map(buildProjectNode)
+    : [];
+  return {
+    uri: project.rootUri,
+    name: project.title || "Untitled Project",
+    kind: "project",
+    children,
+    projectId: project.projectId,
+    projectIcon: project.icon,
+  };
+}
+
 /** Render a file tree node recursively. */
 function FileTreeNode({
   node,
@@ -120,7 +138,10 @@ function FileTreeNode({
       node.kind === "folder" && isExpanded ? { uri: node.uri } : skipToken
     )
   );
-  const children = listQuery.data?.entries ?? [];
+  const fileChildren = listQuery.data?.entries ?? [];
+  const projectChildren = node.kind === "project" ? node.children ?? [] : [];
+  const children = node.kind === "project" ? projectChildren : fileChildren;
+  const hasChildren = node.kind === "project" ? children.length > 0 : true;
 
   const Item = depth === 0 ? SidebarMenuItem : SidebarMenuSubItem;
   const Button = depth === 0 ? SidebarMenuButton : SidebarMenuSubButton;
@@ -148,7 +169,7 @@ function FileTreeNode({
   }
 
   return (
-    <Collapsible
+    <CollapsiblePrimitive.Root
       key={node.uri}
       asChild
       open={isExpanded}
@@ -175,15 +196,17 @@ function FileTreeNode({
           </ContextMenuTrigger>
           {renderContextMenuContent(node)}
         </ContextMenu>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuAction
-            aria-label="Toggle"
-            className="text-muted-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-          >
-            <ChevronRight className="transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
-          </SidebarMenuAction>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+        {hasChildren ? (
+          <CollapsiblePrimitive.Trigger asChild>
+            <SidebarMenuAction
+              aria-label="Toggle"
+              className="text-muted-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+            >
+              <ChevronRight className="transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+            </SidebarMenuAction>
+          </CollapsiblePrimitive.Trigger>
+        ) : null}
+        <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
           <SidebarMenuSub className="mx-1 px-1">
             {children.map((child: any) => (
               <FileTreeNode
@@ -193,6 +216,9 @@ function FileTreeNode({
                   name: child.name,
                   kind: child.kind,
                   ext: child.ext,
+                  children: child.children,
+                  projectId: child.projectId,
+                  projectIcon: child.projectIcon,
                 }}
                 depth={depth + 1}
                 activeUri={activeUri}
@@ -205,9 +231,9 @@ function FileTreeNode({
               />
             ))}
           </SidebarMenuSub>
-        </CollapsibleContent>
+        </CollapsiblePrimitive.Content>
       </Item>
-    </Collapsible>
+    </CollapsiblePrimitive.Root>
   );
 }
 
@@ -303,7 +329,7 @@ export const PageTreeMenu = ({
   };
 
   const handlePrimaryClick = (node: FileNode) => {
-    if (node.isProjectRoot) {
+    if (node.kind === "project") {
       openProjectTab({
         projectId: node.projectId ?? node.uri,
         title: node.name,
@@ -324,7 +350,7 @@ export const PageTreeMenu = ({
   };
 
   const openDeleteDialog = (node: FileNode) => {
-    if (node.isProjectRoot) return;
+    if (node.kind === "project") return;
     setDeleteTarget(node);
   };
 
@@ -334,7 +360,7 @@ export const PageTreeMenu = ({
     if (!nextName) return;
     try {
       setIsBusy(true);
-      if (renameTarget.node.isProjectRoot) {
+      if (renameTarget.node.kind === "project") {
         await renameProject.mutateAsync({
           rootUri: renameTarget.node.uri,
           title: nextName,
@@ -351,7 +377,7 @@ export const PageTreeMenu = ({
       await queryClient.invalidateQueries({
         queryKey: trpc.project.list.queryOptions().queryKey,
       });
-      if (!renameTarget.node.isProjectRoot) {
+      if (renameTarget.node.kind !== "project") {
         const parentUri = getParentUri(renameTarget.node.uri);
         await queryClient.invalidateQueries({
           queryKey: trpc.fs.list.queryOptions({ uri: parentUri }).queryKey,
@@ -384,14 +410,14 @@ export const PageTreeMenu = ({
 
   const renderContextMenuContent = (node: FileNode) => (
     <ContextMenuContent className="w-52">
-      {node.kind === "file" || node.isProjectRoot ? (
+      {node.kind === "file" || node.kind === "project" ? (
         <ContextMenuItem onClick={() => handlePrimaryClick(node)}>
           在新标签页打开
         </ContextMenuItem>
       ) : null}
       <ContextMenuSeparator />
       <ContextMenuItem onClick={() => openRenameDialog(node)}>重命名</ContextMenuItem>
-      <ContextMenuItem onClick={() => openDeleteDialog(node)} disabled={node.isProjectRoot}>
+      <ContextMenuItem onClick={() => openDeleteDialog(node)} disabled={node.kind === "project"}>
         删除
       </ContextMenuItem>
     </ContextMenuContent>
@@ -406,14 +432,7 @@ export const PageTreeMenu = ({
       {projects.map((project) => (
         <FileTreeNode
           key={project.rootUri}
-          node={{
-            uri: project.rootUri,
-            name: project.title || "Untitled Project",
-            kind: "folder",
-            isProjectRoot: true,
-            projectId: project.projectId,
-            projectIcon: project.icon,
-          }}
+          node={buildProjectNode(project)}
           depth={0}
           activeUri={activeUri}
           expandedNodes={expandedNodes}
@@ -498,5 +517,65 @@ export const PageTreeMenu = ({
         </DialogContent>
       </Dialog>
     </>
+  );
+};
+
+type PageTreePickerProps = {
+  projects?: ProjectInfo[];
+  activeUri?: string | null;
+  onSelect: (uri: string) => void;
+};
+
+/** Project tree picker (folder selection only). */
+export const PageTreePicker = ({
+  projects,
+  activeUri,
+  onSelect,
+}: PageTreePickerProps) => {
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+
+  const setExpanded = (uri: string, isExpanded: boolean) => {
+    setExpandedNodes((prev) => ({
+      ...prev,
+      [uri]: isExpanded,
+    }));
+  };
+
+  const handlePrimaryClick = (node: FileNode) => {
+    if (node.kind === "file") return;
+    if (node.kind === "project") {
+      onSelect(node.uri);
+    }
+    const isExpanded = expandedNodes[node.uri] ?? false;
+    setExpanded(node.uri, !isExpanded);
+  };
+
+  const renderContextMenuContent = () => null;
+
+  if (!projects?.length) {
+    return null;
+  }
+
+  return (
+    <SidebarProvider className="min-h-0 w-full">
+      <Highlight enabled hover controlledItems mode="parent" containerClassName="w-full">
+        <div className="w-full">
+          {projects.map((project) => (
+            <FileTreeNode
+              key={project.rootUri}
+              node={buildProjectNode(project)}
+              depth={0}
+              activeUri={activeUri ?? null}
+              expandedNodes={expandedNodes}
+              setExpanded={setExpanded}
+              onPrimaryClick={handlePrimaryClick}
+              renderContextMenuContent={renderContextMenuContent}
+              contextSelectedUri={null}
+              onContextMenuOpenChange={() => undefined}
+            />
+          ))}
+        </div>
+      </Highlight>
+    </SidebarProvider>
   );
 };

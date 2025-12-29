@@ -1,20 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
 } from "@/components/animate-ui/components/radix/sidebar";
+import { Button } from "@/components/ui/button";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { PageTreeMenu } from "./PageTree";
+import { toast } from "sonner";
 
 export const SidebarPage = () => {
-  const { data: projects = [] } = useQuery(
-    trpc.project.list.queryOptions()
-  );
+  const queryClient = useQueryClient();
+  const { data: projects = [] } = useQuery(trpc.project.list.queryOptions());
+  const createProject = useMutation(trpc.project.create.mutationOptions());
 
   // 将状态提升到顶层组件，确保整个页面树只有一个状态管理
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>(
@@ -22,6 +41,29 @@ export const SidebarPage = () => {
   );
 
   const [isPlatformOpen, setIsPlatformOpen] = useState(true);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createTitle, setCreateTitle] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+
+  /** Create a new project and refresh list. */
+  const handleCreateProject = async () => {
+    const title = createTitle.trim();
+    try {
+      setIsBusy(true);
+      await createProject.mutateAsync({ title: title || undefined });
+      toast.success("项目已创建");
+      setCreateTitle("");
+      setIsCreateOpen(false);
+      // 中文注释：创建后刷新项目列表，确保新项目立即出现。
+      await queryClient.invalidateQueries({
+        queryKey: trpc.project.list.queryOptions().queryKey,
+      });
+    } catch (err: any) {
+      toast.error(err?.message ?? "创建失败");
+    } finally {
+      setIsBusy(false);
+    }
+  };
 
   return (
     <>
@@ -32,11 +74,20 @@ export const SidebarPage = () => {
         asChild
       >
         <SidebarGroup className="group pt-0">
-          <CollapsiblePrimitive.Trigger asChild>
-            <SidebarGroupLabel className="cursor-pointer">
-              <span className="text-muted-foreground">项目</span>
-            </SidebarGroupLabel>
-          </CollapsiblePrimitive.Trigger>
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <CollapsiblePrimitive.Trigger asChild>
+                <SidebarGroupLabel className="cursor-pointer">
+                  <span className="text-muted-foreground">项目</span>
+                </SidebarGroupLabel>
+              </CollapsiblePrimitive.Trigger>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-44">
+              <ContextMenuItem onClick={() => setIsCreateOpen(true)}>
+                新建项目
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
           <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
             <SidebarMenu>
               <PageTreeMenu
@@ -48,6 +99,54 @@ export const SidebarPage = () => {
           </CollapsiblePrimitive.Content>
         </SidebarGroup>
       </CollapsiblePrimitive.Root>
+
+      <Dialog
+        open={isCreateOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsCreateOpen(true);
+            return;
+          }
+          setIsCreateOpen(false);
+          setCreateTitle("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新建项目</DialogTitle>
+            <DialogDescription>请输入项目名称。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="project-title" className="text-right">
+                名称
+              </Label>
+              <Input
+                id="project-title"
+                value={createTitle}
+                onChange={(event) => setCreateTitle(event.target.value)}
+                className="col-span-3"
+                autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    handleCreateProject();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" type="button">
+                取消
+              </Button>
+            </DialogClose>
+            <Button onClick={handleCreateProject} disabled={isBusy}>
+              创建
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

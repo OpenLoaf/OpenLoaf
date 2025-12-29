@@ -66,9 +66,12 @@ function resolveSize(input: ProviderRequestInput, separator: string) {
   return `${payload.width}${separator}${payload.height}`;
 }
 
+/** Qwen message content item. */
+type QwenContentPart = { image: string } | { text: string };
+
 /** Build content array for Qwen messages. */
-function buildContent(images: string[], prompt: string) {
-  const content = images.map((image) => ({ image }));
+function buildContent(images: string[], prompt: string): QwenContentPart[] {
+  const content: QwenContentPart[] = images.map((image) => ({ image }));
   if (prompt) content.push({ text: prompt });
   return content;
 }

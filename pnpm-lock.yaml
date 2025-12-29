@@ -23,7 +23,7 @@ catalogs:
       version: 4.11.0
     typescript:
       specifier: ^5
-      version: 5.9.3
+      version: 4.5.5
 
 importers:
 
@@ -166,6 +166,9 @@ importers:
       ai:
         specifier: ^6.0.1
         version: 6.0.1(zod@4.2.1)
+      chokidar:
+        specifier: ^5.0.0
+        version: 5.0.0
       dotenv:
         specifier: 'catalog:'
         version: 17.2.3

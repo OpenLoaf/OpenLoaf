@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { fileURLToPath } from 'node:url';
 import type { Logger } from '../logging/startupLogger';
 import { checkForUpdates, getAutoUpdateStatus, installUpdate } from '../autoUpdate';
 import {
@@ -148,6 +149,26 @@ export function registerIpcHandlers(args: { log: Logger }) {
   ipcMain.handle('teatime:auto-update:install', async () => {
     return installUpdate();
   });
+
+  // 使用系统默认程序打开文件/目录。
+  ipcMain.handle('teatime:fs:open-path', async (_event, payload: { uri: string }) => {
+    const uri = String(payload?.uri ?? '');
+    if (!uri.startsWith('file://')) return { ok: false as const, reason: 'Invalid uri' };
+    const targetPath = fileURLToPath(uri);
+    const result = await shell.openPath(targetPath);
+    if (result) return { ok: false as const, reason: result };
+    return { ok: true as const };
+  });
+
+  // 在系统文件管理器中显示文件/目录。
+  ipcMain.handle('teatime:fs:show-in-folder', async (_event, payload: { uri: string }) => {
+    const uri = String(payload?.uri ?? '');
+    if (!uri.startsWith('file://')) return { ok: false as const, reason: 'Invalid uri' };
+    const targetPath = fileURLToPath(uri);
+    shell.showItemInFolder(targetPath);
+    return { ok: true as const };
+  });
+
 
   args.log('IPC handlers registered');
 }

@@ -25,6 +25,7 @@
   <projectRoot>/
     .teatime/
       project.json
+      <projectId>.ttid
       yjs/
         <fileId>.wal
         <fileId>.lock
@@ -46,13 +47,17 @@
   "schema": 1,
   "projectId": "proj_xxx",
   "title": "Demo",
-  "intro": { "kind": "resource", "targetId": "file://...", "component": "canvas", "pageType": "canvas" }
+  "intro": { "kind": "resource", "targetId": "file://...", "component": "canvas", "pageType": "canvas" },
+  "childrenIds": ["sub-project-a", "sub-project-b"]
 }
 ```
 
 ### Project Root 计算规则
-1) `workspaceRootUri` 下扫描含 `.teatime/project.json` 的目录。  
-2) 目录本身即为 rootUri，`projectId` 来自 `project.json`。  
+1) `workspaceRootUri` 下仅扫描**一级目录**里的 `.teatime/project.json`。  
+2) 一级目录的 `project.json` 作为**项目索引**，其中 `childrenIds` 是子项目文件夹名称列表。  
+3) 继续读取子项目目录下的 `.teatime/project.json`，递归生成项目树。  
+4) 每个项目的 rootUri 即该项目文件夹本身。  
+5) `.teatime/<projectId>.ttid` 作为 projectId 的快速定位标记。  
 
 workspaceRootUri 来源：`apps/server/teatime.conf`。
 

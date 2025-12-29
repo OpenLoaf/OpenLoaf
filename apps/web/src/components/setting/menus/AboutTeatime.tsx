@@ -7,6 +7,9 @@ import * as React from "react";
 import { SettingsGroup } from "./SettingsGroup";
 import { setSettingValue } from "@/hooks/use-settings";
 import { WebSettingDefs } from "@/lib/setting-defs";
+import { useMutation } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
+import { toast } from "sonner";
 
 const STEP_UP_ROUTE = "/step-up";
 
@@ -27,6 +30,7 @@ export function AboutTeatime() {
   const [updateStatus, setUpdateStatus] = React.useState<TeatimeAutoUpdateStatus | null>(
     null,
   );
+  const [isRepairingFs, setIsRepairingFs] = React.useState(false);
   const isElectron = React.useMemo(
     () =>
       process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -198,6 +202,22 @@ export function AboutTeatime() {
     updateStatus?.state === "available" ||
     updateStatus?.state === "downloading";
 
+  const repairProjectIds = useMutation(trpc.project.repairIds.mutationOptions());
+
+  /** Repair missing project id markers under workspace. */
+  const repairFileSystem = React.useCallback(async () => {
+    try {
+      setIsRepairingFs(true);
+      const res = await repairProjectIds.mutateAsync();
+      // 中文注释：修复完成后提示创建的标记数量。
+      toast.success(`修复完成：补齐 ${res.created} 个项目标记`);
+    } catch (err: any) {
+      toast.error(err?.message ?? "修复失败");
+    } finally {
+      setIsRepairingFs(false);
+    }
+  }, [repairProjectIds]);
+
   return (
     <div className="space-y-6">
       <SettingsGroup title="版本">
@@ -286,12 +306,28 @@ export function AboutTeatime() {
       </SettingsGroup>
 
       <SettingsGroup title="操作">
-        <div className="flex items-center justify-between gap-4 px-3 py-3">
-          <div className="text-sm font-medium">重新进入初始化</div>
-          <div className="shrink-0">
-            <Button type="button" variant="outline" size="sm" onClick={() => void restartSetup()}>
-              进入
-            </Button>
+        <div className="divide-y divide-border">
+          <div className="flex items-center justify-between gap-4 px-3 py-3">
+            <div className="text-sm font-medium">重新进入初始化</div>
+            <div className="shrink-0">
+              <Button type="button" variant="outline" size="sm" onClick={() => void restartSetup()}>
+                进入
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-4 px-3 py-3">
+            <div className="text-sm font-medium">修复文件系统</div>
+            <div className="shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isRepairingFs}
+                onClick={() => void repairFileSystem()}
+              >
+                {isRepairingFs ? "修复中..." : "执行"}
+              </Button>
+            </div>
           </div>
         </div>
       </SettingsGroup>
