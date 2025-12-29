@@ -1,41 +1,21 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createDeepSeek } from "@ai-sdk/deepseek";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createXai } from "@ai-sdk/xai";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
 import type { ChatModelSource, ModelDefinition } from "@teatime-ai/api/common";
+import { getModelDefinition, getProviderDefinition } from "@/modules/model/modelRegistry";
+import { PROVIDER_ADAPTERS } from "@/modules/model/providerAdapters";
 
 type ResolvedChatModel = {
   model: LanguageModelV3;
   modelInfo: { provider: string; modelId: string };
   chatModelId: string;
-  modelDefinition: ModelDefinition;
+  modelDefinition?: ModelDefinition;
 };
 
 const MAX_FALLBACK_TRIES = 2;
 
-const PROVIDER_FACTORIES: Record<
-  string,
-  (input: { apiUrl: string; apiKey: string }) => (modelId: string) => LanguageModelV3
-> = {
-  openai: ({ apiUrl, apiKey }) => createOpenAI({ baseURL: apiUrl, apiKey }),
-  anthropic: ({ apiUrl, apiKey }) => createAnthropic({ baseURL: apiUrl, apiKey }),
-  google: ({ apiUrl, apiKey }) => createGoogleGenerativeAI({ baseURL: apiUrl, apiKey }),
-  deepseek: ({ apiUrl, apiKey }) => createDeepSeek({ baseURL: apiUrl, apiKey }),
-  xai: ({ apiUrl, apiKey }) => createXai({ baseURL: apiUrl, apiKey }),
-};
-
-/** Resolve model definition from provider settings. */
-function resolveModelDefinition(
-  provider: ProviderSettingEntry,
-  modelId: string,
-): ModelDefinition {
-  // 中文注释：模型定义必须来自设置配置，缺失则视为无效模型。
-  const modelDefinition = provider.modelDefinitions.find((model) => model.id === modelId);
-  if (!modelDefinition) throw new Error("模型定义缺失");
-  return modelDefinition;
+/** Resolve model definition from registry. */
+function resolveModelDefinition(providerId: string, modelId: string) {
+  return getModelDefinition(providerId, modelId);
 }
 
 /** Normalize chatModelId input. */
@@ -116,19 +96,26 @@ async function resolveLocalChatModel(input: {
         throw new Error("模型未在服务商配置中启用");
       }
 
-      const factory = PROVIDER_FACTORIES[providerEntry.provider];
-      if (!factory) throw new Error("不支持的模型服务商");
+      const providerDefinition = getProviderDefinition(providerEntry.providerId);
+      const adapterId = providerDefinition?.adapterId ?? providerEntry.providerId;
+      const adapter = PROVIDER_ADAPTERS[adapterId];
+      if (!adapter) throw new Error("不支持的模型服务商");
 
-      const model = factory({
-        apiUrl: providerEntry.apiUrl,
-        apiKey: providerEntry.apiKey,
-      })(parsed.modelId);
-      const modelDefinition = resolveModelDefinition(providerEntry, parsed.modelId);
+      const modelDefinition = resolveModelDefinition(providerEntry.providerId, parsed.modelId);
+      const model = adapter.buildAiSdkModel({
+        provider: providerEntry,
+        modelId: parsed.modelId,
+        modelDefinition,
+        providerDefinition,
+      });
+      if (!model) {
+        throw new Error("模型不支持 AI SDK 调用");
+      }
 
       // 中文注释：provider 采用后端配置的 provider id，确保可追踪真实请求来源。
       return {
         model,
-        modelInfo: { provider: providerEntry.provider, modelId: parsed.modelId },
+        modelInfo: { provider: providerEntry.providerId, modelId: parsed.modelId },
         chatModelId: candidate,
         modelDefinition,
       };

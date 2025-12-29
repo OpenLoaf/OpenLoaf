@@ -20,33 +20,71 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, Eye, EyeOff } from "lucide-react";
 import {
-  MODEL_CATALOG_BY_PROVIDER,
-  PROVIDER_OPTIONS,
-  getDefaultApiUrl,
-  getDefaultModelIds,
-  getDefaultProviderName,
   getModelLabel,
   getModelSummary,
-  resolveModelDefinitions,
-  type ProviderId,
-  type ModelDefinition,
-} from "@teatime-ai/api/common";
-const VOLCENGINE_PROVIDER_ID = "volcengine";
+  getProviderDefinition,
+  getProviderModels,
+  getProviderOptions,
+} from "@/lib/model-registry";
 
 export type ProviderEntryPayload = {
+  /** Entry display name. */
   key: string;
-  provider: ProviderId;
+  /** Provider id. */
+  providerId: string;
+  /** API base URL. */
   apiUrl: string;
-  apiKey: string;
+  /** Raw auth config. */
+  authConfig: Record<string, unknown>;
+  /** Enabled model ids. */
   modelIds: string[];
-  modelDefinitions: ModelDefinition[];
 };
 
+const PROVIDER_OPTIONS = getProviderOptions();
+const PROVIDER_LABEL_BY_ID = Object.fromEntries(
+  PROVIDER_OPTIONS.map((provider) => [provider.id, provider.label]),
+) as Record<string, string>;
+
 /**
- * Compose Volcengine key pair into a single string.
+ * Parse auth config input into a raw object.
  */
-function formatVolcengineKey(accessKeyId: string, secretAccessKey: string) {
-  return `${accessKeyId.trim()}:${secretAccessKey.trim()}`;
+function parseAuthConfigInput(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+  return { apiKey: trimmed };
+}
+
+/**
+ * Resolve default provider name from registry.
+ */
+function getDefaultProviderName(providerId: string) {
+  return getProviderDefinition(providerId)?.label ?? providerId;
+}
+
+/**
+ * Resolve default API URL from registry.
+ */
+function getDefaultApiUrl(providerId: string) {
+  return getProviderDefinition(providerId)?.apiUrl ?? "";
+}
+
+/**
+ * Resolve default model id from registry.
+ */
+function getDefaultModelIds(providerId: string) {
+  const models = getProviderModels(providerId);
+  const first = models[0];
+  return first ? [first.id] : [];
 }
 
 type ProviderEditorDialogProps = {
@@ -63,37 +101,32 @@ export function ProviderEditorDialog({
   onSubmit,
   existingKeys = [],
 }: ProviderEditorDialogProps) {
-  const [draftProvider, setDraftProvider] = useState<ProviderId>("openai");
+  const [draftProvider, setDraftProvider] = useState<string>(
+    PROVIDER_OPTIONS[0]?.id ?? "",
+  );
   const [draftName, setDraftName] = useState("");
   const [draftApiUrl, setDraftApiUrl] = useState("");
-  const [draftApiKey, setDraftApiKey] = useState("");
-  const [draftAccessKeyId, setDraftAccessKeyId] = useState("");
-  const [draftSecretAccessKey, setDraftSecretAccessKey] = useState("");
+  const [draftAuthRaw, setDraftAuthRaw] = useState("");
   const [draftModelIds, setDraftModelIds] = useState<string[]>([]);
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const providerLabelById = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const provider of PROVIDER_OPTIONS) map[provider.id] = provider.label;
-    return map as Record<ProviderId, string>;
-  }, []);
+  const providerLabelById = PROVIDER_LABEL_BY_ID;
 
   const modelOptions = useMemo(
-    () => MODEL_CATALOG_BY_PROVIDER[draftProvider]?.getModels() ?? [],
+    () => getProviderModels(draftProvider),
     [draftProvider],
   );
 
   const resetDraft = () => {
     setError(null);
-    setDraftProvider("openai");
-    setDraftName(getDefaultProviderName("openai"));
-    setDraftApiUrl(getDefaultApiUrl("openai"));
-    setDraftApiKey("");
-    setDraftAccessKeyId("");
-    setDraftSecretAccessKey("");
-    setDraftModelIds(getDefaultModelIds("openai"));
-    setShowApiKey(false);
+    const defaultProvider = PROVIDER_OPTIONS[0]?.id ?? "";
+    setDraftProvider(defaultProvider);
+    setDraftName(getDefaultProviderName(defaultProvider));
+    setDraftApiUrl(getDefaultApiUrl(defaultProvider));
+    setDraftAuthRaw("");
+    setDraftModelIds(getDefaultModelIds(defaultProvider));
+    setShowAuth(false);
   };
 
   const handleOpenChange = (next: boolean) => {
@@ -106,10 +139,6 @@ export function ProviderEditorDialog({
   const submitDraft = async () => {
     const name = draftName.trim();
     const apiUrl = draftApiUrl.trim();
-    const apiKey =
-      draftProvider === VOLCENGINE_PROVIDER_ID
-        ? formatVolcengineKey(draftAccessKeyId, draftSecretAccessKey)
-        : draftApiKey.trim();
     const normalizedName = name.toLowerCase();
     if (!name) {
       setError("请填写名称");
@@ -119,17 +148,10 @@ export function ProviderEditorDialog({
       setError("请填写 API URL");
       return;
     }
-    // 中文注释：火山引擎使用 AK/SK 双字段校验。
-    if (draftProvider === VOLCENGINE_PROVIDER_ID) {
-      if (!draftAccessKeyId.trim() || !draftSecretAccessKey.trim()) {
-        setError("请填写 AccessKeyID 和 SecretAccessKey");
-        return;
-      }
-    } else {
-      if (!apiKey) {
-        setError("请填写 API KEY");
-        return;
-      }
+    const authConfig = parseAuthConfigInput(draftAuthRaw);
+    if (!authConfig) {
+      setError("请填写认证信息");
+      return;
     }
     if (draftModelIds.length === 0) {
       setError("请选择模型");
@@ -139,19 +161,20 @@ export function ProviderEditorDialog({
       setError("名称已存在，请更换");
       return;
     }
-    const modelDefinitions = resolveModelDefinitions(draftProvider, draftModelIds);
-    if (modelDefinitions.length === 0) {
+    const providerModels = getProviderModels(draftProvider);
+    const modelIdSet = new Set(providerModels.map((model) => model.id));
+    const modelIds = draftModelIds.filter((modelId) => modelIdSet.has(modelId));
+    if (modelIds.length === 0) {
       setError("模型定义缺失");
       return;
     }
     // 中文注释：模型 ID 以定义为准，确保存储字段同步。
     const payload: ProviderEntryPayload = {
       key: name,
-      provider: draftProvider,
+      providerId: draftProvider,
       apiUrl,
-      apiKey,
-      modelIds: modelDefinitions.map((model) => model.id),
-      modelDefinitions,
+      authConfig,
+      modelIds,
     };
     await onSubmit(payload);
     onOpenChange(false);
@@ -174,7 +197,9 @@ export function ProviderEditorDialog({
                   variant="outline"
                   className="w-full justify-between font-normal"
                 >
-                  <span className="truncate">{providerLabelById[draftProvider]}</span>
+                  <span className="truncate">
+                    {providerLabelById[draftProvider] ?? draftProvider}
+                  </span>
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
@@ -182,7 +207,7 @@ export function ProviderEditorDialog({
                 <DropdownMenuRadioGroup
                   value={draftProvider}
                   onValueChange={(next) => {
-                    const provider = next as ProviderId;
+                    const provider = next;
                     const currentDefault = getDefaultApiUrl(draftProvider);
                     const nextDefault = getDefaultApiUrl(provider);
                     const currentDefaultName = getDefaultProviderName(draftProvider);
@@ -195,11 +220,7 @@ export function ProviderEditorDialog({
                     if (!draftName.trim() || draftName.trim() === currentDefaultName) {
                       setDraftName(nextDefaultName);
                     }
-                    if (provider === VOLCENGINE_PROVIDER_ID) {
-                      setDraftApiKey("");
-                      setDraftAccessKeyId("");
-                      setDraftSecretAccessKey("");
-                    }
+                    setDraftAuthRaw("");
                     setDraftModelIds((prev) => {
                       if (prev.length === 0) return nextDefaultModels;
                       const nextSet = new Set(nextDefaultModels);
@@ -281,62 +302,29 @@ export function ProviderEditorDialog({
 
           <div className="space-y-2">
             <div className="text-sm font-medium">认证信息</div>
-            {draftProvider === VOLCENGINE_PROVIDER_ID ? (
-              <div className="space-y-2">
-                <Input
-                  value={draftAccessKeyId}
-                  placeholder="AccessKeyID"
-                  onChange={(event) => setDraftAccessKeyId(event.target.value)}
-                />
-                <div className="relative">
-                  <Input
-                    type={showApiKey ? "text" : "password"}
-                    value={draftSecretAccessKey}
-                    placeholder="SecretAccessKey"
-                    onChange={(event) => setDraftSecretAccessKey(event.target.value)}
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                    onClick={() => setShowApiKey((prev) => !prev)}
-                    aria-label={showApiKey ? "隐藏 SecretAccessKey" : "显示 SecretAccessKey"}
-                  >
-                    {showApiKey ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="relative">
-                <Input
-                  type={showApiKey ? "text" : "password"}
-                  value={draftApiKey}
-                  placeholder="输入 API KEY"
-                  onChange={(event) => setDraftApiKey(event.target.value)}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                  onClick={() => setShowApiKey((prev) => !prev)}
-                  aria-label={showApiKey ? "隐藏 API KEY" : "显示 API KEY"}
-                >
-                  {showApiKey ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            )}
+            <div className="relative">
+              <Input
+                type={showAuth ? "text" : "password"}
+                value={draftAuthRaw}
+                placeholder='API Key 或 {"apiKey":"xxx"}'
+                onChange={(event) => setDraftAuthRaw(event.target.value)}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                onClick={() => setShowAuth((prev) => !prev)}
+                aria-label={showAuth ? "隐藏认证信息" : "显示认证信息"}
+              >
+                {showAuth ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
 
           {error ? <div className="text-sm text-destructive">{error}</div> : null}

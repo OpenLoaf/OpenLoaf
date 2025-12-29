@@ -21,12 +21,15 @@ import {
   type ModelProviderOption,
 } from "@/components/setting/menus/model/AddModelProviderDialog";
 import { Input } from "@/components/ui/input";
-import { PROVIDER_OPTIONS, getModelLabel, type ProviderId } from "@teatime-ai/api/common";
+import { getModelLabel, getProviderOptions } from "@/lib/model-registry";
 
 type ModelEntry = {
+  /** Row id. */
   id: string;
+  /** Model id. */
   model: string;
-  provider: ProviderId;
+  /** Provider id. */
+  provider: string;
 };
 
 type ModelResponseLanguageId =
@@ -38,10 +41,7 @@ type ModelResponseLanguageId =
   | "de-DE"
   | "es-ES";
 
-const PROVIDERS: ModelProviderOption[] = PROVIDER_OPTIONS.map((provider) => ({
-  id: provider.id,
-  label: provider.label,
-}));
+const PROVIDERS: ModelProviderOption[] = getProviderOptions();
 
 /** Generate a stable row id for model entries. */
 function generateRowId() {
@@ -120,7 +120,7 @@ export function ModelManagement() {
         ...entries,
         {
           id: generateRowId(),
-          provider: payload.providerId as ProviderId,
+          provider: payload.providerId,
           model: payload.model,
         },
       ]);

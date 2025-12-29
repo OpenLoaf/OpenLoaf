@@ -269,7 +269,7 @@ flowchart LR
 ## 7. 当前落地计划（阶段一）
 
 - 先在 Web 端定义静态 JSON，后续切换为云端加载。  
-  - 计划文件：`apps/web/src/lib/model-registry/model-definitions.json`
+  - 计划文件：`apps/web/src/lib/model-registry/providers/*.json`
 - models 挂在 providers 下，方便供应商维度管理与覆盖。  
 - ModelDefinition 仅使用 input/output/tags 进行筛选，不引入 operation。
 - ProviderAdapter 提供双通道调用：

@@ -16,27 +16,30 @@ import { useSetting, useSettingsValues } from "@/hooks/use-settings";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { WebSettingDefs } from "@/lib/setting-defs";
 import { useChatContext } from "../ChatProvider";
-import { ModelCapabilityId, type ModelDefinition, getModelPrice } from "@teatime-ai/api/common";
+import type { IOType, ModelDefinition, ModelTag } from "@teatime-ai/api/common";
+import { resolvePriceTier } from "@teatime-ai/api/common";
 
 interface SelectModeProps {
   className?: string;
 }
 
-// 能力标签显示文案映射。
-const MODEL_CAPABILITY_LABELS: Record<ModelCapabilityId, string> = {
-  [ModelCapabilityId.TextInput]: "文本输入",
-  [ModelCapabilityId.TextOutput]: "文本输出",
-  [ModelCapabilityId.ImageInput]: "图片输入",
-  [ModelCapabilityId.ImageOutput]: "图片输出",
-  [ModelCapabilityId.VideoInput]: "视频输入",
-  [ModelCapabilityId.VideoOutput]: "视频输出",
-  [ModelCapabilityId.AudioInput]: "音频输入",
-  [ModelCapabilityId.AudioOutput]: "音频输出",
-  [ModelCapabilityId.Reasoning]: "推理",
-  [ModelCapabilityId.Tools]: "工具",
-  [ModelCapabilityId.Rerank]: "重排",
-  [ModelCapabilityId.Embedding]: "嵌入",
-  [ModelCapabilityId.StructuredOutput]: "结构化输出",
+// 标签显示文案映射。
+const MODEL_TAG_LABELS: Record<ModelTag, string> = {
+  text_to_image: "文生图",
+  image_to_image: "图生图",
+  image_edit: "图片编辑",
+  text_generation: "文本生成",
+  video_generation: "视频生成",
+  asr: "语音识别",
+  tts: "语音输出",
+  tool_call: "工具调用",
+};
+
+const IO_LABELS: Record<IOType, string> = {
+  text: "文本",
+  image: "图片",
+  audio: "音频",
+  video: "视频",
 };
 
 /** Format a price value with adaptive precision. */
@@ -49,12 +52,11 @@ function formatPriceValue(value: number): string {
 /** Format input/output pricing label for a model definition. */
 function formatModelPrice(definition?: ModelDefinition): string | null {
   if (!definition) return null;
-  const currencySymbol = definition.currencySymbol ?? "";
   // 价格按每 1,000,000 tokens 展示。
-  const inputPrice = getModelPrice(definition, ModelCapabilityId.TextInput) ?? 0;
-  const outputPrice = getModelPrice(definition, ModelCapabilityId.TextOutput) ?? 0;
-  const inputLabel = `${currencySymbol}${formatPriceValue(inputPrice)}`;
-  const outputLabel = `${currencySymbol}${formatPriceValue(outputPrice)}`;
+  const tier = resolvePriceTier(definition, 0);
+  if (!tier) return null;
+  const inputLabel = formatPriceValue(tier.input);
+  const outputLabel = formatPriceValue(tier.output);
   return `输入 ${inputLabel} / 1M · 输出 ${outputLabel} / 1M`;
 }
 
@@ -198,11 +200,13 @@ export default function SelectMode({ className }: SelectModeProps) {
               {showModelList ? (
                 <div className="space-y-1">
                   {modelOptions.map((option) => {
-                    // 未标注能力时默认展示 text_input，避免空白。
-                    const capabilityIds: ModelCapabilityId[] =
-                      option.capabilityIds && option.capabilityIds.length > 0
-                        ? option.capabilityIds
-                        : [ModelCapabilityId.TextInput];
+                    const tagLabels =
+                      option.tags && option.tags.length > 0
+                        ? option.tags.map((tag) => MODEL_TAG_LABELS[tag] ?? tag)
+                        : null;
+                    const ioLabels = [...(option.input ?? []), ...(option.output ?? [])].map(
+                      (item) => IO_LABELS[item] ?? item,
+                    );
                     const priceLabel = formatModelPrice(option.modelDefinition);
                     return (
                       <button
@@ -221,14 +225,16 @@ export default function SelectMode({ className }: SelectModeProps) {
                           </div>
                             <div className="mt-1 flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted-foreground">
                               <span className="flex flex-wrap items-center justify-end gap-1">
-                                {capabilityIds.map((capability) => (
-                                  <span
-                                    key={`${option.id}-${capability}`}
-                                    className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
-                                  >
-                                    {MODEL_CAPABILITY_LABELS[capability] ?? capability}
-                                  </span>
-                                ))}
+                                {(tagLabels && tagLabels.length > 0 ? tagLabels : ioLabels).map(
+                                  (label) => (
+                                    <span
+                                      key={`${option.id}-${label}`}
+                                      className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
+                                    >
+                                      {label}
+                                    </span>
+                                  ),
+                                )}
                               </span>
                             </div>
                             {priceLabel ? (

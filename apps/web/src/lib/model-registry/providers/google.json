@@ -1,0 +1,39 @@
+{
+  "id": "google",
+  "label": "Google",
+  "adapterId": "google",
+  "apiUrl": "https://generativelanguage.googleapis.com/v1beta",
+  "authConfig": {
+    "apiKey": "${GOOGLE_API_KEY}"
+  },
+  "models": [
+    {
+      "id": "gemini-3-pro-image-preview",
+      "familyId": "gemini-3-pro-image-preview",
+      "providerId": "google",
+      "input": ["text", "image"],
+      "output": ["text", "image"],
+      "tags": ["text_generation", "text_to_image", "image_to_image"],
+      "maxContextK": 0,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 2, "inputCache": 2, "output": 12 }
+      ]
+    },
+    {
+      "id": "gemini-3-flash-preview",
+      "familyId": "gemini-3-flash-preview",
+      "providerId": "google",
+      "input": ["text", "image", "video", "audio"],
+      "output": ["text"],
+      "tags": ["text_generation"],
+      "maxContextK": 0,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0.5, "inputCache": 0.05, "output": 3 }
+      ]
+    }
+  ]
+}

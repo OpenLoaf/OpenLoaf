@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,45 +10,47 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Check, ChevronDown, Copy, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { SettingsGroup } from "./SettingsGroup";
 import { useSettingsValues } from "@/hooks/use-settings";
 import {
-  MODEL_CATALOG_BY_PROVIDER,
-  PROVIDER_OPTIONS,
-  getDefaultApiUrl,
-  getDefaultModelIds,
-  getDefaultProviderName,
   getModelLabel,
-  getModelSummary,
-  resolveModelDefinitions,
-  type ProviderId,
-  type ModelDefinition,
-} from "@teatime-ai/api/common";
+  getProviderDefinition,
+  getProviderModels,
+  getProviderOptions,
+} from "@/lib/model-registry";
+import { resolvePriceTier, type IOType, type ModelDefinition, type ModelTag } from "@teatime-ai/api/common";
 
-type KeyEntry = {
-  provider: ProviderId;
+type ProviderSettingValue = {
+  /** Provider id. */
+  providerId: string;
+  /** API base URL. */
   apiUrl: string;
-  apiKey: string;
+  /** Raw auth config. */
+  authConfig: Record<string, unknown>;
+  /** Enabled model ids. */
   modelIds: string[];
-  modelDefinitions: ModelDefinition[];
+  /** Custom model definitions. */
+  customModels?: ModelDefinition[];
 };
 
-type ProviderEntry = KeyEntry & {
+type ProviderEntry = ProviderSettingValue & {
   key: string;
 };
 
-/** Provider id for Volcengine. */
-const VOLCENGINE_PROVIDER_ID = "volcengine";
+const PROVIDER_OPTIONS = getProviderOptions();
+const PROVIDER_LABEL_BY_ID = Object.fromEntries(
+  PROVIDER_OPTIONS.map((provider) => [provider.id, provider.label]),
+) as Record<string, string>;
 /** Category name for S3 providers stored in settings. */
 const S3_PROVIDER_CATEGORY = "provdier";
 
@@ -166,32 +168,229 @@ async function copyToClipboard(value: string) {
 }
 
 /**
- * Parse Volcengine key pair from a single string.
+ * Mask auth config for list display.
  */
-function parseVolcengineKey(value: string) {
-  const [accessKeyId, secretAccessKey] = value.split(":");
+function formatAuthConfigDisplay(authConfig: Record<string, unknown> | undefined) {
+  if (!authConfig || typeof authConfig !== "object") return "-";
+  const apiKey = authConfig.apiKey;
+  if (typeof apiKey === "string") return truncateDisplay(maskKey(apiKey));
+  const accessKeyId = authConfig.accessKeyId;
+  const secretAccessKey = authConfig.secretAccessKey;
+  if (typeof accessKeyId === "string" || typeof secretAccessKey === "string") {
+    const maskedAk = typeof accessKeyId === "string" ? truncateDisplay(accessKeyId, 16) : "";
+    const maskedSk = typeof secretAccessKey === "string" ? maskKey(secretAccessKey) : "";
+    return `AK:${maskedAk} / SK:${maskedSk}`;
+  }
+  const masked: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(authConfig)) {
+    // 中文注释：包含 key 的字段使用掩码，避免明文泄露。
+    if (typeof value === "string" && key.toLowerCase().includes("key")) {
+      masked[key] = maskKey(value);
+    } else {
+      masked[key] = value;
+    }
+  }
+  return truncateDisplay(JSON.stringify(masked), 48);
+}
+
+// 标签显示文案映射。
+const MODEL_TAG_LABELS: Record<ModelTag, string> = {
+  text_to_image: "文生图",
+  image_to_image: "图生图",
+  image_edit: "图片编辑",
+  text_generation: "文本生成",
+  video_generation: "视频生成",
+  asr: "语音识别",
+  tts: "语音输出",
+  tool_call: "工具调用",
+};
+
+// IO label mapping for UI.
+const IO_LABELS: Record<IOType, string> = {
+  text: "文本",
+  image: "图片",
+  audio: "音频",
+  video: "视频",
+};
+
+const IO_OPTIONS = Object.entries(IO_LABELS).map(([value, label]) => ({
+  value: value as IOType,
+  label,
+}));
+
+const MODEL_TAG_OPTIONS = Object.entries(MODEL_TAG_LABELS).map(([value, label]) => ({
+  value: value as ModelTag,
+  label,
+}));
+
+/**
+ * Format price label for a model definition.
+ */
+function formatModelPriceLabel(definition?: ModelDefinition): string {
+  if (!definition) return "-";
+  // 逻辑：按 1M tokens 输出价格结构，匹配当前定价策略。
+  const tier = resolvePriceTier(definition, 0);
+  if (!tier) return "-";
+  const symbol = definition.currencySymbol ?? "";
+  const pricePrefix = symbol ? `${symbol}` : "";
+  return `输入 ${pricePrefix}${tier.input} / 缓存 ${pricePrefix}${tier.inputCache} / 输出 ${pricePrefix}${tier.output}`;
+}
+
+/**
+ * Render IO tags for a model.
+ */
+function renderIoTags(types: IOType[]) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {types.map((io) => (
+        <span
+          key={io}
+          className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+        >
+          {IO_LABELS[io] ?? io}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Render model tags for a model.
+ */
+function renderModelTags(tags: ModelTag[]) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+        >
+          {MODEL_TAG_LABELS[tag] ?? tag}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function renderModelTagsCompact(tags: ModelTag[]) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground"
+        >
+          {MODEL_TAG_LABELS[tag] ?? tag}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Normalize custom model definitions from settings payload. */
+function normalizeCustomModels(value: unknown): ModelDefinition[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is ModelDefinition => {
+    return Boolean(item && typeof item === "object" && "id" in item);
+  });
+}
+
+/** Merge provider registry models with custom models. */
+function mergeProviderModels(providerId: string, customModels: ModelDefinition[]) {
+  const baseModels = getProviderModels(providerId);
+  const merged = new Map<string, ModelDefinition>();
+  baseModels.forEach((model) => merged.set(model.id, model));
+  customModels.forEach((model) =>
+    merged.set(model.id, {
+      ...model,
+      // 中文注释：自定义模型强制绑定当前 providerId。
+      providerId,
+    }),
+  );
+  return Array.from(merged.values());
+}
+
+/** Resolve model definition from merged models list. */
+function resolveMergedModelDefinition(
+  providerId: string,
+  modelId: string,
+  customModels: ModelDefinition[],
+) {
+  const models = mergeProviderModels(providerId, customModels);
+  return models.find((model) => model.id === modelId);
+}
+
+/** Toggle item in selection list. */
+function toggleSelection<T>(list: T[], value: T) {
+  return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+}
+
+function getProviderCapabilities(providerId: string, customModels: ModelDefinition[]): ModelTag[] {
+  const models = mergeProviderModels(providerId, customModels);
+  const uniqueTags = new Set<ModelTag>();
+  models.forEach((model) => {
+    model.tags.forEach((tag) => uniqueTags.add(tag));
+  });
+  return Array.from(uniqueTags);
+}
+
+/**
+ * Normalize auth config for input display.
+ */
+type AuthMode = "apiKey" | "accessKey";
+
+/**
+ * Resolve auth mode from provider definition or stored auth config.
+ */
+function resolveAuthMode(
+  providerId: string,
+  authConfig?: Record<string, unknown>
+): AuthMode {
+  const providerAuthConfig = getProviderDefinition(providerId)?.authConfig ?? {};
+  const hasAccessKey =
+    typeof authConfig?.accessKeyId === "string" ||
+    typeof authConfig?.secretAccessKey === "string" ||
+    "accessKeyId" in providerAuthConfig ||
+    "secretAccessKey" in providerAuthConfig;
+  return hasAccessKey ? "accessKey" : "apiKey";
+}
+
+/**
+ * Normalize auth config into editor fields.
+ */
+function normalizeAuthFields(authConfig?: Record<string, unknown>) {
+  if (!authConfig || typeof authConfig !== "object") {
+    return { apiKey: "", accessKeyId: "", secretAccessKey: "" };
+  }
   return {
-    accessKeyId: accessKeyId?.trim() ?? "",
-    secretAccessKey: secretAccessKey?.trim() ?? "",
+    apiKey: typeof authConfig.apiKey === "string" ? authConfig.apiKey : "",
+    accessKeyId: typeof authConfig.accessKeyId === "string" ? authConfig.accessKeyId : "",
+    secretAccessKey:
+      typeof authConfig.secretAccessKey === "string" ? authConfig.secretAccessKey : "",
   };
 }
 
 /**
- * Compose Volcengine key pair into a single string.
+ * Resolve default provider name from registry.
  */
-function formatVolcengineKey(accessKeyId: string, secretAccessKey: string) {
-  return `${accessKeyId.trim()}:${secretAccessKey.trim()}`;
+function getDefaultProviderName(providerId: string) {
+  return getProviderDefinition(providerId)?.label ?? providerId;
 }
 
 /**
- * Render masked key content for list display.
+ * Resolve default API URL from registry.
  */
-function formatApiKeyDisplay(provider: ProviderId, apiKey: string) {
-  if (provider !== VOLCENGINE_PROVIDER_ID) return truncateDisplay(maskKey(apiKey));
-  const { accessKeyId, secretAccessKey } = parseVolcengineKey(apiKey);
-  const maskedAk = accessKeyId ? truncateDisplay(accessKeyId, 16) : "";
-  const maskedSk = secretAccessKey ? maskKey(secretAccessKey) : "";
-  return `AK:${maskedAk} / SK:${maskedSk}`;
+function getDefaultApiUrl(providerId: string) {
+  return getProviderDefinition(providerId)?.apiUrl ?? "";
+}
+
+/**
+ * Resolve default model id from registry.
+ */
+function getDefaultModelIds(providerId: string) {
+  const models = getProviderModels(providerId);
+  const first = models[0];
+  return first ? [first.id] : [];
 }
 
 /**
@@ -238,17 +437,16 @@ export function ProviderManagement() {
     for (const item of items) {
       if ((item.category ?? "general") !== "provider") continue;
       if (!item.value || typeof item.value !== "object") continue;
-      const entry = item.value as Partial<KeyEntry>;
-      if (!entry.provider || !entry.apiUrl || !entry.apiKey) continue;
+      const entry = item.value as Partial<ProviderSettingValue>;
+      if (!entry.providerId || !entry.apiUrl || !entry.authConfig) continue;
+      const customModels = normalizeCustomModels(entry.customModels);
       list.push({
         key: item.key,
-        provider: entry.provider as ProviderId,
+        providerId: entry.providerId,
         apiUrl: entry.apiUrl,
-        apiKey: entry.apiKey,
+        authConfig: entry.authConfig as Record<string, unknown>,
         modelIds: Array.isArray(entry.modelIds) ? entry.modelIds : [],
-        modelDefinitions: Array.isArray(entry.modelDefinitions)
-          ? (entry.modelDefinitions as ModelDefinition[])
-          : [],
+        customModels,
       });
     }
     return list;
@@ -315,39 +513,76 @@ export function ProviderManagement() {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const [draftProvider, setDraftProvider] = useState<ProviderId>("openai");
+  const [draftProvider, setDraftProvider] = useState<string>(
+    PROVIDER_OPTIONS[0]?.id ?? "",
+  );
   const [draftName, setDraftName] = useState("");
   const [draftApiUrl, setDraftApiUrl] = useState("");
+  const [draftAuthMode, setDraftAuthMode] = useState<AuthMode>("apiKey");
   const [draftApiKey, setDraftApiKey] = useState("");
   const [draftAccessKeyId, setDraftAccessKeyId] = useState("");
   const [draftSecretAccessKey, setDraftSecretAccessKey] = useState("");
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showSecretAccessKey, setShowSecretAccessKey] = useState(false);
   const [draftModelIds, setDraftModelIds] = useState<string[]>([]);
+  /** Track custom models added in the editor. */
+  const [draftCustomModels, setDraftCustomModels] = useState<ModelDefinition[]>([]);
+  /** Track model keyword filter. */
+  const [draftModelFilter, setDraftModelFilter] = useState("");
+  /** Track focused model id in selector. */
+  const [focusedModelId, setFocusedModelId] = useState<string | null>(null);
+  /** Track create model dialog visibility. */
+  const [modelDialogOpen, setModelDialogOpen] = useState(false);
+  /** Track draft model id. */
+  const [draftModelId, setDraftModelId] = useState("");
+  /** Track draft model input types. */
+  const [draftModelInput, setDraftModelInput] = useState<IOType[]>([]);
+  /** Track draft model output types. */
+  const [draftModelOutput, setDraftModelOutput] = useState<IOType[]>([]);
+  /** Track draft model tags. */
+  const [draftModelTags, setDraftModelTags] = useState<ModelTag[]>([]);
+  /** Track draft model context window. */
+  const [draftModelContextK, setDraftModelContextK] = useState("0");
+  /** Track draft model currency symbol. */
+  const [draftModelCurrencySymbol, setDraftModelCurrencySymbol] = useState("");
+  /** Track draft model input price. */
+  const [draftModelInputPrice, setDraftModelInputPrice] = useState("");
+  /** Track draft model cached input price. */
+  const [draftModelInputCachePrice, setDraftModelInputCachePrice] = useState("");
+  /** Track draft model output price. */
+  const [draftModelOutputPrice, setDraftModelOutputPrice] = useState("");
+  /** Track draft model validation errors. */
+  const [modelError, setModelError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  /** Track expanded provider rows. */
+  const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
 
-  const providerLabelById = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const provider of PROVIDER_OPTIONS) map[provider.id] = provider.label;
-    return map as Record<ProviderId, string>;
-  }, []);
+  const providerLabelById = PROVIDER_LABEL_BY_ID;
 
   /**
    * Open the editor dialog and hydrate the draft fields.
    */
   function openEditor(entry?: ProviderEntry) {
     setError(null);
-    const provider = entry?.provider ?? "openai";
+    const provider = entry?.providerId ?? PROVIDER_OPTIONS[0]?.id ?? "";
+    const providerDefinition = getProviderDefinition(provider);
+    const providerModels = getProviderModels(provider);
+    const authMode = resolveAuthMode(provider, entry?.authConfig);
+    const authFields = normalizeAuthFields(entry?.authConfig);
+    const customModels = entry?.customModels ?? [];
     setEditingKey((entry as ProviderEntry | undefined)?.key ?? null);
     setDraftProvider(provider);
-    setDraftName(entry?.key ?? getDefaultProviderName(provider));
-    setDraftApiUrl(entry?.apiUrl ?? getDefaultApiUrl(provider));
-    setDraftApiKey(entry?.apiKey ?? "");
-    const parsedKey = parseVolcengineKey(entry?.apiKey ?? "");
-    setDraftAccessKeyId(parsedKey.accessKeyId);
-    setDraftSecretAccessKey(parsedKey.secretAccessKey);
-    setShowApiKey(false);
-    setDraftModelIds(entry?.modelIds ?? getDefaultModelIds(provider));
+    setDraftName(entry?.key ?? providerDefinition?.label ?? provider);
+    setDraftApiUrl(entry?.apiUrl ?? providerDefinition?.apiUrl ?? "");
+    setDraftAuthMode(authMode);
+    setDraftApiKey(authFields.apiKey);
+    setDraftAccessKeyId(authFields.accessKeyId);
+    setDraftSecretAccessKey(authFields.secretAccessKey);
+    setShowAuth(false);
+    setShowSecretAccessKey(false);
+    setDraftCustomModels(customModels);
+    setDraftModelIds(entry?.modelIds ?? (providerModels[0] ? [providerModels[0]!.id] : []));
     setDialogOpen(true);
   }
 
@@ -357,10 +592,6 @@ export function ProviderManagement() {
   async function submitDraft() {
     const name = draftName.trim();
     const apiUrl = draftApiUrl.trim();
-    const apiKey =
-      draftProvider === VOLCENGINE_PROVIDER_ID
-        ? formatVolcengineKey(draftAccessKeyId, draftSecretAccessKey)
-        : draftApiKey.trim();
     const normalizedName = name.toLowerCase();
     if (!name) {
       setError("请填写名称");
@@ -370,17 +601,22 @@ export function ProviderManagement() {
       setError("请填写 API URL");
       return;
     }
-    // 中文注释：火山引擎使用 AK/SK 双字段校验。
-    if (draftProvider === VOLCENGINE_PROVIDER_ID) {
-      if (!draftAccessKeyId.trim() || !draftSecretAccessKey.trim()) {
+    let authConfig: Record<string, unknown> | null = null;
+    if (draftAuthMode === "accessKey") {
+      const accessKeyId = draftAccessKeyId.trim();
+      const secretAccessKey = draftSecretAccessKey.trim();
+      if (!accessKeyId || !secretAccessKey) {
         setError("请填写 AccessKeyID 和 SecretAccessKey");
         return;
       }
+      authConfig = { accessKeyId, secretAccessKey };
     } else {
+      const apiKey = draftApiKey.trim();
       if (!apiKey) {
-        setError("请填写 API KEY");
+        setError("请填写 API Key");
         return;
       }
+      authConfig = { apiKey };
     }
     if (draftModelIds.length === 0) {
       setError("请选择模型");
@@ -395,18 +631,20 @@ export function ProviderManagement() {
       return;
     }
 
-    const modelDefinitions = resolveModelDefinitions(draftProvider, draftModelIds);
-    if (modelDefinitions.length === 0) {
+    const providerModels = mergeProviderModels(draftProvider, draftCustomModels);
+    const modelIdSet = new Set(providerModels.map((model) => model.id));
+    const modelIds = draftModelIds.filter((modelId) => modelIdSet.has(modelId));
+    if (modelIds.length === 0) {
       setError("模型定义缺失");
       return;
     }
     // 中文注释：模型 ID 以定义为准，确保存储字段同步。
-    const entryValue: KeyEntry = {
-      provider: draftProvider,
+    const entryValue: ProviderSettingValue = {
+      providerId: draftProvider,
       apiUrl,
-      apiKey,
-      modelIds: modelDefinitions.map((model) => model.id),
-      modelDefinitions,
+      authConfig,
+      modelIds,
+      customModels: draftCustomModels,
     };
 
     if (!editingKey) {
@@ -420,6 +658,86 @@ export function ProviderManagement() {
     if (!shouldReuseKey) await removeValue(editingKey, "provider");
     await setValue(nextKey, entryValue, "provider");
     setDialogOpen(false);
+  }
+
+  /**
+   * Open create model dialog and reset fields.
+   */
+  function openModelDialog() {
+    setModelError(null);
+    setDraftModelId("");
+    setDraftModelInput([]);
+    setDraftModelOutput([]);
+    setDraftModelTags([]);
+    setDraftModelContextK("0");
+    setDraftModelCurrencySymbol("");
+    setDraftModelInputPrice("");
+    setDraftModelInputCachePrice("");
+    setDraftModelOutputPrice("");
+    setModelDialogOpen(true);
+  }
+
+  /**
+   * Submit model draft and append to custom list.
+   */
+  function submitModelDraft() {
+    const modelId = draftModelId.trim();
+    if (!modelId) {
+      setModelError("请填写模型 ID");
+      return;
+    }
+    const existing = modelOptions.some((model) => model.id === modelId);
+    if (existing) {
+      setModelError("模型 ID 已存在");
+      return;
+    }
+    if (draftModelInput.length === 0 || draftModelOutput.length === 0) {
+      setModelError("请至少选择输入与输出");
+      return;
+    }
+    if (draftModelTags.length === 0) {
+      setModelError("请至少选择一个能力标签");
+      return;
+    }
+    const maxContextK = Number.parseFloat(draftModelContextK);
+    if (!Number.isFinite(maxContextK) || maxContextK < 0) {
+      setModelError("请输入有效的上下文长度");
+      return;
+    }
+    const inputPrice = Number.parseFloat(draftModelInputPrice || "0");
+    const inputCachePrice = Number.parseFloat(draftModelInputCachePrice || "0");
+    const outputPrice = Number.parseFloat(draftModelOutputPrice || "0");
+    if (
+      !Number.isFinite(inputPrice) ||
+      !Number.isFinite(inputCachePrice) ||
+      !Number.isFinite(outputPrice)
+    ) {
+      setModelError("请输入有效的价格");
+      return;
+    }
+    const currencySymbol = draftModelCurrencySymbol.trim();
+    const newModel: ModelDefinition = {
+      id: modelId,
+      familyId: modelId,
+      providerId: draftProvider,
+      input: draftModelInput,
+      output: draftModelOutput,
+      tags: draftModelTags,
+      maxContextK,
+      priceStrategyId: "tiered_token",
+      priceTiers: [
+        {
+          minContextK: 0,
+          input: inputPrice,
+          inputCache: inputCachePrice,
+          output: outputPrice,
+        },
+      ],
+      currencySymbol: currencySymbol || undefined,
+    };
+    setDraftCustomModels((prev) => [...prev, newModel]);
+    setDraftModelIds((prev) => Array.from(new Set([...prev, modelId])));
+    setModelDialogOpen(false);
   }
 
   /**
@@ -502,9 +820,19 @@ export function ProviderManagement() {
   }
 
   const modelOptions = useMemo(
-    () => MODEL_CATALOG_BY_PROVIDER[draftProvider]?.getModels() ?? [],
-    [draftProvider],
+    () => mergeProviderModels(draftProvider, draftCustomModels),
+    [draftProvider, draftCustomModels],
   );
+  const filteredModelOptions = useMemo(() => {
+    const keyword = draftModelFilter.trim().toLowerCase();
+    if (!keyword) return modelOptions;
+    return modelOptions.filter((model) => model.id.toLowerCase().includes(keyword));
+  }, [draftModelFilter, modelOptions]);
+  const focusedModel =
+    (focusedModelId && modelOptions.find((model) => model.id === focusedModelId)) ||
+    (draftModelIds[0] && modelOptions.find((model) => model.id === draftModelIds[0])) ||
+    modelOptions[0] ||
+    null;
 
   return (
     <div className="space-y-3">
@@ -522,82 +850,160 @@ export function ProviderManagement() {
       </SettingsGroup>
 
       <div className="rounded-lg border border-border overflow-hidden">
-        <div className="grid grid-cols-[160px_260px_1.5fr_0.8fr_auto] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
+        <div className="hidden md:grid grid-cols-[1fr_4fr_2fr_2fr_auto] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
           <div>AI 服务商</div>
-          <div>模型</div>
+          <div>能力</div>
           <div>API URL</div>
           <div>认证信息</div>
           <div className="text-right">操作</div>
         </div>
 
         <div className="divide-y divide-border">
-          {entries.map((entry) => (
-            <div
-              key={entry.key}
-              className={cn(
-                "group grid grid-cols-[160px_260px_1.5fr_0.8fr_auto] gap-3 items-center px-4 py-3",
-                "bg-background hover:bg-muted/15 transition-colors",
-              )}
-            >
-              <div className="text-sm">{entry.key}</div>
-
-              <div className="text-sm text-muted-foreground break-words whitespace-normal">
-                <div className="flex flex-col gap-1">
-                  {entry.modelDefinitions.map((model) => (
-                    <span key={model.id}>{getModelLabel(model)}</span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="min-w-0 flex items-center gap-2">
-                <div className="text-sm truncate">{truncateDisplay(entry.apiUrl)}</div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-5 w-5 opacity-0 text-muted-foreground/70 transition-opacity group-hover:opacity-100"
-                  onClick={async () => {
-                    await copyToClipboard(entry.apiUrl);
-                    setCopiedKey(entry.key);
-                    window.setTimeout(() => {
-                      setCopiedKey((prev) => (prev === entry.key ? null : prev));
-                    }, 1200);
-                  }}
-                  aria-label="复制 API URL"
-                >
-                  {copiedKey === entry.key ? (
-                    <Check className="h-3 w-3" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
+          {entries.map((entry) => {
+            const isExpanded = Boolean(expandedProviders[entry.key]);
+            const entryCustomModels = entry.customModels ?? [];
+            const capabilities = getProviderCapabilities(entry.providerId, entryCustomModels);
+            return (
+              <Fragment key={entry.key}>
+                <div
+                  className={cn(
+                    "group grid grid-cols-1 gap-3 px-4 py-3 md:grid-cols-[1fr_4fr_2fr_2fr_auto] md:items-center",
+                    "bg-background hover:bg-muted/15 transition-colors",
                   )}
-                </Button>
-              </div>
-
-              <div className="min-w-0 text-sm font-mono truncate">
-                {formatApiKeyDisplay(entry.provider, entry.apiKey)}
-              </div>
-
-              <div className="flex items-center justify-end gap-1">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-9 w-9"
-                  onClick={() => openEditor(entry)}
-                  aria-label="Edit key"
                 >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-9 w-9"
-                  onClick={() => setConfirmDeleteId(entry.key)}
-                  aria-label="Delete key"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-xs text-muted-foreground md:hidden">AI 服务商</span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() =>
+                        setExpandedProviders((prev) => ({
+                          ...prev,
+                          [entry.key]: !prev[entry.key],
+                        }))
+                      }
+                      aria-label={isExpanded ? "收起模型列表" : "展开模型列表"}
+                    >
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <span>{entry.key}</span>
+                  </div>
+
+                  <div className="text-sm text-muted-foreground break-words whitespace-normal">
+                    <div className="text-xs text-muted-foreground md:hidden">能力</div>
+                    {capabilities.length > 0 ? renderModelTagsCompact(capabilities) : "-"}
+                  </div>
+
+                  <div className="min-w-0 flex items-center gap-2">
+                    <div className="w-full">
+                      <div className="text-xs text-muted-foreground md:hidden">API URL</div>
+                      <div className="text-sm truncate">{truncateDisplay(entry.apiUrl)}</div>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-5 w-5 opacity-0 text-muted-foreground/70 transition-opacity group-hover:opacity-100"
+                      onClick={async () => {
+                        await copyToClipboard(entry.apiUrl);
+                        setCopiedKey(entry.key);
+                        window.setTimeout(() => {
+                          setCopiedKey((prev) => (prev === entry.key ? null : prev));
+                        }, 1200);
+                      }}
+                      aria-label="复制 API URL"
+                    >
+                      {copiedKey === entry.key ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="min-w-0 text-sm font-mono truncate">
+                    <div className="text-xs text-muted-foreground md:hidden">认证信息</div>
+                    {formatAuthConfigDisplay(entry.authConfig)}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9"
+                      onClick={() => openEditor(entry)}
+                      aria-label="Edit key"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9"
+                      onClick={() => setConfirmDeleteId(entry.key)}
+                      aria-label="Delete key"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                {isExpanded ? (
+                  <div className="px-4 pb-4">
+                    <div className="hidden md:grid grid-cols-[200px_1fr_1fr_1fr_1.2fr] gap-3 px-1 py-2 text-xs font-semibold text-muted-foreground">
+                      <div>模型</div>
+                      <div>能力</div>
+                      <div>输入</div>
+                      <div>输出</div>
+                      <div>价格</div>
+                    </div>
+                    <div className="divide-y divide-border/60">
+                      {entry.modelIds.map((modelId) => {
+                        const modelDefinition = resolveMergedModelDefinition(
+                          entry.providerId,
+                          modelId,
+                          entryCustomModels,
+                        );
+                        if (!modelDefinition) return null;
+                        return (
+                          <div
+                            key={`${entry.key}-${modelId}`}
+                            className="grid grid-cols-1 gap-3 px-1 py-3 text-sm md:grid-cols-[200px_1fr_1fr_1fr_1.2fr]"
+                          >
+                            <div>
+                              <div className="text-xs text-muted-foreground md:hidden">模型</div>
+                              <div className="text-foreground">
+                                {getModelLabel(modelDefinition)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-muted-foreground md:hidden">能力</div>
+                              {renderModelTagsCompact(modelDefinition.tags)}
+                            </div>
+                            <div>
+                              <div className="text-xs text-muted-foreground md:hidden">输入</div>
+                              {renderIoTags(modelDefinition.input)}
+                            </div>
+                            <div>
+                              <div className="text-xs text-muted-foreground md:hidden">输出</div>
+                              {renderIoTags(modelDefinition.output)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              <div className="text-xs text-muted-foreground md:hidden">价格</div>
+                              {formatModelPriceLabel(modelDefinition)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </Fragment>
+            );
+          })}
 
           {entries.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground">
@@ -621,7 +1027,7 @@ export function ProviderManagement() {
       </SettingsGroup>
 
       <div className="rounded-lg border border-border overflow-hidden">
-        <div className="grid grid-cols-[160px_140px_1.4fr_120px_160px_200px_auto] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
+        <div className="hidden md:grid grid-cols-[160px_140px_1.4fr_120px_160px_200px_auto] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
           <div>名称</div>
           <div>服务商</div>
           <div>Endpoint</div>
@@ -636,20 +1042,32 @@ export function ProviderManagement() {
             <div
               key={entry.key}
               className={cn(
-                "group grid grid-cols-[160px_140px_1.4fr_120px_160px_200px_auto] gap-3 items-center px-4 py-3",
+                "group grid grid-cols-1 gap-3 px-4 py-3 md:grid-cols-[160px_140px_1.4fr_120px_160px_200px_auto] md:items-center",
                 "bg-background hover:bg-muted/15 transition-colors",
               )}
             >
-              <div className="text-sm">{entry.key}</div>
+              <div className="text-sm">
+                <div className="text-xs text-muted-foreground md:hidden">名称</div>
+                {entry.key}
+              </div>
               <div className="text-sm text-muted-foreground">
+                <div className="text-xs text-muted-foreground md:hidden">服务商</div>
                 {entry.providerLabel}
               </div>
-              <div className="text-sm truncate">{truncateDisplay(entry.endpoint)}</div>
+              <div className="text-sm truncate">
+                <div className="text-xs text-muted-foreground md:hidden">Endpoint</div>
+                {truncateDisplay(entry.endpoint)}
+              </div>
               <div className="text-sm text-muted-foreground">
+                <div className="text-xs text-muted-foreground md:hidden">Region</div>
                 {entry.region || "-"}
               </div>
-              <div className="text-sm text-muted-foreground">{entry.bucket}</div>
+              <div className="text-sm text-muted-foreground">
+                <div className="text-xs text-muted-foreground md:hidden">Bucket</div>
+                {entry.bucket}
+              </div>
               <div className="min-w-0 text-sm font-mono truncate">
+                <div className="text-xs text-muted-foreground md:hidden">认证信息</div>
                 {formatS3CredentialDisplay(entry.accessKeyId, entry.secretAccessKey)}
               </div>
               <div className="flex items-center justify-end gap-1">
@@ -698,50 +1116,54 @@ export function ProviderManagement() {
                     type="button"
                     variant="outline"
                     className="w-full justify-between font-normal"
+                    disabled={Boolean(editingKey)}
                   >
                     <span className="truncate">
-                      {providerLabelById[draftProvider]}
+                      {providerLabelById[draftProvider] ?? draftProvider}
                     </span>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[320px]">
-                  <DropdownMenuRadioGroup
-                    value={draftProvider}
-                    onValueChange={(next) => {
-                      const provider = next as ProviderId;
-                      const currentDefault = getDefaultApiUrl(draftProvider);
-                      const nextDefault = getDefaultApiUrl(provider);
-                      const currentDefaultName = getDefaultProviderName(draftProvider);
-                      const nextDefaultName = getDefaultProviderName(provider);
-                      const nextDefaultModels = getDefaultModelIds(provider);
-                      setDraftProvider(provider);
-                      if (!draftApiUrl.trim() || draftApiUrl.trim() === currentDefault) {
-                        setDraftApiUrl(nextDefault);
-                      }
-                      if (!draftName.trim() || draftName.trim() === currentDefaultName) {
-                        setDraftName(nextDefaultName);
-                      }
-                      if (provider === VOLCENGINE_PROVIDER_ID) {
+                {editingKey ? null : (
+                  <DropdownMenuContent align="start" className="w-[320px]">
+                    <DropdownMenuRadioGroup
+                      value={draftProvider}
+                      onValueChange={(next) => {
+                        const provider = next;
+                        const currentDefault = getDefaultApiUrl(draftProvider);
+                        const nextDefault = getDefaultApiUrl(provider);
+                        const currentDefaultName = getDefaultProviderName(draftProvider);
+                        const nextDefaultName = getDefaultProviderName(provider);
+                        const nextDefaultModels = getDefaultModelIds(provider);
+                        setDraftProvider(provider);
+                        if (!draftApiUrl.trim() || draftApiUrl.trim() === currentDefault) {
+                          setDraftApiUrl(nextDefault);
+                        }
+                        if (!draftName.trim() || draftName.trim() === currentDefaultName) {
+                          setDraftName(nextDefaultName);
+                        }
+                        const nextAuthMode = resolveAuthMode(provider);
+                        setDraftAuthMode(nextAuthMode);
                         setDraftApiKey("");
                         setDraftAccessKeyId("");
                         setDraftSecretAccessKey("");
-                      }
-                      setDraftModelIds((prev) => {
-                        if (prev.length === 0) return nextDefaultModels;
-                        const nextSet = new Set(nextDefaultModels);
-                        const intersect = prev.filter((id) => nextSet.has(id));
-                        return intersect.length > 0 ? intersect : nextDefaultModels;
-                      });
-                    }}
-                  >
-                    {PROVIDER_OPTIONS.map((p) => (
-                      <DropdownMenuRadioItem key={p.id} value={p.id}>
-                        {p.label}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
+                        setDraftCustomModels([]);
+                        setDraftModelIds((prev) => {
+                          if (prev.length === 0) return nextDefaultModels;
+                          const nextSet = new Set(nextDefaultModels);
+                          const intersect = prev.filter((id) => nextSet.has(id));
+                          return intersect.length > 0 ? intersect : nextDefaultModels;
+                        });
+                      }}
+                    >
+                      {PROVIDER_OPTIONS.map((p) => (
+                        <DropdownMenuRadioItem key={p.id} value={p.id}>
+                          {p.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                )}
               </DropdownMenu>
             </div>
 
@@ -765,86 +1187,140 @@ export function ProviderManagement() {
 
             <div className="space-y-2">
               <div className="text-sm font-medium">模型</div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full justify-between font-normal"
-                  >
-                    <span className="truncate">
-                      {getModelSummary(modelOptions, draftModelIds)}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[320px]">
-                  {modelOptions.length === 0 ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                      暂无可选模型
+              <div className="rounded-md border border-border">
+                <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                  <Input
+                    value={draftModelFilter}
+                    placeholder="搜索模型"
+                    onChange={(event) => setDraftModelFilter(event.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-[1.1fr_1fr] gap-3 p-3">
+                  <div className="flex h-64 flex-col gap-2 pr-1">
+                    <div className="flex-1 overflow-auto space-y-1">
+                      {filteredModelOptions.length === 0 ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                          暂无可选模型
+                        </div>
+                      ) : (
+                        filteredModelOptions.map((model) => (
+                          <div
+                            key={model.id}
+                            className={cn(
+                              "flex items-center justify-between rounded-md border border-transparent px-2 py-2 text-sm transition-colors",
+                              draftModelIds.includes(model.id)
+                                ? "bg-muted/60 border-border"
+                                : "hover:bg-muted/30"
+                            )}
+                            onMouseEnter={() => setFocusedModelId(model.id)}
+                            onFocus={() => setFocusedModelId(model.id)}
+                          >
+                            <div className="flex-1">
+                              <div className="text-foreground">{getModelLabel(model)}</div>
+                              <div className="mt-1">{renderModelTagsCompact(model.tags)}</div>
+                            </div>
+                            <Switch
+                              checked={draftModelIds.includes(model.id)}
+                              onCheckedChange={(checked) => {
+                                setDraftModelIds((prev) => {
+                                  if (checked) return Array.from(new Set([...prev, model.id]));
+                                  return prev.filter((id) => id !== model.id);
+                                });
+                              }}
+                            />
+                          </div>
+                        ))
+                      )}
                     </div>
-                  ) : (
-                    modelOptions.map((model) => (
-                      <DropdownMenuCheckboxItem
-                        key={model.id}
-                        checked={draftModelIds.includes(model.id)}
-                        onSelect={(event) => {
-                          event.preventDefault();
-                        }}
-                        onCheckedChange={(checked) => {
-                          setDraftModelIds((prev) => {
-                            if (checked) return Array.from(new Set([...prev, model.id]));
-                            return prev.filter((id) => id !== model.id);
-                          });
-                        }}
-                      >
-                        {getModelLabel(model)}
-                      </DropdownMenuCheckboxItem>
-                    ))
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="justify-start"
+                      onClick={openModelDialog}
+                    >
+                      新建模型
+                    </Button>
+                  </div>
+                  <div className="h-64 overflow-auto rounded-md border border-border bg-muted/20 p-3 text-sm">
+                    {focusedModel ? (
+                      <div className="space-y-3">
+                        <div className="text-sm font-medium text-foreground">
+                          {getModelLabel(focusedModel)}
+                        </div>
+                        <div className="space-y-2">
+                          <div className="text-xs text-muted-foreground">输入</div>
+                          {renderIoTags(focusedModel.input)}
+                        </div>
+                        <div className="space-y-2">
+                          <div className="text-xs text-muted-foreground">输出</div>
+                          {renderIoTags(focusedModel.output)}
+                        </div>
+                        <div className="space-y-2">
+                          <div className="text-xs text-muted-foreground">能力</div>
+                          {renderModelTags(focusedModel.tags)}
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-xs text-muted-foreground">价格</div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatModelPriceLabel(focusedModel)}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">暂无模型详情</div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
               <div className="text-sm font-medium">认证信息</div>
-              {draftProvider === VOLCENGINE_PROVIDER_ID ? (
-                <div className="space-y-2">
-                  <Input
-                    value={draftAccessKeyId}
-                    placeholder="AccessKeyID"
-                    onChange={(event) => setDraftAccessKeyId(event.target.value)}
-                  />
-                  <div className="relative">
+              {draftAuthMode === "accessKey" ? (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <div className="text-xs text-muted-foreground">AccessKeyID</div>
                     <Input
-                      type={showApiKey ? "text" : "password"}
-                      value={draftSecretAccessKey}
-                      placeholder="SecretAccessKey"
-                      onChange={(event) => setDraftSecretAccessKey(event.target.value)}
-                      className="pr-10"
+                      value={draftAccessKeyId}
+                      placeholder="输入 AccessKeyID"
+                      onChange={(event) => setDraftAccessKeyId(event.target.value)}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                      onClick={() => setShowApiKey((prev) => !prev)}
-                      aria-label={showApiKey ? "隐藏 SecretAccessKey" : "显示 SecretAccessKey"}
-                    >
-                      {showApiKey ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="text-xs text-muted-foreground">SecretAccessKey</div>
+                    <div className="relative">
+                      <Input
+                        type={showSecretAccessKey ? "text" : "password"}
+                        value={draftSecretAccessKey}
+                        placeholder="输入 SecretAccessKey"
+                        onChange={(event) => setDraftSecretAccessKey(event.target.value)}
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                        onClick={() => setShowSecretAccessKey((prev) => !prev)}
+                        aria-label={
+                          showSecretAccessKey ? "隐藏 SecretAccessKey" : "显示 SecretAccessKey"
+                        }
+                      >
+                        {showSecretAccessKey ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="relative">
                   <Input
-                    type={showApiKey ? "text" : "password"}
+                    type={showAuth ? "text" : "password"}
                     value={draftApiKey}
-                    placeholder="输入 API KEY"
+                    placeholder="输入 API Key"
                     onChange={(event) => setDraftApiKey(event.target.value)}
                     className="pr-10"
                   />
@@ -853,10 +1329,10 @@ export function ProviderManagement() {
                     variant="ghost"
                     size="icon"
                     className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                    onClick={() => setShowApiKey((prev) => !prev)}
-                    aria-label={showApiKey ? "隐藏 API KEY" : "显示 API KEY"}
+                    onClick={() => setShowAuth((prev) => !prev)}
+                    aria-label={showAuth ? "隐藏 API Key" : "显示 API Key"}
                   >
-                    {showApiKey ? (
+                    {showAuth ? (
                       <EyeOff className="h-4 w-4" />
                     ) : (
                       <Eye className="h-4 w-4" />
@@ -874,6 +1350,137 @@ export function ProviderManagement() {
               取消
             </Button>
             <Button onClick={submitDraft}>保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={modelDialogOpen} onOpenChange={setModelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新建模型</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="text-sm font-medium">模型 ID</div>
+              <Input
+                value={draftModelId}
+                placeholder="例如：custom-chat-1"
+                onChange={(event) => setDraftModelId(event.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-sm font-medium">输入类型</div>
+              <div className="flex flex-wrap gap-2">
+                {IO_OPTIONS.map((option) => (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={draftModelInput.includes(option.value) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() =>
+                      setDraftModelInput((prev) => toggleSelection(prev, option.value))
+                    }
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-sm font-medium">输出类型</div>
+              <div className="flex flex-wrap gap-2">
+                {IO_OPTIONS.map((option) => (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={draftModelOutput.includes(option.value) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() =>
+                      setDraftModelOutput((prev) => toggleSelection(prev, option.value))
+                    }
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-sm font-medium">能力标签</div>
+              <div className="flex flex-wrap gap-2">
+                {MODEL_TAG_OPTIONS.map((option) => (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={draftModelTags.includes(option.value) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() =>
+                      setDraftModelTags((prev) => toggleSelection(prev, option.value))
+                    }
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <div className="text-sm font-medium">上下文长度 (K)</div>
+                <Input
+                  value={draftModelContextK}
+                  placeholder="例如：128"
+                  onChange={(event) => setDraftModelContextK(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">币种</div>
+                <Input
+                  value={draftModelCurrencySymbol}
+                  placeholder="例如：¥ 或 $"
+                  onChange={(event) => setDraftModelCurrencySymbol(event.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <div className="text-sm font-medium">输入价格</div>
+                <Input
+                  value={draftModelInputPrice}
+                  placeholder="例如：1.2"
+                  onChange={(event) => setDraftModelInputPrice(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">缓存输入</div>
+                <Input
+                  value={draftModelInputCachePrice}
+                  placeholder="例如：0.2"
+                  onChange={(event) => setDraftModelInputCachePrice(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">输出价格</div>
+                <Input
+                  value={draftModelOutputPrice}
+                  placeholder="例如：2.5"
+                  onChange={(event) => setDraftModelOutputPrice(event.target.value)}
+                />
+              </div>
+            </div>
+
+            {modelError ? <div className="text-sm text-destructive">{modelError}</div> : null}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setModelDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={submitModelDraft}>保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

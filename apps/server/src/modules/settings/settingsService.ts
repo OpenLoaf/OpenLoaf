@@ -1,7 +1,6 @@
 import prisma from "@teatime-ai/db";
 import type { SettingDef } from "@teatime-ai/api/types/setting";
 import { ServerSettingDefs } from "@/settings/settingDefs";
-import { ModelCapabilityId, type ModelDefinition, type ModelPrice } from "@teatime-ai/api/common";
 
 type SettingItem = {
   id?: string;
@@ -22,13 +21,19 @@ function getRowSyncToCloud(row: unknown, fallback: boolean) {
 }
 
 export type ProviderSettingEntry = {
+  /** Setting row id. */
   id: string;
+  /** Display name (setting key). */
   key: string;
-  provider: string;
+  /** Provider id. */
+  providerId: string;
+  /** API base URL. */
   apiUrl: string;
-  apiKey: string;
+  /** Raw auth config. */
+  authConfig: Record<string, unknown>;
+  /** Enabled model ids. */
   modelIds: string[];
-  modelDefinitions: ModelDefinition[];
+  /** Last update time. */
   updatedAt: Date;
 };
 
@@ -202,30 +207,25 @@ function normalizeProviderSettingRow(row: {
   if (!parsed || typeof parsed !== "object") return null;
 
   const entry = parsed as Partial<ProviderSettingEntry>;
-  const provider = typeof entry.provider === "string" ? entry.provider.trim() : "";
+  const providerId = typeof entry.providerId === "string" ? entry.providerId.trim() : "";
   const apiUrl = typeof entry.apiUrl === "string" ? entry.apiUrl.trim() : "";
-  const apiKey = typeof entry.apiKey === "string" ? entry.apiKey.trim() : "";
-  const modelDefinitions = normalizeModelDefinitions(entry.modelDefinitions);
-  const modelDefinitionIds = new Set(modelDefinitions.map((model) => model.id));
+  const authConfig =
+    entry.authConfig && typeof entry.authConfig === "object" && !Array.isArray(entry.authConfig)
+      ? (entry.authConfig as Record<string, unknown>)
+      : null;
   const modelIds = Array.isArray(entry.modelIds)
     ? entry.modelIds
         .filter((id): id is string => typeof id === "string")
         .map((id) => id.trim())
         .filter(Boolean)
-        .filter((id) => modelDefinitionIds.has(id))
-    : modelDefinitions.map((model) => model.id);
+    : [];
 
-  const syncedModelDefinitions = modelDefinitions.filter((model) =>
-    modelIds.includes(model.id),
-  );
-
-  // 中文注释：provider/apiUrl/apiKey/modelIds/modelDefinitions 任意缺失都视为无效配置。
+  // 中文注释：providerId/apiUrl/authConfig/modelIds 任意缺失都视为无效配置。
   if (
-    !provider ||
+    !providerId ||
     !apiUrl ||
-    !apiKey ||
-    modelIds.length === 0 ||
-    syncedModelDefinitions.length === 0
+    !authConfig ||
+    modelIds.length === 0
   ) {
     return null;
   }
@@ -233,106 +233,12 @@ function normalizeProviderSettingRow(row: {
   return {
     id: row.id,
     key: row.key,
-    provider,
+    providerId,
     apiUrl,
-    apiKey,
+    authConfig,
     modelIds,
-    modelDefinitions: syncedModelDefinitions,
     updatedAt: row.updatedAt,
   };
-}
-
-const CAPABILITY_ALIASES: Record<string, ModelCapabilityId[]> = {
-  text: [ModelCapabilityId.TextInput, ModelCapabilityId.TextOutput],
-  vision_input: [ModelCapabilityId.ImageInput],
-  vision_output: [ModelCapabilityId.ImageOutput],
-};
-
-const SUPPORTED_CAPABILITIES = new Set<ModelCapabilityId>([
-  ModelCapabilityId.TextInput,
-  ModelCapabilityId.TextOutput,
-  ModelCapabilityId.ImageInput,
-  ModelCapabilityId.ImageOutput,
-  ModelCapabilityId.VideoInput,
-  ModelCapabilityId.VideoOutput,
-  ModelCapabilityId.AudioInput,
-  ModelCapabilityId.AudioOutput,
-  ModelCapabilityId.Reasoning,
-  ModelCapabilityId.Tools,
-  ModelCapabilityId.Rerank,
-  ModelCapabilityId.Embedding,
-  ModelCapabilityId.StructuredOutput,
-]);
-
-function normalizeCapabilities(raw: unknown): ModelCapabilityId[] {
-  if (!Array.isArray(raw)) return [];
-  const normalized: ModelCapabilityId[] = [];
-  const seen = new Set<ModelCapabilityId>();
-  for (const item of raw) {
-    if (typeof item !== "string") continue;
-    const trimmed = item.trim();
-    if (!trimmed) continue;
-    const mapped = CAPABILITY_ALIASES[trimmed] ?? [trimmed as ModelCapabilityId];
-    // 中文注释：统一转换旧能力字段，并过滤掉未支持的标记。
-    for (const capability of mapped) {
-      if (!SUPPORTED_CAPABILITIES.has(capability)) continue;
-      if (seen.has(capability)) continue;
-      seen.add(capability);
-      normalized.push(capability);
-    }
-  }
-  return normalized;
-}
-
-function readFiniteNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-/** Normalize model price list. */
-function normalizeModelPrices(value: unknown): ModelPrice[] {
-  if (!Array.isArray(value)) return [];
-  const prices: ModelPrice[] = [];
-  for (const item of value) {
-    if (!item || typeof item !== "object") continue;
-    const entry = item as ModelPrice;
-    // 中文注释：仅保留已支持能力且价格为有限数字的条目。
-    if (!SUPPORTED_CAPABILITIES.has(entry.capabilityId)) continue;
-    const price = readFiniteNumber(entry.price);
-    if (typeof price !== "number") continue;
-    prices.push({
-      capabilityId: entry.capabilityId,
-      price,
-      isCache: entry.isCache === true,
-    });
-  }
-  return prices;
-}
-
-/**
- * Normalize model definitions from provider settings.
- */
-function normalizeModelDefinitions(value: unknown): ModelDefinition[] {
-  if (!Array.isArray(value)) return [];
-  const models: ModelDefinition[] = [];
-  for (const item of value) {
-    if (!item || typeof item !== "object") continue;
-    const model = item as ModelDefinition;
-    if (typeof model.id !== "string" || !model.id.trim()) continue;
-    const capability = normalizeCapabilities(model.capability);
-    if (capability.length === 0) continue;
-    if (typeof model.maxContextK !== "number" || !Number.isFinite(model.maxContextK)) continue;
-    if (typeof model.currencySymbol !== "string") continue;
-    const prices = normalizeModelPrices(model.prices);
-    if (prices.length === 0) continue;
-    models.push({
-      id: model.id.trim(),
-      capability,
-      maxContextK: model.maxContextK,
-      prices,
-      currencySymbol: model.currencySymbol,
-    });
-  }
-  return models;
 }
 
 /** Load provider settings for server usage (sorted by latest update). */

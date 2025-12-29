@@ -4,14 +4,22 @@ import { StepUpOptionCard } from "@/components/step-up/StepUpOptionCard";
 import { StepUpStepShell } from "@/components/step-up/StepUpStepShell";
 import { ProviderEditorDialog } from "@/components/setting/menus/model/ProviderEditorDialog";
 import { useSettingsValues } from "@/hooks/use-settings";
+import { getModelLabel, resolveModelDefinition } from "@/lib/model-registry";
 import type { ModelDefinition } from "@teatime-ai/api/common";
 
 type StepUpProviderEntry = {
+  /** Entry display name. */
   key: string;
-  provider: string;
+  /** Provider id. */
+  providerId: string;
+  /** API base URL. */
   apiUrl: string;
-  apiKey: string;
-  modelDefinitions: ModelDefinition[];
+  /** Raw auth config. */
+  authConfig: Record<string, unknown>;
+  /** Enabled model ids. */
+  modelIds: string[];
+  /** Custom model definitions. */
+  customModels?: ModelDefinition[];
 };
 
 export type StepUpProviderSelection = {
@@ -38,15 +46,14 @@ export function StepUpProviderStep({
       if ((item.category ?? "general") !== "provider") continue;
       if (!item.value || typeof item.value !== "object") continue;
       const entry = item.value as Partial<StepUpProviderEntry>;
-      if (!entry.provider || !entry.apiUrl || !entry.apiKey) continue;
+      if (!entry.providerId || !entry.apiUrl || !entry.authConfig) continue;
       list.push({
         key: item.key,
-        provider: entry.provider,
+        providerId: entry.providerId,
         apiUrl: entry.apiUrl,
-        apiKey: entry.apiKey,
-        modelDefinitions: Array.isArray(entry.modelDefinitions)
-          ? (entry.modelDefinitions as ModelDefinition[])
-          : [],
+        authConfig: entry.authConfig as Record<string, unknown>,
+        modelIds: Array.isArray(entry.modelIds) ? entry.modelIds : [],
+        customModels: Array.isArray(entry.customModels) ? entry.customModels : [],
       });
     }
     return list;
@@ -71,8 +78,15 @@ export function StepUpProviderStep({
               key={entry.key}
               title={entry.key}
               description={
-                entry.modelDefinitions.length > 0
-                  ? entry.modelDefinitions.map((model) => model.id).join("、")
+                entry.modelIds.length > 0
+                  ? entry.modelIds
+                      .map((modelId) => {
+                        const modelDefinition =
+                          resolveModelDefinition(entry.providerId, modelId) ??
+                          entry.customModels?.find((model) => model.id === modelId);
+                        return modelDefinition ? getModelLabel(modelDefinition) : modelId;
+                      })
+                      .join("、")
                   : "未配置模型"
               }
               selected={selectedEntry?.key === entry.key}

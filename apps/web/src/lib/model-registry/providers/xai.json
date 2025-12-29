@@ -1,0 +1,151 @@
+{
+  "id": "xai",
+  "label": "xAI",
+  "adapterId": "xai",
+  "apiUrl": "https://api.x.ai/v1",
+  "authConfig": {
+    "apiKey": "${XAI_API_KEY}"
+  },
+  "models": [
+    {
+      "id": "grok-2",
+      "familyId": "grok-2",
+      "providerId": "xai",
+      "input": ["text"],
+      "output": ["text"],
+      "tags": ["text_generation", "tool_call"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "grok-2-vision",
+      "familyId": "grok-2-vision",
+      "providerId": "xai",
+      "input": ["text", "image"],
+      "output": ["text"],
+      "tags": ["text_generation", "tool_call"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "grok-3",
+      "familyId": "grok-3",
+      "providerId": "xai",
+      "input": ["text"],
+      "output": ["text"],
+      "tags": ["text_generation", "tool_call"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "grok-3-fast",
+      "familyId": "grok-3-fast",
+      "providerId": "xai",
+      "input": ["text"],
+      "output": ["text"],
+      "tags": ["text_generation", "tool_call"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "grok-3-mini",
+      "familyId": "grok-3-mini",
+      "providerId": "xai",
+      "input": ["text"],
+      "output": ["text"],
+      "tags": ["text_generation", "tool_call"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "grok-3-mini-fast",
+      "familyId": "grok-3-mini-fast",
+      "providerId": "xai",
+      "input": ["text"],
+      "output": ["text"],
+      "tags": ["text_generation", "tool_call"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "grok-4",
+      "familyId": "grok-4",
+      "providerId": "xai",
+      "input": ["text"],
+      "output": ["text"],
+      "tags": ["text_generation", "tool_call"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "grok-code-fast-1",
+      "familyId": "grok-code-fast-1",
+      "providerId": "xai",
+      "input": ["text"],
+      "output": ["text"],
+      "tags": ["text_generation", "tool_call"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "grok-4-fast-non-reasoning",
+      "familyId": "grok-4-fast-non-reasoning",
+      "providerId": "xai",
+      "input": ["text"],
+      "output": ["text"],
+      "tags": ["text_generation", "tool_call"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "grok-4-1-fast-reasoning",
+      "familyId": "grok-4-1-fast-reasoning",
+      "providerId": "xai",
+      "input": ["text"],
+      "output": ["text"],
+      "tags": ["text_generation", "tool_call"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    }
+  ]
+}

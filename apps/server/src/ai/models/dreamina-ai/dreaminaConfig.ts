@@ -26,29 +26,19 @@ export type DreaminaProviderConfig = {
 /** Load Dreamina provider config from settings. */
 export async function getDreaminaConfig(): Promise<DreaminaProviderConfig> {
   const providers = await getProviderSettings();
-  // 中文注释：provider 字段用于区分服务商，固定为 dreamina。
-  const entry = providers.find((item) => item.provider === PROVIDER_ID);
+  // 中文注释：providerId 字段用于区分服务商，固定为 volcengine。
+  const entry = providers.find((item) => item.providerId === PROVIDER_ID);
   if (!entry) {
     throw new Error(`未找到 ${PROVIDER_ID} 服务商配置`);
   }
-  const { accessKeyId, secretAccessKey } = parseAccessKey(entry.apiKey);
+  const accessKeyId = entry.authConfig.accessKeyId;
+  const secretAccessKey = entry.authConfig.secretAccessKey;
+  if (typeof accessKeyId !== "string" || typeof secretAccessKey !== "string") {
+    throw new Error("Dreamina 认证信息缺失");
+  }
   if (!entry.apiUrl.trim()) throw new Error("Dreamina apiUrl 未配置");
   return {
     apiUrl: entry.apiUrl.trim(),
-    accessKeyId,
-    secretAccessKey,
-  };
-}
-
-/** Parse access key pair from the provider apiKey string. */
-function parseAccessKey(raw: string): { accessKeyId: string; secretAccessKey: string } {
-  const trimmed = raw.trim();
-  const [accessKeyId, secretAccessKey] = trimmed.split(":");
-  // 中文注释：约定 apiKey 使用 "AK:SK" 形式存储，避免额外字段扩展。
-  if (!accessKeyId || !secretAccessKey) {
-    throw new Error("Dreamina apiKey 格式错误，需为 AK:SK");
-  }
-  return {
     accessKeyId: accessKeyId.trim(),
     secretAccessKey: secretAccessKey.trim(),
   };

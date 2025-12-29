@@ -62,6 +62,7 @@ export * from "./types/setting";
 export * from "./common";
 export * from "./markdown/block-markdown";
 export * from "./services/pageMarkdownService";
+export * from "./services/boardService";
 
 // Export workspace router components
 export { BaseWorkspaceRouter, workspaceSchemas };

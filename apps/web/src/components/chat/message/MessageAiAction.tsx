@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { UIMessage } from "@ai-sdk/react";
-import { ModelCapabilityId, type ModelDefinition, getModelPrice } from "@teatime-ai/api/common";
+import { estimateModelPrice, resolvePriceTier, type ModelDefinition } from "@teatime-ai/api/common";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BarChart3, Clock3, Copy, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
@@ -17,7 +17,6 @@ import { messageActionIconButtonClassName } from "./message-action-styles";
 
 const TOKEN_K = 1000;
 const TOKEN_M = 1000 * 1000;
-const PRICE_PER_MILLION = 1_000_000;
 
 /**
  * Format token count into a compact K/M notation.
@@ -114,58 +113,58 @@ function calculateUsageCost(
 
   const { inputTokens, outputTokens, cachedInputTokens, noCacheTokens } = usage;
   const reasoningTokens = usage.reasoningTokens;
-  const inputPrice = getModelPrice(modelDefinition, ModelCapabilityId.TextInput) ?? 0;
-  const outputPrice = getModelPrice(modelDefinition, ModelCapabilityId.TextOutput) ?? 0;
-  const cachedPrice = getModelPrice(modelDefinition, ModelCapabilityId.TextInput, {
-    isCache: true,
-  });
+  const inputTokensValue =
+    typeof noCacheTokens === "number" && Number.isFinite(noCacheTokens)
+      ? noCacheTokens
+      : typeof inputTokens === "number" && Number.isFinite(inputTokens)
+        ? inputTokens
+        : 0;
+  const cacheTokensValue =
+    typeof cachedInputTokens === "number" && Number.isFinite(cachedInputTokens)
+      ? cachedInputTokens
+      : 0;
+  const outputTokensValue =
+    typeof outputTokens === "number" && Number.isFinite(outputTokens)
+      ? outputTokens
+      : 0;
+  const totalTokensValue =
+    typeof usage.totalTokens === "number" && Number.isFinite(usage.totalTokens)
+      ? usage.totalTokens
+      : inputTokensValue + outputTokensValue;
+  const contextK = Math.max(0, Math.ceil(totalTokensValue / 1000));
 
-  const cachedUnitPrice = typeof cachedPrice === "number" ? cachedPrice : inputPrice;
+  const priceResult = estimateModelPrice(modelDefinition, {
+    contextK,
+    inputTokens: inputTokensValue,
+    inputCacheTokens: cacheTokensValue,
+    outputTokens: outputTokensValue,
+  });
+  if (!priceResult) return;
+
   const cachedInputCost =
     typeof cachedInputTokens === "number" && Number.isFinite(cachedInputTokens)
-      ? (cachedInputTokens * cachedUnitPrice) / PRICE_PER_MILLION
+      ? priceResult.inputCacheCost
       : undefined;
-
   const noCacheCost =
     typeof noCacheTokens === "number" && Number.isFinite(noCacheTokens)
-      ? (noCacheTokens * inputPrice) / PRICE_PER_MILLION
+      ? priceResult.inputCost
       : undefined;
 
-  // 推理 token 按文本输出单价计费（非缓存）。
+  const tier = resolvePriceTier(modelDefinition, contextK);
+  // 中文注释：推理 token 暂按输出单价估算，避免遗漏成本显示。
   const reasoningCost =
-    typeof reasoningTokens === "number" && Number.isFinite(reasoningTokens)
-      ? (reasoningTokens * outputPrice) / PRICE_PER_MILLION
+    typeof reasoningTokens === "number" && Number.isFinite(reasoningTokens) && tier
+      ? (reasoningTokens * tier.output) / 1_000_000
       : undefined;
-
-  let inputCost: number | undefined;
-  if (typeof inputTokens === "number" && Number.isFinite(inputTokens)) {
-    if (typeof cachedInputTokens === "number" && typeof noCacheTokens === "number") {
-      // 关键逻辑：缓存/非缓存输入按各自单价拆分计费。
-      inputCost =
-        (noCacheTokens * inputPrice + cachedInputTokens * cachedUnitPrice) / PRICE_PER_MILLION;
-    } else {
-      inputCost = (inputTokens * inputPrice) / PRICE_PER_MILLION;
-    }
-  }
-
-  const outputCost =
-    typeof outputTokens === "number" && Number.isFinite(outputTokens)
-      ? (outputTokens * outputPrice) / PRICE_PER_MILLION
-      : undefined;
-
-  if (typeof inputCost !== "number" && typeof outputCost !== "number") return;
-
-  const totalCost =
-    (inputCost ?? reasoningCost ?? 0) + (outputCost ?? 0);
 
   return {
-    inputCost,
-    outputCost,
+    inputCost: priceResult.inputCost + priceResult.inputCacheCost,
+    outputCost: priceResult.outputCost,
     cachedInputCost,
     noCacheCost,
     reasoningCost,
-    totalCost,
-    currencySymbol: modelDefinition.currencySymbol ?? "",
+    totalCost: priceResult.total,
+    currencySymbol: "",
   };
 }
 

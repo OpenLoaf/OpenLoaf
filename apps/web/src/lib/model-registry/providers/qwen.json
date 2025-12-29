@@ -1,0 +1,53 @@
+{
+  "id": "qwen",
+  "label": "阿里百炼",
+  "adapterId": "qwenAdapter",
+  "apiUrl": "https://dashscope.aliyuncs.com/api/v1",
+  "authConfig": {
+    "apiKey": "${DASHSCOPE_API_KEY}"
+  },
+  "models": [
+    {
+      "id": "qwen-image-edit-plus",
+      "familyId": "qwen-image-edit",
+      "providerId": "qwen",
+      "input": ["text", "image"],
+      "output": ["image"],
+      "tags": ["image_edit", "image_to_image"],
+      "maxContextK": 0,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "wan2.5",
+      "familyId": "wan2.5",
+      "providerId": "qwen",
+      "input": ["text"],
+      "output": ["image"],
+      "tags": ["text_to_image"],
+      "maxContextK": 0,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "z-image-turbo",
+      "familyId": "z-image-turbo",
+      "providerId": "qwen",
+      "input": ["text"],
+      "output": ["image"],
+      "tags": ["text_to_image"],
+      "maxContextK": 0,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    }
+  ]
+}

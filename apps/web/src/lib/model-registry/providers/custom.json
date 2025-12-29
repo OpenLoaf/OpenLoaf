@@ -1,0 +1,10 @@
+{
+  "id": "custom",
+  "label": "自定义服务商",
+  "adapterId": "openai",
+  "apiUrl": "",
+  "authConfig": {
+    "apiKey": "${CUSTOM_API_KEY}"
+  },
+  "models": []
+}

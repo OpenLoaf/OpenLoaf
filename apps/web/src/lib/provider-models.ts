@@ -1,19 +1,37 @@
 "use client";
 
-import type { ChatModelSource, ModelCapabilityId, ModelDefinition } from "@teatime-ai/api/common";
+import type { ChatModelSource, IOType, ModelDefinition, ModelTag } from "@teatime-ai/api/common";
+import { resolveModelDefinition } from "@/lib/model-registry";
 
 type ProviderKeyEntry = {
-  provider: string;
+  /** Provider id. */
+  providerId: string;
+  /** Enabled model ids. */
   modelIds?: string[];
-  modelDefinitions?: ModelDefinition[];
+  /** Custom model definitions. */
+  customModels?: ModelDefinition[];
+  /** API base URL. */
+  apiUrl?: string;
+  /** Raw auth config. */
+  authConfig?: Record<string, unknown>;
 };
 
 export type ProviderModelOption = {
+  /** Unique chat model id in settings scope. */
   id: string;
+  /** Model id. */
   modelId: string;
+  /** Provider id. */
   providerId: string;
+  /** Provider display name. */
   providerName: string;
-  capabilityIds?: ModelCapabilityId[];
+  /** Input types. */
+  input?: IOType[];
+  /** Output types. */
+  output?: IOType[];
+  /** Tags for filtering. */
+  tags?: ModelTag[];
+  /** Model definition from registry. */
   modelDefinition?: ModelDefinition;
 };
 
@@ -34,39 +52,30 @@ export function buildProviderModelOptions(
     if ((item.category ?? "general") !== "provider") continue;
     if (!item.value || typeof item.value !== "object") continue;
     const entry = item.value as ProviderKeyEntry;
-    if (!entry.provider) continue;
+    if (!entry.providerId) continue;
     if (!item.id) continue;
-    const rawDefinitions = Array.isArray(entry.modelDefinitions)
-      ? entry.modelDefinitions
-      : [];
-    // 中文注释：仅使用配置中已有的模型定义，避免回退到模板数据。
-    if (rawDefinitions.length === 0) continue;
     const providerName = item.key;
-    const modelDefinitionById = new Map(
-      rawDefinitions
-        .filter((model) => model && typeof model.id === "string" && model.id.trim())
-        .map((model) => [model.id.trim(), model]),
-    );
     const modelIds =
       Array.isArray(entry.modelIds) && entry.modelIds.length > 0
         ? entry.modelIds
-        : Array.from(modelDefinitionById.keys());
+        : [];
 
+    const customModels = Array.isArray(entry.customModels) ? entry.customModels : [];
     for (const modelId of modelIds) {
       const trimmed = typeof modelId === "string" ? modelId.trim() : "";
       if (!trimmed) continue;
-      const modelDefinition = modelDefinitionById.get(trimmed);
-      if (!modelDefinition) continue;
-      const capabilityIds = Array.isArray(modelDefinition.capability)
-        ? modelDefinition.capability
-        : undefined;
+      const modelDefinition =
+        resolveModelDefinition(entry.providerId, trimmed) ??
+        customModels.find((model) => model.id === trimmed);
       options.push({
         // 中文注释：chatModelId 前缀使用 settings.id，确保稳定可追踪。
         id: `${item.id}:${trimmed}`,
         modelId: trimmed,
-        providerId: entry.provider,
+        providerId: entry.providerId,
         providerName,
-        capabilityIds,
+        input: modelDefinition?.input,
+        output: modelDefinition?.output,
+        tags: modelDefinition?.tags,
         modelDefinition,
       });
     }

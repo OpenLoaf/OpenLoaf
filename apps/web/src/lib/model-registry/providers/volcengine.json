@@ -1,0 +1,68 @@
+{
+  "id": "volcengine",
+  "label": "即梦",
+  "adapterId": "volcengine",
+  "apiUrl": "https://visual.volcengineapi.com",
+  "authConfig": {
+    "accessKeyId": "${VOLCENGINE_ACCESS_KEY_ID}",
+    "secretAccessKey": "${VOLCENGINE_SECRET_ACCESS_KEY}"
+  },
+  "models": [
+    {
+      "id": "volcengine.t2i.v40",
+      "familyId": "volcengine.t2i",
+      "providerId": "volcengine",
+      "input": ["text"],
+      "output": ["image"],
+      "tags": ["text_to_image"],
+      "maxContextK": 1,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "volcengine.inpaint.v1",
+      "familyId": "volcengine.inpaint",
+      "providerId": "volcengine",
+      "input": ["text", "image"],
+      "output": ["image"],
+      "tags": ["image_edit", "image_to_image"],
+      "maxContextK": 1,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "volcengine.material.v1",
+      "familyId": "volcengine.material",
+      "providerId": "volcengine",
+      "input": ["image"],
+      "output": ["image"],
+      "tags": ["image_edit", "image_to_image"],
+      "maxContextK": 1,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    },
+    {
+      "id": "volcengine.video.v30pro",
+      "familyId": "volcengine.video",
+      "providerId": "volcengine",
+      "input": ["text", "image"],
+      "output": ["video"],
+      "tags": ["video_generation"],
+      "maxContextK": 1,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+      ]
+    }
+  ]
+}

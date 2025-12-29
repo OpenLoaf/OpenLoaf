@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { cn } from "@udecode/cn";
 import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
+import type { BoardSnapshotOutput } from "@teatime-ai/api";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import { MINIMAP_HIDE_DELAY } from "../engine/constants";
@@ -191,13 +192,23 @@ export function BoardCanvas({
       void writeBoardSnapshotCache(snapshot);
       // 逻辑：同步查询缓存，避免远端版本滞后导致重复保存。
       const queryKey = trpc.boardCustom.get.queryOptions(boardScope).queryKey;
+      // 逻辑：缓存数据需要序列化为 JSON 形态，避免 Prisma JsonValue 类型不匹配。
+      const cachedNodes = JSON.parse(
+        JSON.stringify(snapshot.nodes)
+      ) as BoardSnapshotOutput["nodes"];
+      const cachedConnectors = JSON.parse(
+        JSON.stringify(snapshot.connectors)
+      ) as BoardSnapshotOutput["connectors"];
+      const cachedViewport = JSON.parse(
+        JSON.stringify(snapshot.viewport)
+      ) as BoardSnapshotOutput["viewport"];
       queryClient.setQueryData(queryKey, () => ({
         board: {
           id: data.id,
           schemaVersion: snapshot.schemaVersion,
-          nodes: snapshot.nodes,
-          connectors: snapshot.connectors,
-          viewport: snapshot.viewport,
+          nodes: cachedNodes,
+          connectors: cachedConnectors,
+          viewport: cachedViewport,
           version: snapshot.version,
         },
       }));

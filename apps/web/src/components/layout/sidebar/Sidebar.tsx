@@ -18,6 +18,7 @@ import { Search as SearchDialog } from "@/components/search/Search";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { AI_CHAT_TAB_INPUT } from "@teatime-ai/api/common";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
+import { useIsNarrowScreen } from "@/hooks/use-mobile";
 
 export const AppSidebar = ({
   ...props
@@ -27,6 +28,10 @@ export const AppSidebar = ({
   const setActiveTab = useTabs((s) => s.setActiveTab);
   const searchOpen = useGlobalOverlay((s) => s.searchOpen);
   const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
+  const isNarrow = useIsNarrowScreen(900);
+
+  // 逻辑：窄屏直接隐藏侧边栏，避免占用可用空间。
+  if (isNarrow) return null;
 
   const openSingletonTab = useCallback(
     (input: { baseId: string; component: string; title: string; icon: string }) => {

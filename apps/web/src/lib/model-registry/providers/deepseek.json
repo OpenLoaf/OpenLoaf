@@ -1,0 +1,39 @@
+{
+  "id": "deepseek",
+  "label": "DeepSeek",
+  "adapterId": "deepseek",
+  "apiUrl": "https://api.deepseek.com",
+  "authConfig": {
+    "apiKey": "${DEEPSEEK_API_KEY}"
+  },
+  "models": [
+    {
+      "id": "deepseek-chat",
+      "familyId": "deepseek-chat",
+      "providerId": "deepseek",
+      "input": ["text"],
+      "output": ["text"],
+      "tags": ["text_generation"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        { "minContextK": 0, "input": 2, "inputCache": 0.2, "output": 3 }
+      ]
+    },
+    {
+      "id": "deepseek-reasoner",
+      "familyId": "deepseek-reasoner",
+      "providerId": "deepseek",
+      "input": ["text"],
+      "output": ["text"],
+      "tags": ["text_generation"],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        { "minContextK": 0, "input": 2, "inputCache": 0.2, "output": 3 }
+      ]
+    }
+  ]
+}
