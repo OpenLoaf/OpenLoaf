@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@udecode/cn";
-import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "@/utils/trpc";
-import type { BoardSnapshotOutput } from "@teatime-ai/api";
+import { skipToken, useQuery } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import { MINIMAP_HIDE_DELAY } from "../engine/constants";
@@ -163,62 +162,6 @@ export function BoardCanvas({
   const boardQuery = useQuery(
     trpc.boardCustom.get.queryOptions(boardScope ?? skipToken)
   );
-  /** Mutation handler for persisting snapshots. */
-  const saveBoard = useMutation({
-    ...trpc.boardCustom.save.mutationOptions(),
-    onSuccess: (data, variables) => {
-      // 逻辑：保存成功时打点，确认接口已触发。
-      console.log("[board] saved", data);
-      const currentElements = JSON.stringify(latestSnapshotRef.current.elements);
-      const sentElements = JSON.stringify(
-        mergeElements(
-          variables.nodes as CanvasNodeElement[],
-          variables.connectors as CanvasConnectorElement[]
-        )
-      );
-      if (currentElements !== sentElements) return;
-      if (!boardScope) return;
-      const snapshot: BoardSnapshotCacheRecord = {
-        workspaceId: boardScope.workspaceId,
-        pageId: boardScope.pageId,
-        schemaVersion: variables.schemaVersion ?? BOARD_SCHEMA_VERSION,
-        nodes: variables.nodes as CanvasNodeElement[],
-        connectors: variables.connectors as CanvasConnectorElement[],
-        viewport: variables.viewport as BoardSnapshotState["viewport"],
-        version: data.version,
-      };
-      currentVersionRef.current = data.version;
-      setLocalSnapshot(snapshot);
-      void writeBoardSnapshotCache(snapshot);
-      // 逻辑：同步查询缓存，避免远端版本滞后导致重复保存。
-      const queryKey = trpc.boardCustom.get.queryOptions(boardScope).queryKey;
-      // 逻辑：缓存数据需要序列化为 JSON 形态，避免 Prisma JsonValue 类型不匹配。
-      const cachedNodes = JSON.parse(
-        JSON.stringify(snapshot.nodes)
-      ) as BoardSnapshotOutput["nodes"];
-      const cachedConnectors = JSON.parse(
-        JSON.stringify(snapshot.connectors)
-      ) as BoardSnapshotOutput["connectors"];
-      const cachedViewport = JSON.parse(
-        JSON.stringify(snapshot.viewport)
-      ) as BoardSnapshotOutput["viewport"];
-      queryClient.setQueryData(queryKey, () => ({
-        board: {
-          id: data.id,
-          schemaVersion: snapshot.schemaVersion,
-          nodes: cachedNodes,
-          connectors: cachedConnectors,
-          viewport: cachedViewport,
-          version: snapshot.version,
-        },
-      }));
-    },
-    onError: (error) => {
-      // 逻辑：保存失败时输出错误，便于排查接口是否被调用。
-      console.error("[board] save failed", error);
-    },
-  });
-
   useEffect(() => {
     if (!containerRef.current) return;
     engine.attach(containerRef.current);
@@ -272,7 +215,7 @@ export function BoardCanvas({
     },
     [engine]
   );
-  /** Persist the current snapshot to the server. */
+  /** Persist the current snapshot to local cache. */
   const persistSnapshot = useCallback(
     (
       nodes: CanvasNodeElement[],
@@ -290,11 +233,6 @@ export function BoardCanvas({
         JSON.stringify({ nodes, connectors, viewport })
       ) as Pick<BoardSnapshotState, "nodes" | "connectors" | "viewport">;
       // 逻辑：统一在此处拼装存储数据，避免多处重复。
-      console.log("[board] save request", {
-        pageId: boardScope.pageId,
-        nodes: payload.nodes.length,
-        connectors: payload.connectors.length,
-      });
       const localSnapshotPayload: BoardSnapshotCacheRecord = {
         workspaceId: boardScope.workspaceId,
         pageId: boardScope.pageId,
@@ -307,16 +245,8 @@ export function BoardCanvas({
       currentVersionRef.current = nextVersion;
       setLocalSnapshot(localSnapshotPayload);
       void writeBoardSnapshotCache(localSnapshotPayload);
-      saveBoard.mutate({
-        workspaceId: boardScope.workspaceId,
-        pageId: boardScope.pageId,
-        schemaVersion: BOARD_SCHEMA_VERSION,
-        nodes: payload.nodes,
-        connectors: payload.connectors,
-        viewport: payload.viewport,
-      });
     },
-    [boardScope, saveBoard]
+    [boardScope]
   );
 
   useEffect(() => {
@@ -422,10 +352,7 @@ export function BoardCanvas({
 
     if (local && !remote) {
       if (local.nodes.length === 0 && local.connectors.length === 0) return;
-      // 逻辑：仅有本地快照时写入远端。
-      persistSnapshot(local.nodes, local.connectors, local.viewport, {
-        bumpVersion: false,
-      });
+      // 逻辑：仅保留本地快照，不再回写远端。
       return;
     }
 
@@ -446,14 +373,8 @@ export function BoardCanvas({
       return;
     }
     if (local.version > remote.version) {
-      // 逻辑：本地版本更新时覆盖远端。
-      if (saveBoard.isPending) {
-        // 逻辑：保存未完成时不重复推送，避免触发保存风暴。
-        return;
-      }
-      persistSnapshot(local.nodes, local.connectors, local.viewport, {
-        bumpVersion: false,
-      });
+      // 逻辑：本地版本更高时保持本地数据，不触发远端更新。
+      return;
     }
   }, [
     applySnapshot,
@@ -465,7 +386,6 @@ export function BoardCanvas({
     localLoaded,
     localSnapshot,
     persistSnapshot,
-    saveBoard.isPending,
   ]);
 
   useEffect(() => {

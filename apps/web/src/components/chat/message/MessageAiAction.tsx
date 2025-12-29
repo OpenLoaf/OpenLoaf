@@ -11,7 +11,7 @@ import { useChatContext } from "../ChatProvider";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import MessageBranchNav from "./MessageBranchNav";
-import { getMessagePlainText } from "@/lib/chat/message-text";
+import { getMessageTextWithToolCalls } from "@/lib/chat/message-text";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { messageActionIconButtonClassName } from "./message-action-styles";
 
@@ -232,7 +232,7 @@ export default function MessageAiAction({
 }) {
   const { retryAssistantMessage, clearError, status, updateMessage } = useChatContext();
   const [isCopying, setIsCopying] = React.useState(false);
-  const text = getMessagePlainText(message);
+  const text = getMessageTextWithToolCalls(message);
 
   const handleCopy = async () => {
     if (!text) return;

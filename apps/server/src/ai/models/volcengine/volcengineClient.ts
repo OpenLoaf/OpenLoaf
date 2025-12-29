@@ -1,39 +1,36 @@
 import { createHash, createHmac } from "node:crypto";
-import { getAbortSignal } from "@/common/requestContext";
 import {
-  DREAMINA_CONTENT_TYPE,
-  DREAMINA_REGION,
-  DREAMINA_SERVICE,
-  DREAMINA_VERSION,
-  type DreaminaProviderConfig,
-} from "./dreaminaConfig";
+  VOLCENGINE_CONTENT_TYPE,
+  VOLCENGINE_REGION,
+  VOLCENGINE_SERVICE,
+  VOLCENGINE_VERSION,
+  type VolcengineProviderConfig,
+} from "./volcengineConfig";
 
 const SIGNED_HEADERS = "host;x-date;x-content-sha256;content-type";
 
-type DreaminaResponse<T> = {
-  ResponseMetadata?: {
-    RequestId?: string;
-    Error?: { Code?: string; Message?: string };
-  } | null;
-  request_id?: string;
-  time_elapsed?: number;
-  code?: number;
-  message?: string;
-  data?: T | null;
+export type VolcengineRequest = {
+  /** Request url. */
+  url: string;
+  /** HTTP method. */
+  method: "POST";
+  /** Signed headers. */
+  headers: Record<string, string>;
+  /** JSON body. */
+  body: string;
 };
 
-/** Call Dreamina API with signed headers and return the data payload. */
-export async function callDreaminaApi<T>(
-  config: DreaminaProviderConfig,
+/** Build Volcengine signed request for action. */
+export function buildVolcengineRequest(
+  config: VolcengineProviderConfig,
   action: string,
   payload: Record<string, unknown>,
-  abortSignal?: AbortSignal,
-): Promise<T | null> {
+): VolcengineRequest {
   const url = new URL(config.apiUrl);
   const path = url.pathname || "/";
   const query = {
     Action: action,
-    Version: DREAMINA_VERSION,
+    Version: VOLCENGINE_VERSION,
   };
   const body = JSON.stringify(cleanPayload(payload));
   const headers = buildSignedHeaders({
@@ -46,35 +43,12 @@ export async function callDreaminaApi<T>(
     secretAccessKey: config.secretAccessKey,
   });
   const requestUrl = `${url.origin}${path}?${buildQueryString(query)}`;
-  const response = await fetch(requestUrl, {
+  return {
+    url: requestUrl,
     method: "POST",
     headers,
     body,
-    signal: abortSignal ?? getAbortSignal(),
-  });
-  const json = (await response.json()) as DreaminaResponse<T>;
-  return unwrapDreaminaResponse(json);
-}
-
-/** Normalize req_json input to a string. */
-export function normalizeReqJson(
-  input?: string | Record<string, unknown>,
-): string | undefined {
-  if (!input) return undefined;
-  return typeof input === "string" ? input : JSON.stringify(input);
-}
-
-/** Unwrap Dreamina response or throw on errors. */
-function unwrapDreaminaResponse<T>(response: DreaminaResponse<T>): T | null {
-  if (response.ResponseMetadata?.Error?.Code) {
-    const message = response.ResponseMetadata.Error.Message ?? "网关错误";
-    throw new Error(`Dreamina网关错误: ${message}`);
-  }
-  if (response.code !== 10000) {
-    const message = response.message ?? "服务返回失败";
-    throw new Error(`Dreamina请求失败: ${message}`);
-  }
-  return response.data ?? null;
+  };
 }
 
 /** Remove undefined fields from payload. */
@@ -104,7 +78,7 @@ function buildSignedHeaders(input: {
     `host:${input.host}`,
     `x-date:${xDate}`,
     `x-content-sha256:${payloadHash}`,
-    `content-type:${DREAMINA_CONTENT_TYPE}`,
+    `content-type:${VOLCENGINE_CONTENT_TYPE}`,
   ].join("\n");
   const canonicalRequest = [
     input.method,
@@ -115,7 +89,7 @@ function buildSignedHeaders(input: {
     SIGNED_HEADERS,
     payloadHash,
   ].join("\n");
-  const credentialScope = `${xDate.slice(0, 8)}/${DREAMINA_REGION}/${DREAMINA_SERVICE}/request`;
+  const credentialScope = `${xDate.slice(0, 8)}/${VOLCENGINE_REGION}/${VOLCENGINE_SERVICE}/request`;
   const stringToSign = [
     "HMAC-SHA256",
     xDate,
@@ -137,7 +111,7 @@ function buildSignedHeaders(input: {
     Host: input.host,
     "X-Date": xDate,
     "X-Content-Sha256": payloadHash,
-    "Content-Type": DREAMINA_CONTENT_TYPE,
+    "Content-Type": VOLCENGINE_CONTENT_TYPE,
     Authorization: authorization,
   };
 }
@@ -181,8 +155,8 @@ function hmacSha256Hex(key: Buffer, data: string): string {
 /** Derive signing key for Volcengine V4 signing. */
 function getSigningKey(secret: string, date: string): Buffer {
   const kDate = hmacSha256(Buffer.from(secret, "utf8"), date);
-  const kRegion = hmacSha256(kDate, DREAMINA_REGION);
-  const kService = hmacSha256(kRegion, DREAMINA_SERVICE);
+  const kRegion = hmacSha256(kDate, VOLCENGINE_REGION);
+  const kService = hmacSha256(kRegion, VOLCENGINE_SERVICE);
   // 中文注释：签名密钥固定以 request 作为最后一步。
   return hmacSha256(kService, "request");
 }

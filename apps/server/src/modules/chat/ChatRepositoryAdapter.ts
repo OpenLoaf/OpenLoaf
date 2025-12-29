@@ -146,12 +146,12 @@ function toPathSegment(seq: number): string {
   return String(seq).padStart(PATH_SEGMENT_WIDTH, "0");
 }
 
-/** Ensure chat session exists and bind it to a page when requested. */
+/** Ensure chat session exists and bind it to a resource when requested. */
 async function ensureSession(
   tx: Prisma.TransactionClient,
   sessionId: string,
   title?: string,
-  pageId?: string,
+  resourceUri?: string,
 ) {
   await tx.chatSession.upsert({
     where: { id: sessionId },
@@ -160,12 +160,18 @@ async function ensureSession(
     create: { id: sessionId, ...(title ? { title } : {}) },
   });
 
-  if (!pageId) return;
-  // 中文注释：首次出现 pageId 时绑定到 PageChatSession，避免重复创建。
-  await tx.pageChatSession.upsert({
-    where: { pageId_chatSessionId: { pageId, chatSessionId: sessionId } },
-    update: {},
-    create: { pageId, chatSessionId: sessionId },
+  if (!resourceUri) return;
+  const existing = await tx.chatSession.findUnique({
+    where: { id: sessionId },
+    select: { resourceUris: true },
+  });
+  const current = Array.isArray(existing?.resourceUris)
+    ? (existing?.resourceUris as string[])
+    : [];
+  if (current.includes(resourceUri)) return;
+  await tx.chatSession.update({
+    where: { id: sessionId },
+    data: { resourceUris: [...current, resourceUri] as any },
   });
 }
 
@@ -227,7 +233,7 @@ export const chatRepository = {
     parentMessageId: string | null;
     allowEmpty?: boolean;
     createdAt?: Date;
-    pageId?: string;
+    resourceUri?: string;
   }): Promise<{ id: string; parentMessageId: string | null; path: string }> => {
     const messageId = String((input.message as any)?.id ?? "").trim();
     if (!messageId) throw new Error("message.id is required.");
@@ -245,7 +251,7 @@ export const chatRepository = {
     }
 
     return prisma.$transaction(async (tx) => {
-      await ensureSession(tx, input.sessionId, title || undefined, input.pageId);
+      await ensureSession(tx, input.sessionId, title || undefined, input.resourceUri);
 
       const existing = await tx.chatMessage.findUnique({
         where: { id: messageId },

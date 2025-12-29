@@ -3,15 +3,10 @@ import type {
   CanvasNodeViewProps,
   CanvasToolbarContext,
 } from "../engine/types";
-import { useCallback, useEffect, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useCallback, useEffect } from "react";
 import { z } from "zod";
 import { Copy, ExternalLink, RotateCw } from "lucide-react";
-import { trpc } from "@/utils/trpc";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID, useTabs } from "@/hooks/use-tabs";
-
-/** Default screenshot size for link previews. */
-const DEFAULT_PREVIEW_SIZE = { width: 800, height: 450 };
 
 /** Create a unique browser sub-tab id. */
 function createBrowserTabId() {
@@ -109,19 +104,9 @@ function createLinkToolbarItems(ctx: CanvasToolbarContext<LinkNodeProps>) {
 export function LinkNodeView({
   element,
   selected,
-  onUpdate,
+  onUpdate: _onUpdate,
 }: CanvasNodeViewProps<LinkNodeProps>) {
   const { url, title, description, imageSrc, logoSrc } = element.props;
-  /** Mutation handler for link preview capture. */
-  const captureLinkPreview = useMutation(trpc.linkPreview.capture.mutationOptions());
-  /** Track the last screenshot request key. */
-  const requestedKeyRef = useRef<string | null>(null);
-  /** Track in-flight screenshot requests. */
-  const requestInFlightRef = useRef(false);
-  /** Keep the latest node props for async updates. */
-  const propsRef = useRef({ imageSrc, title, description });
-  /** Keep the latest update handler to avoid re-creating callbacks. */
-  const onUpdateRef = useRef(onUpdate);
   let displayHost = url;
   try {
     displayHost = new URL(url).hostname.replace(/^www\./, "");
@@ -132,16 +117,6 @@ export function LinkNodeView({
   const previewSrc = imageSrc || logoSrc;
   /** Active tab id used for stack operations. */
   const activeTabId = useTabs((state) => state.activeTabId);
-
-  useEffect(() => {
-    // 逻辑：同步最新 props，供异步回调判断是否需要更新。
-    propsRef.current = { imageSrc, title, description };
-  }, [imageSrc, title, description]);
-
-  useEffect(() => {
-    // 逻辑：同步最新 onUpdate，避免闭包引用旧方法。
-    onUpdateRef.current = onUpdate;
-  }, [onUpdate]);
 
   /** Open the link in the current tab's browser stack. */
   const openLinkInStack = useCallback(() => {
@@ -172,62 +147,13 @@ export function LinkNodeView({
     );
   }, [activeTabId, displayTitle, url]);
 
-  /** Request a screenshot from the server. */
-  const fetchScreenshot = useCallback(
-    async (requestKey: string) => {
-      if (!url) return;
-      if (requestInFlightRef.current && requestedKeyRef.current === requestKey) return;
-      requestInFlightRef.current = true;
-      requestedKeyRef.current = requestKey;
-      try {
-        /** 逻辑：复用请求输入，避免多处拼装参数。 */
-        const captureInput = {
-          url,
-          width: DEFAULT_PREVIEW_SIZE.width,
-          height: DEFAULT_PREVIEW_SIZE.height,
-          fullPage: false,
-        };
-        const result = await captureLinkPreview.mutateAsync(captureInput);
-        if (!result) return;
-        const payload = result as {
-          ok?: boolean;
-          imageUrl?: string;
-          title?: string;
-          description?: string;
-        };
-        if (payload?.ok) {
-          const patch: Partial<LinkNodeProps> = {};
-          const current = propsRef.current;
-          if (payload.imageUrl && current.imageSrc !== payload.imageUrl) {
-            patch.imageSrc = payload.imageUrl;
-          }
-          if (payload.title && payload.title !== current.title) {
-            patch.title = payload.title;
-          }
-          if (payload.description && payload.description !== current.description) {
-            patch.description = payload.description;
-          }
-          if (Object.keys(patch).length > 0) {
-            // 逻辑：只在数据有变化时更新节点，避免重复渲染。
-            onUpdateRef.current(patch);
-          }
-        }
-      } catch {
-        // 逻辑：截图失败时保持静默，避免干扰用户操作。
-      } finally {
-        requestInFlightRef.current = false;
-      }
-    },
-    [captureLinkPreview, url]
-  );
-
   useEffect(() => {
     if (!url) return;
     /** Listen for manual refresh requests. */
     const handleRefresh = (event: Event) => {
       const detail = (event as CustomEvent<{ id?: string }>).detail;
       if (!detail?.id || detail.id !== element.id) return;
-      void fetchScreenshot(`${url}:manual:${Date.now()}`);
+      // 逻辑：暂时关闭远端预览更新，忽略刷新请求。
     };
     /** Listen for manual open requests. */
     const handleOpen = (event: Event) => {
@@ -242,7 +168,7 @@ export function LinkNodeView({
       window.removeEventListener("board-link-refresh", handleRefresh);
       window.removeEventListener("board-link-open", handleOpen);
     };
-  }, [url, element.id, fetchScreenshot, openLinkInStack]);
+  }, [url, element.id, openLinkInStack]);
 
   return (
     <div

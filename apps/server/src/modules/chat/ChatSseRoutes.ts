@@ -214,8 +214,9 @@ export function registerChatSseRoutes(app: Hono) {
       body,
       "chatModelSource",
     );
-    const pageIdValue = readRequestValue<unknown>(body, "pageId");
-    const pageId = typeof pageIdValue === "string" && pageIdValue ? pageIdValue : undefined;
+    const resourceUriValue = readRequestValue<unknown>(body, "resourceUri");
+    const resourceUri =
+      typeof resourceUriValue === "string" && resourceUriValue ? resourceUriValue : undefined;
 
     setRequestContext({
       sessionId,
@@ -269,7 +270,7 @@ export function registerChatSseRoutes(app: Hono) {
           message: last as any,
           parentMessageId: parentMessageIdToUse ?? null,
           createdAt: requestStartAt,
-          pageId,
+          resourceUri,
         });
         leafMessageId = saved.id;
         assistantParentUserId = saved.id;
@@ -294,7 +295,7 @@ export function registerChatSseRoutes(app: Hono) {
           parentMessageId: parentId,
           allowEmpty: true,
           createdAt: requestStartAt,
-          pageId,
+          resourceUri,
         });
         leafMessageId = String(last.id);
       } else {
@@ -532,7 +533,7 @@ export function registerChatSseRoutes(app: Hono) {
                   parentMessageId: userNode.id,
                   allowEmpty: isAborted,
                   createdAt: requestStartAt,
-                  pageId,
+                  resourceUri,
                 });
               } catch (err) {
                 logger.error({ err }, "[chat] save assistant failed");

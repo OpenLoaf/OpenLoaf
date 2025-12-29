@@ -1,10 +1,15 @@
 import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@teatime-ai/api";
-import {
-  submitDreaminaTask,
-  submitDreaminaInpaintTask,
-  submitDreaminaMaterialExtractionTask,
-} from "@/ai/models/dreamina-ai/dreaminaImage";
-import { submitDreaminaVideoTask } from "@/ai/models/dreamina-ai/dreaminaVideo";
+import { runProviderRequest } from "@/ai/models/providerRequestRunner";
+
+/** Default provider id for AI media tasks. */
+const VOLCENGINE_PROVIDER_ID = "volcengine";
+/** Default model ids for each AI task kind. */
+const VOLCENGINE_MODEL_IDS = {
+  textToImage: "volcengine.t2i.v40",
+  inpaint: "volcengine.inpaint.v1",
+  materialExtract: "volcengine.material.v1",
+  videoGenerate: "volcengine.video.v30pro",
+} as const;
 
 export class AiRouterImpl extends BaseAiRouter {
   /** AI tRPC 端点实现：调用 Dreamina 能力。 */
@@ -14,17 +19,10 @@ export class AiRouterImpl extends BaseAiRouter {
         .input(aiSchemas.textToImage.input)
         .output(aiSchemas.textToImage.output)
         .mutation(async ({ input }) => {
-          const result = await submitDreaminaTask({
-            prompt: input.prompt,
-            imageUrls: input.imageUrls,
-            size: input.size,
-            width: input.width,
-            height: input.height,
-            scale: input.scale,
-            forceSingle: input.forceSingle,
-            minRatio: input.minRatio,
-            maxRatio: input.maxRatio,
-            seed: input.seed,
+          const result = await runProviderRequest({
+            providerId: VOLCENGINE_PROVIDER_ID,
+            modelId: VOLCENGINE_MODEL_IDS.textToImage,
+            input: { kind: "textToImage", payload: input },
           });
           return { taskId: result.taskId };
         }),
@@ -32,11 +30,10 @@ export class AiRouterImpl extends BaseAiRouter {
         .input(aiSchemas.inpaint.input)
         .output(aiSchemas.inpaint.output)
         .mutation(async ({ input }) => {
-          const result = await submitDreaminaInpaintTask({
-            imageUrls: input.imageUrls,
-            binaryDataBase64: input.binaryDataBase64,
-            prompt: input.prompt,
-            seed: input.seed,
+          const result = await runProviderRequest({
+            providerId: VOLCENGINE_PROVIDER_ID,
+            modelId: VOLCENGINE_MODEL_IDS.inpaint,
+            input: { kind: "inpaint", payload: input },
           });
           return { taskId: result.taskId };
         }),
@@ -44,14 +41,10 @@ export class AiRouterImpl extends BaseAiRouter {
         .input(aiSchemas.materialExtract.input)
         .output(aiSchemas.materialExtract.output)
         .mutation(async ({ input }) => {
-          const result = await submitDreaminaMaterialExtractionTask({
-            imageUrls: input.imageUrls,
-            binaryDataBase64: input.binaryDataBase64,
-            imageEditPrompt: input.imageEditPrompt,
-            loraWeight: input.loraWeight,
-            width: input.width,
-            height: input.height,
-            seed: input.seed,
+          const result = await runProviderRequest({
+            providerId: VOLCENGINE_PROVIDER_ID,
+            modelId: VOLCENGINE_MODEL_IDS.materialExtract,
+            input: { kind: "materialExtract", payload: input },
           });
           return { taskId: result.taskId };
         }),
@@ -59,13 +52,10 @@ export class AiRouterImpl extends BaseAiRouter {
         .input(aiSchemas.videoGenerate.input)
         .output(aiSchemas.videoGenerate.output)
         .mutation(async ({ input }) => {
-          const result = await submitDreaminaVideoTask({
-            prompt: input.prompt,
-            imageUrls: input.imageUrls,
-            binaryDataBase64: input.binaryDataBase64,
-            seed: input.seed,
-            frames: input.frames,
-            aspectRatio: input.aspectRatio,
+          const result = await runProviderRequest({
+            providerId: VOLCENGINE_PROVIDER_ID,
+            modelId: VOLCENGINE_MODEL_IDS.videoGenerate,
+            input: { kind: "videoGenerate", payload: input },
           });
           return { taskId: result.taskId };
         }),

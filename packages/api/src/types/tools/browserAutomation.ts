@@ -27,14 +27,41 @@ export const browserExtractToolDef = {
 
 export const browserActToolDef = {
   id: "browser-act",
-  description: "在当前页面执行一个结构化动作（click/type/fill/press/scroll）。",
-  parameters: z.object({
-    action: z
-      .string()
-      .describe(
-        '动作格式示例：click css="#id" | click text="按钮文案" | type css="#input" text="hello" | press key="Enter" | press css="#input" key="Enter" | scroll y="400"',
-      ),
-  }),
+  description: "在当前页面执行一个结构化动作（click-css/click-text/type/fill/press/press-on/scroll）。",
+  parameters: z
+    .object({
+      action: z
+        .enum(["click-css", "click-text", "type", "fill", "press", "press-on", "scroll"])
+        .describe("动作类型。"),
+      selector: z
+        .string()
+        .optional()
+        .describe("目标元素的 CSS selector（type/fill 未提供时使用当前聚焦元素）。"),
+      text: z.string().optional().describe("用于输入或可见文本匹配的内容。"),
+      key: z.string().optional().describe("要按下的按键，例如 Enter。"),
+      y: z.number().int().optional().describe("滚动距离（像素，正/负）。"),
+    })
+    .superRefine((value, ctx) => {
+      // 按 action 校验必填字段，避免缺参导致动作无效。
+      if (value.action === "click-css" && !value.selector) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "selector is required for click-css." });
+      }
+      if (value.action === "click-text" && !value.text) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "text is required for click-text." });
+      }
+      if ((value.action === "type" || value.action === "fill") && value.text == null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "text is required for type/fill." });
+      }
+      if (value.action === "press" && !value.key) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "key is required for press." });
+      }
+      if (value.action === "press-on" && (!value.selector || !value.key)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "selector and key are required for press-on." });
+      }
+      if (value.action === "scroll" && typeof value.y !== "number") {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "y is required for scroll." });
+      }
+    }),
   component: null,
 } as const;
 

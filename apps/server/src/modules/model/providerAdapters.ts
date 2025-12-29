@@ -5,6 +5,8 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
 import type { ModelDefinition, ProviderDefinition } from "@teatime-ai/api/common";
+import { qwenAdapter } from "@/ai/models/qwen/qwenAdapter";
+import { volcengineAdapter } from "@/ai/models/volcengine/volcengineAdapter";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 
 type AdapterInput = {
@@ -18,12 +20,102 @@ type AdapterInput = {
   providerDefinition?: ProviderDefinition;
 };
 
+export type TextToImageInput = {
+  /** Prompt text. */
+  prompt: string;
+  /** Optional image URLs. */
+  imageUrls?: string[];
+  /** Optional size payload. */
+  size?: number;
+  /** Optional width. */
+  width?: number;
+  /** Optional height. */
+  height?: number;
+  /** Optional scale. */
+  scale?: number;
+  /** Optional single-image hint. */
+  forceSingle?: boolean;
+  /** Optional min ratio. */
+  minRatio?: number;
+  /** Optional max ratio. */
+  maxRatio?: number;
+  /** Optional seed. */
+  seed?: number;
+};
+
+export type InpaintInput = {
+  /** Image URLs. */
+  imageUrls?: string[];
+  /** Base64 images. */
+  binaryDataBase64?: string[];
+  /** Prompt text. */
+  prompt: string;
+  /** Optional seed. */
+  seed?: number;
+};
+
+export type MaterialExtractInput = {
+  /** Image URLs. */
+  imageUrls?: string[];
+  /** Base64 images. */
+  binaryDataBase64?: string[];
+  /** Edit prompt. */
+  imageEditPrompt: string;
+  /** Optional lora weight. */
+  loraWeight?: number;
+  /** Optional width. */
+  width?: number;
+  /** Optional height. */
+  height?: number;
+  /** Optional seed. */
+  seed?: number;
+};
+
+export type VideoGenerateInput = {
+  /** Prompt text. */
+  prompt?: string;
+  /** Image URLs. */
+  imageUrls?: string[];
+  /** Base64 images. */
+  binaryDataBase64?: string[];
+  /** Optional seed. */
+  seed?: number;
+  /** Optional frame count. */
+  frames?: number;
+  /** Optional aspect ratio. */
+  aspectRatio?: string;
+};
+
+export type ProviderRequestInput =
+  | { kind: "textToImage"; payload: TextToImageInput }
+  | { kind: "inpaint"; payload: InpaintInput }
+  | { kind: "materialExtract"; payload: MaterialExtractInput }
+  | { kind: "videoGenerate"; payload: VideoGenerateInput };
+
+export type ProviderTaskResult = {
+  /** Task id returned by provider. */
+  taskId: string;
+};
+
+export type ProviderRequest = {
+  /** Request url. */
+  url: string;
+  /** HTTP method. */
+  method: "POST" | "GET";
+  /** Request headers. */
+  headers: Record<string, string>;
+  /** Request body. */
+  body?: string;
+  /** Parse response into task result. */
+  parseResponse: (response: Response) => Promise<ProviderTaskResult>;
+};
+
 export type ProviderAdapter = {
   id: string;
   /** Build AI SDK model for chat. */
   buildAiSdkModel: (input: AdapterInput) => LanguageModelV3 | null;
   /** Build custom HTTP request when AI SDK is unavailable. */
-  buildRequest: (input: AdapterInput & { input: unknown }) => null;
+  buildRequest: (input: AdapterInput & { input: ProviderRequestInput }) => ProviderRequest | null;
 };
 
 /** Read apiKey from auth config. */
@@ -65,10 +157,6 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
     createDeepSeek({ baseURL: apiUrl, apiKey }),
   ),
   xai: buildAiSdkAdapter("xai", ({ apiUrl, apiKey }) => createXai({ baseURL: apiUrl, apiKey })),
-  // 中文注释：Qwen 图像模型走专用 API，本阶段不提供 AI SDK 模型。
-  qwenAdapter: {
-    id: "qwenAdapter",
-    buildAiSdkModel: () => null,
-    buildRequest: () => null,
-  },
+  qwenAdapter,
+  volcengine: volcengineAdapter,
 };
