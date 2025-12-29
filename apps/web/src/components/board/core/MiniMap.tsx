@@ -91,7 +91,7 @@ export function MiniMap({ snapshot, visible }: MiniMapProps) {
             y={viewRect.y}
             width={viewRect.w}
             height={viewRect.h}
-            fill="var(--canvas-minimap-mask)"
+            fill="none"
             stroke="var(--canvas-minimap-mask-stroke)"
             strokeWidth={1.4}
             rx={4}

@@ -125,7 +125,7 @@ model Board {
   nodes         Json // 画布节点快照
   connectors    Json // 画布连线快照
   viewport      Json // 画布视口快照
-  revision      Int      @default(0) // 当前版本号
+  version       Int      @default(0) // 当前版本号
   createdAt     DateTime @default(now()) // 创建时间
   updatedAt     DateTime @updatedAt // 更新时间
 
@@ -135,11 +135,11 @@ model Board {
 }
 
 //
-// ================= REVISION SYSTEM =================
+// ================= SNAPSHOT SYSTEM =================
 //
 
 // 历史快照类型枚举
-enum RevisionTarget {
+enum SnapshotTarget {
   page // 页面快照
   block // 内容块快照
   board // 画布快照
@@ -147,17 +147,17 @@ enum RevisionTarget {
 
 // 历史快照模型
 // 用于保存 Page/Block/Board 的只读历史记录
-model Revision {
+model Snapshot {
   id          String         @id @default(cuid()) // 历史快照唯一标识
   workspaceId String // 所属工作区（仅保留ID，不做外键关联）
-  targetType  RevisionTarget // 目标类型
+  targetType  SnapshotTarget // 目标类型
   targetId    String // 目标ID
-  revision    Int // 目标版本号
+  version     Int // 目标版本号
   payload     Json // 快照内容
   groupId     String? // 批次分组ID
   createdAt   DateTime       @default(now()) // 创建时间
 
-  @@unique([targetType, targetId, revision])
+  @@unique([targetType, targetId, version])
   @@index([workspaceId, createdAt])
   @@index([targetType, targetId, createdAt])
 }

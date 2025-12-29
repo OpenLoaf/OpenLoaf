@@ -203,6 +203,43 @@ export class CanvasEngine {
     ) {
       return;
     }
+    const clipboardData = event.clipboardData;
+    if (clipboardData) {
+      const files = Array.from(clipboardData.files ?? []);
+      const items = Array.from(clipboardData.items ?? []);
+      const textPlain = clipboardData.getData("text/plain") ?? "";
+      const textHtml = clipboardData.getData("text/html") ?? "";
+      const textUriList = clipboardData.getData("text/uri-list") ?? "";
+      const previewLimit = 240;
+      const textPlainPreview =
+        textPlain.length > previewLimit
+          ? `${textPlain.slice(0, previewLimit)}...`
+          : textPlain;
+      const textHtmlPreview =
+        textHtml.length > previewLimit
+          ? `${textHtml.slice(0, previewLimit)}...`
+          : textHtml;
+      const textUriListPreview =
+        textUriList.length > previewLimit
+          ? `${textUriList.slice(0, previewLimit)}...`
+          : textUriList;
+      // 逻辑：打印剪贴板内容，便于定位 Paste 粘贴格式。
+      console.info("[board] paste payload", {
+        types: Array.from(clipboardData.types ?? []),
+        items: items.map(item => item.type),
+        files: files.map(file => ({
+          name: file.name,
+          type: file.type,
+          size: file.size,
+        })),
+        textPlain: textPlainPreview,
+        textPlainLength: textPlain.length,
+        textHtml: textHtmlPreview,
+        textHtmlLength: textHtml.length,
+        textUriList: textUriListPreview,
+        textUriListLength: textUriList.length,
+      });
+    }
     const payload = getClipboardInsertPayload(event);
     if (payload) {
       event.preventDefault();

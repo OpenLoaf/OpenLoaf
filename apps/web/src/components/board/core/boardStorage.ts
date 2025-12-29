@@ -17,7 +17,23 @@ type BoardSnapshotState = {
     /** Viewport offset in screen space. */
     offset: CanvasPoint;
   };
+  /** Snapshot version. */
+  version: number;
 };
 
 export type { BoardSnapshotState };
-export { BOARD_SCHEMA_VERSION };
+/** Read workspace id from document cookies. */
+function getWorkspaceIdFromCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|;\s*)workspace-id=([^;]+)/);
+  if (!match) return null;
+  const rawValue = match[1];
+  if (!rawValue) return null;
+  try {
+    return decodeURIComponent(rawValue);
+  } catch {
+    return rawValue;
+  }
+}
+
+export { BOARD_SCHEMA_VERSION, getWorkspaceIdFromCookie };

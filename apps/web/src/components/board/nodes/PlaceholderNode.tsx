@@ -38,7 +38,7 @@ export function PlaceholderNodeView({
   return (
     <div
       className={[
-        "h-full w-full rounded-xl border box-border p-4",
+        "h-full w-full rounded-sm border box-border p-4",
         "border-slate-300 bg-white ",
         "dark:border-slate-700 dark:bg-slate-900",
         selected

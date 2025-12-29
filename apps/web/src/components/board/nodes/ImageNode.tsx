@@ -73,8 +73,7 @@ export function ImageNodeView({
     <>
       <div
         className={[
-          "relative h-full w-full overflow-hidden box-border",
-          "bg-slate-100 dark:bg-slate-900",
+          "relative h-full w-full overflow-hidden rounded-sm box-border",
           selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",
         ].join(" ")}
         onDoubleClick={event => {

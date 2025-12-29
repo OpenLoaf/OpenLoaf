@@ -26,8 +26,8 @@ export type BoardSnapshotOutput = {
   connectors: Prisma.JsonValue;
   /** Viewport snapshot payload. */
   viewport: Prisma.JsonValue;
-  /** Board revision number. */
-  revision: number;
+  /** Board snapshot version. */
+  version: number;
 };
 
 /** Load a board snapshot by page id. */
@@ -44,19 +44,19 @@ export const getBoardSnapshot = async (
       nodes: true,
       connectors: true,
       viewport: true,
-      revision: true,
+      version: true,
     },
   });
 };
 
-/** Save board snapshot with revision increment. */
+/** Save board snapshot with version increment. */
 export const saveBoardSnapshot = async (
   prisma: PrismaClient,
   input: BoardSnapshotInput
-): Promise<{ id: string; revision: number }> => {
+): Promise<{ id: string; version: number }> => {
   const schemaVersion = input.schemaVersion ?? 1;
 
-  // 逻辑：以 pageId 为唯一键写入，更新时递增 revision。
+  // 逻辑：以 pageId 为唯一键写入，更新时递增 version。
   const board = await prisma.board.upsert({
     where: { pageId: input.pageId },
     create: {
@@ -66,16 +66,16 @@ export const saveBoardSnapshot = async (
       nodes: input.nodes ?? Prisma.JsonNull,
       connectors: input.connectors ?? Prisma.JsonNull,
       viewport: input.viewport ?? Prisma.JsonNull,
-      revision: 1,
+      version: 1,
     },
     update: {
       schemaVersion,
       nodes: input.nodes ?? Prisma.JsonNull,
       connectors: input.connectors ?? Prisma.JsonNull,
       viewport: input.viewport ?? Prisma.JsonNull,
-      revision: { increment: 1 },
+      version: { increment: 1 },
     },
-    select: { id: true, revision: true },
+    select: { id: true, version: true },
   });
 
   return board;

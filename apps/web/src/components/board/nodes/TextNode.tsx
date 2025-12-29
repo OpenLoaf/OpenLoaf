@@ -610,7 +610,7 @@ export function TextNodeView({
   );
 
   const containerClasses = [
-    "relative h-full w-full rounded-xl border box-border p-4",
+    "relative h-full w-full rounded-sm border box-border p-4",
     "border-slate-300 bg-white",
     "dark:border-slate-700 dark:bg-slate-900",
     "text-slate-900 dark:text-slate-100",
@@ -666,7 +666,7 @@ export function TextNodeView({
         </div>
       ) : null}
       {!isEditing && isOverflowing ? (
-        <div className="pointer-events-none absolute bottom-0 left-0 h-10 w-full rounded-b-xl bg-gradient-to-b from-transparent to-white dark:to-slate-900" />
+        <div className="pointer-events-none absolute bottom-0 left-0 h-10 w-full rounded-b-sm bg-gradient-to-b from-transparent to-white dark:to-slate-900" />
       ) : null}
     </div>
   );

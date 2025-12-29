@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@udecode/cn";
 import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
+import { queryClient, trpc } from "@/utils/trpc";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import { MINIMAP_HIDE_DELAY } from "../engine/constants";
@@ -12,6 +12,7 @@ import BoardControls from "../controls/BoardControls";
 import BoardToolbar from "../toolbar/BoardToolbar";
 import { isBoardUiTarget } from "../utils/dom";
 import { toScreenPoint } from "../utils/coordinates";
+import { buildImageNodePayloadFromFile } from "../utils/image";
 import type {
   CanvasElement,
   CanvasConnectorElement,
@@ -30,11 +31,22 @@ import {
   SingleSelectionToolbar,
 } from "./SelectionOverlay";
 import { ConnectorDropPanel, type ConnectorDropItem } from "./ConnectorDropPanel";
-import { BOARD_SCHEMA_VERSION, type BoardSnapshotState } from "./boardStorage";
+import {
+  BOARD_SCHEMA_VERSION,
+  getWorkspaceIdFromCookie,
+  type BoardSnapshotState,
+} from "./boardStorage";
+import {
+  readBoardSnapshotCache,
+  writeBoardSnapshotCache,
+  type BoardSnapshotCacheRecord,
+} from "./boardSnapshotCache";
 import { useBoardSnapshot } from "./useBoardSnapshot";
 const VIEWPORT_SAVE_DELAY = 800;
 /** Default size for auto-created text nodes. */
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
+/** Offset applied when stacking multiple dropped images. */
+const IMAGE_DROP_STACK_OFFSET = 24;
 
 /** Split elements into nodes and connectors. */
 const splitElements = (elements: CanvasElement[]) => {
@@ -55,6 +67,16 @@ const mergeElements = (
   nodes: CanvasNodeElement[],
   connectors: CanvasConnectorElement[]
 ): CanvasElement[] => [...nodes, ...connectors];
+
+/** Check whether a drag event carries file payloads. */
+const isFileDragEvent = (event: DragEvent<HTMLElement>) => {
+  const types = event.dataTransfer?.types;
+  if (!types) return false;
+  return Array.from(types).includes("Files");
+};
+
+/** Check whether a file is a supported image. */
+const isImageFile = (file: File) => file.type.startsWith("image/");
 
 export type BoardCanvasProps = {
   /** External engine instance, optional for integration scenarios. */
@@ -97,8 +119,6 @@ export function BoardCanvas({
   const connectorDropRef = useRef<HTMLDivElement | null>(null);
   /** Node inspector target id. */
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
-  /** Guard for first-time snapshot hydration. */
-  const restoredRef = useRef(false);
   /** Whether the server snapshot has been hydrated. */
   const hydratedRef = useRef(false);
   /** Last saved elements snapshot for change detection. */
@@ -117,21 +137,76 @@ export function BoardCanvas({
   const miniMapTimeoutRef = useRef<number | null>(null);
   /** Image preview payload for the fullscreen viewer. */
   const [imagePreview, setImagePreview] = useState<ImagePreviewPayload | null>(null);
+  /** Cached local snapshot for comparisons. */
+  const [localSnapshot, setLocalSnapshot] = useState<BoardSnapshotCacheRecord | null>(null);
+  /** Whether local snapshot has been loaded. */
+  const [localLoaded, setLocalLoaded] = useState(false);
   /** Last viewport snapshot to detect changes. */
   const lastViewportRef = useRef(snapshot.viewport);
   /** Last panning state to detect transitions. */
   const lastPanningRef = useRef(snapshot.panning);
+  /** Latest snapshot ref for save callbacks. */
+  const latestSnapshotRef = useRef(snapshot);
+  /** Latest snapshot version for sync decisions. */
+  const currentVersionRef = useRef(0);
+  /** Workspace id resolved from props or cookie. */
+  const resolvedWorkspaceId = workspaceId ?? getWorkspaceIdFromCookie();
   /** Board scope used for remote persistence. */
   const boardScope = useMemo(() => {
-    if (!workspaceId || !boardId) return null;
-    return { workspaceId, pageId: boardId };
-  }, [boardId, workspaceId]);
+    if (!resolvedWorkspaceId || !boardId) return null;
+    return { workspaceId: resolvedWorkspaceId, pageId: boardId };
+  }, [boardId, resolvedWorkspaceId]);
+  /** Log guard for missing scope. */
+  const missingScopeLoggedRef = useRef(false);
   /** Remote snapshot query for the board. */
   const boardQuery = useQuery(
     trpc.boardCustom.get.queryOptions(boardScope ?? skipToken)
   );
   /** Mutation handler for persisting snapshots. */
-  const saveBoard = useMutation(trpc.boardCustom.save.mutationOptions());
+  const saveBoard = useMutation({
+    ...trpc.boardCustom.save.mutationOptions(),
+    onSuccess: (data, variables) => {
+      // 逻辑：保存成功时打点，确认接口已触发。
+      console.log("[board] saved", data);
+      const currentElements = JSON.stringify(latestSnapshotRef.current.elements);
+      const sentElements = JSON.stringify(
+        mergeElements(
+          variables.nodes as CanvasNodeElement[],
+          variables.connectors as CanvasConnectorElement[]
+        )
+      );
+      if (currentElements !== sentElements) return;
+      if (!boardScope) return;
+      const snapshot: BoardSnapshotCacheRecord = {
+        workspaceId: boardScope.workspaceId,
+        pageId: boardScope.pageId,
+        schemaVersion: variables.schemaVersion ?? BOARD_SCHEMA_VERSION,
+        nodes: variables.nodes as CanvasNodeElement[],
+        connectors: variables.connectors as CanvasConnectorElement[],
+        viewport: variables.viewport as BoardSnapshotState["viewport"],
+        version: data.version,
+      };
+      currentVersionRef.current = data.version;
+      setLocalSnapshot(snapshot);
+      void writeBoardSnapshotCache(snapshot);
+      // 逻辑：同步查询缓存，避免远端版本滞后导致重复保存。
+      const queryKey = trpc.boardCustom.get.queryOptions(boardScope).queryKey;
+      queryClient.setQueryData(queryKey, () => ({
+        board: {
+          id: data.id,
+          schemaVersion: snapshot.schemaVersion,
+          nodes: snapshot.nodes,
+          connectors: snapshot.connectors,
+          viewport: snapshot.viewport,
+          version: snapshot.version,
+        },
+      }));
+    },
+    onError: (error) => {
+      // 逻辑：保存失败时输出错误，便于排查接口是否被调用。
+      console.error("[board] save failed", error);
+    },
+  });
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -156,15 +231,71 @@ export function BoardCanvas({
     () => ({ openImagePreview, closeImagePreview }),
     [openImagePreview, closeImagePreview]
   );
+  /** Apply a snapshot into the engine state. */
+  const applySnapshot = useCallback(
+    (snapshotData: BoardSnapshotState) => {
+      const nodes = Array.isArray(snapshotData.nodes) ? snapshotData.nodes : [];
+      const connectors = Array.isArray(snapshotData.connectors)
+        ? snapshotData.connectors
+        : [];
+      const elements = mergeElements(nodes, connectors);
+      hydratedRef.current = false;
+      // 逻辑：恢复快照时先写入文档，再同步视口。
+      engine.doc.setElements(elements);
+      if (snapshotData.viewport) {
+        engine.viewport.setViewport(
+          snapshotData.viewport.zoom,
+          snapshotData.viewport.offset
+        );
+      }
+      engine.commitHistory();
+      lastSavedElementsRef.current = JSON.stringify(elements);
+      if (snapshotData.viewport) {
+        lastSavedViewportRef.current = JSON.stringify({
+          zoom: snapshotData.viewport.zoom,
+          offset: snapshotData.viewport.offset,
+        });
+      }
+      currentVersionRef.current = snapshotData.version ?? 0;
+      hydratedRef.current = true;
+    },
+    [engine]
+  );
   /** Persist the current snapshot to the server. */
   const persistSnapshot = useCallback(
-    (nodes: CanvasNodeElement[], connectors: CanvasConnectorElement[], viewport: BoardSnapshotState["viewport"]) => {
+    (
+      nodes: CanvasNodeElement[],
+      connectors: CanvasConnectorElement[],
+      viewport: BoardSnapshotState["viewport"],
+      options?: { bumpVersion?: boolean }
+    ) => {
       if (!boardScope) return;
+      const bumpVersion = options?.bumpVersion ?? true;
+      const nextVersion = bumpVersion
+        ? currentVersionRef.current + 1
+        : currentVersionRef.current;
       // 逻辑：转成 JSON 安全对象，避免 undefined 写库失败。
       const payload = JSON.parse(
         JSON.stringify({ nodes, connectors, viewport })
       ) as Pick<BoardSnapshotState, "nodes" | "connectors" | "viewport">;
       // 逻辑：统一在此处拼装存储数据，避免多处重复。
+      console.log("[board] save request", {
+        pageId: boardScope.pageId,
+        nodes: payload.nodes.length,
+        connectors: payload.connectors.length,
+      });
+      const localSnapshotPayload: BoardSnapshotCacheRecord = {
+        workspaceId: boardScope.workspaceId,
+        pageId: boardScope.pageId,
+        schemaVersion: BOARD_SCHEMA_VERSION,
+        nodes: payload.nodes,
+        connectors: payload.connectors,
+        viewport: payload.viewport,
+        version: nextVersion,
+      };
+      currentVersionRef.current = nextVersion;
+      setLocalSnapshot(localSnapshotPayload);
+      void writeBoardSnapshotCache(localSnapshotPayload);
       saveBoard.mutate({
         workspaceId: boardScope.workspaceId,
         pageId: boardScope.pageId,
@@ -198,6 +329,10 @@ export function BoardCanvas({
   }, [engine]);
 
   useEffect(() => {
+    latestSnapshotRef.current = snapshot;
+  }, [snapshot]);
+
+  useEffect(() => {
     if (nodesRegisteredRef.current) return;
     if (!nodes || nodes.length === 0) return;
     // 只在首次挂载时注册节点定义，避免重复注册报错。
@@ -206,61 +341,121 @@ export function BoardCanvas({
   }, [engine, nodes]);
 
   useEffect(() => {
-    if (initialElementsRef.current) return;
-    if (!initialElements || initialElements.length === 0) return;
-    if (boardScope && !boardQuery.isFetched) return;
-    const stored = boardQuery.data?.board as BoardSnapshotState | null;
-    const hasRemoteSnapshot = Boolean(
-      stored &&
-      (Array.isArray(stored.nodes) && stored.nodes.length > 0 ||
-        Array.isArray(stored.connectors) && stored.connectors.length > 0)
-    );
-    if (hasRemoteSnapshot) return;
-    // 逻辑：确认远端无快照后再写入初始元素，避免闪烁覆盖。
-    engine.setInitialElements(initialElements);
-    initialElementsRef.current = true;
-  }, [boardQuery.data, boardQuery.isFetched, boardScope, engine, initialElements]);
+    if (!boardScope && !missingScopeLoggedRef.current) {
+      // 逻辑：workspaceId/pageId 缺失时记录一次，避免误判无保存请求。
+      console.warn("[board] save skipped: missing workspaceId/pageId", {
+        workspaceId: resolvedWorkspaceId,
+        boardId,
+      });
+      missingScopeLoggedRef.current = true;
+    }
+    if (!boardScope) return;
+    missingScopeLoggedRef.current = false;
+    hydratedRef.current = false;
+    setLocalLoaded(false);
+    setLocalSnapshot(null);
+
+    let cancelled = false;
+    const loadLocalSnapshot = async () => {
+      const local = await readBoardSnapshotCache(
+        boardScope.workspaceId,
+        boardScope.pageId
+      );
+      if (cancelled) return;
+      setLocalSnapshot(local);
+      setLocalLoaded(true);
+      if (local) {
+        // 逻辑：优先恢复本地快照，保证首屏加载速度。
+        applySnapshot(local);
+      }
+    };
+    void loadLocalSnapshot();
+    return () => {
+      cancelled = true;
+    };
+  }, [applySnapshot, boardId, boardScope, resolvedWorkspaceId]);
 
   useEffect(() => {
     if (!boardScope) return;
     if (!boardQuery.isFetched) return;
-    if (restoredRef.current) return;
-    // 逻辑：远端快照只恢复一次，避免覆盖后续编辑。
-    restoredRef.current = true;
-    hydratedRef.current = false;
-    lastSavedElementsRef.current = "";
+    if (!localLoaded) return;
 
-    const stored = boardQuery.data?.board as BoardSnapshotState | null;
-    if (stored && Array.isArray(stored.nodes) && Array.isArray(stored.connectors)) {
-      const elements = mergeElements(stored.nodes, stored.connectors);
-      if (elements.length > 0) {
-        // 逻辑：已有快照时优先恢复，避免初始节点覆盖。
-        engine.doc.setElements(elements);
-        initialElementsRef.current = true;
-      }
-      if (stored.viewport) {
-        const viewportPayload = {
-          zoom: stored.viewport.zoom,
-          offset: stored.viewport.offset,
-        };
-        engine.viewport.setViewport(viewportPayload.zoom, viewportPayload.offset);
-        lastSavedViewportRef.current = JSON.stringify(viewportPayload);
-      }
-      engine.commitHistory();
-      lastSavedElementsRef.current = JSON.stringify(elements);
+    const remote = boardQuery.data?.board as BoardSnapshotState | null;
+    const local = localSnapshot;
+
+    if (!local && !remote) {
+      if (initialElementsRef.current) return;
+      if (!initialElements || initialElements.length === 0) return;
+      // 逻辑：无本地/远端快照时写入初始元素。
+      engine.setInitialElements(initialElements);
+      initialElementsRef.current = true;
       hydratedRef.current = true;
       return;
     }
 
-    // 逻辑：无快照时以当前引擎状态为基准，避免首次写入空数据。
-    lastSavedElementsRef.current = JSON.stringify(engine.doc.getElements());
-    const viewportState = engine.viewport.getState();
-    lastSavedViewportRef.current = JSON.stringify({
-      zoom: viewportState.zoom,
-      offset: viewportState.offset,
-    });
-    hydratedRef.current = true;
-  }, [boardQuery.data, boardQuery.isFetched, boardScope, engine]);
+    if (!local && remote) {
+      applySnapshot(remote);
+      const snapshot: BoardSnapshotCacheRecord = {
+        workspaceId: boardScope.workspaceId,
+        pageId: boardScope.pageId,
+        schemaVersion: remote.schemaVersion ?? BOARD_SCHEMA_VERSION,
+        nodes: remote.nodes,
+        connectors: remote.connectors,
+        viewport: remote.viewport,
+        version: remote.version ?? 0,
+      };
+      setLocalSnapshot(snapshot);
+      void writeBoardSnapshotCache(snapshot);
+      return;
+    }
+
+    if (local && !remote) {
+      if (local.nodes.length === 0 && local.connectors.length === 0) return;
+      // 逻辑：仅有本地快照时写入远端。
+      persistSnapshot(local.nodes, local.connectors, local.viewport, {
+        bumpVersion: false,
+      });
+      return;
+    }
+
+    if (!local || !remote) return;
+    if (remote.version > local.version) {
+      applySnapshot(remote);
+      const snapshot: BoardSnapshotCacheRecord = {
+        workspaceId: boardScope.workspaceId,
+        pageId: boardScope.pageId,
+        schemaVersion: remote.schemaVersion ?? BOARD_SCHEMA_VERSION,
+        nodes: remote.nodes,
+        connectors: remote.connectors,
+        viewport: remote.viewport,
+        version: remote.version ?? 0,
+      };
+      setLocalSnapshot(snapshot);
+      void writeBoardSnapshotCache(snapshot);
+      return;
+    }
+    if (local.version > remote.version) {
+      // 逻辑：本地版本更新时覆盖远端。
+      if (saveBoard.isPending) {
+        // 逻辑：保存未完成时不重复推送，避免触发保存风暴。
+        return;
+      }
+      persistSnapshot(local.nodes, local.connectors, local.viewport, {
+        bumpVersion: false,
+      });
+    }
+  }, [
+    applySnapshot,
+    boardQuery.data,
+    boardQuery.isFetched,
+    boardScope,
+    engine,
+    initialElements,
+    localLoaded,
+    localSnapshot,
+    persistSnapshot,
+    saveBoard.isPending,
+  ]);
 
   useEffect(() => {
     if (!boardScope) return;
@@ -436,6 +631,50 @@ export function BoardCanvas({
     setInspectorNodeId(elementId);
   };
 
+  /** Allow dropping external files onto the canvas. */
+  const handleCanvasDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
+    if (!isFileDragEvent(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  /** Handle dropping images onto the canvas surface. */
+  const handleCanvasDrop = useCallback(
+    async (event: DragEvent<HTMLDivElement>) => {
+      if (!isFileDragEvent(event)) return;
+      event.preventDefault();
+      if (engine.isLocked()) return;
+
+      const { clientX, clientY, dataTransfer } = event;
+      const droppedFiles = Array.from(dataTransfer.files);
+      // 逻辑：只挑出图片类型，避免其他文件触发节点创建。
+      const imageFiles = droppedFiles.filter(isImageFile);
+      if (imageFiles.length === 0) return;
+
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      // 逻辑：将拖拽点转换为画布坐标，作为插入基准。
+      const dropPoint = engine.screenToWorld([
+        clientX - rect.left,
+        clientY - rect.top,
+      ]);
+
+      for (const [index, file] of imageFiles.entries()) {
+        const payload = await buildImageNodePayloadFromFile(file);
+        const [width, height] = payload.size;
+        const offset = IMAGE_DROP_STACK_OFFSET * index;
+        // 逻辑：以鼠标位置为中心放置节点，多文件时稍微错开。
+        engine.addNodeElement("image", payload.props, [
+          dropPoint[0] - width / 2 + offset,
+          dropPoint[1] - height / 2 + offset,
+          width,
+          height,
+        ]);
+      }
+    },
+    [engine]
+  );
+
   return (
     <BoardProvider engine={engine} actions={boardActions}>
       <div
@@ -449,6 +688,8 @@ export function BoardCanvas({
           className
         )}
         tabIndex={0}
+        onDragOver={handleCanvasDragOver}
+        onDrop={handleCanvasDrop}
         onPointerDown={event => {
           const rawTarget = event.target as EventTarget | null;
           const target =

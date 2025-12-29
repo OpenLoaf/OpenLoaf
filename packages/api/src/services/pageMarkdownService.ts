@@ -52,7 +52,7 @@ export const refreshPageMarkdownCache = async (
   });
   const blockVersion = blockVersionResult._max.version ?? 0;
 
-  // 中文注释：版本一致时直接返回缓存，避免重复转换。
+  // 逻辑：版本一致时直接返回缓存，避免重复转换。
   if (blockVersion === page.markdownVersion) {
     return {
       markdown: page.markdown ?? EMPTY_MARKDOWN,

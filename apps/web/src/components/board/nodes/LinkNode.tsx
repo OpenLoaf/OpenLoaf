@@ -247,7 +247,7 @@ export function LinkNodeView({
   return (
     <div
       className={[
-        "h-full w-full rounded-xl border box-border",
+        "h-full w-full rounded-sm border box-border",
         "border-slate-200 bg-white text-slate-900",
         "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
         selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",

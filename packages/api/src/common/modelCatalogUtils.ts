@@ -1,6 +1,7 @@
 import type { ModelDefinition } from "./modelTypes";
 import { DEEPSEEK_MODEL_CATALOG } from "./models/DeepseekModels";
 import { GOOGLE_MODEL_CATALOG } from "./models/GoogleModels";
+import { QWEN_MODEL_CATALOG } from "./models/QwenModels";
 import { VOLCENGINE_MODEL_CATALOG } from "./models/VolcengineModels";
 import { XAI_MODEL_CATALOG } from "./models/XaiModels";
 
@@ -9,6 +10,7 @@ export type ProviderId =
   | "deepseek"
   | "google"
   | "openai"
+  | "qwen"
   | "xai"
   | "volcengine"
   | "custom";
@@ -18,6 +20,8 @@ export const PROVIDER_OPTIONS: Array<{ id: ProviderId; label: string }> = [
   { id: "anthropic", label: "anthropic" },
   { id: "google", label: "Google" },
   { id: "deepseek", label: "deepseek" },
+  // 通义模型入口。
+  { id: "qwen", label: "Qwen" },
   { id: "xai", label: "xai" },
   { id: "volcengine", label: "火山引擎" },
   { id: "custom", label: "自定义" },
@@ -29,6 +33,7 @@ export const MODEL_CATALOG_BY_PROVIDER: Partial<
   xai: XAI_MODEL_CATALOG,
   deepseek: DEEPSEEK_MODEL_CATALOG,
   google: GOOGLE_MODEL_CATALOG,
+  qwen: QWEN_MODEL_CATALOG,
   volcengine: VOLCENGINE_MODEL_CATALOG,
 };
 
@@ -47,6 +52,7 @@ export function getDefaultApiUrl(provider: ProviderId) {
     anthropic: "https://api.anthropic.com/v1",
     google: "https://generativelanguage.googleapis.com/v1beta",
     deepseek: "https://api.deepseek.com/v1",
+    qwen: "https://dashscope.aliyuncs.com/api/v1",
     xai: "https://api.x.ai/v1",
     volcengine: "https://visual.volcengineapi.com",
     custom: "",
@@ -61,6 +67,7 @@ export function getDefaultProviderName(provider: ProviderId) {
     anthropic: "ANTHROPIC",
     google: "Google",
     deepseek: "Deepseek",
+    qwen: "Qwen",
     xai: "XAI",
     volcengine: "火山引擎",
     custom: "",
