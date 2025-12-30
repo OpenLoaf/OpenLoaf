@@ -38,6 +38,22 @@ export function getRelativePathFromUri(rootUri: string, entryUri: string) {
   }
 }
 
+/** Build a file URI by joining root with a relative path. */
+export function buildUriFromRoot(rootUri: string, relativePath: string) {
+  try {
+    const rootUrl = new URL(rootUri);
+    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
+    const relativeParts = relativePath.split("/").filter(Boolean);
+    const nextParts = [...rootParts, ...relativeParts].map((part) =>
+      encodeURIComponent(decodeURIComponent(part))
+    );
+    rootUrl.pathname = `/${nextParts.join("/")}`;
+    return rootUrl.toString();
+  } catch {
+    return "";
+  }
+}
+
 /** Get a normalized extension string for a file entry. */
 export function getEntryExt(entry: FileSystemEntry) {
   if (entry.ext) return entry.ext.toLowerCase();

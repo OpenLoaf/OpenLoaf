@@ -563,11 +563,19 @@ export const useTabs = create<TabsState>()(
 
       pushStackItem: (tabId, item, percent) => {
         set((state) => {
+          const wasHidden = Boolean(state.stackHiddenByTabId[tabId]);
+          // 中文注释：如果之前是最小化状态，标记本次打开用于关闭时恢复隐藏。
+          const nextItem = wasHidden
+            ? {
+                ...item,
+                params: { ...(item.params ?? {}), __restoreStackHidden: true },
+              }
+            : item;
           // 打开/切换 stack 时自动解除“最小化隐藏”。
           const nextHidden = { ...state.stackHiddenByTabId, [tabId]: false };
 
-          const isBrowser = item.component === BROWSER_WINDOW_COMPONENT;
-          const activeId = isBrowser ? BROWSER_WINDOW_PANEL_ID : item.id;
+          const isBrowser = nextItem.component === BROWSER_WINDOW_COMPONENT;
+          const activeId = isBrowser ? BROWSER_WINDOW_PANEL_ID : nextItem.id;
 
           return {
             stackHiddenByTabId: nextHidden,
@@ -576,7 +584,7 @@ export const useTabs = create<TabsState>()(
             tabs: updateTabById(state.tabs, tabId, (tab) => {
               // 左侧 stack：同 sourceKey/id 视为同一条目（upsert），用于“同一个来源的面板重复打开”。
               const nextTab = normalizeDock(tab);
-              const key = isBrowser ? BROWSER_WINDOW_PANEL_ID : (item.sourceKey ?? item.id);
+              const key = isBrowser ? BROWSER_WINDOW_PANEL_ID : (nextItem.sourceKey ?? nextItem.id);
               const existingIndex = nextTab.stack.findIndex((s) =>
                 isBrowser ? s.component === BROWSER_WINDOW_COMPONENT : (s.sourceKey ?? s.id) === key,
               );
@@ -584,11 +592,11 @@ export const useTabs = create<TabsState>()(
               const existing = existingIndex === -1 ? undefined : nextTab.stack[existingIndex];
               const normalizedItem = isBrowser
                 ? normalizeBrowserWindowItem(isBrowserWindowItem(existing) ? existing : undefined, {
-                    ...item,
+                    ...nextItem,
                     id: BROWSER_WINDOW_PANEL_ID,
                     sourceKey: BROWSER_WINDOW_PANEL_ID,
                   })
-                : item;
+                : nextItem;
 
               const nextStack = [...nextTab.stack];
               if (existingIndex === -1) nextStack.push(normalizedItem);
@@ -659,17 +667,27 @@ export const useTabs = create<TabsState>()(
       removeStackItem: (tabId, itemId) => {
         set((state) => {
           const current = state.tabs.find((t) => t.id === tabId);
+          const targetItem = (current?.stack ?? []).find((item) => item.id === itemId);
           const nextStack = (current?.stack ?? []).filter((item) => item.id !== itemId);
+          const shouldRestoreHidden = Boolean(
+            (targetItem?.params as any)?.__restoreStackHidden
+          );
           const currentActiveId = String(state.activeStackItemIdByTabId[tabId] ?? "");
           const nextActiveId =
             currentActiveId && currentActiveId !== itemId
               ? currentActiveId
               : (nextStack.at(-1)?.id ?? "");
           return {
-            stackHiddenByTabId:
-              nextStack.length === 0
-                ? { ...state.stackHiddenByTabId, [tabId]: false }
-                : state.stackHiddenByTabId,
+            stackHiddenByTabId: {
+              ...state.stackHiddenByTabId,
+              // 中文注释：仅在“由最小化状态打开的面板”关闭时恢复隐藏。
+              [tabId]:
+                nextStack.length === 0
+                  ? false
+                  : shouldRestoreHidden
+                    ? true
+                    : state.stackHiddenByTabId[tabId],
+            },
             activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId, [tabId]: nextActiveId },
             tabs: updateTabById(state.tabs, tabId, (tab) =>
               normalizeDock({

@@ -14,8 +14,13 @@ type ResolvedChatModel = {
 const MAX_FALLBACK_TRIES = 2;
 
 /** Resolve model definition from registry. */
-function resolveModelDefinition(providerId: string, modelId: string) {
-  return getModelDefinition(providerId, modelId);
+function resolveModelDefinition(
+  providerId: string,
+  modelId: string,
+  providerEntry?: ProviderSettingEntry,
+) {
+  const fromConfig = providerEntry?.models[modelId];
+  return fromConfig ?? getModelDefinition(providerId, modelId);
 }
 
 /** Normalize chatModelId input. */
@@ -50,7 +55,7 @@ function buildChatModelCandidates(
   const seen = new Set<string>();
 
   for (const provider of providers) {
-    for (const modelId of provider.modelIds) {
+    for (const modelId of Object.keys(provider.models)) {
       const chatModelId = `${provider.id}:${modelId}`;
       if (exclude && chatModelId === exclude) continue;
       if (seen.has(chatModelId)) continue;
@@ -92,7 +97,7 @@ async function resolveLocalChatModel(input: {
       const providerEntry = providerById.get(parsed.profileId);
       if (!providerEntry) throw new Error("模型服务商未配置");
 
-      if (!providerEntry.modelIds.includes(parsed.modelId)) {
+      if (!providerEntry.models[parsed.modelId]) {
         throw new Error("模型未在服务商配置中启用");
       }
 
@@ -101,7 +106,11 @@ async function resolveLocalChatModel(input: {
       const adapter = PROVIDER_ADAPTERS[adapterId];
       if (!adapter) throw new Error("不支持的模型服务商");
 
-      const modelDefinition = resolveModelDefinition(providerEntry.providerId, parsed.modelId);
+      const modelDefinition = resolveModelDefinition(
+        providerEntry.providerId,
+        parsed.modelId,
+        providerEntry,
+      );
       const model = adapter.buildAiSdkModel({
         provider: providerEntry,
         modelId: parsed.modelId,

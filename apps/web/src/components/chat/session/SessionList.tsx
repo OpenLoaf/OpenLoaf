@@ -12,7 +12,6 @@ interface SessionListProps {
   onSelect?: (session: Session) => void;
   onMenuOpenChange?: (open: boolean) => void;
   className?: string;
-  resourceUri?: string;
 }
 
 type ChatSessionListItem = {
@@ -20,7 +19,6 @@ type ChatSessionListItem = {
   title: string;
   createdAt: string | Date;
   isPin: boolean;
-  resourceUris?: unknown;
 };
 
 function startOfDay(date: Date) {
@@ -91,7 +89,6 @@ export default function SessionList({
   onSelect,
   onMenuOpenChange,
   className,
-  resourceUri,
 }: SessionListProps) {
   // 使用 tRPC + TanStack React Query 获取会话列表（MVP：只读展示）
   // 这里的 Prisma FindMany 类型推断非常深，TS 可能报 “excessively deep”；
@@ -102,17 +99,12 @@ export default function SessionList({
       where: { deletedAt: null },
       // 置顶优先，其次按更新时间倒序
       orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }],
-      select: { id: true, title: true, createdAt: true, isPin: true, resourceUris: true },
+      select: { id: true, title: true, createdAt: true, isPin: true },
     } as any) as any
   );
 
   const chatSessions = (data ?? []) as ChatSessionListItem[];
-  const scopedSessions = resourceUri
-    ? chatSessions.filter((s) => {
-        const uris = Array.isArray(s.resourceUris) ? s.resourceUris : [];
-        return uris.includes(resourceUri);
-      })
-    : chatSessions;
+  const scopedSessions = chatSessions;
 
   const sessions: Session[] = React.useMemo(() => {
     return scopedSessions.map((s) => ({

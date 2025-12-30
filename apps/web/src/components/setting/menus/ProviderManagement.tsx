@@ -37,14 +37,14 @@ type ProviderSettingValue = {
   apiUrl: string;
   /** Raw auth config. */
   authConfig: Record<string, unknown>;
-  /** Enabled model ids. */
-  modelIds: string[];
-  /** Custom model definitions. */
-  customModels?: ModelDefinition[];
+  /** Enabled model definitions keyed by model id. */
+  models: Record<string, ModelDefinition>;
 };
 
 type ProviderEntry = ProviderSettingValue & {
   key: string;
+  /** Custom models merged from stored map. */
+  customModels: ModelDefinition[];
 };
 
 const PROVIDER_OPTIONS = getProviderOptions();
@@ -52,7 +52,7 @@ const PROVIDER_LABEL_BY_ID = Object.fromEntries(
   PROVIDER_OPTIONS.map((provider) => [provider.id, provider.label]),
 ) as Record<string, string>;
 /** Category name for S3 providers stored in settings. */
-const S3_PROVIDER_CATEGORY = "provdier";
+const S3_PROVIDER_CATEGORY = "s3Provider";
 
 type S3ProviderOption = {
   /** Provider id stored in settings. */
@@ -183,7 +183,7 @@ function formatAuthConfigDisplay(authConfig: Record<string, unknown> | undefined
   }
   const masked: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(authConfig)) {
-    // 中文注释：包含 key 的字段使用掩码，避免明文泄露。
+    // 包含 key 的字段使用掩码，避免明文泄露。
     if (typeof value === "string" && key.toLowerCase().includes("key")) {
       masked[key] = maskKey(value);
     } else {
@@ -231,6 +231,13 @@ function formatModelPriceLabel(definition?: ModelDefinition): string {
   // 逻辑：按 1M tokens 输出价格结构，匹配当前定价策略。
   const tier = resolvePriceTier(definition, 0);
   if (!tier) return "-";
+  if (
+    !Number.isFinite(tier.input) ||
+    !Number.isFinite(tier.output) ||
+    !Number.isFinite(tier.inputCache)
+  ) {
+    return "-";
+  }
   const symbol = definition.currencySymbol ?? "";
   const pricePrefix = symbol ? `${symbol}` : "";
   return `输入 ${pricePrefix}${tier.input} / 缓存 ${pricePrefix}${tier.inputCache} / 输出 ${pricePrefix}${tier.output}`;
@@ -239,10 +246,10 @@ function formatModelPriceLabel(definition?: ModelDefinition): string {
 /**
  * Render IO tags for a model.
  */
-function renderIoTags(types: IOType[]) {
+function renderIoTags(types?: IOType[]) {
   return (
     <div className="flex flex-wrap gap-1">
-      {types.map((io) => (
+      {(types ?? []).map((io) => (
         <span
           key={io}
           className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground"
@@ -257,10 +264,10 @@ function renderIoTags(types: IOType[]) {
 /**
  * Render model tags for a model.
  */
-function renderModelTags(tags: ModelTag[]) {
+function renderModelTags(tags?: ModelTag[]) {
   return (
     <div className="flex flex-wrap gap-1">
-      {tags.map((tag) => (
+      {(tags ?? []).map((tag) => (
         <span
           key={tag}
           className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground"
@@ -272,10 +279,10 @@ function renderModelTags(tags: ModelTag[]) {
   );
 }
 
-function renderModelTagsCompact(tags: ModelTag[]) {
+function renderModelTagsCompact(tags?: ModelTag[]) {
   return (
     <div className="flex flex-wrap gap-1">
-      {tags.map((tag) => (
+      {(tags ?? []).map((tag) => (
         <span
           key={tag}
           className="inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground"
@@ -287,12 +294,18 @@ function renderModelTagsCompact(tags: ModelTag[]) {
   );
 }
 
-/** Normalize custom model definitions from settings payload. */
-function normalizeCustomModels(value: unknown): ModelDefinition[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is ModelDefinition => {
-    return Boolean(item && typeof item === "object" && "id" in item);
-  });
+/** Normalize model map from settings payload. */
+function normalizeModelMap(value: unknown): Record<string, ModelDefinition> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const models: Record<string, ModelDefinition> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    if (!raw || typeof raw !== "object") continue;
+    const rawId = typeof (raw as { id?: unknown }).id === "string" ? (raw as { id: string }).id : "";
+    const modelId = (rawId || key).trim();
+    if (!modelId) continue;
+    models[modelId] = { ...(raw as ModelDefinition), id: modelId };
+  }
+  return models;
 }
 
 /** Merge provider registry models with custom models. */
@@ -300,14 +313,24 @@ function mergeProviderModels(providerId: string, customModels: ModelDefinition[]
   const baseModels = getProviderModels(providerId);
   const merged = new Map<string, ModelDefinition>();
   baseModels.forEach((model) => merged.set(model.id, model));
-  customModels.forEach((model) =>
+  customModels.forEach((model) => {
+    if (merged.has(model.id)) return;
     merged.set(model.id, {
       ...model,
-      // 中文注释：自定义模型强制绑定当前 providerId。
+      // 自定义模型强制绑定当前 providerId。
       providerId,
-    }),
-  );
+    });
+  });
   return Array.from(merged.values());
+}
+
+/** Resolve custom models not present in the registry list. */
+function resolveCustomModelsFromMap(
+  providerId: string,
+  models: Record<string, ModelDefinition>,
+) {
+  const registryModelIds = new Set(getProviderModels(providerId).map((model) => model.id));
+  return Object.values(models).filter((model) => !registryModelIds.has(model.id));
 }
 
 /** Resolve model definition from merged models list. */
@@ -329,7 +352,8 @@ function getProviderCapabilities(providerId: string, customModels: ModelDefiniti
   const models = mergeProviderModels(providerId, customModels);
   const uniqueTags = new Set<ModelTag>();
   models.forEach((model) => {
-    model.tags.forEach((tag) => uniqueTags.add(tag));
+    // 兼容配置缺失 tags 的情况，避免渲染报错。
+    (model.tags ?? []).forEach((tag) => uniqueTags.add(tag));
   });
   return Array.from(uniqueTags);
 }
@@ -439,13 +463,14 @@ export function ProviderManagement() {
       if (!item.value || typeof item.value !== "object") continue;
       const entry = item.value as Partial<ProviderSettingValue>;
       if (!entry.providerId || !entry.apiUrl || !entry.authConfig) continue;
-      const customModels = normalizeCustomModels(entry.customModels);
+      const models = normalizeModelMap(entry.models);
+      const customModels = resolveCustomModelsFromMap(entry.providerId, models);
       list.push({
         key: item.key,
         providerId: entry.providerId,
         apiUrl: entry.apiUrl,
         authConfig: entry.authConfig as Record<string, unknown>,
-        modelIds: Array.isArray(entry.modelIds) ? entry.modelIds : [],
+        models,
         customModels,
       });
     }
@@ -571,6 +596,7 @@ export function ProviderManagement() {
     const authMode = resolveAuthMode(provider, entry?.authConfig);
     const authFields = normalizeAuthFields(entry?.authConfig);
     const customModels = entry?.customModels ?? [];
+    const entryModelIds = entry?.models ? Object.keys(entry.models) : [];
     setEditingKey((entry as ProviderEntry | undefined)?.key ?? null);
     setDraftProvider(provider);
     setDraftName(entry?.key ?? providerDefinition?.label ?? provider);
@@ -582,7 +608,11 @@ export function ProviderManagement() {
     setShowAuth(false);
     setShowSecretAccessKey(false);
     setDraftCustomModels(customModels);
-    setDraftModelIds(entry?.modelIds ?? (providerModels[0] ? [providerModels[0]!.id] : []));
+    setDraftModelIds(
+      entryModelIds.length > 0
+        ? entryModelIds
+        : (providerModels[0] ? [providerModels[0]!.id] : []),
+    );
     setDialogOpen(true);
   }
 
@@ -638,13 +668,17 @@ export function ProviderManagement() {
       setError("模型定义缺失");
       return;
     }
-    // 中文注释：模型 ID 以定义为准，确保存储字段同步。
+    const models = modelIds.reduce<Record<string, ModelDefinition>>((acc, modelId) => {
+      const model = providerModels.find((item) => item.id === modelId);
+      if (model) acc[modelId] = model;
+      return acc;
+    }, {});
+    // 模型 ID 以定义为准，确保存储字段同步。
     const entryValue: ProviderSettingValue = {
       providerId: draftProvider,
       apiUrl,
       authConfig,
-      modelIds,
-      customModels: draftCustomModels,
+      models,
     };
 
     if (!editingKey) {
@@ -961,12 +995,13 @@ export function ProviderManagement() {
                       <div>价格</div>
                     </div>
                     <div className="divide-y divide-border/60">
-                      {entry.modelIds.map((modelId) => {
-                        const modelDefinition = resolveMergedModelDefinition(
-                          entry.providerId,
-                          modelId,
-                          entryCustomModels,
-                        );
+                      {Object.keys(entry.models).map((modelId) => {
+                        const modelDefinition =
+                          resolveMergedModelDefinition(
+                            entry.providerId,
+                            modelId,
+                            entryCustomModels,
+                          ) ?? entry.models[modelId];
                         if (!modelDefinition) return null;
                         return (
                           <div

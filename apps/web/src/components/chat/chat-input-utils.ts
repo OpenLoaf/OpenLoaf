@@ -20,8 +20,13 @@ export const buildMentionNode = (value: string): MentionNode => ({
 
 /** Get the visible label for a file reference. */
 export const getFileLabel = (value: string) => {
-  const parts = value.split("/");
-  return parts[parts.length - 1] || value;
+  const match = value.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+  const baseValue = match?.[1] ?? value;
+  const lineStart = match?.[2];
+  const lineEnd = match?.[3];
+  const parts = baseValue.split("/");
+  const label = parts[parts.length - 1] || baseValue;
+  return lineStart && lineEnd ? `${label} ${lineStart}:${lineEnd}` : label;
 };
 
 /** Parse serialized chat input into Plate value. */

@@ -1,4 +1,4 @@
-import { CheckSquare, Database, Folder, Info, Sparkles, Zap } from "lucide-react";
+import { CheckSquare, Folder, Info, Settings } from "lucide-react";
 import { useMemo, useRef } from "react";
 
 export const PROJECT_TABS = [
@@ -6,11 +6,6 @@ export const PROJECT_TABS = [
     value: "intro",
     icon: <Info className="size-4 shrink-0" />,
     label: "简介",
-  },
-  {
-    value: "canvas",
-    icon: <Sparkles className="size-4 shrink-0" />,
-    label: "画布",
   },
   {
     value: "files",
@@ -23,14 +18,9 @@ export const PROJECT_TABS = [
     label: "任务",
   },
   {
-    value: "materials",
-    icon: <Database className="size-4 shrink-0" />,
-    label: "资料",
-  },
-  {
-    value: "skills",
-    icon: <Zap className="size-4 shrink-0" />,
-    label: "技能",
+    value: "settings",
+    icon: <Settings className="size-4 shrink-0" />,
+    label: "设置",
   },
 ] as const;
 

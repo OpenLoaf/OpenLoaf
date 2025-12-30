@@ -18,7 +18,6 @@ import { useProject } from "@/hooks/use-project";
 import ProjectInfo, { ProjectIntroHeader } from "./intro/ProjectIntro";
 import { ProjectBoardCanvas } from "@/components/board";
 import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
-import ProjectMaterials, { ProjectMaterialsHeader } from "./ProjectMaterials";
 import ProjectSkills, { ProjectSkillsHeader } from "./ProjectSkills";
 import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
 import ProjectFileSystem, {
@@ -112,8 +111,6 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   const shouldRenderCanvas = activeTab === "canvas" || mountedTabs.has("canvas");
   const shouldRenderFiles = activeTab === "files" || mountedTabs.has("files");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
-  const shouldRenderMaterials =
-    activeTab === "materials" || mountedTabs.has("materials");
   const shouldRenderSkills = activeTab === "skills" || mountedTabs.has("skills");
 
   const updateProject = useMutation(
@@ -306,16 +303,6 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
           </div>
           <div
             className={`${headerBaseClass} ${
-              activeTab === "materials"
-                ? "opacity-100 pointer-events-auto"
-                : "opacity-0 pointer-events-none"
-            }`}
-            aria-hidden={activeTab !== "materials"}
-          >
-            <ProjectMaterialsHeader isLoading={isLoading} pageTitle={pageTitle} />
-          </div>
-          <div
-            className={`${headerBaseClass} ${
               activeTab === "skills"
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none"
@@ -417,21 +404,6 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
               >
                 {shouldRenderTasks ? (
                   <ProjectTasks isLoading={isLoading} />
-                ) : null}
-              </div>
-              <div
-                id="project-panel-materials"
-                role="tabpanel"
-                aria-labelledby="project-tab-materials"
-                className={`${panelBaseClass} ${
-                  activeTab === "materials"
-                    ? "opacity-100 pointer-events-auto"
-                    : "opacity-0 pointer-events-none"
-                }`}
-                aria-hidden={activeTab !== "materials"}
-              >
-                {shouldRenderMaterials ? (
-                  <ProjectMaterials isLoading={isLoading} />
                 ) : null}
               </div>
               <div

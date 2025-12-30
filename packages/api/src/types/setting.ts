@@ -42,6 +42,12 @@ export const PublicSettingDefs = {
     defaultValue: "" as string,
     category: "model",
   },
+  ModelProviders: {
+    key: "model.providers",
+    defaultValue: [] as unknown[],
+    secret: true,
+    category: "model",
+  },
   AppProjectRule: {
     key: "app.projectRule",
     defaultValue: "按项目划分" as string,
@@ -51,12 +57,6 @@ export const PublicSettingDefs = {
     key: "stepUp.initialized",
     defaultValue: false as boolean,
     category: "stepUp",
-  },
-  ModelProviders: {
-    key: "model.providers",
-    defaultValue: [] as unknown[],
-    secret: true,
-    category: "model",
   },
   ProxyEnabled: {
     key: "proxy.enabled",

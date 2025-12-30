@@ -93,6 +93,10 @@ type FileSystemGridProps = {
   isLoading: boolean;
   parentUri?: string | null;
   onNavigate?: (nextUri: string) => void;
+  /** Open image entries in an external viewer. */
+  onOpenImage?: (entry: FileSystemEntry) => void;
+  /** Open code entries in an external viewer. */
+  onOpenCode?: (entry: FileSystemEntry) => void;
   showEmptyActions?: boolean;
   renderEntry?: (entry: FileSystemEntry, node: ReactNode) => ReactNode;
   onEntryClick?: (
@@ -229,6 +233,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   isLoading,
   parentUri,
   onNavigate,
+  onOpenImage,
+  onOpenCode,
   showEmptyActions = true,
   renderEntry,
   onEntryClick,
@@ -531,6 +537,25 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 });
                 if (event.button !== 0) return;
                 if (event.nativeEvent.which !== 1) return;
+                const entryExt = getEntryExt(entry);
+                if (entry.kind === "file" && IMAGE_EXTS.has(entryExt)) {
+                  console.debug("[FileSystemGrid] entry image open", {
+                    at: new Date().toISOString(),
+                    name: entry.name,
+                    uri: entry.uri,
+                  });
+                  onOpenImage?.(entry);
+                  return;
+                }
+                if (entry.kind === "file" && CODE_EXTS.has(entryExt)) {
+                  console.debug("[FileSystemGrid] entry code open", {
+                    at: new Date().toISOString(),
+                    name: entry.name,
+                    uri: entry.uri,
+                  });
+                  onOpenCode?.(entry);
+                  return;
+                }
                 if (entry.kind !== "folder") return;
                 // 双击文件夹进入下一级目录。
                 console.debug("[FileSystemGrid] entry navigate", {

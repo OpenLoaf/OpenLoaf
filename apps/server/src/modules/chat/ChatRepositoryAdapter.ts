@@ -10,8 +10,6 @@ const MAX_PATH_SEGMENT_SEQ = 99;
 
 // metadata 禁止保存消息树字段，避免冗余与不一致。
 const FORBIDDEN_METADATA_KEYS = ["id", "sessionId", "parentMessageId", "path"] as const;
-// 用于 resourceUris 读取的最小结果类型。
-type SessionResourceUris = { resourceUris?: unknown } | null;
 
 function normalizeRole(role: unknown): DbMessageRole {
   if (role === "assistant" || role === "system" || role === "user") return role;
@@ -148,33 +146,17 @@ function toPathSegment(seq: number): string {
   return String(seq).padStart(PATH_SEGMENT_WIDTH, "0");
 }
 
-/** Ensure chat session exists and bind it to a resource when requested. */
+/** Ensure chat session exists. */
 async function ensureSession(
   tx: Prisma.TransactionClient,
   sessionId: string,
   title?: string,
-  resourceUri?: string,
 ) {
   await tx.chatSession.upsert({
     where: { id: sessionId },
     update: {},
     // 会话首次创建时，把“第一条 user 消息文本”作为标题（后续不自动更新）。
     create: { id: sessionId, ...(title ? { title } : {}) },
-  });
-
-  if (!resourceUri) return;
-  // 中文注释：类型生成可能出现字段不同步，使用最小类型保证读取 resourceUris。
-  const existing = (await tx.chatSession.findUnique({
-    where: { id: sessionId },
-    select: { resourceUris: true } as Prisma.ChatSessionSelect,
-  })) as SessionResourceUris;
-  const current = Array.isArray(existing?.resourceUris)
-    ? (existing?.resourceUris as string[])
-    : [];
-  if (current.includes(resourceUri)) return;
-  await tx.chatSession.update({
-    where: { id: sessionId },
-    data: { resourceUris: [...current, resourceUri] } as Prisma.ChatSessionUpdateInput,
   });
 }
 
@@ -236,7 +218,6 @@ export const chatRepository = {
     parentMessageId: string | null;
     allowEmpty?: boolean;
     createdAt?: Date;
-    resourceUri?: string;
   }): Promise<{ id: string; parentMessageId: string | null; path: string }> => {
     const messageId = String((input.message as any)?.id ?? "").trim();
     if (!messageId) throw new Error("message.id is required.");
@@ -254,7 +235,7 @@ export const chatRepository = {
     }
 
     return prisma.$transaction(async (tx) => {
-      await ensureSession(tx, input.sessionId, title || undefined, input.resourceUri);
+      await ensureSession(tx, input.sessionId, title || undefined);
 
       const existing = await tx.chatMessage.findUnique({
         where: { id: messageId },

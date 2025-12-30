@@ -17,6 +17,10 @@ export type ChatAttachmentStatus = "loading" | "ready" | "error";
 
 export type ChatAttachment = {
   id: string;
+  /** Cached image path from server. */
+  imagePath?: string;
+  /** Upload lifecycle state. */
+  uploadStatus?: "uploading" | "ready" | "error";
   file: File;
   objectUrl: string;
   status: ChatAttachmentStatus;
@@ -34,4 +38,3 @@ export function formatFileSize(bytes: number) {
 export function isSupportedImageFile(file: File) {
   return (CHAT_ATTACHMENT_ACCEPT_MIME as readonly string[]).includes(file.type);
 }
-

@@ -5,11 +5,14 @@ export type IOType = "text" | "image" | "audio" | "video";
 export type ModelTag =
   | "text_to_image"
   | "image_to_image"
+  | "image_to_text"
   | "image_edit"
   | "text_generation"
   | "video_generation"
+  | "web_search"
   | "asr"
   | "tts"
+  | "code"
   | "tool_call";
 
 export type PriceTier = {

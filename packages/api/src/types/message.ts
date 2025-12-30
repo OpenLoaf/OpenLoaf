@@ -79,8 +79,6 @@ export type ChatRequestBody = {
   messages?: TeatimeUIMessage[];
   /** 业务参数（如 resourceUri/mode 等），由前端透传 */
   params?: Record<string, unknown>;
-  /** 关联资源 URI（可选，优先读取 params） */
-  resourceUri?: string;
   /** 当前应用 TabId（apps/web 的 useTabs 中的 Tab.id），用于 server 在本次 SSE 中绑定“操作目标 Tab”。 */
   tabId?: string;
   /** AI SDK transport 触发来源 */

@@ -15,6 +15,13 @@ export function MentionElementStatic(
 ) {
   const { prefix } = props;
   const element = props.element;
+  const match = element.value.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+  const baseValue = match?.[1] ?? element.value;
+  const lineStart = match?.[2];
+  const lineEnd = match?.[3];
+  const label = baseValue.split("/").pop() || baseValue;
+  const labelWithLines =
+    lineStart && lineEnd ? `${label} ${lineStart}:${lineEnd}` : label;
 
   return (
     <SlateElement
@@ -32,7 +39,7 @@ export function MentionElementStatic(
     >
       {props.children}
       {prefix}
-      {element.value}
+      {labelWithLines}
     </SlateElement>
   );
 }

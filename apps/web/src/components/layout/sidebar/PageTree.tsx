@@ -271,6 +271,16 @@ export const PageTreeMenu = ({
     }));
   };
 
+  const projectRootById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const project of projects) {
+      if (project.projectId && project.rootUri) {
+        map.set(project.projectId, project.rootUri);
+      }
+    }
+    return map;
+  }, [projects]);
+
   const openProjectTab = (project: ProjectInfo) => {
     if (!workspace?.id) return;
     const baseId = `project:${project.projectId}`;
@@ -295,7 +305,7 @@ export const PageTreeMenu = ({
         component: "plant-page",
         params: { projectId: project.projectId, rootUri: project.rootUri },
       },
-      chatParams: { resourceUri: project.rootUri },
+      chatParams: { resourceUri: project.rootUri, projectId: project.projectId, rootUri: project.rootUri },
     });
   };
 
@@ -324,7 +334,11 @@ export const PageTreeMenu = ({
         component,
         params: { uri: node.uri, name: node.name, ext: node.ext },
       },
-      chatParams: { resourceUri: node.uri },
+      chatParams: {
+        resourceUri: node.uri,
+        projectId: node.projectId,
+        rootUri: node.projectId ? projectRootById.get(node.projectId) : undefined,
+      },
     });
   };
 

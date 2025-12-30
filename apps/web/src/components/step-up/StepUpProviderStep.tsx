@@ -16,10 +16,8 @@ type StepUpProviderEntry = {
   apiUrl: string;
   /** Raw auth config. */
   authConfig: Record<string, unknown>;
-  /** Enabled model ids. */
-  modelIds: string[];
-  /** Custom model definitions. */
-  customModels?: ModelDefinition[];
+  /** Enabled model definitions keyed by model id. */
+  models: Record<string, ModelDefinition>;
 };
 
 export type StepUpProviderSelection = {
@@ -52,8 +50,7 @@ export function StepUpProviderStep({
         providerId: entry.providerId,
         apiUrl: entry.apiUrl,
         authConfig: entry.authConfig as Record<string, unknown>,
-        modelIds: Array.isArray(entry.modelIds) ? entry.modelIds : [],
-        customModels: Array.isArray(entry.customModels) ? entry.customModels : [],
+        models: entry.models ?? {},
       });
     }
     return list;
@@ -78,14 +75,13 @@ export function StepUpProviderStep({
               key={entry.key}
               title={entry.key}
               description={
-                entry.modelIds.length > 0
-                  ? entry.modelIds
-                      .map((modelId) => {
-                        const modelDefinition =
-                          resolveModelDefinition(entry.providerId, modelId) ??
-                          entry.customModels?.find((model) => model.id === modelId);
-                        return modelDefinition ? getModelLabel(modelDefinition) : modelId;
-                      })
+                Object.keys(entry.models).length > 0
+                  ? Object.entries(entry.models)
+                      .map(([modelId, modelDefinition]) =>
+                        modelDefinition
+                          ? getModelLabel(modelDefinition)
+                          : resolveModelDefinition(entry.providerId, modelId)?.id ?? modelId,
+                      )
                       .join("、")
                   : "未配置模型"
               }

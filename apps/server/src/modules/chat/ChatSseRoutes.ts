@@ -15,6 +15,7 @@ import { resolveChatModel } from "@/ai/resolveChatModel";
 import { streamStore } from "@/modules/chat/StreamStoreAdapter";
 import { chatRepository } from "@/modules/chat/ChatRepositoryAdapter";
 import { loadMessageChain } from "@/modules/chat/loadMessageChain";
+import { loadChatImageForModelFromPath, saveChatImageToCache } from "@/modules/chat/chatImageCache";
 import {
   popAgentFrame,
   pushAgentFrame,
@@ -79,6 +80,25 @@ function readRequestValue<T = unknown>(body: ChatRequestBody, key: string): T | 
   if (!params || typeof params !== "object" || Array.isArray(params)) return;
   if (!(key in params)) return;
   return (params as Record<string, unknown>)[key] as T;
+}
+
+/** Normalize image path list from request. */
+function normalizeImagePaths(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
+/** Build AI SDK image parts from cached paths. */
+async function buildImageParts(paths: string[]): Promise<Array<{ type: "image"; image: Buffer }>> {
+  const parts: Array<{ type: "image"; image: Buffer }> = [];
+  for (const imagePath of paths) {
+    const buffer = await loadChatImageForModelFromPath(imagePath);
+    if (!buffer) continue;
+    parts.push({ type: "image", image: buffer });
+  }
+  return parts;
 }
 
 /**
@@ -194,6 +214,39 @@ async function emitManualStopChunk(streamId: string, reason?: string) {
  * - POST /chat/sse/:id/stop：停止生成
  */
 export function registerChatSseRoutes(app: Hono) {
+  app.post("/chat/attachments", async (c) => {
+    const formData = await c.req.formData();
+    const file = formData.get("file");
+    const workspaceIdRaw = formData.get("workspaceId");
+    const workspaceId = typeof workspaceIdRaw === "string" ? workspaceIdRaw.trim() : "";
+    const projectIdRaw = formData.get("projectId");
+    const projectId = typeof projectIdRaw === "string" ? projectIdRaw.trim() : "";
+    if (!file || typeof file === "string") {
+      return c.json({ error: "file is required" }, 400);
+    }
+    if (!workspaceId) {
+      return c.json({ error: "workspaceId is required" }, 400);
+    }
+    if (typeof (file as any).arrayBuffer !== "function") {
+      return c.json({ error: "invalid file" }, 400);
+    }
+    const fileType = typeof (file as any).type === "string" ? String((file as any).type) : "";
+    if (!fileType.startsWith("image/")) {
+      return c.json({ error: "only image files are supported" }, 400);
+    }
+
+    const buffer = Buffer.from(await (file as any).arrayBuffer());
+    const fileName = typeof (file as any).name === "string" ? String((file as any).name) : "";
+    const { imagePath } = saveChatImageToCache({
+      buffer,
+      workspaceId,
+      projectId: projectId || undefined,
+      fileName,
+    });
+
+    return c.json({ imagePath });
+  });
+
   app.post("/chat/sse", async (c) => {
     let body: ChatRequestBody;
     try {
@@ -214,9 +267,7 @@ export function registerChatSseRoutes(app: Hono) {
       body,
       "chatModelSource",
     );
-    const resourceUriValue = readRequestValue<unknown>(body, "resourceUri");
-    const resourceUri =
-      typeof resourceUriValue === "string" && resourceUriValue ? resourceUriValue : undefined;
+    const imagePaths = normalizeImagePaths(readRequestValue(body, "imagePaths"));
 
     setRequestContext({
       sessionId,
@@ -256,6 +307,14 @@ export function registerChatSseRoutes(app: Hono) {
 
     try {
       if (last.role === "user") {
+        if (imagePaths.length > 0) {
+          // 中文注释：把图片路径写入 metadata，便于后续回放/索引。
+          const baseMeta =
+            last.metadata && typeof last.metadata === "object" && !Array.isArray(last.metadata)
+              ? (last.metadata as Record<string, unknown>)
+              : {};
+          last.metadata = { ...baseMeta, images: imagePaths };
+        }
         const explicitParent =
           typeof last.parentMessageId === "string" || last.parentMessageId === null
             ? (last.parentMessageId as string | null)
@@ -270,7 +329,6 @@ export function registerChatSseRoutes(app: Hono) {
           message: last as any,
           parentMessageId: parentMessageIdToUse ?? null,
           createdAt: requestStartAt,
-          resourceUri,
         });
         leafMessageId = saved.id;
         assistantParentUserId = saved.id;
@@ -295,7 +353,6 @@ export function registerChatSseRoutes(app: Hono) {
           parentMessageId: parentId,
           allowEmpty: true,
           createdAt: requestStartAt,
-          resourceUri,
         });
         leafMessageId = String(last.id);
       } else {
@@ -332,6 +389,17 @@ export function registerChatSseRoutes(app: Hono) {
       },
       "[chat] load message chain"
     );
+    if (imagePaths.length > 0 && messages.length > 0) {
+      const target = messages.at(-1);
+      if (target && target.role === "user") {
+        const imageParts = await buildImageParts(imagePaths);
+        if (imageParts.length > 0) {
+          // 中文注释：仅用于本次模型调用，避免把二进制落库。
+          const existingParts = Array.isArray((target as any).parts) ? (target as any).parts : [];
+          (target as any).parts = [...existingParts, ...imageParts];
+        }
+      }
+    }
     if (messages.length === 0) {
       await respondWithErrorStream({
         sessionId,
@@ -533,7 +601,6 @@ export function registerChatSseRoutes(app: Hono) {
                   parentMessageId: userNode.id,
                   allowEmpty: isAborted,
                   createdAt: requestStartAt,
-                  resourceUri,
                 });
               } catch (err) {
                 logger.error({ err }, "[chat] save assistant failed");

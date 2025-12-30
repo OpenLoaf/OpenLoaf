@@ -1,15 +1,12 @@
 "use client";
 
 import type { ChatModelSource, IOType, ModelDefinition, ModelTag } from "@teatime-ai/api/common";
-import { resolveModelDefinition } from "@/lib/model-registry";
 
 type ProviderKeyEntry = {
   /** Provider id. */
   providerId: string;
-  /** Enabled model ids. */
-  modelIds?: string[];
-  /** Custom model definitions. */
-  customModels?: ModelDefinition[];
+  /** Enabled model definitions keyed by model id. */
+  models?: Record<string, ModelDefinition>;
   /** API base URL. */
   apiUrl?: string;
   /** Raw auth config. */
@@ -55,18 +52,10 @@ export function buildProviderModelOptions(
     if (!entry.providerId) continue;
     if (!item.id) continue;
     const providerName = item.key;
-    const modelIds =
-      Array.isArray(entry.modelIds) && entry.modelIds.length > 0
-        ? entry.modelIds
-        : [];
-
-    const customModels = Array.isArray(entry.customModels) ? entry.customModels : [];
-    for (const modelId of modelIds) {
-      const trimmed = typeof modelId === "string" ? modelId.trim() : "";
-      if (!trimmed) continue;
-      const modelDefinition =
-        resolveModelDefinition(entry.providerId, trimmed) ??
-        customModels.find((model) => model.id === trimmed);
+    const models = entry.models ?? {};
+    for (const [modelId, modelDefinition] of Object.entries(models)) {
+      const trimmed = modelId.trim();
+      if (!trimmed || !modelDefinition) continue;
       options.push({
         // 中文注释：chatModelId 前缀使用 settings.id，确保稳定可追踪。
         id: `${item.id}:${trimmed}`,

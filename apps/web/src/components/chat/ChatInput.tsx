@@ -37,6 +37,10 @@ import {
   parseChatValue,
   serializeChatValue,
 } from "./chat-input-utils";
+import { buildUriFromRoot } from "@/components/project/filesystem/file-system-utils";
+import { trpc } from "@/utils/trpc";
+import { useTabs } from "@/hooks/use-tabs";
+import { useQuery } from "@tanstack/react-query";
 
 interface ChatInputProps {
   className?: string;
@@ -97,6 +101,9 @@ export function ChatInputBox({
   const isOverLimit = plainTextValue.length > MAX_CHARS;
   const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
   const lastSerializedRef = useRef(value);
+  const { data: projects = [] } = useQuery(trpc.project.list.queryOptions());
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const pushStackItem = useTabs((s) => s.pushStackItem);
   const plugins = useMemo(
     () => [
       ParagraphPlugin.withComponent(ParagraphElement),
@@ -200,7 +207,76 @@ export function ChatInputBox({
     [onChange]
   );
 
-  const insertFileMention = (fileRef: string) => {
+  const resolveRootUri = useCallback(
+    (projectId: string) => {
+      const queue = [...projects];
+      while (queue.length > 0) {
+        const node = queue.shift() as any;
+        if (!node) continue;
+        if (node.projectId === projectId && typeof node.rootUri === "string") {
+          return node.rootUri as string;
+        }
+        const children = Array.isArray(node.children) ? node.children : [];
+        for (const child of children) {
+          queue.push(child);
+        }
+      }
+      return "";
+    },
+    [projects]
+  );
+
+  const handleMentionPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest("button")) return;
+      const mentionEl = target.closest<HTMLElement>("[data-teatime-mention=\"true\"]");
+      if (!mentionEl) return;
+      if (mentionEl.querySelector("button")?.contains(target)) return;
+      const value =
+        mentionEl.getAttribute("data-mention-value") ||
+        mentionEl.getAttribute("data-slate-value") ||
+        "";
+      if (!value) return;
+      const match = value.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+      const baseValue = match?.[1] ?? value;
+      if (!baseValue.includes("/")) return;
+      const parts = baseValue.split("/");
+      const projectId = parts[0] ?? "";
+      const relativePath = parts.slice(1).join("/");
+      if (!projectId || !relativePath) return;
+      const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
+      // 中文注释：根据扩展名判断文件类型（图片/代码）。
+      const isImageExt = /^(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(ext);
+      const isCodeExt = /^(js|ts|tsx|jsx|json|yml|yaml|toml|ini|py|go|rs|java|cpp|c|h|hpp|css|scss|less|html|xml|sh|zsh|md|mdx)$/i.test(ext);
+      if (!isImageExt && !isCodeExt) return;
+      const rootUri = resolveRootUri(projectId);
+      if (!rootUri) return;
+      const uri = buildUriFromRoot(rootUri, relativePath);
+      if (!uri || !activeTabId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const fileName = relativePath.split("/").pop() ?? relativePath;
+      const stackId = `${isImageExt ? "image-viewer" : "code-viewer"}:${uri}`;
+      pushStackItem(activeTabId, {
+        id: stackId,
+        sourceKey: stackId,
+        component: isImageExt ? "image-viewer" : "code-viewer",
+        title: fileName,
+        params: {
+          uri,
+          name: fileName,
+          ext,
+          rootUri: isCodeExt ? rootUri : undefined,
+          projectId: isCodeExt ? projectId : undefined,
+        },
+      });
+    },
+    [activeTabId, pushStackItem, resolveRootUri]
+  );
+
+  const insertFileMention = useCallback((fileRef: string) => {
     // 中文注释：将文件引用插入为 mention，并补一个空格。
     if (!editor.selection) {
       const endPoint = SlateEditor.end(editor, []);
@@ -209,7 +285,20 @@ export function ChatInputBox({
     editor.tf.focus();
     editor.tf.insertNodes(buildMentionNode(fileRef), { select: true });
     editor.tf.insertText(" ");
-  };
+  }, [editor]);
+
+  useEffect(() => {
+    const handleInsertMention = (event: Event) => {
+      const detail = (event as CustomEvent<{ value?: string }>).detail;
+      const value = detail?.value?.trim();
+      if (!value) return;
+      insertFileMention(value);
+    };
+    window.addEventListener("teatime:chat-insert-mention", handleInsertMention);
+    return () => {
+      window.removeEventListener("teatime:chat-insert-mention", handleInsertMention);
+    };
+  }, [insertFileMention]);
 
 
   if (!editor) {
@@ -229,6 +318,7 @@ export function ChatInputBox({
         isStreaming && !isOverLimit && "teatime-thinking-border-on border-transparent",
         className
       )}
+      onPointerDownCapture={handleMentionPointerDown}
       onDragOver={(event) => {
         if (!event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
         event.preventDefault();
@@ -434,16 +524,32 @@ export default function ChatInput({
 
   const isLoading = status === "submitted" || status === "streaming";
   const isStreaming = status === "streaming";
+  const hasPendingUploads = (attachments ?? []).some(
+    (item) => item.uploadStatus === "uploading"
+  );
 
   const handleSubmit = (value: string) => {
     const canSubmit = status === "ready" || status === "error";
     if (!canSubmit) return;
     // 切换 session 的历史加载期间禁止发送，避免 parentMessageId 与当前会话链不一致
     if (isHistoryLoading) return;
+    if (hasPendingUploads) return;
     if (!value.trim()) return;
     if (status === "error") clearError();
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
-    sendMessage({ parts: [{ type: "text", text: value }] } as any);
+    const readyAttachments = (attachments ?? []).filter(
+      (item) => item.uploadStatus === "ready"
+    );
+    const imagePaths = readyAttachments
+      .map((item) => (item.uploadStatus === "ready" ? item.imagePath : undefined))
+      .filter((path): path is string => Boolean(path));
+    const resourceUri =
+      readyAttachments.length > 0 ? readyAttachments[0]?.file?.name : undefined;
+    // 中文注释：图片路径通过 params 透传，由服务端读取缓存再喂给模型。
+    sendMessage({
+      parts: [{ type: "text", text: value }],
+      ...(imagePaths.length > 0 ? { params: { imagePaths, resourceUri } } : {}),
+    } as any);
     setInput("");
     onClearAttachments?.();
   };
@@ -457,7 +563,12 @@ export default function ChatInput({
       compact={false}
       isLoading={isLoading}
       isStreaming={isStreaming}
-      submitDisabled={isHistoryLoading || (status !== "ready" && status !== "error")}
+      submitDisabled={
+        isHistoryLoading ||
+        (status !== "ready" && status !== "error") ||
+        hasPendingUploads ||
+        false
+      }
       onSubmit={handleSubmit}
       onStop={stopGenerating}
       attachments={attachments}

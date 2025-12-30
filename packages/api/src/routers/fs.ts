@@ -45,6 +45,35 @@ function buildFileNode(input: { name: string; fullPath: string; stat: Awaited<Re
   };
 }
 
+/** Resolve a simple mime type from file extension. */
+function getMimeByExt(ext: string) {
+  const key = ext.toLowerCase();
+  switch (key) {
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "bmp":
+      return "image/bmp";
+    case "svg":
+      return "image/svg+xml";
+    case "avif":
+      return "image/avif";
+    case "tiff":
+    case "tif":
+      return "image/tiff";
+    case "heic":
+      return "image/heic";
+    default:
+      return "application/octet-stream";
+  }
+}
+
 export const fsRouter = t.router({
   /** Read metadata for a file or directory. */
   stat: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
@@ -109,6 +138,15 @@ export const fsRouter = t.router({
     const fullPath = resolveWorkspacePathFromUri(input.uri);
     const content = await fs.readFile(fullPath, "utf-8");
     return { content };
+  }),
+
+  /** Read a binary file (base64 payload). */
+  readBinary: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
+    const fullPath = resolveWorkspacePathFromUri(input.uri);
+    const buffer = await fs.readFile(fullPath);
+    const ext = path.extname(fullPath).replace(/^\./, "");
+    // 中文注释：二进制文件转 base64 供前端 dataUrl 预览。
+    return { contentBase64: buffer.toString("base64"), mime: getMimeByExt(ext) };
   }),
 
   /** Write a text file. */

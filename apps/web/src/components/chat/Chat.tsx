@@ -7,7 +7,7 @@ import ChatInput from "./ChatInput";
 import ChatHeader from "./ChatHeader";
 import { generateId } from "ai";
 import * as React from "react";
-import { useTabs } from "@/hooks/use-tabs";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 import {
   CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES,
   formatFileSize,
@@ -37,8 +37,14 @@ export function Chat({
   onSessionChange,
   ...params
 }: ChatProps) {
-  const resourceUri =
-    typeof params.resourceUri === "string" ? params.resourceUri : undefined;
+  const projectId =
+    typeof params.projectId === "string" ? params.projectId : undefined;
+  const { workspace } = useWorkspace();
+  const workspaceId = typeof workspace?.id === "string" ? workspace.id : undefined;
+  const requestParams = React.useMemo(
+    () => ({ ...params }),
+    [params]
+  );
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const dragCounterRef = React.useRef(0);
   const attachmentsRef = React.useRef<ChatAttachment[]>([]);
@@ -84,6 +90,31 @@ export function Chat({
     });
   }, []);
 
+  /** Upload a chat image file to server cache and return image path. */
+  const uploadChatImage = React.useCallback(async (file: File): Promise<string> => {
+    const base = process.env.NEXT_PUBLIC_SERVER_URL ?? "";
+    if (!workspaceId) {
+      throw new Error("上传失败（缺少 workspaceId）");
+    }
+    const formData = new FormData();
+    formData.append("file", file);
+    if (workspaceId) formData.append("workspaceId", workspaceId);
+    if (projectId) formData.append("projectId", projectId);
+    const res = await fetch(`${base}/chat/attachments`, {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+    });
+    if (!res.ok) {
+      throw new Error(`上传失败（${res.status}）`);
+    }
+    const data = (await res.json()) as { imagePath?: string };
+    if (!data?.imagePath) {
+      throw new Error("上传失败（缺少 imagePath）");
+    }
+    return data.imagePath;
+  }, [projectId, workspaceId]);
+
   const addAttachments = React.useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
@@ -97,6 +128,7 @@ export function Chat({
         const objectUrl = URL.createObjectURL(file);
         next.push({
           id: generateId(),
+          uploadStatus: "error",
           file,
           objectUrl,
           status: "error",
@@ -110,6 +142,7 @@ export function Chat({
       const objectUrl = URL.createObjectURL(file);
       next.push({
         id: generateId(),
+        uploadStatus: "uploading",
         file,
         objectUrl,
         status: "loading",
@@ -140,6 +173,7 @@ export function Chat({
               ? {
                   ...it,
                   status: "error",
+                  uploadStatus: "error",
                   errorMessage: "图片解析失败，请尝试重新选择",
                 }
               : it
@@ -147,6 +181,34 @@ export function Chat({
         );
       };
       image.src = item.objectUrl;
+    }
+
+    for (const item of next) {
+      if (item.uploadStatus !== "uploading") continue;
+      // 中文注释：图片选择后立即上传到服务端缓存，发送时只透传路径。
+      void uploadChatImage(item.file)
+        .then((imagePath) => {
+          setAttachments((prev) =>
+            prev.map((it) =>
+              it.id === item.id ? { ...it, imagePath, uploadStatus: "ready" } : it
+            )
+          );
+        })
+        .catch((err) => {
+          setAttachments((prev) =>
+            prev.map((it) =>
+              it.id === item.id
+                ? {
+                    ...it,
+                    uploadStatus: "error",
+                    status: "error",
+                    errorMessage:
+                      err instanceof Error ? err.message : "图片上传失败，请重试",
+                  }
+                : it
+            )
+          );
+        });
     }
   }, []);
 
@@ -186,7 +248,7 @@ export function Chat({
       tabId={tabId}
       sessionId={effectiveSessionId}
       loadHistory={effectiveLoadHistory}
-      params={params}
+      params={requestParams}
       onSessionChange={onSessionChange}
     >
       <div
@@ -200,7 +262,7 @@ export function Chat({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-      <ChatHeader loadHistory={effectiveLoadHistory} resourceUri={resourceUri} />
+      <ChatHeader loadHistory={effectiveLoadHistory} />
         <MessageList className="flex-1 min-h-0" />
         <ChatInput
           attachments={attachments}

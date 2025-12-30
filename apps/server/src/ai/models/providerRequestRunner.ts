@@ -23,7 +23,7 @@ function resolveProviderEntry(
   modelId: string,
 ) {
   return entries.find(
-    (entry) => entry.providerId === providerId && entry.modelIds.includes(modelId),
+    (entry) => entry.providerId === providerId && Boolean(entry.models[modelId]),
   );
 }
 
@@ -41,7 +41,9 @@ export async function runProviderRequest(
   const adapter = PROVIDER_ADAPTERS[adapterId];
   if (!adapter) throw new Error("不支持的模型服务商");
 
-  const modelDefinition = getModelDefinition(params.providerId, params.modelId);
+  const modelDefinition =
+    providerEntry.models[params.modelId] ??
+    getModelDefinition(params.providerId, params.modelId);
   const request = adapter.buildRequest({
     provider: providerEntry,
     modelId: params.modelId,

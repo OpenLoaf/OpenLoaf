@@ -9,6 +9,19 @@ import type { DockItem } from "@teatime-ai/api/common";
 import { StackHeader } from "./StackHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 
+/** Returns true when the event target is an editable element. */
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return (
+    target.isContentEditable ||
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.getAttribute("role") === "textbox"
+  );
+}
+
 /**
  * Fallback UI while lazy-loaded panels are initializing.
  */
@@ -97,7 +110,7 @@ function PanelFrame({
     >
       <div
         className={cn(
-          "flex w-full flex-col bg-background/95 backdrop-blur-sm pt-2",
+          "flex w-full flex-col bg-background/95 backdrop-blur-sm pt-2 rounded-xl",
           fillHeight && "h-full"
         )}
       >
@@ -144,6 +157,25 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const hasOverlay = Boolean(base) && stack.length > 0 && !stackHidden;
   const floating = Boolean(base);
 
+  React.useEffect(() => {
+    if (stack.length === 0) return;
+    if (stackHidden) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key !== "Escape") return;
+      if (isEditableTarget(event.target)) return;
+      const targetId = activeStackId || stack.at(-1)?.id;
+      if (!targetId) return;
+      // 中文注释：按下 ESC 时关闭当前 stack 面板。
+      event.preventDefault();
+      removeStackItem(tabId, targetId);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [stack.length, stackHidden, tabId, activeStackId, removeStackItem]);
+
   return (
     <div
       className="relative h-full w-full min-h-0 min-w-0 overflow-hidden"
@@ -175,7 +207,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
               <div
                 key={item.id}
                 // stack 不再堆叠，只显示一个；其它 stack 保持挂载但隐藏，便于通过 Header 右上角按钮切换。
-                className={cn("absolute inset-0 p-2", !visible && "hidden")}
+                className={cn("absolute inset-0 px-5 pt-8 pb-4", !visible && "hidden")}
               >
                 <PanelFrame
                   tabId={tabId}

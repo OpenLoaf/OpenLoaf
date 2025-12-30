@@ -27,12 +27,15 @@ interface SelectModeProps {
 const MODEL_TAG_LABELS: Record<ModelTag, string> = {
   text_to_image: "文生图",
   image_to_image: "图生图",
+  image_to_text: "图片理解",
   image_edit: "图片编辑",
   text_generation: "文本生成",
   video_generation: "视频生成",
+  web_search: "网络搜索",
   asr: "语音识别",
   tts: "语音输出",
   tool_call: "工具调用",
+  code: "代码生成",
 };
 
 const IO_LABELS: Record<IOType, string> = {
@@ -61,7 +64,7 @@ function formatModelPrice(definition?: ModelDefinition): string | null {
 }
 
 export default function SelectMode({ className }: SelectModeProps) {
-  const { items } = useSettingsValues();
+  const { items, refresh } = useSettingsValues();
   const { value: chatModelSourceRaw, setValue: setChatModelSource } =
     useSetting(WebSettingDefs.ModelChatSource);
   const { value: defaultChatModelIdRaw, setValue: setDefaultChatModelId } =
@@ -84,6 +87,11 @@ export default function SelectMode({ className }: SelectModeProps) {
   const showModelList = hasModels && !isAuto;
   const showAddButton = !isCloudSource && (!isAuto || !hasModels);
   const showTopSection = showAuto || showModelList;
+  useEffect(() => {
+    if (!open) return;
+    // 中文注释：展开模型列表时刷新服务端配置，确保展示最新模型。
+    void refresh();
+  }, [open, refresh]);
   useEffect(() => {
     if (isAuto) return;
     if (modelOptions.length === 0) {

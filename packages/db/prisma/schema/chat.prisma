@@ -8,9 +8,6 @@ model ChatSession {
   deletedAt    DateTime? /// @zod.optional()
   messages     ChatMessage[]
 
-  // 关联资源 URI 列表（file:// / teatime-remote://）
-  resourceUris Json? /// @zod.optional()
-
   @@index([deletedAt])
   @@index([deletedAt, createdAt])
   @@index([isPin, updatedAt])

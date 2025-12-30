@@ -15,6 +15,8 @@ type SettingsState = {
   loaded: boolean;
   loading: boolean;
   load: () => Promise<void>;
+  /** Reload settings from server. */
+  refresh: () => Promise<void>;
   setValue: (key: string, value: unknown, category?: string) => Promise<void>;
   removeValue: (key: string, category?: string) => Promise<void>;
 };
@@ -30,6 +32,21 @@ const useSettingsStore = create<SettingsState>((set, get) => ({
   loading: false,
   load: async () => {
     if (get().loading || get().loaded) return;
+    set({ loading: true });
+    try {
+      const list = await trpcClient.settings.getAll.query();
+      const nextValues: Record<string, unknown> = {};
+      for (const item of list) {
+        const mapKey = buildSettingMapKey(item.key, item.category);
+        nextValues[mapKey] = item.value;
+      }
+      set({ values: nextValues, items: list, loaded: true, loading: false });
+    } catch {
+      set({ loading: false });
+    }
+  },
+  refresh: async () => {
+    if (get().loading) return;
     set({ loading: true });
     try {
       const list = await trpcClient.settings.getAll.query();
@@ -113,6 +130,7 @@ export function useSettingsValues() {
   const items = useSettingsStore((state) => state.items);
   const loaded = useSettingsStore((state) => state.loaded);
   const load = useSettingsStore((state) => state.load);
+  const refresh = useSettingsStore((state) => state.refresh);
   const setValue = useSettingsStore((state) => state.setValue);
   const removeValue = useSettingsStore((state) => state.removeValue);
 
@@ -126,6 +144,7 @@ export function useSettingsValues() {
     items,
     setValue,
     removeValue,
+    refresh,
     loaded,
   };
 }

@@ -11,6 +11,7 @@ import {
   type DragEvent,
 } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { generateId } from "ai";
 import { trpc } from "@/utils/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ import {
   getUniqueName,
   type FileSystemEntry,
 } from "./file-system-utils";
+import { useTabs } from "@/hooks/use-tabs";
 
 // 用于“复制/粘贴”的内存剪贴板。
 let fileClipboard: FileSystemEntry[] | null = null;
@@ -238,6 +240,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const dragCounterRef = useRef(0);
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const pushStackItem = useTabs((s) => s.pushStackItem);
   const [sortField, setSortField] = useState<"name" | "mtime" | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [searchValue, setSearchValue] = useState("");
@@ -527,6 +531,55 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     }
   };
 
+  /** Open an image file inside the current tab stack. */
+  const handleOpenImage = useCallback(
+    (entry: FileSystemEntry) => {
+      setSingleSelection(entry.uri);
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(
+        activeTabId,
+        {
+          id: generateId(),
+          component: "image-viewer",
+          title: entry.name,
+          params: {
+            uri: entry.uri,
+            name: entry.name,
+            ext: entry.ext,
+          },
+        }
+      );
+    },
+    [activeTabId, pushStackItem, setSingleSelection]
+  );
+
+  /** Open a code file inside the current tab stack. */
+  const handleOpenCode = useCallback(
+    (entry: FileSystemEntry) => {
+      setSingleSelection(entry.uri);
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: generateId(),
+        component: "code-viewer",
+        title: entry.name,
+        params: {
+          uri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+          rootUri,
+          projectId,
+        },
+      });
+    },
+    [activeTabId, pushStackItem, projectId, rootUri, setSingleSelection]
+  );
+
   /** Start inline rename for a file or folder. */
   const handleRename = (entry: FileSystemEntry) => {
     setSingleSelection(entry.uri);
@@ -565,16 +618,6 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     setSingleSelection(entry.uri);
     const ok = window.confirm(`确认删除「${entry.name}」？`);
     if (!ok) return;
-    if (isElectron && window.teatimeElectron?.trashItem) {
-      const res = await window.teatimeElectron.trashItem({ uri: entry.uri });
-      if (!res?.ok) {
-        toast.error(res?.reason ?? "无法移动到回收站");
-        return;
-      }
-      pushHistory({ kind: "trash", uri: entry.uri });
-      refreshList();
-      return;
-    }
     if (!trashRootUri) return;
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     const suffix = Math.random().toString(36).slice(2, 6);
@@ -584,6 +627,30 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     await mkdirMutation.mutateAsync({ uri: trashRootUri, recursive: true });
     await renameMutation.mutateAsync({ from: entry.uri, to: trashUri });
     pushHistory({ kind: "delete", uri: entry.uri, trashUri });
+    refreshList();
+  };
+
+  /** Permanently delete (system trash if available). */
+  const handleDeletePermanent = async (entry: FileSystemEntry) => {
+    setSingleSelection(entry.uri);
+    const ok = window.confirm(`彻底删除「${entry.name}」？此操作不可撤回。`);
+    if (!ok) return;
+    if (isElectron && window.teatimeElectron?.trashItem) {
+      try {
+        const res = await window.teatimeElectron.trashItem({ uri: entry.uri });
+        if (!res?.ok) {
+          toast.error(res?.reason ?? "无法移动到系统回收站");
+          return;
+        }
+        refreshList();
+        return;
+      } catch (error) {
+        console.warn("[ProjectFileSystem] trash item failed", error);
+        toast.error("无法移动到系统回收站");
+        return;
+      }
+    }
+    await deleteMutation.mutateAsync({ uri: entry.uri, recursive: true });
     refreshList();
   };
 
@@ -922,6 +989,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   isLoading={listQuery.isLoading}
                   parentUri={parentUri}
                   onNavigate={handleNavigate}
+                  onOpenImage={handleOpenImage}
+                  onOpenCode={handleOpenCode}
                   selectedUris={selectedUris}
                   onEntryClick={(entry, event) => {
                     // 中文注释：支持多选，按住 Command/Ctrl 可切换选择。
@@ -1031,6 +1100,11 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                             </ContextMenuItem>
                             <ContextMenuItem onSelect={() => handleDelete(entry)}>
                               删除
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onSelect={() => handleDeletePermanent(entry)}
+                            >
+                              彻底删除
                             </ContextMenuItem>
                             <ContextMenuSeparator />
                             <ContextMenuItem onSelect={() => handleShowInfo(entry)}>

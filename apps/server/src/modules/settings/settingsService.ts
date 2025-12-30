@@ -1,29 +1,40 @@
+import { randomUUID } from "node:crypto";
 import prisma from "@teatime-ai/db";
+import type { ModelDefinition } from "@teatime-ai/api/common";
 import type { SettingDef } from "@teatime-ai/api/types/setting";
 import { ServerSettingDefs } from "@/settings/settingDefs";
+import {
+  readModelProviders,
+  readS3Providers,
+  writeModelProviders,
+  writeS3Providers,
+  type ModelProviderConf,
+  type ModelProviderValue,
+  type S3ProviderConf,
+  type S3ProviderValue,
+} from "@/modules/settings/teatimeConfStore";
 
 type SettingItem = {
+  /** Setting row id. */
   id?: string;
+  /** Setting key. */
   key: string;
+  /** Setting value. */
   value: unknown;
+  /** Whether value is secret. */
   secret: boolean;
+  /** Setting category. */
   category?: string;
+  /** Readonly flag for UI. */
   isReadonly: boolean;
+  /** Whether setting should sync to cloud. */
   syncToCloud: boolean;
 };
 
-function getRowSyncToCloud(row: unknown, fallback: boolean) {
-  if (row && typeof row === "object" && "syncToCloud" in row) {
-    const value = (row as { syncToCloud?: boolean }).syncToCloud;
-    return typeof value === "boolean" ? value : fallback;
-  }
-  return fallback;
-}
-
 export type ProviderSettingEntry = {
-  /** Setting row id. */
+  /** Provider entry id. */
   id: string;
-  /** Display name (setting key). */
+  /** Display name. */
   key: string;
   /** Provider id. */
   providerId: string;
@@ -31,8 +42,8 @@ export type ProviderSettingEntry = {
   apiUrl: string;
   /** Raw auth config. */
   authConfig: Record<string, unknown>;
-  /** Enabled model ids. */
-  modelIds: string[];
+  /** Enabled model definitions keyed by model id. */
+  models: Record<string, ModelDefinition>;
   /** Last update time. */
   updatedAt: Date;
 };
@@ -40,32 +51,17 @@ export type ProviderSettingEntry = {
 /** Settings category for model providers. */
 const MODEL_PROVIDER_CATEGORY = "provider";
 /** Settings category for S3 providers. */
-const S3_PROVIDER_CATEGORY = "provdier";
+const S3_PROVIDER_CATEGORY = "s3Provider";
 
 const settingDefByKey = new Map<string, SettingDef<unknown>>(
   Object.values(ServerSettingDefs).map((def) => [def.key, def]),
 );
 
 /** Resolve setting definition by key. */
-function getSettingDef(key: string, category?: string) {
-  const def = resolveSettingDef(key, category);
+function getSettingDef(key: string) {
+  const def = settingDefByKey.get(key);
   if (!def) throw new Error(`Unknown setting key: ${key}`);
   return def;
-}
-
-/** Resolve setting definition by key, allowing provider entries. */
-function resolveSettingDef(key: string, category?: string) {
-  const def = settingDefByKey.get(key);
-  if (def) return def;
-  if (category === MODEL_PROVIDER_CATEGORY || category === S3_PROVIDER_CATEGORY) {
-    return {
-      key,
-      defaultValue: null,
-      secret: true,
-      category,
-    } satisfies SettingDef<unknown>;
-  }
-  return null;
 }
 
 /** Resolve the storage category for a setting. */
@@ -159,107 +155,157 @@ async function getSettingsByDefs(
       secret: Boolean(def.secret),
       category: def.category,
       isReadonly: row?.isReadonly ?? false,
-      syncToCloud: getRowSyncToCloud(row, Boolean(def.syncToCloud)),
+      syncToCloud: Boolean(row?.syncToCloud ?? def.syncToCloud),
     } satisfies SettingItem;
   });
 }
 
-/** Load provider settings stored as individual entries. */
-/** Load settings stored as individual entries for a category. */
-async function getCategorySettingsForWeb({
-  maskSecret,
-  category,
-}: {
-  maskSecret: boolean;
-  category: string;
-}) {
-  const rows = await prisma.setting.findMany({
-    where: { category },
-  });
-  return rows.map((row) => {
-    const parsedValue = parseSettingValue(row.value);
-    const shouldMask =
-      maskSecret &&
-      row.secret &&
-      row.category !== MODEL_PROVIDER_CATEGORY &&
-      row.category !== S3_PROVIDER_CATEGORY;
-    const value = shouldMask ? maskSecretValue(parsedValue) : parsedValue;
-    return {
-      id: row.id,
-      key: row.key,
-      value,
-      secret: row.secret,
-      category: row.category,
-      isReadonly: row.isReadonly,
-      syncToCloud: getRowSyncToCloud(row, false),
-    } satisfies SettingItem;
-  });
+/** Check if a value is a plain record. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-/** Normalize provider setting row for server usage. */
-function normalizeProviderSettingRow(row: {
-  id: string;
-  key: string;
-  value: string;
-  updatedAt: Date;
-}): ProviderSettingEntry | null {
-  const parsed = parseSettingValue(row.value);
-  if (!parsed || typeof parsed !== "object") return null;
-
-  const entry = parsed as Partial<ProviderSettingEntry>;
-  const providerId = typeof entry.providerId === "string" ? entry.providerId.trim() : "";
-  const apiUrl = typeof entry.apiUrl === "string" ? entry.apiUrl.trim() : "";
-  const authConfig =
-    entry.authConfig && typeof entry.authConfig === "object" && !Array.isArray(entry.authConfig)
-      ? (entry.authConfig as Record<string, unknown>)
-      : null;
-  const modelIds = Array.isArray(entry.modelIds)
-    ? entry.modelIds
-        .filter((id): id is string => typeof id === "string")
-        .map((id) => id.trim())
-        .filter(Boolean)
-    : [];
-
-  // 中文注释：providerId/apiUrl/authConfig/modelIds 任意缺失都视为无效配置。
-  if (
-    !providerId ||
-    !apiUrl ||
-    !authConfig ||
-    modelIds.length === 0
-  ) {
-    return null;
+/** Normalize model map input. */
+function normalizeModelMap(value: unknown): Record<string, ModelDefinition> | null {
+  if (!isRecord(value)) return null;
+  const models: Record<string, ModelDefinition> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    if (!raw || typeof raw !== "object") continue;
+    const rawId = typeof (raw as { id?: unknown }).id === "string" ? (raw as { id: string }).id : "";
+    const modelId = (rawId || key).trim();
+    // 中文注释：优先使用 map key，确保配置里的 id 与存储一致。
+    if (!modelId) continue;
+    models[modelId] = { ...(raw as ModelDefinition), id: modelId };
   }
+  return Object.keys(models).length > 0 ? models : null;
+}
 
+/** Normalize model provider payload. */
+function normalizeModelProviderValue(value: unknown): ModelProviderValue | null {
+  if (!isRecord(value)) return null;
+  const providerId = typeof value.providerId === "string" ? value.providerId.trim() : "";
+  const apiUrl = typeof value.apiUrl === "string" ? value.apiUrl.trim() : "";
+  const authConfig = isRecord(value.authConfig) ? value.authConfig : null;
+  const models = normalizeModelMap(value.models);
+  if (!providerId || !apiUrl || !authConfig || !models) return null;
   return {
-    id: row.id,
-    key: row.key,
     providerId,
     apiUrl,
     authConfig,
-    modelIds,
-    updatedAt: row.updatedAt,
+    models,
   };
 }
 
-/** Load provider settings for server usage (sorted by latest update). */
+/** Normalize S3 provider payload. */
+function normalizeS3ProviderValue(value: unknown): S3ProviderValue | null {
+  if (!isRecord(value)) return null;
+  const providerId = typeof value.providerId === "string" ? value.providerId.trim() : "";
+  const providerLabel =
+    typeof value.providerLabel === "string" ? value.providerLabel.trim() : undefined;
+  const endpoint = typeof value.endpoint === "string" ? value.endpoint.trim() : "";
+  const region = typeof value.region === "string" ? value.region.trim() : undefined;
+  const bucket = typeof value.bucket === "string" ? value.bucket.trim() : "";
+  const accessKeyId = typeof value.accessKeyId === "string" ? value.accessKeyId.trim() : "";
+  const secretAccessKey =
+    typeof value.secretAccessKey === "string" ? value.secretAccessKey.trim() : "";
+  if (!providerId || !endpoint || !bucket || !accessKeyId || !secretAccessKey) return null;
+  return {
+    providerId,
+    providerLabel,
+    endpoint,
+    region,
+    bucket,
+    accessKeyId,
+    secretAccessKey,
+  };
+}
+
+/** Normalize provider config for server usage. */
+function normalizeProviderConfig(entry: ModelProviderConf): ProviderSettingEntry | null {
+  const id = typeof entry.id === "string" ? entry.id.trim() : "";
+  const key = typeof entry.title === "string" ? entry.title.trim() : "";
+  if (!id || !key) return null;
+  const normalized = normalizeModelProviderValue(entry);
+  if (!normalized) return null;
+  const updatedAt = new Date(entry.updatedAt);
+  const safeUpdatedAt = Number.isNaN(updatedAt.getTime()) ? new Date(0) : updatedAt;
+  return {
+    id,
+    key,
+    providerId: normalized.providerId,
+    apiUrl: normalized.apiUrl,
+    authConfig: normalized.authConfig,
+    models: normalized.models,
+    updatedAt: safeUpdatedAt,
+  };
+}
+
+/** Normalize provider config for web output. */
+function normalizeProviderSettingItem(entry: ModelProviderConf): SettingItem | null {
+  const id = typeof entry.id === "string" ? entry.id.trim() : "";
+  const key = typeof entry.title === "string" ? entry.title.trim() : "";
+  const normalized = normalizeModelProviderValue(entry);
+  if (!id || !key || !normalized) return null;
+  return {
+    id,
+    key,
+    value: {
+      providerId: normalized.providerId,
+      apiUrl: normalized.apiUrl,
+      authConfig: normalized.authConfig,
+      models: normalized.models,
+    },
+    secret: true,
+    category: MODEL_PROVIDER_CATEGORY,
+    isReadonly: false,
+    syncToCloud: false,
+  };
+}
+
+/** Normalize S3 provider config for web output. */
+function normalizeS3SettingItem(entry: S3ProviderConf): SettingItem | null {
+  const id = typeof entry.id === "string" ? entry.id.trim() : "";
+  const key = typeof entry.title === "string" ? entry.title.trim() : "";
+  const normalized = normalizeS3ProviderValue(entry);
+  if (!id || !key || !normalized) return null;
+  return {
+    id,
+    key,
+    value: {
+      providerId: normalized.providerId,
+      providerLabel: normalized.providerLabel,
+      endpoint: normalized.endpoint,
+      region: normalized.region,
+      bucket: normalized.bucket,
+      accessKeyId: normalized.accessKeyId,
+      secretAccessKey: normalized.secretAccessKey,
+    },
+    secret: true,
+    category: S3_PROVIDER_CATEGORY,
+    isReadonly: false,
+    syncToCloud: false,
+  };
+}
+
+/** Read provider settings for server usage. */
 export async function getProviderSettings(): Promise<ProviderSettingEntry[]> {
-  const rows = await prisma.setting.findMany({
-    where: { category: "provider" },
-    orderBy: { updatedAt: "desc" },
-  });
-  return rows
-    .map((row) => normalizeProviderSettingRow(row))
-    .filter((row): row is ProviderSettingEntry => Boolean(row));
+  const providers = readModelProviders()
+    .map((entry) => normalizeProviderConfig(entry))
+    .filter((entry): entry is ProviderSettingEntry => Boolean(entry));
+  // 逻辑：保持最新更新的配置优先。
+  return providers.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 }
 
 /** Return WEB + PUBLIC settings with secret masking for UI. */
 export async function getSettingsForWeb() {
   const defs = Object.values(ServerSettingDefs);
-  const [knownSettings, providerSettings, s3ProviderSettings] = await Promise.all([
-    getSettingsByDefs(defs, { maskSecret: true }),
-    getCategorySettingsForWeb({ maskSecret: true, category: MODEL_PROVIDER_CATEGORY }),
-    getCategorySettingsForWeb({ maskSecret: true, category: S3_PROVIDER_CATEGORY }),
-  ]);
+  const knownSettings = await getSettingsByDefs(defs, { maskSecret: true });
+  const providerSettings = readModelProviders()
+    .map((entry) => normalizeProviderSettingItem(entry))
+    .filter((entry): entry is SettingItem => Boolean(entry));
+  const s3ProviderSettings = readS3Providers()
+    .map((entry) => normalizeS3SettingItem(entry))
+    .filter((entry): entry is SettingItem => Boolean(entry));
   return [...knownSettings, ...providerSettings, ...s3ProviderSettings];
 }
 
@@ -273,12 +319,8 @@ export async function getSettingValue<T>(key: string): Promise<T> {
 }
 
 /** Upsert setting value without scope restriction (server internal). */
-export async function setSettingValue(
-  key: string,
-  value: unknown,
-  category?: string,
-) {
-  const def = getSettingDef(key, category);
+export async function setSettingValue(key: string, value: unknown, category?: string) {
+  const def = getSettingDef(key);
   const resolvedCategory = resolveSettingCategory(def, category);
   const payload = {
     value: serializeSettingValue(value),
@@ -303,25 +345,86 @@ export async function setSettingValue(
   });
 }
 
+/** Upsert model provider config into teatime.conf. */
+function upsertModelProvider(key: string, value: unknown) {
+  const normalized = normalizeModelProviderValue(value);
+  if (!normalized) throw new Error("Invalid model provider payload");
+  const providers = readModelProviders();
+  const existing = providers.find((entry) => entry.title === key);
+  const next: ModelProviderConf = {
+    id: existing?.id ?? randomUUID(),
+    title: key,
+    ...normalized,
+    updatedAt: new Date().toISOString(),
+  };
+  // 将最新配置置顶，便于默认模型优先选取。
+  const nextProviders = [
+    next,
+    ...providers.filter((entry) => entry.title !== key),
+  ];
+  writeModelProviders(nextProviders);
+}
+
+/** Remove model provider config from teatime.conf. */
+function removeModelProvider(key: string) {
+  const providers = readModelProviders();
+  writeModelProviders(providers.filter((entry) => entry.title !== key));
+}
+
+/** Upsert S3 provider config into teatime.conf. */
+function upsertS3Provider(key: string, value: unknown) {
+  const normalized = normalizeS3ProviderValue(value);
+  if (!normalized) throw new Error("Invalid S3 provider payload");
+  const providers = readS3Providers();
+  const existing = providers.find((entry) => entry.title === key);
+  const next: S3ProviderConf = {
+    id: existing?.id ?? randomUUID(),
+    title: key,
+    ...normalized,
+    updatedAt: new Date().toISOString(),
+  };
+  // 将最新配置置顶，便于 UI 优先展示。
+  const nextProviders = [
+    next,
+    ...providers.filter((entry) => entry.title !== key),
+  ];
+  writeS3Providers(nextProviders);
+}
+
+/** Remove S3 provider config from teatime.conf. */
+function removeS3Provider(key: string) {
+  const providers = readS3Providers();
+  writeS3Providers(providers.filter((entry) => entry.title !== key));
+}
+
 /** Upsert setting value from web. */
 export async function setSettingValueFromWeb(
   key: string,
   value: unknown,
   category?: string,
 ) {
-  const def = getSettingDef(key, category);
-  if (category && def.category && category !== def.category) {
-    throw new Error("Setting category mismatch");
+  if (category === MODEL_PROVIDER_CATEGORY) {
+    upsertModelProvider(key, value);
+    return;
+  }
+  if (category === S3_PROVIDER_CATEGORY) {
+    upsertS3Provider(key, value);
+    return;
   }
   await setSettingValue(key, value, category);
 }
 
 /** Delete setting value from web. */
 export async function deleteSettingValueFromWeb(key: string, category?: string) {
-  const def = getSettingDef(key, category);
-  if (category && def.category && category !== def.category) {
-    throw new Error("Setting category mismatch");
+  if (category === MODEL_PROVIDER_CATEGORY) {
+    removeModelProvider(key);
+    return;
   }
+  if (category === S3_PROVIDER_CATEGORY) {
+    removeS3Provider(key);
+    return;
+  }
+  const def = getSettingDef(key);
   const resolvedCategory = resolveSettingCategory(def, category);
   const existing = await findSettingRow(key, resolvedCategory);
   if (!existing) return;

@@ -196,6 +196,29 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+  /* 允许指定区域进行文本选择 */
+  .allow-text-select,
+  .allow-text-select * {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+  }
+  /* 代码行号不参与选中 */
+  .allow-text-select .react-syntax-highlighter-line-number {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    pointer-events: none;
+  }
+  .react-syntax-highlighter-line-number {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    pointer-events: none;
+  }
 }
 
 /* 允许 Context Menu 组件显示右键菜单 */
@@ -217,6 +240,7 @@ body {
   height: 0;
   display: none;
 }
+
 
 /* 隐藏所有默认滚动条 */
 ::-webkit-scrollbar {

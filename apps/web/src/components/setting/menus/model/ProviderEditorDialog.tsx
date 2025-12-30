@@ -36,8 +36,8 @@ export type ProviderEntryPayload = {
   apiUrl: string;
   /** Raw auth config. */
   authConfig: Record<string, unknown>;
-  /** Enabled model ids. */
-  modelIds: string[];
+  /** Enabled model definitions keyed by model id. */
+  models: Record<string, ReturnType<typeof getProviderModels>[number]>;
 };
 
 const PROVIDER_OPTIONS = getProviderOptions();
@@ -168,13 +168,21 @@ export function ProviderEditorDialog({
       setError("模型定义缺失");
       return;
     }
+    const models = modelIds.reduce<Record<string, ReturnType<typeof getProviderModels>[number]>>(
+      (acc, modelId) => {
+        const model = providerModels.find((item) => item.id === modelId);
+        if (model) acc[modelId] = model;
+        return acc;
+      },
+      {},
+    );
     // 中文注释：模型 ID 以定义为准，确保存储字段同步。
     const payload: ProviderEntryPayload = {
       key: name,
       providerId: draftProvider,
       apiUrl,
       authConfig,
-      modelIds,
+      models,
     };
     await onSubmit(payload);
     onOpenChange(false);

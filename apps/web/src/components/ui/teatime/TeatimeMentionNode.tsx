@@ -30,9 +30,14 @@ export function TeatimeMentionElement(
   const focused = useFocused();
   const mounted = useMounted();
   const readOnly = useReadOnly();
-
-  const label = element.value.split("/").pop() || element.value;
-  const isFileReference = element.value.includes("/");
+  const match = element.value.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+  const baseValue = match?.[1] ?? element.value;
+  const lineStart = match?.[2];
+  const lineEnd = match?.[3];
+  const label = baseValue.split("/").pop() || baseValue;
+  const labelWithLines =
+    lineStart && lineEnd ? `${label} ${lineStart}:${lineEnd}` : label;
+  const isFileReference = baseValue.includes("/");
 
   /** Remove the mention element. */
   const handleRemove = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -62,20 +67,22 @@ export function TeatimeMentionElement(
         ...props.attributes,
         contentEditable: false,
         "data-slate-value": element.value,
+        "data-teatime-mention": "true",
+        "data-mention-value": element.value,
         draggable: true,
       }}
     >
       {mounted ? (
         <>
           {props.prefix}
-          {label}
+          {labelWithLines}
           {props.children}
         </>
       ) : (
         <>
           {props.children}
           {props.prefix}
-          {label}
+          {labelWithLines}
         </>
       )}
       {!readOnly && isFileReference ? (
