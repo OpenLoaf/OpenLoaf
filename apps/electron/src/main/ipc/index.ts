@@ -169,6 +169,19 @@ export function registerIpcHandlers(args: { log: Logger }) {
     return { ok: true as const };
   });
 
+  // 将文件/目录移动到系统回收站。
+  ipcMain.handle('teatime:fs:trash-item', async (_event, payload: { uri: string }) => {
+    const uri = String(payload?.uri ?? '');
+    if (!uri.startsWith('file://')) return { ok: false as const, reason: 'Invalid uri' };
+    const targetPath = fileURLToPath(uri);
+    try {
+      await shell.trashItem(targetPath);
+      return { ok: true as const };
+    } catch (error) {
+      return { ok: false as const, reason: (error as Error)?.message ?? 'Trash failed' };
+    }
+  });
+
 
   args.log('IPC handlers registered');
 }

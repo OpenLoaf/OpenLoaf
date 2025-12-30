@@ -2,13 +2,18 @@
 
 import {
   Fragment,
+  forwardRef,
   memo,
+  useCallback,
   useEffect,
+  useMemo,
+  useRef,
   useState,
   type DragEvent,
-  type MouseEvent,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeftIcon,
   FileArchive,
@@ -19,8 +24,10 @@ import {
   FileText,
   FileVideo,
   Folder,
+  FolderUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Empty,
   EmptyContent,
@@ -29,10 +36,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { trpc } from "@/utils/trpc";
 import { type FileSystemEntry, getEntryExt } from "./file-system-utils";
 import {
   FILE_DRAG_NAME_MIME,
-  FILE_DRAG_REF_MIME,
   FILE_DRAG_URI_MIME,
 } from "./file-system-utils";
 
@@ -88,17 +95,30 @@ type FileSystemGridProps = {
   onNavigate?: (nextUri: string) => void;
   showEmptyActions?: boolean;
   renderEntry?: (entry: FileSystemEntry, node: ReactNode) => ReactNode;
+  onEntryClick?: (
+    entry: FileSystemEntry,
+    event: ReactMouseEvent<HTMLButtonElement>
+  ) => void;
   onEntryContextMenu?: (
     entry: FileSystemEntry,
-    event: MouseEvent<HTMLButtonElement>
+    event: ReactMouseEvent<HTMLButtonElement>
   ) => void;
-  selectedUri?: string | null;
+  selectedUris?: Set<string>;
   onEntryDrop?: (entry: FileSystemEntry, event: DragEvent<HTMLButtonElement>) => void;
   onEntryDragStart?: (entry: FileSystemEntry, event: DragEvent<HTMLButtonElement>) => void;
+  renamingUri?: string | null;
+  renamingValue?: string;
+  onRenamingChange?: (value: string) => void;
+  onRenamingSubmit?: () => void;
+  onRenamingCancel?: () => void;
+  onSelectionChange?: (uris: string[], mode: "replace" | "toggle") => void;
 };
 
 type FileSystemEntryCardProps = {
   entry: FileSystemEntry;
+  /** Thumbnail data url for image entries. */
+  thumbnailSrc?: string;
+  onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   onDoubleClick?: () => void;
   onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   isSelected?: boolean;
@@ -107,57 +127,19 @@ type FileSystemEntryCardProps = {
   onDrop?: (event: DragEvent<HTMLButtonElement>) => void;
 };
 
-/** Build a low-res preview for image files. */
+/** Render a thumbnail preview for image files. */
 const ImageThumbnail = memo(function ImageThumbnail({
-  uri,
+  src,
   name,
 }: {
-  uri: string;
+  src?: string | null;
   name: string;
 }) {
-  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-
-  useEffect(() => {
-    let canceled = false;
-    const image = new Image();
-    image.decoding = "async";
-    image.onload = () => {
-      if (canceled) return;
-      const maxSize = 96;
-      const scale = Math.min(
-        maxSize / image.width,
-        maxSize / image.height,
-        1
-      );
-      const width = Math.max(1, Math.round(image.width * scale));
-      const height = Math.max(1, Math.round(image.height * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        setPreviewSrc(uri);
-        return;
-      }
-      // 生成低分辨率缩略图，避免显示原图尺寸。
-      ctx.drawImage(image, 0, 0, width, height);
-      setPreviewSrc(canvas.toDataURL("image/jpeg", 0.6));
-    };
-    image.onerror = () => {
-      if (canceled) return;
-      setPreviewSrc(null);
-    };
-    image.src = uri;
-    return () => {
-      canceled = true;
-    };
-  }, [uri]);
-
   return (
-    <div className="h-12 w-12 overflow-hidden rounded-md bg-muted/40">
-      {previewSrc ? (
+    <div className="h-10 w-10 overflow-hidden rounded-md bg-muted/40">
+      {src ? (
         <img
-          src={previewSrc}
+          src={src}
           alt={name}
           className="h-full w-full object-cover"
           loading="lazy"
@@ -171,13 +153,13 @@ const ImageThumbnail = memo(function ImageThumbnail({
 });
 
 /** Resolve file icon or image thumbnail for grid items. */
-function getEntryVisual(entry: FileSystemEntry) {
+function getEntryVisual(entry: FileSystemEntry, thumbnailSrc?: string) {
   if (entry.kind === "folder") {
     return <Folder className="h-10 w-10 text-muted-foreground" />;
   }
   const ext = getEntryExt(entry);
   if (IMAGE_EXTS.has(ext)) {
-    return <ImageThumbnail uri={entry.uri} name={entry.name} />;
+    return <ImageThumbnail src={thumbnailSrc} name={entry.name} />;
   }
   if (ARCHIVE_EXTS.has(ext)) {
     return <FileArchive className="h-10 w-10 text-muted-foreground" />;
@@ -198,34 +180,48 @@ function getEntryVisual(entry: FileSystemEntry) {
 }
 
 /** Render a single file system entry card. */
-const FileSystemEntryCard = memo(function FileSystemEntryCard({
-  entry,
-  onDoubleClick,
-  onContextMenu,
-  isSelected = false,
-  onDragStart,
-  onDragOver,
-  onDrop,
-}: FileSystemEntryCardProps) {
-  const visual = getEntryVisual(entry);
-  return (
-    <button
-      type="button"
-      className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/60 ${
-        isSelected ? "bg-muted/70 ring-1 ring-border" : ""
-      }`}
-      draggable
-      onDoubleClick={onDoubleClick}
-      onContextMenu={onContextMenu}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-    >
-      {visual}
-      <span className="line-clamp-2 w-full">{entry.name}</span>
-    </button>
-  );
-});
+const FileSystemEntryCard = memo(
+  forwardRef<HTMLButtonElement, FileSystemEntryCardProps>(function FileSystemEntryCard(
+    {
+      entry,
+      thumbnailSrc,
+      onClick,
+      onDoubleClick,
+      onContextMenu,
+      isSelected = false,
+      onDragStart,
+      onDragOver,
+      onDrop,
+    },
+    ref
+  ) {
+    const visual = getEntryVisual(entry, thumbnailSrc);
+    return (
+      <button
+        ref={ref}
+        type="button"
+        data-entry-card="true"
+        data-entry-uri={entry.uri}
+        className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/80 ${
+          isSelected ? "bg-muted/70 ring-1 ring-border" : ""
+        }`}
+        draggable
+        onClick={onClick}
+        onDoubleClick={onDoubleClick}
+        onContextMenu={onContextMenu}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        {visual}
+        <span className="line-clamp-2 min-h-[2rem] w-full break-words leading-4">
+          {entry.name}
+        </span>
+      </button>
+    );
+  })
+);
+FileSystemEntryCard.displayName = "FileSystemEntryCard";
 
 /** File system grid with empty state. */
 const FileSystemGrid = memo(function FileSystemGrid({
@@ -235,31 +231,178 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onNavigate,
   showEmptyActions = true,
   renderEntry,
+  onEntryClick,
   onEntryContextMenu,
-  selectedUri,
+  selectedUris,
   onEntryDrop,
   onEntryDragStart,
+  renamingUri,
+  renamingValue,
+  onRenamingChange,
+  onRenamingSubmit,
+  onRenamingCancel,
+  onSelectionChange,
 }: FileSystemGridProps) {
+  // 上一级入口仅在可回退且当前目录非空时显示，避免根目录与空目录误导。
+  const shouldShowParentEntry = Boolean(parentUri) && entries.length > 0;
+  const gridRef = useRef<HTMLDivElement>(null);
+  const entryRefs = useRef(new Map<string, HTMLElement>());
+  const selectionStartRef = useRef<{ x: number; y: number } | null>(null);
+  const selectionRectRef = useRef<{
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  } | null>(null);
+  const selectionModeRef = useRef<"replace" | "toggle">("replace");
+  const lastSelectedRef = useRef<string>("");
+  const [selectionRect, setSelectionRect] = useState<{
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  } | null>(null);
+  // 仅筛选图片文件用于缩略图请求，减少不必要的传输。
+  const imageUris = useMemo(() => {
+    return entries
+      .filter((entry) => entry.kind === "file" && IMAGE_EXTS.has(getEntryExt(entry)))
+      .map((entry) => entry.uri);
+  }, [entries]);
+  // 通过缩略图接口批量获取图片预览。
+  const thumbnailsQuery = useQuery(
+    trpc.fs.thumbnails.queryOptions(imageUris.length ? { uris: imageUris } : skipToken)
+  );
+  const thumbnailByUri = useMemo(() => {
+    const map = new Map<string, string>();
+    // 缓存缩略图结果，提升文件网格渲染稳定性。
+    for (const item of thumbnailsQuery.data?.items ?? []) {
+      map.set(item.uri, item.dataUrl);
+    }
+    return map;
+  }, [thumbnailsQuery.data?.items]);
+
+  // 中文注释：登记网格条目节点，用于框选命中计算。
+  const registerEntryRef = useCallback((uri: string) => {
+    return (node: HTMLElement | null) => {
+      if (node) {
+        entryRefs.current.set(uri, node);
+      } else {
+        entryRefs.current.delete(uri);
+      }
+    };
+  }, []);
+
+  // 中文注释：根据框选矩形计算命中的条目集合。
+  const updateSelectionFromRect = useCallback(
+    (rect: { left: number; top: number; right: number; bottom: number }) => {
+      if (!onSelectionChange) return;
+      const next: string[] = [];
+      entryRefs.current.forEach((node, uri) => {
+        const box = node.getBoundingClientRect();
+        const hit =
+          rect.left <= box.right &&
+          rect.right >= box.left &&
+          rect.top <= box.bottom &&
+          rect.bottom >= box.top;
+        if (hit) {
+          next.push(uri);
+        }
+      });
+      next.sort();
+      const signature = next.join("|");
+      if (signature === lastSelectedRef.current) return;
+      lastSelectedRef.current = signature;
+      onSelectionChange(next, selectionModeRef.current);
+    },
+    [onSelectionChange]
+  );
+
+  const handleMouseMove = useCallback(
+    (event: MouseEvent) => {
+      const start = selectionStartRef.current;
+      if (!start) return;
+      const dx = Math.abs(event.clientX - start.x);
+      const dy = Math.abs(event.clientY - start.y);
+      if (dx < 4 && dy < 4) {
+        return;
+      }
+      const left = Math.min(start.x, event.clientX);
+      const top = Math.min(start.y, event.clientY);
+      const right = Math.max(start.x, event.clientX);
+      const bottom = Math.max(start.y, event.clientY);
+      const rect = { left, top, right, bottom };
+      selectionRectRef.current = rect;
+      setSelectionRect(rect);
+      updateSelectionFromRect(rect);
+      event.preventDefault();
+    },
+    [updateSelectionFromRect]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    if (!selectionStartRef.current) return;
+    const rect = selectionRectRef.current;
+    selectionStartRef.current = null;
+    selectionRectRef.current = null;
+    setSelectionRect(null);
+    window.removeEventListener("mousemove", handleMouseMove);
+    window.removeEventListener("mouseup", handleMouseUp);
+    // 中文注释：未形成拖拽矩形时，视为点击空白处清空选择。
+    if (!rect && onSelectionChange) {
+      lastSelectedRef.current = "";
+      onSelectionChange([], "replace");
+    }
+  }, [handleMouseMove, onSelectionChange]);
+
+  const handleGridMouseDown = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-entry-card=\"true\"]")) return;
+      selectionModeRef.current =
+        event.metaKey || event.ctrlKey ? "toggle" : "replace";
+      selectionStartRef.current = { x: event.clientX, y: event.clientY };
+      selectionRectRef.current = null;
+      lastSelectedRef.current = "";
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      event.preventDefault();
+    },
+    [handleMouseMove, handleMouseUp]
+  );
+
+  // 记录文件列表状态变化，方便定位异常跳转。
+  useEffect(() => {
+    console.debug("[FileSystemGrid] state", {
+      at: new Date().toISOString(),
+      isLoading,
+      entriesLength: entries.length,
+      parentUri,
+      showEmptyActions,
+      shouldShowParentEntry,
+    });
+  }, [isLoading, entries.length, parentUri, showEmptyActions, shouldShowParentEntry]);
+
   return (
-    <>
+    <div className="flex min-h-full h-full flex-col">
       {isLoading ? (
         <div className="text-sm text-muted-foreground">正在读取文件...</div>
       ) : null}
       {!isLoading && entries.length === 0 ? (
-        <div className="flex h-full items-center justify-center -translate-y-6">
+        <div className="flex h-full items-center justify-center translate-y-2">
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <Folder />
               </EmptyMedia>
               <EmptyTitle>暂无文件</EmptyTitle>
-              <EmptyDescription>创建一个智能文档或智能画布开始工作。</EmptyDescription>
+              <EmptyDescription>创建一个文档或画布开始工作。</EmptyDescription>
             </EmptyHeader>
             {showEmptyActions ? (
               <EmptyContent>
                 <div className="flex gap-2">
-                  <Button>创建智能文档</Button>
-                  <Button variant="outline">创建智能画布</Button>
+                  <Button>创建文档</Button>
+                  <Button variant="outline">创建画布</Button>
                 </div>
               </EmptyContent>
             ) : null}
@@ -268,7 +411,20 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 variant="link"
                 className="text-muted-foreground"
                 size="sm"
-                onClick={() => onNavigate?.(parentUri)}
+                onClick={(event) => {
+                  console.debug("[FileSystemGrid] empty navigate", {
+                    at: new Date().toISOString(),
+                    uri: parentUri,
+                    button: event.button,
+                    detail: event.detail,
+                    type: event.type,
+                    which: event.nativeEvent?.which,
+                    buttons: event.nativeEvent?.buttons,
+                  });
+                  if (event.button !== 0) return;
+                  if (event.nativeEvent.which !== 1) return;
+                  onNavigate?.(parentUri);
+                }}
               >
                 <ArrowLeftIcon />
                 返回上级
@@ -277,22 +433,128 @@ const FileSystemGrid = memo(function FileSystemGrid({
           </Empty>
         </div>
       ) : null}
-      <div className="grid grid-cols-2 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+      <div
+        ref={gridRef}
+        className="relative flex-1 min-h-full h-full"
+        onMouseDown={handleGridMouseDown}
+      >
+        {selectionRect && gridRef.current ? (
+          <div
+            className="pointer-events-none absolute z-10 rounded-md border border-primary/40 bg-primary/10"
+            style={{
+              left: selectionRect.left - gridRef.current.getBoundingClientRect().left,
+              top: selectionRect.top - gridRef.current.getBoundingClientRect().top,
+              width: selectionRect.right - selectionRect.left,
+              height: selectionRect.bottom - selectionRect.top,
+            }}
+          />
+        ) : null}
+        <div className="grid grid-cols-2 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        {shouldShowParentEntry ? (
+          <button
+            type="button"
+            className="flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/80"
+            onDoubleClick={(event) => {
+              if (event.button !== 0) return;
+              if (event.nativeEvent.which !== 1) return;
+              console.debug("[FileSystemGrid] parent dblclick", {
+                at: new Date().toISOString(),
+                button: event.button,
+                detail: event.detail,
+                type: event.type,
+                which: event.nativeEvent?.which,
+                buttons: event.nativeEvent?.buttons,
+                pointerType: event.nativeEvent?.pointerType,
+              });
+              console.debug("[FileSystemGrid] parent navigate", {
+                at: new Date().toISOString(),
+                uri: parentUri,
+              });
+              onNavigate?.(parentUri!);
+            }}
+          >
+            <FolderUp className="h-10 w-10 text-muted-foreground" />
+            <span className="line-clamp-2 min-h-[2rem] w-full break-words leading-4">
+              上一级
+            </span>
+          </button>
+        ) : null}
         {entries.map((entry) => {
-          const card = (
+          const isRenaming = renamingUri === entry.uri;
+          const isSelected = selectedUris?.has(entry.uri) ?? false;
+          const thumbnailSrc = thumbnailByUri.get(entry.uri);
+          const visual = getEntryVisual(entry, thumbnailSrc);
+          const card = isRenaming ? (
+            <div
+              data-entry-card="true"
+              data-entry-uri={entry.uri}
+              ref={registerEntryRef(entry.uri)}
+              className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground ring-1 ring-border ${
+                isSelected ? "bg-muted/70" : ""
+              }`}
+            >
+              {visual}
+              <Input
+                value={renamingValue ?? entry.name}
+                onChange={(event) => onRenamingChange?.(event.target.value)}
+                className="h-7 text-center text-xs"
+                autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    onRenamingSubmit?.();
+                  }
+                  if (event.key === "Escape") {
+                    onRenamingCancel?.();
+                  }
+                }}
+                onBlur={() => onRenamingSubmit?.()}
+              />
+            </div>
+          ) : (
             <FileSystemEntryCard
               entry={entry}
-              isSelected={selectedUri === entry.uri}
-              onDoubleClick={() => {
+              thumbnailSrc={thumbnailSrc}
+              ref={registerEntryRef(entry.uri)}
+              isSelected={isSelected}
+              onClick={(event) => onEntryClick?.(entry, event)}
+              onDoubleClick={(event) => {
+                console.debug("[FileSystemGrid] entry dblclick", {
+                  at: new Date().toISOString(),
+                  name: entry.name,
+                  kind: entry.kind,
+                  button: event.button,
+                  detail: event.detail,
+                  type: event.type,
+                  which: event.nativeEvent?.which,
+                  buttons: event.nativeEvent?.buttons,
+                  pointerType: event.nativeEvent?.pointerType,
+                });
+                if (event.button !== 0) return;
+                if (event.nativeEvent.which !== 1) return;
                 if (entry.kind !== "folder") return;
                 // 双击文件夹进入下一级目录。
+                console.debug("[FileSystemGrid] entry navigate", {
+                  at: new Date().toISOString(),
+                  name: entry.name,
+                  uri: entry.uri,
+                });
                 onNavigate?.(entry.uri);
               }}
-              onContextMenu={(event) => onEntryContextMenu?.(entry, event)}
+              onContextMenu={(event) => {
+                console.debug("[FileSystemGrid] entry contextmenu", {
+                  at: new Date().toISOString(),
+                  name: entry.name,
+                  kind: entry.kind,
+                  button: event.button,
+                  detail: event.detail,
+                  type: event.type,
+                  pointerType: event.nativeEvent?.pointerType,
+                });
+                onEntryContextMenu?.(entry, event);
+              }}
               onDragStart={(event) => {
                 event.dataTransfer.setData(FILE_DRAG_URI_MIME, entry.uri);
                 event.dataTransfer.setData(FILE_DRAG_NAME_MIME, entry.name);
-                event.dataTransfer.setData(FILE_DRAG_REF_MIME, "");
                 event.dataTransfer.effectAllowed = "move";
                 onEntryDragStart?.(entry, event);
               }}
@@ -313,8 +575,9 @@ const FileSystemGrid = memo(function FileSystemGrid({
             </Fragment>
           );
         })}
+        </div>
       </div>
-    </>
+    </div>
   );
 });
 

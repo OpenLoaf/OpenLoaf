@@ -14,6 +14,19 @@ import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/reac
 import { trpc } from "@/utils/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  FolderPlus,
+  LayoutGrid,
+  ArrowDownAZ,
+  ArrowDownWideNarrow,
+  ArrowUpAZ,
+  ArrowUpWideNarrow,
+  Redo2,
+  Search,
+  Undo2,
+  Upload,
+} from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -29,18 +42,9 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { FileSystemGrid } from "./FileSystemGrid";
 import ProjectFileSystemCopyDialog from "./ProjectFileSystemCopyDialog";
+import { useFileSystemHistory, type HistoryAction } from "./file-system-history";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import {
   IGNORE_NAMES,
@@ -63,6 +67,7 @@ type ProjectFileSystemProps = {
   projectId?: string;
   rootUri?: string;
   currentUri?: string | null;
+  projectLookup?: Map<string, ProjectBreadcrumbInfo>;
   onNavigate?: (nextUri: string) => void;
 };
 
@@ -75,12 +80,17 @@ type ProjectBreadcrumbItem = {
   uri: string;
 };
 
-type ProjectFileSystemHeaderProps = {
+type ProjectFileSystemBreadcrumbsProps = {
   isLoading: boolean;
   rootUri?: string;
   currentUri?: string | null;
   projectLookup?: Map<string, ProjectBreadcrumbInfo>;
   onNavigate?: (nextUri: string) => void;
+};
+
+type ProjectFileSystemHeaderProps = {
+  isLoading: boolean;
+  pageTitle: string;
 };
 
 /** Build breadcrumb items for the project file system. */
@@ -141,43 +151,70 @@ function getParentUri(rootUri?: string, currentUri?: string | null): string | nu
 /** Project file system header. */
 const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
   isLoading,
+  pageTitle,
+}: ProjectFileSystemHeaderProps) {
+  if (isLoading) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-2 min-w-0 animate-in fade-in duration-200">
+      <span className="text-xs text-muted-foreground truncate">{pageTitle}</span>
+    </div>
+  );
+});
+
+/** Project file system breadcrumbs. */
+const ProjectFileSystemBreadcrumbs = memo(function ProjectFileSystemBreadcrumbs({
+  isLoading,
   rootUri,
   currentUri,
   projectLookup,
   onNavigate,
-}: ProjectFileSystemHeaderProps) {
-  if (isLoading) return null;
+}: ProjectFileSystemBreadcrumbsProps) {
   const items = buildFileBreadcrumbs(rootUri, currentUri, projectLookup);
-  if (items.length === 0) return null;
+  const isVisible = !isLoading && items.length > 0;
 
   return (
-    <div className="flex items-center gap-2 min-w-0">
-      <span className="text-base font-semibold">文件</span>
-      <Breadcrumb>
-        <BreadcrumbList>
-        {items.map((item, index) => {
-          const isLast = index === items.length - 1;
-          return (
-            <Fragment key={item.uri}>
-              <BreadcrumbItem>
-                {isLast ? (
-                  <BreadcrumbPage>
-                    <span>{item.label}</span>
-                  </BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink asChild className="cursor-pointer">
-                    <button type="button" onClick={() => onNavigate?.(item.uri)}>
+    <div className="relative flex min-w-0 items-center">
+      <div
+        className={`flex items-center gap-2 min-w-0 transition-opacity duration-300 ease-out ${
+          isVisible ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <Breadcrumb>
+          <BreadcrumbList>
+          {items.map((item, index) => {
+            const isLast = index === items.length - 1;
+            return (
+              <Fragment key={item.uri}>
+                <BreadcrumbItem>
+                  {isLast ? (
+                    <BreadcrumbPage>
                       <span>{item.label}</span>
-                    </button>
-                  </BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
-              {!isLast ? <BreadcrumbSeparator /> : null}
-            </Fragment>
-          );
-        })}
-        </BreadcrumbList>
-      </Breadcrumb>
+                    </BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink asChild className="cursor-pointer">
+                      <button type="button" onClick={() => onNavigate?.(item.uri)}>
+                        <span>{item.label}</span>
+                      </button>
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+                {!isLast ? <BreadcrumbSeparator /> : null}
+              </Fragment>
+            );
+          })}
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+      <div
+        className={`absolute inset-y-0 left-0 flex items-center transition-opacity duration-300 ease-out ${
+          isVisible ? "opacity-0 pointer-events-none" : "opacity-100"
+        }`}
+      >
+        <span className="h-5 w-36 rounded-md bg-muted/40" />
+      </div>
     </div>
   );
 });
@@ -186,6 +223,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   projectId,
   rootUri,
   currentUri,
+  projectLookup,
   onNavigate,
 }: ProjectFileSystemProps) {
   const activeUri = currentUri ?? rootUri ?? null;
@@ -195,14 +233,35 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron")),
     []
   );
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const dragCounterRef = useRef(0);
+  const [sortField, setSortField] = useState<"name" | "mtime" | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
+  const [searchValue, setSearchValue] = useState("");
   const listQuery = useQuery(
-    trpc.fs.list.queryOptions(activeUri ? { uri: activeUri } : skipToken)
+    trpc.fs.list.queryOptions(
+      activeUri
+        ? {
+            uri: activeUri,
+            sort:
+              sortField && sortOrder
+                ? { field: sortField, order: sortOrder }
+                : undefined,
+          }
+        : skipToken
+    )
   );
   const entries = listQuery.data?.entries ?? [];
   const visibleEntries = entries.filter((entry) => !IGNORE_NAMES.has(entry.name));
   const fileEntries = useMemo(() => visibleEntries as FileSystemEntry[], [visibleEntries]);
+  const displayEntries = useMemo(() => {
+    const query = searchValue.trim().toLowerCase();
+    if (!query) return fileEntries;
+    return fileEntries.filter((entry) => entry.name.toLowerCase().includes(query));
+  }, [fileEntries, searchValue]);
   const parentUri = getParentUri(rootUri, activeUri);
   const existingNames = useMemo(
     () => new Set(fileEntries.map((entry) => entry.name)),
@@ -211,15 +270,48 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const [clipboardSize, setClipboardSize] = useState(fileClipboard?.length ?? 0);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyEntry, setCopyEntry] = useState<FileSystemEntry | null>(null);
-  const [renameEntry, setRenameEntry] = useState<FileSystemEntry | null>(null);
-  const [renameValue, setRenameValue] = useState("");
+  // Inline rename state.
+  const [renamingUri, setRenamingUri] = useState<string | null>(null);
+  const [renamingValue, setRenamingValue] = useState("");
+  // 当前聚焦项，用于单选与重命名定位。
   const [selectedUri, setSelectedUri] = useState<string | null>(null);
+  // 多选集合，用于多选高亮与菜单状态判断。
+  const [selectedUris, setSelectedUris] = useState<Set<string>>(() => new Set());
   const [isDragActive, setIsDragActive] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const trashRootUri = useMemo(
+    () => (rootUri ? buildChildUri(rootUri, ".teatime-trash") : null),
+    [rootUri]
+  );
+  const historyKey = useMemo(
+    () => projectId ?? rootUri ?? "project-files",
+    [projectId, rootUri]
+  );
 
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
   const deleteMutation = useMutation(trpc.fs.delete.mutationOptions());
   const copyMutation = useMutation(trpc.fs.copy.mutationOptions());
   const writeBinaryMutation = useMutation(trpc.fs.writeBinary.mutationOptions());
+  const mkdirMutation = useMutation(trpc.fs.mkdir.mutationOptions());
+
+  /** Navigate to a target uri with trace logging. */
+  const handleNavigate = useCallback(
+    (nextUri: string) => {
+      console.debug("[ProjectFileSystem] navigate", {
+        at: new Date().toISOString(),
+        nextUri,
+      });
+      onNavigate?.(nextUri);
+    },
+    [onNavigate]
+  );
+
+  /** Update selection to a single entry. */
+  const setSingleSelection = useCallback((uri: string | null) => {
+    setSelectedUri(uri);
+    setSelectedUris(uri ? new Set([uri]) : new Set());
+  }, []);
+
 
   /** Refresh the current folder list. */
   const refreshList = useCallback(() => {
@@ -228,6 +320,38 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       queryKey: trpc.fs.list.queryOptions({ uri: activeUri }).queryKey,
     });
   }, [activeUri, queryClient]);
+
+  const {
+    canUndo,
+    canRedo,
+    push: pushHistory,
+    undo,
+    redo,
+    clear: clearHistory,
+  } = useFileSystemHistory(
+    {
+      rename: async (from, to) => {
+        await renameMutation.mutateAsync({ from, to });
+      },
+      copy: async (from, to) => {
+        await copyMutation.mutateAsync({ from, to });
+      },
+      mkdir: async (uri) => {
+        await mkdirMutation.mutateAsync({ uri, recursive: true });
+      },
+      delete: async (uri) => {
+        await deleteMutation.mutateAsync({ uri, recursive: true });
+      },
+      trash: async (uri) => {
+        const res = await window.teatimeElectron?.trashItem?.({ uri });
+        if (!res?.ok) {
+          throw new Error(res?.reason ?? "无法移动到回收站");
+        }
+      },
+      refresh: refreshList,
+    },
+    historyKey
+  );
 
   useEffect(() => {
     if (!projectId || !activeUri) return;
@@ -252,6 +376,68 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       eventSource.close();
     };
   }, [projectId, activeUri, refreshList]);
+
+  useEffect(() => {
+    clearHistory();
+  }, [activeUri, clearHistory]);
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    searchInputRef.current?.focus();
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    const handleMouseDown = (event: MouseEvent) => {
+      if (!searchContainerRef.current) return;
+      if (searchContainerRef.current.contains(event.target as Node)) return;
+      setIsSearchOpen(false);
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+    };
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      const tagName = target.tagName;
+      if (
+        tagName === "INPUT" ||
+        tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+      const isCmdOrCtrl = event.metaKey || event.ctrlKey;
+      if (!isCmdOrCtrl) return;
+      const key = event.key.toLowerCase();
+      if (key === "z" && event.shiftKey) {
+        if (!canRedo) return;
+        event.preventDefault();
+        redo();
+        return;
+      }
+      if (key === "z") {
+        if (!canUndo) return;
+        event.preventDefault();
+        undo();
+        return;
+      }
+      if (key === "y") {
+        if (!canRedo) return;
+        event.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [canRedo, canUndo, redo, undo]);
 
   /** Copy text to system clipboard with a fallback. */
   const copyText = async (text: string) => {
@@ -286,7 +472,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   /** Open copy-to dialog. */
   const handleOpenCopyDialog = (entry: FileSystemEntry) => {
-    setSelectedUri(entry.uri);
+    setSingleSelection(entry.uri);
     fileClipboard = [entry];
     setClipboardSize(fileClipboard.length);
     setCopyEntry(entry);
@@ -303,16 +489,16 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   /** Copy file path to clipboard. */
   const handleCopyPath = async (entry: FileSystemEntry) => {
-    setSelectedUri(entry.uri);
+    setSingleSelection(entry.uri);
     await copyText(getDisplayPathFromUri(entry.uri));
     toast.success("已复制路径");
   };
 
   /** Open file/folder using platform integration. */
   const handleOpen = async (entry: FileSystemEntry) => {
-    setSelectedUri(entry.uri);
+    setSingleSelection(entry.uri);
     if (entry.kind === "folder") {
-      onNavigate?.(entry.uri);
+      handleNavigate(entry.uri);
       return;
     }
     if (!isElectron) {
@@ -327,7 +513,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   /** Open item in system file manager. */
   const handleOpenInFileManager = async (entry: FileSystemEntry) => {
-    setSelectedUri(entry.uri);
+    setSingleSelection(entry.uri);
     if (!isElectron) {
       toast.error("网页版不支持打开文件管理器");
       return;
@@ -341,39 +527,69 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     }
   };
 
-  /** Open rename dialog. */
+  /** Start inline rename for a file or folder. */
   const handleRename = (entry: FileSystemEntry) => {
-    setSelectedUri(entry.uri);
-    setRenameEntry(entry);
-    setRenameValue(entry.name);
+    setSingleSelection(entry.uri);
+    setRenamingUri(entry.uri);
+    setRenamingValue(entry.name);
   };
 
-  /** Submit rename action. */
+  /** Submit inline rename changes. */
   const handleRenameSubmit = async () => {
-    if (!activeUri || !renameEntry) return;
-    const nextName = renameValue.trim();
-    if (!nextName || nextName === renameEntry.name) {
-      setRenameEntry(null);
+    if (!activeUri || !renamingUri) return;
+    const targetEntry = fileEntries.find((entry) => entry.uri === renamingUri);
+    if (!targetEntry) {
+      setRenamingUri(null);
+      return;
+    }
+    const nextName = renamingValue.trim();
+    if (!nextName || nextName === targetEntry.name) {
+      setRenamingUri(null);
       return;
     }
     const targetUri = buildChildUri(activeUri, nextName);
-    await renameMutation.mutateAsync({ from: renameEntry.uri, to: targetUri });
+    await renameMutation.mutateAsync({ from: targetEntry.uri, to: targetUri });
+    pushHistory({ kind: "rename", from: targetEntry.uri, to: targetUri });
+    setSelectedUri(targetUri);
     refreshList();
-    setRenameEntry(null);
+    setRenamingUri(null);
+  };
+
+  /** Cancel inline rename changes. */
+  const handleRenameCancel = () => {
+    setRenamingUri(null);
   };
 
   /** Delete file or folder. */
   const handleDelete = async (entry: FileSystemEntry) => {
-    setSelectedUri(entry.uri);
+    setSingleSelection(entry.uri);
     const ok = window.confirm(`确认删除「${entry.name}」？`);
     if (!ok) return;
-    await deleteMutation.mutateAsync({ uri: entry.uri, recursive: true });
+    if (isElectron && window.teatimeElectron?.trashItem) {
+      const res = await window.teatimeElectron.trashItem({ uri: entry.uri });
+      if (!res?.ok) {
+        toast.error(res?.reason ?? "无法移动到回收站");
+        return;
+      }
+      pushHistory({ kind: "trash", uri: entry.uri });
+      refreshList();
+      return;
+    }
+    if (!trashRootUri) return;
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const suffix = Math.random().toString(36).slice(2, 6);
+    const trashName = `${stamp}-${suffix}-${entry.name}`;
+    const trashUri = buildChildUri(trashRootUri, trashName);
+    // 中文注释：非 Electron 端先挪进隐藏回收站，便于撤回。
+    await mkdirMutation.mutateAsync({ uri: trashRootUri, recursive: true });
+    await renameMutation.mutateAsync({ from: entry.uri, to: trashUri });
+    pushHistory({ kind: "delete", uri: entry.uri, trashUri });
     refreshList();
   };
 
   /** Show basic metadata for the entry. */
   const handleShowInfo = (entry: FileSystemEntry) => {
-    setSelectedUri(entry.uri);
+    setSingleSelection(entry.uri);
     const detail = [
       `类型：${entry.kind === "folder" ? "文件夹" : "文件"}`,
       `大小：${formatSize(entry.size)}`,
@@ -381,6 +597,20 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       `路径：${getDisplayPathFromUri(entry.uri)}`,
     ].join("\n");
     toast.message("基本信息", { description: detail });
+  };
+
+  /** Create a new folder in the current directory. */
+  const handleCreateFolder = async () => {
+    if (!activeUri) return;
+    // 以默认名称创建并做唯一性处理，避免覆盖已有目录。
+    const targetName = getUniqueName("新建文件夹", new Set(existingNames));
+    const targetUri = buildChildUri(activeUri, targetName);
+    await mkdirMutation.mutateAsync({ uri: targetUri, recursive: true });
+    pushHistory({ kind: "mkdir", uri: targetUri });
+    setSingleSelection(targetUri);
+    setRenamingUri(targetUri);
+    setRenamingValue(targetName);
+    refreshList();
   };
 
   /** Paste copied files into the current directory. */
@@ -391,28 +621,26 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       return;
     }
     const names = new Set(existingNames);
+    const actions: HistoryAction[] = [];
     for (const entry of fileClipboard) {
       const targetName = getUniqueName(entry.name, names);
       names.add(targetName);
       const targetUri = buildChildUri(activeUri, targetName);
       await copyMutation.mutateAsync({ from: entry.uri, to: targetUri });
+      actions.push({ kind: "copy", from: entry.uri, to: targetUri } as const);
+    }
+    if (actions.length === 1) {
+      pushHistory(actions[0]);
+    } else if (actions.length > 1) {
+      pushHistory({ kind: "batch", actions });
     }
     refreshList();
     setClipboardSize(fileClipboard?.length ?? 0);
     toast.success("已粘贴");
   };
 
-  /** Handle file drops from the OS. */
-  const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    dragCounterRef.current = 0;
-    setIsDragActive(false);
-    if (event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)) {
-      return;
-    }
-    if (!activeUri) return;
-    const files = Array.from(event.dataTransfer.files ?? []);
-    if (files.length === 0) return;
+  const handleUploadFiles = async (files: File[]) => {
+    if (!activeUri || files.length === 0) return;
     for (const file of files) {
       const targetUri = buildChildUri(activeUri, file.name);
       const base64 = await readFileAsBase64(file);
@@ -423,6 +651,47 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     }
     refreshList();
     toast.success("已上传文件");
+  };
+
+  /** Handle file drops from the OS. */
+  const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragActive(false);
+    if (event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)) {
+      return;
+    }
+    const files = Array.from(event.dataTransfer.files ?? []);
+    if (files.length === 0) return;
+    await handleUploadFiles(files);
+  };
+
+  const handleSortByName = () => {
+    if (sortField !== "name") {
+      setSortField("name");
+      setSortOrder("asc");
+      return;
+    }
+    if (sortOrder === "asc") {
+      setSortOrder("desc");
+      return;
+    }
+    setSortField(null);
+    setSortOrder(null);
+  };
+
+  const handleSortByTime = () => {
+    if (sortField !== "mtime") {
+      setSortField("mtime");
+      setSortOrder("desc");
+      return;
+    }
+    if (sortOrder === "desc") {
+      setSortOrder("asc");
+      return;
+    }
+    setSortField(null);
+    setSortOrder(null);
   };
 
   /** Move a file/folder into another folder. */
@@ -447,6 +716,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     const targetName = getUniqueName(source.name, targetNames);
     const targetUri = buildChildUri(target.uri, targetName);
     await renameMutation.mutateAsync({ from: source.uri, to: targetUri });
+    pushHistory({ kind: "rename", from: source.uri, to: targetUri });
+    setSingleSelection(targetUri);
     refreshList();
   };
 
@@ -477,11 +748,166 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   return (
     <div className="h-full flex flex-col gap-4">
-      <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/60">
+      <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-secondary/70">
+        {/* 顶部功能栏：路径导航 + 极简图标操作（仅 UI）。 */}
+        <div className="flex items-center gap-3 border-b border-border/60 bg-background/70 px-4 py-2">
+          <div className="flex min-w-0 flex-1 items-center">
+            <ProjectFileSystemBreadcrumbs
+              isLoading={listQuery.isLoading}
+              rootUri={rootUri}
+              currentUri={activeUri}
+              projectLookup={projectLookup}
+              onNavigate={handleNavigate}
+            />
+          </div>
+        <div className="flex items-center gap-1">
+            {canUndo || canRedo ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  aria-label="撤回"
+                  title="撤回"
+                  disabled={!canUndo}
+                  onClick={() => {
+                    undo();
+                  }}
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  aria-label="前进"
+                  title="前进"
+                  disabled={!canRedo}
+                  onClick={() => {
+                    redo();
+                  }}
+                >
+                  <Redo2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              aria-label="切换排列方式"
+              title="切换排列方式"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-7 w-7 ${
+                sortField === "name" ? "bg-foreground/10 text-foreground" : ""
+              }`}
+              aria-label="按字母排序"
+              title="按字母排序"
+              onClick={handleSortByName}
+            >
+              {sortField === "name" && sortOrder === "desc" ? (
+                <ArrowUpAZ className="h-3.5 w-3.5" />
+              ) : (
+                <ArrowDownAZ className="h-3.5 w-3.5" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-7 w-7 ${
+                sortField === "mtime" ? "bg-foreground/10 text-foreground" : ""
+              }`}
+              aria-label="按时间排序"
+              title="按时间排序"
+              onClick={handleSortByTime}
+            >
+              {sortField === "mtime" && sortOrder === "asc" ? (
+                <ArrowUpWideNarrow className="h-3.5 w-3.5" />
+              ) : (
+                <ArrowDownWideNarrow className="h-3.5 w-3.5" />
+              )}
+            </Button>
+            <div className="mx-1 h-4 w-px bg-border/70" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              aria-label="新建文件夹"
+              title="新建文件夹"
+              onClick={handleCreateFolder}
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              aria-label="添加文件"
+              title="添加文件"
+              onClick={() => {
+                uploadInputRef.current?.click();
+              }}
+            >
+              <Upload className="h-3.5 w-3.5" />
+            </Button>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={async (event) => {
+                const files = Array.from(event.target.files ?? []);
+                if (files.length === 0) return;
+                await handleUploadFiles(files);
+                event.currentTarget.value = "";
+              }}
+            />
+            <div ref={searchContainerRef} className="flex items-center">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 transition-[width,opacity] duration-150 ${
+                  isSearchOpen ? "w-0 opacity-0 pointer-events-none" : "opacity-100"
+                }`}
+                aria-label="搜索"
+                title="搜索"
+                onClick={() => setIsSearchOpen(true)}
+              >
+                <Search className="h-3.5 w-3.5" />
+              </Button>
+              <div
+                className={`relative overflow-hidden rounded-md ring-1 ring-border/60 bg-background/80 transition-[width,opacity,transform] duration-200 origin-right ${
+                  isSearchOpen
+                    ? "w-56 opacity-100 translate-x-0"
+                    : "w-0 opacity-0 translate-x-2"
+                }`}
+              >
+                <Input
+                  ref={searchInputRef}
+                  className="h-7 w-56 border-0 bg-transparent px-3 text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
+                  placeholder="搜索文件或文件夹"
+                  type="search"
+                  value={searchValue}
+                  onChange={(event) => setSearchValue(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      setIsSearchOpen(false);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <div
-              className="flex-1 min-h-0 overflow-auto p-4"
+              className="flex-1 min-h-0 h-full overflow-auto p-4"
               onDragEnter={handleDragEnter}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -489,18 +915,61 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
             >
               <div
                 key={activeUri ?? "root"}
-                className="animate-in fade-in slide-in-from-bottom-2 duration-200"
+                className="min-h-full h-full animate-in fade-in slide-in-from-bottom-2 duration-200"
               >
                 <FileSystemGrid
-                  entries={fileEntries}
+                  entries={displayEntries}
                   isLoading={listQuery.isLoading}
                   parentUri={parentUri}
-                  onNavigate={onNavigate}
-                selectedUri={selectedUri}
-                onEntryContextMenu={(entry, event) => {
-                  event.stopPropagation();
-                  setSelectedUri(entry.uri);
-                }}
+                  onNavigate={handleNavigate}
+                  selectedUris={selectedUris}
+                  onEntryClick={(entry, event) => {
+                    // 中文注释：支持多选，按住 Command/Ctrl 可切换选择。
+                    if (event.metaKey || event.ctrlKey) {
+                      setSelectedUris((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(entry.uri)) {
+                          next.delete(entry.uri);
+                        } else {
+                          next.add(entry.uri);
+                        }
+                        setSelectedUri(next.size === 1 ? entry.uri : null);
+                        return next;
+                      });
+                      return;
+                    }
+                    setSingleSelection(entry.uri);
+                  }}
+                  onEntryContextMenu={(entry, event) => {
+                    event.stopPropagation();
+                    // 中文注释：右键项未被选中时，先单选该项。
+                    if (!selectedUris.has(entry.uri)) {
+                      setSingleSelection(entry.uri);
+                    }
+                  }}
+                  onSelectionChange={(uris, mode) => {
+                    setSelectedUris((prev) => {
+                      const next = mode === "toggle" ? new Set(prev) : new Set<string>();
+                      for (const uri of uris) {
+                        if (mode === "toggle") {
+                          if (next.has(uri)) {
+                            next.delete(uri);
+                          } else {
+                            next.add(uri);
+                          }
+                        } else {
+                          next.add(uri);
+                        }
+                      }
+                      setSelectedUri(next.size === 1 ? Array.from(next)[0] : null);
+                      return next;
+                    });
+                  }}
+                  renamingUri={renamingUri}
+                  renamingValue={renamingValue}
+                  onRenamingChange={setRenamingValue}
+                  onRenamingSubmit={handleRenameSubmit}
+                  onRenamingCancel={handleRenameCancel}
                 onEntryDragStart={(entry, event) => {
                   if (!rootUri || !projectId) return;
                   const relativePath = getRelativePathFromUri(rootUri, entry.uri);
@@ -510,63 +979,80 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                     `${projectId}/${relativePath}`
                   );
                 }}
-                onEntryDrop={async (target, event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  const sourceUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
-                  if (!sourceUri) return;
-                  let source = fileEntries.find((item) => item.uri === sourceUri);
-                  if (!source) {
-                    const stat = await queryClient.fetchQuery(
-                      trpc.fs.stat.queryOptions({ uri: sourceUri })
-                    );
-                    source = {
-                      uri: stat.uri,
-                      name: stat.name,
-                      kind: stat.kind,
-                      ext: stat.ext,
-                      size: stat.size,
-                      updatedAt: stat.updatedAt,
-                    } as FileSystemEntry;
-                  }
-                  await handleMoveToFolder(source, target);
-                }}
-                renderEntry={(entry, card) => (
-                  <ContextMenu key={entry.uri}>
+                  onEntryDrop={async (target, event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const sourceUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
+                    if (!sourceUri) return;
+                    let source = fileEntries.find((item) => item.uri === sourceUri);
+                    if (!source) {
+                      const stat = await queryClient.fetchQuery(
+                        trpc.fs.stat.queryOptions({ uri: sourceUri })
+                      );
+                      source = {
+                        uri: stat.uri,
+                        name: stat.name,
+                        kind: stat.kind,
+                        ext: stat.ext,
+                        size: stat.size,
+                        updatedAt: stat.updatedAt,
+                      } as FileSystemEntry;
+                    }
+                    await handleMoveToFolder(source, target);
+                  }}
+                renderEntry={(entry, card) => {
+                  const isMultiSelect = selectedUris.size > 1;
+                  return (
+                    <ContextMenu key={entry.uri}>
                       <ContextMenuTrigger asChild>{card}</ContextMenuTrigger>
                       <ContextMenuContent className="w-52">
-                        <ContextMenuItem onSelect={() => handleOpen(entry)}>
-                          打开
-                        </ContextMenuItem>
-                        <ContextMenuItem onSelect={() => handleOpenInFileManager(entry)}>
-                          在文件管理器中打开
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem onSelect={() => handleOpenCopyDialog(entry)}>
-                          复制到
-                        </ContextMenuItem>
-                        <ContextMenuItem onSelect={() => handleCopyPath(entry)}>
-                          复制路径
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem onSelect={() => handleRename(entry)}>
-                          重命名
-                        </ContextMenuItem>
-                        <ContextMenuItem onSelect={() => handleDelete(entry)}>
-                          删除
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem onSelect={() => handleShowInfo(entry)}>
-                          基本信息
-                        </ContextMenuItem>
+                        {isMultiSelect ? (
+                          <ContextMenuItem disabled>
+                            已选择 {selectedUris.size} 项
+                          </ContextMenuItem>
+                        ) : (
+                          <>
+                            <ContextMenuItem onSelect={() => handleOpen(entry)}>
+                              打开
+                            </ContextMenuItem>
+                            <ContextMenuItem onSelect={() => handleOpenInFileManager(entry)}>
+                              在文件管理器中打开
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem onSelect={() => handleOpenCopyDialog(entry)}>
+                              复制到
+                            </ContextMenuItem>
+                            <ContextMenuItem onSelect={() => handleCopyPath(entry)}>
+                              复制路径
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem onSelect={() => handleRename(entry)}>
+                              重命名
+                            </ContextMenuItem>
+                            <ContextMenuItem onSelect={() => handleDelete(entry)}>
+                              删除
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem onSelect={() => handleShowInfo(entry)}>
+                              基本信息
+                            </ContextMenuItem>
+                          </>
+                        )}
                       </ContextMenuContent>
                     </ContextMenu>
-                  )}
+                  );
+                }}
                 />
               </div>
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-44">
+            <ContextMenuItem onSelect={handleCreateFolder}>新建文件夹</ContextMenuItem>
+            <ContextMenuItem disabled>新建文稿</ContextMenuItem>
+            <ContextMenuItem disabled>新建画布</ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem onSelect={refreshList}>刷新</ContextMenuItem>
+            <ContextMenuSeparator />
             <ContextMenuItem
               onSelect={() => {
                 handlePaste();
@@ -589,53 +1075,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
         entry={copyEntry}
         defaultRootUri={rootUri}
       />
-      <Dialog
-        open={Boolean(renameEntry)}
-        onOpenChange={(open) => {
-          if (open) return;
-          setRenameEntry(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>重命名</DialogTitle>
-            <DialogDescription>请输入新的名称。</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="filesystem-rename" className="text-right text-sm">
-                名称
-              </label>
-              <Input
-                id="filesystem-rename"
-                value={renameValue}
-                onChange={(event) => setRenameValue(event.target.value)}
-                className="col-span-3"
-                autoFocus
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    handleRenameSubmit();
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">
-                取消
-              </Button>
-            </DialogClose>
-            <Button type="button" onClick={handleRenameSubmit}>
-              保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 });
 
 export type { ProjectBreadcrumbInfo };
-export { ProjectFileSystemHeader };
+export { ProjectFileSystemBreadcrumbs, ProjectFileSystemHeader };
 export default ProjectFileSystem;

@@ -12,6 +12,7 @@ export const IGNORE_NAMES = new Set([
   ".git",
   ".turbo",
   ".next",
+  ".teatime-trash",
   "dist",
   "build",
   "out",

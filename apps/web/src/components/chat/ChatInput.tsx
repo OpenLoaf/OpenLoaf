@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ChevronUp,
@@ -20,10 +20,23 @@ import {
   type ChatImageAttachmentsHandle,
 } from "./file/ChatImageAttachments";
 import {
-  FILE_DRAG_NAME_MIME,
   FILE_DRAG_REF_MIME,
 } from "@/components/ui/teatime/drag-drop-types";
-import { MentionsInput, Mention } from "react-mentions";
+import type { Value } from "platejs";
+import { setValue } from "platejs";
+import { MentionKit } from "@/components/editor/plugins/mention-kit";
+import { ClipboardKit } from "@/components/editor/plugins/clipboard-kit";
+import { ParagraphPlugin, Plate, usePlateEditor } from "platejs/react";
+import { Editor as SlateEditor, Text } from "slate";
+import type { RenderLeafProps } from "platejs";
+import { Editor, EditorContainer } from "@/components/ui/editor";
+import { ParagraphElement } from "@/components/ui/paragraph-node";
+import {
+  buildMentionNode,
+  getPlainTextValue,
+  parseChatValue,
+  serializeChatValue,
+} from "./chat-input-utils";
 
 interface ChatInputProps {
   className?: string;
@@ -34,6 +47,7 @@ interface ChatInputProps {
 }
 
 const MAX_CHARS = 2000;
+const COMMAND_REGEX = /(^|\s)(\/[\w-]+)/g;
 
 export interface ChatInputBoxProps {
   value: string;
@@ -76,26 +90,26 @@ export function ChatInputBox({
   onAddAttachments,
   onRemoveAttachment,
 }: ChatInputBoxProps) {
-  const [plainTextValue, setPlainTextValue] = useState(value);
+  const initialValue = useMemo(() => parseChatValue(value), []);
+  const [plainTextValue, setPlainTextValue] = useState(() =>
+    getPlainTextValue(initialValue)
+  );
   const isOverLimit = plainTextValue.length > MAX_CHARS;
   const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const resizeRafRef = useRef<number | null>(null);
-  const [textareaHeight, setTextareaHeight] = useState(48);
-
-  /**
-   * Animate the textarea height to match its content.
-   */
-  const syncTextareaHeight = (textarea: HTMLTextAreaElement) => {
-    // 中文注释：用 rAF 合并高度测量，避免同步读写触发布局抖动。
-    if (resizeRafRef.current) {
-      window.cancelAnimationFrame(resizeRafRef.current);
-    }
-    resizeRafRef.current = window.requestAnimationFrame(() => {
-      const nextHeight = Math.max(48, textarea.scrollHeight);
-      setTextareaHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-    });
-  };
+  const lastSerializedRef = useRef(value);
+  const plugins = useMemo(
+    () => [
+      ParagraphPlugin.withComponent(ParagraphElement),
+      ...MentionKit,
+      ...ClipboardKit,
+    ],
+    []
+  );
+  const editor = usePlateEditor({
+    id: "chat-input",
+    plugins,
+    value: initialValue,
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,52 +139,82 @@ export function ChatInputBox({
     ? false
     : submitDisabled || isOverLimit || !plainTextValue.trim();
 
-  useLayoutEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    syncTextareaHeight(textarea);
-  }, [value]);
+  const decorate = useCallback(
+    (entry: any) => {
+      if (!Array.isArray(entry)) return [];
+      const [node, path] = entry;
+      const ranges: Array<{ command?: boolean; anchor: any; focus: any }> = [];
+      if (!Text.isText(node)) return ranges;
+      COMMAND_REGEX.lastIndex = 0;
+      let match = COMMAND_REGEX.exec(node.text);
+      while (match) {
+        const lead = match[1] ?? "";
+        const command = match[2] ?? "";
+        const start = match.index + lead.length;
+        const end = start + command.length;
+        ranges.push({
+          command: true,
+          anchor: { path, offset: start },
+          focus: { path, offset: end },
+        });
+        match = COMMAND_REGEX.exec(node.text);
+      }
+      return ranges;
+    },
+    []
+  );
 
-  useLayoutEffect(() => {
-    return () => {
-      if (!resizeRafRef.current) return;
-      window.cancelAnimationFrame(resizeRafRef.current);
-      resizeRafRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    setPlainTextValue(value);
-  }, [value]);
-
-  const mentionInputStyle = useMemo(
-    () => ({
-      control: {
-        fontSize: "15px",
-        lineHeight: "1.5",
-      },
-      highlighter: {
-        padding: 0,
-        border: "none",
-      },
-      input: {
-        margin: 0,
-        border: "none",
-        outline: "none",
-        background: "transparent",
-        color: "var(--color-foreground)",
-        height: `${textareaHeight}px`,
-      },
-    }),
-    [textareaHeight]
+  const renderLeaf = useCallback(
+    (props: RenderLeafProps) => {
+      const { attributes, children, leaf } = props;
+      if ((leaf as any).command) {
+        return (
+          <span
+            {...attributes}
+            className="inline-flex items-center rounded-md bg-muted px-1.5 text-[11px] font-semibold text-foreground"
+          >
+            {children}
+          </span>
+        );
+      }
+      return <span {...attributes}>{children}</span>;
+    },
+    []
   );
 
   useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    // 中文注释：为外部聚焦逻辑保留 data 标记。
-    textarea.dataset.teatimeChatInput = "true";
-  }, []);
+    if (value === lastSerializedRef.current) return;
+    const nextValue = parseChatValue(value);
+    setValue(editor, nextValue);
+    setPlainTextValue(getPlainTextValue(nextValue));
+    lastSerializedRef.current = value;
+  }, [editor, value]);
+
+  const handleValueChange = useCallback(
+    (nextValue: Value) => {
+      const serialized = serializeChatValue(nextValue);
+      lastSerializedRef.current = serialized;
+      onChange(serialized);
+      setPlainTextValue(getPlainTextValue(nextValue));
+    },
+    [onChange]
+  );
+
+  const insertFileMention = (fileRef: string) => {
+    // 中文注释：将文件引用插入为 mention，并补一个空格。
+    if (!editor.selection) {
+      const endPoint = SlateEditor.end(editor, []);
+      editor.tf.select(endPoint);
+    }
+    editor.tf.focus();
+    editor.tf.insertNodes(buildMentionNode(fileRef), { select: true });
+    editor.tf.insertText(" ");
+  };
+
+
+  if (!editor) {
+    return null;
+  }
 
   return (
     <div
@@ -190,14 +234,15 @@ export function ChatInputBox({
         event.preventDefault();
       }}
       onDrop={(event) => {
-        if (!event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
-        event.preventDefault();
-        const fileName = event.dataTransfer.getData(FILE_DRAG_NAME_MIME);
         const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
-        if (!fileName || !fileRef) return;
-        const mentionText = `@{${fileRef}}`;
-        const prefix = value.trim().length > 0 ? `${value} ` : value;
-        onChange(`${prefix}${mentionText} `);
+        if (!fileRef) return;
+        event.preventDefault();
+        insertFileMention(fileRef);
+      }}
+      onDropCapture={(event) => {
+        const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
+        if (!fileRef) return;
+        event.preventDefault();
       }}
     >
       <form
@@ -213,42 +258,36 @@ export function ChatInputBox({
 
         <div
           className={cn(
-            "px-4 pt-3 pb-2 flex-1 min-h-0 transition-[padding] duration-500 ease-out",
+            "px-2 pt-1 pb-2 flex-1 min-h-0 transition-[padding] duration-500 ease-out",
             compact && "pb-3",
             attachments && attachments.length > 0 && "pt-2"
           )}
         >
           <ScrollArea.Root className="w-full h-full">
             <ScrollArea.Viewport className="w-full h-full min-h-0">
-              <MentionsInput
-                value={value}
-                onChange={(_event, nextValue, nextPlainTextValue) => {
-                  onChange(nextValue);
-                  setPlainTextValue(nextPlainTextValue);
-                }}
-                inputRef={textareaRef}
-                style={mentionInputStyle}
-                placeholder={placeholder}
-                onKeyDown={handleKeyDown}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                className={cn(
-                  "w-full",
-                  isOverLimit && "text-destructive"
-                )}
+              <Plate
+                editor={editor}
+                decorate={decorate}
+                renderLeaf={renderLeaf}
+                onValueChange={({ value: nextValue }) =>
+                  handleValueChange(nextValue)
+                }
               >
-                <Mention
-                  trigger="@"
-                  data={[]}
-                  markup="@{__id__}"
-                  className="teatime-mention-chip"
-                  displayTransform={(id) => {
-                    const parts = id.split("/");
-                    return parts[parts.length - 1] || id;
-                  }}
-                  appendSpaceOnAdd
-                />
-              </MentionsInput>
+                <EditorContainer className="bg-transparent">
+                  <Editor
+                    variant="none"
+                    className={cn(
+                      "min-h-[56px] text-[13px] leading-5",
+                      isOverLimit && "text-destructive"
+                    )}
+                    placeholder={placeholder}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    data-teatime-chat-input="true"
+                  />
+                </EditorContainer>
+              </Plate>
             </ScrollArea.Viewport>
             <ScrollArea.Scrollbar orientation="vertical">
               <ScrollArea.Thumb />
@@ -256,9 +295,9 @@ export function ChatInputBox({
           </ScrollArea.Root>
         </div>
 
-        <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-2 px-3 pb-3 shrink-0 min-w-0">
+        <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-2 px-1.5 pb-1.5 shrink-0 min-w-0">
           {!compact ? (
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-0.5">
               <Button
                 type="button"
                 variant="ghost"
@@ -290,7 +329,7 @@ export function ChatInputBox({
             <div />
           )}
 
-          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-0.5">
             {isOverLimit && (
               <span
                 className={cn(
@@ -298,7 +337,7 @@ export function ChatInputBox({
                   "text-destructive"
                 )}
               >
-                {value.length} / {MAX_CHARS}
+                {plainTextValue.length} / {MAX_CHARS}
               </span>
             )}
             

@@ -11,6 +11,7 @@ import { BasicMarksKit } from '@/components/editor/plugins/basic-marks-kit';
 import { BlockMenuKit } from '@/components/editor/plugins/block-menu-kit';
 import { BlockPlaceholderKit } from '@/components/editor/plugins/block-placeholder-kit';
 import { CalloutKit } from '@/components/editor/plugins/callout-kit';
+import { ClipboardKit } from '@/components/editor/plugins/clipboard-kit';
 import { CodeBlockKit } from '@/components/editor/plugins/code-block-kit';
 import { ColumnKit } from '@/components/editor/plugins/column-kit';
 import { CommentKit } from '@/components/editor/plugins/comment-kit';
@@ -73,6 +74,7 @@ export const EditorKit = [
   ...SuggestionKit,
 
   // Editing
+  ...ClipboardKit,
   ...SlashKit,
   ...AutoformatKit,
   ...CursorOverlayKit,

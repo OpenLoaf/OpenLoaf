@@ -63,14 +63,19 @@ export default function MessageHelper() {
     // 点击建议后需要立刻聚焦到输入框，方便用户直接按 Enter 发送或继续编辑
     // 注意：输入框在 ChatInput.tsx 内部；这里通过 data attribute 定位，避免引入跨组件 ref 依赖
     requestAnimationFrame(() => {
-      const el = document.querySelector<HTMLTextAreaElement>(
-        'textarea[data-teatime-chat-input="true"]'
+      const el = document.querySelector<HTMLElement>(
+        '[data-teatime-chat-input="true"]'
       );
       if (!el) return;
       el.focus();
       // 将光标移动到末尾，便于继续补充内容
-      const end = el.value.length;
-      el.setSelectionRange(end, end);
+      const selection = window.getSelection();
+      if (!selection) return;
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
     });
   }, []);
 

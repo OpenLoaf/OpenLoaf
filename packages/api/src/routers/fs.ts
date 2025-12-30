@@ -1,6 +1,7 @@
 import { z } from "zod";
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import sharp from "sharp";
 import { t, shieldedProcedure } from "../index";
 import { resolveWorkspacePathFromUri, toFileUri } from "../services/vfsService";
 
@@ -11,11 +12,23 @@ const fsUriSchema = z.object({
 const fsListSchema = z.object({
   uri: z.string(),
   includeHidden: z.boolean().optional(),
+  // 排序选项：name 按文件名，mtime 按修改时间。
+  sort: z
+    .object({
+      field: z.enum(["name", "mtime"]),
+      order: z.enum(["asc", "desc"]),
+    })
+    .optional(),
 });
 
 const fsCopySchema = z.object({
   from: z.string(),
   to: z.string(),
+});
+
+/** Schema for batch thumbnail requests. */
+const fsThumbnailSchema = z.object({
+  uris: z.array(z.string()).max(50),
 });
 
 /** Build a file node for UI consumption. */
@@ -52,7 +65,43 @@ export const fsRouter = t.router({
       const stat = await fs.stat(entryPath);
       nodes.push(buildFileNode({ name: entry.name, fullPath: entryPath, stat }));
     }
+    const sortField = input.sort?.field ?? "name";
+    const sortOrder = input.sort?.order ?? "asc";
+    const direction = sortOrder === "asc" ? 1 : -1;
+    // 按规则排序：name 时文件夹优先；mtime 时直接全量排序。
+    if (sortField === "name") {
+      nodes.sort((a, b) => {
+        if (a.kind !== b.kind) {
+          return a.kind === "folder" ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name) * direction;
+      });
+    } else {
+      nodes.sort((a, b) => {
+        return (Date.parse(a.updatedAt) - Date.parse(b.updatedAt)) * direction;
+      });
+    }
     return { entries: nodes };
+  }),
+
+  /** Build thumbnails for image entries. */
+  thumbnails: shieldedProcedure.input(fsThumbnailSchema).query(async ({ input }) => {
+    // 生成 40x40 的低质量缩略图，避免传输原图。
+    const items = await Promise.all(
+      input.uris.map(async (uri) => {
+        try {
+          const fullPath = resolveWorkspacePathFromUri(uri);
+          const buffer = await sharp(fullPath)
+            .resize(40, 40, { fit: "cover" })
+            .webp({ quality: 45 })
+            .toBuffer();
+          return { uri, dataUrl: `data:image/webp;base64,${buffer.toString("base64")}` };
+        } catch {
+          return null;
+        }
+      })
+    );
+    return { items: items.filter((item): item is { uri: string; dataUrl: string } => Boolean(item)) };
   }),
 
   /** Read a text file. */

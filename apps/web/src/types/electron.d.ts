@@ -52,6 +52,7 @@ declare global {
       installUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
       openPath?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       showItemInFolder?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      trashItem?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
     };
   }
 }
