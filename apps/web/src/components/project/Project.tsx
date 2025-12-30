@@ -402,6 +402,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
               >
                 {shouldRenderFiles ? (
                   <ProjectFileSystem
+                    projectId={projectId}
                     rootUri={rootUri}
                     currentUri={fileUri}
                     onNavigate={setFileUri}

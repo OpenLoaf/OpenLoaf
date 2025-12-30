@@ -1,6 +1,14 @@
 "use client";
 
-import { Fragment, memo, useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  Fragment,
+  memo,
+  useEffect,
+  useState,
+  type DragEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import {
   ArrowLeftIcon,
   FileArchive,
@@ -22,6 +30,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { type FileSystemEntry, getEntryExt } from "./file-system-utils";
+import {
+  FILE_DRAG_NAME_MIME,
+  FILE_DRAG_REF_MIME,
+  FILE_DRAG_URI_MIME,
+} from "./file-system-utils";
 
 const IMAGE_EXTS = new Set([
   "png",
@@ -80,6 +93,8 @@ type FileSystemGridProps = {
     event: MouseEvent<HTMLButtonElement>
   ) => void;
   selectedUri?: string | null;
+  onEntryDrop?: (entry: FileSystemEntry, event: DragEvent<HTMLButtonElement>) => void;
+  onEntryDragStart?: (entry: FileSystemEntry, event: DragEvent<HTMLButtonElement>) => void;
 };
 
 type FileSystemEntryCardProps = {
@@ -87,6 +102,9 @@ type FileSystemEntryCardProps = {
   onDoubleClick?: () => void;
   onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   isSelected?: boolean;
+  onDragStart?: (event: DragEvent<HTMLButtonElement>) => void;
+  onDragOver?: (event: DragEvent<HTMLButtonElement>) => void;
+  onDrop?: (event: DragEvent<HTMLButtonElement>) => void;
 };
 
 /** Build a low-res preview for image files. */
@@ -185,6 +203,9 @@ const FileSystemEntryCard = memo(function FileSystemEntryCard({
   onDoubleClick,
   onContextMenu,
   isSelected = false,
+  onDragStart,
+  onDragOver,
+  onDrop,
 }: FileSystemEntryCardProps) {
   const visual = getEntryVisual(entry);
   return (
@@ -193,8 +214,12 @@ const FileSystemEntryCard = memo(function FileSystemEntryCard({
       className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/60 ${
         isSelected ? "bg-muted/70 ring-1 ring-border" : ""
       }`}
+      draggable
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
     >
       {visual}
       <span className="line-clamp-2 w-full">{entry.name}</span>
@@ -212,6 +237,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   renderEntry,
   onEntryContextMenu,
   selectedUri,
+  onEntryDrop,
+  onEntryDragStart,
 }: FileSystemGridProps) {
   return (
     <>
@@ -262,6 +289,22 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 onNavigate?.(entry.uri);
               }}
               onContextMenu={(event) => onEntryContextMenu?.(entry, event)}
+              onDragStart={(event) => {
+                event.dataTransfer.setData(FILE_DRAG_URI_MIME, entry.uri);
+                event.dataTransfer.setData(FILE_DRAG_NAME_MIME, entry.name);
+                event.dataTransfer.setData(FILE_DRAG_REF_MIME, "");
+                event.dataTransfer.effectAllowed = "move";
+                onEntryDragStart?.(entry, event);
+              }}
+              onDragOver={(event) => {
+                if (entry.kind !== "folder") return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+              }}
+              onDrop={(event) => {
+                if (entry.kind !== "folder") return;
+                onEntryDrop?.(entry, event);
+              }}
             />
           );
           return (

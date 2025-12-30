@@ -17,6 +17,26 @@ export const IGNORE_NAMES = new Set([
   "out",
 ]);
 
+export {
+  FILE_DRAG_NAME_MIME,
+  FILE_DRAG_REF_MIME,
+  FILE_DRAG_URI_MIME,
+} from "@/components/ui/teatime/drag-drop-types";
+
+/** Get a relative path for an entry under the project root. */
+export function getRelativePathFromUri(rootUri: string, entryUri: string) {
+  try {
+    const rootUrl = new URL(rootUri);
+    const entryUrl = new URL(entryUri);
+    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
+    const entryParts = entryUrl.pathname.split("/").filter(Boolean);
+    const relativeParts = entryParts.slice(rootParts.length);
+    return decodeURIComponent(relativeParts.join("/"));
+  } catch {
+    return "";
+  }
+}
+
 /** Get a normalized extension string for a file entry. */
 export function getEntryExt(entry: FileSystemEntry) {
   if (entry.ext) return entry.ext.toLowerCase();

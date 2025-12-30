@@ -420,6 +420,31 @@ body {
   animation: teatime-thinking-border-flow 1.4s linear infinite;
 }
 
+.teatime-mention-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 18px 0 8px;
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--accent) / 0.3) 100%
+  );
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  font-weight: 500;
+  box-shadow: 0 1px 0 hsl(var(--border) / 0.6);
+}
+
+.teatime-mention-chip::after {
+  content: "×";
+  position: absolute;
+  right: 6px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .teatime-thinking-border-on {
     animation: none;

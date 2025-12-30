@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ChevronUp,
@@ -19,6 +19,11 @@ import {
   ChatImageAttachments,
   type ChatImageAttachmentsHandle,
 } from "./file/ChatImageAttachments";
+import {
+  FILE_DRAG_NAME_MIME,
+  FILE_DRAG_REF_MIME,
+} from "@/components/ui/teatime/drag-drop-types";
+import { MentionsInput, Mention } from "react-mentions";
 
 interface ChatInputProps {
   className?: string;
@@ -71,7 +76,8 @@ export function ChatInputBox({
   onAddAttachments,
   onRemoveAttachment,
 }: ChatInputBoxProps) {
-  const isOverLimit = value.length > MAX_CHARS;
+  const [plainTextValue, setPlainTextValue] = useState(value);
+  const isOverLimit = plainTextValue.length > MAX_CHARS;
   const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const resizeRafRef = useRef<number | null>(null);
@@ -96,7 +102,7 @@ export function ChatInputBox({
     if (!onSubmit) return;
     if (submitDisabled) return;
     if (isOverLimit) return;
-    if (!value.trim()) return;
+    if (!plainTextValue.trim()) return;
     onSubmit(value);
   };
 
@@ -117,7 +123,7 @@ export function ChatInputBox({
   // 流式生成时按钮变为“停止”，不应被 submitDisabled 禁用
   const isSendDisabled = isLoading
     ? false
-    : submitDisabled || isOverLimit || !value.trim();
+    : submitDisabled || isOverLimit || !plainTextValue.trim();
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
@@ -133,6 +139,39 @@ export function ChatInputBox({
     };
   }, []);
 
+  useEffect(() => {
+    setPlainTextValue(value);
+  }, [value]);
+
+  const mentionInputStyle = useMemo(
+    () => ({
+      control: {
+        fontSize: "15px",
+        lineHeight: "1.5",
+      },
+      highlighter: {
+        padding: 0,
+        border: "none",
+      },
+      input: {
+        margin: 0,
+        border: "none",
+        outline: "none",
+        background: "transparent",
+        color: "var(--color-foreground)",
+        height: `${textareaHeight}px`,
+      },
+    }),
+    [textareaHeight]
+  );
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    // 中文注释：为外部聚焦逻辑保留 data 标记。
+    textarea.dataset.teatimeChatInput = "true";
+  }, []);
+
   return (
     <div
       className={cn(
@@ -146,6 +185,20 @@ export function ChatInputBox({
         isStreaming && !isOverLimit && "teatime-thinking-border-on border-transparent",
         className
       )}
+      onDragOver={(event) => {
+        if (!event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
+        event.preventDefault();
+      }}
+      onDrop={(event) => {
+        if (!event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
+        event.preventDefault();
+        const fileName = event.dataTransfer.getData(FILE_DRAG_NAME_MIME);
+        const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
+        if (!fileName || !fileRef) return;
+        const mentionText = `@{${fileRef}}`;
+        const prefix = value.trim().length > 0 ? `${value} ` : value;
+        onChange(`${prefix}${mentionText} `);
+      }}
     >
       <form
         onSubmit={handleSubmit}
@@ -167,23 +220,35 @@ export function ChatInputBox({
         >
           <ScrollArea.Root className="w-full h-full">
             <ScrollArea.Viewport className="w-full h-full min-h-0">
-              <textarea
-                data-teatime-chat-input="true"
-                ref={textareaRef}
+              <MentionsInput
                 value={value}
-                onChange={(e) => {
-                  onChange(e.target.value);
+                onChange={(_event, nextValue, nextPlainTextValue) => {
+                  onChange(nextValue);
+                  setPlainTextValue(nextPlainTextValue);
                 }}
+                inputRef={textareaRef}
+                style={mentionInputStyle}
+                placeholder={placeholder}
                 onKeyDown={handleKeyDown}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
-                placeholder={placeholder}
                 className={cn(
-                  "w-full border-none resize-none focus:outline-none focus:ring-0 bg-transparent text-foreground text-sm leading-6 min-h-[48px] overflow-visible placeholder:text-muted-foreground/70 transition-[height] duration-500 ease-out",
+                  "w-full",
                   isOverLimit && "text-destructive"
                 )}
-                style={{ fontSize: "15px", height: `${textareaHeight}px` }}
-              />
+              >
+                <Mention
+                  trigger="@"
+                  data={[]}
+                  markup="@{__id__}"
+                  className="teatime-mention-chip"
+                  displayTransform={(id) => {
+                    const parts = id.split("/");
+                    return parts[parts.length - 1] || id;
+                  }}
+                  appendSpaceOnAdd
+                />
+              </MentionsInput>
             </ScrollArea.Viewport>
             <ScrollArea.Scrollbar orientation="vertical">
               <ScrollArea.Thumb />

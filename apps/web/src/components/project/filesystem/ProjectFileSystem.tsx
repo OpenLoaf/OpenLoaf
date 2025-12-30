@@ -1,6 +1,15 @@
 "use client";
 
-import { Fragment, memo, useMemo, useState, type DragEvent } from "react";
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { toast } from "sonner";
@@ -32,12 +41,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { FileSystemGrid } from "./FileSystemGrid";
 import ProjectFileSystemCopyDialog from "./ProjectFileSystemCopyDialog";
+import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import {
   IGNORE_NAMES,
   buildChildUri,
+  FILE_DRAG_NAME_MIME,
+  FILE_DRAG_REF_MIME,
+  FILE_DRAG_URI_MIME,
   formatSize,
   formatTimestamp,
   getDisplayPathFromUri,
+  getRelativePathFromUri,
   getUniqueName,
   type FileSystemEntry,
 } from "./file-system-utils";
@@ -46,6 +60,7 @@ import {
 let fileClipboard: FileSystemEntry[] | null = null;
 
 type ProjectFileSystemProps = {
+  projectId?: string;
   rootUri?: string;
   currentUri?: string | null;
   onNavigate?: (nextUri: string) => void;
@@ -168,6 +183,7 @@ const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
 });
 
 const ProjectFileSystem = memo(function ProjectFileSystem({
+  projectId,
   rootUri,
   currentUri,
   onNavigate,
@@ -180,6 +196,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     []
   );
   const queryClient = useQueryClient();
+  const dragCounterRef = useRef(0);
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(activeUri ? { uri: activeUri } : skipToken)
   );
@@ -197,6 +214,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const [renameEntry, setRenameEntry] = useState<FileSystemEntry | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [selectedUri, setSelectedUri] = useState<string | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
 
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
   const deleteMutation = useMutation(trpc.fs.delete.mutationOptions());
@@ -204,12 +222,36 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const writeBinaryMutation = useMutation(trpc.fs.writeBinary.mutationOptions());
 
   /** Refresh the current folder list. */
-  const refreshList = () => {
+  const refreshList = useCallback(() => {
     if (!activeUri) return;
     queryClient.invalidateQueries({
       queryKey: trpc.fs.list.queryOptions({ uri: activeUri }).queryKey,
     });
-  };
+  }, [activeUri, queryClient]);
+
+  useEffect(() => {
+    if (!projectId || !activeUri) return;
+    const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? "";
+    const url = `${baseUrl}/fs/watch?projectId=${encodeURIComponent(
+      projectId
+    )}&dirUri=${encodeURIComponent(activeUri)}`;
+    const eventSource = new EventSource(url);
+    eventSource.onmessage = (event) => {
+      if (!event.data) return;
+      try {
+        const payload = JSON.parse(event.data) as { type?: string; projectId?: string };
+        if (payload.projectId !== projectId) return;
+        if (payload.type === "fs-change") {
+          refreshList();
+        }
+      } catch {
+        // ignore
+      }
+    };
+    return () => {
+      eventSource.close();
+    };
+  }, [projectId, activeUri, refreshList]);
 
   /** Copy text to system clipboard with a fallback. */
   const copyText = async (text: string) => {
@@ -363,6 +405,11 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   /** Handle file drops from the OS. */
   const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragActive(false);
+    if (event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)) {
+      return;
+    }
     if (!activeUri) return;
     const files = Array.from(event.dataTransfer.files ?? []);
     if (files.length === 0) return;
@@ -378,18 +425,66 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     toast.success("已上传文件");
   };
 
+  /** Move a file/folder into another folder. */
+  const handleMoveToFolder = async (
+    source: FileSystemEntry,
+    target: FileSystemEntry
+  ) => {
+    if (source.kind === "folder" && source.uri === target.uri) return;
+    if (source.uri === target.uri) return;
+    const sourceUrl = new URL(source.uri);
+    const targetUrl = new URL(target.uri);
+    if (targetUrl.pathname.startsWith(sourceUrl.pathname)) {
+      toast.error("无法移动到自身目录");
+      return;
+    }
+    const targetList = await queryClient.fetchQuery(
+      trpc.fs.list.queryOptions({ uri: target.uri })
+    );
+    const targetNames = new Set(
+      (targetList.entries ?? []).map((entry: FileSystemEntry) => entry.name)
+    );
+    const targetName = getUniqueName(source.name, targetNames);
+    const targetUri = buildChildUri(target.uri, targetName);
+    await renameMutation.mutateAsync({ from: source.uri, to: targetUri });
+    refreshList();
+  };
+
+  const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)) return;
+    dragCounterRef.current += 1;
+    setIsDragActive(true);
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)) return;
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)) return;
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) {
+      setIsDragActive(false);
+    }
+  };
+
   if (!rootUri) {
     return <div className="p-4 text-sm text-muted-foreground">未绑定项目目录</div>;
   }
 
   return (
     <div className="h-full flex flex-col gap-4">
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/60">
+      <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/60">
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <div
               className="flex-1 min-h-0 overflow-auto p-4"
-              onDragOver={(event) => event.preventDefault()}
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
               <div
@@ -401,13 +496,43 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   isLoading={listQuery.isLoading}
                   parentUri={parentUri}
                   onNavigate={onNavigate}
-                  selectedUri={selectedUri}
-                  onEntryContextMenu={(entry, event) => {
-                    event.stopPropagation();
-                    setSelectedUri(entry.uri);
-                  }}
-                  renderEntry={(entry, card) => (
-                    <ContextMenu key={entry.uri}>
+                selectedUri={selectedUri}
+                onEntryContextMenu={(entry, event) => {
+                  event.stopPropagation();
+                  setSelectedUri(entry.uri);
+                }}
+                onEntryDragStart={(entry, event) => {
+                  if (!rootUri || !projectId) return;
+                  const relativePath = getRelativePathFromUri(rootUri, entry.uri);
+                  if (!relativePath) return;
+                  event.dataTransfer.setData(
+                    FILE_DRAG_REF_MIME,
+                    `${projectId}/${relativePath}`
+                  );
+                }}
+                onEntryDrop={async (target, event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const sourceUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
+                  if (!sourceUri) return;
+                  let source = fileEntries.find((item) => item.uri === sourceUri);
+                  if (!source) {
+                    const stat = await queryClient.fetchQuery(
+                      trpc.fs.stat.queryOptions({ uri: sourceUri })
+                    );
+                    source = {
+                      uri: stat.uri,
+                      name: stat.name,
+                      kind: stat.kind,
+                      ext: stat.ext,
+                      size: stat.size,
+                      updatedAt: stat.updatedAt,
+                    } as FileSystemEntry;
+                  }
+                  await handleMoveToFolder(source, target);
+                }}
+                renderEntry={(entry, card) => (
+                  <ContextMenu key={entry.uri}>
                       <ContextMenuTrigger asChild>{card}</ContextMenuTrigger>
                       <ContextMenuContent className="w-52">
                         <ContextMenuItem onSelect={() => handleOpen(entry)}>
@@ -452,6 +577,11 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
             </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>
+        <DragDropOverlay
+          open={isDragActive}
+          title="松开鼠标即可添加文件"
+          radiusClassName="rounded-2xl"
+        />
       </section>
       <ProjectFileSystemCopyDialog
         open={copyDialogOpen}

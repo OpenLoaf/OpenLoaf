@@ -14,6 +14,7 @@ import {
   isSupportedImageFile,
 } from "./chat-attachments";
 import type { ChatAttachment } from "./chat-attachments";
+import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 
 type ChatProps = {
   className?: string;
@@ -208,20 +209,17 @@ export function Chat({
           onClearAttachments={clearAttachments}
         />
 
-        {isDragActive && (
-          <div className="absolute inset-0 z-50 grid place-items-center">
-            <div className="absolute inset-0 bg-background/35 backdrop-blur-xl" />
-            <div className="relative mx-6 w-full max-w-md rounded-2xl border bg-background/70 px-5 py-4 shadow-lg backdrop-blur-xl">
-              <div className="text-sm font-medium text-foreground">
-                松开鼠标即可添加图片
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                支持 PNG / JPEG / WebP，单文件不超过{" "}
-                {formatFileSize(CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES)}，可多选
-              </div>
-            </div>
-          </div>
-        )}
+        <DragDropOverlay
+          open={isDragActive}
+          title="松开鼠标即可添加图片"
+          radiusClassName="rounded-2xl"
+          description={
+            <>
+              支持 PNG / JPEG / WebP，单文件不超过{" "}
+              {formatFileSize(CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES)}，可多选
+            </>
+          }
+        />
       </div>
     </ChatProvider>
   );
