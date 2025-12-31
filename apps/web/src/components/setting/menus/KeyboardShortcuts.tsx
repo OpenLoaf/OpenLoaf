@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { GLOBAL_SHORTCUTS } from "@/lib/globalShortcuts";
-import { SettingsGroup } from "./SettingsGroup";
+import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
+import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
 
 const SHORTCUT_TRANSLATIONS: Record<string, { label: string; note?: string }> = {
   "sidebar.toggle": { label: "切换侧边栏" },
@@ -97,7 +98,7 @@ export function KeyboardShortcuts() {
 
   return (
     <div className="space-y-6">
-      <SettingsGroup title="快捷键">
+      <TeatimeSettingsGroup title="快捷键">
         <div className="divide-y divide-border">
           {GLOBAL_SHORTCUTS.map((shortcut) => {
             const text = getShortcutText(shortcut);
@@ -112,15 +113,15 @@ export function KeyboardShortcuts() {
                     <div className="text-xs text-muted-foreground mt-1">{text.note}</div>
                   ) : null}
                 </div>
-                <div className="shrink-0">
+                <TeatimeSettingsField className="shrink-0">
                   <ShortcutKeys keys={shortcut.keys} isMac={isMac} />
-                </div>
+                </TeatimeSettingsField>
               </div>
             );
           })}
         </div>
-      </SettingsGroup>
-      <SettingsGroup title="项目快捷键">
+      </TeatimeSettingsGroup>
+      <TeatimeSettingsGroup title="项目快捷键">
         <div className="divide-y divide-border">
           {PROJECT_SHORTCUTS.map((shortcut) => (
             <div
@@ -130,13 +131,13 @@ export function KeyboardShortcuts() {
               <div className="min-w-0">
                 <div className="text-sm font-medium">{shortcut.label}</div>
               </div>
-              <div className="shrink-0">
+              <TeatimeSettingsField className="shrink-0">
                 <ShortcutKeys keys={shortcut.keys} isMac={isMac} />
-              </div>
+              </TeatimeSettingsField>
             </div>
           ))}
         </div>
-      </SettingsGroup>
+      </TeatimeSettingsGroup>
     </div>
   );
 }

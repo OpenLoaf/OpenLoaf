@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { ChevronRight } from "lucide-react";
 import * as React from "react";
-import { SettingsGroup } from "./SettingsGroup";
+import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
+import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
 import { setSettingValue } from "@/hooks/use-settings";
 import { WebSettingDefs } from "@/lib/setting-defs";
 import { useMutation } from "@tanstack/react-query";
@@ -220,7 +221,7 @@ export function AboutTeatime() {
 
   return (
     <div className="space-y-6">
-      <SettingsGroup title="版本">
+      <TeatimeSettingsGroup title="版本">
         <div className="flex items-center justify-between gap-4 py-3">
           <div className="min-w-0">
             <div className="flex items-baseline gap-2">
@@ -230,7 +231,7 @@ export function AboutTeatime() {
             <div className="text-xs text-muted-foreground">{updateLabel}</div>
           </div>
 
-          <div className="shrink-0">
+          <TeatimeSettingsField>
             <Button
               variant="outline"
               size="sm"
@@ -239,15 +240,15 @@ export function AboutTeatime() {
             >
               {updateActionLabel}
             </Button>
-          </div>
+          </TeatimeSettingsField>
         </div>
-      </SettingsGroup>
+      </TeatimeSettingsGroup>
 
-      <SettingsGroup title="状态">
+      <TeatimeSettingsGroup title="状态">
         <div className="divide-y divide-border">
           <div className="flex items-center justify-between gap-4 px-3 py-3">
             <div className="text-sm font-medium">客户端ID</div>
-            <div className="min-w-0 max-w-[70%]">
+            <TeatimeSettingsField className="max-w-[70%]">
               <button
                 type="button"
                 aria-label="点击复制客户端ID"
@@ -266,58 +267,56 @@ export function AboutTeatime() {
               >
                 {copiedKey === "clientId" ? "已复制" : clientId || "—"}
               </button>
-            </div>
+            </TeatimeSettingsField>
           </div>
           {isElectron ? (
             <div className="flex items-center justify-between gap-4 px-3 py-3">
               <div className="text-sm font-medium">WebContentsView数</div>
-              <div className="min-w-0 max-w-[70%]">
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    aria-label="点击刷新 WebContentsView 数"
-                    title="点击刷新"
-                    className={[
-                      "text-right",
-                      "bg-transparent p-0",
-                      "text-xs truncate",
-                      "text-muted-foreground hover:text-foreground hover:underline cursor-pointer",
-                    ].join(" ")}
-                    onClick={() => void fetchWebContentsViewCount()}
-                  >
-                    {webContentsViewCount == null ? "—" : String(webContentsViewCount)}
-                  </button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs"
-                    aria-label="清除 WebContentsView"
-                    disabled={webContentsViewCount == null || webContentsViewCount === 0}
-                    onClick={() => void clearWebContentsViews()}
-                  >
-                    清除
-                  </Button>
-                </div>
-              </div>
+              <TeatimeSettingsField className="max-w-[70%] gap-2">
+                <button
+                  type="button"
+                  aria-label="点击刷新 WebContentsView 数"
+                  title="点击刷新"
+                  className={[
+                    "text-right",
+                    "bg-transparent p-0",
+                    "text-xs truncate",
+                    "text-muted-foreground hover:text-foreground hover:underline cursor-pointer",
+                  ].join(" ")}
+                  onClick={() => void fetchWebContentsViewCount()}
+                >
+                  {webContentsViewCount == null ? "—" : String(webContentsViewCount)}
+                </button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  aria-label="清除 WebContentsView"
+                  disabled={webContentsViewCount == null || webContentsViewCount === 0}
+                  onClick={() => void clearWebContentsViews()}
+                >
+                  清除
+                </Button>
+              </TeatimeSettingsField>
             </div>
           ) : null}
         </div>
-      </SettingsGroup>
+      </TeatimeSettingsGroup>
 
-      <SettingsGroup title="操作">
+      <TeatimeSettingsGroup title="操作">
         <div className="divide-y divide-border">
           <div className="flex items-center justify-between gap-4 px-3 py-3">
             <div className="text-sm font-medium">重新进入初始化</div>
-            <div className="shrink-0">
+            <TeatimeSettingsField>
               <Button type="button" variant="outline" size="sm" onClick={() => void restartSetup()}>
                 进入
               </Button>
-            </div>
+            </TeatimeSettingsField>
           </div>
           <div className="flex items-center justify-between gap-4 px-3 py-3">
             <div className="text-sm font-medium">修复文件系统</div>
-            <div className="shrink-0">
+            <TeatimeSettingsField>
               <Button
                 type="button"
                 variant="outline"
@@ -327,12 +326,12 @@ export function AboutTeatime() {
               >
                 {isRepairingFs ? "修复中..." : "执行"}
               </Button>
-            </div>
+            </TeatimeSettingsField>
           </div>
         </div>
-      </SettingsGroup>
+      </TeatimeSettingsGroup>
 
-      <SettingsGroup title="信息">
+      <TeatimeSettingsGroup title="信息">
         <div className="divide-y divide-border">
           {ITEMS.map((item) => (
             <Button
@@ -346,7 +345,7 @@ export function AboutTeatime() {
             </Button>
           ))}
         </div>
-      </SettingsGroup>
+      </TeatimeSettingsGroup>
     </div>
   );
 }

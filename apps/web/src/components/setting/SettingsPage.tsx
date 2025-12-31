@@ -2,13 +2,11 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import type { ComponentType } from "react";
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import { useTabs } from "@/hooks/use-tabs";
 import {
   Bot,
@@ -31,6 +29,11 @@ import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
 import { CommandAllowlist } from "./menus/CommandAllowlist";
 import ProjectTest from "./menus/ProjectTest";
+import { TeatimeSettingsLayout } from "@/components/ui/teatime/TeatimeSettingsLayout";
+import {
+  TeatimeSettingsMenu,
+  type TeatimeSettingsMenuItem,
+} from "@/components/ui/teatime/TeatimeSettingsMenu";
 
 type SettingsMenuKey =
   | "basic"
@@ -157,11 +160,19 @@ export default function SettingsPage({
 
   const menuGroups = useMemo(() => {
     const byKey = new Map(MENU.map((item) => [item.key, item]));
-    return [
-      [byKey.get("basic"), byKey.get("workspace")].filter(Boolean),
-      [byKey.get("models"), byKey.get("keys"), byKey.get("whitelist"), byKey.get("agents")].filter(Boolean),
-      [byKey.get("shortcuts"), byKey.get("projectTest"), byKey.get("about")].filter(Boolean),
-    ] as Array<typeof MENU>;
+    const group1 = [byKey.get("basic"), byKey.get("workspace")].filter(Boolean);
+    const group2 = [
+      byKey.get("models"),
+      byKey.get("keys"),
+      byKey.get("whitelist"),
+      byKey.get("agents"),
+    ].filter(Boolean);
+    const group3 = [
+      byKey.get("shortcuts"),
+      byKey.get("projectTest"),
+      byKey.get("about"),
+    ].filter(Boolean);
+    return [group1, group2, group3] as TeatimeSettingsMenuItem[][];
   }, []);
 
   /** Persist the active menu into the dock base params. */
@@ -173,86 +184,46 @@ export default function SettingsPage({
   };
 
   return (
-    <div
+    <TeatimeSettingsLayout
       ref={containerRef}
-      className="h-full w-full min-h-0 min-w-0 overflow-hidden bg-background"
-    >
-      <div className="flex h-full min-h-0">
-        <div
-          className={cn(
-            "shrink-0 border-r border-border",
-            isCollapsed ? "w-[60px]" : "w-[192px]",
-          )}
-        >
-          <div className="h-full overflow-auto">
-            <div className="p-3 pl-1 space-y-2">
-              {menuGroups.map((group, groupIndex) => (
-                <div key={`group_${groupIndex}`} className="space-y-2">
-                  {group.map((item) => {
-                    const active = item.key === activeKey;
-                    const Icon = item.Icon;
-                    const tooltipEnabled = isCollapsed && isActiveTab;
-                    const button = (
-                      <Button
-                        variant={active ? "secondary" : "ghost"}
-                        size="sm"
-                        className={cn(
-                          "w-full h-9",
-                          isCollapsed ? "justify-center px-0" : "justify-start",
-                          active && "text-foreground",
-                        )}
-                        onClick={() => handleMenuChange(item.key)}
-                      >
-                        <Icon
-                          className={cn(
-                            "h-4 w-4 shrink-0",
-                            !isCollapsed && "mr-2",
-                          )}
-                        />
-                        {!isCollapsed && item.label}
-                      </Button>
-                    );
-
-                    if (!tooltipEnabled) return <div key={item.key}>{button}</div>;
-
-                    return (
-                      <Tooltip
-                        key={item.key}
-                        delayDuration={0}
-                        open={openTooltipKey === item.key}
-                        onOpenChange={(open) => {
-                          if (open) {
-                            setOpenTooltipKey(item.key);
-                            return;
-                          }
-                          setOpenTooltipKey((prev) =>
-                            prev === item.key ? null : prev,
-                          );
-                        }}
-                      >
-                        <TooltipTrigger asChild>
-                          {button}
-                        </TooltipTrigger>
-                        <TooltipContent side="right">{item.label}</TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
+      isCollapsed={isCollapsed}
+      contentWrapperClassName="min-w-[400px]"
+      contentInnerClassName="p-3 pr-1"
+      menu={
+        <TeatimeSettingsMenu
+          groups={menuGroups}
+          activeKey={activeKey}
+          isCollapsed={isCollapsed}
+          onChange={(key) => handleMenuChange(key as SettingsMenuKey)}
+          renderItemWrapper={(item, button) => {
+            const tooltipEnabled = isCollapsed && isActiveTab;
+            if (!tooltipEnabled) return button;
+            return (
+              <Tooltip
+                delayDuration={0}
+                open={openTooltipKey === item.key}
+                onOpenChange={(open) => {
+                  if (open) {
+                    setOpenTooltipKey(item.key as SettingsMenuKey);
+                    return;
+                  }
+                  setOpenTooltipKey((prev) =>
+                    prev === item.key ? null : prev,
+                  );
+                }}
+              >
+                <TooltipTrigger asChild>{button}</TooltipTrigger>
+                <TooltipContent side="right">{item.label}</TooltipContent>
+              </Tooltip>
+            );
+          }}
+        />
+      }
+      content={
+        <div key={activeKey}>
+          <ActiveComponent />
         </div>
-
-        <div className="min-w-[400px] flex-1">
-          <div className="h-full overflow-auto">
-            <div className="p-3 pr-1">
-              <div key={activeKey}>
-                <ActiveComponent />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      }
+    />
   );
 }

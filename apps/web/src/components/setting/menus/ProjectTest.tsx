@@ -2,7 +2,8 @@ import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { Globe } from "lucide-react";
 import { memo } from "react";
-import { SettingsGroup } from "./SettingsGroup";
+import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
+import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
 
 const ProjectTest = memo(function ProjectTest() {
   const activeTabId = useTabs((s) => s.activeTabId);
@@ -50,7 +51,7 @@ const ProjectTest = memo(function ProjectTest() {
 
   return (
     <div className="space-y-6">
-      <SettingsGroup title="实验功能">
+      <TeatimeSettingsGroup title="实验功能">
         <div className="divide-y divide-border">
           <div className="flex items-center justify-between gap-4 py-3">
             <div className="min-w-0">
@@ -59,7 +60,7 @@ const ProjectTest = memo(function ProjectTest() {
                 快速创建用于测试的 stack 卡片
               </div>
             </div>
-            <div className="flex flex-wrap justify-end gap-2">
+            <TeatimeSettingsField className="flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={handleCreateThreeStacks}>
                 Stack: Create 3 (demo)
               </Button>
@@ -89,7 +90,7 @@ const ProjectTest = memo(function ProjectTest() {
               >
                 Stack: Tool Result (demo)
               </Button>
-            </div>
+            </TeatimeSettingsField>
           </div>
 
           <div className="flex items-center justify-between gap-4 py-3">
@@ -99,7 +100,7 @@ const ProjectTest = memo(function ProjectTest() {
                 触发内置面板或浏览器窗口
               </div>
             </div>
-            <div className="flex flex-wrap justify-end gap-2">
+            <TeatimeSettingsField className="flex-wrap gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -152,12 +153,12 @@ const ProjectTest = memo(function ProjectTest() {
                   </Button>
                 </>
               ) : null}
-            </div>
+            </TeatimeSettingsField>
           </div>
         </div>
-      </SettingsGroup>
+      </TeatimeSettingsGroup>
 
-      <SettingsGroup title="Stack 状态">
+      <TeatimeSettingsGroup title="Stack 状态">
         <div className="divide-y divide-border">
           <div className="flex items-center justify-between gap-4 py-3">
             <div className="min-w-0">
@@ -166,7 +167,7 @@ const ProjectTest = memo(function ProjectTest() {
                 当前 tab 的 stack items 数量
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <TeatimeSettingsField className="gap-3">
               <span className="text-xs text-muted-foreground tabular-nums">
                 {activeStackCount}
               </span>
@@ -181,10 +182,10 @@ const ProjectTest = memo(function ProjectTest() {
               >
                 清空
               </Button>
-            </div>
+            </TeatimeSettingsField>
           </div>
         </div>
-      </SettingsGroup>
+      </TeatimeSettingsGroup>
     </div>
   );
 });

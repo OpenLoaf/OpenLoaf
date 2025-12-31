@@ -13,8 +13,9 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { SettingsGroup } from "./SettingsGroup";
+import { TeatimeAutoWidthInput } from "@/components/ui/teatime/TeatimeAutoWidthInput";
+import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
+import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
 import { ChevronDown } from "lucide-react";
 import { useSetting } from "@/hooks/use-settings";
 import { WebSettingDefs } from "@/lib/setting-defs";
@@ -171,7 +172,7 @@ export function BasicSettings() {
 
         return (
           <div className="space-y-6">
-            <SettingsGroup title="系统配置">
+            <TeatimeSettingsGroup title="系统配置">
               <div className="divide-y divide-border">
                 <div className="flex items-center justify-between gap-4 py-3">
                   <div className="min-w-0">
@@ -181,34 +182,36 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-[200px] justify-between font-normal"
-                      >
-                        <span className="truncate">
-                          {languageLabelById[uiLanguage]}
-                        </span>
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[220px]">
-                      <DropdownMenuRadioGroup
-                        value={uiLanguage}
-                        onValueChange={(next) => void setUiLanguage(next as LanguageId)}
-                      >
-                        {Object.entries(languageLabelById).map(
-                          ([id, label]) => (
-                            <DropdownMenuRadioItem key={id} value={id}>
-                              {label}
-                            </DropdownMenuRadioItem>
-                          ),
-                        )}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <TeatimeSettingsField>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                        className="min-w-[200px] w-auto justify-between font-normal"
+                        >
+                          <span className="truncate">
+                            {languageLabelById[uiLanguage]}
+                          </span>
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-[220px]">
+                        <DropdownMenuRadioGroup
+                          value={uiLanguage}
+                          onValueChange={(next) => void setUiLanguage(next as LanguageId)}
+                        >
+                          {Object.entries(languageLabelById).map(
+                            ([id, label]) => (
+                              <DropdownMenuRadioItem key={id} value={id}>
+                                {label}
+                              </DropdownMenuRadioItem>
+                            ),
+                          )}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TeatimeSettingsField>
                 </div>
 
                 <div className="flex items-center justify-between gap-4 py-3">
@@ -219,22 +222,23 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <Tabs
-                    value={themeTabsValue}
-                    onValueChange={(next) => {
-                      const nextTheme = next as "dark" | "light";
-                      lastManualThemeRef.current = nextTheme;
-                      toggleTheme(nextTheme);
-                      void setUiTheme(nextTheme);
-                      void setUiThemeManual(nextTheme);
-                    }}
-                    className="shrink-0"
-                  >
-                    <TabsList>
-                      <TabsTrigger value="dark">淡色</TabsTrigger>
-                      <TabsTrigger value="light">浅色</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                  <TeatimeSettingsField>
+                    <Tabs
+                      value={themeTabsValue}
+                      onValueChange={(next) => {
+                        const nextTheme = next as "dark" | "light";
+                        lastManualThemeRef.current = nextTheme;
+                        toggleTheme(nextTheme);
+                        void setUiTheme(nextTheme);
+                        void setUiThemeManual(nextTheme);
+                      }}
+                    >
+                      <TabsList>
+                        <TabsTrigger value="dark">淡色</TabsTrigger>
+                        <TabsTrigger value="light">浅色</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </TeatimeSettingsField>
                 </div>
 
                 <div className="flex items-center justify-between gap-4 py-3">
@@ -245,7 +249,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <div className="flex items-center">
+                  <TeatimeSettingsField>
                     <div className="origin-right scale-125">
                       <Switch
                         checked={isAutoTheme}
@@ -263,7 +267,7 @@ export function BasicSettings() {
                         aria-label="Auto theme"
                       />
                     </div>
-                  </div>
+                  </TeatimeSettingsField>
                 </div>
 
                 <div className="flex items-center justify-between gap-4 py-3">
@@ -274,23 +278,24 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <Tabs
-                    value={fontSize}
-                    onValueChange={(next) => void setFontSize(next as FontSizeKey)}
-                    className="shrink-0"
-                  >
-                    <TabsList>
-                      <TabsTrigger value="small">小</TabsTrigger>
-                      <TabsTrigger value="medium">中</TabsTrigger>
-                      <TabsTrigger value="large">大</TabsTrigger>
-                      <TabsTrigger value="xlarge">特大</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                  <TeatimeSettingsField>
+                    <Tabs
+                      value={fontSize}
+                      onValueChange={(next) => void setFontSize(next as FontSizeKey)}
+                    >
+                      <TabsList>
+                        <TabsTrigger value="small">小</TabsTrigger>
+                        <TabsTrigger value="medium">中</TabsTrigger>
+                        <TabsTrigger value="large">大</TabsTrigger>
+                        <TabsTrigger value="xlarge">特大</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </TeatimeSettingsField>
                 </div>
               </div>
-            </SettingsGroup>
+            </TeatimeSettingsGroup>
 
-            <SettingsGroup title="本地存储">
+            <TeatimeSettingsGroup title="本地存储">
               <div className="divide-y divide-border">
                 <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
                   <div className="min-w-0 sm:w-56">
@@ -300,11 +305,14 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <div className="flex flex-1 items-center gap-2">
-                    <Input
+                  <TeatimeSettingsField className="gap-2">
+                    <TeatimeAutoWidthInput
                       value={localStorageDir}
                       readOnly
                       placeholder="未选择"
+                      className="bg-background"
+                      minChars={16}
+                      maxChars={48}
                     />
                     <Button
                       variant="outline"
@@ -319,7 +327,7 @@ export function BasicSettings() {
                     >
                       选择
                     </Button>
-                  </div>
+                  </TeatimeSettingsField>
                 </div>
 
                 <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
@@ -330,11 +338,14 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <div className="flex flex-1 items-center gap-2">
-                    <Input
+                  <TeatimeSettingsField className="gap-2">
+                    <TeatimeAutoWidthInput
                       value={autoBackupDir}
                       readOnly
                       placeholder="未选择"
+                      className="bg-background"
+                      minChars={16}
+                      maxChars={48}
                     />
                     <Button
                       variant="outline"
@@ -349,12 +360,12 @@ export function BasicSettings() {
                     >
                       选择
                     </Button>
-                  </div>
+                  </TeatimeSettingsField>
                 </div>
               </div>
-            </SettingsGroup>
+            </TeatimeSettingsGroup>
 
-            <SettingsGroup
+            <TeatimeSettingsGroup
               title="全局自定义规则"
               action={
                 isCustomRulesDirty ? (
@@ -396,9 +407,9 @@ export function BasicSettings() {
                   </div>
                 </div>
               </div>
-            </SettingsGroup>
+            </TeatimeSettingsGroup>
 
-            <SettingsGroup title="工具">
+            <TeatimeSettingsGroup title="工具">
               <div className="flex items-center justify-between gap-4 py-3">
                 <div className="min-w-0">
                   <div className="text-sm font-medium">界面重新加载</div>
@@ -407,7 +418,7 @@ export function BasicSettings() {
                   </div>
                 </div>
 
-                <div className="flex items-center">
+                <TeatimeSettingsField>
                   <Button
                     variant="outline"
                     size="sm"
@@ -415,9 +426,9 @@ export function BasicSettings() {
                   >
                     刷新
                   </Button>
-                </div>
+                </TeatimeSettingsField>
               </div>
-            </SettingsGroup>
+            </TeatimeSettingsGroup>
           </div>
         );
       }}

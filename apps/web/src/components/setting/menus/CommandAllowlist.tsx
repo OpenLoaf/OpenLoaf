@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { shellCommandAllowlistEntries } from "@teatime-ai/api/types/tools/system";
 import { RiskType } from "@teatime-ai/api/types/toolResult";
-import { SettingsGroup } from "./SettingsGroup";
+import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { cn } from "@/lib/utils";
 
 type RiskLabel = {
@@ -34,11 +34,13 @@ export function CommandAllowlist() {
 
   return (
     <div className="space-y-3">
-      <SettingsGroup title="白名单">
-        <div className="text-xs text-muted-foreground">
-          以下为系统工具允许执行的指令白名单（MVP）。规则以服务端校验为准。
-        </div>
-      </SettingsGroup>
+      <TeatimeSettingsGroup
+        title="白名单"
+        subtitle="以下为系统工具允许执行的指令白名单（MVP）。规则以服务端校验为准。"
+        showBorder={false}
+      >
+        {null}
+      </TeatimeSettingsGroup>
 
       <div className="rounded-lg border border-border overflow-hidden">
         <div className="grid grid-cols-[1fr_140px_2fr] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
@@ -81,4 +83,3 @@ export function CommandAllowlist() {
     </div>
   );
 }
-

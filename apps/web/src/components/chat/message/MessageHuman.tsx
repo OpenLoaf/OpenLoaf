@@ -138,7 +138,7 @@ export default function MessageHuman({
 
   return (
     <div className={cn("flex justify-end min-w-0", className)}>
-      <div className="max-w-[80%] min-w-0 p-3 rounded-lg bg-primary text-primary-foreground">
+      <div className="max-w-[80%] min-w-0 p-3 rounded-lg bg-primary/90 text-primary-foreground">
         {imageParts.length > 0 && (
           <div className="flex flex-wrap justify-end gap-2">
             {imageParts.map((part, index) => {
@@ -157,7 +157,7 @@ export default function MessageHuman({
                     <img
                       src={preview.src}
                       alt="chat image"
-                      className="max-h-16 max-w-[90px] rounded-md border border-primary/30 object-contain"
+                      className="max-h-16 max-w-[90px] rounded-md border border-primary/40 object-contain"
                     />
                   ) : preview?.status === "error" ? (
                     <div className="text-xs text-primary-foreground/80">图片加载失败</div>

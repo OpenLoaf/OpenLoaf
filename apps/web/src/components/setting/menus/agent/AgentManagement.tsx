@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SettingsGroup } from "../SettingsGroup";
+import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { AgentList } from "./AgentList";
 import { AgentDetailsDialog, DeleteAgentDialog } from "./AgentDialogs";
 import { webFetchToolDef } from "@teatime-ai/api/types/tools/system";
@@ -136,7 +136,7 @@ export function AgentManagement() {
 
   return (
     <>
-      <SettingsGroup title="Agent 管理" showBorder={false}>
+      <TeatimeSettingsGroup title="Agent 管理" showBorder={false}>
         <AgentList
           agents={filteredAgents}
           selectedId={panel?.id ?? null}
@@ -146,7 +146,7 @@ export function AgentManagement() {
           onEdit={openEdit}
           onDelete={setDeleteId}
         />
-      </SettingsGroup>
+      </TeatimeSettingsGroup>
 
       <AgentDetailsDialog
         panel={panel}

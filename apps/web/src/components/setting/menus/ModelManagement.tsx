@@ -11,7 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, Plus } from "lucide-react";
-import { SettingsGroup } from "./SettingsGroup";
+import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
+import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
 import { useSetting, useSettingsValues } from "@/hooks/use-settings";
 import { WebSettingDefs } from "@/lib/setting-defs";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
@@ -20,7 +21,7 @@ import {
   type AddModelProviderPayload,
   type ModelProviderOption,
 } from "@/components/setting/menus/model/AddModelProviderDialog";
-import { Input } from "@/components/ui/input";
+import { TeatimeAutoWidthInput } from "@/components/ui/teatime/TeatimeAutoWidthInput";
 import { getModelLabel, getProviderOptions } from "@/lib/model-registry";
 
 type ModelEntry = {
@@ -130,7 +131,7 @@ export function ModelManagement() {
 
   return (
     <div className="space-y-3">
-      <SettingsGroup title="模型设置">
+      <TeatimeSettingsGroup title="模型设置">
         <div className="divide-y divide-border">
           <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
             <div className="min-w-0 sm:w-56">
@@ -140,13 +141,13 @@ export function ModelManagement() {
               </div>
             </div>
 
-            <div className="flex flex-1 items-center gap-2">
+            <TeatimeSettingsField>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full justify-between font-normal"
+                    className="min-w-[200px] w-auto justify-between font-normal"
                   >
                     <span className="truncate">
                       {modelResponseLanguageLabelById[modelResponseLanguage]}
@@ -171,7 +172,7 @@ export function ModelManagement() {
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
+            </TeatimeSettingsField>
           </div>
 
           <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
@@ -182,12 +183,13 @@ export function ModelManagement() {
               </div>
             </div>
 
-            <div className="flex flex-1 items-center gap-2">
-              <Input
+            <TeatimeSettingsField>
+              <TeatimeAutoWidthInput
                 value={workspaceProjectRule}
                 onChange={(event) => void setWorkspaceProjectRule(event.target.value)}
+                className="bg-background"
               />
-            </div>
+            </TeatimeSettingsField>
           </div>
 
           <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
@@ -198,7 +200,7 @@ export function ModelManagement() {
               </div>
             </div>
 
-            <div className="flex flex-1 items-center justify-end">
+            <TeatimeSettingsField>
               <Tabs
                 value={chatModelSource}
                 onValueChange={(next) =>
@@ -210,7 +212,7 @@ export function ModelManagement() {
                   <TabsTrigger value="cloud">云端</TabsTrigger>
                 </TabsList>
               </Tabs>
-            </div>
+            </TeatimeSettingsField>
           </div>
 
           <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
@@ -221,13 +223,13 @@ export function ModelManagement() {
               </div>
             </div>
 
-            <div className="flex flex-1 items-center gap-2">
+            <TeatimeSettingsField>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full justify-between font-normal"
+                    className="min-w-[220px] w-auto justify-between font-normal"
                   >
                     <span className="truncate">
                       {defaultChatModelId
@@ -274,7 +276,7 @@ export function ModelManagement() {
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
+            </TeatimeSettingsField>
           </div>
 
           <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
@@ -285,7 +287,7 @@ export function ModelManagement() {
               </div>
             </div>
 
-            <div className="flex flex-1 items-center justify-end">
+            <TeatimeSettingsField>
               <Tabs
                 value={chatModelQuality}
                 onValueChange={(next) =>
@@ -298,10 +300,10 @@ export function ModelManagement() {
                   <TabsTrigger value="low">低</TabsTrigger>
                 </TabsList>
               </Tabs>
-            </div>
+            </TeatimeSettingsField>
           </div>
         </div>
-      </SettingsGroup>
+      </TeatimeSettingsGroup>
 
       <div className="flex items-center justify-end">
         <Button

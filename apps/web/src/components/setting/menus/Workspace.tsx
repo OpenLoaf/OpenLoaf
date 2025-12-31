@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { queryClient, trpc } from "@/utils/trpc";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { SettingsGroup } from "./SettingsGroup";
+import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
+import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
 
 const TOKEN_K = 1000;
 const TOKEN_M = 1000 * 1000;
@@ -56,23 +57,23 @@ export function WorkspaceSettings() {
 
   return (
     <div className="space-y-6">
-      <SettingsGroup title="聊天数据">
+      <TeatimeSettingsGroup title="聊天数据">
         <div className="divide-y divide-border">
           <div className="flex items-center justify-between gap-4 px-3 py-3">
             <div className="text-sm font-medium">会话总数</div>
-            <div className="text-xs text-muted-foreground">
+            <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
               {typeof sessionCount === "number" ? sessionCount : "—"}
-            </div>
+            </TeatimeSettingsField>
           </div>
           <div className="flex items-center justify-between gap-4 px-3 py-3">
             <div className="text-sm font-medium">Token 总计</div>
-            <div className="text-xs text-muted-foreground">
+            <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
               {usage ? formatTokenCount(usage.totalTokens) : "—"}
-            </div>
+            </TeatimeSettingsField>
           </div>
           <div className="flex items-center justify-between gap-4 px-3 py-3">
             <div className="text-sm font-medium">Token 输入 / 输出</div>
-            <div className="text-xs text-muted-foreground">
+            <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
               {usage
                 ? `${formatTokenCount(usage.inputTokens)}（输入: ${formatTokenCount(
                     Math.max(0, usage.inputTokens - usage.cachedInputTokens),
@@ -80,12 +81,12 @@ export function WorkspaceSettings() {
                     usage.outputTokens,
                   )}`
                 : "—"}
-            </div>
+            </TeatimeSettingsField>
           </div>
         </div>
-      </SettingsGroup>
+      </TeatimeSettingsGroup>
 
-      <SettingsGroup title="清理">
+      <TeatimeSettingsGroup title="清理">
         <div className="flex items-center justify-between gap-4 py-3">
           <div className="min-w-0">
             <div className="text-sm font-medium">清除所有 AI 聊天内容</div>
@@ -94,17 +95,19 @@ export function WorkspaceSettings() {
             </div>
           </div>
 
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            disabled={clearAllChat.isPending}
-            onClick={() => void handleClearAllChat()}
-          >
-            {clearAllChat.isPending ? "清除中..." : "立即清除"}
-          </Button>
+          <TeatimeSettingsField>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={clearAllChat.isPending}
+              onClick={() => void handleClearAllChat()}
+            >
+              {clearAllChat.isPending ? "清除中..." : "立即清除"}
+            </Button>
+          </TeatimeSettingsField>
         </div>
-      </SettingsGroup>
+      </TeatimeSettingsGroup>
     </div>
   );
 }

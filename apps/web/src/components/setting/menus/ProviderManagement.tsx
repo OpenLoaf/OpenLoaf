@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { Check, ChevronDown, ChevronUp, Copy, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
-import { SettingsGroup } from "./SettingsGroup";
+import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { useSettingsValues } from "@/hooks/use-settings";
 import {
   getModelLabel,
@@ -873,18 +873,18 @@ export function ProviderManagement() {
 
   return (
     <div className="space-y-3">
-      <SettingsGroup
+      <TeatimeSettingsGroup
         title="AI 服务商"
+        subtitle="配置模型服务商的 API URL 与认证信息。"
+        showBorder={false}
         action={
           <Button variant="outline" onClick={() => openEditor()}>
             添加
           </Button>
         }
       >
-        <div className="text-xs text-muted-foreground">
-          配置模型服务商的 API URL 与认证信息。
-        </div>
-      </SettingsGroup>
+        {null}
+      </TeatimeSettingsGroup>
 
       <div className="rounded-lg border border-border overflow-hidden">
         <div className="hidden md:grid grid-cols-[1fr_4fr_2fr_2fr_auto] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
@@ -1051,18 +1051,18 @@ export function ProviderManagement() {
         </div>
       </div>
 
-      <SettingsGroup
+      <TeatimeSettingsGroup
         title="S3 存储服务商"
+        subtitle="配置对象存储服务商的 Endpoint 与访问凭证。"
+        showBorder={false}
         action={
           <Button variant="outline" onClick={() => openS3Editor()}>
             添加
           </Button>
         }
       >
-        <div className="text-xs text-muted-foreground">
-          配置对象存储服务商的 Endpoint 与访问凭证。
-        </div>
-      </SettingsGroup>
+        {null}
+      </TeatimeSettingsGroup>
 
       <div className="rounded-lg border border-border overflow-hidden">
         <div className="hidden md:grid grid-cols-[160px_140px_1.4fr_120px_160px_200px_auto] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">
