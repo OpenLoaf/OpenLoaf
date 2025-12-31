@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger as honoLogger } from "hono/logger";
 import { registerChatSseRoutes } from "@/modules/chat/ChatSseRoutes";
+import { registerChatAttachmentRoutes } from "@/modules/chat/chatAttachmentRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { workspaceRouterImplementation } from "@/routers/workspace";
 import { tabRouterImplementation } from "@/routers/tab";
@@ -62,6 +63,7 @@ export function createApp() {
   );
 
   registerChatSseRoutes(app);
+  registerChatAttachmentRoutes(app);
   registerFileSseRoutes(app);
 
   app.use(

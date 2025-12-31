@@ -53,24 +53,6 @@ interface ChatInputProps {
 const MAX_CHARS = 2000;
 const COMMAND_REGEX = /(^|\s)(\/[\w-]+)/g;
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-  return btoa(binary);
-}
-
-async function readFileAsDataUrl(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const base64 = arrayBufferToBase64(buffer);
-  const mime = file.type || "application/octet-stream";
-  return `data:${mime};base64,${base64}`;
-}
-
 export interface ChatInputBoxProps {
   value: string;
   onChange: (value: string) => void;
@@ -118,7 +100,7 @@ export function ChatInputBox({
   );
   const isOverLimit = plainTextValue.length > MAX_CHARS;
   const hasReadyAttachments = (attachments ?? []).some(
-    (item) => item.status === "ready"
+    (item) => item.status === "ready" && Boolean(item.remoteUrl)
   );
   const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
   const lastSerializedRef = useRef(value);
@@ -556,24 +538,21 @@ export default function ChatInput({
     if (isHistoryLoading) return;
     if (hasPendingAttachments) return;
     const textValue = value.trim();
-    const readyImages = (attachments ?? []).filter((item) => item.status === "ready");
+    const readyImages = (attachments ?? []).filter(
+      (item) => item.status === "ready" && Boolean(item.remoteUrl)
+    );
     if (!textValue && readyImages.length === 0) return;
     if (status === "error") clearError();
-    let imageParts: Array<{ type: "file"; url: string; mediaType: string }> = [];
-    try {
-      imageParts = await Promise.all(
-        readyImages.map(async (item) => {
-          const dataUrl = await readFileAsDataUrl(item.file);
-          return {
-            type: "file",
-            url: dataUrl,
-            mediaType: item.file.type || "application/octet-stream",
-          };
-        })
-      );
-    } catch {
-      return;
-    }
+    const imageParts = readyImages
+      .map((item) => {
+        if (!item.remoteUrl) return null;
+        return {
+          type: "teatime-file",
+          url: item.remoteUrl,
+          mediaType: item.mediaType || item.file.type || "application/octet-stream",
+        };
+      })
+      .filter(Boolean) as Array<{ type: "teatime-file"; url: string; mediaType: string }>;
     const parts = [
       ...imageParts,
       ...(textValue ? [{ type: "text", text: textValue }] : []),

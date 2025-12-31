@@ -18,6 +18,7 @@ export const HeaderTabs = () => {
   const setTabPinned = useTabs((s) => s.setTabPinned);
   const { workspace: activeWorkspace } = useWorkspace();
   const activeWorkspaceIdRef = useRef<string | null>(null);
+  const seededWorkspaceRef = useRef<Record<string, boolean>>({});
   const tabsScrollViewportRef = useRef<HTMLDivElement>(null);
   const tabsScrollContentRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
@@ -59,6 +60,12 @@ export const HeaderTabs = () => {
     const actualWorkspaceTabs = tabs.filter(
       (tab) => tab.workspaceId === activeWorkspace.id
     );
+    if (actualWorkspaceTabs.length > 0) {
+      seededWorkspaceRef.current[activeWorkspace.id] = true;
+      return;
+    }
+    if (seededWorkspaceRef.current[activeWorkspace.id]) return;
+    seededWorkspaceRef.current[activeWorkspace.id] = true;
     if (actualWorkspaceTabs.length === 0) {
       addTab({
         workspaceId: activeWorkspace.id,

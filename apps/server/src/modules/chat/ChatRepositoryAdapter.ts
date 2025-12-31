@@ -19,12 +19,6 @@ function normalizeRole(role: unknown): DbMessageRole {
 function isSkippablePart(part: unknown): boolean {
   if (!part || typeof part !== "object") return false;
   if ((part as any).type === "step-start") return true;
-  const isFile = (part as any).type === "file";
-  const urlValue = (part as any).url;
-  // 中文注释：跳过 data URL 文件，避免把大体积 base64 落库锁库。
-  if (isFile && typeof urlValue === "string" && urlValue.startsWith("data:")) {
-    return true;
-  }
   return false;
 }
 

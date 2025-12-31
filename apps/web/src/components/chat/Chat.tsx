@@ -14,6 +14,7 @@ import {
 } from "./chat-attachments";
 import type { ChatAttachment } from "./chat-attachments";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
+import { useTabs } from "@/hooks/use-tabs";
 
 type ChatProps = {
   className?: string;
@@ -40,12 +41,15 @@ export function Chat({
     () => ({ ...params }),
     [params]
   );
+  const tab = useTabs((s) => (tabId ? s.getTabById(tabId) : undefined));
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const dragCounterRef = React.useRef(0);
   const attachmentsRef = React.useRef<ChatAttachment[]>([]);
   const sessionIdRef = React.useRef<string>(sessionId ?? generateId());
   const effectiveSessionId = sessionId ?? sessionIdRef.current;
   const effectiveLoadHistory = loadHistory ?? Boolean(sessionId);
+  const projectId = typeof requestParams.projectId === "string" ? requestParams.projectId : "";
+  const workspaceId = tab?.workspaceId ?? "";
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
   const [isDragActive, setIsDragActive] = React.useState(false);
@@ -85,6 +89,72 @@ export function Chat({
     });
   }, []);
 
+  const updateAttachment = React.useCallback(
+    (attachmentId: string, updates: Partial<ChatAttachment>) => {
+      setAttachments((prev) =>
+        prev.map((item) => (item.id === attachmentId ? { ...item, ...updates } : item))
+      );
+    },
+    []
+  );
+
+  const uploadAttachment = React.useCallback(
+    async (attachment: ChatAttachment) => {
+      if (!workspaceId || !projectId) {
+        updateAttachment(attachment.id, {
+          status: "error",
+          errorMessage: "当前标签页未绑定项目，无法上传图片",
+        });
+        return;
+      }
+      // 中文注释：上传后端生成 teatime-file 地址，后续仅存该引用。
+      const formData = new FormData();
+      formData.append("file", attachment.file);
+      formData.append("workspaceId", workspaceId);
+      formData.append("projectId", projectId);
+      formData.append("sessionId", effectiveSessionId);
+
+      try {
+        const apiBase = process.env.NEXT_PUBLIC_SERVER_URL;
+        const endpoint = apiBase ? `${apiBase}/chat/attachments` : "/chat/attachments";
+        const res = await fetch(endpoint, {
+          method: "POST",
+          body: formData,
+        });
+        if (!res.ok) {
+          const errorText = await res.text();
+          updateAttachment(attachment.id, {
+            status: "error",
+            errorMessage: errorText || "图片上传失败，请重试",
+          });
+          return;
+        }
+        const data = (await res.json()) as {
+          url?: string;
+          mediaType?: string;
+        };
+        if (!data?.url) {
+          updateAttachment(attachment.id, {
+            status: "error",
+            errorMessage: "图片上传失败：服务端未返回地址",
+          });
+          return;
+        }
+        updateAttachment(attachment.id, {
+          status: "ready",
+          remoteUrl: data.url,
+          mediaType: data.mediaType ?? attachment.file.type,
+        });
+      } catch {
+        updateAttachment(attachment.id, {
+          status: "error",
+          errorMessage: "图片上传失败，请检查网络连接",
+        });
+      }
+    },
+    [effectiveSessionId, projectId, updateAttachment, workspaceId]
+  );
+
   const addAttachments = React.useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
@@ -120,36 +190,11 @@ export function Chat({
     if (next.length === 0) return;
 
     setAttachments((prev) => [...prev, ...next]);
-
-    /**
-     * 仅用于 UI “loading”，通过预加载图片来判断何时可展示缩略图。
-     */
     for (const item of next) {
       if (item.status !== "loading") continue;
-      const image = new Image();
-      image.onload = () => {
-        setAttachments((prev) =>
-          prev.map((it) =>
-            it.id === item.id ? { ...it, status: "ready" } : it
-          )
-        );
-      };
-      image.onerror = () => {
-        setAttachments((prev) =>
-          prev.map((it) =>
-            it.id === item.id
-              ? {
-                  ...it,
-                  status: "error",
-                  errorMessage: "图片解析失败，请尝试重新选择",
-                }
-              : it
-          )
-        );
-      };
-      image.src = item.objectUrl;
+      void uploadAttachment(item);
     }
-  }, []);
+  }, [uploadAttachment]);
 
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
     if (!event.dataTransfer?.types?.includes("Files")) return;

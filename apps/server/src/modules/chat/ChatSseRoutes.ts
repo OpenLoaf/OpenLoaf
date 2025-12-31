@@ -15,6 +15,7 @@ import { resolveChatModel } from "@/ai/resolveChatModel";
 import { streamStore } from "@/modules/chat/StreamStoreAdapter";
 import { chatRepository } from "@/modules/chat/ChatRepositoryAdapter";
 import { loadMessageChain } from "@/modules/chat/loadMessageChain";
+import { buildFilePartFromTeatimeUrl } from "@/modules/chat/teatimeFile";
 import {
   popAgentFrame,
   pushAgentFrame,
@@ -81,14 +82,34 @@ function readRequestValue<T = unknown>(body: ChatRequestBody, key: string): T | 
   return (params as Record<string, unknown>)[key] as T;
 }
 
-function extractInlineFileParts(parts: unknown): any[] {
-  if (!Array.isArray(parts)) return [];
-  return parts.filter((part) => {
-    if (!part || typeof part !== "object") return false;
-    if ((part as any).type !== "file") return false;
-    const url = (part as any).url;
-    return typeof url === "string" && url.startsWith("data:");
-  });
+async function replaceTeatimeFileParts(messages: UIMessage[]): Promise<UIMessage[]> {
+  const next: UIMessage[] = [];
+  for (const message of messages) {
+    const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
+    const replaced: any[] = [];
+    for (const part of parts) {
+      if (!part || typeof part !== "object") {
+        replaced.push(part);
+        continue;
+      }
+      if ((part as any).type !== "teatime-file") {
+        replaced.push(part);
+        continue;
+      }
+      const url = typeof (part as any).url === "string" ? (part as any).url : "";
+      if (!url) continue;
+      const mediaType =
+        typeof (part as any).mediaType === "string" ? (part as any).mediaType : undefined;
+      try {
+        const filePart = await buildFilePartFromTeatimeUrl({ url, mediaType });
+        if (filePart) replaced.push(filePart);
+      } catch {
+        // 中文注释：读取或压缩失败时直接跳过该图片，避免阻断对话。
+      }
+    }
+    next.push({ ...message, parts: replaced } as UIMessage);
+  }
+  return next;
 }
 
 /**
@@ -245,7 +266,6 @@ export function registerChatSseRoutes(app: Hono) {
 
     // 前端只发送最后一条消息；后端通过 messageId + parentMessageId 从 DB 补全完整链路再喂给 agent。
     const last = incomingMessages.at(-1) as any;
-    const inlineFileParts = extractInlineFileParts(last?.parts);
     if (!last || !last.role || !last.id) {
       await respondWithErrorStream({
         sessionId,
@@ -338,14 +358,7 @@ export function registerChatSseRoutes(app: Hono) {
       },
       "[chat] load message chain"
     );
-    if (inlineFileParts.length > 0 && messages.length > 0) {
-      const target = messages.at(-1);
-      if (target && target.role === "user") {
-        // 中文注释：仅供本次模型调用使用，不写入数据库。
-        const existingParts = Array.isArray((target as any).parts) ? (target as any).parts : [];
-        (target as any).parts = [...existingParts, ...inlineFileParts];
-      }
-    }
+    const modelMessages = await replaceTeatimeFileParts(messages as UIMessage[]);
     if (messages.length === 0) {
       await respondWithErrorStream({
         sessionId,
@@ -415,7 +428,7 @@ export function registerChatSseRoutes(app: Hono) {
     })();
 
     const stream = createUIMessageStream({
-      originalMessages: messages as any[],
+      originalMessages: modelMessages as any[],
       onError: (err) => {
         // 中文注释：只在最外层记录一次流错误，避免 SDK 内部 error chunk 触发重复日志。
         logger.error({ err }, "[chat] ui stream error");
@@ -454,10 +467,10 @@ export function registerChatSseRoutes(app: Hono) {
           );
           const uiStream = await createAgentUIStream({
             agent: masterAgent.agent,
-            uiMessages: messages as any[],
+            uiMessages: modelMessages as any[],
             // 启用 persistence mode（对齐 AI SDK 官方 needsApproval 流程的“两次调用”）。
             // 第二次调用会直接产出 tool-output-*（复用同一个 toolCallId）；必须基于 originalMessages 的 tool invocation 才能正确更新状态。
-            originalMessages: messages as any[],
+            originalMessages: modelMessages as any[],
             abortSignal: abortController.signal,
             generateMessageId: () => assistantMessageId,
             messageMetadata: ({ part }) => {

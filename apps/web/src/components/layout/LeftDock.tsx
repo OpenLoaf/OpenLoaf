@@ -148,10 +148,9 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const removeStackItem = useTabs((s) => s.removeStackItem);
   const setStackHidden = useTabs((s) => s.setStackHidden);
 
-  if (!tab) return null;
   // 只订阅面板渲染必需字段，避免切换 tab 时触发无关渲染。
-  const base = tab.base;
-  const stack = tab.stack ?? [];
+  const base = tab?.base;
+  const stack = tab?.stack ?? [];
   // stack 的选中态不再依赖“最后一个=顶部”，而是由 activeStackItemIdByTabId 决定。
   const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
   const hasOverlay = Boolean(base) && stack.length > 0 && !stackHidden;
@@ -175,6 +174,8 @@ export function LeftDock({ tabId }: { tabId: string }) {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [stack.length, stackHidden, tabId, activeStackId, removeStackItem]);
+
+  if (!tab) return null;
 
   return (
     <div

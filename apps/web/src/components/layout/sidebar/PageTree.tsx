@@ -303,7 +303,7 @@ export const PageTreeMenu = ({
         component: "plant-page",
         params: { projectId: project.projectId, rootUri: project.rootUri },
       },
-      chatParams: { projectId: project.projectId, rootUri: project.rootUri },
+      chatParams: { projectId: project.projectId },
     });
   };
 
@@ -332,10 +332,7 @@ export const PageTreeMenu = ({
         component,
         params: { uri: node.uri, name: node.name, ext: node.ext },
       },
-      chatParams: {
-        projectId: node.projectId,
-        rootUri: node.projectId ? projectRootById.get(node.projectId) : undefined,
-      },
+      chatParams: { projectId: node.projectId },
     });
   };
 

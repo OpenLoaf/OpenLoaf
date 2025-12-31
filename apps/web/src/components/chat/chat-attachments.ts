@@ -19,6 +19,8 @@ export type ChatAttachment = {
   id: string;
   file: File;
   objectUrl: string;
+  remoteUrl?: string;
+  mediaType?: string;
   status: ChatAttachmentStatus;
   errorMessage?: string;
 };
