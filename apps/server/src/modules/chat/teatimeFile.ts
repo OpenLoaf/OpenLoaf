@@ -168,10 +168,10 @@ export async function saveChatImageAttachment(input: {
   };
 }
 
-export async function buildFilePartFromTeatimeUrl(input: {
+async function loadTeatimeImageBuffer(input: {
   url: string;
   mediaType?: string;
-}): Promise<{ type: "file"; url: string; mediaType: string } | null> {
+}): Promise<{ buffer: Buffer; mediaType: string } | null> {
   const filePath = await resolveTeatimeFilePath(input.url);
   if (!filePath) return null;
   const buffer = await fs.readFile(filePath);
@@ -180,10 +180,29 @@ export async function buildFilePartFromTeatimeUrl(input: {
   if (!format || !isSupportedImageMime(format.mediaType)) return null;
 
   const compressed = await compressImageBuffer(buffer, format);
-  const base64 = compressed.buffer.toString("base64");
   return {
-    type: "file",
-    url: `data:${compressed.mediaType};base64,${base64}`,
+    buffer: compressed.buffer,
     mediaType: compressed.mediaType,
   };
+}
+
+export async function buildFilePartFromTeatimeUrl(input: {
+  url: string;
+  mediaType?: string;
+}): Promise<{ type: "file"; url: string; mediaType: string } | null> {
+  const payload = await loadTeatimeImageBuffer(input);
+  if (!payload) return null;
+  const base64 = payload.buffer.toString("base64");
+  return {
+    type: "file",
+    url: `data:${payload.mediaType};base64,${base64}`,
+    mediaType: payload.mediaType,
+  };
+}
+
+export async function getTeatimeImagePreview(input: {
+  url: string;
+  mediaType?: string;
+}): Promise<{ buffer: Buffer; mediaType: string } | null> {
+  return loadTeatimeImageBuffer(input);
 }

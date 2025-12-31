@@ -92,12 +92,15 @@ async function replaceTeatimeFileParts(messages: UIMessage[]): Promise<UIMessage
         replaced.push(part);
         continue;
       }
-      if ((part as any).type !== "teatime-file") {
+      if ((part as any).type !== "file") {
         replaced.push(part);
         continue;
       }
       const url = typeof (part as any).url === "string" ? (part as any).url : "";
-      if (!url) continue;
+      if (!url || !url.startsWith("teatime-file://")) {
+        replaced.push(part);
+        continue;
+      }
       const mediaType =
         typeof (part as any).mediaType === "string" ? (part as any).mediaType : undefined;
       try {

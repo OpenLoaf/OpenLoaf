@@ -110,6 +110,16 @@ function calculateUsageCost(
   modelDefinition: ModelDefinition | undefined,
 ): UsageCost | undefined {
   if (!usage || !modelDefinition) return;
+  const priceTiers = modelDefinition.priceTiers ?? [];
+  const hasPricing =
+    priceTiers.length > 0 &&
+    priceTiers.some((tier) =>
+      [tier.input, tier.inputCache, tier.output].some(
+        (value) => typeof value === "number" && value > 0,
+      ),
+    );
+  // 中文注释：没有可用单价或单价全为 0 时，不显示费用。
+  if (!hasPricing) return;
 
   const { inputTokens, outputTokens, cachedInputTokens, noCacheTokens } = usage;
   const reasoningTokens = usage.reasoningTokens;

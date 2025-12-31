@@ -24,6 +24,9 @@ import ProjectFileSystem, {
   ProjectFileSystemHeader,
   type ProjectBreadcrumbInfo,
 } from "./filesystem/ProjectFileSystem";
+import ProjectSettingsPage, {
+  ProjectSettingsHeader,
+} from "./settings/ProjectSettingsPage";
 
 interface ProjectPageProps {
   tabId?: string;
@@ -112,6 +115,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   const shouldRenderFiles = activeTab === "files" || mountedTabs.has("files");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
   const shouldRenderSkills = activeTab === "skills" || mountedTabs.has("skills");
+  const shouldRenderSettings = activeTab === "settings" || mountedTabs.has("settings");
 
   const updateProject = useMutation(
     trpc.project.update.mutationOptions({
@@ -311,6 +315,16 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
           >
             <ProjectSkillsHeader isLoading={isLoading} pageTitle={pageTitle} />
           </div>
+          <div
+            className={`${headerBaseClass} ${
+              activeTab === "settings"
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }`}
+            aria-hidden={activeTab !== "settings"}
+          >
+            <ProjectSettingsHeader isLoading={isLoading} pageTitle={pageTitle} />
+          </div>
         </div>
         <div className="shrink-0">
           <ProjectTabs
@@ -419,6 +433,21 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
               >
                 {shouldRenderSkills ? (
                   <ProjectSkills isLoading={isLoading} />
+                ) : null}
+              </div>
+              <div
+                id="project-panel-settings"
+                role="tabpanel"
+                aria-labelledby="project-tab-settings"
+                className={`${panelBaseClass} ${
+                  activeTab === "settings"
+                    ? "opacity-100 pointer-events-auto"
+                    : "opacity-0 pointer-events-none"
+                }`}
+                aria-hidden={activeTab !== "settings"}
+              >
+                {shouldRenderSettings ? (
+                  <ProjectSettingsPage projectId={projectId} rootUri={rootUri} />
                 ) : null}
               </div>
             </div>

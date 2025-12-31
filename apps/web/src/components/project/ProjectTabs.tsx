@@ -19,21 +19,21 @@ export const PROJECT_TABS = [
     icon: <Folder className="size-4 shrink-0" />,
     label: "文件",
   },
-  {
-    value: "canvas",
-    icon: <LayoutDashboard className="size-4 shrink-0" />,
-    label: "画布",
-  },
+  // {
+  //   value: "canvas",
+  //   icon: <LayoutDashboard className="size-4 shrink-0" />,
+  //   label: "画布",
+  // },
   {
     value: "tasks",
     icon: <CheckSquare className="size-4 shrink-0" />,
     label: "任务",
   },
-  {
-    value: "skills",
-    icon: <Sparkles className="size-4 shrink-0" />,
-    label: "技能",
-  },
+  // {
+  //   value: "skills",
+  //   icon: <Sparkles className="size-4 shrink-0" />,
+  //   label: "技能",
+  // },
   {
     value: "settings",
     icon: <Settings className="size-4 shrink-0" />,

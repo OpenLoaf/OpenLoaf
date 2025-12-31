@@ -37,7 +37,12 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { trpc } from "@/utils/trpc";
-import { type FileSystemEntry, getEntryExt } from "./file-system-utils";
+import {
+  type FileSystemEntry,
+  buildTeatimeFileUrl,
+  getEntryExt,
+  getRelativePathFromUri,
+} from "./file-system-utils";
 import {
   FILE_DRAG_NAME_MIME,
   FILE_DRAG_URI_MIME,
@@ -92,6 +97,8 @@ type FileSystemGridProps = {
   entries: FileSystemEntry[];
   isLoading: boolean;
   parentUri?: string | null;
+  dragProjectId?: string;
+  dragRootUri?: string;
   onNavigate?: (nextUri: string) => void;
   /** Open image entries in an external viewer. */
   onOpenImage?: (entry: FileSystemEntry) => void;
@@ -232,6 +239,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   entries,
   isLoading,
   parentUri,
+  dragProjectId,
+  dragRootUri,
   onNavigate,
   onOpenImage,
   onOpenCode,
@@ -590,7 +599,14 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 onEntryContextMenu?.(entry, event);
               }}
               onDragStart={(event) => {
-                event.dataTransfer.setData(FILE_DRAG_URI_MIME, entry.uri);
+                const dragUri = (() => {
+                  if (!dragProjectId || !dragRootUri) return entry.uri;
+                  const relativePath = getRelativePathFromUri(dragRootUri, entry.uri);
+                  if (!relativePath) return entry.uri;
+                  // 中文注释：对外拖拽统一使用 teatime-file 协议。
+                  return buildTeatimeFileUrl(dragProjectId, relativePath);
+                })();
+                event.dataTransfer.setData(FILE_DRAG_URI_MIME, dragUri);
                 event.dataTransfer.setData(FILE_DRAG_NAME_MIME, entry.name);
                 event.dataTransfer.effectAllowed = "move";
                 onEntryDragStart?.(entry, event);

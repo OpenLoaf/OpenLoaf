@@ -54,6 +54,27 @@ export function buildUriFromRoot(rootUri: string, relativePath: string) {
   }
 }
 
+/** Build teatime-file URL from projectId and relative path. */
+export function buildTeatimeFileUrl(projectId: string, relativePath: string) {
+  const parts = relativePath.split("/").filter(Boolean);
+  const encoded = parts.map((part) => encodeURIComponent(part));
+  return `teatime-file://${projectId}/${encoded.join("/")}`;
+}
+
+/** Parse teatime-file URL into projectId and relative path. */
+export function parseTeatimeFileUrl(uri: string): { projectId: string; relativePath: string } | null {
+  try {
+    const parsed = new URL(uri);
+    if (parsed.protocol !== "teatime-file:") return null;
+    const projectId = parsed.hostname.trim();
+    const relativePath = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+    if (!projectId || !relativePath) return null;
+    return { projectId, relativePath };
+  } catch {
+    return null;
+  }
+}
+
 /** Get a normalized extension string for a file entry. */
 export function getEntryExt(entry: FileSystemEntry) {
   if (entry.ext) return entry.ext.toLowerCase();

@@ -180,7 +180,7 @@ export default function SettingsPage({
       <div className="flex h-full min-h-0">
         <div
           className={cn(
-            "shrink-0 border-r border-border bg-muted/20",
+            "shrink-0 border-r border-border",
             isCollapsed ? "w-[60px]" : "w-[192px]",
           )}
         >

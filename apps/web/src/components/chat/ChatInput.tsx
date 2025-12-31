@@ -40,7 +40,7 @@ import {
 import { buildUriFromRoot } from "@/components/project/filesystem/file-system-utils";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface ChatInputProps {
   className?: string;
@@ -52,6 +52,15 @@ interface ChatInputProps {
 
 const MAX_CHARS = 2000;
 const COMMAND_REGEX = /(^|\s)(\/[\w-]+)/g;
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
 
 export interface ChatInputBoxProps {
   value: string;
@@ -105,6 +114,7 @@ export function ChatInputBox({
   const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
   const lastSerializedRef = useRef(value);
   const { data: projects = [] } = useQuery(trpc.project.list.queryOptions());
+  const queryClient = useQueryClient();
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabs((s) => s.pushStackItem);
   const plugins = useMemo(
@@ -326,11 +336,41 @@ export function ChatInputBox({
         if (!event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
         event.preventDefault();
       }}
-      onDrop={(event) => {
+      onDrop={async (event) => {
         const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
         if (!fileRef) return;
         event.preventDefault();
-        insertFileMention(fileRef);
+        const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+        const baseValue = match?.[1] ?? fileRef;
+        if (!baseValue.includes("/")) return;
+        const parts = baseValue.split("/");
+        const projectId = parts[0] ?? "";
+        const relativePath = parts.slice(1).join("/");
+        if (!projectId || !relativePath) return;
+        const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
+        const isImageExt = /^(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(ext);
+        if (!isImageExt || !onAddAttachments) {
+          insertFileMention(fileRef);
+          return;
+        }
+        const rootUri = resolveRootUri(projectId);
+        if (!rootUri) return;
+        const uri = buildUriFromRoot(rootUri, relativePath);
+        if (!uri) return;
+        try {
+          // 中文注释：将项目内图片转为 File，交给 ChatImageAttachments 走上传。
+          const payload = await queryClient.fetchQuery(
+            trpc.fs.readBinary.queryOptions({ uri })
+          );
+          if (!payload?.contentBase64) return;
+          const bytes = base64ToUint8Array(payload.contentBase64);
+          const mime = payload.mime || "application/octet-stream";
+          const fileName = relativePath.split("/").pop() || "image";
+          const file = new File([bytes], fileName, { type: mime });
+          onAddAttachments([file]);
+        } catch {
+          return;
+        }
       }}
       onDropCapture={(event) => {
         const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
@@ -547,12 +587,12 @@ export default function ChatInput({
       .map((item) => {
         if (!item.remoteUrl) return null;
         return {
-          type: "teatime-file",
+          type: "file",
           url: item.remoteUrl,
           mediaType: item.mediaType || item.file.type || "application/octet-stream",
         };
       })
-      .filter(Boolean) as Array<{ type: "teatime-file"; url: string; mediaType: string }>;
+      .filter(Boolean) as Array<{ type: "file"; url: string; mediaType: string }>;
     const parts = [
       ...imageParts,
       ...(textValue ? [{ type: "text", text: textValue }] : []),

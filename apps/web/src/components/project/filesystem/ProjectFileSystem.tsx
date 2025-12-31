@@ -49,6 +49,7 @@ import { useFileSystemHistory, type HistoryAction } from "./file-system-history"
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import {
   IGNORE_NAMES,
+  buildUriFromRoot,
   buildChildUri,
   FILE_DRAG_NAME_MIME,
   FILE_DRAG_REF_MIME,
@@ -57,6 +58,7 @@ import {
   formatTimestamp,
   getDisplayPathFromUri,
   getRelativePathFromUri,
+  parseTeatimeFileUrl,
   getUniqueName,
   type FileSystemEntry,
 } from "./file-system-utils";
@@ -989,6 +991,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   entries={displayEntries}
                   isLoading={listQuery.isLoading}
                   parentUri={parentUri}
+                  dragProjectId={projectId}
+                  dragRootUri={rootUri}
                   onNavigate={handleNavigate}
                   onOpenImage={handleOpenImage}
                   onOpenCode={handleOpenCode}
@@ -1052,8 +1056,17 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   onEntryDrop={async (target, event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    const sourceUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
-                    if (!sourceUri) return;
+                    const rawSourceUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
+                    if (!rawSourceUri) return;
+                    let sourceUri = rawSourceUri;
+                    if (rawSourceUri.startsWith("teatime-file://")) {
+                      const parsed = parseTeatimeFileUrl(rawSourceUri);
+                      if (!parsed || !projectId || parsed.projectId !== projectId || !rootUri) {
+                        toast.error("无法移动跨项目文件");
+                        return;
+                      }
+                      sourceUri = buildUriFromRoot(rootUri, parsed.relativePath);
+                    }
                     let source = fileEntries.find((item) => item.uri === sourceUri);
                     if (!source) {
                       const stat = await queryClient.fetchQuery(

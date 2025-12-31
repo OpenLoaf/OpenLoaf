@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import * as React from "react";
+import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import { CHAT_ATTACHMENT_ACCEPT_ATTR, formatFileSize } from "../chat-attachments";
 import type { ChatAttachment } from "../chat-attachments";
 
@@ -197,13 +198,13 @@ export const ChatImageAttachments = React.forwardRef<
         }}
       >
         <DialogContent
-          className="w-fit max-w-[calc(100vw-1rem)] p-0 overflow-hidden sm:max-w-[calc(100vw-2rem)]"
+          className="w-[60vw] max-w-[60vw] p-0 overflow-hidden"
           overlayClassName="bg-background/35 backdrop-blur-2xl"
         >
           <DialogTitle className="sr-only">图片预览</DialogTitle>
           {previewAttachment && (
             <div>
-              <div className="flex items-center justify-center gap-4 px-4 py-4">
+              <div className="flex items-center gap-4 px-4 py-4">
                 <Button
                   type="button"
                   variant="ghost"
@@ -217,7 +218,7 @@ export const ChatImageAttachments = React.forwardRef<
                 </Button>
 
                 <div
-                  className="flex items-center justify-center "
+                  className="flex h-[70vh] flex-1 items-center justify-center"
                   onTouchStart={(event) => {
                     const touch = event.touches?.[0];
                     if (!touch) return;
@@ -241,12 +242,28 @@ export const ChatImageAttachments = React.forwardRef<
                     else goToPrevPreview();
                   }}
                 >
-                  <img
-                    src={previewAttachment.objectUrl}
-                    alt={previewAttachment.file.name}
-                    className="block max-h-[70vh] w-auto max-w-[calc(100vw-10rem)] object-contain"
-                    draggable={false}
-                  />
+                  <TransformWrapper
+                    minScale={1}
+                    maxScale={3}
+                    centerOnInit
+                    limitToBounds
+                    wheel={{ smoothStep: 0.01 }}
+                    pinch={{ step: 8 }}
+                  >
+                    <TransformComponent
+                      wrapperClass="h-full w-full"
+                      contentClass="flex h-full w-full items-center justify-center"
+                      wrapperStyle={{ width: "100%", height: "100%" }}
+                      contentStyle={{ width: "100%", height: "100%" }}
+                    >
+                      <img
+                        src={previewAttachment.objectUrl}
+                        alt={previewAttachment.file.name}
+                        className="block max-h-full max-w-full select-none object-contain"
+                        draggable={false}
+                      />
+                    </TransformComponent>
+                  </TransformWrapper>
                 </div>
 
                 <Button
