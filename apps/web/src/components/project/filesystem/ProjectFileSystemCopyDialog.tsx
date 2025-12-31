@@ -32,6 +32,14 @@ type ProjectTreeNode = {
   children?: ProjectTreeNode[];
 };
 
+type PageTreeProject = {
+  projectId: string;
+  rootUri: string;
+  title: string;
+  icon?: string;
+  children?: PageTreeProject[];
+};
+
 type ProjectFileSystemCopyDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,6 +60,22 @@ function flattenProjects(nodes?: ProjectTreeNode[]) {
   };
   walk(nodes);
   return results;
+}
+
+/** Normalize project tree for PageTreePicker. */
+function normalizePageTreeProjects(nodes?: ProjectTreeNode[]): PageTreeProject[] {
+  const walk = (items?: ProjectTreeNode[]): PageTreeProject[] =>
+    (items ?? [])
+      // 中文注释：过滤掉缺失 projectId 的节点，避免 UI 产生不完整的项目入口。
+      .filter((item) => Boolean(item.projectId))
+      .map((item) => ({
+        projectId: item.projectId ?? item.rootUri,
+        rootUri: item.rootUri,
+        title: item.title,
+        icon: item.icon,
+        children: item.children?.length ? walk(item.children) : undefined,
+      }));
+  return walk(nodes);
 }
 
 /** Copy-to dialog with project tree and file grid. */
@@ -77,6 +101,10 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
 
   const projectOptions = useMemo(
     () => flattenProjects(projectListQuery.data as ProjectTreeNode[] | undefined),
+    [projectListQuery.data]
+  );
+  const projectTree = useMemo(
+    () => normalizePageTreeProjects(projectListQuery.data as ProjectTreeNode[] | undefined),
     [projectListQuery.data]
   );
   const entries = ((listQuery.data?.entries ?? []) as FileSystemEntry[]).filter(
@@ -119,7 +147,7 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
         trpc.fs.list.queryOptions({ uri: activeUri })
       );
       const targetNames = new Set(
-        (targetList.entries ?? []).map((item: FileSystemEntry) => item.name)
+        (targetList.entries ?? []).map((item) => item.name)
       );
       const targetName = getUniqueName(entry.name, targetNames);
       const targetUri = buildChildUri(activeUri, targetName);
@@ -155,7 +183,7 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
               <div className="text-xs text-muted-foreground">暂无可用项目</div>
             ) : (
               <PageTreePicker
-                projects={projectListQuery.data as ProjectTreeNode[] | undefined}
+                projects={projectTree}
                 activeUri={activeUri}
                 onSelect={handleSelectProject}
               />

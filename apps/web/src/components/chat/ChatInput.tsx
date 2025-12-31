@@ -27,7 +27,7 @@ import { setValue } from "platejs";
 import { MentionKit } from "@/components/editor/plugins/mention-kit";
 import { ClipboardKit } from "@/components/editor/plugins/clipboard-kit";
 import { ParagraphPlugin, Plate, usePlateEditor } from "platejs/react";
-import { Editor as SlateEditor, Text } from "slate";
+import { Editor as SlateEditor, Text, type BaseEditor } from "slate";
 import type { RenderLeafProps } from "platejs";
 import { Editor, EditorContainer } from "@/components/ui/editor";
 import { ParagraphElement } from "@/components/ui/paragraph-node";
@@ -52,6 +52,24 @@ interface ChatInputProps {
 
 const MAX_CHARS = 2000;
 const COMMAND_REGEX = /(^|\s)(\/[\w-]+)/g;
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+async function readFileAsDataUrl(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const base64 = arrayBufferToBase64(buffer);
+  const mime = file.type || "application/octet-stream";
+  return `data:${mime};base64,${base64}`;
+}
 
 export interface ChatInputBoxProps {
   value: string;
@@ -99,6 +117,9 @@ export function ChatInputBox({
     getPlainTextValue(initialValue)
   );
   const isOverLimit = plainTextValue.length > MAX_CHARS;
+  const hasReadyAttachments = (attachments ?? []).some(
+    (item) => item.status === "ready"
+  );
   const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
   const lastSerializedRef = useRef(value);
   const { data: projects = [] } = useQuery(trpc.project.list.queryOptions());
@@ -123,7 +144,7 @@ export function ChatInputBox({
     if (!onSubmit) return;
     if (submitDisabled) return;
     if (isOverLimit) return;
-    if (!plainTextValue.trim()) return;
+    if (!plainTextValue.trim() && !hasReadyAttachments) return;
     onSubmit(value);
   };
 
@@ -144,7 +165,7 @@ export function ChatInputBox({
   // 流式生成时按钮变为“停止”，不应被 submitDisabled 禁用
   const isSendDisabled = isLoading
     ? false
-    : submitDisabled || isOverLimit || !plainTextValue.trim();
+    : submitDisabled || isOverLimit || (!plainTextValue.trim() && !hasReadyAttachments);
 
   const decorate = useCallback(
     (entry: any) => {
@@ -279,7 +300,7 @@ export function ChatInputBox({
   const insertFileMention = useCallback((fileRef: string) => {
     // 中文注释：将文件引用插入为 mention，并补一个空格。
     if (!editor.selection) {
-      const endPoint = SlateEditor.end(editor, []);
+      const endPoint = SlateEditor.end(editor as unknown as BaseEditor, []);
       editor.tf.select(endPoint);
     }
     editor.tf.focus();
@@ -524,32 +545,41 @@ export default function ChatInput({
 
   const isLoading = status === "submitted" || status === "streaming";
   const isStreaming = status === "streaming";
-  const hasPendingUploads = (attachments ?? []).some(
-    (item) => item.uploadStatus === "uploading"
+  const hasPendingAttachments = (attachments ?? []).some(
+    (item) => item.status === "loading"
   );
 
-  const handleSubmit = (value: string) => {
+  const handleSubmit = async (value: string) => {
     const canSubmit = status === "ready" || status === "error";
     if (!canSubmit) return;
     // 切换 session 的历史加载期间禁止发送，避免 parentMessageId 与当前会话链不一致
     if (isHistoryLoading) return;
-    if (hasPendingUploads) return;
-    if (!value.trim()) return;
+    if (hasPendingAttachments) return;
+    const textValue = value.trim();
+    const readyImages = (attachments ?? []).filter((item) => item.status === "ready");
+    if (!textValue && readyImages.length === 0) return;
     if (status === "error") clearError();
+    let imageParts: Array<{ type: "file"; url: string; mediaType: string }> = [];
+    try {
+      imageParts = await Promise.all(
+        readyImages.map(async (item) => {
+          const dataUrl = await readFileAsDataUrl(item.file);
+          return {
+            type: "file",
+            url: dataUrl,
+            mediaType: item.file.type || "application/octet-stream",
+          };
+        })
+      );
+    } catch {
+      return;
+    }
+    const parts = [
+      ...imageParts,
+      ...(textValue ? [{ type: "text", text: textValue }] : []),
+    ];
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
-    const readyAttachments = (attachments ?? []).filter(
-      (item) => item.uploadStatus === "ready"
-    );
-    const imagePaths = readyAttachments
-      .map((item) => (item.uploadStatus === "ready" ? item.imagePath : undefined))
-      .filter((path): path is string => Boolean(path));
-    const resourceUri =
-      readyAttachments.length > 0 ? readyAttachments[0]?.file?.name : undefined;
-    // 中文注释：图片路径通过 params 透传，由服务端读取缓存再喂给模型。
-    sendMessage({
-      parts: [{ type: "text", text: value }],
-      ...(imagePaths.length > 0 ? { params: { imagePaths, resourceUri } } : {}),
-    } as any);
+    sendMessage({ parts } as any);
     setInput("");
     onClearAttachments?.();
   };
@@ -566,8 +596,7 @@ export default function ChatInput({
       submitDisabled={
         isHistoryLoading ||
         (status !== "ready" && status !== "error") ||
-        hasPendingUploads ||
-        false
+        hasPendingAttachments
       }
       onSubmit={handleSubmit}
       onStop={stopGenerating}

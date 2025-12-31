@@ -72,9 +72,6 @@ model SubAgentDefinition {
   // 最大步数（用 stepCountIs(maxSteps) 转成 stopWhen）
   maxSteps Int? /// @zod.optional()
 
-  // 绑定的资源 URI 数组（可选；用于路由/启用范围）
-  resourceUris Json? /// @zod.optional()
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

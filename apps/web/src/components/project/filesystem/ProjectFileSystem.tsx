@@ -75,6 +75,7 @@ type ProjectFileSystemProps = {
 
 type ProjectBreadcrumbInfo = {
   title: string;
+  icon?: string;
 };
 
 type ProjectBreadcrumbItem = {
@@ -778,7 +779,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       trpc.fs.list.queryOptions({ uri: target.uri })
     );
     const targetNames = new Set(
-      (targetList.entries ?? []).map((entry: FileSystemEntry) => entry.name)
+      (targetList.entries ?? []).map((entry) => entry.name)
     );
     const targetName = getUniqueName(source.name, targetNames);
     const targetUri = buildChildUri(target.uri, targetName);

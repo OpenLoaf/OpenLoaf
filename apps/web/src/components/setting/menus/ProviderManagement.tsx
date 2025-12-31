@@ -197,11 +197,14 @@ function formatAuthConfigDisplay(authConfig: Record<string, unknown> | undefined
 const MODEL_TAG_LABELS: Record<ModelTag, string> = {
   text_to_image: "文生图",
   image_to_image: "图生图",
+  image_to_text: "图片理解",
   image_edit: "图片编辑",
   text_generation: "文本生成",
   video_generation: "视频生成",
+  web_search: "网络搜索",
   asr: "语音识别",
   tts: "语音输出",
+  code: "代码生成",
   tool_call: "工具调用",
 };
 

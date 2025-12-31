@@ -123,7 +123,7 @@ type FileSystemEntryCardProps = {
   /** Thumbnail data url for image entries. */
   thumbnailSrc?: string;
   onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
-  onDoubleClick?: () => void;
+  onDoubleClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   isSelected?: boolean;
   onDragStart?: (event: DragEvent<HTMLButtonElement>) => void;
@@ -463,6 +463,10 @@ const FileSystemGrid = memo(function FileSystemGrid({
             onDoubleClick={(event) => {
               if (event.button !== 0) return;
               if (event.nativeEvent.which !== 1) return;
+              const pointerType =
+                "pointerType" in event.nativeEvent
+                  ? (event.nativeEvent as PointerEvent).pointerType
+                  : undefined;
               console.debug("[FileSystemGrid] parent dblclick", {
                 at: new Date().toISOString(),
                 button: event.button,
@@ -470,7 +474,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 type: event.type,
                 which: event.nativeEvent?.which,
                 buttons: event.nativeEvent?.buttons,
-                pointerType: event.nativeEvent?.pointerType,
+                pointerType,
               });
               console.debug("[FileSystemGrid] parent navigate", {
                 at: new Date().toISOString(),
@@ -524,6 +528,10 @@ const FileSystemGrid = memo(function FileSystemGrid({
               isSelected={isSelected}
               onClick={(event) => onEntryClick?.(entry, event)}
               onDoubleClick={(event) => {
+                const pointerType =
+                  "pointerType" in event.nativeEvent
+                    ? (event.nativeEvent as PointerEvent).pointerType
+                    : undefined;
                 console.debug("[FileSystemGrid] entry dblclick", {
                   at: new Date().toISOString(),
                   name: entry.name,
@@ -533,7 +541,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
                   type: event.type,
                   which: event.nativeEvent?.which,
                   buttons: event.nativeEvent?.buttons,
-                  pointerType: event.nativeEvent?.pointerType,
+                  pointerType,
                 });
                 if (event.button !== 0) return;
                 if (event.nativeEvent.which !== 1) return;
@@ -566,6 +574,10 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 onNavigate?.(entry.uri);
               }}
               onContextMenu={(event) => {
+                const pointerType =
+                  "pointerType" in event.nativeEvent
+                    ? (event.nativeEvent as PointerEvent).pointerType
+                    : undefined;
                 console.debug("[FileSystemGrid] entry contextmenu", {
                   at: new Date().toISOString(),
                   name: entry.name,
@@ -573,7 +585,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
                   button: event.button,
                   detail: event.detail,
                   type: event.type,
-                  pointerType: event.nativeEvent?.pointerType,
+                  pointerType,
                 });
                 onEntryContextMenu?.(entry, event);
               }}

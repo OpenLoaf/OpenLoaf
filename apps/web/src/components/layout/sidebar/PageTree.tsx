@@ -153,7 +153,6 @@ function FileTreeNode({
           <ContextMenuTrigger asChild>
             <Button
               tooltip={node.name}
-              size="default"
               isActive={isActive}
               className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
               onClick={() => onPrimaryClick(node)}
@@ -181,7 +180,6 @@ function FileTreeNode({
           <ContextMenuTrigger asChild>
             <Button
               tooltip={node.name}
-              size="default"
               isActive={isActive}
               className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
               onClick={() => onPrimaryClick(node)}
@@ -305,7 +303,7 @@ export const PageTreeMenu = ({
         component: "plant-page",
         params: { projectId: project.projectId, rootUri: project.rootUri },
       },
-      chatParams: { resourceUri: project.rootUri, projectId: project.projectId, rootUri: project.rootUri },
+      chatParams: { projectId: project.projectId, rootUri: project.rootUri },
     });
   };
 
@@ -335,7 +333,6 @@ export const PageTreeMenu = ({
         params: { uri: node.uri, name: node.name, ext: node.ext },
       },
       chatParams: {
-        resourceUri: node.uri,
         projectId: node.projectId,
         rootUri: node.projectId ? projectRootById.get(node.projectId) : undefined,
       },
