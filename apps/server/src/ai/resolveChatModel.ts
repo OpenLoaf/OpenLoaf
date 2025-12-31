@@ -1,4 +1,5 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
+import { getEnvString } from "@teatime-ai/config";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
 import type { ChatModelSource, ModelDefinition } from "@teatime-ai/api/common";
 import { getModelDefinition, getProviderDefinition } from "@/modules/model/modelRegistry";
@@ -140,8 +141,50 @@ async function resolveLocalChatModel(input: {
 async function resolveCloudChatModel(_input: {
   chatModelId?: string | null;
 }): Promise<ResolvedChatModel> {
-  // 中文注释：云端模型列表尚未接入，先返回明确错误。
-  throw new Error("云端模型暂未开放");
+  const apiUrl = getEnvString(process.env, "TEATIME_SAAS_API_URL", { required: true })!;
+  const apiKey = getEnvString(process.env, "TEATIME_SAAS_API_KEY", { required: true })!;
+  const providerId = "xai";
+  const modelId = "grok-4-1-fast-reasoning";
+
+  // 中文注释：云端模型先固定为 grok-4-1-fast-reasoning，后续再接入动态列表。
+  const modelDefinition = getModelDefinition(providerId, modelId);
+  if (!modelDefinition) {
+    throw new Error("云端模型未在注册表中配置");
+  }
+
+  const providerDefinition = getProviderDefinition(providerId);
+  const adapterId = providerDefinition?.adapterId ?? providerId;
+  const adapter = PROVIDER_ADAPTERS[adapterId];
+  if (!adapter) {
+    throw new Error("云端模型服务商不受支持");
+  }
+
+  const providerEntry: ProviderSettingEntry = {
+    id: "cloud",
+    key: "cloud",
+    providerId,
+    apiUrl,
+    authConfig: { apiKey },
+    models: { [modelId]: modelDefinition },
+    updatedAt: new Date(),
+  };
+
+  const model = adapter.buildAiSdkModel({
+    provider: providerEntry,
+    modelId,
+    modelDefinition,
+    providerDefinition,
+  });
+  if (!model) {
+    throw new Error("云端模型不支持 AI SDK 调用");
+  }
+
+  return {
+    model,
+    modelInfo: { provider: providerId, modelId },
+    chatModelId: `cloud:${modelId}`,
+    modelDefinition,
+  };
 }
 
 /** Resolve chat model by selected source. */
