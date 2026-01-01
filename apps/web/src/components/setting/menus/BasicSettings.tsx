@@ -174,7 +174,7 @@ export function BasicSettings() {
           <div className="space-y-6">
             <TeatimeSettingsGroup title="系统配置">
               <div className="divide-y divide-border">
-                <div className="flex items-center justify-between gap-4 py-3">
+                <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium">语言</div>
                     <div className="text-xs text-muted-foreground">
@@ -214,7 +214,7 @@ export function BasicSettings() {
                   </TeatimeSettingsField>
                 </div>
 
-                <div className="flex items-center justify-between gap-4 py-3">
+                <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium">主题</div>
                     <div className="text-xs text-muted-foreground">
@@ -241,7 +241,7 @@ export function BasicSettings() {
                   </TeatimeSettingsField>
                 </div>
 
-                <div className="flex items-center justify-between gap-4 py-3">
+                <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium">主题系统自动切换</div>
                     <div className="text-xs text-muted-foreground">
@@ -270,7 +270,7 @@ export function BasicSettings() {
                   </TeatimeSettingsField>
                 </div>
 
-                <div className="flex items-center justify-between gap-4 py-3">
+                <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium">字体大小</div>
                     <div className="text-xs text-muted-foreground">
@@ -297,7 +297,7 @@ export function BasicSettings() {
 
             <TeatimeSettingsGroup title="本地存储">
               <div className="divide-y divide-border">
-                <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+                <div className="flex flex-wrap items-start gap-2 py-3">
                   <div className="min-w-0 sm:w-56">
                     <div className="text-sm font-medium">本地文件存储路径</div>
                     <div className="text-xs text-muted-foreground">
@@ -330,7 +330,7 @@ export function BasicSettings() {
                   </TeatimeSettingsField>
                 </div>
 
-                <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+                <div className="flex flex-wrap items-start gap-2 py-3">
                   <div className="min-w-0 sm:w-56">
                     <div className="text-sm font-medium">自动备份文件夹路径</div>
                     <div className="text-xs text-muted-foreground">
@@ -410,7 +410,7 @@ export function BasicSettings() {
             </TeatimeSettingsGroup>
 
             <TeatimeSettingsGroup title="工具">
-              <div className="flex items-center justify-between gap-4 py-3">
+              <div className="flex flex-wrap items-start gap-3 py-3">
                 <div className="min-w-0">
                   <div className="text-sm font-medium">界面重新加载</div>
                   <div className="text-xs text-muted-foreground">

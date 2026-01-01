@@ -83,7 +83,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   return (
     <div className="space-y-4">
       <TeatimeSettingsGroup title="项目设置" cardProps={{ divided: true, padding: "x" }}>
-        <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">项目 ID</div>
             <div className="text-xs text-muted-foreground">仅用于识别与复制</div>
@@ -111,7 +111,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           </TeatimeSettingsField>
         </div>
 
-        <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">项目图标</div>
             <div className="text-xs text-muted-foreground">支持 Emoji</div>
@@ -151,7 +151,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           </TeatimeSettingsField>
         </div>
 
-        <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">项目名称</div>
             <div className="text-xs text-muted-foreground">显示在项目标题处</div>
@@ -175,7 +175,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
       </TeatimeSettingsGroup>
 
       <TeatimeSettingsGroup title="存储管理" cardProps={{ divided: true, padding: "x" }}>
-        <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">存储路径</div>
             <div className="text-xs text-muted-foreground">项目根目录</div>
@@ -193,7 +193,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           </TeatimeSettingsField>
         </div>
 
-        <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">缓存路径</div>
             <div className="text-xs text-muted-foreground">临时文件缓存目录</div>
@@ -211,7 +211,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           </TeatimeSettingsField>
         </div>
 
-        <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">启用 S3 服务</div>
             <div className="text-xs text-muted-foreground">暂未接入</div>

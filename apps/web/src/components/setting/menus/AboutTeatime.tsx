@@ -222,7 +222,7 @@ export function AboutTeatime() {
   return (
     <div className="space-y-6">
       <TeatimeSettingsGroup title="版本">
-        <div className="flex items-center justify-between gap-4 py-3">
+        <div className="flex flex-wrap items-start gap-3 py-3">
           <div className="min-w-0">
             <div className="flex items-baseline gap-2">
               <div className="text-sm font-medium">Teatime</div>
@@ -246,7 +246,7 @@ export function AboutTeatime() {
 
       <TeatimeSettingsGroup title="状态">
         <div className="divide-y divide-border">
-          <div className="flex items-center justify-between gap-4 px-3 py-3">
+          <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">客户端ID</div>
             <TeatimeSettingsField className="max-w-[70%]">
               <button
@@ -270,7 +270,7 @@ export function AboutTeatime() {
             </TeatimeSettingsField>
           </div>
           {isElectron ? (
-            <div className="flex items-center justify-between gap-4 px-3 py-3">
+            <div className="flex flex-wrap items-start gap-3 px-3 py-3">
               <div className="text-sm font-medium">WebContentsView数</div>
               <TeatimeSettingsField className="max-w-[70%] gap-2">
                 <button
@@ -306,7 +306,7 @@ export function AboutTeatime() {
 
       <TeatimeSettingsGroup title="操作">
         <div className="divide-y divide-border">
-          <div className="flex items-center justify-between gap-4 px-3 py-3">
+          <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">重新进入初始化</div>
             <TeatimeSettingsField>
               <Button type="button" variant="outline" size="sm" onClick={() => void restartSetup()}>
@@ -314,7 +314,7 @@ export function AboutTeatime() {
               </Button>
             </TeatimeSettingsField>
           </div>
-          <div className="flex items-center justify-between gap-4 px-3 py-3">
+          <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">修复文件系统</div>
             <TeatimeSettingsField>
               <Button

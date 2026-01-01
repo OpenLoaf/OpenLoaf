@@ -133,7 +133,7 @@ export function ModelManagement() {
     <div className="space-y-3">
       <TeatimeSettingsGroup title="模型设置">
         <div className="divide-y divide-border">
-          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 sm:w-56">
               <div className="text-sm font-medium">模型返回语言</div>
               <div className="text-xs text-muted-foreground">
@@ -175,7 +175,7 @@ export function ModelManagement() {
             </TeatimeSettingsField>
           </div>
 
-          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 sm:w-56">
               <div className="text-sm font-medium">工作空间项目划分规范</div>
               <div className="text-xs text-muted-foreground">
@@ -192,7 +192,7 @@ export function ModelManagement() {
             </TeatimeSettingsField>
           </div>
 
-          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 sm:w-56">
               <div className="text-sm font-medium">模型来源</div>
               <div className="text-xs text-muted-foreground">
@@ -215,7 +215,7 @@ export function ModelManagement() {
             </TeatimeSettingsField>
           </div>
 
-          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 sm:w-56">
               <div className="text-sm font-medium">默认聊天模型</div>
               <div className="text-xs text-muted-foreground">
@@ -279,7 +279,7 @@ export function ModelManagement() {
             </TeatimeSettingsField>
           </div>
 
-          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 sm:w-56">
               <div className="text-sm font-medium">聊天模型质量</div>
               <div className="text-xs text-muted-foreground">

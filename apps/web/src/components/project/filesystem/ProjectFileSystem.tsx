@@ -117,11 +117,7 @@ function buildFileBreadcrumbs(
   const rootParts = rootUrl.pathname.split("/").filter(Boolean);
   const currentParts = currentUrl.pathname.split("/").filter(Boolean);
   const relativeParts = currentParts.slice(rootParts.length);
-  const rootInfo = projectLookup?.get(rootUri);
-  const rootName =
-    rootInfo?.title ??
-    decodePathSegment(rootParts[rootParts.length - 1] ?? rootUri);
-  const items: ProjectBreadcrumbItem[] = [{ label: rootName, uri: rootUri }];
+  const items: ProjectBreadcrumbItem[] = [{ label: "/", uri: rootUri }];
   let accumParts = [...rootParts];
   // 从 root 向下拼接，构建可点击的面包屑路径。
   for (const part of relativeParts) {
@@ -171,6 +167,7 @@ const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
 
   return (
     <div className="flex items-center gap-2 min-w-0 animate-in fade-in duration-200">
+      <span className="text-base font-semibold">文件</span>
       <span className="text-xs text-muted-foreground truncate">{pageTitle}</span>
     </div>
   );
@@ -891,10 +888,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   return (
     <div className="h-full flex flex-col gap-4">
-      <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 ">
+      <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
         {/* 顶部功能栏：路径导航 + 极简图标操作（仅 UI）。 */}
-        <div className="flex items-center gap-3 border-b border-border/60 bg-secondary/30 px-4 py-2">
-          <div className="flex min-w-0 flex-1 items-center">
+        <div className="flex flex-wrap items-center gap-3 rounded-b-2xl bg-muted/40 px-4 py-2.5">
+          <div className="flex min-w-0 min-w-[12rem] flex-1 items-center">
             <ProjectFileSystemBreadcrumbs
               isLoading={listQuery.isLoading}
               rootUri={rootUri}
@@ -903,7 +900,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               onNavigate={handleNavigate}
             />
           </div>
-        <div className="flex items-center gap-1">
+        <div className="flex w-full items-center justify-between gap-1 sm:w-auto sm:justify-start">
             {canUndo || canRedo ? (
               <>
                 <Button
@@ -1050,7 +1047,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <div
-              className="flex-1 min-h-0 h-full overflow-auto p-4"
+              className="flex-1 min-h-0 h-full overflow-auto bg-background p-4"
               onDragEnter={handleDragEnter}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}

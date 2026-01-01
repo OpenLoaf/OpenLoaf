@@ -105,7 +105,7 @@ export function KeyboardShortcuts() {
             return (
               <div
                 key={shortcut.id}
-                className="flex items-start justify-between gap-6 px-3 py-3"
+                className="flex flex-wrap items-start gap-3 px-3 py-3"
               >
                 <div className="min-w-0">
                   <div className="text-sm font-medium">{text.label}</div>
@@ -126,7 +126,7 @@ export function KeyboardShortcuts() {
           {PROJECT_SHORTCUTS.map((shortcut) => (
             <div
               key={shortcut.id}
-              className="flex items-start justify-between gap-6 px-3 py-3"
+              className="flex flex-wrap items-start gap-3 px-3 py-3"
             >
               <div className="min-w-0">
                 <div className="text-sm font-medium">{shortcut.label}</div>

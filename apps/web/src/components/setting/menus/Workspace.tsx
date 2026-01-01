@@ -59,19 +59,19 @@ export function WorkspaceSettings() {
     <div className="space-y-6">
       <TeatimeSettingsGroup title="聊天数据">
         <div className="divide-y divide-border">
-          <div className="flex items-center justify-between gap-4 px-3 py-3">
+          <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">会话总数</div>
             <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
               {typeof sessionCount === "number" ? sessionCount : "—"}
             </TeatimeSettingsField>
           </div>
-          <div className="flex items-center justify-between gap-4 px-3 py-3">
+          <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">Token 总计</div>
             <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
               {usage ? formatTokenCount(usage.totalTokens) : "—"}
             </TeatimeSettingsField>
           </div>
-          <div className="flex items-center justify-between gap-4 px-3 py-3">
+          <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">Token 输入 / 输出</div>
             <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
               {usage
@@ -87,7 +87,7 @@ export function WorkspaceSettings() {
       </TeatimeSettingsGroup>
 
       <TeatimeSettingsGroup title="清理">
-        <div className="flex items-center justify-between gap-4 py-3">
+        <div className="flex flex-wrap items-start gap-3 py-3">
           <div className="min-w-0">
             <div className="text-sm font-medium">清除所有 AI 聊天内容</div>
             <div className="text-xs text-muted-foreground">

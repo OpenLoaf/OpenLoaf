@@ -12,10 +12,7 @@ export type TeatimeSettingsFieldProps = {
 export function TeatimeSettingsField({ children, className }: TeatimeSettingsFieldProps) {
   return (
     <div
-      className={cn(
-        "flex w-full items-center sm:w-auto sm:min-w-[200px] sm:ml-auto sm:justify-end",
-        className,
-      )}
+      className={cn("flex flex-none items-center justify-end ml-auto", className)}
     >
       {children}
     </div>
