@@ -34,7 +34,7 @@ const BoardFileViewer = memo(function BoardFileViewer({ uri, ext }: BoardFileVie
   }
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full bg-background">
       <BoardCanvas
         className="h-full w-full"
         workspaceId={workspace?.id}

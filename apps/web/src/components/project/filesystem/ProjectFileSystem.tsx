@@ -617,6 +617,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           uri: entry.uri,
           name: entry.name,
           ext: entry.ext,
+          __opaque: true,
           ...(options?.pendingRename ? { __pendingRename: true } : {}),
         },
       });

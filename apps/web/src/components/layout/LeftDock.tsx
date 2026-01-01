@@ -116,6 +116,7 @@ function PanelFrame({
   const [refreshKey, setRefreshKey] = React.useState(0);
   const canClose = item.denyClose !== true;
   const customHeader = Boolean((item.params as any)?.__customHeader);
+  const opaquePanel = Boolean((item.params as any)?.__opaque);
 
   return (
     <div
@@ -129,7 +130,8 @@ function PanelFrame({
     >
       <div
         className={cn(
-          "flex w-full flex-col bg-background/95 backdrop-blur-sm pt-2 rounded-xl",
+          "flex w-full flex-col pt-2 rounded-xl",
+          opaquePanel ? "bg-background" : "bg-background/95 backdrop-blur-sm",
           fillHeight && "h-full"
         )}
       >
