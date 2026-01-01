@@ -144,7 +144,7 @@ export default function ProjectSettingsPage({
     <TeatimeSettingsLayout
       ref={containerRef}
       isCollapsed={isCollapsed}
-      sectionClassName="rounded-2xl border border-border/60 bg-background/70"
+      sectionClassName="rounded-2xl  bg-background/70"
       menu={
         <TeatimeSettingsMenu
           groups={[MENU]}

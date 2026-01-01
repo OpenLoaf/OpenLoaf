@@ -2,9 +2,7 @@ import {
   CheckSquare,
   Folder,
   Info,
-  LayoutDashboard,
   Settings,
-  Sparkles,
 } from "lucide-react";
 import { useMemo, useRef } from "react";
 

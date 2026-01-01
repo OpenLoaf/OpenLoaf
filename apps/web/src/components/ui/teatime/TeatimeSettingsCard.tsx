@@ -23,7 +23,7 @@ export function TeatimeSettingsCard({
     padding === "xy" ? "p-3" : padding === "x" ? "px-3" : "";
 
   return (
-    <div className={cn("rounded-lg border border-border/60 bg-secondary/70", className)}>
+    <div className={cn("rounded-lg border border-border/60 bg-secondary/30", className)}>
       <div
         className={cn(
           paddingClass,

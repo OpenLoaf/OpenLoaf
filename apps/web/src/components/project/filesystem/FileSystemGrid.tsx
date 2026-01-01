@@ -47,6 +47,7 @@ import {
   FILE_DRAG_NAME_MIME,
   FILE_DRAG_URI_MIME,
 } from "./file-system-utils";
+import { getDisplayFileName, isBoardFileExt } from "@/lib/file-name";
 
 const IMAGE_EXTS = new Set([
   "png",
@@ -104,7 +105,11 @@ type FileSystemGridProps = {
   onOpenImage?: (entry: FileSystemEntry) => void;
   /** Open code entries in an external viewer. */
   onOpenCode?: (entry: FileSystemEntry) => void;
+  /** Open board entries in the board viewer. */
+  onOpenBoard?: (entry: FileSystemEntry) => void;
   showEmptyActions?: boolean;
+  /** Create a new board from empty state. */
+  onCreateBoard?: () => void;
   renderEntry?: (entry: FileSystemEntry, node: ReactNode) => ReactNode;
   onEntryClick?: (
     entry: FileSystemEntry,
@@ -207,6 +212,8 @@ const FileSystemEntryCard = memo(
     ref
   ) {
     const visual = getEntryVisual(entry, thumbnailSrc);
+    const displayName =
+      entry.kind === "file" ? getDisplayFileName(entry.name, entry.ext) : entry.name;
     return (
       <button
         ref={ref}
@@ -226,7 +233,7 @@ const FileSystemEntryCard = memo(
       >
         {visual}
         <span className="line-clamp-2 min-h-[2rem] w-full break-words leading-4">
-          {entry.name}
+          {displayName}
         </span>
       </button>
     );
@@ -244,7 +251,9 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onNavigate,
   onOpenImage,
   onOpenCode,
+  onOpenBoard,
   showEmptyActions = true,
+  onCreateBoard,
   renderEntry,
   onEntryClick,
   onEntryContextMenu,
@@ -417,7 +426,9 @@ const FileSystemGrid = memo(function FileSystemGrid({
               <EmptyContent>
                 <div className="flex gap-2">
                   <Button>创建文档</Button>
-                  <Button variant="outline">创建画布</Button>
+                  <Button variant="outline" onClick={onCreateBoard}>
+                    创建画布
+                  </Button>
                 </div>
               </EmptyContent>
             ) : null}
@@ -503,6 +514,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
           const isSelected = selectedUris?.has(entry.uri) ?? false;
           const thumbnailSrc = thumbnailByUri.get(entry.uri);
           const visual = getEntryVisual(entry, thumbnailSrc);
+          const displayName =
+            entry.kind === "file" ? getDisplayFileName(entry.name, entry.ext) : entry.name;
           const card = isRenaming ? (
             <div
               data-entry-card="true"
@@ -514,7 +527,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
             >
               {visual}
               <Input
-                value={renamingValue ?? entry.name}
+                value={renamingValue ?? displayName}
                 onChange={(event) => onRenamingChange?.(event.target.value)}
                 className="h-7 text-center text-xs"
                 autoFocus
@@ -571,6 +584,15 @@ const FileSystemGrid = memo(function FileSystemGrid({
                     uri: entry.uri,
                   });
                   onOpenCode?.(entry);
+                  return;
+                }
+                if (entry.kind === "file" && isBoardFileExt(entryExt)) {
+                  console.debug("[FileSystemGrid] entry board open", {
+                    at: new Date().toISOString(),
+                    name: entry.name,
+                    uri: entry.uri,
+                  });
+                  onOpenBoard?.(entry);
                   return;
                 }
                 if (entry.kind !== "folder") return;

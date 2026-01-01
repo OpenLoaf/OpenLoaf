@@ -33,6 +33,7 @@ import {
 import { ConnectorDropPanel, type ConnectorDropItem } from "./ConnectorDropPanel";
 import {
   BOARD_SCHEMA_VERSION,
+  createEmptyBoardSnapshot,
   getWorkspaceIdFromCookie,
   type BoardSnapshotState,
 } from "./boardStorage";
@@ -78,6 +79,17 @@ const isFileDragEvent = (event: DragEvent<HTMLElement>) => {
 /** Check whether a file is a supported image. */
 const isImageFile = (file: File) => file.type.startsWith("image/");
 
+/** Parse a board snapshot from file content. */
+function parseBoardSnapshot(content?: string | null): BoardSnapshotState | null {
+  if (!content) return null;
+  try {
+    return JSON.parse(content) as BoardSnapshotState;
+  } catch {
+    // 中文注释：解析失败时回退为空画布，保证后续编辑可以覆盖保存。
+    return createEmptyBoardSnapshot();
+  }
+}
+
 export type BoardCanvasProps = {
   /** External engine instance, optional for integration scenarios. */
   engine?: CanvasEngine;
@@ -89,8 +101,8 @@ export type BoardCanvasProps = {
   workspaceId?: string;
   /** Optional board identifier used for storage scoping. */
   boardId?: string;
-  /** Project root URI used for remote persistence. */
-  rootUri?: string;
+  /** Board file URI used for file persistence. */
+  boardFileUri?: string;
   /** Optional container class name. */
   className?: string;
 };
@@ -102,7 +114,7 @@ export function BoardCanvas({
   initialElements,
   workspaceId,
   boardId,
-  rootUri,
+  boardFileUri,
   className,
 }: BoardCanvasProps) {
   /** Root container element for canvas interactions. */
@@ -132,10 +144,10 @@ export function BoardCanvas({
   const pendingSaveRef = useRef(false);
   /** Timeout id for debounced viewport save. */
   const viewportSaveTimeoutRef = useRef<number | null>(null);
-  /** Timeout id for debounced remote snapshot save. */
+  /** Timeout id for debounced file snapshot save. */
   const remoteSaveTimeoutRef = useRef<number | null>(null);
-  /** Latest payload queued for remote save. */
-  const pendingRemoteSnapshotRef = useRef<BoardSnapshotState | null>(null);
+  /** Latest payload queued for file save. */
+  const pendingFileSnapshotRef = useRef<BoardSnapshotState | null>(null);
   /** Whether the minimap should stay visible. */
   const [showMiniMap, setShowMiniMap] = useState(false);
   /** Whether the minimap hover zone is active. */
@@ -163,20 +175,20 @@ export function BoardCanvas({
     if (!resolvedWorkspaceId || !boardId) return null;
     return { workspaceId: resolvedWorkspaceId, boardId };
   }, [boardId, resolvedWorkspaceId]);
-  /** Remote scope used for file persistence. */
-  const remoteScope = useMemo(() => {
-    if (!rootUri) return null;
-    return { rootUri };
-  }, [rootUri]);
+  /** File scope used for persistence. */
+  const fileScope = useMemo(() => {
+    if (!boardFileUri) return null;
+    return { uri: boardFileUri };
+  }, [boardFileUri]);
   /** Log guard for missing scope. */
   const missingScopeLoggedRef = useRef(false);
-  /** Remote snapshot query for the board. */
-  const boardQuery = useQuery(
-    trpc.project.getBoard.queryOptions(remoteScope ?? skipToken)
+  /** File snapshot query for the board. */
+  const boardFileQuery = useQuery(
+    trpc.fs.readFile.queryOptions(fileScope ?? skipToken)
   );
-  /** Remote snapshot save mutation. */
+  /** File snapshot save mutation. */
   const saveBoardSnapshot = useMutation(
-    trpc.project.saveBoard.mutationOptions()
+    trpc.fs.writeFile.mutationOptions()
   );
   useEffect(() => {
     if (!containerRef.current) return;
@@ -262,9 +274,9 @@ export function BoardCanvas({
       setLocalSnapshot(localSnapshotPayload);
       void writeBoardSnapshotCache(localSnapshotPayload);
 
-      if (remoteScope) {
-        // 中文注释：合并短时间内的远端保存，避免频繁写文件。
-        pendingRemoteSnapshotRef.current = {
+      if (fileScope) {
+        // 中文注释：合并短时间内的文件保存，避免频繁写文件。
+        pendingFileSnapshotRef.current = {
           schemaVersion: BOARD_SCHEMA_VERSION,
           nodes: payload.nodes,
           connectors: payload.connectors,
@@ -275,20 +287,16 @@ export function BoardCanvas({
           window.clearTimeout(remoteSaveTimeoutRef.current);
         }
         remoteSaveTimeoutRef.current = window.setTimeout(() => {
-          const pending = pendingRemoteSnapshotRef.current;
+          const pending = pendingFileSnapshotRef.current;
           if (!pending) return;
           saveBoardSnapshot.mutate({
-            rootUri: remoteScope.rootUri,
-            schemaVersion: pending.schemaVersion,
-            nodes: pending.nodes,
-            connectors: pending.connectors,
-            viewport: pending.viewport,
-            version: pending.version,
+            uri: fileScope.uri,
+            content: JSON.stringify(pending, null, 2),
           });
         }, VIEWPORT_SAVE_DELAY);
       }
     },
-    [boardScope, remoteScope, saveBoardSnapshot]
+    [boardScope, fileScope, saveBoardSnapshot]
   );
 
   useEffect(() => {
@@ -360,10 +368,11 @@ export function BoardCanvas({
 
   useEffect(() => {
     if (!boardScope) return;
-    if (!boardQuery.isFetched) return;
+    if (!fileScope) return;
+    if (!boardFileQuery.isFetched) return;
     if (!localLoaded) return;
 
-    const remote = boardQuery.data?.board as BoardSnapshotState | null;
+    const remote = parseBoardSnapshot(boardFileQuery.data?.content);
     const local = localSnapshot;
 
     if (!local && !remote) {
@@ -420,9 +429,10 @@ export function BoardCanvas({
     }
   }, [
     applySnapshot,
-    boardQuery.data,
-    boardQuery.isFetched,
     boardScope,
+    boardFileQuery.data,
+    boardFileQuery.isFetched,
+    fileScope,
     engine,
     initialElements,
     localLoaded,

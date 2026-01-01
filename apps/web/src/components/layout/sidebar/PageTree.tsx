@@ -37,6 +37,12 @@ import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { ChevronRight, FileText, Folder } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { toast } from "sonner";
+import {
+  BOARD_FILE_EXT,
+  ensureBoardFileName,
+  getDisplayFileName,
+  isBoardFileExt,
+} from "@/lib/file-name";
 
 type ProjectInfo = {
   projectId: string;
@@ -83,6 +89,7 @@ function resolveFileComponent(ext?: string) {
   if (!ext) return "file-viewer";
   if (ext === "ttdoc") return "file-viewer";
   if (ext === "ttcanvas") return "file-viewer";
+  if (ext === BOARD_FILE_EXT) return "board-viewer";
   if (ext === "ttskill") return "file-viewer";
   return "file-viewer";
 }
@@ -147,18 +154,19 @@ function FileTreeNode({
   const Button = depth === 0 ? SidebarMenuButton : SidebarMenuSubButton;
 
   if (node.kind === "file") {
+    const displayName = getDisplayFileName(node.name, node.ext);
     return (
       <Item key={node.uri}>
         <ContextMenu onOpenChange={(open) => onContextMenuOpenChange(node, open)}>
           <ContextMenuTrigger asChild>
             <Button
-              tooltip={node.name}
+              tooltip={displayName}
               isActive={isActive}
               className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
               onClick={() => onPrimaryClick(node)}
             >
               <FileText className="h-4 w-4" />
-              <span>{node.name}</span>
+              <span>{displayName}</span>
             </Button>
           </ContextMenuTrigger>
           {renderContextMenuContent(node)}
@@ -311,6 +319,7 @@ export const PageTreeMenu = ({
     if (!workspace?.id) return;
     const component = resolveFileComponent(node.ext);
     const baseId = `file:${node.uri}`;
+    const displayName = getDisplayFileName(node.name, node.ext);
     const existing = tabs.find(
       (tab) => tab.workspaceId === workspace.id && tab.base?.id === baseId,
     );
@@ -324,7 +333,7 @@ export const PageTreeMenu = ({
     addTab({
       workspaceId: workspace.id,
       createNew: true,
-      title: node.name,
+      title: displayName,
       icon: "📄",
       leftWidthPercent: 70,
       base: {
@@ -354,7 +363,8 @@ export const PageTreeMenu = ({
   };
 
   const openRenameDialog = (node: FileNode) => {
-    setRenameTarget({ node, nextName: node.name });
+    const displayName = getDisplayFileName(node.name, node.ext);
+    setRenameTarget({ node, nextName: displayName });
   };
 
   const openDeleteDialog = (node: FileNode) => {
@@ -364,8 +374,11 @@ export const PageTreeMenu = ({
 
   const handleRename = async () => {
     if (!renameTarget) return;
-    const nextName = renameTarget.nextName.trim();
-    if (!nextName) return;
+    const rawName = renameTarget.nextName.trim();
+    if (!rawName) return;
+    const nextName = isBoardFileExt(renameTarget.node.ext)
+      ? ensureBoardFileName(rawName)
+      : rawName;
     try {
       setIsBusy(true);
       if (renameTarget.node.kind === "project") {

@@ -11,12 +11,10 @@ import {
 } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { useProject } from "@/hooks/use-project";
 import ProjectInfo, { ProjectIntroHeader } from "./intro/ProjectIntro";
-import { ProjectBoardCanvas } from "@/components/board";
 import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
 import ProjectSkills, { ProjectSkillsHeader } from "./ProjectSkills";
 import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
@@ -79,7 +77,6 @@ function buildProjectLookup(projects: ProjectTreeNode[] | undefined) {
 }
 
 export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: ProjectPageProps) {
-  const { workspace: activeWorkspace } = useWorkspace();
   const tabActive = useTabActive();
   const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
   const setTabBaseParams = useTabs((s) => s.setTabBaseParams);
@@ -111,7 +108,6 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   const pageTitle = projectData?.project?.title || "Untitled Project";
   const titleIcon: string | undefined = projectData?.project?.icon ?? undefined;
   const shouldRenderIntro = activeTab === "intro" || mountedTabs.has("intro");
-  const shouldRenderCanvas = activeTab === "canvas" || mountedTabs.has("canvas");
   const shouldRenderFiles = activeTab === "files" || mountedTabs.has("files");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
   const shouldRenderSkills = activeTab === "skills" || mountedTabs.has("skills");
@@ -278,15 +274,6 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
           </div>
           <div
             className={`${headerBaseClass} ${
-              activeTab === "canvas"
-                ? "opacity-100 pointer-events-auto"
-                : "opacity-0 pointer-events-none"
-            }`}
-            aria-hidden={activeTab !== "canvas"}
-          >
-          </div>
-          <div
-            className={`${headerBaseClass} ${
               activeTab === "files"
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none"
@@ -359,28 +346,6 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
                     rootUri={rootUri}
                     projectTitle={pageTitle}
                     readOnly={introReadOnly}
-                  />
-                ) : null}
-              </div>
-              <div
-                id="project-panel-canvas"
-                role="tabpanel"
-                aria-labelledby="project-tab-canvas"
-                className={`${panelBaseClass} ${
-                  activeTab === "canvas"
-                    ? "opacity-100 pointer-events-auto"
-                    : "opacity-0 pointer-events-none"
-                }`}
-                aria-hidden={activeTab !== "canvas"}
-              >
-                {shouldRenderCanvas ? (
-                  <ProjectBoardCanvas
-                    isLoading={isLoading}
-                    isActive={tabActive && activeTab === "canvas"}
-                    workspaceId={activeWorkspace?.id}
-                    projectId={projectId}
-                    rootUri={rootUri}
-                    pageTitle={pageTitle}
                   />
                 ) : null}
               </div>

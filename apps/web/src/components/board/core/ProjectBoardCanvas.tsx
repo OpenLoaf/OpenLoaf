@@ -20,7 +20,7 @@ export interface ProjectBoardCanvasProps {
   workspaceId?: string;
   /** Current project id. */
   projectId?: string;
-  /** Project root URI for persistence. */
+  /** Project root URI for storage scoping. */
   rootUri?: string;
   /** Current project page title. */
   pageTitle: string;
@@ -54,7 +54,6 @@ const ProjectBoardCanvas = memo(function ProjectBoardCanvas({
         ]}
         workspaceId={workspaceId}
         boardId={rootUri ?? projectId}
-        rootUri={rootUri}
       />
     </div>
   );

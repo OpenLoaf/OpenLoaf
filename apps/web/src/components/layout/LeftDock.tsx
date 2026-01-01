@@ -8,6 +8,25 @@ import { useTabs } from "@/hooks/use-tabs";
 import type { DockItem } from "@teatime-ai/api/common";
 import { StackHeader } from "./StackHeader";
 import { Skeleton } from "@/components/ui/skeleton";
+import { trpc } from "@/utils/trpc";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import {
+  ensureBoardFileName,
+  getDisplayFileName,
+  isBoardFileExt,
+} from "@/lib/file-name";
 
 /** Returns true when the event target is an editable element. */
 function isEditableTarget(target: EventTarget | null) {
@@ -140,6 +159,25 @@ function PanelFrame({
   );
 }
 
+/** Build a sibling uri with the new filename. */
+function buildRenamedUri(uri: string, nextName: string): string {
+  const url = new URL(uri);
+  const parts = url.pathname.split("/");
+  parts[parts.length - 1] = encodeURIComponent(nextName);
+  url.pathname = parts.join("/");
+  return url.toString();
+}
+
+/** Resolve the parent uri for a file path. */
+function getParentUri(uri: string): string {
+  const url = new URL(uri);
+  const parts = url.pathname.split("/");
+  parts.pop();
+  const nextPath = parts.join("/") || "/";
+  url.pathname = nextPath;
+  return url.toString();
+}
+
 // Render the left dock contents for a tab.
 export function LeftDock({ tabId }: { tabId: string }) {
   const tab = useTabs((s) => s.tabs.find((t) => t.id === tabId));
@@ -147,6 +185,16 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const activeStackItemId = useTabs((s) => s.activeStackItemIdByTabId[tabId]);
   const removeStackItem = useTabs((s) => s.removeStackItem);
   const setStackHidden = useTabs((s) => s.setStackHidden);
+  const queryClient = useQueryClient();
+  const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
+  const [renameDialog, setRenameDialog] = React.useState<{
+    tabId: string;
+    itemId: string;
+    uri: string;
+    name: string;
+    ext?: string;
+  } | null>(null);
+  const [renameValue, setRenameValue] = React.useState("");
 
   // 只订阅面板渲染必需字段，避免切换 tab 时触发无关渲染。
   const base = tab?.base;
@@ -155,6 +203,47 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
   const hasOverlay = Boolean(base) && stack.length > 0 && !stackHidden;
   const floating = Boolean(base);
+
+  const requestCloseStackItem = React.useCallback(
+    (item: DockItem | undefined) => {
+      if (!item) return;
+      const params = item.params as any;
+      const uri = typeof params?.uri === "string" ? params.uri : "";
+      const name = typeof params?.name === "string" ? params.name : "";
+      const ext = typeof params?.ext === "string" ? params.ext : undefined;
+      const shouldPromptRename =
+        item.component === "board-viewer" &&
+        Boolean(params?.__pendingRename) &&
+        uri &&
+        isBoardFileExt(ext);
+      if (!shouldPromptRename) {
+        removeStackItem(tabId, item.id);
+        return;
+      }
+      setRenameValue(getDisplayFileName(name, ext));
+      setRenameDialog({ tabId, itemId: item.id, uri, name, ext });
+    },
+    [removeStackItem, tabId]
+  );
+
+  const handleRenameConfirm = React.useCallback(async () => {
+    if (!renameDialog) return;
+    const rawName = renameValue.trim();
+    if (!rawName) return;
+    const nextName = ensureBoardFileName(rawName);
+    const nextUri = buildRenamedUri(renameDialog.uri, nextName);
+    try {
+      await renameMutation.mutateAsync({ from: renameDialog.uri, to: nextUri });
+      await queryClient.invalidateQueries({
+        queryKey: trpc.fs.list.queryOptions({ uri: getParentUri(renameDialog.uri) }).queryKey,
+      });
+      setRenameDialog(null);
+      removeStackItem(renameDialog.tabId, renameDialog.itemId);
+    } catch (error) {
+      console.warn("[LeftDock] rename board failed", error);
+      toast.error("重命名失败");
+    }
+  }, [removeStackItem, renameDialog, renameMutation, renameValue]);
 
   React.useEffect(() => {
     if (stack.length === 0) return;
@@ -165,15 +254,16 @@ export function LeftDock({ tabId }: { tabId: string }) {
       if (isEditableTarget(event.target)) return;
       const targetId = activeStackId || stack.at(-1)?.id;
       if (!targetId) return;
+      const targetItem = stack.find((item) => item.id === targetId);
       // 中文注释：按下 ESC 时关闭当前 stack 面板。
       event.preventDefault();
-      removeStackItem(tabId, targetId);
+      requestCloseStackItem(targetItem);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [stack.length, stackHidden, tabId, activeStackId, removeStackItem]);
+  }, [stack.length, stackHidden, tabId, activeStackId, requestCloseStackItem, stack]);
 
   if (!tab) return null;
 
@@ -214,7 +304,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
                   tabId={tabId}
                   item={item}
                   title={item.title ?? getPanelTitle(item.component)}
-                  onClose={() => removeStackItem(tabId, item.id)}
+                  onClose={() => requestCloseStackItem(item)}
                   onMinimize={() => setStackHidden(tabId, true)}
                   fillHeight
                   floating={floating}
@@ -224,6 +314,43 @@ export function LeftDock({ tabId }: { tabId: string }) {
           })}
         </div>
       ) : null}
+
+      <Dialog
+        open={Boolean(renameDialog)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setRenameDialog(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重命名画布</DialogTitle>
+            <DialogDescription>请输入新的画布名称。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Input
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              autoFocus
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  handleRenameConfirm();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" type="button">
+                取消
+              </Button>
+            </DialogClose>
+            <Button onClick={handleRenameConfirm} disabled={renameMutation.isPending}>
+              确定
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

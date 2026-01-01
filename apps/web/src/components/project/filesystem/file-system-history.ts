@@ -5,6 +5,8 @@ type HistoryAction =
   | { kind: "rename"; from: string; to: string }
   | { kind: "copy"; from: string; to: string }
   | { kind: "mkdir"; uri: string }
+  /** Create a new file with payload. */
+  | { kind: "create"; uri: string; content: string }
   | { kind: "delete"; uri: string; trashUri: string }
   | { kind: "trash"; uri: string }
   | { kind: "batch"; actions: HistoryAction[] };
@@ -14,6 +16,8 @@ type HistoryExecutor = {
   copy: (from: string, to: string) => Promise<void>;
   mkdir: (uri: string) => Promise<void>;
   delete: (uri: string) => Promise<void>;
+  /** Write a text file for create/redo flows. */
+  writeFile: (uri: string, content: string) => Promise<void>;
   trash: (uri: string) => Promise<void>;
   refresh: () => void;
 };
@@ -45,6 +49,10 @@ async function applyUndo(action: HistoryAction, executor: HistoryExecutor) {
     await executor.delete(action.uri);
     return;
   }
+  if (action.kind === "create") {
+    await executor.delete(action.uri);
+    return;
+  }
   if (action.kind === "delete") {
     await executor.rename(action.trashUri, action.uri);
     return;
@@ -72,6 +80,10 @@ async function applyRedo(action: HistoryAction, executor: HistoryExecutor) {
   }
   if (action.kind === "mkdir") {
     await executor.mkdir(action.uri);
+    return;
+  }
+  if (action.kind === "create") {
+    await executor.writeFile(action.uri, action.content);
     return;
   }
   if (action.kind === "delete") {

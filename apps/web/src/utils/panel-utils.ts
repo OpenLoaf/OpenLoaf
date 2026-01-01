@@ -12,6 +12,7 @@ import TemplatePage from "@/components/template/Template";
 import FileViewer from "@/components/file/FileViewer";
 import ImageViewer from "@/components/file/ImageViewer";
 import CodeViewer from "@/components/file/CodeViewer";
+import BoardFileViewer from "@/components/board/BoardFileViewer";
 
 /**
  * 组件名称到组件的映射关系
@@ -34,6 +35,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "file-viewer": FileViewer,
   "image-viewer": ImageViewer,
   "code-viewer": CodeViewer,
+  "board-viewer": BoardFileViewer,
 };
 
 /**
@@ -65,6 +67,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Image";
     case "code-viewer":
       return "Code";
+    case "board-viewer":
+      return "Board";
     default:
       // 如果没有匹配的标题，直接返回组件名称
       return componentName;

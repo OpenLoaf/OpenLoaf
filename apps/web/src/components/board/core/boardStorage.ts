@@ -22,6 +22,19 @@ type BoardSnapshotState = {
 };
 
 export type { BoardSnapshotState };
+/** Create a default board snapshot payload. */
+function createEmptyBoardSnapshot(): BoardSnapshotState {
+  return {
+    schemaVersion: BOARD_SCHEMA_VERSION,
+    nodes: [],
+    connectors: [],
+    viewport: {
+      zoom: 1,
+      offset: [0, 0],
+    },
+    version: Date.now(),
+  };
+}
 /** Read workspace id from document cookies. */
 function getWorkspaceIdFromCookie(): string | null {
   if (typeof document === "undefined") return null;
@@ -37,3 +50,4 @@ function getWorkspaceIdFromCookie(): string | null {
 }
 
 export { BOARD_SCHEMA_VERSION, getWorkspaceIdFromCookie };
+export { createEmptyBoardSnapshot };

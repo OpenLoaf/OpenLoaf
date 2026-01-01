@@ -63,6 +63,13 @@ import {
   type FileSystemEntry,
 } from "./file-system-utils";
 import { useTabs } from "@/hooks/use-tabs";
+import {
+  BOARD_FILE_EXT,
+  ensureBoardFileName,
+  getDisplayFileName,
+  isBoardFileExt,
+} from "@/lib/file-name";
+import { createEmptyBoardSnapshot } from "@/components/board/core/boardStorage";
 
 // 用于“复制/粘贴”的内存剪贴板。
 let fileClipboard: FileSystemEntry[] | null = null;
@@ -267,7 +274,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const displayEntries = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
     if (!query) return fileEntries;
-    return fileEntries.filter((entry) => entry.name.toLowerCase().includes(query));
+    return fileEntries.filter((entry) => {
+      const displayName = getDisplayFileName(entry.name, entry.ext).toLowerCase();
+      return displayName.includes(query);
+    });
   }, [fileEntries, searchValue]);
   const parentUri = getParentUri(rootUri, activeUri);
   const existingNames = useMemo(
@@ -298,6 +308,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
   const deleteMutation = useMutation(trpc.fs.delete.mutationOptions());
   const copyMutation = useMutation(trpc.fs.copy.mutationOptions());
+  const writeFileMutation = useMutation(trpc.fs.writeFile.mutationOptions());
   const writeBinaryMutation = useMutation(trpc.fs.writeBinary.mutationOptions());
   const mkdirMutation = useMutation(trpc.fs.mkdir.mutationOptions());
 
@@ -348,6 +359,9 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       },
       delete: async (uri) => {
         await deleteMutation.mutateAsync({ uri, recursive: true });
+      },
+      writeFile: async (uri, content) => {
+        await writeFileMutation.mutateAsync({ uri, content });
       },
       trash: async (uri) => {
         const res = await window.teatimeElectron?.trashItem?.({ uri });
@@ -504,6 +518,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   /** Open file/folder using platform integration. */
   const handleOpen = async (entry: FileSystemEntry) => {
     setSingleSelection(entry.uri);
+    if (entry.kind === "file" && isBoardFileExt(entry.ext)) {
+      handleOpenBoard(entry);
+      return;
+    }
     if (entry.kind === "folder") {
       handleNavigate(entry.uri);
       return;
@@ -583,11 +601,35 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     [activeTabId, pushStackItem, projectId, rootUri, setSingleSelection]
   );
 
+  /** Open a board file inside the current tab stack. */
+  const handleOpenBoard = useCallback(
+    (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => {
+      setSingleSelection(entry.uri);
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: generateId(),
+        component: "board-viewer",
+        title: getDisplayFileName(entry.name, entry.ext),
+        params: {
+          uri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+          ...(options?.pendingRename ? { __pendingRename: true } : {}),
+        },
+      });
+    },
+    [activeTabId, pushStackItem, setSingleSelection]
+  );
+
   /** Start inline rename for a file or folder. */
   const handleRename = (entry: FileSystemEntry) => {
     setSingleSelection(entry.uri);
+    const displayName = getDisplayFileName(entry.name, entry.ext);
     setRenamingUri(entry.uri);
-    setRenamingValue(entry.name);
+    setRenamingValue(displayName);
   };
 
   /** Submit inline rename changes. */
@@ -598,8 +640,15 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       setRenamingUri(null);
       return;
     }
-    const nextName = renamingValue.trim();
-    if (!nextName || nextName === targetEntry.name) {
+    const rawName = renamingValue.trim();
+    if (!rawName) {
+      setRenamingUri(null);
+      return;
+    }
+    const nextName = isBoardFileExt(targetEntry.ext)
+      ? ensureBoardFileName(rawName)
+      : rawName;
+    if (nextName === targetEntry.name) {
       setRenamingUri(null);
       return;
     }
@@ -681,6 +730,29 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     setRenamingUri(targetUri);
     setRenamingValue(targetName);
     refreshList();
+  };
+
+  /** Create a new board file in the current directory. */
+  const handleCreateBoard = async () => {
+    if (!activeUri) return;
+    const targetName = getUniqueName(`新建画布.${BOARD_FILE_EXT}`, new Set(existingNames));
+    const targetUri = buildChildUri(activeUri, targetName);
+    const snapshot = createEmptyBoardSnapshot();
+    // 中文注释：初始画布直接写入文件，保证后续保存落盘同一位置。
+    const content = JSON.stringify(snapshot, null, 2);
+    await writeFileMutation.mutateAsync({ uri: targetUri, content });
+    pushHistory({ kind: "create", uri: targetUri, content });
+    setSingleSelection(targetUri);
+    refreshList();
+    handleOpenBoard(
+      {
+        uri: targetUri,
+        name: targetName,
+        kind: "file",
+        ext: BOARD_FILE_EXT,
+      },
+      { pendingRename: true }
+    );
   };
 
   /** Paste copied files into the current directory. */
@@ -818,9 +890,9 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   return (
     <div className="h-full flex flex-col gap-4">
-      <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-secondary/70">
+      <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 ">
         {/* 顶部功能栏：路径导航 + 极简图标操作（仅 UI）。 */}
-        <div className="flex items-center gap-3 border-b border-border/60 bg-background/70 px-4 py-2">
+        <div className="flex items-center gap-3 border-b border-border/60 bg-secondary/30 px-4 py-2">
           <div className="flex min-w-0 flex-1 items-center">
             <ProjectFileSystemBreadcrumbs
               isLoading={listQuery.isLoading}
@@ -996,6 +1068,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   onNavigate={handleNavigate}
                   onOpenImage={handleOpenImage}
                   onOpenCode={handleOpenCode}
+                  onOpenBoard={handleOpenBoard}
+                  onCreateBoard={handleCreateBoard}
                   selectedUris={selectedUris}
                   onEntryClick={(entry, event) => {
                     // 中文注释：支持多选，按住 Command/Ctrl 可切换选择。
@@ -1137,7 +1211,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           <ContextMenuContent className="w-44">
             <ContextMenuItem onSelect={handleCreateFolder}>新建文件夹</ContextMenuItem>
             <ContextMenuItem disabled>新建文稿</ContextMenuItem>
-            <ContextMenuItem disabled>新建画布</ContextMenuItem>
+            <ContextMenuItem onSelect={handleCreateBoard}>新建画布</ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem onSelect={refreshList}>刷新</ContextMenuItem>
             <ContextMenuSeparator />
