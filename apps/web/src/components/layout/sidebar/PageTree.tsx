@@ -382,8 +382,11 @@ export const PageTreeMenu = ({
     try {
       setIsBusy(true);
       if (renameTarget.node.kind === "project") {
+        if (!renameTarget.node.projectId) {
+          throw new Error("缺少项目 ID");
+        }
         await renameProject.mutateAsync({
-          rootUri: renameTarget.node.uri,
+          projectId: renameTarget.node.projectId,
           title: nextName,
         });
       } else {

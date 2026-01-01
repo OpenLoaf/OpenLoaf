@@ -31,11 +31,18 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
         .output(workspaceSchemas.create.output)
         .mutation(async ({ input }) => {
           const cfg = teatimeConfigStore.get();
+          const active = (cfg.workspaces as Workspace[]).find((w) => w.isActive)
+            ?? (cfg.workspaces as Workspace[])[0];
+          if (!active?.rootUri) {
+            throw new Error("缺少 workspace rootUri 配置。");
+          }
           const newWorkspace: Workspace = {
             id: uuidv4(),
             name: input.name,
             type: "local",
             isActive: false,
+            rootUri: active.rootUri,
+            projects: {},
           };
           teatimeConfigStore.set({ ...cfg, workspaces: [...cfg.workspaces, newWorkspace] as any });
           return newWorkspace;

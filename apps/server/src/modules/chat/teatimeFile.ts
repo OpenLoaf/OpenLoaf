@@ -1,25 +1,12 @@
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { promises as fs, type Dirent } from "node:fs";
+import { promises as fs } from "node:fs";
 import sharp from "sharp";
-import { getWorkspaceRootPath } from "@teatime-ai/api/services/vfsService";
+import { getProjectRootPath } from "@teatime-ai/api/services/vfsService";
 
 const CHAT_IMAGE_MAX_EDGE = 1024;
 const CHAT_IMAGE_QUALITY = 80;
-const PROJECT_META_DIR = ".teatime";
-const PROJECT_ID_EXT = ".ttid";
-
 const SUPPORTED_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
-const SKIP_DIRS = new Set([
-  ".git",
-  ".teatime",
-  "node_modules",
-  ".next",
-  "dist",
-  "build",
-  "out",
-  ".turbo",
-]);
 
 type ImageFormat = {
   ext: string;
@@ -56,41 +43,8 @@ function buildTeatimeFileUrl(projectId: string, relativePath: string): string {
   return `teatime-file://${projectId}/${normalizeRelativePath(relativePath)}`;
 }
 
-async function pathExists(targetPath: string): Promise<boolean> {
-  try {
-    await fs.stat(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function resolveProjectRootPath(projectId: string): Promise<string | null> {
-  const workspaceRootPath = getWorkspaceRootPath();
-  const queue: string[] = [workspaceRootPath];
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) continue;
-    // 中文注释：通过 .teatime/{projectId}.ttid 定位项目根目录。
-    const markerPath = path.join(current, PROJECT_META_DIR, `${projectId}${PROJECT_ID_EXT}`);
-    if (await pathExists(markerPath)) return current;
-
-    let entries: Dirent[] = [];
-    try {
-      entries = await fs.readdir(current, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      if (SKIP_DIRS.has(entry.name)) continue;
-      queue.push(path.join(current, entry.name));
-    }
-  }
-
-  return null;
+  return getProjectRootPath(projectId);
 }
 
 export async function resolveTeatimeFilePath(url: string): Promise<string | null> {

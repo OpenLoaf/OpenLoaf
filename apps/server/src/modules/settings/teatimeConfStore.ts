@@ -48,15 +48,30 @@ export type S3ProviderConf = S3ProviderValue & {
   updatedAt: string;
 };
 
-type TeatimeConf = {
+export type WorkspaceConf = {
+  /** Workspace id. */
+  id: string;
+  /** Workspace display name. */
+  name: string;
+  /** Workspace type. */
+  type: "local" | "cloud";
+  /** Active workspace marker. */
+  isActive: boolean;
   /** Workspace root URI. */
-  workspaceRootUri?: string;
+  rootUri: string;
+  /** Project map of { projectId: rootUri }. */
+  projects?: Record<string, string>;
+};
+
+type TeatimeConf = {
   /** Workspace list. */
-  workspaces?: unknown[];
+  workspaces?: WorkspaceConf[];
   /** Model provider configs. */
   modelProviders?: ModelProviderConf[];
   /** S3 provider configs. */
   S3Providers?: S3ProviderConf[];
+  /** Legacy workspace root URI (deprecated). */
+  workspaceRootUri?: string;
 };
 
 /** Resolve the config file path from environment. */

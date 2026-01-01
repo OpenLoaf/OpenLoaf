@@ -403,7 +403,7 @@ export function ProjectInfoPlate({
   /** Debounced block save handler. */
   const scheduleSave = React.useCallback(
     (value: Value) => {
-      if (!rootUri || readOnly || isHydratingRef.current) return;
+      if (!projectId || readOnly || isHydratingRef.current) return;
       const nextValue = JSON.stringify(value);
       if (nextValue === lastValueRef.current) return;
       lastValueRef.current = nextValue;
@@ -417,10 +417,10 @@ export function ProjectInfoPlate({
           order: index,
           type: (node as { type?: string }).type ?? 'paragraph',
         }));
-        saveBlocks.mutate({ rootUri, blocks: blockPayload });
+        saveBlocks.mutate({ projectId, blocks: blockPayload });
       }, 800);
     },
-    [rootUri, readOnly, saveBlocks]
+    [projectId, readOnly, saveBlocks]
   );
 
   React.useEffect(() => {

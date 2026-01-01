@@ -40,7 +40,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   rootUri,
 }: ProjectBasicSettingsProps) {
   const { data: projectData, invalidateProject, invalidateProjectList } = useProject(
-    rootUri,
+    projectId,
   );
   const project = projectData?.project;
   const [draftTitle, setDraftTitle] = useState("");
@@ -74,11 +74,11 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   }, [rootUri]);
 
   const commitProjectTitle = useCallback(() => {
-    if (!projectId || !rootUri) return;
+    if (!projectId) return;
     const nextTitle = draftTitle.trim();
     if (!nextTitle || nextTitle === project?.title) return;
-    updateProject.mutate({ rootUri, title: nextTitle });
-  }, [projectId, rootUri, draftTitle, project?.title, updateProject]);
+    updateProject.mutate({ projectId, title: nextTitle });
+  }, [projectId, draftTitle, project?.title, updateProject]);
 
   return (
     <div className="space-y-4">
@@ -142,8 +142,8 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
                   width="100%"
                   onSelect={(nextIcon) => {
                     setIconPickerOpen(false);
-                    if (!projectId || !rootUri) return;
-                    updateProject.mutate({ rootUri, icon: nextIcon });
+                    if (!projectId) return;
+                    updateProject.mutate({ projectId, icon: nextIcon });
                   }}
                 />
               </PopoverContent>

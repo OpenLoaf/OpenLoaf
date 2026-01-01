@@ -7,7 +7,6 @@ import { workspaceBase, type Workspace } from "@teatime-ai/api/types/workspace";
 import { getEnvString } from "@teatime-ai/config";
 
 const TeatimeConfigSchema = z.object({
-  workspaceRootUri: z.string(),
   workspaces: z.array(workspaceBase),
 });
 
@@ -36,9 +35,10 @@ function ensureDefault(normalizedPath: string) {
     name: "Default Workspace",
     type: "local",
     isActive: true,
+    rootUri: resolveDefaultWorkspaceRootUri(normalizedPath),
+    projects: {},
   };
   const defaultConfig: TeatimeConfig = {
-    workspaceRootUri: resolveDefaultWorkspaceRootUri(normalizedPath),
     workspaces: [workspace],
   };
   writeFileSync(normalizedPath, JSON.stringify(defaultConfig, null, 2), "utf-8");
@@ -50,26 +50,46 @@ function ensureDefault(normalizedPath: string) {
  * - cloud-server 迁移时可替换为 DB/Redis 等实现
  */
 export const teatimeConfigStore = {
-  /** 读取配置（带 zod 校验与缓存）。 */
+  /** Read config with zod validation and cache. */
   get: (): TeatimeConfig => {
     if (cached) return cached;
     const path = getConfigPath();
     ensureDefault(path);
-    const raw = JSON.parse(readFileSync(path, "utf-8")) as unknown;
+    const raw = JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
+    const legacyRootUri = typeof raw.workspaceRootUri === "string" ? raw.workspaceRootUri : "";
+    if (legacyRootUri && Array.isArray(raw.workspaces)) {
+      // 中文注释：兼容旧版配置，将 workspaceRootUri 下放到 workspace.rootUri。
+      raw.workspaces = raw.workspaces.map((workspace) => ({
+        ...workspace,
+        rootUri: (workspace as Record<string, unknown>).rootUri ?? legacyRootUri,
+        projects: (workspace as Record<string, unknown>).projects ?? {},
+      }));
+    }
     try {
       const parsed = TeatimeConfigSchema.parse(raw);
-      cached = parsed;
-      return parsed;
+      const normalized: TeatimeConfig = {
+        workspaces: parsed.workspaces.map((workspace) => ({
+          ...workspace,
+          rootUri: workspace.rootUri || resolveDefaultWorkspaceRootUri(path),
+          projects: workspace.projects ?? {},
+        })),
+      };
+      cached = normalized;
+      if (legacyRootUri) {
+        writeFileSync(path, JSON.stringify(normalized, null, 2), "utf-8");
+      }
+      return normalized;
     } catch {
       // 中文注释：配置结构不合法时直接重置为新结构，避免运行中断。
       const reset: TeatimeConfig = {
-        workspaceRootUri: resolveDefaultWorkspaceRootUri(path),
         workspaces: [
           {
             id: uuidv4(),
             name: "Default Workspace",
             type: "local",
             isActive: true,
+            rootUri: legacyRootUri || resolveDefaultWorkspaceRootUri(path),
+            projects: {},
           },
         ],
       };
@@ -79,7 +99,7 @@ export const teatimeConfigStore = {
     }
   },
 
-  /** 覆盖写入配置（同时更新内存缓存）。 */
+  /** Overwrite config on disk and refresh cache. */
   set: (next: TeatimeConfig) => {
     const path = getConfigPath();
     const parsed = TeatimeConfigSchema.parse(next);

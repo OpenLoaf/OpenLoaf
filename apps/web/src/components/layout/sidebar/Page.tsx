@@ -9,6 +9,7 @@ import {
   SidebarMenu,
 } from "@/components/animate-ui/components/radix/sidebar";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -43,6 +44,8 @@ export const SidebarPage = () => {
   const [isPlatformOpen, setIsPlatformOpen] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
+  const [useCustomPath, setUseCustomPath] = useState(false);
+  const [customPath, setCustomPath] = useState("");
   const [isBusy, setIsBusy] = useState(false);
 
   /** Create a new project and refresh list. */
@@ -50,9 +53,14 @@ export const SidebarPage = () => {
     const title = createTitle.trim();
     try {
       setIsBusy(true);
-      await createProject.mutateAsync({ title: title || undefined });
+      await createProject.mutateAsync({
+        title: title || undefined,
+        rootUri: useCustomPath ? customPath.trim() || undefined : undefined,
+      });
       toast.success("项目已创建");
       setCreateTitle("");
+      setUseCustomPath(false);
+      setCustomPath("");
       setIsCreateOpen(false);
       // 中文注释：创建后刷新项目列表，确保新项目立即出现。
       await queryClient.invalidateQueries({
@@ -109,6 +117,8 @@ export const SidebarPage = () => {
           }
           setIsCreateOpen(false);
           setCreateTitle("");
+          setUseCustomPath(false);
+          setCustomPath("");
         }}
       >
         <DialogContent>
@@ -134,6 +144,46 @@ export const SidebarPage = () => {
                 }}
               />
             </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="project-custom-path" className="text-right">
+                自定义路径
+              </Label>
+              <div className="col-span-3 flex items-center gap-3">
+                <Switch
+                  checked={useCustomPath}
+                  onCheckedChange={(checked) => setUseCustomPath(Boolean(checked))}
+                />
+                <span className="text-xs text-muted-foreground">
+                  勾选后可指定项目目录
+                </span>
+              </div>
+            </div>
+            {useCustomPath ? (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="project-custom-path-input" className="text-right">
+                  路径
+                </Label>
+                <div className="col-span-3 flex items-center gap-2">
+                  <Input
+                    id="project-custom-path-input"
+                    value={customPath}
+                    onChange={(event) => setCustomPath(event.target.value)}
+                    placeholder="file://... 或 /path/to/project"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const next = window.prompt("请输入项目路径", customPath);
+                      if (next === null) return;
+                      setCustomPath(next);
+                    }}
+                  >
+                    选择
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <DialogClose asChild>

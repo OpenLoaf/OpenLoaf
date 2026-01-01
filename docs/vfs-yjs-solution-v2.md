@@ -25,7 +25,6 @@
   <projectRoot>/
     .teatime/
       project.json
-      <projectId>.ttid
       yjs/
         <fileId>.wal
         <fileId>.lock
@@ -52,13 +51,13 @@
 ```
 
 ### Project Root 计算规则
-1) `workspaceRootUri` 下仅扫描**一级目录**里的 `.teatime/project.json`。  
-2) 一级目录的 `project.json` 作为**项目索引**，其中 `childrenIds` 是子项目文件夹名称列表。  
-3) 继续读取子项目目录下的 `.teatime/project.json`，递归生成项目树。  
-4) 每个项目的 rootUri 即该项目文件夹本身。  
-5) `.teatime/<projectId>.ttid` 作为 projectId 的快速定位标记。  
+1) 以 `apps/server/teatime.conf` 中激活 workspace 的 `projects` 映射为准。  
+2) `projects` 结构为 `{ [projectId]: "file://..." }`，值即项目 rootUri。  
+3) projectId 在 rootUri 下的 `.teatime/project.json` 内声明（用于显示信息）。  
+4) `childrenIds` 仍用于递归构建子项目树（子项目目录名）。  
+5) 不再使用 `.teatime/<projectId>.ttid` 标记文件。  
 
-workspaceRootUri 来源：`apps/server/teatime.conf`。
+workspaceRootUri 已下放为 `workspaces[].rootUri`。
 
 ## 文件系统（VFS）设计
 统一接口（按 scheme 分发）：

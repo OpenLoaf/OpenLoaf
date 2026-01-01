@@ -2,14 +2,14 @@ import { useCallback, useMemo } from "react";
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
-/** Fetch project metadata by root URI. */
-export function useProject(rootUri?: string) {
+/** Fetch project metadata by project id. */
+export function useProject(projectId?: string) {
   const queryClient = useQueryClient();
 
   const projectQueryKey = useMemo(() => {
-    if (!rootUri) return undefined;
-    return trpc.project.get.queryOptions({ rootUri }).queryKey;
-  }, [rootUri]);
+    if (!projectId) return undefined;
+    return trpc.project.get.queryOptions({ projectId }).queryKey;
+  }, [projectId]);
 
   const projectListQueryKey = useMemo(() => {
     return trpc.project.list.queryOptions().queryKey;
@@ -25,7 +25,7 @@ export function useProject(rootUri?: string) {
   }, [queryClient, projectListQueryKey]);
 
   const projectQuery = useQuery(
-    trpc.project.get.queryOptions(rootUri ? { rootUri } : skipToken)
+    trpc.project.get.queryOptions(projectId ? { projectId } : skipToken)
   );
 
   return {

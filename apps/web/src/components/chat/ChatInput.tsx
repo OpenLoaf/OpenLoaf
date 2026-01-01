@@ -462,7 +462,7 @@ export function ChatInputBox({
             <div />
           )}
 
-          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-0.5">
+          <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-0.5 overflow-hidden">
             {isOverLimit && (
               <span
                 className={cn(
@@ -474,14 +474,18 @@ export function ChatInputBox({
               </span>
             )}
             
-            {!compact && <SelectMode />}
+            {!compact && (
+              <div className="min-w-0 shrink">
+                <SelectMode />
+              </div>
+            )}
 
             {!compact && (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="rounded-full w-8 h-8 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 <Mic className="w-4 h-4" />
               </Button>
@@ -505,7 +509,7 @@ export function ChatInputBox({
                 disabled={isSendDisabled}
                 size="sm"
                 className={cn(
-                  "h-7 rounded-full px-2.5 text-xs",
+                  "h-7 rounded-full px-2.5 text-xs shrink-0",
                   canSubmit
                     ? "bg-primary hover:bg-primary/90 text-primary-foreground"
                     : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
@@ -520,7 +524,7 @@ export function ChatInputBox({
                 disabled={isSendDisabled || (isLoading && !onStop)}
                 size="icon"
                 className={cn(
-                  "h-8 w-8 rounded-full transition-all duration-200 shadow-none",
+                  "h-8 w-8 rounded-full shrink-0 transition-all duration-200 shadow-none",
                   isLoading
                     ? "bg-destructive/10 text-destructive hover:bg-destructive/15"
                     : isOverLimit

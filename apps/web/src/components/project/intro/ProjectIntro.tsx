@@ -46,17 +46,17 @@ const ProjectInfo = memo(function ProjectInfo({
 }: ProjectIntroProps) {
   const blocksQuery = useQuery(
     trpc.project.getIntro.queryOptions(
-      rootUri
+      projectId
         ? {
-          rootUri,
-        }
+            projectId,
+          }
         : skipToken
     )
   );
 
   const blocks = blocksQuery.data?.blocks ?? [];
 
-  const showLoading = isLoading || (!!rootUri && blocksQuery.isLoading);
+  const showLoading = isLoading || (!!projectId && blocksQuery.isLoading);
 
   if (showLoading) {
     return null;

@@ -91,7 +91,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
     isLoading,
     invalidateProject,
     invalidateProjectList,
-  } = useProject(rootUri);
+  } = useProject(projectId);
 
   // 从持久化参数恢复上次的 Project 子标签，刷新后保持位置。
   const initialProjectTab =
@@ -125,19 +125,19 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   /** Update project title with optimistic cache. */
   const handleUpdateTitle = useCallback(
     (nextTitle: string) => {
-      if (!rootUri) return;
-      updateProject.mutate({ rootUri, title: nextTitle });
+      if (!projectId) return;
+      updateProject.mutate({ projectId, title: nextTitle });
     },
-    [rootUri, updateProject]
+    [projectId, updateProject]
   );
 
   /** Update project icon with optimistic cache. */
   const handleUpdateIcon = useCallback(
     (nextIcon: string) => {
-      if (!rootUri) return;
-      updateProject.mutate({ rootUri, icon: nextIcon });
+      if (!projectId) return;
+      updateProject.mutate({ projectId, icon: nextIcon });
     },
-    [rootUri, updateProject]
+    [projectId, updateProject]
   );
 
   useEffect(() => {

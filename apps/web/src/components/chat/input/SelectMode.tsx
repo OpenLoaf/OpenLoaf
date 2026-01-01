@@ -136,7 +136,7 @@ export default function SelectMode({ className }: SelectModeProps) {
         <Button
           type="button"
           className={cn(
-            "h-7 w-auto min-w-0 max-w-[12rem] inline-flex items-center gap-0.5 rounded-md bg-transparent px-0 text-xs has-[>svg]:px-1 font-medium text-muted-foreground hover:bg-muted/50 transition-colors",
+            "h-7 w-auto min-w-0 max-w-[12rem] shrink inline-flex items-center gap-0.5 rounded-md bg-transparent px-0 text-xs has-[>svg]:px-1 font-medium text-muted-foreground hover:bg-muted/50 transition-colors",
             className
           )}
         >
