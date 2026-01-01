@@ -58,6 +58,7 @@ import {
   formatTimestamp,
   getDisplayPathFromUri,
   getRelativePathFromUri,
+  buildTeatimeFileUrl,
   parseTeatimeFileUrl,
   getUniqueName,
   type FileSystemEntry,
@@ -117,7 +118,11 @@ function buildFileBreadcrumbs(
   const rootParts = rootUrl.pathname.split("/").filter(Boolean);
   const currentParts = currentUrl.pathname.split("/").filter(Boolean);
   const relativeParts = currentParts.slice(rootParts.length);
-  const items: ProjectBreadcrumbItem[] = [{ label: "/", uri: rootUri }];
+  const items: ProjectBreadcrumbItem[] = [];
+  // 中文注释：仅在非顶层时展示根目录 “/”。
+  if (relativeParts.length > 0) {
+    items.push({ label: "/", uri: rootUri });
+  }
   let accumParts = [...rootParts];
   // 从 root 向下拼接，构建可点击的面包屑路径。
   for (const part of relativeParts) {
@@ -222,7 +227,7 @@ const ProjectFileSystemBreadcrumbs = memo(function ProjectFileSystemBreadcrumbs(
           isVisible ? "opacity-0 pointer-events-none" : "opacity-100"
         }`}
       >
-        <span className="h-5 w-36 rounded-md bg-muted/40" />
+        <span className="h-5 w-36 " />
       </div>
     </div>
   );
@@ -252,11 +257,13 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const [sortField, setSortField] = useState<"name" | "mtime" | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [searchValue, setSearchValue] = useState("");
+  const [showHidden, setShowHidden] = useState(false);
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
       activeUri
         ? {
             uri: activeUri,
+            includeHidden: showHidden,
             sort:
               sortField && sortOrder
                 ? { field: sortField, order: sortOrder }
@@ -266,7 +273,9 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     )
   );
   const entries = listQuery.data?.entries ?? [];
-  const visibleEntries = entries.filter((entry) => !IGNORE_NAMES.has(entry.name));
+  const visibleEntries = showHidden
+    ? entries
+    : entries.filter((entry) => !IGNORE_NAMES.has(entry.name));
   const fileEntries = useMemo(() => visibleEntries as FileSystemEntry[], [visibleEntries]);
   const displayEntries = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
@@ -332,9 +341,9 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const refreshList = useCallback(() => {
     if (!activeUri) return;
     queryClient.invalidateQueries({
-      queryKey: trpc.fs.list.queryOptions({ uri: activeUri }).queryKey,
+      queryKey: trpc.fs.list.queryOptions({ uri: activeUri, includeHidden: showHidden }).queryKey,
     });
-  }, [activeUri, queryClient]);
+  }, [activeUri, queryClient, showHidden]);
 
   const {
     canUndo,
@@ -598,6 +607,38 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     [activeTabId, pushStackItem, projectId, rootUri, setSingleSelection]
   );
 
+  /** Open a PDF file inside the current tab stack. */
+  const handleOpenPdf = useCallback(
+    (entry: FileSystemEntry) => {
+      setSingleSelection(entry.uri);
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      if (!projectId || !rootUri) {
+        toast.error("未找到项目路径");
+        return;
+      }
+      const relativePath = getRelativePathFromUri(rootUri, entry.uri);
+      if (!relativePath) {
+        toast.error("无法解析PDF路径");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: generateId(),
+        component: "pdf-viewer",
+        title: entry.name,
+        params: {
+          uri: buildTeatimeFileUrl(projectId, relativePath),
+          name: entry.name,
+          ext: entry.ext,
+          __customHeader: true,
+        },
+      });
+    },
+    [activeTabId, projectId, pushStackItem, rootUri, setSingleSelection]
+  );
+
   /** Open a board file inside the current tab stack. */
   const handleOpenBoard = useCallback(
     (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => {
@@ -848,7 +889,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       return;
     }
     const targetList = await queryClient.fetchQuery(
-      trpc.fs.list.queryOptions({ uri: target.uri })
+      trpc.fs.list.queryOptions({ uri: target.uri, includeHidden: showHidden })
     );
     const targetNames = new Set(
       (targetList.entries ?? []).map((entry) => entry.name)
@@ -1066,6 +1107,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   onNavigate={handleNavigate}
                   onOpenImage={handleOpenImage}
                   onOpenCode={handleOpenCode}
+                  onOpenPdf={handleOpenPdf}
                   onOpenBoard={handleOpenBoard}
                   onCreateBoard={handleCreateBoard}
                   selectedUris={selectedUris}
@@ -1207,11 +1249,14 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-44">
+            <ContextMenuItem onSelect={refreshList}>刷新</ContextMenuItem>
+            <ContextMenuItem onSelect={() => setShowHidden((prev) => !prev)}>
+              {showHidden ? "✓ 显示隐藏" : "显示隐藏"}
+            </ContextMenuItem>
+            <ContextMenuSeparator />
             <ContextMenuItem onSelect={handleCreateFolder}>新建文件夹</ContextMenuItem>
             <ContextMenuItem disabled>新建文稿</ContextMenuItem>
             <ContextMenuItem onSelect={handleCreateBoard}>新建画布</ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem onSelect={refreshList}>刷新</ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
               onSelect={() => {

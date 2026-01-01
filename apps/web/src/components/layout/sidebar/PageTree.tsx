@@ -43,6 +43,11 @@ import {
   getDisplayFileName,
   isBoardFileExt,
 } from "@/lib/file-name";
+import { Switch } from "@/components/ui/switch";
+import {
+  buildTeatimeFileUrl,
+  getRelativePathFromUri,
+} from "@/components/project/filesystem/file-system-utils";
 
 type ProjectInfo = {
   projectId: string;
@@ -65,6 +70,18 @@ type FileNode = {
 type RenameTarget = {
   node: FileNode;
   nextName: string;
+};
+
+type ChildProjectTarget = {
+  node: FileNode;
+  title: string;
+  useCustomPath: boolean;
+  customPath: string;
+};
+
+type ImportChildTarget = {
+  node: FileNode;
+  path: string;
 };
 
 interface PageTreeMenuProps {
@@ -91,6 +108,7 @@ function resolveFileComponent(ext?: string) {
   if (ext === "ttcanvas") return "file-viewer";
   if (ext === BOARD_FILE_EXT) return "board-viewer";
   if (ext === "ttskill") return "file-viewer";
+  if (ext === "pdf") return "pdf-viewer";
   return "file-viewer";
 }
 
@@ -255,12 +273,17 @@ export const PageTreeMenu = ({
   const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
   const renameProject = useMutation(trpc.project.update.mutationOptions());
+  const createProject = useMutation(trpc.project.create.mutationOptions());
   const renameFile = useMutation(trpc.fs.rename.mutationOptions());
   const deleteFile = useMutation(trpc.fs.delete.mutationOptions());
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FileNode | null>(null);
   const [contextSelectedUri, setContextSelectedUri] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [createChildTarget, setCreateChildTarget] = useState<ChildProjectTarget | null>(null);
+  const [importChildTarget, setImportChildTarget] = useState<ImportChildTarget | null>(null);
+  const [isChildBusy, setIsChildBusy] = useState(false);
+  const [isImportChildBusy, setIsImportChildBusy] = useState(false);
 
   const activeUri = useMemo(() => {
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -330,6 +353,17 @@ export const PageTreeMenu = ({
       return;
     }
 
+    const resolvedUri =
+      component === "pdf-viewer" && node.projectId
+        ? (() => {
+            const rootUri = projectRootById.get(node.projectId);
+            if (!rootUri) return node.uri;
+            const relativePath = getRelativePathFromUri(rootUri, node.uri);
+            if (!relativePath) return node.uri;
+            return buildTeatimeFileUrl(node.projectId, relativePath);
+          })()
+        : node.uri;
+
     addTab({
       workspaceId: workspace.id,
       createNew: true,
@@ -339,7 +373,12 @@ export const PageTreeMenu = ({
       base: {
         id: baseId,
         component,
-        params: { uri: node.uri, name: node.name, ext: node.ext },
+        params: {
+          uri: resolvedUri,
+          name: node.name,
+          ext: node.ext,
+          ...(component === "pdf-viewer" ? { __customHeader: true } : {}),
+        },
       },
       chatParams: { projectId: node.projectId },
     });
@@ -370,6 +409,37 @@ export const PageTreeMenu = ({
   const openDeleteDialog = (node: FileNode) => {
     if (node.kind === "project") return;
     setDeleteTarget(node);
+  };
+
+  /** Pick a directory from system dialog (Electron only). */
+  const pickDirectory = async (initialValue?: string) => {
+    const api = window.teatimeElectron;
+    if (api?.pickDirectory) {
+      const result = await api.pickDirectory();
+      if (result?.ok && result.path) return result.path;
+    }
+    if (initialValue) return initialValue;
+    return null;
+  };
+
+  const openCreateChildDialog = (node: FileNode) => {
+    if (node.kind !== "project") return;
+    setCreateChildTarget({
+      node,
+      title: "",
+      useCustomPath: false,
+      customPath: "",
+    });
+  };
+
+  const openImportChildDialog = async (node: FileNode) => {
+    if (node.kind !== "project") return;
+    const picked = await pickDirectory();
+    if (!picked) return;
+    setImportChildTarget({
+      node,
+      path: picked,
+    });
   };
 
   const handleRename = async () => {
@@ -432,12 +502,78 @@ export const PageTreeMenu = ({
     }
   };
 
+  const handleCreateChildProject = async () => {
+    if (!createChildTarget?.node?.projectId) {
+      toast.error("缺少项目 ID");
+      return;
+    }
+    const title = createChildTarget.title.trim();
+    try {
+      setIsChildBusy(true);
+      await createProject.mutateAsync({
+        title: title || undefined,
+        rootUri: createChildTarget.useCustomPath
+          ? createChildTarget.customPath.trim() || undefined
+          : undefined,
+        parentProjectId: createChildTarget.node.projectId,
+      });
+      toast.success("子项目已创建");
+      setCreateChildTarget(null);
+      await queryClient.invalidateQueries({
+        queryKey: trpc.project.list.queryOptions().queryKey,
+      });
+    } catch (err: any) {
+      toast.error(err?.message ?? "创建失败");
+    } finally {
+      setIsChildBusy(false);
+    }
+  };
+
+  const handleImportChildProject = async () => {
+    if (!importChildTarget?.node?.projectId) {
+      toast.error("缺少项目 ID");
+      return;
+    }
+    const path = importChildTarget.path.trim();
+    if (!path) {
+      toast.error("请输入路径");
+      return;
+    }
+    try {
+      setIsImportChildBusy(true);
+      await createProject.mutateAsync({
+        rootUri: path,
+        parentProjectId: importChildTarget.node.projectId,
+      });
+      toast.success("子项目已导入");
+      setImportChildTarget(null);
+      await queryClient.invalidateQueries({
+        queryKey: trpc.project.list.queryOptions().queryKey,
+      });
+    } catch (err: any) {
+      toast.error(err?.message ?? "导入失败");
+    } finally {
+      setIsImportChildBusy(false);
+    }
+  };
+
   const renderContextMenuContent = (node: FileNode) => (
     <ContextMenuContent className="w-52">
       {node.kind === "file" || node.kind === "project" ? (
         <ContextMenuItem onClick={() => handlePrimaryClick(node)}>
-          在新标签页打开
+          打开
         </ContextMenuItem>
+      ) : null}
+      {node.kind === "project" ? (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => openCreateChildDialog(node)}>
+            新建子项目
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => void openImportChildDialog(node)}>
+            导入子项目
+          </ContextMenuItem>
+        </>
       ) : null}
       <ContextMenuSeparator />
       <ContextMenuItem onClick={() => openRenameDialog(node)}>重命名</ContextMenuItem>
@@ -511,6 +647,161 @@ export const PageTreeMenu = ({
             </DialogClose>
             <Button onClick={handleRename} disabled={isBusy}>
               保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(createChildTarget)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setCreateChildTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新建子项目</DialogTitle>
+            <DialogDescription>请输入子项目名称。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="child-project-title" className="text-right">
+                名称
+              </Label>
+              <Input
+                id="child-project-title"
+                value={createChildTarget?.title ?? ""}
+                onChange={(event) =>
+                  setCreateChildTarget((prev) =>
+                    prev ? { ...prev, title: event.target.value } : prev
+                  )
+                }
+                className="col-span-3"
+                autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    handleCreateChildProject();
+                  }
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="child-project-custom-path" className="text-right">
+                自定义路径
+              </Label>
+              <div className="col-span-3 flex items-center gap-3">
+                <Switch
+                  checked={createChildTarget?.useCustomPath ?? false}
+                  onCheckedChange={(checked) =>
+                    setCreateChildTarget((prev) =>
+                      prev ? { ...prev, useCustomPath: Boolean(checked) } : prev
+                    )
+                  }
+                />
+                <span className="text-xs text-muted-foreground">
+                  勾选后可指定项目目录
+                </span>
+              </div>
+            </div>
+            {createChildTarget?.useCustomPath ? (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="child-project-path" className="text-right">
+                  路径
+                </Label>
+                <div className="col-span-3 flex items-center gap-2">
+                  <Input
+                    id="child-project-path"
+                    value={createChildTarget?.customPath ?? ""}
+                    onChange={(event) =>
+                      setCreateChildTarget((prev) =>
+                        prev ? { ...prev, customPath: event.target.value } : prev
+                      )
+                    }
+                    placeholder="file://... 或 /path/to/project"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      const next = await pickDirectory(createChildTarget?.customPath);
+                      if (!next) return;
+                      setCreateChildTarget((prev) =>
+                        prev ? { ...prev, customPath: next } : prev
+                      );
+                    }}
+                  >
+                    选择
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" type="button">
+                取消
+              </Button>
+            </DialogClose>
+            <Button onClick={handleCreateChildProject} disabled={isChildBusy}>
+              创建
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(importChildTarget)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setImportChildTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>导入子项目</DialogTitle>
+            <DialogDescription>确认子项目目录后导入配置。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="import-child-path" className="text-right">
+                路径
+              </Label>
+              <div className="col-span-3 flex items-center gap-2">
+                <Input
+                  id="import-child-path"
+                  value={importChildTarget?.path ?? ""}
+                  onChange={(event) =>
+                    setImportChildTarget((prev) =>
+                      prev ? { ...prev, path: event.target.value } : prev
+                    )
+                  }
+                  placeholder="file://... 或 /path/to/project"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    const next = await pickDirectory(importChildTarget?.path);
+                    if (!next) return;
+                    setImportChildTarget((prev) =>
+                      prev ? { ...prev, path: next } : prev
+                    );
+                  }}
+                >
+                  选择
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" type="button">
+                取消
+              </Button>
+            </DialogClose>
+            <Button onClick={handleImportChildProject} disabled={isImportChildBusy}>
+              确定
             </Button>
           </DialogFooter>
         </DialogContent>

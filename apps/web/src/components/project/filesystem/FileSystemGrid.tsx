@@ -63,6 +63,7 @@ const ARCHIVE_EXTS = new Set(["zip", "rar", "7z", "gz", "tar", "bz2", "xz"]);
 const AUDIO_EXTS = new Set(["mp3", "wav", "flac", "ogg", "m4a", "aac"]);
 const VIDEO_EXTS = new Set(["mp4", "mov", "avi", "mkv", "webm"]);
 const SPREADSHEET_EXTS = new Set(["xls", "xlsx", "csv", "tsv", "numbers"]);
+const PDF_EXTS = new Set(["pdf"]);
 const CODE_EXTS = new Set([
   "js",
   "ts",
@@ -103,6 +104,8 @@ type FileSystemGridProps = {
   onOpenImage?: (entry: FileSystemEntry) => void;
   /** Open code entries in an external viewer. */
   onOpenCode?: (entry: FileSystemEntry) => void;
+  /** Open PDF entries in an external viewer. */
+  onOpenPdf?: (entry: FileSystemEntry) => void;
   /** Open board entries in the board viewer. */
   onOpenBoard?: (entry: FileSystemEntry) => void;
   showEmptyActions?: boolean;
@@ -259,6 +262,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onNavigate,
   onOpenImage,
   onOpenCode,
+  onOpenPdf,
   onOpenBoard,
   showEmptyActions = true,
   onCreateBoard,
@@ -641,6 +645,15 @@ const FileSystemGrid = memo(function FileSystemGrid({
                       uri: entry.uri,
                     });
                     onOpenCode?.(entry);
+                    return;
+                  }
+                  if (entry.kind === "file" && PDF_EXTS.has(entryExt)) {
+                    console.debug("[FileSystemGrid] entry pdf open", {
+                      at: new Date().toISOString(),
+                      name: entry.name,
+                      uri: entry.uri,
+                    });
+                    onOpenPdf?.(entry);
                     return;
                   }
                   if (entry.kind === "file" && isBoardFileExt(entryExt)) {

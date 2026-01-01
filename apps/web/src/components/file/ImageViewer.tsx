@@ -59,7 +59,7 @@ export default function ImageViewer({ uri, name }: ImageViewerProps) {
         if (aborted) return;
         setPreview({ status: "error" });
       }
-    };
+    7};
     void run();
     return () => {
       aborted = true;

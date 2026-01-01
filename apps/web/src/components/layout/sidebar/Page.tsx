@@ -47,6 +47,9 @@ export const SidebarPage = () => {
   const [useCustomPath, setUseCustomPath] = useState(false);
   const [customPath, setCustomPath] = useState("");
   const [isBusy, setIsBusy] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importPath, setImportPath] = useState("");
+  const [isImportBusy, setIsImportBusy] = useState(false);
 
   /** Create a new project and refresh list. */
   const handleCreateProject = async () => {
@@ -73,40 +76,84 @@ export const SidebarPage = () => {
     }
   };
 
+  /** Pick a directory from system dialog (Electron only). */
+  const pickDirectory = async (initialValue?: string) => {
+    const api = window.teatimeElectron;
+    if (api?.pickDirectory) {
+      const result = await api.pickDirectory();
+      if (result?.ok && result.path) return result.path;
+    }
+    if (initialValue) return initialValue;
+    return null;
+  };
+
+  /** Import an existing project into workspace config. */
+  const handleImportProject = async () => {
+    const picked = await pickDirectory(importPath);
+    setIsCreateOpen(false);
+    setImportPath(picked ?? importPath);
+    setIsImportOpen(true);
+  };
+
+  const handleConfirmImport = async () => {
+    const targetPath = importPath.trim();
+    if (!targetPath) return;
+    try {
+      setIsImportBusy(true);
+      await createProject.mutateAsync({ rootUri: targetPath });
+      toast.success("项目已导入");
+      setImportPath("");
+      setIsImportOpen(false);
+      await queryClient.invalidateQueries({
+        queryKey: trpc.project.list.queryOptions().queryKey,
+      });
+    } catch (err: any) {
+      toast.error(err?.message ?? "导入失败");
+    } finally {
+      setIsImportBusy(false);
+    }
+  };
+
   return (
     <>
       {/* Nav Main */}
-      <CollapsiblePrimitive.Root
-        open={isPlatformOpen}
-        onOpenChange={setIsPlatformOpen}
-        asChild
-      >
-        <SidebarGroup className="group pt-0">
-          <ContextMenu>
-            <ContextMenuTrigger asChild>
-              <CollapsiblePrimitive.Trigger asChild>
-                <SidebarGroupLabel className="cursor-pointer">
-                  <span className="text-muted-foreground">项目</span>
-                </SidebarGroupLabel>
-              </CollapsiblePrimitive.Trigger>
-            </ContextMenuTrigger>
-            <ContextMenuContent className="w-44">
-              <ContextMenuItem onClick={() => setIsCreateOpen(true)}>
-                新建项目
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
-          <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-            <SidebarMenu>
-              <PageTreeMenu
-                projects={projects}
-                expandedNodes={expandedNodes}
-                setExpandedNodes={setExpandedNodes}
-              />
-            </SidebarMenu>
-          </CollapsiblePrimitive.Content>
-        </SidebarGroup>
-      </CollapsiblePrimitive.Root>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div className="flex h-full flex-col">
+            <CollapsiblePrimitive.Root
+              open={isPlatformOpen}
+              onOpenChange={setIsPlatformOpen}
+              asChild
+            >
+              <SidebarGroup className="group pt-0">
+                <CollapsiblePrimitive.Trigger asChild>
+                  <SidebarGroupLabel className="cursor-pointer">
+                    <span className="text-muted-foreground">项目</span>
+                  </SidebarGroupLabel>
+                </CollapsiblePrimitive.Trigger>
+                <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                  <SidebarMenu>
+                    <PageTreeMenu
+                      projects={projects}
+                      expandedNodes={expandedNodes}
+                      setExpandedNodes={setExpandedNodes}
+                    />
+                  </SidebarMenu>
+                </CollapsiblePrimitive.Content>
+              </SidebarGroup>
+            </CollapsiblePrimitive.Root>
+            <div className="flex-1" />
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-44">
+          <ContextMenuItem onClick={() => setIsCreateOpen(true)}>
+            新建项目
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => void handleImportProject()}>
+            导入项目
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
       <Dialog
         open={isCreateOpen}
@@ -173,9 +220,9 @@ export const SidebarPage = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      const next = window.prompt("请输入项目路径", customPath);
-                      if (next === null) return;
+                    onClick={async () => {
+                      const next = await pickDirectory(customPath);
+                      if (!next) return;
                       setCustomPath(next);
                     }}
                   >
@@ -191,8 +238,62 @@ export const SidebarPage = () => {
                 取消
               </Button>
             </DialogClose>
+            <Button variant="secondary" type="button" onClick={() => void handleImportProject()}>
+              导入项目
+            </Button>
             <Button onClick={handleCreateProject} disabled={isBusy}>
               创建
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isImportOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsImportOpen(true);
+            return;
+          }
+          setIsImportOpen(false);
+          setImportPath("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>导入项目</DialogTitle>
+            <DialogDescription>确认项目目录后导入配置。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="project-import-path" className="text-right">
+                路径
+              </Label>
+              <div className="col-span-3 flex items-center gap-2">
+                <Input
+                  id="project-import-path"
+                  value={importPath}
+                  onChange={(event) => setImportPath(event.target.value)}
+                  placeholder="file://... 或 /path/to/project"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleImportProject()}
+                >
+                  选择
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" type="button">
+                取消
+              </Button>
+            </DialogClose>
+            <Button onClick={handleConfirmImport} disabled={isImportBusy}>
+              确定
             </Button>
           </DialogFooter>
         </DialogContent>

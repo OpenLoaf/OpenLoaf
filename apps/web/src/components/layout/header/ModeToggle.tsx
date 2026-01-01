@@ -21,7 +21,7 @@ export const ModeToggle = () => {
       setTheme={setTheme as any}
       direction="rtl"
     >
-      {({ effective, toggleTheme }) => (
+      {({ effective, resolved, toggleTheme }) => (
         <Button
           variant="ghost"
           size="icon"
@@ -38,7 +38,7 @@ export const ModeToggle = () => {
             void setSettingValue(WebSettingDefs.UiThemeManual, nextTheme);
           }}
         >
-          {effective === "light" ? (
+          {resolved === "light" ? (
             <AnimateIcon animateOnHover >
               <Sun animation="path-loop"/>
             </AnimateIcon>

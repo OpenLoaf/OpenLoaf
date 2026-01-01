@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 import { teatimeConfigStore } from "@/modules/workspace/TeatimeConfigStoreAdapter";
-import { getTeatimeImagePreview, saveChatImageAttachment } from "./teatimeFile";
+import { getTeatimeFilePreview, saveChatImageAttachment } from "./teatimeFile";
 
 const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -68,7 +68,7 @@ export function registerChatAttachmentRoutes(app: Hono) {
       return c.json({ error: "Invalid preview url" }, 400);
     }
     try {
-      const preview = await getTeatimeImagePreview({ url });
+      const preview = await getTeatimeFilePreview({ url });
       if (!preview) return c.json({ error: "Preview not found" }, 404);
       return c.body(preview.buffer, 200, {
         "Content-Type": preview.mediaType,

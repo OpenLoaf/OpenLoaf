@@ -53,6 +53,7 @@ declare global {
       openPath?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       showItemInFolder?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       trashItem?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      pickDirectory?: () => Promise<{ ok: true; path: string } | { ok: false }>;
     };
   }
 }

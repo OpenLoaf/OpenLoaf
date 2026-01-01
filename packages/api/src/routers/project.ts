@@ -39,6 +39,8 @@ const projectConfigSchema = z
     icon: z.string().optional().nullable(),
     intro: projectIntroSchema,
     childrenIds: z.array(z.string()).optional(),
+    // 中文注释：子项目映射，使用 projectId -> rootUri。
+    projects: z.record(z.string(), z.string()).optional(),
   })
   .passthrough();
 
@@ -128,6 +130,7 @@ async function readProjectConfig(
     ...parsed,
     projectId: projectIdOverride ?? parsed.projectId,
     title: parsed.title?.trim() || fallbackTitle,
+    projects: parsed.projects ?? {},
   };
 }
 
@@ -169,15 +172,32 @@ async function readProjectTree(
 ): Promise<ProjectNode | null> {
   try {
     const config = await readProjectConfig(projectRootPath, projectIdOverride);
+    const childProjectEntries = Object.entries(config.projects ?? {});
     const children = Array.isArray(config.childrenIds) ? config.childrenIds : [];
     const childNodes: ProjectNode[] = [];
-    for (const childName of children) {
-      const childPath = resolveChildProjectPath(projectRootPath, childName);
-      if (!childPath) continue;
-      const metaPath = getProjectMetaPath(childPath);
-      if (!(await fileExists(metaPath))) continue;
-      const childNode = await readProjectTree(childPath);
-      if (childNode) childNodes.push(childNode);
+    if (childProjectEntries.length) {
+      for (const [childProjectId, childRootUri] of childProjectEntries) {
+        if (!childProjectId || !childRootUri) continue;
+        let childPath: string;
+        try {
+          childPath = resolveFilePathFromUri(childRootUri);
+        } catch {
+          continue;
+        }
+        const metaPath = getProjectMetaPath(childPath);
+        if (!(await fileExists(metaPath))) continue;
+        const childNode = await readProjectTree(childPath, childProjectId);
+        if (childNode) childNodes.push(childNode);
+      }
+    } else {
+      for (const childName of children) {
+        const childPath = resolveChildProjectPath(projectRootPath, childName);
+        if (!childPath) continue;
+        const metaPath = getProjectMetaPath(childPath);
+        if (!(await fileExists(metaPath))) continue;
+        const childNode = await readProjectTree(childPath);
+        if (childNode) childNodes.push(childNode);
+      }
     }
     return {
       projectId: config.projectId,
@@ -191,6 +211,28 @@ async function readProjectTree(
     // 中文注释：读取失败时返回 null，避免影响整体列表。
     return null;
   }
+}
+
+/** Append a child project entry into parent project.json. */
+async function appendChildProjectEntry(
+  parentProjectId: string,
+  childProjectId: string,
+  childRootUri: string
+): Promise<void> {
+  const parentRootPath = resolveProjectRootPath(parentProjectId);
+  const metaPath = getProjectMetaPath(parentRootPath);
+  const existing = (await readJsonFile(metaPath)) ?? {};
+  const parsed = projectConfigSchema.parse(existing);
+  const nextProjects = { ...(parsed.projects ?? {}) };
+  if (!nextProjects[childProjectId]) {
+    nextProjects[childProjectId] = childRootUri;
+  }
+  const nextConfig = projectConfigSchema.parse({
+    ...parsed,
+    projects: nextProjects,
+  });
+  // 中文注释：更新父项目的子项目列表，避免重复写入。
+  await writeJsonAtomic(metaPath, nextConfig);
 }
 
 export const projectRouter = t.router({
@@ -219,6 +261,7 @@ export const projectRouter = t.router({
         title: z.string().nullable().optional(),
         icon: z.string().nullable().optional(),
         rootUri: z.string().optional(),
+        parentProjectId: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -226,6 +269,7 @@ export const projectRouter = t.router({
       const title = input.title?.trim() || DEFAULT_PROJECT_TITLE;
       const folderName = toSafeFolderName(title);
       let projectRootPath: string;
+      let existingConfig: ProjectConfig | null = null;
       if (input.rootUri?.trim()) {
         const rawRoot = input.rootUri.trim();
         projectRootPath = rawRoot.startsWith("file://")
@@ -234,25 +278,44 @@ export const projectRouter = t.router({
         await fs.mkdir(projectRootPath, { recursive: true });
         const metaPath = getProjectMetaPath(projectRootPath);
         if (await fileExists(metaPath)) {
-          throw new Error("project.json already exists in the target root.");
+          existingConfig = await readProjectConfig(projectRootPath);
         }
       } else {
         projectRootPath = await ensureUniqueProjectRoot(workspaceRootPath, folderName);
       }
-      const projectId = `${PROJECT_ID_PREFIX}${randomUUID()}`;
-      const config = projectConfigSchema.parse({
-        schema: 1,
-        projectId,
-        title,
-        icon: input.icon ?? undefined,
-      });
+      const projectId = existingConfig?.projectId ?? `${PROJECT_ID_PREFIX}${randomUUID()}`;
+      const fallbackTitle = input.rootUri
+        ? path.basename(projectRootPath)
+        : title;
+      const config = projectConfigSchema.parse(
+        existingConfig ?? {
+          schema: 1,
+          projectId,
+          title: input.title?.trim() || fallbackTitle,
+          icon: input.icon ?? undefined,
+          projects: {},
+        }
+      );
       const metaPath = getProjectMetaPath(projectRootPath);
-      await writeJsonAtomic(metaPath, config);
-      upsertActiveWorkspaceProject(projectId, toFileUri(projectRootPath));
+      if (!existingConfig) {
+        await writeJsonAtomic(metaPath, config);
+      } else if (!existingConfig.projects) {
+        await writeJsonAtomic(metaPath, { ...existingConfig, projects: {} });
+      }
+      if (!input.parentProjectId) {
+        upsertActiveWorkspaceProject(projectId, toFileUri(projectRootPath));
+      }
+      if (input.parentProjectId) {
+        await appendChildProjectEntry(
+          input.parentProjectId,
+          projectId,
+          toFileUri(projectRootPath)
+        );
+      }
       return {
         project: {
           projectId: config.projectId,
-          title: config.title ?? title,
+          title: config.title ?? fallbackTitle,
           icon: config.icon ?? undefined,
           intro: config.intro ?? undefined,
           rootUri: toFileUri(projectRootPath),

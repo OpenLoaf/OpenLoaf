@@ -25,6 +25,9 @@ type TeatimeConfig = {
   workspaceRootUri?: string;
 };
 
+const PROJECT_META_DIR = ".teatime";
+const PROJECT_META_FILE = "project.json";
+
 /** Resolve the config file path from environment. */
 function getTeatimeConfigPath(): string {
   const confPath = getEnvString(process.env, "TEATIME_CONF_PATH", { required: true });
@@ -114,9 +117,45 @@ export function getWorkspaceRootPath(): string {
 }
 
 /** Get project root URI by project id. */
+function readProjectConfigProjects(rootUri: string): {
+  projectId?: string;
+  projects?: Record<string, string>;
+} | null {
+  try {
+    const rootPath = resolveFilePathFromUri(rootUri);
+    const metaPath = path.join(rootPath, PROJECT_META_DIR, PROJECT_META_FILE);
+    if (!existsSync(metaPath)) return null;
+    const raw = JSON.parse(readFileSync(metaPath, "utf-8")) as {
+      projectId?: string;
+      projects?: Record<string, string>;
+    };
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
 export function getProjectRootUri(projectId: string): string | null {
   const workspace = getActiveWorkspace();
-  return workspace.projects?.[projectId] ?? null;
+  const direct = workspace.projects?.[projectId];
+  if (direct) return direct;
+
+  const queue = Object.values(workspace.projects ?? {});
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) continue;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const meta = readProjectConfigProjects(current);
+    if (!meta) continue;
+    if (meta.projectId === projectId) return current;
+    const children = Object.values(meta.projects ?? {});
+    for (const childUri of children) {
+      if (!visited.has(childUri)) queue.push(childUri);
+    }
+  }
+  return null;
 }
 
 /** Get project root path by project id. */

@@ -154,9 +154,21 @@ export async function buildFilePartFromTeatimeUrl(input: {
   };
 }
 
-export async function getTeatimeImagePreview(input: {
+/** Resolve preview content for supported teatime-file attachments. */
+export async function getTeatimeFilePreview(input: {
   url: string;
-  mediaType?: string;
 }): Promise<{ buffer: Buffer; mediaType: string } | null> {
-  return loadTeatimeImageBuffer(input);
+  const filePath = await resolveTeatimeFilePath(input.url);
+  if (!filePath) return null;
+  const lowerPath = filePath.toLowerCase();
+  // 中文注释：PDF 直接返回原文件内容，图片继续压缩预览。
+  if (lowerPath.endsWith(".pdf")) {
+    const buffer = await fs.readFile(filePath);
+    return { buffer, mediaType: "application/pdf" };
+  }
+  const format = resolveImageFormat("application/octet-stream", filePath);
+  if (!format || !isSupportedImageMime(format.mediaType)) return null;
+  const buffer = await fs.readFile(filePath);
+  const compressed = await compressImageBuffer(buffer, format);
+  return { buffer: compressed.buffer, mediaType: compressed.mediaType };
 }

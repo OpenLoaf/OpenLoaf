@@ -80,6 +80,9 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
   // 移动文件/目录到系统回收站。
   trashItem: (payload: { uri: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('teatime:fs:trash-item', payload),
+  // 选择本地目录并返回完整路径。
+  pickDirectory: (): Promise<{ ok: true; path: string } | { ok: false }> =>
+    ipcRenderer.invoke('teatime:fs:pick-directory'),
 });
 
 // 主进程会推送 WebContentsView 的真实加载状态（dom-ready 等），这里转成 window 事件给 web UI 消费。

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
 import type { Logger } from '../logging/startupLogger';
 import { checkForUpdates, getAutoUpdateStatus, installUpdate } from '../autoUpdate';
@@ -180,6 +180,18 @@ export function registerIpcHandlers(args: { log: Logger }) {
     } catch (error) {
       return { ok: false as const, reason: (error as Error)?.message ?? 'Trash failed' };
     }
+  });
+
+  // 选择本地目录并返回完整路径。
+  ipcMain.handle('teatime:fs:pick-directory', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(win ?? undefined, {
+      properties: ['openDirectory'],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false as const };
+    }
+    return { ok: true as const, path: result.filePaths[0] };
   });
 
 

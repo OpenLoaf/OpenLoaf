@@ -12,6 +12,7 @@ import TemplatePage from "@/components/template/Template";
 import FileViewer from "@/components/file/FileViewer";
 import ImageViewer from "@/components/file/ImageViewer";
 import CodeViewer from "@/components/file/CodeViewer";
+import PdfViewer from "@/components/file/PdfViewer";
 import BoardFileViewer from "@/components/board/BoardFileViewer";
 
 /**
@@ -35,6 +36,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "file-viewer": FileViewer,
   "image-viewer": ImageViewer,
   "code-viewer": CodeViewer,
+  "pdf-viewer": PdfViewer,
   "board-viewer": BoardFileViewer,
 };
 
@@ -67,6 +69,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Image";
     case "code-viewer":
       return "Code";
+    case "pdf-viewer":
+      return "PDF";
     case "board-viewer":
       return "Board";
     default:
