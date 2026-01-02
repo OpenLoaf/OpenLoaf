@@ -2,14 +2,18 @@
 
 import {
   Fragment,
+  createContext,
   memo,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
   type DragEvent,
+  type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { generateId } from "ai";
 import { trpc } from "@/utils/trpc";
@@ -106,6 +110,36 @@ type ProjectFileSystemHeaderProps = {
   pageTitle: string;
 };
 
+type ProjectFileSystemHeaderSlotState = {
+  toolbarMount: HTMLDivElement | null;
+  setToolbarMount: (node: HTMLDivElement | null) => void;
+};
+
+const ProjectFileSystemHeaderSlotContext =
+  createContext<ProjectFileSystemHeaderSlotState | null>(null);
+
+/** Access the file system header slot mount. */
+function useProjectFileSystemHeaderSlot() {
+  return useContext(ProjectFileSystemHeaderSlotContext);
+}
+
+/** Provide a DOM slot for mounting the file system toolbar in the header. */
+function ProjectFileSystemHeaderSlotProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [toolbarMount, setToolbarMount] = useState<HTMLDivElement | null>(null);
+
+  return (
+    <ProjectFileSystemHeaderSlotContext.Provider
+      value={{ toolbarMount, setToolbarMount }}
+    >
+      {children}
+    </ProjectFileSystemHeaderSlotContext.Provider>
+  );
+}
+
 /** Build breadcrumb items for the project file system. */
 function buildFileBreadcrumbs(
   rootUri?: string,
@@ -166,14 +200,24 @@ const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
   isLoading,
   pageTitle,
 }: ProjectFileSystemHeaderProps) {
+  const headerSlot = useProjectFileSystemHeaderSlot();
+
   if (isLoading) {
     return null;
   }
 
   return (
-    <div className="flex items-center gap-2 min-w-0 animate-in fade-in duration-200">
-      <span className="text-base font-semibold">文件</span>
-      <span className="text-xs text-muted-foreground truncate">{pageTitle}</span>
+    <div className="flex items-center justify-between gap-3 min-w-0 animate-in fade-in duration-200 w-full">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-base font-semibold">文件</span>
+        <span className="text-xs text-muted-foreground truncate">{pageTitle}</span>
+      </div>
+      <div
+        ref={(node) => {
+          headerSlot?.setToolbarMount(node);
+        }}
+        className="flex min-w-0 items-center justify-end"
+      />
     </div>
   );
 });
@@ -241,6 +285,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   onNavigate,
 }: ProjectFileSystemProps) {
   const activeUri = currentUri ?? rootUri ?? null;
+  const headerSlot = useProjectFileSystemHeaderSlot();
   const isElectron = useMemo(
     () =>
       process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -973,11 +1018,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     return <div className="p-4 text-sm text-muted-foreground">未绑定项目目录</div>;
   }
 
-  return (
-    <div className="h-full flex flex-col gap-4">
-      <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
-        {/* 顶部功能栏：路径导航 + 极简图标操作（仅 UI）。 */}
-        <div className="flex flex-wrap items-center gap-3 rounded-b-2xl  px-4 py-2.5">
+  // 中文注释：通过 portal 把功能栏渲染到 header 右侧槽位，避免状态外提。
+  const toolbarPortal = headerSlot?.toolbarMount
+    ? createPortal(
+        <div className="flex flex-wrap items-center gap-3 rounded-b-2xl px-4 py-2.5">
           <div className="flex min-w-0 min-w-[12rem] flex-1 items-center">
             <ProjectFileSystemBreadcrumbs
               isLoading={listQuery.isLoading}
@@ -987,7 +1031,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               onNavigate={handleNavigate}
             />
           </div>
-        <div className="flex w-full items-center justify-between gap-1 sm:w-auto sm:justify-start">
+          <div className="flex w-full items-center justify-between gap-1 sm:w-auto sm:justify-start">
             {canUndo || canRedo ? (
               <>
                 <Button
@@ -1130,7 +1174,15 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        headerSlot.toolbarMount
+      )
+    : null;
+
+  return (
+    <div className="h-full flex flex-col gap-4">
+      {toolbarPortal}
+      <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <div
@@ -1333,5 +1385,9 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 });
 
 export type { ProjectBreadcrumbInfo };
-export { ProjectFileSystemBreadcrumbs, ProjectFileSystemHeader };
+export {
+  ProjectFileSystemBreadcrumbs,
+  ProjectFileSystemHeader,
+  ProjectFileSystemHeaderSlotProvider,
+};
 export default ProjectFileSystem;

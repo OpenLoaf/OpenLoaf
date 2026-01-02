@@ -609,15 +609,15 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 data-entry-card="true"
                 data-entry-uri={entry.uri}
                 ref={registerEntryRef(entry.uri)}
-                className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground ring-1 ring-border ${
-                  isSelected ? "bg-muted/70" : ""
+                className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground transition-colors ring-1 ring-border/40 bg-muted/30 shadow-sm ${
+                  isSelected ? "bg-muted/60 ring-border/70" : ""
                 }`}
               >
                 {visual}
                 <Input
                   value={renamingValue ?? displayName}
                   onChange={(event) => onRenamingChange?.(event.target.value)}
-                  className="h-7 text-center text-xs"
+                  className="h-7 text-center text-xs bg-background/80"
                   autoFocus
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {

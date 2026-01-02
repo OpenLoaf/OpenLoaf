@@ -20,6 +20,7 @@ import ProjectSkills, { ProjectSkillsHeader } from "./ProjectSkills";
 import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
 import ProjectFileSystem, {
   ProjectFileSystemHeader,
+  ProjectFileSystemHeaderSlotProvider,
   type ProjectBreadcrumbInfo,
 } from "./filesystem/ProjectFileSystem";
 import ProjectSettingsPage, {
@@ -248,7 +249,8 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   }, [handleProjectTabShortcut]);
 
   return (
-    <div className="flex h-full w-full flex-col min-h-0">
+    <ProjectFileSystemHeaderSlotProvider>
+      <div className="flex h-full w-full flex-col min-h-0">
       <div className="relative flex items-center py-0 w-full min-w-0 gap-3 pb-2">
         <div className="relative flex-1 min-w-0 min-h-[36px]">
           <div
@@ -423,6 +425,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
         </ScrollArea.Scrollbar>
         <ScrollArea.Corner />
       </ScrollArea.Root>
-    </div>
+      </div>
+    </ProjectFileSystemHeaderSlotProvider>
   );
 }
