@@ -67,11 +67,15 @@ type ProjectFileSystemBreadcrumbsProps = {
   currentUri?: string | null;
   projectLookup?: Map<string, ProjectBreadcrumbInfo>;
   onNavigate?: (nextUri: string) => void;
+  items?: ProjectBreadcrumbItem[];
 };
 
 type ProjectFileSystemHeaderProps = {
   isLoading: boolean;
-  pageTitle: string;
+  rootUri?: string;
+  currentUri?: string | null;
+  projectLookup?: Map<string, ProjectBreadcrumbInfo>;
+  onNavigate?: (nextUri: string) => void;
 };
 
 type ProjectFileSystemHeaderSlotState = {
@@ -117,10 +121,6 @@ function buildFileBreadcrumbs(
   const currentParts = currentUrl.pathname.split("/").filter(Boolean);
   const relativeParts = currentParts.slice(rootParts.length);
   const items: ProjectBreadcrumbItem[] = [];
-  // 中文注释：仅在非顶层时展示根目录 “/”。
-  if (relativeParts.length > 0) {
-    items.push({ label: "/", uri: rootUri });
-  }
   let accumParts = [...rootParts];
   // 从 root 向下拼接，构建可点击的面包屑路径。
   for (const part of relativeParts) {
@@ -137,6 +137,21 @@ function buildFileBreadcrumbs(
   return items;
 }
 
+/** Check if the current uri equals the root uri. */
+function isAtRootUri(rootUri?: string, currentUri?: string | null) {
+  if (!rootUri || !currentUri) return true;
+  try {
+    const rootUrl = new URL(rootUri);
+    const currentUrl = new URL(currentUri);
+    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
+    const currentParts = currentUrl.pathname.split("/").filter(Boolean);
+    // 中文注释：当前路径不超过 root 层级时视为根目录。
+    return currentParts.length <= rootParts.length;
+  } catch {
+    return true;
+  }
+}
+
 function decodePathSegment(value: string) {
   try {
     return decodeURIComponent(value);
@@ -148,9 +163,14 @@ function decodePathSegment(value: string) {
 /** Project file system header. */
 const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
   isLoading,
-  pageTitle,
+  rootUri,
+  currentUri,
+  projectLookup,
+  onNavigate,
 }: ProjectFileSystemHeaderProps) {
   const headerSlot = useProjectFileSystemHeaderSlot();
+  const isAtRoot = isAtRootUri(rootUri, currentUri);
+  const breadcrumbItems = buildFileBreadcrumbs(rootUri, currentUri, projectLookup);
 
   if (isLoading) {
     return null;
@@ -159,8 +179,30 @@ const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
   return (
     <div className="flex items-center justify-between gap-3 min-w-0 animate-in fade-in duration-200 w-full">
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-base font-semibold">文件</span>
-        <span className="text-xs text-muted-foreground truncate">{pageTitle}</span>
+        <button
+          type="button"
+          className={`text-base font-semibold ${isAtRoot ? "" : "hover:opacity-80"}`}
+          disabled={isAtRoot}
+          onClick={() => {
+            if (!rootUri || isAtRoot) return;
+            onNavigate?.(rootUri);
+          }}
+        >
+          文件
+        </button>
+        {breadcrumbItems.length > 0 ? (
+          <span className="text-xs text-muted-foreground"> &gt; </span>
+        ) : null}
+        <div className="min-w-0">
+          <ProjectFileSystemBreadcrumbs
+            isLoading={isLoading}
+            rootUri={rootUri}
+            currentUri={currentUri}
+            projectLookup={projectLookup}
+            onNavigate={onNavigate}
+            items={breadcrumbItems}
+          />
+        </div>
       </div>
       <div
         ref={(node) => {
@@ -179,9 +221,10 @@ const ProjectFileSystemBreadcrumbs = memo(function ProjectFileSystemBreadcrumbs(
   currentUri,
   projectLookup,
   onNavigate,
+  items,
 }: ProjectFileSystemBreadcrumbsProps) {
-  const items = buildFileBreadcrumbs(rootUri, currentUri, projectLookup);
-  const isVisible = !isLoading && items.length > 0;
+  const breadcrumbItems = items ?? buildFileBreadcrumbs(rootUri, currentUri, projectLookup);
+  const isVisible = !isLoading && breadcrumbItems.length > 0;
 
   return (
     <div className="relative flex min-w-0 items-center">
@@ -192,8 +235,8 @@ const ProjectFileSystemBreadcrumbs = memo(function ProjectFileSystemBreadcrumbs(
       >
         <Breadcrumb>
           <BreadcrumbList>
-          {items.map((item, index) => {
-            const isLast = index === items.length - 1;
+          {breadcrumbItems.map((item, index) => {
+            const isLast = index === breadcrumbItems.length - 1;
             return (
               <Fragment key={item.uri}>
                 <BreadcrumbItem>
@@ -249,20 +292,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   // 中文注释：通过 portal 把功能栏渲染到 header 右侧槽位，避免状态外提。
   const toolbarPortal = headerSlot?.toolbarMount
     ? createPortal(
-        <div className="flex flex-wrap items-center gap-3 rounded-b-2xl px-4 py-2.5">
-          <div className="flex min-w-0 min-w-[12rem] flex-1 items-center">
-            <ProjectFileSystemBreadcrumbs
-              isLoading={model.listQuery.isLoading}
-              rootUri={rootUri}
-              currentUri={model.activeUri}
-              projectLookup={projectLookup}
-              onNavigate={model.handleNavigate}
-            />
-          </div>
-          <div className="flex w-full items-center justify-between gap-1 sm:w-auto sm:justify-start">
-            {model.canUndo || model.canRedo ? (
-              <>
-                <Button
+        <div className="flex flex-wrap items-center justify-end gap-1 rounded-b-2xl px-4 py-2.5">
+          {model.canUndo || model.canRedo ? (
+            <>
+              <Button
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
@@ -403,7 +436,6 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 />
               </div>
             </div>
-          </div>
         </div>,
         headerSlot.toolbarMount
       )

@@ -282,7 +282,13 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
             }`}
             aria-hidden={activeTab !== "files"}
           >
-            <ProjectFileSystemHeader isLoading={isLoading} pageTitle={pageTitle} />
+            <ProjectFileSystemHeader
+              isLoading={isLoading}
+              rootUri={rootUri}
+              currentUri={fileUri}
+              projectLookup={projectLookup}
+              onNavigate={setFileUri}
+            />
           </div>
           <div
             className={`${headerBaseClass} ${
