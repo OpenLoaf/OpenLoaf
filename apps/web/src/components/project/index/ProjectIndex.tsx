@@ -7,13 +7,13 @@ import { trpc } from "@/utils/trpc";
 import ProjectTitle from "../ProjectTitle";
 import { Button } from "@/components/ui/button";
 
-const LazyProjectInfoPlate = lazy(() =>
-  import("./ProjectIntroPlate").then((module) => ({
-    default: module.ProjectInfoPlate,
+const LazyProjectIndexPlate = lazy(() =>
+  import("./ProjectIndexPlate").then((module) => ({
+    default: module.ProjectIndexPlate,
   }))
 );
 
-interface ProjectIntroHeaderProps {
+interface ProjectIndexHeaderProps {
   isLoading: boolean;
   projectId?: string;
   projectTitle: string;
@@ -26,7 +26,7 @@ interface ProjectIntroHeaderProps {
   onSetReadOnly: (nextReadOnly: boolean) => void;
 }
 
-interface ProjectIntroProps {
+interface ProjectIndexProps {
   isLoading: boolean;
   isActive: boolean;
   projectId?: string;
@@ -35,15 +35,15 @@ interface ProjectIntroProps {
   readOnly: boolean;
 }
 
-/** Project intro panel. */
-const ProjectInfo = memo(function ProjectInfo({
+/** Project index panel. */
+const ProjectIndex = memo(function ProjectIndex({
   isLoading,
   isActive,
   projectId,
   rootUri,
   projectTitle,
   readOnly,
-}: ProjectIntroProps) {
+}: ProjectIndexProps) {
   const blocksQuery = useQuery(
     trpc.project.getIntro.queryOptions(
       projectId
@@ -66,7 +66,7 @@ const ProjectInfo = memo(function ProjectInfo({
     <div className="h-full space-y-3 flex-1 min-h-0">
       {isActive ? (
         <Suspense fallback={null}>
-          <LazyProjectInfoPlate
+          <LazyProjectIndexPlate
             readOnly={readOnly}
             projectId={projectId}
             rootUri={rootUri}
@@ -79,8 +79,8 @@ const ProjectInfo = memo(function ProjectInfo({
   );
 });
 
-/** Project intro header. */
-const ProjectIntroHeader = memo(function ProjectIntroHeader({
+/** Project index header. */
+const ProjectIndexHeader = memo(function ProjectIndexHeader({
   isLoading,
   projectId,
   projectTitle,
@@ -91,10 +91,10 @@ const ProjectIntroHeader = memo(function ProjectIntroHeader({
   onUpdateIcon,
   isReadOnly,
   onSetReadOnly,
-}: ProjectIntroHeaderProps) {
-  const toggleLabel = isReadOnly ? "Edit" : "View";
+}: ProjectIndexHeaderProps) {
+  const toggleLabel = isReadOnly ? "编辑" : "查看";
   const ToggleIcon = isReadOnly ? PencilLine : Eye;
-  const toggleTitle = isReadOnly ? "Edit intro" : "View intro";
+  const toggleTitle = isReadOnly ? "编辑首页" : "查看首页";
 
   return (
     <div className="flex items-center gap-2 min-w-0">
@@ -127,5 +127,5 @@ const ProjectIntroHeader = memo(function ProjectIntroHeader({
   );
 });
 
-export { ProjectIntroHeader };
-export default ProjectInfo;
+export { ProjectIndexHeader };
+export default ProjectIndex;

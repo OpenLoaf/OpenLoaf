@@ -12,7 +12,7 @@ import { EditorStatic } from '@/components/ui/editor-static';
 import { Editor, EditorContainer } from '@/components/ui/editor';
 import { trpc } from '@/utils/trpc';
 
-interface ProjectInfoPlateProps {
+interface ProjectIndexPlateProps {
   // content 可能是任意可序列化的 JSON，渲染前再做校验与转换
   blocks: { content: unknown | null; order: number }[];
   projectTitle: string;
@@ -22,7 +22,7 @@ interface ProjectInfoPlateProps {
 }
 
 /** 只读视图组件，避免创建完整编辑器实例 */
-function ProjectInfoPlateView({
+function ProjectIndexPlateView({
   initialValue,
   projectId,
 }: {
@@ -201,7 +201,7 @@ function ProjectInfoPlateView({
       loggedRef.current = true;
       const dt = Math.round(performance.now() - t0Ref.current);
       // eslint-disable-next-line no-console
-      console.log(`[Plate][view] init ${projectId ?? "project-intro"}: ${dt}ms (sections=${sections.length})`);
+      console.log(`[Plate][view] init ${projectId ?? "project-index"}: ${dt}ms (sections=${sections.length})`);
     });
     return () => cancelAnimationFrame(h);
   }, [projectId, sections.length]);
@@ -286,7 +286,7 @@ function SectionStatic({
 }) {
   const editor = usePlateViewEditor(
     {
-      id: `${projectId ?? "project-intro"}-view-${sectionIndex}`,
+      id: `${projectId ?? "project-index"}-view-${sectionIndex}`,
       enabled: true,
       plugins: BaseEditorKit,
       value,
@@ -305,7 +305,7 @@ function SectionStatic({
 }
 
 /** 可编辑视图组件，仅在需要时创建重型编辑器实例 */
-function ProjectInfoPlateEdit({
+function ProjectIndexPlateEdit({
   initialValue,
   projectId,
   onChange,
@@ -319,7 +319,7 @@ function ProjectInfoPlateEdit({
   const loggedRef = React.useRef(false);
   const editor = usePlateEditor(
     {
-      id: projectId ?? 'project-intro',
+      id: projectId ?? 'project-index',
       enabled: true,
       plugins: EditorKit,
       value: initialValue,
@@ -331,7 +331,7 @@ function ProjectInfoPlateEdit({
       loggedRef.current = true;
       const dt = Math.round(performance.now() - t0Ref.current);
       // eslint-disable-next-line no-console
-      console.log(`[Plate][edit] init ${projectId ?? 'project-intro'}: ${dt}ms`);
+      console.log(`[Plate][edit] init ${projectId ?? 'project-index'}: ${dt}ms`);
     }
   }, [editor, projectId]);
   if (!editor) return null;
@@ -344,14 +344,14 @@ function ProjectInfoPlateEdit({
   );
 }
 
-/** Project intro editor. */
-export function ProjectInfoPlate({
+/** Project index editor. */
+export function ProjectIndexPlate({
   blocks,
   projectTitle,
   readOnly = true,
   projectId,
   rootUri,
-}: ProjectInfoPlateProps) {
+}: ProjectIndexPlateProps) {
   const saveBlocks = useMutation(
     trpc.project.saveIntro.mutationOptions()
   );
@@ -431,9 +431,9 @@ export function ProjectInfoPlate({
   }, []);
 
   return readOnly ? (
-    <ProjectInfoPlateView initialValue={initialValue} projectId={projectId} />
+    <ProjectIndexPlateView initialValue={initialValue} projectId={projectId} />
   ) : (
-    <ProjectInfoPlateEdit
+    <ProjectIndexPlateEdit
       initialValue={initialValue}
       projectId={projectId}
       onChange={(v) => scheduleSave(v)}

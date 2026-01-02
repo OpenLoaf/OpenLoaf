@@ -14,7 +14,7 @@ import { trpc } from "@/utils/trpc";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { useProject } from "@/hooks/use-project";
-import ProjectInfo, { ProjectIntroHeader } from "./intro/ProjectIntro";
+import ProjectIndex, { ProjectIndexHeader } from "./index/ProjectIndex";
 import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
 import ProjectSkills, { ProjectSkillsHeader } from "./ProjectSkills";
 import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
@@ -97,17 +97,17 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   const initialProjectTab =
     projectTab && PROJECT_TABS.some((tab) => tab.value === projectTab)
       ? projectTab
-      : "intro";
+      : "index";
   const [activeTab, setActiveTab] = useState<ProjectTabValue>(initialProjectTab);
   const [mountedTabs, setMountedTabs] = useState<Set<ProjectTabValue>>(
     () => new Set<ProjectTabValue>([initialProjectTab])
   );
-  const [introReadOnly, setIntroReadOnly] = useState(true);
+  const [indexReadOnly, setIndexReadOnly] = useState(true);
   const [fileUri, setFileUri] = useState<string | null>(rootUri ?? null);
 
   const pageTitle = projectData?.project?.title || "Untitled Project";
   const titleIcon: string | undefined = projectData?.project?.icon ?? undefined;
-  const shouldRenderIntro = activeTab === "intro" || mountedTabs.has("intro");
+  const shouldRenderIndex = activeTab === "index" || mountedTabs.has("index");
   const shouldRenderFiles = activeTab === "files" || mountedTabs.has("files");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
   const shouldRenderSkills = activeTab === "skills" || mountedTabs.has("skills");
@@ -146,7 +146,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
 
   // 页面切换时重置只读状态，避免沿用旧页面的编辑状态。
   useEffect(() => {
-    setIntroReadOnly(true);
+    setIndexReadOnly(true);
   }, [projectId, rootUri]);
 
   useEffect(() => {
@@ -201,9 +201,9 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   const panelBaseClass =
     "absolute inset-0 box-border pt-0 transition-opacity duration-240 ease-out";
 
-  /** Toggle read-only mode for the intro plate. */
-  const handleSetIntroReadOnly = useCallback((nextReadOnly: boolean) => {
-    setIntroReadOnly(nextReadOnly);
+  /** Toggle read-only mode for the index plate. */
+  const handleSetIndexReadOnly = useCallback((nextReadOnly: boolean) => {
+    setIndexReadOnly(nextReadOnly);
   }, []);
 
   /** Persist the active project tab into the dock base params. */
@@ -253,13 +253,13 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
         <div className="relative flex-1 min-w-0 min-h-[36px]">
           <div
             className={`${headerBaseClass} ${
-              activeTab === "intro"
+              activeTab === "index"
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none"
             }`}
-            aria-hidden={activeTab !== "intro"}
+            aria-hidden={activeTab !== "index"}
           >
-            <ProjectIntroHeader
+            <ProjectIndexHeader
               isLoading={isLoading}
               projectId={projectId}
               projectTitle={pageTitle}
@@ -268,8 +268,8 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
               isUpdating={updateProject.isPending}
               onUpdateTitle={handleUpdateTitle}
               onUpdateIcon={handleUpdateIcon}
-              isReadOnly={introReadOnly}
-              onSetReadOnly={handleSetIntroReadOnly}
+              isReadOnly={indexReadOnly}
+              onSetReadOnly={handleSetIndexReadOnly}
             />
           </div>
           <div
@@ -328,24 +328,24 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
           <div className="flex-1 min-h-0 w-full h-full">
             <div className="relative w-full h-full min-h-0">
               <div
-                id="project-panel-intro"
+                id="project-panel-index"
                 role="tabpanel"
-                aria-labelledby="project-tab-intro"
+                aria-labelledby="project-tab-index"
                 className={`${panelBaseClass} ${
-                  activeTab === "intro"
+                  activeTab === "index"
                     ? "opacity-100 pointer-events-auto"
                     : "opacity-0 pointer-events-none"
                 }`}
-                aria-hidden={activeTab !== "intro"}
+                aria-hidden={activeTab !== "index"}
               >
-                {shouldRenderIntro ? (
-                  <ProjectInfo
+                {shouldRenderIndex ? (
+                  <ProjectIndex
                     isLoading={isLoading}
-                    isActive={tabActive && activeTab === "intro"}
+                    isActive={tabActive && activeTab === "index"}
                     projectId={projectId}
                     rootUri={rootUri}
                     projectTitle={pageTitle}
-                    readOnly={introReadOnly}
+                    readOnly={indexReadOnly}
                   />
                 ) : null}
               </div>

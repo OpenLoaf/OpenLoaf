@@ -8,9 +8,9 @@ import { useMemo, useRef } from "react";
 
 export const PROJECT_TABS = [
   {
-    value: "intro",
+    value: "index",
     icon: <Info className="size-4 shrink-0" />,
-    label: "简介",
+    label: "首页",
   },
   {
     value: "files",

@@ -977,7 +977,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     <div className="h-full flex flex-col gap-4">
       <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
         {/* 顶部功能栏：路径导航 + 极简图标操作（仅 UI）。 */}
-        <div className="flex flex-wrap items-center gap-3 rounded-b-2xl bg-muted/40 px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-3 rounded-b-2xl  px-4 py-2.5">
           <div className="flex min-w-0 min-w-[12rem] flex-1 items-center">
             <ProjectFileSystemBreadcrumbs
               isLoading={listQuery.isLoading}

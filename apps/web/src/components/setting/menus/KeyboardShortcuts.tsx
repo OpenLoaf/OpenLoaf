@@ -22,7 +22,7 @@ const SHORTCUT_TRANSLATIONS: Record<string, { label: string; note?: string }> = 
 };
 
 const PROJECT_SHORTCUTS = [
-  { id: "project.tab.intro", label: "项目 · 简介", keys: "Alt+1" },
+  { id: "project.tab.index", label: "项目 · 首页", keys: "Alt+1" },
   { id: "project.tab.canvas", label: "项目 · 画布", keys: "Alt+2" },
   { id: "project.tab.tasks", label: "项目 · 任务", keys: "Alt+3" },
   { id: "project.tab.materials", label: "项目 · 资料", keys: "Alt+4" },
