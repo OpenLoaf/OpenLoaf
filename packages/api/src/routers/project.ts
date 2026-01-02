@@ -14,22 +14,13 @@ import {
 
 const PROJECT_META_DIR = ".teatime";
 const PROJECT_META_FILE = "project.json";
-const INTRO_BLOCKS_FILE = "intro.blocks.json";
+/** File name for project homepage content. */
+const PAGE_HOME_FILE = "page-home.json";
 const BOARD_SNAPSHOT_FILE = "board.snapshot.json";
 /** Default title used when the user does not provide one. */
 const DEFAULT_PROJECT_TITLE = "Untitled Project";
 /** Prefix for generated project ids. */
 const PROJECT_ID_PREFIX = "proj_";
-
-const projectIntroSchema = z
-  .object({
-    kind: z.string(),
-    targetId: z.string(),
-    component: z.string().optional(),
-    pageType: z.string().optional(),
-  })
-  .passthrough()
-  .optional();
 
 const projectConfigSchema = z
   .object({
@@ -37,7 +28,6 @@ const projectConfigSchema = z
     projectId: z.string(),
     title: z.string().optional().nullable(),
     icon: z.string().optional().nullable(),
-    intro: projectIntroSchema,
     childrenIds: z.array(z.string()).optional(),
     // 中文注释：子项目映射，使用 projectId -> rootUri。
     projects: z.record(z.string(), z.string()).optional(),
@@ -49,7 +39,6 @@ type ProjectNode = {
   projectId: string;
   title: string;
   icon?: string;
-  intro?: ProjectConfig["intro"];
   rootUri: string;
   children: ProjectNode[];
 };
@@ -104,9 +93,9 @@ function getProjectMetaPath(projectRootPath: string): string {
   return path.join(projectRootPath, PROJECT_META_DIR, PROJECT_META_FILE);
 }
 
-/** Build intro blocks path from a project root. */
-function getIntroBlocksPath(projectRootPath: string): string {
-  return path.join(projectRootPath, PROJECT_META_DIR, INTRO_BLOCKS_FILE);
+/** Build homepage content path from a project root. */
+function getHomePagePath(projectRootPath: string): string {
+  return path.join(projectRootPath, PROJECT_META_DIR, PAGE_HOME_FILE);
 }
 
 /** Build board snapshot path from a project root. */
@@ -203,7 +192,6 @@ async function readProjectTree(
       projectId: config.projectId,
       title: config.title ?? path.basename(projectRootPath),
       icon: config.icon ?? undefined,
-      intro: config.intro ?? undefined,
       rootUri: toFileUri(projectRootPath),
       children: childNodes,
     };
@@ -317,7 +305,6 @@ export const projectRouter = t.router({
           projectId: config.projectId,
           title: config.title ?? fallbackTitle,
           icon: config.icon ?? undefined,
-          intro: config.intro ?? undefined,
           rootUri: toFileUri(projectRootPath),
         },
       };
@@ -334,7 +321,6 @@ export const projectRouter = t.router({
           projectId: input.projectId,
           title: config.title ?? path.basename(rootPath),
           icon: config.icon ?? undefined,
-          intro: config.intro ?? undefined,
           rootUri: toFileUri(rootPath),
         },
       };
@@ -347,7 +333,6 @@ export const projectRouter = t.router({
         projectId: z.string(),
         title: z.string().optional(),
         icon: z.string().nullable().optional(),
-        intro: projectIntroSchema,
       })
     )
     .mutation(async ({ input }) => {
@@ -358,43 +343,65 @@ export const projectRouter = t.router({
         ...existing,
         ...(input.title !== undefined ? { title: input.title } : {}),
         ...(input.icon !== undefined ? { icon: input.icon } : {}),
-        ...(input.intro !== undefined ? { intro: input.intro } : {}),
       });
       await writeJsonAtomic(metaPath, next);
       return { ok: true };
     }),
 
-  /** Get intro blocks for a project. */
-  getIntro: shieldedProcedure
+  /** Get homepage data for a project. */
+  getHomePage: shieldedProcedure
     .input(z.object({ projectId: z.string() }))
     .query(async ({ input }) => {
       const rootPath = resolveProjectRootPath(input.projectId);
-      const introPath = getIntroBlocksPath(rootPath);
-      const raw = await readJsonFile(introPath);
-      const blocks = Array.isArray((raw as any)?.blocks) ? (raw as any).blocks : [];
-      return { blocks };
+      const pagePath = getHomePagePath(rootPath);
+      const raw = await readJsonFile(pagePath);
+      if (!raw || typeof raw !== "object") {
+        return { data: null, meta: null };
+      }
+      const payload = raw as {
+        schema?: number;
+        version?: number;
+        updatedAt?: string;
+        data?: unknown;
+      };
+      return {
+        data: (payload.data ?? null) as unknown,
+        meta: {
+          schema: payload.schema ?? 1,
+          version: payload.version ?? 0,
+          updatedAt: payload.updatedAt ?? null,
+        },
+      };
     }),
 
-  /** Save intro blocks for a project. */
-  saveIntro: shieldedProcedure
+  /** Publish homepage data for a project. */
+  publishHomePage: shieldedProcedure
     .input(
       z.object({
         projectId: z.string(),
-        blocks: z.array(
-          z.object({
-            content: z.any().nullable(),
-            order: z.number().optional().nullable(),
-            type: z.string().optional().nullable(),
-            props: z.any().optional().nullable(),
-          })
-        ),
+        data: z.any(),
       })
     )
     .mutation(async ({ input }) => {
       const rootPath = resolveProjectRootPath(input.projectId);
-      const introPath = getIntroBlocksPath(rootPath);
-      await writeJsonAtomic(introPath, { schema: 1, blocks: input.blocks });
-      return { ok: true };
+      const pagePath = getHomePagePath(rootPath);
+      const version = Date.now();
+      const payload = {
+        schema: 1,
+        version,
+        updatedAt: new Date(version).toISOString(),
+        data: input.data,
+      };
+      // 中文注释：仅发布时写入首页内容，避免编辑中产生脏数据。
+      await writeJsonAtomic(pagePath, payload);
+      return {
+        ok: true,
+        meta: {
+          schema: payload.schema,
+          version: payload.version,
+          updatedAt: payload.updatedAt,
+        },
+      };
     }),
 
   /** Get board snapshot for a project. */

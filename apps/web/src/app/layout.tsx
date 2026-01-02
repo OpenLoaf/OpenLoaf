@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "../index.css";
+import "@measured/puck/puck.css";
 import Providers from "@/components/Providers";
 import { Toaster } from "@/components/ui/sonner";
 import ServerConnectionGate from "@/components/layout/ServerConnectionGate";

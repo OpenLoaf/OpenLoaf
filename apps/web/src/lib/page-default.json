@@ -1,0 +1,25 @@
+{
+  "root": {
+    "props": {
+      "title": "Project Home"
+    }
+  },
+  "content": [
+    {
+      "type": "Heading",
+      "props": {
+        "id": "heading-1",
+        "text": "Project Home",
+        "level": 1
+      }
+    },
+    {
+      "type": "Paragraph",
+      "props": {
+        "id": "paragraph-1",
+        "text": "Use Puck to edit this homepage."
+      }
+    }
+  ],
+  "zones": {}
+}

@@ -449,3 +449,121 @@ body {
     animation: none;
   }
 }
+
+/* Puck 顶部控制条改由项目头部接管 */
+.puck-hide-controls [class*="_PuckCanvas-controls_"] {
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Puck 编辑器高度跟随容器 */
+.puck-fit,
+.puck-fit [class*="_Puck_"] {
+  height: 100%;
+}
+.puck-fit .Puck {
+  overflow: hidden;
+}
+.puck-fit [class*="_PuckLayout_"] {
+  height: 100% !important;
+  max-height: 100%;
+  min-height: 0;
+}
+.puck-fit [class*="_PuckLayout-inner_"] {
+  height: 100% !important;
+  max-height: 100%;
+  min-height: 0;
+}
+.puck-fit [class*="_PuckCanvas_"] {
+  height: 100%;
+  min-height: 0;
+}
+.puck-fit .Puck > div {
+  height: 100% !important;
+  min-height: 0;
+}
+
+/* Puck 主题跟随暗色模式 */
+.puck-theme {
+  background-color: var(--puck-color-white);
+  color-scheme: light;
+  --puck-font-size-scale-base-unitless: 11;
+  --puck-font-size-xxs-unitless: 12;
+  --puck-space-px: 12px;
+}
+.puck-theme [class*="_DrawerItem-draggable_"] {
+  padding: 5px !important;
+}
+.puck-theme [class*="_Input-input_"] {
+  padding: 5px 6px !important;
+  min-height: 28px;
+  font-size: var(--puck-font-size-xxs);
+}
+.puck-theme [class*="_SidebarSection-title_"],
+.puck-theme [class*="_Heading_"][class*="_Heading--xs_"] {
+  font-size: var(--puck-font-size-xxs);
+}
+.puck-theme [class*="_Layer_"] {
+  padding: 2px 4px;
+}
+.puck-theme [class*="_Layer-clickable_"] {
+  padding: 4px 6px;
+  font-size: var(--puck-font-size-xxs);
+  line-height: 1.2;
+}
+.puck-theme [class*="_PuckCanvas-root_"] {
+  background-color: var(--puck-color-white);
+}
+.puck-theme [class*="_Frame-root_"],
+.puck-theme [class*="_frame-root_"],
+.puck-theme [class*="frame-root"] {
+  background-color: var(--puck-color-white);
+}
+.dark .puck-theme [class*="_Frame-root_"],
+.dark .puck-theme [class*="_frame-root_"],
+.dark .puck-theme [class*="frame-root"] {
+  background-color: var(--puck-color-grey-02);
+}
+.dark .puck-theme,
+.dark [class*="_Puck-portal_"] {
+  --puck-color-white: var(--card);
+  --puck-color-black: #f8fafc;
+  --puck-color-grey-01: color-mix(in oklch, var(--card) 68%, black);
+  --puck-color-grey-02: var(--card);
+  --puck-color-grey-03: color-mix(in oklch, var(--card) 85%, black);
+  --puck-color-grey-04: color-mix(in oklch, var(--card) 35%, white);
+  --puck-color-grey-05: color-mix(in oklch, var(--card) 45%, white);
+  --puck-color-grey-06: color-mix(in oklch, var(--card) 55%, white);
+  --puck-color-grey-07: color-mix(in oklch, var(--card) 65%, white);
+  --puck-color-grey-08: color-mix(in oklch, var(--card) 72%, white);
+  --puck-color-grey-09: color-mix(in oklch, var(--card) 78%, white);
+  --puck-color-grey-10: color-mix(in oklch, var(--card) 84%, white);
+  --puck-color-grey-11: color-mix(in oklch, var(--card) 90%, white);
+  --puck-color-grey-12: color-mix(in oklch, var(--card) 96%, white);
+  color-scheme: dark;
+}
+.dark .puck-theme [class*="_PuckCanvas-root_"] {
+  background-color: var(--puck-color-grey-02);
+}
+.dark .puck-theme [class*="_Sidebar_"],
+.dark .puck-theme [class*="_Sidebar_"] button,
+.dark .puck-theme [class*="_Heading_"],
+.dark .puck-theme [class*="_Layer-clickable_"] {
+  color: var(--puck-color-black);
+}
+.dark .puck-theme [class*="_Layer-clickable_"]:hover {
+  background-color: var(--puck-color-grey-03);
+  color: var(--puck-color-black);
+}
+.dark .puck-theme [class*="_Layer--isSelected_"] {
+  background-color: var(--puck-color-grey-03);
+}
+.dark .puck-theme [class*="_Layer--isSelected_"] [class*="_Layer-clickable_"] {
+  background-color: transparent;
+  color: var(--puck-color-black);
+}
+.dark .puck-theme [class*="_Layer-inner_"] {
+  background-color: var(--puck-color-grey-03);
+}

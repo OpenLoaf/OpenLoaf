@@ -103,7 +103,12 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   const [mountedTabs, setMountedTabs] = useState<Set<ProjectTabValue>>(
     () => new Set<ProjectTabValue>([initialProjectTab])
   );
+  /** Homepage read-only state. */
   const [indexReadOnly, setIndexReadOnly] = useState(true);
+  /** Homepage dirty state. */
+  const [indexDirty, setIndexDirty] = useState(false);
+  /** Puck header controls mount target. */
+  const indexControlsRef = useRef<HTMLDivElement | null>(null);
   const [fileUri, setFileUri] = useState<string | null>(rootUri ?? null);
 
   const pageTitle = projectData?.project?.title || "Untitled Project";
@@ -148,6 +153,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   // 页面切换时重置只读状态，避免沿用旧页面的编辑状态。
   useEffect(() => {
     setIndexReadOnly(true);
+    setIndexDirty(false);
   }, [projectId, rootUri]);
 
   useEffect(() => {
@@ -202,9 +208,23 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   const panelBaseClass =
     "absolute inset-0 box-border pt-0 transition-opacity duration-240 ease-out";
 
-  /** Toggle read-only mode for the index plate. */
-  const handleSetIndexReadOnly = useCallback((nextReadOnly: boolean) => {
-    setIndexReadOnly(nextReadOnly);
+  /** Toggle read-only mode for the homepage editor. */
+  const handleSetIndexReadOnly = useCallback(
+    (nextReadOnly: boolean) => {
+      if (!indexReadOnly && nextReadOnly && indexDirty) {
+        // 中文注释：未发布内容需要确认后才能退出编辑。
+        const ok = window.confirm("当前有未保存内容，确定退出编辑并放弃修改？");
+        if (!ok) return;
+      }
+      setIndexReadOnly(nextReadOnly);
+    },
+    [indexReadOnly, indexDirty]
+  );
+
+  /** Handle homepage publish completion. */
+  const handleIndexPublish = useCallback(() => {
+    setIndexReadOnly(true);
+    setIndexDirty(false);
   }, []);
 
   /** Persist the active project tab into the dock base params. */
@@ -272,6 +292,8 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
               onUpdateIcon={handleUpdateIcon}
               isReadOnly={indexReadOnly}
               onSetReadOnly={handleSetIndexReadOnly}
+              controlsSlotRef={indexControlsRef}
+              showControls={!indexReadOnly}
             />
           </div>
           <div
@@ -351,9 +373,11 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
                     isLoading={isLoading}
                     isActive={tabActive && activeTab === "index"}
                     projectId={projectId}
-                    rootUri={rootUri}
                     projectTitle={pageTitle}
                     readOnly={indexReadOnly}
+                    onDirtyChange={setIndexDirty}
+                    onPublishSuccess={handleIndexPublish}
+                    controlsSlotRef={indexControlsRef}
                   />
                 ) : null}
               </div>

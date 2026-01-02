@@ -1,16 +1,5 @@
 import { z } from "zod";
 
-/** Project intro payload used in project.json. */
-const projectIntroSchema = z
-  .object({
-    kind: z.string(),
-    targetId: z.string(),
-    component: z.string().optional(),
-    pageType: z.string().optional(),
-  })
-  .passthrough()
-  .optional();
-
 export const projectListToolDef = {
   id: "project-list",
   description:
@@ -40,7 +29,6 @@ export const projectCreateToolDef = {
       .describe("项目根目录 URI（file://...，将写入 .teatime/project.json）"),
     title: z.string().nullable().optional().describe("项目标题（可选）"),
     icon: z.string().nullable().optional().describe("项目图标（可选）"),
-    intro: projectIntroSchema,
   }),
   needsApproval: true,
   component: null,
@@ -54,7 +42,6 @@ export const projectUpdateToolDef = {
     projectId: z.string().describe("项目 ID（用于定位 projects 映射）"),
     title: z.string().nullable().optional().describe("项目标题（可选）"),
     icon: z.string().nullable().optional().describe("项目图标（可选）"),
-    intro: projectIntroSchema,
   }),
   component: null,
 } as const;
