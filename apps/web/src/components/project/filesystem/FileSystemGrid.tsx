@@ -207,6 +207,25 @@ function getEntryVisual(entry: FileSystemEntry, thumbnailSrc?: string) {
   return <FileText className="h-10 w-10 text-muted-foreground" />;
 }
 
+/** Build display name parts so extensions stay visible when truncated. */
+function getEntryNameParts(entry: FileSystemEntry) {
+  const normalizedExt = entry.kind === "file" ? getEntryExt(entry) : "";
+  const displayName =
+    entry.kind === "file" ? getDisplayFileName(entry.name, normalizedExt) : entry.name;
+  if (entry.kind !== "file" || !normalizedExt || isBoardFileExt(normalizedExt)) {
+    return { prefix: displayName, suffix: "" };
+  }
+  const dotIndex = entry.name.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex >= entry.name.length - 1) {
+    return { prefix: displayName, suffix: "" };
+  }
+  // 中文注释：保留扩展名，前缀使用省略以保证后缀可见。
+  return {
+    prefix: entry.name.slice(0, dotIndex),
+    suffix: entry.name.slice(dotIndex),
+  };
+}
+
 /** Render a single file system entry card. */
 const FileSystemEntryCard = memo(
   forwardRef<HTMLButtonElement, FileSystemEntryCardProps>(
@@ -225,10 +244,7 @@ const FileSystemEntryCard = memo(
       ref
     ) {
       const visual = getEntryVisual(entry, thumbnailSrc);
-      const displayName =
-        entry.kind === "file"
-          ? getDisplayFileName(entry.name, entry.ext)
-          : entry.name;
+      const nameParts = getEntryNameParts(entry);
       return (
         <button
           ref={ref}
@@ -247,9 +263,18 @@ const FileSystemEntryCard = memo(
           onDrop={onDrop}
         >
           {visual}
-          <span className="line-clamp-2 min-h-[2rem] w-full break-words leading-4">
-            {displayName}
-          </span>
+          {nameParts.suffix ? (
+            <span className="flex min-h-[2rem] w-full items-center justify-center leading-4">
+              <span className="inline-flex max-w-full min-w-0 items-center">
+                <span className="min-w-0 truncate">{nameParts.prefix}</span>
+                <span className="shrink-0">{nameParts.suffix}</span>
+              </span>
+            </span>
+          ) : (
+            <span className="line-clamp-2 min-h-[2rem] w-full break-words leading-4">
+              {nameParts.prefix}
+            </span>
+          )}
         </button>
       );
     }
