@@ -1,0 +1,56 @@
+.sheet-viewer-grid {
+  height: 100%;
+  background: #f5f2ea;
+  color: #2b2b2b;
+  border-radius: 8px;
+  border: 1px solid rgba(60, 52, 40, 0.2);
+}
+
+.sheet-viewer-grid .rdg-header-row {
+  background: #efe6d7;
+}
+
+.sheet-viewer-grid .rdg-header-cell {
+  color: #4c3b2c;
+  font-weight: 600;
+}
+
+.sheet-viewer-row-number-header,
+.sheet-viewer-row-number-cell {
+  color: #5b4a39;
+}
+
+.sheet-viewer-row-number {
+  display: inline-flex;
+  width: 100%;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.sheet-viewer-grid .rdg-cell {
+  background: #faf4e8;
+  border-color: rgba(60, 52, 40, 0.18);
+}
+
+.dark .sheet-viewer-grid {
+  background: #191a1c;
+  color: #e7e3dc;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .sheet-viewer-grid .rdg-header-row {
+  background: #222326;
+}
+
+.dark .sheet-viewer-grid .rdg-header-cell {
+  color: #efe9df;
+}
+
+.dark .sheet-viewer-row-number-header,
+.dark .sheet-viewer-row-number-cell {
+  color: #cfc6b7;
+}
+
+.dark .sheet-viewer-grid .rdg-cell {
+  border-color: rgba(255, 255, 255, 0.12);
+}

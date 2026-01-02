@@ -109,6 +109,8 @@ function resolveFileComponent(ext?: string) {
   if (ext === BOARD_FILE_EXT) return "board-viewer";
   if (ext === "ttskill") return "file-viewer";
   if (ext === "pdf") return "pdf-viewer";
+  if (ext === "doc" || ext === "docx") return "doc-viewer";
+  if (ext === "xls" || ext === "xlsx" || ext === "csv" || ext === "tsv") return "sheet-viewer";
   return "file-viewer";
 }
 
@@ -364,6 +366,8 @@ export const PageTreeMenu = ({
           })()
         : node.uri;
 
+    const needsCustomHeader =
+      component === "pdf-viewer" || component === "doc-viewer" || component === "sheet-viewer";
     addTab({
       workspaceId: workspace.id,
       createNew: true,
@@ -377,7 +381,7 @@ export const PageTreeMenu = ({
           uri: resolvedUri,
           name: node.name,
           ext: node.ext,
-          ...(component === "pdf-viewer" ? { __customHeader: true } : {}),
+          ...(needsCustomHeader ? { __customHeader: true } : {}),
         },
       },
       chatParams: { projectId: node.projectId },

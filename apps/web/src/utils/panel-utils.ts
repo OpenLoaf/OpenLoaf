@@ -13,6 +13,8 @@ import FileViewer from "@/components/file/FileViewer";
 import ImageViewer from "@/components/file/ImageViewer";
 import CodeViewer from "@/components/file/CodeViewer";
 import PdfViewer from "@/components/file/PdfViewer";
+import DocViewer from "@/components/file/DocViewer";
+import SheetViewer from "@/components/file/SheetViewer";
 import BoardFileViewer from "@/components/board/BoardFileViewer";
 
 /**
@@ -37,6 +39,8 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "image-viewer": ImageViewer,
   "code-viewer": CodeViewer,
   "pdf-viewer": PdfViewer,
+  "doc-viewer": DocViewer,
+  "sheet-viewer": SheetViewer,
   "board-viewer": BoardFileViewer,
 };
 
@@ -71,6 +75,10 @@ export const getPanelTitle = (componentName: string) => {
       return "Code";
     case "pdf-viewer":
       return "PDF";
+    case "doc-viewer":
+      return "DOC";
+    case "sheet-viewer":
+      return "Sheet";
     case "board-viewer":
       return "Board";
     default:

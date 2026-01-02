@@ -64,6 +64,7 @@ const AUDIO_EXTS = new Set(["mp3", "wav", "flac", "ogg", "m4a", "aac"]);
 const VIDEO_EXTS = new Set(["mp4", "mov", "avi", "mkv", "webm"]);
 const SPREADSHEET_EXTS = new Set(["xls", "xlsx", "csv", "tsv", "numbers"]);
 const PDF_EXTS = new Set(["pdf"]);
+const DOC_EXTS = new Set(["doc", "docx"]);
 const CODE_EXTS = new Set([
   "js",
   "ts",
@@ -106,6 +107,10 @@ type FileSystemGridProps = {
   onOpenCode?: (entry: FileSystemEntry) => void;
   /** Open PDF entries in an external viewer. */
   onOpenPdf?: (entry: FileSystemEntry) => void;
+  /** Open DOC entries in an external viewer. */
+  onOpenDoc?: (entry: FileSystemEntry) => void;
+  /** Open spreadsheet entries in an external viewer. */
+  onOpenSpreadsheet?: (entry: FileSystemEntry) => void;
   /** Open board entries in the board viewer. */
   onOpenBoard?: (entry: FileSystemEntry) => void;
   showEmptyActions?: boolean;
@@ -263,6 +268,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onOpenImage,
   onOpenCode,
   onOpenPdf,
+  onOpenDoc,
+  onOpenSpreadsheet,
   onOpenBoard,
   showEmptyActions = true,
   onCreateBoard,
@@ -293,6 +300,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   } | null>(null);
   const selectionModeRef = useRef<"replace" | "toggle">("replace");
   const lastSelectedRef = useRef<string>("");
+  // 记录最近一次右键触发的条目，用于拦截触控板右键后的误触点击。
+  const lastContextMenuRef = useRef<{ uri: string; at: number } | null>(null);
   const [selectionRect, setSelectionRect] = useState<{
     left: number;
     top: number;
@@ -359,6 +368,18 @@ const FileSystemGrid = memo(function FileSystemGrid({
     [onSelectionChange]
   );
 
+  /** Ignore the synthetic click that follows a context-menu trigger. */
+  const shouldIgnoreContextClick = useCallback((uri: string) => {
+    const last = lastContextMenuRef.current;
+    if (!last || last.uri !== uri) return false;
+    if (Date.now() - last.at > 250) {
+      lastContextMenuRef.current = null;
+      return false;
+    }
+    lastContextMenuRef.current = null;
+    return true;
+  }, []);
+
   const handleMouseMove = useCallback(
     (event: MouseEvent) => {
       const start = selectionStartRef.current;
@@ -396,11 +417,17 @@ const FileSystemGrid = memo(function FileSystemGrid({
     }
   }, [handleMouseMove, onSelectionChange]);
 
+  /** Start drag selection when the user presses on empty space. */
   const handleGridMouseDown = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
       if (event.button !== 0) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('[data-entry-card="true"]')) return;
+      if (renamingUri) {
+        // 中文注释：重命名时点击空白处直接提交，避免被框选逻辑拦截。
+        onRenamingSubmit?.();
+        return;
+      }
       selectionModeRef.current =
         event.metaKey || event.ctrlKey ? "toggle" : "replace";
       selectionStartRef.current = { x: event.clientX, y: event.clientY };
@@ -410,7 +437,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
       window.addEventListener("mouseup", handleMouseUp);
       event.preventDefault();
     },
-    [handleMouseMove, handleMouseUp]
+    [handleMouseMove, handleMouseUp, onRenamingSubmit, renamingUri]
   );
 
   // 记录文件列表状态变化，方便定位异常跳转。
@@ -609,8 +636,12 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 thumbnailSrc={thumbnailSrc}
                 ref={registerEntryRef(entry.uri)}
                 isSelected={isSelected}
-                onClick={(event) => onEntryClick?.(entry, event)}
+                onClick={(event) => {
+                  if (shouldIgnoreContextClick(entry.uri)) return;
+                  onEntryClick?.(entry, event);
+                }}
                 onDoubleClick={(event) => {
+                  if (shouldIgnoreContextClick(entry.uri)) return;
                   const pointerType =
                     "pointerType" in event.nativeEvent
                       ? (event.nativeEvent as PointerEvent).pointerType
@@ -656,6 +687,24 @@ const FileSystemGrid = memo(function FileSystemGrid({
                     onOpenPdf?.(entry);
                     return;
                   }
+                  if (entry.kind === "file" && DOC_EXTS.has(entryExt)) {
+                    console.debug("[FileSystemGrid] entry doc open", {
+                      at: new Date().toISOString(),
+                      name: entry.name,
+                      uri: entry.uri,
+                    });
+                    onOpenDoc?.(entry);
+                    return;
+                  }
+                  if (entry.kind === "file" && SPREADSHEET_EXTS.has(entryExt)) {
+                    console.debug("[FileSystemGrid] entry spreadsheet open", {
+                      at: new Date().toISOString(),
+                      name: entry.name,
+                      uri: entry.uri,
+                    });
+                    onOpenSpreadsheet?.(entry);
+                    return;
+                  }
                   if (entry.kind === "file" && isBoardFileExt(entryExt)) {
                     console.debug("[FileSystemGrid] entry board open", {
                       at: new Date().toISOString(),
@@ -694,6 +743,10 @@ const FileSystemGrid = memo(function FileSystemGrid({
                   onNavigate?.(entry.uri);
                 }}
                 onContextMenu={(event) => {
+                  lastContextMenuRef.current = {
+                    uri: entry.uri,
+                    at: Date.now(),
+                  };
                   const pointerType =
                     "pointerType" in event.nativeEvent
                       ? (event.nativeEvent as PointerEvent).pointerType

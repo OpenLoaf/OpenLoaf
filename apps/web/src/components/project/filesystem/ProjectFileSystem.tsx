@@ -639,6 +639,52 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     [activeTabId, projectId, pushStackItem, rootUri, setSingleSelection]
   );
 
+  /** Open a DOC file inside the current tab stack. */
+  const handleOpenDoc = useCallback(
+    (entry: FileSystemEntry) => {
+      setSingleSelection(entry.uri);
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: generateId(),
+        component: "doc-viewer",
+        title: entry.name,
+        params: {
+          uri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+          __customHeader: true,
+        },
+      });
+    },
+    [activeTabId, pushStackItem, setSingleSelection]
+  );
+
+  /** Open a spreadsheet file inside the current tab stack. */
+  const handleOpenSpreadsheet = useCallback(
+    (entry: FileSystemEntry) => {
+      setSingleSelection(entry.uri);
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: generateId(),
+        component: "sheet-viewer",
+        title: entry.name,
+        params: {
+          uri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+          __customHeader: true,
+        },
+      });
+    },
+    [activeTabId, pushStackItem, setSingleSelection]
+  );
+
   /** Open a board file inside the current tab stack. */
   const handleOpenBoard = useCallback(
     (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => {
@@ -1108,6 +1154,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   onOpenImage={handleOpenImage}
                   onOpenCode={handleOpenCode}
                   onOpenPdf={handleOpenPdf}
+                  onOpenDoc={handleOpenDoc}
+                  onOpenSpreadsheet={handleOpenSpreadsheet}
                   onOpenBoard={handleOpenBoard}
                   onCreateBoard={handleCreateBoard}
                   selectedUris={selectedUris}

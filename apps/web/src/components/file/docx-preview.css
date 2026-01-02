@@ -1,0 +1,58 @@
+.docx-wrapper {
+  background: #f4f4f5;
+  padding: 24px;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.docx-wrapper section.docx {
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.docx-wrapper .docx {
+  width: 100%;
+  max-width: 100%;
+}
+
+.docx-wrapper table {
+  border-collapse: collapse;
+}
+
+.docx-wrapper table,
+.docx-wrapper th,
+.docx-wrapper td {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.dark .docx-wrapper {
+  background: #0f1115;
+}
+
+.dark .docx-wrapper section.docx {
+  background: #141720;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.6);
+}
+
+.dark .docx-wrapper .docx {
+  color: #e2e8f0;
+}
+
+.dark .docx-wrapper .docx a {
+  color: #7dd3fc;
+}
+
+.dark .docx-wrapper .docx a:visited {
+  color: #a5b4fc;
+}
+
+.dark .docx-wrapper table,
+.dark .docx-wrapper th,
+.dark .docx-wrapper td {
+  border: 1px solid rgba(226, 232, 240, 0.18);
+}
