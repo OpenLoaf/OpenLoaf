@@ -2,8 +2,6 @@ import * as React from "react";
 import type { Config } from "@measured/puck";
 
 type HeadingProps = {
-  /** Unique component id. */
-  id: string;
   /** Heading text. */
   text: string;
   /** Heading level. */
@@ -11,17 +9,22 @@ type HeadingProps = {
 };
 
 type ParagraphProps = {
-  /** Unique component id. */
-  id: string;
   /** Paragraph text. */
   text: string;
 };
 
 type SpacerProps = {
-  /** Unique component id. */
-  id: string;
   /** Spacer height in px. */
   size: number;
+};
+
+type HomePageComponents = {
+  /** Heading component props. */
+  Heading: HeadingProps;
+  /** Paragraph component props. */
+  Paragraph: ParagraphProps;
+  /** Spacer component props. */
+  Spacer: SpacerProps;
 };
 
 /** Heading size map. */
@@ -32,8 +35,8 @@ const headingClasses: Record<HeadingProps["level"], string> = {
 };
 
 /** Homepage Puck config with minimal components. */
-export const homePagePuckConfig: Config = {
-  // 中文注释：主页保持最小组件集合，降低编辑成本。
+export const homePagePuckConfig: Config<HomePageComponents> = {
+  // 主页保持最小组件集合，降低编辑成本。
   components: {
     Heading: {
       label: "标题",
@@ -57,7 +60,7 @@ export const homePagePuckConfig: Config = {
         text: "Heading",
         level: 1,
       },
-      render: ({ text, level }: HeadingProps) => {
+      render: ({ text, level }) => {
         const Tag = `h${level}` as const;
         return <Tag className={headingClasses[level]}>{text}</Tag>;
       },
@@ -73,7 +76,7 @@ export const homePagePuckConfig: Config = {
       defaultProps: {
         text: "Write your content here.",
       },
-      render: ({ text }: ParagraphProps) => {
+      render: ({ text }) => {
         return <p className="leading-7 text-foreground/80 whitespace-pre-wrap">{text}</p>;
       },
     },
@@ -91,14 +94,14 @@ export const homePagePuckConfig: Config = {
       defaultProps: {
         size: 24,
       },
-      render: ({ size }: SpacerProps) => {
+      render: ({ size }) => {
         return <div style={{ height: size }} />;
       },
     },
   },
   root: {
     render: ({ children }) => {
-      // 中文注释：统一首页内容的版式与间距。
+      // 统一首页内容的版式与间距。
       return <div className="flex flex-col gap-4 px-10 py-6 text-sm">{children}</div>;
     },
   },

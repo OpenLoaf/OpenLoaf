@@ -14,6 +14,9 @@ type ResolvedChatModel = {
 
 const MAX_FALLBACK_TRIES = 2;
 
+/** Map provider settings before model construction. */
+type ProviderEntryMapper = (entry: ProviderSettingEntry) => ProviderSettingEntry;
+
 /** Resolve model definition from registry. */
 function resolveModelDefinition(
   providerId: string,
@@ -68,12 +71,15 @@ function buildChatModelCandidates(
   return candidates;
 }
 
-/** Resolve chat model from local provider settings. */
-async function resolveLocalChatModel(input: {
+/** Resolve chat model from provider settings. */
+async function resolveChatModelFromProviders(input: {
   chatModelId?: string | null;
+  providers: ProviderSettingEntry[];
+  mapProviderEntry?: ProviderEntryMapper;
 }): Promise<ResolvedChatModel> {
   const normalized = normalizeChatModelId(input.chatModelId);
-  const providers = await getProviderSettings();
+  const mapProviderEntry = input.mapProviderEntry ?? ((entry) => entry);
+  const providers = input.providers;
   const providerById = new Map(providers.map((entry) => [entry.id, entry]));
 
   // 中文注释：流程=生成候选列表 -> 顺序解析/创建模型 -> 失败后按次数 fallback。
@@ -102,6 +108,7 @@ async function resolveLocalChatModel(input: {
         throw new Error("模型未在服务商配置中启用");
       }
 
+      const mappedProviderEntry = mapProviderEntry(providerEntry);
       const providerDefinition = getProviderDefinition(providerEntry.providerId);
       const adapterId = providerDefinition?.adapterId ?? providerEntry.providerId;
       const adapter = PROVIDER_ADAPTERS[adapterId];
@@ -113,7 +120,7 @@ async function resolveLocalChatModel(input: {
         providerEntry,
       );
       const model = adapter.buildAiSdkModel({
-        provider: providerEntry,
+        provider: mappedProviderEntry,
         modelId: parsed.modelId,
         modelDefinition,
         providerDefinition,
@@ -137,54 +144,37 @@ async function resolveLocalChatModel(input: {
   throw lastError ?? new Error("模型解析失败");
 }
 
+/** Resolve chat model from local provider settings. */
+async function resolveLocalChatModel(input: {
+  chatModelId?: string | null;
+}): Promise<ResolvedChatModel> {
+  const providers = await getProviderSettings();
+  return resolveChatModelFromProviders({ providers, chatModelId: input.chatModelId });
+}
+
 /** Resolve chat model from cloud config. */
 async function resolveCloudChatModel(_input: {
   chatModelId?: string | null;
 }): Promise<ResolvedChatModel> {
-  const apiUrl = getEnvString(process.env, "TEATIME_SAAS_API_URL", { required: true })!;
-  const apiKey = getEnvString(process.env, "TEATIME_SAAS_API_KEY", { required: true })!;
-  const providerId = "xai";
-  const modelId = "grok-4-1-fast-reasoning";
+  const apiUrl = getEnvString(process.env, "TEATIME_SAAS_API_URL");
+  const apiKey = getEnvString(process.env, "TEATIME_SAAS_API_KEY");
+  const providers = await getProviderSettings();
 
-  // 中文注释：云端模型先固定为 grok-4-1-fast-reasoning，后续再接入动态列表。
-  const modelDefinition = getModelDefinition(providerId, modelId);
-  if (!modelDefinition) {
-    throw new Error("云端模型未在注册表中配置");
-  }
-
-  const providerDefinition = getProviderDefinition(providerId);
-  const adapterId = providerDefinition?.adapterId ?? providerId;
-  const adapter = PROVIDER_ADAPTERS[adapterId];
-  if (!adapter) {
-    throw new Error("云端模型服务商不受支持");
-  }
-
-  const providerEntry: ProviderSettingEntry = {
-    id: "cloud",
-    key: "cloud",
-    providerId,
-    apiUrl,
-    authConfig: { apiKey },
-    models: { [modelId]: modelDefinition },
-    updatedAt: new Date(),
-  };
-
-  const model = adapter.buildAiSdkModel({
-    provider: providerEntry,
-    modelId,
-    modelDefinition,
-    providerDefinition,
+  return resolveChatModelFromProviders({
+    providers,
+    chatModelId: _input.chatModelId,
+    mapProviderEntry: (providerEntry) => {
+      const authConfig = apiKey
+        ? { ...(providerEntry.authConfig ?? {}), apiKey }
+        : providerEntry.authConfig;
+      // 中文注释：云端调用优先使用 SaaS 的 api_url 与密钥，未配置时回落本地配置。
+      return {
+        ...providerEntry,
+        apiUrl: apiUrl ?? providerEntry.apiUrl,
+        authConfig,
+      };
+    },
   });
-  if (!model) {
-    throw new Error("云端模型不支持 AI SDK 调用");
-  }
-
-  return {
-    model,
-    modelInfo: { provider: providerId, modelId },
-    chatModelId: `cloud:${modelId}`,
-    modelDefinition,
-  };
 }
 
 /** Resolve chat model by selected source. */
