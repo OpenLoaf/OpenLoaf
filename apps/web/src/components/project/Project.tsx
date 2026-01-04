@@ -16,7 +16,6 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useProject } from "@/hooks/use-project";
 import ProjectIndex, { ProjectIndexHeader } from "./index/ProjectIndex";
 import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
-import ProjectSkills, { ProjectSkillsHeader } from "./ProjectSkills";
 import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
 import ProjectFileSystem, {
   ProjectFileSystemHeader,
@@ -116,7 +115,6 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   const shouldRenderIndex = activeTab === "index" || mountedTabs.has("index");
   const shouldRenderFiles = activeTab === "files" || mountedTabs.has("files");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
-  const shouldRenderSkills = activeTab === "skills" || mountedTabs.has("skills");
   const shouldRenderSettings = activeTab === "settings" || mountedTabs.has("settings");
 
   const updateProject = useMutation(
@@ -324,16 +322,6 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
           </div>
           <div
             className={`${headerBaseClass} ${
-              activeTab === "skills"
-                ? "opacity-100 pointer-events-auto"
-                : "opacity-0 pointer-events-none"
-            }`}
-            aria-hidden={activeTab !== "skills"}
-          >
-            <ProjectSkillsHeader isLoading={isLoading} pageTitle={pageTitle} />
-          </div>
-          <div
-            className={`${headerBaseClass} ${
               activeTab === "settings"
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none"
@@ -415,21 +403,6 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
               >
                 {shouldRenderTasks ? (
                   <ProjectTasks isLoading={isLoading} />
-                ) : null}
-              </div>
-              <div
-                id="project-panel-skills"
-                role="tabpanel"
-                aria-labelledby="project-tab-skills"
-                className={`${panelBaseClass} ${
-                  activeTab === "skills"
-                    ? "opacity-100 pointer-events-auto"
-                    : "opacity-0 pointer-events-none"
-                }`}
-                aria-hidden={activeTab !== "skills"}
-              >
-                {shouldRenderSkills ? (
-                  <ProjectSkills isLoading={isLoading} />
                 ) : null}
               </div>
               <div

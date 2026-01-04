@@ -1,4 +1,5 @@
 import type { UIMessageStreamWriter } from "ai";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { AsyncLocalStorage } from "node:async_hooks";
 
 export type AgentFrame = {
@@ -22,6 +23,10 @@ export type RequestContext = {
   uiWriter?: UIMessageStreamWriter<any>;
   /** Abort signal for cooperative cancellation. */
   abortSignal?: AbortSignal;
+  /** Resolved chat model for tool execution. */
+  chatModel?: LanguageModelV3;
+  /** Assistant message id for the current streaming response. */
+  assistantMessageId?: string;
   /** Agent frame stack for nested agents. */
   agentStack?: AgentFrame[];
 };
@@ -90,6 +95,30 @@ export function setAbortSignal(signal: AbortSignal) {
 /** 获取 abortSignal（可能为空）。 */
 export function getAbortSignal(): AbortSignal | undefined {
   return getRequestContext()?.abortSignal;
+}
+
+/** Sets the resolved chat model for this request. */
+export function setChatModel(model: LanguageModelV3) {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.chatModel = model;
+}
+
+/** Gets the resolved chat model for this request. */
+export function getChatModel(): LanguageModelV3 | undefined {
+  return getRequestContext()?.chatModel;
+}
+
+/** Sets the assistant message id for this request. */
+export function setAssistantMessageId(messageId: string) {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.assistantMessageId = messageId;
+}
+
+/** Gets the assistant message id for this request. */
+export function getAssistantMessageId(): string | undefined {
+  return getRequestContext()?.assistantMessageId;
 }
 
 /** 获取 agent 栈（MVP：用于打标消息来源）。 */

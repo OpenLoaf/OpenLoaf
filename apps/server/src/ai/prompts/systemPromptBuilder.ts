@@ -18,6 +18,7 @@ export function buildMasterAgentSystemPrompt(): string {
       "规则：",
       "- 不要捏造事实；不知道就说明并建议用工具获取信息。",
       "- 工具返回的数据需要简要总结后再继续下一步。",
+      "- 任务较复杂时可以调用 sub-agent 工具拆分处理。",
     ].join("\n"),
     ["完成条件：", "- 用户问题被解决，或给出明确下一步操作。"].join("\n"),
   ];

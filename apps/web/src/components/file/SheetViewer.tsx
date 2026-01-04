@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Save } from "lucide-react";
 import { DataGrid, renderTextEditor, type Column } from "react-data-grid";
 import * as XLSX from "xlsx";
@@ -164,11 +164,10 @@ export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerP
   /** Flags whether the viewer should load via fs.readBinary. */
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
   /** Holds the binary payload fetched from the fs API. */
-  const fileQuery = useQuery(
-    shouldUseFs
-      ? trpc.fs.readBinary.queryOptions({ uri: uri! })
-      : { queryKey: ["fs.readBinary", "skip"], queryFn: skipToken }
-  );
+  const fileQuery = useQuery({
+    ...trpc.fs.readBinary.queryOptions({ uri: uri ?? "" }),
+    enabled: shouldUseFs && Boolean(uri),
+  });
   const writeBinaryMutation = useMutation(trpc.fs.writeBinary.mutationOptions());
 
   /** Display name shown in the panel header. */

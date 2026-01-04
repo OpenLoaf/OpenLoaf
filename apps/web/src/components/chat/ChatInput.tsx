@@ -366,7 +366,9 @@ export function ChatInputBox({
           const bytes = base64ToUint8Array(payload.contentBase64);
           const mime = payload.mime || "application/octet-stream";
           const fileName = relativePath.split("/").pop() || "image";
-          const file = new File([bytes], fileName, { type: mime });
+          const arrayBuffer = new ArrayBuffer(bytes.byteLength);
+          new Uint8Array(arrayBuffer).set(bytes);
+          const file = new File([arrayBuffer], fileName, { type: mime });
           onAddAttachments([file]);
         } catch {
           return;

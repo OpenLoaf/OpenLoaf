@@ -1,7 +1,7 @@
 "use client";
 
-import { skipToken, useQuery } from "@tanstack/react-query";
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   getCenterPosition,
   TransformComponent,
@@ -28,11 +28,10 @@ export default function ImageViewer({ uri, name }: ImageViewerProps) {
   const [fitScale, setFitScale] = React.useState(1);
   const appliedRef = React.useRef<string | null>(null);
 
-  const imageQuery = useQuery(
-    shouldUseFs
-      ? trpc.fs.readBinary.queryOptions({ uri: uri! })
-      : { queryKey: ["fs.readBinary", "skip"], queryFn: skipToken }
-  );
+  const imageQuery = useQuery({
+    ...trpc.fs.readBinary.queryOptions({ uri: uri ?? "" }),
+    enabled: shouldUseFs && Boolean(uri),
+  });
   const [preview, setPreview] = React.useState<{
     status: "loading" | "ready" | "error";
     src?: string;

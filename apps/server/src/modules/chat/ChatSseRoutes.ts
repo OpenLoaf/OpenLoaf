@@ -18,7 +18,9 @@ import {
   popAgentFrame,
   pushAgentFrame,
   getSessionId,
+  setAssistantMessageId,
   setAbortSignal,
+  setChatModel,
   setRequestContext,
   setUiWriter,
 } from "@/common/requestContext";
@@ -230,6 +232,7 @@ export function registerChatSseRoutes(app: Hono) {
     // AI SDK 的 useChat 会把本次生成的 messageId 传给服务端；续跑/审批继续应复用同一个 messageId，以便在 UI 侧作为同一条 assistant message 继续更新。
     const assistantMessageId =
       typeof messageId === "string" && messageId ? messageId : generateId();
+    setAssistantMessageId(assistantMessageId);
 
     // 前端只发送最后一条消息；后端通过 messageId + parentMessageId 从 DB 补全完整链路再喂给 agent。
     const last = incomingMessages.at(-1) as any;
@@ -343,6 +346,7 @@ export function registerChatSseRoutes(app: Hono) {
         model: resolved.model,
         modelInfo: resolved.modelInfo,
       });
+      setChatModel(resolved.model);
       agentMetadata = {
         id: masterAgent.frame.agentId,
         name: masterAgent.frame.name,

@@ -73,9 +73,9 @@ export type ProjectFileSystemModel = {
   isDragActive: boolean;
   canUndo: boolean;
   canRedo: boolean;
-  searchContainerRef: RefObject<HTMLDivElement>;
-  searchInputRef: RefObject<HTMLInputElement>;
-  uploadInputRef: RefObject<HTMLInputElement>;
+  searchContainerRef: RefObject<HTMLDivElement | null>;
+  searchInputRef: RefObject<HTMLInputElement | null>;
+  uploadInputRef: RefObject<HTMLInputElement | null>;
   handleNavigate: (nextUri: string) => void;
   setSearchValue: (value: string) => void;
   setIsSearchOpen: (value: boolean) => void;

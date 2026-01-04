@@ -1,4 +1,5 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
+import type { HeadersInit } from "undici";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -145,7 +146,12 @@ function buildDebugFetch(): typeof fetch | undefined {
   const enabled = getEnvString(process.env, "TEATIME_DEBUG_AI_STREAM");
   if (!enabled) return undefined;
   return async (input, init) => {
-    const url = typeof input === "string" ? input : input.url;
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
     const fallbackHeaders =
       typeof input === "string" ? undefined : input instanceof Request ? input.headers : undefined;
     const headerRecord = toHeaderRecord(init?.headers ?? fallbackHeaders);

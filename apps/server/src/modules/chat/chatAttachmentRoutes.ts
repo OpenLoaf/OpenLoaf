@@ -70,7 +70,11 @@ export function registerChatAttachmentRoutes(app: Hono) {
     try {
       const preview = await getTeatimeFilePreview({ url });
       if (!preview) return c.json({ error: "Preview not found" }, 404);
-      return c.body(preview.buffer, 200, {
+      // 中文注释：Hono 的 body 需要 Uint8Array，避免 Buffer 类型推断问题。
+      const arrayBuffer = new ArrayBuffer(preview.buffer.byteLength);
+      const body = new Uint8Array(arrayBuffer);
+      body.set(preview.buffer);
+      return c.body(body, 200, {
         "Content-Type": preview.mediaType,
       });
     } catch (error) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { skipToken, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { renderAsync } from "docx-preview";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabs } from "@/hooks/use-tabs";
@@ -44,11 +44,10 @@ export default function DocViewer({ uri, name, panelKey, tabId }: DocViewerProps
   /** Flags whether the viewer should load via fs.readBinary. */
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
   /** Holds the binary payload fetched from the fs API. */
-  const fileQuery = useQuery(
-    shouldUseFs
-      ? trpc.fs.readBinary.queryOptions({ uri: uri! })
-      : { queryKey: ["fs.readBinary", "skip"], queryFn: skipToken }
-  );
+  const fileQuery = useQuery({
+    ...trpc.fs.readBinary.queryOptions({ uri: uri ?? "" }),
+    enabled: shouldUseFs && Boolean(uri),
+  });
 
   /** Display name shown in the panel header. */
   const displayTitle = useMemo(() => name ?? uri ?? "DOCX", [name, uri]);
@@ -81,7 +80,7 @@ export default function DocViewer({ uri, name, panelKey, tabId }: DocViewerProps
     const run = async () => {
       try {
         const data = decodeBase64ToBytes(payload);
-        await renderAsync(data, container, styleContainer ?? null, {
+        await renderAsync(data, container, styleContainer ?? undefined, {
           className: "docx",
           inWrapper: true,
           breakPages: true,

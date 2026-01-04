@@ -49,7 +49,7 @@ interface ProjectIndexHeaderProps {
   /** Toggle read-only mode. */
   onSetReadOnly: (nextReadOnly: boolean) => void;
   /** Controls slot for Puck header actions. */
-  controlsSlotRef: React.RefObject<HTMLDivElement>;
+  controlsSlotRef: React.RefObject<HTMLDivElement | null>;
   /** Whether to show editing controls. */
   showControls: boolean;
 }
@@ -70,7 +70,7 @@ interface ProjectIndexProps {
   /** Notify parent when publish succeeds. */
   onPublishSuccess: () => void;
   /** Controls slot for Puck header actions. */
-  controlsSlotRef: React.RefObject<HTMLDivElement>;
+  controlsSlotRef: React.RefObject<HTMLDivElement | null>;
 }
 
 /** Default homepage data template. */
@@ -109,9 +109,9 @@ function PuckHeaderPortal({
   onPublish,
   puckRootRef,
 }: {
-  targetRef: React.RefObject<HTMLDivElement>;
+  targetRef: React.RefObject<HTMLDivElement | null>;
   onPublish: (data: Data) => void;
-  puckRootRef: React.RefObject<HTMLDivElement>;
+  puckRootRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const appState = usePuckStore(
     (store) => store.appState as { data: Data }

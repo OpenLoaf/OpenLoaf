@@ -45,6 +45,94 @@ function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: strin
   return true;
 }
 
+type SubAgentDataPayload = {
+  messageId?: string;
+  toolCallId?: string;
+  name?: string;
+  task?: string;
+  delta?: string;
+  output?: string;
+  errorText?: string;
+};
+
+function handleSubAgentDataPart(input: {
+  dataPart: any;
+  setMessages?: React.Dispatch<React.SetStateAction<UIMessage[]>>;
+}) {
+  const type = input.dataPart?.type;
+  if (
+    type !== "data-sub-agent-start" &&
+    type !== "data-sub-agent-delta" &&
+    type !== "data-sub-agent-end" &&
+    type !== "data-sub-agent-error"
+  ) {
+    return false;
+  }
+
+  const payload = input.dataPart?.data as SubAgentDataPayload | undefined;
+  const messageId = typeof payload?.messageId === "string" ? payload?.messageId : "";
+  const toolCallId = typeof payload?.toolCallId === "string" ? payload?.toolCallId : "";
+  if (!messageId || !toolCallId) return true;
+
+  const setMessages = input.setMessages;
+  if (!setMessages) return true;
+
+  setMessages((messages) => {
+    let changed = false;
+    const next = messages.map((message) => {
+      if (String((message as any)?.id) !== messageId) return message;
+      const parts = Array.isArray((message as any).parts) ? [...(message as any).parts] : [];
+      const index = parts.findIndex((part) => {
+        if (!part || typeof part !== "object") return false;
+        const sameCall = String((part as any).toolCallId ?? "") === toolCallId;
+        const isSubAgent =
+          (part as any).toolName === "sub-agent" || (part as any).type === "tool-sub-agent";
+        return sameCall && isSubAgent;
+      });
+
+      const current =
+        index >= 0
+          ? { ...(parts[index] as any) }
+          : {
+              type: "tool-sub-agent",
+              toolName: "sub-agent",
+              toolCallId,
+              state: "output-streaming",
+            };
+
+      if (type === "data-sub-agent-start") {
+        const name = typeof payload?.name === "string" ? payload?.name : "";
+        const task = typeof payload?.task === "string" ? payload?.task : "";
+        current.title = name ? `SubAgent: ${name}` : current.title;
+        current.input = { name, task };
+        current.output = typeof current.output === "string" ? current.output : "";
+        current.state = "output-streaming";
+      } else if (type === "data-sub-agent-delta") {
+        const delta = typeof payload?.delta === "string" ? payload?.delta : "";
+        const base = typeof current.output === "string" ? current.output : "";
+        current.output = `${base}${delta}`;
+        current.state = "output-streaming";
+      } else if (type === "data-sub-agent-end") {
+        const output = typeof payload?.output === "string" ? payload?.output : "";
+        current.output = output || current.output;
+        current.state = "output-available";
+      } else if (type === "data-sub-agent-error") {
+        const errorText = typeof payload?.errorText === "string" ? payload?.errorText : "";
+        current.errorText = errorText || current.errorText;
+        current.state = "output-error";
+      }
+
+      if (index >= 0) parts[index] = current;
+      else parts.push(current);
+      changed = true;
+      return { ...(message as any), parts } as UIMessage;
+    });
+    return changed ? next : messages;
+  });
+
+  return true;
+}
+
 /**
  * 聊天上下文类型
  * 包含聊天所需的所有状态和方法
@@ -273,6 +361,7 @@ export default function ChatProvider({
         // 关键：切换 session 后忽略旧流的 dataPart，避免 toolParts 被写回新会话 UI。
         if (sessionIdRef.current !== sessionId) return;
         if (handleOpenBrowserDataPart({ dataPart, fallbackTabId: tabId })) return;
+        if (handleSubAgentDataPart({ dataPart, setMessages: setMessagesRef.current ?? undefined })) return;
         handleChatDataPart({ dataPart, tabId, upsertToolPartMerged });
       },
     }),
