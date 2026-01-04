@@ -10,6 +10,7 @@ import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ChatRequestBody, TokenUsage } from "@teatime-ai/api/types/message";
 import { manualStopToolDef } from "@teatime-ai/api/types/tools/system";
+import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/resolveChatModel";
 import { streamStore } from "@/modules/chat/StreamStoreAdapter";
@@ -22,6 +23,7 @@ import {
   getSessionId,
   setAbortSignal,
   setRequestContext,
+  setResolvedChatModel,
   setUiWriter,
 } from "@/common/requestContext";
 import { logger } from "@/common/logger";
@@ -69,6 +71,53 @@ function mergeMetadataWithAbortInfo(
   };
 
   return base;
+}
+
+/**
+ * Extracts the summary text from a sub-agent tool output payload.
+ */
+function extractSubAgentSummary(output: unknown): string {
+  const raw = output && typeof output === "object" ? (output as any) : null;
+  const payload = raw?.type === "sub-agent-stream" ? raw : raw?.data?.type === "sub-agent-stream" ? raw.data : null;
+  const parts = Array.isArray(payload?.parts) ? payload.parts : [];
+  // 中文注释：仅取最后一段 text 作为对子 Agent 的总结输出，避免把过程细节塞回主对话。
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index];
+    if (part?.type === "text" && typeof part?.text === "string" && part.text.trim()) {
+      return part.text;
+    }
+  }
+  return "";
+}
+
+/**
+ * Removes sub-agent internal parts from the model prompt history.
+ */
+function stripSubAgentToolDetailsForModel(messages: UIMessage[]): UIMessage[] {
+  return messages.map((message) => {
+    const parts = Array.isArray((message as any).parts) ? ((message as any).parts as any[]) : [];
+    if (!parts.length) return message;
+
+    const nextParts = parts.map((part) => {
+      const toolName =
+        typeof part?.toolName === "string"
+          ? part.toolName
+          : typeof part?.type === "string" && part.type.startsWith("tool-")
+            ? part.type.slice("tool-".length)
+            : "";
+      if (toolName !== subAgentToolDef.id) return part;
+
+      return {
+        ...part,
+        output: { summary: extractSubAgentSummary(part?.output) },
+      };
+    });
+
+    return {
+      ...(message as any),
+      parts: nextParts,
+    } as UIMessage;
+  });
 }
 
 /** Read request fields from top-level or params (backward compatible). */
@@ -254,6 +303,8 @@ export function registerChatSseRoutes(app: Hono) {
       cookies,
       clientId: clientId || undefined,
       tabId: tabId || undefined,
+      chatModelId: chatModelId || undefined,
+      chatModelSource: chatModelSource ?? undefined,
     });
 
     const abortController = new AbortController();
@@ -362,6 +413,7 @@ export function registerChatSseRoutes(app: Hono) {
       "[chat] load message chain"
     );
     const modelMessages = await replaceTeatimeFileParts(messages as UIMessage[]);
+    const modelMessagesForLlm = stripSubAgentToolDetailsForModel(modelMessages as UIMessage[]);
     if (messages.length === 0) {
       await respondWithErrorStream({
         sessionId,
@@ -396,6 +448,11 @@ export function registerChatSseRoutes(app: Hono) {
       masterAgent = createMasterAgentRunner({
         model: resolved.model,
         modelInfo: resolved.modelInfo,
+      });
+      setResolvedChatModel({
+        model: resolved.model,
+        modelInfo: resolved.modelInfo,
+        chatModelId: resolved.chatModelId,
       });
       agentMetadata = {
         id: masterAgent.frame.agentId,
@@ -470,7 +527,7 @@ export function registerChatSseRoutes(app: Hono) {
           );
           const uiStream = await createAgentUIStream({
             agent: masterAgent.agent,
-            uiMessages: modelMessages as any[],
+            uiMessages: modelMessagesForLlm as any[],
             // 启用 persistence mode（对齐 AI SDK 官方 needsApproval 流程的“两次调用”）。
             // 第二次调用会直接产出 tool-output-*（复用同一个 toolCallId）；必须基于 originalMessages 的 tool invocation 才能正确更新状态。
             originalMessages: modelMessages as any[],

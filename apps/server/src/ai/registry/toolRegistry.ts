@@ -2,6 +2,7 @@ import { openUrlTool } from "@/ai/tools/ui/openUrl";
 import { timeNowTool } from "@/ai/tools/system/timeNow";
 import { subAgentTool } from "@/ai/tools/delegation/subAgentTool";
 import { testApprovalTool } from "@/ai/tools/test/testApprovalTool";
+import { subAgentTestTool } from "@/ai/tools/test/subAgentTestTool";
 import { resolveNeedsApproval, type ToolPolicyMeta } from "@/ai/registry/policies";
 import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
 import {
@@ -14,6 +15,7 @@ import {
 import { timeNowToolDef } from "@teatime-ai/api/types/tools/system";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import { testApprovalToolDef } from "@teatime-ai/api/types/tools/approvalTest";
+import { subAgentTestToolDef } from "@teatime-ai/api/types/tools/subAgentTest";
 import {
   browserActTool,
   browserExtractTool,
@@ -43,6 +45,10 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [testApprovalToolDef.id]: {
     tool: testApprovalTool,
     meta: { needsApproval: true },
+  },
+  [subAgentTestToolDef.id]: {
+    tool: subAgentTestTool,
+    meta: { needsApproval: false },
   },
   [browserSnapshotToolDef.id]: {
     tool: browserSnapshotTool,

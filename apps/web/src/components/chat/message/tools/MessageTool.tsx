@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { OpenUrlTool } from "./OpenUrlTool";
 import { ManualStopTool } from "./ManualStopTool";
 import { TestApprovalTool } from "./TestApprovalTool";
+import { SubAgentTool } from "./SubAgentTool";
+import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import { useChatContext } from "../../ChatProvider";
 
 // MVP：只展示工具名称 + 输入 + 输出（去掉语法高亮/格式化/多层折叠）
@@ -105,12 +107,20 @@ const JSON_SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS = {
 function JsonSyntaxBlock({
   code,
   className,
+  variant,
 }: {
   code: string;
   className?: string;
+  variant?: "default" | "nested";
 }) {
   return (
-    <div className={cn("mt-1 overflow-auto bg-background", className)}>
+    <div
+      className={cn(
+        "mt-1 bg-background",
+        variant === "nested" ? "overflow-visible" : "overflow-auto",
+        className,
+      )}
+    >
       <SyntaxHighlighter
         style={oneDark as any}
         language="json"
@@ -148,15 +158,21 @@ function getToolStatusText(part: AnyToolPart): string {
 export default function MessageTool({
   part,
   className,
+  variant = "default",
 }: {
   part: AnyToolPart;
   className?: string;
+  /** Rendering variant for nested tool output. */
+  variant?: "default" | "nested";
 }) {
   const chat = useChatContext();
 
   // open-url 使用专用组件，支持“流结束后手动点击打开左侧网页”。
   if (part.toolName === "open-url" || part.type === "tool-open-url") {
     return <OpenUrlTool part={part} />;
+  }
+  if (part.toolName === subAgentToolDef.id || part.type === `tool-${subAgentToolDef.id}`) {
+    return <SubAgentTool part={part} className={className} />;
   }
   if (part.toolName === "manual-stop" || part.type === "tool-manual-stop") {
     return <ManualStopTool part={part} />;
@@ -300,10 +316,22 @@ export default function MessageTool({
               {inputJsonDisplay ? (
                 <JsonSyntaxBlock
                   code={inputJsonExpanded ? inputJsonDisplay.expandedText : inputJsonDisplay.collapsedText}
-                  className={inputJsonExpanded ? "max-h-96" : "max-h-28"}
+                  className={
+                    variant === "nested"
+                      ? "max-h-none"
+                      : inputJsonExpanded
+                        ? "max-h-96"
+                        : "max-h-28"
+                  }
+                  variant={variant}
                 />
               ) : (
-                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words bg-background p-2 text-xs">
+                <pre
+                  className={cn(
+                    "mt-1 whitespace-pre-wrap break-words bg-background p-2 text-xs",
+                    variant === "nested" ? "max-h-none overflow-visible" : "max-h-40 overflow-auto",
+                  )}
+                >
                   {inputText}
                 </pre>
               )}
@@ -328,16 +356,33 @@ export default function MessageTool({
                 ) : null}
             </div>
             {hasErrorText ? (
-              <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words bg-background p-2 text-xs text-destructive/80">
+              <pre
+                className={cn(
+                  "mt-1 whitespace-pre-wrap break-words bg-background p-2 text-xs text-destructive/80",
+                  variant === "nested" ? "max-h-none overflow-visible" : "max-h-64 overflow-auto",
+                )}
+              >
                 {part.errorText}
               </pre>
             ) : outputJsonDisplay ? (
               <JsonSyntaxBlock
                 code={outputJsonExpanded ? outputJsonDisplay.expandedText : outputJsonDisplay.collapsedText}
-                className={outputJsonExpanded ? "max-h-[36rem]" : "max-h-32"}
+                className={
+                  variant === "nested"
+                    ? "max-h-none"
+                    : outputJsonExpanded
+                      ? "max-h-[36rem]"
+                      : "max-h-32"
+                }
+                variant={variant}
               />
             ) : (
-              <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words bg-background p-2 text-xs">
+              <pre
+                className={cn(
+                  "mt-1 whitespace-pre-wrap break-words bg-background p-2 text-xs",
+                  variant === "nested" ? "max-h-none overflow-visible" : "max-h-64 overflow-auto",
+                )}
+              >
                 {outputDisplayText}
               </pre>
             )}

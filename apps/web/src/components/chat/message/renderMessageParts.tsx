@@ -46,11 +46,20 @@ export const MESSAGE_TEXT_CLASSNAME = cn(
   "prose-img:max-w-full prose-img:h-auto",
 );
 
+/** Styling for reasoning parts. */
+export const MESSAGE_REASONING_CLASSNAME = cn(
+  "min-w-0 w-full max-w-full px-3 font-sans text-xs leading-relaxed text-muted-foreground",
+  "whitespace-pre-wrap break-words [overflow-wrap:anywhere] italic",
+  "rounded-md border border-dashed border-muted-foreground/30 bg-muted/30",
+);
+
 export function renderMessageParts(
   parts: AnyMessagePart[],
   options?: {
     textClassName?: string;
     toolClassName?: string;
+    /** Tool rendering variant. */
+    toolVariant?: "default" | "nested";
     /** 是否渲染工具卡片 */
     renderTools?: boolean;
     /** 是否渲染文本（当 output 已有时，可隐藏 message 段的文本避免重复） */
@@ -78,6 +87,17 @@ export function renderMessageParts(
       );
     }
 
+    if (part?.type === "reasoning") {
+      if (!renderText) return null;
+      return (
+        <div key={index} className={cn(MESSAGE_REASONING_CLASSNAME, options?.textClassName)}>
+          <Streamdown components={markdownComponents} parseIncompleteMarkdown isAnimating={isAnimating}>
+            {preprocessText(String(part.text ?? ""))}
+          </Streamdown>
+        </div>
+      );
+    }
+
     if (part?.type === "data-manual-stop") {
       return <ManualStopTool key={part.data?.toolCallId ?? `${part.type}-${index}`} part={part} />;
     }
@@ -90,6 +110,7 @@ export function renderMessageParts(
           key={part.toolCallId ?? `${part.type}-${index}`}
           part={part}
           className={options?.toolClassName}
+          variant={options?.toolVariant}
         />
       );
     }

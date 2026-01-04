@@ -1,4 +1,6 @@
 import type { UIMessageStreamWriter } from "ai";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
+import type { ChatModelSource } from "@teatime-ai/api/common";
 import { AsyncLocalStorage } from "node:async_hooks";
 
 export type AgentFrame = {
@@ -9,13 +11,35 @@ export type AgentFrame = {
   model?: { provider: string; modelId: string };
 };
 
+export type ResolvedChatModelSnapshot = {
+  /** Resolved AI SDK model for this request. */
+  model: LanguageModelV3;
+  /** Provider/model metadata for logging and UI. */
+  modelInfo: { provider: string; modelId: string };
+  /** Resolved chatModelId used in this request. */
+  chatModelId: string;
+};
+
 export type RequestContext = {
+  /** Chat session id for this request. */
   sessionId: string;
+  /** Cookie snapshot for this request. */
   cookies: Record<string, string>;
+  /** Web client id for stream reconnect. */
   clientId?: string;
+  /** Tab id for UI event targeting. */
   tabId?: string;
+  /** Requested chatModelId from the client. */
+  chatModelId?: string;
+  /** Requested chat model source from the client. */
+  chatModelSource?: ChatModelSource;
+  /** Resolved model snapshot for sub-agent reuse. */
+  resolvedChatModel?: ResolvedChatModelSnapshot;
+  /** Active UI stream writer for tool chunks. */
   uiWriter?: UIMessageStreamWriter<any>;
+  /** Abort signal for cooperative cancellation. */
   abortSignal?: AbortSignal;
+  /** Agent frame stack for nested agents. */
   agentStack?: AgentFrame[];
 };
 
@@ -59,6 +83,29 @@ export function getClientId(): string | undefined {
 /** 获取当前应用 TabId（用于绑定 UI 操作目标）。 */
 export function getTabId(): string | undefined {
   return getRequestContext()?.tabId;
+}
+
+/** 获取请求的 chatModelId（用于子 Agent 复用）。 */
+export function getChatModelId(): string | undefined {
+  return getRequestContext()?.chatModelId;
+}
+
+/** 获取请求的 chatModelSource（用于子 Agent 复用）。 */
+export function getChatModelSource(): ChatModelSource | undefined {
+  return getRequestContext()?.chatModelSource;
+}
+
+/** 写入已解析的模型信息（用于子 Agent 复用）。 */
+export function setResolvedChatModel(resolved: ResolvedChatModelSnapshot) {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  // 中文注释：只保留必要字段，避免把 provider 配置泄漏到上下文里。
+  ctx.resolvedChatModel = resolved;
+}
+
+/** 读取已解析的模型信息（用于子 Agent 复用）。 */
+export function getResolvedChatModel(): ResolvedChatModelSnapshot | undefined {
+  return getRequestContext()?.resolvedChatModel;
 }
 
 /** 设置 UI writer（tools 需要往前端推送 chunk）。 */

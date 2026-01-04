@@ -16,3 +16,62 @@ export const subAgentToolDef = {
   }),
   component: null,
 } as const;
+
+export type SubAgentStreamPart =
+  | {
+      /** Part type for regular text content. */
+      type: "text";
+      /** Aggregated text content. */
+      text: string;
+    }
+  | {
+      /** Part type for model reasoning content. */
+      type: "reasoning";
+      /** Aggregated reasoning content. */
+      text: string;
+    }
+  | {
+      /** Part type for tool output. */
+      type: `tool-${string}` | "dynamic-tool";
+      /** Tool call id for updates. */
+      toolCallId: string;
+      /** Tool name for display. */
+      toolName?: string;
+      /** Optional title from the model. */
+      title?: string;
+      /** Tool state (input/output/approval). */
+      state?: string;
+      /** Tool input payload. */
+      input?: unknown;
+      /** Tool output payload. */
+      output?: unknown;
+      /** Tool error text. */
+      errorText?: string;
+    };
+
+export type SubAgentStreamPayload = {
+  /** Payload marker for sub-agent tool output. */
+  type: "sub-agent-stream";
+  /** Sub-agent identity and model info. */
+  agent: {
+    /** Sub-agent display name. */
+    name: string;
+    /** Sub-agent unique id. */
+    id: string;
+    /** Model info for this sub-agent run. */
+    model?: { provider: string; modelId: string };
+  };
+  /** Streaming status. */
+  status: "streaming" | "done" | "error";
+  /** Aggregated sub-agent parts. */
+  parts: SubAgentStreamPart[];
+  /** Error text if status is error. */
+  errorText?: string;
+};
+
+export type SubAgentToolOutput = {
+  /** Tool output ok flag. */
+  ok: true;
+  /** Sub-agent stream payload. */
+  data: SubAgentStreamPayload;
+};
