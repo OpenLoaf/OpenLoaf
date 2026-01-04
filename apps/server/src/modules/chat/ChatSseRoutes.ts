@@ -9,11 +9,8 @@ import {
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ChatRequestBody, TokenUsage } from "@teatime-ai/api/types/message";
-import { manualStopToolDef } from "@teatime-ai/api/types/tools/system";
-import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/resolveChatModel";
-import { streamStore } from "@/modules/chat/StreamStoreAdapter";
 import { chatRepository } from "@/modules/chat/ChatRepositoryAdapter";
 import { loadMessageChain } from "@/modules/chat/loadMessageChain";
 import { buildFilePartFromTeatimeUrl } from "@/modules/chat/teatimeFile";
@@ -23,11 +20,9 @@ import {
   getSessionId,
   setAbortSignal,
   setRequestContext,
-  setResolvedChatModel,
   setUiWriter,
 } from "@/common/requestContext";
 import { logger } from "@/common/logger";
-
 /** Map agent stream finish usage into UIMessage.metadata (for DB persistence + stats). */
 function toTokenUsageMetadata(part: unknown): { totalUsage: TokenUsage } | undefined {
   if (!part || typeof part !== "object") return;
@@ -71,53 +66,6 @@ function mergeMetadataWithAbortInfo(
   };
 
   return base;
-}
-
-/**
- * Extracts the summary text from a sub-agent tool output payload.
- */
-function extractSubAgentSummary(output: unknown): string {
-  const raw = output && typeof output === "object" ? (output as any) : null;
-  const payload = raw?.type === "sub-agent-stream" ? raw : raw?.data?.type === "sub-agent-stream" ? raw.data : null;
-  const parts = Array.isArray(payload?.parts) ? payload.parts : [];
-  // 中文注释：仅取最后一段 text 作为对子 Agent 的总结输出，避免把过程细节塞回主对话。
-  for (let index = parts.length - 1; index >= 0; index -= 1) {
-    const part = parts[index];
-    if (part?.type === "text" && typeof part?.text === "string" && part.text.trim()) {
-      return part.text;
-    }
-  }
-  return "";
-}
-
-/**
- * Removes sub-agent internal parts from the model prompt history.
- */
-function stripSubAgentToolDetailsForModel(messages: UIMessage[]): UIMessage[] {
-  return messages.map((message) => {
-    const parts = Array.isArray((message as any).parts) ? ((message as any).parts as any[]) : [];
-    if (!parts.length) return message;
-
-    const nextParts = parts.map((part) => {
-      const toolName =
-        typeof part?.toolName === "string"
-          ? part.toolName
-          : typeof part?.type === "string" && part.type.startsWith("tool-")
-            ? part.type.slice("tool-".length)
-            : "";
-      if (toolName !== subAgentToolDef.id) return part;
-
-      return {
-        ...part,
-        output: { summary: extractSubAgentSummary(part?.output) },
-      };
-    });
-
-    return {
-      ...(message as any),
-      parts: nextParts,
-    } as UIMessage;
-  });
 }
 
 /** Read request fields from top-level or params (backward compatible). */
@@ -223,58 +171,23 @@ async function respondWithErrorStream(input: {
   assistantMessageId: string;
   parentMessageId: string | null;
   errorText: string;
-}) {
+}): Promise<Response> {
   await saveErrorMessage(input);
 
   // 中文注释：用最小 UIMessageChunk 输出错误文本，让前端可见。
-  await streamStore.append(
-    input.sessionId,
+  const body = [
     toSseChunk({ type: "start", messageId: input.assistantMessageId }),
-  );
-  await streamStore.append(
-    input.sessionId,
     toSseChunk({ type: "text-start", id: input.assistantMessageId }),
-  );
-  await streamStore.append(
-    input.sessionId,
     toSseChunk({ type: "text-delta", id: input.assistantMessageId, delta: input.errorText }),
-  );
-  await streamStore.append(
-    input.sessionId,
     toSseChunk({ type: "text-end", id: input.assistantMessageId }),
-  );
-  await streamStore.append(
-    input.sessionId,
     toSseChunk({ type: "finish", finishReason: "error" }),
-  );
-  await streamStore.finalize(input.sessionId);
-}
-
-/**
- * Emits a manual-stop data chunk so the UI can show a stop marker.
- */
-async function emitManualStopChunk(streamId: string, reason?: string) {
-  const toolCallId = `manual-stop-${generateId()}`;
-  // 通过 data part 追加“手动中断”标记，保证前端可见且可回放。
-  await streamStore.append(
-    streamId,
-    toSseChunk({
-      type: "data-manual-stop",
-      data: {
-        toolCallId,
-        reason: reason || "用户手动中断",
-        toolName: manualStopToolDef.id,
-      },
-    }),
-  );
-  return toolCallId;
+  ].join("");
+  return new Response(body, { headers: UI_MESSAGE_STREAM_HEADERS });
 }
 
 /**
  * Chat SSE 路由（MVP）：
  * - POST /chat/sse：创建并开始生成
- * - GET  /chat/sse/:id/stream：断线续传
- * - POST /chat/sse/:id/stop：停止生成
  */
 export function registerChatSseRoutes(app: Hono) {
   app.post("/chat/sse", async (c) => {
@@ -303,12 +216,13 @@ export function registerChatSseRoutes(app: Hono) {
       cookies,
       clientId: clientId || undefined,
       tabId: tabId || undefined,
-      chatModelId: chatModelId || undefined,
-      chatModelSource: chatModelSource ?? undefined,
     });
 
     const abortController = new AbortController();
-    await streamStore.start(sessionId, abortController);
+    // 中文注释：客户端断开连接时同步中止本次生成。
+    c.req.raw.signal.addEventListener("abort", () => {
+      abortController.abort();
+    });
 
     const requestStartAt = new Date();
 
@@ -316,20 +230,16 @@ export function registerChatSseRoutes(app: Hono) {
     // AI SDK 的 useChat 会把本次生成的 messageId 传给服务端；续跑/审批继续应复用同一个 messageId，以便在 UI 侧作为同一条 assistant message 继续更新。
     const assistantMessageId =
       typeof messageId === "string" && messageId ? messageId : generateId();
-    streamStore.setAssistantMessageId(sessionId, assistantMessageId);
 
     // 前端只发送最后一条消息；后端通过 messageId + parentMessageId 从 DB 补全完整链路再喂给 agent。
     const last = incomingMessages.at(-1) as any;
     if (!last || !last.role || !last.id) {
-      await respondWithErrorStream({
+      return await respondWithErrorStream({
         sessionId,
         assistantMessageId,
         parentMessageId: await chatRepository.resolveSessionRightmostLeafId(sessionId),
         errorText: "请求无效：缺少最后一条消息。",
       });
-      const subscription = await streamStore.subscribe(sessionId);
-      if (!subscription) return c.json({ error: "stream not found" }, 404);
-      return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
     }
 
     // 先把“最后一条消息”落库，确保后端补全链路能读到最新状态（例如 approval-responded）。
@@ -358,15 +268,12 @@ export function registerChatSseRoutes(app: Hono) {
       } else if (last.role === "assistant") {
         const parentId = typeof last.parentMessageId === "string" ? last.parentMessageId : null;
         if (!parentId) {
-          await respondWithErrorStream({
+          return await respondWithErrorStream({
             sessionId,
             assistantMessageId,
             parentMessageId: await chatRepository.resolveSessionRightmostLeafId(sessionId),
             errorText: "请求无效：assistant 缺少 parentMessageId。",
           });
-          const subscription = await streamStore.subscribe(sessionId);
-          if (!subscription) return c.json({ error: "stream not found" }, 404);
-          return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
         }
         assistantParentUserId = parentId;
 
@@ -379,27 +286,21 @@ export function registerChatSseRoutes(app: Hono) {
         });
         leafMessageId = String(last.id);
       } else {
-        await respondWithErrorStream({
+        return await respondWithErrorStream({
           sessionId,
           assistantMessageId,
           parentMessageId: await chatRepository.resolveSessionRightmostLeafId(sessionId),
           errorText: "请求无效：不支持的消息角色。",
         });
-        const subscription = await streamStore.subscribe(sessionId);
-        if (!subscription) return c.json({ error: "stream not found" }, 404);
-        return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
       }
     } catch (err) {
       logger.error({ err }, "[chat] save last message failed");
-      await respondWithErrorStream({
+      return await respondWithErrorStream({
         sessionId,
         assistantMessageId,
         parentMessageId: await chatRepository.resolveSessionRightmostLeafId(sessionId),
         errorText: "请求失败：保存消息出错。",
       });
-      const subscription = await streamStore.subscribe(sessionId);
-      if (!subscription) return c.json({ error: "stream not found" }, 404);
-      return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
     }
 
     const messages = await loadMessageChain({ sessionId, leafMessageId, maxMessages: 80 });
@@ -413,28 +314,21 @@ export function registerChatSseRoutes(app: Hono) {
       "[chat] load message chain"
     );
     const modelMessages = await replaceTeatimeFileParts(messages as UIMessage[]);
-    const modelMessagesForLlm = stripSubAgentToolDetailsForModel(modelMessages as UIMessage[]);
     if (messages.length === 0) {
-      await respondWithErrorStream({
+      return await respondWithErrorStream({
         sessionId,
         assistantMessageId,
         parentMessageId: assistantParentUserId ?? (await chatRepository.resolveSessionRightmostLeafId(sessionId)),
         errorText: "请求失败：历史消息不存在。",
       });
-      const subscription = await streamStore.subscribe(sessionId);
-      if (!subscription) return c.json({ error: "stream not found" }, 404);
-      return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
     }
     if (!assistantParentUserId) {
-      await respondWithErrorStream({
+      return await respondWithErrorStream({
         sessionId,
         assistantMessageId,
         parentMessageId: await chatRepository.resolveSessionRightmostLeafId(sessionId),
         errorText: "请求失败：找不到父消息。",
       });
-      const subscription = await streamStore.subscribe(sessionId);
-      if (!subscription) return c.json({ error: "stream not found" }, 404);
-      return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
     }
 
     let masterAgent: ReturnType<typeof createMasterAgentRunner>;
@@ -449,11 +343,6 @@ export function registerChatSseRoutes(app: Hono) {
         model: resolved.model,
         modelInfo: resolved.modelInfo,
       });
-      setResolvedChatModel({
-        model: resolved.model,
-        modelInfo: resolved.modelInfo,
-        chatModelId: resolved.chatModelId,
-      });
       agentMetadata = {
         id: masterAgent.frame.agentId,
         name: masterAgent.frame.name,
@@ -465,15 +354,12 @@ export function registerChatSseRoutes(app: Hono) {
     } catch (err) {
       const errorText =
         err instanceof Error ? `请求失败：${err.message}` : "请求失败：模型解析失败。";
-      await respondWithErrorStream({
+      return await respondWithErrorStream({
         sessionId,
         assistantMessageId,
         parentMessageId: assistantParentUserId,
         errorText,
       });
-      const subscription = await streamStore.subscribe(sessionId);
-      if (!subscription) return c.json({ error: "stream not found" }, 404);
-      return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
     }
 
     const userNode = { id: assistantParentUserId };
@@ -527,7 +413,7 @@ export function registerChatSseRoutes(app: Hono) {
           );
           const uiStream = await createAgentUIStream({
             agent: masterAgent.agent,
-            uiMessages: modelMessagesForLlm as any[],
+            uiMessages: modelMessages as any[],
             // 启用 persistence mode（对齐 AI SDK 官方 needsApproval 流程的“两次调用”）。
             // 第二次调用会直接产出 tool-output-*（复用同一个 toolCallId）；必须基于 originalMessages 的 tool invocation 才能正确更新状态。
             originalMessages: modelMessages as any[],
@@ -561,22 +447,6 @@ export function registerChatSseRoutes(app: Hono) {
               // 主 agent 的输出只在这里触发一次 finish（避免双重 state machine）。
               try {
                 if (!responseMessage || responseMessage.role !== "assistant") return;
-
-                if (isAborted) {
-                  const parts = Array.isArray((responseMessage as any).parts)
-                    ? (responseMessage as any).parts
-                    : [];
-                  // 中文注释：手动中断时追加标记，确保历史回放可见。
-                  parts.push({
-                    type: "data-manual-stop",
-                    data: {
-                      toolCallId: `manual-stop-${generateId()}`,
-                      reason: "用户手动中断",
-                      toolName: manualStopToolDef.id,
-                    },
-                  });
-                  (responseMessage as any).parts = parts;
-                }
 
                 const currentSessionId = getSessionId() ?? sessionId;
                 // 中文注释：统计本次 assistant 实际运行耗时（审批续跑会累计）。
@@ -638,47 +508,9 @@ export function registerChatSseRoutes(app: Hono) {
       },
     });
 
-    // 将 UIMessageChunk 流转成 SSE 字符串并写入内存流，避免 tee() 导致的断线竞态。
+    // 中文注释：直接返回 SSE stream，不做断线续传缓存。
     const sseStream = stream.pipeThrough(new JsonToSseTransformStream());
-    const reader = sseStream.getReader();
-    (async () => {
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            await streamStore.finalize(sessionId);
-            return;
-          }
-          if (typeof value === "string") await streamStore.append(sessionId, value);
-        }
-      } catch (err) {
-        logger.error({ err }, "[chat] pump sse stream failed");
-        await streamStore.finalize(sessionId);
-      } finally {
-        try {
-          reader.releaseLock();
-        } catch {
-          // ignore
-        }
-      }
-    })();
-
-    const subscription = await streamStore.subscribe(sessionId);
-    if (!subscription) return new Response(null, { status: 204 });
-    return new Response(subscription as any, { headers: UI_MESSAGE_STREAM_HEADERS });
+    return new Response(sseStream as any, { headers: UI_MESSAGE_STREAM_HEADERS });
   });
 
-  app.get("/chat/sse/:id/stream", async (c) => {
-    const streamId = c.req.param("id");
-    const stream = await streamStore.subscribe(streamId);
-    if (!stream) return new Response(null, { status: 204 });
-    return new Response(stream as any, { headers: UI_MESSAGE_STREAM_HEADERS });
-  });
-
-  app.post("/chat/sse/:id/stop", async (c) => {
-    const streamId = c.req.param("id");
-    await emitManualStopChunk(streamId);
-    const ok = await streamStore.stop(streamId);
-    return c.json({ ok });
-  });
 }

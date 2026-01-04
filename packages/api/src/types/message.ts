@@ -50,21 +50,15 @@ export interface TeatimeUIMessage extends UIMessage<unknown, TeatimeUIDataTypes,
 }
 
 /**
- * Teatime UI data parts：
- * - sub-agent：把 subAgent 的输出消息结构包进 data part，便于 UI 复用同一套渲染逻辑
+ * Teatime UI data parts。
  */
 export interface TeatimeUIDataTypes extends UIDataTypes {
-  "sub-agent": TeatimeUIMessage;
   "open-browser": {
     tabId: string;
     url: string;
     title?: string;
     viewKey: string;
     panelKey: string;
-  };
-  "manual-stop": {
-    toolCallId: string;
-    reason?: string;
   };
 }
 
@@ -95,7 +89,7 @@ export type ChatRequestBody = {
   chatModelId?: string;
   /** 选择的模型来源（本地/云端） */
   chatModelSource?: ChatModelSource;
-  /** Web UI 侧稳定 clientId（用于断线续传关联） */
+  /** Web UI 侧稳定 clientId（用于会话关联） */
   clientId?: string;
 };
 

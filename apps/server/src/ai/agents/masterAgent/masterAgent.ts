@@ -28,7 +28,7 @@ export function createMasterAgent(input: { model: LanguageModelV3 }) {
  * Creates the frame metadata for the master agent (MVP).
  */
 export function createMasterAgentFrame(input: { model: MasterAgentModelInfo }): AgentFrame {
-  // kind 目前沿用 master/sub；命名统一到 MasterAgent/SubAgent，便于理解与排障。
+  // 中文注释：当前仅保留 MasterAgent，便于定位消息来源。
   return {
     kind: "master",
     name: MASTER_AGENT_NAME,

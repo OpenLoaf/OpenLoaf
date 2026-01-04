@@ -4,7 +4,6 @@ import { Streamdown } from "streamdown";
 import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
-import { ManualStopTool } from "./tools/ManualStopTool";
 import { isToolPart } from "@/lib/chat/message-parts";
 
 type AnyMessagePart = {
@@ -96,10 +95,6 @@ export function renderMessageParts(
           </Streamdown>
         </div>
       );
-    }
-
-    if (part?.type === "data-manual-stop") {
-      return <ManualStopTool key={part.data?.toolCallId ?? `${part.type}-${index}`} part={part} />;
     }
 
     // 关键：tool part 也属于消息内容的一部分，需要保持与 MessageList 一致的渲染规则（支持嵌套）。

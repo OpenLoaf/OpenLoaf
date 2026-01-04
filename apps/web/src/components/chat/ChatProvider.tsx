@@ -91,7 +91,7 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   retryAssistantMessage: (assistantMessageId: string) => void;
   /** 编辑重发 user：在同 parent 下创建新的 sibling 分支 */
   resendUserMessage: (userMessageId: string, nextText: string) => void;
-  /** 用户手动停止生成（同时通知服务端终止内存流，避免 resume 继续） */
+  /** 用户手动停止生成（通知服务端终止当前流） */
   stopGenerating: () => void;
 }
 
@@ -169,7 +169,6 @@ export default function ChatProvider({
   const needsBranchMetaRefreshRef = React.useRef(false);
   // 关键：useChat 的 onFinish 里需要 setMessages，但 chat 在 hook 调用之后才可用
   const setMessagesRef = React.useRef<ReturnType<typeof useChat>["setMessages"] | null>(null);
-  const didResumeRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (tabId) {
@@ -266,7 +265,7 @@ export default function ChatProvider({
   const chatConfig = React.useMemo(
     () => ({
       id: sessionId,
-      // 关键：不要用 useChat 的 auto-resume（StrictMode 下可能触发两次并发 resumeStream，导致 ai SDK 内部 activeResponse 竞态崩溃）
+      // 关键：不要用 useChat 的自动续接，保持流程可控。
       resume: false,
       transport,
       onFinish,
@@ -300,15 +299,6 @@ export default function ChatProvider({
 
   // 中文注释：有 sessionId 时始终拉取历史，避免刷新后丢失主链消息。
   const shouldLoadHistory = Boolean(sessionId);
-
-  React.useEffect(() => {
-    // 中文注释：有历史时优先加载历史，避免 refresh 只恢复到最后一条 assistant。
-    if (shouldLoadHistory) return;
-    // 关键：手动 resume（每个 sessionId 只做一次），避免 StrictMode 并发调用导致崩溃。
-    if (didResumeRef.current === sessionId) return;
-    didResumeRef.current = sessionId;
-    void chat.resumeStream();
-  }, [sessionId, chat.resumeStream, shouldLoadHistory]);
 
   React.useLayoutEffect(() => {
     // 关键：sessionId 可能由外部状态直接切换（不一定走 newSession/selectSession）。
@@ -627,15 +617,9 @@ export default function ChatProvider({
   );
 
   const stopGenerating = React.useCallback(() => {
-    const base = process.env.NEXT_PUBLIC_SERVER_URL ?? "";
-    // 关键：通知服务端 stop，让其输出 data-manual-stop 并终止流；不要先本地 stop，避免丢失 stop chunk。
-    fetch(`${base}/chat/sse/${encodeURIComponent(sessionId)}/stop`, {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => {
-      // ignore
-    });
-  }, [sessionId]);
+    // 中文注释：使用 AI SDK 内置中断，直接终止当前请求。
+    chat.stop();
+  }, [chat]);
 
   return (
     <ChatContext.Provider

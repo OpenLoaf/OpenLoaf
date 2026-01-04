@@ -4,9 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { AgentList } from "./AgentList";
 import { AgentDetailsDialog, DeleteAgentDialog } from "./AgentDialogs";
-import { webFetchToolDef } from "@teatime-ai/api/types/tools/system";
 
-export type AgentKind = "master" | "sub";
+export type AgentKind = "master";
 
 export type AgentRow = {
   id: string;
@@ -15,7 +14,6 @@ export type AgentRow = {
   description: string;
   model: string;
   tools: string[];
-  subAgents: string[];
 };
 
 export type AgentPanelState = { mode: "view" | "edit"; id: string } | null;
@@ -28,16 +26,6 @@ const SAMPLE_AGENTS: AgentRow[] = [
     description: "对话编排器：负责委派、合并流式输出与持久化（占位）",
     model: "gpt-4o-mini",
     tools: ["system", "db", "browser"],
-    subAgents: ["browser"],
-  },
-  {
-    id: "agent_sub_browser",
-    displayName: "Browser Agent",
-    kind: "sub",
-    description: "网页/浏览器相关任务（占位）",
-    model: "gpt-4o-mini",
-    tools: [webFetchToolDef.id],
-    subAgents: [],
   },
 ];
 
@@ -80,7 +68,6 @@ export function AgentManagement() {
         agent.description,
         agent.model,
         agent.tools.join(" "),
-        agent.subAgents.join(" "),
       ]
         .join(" ")
         .toLowerCase();

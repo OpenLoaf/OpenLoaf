@@ -1,6 +1,5 @@
 "use client";
 
-import { manualStopToolDef } from "@teatime-ai/api/types/tools/system";
 import { isToolPart } from "./message-parts";
 
 type AnyMessagePart = {
@@ -39,12 +38,6 @@ export function getMessageTextWithToolCalls(message: { parts?: unknown[] } | und
     if (part?.type === "text" && typeof part?.text === "string") {
       const text = String(part.text);
       if (text.trim()) chunks.push(text);
-      continue;
-    }
-
-    if (part?.type === "data-manual-stop") {
-      const text = getManualStopCopyText(part);
-      if (text) chunks.push(text);
       continue;
     }
 
@@ -114,21 +107,5 @@ function getToolCopyText(part: AnyMessagePart): string {
     `工具：${toolName}`,
     `输入参数\n${showInput ? inputText : "（无）"}`,
     `输出结果\n${outputDisplayText}`,
-  ].join("\n");
-}
-
-/**
- * Builds the copy payload for a manual stop part.
- */
-function getManualStopCopyText(part: AnyMessagePart): string {
-  const reason =
-    (typeof part.output === "string" && part.output.trim()) ||
-    (typeof part.data?.reason === "string" && part.data.reason.trim()) ||
-    "用户手动中断";
-
-  return [
-    `工具：${manualStopToolDef.id}`,
-    "输入参数\n（无）",
-    `输出结果\n${reason}`,
   ].join("\n");
 }

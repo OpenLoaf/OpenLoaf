@@ -57,8 +57,8 @@ function Tags({ values, emptyLabel }: { values: string[]; emptyLabel?: string })
   );
 }
 
-function kindLabel(kind: AgentRow["kind"]) {
-  return kind === "master" ? "Master" : "Sub";
+function kindLabel(_: AgentRow["kind"]) {
+  return "Master";
 }
 
 export function AgentDetailsDialog({
@@ -155,9 +155,6 @@ export function AgentDetailsDialog({
               <Tags values={agent.tools} emptyLabel="无" />
             </Field>
 
-            <Field label="子 Agent">
-              <Tags values={agent.subAgents} emptyLabel="无" />
-            </Field>
           </div>
         ) : (
           <div className="text-sm text-muted-foreground">
@@ -250,4 +247,3 @@ export function DeleteAgentDialog({
     </Dialog>
   );
 }
-

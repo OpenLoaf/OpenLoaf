@@ -59,7 +59,8 @@ export default function ElectrronBrowserWindow({
   const activeId = activeBrowserTabId ?? tabs[0]?.id ?? "";
   const active = tabs.find((t) => t.id === activeId) ?? tabs[0] ?? null;
   const activeUrl = normalizeUrl(active?.url ?? "");
-  const activeViewKey = String(active?.viewKey ?? panelKey);
+  // 缺少 viewKey 时不使用 panelKey 作为占位，避免 status 事件匹配失败导致一直 loading。
+  const activeViewKey = active?.viewKey ? String(active.viewKey) : "";
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingUrl, setEditingUrl] = useState("");
 

@@ -1,7 +1,5 @@
 "use client";
 
-import { manualStopToolDef } from "@teatime-ai/api/types/tools/system";
-
 export function handleChatDataPart({
   dataPart,
   tabId,
@@ -27,23 +25,6 @@ function handleToolChunk({
   // MVP：tool parts（用于 ToolResultPanel 渲染）
   if (!tabId) return;
   switch (dataPart?.type) {
-    case "data-manual-stop": {
-      const toolCallId = String(dataPart.data?.toolCallId ?? "");
-      if (!toolCallId) break;
-      const reason =
-        typeof dataPart.data?.reason === "string" && dataPart.data.reason.trim()
-          ? dataPart.data.reason
-          : "用户手动中断";
-      // 将手动中断映射为工具卡片，便于 UI 展示与回放。
-      upsertToolPartMerged(toolCallId, {
-        type: `tool-${manualStopToolDef.id}`,
-        toolCallId,
-        toolName: manualStopToolDef.id,
-        state: "output-available",
-        output: reason,
-      });
-      break;
-    }
     case "tool-input-start": {
       upsertToolPartMerged(String(dataPart.toolCallId), {
         type: dataPart.dynamic ? "dynamic-tool" : `tool-${dataPart.toolName}`,

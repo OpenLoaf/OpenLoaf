@@ -63,7 +63,7 @@
 
 ### Agent（AgentManagement）
 - `agent.configs` | type: PUBLIC | category: agent | secret: false
-  - JSON：[{ id, displayName, kind, description, model, tools, subAgents }]
+  - JSON：[{ id, displayName, kind, description, model, tools }]
 
 ### 只读/静态项（保持不入库）
 - 白名单、快捷键、关于信息等保持常量或运行时注入

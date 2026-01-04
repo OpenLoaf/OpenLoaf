@@ -4,7 +4,7 @@ import { generateId } from "ai";
 
 const CLIENT_STREAM_CLIENT_ID_STORAGE_KEY = "teatime:chat:sse-client-id";
 
-// 关键：同一浏览器会话的 SSE clientId 必须稳定（用于断线续传去重）
+// 关键：同一浏览器会话的 clientId 保持稳定，便于服务端识别。
 export function getWebClientId() {
   if (typeof window === "undefined") return "";
   try {
@@ -17,4 +17,3 @@ export function getWebClientId() {
     return globalThis.crypto?.randomUUID?.() ?? `cid_${generateId()}`;
   }
 }
-

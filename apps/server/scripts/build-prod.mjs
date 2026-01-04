@@ -48,7 +48,6 @@ const wipeSql = [
   "BEGIN;",
   "DELETE FROM ChatMessage;",
   "DELETE FROM ChatSession;",
-  "DELETE FROM SubAgentDefinition;",
   "DELETE FROM Setting;",
   "COMMIT;",
 ].join("\n");

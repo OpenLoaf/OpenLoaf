@@ -81,9 +81,6 @@ export function AgentList({
                       {agent.model}
                     </Tag>
                     <Tag className="bg-background">{agent.tools.length} 工具</Tag>
-                    {agent.subAgents.length ? (
-                      <Tag className="bg-background">{agent.subAgents.length} 子 Agent</Tag>
-                    ) : null}
                   </div>
                   <div className="text-xs text-muted-foreground line-clamp-2">
                     {agent.description}

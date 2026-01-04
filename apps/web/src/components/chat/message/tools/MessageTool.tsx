@@ -8,10 +8,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { toast } from "sonner";
 import { OpenUrlTool } from "./OpenUrlTool";
-import { ManualStopTool } from "./ManualStopTool";
 import { TestApprovalTool } from "./TestApprovalTool";
-import { SubAgentTool } from "./SubAgentTool";
-import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
 import { useChatContext } from "../../ChatProvider";
 
 // MVP：只展示工具名称 + 输入 + 输出（去掉语法高亮/格式化/多层折叠）
@@ -170,12 +167,6 @@ export default function MessageTool({
   // open-url 使用专用组件，支持“流结束后手动点击打开左侧网页”。
   if (part.toolName === "open-url" || part.type === "tool-open-url") {
     return <OpenUrlTool part={part} />;
-  }
-  if (part.toolName === subAgentToolDef.id || part.type === `tool-${subAgentToolDef.id}`) {
-    return <SubAgentTool part={part} className={className} />;
-  }
-  if (part.toolName === "manual-stop" || part.type === "tool-manual-stop") {
-    return <ManualStopTool part={part} />;
   }
   if (part.toolName === "test-approval" || part.type === "tool-test-approval") {
     return <TestApprovalTool part={part} />;

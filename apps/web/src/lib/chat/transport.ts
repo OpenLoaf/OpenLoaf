@@ -127,12 +127,5 @@ export function createChatTransport({
         headers,
       };
     },
-    prepareReconnectToStreamRequest: ({ id }) => {
-      const clientId = getWebClientId();
-      return {
-        api: `${apiBase}/${id}/stream${clientId ? `?clientId=${encodeURIComponent(clientId)}` : ""}`,
-        credentials: "include",
-      };
-    },
   });
 }
