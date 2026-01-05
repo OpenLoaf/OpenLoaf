@@ -20,6 +20,7 @@ export function useChatScroll({
   const isPinnedToBottomRef = React.useRef(true);
   const shouldAutoFollowRef = React.useRef(true);
   const isAutoScrollingRef = React.useRef(false);
+  const lastScrollTopRef = React.useRef(0);
 
   const escapeAttrValue = React.useCallback((value: string) => {
     // 关键：CSS.escape 在老环境可能不存在，这里做最小兜底，避免选择器注入/崩溃。
@@ -29,14 +30,16 @@ export function useChatScroll({
     return value.replace(/["\\]/g, "\\$&");
   }, []);
 
-  const getIsAtBottom = React.useCallback(() => {
+  const getDistanceFromBottom = React.useCallback(() => {
     const viewport = viewportRef.current;
-    if (!viewport) return true;
-    const threshold = 48;
-    const distanceFromBottom =
-      viewport.scrollHeight - (viewport.scrollTop + viewport.clientHeight);
-    return distanceFromBottom <= threshold;
+    if (!viewport) return 0;
+    return viewport.scrollHeight - (viewport.scrollTop + viewport.clientHeight);
   }, [viewportRef]);
+
+  const getIsAtBottom = React.useCallback(() => {
+    const threshold = 48;
+    return getDistanceFromBottom() <= threshold;
+  }, [getDistanceFromBottom]);
 
   React.useEffect(() => {
     let raf: number | null = null;
@@ -49,6 +52,7 @@ export function useChatScroll({
       const initialPinned = getIsAtBottom();
       isPinnedToBottomRef.current = initialPinned;
       shouldAutoFollowRef.current = initialPinned;
+      lastScrollTopRef.current = viewport.scrollTop;
 
       const onScroll = () => {
         // 自动滚动触发的 scroll 事件不要更新 pinned 状态（避免流式输出期间误判为“用户离底”）
@@ -57,9 +61,18 @@ export function useChatScroll({
         raf = requestAnimationFrame(() => {
           if (!viewport) return;
           const pinned = getIsAtBottom();
+          const currentScrollTop = viewport.scrollTop;
+          const scrolledUp = currentScrollTop < lastScrollTopRef.current - 2;
+          const distanceFromBottom = getDistanceFromBottom();
           isPinnedToBottomRef.current = pinned;
-          // 关键：是否“持续跟随”以用户滚动为准：用户上滑则退出跟随，用户滚回底部则恢复跟随。
-          shouldAutoFollowRef.current = pinned;
+          // 中文注释：只要用户有上滑动作就暂停自动跟随，避免被“拖回底部”。
+          if (scrolledUp && distanceFromBottom > 8) {
+            shouldAutoFollowRef.current = false;
+          } else if (pinned) {
+            // 中文注释：用户回到底部后恢复自动跟随。
+            shouldAutoFollowRef.current = true;
+          }
+          lastScrollTopRef.current = currentScrollTop;
         });
       };
 
@@ -149,12 +162,15 @@ export function useChatScroll({
 
   React.useLayoutEffect(() => {
     if (followToBottomToken === undefined) return;
-    if (!shouldAutoFollowRef.current) return;
+    const distance = getDistanceFromBottom();
+    const shouldFollow =
+      shouldAutoFollowRef.current || distance <= 8 || isPinnedToBottomRef.current;
+    if (!shouldFollow) return;
     const raf = requestAnimationFrame(() => {
       scrollToBottom("auto");
     });
     return () => cancelAnimationFrame(raf);
-  }, [followToBottomToken, scrollToBottom]);
+  }, [followToBottomToken, scrollToBottom, getDistanceFromBottom]);
 
   React.useEffect(() => {
     let raf: number | null = null;
@@ -164,7 +180,10 @@ export function useChatScroll({
     let resizeObserver: ResizeObserver | null = null;
 
     const schedule = () => {
-      if (!shouldAutoFollowRef.current) return;
+      const distance = getDistanceFromBottom();
+      const shouldFollow =
+        shouldAutoFollowRef.current || distance <= 8 || isPinnedToBottomRef.current;
+      if (!shouldFollow) return;
       if (raf != null) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         scrollToBottom("auto");
@@ -218,5 +237,5 @@ export function useChatScroll({
       mutationObserver = null;
       content = null;
     };
-  }, [contentRef, scrollToBottom]);
+  }, [contentRef, scrollToBottom, getDistanceFromBottom]);
 }

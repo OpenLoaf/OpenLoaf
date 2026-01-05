@@ -1,10 +1,6 @@
 import { streamText, tool, zodSchema } from "ai";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
-import {
-  getAssistantMessageId,
-  getChatModel,
-  getUiWriter,
-} from "@/common/requestContext";
+import { getChatModel, getUiWriter } from "@/common/requestContext";
 
 const DEFAULT_SUB_AGENT_SYSTEM_PROMPT = [
   "你是一个子Agent，负责独立完成指定任务。",
@@ -37,13 +33,12 @@ export const subAgentTool = tool({
     }
 
     const writer = getUiWriter();
-    const messageId = getAssistantMessageId();
     const toolCallId = options.toolCallId;
 
-    if (writer && messageId) {
+    if (writer) {
       writer.write({
         type: "data-sub-agent-start",
-        data: { messageId, toolCallId, name, task },
+        data: { toolCallId, name, task },
       } as any);
     }
 
@@ -59,28 +54,28 @@ export const subAgentTool = tool({
       for await (const delta of result.textStream) {
         if (!delta) continue;
         outputText += delta;
-        if (writer && messageId) {
+        if (writer) {
           writer.write({
             type: "data-sub-agent-delta",
-            data: { messageId, toolCallId, delta },
+            data: { toolCallId, delta },
           } as any);
         }
       }
     } catch (err) {
       const errorText = err instanceof Error ? err.message : "sub-agent failed";
-      if (writer && messageId) {
+      if (writer) {
         writer.write({
           type: "data-sub-agent-error",
-          data: { messageId, toolCallId, errorText },
+          data: { toolCallId, errorText },
         } as any);
       }
       throw err;
     }
 
-    if (writer && messageId) {
+    if (writer) {
       writer.write({
         type: "data-sub-agent-end",
-        data: { messageId, toolCallId, output: outputText },
+        data: { toolCallId, output: outputText },
       } as any);
     }
 

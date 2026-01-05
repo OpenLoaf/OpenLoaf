@@ -16,8 +16,15 @@ interface MessageListProps {
 }
 
 export default function MessageList({ className }: MessageListProps) {
-  const { messages, status, error, scrollToBottomToken, scrollToMessageToken, isHistoryLoading } =
-    useChatContext();
+  const {
+    messages,
+    status,
+    error,
+    scrollToBottomToken,
+    scrollToMessageToken,
+    isHistoryLoading,
+    stepThinking,
+  } = useChatContext();
   const viewportRef = React.useRef<HTMLDivElement | null>(null);
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
@@ -35,13 +42,14 @@ export default function MessageList({ className }: MessageListProps) {
   // 发送消息后，在 AI 还没返回任何可见内容前显示“正在思考中”
   const shouldShowThinking = React.useMemo(() => {
     if (error) return false;
+    if (stepThinking) return true;
     if (!(status === "submitted" || status === "streaming")) return false;
     const last = messages[messages.length - 1] as any;
     if (!last) return false;
     if (last.role === "user") return true;
     // assistant 已创建但还没产出内容（例如刚进入 streaming）
     return last.role === "assistant" && !messageHasVisibleContent(last);
-  }, [messages, status, error]);
+  }, [messages, status, error, stepThinking]);
 
   useChatScroll({
     scrollToBottomToken,

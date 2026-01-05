@@ -9,6 +9,7 @@ import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { toast } from "sonner";
 import { OpenUrlTool } from "./OpenUrlTool";
 import { TestApprovalTool } from "./TestApprovalTool";
+import SubAgentTool from "./SubAgentTool";
 import { useChatContext } from "../../ChatProvider";
 
 // MVP：只展示工具名称 + 输入 + 输出（去掉语法高亮/格式化/多层折叠）
@@ -170,6 +171,9 @@ export default function MessageTool({
   }
   if (part.toolName === "test-approval" || part.type === "tool-test-approval") {
     return <TestApprovalTool part={part} />;
+  }
+  if (part.toolName === "sub-agent" || part.type === "tool-sub-agent") {
+    return <SubAgentTool part={part} />;
   }
 
   const toolName = getToolName(part);

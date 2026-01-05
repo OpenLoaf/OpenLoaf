@@ -46,7 +46,6 @@ function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: strin
 }
 
 type SubAgentDataPayload = {
-  messageId?: string;
   toolCallId?: string;
   name?: string;
   task?: string;
@@ -55,9 +54,18 @@ type SubAgentDataPayload = {
   errorText?: string;
 };
 
+type SubAgentStreamState = {
+  toolCallId: string;
+  name?: string;
+  task?: string;
+  output: string;
+  errorText?: string;
+  state: "output-streaming" | "output-available" | "output-error";
+};
+
 function handleSubAgentDataPart(input: {
   dataPart: any;
-  setMessages?: React.Dispatch<React.SetStateAction<UIMessage[]>>;
+  setSubAgentStreams?: React.Dispatch<React.SetStateAction<Record<string, SubAgentStreamState>>>;
 }) {
   const type = input.dataPart?.type;
   if (
@@ -70,66 +78,87 @@ function handleSubAgentDataPart(input: {
   }
 
   const payload = input.dataPart?.data as SubAgentDataPayload | undefined;
-  const messageId = typeof payload?.messageId === "string" ? payload?.messageId : "";
   const toolCallId = typeof payload?.toolCallId === "string" ? payload?.toolCallId : "";
-  if (!messageId || !toolCallId) return true;
+  if (!toolCallId) return true;
 
-  const setMessages = input.setMessages;
-  if (!setMessages) return true;
+  const setSubAgentStreams = input.setSubAgentStreams;
+  if (!setSubAgentStreams) return true;
 
-  setMessages((messages) => {
-    let changed = false;
-    const next = messages.map((message) => {
-      if (String((message as any)?.id) !== messageId) return message;
-      const parts = Array.isArray((message as any).parts) ? [...(message as any).parts] : [];
-      const index = parts.findIndex((part) => {
-        if (!part || typeof part !== "object") return false;
-        const sameCall = String((part as any).toolCallId ?? "") === toolCallId;
-        const isSubAgent =
-          (part as any).toolName === "sub-agent" || (part as any).type === "tool-sub-agent";
-        return sameCall && isSubAgent;
-      });
+  setSubAgentStreams((prev) => {
+    const current = prev[toolCallId] ?? {
+      toolCallId,
+      output: "",
+      state: "output-streaming",
+    };
 
-      const current =
-        index >= 0
-          ? { ...(parts[index] as any) }
-          : {
-              type: "tool-sub-agent",
-              toolName: "sub-agent",
-              toolCallId,
-              state: "output-streaming",
-            };
+    if (type === "data-sub-agent-start") {
+      const name = typeof payload?.name === "string" ? payload?.name : "";
+      const task = typeof payload?.task === "string" ? payload?.task : "";
+      return {
+        ...prev,
+        [toolCallId]: {
+          ...current,
+          name: name || current.name,
+          task: task || current.task,
+          state: "output-streaming",
+        },
+      };
+    }
 
-      if (type === "data-sub-agent-start") {
-        const name = typeof payload?.name === "string" ? payload?.name : "";
-        const task = typeof payload?.task === "string" ? payload?.task : "";
-        current.title = name ? `SubAgent: ${name}` : current.title;
-        current.input = { name, task };
-        current.output = typeof current.output === "string" ? current.output : "";
-        current.state = "output-streaming";
-      } else if (type === "data-sub-agent-delta") {
-        const delta = typeof payload?.delta === "string" ? payload?.delta : "";
-        const base = typeof current.output === "string" ? current.output : "";
-        current.output = `${base}${delta}`;
-        current.state = "output-streaming";
-      } else if (type === "data-sub-agent-end") {
-        const output = typeof payload?.output === "string" ? payload?.output : "";
-        current.output = output || current.output;
-        current.state = "output-available";
-      } else if (type === "data-sub-agent-error") {
-        const errorText = typeof payload?.errorText === "string" ? payload?.errorText : "";
-        current.errorText = errorText || current.errorText;
-        current.state = "output-error";
-      }
+    if (type === "data-sub-agent-delta") {
+      const delta = typeof payload?.delta === "string" ? payload?.delta : "";
+      return {
+        ...prev,
+        [toolCallId]: {
+          ...current,
+          output: `${current.output}${delta}`,
+          state: "output-streaming",
+        },
+      };
+    }
 
-      if (index >= 0) parts[index] = current;
-      else parts.push(current);
-      changed = true;
-      return { ...(message as any), parts } as UIMessage;
-    });
-    return changed ? next : messages;
+    if (type === "data-sub-agent-end") {
+      const output = typeof payload?.output === "string" ? payload?.output : "";
+      return {
+        ...prev,
+        [toolCallId]: {
+          ...current,
+          output: output || current.output,
+          state: "output-available",
+        },
+      };
+    }
+
+    if (type === "data-sub-agent-error") {
+      const errorText = typeof payload?.errorText === "string" ? payload?.errorText : "";
+      return {
+        ...prev,
+        [toolCallId]: {
+          ...current,
+          errorText: errorText || current.errorText,
+          state: "output-error",
+        },
+      };
+    }
+
+    return prev;
   });
 
+  return true;
+}
+
+function handleStepThinkingDataPart(input: {
+  dataPart: any;
+  setStepThinking?: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
+  const type = input.dataPart?.type;
+  if (type !== "data-step-thinking") return false;
+  const setStepThinking = input.setStepThinking;
+  if (!setStepThinking) return true;
+
+  const active = Boolean(input.dataPart?.data?.active);
+  // 中文注释：由服务端按 step 事件触发显隐。
+  setStepThinking(active);
   return true;
 }
 
@@ -181,6 +210,10 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   resendUserMessage: (userMessageId: string, nextText: string) => void;
   /** 用户手动停止生成（通知服务端终止当前流） */
   stopGenerating: () => void;
+  /** 子Agent流式输出缓存（key 为 toolCallId） */
+  subAgentStreams: Record<string, SubAgentStreamState>;
+  /** 处理 step 完成后的“思考中”提示 */
+  stepThinking: boolean;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -238,6 +271,10 @@ export default function ChatProvider({
       }
     >
   >({});
+  const [subAgentStreams, setSubAgentStreams] = React.useState<
+    Record<string, SubAgentStreamState>
+  >({});
+  const [stepThinking, setStepThinking] = React.useState(false);
   const upsertToolPart = useTabs((s) => s.upsertToolPart);
   const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
   const setTabChatStatus = useTabs((s) => s.setTabChatStatus);
@@ -361,11 +398,12 @@ export default function ChatProvider({
         // 关键：切换 session 后忽略旧流的 dataPart，避免 toolParts 被写回新会话 UI。
         if (sessionIdRef.current !== sessionId) return;
         if (handleOpenBrowserDataPart({ dataPart, fallbackTabId: tabId })) return;
-        if (handleSubAgentDataPart({ dataPart, setMessages: setMessagesRef.current ?? undefined })) return;
+        if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
+        if (handleSubAgentDataPart({ dataPart, setSubAgentStreams })) return;
         handleChatDataPart({ dataPart, tabId, upsertToolPartMerged });
       },
     }),
-    [sessionId, tabId, transport, upsertToolPartMerged, onFinish]
+    [sessionId, tabId, transport, upsertToolPartMerged, onFinish, setSubAgentStreams, setStepThinking]
   );
 
   const chat = useChat(chatConfig);
@@ -399,6 +437,9 @@ export default function ChatProvider({
     setLeafMessageId(null);
     setBranchMessageIds([]);
     setSiblingNav({});
+    // 中文注释：切会话时清空子Agent流式缓存，避免串流。
+    setSubAgentStreams({});
+    setStepThinking(false);
     if (tabId) clearToolPartsForTab(tabId);
   }, [sessionId, tabId, clearToolPartsForTab, chat.stop, chat.setMessages]);
 
@@ -732,6 +773,8 @@ export default function ChatProvider({
         retryAssistantMessage,
         resendUserMessage,
         stopGenerating,
+        subAgentStreams,
+        stepThinking,
       }}
     >
       {children}

@@ -512,8 +512,23 @@ export function registerChatSseRoutes(app: Hono) {
       },
     });
 
+    // 中文注释：step 结束时通知前端显示“正在思考”，直到下一个 step 或 finish。
+    const stepThinkingStream = stream.pipeThrough(
+      new TransformStream({
+        transform(chunk: any, controller) {
+          controller.enqueue(chunk);
+          const type = chunk?.type;
+          if (type === "finish-step") {
+            controller.enqueue({ type: "data-step-thinking", data: { active: true } });
+          } else if (type === "start-step" || type === "finish") {
+            controller.enqueue({ type: "data-step-thinking", data: { active: false } });
+          }
+        },
+      }),
+    );
+
     // 中文注释：直接返回 SSE stream，不做断线续传缓存。
-    const sseStream = stream.pipeThrough(new JsonToSseTransformStream());
+    const sseStream = stepThinkingStream.pipeThrough(new JsonToSseTransformStream());
     return new Response(sseStream as any, { headers: UI_MESSAGE_STREAM_HEADERS });
   });
 
