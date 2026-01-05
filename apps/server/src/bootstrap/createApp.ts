@@ -7,6 +7,7 @@ import { logger as honoLogger } from "hono/logger";
 import { registerChatSseRoutes } from "@/modules/chat/ChatSseRoutes";
 import { registerChatAttachmentRoutes } from "@/modules/chat/chatAttachmentRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
+import { registerAuthRoutes } from "@/modules/auth/auth0/authRoutes";
 import { workspaceRouterImplementation } from "@/routers/workspace";
 import { tabRouterImplementation } from "@/routers/tab";
 import { chatRouterImplementation } from "@/routers/chat";
@@ -65,6 +66,7 @@ export function createApp() {
   registerChatSseRoutes(app);
   registerChatAttachmentRoutes(app);
   registerFileSseRoutes(app);
+  registerAuthRoutes(app);
 
   app.use(
     "/trpc/*",

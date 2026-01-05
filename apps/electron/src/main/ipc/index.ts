@@ -64,6 +64,18 @@ export function registerIpcHandlers(args: { log: Logger }) {
     return { id: win.id };
   });
 
+  // 使用系统默认浏览器打开外部 URL。
+  ipcMain.handle('teatime:open-external', async (_event, payload: { url: string }) => {
+    const url = String(payload?.url ?? '').trim();
+    if (!url) return { ok: false as const, reason: 'Invalid url' };
+    try {
+      await shell.openExternal(url);
+      return { ok: true as const };
+    } catch (error) {
+      return { ok: false as const, reason: (error as Error)?.message ?? 'Open external failed' };
+    }
+  });
+
   // 在调用方的 BrowserWindow 内创建/更新 WebContentsView（用于嵌入式浏览面板）。
   ipcMain.handle('teatime:webcontents-view:upsert', async (event, payload: UpsertWebContentsViewArgs) => {
     const win = BrowserWindow.fromWebContents(event.sender);

@@ -29,6 +29,7 @@ declare global {
   interface Window {
     teatimeElectron?: {
       openBrowserWindow: (url: string) => Promise<{ id: number }>;
+      openExternal?: (url: string) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       ensureWebContentsView?: (args: {
         key: string;
         url: string;

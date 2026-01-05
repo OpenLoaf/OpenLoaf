@@ -70,6 +70,13 @@ type TeatimeConf = {
   modelProviders?: ModelProviderConf[];
   /** S3 provider configs. */
   S3Providers?: S3ProviderConf[];
+  /** Auth info for SaaS login. */
+  auth?: {
+    /** Stored Auth0 refresh token. */
+    refreshToken?: string;
+    /** Last update timestamp. */
+    updatedAt?: string;
+  };
   /** Legacy workspace root URI (deprecated). */
   workspaceRootUri?: string;
 };
@@ -120,4 +127,37 @@ export function readS3Providers(): S3ProviderConf[] {
 export function writeS3Providers(entries: S3ProviderConf[]): void {
   const conf = loadTeatimeConf();
   writeTeatimeConf({ ...conf, S3Providers: entries });
+}
+
+/** Read Auth0 refresh token from config. */
+export function readAuthRefreshToken(): string | undefined {
+  const conf = loadTeatimeConf();
+  return conf.auth?.refreshToken;
+}
+
+/** Persist Auth0 refresh token into config. */
+export function writeAuthRefreshToken(token: string): void {
+  const conf = loadTeatimeConf();
+  // 逻辑：刷新 token 时同步更新时间，便于排查。
+  writeTeatimeConf({
+    ...conf,
+    auth: {
+      ...(conf.auth ?? {}),
+      refreshToken: token,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+}
+
+/** Clear Auth0 refresh token from config. */
+export function clearAuthRefreshToken(): void {
+  const conf = loadTeatimeConf();
+  writeTeatimeConf({
+    ...conf,
+    auth: {
+      ...(conf.auth ?? {}),
+      refreshToken: undefined,
+      updatedAt: new Date().toISOString(),
+    },
+  });
 }

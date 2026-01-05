@@ -52,10 +52,32 @@ function readCookie(name: string) {
 
 export const SidebarWorkspace = () => {
   const { workspace } = useWorkspace();
+  // Workspace create dialog open state.
   const [createOpen, setCreateOpen] = React.useState(false);
+  // Workspace name input value.
   const [newWorkspaceName, setNewWorkspaceName] = React.useState("");
+  // Stored user email fallback.
   const [userEmail, setUserEmail] = React.useState<string | undefined>();
+  // Stored user avatar fallback.
   const [userAvatarUrl, setUserAvatarUrl] = React.useState<string | undefined>();
+  // Login dialog open state.
+  const [loginOpen, setLoginOpen] = React.useState(false);
+  // Login flow status.
+  const [loginStatus, setLoginStatus] = React.useState<
+    "idle" | "opening" | "polling" | "error"
+  >("idle");
+  // Login error message.
+  const [loginError, setLoginError] = React.useState<string | null>(null);
+  // Auth user profile from server.
+  const [authUser, setAuthUser] = React.useState<{
+    email?: string;
+    name?: string;
+    picture?: string;
+  } | null>(null);
+  // Polling timer id.
+  const pollingRef = React.useRef<number | null>(null);
+  // Server base URL for auth endpoints.
+  const authBaseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? "";
 
   React.useEffect(() => {
     const fromStorageEmail = window.localStorage.getItem("user-email") ?? "";
@@ -70,11 +92,72 @@ export const SidebarWorkspace = () => {
   }, []);
 
   React.useEffect(() => {
+    let canceled = false;
+    const loadSession = async () => {
+      if (!authBaseUrl) return;
+      try {
+        const session = await fetchAuthSession(authBaseUrl);
+        if (canceled) return;
+        if (session.loggedIn) {
+          setAuthUser(session.user ?? null);
+        } else {
+          setAuthUser(null);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    void loadSession();
+    return () => {
+      canceled = true;
+    };
+  }, [authBaseUrl]);
+
+  /** Stop the login status polling loop. */
+  const stopLoginPolling = React.useCallback(() => {
+    if (pollingRef.current != null) {
+      window.clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  /** Start polling auth session until login completes or fails. */
+  const startLoginPolling = React.useCallback(() => {
+    stopLoginPolling();
+    pollingRef.current = window.setInterval(async () => {
+      if (!authBaseUrl) return;
+      try {
+        const session = await fetchAuthSession(authBaseUrl);
+        if (session.loggedIn) {
+          setAuthUser(session.user ?? null);
+          setLoginOpen(false);
+          setLoginStatus("idle");
+          setLoginError(null);
+          stopLoginPolling();
+          toast.success("登录成功");
+        }
+      } catch (error) {
+        setLoginStatus("error");
+        setLoginError((error as Error)?.message ?? "登录状态获取失败");
+        stopLoginPolling();
+      }
+    }, 1000);
+  }, [authBaseUrl, stopLoginPolling]);
+
+  React.useEffect(() => {
+    return () => {
+      stopLoginPolling();
+    };
+  }, [stopLoginPolling]);
+
+  React.useEffect(() => {
     if (!createOpen) return;
     setNewWorkspaceName("");
   }, [createOpen]);
 
   const workspacesQuery = useQuery(trpc.workspace.getList.queryOptions());
+  const displayEmail = authUser?.email ?? authUser?.name ?? userEmail;
+  const displayAvatar = authUser?.picture ?? userAvatarUrl;
 
   const activateWorkspace = useMutation(
     trpc.workspace.activate.mutationOptions({
@@ -116,9 +199,84 @@ export const SidebarWorkspace = () => {
     await createWorkspace.mutateAsync({ name });
   };
 
+  /** Begin the Auth0 login flow. */
+  const handleLogin = async () => {
+    if (!authBaseUrl) {
+      toast.error("Auth0 未配置");
+      return;
+    }
+    setLoginError(null);
+    setLoginStatus("opening");
+    setLoginOpen(true);
+
+    try {
+      const loginUrl = await fetchLoginUrl(authBaseUrl);
+      await openExternalUrl(loginUrl);
+      setLoginStatus("polling");
+      startLoginPolling();
+    } catch (error) {
+      setLoginStatus("error");
+      setLoginError((error as Error)?.message ?? "无法打开登录页面");
+    }
+  };
+
+  /** Cancel the login flow and stop polling. */
+  const handleCancelLogin = async () => {
+    stopLoginPolling();
+    setLoginOpen(false);
+    setLoginStatus("idle");
+    setLoginError(null);
+    if (!authBaseUrl) return;
+    try {
+      await fetch(`${authBaseUrl}/auth/cancel`, { method: "POST" });
+    } catch {
+      // ignore
+    }
+  };
+
+  /** Clear server-side login and local UI state. */
+  const handleLogout = async () => {
+    if (!authBaseUrl) return;
+    try {
+      await fetch(`${authBaseUrl}/auth/logout`, { method: "POST" });
+      setAuthUser(null);
+      setUserEmail(undefined);
+      setUserAvatarUrl(undefined);
+      window.localStorage.removeItem("user-email");
+      window.localStorage.removeItem("user-avatar");
+      toast.success("已退出登录");
+    } catch (error) {
+      toast.error((error as Error)?.message ?? "退出登录失败");
+    }
+  };
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
+        <Dialog open={loginOpen} onOpenChange={(open) => !open && void handleCancelLogin()}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>正在登录</DialogTitle>
+              <DialogDescription>
+                {loginStatus === "opening" && "正在打开系统浏览器…"}
+                {loginStatus === "polling" && "等待登录完成…"}
+                {loginStatus === "error" &&
+                  (loginError ?? "登录失败，请重试")}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              {loginStatus === "error" ? (
+                <Button type="button" onClick={handleLogin}>
+                  重新打开登录页
+                </Button>
+              ) : null}
+              <Button type="button" variant="outline" onClick={handleCancelLogin}>
+                取消登录
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -134,7 +292,7 @@ export const SidebarWorkspace = () => {
                     {workspace.name}
                   </div>
                   <div className="truncate text-xs text-muted-foreground leading-4">
-                    {userEmail ?? "未登录"}
+                    {displayEmail ?? "未登录"}
                   </div>
                 </div>
                 <ChevronsUpDown className="text-muted-foreground size-4 group-data-[collapsible=icon]:hidden" />
@@ -148,11 +306,11 @@ export const SidebarWorkspace = () => {
             >
               <div className="flex items-center gap-3 px-2 py-2">
                 <Avatar className="size-9">
-                  {userAvatarUrl ? (
-                    <AvatarImage src={userAvatarUrl} alt={userEmail ?? "User"} />
+                  {displayAvatar ? (
+                    <AvatarImage src={displayAvatar} alt={displayEmail ?? "User"} />
                   ) : null}
                   <AvatarFallback className="text-xs">
-                    {(userEmail?.[0] ?? "?").toUpperCase()}
+                    {((displayEmail ?? "?")[0] ?? "?").toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
@@ -160,7 +318,7 @@ export const SidebarWorkspace = () => {
                     当前账号
                   </div>
                   <div className="truncate text-xs text-muted-foreground leading-4">
-                    {userEmail ?? "未登录"}
+                    {displayEmail ?? "未登录"}
                   </div>
                 </div>
               </div>
@@ -168,10 +326,10 @@ export const SidebarWorkspace = () => {
               <DropdownMenuSeparator className="my-2" />
 
               <div className="space-y-1">
-                {userEmail ? (
+                {displayEmail ? (
                   <DropdownMenuItem
                     variant="destructive"
-                    onSelect={() => toast.message("暂未接入账号系统，无法退出登录")}
+                    onSelect={() => void handleLogout()}
                     className="rounded-lg"
                   >
                     <LogOut className="size-4" />
@@ -179,7 +337,7 @@ export const SidebarWorkspace = () => {
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem
-                    onSelect={() => toast.message("暂未接入账号系统")}
+                    onSelect={() => void handleLogin()}
                     className="rounded-lg"
                   >
                     <LogIn className="size-4" />
@@ -288,3 +446,51 @@ export const SidebarWorkspace = () => {
     </SidebarMenu>
   );
 };
+
+type AuthSessionResponse = {
+  /** Whether user is logged in. */
+  loggedIn: boolean;
+  /** User profile (optional). */
+  user?: {
+    /** User email. */
+    email?: string;
+    /** User display name. */
+    name?: string;
+    /** User avatar. */
+    picture?: string;
+  };
+};
+
+/** Fetch the Auth0 login URL from server. */
+async function fetchLoginUrl(baseUrl: string): Promise<string> {
+  const response = await fetch(`${baseUrl}/auth/login-url`);
+  if (!response.ok) {
+    throw new Error("无法获取登录地址");
+  }
+  const payload = (await response.json()) as { authorizeUrl?: string };
+  if (!payload.authorizeUrl) {
+    throw new Error("登录地址无效");
+  }
+  return payload.authorizeUrl;
+}
+
+/** Fetch the current auth session from server. */
+async function fetchAuthSession(baseUrl: string): Promise<AuthSessionResponse> {
+  const response = await fetch(`${baseUrl}/auth/session`);
+  if (!response.ok) {
+    throw new Error("无法获取登录状态");
+  }
+  return (await response.json()) as AuthSessionResponse;
+}
+
+/** Open external URL in system browser (Electron) or new tab. */
+async function openExternalUrl(url: string): Promise<void> {
+  if (window.teatimeElectron?.openExternal) {
+    const result = await window.teatimeElectron.openExternal(url);
+    if (!result.ok) {
+      throw new Error(result.reason ?? "无法打开浏览器");
+    }
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
