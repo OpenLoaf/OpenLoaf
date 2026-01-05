@@ -116,7 +116,7 @@ importers:
         specifier: ^7.10.2
         version: 7.10.2
       electron:
-        specifier: ^39.2.7
+        specifier: 39.2.7
         version: 39.2.7
       electron-builder:
         specifier: ^24.13.3

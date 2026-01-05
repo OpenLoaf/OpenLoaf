@@ -258,7 +258,7 @@ export async function startProductionServices(args: {
   log(`Looking for server at: ${serverPath}`);
 
   const serverHost = resolveHost(args.serverUrl, '127.0.0.1');
-  const serverPort = resolvePort(args.serverUrl, 3000);
+  const serverPort = resolvePort(args.serverUrl, 23333);
 
   let managedServer: ChildProcess | null = null;
   if (fs.existsSync(serverPath)) {

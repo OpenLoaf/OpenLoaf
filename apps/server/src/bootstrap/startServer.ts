@@ -9,7 +9,7 @@ import { logger } from "@/common/logger";
 export function startServer() {
   const app = createApp();
 
-  const port = Number(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? 23333);
   const hostname = process.env.HOST ?? "127.0.0.1";
 
   const server = createAdaptorServer({

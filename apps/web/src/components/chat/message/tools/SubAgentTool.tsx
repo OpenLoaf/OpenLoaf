@@ -13,7 +13,7 @@ type SubAgentToolPart = {
   state?: string;
   toolCallId?: string;
   input?: { name?: string; task?: string } | unknown;
-  output?: string;
+  output?: unknown;
   errorText?: string;
 };
 

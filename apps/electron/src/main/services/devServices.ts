@@ -106,7 +106,7 @@ export async function ensureDevServices(args: {
   const envBase = { ...process.env };
 
   const serverHost = new URL(serverUrl).hostname || '127.0.0.1';
-  let serverPort = Number(new URL(serverUrl).port || 3000);
+  let serverPort = Number(new URL(serverUrl).port || 23333);
   if (!serverOk && !(await isPortFree(serverHost, serverPort))) {
     // 默认端口被占用时，自动选择可用端口，避免 spawn 后才失败。
     serverPort = await getFreePort(serverHost);

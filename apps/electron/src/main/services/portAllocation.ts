@@ -84,7 +84,7 @@ export async function resolveRuntimePorts(args: {
   const defaultHost = args.defaultHost ?? '127.0.0.1';
   const usedPorts = new Set<number>();
 
-  const defaultServerPort = 53662;
+  const defaultServerPort = 23333;
   const defaultWebPort = 53663;
   const defaultCdpPort = 53664;
 

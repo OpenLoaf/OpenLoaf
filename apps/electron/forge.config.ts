@@ -15,6 +15,9 @@ const config: ForgeConfig = {
       // Pre-built SQLite DB with schema applied (copied to userData on first run).
       '../../apps/server/dist/seed.db',
       '../../apps/web/out',
+      // Sharp ships native bindings via optional deps (e.g. @img/sharp-darwin-arm64).
+      '../../node_modules/sharp',
+      '../../node_modules/@img',
       // Prisma libsql adapter loads a native binding at runtime (e.g. `@libsql/darwin-arm64`).
       // Since `server.mjs` is executed from `process.resourcesPath`, ship the `@libsql/*` packages
       // into Resources as well (resolved via NODE_PATH in prodServices).
