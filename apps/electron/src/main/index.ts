@@ -41,6 +41,8 @@ const runtimePortsReady = resolveRuntimePorts({
   .then((ports) => {
     // 中文注释：提前锁定随机端口并写回环境变量，保证 web/server/CDP 同步。
     process.env.TEATIME_REMOTE_DEBUGGING_PORT = String(ports.cdpPort);
+    process.env.TEATIME_SERVER_URL = ports.serverUrl;
+    process.env.TEATIME_WEB_URL = ports.webUrl;
     app.commandLine.appendSwitch('remote-debugging-port', String(ports.cdpPort));
     runtimePorts = ports;
     return ports;

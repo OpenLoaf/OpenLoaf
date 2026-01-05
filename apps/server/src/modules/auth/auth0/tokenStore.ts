@@ -150,9 +150,11 @@ function resolveUserFromIdToken(idToken: string): AuthUser | undefined {
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   const parts = token.split(".");
   if (parts.length < 2) return null;
+  const payloadPart = parts[1];
+  if (!payloadPart) return null;
   try {
     // 逻辑：仅用于展示用户信息，不做签名校验。
-    const payload = Buffer.from(base64UrlDecode(parts[1]), "base64").toString("utf-8");
+    const payload = Buffer.from(base64UrlDecode(payloadPart), "base64").toString("utf-8");
     return JSON.parse(payload) as Record<string, unknown>;
   } catch {
     return null;

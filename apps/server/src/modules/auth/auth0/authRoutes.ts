@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { Hono } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { getEnvString } from "@teatime-ai/config";
 import { logger } from "@/common/logger";
 import {
@@ -97,7 +98,8 @@ export function registerAuthRoutes(app: Hono): void {
       if (!response.ok) {
         // 中文注释：SaaS 返回非 2xx 时记录状态码便于排查。
         logger.warn({ status: response.status, payload }, "SaaS balance request failed");
-        return c.json({ error: "saas_request_failed" }, response.status);
+        // 中文注释：Hono JSON 响应需要 ContentfulStatusCode，透传 fetch 状态码。
+        return c.json({ error: "saas_request_failed" }, response.status as ContentfulStatusCode);
       }
       return c.json(payload);
     } catch (error) {

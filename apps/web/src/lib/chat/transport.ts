@@ -4,6 +4,7 @@ import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "@ai-sdk/react";
 import type { RefObject } from "react";
 import { getWebClientId } from "./streamClientId";
+import { resolveServerUrl } from "@/utils/server-url";
 
 /** Build request params that carry all custom fields except id/messages. */
 function buildRequestParams(input: {
@@ -51,7 +52,7 @@ export function createChatTransport({
   chatModelIdRef?: RefObject<string | null | undefined>;
   chatModelSourceRef?: RefObject<string | null | undefined>;
 }) {
-  const apiBase = `${process.env.NEXT_PUBLIC_SERVER_URL}/chat/sse`;
+  const apiBase = `${resolveServerUrl()}/chat/sse`;
 
   return new DefaultChatTransport({
     api: apiBase,

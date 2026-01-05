@@ -195,16 +195,24 @@ export async function startProductionServices(args: {
   // Packaged app config is expected to live in userData (editable by user, survives upgrades).
   const userEnvPath = path.join(userDataPath, '.env');
   const userEnv = parseEnvFile(userEnvPath);
+  // 中文注释：打包内的 runtime.env 作为强制覆盖配置，优先生效。
+  const packagedEnvPath = path.join(resourcesPath, 'runtime.env');
+  const packagedEnv = parseEnvFile(packagedEnvPath);
 
-  const dataDir = userEnv.TEATIME_DATA_DIR ?? process.env.TEATIME_DATA_DIR ?? path.join(userDataPath, 'data');
+  /**
+   * Resolve environment value with packaged overrides, then user config, then process env.
+   */
+  const resolveEnvValue = (key: string, fallback?: string): string | undefined =>
+    packagedEnv[key] ?? userEnv[key] ?? process.env[key] ?? fallback;
+
+  const dataDir = resolveEnvValue('TEATIME_DATA_DIR', path.join(userDataPath, 'data'))!;
   ensureDir(dataDir);
 
   const defaultDbPath = path.join(dataDir, 'teatime.db');
-  const dbPath = userEnv.TEATIME_DB_PATH ?? process.env.TEATIME_DB_PATH ?? defaultDbPath;
+  const dbPath = resolveEnvValue('TEATIME_DB_PATH', defaultDbPath)!;
 
   const defaultConfPath = path.join(dataDir, 'teatime.conf');
-  const confPath =
-    userEnv.TEATIME_CONF_PATH ?? process.env.TEATIME_CONF_PATH ?? defaultConfPath;
+  const confPath = resolveEnvValue('TEATIME_CONF_PATH', defaultConfPath)!;
 
   // If user didn't create a `.env` yet, write a small template to guide production configuration.
   try {
@@ -229,7 +237,7 @@ export async function startProductionServices(args: {
   }
 
   const defaultDatabaseUrl = `file:${dbPath}`;
-  const databaseUrl = userEnv.DATABASE_URL ?? process.env.DATABASE_URL ?? defaultDatabaseUrl;
+  const databaseUrl = resolveEnvValue('DATABASE_URL', defaultDatabaseUrl)!;
   const localDbPath = resolveFilePathFromDatabaseUrl(databaseUrl, dataDir);
 
   // Initialize DB on first run by copying a pre-built seed DB (schema already applied).
@@ -272,6 +280,8 @@ export async function startProductionServices(args: {
           HOST: serverHost,
           DATABASE_URL: databaseUrl,
           TEATIME_CONF_PATH: confPath,
+          // 中文注释：生产环境需要显式放行 webUrl 作为 CORS origin。
+          CORS_ORIGIN: `${args.webUrl},${process.env.CORS_ORIGIN ?? ''}`,
           // Allow the bundled server to resolve shipped native deps (e.g. `@libsql/darwin-arm64`)
           // that are copied into `process.resourcesPath` via Forge `extraResource`.
           NODE_PATH: process.resourcesPath,
@@ -279,6 +289,7 @@ export async function startProductionServices(args: {
           DOTENV_CONFIG_PATH: userEnvPath,
           DOTENV_CONFIG_OVERRIDE: '1',
           ...userEnv,
+          ...packagedEnv,
           // 中文注释：强制对齐 Electron 与 Server 的 CDP 端口，避免运行时不一致。
           TEATIME_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
         },

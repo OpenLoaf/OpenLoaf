@@ -16,6 +16,7 @@ import { generateId } from "ai";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
+import { resolveServerUrl } from "@/utils/server-url";
 import {
   BOARD_FILE_EXT,
   ensureBoardFileName,
@@ -291,7 +292,7 @@ export function useProjectFileSystemModel({
 
   useEffect(() => {
     if (!projectId || !activeUri) return;
-    const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? "";
+    const baseUrl = resolveServerUrl();
     const url = `${baseUrl}/fs/watch?projectId=${encodeURIComponent(
       projectId
     )}&dirUri=${encodeURIComponent(activeUri)}`;

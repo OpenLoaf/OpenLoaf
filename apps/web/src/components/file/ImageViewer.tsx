@@ -9,6 +9,7 @@ import {
   type ReactZoomPanPinchRef,
 } from "react-zoom-pan-pinch";
 import { trpc } from "@/utils/trpc";
+import { resolveServerUrl } from "@/utils/server-url";
 
 interface ImageViewerProps {
   uri?: string;
@@ -44,7 +45,7 @@ export default function ImageViewer({ uri, name }: ImageViewerProps) {
     const run = async () => {
       setPreview({ status: "loading" });
       try {
-        const apiBase = process.env.NEXT_PUBLIC_SERVER_URL;
+        const apiBase = resolveServerUrl();
         const endpoint = apiBase
           ? `${apiBase}/chat/attachments/preview?url=${encodeURIComponent(uri)}`
           : `/chat/attachments/preview?url=${encodeURIComponent(uri)}`;

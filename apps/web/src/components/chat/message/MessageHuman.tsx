@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ChatMessageText from "./ChatMessageText";
+import { resolveServerUrl } from "@/utils/server-url";
 
 interface MessageHumanProps {
   message: UIMessage;
@@ -72,7 +73,7 @@ export default function MessageHuman({
       if (imageStateRef.current[url]) return;
       setImageState((prev) => ({ ...prev, [url]: { status: "loading" } }));
       try {
-        const apiBase = process.env.NEXT_PUBLIC_SERVER_URL;
+        const apiBase = resolveServerUrl();
         const endpoint = apiBase
           ? `${apiBase}/chat/attachments/preview?url=${encodeURIComponent(url)}`
           : `/chat/attachments/preview?url=${encodeURIComponent(url)}`;

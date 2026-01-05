@@ -48,6 +48,8 @@ declare global {
       clearWebContentsViews?: () => Promise<{ ok: true }>;
       getWebContentsViewCount?: () => Promise<{ ok: true; count: number } | { ok: false }>;
       getAppVersion?: () => Promise<string>;
+      /** Get runtime port info for backend connectivity. */
+      getRuntimePortsSync?: () => { ok: boolean; serverUrl?: string; webUrl?: string };
       checkForUpdates?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
       getAutoUpdateStatus?: () => Promise<TeatimeAutoUpdateStatus>;
       installUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;

@@ -15,6 +15,7 @@ const config: ForgeConfig = {
       // Pre-built SQLite DB with schema applied (copied to userData on first run).
       '../../apps/server/dist/seed.db',
       '../../apps/web/out',
+      '../../apps/electron/resources/runtime.env',
       // Sharp ships native bindings via optional deps (e.g. @img/sharp-darwin-arm64).
       '../../node_modules/sharp',
       '../../node_modules/@img',

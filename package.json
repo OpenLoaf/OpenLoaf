@@ -7,7 +7,7 @@
     "ruler:apply": "pnpm dlx @intellectronica/ruler@latest apply --local-only",
     "dev": "NODE_OPTIONS=--conditions=development turbo dev",
     "build": "turbo build",
-    "check-types": "turbo check-types",
+    "check-types": "CI=1 turbo check-types",
     "dev:native": "NODE_OPTIONS=--conditions=development turbo -F native dev",
     "dev:web": "NODE_OPTIONS=--conditions=development turbo -F web dev",
     "dev:server": "NODE_OPTIONS=--conditions=development turbo -F server dev",

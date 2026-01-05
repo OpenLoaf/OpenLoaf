@@ -39,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { resolveServerUrl } from "@/utils/server-url";
 
 function readCookie(name: string) {
   if (typeof document === "undefined") return undefined;
@@ -87,7 +88,7 @@ export const SidebarWorkspace = () => {
   // Balance polling timer id.
   const balancePollingRef = React.useRef<number | null>(null);
   // Server base URL for auth endpoints.
-  const authBaseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? "";
+  const authBaseUrl = resolveServerUrl();
 
   React.useEffect(() => {
     const fromStorageEmail = window.localStorage.getItem("user-email") ?? "";

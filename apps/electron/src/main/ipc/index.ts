@@ -58,6 +58,13 @@ export function registerIpcHandlers(args: { log: Logger }) {
   // 提供应用版本号给渲染端展示。
   ipcMain.handle('teatime:app:version', async () => app.getVersion());
 
+  // Provide runtime port info for renderer initialization.
+  ipcMain.on('teatime:runtime:ports', (event) => {
+    const serverUrl = process.env.TEATIME_SERVER_URL ?? '';
+    const webUrl = process.env.TEATIME_WEB_URL ?? '';
+    event.returnValue = { ok: Boolean(serverUrl), serverUrl, webUrl };
+  });
+
   // 为用户输入的 URL 打开独立窗口（通常用于外部链接）。
   ipcMain.handle('teatime:open-browser-window', async (_event, payload: { url: string }) => {
     const win = createBrowserWindowForUrl(payload?.url ?? '');

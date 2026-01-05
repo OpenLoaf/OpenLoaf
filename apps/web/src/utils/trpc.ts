@@ -9,6 +9,7 @@ import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@teatime-ai/api";
 import { toast } from "sonner";
 import superjson from "superjson";
+import { resolveServerUrl } from "@/utils/server-url";
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -25,7 +26,7 @@ export const queryClient = new QueryClient({
   }),
 });
 
-const baseUrl = `${process.env.NEXT_PUBLIC_SERVER_URL}/trpc`;
+const baseUrl = `${resolveServerUrl()}/trpc`;
 
 export const trpcClient = createTRPCClient<AppRouter>({
   links: [

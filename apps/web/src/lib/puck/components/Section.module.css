@@ -1,0 +1,23 @@
+.Section:not(.Section .Section) {
+  padding-inline-start: 16px;
+  padding-inline-end: 16px;
+}
+
+@media (min-width: 768px) {
+  .Section:not(.Section .Section) {
+    padding-inline-start: 24px;
+    padding-inline-end: 24px;
+  }
+}
+
+.Section-inner {
+  margin-inline-start: auto;
+  margin-inline-end: auto;
+  height: 100%;
+  width: 100%;
+}
+
+.Section .Section .Section-inner {
+  margin-inline-start: 0;
+  margin-inline-end: 0;
+}

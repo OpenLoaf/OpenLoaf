@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, HardDrive, Sparkles } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -15,6 +15,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useSetting, useSettingsValues } from "@/hooks/use-settings";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { WebSettingDefs } from "@/lib/setting-defs";
+import { resolveServerUrl } from "@/utils/server-url";
 import { useChatContext } from "../ChatProvider";
 import type { IOType, ModelDefinition, ModelTag } from "@teatime-ai/api/common";
 import { resolvePriceTier } from "@teatime-ai/api/common";
@@ -63,6 +64,47 @@ function formatModelPrice(definition?: ModelDefinition): string | null {
   return `输入 ${inputLabel} / 1M · 输出 ${outputLabel} / 1M`;
 }
 
+type AuthSessionResponse = {
+  /** Whether user is logged in. */
+  loggedIn: boolean;
+};
+
+/** Fetch the current auth session from server. */
+async function fetchAuthSession(baseUrl: string): Promise<AuthSessionResponse> {
+  const response = await fetch(`${baseUrl}/auth/session`);
+  if (!response.ok) {
+    throw new Error("无法获取登录状态");
+  }
+  return (await response.json()) as AuthSessionResponse;
+}
+
+/** Fetch the Auth0 login URL from server. */
+async function fetchLoginUrl(baseUrl: string): Promise<string> {
+  const url = new URL(`${baseUrl}/auth/login-url`);
+  url.searchParams.set("prompt", "login");
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    throw new Error("无法获取登录地址");
+  }
+  const payload = (await response.json()) as { authorizeUrl?: string };
+  if (!payload.authorizeUrl) {
+    throw new Error("登录地址无效");
+  }
+  return payload.authorizeUrl;
+}
+
+/** Open external URL in system browser (Electron) or new tab. */
+async function openExternalUrl(url: string): Promise<void> {
+  if (window.teatimeElectron?.openExternal) {
+    const result = await window.teatimeElectron.openExternal(url);
+    if (!result.ok) {
+      throw new Error(result.reason ?? "无法打开浏览器");
+    }
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 export default function SelectMode({ className }: SelectModeProps) {
   const { items, refresh } = useSettingsValues();
   const { value: chatModelSourceRaw, setValue: setChatModelSource } =
@@ -70,6 +112,8 @@ export default function SelectMode({ className }: SelectModeProps) {
   const { value: defaultChatModelIdRaw, setValue: setDefaultChatModelId } =
     useSetting(WebSettingDefs.ModelDefaultChatModelId);
   const [open, setOpen] = useState(false);
+  const [authLoggedIn, setAuthLoggedIn] = useState(false);
+  const authBaseUrl = resolveServerUrl();
   const { tabId } = useChatContext();
   const pushStackItem = useTabs((s) => s.pushStackItem);
   const chatModelSource = normalizeChatModelSource(chatModelSourceRaw);
@@ -93,6 +137,14 @@ export default function SelectMode({ className }: SelectModeProps) {
     void refresh();
   }, [open, refresh]);
   useEffect(() => {
+    if (!open) return;
+    if (!authBaseUrl) return;
+    // 中文注释：展开选择器时刷新登录状态，避免切换设备后状态不一致。
+    fetchAuthSession(authBaseUrl)
+      .then((session) => setAuthLoggedIn(session.loggedIn))
+      .catch(() => setAuthLoggedIn(false));
+  }, [authBaseUrl, open]);
+  useEffect(() => {
     if (isAuto) return;
     if (modelOptions.length === 0) {
       void setDefaultChatModelId("");
@@ -101,6 +153,23 @@ export default function SelectMode({ className }: SelectModeProps) {
     const exists = modelOptions.some((option) => option.id === selectedModel);
     if (!exists) void setDefaultChatModelId(modelOptions[0]!.id);
   }, [isAuto, modelOptions, selectedModel, setDefaultChatModelId]);
+  useEffect(() => {
+    if (authLoggedIn) return;
+    if (!isCloudSource) return;
+    // 中文注释：未登录时强制回退为本地模式，避免云端入口被直接开启。
+    void setChatModelSource("local");
+  }, [authLoggedIn, isCloudSource, setChatModelSource]);
+
+  /** Trigger login flow for cloud models. */
+  const handleLogin = async () => {
+    if (!authBaseUrl) return;
+    try {
+      const loginUrl = await fetchLoginUrl(authBaseUrl);
+      await openExternalUrl(loginUrl);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   /** Open settings panel to the provider menu inside the current tab stack. */
   const handleOpenProviderSettings = () => {
@@ -141,10 +210,18 @@ export default function SelectMode({ className }: SelectModeProps) {
           )}
         >
           <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right">
-            {isAuto
-              ? "Auto"
-              : (modelOptions.find((option) => option.id === selectedModel)?.modelId ??
-                  "Auto")}
+            {isAuto ? (
+              "Auto"
+            ) : (
+              <span className="flex items-center justify-end gap-1">
+                {!isCloudSource ? (
+                  <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : null}
+                <span className="truncate">
+                  {modelOptions.find((option) => option.id === selectedModel)?.modelId ?? "Auto"}
+                </span>
+              </span>
+            )}
           </span>
           {open ? (
             <ChevronUp className="h-3 w-3" strokeWidth={2.5} />
@@ -160,11 +237,17 @@ export default function SelectMode({ className }: SelectModeProps) {
               <Label htmlFor="cloud-switch" className="text-sm">
                 云端模型
               </Label>
-              <Switch
-                id="cloud-switch"
-                checked={isCloudSource}
-                onCheckedChange={handleToggleCloudSource}
-              />
+              {authLoggedIn ? (
+                <Switch
+                  id="cloud-switch"
+                  checked={isCloudSource}
+                  onCheckedChange={handleToggleCloudSource}
+                />
+              ) : (
+                <Button type="button" size="sm" onClick={() => void handleLogin()}>
+                  立即登录
+                </Button>
+              )}
             </div>
             {showCloudEmpty ? (
               <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
@@ -228,8 +311,13 @@ export default function SelectMode({ className }: SelectModeProps) {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1 text-right">
-                          <div className="truncate text-sm font-medium text-foreground">
-                            {option.providerName}/{option.modelId}
+                          <div className="flex items-center justify-end gap-1 truncate text-sm font-medium text-foreground">
+                            {!isCloudSource ? (
+                              <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                            ) : null}
+                            <span className="truncate">
+                              {option.providerName}/{option.modelId}
+                            </span>
                           </div>
                             <div className="mt-1 flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted-foreground">
                               <span className="flex flex-wrap items-center justify-end gap-1">

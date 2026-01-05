@@ -17,6 +17,10 @@
     ],
     "extraResources": [
       {
+        "from": "resources/runtime.env",
+        "to": "runtime.env"
+      },
+      {
         "from": "../../apps/server/dist/server.mjs",
         "to": "server.mjs"
       },
@@ -30,7 +34,11 @@
       },
       {
         "from": "../../node_modules/sharp",
-        "to": "sharp"
+        "to": "sharp",
+        "filter": [
+          "**/*",
+          "!**/node_modules/.bin/**"
+        ]
       },
       {
         "from": "../../node_modules/@img",

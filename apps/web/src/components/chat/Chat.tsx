@@ -15,6 +15,7 @@ import {
 import type { ChatAttachment } from "./chat-attachments";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
+import { resolveServerUrl } from "@/utils/server-url";
 
 type ChatProps = {
   className?: string;
@@ -115,7 +116,7 @@ export function Chat({
       formData.append("sessionId", effectiveSessionId);
 
       try {
-        const apiBase = process.env.NEXT_PUBLIC_SERVER_URL;
+        const apiBase = resolveServerUrl();
         const endpoint = apiBase ? `${apiBase}/chat/attachments` : "/chat/attachments";
         const res = await fetch(endpoint, {
           method: "POST",

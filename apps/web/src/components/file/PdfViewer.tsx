@@ -6,6 +6,7 @@ import { ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabs } from "@/hooks/use-tabs";
+import { resolveServerUrl } from "@/utils/server-url";
 
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
@@ -49,7 +50,7 @@ export default function PdfViewer({ uri, name, panelKey, tabId }: PdfViewerProps
     const run = async () => {
       setStatus("loading");
       try {
-        const apiBase = process.env.NEXT_PUBLIC_SERVER_URL;
+        const apiBase = resolveServerUrl();
         const endpoint = apiBase
           ? `${apiBase}/chat/attachments/preview?url=${encodeURIComponent(uri)}`
           : `/chat/attachments/preview?url=${encodeURIComponent(uri)}`;

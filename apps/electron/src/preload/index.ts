@@ -65,6 +65,9 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
     ipcRenderer.invoke('teatime:webcontents-view:count'),
   // 获取应用版本号。
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('teatime:app:version'),
+  // Fetch runtime server/web URLs synchronously for early init.
+  getRuntimePortsSync: (): { ok: boolean; serverUrl?: string; webUrl?: string } =>
+    ipcRenderer.sendSync('teatime:runtime:ports'),
   // 手动触发更新检查。
   checkForUpdates: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('teatime:auto-update:check'),
