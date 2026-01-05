@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { Hono } from "hono";
+import { getEnvString } from "@teatime-ai/config";
 import { logger } from "@/common/logger";
 import {
   buildAuthorizeUrl,
@@ -10,6 +11,7 @@ import {
 import {
   applyTokenExchangeResult,
   clearAuthSession,
+  getAccessToken,
   getAuthSessionSnapshot,
   getRefreshToken,
   isAccessTokenValid,
@@ -26,10 +28,12 @@ export function registerAuthRoutes(app: Hono): void {
       const state = cryptoRandomId();
       const pkce = createPkcePair();
       storePkceState(state, pkce.verifier);
+      const prompt = c.req.query("prompt") ?? undefined;
       const authorizeUrl = buildAuthorizeUrl({
         config,
         state,
         codeChallenge: pkce.challenge,
+        prompt,
       });
       return c.json({ authorizeUrl });
     } catch (error) {
@@ -71,6 +75,35 @@ export function registerAuthRoutes(app: Hono): void {
   app.get("/auth/session", async (c) => {
     await ensureAccessTokenFresh();
     return c.json(getAuthSessionSnapshot());
+  });
+
+  app.get("/auth/balance", async (c) => {
+    await ensureAccessTokenFresh();
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      return c.json({ error: "auth_required" }, 401);
+    }
+    const saasBaseUrl = getSaasBaseUrl();
+    if (!saasBaseUrl) {
+      return c.json({ error: "saas_url_missing" }, 500);
+    }
+    try {
+      const response = await fetch(`${saasBaseUrl}/api/llm/balance`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        // 中文注释：SaaS 返回非 2xx 时记录状态码便于排查。
+        logger.warn({ status: response.status, payload }, "SaaS balance request failed");
+        return c.json({ error: "saas_request_failed" }, response.status);
+      }
+      return c.json(payload);
+    } catch (error) {
+      logger.error({ err: error }, "SaaS balance request failed");
+      return c.json({ error: "saas_request_failed" }, 502);
+    }
   });
 
   app.post("/auth/cancel", (c) => {
@@ -120,33 +153,81 @@ function renderCallbackPage(message: string): string {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Teatime 登录</title>
     <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 32px; }
-      .card { max-width: 480px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; }
-      h1 { font-size: 18px; margin: 0 0 12px; }
-      p { margin: 0; color: #4b5563; }
-      .countdown { margin-top: 12px; color: #6b7280; font-size: 13px; }
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fb;
+        --card: #ffffff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --border: #e2e8f0;
+        --primary: #2563eb;
+        --primary-dark: #1e40af;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: "Avenir Next", "Nunito", "Helvetica Neue", Arial, sans-serif;
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(1200px 600px at 10% -20%, rgba(59, 130, 246, 0.12), transparent 60%),
+          radial-gradient(900px 500px at 110% 10%, rgba(14, 165, 233, 0.12), transparent 55%),
+          var(--bg);
+        padding: 28px;
+      }
+      .card {
+        width: min(520px, 100%);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 28px 28px 24px;
+        text-align: center;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--primary-dark);
+        background: rgba(37, 99, 235, 0.12);
+        padding: 6px 10px;
+        border-radius: 999px;
+        margin-bottom: 14px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 10px;
+        color: var(--text);
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .actions {
+        margin-top: 22px;
+        margin-top: 14px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .divider {
+        height: 1px;
+        background: var(--border);
+        margin: 18px 0 12px;
+      }
     </style>
   </head>
   <body>
     <div class="card">
+      <div class="badge">Teatime Auth</div>
       <h1>${message}</h1>
       <p>此页面可安全关闭。</p>
-      <p class="countdown"><span id="countdown">5</span> 秒后自动关闭</p>
+      <div class="actions">请手动关闭此标签页</div>
     </div>
     <script>
-      (function () {
-        // 中文注释：倒计时结束后尝试自动关闭窗口。
-        var seconds = 5;
-        var node = document.getElementById("countdown");
-        var timer = setInterval(function () {
-          seconds -= 1;
-          if (node) node.textContent = String(seconds);
-          if (seconds <= 0) {
-            clearInterval(timer);
-            window.close();
-          }
-        }, 1000);
-      })();
+      (function () {})();
     </script>
   </body>
 </html>`;
@@ -157,4 +238,15 @@ function renderCallbackPage(message: string): string {
  */
 function cryptoRandomId(): string {
   return crypto.randomUUID();
+}
+
+/**
+ * Resolve SaaS base URL from env.
+ */
+function getSaasBaseUrl(): string | null {
+  const value = getEnvString(process.env, "TEATIME_SAAS_URL");
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.replace(/\/$/, "");
 }

@@ -62,6 +62,8 @@ export const SidebarWorkspace = () => {
   const [userAvatarUrl, setUserAvatarUrl] = React.useState<string | undefined>();
   // Login dialog open state.
   const [loginOpen, setLoginOpen] = React.useState(false);
+  // Workspace dropdown open state.
+  const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
   // Login flow status.
   const [loginStatus, setLoginStatus] = React.useState<
     "idle" | "opening" | "polling" | "error"
@@ -74,8 +76,16 @@ export const SidebarWorkspace = () => {
     name?: string;
     picture?: string;
   } | null>(null);
+  // Auth login status from server.
+  const [authLoggedIn, setAuthLoggedIn] = React.useState(false);
+  // SaaS balance snapshot.
+  const [balanceInfo, setBalanceInfo] = React.useState<BalanceData | null>(null);
+  // Balance error message.
+  const [balanceError, setBalanceError] = React.useState<string | null>(null);
   // Polling timer id.
   const pollingRef = React.useRef<number | null>(null);
+  // Balance polling timer id.
+  const balancePollingRef = React.useRef<number | null>(null);
   // Server base URL for auth endpoints.
   const authBaseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? "";
 
@@ -100,8 +110,12 @@ export const SidebarWorkspace = () => {
         if (canceled) return;
         if (session.loggedIn) {
           setAuthUser(session.user ?? null);
+          setAuthLoggedIn(true);
         } else {
           setAuthUser(null);
+          setAuthLoggedIn(false);
+          setBalanceInfo(null);
+          setBalanceError(null);
         }
       } catch {
         // ignore
@@ -121,6 +135,31 @@ export const SidebarWorkspace = () => {
     }
   }, []);
 
+  /** Stop the balance polling loop. */
+  const stopBalancePolling = React.useCallback(() => {
+    if (balancePollingRef.current != null) {
+      window.clearInterval(balancePollingRef.current);
+      balancePollingRef.current = null;
+    }
+  }, []);
+
+  /** Fetch balance once. */
+  const pollBalanceOnce = React.useCallback(async () => {
+    if (!authBaseUrl) return;
+    try {
+      const payload = await fetchAuthBalance(authBaseUrl);
+      // 中文注释：仅在成功时刷新余额，失败保留上次值。
+      if (payload?.success && payload.data) {
+        setBalanceInfo(payload.data);
+        setBalanceError(null);
+      } else {
+        setBalanceError("余额返回异常");
+      }
+    } catch (error) {
+      setBalanceError((error as Error)?.message ?? "余额获取失败");
+    }
+  }, [authBaseUrl]);
+
   /** Start polling auth session until login completes or fails. */
   const startLoginPolling = React.useCallback(() => {
     stopLoginPolling();
@@ -130,6 +169,7 @@ export const SidebarWorkspace = () => {
         const session = await fetchAuthSession(authBaseUrl);
         if (session.loggedIn) {
           setAuthUser(session.user ?? null);
+          setAuthLoggedIn(true);
           setLoginOpen(false);
           setLoginStatus("idle");
           setLoginError(null);
@@ -147,8 +187,35 @@ export const SidebarWorkspace = () => {
   React.useEffect(() => {
     return () => {
       stopLoginPolling();
+      stopBalancePolling();
     };
-  }, [stopLoginPolling]);
+  }, [stopBalancePolling, stopLoginPolling]);
+
+  /** Start polling SaaS balance once logged in. */
+  const startBalancePolling = React.useCallback(() => {
+    stopBalancePolling();
+    balancePollingRef.current = window.setInterval(() => {
+      void pollBalanceOnce();
+    }, 60000);
+  }, [pollBalanceOnce, stopBalancePolling]);
+
+  React.useEffect(() => {
+    if (!authLoggedIn) {
+      stopBalancePolling();
+      setBalanceInfo(null);
+      setBalanceError(null);
+      return;
+    }
+    startBalancePolling();
+    return () => {
+      stopBalancePolling();
+    };
+  }, [authLoggedIn, startBalancePolling, stopBalancePolling]);
+
+  React.useEffect(() => {
+    if (!authLoggedIn || !workspaceOpen) return;
+    void pollBalanceOnce();
+  }, [authLoggedIn, pollBalanceOnce, workspaceOpen]);
 
   React.useEffect(() => {
     if (!createOpen) return;
@@ -156,7 +223,8 @@ export const SidebarWorkspace = () => {
   }, [createOpen]);
 
   const workspacesQuery = useQuery(trpc.workspace.getList.queryOptions());
-  const displayEmail = authUser?.email ?? authUser?.name ?? userEmail;
+  const displayEmail =
+    authUser?.email ?? authUser?.name ?? userEmail ?? (authLoggedIn ? "已登录" : undefined);
   const displayAvatar = authUser?.picture ?? userAvatarUrl;
 
   const activateWorkspace = useMutation(
@@ -210,7 +278,7 @@ export const SidebarWorkspace = () => {
     setLoginOpen(true);
 
     try {
-      const loginUrl = await fetchLoginUrl(authBaseUrl);
+      const loginUrl = await fetchLoginUrl(authBaseUrl, "login");
       await openExternalUrl(loginUrl);
       setLoginStatus("polling");
       startLoginPolling();
@@ -240,8 +308,11 @@ export const SidebarWorkspace = () => {
     try {
       await fetch(`${authBaseUrl}/auth/logout`, { method: "POST" });
       setAuthUser(null);
+      setAuthLoggedIn(false);
       setUserEmail(undefined);
       setUserAvatarUrl(undefined);
+      setBalanceInfo(null);
+      setBalanceError(null);
       window.localStorage.removeItem("user-email");
       window.localStorage.removeItem("user-avatar");
       toast.success("已退出登录");
@@ -278,20 +349,25 @@ export const SidebarWorkspace = () => {
         </Dialog>
 
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DropdownMenu>
+          <DropdownMenu open={workspaceOpen} onOpenChange={setWorkspaceOpen}>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="default"
                 className=" h-12 rounded-lg px-1.5 py-3 [&:not([data-highlight])]:hover:bg-sidebar-accent [&:not([data-highlight])]:hover:text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
-                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-md">
-                  <Building2 className="size-4" />
-                </div>
+                <Avatar className="size-8 rounded-md">
+                  {displayAvatar ? (
+                    <AvatarImage src={displayAvatar} alt={displayEmail ?? "User"} />
+                  ) : null}
+                  <AvatarFallback className="text-[11px]">
+                    {((displayEmail ?? "?")[0] ?? "?").toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="flex-1 min-w-0 text-left">
                   <div className="truncate text-sm font-medium leading-5">
                     {workspace.name}
                   </div>
-                  <div className="truncate text-xs text-muted-foreground leading-4">
+                  <div className="truncate text-[11px] text-muted-foreground leading-4">
                     {displayEmail ?? "未登录"}
                   </div>
                 </div>
@@ -320,13 +396,22 @@ export const SidebarWorkspace = () => {
                   <div className="truncate text-xs text-muted-foreground leading-4">
                     {displayEmail ?? "未登录"}
                   </div>
+                  {authLoggedIn ? (
+                    <div className="truncate text-xs text-muted-foreground leading-4">
+                      {balanceInfo
+                        ? `余额：${balanceInfo.remainQuota}`
+                        : balanceError
+                          ? "余额获取失败"
+                          : "余额获取中…"}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
               <DropdownMenuSeparator className="my-2" />
 
               <div className="space-y-1">
-                {displayEmail ? (
+                {authLoggedIn ? (
                   <DropdownMenuItem
                     variant="destructive"
                     onSelect={() => void handleLogout()}
@@ -461,9 +546,31 @@ type AuthSessionResponse = {
   };
 };
 
+type BalanceData = {
+  /** SaaS user id. */
+  newApiUserId: string;
+  /** Total quota. */
+  quota: number;
+  /** Used quota. */
+  usedQuota: number;
+  /** Remaining quota. */
+  remainQuota: number;
+};
+
+type BalanceResponse = {
+  /** Request success flag. */
+  success: boolean;
+  /** Balance payload. */
+  data?: BalanceData;
+};
+
 /** Fetch the Auth0 login URL from server. */
-async function fetchLoginUrl(baseUrl: string): Promise<string> {
-  const response = await fetch(`${baseUrl}/auth/login-url`);
+async function fetchLoginUrl(baseUrl: string, prompt?: string): Promise<string> {
+  const url = new URL(`${baseUrl}/auth/login-url`);
+  if (prompt) {
+    url.searchParams.set("prompt", prompt);
+  }
+  const response = await fetch(url.toString());
   if (!response.ok) {
     throw new Error("无法获取登录地址");
   }
@@ -481,6 +588,15 @@ async function fetchAuthSession(baseUrl: string): Promise<AuthSessionResponse> {
     throw new Error("无法获取登录状态");
   }
   return (await response.json()) as AuthSessionResponse;
+}
+
+/** Fetch balance snapshot from server. */
+async function fetchAuthBalance(baseUrl: string): Promise<BalanceResponse> {
+  const response = await fetch(`${baseUrl}/auth/balance`);
+  if (!response.ok) {
+    throw new Error("无法获取余额");
+  }
+  return (await response.json()) as BalanceResponse;
 }
 
 /** Open external URL in system browser (Electron) or new tab. */

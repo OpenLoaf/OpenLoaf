@@ -61,6 +61,7 @@ export default function SubAgentTool({ part }: { part: SubAgentToolPart }) {
   const statusText = getSubAgentStatus({ ...part, errorText: effectiveErrorText, state: effectiveState });
   const isStreaming = effectiveState === "output-streaming";
   const outputText = effectiveOutput;
+  const hasOutput = typeof outputText === "string" && outputText.length > 0;
 
   const [isExpanded, setIsExpanded] = React.useState(true);
   const outputRef = React.useRef<HTMLDivElement | null>(null);
@@ -140,6 +141,13 @@ export default function SubAgentTool({ part }: { part: SubAgentToolPart }) {
                 <pre className="whitespace-pre-wrap break-words px-3 text-xs text-destructive/80">
                   {effectiveErrorText}
                 </pre>
+              ) : !hasOutput ? (
+                <div className="px-3 py-2 text-xs">
+                  {/* 中文注释：子Agent输出未开始时显示占位文案。 */}
+                  <span className="teatime-thinking-scan inline-block bg-gradient-to-r from-muted-foreground via-foreground to-muted-foreground bg-clip-text text-transparent">
+                    正在思考中
+                  </span>
+                </div>
               ) : (
                 <div className="min-w-0 w-full">
                   {renderMessageParts(nestedParts as any[], { isAnimating: isStreaming })}

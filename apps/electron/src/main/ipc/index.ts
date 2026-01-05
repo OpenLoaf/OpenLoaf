@@ -68,6 +68,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   ipcMain.handle('teatime:open-external', async (_event, payload: { url: string }) => {
     const url = String(payload?.url ?? '').trim();
     if (!url) return { ok: false as const, reason: 'Invalid url' };
+    args.log(`[open-external] ${url}`);
     try {
       await shell.openExternal(url);
       return { ok: true as const };

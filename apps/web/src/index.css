@@ -417,6 +417,28 @@ body {
   }
 }
 
+/* 子Agent 思考中扫描文字 */
+@keyframes teatime-thinking-scan {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.teatime-thinking-scan {
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  animation: teatime-thinking-scan 1.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teatime-thinking-scan {
+    animation: none;
+  }
+}
+
 .teatime-thinking-border {
   --teatime-thinking-border-alpha: 0;
   /* 关键：用双背景 + background-clip 实现“挖空”，避免 mask 在圆角处产生锯齿 */
@@ -449,6 +471,7 @@ body {
     animation: none;
   }
 }
+
 
 /* Puck 顶部控制条改由项目头部接管 */
 .puck-hide-controls [class*="_PuckCanvas-controls_"] {

@@ -47,6 +47,7 @@ export function buildAuthorizeUrl(input: {
   config: Auth0Config;
   state: string;
   codeChallenge: string;
+  prompt?: string;
 }): string {
   const url = new URL(`https://${input.config.domain}/authorize`);
   url.searchParams.set("client_id", input.config.clientId);
@@ -58,6 +59,9 @@ export function buildAuthorizeUrl(input: {
   url.searchParams.set("state", input.state);
   url.searchParams.set("code_challenge", input.codeChallenge);
   url.searchParams.set("code_challenge_method", "S256");
+  if (input.prompt) {
+    url.searchParams.set("prompt", input.prompt);
+  }
   return url.toString();
 }
 

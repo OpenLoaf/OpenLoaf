@@ -190,9 +190,15 @@ function buildAiSdkAdapter(
   };
 }
 
+// 逻辑：仅对部分 OpenAI 兼容服务补齐 /v1。
+function ensureOpenAiCompatibleBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+  return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
+}
+
 export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
   openai: buildAiSdkAdapter("openai", ({ apiUrl, apiKey, fetch }) =>
-    createOpenAI({ baseURL: apiUrl, apiKey, fetch }),
+    createOpenAI({ baseURL: ensureOpenAiCompatibleBaseUrl(apiUrl), apiKey, fetch }),
   ),
   anthropic: buildAiSdkAdapter("anthropic", ({ apiUrl, apiKey, fetch }) =>
     createAnthropic({ baseURL: apiUrl, apiKey, fetch }),
@@ -201,10 +207,10 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
     createGoogleGenerativeAI({ baseURL: apiUrl, apiKey, fetch }),
   ),
   deepseek: buildAiSdkAdapter("deepseek", ({ apiUrl, apiKey, fetch }) =>
-    createDeepSeek({ baseURL: apiUrl, apiKey, fetch }),
+    createDeepSeek({ baseURL: ensureOpenAiCompatibleBaseUrl(apiUrl), apiKey, fetch }),
   ),
   xai: buildAiSdkAdapter("xai", ({ apiUrl, apiKey, fetch }) =>
-    createXai({ baseURL: apiUrl, apiKey, fetch }),
+    createXai({ baseURL: ensureOpenAiCompatibleBaseUrl(apiUrl), apiKey, fetch }),
   ),
   qwenAdapter,
   volcengine: volcengineAdapter,

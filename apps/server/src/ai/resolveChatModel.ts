@@ -4,6 +4,7 @@ import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settin
 import type { ChatModelSource, ModelDefinition } from "@teatime-ai/api/common";
 import { getModelDefinition, getProviderDefinition } from "@/modules/model/modelRegistry";
 import { PROVIDER_ADAPTERS } from "@/modules/model/providerAdapters";
+import { getAccessToken } from "@/modules/auth/auth0/tokenStore";
 
 type ResolvedChatModel = {
   model: LanguageModelV3;
@@ -156,21 +157,22 @@ async function resolveLocalChatModel(input: {
 async function resolveCloudChatModel(_input: {
   chatModelId?: string | null;
 }): Promise<ResolvedChatModel> {
-  const apiUrl = getEnvString(process.env, "TEATIME_SAAS_API_URL");
-  const apiKey = getEnvString(process.env, "TEATIME_SAAS_API_KEY");
+  const saasUrl = getEnvString(process.env, "TEATIME_SAAS_URL");
+  const accessToken = getAccessToken();
   const providers = await getProviderSettings();
+  const normalizedSaasUrl = saasUrl ? saasUrl.replace(/\/+$/, "") : undefined;
 
   return resolveChatModelFromProviders({
     providers,
     chatModelId: _input.chatModelId,
     mapProviderEntry: (providerEntry) => {
-      const authConfig = apiKey
-        ? { ...(providerEntry.authConfig ?? {}), apiKey }
+      const authConfig = accessToken
+        ? { ...(providerEntry.authConfig ?? {}), apiKey: accessToken }
         : providerEntry.authConfig;
-      // 中文注释：云端调用优先使用 SaaS 的 api_url 与密钥，未配置时回落本地配置。
+      // 中文注释：云端调用优先使用 SaaS 的 /ttai 与 access token，未配置时回落本地配置。
       return {
         ...providerEntry,
-        apiUrl: apiUrl ?? providerEntry.apiUrl,
+        apiUrl: normalizedSaasUrl ? `${normalizedSaasUrl}/ttai/v1` : providerEntry.apiUrl,
         authConfig,
       };
     },
