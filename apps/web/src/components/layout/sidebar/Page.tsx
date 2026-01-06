@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import {
   SidebarGroup,
@@ -32,8 +32,9 @@ import { PageTreeMenu } from "./PageTree";
 import { toast } from "sonner";
 
 export const SidebarPage = () => {
-  const queryClient = useQueryClient();
-  const { data: projects = [] } = useQuery(trpc.project.list.queryOptions());
+  // 当前项目列表查询。
+  const projectListQuery = useQuery(trpc.project.list.queryOptions());
+  const projects = projectListQuery.data ?? [];
   const createProject = useMutation(trpc.project.create.mutationOptions());
 
   // 将状态提升到顶层组件，确保整个页面树只有一个状态管理
@@ -66,9 +67,7 @@ export const SidebarPage = () => {
       setCustomPath("");
       setIsCreateOpen(false);
       // 中文注释：创建后刷新项目列表，确保新项目立即出现。
-      await queryClient.invalidateQueries({
-        queryKey: trpc.project.list.queryOptions().queryKey,
-      });
+      await projectListQuery.refetch();
     } catch (err: any) {
       toast.error(err?.message ?? "创建失败");
     } finally {
@@ -104,9 +103,7 @@ export const SidebarPage = () => {
       toast.success("项目已导入");
       setImportPath("");
       setIsImportOpen(false);
-      await queryClient.invalidateQueries({
-        queryKey: trpc.project.list.queryOptions().queryKey,
-      });
+      await projectListQuery.refetch();
     } catch (err: any) {
       toast.error(err?.message ?? "导入失败");
     } finally {

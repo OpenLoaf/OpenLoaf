@@ -211,16 +211,6 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           </TeatimeSettingsField>
         </div>
 
-        <div className="flex flex-wrap items-start gap-2 py-3">
-          <div className="min-w-0 sm:w-56">
-            <div className="text-sm font-medium">启用 S3 服务</div>
-            <div className="text-xs text-muted-foreground">暂未接入</div>
-          </div>
-
-          <TeatimeSettingsField>
-            <Switch checked={false} disabled />
-          </TeatimeSettingsField>
-        </div>
       </TeatimeSettingsGroup>
     </div>
   );
