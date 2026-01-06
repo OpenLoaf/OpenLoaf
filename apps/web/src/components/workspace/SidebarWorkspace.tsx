@@ -110,7 +110,15 @@ export const SidebarWorkspace = () => {
         const session = await fetchAuthSession(authBaseUrl);
         if (canceled) return;
         if (session.loggedIn) {
-          setAuthUser(session.user ?? null);
+          if (session.user) {
+            setAuthUser({
+              email: session.user.email,
+              name: session.user.name,
+              picture: session.user.avatarUrl,
+            });
+          } else {
+            setAuthUser(null);
+          }
           setAuthLoggedIn(true);
         } else {
           setAuthUser(null);
@@ -153,6 +161,14 @@ export const SidebarWorkspace = () => {
       if (payload?.success && payload.data) {
         setBalanceInfo(payload.data);
         setBalanceError(null);
+        if (payload.user) {
+          setAuthUser({
+            email: payload.user.email,
+            name: payload.user.name,
+            picture: payload.user.avatarUrl,
+          });
+          setAuthLoggedIn(true);
+        }
       } else {
         setBalanceError("余额返回异常");
       }
@@ -169,7 +185,15 @@ export const SidebarWorkspace = () => {
       try {
         const session = await fetchAuthSession(authBaseUrl);
         if (session.loggedIn) {
-          setAuthUser(session.user ?? null);
+          if (session.user) {
+            setAuthUser({
+              email: session.user.email,
+              name: session.user.name,
+              picture: session.user.avatarUrl,
+            });
+          } else {
+            setAuthUser(null);
+          }
           setAuthLoggedIn(true);
           setLoginOpen(false);
           setLoginStatus("idle");
@@ -268,10 +292,10 @@ export const SidebarWorkspace = () => {
     await createWorkspace.mutateAsync({ name });
   };
 
-  /** Begin the Auth0 login flow. */
+  /** Begin the SaaS login flow. */
   const handleLogin = async () => {
     if (!authBaseUrl) {
-      toast.error("Auth0 未配置");
+      toast.error("登录未配置");
       return;
     }
     setLoginError(null);
@@ -279,7 +303,7 @@ export const SidebarWorkspace = () => {
     setLoginOpen(true);
 
     try {
-      const loginUrl = await fetchLoginUrl(authBaseUrl, "login");
+      const loginUrl = await fetchLoginUrl(authBaseUrl);
       await openExternalUrl(loginUrl);
       setLoginStatus("polling");
       startLoginPolling();
@@ -392,7 +416,7 @@ export const SidebarWorkspace = () => {
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium leading-5">
-                    当前账号
+                    {authUser?.name || "当前账号"}
                   </div>
                   <div className="truncate text-xs text-muted-foreground leading-4">
                     {displayEmail ?? "未登录"}
@@ -542,8 +566,8 @@ type AuthSessionResponse = {
     email?: string;
     /** User display name. */
     name?: string;
-    /** User avatar. */
-    picture?: string;
+    /** User avatar URL. */
+    avatarUrl?: string;
   };
 };
 
@@ -563,14 +587,20 @@ type BalanceResponse = {
   success: boolean;
   /** Balance payload. */
   data?: BalanceData;
+  /** User profile (optional). */
+  user?: {
+    /** User email. */
+    email?: string;
+    /** User display name. */
+    name?: string;
+    /** Avatar URL. */
+    avatarUrl?: string;
+  };
 };
 
-/** Fetch the Auth0 login URL from server. */
-async function fetchLoginUrl(baseUrl: string, prompt?: string): Promise<string> {
+/** Fetch the SaaS login URL from server. */
+async function fetchLoginUrl(baseUrl: string): Promise<string> {
   const url = new URL(`${baseUrl}/auth/login-url`);
-  if (prompt) {
-    url.searchParams.set("prompt", prompt);
-  }
   const response = await fetch(url.toString());
   if (!response.ok) {
     throw new Error("无法获取登录地址");
@@ -591,7 +621,7 @@ async function fetchAuthSession(baseUrl: string): Promise<AuthSessionResponse> {
   return (await response.json()) as AuthSessionResponse;
 }
 
-/** Fetch balance snapshot from server. */
+/** Fetch auth profile and balance snapshot from server. */
 async function fetchAuthBalance(baseUrl: string): Promise<BalanceResponse> {
   const response = await fetch(`${baseUrl}/auth/balance`);
   if (!response.ok) {

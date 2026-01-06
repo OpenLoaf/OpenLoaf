@@ -4,7 +4,7 @@ import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settin
 import type { ChatModelSource, ModelDefinition } from "@teatime-ai/api/common";
 import { getModelDefinition, getProviderDefinition } from "@/modules/model/modelRegistry";
 import { PROVIDER_ADAPTERS } from "@/modules/model/providerAdapters";
-import { getAccessToken } from "@/modules/auth/auth0/tokenStore";
+import { getAccessToken } from "@/modules/auth/tokenStore";
 
 type ResolvedChatModel = {
   model: LanguageModelV3;

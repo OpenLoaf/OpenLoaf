@@ -30,6 +30,7 @@
     "keyv": "^5.5.5",
     "pino": "^10.1.0",
     "playwright-core": "^1.51.0",
+    "qwen-ai-provider": "^0.1.1",
     "resumable-stream": "^2.2.9",
     "sharp": "^0.34.5",
     "undici": "^6.21.0",

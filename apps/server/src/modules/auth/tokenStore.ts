@@ -1,7 +1,7 @@
 import { clearAuthRefreshToken, readAuthRefreshToken, writeAuthRefreshToken } from "@/modules/settings/teatimeConfStore";
 
 export type AuthUser = {
-  /** Auth0 subject. */
+  /** User subject id. */
   sub?: string;
   /** User email. */
   email?: string;
@@ -18,7 +18,7 @@ type AuthSessionState = {
   accessTokenExpiresAt?: number;
   /** Refresh token in memory. */
   refreshToken?: string;
-  /** User profile from ID token. */
+  /** User profile snapshot. */
   user?: AuthUser;
 };
 
@@ -43,15 +43,15 @@ export function applyTokenExchangeResult(input: {
   accessToken: string;
   refreshToken?: string;
   expiresIn?: number;
-  idToken?: string;
+  user?: AuthUser;
 }): void {
   sessionState.accessToken = input.accessToken;
-  sessionState.accessTokenExpiresAt = resolveExpiresAt(input.expiresIn);
+  sessionState.accessTokenExpiresAt = resolveExpiresAt(input.accessToken, input.expiresIn);
   if (input.refreshToken) {
     setRefreshToken(input.refreshToken);
   }
-  if (input.idToken) {
-    sessionState.user = resolveUserFromIdToken(input.idToken);
+  if (input.user) {
+    sessionState.user = input.user;
   }
 }
 
@@ -123,25 +123,18 @@ export function getRefreshToken(): string | undefined {
 }
 
 /**
- * Resolve expiration timestamp from expires_in.
+ * Resolve expiration timestamp from expires_in or token payload.
  */
-function resolveExpiresAt(expiresIn?: number): number | undefined {
-  if (!expiresIn) return undefined;
-  return Date.now() + expiresIn * 1000;
-}
-
-/**
- * Build user profile from ID token payload.
- */
-function resolveUserFromIdToken(idToken: string): AuthUser | undefined {
-  const payload = decodeJwtPayload(idToken);
+function resolveExpiresAt(accessToken: string, expiresIn?: number): number | undefined {
+  if (expiresIn) {
+    return Date.now() + expiresIn * 1000;
+  }
+  const payload = decodeJwtPayload(accessToken);
   if (!payload) return undefined;
-  return {
-    sub: typeof payload.sub === "string" ? payload.sub : undefined,
-    email: typeof payload.email === "string" ? payload.email : undefined,
-    name: typeof payload.name === "string" ? payload.name : undefined,
-    picture: typeof payload.picture === "string" ? payload.picture : undefined,
-  };
+  const exp = typeof payload.exp === "number" ? payload.exp : undefined;
+  if (!exp) return undefined;
+  // 逻辑：JWT exp 单位是秒，需要转换成毫秒。
+  return exp * 1000;
 }
 
 /**
@@ -153,7 +146,7 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   const payloadPart = parts[1];
   if (!payloadPart) return null;
   try {
-    // 逻辑：仅用于展示用户信息，不做签名校验。
+    // 逻辑：仅用于计算过期时间，不做签名校验。
     const payload = Buffer.from(base64UrlDecode(payloadPart), "base64").toString("utf-8");
     return JSON.parse(payload) as Record<string, unknown>;
   } catch {

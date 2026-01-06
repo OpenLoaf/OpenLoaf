@@ -78,10 +78,9 @@ async function fetchAuthSession(baseUrl: string): Promise<AuthSessionResponse> {
   return (await response.json()) as AuthSessionResponse;
 }
 
-/** Fetch the Auth0 login URL from server. */
+/** Fetch the SaaS login URL from server. */
 async function fetchLoginUrl(baseUrl: string): Promise<string> {
   const url = new URL(`${baseUrl}/auth/login-url`);
-  url.searchParams.set("prompt", "login");
   const response = await fetch(url.toString());
   if (!response.ok) {
     throw new Error("无法获取登录地址");

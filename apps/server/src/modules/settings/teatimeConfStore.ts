@@ -72,7 +72,7 @@ type TeatimeConf = {
   S3Providers?: S3ProviderConf[];
   /** Auth info for SaaS login. */
   auth?: {
-    /** Stored Auth0 refresh token. */
+    /** Stored SaaS refresh token. */
     refreshToken?: string;
     /** Last update timestamp. */
     updatedAt?: string;
@@ -129,13 +129,13 @@ export function writeS3Providers(entries: S3ProviderConf[]): void {
   writeTeatimeConf({ ...conf, S3Providers: entries });
 }
 
-/** Read Auth0 refresh token from config. */
+/** Read SaaS refresh token from config. */
 export function readAuthRefreshToken(): string | undefined {
   const conf = loadTeatimeConf();
   return conf.auth?.refreshToken;
 }
 
-/** Persist Auth0 refresh token into config. */
+/** Persist SaaS refresh token into config. */
 export function writeAuthRefreshToken(token: string): void {
   const conf = loadTeatimeConf();
   // 逻辑：刷新 token 时同步更新时间，便于排查。
@@ -149,7 +149,7 @@ export function writeAuthRefreshToken(token: string): void {
   });
 }
 
-/** Clear Auth0 refresh token from config. */
+/** Clear SaaS refresh token from config. */
 export function clearAuthRefreshToken(): void {
   const conf = loadTeatimeConf();
   writeTeatimeConf({
