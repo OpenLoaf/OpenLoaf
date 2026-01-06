@@ -1,14 +1,11 @@
 import { randomUUID } from "node:crypto";
-import prisma from "@teatime-ai/db";
 import type { ModelDefinition } from "@teatime-ai/api/common";
-import type { ChatModelSource } from "@teatime-ai/api/common";
-import type { SettingDef } from "@teatime-ai/api/types/setting";
-import { ServerSettingDefs } from "@/settings/settingDefs";
-import { getWorkspaceId } from "@/common/requestContext";
-import { teatimeConfigStore } from "@/modules/workspace/TeatimeConfigStoreAdapter";
+import type { BasicConfig, BasicConfigUpdate } from "@teatime-ai/api/types/basic";
 import {
   readModelProviders,
   readS3Providers,
+  readBasicConf,
+  writeBasicConf,
   writeModelProviders,
   writeS3Providers,
   type ModelProviderConf,
@@ -57,164 +54,16 @@ const MODEL_PROVIDER_CATEGORY = "provider";
 const S3_PROVIDER_CATEGORY = "s3Provider";
 /** Setting key for chat model source. */
 const CHAT_SOURCE_KEY = "model.chatSource";
+/** Setting key for model response language. */
+const MODEL_RESPONSE_LANGUAGE_KEY = "model.responseLanguage";
+/** Setting key for model chat quality. */
+const MODEL_CHAT_QUALITY_KEY = "model.chatQuality";
 
-const settingDefByKey = new Map<string, SettingDef<unknown>>(
-  Object.values(ServerSettingDefs).map((def) => [def.key, def]),
-);
-
-/** Resolve setting definition by key. */
-function getSettingDef(key: string) {
-  const def = settingDefByKey.get(key);
-  if (!def) throw new Error(`Unknown setting key: ${key}`);
-  return def;
+/** Read basic config from config. */
+function readBasicConfig(): BasicConfig {
+  return readBasicConf();
 }
 
-/** Resolve the storage category for a setting. */
-function resolveSettingCategory(def: SettingDef<unknown>, category?: string) {
-  return def.category ?? category ?? "general";
-}
-
-/** Resolve target workspace for config-bound settings. */
-function resolveWorkspaceId() {
-  const workspaceId = getWorkspaceId();
-  if (workspaceId) return workspaceId;
-  const workspaces = teatimeConfigStore.get().workspaces;
-  return workspaces.find((workspace) => workspace.isActive)?.id ?? workspaces[0]?.id;
-}
-
-/** Read chat source from workspace config. */
-function readWorkspaceChatSource(): ChatModelSource | undefined {
-  const workspaceId = resolveWorkspaceId();
-  if (!workspaceId) return undefined;
-  const workspaces = teatimeConfigStore.get().workspaces;
-  const target = workspaces.find((workspace) => workspace.id === workspaceId);
-  return target?.chatSource;
-}
-
-/** Persist chat source into workspace config. */
-function writeWorkspaceChatSource(next: ChatModelSource | undefined): void {
-  const workspaceId = resolveWorkspaceId();
-  if (!workspaceId) return;
-  const cfg = teatimeConfigStore.get();
-  const workspaces = cfg.workspaces.map((workspace) => {
-    if (workspace.id !== workspaceId) return workspace;
-    if (!next) {
-      const { chatSource: _removed, ...rest } = workspace;
-      return rest;
-    }
-    return { ...workspace, chatSource: next };
-  });
-  teatimeConfigStore.set({ ...cfg, workspaces });
-}
-
-/** Persist active S3 provider id into workspace config. */
-function writeWorkspaceActiveS3Id(next?: string): void {
-  const workspaceId = resolveWorkspaceId();
-  if (!workspaceId) return;
-  const cfg = teatimeConfigStore.get();
-  const workspaces = cfg.workspaces.map((workspace) => {
-    if (workspace.id !== workspaceId) return workspace;
-    if (!next) {
-      const { activeS3Id: _removed, ...rest } = workspace;
-      return rest;
-    }
-    return { ...workspace, activeS3Id: next };
-  });
-  teatimeConfigStore.set({ ...cfg, workspaces });
-}
-
-/** Find a setting row by key and category. */
-async function findSettingRow(key: string, category: string) {
-  return prisma.setting.findFirst({
-    where: {
-      key,
-      category,
-    },
-  });
-}
-
-/** Parse stored setting value from JSON, fallback to raw string. */
-function parseSettingValue(raw: string) {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return raw;
-  }
-}
-
-/** Serialize setting value to JSON string. */
-function serializeSettingValue(value: unknown) {
-  return JSON.stringify(value ?? null);
-}
-
-/** Mask secret string for UI display. */
-function maskSecretString(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  if (trimmed.length <= 8) return "********";
-  return `****${trimmed.slice(-4)}`;
-}
-
-/** Mask secret values recursively for UI output. */
-function maskSecretValue(value: unknown): unknown {
-  if (typeof value === "string") {
-    return maskSecretString(value);
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => maskSecretValue(item));
-  }
-
-  if (value && typeof value === "object") {
-    const next: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(value)) {
-      // 关键字段使用掩码，避免密钥暴露。
-      if (key.toLowerCase().includes("key") && typeof val === "string") {
-        next[key] = maskSecretString(val);
-      } else {
-        next[key] = val;
-      }
-    }
-    return next;
-  }
-
-  return value;
-}
-
-/** Load settings for provided defs with optional secret masking. */
-async function getSettingsByDefs(
-  defs: Array<SettingDef<unknown>>,
-  { maskSecret }: { maskSecret: boolean },
-) {
-  if (defs.length === 0) return [];
-  const rows = await prisma.setting.findMany({
-    where: {
-      OR: defs.map((def) => ({
-        key: def.key,
-        category: def.category ?? "general",
-      })),
-    },
-  });
-  const rowByKey = new Map(rows.map((row) => [`${row.category}::${row.key}`, row]));
-
-  return defs.map((def) => {
-    const row = rowByKey.get(`${def.category ?? "general"}::${def.key}`);
-    const fallbackValue = serializeSettingValue(def.defaultValue);
-    const rawValue = row?.value ?? fallbackValue;
-    const parsedValue =
-      def.key === CHAT_SOURCE_KEY ? readWorkspaceChatSource() ?? def.defaultValue : parseSettingValue(rawValue);
-    const value = def.secret && maskSecret ? maskSecretValue(parsedValue) : parsedValue;
-    return {
-      id: row?.id,
-      key: def.key,
-      value,
-      secret: Boolean(def.secret),
-      category: def.category,
-      isReadonly: row?.isReadonly ?? false,
-      syncToCloud: Boolean(row?.syncToCloud ?? def.syncToCloud),
-    } satisfies SettingItem;
-  });
-}
 
 /** Check if a value is a plain record. */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -367,9 +216,7 @@ export async function getProviderSettings(): Promise<ProviderSettingEntry[]> {
 
 /** Return WEB + PUBLIC settings with secret masking for UI. */
 export async function getSettingsForWeb() {
-  const defs = Object.values(ServerSettingDefs);
-  const knownSettings = await getSettingsByDefs(defs, { maskSecret: true });
-  return knownSettings;
+  return [];
 }
 
 /** Return model provider settings for web output. */
@@ -386,40 +233,103 @@ export async function getS3ProviderSettingsForWeb() {
     .filter((entry): entry is SettingItem => Boolean(entry));
 }
 
-/** Get setting value for server-side usage. */
-export async function getSettingValue<T>(key: string): Promise<T> {
-  const def = getSettingDef(key);
-  const resolvedCategory = resolveSettingCategory(def);
-  const row = await findSettingRow(key, resolvedCategory);
-  if (!row) return def.defaultValue as T;
-  return parseSettingValue(row.value) as T;
+/** Return basic config for web output. */
+export async function getBasicConfigForWeb(): Promise<BasicConfig> {
+  return readBasicConfig();
 }
 
-/** Upsert setting value without scope restriction (server internal). */
-export async function setSettingValue(key: string, value: unknown, category?: string) {
-  const def = getSettingDef(key);
-  const resolvedCategory = resolveSettingCategory(def, category);
-  const payload = {
-    value: serializeSettingValue(value),
-    secret: Boolean(def.secret),
-    category: resolvedCategory,
-    syncToCloud: Boolean(def.syncToCloud),
+/** Update basic config from web payload. */
+export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<BasicConfig> {
+  const current = readBasicConfig();
+  const next: BasicConfig = {
+    ...current,
+    ...update,
   };
-  const existing = await findSettingRow(key, resolvedCategory);
-  if (existing) {
-    // 使用已存在的记录 ID 更新，避免依赖复合唯一键生成。
-    await prisma.setting.update({
-      where: { id: existing.id },
-      data: payload,
-    });
-    return;
-  }
-  await prisma.setting.create({
-    data: {
-      key,
-      ...payload,
-    },
-  });
+  const responseLanguage =
+    ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
+      next.modelResponseLanguage,
+    )
+      ? next.modelResponseLanguage
+      : current.modelResponseLanguage;
+  const modelQuality =
+    next.modelQuality === "high" || next.modelQuality === "medium" || next.modelQuality === "low"
+      ? next.modelQuality
+      : current.modelQuality;
+  const uiLanguage =
+    typeof next.uiLanguage === "string" &&
+    ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
+      next.uiLanguage,
+    )
+      ? next.uiLanguage
+      : current.uiLanguage;
+  const uiFontSize =
+    next.uiFontSize === "small" ||
+    next.uiFontSize === "medium" ||
+    next.uiFontSize === "large" ||
+    next.uiFontSize === "xlarge"
+      ? next.uiFontSize
+      : current.uiFontSize;
+  const uiTheme =
+    next.uiTheme === "system" || next.uiTheme === "light" || next.uiTheme === "dark"
+      ? next.uiTheme
+      : current.uiTheme;
+  const uiThemeManual =
+    next.uiThemeManual === "light" || next.uiThemeManual === "dark"
+      ? next.uiThemeManual
+      : current.uiThemeManual;
+  const appLocalStorageDir =
+    typeof next.appLocalStorageDir === "string" ? next.appLocalStorageDir : current.appLocalStorageDir;
+  const appAutoBackupDir =
+    typeof next.appAutoBackupDir === "string" ? next.appAutoBackupDir : current.appAutoBackupDir;
+  const appCustomRules =
+    typeof next.appCustomRules === "string" ? next.appCustomRules : current.appCustomRules;
+  const modelDefaultChatModelId =
+    typeof next.modelDefaultChatModelId === "string"
+      ? next.modelDefaultChatModelId
+      : current.modelDefaultChatModelId;
+  const appProjectRule =
+    typeof next.appProjectRule === "string" ? next.appProjectRule : current.appProjectRule;
+  const stepUpInitialized =
+    typeof next.stepUpInitialized === "boolean"
+      ? next.stepUpInitialized
+      : current.stepUpInitialized;
+  const proxyEnabled =
+    typeof next.proxyEnabled === "boolean" ? next.proxyEnabled : current.proxyEnabled;
+  const proxyHost =
+    typeof next.proxyHost === "string" ? next.proxyHost : current.proxyHost;
+  const proxyPort =
+    typeof next.proxyPort === "string" ? next.proxyPort : current.proxyPort;
+  const proxyUsername =
+    typeof next.proxyUsername === "string" ? next.proxyUsername : current.proxyUsername;
+  const proxyPassword =
+    typeof next.proxyPassword === "string" ? next.proxyPassword : current.proxyPassword;
+  const normalized: BasicConfig = {
+    chatSource: next.chatSource === "cloud" ? "cloud" : "local",
+    activeS3Id: typeof next.activeS3Id === "string" && next.activeS3Id.trim()
+      ? next.activeS3Id.trim()
+      : undefined,
+    s3AutoUpload: Boolean(next.s3AutoUpload),
+    s3AutoDeleteHours: Math.min(168, Math.max(1, Math.floor(next.s3AutoDeleteHours))),
+    modelResponseLanguage: responseLanguage,
+    modelQuality,
+    uiLanguage,
+    uiFontSize,
+    uiTheme,
+    uiThemeManual,
+    appLocalStorageDir,
+    appAutoBackupDir,
+    appCustomRules,
+    modelDefaultChatModelId,
+    appProjectRule,
+    stepUpInitialized,
+    proxyEnabled,
+    proxyHost,
+    proxyPort,
+    proxyUsername,
+    proxyPassword,
+  };
+  writeBasicConf(normalized);
+  return normalized;
 }
 
 /** Upsert model provider config into teatime.conf. */
@@ -466,13 +376,10 @@ function upsertS3Provider(key: string, value: unknown) {
     ...providers.filter((entry) => entry.title !== key),
   ];
   writeS3Providers(nextProviders);
-  const workspaceId = resolveWorkspaceId();
-  if (!workspaceId) return;
-  const cfg = teatimeConfigStore.get();
-  const workspace = cfg.workspaces.find((item) => item.id === workspaceId);
-  if (workspace?.activeS3Id) return;
+  const basic = readBasicConfig();
+  if (basic.activeS3Id) return;
   // 中文注释：首次添加 S3 服务商时默认激活。
-  writeWorkspaceActiveS3Id(next.id);
+  writeBasicConf({ ...basic, activeS3Id: next.id });
 }
 
 /** Remove S3 provider config from teatime.conf. */
@@ -482,13 +389,10 @@ function removeS3Provider(key: string) {
   const nextProviders = providers.filter((entry) => entry.title !== key);
   writeS3Providers(nextProviders);
   if (!removed?.id) return;
-  const workspaceId = resolveWorkspaceId();
-  if (!workspaceId) return;
-  const cfg = teatimeConfigStore.get();
-  const workspace = cfg.workspaces.find((item) => item.id === workspaceId);
-  if (workspace?.activeS3Id !== removed.id) return;
+  const basic = readBasicConfig();
+  if (basic.activeS3Id !== removed.id) return;
   // 中文注释：当前激活项被删除时回退到第一条或清空。
-  writeWorkspaceActiveS3Id(nextProviders[0]?.id);
+  writeBasicConf({ ...basic, activeS3Id: nextProviders[0]?.id });
 }
 
 /** Upsert setting value from web. */
@@ -506,10 +410,28 @@ export async function setSettingValueFromWeb(
     return;
   }
   if (key === CHAT_SOURCE_KEY) {
-    writeWorkspaceChatSource(value === "cloud" ? "cloud" : "local");
+    writeBasicConf({ ...readBasicConfig(), chatSource: value === "cloud" ? "cloud" : "local" });
     return;
   }
-  await setSettingValue(key, value, category);
+  if (key === MODEL_RESPONSE_LANGUAGE_KEY) {
+    const basic = readBasicConfig();
+    const next =
+      typeof value === "string" &&
+      ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(value)
+        ? value
+        : basic.modelResponseLanguage;
+    writeBasicConf({ ...basic, modelResponseLanguage: next });
+    return;
+  }
+  if (key === MODEL_CHAT_QUALITY_KEY) {
+    const basic = readBasicConfig();
+    const next =
+      value === "high" || value === "medium" || value === "low"
+        ? value
+        : basic.modelQuality;
+    writeBasicConf({ ...basic, modelQuality: next });
+    return;
+  }
 }
 
 /** Delete setting value from web. */
@@ -523,12 +445,15 @@ export async function deleteSettingValueFromWeb(key: string, category?: string) 
     return;
   }
   if (key === CHAT_SOURCE_KEY) {
-    writeWorkspaceChatSource(undefined);
+    writeBasicConf({ ...readBasicConfig(), chatSource: "local" });
     return;
   }
-  const def = getSettingDef(key);
-  const resolvedCategory = resolveSettingCategory(def, category);
-  const existing = await findSettingRow(key, resolvedCategory);
-  if (!existing) return;
-  await prisma.setting.delete({ where: { id: existing.id } }).catch(() => null);
+  if (key === MODEL_RESPONSE_LANGUAGE_KEY) {
+    writeBasicConf({ ...readBasicConfig(), modelResponseLanguage: "zh-CN" });
+    return;
+  }
+  if (key === MODEL_CHAT_QUALITY_KEY) {
+    writeBasicConf({ ...readBasicConfig(), modelQuality: "medium" });
+    return;
+  }
 }

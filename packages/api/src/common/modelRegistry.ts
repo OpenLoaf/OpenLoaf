@@ -1,4 +1,4 @@
-import type { IOType, ModelDefinition, ModelTag, ProviderDefinition } from "./modelTypes";
+import type { ModelDefinition, ModelTag, ProviderDefinition } from "./modelTypes";
 
 export type ModelSpec = (definition: ModelDefinition) => boolean;
 
@@ -31,16 +31,6 @@ export function createProviderRegistry(providers: ProviderDefinition[]): Provide
     providers,
     getProvider: (providerId) => providerById.get(providerId),
   };
-}
-
-/** Build a model spec for required input types. */
-export function byInput(input: IOType[]): ModelSpec {
-  return (definition) => input.every((item) => definition.input.includes(item));
-}
-
-/** Build a model spec for required output types. */
-export function byOutput(output: IOType[]): ModelSpec {
-  return (definition) => output.every((item) => definition.output.includes(item));
 }
 
 /** Build a model spec for a specific tag. */

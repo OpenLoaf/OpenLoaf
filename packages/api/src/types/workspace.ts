@@ -7,14 +7,6 @@ export const workspaceBase = z.object({
   type: z.enum(["local", "cloud"] as const).describe("Workspace type."),
   isActive: z.boolean().describe("Whether the workspace is active."),
   rootUri: z.string().describe("Workspace root URI (file://...)."),
-  chatSource: z
-    .enum(["local", "cloud"])
-    .optional()
-    .describe("Workspace chat model source."),
-  activeS3Id: z
-    .string()
-    .optional()
-    .describe("Active S3 provider id for the workspace."),
   projects: z
     .record(z.string(), z.string())
     .optional()

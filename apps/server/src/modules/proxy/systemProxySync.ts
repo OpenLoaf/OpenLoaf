@@ -1,7 +1,5 @@
 import { getEnvString } from "@teatime-ai/config";
-import prisma from "@teatime-ai/db";
-import { setSettingValue } from "@/modules/settings/settingsService";
-import { ServerSettingDefs } from "@/settings/settingDefs";
+import { readBasicConf, writeBasicConf } from "@/modules/settings/teatimeConfStore";
 
 type ProxySettingsSnapshot = {
   enabled: boolean;
@@ -72,20 +70,25 @@ function readProxySettingsFromEnv(
  * Sync current system proxy settings into the settings table.
  */
 export async function syncSystemProxySettings(): Promise<void> {
-  const existing = await prisma.setting.findFirst({
-    where: {
-      category: "proxy",
-    },
-  });
+  const basic = readBasicConf();
+  const hasProxyConfig =
+    basic.proxyEnabled ||
+    Boolean(
+      basic.proxyHost ||
+      basic.proxyPort ||
+      basic.proxyUsername ||
+      basic.proxyPassword,
+    );
   // 启动时若已有代理设置，保持现有配置不覆盖。
-  if (existing) return;
+  if (hasProxyConfig) return;
   const snapshot = readProxySettingsFromEnv();
-  // 流程：启动时同步系统代理配置，确保设置表与当前环境一致。
-  await Promise.all([
-    setSettingValue(ServerSettingDefs.ProxyEnabled.key, snapshot.enabled),
-    setSettingValue(ServerSettingDefs.ProxyHost.key, snapshot.host),
-    setSettingValue(ServerSettingDefs.ProxyPort.key, snapshot.port),
-    setSettingValue(ServerSettingDefs.ProxyUsername.key, snapshot.username),
-    setSettingValue(ServerSettingDefs.ProxyPassword.key, snapshot.password),
-  ]);
+  // 流程：启动时同步系统代理配置，确保配置与当前环境一致。
+  writeBasicConf({
+    ...basic,
+    proxyEnabled: snapshot.enabled,
+    proxyHost: snapshot.host,
+    proxyPort: snapshot.port,
+    proxyUsername: snapshot.username,
+    proxyPassword: snapshot.password,
+  });
 }

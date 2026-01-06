@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { t, shieldedProcedure } from "../index";
+import { basicConfigSchema, basicConfigUpdateSchema } from "../types/basic";
 
 const settingItemSchema = z.object({
   id: z.string().optional(),
@@ -21,6 +22,9 @@ export const settingSchemas = {
   getS3Providers: {
     output: z.array(settingItemSchema),
   },
+  getBasic: {
+    output: basicConfigSchema,
+  },
   set: {
     input: z.object({
       key: z.string(),
@@ -35,6 +39,10 @@ export const settingSchemas = {
       category: z.string().optional(),
     }),
     output: z.object({ ok: z.boolean() }),
+  },
+  setBasic: {
+    input: basicConfigUpdateSchema,
+    output: basicConfigSchema,
   },
 };
 
@@ -59,6 +67,11 @@ export abstract class BaseSettingRouter {
         .query(async () => {
           throw new Error("Not implemented in base class");
         }),
+      getBasic: shieldedProcedure
+        .output(settingSchemas.getBasic.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
       set: shieldedProcedure
         .input(settingSchemas.set.input)
         .output(settingSchemas.set.output)
@@ -68,6 +81,12 @@ export abstract class BaseSettingRouter {
       remove: shieldedProcedure
         .input(settingSchemas.remove.input)
         .output(settingSchemas.remove.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      setBasic: shieldedProcedure
+        .input(settingSchemas.setBasic.input)
+        .output(settingSchemas.setBasic.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

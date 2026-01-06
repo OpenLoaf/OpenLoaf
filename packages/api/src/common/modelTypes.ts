@@ -1,19 +1,19 @@
 export type ChatModelSource = "local" | "cloud";
 
-export type IOType = "text" | "image" | "imageUrl" | "audio" | "video";
-
 export type ModelTag =
-  | "text_to_image"
-  | "image_to_image"
-  | "image_to_text"
-  | "image_edit"
-  | "text_generation"
-  | "video_generation"
-  | "web_search"
-  | "asr"
-  | "tts"
+  | "text_output"
+  | "image_output"
+  | "image_input"
+  | "image_url_input"
+  | "text_input"
+  | "video_input"
+  | "tool"
   | "code"
-  | "tool_call";
+  | "web_search"
+  | "image_edit"
+  | "video_generation"
+  | "language_input"
+  | "language_output";
 
 export type PriceTier = {
   /** Minimum context window (K) for this tier. */
@@ -33,10 +33,6 @@ export type ModelDefinition = {
   familyId: string;
   /** Provider id owning the model. */
   providerId: string;
-  /** Supported input types. */
-  input: IOType[];
-  /** Supported output types. */
-  output: IOType[];
   /** Tags for filtering. */
   tags: ModelTag[];
   /** Max context window (K) used for pricing tier selection. */

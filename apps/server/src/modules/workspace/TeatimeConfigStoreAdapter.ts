@@ -4,11 +4,15 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { v4 as uuidv4 } from "uuid";
 import { workspaceBase, type Workspace } from "@teatime-ai/api/types/workspace";
+import type { BasicConfig } from "@teatime-ai/api/types/basic";
 import { getEnvString } from "@teatime-ai/config";
 
-const TeatimeConfigSchema = z.object({
-  workspaces: z.array(workspaceBase),
-});
+const TeatimeConfigSchema = z
+  .object({
+    workspaces: z.array(workspaceBase),
+    basic: z.record(z.unknown()).optional(),
+  })
+  .passthrough();
 
 export type TeatimeConfig = z.infer<typeof TeatimeConfigSchema>;
 
@@ -30,17 +34,25 @@ function getConfigPath(): string {
 function ensureDefault(normalizedPath: string) {
   if (existsSync(normalizedPath)) return;
 
+  const basic: BasicConfig = {
+    chatSource: "local",
+    activeS3Id: undefined,
+    s3AutoUpload: true,
+    s3AutoDeleteHours: 2,
+    modelResponseLanguage: "zh-CN",
+    modelQuality: "medium",
+  };
   const workspace: Workspace = {
     id: uuidv4(),
     name: "Default Workspace",
     type: "local",
     isActive: true,
     rootUri: resolveDefaultWorkspaceRootUri(normalizedPath),
-    chatSource: "local",
     projects: {},
   };
   const defaultConfig: TeatimeConfig = {
     workspaces: [workspace],
+    basic,
   };
   writeFileSync(normalizedPath, JSON.stringify(defaultConfig, null, 2), "utf-8");
 }
@@ -92,9 +104,9 @@ export const teatimeConfigStore = {
         workspaces: parsed.workspaces.map((workspace) => ({
           ...workspace,
           rootUri: workspace.rootUri || resolveDefaultWorkspaceRootUri(path),
-          chatSource: workspace.chatSource ?? "local",
           projects: workspace.projects ?? {},
         })),
+        basic: parsed.basic,
       };
       cached = normalized;
       if (legacyRootUri) {
@@ -111,10 +123,17 @@ export const teatimeConfigStore = {
             type: "local",
             isActive: true,
             rootUri: legacyRootUri || resolveDefaultWorkspaceRootUri(path),
-            chatSource: "local",
             projects: {},
           },
         ],
+        basic: {
+          chatSource: "local",
+          activeS3Id: undefined,
+          s3AutoUpload: true,
+          s3AutoDeleteHours: 2,
+          modelResponseLanguage: "zh-CN",
+          modelQuality: "medium",
+        },
       };
       writeWorkspaceConfig(path, raw, reset.workspaces);
       cached = reset;

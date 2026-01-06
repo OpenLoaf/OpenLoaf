@@ -28,8 +28,7 @@ import {
 } from "@/components/step-up/StepUpProviderStep";
 import { StepUpWorkspaceStep } from "@/components/step-up/StepUpWorkspaceStep";
 import { StepUpBasicInput } from "@/components/step-up/StepUpBasicInput";
-import { setSettingValue, useSetting } from "@/hooks/use-settings";
-import { WebSettingDefs } from "@/lib/setting-defs";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 
 const LOGIN_OPTIONS: StepUpLoginProviderOption[] = [
   { id: "google", label: "Google", description: "适合已有 Google 账号" },
@@ -84,13 +83,7 @@ export default function StepUpPage() {
   const [isFinishing, setIsFinishing] = useState(false);
   const [proxySeeded, setProxySeeded] = useState(false);
 
-  const { value: proxyEnabledSetting, loaded: proxySettingLoaded } = useSetting(
-    WebSettingDefs.ProxyEnabled,
-  );
-  const { value: proxyHostSetting } = useSetting(WebSettingDefs.ProxyHost);
-  const { value: proxyPortSetting } = useSetting(WebSettingDefs.ProxyPort);
-  const { value: proxyUsernameSetting } = useSetting(WebSettingDefs.ProxyUsername);
-  const { value: proxyPasswordSetting } = useSetting(WebSettingDefs.ProxyPassword);
+  const { basic, setBasic, isLoading: basicLoading } = useBasicConfig();
 
   const needsLogin = workspaceChoice === "cloud" || modelChoice === "cloud";
   const requiresProvider = modelChoice === "custom";
@@ -135,22 +128,28 @@ export default function StepUpPage() {
   }, [needsLogin]);
 
   useEffect(() => {
-    if (!proxySettingLoaded || proxySeeded) return;
-    setProxyEnabled(Boolean(proxyEnabledSetting));
-    setProxyHost(typeof proxyHostSetting === "string" ? proxyHostSetting : "");
-    setProxyPort(typeof proxyPortSetting === "string" ? proxyPortSetting : "");
-    setProxyUsername(typeof proxyUsernameSetting === "string" ? proxyUsernameSetting : "");
-    setProxyPassword(typeof proxyPasswordSetting === "string" ? proxyPasswordSetting : "");
+    if (basicLoading || proxySeeded) return;
+    setProxyEnabled(Boolean(basic.proxyEnabled));
+    setProxyHost(typeof basic.proxyHost === "string" ? basic.proxyHost : "");
+    setProxyPort(typeof basic.proxyPort === "string" ? basic.proxyPort : "");
+    setProxyUsername(typeof basic.proxyUsername === "string" ? basic.proxyUsername : "");
+    setProxyPassword(typeof basic.proxyPassword === "string" ? basic.proxyPassword : "");
     setProxySeeded(true);
   }, [
-    proxyEnabledSetting,
-    proxyHostSetting,
-    proxyPasswordSetting,
-    proxyPortSetting,
+    basic.proxyEnabled,
+    basic.proxyHost,
+    basic.proxyPassword,
+    basic.proxyPort,
+    basic.proxyUsername,
+    basicLoading,
     proxySeeded,
-    proxySettingLoaded,
-    proxyUsernameSetting,
   ]);
+
+  useEffect(() => {
+    if (basicLoading) return;
+    const nextLanguage = basic.uiLanguage === "en-US" ? "en-US" : "zh-CN";
+    setLanguageChoice(nextLanguage);
+  }, [basicLoading, basic.uiLanguage]);
 
   useEffect(() => {
     if (!proxyOpen) return;
@@ -183,26 +182,23 @@ export default function StepUpPage() {
     // 流程：先更新本地选择，再尝试写入设置；失败不阻塞流程。
     setLanguageChoice(next);
     try {
-      await setSettingValue(WebSettingDefs.UiLanguage, next);
+      await setBasic({ uiLanguage: next });
     } catch {
       // no-op
     }
-  }, []);
+  }, [setBasic]);
 
   /** Apply proxy configuration during setup. */
   const handleApplyProxy = useCallback(async () => {
     // 流程：启用代理时必须填写地址与端口，否则不允许提交。
     if (proxyEnabled && !proxyReady) return;
-    const tasks = [
-      setSettingValue(WebSettingDefs.ProxyEnabled, proxyEnabled),
-      setSettingValue(WebSettingDefs.ProxyHost, proxyHost.trim()),
-      setSettingValue(WebSettingDefs.ProxyPort, proxyPort.trim()),
-      setSettingValue(WebSettingDefs.ProxyUsername, proxyUsername.trim()),
-    ];
-    if (!proxyBaseline || proxyBaseline.password !== proxyPassword) {
-      tasks.push(setSettingValue(WebSettingDefs.ProxyPassword, proxyPassword));
-    }
-    await Promise.all(tasks);
+    await setBasic({
+      proxyEnabled,
+      proxyHost: proxyHost.trim(),
+      proxyPort: proxyPort.trim(),
+      proxyUsername: proxyUsername.trim(),
+      proxyPassword,
+    });
     setProxySavedAt(Date.now());
     setProxyOpen(false);
   }, [
@@ -212,13 +208,14 @@ export default function StepUpPage() {
     proxyPort,
     proxyReady,
     proxyUsername,
+    setBasic,
   ]);
 
   /** Disable proxy immediately without save CTA. */
   const handleDisableProxy = useCallback(async () => {
     setProxyEnabled(false);
-    await setSettingValue(WebSettingDefs.ProxyEnabled, false);
-  }, []);
+    await setBasic({ proxyEnabled: false });
+  }, [setBasic]);
 
   /** Complete step-up initialization and return to the app. */
   const completeSetup = useCallback(async () => {
@@ -226,14 +223,14 @@ export default function StepUpPage() {
     setIsFinishing(true);
     // 流程：先写入初始化完成标记，再回到主界面；失败则留在当前页防止丢失配置状态。
     try {
-      await setSettingValue(WebSettingDefs.StepUpInitialized, true);
+      await setBasic({ stepUpInitialized: true });
       router.replace("/");
     } catch {
       // no-op
     } finally {
       setIsFinishing(false);
     }
-  }, [isFinishing, router]);
+  }, [isFinishing, router, setBasic]);
 
   /** Move to the next step or finish onboarding. */
   const handleNext = useCallback(async () => {

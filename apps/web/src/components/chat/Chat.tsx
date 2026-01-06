@@ -16,8 +16,9 @@ import type { ChatAttachment } from "./chat-attachments";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
-import { useSetting, useSettingsValues } from "@/hooks/use-settings";
-import { WebSettingDefs } from "@/lib/setting-defs";
+import { useSettingsValues } from "@/hooks/use-settings";
+import { useBasicConfig } from "@/hooks/use-basic-config";
+import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 
 type ChatProps = {
@@ -54,24 +55,26 @@ export function Chat({
   const effectiveLoadHistory = loadHistory ?? Boolean(sessionId);
   const projectId = typeof requestParams.projectId === "string" ? requestParams.projectId : "";
   const workspaceId = tab?.workspaceId ?? "";
-  const { value: chatModelSourceRaw } = useSetting(WebSettingDefs.ModelChatSource);
-  const { value: defaultChatModelIdRaw } = useSetting(WebSettingDefs.ModelDefaultChatModelId);
+  const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
-  const chatModelSource = normalizeChatModelSource(chatModelSourceRaw);
+  const { models: cloudModels } = useCloudModels();
+  const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const modelOptions = React.useMemo(
-    () => buildChatModelOptions(chatModelSource, providerItems),
-    [chatModelSource, providerItems],
+    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
+    [chatModelSource, providerItems, cloudModels],
   );
   const selectedModelId =
-    typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw.trim() : "";
+    typeof basic.modelDefaultChatModelId === "string"
+      ? basic.modelDefaultChatModelId.trim()
+      : "";
   const isAutoModel = !selectedModelId;
   const selectedModel = modelOptions.find((option) => option.id === selectedModelId);
-  // 中文注释：自动模式允许图片，非自动时必须显式支持 image 或 imageUrl。
+  // 中文注释：自动模式允许图片，非自动时必须显式支持 image_input 或 image_url_input。
   const canAttachImage = isAutoModel
     ? true
     : Boolean(
-        selectedModel?.input?.includes("image") ||
-        selectedModel?.input?.includes("imageUrl"),
+        selectedModel?.tags?.includes("image_input") ||
+        selectedModel?.tags?.includes("image_url_input"),
       );
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);

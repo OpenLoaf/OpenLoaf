@@ -14,8 +14,6 @@ type WorkspaceConfig = {
   isActive: boolean;
   /** Workspace root URI. */
   rootUri: string;
-  /** Active S3 provider id bound to workspace. */
-  activeS3Id?: string;
   /** Project map of { projectId: rootUri }. */
   projects?: Record<string, string>;
 };

@@ -1,10 +1,10 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
-import { getEnvString } from "@teatime-ai/config";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
-import type { ChatModelSource, IOType, ModelDefinition } from "@teatime-ai/api/common";
+import type { ChatModelSource, ModelDefinition, ModelTag } from "@teatime-ai/api/common";
 import { getModelDefinition, getProviderDefinition } from "@/modules/model/modelRegistry";
 import { PROVIDER_ADAPTERS } from "@/modules/model/providerAdapters";
 import { getAccessToken } from "@/modules/auth/tokenStore";
+import { ensureAccessTokenFresh, getSaasBaseUrl } from "@/modules/auth/authRoutes";
 
 type ResolvedChatModel = {
   model: LanguageModelV3;
@@ -36,7 +36,7 @@ function normalizeChatModelId(raw?: string | null): string | null {
 }
 
 /** Parse chatModelId into provider key and model id. */
-function parseChatModelId(chatModelId: string): { profileId: string; modelId: string } | null {
+function parseChatModelId(chatModelId: string): { pro5Id: string; modelId: string } | null {
   const separatorIndex = chatModelId.indexOf(":");
   if (separatorIndex <= 0 || separatorIndex >= chatModelId.length - 1) return null;
   const profileId = chatModelId.slice(0, separatorIndex).trim();
@@ -51,13 +51,57 @@ function normalizeChatModelSource(raw?: string | null): ChatModelSource {
   return raw === "cloud" ? "cloud" : "local";
 }
 
+type CloudModelListResponse = {
+  /** Success flag from SaaS. */
+  success: boolean;
+  /** Cloud model list. */
+  data: ModelDefinition[];
+};
+
+/** Normalize cloud models into provider settings entries. */
+function buildCloudProviderEntries(input: {
+  models: ModelDefinition[];
+  apiUrl: string;
+  apiKey: string;
+}): ProviderSettingEntry[] {
+  const providerMap = new Map<string, ProviderSettingEntry>();
+  const now = new Date();
+
+  for (const model of input.models) {
+    if (!model || typeof model.id !== "string" || !model.providerId) continue;
+    const providerId = model.providerId;
+    let entry = providerMap.get(providerId);
+    if (!entry) {
+      const providerDefinition = getProviderDefinition(providerId);
+      entry = {
+        id: providerId,
+        key: providerDefinition?.label ?? providerId,
+        providerId,
+        apiUrl: input.apiUrl,
+        authConfig: { apiKey: input.apiKey },
+        models: {},
+        updatedAt: now,
+      };
+      providerMap.set(providerId, entry);
+    }
+    // 中文注释：确保模型列表中包含 providerId，避免 SaaS 返回空值。
+    entry.models[model.id] = {
+      ...model,
+      providerId,
+      tags: Array.isArray(model.tags) ? model.tags : [],
+    };
+  }
+
+  return Array.from(providerMap.values());
+}
+
 /** Build chatModelId candidates from provider settings. */
 function buildChatModelCandidates(input: {
   providers: ProviderSettingEntry[];
   exclude?: string | null;
-  requiredInput?: IOType[];
+  requiredTags?: ModelTag[];
 }): string[] {
-  const requiredInput = (input.requiredInput ?? []).filter(Boolean);
+  const requiredTags = (input.requiredTags ?? []).filter(Boolean);
   const providers = input.providers;
   const exclude = input.exclude;
   const candidates: string[] = [];
@@ -65,10 +109,10 @@ function buildChatModelCandidates(input: {
 
   for (const provider of providers) {
     for (const modelId of Object.keys(provider.models)) {
-      if (requiredInput.length > 0) {
+      if (requiredTags.length > 0) {
         const definition = resolveModelDefinition(provider.providerId, modelId, provider);
-        const inputTypes = definition?.input ?? [];
-        if (!requiredInput.every((item) => inputTypes.includes(item))) {
+        const tags = definition?.tags ?? [];
+        if (!requiredTags.every((item) => tags.includes(item))) {
           continue;
         }
       }
@@ -84,15 +128,15 @@ function buildChatModelCandidates(input: {
 }
 
 /** Build a readable error for required input types. */
-function buildRequiredInputError(requiredInput: IOType[]): Error {
-  const requiredSet = new Set(requiredInput);
-  if (requiredSet.has("imageUrl") && requiredSet.has("image")) {
+function buildRequiredTagError(requiredTags: ModelTag[]): Error {
+  const requiredSet = new Set(requiredTags);
+  if (requiredSet.has("image_url_input") && requiredSet.has("image_input")) {
     return new Error("未找到支持图片输入的模型");
   }
-  if (requiredSet.has("imageUrl")) {
+  if (requiredSet.has("image_url_input")) {
     return new Error("未找到支持图片链接的模型");
   }
-  if (requiredSet.has("image")) {
+  if (requiredSet.has("image_input")) {
     return new Error("未找到支持图片的模型");
   }
   return new Error("未找到满足输入条件的模型");
@@ -103,32 +147,32 @@ async function resolveChatModelFromProviders(input: {
   chatModelId?: string | null;
   providers: ProviderSettingEntry[];
   mapProviderEntry?: ProviderEntryMapper;
-  requiredInput?: IOType[];
+  requiredTags?: ModelTag[];
   preferredChatModelId?: string | null;
 }): Promise<ResolvedChatModel> {
   const normalized = normalizeChatModelId(input.chatModelId);
   const mapProviderEntry = input.mapProviderEntry ?? ((entry) => entry);
   const providers = input.providers;
-  const shouldFilterInput = !normalized && (input.requiredInput?.length ?? 0) > 0;
+  const shouldFilterTags = !normalized && (input.requiredTags?.length ?? 0) > 0;
   const providerById = new Map(providers.map((entry) => [entry.id, entry]));
   const preferredCandidateRaw = normalizeChatModelId(input.preferredChatModelId);
-  const hasRequiredInput = (candidate: string): boolean => {
+  const hasRequiredTags = (candidate: string): boolean => {
     const parsed = parseChatModelId(candidate);
     if (!parsed) return false;
     const providerEntry = providerById.get(parsed.profileId);
     if (!providerEntry) return false;
     if (!providerEntry.models[parsed.modelId]) return false;
-    if (!shouldFilterInput) return true;
+    if (!shouldFilterTags) return true;
     const definition = resolveModelDefinition(
       providerEntry.providerId,
       parsed.modelId,
       providerEntry,
     );
-    const inputTypes = definition?.input ?? [];
-    return Boolean(input.requiredInput?.every((item) => inputTypes.includes(item)));
+    const tags = definition?.tags ?? [];
+    return Boolean(input.requiredTags?.every((item) => tags.includes(item)));
   };
   const preferredCandidate =
-    preferredCandidateRaw && hasRequiredInput(preferredCandidateRaw)
+    preferredCandidateRaw && hasRequiredTags(preferredCandidateRaw)
       ? preferredCandidateRaw
       : null;
 
@@ -136,7 +180,7 @@ async function resolveChatModelFromProviders(input: {
   const fallbackCandidates = buildChatModelCandidates({
     providers,
     exclude: normalized ?? preferredCandidate,
-    requiredInput: shouldFilterInput ? input.requiredInput : undefined,
+    requiredTags: shouldFilterTags ? input.requiredTags : undefined,
   });
   // 中文注释：auto 时默认取最近更新的模型，失败时再依次尝试 fallback。
   const candidates = normalized
@@ -146,8 +190,8 @@ async function resolveChatModelFromProviders(input: {
       : fallbackCandidates.slice(0, MAX_FALLBACK_TRIES + 1);
 
   if (candidates.length === 0) {
-    if (shouldFilterInput && input.requiredInput) {
-      throw buildRequiredInputError(input.requiredInput);
+    if (shouldFilterTags && input.requiredTags) {
+      throw buildRequiredTagError(input.requiredTags);
     }
     throw new Error("未找到可用模型配置");
   }
@@ -185,7 +229,7 @@ async function resolveChatModelFromProviders(input: {
         providerDefinition,
       });
       if (!model) {
-        throw new Error("模型不支持 AI SDK 调用");
+        throw new Error("6");
       }
 
       // 中文注释：provider 采用后端配置的 provider id，确保可追踪真实请求来源。
@@ -206,14 +250,14 @@ async function resolveChatModelFromProviders(input: {
 /** Resolve chat model from local provider settings. */
 async function resolveLocalChatModel(input: {
   chatModelId?: string | null;
-  requiredInput?: IOType[];
+  requiredTags?: ModelTag[];
   preferredChatModelId?: string | null;
 }): Promise<ResolvedChatModel> {
   const providers = await getProviderSettings();
   return resolveChatModelFromProviders({
     providers,
     chatModelId: input.chatModelId,
-    requiredInput: input.requiredInput,
+    requiredTags: input.requiredTags,
     preferredChatModelId: input.preferredChatModelId,
   });
 }
@@ -221,30 +265,37 @@ async function resolveLocalChatModel(input: {
 /** Resolve chat model from cloud config. */
 async function resolveCloudChatModel(_input: {
   chatModelId?: string | null;
-  requiredInput?: IOType[];
+  requiredTags?: ModelTag[];
   preferredChatModelId?: string | null;
 }): Promise<ResolvedChatModel> {
-  const saasUrl = getEnvString(process.env, "TEATIME_SAAS_URL");
+  await ensureAccessTokenFresh();
   const accessToken = getAccessToken();
-  const providers = await getProviderSettings();
-  const normalizedSaasUrl = saasUrl ? saasUrl.replace(/\/+$/, "") : undefined;
-
+  if (!accessToken) {
+    throw new Error("未登录云端账号");
+  }
+  const saasBaseUrl = getSaasBaseUrl();
+  if (!saasBaseUrl) {
+    throw new Error("云端地址未配置");
+  }
+  const response = await fetch(`${saasBaseUrl}/api/llm/models`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  const payload = (await response.json().catch(() => null)) as CloudModelListResponse | null;
+  if (!response.ok || !payload || payload.success !== true || !Array.isArray(payload.data)) {
+    throw new Error("云端模型列表获取失败");
+  }
+  const providers = buildCloudProviderEntries({
+    models: payload.data,
+    apiUrl: `${saasBaseUrl}/ttai/v1`,
+    apiKey: accessToken,
+  });
   return resolveChatModelFromProviders({
     providers,
     chatModelId: _input.chatModelId,
-    requiredInput: _input.requiredInput,
+    requiredTags: _input.requiredTags,
     preferredChatModelId: _input.preferredChatModelId,
-    mapProviderEntry: (providerEntry) => {
-      const authConfig = accessToken
-        ? { ...(providerEntry.authConfig ?? {}), apiKey: accessToken }
-        : providerEntry.authConfig;
-      // 中文注释：云端调用优先使用 SaaS 的 /ttai 与 access token，未配置时回落本地配置。
-      return {
-        ...providerEntry,
-        apiUrl: normalizedSaasUrl ? `${normalizedSaasUrl}/ttai/v1` : providerEntry.apiUrl,
-        authConfig,
-      };
-    },
   });
 }
 
@@ -252,20 +303,20 @@ async function resolveCloudChatModel(_input: {
 export async function resolveChatModel(input: {
   chatModelId?: string | null;
   chatModelSource?: ChatModelSource | null;
-  requiredInput?: IOType[];
+  requiredTags?: ModelTag[];
   preferredChatModelId?: string | null;
 }): Promise<ResolvedChatModel> {
   const source = normalizeChatModelSource(input.chatModelSource);
   if (source === "cloud") {
     return resolveCloudChatModel({
       chatModelId: input.chatModelId,
-      requiredInput: input.requiredInput,
+      requiredTags: input.requiredTags,
       preferredChatModelId: input.preferredChatModelId,
     });
   }
   return resolveLocalChatModel({
     chatModelId: input.chatModelId,
-    requiredInput: input.requiredInput,
+    requiredTags: input.requiredTags,
     preferredChatModelId: input.preferredChatModelId,
   });
 }

@@ -8,7 +8,7 @@ import {
 } from "ai";
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
-import type { IOType } from "@teatime-ai/api/common";
+import type { ModelTag } from "@teatime-ai/api/common";
 import type { ChatRequestBody, TokenUsage } from "@teatime-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/resolveChatModel";
@@ -116,8 +116,8 @@ async function replaceTeatimeFileParts(messages: UIMessage[]): Promise<UIMessage
 }
 
 /** Resolve required input types from message parts. */
-function resolveRequiredInputTypes(messages: UIMessage[]): IOType[] {
-  const required = new Set<IOType>();
+function resolveRequiredInputTags(messages: UIMessage[]): ModelTag[] {
+  const required = new Set<ModelTag>();
   for (const message of messages) {
     const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
     for (const part of parts) {
@@ -127,9 +127,9 @@ function resolveRequiredInputTypes(messages: UIMessage[]): IOType[] {
       if (!url) continue;
       // 中文注释：按协议区分本地图片与图片链接能力。
       if (/^https?:\/\//i.test(url)) {
-        required.add("imageUrl");
+        required.add("image_url_input");
       } else if (url.startsWith("teatime-file://")) {
-        required.add("image");
+        required.add("image_input");
       }
     }
   }
@@ -374,9 +374,9 @@ export function registerChatSseRoutes(app: Hono) {
     let agentMetadata: Record<string, unknown> = {};
     // 中文注释：优先使用请求传入的 chatModelId，失败后按 fallback 规则选择模型。
     try {
-      const requiredInput =
+      const requiredTags =
         !chatModelId && Array.isArray(messages)
-          ? resolveRequiredInputTypes(messages as UIMessage[])
+          ? resolveRequiredInputTags(messages as UIMessage[])
           : [];
       const preferredChatModelId =
         !chatModelId && Array.isArray(messages)
@@ -385,7 +385,7 @@ export function registerChatSseRoutes(app: Hono) {
       const resolved = await resolveChatModel({
         chatModelId,
         chatModelSource,
-        requiredInput,
+        requiredTags,
         preferredChatModelId,
       });
       masterAgent = createMasterAgentRunner({
@@ -411,6 +411,8 @@ export function registerChatSseRoutes(app: Hono) {
         errorText,
       });
     }
+
+    console.log("========chatModelId", chatModelId)
 
     const userNode = { id: assistantParentUserId };
 

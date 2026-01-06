@@ -11,28 +11,45 @@
       "id": "gemini-3-pro-image-preview",
       "familyId": "gemini-3-pro-image-preview",
       "providerId": "google",
-      "input": ["text", "image"],
-      "output": ["text", "image"],
-      "tags": ["text_generation", "text_to_image", "image_to_image"],
+      "tags": [
+        "text_output",
+        "image_output",
+        "image_input",
+        "text_input"
+      ],
       "maxContextK": 0,
       "priceStrategyId": "tiered_token",
       "currencySymbol": "$",
       "priceTiers": [
-        { "minContextK": 0, "input": 2, "inputCache": 2, "output": 12 }
+        {
+          "minContextK": 0,
+          "input": 2,
+          "inputCache": 2,
+          "output": 12
+        }
       ]
     },
     {
       "id": "gemini-3-flash-preview",
       "familyId": "gemini-3-flash-preview",
       "providerId": "google",
-      "input": ["text", "image", "video", "audio"],
-      "output": ["text"],
-      "tags": ["text_generation"],
+      "tags": [
+        "text_output",
+        "image_input",
+        "text_input",
+        "video_input",
+        "language_input"
+      ],
       "maxContextK": 0,
       "priceStrategyId": "tiered_token",
       "currencySymbol": "$",
       "priceTiers": [
-        { "minContextK": 0, "input": 0.5, "inputCache": 0.05, "output": 3 }
+        {
+          "minContextK": 0,
+          "input": 0.5,
+          "inputCache": 0.05,
+          "output": 3
+        }
       ]
     }
   ]

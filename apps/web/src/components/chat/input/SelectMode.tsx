@@ -12,13 +12,13 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useTabs } from "@/hooks/use-tabs";
-import { useSetting, useSettingsValues } from "@/hooks/use-settings";
+import { useSettingsValues } from "@/hooks/use-settings";
+import { useBasicConfig } from "@/hooks/use-basic-config";
+import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
-import { WebSettingDefs } from "@/lib/setting-defs";
 import { resolveServerUrl } from "@/utils/server-url";
 import { useChatContext } from "../ChatProvider";
-import type { IOType, ModelDefinition, ModelTag } from "@teatime-ai/api/common";
-import { resolvePriceTier } from "@teatime-ai/api/common";
+import type { ModelTag } from "@teatime-ai/api/common";
 
 interface SelectModeProps {
   className?: string;
@@ -26,44 +26,20 @@ interface SelectModeProps {
 
 // 标签显示文案映射。
 const MODEL_TAG_LABELS: Record<ModelTag, string> = {
-  text_to_image: "文生图",
-  image_to_image: "图生图",
-  image_to_text: "图片理解",
-  image_edit: "图片编辑",
-  text_generation: "文本生成",
-  video_generation: "视频生成",
+  text_output: "文本输出",
+  image_output: "图片输出",
+  image_input: "图片输入",
+  image_url_input: "图片链接输入",
+  text_input: "文本输入",
+  video_input: "视频输入",
+  tool: "工具调用",
+  code: "代码",
   web_search: "网络搜索",
-  asr: "语音识别",
-  tts: "语音输出",
-  tool_call: "工具调用",
-  code: "代码生成",
+  image_edit: "图片编辑",
+  video_generation: "视频生成",
+  language_input: "语言输入",
+  language_output: "语言输出",
 };
-
-const IO_LABELS: Record<IOType, string> = {
-  text: "文本",
-  image: "图片",
-  imageUrl: "图片链接",
-  audio: "音频",
-  video: "视频",
-};
-
-/** Format a price value with adaptive precision. */
-function formatPriceValue(value: number): string {
-  const abs = Math.abs(value);
-  const decimals = abs >= 1 ? 2 : abs >= 0.1 ? 3 : abs >= 0.01 ? 4 : 6;
-  return value.toFixed(decimals);
-}
-
-/** Format input/output pricing label for a model definition. */
-function formatModelPrice(definition?: ModelDefinition): string | null {
-  if (!definition) return null;
-  // 价格按每 1,000,000 tokens 展示。
-  const tier = resolvePriceTier(definition, 0);
-  if (!tier) return null;
-  const inputLabel = formatPriceValue(tier.input);
-  const outputLabel = formatPriceValue(tier.output);
-  return `输入 ${inputLabel} / 1M · 输出 ${outputLabel} / 1M`;
-}
 
 type AuthSessionResponse = {
   /** Whether user is logged in. */
@@ -107,27 +83,27 @@ async function openExternalUrl(url: string): Promise<void> {
 
 export default function SelectMode({ className }: SelectModeProps) {
   const { providerItems, refresh } = useSettingsValues();
-  const { value: chatModelSourceRaw, setValue: setChatModelSource } =
-    useSetting(WebSettingDefs.ModelChatSource);
-  const { value: defaultChatModelIdRaw, setValue: setDefaultChatModelId } =
-    useSetting(WebSettingDefs.ModelDefaultChatModelId);
+  const { models: cloudModels, refresh: refreshCloudModels } = useCloudModels();
+  const { basic, setBasic } = useBasicConfig();
   const [open, setOpen] = useState(false);
   const [authLoggedIn, setAuthLoggedIn] = useState(false);
   const authBaseUrl = resolveServerUrl();
   const { tabId } = useChatContext();
   const pushStackItem = useTabs((s) => s.pushStackItem);
-  const chatModelSource = normalizeChatModelSource(chatModelSourceRaw);
+  const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const isCloudSource = chatModelSource === "cloud";
   const modelOptions = useMemo(
-    () => buildChatModelOptions(chatModelSource, providerItems),
-    [chatModelSource, providerItems],
+    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
+    [chatModelSource, providerItems, cloudModels],
   );
   const selectedModel =
-    typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw : "";
+    typeof basic.modelDefaultChatModelId === "string"
+      ? basic.modelDefaultChatModelId
+      : "";
   const isAuto = !selectedModel;
   const hasModels = modelOptions.length > 0;
   const showCloudEmpty = isCloudSource && !hasModels;
-  const showAuto = hasModels;
+  const showAuto = isCloudSource ? true : hasModels;
   const showModelList = hasModels && !isAuto;
   const showAddButton = !isCloudSource && (!isAuto || !hasModels);
   const showTopSection = showAuto || showModelList;
@@ -136,6 +112,12 @@ export default function SelectMode({ className }: SelectModeProps) {
     // 中文注释：展开模型列表时刷新服务端配置，确保展示最新模型。
     void refresh();
   }, [open, refresh]);
+  useEffect(() => {
+    if (!open) return;
+    if (!isCloudSource) return;
+    // 中文注释：云端模式展开时刷新模型列表，避免显示旧数据。
+    void refreshCloudModels();
+  }, [open, isCloudSource, refreshCloudModels]);
   useEffect(() => {
     if (!open) return;
     if (!authBaseUrl) return;
@@ -147,18 +129,18 @@ export default function SelectMode({ className }: SelectModeProps) {
   useEffect(() => {
     if (isAuto) return;
     if (modelOptions.length === 0) {
-      void setDefaultChatModelId("");
+      void setBasic({ modelDefaultChatModelId: "" });
       return;
     }
     const exists = modelOptions.some((option) => option.id === selectedModel);
-    if (!exists) void setDefaultChatModelId(modelOptions[0]!.id);
-  }, [isAuto, modelOptions, selectedModel, setDefaultChatModelId]);
+    if (!exists) void setBasic({ modelDefaultChatModelId: modelOptions[0]!.id });
+  }, [isAuto, modelOptions, selectedModel, setBasic]);
   useEffect(() => {
     if (authLoggedIn) return;
     if (!isCloudSource) return;
     // 中文注释：未登录时强制回退为本地模式，避免云端入口被直接开启。
-    void setChatModelSource("local");
-  }, [authLoggedIn, isCloudSource, setChatModelSource]);
+    void setBasic({ chatSource: "local" });
+  }, [authLoggedIn, isCloudSource, setBasic]);
 
   /** Trigger login flow for cloud models. */
   const handleLogin = async () => {
@@ -192,10 +174,10 @@ export default function SelectMode({ className }: SelectModeProps) {
   /** Toggle model source between local and cloud. */
   const handleToggleCloudSource = (next: boolean) => {
     const normalized = next ? "cloud" : "local";
-    void setChatModelSource(normalized);
+    void setBasic({ chatSource: normalized });
     if (normalized === "cloud") {
       // 中文注释：切换到云端时清空本地选择，避免透传无效 modelId。
-      void setDefaultChatModelId("");
+      void setBasic({ modelDefaultChatModelId: "" });
     }
   };
 
@@ -235,7 +217,7 @@ export default function SelectMode({ className }: SelectModeProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 max-w-[90vw] p-2">
+      <PopoverContent className="w-[28rem] max-w-[92vw] p-2">
         <div className="space-y-2">
           <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
             <div className="flex items-center justify-between">
@@ -277,11 +259,11 @@ export default function SelectMode({ className }: SelectModeProps) {
                       checked={isAuto}
                       onCheckedChange={(next) => {
                         if (next) {
-                          void setDefaultChatModelId("");
+                          void setBasic({ modelDefaultChatModelId: "" });
                           return;
                         }
                         if (modelOptions.length === 0) return;
-                        void setDefaultChatModelId(modelOptions[0]!.id);
+                        void setBasic({ modelDefaultChatModelId: modelOptions[0]!.id });
                       }}
                     />
                   </div>
@@ -294,57 +276,46 @@ export default function SelectMode({ className }: SelectModeProps) {
               ) : null}
 
               {showModelList ? (
-                <div className="space-y-1">
+                <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border/70 bg-muted/30 p-1">
                   {modelOptions.map((option) => {
                     const tagLabels =
                       option.tags && option.tags.length > 0
                         ? option.tags.map((tag) => MODEL_TAG_LABELS[tag] ?? tag)
                         : null;
-                    const ioLabels = [...(option.input ?? []), ...(option.output ?? [])].map(
-                      (item) => IO_LABELS[item] ?? item,
-                    );
-                    const priceLabel = formatModelPrice(option.modelDefinition);
                     return (
                       <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => void setDefaultChatModelId(option.id)}
-                      className={cn(
-                        "w-full rounded-lg border border-transparent px-3 py-2 text-right transition-colors hover:border-border/70 hover:bg-muted/60",
-                        selectedModel === option.id && "border-border/70 bg-muted/70"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1 text-right">
-                          <div className="flex items-center justify-end gap-1 truncate text-sm font-medium text-foreground">
-                            {!isCloudSource ? (
-                              <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
-                            ) : null}
-                            <span className="truncate">
-                              {option.providerName}/{option.modelId}
-                            </span>
-                          </div>
-                            <div className="mt-1 flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted-foreground">
-                              <span className="flex flex-wrap items-center justify-end gap-1">
-                                {(tagLabels && tagLabels.length > 0 ? tagLabels : ioLabels).map(
-                                  (label) => (
-                                    <span
-                                      key={`${option.id}-${label}`}
-                                      className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
-                                    >
-                                      {label}
-                                    </span>
-                                  ),
-                                )}
+                        key={option.id}
+                        type="button"
+                        onClick={() => void setBasic({ modelDefaultChatModelId: option.id })}
+                        className={cn(
+                          "h-16 w-full rounded-md border border-transparent px-3 py-2 text-right transition-colors hover:border-border/70 hover:bg-muted/60",
+                          selectedModel === option.id && "border-border/70 bg-muted/70"
+                        )}
+                      >
+                        <div className="flex h-full items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1 text-right">
+                            <div className="flex items-center justify-end gap-1 truncate text-sm font-medium text-foreground">
+                              {!isCloudSource ? (
+                                <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                              ) : null}
+                              <span className="truncate">
+                                {option.providerName}/{option.modelId}
                               </span>
                             </div>
-                            {priceLabel ? (
-                              <div className="mt-1 text-[11px] text-muted-foreground">
-                                {priceLabel}
-                              </div>
-                            ) : null}
+                            <div className="mt-1 flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted-foreground">
+                              <span className="flex flex-wrap items-center justify-end gap-1">
+                                {(tagLabels ?? []).map((label) => (
+                                  <span
+                                    key={`${option.id}-${label}`}
+                                    className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
+                                  >
+                                    {label}
+                                  </span>
+                                ))}
+                              </span>
+                            </div>
                           </div>
-                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                             {selectedModel === option.id ? (
                               <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
                             ) : null}

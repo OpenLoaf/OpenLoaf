@@ -8,7 +8,6 @@ import {
 } from "@/lib/model-registry";
 import {
   resolvePriceTier,
-  type IOType,
   type ModelDefinition,
   type ModelTag,
 } from "@teatime-ai/api/common";
@@ -123,32 +122,20 @@ type S3ProviderEntry = S3ProviderValue & {
 
 // 标签显示文案映射。
 const MODEL_TAG_LABELS: Record<ModelTag, string> = {
-  text_to_image: "文生图",
-  image_to_image: "图生图",
-  image_to_text: "图片理解",
-  image_edit: "图片编辑",
-  text_generation: "文本生成",
-  video_generation: "视频生成",
+  text_output: "文本输出",
+  image_output: "图片输出",
+  image_input: "图片输入",
+  image_url_input: "图片链接输入",
+  text_input: "文本输入",
+  video_input: "视频输入",
+  tool: "工具调用",
+  code: "代码",
   web_search: "网络搜索",
-  asr: "语音识别",
-  tts: "语音输出",
-  code: "代码生成",
-  tool_call: "工具调用",
+  image_edit: "图片编辑",
+  video_generation: "视频生成",
+  language_input: "语言输入",
+  language_output: "语言输出",
 };
-
-// IO label mapping for UI.
-const IO_LABELS: Record<IOType, string> = {
-  text: "文本",
-  image: "图片",
-  imageUrl: "图片链接",
-  audio: "音频",
-  video: "视频",
-};
-
-const IO_OPTIONS = Object.entries(IO_LABELS).map(([value, label]) => ({
-  value: value as IOType,
-  label,
-}));
 
 const MODEL_TAG_OPTIONS = Object.entries(MODEL_TAG_LABELS).map(([value, label]) => ({
   value: value as ModelTag,
@@ -502,10 +489,6 @@ export function useProviderManagement() {
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   /** Track draft model id. */
   const [draftModelId, setDraftModelId] = useState("");
-  /** Track draft model input types. */
-  const [draftModelInput, setDraftModelInput] = useState<IOType[]>([]);
-  /** Track draft model output types. */
-  const [draftModelOutput, setDraftModelOutput] = useState<IOType[]>([]);
   /** Track draft model tags. */
   const [draftModelTags, setDraftModelTags] = useState<ModelTag[]>([]);
   /** Track draft model context window. */
@@ -651,8 +634,6 @@ export function useProviderManagement() {
   function openModelDialog() {
     setModelError(null);
     setDraftModelId("");
-    setDraftModelInput([]);
-    setDraftModelOutput([]);
     setDraftModelTags([]);
     setDraftModelContextK("0");
     setDraftModelCurrencySymbol("");
@@ -676,10 +657,6 @@ export function useProviderManagement() {
       setModelError("模型 ID 已存在");
       return;
     }
-    if (draftModelInput.length === 0 || draftModelOutput.length === 0) {
-      setModelError("请至少选择输入与输出");
-      return;
-    }
     if (draftModelTags.length === 0) {
       setModelError("请至少选择一个能力标签");
       return;
@@ -701,8 +678,6 @@ export function useProviderManagement() {
       id: modelId,
       familyId: modelId,
       providerId: draftProvider,
-      input: draftModelInput,
-      output: draftModelOutput,
       tags: draftModelTags,
       maxContextK,
       priceStrategyId: "tiered_token",
@@ -879,10 +854,6 @@ export function useProviderManagement() {
     setFocusedModelId,
     draftModelId,
     setDraftModelId,
-    draftModelInput,
-    setDraftModelInput,
-    draftModelOutput,
-    setDraftModelOutput,
     draftModelTags,
     setDraftModelTags,
     draftModelContextK,
@@ -952,8 +923,6 @@ export {
   getDefaultS3ProviderName,
   getDefaultS3Region,
   getProviderCapabilities,
-  IO_LABELS,
-  IO_OPTIONS,
   MODEL_TAG_LABELS,
   MODEL_TAG_OPTIONS,
   resolveAuthMode,

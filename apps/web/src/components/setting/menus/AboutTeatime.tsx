@@ -6,8 +6,7 @@ import { ChevronRight } from "lucide-react";
 import * as React from "react";
 import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
-import { setSettingValue } from "@/hooks/use-settings";
-import { WebSettingDefs } from "@/lib/setting-defs";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 
 const STEP_UP_ROUTE = "/step-up";
 
@@ -21,6 +20,7 @@ const ITEMS: Array<{ key: string; label: string }> = [
 ];
 
 export function AboutTeatime() {
+  const { setBasic } = useBasicConfig();
   const clientId = getWebClientId();
   const [copiedKey, setCopiedKey] = React.useState<"clientId" | null>(null);
   const [webContentsViewCount, setWebContentsViewCount] = React.useState<number | null>(null);
@@ -159,7 +159,7 @@ export function AboutTeatime() {
   const restartSetup = React.useCallback(async () => {
     // 流程：先重置初始化标记，再跳转到初始化页面；写入异常时也进入页面，避免卡在当前页。
     try {
-      await setSettingValue(WebSettingDefs.StepUpInitialized, false);
+      await setBasic({ stepUpInitialized: false });
     } finally {
       if (typeof window !== "undefined") {
         window.location.assign(STEP_UP_ROUTE);

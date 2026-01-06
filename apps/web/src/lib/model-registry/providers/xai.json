@@ -7,47 +7,74 @@
     "apiKey": "${XAI_API_KEY}"
   },
   "models": [
-    
     {
       "id": "grok-4-1-fast-reasoning",
       "familyId": "grok-4-1-fast-reasoning",
       "providerId": "xai",
-      "input": ["text","image","imageUrl"],
-      "output": ["text"],
-      "tags": ["text_generation", "tool_call","image_to_text","web_search"],
+      "tags": [
+        "text_output",
+        "image_input",
+        "image_url_input",
+        "text_input",
+        "tool",
+        "web_search"
+      ],
       "maxContextK": 128,
       "priceStrategyId": "tiered_token",
       "currencySymbol": "$",
       "priceTiers": [
-        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+        {
+          "minContextK": 0,
+          "input": 0,
+          "inputCache": 0,
+          "output": 0
+        }
       ]
     },
     {
       "id": "grok-4-fast-non-reasoning",
       "familyId": "grok-4-fast-non-reasoning",
       "providerId": "xai",
-      "input": ["text","image","imageUrl"],
-      "output": ["text"],
-      "tags": ["text_generation", "tool_call","image_to_text","web_search"],
+      "tags": [
+        "text_output",
+        "image_input",
+        "image_url_input",
+        "text_input",
+        "tool",
+        "web_search"
+      ],
       "maxContextK": 128,
       "priceStrategyId": "tiered_token",
       "currencySymbol": "$",
       "priceTiers": [
-        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+        {
+          "minContextK": 0,
+          "input": 0,
+          "inputCache": 0,
+          "output": 0
+        }
       ]
     },
     {
       "id": "grok-code-fast-1",
       "familyId": "grok-code-fast-1",
       "providerId": "xai",
-      "input": ["text"],
-      "output": ["text"],
-      "tags": ["text_generation", "tool_call","code"],
+      "tags": [
+        "text_output",
+        "text_input",
+        "tool",
+        "code"
+      ],
       "maxContextK": 128,
       "priceStrategyId": "tiered_token",
       "currencySymbol": "$",
       "priceTiers": [
-        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+        {
+          "minContextK": 0,
+          "input": 0,
+          "inputCache": 0,
+          "output": 0
+        }
       ]
     }
   ]

@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-  IO_OPTIONS,
   MODEL_TAG_OPTIONS,
   toggleSelection,
 } from "@/components/setting/menus/provider/use-provider-management";
@@ -18,10 +17,6 @@ export type ModelDialogProps = {
   open: boolean;
   /** Draft model id. */
   draftModelId: string;
-  /** Draft input types. */
-  draftModelInput: string[];
-  /** Draft output types. */
-  draftModelOutput: string[];
   /** Draft tag list. */
   draftModelTags: string[];
   /** Draft context size. */
@@ -40,10 +35,6 @@ export type ModelDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** Update draft model id. */
   onDraftModelIdChange: (value: string) => void;
-  /** Update draft model input. */
-  onDraftModelInputChange: (value: string[]) => void;
-  /** Update draft model output. */
-  onDraftModelOutputChange: (value: string[]) => void;
   /** Update draft model tags. */
   onDraftModelTagsChange: (value: string[]) => void;
   /** Update context size. */
@@ -66,8 +57,6 @@ export type ModelDialogProps = {
 export function ModelDialog({
   open,
   draftModelId,
-  draftModelInput,
-  draftModelOutput,
   draftModelTags,
   draftModelContextK,
   draftModelCurrencySymbol,
@@ -77,8 +66,6 @@ export function ModelDialog({
   modelError,
   onOpenChange,
   onDraftModelIdChange,
-  onDraftModelInputChange,
-  onDraftModelOutputChange,
   onDraftModelTagsChange,
   onDraftModelContextKChange,
   onDraftModelCurrencySymbolChange,
@@ -102,44 +89,6 @@ export function ModelDialog({
               placeholder="例如：custom-chat-1"
               onChange={(event) => onDraftModelIdChange(event.target.value)}
             />
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-sm font-medium">输入类型</div>
-            <div className="flex flex-wrap gap-2">
-              {IO_OPTIONS.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  variant={draftModelInput.includes(option.value) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() =>
-                    onDraftModelInputChange(toggleSelection(draftModelInput, option.value))
-                  }
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-sm font-medium">输出类型</div>
-            <div className="flex flex-wrap gap-2">
-              {IO_OPTIONS.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  variant={draftModelOutput.includes(option.value) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() =>
-                    onDraftModelOutputChange(toggleSelection(draftModelOutput, option.value))
-                  }
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
           </div>
 
           <div className="space-y-2 md:col-span-2">

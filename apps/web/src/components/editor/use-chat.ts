@@ -13,8 +13,7 @@ import { type TNode, KEYS, nanoid, NodeApi, TextApi } from 'platejs';
 import { type PlateEditor, useEditorRef, usePluginOption } from 'platejs/react';
 
 import { aiChatPlugin } from '@/components/editor/plugins/ai-kit';
-import { useSetting } from '@/hooks/use-settings';
-import { WebSettingDefs } from '@/lib/setting-defs';
+import { useBasicConfig } from '@/hooks/use-basic-config';
 
 import { discussionPlugin } from './plugins/discussion-kit';
 
@@ -41,10 +40,11 @@ export type ChatMessage = UIMessage<{}, MessageDataPart>;
 export const useChat = () => {
   const editor = useEditorRef();
   const options = usePluginOption(aiChatPlugin, 'chatOptions');
-  const { value: defaultChatModelIdRaw } = useSetting(WebSettingDefs.ModelDefaultChatModelId);
-  const { value: chatModelSourceRaw } = useSetting(WebSettingDefs.ModelChatSource);
+  const { basic } = useBasicConfig();
   const chatModelIdRef = React.useRef<string | null>(
-    typeof defaultChatModelIdRaw === 'string' ? defaultChatModelIdRaw.trim() || null : null
+    typeof basic.modelDefaultChatModelId === 'string'
+      ? basic.modelDefaultChatModelId.trim() || null
+      : null
   );
   const chatModelSourceRef = React.useRef<string>('local');
 
@@ -219,17 +219,17 @@ export const useChat = () => {
 
   React.useEffect(() => {
     const normalized =
-      typeof defaultChatModelIdRaw === 'string' ? defaultChatModelIdRaw.trim() : '';
+      typeof basic.modelDefaultChatModelId === 'string'
+        ? basic.modelDefaultChatModelId.trim()
+        : '';
     // 中文注释：为空代表 Auto，不透传 chatModelId。
     chatModelIdRef.current = normalized || null;
-  }, [defaultChatModelIdRaw]);
+  }, [basic.modelDefaultChatModelId]);
 
   React.useEffect(() => {
-    const normalized =
-      typeof chatModelSourceRaw === 'string' ? chatModelSourceRaw.trim() : '';
     // 中文注释：仅允许 local/cloud，其他值默认本地。
-    chatModelSourceRef.current = normalized === 'cloud' ? 'cloud' : 'local';
-  }, [chatModelSourceRaw]);
+    chatModelSourceRef.current = basic.chatSource === 'cloud' ? 'cloud' : 'local';
+  }, [basic.chatSource]);
 
   const chat = {
     ...baseChat,

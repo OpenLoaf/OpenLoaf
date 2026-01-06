@@ -1,6 +1,7 @@
 "use client";
 
-import type { ChatModelSource, IOType, ModelDefinition, ModelTag } from "@teatime-ai/api/common";
+import type { ChatModelSource, ModelDefinition, ModelTag } from "@teatime-ai/api/common";
+import { getProviderDefinition } from "@/lib/model-registry";
 
 type ProviderKeyEntry = {
   /** Provider id. */
@@ -22,10 +23,6 @@ export type ProviderModelOption = {
   providerId: string;
   /** Provider display name. */
   providerName: string;
-  /** Input types. */
-  input?: IOType[];
-  /** Output types. */
-  output?: IOType[];
   /** Tags for filtering. */
   tags?: ModelTag[];
   /** Model definition from registry. */
@@ -62,8 +59,6 @@ export function buildProviderModelOptions(
         modelId: trimmed,
         providerId: entry.providerId,
         providerName,
-        input: modelDefinition?.input,
-        output: modelDefinition?.output,
         tags: modelDefinition?.tags,
         modelDefinition,
       });
@@ -73,17 +68,32 @@ export function buildProviderModelOptions(
 }
 
 /** Build model options from cloud models (placeholder). */
-export function buildCloudModelOptions(): ProviderModelOption[] {
-  // 中文注释：云端模型列表暂未接入，先返回空数组。
-  return [];
+export function buildCloudModelOptions(models: ModelDefinition[]): ProviderModelOption[] {
+  const options: ProviderModelOption[] = [];
+  for (const model of models) {
+    if (!model || !model.id || !model.providerId) continue;
+    const providerDefinition = getProviderDefinition(model.providerId);
+    const providerName = providerDefinition?.label ?? model.providerId;
+    options.push({
+      // 中文注释：云端模型使用 providerId 作为前缀，避免依赖本地 settings id。
+      id: `${model.providerId}:${model.id}`,
+      modelId: model.id,
+      providerId: model.providerId,
+      providerName,
+      tags: model.tags,
+      modelDefinition: model,
+    });
+  }
+  return options;
 }
 
 /** Build model options from source selection. */
 export function buildChatModelOptions(
   source: ChatModelSource,
   items: Array<{ key: string; value: unknown; category?: string }>,
+  cloudModels: ModelDefinition[] = [],
 ) {
   // 中文注释：云端模式不读取本地服务商配置。
-  if (source === "cloud") return buildCloudModelOptions();
+  if (source === "cloud") return buildCloudModelOptions(cloudModels);
   return buildProviderModelOptions(items);
 }

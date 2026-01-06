@@ -38,6 +38,7 @@ export async function runProviderRequest(
   }
   const providerDefinition = getProviderDefinition(params.providerId);
   const adapterId = providerDefinition?.adapterId ?? params.providerId;
+
   const adapter = PROVIDER_ADAPTERS[adapterId];
   if (!adapter) throw new Error("不支持的模型服务商");
 

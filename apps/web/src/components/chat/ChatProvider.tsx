@@ -11,12 +11,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs, type ChatStatus } from "@/hooks/use-tabs";
 import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
-import { useSetting } from "@/hooks/use-settings";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
 import type { TeatimeUIDataTypes } from "@teatime-ai/api/types/message";
-import { WebSettingDefs } from "@/lib/setting-defs";
 
 function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
   if (input.dataPart?.type !== "data-open-browser") return false;
@@ -281,10 +280,11 @@ export default function ChatProvider({
   const queryClient = useQueryClient();
   const sessionIdRef = React.useRef(sessionId);
   sessionIdRef.current = sessionId;
-  const { value: defaultChatModelIdRaw } = useSetting(WebSettingDefs.ModelDefaultChatModelId);
-  const { value: chatModelSourceRaw } = useSetting(WebSettingDefs.ModelChatSource);
+  const { basic } = useBasicConfig();
   const chatModelIdRef = React.useRef<string | null>(
-    typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw.trim() || null : null,
+    typeof basic.modelDefaultChatModelId === "string"
+      ? basic.modelDefaultChatModelId.trim() || null
+      : null,
   );
   const chatModelSourceRef = React.useRef<string>("local");
 
@@ -314,17 +314,17 @@ export default function ChatProvider({
 
   React.useEffect(() => {
     const normalized =
-      typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw.trim() : "";
+      typeof basic.modelDefaultChatModelId === "string"
+        ? basic.modelDefaultChatModelId.trim()
+        : "";
     // 中文注释：为空代表 Auto，不透传 chatModelId。
     chatModelIdRef.current = normalized || null;
-  }, [defaultChatModelIdRaw]);
+  }, [basic.modelDefaultChatModelId]);
 
   React.useEffect(() => {
-    const normalized =
-      typeof chatModelSourceRaw === "string" ? chatModelSourceRaw.trim() : "";
     // 中文注释：仅允许 local/cloud，其他值默认本地。
-    chatModelSourceRef.current = normalized === "cloud" ? "cloud" : "local";
-  }, [chatModelSourceRaw]);
+    chatModelSourceRef.current = basic.chatSource === "cloud" ? "cloud" : "local";
+  }, [basic.chatSource]);
 
   const upsertToolPartMerged = React.useCallback(
     (key: string, next: Partial<Parameters<typeof upsertToolPart>[2]>) => {

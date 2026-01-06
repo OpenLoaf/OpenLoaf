@@ -1,13 +1,10 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { create } from "zustand";
-import type { SettingDef } from "@teatime-ai/api/types/setting";
 import { trpcClient } from "@/utils/trpc";
 
 type SettingsState = {
-  values: Record<string, unknown>;
-  items: SettingItem[];
   providerItems: SettingItem[];
   s3ProviderItems: SettingItem[];
   loaded: boolean;
@@ -29,13 +26,7 @@ type SettingItem = {
   syncToCloud?: boolean;
 };
 
-function buildSettingMapKey(key: string, category?: string) {
-  return `${category ?? "general"}::${key}`;
-}
-
 const useSettingsStore = create<SettingsState>((set, get) => ({
-  values: {},
-  items: [],
   providerItems: [],
   s3ProviderItems: [],
   loaded: false,
@@ -44,19 +35,11 @@ const useSettingsStore = create<SettingsState>((set, get) => ({
     if (get().loading || get().loaded) return;
     set({ loading: true });
     try {
-      const [settings, providers, s3Providers] = await Promise.all([
-        trpcClient.settings.getAll.query(),
+      const [providers, s3Providers] = await Promise.all([
         trpcClient.settings.getProviders.query(),
         trpcClient.settings.getS3Providers.query(),
       ]);
-      const nextValues: Record<string, unknown> = {};
-      for (const item of settings) {
-        const mapKey = buildSettingMapKey(item.key, item.category);
-        nextValues[mapKey] = item.value;
-      }
       set({
-        values: nextValues,
-        items: settings,
         providerItems: providers,
         s3ProviderItems: s3Providers,
         loaded: true,
@@ -70,19 +53,11 @@ const useSettingsStore = create<SettingsState>((set, get) => ({
     if (get().loading) return;
     set({ loading: true });
     try {
-      const [settings, providers, s3Providers] = await Promise.all([
-        trpcClient.settings.getAll.query(),
+      const [providers, s3Providers] = await Promise.all([
         trpcClient.settings.getProviders.query(),
         trpcClient.settings.getS3Providers.query(),
       ]);
-      const nextValues: Record<string, unknown> = {};
-      for (const item of settings) {
-        const mapKey = buildSettingMapKey(item.key, item.category);
-        nextValues[mapKey] = item.value;
-      }
       set({
-        values: nextValues,
-        items: settings,
         providerItems: providers,
         s3ProviderItems: s3Providers,
         loaded: true,
@@ -93,11 +68,11 @@ const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
   setValue: async (key, value, category) => {
-    const mapKey = buildSettingMapKey(key, category);
     set((state) => {
       const resolvedCategory = category ?? "general";
       const isProvider = resolvedCategory === "provider";
       const isS3Provider = resolvedCategory === "s3Provider";
+      if (!isProvider && !isS3Provider) return state;
       const pickList = (list: SettingItem[]) =>
         list.filter(
           (item) =>
@@ -109,14 +84,12 @@ const useSettingsStore = create<SettingsState>((set, get) => ({
             item.key === key && (item.category ?? "general") === resolvedCategory,
         );
       const nextItem: SettingItem = {
-        ...(preserve(isProvider ? state.providerItems : isS3Provider ? state.s3ProviderItems : state.items) ?? {}),
+        ...(preserve(isProvider ? state.providerItems : state.s3ProviderItems) ?? {}),
         key,
         value,
         category,
       };
       return {
-        values: { ...state.values, [mapKey]: value },
-        items: isProvider || isS3Provider ? state.items : [...pickList(state.items), nextItem],
         providerItems: isProvider ? [...pickList(state.providerItems), nextItem] : state.providerItems,
         s3ProviderItems: isS3Provider
           ? [...pickList(state.s3ProviderItems), nextItem]
@@ -126,21 +99,17 @@ const useSettingsStore = create<SettingsState>((set, get) => ({
     await trpcClient.settings.set.mutate({ key, value, category });
   },
   removeValue: async (key, category) => {
-    const mapKey = buildSettingMapKey(key, category);
     set((state) => {
       const resolvedCategory = category ?? "general";
       const isProvider = resolvedCategory === "provider";
       const isS3Provider = resolvedCategory === "s3Provider";
-      const next = { ...state.values };
-      delete next[mapKey];
+      if (!isProvider && !isS3Provider) return state;
       const filterList = (list: SettingItem[]) =>
         list.filter(
           (item) =>
             item.key !== key || (item.category ?? "general") !== resolvedCategory,
         );
       return {
-        values: next,
-        items: isProvider || isS3Provider ? state.items : filterList(state.items),
         providerItems: isProvider ? filterList(state.providerItems) : state.providerItems,
         s3ProviderItems: isS3Provider ? filterList(state.s3ProviderItems) : state.s3ProviderItems,
       };
@@ -154,44 +123,8 @@ export function ensureSettingsLoaded() {
   void useSettingsStore.getState().load();
 }
 
-/** Read setting value from store with default fallback. */
-export function getSettingValue<T>(def: SettingDef<T>): T {
-  const state = useSettingsStore.getState();
-  const value = state.values[buildSettingMapKey(def.key, def.category)];
-  return (value ?? def.defaultValue) as T;
-}
-
-/** React hook for a single setting with setter. */
-export function useSetting<T>(def: SettingDef<T>) {
-  const value =
-    useSettingsStore((state) => state.values[buildSettingMapKey(def.key, def.category)]) ??
-    def.defaultValue;
-  const loaded = useSettingsStore((state) => state.loaded);
-  const load = useSettingsStore((state) => state.load);
-
-  useEffect(() => {
-    if (loaded) return;
-    void load();
-  }, [loaded, load]);
-
-  const setValue = useCallback(
-    async (next: T) => {
-      await useSettingsStore.getState().setValue(def.key, next, def.category);
-    },
-    [def.key, def.category],
-  );
-
-  return {
-    value: value as T,
-    setValue,
-    loaded,
-  };
-}
-
 /** React hook for all settings with setter. */
 export function useSettingsValues() {
-  const values = useSettingsStore((state) => state.values);
-  const items = useSettingsStore((state) => state.items);
   const providerItems = useSettingsStore((state) => state.providerItems);
   const s3ProviderItems = useSettingsStore((state) => state.s3ProviderItems);
   const loaded = useSettingsStore((state) => state.loaded);
@@ -206,8 +139,6 @@ export function useSettingsValues() {
   }, [loaded, load]);
 
   return {
-    values,
-    items,
     providerItems,
     s3ProviderItems,
     setValue,
@@ -215,10 +146,4 @@ export function useSettingsValues() {
     refresh,
     loaded,
   };
-}
-
-/** Update a setting without subscribing to store updates. */
-export async function setSettingValue<T>(def: SettingDef<T>, value: T) {
-  // 直接写入设置并同步到服务端，避免在非必要位置订阅 store。
-  await useSettingsStore.getState().setValue(def.key, value, def.category);
 }

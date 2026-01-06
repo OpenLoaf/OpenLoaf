@@ -17,44 +17,26 @@ import { TeatimeAutoWidthInput } from "@/components/ui/teatime/TeatimeAutoWidthI
 import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
 import { ChevronDown } from "lucide-react";
-import { useSetting } from "@/hooks/use-settings";
-import { WebSettingDefs } from "@/lib/setting-defs";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 
 type FontSizeKey = "small" | "medium" | "large" | "xlarge";
 type LanguageId = "zh-CN" | "en-US" | "ja-JP" | "ko-KR" | "fr-FR" | "de-DE" | "es-ES";
 
 export function BasicSettings() {
   const { theme, resolvedTheme, setTheme } = useTheme();
+  const { basic, setBasic, isLoading: basicLoading } = useBasicConfig();
 
   const lastManualThemeRef = useRef<"dark" | "light">(
     resolvedTheme === "dark" ? "dark" : "light",
   );
 
-  const { value: uiLanguageRaw, setValue: setUiLanguage } = useSetting(
-    WebSettingDefs.UiLanguage,
-  );
-  const { value: fontSizeRaw, setValue: setFontSize } = useSetting(
-    WebSettingDefs.UiFontSize,
-  );
-  const { value: localStorageDirRaw, setValue: setLocalStorageDir } = useSetting(
-    WebSettingDefs.AppLocalStorageDir,
-  );
-  const { value: autoBackupDirRaw, setValue: setAutoBackupDir } = useSetting(
-    WebSettingDefs.AppAutoBackupDir,
-  );
-  const {
-    value: savedCustomRulesValue,
-    setValue: setSavedCustomRulesValue,
-    loaded: customRulesLoaded,
-  } = useSetting(WebSettingDefs.AppCustomRules);
-  const { value: uiTheme, setValue: setUiTheme, loaded: themeLoaded } = useSetting(
-    WebSettingDefs.UiTheme,
-  );
-  const {
-    value: uiThemeManual,
-    setValue: setUiThemeManual,
-    loaded: themeManualLoaded,
-  } = useSetting(WebSettingDefs.UiThemeManual);
+  const uiLanguageRaw = basic.uiLanguage;
+  const fontSizeRaw = basic.uiFontSize;
+  const localStorageDirRaw = basic.appLocalStorageDir;
+  const autoBackupDirRaw = basic.appAutoBackupDir;
+  const savedCustomRulesValue = basic.appCustomRules;
+  const uiTheme = basic.uiTheme;
+  const uiThemeManual = basic.uiThemeManual;
 
   const [savedCustomRules, setSavedCustomRules] = useState("");
   const [customRules, setCustomRules] = useState("");
@@ -83,11 +65,11 @@ export function BasicSettings() {
     typeof autoBackupDirRaw === "string" ? autoBackupDirRaw : "";
 
   useEffect(() => {
-    if (!customRulesLoaded) return;
+    if (basicLoading) return;
     const next = typeof savedCustomRulesValue === "string" ? savedCustomRulesValue : "";
     setSavedCustomRules(next);
     setCustomRules(next);
-  }, [customRulesLoaded, savedCustomRulesValue]);
+  }, [basicLoading, savedCustomRulesValue]);
 
   useEffect(() => {
     const px =
@@ -102,18 +84,18 @@ export function BasicSettings() {
   }, [fontSize]);
 
   useEffect(() => {
-    if (!themeLoaded) return;
+    if (basicLoading) return;
     if (uiTheme === "dark" || uiTheme === "light" || uiTheme === "system") {
       setTheme(uiTheme);
     }
-  }, [themeLoaded, uiTheme, setTheme]);
+  }, [basicLoading, uiTheme, setTheme]);
 
   useEffect(() => {
-    if (!themeManualLoaded) return;
+    if (basicLoading) return;
     if (uiThemeManual === "dark" || uiThemeManual === "light") {
       lastManualThemeRef.current = uiThemeManual;
     }
-  }, [themeManualLoaded, uiThemeManual]);
+  }, [basicLoading, uiThemeManual]);
 
   return (
     <ThemeToggler
@@ -197,10 +179,12 @@ export function BasicSettings() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-[220px]">
-                        <DropdownMenuRadioGroup
-                          value={uiLanguage}
-                          onValueChange={(next) => void setUiLanguage(next as LanguageId)}
-                        >
+                          <DropdownMenuRadioGroup
+                            value={uiLanguage}
+                            onValueChange={(next) =>
+                              void setBasic({ uiLanguage: next as LanguageId })
+                            }
+                          >
                           {Object.entries(languageLabelById).map(
                             ([id, label]) => (
                               <DropdownMenuRadioItem key={id} value={id}>
@@ -229,8 +213,7 @@ export function BasicSettings() {
                         const nextTheme = next as "dark" | "light";
                         lastManualThemeRef.current = nextTheme;
                         toggleTheme(nextTheme);
-                        void setUiTheme(nextTheme);
-                        void setUiThemeManual(nextTheme);
+                        void setBasic({ uiTheme: nextTheme, uiThemeManual: nextTheme });
                       }}
                     >
                       <TabsList>
@@ -256,13 +239,12 @@ export function BasicSettings() {
                         onCheckedChange={(checked) => {
                           if (checked) {
                             toggleTheme("system");
-                            void setUiTheme("system");
+                            void setBasic({ uiTheme: "system" });
                             return;
                           }
                           const nextManual = lastManualThemeRef.current;
                           toggleTheme(nextManual);
-                          void setUiTheme(nextManual);
-                          void setUiThemeManual(nextManual);
+                          void setBasic({ uiTheme: nextManual, uiThemeManual: nextManual });
                         }}
                         aria-label="Auto theme"
                       />
@@ -281,7 +263,9 @@ export function BasicSettings() {
                   <TeatimeSettingsField>
                     <Tabs
                       value={fontSize}
-                      onValueChange={(next) => void setFontSize(next as FontSizeKey)}
+                      onValueChange={(next) =>
+                        void setBasic({ uiFontSize: next as FontSizeKey })
+                      }
                     >
                       <TabsList>
                         <TabsTrigger value="small">小</TabsTrigger>
@@ -320,7 +304,7 @@ export function BasicSettings() {
                       onClick={() =>
                         pickDirectory({
                           currentValue: localStorageDir,
-                          setValue: setLocalStorageDir,
+                          setValue: (next) => setBasic({ appLocalStorageDir: next }),
                           promptLabel: "请输入本地文件存储路径",
                         })
                       }
@@ -353,7 +337,7 @@ export function BasicSettings() {
                       onClick={() =>
                         pickDirectory({
                           currentValue: autoBackupDir,
-                          setValue: setAutoBackupDir,
+                          setValue: (next) => setBasic({ appAutoBackupDir: next }),
                           promptLabel: "请输入自动备份文件夹路径",
                         })
                       }
@@ -380,7 +364,7 @@ export function BasicSettings() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        void setSavedCustomRulesValue(customRules);
+                        void setBasic({ appCustomRules: customRules });
                         setSavedCustomRules(customRules);
                       }}
                     >

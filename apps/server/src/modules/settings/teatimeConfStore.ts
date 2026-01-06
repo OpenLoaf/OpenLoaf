@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { getEnvString } from "@teatime-ai/config";
 import type { ChatModelSource, ModelDefinition } from "@teatime-ai/api/common";
+import type { BasicConfig } from "@teatime-ai/api/types/basic";
 
 export type ModelProviderValue = {
   /** Provider id. */
@@ -63,17 +64,17 @@ export type WorkspaceConf = {
   isActive: boolean;
   /** Workspace root URI. */
   rootUri: string;
-  /** Chat model source bound to workspace. */
-  chatSource?: ChatModelSource;
-  /** Active S3 provider id bound to workspace. */
-  activeS3Id?: string;
   /** Project map of { projectId: rootUri }. */
   projects?: Record<string, string>;
 };
 
+export type BasicConf = BasicConfig;
+
 type TeatimeConf = {
   /** Workspace list. */
   workspaces?: WorkspaceConf[];
+  /** Global basic settings. */
+  basic?: BasicConf;
   /** Model provider configs. */
   modelProviders?: ModelProviderConf[];
   /** S3 provider configs. */
@@ -88,6 +89,208 @@ type TeatimeConf = {
   /** Legacy workspace root URI (deprecated). */
   workspaceRootUri?: string;
 };
+
+const DEFAULT_BASIC_CONF: BasicConf = {
+  chatSource: "local",
+  activeS3Id: undefined,
+  s3AutoUpload: true,
+  s3AutoDeleteHours: 2,
+  modelResponseLanguage: "zh-CN",
+  modelQuality: "medium",
+  uiLanguage: "zh-CN",
+  uiFontSize: "medium",
+  uiTheme: "system",
+  uiThemeManual: "light",
+  appLocalStorageDir: "",
+  appAutoBackupDir: "",
+  appCustomRules: "",
+  modelDefaultChatModelId: "",
+  appProjectRule: "按项目划分",
+  stepUpInitialized: false,
+  proxyEnabled: false,
+  proxyHost: "",
+  proxyPort: "",
+  proxyUsername: "",
+  proxyPassword: "",
+};
+
+function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicConf>): BasicConf {
+  const source = raw ?? {};
+  const fallbackSource = fallback ?? {};
+  const chatSource: ChatModelSource =
+    source.chatSource === "cloud" || source.chatSource === "local"
+      ? source.chatSource
+      : fallbackSource.chatSource === "cloud" || fallbackSource.chatSource === "local"
+        ? fallbackSource.chatSource
+        : DEFAULT_BASIC_CONF.chatSource;
+  const activeS3Id =
+    typeof source.activeS3Id === "string" && source.activeS3Id.trim()
+      ? source.activeS3Id.trim()
+      : typeof fallbackSource.activeS3Id === "string" && fallbackSource.activeS3Id.trim()
+        ? fallbackSource.activeS3Id.trim()
+        : undefined;
+  const s3AutoUpload =
+    typeof source.s3AutoUpload === "boolean"
+      ? source.s3AutoUpload
+      : typeof fallbackSource.s3AutoUpload === "boolean"
+        ? fallbackSource.s3AutoUpload
+        : DEFAULT_BASIC_CONF.s3AutoUpload;
+  const rawDeleteHours =
+    typeof source.s3AutoDeleteHours === "number"
+      ? source.s3AutoDeleteHours
+      : typeof fallbackSource.s3AutoDeleteHours === "number"
+        ? fallbackSource.s3AutoDeleteHours
+        : DEFAULT_BASIC_CONF.s3AutoDeleteHours;
+  const s3AutoDeleteHours = Math.min(168, Math.max(1, Math.floor(rawDeleteHours)));
+  const modelResponseLanguage =
+    source.modelResponseLanguage &&
+    ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
+      source.modelResponseLanguage,
+    )
+      ? source.modelResponseLanguage
+      : fallbackSource.modelResponseLanguage &&
+          ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
+            fallbackSource.modelResponseLanguage,
+          )
+        ? fallbackSource.modelResponseLanguage
+        : DEFAULT_BASIC_CONF.modelResponseLanguage;
+  const modelQuality =
+    source.modelQuality === "high" || source.modelQuality === "medium" || source.modelQuality === "low"
+      ? source.modelQuality
+      : fallbackSource.modelQuality === "high" ||
+          fallbackSource.modelQuality === "medium" ||
+          fallbackSource.modelQuality === "low"
+        ? fallbackSource.modelQuality
+        : DEFAULT_BASIC_CONF.modelQuality;
+  const uiLanguage =
+    source.uiLanguage &&
+    ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
+      source.uiLanguage,
+    )
+      ? source.uiLanguage
+      : fallbackSource.uiLanguage &&
+          ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
+            fallbackSource.uiLanguage,
+          )
+        ? fallbackSource.uiLanguage
+        : DEFAULT_BASIC_CONF.uiLanguage;
+  const uiFontSize =
+    source.uiFontSize === "small" ||
+    source.uiFontSize === "medium" ||
+    source.uiFontSize === "large" ||
+    source.uiFontSize === "xlarge"
+      ? source.uiFontSize
+      : fallbackSource.uiFontSize === "small" ||
+          fallbackSource.uiFontSize === "medium" ||
+          fallbackSource.uiFontSize === "large" ||
+          fallbackSource.uiFontSize === "xlarge"
+        ? fallbackSource.uiFontSize
+        : DEFAULT_BASIC_CONF.uiFontSize;
+  const uiTheme =
+    source.uiTheme === "system" || source.uiTheme === "light" || source.uiTheme === "dark"
+      ? source.uiTheme
+      : fallbackSource.uiTheme === "system" ||
+          fallbackSource.uiTheme === "light" ||
+          fallbackSource.uiTheme === "dark"
+        ? fallbackSource.uiTheme
+        : DEFAULT_BASIC_CONF.uiTheme;
+  const uiThemeManual =
+    source.uiThemeManual === "light" || source.uiThemeManual === "dark"
+      ? source.uiThemeManual
+      : fallbackSource.uiThemeManual === "light" || fallbackSource.uiThemeManual === "dark"
+        ? fallbackSource.uiThemeManual
+        : DEFAULT_BASIC_CONF.uiThemeManual;
+  const appLocalStorageDir =
+    typeof source.appLocalStorageDir === "string"
+      ? source.appLocalStorageDir
+      : typeof fallbackSource.appLocalStorageDir === "string"
+        ? fallbackSource.appLocalStorageDir
+        : DEFAULT_BASIC_CONF.appLocalStorageDir;
+  const appAutoBackupDir =
+    typeof source.appAutoBackupDir === "string"
+      ? source.appAutoBackupDir
+      : typeof fallbackSource.appAutoBackupDir === "string"
+        ? fallbackSource.appAutoBackupDir
+        : DEFAULT_BASIC_CONF.appAutoBackupDir;
+  const appCustomRules =
+    typeof source.appCustomRules === "string"
+      ? source.appCustomRules
+      : typeof fallbackSource.appCustomRules === "string"
+        ? fallbackSource.appCustomRules
+        : DEFAULT_BASIC_CONF.appCustomRules;
+  const modelDefaultChatModelId =
+    typeof source.modelDefaultChatModelId === "string"
+      ? source.modelDefaultChatModelId
+      : typeof fallbackSource.modelDefaultChatModelId === "string"
+        ? fallbackSource.modelDefaultChatModelId
+        : DEFAULT_BASIC_CONF.modelDefaultChatModelId;
+  const appProjectRule =
+    typeof source.appProjectRule === "string"
+      ? source.appProjectRule
+      : typeof fallbackSource.appProjectRule === "string"
+        ? fallbackSource.appProjectRule
+        : DEFAULT_BASIC_CONF.appProjectRule;
+  const stepUpInitialized =
+    typeof source.stepUpInitialized === "boolean"
+      ? source.stepUpInitialized
+      : typeof fallbackSource.stepUpInitialized === "boolean"
+        ? fallbackSource.stepUpInitialized
+        : DEFAULT_BASIC_CONF.stepUpInitialized;
+  const proxyEnabled =
+    typeof source.proxyEnabled === "boolean"
+      ? source.proxyEnabled
+      : typeof fallbackSource.proxyEnabled === "boolean"
+        ? fallbackSource.proxyEnabled
+        : DEFAULT_BASIC_CONF.proxyEnabled;
+  const proxyHost =
+    typeof source.proxyHost === "string"
+      ? source.proxyHost
+      : typeof fallbackSource.proxyHost === "string"
+        ? fallbackSource.proxyHost
+        : DEFAULT_BASIC_CONF.proxyHost;
+  const proxyPort =
+    typeof source.proxyPort === "string"
+      ? source.proxyPort
+      : typeof fallbackSource.proxyPort === "string"
+        ? fallbackSource.proxyPort
+        : DEFAULT_BASIC_CONF.proxyPort;
+  const proxyUsername =
+    typeof source.proxyUsername === "string"
+      ? source.proxyUsername
+      : typeof fallbackSource.proxyUsername === "string"
+        ? fallbackSource.proxyUsername
+        : DEFAULT_BASIC_CONF.proxyUsername;
+  const proxyPassword =
+    typeof source.proxyPassword === "string"
+      ? source.proxyPassword
+      : typeof fallbackSource.proxyPassword === "string"
+        ? fallbackSource.proxyPassword
+        : DEFAULT_BASIC_CONF.proxyPassword;
+
+  return {
+    chatSource,
+    activeS3Id,
+    s3AutoUpload,
+    s3AutoDeleteHours,
+    modelResponseLanguage,
+    modelQuality,
+    uiLanguage,
+    uiFontSize,
+    uiTheme,
+    uiThemeManual,
+    appLocalStorageDir,
+    appAutoBackupDir,
+    appCustomRules,
+    modelDefaultChatModelId,
+    appProjectRule,
+    stepUpInitialized,
+    proxyEnabled,
+    proxyHost,
+    proxyPort,
+    proxyUsername,
+    proxyPassword,
+  };
+}
 
 /** Resolve the config file path from environment. */
 function getTeatimeConfPath(): string {
@@ -135,6 +338,36 @@ export function readS3Providers(): S3ProviderConf[] {
 export function writeS3Providers(entries: S3ProviderConf[]): void {
   const conf = loadTeatimeConf();
   writeTeatimeConf({ ...conf, S3Providers: entries });
+}
+
+/** Read basic config from config with defaults. */
+export function readBasicConf(): BasicConf {
+  const conf = loadTeatimeConf();
+  const activeWorkspace =
+    conf.workspaces?.find((workspace) => workspace.isActive) ?? conf.workspaces?.[0];
+  const legacyWorkspace = activeWorkspace as Record<string, unknown> | undefined;
+  const fallback: Partial<BasicConf> = {
+    chatSource: legacyWorkspace?.chatSource as ChatModelSource | undefined,
+    activeS3Id:
+      typeof legacyWorkspace?.activeS3Id === "string"
+        ? (legacyWorkspace?.activeS3Id as string)
+        : undefined,
+    s3AutoUpload:
+      typeof legacyWorkspace?.s3AutoUpload === "boolean"
+        ? (legacyWorkspace?.s3AutoUpload as boolean)
+        : undefined,
+    s3AutoDeleteHours:
+      typeof legacyWorkspace?.s3AutoDeleteHours === "number"
+        ? (legacyWorkspace?.s3AutoDeleteHours as number)
+        : undefined,
+  };
+  return normalizeBasicConf(conf.basic, fallback);
+}
+
+/** Persist basic config into config. */
+export function writeBasicConf(next: BasicConf): void {
+  const conf = loadTeatimeConf();
+  writeTeatimeConf({ ...conf, basic: normalizeBasicConf(next) });
 }
 
 /** Read SaaS refresh token from config. */

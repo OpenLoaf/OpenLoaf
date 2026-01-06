@@ -8,8 +8,7 @@ import { queryClient } from "@/utils/trpc";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { TabActiveProvider } from "@/components/layout/TabActiveContext";
 import { WorkspaceProvider } from "@/components/workspace/WorkspaceProvider";
-import { useSetting } from "@/hooks/use-settings";
-import { WebSettingDefs } from "@/lib/setting-defs";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 
 type PanelSide = "left" | "right";
 type ThemeSelection = "light" | "dark" | "system";
@@ -73,13 +72,13 @@ const PANEL_HOSTS: Record<PanelSide, PanelHost | null> = {
 /** Apply theme from settings once when the panel boots. */
 function ThemeSettingsBootstrap() {
   const { theme, setTheme } = useTheme();
-  const { value: uiTheme, loaded: themeLoaded } = useSetting(WebSettingDefs.UiTheme);
+  const { basic, isLoading } = useBasicConfig();
   // 仅首次应用数据库配置，避免与用户切换造成相互覆盖。
   const appliedThemeRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (!themeLoaded || appliedThemeRef.current) return;
-    const nextTheme = normalizeThemeSelection(uiTheme);
+    if (isLoading || appliedThemeRef.current) return;
+    const nextTheme = normalizeThemeSelection(basic.uiTheme);
     if (!nextTheme) return;
     if (theme === nextTheme) {
       appliedThemeRef.current = true;
@@ -87,7 +86,7 @@ function ThemeSettingsBootstrap() {
     }
     appliedThemeRef.current = true;
     setTheme(nextTheme);
-  }, [themeLoaded, uiTheme, theme, setTheme]);
+  }, [isLoading, basic.uiTheme, theme, setTheme]);
 
   return null;
 }
@@ -101,8 +100,8 @@ function PanelProviders({ children }: { children: React.ReactNode }) {
       enableSystem
       disableTransitionOnChange
     >
-      <ThemeSettingsBootstrap />
       <QueryClientProvider client={queryClient}>
+        <ThemeSettingsBootstrap />
         <WorkspaceProvider>{children}</WorkspaceProvider>
       </QueryClientProvider>
     </ThemeProvider>

@@ -148,7 +148,7 @@ export function registerAuthRoutes(app: Hono): void {
 /**
  * Ensure access token is fresh; refresh when possible.
  */
-async function ensureAccessTokenFresh(): Promise<void> {
+export async function ensureAccessTokenFresh(): Promise<void> {
   if (isAccessTokenValid()) return;
   const refreshToken = getRefreshToken();
   if (!refreshToken) return;
@@ -390,7 +390,7 @@ function renderCallbackPage(message: string): string {
 /**
  * Resolve SaaS base URL from env.
  */
-function getSaasBaseUrl(): string | null {
+export function getSaasBaseUrl(): string | null {
   const value = getEnvString(process.env, "TEATIME_SAAS_URL");
   if (!value) return null;
   const trimmed = value.trim();

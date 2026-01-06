@@ -23,7 +23,6 @@ import {
   getDefaultApiUrl,
   getDefaultModelIds,
   getDefaultProviderName,
-  IO_LABELS,
   MODEL_TAG_LABELS,
   copyToClipboard,
   resolveAuthMode,
@@ -107,24 +106,6 @@ type ProviderDialogProps = {
   /** Submit draft callback. */
   onSubmit: () => Promise<void> | void;
 };
-
-/**
- * Render IO tags for a model.
- */
-function renderIoTags(types?: (keyof typeof IO_LABELS)[]) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {(types ?? []).map((io) => (
-        <span
-          key={io}
-          className="inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-        >
-          {IO_LABELS[io] ?? io}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 /**
  * Render model tags for a model.
@@ -442,18 +423,6 @@ export function ProviderDialog({
                         </Button>
                       </div>
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">输入：</span>
-                          <div className="min-w-0 flex-1">
-                            {renderIoTags(focusedModel.input)}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">输出：</span>
-                          <div className="min-w-0 flex-1">
-                            {renderIoTags(focusedModel.output)}
-                          </div>
-                        </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">能力：</span>
                           <div className="min-w-0 flex-1">

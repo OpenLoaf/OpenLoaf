@@ -15,7 +15,6 @@ import {
   copyToClipboard,
   formatModelPriceLabel,
   getProviderCapabilities,
-  IO_LABELS,
   MODEL_TAG_LABELS,
   resolveMergedModelDefinition,
   truncateDisplay,
@@ -40,24 +39,6 @@ type ProviderSectionProps = {
   /** Toggle expanded rows. */
   onToggleExpand: (key: string) => void;
 };
-
-/**
- * Render IO tags for a model.
- */
-function renderIoTags(types?: (keyof typeof IO_LABELS)[]) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {(types ?? []).map((io) => (
-        <span
-          key={io}
-          className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-        >
-          {IO_LABELS[io] ?? io}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 /**
  * Render model tags for a model.
@@ -97,7 +78,7 @@ export function ProviderSection({
         subtitle="配置模型服务商的 API URL 与认证信息。"
         showBorder={false}
         action={
-          <Button variant="outline" onClick={onAdd}>
+          <Button variant="default" onClick={onAdd}>
             添加
           </Button>
         }
@@ -197,11 +178,9 @@ export function ProviderSection({
                     <TableRow>
                       <TableCell colSpan={4} className="p-0">
                         <div className="px-4 pb-4">
-                          <div className="hidden md:grid grid-cols-[200px_1fr_1fr_1fr_1.2fr] gap-3 px-1 py-2 text-xs font-semibold text-muted-foreground">
+                          <div className="hidden md:grid grid-cols-[200px_1fr_1.2fr] gap-3 px-1 py-2 text-xs font-semibold text-muted-foreground">
                             <div>模型</div>
                             <div>能力</div>
-                            <div>输入</div>
-                            <div>输出</div>
                             <div>价格</div>
                           </div>
                           <div className="divide-y divide-border/60">
@@ -216,14 +195,12 @@ export function ProviderSection({
                               return (
                                 <div
                                   key={`${entry.key}-${modelId}`}
-                                  className="grid grid-cols-1 gap-3 px-1 py-3 text-sm md:grid-cols-[200px_1fr_1fr_1fr_1.2fr]"
+                                  className="grid grid-cols-1 gap-3 px-1 py-3 text-sm md:grid-cols-[200px_1fr_1.2fr]"
                                 >
                                   <div>
                                     <div className="text-foreground">{getModelLabel(modelDefinition)}</div>
                                   </div>
                                   <div>{renderModelTagsCompact(modelDefinition.tags)}</div>
-                                  <div>{renderIoTags(modelDefinition.input)}</div>
-                                  <div>{renderIoTags(modelDefinition.output)}</div>
                                   <div className="text-xs text-muted-foreground">
                                     {formatModelPriceLabel(modelDefinition)}
                                   </div>

@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,171 +9,43 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
-import { useSetting, useSettingsValues } from "@/hooks/use-settings";
-import { WebSettingDefs } from "@/lib/setting-defs";
+import { useSettingsValues } from "@/hooks/use-settings";
+import { useBasicConfig } from "@/hooks/use-basic-config";
+import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
-import {
-  AddModelProviderDialog,
-  type AddModelProviderPayload,
-  type ModelProviderOption,
-} from "@/components/setting/menus/model/AddModelProviderDialog";
 import { TeatimeAutoWidthInput } from "@/components/ui/teatime/TeatimeAutoWidthInput";
-import { getModelLabel, getProviderOptions } from "@/lib/model-registry";
-
-type ModelEntry = {
-  /** Row id. */
-  id: string;
-  /** Model id. */
-  model: string;
-  /** Provider id. */
-  provider: string;
-};
-
-type ModelResponseLanguageId =
-  | "zh-CN"
-  | "en-US"
-  | "ja-JP"
-  | "ko-KR"
-  | "fr-FR"
-  | "de-DE"
-  | "es-ES";
-
-const PROVIDERS: ModelProviderOption[] = getProviderOptions();
-
-/** Generate a stable row id for model entries. */
-function generateRowId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
+import { getModelLabel } from "@/lib/model-registry";
 
 export function ModelManagement() {
-  const { value: entriesRaw, setValue: setEntriesValue } = useSetting(
-    WebSettingDefs.ModelProviders,
-  );
   const { providerItems } = useSettingsValues();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const { basic, setBasic } = useBasicConfig();
+  const { models: cloudModels } = useCloudModels();
 
-  const { value: modelResponseLanguageRaw, setValue: setModelResponseLanguage } =
-    useSetting(WebSettingDefs.ModelResponseLanguage);
-  const { value: workspaceProjectRuleRaw, setValue: setWorkspaceProjectRule } =
-    useSetting(WebSettingDefs.AppProjectRule);
-  const { value: chatModelSourceRaw, setValue: setChatModelSource } =
-    useSetting(WebSettingDefs.ModelChatSource);
-  const { value: defaultChatModelIdRaw, setValue: setDefaultChatModelId } =
-    useSetting(WebSettingDefs.ModelDefaultChatModelId);
-  const { value: chatModelQualityRaw, setValue: setChatModelQuality } =
-    useSetting(WebSettingDefs.ModelChatQuality);
-
-  const entries = Array.isArray(entriesRaw) ? (entriesRaw as ModelEntry[]) : [];
-  const modelResponseLanguage: ModelResponseLanguageId =
-    modelResponseLanguageRaw === "zh-CN" ||
-    modelResponseLanguageRaw === "en-US" ||
-    modelResponseLanguageRaw === "ja-JP" ||
-    modelResponseLanguageRaw === "ko-KR" ||
-    modelResponseLanguageRaw === "fr-FR" ||
-    modelResponseLanguageRaw === "de-DE" ||
-    modelResponseLanguageRaw === "es-ES"
-      ? modelResponseLanguageRaw
-      : "zh-CN";
   const workspaceProjectRule =
-    typeof workspaceProjectRuleRaw === "string" ? workspaceProjectRuleRaw : "";
-  const chatModelSource = normalizeChatModelSource(chatModelSourceRaw);
+    typeof basic.appProjectRule === "string" ? basic.appProjectRule : "";
   const defaultChatModelId =
-    typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw : "";
-  const chatModelQuality: "high" | "medium" | "low" =
-    chatModelQualityRaw === "high" ||
-    chatModelQualityRaw === "medium" ||
-    chatModelQualityRaw === "low"
-      ? chatModelQualityRaw
-      : "medium";
+    typeof basic.modelDefaultChatModelId === "string" ? basic.modelDefaultChatModelId : "";
+  const chatModelSource = normalizeChatModelSource(basic.chatSource);
 
   const modelOptions = useMemo(
-    () => buildChatModelOptions(chatModelSource, providerItems),
-    [chatModelSource, providerItems],
+    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
+    [chatModelSource, providerItems, cloudModels],
   );
   const emptyModelLabel = chatModelSource === "cloud" ? "云端模型暂未开放" : "暂无模型";
-
-  const modelResponseLanguageLabelById: Record<ModelResponseLanguageId, string> =
-    {
-      "zh-CN": "中文（简体）",
-      "en-US": "English",
-      "ja-JP": "日本語",
-      "ko-KR": "한국어",
-      "fr-FR": "Français",
-      "de-DE": "Deutsch",
-      "es-ES": "Español",
-    };
 
   useEffect(() => {
     if (!defaultChatModelId) return;
     const exists = modelOptions.some((option) => option.id === defaultChatModelId);
-    if (!exists) void setDefaultChatModelId("");
-  }, [defaultChatModelId, modelOptions, setDefaultChatModelId]);
-
-  /** Save a new provider model entry. */
-  const handleAddModelProvider = useCallback(
-    (payload: AddModelProviderPayload) => {
-      void setEntriesValue([
-        ...entries,
-        {
-          id: generateRowId(),
-          provider: payload.providerId,
-          model: payload.model,
-        },
-      ]);
-    },
-    [entries, setEntriesValue],
-  );
+    if (!exists) void setBasic({ modelDefaultChatModelId: "" });
+  }, [defaultChatModelId, modelOptions, setBasic]);
 
   return (
     <div className="space-y-3">
       <TeatimeSettingsGroup title="模型设置">
         <div className="divide-y divide-border">
-          <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 sm:w-56">
-              <div className="text-sm font-medium">模型返回语言</div>
-              <div className="text-xs text-muted-foreground">
-                暂不支持切换，仅保存偏好
-              </div>
-            </div>
-
-            <TeatimeSettingsField>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-w-[200px] w-auto justify-between font-normal"
-                  >
-                    <span className="truncate">
-                      {modelResponseLanguageLabelById[modelResponseLanguage]}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[320px]">
-                  <DropdownMenuRadioGroup
-                    value={modelResponseLanguage}
-                    onValueChange={(next) =>
-                      void setModelResponseLanguage(next as ModelResponseLanguageId)
-                    }
-                  >
-                    {Object.entries(modelResponseLanguageLabelById).map(
-                      ([id, label]) => (
-                        <DropdownMenuRadioItem key={id} value={id}>
-                          {label}
-                        </DropdownMenuRadioItem>
-                      ),
-                    )}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TeatimeSettingsField>
-          </div>
-
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 sm:w-56">
               <div className="text-sm font-medium">工作空间项目划分规范</div>
@@ -186,32 +57,9 @@ export function ModelManagement() {
             <TeatimeSettingsField>
               <TeatimeAutoWidthInput
                 value={workspaceProjectRule}
-                onChange={(event) => void setWorkspaceProjectRule(event.target.value)}
+                onChange={(event) => void setBasic({ appProjectRule: event.target.value })}
                 className="bg-background"
               />
-            </TeatimeSettingsField>
-          </div>
-
-          <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 sm:w-56">
-              <div className="text-sm font-medium">模型来源</div>
-              <div className="text-xs text-muted-foreground">
-                选择本地服务商或云端模型
-              </div>
-            </div>
-
-            <TeatimeSettingsField>
-              <Tabs
-                value={chatModelSource}
-                onValueChange={(next) =>
-                  void setChatModelSource(normalizeChatModelSource(next))
-                }
-              >
-                <TabsList>
-                  <TabsTrigger value="local">本地</TabsTrigger>
-                  <TabsTrigger value="cloud">云端</TabsTrigger>
-                </TabsList>
-              </Tabs>
             </TeatimeSettingsField>
           </div>
 
@@ -250,7 +98,7 @@ export function ModelManagement() {
                 <DropdownMenuContent align="start" className="w-[320px]">
                   <DropdownMenuRadioGroup
                     value={defaultChatModelId}
-                    onValueChange={(next) => void setDefaultChatModelId(next)}
+                    onValueChange={(next) => void setBasic({ modelDefaultChatModelId: next })}
                   >
                     <DropdownMenuRadioItem value="">Auto</DropdownMenuRadioItem>
                     {modelOptions.length === 0 ? (
@@ -279,48 +127,9 @@ export function ModelManagement() {
             </TeatimeSettingsField>
           </div>
 
-          <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 sm:w-56">
-              <div className="text-sm font-medium">聊天模型质量</div>
-              <div className="text-xs text-muted-foreground">
-                高 / 中 / 低（UI 预设）
-              </div>
-            </div>
-
-            <TeatimeSettingsField>
-              <Tabs
-                value={chatModelQuality}
-                onValueChange={(next) =>
-                  void setChatModelQuality(next as "high" | "medium" | "low")
-                }
-              >
-                <TabsList>
-                  <TabsTrigger value="high">高</TabsTrigger>
-                  <TabsTrigger value="medium">中</TabsTrigger>
-                  <TabsTrigger value="low">低</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </TeatimeSettingsField>
-          </div>
         </div>
       </TeatimeSettingsGroup>
 
-      <div className="flex items-center justify-end">
-        <Button
-          size="sm"
-          onClick={() => setDialogOpen(true)}
-        >
-          <Plus className="h-4 w-4" />
-          添加模型
-        </Button>
-      </div>
-
-      <AddModelProviderDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        providers={PROVIDERS}
-        onSave={handleAddModelProvider}
-      />
     </div>
   );
 }

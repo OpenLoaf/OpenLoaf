@@ -11,19 +11,19 @@ import { useTabs } from "@/hooks/use-tabs";
 import {
   Bot,
   KeyRound,
-  Boxes,
   SlidersHorizontal,
   Info,
   Keyboard,
   Building2,
   ShieldCheck,
   FlaskConical,
+  Database,
 } from "lucide-react";
 
 import { BasicSettings } from "./menus/BasicSettings";
 import { AboutTeatime } from "./menus/AboutTeatime";
 import { ProviderManagement } from "./menus/ProviderManagement";
-import { ModelManagement } from "./menus/ModelManagement";
+import { ObjectStorageService } from "./menus/ObjectStorageService";
 import { AgentManagement } from "./menus/agent/AgentManagement";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
@@ -38,8 +38,8 @@ import {
 type SettingsMenuKey =
   | "basic"
   | "about"
-  | "models"
   | "keys"
+  | "storage"
   | "agents"
   | "workspace"
   | "shortcuts"
@@ -54,8 +54,8 @@ const MENU: Array<{
 }> = [
   { key: "basic", label: "基础", Icon: SlidersHorizontal, Component: BasicSettings },
   { key: "workspace", label: "工作空间", Icon: Building2, Component: WorkspaceSettings },
-  { key: "models", label: "模型", Icon: Boxes, Component: ModelManagement },
-  { key: "keys", label: "服务商", Icon: KeyRound, Component: ProviderManagement },
+  { key: "keys", label: "模型服务", Icon: KeyRound, Component: ProviderManagement },
+  { key: "storage", label: "S3存储服务", Icon: Database, Component: ObjectStorageService },
   { key: "whitelist", label: "白名单", Icon: ShieldCheck, Component: CommandAllowlist },
   { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
   { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
@@ -162,8 +162,8 @@ export default function SettingsPage({
     const byKey = new Map(MENU.map((item) => [item.key, item]));
     const group1 = [byKey.get("basic"), byKey.get("workspace")].filter(Boolean);
     const group2 = [
-      byKey.get("models"),
       byKey.get("keys"),
+      byKey.get("storage"),
       byKey.get("whitelist"),
       byKey.get("agents"),
     ].filter(Boolean);

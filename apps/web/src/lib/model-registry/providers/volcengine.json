@@ -12,56 +12,84 @@
       "id": "volcengine.t2i.v40",
       "familyId": "volcengine.t2i",
       "providerId": "volcengine",
-      "input": ["text"],
-      "output": ["image"],
-      "tags": ["text_to_image"],
+      "tags": [
+        "image_output",
+        "text_input"
+      ],
       "maxContextK": 1,
       "priceStrategyId": "tiered_token",
       "currencySymbol": "¥",
       "priceTiers": [
-        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+        {
+          "minContextK": 0,
+          "input": 0,
+          "inputCache": 0,
+          "output": 0
+        }
       ]
     },
     {
       "id": "volcengine.inpaint.v1",
       "familyId": "volcengine.inpaint",
       "providerId": "volcengine",
-      "input": ["text", "image"],
-      "output": ["image"],
-      "tags": ["image_edit", "image_to_image"],
+      "tags": [
+        "image_output",
+        "image_input",
+        "text_input",
+        "image_edit"
+      ],
       "maxContextK": 1,
       "priceStrategyId": "tiered_token",
       "currencySymbol": "¥",
       "priceTiers": [
-        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+        {
+          "minContextK": 0,
+          "input": 0,
+          "inputCache": 0,
+          "output": 0
+        }
       ]
     },
     {
       "id": "volcengine.material.v1",
       "familyId": "volcengine.material",
       "providerId": "volcengine",
-      "input": ["image"],
-      "output": ["image"],
-      "tags": ["image_edit", "image_to_image"],
+      "tags": [
+        "image_output",
+        "image_input",
+        "image_edit"
+      ],
       "maxContextK": 1,
       "priceStrategyId": "tiered_token",
       "currencySymbol": "¥",
       "priceTiers": [
-        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+        {
+          "minContextK": 0,
+          "input": 0,
+          "inputCache": 0,
+          "output": 0
+        }
       ]
     },
     {
       "id": "volcengine.video.v30pro",
       "familyId": "volcengine.video",
       "providerId": "volcengine",
-      "input": ["text", "image"],
-      "output": ["video"],
-      "tags": ["video_generation"],
+      "tags": [
+        "image_input",
+        "text_input",
+        "video_generation"
+      ],
       "maxContextK": 1,
       "priceStrategyId": "tiered_token",
       "currencySymbol": "¥",
       "priceTiers": [
-        { "minContextK": 0, "input": 0, "inputCache": 0, "output": 0 }
+        {
+          "minContextK": 0,
+          "input": 0,
+          "inputCache": 0,
+          "output": 0
+        }
       ]
     }
   ]

@@ -42,7 +42,6 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
             type: "local",
             isActive: false,
             rootUri: active.rootUri,
-            chatSource: "local",
             projects: {},
           };
           teatimeConfigStore.set({ ...cfg, workspaces: [...cfg.workspaces, newWorkspace] as any });
@@ -89,20 +88,6 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
           return { ...exists, name: input.name };
         }),
 
-      setActiveS3: shieldedProcedure
-        .input(workspaceSchemas.setActiveS3.input)
-        .output(workspaceSchemas.setActiveS3.output)
-        .mutation(async ({ input }) => {
-          const cfg = teatimeConfigStore.get();
-          const workspaces = cfg.workspaces as Workspace[];
-          const exists = workspaces.find((w) => w.id === input.id);
-          if (!exists) throw new Error("工作空间不存在");
-          const next = workspaces.map((w) =>
-            w.id === input.id ? { ...w, activeS3Id: input.activeS3Id } : w,
-          );
-          teatimeConfigStore.set({ ...cfg, workspaces: next as any });
-          return { ...exists, activeS3Id: input.activeS3Id };
-        }),
     });
   }
 }

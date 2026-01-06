@@ -41,8 +41,9 @@ import { buildUriFromRoot } from "@/components/project/filesystem/file-system-ut
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSetting, useSettingsValues } from "@/hooks/use-settings";
-import { WebSettingDefs } from "@/lib/setting-defs";
+import { useSettingsValues } from "@/hooks/use-settings";
+import { useBasicConfig } from "@/hooks/use-basic-config";
+import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { toast } from "sonner";
 
@@ -574,26 +575,28 @@ export default function ChatInput({
     setInput,
     isHistoryLoading,
   } = useChatContext();
-  const { value: chatModelSourceRaw } = useSetting(WebSettingDefs.ModelChatSource);
-  const { value: defaultChatModelIdRaw } = useSetting(WebSettingDefs.ModelDefaultChatModelId);
+  const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
-  const chatModelSource = normalizeChatModelSource(chatModelSourceRaw);
+  const { models: cloudModels } = useCloudModels();
+  const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const modelOptions = useMemo(
-    () => buildChatModelOptions(chatModelSource, providerItems),
-    [chatModelSource, providerItems],
+    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
+    [chatModelSource, providerItems, cloudModels],
   );
   const selectedModelId =
-    typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw.trim() : "";
+    typeof basic.modelDefaultChatModelId === "string"
+      ? basic.modelDefaultChatModelId.trim()
+      : "";
   const isAutoModel = !selectedModelId;
   const selectedModel = modelOptions.find((option) => option.id === selectedModelId);
   const canAttachImage = isAutoModel
     ? true
     : Boolean(
-        selectedModel?.input?.includes("image") ||
-        selectedModel?.input?.includes("imageUrl"),
+        selectedModel?.tags?.includes("image_input") ||
+        selectedModel?.tags?.includes("image_url_input"),
       );
-  const supportsImageInput = Boolean(selectedModel?.input?.includes("image"));
-  const supportsImageUrlInput = Boolean(selectedModel?.input?.includes("imageUrl"));
+  const supportsImageInput = Boolean(selectedModel?.tags?.includes("image_input"));
+  const supportsImageUrlInput = Boolean(selectedModel?.tags?.includes("image_url_input"));
   const handleAddAttachments = canAttachImage ? onAddAttachments : undefined;
 
   const isLoading = status === "submitted" || status === "streaming";
