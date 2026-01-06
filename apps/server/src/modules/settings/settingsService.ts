@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
 import prisma from "@teatime-ai/db";
 import type { ModelDefinition } from "@teatime-ai/api/common";
+import type { ChatModelSource } from "@teatime-ai/api/common";
 import type { SettingDef } from "@teatime-ai/api/types/setting";
 import { ServerSettingDefs } from "@/settings/settingDefs";
+import { getWorkspaceId } from "@/common/requestContext";
+import { teatimeConfigStore } from "@/modules/workspace/TeatimeConfigStoreAdapter";
 import {
   readModelProviders,
   readS3Providers,
@@ -52,6 +55,8 @@ export type ProviderSettingEntry = {
 const MODEL_PROVIDER_CATEGORY = "provider";
 /** Settings category for S3 providers. */
 const S3_PROVIDER_CATEGORY = "s3Provider";
+/** Setting key for chat model source. */
+const CHAT_SOURCE_KEY = "model.chatSource";
 
 const settingDefByKey = new Map<string, SettingDef<unknown>>(
   Object.values(ServerSettingDefs).map((def) => [def.key, def]),
@@ -67,6 +72,39 @@ function getSettingDef(key: string) {
 /** Resolve the storage category for a setting. */
 function resolveSettingCategory(def: SettingDef<unknown>, category?: string) {
   return def.category ?? category ?? "general";
+}
+
+/** Resolve target workspace for config-bound settings. */
+function resolveWorkspaceId() {
+  const workspaceId = getWorkspaceId();
+  if (workspaceId) return workspaceId;
+  const workspaces = teatimeConfigStore.get().workspaces;
+  return workspaces.find((workspace) => workspace.isActive)?.id ?? workspaces[0]?.id;
+}
+
+/** Read chat source from workspace config. */
+function readWorkspaceChatSource(): ChatModelSource | undefined {
+  const workspaceId = resolveWorkspaceId();
+  if (!workspaceId) return undefined;
+  const workspaces = teatimeConfigStore.get().workspaces;
+  const target = workspaces.find((workspace) => workspace.id === workspaceId);
+  return target?.chatSource;
+}
+
+/** Persist chat source into workspace config. */
+function writeWorkspaceChatSource(next: ChatModelSource | undefined): void {
+  const workspaceId = resolveWorkspaceId();
+  if (!workspaceId) return;
+  const cfg = teatimeConfigStore.get();
+  const workspaces = cfg.workspaces.map((workspace) => {
+    if (workspace.id !== workspaceId) return workspace;
+    if (!next) {
+      const { chatSource: _removed, ...rest } = workspace;
+      return rest;
+    }
+    return { ...workspace, chatSource: next };
+  });
+  teatimeConfigStore.set({ ...cfg, workspaces });
 }
 
 /** Find a setting row by key and category. */
@@ -145,8 +183,10 @@ async function getSettingsByDefs(
 
   return defs.map((def) => {
     const row = rowByKey.get(`${def.category ?? "general"}::${def.key}`);
-    const rawValue = row?.value ?? serializeSettingValue(def.defaultValue);
-    const parsedValue = parseSettingValue(rawValue);
+    const fallbackValue = serializeSettingValue(def.defaultValue);
+    const rawValue = row?.value ?? fallbackValue;
+    const parsedValue =
+      def.key === CHAT_SOURCE_KEY ? readWorkspaceChatSource() ?? def.defaultValue : parseSettingValue(rawValue);
     const value = def.secret && maskSecret ? maskSecretValue(parsedValue) : parsedValue;
     return {
       id: row?.id,
@@ -300,13 +340,21 @@ export async function getProviderSettings(): Promise<ProviderSettingEntry[]> {
 export async function getSettingsForWeb() {
   const defs = Object.values(ServerSettingDefs);
   const knownSettings = await getSettingsByDefs(defs, { maskSecret: true });
-  const providerSettings = readModelProviders()
+  return knownSettings;
+}
+
+/** Return model provider settings for web output. */
+export async function getProviderSettingsForWeb() {
+  return readModelProviders()
     .map((entry) => normalizeProviderSettingItem(entry))
     .filter((entry): entry is SettingItem => Boolean(entry));
-  const s3ProviderSettings = readS3Providers()
+}
+
+/** Return S3 provider settings for web output. */
+export async function getS3ProviderSettingsForWeb() {
+  return readS3Providers()
     .map((entry) => normalizeS3SettingItem(entry))
     .filter((entry): entry is SettingItem => Boolean(entry));
-  return [...knownSettings, ...providerSettings, ...s3ProviderSettings];
 }
 
 /** Get setting value for server-side usage. */
@@ -411,6 +459,10 @@ export async function setSettingValueFromWeb(
     upsertS3Provider(key, value);
     return;
   }
+  if (key === CHAT_SOURCE_KEY) {
+    writeWorkspaceChatSource(value === "cloud" ? "cloud" : "local");
+    return;
+  }
   await setSettingValue(key, value, category);
 }
 
@@ -422,6 +474,10 @@ export async function deleteSettingValueFromWeb(key: string, category?: string) 
   }
   if (category === S3_PROVIDER_CATEGORY) {
     removeS3Provider(key);
+    return;
+  }
+  if (key === CHAT_SOURCE_KEY) {
+    writeWorkspaceChatSource(undefined);
     return;
   }
   const def = getSettingDef(key);

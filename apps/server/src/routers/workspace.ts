@@ -42,6 +42,7 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
             type: "local",
             isActive: false,
             rootUri: active.rootUri,
+            chatSource: "local",
             projects: {},
           };
           teatimeConfigStore.set({ ...cfg, workspaces: [...cfg.workspaces, newWorkspace] as any });

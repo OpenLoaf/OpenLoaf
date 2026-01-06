@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { getEnvString } from "@teatime-ai/config";
-import type { ModelDefinition } from "@teatime-ai/api/common";
+import type { ChatModelSource, ModelDefinition } from "@teatime-ai/api/common";
 
 export type ModelProviderValue = {
   /** Provider id. */
@@ -59,6 +59,8 @@ export type WorkspaceConf = {
   isActive: boolean;
   /** Workspace root URI. */
   rootUri: string;
+  /** Chat model source bound to workspace. */
+  chatSource?: ChatModelSource;
   /** Project map of { projectId: rootUri }. */
   projects?: Record<string, string>;
 };

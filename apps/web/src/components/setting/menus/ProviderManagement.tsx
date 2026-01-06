@@ -458,10 +458,10 @@ function formatS3CredentialDisplay(accessKeyId: string, secretAccessKey: string)
 }
 
 export function ProviderManagement() {
-  const { items, setValue, removeValue } = useSettingsValues();
+  const { providerItems, s3ProviderItems, setValue, removeValue } = useSettingsValues();
   const entries = useMemo(() => {
     const list: ProviderEntry[] = [];
-    for (const item of items) {
+    for (const item of providerItems) {
       if ((item.category ?? "general") !== "provider") continue;
       if (!item.value || typeof item.value !== "object") continue;
       const entry = item.value as Partial<ProviderSettingValue>;
@@ -478,11 +478,11 @@ export function ProviderManagement() {
       });
     }
     return list;
-  }, [items]);
+  }, [providerItems]);
   /** Build list of S3 provider entries from settings. */
   const s3Entries = useMemo(() => {
     const list: S3ProviderEntry[] = [];
-    for (const item of items) {
+    for (const item of s3ProviderItems) {
       if ((item.category ?? "general") !== S3_PROVIDER_CATEGORY) continue;
       if (!item.value || typeof item.value !== "object") continue;
       const entry = item.value as Partial<S3ProviderValue>;
@@ -510,7 +510,7 @@ export function ProviderManagement() {
       });
     }
     return list;
-  }, [items]);
+  }, [s3ProviderItems]);
   /** Track S3 dialog visibility. */
   const [s3DialogOpen, setS3DialogOpen] = useState(false);
   /** Track the S3 entry being edited. */

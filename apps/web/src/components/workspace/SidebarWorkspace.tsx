@@ -76,6 +76,7 @@ export const SidebarWorkspace = () => {
     email?: string;
     name?: string;
     picture?: string;
+    avatarUrl?: string;
   } | null>(null);
   // Auth login status from server.
   const [authLoggedIn, setAuthLoggedIn] = React.useState(false);
@@ -114,7 +115,8 @@ export const SidebarWorkspace = () => {
             setAuthUser({
               email: session.user.email,
               name: session.user.name,
-              picture: session.user.avatarUrl,
+              picture: session.user.picture,
+              avatarUrl: session.user.avatarUrl,
             });
           } else {
             setAuthUser(null);
@@ -165,7 +167,8 @@ export const SidebarWorkspace = () => {
           setAuthUser({
             email: payload.user.email,
             name: payload.user.name,
-            picture: payload.user.avatarUrl,
+            picture: payload.user.picture,
+            avatarUrl: payload.user.avatarUrl,
           });
           setAuthLoggedIn(true);
         }
@@ -189,7 +192,8 @@ export const SidebarWorkspace = () => {
             setAuthUser({
               email: session.user.email,
               name: session.user.name,
-              picture: session.user.avatarUrl,
+              picture: session.user.picture,
+              avatarUrl: session.user.avatarUrl,
             });
           } else {
             setAuthUser(null);
@@ -250,7 +254,9 @@ export const SidebarWorkspace = () => {
   const workspacesQuery = useQuery(trpc.workspace.getList.queryOptions());
   const displayEmail =
     authUser?.email ?? authUser?.name ?? userEmail ?? (authLoggedIn ? "已登录" : undefined);
-  const displayAvatar = authUser?.picture ?? userAvatarUrl;
+  const displayAvatar = authUser?.picture ?? authUser?.avatarUrl ?? userAvatarUrl;
+  const displayInitial =
+    (authUser?.name ?? displayEmail ?? "?")[0]?.toUpperCase() ?? "?";
 
   const activateWorkspace = useMutation(
     trpc.workspace.activate.mutationOptions({
@@ -385,7 +391,7 @@ export const SidebarWorkspace = () => {
                     <AvatarImage src={displayAvatar} alt={displayEmail ?? "User"} />
                   ) : null}
                   <AvatarFallback className="text-[11px]">
-                    {((displayEmail ?? "?")[0] ?? "?").toUpperCase()}
+                    {displayInitial}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0 text-left">
@@ -411,7 +417,7 @@ export const SidebarWorkspace = () => {
                     <AvatarImage src={displayAvatar} alt={displayEmail ?? "User"} />
                   ) : null}
                   <AvatarFallback className="text-xs">
-                    {((displayEmail ?? "?")[0] ?? "?").toUpperCase()}
+                    {displayInitial}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">

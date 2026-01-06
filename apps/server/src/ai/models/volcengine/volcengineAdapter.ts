@@ -6,6 +6,7 @@ import type {
 } from "@/modules/model/providerAdapters";
 import { buildVolcengineRequest } from "./volcengineClient";
 import { resolveVolcengineConfig } from "./volcengineConfig";
+import { buildVolcengineImageModel } from "./volcengineImageModel";
 
 /** Submit action name for Volcengine. */
 const VOLCENGINE_ACTION_SUBMIT = "CVSync2AsyncSubmitTask";
@@ -154,6 +155,7 @@ function buildVolcenginePayload(modelId: string, input: ProviderRequestInput) {
 export const volcengineAdapter: ProviderAdapter = {
   id: "volcengine",
   buildAiSdkModel: () => null,
+  buildImageModel: (input) => buildVolcengineImageModel(input),
   buildRequest: ({ provider, providerDefinition, modelId, input }): ProviderRequest | null => {
     const config = resolveVolcengineConfig({ provider, providerDefinition });
     const payload = buildVolcenginePayload(modelId, input);

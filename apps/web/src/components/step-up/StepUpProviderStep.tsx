@@ -36,11 +36,11 @@ export function StepUpProviderStep({
   onSelect,
 }: StepUpProviderStepProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { items, setValue } = useSettingsValues();
+  const { providerItems, setValue } = useSettingsValues();
 
   const entries = useMemo(() => {
     const list: StepUpProviderEntry[] = [];
-    for (const item of items) {
+    for (const item of providerItems) {
       if ((item.category ?? "general") !== "provider") continue;
       if (!item.value || typeof item.value !== "object") continue;
       const entry = item.value as Partial<StepUpProviderEntry>;
@@ -54,7 +54,7 @@ export function StepUpProviderStep({
       });
     }
     return list;
-  }, [items]);
+  }, [providerItems]);
 
   const selectedEntry = entries.find((entry) => entry.key === selectedKey) ?? null;
 

@@ -136,6 +136,7 @@ function buildQwenRequest(modelId: string, input: ProviderRequestInput): Record<
 export const qwenAdapter: ProviderAdapter = {
   id: "qwenAdapter",
   buildAiSdkModel: () => null,
+  buildImageModel: () => null,
   buildRequest: ({ provider, providerDefinition, modelId, input }): ProviderRequest | null => {
     const config = resolveQwenConfig({ provider, providerDefinition });
     const body = JSON.stringify(buildQwenRequest(modelId, input));

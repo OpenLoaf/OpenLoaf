@@ -54,7 +54,7 @@ export function ModelManagement() {
   const { value: entriesRaw, setValue: setEntriesValue } = useSetting(
     WebSettingDefs.ModelProviders,
   );
-  const { items } = useSettingsValues();
+  const { providerItems } = useSettingsValues();
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const { value: modelResponseLanguageRaw, setValue: setModelResponseLanguage } =
@@ -92,8 +92,8 @@ export function ModelManagement() {
       : "medium";
 
   const modelOptions = useMemo(
-    () => buildChatModelOptions(chatModelSource, items),
-    [chatModelSource, items],
+    () => buildChatModelOptions(chatModelSource, providerItems),
+    [chatModelSource, providerItems],
   );
   const emptyModelLabel = chatModelSource === "cloud" ? "云端模型暂未开放" : "暂无模型";
 

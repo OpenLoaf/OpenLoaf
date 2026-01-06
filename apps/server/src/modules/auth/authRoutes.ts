@@ -58,15 +58,17 @@ export function registerAuthRoutes(app: Hono): void {
     if (!accessToken) {
       return c.html(renderCallbackPage("登录失败：缺少回调参数"));
     }
+    const pictureBase64 = await resolveAvatarBase64(avatarUrl);
     // 逻辑：回调收到 token 后写入配置/内存，并允许页面提示关闭。
     applyTokenExchangeResult({
       accessToken,
       refreshToken: refreshToken ?? undefined,
       expiresIn,
       user:
-        avatarUrl || email || name
+        pictureBase64 || avatarUrl || email || name
           ? {
-              picture: avatarUrl ?? undefined,
+              picture: pictureBase64 ?? undefined,
+              avatarUrl: avatarUrl ?? undefined,
               email: email ?? undefined,
               name: name ?? undefined,
             }
@@ -82,10 +84,11 @@ export function registerAuthRoutes(app: Hono): void {
       loggedIn: snapshot.loggedIn,
       user: snapshot.user
         ? {
-          email: snapshot.user.email,
-          name: snapshot.user.name,
-          avatarUrl: snapshot.user.picture,
-        }
+            email: snapshot.user.email,
+            name: snapshot.user.name,
+            picture: snapshot.user.picture,
+            avatarUrl: snapshot.user.avatarUrl,
+          }
         : undefined,
     });
   });
@@ -120,7 +123,7 @@ export function registerAuthRoutes(app: Hono): void {
           ? {
               email: snapshot.user.email,
               name: snapshot.user.name,
-              avatarUrl: snapshot.user.picture,
+              avatarUrl: snapshot.user.avatarUrl,
             }
           : undefined,
       });
@@ -152,13 +155,15 @@ async function ensureAccessTokenFresh(): Promise<void> {
   try {
     // 逻辑：access token 失效时使用 refresh token 获取新 token。
     const token = await refreshAccessToken({ refreshToken });
+    const pictureBase64 = await resolveAvatarBase64(token.user?.avatarUrl);
     applyTokenExchangeResult({
       accessToken: token.accessToken,
       refreshToken: token.refreshToken,
       expiresIn: token.expiresIn,
       user: token.user
         ? {
-            picture: token.user.avatarUrl ?? undefined,
+            picture: pictureBase64 ?? undefined,
+            avatarUrl: token.user.avatarUrl ?? undefined,
             email: token.user.email ?? undefined,
             name: token.user.name ?? undefined,
           }
@@ -251,6 +256,44 @@ function parseExpiresIn(raw: string | undefined): number | undefined {
   if (!raw) return undefined;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/**
+ * Resolve avatar to base64 data URL for storage.
+ */
+async function resolveAvatarBase64(avatarUrl: string | undefined): Promise<string | undefined> {
+  if (!avatarUrl) return undefined;
+  if (avatarUrl.startsWith("data:")) return avatarUrl;
+  if (!isHttpUrl(avatarUrl)) {
+    // 逻辑：非 HTTP 地址默认视为已是 base64 字符串。
+    return avatarUrl;
+  }
+  try {
+    const response = await fetch(avatarUrl);
+    if (!response.ok) {
+      logger.warn({ status: response.status }, "Failed to fetch avatar for base64");
+      return undefined;
+    }
+    const contentType = response.headers.get("content-type") || "image/png";
+    const buffer = Buffer.from(await response.arrayBuffer());
+    // 逻辑：统一存储为 data URL，前端可直接作为图片源使用。
+    return `data:${contentType};base64,${buffer.toString("base64")}`;
+  } catch (error) {
+    logger.warn({ err: error }, "Failed to resolve avatar base64");
+    return undefined;
+  }
+}
+
+/**
+ * Check whether a string is an HTTP(S) URL.
+ */
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 /**

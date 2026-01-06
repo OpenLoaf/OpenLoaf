@@ -8,6 +8,8 @@ export type AuthUser = {
   /** User display name. */
   name?: string;
   /** Avatar URL. */
+  avatarUrl?: string;
+  /** Avatar base64 data URL. */
   picture?: string;
 };
 

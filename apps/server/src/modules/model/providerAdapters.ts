@@ -1,4 +1,4 @@
-import type { LanguageModelV3 } from "@ai-sdk/provider";
+import type { ImageModelV3, LanguageModelV3 } from "@ai-sdk/provider";
 import type { HeadersInit } from "undici";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createDeepSeek } from "@ai-sdk/deepseek";
@@ -116,6 +116,8 @@ export type ProviderAdapter = {
   id: string;
   /** Build AI SDK model for chat. */
   buildAiSdkModel: (input: AdapterInput) => LanguageModelV3 | null;
+  /** Build AI SDK model for image generation. */
+  buildImageModel: (input: AdapterInput) => ImageModelV3 | null;
   /** Build custom HTTP request when AI SDK is unavailable. */
   buildRequest: (input: AdapterInput & { input: ProviderRequestInput }) => ProviderRequest | null;
 };
@@ -186,6 +188,7 @@ function buildAiSdkAdapter(
       if (!apiKey || !resolvedApiUrl) return null;
       return factory({ apiUrl: resolvedApiUrl, apiKey, fetch: debugFetch })(modelId);
     },
+    buildImageModel: () => null,
     buildRequest: () => null,
   };
 }

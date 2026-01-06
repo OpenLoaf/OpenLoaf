@@ -105,7 +105,7 @@ async function openExternalUrl(url: string): Promise<void> {
 }
 
 export default function SelectMode({ className }: SelectModeProps) {
-  const { items, refresh } = useSettingsValues();
+  const { providerItems, refresh } = useSettingsValues();
   const { value: chatModelSourceRaw, setValue: setChatModelSource } =
     useSetting(WebSettingDefs.ModelChatSource);
   const { value: defaultChatModelIdRaw, setValue: setDefaultChatModelId } =
@@ -118,8 +118,8 @@ export default function SelectMode({ className }: SelectModeProps) {
   const chatModelSource = normalizeChatModelSource(chatModelSourceRaw);
   const isCloudSource = chatModelSource === "cloud";
   const modelOptions = useMemo(
-    () => buildChatModelOptions(chatModelSource, items),
-    [chatModelSource, items],
+    () => buildChatModelOptions(chatModelSource, providerItems),
+    [chatModelSource, providerItems],
   );
   const selectedModel =
     typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw : "";

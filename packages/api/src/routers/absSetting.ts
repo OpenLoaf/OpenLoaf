@@ -15,6 +15,12 @@ export const settingSchemas = {
   getAll: {
     output: z.array(settingItemSchema),
   },
+  getProviders: {
+    output: z.array(settingItemSchema),
+  },
+  getS3Providers: {
+    output: z.array(settingItemSchema),
+  },
   set: {
     input: z.object({
       key: z.string(),
@@ -40,6 +46,16 @@ export abstract class BaseSettingRouter {
     return t.router({
       getAll: shieldedProcedure
         .output(settingSchemas.getAll.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getProviders: shieldedProcedure
+        .output(settingSchemas.getProviders.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getS3Providers: shieldedProcedure
+        .output(settingSchemas.getS3Providers.output)
         .query(async () => {
           throw new Error("Not implemented in base class");
         }),

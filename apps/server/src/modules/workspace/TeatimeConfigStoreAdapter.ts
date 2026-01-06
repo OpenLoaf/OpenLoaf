@@ -36,6 +36,7 @@ function ensureDefault(normalizedPath: string) {
     type: "local",
     isActive: true,
     rootUri: resolveDefaultWorkspaceRootUri(normalizedPath),
+    chatSource: "local",
     projects: {},
   };
   const defaultConfig: TeatimeConfig = {
@@ -71,6 +72,7 @@ export const teatimeConfigStore = {
         workspaces: parsed.workspaces.map((workspace) => ({
           ...workspace,
           rootUri: workspace.rootUri || resolveDefaultWorkspaceRootUri(path),
+          chatSource: workspace.chatSource ?? "local",
           projects: workspace.projects ?? {},
         })),
       };
@@ -89,6 +91,7 @@ export const teatimeConfigStore = {
             type: "local",
             isActive: true,
             rootUri: legacyRootUri || resolveDefaultWorkspaceRootUri(path),
+            chatSource: "local",
             projects: {},
           },
         ],

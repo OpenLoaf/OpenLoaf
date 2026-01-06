@@ -1,6 +1,6 @@
 export type ChatModelSource = "local" | "cloud";
 
-export type IOType = "text" | "image" | "audio" | "video";
+export type IOType = "text" | "image" | "imageUrl" | "audio" | "video";
 
 export type ModelTag =
   | "text_to_image"
