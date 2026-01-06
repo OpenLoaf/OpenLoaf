@@ -27,7 +27,7 @@ export function registerChatAttachmentRoutes(app: Hono) {
     const rawFile = body.file;
     const file = Array.isArray(rawFile) ? rawFile[0] : rawFile;
 
-    if (!workspaceId || !projectId || !sessionId || !isFileLike(file)) {
+    if (!workspaceId || !sessionId || !isFileLike(file)) {
       return c.json({ error: "Missing required upload fields" }, 400);
     }
 
@@ -47,7 +47,8 @@ export function registerChatAttachmentRoutes(app: Hono) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const mediaType = file.type || "application/octet-stream";
       const result = await saveChatImageAttachment({
-        projectId,
+        workspaceId,
+        projectId: projectId || undefined,
         sessionId,
         fileName: file.name || "upload",
         mediaType,

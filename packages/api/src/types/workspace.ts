@@ -11,6 +11,10 @@ export const workspaceBase = z.object({
     .enum(["local", "cloud"])
     .optional()
     .describe("Workspace chat model source."),
+  activeS3Id: z
+    .string()
+    .optional()
+    .describe("Active S3 provider id for the workspace."),
   projects: z
     .record(z.string(), z.string())
     .optional()

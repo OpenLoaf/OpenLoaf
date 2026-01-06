@@ -28,11 +28,15 @@ export type S3ProviderValue = {
   /** Display label for UI. */
   providerLabel?: string;
   /** Endpoint URL. */
-  endpoint: string;
+  endpoint?: string;
   /** Region name. */
   region?: string;
   /** Bucket name. */
   bucket: string;
+  /** Force path-style addressing. */
+  forcePathStyle?: boolean;
+  /** Public base URL for CDN or custom domain. */
+  publicBaseUrl?: string;
   /** Access key id. */
   accessKeyId: string;
   /** Secret access key. */
@@ -61,6 +65,8 @@ export type WorkspaceConf = {
   rootUri: string;
   /** Chat model source bound to workspace. */
   chatSource?: ChatModelSource;
+  /** Active S3 provider id bound to workspace. */
+  activeS3Id?: string;
   /** Project map of { projectId: rootUri }. */
   projects?: Record<string, string>;
 };

@@ -2,7 +2,10 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import sharp from "sharp";
-import { getProjectRootPath } from "@teatime-ai/api/services/vfsService";
+import {
+  getProjectRootPath,
+  getWorkspaceRootPathById,
+} from "@teatime-ai/api/services/vfsService";
 
 const CHAT_IMAGE_MAX_EDGE = 1024;
 const CHAT_IMAGE_QUALITY = 80;
@@ -39,12 +42,34 @@ function normalizeRelativePath(input: string): string {
   return input.replace(/^\/+/, "");
 }
 
-function buildTeatimeFileUrl(projectId: string, relativePath: string): string {
-  return `teatime-file://${projectId}/${normalizeRelativePath(relativePath)}`;
+function buildTeatimeFileUrl(ownerId: string, relativePath: string): string {
+  return `teatime-file://${ownerId}/${normalizeRelativePath(relativePath)}`;
 }
 
 async function resolveProjectRootPath(projectId: string): Promise<string | null> {
   return getProjectRootPath(projectId);
+}
+
+/** Resolve workspace root path by workspace id. */
+function resolveWorkspaceRootPath(workspaceId: string): string | null {
+  return getWorkspaceRootPathById(workspaceId);
+}
+
+/** Resolve the root path for chat attachments and return the owner id. */
+async function resolveChatAttachmentRoot(input: {
+  projectId?: string;
+  workspaceId?: string;
+}): Promise<{ rootPath: string; ownerId: string } | null> {
+  const projectId = input.projectId?.trim();
+  if (projectId) {
+    const projectRootPath = await resolveProjectRootPath(projectId);
+    if (projectRootPath) return { rootPath: projectRootPath, ownerId: projectId };
+  }
+  const workspaceId = input.workspaceId?.trim();
+  if (!workspaceId) return null;
+  const workspaceRootPath = resolveWorkspaceRootPath(workspaceId);
+  if (!workspaceRootPath) return null;
+  return { rootPath: workspaceRootPath, ownerId: workspaceId };
 }
 
 export async function resolveTeatimeFilePath(url: string): Promise<string | null> {
@@ -55,17 +80,19 @@ export async function resolveTeatimeFilePath(url: string): Promise<string | null
     return null;
   }
   if (parsed.protocol !== "teatime-file:") return null;
-  const projectId = parsed.hostname.trim();
-  if (!projectId) return null;
+  const ownerId = parsed.hostname.trim();
+  if (!ownerId) return null;
   const relativePath = normalizeRelativePath(decodeURIComponent(parsed.pathname));
   if (!relativePath) return null;
-  const projectRootPath = await resolveProjectRootPath(projectId);
-  if (!projectRootPath) return null;
+  const projectRootPath = await resolveProjectRootPath(ownerId);
+  const workspaceRootPath = projectRootPath ? null : resolveWorkspaceRootPath(ownerId);
+  const rootPath = projectRootPath ?? workspaceRootPath;
+  if (!rootPath) return null;
 
-  const targetPath = path.resolve(projectRootPath, relativePath);
-  const rootPath = path.resolve(projectRootPath);
-  if (targetPath === rootPath) return null;
-  if (!targetPath.startsWith(rootPath + path.sep)) return null;
+  const targetPath = path.resolve(rootPath, relativePath);
+  const rootPathResolved = path.resolve(rootPath);
+  if (targetPath === rootPathResolved) return null;
+  if (!targetPath.startsWith(rootPathResolved + path.sep)) return null;
   return targetPath;
 }
 
@@ -91,7 +118,8 @@ async function compressImageBuffer(input: Buffer, format: ImageFormat): Promise<
 }
 
 export async function saveChatImageAttachment(input: {
-  projectId: string;
+  workspaceId: string;
+  projectId?: string;
   sessionId: string;
   fileName: string;
   mediaType: string;
@@ -107,17 +135,20 @@ export async function saveChatImageAttachment(input: {
   const hash = createHash("sha256").update(compressed.buffer).digest("hex");
   const fileName = `${hash}.${compressed.ext}`;
   const relativePath = path.posix.join(".teatime", "chat", input.sessionId, fileName);
-  const projectRootPath = await resolveProjectRootPath(input.projectId);
-  if (!projectRootPath) {
-    throw new Error("Project not found");
+  const root = await resolveChatAttachmentRoot({
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+  });
+  if (!root) {
+    throw new Error("Workspace or project not found");
   }
 
-  const targetPath = path.join(projectRootPath, ".teatime", "chat", input.sessionId, fileName);
+  const targetPath = path.join(root.rootPath, ".teatime", "chat", input.sessionId, fileName);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.writeFile(targetPath, compressed.buffer);
 
   return {
-    url: buildTeatimeFileUrl(input.projectId, relativePath),
+    url: buildTeatimeFileUrl(root.ownerId, relativePath),
     mediaType: compressed.mediaType,
   };
 }

@@ -45,6 +45,13 @@ export const workspaceSchemas = {
     }),
     output: workspaceBase,
   },
+  setActiveS3: {
+    input: z.object({
+      id: workspaceIdSchema,
+      activeS3Id: z.string(),
+    }),
+    output: workspaceBase,
+  },
 };
 
 // 定义抽象路由类，包含所有路由的schema定义
@@ -97,6 +104,14 @@ export abstract class BaseWorkspaceRouter {
       updateName: shieldedProcedure
         .input(workspaceSchemas.updateName.input)
         .output(workspaceSchemas.updateName.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+
+      // 激活 S3 服务商
+      setActiveS3: shieldedProcedure
+        .input(workspaceSchemas.setActiveS3.input)
+        .output(workspaceSchemas.setActiveS3.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

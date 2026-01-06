@@ -59,6 +59,7 @@ export * from "./types/event";
 export * from "./types/message";
 export * from "./types/toolResult";
 export * from "./types/setting";
+export * from "./types/storage";
 export * from "./common";
 export * from "./markdown/block-markdown";
 

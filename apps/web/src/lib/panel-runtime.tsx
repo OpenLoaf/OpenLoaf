@@ -7,6 +7,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/utils/trpc";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { TabActiveProvider } from "@/components/layout/TabActiveContext";
+import { WorkspaceProvider } from "@/components/workspace/WorkspaceProvider";
 import { useSetting } from "@/hooks/use-settings";
 import { WebSettingDefs } from "@/lib/setting-defs";
 
@@ -102,7 +103,7 @@ function PanelProviders({ children }: { children: React.ReactNode }) {
     >
       <ThemeSettingsBootstrap />
       <QueryClientProvider client={queryClient}>
-        {children}
+        <WorkspaceProvider>{children}</WorkspaceProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

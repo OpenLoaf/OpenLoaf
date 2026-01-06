@@ -8,6 +8,7 @@ import {
 } from "ai";
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
+import type { IOType } from "@teatime-ai/api/common";
 import type { ChatRequestBody, TokenUsage } from "@teatime-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/resolveChatModel";
@@ -112,6 +113,41 @@ async function replaceTeatimeFileParts(messages: UIMessage[]): Promise<UIMessage
     next.push({ ...message, parts: replaced } as UIMessage);
   }
   return next;
+}
+
+/** Resolve required input types from message parts. */
+function resolveRequiredInputTypes(messages: UIMessage[]): IOType[] {
+  const required = new Set<IOType>();
+  for (const message of messages) {
+    const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
+    for (const part of parts) {
+      if (!part || typeof part !== "object") continue;
+      if ((part as any).type !== "file") continue;
+      const url = typeof (part as any).url === "string" ? (part as any).url : "";
+      if (!url) continue;
+      // 中文注释：按协议区分本地图片与图片链接能力。
+      if (/^https?:\/\//i.test(url)) {
+        required.add("imageUrl");
+      } else if (url.startsWith("teatime-file://")) {
+        required.add("image");
+      }
+    }
+  }
+  return Array.from(required);
+}
+
+/** Resolve the last used chatModelId from assistant metadata. */
+function resolvePreviousChatModelId(messages: UIMessage[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i] as any;
+    if (!message || message.role !== "assistant") continue;
+    const metadata = message.metadata;
+    if (!metadata || typeof metadata !== "object") continue;
+    const agent = (metadata as any).agent;
+    const chatModelId = typeof agent?.chatModelId === "string" ? agent.chatModelId : "";
+    if (chatModelId) return chatModelId;
+  }
+  return null;
 }
 
 /**
@@ -338,9 +374,19 @@ export function registerChatSseRoutes(app: Hono) {
     let agentMetadata: Record<string, unknown> = {};
     // 中文注释：优先使用请求传入的 chatModelId，失败后按 fallback 规则选择模型。
     try {
+      const requiredInput =
+        !chatModelId && Array.isArray(messages)
+          ? resolveRequiredInputTypes(messages as UIMessage[])
+          : [];
+      const preferredChatModelId =
+        !chatModelId && Array.isArray(messages)
+          ? resolvePreviousChatModelId(messages as UIMessage[])
+          : null;
       const resolved = await resolveChatModel({
         chatModelId,
         chatModelSource,
+        requiredInput,
+        preferredChatModelId,
       });
       masterAgent = createMasterAgentRunner({
         model: resolved.model,

@@ -7,13 +7,14 @@
     "apiKey": "${XAI_API_KEY}"
   },
   "models": [
+    
     {
-      "id": "grok-code-fast-1",
-      "familyId": "grok-code-fast-1",
+      "id": "grok-4-1-fast-reasoning",
+      "familyId": "grok-4-1-fast-reasoning",
       "providerId": "xai",
-      "input": ["text"],
+      "input": ["text","image","imageUrl"],
       "output": ["text"],
-      "tags": ["text_generation", "tool_call","code"],
+      "tags": ["text_generation", "tool_call","image_to_text","web_search"],
       "maxContextK": 128,
       "priceStrategyId": "tiered_token",
       "currencySymbol": "$",
@@ -25,7 +26,7 @@
       "id": "grok-4-fast-non-reasoning",
       "familyId": "grok-4-fast-non-reasoning",
       "providerId": "xai",
-      "input": ["text"],
+      "input": ["text","image","imageUrl"],
       "output": ["text"],
       "tags": ["text_generation", "tool_call","image_to_text","web_search"],
       "maxContextK": 128,
@@ -36,12 +37,12 @@
       ]
     },
     {
-      "id": "grok-4-1-fast-reasoning",
-      "familyId": "grok-4-1-fast-reasoning",
+      "id": "grok-code-fast-1",
+      "familyId": "grok-code-fast-1",
       "providerId": "xai",
       "input": ["text"],
       "output": ["text"],
-      "tags": ["text_generation", "tool_call","image_to_text","web_search"],
+      "tags": ["text_generation", "tool_call","code"],
       "maxContextK": 128,
       "priceStrategyId": "tiered_token",
       "currencySymbol": "$",

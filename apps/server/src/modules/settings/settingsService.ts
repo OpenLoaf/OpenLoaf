@@ -107,6 +107,22 @@ function writeWorkspaceChatSource(next: ChatModelSource | undefined): void {
   teatimeConfigStore.set({ ...cfg, workspaces });
 }
 
+/** Persist active S3 provider id into workspace config. */
+function writeWorkspaceActiveS3Id(next?: string): void {
+  const workspaceId = resolveWorkspaceId();
+  if (!workspaceId) return;
+  const cfg = teatimeConfigStore.get();
+  const workspaces = cfg.workspaces.map((workspace) => {
+    if (workspace.id !== workspaceId) return workspace;
+    if (!next) {
+      const { activeS3Id: _removed, ...rest } = workspace;
+      return rest;
+    }
+    return { ...workspace, activeS3Id: next };
+  });
+  teatimeConfigStore.set({ ...cfg, workspaces });
+}
+
 /** Find a setting row by key and category. */
 async function findSettingRow(key: string, category: string) {
   return prisma.setting.findFirst({
@@ -242,19 +258,30 @@ function normalizeS3ProviderValue(value: unknown): S3ProviderValue | null {
   const providerId = typeof value.providerId === "string" ? value.providerId.trim() : "";
   const providerLabel =
     typeof value.providerLabel === "string" ? value.providerLabel.trim() : undefined;
-  const endpoint = typeof value.endpoint === "string" ? value.endpoint.trim() : "";
+  const endpoint =
+    typeof value.endpoint === "string" && value.endpoint.trim()
+      ? value.endpoint.trim()
+      : undefined;
   const region = typeof value.region === "string" ? value.region.trim() : undefined;
   const bucket = typeof value.bucket === "string" ? value.bucket.trim() : "";
+  const forcePathStyle =
+    typeof value.forcePathStyle === "boolean" ? value.forcePathStyle : undefined;
+  const publicBaseUrl =
+    typeof value.publicBaseUrl === "string" && value.publicBaseUrl.trim()
+      ? value.publicBaseUrl.trim()
+      : undefined;
   const accessKeyId = typeof value.accessKeyId === "string" ? value.accessKeyId.trim() : "";
   const secretAccessKey =
     typeof value.secretAccessKey === "string" ? value.secretAccessKey.trim() : "";
-  if (!providerId || !endpoint || !bucket || !accessKeyId || !secretAccessKey) return null;
+  if (!providerId || !bucket || !accessKeyId || !secretAccessKey) return null;
   return {
     providerId,
     providerLabel,
     endpoint,
     region,
     bucket,
+    forcePathStyle,
+    publicBaseUrl,
     accessKeyId,
     secretAccessKey,
   };
@@ -317,6 +344,8 @@ function normalizeS3SettingItem(entry: S3ProviderConf): SettingItem | null {
       endpoint: normalized.endpoint,
       region: normalized.region,
       bucket: normalized.bucket,
+      forcePathStyle: normalized.forcePathStyle,
+      publicBaseUrl: normalized.publicBaseUrl,
       accessKeyId: normalized.accessKeyId,
       secretAccessKey: normalized.secretAccessKey,
     },
@@ -437,12 +466,29 @@ function upsertS3Provider(key: string, value: unknown) {
     ...providers.filter((entry) => entry.title !== key),
   ];
   writeS3Providers(nextProviders);
+  const workspaceId = resolveWorkspaceId();
+  if (!workspaceId) return;
+  const cfg = teatimeConfigStore.get();
+  const workspace = cfg.workspaces.find((item) => item.id === workspaceId);
+  if (workspace?.activeS3Id) return;
+  // 中文注释：首次添加 S3 服务商时默认激活。
+  writeWorkspaceActiveS3Id(next.id);
 }
 
 /** Remove S3 provider config from teatime.conf. */
 function removeS3Provider(key: string) {
   const providers = readS3Providers();
-  writeS3Providers(providers.filter((entry) => entry.title !== key));
+  const removed = providers.find((entry) => entry.title === key);
+  const nextProviders = providers.filter((entry) => entry.title !== key);
+  writeS3Providers(nextProviders);
+  if (!removed?.id) return;
+  const workspaceId = resolveWorkspaceId();
+  if (!workspaceId) return;
+  const cfg = teatimeConfigStore.get();
+  const workspace = cfg.workspaces.find((item) => item.id === workspaceId);
+  if (workspace?.activeS3Id !== removed.id) return;
+  // 中文注释：当前激活项被删除时回退到第一条或清空。
+  writeWorkspaceActiveS3Id(nextProviders[0]?.id);
 }
 
 /** Upsert setting value from web. */

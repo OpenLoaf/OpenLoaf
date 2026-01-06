@@ -7,6 +7,7 @@ type DragDropOverlayProps = {
   title: string;
   description?: ReactNode;
   radiusClassName?: string;
+  variant?: "default" | "warning";
 };
 
 /** Drag-and-drop overlay with unified style. */
@@ -15,8 +16,10 @@ export function DragDropOverlay({
   title,
   description,
   radiusClassName = "rounded-[inherit]",
+  variant = "default",
 }: DragDropOverlayProps) {
   if (!open) return null;
+  const isWarning = variant === "warning";
 
   return (
     <div
@@ -25,10 +28,26 @@ export function DragDropOverlay({
       <div
         className={`absolute inset-0 bg-background/35 backdrop-blur-xl ${radiusClassName}`}
       />
-      <div className="relative mx-6 w-full max-w-md rounded-2xl border bg-background/70 px-5 py-4 shadow-lg backdrop-blur-xl">
-        <div className="text-sm font-medium text-foreground">{title}</div>
+      <div
+        className={`relative mx-6 w-full max-w-md rounded-2xl border bg-background/70 px-5 py-4 shadow-lg backdrop-blur-xl ${
+          isWarning ? "border-destructive/50 bg-destructive/5" : ""
+        }`}
+      >
+        <div
+          className={`text-sm font-medium ${
+            isWarning ? "text-destructive" : "text-foreground"
+          }`}
+        >
+          {title}
+        </div>
         {description ? (
-          <div className="mt-1 text-xs text-muted-foreground">{description}</div>
+          <div
+            className={`mt-1 text-xs ${
+              isWarning ? "text-destructive/80" : "text-muted-foreground"
+            }`}
+          >
+            {description}
+          </div>
         ) : null}
       </div>
     </div>

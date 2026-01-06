@@ -16,6 +16,9 @@ import type { ChatAttachment } from "./chat-attachments";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
+import { useSetting, useSettingsValues } from "@/hooks/use-settings";
+import { WebSettingDefs } from "@/lib/setting-defs";
+import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 
 type ChatProps = {
   className?: string;
@@ -51,9 +54,29 @@ export function Chat({
   const effectiveLoadHistory = loadHistory ?? Boolean(sessionId);
   const projectId = typeof requestParams.projectId === "string" ? requestParams.projectId : "";
   const workspaceId = tab?.workspaceId ?? "";
+  const { value: chatModelSourceRaw } = useSetting(WebSettingDefs.ModelChatSource);
+  const { value: defaultChatModelIdRaw } = useSetting(WebSettingDefs.ModelDefaultChatModelId);
+  const { providerItems } = useSettingsValues();
+  const chatModelSource = normalizeChatModelSource(chatModelSourceRaw);
+  const modelOptions = React.useMemo(
+    () => buildChatModelOptions(chatModelSource, providerItems),
+    [chatModelSource, providerItems],
+  );
+  const selectedModelId =
+    typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw.trim() : "";
+  const isAutoModel = !selectedModelId;
+  const selectedModel = modelOptions.find((option) => option.id === selectedModelId);
+  // 中文注释：自动模式允许图片，非自动时必须显式支持 image 或 imageUrl。
+  const canAttachImage = isAutoModel
+    ? true
+    : Boolean(
+        selectedModel?.input?.includes("image") ||
+        selectedModel?.input?.includes("imageUrl"),
+      );
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
   const [isDragActive, setIsDragActive] = React.useState(false);
+  const [dragMode, setDragMode] = React.useState<"allow" | "deny">("allow");
 
   React.useEffect(() => {
     attachmentsRef.current = attachments;
@@ -101,10 +124,10 @@ export function Chat({
 
   const uploadAttachment = React.useCallback(
     async (attachment: ChatAttachment) => {
-      if (!workspaceId || !projectId) {
+      if (!workspaceId) {
         updateAttachment(attachment.id, {
           status: "error",
-          errorMessage: "当前标签页未绑定项目，无法上传图片",
+          errorMessage: "当前标签页未绑定工作区，无法上传图片",
         });
         return;
       }
@@ -112,7 +135,8 @@ export function Chat({
       const formData = new FormData();
       formData.append("file", attachment.file);
       formData.append("workspaceId", workspaceId);
-      formData.append("projectId", projectId);
+      // 中文注释：无项目时退回到 workspace 根目录。
+      if (projectId) formData.append("projectId", projectId);
       formData.append("sessionId", effectiveSessionId);
 
       try {
@@ -199,22 +223,44 @@ export function Chat({
 
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
     if (!event.dataTransfer?.types?.includes("Files")) return;
+    if (!canAttachImage) {
+      event.preventDefault();
+      setIsDragActive(true);
+      setDragMode("deny");
+      return;
+    }
     dragCounterRef.current += 1;
     setIsDragActive(true);
-  }, []);
+    setDragMode("allow");
+  }, [canAttachImage]);
 
   const handleDragOver = React.useCallback((event: React.DragEvent) => {
     if (!event.dataTransfer?.types?.includes("Files")) return;
+    if (!canAttachImage) {
+      event.preventDefault();
+      setIsDragActive(true);
+      setDragMode("deny");
+      return;
+    }
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
     setIsDragActive(true);
-  }, []);
+    setDragMode("allow");
+  }, [canAttachImage]);
 
   const handleDragLeave = React.useCallback((event: React.DragEvent) => {
     if (!event.dataTransfer?.types?.includes("Files")) return;
+    if (!canAttachImage) {
+      setIsDragActive(false);
+      setDragMode("allow");
+      return;
+    }
     dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
-    if (dragCounterRef.current === 0) setIsDragActive(false);
-  }, []);
+    if (dragCounterRef.current === 0) {
+      setIsDragActive(false);
+      setDragMode("allow");
+    }
+  }, [canAttachImage]);
 
   const handleDrop = React.useCallback(
     (event: React.DragEvent) => {
@@ -222,9 +268,14 @@ export function Chat({
       event.preventDefault();
       dragCounterRef.current = 0;
       setIsDragActive(false);
+      if (!canAttachImage) {
+        setDragMode("allow");
+        return;
+      }
+      setDragMode("allow");
       addAttachments(event.dataTransfer.files);
     },
-    [addAttachments]
+    [addAttachments, canAttachImage]
   );
 
   return (
@@ -258,14 +309,15 @@ export function Chat({
 
         <DragDropOverlay
           open={isDragActive}
-          title="松开鼠标即可添加图片"
+          title={dragMode === "deny" ? "当前模型不支持图片" : "松开鼠标即可添加图片"}
+          variant={dragMode === "deny" ? "warning" : "default"}
           radiusClassName="rounded-2xl"
-          description={
+          description={dragMode === "deny" ? "请切换到支持图片输入的模型" : (
             <>
               支持 PNG / JPEG / WebP，单文件不超过{" "}
               {formatFileSize(CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES)}，可多选
             </>
-          }
+          )}
         />
       </div>
     </ChatProvider>

@@ -45,6 +45,26 @@ function ensureDefault(normalizedPath: string) {
   writeFileSync(normalizedPath, JSON.stringify(defaultConfig, null, 2), "utf-8");
 }
 
+/** Read raw config content from disk (no schema validation). */
+function readRawConfig(normalizedPath: string): Record<string, unknown> {
+  if (!existsSync(normalizedPath)) return {};
+  try {
+    return JSON.parse(readFileSync(normalizedPath, "utf-8")) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+/** Persist workspace updates without wiping other config fields. */
+function writeWorkspaceConfig(
+  normalizedPath: string,
+  raw: Record<string, unknown>,
+  workspaces: Workspace[],
+) {
+  const merged = { ...raw, workspaces };
+  writeFileSync(normalizedPath, JSON.stringify(merged, null, 2), "utf-8");
+}
+
 /**
  * 配置存储（MVP）：
  * - 单进程内存缓存 + 文件落盘
@@ -56,7 +76,7 @@ export const teatimeConfigStore = {
     if (cached) return cached;
     const path = getConfigPath();
     ensureDefault(path);
-    const raw = JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
+    const raw = readRawConfig(path);
     const legacyRootUri = typeof raw.workspaceRootUri === "string" ? raw.workspaceRootUri : "";
     if (legacyRootUri && Array.isArray(raw.workspaces)) {
       // 中文注释：兼容旧版配置，将 workspaceRootUri 下放到 workspace.rootUri。
@@ -78,7 +98,7 @@ export const teatimeConfigStore = {
       };
       cached = normalized;
       if (legacyRootUri) {
-        writeFileSync(path, JSON.stringify(normalized, null, 2), "utf-8");
+        writeWorkspaceConfig(path, raw, normalized.workspaces);
       }
       return normalized;
     } catch {
@@ -96,7 +116,7 @@ export const teatimeConfigStore = {
           },
         ],
       };
-      writeFileSync(path, JSON.stringify(reset, null, 2), "utf-8");
+      writeWorkspaceConfig(path, raw, reset.workspaces);
       cached = reset;
       return reset;
     }
@@ -106,7 +126,8 @@ export const teatimeConfigStore = {
   set: (next: TeatimeConfig) => {
     const path = getConfigPath();
     const parsed = TeatimeConfigSchema.parse(next);
-    writeFileSync(path, JSON.stringify(parsed, null, 2), "utf-8");
+    const raw = readRawConfig(path);
+    writeWorkspaceConfig(path, raw, parsed.workspaces);
     cached = parsed;
   },
 } as const;

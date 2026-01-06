@@ -41,6 +41,10 @@ import { buildUriFromRoot } from "@/components/project/filesystem/file-system-ut
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSetting, useSettingsValues } from "@/hooks/use-settings";
+import { WebSettingDefs } from "@/lib/setting-defs";
+import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
+import { toast } from "sonner";
 
 interface ChatInputProps {
   className?: string;
@@ -570,6 +574,27 @@ export default function ChatInput({
     setInput,
     isHistoryLoading,
   } = useChatContext();
+  const { value: chatModelSourceRaw } = useSetting(WebSettingDefs.ModelChatSource);
+  const { value: defaultChatModelIdRaw } = useSetting(WebSettingDefs.ModelDefaultChatModelId);
+  const { providerItems } = useSettingsValues();
+  const chatModelSource = normalizeChatModelSource(chatModelSourceRaw);
+  const modelOptions = useMemo(
+    () => buildChatModelOptions(chatModelSource, providerItems),
+    [chatModelSource, providerItems],
+  );
+  const selectedModelId =
+    typeof defaultChatModelIdRaw === "string" ? defaultChatModelIdRaw.trim() : "";
+  const isAutoModel = !selectedModelId;
+  const selectedModel = modelOptions.find((option) => option.id === selectedModelId);
+  const canAttachImage = isAutoModel
+    ? true
+    : Boolean(
+        selectedModel?.input?.includes("image") ||
+        selectedModel?.input?.includes("imageUrl"),
+      );
+  const supportsImageInput = Boolean(selectedModel?.input?.includes("image"));
+  const supportsImageUrlInput = Boolean(selectedModel?.input?.includes("imageUrl"));
+  const handleAddAttachments = canAttachImage ? onAddAttachments : undefined;
 
   const isLoading = status === "submitted" || status === "streaming";
   const isStreaming = status === "streaming";
@@ -588,6 +613,27 @@ export default function ChatInput({
       (item) => item.status === "ready" && Boolean(item.remoteUrl)
     );
     if (!textValue && readyImages.length === 0) return;
+    if (!isAutoModel && readyImages.length > 0) {
+      let needsImage = false;
+      let needsImageUrl = false;
+      for (const item of readyImages) {
+        const url = item.remoteUrl || "";
+        if (/^https?:\/\//i.test(url)) {
+          needsImageUrl = true;
+        } else {
+          needsImage = true;
+        }
+      }
+      // 中文注释：不同类型的图片需要不同的输入能力。
+      if ((needsImage && !supportsImageInput) || (needsImageUrl && !supportsImageUrlInput)) {
+        if (needsImageUrl && !supportsImageUrlInput) {
+          toast.error("当前模型不支持图片链接");
+        } else {
+          toast.error("当前模型不支持图片");
+        }
+        return;
+      }
+    }
     if (status === "error") clearError();
     const imageParts = readyImages
       .map((item) => {
@@ -626,7 +672,7 @@ export default function ChatInput({
       onSubmit={handleSubmit}
       onStop={stopGenerating}
       attachments={attachments}
-      onAddAttachments={onAddAttachments}
+      onAddAttachments={handleAddAttachments}
       onRemoveAttachment={onRemoveAttachment}
     />
   );

@@ -14,6 +14,8 @@ type WorkspaceConfig = {
   isActive: boolean;
   /** Workspace root URI. */
   rootUri: string;
+  /** Active S3 provider id bound to workspace. */
+  activeS3Id?: string;
   /** Project map of { projectId: rootUri }. */
   projects?: Record<string, string>;
 };
@@ -112,6 +114,25 @@ export function getWorkspaceRootUri(): string {
 export function getWorkspaceRootPath(): string {
   const rootPath = fileURLToPath(getWorkspaceRootUri());
   // 中文注释：启动时确保目录存在，避免后续读写失败。
+  mkdirSync(rootPath, { recursive: true });
+  return rootPath;
+}
+
+/** Get workspace root URI by workspace id. */
+export function getWorkspaceRootUriById(workspaceId: string): string | null {
+  if (!workspaceId) return null;
+  const config = loadTeatimeConfig();
+  const workspace = config.workspaces.find((item) => item.id === workspaceId);
+  if (!workspace) return null;
+  return workspace.rootUri;
+}
+
+/** Get workspace root path by workspace id and ensure it exists. */
+export function getWorkspaceRootPathById(workspaceId: string): string | null {
+  const rootUri = getWorkspaceRootUriById(workspaceId);
+  if (!rootUri) return null;
+  const rootPath = fileURLToPath(rootUri);
+  // 中文注释：按 workspaceId 解析根目录并确保存在。
   mkdirSync(rootPath, { recursive: true });
   return rootPath;
 }

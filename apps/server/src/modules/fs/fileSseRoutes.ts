@@ -47,6 +47,7 @@ export function registerFileSseRoutes(app: Hono) {
         const watcher = chokidar.watch(fullPath, {
           ignoreInitial: true,
           persistent: true,
+          depth: 0,
         });
 
         let debounceTimer: NodeJS.Timeout | null = null;

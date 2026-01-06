@@ -42,6 +42,7 @@ const MODEL_TAG_LABELS: Record<ModelTag, string> = {
 const IO_LABELS: Record<IOType, string> = {
   text: "文本",
   image: "图片",
+  imageUrl: "图片链接",
   audio: "音频",
   video: "视频",
 };
@@ -210,7 +211,12 @@ export default function SelectMode({ className }: SelectModeProps) {
         >
           <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right">
             {isAuto ? (
-              "Auto"
+              <span className="flex items-center justify-end gap-1">
+                {!isCloudSource ? (
+                  <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : null}
+                <span className="truncate">Auto</span>
+              </span>
             ) : (
               <span className="flex items-center justify-end gap-1">
                 {!isCloudSource ? (

@@ -8,6 +8,7 @@ import { registerChatSseRoutes } from "@/modules/chat/ChatSseRoutes";
 import { registerChatAttachmentRoutes } from "@/modules/chat/chatAttachmentRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
+import { registerS3TestRoutes } from "@/modules/storage/s3TestRoutes";
 import { workspaceRouterImplementation } from "@/routers/workspace";
 import { tabRouterImplementation } from "@/routers/tab";
 import { chatRouterImplementation } from "@/routers/chat";
@@ -67,6 +68,7 @@ export function createApp() {
   registerChatAttachmentRoutes(app);
   registerFileSseRoutes(app);
   registerAuthRoutes(app);
+  registerS3TestRoutes(app);
 
   app.use(
     "/trpc/*",
