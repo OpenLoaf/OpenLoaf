@@ -7,13 +7,14 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
-} from "@/components/animate-ui/components/radix/sidebar";
+} from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
@@ -48,8 +49,6 @@ export const SidebarPage = () => {
   const [useCustomPath, setUseCustomPath] = useState(false);
   const [customPath, setCustomPath] = useState("");
   const [isBusy, setIsBusy] = useState(false);
-  const [isImportOpen, setIsImportOpen] = useState(false);
-  const [importPath, setImportPath] = useState("");
   const [isImportBusy, setIsImportBusy] = useState(false);
 
   /** Create a new project and refresh list. */
@@ -75,6 +74,16 @@ export const SidebarPage = () => {
     }
   };
 
+  /** Refresh project list. */
+  const handleRefreshProjects = async () => {
+    try {
+      await projectListQuery.refetch();
+      toast.success("项目列表已刷新");
+    } catch (err: any) {
+      toast.error(err?.message ?? "刷新失败");
+    }
+  };
+
   /** Pick a directory from system dialog (Electron only). */
   const pickDirectory = async (initialValue?: string) => {
     const api = window.teatimeElectron;
@@ -88,21 +97,17 @@ export const SidebarPage = () => {
 
   /** Import an existing project into workspace config. */
   const handleImportProject = async () => {
-    const picked = await pickDirectory(importPath);
-    setIsCreateOpen(false);
-    setImportPath(picked ?? importPath);
-    setIsImportOpen(true);
-  };
-
-  const handleConfirmImport = async () => {
-    const targetPath = importPath.trim();
-    if (!targetPath) return;
+    const picked = await pickDirectory();
+    if (!picked) {
+      toast.error("请选择项目目录");
+      return;
+    }
     try {
       setIsImportBusy(true);
-      await createProject.mutateAsync({ rootUri: targetPath });
+      // 中文注释：导入时直接写入配置并刷新列表，避免多余弹窗。
+      await createProject.mutateAsync({ rootUri: picked });
       toast.success("项目已导入");
-      setImportPath("");
-      setIsImportOpen(false);
+      setIsCreateOpen(false);
       await projectListQuery.refetch();
     } catch (err: any) {
       toast.error(err?.message ?? "导入失败");
@@ -143,6 +148,10 @@ export const SidebarPage = () => {
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-44">
+          <ContextMenuItem onClick={() => void handleRefreshProjects()}>
+            刷新
+          </ContextMenuItem>
+          <ContextMenuSeparator />
           <ContextMenuItem onClick={() => setIsCreateOpen(true)}>
             新建项目
           </ContextMenuItem>
@@ -245,56 +254,6 @@ export const SidebarPage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={isImportOpen}
-        onOpenChange={(open) => {
-          if (open) {
-            setIsImportOpen(true);
-            return;
-          }
-          setIsImportOpen(false);
-          setImportPath("");
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>导入项目</DialogTitle>
-            <DialogDescription>确认项目目录后导入配置。</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="project-import-path" className="text-right">
-                路径
-              </Label>
-              <div className="col-span-3 flex items-center gap-2">
-                <Input
-                  id="project-import-path"
-                  value={importPath}
-                  onChange={(event) => setImportPath(event.target.value)}
-                  placeholder="file://... 或 /path/to/project"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handleImportProject()}
-                >
-                  选择
-                </Button>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">
-                取消
-              </Button>
-            </DialogClose>
-            <Button onClick={handleConfirmImport} disabled={isImportBusy}>
-              确定
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };

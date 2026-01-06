@@ -209,6 +209,30 @@ export function upsertActiveWorkspaceProject(projectId: string, rootUri: string)
   writeTeatimeConfigFile(payload);
 }
 
+/** Remove a project from the active workspace config. */
+export function removeActiveWorkspaceProject(projectId: string): void {
+  const raw = readTeatimeConfigFile();
+  const config = loadTeatimeConfig();
+  const activeIndex = config.workspaces.findIndex((workspace) => workspace.isActive);
+  const targetIndex = activeIndex >= 0 ? activeIndex : 0;
+  const active = config.workspaces[targetIndex];
+  if (!active) {
+    throw new Error("Active workspace not found.");
+  }
+  const nextProjects = { ...(active.projects ?? {}) };
+  if (!nextProjects[projectId]) return;
+  // 移除项目映射，避免残留在 workspace 列表中。
+  delete nextProjects[projectId];
+  const nextWorkspaces = config.workspaces.map((workspace, index) =>
+    index === targetIndex ? { ...workspace, projects: nextProjects } : workspace
+  );
+  const payload = { ...raw, workspaces: nextWorkspaces };
+  if ("workspaceRootUri" in payload) {
+    delete (payload as { workspaceRootUri?: string }).workspaceRootUri;
+  }
+  writeTeatimeConfigFile(payload);
+}
+
 /** Convert a local path to file:// URI. */
 export function toFileUri(targetPath: string): string {
   return pathToFileURL(targetPath).href;

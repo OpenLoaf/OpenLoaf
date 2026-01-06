@@ -55,6 +55,8 @@ type ProviderDialogProps = {
   draftAccessKeyId: string;
   /** Draft secret access key. */
   draftSecretAccessKey: string;
+  /** Draft responses API toggle. */
+  draftEnableResponsesApi: boolean;
   /** Show auth toggle. */
   showAuth: boolean;
   /** Show access key toggle. */
@@ -89,6 +91,8 @@ type ProviderDialogProps = {
   onDraftAccessKeyIdChange: (value: string) => void;
   /** Update secret access key. */
   onDraftSecretAccessKeyChange: (value: string) => void;
+  /** Update responses API toggle. */
+  onDraftEnableResponsesApiChange: (value: boolean) => void;
   /** Toggle show auth. */
   onShowAuthChange: (value: boolean) => void;
   /** Toggle show secret access key. */
@@ -158,6 +162,7 @@ export function ProviderDialog({
   draftApiKey,
   draftAccessKeyId,
   draftSecretAccessKey,
+  draftEnableResponsesApi,
   showAuth,
   showSecretAccessKey,
   draftModelIds,
@@ -175,6 +180,7 @@ export function ProviderDialog({
   onDraftApiKeyChange,
   onDraftAccessKeyIdChange,
   onDraftSecretAccessKeyChange,
+  onDraftEnableResponsesApiChange,
   onShowAuthChange,
   onShowSecretAccessKeyChange,
   onDraftModelIdsChange,
@@ -185,6 +191,7 @@ export function ProviderDialog({
   onSubmit,
 }: ProviderDialogProps) {
   const [copiedModelId, setCopiedModelId] = useState<string | null>(null);
+  const showResponsesToggle = draftProvider === "custom";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -226,15 +233,16 @@ export function ProviderDialog({
                         if (!draftApiUrl.trim() || draftApiUrl.trim() === currentDefault) {
                           onDraftApiUrlChange(nextDefault);
                         }
-                        if (!draftName.trim() || draftName.trim() === currentDefaultName) {
-                          onDraftNameChange(nextDefaultName);
-                        }
-                        const nextAuthMode = resolveAuthMode(provider);
-                        onDraftAuthModeChange(nextAuthMode);
-                        onDraftApiKeyChange("");
-                        onDraftAccessKeyIdChange("");
-                        onDraftSecretAccessKeyChange("");
-                        onDraftCustomModelsChange([]);
+                      if (!draftName.trim() || draftName.trim() === currentDefaultName) {
+                        onDraftNameChange(nextDefaultName);
+                      }
+                      const nextAuthMode = resolveAuthMode(provider);
+                      onDraftAuthModeChange(nextAuthMode);
+                      onDraftApiKeyChange("");
+                      onDraftAccessKeyIdChange("");
+                      onDraftSecretAccessKeyChange("");
+                      onDraftEnableResponsesApiChange(false);
+                      onDraftCustomModelsChange([]);
                         onDraftModelIdsChange((prev) => {
                           if (prev.length === 0) return nextDefaultModels;
                           const nextSet = new Set(nextDefaultModels);
@@ -329,6 +337,21 @@ export function ProviderDialog({
                 </div>
               )}
             </div>
+
+            {showResponsesToggle ? (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Responses API</div>
+                <div className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-3 py-2">
+                  <div className="text-xs text-muted-foreground">
+                    启用 /v1/responses（关闭时使用 /v1/chat/completions）
+                  </div>
+                  <Switch
+                    checked={draftEnableResponsesApi}
+                    onCheckedChange={onDraftEnableResponsesApiChange}
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-2">

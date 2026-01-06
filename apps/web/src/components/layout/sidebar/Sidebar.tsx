@@ -10,7 +10,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/animate-ui/components/radix/sidebar";
+} from "@/components/ui/sidebar";
 import { CalendarDays, Inbox, LayoutTemplate, Search, Sparkles } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";

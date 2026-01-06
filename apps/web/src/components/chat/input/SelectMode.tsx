@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronUp, HardDrive, Sparkles } from "lucide-react";
 import {
   Popover,
@@ -82,9 +82,9 @@ async function openExternalUrl(url: string): Promise<void> {
 }
 
 export default function SelectMode({ className }: SelectModeProps) {
-  const { providerItems, refresh } = useSettingsValues();
-  const { models: cloudModels, refresh: refreshCloudModels } = useCloudModels();
-  const { basic, setBasic } = useBasicConfig();
+  const { providerItems, refresh, loaded: providersLoaded } = useSettingsValues();
+  const { models: cloudModels, refresh: refreshCloudModels, loaded: cloudModelsLoaded } = useCloudModels();
+  const { basic, setBasic, isLoading: isBasicLoading } = useBasicConfig();
   const [open, setOpen] = useState(false);
   const [authLoggedIn, setAuthLoggedIn] = useState(false);
   const authBaseUrl = resolveServerUrl();
@@ -107,6 +107,24 @@ export default function SelectMode({ className }: SelectModeProps) {
   const showModelList = hasModels && !isAuto;
   const showAddButton = !isCloudSource && (!isAuto || !hasModels);
   const showTopSection = showAuto || showModelList;
+  const modelOptionsReady = isCloudSource ? cloudModelsLoaded : providersLoaded;
+  // 中文注释：记录已持久化的模型选择，避免重复写入。
+  const persistedModelIdRef = useRef<string | null>(null);
+
+  /** Persist selected model id into basic config. */
+  const persistModelDefaultId = useCallback((nextModelId: string) => {
+    const normalized = typeof nextModelId === "string" ? nextModelId : "";
+    if (persistedModelIdRef.current === normalized) return;
+    persistedModelIdRef.current = normalized;
+    void setBasic({ modelDefaultChatModelId: normalized });
+  }, [setBasic]);
+
+  useEffect(() => {
+    if (isBasicLoading) return;
+    if (persistedModelIdRef.current !== null) return;
+    // 中文注释：首次进入聊天区时同步保存当前选择（含 Auto）。
+    persistModelDefaultId(selectedModel);
+  }, [isBasicLoading, persistModelDefaultId, selectedModel]);
   useEffect(() => {
     if (!open) return;
     // 中文注释：展开模型列表时刷新服务端配置，确保展示最新模型。
@@ -128,13 +146,14 @@ export default function SelectMode({ className }: SelectModeProps) {
   }, [authBaseUrl, open]);
   useEffect(() => {
     if (isAuto) return;
+    if (!modelOptionsReady) return;
     if (modelOptions.length === 0) {
-      void setBasic({ modelDefaultChatModelId: "" });
+      persistModelDefaultId("");
       return;
     }
     const exists = modelOptions.some((option) => option.id === selectedModel);
-    if (!exists) void setBasic({ modelDefaultChatModelId: modelOptions[0]!.id });
-  }, [isAuto, modelOptions, selectedModel, setBasic]);
+    if (!exists) persistModelDefaultId(modelOptions[0]!.id);
+  }, [isAuto, modelOptions, modelOptionsReady, persistModelDefaultId, selectedModel]);
   useEffect(() => {
     if (authLoggedIn) return;
     if (!isCloudSource) return;
@@ -177,7 +196,7 @@ export default function SelectMode({ className }: SelectModeProps) {
     void setBasic({ chatSource: normalized });
     if (normalized === "cloud") {
       // 中文注释：切换到云端时清空本地选择，避免透传无效 modelId。
-      void setBasic({ modelDefaultChatModelId: "" });
+      persistModelDefaultId("");
     }
   };
 
@@ -259,11 +278,11 @@ export default function SelectMode({ className }: SelectModeProps) {
                       checked={isAuto}
                       onCheckedChange={(next) => {
                         if (next) {
-                          void setBasic({ modelDefaultChatModelId: "" });
+                          persistModelDefaultId("");
                           return;
                         }
                         if (modelOptions.length === 0) return;
-                        void setBasic({ modelDefaultChatModelId: modelOptions[0]!.id });
+                        persistModelDefaultId(modelOptions[0]!.id);
                       }}
                     />
                   </div>
@@ -286,7 +305,7 @@ export default function SelectMode({ className }: SelectModeProps) {
                       <button
                         key={option.id}
                         type="button"
-                        onClick={() => void setBasic({ modelDefaultChatModelId: option.id })}
+                        onClick={() => persistModelDefaultId(option.id)}
                         className={cn(
                           "h-16 w-full rounded-md border border-transparent px-3 py-2 text-right transition-colors hover:border-border/70 hover:bg-muted/60",
                           selectedModel === option.id && "border-border/70 bg-muted/70"

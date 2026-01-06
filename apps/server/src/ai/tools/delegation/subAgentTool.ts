@@ -1,6 +1,6 @@
 import { streamText, tool, zodSchema } from "ai";
 import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
-import { getChatModel, getUiWriter } from "@/common/requestContext";
+import { getChatModel, getUiWriter } from "@/ai/chat-stream/requestContext";
 
 const DEFAULT_SUB_AGENT_SYSTEM_PROMPT = [
   "你是一个子Agent，负责独立完成指定任务。",

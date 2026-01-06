@@ -12,6 +12,11 @@ export type ModelProviderValue = {
   authConfig: Record<string, unknown>;
   /** Enabled models keyed by model id. */
   models: Record<string, ModelDefinition>;
+  /** Optional provider options. */
+  options?: {
+    /** Whether to enable OpenAI Responses API. */
+    enableResponsesApi?: boolean;
+  };
 };
 
 export type ModelProviderConf = ModelProviderValue & {

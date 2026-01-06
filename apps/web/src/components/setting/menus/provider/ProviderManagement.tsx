@@ -74,6 +74,8 @@ export function ProviderManagement() {
     setDraftAccessKeyId,
     draftSecretAccessKey,
     setDraftSecretAccessKey,
+    draftEnableResponsesApi,
+    setDraftEnableResponsesApi,
     showAuth,
     setShowAuth,
     showSecretAccessKey,
@@ -245,6 +247,7 @@ export function ProviderManagement() {
         draftApiKey={draftApiKey}
         draftAccessKeyId={draftAccessKeyId}
         draftSecretAccessKey={draftSecretAccessKey}
+        draftEnableResponsesApi={draftEnableResponsesApi}
         showAuth={showAuth}
         showSecretAccessKey={showSecretAccessKey}
         draftModelIds={draftModelIds}
@@ -262,6 +265,7 @@ export function ProviderManagement() {
         onDraftApiKeyChange={setDraftApiKey}
         onDraftAccessKeyIdChange={setDraftAccessKeyId}
         onDraftSecretAccessKeyChange={setDraftSecretAccessKey}
+        onDraftEnableResponsesApiChange={setDraftEnableResponsesApi}
         onShowAuthChange={setShowAuth}
         onShowSecretAccessKeyChange={setShowSecretAccessKey}
         onDraftModelIdsChange={setDraftModelIds}

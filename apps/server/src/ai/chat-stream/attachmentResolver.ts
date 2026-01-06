@@ -2,28 +2,35 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import sharp from "sharp";
-import {
-  getProjectRootPath,
-  getWorkspaceRootPathById,
-} from "@teatime-ai/api/services/vfsService";
+import { getProjectRootPath, getWorkspaceRootPathById } from "@teatime-ai/api/services/vfsService";
 
+/** Max image edge length for chat. */
 const CHAT_IMAGE_MAX_EDGE = 1024;
+/** Image output quality for chat. */
 const CHAT_IMAGE_QUALITY = 80;
+/** Supported image types. */
 const SUPPORTED_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
 
+/** Image format definition. */
 type ImageFormat = {
+  /** File extension. */
   ext: string;
+  /** Media type. */
   mediaType: string;
 };
 
+/** Image output definition. */
 type ImageOutput = ImageFormat & {
+  /** Output buffer. */
   buffer: Buffer;
 };
 
+/** Check whether mime is supported. */
 function isSupportedImageMime(mime: string): boolean {
   return SUPPORTED_IMAGE_MIME.has(mime);
 }
 
+/** Resolve image format from mime and filename. */
 function resolveImageFormat(mime: string, fileName: string): ImageFormat | null {
   const lowerName = fileName.toLowerCase();
   if (mime === "image/png" || lowerName.endsWith(".png")) {
@@ -38,26 +45,31 @@ function resolveImageFormat(mime: string, fileName: string): ImageFormat | null 
   return null;
 }
 
+/** Normalize relative path for storage. */
 function normalizeRelativePath(input: string): string {
   return input.replace(/^\/+/, "");
 }
 
+/** Build teatime-file url. */
 function buildTeatimeFileUrl(ownerId: string, relativePath: string): string {
   return `teatime-file://${ownerId}/${normalizeRelativePath(relativePath)}`;
 }
 
+/** Resolve project root path. */
 async function resolveProjectRootPath(projectId: string): Promise<string | null> {
   return getProjectRootPath(projectId);
 }
 
-/** Resolve workspace root path by workspace id. */
+/** Resolve workspace root path. */
 function resolveWorkspaceRootPath(workspaceId: string): string | null {
   return getWorkspaceRootPathById(workspaceId);
 }
 
-/** Resolve the root path for chat attachments and return the owner id. */
+/** Resolve root path for chat attachments. */
 async function resolveChatAttachmentRoot(input: {
+  /** Project id. */
   projectId?: string;
+  /** Workspace id. */
   workspaceId?: string;
 }): Promise<{ rootPath: string; ownerId: string } | null> {
   const projectId = input.projectId?.trim();
@@ -72,7 +84,8 @@ async function resolveChatAttachmentRoot(input: {
   return { rootPath: workspaceRootPath, ownerId: workspaceId };
 }
 
-export async function resolveTeatimeFilePath(url: string): Promise<string | null> {
+/** Resolve local file path from teatime-file url. */
+async function resolveTeatimeFilePath(url: string): Promise<string | null> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -96,8 +109,9 @@ export async function resolveTeatimeFilePath(url: string): Promise<string | null
   return targetPath;
 }
 
+/** Compress image buffer to chat constraints. */
 async function compressImageBuffer(input: Buffer, format: ImageFormat): Promise<ImageOutput> {
-  // 中文注释：统一限制最大边长与质量，避免超大图片传给模型。
+  // 统一限制最大边长与质量，避免超大图片传给模型。
   const transformer = sharp(input).resize({
     width: CHAT_IMAGE_MAX_EDGE,
     height: CHAT_IMAGE_MAX_EDGE,
@@ -117,12 +131,19 @@ async function compressImageBuffer(input: Buffer, format: ImageFormat): Promise<
   return { buffer, ext: format.ext, mediaType: format.mediaType };
 }
 
+/** Save chat image attachment and return url. */
 export async function saveChatImageAttachment(input: {
+  /** Workspace id. */
   workspaceId: string;
+  /** Project id. */
   projectId?: string;
+  /** Session id. */
   sessionId: string;
+  /** File name. */
   fileName: string;
+  /** Media type. */
   mediaType: string;
+  /** File buffer. */
   buffer: Buffer;
 }): Promise<{ url: string; mediaType: string }> {
   const format = resolveImageFormat(input.mediaType, input.fileName);
@@ -130,7 +151,7 @@ export async function saveChatImageAttachment(input: {
     throw new Error("Unsupported image type");
   }
 
-  // 中文注释：只保存压缩后的图片，不保留原图。
+  // 上传阶段即压缩并落盘，避免保存原图。
   const compressed = await compressImageBuffer(input.buffer, format);
   const hash = createHash("sha256").update(compressed.buffer).digest("hex");
   const fileName = `${hash}.${compressed.ext}`;
@@ -153,8 +174,48 @@ export async function saveChatImageAttachment(input: {
   };
 }
 
-async function loadTeatimeImageBuffer(input: {
+/** Build UI file part from teatime-file url. */
+export async function buildFilePartFromTeatimeUrl(input: {
+  /** File url. */
   url: string;
+  /** Media type override. */
+  mediaType?: string;
+}): Promise<{ type: "file"; url: string; mediaType: string } | null> {
+  const payload = await loadTeatimeImageBuffer(input);
+  if (!payload) return null;
+  const base64 = payload.buffer.toString("base64");
+  return {
+    type: "file",
+    url: `data:${payload.mediaType};base64,${base64}`,
+    mediaType: payload.mediaType,
+  };
+}
+
+/** Resolve preview content for supported attachments. */
+export async function getTeatimeFilePreview(input: {
+  /** File url. */
+  url: string;
+}): Promise<{ buffer: Buffer; mediaType: string } | null> {
+  const filePath = await resolveTeatimeFilePath(input.url);
+  if (!filePath) return null;
+  const lowerPath = filePath.toLowerCase();
+  // PDF 直接返回原文件内容，图片继续压缩预览。
+  if (lowerPath.endsWith(".pdf")) {
+    const buffer = await fs.readFile(filePath);
+    return { buffer, mediaType: "application/pdf" };
+  }
+  const format = resolveImageFormat("application/octet-stream", filePath);
+  if (!format || !isSupportedImageMime(format.mediaType)) return null;
+  const buffer = await fs.readFile(filePath);
+  const compressed = await compressImageBuffer(buffer, format);
+  return { buffer: compressed.buffer, mediaType: compressed.mediaType };
+}
+
+/** Load image buffer from teatime-file url. */
+async function loadTeatimeImageBuffer(input: {
+  /** File url. */
+  url: string;
+  /** Media type override. */
   mediaType?: string;
 }): Promise<{ buffer: Buffer; mediaType: string } | null> {
   const filePath = await resolveTeatimeFilePath(input.url);
@@ -169,37 +230,4 @@ async function loadTeatimeImageBuffer(input: {
     buffer: compressed.buffer,
     mediaType: compressed.mediaType,
   };
-}
-
-export async function buildFilePartFromTeatimeUrl(input: {
-  url: string;
-  mediaType?: string;
-}): Promise<{ type: "file"; url: string; mediaType: string } | null> {
-  const payload = await loadTeatimeImageBuffer(input);
-  if (!payload) return null;
-  const base64 = payload.buffer.toString("base64");
-  return {
-    type: "file",
-    url: `data:${payload.mediaType};base64,${base64}`,
-    mediaType: payload.mediaType,
-  };
-}
-
-/** Resolve preview content for supported teatime-file attachments. */
-export async function getTeatimeFilePreview(input: {
-  url: string;
-}): Promise<{ buffer: Buffer; mediaType: string } | null> {
-  const filePath = await resolveTeatimeFilePath(input.url);
-  if (!filePath) return null;
-  const lowerPath = filePath.toLowerCase();
-  // 中文注释：PDF 直接返回原文件内容，图片继续压缩预览。
-  if (lowerPath.endsWith(".pdf")) {
-    const buffer = await fs.readFile(filePath);
-    return { buffer, mediaType: "application/pdf" };
-  }
-  const format = resolveImageFormat("application/octet-stream", filePath);
-  if (!format || !isSupportedImageMime(format.mediaType)) return null;
-  const buffer = await fs.readFile(filePath);
-  const compressed = await compressImageBuffer(buffer, format);
-  return { buffer: compressed.buffer, mediaType: compressed.mediaType };
 }

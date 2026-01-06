@@ -4,8 +4,8 @@ import { createContext } from "@teatime-ai/api/context";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger as honoLogger } from "hono/logger";
-import { registerChatSseRoutes } from "@/modules/chat/ChatSseRoutes";
-import { registerChatAttachmentRoutes } from "@/modules/chat/chatAttachmentRoutes";
+import { registerChatStreamRoutes } from "@/ai/chat-stream/chatStreamRoutes";
+import { registerChatAttachmentRoutes } from "@/ai/chat-stream/chatAttachmentRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
 import { registerS3TestRoutes } from "@/modules/storage/s3TestRoutes";
@@ -65,7 +65,7 @@ export function createApp() {
     }),
   );
 
-  registerChatSseRoutes(app);
+  registerChatStreamRoutes(app);
   registerChatAttachmentRoutes(app);
   registerFileSseRoutes(app);
   registerAuthRoutes(app);

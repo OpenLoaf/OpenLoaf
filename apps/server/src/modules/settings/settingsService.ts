@@ -44,6 +44,11 @@ export type ProviderSettingEntry = {
   authConfig: Record<string, unknown>;
   /** Enabled model definitions keyed by model id. */
   models: Record<string, ModelDefinition>;
+  /** Provider options. */
+  options?: {
+    /** Whether to enable OpenAI Responses API. */
+    enableResponsesApi?: boolean;
+  };
   /** Last update time. */
   updatedAt: Date;
 };
@@ -92,12 +97,18 @@ function normalizeModelProviderValue(value: unknown): ModelProviderValue | null 
   const apiUrl = typeof value.apiUrl === "string" ? value.apiUrl.trim() : "";
   const authConfig = isRecord(value.authConfig) ? value.authConfig : null;
   const models = normalizeModelMap(value.models);
+  const optionsRaw = isRecord(value.options) ? value.options : null;
+  const enableResponsesApi =
+    typeof optionsRaw?.enableResponsesApi === "boolean"
+      ? optionsRaw.enableResponsesApi
+      : undefined;
   if (!providerId || !apiUrl || !authConfig || !models) return null;
   return {
     providerId,
     apiUrl,
     authConfig,
     models,
+    options: enableResponsesApi === undefined ? undefined : { enableResponsesApi },
   };
 }
 
@@ -152,6 +163,7 @@ function normalizeProviderConfig(entry: ModelProviderConf): ProviderSettingEntry
     apiUrl: normalized.apiUrl,
     authConfig: normalized.authConfig,
     models: normalized.models,
+    options: normalized.options,
     updatedAt: safeUpdatedAt,
   };
 }
@@ -170,6 +182,7 @@ function normalizeProviderSettingItem(entry: ModelProviderConf): SettingItem | n
       apiUrl: normalized.apiUrl,
       authConfig: normalized.authConfig,
       models: normalized.models,
+      options: normalized.options,
     },
     secret: true,
     category: MODEL_PROVIDER_CATEGORY,

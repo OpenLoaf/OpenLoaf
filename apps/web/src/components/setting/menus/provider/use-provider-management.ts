@@ -21,6 +21,11 @@ type ProviderSettingValue = {
   authConfig: Record<string, unknown>;
   /** Enabled model definitions keyed by model id. */
   models: Record<string, ModelDefinition>;
+  /** Provider options. */
+  options?: {
+    /** Whether to enable OpenAI Responses API. */
+    enableResponsesApi?: boolean;
+  };
 };
 
 type ProviderEntry = ProviderSettingValue & {
@@ -397,6 +402,7 @@ export function useProviderManagement() {
         authConfig: entry.authConfig as Record<string, unknown>,
         models,
         customModels,
+        options: entry.options,
       });
     }
     return list;
@@ -476,6 +482,7 @@ export function useProviderManagement() {
   const [draftApiKey, setDraftApiKey] = useState("");
   const [draftAccessKeyId, setDraftAccessKeyId] = useState("");
   const [draftSecretAccessKey, setDraftSecretAccessKey] = useState("");
+  const [draftEnableResponsesApi, setDraftEnableResponsesApi] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showSecretAccessKey, setShowSecretAccessKey] = useState(false);
   const [draftModelIds, setDraftModelIds] = useState<string[]>([]);
@@ -530,6 +537,7 @@ export function useProviderManagement() {
     setDraftApiKey(authFields.apiKey);
     setDraftAccessKeyId(authFields.accessKeyId);
     setDraftSecretAccessKey(authFields.secretAccessKey);
+    setDraftEnableResponsesApi(Boolean(entry?.options?.enableResponsesApi));
     setShowAuth(false);
     setShowSecretAccessKey(false);
     setDraftCustomModels(customModels);
@@ -606,6 +614,10 @@ export function useProviderManagement() {
       apiUrl,
       authConfig,
       models,
+      options:
+        draftProvider === "custom"
+          ? { enableResponsesApi: draftEnableResponsesApi }
+          : undefined,
     };
 
     if (!editingKey) {
@@ -840,6 +852,8 @@ export function useProviderManagement() {
     setDraftAccessKeyId,
     draftSecretAccessKey,
     setDraftSecretAccessKey,
+    draftEnableResponsesApi,
+    setDraftEnableResponsesApi,
     showAuth,
     setShowAuth,
     showSecretAccessKey,

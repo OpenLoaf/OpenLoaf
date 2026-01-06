@@ -1,17 +1,21 @@
 import type { Hono } from "hono";
 import { teatimeConfigStore } from "@/modules/workspace/TeatimeConfigStoreAdapter";
-import { getTeatimeFilePreview, saveChatImageAttachment } from "./teatimeFile";
+import { getTeatimeFilePreview, saveChatImageAttachment } from "./attachmentResolver";
 
+/** Max upload size for chat images. */
 const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;
 
+/** Normalize string input. */
 function toText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/** Check if value is file-like. */
 function isFileLike(value: unknown): value is File {
   return Boolean(value) && typeof value === "object" && "arrayBuffer" in (value as File);
 }
 
+/** Register chat attachment routes. */
 export function registerChatAttachmentRoutes(app: Hono) {
   app.post("/chat/attachments", async (c) => {
     let body: Record<string, unknown>;
@@ -32,7 +36,7 @@ export function registerChatAttachmentRoutes(app: Hono) {
     }
 
     const config = teatimeConfigStore.get();
-    const workspaceExists = (config.workspaces ?? []).some((w) => w.id === workspaceId);
+    const workspaceExists = (config.workspaces ?? []).some((workspace) => workspace.id === workspaceId);
     if (!workspaceExists) {
       return c.json({ error: "Workspace not found" }, 400);
     }
@@ -43,7 +47,7 @@ export function registerChatAttachmentRoutes(app: Hono) {
     }
 
     try {
-      // 中文注释：上传阶段即压缩并落盘，返回 teatime-file 地址给前端。
+      // 上传阶段即压缩并落盘，返回 teatime-file 地址给前端。
       const buffer = Buffer.from(await file.arrayBuffer());
       const mediaType = file.type || "application/octet-stream";
       const result = await saveChatImageAttachment({
@@ -56,10 +60,7 @@ export function registerChatAttachmentRoutes(app: Hono) {
       });
       return c.json({ url: result.url, mediaType: result.mediaType });
     } catch (error) {
-      return c.json(
-        { error: error instanceof Error ? error.message : "Upload failed" },
-        500,
-      );
+      return c.json({ error: error instanceof Error ? error.message : "Upload failed" }, 500);
     }
   });
 
@@ -71,7 +72,7 @@ export function registerChatAttachmentRoutes(app: Hono) {
     try {
       const preview = await getTeatimeFilePreview({ url });
       if (!preview) return c.json({ error: "Preview not found" }, 404);
-      // 中文注释：Hono 的 body 需要 Uint8Array，避免 Buffer 类型推断问题。
+      // Hono 的 body 需要 Uint8Array，避免 Buffer 类型推断问题。
       const arrayBuffer = new ArrayBuffer(preview.buffer.byteLength);
       const body = new Uint8Array(arrayBuffer);
       body.set(preview.buffer);
@@ -79,10 +80,7 @@ export function registerChatAttachmentRoutes(app: Hono) {
         "Content-Type": preview.mediaType,
       });
     } catch (error) {
-      return c.json(
-        { error: error instanceof Error ? error.message : "Preview failed" },
-        500,
-      );
+      return c.json({ error: error instanceof Error ? error.message : "Preview failed" }, 500);
     }
   });
 }

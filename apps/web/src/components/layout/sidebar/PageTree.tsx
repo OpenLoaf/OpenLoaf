@@ -12,8 +12,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarProvider,
-} from "@/components/animate-ui/components/radix/sidebar";
-import { Highlight } from "@/components/animate-ui/primitives/effects/highlight";
+} from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -83,6 +82,7 @@ type ImportChildTarget = {
   node: FileNode;
   path: string;
 };
+
 
 interface PageTreeMenuProps {
   projects: ProjectInfo[];
@@ -276,6 +276,7 @@ export const PageTreeMenu = ({
   const queryClient = useQueryClient();
   const renameProject = useMutation(trpc.project.update.mutationOptions());
   const createProject = useMutation(trpc.project.create.mutationOptions());
+  const removeProject = useMutation(trpc.project.remove.mutationOptions());
   const renameFile = useMutation(trpc.fs.rename.mutationOptions());
   const deleteFile = useMutation(trpc.fs.delete.mutationOptions());
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
@@ -286,6 +287,10 @@ export const PageTreeMenu = ({
   const [importChildTarget, setImportChildTarget] = useState<ImportChildTarget | null>(null);
   const [isChildBusy, setIsChildBusy] = useState(false);
   const [isImportChildBusy, setIsImportChildBusy] = useState(false);
+  /** Remove target for project detach. */
+  const [removeTarget, setRemoveTarget] = useState<FileNode | null>(null);
+  /** Busy state for removing project. */
+  const [isRemoveBusy, setIsRemoveBusy] = useState(false);
 
   const activeUri = useMemo(() => {
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -415,6 +420,12 @@ export const PageTreeMenu = ({
     setDeleteTarget(node);
   };
 
+  /** Open the remove confirmation dialog for project node. */
+  const openRemoveDialog = (node: FileNode) => {
+    if (node.kind !== "project") return;
+    setRemoveTarget(node);
+  };
+
   /** Pick a directory from system dialog (Electron only). */
   const pickDirectory = async (initialValue?: string) => {
     const api = window.teatimeElectron;
@@ -506,6 +517,27 @@ export const PageTreeMenu = ({
     }
   };
 
+  /** Remove project from list without deleting files. */
+  const handleRemoveProject = async () => {
+    if (!removeTarget?.projectId) {
+      toast.error("缺少项目 ID");
+      return;
+    }
+    try {
+      setIsRemoveBusy(true);
+      await removeProject.mutateAsync({ projectId: removeTarget.projectId });
+      toast.success("项目已移除");
+      setRemoveTarget(null);
+      await queryClient.invalidateQueries({
+        queryKey: trpc.project.list.queryOptions().queryKey,
+      });
+    } catch (err: any) {
+      toast.error(err?.message ?? "移除失败");
+    } finally {
+      setIsRemoveBusy(false);
+    }
+  };
+
   const handleCreateChildProject = async () => {
     if (!createChildTarget?.node?.projectId) {
       toast.error("缺少项目 ID");
@@ -581,9 +613,11 @@ export const PageTreeMenu = ({
       ) : null}
       <ContextMenuSeparator />
       <ContextMenuItem onClick={() => openRenameDialog(node)}>重命名</ContextMenuItem>
-      <ContextMenuItem onClick={() => openDeleteDialog(node)} disabled={node.kind === "project"}>
-        删除
-      </ContextMenuItem>
+      {node.kind === "project" ? (
+        <ContextMenuItem onClick={() => openRemoveDialog(node)}>移除</ContextMenuItem>
+      ) : (
+        <ContextMenuItem onClick={() => openDeleteDialog(node)}>删除</ContextMenuItem>
+      )}
     </ContextMenuContent>
   );
 
@@ -835,6 +869,31 @@ export const PageTreeMenu = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={Boolean(removeTarget)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setRemoveTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认移除</DialogTitle>
+            <DialogDescription>仅从项目列表移除，不会删除磁盘内容。</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" type="button">
+                取消
+              </Button>
+            </DialogClose>
+            <Button variant="destructive" onClick={handleRemoveProject} disabled={isRemoveBusy}>
+              移除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
@@ -877,24 +936,22 @@ export const PageTreePicker = ({
 
   return (
     <SidebarProvider className="min-h-0 w-full">
-      <Highlight enabled hover controlledItems mode="parent" containerClassName="w-full">
-        <div className="w-full">
-          {projects.map((project) => (
-            <FileTreeNode
-              key={project.rootUri}
-              node={buildProjectNode(project)}
-              depth={0}
-              activeUri={activeUri ?? null}
-              expandedNodes={expandedNodes}
-              setExpanded={setExpanded}
-              onPrimaryClick={handlePrimaryClick}
-              renderContextMenuContent={renderContextMenuContent}
-              contextSelectedUri={null}
-              onContextMenuOpenChange={() => undefined}
-            />
-          ))}
-        </div>
-      </Highlight>
+      <div className="w-full">
+        {projects.map((project) => (
+          <FileTreeNode
+            key={project.rootUri}
+            node={buildProjectNode(project)}
+            depth={0}
+            activeUri={activeUri ?? null}
+            expandedNodes={expandedNodes}
+            setExpanded={setExpanded}
+            onPrimaryClick={handlePrimaryClick}
+            renderContextMenuContent={renderContextMenuContent}
+            contextSelectedUri={null}
+            onContextMenuOpenChange={() => undefined}
+          />
+        ))}
+      </div>
     </SidebarProvider>
   );
 };

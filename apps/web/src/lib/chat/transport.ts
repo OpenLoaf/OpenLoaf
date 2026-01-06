@@ -6,30 +6,6 @@ import type { RefObject } from "react";
 import { getWebClientId } from "./streamClientId";
 import { resolveServerUrl } from "@/utils/server-url";
 
-/** Build request params that carry all custom fields except id/messages. */
-function buildRequestParams(input: {
-  baseParams: Record<string, unknown>;
-  extraBody: Record<string, unknown>;
-  chatModelId?: string;
-  chatModelSource?: string;
-  sessionId?: string;
-  clientId?: string;
-  tabId?: string;
-  trigger?: string;
-  messageId?: string;
-}) {
-  const params = { ...input.baseParams };
-  Object.assign(params, input.extraBody);
-  if (input.chatModelId) params.chatModelId = input.chatModelId;
-  if (input.chatModelSource) params.chatModelSource = input.chatModelSource;
-  if (input.sessionId) params.sessionId = input.sessionId;
-  if (input.clientId) params.clientId = input.clientId;
-  if (input.tabId) params.tabId = input.tabId;
-  if (input.trigger) params.trigger = input.trigger;
-  if (input.messageId) params.messageId = input.messageId;
-  return params;
-}
-
 function stripTotalUsageFromMetadata(message: any) {
   if (!message || typeof message !== "object") return message;
   const metadata = (message as any).metadata;
@@ -57,17 +33,12 @@ export function createChatTransport({
   return new DefaultChatTransport({
     api: apiBase,
     credentials: "include",
-    prepareSendMessagesRequest({ id, messages, body, trigger, messageId, headers }) {
-      const mergedParams = { ...(paramsRef.current ?? {}) };
+    prepareSendMessagesRequest({ id, messages, body, messageId, headers }) {
+      const baseParams = { ...(paramsRef.current ?? {}) };
       const clientId = getWebClientId();
       const tabId = typeof tabIdRef.current === "string" ? tabIdRef.current : undefined;
       const extraBody = body && typeof body === "object" ? body : {};
       const bodyRecord = extraBody as Record<string, unknown>;
-      const explicitParams =
-        bodyRecord.params && typeof bodyRecord.params === "object" && !Array.isArray(bodyRecord.params)
-          ? (bodyRecord.params as Record<string, unknown>)
-          : undefined;
-      if (explicitParams) Object.assign(mergedParams, explicitParams);
       const explicitChatModelId =
         typeof bodyRecord.chatModelId === "string" ? bodyRecord.chatModelId : undefined;
       const explicitChatModelSource =
@@ -91,24 +62,19 @@ export function createChatTransport({
         messages: _ignoredMessages,
         ...restBody
       } = bodyRecord;
-      // 中文注释：除 id/messages 外的自定义字段统一收敛到 params，方便 SSE 端兼容处理。
-      const requestParams = buildRequestParams({
-        baseParams: mergedParams,
-        extraBody: restBody,
-        chatModelId: normalizedChatModelId,
-        chatModelSource: normalizedChatModelSource,
-        sessionId: id,
-        clientId: clientId || undefined,
-        tabId,
-        trigger,
-        messageId,
-      });
+      // 中文注释：自定义字段直接合并到顶层，不再使用 params。
+      const basePayload = { ...baseParams, ...restBody };
 
       if (messages.length === 0) {
         return {
           body: {
-            params: requestParams,
-            id,
+            ...basePayload,
+            sessionId: id,
+            clientId: clientId || undefined,
+            tabId,
+            messageId,
+            ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
+            ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
             messages: [],
           },
           headers,
@@ -120,8 +86,13 @@ export function createChatTransport({
 
       return {
         body: {
-          params: requestParams,
-          id,
+          ...basePayload,
+          sessionId: id,
+          clientId: clientId || undefined,
+          tabId,
+          messageId,
+          ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
+          ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
           // 后端会从 DB 补全完整历史链路；前端只需发送最后一条消息即可。
           messages: [lastMessage],
         },

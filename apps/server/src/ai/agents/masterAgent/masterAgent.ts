@@ -1,6 +1,6 @@
 import { ToolLoopAgent } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
-import type { AgentFrame } from "@/common/requestContext";
+import type { AgentFrame } from "@/ai/chat-stream/requestContext";
 import { buildMasterAgentSystemPrompt } from "@/ai/prompts/systemPromptBuilder";
 import { buildToolset } from "@/ai/registry/toolRegistry";
 import { toolPacks } from "@/ai/registry/toolPacks";

@@ -1,4 +1,4 @@
-import { getWorkspaceId } from "@/common/requestContext";
+import { getWorkspaceId } from "@/ai/chat-stream/requestContext";
 
 /**
  * Builds the system prompt for the master agent (MVP).

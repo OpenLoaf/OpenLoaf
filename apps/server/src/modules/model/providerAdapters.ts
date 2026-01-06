@@ -200,9 +200,26 @@ function ensureOpenAiCompatibleBaseUrl(baseUrl: string): string {
 }
 
 export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
-  openai: buildAiSdkAdapter("openai", ({ apiUrl, apiKey, fetch }) =>
-    createOpenAI({ baseURL: ensureOpenAiCompatibleBaseUrl(apiUrl), apiKey, fetch }),
-  ),
+  openai: {
+    id: "openai",
+    buildAiSdkModel: ({ provider, modelId, providerDefinition }) => {
+      const apiKey = readApiKey(provider.authConfig);
+      const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
+      const debugFetch = buildDebugFetch();
+      if (!apiKey || !resolvedApiUrl) return null;
+      const openaiProvider = createOpenAI({
+        baseURL: ensureOpenAiCompatibleBaseUrl(resolvedApiUrl),
+        apiKey,
+        fetch: debugFetch,
+      });
+      const enableResponsesApi =
+        provider.options?.enableResponsesApi ?? provider.providerId !== "custom";
+      // 中文注释：自定义服务商默认走 chat completions，启用时才使用 /responses。
+      return enableResponsesApi ? openaiProvider(modelId) : openaiProvider.chat(modelId);
+    },
+    buildImageModel: () => null,
+    buildRequest: () => null,
+  },
   anthropic: buildAiSdkAdapter("anthropic", ({ apiUrl, apiKey, fetch }) =>
     createAnthropic({ baseURL: apiUrl, apiKey, fetch }),
   ),

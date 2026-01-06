@@ -7,6 +7,7 @@ import {
   getActiveWorkspace,
   getProjectRootUri,
   getWorkspaceRootPath,
+  removeActiveWorkspaceProject,
   resolveFilePathFromUri,
   toFileUri,
   upsertActiveWorkspaceProject,
@@ -223,6 +224,75 @@ async function appendChildProjectEntry(
   await writeJsonAtomic(metaPath, nextConfig);
 }
 
+/** Remove a child project entry from parent project.json. */
+async function removeChildProjectEntry(
+  parentProjectId: string,
+  childProjectId: string
+): Promise<void> {
+  const parentRootPath = resolveProjectRootPath(parentProjectId);
+  const metaPath = getProjectMetaPath(parentRootPath);
+  const existing = (await readJsonFile(metaPath)) ?? {};
+  const parsed = projectConfigSchema.parse(existing);
+  const nextProjects = { ...(parsed.projects ?? {}) };
+  if (!nextProjects[childProjectId]) return;
+  // 删除子项目映射，确保父项目配置保持最新。
+  delete nextProjects[childProjectId];
+  const nextConfig = projectConfigSchema.parse({
+    ...parsed,
+    projects: nextProjects,
+  });
+  await writeJsonAtomic(metaPath, nextConfig);
+}
+
+/** Read the project trees from active workspace. */
+async function readWorkspaceProjectTrees(): Promise<ProjectNode[]> {
+  const workspace = getActiveWorkspace();
+  const projectEntries = Object.entries(workspace.projects ?? {});
+  const projects: ProjectNode[] = [];
+  for (const [projectId, rootUri] of projectEntries) {
+    let rootPath: string;
+    try {
+      rootPath = resolveFilePathFromUri(rootUri);
+    } catch {
+      continue;
+    }
+    const node = await readProjectTree(rootPath, projectId);
+    if (node) projects.push(node);
+  }
+  return projects;
+}
+
+/** Find a project node and its parent id from tree. */
+function findProjectNodeWithParent(
+  projects: ProjectNode[],
+  targetProjectId: string,
+  parentProjectId: string | null = null
+): { node: ProjectNode; parentProjectId: string | null } | null {
+  for (const project of projects) {
+    if (project.projectId === targetProjectId) {
+      return { node: project, parentProjectId };
+    }
+    if (project.children?.length) {
+      const hit = findProjectNodeWithParent(
+        project.children,
+        targetProjectId,
+        project.projectId
+      );
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+/** Check whether a project id exists inside a subtree. */
+function hasProjectInSubtree(project: ProjectNode, targetProjectId: string): boolean {
+  if (project.projectId === targetProjectId) return true;
+  for (const child of project.children ?? []) {
+    if (hasProjectInSubtree(child, targetProjectId)) return true;
+  }
+  return false;
+}
+
 export const projectRouter = t.router({
   /** List all project roots under workspace. */
   list: shieldedProcedure.query(async () => {
@@ -345,6 +415,80 @@ export const projectRouter = t.router({
         ...(input.icon !== undefined ? { icon: input.icon } : {}),
       });
       await writeJsonAtomic(metaPath, next);
+      return { ok: true };
+    }),
+
+  /** Remove a project from workspace list without deleting files. */
+  remove: shieldedProcedure
+    .input(z.object({ projectId: z.string() }))
+    .mutation(async ({ input }) => {
+      const projectTrees = await readWorkspaceProjectTrees();
+      const sourceEntry = findProjectNodeWithParent(projectTrees, input.projectId);
+      if (!sourceEntry) {
+        throw new Error("Project not found.");
+      }
+      const parentProjectId = sourceEntry.parentProjectId;
+      if (parentProjectId) {
+        await removeChildProjectEntry(parentProjectId, input.projectId);
+      } else {
+        removeActiveWorkspaceProject(input.projectId);
+      }
+      return { ok: true };
+    }),
+
+  /** Move a project under another parent or to workspace root. */
+  move: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        targetParentProjectId: z.string().nullable().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const targetParentProjectId = input.targetParentProjectId ?? null;
+      const projectTrees = await readWorkspaceProjectTrees();
+      const sourceEntry = findProjectNodeWithParent(projectTrees, input.projectId);
+      if (!sourceEntry) {
+        throw new Error("Project not found.");
+      }
+      const sourceNode = sourceEntry.node;
+      const projectRootUri = sourceNode.rootUri;
+
+      if (targetParentProjectId === input.projectId) {
+        throw new Error("Cannot move project under itself.");
+      }
+      if (targetParentProjectId && hasProjectInSubtree(sourceNode, targetParentProjectId)) {
+        throw new Error("Cannot move project into its descendant.");
+      }
+      if (targetParentProjectId) {
+        const targetEntry = findProjectNodeWithParent(projectTrees, targetParentProjectId);
+        if (!targetEntry) {
+          throw new Error("Target parent project not found.");
+        }
+      }
+
+      const parentProjectId = sourceEntry.parentProjectId;
+      if (parentProjectId === targetParentProjectId) {
+        return { ok: true, unchanged: true };
+      }
+
+      // 先从原父节点移除，避免重复挂载。
+      if (parentProjectId) {
+        await removeChildProjectEntry(parentProjectId, input.projectId);
+      } else {
+        removeActiveWorkspaceProject(input.projectId);
+      }
+
+      if (targetParentProjectId) {
+        await appendChildProjectEntry(
+          targetParentProjectId,
+          input.projectId,
+          projectRootUri
+        );
+      } else {
+        upsertActiveWorkspaceProject(input.projectId, projectRootUri);
+      }
+
       return { ok: true };
     }),
 

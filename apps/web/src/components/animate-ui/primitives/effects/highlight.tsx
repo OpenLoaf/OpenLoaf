@@ -227,10 +227,80 @@ function Highlight<T extends React.ElementType = "div">({
     setBoundsState((prev) => (prev === null ? prev : null));
   }, []);
 
+  const handleContainerMouseMove = React.useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      if (!hover) return;
+      if (!localRef.current) return;
+      const target = event.target as HTMLElement | null;
+      const hitItem = target?.closest?.('[data-highlight="true"]');
+      if (!hitItem && activeValue !== null) {
+        // 鼠标移到空白区域时清理高亮，避免残留卡住。
+        safeSetActiveValue(null);
+        clearBounds();
+      }
+    },
+    [hover, activeValue, clearBounds, safeSetActiveValue]
+  );
+
+  const handleContainerMouseLeave = React.useCallback(() => {
+    if (!hover) return;
+    if (activeValue !== null) {
+      // 鼠标离开容器时清理高亮，避免残留卡住。
+      safeSetActiveValue(null);
+      clearBounds();
+    }
+  }, [hover, activeValue, clearBounds, safeSetActiveValue]);
+
   React.useEffect(() => {
     if (value !== undefined) setActiveValue(value);
     else if (defaultValue !== undefined) setActiveValue(defaultValue);
   }, [value, defaultValue]);
+
+  React.useEffect(() => {
+    if (!hover) return;
+
+    const handleWindowPointerMove = (event: PointerEvent) => {
+      const container = localRef.current;
+      if (!container) return;
+      const target = event.target as HTMLElement | null;
+      if (!target || !container.contains(target)) {
+        if (activeValue !== null) {
+          // 鼠标移出组件范围时清理高亮，避免残留卡住。
+          safeSetActiveValue(null);
+          clearBounds();
+        }
+        return;
+      }
+
+      // 在容器内移动时，直接根据命中的高亮元素更新状态。
+      const hitItem = target.closest?.('[data-highlight="true"]');
+      const nextValue = hitItem?.getAttribute("data-value") ?? null;
+      if (!hitItem) {
+        if (activeValue !== null) {
+          safeSetActiveValue(null);
+          clearBounds();
+        }
+        return;
+      }
+      if (nextValue && nextValue !== activeValue) {
+        safeSetActiveValue(nextValue);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (!activeValue) return;
+      // 切换窗口后清理高亮，避免残留卡住。
+      safeSetActiveValue(null);
+      clearBounds();
+    };
+
+    window.addEventListener("pointermove", handleWindowPointerMove, true);
+    window.addEventListener("blur", handleWindowBlur);
+    return () => {
+      window.removeEventListener("pointermove", handleWindowPointerMove, true);
+      window.removeEventListener("blur", handleWindowBlur);
+    };
+  }, [hover, activeValue, clearBounds, safeSetActiveValue]);
 
   const id = React.useId();
 
@@ -258,6 +328,8 @@ function Highlight<T extends React.ElementType = "div">({
         <Component
           ref={localRef}
           data-slot="motion-highlight-container"
+          onMouseMove={handleContainerMouseMove}
+          onMouseLeave={handleContainerMouseLeave}
           style={{ position: "relative", zIndex: 1 }}
           className={(props as ParentModeHighlightProps)?.containerClassName}
         >
