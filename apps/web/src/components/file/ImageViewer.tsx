@@ -9,7 +9,7 @@ import {
   TransformWrapper,
   type ReactZoomPanPinchRef,
 } from "react-zoom-pan-pinch";
-import { Download, X } from "lucide-react";
+import { Download, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/utils/trpc";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -337,6 +337,15 @@ export default function ImageViewer({
             {displayTitle}
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8"
+            >
+              <Sparkles className="h-4 w-4 text-sky-500" />
+              <span className="ml-1">AI调整</span>
+            </Button>
             {showSave ? (
               <Button
                 type="button"

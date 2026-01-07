@@ -23,7 +23,7 @@ export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
   multi_image_input: "多图输入",
   multi_image_output: "多图输出",
   image_output: "图片输出",
-  image_mesk_input: "图片编辑",
+  image_mesk_input: "图片调整",
   image_input: "图片输入",
   image_url_input: "图片链接输入",
   text_input: "文本输入",
@@ -32,8 +32,8 @@ export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
   code: "代码",
   web_search: "网络搜索",
   video_generation: "视频生成",
-  language_input: "语言输入",
-  language_output: "语言输出",
+  language_input: "语音输入",
+  language_output: "语音输出",
 };
 
 export type PriceTier = {
