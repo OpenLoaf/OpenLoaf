@@ -3,6 +3,7 @@ import type { ModelDefinition } from "@teatime-ai/api/common";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { getModelDefinition, getProviderDefinition } from "@/modules/model/modelRegistry";
 import { PROVIDER_ADAPTERS } from "@/modules/model/providerAdapters";
+import { logger } from "@/common/logger";
 
 type ResolvedImageModel = {
   /** Resolved ImageModelV3 instance. */
@@ -20,7 +21,7 @@ const MAX_FALLBACK_TRIES = 2;
 /** Map provider settings before model construction. */
 type ProviderEntryMapper = (entry: ProviderSettingEntry) => ProviderSettingEntry;
 
-/** Resolve model definition from registry. */
+/** Resolve model definition from registry or settings. */
 function resolveModelDefinition(
   providerId: string,
   modelId: string,
@@ -79,16 +80,25 @@ async function resolveImageModelFromProviders(input: {
   const providers = input.providers;
   const providerById = new Map(providers.map((entry) => [entry.id, entry]));
 
-  // 中文注释：流程=生成候选列表 -> 顺序解析/创建模型 -> 失败后按次数 fallback。
-  const fallbackCandidates = buildImageModelCandidates(providers, normalized);
+  // 中文注释：显式指定模型时不做 fallback，避免静默切换。
+  const fallbackCandidates = normalized ? [] : buildImageModelCandidates(providers, normalized);
   // 中文注释：auto 时默认取最近更新的模型，失败时再依次尝试 fallback。
   const candidates = normalized
-    ? [normalized, ...fallbackCandidates.slice(0, MAX_FALLBACK_TRIES)]
+    ? [normalized]
     : fallbackCandidates.slice(0, MAX_FALLBACK_TRIES + 1);
 
   if (candidates.length === 0) {
     throw new Error("未找到可用模型配置");
   }
+
+  logger.debug(
+    {
+      imageModelId: normalized,
+      candidateCount: candidates.length,
+      candidates,
+    },
+    "[image-model] resolve candidates",
+  );
 
   let lastError: Error | null = null;
 
@@ -106,16 +116,32 @@ async function resolveImageModelFromProviders(input: {
       }
 
       const mappedProviderEntry = mapProviderEntry(providerEntry);
-      const providerDefinition = getProviderDefinition(providerEntry.providerId);
-      const adapterId = providerDefinition?.adapterId ?? providerEntry.providerId;
-      const adapter = PROVIDER_ADAPTERS[adapterId];
-      if (!adapter) throw new Error("不支持的模型服务商");
-
       const modelDefinition = resolveModelDefinition(
         providerEntry.providerId,
         parsed.modelId,
         providerEntry,
       );
+      // 中文注释：适配器优先使用模型定义里的 providerId，避免配置误配。
+      const resolvedProviderId = modelDefinition?.providerId ?? providerEntry.providerId;
+      const providerDefinition = getProviderDefinition(resolvedProviderId);
+      // 中文注释：custom 服务强制使用 openai 适配器，避免 provider 定义缺失。
+      const adapterId =
+        resolvedProviderId === "custom" ? "openai" : providerDefinition?.adapterId ?? resolvedProviderId;
+      const adapter = PROVIDER_ADAPTERS[adapterId];
+      logger.debug(
+        {
+          candidate,
+          profileId: parsed.profileId,
+          modelId: parsed.modelId,
+          providerId: providerEntry.providerId,
+          resolvedProviderId,
+          adapterId,
+          modelDefinitionProviderId: modelDefinition?.providerId,
+          modelDefinitionTags: modelDefinition?.tags,
+        },
+        "[image-model] resolve adapter",
+      );
+      if (!adapter) throw new Error("不支持的模型服务商");
       const model = adapter.buildImageModel({
         provider: mappedProviderEntry,
         modelId: parsed.modelId,
@@ -129,12 +155,20 @@ async function resolveImageModelFromProviders(input: {
       // 中文注释：provider 采用后端配置的 provider id，确保可追踪真实请求来源。
       return {
         model,
-        modelInfo: { provider: providerEntry.providerId, modelId: parsed.modelId },
+        modelInfo: { provider: resolvedProviderId, modelId: parsed.modelId },
         imageModelId: candidate,
         modelDefinition,
       };
     } catch (err) {
-      lastError = err instanceof Error ? err : new Error("模型解析失败");
+      const error = err instanceof Error ? err : new Error("模型解析失败");
+      logger.debug(
+        {
+          candidate,
+          error: error.message,
+        },
+        "[image-model] resolve candidate failed",
+      );
+      lastError = error;
     }
   }
 
@@ -146,5 +180,12 @@ export async function resolveImageModel(input: {
   imageModelId?: string | null;
 }): Promise<ResolvedImageModel> {
   const providers = await getProviderSettings();
+  logger.debug(
+    {
+      imageModelId: input.imageModelId,
+      providerCount: providers.length,
+    },
+    "[image-model] resolve from settings",
+  );
   return resolveImageModelFromProviders({ providers, imageModelId: input.imageModelId });
 }

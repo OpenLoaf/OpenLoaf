@@ -4,6 +4,7 @@ import { Streamdown } from "streamdown";
 import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
+import MessageFile from "./tools/MessageFile";
 import { isToolPart } from "@/lib/chat/message-parts";
 
 type AnyMessagePart = {
@@ -11,6 +12,10 @@ type AnyMessagePart = {
   text?: string;
   toolCallId?: string;
   toolName?: string;
+  url?: string;
+  mediaType?: string;
+  title?: string;
+  name?: string;
 };
 
 // 修复 CJK 环境下 markdown 自动链接识别错误的问题（例如 "https://example.com）。" 会被误识别）
@@ -50,6 +55,12 @@ export const MESSAGE_REASONING_CLASSNAME = cn(
   "min-w-0 w-full max-w-full px-3 font-sans text-xs leading-relaxed text-muted-foreground",
   "whitespace-pre-wrap break-words [overflow-wrap:anywhere] italic",
   "rounded-md border border-dashed border-muted-foreground/30 bg-muted/30",
+);
+
+/** Styling for file parts. */
+export const MESSAGE_FILE_CLASSNAME = cn(
+  "min-w-0 w-full max-w-full px-3",
+  "flex flex-wrap gap-2",
 );
 
 export function renderMessageParts(
@@ -94,6 +105,27 @@ export function renderMessageParts(
             {preprocessText(String(part.text ?? ""))}
           </Streamdown>
         </div>
+      );
+    }
+
+    if (part?.type === "file") {
+      const url = typeof part.url === "string" ? part.url : "";
+      const mediaType = typeof part.mediaType === "string" ? part.mediaType : "";
+      const title =
+        typeof part.title === "string"
+          ? part.title
+          : typeof part.name === "string"
+            ? part.name
+            : undefined;
+      if (!url) return null;
+      return (
+        <MessageFile
+          key={index}
+          url={url}
+          mediaType={mediaType}
+          title={title}
+          className={MESSAGE_FILE_CLASSNAME}
+        />
       );
     }
 

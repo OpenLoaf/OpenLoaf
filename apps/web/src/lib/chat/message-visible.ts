@@ -16,6 +16,11 @@ export function messageHasVisibleContent(message: { parts?: unknown[] } | undefi
   });
   if (hasText) return true;
 
+  const hasFile = parts.some((part: any) => {
+    return part?.type === "file" && typeof part?.url === "string";
+  });
+  if (hasFile) return true;
+
   return parts.some((part: any) => {
     return (
       typeof part?.type === "string" &&
@@ -23,4 +28,3 @@ export function messageHasVisibleContent(message: { parts?: unknown[] } | undefi
     );
   });
 }
-

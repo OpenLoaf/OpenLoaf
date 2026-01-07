@@ -1,4 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Logger } from '../logging/startupLogger';
 import { checkForUpdates, getAutoUpdateStatus, installUpdate } from '../autoUpdate';
@@ -213,6 +215,57 @@ export function registerIpcHandlers(args: { log: Logger }) {
     }
     return { ok: true as const, path: result.filePaths[0] };
   });
+
+  // Show save dialog and write file content.
+  ipcMain.handle(
+    'teatime:fs:save-file',
+    async (
+      event,
+      payload: {
+        contentBase64?: string;
+        defaultDir?: string;
+        suggestedName?: string;
+        filters?: Array<{ name: string; extensions: string[] }>;
+      }
+    ) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const defaultDirRaw = String(payload?.defaultDir ?? '').trim();
+      const suggestedName = String(payload?.suggestedName ?? '').trim();
+      let defaultDir = app.getPath('downloads');
+      if (defaultDirRaw) {
+        if (defaultDirRaw.startsWith('file://')) {
+          try {
+            defaultDir = fileURLToPath(defaultDirRaw);
+          } catch {
+            defaultDir = app.getPath('downloads');
+          }
+        } else {
+          defaultDir = defaultDirRaw;
+        }
+      }
+      const defaultPath = suggestedName
+        ? path.join(defaultDir, suggestedName)
+        : defaultDir;
+      const result = await dialog.showSaveDialog(win ?? undefined, {
+        defaultPath,
+        filters: payload?.filters,
+      });
+      if (result.canceled || !result.filePath) {
+        return { ok: false as const, canceled: true as const };
+      }
+      const contentBase64 = String(payload?.contentBase64 ?? '');
+      if (!contentBase64) {
+        return { ok: false as const, reason: 'Missing content' };
+      }
+      try {
+        const buffer = Buffer.from(contentBase64, 'base64');
+        await fs.writeFile(result.filePath, buffer);
+        return { ok: true as const, path: result.filePath };
+      } catch (error) {
+        return { ok: false as const, reason: (error as Error)?.message ?? 'Save failed' };
+      }
+    }
+  );
 
 
   args.log('IPC handlers registered');

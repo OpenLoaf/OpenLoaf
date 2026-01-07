@@ -1,19 +1,27 @@
-import { generateId, type UIMessage } from "ai";
-import type { ModelTag } from "@teatime-ai/api/common";
+import { generateId, generateImage, type UIMessage } from "ai";
+import type { ModelDefinition, ModelTag } from "@teatime-ai/api/common";
 import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/resolveChatModel";
+import { resolveImageModel } from "@/ai/resolveImageModel";
 import {
   setAssistantMessageId,
   setChatModel,
+  setAbortSignal,
   setRequestContext,
 } from "@/ai/chat-stream/requestContext";
 import { logger } from "@/common/logger";
+import { getProviderSettings } from "@/modules/settings/settingsService";
+import { getModelDefinition } from "@/modules/model/modelRegistry";
 import type { ChatStreamRequest } from "./chatStreamTypes";
 import { loadMessageChain } from "./messageChainLoader";
 import { buildFilePartFromTeatimeUrl } from "./attachmentResolver";
 import { resolveRightmostLeafId, saveMessage } from "./messageStore";
-import { createChatStreamResponse, createErrorStreamResponse } from "./streamOrchestrator";
+import {
+  createChatStreamResponse,
+  createErrorStreamResponse,
+  createImageStreamResponse,
+} from "./streamOrchestrator";
 
 /** Max messages to load for a chain. */
 const MAX_CHAIN_MESSAGES = 80;
@@ -158,6 +166,46 @@ export async function runChatStream(input: {
   let masterAgent: ReturnType<typeof createMasterAgentRunner>;
 
   try {
+    logger.debug(
+      {
+        sessionId,
+        chatModelId,
+        chatModelSource,
+      },
+      "[chat] resolve explicit model definition",
+    );
+    const explicitModelDefinition = await resolveExplicitModelDefinition(chatModelId);
+    logger.debug(
+      {
+        sessionId,
+        chatModelId,
+        explicitModelId: explicitModelDefinition?.id,
+        explicitProviderId: explicitModelDefinition?.providerId,
+        explicitTags: explicitModelDefinition?.tags,
+      },
+      "[chat] explicit model resolved",
+    );
+    if (explicitModelDefinition?.tags?.includes("image_output")) {
+      logger.debug(
+        {
+          sessionId,
+          chatModelId,
+          tags: explicitModelDefinition.tags,
+        },
+        "[chat] route to image stream",
+      );
+      return await runImageModelStream({
+        sessionId,
+        assistantMessageId,
+        parentMessageId: assistantParentUserId,
+        requestStartAt,
+        messages: messages as UIMessage[],
+        abortSignal: abortController.signal,
+        chatModelId: chatModelId ?? undefined,
+        modelDefinition: explicitModelDefinition,
+      });
+    }
+
     // 按输入能力与历史偏好选择模型，失败时直接返回错误流。
     const requiredTags = !chatModelId ? resolveRequiredInputTags(messages as UIMessage[]) : [];
     const preferredChatModelId = !chatModelId
@@ -183,6 +231,15 @@ export async function runChatStream(input: {
       modelDefinition: resolved.modelDefinition,
     };
   } catch (err) {
+    logger.error(
+      {
+        err,
+        sessionId,
+        chatModelId,
+        chatModelSource,
+      },
+      "[chat] resolve chat model failed",
+    );
     const errorText = err instanceof Error ? `请求失败：${err.message}` : "请求失败：模型解析失败。";
     return createErrorStreamResponse({
       sessionId,
@@ -236,6 +293,231 @@ async function replaceTeatimeFileParts(messages: UIMessage[]): Promise<UIMessage
     next.push({ ...message, parts: replaced } as UIMessage);
   }
   return next;
+}
+
+/** Resolve explicit model definition from chatModelId. */
+async function resolveExplicitModelDefinition(
+  chatModelId?: string | null,
+): Promise<ModelDefinition | null> {
+  const normalized = typeof chatModelId === "string" ? chatModelId.trim() : "";
+  if (!normalized) {
+    logger.debug({ chatModelId }, "[chat] explicit model skipped");
+    return null;
+  }
+  const separatorIndex = normalized.indexOf(":");
+  if (separatorIndex <= 0 || separatorIndex >= normalized.length - 1) {
+    logger.debug({ chatModelId: normalized }, "[chat] explicit model id invalid");
+    return null;
+  }
+  const profileId = normalized.slice(0, separatorIndex).trim();
+  const modelId = normalized.slice(separatorIndex + 1).trim();
+  if (!profileId || !modelId) {
+    logger.debug({ chatModelId: normalized }, "[chat] explicit model id empty");
+    return null;
+  }
+
+  const providers = await getProviderSettings();
+  const providerEntry = providers.find((entry) => entry.id === profileId);
+  if (!providerEntry) {
+    const registryModel = getModelDefinition(profileId, modelId) ?? null;
+    logger.debug(
+      {
+        profileId,
+        modelId,
+        registryProviderId: registryModel?.providerId,
+        registryTags: registryModel?.tags,
+      },
+      "[chat] explicit model from registry",
+    );
+    return registryModel;
+  }
+  const fromConfig = providerEntry.models[modelId];
+  logger.debug(
+    {
+      profileId,
+      modelId,
+      providerId: providerEntry.providerId,
+      hasConfigModel: Boolean(fromConfig),
+    },
+    "[chat] explicit model from provider config",
+  );
+  if (!fromConfig) {
+    const registryModel = getModelDefinition(providerEntry.providerId, modelId) ?? null;
+    logger.debug(
+      {
+        profileId,
+        modelId,
+        registryProviderId: registryModel?.providerId,
+        registryTags: registryModel?.tags,
+      },
+      "[chat] explicit model fallback to registry",
+    );
+    return registryModel;
+  }
+  if (Array.isArray(fromConfig.tags) && fromConfig.tags.length > 0) {
+    logger.debug(
+      {
+        profileId,
+        modelId,
+        providerId: providerEntry.providerId,
+        tags: fromConfig.tags,
+      },
+      "[chat] explicit model use config tags",
+    );
+    return fromConfig;
+  }
+  const registryModel = getModelDefinition(providerEntry.providerId, modelId) ?? fromConfig;
+  logger.debug(
+    {
+      profileId,
+      modelId,
+      providerId: providerEntry.providerId,
+      registryProviderId: registryModel?.providerId,
+      registryTags: registryModel?.tags,
+    },
+    "[chat] explicit model merge registry",
+  );
+  return registryModel;
+}
+
+/** Generate image and return SSE response. */
+async function runImageModelStream(input: {
+  sessionId: string;
+  assistantMessageId: string;
+  parentMessageId: string;
+  requestStartAt: Date;
+  messages: UIMessage[];
+  abortSignal: AbortSignal;
+  chatModelId?: string;
+  modelDefinition?: ModelDefinition;
+}): Promise<Response> {
+  const prompt = resolveImagePrompt(input.messages);
+  if (!prompt) {
+    return createErrorStreamResponse({
+      sessionId: input.sessionId,
+      assistantMessageId: input.assistantMessageId,
+      parentMessageId: input.parentMessageId,
+      errorText: "请求失败：缺少图片生成提示词。",
+    });
+  }
+  const modelId = input.chatModelId?.trim() ?? "";
+  if (!modelId) {
+    return createErrorStreamResponse({
+      sessionId: input.sessionId,
+      assistantMessageId: input.assistantMessageId,
+      parentMessageId: input.parentMessageId,
+      errorText: "请求失败：未指定图片模型。",
+    });
+  }
+
+  try {
+    logger.debug(
+      {
+        sessionId: input.sessionId,
+        chatModelId: modelId,
+        modelDefinitionId: input.modelDefinition?.id,
+        modelProviderId: input.modelDefinition?.providerId,
+        modelTags: input.modelDefinition?.tags,
+        promptLength: prompt.length,
+      },
+      "[chat] start image stream",
+    );
+    setAbortSignal(input.abortSignal);
+    const resolved = await resolveImageModel({ imageModelId: modelId });
+    const result = await generateImage({
+      model: resolved.model,
+      prompt,
+      n: 1,
+      abortSignal: input.abortSignal,
+    });
+    const imageParts = result.images.flatMap((image) => {
+      const mediaType = image.mediaType || "image/png";
+      const base64 = image.base64?.trim();
+      if (!base64) return [];
+      const url = base64.startsWith("data:")
+        ? base64
+        : `data:${mediaType};base64,${base64}`;
+      return [
+        {
+          type: "file" as const,
+          url,
+          mediaType,
+        },
+      ];
+    });
+    logger.debug(
+      {
+        sessionId: input.sessionId,
+        chatModelId: modelId,
+        imageCount: imageParts.length,
+        mediaTypes: imageParts.map((part) => part.mediaType),
+        urlPrefixes: imageParts.map((part) => part.url.slice(0, 30)),
+      },
+      "[chat] image parts prepared",
+    );
+    if (imageParts.length === 0) {
+      return createErrorStreamResponse({
+        sessionId: input.sessionId,
+        assistantMessageId: input.assistantMessageId,
+        parentMessageId: input.parentMessageId,
+        errorText: "请求失败：图片生成结果为空。",
+      });
+    }
+
+    const usage = result.usage ?? undefined;
+    const totalUsage =
+      usage && (usage.inputTokens ?? usage.outputTokens ?? usage.totalTokens) != null
+        ? {
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            totalTokens: usage.totalTokens,
+          }
+        : undefined;
+
+    const agentMetadata = {
+      id: "master-agent",
+      name: "MasterAgent",
+      kind: "master",
+      model: resolved.modelInfo,
+      chatModelId: resolved.imageModelId,
+      modelDefinition: resolved.modelDefinition ?? input.modelDefinition,
+    };
+
+    return await createImageStreamResponse({
+      sessionId: input.sessionId,
+      assistantMessageId: input.assistantMessageId,
+      parentMessageId: input.parentMessageId,
+      requestStartAt: input.requestStartAt,
+      imageParts,
+      agentMetadata,
+      totalUsage,
+    });
+  } catch (err) {
+    logger.error({ err, sessionId: input.sessionId, chatModelId: modelId }, "[chat] image stream failed");
+    const errorText = err instanceof Error ? `请求失败：${err.message}` : "请求失败：图片生成失败。";
+    return createErrorStreamResponse({
+      sessionId: input.sessionId,
+      assistantMessageId: input.assistantMessageId,
+      parentMessageId: input.parentMessageId,
+      errorText,
+    });
+  }
+}
+
+/** Resolve prompt text for image generation. */
+function resolveImagePrompt(messages: UIMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i] as any;
+    if (!message || message.role !== "user") continue;
+    const parts = Array.isArray(message.parts) ? message.parts : [];
+    const text = parts
+      .filter((part: any) => part?.type === "text" && typeof part.text === "string")
+      .map((part: any) => part.text)
+      .join("")
+      .trim();
+    if (text) return text;
+  }
+  return "";
 }
 
 /** Resolve required input tags from message parts. */

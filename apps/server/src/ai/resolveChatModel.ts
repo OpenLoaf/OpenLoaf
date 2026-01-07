@@ -18,7 +18,7 @@ const MAX_FALLBACK_TRIES = 2;
 /** Map provider settings before model construction. */
 type ProviderEntryMapper = (entry: ProviderSettingEntry) => ProviderSettingEntry;
 
-/** Resolve model definition from registry. */
+/** Resolve model definition from registry or settings. */
 function resolveModelDefinition(
   providerId: string,
   modelId: string,
@@ -36,7 +36,7 @@ function normalizeChatModelId(raw?: string | null): string | null {
 }
 
 /** Parse chatModelId into provider key and model id. */
-function parseChatModelId(chatModelId: string): { pro5Id: string; modelId: string } | null {
+function parseChatModelId(chatModelId: string): { profileId: string; modelId: string } | null {
   const separatorIndex = chatModelId.indexOf(":");
   if (separatorIndex <= 0 || separatorIndex >= chatModelId.length - 1) return null;
   const profileId = chatModelId.slice(0, separatorIndex).trim();
@@ -176,15 +176,17 @@ async function resolveChatModelFromProviders(input: {
       ? preferredCandidateRaw
       : null;
 
-  // 中文注释：流程=生成候选列表 -> 顺序解析/创建模型 -> 失败后按次数 fallback。
-  const fallbackCandidates = buildChatModelCandidates({
-    providers,
-    exclude: normalized ?? preferredCandidate,
-    requiredTags: shouldFilterTags ? input.requiredTags : undefined,
-  });
+  // 中文注释：显式指定模型时不做 fallback，避免静默切换。
+  const fallbackCandidates = normalized
+    ? []
+    : buildChatModelCandidates({
+        providers,
+        exclude: preferredCandidate,
+        requiredTags: shouldFilterTags ? input.requiredTags : undefined,
+      });
   // 中文注释：auto 时默认取最近更新的模型，失败时再依次尝试 fallback。
   const candidates = normalized
-    ? [normalized, ...fallbackCandidates.slice(0, MAX_FALLBACK_TRIES)]
+    ? [normalized]
     : preferredCandidate
       ? [preferredCandidate, ...fallbackCandidates.slice(0, MAX_FALLBACK_TRIES)]
       : fallbackCandidates.slice(0, MAX_FALLBACK_TRIES + 1);
@@ -212,16 +214,17 @@ async function resolveChatModelFromProviders(input: {
       }
 
       const mappedProviderEntry = mapProviderEntry(providerEntry);
-      const providerDefinition = getProviderDefinition(providerEntry.providerId);
-      const adapterId = providerDefinition?.adapterId ?? providerEntry.providerId;
-      const adapter = PROVIDER_ADAPTERS[adapterId];
-      if (!adapter) throw new Error("不支持的模型服务商");
-
       const modelDefinition = resolveModelDefinition(
         providerEntry.providerId,
         parsed.modelId,
         providerEntry,
       );
+      // 中文注释：适配器优先使用模型定义里的 providerId，避免配置误配。
+      const resolvedProviderId = modelDefinition?.providerId ?? providerEntry.providerId;
+      const providerDefinition = getProviderDefinition(resolvedProviderId);
+      const adapterId = providerDefinition?.adapterId ?? resolvedProviderId;
+      const adapter = PROVIDER_ADAPTERS[adapterId];
+      if (!adapter) throw new Error("不支持的模型服务商");
       const model = adapter.buildAiSdkModel({
         provider: mappedProviderEntry,
         modelId: parsed.modelId,
@@ -229,13 +232,22 @@ async function resolveChatModelFromProviders(input: {
         providerDefinition,
       });
       if (!model) {
-        throw new Error("6");
+        const resolvedApiUrl = (
+          mappedProviderEntry.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || ""
+        ).trim();
+        const rawApiKey = mappedProviderEntry.authConfig?.apiKey;
+        const hasApiKey = typeof rawApiKey === "string" && rawApiKey.trim().length > 0;
+        // 中文注释：补齐常见配置缺失的报错，方便定位。
+        if (!hasApiKey || !resolvedApiUrl) {
+          throw new Error("模型服务商配置不完整：缺少 apiKey 或 apiUrl");
+        }
+        throw new Error(`模型构建失败：适配器(${adapterId})未返回实例`);
       }
 
       // 中文注释：provider 采用后端配置的 provider id，确保可追踪真实请求来源。
       return {
         model,
-        modelInfo: { provider: providerEntry.providerId, modelId: parsed.modelId },
+        modelInfo: { provider: resolvedProviderId, modelId: parsed.modelId },
         chatModelId: candidate,
         modelDefinition,
       };

@@ -169,7 +169,32 @@ function buildDebugFetch(): typeof fetch | undefined {
     if (body) {
       console.info("[ai-debug] request body", { url, body });
     }
-    return fetch(input, init);
+    const response = await fetch(input, init);
+    try {
+      const contentType = response.headers.get("content-type") ?? "";
+      const shouldLogBody = url.includes("/images/") && contentType.includes("application/json");
+      if (shouldLogBody) {
+        const responseText = await response.clone().text();
+        console.info("[ai-debug] response body", {
+          url,
+          status: response.status,
+          length: responseText.length,
+          body: responseText,
+        });
+      } else {
+        console.info("[ai-debug] response info", {
+          url,
+          status: response.status,
+          contentType,
+        });
+      }
+    } catch (error) {
+      console.info("[ai-debug] response read failed", {
+        url,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return response;
   };
 }
 
@@ -217,7 +242,18 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
       // 中文注释：自定义服务商默认走 chat completions，启用时才使用 /responses。
       return enableResponsesApi ? openaiProvider(modelId) : openaiProvider.chat(modelId);
     },
-    buildImageModel: () => null,
+    buildImageModel: ({ provider, modelId, providerDefinition }) => {
+      const apiKey = readApiKey(provider.authConfig);
+      const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
+      const debugFetch = buildDebugFetch();
+      if (!apiKey || !resolvedApiUrl) return null;
+      const openaiProvider = createOpenAI({
+        baseURL: ensureOpenAiCompatibleBaseUrl(resolvedApiUrl),
+        apiKey,
+        fetch: debugFetch,
+      });
+      return openaiProvider.image(modelId);
+    },
     buildRequest: () => null,
   },
   anthropic: buildAiSdkAdapter("anthropic", ({ apiUrl, apiKey, fetch }) =>

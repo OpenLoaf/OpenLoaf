@@ -6,6 +6,7 @@ import {
   type UIMessage,
 } from "ai";
 import { logger } from "@/common/logger";
+import type { TokenUsage } from "@teatime-ai/api/types/message";
 import {
   getSessionId,
   popAgentFrame,
@@ -47,6 +48,24 @@ export type ChatStreamResponseInput = {
   agentMetadata: Record<string, unknown>;
   /** Abort controller. */
   abortController: AbortController;
+};
+
+/** Input for building an image SSE response. */
+export type ImageStreamResponseInput = {
+  /** Session id. */
+  sessionId: string;
+  /** Assistant message id. */
+  assistantMessageId: string;
+  /** Parent user message id. */
+  parentMessageId: string;
+  /** Request start time. */
+  requestStartAt: Date;
+  /** Image parts to emit. */
+  imageParts: Array<{ type: "file"; url: string; mediaType: string }>;
+  /** Agent metadata for persistence. */
+  agentMetadata: Record<string, unknown>;
+  /** Token usage for metadata. */
+  totalUsage?: TokenUsage;
 };
 
 /** Build SSE response for errors. */
@@ -185,6 +204,44 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
 
   const sseStream = stepThinkingStream.pipeThrough(new JsonToSseTransformStream());
   return new Response(sseStream as any, { headers: UI_MESSAGE_STREAM_HEADERS });
+}
+
+/** Build SSE response for image-only output. */
+export async function createImageStreamResponse(
+  input: ImageStreamResponseInput,
+): Promise<Response> {
+  const timingMetadata = buildTimingMetadata({
+    startedAt: input.requestStartAt,
+    finishedAt: new Date(),
+  });
+  const usageMetadata = input.totalUsage ? { totalUsage: input.totalUsage } : {};
+  const mergedMetadata: Record<string, unknown> = {
+    ...usageMetadata,
+    ...timingMetadata,
+    ...(Object.keys(input.agentMetadata).length > 0 ? { agent: input.agentMetadata } : {}),
+  };
+
+  await saveMessage({
+    sessionId: input.sessionId,
+    message: {
+      id: input.assistantMessageId,
+      role: "assistant",
+      parts: input.imageParts,
+      metadata: mergedMetadata,
+    } as any,
+    parentMessageId: input.parentMessageId,
+    allowEmpty: false,
+    createdAt: input.requestStartAt,
+  });
+
+  const body = [
+    toSseChunk({ type: "start", messageId: input.assistantMessageId }),
+    ...input.imageParts.map((part) =>
+      toSseChunk({ type: "file", url: part.url, mediaType: part.mediaType }),
+    ),
+    toSseChunk({ type: "finish", finishReason: "stop", messageMetadata: mergedMetadata }),
+  ].join("");
+  return new Response(body, { headers: UI_MESSAGE_STREAM_HEADERS });
 }
 
 /** Persist error message into the chat tree. */

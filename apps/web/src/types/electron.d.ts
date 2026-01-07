@@ -57,6 +57,15 @@ declare global {
       showItemInFolder?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       trashItem?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       pickDirectory?: () => Promise<{ ok: true; path: string } | { ok: false }>;
+      saveFile?: (payload: {
+        contentBase64: string;
+        defaultDir?: string;
+        suggestedName?: string;
+        filters?: Array<{ name: string; extensions: string[] }>;
+      }) => Promise<
+        | { ok: true; path: string }
+        | { ok: false; canceled?: boolean; reason?: string }
+      >;
     };
   }
 }
