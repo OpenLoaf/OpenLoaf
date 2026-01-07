@@ -1,10 +1,10 @@
 import { getAbortSignal } from "@/ai/chat-stream/requestContext";
-import { getModelDefinition, getProviderDefinition } from "@/modules/model/modelRegistry";
+import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegistry";
 import {
   PROVIDER_ADAPTERS,
   type ProviderRequestInput,
   type ProviderTaskResult,
-} from "@/modules/model/providerAdapters";
+} from "@/ai/models/providerAdapters";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
 
 type ProviderRequestParams = {

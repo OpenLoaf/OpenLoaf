@@ -6,7 +6,11 @@ import {
   workspaceSchemas,
 } from "@teatime-ai/api";
 import { v4 as uuidv4 } from "uuid";
-import { teatimeConfigStore } from "@/modules/workspace/TeatimeConfigStoreAdapter";
+import {
+  getActiveWorkspaceConfig,
+  getWorkspaces,
+  setWorkspaces,
+} from "@teatime-ai/api/services/workspaceConfig";
 
 export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
   /** Workspace CRUD（MVP）：基于本地配置文件。 */
@@ -14,25 +18,20 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
     return t.router({
       getList: shieldedProcedure
         .output(workspaceSchemas.getList.output)
-        .query(async () => teatimeConfigStore.get().workspaces as Workspace[]),
+        .query(async () => getWorkspaces() as Workspace[]),
 
       getActive: shieldedProcedure
         .output(workspaceSchemas.getActive.output)
         .query(async () => {
-          const cfg = teatimeConfigStore.get();
-          const workspaces = cfg.workspaces as Workspace[];
-          const active = workspaces.find((w) => w.isActive) ?? workspaces[0];
-          if (!active) throw new Error("缺少 workspace 配置。");
-          return active;
+          return getActiveWorkspaceConfig() as Workspace;
         }),
 
       create: shieldedProcedure
         .input(workspaceSchemas.create.input)
         .output(workspaceSchemas.create.output)
         .mutation(async ({ input }) => {
-          const cfg = teatimeConfigStore.get();
-          const active = (cfg.workspaces as Workspace[]).find((w) => w.isActive)
-            ?? (cfg.workspaces as Workspace[])[0];
+          const workspaces = getWorkspaces() as Workspace[];
+          const active = workspaces.find((w) => w.isActive) ?? workspaces[0];
           if (!active?.rootUri) {
             throw new Error("缺少 workspace rootUri 配置。");
           }
@@ -44,7 +43,7 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
             rootUri: active.rootUri,
             projects: {},
           };
-          teatimeConfigStore.set({ ...cfg, workspaces: [...cfg.workspaces, newWorkspace] as any });
+          setWorkspaces([...workspaces, newWorkspace] as Workspace[]);
           return newWorkspace;
         }),
 
@@ -52,12 +51,11 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
         .input(workspaceSchemas.activate.input)
         .output(workspaceSchemas.activate.output)
         .mutation(async ({ input }) => {
-          const cfg = teatimeConfigStore.get();
-          const workspaces = cfg.workspaces as Workspace[];
+          const workspaces = getWorkspaces() as Workspace[];
           const exists = workspaces.find((w) => w.id === input.id);
           if (!exists) throw new Error("工作空间不存在");
           const next = workspaces.map((w) => ({ ...w, isActive: w.id === input.id }));
-          teatimeConfigStore.set({ ...cfg, workspaces: next as any });
+          setWorkspaces(next as Workspace[]);
           return { ...exists, isActive: true };
         }),
 
@@ -65,13 +63,12 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
         .input(workspaceSchemas.delete.input)
         .output(workspaceSchemas.delete.output)
         .mutation(async ({ input }) => {
-          const cfg = teatimeConfigStore.get();
-          const workspaces = cfg.workspaces as Workspace[];
+          const workspaces = getWorkspaces() as Workspace[];
           if (workspaces.length <= 1) throw new Error("至少需要保留一个工作空间");
           const next = workspaces.filter((w) => w.id !== input.id);
           if (next.length === workspaces.length) throw new Error("工作空间不存在");
           if (!next.some((w) => w.isActive) && next[0]) next[0] = { ...next[0], isActive: true };
-          teatimeConfigStore.set({ ...cfg, workspaces: next as any });
+          setWorkspaces(next as Workspace[]);
           return true;
         }),
 
@@ -79,12 +76,11 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
         .input(workspaceSchemas.updateName.input)
         .output(workspaceSchemas.updateName.output)
         .mutation(async ({ input }) => {
-          const cfg = teatimeConfigStore.get();
-          const workspaces = cfg.workspaces as Workspace[];
+          const workspaces = getWorkspaces() as Workspace[];
           const exists = workspaces.find((w) => w.id === input.id);
           if (!exists) throw new Error("工作空间不存在");
           const next = workspaces.map((w) => (w.id === input.id ? { ...w, name: input.name } : w));
-          teatimeConfigStore.set({ ...cfg, workspaces: next as any });
+          setWorkspaces(next as Workspace[]);
           return { ...exists, name: input.name };
         }),
 

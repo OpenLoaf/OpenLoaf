@@ -1,5 +1,5 @@
 import type { Hono } from "hono";
-import { teatimeConfigStore } from "@/modules/workspace/TeatimeConfigStoreAdapter";
+import { getWorkspaceByIdConfig } from "@teatime-ai/api/services/workspaceConfig";
 import { getTeatimeFilePreview, saveChatImageAttachment } from "./attachmentResolver";
 
 /** Max upload size for chat images. */
@@ -35,8 +35,7 @@ export function registerChatAttachmentRoutes(app: Hono) {
       return c.json({ error: "Missing required upload fields" }, 400);
     }
 
-    const config = teatimeConfigStore.get();
-    const workspaceExists = (config.workspaces ?? []).some((workspace) => workspace.id === workspaceId);
+    const workspaceExists = Boolean(getWorkspaceByIdConfig(workspaceId));
     if (!workspaceExists) {
       return c.json({ error: "Workspace not found" }, 400);
     }

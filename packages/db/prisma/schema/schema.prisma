@@ -23,20 +23,3 @@ generator trpc {
 datasource db {
   provider = "sqlite" // 使用SQLite数据库
 }
-
-model Setting {
-  id          String      @id @default(cuid()) // 设置唯一标识
-  key         String // 配置键
-  value       String // 配置值
-  secret      Boolean     @default(false) // 是否敏感信息
-  category    String      @default("general") // 配置分组
-  description String? // 配置说明
-  isReadonly  Boolean     @default(false) // 是否只读
-  syncToCloud Boolean     @default(false) // 是否同步云端
-  createdAt   DateTime    @default(now()) // 创建时间
-  updatedAt   DateTime    @updatedAt // 更新时间
-
-  @@index([category])
-  @@index([isReadonly])
-  @@unique([category, key])
-}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ChevronUp,
@@ -47,6 +48,7 @@ import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { toast } from "sonner";
 import { normalizeImageOptions } from "@/lib/chat/image-options";
+import ChatImageOutputOption from "./ChatImageOutputOption";
 
 interface ChatInputProps {
   className?: string;
@@ -88,6 +90,8 @@ export interface ChatInputBoxProps {
   attachments?: ChatAttachment[];
   onAddAttachments?: (files: FileList | File[]) => void;
   onRemoveAttachment?: (attachmentId: string) => void;
+  /** Optional header content above the input form. */
+  header?: ReactNode;
 }
 
 export function ChatInputBox({
@@ -109,6 +113,7 @@ export function ChatInputBox({
   attachments,
   onAddAttachments,
   onRemoveAttachment,
+  header,
 }: ChatInputBoxProps) {
   const initialValue = useMemo(() => parseChatValue(value), []);
   const [plainTextValue, setPlainTextValue] = useState(() =>
@@ -334,7 +339,7 @@ export function ChatInputBox({
         isOverLimit &&
           "border-destructive ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20",
         "teatime-thinking-border",
-        // 流式生成中：给输入框加边框流动动画，提示 AI 正在思考
+        // SSE 请求进行中（含非流式）：给输入框加边框流动动画，提示 AI 正在思考
         isStreaming && !isOverLimit && "teatime-thinking-border-on border-transparent",
         className
       )}
@@ -387,6 +392,11 @@ export function ChatInputBox({
         event.preventDefault();
       }}
     >
+      {header ? (
+        <div className="rounded-t-xl border-b border-border bg-muted/30">
+          {header}
+        </div>
+      ) : null}
       <form
         onSubmit={handleSubmit}
         className="flex flex-col min-h-[52px] overflow-hidden"
@@ -592,6 +602,8 @@ export default function ChatInput({
       : "";
   const isAutoModel = !selectedModelId;
   const selectedModel = modelOptions.find((option) => option.id === selectedModelId);
+  // 中文注释：只有模型声明 image_output 才显示图片输出选项。
+  const showImageOutputOptions = Boolean(selectedModel?.tags?.includes("image_output"));
   const canAttachImage = isAutoModel
     ? true
     : Boolean(
@@ -603,7 +615,7 @@ export default function ChatInput({
   const handleAddAttachments = canAttachImage ? onAddAttachments : undefined;
 
   const isLoading = status === "submitted" || status === "streaming";
-  const isStreaming = status === "streaming";
+  const isStreaming = status === "submitted" || status === "streaming";
   const hasPendingAttachments = (attachments ?? []).some(
     (item) => item.status === "loading"
   );
@@ -665,24 +677,34 @@ export default function ChatInput({
   };
 
   return (
-    <ChatInputBox
-      value={input}
-      onChange={setInput}
-      className={className}
-      variant="default"
-      compact={false}
-      isLoading={isLoading}
-      isStreaming={isStreaming}
-      submitDisabled={
-        isHistoryLoading ||
-        (status !== "ready" && status !== "error") ||
-        hasPendingAttachments
-      }
-      onSubmit={handleSubmit}
-      onStop={stopGenerating}
-      attachments={attachments}
-      onAddAttachments={handleAddAttachments}
-      onRemoveAttachment={onRemoveAttachment}
-    />
+    <>
+      <ChatInputBox
+        value={input}
+        onChange={setInput}
+        className={className}
+        variant="default"
+        compact={false}
+        isLoading={isLoading}
+        isStreaming={isStreaming}
+        submitDisabled={
+          isHistoryLoading ||
+          (status !== "ready" && status !== "error") ||
+          hasPendingAttachments
+        }
+        onSubmit={handleSubmit}
+        onStop={stopGenerating}
+        attachments={attachments}
+        onAddAttachments={handleAddAttachments}
+        onRemoveAttachment={onRemoveAttachment}
+        header={
+          showImageOutputOptions ? (
+            <ChatImageOutputOption
+              model={selectedModel}
+              variant="inline"
+            />
+          ) : null
+        }
+      />
+    </>
   );
 }

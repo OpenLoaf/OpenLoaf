@@ -3,7 +3,7 @@ import type {
   ProviderRequest,
   ProviderRequestInput,
   ProviderTaskResult,
-} from "@/modules/model/providerAdapters";
+} from "@/ai/models/providerAdapters";
 import { buildVolcengineRequest } from "./volcengineClient";
 import { resolveVolcengineConfig } from "./volcengineConfig";
 import { buildVolcengineImageModel } from "./volcengineImageModel";

@@ -7,6 +7,7 @@ import {
   getProviderOptions,
 } from "@/lib/model-registry";
 import {
+  MODEL_TAG_LABELS,
   resolvePriceTier,
   type ModelDefinition,
   type ModelTag,
@@ -123,23 +124,6 @@ type S3ProviderEntry = S3ProviderValue & {
   id: string;
   /** Entry key used as display name. */
   key: string;
-};
-
-// 标签显示文案映射。
-const MODEL_TAG_LABELS: Record<ModelTag, string> = {
-  text_output: "文本输出",
-  image_output: "图片输出",
-  image_input: "图片输入",
-  image_url_input: "图片链接输入",
-  text_input: "文本输入",
-  video_input: "视频输入",
-  tool: "工具调用",
-  code: "代码",
-  web_search: "网络搜索",
-  image_edit: "图片编辑",
-  video_generation: "视频生成",
-  language_input: "语言输入",
-  language_output: "语言输出",
 };
 
 const MODEL_TAG_OPTIONS = Object.entries(MODEL_TAG_LABELS).map(([value, label]) => ({

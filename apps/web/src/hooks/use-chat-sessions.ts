@@ -83,6 +83,7 @@ export function useChatSessions(input?: UseChatSessionsInput) {
     recentSessions,
     scopeProjectId: scopedProjectId,
     isLoading: query.isLoading,
+    refetch: query.refetch,
   };
 }
 

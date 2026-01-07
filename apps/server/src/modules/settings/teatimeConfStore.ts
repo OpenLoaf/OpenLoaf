@@ -1,100 +1,32 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { getEnvString } from "@teatime-ai/config";
-import type { ChatModelSource, ModelDefinition } from "@teatime-ai/api/common";
-import type { BasicConfig } from "@teatime-ai/api/types/basic";
+import type { ChatModelSource } from "@teatime-ai/api/common";
+import type {
+  AuthConf,
+  BasicConf,
+  ModelProviderConf,
+  S3ProviderConf,
+} from "@/modules/settings/settingConfigTypes";
 
-export type ModelProviderValue = {
-  /** Provider id. */
-  providerId: string;
-  /** API base URL. */
-  apiUrl: string;
-  /** Raw auth config. */
-  authConfig: Record<string, unknown>;
-  /** Enabled models keyed by model id. */
-  models: Record<string, ModelDefinition>;
-  /** Optional provider options. */
-  options?: {
-    /** Whether to enable OpenAI Responses API. */
-    enableResponsesApi?: boolean;
-  };
-};
-
-export type ModelProviderConf = ModelProviderValue & {
-  /** Stable provider entry id. */
-  id: string;
-  /** Display name stored as title. */
-  title: string;
-  /** Last update timestamp. */
-  updatedAt: string;
-};
-
-export type S3ProviderValue = {
-  /** Provider id. */
-  providerId: string;
-  /** Display label for UI. */
-  providerLabel?: string;
-  /** Endpoint URL. */
-  endpoint?: string;
-  /** Region name. */
-  region?: string;
-  /** Bucket name. */
-  bucket: string;
-  /** Force path-style addressing. */
-  forcePathStyle?: boolean;
-  /** Public base URL for CDN or custom domain. */
-  publicBaseUrl?: string;
-  /** Access key id. */
-  accessKeyId: string;
-  /** Secret access key. */
-  secretAccessKey: string;
-};
-
-export type S3ProviderConf = S3ProviderValue & {
-  /** Stable provider entry id. */
-  id: string;
-  /** Display name stored as title. */
-  title: string;
-  /** Last update timestamp. */
-  updatedAt: string;
-};
-
-export type WorkspaceConf = {
-  /** Workspace id. */
-  id: string;
-  /** Workspace display name. */
-  name: string;
-  /** Workspace type. */
-  type: "local" | "cloud";
-  /** Active workspace marker. */
-  isActive: boolean;
-  /** Workspace root URI. */
-  rootUri: string;
-  /** Project map of { projectId: rootUri }. */
-  projects?: Record<string, string>;
-};
-
-export type BasicConf = BasicConfig;
-
-type TeatimeConf = {
-  /** Workspace list. */
-  workspaces?: WorkspaceConf[];
+type SettingsFile = {
   /** Global basic settings. */
   basic?: BasicConf;
+};
+
+type ProvidersFile = {
   /** Model provider configs. */
   modelProviders?: ModelProviderConf[];
   /** S3 provider configs. */
-  S3Providers?: S3ProviderConf[];
-  /** Auth info for SaaS login. */
-  auth?: {
-    /** Stored SaaS refresh token. */
-    refreshToken?: string;
-    /** Last update timestamp. */
-    updatedAt?: string;
-  };
-  /** Legacy workspace root URI (deprecated). */
-  workspaceRootUri?: string;
+  s3Providers?: S3ProviderConf[];
 };
 
+type AuthFile = {
+  /** Auth info for SaaS login. */
+  auth?: AuthConf;
+};
+
+/** Default basic config values. */
 const DEFAULT_BASIC_CONF: BasicConf = {
   chatSource: "local",
   activeS3Id: undefined,
@@ -297,132 +229,98 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
   };
 }
 
-/** Resolve the config file path from environment. */
-function getTeatimeConfPath(): string {
+/** Resolve config directory from environment. */
+function getConfigDir(): string {
   const confPath = getEnvString(process.env, "TEATIME_CONF_PATH", { required: true });
-  return confPath!;
+  const dir = path.dirname(confPath!);
+  // 逻辑：确保配置目录存在，便于写入拆分文件。
+  mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
-/** Load Teatime config from disk. */
-function loadTeatimeConf(): TeatimeConf {
-  const confPath = getTeatimeConfPath();
-  if (!existsSync(confPath)) {
-    throw new Error("Teatime config not found. Please create teatime.conf first.");
-  }
-  return JSON.parse(readFileSync(confPath, "utf-8")) as TeatimeConf;
+/** Resolve settings.json path. */
+function getSettingsPath(): string {
+  return path.join(getConfigDir(), "settings.json");
 }
 
-/** Read Teatime config from disk without throwing on parse failure. */
-function readTeatimeConfSafely(confPath: string): TeatimeConf | null {
-  if (!existsSync(confPath)) return null;
+/** Resolve providers.json path. */
+function getProvidersPath(): string {
+  return path.join(getConfigDir(), "providers.json");
+}
+
+/** Resolve auth.json path. */
+function getAuthPath(): string {
+  return path.join(getConfigDir(), "auth.json");
+}
+
+/** Read JSON file safely with a fallback payload. */
+function readJsonSafely<T>(filePath: string, fallback: T): T {
+  if (!existsSync(filePath)) return fallback;
   try {
-    return JSON.parse(readFileSync(confPath, "utf-8")) as TeatimeConf;
+    return JSON.parse(readFileSync(filePath, "utf-8")) as T;
   } catch {
-    // 逻辑：解析失败时回退为 null，避免阻断写入流程。
-    return null;
+    // 逻辑：解析失败时回退为默认值，避免阻断读取流程。
+    return fallback;
   }
 }
 
-/** Merge workspace list while preserving existing projects when missing. */
-function mergeWorkspaceProjects(
-  existing?: WorkspaceConf[],
-  incoming?: WorkspaceConf[],
-): WorkspaceConf[] | undefined {
-  if (!incoming) return existing;
-  if (!existing || existing.length === 0) return incoming;
-  const existingById = new Map(existing.map((workspace) => [workspace.id, workspace]));
-  return incoming.map((workspace) => {
-    const previous = existingById.get(workspace.id);
-    if (!previous) return workspace;
-    const hasProjects =
-      workspace.projects !== undefined && typeof workspace.projects === "object" && workspace.projects !== null;
-    // 逻辑：当 incoming 未包含 projects 时，保留磁盘上的 projects，避免被覆盖成空。
-    const projects = hasProjects ? workspace.projects : previous.projects;
-    return { ...previous, ...workspace, projects };
-  });
+/** Write JSON file atomically. */
+function writeJson(filePath: string, payload: unknown): void {
+  const tmpPath = `${filePath}.${Date.now()}.tmp`;
+  // 逻辑：原子写入，避免读取时遇到半写入状态。
+  writeFileSync(tmpPath, JSON.stringify(payload, null, 2), "utf-8");
+  renameSync(tmpPath, filePath);
 }
 
-/** Write Teatime config to disk. */
-function writeTeatimeConf(conf: TeatimeConf): void {
-  const confPath = getTeatimeConfPath();
-  const existing = readTeatimeConfSafely(confPath);
-  const mergedWorkspaces = mergeWorkspaceProjects(existing?.workspaces, conf.workspaces);
-  const payload: TeatimeConf = {
-    ...(existing ?? {}),
-    ...conf,
-    ...(mergedWorkspaces ? { workspaces: mergedWorkspaces } : {}),
-  };
-  // 逻辑：保持 JSON 可读，并保留磁盘上的 projects 配置。
-  writeFileSync(confPath, JSON.stringify(payload, null, 2));
-}
-
-/** Read model providers from config. */
+/** Read model providers from providers.json. */
 export function readModelProviders(): ModelProviderConf[] {
-  const conf = loadTeatimeConf();
+  const conf = readJsonSafely<ProvidersFile>(getProvidersPath(), {});
   // 逻辑：字段缺失时回退为空数组。
   return Array.isArray(conf.modelProviders) ? conf.modelProviders : [];
 }
 
-/** Persist model providers into config. */
+/** Persist model providers into providers.json. */
 export function writeModelProviders(entries: ModelProviderConf[]): void {
-  const conf = loadTeatimeConf();
-  writeTeatimeConf({ ...conf, modelProviders: entries });
+  const conf = readJsonSafely<ProvidersFile>(getProvidersPath(), {});
+  writeJson(getProvidersPath(), { ...conf, modelProviders: entries });
 }
 
-/** Read S3 providers from config. */
+/** Read S3 providers from providers.json. */
 export function readS3Providers(): S3ProviderConf[] {
-  const conf = loadTeatimeConf();
+  const conf = readJsonSafely<ProvidersFile>(getProvidersPath(), {});
   // 逻辑：字段缺失时回退为空数组。
-  return Array.isArray(conf.S3Providers) ? conf.S3Providers : [];
+  return Array.isArray(conf.s3Providers) ? conf.s3Providers : [];
 }
 
-/** Persist S3 providers into config. */
+/** Persist S3 providers into providers.json. */
 export function writeS3Providers(entries: S3ProviderConf[]): void {
-  const conf = loadTeatimeConf();
-  writeTeatimeConf({ ...conf, S3Providers: entries });
+  const conf = readJsonSafely<ProvidersFile>(getProvidersPath(), {});
+  writeJson(getProvidersPath(), { ...conf, s3Providers: entries });
 }
 
-/** Read basic config from config with defaults. */
+/** Read basic config from settings.json with defaults. */
 export function readBasicConf(): BasicConf {
-  const conf = loadTeatimeConf();
-  const activeWorkspace =
-    conf.workspaces?.find((workspace) => workspace.isActive) ?? conf.workspaces?.[0];
-  const legacyWorkspace = activeWorkspace as Record<string, unknown> | undefined;
-  const fallback: Partial<BasicConf> = {
-    chatSource: legacyWorkspace?.chatSource as ChatModelSource | undefined,
-    activeS3Id:
-      typeof legacyWorkspace?.activeS3Id === "string"
-        ? (legacyWorkspace?.activeS3Id as string)
-        : undefined,
-    s3AutoUpload:
-      typeof legacyWorkspace?.s3AutoUpload === "boolean"
-        ? (legacyWorkspace?.s3AutoUpload as boolean)
-        : undefined,
-    s3AutoDeleteHours:
-      typeof legacyWorkspace?.s3AutoDeleteHours === "number"
-        ? (legacyWorkspace?.s3AutoDeleteHours as number)
-        : undefined,
-  };
-  return normalizeBasicConf(conf.basic, fallback);
+  const conf = readJsonSafely<SettingsFile>(getSettingsPath(), {});
+  return normalizeBasicConf(conf.basic);
 }
 
-/** Persist basic config into config. */
+/** Persist basic config into settings.json. */
 export function writeBasicConf(next: BasicConf): void {
-  const conf = loadTeatimeConf();
-  writeTeatimeConf({ ...conf, basic: normalizeBasicConf(next) });
+  const conf = readJsonSafely<SettingsFile>(getSettingsPath(), {});
+  writeJson(getSettingsPath(), { ...conf, basic: normalizeBasicConf(next) });
 }
 
-/** Read SaaS refresh token from config. */
+/** Read SaaS refresh token from auth.json. */
 export function readAuthRefreshToken(): string | undefined {
-  const conf = loadTeatimeConf();
+  const conf = readJsonSafely<AuthFile>(getAuthPath(), {});
   return conf.auth?.refreshToken;
 }
 
-/** Persist SaaS refresh token into config. */
+/** Persist SaaS refresh token into auth.json. */
 export function writeAuthRefreshToken(token: string): void {
-  const conf = loadTeatimeConf();
+  const conf = readJsonSafely<AuthFile>(getAuthPath(), {});
   // 逻辑：刷新 token 时同步更新时间，便于排查。
-  writeTeatimeConf({
+  writeJson(getAuthPath(), {
     ...conf,
     auth: {
       ...(conf.auth ?? {}),
@@ -432,10 +330,10 @@ export function writeAuthRefreshToken(token: string): void {
   });
 }
 
-/** Clear SaaS refresh token from config. */
+/** Clear SaaS refresh token from auth.json. */
 export function clearAuthRefreshToken(): void {
-  const conf = loadTeatimeConf();
-  writeTeatimeConf({
+  const conf = readJsonSafely<AuthFile>(getAuthPath(), {});
+  writeJson(getAuthPath(), {
     ...conf,
     auth: {
       ...(conf.auth ?? {}),

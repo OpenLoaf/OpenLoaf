@@ -8,11 +8,13 @@ import {
   writeBasicConf,
   writeModelProviders,
   writeS3Providers,
-  type ModelProviderConf,
-  type ModelProviderValue,
-  type S3ProviderConf,
-  type S3ProviderValue,
 } from "@/modules/settings/teatimeConfStore";
+import type {
+  ModelProviderConf,
+  ModelProviderValue,
+  S3ProviderConf,
+  S3ProviderValue,
+} from "@/modules/settings/settingConfigTypes";
 
 type SettingItem = {
   /** Setting row id. */
@@ -68,8 +70,6 @@ const MODEL_CHAT_QUALITY_KEY = "model.chatQuality";
 function readBasicConfig(): BasicConfig {
   return readBasicConf();
 }
-
-
 /** Check if a value is a plain record. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -345,7 +345,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
   return normalized;
 }
 
-/** Upsert model provider config into teatime.conf. */
+/** Upsert model provider config into providers.json. */
 function upsertModelProvider(key: string, value: unknown) {
   const normalized = normalizeModelProviderValue(value);
   if (!normalized) throw new Error("Invalid model provider payload");
@@ -365,13 +365,13 @@ function upsertModelProvider(key: string, value: unknown) {
   writeModelProviders(nextProviders);
 }
 
-/** Remove model provider config from teatime.conf. */
+/** Remove model provider config from providers.json. */
 function removeModelProvider(key: string) {
   const providers = readModelProviders();
   writeModelProviders(providers.filter((entry) => entry.title !== key));
 }
 
-/** Upsert S3 provider config into teatime.conf. */
+/** Upsert S3 provider config into providers.json. */
 function upsertS3Provider(key: string, value: unknown) {
   const normalized = normalizeS3ProviderValue(value);
   if (!normalized) throw new Error("Invalid S3 provider payload");
@@ -395,7 +395,7 @@ function upsertS3Provider(key: string, value: unknown) {
   writeBasicConf({ ...basic, activeS3Id: next.id });
 }
 
-/** Remove S3 provider config from teatime.conf. */
+/** Remove S3 provider config from providers.json. */
 function removeS3Provider(key: string) {
   const providers = readS3Providers();
   const removed = providers.find((entry) => entry.title === key);

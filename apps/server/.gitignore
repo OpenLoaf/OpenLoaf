@@ -56,3 +56,6 @@ next-env.d.ts
 
 teatime.conf
 workspace
+settings.json
+providers.json
+workspaces.json

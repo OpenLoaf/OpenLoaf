@@ -1,38 +1,17 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { getEnvString } from "@teatime-ai/config";
-
-type WorkspaceConfig = {
-  /** Workspace id. */
-  id: string;
-  /** Workspace display name. */
-  name: string;
-  /** Workspace type. */
-  type: "local" | "cloud";
-  /** Active workspace marker. */
-  isActive: boolean;
-  /** Workspace root URI. */
-  rootUri: string;
-  /** Project map of { projectId: rootUri }. */
-  projects?: Record<string, string>;
-};
-
-type TeatimeConfig = {
-  /** Workspace list. */
-  workspaces: WorkspaceConfig[];
-  /** Legacy root URI (deprecated). */
-  workspaceRootUri?: string;
-};
+import type { Workspace } from "../types/workspace";
+import {
+  getActiveWorkspaceConfig,
+  getWorkspaceByIdConfig,
+  getWorkspaces,
+  resolveWorkspaceRootPath,
+  setWorkspaces,
+} from "./workspaceConfig";
 
 const PROJECT_META_DIR = ".teatime";
 const PROJECT_META_FILE = "project.json";
-
-/** Resolve the config file path from environment. */
-function getTeatimeConfigPath(): string {
-  const confPath = getEnvString(process.env, "TEATIME_CONF_PATH", { required: true });
-  return confPath!;
-}
 
 /** Normalize a local path or file:// URI into a file:// URI. */
 function normalizeFileUri(raw: string): string {
@@ -52,63 +31,14 @@ function normalizeProjects(projects?: Record<string, string>): Record<string, st
   return normalized;
 }
 
-/** Load Teatime config from disk and normalize workspace roots. */
-function loadTeatimeConfig(): TeatimeConfig {
-  const confPath = getTeatimeConfigPath();
-  if (!existsSync(confPath)) {
-    throw new Error("Teatime config not found. Please create teatime.conf first.");
-  }
-  const raw = JSON.parse(readFileSync(confPath, "utf-8")) as TeatimeConfig;
-  const workspaces = Array.isArray(raw.workspaces) ? raw.workspaces : [];
-  if (workspaces.length === 0) {
-    throw new Error("workspaces is required in teatime.conf.");
-  }
-  const fallbackRoot = typeof raw.workspaceRootUri === "string" ? raw.workspaceRootUri : "";
-  const normalizedWorkspaces = workspaces.map((workspace) => {
-    const rootUriRaw = String(workspace.rootUri ?? fallbackRoot ?? "").trim();
-    if (!rootUriRaw) {
-      throw new Error("workspace.rootUri is required in teatime.conf.");
-    }
-    return {
-      ...workspace,
-      rootUri: normalizeFileUri(rootUriRaw),
-      projects: normalizeProjects(workspace.projects),
-    };
-  });
-  return { workspaces: normalizedWorkspaces };
-}
-
-/** Read raw config file as a mutable payload. */
-function readTeatimeConfigFile(): Record<string, unknown> {
-  const confPath = getTeatimeConfigPath();
-  if (!existsSync(confPath)) {
-    throw new Error("Teatime config not found. Please create teatime.conf first.");
-  }
-  return JSON.parse(readFileSync(confPath, "utf-8")) as Record<string, unknown>;
-}
-
-/** Write raw config file payload back to disk. */
-function writeTeatimeConfigFile(payload: Record<string, unknown>): void {
-  const confPath = getTeatimeConfigPath();
-  writeFileSync(confPath, JSON.stringify(payload, null, 2), "utf-8");
-}
-
 /** Get the active workspace config. */
-export function getActiveWorkspace(): WorkspaceConfig {
-  const config = loadTeatimeConfig();
-  const active = config.workspaces.find((workspace) => workspace.isActive) ?? config.workspaces[0];
-  if (!active) {
-    throw new Error("Active workspace not found.");
-  }
-  return active;
+export function getActiveWorkspace(): Workspace {
+  return getActiveWorkspaceConfig();
 }
 
 /** Get workspace config by id. */
-export function getWorkspaceById(workspaceId: string): WorkspaceConfig | null {
-  if (!workspaceId) return null;
-  const config = loadTeatimeConfig();
-  const target = config.workspaces.find((workspace) => workspace.id === workspaceId);
-  return target ?? null;
+export function getWorkspaceById(workspaceId: string): Workspace | null {
+  return getWorkspaceByIdConfig(workspaceId);
 }
 
 /** Get workspace root URI from active workspace. */
@@ -118,29 +48,21 @@ export function getWorkspaceRootUri(): string {
 
 /** Get workspace root path on disk and ensure it exists. */
 export function getWorkspaceRootPath(): string {
-  const rootPath = fileURLToPath(getWorkspaceRootUri());
-  // 中文注释：启动时确保目录存在，避免后续读写失败。
-  mkdirSync(rootPath, { recursive: true });
-  return rootPath;
+  return resolveWorkspaceRootPath(getWorkspaceRootUri());
 }
 
 /** Get workspace root URI by workspace id. */
 export function getWorkspaceRootUriById(workspaceId: string): string | null {
   if (!workspaceId) return null;
-  const config = loadTeatimeConfig();
-  const workspace = config.workspaces.find((item) => item.id === workspaceId);
-  if (!workspace) return null;
-  return workspace.rootUri;
+  const workspace = getWorkspaceById(workspaceId);
+  return workspace?.rootUri ?? null;
 }
 
 /** Get workspace root path by workspace id and ensure it exists. */
 export function getWorkspaceRootPathById(workspaceId: string): string | null {
   const rootUri = getWorkspaceRootUriById(workspaceId);
   if (!rootUri) return null;
-  const rootPath = fileURLToPath(rootUri);
-  // 中文注释：按 workspaceId 解析根目录并确保存在。
-  mkdirSync(rootPath, { recursive: true });
-  return rootPath;
+  return resolveWorkspaceRootPath(rootUri);
 }
 
 /** Get project root URI by project id. */
@@ -194,11 +116,10 @@ export function getProjectRootPath(projectId: string): string | null {
 
 /** Upsert project root URI into active workspace config. */
 export function upsertActiveWorkspaceProject(projectId: string, rootUri: string): void {
-  const raw = readTeatimeConfigFile();
-  const config = loadTeatimeConfig();
-  const activeIndex = config.workspaces.findIndex((workspace) => workspace.isActive);
+  const workspaces = getWorkspaces();
+  const activeIndex = workspaces.findIndex((workspace) => workspace.isActive);
   const targetIndex = activeIndex >= 0 ? activeIndex : 0;
-  const active = config.workspaces[targetIndex];
+  const active = workspaces[targetIndex];
   if (!active) {
     throw new Error("Active workspace not found.");
   }
@@ -206,24 +127,18 @@ export function upsertActiveWorkspaceProject(projectId: string, rootUri: string)
     ...(active.projects ?? {}),
     [projectId]: normalizeFileUri(rootUri),
   };
-  const nextWorkspaces = config.workspaces.map((workspace, index) =>
+  const nextWorkspaces = workspaces.map((workspace, index) =>
     index === targetIndex ? { ...workspace, projects: nextProjects } : workspace
   );
-  // 中文注释：保留未知字段，仅更新 workspaces 与项目映射。
-  const payload = { ...raw, workspaces: nextWorkspaces };
-  if ("workspaceRootUri" in payload) {
-    delete (payload as { workspaceRootUri?: string }).workspaceRootUri;
-  }
-  writeTeatimeConfigFile(payload);
+  setWorkspaces(nextWorkspaces);
 }
 
 /** Remove a project from the active workspace config. */
 export function removeActiveWorkspaceProject(projectId: string): void {
-  const raw = readTeatimeConfigFile();
-  const config = loadTeatimeConfig();
-  const activeIndex = config.workspaces.findIndex((workspace) => workspace.isActive);
+  const workspaces = getWorkspaces();
+  const activeIndex = workspaces.findIndex((workspace) => workspace.isActive);
   const targetIndex = activeIndex >= 0 ? activeIndex : 0;
-  const active = config.workspaces[targetIndex];
+  const active = workspaces[targetIndex];
   if (!active) {
     throw new Error("Active workspace not found.");
   }
@@ -231,14 +146,10 @@ export function removeActiveWorkspaceProject(projectId: string): void {
   if (!nextProjects[projectId]) return;
   // 移除项目映射，避免残留在 workspace 列表中。
   delete nextProjects[projectId];
-  const nextWorkspaces = config.workspaces.map((workspace, index) =>
+  const nextWorkspaces = workspaces.map((workspace, index) =>
     index === targetIndex ? { ...workspace, projects: nextProjects } : workspace
   );
-  const payload = { ...raw, workspaces: nextWorkspaces };
-  if ("workspaceRootUri" in payload) {
-    delete (payload as { workspaceRootUri?: string }).workspaceRootUri;
-  }
-  writeTeatimeConfigFile(payload);
+  setWorkspaces(nextWorkspaces);
 }
 
 /** Convert a local path to file:// URI. */

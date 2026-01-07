@@ -9,7 +9,7 @@ import { registerChatAttachmentRoutes } from "@/ai/chat-stream/chatAttachmentRou
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
 import { registerS3TestRoutes } from "@/modules/storage/s3TestRoutes";
-import { registerCloudModelRoutes } from "@/modules/model/cloudModelRoutes";
+import { registerCloudModelRoutes } from "@/ai/models/cloudModelRoutes";
 import { workspaceRouterImplementation } from "@/routers/workspace";
 import { tabRouterImplementation } from "@/routers/tab";
 import { chatRouterImplementation } from "@/routers/chat";

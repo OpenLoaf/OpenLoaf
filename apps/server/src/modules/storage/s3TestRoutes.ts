@@ -1,5 +1,6 @@
 import type { Hono } from "hono";
-import { readS3Providers, type S3ProviderConf } from "@/modules/settings/teatimeConfStore";
+import { readS3Providers } from "@/modules/settings/teatimeConfStore";
+import type { S3ProviderConf } from "@/modules/settings/settingConfigTypes";
 import { createS3StorageService } from "@/modules/storage/s3StorageService";
 
 /** Max file size for S3 test uploads. */

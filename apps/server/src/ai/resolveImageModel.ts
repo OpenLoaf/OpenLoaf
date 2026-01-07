@@ -1,8 +1,8 @@
 import type { ImageModelV3 } from "@ai-sdk/provider";
 import type { ModelDefinition } from "@teatime-ai/api/common";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
-import { getModelDefinition, getProviderDefinition } from "@/modules/model/modelRegistry";
-import { PROVIDER_ADAPTERS } from "@/modules/model/providerAdapters";
+import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegistry";
+import { PROVIDER_ADAPTERS } from "@/ai/models/providerAdapters";
 import { logger } from "@/common/logger";
 
 type ResolvedImageModel = {

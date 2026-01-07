@@ -67,7 +67,7 @@ function readProxySettingsFromEnv(
 }
 
 /**
- * Sync current system proxy settings into the settings table.
+ * Sync current system proxy settings into settings.json.
  */
 export async function syncSystemProxySettings(): Promise<void> {
   const basic = readBasicConf();

@@ -3,7 +3,7 @@ import type {
   ProviderRequest,
   ProviderRequestInput,
   ProviderTaskResult,
-} from "@/modules/model/providerAdapters";
+} from "@/ai/models/providerAdapters";
 import { logger } from "@/common/logger";
 import { resolveQwenConfig } from "./qwenConfig";
 import {

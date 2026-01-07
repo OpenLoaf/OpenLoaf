@@ -15,6 +15,23 @@ export type ModelTag =
   | "language_input"
   | "language_output";
 
+// 标签显示文案映射。
+export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
+  text_output: "文本输出",
+  image_output: "图片输出",
+  image_input: "图片输入",
+  image_url_input: "图片链接输入",
+  text_input: "文本输入",
+  video_input: "视频输入",
+  tool: "工具调用",
+  code: "代码",
+  web_search: "网络搜索",
+  image_edit: "图片编辑",
+  video_generation: "视频生成",
+  language_input: "语言输入",
+  language_output: "语言输出",
+};
+
 export type PriceTier = {
   /** Minimum context window (K) for this tier. */
   minContextK: number;

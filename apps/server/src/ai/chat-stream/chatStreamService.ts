@@ -16,7 +16,7 @@ import {
 } from "@/ai/chat-stream/requestContext";
 import { logger } from "@/common/logger";
 import { getProviderSettings } from "@/modules/settings/settingsService";
-import { getModelDefinition } from "@/modules/model/modelRegistry";
+import { getModelDefinition } from "@/ai/models/modelRegistry";
 import type { ChatStreamRequest } from "./chatStreamTypes";
 import { loadMessageChain } from "./messageChainLoader";
 import { buildFilePartFromTeatimeUrl, saveChatImageAttachment } from "./attachmentResolver";

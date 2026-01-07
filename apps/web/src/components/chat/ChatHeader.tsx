@@ -21,7 +21,7 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
     useChatContext();
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const menuLockRef = React.useRef(false);
-  const { sessions } = useChatSessions({ tabId });
+  const { sessions, refetch: refetchSessions } = useChatSessions({ tabId });
   const tab = useTabs((s) => (tabId ? s.tabs.find((t) => t.id === tabId) : undefined));
   const setTabTitle = useTabs((s) => s.setTabTitle);
 
@@ -88,6 +88,10 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
               variant="ghost"
               size="icon"
               aria-label="History"
+              onClick={() => {
+                // 中文注释：点击历史按钮立即刷新会话列表，确保拿到最新数据。
+                void refetchSessions();
+              }}
             >
               <History size={20} />
             </Button>
