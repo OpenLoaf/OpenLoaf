@@ -18,7 +18,7 @@ import type { MasterAgentRunner } from "@/ai/agents/masterAgent/masterAgentRunne
 import { appendMessagePart, saveMessage } from "./messageStore";
 import { buildTokenUsageMetadata, buildTimingMetadata, mergeAbortMetadata } from "./metadataBuilder";
 
-/** Input for building an error SSE response. */
+/** 构建错误 SSE 响应的输入。 */
 export type ErrorStreamInput = {
   /** Session id. */
   sessionId: string;
@@ -30,7 +30,7 @@ export type ErrorStreamInput = {
   errorText: string;
 };
 
-/** Input for building the main chat stream response. */
+/** 构建主聊天流响应的输入。 */
 export type ChatStreamResponseInput = {
   /** Session id. */
   sessionId: string;
@@ -50,7 +50,7 @@ export type ChatStreamResponseInput = {
   abortController: AbortController;
 };
 
-/** Input for building an image SSE response. */
+/** 构建图片 SSE 响应的输入。 */
 export type ImageStreamResponseInput = {
   /** Session id. */
   sessionId: string;
@@ -60,6 +60,8 @@ export type ImageStreamResponseInput = {
   parentMessageId: string;
   /** Request start time. */
   requestStartAt: Date;
+  /** 改写后的提示词。 */
+  revisedPrompt?: string;
   /** Image parts to emit. */
   imageParts: Array<{ type: "file"; url: string; mediaType: string }>;
   /** Agent metadata for persistence. */
@@ -68,7 +70,7 @@ export type ImageStreamResponseInput = {
   totalUsage?: TokenUsage;
 };
 
-/** Build SSE response for errors. */
+/** 构建错误 SSE 响应。 */
 export async function createErrorStreamResponse(input: ErrorStreamInput): Promise<Response> {
   await saveErrorMessage(input);
   const body = [
@@ -81,7 +83,7 @@ export async function createErrorStreamResponse(input: ErrorStreamInput): Promis
   return new Response(body, { headers: UI_MESSAGE_STREAM_HEADERS });
 }
 
-/** Build SSE response for chat stream. */
+/** 构建聊天流 SSE 响应。 */
 export async function createChatStreamResponse(input: ChatStreamResponseInput): Promise<Response> {
   const popAgentFrameOnce = (() => {
     let popped = false;
@@ -206,7 +208,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
   return new Response(sseStream as any, { headers: UI_MESSAGE_STREAM_HEADERS });
 }
 
-/** Build SSE response for image-only output. */
+/** 构建图片输出的 SSE 响应。 */
 export async function createImageStreamResponse(
   input: ImageStreamResponseInput,
 ): Promise<Response> {
@@ -221,12 +223,22 @@ export async function createImageStreamResponse(
     ...(Object.keys(input.agentMetadata).length > 0 ? { agent: input.agentMetadata } : {}),
   };
 
+  const revisedPromptPart = input.revisedPrompt
+    ? [
+        {
+          type: "data-revised-prompt" as const,
+          data: { text: input.revisedPrompt },
+        },
+      ]
+    : [];
+  const messageParts = [...input.imageParts, ...revisedPromptPart];
+
   await saveMessage({
     sessionId: input.sessionId,
     message: {
       id: input.assistantMessageId,
       role: "assistant",
-      parts: input.imageParts,
+      parts: messageParts,
       metadata: mergedMetadata,
     } as any,
     parentMessageId: input.parentMessageId,
@@ -239,12 +251,15 @@ export async function createImageStreamResponse(
     ...input.imageParts.map((part) =>
       toSseChunk({ type: "file", url: part.url, mediaType: part.mediaType }),
     ),
+    ...revisedPromptPart.map((part) =>
+      toSseChunk({ type: part.type, data: part.data }),
+    ),
     toSseChunk({ type: "finish", finishReason: "stop", messageMetadata: mergedMetadata }),
   ].join("");
   return new Response(body, { headers: UI_MESSAGE_STREAM_HEADERS });
 }
 
-/** Persist error message into the chat tree. */
+/** 持久化错误消息到消息树。 */
 async function saveErrorMessage(input: ErrorStreamInput) {
   const part = { type: "text", text: input.errorText, state: "done" };
   const appended = await appendMessagePart({
@@ -267,7 +282,7 @@ async function saveErrorMessage(input: ErrorStreamInput) {
   });
 }
 
-/** Convert JSON to SSE chunk. */
+/** 将 JSON 转为 SSE chunk。 */
 function toSseChunk(value: unknown): string {
   return `data: ${JSON.stringify(value)}\n\n`;
 }

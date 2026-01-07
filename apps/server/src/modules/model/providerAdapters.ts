@@ -1,14 +1,16 @@
 import type { ImageModelV3, LanguageModelV3 } from "@ai-sdk/provider";
-import type { HeadersInit } from "undici";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
-import { getEnvString } from "@teatime-ai/config";
 import type { ModelDefinition, ProviderDefinition } from "@teatime-ai/api/common";
+import { buildOpenAiCompatibleImageModel } from "@/ai/models/openaiCompatible/openaiCompatibleImageModel";
 import { qwenAdapter } from "@/ai/models/qwen/qwenAdapter";
 import { volcengineAdapter } from "@/ai/models/volcengine/volcengineAdapter";
+import { buildAiDebugFetch } from "@/ai/utils/ai-debug-fetch";
+import { ensureOpenAiCompatibleBaseUrl } from "@/ai/utils/openai-url";
+import { readApiKey } from "@/ai/utils/provider-auth";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 
 type AdapterInput = {
@@ -122,83 +124,7 @@ export type ProviderAdapter = {
   buildRequest: (input: AdapterInput & { input: ProviderRequestInput }) => ProviderRequest | null;
 };
 
-/** Read apiKey from auth config. */
-function readApiKey(authConfig: Record<string, unknown>) {
-  const apiKey = authConfig.apiKey;
-  // 中文注释：仅当 apiKey 为字符串时才视为有效。
-  return typeof apiKey === "string" ? apiKey.trim() : "";
-}
-
-/** Normalize headers into a plain record. */
-function toHeaderRecord(headers?: HeadersInit): Record<string, string> {
-  if (!headers) return {};
-  if (headers instanceof Headers) {
-    return Object.fromEntries(headers.entries());
-  }
-  if (Array.isArray(headers)) {
-    return Object.fromEntries(headers.map(([key, value]) => [key, String(value)]));
-  }
-  return Object.fromEntries(
-    Object.entries(headers).map(([key, value]) => [key, String(value)]),
-  );
-}
-
-/** Build debug fetch for AI requests. */
-function buildDebugFetch(): typeof fetch | undefined {
-  const enabled = getEnvString(process.env, "TEATIME_DEBUG_AI_STREAM");
-  if (!enabled) return undefined;
-  return async (input, init) => {
-    const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : input.url;
-    const fallbackHeaders =
-      typeof input === "string" ? undefined : input instanceof Request ? input.headers : undefined;
-    const headerRecord = toHeaderRecord(init?.headers ?? fallbackHeaders);
-    const body =
-      typeof init?.body === "string"
-        ? init.body
-        : init?.body instanceof URLSearchParams
-          ? init.body.toString()
-          : undefined;
-    // 中文注释：仅输出请求头，避免打印正文。
-    console.info("[ai-debug] request headers", { url, headers: headerRecord });
-    // 中文注释：仅在可读字符串场景输出请求体。
-    if (body) {
-      console.info("[ai-debug] request body", { url, body });
-    }
-    const response = await fetch(input, init);
-    try {
-      const contentType = response.headers.get("content-type") ?? "";
-      const shouldLogBody = url.includes("/images/") && contentType.includes("application/json");
-      if (shouldLogBody) {
-        const responseText = await response.clone().text();
-        console.info("[ai-debug] response body", {
-          url,
-          status: response.status,
-          length: responseText.length,
-          body: responseText,
-        });
-      } else {
-        console.info("[ai-debug] response info", {
-          url,
-          status: response.status,
-          contentType,
-        });
-      }
-    } catch (error) {
-      console.info("[ai-debug] response read failed", {
-        url,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-    return response;
-  };
-}
-
-/** Build a simple AI SDK adapter for apiKey providers. */
+/** 构建基于 apiKey 的 AI SDK 适配器。 */
 function buildAiSdkAdapter(
   id: string,
   factory: (input: { apiUrl: string; apiKey: string; fetch?: typeof fetch }) => (modelId: string) => LanguageModelV3,
@@ -208,8 +134,8 @@ function buildAiSdkAdapter(
     buildAiSdkModel: ({ provider, modelId, providerDefinition }) => {
       const apiKey = readApiKey(provider.authConfig);
       const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
-      const debugFetch = buildDebugFetch();
-      // 中文注释：auth 或 apiUrl 缺失时直接返回 null，交由上层判定失败。
+      const debugFetch = buildAiDebugFetch();
+      // auth 或 apiUrl 缺失时直接返回 null，交由上层判定失败。
       if (!apiKey || !resolvedApiUrl) return null;
       return factory({ apiUrl: resolvedApiUrl, apiKey, fetch: debugFetch })(modelId);
     },
@@ -218,19 +144,13 @@ function buildAiSdkAdapter(
   };
 }
 
-// 逻辑：仅对部分 OpenAI 兼容服务补齐 /v1。
-function ensureOpenAiCompatibleBaseUrl(baseUrl: string): string {
-  const trimmed = baseUrl.trim().replace(/\/+$/, "");
-  return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
-}
-
 export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
   openai: {
     id: "openai",
     buildAiSdkModel: ({ provider, modelId, providerDefinition }) => {
       const apiKey = readApiKey(provider.authConfig);
       const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
-      const debugFetch = buildDebugFetch();
+      const debugFetch = buildAiDebugFetch();
       if (!apiKey || !resolvedApiUrl) return null;
       const openaiProvider = createOpenAI({
         baseURL: ensureOpenAiCompatibleBaseUrl(resolvedApiUrl),
@@ -239,14 +159,22 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
       });
       const enableResponsesApi =
         provider.options?.enableResponsesApi ?? provider.providerId !== "custom";
-      // 中文注释：自定义服务商默认走 chat completions，启用时才使用 /responses。
+      // 自定义服务商默认走 chat completions，启用时才使用 /responses。
       return enableResponsesApi ? openaiProvider(modelId) : openaiProvider.chat(modelId);
     },
     buildImageModel: ({ provider, modelId, providerDefinition }) => {
       const apiKey = readApiKey(provider.authConfig);
       const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
-      const debugFetch = buildDebugFetch();
+      const debugFetch = buildAiDebugFetch();
       if (!apiKey || !resolvedApiUrl) return null;
+      if (provider.providerId === "custom") {
+        return buildOpenAiCompatibleImageModel({
+          provider,
+          modelId,
+          providerDefinition,
+          fetch: debugFetch,
+        });
+      }
       const openaiProvider = createOpenAI({
         baseURL: ensureOpenAiCompatibleBaseUrl(resolvedApiUrl),
         apiKey,

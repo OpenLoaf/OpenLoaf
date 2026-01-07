@@ -380,7 +380,7 @@ async function resolveExplicitModelDefinition(
   return registryModel;
 }
 
-/** Generate image and return SSE response. */
+/** 生成图片并返回 SSE 响应。 */
 async function runImageModelStream(input: {
   sessionId: string;
   assistantMessageId: string;
@@ -430,6 +430,7 @@ async function runImageModelStream(input: {
       n: 1,
       abortSignal: input.abortSignal,
     });
+    const revisedPrompt = resolveRevisedPrompt(result.providerMetadata);
     const imageParts = result.images.flatMap((image) => {
       const mediaType = image.mediaType || "image/png";
       const base64 = image.base64?.trim();
@@ -449,6 +450,7 @@ async function runImageModelStream(input: {
       {
         sessionId: input.sessionId,
         chatModelId: modelId,
+        revisedPromptLength: revisedPrompt?.length ?? 0,
         imageCount: imageParts.length,
         mediaTypes: imageParts.map((part) => part.mediaType),
         urlPrefixes: imageParts.map((part) => part.url.slice(0, 30)),
@@ -489,6 +491,7 @@ async function runImageModelStream(input: {
       parentMessageId: input.parentMessageId,
       requestStartAt: input.requestStartAt,
       imageParts,
+      revisedPrompt,
       agentMetadata,
       totalUsage,
     });
@@ -504,7 +507,29 @@ async function runImageModelStream(input: {
   }
 }
 
-/** Resolve prompt text for image generation. */
+/** 解析图片生成的 revised prompt。 */
+function resolveRevisedPrompt(metadata: unknown): string | undefined {
+  if (!metadata || typeof metadata !== "object") return undefined;
+  const providers = Object.values(metadata as Record<string, any>);
+  for (const provider of providers) {
+    const images = provider?.images;
+    if (!Array.isArray(images)) continue;
+    for (const image of images) {
+      if (!image || typeof image !== "object") continue;
+      const revisedPrompt =
+        typeof image.revisedPrompt === "string"
+          ? image.revisedPrompt
+          : typeof image.revised_prompt === "string"
+            ? image.revised_prompt
+            : "";
+      const trimmed = revisedPrompt.trim();
+      if (trimmed) return trimmed;
+    }
+  }
+  return undefined;
+}
+
+/** 解析图片生成提示词。 */
 function resolveImagePrompt(messages: UIMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i] as any;

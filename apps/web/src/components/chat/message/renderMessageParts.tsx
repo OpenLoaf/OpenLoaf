@@ -16,6 +16,7 @@ type AnyMessagePart = {
   mediaType?: string;
   title?: string;
   name?: string;
+  data?: { text?: string };
 };
 
 // 修复 CJK 环境下 markdown 自动链接识别错误的问题（例如 "https://example.com）。" 会被误识别）
@@ -55,6 +56,13 @@ export const MESSAGE_REASONING_CLASSNAME = cn(
   "min-w-0 w-full max-w-full px-3 font-sans text-xs leading-relaxed text-muted-foreground",
   "whitespace-pre-wrap break-words [overflow-wrap:anywhere] italic",
   "rounded-md border border-dashed border-muted-foreground/30 bg-muted/30",
+);
+
+/** 改写提示词的样式。 */
+export const MESSAGE_REVISED_PROMPT_CLASSNAME = cn(
+  "min-w-0 w-full max-w-full px-3 font-sans text-xs leading-relaxed text-muted-foreground",
+  "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+  "rounded-md border border-dashed border-muted-foreground/30 bg-muted/20",
 );
 
 /** Styling for file parts. */
@@ -103,6 +111,20 @@ export function renderMessageParts(
         <div key={index} className={cn(MESSAGE_REASONING_CLASSNAME, options?.textClassName)}>
           <Streamdown components={markdownComponents} parseIncompleteMarkdown isAnimating={isAnimating}>
             {preprocessText(String(part.text ?? ""))}
+          </Streamdown>
+        </div>
+      );
+    }
+
+    if (part?.type === "data-revised-prompt") {
+      if (!renderText) return null;
+      const revisedText = part?.data?.text;
+      if (!revisedText) return null;
+      return (
+        <div key={index} className={cn(MESSAGE_REVISED_PROMPT_CLASSNAME, options?.textClassName)}>
+          <div className="text-[11px] font-medium text-muted-foreground/80">改写提示词</div>
+          <Streamdown components={markdownComponents} parseIncompleteMarkdown isAnimating={isAnimating}>
+            {preprocessText(String(revisedText))}
           </Streamdown>
         </div>
       );

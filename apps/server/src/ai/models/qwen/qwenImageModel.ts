@@ -7,6 +7,7 @@ import type {
 import type { ModelDefinition, ProviderDefinition } from "@teatime-ai/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { logger } from "@/common/logger";
+import { downloadImageData } from "@/ai/utils/image-download";
 import { resolveQwenConfig } from "./qwenConfig";
 import {
   buildQwenRequestPayload,
@@ -26,7 +27,7 @@ type QwenImageModelInput = {
   providerDefinition?: ProviderDefinition;
 };
 
-/** Parse size string. */
+/** 解析 size 字符串。 */
 function parseSize(value: string | undefined): { width?: number; height?: number } {
   if (!value) return {};
   const [widthRaw, heightRaw] = value.split("x");
@@ -36,7 +37,7 @@ function parseSize(value: string | undefined): { width?: number; height?: number
   return { width, height };
 }
 
-/** Build Qwen request input. */
+/** 构建 Qwen 请求参数。 */
 function buildQwenRequestInput(options: ImageModelV3CallOptions): QwenRequestInput {
   const prompt = typeof options.prompt === "string" ? options.prompt : "";
   const size = parseSize(options.size);
@@ -48,24 +49,9 @@ function buildQwenRequestInput(options: ImageModelV3CallOptions): QwenRequestInp
   };
 }
 
-/** Normalize headers into a plain record. */
+/** 将 headers 归一化为普通对象。 */
 function toHeaderRecord(headers: Headers): Record<string, string> {
   return Object.fromEntries(headers.entries());
-}
-
-/** Resolve image URL into binary data. */
-async function resolveImageData(url: string, abortSignal?: AbortSignal): Promise<Uint8Array> {
-  if (url.startsWith("data:")) {
-    const base64 = url.split(",")[1] ?? "";
-    return new Uint8Array(Buffer.from(base64, "base64"));
-  }
-  const response = await fetch(url, { signal: abortSignal });
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`Qwen 图片下载失败: ${response.status} ${text}`);
-  }
-  const buffer = await response.arrayBuffer();
-  return new Uint8Array(buffer);
 }
 
 class QwenImageModel implements ImageModelV3 {
@@ -82,7 +68,7 @@ class QwenImageModel implements ImageModelV3 {
     this.modelId = input.modelId;
   }
 
-  /** Generate images via Qwen API. */
+  /** 调用 Qwen 图像接口。 */
   async doGenerate(options: ImageModelV3CallOptions) {
     const config = resolveQwenConfig({
       provider: this.input.provider,
@@ -143,9 +129,7 @@ class QwenImageModel implements ImageModelV3 {
     }
 
     const images = await Promise.all(
-      output.imageUrls.map((url) =>
-        resolveImageData(url, options.abortSignal),
-      ),
+      output.imageUrls.map((url) => downloadImageData(url, options.abortSignal)),
     );
     const warnings: SharedV3Warning[] = [];
     const usage: ImageModelV3Usage | undefined = output.usage;
@@ -163,12 +147,12 @@ class QwenImageModel implements ImageModelV3 {
   }
 }
 
-/** Build Qwen ImageModelV3. */
+/** 构建 Qwen ImageModelV3。 */
 export function buildQwenImageModel(input: QwenImageModelInput): ImageModelV3 | null {
   return new QwenImageModel(input);
 }
 
-/** Filter out undefined header values. */
+/** 过滤掉 undefined 的 header。 */
 function filterHeaders(headers?: Record<string, string | undefined>): Record<string, string> {
   if (!headers) return {};
   const entries = Object.entries(headers).filter(([, value]) => typeof value === "string");

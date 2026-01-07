@@ -365,7 +365,7 @@ export default function ImageViewer({
           </div>
         </div>
       ) : null}
-      <div ref={wrapperRef} className="flex-1 overflow-hidden p-4">
+      <div ref={wrapperRef} className="flex-1 overflow-hidden p-1">
         {dataUrl ? (
           <TransformWrapper
             ref={transformRef}

@@ -16,6 +16,15 @@ export function messageHasVisibleContent(message: { parts?: unknown[] } | undefi
   });
   if (hasText) return true;
 
+  const hasRevisedPrompt = parts.some((part: any) => {
+    return (
+      part?.type === "data-revised-prompt" &&
+      typeof part?.data?.text === "string" &&
+      part.data.text.trim().length > 0
+    );
+  });
+  if (hasRevisedPrompt) return true;
+
   const hasFile = parts.some((part: any) => {
     return part?.type === "file" && typeof part?.url === "string";
   });

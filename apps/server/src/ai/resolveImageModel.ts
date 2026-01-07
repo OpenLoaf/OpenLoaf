@@ -80,9 +80,9 @@ async function resolveImageModelFromProviders(input: {
   const providers = input.providers;
   const providerById = new Map(providers.map((entry) => [entry.id, entry]));
 
-  // 中文注释：显式指定模型时不做 fallback，避免静默切换。
+  // 显式指定模型时不做 fallback，避免静默切换。
   const fallbackCandidates = normalized ? [] : buildImageModelCandidates(providers, normalized);
-  // 中文注释：auto 时默认取最近更新的模型，失败时再依次尝试 fallback。
+  // auto 时默认取最近更新的模型，失败时再依次尝试 fallback。
   const candidates = normalized
     ? [normalized]
     : fallbackCandidates.slice(0, MAX_FALLBACK_TRIES + 1);
@@ -107,7 +107,7 @@ async function resolveImageModelFromProviders(input: {
       const parsed = parseImageModelId(candidate);
       if (!parsed) throw new Error("imageModelId 格式无效");
 
-      // 中文注释：imageModelId 前缀固定使用 settings.id，避免 key 重命名导致失效。
+      // imageModelId 前缀固定使用 settings.id，避免 key 重命名导致失效。
       const providerEntry = providerById.get(parsed.profileId);
       if (!providerEntry) throw new Error("模型服务商未配置");
 
@@ -121,10 +121,10 @@ async function resolveImageModelFromProviders(input: {
         parsed.modelId,
         providerEntry,
       );
-      // 中文注释：适配器优先使用模型定义里的 providerId，避免配置误配。
+      // 适配器优先使用模型定义里的 providerId，避免配置误配。
       const resolvedProviderId = modelDefinition?.providerId ?? providerEntry.providerId;
       const providerDefinition = getProviderDefinition(resolvedProviderId);
-      // 中文注释：custom 服务强制使用 openai 适配器，避免 provider 定义缺失。
+      // custom 服务强制使用 openai 适配器，避免 provider 定义缺失。
       const adapterId =
         resolvedProviderId === "custom" ? "openai" : providerDefinition?.adapterId ?? resolvedProviderId;
       const adapter = PROVIDER_ADAPTERS[adapterId];
@@ -152,7 +152,7 @@ async function resolveImageModelFromProviders(input: {
         throw new Error("模型不支持 AI SDK 调用");
       }
 
-      // 中文注释：provider 采用后端配置的 provider id，确保可追踪真实请求来源。
+      // provider 采用后端配置的 provider id，确保可追踪真实请求来源。
       return {
         model,
         modelInfo: { provider: resolvedProviderId, modelId: parsed.modelId },
