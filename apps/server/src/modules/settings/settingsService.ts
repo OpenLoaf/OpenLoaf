@@ -63,6 +63,16 @@ const S3_PROVIDER_CATEGORY = "s3Provider";
 const CHAT_SOURCE_KEY = "model.chatSource";
 /** Setting key for model response language. */
 const MODEL_RESPONSE_LANGUAGE_KEY = "model.responseLanguage";
+/** Supported response languages. */
+const MODEL_RESPONSE_LANGUAGES = [
+  "zh-CN",
+  "en-US",
+  "ja-JP",
+  "ko-KR",
+  "fr-FR",
+  "de-DE",
+  "es-ES",
+] as const;
 /** Setting key for model chat quality. */
 const MODEL_CHAT_QUALITY_KEY = "model.chatQuality";
 
@@ -430,8 +440,8 @@ export async function setSettingValueFromWeb(
     const basic = readBasicConfig();
     const next =
       typeof value === "string" &&
-      ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(value)
-        ? value
+      (MODEL_RESPONSE_LANGUAGES as readonly string[]).includes(value)
+        ? (value as (typeof MODEL_RESPONSE_LANGUAGES)[number])
         : basic.modelResponseLanguage;
     writeBasicConf({ ...basic, modelResponseLanguage: next });
     return;

@@ -1,0 +1,20 @@
+model Project {
+  id          String   @id /// Project id.
+  workspaceId String /// Workspace id.
+  title       String /// Project title.
+  icon        String? /// Project icon.
+  rootUri     String /// Project root URI.
+  parentId    String? /// Parent project id.
+  isDeleted   Boolean  @default(false) /// Soft delete flag.
+  deletedAt   DateTime? /// Soft delete timestamp.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent   Project?  @relation("ProjectToProject", fields: [parentId], references: [id], onDelete: SetNull)
+  children Project[] @relation("ProjectToProject")
+
+  @@index([workspaceId])
+  @@index([workspaceId, parentId])
+  @@index([workspaceId, isDeleted])
+  @@index([deletedAt])
+}

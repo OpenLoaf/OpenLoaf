@@ -31,7 +31,7 @@ async function parseQwenResponse(response: Response): Promise<ProviderTaskResult
 }
 
 export const qwenAdapter: ProviderAdapter = {
-  id: "qwenAdapter",
+  id: "qwen",
   buildAiSdkModel: () => null,
   buildImageModel: (input) => buildQwenImageModel(input),
   buildRequest: ({ provider, providerDefinition, modelId, input }): ProviderRequest | null => {

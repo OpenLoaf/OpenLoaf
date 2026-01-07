@@ -28,6 +28,8 @@ export interface Session {
   name: string;
   /** Display name with optional project prefix. */
   displayName?: string;
+  /** Project label for session list. */
+  projectLabel?: string;
   /** Session created time. */
   createdAt: string | Date;
   /** Whether the session is pinned. */
@@ -191,6 +193,11 @@ export default function SessionItem({
           )}
         >
           <span className="flex min-w-0 items-center gap-1.5">
+            {session.projectLabel ? (
+              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {session.projectLabel}
+              </span>
+            ) : null}
             <span className="truncate">{session.displayName ?? session.name}</span>
             {session.hasLayers && (
               <Layers size={14} className="text-muted-foreground" />

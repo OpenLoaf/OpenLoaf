@@ -113,6 +113,7 @@ export default function SessionList({
 }: SessionListProps) {
   const { sessions: chatSessions, isLoading, scopeProjectId } = useChatSessions({ tabId });
   const sessions: Session[] = React.useMemo(() => {
+    const showProjectLabel = !scopeProjectId;
     return chatSessions.map((s) => ({
       id: s.id,
       name: s.title,
@@ -122,6 +123,10 @@ export default function SessionList({
         projectName: s.projectName,
         currentProjectId: scopeProjectId,
       }),
+      // 逻辑：未绑定项目的 tab 才展示项目名称标签。
+      projectLabel: showProjectLabel
+        ? String(s.projectName ?? "").trim() || undefined
+        : undefined,
       createdAt: s.createdAt,
       pinned: s.isPin,
     }));

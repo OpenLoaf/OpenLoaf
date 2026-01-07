@@ -11,6 +11,11 @@ import {
   isAccessTokenValid,
 } from "./tokenStore";
 
+/** 判断是否为普通对象。 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 type LoginUrlResponse = {
   /** Login URL for the SaaS. */
   authorizeUrl: string;
@@ -117,8 +122,9 @@ export function registerAuthRoutes(app: Hono): void {
         return c.json({ error: "saas_request_failed" }, response.status as ContentfulStatusCode);
       }
       const snapshot = getAuthSessionSnapshot();
+      const safePayload = isRecord(payload) ? payload : {};
       return c.json({
-        ...payload,
+        ...safePayload,
         user: snapshot.user
           ? {
               email: snapshot.user.email,

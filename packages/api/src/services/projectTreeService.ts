@@ -1,6 +1,7 @@
 import { z } from "zod";
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import { randomUUID } from "node:crypto";
 import {
   getActiveWorkspace,
   getWorkspaceById,
@@ -17,7 +18,7 @@ export const PROJECT_META_FILE = "project.json";
 export const projectConfigSchema = z
   .object({
     schema: z.number().optional(),
-    projectId: z.string(),
+    projectId: z.string().optional(),
     title: z.string().optional().nullable(),
     icon: z.string().optional().nullable(),
     childrenIds: z.array(z.string()).optional(),
@@ -51,6 +52,14 @@ export type ProjectNodeWithParent = {
   parentProjectId: string | null;
 };
 
+/** Project id prefix. */
+const PROJECT_ID_PREFIX = "proj_";
+
+/** Create a new project id. */
+function buildProjectId(): string {
+  return `${PROJECT_ID_PREFIX}${randomUUID()}`;
+}
+
 /** Read JSON file safely, return null when missing. */
 async function readJsonFile(filePath: string): Promise<unknown | null> {
   try {
@@ -60,6 +69,14 @@ async function readJsonFile(filePath: string): Promise<unknown | null> {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
   }
+}
+
+/** Write JSON file atomically. */
+async function writeJsonAtomic(filePath: string, payload: unknown): Promise<void> {
+  const tmpPath = `${filePath}.${Date.now()}.tmp`;
+  // 逻辑：原子写入，避免读取到半写入状态。
+  await fs.writeFile(tmpPath, JSON.stringify(payload, null, 2), "utf-8");
+  await fs.rename(tmpPath, filePath);
 }
 
 /** Check whether a file exists. */
@@ -77,6 +94,12 @@ export function getProjectMetaPath(projectRootPath: string): string {
   return path.join(projectRootPath, PROJECT_META_DIR, PROJECT_META_FILE);
 }
 
+/** Normalize project id value. */
+function normalizeProjectId(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
+
 /** Load and normalize project config. */
 export async function readProjectConfig(
   projectRootPath: string,
@@ -89,12 +112,20 @@ export async function readProjectConfig(
   }
   const parsed = projectConfigSchema.parse(raw);
   const fallbackTitle = path.basename(projectRootPath);
-  return {
+  const parsedProjectId = normalizeProjectId(parsed.projectId);
+  const overrideProjectId = normalizeProjectId(projectIdOverride);
+  const resolvedProjectId = parsedProjectId || overrideProjectId || buildProjectId();
+  const nextConfig = {
     ...parsed,
-    projectId: projectIdOverride ?? parsed.projectId,
+    projectId: resolvedProjectId,
     title: parsed.title?.trim() || fallbackTitle,
     projects: parsed.projects ?? {},
   };
+  // 逻辑：project.json 缺失 projectId 时写回，确保后续可稳定引用。
+  if (!parsedProjectId) {
+    await writeJsonAtomic(metaPath, nextConfig);
+  }
+  return nextConfig;
 }
 
 /** Ensure the child folder name is safe and stays under root. */
@@ -144,8 +175,13 @@ async function readProjectTree(
         if (childNode) childNodes.push(childNode);
       }
     }
+    const projectId = config.projectId;
+    if (!projectId) {
+      // 中文注释：配置缺失 projectId 时视为异常，避免返回不完整节点。
+      throw new Error("projectId missing in project config.");
+    }
     return {
-      projectId: config.projectId,
+      projectId,
       title: config.title ?? path.basename(projectRootPath),
       icon: config.icon ?? undefined,
       rootUri: toFileUri(projectRootPath),

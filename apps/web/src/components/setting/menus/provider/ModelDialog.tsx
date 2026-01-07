@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import type { ModelTag } from "@teatime-ai/api/common";
 import {
   MODEL_TAG_OPTIONS,
   toggleSelection,
@@ -18,7 +19,7 @@ export type ModelDialogProps = {
   /** Draft model id. */
   draftModelId: string;
   /** Draft tag list. */
-  draftModelTags: string[];
+  draftModelTags: ModelTag[];
   /** Draft context size. */
   draftModelContextK: string;
   /** Draft currency symbol. */
@@ -36,7 +37,7 @@ export type ModelDialogProps = {
   /** Update draft model id. */
   onDraftModelIdChange: (value: string) => void;
   /** Update draft model tags. */
-  onDraftModelTagsChange: (value: string[]) => void;
+  onDraftModelTagsChange: (value: ModelTag[]) => void;
   /** Update context size. */
   onDraftModelContextKChange: (value: string) => void;
   /** Update currency symbol. */

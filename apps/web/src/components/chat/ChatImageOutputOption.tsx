@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import type { ModelDefinition } from "@teatime-ai/api/common";
+import type { ModelTag } from "@teatime-ai/api/common";
 import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
 import { mergeImageOptions } from "@/lib/chat/image-options";
 import { useChatContext } from "./ChatProvider";
@@ -14,11 +14,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+type ChatImageOutputTarget = {
+  /** Model id. */
+  id?: string;
+  /** Provider id. */
+  providerId?: string;
+  /** Model tags. */
+  tags?: ModelTag[];
+};
+
 interface ChatImageOutputOptionProps {
   /** Optional className for the container. */
   className?: string;
   /** Selected model definition. */
-  model?: ModelDefinition | null;
+  model?: ChatImageOutputTarget | null;
   /** Visual style variant. */
   variant?: "card" | "inline";
 }
@@ -100,6 +109,11 @@ function isOpenAiProvider(providerId?: string | null): boolean {
   return providerId.toLowerCase().includes("openai");
 }
 
+/** Check whether the model supports multi-image output. */
+function isMultiImageOutputModel(model?: ChatImageOutputTarget | null): boolean {
+  return Boolean(model?.tags?.includes("multi_image_output"));
+}
+
 /** Resolve OpenAI quality options based on model id. */
 function resolveQualityOptions(modelId?: string | null): string[] {
   const normalized = (modelId ?? "").toLowerCase();
@@ -117,6 +131,7 @@ export default function ChatImageOutputOption({
 }: ChatImageOutputOptionProps) {
   const { imageOptions, setImageOptions } = useChatContext();
   const isOpenAi = isOpenAiProvider(model?.providerId);
+  const canSelectCount = isMultiImageOutputModel(model);
   const qualityOptions = React.useMemo(
     () => resolveQualityOptions(model?.id),
     [model?.id]
@@ -191,15 +206,17 @@ export default function ChatImageOutputOption({
 
   return (
     <div className={cn(containerClassName, className)}>
-      <OptionSelect
-        label="图片数量"
-        value={String(countValue)}
-        options={COUNT_OPTIONS.map((count) => ({
-          label: String(count),
-          value: String(count),
-        }))}
-        onChange={(value) => updateOptions({ n: Number(value) })}
-      />
+      {canSelectCount ? (
+        <OptionSelect
+          label="图片数量"
+          value={String(countValue)}
+          options={COUNT_OPTIONS.map((count) => ({
+            label: String(count),
+            value: String(count),
+          }))}
+          onChange={(value) => updateOptions({ n: Number(value) })}
+        />
+      ) : null}
 
       <OptionSelect
         label="图片比例"

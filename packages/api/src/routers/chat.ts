@@ -7,6 +7,10 @@ import {
   findProjectNodeWithParent,
   readWorkspaceProjectTrees,
 } from "../services/projectTreeService";
+import {
+  getWorkspaceProjectTitleMap,
+  syncWorkspaceProjectsFromDisk,
+} from "../services/projectDbService";
 
 /**
  * Chat UIMessage 结构（MVP）
@@ -511,14 +515,24 @@ export const chatRouter = t.router({
       let projectIdFilter: string[] | null = null;
       let projectTitleMap = new Map<string, string>();
 
+      const projectTrees = await readWorkspaceProjectTrees(input.workspaceId);
       if (projectId) {
         // 项目页只保留当前项目及其子项目的会话。
-        const projectTrees = await readWorkspaceProjectTrees(input.workspaceId);
         const entry = findProjectNodeWithParent(projectTrees, projectId);
         if (!entry) return [];
         projectIdFilter = collectProjectSubtreeIds(entry.node);
-        // 列表需要项目名，提前构建映射供 UI 拼前缀。
-        projectTitleMap = buildProjectTitleMap(projectTrees);
+      }
+
+      try {
+        await syncWorkspaceProjectsFromDisk(ctx.prisma, input.workspaceId, projectTrees);
+        projectTitleMap = await getWorkspaceProjectTitleMap(ctx.prisma, input.workspaceId);
+      } catch {
+        // 逻辑：数据库同步失败时仍允许使用文件树回退显示项目名。
+        projectTitleMap = new Map<string, string>();
+      }
+      const fileProjectTitleMap = buildProjectTitleMap(projectTrees);
+      for (const [id, title] of fileProjectTitleMap) {
+        projectTitleMap.set(id, title);
       }
 
       const sessions = await ctx.prisma.chatSession.findMany({

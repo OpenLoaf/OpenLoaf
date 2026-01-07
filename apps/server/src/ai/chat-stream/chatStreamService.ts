@@ -442,12 +442,25 @@ async function runImageModelStream(input: {
     const safeCount = maxImagesPerCall
       ? Math.min(Math.max(1, requestedCount), maxImagesPerCall)
       : Math.max(1, requestedCount);
-    const { n: _ignoredCount, ...restImageOptions } = imageOptions ?? {};
+    const { n: _ignoredCount, size: rawSize, aspectRatio: rawAspectRatio, ...restImageOptions } =
+      imageOptions ?? {};
+    // 中文注释：SDK 需要 size 为 "{number}x{number}" 模板字面量类型，运行时仍用正则兜底。
+    const safeSize =
+      typeof rawSize === "string" && /^\d+x\d+$/u.test(rawSize)
+        ? (rawSize as `${number}x${number}`)
+        : undefined;
+    // 中文注释：SDK 需要 aspectRatio 为 "{number}:{number}" 模板字面量类型，运行时仍用正则兜底。
+    const safeAspectRatio =
+      typeof rawAspectRatio === "string" && /^\d+:\d+$/u.test(rawAspectRatio)
+        ? (rawAspectRatio as `${number}:${number}`)
+        : undefined;
     const result = await generateImage({
       model: resolved.model,
       prompt,
       n: safeCount,
       ...(restImageOptions ?? {}),
+      ...(safeSize ? { size: safeSize } : {}),
+      ...(safeAspectRatio ? { aspectRatio: safeAspectRatio } : {}),
       abortSignal: input.abortSignal,
     });
     const revisedPrompt = resolveRevisedPrompt(result.providerMetadata);

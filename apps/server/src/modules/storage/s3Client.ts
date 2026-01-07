@@ -114,6 +114,7 @@ function resolveS3Endpoint(config: S3ClientConfig): string | undefined {
   }
 
   const [host, ...rest] = resolved.split("/");
+  if (!host) return resolved;
   const nextHost = stripBucketPrefix(host);
   return [nextHost, ...rest].join("/");
 }

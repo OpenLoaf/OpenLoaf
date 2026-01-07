@@ -75,7 +75,6 @@ export const SidebarWorkspace = () => {
   const [authUser, setAuthUser] = React.useState<{
     email?: string;
     name?: string;
-    picture?: string;
     avatarUrl?: string;
   } | null>(null);
   // Auth login status from server.
@@ -115,7 +114,6 @@ export const SidebarWorkspace = () => {
             setAuthUser({
               email: session.user.email,
               name: session.user.name,
-              picture: session.user.picture,
               avatarUrl: session.user.avatarUrl,
             });
           } else {
@@ -167,7 +165,6 @@ export const SidebarWorkspace = () => {
           setAuthUser({
             email: payload.user.email,
             name: payload.user.name,
-            picture: payload.user.picture,
             avatarUrl: payload.user.avatarUrl,
           });
           setAuthLoggedIn(true);
@@ -192,7 +189,6 @@ export const SidebarWorkspace = () => {
             setAuthUser({
               email: session.user.email,
               name: session.user.name,
-              picture: session.user.picture,
               avatarUrl: session.user.avatarUrl,
             });
           } else {
@@ -254,7 +250,7 @@ export const SidebarWorkspace = () => {
   const workspacesQuery = useQuery(trpc.workspace.getList.queryOptions());
   const displayEmail =
     authUser?.email ?? authUser?.name ?? userEmail ?? (authLoggedIn ? "已登录" : undefined);
-  const displayAvatar = authUser?.picture ?? authUser?.avatarUrl ?? userAvatarUrl;
+  const displayAvatar = authUser?.avatarUrl ?? userAvatarUrl;
   const displayInitial =
     (authUser?.name ?? displayEmail ?? "?")[0]?.toUpperCase() ?? "?";
 

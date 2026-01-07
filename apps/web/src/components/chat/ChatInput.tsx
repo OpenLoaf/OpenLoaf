@@ -602,8 +602,14 @@ export default function ChatInput({
       : "";
   const isAutoModel = !selectedModelId;
   const selectedModel = modelOptions.find((option) => option.id === selectedModelId);
-  // 中文注释：只有模型声明 image_output 才显示图片输出选项。
-  const showImageOutputOptions = Boolean(selectedModel?.tags?.includes("image_output"));
+  const supportsMultiImageOutput = Boolean(
+    selectedModel?.tags?.includes("multi_image_output"),
+  );
+  // 中文注释：模型声明 image_output 或 multi_image_output 时显示图片输出选项。
+  const showImageOutputOptions = Boolean(
+    selectedModel?.tags?.includes("image_output") ||
+      selectedModel?.tags?.includes("multi_image_output"),
+  );
   const canAttachImage = isAutoModel
     ? true
     : Boolean(
@@ -669,7 +675,14 @@ export default function ChatInput({
     ];
     // 从 chat session 选项读取图片参数，写入本次消息 metadata。
     const normalizedImageOptions = normalizeImageOptions(imageOptions);
-    const metadata = normalizedImageOptions ? { imageOptions: normalizedImageOptions } : undefined;
+    // 中文注释：不支持多图输出时，避免传递图片数量参数。
+    const safeImageOptions =
+      normalizedImageOptions && !supportsMultiImageOutput
+        ? (({ n: _n, ...rest }) => (Object.keys(rest).length ? rest : undefined))(
+            normalizedImageOptions
+          )
+        : normalizedImageOptions;
+    const metadata = safeImageOptions ? { imageOptions: safeImageOptions } : undefined;
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
     sendMessage({ parts, ...(metadata ? { metadata } : {}) } as any);
     setInput("");

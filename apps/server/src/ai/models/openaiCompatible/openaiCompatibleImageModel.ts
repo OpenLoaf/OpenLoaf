@@ -94,7 +94,11 @@ function resolveRevisedPrompts(payload: OpenAiCompatibleImageResponse): string[]
   const choices = payload.metadata?.output?.choices;
   const message = Array.isArray(choices) ? choices[0]?.message : undefined;
   const content = Array.isArray(message?.content) ? message.content : [];
-  const fallback = content.find((item) => typeof item?.text === "string")?.text;
+  // 中文注释：只匹配包含文本的内容项。
+  const isTextContent = (
+    item: { text?: string | null } | { image?: string | null }
+  ): item is { text: string } => typeof (item as any)?.text === "string";
+  const fallback = content.find(isTextContent)?.text;
   const fallbackText = typeof fallback === "string" ? fallback.trim() : "";
   return fallbackText ? [fallbackText] : [];
 }

@@ -2,7 +2,10 @@ export type ChatModelSource = "local" | "cloud";
 
 export type ModelTag =
   | "text_output"
+  | "multi_image_input"
+  | "multi_image_output"
   | "image_output"
+  | "image_mesk_input"
   | "image_input"
   | "image_url_input"
   | "text_input"
@@ -10,7 +13,6 @@ export type ModelTag =
   | "tool"
   | "code"
   | "web_search"
-  | "image_edit"
   | "video_generation"
   | "language_input"
   | "language_output";
@@ -18,7 +20,10 @@ export type ModelTag =
 // 标签显示文案映射。
 export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
   text_output: "文本输出",
+  multi_image_input: "多图输入",
+  multi_image_output: "多图输出",
   image_output: "图片输出",
+  image_mesk_input: "图片编辑",
   image_input: "图片输入",
   image_url_input: "图片链接输入",
   text_input: "文本输入",
@@ -26,7 +31,6 @@ export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
   tool: "工具调用",
   code: "代码",
   web_search: "网络搜索",
-  image_edit: "图片编辑",
   video_generation: "视频生成",
   language_input: "语言输入",
   language_output: "语言输出",

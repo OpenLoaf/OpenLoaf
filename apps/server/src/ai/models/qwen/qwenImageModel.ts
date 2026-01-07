@@ -132,7 +132,18 @@ class QwenImageModel implements ImageModelV3 {
       output.imageUrls.map((url) => downloadImageData(url, options.abortSignal)),
     );
     const warnings: SharedV3Warning[] = [];
-    const usage: ImageModelV3Usage | undefined = output.usage;
+    // 中文注释：usage 字段需完整三项，缺失时置空避免类型不匹配。
+    const usage =
+      output.usage &&
+      typeof output.usage.inputTokens === "number" &&
+      typeof output.usage.outputTokens === "number" &&
+      typeof output.usage.totalTokens === "number"
+        ? ({
+            inputTokens: output.usage.inputTokens,
+            outputTokens: output.usage.outputTokens,
+            totalTokens: output.usage.totalTokens,
+          } satisfies ImageModelV3Usage)
+        : undefined;
 
     return {
       images,
