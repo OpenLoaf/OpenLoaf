@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { v4 as uuidv4 } from "uuid";
@@ -16,12 +16,13 @@ const TeatimeConfigSchema = z
 
 export type TeatimeConfig = z.infer<typeof TeatimeConfigSchema>;
 
+/** Last known good config cache. */
 let cached: TeatimeConfig | null = null;
 
 /** Build default workspace root uri under config directory. */
 function resolveDefaultWorkspaceRootUri(confPath: string): string {
   const rootPath = path.join(path.dirname(confPath), "workspace");
-  // 中文注释：默认工作区目录固定在配置同级目录，便于本地迁移。
+  // 逻辑：默认工作区目录固定在配置同级目录，便于本地迁移。
   mkdirSync(rootPath, { recursive: true });
   return pathToFileURL(rootPath).href;
 }
@@ -68,35 +69,58 @@ function readRawConfig(normalizedPath: string): Record<string, unknown> {
 }
 
 /** Persist workspace updates without wiping other config fields. */
+/** Persist workspace updates without wiping other config fields. */
 function writeWorkspaceConfig(
   normalizedPath: string,
   raw: Record<string, unknown>,
   workspaces: Workspace[],
 ) {
   const merged = { ...raw, workspaces };
-  writeFileSync(normalizedPath, JSON.stringify(merged, null, 2), "utf-8");
+  const tmpPath = `${normalizedPath}.${Date.now()}.tmp`;
+  // 逻辑：原子写入，避免读取时遇到半写入状态。
+  writeFileSync(tmpPath, JSON.stringify(merged, null, 2), "utf-8");
+  renameSync(tmpPath, normalizedPath);
+}
+
+/** Merge workspace list while preserving existing projects when possible. */
+function mergeWorkspaceProjects(
+  existing?: Workspace[],
+  incoming?: Workspace[],
+): Workspace[] | undefined {
+  if (!incoming) return existing;
+  if (!existing || existing.length === 0) return incoming;
+  const existingById = new Map(existing.map((workspace) => [workspace.id, workspace]));
+  return incoming.map((workspace) => {
+    const previous = existingById.get(workspace.id);
+    if (!previous) return workspace;
+    // 逻辑：workspace 操作不修改 projects，优先保留磁盘上的映射。
+    return { ...previous, ...workspace, projects: previous.projects ?? workspace.projects };
+  });
 }
 
 /**
  * 配置存储（MVP）：
- * - 单进程内存缓存 + 文件落盘
+ * - 单进程直接读写配置文件
  * - cloud-server 迁移时可替换为 DB/Redis 等实现
  */
 export const teatimeConfigStore = {
-  /** Read config with zod validation and cache. */
+  /** Read config with zod validation from disk. */
   get: (): TeatimeConfig => {
-    if (cached) return cached;
     const path = getConfigPath();
     ensureDefault(path);
     const raw = readRawConfig(path);
     const legacyRootUri = typeof raw.workspaceRootUri === "string" ? raw.workspaceRootUri : "";
-    if (legacyRootUri && Array.isArray(raw.workspaces)) {
-      // 中文注释：兼容旧版配置，将 workspaceRootUri 下放到 workspace.rootUri。
+    const shouldMigrateLegacy = Boolean(legacyRootUri) && Array.isArray(raw.workspaces);
+    if (shouldMigrateLegacy) {
+      // 逻辑：兼容旧版配置，将 workspaceRootUri 下放并移除旧字段，避免重复写入。
       raw.workspaces = raw.workspaces.map((workspace) => ({
         ...workspace,
         rootUri: (workspace as Record<string, unknown>).rootUri ?? legacyRootUri,
         projects: (workspace as Record<string, unknown>).projects ?? {},
       }));
+      if ("workspaceRootUri" in raw) {
+        delete raw.workspaceRootUri;
+      }
     }
     try {
       const parsed = TeatimeConfigSchema.parse(raw);
@@ -109,12 +133,13 @@ export const teatimeConfigStore = {
         basic: parsed.basic,
       };
       cached = normalized;
-      if (legacyRootUri) {
+      if (shouldMigrateLegacy) {
         writeWorkspaceConfig(path, raw, normalized.workspaces);
       }
       return normalized;
     } catch {
-      // 中文注释：配置结构不合法时直接重置为新结构，避免运行中断。
+      if (cached) return cached;
+      // 逻辑：配置结构不合法时回退为默认结构，避免运行中断。
       const reset: TeatimeConfig = {
         workspaces: [
           {
@@ -141,12 +166,16 @@ export const teatimeConfigStore = {
     }
   },
 
-  /** Overwrite config on disk and refresh cache. */
+  /** Overwrite config on disk. */
   set: (next: TeatimeConfig) => {
     const path = getConfigPath();
     const parsed = TeatimeConfigSchema.parse(next);
     const raw = readRawConfig(path);
-    writeWorkspaceConfig(path, raw, parsed.workspaces);
-    cached = parsed;
+    const existingParsed = TeatimeConfigSchema.safeParse(raw);
+    const existingWorkspaces = existingParsed.success ? existingParsed.data.workspaces : cached?.workspaces;
+    const mergedWorkspaces = mergeWorkspaceProjects(existingWorkspaces, parsed.workspaces)
+      ?? parsed.workspaces;
+    writeWorkspaceConfig(path, raw, mergedWorkspaces);
+    cached = { ...parsed, workspaces: mergedWorkspaces };
   },
 } as const;

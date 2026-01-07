@@ -1,0 +1,241 @@
+import { z } from "zod";
+import path from "node:path";
+import { promises as fs } from "node:fs";
+import {
+  getActiveWorkspace,
+  getWorkspaceById,
+  resolveFilePathFromUri,
+  toFileUri,
+} from "./vfsService";
+
+/** Directory name for project metadata. */
+export const PROJECT_META_DIR = ".teatime";
+/** File name for project metadata. */
+export const PROJECT_META_FILE = "project.json";
+
+/** Zod schema for project.json. */
+export const projectConfigSchema = z
+  .object({
+    schema: z.number().optional(),
+    projectId: z.string(),
+    title: z.string().optional().nullable(),
+    icon: z.string().optional().nullable(),
+    childrenIds: z.array(z.string()).optional(),
+    // Child project map uses projectId -> rootUri.
+    projects: z.record(z.string(), z.string()).optional(),
+  })
+  .passthrough();
+
+/** Parsed project.json shape. */
+export type ProjectConfig = z.infer<typeof projectConfigSchema>;
+
+/** Project tree node. */
+export type ProjectNode = {
+  /** Project id. */
+  projectId: string;
+  /** Project display title. */
+  title: string;
+  /** Project icon. */
+  icon?: string;
+  /** Project root URI. */
+  rootUri: string;
+  /** Child projects. */
+  children: ProjectNode[];
+};
+
+/** Project tree node with parent info. */
+export type ProjectNodeWithParent = {
+  /** Project node. */
+  node: ProjectNode;
+  /** Parent project id. */
+  parentProjectId: string | null;
+};
+
+/** Read JSON file safely, return null when missing. */
+async function readJsonFile(filePath: string): Promise<unknown | null> {
+  try {
+    const raw = await fs.readFile(filePath, "utf-8");
+    return JSON.parse(raw) as unknown;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+}
+
+/** Check whether a file exists. */
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.stat(filePath);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === "ENOENT" ? false : false;
+  }
+}
+
+/** Build project.json path from a project root. */
+export function getProjectMetaPath(projectRootPath: string): string {
+  return path.join(projectRootPath, PROJECT_META_DIR, PROJECT_META_FILE);
+}
+
+/** Load and normalize project config. */
+export async function readProjectConfig(
+  projectRootPath: string,
+  projectIdOverride?: string,
+): Promise<ProjectConfig> {
+  const metaPath = getProjectMetaPath(projectRootPath);
+  const raw = await readJsonFile(metaPath);
+  if (!raw) {
+    throw new Error("project.json not found.");
+  }
+  const parsed = projectConfigSchema.parse(raw);
+  const fallbackTitle = path.basename(projectRootPath);
+  return {
+    ...parsed,
+    projectId: projectIdOverride ?? parsed.projectId,
+    title: parsed.title?.trim() || fallbackTitle,
+    projects: parsed.projects ?? {},
+  };
+}
+
+/** Ensure the child folder name is safe and stays under root. */
+function resolveChildProjectPath(rootPath: string, childName: string): string | null {
+  if (!childName) return null;
+  if (childName.includes("/") || childName.includes("\\")) return null;
+  const normalized = childName.trim();
+  if (!normalized || normalized === "." || normalized === "..") return null;
+  const childPath = path.resolve(rootPath, normalized);
+  if (childPath === rootPath) return null;
+  if (childPath.startsWith(path.resolve(rootPath) + path.sep)) return childPath;
+  return null;
+}
+
+/** Recursively read project tree from project.json. */
+async function readProjectTree(
+  projectRootPath: string,
+  projectIdOverride?: string,
+): Promise<ProjectNode | null> {
+  try {
+    const config = await readProjectConfig(projectRootPath, projectIdOverride);
+    const childProjectEntries = Object.entries(config.projects ?? {});
+    const children = Array.isArray(config.childrenIds) ? config.childrenIds : [];
+    const childNodes: ProjectNode[] = [];
+    // Prefer projects mapping, fallback to childrenIds.
+    if (childProjectEntries.length) {
+      for (const [childProjectId, childRootUri] of childProjectEntries) {
+        if (!childProjectId || !childRootUri) continue;
+        let childPath: string;
+        try {
+          childPath = resolveFilePathFromUri(childRootUri);
+        } catch {
+          continue;
+        }
+        const metaPath = getProjectMetaPath(childPath);
+        if (!(await fileExists(metaPath))) continue;
+        const childNode = await readProjectTree(childPath, childProjectId);
+        if (childNode) childNodes.push(childNode);
+      }
+    } else {
+      for (const childName of children) {
+        const childPath = resolveChildProjectPath(projectRootPath, childName);
+        if (!childPath) continue;
+        const metaPath = getProjectMetaPath(childPath);
+        if (!(await fileExists(metaPath))) continue;
+        const childNode = await readProjectTree(childPath);
+        if (childNode) childNodes.push(childNode);
+      }
+    }
+    return {
+      projectId: config.projectId,
+      title: config.title ?? path.basename(projectRootPath),
+      icon: config.icon ?? undefined,
+      rootUri: toFileUri(projectRootPath),
+      children: childNodes,
+    };
+  } catch {
+    // Return null on read failure to avoid breaking the full list.
+    return null;
+  }
+}
+
+/** Read the project trees from a workspace. */
+export async function readWorkspaceProjectTrees(workspaceId?: string): Promise<ProjectNode[]> {
+  const trimmedId = typeof workspaceId === "string" ? workspaceId.trim() : "";
+  const workspace = trimmedId ? getWorkspaceById(trimmedId) : getActiveWorkspace();
+  if (!workspace) return [];
+  const projectEntries = Object.entries(workspace.projects ?? {});
+  const projects: ProjectNode[] = [];
+  for (const [projectId, rootUri] of projectEntries) {
+    let rootPath: string;
+    try {
+      rootPath = resolveFilePathFromUri(rootUri);
+    } catch {
+      continue;
+    }
+    const node = await readProjectTree(rootPath, projectId);
+    if (node) projects.push(node);
+  }
+  return projects;
+}
+
+/** Find a project node and its parent id from tree. */
+export function findProjectNodeWithParent(
+  projects: ProjectNode[],
+  targetProjectId: string,
+  parentProjectId: string | null = null,
+): ProjectNodeWithParent | null {
+  for (const project of projects) {
+    if (project.projectId === targetProjectId) {
+      return { node: project, parentProjectId };
+    }
+    if (project.children?.length) {
+      const hit = findProjectNodeWithParent(
+        project.children,
+        targetProjectId,
+        project.projectId,
+      );
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+/** Check whether a project id exists inside a subtree. */
+export function hasProjectInSubtree(project: ProjectNode, targetProjectId: string): boolean {
+  if (project.projectId === targetProjectId) return true;
+  for (const child of project.children ?? []) {
+    if (hasProjectInSubtree(child, targetProjectId)) return true;
+  }
+  return false;
+}
+
+/** Collect project ids from a subtree (root included). */
+export function collectProjectSubtreeIds(project: ProjectNode): string[] {
+  const ids: string[] = [];
+  const stack = [project];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    ids.push(current.projectId);
+    // Depth-first collection to include all descendants.
+    for (const child of current.children ?? []) {
+      stack.push(child);
+    }
+  }
+  return ids;
+}
+
+/** Build a projectId -> title map from trees. */
+export function buildProjectTitleMap(projects: ProjectNode[]): Map<string, string> {
+  const map = new Map<string, string>();
+  const stack = [...projects];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    if (current.projectId) map.set(current.projectId, current.title);
+    // Flatten tree for quick project title lookup.
+    for (const child of current.children ?? []) {
+      stack.push(child);
+    }
+  }
+  return map;
+}

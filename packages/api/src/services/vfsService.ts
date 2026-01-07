@@ -103,6 +103,14 @@ export function getActiveWorkspace(): WorkspaceConfig {
   return active;
 }
 
+/** Get workspace config by id. */
+export function getWorkspaceById(workspaceId: string): WorkspaceConfig | null {
+  if (!workspaceId) return null;
+  const config = loadTeatimeConfig();
+  const target = config.workspaces.find((workspace) => workspace.id === workspaceId);
+  return target ?? null;
+}
+
 /** Get workspace root URI from active workspace. */
 export function getWorkspaceRootUri(): string {
   return getActiveWorkspace().rootUri;
@@ -247,15 +255,7 @@ export function resolveFilePathFromUri(uri: string): string {
   return fileURLToPath(url);
 }
 
-/** Resolve a URI and ensure it stays inside the active workspace or projects. */
+/** Resolve a URI into an absolute local path. */
 export function resolveWorkspacePathFromUri(uri: string): string {
-  const targetPath = path.resolve(resolveFilePathFromUri(uri));
-  const activeWorkspace = getActiveWorkspace();
-  const rootUris = [activeWorkspace.rootUri, ...Object.values(activeWorkspace.projects ?? {})];
-  for (const rootUri of rootUris) {
-    const rootPath = path.resolve(resolveFilePathFromUri(rootUri));
-    if (targetPath === rootPath) return targetPath;
-    if (targetPath.startsWith(rootPath + path.sep)) return targetPath;
-  }
-  throw new Error("Path escapes workspace roots.");
+  return path.resolve(resolveFilePathFromUri(uri));
 }

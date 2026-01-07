@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery, type QueryClient } from "@tanstack/react-query";
+import { skipToken, useQuery, type QueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
+import { useTabs } from "@/hooks/use-tabs";
 
 /** Session list item used by chat UI. */
 export type ChatSessionListItem = {
@@ -18,29 +19,27 @@ export type ChatSessionListItem = {
   isPin: boolean;
   /** Whether the title is renamed by user. */
   isUserRename: boolean;
+  /** Project id bound to session. */
+  projectId: string | null;
+  /** Project name resolved from tree. */
+  projectName: string | null;
 };
-
-/** Session list input shared by list and recent views. */
-const SESSION_LIST_INPUT = {
-  where: { deletedAt: null },
-  orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }],
-  select: {
-    id: true,
-    title: true,
-    createdAt: true,
-    updatedAt: true,
-    isPin: true,
-    isUserRename: true,
-  },
-} as const;
-
-/** Session list query options. */
-const SESSION_LIST_QUERY = trpc.chatsession.findManyChatSession.queryOptions(
-  SESSION_LIST_INPUT as any
-) as any;
 
 /** Max sessions shown in recent section. */
 const RECENT_SESSION_LIMIT = 3;
+
+/** Chat session list scope input. */
+export type UseChatSessionsInput = {
+  /** Current tab id. */
+  tabId?: string;
+};
+
+/** Normalize optional id value. */
+function normalizeOptionalId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
 
 /** Convert a date-like value into timestamp. */
 function toTime(value: string | Date): number {
@@ -50,15 +49,29 @@ function toTime(value: string | Date): number {
 /** Build recent sessions list from session list. */
 function buildRecentSessions(sessions: ChatSessionListItem[]): ChatSessionListItem[] {
   if (sessions.length <= RECENT_SESSION_LIMIT) return sessions;
-  // 中文注释：最近会话按更新时间排序，避免置顶影响“最近”展示。
+  // 最近会话按更新时间排序，避免置顶影响“最近”展示。
   const sorted = [...sessions].sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt));
   return sorted.slice(0, RECENT_SESSION_LIMIT);
 }
 
 /** Fetch chat sessions for list + header + recent usage. */
-export function useChatSessions() {
+export function useChatSessions(input?: UseChatSessionsInput) {
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const resolvedTabId = input?.tabId ?? activeTabId ?? undefined;
+  const tab = useTabs((s) => (resolvedTabId ? s.getTabById(resolvedTabId) : undefined));
+  const workspaceId = normalizeOptionalId(tab?.workspaceId);
+  // 只有项目页才按项目范围过滤会话。
+  const isProjectTab = tab?.base?.component === "plant-page";
+  const scopedProjectId = isProjectTab
+    ? normalizeOptionalId((tab?.chatParams as Record<string, unknown> | undefined)?.projectId)
+    : undefined;
+  const listInput = useMemo(() => {
+    if (!workspaceId) return undefined;
+    return scopedProjectId ? { workspaceId, projectId: scopedProjectId } : { workspaceId };
+  }, [scopedProjectId, workspaceId]);
+
   const query = useQuery({
-    ...SESSION_LIST_QUERY,
+    ...trpc.chat.listSessions.queryOptions(listInput ?? skipToken),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
@@ -68,11 +81,12 @@ export function useChatSessions() {
   return {
     sessions,
     recentSessions,
+    scopeProjectId: scopedProjectId,
     isLoading: query.isLoading,
   };
 }
 
 /** Invalidate session list cache. */
 export function invalidateChatSessions(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: SESSION_LIST_QUERY.queryKey });
+  queryClient.invalidateQueries({ queryKey: trpc.chat.listSessions.pathKey() });
 }

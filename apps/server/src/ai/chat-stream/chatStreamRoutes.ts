@@ -1,7 +1,6 @@
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ChatModelSource } from "@teatime-ai/api/common";
-import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
 import type { ChatStreamRequest } from "./chatStreamTypes";
 import { runChatStream } from "./chatStreamService";
 
@@ -37,16 +36,20 @@ function parseChatStreamRequest(body: unknown): { request?: ChatStreamRequest; e
   const sessionId = toText(raw.sessionId);
   if (!sessionId) return { error: "sessionId is required" };
 
-  const messages = Array.isArray(raw.messages) ? (raw.messages as TeatimeUIMessage[]) : [];
+  const messages = Array.isArray(raw.messages) ? (raw.messages as ChatStreamRequest["messages"]) : [];
   if (!Array.isArray(raw.messages)) return { error: "messages is required" };
 
   return {
     request: {
       sessionId,
       messages,
+      id: toText(raw.id) || undefined,
       messageId: toText(raw.messageId) || undefined,
       clientId: toText(raw.clientId) || undefined,
       tabId: toText(raw.tabId) || undefined,
+      params: normalizeParams(raw.params),
+      trigger: toText(raw.trigger) || undefined,
+      retry: typeof raw.retry === "boolean" ? raw.retry : undefined,
       chatModelId: toText(raw.chatModelId) || undefined,
       chatModelSource: normalizeChatModelSource(raw.chatModelSource),
       workspaceId: toText(raw.workspaceId) || undefined,
@@ -58,6 +61,13 @@ function parseChatStreamRequest(body: unknown): { request?: ChatStreamRequest; e
 /** Normalize string input. */
 function toText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+/** Normalize params input. */
+function normalizeParams(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
 }
 
 /** Normalize chat model source input. */

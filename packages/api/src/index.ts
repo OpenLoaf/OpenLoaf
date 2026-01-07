@@ -58,6 +58,7 @@ export * from "./types/workspace";
 export * from "./types/basic";
 export * from "./types/event";
 export * from "./types/message";
+export * from "./types/image";
 export * from "./types/toolResult";
 export * from "./types/setting";
 export * from "./types/storage";

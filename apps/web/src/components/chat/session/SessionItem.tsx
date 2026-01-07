@@ -22,18 +22,30 @@ import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
 import { toast } from "sonner";
 
 export interface Session {
+  /** Session id. */
   id: string;
+  /** Raw session title. */
   name: string;
+  /** Display name with optional project prefix. */
+  displayName?: string;
+  /** Session created time. */
   createdAt: string | Date;
+  /** Whether the session is pinned. */
   pinned?: boolean;
+  /** Whether the session has layer history. */
   hasLayers?: boolean;
 }
 
 interface SessionItemProps {
+  /** Session data. */
   session: Session;
+  /** Active state. */
   isActive?: boolean;
+  /** Select handler. */
   onSelect?: (session: Session) => void;
+  /** Menu open state callback. */
   onMenuOpenChange?: (open: boolean) => void;
+  /** Custom className. */
   className?: string;
 }
 
@@ -179,7 +191,7 @@ export default function SessionItem({
           )}
         >
           <span className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate">{session.name}</span>
+            <span className="truncate">{session.displayName ?? session.name}</span>
             {session.hasLayers && (
               <Layers size={14} className="text-muted-foreground" />
             )}

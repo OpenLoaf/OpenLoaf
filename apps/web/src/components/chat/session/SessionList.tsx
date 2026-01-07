@@ -7,9 +7,15 @@ import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
 
 interface SessionListProps {
+  /** Current tab id for scoping. */
+  tabId?: string;
+  /** Current active session id. */
   activeSessionId?: string;
+  /** Select handler. */
   onSelect?: (session: Session) => void;
+  /** Menu open state callback. */
   onMenuOpenChange?: (open: boolean) => void;
+  /** Custom className. */
   className?: string;
 }
 
@@ -76,21 +82,50 @@ function groupSessions(sessions: Session[]) {
   return groups;
 }
 
+type SessionDisplayNameInput = {
+  /** Session title. */
+  title: string;
+  /** Project id bound to session. */
+  projectId: string | null;
+  /** Project name resolved from tree. */
+  projectName: string | null;
+  /** Current project id for scoping. */
+  currentProjectId?: string;
+};
+
+/** Build display name with project prefix when needed. */
+function buildSessionDisplayName(input: SessionDisplayNameInput): string {
+  const title = input.title.trim();
+  if (!input.currentProjectId) return title;
+  if (!input.projectId || input.projectId === input.currentProjectId) return title;
+  const projectName = String(input.projectName ?? "").trim();
+  if (!projectName) return title;
+  // 非当前项目会话在标题前拼接项目名。
+  return title ? `${projectName} / ${title}` : projectName;
+}
+
 export default function SessionList({
+  tabId,
   activeSessionId,
   onSelect,
   onMenuOpenChange,
   className,
 }: SessionListProps) {
-  const { sessions: chatSessions, isLoading } = useChatSessions();
+  const { sessions: chatSessions, isLoading, scopeProjectId } = useChatSessions({ tabId });
   const sessions: Session[] = React.useMemo(() => {
     return chatSessions.map((s) => ({
       id: s.id,
       name: s.title,
+      displayName: buildSessionDisplayName({
+        title: s.title,
+        projectId: s.projectId,
+        projectName: s.projectName,
+        currentProjectId: scopeProjectId,
+      }),
       createdAt: s.createdAt,
       pinned: s.isPin,
     }));
-  }, [chatSessions]);
+  }, [chatSessions, scopeProjectId]);
 
   const groups = React.useMemo(() => groupSessions(sessions), [sessions]);
 

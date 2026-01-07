@@ -39,13 +39,14 @@ import {
 } from "./chat-input-utils";
 import { buildUriFromRoot } from "@/components/project/filesystem/file-system-utils";
 import { trpc } from "@/utils/trpc";
-import { useTabs } from "@/hooks/use-tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTabs } from "@/hooks/use-tabs";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { toast } from "sonner";
+import { normalizeImageOptions } from "@/lib/chat/image-options";
 
 interface ChatInputProps {
   className?: string;
@@ -57,6 +58,7 @@ interface ChatInputProps {
 
 const MAX_CHARS = 2000;
 const COMMAND_REGEX = /(^|\s)(\/[\w-]+)/g;
+
 
 function base64ToUint8Array(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -574,6 +576,7 @@ export default function ChatInput({
     input,
     setInput,
     isHistoryLoading,
+    imageOptions,
   } = useChatContext();
   const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
@@ -652,8 +655,11 @@ export default function ChatInput({
       ...imageParts,
       ...(textValue ? [{ type: "text", text: textValue }] : []),
     ];
+    // 从 chat session 选项读取图片参数，写入本次消息 metadata。
+    const normalizedImageOptions = normalizeImageOptions(imageOptions);
+    const metadata = normalizedImageOptions ? { imageOptions: normalizedImageOptions } : undefined;
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
-    sendMessage({ parts } as any);
+    sendMessage({ parts, ...(metadata ? { metadata } : {}) } as any);
     setInput("");
     onClearAttachments?.();
   };

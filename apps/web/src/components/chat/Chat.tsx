@@ -5,6 +5,7 @@ import ChatProvider from "./ChatProvider";
 import MessageList from "./message/MessageList";
 import ChatInput from "./ChatInput";
 import ChatHeader from "./ChatHeader";
+import ChatImageOutputOption from "./ChatImageOutputOption";
 import { generateId } from "ai";
 import * as React from "react";
 import {
@@ -87,6 +88,8 @@ export function Chat({
         selectedModel?.tags?.includes("image_input") ||
         selectedModel?.tags?.includes("image_url_input"),
       );
+  // 中文注释：只有模型声明 image_output 才显示图片输出选项。
+  const showImageOutputOptions = Boolean(selectedModel?.tags?.includes("image_output"));
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
   const [isDragActive, setIsDragActive] = React.useState(false);
@@ -313,8 +316,11 @@ export function Chat({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-      <ChatHeader />
+        <ChatHeader />
         <MessageList className="flex-1 min-h-0" />
+        {showImageOutputOptions ? (
+          <ChatImageOutputOption className="mx-2 mb-2" model={selectedModel} />
+        ) : null}
         <ChatInput
           attachments={attachments}
           onAddAttachments={addAttachments}

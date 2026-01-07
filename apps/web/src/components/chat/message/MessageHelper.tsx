@@ -51,8 +51,8 @@ const item = {
 };
 
 export default function MessageHelper() {
-  const { setInput, selectSession } = useChatContext();
-  const { recentSessions } = useChatSessions();
+  const { setInput, selectSession, tabId } = useChatContext();
+  const { recentSessions } = useChatSessions({ tabId });
 
   const focusChatInput = React.useCallback(() => {
     // 点击建议后需要立刻聚焦到输入框，方便用户直接按 Enter 发送或继续编辑

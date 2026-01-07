@@ -312,11 +312,48 @@ function loadTeatimeConf(): TeatimeConf {
   return JSON.parse(readFileSync(confPath, "utf-8")) as TeatimeConf;
 }
 
+/** Read Teatime config from disk without throwing on parse failure. */
+function readTeatimeConfSafely(confPath: string): TeatimeConf | null {
+  if (!existsSync(confPath)) return null;
+  try {
+    return JSON.parse(readFileSync(confPath, "utf-8")) as TeatimeConf;
+  } catch {
+    // 逻辑：解析失败时回退为 null，避免阻断写入流程。
+    return null;
+  }
+}
+
+/** Merge workspace list while preserving existing projects when missing. */
+function mergeWorkspaceProjects(
+  existing?: WorkspaceConf[],
+  incoming?: WorkspaceConf[],
+): WorkspaceConf[] | undefined {
+  if (!incoming) return existing;
+  if (!existing || existing.length === 0) return incoming;
+  const existingById = new Map(existing.map((workspace) => [workspace.id, workspace]));
+  return incoming.map((workspace) => {
+    const previous = existingById.get(workspace.id);
+    if (!previous) return workspace;
+    const hasProjects =
+      workspace.projects !== undefined && typeof workspace.projects === "object" && workspace.projects !== null;
+    // 逻辑：当 incoming 未包含 projects 时，保留磁盘上的 projects，避免被覆盖成空。
+    const projects = hasProjects ? workspace.projects : previous.projects;
+    return { ...previous, ...workspace, projects };
+  });
+}
+
 /** Write Teatime config to disk. */
 function writeTeatimeConf(conf: TeatimeConf): void {
   const confPath = getTeatimeConfPath();
-  // 逻辑：保持 JSON 可读，便于手工审阅。
-  writeFileSync(confPath, JSON.stringify(conf, null, 2));
+  const existing = readTeatimeConfSafely(confPath);
+  const mergedWorkspaces = mergeWorkspaceProjects(existing?.workspaces, conf.workspaces);
+  const payload: TeatimeConf = {
+    ...(existing ?? {}),
+    ...conf,
+    ...(mergedWorkspaces ? { workspaces: mergedWorkspaces } : {}),
+  };
+  // 逻辑：保持 JSON 可读，并保留磁盘上的 projects 配置。
+  writeFileSync(confPath, JSON.stringify(payload, null, 2));
 }
 
 /** Read model providers from config. */

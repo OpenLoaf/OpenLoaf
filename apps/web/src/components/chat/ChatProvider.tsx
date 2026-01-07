@@ -15,6 +15,7 @@ import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
 import type { TeatimeUIDataTypes } from "@teatime-ai/api/types/message";
+import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
 
 function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
   if (input.dataPart?.type !== "data-open-browser") return false;
@@ -214,6 +215,10 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   subAgentStreams: Record<string, SubAgentStreamState>;
   /** 处理 step 完成后的“思考中”提示 */
   stepThinking: boolean;
+  /** Image generation options for the current chat session. */
+  imageOptions?: ImageGenerateOptions;
+  /** Update image generation options for the current chat session. */
+  setImageOptions: React.Dispatch<React.SetStateAction<ImageGenerateOptions | undefined>>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -529,6 +534,8 @@ export default function ChatProvider({
   );
 
   const [input, setInput] = React.useState("");
+  /** Image options for this chat session. */
+  const [imageOptions, setImageOptions] = React.useState<ImageGenerateOptions | undefined>(undefined);
 
   React.useEffect(() => {
     // 关键：空消息列表时不应存在 leafMessageId（否则会把“脏 leaf”带进首条消息的 parentMessageId）
@@ -788,6 +795,8 @@ export default function ChatProvider({
         stopGenerating,
         subAgentStreams,
         stepThinking,
+        imageOptions,
+        setImageOptions,
       }}
     >
       {children}

@@ -3,6 +3,7 @@
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "@ai-sdk/react";
 import type { RefObject } from "react";
+import type { ChatRequestBody } from "@teatime-ai/api/types/message";
 import { getWebClientId } from "./streamClientId";
 import { resolveServerUrl } from "@/utils/server-url";
 
@@ -52,8 +53,13 @@ export function createChatTransport({
       // 中文注释：显式 chatModelId 优先，其次使用最新设置值。
       const normalizedChatModelId =
         (explicitChatModelId ?? refChatModelId)?.trim() || undefined;
+      const resolvedChatModelSource =
+        (explicitChatModelSource ?? refChatModelSource)?.trim() || "";
+      // 只允许 local/cloud，非法值视为未传。
       const normalizedChatModelSource =
-        (explicitChatModelSource ?? refChatModelSource)?.trim() || undefined;
+        resolvedChatModelSource === "local" || resolvedChatModelSource === "cloud"
+          ? resolvedChatModelSource
+          : undefined;
       const {
         chatModelId: _ignored,
         chatModelSource: _ignoredSource,
@@ -64,17 +70,20 @@ export function createChatTransport({
       } = bodyRecord;
       // 中文注释：自定义字段直接合并到顶层，不再使用 params。
       const basePayload = { ...baseParams, ...restBody };
+      const payloadBase: ChatRequestBody = {
+        ...basePayload,
+        sessionId: id,
+        clientId: clientId || undefined,
+        tabId,
+        messageId,
+        ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
+        ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
+      };
 
       if (messages.length === 0) {
         return {
           body: {
-            ...basePayload,
-            sessionId: id,
-            clientId: clientId || undefined,
-            tabId,
-            messageId,
-            ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
-            ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
+            ...payloadBase,
             messages: [],
           },
           headers,
@@ -83,18 +92,13 @@ export function createChatTransport({
 
       const rawLastMessage = messages[messages.length - 1] as UIMessage & { parts?: any[] };
       const lastMessage = stripTotalUsageFromMetadata(rawLastMessage as any);
+      const messagesPayload = [lastMessage] as ChatRequestBody["messages"];
 
       return {
         body: {
-          ...basePayload,
-          sessionId: id,
-          clientId: clientId || undefined,
-          tabId,
-          messageId,
-          ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
-          ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
           // 后端会从 DB 补全完整历史链路；前端只需发送最后一条消息即可。
-          messages: [lastMessage],
+          ...payloadBase,
+          messages: messagesPayload,
         },
         headers,
       };

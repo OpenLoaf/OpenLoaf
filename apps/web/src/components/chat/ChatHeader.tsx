@@ -21,7 +21,7 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
     useChatContext();
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const menuLockRef = React.useRef(false);
-  const { sessions } = useChatSessions();
+  const { sessions } = useChatSessions({ tabId });
   const tab = useTabs((s) => (tabId ? s.tabs.find((t) => t.id === tabId) : undefined));
   const setTabTitle = useTabs((s) => s.setTabTitle);
 
@@ -102,6 +102,7 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
             }}
           >
             <SessionList
+              tabId={tabId}
               activeSessionId={activeSessionId}
               onMenuOpenChange={handleMenuOpenChange}
               onSelect={(session) => {

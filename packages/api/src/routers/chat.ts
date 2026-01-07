@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { t, shieldedProcedure } from "../index";
 import { chatSchemas } from "./absChat";
+import {
+  buildProjectTitleMap,
+  collectProjectSubtreeIds,
+  findProjectNodeWithParent,
+  readWorkspaceProjectTrees,
+} from "../services/projectTreeService";
 
 /**
  * Chat UIMessage 结构（MVP）
@@ -15,6 +21,26 @@ export type ChatUIMessage = {
   metadata?: any;
   /** 产生该消息的 agent 信息（便于 UI 直接读取） */
   agent?: any;
+};
+
+/** Session summary for history list. */
+export type ChatSessionSummary = {
+  /** Session id. */
+  id: string;
+  /** Session title. */
+  title: string;
+  /** Session created time. */
+  createdAt: Date;
+  /** Session updated time. */
+  updatedAt: Date;
+  /** Whether the session is pinned. */
+  isPin: boolean;
+  /** Whether the title is renamed by user. */
+  isUserRename: boolean;
+  /** Project id bound to session. */
+  projectId: string | null;
+  /** Project name resolved from tree. */
+  projectName: string | null;
 };
 
 const DEFAULT_VIEW_LIMIT = 50;
@@ -70,6 +96,13 @@ function sumUsageTotals(list: UsageTotals[]): UsageTotals {
     total.cachedInputTokens += item.cachedInputTokens;
   }
   return total;
+}
+
+/** Normalize optional id value. */
+function normalizeOptionalId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
 }
 
 function isRenderableRow(row: { role: string; parts: unknown }): boolean {
@@ -464,22 +497,54 @@ export const chatRouter = t.router({
     }),
 
   /**
-   * 获取最近的会话列表
+   * List chat sessions for history panel.
    */
-  getRecentSessions: shieldedProcedure
-    .input(z.object({ limit: z.number().min(1).max(10).default(3) }).optional())
+  listSessions: shieldedProcedure
+    .input(
+      z.object({
+        workspaceId: z.string().trim().min(1),
+        projectId: z.string().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
-      const limit = input?.limit ?? 3;
-      return ctx.prisma.chatSession.findMany({
-        where: { deletedAt: null },
-        orderBy: { updatedAt: "desc" },
-        take: limit,
+      const projectId = normalizeOptionalId(input.projectId);
+      let projectIdFilter: string[] | null = null;
+      let projectTitleMap = new Map<string, string>();
+
+      if (projectId) {
+        // 项目页只保留当前项目及其子项目的会话。
+        const projectTrees = await readWorkspaceProjectTrees(input.workspaceId);
+        const entry = findProjectNodeWithParent(projectTrees, projectId);
+        if (!entry) return [];
+        projectIdFilter = collectProjectSubtreeIds(entry.node);
+        // 列表需要项目名，提前构建映射供 UI 拼前缀。
+        projectTitleMap = buildProjectTitleMap(projectTrees);
+      }
+
+      const sessions = await ctx.prisma.chatSession.findMany({
+        where: {
+          deletedAt: null,
+          workspaceId: input.workspaceId,
+          ...(projectIdFilter ? { projectId: { in: projectIdFilter } } : {}),
+        },
+        orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }],
         select: {
           id: true,
           title: true,
+          createdAt: true,
           updatedAt: true,
+          isPin: true,
+          isUserRename: true,
+          projectId: true,
         },
       });
+
+      return sessions.map((session) => ({
+        ...session,
+        projectName: session.projectId
+          ? projectTitleMap.get(session.projectId) ?? null
+          : null,
+      })) as ChatSessionSummary[];
     }),
 
   /**
