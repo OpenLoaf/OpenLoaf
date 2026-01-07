@@ -1,6 +1,7 @@
 import { prisma } from "@teatime-ai/db";
 import type { MessageRole as DbMessageRole, Prisma } from "@teatime-ai/db/prisma/generated/client";
 import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
+import { getProjectId, getWorkspaceId } from "./requestContext";
 
 /** Max session title length. */
 const MAX_SESSION_TITLE_CHARS = 16;
@@ -19,6 +20,10 @@ export type SaveMessageInput = {
   message: TeatimeUIMessage | UIMessageLike;
   /** Parent message id. */
   parentMessageId: string | null;
+  /** Workspace id for session binding. */
+  workspaceId?: string;
+  /** Project id for session binding. */
+  projectId?: string;
   /** Allow empty assistant message. */
   allowEmpty?: boolean;
   /** Created time override. */
@@ -54,6 +59,8 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
   const parts = normalizeParts((input.message as any)?.parts);
   const metadata = sanitizeMetadata((input.message as any)?.metadata);
   const title = role === "user" ? normalizeTitle(extractTitleTextFromParts(parts)) : "";
+  const workspaceId = normalizeOptionalId(input.workspaceId) ?? getWorkspaceId();
+  const projectId = normalizeOptionalId(input.projectId) ?? getProjectId();
 
   const allowEmpty = Boolean(input.allowEmpty);
   if (!allowEmpty && role !== "user" && parts.length === 0) {
@@ -62,7 +69,11 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
   }
 
   return prisma.$transaction(async (tx) => {
-    await ensureSession(tx, input.sessionId, title || undefined);
+    await ensureSession(tx, input.sessionId, {
+      title: title || undefined,
+      workspaceId,
+      projectId,
+    });
 
     const existing = await tx.chatMessage.findUnique({
       where: { id: messageId },
@@ -267,6 +278,13 @@ function normalizeTitle(raw: string): string {
   return title.trim();
 }
 
+/** Normalize optional id. */
+function normalizeOptionalId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 /** Convert sequence into a fixed-width path segment. */
 function toPathSegment(seq: number): string {
   if (!Number.isInteger(seq) || seq <= 0) throw new Error("Invalid path segment seq.");
@@ -275,11 +293,33 @@ function toPathSegment(seq: number): string {
 }
 
 /** Ensure chat session exists. */
-async function ensureSession(tx: Prisma.TransactionClient, sessionId: string, title?: string) {
+async function ensureSession(
+  tx: Prisma.TransactionClient,
+  sessionId: string,
+  input: {
+    /** Session title for first message. */
+    title?: string;
+    /** Workspace id for session binding. */
+    workspaceId?: string;
+    /** Project id for session binding. */
+    projectId?: string;
+  },
+) {
+  const workspaceId = normalizeOptionalId(input.workspaceId);
+  const projectId = normalizeOptionalId(input.projectId);
+  // 中文注释：仅在请求提供绑定信息时写入，避免覆盖为空。
   await tx.chatSession.upsert({
     where: { id: sessionId },
-    update: {},
-    create: { id: sessionId, ...(title ? { title } : {}) },
+    update: {
+      ...(workspaceId ? { workspaceId } : {}),
+      ...(projectId ? { projectId } : {}),
+    },
+    create: {
+      id: sessionId,
+      ...(input.title ? { title: input.title } : {}),
+      ...(workspaceId ? { workspaceId } : {}),
+      ...(projectId ? { projectId } : {}),
+    },
   });
 }
 

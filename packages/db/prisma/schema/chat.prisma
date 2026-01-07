@@ -5,6 +5,8 @@ model ChatSession {
   isPin        Boolean       @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  workspaceId  String? /// Workspace id.
+  projectId    String? /// Project id.
   deletedAt    DateTime? /// @zod.optional()
   messages     ChatMessage[]
 

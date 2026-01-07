@@ -11,7 +11,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs, type ChatStatus } from "@/hooks/use-tabs";
 import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
-import { useBasicConfig } from "@/hooks/use-basic-config";
 import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
@@ -232,9 +231,31 @@ export function useChatContext() {
 }
 
 /**
- * 聊天提供者组件
- * 用于包裹聊天相关组件，提供聊天状态和方法
+ * Chat provider component.
+ * Provides chat state and actions to children.
  */
+type ChatProviderProps = {
+  /** Children nodes inside chat provider. */
+  children: ReactNode;
+  /** Current tab id. */
+  tabId?: string;
+  /** Current session id. */
+  sessionId: string;
+  /** Whether to load history messages. */
+  loadHistory?: boolean;
+  /** Extra params sent with chat requests. */
+  params?: Record<string, unknown>;
+  /** Session change handler. */
+  onSessionChange?: (
+    sessionId: string,
+    options?: { loadHistory?: boolean }
+  ) => void;
+  /** Selected chat model id. */
+  chatModelId?: string | null;
+  /** Selected chat model source. */
+  chatModelSource?: string | null;
+};
+
 export default function ChatProvider({
   children,
   tabId,
@@ -242,17 +263,9 @@ export default function ChatProvider({
   loadHistory,
   params,
   onSessionChange,
-}: {
-  children: ReactNode;
-  tabId?: string;
-  sessionId: string;
-  loadHistory?: boolean;
-  params?: Record<string, unknown>;
-  onSessionChange?: (
-    sessionId: string,
-    options?: { loadHistory?: boolean }
-  ) => void;
-}) {
+  chatModelId,
+  chatModelSource,
+}: ChatProviderProps) {
   const [scrollToBottomToken, setScrollToBottomToken] = React.useState(0);
   const [scrollToMessageToken, setScrollToMessageToken] = React.useState<{
     messageId: string;
@@ -282,13 +295,12 @@ export default function ChatProvider({
   const queryClient = useQueryClient();
   const sessionIdRef = React.useRef(sessionId);
   sessionIdRef.current = sessionId;
-  const { basic } = useBasicConfig();
   const chatModelIdRef = React.useRef<string | null>(
-    typeof basic.modelDefaultChatModelId === "string"
-      ? basic.modelDefaultChatModelId.trim() || null
-      : null,
+    typeof chatModelId === "string" ? chatModelId : null
   );
-  const chatModelSourceRef = React.useRef<string>("local");
+  const chatModelSourceRef = React.useRef<string | null>(
+    typeof chatModelSource === "string" ? chatModelSource : null
+  );
 
   // 关键：记录一次请求对应的 userMessageId（用于在 onFinish 补齐 assistant.parentMessageId）
   const pendingUserMessageIdRef = React.useRef<string | null>(null);
@@ -320,18 +332,15 @@ export default function ChatProvider({
   }, [tabId]);
 
   React.useEffect(() => {
-    const normalized =
-      typeof basic.modelDefaultChatModelId === "string"
-        ? basic.modelDefaultChatModelId.trim()
-        : "";
     // 中文注释：为空代表 Auto，不透传 chatModelId。
-    chatModelIdRef.current = normalized || null;
-  }, [basic.modelDefaultChatModelId]);
+    chatModelIdRef.current = typeof chatModelId === "string" ? chatModelId.trim() || null : null;
+  }, [chatModelId]);
 
   React.useEffect(() => {
-    // 中文注释：仅允许 local/cloud，其他值默认本地。
-    chatModelSourceRef.current = basic.chatSource === "cloud" ? "cloud" : "local";
-  }, [basic.chatSource]);
+    // 中文注释：仅允许 local/cloud，其他值视为未传。
+    chatModelSourceRef.current =
+      typeof chatModelSource === "string" ? chatModelSource.trim() || null : null;
+  }, [chatModelSource]);
 
   const upsertToolPartMerged = React.useCallback(
     (key: string, next: Partial<Parameters<typeof upsertToolPart>[2]>) => {
@@ -431,24 +440,32 @@ export default function ChatProvider({
     };
   }, [tabId, chat.status, setTabChatStatus]);
 
-  // 中文注释：有 sessionId 时始终拉取历史，避免刷新后丢失主链消息。
-  const shouldLoadHistory = Boolean(sessionId);
+  // 中文注释：仅在显式需要时才拉取历史，避免新会话多余请求。
+  const shouldLoadHistory = Boolean(loadHistory);
+
+  /** Stop streaming and reset local state before switching sessions. */
+  const stopAndResetSession = React.useCallback(
+    (clearTools: boolean) => {
+      // 中文注释：切换会话前必须停止流式并清空本地状态，避免脏数据串流。
+      chat.stop();
+      chat.setMessages([]);
+      pendingUserMessageIdRef.current = null;
+      needsBranchMetaRefreshRef.current = false;
+      setLeafMessageId(null);
+      setBranchMessageIds([]);
+      setSiblingNav({});
+      setSubAgentStreams({});
+      setStepThinking(false);
+      if (clearTools && tabId) clearToolPartsForTab(tabId);
+    },
+    [chat.stop, chat.setMessages, tabId, clearToolPartsForTab]
+  );
 
   React.useLayoutEffect(() => {
     // 关键：sessionId 可能由外部状态直接切换（不一定走 newSession/selectSession）。
     // 必须在浏览器可交互前完成清理，否则首条消息会错误复用旧 leaf 作为 parentMessageId。
-    chat.stop();
-    chat.setMessages([]);
-    pendingUserMessageIdRef.current = null;
-    needsBranchMetaRefreshRef.current = false;
-    setLeafMessageId(null);
-    setBranchMessageIds([]);
-    setSiblingNav({});
-    // 中文注释：切会话时清空子Agent流式缓存，避免串流。
-    setSubAgentStreams({});
-    setStepThinking(false);
-    if (tabId) clearToolPartsForTab(tabId);
-  }, [sessionId, tabId, clearToolPartsForTab, chat.stop, chat.setMessages]);
+    stopAndResetSession(true);
+  }, [sessionId, stopAndResetSession]);
 
   // 使用 tRPC 拉取“当前视图”（主链消息 + sibling 导航）
   const branchQuery = useQuery(
@@ -483,10 +500,6 @@ export default function ChatProvider({
     setSiblingNav(data.siblingNav ?? {});
   }, [branchQuery.data, chat.messages.length, chat.setMessages, tabId, clearToolPartsForTab]);
 
-  // 说明：历史代码曾通过 useEffect(chat.status===ready) 去“补齐 parentMessageId / 刷新 siblingNav”，
-  // 但会导致 retry 点击后在 status 还没切到 submitted 前就提前触发请求。
-  // 现在统一改为 useChat.onFinish 回调内处理（见 onFinish）。
-
   const updateMessage = React.useCallback(
     (id: string, updates: Partial<UIMessage>) => {
       chat.setMessages((messages) =>
@@ -497,30 +510,22 @@ export default function ChatProvider({
   );
 
   const newSession = React.useCallback(() => {
-    chat.stop();
-    // 立即清空，避免 UI 闪回旧消息
-    chat.setMessages([]);
-    setLeafMessageId(null);
-    setBranchMessageIds([]);
-    setSiblingNav({});
+    // 中文注释：立即清空，避免 UI 闪回旧消息。
+    stopAndResetSession(true);
     onSessionChange?.(generateId(), { loadHistory: false });
     // 新会话也滚动到底部（此时通常为空，属于安全操作）
     setScrollToBottomToken((n) => n + 1);
-  }, [chat.stop, chat.setMessages, onSessionChange]);
+  }, [stopAndResetSession, onSessionChange]);
 
   const selectSession = React.useCallback(
     (nextSessionId: string) => {
-      chat.stop();
-      // 立即清空，避免 UI 闪回旧消息
-      chat.setMessages([]);
-      setLeafMessageId(null);
-      setBranchMessageIds([]);
-      setSiblingNav({});
+      // 中文注释：立即清空，避免 UI 闪回旧消息。
+      stopAndResetSession(true);
       onSessionChange?.(nextSessionId, { loadHistory: true });
       // 先触发一次滚动：避免短暂显示在顶部；历史加载后还会再触发一次
       setScrollToBottomToken((n) => n + 1);
     },
-    [chat.stop, chat.setMessages, onSessionChange]
+    [stopAndResetSession, onSessionChange]
   );
 
   const [input, setInput] = React.useState("");

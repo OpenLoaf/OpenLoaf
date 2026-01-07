@@ -17,6 +17,10 @@ export type RequestContext = {
   cookies: Record<string, string>;
   /** Web client id for session association. */
   clientId?: string;
+  /** Workspace id for this request. */
+  workspaceId?: string;
+  /** Project id for this request. */
+  projectId?: string;
   /** Tab id for UI event targeting. */
   tabId?: string;
   /** Active UI stream writer for tool chunks. */
@@ -48,7 +52,7 @@ export function getSessionId(): string | undefined {
   return getRequestContext()?.sessionId;
 }
 
-/** 获取 cookies（MVP：workspaceId 从 cookie 读取）。 */
+/** Get cookies (MVP: workspaceId can fall back to cookies). */
 export function getCookies(): Record<string, string> | undefined {
   return getRequestContext()?.cookies;
 }
@@ -58,9 +62,14 @@ export function getCookie(name: string): string | undefined {
   return getCookies()?.[name];
 }
 
-/** 获取 workspaceId（MVP：只从 cookie `workspace-id` 读取）。 */
+/** Get workspaceId (MVP: prefer request body, fallback cookie `workspace-id`). */
 export function getWorkspaceId(): string | undefined {
-  return getCookie("workspace-id");
+  return getRequestContext()?.workspaceId || getCookie("workspace-id");
+}
+
+/** Get projectId (MVP: from request context). */
+export function getProjectId(): string | undefined {
+  return getRequestContext()?.projectId;
 }
 
 /** 获取 web clientId（用于会话隔离）。 */

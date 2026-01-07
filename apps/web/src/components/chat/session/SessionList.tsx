@@ -4,8 +4,7 @@ import * as React from "react";
 import SessionItem, { type Session } from "./SessionItem";
 import { Separator } from "@/components/ui/separator";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
-import { useQuery } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
+import { useChatSessions } from "@/hooks/use-chat-sessions";
 
 interface SessionListProps {
   activeSessionId?: string;
@@ -13,13 +12,6 @@ interface SessionListProps {
   onMenuOpenChange?: (open: boolean) => void;
   className?: string;
 }
-
-type ChatSessionListItem = {
-  id: string;
-  title: string;
-  createdAt: string | Date;
-  isPin: boolean;
-};
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -90,30 +82,15 @@ export default function SessionList({
   onMenuOpenChange,
   className,
 }: SessionListProps) {
-  // 使用 tRPC + TanStack React Query 获取会话列表（MVP：只读展示）
-  // 这里的 Prisma FindMany 类型推断非常深，TS 可能报 “excessively deep”；
-  // MVP 场景只需要 id/title/createdAt，直接收敛为轻量类型即可。
-  const { data, isLoading } = useQuery(
-    trpc.chatsession.findManyChatSession.queryOptions({
-      // 中文注释：先按删除状态过滤，资源关联在前端做兜底过滤。
-      where: { deletedAt: null },
-      // 置顶优先，其次按更新时间倒序
-      orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }],
-      select: { id: true, title: true, createdAt: true, isPin: true },
-    } as any) as any
-  );
-
-  const chatSessions = (data ?? []) as ChatSessionListItem[];
-  const scopedSessions = chatSessions;
-
+  const { sessions: chatSessions, isLoading } = useChatSessions();
   const sessions: Session[] = React.useMemo(() => {
-    return scopedSessions.map((s) => ({
+    return chatSessions.map((s) => ({
       id: s.id,
       name: s.title,
       createdAt: s.createdAt,
       pinned: s.isPin,
     }));
-  }, [scopedSessions]);
+  }, [chatSessions]);
 
   const groups = React.useMemo(() => groupSessions(sessions), [sessions]);
 

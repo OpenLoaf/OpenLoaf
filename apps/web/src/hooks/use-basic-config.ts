@@ -29,7 +29,12 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
 };
 
 export function useBasicConfig() {
-  const query = useQuery(trpc.settings.getBasic.queryOptions());
+  const query = useQuery({
+    ...trpc.settings.getBasic.queryOptions(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
   const mutation = useMutation(
     trpc.settings.setBasic.mutationOptions({
       onSuccess: () => {

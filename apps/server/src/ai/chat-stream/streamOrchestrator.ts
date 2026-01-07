@@ -64,6 +64,8 @@ export type ImageStreamResponseInput = {
   revisedPrompt?: string;
   /** Image parts to emit. */
   imageParts: Array<{ type: "file"; url: string; mediaType: string }>;
+  /** 用于落库的图片 part。 */
+  persistedImageParts?: Array<{ type: "file"; url: string; mediaType: string }>;
   /** Agent metadata for persistence. */
   agentMetadata: Record<string, unknown>;
   /** Token usage for metadata. */
@@ -231,7 +233,8 @@ export async function createImageStreamResponse(
         },
       ]
     : [];
-  const messageParts = [...input.imageParts, ...revisedPromptPart];
+  const persistedImageParts = input.persistedImageParts ?? input.imageParts;
+  const messageParts = [...persistedImageParts, ...revisedPromptPart];
 
   await saveMessage({
     sessionId: input.sessionId,

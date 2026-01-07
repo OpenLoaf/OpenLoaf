@@ -1,4 +1,5 @@
-import { generateId, generateImage, type UIMessage } from "ai";
+import { Buffer } from "node:buffer";
+import { generateId, generateImage, type GeneratedFile, type UIMessage } from "ai";
 import type { ModelDefinition, ModelTag } from "@teatime-ai/api/common";
 import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
@@ -9,13 +10,15 @@ import {
   setChatModel,
   setAbortSignal,
   setRequestContext,
+  getWorkspaceId,
+  getProjectId,
 } from "@/ai/chat-stream/requestContext";
 import { logger } from "@/common/logger";
 import { getProviderSettings } from "@/modules/settings/settingsService";
 import { getModelDefinition } from "@/modules/model/modelRegistry";
 import type { ChatStreamRequest } from "./chatStreamTypes";
 import { loadMessageChain } from "./messageChainLoader";
-import { buildFilePartFromTeatimeUrl } from "./attachmentResolver";
+import { buildFilePartFromTeatimeUrl, saveChatImageAttachment } from "./attachmentResolver";
 import { resolveRightmostLeafId, saveMessage } from "./messageStore";
 import {
   createChatStreamResponse,
@@ -43,6 +46,8 @@ export async function runChatStream(input: {
     tabId,
     chatModelId,
     chatModelSource,
+    workspaceId,
+    projectId,
   } = input.request;
 
   setRequestContext({
@@ -50,6 +55,8 @@ export async function runChatStream(input: {
     cookies: input.cookies,
     clientId: clientId || undefined,
     tabId: tabId || undefined,
+    workspaceId: workspaceId || undefined,
+    projectId: projectId || undefined,
   });
 
   const abortController = new AbortController();
@@ -475,6 +482,27 @@ async function runImageModelStream(input: {
             totalTokens: usage.totalTokens,
           }
         : undefined;
+    const workspaceId = getWorkspaceId();
+    if (!workspaceId) {
+      throw new Error("workspaceId 缺失，无法保存图片");
+    }
+    const projectId = getProjectId();
+    // 保存到本地磁盘，落库使用 teatime-file。
+    const persistedImageParts = await saveGeneratedImages({
+      images: result.images,
+      workspaceId,
+      sessionId: input.sessionId,
+      projectId: projectId || undefined,
+    });
+    logger.debug(
+      {
+        sessionId: input.sessionId,
+        chatModelId: modelId,
+        persistedImageCount: persistedImageParts.length,
+        urlPrefixes: persistedImageParts.map((part) => part.url.slice(0, 30)),
+      },
+      "[chat] image attachments saved",
+    );
 
     const agentMetadata = {
       id: "master-agent",
@@ -491,6 +519,7 @@ async function runImageModelStream(input: {
       parentMessageId: input.parentMessageId,
       requestStartAt: input.requestStartAt,
       imageParts,
+      persistedImageParts,
       revisedPrompt,
       agentMetadata,
       totalUsage,
@@ -543,6 +572,38 @@ function resolveImagePrompt(messages: UIMessage[]): string {
     if (text) return text;
   }
   return "";
+}
+
+/** 保存生成图片到磁盘并返回落库 parts。 */
+async function saveGeneratedImages(input: {
+  images: GeneratedFile[];
+  workspaceId: string;
+  sessionId: string;
+  projectId?: string;
+}): Promise<Array<{ type: "file"; url: string; mediaType: string }>> {
+  const parts: Array<{ type: "file"; url: string; mediaType: string }> = [];
+  for (const [index, image] of input.images.entries()) {
+    const mediaType = image.mediaType || "image/png";
+    const buffer = Buffer.from(image.uint8Array);
+    const fileName = buildImageFileName(index, mediaType);
+    const saved = await saveChatImageAttachment({
+      workspaceId: input.workspaceId,
+      projectId: input.projectId,
+      sessionId: input.sessionId,
+      fileName,
+      mediaType,
+      buffer,
+    });
+    parts.push({ type: "file", url: saved.url, mediaType: saved.mediaType });
+  }
+  return parts;
+}
+
+/** 构建图片文件名。 */
+function buildImageFileName(index: number, mediaType: string): string {
+  const ext =
+    mediaType === "image/jpeg" ? "jpg" : mediaType === "image/webp" ? "webp" : "png";
+  return `image-${index + 1}.${ext}`;
 }
 
 /** Resolve required input tags from message parts. */

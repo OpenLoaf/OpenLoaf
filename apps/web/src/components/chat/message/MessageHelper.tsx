@@ -11,8 +11,7 @@ import {
 } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
 import { useChatContext } from "../ChatProvider";
-import { trpc } from "@/utils/trpc";
-import { useQuery } from "@tanstack/react-query";
+import { useChatSessions } from "@/hooks/use-chat-sessions";
 import { MessageSquare } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -53,11 +52,7 @@ const item = {
 
 export default function MessageHelper() {
   const { setInput, selectSession } = useChatContext();
-  const { data: recentSessions } = useQuery(
-    trpc.chat.getRecentSessions.queryOptions({
-      limit: 3,
-    })
-  );
+  const { recentSessions } = useChatSessions();
 
   const focusChatInput = React.useCallback(() => {
     // 点击建议后需要立刻聚焦到输入框，方便用户直接按 Enter 发送或继续编辑
@@ -122,7 +117,7 @@ export default function MessageHelper() {
       </Empty>
 
       {/* 最近的对话固定显示在底部 */}
-      {recentSessions && recentSessions.length > 0 && (
+      {recentSessions.length > 0 && (
         <div className="mt-auto pt-6  border-border/30">
           <div className="grid grid-cols-1 gap-1 max-w-md mx-auto">
             {recentSessions.map((session) => {

@@ -17,4 +17,8 @@ export type ChatStreamRequest = {
   chatModelId?: string;
   /** Selected chat model source. */
   chatModelSource?: ChatModelSource;
+  /** Workspace id for this request. */
+  workspaceId?: string;
+  /** Project id for this request. */
+  projectId?: string;
 };

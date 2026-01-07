@@ -359,7 +359,7 @@ sequenceDiagram
 - [ ] Yjs WS 文件化落地：实现快照/WAL 读取与持久化写回。
 - [x] 前端文件树替换 PageTree：改造 `apps/web/src/components/layout/sidebar/PageTree.tsx`、`apps/web/src/components/layout/sidebar/Page.tsx`、`apps/web/src/hooks/use-page.ts` 使用 `fs.list`/`fs.stat`，并按扩展名打开 `ttdoc/ttcanvas/ttskill`。
 - [x] 项目 Intro/Board 改为文件格式：更新 `apps/web/src/components/project/intro/ProjectIntro.tsx`、`apps/web/src/components/project/intro/ProjectIntroPlate.tsx` 与 `apps/web/src/components/board/core/ProjectBoardCanvas.tsx` 走文件读写与 Yjs。
-- [x] Chat 关联改为 resourceUris：调整 `apps/server/src/modules/chat/ChatRepositoryAdapter.ts`/`apps/server/src/modules/chat/ChatSseRoutes.ts`/`packages/api/src/routers/chat.ts` 去掉 `pageChatSession`，并更新 `apps/web/src/components/chat/session/SessionList.tsx` 按 `resourceUris` 过滤。
+- [x] Chat 关联改为 resourceUris：调整 `apps/server/src/ai/chat-stream/*`/`packages/api/src/routers/chat.ts` 去掉 `pageChatSession`，并更新 `apps/web/src/components/chat/session/SessionList.tsx` 按 `resourceUris` 过滤。
 - [x] Tool/类型同步：更新 `packages/api/src/types/tools/db.ts`（项目相关 tool）与 `packages/api/src/types/message.ts` 的 params 语义，统一使用资源 URI。
 - [ ] 搜索/索引落地：在 server 接入 `rg --json` 扫描与 `.teatime/index/` 更新策略，并在 Web 搜索入口调用 `fs.search`。
 

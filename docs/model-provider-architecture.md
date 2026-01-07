@@ -279,14 +279,13 @@ flowchart LR
 
 ---
 
-## 8. ChatSseRoutes 接入建议
+## 8. Chat Stream 接入建议
 
-1) 根据用户输入生成 input/output/tags 筛选条件。  
-2) 通过 ModelRegistry 过滤候选模型。  
-3) 选定模型后通过 ProviderRegistry 获取 Adapter。  
-4) 优先使用 `buildAiSdkModel`，为空则使用 `buildRequest`。  
-5) Adapter 解析返回。  
-6) PricingStrategy 估算使用价格（输入、缓存、输出三项）。
+1) `/chat/sse` 解析请求（`sessionId` / `messages` / `chatModelId`）。  
+2) `chatModelId` 采用 `{profileId}:{modelId}`，优先解析显式模型。  
+3) 若显式模型 tags 包含 `image_output`，走图片流：`resolveImageModel` -> `generateImage` -> SSE 输出 `file` + `data-revised-prompt`。  
+4) 否则按 required tags + 历史偏好调用 `resolveChatModel`，优先 `buildAiSdkModel`，为空直接报错。  
+5) 统一写入 usage/timing/agent metadata。
 
 ---
 

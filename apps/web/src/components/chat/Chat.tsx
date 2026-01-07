@@ -42,10 +42,7 @@ export function Chat({
   onSessionChange,
   ...params
 }: ChatProps) {
-  const requestParams = React.useMemo(
-    () => ({ ...params }),
-    [params]
-  );
+  const rawParams = React.useMemo(() => ({ ...params }), [params]);
   const tab = useTabs((s) => (tabId ? s.getTabById(tabId) : undefined));
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const dragCounterRef = React.useRef(0);
@@ -53,8 +50,20 @@ export function Chat({
   const sessionIdRef = React.useRef<string>(sessionId ?? generateId());
   const effectiveSessionId = sessionId ?? sessionIdRef.current;
   const effectiveLoadHistory = loadHistory ?? Boolean(sessionId);
-  const projectId = typeof requestParams.projectId === "string" ? requestParams.projectId : "";
-  const workspaceId = tab?.workspaceId ?? "";
+  const workspaceId =
+    tab?.workspaceId ??
+    (typeof rawParams.workspaceId === "string" ? rawParams.workspaceId.trim() : "");
+  const projectId =
+    typeof rawParams.projectId === "string" ? rawParams.projectId.trim() : "";
+  const requestParams = React.useMemo(() => {
+    const nextParams: Record<string, unknown> = { ...rawParams };
+    // 中文注释：workspaceId/projectId 放入 SSE 请求体，避免后端缺失绑定信息。
+    if (workspaceId) nextParams.workspaceId = workspaceId;
+    else delete (nextParams as any).workspaceId;
+    if (projectId) nextParams.projectId = projectId;
+    else delete (nextParams as any).projectId;
+    return nextParams;
+  }, [rawParams, workspaceId, projectId]);
   const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
@@ -63,12 +72,14 @@ export function Chat({
     () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
     [chatModelSource, providerItems, cloudModels],
   );
-  const selectedModelId =
+  const rawSelectedModelId =
     typeof basic.modelDefaultChatModelId === "string"
       ? basic.modelDefaultChatModelId.trim()
       : "";
+  // 中文注释：模型不存在时回退为 Auto，避免透传无效 modelId。
+  const selectedModel = modelOptions.find((option) => option.id === rawSelectedModelId);
+  const selectedModelId = selectedModel ? rawSelectedModelId : "";
   const isAutoModel = !selectedModelId;
-  const selectedModel = modelOptions.find((option) => option.id === selectedModelId);
   // 中文注释：自动模式允许图片，非自动时必须显式支持 image_input 或 image_url_input。
   const canAttachImage = isAutoModel
     ? true
@@ -283,10 +294,11 @@ export function Chat({
 
   return (
     <ChatProvider
-      key={effectiveSessionId}
       tabId={tabId}
       sessionId={effectiveSessionId}
       loadHistory={effectiveLoadHistory}
+      chatModelId={selectedModelId || null}
+      chatModelSource={chatModelSource}
       params={requestParams}
       onSessionChange={onSessionChange}
     >
@@ -301,7 +313,7 @@ export function Chat({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-      <ChatHeader loadHistory={effectiveLoadHistory} />
+      <ChatHeader />
         <MessageList className="flex-1 min-h-0" />
         <ChatInput
           attachments={attachments}

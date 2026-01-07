@@ -49,6 +49,8 @@ function parseChatStreamRequest(body: unknown): { request?: ChatStreamRequest; e
       tabId: toText(raw.tabId) || undefined,
       chatModelId: toText(raw.chatModelId) || undefined,
       chatModelSource: normalizeChatModelSource(raw.chatModelSource),
+      workspaceId: toText(raw.workspaceId) || undefined,
+      projectId: toText(raw.projectId) || undefined,
     },
   };
 }

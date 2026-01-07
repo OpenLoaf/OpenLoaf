@@ -18,6 +18,7 @@ import {
 import { MoreHorizontal, PencilLine, Pin, Trash2, Layers } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
 import { toast } from "sonner";
 
 export interface Session {
@@ -84,8 +85,8 @@ export default function SessionItem({
   const updateSession = useMutation({
     ...(trpc.chatsession.updateOneChatSession.mutationOptions() as any),
     onSuccess: () => {
-      // MVP：简单粗暴刷新所有查询即可
-      queryClient.invalidateQueries();
+      // 中文注释：仅刷新会话列表，避免触发无关请求。
+      invalidateChatSessions(queryClient);
     },
   });
 
