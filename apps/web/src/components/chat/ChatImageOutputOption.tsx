@@ -6,6 +6,7 @@ import type { ModelTag } from "@teatime-ai/api/common";
 import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
 import { mergeImageOptions } from "@/lib/chat/image-options";
 import { useChatContext } from "./ChatProvider";
+import { supportsImageGeneration } from "@/lib/model-capabilities";
 import {
   Select,
   SelectContent,
@@ -113,7 +114,7 @@ function isOpenAiProvider(providerId?: string | null): boolean {
 
 /** Check whether the model supports image generation. */
 function isImageGenerationModel(model?: ChatImageOutputTarget | null): boolean {
-  return Boolean(model?.tags?.includes("image_generation"));
+  return supportsImageGeneration(model);
 }
 
 /** Resolve OpenAI quality options based on model id. */

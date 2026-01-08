@@ -8,6 +8,7 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenu,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
@@ -47,6 +48,7 @@ import {
   buildTeatimeFileUrl,
   getRelativePathFromUri,
 } from "@/components/project/filesystem/file-system-utils";
+import { cn } from "@/lib/utils";
 
 type ProjectInfo = {
   projectId: string;
@@ -94,12 +96,14 @@ interface FileTreeNodeProps {
   node: FileNode;
   depth: number;
   activeUri: string | null;
+  activeProjectRootUri: string | null;
   expandedNodes: Record<string, boolean>;
   setExpanded: (uri: string, isExpanded: boolean) => void;
   onPrimaryClick: (node: FileNode) => void;
   renderContextMenuContent: (node: FileNode) => React.ReactNode;
   contextSelectedUri: string | null;
   onContextMenuOpenChange: (node: FileNode, open: boolean) => void;
+  subItemGapClassName?: string;
 }
 
 function resolveFileComponent(ext?: string) {
@@ -151,15 +155,20 @@ function FileTreeNode({
   node,
   depth,
   activeUri,
+  activeProjectRootUri,
   expandedNodes,
   setExpanded,
   onPrimaryClick,
   renderContextMenuContent,
   contextSelectedUri,
   onContextMenuOpenChange,
+  subItemGapClassName,
 }: FileTreeNodeProps) {
   const isExpanded = expandedNodes[node.uri] ?? false;
-  const isActive = activeUri === node.uri || contextSelectedUri === node.uri;
+  const isActive =
+    activeUri === node.uri ||
+    contextSelectedUri === node.uri ||
+    (node.kind === "project" && activeProjectRootUri === node.uri);
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
       node.kind === "folder" && isExpanded ? { uri: node.uri } : skipToken
@@ -232,32 +241,36 @@ function FileTreeNode({
             </SidebarMenuAction>
           </CollapsiblePrimitive.Trigger>
         ) : null}
-        <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-          <SidebarMenuSub className="mx-1 px-1">
-            {children.map((child: any) => (
-              <FileTreeNode
-                key={child.uri}
-                node={{
-                  uri: child.uri,
-                  name: child.name,
-                  kind: child.kind,
-                  ext: child.ext,
-                  children: child.children,
-                  projectId: child.projectId,
-                  projectIcon: child.projectIcon,
-                }}
+        {children.length > 0 ? (
+          <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+            <SidebarMenuSub className={cn("mx-1 px-1", subItemGapClassName)}>
+              {children.map((child: any) => (
+                <FileTreeNode
+                  key={child.uri}
+                  node={{
+                    uri: child.uri,
+                    name: child.name,
+                    kind: child.kind,
+                    ext: child.ext,
+                    children: child.children,
+                    projectId: child.projectId,
+                    projectIcon: child.projectIcon,
+                  }}
                 depth={depth + 1}
                 activeUri={activeUri}
+                activeProjectRootUri={activeProjectRootUri}
                 expandedNodes={expandedNodes}
                 setExpanded={setExpanded}
                 onPrimaryClick={onPrimaryClick}
-                renderContextMenuContent={renderContextMenuContent}
-                contextSelectedUri={contextSelectedUri}
-                onContextMenuOpenChange={onContextMenuOpenChange}
-              />
-            ))}
-          </SidebarMenuSub>
-        </CollapsiblePrimitive.Content>
+                  renderContextMenuContent={renderContextMenuContent}
+                  contextSelectedUri={contextSelectedUri}
+                  onContextMenuOpenChange={onContextMenuOpenChange}
+                  subItemGapClassName={subItemGapClassName}
+                />
+              ))}
+            </SidebarMenuSub>
+          </CollapsiblePrimitive.Content>
+        ) : null}
       </Item>
     </CollapsiblePrimitive.Root>
   );
@@ -418,6 +431,19 @@ export const PageTreeMenu = ({
   const openDeleteDialog = (node: FileNode) => {
     if (node.kind === "project") return;
     setDeleteTarget(node);
+  };
+
+  /** Open the project root in system file manager. */
+  const handleOpenInFileManager = async (node: FileNode) => {
+    const api = window.teatimeElectron;
+    if (!api?.openPath) {
+      toast.error("网页版不支持打开文件管理器");
+      return;
+    }
+    const res = await api.openPath({ uri: node.uri });
+    if (!res?.ok) {
+      toast.error(res?.reason ?? "无法打开文件管理器");
+    }
   };
 
   /** Open the remove confirmation dialog for project node. */
@@ -598,6 +624,11 @@ export const PageTreeMenu = ({
       {node.kind === "file" || node.kind === "project" ? (
         <ContextMenuItem onClick={() => handlePrimaryClick(node)}>
           打开
+        </ContextMenuItem>
+      ) : null}
+      {node.kind === "project" ? (
+        <ContextMenuItem onClick={() => void handleOpenInFileManager(node)}>
+          在文件管理器中打开
         </ContextMenuItem>
       ) : null}
       {node.kind === "project" ? (
@@ -911,6 +942,34 @@ export const PageTreePicker = ({
   onSelect,
 }: PageTreePickerProps) => {
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+  const activeProjectRootUri = useMemo(() => {
+    if (!activeUri || !projects?.length) return null;
+    const roots: string[] = [];
+    const walk = (items: ProjectInfo[]) => {
+      items.forEach((item) => {
+        roots.push(item.rootUri);
+        if (item.children?.length) {
+          walk(item.children);
+        }
+      });
+    };
+    walk(projects);
+    let best: { uri: string; length: number } | null = null;
+    for (const uri of roots) {
+      try {
+        const rootUrl = new URL(uri);
+        const activeUrl = new URL(activeUri);
+        if (!activeUrl.pathname.startsWith(rootUrl.pathname)) continue;
+        const length = rootUrl.pathname.length;
+        if (!best || length > best.length) {
+          best = { uri, length };
+        }
+      } catch {
+        continue;
+      }
+    }
+    return best?.uri ?? null;
+  }, [activeUri, projects]);
 
   const setExpanded = (uri: string, isExpanded: boolean) => {
     setExpandedNodes((prev) => ({
@@ -936,22 +995,24 @@ export const PageTreePicker = ({
 
   return (
     <SidebarProvider className="min-h-0 w-full">
-      <div className="w-full">
+      <SidebarMenu className="w-full gap-2">
         {projects.map((project) => (
           <FileTreeNode
             key={project.rootUri}
             node={buildProjectNode(project)}
             depth={0}
             activeUri={activeUri ?? null}
+            activeProjectRootUri={activeProjectRootUri}
             expandedNodes={expandedNodes}
             setExpanded={setExpanded}
             onPrimaryClick={handlePrimaryClick}
             renderContextMenuContent={renderContextMenuContent}
             contextSelectedUri={null}
             onContextMenuOpenChange={() => undefined}
+            subItemGapClassName="gap-2"
           />
         ))}
-      </div>
+      </SidebarMenu>
     </SidebarProvider>
   );
 };

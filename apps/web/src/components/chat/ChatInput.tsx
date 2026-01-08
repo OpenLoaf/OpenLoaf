@@ -15,16 +15,17 @@ import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useChatContext } from "./ChatProvider";
 import { cn } from "@/lib/utils";
 import SelectMode from "./input/SelectMode";
-import type { ChatAttachment } from "./chat-attachments";
+import type { ChatAttachment, MaskedAttachmentInput } from "./chat-attachments";
 import {
   ChatImageAttachments,
   type ChatImageAttachmentsHandle,
 } from "./file/ChatImageAttachments";
 import {
   FILE_DRAG_REF_MIME,
-  FILE_DRAG_NAME_MIME,
-  FILE_DRAG_URI_MIME,
 } from "@/components/ui/teatime/drag-drop-types";
+import { readImageDragPayload } from "@/lib/image/drag";
+import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
+import { buildMaskedPreviewUrl, resolveMaskFileName } from "@/lib/image/mask";
 import type { Value } from "platejs";
 import { setValue } from "platejs";
 import { MentionKit } from "@/components/editor/plugins/mention-kit";
@@ -51,7 +52,7 @@ import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-
 import { toast } from "sonner";
 import { normalizeImageOptions } from "@/lib/chat/image-options";
 import ChatImageOutputOption from "./ChatImageOutputOption";
-import { resolveServerUrl } from "@/utils/server-url";
+import { supportsImageEdit, supportsImageGeneration } from "@/lib/model-capabilities";
 
 interface ChatInputProps {
   className?: string;
@@ -59,6 +60,7 @@ interface ChatInputProps {
   onAddAttachments?: (files: FileList | File[]) => void;
   onRemoveAttachment?: (attachmentId: string) => void;
   onClearAttachments?: () => void;
+  onReplaceMaskedAttachment?: (attachmentId: string, input: MaskedAttachmentInput) => void;
 }
 
 const MAX_CHARS = 2000;
@@ -78,19 +80,6 @@ function isImageFileName(name: string) {
   return /\.(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(name);
 }
 
-function getFileNameFromUri(uri: string) {
-  const raw = uri.split("/").pop() || "image";
-  const clean = raw.split("?")[0] || "image";
-  return decodeURIComponent(clean);
-}
-
-function getPreviewEndpoint(url: string) {
-  const apiBase = resolveServerUrl();
-  const encoded = encodeURIComponent(url);
-  return apiBase
-    ? `${apiBase}/chat/attachments/preview?url=${encoded}`
-    : `/chat/attachments/preview?url=${encoded}`;
-}
 
 export interface ChatInputBoxProps {
   value: string;
@@ -110,7 +99,9 @@ export interface ChatInputBoxProps {
   onCancel?: () => void;
   attachments?: ChatAttachment[];
   onAddAttachments?: (files: FileList | File[]) => void;
+  onAddMaskedAttachment?: (input: MaskedAttachmentInput) => void;
   onRemoveAttachment?: (attachmentId: string) => void;
+  onReplaceMaskedAttachment?: (attachmentId: string, input: MaskedAttachmentInput) => void;
   /** Optional header content above the input form. */
   header?: ReactNode;
 }
@@ -133,7 +124,9 @@ export function ChatInputBox({
   onCancel,
   attachments,
   onAddAttachments,
+  onAddMaskedAttachment,
   onRemoveAttachment,
+  onReplaceMaskedAttachment,
   header,
 }: ChatInputBoxProps) {
   const initialValue = useMemo(() => parseChatValue(value), []);
@@ -368,28 +361,41 @@ export function ChatInputBox({
       )}
       onPointerDownCapture={handleMentionPointerDown}
       onDragOver={(event) => {
-        if (
-          !event.dataTransfer.types.includes(FILE_DRAG_REF_MIME) &&
-          !event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)
-        ) {
-          return;
-        }
+        const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
+        const hasFileRef = event.dataTransfer.types.includes(FILE_DRAG_REF_MIME);
+        if (!hasImageDrag && !hasFileRef) return;
         event.preventDefault();
       }}
       onDrop={async (event) => {
-        const fileUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
-        if (fileUri) {
+        const imagePayload = readImageDragPayload(event.dataTransfer);
+        if (imagePayload) {
           event.preventDefault();
+          if (imagePayload.maskUri) {
+            if (!onAddMaskedAttachment) return;
+            try {
+              // 逻辑：拖拽带 mask 的图片时，合成预览并写入附件列表。
+              const fileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
+              const baseBlob = await fetchBlobFromUri(imagePayload.baseUri);
+              const maskBlob = await fetchBlobFromUri(imagePayload.maskUri);
+              const baseFile = new File([baseBlob], fileName, {
+                type: baseBlob.type || "application/octet-stream",
+              });
+              const maskFile = new File([maskBlob], resolveMaskFileName(fileName), {
+                type: "image/png",
+              });
+              const previewUrl = await buildMaskedPreviewUrl(baseBlob, maskBlob);
+              onAddMaskedAttachment({ file: baseFile, maskFile, previewUrl });
+            } catch {
+              return;
+            }
+            return;
+          }
           if (!onAddAttachments) return;
           try {
             // 处理从消息中拖拽的图片，复用附件上传流程。
-            const fileName =
-              event.dataTransfer.getData(FILE_DRAG_NAME_MIME) ||
-              getFileNameFromUri(fileUri);
+            const fileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
             const isImageByName = isImageFileName(fileName);
-            const blob = fileUri.startsWith("teatime-file://")
-              ? await fetch(getPreviewEndpoint(fileUri)).then((res) => res.blob())
-              : await fetch(fileUri).then((res) => res.blob());
+            const blob = await fetchBlobFromUri(imagePayload.baseUri);
             const isImageByType = blob.type.startsWith("image/");
             if (!isImageByName && !isImageByType) return;
             const file = new File([blob], fileName, {
@@ -440,8 +446,8 @@ export function ChatInputBox({
       }}
       onDropCapture={(event) => {
         const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
-        const fileUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
-        if (!fileRef && !fileUri) return;
+        const imagePayload = readImageDragPayload(event.dataTransfer);
+        if (!fileRef && !imagePayload) return;
         event.preventDefault();
       }}
     >
@@ -459,6 +465,7 @@ export function ChatInputBox({
           attachments={attachments}
           onAddAttachments={onAddAttachments}
           onRemoveAttachment={onRemoveAttachment}
+          onReplaceMaskedAttachment={onReplaceMaskedAttachment}
         />
 
         <div
@@ -630,6 +637,7 @@ export default function ChatInput({
   onAddAttachments,
   onRemoveAttachment,
   onClearAttachments,
+  onReplaceMaskedAttachment,
 }: ChatInputProps) {
   const {
     sendMessage,
@@ -640,6 +648,7 @@ export default function ChatInput({
     setInput,
     isHistoryLoading,
     imageOptions,
+    addMaskedAttachment,
   } = useChatContext();
   const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
@@ -655,13 +664,13 @@ export default function ChatInput({
       : "";
   const isAutoModel = !selectedModelId;
   const selectedModel = modelOptions.find((option) => option.id === selectedModelId);
-  const supportsImageGeneration = Boolean(selectedModel?.tags?.includes("image_generation"));
-  const supportsImageEdit = Boolean(selectedModel?.tags?.includes("image_edit"));
+  const canImageGeneration = supportsImageGeneration(selectedModel);
+  const canImageEdit = supportsImageEdit(selectedModel);
   // 模型声明图片生成时显示图片输出选项。
-  const showImageOutputOptions = supportsImageGeneration;
+  const showImageOutputOptions = canImageGeneration;
   const canAttachImage = isAutoModel
     ? true
-    : supportsImageEdit;
+    : canImageEdit;
   const handleAddAttachments = canAttachImage ? onAddAttachments : undefined;
 
   const isLoading = status === "submitted" || status === "streaming";
@@ -690,7 +699,7 @@ export default function ChatInput({
       (item) => item.mask && item.mask.remoteUrl
     );
     if (!isAutoModel && (hasMaskedAttachment || readyImages.length > 0)) {
-      if (!supportsImageEdit) {
+      if (!canImageEdit) {
         toast.error("当前模型不支持图片编辑");
         return;
       }
@@ -720,7 +729,7 @@ export default function ChatInput({
     // 从 chat session 选项读取图片参数，写入本次消息 metadata。
     const normalizedImageOptions = normalizeImageOptions(imageOptions);
     // 不支持图片生成时，不传递图片生成参数。
-    const safeImageOptions = supportsImageGeneration ? normalizedImageOptions : undefined;
+    const safeImageOptions = canImageGeneration ? normalizedImageOptions : undefined;
     const metadata = safeImageOptions ? { imageOptions: safeImageOptions } : undefined;
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
     sendMessage({ parts, ...(metadata ? { metadata } : {}) } as any);
@@ -747,7 +756,9 @@ export default function ChatInput({
         onStop={stopGenerating}
         attachments={attachments}
         onAddAttachments={handleAddAttachments}
+        onAddMaskedAttachment={addMaskedAttachment}
         onRemoveAttachment={onRemoveAttachment}
+        onReplaceMaskedAttachment={onReplaceMaskedAttachment}
         header={
           showImageOutputOptions ? (
             <ChatImageOutputOption

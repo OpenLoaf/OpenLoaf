@@ -13,6 +13,8 @@ import {
   isSupportedImageFile,
 } from "./chat-attachments";
 import type { ChatAttachment, MaskedAttachmentInput } from "./chat-attachments";
+import { resolveFileName } from "@/lib/image/uri";
+import { resolveMaskFileName } from "@/lib/image/mask";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -21,6 +23,7 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { createChatSessionId } from "@/lib/chat-session-id";
+import { supportsImageEdit } from "@/lib/model-capabilities";
 
 type ChatProps = {
   className?: string;
@@ -84,7 +87,7 @@ export function Chat({
   // 自动模式允许图片，非自动时必须显式支持图片编辑。
   const canAttachImage = isAutoModel
     ? true
-    : Boolean(selectedModel?.tags?.includes("image_edit"));
+    : supportsImageEdit(selectedModel);
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
   const [isDragActive, setIsDragActive] = React.useState(false);
@@ -254,18 +257,6 @@ export function Chat({
     [updateAttachment, updateMaskAttachment, uploadFile]
   );
 
-  const resolveMaskFileName = React.useCallback((url: string) => {
-    try {
-      const parsed = new URL(url);
-      const segments = parsed.pathname.split("/");
-      const fileName = decodeURIComponent(segments[segments.length - 1] || "");
-      const baseName = fileName.replace(/\.[a-zA-Z0-9]+$/, "");
-      return baseName ? `${baseName}_mask.png` : "mask.png";
-    } catch {
-      return "mask.png";
-    }
-  }, []);
-
   /** Add normal attachments from files. */
   const addAttachments = React.useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
@@ -344,7 +335,7 @@ export function Chat({
       void (async () => {
         const imageResult = await uploadAttachment(nextAttachment);
         if (!imageResult?.ok) return;
-        const maskFileName = resolveMaskFileName(imageResult.url);
+        const maskFileName = resolveMaskFileName(resolveFileName(imageResult.url));
         const renamedMaskFile = new File([input.maskFile], maskFileName, {
           type: input.maskFile.type || "image/png",
         });
@@ -355,6 +346,70 @@ export function Chat({
       })();
     },
     [resolveMaskFileName, updateMaskAttachment, uploadAttachment, uploadMaskAttachment]
+  );
+
+  /** Replace an existing attachment with a new masked version. */
+  const replaceMaskedAttachment = React.useCallback(
+    (attachmentId: string, input: MaskedAttachmentInput) => {
+      const previewUrl = input.previewUrl || URL.createObjectURL(input.file);
+      let targetAttachment: ChatAttachment | null = null;
+      setAttachments((prev) =>
+        prev.map((item) => {
+          if (item.id !== attachmentId) return item;
+          URL.revokeObjectURL(item.objectUrl);
+          if (item.mask?.objectUrl) {
+            URL.revokeObjectURL(item.mask.objectUrl);
+          }
+          targetAttachment = {
+            ...item,
+            file: input.file,
+            objectUrl: previewUrl,
+            status: "loading",
+            errorMessage: undefined,
+            remoteUrl: undefined,
+            mediaType: undefined,
+            mask: {
+              file: input.maskFile,
+              status: "loading",
+              errorMessage: undefined,
+              remoteUrl: undefined,
+              mediaType: undefined,
+            },
+            hasMask: true,
+          };
+          return targetAttachment;
+        })
+      );
+
+      if (!targetAttachment) {
+        addMaskedAttachment(input);
+        return;
+      }
+
+      void (async () => {
+        const imageResult = await uploadAttachment(targetAttachment);
+        if (!imageResult?.ok) return;
+        const maskFileName = resolveMaskFileName(resolveFileName(imageResult.url));
+        const renamedMaskFile = new File([input.maskFile], maskFileName, {
+          type: input.maskFile.type || "image/png",
+        });
+        updateMaskAttachment(attachmentId, {
+          file: renamedMaskFile,
+          status: "loading",
+          errorMessage: undefined,
+          remoteUrl: undefined,
+          mediaType: undefined,
+        });
+        await uploadMaskAttachment(attachmentId, renamedMaskFile);
+      })();
+    },
+    [
+      addMaskedAttachment,
+      resolveMaskFileName,
+      updateMaskAttachment,
+      uploadAttachment,
+      uploadMaskAttachment,
+    ]
   );
 
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
@@ -445,6 +500,7 @@ export function Chat({
           onAddAttachments={addAttachments}
           onRemoveAttachment={removeAttachment}
           onClearAttachments={clearAttachments}
+          onReplaceMaskedAttachment={replaceMaskedAttachment}
         />
 
         <DragDropOverlay

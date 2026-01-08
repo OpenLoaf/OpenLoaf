@@ -15,9 +15,9 @@ function normalizeLogLevel(raw: unknown): LogLevel | undefined {
 
 const defaultLevel: LogLevel = process.env.NODE_ENV === "production" ? "info" : "debug";
 const level: LogLevel = normalizeLogLevel(process.env.LOG_LEVEL) ?? defaultLevel;
+const isDevelopment = process.env.NODE_ENV !== "production";
 
-// 统一 server 侧日志入口；同时把请求上下文（session/app/tab/agent）自动注入到每条日志里，方便排查。
-export const logger = pino({
+const baseOptions = {
   level,
   base: { service: "teatime-server" },
   timestamp: pino.stdTimeFunctions.isoTime,
@@ -33,4 +33,22 @@ export const logger = pino({
         : undefined,
     };
   },
-});
+};
+
+// 统一 server 侧日志入口；同时把请求上下文（session/app/tab/agent）自动注入到每条日志里，方便排查。
+export const logger = pino(
+  isDevelopment
+    ? {
+        ...baseOptions,
+        transport: {
+          target: "pino-pretty",
+          options: {
+            colorize: true,
+            translateTime: "HH:MM:ss",
+            ignore: "pid,hostname",
+            singleLine: false,
+          },
+        },
+      }
+    : baseOptions,
+);

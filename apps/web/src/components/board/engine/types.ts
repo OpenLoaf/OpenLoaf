@@ -290,6 +290,8 @@ export type CanvasToolbarItem = {
   id: string;
   /** Toolbar action label. */
   label: string;
+  /** Whether to show the label below the icon. */
+  showLabel?: boolean;
   /** Toolbar action icon. */
   icon: ReactNode;
   /** Toolbar action handler. */

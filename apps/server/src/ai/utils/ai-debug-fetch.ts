@@ -1,5 +1,6 @@
 import type { HeadersInit } from "undici";
 import { getEnvString } from "@teatime-ai/config";
+import { logger } from "@/common/logger";
 
 /** 将 Headers 规范化为普通对象。 */
 function toHeaderRecord(headers?: HeadersInit): Record<string, string> {
@@ -19,6 +20,7 @@ function toHeaderRecord(headers?: HeadersInit): Record<string, string> {
 export function buildAiDebugFetch(): typeof fetch | undefined {
   const enabled = getEnvString(process.env, "TEATIME_DEBUG_AI_STREAM");
   if (!enabled) return undefined;
+  const log = logger.debug.bind(logger);
   return async (input, init) => {
     const url =
       typeof input === "string"
@@ -35,11 +37,22 @@ export function buildAiDebugFetch(): typeof fetch | undefined {
         : init?.body instanceof URLSearchParams
           ? init.body.toString()
           : undefined;
+    // 中文注释：若 body 是 JSON 字符串，尝试解析以便 pretty 输出。
+    const parsedBody =
+      typeof body === "string"
+        ? (() => {
+            try {
+              return JSON.parse(body);
+            } catch {
+              return body;
+            }
+          })()
+        : body;
     // 仅输出请求头，避免打印正文。
-    console.info("[ai-debug] request headers", { url, headers: headerRecord });
+    log({ url, headers: headerRecord }, "[ai-debug] request headers");
     // 仅在可读字符串场景输出请求体。
     if (body) {
-      console.info("[ai-debug] request body", { url, body });
+      log({ url, body: parsedBody }, "[ai-debug] request body");
     }
     const response = await fetch(input, init);
     try {
@@ -47,24 +60,32 @@ export function buildAiDebugFetch(): typeof fetch | undefined {
       const shouldLogBody = url.includes("/images/") && contentType.includes("application/json");
       if (shouldLogBody) {
         const responseText = await response.clone().text();
-        console.info("[ai-debug] response body", {
+        // 中文注释：响应体若为 JSON 字符串，尝试解析后再输出。
+        const parsedResponseBody = (() => {
+          try {
+            return JSON.parse(responseText);
+          } catch {
+            return responseText;
+          }
+        })();
+        log({
           url,
           status: response.status,
           length: responseText.length,
-          body: responseText,
-        });
+          body: parsedResponseBody,
+        }, "[ai-debug] response body");
       } else {
-        console.info("[ai-debug] response info", {
+        log({
           url,
           status: response.status,
           contentType,
-        });
+        }, "[ai-debug] response info");
       }
     } catch (error) {
-      console.info("[ai-debug] response read failed", {
+      logger.warn({
         url,
         error: error instanceof Error ? error.message : String(error),
-      });
+      }, "[ai-debug] response read failed");
     }
     return response;
   };

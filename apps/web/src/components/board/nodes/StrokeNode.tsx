@@ -37,11 +37,13 @@ function createStrokeToolbarItems(ctx: CanvasToolbarContext<StrokeNodeProps>) {
     return {
       id: `stroke-color-${color.value}`,
       label: color.label,
+      showLabel: false,
       icon: (
         <span
           className={cn(
-            "h-3 w-3 rounded-full ring-1 ring-border",
-            isActive && "ring-2 ring-foreground"
+            "h-6 w-6 rounded-full ring-1 ring-border",
+            isActive &&
+              "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
           )}
           style={{ backgroundColor: color.value }}
         />
@@ -121,7 +123,7 @@ export const StrokeNodeDefinition: CanvasNodeDefinition<StrokeNodeProps> = {
   defaultProps: {
     tool: "pen",
     points: [],
-    color: "#111827",
+    color: "#f59e0b",
     size: 6,
     opacity: 1,
   },

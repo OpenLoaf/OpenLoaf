@@ -79,6 +79,7 @@ function ToolbarGroup({ items, showDivider }: ToolbarGroupProps) {
           title={item.label}
           size="sm"
           onClick={() => item.onSelect()}
+          showLabel={item.showLabel}
           className={item.id === "delete" ? "text-destructive hover:bg-destructive/10" : ""}
         >
           {item.icon}

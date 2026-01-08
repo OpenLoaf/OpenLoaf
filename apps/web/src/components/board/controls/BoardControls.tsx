@@ -19,6 +19,9 @@ const ZOOM_STEP = 1.1;
 const iconSize = 16;
 const ZOOM_HOLD_DELAY = 260;
 const ZOOM_HOLD_INTERVAL = 80;
+/** 控制条图标 hover 放大样式。 */
+const controlIconClassName =
+  "origin-center transition-transform duration-150 ease-out group-hover:scale-[1.2]";
 
 /** Render the left-side toolbar for the board canvas. */
 const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardControlsProps) {
@@ -111,44 +114,48 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
           title="撤销"
           onPointerDown={handleUndo}
           disabled={!snapshot.canUndo}
-          className="h-8 w-8"
+          className="group h-8 w-8"
         >
-          <Undo2 size={iconSize} />
+          <Undo2 size={iconSize} className={controlIconClassName} />
         </IconBtn>
         <IconBtn
           title="前进"
           onPointerDown={handleRedo}
           disabled={!snapshot.canRedo}
-          className="h-8 w-8"
+          className="group h-8 w-8"
         >
-          <Redo2 size={iconSize} />
+          <Redo2 size={iconSize} className={controlIconClassName} />
         </IconBtn>
         <IconBtn
           title="放大"
           onPointerDown={startZoomHold("in")}
           disabled={maxZoomReached}
-          className="h-8 w-8"
+          className="group h-8 w-8"
         >
-          <ZoomIn size={iconSize} />
+          <ZoomIn size={iconSize} className={controlIconClassName} />
         </IconBtn>
         <IconBtn
           title="缩小"
           onPointerDown={startZoomHold("out")}
           disabled={minZoomReached}
-          className="h-8 w-8"
+          className="group h-8 w-8"
         >
-          <ZoomOut size={iconSize} />
+          <ZoomOut size={iconSize} className={controlIconClassName} />
         </IconBtn>
-        <IconBtn title="全屏" onPointerDown={handleFitView} className="h-8 w-8">
-          <Maximize2 size={iconSize} />
+        <IconBtn title="全屏" onPointerDown={handleFitView} className="group h-8 w-8">
+          <Maximize2 size={iconSize} className={controlIconClassName} />
         </IconBtn>
         <IconBtn
           title={snapshot.locked ? "解锁" : "锁定"}
           onPointerDown={toggleLock}
           active={snapshot.locked}
-          className="h-8 w-8"
+          className="group h-8 w-8"
         >
-          {snapshot.locked ? <Unlock size={iconSize} /> : <Lock size={iconSize} />}
+          {snapshot.locked ? (
+            <Unlock size={iconSize} className={controlIconClassName} />
+          ) : (
+            <Lock size={iconSize} className={controlIconClassName} />
+          )}
         </IconBtn>
       </div>
     </div>

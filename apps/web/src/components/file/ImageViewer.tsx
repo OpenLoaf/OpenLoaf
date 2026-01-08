@@ -12,7 +12,6 @@ import {
 import { Download, Redo2, Sparkles, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/utils/trpc";
-import { resolveServerUrl } from "@/utils/server-url";
 import { useOptionalChatContext } from "@/components/chat/ChatProvider";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
@@ -20,6 +19,10 @@ import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { buildStrokeOutline } from "@/components/board/utils/stroke-path";
 import type { CanvasStrokePoint, CanvasStrokeTool } from "@/components/board/engine/types";
+import type { MaskedAttachmentInput } from "@/components/chat/chat-attachments";
+import { fetchBlobFromUri, loadImageFromUri } from "@/lib/image/uri";
+import { resolveMaskFileName } from "@/lib/image/mask";
+import { supportsImageEdit } from "@/lib/model-capabilities";
 
 interface ImageViewerProps {
   uri?: string;
@@ -33,10 +36,18 @@ interface ImageViewerProps {
   showHeader?: boolean;
   /** Whether to show the save button. */
   showSave?: boolean;
+  /** Whether to enable adjust/edit mode. */
+  enableEdit?: boolean;
+  /** Notify when image metadata is ready. */
+  onImageMeta?: (meta: { width: number; height: number }) => void;
   /** Default directory for save dialog (file://... or local path). */
   saveDefaultDir?: string;
   /** Optional media type for file naming. */
   mediaType?: string;
+  /** Optional initial mask for editing (teatime-file/data/blob). */
+  initialMaskUri?: string;
+  /** Optional override handler when applying mask. */
+  onApplyMask?: (input: MaskedAttachmentInput) => void;
   /** Close handler used by modal header. */
   onClose?: () => void;
 }
@@ -64,6 +75,10 @@ function getExtensionFromPath(source?: string) {
   } catch {
     return "";
   }
+}
+
+function isBlobUrl(source?: string) {
+  return typeof source === "string" && source.startsWith("blob:");
 }
 
 /** Extract media type from a data url. */
@@ -148,6 +163,7 @@ async function createFileFromUrl(input: {
   }
 }
 
+
 /** Convert a canvas to a PNG file. */
 async function canvasToPngFile(canvas: HTMLCanvasElement, fileName: string): Promise<File | null> {
   const blob = await new Promise<Blob | null>((resolve) => {
@@ -157,10 +173,6 @@ async function canvasToPngFile(canvas: HTMLCanvasElement, fileName: string): Pro
   return new File([blob], fileName, { type: "image/png" });
 }
 
-/** Strip extension from a file name. */
-function stripExtension(fileName: string) {
-  return fileName.replace(/\.[a-zA-Z0-9]+$/, "");
-}
 
 /** Render an image preview panel. */
 export default function ImageViewer({
@@ -171,12 +183,17 @@ export default function ImageViewer({
   saveName,
   showHeader,
   showSave,
+  enableEdit = true,
+  onImageMeta,
   saveDefaultDir,
   mediaType,
+  initialMaskUri,
+  onApplyMask,
   onClose,
 }: ImageViewerProps) {
   const isTeatimeFile = typeof uri === "string" && uri.startsWith("teatime-file://");
   const isDataUrl = typeof uri === "string" && uri.startsWith("data:");
+  const isBlob = isBlobUrl(uri);
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
   const wrapperRef = React.useRef<HTMLDivElement>(null);
   const transformRef = React.useRef<ReactZoomPanPinchRef | null>(null);
@@ -190,6 +207,7 @@ export default function ImageViewer({
   const redoRef = React.useRef<Array<{ overlay: ImageData; mask: ImageData }>>([]);
   const preStrokeRef = React.useRef<{ overlay: ImageData; mask: ImageData } | null>(null);
   const strokePointsRef = React.useRef<CanvasStrokePoint[]>([]);
+  const initialMaskAppliedRef = React.useRef<string>("");
   // 记录容器尺寸，用于计算图片适配缩放。
   const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
   const [imageSize, setImageSize] = React.useState({ width: 0, height: 0 });
@@ -198,6 +216,7 @@ export default function ImageViewer({
   const [isSaving, setIsSaving] = React.useState(false);
   const [isAdjusting, setIsAdjusting] = React.useState(false);
   const [hasStroke, setHasStroke] = React.useState(false);
+  const [initialMaskTick, setInitialMaskTick] = React.useState(0);
   const [brushSize, setBrushSize] = React.useState(40);
   const [cursorPosition, setCursorPosition] = React.useState<{ x: number; y: number } | null>(
     null
@@ -242,13 +261,7 @@ export default function ImageViewer({
     const run = async () => {
       setPreview({ status: "loading" });
       try {
-        const apiBase = resolveServerUrl();
-        const endpoint = apiBase
-          ? `${apiBase}/chat/attachments/preview?url=${encodeURIComponent(uri)}`
-          : `/chat/attachments/preview?url=${encodeURIComponent(uri)}`;
-        const res = await fetch(endpoint);
-        if (!res.ok) throw new Error("preview failed");
-        const blob = await res.blob();
+        const blob = await fetchBlobFromUri(uri);
         objectUrl = URL.createObjectURL(blob);
         if (aborted) return;
         setPreview({ status: "ready", src: objectUrl });
@@ -266,7 +279,7 @@ export default function ImageViewer({
 
   const payload = shouldUseFs ? imageQuery.data : null;
   // 用 base64 构造 dataUrl，避免浏览器直接访问 file:// 资源。
-  const dataUrl = isDataUrl
+  const dataUrl = isDataUrl || isBlob
     ? uri
     : payload?.contentBase64 && payload?.mime
       ? `data:${payload.mime};base64,${payload.contentBase64}`
@@ -289,7 +302,16 @@ export default function ImageViewer({
     dataUrl,
   });
   const canSave = Boolean(showSave) && Boolean(dataUrl) && !isSaving;
-  const showAdjustLayer = isAdjusting || hasStroke;
+  const showAdjustLayer = (enableEdit && isAdjusting) || hasStroke;
+  const handleImageLoad = React.useCallback(
+    (event: React.SyntheticEvent<HTMLImageElement>) => {
+      const { naturalWidth, naturalHeight } = event.currentTarget;
+      // 记录图片原始尺寸，用于适配缩放比例。
+      setImageSize({ width: naturalWidth, height: naturalHeight });
+      onImageMeta?.({ width: naturalWidth, height: naturalHeight });
+    },
+    [onImageMeta]
+  );
 
   /** Save the preview image to a user-selected path. */
   const handleSave = async () => {
@@ -352,11 +374,64 @@ export default function ImageViewer({
     preStrokeRef.current = null;
     strokePointsRef.current = [];
     appliedRef.current = "";
+    initialMaskAppliedRef.current = "";
     historyRef.current = [];
     redoRef.current = [];
     setCanUndo(false);
     setCanRedo(false);
+    setInitialMaskTick(0);
   }, [dataUrl]);
+
+  const applyInitialMask = React.useCallback(async () => {
+    if (!initialMaskUri) return;
+    if (!imageSize.width || !imageSize.height) return;
+    const applyKey = `${initialMaskUri}:${imageSize.width}x${imageSize.height}:${isAdjusting ? "adjust" : "view"}`;
+    if (initialMaskAppliedRef.current === applyKey) return;
+    const overlayCanvas = overlayCanvasRef.current;
+    if (!overlayCanvas) {
+      if (!hasStrokeRef.current) {
+        setHasStroke(true);
+        hasStrokeRef.current = true;
+      }
+      requestAnimationFrame(() => {
+        setInitialMaskTick((value) => value + 1);
+      });
+      return;
+    }
+    overlayCanvas.width = imageSize.width;
+    overlayCanvas.height = imageSize.height;
+    const maskCanvas = maskCanvasRef.current ?? document.createElement("canvas");
+    maskCanvas.width = imageSize.width;
+    maskCanvas.height = imageSize.height;
+    const overlayCtx = overlayCanvas.getContext("2d");
+    const maskCtx = maskCanvas.getContext("2d");
+    if (!overlayCtx || !maskCtx) return;
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+    const maskImage = await loadImageFromUri(initialMaskUri);
+    overlayCtx.drawImage(maskImage, 0, 0, overlayCanvas.width, overlayCanvas.height);
+    maskCtx.drawImage(maskImage, 0, 0, maskCanvas.width, maskCanvas.height);
+    maskCanvasRef.current = maskCanvas;
+    setHasStroke(true);
+    hasStrokeRef.current = true;
+    if (isAdjusting) {
+      historyRef.current = [
+        {
+          overlay: overlayCtx.getImageData(0, 0, overlayCanvas.width, overlayCanvas.height),
+          mask: maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height),
+        },
+      ];
+      redoRef.current = [];
+      setCanUndo(false);
+      setCanRedo(false);
+    }
+    initialMaskAppliedRef.current = applyKey;
+  }, [imageSize.height, imageSize.width, initialMaskUri, isAdjusting]);
+
+  React.useEffect(() => {
+    if (!dataUrl || !initialMaskUri) return;
+    void applyInitialMask();
+  }, [applyInitialMask, dataUrl, initialMaskUri, initialMaskTick]);
 
   React.useEffect(() => {
     if (!dataUrl) return;
@@ -664,7 +739,7 @@ export default function ImageViewer({
   );
 
   React.useEffect(() => {
-    if (!isAdjusting) return;
+    if (!enableEdit || !isAdjusting) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!event.ctrlKey) return;
       if (event.key.toLowerCase() === "z") {
@@ -684,7 +759,8 @@ export default function ImageViewer({
   /** Enter brush mode after validation checks. */
   const handleStartAdjust = React.useCallback(async () => {
     if (!dataUrl) return;
-    if (!chat?.addAttachments || !chat?.addMaskedAttachment) {
+    if (!enableEdit) return;
+    if (!chat?.addAttachments || (!chat?.addMaskedAttachment && !onApplyMask)) {
       toast.error("仅聊天中可用");
       return;
     }
@@ -696,9 +772,7 @@ export default function ImageViewer({
       toast.error("没有可用的图片调整模型，请添加或者使用云端模型");
       return;
     }
-    const maskModels = modelOptions.filter((option) =>
-    option.tags?.includes("image_edit"),
-    );
+    const maskModels = modelOptions.filter((option) => supportsImageEdit(option));
     if (maskModels.length === 0) {
       toast.error("没有可用的图片调整模型，请添加或者使用云端模型");
       return;
@@ -710,7 +784,8 @@ export default function ImageViewer({
   /** Finish brush mode and save to attachments. */
   const handleFinishAdjust = React.useCallback(async () => {
     if (!dataUrl) return;
-    if (!chat?.addAttachments || !chat?.addMaskedAttachment) {
+    if (!enableEdit) return;
+    if (!chat?.addAttachments || (!chat?.addMaskedAttachment && !onApplyMask)) {
       toast.error("仅聊天中可用");
       return;
     }
@@ -734,7 +809,7 @@ export default function ImageViewer({
       return;
     }
 
-    const maskFileName = `${stripExtension(fileName)}_mask.png`;
+    const maskFileName = resolveMaskFileName(fileName);
     const maskFile = await canvasToPngFile(maskCanvasRef.current, maskFileName);
     if (!maskFile) {
       toast.error("遮罩生成失败");
@@ -768,11 +843,16 @@ export default function ImageViewer({
     const previewUrl = URL.createObjectURL(previewBlob);
 
     // 仅保留一张带 mask 的附件，列表显示为涂抹后的预览图。
-    chat.addMaskedAttachment?.({
+    const maskedInput = {
       file: imageFile,
       maskFile,
       previewUrl,
-    });
+    };
+    if (onApplyMask) {
+      onApplyMask(maskedInput);
+    } else {
+      chat.addMaskedAttachment?.(maskedInput);
+    }
     if (maskModelIdRef.current) {
       await setBasic({ modelDefaultChatModelId: maskModelIdRef.current });
     }
@@ -786,6 +866,7 @@ export default function ImageViewer({
     imageSize.height,
     imageSize.width,
     mediaType,
+    onApplyMask,
     onClose,
     setBasic,
   ]);
@@ -890,18 +971,20 @@ export default function ImageViewer({
                 <span className="ml-1">保存</span>
               </Button>
             ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8"
-              onClick={isAdjusting ? handleFinishAdjust : handleStartAdjust}
-            >
-              <Sparkles
-                className={`h-4 w-4 ${isAdjusting ? "text-emerald-500" : "text-sky-500"}`}
-              />
-              <span className="ml-1">{isAdjusting ? "完成" : "修改"}</span>
-            </Button>
+            {enableEdit ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={isAdjusting ? handleFinishAdjust : handleStartAdjust}
+              >
+                <Sparkles
+                  className={`h-4 w-4 ${isAdjusting ? "text-emerald-500" : "text-sky-500"}`}
+                />
+                <span className="ml-1">{isAdjusting ? "完成" : "修改"}</span>
+              </Button>
+            ) : null}
             {onClose ? (
               <Button
                 type="button"
@@ -930,11 +1013,7 @@ export default function ImageViewer({
                   loading="lazy"
                   decoding="async"
                   draggable={false}
-                  onLoad={(event) => {
-                    const { naturalWidth, naturalHeight } = event.currentTarget;
-                    // 记录图片原始尺寸，用于适配缩放比例。
-                    setImageSize({ width: naturalWidth, height: naturalHeight });
-                  }}
+                  onLoad={handleImageLoad}
                 />
                 <canvas
                   ref={overlayCanvasRef}
@@ -987,11 +1066,7 @@ export default function ImageViewer({
                   loading="lazy"
                   decoding="async"
                   draggable={false}
-                  onLoad={(event) => {
-                    const { naturalWidth, naturalHeight } = event.currentTarget;
-                    // 记录图片原始尺寸，用于适配缩放比例。
-                    setImageSize({ width: naturalWidth, height: naturalHeight });
-                  }}
+                  onLoad={handleImageLoad}
                 />
               </TransformComponent>
             </TransformWrapper>

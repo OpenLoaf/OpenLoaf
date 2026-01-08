@@ -1,13 +1,11 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import * as React from "react";
-import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import { CHAT_ATTACHMENT_ACCEPT_ATTR, formatFileSize } from "../chat-attachments";
-import type { ChatAttachment } from "../chat-attachments";
+import type { ChatAttachment, MaskedAttachmentInput } from "../chat-attachments";
+import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
 
 export type ChatImageAttachmentsHandle = {
   openPicker: () => void;
@@ -17,6 +15,7 @@ type ChatImageAttachmentsProps = {
   attachments?: ChatAttachment[];
   onAddAttachments?: (files: FileList | File[]) => void;
   onRemoveAttachment?: (attachmentId: string) => void;
+  onReplaceMaskedAttachment?: (attachmentId: string, input: MaskedAttachmentInput) => void;
 };
 
 /**
@@ -26,11 +25,10 @@ export const ChatImageAttachments = React.forwardRef<
   ChatImageAttachmentsHandle,
   ChatImageAttachmentsProps
 >(function ChatImageAttachments(
-  { attachments, onAddAttachments, onRemoveAttachment },
+  { attachments, onAddAttachments, onRemoveAttachment, onReplaceMaskedAttachment },
   ref
 ) {
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const [previewAttachmentId, setPreviewAttachmentId] = React.useState<
     string | null
   >(null);
@@ -47,12 +45,20 @@ export const ChatImageAttachments = React.forwardRef<
     );
   }, [previewAttachmentId, previewableAttachments]);
 
-  const previewIndex = React.useMemo(() => {
-    if (!previewAttachmentId) return -1;
-    return previewableAttachments.findIndex(
-      (item) => item.id === previewAttachmentId
-    );
-  }, [previewAttachmentId, previewableAttachments]);
+  const previewTitle = React.useMemo(() => {
+    if (!previewAttachment) return "图片预览";
+    return previewAttachment.file?.name || "图片预览";
+  }, [previewAttachment]);
+
+  const previewBaseUri = React.useMemo(() => {
+    if (!previewAttachment) return "";
+    return previewAttachment.remoteUrl || previewAttachment.objectUrl || "";
+  }, [previewAttachment]);
+
+  const previewMaskUri = React.useMemo(() => {
+    if (!previewAttachment?.mask) return "";
+    return previewAttachment.mask.remoteUrl || previewAttachment.mask.objectUrl || "";
+  }, [previewAttachment]);
 
   React.useEffect(() => {
     if (!previewAttachmentId) return;
@@ -68,20 +74,6 @@ export const ChatImageAttachments = React.forwardRef<
   }, [onAddAttachments]);
 
   React.useImperativeHandle(ref, () => ({ openPicker }), [openPicker]);
-
-  const goToPrevPreview = React.useCallback(() => {
-    if (previewIndex <= 0) return;
-    const prev = previewableAttachments[previewIndex - 1];
-    if (!prev) return;
-    setPreviewAttachmentId(prev.id);
-  }, [previewIndex, previewableAttachments]);
-
-  const goToNextPreview = React.useCallback(() => {
-    if (previewIndex < 0) return;
-    const next = previewableAttachments[previewIndex + 1];
-    if (!next) return;
-    setPreviewAttachmentId(next.id);
-  }, [previewIndex, previewableAttachments]);
 
   return (
     <>
@@ -196,112 +188,32 @@ export const ChatImageAttachments = React.forwardRef<
         </div>
       )}
 
-      <Dialog
+      <ImagePreviewDialog
         open={Boolean(previewAttachment)}
         onOpenChange={(open) => {
           if (!open) setPreviewAttachmentId(null);
         }}
-      >
-        <DialogContent
-          className="w-[60vw] max-w-[60vw] p-0 overflow-hidden"
-          overlayClassName="bg-background/35 backdrop-blur-2xl"
-        >
-          <DialogTitle className="sr-only">图片预览</DialogTitle>
-          {previewAttachment && (
-            <div>
-              <div className="flex items-center gap-4 px-4 py-4">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-12 w-12 shrink-0 rounded-full bg-background/80 text-foreground shadow-md ring-1 ring-border/60 backdrop-blur-md hover:bg-background/90 disabled:opacity-30"
-                  onClick={goToPrevPreview}
-                  disabled={previewIndex <= 0}
-                  aria-label="上一张"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-
-                <div
-                  className="flex h-[70vh] flex-1 items-center justify-center"
-                  onTouchStart={(event) => {
-                    const touch = event.touches?.[0];
-                    if (!touch) return;
-                    touchStartRef.current = {
-                      x: touch.clientX,
-                      y: touch.clientY,
-                    };
-                  }}
-                  onTouchEnd={(event) => {
-                    const start = touchStartRef.current;
-                    touchStartRef.current = null;
-                    if (!start) return;
-                    const touch = event.changedTouches?.[0];
-                    if (!touch) return;
-                    const dx = touch.clientX - start.x;
-                    const dy = touch.clientY - start.y;
-                    if (Math.abs(dx) < 40) return;
-                    if (Math.abs(dx) < Math.abs(dy)) return;
-                    // 向左滑动切到下一张，向右滑动切到上一张。
-                    if (dx < 0) goToNextPreview();
-                    else goToPrevPreview();
-                  }}
-                >
-                  <TransformWrapper
-                    minScale={1}
-                    maxScale={3}
-                    centerOnInit
-                    limitToBounds
-                    wheel={{ smoothStep: 0.01 }}
-                    pinch={{ step: 8 }}
-                  >
-                    <TransformComponent
-                      wrapperClass="h-full w-full"
-                      contentClass="flex h-full w-full items-center justify-center"
-                      wrapperStyle={{ width: "100%", height: "100%" }}
-                      contentStyle={{ width: "100%", height: "100%" }}
-                    >
-                      <img
-                        src={previewAttachment.objectUrl}
-                        alt={previewAttachment.file.name}
-                        className="block max-h-full max-w-full select-none object-contain"
-                        draggable={false}
-                      />
-                    </TransformComponent>
-                  </TransformWrapper>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-12 w-12 shrink-0 rounded-full bg-background/80 text-foreground shadow-md ring-1 ring-border/60 backdrop-blur-md hover:bg-background/90 disabled:opacity-30"
-                  onClick={goToNextPreview}
-                  disabled={
-                    previewIndex < 0 ||
-                    previewIndex >= previewableAttachments.length - 1
-                  }
-                  aria-label="下一张"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </Button>
-              </div>
-
-              <div className="px-4 pb-3 text-xs text-muted-foreground">
-                <span className="text-foreground/90">
-                  {previewAttachment.file.name}
-                </span>{" "}
-                <span className="text-muted-foreground">
-                  · {formatFileSize(previewAttachment.file.size)}
-                  {previewIndex >= 0 && previewableAttachments.length > 0
-                    ? ` · ${previewIndex + 1}/${previewableAttachments.length}`
-                    : ""}
-                </span>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        items={
+          previewAttachment
+            ? [
+                {
+                  uri: previewBaseUri,
+                  maskUri: previewMaskUri || undefined,
+                  title: previewTitle,
+                  saveName: previewAttachment.file.name,
+                  mediaType: previewAttachment.mediaType || previewAttachment.file.type,
+                },
+              ]
+            : []
+        }
+        activeIndex={0}
+        showSave={false}
+        enableEdit
+        onApplyMask={(input) => {
+          if (!previewAttachment || !onReplaceMaskedAttachment) return;
+          onReplaceMaskedAttachment(previewAttachment.id, input);
+        }}
+      />
     </>
   );
 });

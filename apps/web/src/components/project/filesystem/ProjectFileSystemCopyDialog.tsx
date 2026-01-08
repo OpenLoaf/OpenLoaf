@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { Fragment, memo, useEffect, useMemo, useState } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@/components/ui/button";
@@ -8,14 +8,22 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { toast } from "sonner";
 import { PageTreePicker } from "@/components/layout/sidebar/PageTree";
 import { FileSystemGrid } from "./FileSystemGrid";
+import { FolderPlus } from "lucide-react";
 import {
   IGNORE_NAMES,
   buildChildUri,
@@ -66,7 +74,7 @@ function flattenProjects(nodes?: ProjectTreeNode[]) {
 function normalizePageTreeProjects(nodes?: ProjectTreeNode[]): PageTreeProject[] {
   const walk = (items?: ProjectTreeNode[]): PageTreeProject[] =>
     (items ?? [])
-      // 中文注释：过滤掉缺失 projectId 的节点，避免 UI 产生不完整的项目入口。
+      // 过滤掉缺失 projectId 的节点，避免 UI 产生不完整的项目入口。
       .filter((item) => Boolean(item.projectId))
       .map((item) => ({
         projectId: item.projectId ?? item.rootUri,
@@ -95,6 +103,7 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
   );
 
   const copyMutation = useMutation(trpc.fs.copy.mutationOptions());
+  const mkdirMutation = useMutation(trpc.fs.mkdir.mutationOptions());
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(activeUri ? { uri: activeUri } : skipToken)
   );
@@ -159,7 +168,51 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
     }
   };
 
-  const targetLabel = activeUri ? getDisplayPathFromUri(activeUri) : "";
+  /** Build breadcrumb items for the selected directory. */
+  const breadcrumbItems = useMemo(() => {
+    if (!activeRootUri || !activeUri) return [];
+    const rootUrl = new URL(activeRootUri);
+    const currentUrl = new URL(activeUri);
+    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
+    const currentParts = currentUrl.pathname.split("/").filter(Boolean);
+    // 中文注释：仅展示根目录之后的路径片段，避免重复显示整条绝对路径。
+    const relativeParts = currentParts.slice(rootParts.length);
+    const decodeLabel = (value: string) => {
+      try {
+        return decodeURIComponent(value);
+      } catch {
+        return value;
+      }
+    };
+    const rootTitle =
+      projectOptions.find((item) => item.rootUri === activeRootUri)?.title ??
+      decodeLabel(getDisplayPathFromUri(activeRootUri));
+    const items: Array<{ label: string; uri: string }> = [
+      { label: rootTitle, uri: activeRootUri },
+    ];
+    relativeParts.forEach((part, index) => {
+      const nextUrl = new URL(activeRootUri);
+      nextUrl.pathname = `/${[...rootParts, ...relativeParts.slice(0, index + 1)].join("/")}`;
+      items.push({ label: decodeLabel(part), uri: nextUrl.toString() });
+    });
+    return items;
+  }, [activeRootUri, activeUri, projectOptions]);
+
+  /** Create a new folder in the target directory. */
+  const handleCreateFolder = async () => {
+    if (!activeUri) return;
+    try {
+      // 以默认名称创建并做唯一性处理，避免覆盖已有目录。
+      const existingNames = new Set(entries.map((item) => item.name));
+      const targetName = getUniqueName("新建文件夹", existingNames);
+      const targetUri = buildChildUri(activeUri, targetName);
+      await mkdirMutation.mutateAsync({ uri: targetUri, recursive: true });
+      await listQuery.refetch();
+      toast.success("已新建文件夹");
+    } catch (error: any) {
+      toast.error(error?.message ?? "新建失败");
+    }
+  };
 
   return (
     <Dialog
@@ -172,13 +225,12 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
         onOpenChange(true);
       }}
     >
-      <DialogContent className="sm:max-w-[900px]">
+      <DialogContent className="w-[70vw] h-[80vh] max-w-none sm:max-w-none flex flex-col">
         <DialogHeader>
           <DialogTitle>复制到</DialogTitle>
-          <DialogDescription>选择目标项目与文件夹。</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 md:grid-cols-[280px_minmax(0,1fr)]">
-          <div className="rounded-2xl border border-border/60 bg-card/60 p-3">
+        <div className="grid gap-2 md:grid-cols-[280px_minmax(0,1fr)] flex-1 min-h-0 overflow-hidden">
+          <div className="rounded-2xl border border-border/60 bg-card/60 p-3 min-h-0 overflow-y-auto">
             {projectOptions.length === 0 ? (
               <div className="text-xs text-muted-foreground">暂无可用项目</div>
             ) : (
@@ -189,17 +241,58 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
               />
             )}
           </div>
-          <div className="min-h-[360px] rounded-2xl border border-border/60 bg-card/60 p-4">
-            <div className="mb-3 text-xs text-muted-foreground truncate">
-              目标位置：{targetLabel || "请选择项目"}
+          <div className="min-h-[360px] rounded-2xl border border-border/60 bg-card/60 p-4 min-h-0 flex flex-col">
+            <div className="mb-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <Breadcrumb>
+                <BreadcrumbList>
+                  {breadcrumbItems.length === 0 ? (
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>请选择项目</BreadcrumbPage>
+                    </BreadcrumbItem>
+                  ) : (
+                    breadcrumbItems.map((item, index) => {
+                      const isLast = index === breadcrumbItems.length - 1;
+                      return (
+                        <Fragment key={item.uri}>
+                          <BreadcrumbItem>
+                            {isLast ? (
+                              <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                            ) : (
+                              <BreadcrumbLink asChild className="cursor-pointer">
+                                <button type="button" onClick={() => handleNavigate(item.uri)}>
+                                  {item.label}
+                                </button>
+                              </BreadcrumbLink>
+                            )}
+                          </BreadcrumbItem>
+                          {!isLast ? <BreadcrumbSeparator /> : null}
+                        </Fragment>
+                      );
+                    })
+                  )}
+                </BreadcrumbList>
+              </Breadcrumb>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                type="button"
+                aria-label="新建文件夹"
+                title="新建文件夹"
+                onClick={handleCreateFolder}
+              >
+                <FolderPlus className="h-3.5 w-3.5" />
+              </Button>
             </div>
-            <FileSystemGrid
-              entries={entries}
-              isLoading={listQuery.isLoading}
-              parentUri={parentUri}
-              onNavigate={handleNavigate}
-              showEmptyActions={false}
-            />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <FileSystemGrid
+                entries={entries}
+                isLoading={listQuery.isLoading}
+                parentUri={parentUri}
+                onNavigate={handleNavigate}
+                showEmptyActions={false}
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>

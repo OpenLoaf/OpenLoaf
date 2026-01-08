@@ -3,7 +3,6 @@
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties, ReactElement } from "react";
 import { cn } from "@udecode/cn";
-import { Calendar, Hand } from "lucide-react";
 
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasSnapshot } from "../engine/types";
@@ -50,8 +49,14 @@ type ShapeItem = {
 };
 
 const BRUSH_SVG_SRC = "/board/brush.svg";
+const CALENDAR_SVG_SRC = "/board/calendar-svgrepo-com.svg";
 const HIGHLIGHTER_SVG_SRC = "/board/highlighter.svg";
 const ERASER_SVG_SRC = "/board/eraser.svg";
+const SELECT_SVG_SRC = "/board/select-cursor-svgrepo-com.svg";
+const DRAG_SVG_SRC = "/board/drag-svgrepo-com.svg";
+const NOTE_SVG_SRC = "/board/notes-note-svgrepo-com.svg";
+const PICTURE_SVG_SRC = "/board/picture-photo-svgrepo-com.svg";
+const VIDEO_SVG_SRC = "/board/video-file-svgrepo-com.svg";
 
 const prefixSvgIds = (svg: string, prefix: string) => {
   const safePrefix = prefix.replace(/:/g, "");
@@ -145,34 +150,34 @@ function InlineSvgFile({
 
 function SelectIcon({ size = 20, className }: IconProps) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      style={{ userSelect: "none", flexShrink: 0 }}
+    <InlineSvgFile
+      src={SELECT_SVG_SRC}
       className={className}
-    >
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M4.012 4.35c-.17-1.5 1.514-2.496 2.748-1.625l13.222 9.336c1.383.976.712 3.15-.98 3.179l-6.661.11a.25.25 0 0 0-.213.127L9.066 20.88c-.836 1.475-3.071 1.019-3.261-.666zm1.883-.4a.25.25 0 0 0-.393.232l1.793 15.863a.25.25 0 0 0 .466.095l3.061-5.403a1.75 1.75 0 0 1 1.494-.887l6.66-.11a.25.25 0 0 0 .141-.454z"
-        clipRule="evenodd"
-      />
-    </svg>
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
   );
 }
 
 function HandIcon({ size = 20, className }: IconProps) {
   return (
-    <Hand size={size} className={className} style={{ userSelect: "none", flexShrink: 0 }} />
+    <InlineSvgFile
+      src={DRAG_SVG_SRC}
+      className={className}
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
   );
 }
 
 /** Render the calendar icon with shared sizing props. */
 function CalendarIcon(props: IconProps) {
-  return <Calendar {...props} />;
+  const { size = 20, className } = props;
+  return (
+    <InlineSvgFile
+      src={CALENDAR_SVG_SRC}
+      className={className}
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
+  );
 }
 
 function ShapeIcon({ size = 20, className }: IconProps) {
@@ -198,64 +203,31 @@ function ShapeIcon({ size = 20, className }: IconProps) {
 
 function ImageIcon({ size = 20, className }: IconProps) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      style={{ userSelect: "none", flexShrink: 0 }}
+    <InlineSvgFile
+      src={PICTURE_SVG_SRC}
       className={className}
-    >
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M6 3.25A2.75 2.75 0 0 0 3.25 6v12A2.75 2.75 0 0 0 6 20.75h12A2.75 2.75 0 0 0 20.75 18V6A2.75 2.75 0 0 0 18 3.25zM4.75 18v-1.69l4.366-4.365a1.25 1.25 0 0 1 1.768 0l2.586 2.585 2 2a.75.75 0 1 0 1.06-1.06L15.06 14l1.056-1.056a1.25 1.25 0 0 1 1.768 0l1.366 1.367V18c0 .69-.56 1.25-1.25 1.25H6c-.69 0-1.25-.56-1.25-1.25m7.195-7.116L14 12.939l1.056-1.055a2.75 2.75 0 0 1 3.889 0l.305.305V6c0-.69-.56-1.25-1.25-1.25H6c-.69 0-1.25.56-1.25 1.25v8.19l3.305-3.306a2.75 2.75 0 0 1 3.89 0M14 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2"
-        clipRule="evenodd"
-      />
-    </svg>
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
   );
 }
 
 function PageIcon({ size = 20, className }: IconProps) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      style={{ userSelect: "none", flexShrink: 0 }}
+    <InlineSvgFile
+      src={NOTE_SVG_SRC}
       className={className}
-    >
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M7 3.25A2.75 2.75 0 0 0 4.25 6v12A2.75 2.75 0 0 0 7 20.75h10A2.75 2.75 0 0 0 19.75 18V6A2.75 2.75 0 0 0 17 3.25zM5.75 6c0-.69.56-1.25 1.25-1.25h10c.69 0 1.25.56 1.25 1.25v12c0 .69-.56 1.25-1.25 1.25H7c-.69 0-1.25-.56-1.25-1.25zM9 7.25a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5zm-.75 4.25a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75M9 14.25a.75.75 0 0 0 0 1.5h5a.75.75 0 0 0 0-1.5z"
-        clipRule="evenodd"
-      />
-    </svg>
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
   );
 }
 
 function MoviePanelIcon({ size = 20, className }: IconProps) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      style={{ userSelect: "none", flexShrink: 0 }}
+    <InlineSvgFile
+      src={VIDEO_SVG_SRC}
       className={className}
-    >
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M2.393 4.794c0-.617.5-1.117 1.117-1.117h16.765c.617 0 1.118.5 1.118 1.117v13.412c0 .617-.5 1.118-1.118 1.118H3.51c-.617 0-1.117-.5-1.117-1.118zM7.98 5.912h7.824v4.47H7.98zm7.824 6.706H7.98v4.47h7.824zM3.51 5.912h2.236v2.235H3.51zm16.765 0H18.04v2.235h2.235zM3.51 10.382h2.236v2.236H3.51zm16.765 0H18.04v2.236h2.235zM3.51 14.853h2.236v2.235H3.51zm16.765 0H18.04v2.235h2.235z"
-        clipRule="evenodd"
-      />
-    </svg>
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
   );
 }
 
@@ -560,7 +532,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
 
   const [penVariant, setPenVariant] = useState<"pen" | "highlighter">("pen");
   const [penSize, setPenSize] = useState<number>(6);
-  const [penColor, setPenColor] = useState<string>("#111827");
+  const [penColor, setPenColor] = useState<string>("#f59e0b");
   const toolbarDragRef = useRef<{
     request: CanvasInsertRequest;
     startX: number;
@@ -730,6 +702,11 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
 
   // 统一按钮尺寸（“宽松”密度）
   const iconSize = 20;
+  /** 底部工具栏图标尺寸。 */
+  const toolbarIconSize = 22;
+  /** 底部工具栏图标 hover 放大样式。 */
+  const toolbarIconClassName =
+    "origin-center transition-transform duration-150 ease-out group-hover:scale-[1.2]";
 
   return (
     <div
@@ -751,17 +728,17 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             title="Select"
             active={isSelectTool}
             onPointerDown={() => handleToolChange("select")}
-            className="h-8 w-8"
+            className="group h-8 w-8"
           >
-            <SelectIcon size={iconSize} />
+            <SelectIcon size={toolbarIconSize} className={toolbarIconClassName} />
           </IconBtn>
           <IconBtn
             title="Hand"
             active={isHandTool}
             onPointerDown={() => handleToolChange("hand")}
-            className="h-8 w-8"
+            className="group h-8 w-8"
           >
-            <HandIcon size={iconSize} />
+            <HandIcon size={toolbarIconSize} className={toolbarIconClassName} />
           </IconBtn>
           <span className="h-8 w-px bg-border/80" />
           <div className="relative">
@@ -887,10 +864,10 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
               onPointerDown={() => {
                 setHoverGroup(current => (current === "shape" ? null : "shape"));
               }}
-              className="h-8 w-8"
+              className="group h-8 w-8"
               disabled={snapshot.locked}
             >
-              <ShapeIcon size={iconSize} />
+              <ShapeIcon size={toolbarIconSize} className={toolbarIconClassName} />
             </IconBtn>
             <HoverPanel open={hoverGroup === "shape"} className="w-max">
               <div className="flex items-center gap-1.5">
@@ -971,9 +948,9 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                   handleInsertRequest(request);
                 }}
                 disabled={snapshot.locked}
-                className="h-8 w-8"
+                className="group h-8 w-8"
               >
-                <Icon size={iconSize} />
+                <Icon size={toolbarIconSize} className={toolbarIconClassName} />
               </IconBtn>
             );
           })}

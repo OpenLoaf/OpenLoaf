@@ -13,6 +13,8 @@ import BoardToolbar from "../toolbar/BoardToolbar";
 import { isBoardUiTarget } from "../utils/dom";
 import { toScreenPoint } from "../utils/coordinates";
 import { buildImageNodePayloadFromFile } from "../utils/image";
+import { readImageDragPayload } from "@/lib/image/drag";
+import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import type {
   CanvasElement,
   CanvasConnectorElement,
@@ -69,11 +71,12 @@ const mergeElements = (
   connectors: CanvasConnectorElement[]
 ): CanvasElement[] => [...nodes, ...connectors];
 
-/** Check whether a drag event carries file payloads. */
-const isFileDragEvent = (event: DragEvent<HTMLElement>) => {
+/** Check whether a drag event carries image payloads. */
+const isImageDragEvent = (event: DragEvent<HTMLElement>) => {
   const types = event.dataTransfer?.types;
   if (!types) return false;
-  return Array.from(types).includes("Files");
+  if (Array.from(types).includes("Files")) return true;
+  return Boolean(readImageDragPayload(event.dataTransfer));
 };
 
 /** Check whether a file is a supported image. */
@@ -624,7 +627,7 @@ export function BoardCanvas({
 
   /** Allow dropping external files onto the canvas. */
   const handleCanvasDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
-    if (!isFileDragEvent(event)) return;
+    if (!isImageDragEvent(event)) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
   }, []);
@@ -632,16 +635,17 @@ export function BoardCanvas({
   /** Handle dropping images onto the canvas surface. */
   const handleCanvasDrop = useCallback(
     async (event: DragEvent<HTMLDivElement>) => {
-      if (!isFileDragEvent(event)) return;
+      if (!isImageDragEvent(event)) return;
       event.preventDefault();
       if (engine.isLocked()) return;
 
       const { clientX, clientY, dataTransfer } = event;
+      const imagePayload = readImageDragPayload(dataTransfer);
       const droppedFiles = Array.from(dataTransfer.files);
-      // 逻辑：只挑出图片类型，避免其他文件触发节点创建。
-      const imageFiles = droppedFiles.filter(isImageFile);
-      if (imageFiles.length === 0) return;
-
+      const imageFiles = imagePayload
+        ? []
+        : // 逻辑：只挑出图片类型，避免其他文件触发节点创建。
+          droppedFiles.filter(isImageFile);
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
       // 逻辑：将拖拽点转换为画布坐标，作为插入基准。
@@ -649,6 +653,29 @@ export function BoardCanvas({
         clientX - rect.left,
         clientY - rect.top,
       ]);
+
+      if (imagePayload) {
+        try {
+          const blob = await fetchBlobFromUri(imagePayload.baseUri);
+          const fileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
+          const file = new File([blob], fileName, {
+            type: blob.type || "application/octet-stream",
+          });
+          if (!isImageFile(file)) return;
+          const payload = await buildImageNodePayloadFromFile(file);
+          const [width, height] = payload.size;
+          engine.addNodeElement("image", payload.props, [
+            dropPoint[0] - width / 2,
+            dropPoint[1] - height / 2,
+            width,
+            height,
+          ]);
+          return;
+        } catch {
+          return;
+        }
+      }
+      if (imageFiles.length === 0) return;
 
       for (const [index, file] of imageFiles.entries()) {
         const payload = await buildImageNodePayloadFromFile(file);

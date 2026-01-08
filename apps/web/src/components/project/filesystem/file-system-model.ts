@@ -24,6 +24,8 @@ import {
   isBoardFileExt,
 } from "@/lib/file-name";
 import { createEmptyBoardSnapshot } from "@/components/board/core/boardStorage";
+import { readImageDragPayload } from "@/lib/image/drag";
+import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import {
   IGNORE_NAMES,
   buildChildUri,
@@ -107,7 +109,7 @@ export type ProjectFileSystemModel = {
   handleCreateFolder: () => Promise<void>;
   handleCreateBoard: () => Promise<void>;
   handlePaste: () => Promise<void>;
-  handleUploadFiles: (files: File[]) => Promise<void>;
+  handleUploadFiles: (files: File[], targetUri?: string | null) => Promise<void>;
   handleDrop: (event: DragEvent<HTMLDivElement>) => Promise<void>;
   handleDragEnter: (event: DragEvent<HTMLDivElement>) => void;
   handleDragOver: (event: DragEvent<HTMLDivElement>) => void;
@@ -776,14 +778,14 @@ export function useProjectFileSystemModel({
     toast.success("已粘贴");
   };
 
-  /** Upload files into the current directory. */
-  const handleUploadFiles = async (files: File[]) => {
-    if (!activeUri || files.length === 0) return;
+  /** Upload files into the target directory. */
+  const handleUploadFiles = async (files: File[], targetUri = activeUri) => {
+    if (!targetUri || files.length === 0) return;
     for (const file of files) {
-      const targetUri = buildChildUri(activeUri, file.name);
+      const nextUri = buildChildUri(targetUri, file.name);
       const base64 = await readFileAsBase64(file);
       await writeBinaryMutation.mutateAsync({
-        uri: targetUri,
+        uri: nextUri,
         contentBase64: base64,
       });
     }
@@ -791,14 +793,36 @@ export function useProjectFileSystemModel({
     toast.success("已上传文件");
   };
 
+  /** Import an image drag payload into the target folder. */
+  const handleImportImagePayload = async (
+    targetUri: string | null,
+    payload: ReturnType<typeof readImageDragPayload>
+  ) => {
+    if (!targetUri || !payload) return;
+    try {
+      const blob = await fetchBlobFromUri(payload.baseUri);
+      const fileName = payload.fileName || resolveFileName(payload.baseUri);
+      const file = new File([blob], fileName, {
+        type: blob.type || "application/octet-stream",
+      });
+      await handleUploadFiles([file], targetUri);
+    } catch {
+      toast.error("导入图片失败");
+    }
+  };
+
   /** Handle file drops from the OS. */
   const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     dragCounterRef.current = 0;
     setIsDragActive(false);
-    if (event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)) {
+    const hasInternalRef = event.dataTransfer.types.includes(FILE_DRAG_REF_MIME);
+    const imagePayload = readImageDragPayload(event.dataTransfer);
+    if (imagePayload && !hasInternalRef) {
+      await handleImportImagePayload(activeUri, imagePayload);
       return;
     }
+    if (hasInternalRef) return;
     const files = Array.from(event.dataTransfer.files ?? []);
     if (files.length === 0) return;
     await handleUploadFiles(files);
@@ -864,7 +888,7 @@ export function useProjectFileSystemModel({
   /** Track drag enter for upload overlay. */
   const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)) return;
+    if (event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
     dragCounterRef.current += 1;
     setIsDragActive(true);
   };
@@ -872,13 +896,13 @@ export function useProjectFileSystemModel({
   /** Track drag over for upload overlay. */
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)) return;
+    if (event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
   };
 
   /** Track drag leave for upload overlay. */
   const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)) return;
+    if (event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
     dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
     if (dragCounterRef.current === 0) {
       setIsDragActive(false);
@@ -906,6 +930,15 @@ export function useProjectFileSystemModel({
   ) => {
     event.preventDefault();
     event.stopPropagation();
+    const hasInternalRef = event.dataTransfer.types.includes(FILE_DRAG_REF_MIME);
+    if (!hasInternalRef) {
+      const imagePayload = readImageDragPayload(event.dataTransfer);
+      if (imagePayload) {
+        if (target.kind !== "folder") return;
+        await handleImportImagePayload(target.uri, imagePayload);
+      }
+      return;
+    }
     const rawSourceUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
     if (!rawSourceUri) return;
     let sourceUri = rawSourceUri;

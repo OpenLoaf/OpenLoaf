@@ -45,8 +45,8 @@ import {
   getEntryExt,
   getRelativePathFromUri,
 } from "./file-system-utils";
-import { FILE_DRAG_NAME_MIME, FILE_DRAG_URI_MIME } from "./file-system-utils";
 import { getDisplayFileName, isBoardFileExt } from "@/lib/file-name";
+import { setImageDragPayload } from "@/lib/image/drag";
 
 const IMAGE_EXTS = new Set([
   "png",
@@ -930,8 +930,10 @@ const FileSystemGrid = memo(function FileSystemGrid({
                     // 中文注释：对外拖拽统一使用 teatime-file 协议。
                     return buildTeatimeFileUrl(dragProjectId, relativePath);
                   })();
-                  event.dataTransfer.setData(FILE_DRAG_URI_MIME, dragUri);
-                  event.dataTransfer.setData(FILE_DRAG_NAME_MIME, entry.name);
+                  setImageDragPayload(event.dataTransfer, {
+                    baseUri: dragUri,
+                    fileName: entry.name,
+                  });
                   event.dataTransfer.effectAllowed = "move";
                   onEntryDragStart?.(entry, event);
                 }}

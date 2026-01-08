@@ -3,11 +3,11 @@
 import { type UIMessage } from "@ai-sdk/react";
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import ChatMessageText from "./ChatMessageText";
-import { resolveServerUrl } from "@/utils/server-url";
+import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
+import { setImageDragPayload } from "@/lib/image/drag";
+import MaskedImage from "@/components/file/MaskedImage";
+import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
 
 interface MessageHumanProps {
   message: UIMessage;
@@ -29,16 +29,10 @@ function isImageMediaType(mediaType?: string) {
   return typeof mediaType === "string" && mediaType.startsWith("image/");
 }
 
-function resolveBaseName(url: string) {
-  if (!url || url.startsWith("data:")) return "";
-  try {
-    const parsed = new URL(url);
-    const segments = parsed.pathname.split("/");
-    const fileName = decodeURIComponent(segments[segments.length - 1] || "");
-    return fileName.replace(/\.[a-zA-Z0-9]+$/, "");
-  } catch {
-    return "";
-  }
+/** Resolve the base file name from a url. */
+function resolveBaseNameFromUrl(url: string) {
+  const fileName = resolveFileName(url);
+  return resolveBaseName(fileName);
 }
 
 export default function MessageHuman({
@@ -64,7 +58,7 @@ export default function MessageHuman({
     const maskMap = new Map<string, { type: "file"; url: string; mediaType?: string }>();
     for (const part of imageParts) {
       if (part.purpose !== "mask") continue;
-      const baseName = resolveBaseName(part.url).replace(/_mask$/i, "");
+      const baseName = resolveBaseNameFromUrl(part.url).replace(/_mask$/i, "");
       if (!baseName) continue;
       maskMap.set(baseName, part);
     }
@@ -72,7 +66,7 @@ export default function MessageHuman({
     return imageParts
       .filter((part) => part.purpose !== "mask")
       .map((part) => {
-        const baseName = resolveBaseName(part.url);
+        const baseName = resolveBaseNameFromUrl(part.url);
         const mask = baseName ? maskMap.get(baseName) : undefined;
         return { ...part, mask };
       });
@@ -90,21 +84,15 @@ export default function MessageHuman({
     return previewableParts.findIndex((part) => part.url === previewUrl);
   }, [previewUrl, previewableParts]);
 
-  const previewImage = React.useMemo(() => {
-    if (!previewUrl) return null;
-    const preview = imageState[previewUrl];
-    if (!preview?.src) return null;
-    return preview.src;
-  }, [imageState, previewUrl]);
-
-  const previewMaskImage = React.useMemo(() => {
-    if (!previewUrl) return null;
-    const target = displayParts.find((part) => part.url === previewUrl);
-    if (!target?.mask?.url) return null;
-    const preview = imageState[target.mask.url];
-    if (!preview?.src) return null;
-    return preview.src;
-  }, [displayParts, imageState, previewUrl]);
+  const previewItems = React.useMemo(() => {
+    return previewableParts.map((part) => ({
+      uri: part.url,
+      maskUri: part.mask?.url,
+      title: resolveFileName(part.url),
+      saveName: resolveFileName(part.url),
+      mediaType: part.mediaType,
+    }));
+  }, [previewableParts]);
 
   React.useEffect(() => {
     let aborted = false;
@@ -114,19 +102,21 @@ export default function MessageHuman({
       if (imageStateRef.current[url]) return;
       setImageState((prev) => ({ ...prev, [url]: { status: "loading" } }));
       try {
-        const apiBase = resolveServerUrl();
-        const endpoint = apiBase
-          ? `${apiBase}/chat/attachments/preview?url=${encodeURIComponent(url)}`
-          : `/chat/attachments/preview?url=${encodeURIComponent(url)}`;
-        const res = await fetch(endpoint);
-        if (!res.ok) throw new Error("preview failed");
-        const blob = await res.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        objectUrls.push(objectUrl);
+        if (url.startsWith("teatime-file://")) {
+          const blob = await fetchBlobFromUri(url);
+          const objectUrl = URL.createObjectURL(blob);
+          objectUrls.push(objectUrl);
+          if (aborted) return;
+          setImageState((prev) => ({
+            ...prev,
+            [url]: { status: "ready", src: objectUrl },
+          }));
+          return;
+        }
         if (aborted) return;
         setImageState((prev) => ({
           ...prev,
-          [url]: { status: "ready", src: objectUrl },
+          [url]: { status: "ready", src: url },
         }));
       } catch {
         if (aborted) return;
@@ -146,9 +136,7 @@ export default function MessageHuman({
         }
         continue;
       }
-      if (url.startsWith("teatime-file://")) {
-        void loadPreview(url);
-      }
+      void loadPreview(url);
     }
 
     return () => {
@@ -164,19 +152,14 @@ export default function MessageHuman({
     setPreviewUrl(url);
   }, []);
 
-  const goToPrevPreview = React.useCallback(() => {
-    if (previewIndex <= 0) return;
-    const prev = previewableParts[previewIndex - 1];
-    if (!prev) return;
-    setPreviewUrl(prev.url);
-  }, [previewIndex, previewableParts]);
-
-  const goToNextPreview = React.useCallback(() => {
-    if (previewIndex < 0) return;
-    const next = previewableParts[previewIndex + 1];
-    if (!next) return;
-    setPreviewUrl(next.url);
-  }, [previewIndex, previewableParts]);
+  const handlePreviewIndexChange = React.useCallback(
+    (nextIndex: number) => {
+      const target = previewableParts[nextIndex];
+      if (!target) return;
+      setPreviewUrl(target.url);
+    },
+    [previewableParts]
+  );
 
   return (
     <div className={cn("flex justify-end min-w-0", className)}>
@@ -197,20 +180,25 @@ export default function MessageHuman({
                   }}
                 >
                   {preview?.status === "ready" && preview.src ? (
-                    <div className="relative max-h-16 max-w-[90px] overflow-hidden rounded-md border border-primary/40">
-                      <img
-                        src={preview.src}
-                        alt="chat image"
-                        className="block max-h-16 max-w-[90px] object-contain"
-                      />
-                      {maskPreview?.status === "ready" && maskPreview.src ? (
-                        <img
-                          src={maskPreview.src}
-                          alt="chat image mask"
-                          className="pointer-events-none absolute inset-0 max-h-16 max-w-[90px] object-contain opacity-70"
-                        />
-                      ) : null}
-                    </div>
+                    <MaskedImage
+                      baseSrc={preview.src}
+                      maskSrc={maskPreview?.status === "ready" ? maskPreview.src : undefined}
+                      alt="chat image"
+                      containerClassName="max-h-16 max-w-[90px] overflow-hidden rounded-md border border-primary/40"
+                      className="block max-h-16 max-w-[90px] object-contain"
+                      maskClassName="max-h-16 max-w-[90px] object-contain opacity-70"
+                      draggable
+                      onDragStart={(event) => {
+                        // 将合并展示的图片作为可拖拽附件源。
+                        event.dataTransfer.effectAllowed = "copy";
+                        const fileName = resolveFileName(part.url) || "image.png";
+                        setImageDragPayload(event.dataTransfer, {
+                          baseUri: part.url,
+                          fileName,
+                          maskUri: part.mask?.url,
+                        });
+                      }}
+                    />
                   ) : preview?.status === "error" ? (
                     <div className="text-xs text-primary-foreground/80">图片加载失败</div>
                   ) : (
@@ -233,63 +221,17 @@ export default function MessageHuman({
           );
         })}
       </div>
-      <Dialog
-        open={Boolean(previewImage)}
+      <ImagePreviewDialog
+        open={previewIndex >= 0}
         onOpenChange={(open) => {
           if (!open) setPreviewUrl(null);
         }}
-      >
-        <DialogContent
-          className="w-fit max-w-[calc(100vw-1rem)] p-0 overflow-hidden sm:max-w-[calc(100vw-2rem)]"
-          overlayClassName="bg-background/35 backdrop-blur-2xl"
-        >
-          <DialogTitle className="sr-only">图片预览</DialogTitle>
-          {previewImage && (
-            <div>
-              <div className="flex items-center justify-center gap-4 px-4 py-4">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-12 w-12 shrink-0 rounded-full bg-background/80 text-foreground shadow-md ring-1 ring-border/60 backdrop-blur-md hover:bg-background/90 disabled:opacity-30"
-                  onClick={goToPrevPreview}
-                  disabled={previewIndex <= 0}
-                  aria-label="上一张"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-
-                <div className="relative flex items-center justify-center">
-                  <img
-                    src={previewImage}
-                    alt="chat image preview"
-                    className="max-h-[70vh] max-w-[80vw] object-contain"
-                  />
-                  {previewMaskImage ? (
-                    <img
-                      src={previewMaskImage}
-                      alt="chat image mask preview"
-                      className="pointer-events-none absolute inset-0 max-h-[70vh] max-w-[80vw] object-contain opacity-70"
-                    />
-                  ) : null}
-                </div>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-12 w-12 shrink-0 rounded-full bg-background/80 text-foreground shadow-md ring-1 ring-border/60 backdrop-blur-md hover:bg-background/90 disabled:opacity-30"
-                  onClick={goToNextPreview}
-                  disabled={previewIndex < 0 || previewIndex >= previewableParts.length - 1}
-                  aria-label="下一张"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        items={previewItems}
+        activeIndex={previewIndex}
+        onActiveIndexChange={handlePreviewIndexChange}
+        showSave={false}
+        enableEdit={false}
+      />
     </div>
   );
 }
