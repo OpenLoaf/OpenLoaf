@@ -68,7 +68,7 @@ export type ProjectFileSystemModel = {
   showHidden: boolean;
   clipboardSize: number;
   copyDialogOpen: boolean;
-  copyEntry: FileSystemEntry | null;
+  copyEntries: FileSystemEntry[];
   isDragActive: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -82,7 +82,7 @@ export type ProjectFileSystemModel = {
   handleSortByName: () => void;
   handleSortByTime: () => void;
   handleCopyDialogOpenChange: (open: boolean) => void;
-  handleOpenCopyDialog: (entry: FileSystemEntry) => void;
+  handleOpenCopyDialog: (entries: FileSystemEntry | FileSystemEntry[]) => void;
   handleCopyPath: (entry: FileSystemEntry) => Promise<void>;
   handleOpen: (entry: FileSystemEntry) => Promise<void>;
   handleOpenInFileManager: (entry: FileSystemEntry) => Promise<void>;
@@ -94,7 +94,9 @@ export type ProjectFileSystemModel = {
   handleOpenBoard: (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => void;
   renameEntry: (entry: FileSystemEntry, nextName: string) => Promise<string | null>;
   handleDelete: (entry: FileSystemEntry) => Promise<void>;
+  handleDeleteBatch: (entries: FileSystemEntry[]) => Promise<void>;
   handleDeletePermanent: (entry: FileSystemEntry) => Promise<void>;
+  handleDeletePermanentBatch: (entries: FileSystemEntry[]) => Promise<void>;
   handleShowInfo: (entry: FileSystemEntry) => void;
   handleCreateFolder: () => Promise<{ uri: string; name: string } | null>;
   handleCreateBoard: () => Promise<void>;
@@ -195,7 +197,8 @@ export function useProjectFileSystemModel({
   );
   const [clipboardSize, setClipboardSize] = useState(fileClipboard?.length ?? 0);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
-  const [copyEntry, setCopyEntry] = useState<FileSystemEntry | null>(null);
+  /** Entries selected for copy-to dialog. */
+  const [copyEntries, setCopyEntries] = useState<FileSystemEntry[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const trashRootUri = useMemo(
@@ -386,11 +389,13 @@ export function useProjectFileSystemModel({
       reader.readAsDataURL(file);
     });
 
-  /** Open copy-to dialog. */
-  const handleOpenCopyDialog = (entry: FileSystemEntry) => {
-    fileClipboard = [entry];
+  /** Open copy-to dialog for one or more entries. */
+  const handleOpenCopyDialog = (entries: FileSystemEntry | FileSystemEntry[]) => {
+    const normalized = Array.isArray(entries) ? entries : [entries];
+    if (normalized.length === 0) return;
+    fileClipboard = normalized;
     setClipboardSize(fileClipboard.length);
-    setCopyEntry(entry);
+    setCopyEntries(normalized);
     setCopyDialogOpen(true);
   };
 
@@ -398,7 +403,7 @@ export function useProjectFileSystemModel({
   const handleCopyDialogOpenChange = (open: boolean) => {
     setCopyDialogOpen(open);
     if (!open) {
-      setCopyEntry(null);
+      setCopyEntries([]);
     }
   };
 
@@ -628,6 +633,30 @@ export function useProjectFileSystemModel({
     refreshList();
   };
 
+  /** Delete multiple files or folders with a single confirmation. */
+  const handleDeleteBatch = async (entries: FileSystemEntry[]) => {
+    if (entries.length === 0) return;
+    const ok = window.confirm(`确认删除已选择的 ${entries.length} 项？`);
+    if (!ok) return;
+    if (!trashRootUri) return;
+    await mkdirMutation.mutateAsync({ uri: trashRootUri, recursive: true });
+    const actions: HistoryAction[] = [];
+    for (const entry of entries) {
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const suffix = Math.random().toString(36).slice(2, 6);
+      const trashName = `${stamp}-${suffix}-${entry.name}`;
+      const trashUri = buildChildUri(trashRootUri, trashName);
+      await renameMutation.mutateAsync({ from: entry.uri, to: trashUri });
+      actions.push({ kind: "delete", uri: entry.uri, trashUri });
+    }
+    if (actions.length === 1) {
+      pushHistory(actions[0]);
+    } else if (actions.length > 1) {
+      pushHistory({ kind: "batch", actions });
+    }
+    refreshList();
+  };
+
   /** Permanently delete (system trash if available). */
   const handleDeletePermanent = async (entry: FileSystemEntry) => {
     const ok = window.confirm(`彻底删除「${entry.name}」？此操作不可撤回。`);
@@ -648,6 +677,32 @@ export function useProjectFileSystemModel({
       }
     }
     await deleteMutation.mutateAsync({ uri: entry.uri, recursive: true });
+    refreshList();
+  };
+
+  /** Permanently delete multiple entries with a single confirmation. */
+  const handleDeletePermanentBatch = async (entries: FileSystemEntry[]) => {
+    if (entries.length === 0) return;
+    const ok = window.confirm(
+      `彻底删除已选择的 ${entries.length} 项？此操作不可撤回。`
+    );
+    if (!ok) return;
+    for (const entry of entries) {
+      if (isElectron && window.teatimeElectron?.trashItem) {
+        try {
+          const res = await window.teatimeElectron.trashItem({ uri: entry.uri });
+          if (!res?.ok) {
+            toast.error(res?.reason ?? "无法移动到系统回收站");
+          }
+          continue;
+        } catch (error) {
+          console.warn("[ProjectFileSystem] trash item failed", error);
+          toast.error("无法移动到系统回收站");
+          continue;
+        }
+      }
+      await deleteMutation.mutateAsync({ uri: entry.uri, recursive: true });
+    }
     refreshList();
   };
 
@@ -925,7 +980,7 @@ export function useProjectFileSystemModel({
     showHidden,
     clipboardSize,
     copyDialogOpen,
-    copyEntry,
+    copyEntries,
     isDragActive,
     canUndo,
     canRedo,
@@ -951,7 +1006,9 @@ export function useProjectFileSystemModel({
     handleOpenBoard,
     renameEntry,
     handleDelete,
+    handleDeleteBatch,
     handleDeletePermanent,
+    handleDeletePermanentBatch,
     handleShowInfo,
     handleCreateFolder,
     handleCreateBoard,

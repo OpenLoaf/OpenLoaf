@@ -34,6 +34,7 @@ type FileSystemGridControllerProps = {
     }
   ) => ReactNode;
   contextMenuClassName?: string;
+  onEntryContextMenuOpen?: () => void;
 } & Omit<
   ComponentProps<typeof FileSystemGrid>,
   | "entries"
@@ -66,6 +67,7 @@ const FileSystemGridController = memo(
         onRenamingCancel,
         renderContextMenu,
         contextMenuClassName = "w-52",
+        onEntryContextMenuOpen,
         onEntryDragStart,
         ...gridProps
       },
@@ -194,6 +196,7 @@ const FileSystemGridController = memo(
           }}
           onEntryContextMenu={(entry, event) => {
             event.stopPropagation();
+            onEntryContextMenuOpen?.();
             if (!selectedUris.has(entry.uri)) {
               setSelectedUris(new Set([entry.uri]));
             }

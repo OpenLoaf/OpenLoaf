@@ -174,6 +174,8 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   setInput: (value: string) => void;
   /** 用于触发消息列表滚动到底部的信号（自增即可） */
   scrollToBottomToken: number;
+  /** 流式输出节拍，用于触发消息列表在输出中持续贴底 */
+  streamTick: number;
   /** 用于触发消息列表滚动到指定消息的信号（自增即可） */
   scrollToMessageToken: { messageId: string; token: number } | null;
   /** 是否正在加载/应用该 session 的历史消息 */
@@ -295,6 +297,7 @@ export default function ChatProvider({
   addMaskedAttachment,
 }: ChatProviderProps) {
   const [scrollToBottomToken, setScrollToBottomToken] = React.useState(0);
+  const [streamTick, setStreamTick] = React.useState(0);
   const [scrollToMessageToken, setScrollToMessageToken] = React.useState<{
     messageId: string;
     token: number;
@@ -445,6 +448,7 @@ export default function ChatProvider({
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
         if (handleSubAgentDataPart({ dataPart, setSubAgentStreams })) return;
         handleChatDataPart({ dataPart, tabId, upsertToolPartMerged });
+        setStreamTick((prev) => prev + 1);
       },
     }),
     [sessionId, tabId, transport, upsertToolPartMerged, onFinish, setSubAgentStreams, setStepThinking]
@@ -477,6 +481,7 @@ export default function ChatProvider({
       // 中文注释：切换会话前必须停止流式并清空本地状态，避免脏数据串流。
       chat.stop();
       chat.setMessages([]);
+      setStreamTick(0);
       pendingUserMessageIdRef.current = null;
       needsBranchMetaRefreshRef.current = false;
       setLeafMessageId(null);
@@ -810,6 +815,7 @@ export default function ChatProvider({
         setInput,
         isHistoryLoading,
         scrollToBottomToken,
+        streamTick,
         scrollToMessageToken,
         newSession,
         selectSession,

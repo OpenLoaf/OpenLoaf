@@ -21,6 +21,7 @@ export function useChatScroll({
   const shouldAutoFollowRef = React.useRef(true);
   const isAutoScrollingRef = React.useRef(false);
   const lastScrollTopRef = React.useRef(0);
+  const userScrollIntentRef = React.useRef(false);
 
   const escapeAttrValue = React.useCallback((value: string) => {
     // 关键：CSS.escape 在老环境可能不存在，这里做最小兜底，避免选择器注入/崩溃。
@@ -66,20 +67,30 @@ export function useChatScroll({
           const distanceFromBottom = getDistanceFromBottom();
           isPinnedToBottomRef.current = pinned;
           // 中文注释：只要用户有上滑动作就暂停自动跟随，避免被“拖回底部”。
-          if (scrolledUp && distanceFromBottom > 8) {
+          if (scrolledUp && distanceFromBottom > 8 && userScrollIntentRef.current) {
             shouldAutoFollowRef.current = false;
           } else if (pinned) {
             // 中文注释：用户回到底部后恢复自动跟随。
             shouldAutoFollowRef.current = true;
+            userScrollIntentRef.current = false;
           }
           lastScrollTopRef.current = currentScrollTop;
         });
       };
 
       viewport.addEventListener("scroll", onScroll, { passive: true });
+      const markUserScrollIntent = () => {
+        userScrollIntentRef.current = true;
+      };
+      viewport.addEventListener("wheel", markUserScrollIntent, { passive: true });
+      viewport.addEventListener("touchstart", markUserScrollIntent, { passive: true });
+      viewport.addEventListener("pointerdown", markUserScrollIntent);
 
       return () => {
         viewport?.removeEventListener("scroll", onScroll);
+        viewport?.removeEventListener("wheel", markUserScrollIntent);
+        viewport?.removeEventListener("touchstart", markUserScrollIntent);
+        viewport?.removeEventListener("pointerdown", markUserScrollIntent);
       };
     };
 
@@ -111,6 +122,7 @@ export function useChatScroll({
     if (!viewport) return;
     isPinnedToBottomRef.current = true;
     shouldAutoFollowRef.current = true;
+    userScrollIntentRef.current = false;
     isAutoScrollingRef.current = true;
     // 用 scrollTop 方式更可靠：scrollIntoView 在某些布局/嵌套滚动场景下不会滚动目标容器
     viewport.scrollTo({ top: viewport.scrollHeight, behavior });

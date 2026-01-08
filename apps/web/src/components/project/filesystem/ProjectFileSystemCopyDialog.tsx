@@ -54,7 +54,7 @@ type PageTreeProject = {
 type ProjectFileSystemCopyDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  entry: FileSystemEntry | null;
+  entries: FileSystemEntry[];
   defaultRootUri?: string;
 };
 
@@ -93,7 +93,7 @@ function normalizePageTreeProjects(nodes?: ProjectTreeNode[]): PageTreeProject[]
 const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
   open,
   onOpenChange,
-  entry,
+  entries: copyEntries,
   defaultRootUri,
 }: ProjectFileSystemCopyDialogProps) {
   const queryClient = useQueryClient();
@@ -155,7 +155,7 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
   };
 
   const handleCopy = async () => {
-    if (!entry || !activeUri) return;
+    if (!activeUri || copyEntries.length === 0) return;
     try {
       const targetList = await queryClient.fetchQuery(
         trpc.fs.list.queryOptions({ uri: activeUri })
@@ -163,10 +163,13 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
       const targetNames = new Set(
         (targetList.entries ?? []).map((item) => item.name)
       );
-      const targetName = getUniqueName(entry.name, targetNames);
-      const targetUri = buildChildUri(activeUri, targetName);
-      await copyMutation.mutateAsync({ from: entry.uri, to: targetUri });
-      toast.success("已复制");
+      for (const entry of copyEntries) {
+        const targetName = getUniqueName(entry.name, targetNames);
+        targetNames.add(targetName);
+        const targetUri = buildChildUri(activeUri, targetName);
+        await copyMutation.mutateAsync({ from: entry.uri, to: targetUri });
+      }
+      toast.success(copyEntries.length > 1 ? "已复制所选项" : "已复制");
       onOpenChange(false);
     } catch (error: any) {
       toast.error(error?.message ?? "复制失败");
@@ -338,7 +341,7 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
           <Button
             type="button"
             onClick={handleCopy}
-            disabled={!entry || !activeUri}
+            disabled={copyEntries.length === 0 || !activeUri}
           >
             确认复制
           </Button>

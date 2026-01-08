@@ -22,6 +22,7 @@ export default function MessageList({ className }: MessageListProps) {
     error,
     scrollToBottomToken,
     scrollToMessageToken,
+    streamTick,
     isHistoryLoading,
     stepThinking,
   } = useChatContext();
@@ -56,7 +57,7 @@ export default function MessageList({ className }: MessageListProps) {
     scrollToMessageToken,
     // AI 输出过程中/结束瞬间：仅当用户贴底时跟随滚动（避免用户上滑时被强制拉回底部）
     followToBottomToken:
-      messages.length + (status === "ready" ? 1 : 0) + (error ? 1 : 0),
+      messages.length + streamTick + (status === "ready" ? 1 : 0) + (error ? 1 : 0),
     viewportRef,
     bottomRef,
     contentRef,
