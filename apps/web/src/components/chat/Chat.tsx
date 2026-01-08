@@ -12,9 +12,17 @@ import {
   formatFileSize,
   isSupportedImageFile,
 } from "./chat-attachments";
-import type { ChatAttachment, MaskedAttachmentInput } from "./chat-attachments";
-import { resolveFileName } from "@/lib/image/uri";
-import { resolveMaskFileName } from "@/lib/image/mask";
+import type {
+  ChatAttachment,
+  ChatAttachmentInput,
+  ChatAttachmentSource,
+  MaskedAttachmentInput,
+} from "./chat-attachments";
+import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
+import { buildMaskedPreviewUrl, resolveMaskFileName } from "@/lib/image/mask";
+import { readImageDragPayload } from "@/lib/image/drag";
+import { FILE_DRAG_REF_MIME } from "@/components/ui/teatime/drag-drop-types";
+import { parseTeatimeFileUrl } from "@/components/project/filesystem/file-system-utils";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -23,7 +31,7 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { createChatSessionId } from "@/lib/chat-session-id";
-import { supportsImageEdit } from "@/lib/model-capabilities";
+import { supportsImageEdit, supportsToolCall } from "@/lib/model-capabilities";
 
 type ChatProps = {
   className?: string;
@@ -84,10 +92,9 @@ export function Chat({
   const selectedModel = modelOptions.find((option) => option.id === rawSelectedModelId);
   const selectedModelId = selectedModel ? rawSelectedModelId : "";
   const isAutoModel = !selectedModelId;
-  // 自动模式允许图片，非自动时必须显式支持图片编辑。
-  const canAttachImage = isAutoModel
-    ? true
-    : supportsImageEdit(selectedModel);
+  const canAttachAll = isAutoModel || supportsToolCall(selectedModel);
+  // 自动模式或支持工具调用时允许所有文件，其余仅支持图片编辑时允许图片。
+  const canAttachImage = canAttachAll || supportsImageEdit(selectedModel);
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
   const [isDragActive, setIsDragActive] = React.useState(false);
@@ -164,13 +171,19 @@ export function Chat({
 
   /** Upload a file and return the remote url payload. */
   const uploadFile = React.useCallback(
-    async (file: File) => {
+    async (input: ChatAttachmentSource) => {
       if (!workspaceId) {
         return { ok: false as const, errorMessage: "当前标签页未绑定工作区，无法上传图片" };
       }
       // 上传后端生成 teatime-file 地址，后续仅存该引用。
       const formData = new FormData();
-      formData.append("file", file);
+      const sourceUrl = input.sourceUrl?.trim();
+      // 中文注释：内部拖拽若携带 teatime-file，则直接按引用上传。
+      if (sourceUrl && sourceUrl.startsWith("teatime-file://")) {
+        formData.append("file", sourceUrl);
+      } else {
+        formData.append("file", input.file);
+      }
       formData.append("workspaceId", workspaceId);
       // 无项目时退回到 workspace 根目录。
       if (projectId) formData.append("projectId", projectId);
@@ -203,7 +216,7 @@ export function Chat({
         return {
           ok: true as const,
           url: data.url,
-          mediaType: data.mediaType ?? file.type,
+          mediaType: data.mediaType ?? input.file.type,
         };
       } catch {
         return { ok: false as const, errorMessage: "图片上传失败，请检查网络连接" };
@@ -215,7 +228,10 @@ export function Chat({
   /** Upload the main attachment file. */
   const uploadAttachment = React.useCallback(
     async (attachment: ChatAttachment) => {
-      const result = await uploadFile(attachment.file);
+      const result = await uploadFile({
+        file: attachment.file,
+        sourceUrl: attachment.sourceUrl,
+      });
       if (!result.ok) {
         updateAttachment(attachment.id, {
           status: "error",
@@ -236,7 +252,7 @@ export function Chat({
   /** Upload the mask file for an attachment. */
   const uploadMaskAttachment = React.useCallback(
     async (attachmentId: string, maskFile: File) => {
-      const result = await uploadFile(maskFile);
+      const result = await uploadFile({ file: maskFile });
       if (!result.ok) {
         updateMaskAttachment(attachmentId, {
           status: "error",
@@ -257,13 +273,27 @@ export function Chat({
     [updateAttachment, updateMaskAttachment, uploadFile]
   );
 
+  /** Normalize attachment inputs into source entries. */
+  const normalizeAttachmentInputs = React.useCallback(
+    (input: FileList | ChatAttachmentInput[]) => {
+      if (input instanceof FileList) {
+        return Array.from(input).map((file) => ({ file }));
+      }
+      return input.map((item) =>
+        item instanceof File ? { file: item } : item
+      );
+    },
+    []
+  );
+
   /** Add normal attachments from files. */
-  const addAttachments = React.useCallback((files: FileList | File[]) => {
-    const fileArray = Array.from(files);
-    if (fileArray.length === 0) return;
+  const addAttachments = React.useCallback((files: FileList | ChatAttachmentInput[]) => {
+    const sourceItems = normalizeAttachmentInputs(files);
+    if (sourceItems.length === 0) return;
 
     const next: ChatAttachment[] = [];
-    for (const file of fileArray) {
+    for (const source of sourceItems) {
+      const file = source.file;
       if (!isSupportedImageFile(file)) {
         continue;
       }
@@ -272,6 +302,7 @@ export function Chat({
         next.push({
           id: generateId(),
           file,
+          sourceUrl: source.sourceUrl,
           objectUrl,
           status: "error",
           errorMessage: `文件过大（${formatFileSize(file.size)}），请小于 ${formatFileSize(
@@ -285,6 +316,7 @@ export function Chat({
       next.push({
         id: generateId(),
         file,
+        sourceUrl: source.sourceUrl,
         objectUrl,
         status: "loading",
       });
@@ -297,7 +329,7 @@ export function Chat({
       if (item.status !== "loading") continue;
       void uploadAttachment(item);
     }
-  }, [uploadAttachment]);
+  }, [normalizeAttachmentInputs, uploadAttachment]);
 
   /** Add a masked attachment and trigger uploads. */
   const addMaskedAttachment = React.useCallback(
@@ -416,9 +448,14 @@ export function Chat({
     ]
   );
 
+  const canDropAny = canAttachAll || canAttachImage;
+
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
-    if (!event.dataTransfer?.types?.includes("Files")) return;
-    if (!canAttachImage) {
+    const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
+    const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
+    const hasFileRef = event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
+    if (!hasFiles && !hasImageDrag && !hasFileRef) return;
+    if (!canDropAny) {
       event.preventDefault();
       setIsDragActive(true);
       setDragMode("deny");
@@ -427,11 +464,14 @@ export function Chat({
     dragCounterRef.current += 1;
     setIsDragActive(true);
     setDragMode("allow");
-  }, [canAttachImage]);
+  }, [canDropAny]);
 
   const handleDragOver = React.useCallback((event: React.DragEvent) => {
-    if (!event.dataTransfer?.types?.includes("Files")) return;
-    if (!canAttachImage) {
+    const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
+    const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
+    const hasFileRef = event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
+    if (!hasFiles && !hasImageDrag && !hasFileRef) return;
+    if (!canDropAny) {
       event.preventDefault();
       setIsDragActive(true);
       setDragMode("deny");
@@ -441,11 +481,14 @@ export function Chat({
     event.dataTransfer.dropEffect = "copy";
     setIsDragActive(true);
     setDragMode("allow");
-  }, [canAttachImage]);
+  }, [canDropAny]);
 
   const handleDragLeave = React.useCallback((event: React.DragEvent) => {
-    if (!event.dataTransfer?.types?.includes("Files")) return;
-    if (!canAttachImage) {
+    const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
+    const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
+    const hasFileRef = event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
+    if (!hasFiles && !hasImageDrag && !hasFileRef) return;
+    if (!canDropAny) {
       setIsDragActive(false);
       setDragMode("allow");
       return;
@@ -455,22 +498,112 @@ export function Chat({
       setIsDragActive(false);
       setDragMode("allow");
     }
-  }, [canAttachImage]);
+  }, [canDropAny]);
 
   const handleDrop = React.useCallback(
-    (event: React.DragEvent) => {
+    async (event: React.DragEvent) => {
+      console.debug("[Chat] drop payload", JSON.stringify({
+        types: Array.from(event.dataTransfer?.types ?? []),
+        items: Array.from(event.dataTransfer?.items ?? []).map((item) => ({
+          kind: item.kind,
+          type: item.type,
+        })),
+        files: Array.from(event.dataTransfer?.files ?? []).map((file) => ({
+          name: file.name,
+          type: file.type,
+          size: file.size,
+        })),
+        data: {
+          fileRef: event.dataTransfer?.getData(FILE_DRAG_REF_MIME),
+          fileUri: event.dataTransfer?.getData("application/x-teatime-file-uri"),
+          fileName: event.dataTransfer?.getData("application/x-teatime-file-name"),
+          fileMaskUri: event.dataTransfer?.getData("application/x-teatime-file-mask-uri"),
+          text: event.dataTransfer?.getData("text/plain"),
+          uriList: event.dataTransfer?.getData("text/uri-list"),
+        },
+      }));
+      const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
+      const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
+      const hasFileRef = event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
+      if (!hasFiles && !hasImageDrag && !hasFileRef) return;
+      if (event.defaultPrevented) {
+        dragCounterRef.current = 0;
+        setIsDragActive(false);
+        setDragMode("allow");
+        return;
+      }
+      const imagePayload = readImageDragPayload(event.dataTransfer);
+      if (imagePayload) {
+        event.preventDefault();
+        dragCounterRef.current = 0;
+        setIsDragActive(false);
+        if (!canDropAny) {
+          setDragMode("allow");
+          return;
+        }
+        const payloadFileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
+        const isPayloadImage =
+          Boolean(imagePayload.maskUri) || /\.(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(payloadFileName);
+        if (!isPayloadImage && canAttachAll) {
+          const fileRef =
+            event.dataTransfer.getData(FILE_DRAG_REF_MIME) ||
+            (() => {
+              if (!imagePayload.baseUri.startsWith("teatime-file://")) return "";
+              const parsed = parseTeatimeFileUrl(imagePayload.baseUri);
+              return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
+            })();
+          if (fileRef) {
+            window.dispatchEvent(
+              new CustomEvent("teatime:chat-insert-mention", {
+                detail: { value: fileRef },
+              })
+            );
+          }
+          setDragMode("allow");
+          return;
+        }
+        try {
+          if (imagePayload.maskUri) {
+            const fileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
+            const baseBlob = await fetchBlobFromUri(imagePayload.baseUri);
+            const maskBlob = await fetchBlobFromUri(imagePayload.maskUri);
+            const baseFile = new File([baseBlob], fileName, {
+              type: baseBlob.type || "application/octet-stream",
+            });
+            const maskFile = new File([maskBlob], resolveMaskFileName(fileName), {
+              type: "image/png",
+            });
+            const previewUrl = await buildMaskedPreviewUrl(baseBlob, maskBlob);
+            addMaskedAttachment({ file: baseFile, maskFile, previewUrl });
+            return;
+          }
+          const fileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
+          const blob = await fetchBlobFromUri(imagePayload.baseUri);
+          const file = new File([blob], fileName, {
+            type: blob.type || "application/octet-stream",
+          });
+          const sourceUrl = imagePayload.baseUri.startsWith("teatime-file://")
+            ? imagePayload.baseUri
+            : undefined;
+          // 中文注释：应用内拖拽在聊天根节点落下时，也按统一附件流程处理。
+          addAttachments([{ file, sourceUrl }]);
+          return;
+        } catch {
+          return;
+        }
+      }
       if (!event.dataTransfer?.files?.length) return;
       event.preventDefault();
       dragCounterRef.current = 0;
       setIsDragActive(false);
-      if (!canAttachImage) {
+      if (!canDropAny) {
         setDragMode("allow");
         return;
       }
       setDragMode("allow");
       addAttachments(event.dataTransfer.files);
     },
-    [addAttachments, canAttachImage]
+    [addAttachments, addMaskedAttachment, canDropAny]
   );
 
   return (
@@ -505,6 +638,8 @@ export function Chat({
           onRemoveAttachment={removeAttachment}
           onClearAttachments={clearAttachments}
           onReplaceMaskedAttachment={replaceMaskedAttachment}
+          canAttachAll={canAttachAll}
+          canAttachImage={canAttachImage}
         />
 
         <DragDropOverlay

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { toBlob } from "html-to-image";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
@@ -28,6 +29,20 @@ import {
   isBoardFileExt,
 } from "@/lib/file-name";
 
+/** Selector list for elements excluded from board exports. */
+const BOARD_EXPORT_IGNORE_SELECTOR = [
+  "[data-canvas-toolbar]",
+  "[data-board-controls]",
+  "[data-node-toolbar]",
+  "[data-node-inspector]",
+  "[data-connector-drop-panel]",
+  "[data-connector-action]",
+  "[data-multi-resize-handle]",
+  "[data-board-minimap]",
+  "[data-board-anchor-overlay]",
+  "[data-board-selection-outline]",
+].join(",");
+
 /** Returns true when the event target is an editable element. */
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -39,6 +54,31 @@ function isEditableTarget(target: EventTarget | null) {
     tag === "SELECT" ||
     target.getAttribute("role") === "textbox"
   );
+}
+
+/** Build a filename for board image exports. */
+function buildBoardExportFileName(params: DockItem["params"] | undefined, title: string) {
+  const name = typeof (params as any)?.name === "string" ? (params as any).name : title;
+  const ext = typeof (params as any)?.ext === "string" ? (params as any).ext : undefined;
+  const baseName = getDisplayFileName(name || "board", ext).trim() || "board";
+  return baseName.endsWith(".png") ? baseName : `${baseName}.png`;
+}
+
+/** Return true when the media element is cross-origin and may taint canvas. */
+function isCrossOriginMediaElement(element: Element): boolean {
+  if (typeof window === "undefined") return false;
+  if (!(element instanceof HTMLImageElement || element instanceof HTMLVideoElement)) {
+    return false;
+  }
+  const rawSrc = element.currentSrc || element.src;
+  if (!rawSrc) return false;
+  if (rawSrc.startsWith("data:") || rawSrc.startsWith("blob:")) return false;
+  try {
+    const url = new URL(rawSrc, window.location.href);
+    return url.origin !== window.location.origin;
+  } catch {
+    return true;
+  }
 }
 
 /**
@@ -117,6 +157,46 @@ function PanelFrame({
   const canClose = item.denyClose !== true;
   const customHeader = Boolean((item.params as any)?.__customHeader);
   const opaquePanel = Boolean((item.params as any)?.__opaque);
+  const isBoardPanel = item.component === "board-viewer";
+
+  /** Export the current board panel to an image. */
+  const handleExportBoard = React.useCallback(async () => {
+    if (!isBoardPanel) return;
+    const panelSelector = `[data-board-canvas][data-board-panel="${item.id}"]`;
+    const target = document.querySelector(panelSelector) as HTMLElement | null;
+    if (!target) {
+      toast.error("未找到可导出的画布");
+      return;
+    }
+    const fileName = buildBoardExportFileName(item.params, title);
+    try {
+      // 逻辑：导出时过滤工具条/控件，避免截图污染。
+      const blob = await toBlob(target, {
+        cacheBust: true,
+        backgroundColor: null,
+        filter: node => {
+          if (!(node instanceof Element)) return true;
+          if (isCrossOriginMediaElement(node)) return false;
+          return !node.closest(BOARD_EXPORT_IGNORE_SELECTOR);
+        },
+      });
+      if (!blob) {
+        toast.error("导出失败：无法生成图片");
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("导出失败", error);
+      toast.error("导出失败");
+    }
+  }, [isBoardPanel, item.id, item.params, title]);
 
   return (
     <div
@@ -139,6 +219,17 @@ function PanelFrame({
           <StackHeader
             title={title}
             onRefresh={() => setRefreshKey((k) => k + 1)}
+            rightSlotAfter={
+              isBoardPanel ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void handleExportBoard()}
+                >
+                  导出图片
+                </Button>
+              ) : null
+            }
             onClose={canClose ? onClose : undefined}
             showMinimize
             onMinimize={onMinimize}

@@ -78,7 +78,7 @@ export default function ChatMessageText({ value, className }: ChatMessageTextPro
 
   return (
     <Plate editor={editor} decorate={decorate} renderLeaf={renderLeaf} readOnly>
-      <EditorContainer className="bg-transparent">
+      <EditorContainer variant="select" className="h-auto overflow-visible bg-transparent">
         <Editor
           variant="none"
           className={cn("text-[13px] leading-5", className)}

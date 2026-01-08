@@ -106,6 +106,8 @@ export type BoardCanvasProps = {
   boardId?: string;
   /** Board file URI used for file persistence. */
   boardFileUri?: string;
+  /** Panel key for identifying board instances. */
+  panelKey?: string;
   /** Optional container class name. */
   className?: string;
 };
@@ -118,6 +120,7 @@ export function BoardCanvas({
   workspaceId,
   boardId,
   boardFileUri,
+  panelKey,
   className,
 }: BoardCanvasProps) {
   /** Root container element for canvas interactions. */
@@ -697,6 +700,8 @@ export function BoardCanvas({
     <BoardProvider engine={engine} actions={boardActions}>
       <div
         ref={containerRef}
+        data-board-canvas
+        data-board-panel={panelKey}
         className={cn(
           "relative h-full w-full overflow-hidden outline-none",
           cursor === "crosshair" && "cursor-crosshair",

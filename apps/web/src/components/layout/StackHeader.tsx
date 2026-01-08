@@ -14,6 +14,7 @@ export function StackHeader({
   title,
   children,
   rightSlot,
+  rightSlotAfter,
   onRefresh,
   onClose,
   showMinimize = false,
@@ -24,6 +25,8 @@ export function StackHeader({
   title?: string;
   children?: React.ReactNode;
   rightSlot?: React.ReactNode;
+  /** Optional slot rendered after the refresh button. */
+  rightSlotAfter?: React.ReactNode;
   onRefresh?: () => void;
   onClose?: () => void;
   showMinimize?: boolean;
@@ -44,6 +47,7 @@ export function StackHeader({
               <RotateCw className="h-4 w-4" />
             </Button>
           ) : null}
+          {rightSlotAfter}
           {showMinimize ? (
             <Button
               size="sm"

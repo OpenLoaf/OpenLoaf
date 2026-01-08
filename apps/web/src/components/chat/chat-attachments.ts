@@ -35,6 +35,8 @@ export type ChatAttachment = {
   id: string;
   /** Source file for the attachment. */
   file: File;
+  /** Optional source url for internal attachments. */
+  sourceUrl?: string;
   /** Preview URL for display. */
   objectUrl: string;
   /** Remote URL resolved after upload. */
@@ -50,6 +52,15 @@ export type ChatAttachment = {
   /** Whether this attachment has a mask applied. */
   hasMask?: boolean;
 };
+
+export type ChatAttachmentSource = {
+  /** Source file used for local preview. */
+  file: File;
+  /** Original attachment url for upload. */
+  sourceUrl?: string;
+};
+
+export type ChatAttachmentInput = File | ChatAttachmentSource;
 
 export type MaskedAttachmentInput = {
   /** Base image file used for model input. */

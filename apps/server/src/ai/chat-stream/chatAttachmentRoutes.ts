@@ -1,6 +1,10 @@
 import type { Hono } from "hono";
 import { getWorkspaceByIdConfig } from "@teatime-ai/api/services/workspaceConfig";
-import { getTeatimeFilePreview, saveChatImageAttachment } from "./attachmentResolver";
+import {
+  getTeatimeFilePreview,
+  saveChatImageAttachment,
+  saveChatImageAttachmentFromTeatimeUrl,
+} from "./attachmentResolver";
 
 /** Max upload size for chat images. */
 const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -15,23 +19,49 @@ function isFileLike(value: unknown): value is File {
   return Boolean(value) && typeof value === "object" && "arrayBuffer" in (value as File);
 }
 
+type ChatAttachmentBody = {
+  workspaceId?: unknown;
+  projectId?: unknown;
+  sessionId?: unknown;
+  file?: unknown;
+};
+
+type ParsedChatAttachmentBody = {
+  workspaceId: string;
+  projectId?: string;
+  sessionId: string;
+  file: File | string | null;
+};
+
+/** Parse and normalize chat attachment body. */
+function parseChatAttachmentBody(body: ChatAttachmentBody): ParsedChatAttachmentBody {
+  const workspaceId = toText(body.workspaceId);
+  const projectId = toText(body.projectId) || undefined;
+  const sessionId = toText(body.sessionId);
+  const rawFile = body.file;
+  const file = Array.isArray(rawFile) ? rawFile[0] : rawFile;
+  if (isFileLike(file)) {
+    return { workspaceId, projectId, sessionId, file };
+  }
+  if (typeof file === "string" && file.trim()) {
+    return { workspaceId, projectId, sessionId, file: file.trim() };
+  }
+  return { workspaceId, projectId, sessionId, file: null };
+}
+
 /** Register chat attachment routes. */
 export function registerChatAttachmentRoutes(app: Hono) {
   app.post("/chat/attachments", async (c) => {
-    let body: Record<string, unknown>;
+    let body: ChatAttachmentBody;
     try {
-      body = (await c.req.parseBody()) as Record<string, unknown>;
+      body = (await c.req.parseBody()) as ChatAttachmentBody;
     } catch {
       return c.json({ error: "Invalid multipart body" }, 400);
     }
 
-    const workspaceId = toText(body.workspaceId);
-    const projectId = toText(body.projectId);
-    const sessionId = toText(body.sessionId);
-    const rawFile = body.file;
-    const file = Array.isArray(rawFile) ? rawFile[0] : rawFile;
+    const { workspaceId, projectId, sessionId, file } = parseChatAttachmentBody(body);
 
-    if (!workspaceId || !sessionId || !isFileLike(file)) {
+    if (!workspaceId || !sessionId || !file) {
       return c.json({ error: "Missing required upload fields" }, 400);
     }
 
@@ -40,22 +70,34 @@ export function registerChatAttachmentRoutes(app: Hono) {
       return c.json({ error: "Workspace not found" }, 400);
     }
 
-    const size = typeof file.size === "number" ? file.size : 0;
-    if (size > MAX_CHAT_IMAGE_BYTES) {
-      return c.json({ error: "Image too large" }, 413);
-    }
-
     try {
-      // 上传阶段即压缩并落盘，返回 teatime-file 地址给前端。
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const mediaType = file.type || "application/octet-stream";
-      const result = await saveChatImageAttachment({
+      if (isFileLike(file)) {
+        const size = typeof file.size === "number" ? file.size : 0;
+        if (size > MAX_CHAT_IMAGE_BYTES) {
+          return c.json({ error: "Image too large" }, 413);
+        }
+        // 上传阶段即压缩并落盘，返回 teatime-file 地址给前端。
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const mediaType = file.type || "application/octet-stream";
+        const result = await saveChatImageAttachment({
+          workspaceId,
+          projectId,
+          sessionId,
+          fileName: file.name || "upload",
+          mediaType,
+          buffer,
+        });
+        return c.json({ url: result.url, mediaType: result.mediaType });
+      }
+      if (!file.startsWith("teatime-file://")) {
+        return c.json({ error: "Invalid attachment source" }, 400);
+      }
+      // 中文注释：teatime-file 仍需压缩转码后再落盘。
+      const result = await saveChatImageAttachmentFromTeatimeUrl({
         workspaceId,
-        projectId: projectId || undefined,
+        projectId,
         sessionId,
-        fileName: file.name || "upload",
-        mediaType,
-        buffer,
+        url: file,
       });
       return c.json({ url: result.url, mediaType: result.mediaType });
     } catch (error) {

@@ -16,7 +16,7 @@ import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
 import type { TeatimeUIDataTypes } from "@teatime-ai/api/types/message";
 import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
-import type { MaskedAttachmentInput } from "./chat-attachments";
+import type { ChatAttachmentInput, MaskedAttachmentInput } from "./chat-attachments";
 import { createChatSessionId } from "@/lib/chat-session-id";
 
 function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
@@ -206,11 +206,15 @@ interface ChatContextType extends ReturnType<typeof useChat> {
     }
   >;
   /** 切换到同父的前一个/后一个分支节点 */
-  switchSibling: (messageId: string, direction: "prev" | "next") => void;
+  switchSibling: (
+    messageId: string,
+    direction: "prev" | "next",
+    navOverride?: { prevSiblingId?: string | null; nextSiblingId?: string | null }
+  ) => void;
   /** 重试 assistant：复用其 parent user 消息重新生成（不重复保存 user） */
   retryAssistantMessage: (assistantMessageId: string) => void;
   /** 编辑重发 user：在同 parent 下创建新的 sibling 分支 */
-  resendUserMessage: (userMessageId: string, nextText: string) => void;
+  resendUserMessage: (userMessageId: string, nextText: string, nextParts?: any[]) => void;
   /** 用户手动停止生成（通知服务端终止当前流） */
   stopGenerating: () => void;
   /** 子Agent流式输出缓存（key 为 toolCallId） */
@@ -222,7 +226,7 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   /** Update image generation options for the current chat session. */
   setImageOptions: React.Dispatch<React.SetStateAction<ImageGenerateOptions | undefined>>;
   /** Add image attachments to the chat input. */
-  addAttachments?: (files: FileList | File[]) => void;
+  addAttachments?: (files: FileList | ChatAttachmentInput[]) => void;
   /** Add a masked attachment to the chat input. */
   addMaskedAttachment?: (input: MaskedAttachmentInput) => void;
 }
@@ -273,7 +277,7 @@ type ChatProviderProps = {
   /** Selected chat model source. */
   chatModelSource?: string | null;
   /** Add image attachments to the chat input. */
-  addAttachments?: (files: FileList | File[]) => void;
+  addAttachments?: (files: FileList | ChatAttachmentInput[]) => void;
   /** Add a masked attachment to the chat input. */
   addMaskedAttachment?: (input: MaskedAttachmentInput) => void;
 };
@@ -619,8 +623,12 @@ export default function ChatProvider({
   );
 
   const switchSibling = React.useCallback(
-    async (messageId: string, direction: "prev" | "next") => {
-      const nav = siblingNav?.[messageId];
+    async (
+      messageId: string,
+      direction: "prev" | "next",
+      navOverride?: { prevSiblingId?: string | null; nextSiblingId?: string | null }
+    ) => {
+      const nav = siblingNav?.[messageId] ?? navOverride;
       if (!nav) return;
       const targetId = direction === "prev" ? nav.prevSiblingId : nav.nextSiblingId;
       if (!targetId) return;
@@ -728,7 +736,7 @@ export default function ChatProvider({
   );
 
   const resendUserMessage = React.useCallback(
-    async (userMessageId: string, nextText: string) => {
+    async (userMessageId: string, nextText: string, nextParts?: any[]) => {
       const user = (chat.messages as any[]).find((m) => String(m?.id) === userMessageId);
       if (!user || user.role !== "user") return;
       const parentMessageId =
@@ -766,10 +774,14 @@ export default function ChatProvider({
 
       const nextUserId = generateId();
       needsBranchMetaRefreshRef.current = true;
+      const parts =
+        Array.isArray(nextParts) && nextParts.length > 0
+          ? nextParts
+          : [{ type: "text", text: nextText }];
       await (sendMessage as any)({
         id: nextUserId,
         role: "user",
-        parts: [{ type: "text", text: nextText }],
+        parts,
         parentMessageId,
       });
     },

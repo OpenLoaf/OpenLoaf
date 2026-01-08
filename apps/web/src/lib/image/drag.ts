@@ -16,14 +16,16 @@ export type ImageDragPayload = {
 
 /** Set drag payload for image attachments. */
 export function setImageDragPayload(dataTransfer: DataTransfer, payload: ImageDragPayload) {
+  // 中文注释：清空浏览器默认拖拽数据，避免外部程序识别为文件拖拽。
+  dataTransfer.clearData();
   const fileName = payload.fileName || resolveFileName(payload.baseUri);
   dataTransfer.setData(FILE_DRAG_URI_MIME, payload.baseUri);
   dataTransfer.setData(FILE_DRAG_NAME_MIME, fileName);
   if (payload.maskUri) {
     dataTransfer.setData(FILE_DRAG_MASK_URI_MIME, payload.maskUri);
   }
-  dataTransfer.setData("text/plain", fileName);
-  dataTransfer.setData("text/uri-list", payload.baseUri);
+  // 中文注释：增加 text/plain 标记，确保应用内拖拽可被识别但不暴露文件内容。
+  dataTransfer.setData("text/plain", "teatime-file");
 }
 
 /** Read drag payload for image attachments. */

@@ -51,6 +51,7 @@ export function MiniMap({ snapshot, visible }: MiniMapProps) {
 
   return (
     <div
+      data-board-minimap
       className={cn(
         "pointer-events-none absolute left-4 top-4 z-30 transition-opacity duration-200 ease-out",
         visible ? "opacity-100" : "opacity-0"

@@ -41,7 +41,8 @@ export const TabMenu = ({
   const isActive = tab.id === activeTabId;
   const hasBrowserWindow = Array.isArray(tab.stack) && tab.stack.some((s) => s.component === "electron-browser-window");
   const chatStatus = useTabs((s) => s.chatStatusByTabId[tab.id]);
-  const showThinkingBorder = chatStatus === "streaming";
+  // 中文注释：与 ChatInput 一致，submitted/streaming 都算 SSE 正在加载。
+  const showThinkingBorder = chatStatus === "submitted" || chatStatus === "streaming";
   const thinkingBorderStyle = showThinkingBorder
     ? ({
         // Tab 上的彩虹边框只需要“外框”，内部填充保持与当前区域一致，避免未激活 Tab 看起来像“被选中”。

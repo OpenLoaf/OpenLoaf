@@ -60,7 +60,7 @@ export default function MessageBranchNav({ messageId }: { messageId: string }) {
         disabled={isBusy || !effectiveNav.prevSiblingId}
         aria-label="切换到前一个分支"
         title="切换到前一个分支"
-        onClick={() => switchSibling(messageId, "prev")}
+        onClick={() => switchSibling(messageId, "prev", effectiveNav ?? undefined)}
       >
         <ChevronLeft className="size-3" />
       </Button>
@@ -75,7 +75,7 @@ export default function MessageBranchNav({ messageId }: { messageId: string }) {
         disabled={isBusy || !effectiveNav.nextSiblingId}
         aria-label="切换到后一个分支"
         title="切换到后一个分支"
-        onClick={() => switchSibling(messageId, "next")}
+        onClick={() => switchSibling(messageId, "next", effectiveNav ?? undefined)}
       >
         <ChevronRight className="size-3" />
       </Button>

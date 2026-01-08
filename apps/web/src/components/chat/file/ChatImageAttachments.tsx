@@ -16,6 +16,7 @@ type ChatImageAttachmentsProps = {
   onAddAttachments?: (files: FileList | File[]) => void;
   onRemoveAttachment?: (attachmentId: string) => void;
   onReplaceMaskedAttachment?: (attachmentId: string, input: MaskedAttachmentInput) => void;
+  enableEdit?: boolean;
 };
 
 /**
@@ -25,7 +26,7 @@ export const ChatImageAttachments = React.forwardRef<
   ChatImageAttachmentsHandle,
   ChatImageAttachmentsProps
 >(function ChatImageAttachments(
-  { attachments, onAddAttachments, onRemoveAttachment, onReplaceMaskedAttachment },
+  { attachments, onAddAttachments, onRemoveAttachment, onReplaceMaskedAttachment, enableEdit = true },
   ref
 ) {
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -211,7 +212,7 @@ export const ChatImageAttachments = React.forwardRef<
         }
         activeIndex={0}
         showSave={false}
-        enableEdit
+        enableEdit={enableEdit}
         onApplyMask={(input) => {
           if (!previewAttachment || !onReplaceMaskedAttachment) return;
           onReplaceMaskedAttachment(previewAttachment.id, input);

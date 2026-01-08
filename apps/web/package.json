@@ -86,6 +86,7 @@
     "dedent": "1.0.0",
     "docx-preview": "^0.3.7",
     "html2canvas-pro": "^1.6.1",
+    "html-to-image": "^1.11.11",
     "lodash": "^4.17.21",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.560.0",

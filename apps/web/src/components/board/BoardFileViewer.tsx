@@ -19,10 +19,16 @@ export interface BoardFileViewerProps {
   name?: string;
   /** File extension. */
   ext?: string;
+  /** Panel key used for header actions. */
+  panelKey?: string;
 }
 
 /** Render a board canvas backed by a .ttboard file. */
-const BoardFileViewer = memo(function BoardFileViewer({ uri, ext }: BoardFileViewerProps) {
+const BoardFileViewer = memo(function BoardFileViewer({
+  uri,
+  ext,
+  panelKey,
+}: BoardFileViewerProps) {
   const { workspace } = useWorkspace();
 
   if (!uri) {
@@ -40,6 +46,7 @@ const BoardFileViewer = memo(function BoardFileViewer({ uri, ext }: BoardFileVie
         workspaceId={workspace?.id}
         boardId={uri}
         boardFileUri={uri}
+        panelKey={panelKey}
         nodes={[
           PlaceholderNodeDefinition,
           ImageNodeDefinition,

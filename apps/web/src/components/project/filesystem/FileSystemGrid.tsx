@@ -42,6 +42,9 @@ import { trpc } from "@/utils/trpc";
 import {
   type FileSystemEntry,
   buildTeatimeFileUrl,
+  FILE_DRAG_NAME_MIME,
+  FILE_DRAG_REF_MIME,
+  FILE_DRAG_URI_MIME,
   getEntryExt,
   getRelativePathFromUri,
 } from "./file-system-utils";
@@ -151,8 +154,11 @@ type FileSystemEntryCardProps = {
   onDoubleClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   isSelected?: boolean;
+  isDragOver?: boolean;
   onDragStart?: (event: DragEvent<HTMLButtonElement>) => void;
   onDragOver?: (event: DragEvent<HTMLButtonElement>) => void;
+  onDragEnter?: (event: DragEvent<HTMLButtonElement>) => void;
+  onDragLeave?: (event: DragEvent<HTMLButtonElement>) => void;
   onDrop?: (event: DragEvent<HTMLButtonElement>) => void;
 };
 
@@ -381,8 +387,11 @@ const FileSystemEntryCard = memo(
         onDoubleClick,
         onContextMenu,
         isSelected = false,
+        isDragOver = false,
         onDragStart,
         onDragOver,
+        onDragEnter,
+        onDragLeave,
         onDrop,
       },
       ref
@@ -396,13 +405,15 @@ const FileSystemEntryCard = memo(
           data-entry-uri={entry.uri}
           className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/80 ${
             isSelected ? "bg-muted/70 ring-1 ring-border" : ""
-          }`}
+          } ${isDragOver ? "bg-muted/80 ring-1 ring-border" : ""}`}
           draggable
           onClick={onClick}
           onDoubleClick={onDoubleClick}
           onContextMenu={onContextMenu}
           onDragStart={onDragStart}
           onDragOver={onDragOver}
+          onDragEnter={onDragEnter}
+          onDragLeave={onDragLeave}
           onDrop={onDrop}
         >
           {visual}
@@ -457,6 +468,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   } | null>(null);
   const selectionModeRef = useRef<"replace" | "toggle">("replace");
   const lastSelectedRef = useRef<string>("");
+  // 中文注释：记录当前拖拽悬停的文件夹，用于高亮提示。
+  const [dragOverFolderUri, setDragOverFolderUri] = useState<string | null>(null);
   // 记录最近一次右键触发的条目，用于拦截触控板右键后的误触点击。
   const lastContextMenuRef = useRef<{ uri: string; at: number } | null>(null);
   const [selectionRect, setSelectionRect] = useState<{
@@ -753,6 +766,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
           {entries.map((entry) => {
             const isRenaming = renamingUri === entry.uri;
             const isSelected = selectedUris?.has(entry.uri) ?? false;
+            const isDragOver = entry.kind === "folder" && dragOverFolderUri === entry.uri;
             const thumbnailSrc = thumbnailByUri.get(entry.uri);
             const visual = getEntryVisual(entry, thumbnailSrc);
             const displayName =
@@ -791,6 +805,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 thumbnailSrc={thumbnailSrc}
                 ref={registerEntryRef(entry.uri)}
                 isSelected={isSelected}
+                isDragOver={isDragOver}
                 onClick={(event) => {
                   if (shouldIgnoreContextClick(entry.uri)) return;
                   onEntryClick?.(entry, event);
@@ -954,16 +969,43 @@ const FileSystemGrid = memo(function FileSystemGrid({
                     baseUri: dragUri,
                     fileName: entry.name,
                   });
-                  event.dataTransfer.effectAllowed = "move";
+                  console.debug(
+                    "[FileSystemGrid] dragstart payload",
+                    JSON.stringify({
+                      types: Array.from(event.dataTransfer.types ?? []),
+                      data: {
+                        fileUri: event.dataTransfer.getData(FILE_DRAG_URI_MIME),
+                        fileName: event.dataTransfer.getData(FILE_DRAG_NAME_MIME),
+                        fileRef: event.dataTransfer.getData(FILE_DRAG_REF_MIME),
+                        text: event.dataTransfer.getData("text/plain"),
+                      },
+                    })
+                  );
+                  // 中文注释：允许在应用内复制到聊天，同时支持文件管理中的移动操作。
+                  event.dataTransfer.effectAllowed = "copyMove";
                   onEntryDragStart?.(entry, event);
                 }}
                 onDragOver={(event) => {
                   if (entry.kind !== "folder") return;
+                  setDragOverFolderUri(entry.uri);
                   event.preventDefault();
                   event.dataTransfer.dropEffect = "move";
                 }}
+                onDragEnter={(event) => {
+                  if (entry.kind !== "folder") return;
+                  setDragOverFolderUri(entry.uri);
+                }}
+                onDragLeave={(event) => {
+                  if (entry.kind !== "folder") return;
+                  const nextTarget = event.relatedTarget as Node | null;
+                  if (nextTarget && event.currentTarget.contains(nextTarget)) return;
+                  setDragOverFolderUri((current) =>
+                    current === entry.uri ? null : current
+                  );
+                }}
                 onDrop={(event) => {
                   if (entry.kind !== "folder") return;
+                  setDragOverFolderUri(null);
                   onEntryDrop?.(entry, event);
                 }}
               />

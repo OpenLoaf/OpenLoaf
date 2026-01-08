@@ -20,7 +20,8 @@
 ### 1) 上传阶段（ChatInput 拖入图片）
 
 - 前端调用 `/chat/attachments` 上传文件（`workspaceId` + `sessionId`，`projectId` 可选）。
-- 服务端压缩并写入 `.teatime/chat/{sessionId}/{hash}.{ext}`。
+- 若是 `teatime-file://`，服务端读取源文件后压缩转码并写入 `.teatime/chat/{sessionId}/{hash}.{ext}`。
+- 若是二进制上传，服务端压缩并写入 `.teatime/chat/{sessionId}/{hash}.{ext}`。
 - 返回 `teatime-file://` URL 给前端。
 
 ### 2) 发送阶段（用户点击发送）

@@ -15,13 +15,20 @@ import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useChatContext } from "./ChatProvider";
 import { cn } from "@/lib/utils";
 import SelectMode from "./input/SelectMode";
-import type { ChatAttachment, MaskedAttachmentInput } from "./chat-attachments";
+import type {
+  ChatAttachment,
+  ChatAttachmentInput,
+  MaskedAttachmentInput,
+} from "./chat-attachments";
 import {
   ChatImageAttachments,
   type ChatImageAttachmentsHandle,
 } from "./file/ChatImageAttachments";
 import {
   FILE_DRAG_REF_MIME,
+  FILE_DRAG_NAME_MIME,
+  FILE_DRAG_URI_MIME,
+  FILE_DRAG_MASK_URI_MIME,
 } from "@/components/ui/teatime/drag-drop-types";
 import { readImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
@@ -41,7 +48,7 @@ import {
   parseChatValue,
   serializeChatValue,
 } from "./chat-input-utils";
-import { buildUriFromRoot } from "@/components/project/filesystem/file-system-utils";
+import { buildUriFromRoot, parseTeatimeFileUrl } from "@/components/project/filesystem/file-system-utils";
 import { trpc } from "@/utils/trpc";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTabs } from "@/hooks/use-tabs";
@@ -52,15 +59,17 @@ import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-
 import { toast } from "sonner";
 import { normalizeImageOptions } from "@/lib/chat/image-options";
 import ChatImageOutputOption from "./ChatImageOutputOption";
-import { supportsImageEdit, supportsImageGeneration } from "@/lib/model-capabilities";
+import { supportsImageEdit, supportsImageGeneration, supportsToolCall } from "@/lib/model-capabilities";
 
 interface ChatInputProps {
   className?: string;
   attachments?: ChatAttachment[];
-  onAddAttachments?: (files: FileList | File[]) => void;
+  onAddAttachments?: (files: FileList | ChatAttachmentInput[]) => void;
   onRemoveAttachment?: (attachmentId: string) => void;
   onClearAttachments?: () => void;
   onReplaceMaskedAttachment?: (attachmentId: string, input: MaskedAttachmentInput) => void;
+  canAttachAll?: boolean;
+  canAttachImage?: boolean;
 }
 
 const MAX_CHARS = 2000;
@@ -78,6 +87,31 @@ function base64ToUint8Array(base64: string): Uint8Array {
 
 function isImageFileName(name: string) {
   return /\.(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(name);
+}
+
+function formatDragData(dataTransfer: DataTransfer) {
+  const items = Array.from(dataTransfer.items ?? []).map((item) => ({
+    kind: item.kind,
+    type: item.type,
+  }));
+  const files = Array.from(dataTransfer.files ?? []).map((file) => ({
+    name: file.name,
+    type: file.type,
+    size: file.size,
+  }));
+  return JSON.stringify({
+    types: Array.from(dataTransfer.types ?? []),
+    items,
+    files,
+    data: {
+      fileRef: dataTransfer.getData(FILE_DRAG_REF_MIME),
+      fileUri: dataTransfer.getData(FILE_DRAG_URI_MIME),
+      fileName: dataTransfer.getData(FILE_DRAG_NAME_MIME),
+      fileMaskUri: dataTransfer.getData(FILE_DRAG_MASK_URI_MIME),
+      text: dataTransfer.getData("text/plain"),
+      uriList: dataTransfer.getData("text/uri-list"),
+    },
+  });
 }
 
 
@@ -98,10 +132,15 @@ export interface ChatInputBoxProps {
   onStop?: () => void;
   onCancel?: () => void;
   attachments?: ChatAttachment[];
-  onAddAttachments?: (files: FileList | File[]) => void;
+  onAddAttachments?: (files: FileList | ChatAttachmentInput[]) => void;
   onAddMaskedAttachment?: (input: MaskedAttachmentInput) => void;
   onRemoveAttachment?: (attachmentId: string) => void;
   onReplaceMaskedAttachment?: (attachmentId: string, input: MaskedAttachmentInput) => void;
+  attachmentEditEnabled?: boolean;
+  /** Whether all file types can be attached via drag. */
+  canAttachAll?: boolean;
+  /** Whether image files can be attached via drag. */
+  canAttachImage?: boolean;
   /** Optional header content above the input form. */
   header?: ReactNode;
 }
@@ -127,6 +166,9 @@ export function ChatInputBox({
   onAddMaskedAttachment,
   onRemoveAttachment,
   onReplaceMaskedAttachment,
+  attachmentEditEnabled = true,
+  canAttachAll = false,
+  canAttachImage = false,
   header,
 }: ChatInputBoxProps) {
   const initialValue = useMemo(() => parseChatValue(value), []);
@@ -361,20 +403,42 @@ export function ChatInputBox({
       )}
       onPointerDownCapture={handleMentionPointerDown}
       onDragOver={(event) => {
-        const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
+        const hasImageDrag =
+          event.dataTransfer.types.includes(FILE_DRAG_URI_MIME) ||
+          Boolean(readImageDragPayload(event.dataTransfer));
         const hasFileRef = event.dataTransfer.types.includes(FILE_DRAG_REF_MIME);
-        if (!hasImageDrag && !hasFileRef) return;
+        const hasFiles = event.dataTransfer.files?.length > 0;
+        if (!hasImageDrag && !hasFileRef && !hasFiles) return;
+        if (!canAttachAll && !canAttachImage) return;
         event.preventDefault();
       }}
       onDrop={async (event) => {
+        console.debug("[ChatInput] drop payload", formatDragData(event.dataTransfer));
         const imagePayload = readImageDragPayload(event.dataTransfer);
         if (imagePayload) {
+          if (!canAttachImage && !canAttachAll) return;
+          const payloadFileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
+          const isPayloadImage = Boolean(imagePayload.maskUri) || isImageFileName(payloadFileName);
+          if (!isPayloadImage && canAttachAll) {
+            const fileRef =
+              event.dataTransfer.getData(FILE_DRAG_REF_MIME) ||
+              (() => {
+                if (!imagePayload.baseUri.startsWith("teatime-file://")) return "";
+                const parsed = parseTeatimeFileUrl(imagePayload.baseUri);
+                return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
+              })();
+            if (fileRef) {
+              event.preventDefault();
+              insertFileMention(fileRef);
+            }
+            return;
+          }
           event.preventDefault();
           if (imagePayload.maskUri) {
             if (!onAddMaskedAttachment) return;
             try {
               // 逻辑：拖拽带 mask 的图片时，合成预览并写入附件列表。
-              const fileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
+              const fileName = payloadFileName;
               const baseBlob = await fetchBlobFromUri(imagePayload.baseUri);
               const maskBlob = await fetchBlobFromUri(imagePayload.maskUri);
               const baseFile = new File([baseBlob], fileName, {
@@ -393,7 +457,7 @@ export function ChatInputBox({
           if (!onAddAttachments) return;
           try {
             // 处理从消息中拖拽的图片，复用附件上传流程。
-            const fileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
+            const fileName = payloadFileName;
             const isImageByName = isImageFileName(fileName);
             const blob = await fetchBlobFromUri(imagePayload.baseUri);
             const isImageByType = blob.type.startsWith("image/");
@@ -401,14 +465,36 @@ export function ChatInputBox({
             const file = new File([blob], fileName, {
               type: blob.type || "application/octet-stream",
             });
-            onAddAttachments([file]);
+            const sourceUrl = imagePayload.baseUri.startsWith("teatime-file://")
+              ? imagePayload.baseUri
+              : undefined;
+            // 中文注释：应用内拖拽优先使用 teatime-file 引用上传。
+            onAddAttachments([{ file, sourceUrl }]);
           } catch {
             return;
           }
           return;
         }
+        const files = Array.from(event.dataTransfer.files ?? []);
+        if (files.length > 0) {
+          if (!onAddAttachments) return;
+          if (!canAttachAll && !canAttachImage) return;
+          // 中文注释：支持从系统直接拖入图片文件。
+          event.preventDefault();
+          if (canAttachAll) {
+            onAddAttachments(files);
+          } else {
+            const imageFiles = files.filter(
+              (file) => file.type.startsWith("image/") || isImageFileName(file.name)
+            );
+            if (imageFiles.length === 0) return;
+            onAddAttachments(imageFiles);
+          }
+          return;
+        }
         const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
         if (!fileRef) return;
+        if (!canAttachAll && !canAttachImage) return;
         event.preventDefault();
         const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
         const baseValue = match?.[1] ?? fileRef;
@@ -420,7 +506,9 @@ export function ChatInputBox({
         const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
         const isImageExt = /^(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(ext);
         if (!isImageExt || !onAddAttachments) {
-          insertFileMention(fileRef);
+          if (canAttachAll) {
+            insertFileMention(fileRef);
+          }
           return;
         }
         const rootUri = resolveRootUri(projectId);
@@ -447,7 +535,11 @@ export function ChatInputBox({
       onDropCapture={(event) => {
         const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
         const imagePayload = readImageDragPayload(event.dataTransfer);
-        if (!fileRef && !imagePayload) return;
+        const hasFiles = event.dataTransfer.files?.length > 0;
+        if (!fileRef && !imagePayload && !hasFiles) return;
+        if (imagePayload && !canAttachImage && !canAttachAll) return;
+        if (hasFiles && !canAttachAll && !canAttachImage) return;
+        if (fileRef && !canAttachAll && !canAttachImage) return;
         event.preventDefault();
       }}
     >
@@ -466,6 +558,7 @@ export function ChatInputBox({
           onAddAttachments={onAddAttachments}
           onRemoveAttachment={onRemoveAttachment}
           onReplaceMaskedAttachment={onReplaceMaskedAttachment}
+          enableEdit={attachmentEditEnabled}
         />
 
         <div
@@ -638,6 +731,8 @@ export default function ChatInput({
   onRemoveAttachment,
   onClearAttachments,
   onReplaceMaskedAttachment,
+  canAttachAll,
+  canAttachImage,
 }: ChatInputProps) {
   const {
     sendMessage,
@@ -668,10 +763,15 @@ export default function ChatInput({
   const canImageEdit = supportsImageEdit(selectedModel);
   // 模型声明图片生成时显示图片输出选项。
   const showImageOutputOptions = canImageGeneration;
-  const canAttachImage = isAutoModel
-    ? true
-    : canImageEdit;
-  const handleAddAttachments = canAttachImage ? onAddAttachments : undefined;
+  const allowAll =
+    typeof canAttachAll === "boolean"
+      ? canAttachAll
+      : isAutoModel || supportsToolCall(selectedModel);
+  const allowImage =
+    typeof canAttachImage === "boolean"
+      ? canAttachImage
+      : allowAll || canImageEdit;
+  const handleAddAttachments = allowImage ? onAddAttachments : undefined;
 
   const isLoading = status === "submitted" || status === "streaming";
   const isStreaming = status === "submitted" || status === "streaming";
@@ -698,11 +798,13 @@ export default function ChatInput({
     const hasMaskedAttachment = readyImages.some(
       (item) => item.mask && item.mask.remoteUrl
     );
-    if (!isAutoModel && (hasMaskedAttachment || readyImages.length > 0)) {
-      if (!canImageEdit) {
-        toast.error("当前模型不支持图片编辑");
-        return;
-      }
+    if (!isAutoModel && hasMaskedAttachment && !canImageEdit) {
+      toast.error("当前模型不支持图片编辑");
+      return;
+    }
+    if (!allowImage && readyImages.length > 0) {
+      toast.error("当前模型不支持图片输入");
+      return;
     }
     if (status === "error") clearError();
     const imageParts = readyImages.flatMap((item) => {
@@ -759,6 +861,8 @@ export default function ChatInput({
         onAddMaskedAttachment={addMaskedAttachment}
         onRemoveAttachment={onRemoveAttachment}
         onReplaceMaskedAttachment={onReplaceMaskedAttachment}
+        canAttachAll={allowAll}
+        canAttachImage={allowImage}
         header={
           showImageOutputOptions ? (
             <ChatImageOutputOption

@@ -49,7 +49,7 @@
   "lint-staged": {
     "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue,astro,svelte}": "biome check --apply --write"
   },
-  "packageManager": "pnpm@10.22.0",
+  "packageManager": "pnpm@10.27.0",
   "pnpm": {
     "overrides": {}
   }

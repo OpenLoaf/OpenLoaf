@@ -35,6 +35,7 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
 
   return (
     <div
+      data-board-anchor-overlay
       className="pointer-events-none absolute inset-0 z-20"
     >
       {Array.from(uniqueAnchors.values()).map(anchor => {

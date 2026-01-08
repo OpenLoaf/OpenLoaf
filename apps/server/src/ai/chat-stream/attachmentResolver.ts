@@ -192,6 +192,52 @@ export async function saveChatImageAttachment(input: {
   };
 }
 
+/** Save chat image attachment from a teatime-file url. */
+export async function saveChatImageAttachmentFromTeatimeUrl(input: {
+  /** Workspace id. */
+  workspaceId: string;
+  /** Project id. */
+  projectId?: string;
+  /** Session id. */
+  sessionId: string;
+  /** Source teatime-file url. */
+  url: string;
+}): Promise<{ url: string; mediaType: string }> {
+  const filePath = await resolveTeatimeFilePath(input.url);
+  if (!filePath) {
+    throw new Error("Invalid teatime-file url");
+  }
+  const buffer = await fs.readFile(filePath);
+  const format = resolveImageFormat("application/octet-stream", filePath);
+  if (!format || !isSupportedImageMime(format.mediaType)) {
+    throw new Error("Unsupported image type");
+  }
+  // 中文注释：teatime-file 仍需压缩转码，统一 chat 侧尺寸与质量。
+  const compressed = await compressImageBuffer(buffer, format);
+  const hash = createHash("sha256").update(compressed.buffer).digest("hex");
+  const fileName = resolveChatAttachmentFileName({
+    fileName: path.basename(filePath),
+    hash,
+    ext: compressed.ext,
+  });
+  const relativePath = path.posix.join(".teatime", "chat", input.sessionId, fileName);
+  const root = await resolveChatAttachmentRoot({
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+  });
+  if (!root) {
+    throw new Error("Workspace or project not found");
+  }
+  const targetPath = path.join(root.rootPath, ".teatime", "chat", input.sessionId, fileName);
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.writeFile(targetPath, compressed.buffer);
+
+  return {
+    url: buildTeatimeFileUrl(root.ownerId, relativePath),
+    mediaType: compressed.mediaType,
+  };
+}
+
 /** Build UI file part from teatime-file url. */
 export async function buildFilePartFromTeatimeUrl(input: {
   /** File url. */
