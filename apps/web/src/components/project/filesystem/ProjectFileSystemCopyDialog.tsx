@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, memo, useEffect, useMemo, useState } from "react";
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { ContextMenuItem } from "@/components/ui/context-menu";
 import { toast } from "sonner";
 import { PageTreePicker } from "@/components/layout/sidebar/PageTree";
-import { FileSystemGrid } from "./FileSystemGrid";
+import FileSystemGridController, {
+  type FileSystemGridControllerHandle,
+} from "./FileSystemGridController";
 import { FolderPlus } from "lucide-react";
 import {
   IGNORE_NAMES,
@@ -101,9 +104,11 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
   const [activeUri, setActiveUri] = useState<string | null>(
     defaultRootUri ?? null
   );
+  const gridControllerRef = useRef<FileSystemGridControllerHandle>(null);
 
   const copyMutation = useMutation(trpc.fs.copy.mutationOptions());
   const mkdirMutation = useMutation(trpc.fs.mkdir.mutationOptions());
+  const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(activeUri ? { uri: activeUri } : skipToken)
   );
@@ -207,6 +212,7 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
       const targetName = getUniqueName("新建文件夹", existingNames);
       const targetUri = buildChildUri(activeUri, targetName);
       await mkdirMutation.mutateAsync({ uri: targetUri, recursive: true });
+      gridControllerRef.current?.requestRename({ uri: targetUri, name: targetName });
       await listQuery.refetch();
       toast.success("已新建文件夹");
     } catch (error: any) {
@@ -231,6 +237,9 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
         </DialogHeader>
         <div className="grid gap-2 md:grid-cols-[280px_minmax(0,1fr)] flex-1 min-h-0 overflow-hidden">
           <div className="rounded-2xl border border-border/60 bg-card/60 p-3 min-h-0 overflow-y-auto">
+            <div className="mb-2 flex h-6 items-center text-xs text-muted-foreground">
+              项目
+            </div>
             {projectOptions.length === 0 ? (
               <div className="text-xs text-muted-foreground">暂无可用项目</div>
             ) : (
@@ -241,8 +250,8 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
               />
             )}
           </div>
-          <div className="min-h-[360px] rounded-2xl border border-border/60 bg-card/60 p-4 min-h-0 flex flex-col">
-            <div className="mb-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <div className="min-h-[360px] rounded-2xl border border-border/60 bg-card/60 p-3 min-h-0 flex flex-col">
+            <div className="mb-2 flex h-6 items-center justify-between gap-2 text-xs text-muted-foreground">
               <Breadcrumb>
                 <BreadcrumbList>
                   {breadcrumbItems.length === 0 ? (
@@ -285,12 +294,39 @@ const ProjectFileSystemCopyDialog = memo(function ProjectFileSystemCopyDialog({
               </Button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <FileSystemGrid
+              <FileSystemGridController
+                ref={gridControllerRef}
                 entries={entries}
                 isLoading={listQuery.isLoading}
                 parentUri={parentUri}
                 onNavigate={handleNavigate}
                 showEmptyActions={false}
+                canRenameEntry={(item) => item.kind === "folder"}
+                contextMenuClassName="w-40"
+                onRename={async (target, nextName) => {
+                  if (!activeUri) return null;
+                  try {
+                    const targetUri = buildChildUri(activeUri, nextName);
+                    await renameMutation.mutateAsync({
+                      from: target.uri,
+                      to: targetUri,
+                    });
+                    await listQuery.refetch();
+                    toast.success("已重命名");
+                    return targetUri;
+                  } catch (error: any) {
+                    toast.error(error?.message ?? "重命名失败");
+                    return null;
+                  }
+                }}
+                renderContextMenu={(item, ctx) => {
+                  if (item.kind !== "folder") return null;
+                  return (
+                    <ContextMenuItem onSelect={ctx.startRename}>
+                      重命名
+                    </ContextMenuItem>
+                  );
+                }}
               />
             </div>
           </div>

@@ -83,7 +83,9 @@ export default function ImagePreviewDialog({
       }}
     >
       <DialogContent
-        className="h-auto w-auto max-h-[80vh] max-w-none sm:max-w-none p-0 overflow-hidden flex flex-col gap-0"
+        className={`h-auto w-auto max-h-[80vh] max-w-none sm:max-w-none p-0 overflow-hidden flex flex-col gap-0 transition-opacity duration-200 ${
+          dialogSize ? "opacity-100" : "opacity-0 delay-100"
+        }`}
         overlayClassName="bg-background/35 backdrop-blur-2xl"
         style={dialogSize ? { width: dialogSize.width, height: dialogSize.height } : undefined}
         showCloseButton={false}

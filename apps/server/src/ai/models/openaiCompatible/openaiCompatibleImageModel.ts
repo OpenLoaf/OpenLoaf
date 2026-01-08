@@ -212,6 +212,7 @@ class OpenAiCompatibleImageModel implements ImageModelV3 {
       ...filterHeaders(options.headers),
     };
     let body: RequestInit["body"];
+    let logBody: Record<string, unknown> | undefined;
 
     if (hasEditInput) {
       const sourceFile = options.files?.[0];
@@ -231,6 +232,18 @@ class OpenAiCompatibleImageModel implements ImageModelV3 {
         abortSignal: options.abortSignal,
       });
       form.append("image", imagePayload.blob, imagePayload.fileName);
+      logBody = {
+        model: this.modelId,
+        prompt,
+        n: options.n,
+        ...(options.size ? { size: options.size } : {}),
+        response_format: "b64_json",
+        image: {
+          fileName: imagePayload.fileName,
+          size: imagePayload.blob.size,
+          type: imagePayload.blob.type || undefined,
+        },
+      };
       if (options.mask) {
         const maskPayload = await resolveFilePayload({
           file: options.mask,
@@ -238,19 +251,28 @@ class OpenAiCompatibleImageModel implements ImageModelV3 {
           abortSignal: options.abortSignal,
         });
         form.append("mask", maskPayload.blob, maskPayload.fileName);
+        logBody = {
+          ...(logBody ?? {}),
+          mask: {
+            fileName: maskPayload.fileName,
+            size: maskPayload.blob.size,
+            type: maskPayload.blob.type || undefined,
+          },
+        };
       }
       delete headers["Content-Type"];
       body = form;
     } else {
       headers["Content-Type"] = "application/json";
-      body = JSON.stringify({
+      logBody = {
         model: this.modelId,
         prompt,
         n: options.n,
         ...(options.size ? { size: options.size } : {}),
         response_format: "b64_json",
         ...(options.providerOptions?.openai ?? {}),
-      });
+      };
+      body = JSON.stringify(logBody);
     }
 
     logger.debug(
@@ -262,6 +284,8 @@ class OpenAiCompatibleImageModel implements ImageModelV3 {
         size: options.size,
         hasEditInput,
         hasMask: Boolean(options.mask),
+        // 记录请求 body，便于排查图片接口请求。
+        body: logBody,
       },
       "[openai-compatible] image request",
     );

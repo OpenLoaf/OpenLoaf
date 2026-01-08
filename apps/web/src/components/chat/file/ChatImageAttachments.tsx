@@ -52,6 +52,9 @@ export const ChatImageAttachments = React.forwardRef<
 
   const previewBaseUri = React.useMemo(() => {
     if (!previewAttachment) return "";
+    if (previewAttachment.hasMask) {
+      return previewAttachment.objectUrl || "";
+    }
     return previewAttachment.remoteUrl || previewAttachment.objectUrl || "";
   }, [previewAttachment]);
 

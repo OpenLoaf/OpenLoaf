@@ -252,7 +252,7 @@ export async function runChatStream(input: {
         assistantMessageId,
         parentMessageId: assistantParentUserId,
         requestStartAt,
-        messages: messages as UIMessage[],
+        messages: modelMessages as UIMessage[],
         abortSignal: abortController.signal,
         chatModelId: chatModelId ?? undefined,
         modelDefinition: explicitModelDefinition,

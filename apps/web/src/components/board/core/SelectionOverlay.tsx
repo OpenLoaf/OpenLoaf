@@ -33,6 +33,8 @@ export function SingleSelectionToolbar({
   snapshot,
   onInspect,
 }: SingleSelectionToolbarProps) {
+  // 逻辑：画布锁定时隐藏节点工具条。
+  if (snapshot.locked) return null;
   const definition = engine.nodes.getDefinition(element.type);
   const items = definition?.toolbar?.({
     element,
@@ -97,6 +99,8 @@ export function MultiSelectionToolbar({
   engine,
   onInspect,
 }: MultiSelectionToolbarProps) {
+  // 逻辑：画布锁定时隐藏节点工具条。
+  if (snapshot.locked) return null;
   const selectedNodes = snapshot.selectedIds
     .map(id => snapshot.elements.find(element => element.id === id))
     .filter((element): element is CanvasNodeElement => element?.kind === "node");

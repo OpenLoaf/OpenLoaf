@@ -12,6 +12,7 @@ import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
 interface MessageHumanProps {
   message: UIMessage;
   className?: string;
+  showText?: boolean;
 }
 
 type ImagePreviewState = {
@@ -38,6 +39,7 @@ function resolveBaseNameFromUrl(url: string) {
 export default function MessageHuman({
   message,
   className,
+  showText = true,
 }: MessageHumanProps) {
   const [imageState, setImageState] = React.useState<Record<string, ImagePreviewState>>({});
   const imageStateRef = React.useRef<Record<string, ImagePreviewState>>({});
@@ -209,17 +211,18 @@ export default function MessageHuman({
             })}
           </div>
         )}
-        {(message.parts ?? []).map((part: any, index: number) => {
-          if (part?.type !== "text") return null;
-          if (typeof part.text !== "string" || !part.text) return null;
-          return (
-            <ChatMessageText
-              key={`text-${index}`}
-              value={part.text}
-              className="text-primary-foreground"
-            />
-          );
-        })}
+        {showText &&
+          (message.parts ?? []).map((part: any, index: number) => {
+            if (part?.type !== "text") return null;
+            if (typeof part.text !== "string" || !part.text) return null;
+            return (
+              <ChatMessageText
+                key={`text-${index}`}
+                value={part.text}
+                className="text-primary-foreground"
+              />
+            );
+          })}
       </div>
       <ImagePreviewDialog
         open={previewIndex >= 0}

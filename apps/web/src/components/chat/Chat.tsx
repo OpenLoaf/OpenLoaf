@@ -303,6 +303,7 @@ export function Chat({
   const addMaskedAttachment = React.useCallback(
     (input: MaskedAttachmentInput) => {
       const previewUrl = input.previewUrl || URL.createObjectURL(input.file);
+      const maskPreviewUrl = URL.createObjectURL(input.maskFile);
       const nextAttachment: ChatAttachment = {
         id: generateId(),
         file: input.file,
@@ -310,6 +311,7 @@ export function Chat({
         status: "loading",
         mask: {
           file: input.maskFile,
+          objectUrl: maskPreviewUrl,
           status: "loading",
         },
         hasMask: true,
@@ -352,6 +354,7 @@ export function Chat({
   const replaceMaskedAttachment = React.useCallback(
     (attachmentId: string, input: MaskedAttachmentInput) => {
       const previewUrl = input.previewUrl || URL.createObjectURL(input.file);
+      const maskPreviewUrl = URL.createObjectURL(input.maskFile);
       let targetAttachment: ChatAttachment | null = null;
       setAttachments((prev) =>
         prev.map((item) => {
@@ -370,6 +373,7 @@ export function Chat({
             mediaType: undefined,
             mask: {
               file: input.maskFile,
+              objectUrl: maskPreviewUrl,
               status: "loading",
               errorMessage: undefined,
               remoteUrl: undefined,

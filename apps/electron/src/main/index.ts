@@ -261,10 +261,6 @@ function installApplicationMenu() {
         { role: 'forceReload' },
         { role: 'toggleDevTools' },
         { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { type: 'separator' },
         { role: 'togglefullscreen' },
       ],
     },
@@ -272,7 +268,6 @@ function installApplicationMenu() {
       label: 'Window',
       submenu: [
         { role: 'minimize' },
-        { role: 'zoom' },
         { type: 'separator' },
         { role: 'front' },
         { type: 'separator' },

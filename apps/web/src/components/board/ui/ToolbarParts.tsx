@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { cn } from "@udecode/cn";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /** 仅图标的按钮组件（玻璃风格工具条中的按钮） */
 function IconBtn(props: {
@@ -12,8 +13,19 @@ function IconBtn(props: {
   onPointerDown?: (event: React.PointerEvent<HTMLButtonElement>) => void;
   className?: string;
   disabled?: boolean;
+  /** Tooltip placement side. */
+  tooltipSide?: "top" | "right" | "bottom" | "left";
 }) {
-  const { title, active, children, onClick, onPointerDown, className, disabled } = props;
+  const {
+    title,
+    active,
+    children,
+    onClick,
+    onPointerDown,
+    className,
+    disabled,
+    tooltipSide = "top",
+  } = props;
   const pointerHandledRef = useRef(false);
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (!onPointerDown) return;
@@ -29,24 +41,34 @@ function IconBtn(props: {
     }
     onClick?.();
   };
-  return (
+  const button = (
     <button
       type="button"
       aria-label={title}
-      title={title}
       onClick={handleClick}
       onPointerDown={handlePointerDown}
       disabled={disabled}
       className={cn(
         "inline-flex h-9 w-9 items-center justify-center rounded-lg",
         "transition-colors",
-        active ? "bg-accent/90 text-accent-foreground" : "hover:bg-accent/60",
+        active
+          ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-background"
+          : "hover:bg-accent/60",
         disabled ? "cursor-not-allowed opacity-40" : "",
         className
       )}
     >
       {children}
     </button>
+  );
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side={tooltipSide} sideOffset={6}>
+        {title}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -155,7 +177,9 @@ function PanelItem(props: {
         // 面板条目：上下排列（图标在上、文字在下）
         "inline-flex flex-col items-center",
         sizeClassName,
-        active ? "bg-accent/90 text-accent-foreground" : "hover:bg-accent",
+        active
+          ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-background"
+          : "hover:bg-accent",
         className
       )}
     >

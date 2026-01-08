@@ -143,7 +143,8 @@ function encodeArrayBufferToBase64(buffer: ArrayBuffer): string {
 
 const BRUSH_MIN_SIZE = 8;
 const BRUSH_MAX_SIZE = 120;
-const BRUSH_COLOR = "rgba(56, 189, 248, 0.35)";
+const BRUSH_PREVIEW_COLOR = "rgba(255, 255, 255, 1)";
+const BRUSH_MASK_COLOR = "rgba(255, 255, 255, 1)";
 const BRUSH_TOOL: CanvasStrokeTool = "highlighter";
 
 /** Convert a data/blob url into a File instance. */
@@ -200,12 +201,13 @@ export default function ImageViewer({
   const imageRef = React.useRef<HTMLImageElement | null>(null);
   const overlayCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const maskCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const baseCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = React.useRef(false);
   const hasStrokeRef = React.useRef(false);
   const maskModelIdRef = React.useRef<string>("");
-  const historyRef = React.useRef<Array<{ overlay: ImageData; mask: ImageData }>>([]);
-  const redoRef = React.useRef<Array<{ overlay: ImageData; mask: ImageData }>>([]);
-  const preStrokeRef = React.useRef<{ overlay: ImageData; mask: ImageData } | null>(null);
+  const historyRef = React.useRef<Array<{ mask: ImageData }>>([]);
+  const redoRef = React.useRef<Array<{ mask: ImageData }>>([]);
+  const preStrokeRef = React.useRef<{ mask: ImageData } | null>(null);
   const strokePointsRef = React.useRef<CanvasStrokePoint[]>([]);
   const initialMaskAppliedRef = React.useRef<string>("");
   // 记录容器尺寸，用于计算图片适配缩放。
@@ -285,7 +287,7 @@ export default function ImageViewer({
       ? `data:${payload.mime};base64,${payload.contentBase64}`
       : preview?.src ?? "";
 
-  const displayTitle = title || name || uri || "图片预览";
+  const displayTitle = title || name || "图片预览";
   // 默认保存名按图片加载时刻生成，避免对话框内不断变化。
   const fallbackSaveName = React.useMemo(
     () => formatTimestampBaseName(new Date()),
@@ -302,7 +304,7 @@ export default function ImageViewer({
     dataUrl,
   });
   const canSave = Boolean(showSave) && Boolean(dataUrl) && !isSaving;
-  const showAdjustLayer = (enableEdit && isAdjusting) || hasStroke;
+  const showAdjustLayer = Boolean(initialMaskUri) || (enableEdit && isAdjusting) || hasStroke;
   const handleImageLoad = React.useCallback(
     (event: React.SyntheticEvent<HTMLImageElement>) => {
       const { naturalWidth, naturalHeight } = event.currentTarget;
@@ -312,6 +314,41 @@ export default function ImageViewer({
     },
     [onImageMeta]
   );
+
+  const renderComposite = React.useCallback(() => {
+    const overlayCanvas = overlayCanvasRef.current;
+    const baseImage = imageRef.current;
+    if (!overlayCanvas || !baseImage) return;
+    if (!imageSize.width || !imageSize.height) return;
+    const baseCanvas = baseCanvasRef.current ?? document.createElement("canvas");
+    baseCanvas.width = imageSize.width;
+    baseCanvas.height = imageSize.height;
+    baseCanvasRef.current = baseCanvas;
+    const baseCtx = baseCanvas.getContext("2d");
+    overlayCanvas.width = imageSize.width;
+    overlayCanvas.height = imageSize.height;
+    const ctx = overlayCanvas.getContext("2d");
+    if (!ctx || !baseCtx) return;
+    // 中文注释：绘制棋盘格背景，再绘制原图，最后用 mask 挖空透明区域。
+    const cell = 12;
+    for (let y = 0; y < overlayCanvas.height; y += cell) {
+      for (let x = 0; x < overlayCanvas.width; x += cell) {
+        const isEven = ((x / cell + y / cell) % 2) === 0;
+        ctx.fillStyle = isEven ? "#f3f4f6" : "#e5e7eb";
+        ctx.fillRect(x, y, cell, cell);
+      }
+    }
+    baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
+    baseCtx.drawImage(baseImage, 0, 0, baseCanvas.width, baseCanvas.height);
+    const maskCanvas = maskCanvasRef.current;
+    if (maskCanvas) {
+      baseCtx.globalCompositeOperation = "destination-out";
+      baseCtx.drawImage(maskCanvas, 0, 0, baseCanvas.width, baseCanvas.height);
+      baseCtx.globalCompositeOperation = "source-over";
+    }
+    ctx.drawImage(baseCanvas, 0, 0, overlayCanvas.width, overlayCanvas.height);
+  }, [imageSize.height, imageSize.width]);
+
 
   /** Save the preview image to a user-selected path. */
   const handleSave = async () => {
@@ -380,6 +417,7 @@ export default function ImageViewer({
     setCanUndo(false);
     setCanRedo(false);
     setInitialMaskTick(0);
+    baseCanvasRef.current = null;
   }, [dataUrl]);
 
   const applyInitialMask = React.useCallback(async () => {
@@ -403,21 +441,18 @@ export default function ImageViewer({
     const maskCanvas = maskCanvasRef.current ?? document.createElement("canvas");
     maskCanvas.width = imageSize.width;
     maskCanvas.height = imageSize.height;
-    const overlayCtx = overlayCanvas.getContext("2d");
     const maskCtx = maskCanvas.getContext("2d");
-    if (!overlayCtx || !maskCtx) return;
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    if (!maskCtx) return;
     maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
     const maskImage = await loadImageFromUri(initialMaskUri);
-    overlayCtx.drawImage(maskImage, 0, 0, overlayCanvas.width, overlayCanvas.height);
     maskCtx.drawImage(maskImage, 0, 0, maskCanvas.width, maskCanvas.height);
     maskCanvasRef.current = maskCanvas;
+    renderComposite();
     setHasStroke(true);
     hasStrokeRef.current = true;
     if (isAdjusting) {
       historyRef.current = [
         {
-          overlay: overlayCtx.getImageData(0, 0, overlayCanvas.width, overlayCanvas.height),
           mask: maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height),
         },
       ];
@@ -426,7 +461,7 @@ export default function ImageViewer({
       setCanRedo(false);
     }
     initialMaskAppliedRef.current = applyKey;
-  }, [imageSize.height, imageSize.width, initialMaskUri, isAdjusting]);
+  }, [imageSize.height, imageSize.width, initialMaskUri, isAdjusting, renderComposite]);
 
   React.useEffect(() => {
     if (!dataUrl || !initialMaskUri) return;
@@ -471,8 +506,7 @@ export default function ImageViewer({
     if (overlayCanvas) {
       overlayCanvas.width = imageSize.width;
       overlayCanvas.height = imageSize.height;
-      const overlayCtx = overlayCanvas.getContext("2d");
-      overlayCtx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      renderComposite();
     }
     const maskCanvas = maskCanvasRef.current ?? document.createElement("canvas");
     maskCanvas.width = imageSize.width;
@@ -492,7 +526,7 @@ export default function ImageViewer({
     redoRef.current = [];
     setCanUndo(false);
     setCanRedo(false);
-  }, [imageSize.height, imageSize.width, isAdjusting]);
+  }, [imageSize.height, imageSize.width, isAdjusting, renderComposite]);
 
   React.useEffect(() => {
     if (isAdjusting) return;
@@ -527,9 +561,8 @@ export default function ImageViewer({
     const overlayCanvas = overlayCanvasRef.current;
     const maskCanvas = maskCanvasRef.current;
     if (!overlayCanvas || !maskCanvas) return;
-    const overlayCtx = overlayCanvas.getContext("2d");
     const maskCtx = maskCanvas.getContext("2d");
-    if (!overlayCtx || !maskCtx) return;
+    if (!maskCtx) return;
     const lineWidth = brushSize * point.scale;
     // 逻辑：使用平滑笔迹轮廓绘制，避免线段拼接导致圆圈感。
     const outline = buildStrokeOutline(strokePointsRef.current, {
@@ -538,21 +571,11 @@ export default function ImageViewer({
     });
     const snapshot = preStrokeRef.current;
     if (snapshot) {
-      overlayCtx.putImageData(snapshot.overlay, 0, 0);
       maskCtx.putImageData(snapshot.mask, 0, 0);
     }
     if (outline.length > 0) {
-      overlayCtx.fillStyle = BRUSH_COLOR;
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(outline[0][0], outline[0][1]);
-      for (let i = 1; i < outline.length; i += 1) {
-        overlayCtx.lineTo(outline[i][0], outline[i][1]);
-      }
-      overlayCtx.closePath();
-      overlayCtx.fill();
-
-      // 逻辑：mask 预览保留笔刷颜色与透明度。
-      maskCtx.fillStyle = BRUSH_COLOR;
+      // 逻辑：mask 使用纯白，保证后续转换稳定。
+      maskCtx.fillStyle = BRUSH_MASK_COLOR;
       maskCtx.beginPath();
       maskCtx.moveTo(outline[0][0], outline[0][1]);
       for (let i = 1; i < outline.length; i += 1) {
@@ -561,50 +584,47 @@ export default function ImageViewer({
       maskCtx.closePath();
       maskCtx.fill();
     }
+    renderComposite();
     if (!hasStrokeRef.current) {
       hasStrokeRef.current = true;
       setHasStroke(true);
     }
-  }, [brushSize]);
+  }, [brushSize, renderComposite]);
 
   const pushSnapshot = React.useCallback(() => {
-    const overlayCanvas = overlayCanvasRef.current;
     const maskCanvas = maskCanvasRef.current;
-    if (!overlayCanvas || !maskCanvas) return;
-    const overlayCtx = overlayCanvas.getContext("2d");
+    if (!maskCanvas) return;
     const maskCtx = maskCanvas.getContext("2d");
-    if (!overlayCtx || !maskCtx) return;
-    const overlay = overlayCtx.getImageData(0, 0, overlayCanvas.width, overlayCanvas.height);
+    if (!maskCtx) return;
     const mask = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
-    historyRef.current.push({ overlay, mask });
+    historyRef.current.push({ mask });
     redoRef.current = [];
     setCanUndo(historyRef.current.length > 0);
     setCanRedo(false);
   }, []);
 
-  const applySnapshot = React.useCallback((snapshot?: { overlay: ImageData; mask: ImageData }) => {
+  const applySnapshot = React.useCallback((snapshot?: { mask: ImageData }) => {
     const overlayCanvas = overlayCanvasRef.current;
     const maskCanvas = maskCanvasRef.current;
     if (!overlayCanvas || !maskCanvas) return;
-    const overlayCtx = overlayCanvas.getContext("2d");
     const maskCtx = maskCanvas.getContext("2d");
-    if (!overlayCtx || !maskCtx) return;
+    if (!maskCtx) return;
     if (!snapshot) {
-      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+      renderComposite();
       setHasStroke(false);
       hasStrokeRef.current = false;
       setCanUndo(false);
       setCanRedo(redoRef.current.length > 0);
       return;
     }
-    overlayCtx.putImageData(snapshot.overlay, 0, 0);
     maskCtx.putImageData(snapshot.mask, 0, 0);
+    renderComposite();
     setHasStroke(true);
     hasStrokeRef.current = true;
     setCanUndo(historyRef.current.length > 0);
     setCanRedo(redoRef.current.length > 0);
-  }, []);
+  }, [renderComposite]);
 
   const handleUndo = React.useCallback(() => {
     if (historyRef.current.length === 0) return;
@@ -629,30 +649,26 @@ export default function ImageViewer({
     const overlayCanvas = overlayCanvasRef.current;
     const maskCanvas = maskCanvasRef.current;
     if (!overlayCanvas || !maskCanvas) return;
-    const overlayCtx = overlayCanvas.getContext("2d");
     const maskCtx = maskCanvas.getContext("2d");
-    if (!overlayCtx || !maskCtx) return;
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    if (!maskCtx) return;
     maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+    renderComposite();
     setHasStroke(false);
     hasStrokeRef.current = false;
     preStrokeRef.current = null;
     strokePointsRef.current = [];
     // 清除也写入历史，便于撤销。
     pushSnapshot();
-  }, [pushSnapshot]);
+  }, [pushSnapshot, renderComposite]);
 
   const handleCancelAdjust = React.useCallback(() => {
     const overlayCanvas = overlayCanvasRef.current;
     const maskCanvas = maskCanvasRef.current;
-    if (overlayCanvas) {
-      const overlayCtx = overlayCanvas.getContext("2d");
-      overlayCtx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-    }
     if (maskCanvas) {
       const maskCtx = maskCanvas.getContext("2d");
       maskCtx?.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
     }
+    renderComposite();
     // 取消后清空本次涂抹记录，回到查看模式。
     historyRef.current = [];
     redoRef.current = [];
@@ -673,16 +689,13 @@ export default function ImageViewer({
       if (!point) return;
       event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
-      const overlayCanvas = overlayCanvasRef.current;
-      const maskCanvas = maskCanvasRef.current;
-      const overlayCtx = overlayCanvas?.getContext("2d");
-      const maskCtx = maskCanvas?.getContext("2d");
-      if (overlayCanvas && maskCanvas && overlayCtx && maskCtx) {
-        preStrokeRef.current = {
-          overlay: overlayCtx.getImageData(0, 0, overlayCanvas.width, overlayCanvas.height),
-          mask: maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height),
-        };
-      }
+    const maskCanvas = maskCanvasRef.current;
+    const maskCtx = maskCanvas?.getContext("2d");
+    if (maskCanvas && maskCtx) {
+      preStrokeRef.current = {
+        mask: maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height),
+      };
+    }
       strokePointsRef.current = [];
       isDrawingRef.current = true;
       setCursorPosition({ x: point.displayX, y: point.displayY });
@@ -816,9 +829,8 @@ export default function ImageViewer({
       return;
     }
 
-    const baseImage = imageRef.current;
     const overlayCanvas = overlayCanvasRef.current;
-    if (!baseImage || !overlayCanvas || !imageSize.width || !imageSize.height) {
+    if (!overlayCanvas || !imageSize.width || !imageSize.height) {
       toast.error("图片处理失败");
       return;
     }
@@ -831,7 +843,7 @@ export default function ImageViewer({
       toast.error("图片处理失败");
       return;
     }
-    previewCtx.drawImage(baseImage, 0, 0, previewCanvas.width, previewCanvas.height);
+    // 中文注释：预览使用合成后的 overlay 结果（包含棋盘格 + 透明区域）。
     previewCtx.drawImage(overlayCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
     const previewBlob = await new Promise<Blob | null>((resolve) => {
       previewCanvas.toBlob((value) => resolve(value), "image/png");
@@ -1008,8 +1020,8 @@ export default function ImageViewer({
                 <img
                   ref={imageRef}
                   src={dataUrl}
-                  alt={name ?? uri}
-                  className="block max-h-full max-w-full select-none object-contain"
+                  alt={displayTitle}
+                  className="block max-h-full max-w-full select-none object-contain opacity-0"
                   loading="lazy"
                   decoding="async"
                   draggable={false}
@@ -1029,7 +1041,7 @@ export default function ImageViewer({
                 />
                 {isAdjusting && cursorPosition ? (
                   <div
-                    className="pointer-events-none absolute rounded-full border border-sky-200/80 bg-sky-400/30"
+                    className="pointer-events-none absolute rounded-full border border-white/70 bg-white/30"
                     style={{
                       width: brushSize,
                       height: brushSize,
@@ -1061,7 +1073,7 @@ export default function ImageViewer({
                 <img
                   ref={imageRef}
                   src={dataUrl}
-                  alt={name ?? uri}
+                  alt={displayTitle}
                   className="block max-h-full max-w-full select-none object-contain"
                   loading="lazy"
                   decoding="async"

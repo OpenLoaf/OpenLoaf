@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Lock, Maximize2, Redo2, Undo2, Unlock, ZoomIn, ZoomOut } from "lucide-react";
 
@@ -22,6 +22,9 @@ const ZOOM_HOLD_INTERVAL = 80;
 /** 控制条图标 hover 放大样式。 */
 const controlIconClassName =
   "origin-center transition-transform duration-150 ease-out group-hover:scale-[1.2]";
+/** Build a tooltip title with optional shortcut. */
+const buildControlTitle = (label: string, shortcut?: string) =>
+  shortcut ? `${label} (${shortcut})` : label;
 
 /** Render the left-side toolbar for the board canvas. */
 const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardControlsProps) {
@@ -100,6 +103,20 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
     engine.setLocked(!snapshot.locked);
   }, [engine, snapshot.locked]);
 
+  /** Resolve modifier display based on platform. */
+  const isMac = useMemo(
+    () =>
+      typeof navigator !== "undefined" &&
+      /Mac|iPod|iPhone|iPad/.test(navigator.platform),
+    []
+  );
+  const undoShortcut = isMac ? "⌘Z" : "Ctrl+Z";
+  const redoShortcut = isMac ? "⌘⇧Z" : "Ctrl+Shift+Z / Ctrl+Y";
+  const undoTitle = buildControlTitle("撤销", undoShortcut);
+  const redoTitle = buildControlTitle("前进", redoShortcut);
+  const fitTitle = buildControlTitle("全屏", "F");
+  const lockTitle = buildControlTitle(snapshot.locked ? "解锁" : "锁定", "L");
+
   return (
     <div
       data-board-controls
@@ -111,17 +128,19 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
     >
       <div className="pointer-events-auto flex flex-col items-center gap-1 rounded-2xl bg-background/70 px-1.5 py-1 ring-1 ring-border backdrop-blur-md">
         <IconBtn
-          title="撤销"
+          title={undoTitle}
           onPointerDown={handleUndo}
-          disabled={!snapshot.canUndo}
+          disabled={snapshot.locked || !snapshot.canUndo}
+          tooltipSide="right"
           className="group h-8 w-8"
         >
           <Undo2 size={iconSize} className={controlIconClassName} />
         </IconBtn>
         <IconBtn
-          title="前进"
+          title={redoTitle}
           onPointerDown={handleRedo}
-          disabled={!snapshot.canRedo}
+          disabled={snapshot.locked || !snapshot.canRedo}
+          tooltipSide="right"
           className="group h-8 w-8"
         >
           <Redo2 size={iconSize} className={controlIconClassName} />
@@ -130,6 +149,7 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
           title="放大"
           onPointerDown={startZoomHold("in")}
           disabled={maxZoomReached}
+          tooltipSide="right"
           className="group h-8 w-8"
         >
           <ZoomIn size={iconSize} className={controlIconClassName} />
@@ -138,17 +158,19 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
           title="缩小"
           onPointerDown={startZoomHold("out")}
           disabled={minZoomReached}
+          tooltipSide="right"
           className="group h-8 w-8"
         >
           <ZoomOut size={iconSize} className={controlIconClassName} />
         </IconBtn>
-        <IconBtn title="全屏" onPointerDown={handleFitView} className="group h-8 w-8">
+        <IconBtn title={fitTitle} onPointerDown={handleFitView} tooltipSide="right" className="group h-8 w-8">
           <Maximize2 size={iconSize} className={controlIconClassName} />
         </IconBtn>
         <IconBtn
-          title={snapshot.locked ? "解锁" : "锁定"}
+          title={lockTitle}
           onPointerDown={toggleLock}
           active={snapshot.locked}
+          tooltipSide="right"
           className="group h-8 w-8"
         >
           {snapshot.locked ? (

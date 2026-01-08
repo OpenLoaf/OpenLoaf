@@ -46,6 +46,28 @@ function bindWindowTitle(win: BrowserWindow): void {
 }
 
 /**
+ * Disable all zoom behaviors (menu, shortcuts, trackpad/pinch).
+ */
+function disableZoom(win: BrowserWindow): void {
+  // 禁用缩放，避免快捷键或触控缩放改变显示比例。
+  win.webContents.setVisualZoomLevelLimits(1, 1).catch(() => undefined);
+  // 中文注释：兼容旧版本 API，部分 Electron 版本没有 setLayoutZoomLevelLimits。
+  if (typeof (win.webContents as { setZoomLevelLimits?: (min: number, max: number) => void })
+    .setZoomLevelLimits === 'function') {
+    win.webContents.setZoomLevelLimits(0, 0);
+  }
+  win.webContents.setZoomFactor(1);
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    const isZoomShortcut =
+      (input.control || input.meta) &&
+      (input.key === '+' || input.key === '-' || input.key === '=' || input.key === '0');
+    if (!isZoomShortcut) return;
+    event.preventDefault();
+  });
+}
+
+/**
  * Creates the main window and loads UI:
  * - Load the local loading page first (fast, no dependencies)
  * - Switch to webUrl after apps/web is available
@@ -88,6 +110,7 @@ export async function createMainWindow(args: {
   });
 
   bindWindowTitle(mainWindow);
+  disableZoom(mainWindow);
   args.log('Window created. Loading loading screen...');
   await mainWindow.loadURL(args.entries.loadingWindow);
 

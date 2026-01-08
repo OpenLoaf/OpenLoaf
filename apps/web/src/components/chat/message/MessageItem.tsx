@@ -34,6 +34,13 @@ function MessageItem({
       .map((part: any) => part.text)
       .join("");
   }, [message.parts]);
+  const hasImageParts = React.useMemo(() => {
+    return (message.parts ?? []).some((part: any) => {
+      if (!part || part.type !== "file") return false;
+      if (typeof part.url !== "string") return false;
+      return typeof part.mediaType === "string" && part.mediaType.startsWith("image/");
+    });
+  }, [message.parts]);
 
   // 仅对当前流式输出的最后一条 assistant 消息启用动画。
   const isAnimating =
@@ -97,7 +104,10 @@ function MessageItem({
       {message.role === "user" ? (
         <>
           {isEditing ? (
-            <div className="flex justify-end mb-6">
+            <div className="flex flex-col items-end mb-6">
+              {hasImageParts && (
+                <MessageHuman message={message} showText={false} className="mb-2" />
+              )}
               <ChatInputBox
                 value={draft}
                 onChange={setDraft}

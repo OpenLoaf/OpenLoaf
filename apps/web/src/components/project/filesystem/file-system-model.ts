@@ -69,10 +69,6 @@ export type ProjectFileSystemModel = {
   clipboardSize: number;
   copyDialogOpen: boolean;
   copyEntry: FileSystemEntry | null;
-  renamingUri: string | null;
-  renamingValue: string;
-  selectedUri: string | null;
-  selectedUris: Set<string>;
   isDragActive: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -83,10 +79,6 @@ export type ProjectFileSystemModel = {
   setSearchValue: (value: string) => void;
   setIsSearchOpen: (value: boolean) => void;
   setShowHidden: Dispatch<SetStateAction<boolean>>;
-  setSelectedUris: Dispatch<SetStateAction<Set<string>>>;
-  setSelectedUri: Dispatch<SetStateAction<string | null>>;
-  setSingleSelection: (uri: string | null) => void;
-  setRenamingValue: (value: string) => void;
   handleSortByName: () => void;
   handleSortByTime: () => void;
   handleCopyDialogOpenChange: (open: boolean) => void;
@@ -100,13 +92,11 @@ export type ProjectFileSystemModel = {
   handleOpenDoc: (entry: FileSystemEntry) => void;
   handleOpenSpreadsheet: (entry: FileSystemEntry) => void;
   handleOpenBoard: (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => void;
-  handleRename: (entry: FileSystemEntry) => void;
-  handleRenameSubmit: () => Promise<void>;
-  handleRenameCancel: () => void;
+  renameEntry: (entry: FileSystemEntry, nextName: string) => Promise<string | null>;
   handleDelete: (entry: FileSystemEntry) => Promise<void>;
   handleDeletePermanent: (entry: FileSystemEntry) => Promise<void>;
   handleShowInfo: (entry: FileSystemEntry) => void;
-  handleCreateFolder: () => Promise<void>;
+  handleCreateFolder: () => Promise<{ uri: string; name: string } | null>;
   handleCreateBoard: () => Promise<void>;
   handlePaste: () => Promise<void>;
   handleUploadFiles: (files: File[], targetUri?: string | null) => Promise<void>;
@@ -206,13 +196,6 @@ export function useProjectFileSystemModel({
   const [clipboardSize, setClipboardSize] = useState(fileClipboard?.length ?? 0);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyEntry, setCopyEntry] = useState<FileSystemEntry | null>(null);
-  // Inline rename state.
-  const [renamingUri, setRenamingUri] = useState<string | null>(null);
-  const [renamingValue, setRenamingValue] = useState("");
-  // 当前聚焦项，用于单选与重命名定位。
-  const [selectedUri, setSelectedUri] = useState<string | null>(null);
-  // 多选集合，用于多选高亮与菜单状态判断。
-  const [selectedUris, setSelectedUris] = useState<Set<string>>(() => new Set());
   const [isDragActive, setIsDragActive] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const trashRootUri = useMemo(
@@ -242,12 +225,6 @@ export function useProjectFileSystemModel({
     },
     [onNavigate]
   );
-
-  /** Update selection to a single entry. */
-  const setSingleSelection = useCallback((uri: string | null) => {
-    setSelectedUri(uri);
-    setSelectedUris(uri ? new Set([uri]) : new Set());
-  }, []);
 
   /** Refresh the current folder list. */
   const refreshList = useCallback(() => {
@@ -411,7 +388,6 @@ export function useProjectFileSystemModel({
 
   /** Open copy-to dialog. */
   const handleOpenCopyDialog = (entry: FileSystemEntry) => {
-    setSingleSelection(entry.uri);
     fileClipboard = [entry];
     setClipboardSize(fileClipboard.length);
     setCopyEntry(entry);
@@ -428,14 +404,12 @@ export function useProjectFileSystemModel({
 
   /** Copy file path to clipboard. */
   const handleCopyPath = async (entry: FileSystemEntry) => {
-    setSingleSelection(entry.uri);
     await copyText(getDisplayPathFromUri(entry.uri));
     toast.success("已复制路径");
   };
 
   /** Open file/folder using platform integration. */
   const handleOpen = async (entry: FileSystemEntry) => {
-    setSingleSelection(entry.uri);
     if (entry.kind === "file" && isBoardFileExt(entry.ext)) {
       handleOpenBoard(entry);
       return;
@@ -456,7 +430,6 @@ export function useProjectFileSystemModel({
 
   /** Open item in system file manager. */
   const handleOpenInFileManager = async (entry: FileSystemEntry) => {
-    setSingleSelection(entry.uri);
     if (!isElectron) {
       toast.error("网页版不支持打开文件管理器");
       return;
@@ -473,7 +446,6 @@ export function useProjectFileSystemModel({
   /** Open an image file inside the current tab stack. */
   const handleOpenImage = useCallback(
     (entry: FileSystemEntry) => {
-      setSingleSelection(entry.uri);
       if (!activeTabId) {
         toast.error("未找到当前标签页");
         return;
@@ -492,13 +464,12 @@ export function useProjectFileSystemModel({
         }
       );
     },
-    [activeTabId, pushStackItem, setSingleSelection]
+    [activeTabId, pushStackItem]
   );
 
   /** Open a code file inside the current tab stack. */
   const handleOpenCode = useCallback(
     (entry: FileSystemEntry) => {
-      setSingleSelection(entry.uri);
       if (!activeTabId) {
         toast.error("未找到当前标签页");
         return;
@@ -516,13 +487,12 @@ export function useProjectFileSystemModel({
         },
       });
     },
-    [activeTabId, pushStackItem, projectId, rootUri, setSingleSelection]
+    [activeTabId, pushStackItem, projectId, rootUri]
   );
 
   /** Open a PDF file inside the current tab stack. */
   const handleOpenPdf = useCallback(
     (entry: FileSystemEntry) => {
-      setSingleSelection(entry.uri);
       if (!activeTabId) {
         toast.error("未找到当前标签页");
         return;
@@ -548,13 +518,12 @@ export function useProjectFileSystemModel({
         },
       });
     },
-    [activeTabId, projectId, pushStackItem, rootUri, setSingleSelection]
+    [activeTabId, projectId, pushStackItem, rootUri]
   );
 
   /** Open a DOC file inside the current tab stack. */
   const handleOpenDoc = useCallback(
     (entry: FileSystemEntry) => {
-      setSingleSelection(entry.uri);
       if (!activeTabId) {
         toast.error("未找到当前标签页");
         return;
@@ -571,13 +540,12 @@ export function useProjectFileSystemModel({
         },
       });
     },
-    [activeTabId, pushStackItem, setSingleSelection]
+    [activeTabId, pushStackItem]
   );
 
   /** Open a spreadsheet file inside the current tab stack. */
   const handleOpenSpreadsheet = useCallback(
     (entry: FileSystemEntry) => {
-      setSingleSelection(entry.uri);
       if (!activeTabId) {
         toast.error("未找到当前标签页");
         return;
@@ -594,13 +562,12 @@ export function useProjectFileSystemModel({
         },
       });
     },
-    [activeTabId, pushStackItem, setSingleSelection]
+    [activeTabId, pushStackItem]
   );
 
   /** Open a board file inside the current tab stack. */
   const handleOpenBoard = useCallback(
     (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => {
-      setSingleSelection(entry.uri);
       if (!activeTabId) {
         toast.error("未找到当前标签页");
         return;
@@ -618,53 +585,35 @@ export function useProjectFileSystemModel({
         },
       });
     },
-    [activeTabId, pushStackItem, setSingleSelection]
+    [activeTabId, pushStackItem]
   );
 
-  /** Start inline rename for a file or folder. */
-  const handleRename = (entry: FileSystemEntry) => {
-    setSingleSelection(entry.uri);
-    const displayName = getDisplayFileName(entry.name, entry.ext);
-    setRenamingUri(entry.uri);
-    setRenamingValue(displayName);
-  };
-
-  /** Submit inline rename changes. */
-  const handleRenameSubmit = async () => {
-    if (!activeUri || !renamingUri) return;
-    const targetEntry = fileEntries.find((entry) => entry.uri === renamingUri);
-    if (!targetEntry) {
-      setRenamingUri(null);
-      return;
+  /** Rename a file or folder with validation and history tracking. */
+  const renameEntry = async (entry: FileSystemEntry, nextName: string) => {
+    if (!activeUri) return null;
+    const normalizedName = isBoardFileExt(entry.ext)
+      ? ensureBoardFileName(nextName)
+      : nextName;
+    if (!normalizedName) return null;
+    if (normalizedName === entry.name) return null;
+    const existingNames = new Set(
+      fileEntries
+        .filter((item) => item.uri !== entry.uri)
+        .map((item) => item.name)
+    );
+    if (existingNames.has(normalizedName)) {
+      toast.error("已存在同名文件或文件夹");
+      return null;
     }
-    const rawName = renamingValue.trim();
-    if (!rawName) {
-      setRenamingUri(null);
-      return;
-    }
-    const nextName = isBoardFileExt(targetEntry.ext)
-      ? ensureBoardFileName(rawName)
-      : rawName;
-    if (nextName === targetEntry.name) {
-      setRenamingUri(null);
-      return;
-    }
-    const targetUri = buildChildUri(activeUri, nextName);
-    await renameMutation.mutateAsync({ from: targetEntry.uri, to: targetUri });
-    pushHistory({ kind: "rename", from: targetEntry.uri, to: targetUri });
-    setSelectedUri(targetUri);
+    const targetUri = buildChildUri(activeUri, normalizedName);
+    await renameMutation.mutateAsync({ from: entry.uri, to: targetUri });
+    pushHistory({ kind: "rename", from: entry.uri, to: targetUri });
     refreshList();
-    setRenamingUri(null);
-  };
-
-  /** Cancel inline rename changes. */
-  const handleRenameCancel = () => {
-    setRenamingUri(null);
+    return targetUri;
   };
 
   /** Delete file or folder. */
   const handleDelete = async (entry: FileSystemEntry) => {
-    setSingleSelection(entry.uri);
     const ok = window.confirm(`确认删除「${entry.name}」？`);
     if (!ok) return;
     if (!trashRootUri) return;
@@ -681,7 +630,6 @@ export function useProjectFileSystemModel({
 
   /** Permanently delete (system trash if available). */
   const handleDeletePermanent = async (entry: FileSystemEntry) => {
-    setSingleSelection(entry.uri);
     const ok = window.confirm(`彻底删除「${entry.name}」？此操作不可撤回。`);
     if (!ok) return;
     if (isElectron && window.teatimeElectron?.trashItem) {
@@ -705,7 +653,6 @@ export function useProjectFileSystemModel({
 
   /** Show basic metadata for the entry. */
   const handleShowInfo = (entry: FileSystemEntry) => {
-    setSingleSelection(entry.uri);
     const detail = [
       `类型：${entry.kind === "folder" ? "文件夹" : "文件"}`,
       `大小：${formatSize(entry.size)}`,
@@ -717,16 +664,14 @@ export function useProjectFileSystemModel({
 
   /** Create a new folder in the current directory. */
   const handleCreateFolder = async () => {
-    if (!activeUri) return;
+    if (!activeUri) return null;
     // 以默认名称创建并做唯一性处理，避免覆盖已有目录。
     const targetName = getUniqueName("新建文件夹", new Set(existingNames));
     const targetUri = buildChildUri(activeUri, targetName);
     await mkdirMutation.mutateAsync({ uri: targetUri, recursive: true });
     pushHistory({ kind: "mkdir", uri: targetUri });
-    setSingleSelection(targetUri);
-    setRenamingUri(targetUri);
-    setRenamingValue(targetName);
     refreshList();
+    return { uri: targetUri, name: targetName };
   };
 
   /** Create a new board file in the current directory. */
@@ -739,7 +684,6 @@ export function useProjectFileSystemModel({
     const content = JSON.stringify(snapshot, null, 2);
     await writeFileMutation.mutateAsync({ uri: targetUri, content });
     pushHistory({ kind: "create", uri: targetUri, content });
-    setSingleSelection(targetUri);
     refreshList();
     handleOpenBoard(
       {
@@ -881,7 +825,6 @@ export function useProjectFileSystemModel({
     const targetUri = buildChildUri(target.uri, targetName);
     await renameMutation.mutateAsync({ from: source.uri, to: targetUri });
     pushHistory({ kind: "rename", from: source.uri, to: targetUri });
-    setSingleSelection(targetUri);
     refreshList();
   };
 
@@ -983,10 +926,6 @@ export function useProjectFileSystemModel({
     clipboardSize,
     copyDialogOpen,
     copyEntry,
-    renamingUri,
-    renamingValue,
-    selectedUri,
-    selectedUris,
     isDragActive,
     canUndo,
     canRedo,
@@ -997,10 +936,6 @@ export function useProjectFileSystemModel({
     setSearchValue,
     setIsSearchOpen,
     setShowHidden,
-    setSelectedUris,
-    setSelectedUri,
-    setSingleSelection,
-    setRenamingValue,
     handleSortByName,
     handleSortByTime,
     handleCopyDialogOpenChange,
@@ -1014,9 +949,7 @@ export function useProjectFileSystemModel({
     handleOpenDoc,
     handleOpenSpreadsheet,
     handleOpenBoard,
-    handleRename,
-    handleRenameSubmit,
-    handleRenameCancel,
+    renameEntry,
     handleDelete,
     handleDeletePermanent,
     handleShowInfo,

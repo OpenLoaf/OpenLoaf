@@ -5,6 +5,7 @@ import {
   createContext,
   memo,
   useContext,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -38,7 +39,9 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { FileSystemGrid } from "./FileSystemGrid";
+import FileSystemGridController, {
+  type FileSystemGridControllerHandle,
+} from "./FileSystemGridController";
 import ProjectFileSystemCopyDialog from "./ProjectFileSystemCopyDialog";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import { useProjectFileSystemModel } from "./file-system-model";
@@ -284,6 +287,14 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     onNavigate,
   });
   const headerSlot = useProjectFileSystemHeaderSlot();
+  const gridControllerRef = useRef<FileSystemGridControllerHandle>(null);
+
+  const handleCreateFolder = async () => {
+    const created = await model.handleCreateFolder();
+    if (created) {
+      gridControllerRef.current?.requestRename(created);
+    }
+  };
 
   if (!rootUri) {
     return <div className="p-4 text-sm text-muted-foreground">未绑定项目目录</div>;
@@ -371,7 +382,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               className="h-7 w-7"
               aria-label="新建文件夹"
               title="新建文件夹"
-              onClick={model.handleCreateFolder}
+              onClick={handleCreateFolder}
             >
               <FolderPlus className="h-3.5 w-3.5" />
             </Button>
@@ -458,8 +469,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 key={model.activeUri ?? "root"}
                 className="min-h-full h-full animate-in fade-in slide-in-from-bottom-2 duration-200"
               >
-                <FileSystemGrid
+                <FileSystemGridController
+                  ref={gridControllerRef}
                   entries={model.displayEntries}
+                  renameEntries={model.fileEntries}
                   isLoading={model.listQuery.isLoading}
                   parentUri={model.parentUri}
                   dragProjectId={model.projectId}
@@ -472,118 +485,62 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   onOpenSpreadsheet={model.handleOpenSpreadsheet}
                   onOpenBoard={model.handleOpenBoard}
                   onCreateBoard={model.handleCreateBoard}
-                  selectedUris={model.selectedUris}
-                  onEntryClick={(entry, event) => {
-                    // 中文注释：支持多选，按住 Command/Ctrl 可切换选择。
-                    if (event.metaKey || event.ctrlKey) {
-                      model.setSelectedUris((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(entry.uri)) {
-                          next.delete(entry.uri);
-                        } else {
-                          next.add(entry.uri);
-                        }
-                        model.setSelectedUri(next.size === 1 ? entry.uri : null);
-                        return next;
-                      });
-                      return;
-                    }
-                    model.setSingleSelection(entry.uri);
+                  onRename={(entry, nextName) => model.renameEntry(entry, nextName)}
+                  renderContextMenu={(entry, ctx) => {
+                    const isMultiSelect = ctx.isMultiSelect;
+                    return isMultiSelect ? (
+                      <ContextMenuItem disabled>
+                        已选择 {ctx.selectedUris.size} 项
+                      </ContextMenuItem>
+                    ) : (
+                      <>
+                        <ContextMenuItem onSelect={() => model.handleOpen(entry)}>
+                          打开
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onSelect={() => model.handleOpenInFileManager(entry)}
+                        >
+                          在文件管理器中打开
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem
+                          onSelect={() => model.handleOpenCopyDialog(entry)}
+                        >
+                          复制到
+                        </ContextMenuItem>
+                        <ContextMenuItem onSelect={() => model.handleCopyPath(entry)}>
+                          复制路径
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem onSelect={ctx.startRename}>重命名</ContextMenuItem>
+                        <ContextMenuItem onSelect={() => model.handleDelete(entry)}>
+                          删除
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onSelect={() => model.handleDeletePermanent(entry)}
+                        >
+                          彻底删除
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem onSelect={() => model.handleShowInfo(entry)}>
+                          基本信息
+                        </ContextMenuItem>
+                      </>
+                    );
                   }}
-                  onEntryContextMenu={(entry, event) => {
-                    event.stopPropagation();
-                    // 中文注释：右键项未被选中时，先单选该项。
-                    if (!model.selectedUris.has(entry.uri)) {
-                      model.setSingleSelection(entry.uri);
-                    }
-                  }}
-                  onSelectionChange={(uris, mode) => {
-                    model.setSelectedUris((prev) => {
-                      const next = mode === "toggle" ? new Set(prev) : new Set<string>();
-                      for (const uri of uris) {
-                        if (mode === "toggle") {
-                          if (next.has(uri)) {
-                            next.delete(uri);
-                          } else {
-                            next.add(uri);
-                          }
-                        } else {
-                          next.add(uri);
-                        }
-                      }
-                      model.setSelectedUri(next.size === 1 ? Array.from(next)[0] : null);
-                      return next;
-                    });
-                  }}
-                  renamingUri={model.renamingUri}
-                  renamingValue={model.renamingValue}
-                  onRenamingChange={model.setRenamingValue}
-                  onRenamingSubmit={model.handleRenameSubmit}
-                  onRenamingCancel={model.handleRenameCancel}
                   onEntryDragStart={model.handleEntryDragStart}
                   onEntryDrop={model.handleEntryDrop}
-                  renderEntry={(entry, card) => {
-                    const isMultiSelect = model.selectedUris.size > 1;
-                    return (
-                      <ContextMenu key={entry.uri}>
-                        <ContextMenuTrigger asChild>{card}</ContextMenuTrigger>
-                        <ContextMenuContent className="w-52">
-                          {isMultiSelect ? (
-                            <ContextMenuItem disabled>
-                              已选择 {model.selectedUris.size} 项
-                            </ContextMenuItem>
-                          ) : (
-                            <>
-                              <ContextMenuItem onSelect={() => model.handleOpen(entry)}>
-                                打开
-                              </ContextMenuItem>
-                              <ContextMenuItem
-                                onSelect={() => model.handleOpenInFileManager(entry)}
-                              >
-                                在文件管理器中打开
-                              </ContextMenuItem>
-                              <ContextMenuSeparator />
-                              <ContextMenuItem
-                                onSelect={() => model.handleOpenCopyDialog(entry)}
-                              >
-                                复制到
-                              </ContextMenuItem>
-                              <ContextMenuItem onSelect={() => model.handleCopyPath(entry)}>
-                                复制路径
-                              </ContextMenuItem>
-                              <ContextMenuSeparator />
-                              <ContextMenuItem onSelect={() => model.handleRename(entry)}>
-                                重命名
-                              </ContextMenuItem>
-                              <ContextMenuItem onSelect={() => model.handleDelete(entry)}>
-                                删除
-                              </ContextMenuItem>
-                              <ContextMenuItem
-                                onSelect={() => model.handleDeletePermanent(entry)}
-                              >
-                                彻底删除
-                              </ContextMenuItem>
-                              <ContextMenuSeparator />
-                              <ContextMenuItem onSelect={() => model.handleShowInfo(entry)}>
-                                基本信息
-                              </ContextMenuItem>
-                            </>
-                          )}
-                        </ContextMenuContent>
-                      </ContextMenu>
-                    );
-                }}
                 />
               </div>
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-44">
-            <ContextMenuItem onSelect={model.refreshList}>刷新</ContextMenuItem>
+          <ContextMenuItem onSelect={model.refreshList}>刷新</ContextMenuItem>
             <ContextMenuItem onSelect={() => model.setShowHidden((prev) => !prev)}>
               {model.showHidden ? "✓ 显示隐藏" : "显示隐藏"}
             </ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem onSelect={model.handleCreateFolder}>新建文件夹</ContextMenuItem>
+            <ContextMenuItem onSelect={handleCreateFolder}>新建文件夹</ContextMenuItem>
             <ContextMenuItem disabled>新建文稿</ContextMenuItem>
             <ContextMenuItem onSelect={model.handleCreateBoard}>新建画布</ContextMenuItem>
             <ContextMenuSeparator />

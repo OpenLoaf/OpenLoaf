@@ -429,6 +429,8 @@ export class SelectTool implements CanvasTool {
     if (isMeta) {
       if (key === "z") {
         event.preventDefault();
+        // 逻辑：画布锁定时禁用撤销/重做快捷键。
+        if (engine.isLocked()) return;
         if (event.shiftKey) {
           engine.redo();
           return;
@@ -438,6 +440,8 @@ export class SelectTool implements CanvasTool {
       }
       if (key === "y") {
         event.preventDefault();
+        // 逻辑：画布锁定时禁用撤销/重做快捷键。
+        if (engine.isLocked()) return;
         engine.redo();
         return;
       }

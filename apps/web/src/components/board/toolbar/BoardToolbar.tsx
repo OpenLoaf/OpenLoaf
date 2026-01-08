@@ -48,6 +48,52 @@ type ShapeItem = {
   size: [number, number];
 };
 
+/** Label mapping for toolbar tooltips. */
+const TOOL_LABELS = {
+  select: "选择",
+  hand: "拖拽",
+  pen: "画笔",
+  highlighter: "荧光笔",
+  eraser: "橡皮",
+  shape: "形状",
+  note: "便签",
+  image: "图片",
+  calendar: "日历",
+  sticker: "贴纸",
+  video: "视频",
+} as const;
+
+/** Shortcut mapping for tooltips. */
+const TOOL_SHORTCUTS = {
+  select: "A",
+  hand: "W",
+  pen: "P",
+  highlighter: "K",
+  eraser: "E",
+} as const;
+
+/** Label mapping for insert tool tooltips. */
+const INSERT_TOOL_LABELS: Record<string, string> = {
+  note: TOOL_LABELS.note,
+  image: TOOL_LABELS.image,
+  calendar: TOOL_LABELS.calendar,
+  sticker: TOOL_LABELS.sticker,
+  video: TOOL_LABELS.video,
+};
+
+/** Label mapping for shape tool tooltips. */
+const SHAPE_TOOL_LABELS: Record<string, string> = {
+  "shape-rect": "矩形",
+  "shape-circle": "椭圆",
+  "shape-triangle": "三角形",
+  "shape-diamond": "菱形",
+};
+
+/** Build a tooltip label with optional shortcut suffix. */
+function buildToolTitle(label: string, shortcut?: string): string {
+  return shortcut ? `${label} (${shortcut})` : label;
+}
+
 const BRUSH_SVG_SRC = "/board/brush.svg";
 const CALENDAR_SVG_SRC = "/board/calendar-svgrepo-com.svg";
 const HIGHLIGHTER_SVG_SRC = "/board/highlighter.svg";
@@ -527,12 +573,22 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const isHandTool = snapshot.activeToolId === "hand";
   const isPenTool = snapshot.activeToolId === "pen" || snapshot.activeToolId === "highlighter";
   const isEraserTool = snapshot.activeToolId === "eraser";
+  const isLocked = snapshot.locked;
   const pendingInsert = snapshot.pendingInsert;
-  const penPanelOpen = hoverGroup === "pen" || isPenTool;
+  const penPanelOpen = !isLocked && (hoverGroup === "pen" || isPenTool);
 
   const [penVariant, setPenVariant] = useState<"pen" | "highlighter">("pen");
   const [penSize, setPenSize] = useState<number>(6);
   const [penColor, setPenColor] = useState<string>("#f59e0b");
+  const selectTitle = buildToolTitle(TOOL_LABELS.select, TOOL_SHORTCUTS.select);
+  const handTitle = buildToolTitle(TOOL_LABELS.hand, TOOL_SHORTCUTS.hand);
+  const penTitle = buildToolTitle(TOOL_LABELS.pen, TOOL_SHORTCUTS.pen);
+  const highlighterTitle = buildToolTitle(
+    TOOL_LABELS.highlighter,
+    TOOL_SHORTCUTS.highlighter
+  );
+  const eraserTitle = buildToolTitle(TOOL_LABELS.eraser, TOOL_SHORTCUTS.eraser);
+  const shapeTitle = TOOL_LABELS.shape;
   const toolbarDragRef = useRef<{
     request: CanvasInsertRequest;
     startX: number;
@@ -556,6 +612,12 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   }, [snapshot.activeToolId]);
 
   useEffect(() => {
+    if (!isLocked) return;
+    // 逻辑：锁定画布时关闭悬浮面板，避免残留交互入口。
+    setHoverGroup(null);
+  }, [isLocked]);
+
+  useEffect(() => {
     if (!hoverGroup) return;
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null;
@@ -574,6 +636,9 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
 
   const handleToolChange = useCallback(
     (tool: ToolMode, options?: { keepPanel?: boolean }) => {
+      if (isLocked && (tool === "pen" || tool === "highlighter" || tool === "eraser")) {
+        return;
+      }
       engine.setActiveTool(tool);
       if (tool === "pen" || tool === "highlighter") {
         setPenVariant(tool);
@@ -582,13 +647,13 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         setHoverGroup(null);
       }
     },
-    [engine]
+    [engine, isLocked]
   );
 
   /** Update pending insert requests for one-shot placement. */
   const handleInsertRequest = useCallback(
     (request: CanvasInsertRequest) => {
-      if (snapshot.locked) return;
+      if (isLocked) return;
       engine.getContainer()?.focus();
       if (pendingInsert?.id === request.id) {
         engine.setPendingInsert(null);
@@ -597,7 +662,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
       engine.setPendingInsert(request);
       setHoverGroup(null);
     },
-    [engine, pendingInsert?.id, snapshot.locked]
+    [engine, isLocked, pendingInsert?.id]
   );
 
 
@@ -676,8 +741,9 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
 
   /** Trigger the native image picker. */
   const handlePickImage = useCallback(() => {
+    if (isLocked) return;
     imageInputRef.current?.click();
-  }, []);
+  }, [isLocked]);
 
   /** Handle inserting selected image files. */
   const handleImageChange = useCallback(
@@ -725,7 +791,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         {/* 左侧：持久工具 */}
         <div className="flex items-center gap-2">
           <IconBtn
-            title="Select"
+            title={selectTitle}
             active={isSelectTool}
             onPointerDown={() => handleToolChange("select")}
             className="group h-8 w-8"
@@ -733,7 +799,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             <SelectIcon size={toolbarIconSize} className={toolbarIconClassName} />
           </IconBtn>
           <IconBtn
-            title="Hand"
+            title={handTitle}
             active={isHandTool}
             onPointerDown={() => handleToolChange("hand")}
             className="group h-8 w-8"
@@ -743,13 +809,15 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           <span className="h-8 w-px bg-border/80" />
           <div className="relative">
             <IconBtn
-              title="Pen"
+              title={penVariant === "highlighter" ? highlighterTitle : penTitle}
               active={isPenTool || hoverGroup === "pen"}
               onPointerDown={() => {
+                if (isLocked) return;
                 setHoverGroup("pen");
                 handleToolChange(penVariant, { keepPanel: true });
               }}
               className="group h-10 w-9 overflow-hidden"
+              disabled={isLocked}
             >
               <span className="relative">
                 {penVariant === "highlighter" ? (
@@ -775,7 +843,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5">
                   <PanelItem
-                    title="Pen"
+                    title={penTitle}
                     active={snapshot.activeToolId === "pen"}
                     onPointerDown={() => handleToolChange("pen")}
                     size="sm"
@@ -784,7 +852,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     <BrushToolIcon className="h-8 w-4" style={{ color: penColor }} />
                   </PanelItem>
                   <PanelItem
-                    title="Highlighter"
+                    title={highlighterTitle}
                     active={snapshot.activeToolId === "highlighter"}
                     onPointerDown={() => handleToolChange("highlighter")}
                     size="sm"
@@ -801,12 +869,13 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                       type="button"
                       onPointerDown={event => {
                         event.stopPropagation();
+                        if (isLocked) return;
                         setPenSize(size);
                       }}
                         className={cn(
                           "inline-flex h-7 w-7 items-center justify-center rounded-full",
                           penSize === size
-                            ? "bg-accent/90 text-accent-foreground"
+                            ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-background"
                             : "hover:bg-accent/60"
                         )}
                       aria-label={`Pen size ${size}`}
@@ -823,6 +892,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                       type="button"
                       onPointerDown={event => {
                         event.stopPropagation();
+                        if (isLocked) return;
                         setPenColor(color);
                       }}
                       className={cn(
@@ -839,10 +909,14 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             </HoverPanel>
           </div>
           <IconBtn
-            title="Eraser"
+            title={eraserTitle}
             active={isEraserTool}
-            onPointerDown={() => handleToolChange("eraser")}
+            onPointerDown={() => {
+              if (isLocked) return;
+              handleToolChange("eraser");
+            }}
             className="group h-10 w-9 overflow-hidden"
+            disabled={isLocked}
           >
             <EraserToolIcon
               className={cn(
@@ -859,13 +933,14 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         <div className="flex items-center gap-2">
           <div className="relative">
             <IconBtn
-              title="Shape"
+              title={shapeTitle}
               active={hoverGroup === "shape"}
               onPointerDown={() => {
+                if (isLocked) return;
                 setHoverGroup(current => (current === "shape" ? null : "shape"));
               }}
               className="group h-8 w-8"
-              disabled={snapshot.locked}
+              disabled={isLocked}
             >
               <ShapeIcon size={toolbarIconSize} className={toolbarIconClassName} />
             </IconBtn>
@@ -876,7 +951,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                   return (
                     <PanelItem
                       key={item.id}
-                      title={item.title}
+                      title={SHAPE_TOOL_LABELS[item.id] ?? item.title}
                       onPointerDown={() => {
                         handleInsertRequest({
                           id: item.id,
@@ -913,11 +988,11 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             return (
               <IconBtn
                 key={item.id}
-                title={item.title}
+                title={INSERT_TOOL_LABELS[item.id] ?? item.title}
                 active={isActive}
                 onPointerDown={event => {
+                  if (isLocked) return;
                   if (item.id === "note") {
-                    if (snapshot.locked) return;
                     engine.getContainer()?.focus();
                     if (pendingInsert?.id === item.id) {
                       engine.setPendingInsert(null);
@@ -947,7 +1022,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                   }
                   handleInsertRequest(request);
                 }}
-                disabled={snapshot.locked}
+                disabled={isLocked}
                 className="group h-8 w-8"
               >
                 <Icon size={toolbarIconSize} className={toolbarIconClassName} />

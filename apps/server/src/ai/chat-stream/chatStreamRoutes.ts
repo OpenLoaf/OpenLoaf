@@ -3,6 +3,7 @@ import { getCookie } from "hono/cookie";
 import type { ChatModelSource } from "@teatime-ai/api/common";
 import type { ChatStreamRequest } from "./chatStreamTypes";
 import { runChatStream } from "./chatStreamService";
+import { logger } from "@/common/logger";
 
 /** Register chat stream routes. */
 export function registerChatStreamRoutes(app: Hono) {
@@ -18,6 +19,14 @@ export function registerChatStreamRoutes(app: Hono) {
     if (!parsed.request) {
       return c.json({ error: parsed.error ?? "Invalid request" }, 400);
     }
+
+    // 记录 /chat/sse 请求参数，便于排查。
+    logger.debug(
+      {
+        request: parsed.request,
+      },
+      "[chat] /chat/sse request",
+    );
 
     const cookies = getCookie(c) || {};
     return runChatStream({

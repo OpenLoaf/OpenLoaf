@@ -644,9 +644,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
 
   return (
     <div className="flex min-h-full h-full flex-col">
-      {isLoading ? (
-        <div className="text-sm text-muted-foreground">正在读取文件...</div>
-      ) : null}
+ 
       {!isLoading && entries.length === 0 ? (
         <div className="flex h-full items-center justify-center translate-y-2">
           <Empty>
@@ -696,7 +694,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
       ) : null}
       <div
         ref={gridRef}
-        className="relative flex-1 min-h-full h-full"
+        className="relative flex-1 min-h-full h-full p-0.5"
         onMouseDown={handleGridMouseDown}
       >
         {selectionRect && gridRef.current ? (
@@ -920,6 +918,28 @@ const FileSystemGrid = memo(function FileSystemGrid({
                   onEntryContextMenu?.(entry, event);
                 }}
                 onDragStart={(event) => {
+                  // 中文注释：固定拖拽预览为单个卡片，避免浏览器用整行作为拖拽影像。
+                  const dragPreview = event.currentTarget.cloneNode(true) as HTMLElement;
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  dragPreview.style.position = "absolute";
+                  dragPreview.style.top = "-9999px";
+                  dragPreview.style.left = "-9999px";
+                  dragPreview.style.pointerEvents = "none";
+                  dragPreview.style.width = `${rect.width}px`;
+                  dragPreview.style.height = `${rect.height}px`;
+                  dragPreview.style.transform = "none";
+                  dragPreview.style.opacity = "0.9";
+                  document.body.appendChild(dragPreview);
+                  if (event.dataTransfer?.setDragImage) {
+                    event.dataTransfer.setDragImage(
+                      dragPreview,
+                      rect.width / 2,
+                      rect.height / 2
+                    );
+                  }
+                  requestAnimationFrame(() => {
+                    dragPreview.remove();
+                  });
                   const dragUri = (() => {
                     if (!dragProjectId || !dragRootUri) return entry.uri;
                     const relativePath = getRelativePathFromUri(
