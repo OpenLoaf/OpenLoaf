@@ -120,9 +120,11 @@ export function ChatInputBox({
     getPlainTextValue(initialValue)
   );
   const isOverLimit = plainTextValue.length > MAX_CHARS;
-  const hasReadyAttachments = (attachments ?? []).some(
-    (item) => item.status === "ready" && Boolean(item.remoteUrl)
-  );
+  const hasReadyAttachments = (attachments ?? []).some((item) => {
+    if (item.status !== "ready" || !item.remoteUrl) return false;
+    if (!item.mask) return true;
+    return item.mask.status === "ready" && Boolean(item.mask.remoteUrl);
+  });
   const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
   const lastSerializedRef = useRef(value);
   const { data: projects = [] } = useQuery(trpc.project.list.queryOptions());
@@ -272,7 +274,7 @@ export function ChatInputBox({
       const relativePath = parts.slice(1).join("/");
       if (!projectId || !relativePath) return;
       const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
-      // 中文注释：根据扩展名判断文件类型（图片/代码）。
+      // 根据扩展名判断文件类型（图片/代码）。
       const isImageExt = /^(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(ext);
       const isCodeExt = /^(js|ts|tsx|jsx|json|yml|yaml|toml|ini|py|go|rs|java|cpp|c|h|hpp|css|scss|less|html|xml|sh|zsh|md|mdx)$/i.test(ext);
       if (!isImageExt && !isCodeExt) return;
@@ -302,7 +304,7 @@ export function ChatInputBox({
   );
 
   const insertFileMention = useCallback((fileRef: string) => {
-    // 中文注释：将文件引用插入为 mention，并补一个空格。
+    // 将文件引用插入为 mention，并补一个空格。
     if (!editor.selection) {
       const endPoint = SlateEditor.end(editor as unknown as BaseEditor, []);
       editor.tf.select(endPoint);
@@ -370,7 +372,7 @@ export function ChatInputBox({
         const uri = buildUriFromRoot(rootUri, relativePath);
         if (!uri) return;
         try {
-          // 中文注释：将项目内图片转为 File，交给 ChatImageAttachments 走上传。
+          // 将项目内图片转为 File，交给 ChatImageAttachments 走上传。
           const payload = await queryClient.fetchQuery(
             trpc.fs.readBinary.queryOptions({ uri })
           );
@@ -605,7 +607,7 @@ export default function ChatInput({
   const supportsMultiImageOutput = Boolean(
     selectedModel?.tags?.includes("multi_image_output"),
   );
-  // 中文注释：模型声明 image_output 或 multi_image_output 时显示图片输出选项。
+  // 模型声明 image_output 或 multi_image_output 时显示图片输出选项。
   const showImageOutputOptions = Boolean(
     selectedModel?.tags?.includes("image_output") ||
       selectedModel?.tags?.includes("multi_image_output"),
@@ -614,17 +616,23 @@ export default function ChatInput({
     ? true
     : Boolean(
         selectedModel?.tags?.includes("image_input") ||
+        selectedModel?.tags?.includes("multi_image_input") ||
         selectedModel?.tags?.includes("image_url_input"),
       );
-  const supportsImageInput = Boolean(selectedModel?.tags?.includes("image_input"));
+  const supportsImageInput = Boolean(
+    selectedModel?.tags?.includes("image_input") ||
+      selectedModel?.tags?.includes("multi_image_input"),
+  );
   const supportsImageUrlInput = Boolean(selectedModel?.tags?.includes("image_url_input"));
   const handleAddAttachments = canAttachImage ? onAddAttachments : undefined;
 
   const isLoading = status === "submitted" || status === "streaming";
   const isStreaming = status === "submitted" || status === "streaming";
   const hasPendingAttachments = (attachments ?? []).some(
-    (item) => item.status === "loading"
+    (item) => item.status === "loading" || item.mask?.status === "loading"
   );
+  // 有图片编辑时隐藏比例选项。
+  const hasMaskedAttachment = (attachments ?? []).some((item) => item.mask);
 
   const handleSubmit = async (value: string) => {
     const canSubmit = status === "ready" || status === "error";
@@ -633,10 +641,22 @@ export default function ChatInput({
     if (isHistoryLoading) return;
     if (hasPendingAttachments) return;
     const textValue = value.trim();
-    const readyImages = (attachments ?? []).filter(
-      (item) => item.status === "ready" && Boolean(item.remoteUrl)
-    );
+    const readyImages = (attachments ?? []).filter((item) => {
+      if (item.status !== "ready" || !item.remoteUrl) return false;
+      if (!item.mask) return true;
+      return item.mask.status === "ready" && Boolean(item.mask.remoteUrl);
+    });
     if (!textValue && readyImages.length === 0) return;
+    // 存在遮罩时必须命中 image_mesk_input 模型。
+    const hasMaskedAttachment = readyImages.some(
+      (item) => item.mask && item.mask.remoteUrl
+    );
+    if (!isAutoModel && hasMaskedAttachment) {
+      if (!selectedModel?.tags?.includes("image_mesk_input")) {
+        toast.error("当前模型不支持图片调整");
+        return;
+      }
+    }
     if (!isAutoModel && readyImages.length > 0) {
       let needsImage = false;
       let needsImageUrl = false;
@@ -648,7 +668,7 @@ export default function ChatInput({
           needsImage = true;
         }
       }
-      // 中文注释：不同类型的图片需要不同的输入能力。
+      // 不同类型的图片需要不同的输入能力。
       if ((needsImage && !supportsImageInput) || (needsImageUrl && !supportsImageUrlInput)) {
         if (needsImageUrl && !supportsImageUrlInput) {
           toast.error("当前模型不支持图片链接");
@@ -659,23 +679,30 @@ export default function ChatInput({
       }
     }
     if (status === "error") clearError();
-    const imageParts = readyImages
-      .map((item) => {
-        if (!item.remoteUrl) return null;
-        return {
-          type: "file",
-          url: item.remoteUrl,
-          mediaType: item.mediaType || item.file.type || "application/octet-stream",
-        };
-      })
-      .filter(Boolean) as Array<{ type: "file"; url: string; mediaType: string }>;
+    const imageParts = readyImages.flatMap((item) => {
+      if (!item.remoteUrl) return [];
+      const base = {
+        type: "file" as const,
+        url: item.remoteUrl,
+        mediaType: item.mediaType || item.file.type || "application/octet-stream",
+      };
+      if (!item.mask?.remoteUrl) return [base];
+      // mask 通过 purpose=mask 传递给服务端。
+      const maskPart = {
+        type: "file" as const,
+        url: item.mask.remoteUrl,
+        mediaType: item.mask.mediaType || item.mask.file.type || "application/octet-stream",
+        purpose: "mask" as const,
+      };
+      return [base, maskPart];
+    });
     const parts = [
       ...imageParts,
       ...(textValue ? [{ type: "text", text: textValue }] : []),
     ];
     // 从 chat session 选项读取图片参数，写入本次消息 metadata。
     const normalizedImageOptions = normalizeImageOptions(imageOptions);
-    // 中文注释：不支持多图输出时，避免传递图片数量参数。
+    // 不支持多图输出时，避免传递图片数量参数。
     const safeImageOptions =
       normalizedImageOptions && !supportsMultiImageOutput
         ? (({ n: _n, ...rest }) => (Object.keys(rest).length ? rest : undefined))(
@@ -714,6 +741,7 @@ export default function ChatInput({
             <ChatImageOutputOption
               model={selectedModel}
               variant="inline"
+              hideAspectRatio={hasMaskedAttachment}
             />
           ) : null
         }

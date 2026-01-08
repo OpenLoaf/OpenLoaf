@@ -16,6 +16,8 @@ import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
 import type { TeatimeUIDataTypes } from "@teatime-ai/api/types/message";
 import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
+import type { MaskedAttachmentInput } from "./chat-attachments";
+import { createChatSessionId } from "@/lib/chat-session-id";
 
 function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
   if (input.dataPart?.type !== "data-open-browser") return false;
@@ -219,6 +221,10 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   imageOptions?: ImageGenerateOptions;
   /** Update image generation options for the current chat session. */
   setImageOptions: React.Dispatch<React.SetStateAction<ImageGenerateOptions | undefined>>;
+  /** Add image attachments to the chat input. */
+  addAttachments?: (files: FileList | File[]) => void;
+  /** Add a masked attachment to the chat input. */
+  addMaskedAttachment?: (input: MaskedAttachmentInput) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -233,6 +239,13 @@ export function useChatContext() {
     throw new Error("useChatContext must be used within a ChatProvider");
   }
   return context;
+}
+
+/**
+ * Optional chat context hook.
+ */
+export function useOptionalChatContext() {
+  return useContext(ChatContext);
 }
 
 /**
@@ -259,6 +272,10 @@ type ChatProviderProps = {
   chatModelId?: string | null;
   /** Selected chat model source. */
   chatModelSource?: string | null;
+  /** Add image attachments to the chat input. */
+  addAttachments?: (files: FileList | File[]) => void;
+  /** Add a masked attachment to the chat input. */
+  addMaskedAttachment?: (input: MaskedAttachmentInput) => void;
 };
 
 export default function ChatProvider({
@@ -270,6 +287,8 @@ export default function ChatProvider({
   onSessionChange,
   chatModelId,
   chatModelSource,
+  addAttachments,
+  addMaskedAttachment,
 }: ChatProviderProps) {
   const [scrollToBottomToken, setScrollToBottomToken] = React.useState(0);
   const [scrollToMessageToken, setScrollToMessageToken] = React.useState<{
@@ -517,7 +536,7 @@ export default function ChatProvider({
   const newSession = React.useCallback(() => {
     // 中文注释：立即清空，避免 UI 闪回旧消息。
     stopAndResetSession(true);
-    onSessionChange?.(generateId(), { loadHistory: false });
+    onSessionChange?.(createChatSessionId(), { loadHistory: false });
     // 新会话也滚动到底部（此时通常为空，属于安全操作）
     setScrollToBottomToken((n) => n + 1);
   }, [stopAndResetSession, onSessionChange]);
@@ -797,6 +816,8 @@ export default function ChatProvider({
         stepThinking,
         imageOptions,
         setImageOptions,
+        addAttachments,
+        addMaskedAttachment,
       }}
     >
       {children}

@@ -1,7 +1,6 @@
 import type { Hono } from "hono";
 import { readS3Providers } from "@/modules/settings/teatimeConfStore";
-import type { S3ProviderConf } from "@/modules/settings/settingConfigTypes";
-import { createS3StorageService } from "@/modules/storage/s3StorageService";
+import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
 
 /** Max file size for S3 test uploads. */
 const MAX_S3_TEST_BYTES = 10 * 1024 * 1024;
@@ -25,22 +24,6 @@ function isFileLike(value: unknown): value is File {
  */
 function sanitizeFileName(fileName: string): string {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
-
-/**
- * Map S3 provider config from stored settings.
- */
-function resolveS3ProviderConfig(entry: S3ProviderConf) {
-  return {
-    providerId: entry.providerId,
-    endpoint: entry.endpoint,
-    region: entry.region,
-    bucket: entry.bucket,
-    accessKeyId: entry.accessKeyId,
-    secretAccessKey: entry.secretAccessKey,
-    forcePathStyle: entry.forcePathStyle,
-    publicBaseUrl: entry.publicBaseUrl,
-  };
 }
 
 /**

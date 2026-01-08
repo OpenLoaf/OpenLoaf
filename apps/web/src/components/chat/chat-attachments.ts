@@ -15,14 +15,49 @@ export const CHAT_ATTACHMENT_ACCEPT_ATTR = CHAT_ATTACHMENT_ACCEPT_MIME.join(",")
 
 export type ChatAttachmentStatus = "loading" | "ready" | "error";
 
-export type ChatAttachment = {
-  id: string;
+export type ChatAttachmentMask = {
+  /** Mask file used for image editing. */
   file: File;
-  objectUrl: string;
+  /** Preview URL for the mask (optional). */
+  objectUrl?: string;
+  /** Remote URL resolved after upload. */
   remoteUrl?: string;
+  /** Media type resolved after upload. */
   mediaType?: string;
+  /** Upload status for the mask. */
   status: ChatAttachmentStatus;
+  /** Error message from mask upload. */
   errorMessage?: string;
+};
+
+export type ChatAttachment = {
+  /** Attachment id. */
+  id: string;
+  /** Source file for the attachment. */
+  file: File;
+  /** Preview URL for display. */
+  objectUrl: string;
+  /** Remote URL resolved after upload. */
+  remoteUrl?: string;
+  /** Media type resolved after upload. */
+  mediaType?: string;
+  /** Upload status for the attachment. */
+  status: ChatAttachmentStatus;
+  /** Error message from upload. */
+  errorMessage?: string;
+  /** Optional mask attachment for image editing. */
+  mask?: ChatAttachmentMask;
+  /** Whether this attachment has a mask applied. */
+  hasMask?: boolean;
+};
+
+export type MaskedAttachmentInput = {
+  /** Base image file used for model input. */
+  file: File;
+  /** Mask image file used for editing. */
+  maskFile: File;
+  /** Composite preview URL with brush overlay. */
+  previewUrl: string;
 };
 
 export function formatFileSize(bytes: number) {

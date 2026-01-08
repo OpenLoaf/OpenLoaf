@@ -12,7 +12,7 @@ import {
   formatFileSize,
   isSupportedImageFile,
 } from "./chat-attachments";
-import type { ChatAttachment } from "./chat-attachments";
+import type { ChatAttachment, MaskedAttachmentInput } from "./chat-attachments";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -20,6 +20,7 @@ import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
+import { createChatSessionId } from "@/lib/chat-session-id";
 
 type ChatProps = {
   className?: string;
@@ -47,7 +48,7 @@ export function Chat({
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const dragCounterRef = React.useRef(0);
   const attachmentsRef = React.useRef<ChatAttachment[]>([]);
-  const sessionIdRef = React.useRef<string>(sessionId ?? generateId());
+  const sessionIdRef = React.useRef<string>(sessionId ?? createChatSessionId());
   const effectiveSessionId = sessionId ?? sessionIdRef.current;
   const effectiveLoadHistory = loadHistory ?? Boolean(sessionId);
   const workspaceId =
@@ -57,7 +58,7 @@ export function Chat({
     typeof rawParams.projectId === "string" ? rawParams.projectId.trim() : "";
   const requestParams = React.useMemo(() => {
     const nextParams: Record<string, unknown> = { ...rawParams };
-    // 中文注释：workspaceId/projectId 放入 SSE 请求体，避免后端缺失绑定信息。
+    // workspaceId/projectId 放入 SSE 请求体，避免后端缺失绑定信息。
     if (workspaceId) nextParams.workspaceId = workspaceId;
     else delete (nextParams as any).workspaceId;
     if (projectId) nextParams.projectId = projectId;
@@ -76,15 +77,16 @@ export function Chat({
     typeof basic.modelDefaultChatModelId === "string"
       ? basic.modelDefaultChatModelId.trim()
       : "";
-  // 中文注释：模型不存在时回退为 Auto，避免透传无效 modelId。
+  // 模型不存在时回退为 Auto，避免透传无效 modelId。
   const selectedModel = modelOptions.find((option) => option.id === rawSelectedModelId);
   const selectedModelId = selectedModel ? rawSelectedModelId : "";
   const isAutoModel = !selectedModelId;
-  // 中文注释：自动模式允许图片，非自动时必须显式支持 image_input 或 image_url_input。
+  // 自动模式允许图片，非自动时必须显式支持 image_input/multi_image_input 或 image_url_input。
   const canAttachImage = isAutoModel
     ? true
     : Boolean(
         selectedModel?.tags?.includes("image_input") ||
+        selectedModel?.tags?.includes("multi_image_input") ||
         selectedModel?.tags?.includes("image_url_input"),
       );
 
@@ -108,6 +110,9 @@ export function Chat({
     return () => {
       for (const attachment of attachmentsRef.current) {
         URL.revokeObjectURL(attachment.objectUrl);
+        if (attachment.mask?.objectUrl) {
+          URL.revokeObjectURL(attachment.mask.objectUrl);
+        }
       }
     };
   }, []);
@@ -115,14 +120,24 @@ export function Chat({
   const removeAttachment = React.useCallback((attachmentId: string) => {
     setAttachments((prev) => {
       const target = prev.find((item) => item.id === attachmentId);
-      if (target) URL.revokeObjectURL(target.objectUrl);
+      if (target) {
+        URL.revokeObjectURL(target.objectUrl);
+        if (target.mask?.objectUrl) {
+          URL.revokeObjectURL(target.mask.objectUrl);
+        }
+      }
       return prev.filter((item) => item.id !== attachmentId);
     });
   }, []);
 
   const clearAttachments = React.useCallback(() => {
     setAttachments((prev) => {
-      for (const item of prev) URL.revokeObjectURL(item.objectUrl);
+      for (const item of prev) {
+        URL.revokeObjectURL(item.objectUrl);
+        if (item.mask?.objectUrl) {
+          URL.revokeObjectURL(item.mask.objectUrl);
+        }
+      }
       return [];
     });
   }, []);
@@ -136,20 +151,29 @@ export function Chat({
     []
   );
 
-  const uploadAttachment = React.useCallback(
-    async (attachment: ChatAttachment) => {
+  /** Update mask metadata for an attachment. */
+  const updateMaskAttachment = React.useCallback(
+    (attachmentId: string, updates: Partial<NonNullable<ChatAttachment["mask"]>>) => {
+      setAttachments((prev) =>
+        prev.map((item) =>
+          item.id === attachmentId && item.mask ? { ...item, mask: { ...item.mask, ...updates } } : item
+        )
+      );
+    },
+    []
+  );
+
+  /** Upload a file and return the remote url payload. */
+  const uploadFile = React.useCallback(
+    async (file: File) => {
       if (!workspaceId) {
-        updateAttachment(attachment.id, {
-          status: "error",
-          errorMessage: "当前标签页未绑定工作区，无法上传图片",
-        });
-        return;
+        return { ok: false as const, errorMessage: "当前标签页未绑定工作区，无法上传图片" };
       }
-      // 中文注释：上传后端生成 teatime-file 地址，后续仅存该引用。
+      // 上传后端生成 teatime-file 地址，后续仅存该引用。
       const formData = new FormData();
-      formData.append("file", attachment.file);
+      formData.append("file", file);
       formData.append("workspaceId", workspaceId);
-      // 中文注释：无项目时退回到 workspace 根目录。
+      // 无项目时退回到 workspace 根目录。
       if (projectId) formData.append("projectId", projectId);
       formData.append("sessionId", effectiveSessionId);
 
@@ -162,38 +186,91 @@ export function Chat({
         });
         if (!res.ok) {
           const errorText = await res.text();
-          updateAttachment(attachment.id, {
-            status: "error",
+          return {
+            ok: false as const,
             errorMessage: errorText || "图片上传失败，请重试",
-          });
-          return;
+          };
         }
         const data = (await res.json()) as {
           url?: string;
           mediaType?: string;
         };
         if (!data?.url) {
-          updateAttachment(attachment.id, {
-            status: "error",
+          return {
+            ok: false as const,
             errorMessage: "图片上传失败：服务端未返回地址",
-          });
-          return;
+          };
         }
-        updateAttachment(attachment.id, {
-          status: "ready",
-          remoteUrl: data.url,
-          mediaType: data.mediaType ?? attachment.file.type,
-        });
+        return {
+          ok: true as const,
+          url: data.url,
+          mediaType: data.mediaType ?? file.type,
+        };
       } catch {
-        updateAttachment(attachment.id, {
-          status: "error",
-          errorMessage: "图片上传失败，请检查网络连接",
-        });
+        return { ok: false as const, errorMessage: "图片上传失败，请检查网络连接" };
       }
     },
-    [effectiveSessionId, projectId, updateAttachment, workspaceId]
+    [effectiveSessionId, projectId, workspaceId]
   );
 
+  /** Upload the main attachment file. */
+  const uploadAttachment = React.useCallback(
+    async (attachment: ChatAttachment) => {
+      const result = await uploadFile(attachment.file);
+      if (!result.ok) {
+        updateAttachment(attachment.id, {
+          status: "error",
+          errorMessage: result.errorMessage,
+        });
+        return result;
+      }
+      updateAttachment(attachment.id, {
+        status: "ready",
+        remoteUrl: result.url,
+        mediaType: result.mediaType,
+      });
+      return result;
+    },
+    [updateAttachment, uploadFile]
+  );
+
+  /** Upload the mask file for an attachment. */
+  const uploadMaskAttachment = React.useCallback(
+    async (attachmentId: string, maskFile: File) => {
+      const result = await uploadFile(maskFile);
+      if (!result.ok) {
+        updateMaskAttachment(attachmentId, {
+          status: "error",
+          errorMessage: result.errorMessage,
+        });
+        updateAttachment(attachmentId, {
+          status: "error",
+          errorMessage: result.errorMessage,
+        });
+        return;
+      }
+      updateMaskAttachment(attachmentId, {
+        status: "ready",
+        remoteUrl: result.url,
+        mediaType: result.mediaType,
+      });
+    },
+    [updateAttachment, updateMaskAttachment, uploadFile]
+  );
+
+  const resolveMaskFileName = React.useCallback((url: string) => {
+    try {
+      const parsed = new URL(url);
+      const segments = parsed.pathname.split("/");
+      const fileName = decodeURIComponent(segments[segments.length - 1] || "");
+      const baseName = fileName.replace(/\.[a-zA-Z0-9]+$/, "");
+      return baseName ? `${baseName}_mask.png` : "mask.png";
+    } catch {
+      return "mask.png";
+    }
+  }, []);
+
+  /** Add normal attachments from files. */
   const addAttachments = React.useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
@@ -234,6 +311,55 @@ export function Chat({
       void uploadAttachment(item);
     }
   }, [uploadAttachment]);
+
+  /** Add a masked attachment and trigger uploads. */
+  const addMaskedAttachment = React.useCallback(
+    (input: MaskedAttachmentInput) => {
+      const previewUrl = input.previewUrl || URL.createObjectURL(input.file);
+      const nextAttachment: ChatAttachment = {
+        id: generateId(),
+        file: input.file,
+        objectUrl: previewUrl,
+        status: "loading",
+        mask: {
+          file: input.maskFile,
+          status: "loading",
+        },
+        hasMask: true,
+      };
+
+      setAttachments((prev) => {
+        // 仅允许存在一张带 mask 的附件，新建时替换旧的。
+        const next: ChatAttachment[] = [];
+        for (const item of prev) {
+          if (item.hasMask) {
+            URL.revokeObjectURL(item.objectUrl);
+            if (item.mask?.objectUrl) {
+              URL.revokeObjectURL(item.mask.objectUrl);
+            }
+            continue;
+          }
+          next.push(item);
+        }
+        next.push(nextAttachment);
+        return next;
+      });
+
+      void (async () => {
+        const imageResult = await uploadAttachment(nextAttachment);
+        if (!imageResult?.ok) return;
+        const maskFileName = resolveMaskFileName(imageResult.url);
+        const renamedMaskFile = new File([input.maskFile], maskFileName, {
+          type: input.maskFile.type || "image/png",
+        });
+        updateMaskAttachment(nextAttachment.id, {
+          file: renamedMaskFile,
+        });
+        await uploadMaskAttachment(nextAttachment.id, renamedMaskFile);
+      })();
+    },
+    [resolveMaskFileName, updateMaskAttachment, uploadAttachment, uploadMaskAttachment]
+  );
 
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
     if (!event.dataTransfer?.types?.includes("Files")) return;
@@ -301,6 +427,8 @@ export function Chat({
       chatModelSource={chatModelSource}
       params={requestParams}
       onSessionChange={onSessionChange}
+      addAttachments={addAttachments}
+      addMaskedAttachment={addMaskedAttachment}
     >
       <div
         ref={rootRef}

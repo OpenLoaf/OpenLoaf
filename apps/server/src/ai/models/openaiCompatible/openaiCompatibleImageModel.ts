@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import type {
   ImageModelV3,
   ImageModelV3CallOptions,
+  ImageModelV3File,
   ImageModelV3Usage,
   SharedV3Warning,
 } from "@ai-sdk/provider";
@@ -59,11 +60,79 @@ type OpenAiCompatibleImageResponse = {
   } | null;
 };
 
+/** OpenAI compatible image generation path. */
+const OPENAI_COMPATIBLE_GENERATE_PATH = "/images/generations";
+/** OpenAI compatible image edit path. */
+const OPENAI_COMPATIBLE_EDIT_PATH = "/images/edits";
+/** Default image extension. */
+const DEFAULT_IMAGE_EXTENSION = "png";
+
 /** 过滤 undefined 的 headers。 */
 function filterHeaders(headers?: Record<string, string | undefined>): Record<string, string> {
   if (!headers) return {};
   const entries = Object.entries(headers).filter(([, value]) => typeof value === "string");
   return Object.fromEntries(entries) as Record<string, string>;
+}
+
+/** Resolve image extension from media type. */
+function resolveImageExtension(mediaType?: string): string {
+  if (!mediaType) return DEFAULT_IMAGE_EXTENSION;
+  const normalized = mediaType.toLowerCase();
+  if (normalized.includes("png")) return "png";
+  if (normalized.includes("jpeg") || normalized.includes("jpg")) return "jpg";
+  if (normalized.includes("webp")) return "webp";
+  return DEFAULT_IMAGE_EXTENSION;
+}
+
+/** Resolve image extension from URL. */
+function resolveImageExtensionFromUrl(url: string): string {
+  const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
+  if (!match) return DEFAULT_IMAGE_EXTENSION;
+  const ext = match[1]?.toLowerCase() ?? "";
+  if (ext === "jpeg") return "jpg";
+  return ext || DEFAULT_IMAGE_EXTENSION;
+}
+
+/** Resolve media type from extension. */
+function resolveMediaTypeFromExtension(ext: string): string {
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "webp") return "image/webp";
+  if (ext === "png") return "image/png";
+  return "image/png";
+}
+
+/** Resolve file payload for multipart. */
+async function resolveFilePayload(input: {
+  file: ImageModelV3File;
+  fallbackName: string;
+  abortSignal?: AbortSignal;
+}): Promise<{ blob: Blob; fileName: string }> {
+  if (input.file.type === "url") {
+    const response = await fetch(input.file.url, { signal: input.abortSignal });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`图片下载失败: ${response.status} ${text}`.trim());
+    }
+    const buffer = await response.arrayBuffer();
+    const contentType = response.headers.get("content-type")?.split(";")[0]?.trim() ?? "";
+    const ext = contentType
+      ? resolveImageExtension(contentType)
+      : resolveImageExtensionFromUrl(input.file.url);
+    const mediaType = contentType || resolveMediaTypeFromExtension(ext);
+    return {
+      blob: new Blob([buffer], { type: mediaType }),
+      fileName: `${input.fallbackName}.${ext}`,
+    };
+  }
+  const mediaType = input.file.mediaType || resolveMediaTypeFromExtension(DEFAULT_IMAGE_EXTENSION);
+  const data =
+    typeof input.file.data === "string"
+      ? Buffer.from(input.file.data, "base64")
+      : input.file.data;
+  return {
+    blob: new Blob([data], { type: mediaType }),
+    fileName: `${input.fallbackName}.${resolveImageExtension(mediaType)}`,
+  };
 }
 
 /** 解析 usage 信息。 */
@@ -125,9 +194,7 @@ class OpenAiCompatibleImageModel implements ImageModelV3 {
     if (!prompt) {
       throw new Error("图片生成缺少提示词");
     }
-    if (options.files?.length || options.mask) {
-      throw new Error("当前模型不支持图像编辑");
-    }
+    const hasEditInput = (options.files?.length ?? 0) > 0 || Boolean(options.mask);
 
     const apiKey = readApiKey(this.input.provider.authConfig);
     const apiUrl =
@@ -137,15 +204,54 @@ class OpenAiCompatibleImageModel implements ImageModelV3 {
     }
 
     const baseUrl = ensureOpenAiCompatibleBaseUrl(apiUrl);
-    const requestUrl = `${baseUrl}/images/generations`;
-    const body = {
-      model: this.modelId,
-      prompt,
-      n: options.n,
-      ...(options.size ? { size: options.size } : {}),
-      response_format: "b64_json",
-      ...(options.providerOptions?.openai ?? {}),
+    const requestUrl = `${baseUrl}${
+      hasEditInput ? OPENAI_COMPATIBLE_EDIT_PATH : OPENAI_COMPATIBLE_GENERATE_PATH
+    }`;
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+      ...filterHeaders(options.headers),
     };
+    let body: RequestInit["body"];
+
+    if (hasEditInput) {
+      const sourceFile = options.files?.[0];
+      if (!sourceFile) {
+        throw new Error("图片编辑缺少原图");
+      }
+      const form = new FormData();
+      form.append("model", this.modelId);
+      form.append("prompt", prompt);
+      form.append("n", String(options.n));
+      if (options.size) form.append("size", options.size);
+      form.append("response_format", "b64_json");
+      // 图像编辑需要以 multipart 传递原图与 mask。
+      const imagePayload = await resolveFilePayload({
+        file: sourceFile,
+        fallbackName: "image",
+        abortSignal: options.abortSignal,
+      });
+      form.append("image", imagePayload.blob, imagePayload.fileName);
+      if (options.mask) {
+        const maskPayload = await resolveFilePayload({
+          file: options.mask,
+          fallbackName: "mask",
+          abortSignal: options.abortSignal,
+        });
+        form.append("mask", maskPayload.blob, maskPayload.fileName);
+      }
+      delete headers["Content-Type"];
+      body = form;
+    } else {
+      headers["Content-Type"] = "application/json";
+      body = JSON.stringify({
+        model: this.modelId,
+        prompt,
+        n: options.n,
+        ...(options.size ? { size: options.size } : {}),
+        response_format: "b64_json",
+        ...(options.providerOptions?.openai ?? {}),
+      });
+    }
 
     logger.debug(
       {
@@ -154,18 +260,16 @@ class OpenAiCompatibleImageModel implements ImageModelV3 {
         requestUrl,
         promptLength: prompt.length,
         size: options.size,
+        hasEditInput,
+        hasMask: Boolean(options.mask),
       },
       "[openai-compatible] image request",
     );
 
     const response = await this.fetcher(requestUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        ...filterHeaders(options.headers),
-      },
-      body: JSON.stringify(body),
+      headers,
+      body,
       signal: options.abortSignal,
     });
 

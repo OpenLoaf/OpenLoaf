@@ -9,7 +9,7 @@ type ResolvedImageModel = {
   /** Resolved ImageModelV3 instance. */
   model: ImageModelV3;
   /** Provider metadata. */
-  modelInfo: { provider: string; modelId: string };
+  modelInfo: { provider: string; modelId: string; adapterId: string };
   /** Image model id key. */
   imageModelId: string;
   /** Optional model definition. */
@@ -155,7 +155,7 @@ async function resolveImageModelFromProviders(input: {
       // provider 采用后端配置的 provider id，确保可追踪真实请求来源。
       return {
         model,
-        modelInfo: { provider: resolvedProviderId, modelId: parsed.modelId },
+        modelInfo: { provider: resolvedProviderId, modelId: parsed.modelId, adapterId },
         imageModelId: candidate,
         modelDefinition,
       };

@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { DEFAULT_TAB_INFO, type DockItem, type Tab } from "@teatime-ai/api/common";
+import { createChatSessionId } from "@/lib/chat-session-id";
 
 export const TABS_STORAGE_KEY = "teatime:tabs";
 
@@ -286,7 +287,7 @@ export const useTabs = create<TabsState>()(
           const normalizedBase = base?.component === "ai-chat" ? undefined : base;
 
           const tabId = generateId("tab");
-          const createdChatSessionId = requestedChatSessionId ?? generateId("chat");
+          const createdChatSessionId = requestedChatSessionId ?? createChatSessionId();
           const createdChatLoadHistory = chatLoadHistory ?? Boolean(requestedChatSessionId);
 
           const nextTab = normalizeDock({

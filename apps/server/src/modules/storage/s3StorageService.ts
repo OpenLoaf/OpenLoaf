@@ -3,8 +3,14 @@ import { DEFAULT_S3_EXPIRE_DAYS } from "@teatime-ai/api/types/storage";
 import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import type { Readable } from "node:stream";
 import { logger } from "@/common/logger";
+import type { S3ProviderConf } from "@/modules/settings/settingConfigTypes";
 
-import { buildS3ClientConfig, getS3Client, type S3ClientConfig } from "./s3Client";
+import {
+  buildS3ClientConfig,
+  getS3Client,
+  type S3ClientConfig,
+  resolveS3Template,
+} from "./s3Client";
 
 export type PutS3ObjectInput = {
   /** Object key in the bucket. */
@@ -114,15 +120,17 @@ export function createS3StorageService(provider: S3ProviderConfig): S3StorageSer
  */
 export function resolveS3PublicUrl(config: S3ClientConfig, key: string): string {
   if (config.publicBaseUrl) {
-    return joinUrl(config.publicBaseUrl, key);
+    const baseUrl = resolveS3Template(config.publicBaseUrl, config);
+    return joinUrl(baseUrl, key);
   }
 
   if (config.endpoint) {
-    const endpoint = config.endpoint.replace(/\/$/, "");
+    const rawEndpoint = config.endpoint.replace(/\/$/, "");
+    const endpoint = resolveS3Template(rawEndpoint, config);
 
-    // endpoint 可能包含 {bucket} 占位符，用于虚拟托管域名格式。
-    if (endpoint.includes("{bucket}")) {
-      return joinUrl(endpoint.replace("{bucket}", config.bucket), key);
+    // endpoint 可能包含 {bucket}/{region} 占位符，用于虚拟托管域名格式。
+    if (rawEndpoint.includes("{bucket}") || rawEndpoint.includes("{region}")) {
+      return joinUrl(endpoint, key);
     }
 
     // forcePathStyle 时显式拼接 bucket，否则默认假设 endpoint 指向 bucket 域名。
@@ -149,6 +157,22 @@ export function formatS3TaggingHeader(tagging?: S3ObjectTagging): string | undef
   }
 
   return pairs.length > 0 ? pairs.join("&") : undefined;
+}
+
+/**
+ * Map S3 provider config from stored settings.
+ */
+export function resolveS3ProviderConfig(entry: S3ProviderConf): S3ProviderConfig {
+  return {
+    providerId: entry.providerId,
+    endpoint: entry.endpoint,
+    region: entry.region,
+    bucket: entry.bucket,
+    accessKeyId: entry.accessKeyId,
+    secretAccessKey: entry.secretAccessKey,
+    forcePathStyle: entry.forcePathStyle,
+    publicBaseUrl: entry.publicBaseUrl,
+  };
 }
 
 /**

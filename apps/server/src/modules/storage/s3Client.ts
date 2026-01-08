@@ -85,13 +85,7 @@ function buildS3ClientCacheKey(config: S3ClientConfig): string {
 function resolveS3Endpoint(config: S3ClientConfig): string | undefined {
   const raw = config.endpoint?.trim();
   if (!raw) return undefined;
-  let resolved = raw;
-  if (resolved.includes("{bucket}") || resolved.includes("{region}")) {
-    // 中文注释：支持 {bucket}/{region} 占位符，便于兼容 COS 等域名模板。
-    resolved = resolved
-      .replace("{bucket}", config.bucket)
-      .replace("{region}", config.region ?? "");
-  }
+  let resolved = resolveS3Template(raw, config);
 
   const prefix = `${config.bucket}.`;
   const stripBucketPrefix = (host: string) => {
@@ -102,14 +96,14 @@ function resolveS3Endpoint(config: S3ClientConfig): string | undefined {
     return normalized || host;
   };
 
-  // 中文注释：如果用户填写了包含 bucket 的域名，自动去掉 bucket，避免 SDK 二次拼接。
+  // 如果用户填写了包含 bucket 的域名，自动去掉 bucket，避免 SDK 二次拼接。
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(resolved)) {
     try {
       const url = new URL(resolved);
       url.hostname = stripBucketPrefix(url.hostname);
       return url.toString().replace(/\/$/, "");
     } catch {
-      // 中文注释：解析失败则回退到字符串处理。
+      // 解析失败则回退到字符串处理。
     }
   }
 
@@ -117,4 +111,21 @@ function resolveS3Endpoint(config: S3ClientConfig): string | undefined {
   if (!host) return resolved;
   const nextHost = stripBucketPrefix(host);
   return [nextHost, ...rest].join("/");
+}
+
+/**
+ * Resolve {bucket}/{region} placeholders in endpoints.
+ */
+export function resolveS3Template(
+  raw: string,
+  config: Pick<S3ClientConfig, "bucket" | "region">,
+): string {
+  let resolved = raw;
+  if (resolved.includes("{bucket}") || resolved.includes("{region}")) {
+    // 支持 {bucket}/{region} 占位符，便于兼容 COS 等域名模板。
+    resolved = resolved
+      .replace("{bucket}", config.bucket)
+      .replace("{region}", config.region ?? "");
+  }
+  return resolved;
 }

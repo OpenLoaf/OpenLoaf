@@ -25,6 +25,20 @@ type ImageOutput = ImageFormat & {
   buffer: Buffer;
 };
 
+/** Resolve stored file name for chat attachment. */
+function resolveChatAttachmentFileName(input: {
+  fileName: string;
+  hash: string;
+  ext: string;
+}): string {
+  const parsed = path.parse(input.fileName);
+  const baseName = parsed.name || "upload";
+  const isMask = /_(mask|alpha|grey)$/i.test(baseName);
+  // 遮罩图保留原始命名，便于区分来源。
+  if (isMask) return `${baseName}.${input.ext}`;
+  return `${input.hash}.${input.ext}`;
+}
+
 /** Check whether mime is supported. */
 function isSupportedImageMime(mime: string): boolean {
   return SUPPORTED_IMAGE_MIME.has(mime);
@@ -154,7 +168,11 @@ export async function saveChatImageAttachment(input: {
   // 上传阶段即压缩并落盘，避免保存原图。
   const compressed = await compressImageBuffer(input.buffer, format);
   const hash = createHash("sha256").update(compressed.buffer).digest("hex");
-  const fileName = `${hash}.${compressed.ext}`;
+  const fileName = resolveChatAttachmentFileName({
+    fileName: input.fileName,
+    hash,
+    ext: compressed.ext,
+  });
   const relativePath = path.posix.join(".teatime", "chat", input.sessionId, fileName);
   const root = await resolveChatAttachmentRoot({
     projectId: input.projectId,
@@ -212,7 +230,7 @@ export async function getTeatimeFilePreview(input: {
 }
 
 /** Load image buffer from teatime-file url. */
-async function loadTeatimeImageBuffer(input: {
+export async function loadTeatimeImageBuffer(input: {
   /** File url. */
   url: string;
   /** Media type override. */

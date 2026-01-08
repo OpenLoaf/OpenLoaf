@@ -30,6 +30,8 @@ interface ChatImageOutputOptionProps {
   model?: ChatImageOutputTarget | null;
   /** Visual style variant. */
   variant?: "card" | "inline";
+  /** Hide aspect ratio selector. */
+  hideAspectRatio?: boolean;
 }
 
 type OptionGroupProps = {
@@ -128,10 +130,12 @@ export default function ChatImageOutputOption({
   className,
   model,
   variant = "card",
+  hideAspectRatio,
 }: ChatImageOutputOptionProps) {
   const { imageOptions, setImageOptions } = useChatContext();
   const isOpenAi = isOpenAiProvider(model?.providerId);
   const canSelectCount = isMultiImageOutputModel(model);
+  const showAspectRatio = !hideAspectRatio;
   const qualityOptions = React.useMemo(
     () => resolveQualityOptions(model?.id),
     [model?.id]
@@ -173,7 +177,7 @@ export default function ChatImageOutputOption({
         nextPatch.n = DEFAULT_COUNT;
       }
 
-      if (!current.aspectRatio) {
+      if (!current.aspectRatio && showAspectRatio) {
         nextPatch.aspectRatio = DEFAULT_RATIO;
       }
 
@@ -197,7 +201,7 @@ export default function ChatImageOutputOption({
 
       return mergeImageOptions(current, nextPatch);
     });
-  }, [isOpenAi, qualityOptions, setImageOptions]);
+  }, [isOpenAi, qualityOptions, setImageOptions, showAspectRatio]);
 
   const containerClassName =
     variant === "inline"
@@ -218,12 +222,14 @@ export default function ChatImageOutputOption({
         />
       ) : null}
 
-      <OptionSelect
-        label="图片比例"
-        value={ratioSelectValue}
-        options={RATIO_SELECT_OPTIONS}
-        onChange={(value) => updateOptions({ aspectRatio: value, size: undefined })}
-      />
+      {showAspectRatio ? (
+        <OptionSelect
+          label="图片比例"
+          value={ratioSelectValue}
+          options={RATIO_SELECT_OPTIONS}
+          onChange={(value) => updateOptions({ aspectRatio: value, size: undefined })}
+        />
+      ) : null}
 
       {isOpenAi ? (
         <>

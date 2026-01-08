@@ -15,7 +15,7 @@
         "image_output",
         "image_input",
         "text_input",
-        "image_edit"
+        "image_mesk_input"
       ],
       "maxContextK": 0,
       "priceStrategyId": "tiered_token",

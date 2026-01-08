@@ -9,10 +9,17 @@ import {
   TransformWrapper,
   type ReactZoomPanPinchRef,
 } from "react-zoom-pan-pinch";
-import { Download, Sparkles, X } from "lucide-react";
+import { Download, Redo2, Sparkles, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/utils/trpc";
 import { resolveServerUrl } from "@/utils/server-url";
+import { useOptionalChatContext } from "@/components/chat/ChatProvider";
+import { useBasicConfig } from "@/hooks/use-basic-config";
+import { useSettingsValues } from "@/hooks/use-settings";
+import { useCloudModels } from "@/hooks/use-cloud-models";
+import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
+import { buildStrokeOutline } from "@/components/board/utils/stroke-path";
+import type { CanvasStrokePoint, CanvasStrokeTool } from "@/components/board/engine/types";
 
 interface ImageViewerProps {
   uri?: string;
@@ -119,6 +126,42 @@ function encodeArrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+const BRUSH_MIN_SIZE = 8;
+const BRUSH_MAX_SIZE = 120;
+const BRUSH_COLOR = "rgba(56, 189, 248, 0.35)";
+const BRUSH_TOOL: CanvasStrokeTool = "highlighter";
+
+/** Convert a data/blob url into a File instance. */
+async function createFileFromUrl(input: {
+  url: string;
+  fileName: string;
+  fallbackType?: string;
+}): Promise<File | null> {
+  try {
+    const res = await fetch(input.url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const type = blob.type || input.fallbackType || "image/png";
+    return new File([blob], input.fileName, { type });
+  } catch {
+    return null;
+  }
+}
+
+/** Convert a canvas to a PNG file. */
+async function canvasToPngFile(canvas: HTMLCanvasElement, fileName: string): Promise<File | null> {
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((value) => resolve(value), "image/png");
+  });
+  if (!blob) return null;
+  return new File([blob], fileName, { type: "image/png" });
+}
+
+/** Strip extension from a file name. */
+function stripExtension(fileName: string) {
+  return fileName.replace(/\.[a-zA-Z0-9]+$/, "");
+}
+
 /** Render an image preview panel. */
 export default function ImageViewer({
   uri,
@@ -137,19 +180,51 @@ export default function ImageViewer({
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
   const wrapperRef = React.useRef<HTMLDivElement>(null);
   const transformRef = React.useRef<ReactZoomPanPinchRef | null>(null);
+  const imageRef = React.useRef<HTMLImageElement | null>(null);
+  const overlayCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const maskCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const isDrawingRef = React.useRef(false);
+  const hasStrokeRef = React.useRef(false);
+  const maskModelIdRef = React.useRef<string>("");
+  const historyRef = React.useRef<Array<{ overlay: ImageData; mask: ImageData }>>([]);
+  const redoRef = React.useRef<Array<{ overlay: ImageData; mask: ImageData }>>([]);
+  const preStrokeRef = React.useRef<{ overlay: ImageData; mask: ImageData } | null>(null);
+  const strokePointsRef = React.useRef<CanvasStrokePoint[]>([]);
   // 记录容器尺寸，用于计算图片适配缩放。
   const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
   const [imageSize, setImageSize] = React.useState({ width: 0, height: 0 });
   const [fitScale, setFitScale] = React.useState(1);
   // 保存中状态，避免重复触发。
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isAdjusting, setIsAdjusting] = React.useState(false);
+  const [hasStroke, setHasStroke] = React.useState(false);
+  const [brushSize, setBrushSize] = React.useState(40);
+  const [cursorPosition, setCursorPosition] = React.useState<{ x: number; y: number } | null>(
+    null
+  );
+  const [canUndo, setCanUndo] = React.useState(false);
+  const [canRedo, setCanRedo] = React.useState(false);
   const appliedRef = React.useRef<string>("");
+  const chat = useOptionalChatContext();
+  const { basic, setBasic } = useBasicConfig();
+  const { providerItems, s3ProviderItems } = useSettingsValues();
+  const { models: cloudModels } = useCloudModels();
   const isElectron = React.useMemo(
     () =>
       process.env.NEXT_PUBLIC_ELECTRON === "1" ||
       (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron")),
     []
   );
+  const rawChatSource = basic.chatSource;
+  const chatSource = normalizeChatModelSource(rawChatSource);
+  const modelOptions = React.useMemo(
+    () => buildChatModelOptions(chatSource, providerItems, cloudModels),
+    [chatSource, providerItems, cloudModels],
+  );
+  const hasS3Storage = React.useMemo(() => {
+    if (!basic.activeS3Id) return false;
+    return s3ProviderItems.some((item) => item.id === basic.activeS3Id);
+  }, [basic.activeS3Id, s3ProviderItems]);
 
   const imageQuery = useQuery({
     ...trpc.fs.readBinary.queryOptions({ uri: uri ?? "" }),
@@ -214,6 +289,7 @@ export default function ImageViewer({
     dataUrl,
   });
   const canSave = Boolean(showSave) && Boolean(dataUrl) && !isSaving;
+  const showAdjustLayer = isAdjusting || hasStroke;
 
   /** Save the preview image to a user-selected path. */
   const handleSave = async () => {
@@ -268,7 +344,18 @@ export default function ImageViewer({
     if (!dataUrl) return;
     // 每次图片源变化时，先重置尺寸，避免沿用旧尺寸计算。
     setImageSize({ width: 0, height: 0 });
+    // 切换图片时重置涂抹状态，避免残留笔刷痕迹。
+    setIsAdjusting(false);
+    setHasStroke(false);
+    hasStrokeRef.current = false;
+    setBrushSize(40);
+    preStrokeRef.current = null;
+    strokePointsRef.current = [];
     appliedRef.current = "";
+    historyRef.current = [];
+    redoRef.current = [];
+    setCanUndo(false);
+    setCanRedo(false);
   }, [dataUrl]);
 
   React.useEffect(() => {
@@ -301,6 +388,407 @@ export default function ImageViewer({
     }
     appliedRef.current = applyKey;
   }, [containerSize.height, containerSize.width, dataUrl, fitScale, imageSize.height, imageSize.width]);
+
+  React.useEffect(() => {
+    if (!isAdjusting) return;
+    if (!imageSize.width || !imageSize.height) return;
+    const overlayCanvas = overlayCanvasRef.current;
+    if (overlayCanvas) {
+      overlayCanvas.width = imageSize.width;
+      overlayCanvas.height = imageSize.height;
+      const overlayCtx = overlayCanvas.getContext("2d");
+      overlayCtx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    }
+    const maskCanvas = maskCanvasRef.current ?? document.createElement("canvas");
+    maskCanvas.width = imageSize.width;
+    maskCanvas.height = imageSize.height;
+    const maskCtx = maskCanvas.getContext("2d");
+    if (maskCtx) {
+      // mask 使用透明背景，仅涂抹区域保留颜色。
+      maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+    }
+    maskCanvasRef.current = maskCanvas;
+    setHasStroke(false);
+    hasStrokeRef.current = false;
+    setBrushSize(40);
+    preStrokeRef.current = null;
+    strokePointsRef.current = [];
+    historyRef.current = [];
+    redoRef.current = [];
+    setCanUndo(false);
+    setCanRedo(false);
+  }, [imageSize.height, imageSize.width, isAdjusting]);
+
+  React.useEffect(() => {
+    if (isAdjusting) return;
+    setCursorPosition(null);
+    isDrawingRef.current = false;
+  }, [isAdjusting]);
+
+  /** Resolve pointer position mapped into natural image space. */
+  const resolveDrawPoint = React.useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      const canvas = overlayCanvasRef.current;
+      if (!canvas) return null;
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (event.clientX - rect.left) * scaleX;
+      const y = (event.clientY - rect.top) * scaleY;
+      return {
+        x,
+        y,
+        displayX: event.clientX - rect.left,
+        displayY: event.clientY - rect.top,
+        scale: (scaleX + scaleY) / 2,
+      };
+    },
+    [],
+  );
+
+  /** Draw a brush stroke onto overlay + mask canvases. */
+  const drawStroke = React.useCallback((point: { x: number; y: number; scale: number }) => {
+    const overlayCanvas = overlayCanvasRef.current;
+    const maskCanvas = maskCanvasRef.current;
+    if (!overlayCanvas || !maskCanvas) return;
+    const overlayCtx = overlayCanvas.getContext("2d");
+    const maskCtx = maskCanvas.getContext("2d");
+    if (!overlayCtx || !maskCtx) return;
+    const lineWidth = brushSize * point.scale;
+    // 逻辑：使用平滑笔迹轮廓绘制，避免线段拼接导致圆圈感。
+    const outline = buildStrokeOutline(strokePointsRef.current, {
+      size: lineWidth,
+      tool: BRUSH_TOOL,
+    });
+    const snapshot = preStrokeRef.current;
+    if (snapshot) {
+      overlayCtx.putImageData(snapshot.overlay, 0, 0);
+      maskCtx.putImageData(snapshot.mask, 0, 0);
+    }
+    if (outline.length > 0) {
+      overlayCtx.fillStyle = BRUSH_COLOR;
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(outline[0][0], outline[0][1]);
+      for (let i = 1; i < outline.length; i += 1) {
+        overlayCtx.lineTo(outline[i][0], outline[i][1]);
+      }
+      overlayCtx.closePath();
+      overlayCtx.fill();
+
+      // 逻辑：mask 预览保留笔刷颜色与透明度。
+      maskCtx.fillStyle = BRUSH_COLOR;
+      maskCtx.beginPath();
+      maskCtx.moveTo(outline[0][0], outline[0][1]);
+      for (let i = 1; i < outline.length; i += 1) {
+        maskCtx.lineTo(outline[i][0], outline[i][1]);
+      }
+      maskCtx.closePath();
+      maskCtx.fill();
+    }
+    if (!hasStrokeRef.current) {
+      hasStrokeRef.current = true;
+      setHasStroke(true);
+    }
+  }, [brushSize]);
+
+  const pushSnapshot = React.useCallback(() => {
+    const overlayCanvas = overlayCanvasRef.current;
+    const maskCanvas = maskCanvasRef.current;
+    if (!overlayCanvas || !maskCanvas) return;
+    const overlayCtx = overlayCanvas.getContext("2d");
+    const maskCtx = maskCanvas.getContext("2d");
+    if (!overlayCtx || !maskCtx) return;
+    const overlay = overlayCtx.getImageData(0, 0, overlayCanvas.width, overlayCanvas.height);
+    const mask = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+    historyRef.current.push({ overlay, mask });
+    redoRef.current = [];
+    setCanUndo(historyRef.current.length > 0);
+    setCanRedo(false);
+  }, []);
+
+  const applySnapshot = React.useCallback((snapshot?: { overlay: ImageData; mask: ImageData }) => {
+    const overlayCanvas = overlayCanvasRef.current;
+    const maskCanvas = maskCanvasRef.current;
+    if (!overlayCanvas || !maskCanvas) return;
+    const overlayCtx = overlayCanvas.getContext("2d");
+    const maskCtx = maskCanvas.getContext("2d");
+    if (!overlayCtx || !maskCtx) return;
+    if (!snapshot) {
+      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+      setHasStroke(false);
+      hasStrokeRef.current = false;
+      setCanUndo(false);
+      setCanRedo(redoRef.current.length > 0);
+      return;
+    }
+    overlayCtx.putImageData(snapshot.overlay, 0, 0);
+    maskCtx.putImageData(snapshot.mask, 0, 0);
+    setHasStroke(true);
+    hasStrokeRef.current = true;
+    setCanUndo(historyRef.current.length > 0);
+    setCanRedo(redoRef.current.length > 0);
+  }, []);
+
+  const handleUndo = React.useCallback(() => {
+    if (historyRef.current.length === 0) return;
+    const snapshot = historyRef.current.pop();
+    if (snapshot) {
+      redoRef.current.unshift(snapshot);
+    }
+    const previous = historyRef.current[historyRef.current.length - 1];
+    applySnapshot(previous);
+  }, [applySnapshot]);
+
+  const handleRedo = React.useCallback(() => {
+    if (redoRef.current.length === 0) return;
+    const snapshot = redoRef.current.shift();
+    if (!snapshot) return;
+    historyRef.current.push(snapshot);
+    applySnapshot(snapshot);
+  }, [applySnapshot]);
+
+  const handleClear = React.useCallback(() => {
+    if (!hasStrokeRef.current && historyRef.current.length === 0) return;
+    const overlayCanvas = overlayCanvasRef.current;
+    const maskCanvas = maskCanvasRef.current;
+    if (!overlayCanvas || !maskCanvas) return;
+    const overlayCtx = overlayCanvas.getContext("2d");
+    const maskCtx = maskCanvas.getContext("2d");
+    if (!overlayCtx || !maskCtx) return;
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+    setHasStroke(false);
+    hasStrokeRef.current = false;
+    preStrokeRef.current = null;
+    strokePointsRef.current = [];
+    // 清除也写入历史，便于撤销。
+    pushSnapshot();
+  }, [pushSnapshot]);
+
+  const handleCancelAdjust = React.useCallback(() => {
+    const overlayCanvas = overlayCanvasRef.current;
+    const maskCanvas = maskCanvasRef.current;
+    if (overlayCanvas) {
+      const overlayCtx = overlayCanvas.getContext("2d");
+      overlayCtx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    }
+    if (maskCanvas) {
+      const maskCtx = maskCanvas.getContext("2d");
+      maskCtx?.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+    }
+    // 取消后清空本次涂抹记录，回到查看模式。
+    historyRef.current = [];
+    redoRef.current = [];
+    setCanUndo(false);
+    setCanRedo(false);
+    setHasStroke(false);
+    hasStrokeRef.current = false;
+    preStrokeRef.current = null;
+    strokePointsRef.current = [];
+    setIsAdjusting(false);
+  }, []);
+
+  /** Start drawing with the brush. */
+  const handlePointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!isAdjusting) return;
+      const point = resolveDrawPoint(event);
+      if (!point) return;
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      const overlayCanvas = overlayCanvasRef.current;
+      const maskCanvas = maskCanvasRef.current;
+      const overlayCtx = overlayCanvas?.getContext("2d");
+      const maskCtx = maskCanvas?.getContext("2d");
+      if (overlayCanvas && maskCanvas && overlayCtx && maskCtx) {
+        preStrokeRef.current = {
+          overlay: overlayCtx.getImageData(0, 0, overlayCanvas.width, overlayCanvas.height),
+          mask: maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height),
+        };
+      }
+      strokePointsRef.current = [];
+      isDrawingRef.current = true;
+      setCursorPosition({ x: point.displayX, y: point.displayY });
+      strokePointsRef.current.push([point.x, point.y, event.pressure || 0.5]);
+      drawStroke(point);
+    },
+    [drawStroke, isAdjusting, resolveDrawPoint],
+  );
+
+  /** Continue drawing as the pointer moves. */
+  const handlePointerMove = React.useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!isAdjusting) return;
+      const point = resolveDrawPoint(event);
+      if (!point) return;
+      setCursorPosition({ x: point.displayX, y: point.displayY });
+      if (!isDrawingRef.current) return;
+      strokePointsRef.current.push([point.x, point.y, event.pressure || 0.5]);
+      drawStroke(point);
+    },
+    [drawStroke, isAdjusting, resolveDrawPoint],
+  );
+
+  /** Stop drawing when pointer ends. */
+  const handlePointerUp = React.useCallback(() => {
+    if (isDrawingRef.current) {
+      preStrokeRef.current = null;
+      strokePointsRef.current = [];
+      pushSnapshot();
+    }
+    isDrawingRef.current = false;
+  }, [pushSnapshot]);
+
+  /** Reset cursor and drawing state on leave. */
+  const handlePointerLeave = React.useCallback(() => {
+    isDrawingRef.current = false;
+    setCursorPosition(null);
+  }, []);
+
+  const handleBrushWheel = React.useCallback(
+    (event: React.WheelEvent<HTMLCanvasElement>) => {
+      if (!isAdjusting) return;
+      if (!event.shiftKey && !event.ctrlKey) return;
+      event.preventDefault();
+      const direction = event.deltaY > 0 ? -1 : 1;
+      const next = Math.min(
+        BRUSH_MAX_SIZE,
+        Math.max(BRUSH_MIN_SIZE, brushSize + direction * 4),
+      );
+      // 逻辑：滚轮/触控板缩放时调整画笔大小。
+      setBrushSize(next);
+    },
+    [brushSize, isAdjusting],
+  );
+
+  React.useEffect(() => {
+    if (!isAdjusting) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!event.ctrlKey) return;
+      if (event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        handleUndo();
+        return;
+      }
+      if (event.key.toLowerCase() === "r") {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleRedo, handleUndo, isAdjusting]);
+
+  /** Enter brush mode after validation checks. */
+  const handleStartAdjust = React.useCallback(async () => {
+    if (!dataUrl) return;
+    if (!chat?.addAttachments || !chat?.addMaskedAttachment) {
+      toast.error("仅聊天中可用");
+      return;
+    }
+    if (!hasS3Storage) {
+      toast.error("需要配置 S3 存储服务");
+      return;
+    }
+    if (rawChatSource !== "cloud" && rawChatSource !== "local") {
+      toast.error("没有可用的图片调整模型，请添加或者使用云端模型");
+      return;
+    }
+    const maskModels = modelOptions.filter((option) =>
+      option.tags?.includes("image_mesk_input"),
+    );
+    if (maskModels.length === 0) {
+      toast.error("没有可用的图片调整模型，请添加或者使用云端模型");
+      return;
+    }
+    maskModelIdRef.current = maskModels[0]?.id ?? "";
+    setIsAdjusting(true);
+  }, [chat, dataUrl, hasS3Storage, modelOptions, rawChatSource]);
+
+  /** Finish brush mode and save to attachments. */
+  const handleFinishAdjust = React.useCallback(async () => {
+    if (!dataUrl) return;
+    if (!chat?.addAttachments || !chat?.addMaskedAttachment) {
+      toast.error("仅聊天中可用");
+      return;
+    }
+    const imageFile = await createFileFromUrl({
+      url: dataUrl,
+      fileName,
+      fallbackType: mediaType,
+    });
+    if (!imageFile) {
+      toast.error("图片处理失败");
+      return;
+    }
+
+    if (!hasStroke || !maskCanvasRef.current || !overlayCanvasRef.current) {
+      // 未涂抹时直接保存原图，不生成 mask。
+      chat.addAttachments?.([imageFile]);
+      setIsAdjusting(false);
+      setHasStroke(false);
+      hasStrokeRef.current = false;
+      onClose?.();
+      return;
+    }
+
+    const maskFileName = `${stripExtension(fileName)}_mask.png`;
+    const maskFile = await canvasToPngFile(maskCanvasRef.current, maskFileName);
+    if (!maskFile) {
+      toast.error("遮罩生成失败");
+      return;
+    }
+
+    const baseImage = imageRef.current;
+    const overlayCanvas = overlayCanvasRef.current;
+    if (!baseImage || !overlayCanvas || !imageSize.width || !imageSize.height) {
+      toast.error("图片处理失败");
+      return;
+    }
+
+    const previewCanvas = document.createElement("canvas");
+    previewCanvas.width = imageSize.width;
+    previewCanvas.height = imageSize.height;
+    const previewCtx = previewCanvas.getContext("2d");
+    if (!previewCtx) {
+      toast.error("图片处理失败");
+      return;
+    }
+    previewCtx.drawImage(baseImage, 0, 0, previewCanvas.width, previewCanvas.height);
+    previewCtx.drawImage(overlayCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+    const previewBlob = await new Promise<Blob | null>((resolve) => {
+      previewCanvas.toBlob((value) => resolve(value), "image/png");
+    });
+    if (!previewBlob) {
+      toast.error("图片处理失败");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(previewBlob);
+
+    // 仅保留一张带 mask 的附件，列表显示为涂抹后的预览图。
+    chat.addMaskedAttachment?.({
+      file: imageFile,
+      maskFile,
+      previewUrl,
+    });
+    if (maskModelIdRef.current) {
+      await setBasic({ modelDefaultChatModelId: maskModelIdRef.current });
+    }
+    setIsAdjusting(false);
+    onClose?.();
+  }, [
+    chat,
+    dataUrl,
+    fileName,
+    hasStroke,
+    imageSize.height,
+    imageSize.width,
+    mediaType,
+    onClose,
+    setBasic,
+  ]);
   if (!uri) {
     return <div className="h-full w-full p-4 text-muted-foreground">未选择图片</div>;
   }
@@ -337,16 +825,59 @@ export default function ImageViewer({
             {displayTitle}
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8"
-            >
-              <Sparkles className="h-4 w-4 text-sky-500" />
-              <span className="ml-1">AI调整</span>
-            </Button>
-            {showSave ? (
+            {isAdjusting ? (
+              <>
+                <div className="flex items-center gap-2 text-muted-foreground/60">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                    aria-label="撤销"
+                  >
+                    <Undo2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                    aria-label="前进"
+                  >
+                    <Redo2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={handleClear}
+                    disabled={!canUndo && !hasStroke}
+                    aria-label="清除"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <span className="text-muted-foreground/60" aria-hidden>
+                  |
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8"
+                  onClick={handleCancelAdjust}
+                >
+                  <X className="h-4 w-4" />
+                  <span className="ml-1">取消</span>
+                </Button>
+              </>
+            ) : null}
+            {showSave && !isAdjusting ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -359,6 +890,18 @@ export default function ImageViewer({
                 <span className="ml-1">保存</span>
               </Button>
             ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8"
+              onClick={isAdjusting ? handleFinishAdjust : handleStartAdjust}
+            >
+              <Sparkles
+                className={`h-4 w-4 ${isAdjusting ? "text-emerald-500" : "text-sky-500"}`}
+              />
+              <span className="ml-1">{isAdjusting ? "完成" : "修改"}</span>
+            </Button>
             {onClose ? (
               <Button
                 type="button"
@@ -376,37 +919,83 @@ export default function ImageViewer({
       ) : null}
       <div ref={wrapperRef} className="flex-1 overflow-hidden p-1">
         {dataUrl ? (
-          <TransformWrapper
-            ref={transformRef}
-            initialScale={fitScale}
-            minScale={fitScale}
-            maxScale={3}
-            centerOnInit
-            limitToBounds
-            wheel={{ smoothStep: 0.01 }}
-            pinch={{ step: 8 }}
-          >
-            <TransformComponent
-              wrapperClass="h-full w-full"
-              contentClass="flex h-full w-full items-center justify-center"
-              wrapperStyle={{ width: "100%", height: "100%" }}
-              contentStyle={{ width: "100%", height: "100%" }}
+          showAdjustLayer ? (
+            <div className="flex h-full w-full items-center justify-center">
+              <div className="relative">
+                <img
+                  ref={imageRef}
+                  src={dataUrl}
+                  alt={name ?? uri}
+                  className="block max-h-full max-w-full select-none object-contain"
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  onLoad={(event) => {
+                    const { naturalWidth, naturalHeight } = event.currentTarget;
+                    // 记录图片原始尺寸，用于适配缩放比例。
+                    setImageSize({ width: naturalWidth, height: naturalHeight });
+                  }}
+                />
+                <canvas
+                  ref={overlayCanvasRef}
+                  className={`absolute inset-0 h-full w-full ${
+                    isAdjusting ? "cursor-none" : "pointer-events-none"
+                  }`}
+                  style={{ pointerEvents: isAdjusting ? "auto" : "none", touchAction: "none" }}
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerLeave={handlePointerLeave}
+                  onWheel={handleBrushWheel}
+                />
+                {isAdjusting && cursorPosition ? (
+                  <div
+                    className="pointer-events-none absolute rounded-full border border-sky-200/80 bg-sky-400/30"
+                    style={{
+                      width: brushSize,
+                      height: brushSize,
+                      left: cursorPosition.x,
+                      top: cursorPosition.y,
+                      transform: "translate(-50%, -50%)",
+                    }}
+                  />
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <TransformWrapper
+              ref={transformRef}
+              initialScale={fitScale}
+              minScale={fitScale}
+              maxScale={3}
+              centerOnInit
+              limitToBounds
+              wheel={{ smoothStep: 0.01 }}
+              pinch={{ step: 8 }}
             >
-              <img
-                src={dataUrl}
-                alt={name ?? uri}
-                className="block max-h-full max-w-full select-none object-contain"
-                loading="lazy"
-                decoding="async"
-                draggable={false}
-                onLoad={(event) => {
-                  const { naturalWidth, naturalHeight } = event.currentTarget;
-                  // 记录图片原始尺寸，用于适配缩放比例。
-                  setImageSize({ width: naturalWidth, height: naturalHeight });
-                }}
-              />
-            </TransformComponent>
-          </TransformWrapper>
+              <TransformComponent
+                wrapperClass="h-full w-full"
+                contentClass="flex h-full w-full items-center justify-center"
+                wrapperStyle={{ width: "100%", height: "100%" }}
+                contentStyle={{ width: "100%", height: "100%" }}
+              >
+                <img
+                  ref={imageRef}
+                  src={dataUrl}
+                  alt={name ?? uri}
+                  className="block max-h-full max-w-full select-none object-contain"
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  onLoad={(event) => {
+                    const { naturalWidth, naturalHeight } = event.currentTarget;
+                    // 记录图片原始尺寸，用于适配缩放比例。
+                    setImageSize({ width: naturalWidth, height: naturalHeight });
+                  }}
+                />
+              </TransformComponent>
+            </TransformWrapper>
+          )
         ) : (
           <div className="h-full w-full text-sm text-muted-foreground">
             无法预览该图片

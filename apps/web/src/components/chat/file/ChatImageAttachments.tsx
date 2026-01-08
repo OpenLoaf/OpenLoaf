@@ -144,6 +144,11 @@ export const ChatImageAttachments = React.forwardRef<
                         )}
                         draggable={false}
                       />
+                      {attachment.hasMask && (
+                        <div className="absolute bottom-1 left-1 rounded bg-emerald-500/80 px-1 py-0.5 text-[9px] leading-none text-white">
+                          已调整
+                        </div>
+                      )}
                       {isLoading && (
                         <div className="absolute inset-0 grid place-items-center bg-background/25">
                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

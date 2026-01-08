@@ -19,12 +19,26 @@ type ImagePreviewState = {
   src?: string;
 };
 
-function isImageFilePart(part: any): part is { type: "file"; url: string; mediaType?: string } {
+function isImageFilePart(
+  part: any,
+): part is { type: "file"; url: string; mediaType?: string; purpose?: string } {
   return Boolean(part) && part.type === "file" && typeof part.url === "string";
 }
 
 function isImageMediaType(mediaType?: string) {
   return typeof mediaType === "string" && mediaType.startsWith("image/");
+}
+
+function resolveBaseName(url: string) {
+  if (!url || url.startsWith("data:")) return "";
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split("/");
+    const fileName = decodeURIComponent(segments[segments.length - 1] || "");
+    return fileName.replace(/\.[a-zA-Z0-9]+$/, "");
+  } catch {
+    return "";
+  }
 }
 
 export default function MessageHuman({
@@ -43,15 +57,33 @@ export default function MessageHuman({
     return (message.parts ?? []).filter((part: any) => {
       if (!isImageFilePart(part)) return false;
       return isImageMediaType(part.mediaType);
-    }) as Array<{ type: "file"; url: string; mediaType?: string }>;
+    }) as Array<{ type: "file"; url: string; mediaType?: string; purpose?: string }>;
   }, [message.parts]);
 
+  const displayParts = React.useMemo(() => {
+    const maskMap = new Map<string, { type: "file"; url: string; mediaType?: string }>();
+    for (const part of imageParts) {
+      if (part.purpose !== "mask") continue;
+      const baseName = resolveBaseName(part.url).replace(/_mask$/i, "");
+      if (!baseName) continue;
+      maskMap.set(baseName, part);
+    }
+    // 将 mask 叠加到对应原图之上。
+    return imageParts
+      .filter((part) => part.purpose !== "mask")
+      .map((part) => {
+        const baseName = resolveBaseName(part.url);
+        const mask = baseName ? maskMap.get(baseName) : undefined;
+        return { ...part, mask };
+      });
+  }, [imageParts]);
+
   const previewableParts = React.useMemo(() => {
-    return imageParts.filter((part) => {
+    return displayParts.filter((part) => {
       const preview = imageState[part.url];
       return preview?.status === "ready" && Boolean(preview.src);
     });
-  }, [imageParts, imageState]);
+  }, [displayParts, imageState]);
 
   const previewIndex = React.useMemo(() => {
     if (!previewUrl) return -1;
@@ -64,6 +96,15 @@ export default function MessageHuman({
     if (!preview?.src) return null;
     return preview.src;
   }, [imageState, previewUrl]);
+
+  const previewMaskImage = React.useMemo(() => {
+    if (!previewUrl) return null;
+    const target = displayParts.find((part) => part.url === previewUrl);
+    if (!target?.mask?.url) return null;
+    const preview = imageState[target.mask.url];
+    if (!preview?.src) return null;
+    return preview.src;
+  }, [displayParts, imageState, previewUrl]);
 
   React.useEffect(() => {
     let aborted = false;
@@ -140,10 +181,11 @@ export default function MessageHuman({
   return (
     <div className={cn("flex justify-end min-w-0", className)}>
       <div className="max-w-[80%] min-w-0 p-3 rounded-lg bg-primary/90 text-primary-foreground">
-        {imageParts.length > 0 && (
+        {displayParts.length > 0 && (
           <div className="flex flex-wrap justify-end gap-2">
-            {imageParts.map((part, index) => {
+            {displayParts.map((part, index) => {
               const preview = imageState[part.url];
+              const maskPreview = part.mask?.url ? imageState[part.mask.url] : null;
               return (
                 <button
                   key={`${part.url}-${index}`}
@@ -155,11 +197,20 @@ export default function MessageHuman({
                   }}
                 >
                   {preview?.status === "ready" && preview.src ? (
-                    <img
-                      src={preview.src}
-                      alt="chat image"
-                      className="max-h-16 max-w-[90px] rounded-md border border-primary/40 object-contain"
-                    />
+                    <div className="relative max-h-16 max-w-[90px] overflow-hidden rounded-md border border-primary/40">
+                      <img
+                        src={preview.src}
+                        alt="chat image"
+                        className="block max-h-16 max-w-[90px] object-contain"
+                      />
+                      {maskPreview?.status === "ready" && maskPreview.src ? (
+                        <img
+                          src={maskPreview.src}
+                          alt="chat image mask"
+                          className="pointer-events-none absolute inset-0 max-h-16 max-w-[90px] object-contain opacity-70"
+                        />
+                      ) : null}
+                    </div>
                   ) : preview?.status === "error" ? (
                     <div className="text-xs text-primary-foreground/80">图片加载失败</div>
                   ) : (
@@ -208,12 +259,19 @@ export default function MessageHuman({
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
 
-                <div className="flex items-center justify-center">
+                <div className="relative flex items-center justify-center">
                   <img
                     src={previewImage}
                     alt="chat image preview"
                     className="max-h-[70vh] max-w-[80vw] object-contain"
                   />
+                  {previewMaskImage ? (
+                    <img
+                      src={previewMaskImage}
+                      alt="chat image mask preview"
+                      className="pointer-events-none absolute inset-0 max-h-[70vh] max-w-[80vw] object-contain opacity-70"
+                    />
+                  ) : null}
                 </div>
 
                 <Button

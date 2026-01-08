@@ -36,7 +36,7 @@
         "image_output",
         "image_input",
         "text_input",
-        "image_edit"
+        "image_mesk_input"
       ],
       "maxContextK": 1,
       "priceStrategyId": "tiered_token",
@@ -57,7 +57,7 @@
       "tags": [
         "image_output",
         "image_input",
-        "image_edit"
+        "image_mesk_input"
       ],
       "maxContextK": 1,
       "priceStrategyId": "tiered_token",
