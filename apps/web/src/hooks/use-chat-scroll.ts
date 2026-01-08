@@ -4,6 +4,8 @@ interface UseChatScrollProps {
   scrollToBottomToken: number;
   scrollToMessageToken?: { messageId: string; token: number } | null;
   followToBottomToken?: number;
+  /** Enable follow-to-bottom while SSE is loading. */
+  forceFollow?: boolean;
   viewportRef: React.RefObject<HTMLDivElement | null>;
   bottomRef: React.RefObject<HTMLDivElement | null>;
   contentRef: React.RefObject<HTMLDivElement | null>;
@@ -13,6 +15,7 @@ export function useChatScroll({
   scrollToBottomToken,
   scrollToMessageToken,
   followToBottomToken,
+  forceFollow,
   viewportRef,
   bottomRef,
   contentRef,
@@ -22,6 +25,23 @@ export function useChatScroll({
   const isAutoScrollingRef = React.useRef(false);
   const lastScrollTopRef = React.useRef(0);
   const userScrollIntentRef = React.useRef(false);
+  // Whether force-follow is enabled by props.
+  const forceFollowEnabledRef = React.useRef(false);
+  // Whether we are currently forcing follow.
+  const forceFollowRef = React.useRef(false);
+
+  React.useEffect(() => {
+    // 中文注释：SSE loading 仅在未被用户上滑打断时才启用贴底跟随。
+    forceFollowEnabledRef.current = Boolean(forceFollow);
+    if (!forceFollowEnabledRef.current) {
+      forceFollowRef.current = false;
+      return;
+    }
+    if (shouldAutoFollowRef.current) {
+      forceFollowRef.current = true;
+      userScrollIntentRef.current = false;
+    }
+  }, [forceFollow]);
 
   const escapeAttrValue = React.useCallback((value: string) => {
     // 关键：CSS.escape 在老环境可能不存在，这里做最小兜底，避免选择器注入/崩溃。
@@ -67,12 +87,20 @@ export function useChatScroll({
           const distanceFromBottom = getDistanceFromBottom();
           isPinnedToBottomRef.current = pinned;
           // 中文注释：只要用户有上滑动作就暂停自动跟随，避免被“拖回底部”。
-          if (scrolledUp && distanceFromBottom > 8 && userScrollIntentRef.current) {
+          if (
+            scrolledUp &&
+            distanceFromBottom > 8 &&
+            userScrollIntentRef.current
+          ) {
             shouldAutoFollowRef.current = false;
+            forceFollowRef.current = false;
           } else if (pinned) {
             // 中文注释：用户回到底部后恢复自动跟随。
             shouldAutoFollowRef.current = true;
             userScrollIntentRef.current = false;
+            if (forceFollowEnabledRef.current) {
+              forceFollowRef.current = true;
+            }
           }
           lastScrollTopRef.current = currentScrollTop;
         });
@@ -123,6 +151,9 @@ export function useChatScroll({
     isPinnedToBottomRef.current = true;
     shouldAutoFollowRef.current = true;
     userScrollIntentRef.current = false;
+    if (forceFollowEnabledRef.current) {
+      forceFollowRef.current = true;
+    }
     isAutoScrollingRef.current = true;
     // 用 scrollTop 方式更可靠：scrollIntoView 在某些布局/嵌套滚动场景下不会滚动目标容器
     viewport.scrollTo({ top: viewport.scrollHeight, behavior });
@@ -143,6 +174,7 @@ export function useChatScroll({
     // 关键：切分支属于“浏览历史/对比”，应退出 pinned 模式，避免后续自动贴底把视图拉走。
     isPinnedToBottomRef.current = false;
     shouldAutoFollowRef.current = false;
+    forceFollowRef.current = false;
 
     const selector = `[data-message-id="${escapeAttrValue(String(messageId))}"]`;
     const tryScroll = () => {
@@ -176,7 +208,10 @@ export function useChatScroll({
     if (followToBottomToken === undefined) return;
     const distance = getDistanceFromBottom();
     const shouldFollow =
-      shouldAutoFollowRef.current || distance <= 8 || isPinnedToBottomRef.current;
+      forceFollowRef.current ||
+      shouldAutoFollowRef.current ||
+      distance <= 8 ||
+      isPinnedToBottomRef.current;
     if (!shouldFollow) return;
     const raf = requestAnimationFrame(() => {
       scrollToBottom("auto");
@@ -194,7 +229,10 @@ export function useChatScroll({
     const schedule = () => {
       const distance = getDistanceFromBottom();
       const shouldFollow =
-        shouldAutoFollowRef.current || distance <= 8 || isPinnedToBottomRef.current;
+        forceFollowRef.current ||
+        shouldAutoFollowRef.current ||
+        distance <= 8 ||
+        isPinnedToBottomRef.current;
       if (!shouldFollow) return;
       if (raf != null) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {

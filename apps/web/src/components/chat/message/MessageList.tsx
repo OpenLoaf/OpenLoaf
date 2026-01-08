@@ -39,6 +39,8 @@ export default function MessageList({ className }: MessageListProps) {
     [messages]
   );
   const hideAiActions = status === "submitted" || status === "streaming";
+  // SSE loading state.
+  const isSseLoading = status === "submitted" || status === "streaming";
 
   // 发送消息后，在 AI 还没返回任何可见内容前显示“正在思考中”
   const shouldShowThinking = React.useMemo(() => {
@@ -58,6 +60,8 @@ export default function MessageList({ className }: MessageListProps) {
     // AI 输出过程中/结束瞬间：仅当用户贴底时跟随滚动（避免用户上滑时被强制拉回底部）
     followToBottomToken:
       messages.length + streamTick + (status === "ready" ? 1 : 0) + (error ? 1 : 0),
+    // 中文注释：SSE 请求中启用贴底跟随，用户上滑可暂停。
+    forceFollow: isSseLoading,
     viewportRef,
     bottomRef,
     contentRef,
