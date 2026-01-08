@@ -7,6 +7,7 @@ import { useChatContext } from "@/components/chat/ChatProvider";
 import ImageViewer from "@/components/file/ImageViewer";
 import { useProject } from "@/hooks/use-project";
 import { resolveServerUrl } from "@/utils/server-url";
+import { FILE_DRAG_NAME_MIME, FILE_DRAG_URI_MIME } from "@/components/ui/teatime/drag-drop-types";
 
 interface MessageFileProps {
   /** File URL to render. */
@@ -202,6 +203,17 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
           alt="assistant file"
           className="max-h-64 max-w-full rounded-md border border-border/60 object-contain"
           loading="lazy"
+          draggable
+          onDragStart={(event) => {
+            // 允许将消息内图片拖入输入框，复用 teatime-file 作为来源。
+            event.dataTransfer.effectAllowed = "copy";
+            event.dataTransfer.setData(FILE_DRAG_URI_MIME, url);
+            const fallbackName =
+              title?.trim() ||
+              decodeURIComponent(url.split("/").pop() || "image");
+            event.dataTransfer.setData(FILE_DRAG_NAME_MIME, fallbackName);
+            event.dataTransfer.setData("text/plain", fallbackName);
+          }}
         />
       </button>
       <Dialog

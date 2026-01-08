@@ -22,6 +22,8 @@ import {
 } from "./file/ChatImageAttachments";
 import {
   FILE_DRAG_REF_MIME,
+  FILE_DRAG_NAME_MIME,
+  FILE_DRAG_URI_MIME,
 } from "@/components/ui/teatime/drag-drop-types";
 import type { Value } from "platejs";
 import { setValue } from "platejs";
@@ -49,6 +51,7 @@ import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-
 import { toast } from "sonner";
 import { normalizeImageOptions } from "@/lib/chat/image-options";
 import ChatImageOutputOption from "./ChatImageOutputOption";
+import { resolveServerUrl } from "@/utils/server-url";
 
 interface ChatInputProps {
   className?: string;
@@ -69,6 +72,24 @@ function base64ToUint8Array(base64: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
+}
+
+function isImageFileName(name: string) {
+  return /\.(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(name);
+}
+
+function getFileNameFromUri(uri: string) {
+  const raw = uri.split("/").pop() || "image";
+  const clean = raw.split("?")[0] || "image";
+  return decodeURIComponent(clean);
+}
+
+function getPreviewEndpoint(url: string) {
+  const apiBase = resolveServerUrl();
+  const encoded = encodeURIComponent(url);
+  return apiBase
+    ? `${apiBase}/chat/attachments/preview?url=${encoded}`
+    : `/chat/attachments/preview?url=${encoded}`;
 }
 
 export interface ChatInputBoxProps {
@@ -347,10 +368,39 @@ export function ChatInputBox({
       )}
       onPointerDownCapture={handleMentionPointerDown}
       onDragOver={(event) => {
-        if (!event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
+        if (
+          !event.dataTransfer.types.includes(FILE_DRAG_REF_MIME) &&
+          !event.dataTransfer.types.includes(FILE_DRAG_URI_MIME)
+        ) {
+          return;
+        }
         event.preventDefault();
       }}
       onDrop={async (event) => {
+        const fileUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
+        if (fileUri) {
+          event.preventDefault();
+          if (!onAddAttachments) return;
+          try {
+            // 处理从消息中拖拽的图片，复用附件上传流程。
+            const fileName =
+              event.dataTransfer.getData(FILE_DRAG_NAME_MIME) ||
+              getFileNameFromUri(fileUri);
+            const isImageByName = isImageFileName(fileName);
+            const blob = fileUri.startsWith("teatime-file://")
+              ? await fetch(getPreviewEndpoint(fileUri)).then((res) => res.blob())
+              : await fetch(fileUri).then((res) => res.blob());
+            const isImageByType = blob.type.startsWith("image/");
+            if (!isImageByName && !isImageByType) return;
+            const file = new File([blob], fileName, {
+              type: blob.type || "application/octet-stream",
+            });
+            onAddAttachments([file]);
+          } catch {
+            return;
+          }
+          return;
+        }
         const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
         if (!fileRef) return;
         event.preventDefault();
@@ -390,7 +440,8 @@ export function ChatInputBox({
       }}
       onDropCapture={(event) => {
         const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
-        if (!fileRef) return;
+        const fileUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
+        if (!fileRef && !fileUri) return;
         event.preventDefault();
       }}
     >
