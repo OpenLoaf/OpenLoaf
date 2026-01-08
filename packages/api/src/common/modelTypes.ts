@@ -1,39 +1,25 @@
 export type ChatModelSource = "local" | "cloud";
 
 export type ModelTag =
-  | "text_output"
-  | "multi_image_input"
-  | "multi_image_output"
-  | "image_output"
-  | "image_mesk_input"
-  | "image_input"
-  | "image_url_input"
-  | "text_input"
-  | "video_input"
-  | "tool"
+  | "text_generation"
+  | "image_generation"
+  | "image_edit"
+  | "video_generation"
+  | "tool_call"
   | "code"
   | "web_search"
-  | "video_generation"
-  | "language_input"
-  | "language_output";
+  | "speech_generation";
 
 // 标签显示文案映射。
 export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
-  text_output: "文本输出",
-  multi_image_input: "多图输入",
-  multi_image_output: "多图输出",
-  image_output: "图片输出",
-  image_mesk_input: "图片调整",
-  image_input: "图片输入",
-  image_url_input: "图片链接输入",
-  text_input: "文本输入",
-  video_input: "视频输入",
-  tool: "工具调用",
+  text_generation: "文字生成",
+  image_generation: "图片生成",
+  image_edit: "图片编辑",
+  video_generation: "视频生成",
+  tool_call: "工具调用",
   code: "代码",
   web_search: "网络搜索",
-  video_generation: "视频生成",
-  language_input: "语音输入",
-  language_output: "语音输出",
+  speech_generation: "语音生成",
 };
 
 export type PriceTier = {

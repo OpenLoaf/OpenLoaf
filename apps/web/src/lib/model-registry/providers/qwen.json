@@ -12,10 +12,7 @@
       "familyId": "qwen-image-edit",
       "providerId": "qwen",
       "tags": [
-        "image_output",
-        "image_input",
-        "text_input",
-        "image_mesk_input"
+        "image_edit"
       ],
       "maxContextK": 0,
       "priceStrategyId": "tiered_token",
@@ -34,8 +31,7 @@
       "familyId": "wan2.5",
       "providerId": "qwen",
       "tags": [
-        "image_output",
-        "text_input"
+        "image_generation"
       ],
       "maxContextK": 0,
       "priceStrategyId": "tiered_token",
@@ -54,8 +50,7 @@
       "familyId": "z-image-turbo",
       "providerId": "qwen",
       "tags": [
-        "image_output",
-        "text_input"
+        "image_generation"
       ],
       "maxContextK": 0,
       "priceStrategyId": "tiered_token",

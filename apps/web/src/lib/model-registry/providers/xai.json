@@ -12,11 +12,8 @@
       "familyId": "grok-4-1-fast-reasoning",
       "providerId": "xai",
       "tags": [
-        "text_output",
-        "image_input",
-        "image_url_input",
-        "text_input",
-        "tool",
+        "text_generation",
+        "tool_call",
         "web_search"
       ],
       "maxContextK": 128,
@@ -36,11 +33,8 @@
       "familyId": "grok-4-fast-non-reasoning",
       "providerId": "xai",
       "tags": [
-        "text_output",
-        "image_input",
-        "image_url_input",
-        "text_input",
-        "tool",
+        "text_generation",
+        "tool_call",
         "web_search"
       ],
       "maxContextK": 128,
@@ -60,9 +54,8 @@
       "familyId": "grok-code-fast-1",
       "providerId": "xai",
       "tags": [
-        "text_output",
-        "text_input",
-        "tool",
+        "text_generation",
+        "tool_call",
         "code"
       ],
       "maxContextK": 128,

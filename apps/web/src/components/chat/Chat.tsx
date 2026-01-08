@@ -81,14 +81,10 @@ export function Chat({
   const selectedModel = modelOptions.find((option) => option.id === rawSelectedModelId);
   const selectedModelId = selectedModel ? rawSelectedModelId : "";
   const isAutoModel = !selectedModelId;
-  // 自动模式允许图片，非自动时必须显式支持 image_input/multi_image_input 或 image_url_input。
+  // 自动模式允许图片，非自动时必须显式支持图片编辑。
   const canAttachImage = isAutoModel
     ? true
-    : Boolean(
-        selectedModel?.tags?.includes("image_input") ||
-        selectedModel?.tags?.includes("multi_image_input") ||
-        selectedModel?.tags?.includes("image_url_input"),
-      );
+    : Boolean(selectedModel?.tags?.includes("image_edit"));
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
   const [isDragActive, setIsDragActive] = React.useState(false);

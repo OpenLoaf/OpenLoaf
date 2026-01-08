@@ -13,8 +13,7 @@
       "familyId": "volcengine.t2i",
       "providerId": "volcengine",
       "tags": [
-        "image_output",
-        "text_input"
+        "image_generation"
       ],
       "maxContextK": 1,
       "priceStrategyId": "tiered_token",
@@ -33,10 +32,7 @@
       "familyId": "volcengine.inpaint",
       "providerId": "volcengine",
       "tags": [
-        "image_output",
-        "image_input",
-        "text_input",
-        "image_mesk_input"
+        "image_edit"
       ],
       "maxContextK": 1,
       "priceStrategyId": "tiered_token",
@@ -55,9 +51,7 @@
       "familyId": "volcengine.material",
       "providerId": "volcengine",
       "tags": [
-        "image_output",
-        "image_input",
-        "image_mesk_input"
+        "image_edit"
       ],
       "maxContextK": 1,
       "priceStrategyId": "tiered_token",
@@ -76,8 +70,6 @@
       "familyId": "volcengine.video",
       "providerId": "volcengine",
       "tags": [
-        "image_input",
-        "text_input",
         "video_generation"
       ],
       "maxContextK": 1,

@@ -111,9 +111,9 @@ function isOpenAiProvider(providerId?: string | null): boolean {
   return providerId.toLowerCase().includes("openai");
 }
 
-/** Check whether the model supports multi-image output. */
-function isMultiImageOutputModel(model?: ChatImageOutputTarget | null): boolean {
-  return Boolean(model?.tags?.includes("multi_image_output"));
+/** Check whether the model supports image generation. */
+function isImageGenerationModel(model?: ChatImageOutputTarget | null): boolean {
+  return Boolean(model?.tags?.includes("image_generation"));
 }
 
 /** Resolve OpenAI quality options based on model id. */
@@ -134,7 +134,7 @@ export default function ChatImageOutputOption({
 }: ChatImageOutputOptionProps) {
   const { imageOptions, setImageOptions } = useChatContext();
   const isOpenAi = isOpenAiProvider(model?.providerId);
-  const canSelectCount = isMultiImageOutputModel(model);
+  const canSelectCount = isImageGenerationModel(model);
   const showAspectRatio = !hideAspectRatio;
   const qualityOptions = React.useMemo(
     () => resolveQualityOptions(model?.id),

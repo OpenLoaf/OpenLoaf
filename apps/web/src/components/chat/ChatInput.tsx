@@ -604,26 +604,13 @@ export default function ChatInput({
       : "";
   const isAutoModel = !selectedModelId;
   const selectedModel = modelOptions.find((option) => option.id === selectedModelId);
-  const supportsMultiImageOutput = Boolean(
-    selectedModel?.tags?.includes("multi_image_output"),
-  );
-  // 模型声明 image_output 或 multi_image_output 时显示图片输出选项。
-  const showImageOutputOptions = Boolean(
-    selectedModel?.tags?.includes("image_output") ||
-      selectedModel?.tags?.includes("multi_image_output"),
-  );
+  const supportsImageGeneration = Boolean(selectedModel?.tags?.includes("image_generation"));
+  const supportsImageEdit = Boolean(selectedModel?.tags?.includes("image_edit"));
+  // 模型声明图片生成时显示图片输出选项。
+  const showImageOutputOptions = supportsImageGeneration;
   const canAttachImage = isAutoModel
     ? true
-    : Boolean(
-        selectedModel?.tags?.includes("image_input") ||
-        selectedModel?.tags?.includes("multi_image_input") ||
-        selectedModel?.tags?.includes("image_url_input"),
-      );
-  const supportsImageInput = Boolean(
-    selectedModel?.tags?.includes("image_input") ||
-      selectedModel?.tags?.includes("multi_image_input"),
-  );
-  const supportsImageUrlInput = Boolean(selectedModel?.tags?.includes("image_url_input"));
+    : supportsImageEdit;
   const handleAddAttachments = canAttachImage ? onAddAttachments : undefined;
 
   const isLoading = status === "submitted" || status === "streaming";
@@ -647,34 +634,13 @@ export default function ChatInput({
       return item.mask.status === "ready" && Boolean(item.mask.remoteUrl);
     });
     if (!textValue && readyImages.length === 0) return;
-    // 存在遮罩时必须命中 image_mesk_input 模型。
+    // 存在遮罩时必须命中图片编辑模型。
     const hasMaskedAttachment = readyImages.some(
       (item) => item.mask && item.mask.remoteUrl
     );
-    if (!isAutoModel && hasMaskedAttachment) {
-      if (!selectedModel?.tags?.includes("image_mesk_input")) {
-        toast.error("当前模型不支持图片调整");
-        return;
-      }
-    }
-    if (!isAutoModel && readyImages.length > 0) {
-      let needsImage = false;
-      let needsImageUrl = false;
-      for (const item of readyImages) {
-        const url = item.remoteUrl || "";
-        if (/^https?:\/\//i.test(url)) {
-          needsImageUrl = true;
-        } else {
-          needsImage = true;
-        }
-      }
-      // 不同类型的图片需要不同的输入能力。
-      if ((needsImage && !supportsImageInput) || (needsImageUrl && !supportsImageUrlInput)) {
-        if (needsImageUrl && !supportsImageUrlInput) {
-          toast.error("当前模型不支持图片链接");
-        } else {
-          toast.error("当前模型不支持图片");
-        }
+    if (!isAutoModel && (hasMaskedAttachment || readyImages.length > 0)) {
+      if (!supportsImageEdit) {
+        toast.error("当前模型不支持图片编辑");
         return;
       }
     }
@@ -702,13 +668,8 @@ export default function ChatInput({
     ];
     // 从 chat session 选项读取图片参数，写入本次消息 metadata。
     const normalizedImageOptions = normalizeImageOptions(imageOptions);
-    // 不支持多图输出时，避免传递图片数量参数。
-    const safeImageOptions =
-      normalizedImageOptions && !supportsMultiImageOutput
-        ? (({ n: _n, ...rest }) => (Object.keys(rest).length ? rest : undefined))(
-            normalizedImageOptions
-          )
-        : normalizedImageOptions;
+    // 不支持图片生成时，不传递图片生成参数。
+    const safeImageOptions = supportsImageGeneration ? normalizedImageOptions : undefined;
     const metadata = safeImageOptions ? { imageOptions: safeImageOptions } : undefined;
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
     sendMessage({ parts, ...(metadata ? { metadata } : {}) } as any);

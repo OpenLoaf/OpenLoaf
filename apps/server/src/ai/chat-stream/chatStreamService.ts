@@ -235,7 +235,10 @@ export async function runChatStream(input: {
       },
       "[chat] explicit model resolved",
     );
-    if (explicitModelDefinition?.tags?.includes("image_output")) {
+    if (
+      explicitModelDefinition?.tags?.includes("image_generation") ||
+      explicitModelDefinition?.tags?.includes("image_edit")
+    ) {
       logger.debug(
         {
           sessionId,
@@ -1093,14 +1096,11 @@ function resolveRequiredInputTags(messages: UIMessage[]): ModelTag[] {
       if (!url) continue;
       const purpose = typeof (part as any).purpose === "string" ? (part as any).purpose : "";
       if (purpose === "mask") {
-        required.add("image_mesk_input");
+        required.add("image_edit");
+        continue;
       }
-      // 按协议区分本地图片与图片链接能力。
-      if (/^https?:\/\//i.test(url)) {
-        required.add("image_url_input");
-      } else if (url.startsWith("teatime-file://")) {
-        required.add("image_input");
-      }
+      // 中文注释：存在图片输入时统一走图片编辑能力。
+      required.add("image_edit");
     }
   }
   return Array.from(required);

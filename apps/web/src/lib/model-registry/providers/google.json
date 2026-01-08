@@ -12,10 +12,8 @@
       "familyId": "gemini-3-pro-image-preview",
       "providerId": "google",
       "tags": [
-        "text_output",
-        "image_output",
-        "image_input",
-        "text_input"
+        "text_generation",
+        "image_generation"
       ],
       "maxContextK": 0,
       "priceStrategyId": "tiered_token",
@@ -34,11 +32,7 @@
       "familyId": "gemini-3-flash-preview",
       "providerId": "google",
       "tags": [
-        "text_output",
-        "image_input",
-        "text_input",
-        "video_input",
-        "language_input"
+        "text_generation"
       ],
       "maxContextK": 0,
       "priceStrategyId": "tiered_token",

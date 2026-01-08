@@ -12,8 +12,7 @@
       "familyId": "deepseek-chat",
       "providerId": "deepseek",
       "tags": [
-        "text_output",
-        "text_input"
+        "text_generation"
       ],
       "maxContextK": 128,
       "priceStrategyId": "tiered_token",
@@ -32,8 +31,7 @@
       "familyId": "deepseek-reasoner",
       "providerId": "deepseek",
       "tags": [
-        "text_output",
-        "text_input"
+        "text_generation"
       ],
       "maxContextK": 128,
       "priceStrategyId": "tiered_token",

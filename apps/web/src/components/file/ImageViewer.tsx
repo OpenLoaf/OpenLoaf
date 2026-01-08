@@ -697,7 +697,7 @@ export default function ImageViewer({
       return;
     }
     const maskModels = modelOptions.filter((option) =>
-      option.tags?.includes("image_mesk_input"),
+    option.tags?.includes("image_edit"),
     );
     if (maskModels.length === 0) {
       toast.error("没有可用的图片调整模型，请添加或者使用云端模型");
