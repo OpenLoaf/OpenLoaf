@@ -66,7 +66,7 @@ export default function MessageList({ className }: MessageListProps) {
     return (
       <div
         className={cn(
-          "flex-1 relative min-w-0 flex flex-col min-h-0 overflow-hidden",
+          "flex-1 relative min-w-0 flex flex-col min-h-0 overflow-x-hidden overflow-y-auto",
           className
         )}
       >
@@ -86,7 +86,10 @@ export default function MessageList({ className }: MessageListProps) {
         ref={viewportRef}
         className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden !select-text [&_*:not(summary)]:!select-text"
       >
-        <div ref={contentRef} className="min-w-0 space-y-4 pb-4">
+        <div
+          ref={contentRef}
+          className="min-h-full w-full min-w-0 space-y-4 pb-4 flex flex-col justify-end"
+        >
           {(messages as any[]).map((message, index) => (
             <MessageItem
               key={message?.id ?? `m_${index}`}

@@ -31,14 +31,16 @@ export class CanvasRenderer {
   }
 
   /** Render the current canvas snapshot. */
-  render(snapshot: CanvasSnapshot): void {
+  render(snapshot: CanvasSnapshot, options?: { hideGrid?: boolean }): void {
     const [width, height] = snapshot.viewport.size;
     this.resize(width, height);
     const boundsMap = this.buildBoundsMap(snapshot);
 
     // 先清空画布，再绘制网格与基础元素。
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.drawGrid(snapshot);
+    if (!options?.hideGrid) {
+      this.drawGrid(snapshot);
+    }
     this.drawCanvasElements(snapshot, boundsMap);
     this.drawConnectorHandles(snapshot, boundsMap);
     this.drawConnectorDraft(snapshot, boundsMap);

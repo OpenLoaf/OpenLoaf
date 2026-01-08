@@ -550,6 +550,19 @@ const FileSystemGrid = memo(function FileSystemGrid({
     return true;
   }, []);
 
+  const handleGridContextMenuCapture = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement | null;
+      const entryEl = target?.closest(
+        '[data-entry-card="true"]'
+      ) as HTMLElement | null;
+      const uri = entryEl?.getAttribute("data-entry-uri") ?? "";
+      // 中文注释：统一记录右键触发源，避免触控板右键后误触点击。
+      lastContextMenuRef.current = { uri, at: Date.now() };
+    },
+    []
+  );
+
   const handleMouseMove = useCallback(
     (event: MouseEvent) => {
       const start = selectionStartRef.current;
@@ -709,6 +722,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
         ref={gridRef}
         className="relative flex-1 min-h-full h-full p-0.5"
         onMouseDown={handleGridMouseDown}
+        onContextMenuCapture={handleGridContextMenuCapture}
       >
         {selectionRect && gridRef.current ? (
           <div

@@ -70,6 +70,7 @@ interface ChatInputProps {
   onReplaceMaskedAttachment?: (attachmentId: string, input: MaskedAttachmentInput) => void;
   canAttachAll?: boolean;
   canAttachImage?: boolean;
+  onDropHandled?: () => void;
 }
 
 const MAX_CHARS = 2000;
@@ -143,6 +144,7 @@ export interface ChatInputBoxProps {
   canAttachImage?: boolean;
   /** Optional header content above the input form. */
   header?: ReactNode;
+  onDropHandled?: () => void;
 }
 
 export function ChatInputBox({
@@ -170,6 +172,7 @@ export function ChatInputBox({
   canAttachAll = false,
   canAttachImage = false,
   header,
+  onDropHandled,
 }: ChatInputBoxProps) {
   const initialValue = useMemo(() => parseChatValue(value), []);
   const [plainTextValue, setPlainTextValue] = useState(() =>
@@ -383,6 +386,132 @@ export function ChatInputBox({
     };
   }, [insertFileMention]);
 
+  const handleDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>) => {
+    console.debug("[ChatInput] drop payload", formatDragData(event.dataTransfer));
+    const imagePayload = readImageDragPayload(event.dataTransfer);
+    if (imagePayload) {
+      if (!canAttachImage && !canAttachAll) return;
+      const payloadFileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
+      const isPayloadImage = Boolean(imagePayload.maskUri) || isImageFileName(payloadFileName);
+      if (!isPayloadImage && canAttachAll) {
+        const fileRef =
+          event.dataTransfer.getData(FILE_DRAG_REF_MIME) ||
+          (() => {
+            if (!imagePayload.baseUri.startsWith("teatime-file://")) return "";
+            const parsed = parseTeatimeFileUrl(imagePayload.baseUri);
+            return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
+          })();
+        if (fileRef) {
+          insertFileMention(fileRef);
+        }
+        return;
+      }
+      if (imagePayload.maskUri) {
+        if (!onAddMaskedAttachment) return;
+        try {
+          // 逻辑：拖拽带 mask 的图片时，合成预览并写入附件列表。
+          const fileName = payloadFileName;
+          const baseBlob = await fetchBlobFromUri(imagePayload.baseUri);
+          const maskBlob = await fetchBlobFromUri(imagePayload.maskUri);
+          const baseFile = new File([baseBlob], fileName, {
+            type: baseBlob.type || "application/octet-stream",
+          });
+          const maskFile = new File([maskBlob], resolveMaskFileName(fileName), {
+            type: "image/png",
+          });
+          const previewUrl = await buildMaskedPreviewUrl(baseBlob, maskBlob);
+          onAddMaskedAttachment({ file: baseFile, maskFile, previewUrl });
+        } catch {
+          return;
+        }
+        return;
+      }
+      if (!onAddAttachments) return;
+      try {
+        // 处理从消息中拖拽的图片，复用附件上传流程。
+        const fileName = payloadFileName;
+        const isImageByName = isImageFileName(fileName);
+        const blob = await fetchBlobFromUri(imagePayload.baseUri);
+        const isImageByType = blob.type.startsWith("image/");
+        if (!isImageByName && !isImageByType) return;
+        const file = new File([blob], fileName, {
+          type: blob.type || "application/octet-stream",
+        });
+        const sourceUrl = imagePayload.baseUri.startsWith("teatime-file://")
+          ? imagePayload.baseUri
+          : undefined;
+        // 中文注释：应用内拖拽优先使用 teatime-file 引用上传。
+        onAddAttachments([{ file, sourceUrl }]);
+      } catch {
+        return;
+      }
+      return;
+    }
+    const files = Array.from(event.dataTransfer.files ?? []);
+    if (files.length > 0) {
+      if (!onAddAttachments) return;
+      if (!canAttachAll && !canAttachImage) return;
+      // 中文注释：支持从系统直接拖入图片文件。
+      if (canAttachAll) {
+        onAddAttachments(files);
+      } else {
+        const imageFiles = files.filter(
+          (file) => file.type.startsWith("image/") || isImageFileName(file.name)
+        );
+        if (imageFiles.length === 0) return;
+        onAddAttachments(imageFiles);
+      }
+      return;
+    }
+    const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
+    if (!fileRef) return;
+    if (!canAttachAll && !canAttachImage) return;
+    const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+    const baseValue = match?.[1] ?? fileRef;
+    if (!baseValue.includes("/")) return;
+    const parts = baseValue.split("/");
+    const projectId = parts[0] ?? "";
+    const relativePath = parts.slice(1).join("/");
+    if (!projectId || !relativePath) return;
+    const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
+    const isImageExt = /^(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(ext);
+    if (!isImageExt || !onAddAttachments) {
+      if (canAttachAll) {
+        insertFileMention(fileRef);
+      }
+      return;
+    }
+    const rootUri = resolveRootUri(projectId);
+    if (!rootUri) return;
+    const uri = buildUriFromRoot(rootUri, relativePath);
+    if (!uri) return;
+    try {
+      // 将项目内图片转为 File，交给 ChatImageAttachments 走上传。
+      const payload = await queryClient.fetchQuery(
+        trpc.fs.readBinary.queryOptions({ uri })
+      );
+      if (!payload?.contentBase64) return;
+      const bytes = base64ToUint8Array(payload.contentBase64);
+      const mime = payload.mime || "application/octet-stream";
+      const fileName = relativePath.split("/").pop() || "image";
+      const arrayBuffer = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(arrayBuffer).set(bytes);
+      const file = new File([arrayBuffer], fileName, { type: mime });
+      onAddAttachments([file]);
+    } catch {
+      return;
+    }
+  }, [
+    canAttachAll,
+    canAttachImage,
+    insertFileMention,
+    onAddAttachments,
+    onAddMaskedAttachment,
+    queryClient,
+    resolveRootUri,
+    trpc.fs.readBinary,
+  ]);
+
 
   if (!editor) {
     return null;
@@ -412,135 +541,15 @@ export function ChatInputBox({
         if (!canAttachAll && !canAttachImage) return;
         event.preventDefault();
       }}
-      onDrop={async (event) => {
-        console.debug("[ChatInput] drop payload", formatDragData(event.dataTransfer));
-        const imagePayload = readImageDragPayload(event.dataTransfer);
-        if (imagePayload) {
-          if (!canAttachImage && !canAttachAll) return;
-          const payloadFileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
-          const isPayloadImage = Boolean(imagePayload.maskUri) || isImageFileName(payloadFileName);
-          if (!isPayloadImage && canAttachAll) {
-            const fileRef =
-              event.dataTransfer.getData(FILE_DRAG_REF_MIME) ||
-              (() => {
-                if (!imagePayload.baseUri.startsWith("teatime-file://")) return "";
-                const parsed = parseTeatimeFileUrl(imagePayload.baseUri);
-                return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
-              })();
-            if (fileRef) {
-              event.preventDefault();
-              insertFileMention(fileRef);
-            }
-            return;
-          }
-          event.preventDefault();
-          if (imagePayload.maskUri) {
-            if (!onAddMaskedAttachment) return;
-            try {
-              // 逻辑：拖拽带 mask 的图片时，合成预览并写入附件列表。
-              const fileName = payloadFileName;
-              const baseBlob = await fetchBlobFromUri(imagePayload.baseUri);
-              const maskBlob = await fetchBlobFromUri(imagePayload.maskUri);
-              const baseFile = new File([baseBlob], fileName, {
-                type: baseBlob.type || "application/octet-stream",
-              });
-              const maskFile = new File([maskBlob], resolveMaskFileName(fileName), {
-                type: "image/png",
-              });
-              const previewUrl = await buildMaskedPreviewUrl(baseBlob, maskBlob);
-              onAddMaskedAttachment({ file: baseFile, maskFile, previewUrl });
-            } catch {
-              return;
-            }
-            return;
-          }
-          if (!onAddAttachments) return;
-          try {
-            // 处理从消息中拖拽的图片，复用附件上传流程。
-            const fileName = payloadFileName;
-            const isImageByName = isImageFileName(fileName);
-            const blob = await fetchBlobFromUri(imagePayload.baseUri);
-            const isImageByType = blob.type.startsWith("image/");
-            if (!isImageByName && !isImageByType) return;
-            const file = new File([blob], fileName, {
-              type: blob.type || "application/octet-stream",
-            });
-            const sourceUrl = imagePayload.baseUri.startsWith("teatime-file://")
-              ? imagePayload.baseUri
-              : undefined;
-            // 中文注释：应用内拖拽优先使用 teatime-file 引用上传。
-            onAddAttachments([{ file, sourceUrl }]);
-          } catch {
-            return;
-          }
-          return;
-        }
-        const files = Array.from(event.dataTransfer.files ?? []);
-        if (files.length > 0) {
-          if (!onAddAttachments) return;
-          if (!canAttachAll && !canAttachImage) return;
-          // 中文注释：支持从系统直接拖入图片文件。
-          event.preventDefault();
-          if (canAttachAll) {
-            onAddAttachments(files);
-          } else {
-            const imageFiles = files.filter(
-              (file) => file.type.startsWith("image/") || isImageFileName(file.name)
-            );
-            if (imageFiles.length === 0) return;
-            onAddAttachments(imageFiles);
-          }
-          return;
-        }
-        const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
-        if (!fileRef) return;
-        if (!canAttachAll && !canAttachImage) return;
-        event.preventDefault();
-        const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
-        const baseValue = match?.[1] ?? fileRef;
-        if (!baseValue.includes("/")) return;
-        const parts = baseValue.split("/");
-        const projectId = parts[0] ?? "";
-        const relativePath = parts.slice(1).join("/");
-        if (!projectId || !relativePath) return;
-        const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
-        const isImageExt = /^(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(ext);
-        if (!isImageExt || !onAddAttachments) {
-          if (canAttachAll) {
-            insertFileMention(fileRef);
-          }
-          return;
-        }
-        const rootUri = resolveRootUri(projectId);
-        if (!rootUri) return;
-        const uri = buildUriFromRoot(rootUri, relativePath);
-        if (!uri) return;
-        try {
-          // 将项目内图片转为 File，交给 ChatImageAttachments 走上传。
-          const payload = await queryClient.fetchQuery(
-            trpc.fs.readBinary.queryOptions({ uri })
-          );
-          if (!payload?.contentBase64) return;
-          const bytes = base64ToUint8Array(payload.contentBase64);
-          const mime = payload.mime || "application/octet-stream";
-          const fileName = relativePath.split("/").pop() || "image";
-          const arrayBuffer = new ArrayBuffer(bytes.byteLength);
-          new Uint8Array(arrayBuffer).set(bytes);
-          const file = new File([arrayBuffer], fileName, { type: mime });
-          onAddAttachments([file]);
-        } catch {
-          return;
-        }
-      }}
       onDropCapture={(event) => {
         const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
         const imagePayload = readImageDragPayload(event.dataTransfer);
         const hasFiles = event.dataTransfer.files?.length > 0;
         if (!fileRef && !imagePayload && !hasFiles) return;
-        if (imagePayload && !canAttachImage && !canAttachAll) return;
-        if (hasFiles && !canAttachAll && !canAttachImage) return;
-        if (fileRef && !canAttachAll && !canAttachImage) return;
         event.preventDefault();
+        event.stopPropagation();
+        onDropHandled?.();
+        void handleDrop(event);
       }}
     >
       {header ? (
@@ -733,6 +742,7 @@ export default function ChatInput({
   onReplaceMaskedAttachment,
   canAttachAll,
   canAttachImage,
+  onDropHandled,
 }: ChatInputProps) {
   const {
     sendMessage,
@@ -863,6 +873,7 @@ export default function ChatInput({
         onReplaceMaskedAttachment={onReplaceMaskedAttachment}
         canAttachAll={allowAll}
         canAttachImage={allowImage}
+        onDropHandled={onDropHandled}
         header={
           showImageOutputOptions ? (
             <ChatImageOutputOption

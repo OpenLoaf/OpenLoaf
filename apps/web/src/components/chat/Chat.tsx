@@ -449,6 +449,11 @@ export function Chat({
   );
 
   const canDropAny = canAttachAll || canAttachImage;
+  const resetDragState = React.useCallback(() => {
+    dragCounterRef.current = 0;
+    setIsDragActive(false);
+    setDragMode("allow");
+  }, [setIsDragActive, setDragMode]);
 
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
@@ -640,6 +645,7 @@ export function Chat({
           onReplaceMaskedAttachment={replaceMaskedAttachment}
           canAttachAll={canAttachAll}
           canAttachImage={canAttachImage}
+          onDropHandled={resetDragState}
         />
 
         <DragDropOverlay

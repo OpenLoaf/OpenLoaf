@@ -156,6 +156,8 @@ export function BoardCanvas({
   const pendingFileSnapshotRef = useRef<BoardSnapshotState | null>(null);
   /** Whether the minimap should stay visible. */
   const [showMiniMap, setShowMiniMap] = useState(false);
+  /** Whether grid rendering is suppressed for export. */
+  const [exporting, setExporting] = useState(false);
   /** Whether the minimap hover zone is active. */
   const [hoverMiniMap, setHoverMiniMap] = useState(false);
   /** Timeout id for hiding the minimap. */
@@ -203,6 +205,21 @@ export function BoardCanvas({
       engine.detach();
     };
   }, [engine]);
+
+  useEffect(() => {
+    const target = containerRef.current;
+    if (!target) return;
+    const handleExportEvent = (event: Event) => {
+      const detail = (event as CustomEvent<{ exporting?: boolean }>).detail;
+      if (typeof detail?.exporting !== "boolean") return;
+      // 逻辑：导出时临时关闭网格渲染，避免截图包含网格。
+      setExporting(detail.exporting);
+    };
+    target.addEventListener("teatime:board-export", handleExportEvent);
+    return () => {
+      target.removeEventListener("teatime:board-export", handleExportEvent);
+    };
+  }, []);
 
   /** Open the fullscreen image preview overlay. */
   const openImagePreview = useCallback((payload: ImagePreviewPayload) => {
@@ -812,7 +829,7 @@ export function BoardCanvas({
             }
           }}
         />
-        <CanvasSurface snapshot={snapshot} />
+        <CanvasSurface snapshot={snapshot} hideGrid={exporting} />
         <CanvasDomLayer engine={engine} snapshot={snapshot} />
         <AnchorOverlay snapshot={snapshot} />
         <MiniMap snapshot={snapshot} visible={shouldShowMiniMap} />
