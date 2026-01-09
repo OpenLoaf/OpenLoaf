@@ -397,6 +397,7 @@ export async function runChatImageRequest(input: {
     chatModelId,
     workspaceId,
     projectId,
+    boardId,
   } = input.request;
 
   setRequestContext({
@@ -406,6 +407,7 @@ export async function runChatImageRequest(input: {
     tabId: tabId || undefined,
     workspaceId: workspaceId || undefined,
     projectId: projectId || undefined,
+    boardId: typeof boardId === "string" && boardId.trim() ? boardId.trim() : undefined,
   });
 
   const abortController = new AbortController();

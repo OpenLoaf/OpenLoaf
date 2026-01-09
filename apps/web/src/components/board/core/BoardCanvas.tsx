@@ -11,7 +11,7 @@ import BoardControls from "../controls/BoardControls";
 import BoardToolbar from "../toolbar/BoardToolbar";
 import { isBoardUiTarget } from "../utils/dom";
 import { toScreenPoint } from "../utils/coordinates";
-import { buildImageNodePayloadFromFile } from "../utils/image";
+import { buildImageNodePayloadFromFile, dataUrlToBlob } from "../utils/image";
 import { readImageDragPayload } from "@/lib/image/drag";
 import { FILE_DRAG_URI_MIME } from "@/components/ui/teatime/drag-drop-types";
 import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
@@ -92,6 +92,27 @@ function mapSnapshotImageSources(
         ...props,
         originalSrc: nextSrc,
       },
+    };
+  });
+  if (!changed) return snapshot;
+  return {
+    ...snapshot,
+    nodes: nextNodes,
+  };
+}
+
+/** Strip preview sources from image nodes for file persistence. */
+function stripSnapshotImagePreviews(snapshot: BoardSnapshotState): BoardSnapshotState {
+  let changed = false;
+  const nextNodes = snapshot.nodes.map((node) => {
+    if (node.type !== "image") return node;
+    const props = node.props as Record<string, unknown>;
+    if (!Object.prototype.hasOwnProperty.call(props, "previewSrc")) return node;
+    changed = true;
+    const { previewSrc: _previewSrc, ...rest } = props;
+    return {
+      ...node,
+      props: rest,
     };
   });
   if (!changed) return snapshot;
@@ -217,6 +238,8 @@ export function BoardCanvas({
   const remoteSaveTimeoutRef = useRef<number | null>(null);
   /** Latest payload queued for file save. */
   const pendingFileSnapshotRef = useRef<BoardSnapshotState | null>(null);
+  /** Image node ids currently upgrading to asset files. */
+  const imageAssetUpgradeIdsRef = useRef<Set<string>>(new Set());
   /** Whether the minimap should stay visible. */
   const [showMiniMap, setShowMiniMap] = useState(false);
   /** Whether grid rendering is suppressed for export. */
@@ -248,7 +271,16 @@ export function BoardCanvas({
   }, [boardId, resolvedWorkspaceId]);
   /** Board folder scope used for attachment resolution. */
   const boardFolderScope = useMemo(() => {
-    if (!boardFolderUri || !projectId || !rootUri) return null;
+    if (!boardFolderUri) return null;
+    const parsed = parseTeatimeFileUrl(boardFolderUri);
+    if (parsed) {
+      return {
+        projectId: parsed.projectId,
+        relativeFolderPath: parsed.relativePath,
+        boardFolderUri,
+      };
+    }
+    if (!projectId || !rootUri) return null;
     const relativeFolderPath = getRelativePathFromUri(rootUri, boardFolderUri);
     if (!relativeFolderPath) return null;
     return { projectId, relativeFolderPath, boardFolderUri };
@@ -413,6 +445,52 @@ export function BoardCanvas({
     [assetsFolderUri, boardFolderScope, saveBoardAssetFile]
   );
 
+  /** Upgrade image nodes with data URLs into asset files. */
+  const upgradeImageNodeAssets = useCallback(
+    async (nodes: CanvasNodeElement[]) => {
+      if (!boardFolderScope || !assetsFolderUri) return false;
+      let updated = false;
+      let pending = false;
+      for (const node of nodes) {
+        if (node.type !== "image") continue;
+        const props = node.props as Record<string, unknown>;
+        const originalSrc = typeof props.originalSrc === "string" ? props.originalSrc : "";
+        if (!originalSrc.startsWith("data:")) continue;
+        if (imageAssetUpgradeIdsRef.current.has(node.id)) {
+          pending = true;
+          continue;
+        }
+        imageAssetUpgradeIdsRef.current.add(node.id);
+        try {
+          const rawName = typeof props.fileName === "string" ? props.fileName : "";
+          const mimeType = typeof props.mimeType === "string" ? props.mimeType : "";
+          const fallbackName = resolveFileName(originalSrc, mimeType || undefined);
+          const fileName = rawName.trim() || fallbackName || "image.png";
+          // 逻辑：将 data url 转成文件后写入 assets，替换为绝对路径。
+          const blob = await dataUrlToBlob(originalSrc);
+          const file = new File([blob], fileName, {
+            type: blob.type || mimeType || "application/octet-stream",
+          });
+          const assetName = await saveBoardAssetFile(file);
+          if (!assetName) continue;
+          const relativePath = `${BOARD_ASSETS_DIR_NAME}/${assetName}`;
+          const absolute = buildTeatimeFileUrl(
+            boardFolderScope.projectId,
+            `${boardFolderScope.relativeFolderPath}/${relativePath}`
+          );
+          engine.doc.updateNodeProps(node.id, { originalSrc: absolute });
+          updated = true;
+        } catch {
+          // 逻辑：升级失败时保留 base64，避免阻塞保存流程。
+        } finally {
+          imageAssetUpgradeIdsRef.current.delete(node.id);
+        }
+      }
+      return updated || pending;
+    },
+    [assetsFolderUri, boardFolderScope, engine, saveBoardAssetFile]
+  );
+
   useEffect(() => {
     engine.setImagePayloadBuilder(buildBoardImagePayloadFromFile);
     return () => {
@@ -429,10 +507,30 @@ export function BoardCanvas({
 
   /** Normalize canvas snapshots before saving back to file. */
   const normalizeSnapshotForFile = useCallback(
-    (snapshotData: BoardSnapshotState) =>
-      mapSnapshotImageSources(snapshotData, toBoardRelativeUri),
+    (snapshotData: BoardSnapshotState) => {
+      const normalized = mapSnapshotImageSources(snapshotData, toBoardRelativeUri);
+      // 逻辑：落盘时移除预览图，避免 .ttboard 体积膨胀。
+      return stripSnapshotImagePreviews(normalized);
+    },
     [toBoardRelativeUri]
   );
+
+  /** Persist the latest file snapshot with asset upgrades applied. */
+  const savePendingSnapshotToFile = useCallback(async () => {
+    if (!fileScope) return;
+    const pending = pendingFileSnapshotRef.current;
+    if (!pending) return;
+    const upgraded = await upgradeImageNodeAssets(pending.nodes);
+    if (upgraded) {
+      // 逻辑：升级图片会触发快照变更，等待下一轮保存。
+      return;
+    }
+    const normalized = normalizeSnapshotForFile(pending);
+    saveBoardSnapshot.mutate({
+      uri: fileScope.uri,
+      content: JSON.stringify(normalized, null, 2),
+    });
+  }, [fileScope, normalizeSnapshotForFile, saveBoardSnapshot, upgradeImageNodeAssets]);
   useEffect(() => {
     if (!containerRef.current) return;
     engine.attach(containerRef.current);
@@ -534,7 +632,7 @@ export function BoardCanvas({
       void writeBoardSnapshotCache(localSnapshotPayload);
 
       if (fileScope) {
-        // 中文注释：合并短时间内的文件保存，避免频繁写文件。
+        // 逻辑：合并短时间内的文件保存，避免频繁写文件。
         pendingFileSnapshotRef.current = normalizeSnapshotForFile({
           schemaVersion: BOARD_SCHEMA_VERSION,
           nodes: payload.nodes,
@@ -546,16 +644,11 @@ export function BoardCanvas({
           window.clearTimeout(remoteSaveTimeoutRef.current);
         }
         remoteSaveTimeoutRef.current = window.setTimeout(() => {
-          const pending = pendingFileSnapshotRef.current;
-          if (!pending) return;
-          saveBoardSnapshot.mutate({
-            uri: fileScope.uri,
-            content: JSON.stringify(pending, null, 2),
-          });
+          void savePendingSnapshotToFile();
         }, VIEWPORT_SAVE_DELAY);
       }
     },
-    [boardScope, fileScope, normalizeSnapshotForFile, saveBoardSnapshot]
+    [boardScope, fileScope, normalizeSnapshotForFile, savePendingSnapshotToFile]
   );
 
   useEffect(() => {
@@ -955,7 +1048,11 @@ export function BoardCanvas({
   );
 
   return (
-    <BoardProvider engine={engine} actions={boardActions}>
+    <BoardProvider
+      engine={engine}
+      actions={boardActions}
+      fileContext={{ projectId, rootUri, boardFolderUri }}
+    >
       <div
         ref={containerRef}
         data-board-canvas

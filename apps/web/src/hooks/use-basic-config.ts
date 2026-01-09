@@ -26,6 +26,18 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   proxyPort: "",
   proxyUsername: "",
   proxyPassword: "",
+  cliTools: {
+    codex: {
+      apiUrl: "",
+      apiKey: "",
+      forceCustomApiKey: false,
+    },
+    claudeCode: {
+      apiUrl: "",
+      apiKey: "",
+      forceCustomApiKey: false,
+    },
+  },
 };
 
 export function useBasicConfig() {

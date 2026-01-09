@@ -109,6 +109,15 @@ function normalizeOptionalId(value: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+/** Resolve boardId filter for session listing. */
+function resolveBoardIdFilter(value: string | null | undefined): string | null | undefined {
+  if (value === null) {
+    // 中文注释：显式 null 代表仅查询未绑定 board 的会话。
+    return null;
+  }
+  return normalizeOptionalId(value);
+}
+
 function isRenderableRow(row: { role: string; parts: unknown }): boolean {
   if (row.role === "user") return true;
   const parts = row.parts;
@@ -508,10 +517,12 @@ export const chatRouter = t.router({
       z.object({
         workspaceId: z.string().trim().min(1),
         projectId: z.string().optional(),
+        boardId: z.string().trim().min(1).nullable().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
       const projectId = normalizeOptionalId(input.projectId);
+      const boardId = resolveBoardIdFilter(input.boardId);
       let projectIdFilter: string[] | null = null;
       let projectTitleMap = new Map<string, string>();
 
@@ -539,6 +550,7 @@ export const chatRouter = t.router({
         where: {
           deletedAt: null,
           workspaceId: input.workspaceId,
+          ...(boardId !== undefined ? { boardId } : {}),
           ...(projectIdFilter ? { projectId: { in: projectIdFilter } } : {}),
         },
         orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }],

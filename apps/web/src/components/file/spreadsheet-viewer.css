@@ -1,23 +1,82 @@
 .sheet-viewer-grid {
   height: 100%;
-  background: #f5f2ea;
-  color: #2b2b2b;
+  --sheet-grid-background: var(--card);
+  --sheet-grid-foreground: var(--card-foreground);
+  --sheet-grid-border: var(--border);
+  --sheet-grid-header-background: color-mix(
+    in oklch,
+    var(--card) 88%,
+    var(--foreground)
+  );
+  --sheet-grid-cell-background: color-mix(
+    in oklch,
+    var(--card) 96%,
+    var(--background)
+  );
+  --sheet-grid-row-number-background: color-mix(
+    in oklch,
+    var(--card) 92%,
+    var(--background)
+  );
+  --sheet-grid-row-number-color: var(--muted-foreground);
+  --sheet-grid-hover-background: color-mix(
+    in oklch,
+    var(--card) 88%,
+    var(--foreground)
+  );
+  --sheet-grid-selected-background: color-mix(
+    in oklch,
+    var(--primary) 18%,
+    var(--card)
+  );
+  --sheet-grid-selected-hover-background: color-mix(
+    in oklch,
+    var(--primary) 24%,
+    var(--card)
+  );
+  --rdg-color: var(--sheet-grid-foreground);
+  --rdg-border-color: var(--sheet-grid-border);
+  --rdg-background-color: var(--sheet-grid-cell-background);
+  --rdg-header-background-color: var(--sheet-grid-header-background);
+  --rdg-row-hover-background-color: var(--sheet-grid-hover-background);
+  --rdg-row-selected-background-color: var(--sheet-grid-selected-background);
+  --rdg-row-selected-hover-background-color: var(--sheet-grid-selected-hover-background);
+  --rdg-selection-color: color-mix(
+    in oklch,
+    var(--primary) 70%,
+    var(--foreground)
+  );
+  --rdg-checkbox-focus-color: color-mix(
+    in oklch,
+    var(--primary) 70%,
+    var(--foreground)
+  );
+  background: var(--sheet-grid-background);
+  color: var(--sheet-grid-foreground);
   border-radius: 8px;
-  border: 1px solid rgba(60, 52, 40, 0.2);
+  border: 1px solid var(--sheet-grid-border);
 }
 
 .sheet-viewer-grid .rdg-header-row {
-  background: #efe6d7;
+  background: var(--sheet-grid-header-background);
 }
 
 .sheet-viewer-grid .rdg-header-cell {
-  color: #4c3b2c;
+  color: var(--sheet-grid-foreground);
   font-weight: 600;
 }
 
 .sheet-viewer-row-number-header,
 .sheet-viewer-row-number-cell {
-  color: #5b4a39;
+  color: var(--sheet-grid-row-number-color);
+}
+
+.sheet-viewer-row-number-header {
+  background: var(--sheet-grid-header-background);
+}
+
+.sheet-viewer-row-number-cell {
+  background: var(--sheet-grid-row-number-background);
 }
 
 .sheet-viewer-row-number {
@@ -28,29 +87,6 @@
 }
 
 .sheet-viewer-grid .rdg-cell {
-  background: #faf4e8;
-  border-color: rgba(60, 52, 40, 0.18);
-}
-
-.dark .sheet-viewer-grid {
-  background: #191a1c;
-  color: #e7e3dc;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.dark .sheet-viewer-grid .rdg-header-row {
-  background: #222326;
-}
-
-.dark .sheet-viewer-grid .rdg-header-cell {
-  color: #efe9df;
-}
-
-.dark .sheet-viewer-row-number-header,
-.dark .sheet-viewer-row-number-cell {
-  color: #cfc6b7;
-}
-
-.dark .sheet-viewer-grid .rdg-cell {
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--sheet-grid-cell-background);
+  border-color: var(--sheet-grid-border);
 }

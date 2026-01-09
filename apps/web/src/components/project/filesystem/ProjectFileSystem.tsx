@@ -16,6 +16,7 @@ import {
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   FolderPlus,
   LayoutGrid,
@@ -448,152 +449,200 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
         <div className="flex flex-wrap items-center justify-end gap-1 rounded-b-2xl px-4 py-2.5">
           {model.canUndo || model.canRedo ? (
             <>
-              <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  aria-label="撤回"
-                  title="撤回"
-                  disabled={!model.canUndo}
-                  onClick={() => {
-                    model.undo();
-                  }}
-                >
-                  <Undo2 className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  aria-label="前进"
-                  title="前进"
-                  disabled={!model.canRedo}
-                  onClick={() => {
-                    model.redo();
-                  }}
-                >
-                  <Redo2 className="h-3.5 w-3.5" />
-                </Button>
-              </>
-            ) : null}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              aria-label="切换排列方式"
-              title="切换排列方式"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-7 w-7 ${
-                model.sortField === "name" ? "bg-foreground/10 text-foreground" : ""
-              }`}
-              aria-label="按字母排序"
-              title="按字母排序"
-              onClick={model.handleSortByName}
-            >
-              {model.sortField === "name" && model.sortOrder === "desc" ? (
-                <ArrowUpAZ className="h-3.5 w-3.5" />
-              ) : (
-                <ArrowDownAZ className="h-3.5 w-3.5" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-7 w-7 ${
-                model.sortField === "mtime" ? "bg-foreground/10 text-foreground" : ""
-              }`}
-              aria-label="按时间排序"
-              title="按时间排序"
-              onClick={model.handleSortByTime}
-            >
-              {model.sortField === "mtime" && model.sortOrder === "asc" ? (
-                <ArrowUpWideNarrow className="h-3.5 w-3.5" />
-              ) : (
-                <ArrowDownWideNarrow className="h-3.5 w-3.5" />
-              )}
-            </Button>
-            <div className="mx-1 h-4 w-px bg-border/70" />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              aria-label="新建文件夹"
-              title="新建文件夹"
-              onClick={handleCreateFolder}
-            >
-              <FolderPlus className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              aria-label="添加文件"
-              title="添加文件"
-              onClick={() => {
-                model.uploadInputRef.current?.click();
-              }}
-            >
-              <Upload className="h-3.5 w-3.5" />
-            </Button>
-            <input
-              ref={model.uploadInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={async (event) => {
-                const input = event.currentTarget;
-                const files = Array.from(input.files ?? []);
-                if (files.length === 0) return;
-                await model.handleUploadFiles(files);
-                if (model.uploadInputRef.current) {
-                  model.uploadInputRef.current.value = "";
-                } else {
-                  input.value = "";
-                }
-              }}
-            />
-            <div ref={model.searchContainerRef} className="flex items-center">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    aria-label="撤回"
+                    disabled={!model.canUndo}
+                    onClick={() => {
+                      model.undo();
+                    }}
+                  >
+                    <Undo2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  撤回
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    aria-label="前进"
+                    disabled={!model.canRedo}
+                    onClick={() => {
+                      model.redo();
+                    }}
+                  >
+                    <Redo2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  前进
+                </TooltipContent>
+              </Tooltip>
+            </>
+          ) : null}
+          <Tooltip>
+            <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className={`h-7 w-7 transition-[width,opacity] duration-150 ${
-                  model.isSearchOpen
-                    ? "w-0 opacity-0 pointer-events-none"
-                    : "opacity-100"
-                }`}
-                aria-label="搜索"
-                title="搜索"
-                onClick={() => model.setIsSearchOpen(true)}
+                className="h-7 w-7"
+                aria-label="切换排列方式"
               >
-                <Search className="h-3.5 w-3.5" />
+                <LayoutGrid className="h-3.5 w-3.5" />
               </Button>
-              <div
-                className={`relative overflow-hidden rounded-md ring-1 ring-border/60 bg-background/80 transition-[width,opacity,transform] duration-200 origin-right ${
-                  model.isSearchOpen
-                    ? "w-56 opacity-100 translate-x-0"
-                    : "w-0 opacity-0 translate-x-2"
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              切换排列方式
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 ${
+                  model.sortField === "name" ? "bg-foreground/10 text-foreground" : ""
                 }`}
+                aria-label="按字母排序"
+                onClick={model.handleSortByName}
               >
-                <Input
-                  ref={model.searchInputRef}
-                  className="h-7 w-56 border-0 bg-transparent px-3 text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
-                  placeholder="搜索文件或文件夹"
-                  type="search"
-                  value={model.searchValue}
-                  onChange={(event) => model.setSearchValue(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      model.setIsSearchOpen(false);
-                    }
-                  }}
-                />
-              </div>
+                {model.sortField === "name" && model.sortOrder === "desc" ? (
+                  <ArrowUpAZ className="h-3.5 w-3.5" />
+                ) : (
+                  <ArrowDownAZ className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              按字母排序
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 ${
+                  model.sortField === "mtime" ? "bg-foreground/10 text-foreground" : ""
+                }`}
+                aria-label="按时间排序"
+                onClick={model.handleSortByTime}
+              >
+                {model.sortField === "mtime" && model.sortOrder === "asc" ? (
+                  <ArrowUpWideNarrow className="h-3.5 w-3.5" />
+                ) : (
+                  <ArrowDownWideNarrow className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              按时间排序
+            </TooltipContent>
+          </Tooltip>
+          <div className="mx-1 h-4 w-px bg-border/70" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label="新建文件夹"
+                onClick={handleCreateFolder}
+              >
+                <FolderPlus className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              新建文件夹
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label="添加文件"
+                onClick={() => {
+                  model.uploadInputRef.current?.click();
+                }}
+              >
+                <Upload className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              添加文件
+            </TooltipContent>
+          </Tooltip>
+          <input
+            ref={model.uploadInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={async (event) => {
+              const input = event.currentTarget;
+              const files = Array.from(input.files ?? []);
+              if (files.length === 0) return;
+              await model.handleUploadFiles(files);
+              if (model.uploadInputRef.current) {
+                model.uploadInputRef.current.value = "";
+              } else {
+                input.value = "";
+              }
+            }}
+          />
+          <div ref={model.searchContainerRef} className="flex items-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-7 w-7 transition-[width,opacity] duration-150 ${
+                    model.isSearchOpen
+                      ? "w-0 opacity-0 pointer-events-none"
+                      : "opacity-100"
+                  }`}
+                  aria-label="搜索"
+                  onClick={() => model.setIsSearchOpen(true)}
+                >
+                  <Search className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                搜索
+              </TooltipContent>
+            </Tooltip>
+            <div
+              className={`relative overflow-hidden rounded-md ring-1 ring-border/60 bg-background/80 transition-[width,opacity,transform] duration-200 origin-right ${
+                model.isSearchOpen
+                  ? "w-56 opacity-100 translate-x-0"
+                  : "w-0 opacity-0 translate-x-2"
+              }`}
+            >
+              <Input
+                ref={model.searchInputRef}
+                className="h-7 w-56 border-0 bg-transparent px-3 text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
+                placeholder="搜索文件或文件夹"
+                type="search"
+                value={model.searchValue}
+                onChange={(event) => model.setSearchValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    model.setIsSearchOpen(false);
+                  }
+                }}
+              />
             </div>
+          </div>
         </div>,
         headerSlot.toolbarMount
       )

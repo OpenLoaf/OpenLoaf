@@ -4,8 +4,40 @@ import { useTabs } from "@/hooks/use-tabs";
 import { DEFAULT_TAB_INFO } from "@teatime-ai/api/common";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Button } from "@/components/ui/button";
-import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TabMenu } from "./TabMenu";
+
+/** Format a shortcut string for tooltip display. */
+function formatShortcutLabel(shortcut: string, isMac: boolean): string {
+  const alternatives = shortcut
+    .split("/")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const joiner = isMac ? "" : "+";
+
+  const formatPart = (part: string) => {
+    const normalized = part.toLowerCase();
+    if (normalized === "mod") return isMac ? "⌘" : "Ctrl";
+    if (normalized === "cmd") return "⌘";
+    if (normalized === "ctrl") return "Ctrl";
+    if (normalized === "alt") return isMac ? "⌥" : "Alt";
+    if (normalized === "shift") return isMac ? "⇧" : "Shift";
+    if (/^[a-z]$/i.test(part)) return part.toUpperCase();
+    return part;
+  };
+
+  return alternatives
+    .map((alt) =>
+      alt
+        .split("+")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((part) => formatPart(part))
+        .join(joiner),
+    )
+    .join(" / ");
+}
 
 export const HeaderTabs = () => {
   const activeTabId = useTabs((s) => s.activeTabId);
@@ -40,6 +72,13 @@ export const HeaderTabs = () => {
   } | null>(null);
   const swapRafRef = useRef<number | null>(null);
   const lastSwapKeyRef = useRef<string | null>(null);
+  const isMac = useMemo(
+    () =>
+      typeof navigator !== "undefined" &&
+      (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac")),
+    [],
+  );
+  const newTabShortcut = formatShortcutLabel("Mod+0", isMac);
 
   // 获取当前工作区的标签列表
   const workspaceTabs = activeWorkspace
@@ -332,16 +371,23 @@ export const HeaderTabs = () => {
                 onTogglePin={handleTogglePin}
               />
             ))}
-            <Button
-              data-no-drag="true"
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
-              aria-label="Add new tab"
-              onClick={handleAddTab}
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  data-no-drag="true"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+                  aria-label="Add new tab"
+                  onClick={handleAddTab}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                新建标签页 ({newTabShortcut})
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </TabsList>

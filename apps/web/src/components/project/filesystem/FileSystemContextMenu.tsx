@@ -86,6 +86,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
   actions,
 }: FileSystemContextMenuProps) {
   const isMultiSelection = selectedEntries.length > 1;
+  const toggleHiddenLabel = showHidden ? "✓ 显示隐藏" : "显示隐藏";
 
   return (
     <ContextMenu onOpenChange={onOpenChange}>
@@ -188,7 +189,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               刷新
             </ContextMenuItem>
             <ContextMenuItem onSelect={withMenuSelectGuard(actions.toggleHidden)}>
-              {showHidden ? "✓ 显示隐藏" : "显示隐藏"}
+              {toggleHiddenLabel}
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem onSelect={withMenuSelectGuard(actions.createFolder)}>

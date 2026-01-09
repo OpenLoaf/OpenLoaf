@@ -2,19 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Save } from "lucide-react";
+import { ExternalLinkIcon, Plus, Save } from "lucide-react";
 import { DataGrid, renderTextEditor, type Column } from "react-data-grid";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTabs } from "@/hooks/use-tabs";
 import { trpc } from "@/utils/trpc";
 
 import "react-data-grid/lib/styles.css";
 import "./spreadsheet-viewer.css";
 
-type SheetCell = string | null;
+type SheetCell = string;
 type SheetRow = Record<string, SheetCell> & { __rowId: string };
 
 type SheetState = {
@@ -58,6 +59,14 @@ function encodeArrayBufferToBase64(buffer: ArrayBuffer): string {
     binary += String.fromCharCode(...chunk);
   }
   return btoa(binary);
+}
+
+/** Normalize cell value for grid editing. */
+function normalizeCellValue(
+  value: string | number | boolean | null | undefined
+): string {
+  if (value === null || value === undefined) return "";
+  return String(value);
 }
 
 /** Normalize an Excel sheet into grid rows/columns. */
@@ -104,12 +113,7 @@ function buildSheetState(name: string, sheet?: XLSX.WorkSheet): SheetState {
     const nextRow: SheetRow = { __rowId: `row-${rowIndex}` };
     for (let colIndex = 0; colIndex < maxCols; colIndex += 1) {
       const key = XLSX.utils.encode_col(colIndex);
-      const value = row[colIndex];
-      if (value === undefined || value === null) {
-        nextRow[key] = null;
-      } else {
-        nextRow[key] = String(value);
-      }
+      nextRow[key] = normalizeCellValue(row[colIndex]);
     }
     return nextRow;
   });
@@ -223,7 +227,7 @@ export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerP
       const workbook = XLSX.utils.book_new();
       for (const sheet of sheets) {
         const data = sheet.rows.map((row) =>
-          sheet.columnKeys.map((key) => row[key] ?? null)
+          sheet.columnKeys.map((key) => (row[key] === "" ? null : row[key]))
         );
         const worksheet = XLSX.utils.aoa_to_sheet(data);
         XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name);
@@ -243,16 +247,40 @@ export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerP
     }
   };
 
+  /** Open current file in the system default program. */
+  const handleOpenInSystem = useCallback(async () => {
+    if (!uri) return;
+    if (!shouldUseFs) {
+      toast.error("暂不支持此地址");
+      return;
+    }
+    const api = window.teatimeElectron;
+    if (!api?.openPath) {
+      toast.error("网页版不支持打开本地文件");
+      return;
+    }
+    const res = await api.openPath({ uri });
+    if (!res?.ok) {
+      toast.error(res?.reason ?? "无法打开文件");
+    }
+  }, [shouldUseFs, uri]);
+
   /** Apply row changes from the grid. */
   const handleRowsChange = useCallback(
     (nextRows: SheetRow[]) => {
       setSheets((prev) =>
         prev.map((sheet, index) => {
           if (index !== activeSheetIndex) return sheet;
-          // 中文注释：确保每行都有稳定的 row id，避免编辑时丢失。
+          // 确保每行都有稳定的 row id，避免编辑时丢失。
           const normalizedRows = nextRows.map((row, rowIndex) => {
-            if (row.__rowId) return row;
-            return { ...row, __rowId: `row-${rowIndex}` };
+            const nextRow: SheetRow = {
+              ...(row.__rowId ? row : { ...row, __rowId: `row-${rowIndex}` }),
+              __rowId: row.__rowId ?? `row-${rowIndex}`,
+            };
+            for (const key of sheet.columnKeys) {
+              nextRow[key] = normalizeCellValue(nextRow[key]);
+            }
+            return nextRow;
           });
           return { ...sheet, rows: normalizedRows };
         })
@@ -267,7 +295,7 @@ export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerP
     if (!activeSheet) return;
     const nextRow: SheetRow = { __rowId: `row-${Date.now()}` };
     for (const key of activeSheet.columnKeys) {
-      nextRow[key] = null;
+      nextRow[key] = "";
     }
     setSheets((prev) =>
       prev.map((sheet, index) =>
@@ -287,25 +315,53 @@ export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerP
         title={displayTitle}
         rightSlot={
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleAddRow}
-              disabled={!activeSheet || status !== "ready"}
-            >
-              新增行
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void handleSave()}
-              disabled={
-                !shouldUseFs || status !== "ready" || writeBinaryMutation.isPending || !isDirty
-              }
-            >
-              <Save className="mr-1 h-4 w-4" />
-              保存
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="使用系统程序打开"
+                  onClick={() => void handleOpenInSystem()}
+                  disabled={!shouldUseFs}
+                >
+                  <ExternalLinkIcon className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">使用系统程序打开</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="新增行"
+                  onClick={handleAddRow}
+                  disabled={!activeSheet || status !== "ready"}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">新增行</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="保存"
+                  onClick={() => void handleSave()}
+                  disabled={
+                    !shouldUseFs ||
+                    status !== "ready" ||
+                    writeBinaryMutation.isPending ||
+                    !isDirty
+                  }
+                >
+                  <Save className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">保存</TooltipContent>
+            </Tooltip>
           </div>
         }
         showMinimize
@@ -315,6 +371,10 @@ export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerP
         }}
         onClose={() => {
           if (!tabId || !panelKey) return;
+          if (isDirty) {
+            const ok = window.confirm("当前表格尚未保存，确定要关闭吗？");
+            if (!ok) return;
+          }
           removeStackItem(tabId, panelKey);
         }}
       />

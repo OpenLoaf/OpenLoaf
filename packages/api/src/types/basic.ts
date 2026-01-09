@@ -28,6 +28,35 @@ export const uiThemeSchema = z.enum(["system", "light", "dark"]);
 
 export const uiThemeManualSchema = z.enum(["light", "dark"]);
 
+/** CLI tool config schema. */
+export const cliToolConfigSchema = z.object({
+  apiUrl: z.string(),
+  apiKey: z.string(),
+  forceCustomApiKey: z.boolean(),
+});
+
+/** CLI tools config schema. */
+export const cliToolsConfigSchema = z.object({
+  codex: cliToolConfigSchema,
+  claudeCode: cliToolConfigSchema,
+});
+
+export type CliToolConfig = {
+  /** API base URL. */
+  apiUrl: string;
+  /** API key. */
+  apiKey: string;
+  /** Force using custom API key. */
+  forceCustomApiKey: boolean;
+};
+
+export type CliToolsConfig = {
+  /** Codex CLI config. */
+  codex: CliToolConfig;
+  /** Claude Code CLI config. */
+  claudeCode: CliToolConfig;
+};
+
 export const basicConfigSchema = z.object({
   chatSource: z.enum(["local", "cloud"]),
   activeS3Id: z.string().optional(),
@@ -50,6 +79,8 @@ export const basicConfigSchema = z.object({
   proxyPort: z.string(),
   proxyUsername: z.string(),
   proxyPassword: z.string(),
+  /** CLI tool settings. */
+  cliTools: cliToolsConfigSchema,
 });
 
 export const basicConfigUpdateSchema = basicConfigSchema.partial();

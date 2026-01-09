@@ -46,6 +46,8 @@ export type ChatImageRequest = {
   workspaceId?: string;
   /** Project id. */
   projectId?: string;
+  /** Board id. */
+  boardId?: string | null;
 };
 
 export type ChatImageResponse = {
@@ -97,5 +99,6 @@ export const chatImageRequestSchema: z.ZodType<ChatImageRequest> = z
     chatModelSource: z.enum(["local", "cloud"]).optional(),
     workspaceId: z.string().min(1).optional(),
     projectId: z.string().min(1).optional(),
+    boardId: z.string().min(1).nullable().optional(),
   })
   .strict();

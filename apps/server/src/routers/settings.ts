@@ -8,6 +8,11 @@ import {
   setBasicConfigFromWeb,
   setSettingValueFromWeb,
 } from "@/modules/settings/settingsService";
+import {
+  checkCliToolUpdate,
+  getCliToolsStatus,
+  installCliTool,
+} from "@/ai/models/cli/cliToolService";
 
 export class SettingRouterImpl extends BaseSettingRouter {
   /** Settings read/write (server-side). */
@@ -33,6 +38,11 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .query(async () => {
           return await getBasicConfigForWeb();
         }),
+      getCliToolsStatus: shieldedProcedure
+        .output(settingSchemas.getCliToolsStatus.output)
+        .query(async () => {
+          return await getCliToolsStatus();
+        }),
       set: shieldedProcedure
         .input(settingSchemas.set.input)
         .output(settingSchemas.set.output)
@@ -46,6 +56,20 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .mutation(async ({ input }) => {
           await deleteSettingValueFromWeb(input.key, input.category);
           return { ok: true };
+        }),
+      installCliTool: shieldedProcedure
+        .input(settingSchemas.installCliTool.input)
+        .output(settingSchemas.installCliTool.output)
+        .mutation(async ({ input }) => {
+          const status = await installCliTool(input.id);
+          return { ok: true, status };
+        }),
+      checkCliToolUpdate: shieldedProcedure
+        .input(settingSchemas.checkCliToolUpdate.input)
+        .output(settingSchemas.checkCliToolUpdate.output)
+        .mutation(async ({ input }) => {
+          const status = await checkCliToolUpdate(input.id);
+          return { ok: true, status };
         }),
       setBasic: shieldedProcedure
         .input(settingSchemas.setBasic.input)

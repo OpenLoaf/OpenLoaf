@@ -5,6 +5,38 @@ import {
   Settings,
 } from "lucide-react";
 import { useMemo, useRef } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+/** Format a shortcut string for tooltip display. */
+function formatShortcutLabel(shortcut: string, isMac: boolean): string {
+  const alternatives = shortcut
+    .split("/")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const joiner = isMac ? "" : "+";
+
+  const formatPart = (part: string) => {
+    const normalized = part.toLowerCase();
+    if (normalized === "mod") return isMac ? "⌘" : "Ctrl";
+    if (normalized === "cmd") return "⌘";
+    if (normalized === "ctrl") return "Ctrl";
+    if (normalized === "alt") return isMac ? "⌥" : "Alt";
+    if (normalized === "shift") return isMac ? "⇧" : "Shift";
+    if (/^[a-z]$/i.test(part)) return part.toUpperCase();
+    return part;
+  };
+
+  return alternatives
+    .map((alt) =>
+      alt
+        .split("+")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((part) => formatPart(part))
+        .join(joiner),
+    )
+    .join(" / ");
+}
 
 export const PROJECT_TABS = [
   {
@@ -54,6 +86,12 @@ export default function ProjectTabs({
   isActive = true,
 }: ProjectTabsProps) {
   const tabButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const isMac = useMemo(
+    () =>
+      typeof navigator !== "undefined" &&
+      (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac")),
+    [],
+  );
 
   const activeIndex = useMemo(
     () => PROJECT_TABS.findIndex((tab) => tab.value === value),
@@ -84,35 +122,39 @@ export default function ProjectTabs({
             const isCurrent = tab.value === value;
             const tabId = `project-tab-${tab.value}`;
             const panelId = `project-panel-${tab.value}`;
+            const tabShortcut = formatShortcutLabel(`Alt+${index + 1}`, isMac);
+            const tooltipLabel = `${tab.label} (${tabShortcut})`;
 
             return (
-              <button
-                key={tab.value}
-                ref={(el) => {
-                  tabButtonRefs.current[index] = el;
-                }}
-                id={tabId}
-                type="button"
-                role="tab"
-                aria-selected={isCurrent}
-                aria-controls={panelId}
-                aria-label={tab.label}
-                title={tab.label}
-                tabIndex={isCurrent ? 0 : -1}
-                onClick={() => onValueChange(tab.value)}
-                className={[
-                  "relative text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center rounded-md w-full px-2 py-1 text-sm font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-                  "group flex items-center px-3 transition-colors duration-200",
-                  isCurrent ? "text-foreground bg-background shadow-sm" : "",
-                ].join(" ")}
-              >
-                <span className="relative z-10 flex items-center justify-center w-5 h-5">
-                  {tab.icon}
-                </span>
-                <span className="pointer-events-none absolute left-1/2 bottom-0 z-20 -translate-x-1/2 translate-y-[calc(100%+8px)] whitespace-nowrap rounded-md bg-popover px-2 py-1 text-xs text-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
-                  {tab.label}
-                </span>
-              </button>
+              <Tooltip key={tab.value}>
+                <TooltipTrigger asChild>
+                  <button
+                    ref={(el) => {
+                      tabButtonRefs.current[index] = el;
+                    }}
+                    id={tabId}
+                    type="button"
+                    role="tab"
+                    aria-selected={isCurrent}
+                    aria-controls={panelId}
+                    aria-label={tab.label}
+                    tabIndex={isCurrent ? 0 : -1}
+                    onClick={() => onValueChange(tab.value)}
+                    className={[
+                      "relative text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center rounded-md w-full px-2 py-1 text-sm font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+                      "group flex items-center px-3 transition-colors duration-200",
+                      isCurrent ? "text-foreground bg-background shadow-sm" : "",
+                    ].join(" ")}
+                  >
+                    <span className="relative z-10 flex items-center justify-center w-5 h-5">
+                      {tab.icon}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  {tooltipLabel}
+                </TooltipContent>
+              </Tooltip>
             );
           })}
         </div>

@@ -67,7 +67,10 @@ export function useChatSessions(input?: UseChatSessionsInput) {
     : undefined;
   const listInput = useMemo(() => {
     if (!workspaceId) return undefined;
-    return scopedProjectId ? { workspaceId, projectId: scopedProjectId } : { workspaceId };
+    // 逻辑：聊天面板仅展示未绑定 board 的会话。
+    return scopedProjectId
+      ? { workspaceId, projectId: scopedProjectId, boardId: null }
+      : { workspaceId, boardId: null };
   }, [scopedProjectId, workspaceId]);
 
   const query = useQuery({

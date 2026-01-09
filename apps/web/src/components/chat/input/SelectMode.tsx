@@ -21,7 +21,7 @@ import {
   type ProviderModelOption,
 } from "@/lib/provider-models";
 import { resolveServerUrl } from "@/utils/server-url";
-import { useChatContext } from "../ChatProvider";
+import { useOptionalChatContext } from "../ChatProvider";
 import { MODEL_TAG_LABELS, type ModelTag } from "@teatime-ai/api/common";
 
 interface SelectModeProps {
@@ -97,8 +97,11 @@ export default function SelectMode({ className }: SelectModeProps) {
   /** Selected tags for model filtering. */
   const [selectedTags, setSelectedTags] = useState<ModelTag[]>([]);
   const authBaseUrl = resolveServerUrl();
-  const { tabId } = useChatContext();
+  const chatContext = useOptionalChatContext();
+  const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabs((s) => s.pushStackItem);
+  // 逻辑：聊天场景优先使用上下文 tabId，非聊天场景回退到当前激活 tab。
+  const tabId = chatContext?.tabId ?? activeTabId;
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const isCloudSource = chatModelSource === "cloud";
   const modelOptions = useMemo(

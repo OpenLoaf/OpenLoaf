@@ -12,6 +12,16 @@ const settingItemSchema = z.object({
   syncToCloud: z.boolean().optional(),
 });
 
+const cliToolIdSchema = z.enum(["codex", "claudeCode"]);
+
+const cliToolStatusSchema = z.object({
+  id: cliToolIdSchema,
+  installed: z.boolean(),
+  version: z.string().optional(),
+  latestVersion: z.string().optional(),
+  hasUpdate: z.boolean().optional(),
+});
+
 export const settingSchemas = {
   getAll: {
     output: z.array(settingItemSchema),
@@ -24,6 +34,9 @@ export const settingSchemas = {
   },
   getBasic: {
     output: basicConfigSchema,
+  },
+  getCliToolsStatus: {
+    output: z.array(cliToolStatusSchema),
   },
   set: {
     input: z.object({
@@ -39,6 +52,24 @@ export const settingSchemas = {
       category: z.string().optional(),
     }),
     output: z.object({ ok: z.boolean() }),
+  },
+  installCliTool: {
+    input: z.object({
+      id: cliToolIdSchema,
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      status: cliToolStatusSchema,
+    }),
+  },
+  checkCliToolUpdate: {
+    input: z.object({
+      id: cliToolIdSchema,
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      status: cliToolStatusSchema,
+    }),
   },
   setBasic: {
     input: basicConfigUpdateSchema,
@@ -72,6 +103,11 @@ export abstract class BaseSettingRouter {
         .query(async () => {
           throw new Error("Not implemented in base class");
         }),
+      getCliToolsStatus: shieldedProcedure
+        .output(settingSchemas.getCliToolsStatus.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
       set: shieldedProcedure
         .input(settingSchemas.set.input)
         .output(settingSchemas.set.output)
@@ -81,6 +117,18 @@ export abstract class BaseSettingRouter {
       remove: shieldedProcedure
         .input(settingSchemas.remove.input)
         .output(settingSchemas.remove.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      installCliTool: shieldedProcedure
+        .input(settingSchemas.installCliTool.input)
+        .output(settingSchemas.installCliTool.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      checkCliToolUpdate: shieldedProcedure
+        .input(settingSchemas.checkCliToolUpdate.input)
+        .output(settingSchemas.checkCliToolUpdate.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

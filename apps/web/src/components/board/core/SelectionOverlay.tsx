@@ -66,8 +66,7 @@ export function SingleSelectionToolbar({
     <SelectionToolbarContainer
       snapshot={snapshot}
       bounds={bounds}
-      offsetClass="mt-4"
-      offsetClassAbove="-translate-y-full -mt-4"
+      offsetClass="-translate-y-full -mt-3"
       onPointerDown={event => {
         // 逻辑：避免拖拽节点时误触工具条。
         event.stopPropagation();
@@ -132,8 +131,7 @@ export function MultiSelectionToolbar({
     <SelectionToolbarContainer
       snapshot={snapshot}
       bounds={bounds}
-      offsetClass="mt-2"
-      offsetClassAbove="-translate-y-full -mt-2"
+      offsetClass="-translate-y-full -mt-3"
       onPointerDown={event => {
         // 逻辑：避免多选工具条触发画布拖拽。
         event.stopPropagation();

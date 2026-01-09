@@ -2,6 +2,7 @@
 
 import { PanelLeft, PanelRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -14,6 +15,37 @@ import { ModeToggle } from "./ModeToggle";
 import { AnimateIcon } from "@/components/animate-ui/icons/icon";
 import { Bot } from "@/components/animate-ui/icons/bot";
 import { StackDockMenuButton } from "@/components/browser/StackDockMenuButton";
+
+/** Format a shortcut string for tooltip display. */
+function formatShortcutLabel(shortcut: string, isMac: boolean): string {
+  const alternatives = shortcut
+    .split("/")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const joiner = isMac ? "" : "+";
+
+  const formatPart = (part: string) => {
+    const normalized = part.toLowerCase();
+    if (normalized === "mod") return isMac ? "⌘" : "Ctrl";
+    if (normalized === "cmd") return "⌘";
+    if (normalized === "ctrl") return "Ctrl";
+    if (normalized === "alt") return isMac ? "⌥" : "Alt";
+    if (normalized === "shift") return isMac ? "⇧" : "Shift";
+    if (/^[a-z]$/i.test(part)) return part.toUpperCase();
+    return part;
+  };
+
+  return alternatives
+    .map((alt) =>
+      alt
+        .split("+")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((part) => formatPart(part))
+        .join(joiner),
+    )
+    .join(" / ");
+}
 
 export const Header = () => {
   const { toggleSidebar, open: leftOpen } = useSidebar();
@@ -35,6 +67,10 @@ export const Header = () => {
 
   const canToggleChat = Boolean(activeTab?.base);
   const isChatCollapsed = Boolean(activeTab?.rightChatCollapsed);
+  const sidebarShortcut = formatShortcutLabel("Mod+Shift+B", isMac);
+  const chatShortcut = formatShortcutLabel("Mod+B", isMac);
+  const settingsShortcut =
+    isElectron && isMac ? formatShortcutLabel("Cmd+,", isMac) : "";
 
   return (
     <header
@@ -55,32 +91,46 @@ export const Header = () => {
             : "w-[max(5rem,calc(6rem-var(--macos-traffic-lights-width)))] "
         }`}
       >
-        <Button
-          data-no-drag="true"
-          className="ml-1 h-8 w-8 shrink-0"
-          variant="ghost"
-          size="icon"
-          onClick={toggleSidebar}
-        >
-          <PanelLeft
-            className={`h-4 w-4 transition-transform duration-200 ${
-              !leftOpen ? "rotate-180" : ""
-            }`}
-          />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              data-no-drag="true"
+              className="ml-1 h-8 w-8 shrink-0"
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+            >
+              <PanelLeft
+                className={`h-4 w-4 transition-transform duration-200 ${
+                  !leftOpen ? "rotate-180" : ""
+                }`}
+              />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            切换侧边栏 ({sidebarShortcut})
+          </TooltipContent>
+        </Tooltip>
         <div className="flex-1"></div>
-        <Button
-          data-no-drag="true"
-          className="h-8 w-8 shrink-0"
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            if (!workspaceId) return;
-            openSettingsTab(workspaceId);
-          }}
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              data-no-drag="true"
+              className="h-8 w-8 shrink-0"
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                if (!workspaceId) return;
+                openSettingsTab(workspaceId);
+              }}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            {settingsShortcut ? `打开设置 (${settingsShortcut})` : "打开设置"}
+          </TooltipContent>
+        </Tooltip>
       </div>
       <div className="flex min-w-0 items-center gap-2 overflow-hidden pl-1">
         <div className="min-w-0 flex-1 overflow-hidden">
@@ -94,39 +144,46 @@ export const Header = () => {
         <div data-no-drag="true">
           <ModeToggle />
         </div>
-        <Button
-          data-no-drag="true"
-          className={`h-8 w-8 transition-all duration-200 ease-in-out ${
-            canToggleChat
-              ? "opacity-100 w-8"
-              : "opacity-0 w-0 pointer-events-none"
-          }`}
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            if (!activeTabId) return;
-            setTabRightChatCollapsed(activeTabId, !isChatCollapsed);
-          }}
-        >
-          <motion.div
-            animate={{
-              x: [0, -5, 5, -5, 5, 0],
-            }}
-            transition={{
-              duration: 0.6,
-              ease: "easeInOut",
-            }}
-          >
-            {/* <PanelRight
-              className={`h-4 w-4 transition-transform duration-200 ${
-                isChatCollapsed ? "rotate-180" : ""
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              data-no-drag="true"
+              className={`h-8 w-8 transition-all duration-200 ease-in-out ${
+                canToggleChat
+                  ? "opacity-100 w-8"
+                  : "opacity-0 w-0 pointer-events-none"
               }`}
-            /> */}
-            <AnimateIcon animate loop loopDelay={3000}>
-                <Bot className={`h-4 w-4`} />
-              </AnimateIcon>
-          </motion.div>
-        </Button>
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                if (!activeTabId) return;
+                setTabRightChatCollapsed(activeTabId, !isChatCollapsed);
+              }}
+            >
+              <motion.div
+                animate={{
+                  x: [0, -5, 5, -5, 5, 0],
+                }}
+                transition={{
+                  duration: 0.6,
+                  ease: "easeInOut",
+                }}
+              >
+                {/* <PanelRight
+                  className={`h-4 w-4 transition-transform duration-200 ${
+                    isChatCollapsed ? "rotate-180" : ""
+                  }`}
+                /> */}
+                <AnimateIcon animate loop loopDelay={3000}>
+                  <Bot className={`h-4 w-4`} />
+                </AnimateIcon>
+              </motion.div>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            切换聊天面板 ({chatShortcut})
+          </TooltipContent>
+        </Tooltip>
       </div>
     </header>
   );

@@ -7,7 +7,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TeatimeSettingsCard } from "@/components/ui/teatime/TeatimeSettingsCard";
 import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
 import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { Switch } from "@/components/ui/switch";
@@ -64,10 +63,9 @@ export function S3ProviderSection({
       <TeatimeSettingsGroup
         title="S3 存储服务商"
         subtitle="配置对象存储服务商的 Endpoint 与访问凭证。"
-        showBorder={false}
         className="pb-4"
       >
-        <TeatimeSettingsCard divided className="bg-background">
+        <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">图片自动上传</div>
@@ -110,7 +108,7 @@ export function S3ProviderSection({
               </Button>
             </TeatimeSettingsField>
           </div>
-        </TeatimeSettingsCard>
+        </div>
       </TeatimeSettingsGroup>
 
       <TeatimeSettingsGroup

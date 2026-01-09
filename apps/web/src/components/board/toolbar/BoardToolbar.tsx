@@ -197,7 +197,7 @@ function SelectIcon({ size = 20, className }: IconProps) {
   return (
     <InlineSvgFile
       src={SELECT_SVG_SRC}
-      className={className}
+      className={cn("[&>svg]:fill-current", className)}
       style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
     />
   );
@@ -207,7 +207,7 @@ function HandIcon({ size = 20, className }: IconProps) {
   return (
     <InlineSvgFile
       src={DRAG_SVG_SRC}
-      className={className}
+      className={cn("[&>svg]:fill-current", className)}
       style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
     />
   );

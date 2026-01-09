@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { PlusCircle, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import SessionList from "@/components/chat/session/SessionList";
 import * as React from "react";
 import { useChatContext } from "./ChatProvider";
@@ -69,33 +70,47 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
       </div>
       <div className="min-w-0 flex items-center justify-end gap-1">
         {messages.length > 0 && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="New Session"
-            onClick={() => {
-              setHistoryOpen(false);
-              menuLockRef.current = false;
-              newSession();
-            }}
-          >
-            <PlusCircle size={20} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="New Session"
+                onClick={() => {
+                  setHistoryOpen(false);
+                  menuLockRef.current = false;
+                  newSession();
+                }}
+              >
+                <PlusCircle size={20} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              新建对话
+            </TooltipContent>
+          </Tooltip>
         )}
         <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="History"
-              onClick={() => {
-                // 中文注释：点击历史按钮立即刷新会话列表，确保拿到最新数据。
-                void refetchSessions();
-              }}
-            >
-              <History size={20} />
-            </Button>
-          </PopoverTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="History"
+                  onClick={() => {
+                    // 中文注释：点击历史按钮立即刷新会话列表，确保拿到最新数据。
+                    void refetchSessions();
+                  }}
+                >
+                  <History size={20} />
+                </Button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              历史会话
+            </TooltipContent>
+          </Tooltip>
           <PopoverContent
             align="end"
             className="flex w-64 max-h-[min(80svh,var(--radix-popover-content-available-height))] flex-col overflow-hidden p-2"

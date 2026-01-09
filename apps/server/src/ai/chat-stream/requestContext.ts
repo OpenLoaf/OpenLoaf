@@ -21,6 +21,8 @@ export type RequestContext = {
   workspaceId?: string;
   /** Project id for this request. */
   projectId?: string;
+  /** Board id for this request. */
+  boardId?: string;
   /** Tab id for UI event targeting. */
   tabId?: string;
   /** Active UI stream writer for tool chunks. */
@@ -70,6 +72,11 @@ export function getWorkspaceId(): string | undefined {
 /** Get projectId (MVP: from request context). */
 export function getProjectId(): string | undefined {
   return getRequestContext()?.projectId;
+}
+
+/** Get boardId (MVP: from request context). */
+export function getBoardId(): string | undefined {
+  return getRequestContext()?.boardId;
 }
 
 /** 获取 web clientId（用于会话隔离）。 */

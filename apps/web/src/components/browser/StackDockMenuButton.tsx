@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getPanelTitle } from "@/utils/panel-utils";
 import { BROWSER_WINDOW_COMPONENT, useTabs } from "@/hooks/use-tabs";
 import type { DockItem } from "@teatime-ai/api/common";
@@ -95,17 +96,24 @@ export function StackDockMenuButton() {
   if (stackHidden && stack.length === 1) {
     // 只有一个 stack item 时，隐藏后点击按钮直接恢复显示，不再弹出列表。
     return (
-      <Button
-        data-no-drag="true"
-        className="h-8 w-8"
-        variant="ghost"
-        size="icon"
-        onClick={() => openStackItem(stack[0]!)}
-      >
-        <span className="relative">
-          <Layers className="h-4 w-4" />
-        </span>
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            data-no-drag="true"
+            className="h-8 w-8"
+            variant="ghost"
+            size="icon"
+            onClick={() => openStackItem(stack[0]!)}
+          >
+            <span className="relative">
+              <Layers className="h-4 w-4" />
+            </span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" sideOffset={6}>
+          恢复堆栈
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
@@ -113,14 +121,23 @@ export function StackDockMenuButton() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button data-no-drag="true" className="h-8 w-8" variant="ghost" size="icon">
-          <span className="relative">
-            <Layers className="h-4 w-4" />
-            {stack.length > 1 ? (
-              <span className="absolute -right-1.5 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-primary px-0.5 text-[9px] leading-none text-primary-foreground">
-                {stack.length}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex h-full w-full items-center justify-center">
+                <span className="relative">
+                  <Layers className="h-4 w-4" />
+                  {stack.length > 1 ? (
+                    <span className="absolute -right-1.5 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-primary px-0.5 text-[9px] leading-none text-primary-foreground">
+                      {stack.length}
+                    </span>
+                  ) : null}
+                </span>
               </span>
-            ) : null}
-          </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              堆栈菜单
+            </TooltipContent>
+          </Tooltip>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className="w-[260px]">

@@ -26,6 +26,11 @@ type AuthFile = {
   auth?: AuthConf;
 };
 
+/** CLI tool config type alias. */
+type CliToolConfig = BasicConf["cliTools"]["codex"];
+/** CLI tools config type alias. */
+type CliToolsConfig = BasicConf["cliTools"];
+
 /** Default basic config values. */
 const DEFAULT_BASIC_CONF: BasicConf = {
   chatSource: "local",
@@ -49,7 +54,46 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   proxyPort: "",
   proxyUsername: "",
   proxyPassword: "",
+  cliTools: {
+    codex: {
+      apiUrl: "",
+      apiKey: "",
+      forceCustomApiKey: false,
+    },
+    claudeCode: {
+      apiUrl: "",
+      apiKey: "",
+      forceCustomApiKey: false,
+    },
+  },
 };
+
+/** Normalize CLI tool config. */
+function normalizeCliToolConfig(raw: unknown, fallback: CliToolConfig): CliToolConfig {
+  const source =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  const apiUrl = typeof source.apiUrl === "string" ? source.apiUrl : fallback.apiUrl;
+  const apiKey = typeof source.apiKey === "string" ? source.apiKey : fallback.apiKey;
+  const forceCustomApiKey =
+    typeof source.forceCustomApiKey === "boolean"
+      ? source.forceCustomApiKey
+      : fallback.forceCustomApiKey;
+  return { apiUrl, apiKey, forceCustomApiKey };
+}
+
+/** Normalize CLI tools config. */
+function normalizeCliToolsConfig(raw: unknown, fallback: CliToolsConfig): CliToolsConfig {
+  const source =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  // CLI 工具配置缺失时回退到默认值，避免配置读取出错。
+  const codex = normalizeCliToolConfig(source.codex, fallback.codex);
+  const claudeCode = normalizeCliToolConfig(source.claudeCode, fallback.claudeCode);
+  return { codex, claudeCode };
+}
 
 function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicConf>): BasicConf {
   const source = raw ?? {};
@@ -203,6 +247,11 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.proxyPassword === "string"
         ? fallbackSource.proxyPassword
         : DEFAULT_BASIC_CONF.proxyPassword;
+  const fallbackCliTools = normalizeCliToolsConfig(
+    fallbackSource.cliTools,
+    DEFAULT_BASIC_CONF.cliTools,
+  );
+  const cliTools = normalizeCliToolsConfig(source.cliTools, fallbackCliTools);
 
   return {
     chatSource,
@@ -226,6 +275,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     proxyPort,
     proxyUsername,
     proxyPassword,
+    cliTools,
   };
 }
 

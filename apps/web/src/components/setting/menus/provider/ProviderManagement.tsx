@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
 import { ModelDialog } from "@/components/setting/menus/provider/ModelDialog";
 import { ProviderDialog } from "@/components/setting/menus/provider/ProviderDialog";
@@ -31,6 +32,8 @@ import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@/components/animate-ui/components/radix/switch";
 import { toast } from "sonner";
+import type { CliToolConfig, CliToolsConfig } from "@teatime-ai/api/types/basic";
+import { queryClient, trpc } from "@/utils/trpc";
 import {
   useProviderManagement,
 } from "@/components/setting/menus/provider/use-provider-management";
@@ -44,38 +47,181 @@ type ModelResponseLanguageId =
   | "de-DE"
   | "es-ES";
 
-type CliToolKind = "codex" | "claude";
-
-type CliToolSettings = {
-  /** API base URL. */
-  apiUrl: string;
-  /** API key for CLI tool. */
-  apiKey: string;
-  /** Whether to force custom API key. */
-  forceApiKey: boolean;
-};
+type CliToolKind = keyof CliToolsConfig;
+type CliToolSettings = CliToolConfig;
 
 type CliToolStatus = {
+  /** Tool id. */
+  id: CliToolKind;
   /** Whether CLI tool is installed. */
   installed: boolean;
   /** Current CLI version. */
-  currentVersion: string;
+  version?: string;
+  /** Latest version from npm. */
+  latestVersion?: string;
+  /** Whether an update is available. */
+  hasUpdate?: boolean;
 };
+
+type CliStatusMap = Record<CliToolKind, CliToolStatus>;
+type CliSettingsMap = CliToolsConfig;
+
+/** Build editable CLI settings from basic config. */
+function buildCliSettingsFromBasic(cliTools: CliToolsConfig): CliSettingsMap {
+  return {
+    codex: {
+      apiUrl: cliTools.codex.apiUrl,
+      apiKey: cliTools.codex.apiKey,
+      forceCustomApiKey: cliTools.codex.forceCustomApiKey,
+    },
+    claudeCode: {
+      apiUrl: cliTools.claudeCode.apiUrl,
+      apiKey: cliTools.claudeCode.apiKey,
+      forceCustomApiKey: cliTools.claudeCode.forceCustomApiKey,
+    },
+  };
+}
+
+/** Build CLI status map from query data. */
+function buildCliStatusMap(list?: CliToolStatus[]): CliStatusMap {
+  const fallback: CliStatusMap = {
+    codex: { id: "codex", installed: false },
+    claudeCode: { id: "claudeCode", installed: false },
+  };
+  if (!list?.length) return fallback;
+  // 逻辑：服务端返回按 id 覆盖默认项，保证 UI 总是有值。
+  for (const item of list) {
+    fallback[item.id] = item;
+  }
+  return fallback;
+}
 
 /**
  * Compose provider management sections and dialogs.
  */
-export function ProviderManagement() {
+type ProviderManagementProps = {
+  /** Optional panel key when rendered inside stack panels. */
+  panelKey?: string;
+  /** Optional tab id when rendered inside stack panels. */
+  tabId?: string;
+};
+
+export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const { basic, setBasic } = useBasicConfig();
-  // 逻辑：默认关闭强制 API Key，等待后续与配置联动。
-  const [cliSettings, setCliSettings] = useState<Record<CliToolKind, CliToolSettings>>({
-    codex: { apiUrl: "", apiKey: "", forceApiKey: false },
-    claude: { apiUrl: "", apiKey: "", forceApiKey: false },
-  });
+  const [cliSettings, setCliSettings] = useState<CliSettingsMap>(() =>
+    buildCliSettingsFromBasic(basic.cliTools),
+  );
   /** Active CLI settings dialog target. */
   const [activeCliTool, setActiveCliTool] = useState<CliToolKind>("codex");
   /** Whether CLI settings dialog is open. */
   const [cliDialogOpen, setCliDialogOpen] = useState(false);
+
+  const cliStatusQuery = useQuery({
+    ...trpc.settings.getCliToolsStatus.queryOptions(),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+  const cliStatuses = useMemo(
+    () => buildCliStatusMap(cliStatusQuery.data as CliToolStatus[] | undefined),
+    [cliStatusQuery.data],
+  );
+  const isCliStatusLoading = cliStatusQuery.isLoading && !cliStatusQuery.data;
+
+  /** Update cached CLI status list. */
+  const updateCliStatusCache = (nextStatus: CliToolStatus) => {
+    // 逻辑：局部更新缓存，避免每次操作后全量请求。
+    queryClient.setQueryData(
+      trpc.settings.getCliToolsStatus.queryOptions().queryKey,
+      (prev) => {
+        const list = Array.isArray(prev) ? [...prev] : [];
+        const index = list.findIndex(
+          (item: CliToolStatus) => item.id === nextStatus.id,
+        );
+        if (index >= 0) {
+          list[index] = nextStatus;
+        } else {
+          list.push(nextStatus);
+        }
+        return list;
+      },
+    );
+  };
+
+  const installCliMutation = useMutation(
+    trpc.settings.installCliTool.mutationOptions({
+      onSuccess: (result) => {
+        updateCliStatusCache(result.status as CliToolStatus);
+        toast.success("安装完成");
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    }),
+  );
+
+  const checkUpdateMutation = useMutation(
+    trpc.settings.checkCliToolUpdate.mutationOptions({
+      onSuccess: (result) => {
+        const status = result.status as CliToolStatus;
+        updateCliStatusCache(status);
+        if (status.hasUpdate && status.latestVersion) {
+          toast.message(`发现更新 v${status.latestVersion}`);
+          return;
+        }
+        if (status.latestVersion) {
+          toast.success("已是最新版本");
+          return;
+        }
+        toast.message("暂时无法获取最新版本");
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    }),
+  );
+
+  /** Resolve CLI tool version label. */
+  const resolveCliVersionLabel = (status: CliToolStatus) => {
+    // 逻辑：优先显示安装版本，其次显示安装状态。
+    if (isCliStatusLoading) return "检测中";
+    if (status.installed && status.version) return `v${status.version}`;
+    if (status.installed) return "已安装";
+    return "未安装";
+  };
+
+  /** Trigger install or update check based on current status. */
+  const handleCliPrimaryAction = async (tool: CliToolKind) => {
+    const status = cliStatuses[tool];
+    // 逻辑：已安装走更新检查，未安装走安装。
+    if (status.installed && status.hasUpdate && status.latestVersion) {
+      await installCliMutation.mutateAsync({ id: tool });
+      return;
+    }
+    if (status.installed) {
+      await checkUpdateMutation.mutateAsync({ id: tool });
+      return;
+    }
+    await installCliMutation.mutateAsync({ id: tool });
+  };
+
+  /** Save CLI tool settings to basic config. */
+  const handleSaveCliSettings = async () => {
+    try {
+      // 逻辑：统一保存整组 CLI 配置，避免只更新局部导致丢失。
+      await setBasic({ cliTools: cliSettings });
+      toast.success("已保存");
+      setCliDialogOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "保存失败";
+      toast.error(message);
+    }
+  };
+
+  useEffect(() => {
+    if (cliDialogOpen) return;
+    setCliSettings(buildCliSettingsFromBasic(basic.cliTools));
+  }, [basic.cliTools, cliDialogOpen]);
 
   const modelResponseLanguage: ModelResponseLanguageId = basic.modelResponseLanguage;
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
@@ -89,15 +235,15 @@ export function ProviderManagement() {
     "de-DE": "Deutsch",
     "es-ES": "Español",
   };
-  // 逻辑：先用静态占位状态，等待接入 CLI 的真实检测流程。
-  const cliStatuses: Record<CliToolKind, CliToolStatus> = {
-    codex: { installed: false, currentVersion: "" },
-    claude: { installed: false, currentVersion: "" },
-  };
   /** CLI tool labels. */
   const cliToolLabels: Record<CliToolKind, string> = {
     codex: "Codex CLI",
-    claude: "Claude Code",
+    claudeCode: "Claude Code",
+  };
+  /** CLI tool descriptions. */
+  const cliToolDescriptions: Record<CliToolKind, string> = {
+    codex: "OpenAI Codex CLI 编程助手",
+    claudeCode: "Anthropic Claude Code CLI 编程助手",
   };
   const cliDialogTitle = `${cliToolLabels[activeCliTool]} 设置`;
 
@@ -185,8 +331,12 @@ export function ProviderManagement() {
     PROVIDER_OPTIONS,
   } = useProviderManagement();
 
+  const wrapperClassName = panelKey
+    ? "h-full min-h-0 overflow-auto space-y-3"
+    : "space-y-3";
+
   return (
-    <div className="space-y-3">
+    <div className={wrapperClassName}>
       <TeatimeSettingsGroup
         title="模型设置"
         subtitle="调整模型响应语言、来源与质量偏好。"
@@ -290,12 +440,7 @@ export function ProviderManagement() {
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{cliToolLabels.codex}</div>
               <div className="text-xs text-muted-foreground">
-                OpenAI Codex CLI 编程助手 · 版本：
-                {cliStatuses.codex.installed && cliStatuses.codex.currentVersion
-                  ? `v${cliStatuses.codex.currentVersion}`
-                  : cliStatuses.codex.installed
-                    ? "已安装"
-                    : "未安装"}
+                {cliToolDescriptions.codex} · 版本：{resolveCliVersionLabel(cliStatuses.codex)}
               </div>
             </div>
 
@@ -303,18 +448,28 @@ export function ProviderManagement() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  if (cliStatuses.codex.installed) {
-                    toast.message("暂未接入 Codex CLI 更新检查");
-                    return;
-                  }
-                  toast.message("暂未接入 Codex CLI 安装流程");
-                }}
-              >
-                {
-                  // 逻辑：根据安装状态切换主按钮文案。
-                  cliStatuses.codex.installed ? "检测更新" : "安装"
+                disabled={
+                  (installCliMutation.isPending &&
+                    installCliMutation.variables?.id === "codex") ||
+                  (checkUpdateMutation.isPending &&
+                    checkUpdateMutation.variables?.id === "codex")
                 }
+                onClick={() => void handleCliPrimaryAction("codex")}
+              >
+                {cliStatuses.codex.installed
+                  ? installCliMutation.isPending &&
+                    installCliMutation.variables?.id === "codex"
+                    ? "升级中..."
+                    : cliStatuses.codex.hasUpdate && cliStatuses.codex.latestVersion
+                      ? `升级到v${cliStatuses.codex.latestVersion}`
+                      : checkUpdateMutation.isPending &&
+                          checkUpdateMutation.variables?.id === "codex"
+                        ? "检测中..."
+                        : "检测更新"
+                  : installCliMutation.isPending &&
+                      installCliMutation.variables?.id === "codex"
+                    ? "安装中..."
+                    : "安装"}
               </Button>
               {cliStatuses.codex.installed ? (
                 <Button
@@ -330,14 +485,10 @@ export function ProviderManagement() {
 
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">{cliToolLabels.claude}</div>
+              <div className="text-sm font-medium">{cliToolLabels.claudeCode}</div>
               <div className="text-xs text-muted-foreground">
-                Anthropic Claude Code CLI 编程助手 · 版本：
-                {cliStatuses.claude.installed && cliStatuses.claude.currentVersion
-                  ? `v${cliStatuses.claude.currentVersion}`
-                  : cliStatuses.claude.installed
-                    ? "已安装"
-                    : "未安装"}
+                {cliToolDescriptions.claudeCode} · 版本：
+                {resolveCliVersionLabel(cliStatuses.claudeCode)}
               </div>
             </div>
 
@@ -345,24 +496,34 @@ export function ProviderManagement() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  if (cliStatuses.claude.installed) {
-                    toast.message("暂未接入 Claude Code 更新检查");
-                    return;
-                  }
-                  toast.message("暂未接入 Claude Code 安装流程");
-                }}
-              >
-                {
-                  // 逻辑：根据安装状态切换主按钮文案。
-                  cliStatuses.claude.installed ? "检测更新" : "安装"
+                disabled={
+                  (installCliMutation.isPending &&
+                    installCliMutation.variables?.id === "claudeCode") ||
+                  (checkUpdateMutation.isPending &&
+                    checkUpdateMutation.variables?.id === "claudeCode")
                 }
+                onClick={() => void handleCliPrimaryAction("claudeCode")}
+              >
+                {cliStatuses.claudeCode.installed
+                  ? installCliMutation.isPending &&
+                    installCliMutation.variables?.id === "claudeCode"
+                    ? "升级中..."
+                    : cliStatuses.claudeCode.hasUpdate && cliStatuses.claudeCode.latestVersion
+                      ? `升级到v${cliStatuses.claudeCode.latestVersion}`
+                      : checkUpdateMutation.isPending &&
+                          checkUpdateMutation.variables?.id === "claudeCode"
+                        ? "检测中..."
+                        : "检测更新"
+                  : installCliMutation.isPending &&
+                      installCliMutation.variables?.id === "claudeCode"
+                    ? "安装中..."
+                    : "安装"}
               </Button>
-              {cliStatuses.claude.installed ? (
+              {cliStatuses.claudeCode.installed ? (
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => openCliSettings("claude")}
+                  onClick={() => openCliSettings("claudeCode")}
                 >
                   设置
                 </Button>
@@ -502,9 +663,9 @@ export function ProviderManagement() {
               </div>
               <div className="origin-right scale-110">
                 <Switch
-                  checked={activeCliSettings.forceApiKey}
+                  checked={activeCliSettings.forceCustomApiKey}
                   onCheckedChange={(checked) =>
-                    updateCliSettings(activeCliTool, { forceApiKey: checked })
+                    updateCliSettings(activeCliTool, { forceCustomApiKey: checked })
                   }
                   aria-label="Force cli api key"
                 />
@@ -517,10 +678,7 @@ export function ProviderManagement() {
               取消
             </Button>
             <Button
-              onClick={() => {
-                toast.message("暂未接入 CLI 配置保存流程");
-                setCliDialogOpen(false);
-              }}
+              onClick={() => void handleSaveCliSettings()}
             >
               保存
             </Button>

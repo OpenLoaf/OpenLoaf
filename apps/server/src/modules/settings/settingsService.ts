@@ -85,6 +85,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
+/** CLI tool config type alias. */
+type CliToolConfig = BasicConfig["cliTools"]["codex"];
+/** CLI tools config type alias. */
+type CliToolsConfig = BasicConfig["cliTools"];
+
+/** Normalize CLI tool config for basic settings. */
+function normalizeCliToolConfig(raw: unknown, fallback: CliToolConfig): CliToolConfig {
+  if (!isRecord(raw)) return fallback;
+  const apiUrl = typeof raw.apiUrl === "string" ? raw.apiUrl : fallback.apiUrl;
+  const apiKey = typeof raw.apiKey === "string" ? raw.apiKey : fallback.apiKey;
+  const forceCustomApiKey =
+    typeof raw.forceCustomApiKey === "boolean"
+      ? raw.forceCustomApiKey
+      : fallback.forceCustomApiKey;
+  return { apiUrl, apiKey, forceCustomApiKey };
+}
+
+/** Normalize CLI tools config for basic settings. */
+function normalizeCliToolsConfig(raw: unknown, fallback: CliToolsConfig): CliToolsConfig {
+  const source = isRecord(raw) ? raw : {};
+  // CLI 配置缺失时回退当前配置，避免被更新请求清空。
+  const codex = normalizeCliToolConfig(source.codex, fallback.codex);
+  const claudeCode = normalizeCliToolConfig(source.claudeCode, fallback.claudeCode);
+  return { codex, claudeCode };
+}
+
 /** Normalize model map input. */
 function normalizeModelMap(value: unknown): Record<string, ModelDefinition> | null {
   if (!isRecord(value)) return null;
@@ -326,6 +352,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     typeof next.proxyUsername === "string" ? next.proxyUsername : current.proxyUsername;
   const proxyPassword =
     typeof next.proxyPassword === "string" ? next.proxyPassword : current.proxyPassword;
+  const cliTools = normalizeCliToolsConfig(next.cliTools, current.cliTools);
   const normalized: BasicConfig = {
     chatSource: next.chatSource === "cloud" ? "cloud" : "local",
     activeS3Id: typeof next.activeS3Id === "string" && next.activeS3Id.trim()
@@ -350,6 +377,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     proxyPort,
     proxyUsername,
     proxyPassword,
+    cliTools,
   };
   writeBasicConf(normalized);
   return normalized;

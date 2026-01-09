@@ -42,6 +42,7 @@ import { Editor as SlateEditor, Text, type BaseEditor } from "slate";
 import type { RenderLeafProps } from "platejs";
 import { Editor, EditorContainer } from "@/components/ui/editor";
 import { ParagraphElement } from "@/components/ui/paragraph-node";
+import ProjectFileSystemTransferDialog from "@/components/project/filesystem/ProjectFileSystemTransferDialog";
 import {
   buildMentionNode,
   getPlainTextValue,
@@ -146,6 +147,8 @@ export interface ChatInputBoxProps {
   /** Optional header content above the input form. */
   header?: ReactNode;
   onDropHandled?: () => void;
+  /** Default project id for file selection. */
+  defaultProjectId?: string;
 }
 
 export function ChatInputBox({
@@ -174,6 +177,7 @@ export function ChatInputBox({
   canAttachImage = false,
   header,
   onDropHandled,
+  defaultProjectId,
 }: ChatInputBoxProps) {
   const initialValue = useMemo(() => parseChatValue(value), []);
   const [plainTextValue, setPlainTextValue] = useState(() =>
@@ -187,6 +191,8 @@ export function ChatInputBox({
   });
   const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
   const lastSerializedRef = useRef(value);
+  /** Whether the file picker dialog is open. */
+  const [filePickerOpen, setFilePickerOpen] = useState(false);
   const { data: projects = [] } = useQuery(trpc.project.list.queryOptions());
   const queryClient = useQueryClient();
   const activeTabId = useTabs((s) => s.activeTabId);
@@ -298,6 +304,11 @@ export function ChatInputBox({
     (projectId: string) => resolveProjectRootUri(projects, projectId),
     [projects]
   );
+  const defaultRootUri = useMemo(() => {
+    if (!defaultProjectId) return undefined;
+    const resolved = resolveProjectRootUri(projects, defaultProjectId);
+    return resolved || undefined;
+  }, [defaultProjectId, projects]);
 
   const handleMentionPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -320,6 +331,82 @@ export function ChatInputBox({
     editor.tf.insertNodes(buildMentionNode(fileRef), { select: true });
     editor.tf.insertText(" ");
   }, [editor]);
+
+  /** Insert file references using the same logic as drag-and-drop. */
+  const handleProjectFileRefsInsert = useCallback(
+    async (fileRefs: string[]) => {
+      if (!canAttachAll && !canAttachImage) return;
+      const normalizedRefs = Array.from(
+        new Set(
+          fileRefs
+            .map((value) => {
+              const trimmed = value.trim();
+              if (!trimmed) return "";
+              if (trimmed.startsWith("teatime-file://")) {
+                const parsed = parseTeatimeFileUrl(trimmed);
+                return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
+              }
+              return trimmed;
+            })
+            .filter(Boolean)
+        )
+      );
+      for (const fileRef of normalizedRefs) {
+        const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+        const baseValue = match?.[1] ?? fileRef;
+        if (!baseValue.includes("/")) continue;
+        const parts = baseValue.split("/");
+        const projectId = parts[0] ?? "";
+        const relativePath = parts.slice(1).join("/");
+        if (!projectId || !relativePath) continue;
+        const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
+        const isImageExt = /^(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(ext);
+        if (!isImageExt || !onAddAttachments) {
+          if (canAttachAll) {
+            insertFileMention(fileRef);
+          }
+          continue;
+        }
+        const rootUri = resolveRootUri(projectId);
+        if (!rootUri) continue;
+        const uri = buildUriFromRoot(rootUri, relativePath);
+        if (!uri) continue;
+        try {
+          // 将项目内图片转为 File，交给 ChatImageAttachments 走上传。
+          const payload = await queryClient.fetchQuery(
+            trpc.fs.readBinary.queryOptions({ uri })
+          );
+          if (!payload?.contentBase64) continue;
+          const bytes = base64ToUint8Array(payload.contentBase64);
+          const mime = payload.mime || "application/octet-stream";
+          const fileName = relativePath.split("/").pop() || "image";
+          const arrayBuffer = new ArrayBuffer(bytes.byteLength);
+          new Uint8Array(arrayBuffer).set(bytes);
+          const file = new File([arrayBuffer], fileName, { type: mime });
+          onAddAttachments([file]);
+        } catch {
+          continue;
+        }
+      }
+    },
+    [
+      canAttachAll,
+      canAttachImage,
+      insertFileMention,
+      onAddAttachments,
+      queryClient,
+      resolveRootUri,
+      trpc.fs.readBinary,
+    ]
+  );
+
+  /** Handle file refs selected from the picker. */
+  const handleSelectFileRefs = useCallback(
+    (fileRefs: string[]) => {
+      void handleProjectFileRefsInsert(fileRefs);
+    },
+    [handleProjectFileRefsInsert]
+  );
 
   useEffect(() => {
     const handleInsertMention = (event: Event) => {
@@ -350,7 +437,7 @@ export function ChatInputBox({
             return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
           })();
         if (fileRef) {
-          insertFileMention(fileRef);
+          await handleProjectFileRefsInsert([fileRef]);
         }
         return;
       }
@@ -413,46 +500,11 @@ export function ChatInputBox({
     }
     const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
     if (!fileRef) return;
-    if (!canAttachAll && !canAttachImage) return;
-    const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
-    const baseValue = match?.[1] ?? fileRef;
-    if (!baseValue.includes("/")) return;
-    const parts = baseValue.split("/");
-    const projectId = parts[0] ?? "";
-    const relativePath = parts.slice(1).join("/");
-    if (!projectId || !relativePath) return;
-    const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
-    const isImageExt = /^(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(ext);
-    if (!isImageExt || !onAddAttachments) {
-      if (canAttachAll) {
-        insertFileMention(fileRef);
-      }
-      return;
-    }
-    const rootUri = resolveRootUri(projectId);
-    if (!rootUri) return;
-    const uri = buildUriFromRoot(rootUri, relativePath);
-    if (!uri) return;
-    try {
-      // 将项目内图片转为 File，交给 ChatImageAttachments 走上传。
-      const payload = await queryClient.fetchQuery(
-        trpc.fs.readBinary.queryOptions({ uri })
-      );
-      if (!payload?.contentBase64) return;
-      const bytes = base64ToUint8Array(payload.contentBase64);
-      const mime = payload.mime || "application/octet-stream";
-      const fileName = relativePath.split("/").pop() || "image";
-      const arrayBuffer = new ArrayBuffer(bytes.byteLength);
-      new Uint8Array(arrayBuffer).set(bytes);
-      const file = new File([arrayBuffer], fileName, { type: mime });
-      onAddAttachments([file]);
-    } catch {
-      return;
-    }
+    await handleProjectFileRefsInsert([fileRef]);
   }, [
     canAttachAll,
     canAttachImage,
-    insertFileMention,
+    handleProjectFileRefsInsert,
     onAddAttachments,
     onAddMaskedAttachment,
     queryClient,
@@ -565,6 +617,8 @@ export function ChatInputBox({
                 variant="ghost"
                 size="icon"
                 className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                onClick={() => setFilePickerOpen(true)}
+                disabled={!canAttachAll && !canAttachImage}
               >
                 <AtSign className="w-4 h-4" />
               </Button>
@@ -677,6 +731,14 @@ export function ChatInputBox({
            </div>
         )}
       </form>
+      <ProjectFileSystemTransferDialog
+        open={filePickerOpen}
+        onOpenChange={setFilePickerOpen}
+        mode="select"
+        selectTarget="file"
+        defaultRootUri={defaultRootUri}
+        onSelectFileRefs={handleSelectFileRefs}
+      />
     </div>
   );
 }
@@ -702,6 +764,7 @@ export default function ChatInput({
     isHistoryLoading,
     imageOptions,
     addMaskedAttachment,
+    projectId,
   } = useChatContext();
   const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
@@ -822,6 +885,7 @@ export default function ChatInput({
         canAttachAll={allowAll}
         canAttachImage={allowImage}
         onDropHandled={onDropHandled}
+        defaultProjectId={projectId}
         header={
           showImageOutputOptions ? (
             <ChatImageOutputOption

@@ -2,7 +2,7 @@ import { prisma } from "@teatime-ai/db";
 import type { MessageRole as DbMessageRole, Prisma } from "@teatime-ai/db/prisma/generated/client";
 import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
 import { replaceFileTokensWithNames } from "@/common/chatTitle";
-import { getProjectId, getWorkspaceId } from "./requestContext";
+import { getBoardId, getProjectId, getWorkspaceId } from "./requestContext";
 
 /** Max session title length. */
 const MAX_SESSION_TITLE_CHARS = 16;
@@ -25,6 +25,8 @@ export type SaveMessageInput = {
   workspaceId?: string;
   /** Project id for session binding. */
   projectId?: string;
+  /** Board id for session binding. */
+  boardId?: string;
   /** Allow empty assistant message. */
   allowEmpty?: boolean;
   /** Created time override. */
@@ -62,6 +64,7 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
   const title = role === "user" ? normalizeTitle(extractTitleTextFromParts(parts)) : "";
   const workspaceId = normalizeOptionalId(input.workspaceId) ?? getWorkspaceId();
   const projectId = normalizeOptionalId(input.projectId) ?? getProjectId();
+  const boardId = normalizeOptionalId(input.boardId) ?? getBoardId();
 
   const allowEmpty = Boolean(input.allowEmpty);
   if (!allowEmpty && role !== "user" && parts.length === 0) {
@@ -74,6 +77,7 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
       title: title || undefined,
       workspaceId,
       projectId,
+      boardId,
     });
 
     const existing = await tx.chatMessage.findUnique({
@@ -307,22 +311,27 @@ async function ensureSession(
     workspaceId?: string;
     /** Project id for session binding. */
     projectId?: string;
+    /** Board id for session binding. */
+    boardId?: string;
   },
 ) {
   const workspaceId = normalizeOptionalId(input.workspaceId);
   const projectId = normalizeOptionalId(input.projectId);
+  const boardId = normalizeOptionalId(input.boardId);
   // 中文注释：仅在请求提供绑定信息时写入，避免覆盖为空。
   await tx.chatSession.upsert({
     where: { id: sessionId },
     update: {
       ...(workspaceId ? { workspaceId } : {}),
       ...(projectId ? { projectId } : {}),
+      ...(boardId ? { boardId } : {}),
     },
     create: {
       id: sessionId,
       ...(input.title ? { title: input.title } : {}),
       ...(workspaceId ? { workspaceId } : {}),
       ...(projectId ? { projectId } : {}),
+      ...(boardId ? { boardId } : {}),
     },
   });
 }

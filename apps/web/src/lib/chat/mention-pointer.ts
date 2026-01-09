@@ -1,7 +1,54 @@
 "use client";
 
 import type { PointerEvent } from "react";
-import { buildUriFromRoot } from "@/components/project/filesystem/file-system-utils";
+import {
+  buildTeatimeFileUrl,
+  buildUriFromRoot,
+} from "@/components/project/filesystem/file-system-utils";
+
+const IMAGE_EXTS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "bmp",
+  "webp",
+  "svg",
+  "avif",
+  "tiff",
+  "heic",
+]);
+const CODE_EXTS = new Set([
+  "js",
+  "ts",
+  "tsx",
+  "jsx",
+  "json",
+  "yml",
+  "yaml",
+  "toml",
+  "ini",
+  "py",
+  "go",
+  "rs",
+  "java",
+  "cpp",
+  "c",
+  "h",
+  "hpp",
+  "css",
+  "scss",
+  "less",
+  "html",
+  "xml",
+  "sh",
+  "zsh",
+  "md",
+  "mdx",
+]);
+const PDF_EXTS = new Set(["pdf"]);
+const DOC_EXTS = new Set(["doc", "docx"]);
+const SPREADSHEET_EXTS = new Set(["xls", "xlsx", "csv", "tsv", "numbers"]);
 
 /** Shape of the project tree data used for root uri resolution. */
 type ProjectTreeNode = {
@@ -60,28 +107,42 @@ export function handleChatMentionPointerDown(
   const relativePath = parts.slice(1).join("/");
   if (!projectId || !relativePath) return;
   const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
-  const isImageExt = /^(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(ext);
-  const isCodeExt = /^(js|ts|tsx|jsx|json|yml|yaml|toml|ini|py|go|rs|java|cpp|c|h|hpp|css|scss|less|html|xml|sh|zsh|md|mdx)$/i.test(ext);
-  if (!isImageExt && !isCodeExt) return;
+  const isImageExt = IMAGE_EXTS.has(ext);
+  const isCodeExt = CODE_EXTS.has(ext);
+  const isPdfExt = PDF_EXTS.has(ext);
+  const isDocExt = DOC_EXTS.has(ext);
+  const isSheetExt = SPREADSHEET_EXTS.has(ext);
+  if (!isImageExt && !isCodeExt && !isPdfExt && !isDocExt && !isSheetExt) return;
   const rootUri = resolveProjectRootUri(projects, projectId);
   if (!rootUri) return;
   const uri = buildUriFromRoot(rootUri, relativePath);
-  if (!uri) return;
+  if (!uri && !isPdfExt) return;
   event.preventDefault();
   event.stopPropagation();
   const fileName = relativePath.split("/").pop() ?? relativePath;
-  const stackId = `${isImageExt ? "image-viewer" : "code-viewer"}:${uri}`;
+  const component = isImageExt
+    ? "image-viewer"
+    : isCodeExt
+      ? "code-viewer"
+      : isPdfExt
+        ? "pdf-viewer"
+        : isDocExt
+          ? "doc-viewer"
+          : "sheet-viewer";
+  const stackUri = isPdfExt ? buildTeatimeFileUrl(projectId, relativePath) : uri;
+  const stackId = `${component}:${stackUri}`;
   pushStackItem(activeTabId, {
     id: stackId,
     sourceKey: stackId,
-    component: isImageExt ? "image-viewer" : "code-viewer",
+    component,
     title: fileName,
     params: {
-      uri,
+      uri: stackUri,
       name: fileName,
       ext,
       rootUri: isCodeExt ? rootUri : undefined,
       projectId: isCodeExt ? projectId : undefined,
+      __customHeader: isPdfExt || isDocExt || isSheetExt ? true : undefined,
     },
   });
 }

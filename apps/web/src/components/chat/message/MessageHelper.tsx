@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useChatContext } from "../ChatProvider";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
+import { useAutoHeight } from "@/hooks/use-auto-height";
 import { MessageSquare } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -50,9 +51,23 @@ const item = {
   show: { opacity: 1, y: 0 },
 };
 
+/** Minimum height for rendering the EmptyHeader without recent sessions. */
+const MIN_HELPER_HEIGHT = 420;
+/** Minimum height for rendering the EmptyHeader with recent sessions. */
+const MIN_HELPER_HEIGHT_WITH_SESSIONS = 520;
+
 export default function MessageHelper() {
   const { setInput, selectSession, tabId } = useChatContext();
   const { recentSessions } = useChatSessions({ tabId });
+  const { ref: containerRef, height: containerHeight } = useAutoHeight([], {
+    includeParentBox: false,
+    includeSelfBox: true,
+  });
+  /** Whether the EmptyHeader should render based on available height. */
+  const showHeader =
+    // 中文注释：尺寸测量完成前先隐藏，避免空间不足时出现闪烁。
+    containerHeight >=
+    (recentSessions.length > 0 ? MIN_HELPER_HEIGHT_WITH_SESSIONS : MIN_HELPER_HEIGHT);
 
   const focusChatInput = React.useCallback(() => {
     // 点击建议后需要立刻聚焦到输入框，方便用户直接按 Enter 发送或继续编辑
@@ -75,17 +90,19 @@ export default function MessageHelper() {
   }, []);
 
   return (
-    <div className="flex flex-col h-full">
+    <div ref={containerRef} className="flex flex-col h-full">
       <Empty className="flex-1">
-        <EmptyHeader>
-          <EmptyMedia>
-            <div className="text-muted-foreground text-4xl">💬</div>
-          </EmptyMedia>
-          <EmptyTitle>开始对话</EmptyTitle>
-          <EmptyDescription>
-            输入你的问题或想法，我会尽力为你提供帮助
-          </EmptyDescription>
-        </EmptyHeader>
+        {showHeader ? (
+          <EmptyHeader>
+            <EmptyMedia>
+              <div className="text-muted-foreground text-4xl">💬</div>
+            </EmptyMedia>
+            <EmptyTitle>开始对话</EmptyTitle>
+            <EmptyDescription>
+              输入你的问题或想法，我会尽力为你提供帮助
+            </EmptyDescription>
+          </EmptyHeader>
+        ) : null}
         <EmptyContent>
           <div className="flex flex-col gap-2 max-w-md mx-auto mt-4">
             <p className="text-sm text-muted-foreground mb-2 text-center">

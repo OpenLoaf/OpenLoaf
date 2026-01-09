@@ -3,11 +3,12 @@ import type {
   CanvasNodeViewProps,
   CanvasToolbarContext,
 } from "../engine/types";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 import { Download, Info } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
 import { getPreviewEndpoint } from "@/lib/image/uri";
+import { ImageNodeInput } from "./ImageNodeInput";
 
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
@@ -66,10 +67,15 @@ export function ImageNodeView({
   element,
   selected,
 }: CanvasNodeViewProps<ImageNodeProps>) {
-  const previewSrc = element.props.previewSrc;
+  const previewSrc =
+    element.props.previewSrc || resolveImageSource(element.props.originalSrc);
   const hasPreview = Boolean(previewSrc);
   /** Board actions for preview requests. */
-  const { actions } = useBoardContext();
+  const { actions, engine } = useBoardContext();
+  /** Local flag for displaying the inline input. */
+  const [showInput, setShowInput] = useState(false);
+  /** Whether the node or canvas is locked. */
+  const isLocked = engine.isLocked() || element.locked === true;
   /** Request opening the image preview on the canvas. */
   const requestPreview = useCallback(() => {
     const originalSrc = element.props.originalSrc;
@@ -99,13 +105,25 @@ export function ImageNodeView({
     previewSrc,
   ]);
 
+  useEffect(() => {
+    if (!selected || isLocked) {
+      // 逻辑：未选中或锁定状态时收起输入框。
+      setShowInput(false);
+    }
+  }, [isLocked, selected]);
+
   return (
-    <>
+    <div className="relative h-full w-full">
       <div
         className={[
           "relative h-full w-full overflow-hidden rounded-sm box-border",
           selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",
         ].join(" ")}
+        onClick={() => {
+          if (isLocked) return;
+          // 逻辑：点击图片节点后展示输入框。
+          setShowInput(true);
+        }}
         onDoubleClick={event => {
           event.stopPropagation();
           requestPreview();
@@ -124,7 +142,19 @@ export function ImageNodeView({
           </div>
         )}
       </div>
-    </>
+      {showInput ? (
+        <div
+          className="absolute left-1/2 top-full mt-3 -translate-x-1/2"
+          data-board-editor
+          onPointerDown={event => {
+            // 逻辑：阻止画布接管输入区域的拖拽与选择。
+            event.stopPropagation();
+          }}
+        >
+          <ImageNodeInput />
+        </div>
+      ) : null}
+    </div>
   );
 }
 

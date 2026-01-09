@@ -17,10 +17,8 @@ type SelectionToolbarContainerProps = {
   snapshot: CanvasSnapshot;
   /** Anchor bounds in world coordinates. */
   bounds: CanvasRect;
-  /** Tailwind offset class when toolbar is below. */
+  /** Tailwind offset class for toolbar positioning. */
   offsetClass: string;
-  /** Tailwind offset class when toolbar is above. */
-  offsetClassAbove: string;
   /** Pointer down handler to prevent canvas drag. */
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   /** Toolbar contents. */
@@ -32,17 +30,12 @@ function SelectionToolbarContainer({
   snapshot,
   bounds,
   offsetClass,
-  offsetClassAbove,
   onPointerDown,
   children,
 }: SelectionToolbarContainerProps) {
-  const { zoom, offset, size } = snapshot.viewport;
-  const screenTop = bounds.y * zoom + offset[1];
-  // 逻辑：命中视口顶部区域时工具条显示在下方。
-  const showBelow = screenTop <= size[1] * 0.15;
-  const anchor: CanvasPoint = showBelow
-    ? [bounds.x + bounds.w / 2, bounds.y + bounds.h]
-    : [bounds.x + bounds.w / 2, bounds.y];
+  const { zoom, offset } = snapshot.viewport;
+  // 逻辑：工具条固定在节点上方，不再自动切换上下位置。
+  const anchor: CanvasPoint = [bounds.x + bounds.w / 2, bounds.y];
   const screen = toScreenPoint(anchor, snapshot);
 
   return (
@@ -50,8 +43,8 @@ function SelectionToolbarContainer({
       data-node-toolbar
       className={cn(
         "pointer-events-auto nodrag nopan absolute z-20 -translate-x-1/2 rounded-md",
-        "bg-background p-2 ring-1 ring-border shadow-[0_8px_20px_rgba(15,23,42,0.12)]",
-        showBelow ? offsetClass : offsetClassAbove
+        "bg-card p-2 ring-1 ring-border shadow-[0_8px_20px_rgba(15,23,42,0.12)]",
+        offsetClass
       )}
       style={{ left: screen[0], top: screen[1] }}
       onPointerDown={onPointerDown}

@@ -23,11 +23,22 @@ export type BoardActions = {
   closeImagePreview: () => void;
 };
 
+export type BoardFileContext = {
+  /** Project id used for file resolution. */
+  projectId?: string;
+  /** Project root uri for file resolution. */
+  rootUri?: string;
+  /** Board folder uri for attachment storage. */
+  boardFolderUri?: string;
+};
+
 export type BoardContextValue = {
   /** Engine instance shared by board components. */
   engine: CanvasEngine;
   /** Action handlers exposed to node components. */
   actions: BoardActions;
+  /** File scope metadata for board nodes. */
+  fileContext?: BoardFileContext;
 };
 
 // 逻辑：节点事件由节点自身处理，跨层 UI 通过 actions 统一触发，避免画布层特判。
@@ -39,14 +50,21 @@ export type BoardProviderProps = {
   engine: CanvasEngine;
   /** Action handlers exposed to node components. */
   actions: BoardActions;
+  /** File scope metadata for board nodes. */
+  fileContext?: BoardFileContext;
   /** Children rendered within the provider. */
   children: ReactNode;
 };
 
 /** Provide the canvas engine to descendant components. */
-export function BoardProvider({ engine, actions, children }: BoardProviderProps) {
+export function BoardProvider({
+  engine,
+  actions,
+  fileContext,
+  children,
+}: BoardProviderProps) {
   return (
-    <BoardContext.Provider value={{ engine, actions }}>
+    <BoardContext.Provider value={{ engine, actions, fileContext }}>
       {children}
     </BoardContext.Provider>
   );

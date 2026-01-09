@@ -44,6 +44,7 @@ import {
   IGNORE_NAMES,
   buildChildUri,
   getDisplayPathFromUri,
+  getRelativePathFromUri,
   getUniqueName,
   type FileSystemEntry,
 } from "./file-system-utils";
@@ -66,6 +67,8 @@ type PageTreeProject = {
 
 /** Transfer mode for the dialog. */
 type TransferMode = "copy" | "move" | "select";
+/** Select target for select mode. */
+type SelectTarget = "folder" | "file";
 
 type ProjectFileSystemTransferDialogProps = {
   /** Whether the dialog is open. */
@@ -78,16 +81,26 @@ type ProjectFileSystemTransferDialogProps = {
   mode?: TransferMode;
   /** Default root uri for the project tree. */
   defaultRootUri?: string;
+  /** Default active folder uri for browsing. */
+  defaultActiveUri?: string;
+  /** Select target for select mode. */
+  selectTarget?: SelectTarget;
   /** Optional callback for select mode. */
   onSelectTarget?: (targetUri: string) => void;
+  /** Optional callback for file selection mode. */
+  onSelectFileRefs?: (fileRefs: string[]) => void;
 };
 
 /** Flatten project tree to a list. */
 function flattenProjects(nodes?: ProjectTreeNode[]) {
-  const results: Array<{ rootUri: string; title: string }> = [];
+  const results: Array<{ rootUri: string; title: string; projectId?: string }> = [];
   const walk = (items?: ProjectTreeNode[]) => {
     items?.forEach((item) => {
-      results.push({ rootUri: item.rootUri, title: item.title });
+      results.push({
+        rootUri: item.rootUri,
+        title: item.title,
+        projectId: item.projectId,
+      });
       if (item.children?.length) {
         walk(item.children);
       }
@@ -120,7 +133,10 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   entries: transferEntries = [],
   mode = "copy",
   defaultRootUri,
+  defaultActiveUri,
+  selectTarget = "folder",
   onSelectTarget,
+  onSelectFileRefs,
 }: ProjectFileSystemTransferDialogProps) {
   const queryClient = useQueryClient();
   const projectListQuery = useQuery(trpc.project.list.queryOptions());
@@ -142,6 +158,16 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
     () => flattenProjects(projectListQuery.data as ProjectTreeNode[] | undefined),
     [projectListQuery.data]
   );
+  /** Map root uri to project id for selections. */
+  const projectIdByRootUri = useMemo(() => {
+    const map = new Map<string, string>();
+    projectOptions.forEach((item) => {
+      if (item.projectId) {
+        map.set(item.rootUri, item.projectId);
+      }
+    });
+    return map;
+  }, [projectOptions]);
   const projectTree = useMemo(
     () => normalizePageTreeProjects(projectListQuery.data as ProjectTreeNode[] | undefined),
     [projectListQuery.data]
@@ -156,6 +182,27 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
     toggleSelection,
     applySelectionChange,
   } = useFileSelection();
+  /** Selected entries in the current grid view. */
+  const selectedEntries = useMemo(
+    () => gridEntries.filter((entry) => selectedUris.has(entry.uri)),
+    [gridEntries, selectedUris]
+  );
+  /** Selected file references for select mode. */
+  const selectedFileRefs = useMemo(() => {
+    // 中文注释：仅选择文件模式下返回可插入的文件引用。
+    if (mode !== "select" || selectTarget !== "file") return [];
+    if (!activeRootUri) return [];
+    const projectId = projectIdByRootUri.get(activeRootUri);
+    if (!projectId) return [];
+    return selectedEntries
+      .filter((entry) => entry.kind === "file")
+      .map((entry) => {
+        const relativePath = getRelativePathFromUri(activeRootUri, entry.uri);
+        if (!relativePath) return "";
+        return `${projectId}/${relativePath}`;
+      })
+      .filter(Boolean);
+  }, [activeRootUri, mode, projectIdByRootUri, selectTarget, selectedEntries]);
   /** Track the entry that opened the context menu. */
   const [contextTargetUri, setContextTargetUri] = useState<string | null>(null);
   /** Resolve macOS-specific modifier behavior. */
@@ -301,12 +348,35 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
     }
   }, []);
 
+  /** Resolve the initial folder under the active project root. */
+  const resolveInitialActiveUri = useCallback(
+    (rootUri?: string | null, activeUri?: string | null) => {
+      if (!rootUri) return null;
+      if (!activeUri) return rootUri;
+      try {
+        const rootUrl = new URL(rootUri);
+        const activeUrl = new URL(activeUri);
+        const rootParts = rootUrl.pathname.split("/").filter(Boolean);
+        const activeParts = activeUrl.pathname.split("/").filter(Boolean);
+        // 中文注释：确保默认目录在项目根目录下，避免打开无效路径。
+        const isSameRoot =
+          rootUrl.protocol === activeUrl.protocol &&
+          rootUrl.hostname === activeUrl.hostname &&
+          rootParts.every((part, index) => part === activeParts[index]);
+        return isSameRoot ? activeUri : rootUri;
+      } catch {
+        return rootUri;
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     if (!open) return;
     const nextRoot = defaultRootUri ?? null;
     setActiveRootUri(nextRoot);
-    setActiveUri(nextRoot);
-  }, [open, defaultRootUri]);
+    setActiveUri(resolveInitialActiveUri(nextRoot, defaultActiveUri ?? null));
+  }, [defaultActiveUri, defaultRootUri, open, resolveInitialActiveUri]);
 
   const handleSelectProject = (uri: string) => {
     setActiveRootUri(uri);
@@ -321,7 +391,12 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   const handleConfirmTransfer = async () => {
     if (!activeUri) return;
     if (mode === "select") {
-      onSelectTarget?.(activeUri);
+      if (selectTarget === "file") {
+        if (selectedFileRefs.length === 0) return;
+        onSelectFileRefs?.(selectedFileRefs);
+      } else {
+        onSelectTarget?.(activeUri);
+      }
       onOpenChange(false);
       return;
     }
@@ -441,13 +516,47 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
 
   /** Dialog title based on current transfer mode. */
   const dialogTitle =
-    mode === "move" ? "移动到" : mode === "select" ? "选择位置" : "复制到";
+    mode === "move"
+      ? "移动到"
+      : mode === "select"
+        ? selectTarget === "file"
+          ? "选择文件"
+          : "选择位置"
+        : "复制到";
   /** Confirm button label based on current transfer mode. */
   const confirmLabel =
     mode === "move" ? "确认移动" : mode === "select" ? "确认选择" : "确认复制";
   /** Whether confirm should be disabled for current state. */
   const confirmDisabled =
-    !activeUri || (mode !== "select" && transferEntries.length === 0);
+    !activeUri ||
+    (mode !== "select" && transferEntries.length === 0) ||
+    (mode === "select" && selectTarget === "file" && selectedFileRefs.length === 0);
+  /** Whether to disable preview/context menu interactions. */
+  const disableEntryActions = mode === "select";
+
+  const gridBody = (
+    <div className="h-full">
+      <FileSystemGrid
+        entries={gridEntries}
+        isLoading={listQuery.isLoading}
+        parentUri={parentUri}
+        onNavigate={handleNavigate}
+        showEmptyActions={false}
+        selectedUris={selectedUris}
+        onEntryClick={handleEntryClick}
+        onSelectionChange={handleSelectionChange}
+        resolveSelectionMode={resolveSelectionMode}
+        onGridContextMenuCapture={handleGridContextMenuCapture}
+        renamingUri={renamingUri}
+        renamingValue={renamingValue}
+        onRenamingChange={setRenamingValue}
+        onRenamingSubmit={handleRenamingSubmit}
+        onRenamingCancel={handleRenamingCancel}
+        disableEntryDoubleClick={disableEntryActions}
+        disableContextMenu={disableEntryActions}
+      />
+    </div>
+  );
 
   return (
     <Dialog
@@ -523,38 +632,23 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
               </Button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <ContextMenu onOpenChange={handleContextMenuOpenChange}>
-                <ContextMenuTrigger asChild>
-                  <div className="h-full">
-                    <FileSystemGrid
-                      entries={gridEntries}
-                      isLoading={listQuery.isLoading}
-                      parentUri={parentUri}
-                      onNavigate={handleNavigate}
-                      showEmptyActions={false}
-                      selectedUris={selectedUris}
-                      onEntryClick={handleEntryClick}
-                      onSelectionChange={handleSelectionChange}
-                      resolveSelectionMode={resolveSelectionMode}
-                      onGridContextMenuCapture={handleGridContextMenuCapture}
-                      renamingUri={renamingUri}
-                      renamingValue={renamingValue}
-                      onRenamingChange={setRenamingValue}
-                      onRenamingSubmit={handleRenamingSubmit}
-                      onRenamingCancel={handleRenamingCancel}
-                    />
-                  </div>
-                </ContextMenuTrigger>
-                <ContextMenuContent className="w-40">
-                  {contextEntry && contextEntry.kind === "folder" ? (
-                    <ContextMenuItem onSelect={() => requestRename(contextEntry)}>
-                      重命名
-                    </ContextMenuItem>
-                  ) : (
-                    <ContextMenuItem disabled>无可用操作</ContextMenuItem>
-                  )}
-                </ContextMenuContent>
-              </ContextMenu>
+              {disableEntryActions ? (
+                // 逻辑：选择模式下禁用右键菜单与双击预览。
+                gridBody
+              ) : (
+                <ContextMenu onOpenChange={handleContextMenuOpenChange}>
+                  <ContextMenuTrigger asChild>{gridBody}</ContextMenuTrigger>
+                  <ContextMenuContent className="w-40">
+                    {contextEntry && contextEntry.kind === "folder" ? (
+                      <ContextMenuItem onSelect={() => requestRename(contextEntry)}>
+                        重命名
+                      </ContextMenuItem>
+                    ) : (
+                      <ContextMenuItem disabled>无可用操作</ContextMenuItem>
+                    )}
+                  </ContextMenuContent>
+                </ContextMenu>
+              )}
             </div>
           </div>
         </div>
