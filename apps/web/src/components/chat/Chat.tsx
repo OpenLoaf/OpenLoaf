@@ -629,6 +629,8 @@ export function Chat({
           "relative flex h-full w-full flex-col min-h-0 min-w-0 overflow-x-hidden overflow-y-hidden",
           className
         )}
+        data-teatime-chat-root
+        data-tab-id={tabId}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}

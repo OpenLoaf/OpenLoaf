@@ -153,6 +153,11 @@ export default function SelectMode({ className }: SelectModeProps) {
       };
     });
   }, [providerGroups, selectedTags]);
+  // 仅保留有命中模型的 provider。
+  const visibleProviderGroups = useMemo(() => {
+    if (selectedTags.length === 0) return filteredProviderGroups;
+    return filteredProviderGroups.filter((group) => group.matchCount > 0);
+  }, [filteredProviderGroups, selectedTags.length]);
   const rawSelectedModelId =
     typeof basic.modelDefaultChatModelId === "string"
       ? basic.modelDefaultChatModelId.trim()
@@ -217,6 +222,19 @@ export default function SelectMode({ className }: SelectModeProps) {
       .catch(() => setAuthLoggedIn(false));
   }, [authBaseUrl, open]);
   useEffect(() => {
+    if (!tabId) return;
+    const target = document.querySelector(
+      `[data-teatime-chat-root][data-tab-id="${tabId}"]`,
+    );
+    if (!target) return;
+    // 弹出层打开时为 chat 主区域添加模糊效果。
+    target.classList.toggle("blur-sm", open);
+    target.classList.toggle("opacity-80", open);
+    return () => {
+      target.classList.remove("blur-sm", "opacity-80");
+    };
+  }, [open, tabId]);
+  useEffect(() => {
     if (authLoggedIn) return;
     if (!isCloudSource) return;
     // 未登录时强制回退为本地模式，避免云端入口被直接开启。
@@ -232,22 +250,35 @@ export default function SelectMode({ className }: SelectModeProps) {
   }, [availableTags, selectedTags]);
   useEffect(() => {
     if (!open) return;
-    if (providerGroups.length === 0) {
+    const availableGroups =
+      selectedTags.length > 0 ? visibleProviderGroups : providerGroups;
+    if (availableGroups.length === 0) {
       if (activeProviderKey) {
         setActiveProviderKey("");
       }
       return;
     }
-    if (activeProviderKey && providerGroups.some((group) => group.providerKey === activeProviderKey)) {
+    if (
+      activeProviderKey &&
+      availableGroups.some((group) => group.providerKey === activeProviderKey)
+    ) {
       return;
     }
     const nextProviderKey =
-      selectedProviderKey && providerGroups.some((group) => group.providerKey === selectedProviderKey)
+      selectedProviderKey &&
+      availableGroups.some((group) => group.providerKey === selectedProviderKey)
         ? selectedProviderKey
-        : providerGroups[0]!.providerKey;
+        : availableGroups[0]!.providerKey;
     // 选择器打开时优先定位到已选模型对应的 provider。
     setActiveProviderKey(nextProviderKey);
-  }, [open, providerGroups, activeProviderKey, selectedProviderKey]);
+  }, [
+    open,
+    providerGroups,
+    visibleProviderGroups,
+    selectedTags.length,
+    activeProviderKey,
+    selectedProviderKey,
+  ]);
 
   /** Trigger login flow for cloud models. */
   const handleLogin = async () => {
@@ -290,8 +321,8 @@ export default function SelectMode({ className }: SelectModeProps) {
 
   /** Active provider group for rendering. */
   const activeProviderGroup =
-    filteredProviderGroups.find((group) => group.providerKey === activeProviderKey) ??
-    filteredProviderGroups[0] ??
+    visibleProviderGroups.find((group) => group.providerKey === activeProviderKey) ??
+    visibleProviderGroups[0] ??
     null;
   /** Models for active provider after filtering. */
   const activeProviderModels = activeProviderGroup?.filteredModels ?? [];
@@ -332,7 +363,7 @@ export default function SelectMode({ className }: SelectModeProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[30rem] max-w-[94vw] -translate-x-12 p-2">
+      <PopoverContent className="w-[27rem] max-w-[94vw] -translate-x-8 rounded-xl border-border bg-background/95 p-2 shadow-2xl backdrop-blur-sm">
         <div className="space-y-2">
           <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
             <div className="flex items-center justify-between">
@@ -441,10 +472,10 @@ export default function SelectMode({ className }: SelectModeProps) {
 
                   {showModelList ? (
                     <div className="flex flex-col gap-2 sm:flex-row">
-                      <div className="sm:w-40">
-                        <div className="flex h-72 flex-col overflow-hidden rounded-lg border border-border/70 bg-muted/30">
+                      <div className="sm:w-32">
+                        <div className="flex h-54 flex-col overflow-hidden rounded-lg border border-border/70 bg-muted/30">
                           <div className="flex-1 space-y-1 overflow-y-scroll p-1 min-h-0">
-                            {filteredProviderGroups.map((group) => {
+                            {visibleProviderGroups.map((group) => {
                               const isActive = group.providerKey === activeProviderKey;
                               const isEmpty = selectedTags.length > 0 && group.matchCount === 0;
                               const countLabel =
@@ -478,7 +509,6 @@ export default function SelectMode({ className }: SelectModeProps) {
                             <div className="border-t border-border/70 p-1">
                               <Button
                                 type="button"
-                                variant="outline"
                                 className="h-8 w-full text-xs"
                                 onClick={handleOpenProviderSettings}
                               >
@@ -490,7 +520,7 @@ export default function SelectMode({ className }: SelectModeProps) {
                       </div>
                       <div className="flex-1">
                         <div className="rounded-lg border border-border/70 bg-muted/30">
-                          <div className="h-72 space-y-1 overflow-y-scroll p-1">
+                          <div className="h-54 space-y-1 overflow-y-scroll p-1">
                             {activeProviderGroup ? (
                               activeProviderModels.length > 0 ? (
                                 activeProviderModels.map((option) => {
@@ -504,7 +534,7 @@ export default function SelectMode({ className }: SelectModeProps) {
                                       type="button"
                                       onClick={() => persistModelDefaultId(option.id)}
                                       className={cn(
-                                        "h-16 w-full rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
+                                        "h-12 w-full rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
                                         selectedModelId === option.id &&
                                           "border-border/70 bg-muted/70"
                                       )}
