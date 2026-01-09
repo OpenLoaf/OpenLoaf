@@ -35,6 +35,7 @@ import {
   buildUriFromRoot,
   FILE_DRAG_REF_MIME,
   FILE_DRAG_URI_MIME,
+  FILE_DRAG_URIS_MIME,
   formatSize,
   formatTimestamp,
   getDisplayPathFromUri,
@@ -128,7 +129,7 @@ export type ProjectFileSystemModel = {
   handleEntryDrop: (
     target: FileSystemEntry,
     event: DragEvent<HTMLButtonElement>
-  ) => Promise<void>;
+  ) => Promise<number>;
   undo: () => void;
   redo: () => void;
   refreshList: () => void;
@@ -845,8 +846,8 @@ export function useProjectFileSystemModel({
   const handleImportImagePayload = async (
     targetUri: string | null,
     payload: ReturnType<typeof readImageDragPayload>
-  ) => {
-    if (!targetUri || !payload) return;
+  ): Promise<boolean> => {
+    if (!targetUri || !payload) return false;
     try {
       const blob = await fetchBlobFromUri(payload.baseUri);
       const fileName = payload.fileName || resolveFileName(payload.baseUri);
@@ -854,9 +855,11 @@ export function useProjectFileSystemModel({
         type: blob.type || "application/octet-stream",
       });
       await handleUploadFiles([file], targetUri);
+      return true;
     } catch {
       toast.error("导入图片失败");
     }
+    return false;
   };
 
   /** Handle file drops from the OS. */
@@ -906,29 +909,42 @@ export function useProjectFileSystemModel({
     setSortOrder(null);
   };
 
+  /** Move an entry into another folder and return the history action. */
+  const moveEntryToFolder = async (
+    source: FileSystemEntry,
+    target: FileSystemEntry,
+    options?: { targetNames?: Set<string> }
+  ): Promise<HistoryAction | null> => {
+    if (source.kind === "folder" && source.uri === target.uri) return null;
+    if (source.uri === target.uri) return null;
+    const sourceUrl = new URL(source.uri);
+    const targetUrl = new URL(target.uri);
+    if (targetUrl.pathname.startsWith(sourceUrl.pathname)) {
+      toast.error("无法移动到自身目录");
+      return null;
+    }
+    let targetNames = options?.targetNames;
+    if (!targetNames) {
+      const targetList = await queryClient.fetchQuery(
+        trpc.fs.list.queryOptions({ uri: target.uri, includeHidden: showHidden })
+      );
+      targetNames = new Set((targetList.entries ?? []).map((entry) => entry.name));
+    }
+    const targetName = getUniqueName(source.name, targetNames);
+    targetNames.add(targetName);
+    const targetUri = buildChildUri(target.uri, targetName);
+    await renameMutation.mutateAsync({ from: source.uri, to: targetUri });
+    return { kind: "rename", from: source.uri, to: targetUri };
+  };
+
   /** Move a file/folder into another folder. */
   const handleMoveToFolder = async (
     source: FileSystemEntry,
     target: FileSystemEntry
   ) => {
-    if (source.kind === "folder" && source.uri === target.uri) return;
-    if (source.uri === target.uri) return;
-    const sourceUrl = new URL(source.uri);
-    const targetUrl = new URL(target.uri);
-    if (targetUrl.pathname.startsWith(sourceUrl.pathname)) {
-      toast.error("无法移动到自身目录");
-      return;
-    }
-    const targetList = await queryClient.fetchQuery(
-      trpc.fs.list.queryOptions({ uri: target.uri, includeHidden: showHidden })
-    );
-    const targetNames = new Set(
-      (targetList.entries ?? []).map((entry) => entry.name)
-    );
-    const targetName = getUniqueName(source.name, targetNames);
-    const targetUri = buildChildUri(target.uri, targetName);
-    await renameMutation.mutateAsync({ from: source.uri, to: targetUri });
-    pushHistory({ kind: "rename", from: source.uri, to: targetUri });
+    const action = await moveEntryToFolder(source, target);
+    if (!action) return;
+    pushHistory(action);
     refreshList();
   };
 
@@ -974,44 +990,82 @@ export function useProjectFileSystemModel({
   const handleEntryDrop = async (
     target: FileSystemEntry,
     event: DragEvent<HTMLButtonElement>
-  ) => {
+  ): Promise<number> => {
     event.preventDefault();
     event.stopPropagation();
     const hasInternalRef = event.dataTransfer.types.includes(FILE_DRAG_REF_MIME);
     if (!hasInternalRef) {
       const imagePayload = readImageDragPayload(event.dataTransfer);
       if (imagePayload) {
-        if (target.kind !== "folder") return;
-        await handleImportImagePayload(target.uri, imagePayload);
+        if (target.kind !== "folder") return 0;
+        const ok = await handleImportImagePayload(target.uri, imagePayload);
+        return ok ? 1 : 0;
       }
-      return;
+      return 0;
     }
-    const rawSourceUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
-    if (!rawSourceUri) return;
-    let sourceUri = rawSourceUri;
-    if (rawSourceUri.startsWith("teatime-file://")) {
-      const parsed = parseTeatimeFileUrl(rawSourceUri);
-      if (!parsed || !projectId || parsed.projectId !== projectId || !rootUri) {
-        toast.error("无法移动跨项目文件");
-        return;
+    // 中文注释：支持多选拖拽，优先读取 uri 列表。
+    const rawSourceUris = (() => {
+      const payload = event.dataTransfer.getData(FILE_DRAG_URIS_MIME);
+      if (payload) {
+        try {
+          const parsed = JSON.parse(payload);
+          if (Array.isArray(parsed)) {
+            return parsed.filter(
+              (item): item is string => typeof item === "string" && item
+            );
+          }
+        } catch {
+          return [];
+        }
       }
-      sourceUri = buildUriFromRoot(rootUri, parsed.relativePath);
+      const rawSourceUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
+      return rawSourceUri ? [rawSourceUri] : [];
+    })();
+    if (rawSourceUris.length === 0) return 0;
+    const uniqueSourceUris = Array.from(new Set(rawSourceUris));
+    const targetList = await queryClient.fetchQuery(
+      trpc.fs.list.queryOptions({ uri: target.uri, includeHidden: showHidden })
+    );
+    const targetNames = new Set(
+      (targetList.entries ?? []).map((entry) => entry.name)
+    );
+    const actions: HistoryAction[] = [];
+    for (const rawSourceUri of uniqueSourceUris) {
+      let sourceUri = rawSourceUri;
+      if (rawSourceUri.startsWith("teatime-file://")) {
+        const parsed = parseTeatimeFileUrl(rawSourceUri);
+        if (!parsed || !projectId || parsed.projectId !== projectId || !rootUri) {
+          toast.error("无法移动跨项目文件");
+          return 0;
+        }
+        sourceUri = buildUriFromRoot(rootUri, parsed.relativePath);
+      }
+      let source = fileEntries.find((item) => item.uri === sourceUri);
+      if (!source) {
+        const stat = await queryClient.fetchQuery(
+          trpc.fs.stat.queryOptions({ uri: sourceUri })
+        );
+        source = {
+          uri: stat.uri,
+          name: stat.name,
+          kind: stat.kind,
+          ext: stat.ext,
+          size: stat.size,
+          updatedAt: stat.updatedAt,
+        } as FileSystemEntry;
+      }
+      const action = await moveEntryToFolder(source, target, { targetNames });
+      if (action) actions.push(action);
     }
-    let source = fileEntries.find((item) => item.uri === sourceUri);
-    if (!source) {
-      const stat = await queryClient.fetchQuery(
-        trpc.fs.stat.queryOptions({ uri: sourceUri })
-      );
-      source = {
-        uri: stat.uri,
-        name: stat.name,
-        kind: stat.kind,
-        ext: stat.ext,
-        size: stat.size,
-        updatedAt: stat.updatedAt,
-      } as FileSystemEntry;
+    if (actions.length === 0) return 0;
+    // 中文注释：多选拖拽合并历史记录，撤回时一次恢复。
+    if (actions.length === 1) {
+      pushHistory(actions[0]);
+    } else {
+      pushHistory({ kind: "batch", actions });
     }
-    await handleMoveToFolder(source, target);
+    refreshList();
+    return actions.length;
   };
 
   return {

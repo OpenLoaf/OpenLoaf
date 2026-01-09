@@ -19,6 +19,8 @@ export type ProviderModelOption = {
   id: string;
   /** Model id. */
   modelId: string;
+  /** Provider settings id for grouping. */
+  providerSettingsId?: string;
   /** Provider id. */
   providerId: string;
   /** Provider display name. */
@@ -57,6 +59,7 @@ export function buildProviderModelOptions(
         // 中文注释：chatModelId 前缀使用 settings.id，确保稳定可追踪。
         id: `${item.id}:${trimmed}`,
         modelId: trimmed,
+        providerSettingsId: item.id,
         providerId: entry.providerId,
         providerName,
         tags: modelDefinition?.tags,

@@ -42,9 +42,7 @@ import { trpc } from "@/utils/trpc";
 import {
   type FileSystemEntry,
   buildTeatimeFileUrl,
-  FILE_DRAG_NAME_MIME,
-  FILE_DRAG_REF_MIME,
-  FILE_DRAG_URI_MIME,
+  FILE_DRAG_URIS_MIME,
   getEntryExt,
   getRelativePathFromUri,
 } from "./file-system-utils";
@@ -106,6 +104,19 @@ const CODE_EXTS = new Set([
 /** Return true when the entry represents a board folder. */
 const isBoardFolderEntry = (entry: FileSystemEntry) =>
   entry.kind === "folder" && isBoardFolderName(entry.name);
+
+/** Resolve drag uri for a file system entry. */
+const resolveEntryDragUri = (
+  entry: FileSystemEntry,
+  dragProjectId?: string,
+  dragRootUri?: string
+) => {
+  if (!dragProjectId || !dragRootUri) return entry.uri;
+  const relativePath = getRelativePathFromUri(dragRootUri, entry.uri);
+  if (!relativePath) return entry.uri;
+  // 对外拖拽统一使用 teatime-file 协议。
+  return buildTeatimeFileUrl(dragProjectId, relativePath);
+};
 
 type FileSystemGridProps = {
   entries: FileSystemEntry[];
@@ -498,6 +509,17 @@ const FileSystemGrid = memo(function FileSystemGrid({
   const lastSelectedRef = useRef<string>("");
   // 记录当前拖拽悬停的文件夹，用于高亮提示。
   const [dragOverFolderUri, setDragOverFolderUri] = useState<string | null>(null);
+  const parentEntry = useMemo<FileSystemEntry | null>(
+    () =>
+      parentUri
+        ? {
+            uri: parentUri,
+            name: "上一级",
+            kind: "folder",
+          }
+        : null,
+    [parentUri]
+  );
   // 记录最近一次右键触发的条目与时间，用于 0.5 秒内拦截左右键误触。
   const lastContextMenuRef = useRef<{ uri: string; at: number } | null>(null);
   const [selectionRect, setSelectionRect] = useState<{
@@ -749,17 +771,36 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 </div>
               </EmptyContent>
             ) : null}
-            {parentUri ? (
-                  <Button
-                    variant="link"
-                    className="text-muted-foreground"
-                    size="sm"
-                    onClick={(event) => {
-                      if (shouldBlockPointerEvent(event)) return;
-                      if (event.button !== 0) return;
-                      if (event.nativeEvent.which !== 1) return;
-                      onNavigate?.(parentUri);
-                    }}
+            {parentUri && parentEntry ? (
+              <Button
+                variant="link"
+                className="text-muted-foreground"
+                size="sm"
+                onClick={(event) => {
+                  if (shouldBlockPointerEvent(event)) return;
+                  if (event.button !== 0) return;
+                  if (event.nativeEvent.which !== 1) return;
+                  onNavigate?.(parentUri);
+                }}
+                onDragOver={(event) => {
+                  setDragOverFolderUri(parentEntry.uri);
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }}
+                onDragEnter={() => {
+                  setDragOverFolderUri(parentEntry.uri);
+                }}
+                onDragLeave={(event) => {
+                  const nextTarget = event.relatedTarget as Node | null;
+                  if (nextTarget && event.currentTarget.contains(nextTarget)) return;
+                  setDragOverFolderUri((current) =>
+                    current === parentEntry.uri ? null : current
+                  );
+                }}
+                onDrop={(event) => {
+                  setDragOverFolderUri(null);
+                  onEntryDrop?.(parentEntry, event);
+                }}
               >
                 <ArrowLeftIcon />
                 返回上级
@@ -794,15 +835,40 @@ const FileSystemGrid = memo(function FileSystemGrid({
             isMultiRow ? "justify-between" : "justify-start"
           }`}
         >
-          {shouldShowParentEntry ? (
+          {shouldShowParentEntry && parentEntry ? (
             <button
               type="button"
-              className="flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/80"
+              className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/80 ${
+                selectedUris?.has(parentEntry.uri)
+                  ? "bg-muted/70 ring-1 ring-border"
+                  : dragOverFolderUri === parentEntry.uri
+                    ? "bg-muted/80 ring-1 ring-border"
+                    : ""
+              }`}
               onDoubleClick={(event) => {
                 if (shouldBlockPointerEvent(event)) return;
                 if (event.button !== 0) return;
                 if (event.nativeEvent.which !== 1) return;
                 onNavigate?.(parentUri!);
+              }}
+              onDragOver={(event) => {
+                setDragOverFolderUri(parentEntry.uri);
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+              }}
+              onDragEnter={() => {
+                setDragOverFolderUri(parentEntry.uri);
+              }}
+              onDragLeave={(event) => {
+                const nextTarget = event.relatedTarget as Node | null;
+                if (nextTarget && event.currentTarget.contains(nextTarget)) return;
+                setDragOverFolderUri((current) =>
+                  current === parentEntry.uri ? null : current
+                );
+              }}
+              onDrop={(event) => {
+                setDragOverFolderUri(null);
+                onEntryDrop?.(parentEntry, event);
               }}
             >
               <FolderUp className="h-10 w-10 text-muted-foreground" />
@@ -942,20 +1008,29 @@ const FileSystemGrid = memo(function FileSystemGrid({
                   requestAnimationFrame(() => {
                     dragPreview.remove();
                   });
-                  const dragUri = (() => {
-                    if (!dragProjectId || !dragRootUri) return entry.uri;
-                    const relativePath = getRelativePathFromUri(
-                      dragRootUri,
-                      entry.uri
-                    );
-                    if (!relativePath) return entry.uri;
-                    // 对外拖拽统一使用 teatime-file 协议。
-                    return buildTeatimeFileUrl(dragProjectId, relativePath);
-                  })();
+                  const dragEntries =
+                    selectedUris &&
+                    selectedUris.size > 1 &&
+                    selectedUris.has(entry.uri)
+                      ? entries.filter((item) => selectedUris.has(item.uri))
+                      : [entry];
+                  const normalizedEntries =
+                    dragEntries.length > 0 ? dragEntries : [entry];
+                  const dragUris = normalizedEntries.map((item) =>
+                    resolveEntryDragUri(item, dragProjectId, dragRootUri)
+                  );
+                  const dragUri = dragUris[0];
                   setImageDragPayload(event.dataTransfer, {
                     baseUri: dragUri,
-                    fileName: entry.name,
+                    fileName: normalizedEntries[0]?.name ?? entry.name,
                   });
+                  if (dragUris.length > 1) {
+                    // 中文注释：多选拖拽时保留完整列表用于目录内移动。
+                    event.dataTransfer.setData(
+                      FILE_DRAG_URIS_MIME,
+                      JSON.stringify(dragUris)
+                    );
+                  }
                   // 允许在应用内复制到聊天，同时支持文件管理中的移动操作。
                   event.dataTransfer.effectAllowed = "copyMove";
                   onEntryDragStart?.(entry, event);

@@ -9,10 +9,10 @@ interface UseChatScrollProps {
   /** Enable follow-to-bottom while SSE is loading. */
   forceFollow?: boolean;
   viewportRef: React.RefObject<HTMLDivElement | null>;
-  bottomRef: React.RefObject<HTMLDivElement | null>;
   contentRef: React.RefObject<HTMLDivElement | null>;
 }
 
+/** Chat viewport scrolling behavior with auto-follow rules. */
 export function useChatScroll({
   scrollToBottomToken,
   scrollToMessageToken,
@@ -20,7 +20,6 @@ export function useChatScroll({
   sessionSwitchToken,
   forceFollow,
   viewportRef,
-  bottomRef,
   contentRef,
 }: UseChatScrollProps) {
   const isPinnedToBottomRef = React.useRef(true);
@@ -38,7 +37,7 @@ export function useChatScroll({
   const sessionSwitchIntervalRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
-    // 中文注释：SSE loading 仅在未被用户上滑打断时才启用贴底跟随。
+    // SSE loading 仅在未被用户上滑打断时才启用贴底跟随。
     forceFollowEnabledRef.current = Boolean(forceFollow);
     if (!forceFollowEnabledRef.current) {
       forceFollowRef.current = false;
@@ -49,14 +48,6 @@ export function useChatScroll({
       userScrollIntentRef.current = false;
     }
   }, [forceFollow]);
-
-  const escapeAttrValue = React.useCallback((value: string) => {
-    // 关键：CSS.escape 在老环境可能不存在，这里做最小兜底，避免选择器注入/崩溃。
-    if (typeof (globalThis as any).CSS?.escape === "function") {
-      return (globalThis as any).CSS.escape(value);
-    }
-    return value.replace(/["\\]/g, "\\$&");
-  }, []);
 
   const getDistanceFromBottom = React.useCallback(() => {
     const viewport = viewportRef.current;
@@ -94,7 +85,7 @@ export function useChatScroll({
           const scrolledDown = currentScrollTop > lastScrollTopRef.current + 2;
           const distanceFromBottom = getDistanceFromBottom();
           isPinnedToBottomRef.current = pinned;
-          // 中文注释：只要用户有上滑动作就暂停自动跟随，避免被“拖回底部”。
+          // 只要用户有上滑动作就暂停自动跟随，避免被“拖回底部”。
           if (scrolledUp && distanceFromBottom > 8 && userScrollIntentRef.current) {
             shouldAutoFollowRef.current = false;
             forceFollowRef.current = false;
@@ -105,12 +96,12 @@ export function useChatScroll({
             distanceFromBottom <= 120 &&
             userScrollIntentRef.current
           ) {
-            // 中文注释：SSE loading 下用户向下滑接近底部时恢复跟随（避免追不上“移动的底部”）。
+            // SSE loading 下用户向下滑接近底部时恢复跟随（避免追不上“移动的底部”）。
             shouldAutoFollowRef.current = true;
             forceFollowRef.current = true;
             userScrollIntentRef.current = false;
           } else if (pinned) {
-            // 中文注释：用户回到底部后恢复自动跟随。
+            // 用户回到底部后恢复自动跟随。
             shouldAutoFollowRef.current = true;
             userScrollIntentRef.current = false;
             if (forceFollowEnabledRef.current) {
@@ -183,7 +174,7 @@ export function useChatScroll({
 
   React.useEffect(() => {
     if (!sessionSwitchToken) return;
-    // 中文注释：切换会话后短暂延迟贴底，兜底异步内容（如图片）高度变化。
+    // 切换会话后短暂延迟贴底，兜底异步内容（如图片）高度变化。
     shouldAutoFollowRef.current = true;
     isPinnedToBottomRef.current = true;
     userScrollIntentRef.current = false;
@@ -205,7 +196,7 @@ export function useChatScroll({
     const intervalMs = 220;
     const startedAt = Date.now();
 
-    // 中文注释：仍允许跟随时才尝试贴底。
+    // 仍允许跟随时才尝试贴底。
     const tryFollow = () => {
       const distance = getDistanceFromBottom();
       const shouldFollow =
@@ -253,7 +244,7 @@ export function useChatScroll({
     shouldAutoFollowRef.current = false;
     forceFollowRef.current = false;
 
-    const selector = `[data-message-id="${escapeAttrValue(String(messageId))}"]`;
+    const selector = `[data-message-id="${CSS.escape(String(messageId))}"]`;
     const tryScroll = () => {
       const el = document.querySelector(selector);
       if (el instanceof HTMLElement) {
@@ -271,7 +262,6 @@ export function useChatScroll({
   }, [
     scrollToMessageToken?.token,
     scrollToMessageToken?.messageId,
-    escapeAttrValue,
   ]);
 
   React.useLayoutEffect(() => {
@@ -320,27 +310,21 @@ export function useChatScroll({
     const attach = (nextContent: HTMLDivElement) => {
       content = nextContent;
 
-      // 关键：ResizeObserver 在部分环境/布局下可能不会对“文本增量”稳定触发，
+      // 关键：ResizeObserver 对“文本增量”并不总是稳定触发，
       // 加一个 MutationObserver 兜底，确保 SSE 流式更新时能持续贴底。
-      mutationObserver =
-        typeof MutationObserver === "undefined"
-          ? null
-          : new MutationObserver(() => {
-              schedule();
-            });
-      mutationObserver?.observe(content, {
+      mutationObserver = new MutationObserver(() => {
+        schedule();
+      });
+      mutationObserver.observe(content, {
         subtree: true,
         childList: true,
         characterData: true,
       });
 
-      resizeObserver =
-        typeof ResizeObserver === "undefined"
-          ? null
-          : new ResizeObserver(() => {
-              schedule();
-            });
-      resizeObserver?.observe(content);
+      resizeObserver = new ResizeObserver(() => {
+        schedule();
+      });
+      resizeObserver.observe(content);
     };
 
     const tryAttach = () => {

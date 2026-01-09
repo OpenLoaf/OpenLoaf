@@ -34,8 +34,8 @@ type AuthSessionResponse = {
 };
 
 type ProviderGroup = {
-  /** Provider id. */
-  providerId: string;
+  /** Provider group key (settings id or provider id). */
+  providerKey: string;
   /** Provider display name. */
   providerName: string;
   /** Models under provider. */
@@ -92,8 +92,8 @@ export default function SelectMode({ className }: SelectModeProps) {
   const { basic, setBasic } = useBasicConfig();
   const [open, setOpen] = useState(false);
   const [authLoggedIn, setAuthLoggedIn] = useState(false);
-  /** Active provider id for the model list. */
-  const [activeProviderId, setActiveProviderId] = useState<string>("");
+  /** Active provider key for the model list. */
+  const [activeProviderKey, setActiveProviderKey] = useState<string>("");
   /** Selected tags for model filtering. */
   const [selectedTags, setSelectedTags] = useState<ModelTag[]>([]);
   const authBaseUrl = resolveServerUrl();
@@ -109,14 +109,15 @@ export default function SelectMode({ className }: SelectModeProps) {
   const providerGroups = useMemo<ProviderGroup[]>(() => {
     const grouped = new Map<string, ProviderGroup>();
     for (const option of modelOptions) {
-      const existing = grouped.get(option.providerId);
+      const providerKey = option.providerSettingsId ?? option.providerId;
+      const existing = grouped.get(providerKey);
       if (existing) {
         existing.models.push(option);
         continue;
       }
-      // 按 providerId 分组，保留首次出现顺序。
-      grouped.set(option.providerId, {
-        providerId: option.providerId,
+      // 按 settings id 分组，避免同 providerId 合并到一起。
+      grouped.set(providerKey, {
+        providerKey,
         providerName: option.providerName,
         models: [option],
       });
@@ -163,11 +164,16 @@ export default function SelectMode({ className }: SelectModeProps) {
   const hasModels = modelOptions.length > 0;
   const showCloudEmpty = isCloudSource && !hasModels;
   const showAuto = isCloudSource ? true : hasModels;
-  const showModelList = hasModels && !isAuto;
-  const showAddButton = !isCloudSource && (!isAuto || !hasModels);
-  const showTopSection = showAuto || showModelList;
-  /** Provider id of the currently selected model. */
-  const selectedProviderId = selectedModel?.providerId ?? "";
+  const showAddButton = !isCloudSource;
+  const showModelList = hasModels || showAddButton;
+  const showTopSection = showAuto || showModelList || showAddButton;
+  // 筛选区在模型列表显示时出现。
+  // Auto 模式时展示遮罩提示。
+  const showAutoMask = isAuto && hasModels;
+  const showFilterRow = showModelList;
+  /** Provider key of the currently selected model. */
+  const selectedProviderKey =
+    selectedModel?.providerSettingsId ?? selectedModel?.providerId ?? "";
   /** Persist selected model id into basic config. */
   const persistModelDefaultId = useCallback((nextModelId: string) => {
     const normalized = typeof nextModelId === "string" ? nextModelId : "";
@@ -188,24 +194,24 @@ export default function SelectMode({ className }: SelectModeProps) {
     setSelectedTags([]);
   }, []);
   /** Select provider for model list. */
-  const handleSelectProvider = useCallback((providerId: string) => {
-    setActiveProviderId(providerId);
+  const handleSelectProvider = useCallback((providerKey: string) => {
+    setActiveProviderKey(providerKey);
   }, []);
   useEffect(() => {
     if (!open) return;
-    // 中文注释：展开模型列表时刷新服务端配置，确保展示最新模型。
+    // 展开模型列表时刷新服务端配置，确保展示最新模型。
     void refresh();
   }, [open, refresh]);
   useEffect(() => {
     if (!open) return;
     if (!isCloudSource) return;
-    // 中文注释：云端模式展开时刷新模型列表，避免显示旧数据。
+    // 云端模式展开时刷新模型列表，避免显示旧数据。
     void refreshCloudModels();
   }, [open, isCloudSource, refreshCloudModels]);
   useEffect(() => {
     if (!open) return;
     if (!authBaseUrl) return;
-    // 中文注释：展开选择器时刷新登录状态，避免切换设备后状态不一致。
+    // 展开选择器时刷新登录状态，避免切换设备后状态不一致。
     fetchAuthSession(authBaseUrl)
       .then((session) => setAuthLoggedIn(session.loggedIn))
       .catch(() => setAuthLoggedIn(false));
@@ -213,7 +219,7 @@ export default function SelectMode({ className }: SelectModeProps) {
   useEffect(() => {
     if (authLoggedIn) return;
     if (!isCloudSource) return;
-    // 中文注释：未登录时强制回退为本地模式，避免云端入口被直接开启。
+    // 未登录时强制回退为本地模式，避免云端入口被直接开启。
     void setBasic({ chatSource: "local" });
   }, [authLoggedIn, isCloudSource, setBasic]);
   useEffect(() => {
@@ -227,21 +233,21 @@ export default function SelectMode({ className }: SelectModeProps) {
   useEffect(() => {
     if (!open) return;
     if (providerGroups.length === 0) {
-      if (activeProviderId) {
-        setActiveProviderId("");
+      if (activeProviderKey) {
+        setActiveProviderKey("");
       }
       return;
     }
-    if (activeProviderId && providerGroups.some((group) => group.providerId === activeProviderId)) {
+    if (activeProviderKey && providerGroups.some((group) => group.providerKey === activeProviderKey)) {
       return;
     }
-    const nextProviderId =
-      selectedProviderId && providerGroups.some((group) => group.providerId === selectedProviderId)
-        ? selectedProviderId
-        : providerGroups[0]!.providerId;
+    const nextProviderKey =
+      selectedProviderKey && providerGroups.some((group) => group.providerKey === selectedProviderKey)
+        ? selectedProviderKey
+        : providerGroups[0]!.providerKey;
     // 选择器打开时优先定位到已选模型对应的 provider。
-    setActiveProviderId(nextProviderId);
-  }, [open, providerGroups, activeProviderId, selectedProviderId]);
+    setActiveProviderKey(nextProviderKey);
+  }, [open, providerGroups, activeProviderKey, selectedProviderKey]);
 
   /** Trigger login flow for cloud models. */
   const handleLogin = async () => {
@@ -277,14 +283,14 @@ export default function SelectMode({ className }: SelectModeProps) {
     const normalized = next ? "cloud" : "local";
     void setBasic({ chatSource: normalized });
     if (normalized === "cloud") {
-      // 中文注释：切换到云端时清空本地选择，避免透传无效 modelId。
+    // 切换到云端时清空本地选择，避免透传无效 modelId。
       persistModelDefaultId("");
     }
   };
 
   /** Active provider group for rendering. */
   const activeProviderGroup =
-    filteredProviderGroups.find((group) => group.providerId === activeProviderId) ??
+    filteredProviderGroups.find((group) => group.providerKey === activeProviderKey) ??
     filteredProviderGroups[0] ??
     null;
   /** Models for active provider after filtering. */
@@ -326,7 +332,7 @@ export default function SelectMode({ className }: SelectModeProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[28rem] max-w-[92vw] p-2">
+      <PopoverContent className="w-[30rem] max-w-[94vw] -translate-x-12 p-2">
         <div className="space-y-2">
           <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
             <div className="flex items-center justify-between">
@@ -373,176 +379,196 @@ export default function SelectMode({ className }: SelectModeProps) {
                         }
                         if (modelOptions.length === 0) return;
                         // 从 Auto 切换到手动时，默认定位到首个模型所在 provider。
-                        setActiveProviderId(modelOptions[0]!.providerId);
+                        setActiveProviderKey(
+                          modelOptions[0]!.providerSettingsId ?? modelOptions[0]!.providerId
+                        );
                         persistModelDefaultId(modelOptions[0]!.id);
                       }}
                     />
                   </div>
-                  {isAuto && (
-                    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-                      基于效果与速度帮助您选择最优模型
-                    </p>
-                  )}
+                  <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                    基于效果与速度帮助您选择最优模型
+                  </p>
                 </div>
               ) : null}
 
-              {showModelList ? (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <div className="sm:w-40">
-                    <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border/70 bg-muted/30 p-1">
-                      {filteredProviderGroups.map((group) => {
-                        const isActive = group.providerId === activeProviderId;
-                        const isEmpty = selectedTags.length > 0 && group.matchCount === 0;
-                        const countLabel =
-                          selectedTags.length > 0
-                            ? `${group.matchCount}/${group.totalCount}`
-                            : `${group.totalCount}`;
-                        return (
-                          <button
-                            key={group.providerId}
-                            type="button"
-                            onClick={() => handleSelectProvider(group.providerId)}
-                            className={cn(
-                              "w-full rounded-md border border-transparent px-2 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
-                              isActive && "border-border/70 bg-muted/70",
-                              isEmpty && "opacity-60"
-                            )}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                                {group.providerName}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {countLabel}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
+              {showFilterRow || showModelList ? (
+                <div className="relative flex flex-col gap-2">
+                  {showFilterRow ? (
+                    <div className="rounded-lg border border-border/70 bg-muted/30 px-2 py-2">
+                      <div className="flex items-start gap-2">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+                          {availableTags.length > 0 ? (
+                            <>
+                              {availableTags.map(({ tag, label }) => {
+                                const isSelected = selectedTags.includes(tag);
+                                return (
+                                  <button
+                                    key={tag}
+                                    type="button"
+                                    onClick={() => handleToggleTag(tag)}
+                                    className={cn(
+                                      "inline-flex h-6 items-center rounded-full border px-2 text-[10px] leading-none transition-colors",
+                                      isSelected
+                                        ? "border-primary/60 bg-primary/15 text-primary"
+                                        : "border-border/60 bg-background/70 text-muted-foreground hover:border-border/90 hover:bg-muted/60"
+                                    )}
+                                    aria-pressed={isSelected}
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
+                              {selectedTags.length > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={handleClearTags}
+                                  className="text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                                >
+                                  清空
+                                </button>
+                              ) : null}
+                            </>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">
+                              暂无可筛选标签
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex-1">
-                    <div className="rounded-lg border border-border/70 bg-muted/30">
-                      {availableTags.length > 0 ? (
-                        <div className="flex flex-wrap items-center gap-1 border-b border-border/70 px-2 py-2">
-                          {availableTags.map(({ tag, label }) => {
-                            const isSelected = selectedTags.includes(tag);
-                            return (
-                              <button
-                                key={tag}
-                                type="button"
-                                onClick={() => handleToggleTag(tag)}
-                                className={cn(
-                                  "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] transition-colors",
-                                  isSelected
-                                    ? "border-primary/50 bg-primary/10 text-primary"
-                                    : "border-border/70 bg-background text-muted-foreground hover:border-border/90"
-                                )}
-                                aria-pressed={isSelected}
-                              >
-                                {label}
-                              </button>
-                            );
-                          })}
-                          {selectedTags.length > 0 ? (
-                            <button
-                              type="button"
-                              onClick={handleClearTags}
-                              className="ml-auto text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-                            >
-                              清空
-                            </button>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <div className="border-b border-border/70 px-2 py-2 text-[11px] text-muted-foreground">
-                          暂无可筛选标签
-                        </div>
-                      )}
-                      <div className="max-h-64 space-y-1 overflow-y-auto p-1">
-                        {activeProviderGroup ? (
-                          activeProviderModels.length > 0 ? (
-                            activeProviderModels.map((option) => {
-                              const tagLabels =
-                                option.tags && option.tags.length > 0
-                                  ? option.tags.map((tag) => MODEL_TAG_LABELS[tag] ?? tag)
-                                  : null;
+                  ) : null}
+
+                  {showModelList ? (
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <div className="sm:w-40">
+                        <div className="flex h-72 flex-col overflow-hidden rounded-lg border border-border/70 bg-muted/30">
+                          <div className="flex-1 space-y-1 overflow-y-scroll p-1 min-h-0">
+                            {filteredProviderGroups.map((group) => {
+                              const isActive = group.providerKey === activeProviderKey;
+                              const isEmpty = selectedTags.length > 0 && group.matchCount === 0;
+                              const countLabel =
+                                selectedTags.length > 0
+                                  ? `${group.matchCount}/${group.totalCount}`
+                                  : `${group.totalCount}`;
                               return (
                                 <button
-                                  key={option.id}
+                                  key={group.providerKey}
                                   type="button"
-                                  onClick={() => persistModelDefaultId(option.id)}
+                                  onClick={() => handleSelectProvider(group.providerKey)}
                                   className={cn(
-                                    "h-16 w-full rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
-                                    selectedModelId === option.id &&
-                                      "border-border/70 bg-muted/70"
+                                    "w-full rounded-md border border-transparent px-2 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
+                                    isActive && "border-border/70 bg-muted/70",
+                                    isEmpty && "opacity-60"
                                   )}
                                 >
-                                  <div className="flex h-full items-center justify-between gap-3">
-                                    <div className="min-w-0 flex-1 text-left">
-                                      <div className="flex items-center gap-1 truncate text-sm font-medium text-foreground">
-                                        {!isCloudSource ? (
-                                          <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
-                                        ) : null}
-                                        <span className="truncate">
-                                          {option.providerName}/{option.modelId}
-                                        </span>
-                                      </div>
-                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                                        <span className="flex flex-wrap items-center gap-1">
-                                          {(tagLabels ?? []).map((label) => (
-                                            <span
-                                              key={`${option.id}-${label}`}
-                                              className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
-                                            >
-                                              {label}
-                                            </span>
-                                          ))}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                                      {selectedModelId === option.id ? (
-                                        <Check
-                                          className="h-4 w-4 text-primary"
-                                          strokeWidth={2.5}
-                                        />
-                                      ) : null}
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                                      {group.providerName}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {countLabel}
                                     </span>
                                   </div>
                                 </button>
                               );
-                            })
-                          ) : (
-                            <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-                              当前筛选无匹配模型
-                            </div>
-                          )
-                        ) : (
-                          <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-                            暂无可用模型
+                            })}
                           </div>
-                        )}
+                          {showAddButton ? (
+                            <div className="border-t border-border/70 p-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-8 w-full text-xs"
+                                onClick={handleOpenProviderSettings}
+                              >
+                                管理模型
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="rounded-lg border border-border/70 bg-muted/30">
+                          <div className="h-72 space-y-1 overflow-y-scroll p-1">
+                            {activeProviderGroup ? (
+                              activeProviderModels.length > 0 ? (
+                                activeProviderModels.map((option) => {
+                                  const tagLabels =
+                                    option.tags && option.tags.length > 0
+                                      ? option.tags.map((tag) => MODEL_TAG_LABELS[tag] ?? tag)
+                                      : null;
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      onClick={() => persistModelDefaultId(option.id)}
+                                      className={cn(
+                                        "h-16 w-full rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
+                                        selectedModelId === option.id &&
+                                          "border-border/70 bg-muted/70"
+                                      )}
+                                    >
+                                      <div className="flex h-full items-center justify-between gap-3">
+                                        <div className="min-w-0 flex-1 text-left">
+                                          <div className="flex items-center gap-1 truncate text-[13px] font-medium text-foreground">
+                                            {!isCloudSource ? (
+                                              <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                                            ) : null}
+                                            <span className="truncate">
+                                              {option.modelId}
+                                            </span>
+                                          </div>
+                                          <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                                            <span className="flex flex-wrap items-center gap-1">
+                                              {(tagLabels ?? []).map((label) => (
+                                                <span
+                                                  key={`${option.id}-${label}`}
+                                                  className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[9px] text-muted-foreground"
+                                                >
+                                                  {label}
+                                                </span>
+                                              ))}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                                          {selectedModelId === option.id ? (
+                                            <Check
+                                              className="h-4 w-4 text-primary"
+                                              strokeWidth={2.5}
+                                            />
+                                          ) : null}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  );
+                                })
+                              ) : (
+                                <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                                  当前筛选无匹配模型
+                                </div>
+                              )
+                            ) : (
+                              <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                                暂无可用模型
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : null}
+                  {showAutoMask ? (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/60 px-4 text-center text-[11px] text-muted-foreground backdrop-blur-sm">
+                      已开启 Auto，关闭后可手动选择模型
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
           ) : null}
         </div>
-        {showAddButton ? (
-          <div className={cn((showTopSection || showCloudEmpty) && "border-t border-border/70 pt-2")}>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 w-full text-xs"
-              onClick={handleOpenProviderSettings}
-            >
-              新增添加模型
-            </Button>
-          </div>
-        ) : null}
       </PopoverContent>
     </Popover>
   );

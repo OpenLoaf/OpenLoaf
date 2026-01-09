@@ -22,6 +22,7 @@ export {
   FILE_DRAG_NAME_MIME,
   FILE_DRAG_REF_MIME,
   FILE_DRAG_URI_MIME,
+  FILE_DRAG_URIS_MIME,
 } from "@/components/ui/teatime/drag-drop-types";
 
 /** Get a relative path for an entry under the project root. */

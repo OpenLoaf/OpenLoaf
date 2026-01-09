@@ -15,6 +15,7 @@ interface MessageListProps {
   className?: string;
 }
 
+/** Chat message list for the active session. */
 export default function MessageList({ className }: MessageListProps) {
   const {
     messages,
@@ -27,10 +28,11 @@ export default function MessageList({ className }: MessageListProps) {
     stepThinking,
     sessionId,
   } = useChatContext();
+  /** Viewport element ref for scrolling. */
   const viewportRef = React.useRef<HTMLDivElement | null>(null);
+  /** Content ref for scroll observers. */
   const contentRef = React.useRef<HTMLDivElement | null>(null);
-  const bottomRef = React.useRef<HTMLDivElement | null>(null);
-  // Previous session id.
+  /** Previous session id. */
   const prevSessionIdRef = React.useRef<string | null>(null);
   /** Session switch follow token. */
   const [sessionSwitchToken, setSessionSwitchToken] = React.useState(0);
@@ -46,7 +48,7 @@ export default function MessageList({ className }: MessageListProps) {
   const hideAiActions = status === "submitted" || status === "streaming";
   // SSE loading state.
   const isSseLoading = status === "submitted" || status === "streaming";
-  // 中文注释：空态时展示提示卡片。
+  // 空态时展示提示卡片。
   const shouldShowHelper = !isHistoryLoading && messages.length === 0;
 
   React.useEffect(() => {
@@ -79,11 +81,10 @@ export default function MessageList({ className }: MessageListProps) {
     // AI 输出过程中/结束瞬间：仅当用户贴底时跟随滚动（避免用户上滑时被强制拉回底部）
     followToBottomToken:
       messages.length + streamTick + (status === "ready" ? 1 : 0) + (error ? 1 : 0),
-    // 中文注释：SSE 请求中启用贴底跟随，用户上滑可暂停。
+    // SSE 请求中启用贴底跟随，用户上滑可暂停。
     forceFollow: isSseLoading,
     sessionSwitchToken,
     viewportRef,
-    bottomRef,
     contentRef,
   });
 
@@ -113,7 +114,7 @@ export default function MessageList({ className }: MessageListProps) {
       >
         <div
           ref={contentRef}
-          className="min-h-full w-full min-w-0 space-y-4 pb-4 flex flex-col justify-end"
+          className="min-h-full w-full min-w-0 space-y-4 pb-4 flex flex-col"
         >
           {(messages as any[]).map((message, index) => (
             <MessageItem
@@ -130,8 +131,6 @@ export default function MessageList({ className }: MessageListProps) {
           </AnimatePresence>
 
           {error && <MessageError error={error} />}
-
-          <div ref={bottomRef} />
         </div>
       </div>
     </div>

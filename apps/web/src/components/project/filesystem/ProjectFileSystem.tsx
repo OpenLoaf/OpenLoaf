@@ -412,6 +412,17 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     [ensureSelected, model]
   );
 
+  /** Sync selection to the drop target after a successful move. */
+  const handleEntryDrop = useCallback(
+    async (entry: FileSystemEntry, event: ReactDragEvent<HTMLButtonElement>) => {
+      const movedCount = await model.handleEntryDrop(entry, event);
+      if (movedCount > 0) {
+        replaceSelection([entry.uri]);
+      }
+    },
+    [model, replaceSelection]
+  );
+
   /** Create a folder and enter rename mode. */
   const handleCreateFolder = async () => {
     const created = await model.handleCreateFolder();
@@ -648,7 +659,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 onRenamingSubmit={handleRenamingSubmit}
                 onRenamingCancel={handleRenamingCancel}
                 onEntryDragStart={handleEntryDragStart}
-                onEntryDrop={model.handleEntryDrop}
+                onEntryDrop={handleEntryDrop}
               />
             </div>
           </div>
