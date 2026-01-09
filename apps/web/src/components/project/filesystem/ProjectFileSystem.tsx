@@ -181,7 +181,7 @@ const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 min-w-0 animate-in fade-in duration-200 w-full">
+    <div className="flex items-center justify-between gap-3 min-w-0 w-full">
       <div className="flex items-center gap-2 min-w-0">
         <button
           type="button"
@@ -233,9 +233,7 @@ const ProjectFileSystemBreadcrumbs = memo(function ProjectFileSystemBreadcrumbs(
   return (
     <div className="relative flex min-w-0 items-center">
       <div
-        className={`flex items-center gap-2 min-w-0 transition-opacity duration-300 ease-out ${
-          isVisible ? "opacity-100" : "opacity-0"
-        }`}
+        className={`flex items-center gap-2 min-w-0 ${isVisible ? "opacity-100" : "opacity-0"}`}
       >
         <Breadcrumb>
           <BreadcrumbList>
@@ -264,7 +262,7 @@ const ProjectFileSystemBreadcrumbs = memo(function ProjectFileSystemBreadcrumbs(
         </Breadcrumb>
       </div>
       <div
-        className={`absolute inset-y-0 left-0 flex items-center transition-opacity duration-300 ease-out ${
+        className={`absolute inset-y-0 left-0 flex items-center ${
           isVisible ? "opacity-0 pointer-events-none" : "opacity-100"
         }`}
       >
@@ -350,6 +348,16 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     },
     [isMac]
   );
+
+  /** Handle name sorting. */
+  const handleSortByNameClick = useCallback(() => {
+    model.handleSortByName();
+  }, [model]);
+
+  /** Handle time sorting. */
+  const handleSortByTimeClick = useCallback(() => {
+    model.handleSortByTime();
+  }, [model]);
 
   /** Resolve selected entries from the current file list. */
   const resolveSelectedEntries = useCallback(
@@ -513,7 +521,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   model.sortField === "name" ? "bg-foreground/10 text-foreground" : ""
                 }`}
                 aria-label="按字母排序"
-                onClick={model.handleSortByName}
+                onClick={handleSortByNameClick}
               >
                 {model.sortField === "name" && model.sortOrder === "desc" ? (
                   <ArrowUpAZ className="h-3.5 w-3.5" />
@@ -535,7 +543,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   model.sortField === "mtime" ? "bg-foreground/10 text-foreground" : ""
                 }`}
                 aria-label="按时间排序"
-                onClick={model.handleSortByTime}
+                onClick={handleSortByTimeClick}
               >
                 {model.sortField === "mtime" && model.sortOrder === "asc" ? (
                   <ArrowUpWideNarrow className="h-3.5 w-3.5" />
@@ -606,10 +614,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-7 w-7 transition-[width,opacity] duration-150 ${
-                    model.isSearchOpen
-                      ? "w-0 opacity-0 pointer-events-none"
-                      : "opacity-100"
+                  className={`h-7 w-7 ${
+                    model.isSearchOpen ? "w-0 opacity-0 pointer-events-none" : "opacity-100"
                   }`}
                   aria-label="搜索"
                   onClick={() => model.setIsSearchOpen(true)}
@@ -622,10 +628,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               </TooltipContent>
             </Tooltip>
             <div
-              className={`relative overflow-hidden rounded-md ring-1 ring-border/60 bg-background/80 transition-[width,opacity,transform] duration-200 origin-right ${
-                model.isSearchOpen
-                  ? "w-56 opacity-100 translate-x-0"
-                  : "w-0 opacity-0 translate-x-2"
+              className={`relative overflow-hidden rounded-md ring-1 ring-border/60 bg-background/80 ${
+                model.isSearchOpen ? "w-56 opacity-100" : "w-0 opacity-0"
               }`}
             >
               <Input
@@ -686,12 +690,14 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           >
             <div
               key={model.activeUri ?? "root"}
-              className="min-h-full h-full animate-in fade-in slide-in-from-bottom-2 duration-200"
+              className="min-h-full h-full"
             >
               <FileSystemGrid
                 entries={model.displayEntries}
                 isLoading={model.listQuery.isLoading}
                 parentUri={model.parentUri}
+                currentUri={model.displayUri}
+                includeHidden={model.showHidden}
                 dragProjectId={model.projectId}
                 dragRootUri={model.rootUri}
                 onNavigate={model.handleNavigate}

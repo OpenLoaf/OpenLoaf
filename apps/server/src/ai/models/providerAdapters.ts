@@ -8,6 +8,7 @@ import type { ModelDefinition, ProviderDefinition } from "@teatime-ai/api/common
 import { buildOpenAiCompatibleImageModel } from "@/ai/models/openaiCompatible/openaiCompatibleImageModel";
 import { qwenAdapter } from "@/ai/models/qwen/qwenAdapter";
 import { volcengineAdapter } from "@/ai/models/volcengine/volcengineAdapter";
+import { cliAdapter } from "@/ai/models/cli/cliAdapter";
 import { buildAiDebugFetch } from "@/ai/utils/ai-debug-fetch";
 import { ensureOpenAiCompatibleBaseUrl } from "@/ai/utils/openai-url";
 import { readApiKey } from "@/ai/utils/provider-auth";
@@ -196,6 +197,7 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
   xai: buildAiSdkAdapter("xai", ({ apiUrl, apiKey, fetch }) =>
     createXai({ baseURL: ensureOpenAiCompatibleBaseUrl(apiUrl), apiKey, fetch }),
   ),
+  cli: cliAdapter,
   qwenAdapter,
   volcengine: volcengineAdapter,
 };

@@ -1,0 +1,193 @@
+"use client";
+
+import { useCallback } from "react";
+import { toBlob } from "html-to-image";
+import { Download } from "lucide-react";
+import { toast } from "sonner";
+import type { DockItem } from "@teatime-ai/api/common";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  getBoardDisplayName,
+  getDisplayFileName,
+  isBoardFolderName,
+} from "@/lib/file-name";
+
+/** Selector list for elements excluded from board exports. */
+const BOARD_EXPORT_IGNORE_SELECTOR = [
+  "[data-canvas-toolbar]",
+  "[data-board-controls]",
+  "[data-node-toolbar]",
+  "[data-node-inspector]",
+  "[data-connector-drop-panel]",
+  "[data-connector-action]",
+  "[data-multi-resize-handle]",
+  "[data-board-minimap]",
+  "[data-board-anchor-overlay]",
+  "[data-board-selection-outline]",
+].join(",");
+
+/** Build a filename for board image exports. */
+function buildBoardExportFileName(
+  params: DockItem["params"] | undefined,
+  title: string
+) {
+  const name = typeof (params as any)?.name === "string" ? (params as any).name : title;
+  const ext = typeof (params as any)?.ext === "string" ? (params as any).ext : undefined;
+  const baseName = isBoardFolderName(name)
+    ? getBoardDisplayName(name).trim() || "board"
+    : getDisplayFileName(name || "board", ext).trim() || "board";
+  return baseName.endsWith(".png") ? baseName : `${baseName}.png`;
+}
+
+/** Return true when the media element is cross-origin and may taint canvas. */
+function isCrossOriginMediaElement(element: Element): boolean {
+  if (typeof window === "undefined") return false;
+  if (!(element instanceof HTMLImageElement || element instanceof HTMLVideoElement)) {
+    return false;
+  }
+  const rawSrc = element.currentSrc || element.src;
+  if (!rawSrc) return false;
+  if (rawSrc.startsWith("data:") || rawSrc.startsWith("blob:")) return false;
+  try {
+    const url = new URL(rawSrc, window.location.href);
+    return url.origin !== window.location.origin;
+  } catch {
+    return true;
+  }
+}
+
+/** Convert a Blob into a base64 string without a data URL prefix. */
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  // 逻辑：分片拼接避免大数组展开导致栈溢出。
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+/** Notify a board canvas to toggle export mode. */
+function setBoardExporting(target: HTMLElement, exporting: boolean) {
+  const event = new CustomEvent("teatime:board-export", { detail: { exporting } });
+  target.dispatchEvent(event);
+}
+
+/** Wait for a number of animation frames. */
+function waitForAnimationFrames(count: number): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  return new Promise(resolve => {
+    let remaining = count;
+    const step = () => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        resolve();
+        return;
+      }
+      window.requestAnimationFrame(step);
+    };
+    window.requestAnimationFrame(step);
+  });
+}
+
+/** Trigger a download for a blob without opening a new tab. */
+async function downloadBlobAsFile(blob: Blob, fileName: string): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  const saveFile = window.teatimeElectron?.saveFile;
+  if (saveFile) {
+    const contentBase64 = await blobToBase64(blob);
+    const result = await saveFile({
+      contentBase64,
+      suggestedName: fileName,
+      filters: [{ name: "PNG Image", extensions: ["png"] }],
+    });
+    if (result?.ok) return true;
+    if (result?.canceled) return false;
+    throw new Error(result?.reason ?? "Save failed");
+  }
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.target = "_self";
+  link.rel = "noopener";
+  link.style.display = "none";
+  // 逻辑：用隐藏链接触发下载，避免页面跳转。
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  return true;
+}
+
+export type BoardPanelHeaderActionsProps = {
+  item: DockItem;
+  title: string;
+};
+
+/** Render header actions for board panels. */
+export function BoardPanelHeaderActions({ item, title }: BoardPanelHeaderActionsProps) {
+  const isBoardPanel = item.component === "board-viewer";
+
+  /** Export the current board panel to an image. */
+  const handleExportBoard = useCallback(async () => {
+    if (!isBoardPanel) return;
+    const panelSelector = `[data-board-canvas][data-board-panel="${item.id}"]`;
+    const target = document.querySelector(panelSelector) as HTMLElement | null;
+    if (!target) {
+      toast.error("未找到可导出的画布");
+      return;
+    }
+    const fileName = buildBoardExportFileName(item.params, title);
+    try {
+      // 逻辑：导出前先隐藏网格并等待渲染完成。
+      setBoardExporting(target, true);
+      await waitForAnimationFrames(2);
+      // 逻辑：导出时过滤工具条/控件，避免截图污染。
+      const blob = await toBlob(target, {
+        cacheBust: true,
+        backgroundColor: null,
+        // 逻辑：跳过远程字体注入，避免跨域样式导致导出报错。
+        skipFonts: true,
+        filter: node => {
+          if (!(node instanceof Element)) return true;
+          if (isCrossOriginMediaElement(node)) return false;
+          return !node.closest(BOARD_EXPORT_IGNORE_SELECTOR);
+        },
+      });
+      if (!blob) {
+        toast.error("导出失败：无法生成图片");
+        return;
+      }
+      const saved = await downloadBlobAsFile(blob, fileName);
+      if (!saved) return;
+    } catch (error) {
+      console.error("导出失败", error);
+      toast.error("导出失败");
+    } finally {
+      setBoardExporting(target, false);
+    }
+  }, [isBoardPanel, item.id, item.params, title]);
+
+  if (!isBoardPanel) return null;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-label="导出图片"
+          onClick={() => void handleExportBoard()}
+        >
+          <Download className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">导出图片</TooltipContent>
+    </Tooltip>
+  );
+}

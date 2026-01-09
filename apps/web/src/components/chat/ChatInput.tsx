@@ -62,6 +62,7 @@ import { toast } from "sonner";
 import { normalizeImageOptions } from "@/lib/chat/image-options";
 import ChatImageOutputOption from "./ChatImageOutputOption";
 import { supportsImageEdit, supportsImageGeneration, supportsToolCall } from "@/lib/model-capabilities";
+import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 
 interface ChatInputProps {
   className?: string;
@@ -149,6 +150,10 @@ export interface ChatInputBoxProps {
   onDropHandled?: () => void;
   /** Default project id for file selection. */
   defaultProjectId?: string;
+  /** Dictation language for OS speech recognition. */
+  dictationLanguage?: string;
+  /** Notify dictation listening state changes. */
+  onDictationListeningChange?: (isListening: boolean) => void;
 }
 
 export function ChatInputBox({
@@ -178,6 +183,8 @@ export function ChatInputBox({
   header,
   onDropHandled,
   defaultProjectId,
+  dictationLanguage,
+  onDictationListeningChange,
 }: ChatInputBoxProps) {
   const initialValue = useMemo(() => parseChatValue(value), []);
   const [plainTextValue, setPlainTextValue] = useState(() =>
@@ -210,6 +217,14 @@ export function ChatInputBox({
     plugins,
     value: initialValue,
   });
+  const { isListening, isSupported: isDictationSupported, toggle: toggleDictation } = useSpeechDictation({
+    editor,
+    language: dictationLanguage,
+    onError: (message) => toast.error(message),
+  });
+  useEffect(() => {
+    onDictationListeningChange?.(isListening);
+  }, [isListening, onDictationListeningChange]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -526,8 +541,10 @@ export function ChatInputBox({
         isOverLimit &&
           "border-destructive ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20",
         "teatime-thinking-border",
-        // SSE 请求进行中（含非流式）：给输入框加边框流动动画，提示 AI 正在思考
-        isStreaming && !isOverLimit && "teatime-thinking-border-on border-transparent",
+        // SSE 请求进行中（含非流式）或语音输入中：给输入框加边框流动动画。
+        (isStreaming || isListening) &&
+          !isOverLimit &&
+          "teatime-thinking-border-on border-transparent",
         className
       )}
       onPointerDownCapture={handleMentionPointerDown}
@@ -645,7 +662,7 @@ export function ChatInputBox({
             <div />
           )}
 
-          <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-0.5 overflow-hidden">
+          <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-1.5 overflow-hidden">
             {isOverLimit && (
               <span
                 className={cn(
@@ -668,9 +685,17 @@ export function ChatInputBox({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="rounded-full w-8 h-8 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className={cn(
+                  "rounded-full w-8 h-8 shrink-0 transition-colors",
+                  isListening
+                    ? "bg-primary/10 text-primary hover:bg-primary/15"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+                aria-pressed={isListening}
+                onClick={() => void toggleDictation()}
+                disabled={!isDictationSupported}
               >
-                <Mic className="w-4 h-4" />
+                <Mic className={cn("w-4 h-4", isListening && "text-destructive")} />
               </Button>
             )}
 
@@ -701,13 +726,13 @@ export function ChatInputBox({
                 {submitLabel}
               </Button>
             ) : (
-              <Button
-                type={isLoading ? "button" : canSubmit ? "submit" : "button"}
-                onClick={isLoading ? onStop : undefined}
-                disabled={isSendDisabled || (isLoading && !onStop)}
-                size="icon"
-                className={cn(
-                  "h-8 w-8 rounded-full shrink-0 transition-all duration-200 shadow-none",
+                <Button
+                  type={isLoading ? "button" : canSubmit ? "submit" : "button"}
+                  onClick={isLoading ? onStop : undefined}
+                  disabled={isSendDisabled || (isLoading && !onStop)}
+                  size="icon"
+                  className={cn(
+                  "h-7 w-7 rounded-full shrink-0 transition-all duration-200 shadow-none",
                   isLoading
                     ? "bg-destructive/10 text-destructive hover:bg-destructive/15"
                     : isOverLimit
@@ -717,8 +742,8 @@ export function ChatInputBox({
                         : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                 )}
               >
-                {isLoading ? <X className="h-4 w-4" /> : (
-                  <ChevronUp className="w-4 h-4" />
+                {isLoading ? <X className="h-3.5 w-3.5" /> : (
+                  <ChevronUp className="w-3.5 h-3.5" />
                 )}
               </Button>
             )}
@@ -765,8 +790,17 @@ export default function ChatInput({
     imageOptions,
     addMaskedAttachment,
     projectId,
+    tabId,
   } = useChatContext();
   const { basic } = useBasicConfig();
+  const setTabDictationStatus = useTabs((s) => s.setTabDictationStatus);
+  const dictationLanguage = basic.modelResponseLanguage;
+  useEffect(() => {
+    return () => {
+      if (!tabId) return;
+      setTabDictationStatus(tabId, false);
+    };
+  }, [setTabDictationStatus, tabId]);
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
@@ -886,6 +920,11 @@ export default function ChatInput({
         canAttachImage={allowImage}
         onDropHandled={onDropHandled}
         defaultProjectId={projectId}
+        dictationLanguage={dictationLanguage}
+        onDictationListeningChange={(isListening) => {
+          if (!tabId) return;
+          setTabDictationStatus(tabId, isListening);
+        }}
         header={
           showImageOutputOptions ? (
             <ChatImageOutputOption

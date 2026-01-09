@@ -264,6 +264,11 @@ export class CanvasEngine {
   /** Create a new canvas engine. */
   constructor() {
     const emitChange = () => this.emitChange();
+    const emitSelectionChange = () => {
+      this.orderedElementsDirty = true;
+      this.orderedElementsCache = null;
+      this.emitChange();
+    };
     const emitDocChange = () => {
       this.orderedElementsDirty = true;
       this.anchorMapDirty = true;
@@ -274,7 +279,7 @@ export class CanvasEngine {
     };
     this.doc = new CanvasDoc(emitDocChange);
     this.viewport = new ViewportController(emitChange);
-    this.selection = new SelectionManager(emitChange);
+    this.selection = new SelectionManager(emitSelectionChange);
     this.nodes = new NodeRegistry();
     this.tools = new ToolManager(this);
     this.tools.register(new SelectTool());
@@ -1231,7 +1236,25 @@ export class CanvasEngine {
     if (!this.orderedElementsDirty && this.orderedElementsCache) {
       return this.orderedElementsCache;
     }
-    const elements = sortElementsByZIndex(this.doc.getElements());
+    const sorted = sortElementsByZIndex(this.doc.getElements());
+    const selectedIds = this.selection.getSelectedIds();
+    // 逻辑：选中节点临时置顶显示，但不修改原始 zIndex。
+    const elements =
+      selectedIds.length === 0
+        ? sorted
+        : (() => {
+            const selectedSet = new Set(selectedIds);
+            const base: CanvasElement[] = [];
+            const selected: CanvasElement[] = [];
+            sorted.forEach(element => {
+              if (element.kind === "node" && selectedSet.has(element.id)) {
+                selected.push(element);
+              } else {
+                base.push(element);
+              }
+            });
+            return [...base, ...selected];
+          })();
     this.orderedElementsCache = elements;
     this.orderedElementsDirty = false;
     return elements;

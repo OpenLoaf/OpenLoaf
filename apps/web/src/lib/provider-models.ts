@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChatModelSource, ModelDefinition, ModelTag } from "@teatime-ai/api/common";
-import { getProviderDefinition } from "@/lib/model-registry";
+import { getProviderDefinition, getProviderDefinitions } from "@/lib/model-registry";
 
 type ProviderKeyEntry = {
   /** Provider id. */
@@ -30,6 +30,37 @@ export type ProviderModelOption = {
   /** Model definition from registry. */
   modelDefinition?: ModelDefinition;
 };
+
+/** Adapter id for CLI providers. */
+const CLI_ADAPTER_ID = "cli";
+
+/**
+ * Build CLI provider model options from registry definitions.
+ */
+export function buildCliModelOptions(): ProviderModelOption[] {
+  const options: ProviderModelOption[] = [];
+  const providers = getProviderDefinitions().filter(
+    (provider) => provider.adapterId === CLI_ADAPTER_ID,
+  );
+  for (const provider of providers) {
+    const providerName = provider.label || provider.id;
+    const models = Array.isArray(provider.models) ? provider.models : [];
+    for (const model of models) {
+      if (!model || !model.id) continue;
+      options.push({
+        // 中文注释：CLI 模型前缀直接使用 providerId，保证与服务端匹配。
+        id: `${provider.id}:${model.id}`,
+        modelId: model.id,
+        providerSettingsId: provider.id,
+        providerId: provider.id,
+        providerName,
+        tags: model.tags,
+        modelDefinition: { ...model, providerId: provider.id },
+      });
+    }
+  }
+  return options;
+}
 
 /** Normalize model source to local/cloud. */
 export function normalizeChatModelSource(value: unknown): ChatModelSource {
@@ -98,5 +129,14 @@ export function buildChatModelOptions(
 ) {
   // 中文注释：云端模式不读取本地服务商配置。
   if (source === "cloud") return buildCloudModelOptions(cloudModels);
-  return buildProviderModelOptions(items);
+  const localOptions = buildProviderModelOptions(items);
+  const cliOptions = buildCliModelOptions();
+  if (cliOptions.length === 0) return localOptions;
+  // 中文注释：合并 CLI 与本地配置，避免 id 重复。
+  const merged = new Map<string, ProviderModelOption>();
+  for (const option of [...cliOptions, ...localOptions]) {
+    if (merged.has(option.id)) continue;
+    merged.set(option.id, option);
+  }
+  return Array.from(merged.values());
 }

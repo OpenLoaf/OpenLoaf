@@ -38,7 +38,7 @@ const CLI_TOOL_DEFINITIONS: Record<CliToolId, CliToolDefinition> = {
     id: "codex",
     label: "Codex CLI",
     command: "codex",
-    npmPackage: "codex",
+    npmPackage: "@openai/codex",
     versionArgs: ["--version"],
   },
   claudeCode: {

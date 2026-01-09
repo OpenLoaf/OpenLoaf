@@ -97,6 +97,12 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
     filters?: Array<{ name: string; extensions: string[] }>;
   }): Promise<{ ok: true; path: string } | { ok: false; canceled?: boolean; reason?: string }> =>
     ipcRenderer.invoke('teatime:fs:save-file', payload),
+  // Start OS speech recognition (macOS helper).
+  startSpeechRecognition: (payload: { language?: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('teatime:speech:start', payload),
+  // Stop OS speech recognition.
+  stopSpeechRecognition: (): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('teatime:speech:stop'),
 });
 
 // 主进程会推送 WebContentsView 的真实加载状态（dom-ready 等），这里转成 window 事件给 web UI 消费。
@@ -124,6 +130,36 @@ ipcRenderer.on('teatime:auto-update:status', (_event, detail) => {
   try {
     window.dispatchEvent(
       new CustomEvent('teatime:auto-update:status', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+ipcRenderer.on('teatime:speech:result', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('teatime:speech:result', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+ipcRenderer.on('teatime:speech:state', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('teatime:speech:state', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+ipcRenderer.on('teatime:speech:error', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('teatime:speech:error', { detail })
     );
   } catch {
     // ignore

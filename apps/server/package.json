@@ -15,6 +15,7 @@
     "@ai-sdk/deepseek": "^2.0.0",
     "@ai-sdk/google": "^3.0.1",
     "@ai-sdk/openai": "^3.0.0",
+    "@ai-sdk/provider-utils": "^4.0.0",
     "@ai-sdk/xai": "^3.0.0",
     "@aws-sdk/client-s3": "^3.962.0",
     "@aws-sdk/s3-request-presigner": "^3.962.0",

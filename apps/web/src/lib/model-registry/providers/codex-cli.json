@@ -1,0 +1,31 @@
+{
+  "id": "codex-cli",
+  "label": "Codex CLI",
+  "adapterId": "cli",
+  "apiUrl": "",
+  "authConfig": {
+    "apiKey": "${CODEX_API_KEY}"
+  },
+  "models": [
+    {
+      "id": "gpt-5.2-codex",
+      "familyId": "gpt-5.2-codex",
+      "providerId": "codex-cli",
+      "tags": [
+        "text_generation",
+        "code"
+      ],
+      "maxContextK": 128,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "$",
+      "priceTiers": [
+        {
+          "minContextK": 0,
+          "input": 0,
+          "inputCache": 0,
+          "output": 0
+        }
+      ]
+    }
+  ]
+}

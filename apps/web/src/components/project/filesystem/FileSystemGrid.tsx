@@ -125,6 +125,10 @@ type FileSystemGridProps = {
   entries: FileSystemEntry[];
   isLoading: boolean;
   parentUri?: string | null;
+  /** Current folder uri used to request folder thumbnails. */
+  currentUri?: string | null;
+  /** Whether hidden files are included in the thumbnail query. */
+  includeHidden?: boolean;
   dragProjectId?: string;
   dragRootUri?: string;
   onNavigate?: (nextUri: string) => void;
@@ -526,6 +530,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   entries,
   isLoading,
   parentUri,
+  currentUri,
+  includeHidden,
   dragProjectId,
   dragRootUri,
   onNavigate,
@@ -555,7 +561,6 @@ const FileSystemGrid = memo(function FileSystemGrid({
   // 上一级入口仅在可回退且当前目录非空时显示，避免根目录与空目录误导。
   const shouldShowParentEntry = Boolean(parentUri) && entries.length > 0;
   const gridRef = useRef<HTMLDivElement>(null);
-  const gridListRef = useRef<HTMLDivElement>(null);
   const entryRefs = useRef(new Map<string, HTMLElement>());
   const selectionStartRef = useRef<{ x: number; y: number } | null>(null);
   const selectionRectRef = useRef<{
@@ -626,19 +631,10 @@ const FileSystemGrid = memo(function FileSystemGrid({
     right: number;
     bottom: number;
   } | null>(null);
-  const [isMultiRow, setIsMultiRow] = useState(false);
-  // 仅筛选图片文件用于缩略图请求，减少不必要的传输。
-  const imageUris = useMemo(() => {
-    return entries
-      .filter(
-        (entry) => entry.kind === "file" && IMAGE_EXTS.has(getEntryExt(entry))
-      )
-      .map((entry) => entry.uri);
-  }, [entries]);
-  // 通过缩略图接口批量获取图片预览。
+  // 通过目录缩略图接口批量获取图片预览。
   const thumbnailsQuery = useQuery(
-    trpc.fs.thumbnails.queryOptions(
-      imageUris.length ? { uris: imageUris } : skipToken
+    trpc.fs.folderThumbnails.queryOptions(
+      currentUri ? { uri: currentUri, includeHidden } : skipToken
     )
   );
   const thumbnailByUri = useMemo(() => {
@@ -1030,33 +1026,6 @@ const FileSystemGrid = memo(function FileSystemGrid({
   }, [handleSelectAll]);
 
   useEffect(() => {
-    const gridEl = gridListRef.current;
-    if (!gridEl) return;
-    let frame = 0;
-    // 通过子元素的 offsetTop 统计行数，决定整体对齐方式。
-    const measureRows = () => {
-      const children = Array.from(gridEl.children) as HTMLElement[];
-      const rowTops = new Set<number>();
-      for (const child of children) {
-        rowTops.add(child.offsetTop);
-        if (rowTops.size > 1) break;
-      }
-      setIsMultiRow(rowTops.size > 1);
-    };
-    const requestMeasure = () => {
-      if (frame) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measureRows);
-    };
-    requestMeasure();
-    const observer = new ResizeObserver(requestMeasure);
-    observer.observe(gridEl);
-    return () => {
-      observer.disconnect();
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [entries.length, shouldShowParentEntry]);
-
-  useEffect(() => {
     const handleDocumentContextMenu = (event: MouseEvent) => {
       const last = lastContextMenuRef.current;
       if (!last) return;
@@ -1143,7 +1112,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
       <div
         ref={gridRef}
         tabIndex={-1}
-        className="relative flex-1 min-h-full h-full p-0.5 focus:outline-none"
+        className="relative flex-1 min-h-full h-full p-0.5 focus:outline-none @container/fs-grid"
         onMouseDown={handleGridMouseDown}
         onContextMenuCapture={handleGridContextMenuCapture}
       >
@@ -1162,10 +1131,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
           />
         ) : null}
         <div
-          ref={gridListRef}
-          className={`grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(140px,180px))] ${
-            isMultiRow ? "justify-between" : "justify-start"
-          }`}
+          className="grid gap-5 justify-start [grid-template-columns:repeat(1,minmax(140px,1fr))] @[320px]/fs-grid:[grid-template-columns:repeat(2,minmax(140px,1fr))] @[480px]/fs-grid:[grid-template-columns:repeat(3,minmax(140px,1fr))] @[640px]/fs-grid:[grid-template-columns:repeat(4,minmax(140px,1fr))] @[800px]/fs-grid:[grid-template-columns:repeat(5,minmax(140px,1fr))] @[960px]/fs-grid:[grid-template-columns:repeat(6,minmax(140px,1fr))]"
         >
           {shouldShowParentEntry && parentEntry ? (
             <button

@@ -34,6 +34,12 @@ const fsThumbnailSchema = z.object({
   uris: z.array(z.string()).max(50),
 });
 
+/** Schema for folder thumbnail requests. */
+const fsFolderThumbnailSchema = z.object({
+  uri: z.string(),
+  includeHidden: z.boolean().optional(),
+});
+
 /** Build a file node for UI consumption. */
 function buildFileNode(input: {
   name: string;
@@ -81,6 +87,11 @@ function getMimeByExt(ext: string) {
     default:
       return "application/octet-stream";
   }
+}
+
+/** Return true when the extension maps to an image mime type. */
+function isImageExt(ext: string): boolean {
+  return getMimeByExt(ext).startsWith("image/");
 }
 
 /** Return true when the folder name follows the board prefix. */
@@ -176,6 +187,40 @@ export const fsRouter = t.router({
     );
     return { items: items.filter((item): item is { uri: string; dataUrl: string } => Boolean(item)) };
   }),
+
+  /** Build thumbnails for image entries in a directory. */
+  folderThumbnails: shieldedProcedure
+    .input(fsFolderThumbnailSchema)
+    .query(async ({ input }) => {
+      const fullPath = resolveWorkspacePathFromUri(input.uri);
+      const includeHidden = Boolean(input.includeHidden);
+      const entries = await fs.readdir(fullPath, { withFileTypes: true });
+      const imageFiles = entries.filter((entry) => {
+        if (!entry.isFile()) return false;
+        if (!includeHidden && entry.name.startsWith(".")) return false;
+        const ext = path.extname(entry.name).replace(/^\./, "");
+        // 只处理图片文件，减少无效 IO 与 sharp 解码开销。
+        return isImageExt(ext);
+      });
+      const items = await Promise.all(
+        imageFiles.map(async (entry) => {
+          try {
+            const entryPath = path.join(fullPath, entry.name);
+            const buffer = await sharp(entryPath)
+              .resize(40, 40, { fit: "cover" })
+              .webp({ quality: 45 })
+              .toBuffer();
+            return {
+              uri: toFileUri(entryPath),
+              dataUrl: `data:image/webp;base64,${buffer.toString("base64")}`,
+            };
+          } catch {
+            return null;
+          }
+        })
+      );
+      return { items: items.filter((item): item is { uri: string; dataUrl: string } => Boolean(item)) };
+    }),
 
   /** Read a text file. */
   readFile: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {

@@ -540,6 +540,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         entries={gridEntries}
         isLoading={listQuery.isLoading}
         parentUri={parentUri}
+        currentUri={activeUri}
         onNavigate={handleNavigate}
         showEmptyActions={false}
         selectedUris={selectedUris}

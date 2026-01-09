@@ -10,11 +10,16 @@ const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     appBundleId: 'com.hexems.teatime',
+    extendInfo: {
+      NSMicrophoneUsageDescription: '语音输入需要访问麦克风。',
+      NSSpeechRecognitionUsageDescription: '语音输入需要使用系统语音识别。',
+    },
     extraResource: [
       '../../apps/server/dist/server.mjs',
       // Pre-built SQLite DB with schema applied (copied to userData on first run).
       '../../apps/server/dist/seed.db',
       '../../apps/web/out',
+      '../../apps/electron/resources/speech',
       '../../apps/electron/resources/runtime.env',
       // Sharp ships native bindings via optional deps (e.g. @img/sharp-darwin-arm64).
       '../../node_modules/sharp',

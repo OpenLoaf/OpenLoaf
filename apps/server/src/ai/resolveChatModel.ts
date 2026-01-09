@@ -3,6 +3,7 @@ import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settin
 import type { ChatModelSource, ModelDefinition, ModelTag } from "@teatime-ai/api/common";
 import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegistry";
 import { PROVIDER_ADAPTERS } from "@/ai/models/providerAdapters";
+import { buildCliProviderEntries } from "@/ai/models/cli/cliProviderEntry";
 import { getAccessToken } from "@/modules/auth/tokenStore";
 import { ensureAccessTokenFresh, getSaasBaseUrl } from "@/modules/auth/authRoutes";
 
@@ -260,8 +261,16 @@ async function resolveLocalChatModel(input: {
   preferredChatModelId?: string | null;
 }): Promise<ResolvedChatModel> {
   const providers = await getProviderSettings();
+  const cliProviders = buildCliProviderEntries();
+  // 逻辑：CLI provider 作为内置项注入，避免依赖用户手动配置。
+  const mergedProviders = [
+    ...cliProviders.filter(
+      (cliEntry) => !providers.some((entry) => entry.id === cliEntry.id),
+    ),
+    ...providers,
+  ];
   return resolveChatModelFromProviders({
-    providers,
+    providers: mergedProviders,
     chatModelId: input.chatModelId,
     requiredTags: input.requiredTags,
     preferredChatModelId: input.preferredChatModelId,

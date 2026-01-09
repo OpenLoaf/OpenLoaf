@@ -25,6 +25,20 @@ declare global {
     error?: string;
     ts: number;
   };
+  type TeatimeSpeechResult = {
+    type: "partial" | "final";
+    text: string;
+    lang?: string;
+  };
+  type TeatimeSpeechState = {
+    state: "listening" | "stopped" | "idle" | "error";
+    reason?: string;
+    lang?: string;
+  };
+  type TeatimeSpeechError = {
+    message: string;
+    detail?: string;
+  };
 
   interface Window {
     teatimeElectron?: {
@@ -66,6 +80,10 @@ declare global {
         | { ok: true; path: string }
         | { ok: false; canceled?: boolean; reason?: string }
       >;
+      startSpeechRecognition?: (payload: {
+        language?: string;
+      }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      stopSpeechRecognition?: () => Promise<{ ok: true } | { ok: false; reason?: string }>;
     };
   }
 }

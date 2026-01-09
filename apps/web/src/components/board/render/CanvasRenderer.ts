@@ -73,8 +73,14 @@ export class CanvasRenderer {
     const startY = ((offset[1] * this.dpr) % step + step) % step;
 
     this.ctx.save();
-    this.ctx.strokeStyle = "rgba(148, 163, 184, 0.12)";
-    this.ctx.lineWidth = 1;
+    const root = document.documentElement;
+    const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+    const isDark = root.classList.contains("dark") || (!root.classList.contains("light") && prefersDark);
+    // 逻辑：浅色模式提高网格对比度，深色模式保持细腻度。
+    this.ctx.strokeStyle = isDark
+      ? "rgba(148, 163, 184, 0.12)"
+      : "rgba(148, 163, 184, 0.2)";
+    this.ctx.lineWidth = 1.2;
 
     // 按视口偏移绘制网格，让画布移动时有连续的参考点。
     for (let x = startX; x <= width; x += step) {

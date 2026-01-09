@@ -15,6 +15,7 @@ import {
   upsertWebContentsView,
   type UpsertWebContentsViewArgs,
 } from './webContentsViews';
+import { createSpeechRecognitionManager } from '../speechRecognition';
 
 let ipcHandlersRegistered = false;
 
@@ -56,6 +57,7 @@ async function getCdpTargetId(webContents: Electron.WebContents): Promise<string
 export function registerIpcHandlers(args: { log: Logger }) {
   if (ipcHandlersRegistered) return;
   ipcHandlersRegistered = true;
+  const speechManager = createSpeechRecognitionManager({ log: args.log });
 
   // 提供应用版本号给渲染端展示。
   ipcMain.handle('teatime:app:version', async () => app.getVersion());
@@ -84,6 +86,19 @@ export function registerIpcHandlers(args: { log: Logger }) {
     } catch (error) {
       return { ok: false as const, reason: (error as Error)?.message ?? 'Open external failed' };
     }
+  });
+
+  // 调用系统语音识别（macOS helper）。渲染端通过事件接收识别文本。
+  ipcMain.handle('teatime:speech:start', async (event, payload: { language?: string }) => {
+    return await speechManager.start({
+      language: String(payload?.language ?? '').trim() || undefined,
+      webContents: event.sender,
+    });
+  });
+
+  // 停止系统语音识别。
+  ipcMain.handle('teatime:speech:stop', async () => {
+    return await speechManager.stop('user');
   });
 
   // 在调用方的 BrowserWindow 内创建/更新 WebContentsView（用于嵌入式浏览面板）。

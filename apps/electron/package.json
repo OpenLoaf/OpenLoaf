@@ -21,6 +21,10 @@
         "to": "runtime.env"
       },
       {
+        "from": "resources/speech",
+        "to": "speech"
+      },
+      {
         "from": "../../apps/server/dist/server.mjs",
         "to": "server.mjs"
       },
@@ -53,7 +57,11 @@
       "target": [
         "dmg",
         "zip"
-      ]
+      ],
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "语音输入需要访问麦克风。",
+        "NSSpeechRecognitionUsageDescription": "语音输入需要使用系统语音识别。"
+      }
     },
     "publish": [
       {
@@ -64,8 +72,9 @@
     ]
   },
   "scripts": {
-    "predesktop": "node scripts/fixElectronInstall.mjs",
+    "predesktop": "node scripts/fixElectronInstall.mjs && pnpm run build:speech-helper",
     "desktop": "electron-forge start",
+    "build:speech-helper": "bash scripts/buildSpeechHelper.sh",
     "package": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package",
     "package:noproxy": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u all_proxy -u ALL_PROXY -u no_proxy -u NO_PROXY electron-forge package",
     "make": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge make",

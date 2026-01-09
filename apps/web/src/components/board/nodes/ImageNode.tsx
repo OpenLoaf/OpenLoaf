@@ -119,9 +119,10 @@ export function ImageNodeView({
           "relative h-full w-full overflow-hidden rounded-sm box-border",
           selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",
         ].join(" ")}
-        onClick={() => {
+        onPointerDownCapture={event => {
           if (isLocked) return;
-          // 逻辑：点击图片节点后展示输入框。
+          if (event.button !== 0) return;
+          // 逻辑：按下时先展示输入框，避免选中置顶导致 click 丢失。
           setShowInput(true);
         }}
         onDoubleClick={event => {
@@ -151,7 +152,7 @@ export function ImageNodeView({
             event.stopPropagation();
           }}
         >
-          <ImageNodeInput />
+          <ImageNodeInput nodeId={element.id} />
         </div>
       ) : null}
     </div>

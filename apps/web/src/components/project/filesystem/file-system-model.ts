@@ -60,6 +60,8 @@ export type ProjectFileSystemModel = {
   projectId?: string;
   rootUri?: string;
   activeUri: string | null;
+  /** Folder uri that matches the rendered list. */
+  displayUri: string | null;
   listQuery: ReturnType<typeof useQuery>;
   fileEntries: FileSystemEntry[];
   displayEntries: FileSystemEntry[];
@@ -175,8 +177,10 @@ export function useProjectFileSystemModel({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [searchValue, setSearchValue] = useState("");
   const [showHidden, setShowHidden] = useState(false);
-  const listQuery = useQuery(
-    trpc.fs.list.queryOptions(
+  // 记录上一次稳定渲染的目录，用于占位数据期间维持「上一级」的一致性。
+  const stableUriRef = useRef(activeUri);
+  const listQuery = useQuery({
+    ...trpc.fs.list.queryOptions(
       activeUri
         ? {
             uri: activeUri,
@@ -187,8 +191,15 @@ export function useProjectFileSystemModel({
                 : undefined,
           }
         : skipToken
-    )
-  );
+    ),
+    // 排序切换时沿用旧列表，避免闪烁与空白过渡。
+    placeholderData: (previous) => previous,
+  });
+  const isPlaceholderData = Boolean(listQuery.isPlaceholderData);
+  useEffect(() => {
+    if (isPlaceholderData) return;
+    stableUriRef.current = activeUri;
+  }, [activeUri, isPlaceholderData]);
   const entries = listQuery.data?.entries ?? [];
   const visibleEntries = showHidden
     ? entries
@@ -205,7 +216,8 @@ export function useProjectFileSystemModel({
       return displayName.includes(query);
     });
   }, [fileEntries, searchValue]);
-  const parentUri = getParentUri(rootUri, activeUri);
+  const displayUri = isPlaceholderData ? stableUriRef.current : activeUri;
+  const parentUri = getParentUri(rootUri, displayUri);
   const existingNames = useMemo(
     () => new Set(fileEntries.map((entry) => entry.name)),
     [fileEntries]
@@ -1102,6 +1114,7 @@ export function useProjectFileSystemModel({
     projectId,
     rootUri,
     activeUri,
+    displayUri,
     listQuery,
     fileEntries,
     displayEntries,

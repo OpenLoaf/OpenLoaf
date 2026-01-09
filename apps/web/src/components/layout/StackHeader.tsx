@@ -4,6 +4,7 @@ import * as React from "react";
 import { Minus, RotateCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
  * StackHeader：左侧 stack 面板的统一顶部栏（MVP）
@@ -43,9 +44,14 @@ export function StackHeader({
         <div className="flex items-center gap-1">
           {rightSlot}
           {onRefresh ? (
-            <Button size="sm" variant="ghost" onClick={onRefresh} aria-label="Refresh">
-              <RotateCw className="h-4 w-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="ghost" onClick={onRefresh} aria-label="刷新">
+                  <RotateCw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">刷新</TooltipContent>
+            </Tooltip>
           ) : null}
           {rightSlotAfter}
           {showMinimize ? (

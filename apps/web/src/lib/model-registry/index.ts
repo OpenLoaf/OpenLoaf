@@ -9,6 +9,7 @@ import deepseekProvider from "./providers/deepseek.json";
 import volcengineProvider from "./providers/volcengine.json";
 import googleProvider from "./providers/google.json";
 import customProvider from "./providers/custom.json";
+import codexCliProvider from "./providers/codex-cli.json";
 
 const providers = [
   qwenProvider,
@@ -16,6 +17,7 @@ const providers = [
   deepseekProvider,
   volcengineProvider,
   googleProvider,
+  codexCliProvider,
   customProvider,
 ] as ProviderDefinition[];
 

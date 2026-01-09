@@ -18,7 +18,7 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   appLocalStorageDir: "",
   appAutoBackupDir: "",
   appCustomRules: "",
-  modelDefaultChatModelId: "",
+  modelDefaultChatModelId: "codex-cli:gpt-5.2-codex",
   appProjectRule: "按项目划分",
   stepUpInitialized: false,
   proxyEnabled: false,

@@ -160,6 +160,8 @@ export interface TabsState {
 
   /** 运行时缓存：每个 tab 的 chat 状态（用于 Header Tabs 等 UI 提示）。 */
   chatStatusByTabId: Record<string, ChatStatus>;
+  /** 运行时缓存：语音输入状态（用于 Tab 彩虹边框提示）。 */
+  dictationStatusByTabId: Record<string, boolean>;
 
   addTab: (input: AddTabInput) => void;
   closeTab: (tabId: string) => void;
@@ -193,6 +195,10 @@ export interface TabsState {
    * Update runtime chat status for a tab.
    */
   setTabChatStatus: (tabId: string, status: ChatStatus | null) => void;
+  /**
+   * Update runtime dictation status for a tab.
+   */
+  setTabDictationStatus: (tabId: string, isListening: boolean) => void;
 
   pushStackItem: (tabId: string, item: DockItem, percent?: number) => void;
   removeStackItem: (tabId: string, itemId: string) => void;
@@ -265,6 +271,7 @@ export const useTabs = create<TabsState>()(
       activeStackItemIdByTabId: {},
       toolPartsByTabId: {},
       chatStatusByTabId: {},
+      dictationStatusByTabId: {},
 
       addTab: (input) => {
         set((state) => {
@@ -339,6 +346,8 @@ export const useTabs = create<TabsState>()(
           delete nextToolPartsByTabId[tabId];
           const nextChatStatusByTabId = { ...state.chatStatusByTabId };
           delete nextChatStatusByTabId[tabId];
+          const nextDictationStatusByTabId = { ...state.dictationStatusByTabId };
+          delete nextDictationStatusByTabId[tabId];
           const nextHidden = { ...state.stackHiddenByTabId };
           delete nextHidden[tabId];
           const nextActiveStack = { ...state.activeStackItemIdByTabId };
@@ -360,6 +369,7 @@ export const useTabs = create<TabsState>()(
             activeTabId: nextActiveTabId,
             toolPartsByTabId: nextToolPartsByTabId,
             chatStatusByTabId: nextChatStatusByTabId,
+            dictationStatusByTabId: nextDictationStatusByTabId,
             stackHiddenByTabId: nextHidden,
             activeStackItemIdByTabId: nextActiveStack,
           };
@@ -556,6 +566,19 @@ export const useTabs = create<TabsState>()(
           }
           if (current === status) return state;
           return { chatStatusByTabId: { ...state.chatStatusByTabId, [tabId]: status } };
+        });
+      },
+      setTabDictationStatus: (tabId, isListening) => {
+        set((state) => {
+          const current = state.dictationStatusByTabId[tabId];
+          if (!isListening) {
+            if (!current) return state;
+            const next = { ...state.dictationStatusByTabId };
+            delete next[tabId];
+            return { dictationStatusByTabId: next };
+          }
+          if (current) return state;
+          return { dictationStatusByTabId: { ...state.dictationStatusByTabId, [tabId]: true } };
         });
       },
 
