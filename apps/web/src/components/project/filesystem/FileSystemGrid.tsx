@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/empty";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
+import { useFlipLayout } from "@/lib/use-flip-layout";
 import {
   type FileSystemEntry,
   buildTeatimeFileUrl,
@@ -503,6 +504,7 @@ const FileSystemEntryCard = memo(
           type="button"
           data-entry-card="true"
           data-entry-uri={uri}
+          data-flip-id={uri}
           className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/80 ${
             isSelected ? "bg-muted/70 ring-1 ring-border" : ""
           } ${isDragOver ? "bg-muted/80 ring-1 ring-border" : ""}`}
@@ -561,6 +563,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
   // 上一级入口仅在可回退且当前目录非空时显示，避免根目录与空目录误导。
   const shouldShowParentEntry = Boolean(parentUri) && entries.length > 0;
   const gridRef = useRef<HTMLDivElement>(null);
+  const gridListRef = useRef<HTMLDivElement>(null);
   const entryRefs = useRef(new Map<string, HTMLElement>());
   const selectionStartRef = useRef<{ x: number; y: number } | null>(null);
   const selectionRectRef = useRef<{
@@ -645,6 +648,26 @@ const FileSystemGrid = memo(function FileSystemGrid({
     }
     return map;
   }, [thumbnailsQuery.data?.items]);
+
+  const entryOrderKey = useMemo(
+    () => entries.map((entry) => entry.uri).join("|"),
+    [entries]
+  );
+  const flipDeps = useMemo(
+    () => [
+      entryOrderKey,
+      shouldShowParentEntry ? parentEntry?.uri ?? "" : "",
+    ],
+    [entryOrderKey, parentEntry?.uri, shouldShowParentEntry]
+  );
+  useFlipLayout({
+    containerRef: gridListRef,
+    deps: flipDeps,
+    durationMs: 800,
+    easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+    enabled: !isLoading,
+    observeResize: false,
+  });
 
   // 登记网格条目节点，用于框选命中计算。
   const registerEntryRef = useCallback((uri: string) => {
@@ -1131,11 +1154,13 @@ const FileSystemGrid = memo(function FileSystemGrid({
           />
         ) : null}
         <div
+          ref={gridListRef}
           className="grid gap-5 justify-start [grid-template-columns:repeat(1,minmax(140px,1fr))] @[320px]/fs-grid:[grid-template-columns:repeat(2,minmax(140px,1fr))] @[480px]/fs-grid:[grid-template-columns:repeat(3,minmax(140px,1fr))] @[640px]/fs-grid:[grid-template-columns:repeat(4,minmax(140px,1fr))] @[800px]/fs-grid:[grid-template-columns:repeat(5,minmax(140px,1fr))] @[960px]/fs-grid:[grid-template-columns:repeat(6,minmax(140px,1fr))]"
         >
           {shouldShowParentEntry && parentEntry ? (
             <button
               type="button"
+              data-flip-id={parentEntry.uri}
               className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/80 ${
                 selectedUris?.has(parentEntry.uri)
                   ? "bg-muted/70 ring-1 ring-border"
@@ -1197,6 +1222,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
               <div
                 data-entry-card="true"
                 data-entry-uri={entry.uri}
+                data-flip-id={entry.uri}
                 ref={registerEntryRef(entry.uri)}
                 className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground transition-colors ring-1 ring-border/40 bg-muted/30 shadow-sm ${
                   isSelected ? "bg-muted/60 ring-border/70" : ""

@@ -14,6 +14,8 @@ import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
 import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
+import { useBasicConfig } from "@/hooks/use-basic-config";
+import { playNotificationSound } from "@/lib/notification-sound";
 import type { TeatimeUIDataTypes } from "@teatime-ai/api/types/message";
 import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "./chat-attachments";
@@ -455,7 +457,25 @@ export default function ChatProvider({
   );
 
   const chat = useChat(chatConfig);
+  const { basic } = useBasicConfig();
+  const prevStatusRef = React.useRef(chat.status);
   setMessagesRef.current = chat.setMessages;
+
+  React.useEffect(() => {
+    const previousStatus = prevStatusRef.current;
+    const wasStreaming =
+      previousStatus === "submitted" || previousStatus === "streaming";
+    const isStreaming = chat.status === "submitted" || chat.status === "streaming";
+    prevStatusRef.current = chat.status;
+    if (!basic.modelSoundEnabled) return;
+    if (!wasStreaming && isStreaming) {
+      playNotificationSound("model-start");
+      return;
+    }
+    if (wasStreaming && !isStreaming) {
+      playNotificationSound("model-end");
+    }
+  }, [basic.modelSoundEnabled, chat.status]);
 
   useTabSnapshotSync({
     enabled: chat.status !== "ready",

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
+import { useProjects } from "@/hooks/use-projects";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -34,7 +35,7 @@ import { toast } from "sonner";
 
 export const SidebarPage = () => {
   // 当前项目列表查询。
-  const projectListQuery = useQuery(trpc.project.list.queryOptions());
+  const projectListQuery = useProjects();
   const projects = projectListQuery.data ?? [];
   const createProject = useMutation(trpc.project.create.mutationOptions());
 

@@ -6,9 +6,8 @@ import { setValue } from "platejs";
 import { ParagraphPlugin, Plate, usePlateEditor } from "platejs/react";
 import { Editor as SlateEditor, type BaseEditor } from "slate";
 import { ChevronUp } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import { useTabs } from "@/hooks/use-tabs";
-import { trpc } from "@/utils/trpc";
+import { useProjects } from "@/hooks/use-projects";
 import { cn } from "@/lib/utils";
 import { handleChatMentionPointerDown } from "@/lib/chat/mention-pointer";
 import {
@@ -65,11 +64,13 @@ export function ImageNodeInput({
   const [plainTextValue, setPlainTextValue] = useState(() =>
     getPlainTextValue(parseChatValue(""))
   );
+  /** Whether the input editor is focused. */
+  const [isInputFocused, setIsInputFocused] = useState(false);
   /** Track the last serialized value to avoid redundant editor updates. */
   const lastSerializedRef = useRef(inputValue);
   /** Active viewport animation frame id. */
   const viewportAnimationRef = useRef<number | null>(null);
-  const { data: projects = [] } = useQuery(trpc.project.list.queryOptions());
+  const { data: projects = [] } = useProjects({ enabled: isInputFocused });
   const { engine } = useBoardContext();
   const activeTabId = useTabs((state) => state.activeTabId);
   const pushStackItem = useTabs((state) => state.pushStackItem);
@@ -309,6 +310,8 @@ export function ImageNodeInput({
                 className="h-full min-h-0 text-[13px] leading-5"
                 placeholder={placeholder}
                 onKeyDown={handleKeyDown}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
                 data-teatime-chat-input="true"
               />
             </EditorContainer>

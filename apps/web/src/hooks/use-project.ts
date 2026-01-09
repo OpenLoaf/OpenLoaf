@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
+import { getProjectsQueryKey } from "@/hooks/use-projects";
 
 /** Fetch project metadata by project id. */
 export function useProject(projectId?: string) {
@@ -11,9 +12,7 @@ export function useProject(projectId?: string) {
     return trpc.project.get.queryOptions({ projectId }).queryKey;
   }, [projectId]);
 
-  const projectListQueryKey = useMemo(() => {
-    return trpc.project.list.queryOptions().queryKey;
-  }, []);
+  const projectListQueryKey = useMemo(() => getProjectsQueryKey(), []);
 
   const invalidateProject = useCallback(async () => {
     if (!projectQueryKey) return;

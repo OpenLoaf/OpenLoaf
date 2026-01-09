@@ -2,20 +2,16 @@ import type { ProviderDefinition, ModelDefinition } from "@teatime-ai/api/common
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { readBasicConf } from "@/modules/settings/teatimeConfStore";
 import { getProviderDefinition } from "@/ai/models/modelRegistry";
-import type { CliToolId } from "@/ai/models/cli/cliToolService";
-
 type CliProviderBinding = {
   /** Provider id in registry. */
   providerId: string;
-  /** CLI tool id. */
-  toolId: CliToolId;
   /** Basic config key. */
   configKey: "codex" | "claudeCode";
 };
 
 /** CLI provider bindings for registry injection. */
 const CLI_PROVIDER_BINDINGS: CliProviderBinding[] = [
-  { providerId: "codex-cli", toolId: "codex", configKey: "codex" },
+  { providerId: "codex-cli", configKey: "codex" },
 ];
 
 /** Build enabled model map from provider definition. */

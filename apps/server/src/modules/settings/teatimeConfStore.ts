@@ -39,6 +39,7 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   s3AutoDeleteHours: 2,
   modelResponseLanguage: "zh-CN",
   modelQuality: "medium",
+  modelSoundEnabled: true,
   uiLanguage: "zh-CN",
   uiFontSize: "medium",
   uiTheme: "system",
@@ -46,6 +47,7 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   appLocalStorageDir: "",
   appAutoBackupDir: "",
   appCustomRules: "",
+  appNotificationSoundEnabled: true,
   modelDefaultChatModelId: "codex-cli:gpt-5.2-codex",
   appProjectRule: "按项目划分",
   stepUpInitialized: false,
@@ -143,6 +145,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
           fallbackSource.modelQuality === "low"
         ? fallbackSource.modelQuality
         : DEFAULT_BASIC_CONF.modelQuality;
+  const modelSoundEnabled =
+    typeof source.modelSoundEnabled === "boolean"
+      ? source.modelSoundEnabled
+      : typeof fallbackSource.modelSoundEnabled === "boolean"
+        ? fallbackSource.modelSoundEnabled
+        : DEFAULT_BASIC_CONF.modelSoundEnabled;
   const uiLanguage =
     source.uiLanguage &&
     ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
@@ -199,6 +207,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.appCustomRules === "string"
         ? fallbackSource.appCustomRules
         : DEFAULT_BASIC_CONF.appCustomRules;
+  const appNotificationSoundEnabled =
+    typeof source.appNotificationSoundEnabled === "boolean"
+      ? source.appNotificationSoundEnabled
+      : typeof fallbackSource.appNotificationSoundEnabled === "boolean"
+        ? fallbackSource.appNotificationSoundEnabled
+        : DEFAULT_BASIC_CONF.appNotificationSoundEnabled;
   const modelDefaultChatModelId =
     typeof source.modelDefaultChatModelId === "string"
       ? source.modelDefaultChatModelId
@@ -260,6 +274,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     s3AutoDeleteHours,
     modelResponseLanguage,
     modelQuality,
+    modelSoundEnabled,
     uiLanguage,
     uiFontSize,
     uiTheme,
@@ -267,6 +282,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     appLocalStorageDir,
     appAutoBackupDir,
     appCustomRules,
+    appNotificationSoundEnabled,
     modelDefaultChatModelId,
     appProjectRule,
     stepUpInitialized,

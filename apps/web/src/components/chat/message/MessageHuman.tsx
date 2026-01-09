@@ -1,16 +1,15 @@
 "use client";
 
 import { type UIMessage } from "@ai-sdk/react";
-import { useQuery } from "@tanstack/react-query";
 import React from "react";
 import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
 import MaskedImage from "@/components/file/MaskedImage";
 import { useTabs } from "@/hooks/use-tabs";
+import { useProjects } from "@/hooks/use-projects";
 import { setImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
 import { handleChatMentionPointerDown } from "@/lib/chat/mention-pointer";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/utils/trpc";
 import ChatMessageText from "./ChatMessageText";
 
 interface MessageHumanProps {
@@ -45,7 +44,7 @@ export default function MessageHuman({
   className,
   showText = true,
 }: MessageHumanProps) {
-  const { data: projects = [] } = useQuery(trpc.project.list.queryOptions());
+  const { data: projects = [] } = useProjects();
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabs((s) => s.pushStackItem);
   const [imageState, setImageState] = React.useState<Record<string, ImagePreviewState>>({});

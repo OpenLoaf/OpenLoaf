@@ -142,6 +142,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^3.0.0
         version: 3.0.0(zod@4.2.1)
+      '@ai-sdk/provider-utils':
+        specifier: ^4.0.0
+        version: 4.0.1(zod@4.2.1)
       '@ai-sdk/xai':
         specifier: ^3.0.0
         version: 3.0.0(zod@4.2.1)
@@ -157,6 +160,9 @@ importers:
       '@hono/trpc-server':
         specifier: ^0.4.0
         version: 0.4.1(@trpc/server@11.8.0(typescript@5.9.3))(hono@4.11.0)
+      '@openai/codex-sdk':
+        specifier: ^0.79.0
+        version: 0.79.0
       '@teatime-ai/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -2514,6 +2520,10 @@ packages:
   '@open-draft/until@2.1.0':
     resolution: {integrity: sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg==}
 
+  '@openai/codex-sdk@0.79.0':
+    resolution: {integrity: sha512-ymB/WbmZ/aEsQcHcFu5EBLAKQv6SdlFoizW2Bxf+Lni3oDHxmeeQDOCLitDOtl8yCLvf1maP/TUWcv+X2e4AKA==}
+    engines: {node: '>=18'}
+
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
     engines: {node: '>=8.0.0'}
@@ -4783,9 +4793,6 @@ packages:
 
   '@splinetool/runtime@0.9.526':
     resolution: {integrity: sha512-qznHbXA5aKwDbCgESAothCNm1IeEZcmNWG145p5aXj4w5uoqR1TZ9qkTHTKLTsUbHeitCwdhzmRqan1kxboLgQ==}
-
-  '@standard-schema/spec@1.0.0':
-    resolution: {integrity: sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA==}
 
   '@standard-schema/spec@1.0.0-beta.4':
     resolution: {integrity: sha512-d3IxtzLo7P1oZ8s8YNvxzBUXRXojSut8pbPrTYtzsc5sn4+53jVqbk66pQerSZbZSJZQux6LkclB/+8IDordHg==}
@@ -15084,6 +15091,8 @@ snapshots:
 
   '@open-draft/until@2.1.0': {}
 
+  '@openai/codex-sdk@0.79.0': {}
+
   '@opentelemetry/api@1.9.0': {}
 
   '@opentelemetry/semantic-conventions@1.38.0': {}
@@ -17768,8 +17777,6 @@ snapshots:
       on-change: 4.0.2
       semver-compare: 1.0.0
 
-  '@standard-schema/spec@1.0.0': {}
-
   '@standard-schema/spec@1.0.0-beta.4': {}
 
   '@standard-schema/spec@1.1.0': {}
@@ -20194,7 +20201,7 @@ snapshots:
 
   effect@3.17.7:
     dependencies:
-      '@standard-schema/spec': 1.0.0
+      '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
 
   effect@3.18.4:

@@ -89,3 +89,4 @@ docs/canvas/board-user-manual.md
 .history
 .teatime/chat/
 apps/server/auth.json
+apps/electron/resources/speech/windows/publish

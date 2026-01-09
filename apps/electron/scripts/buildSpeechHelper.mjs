@@ -1,0 +1,107 @@
+#!/usr/bin/env node
+
+import { spawnSync } from "node:child_process";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const rootDir = resolve(scriptDir, "..");
+
+/**
+ * Run a command and throw when it fails.
+ */
+function runCommand(command, args, options = {}) {
+  const result = spawnSync(command, args, { stdio: "inherit", ...options });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`${command} exited with code ${result.status ?? "unknown"}`);
+  }
+}
+
+/**
+ * Ensure a file exists at the given path.
+ */
+function assertFileExists(filePath, label) {
+  if (!existsSync(filePath)) {
+    throw new Error(`${label} not found at ${filePath}`);
+  }
+}
+
+/**
+ * Build the macOS speech helper via swiftc.
+ */
+function buildMacHelper() {
+  const sourcePath = join(rootDir, "resources", "speech", "macos", "SpeechRecognizer.swift");
+  const outputPath = join(rootDir, "resources", "speech", "macos", "teatime-speech");
+
+  assertFileExists(sourcePath, "SpeechRecognizer.swift");
+  runCommand("xcrun", [
+    "swiftc",
+    "-framework",
+    "Foundation",
+    "-framework",
+    "Speech",
+    "-framework",
+    "AVFoundation",
+    sourcePath,
+    "-o",
+    outputPath,
+  ]);
+
+  chmodSync(outputPath, 0o755);
+  console.log(`Built speech helper: ${outputPath}`);
+}
+
+/**
+ * Build the Windows speech helper via dotnet publish.
+ */
+function buildWindowsHelper() {
+  const projectPath = join(rootDir, "resources", "speech", "windows", "TeatimeSpeech.csproj");
+  const outputDir = join(rootDir, "resources", "speech", "windows", "publish");
+  const outputBinary = join(rootDir, "resources", "speech", "windows", "teatime-speech.exe");
+  const runtime = process.arch === "arm64" ? "win-arm64" : "win-x64";
+
+  assertFileExists(projectPath, "TeatimeSpeech.csproj");
+  mkdirSync(outputDir, { recursive: true });
+
+  runCommand("dotnet", [
+    "publish",
+    projectPath,
+    "-c",
+    "Release",
+    "-r",
+    runtime,
+    "--self-contained",
+    "true",
+    "/p:PublishSingleFile=true",
+    "-o",
+    outputDir,
+  ]);
+
+  const builtBinary = join(outputDir, "teatime-speech.exe");
+  assertFileExists(builtBinary, "Speech helper binary");
+  // 从 publish 输出物中提取单文件可执行程序。
+  copyFileSync(builtBinary, outputBinary);
+  rmSync(outputDir, { recursive: true, force: true });
+  console.log(`Built speech helper: ${outputBinary}`);
+}
+
+/**
+ * Entry point for building the speech helper.
+ */
+function main() {
+  if (process.platform === "darwin") {
+    buildMacHelper();
+    return;
+  }
+
+  if (process.platform === "win32") {
+    buildWindowsHelper();
+    return;
+  }
+
+  console.log("Skip speech helper build: macOS/Windows only.");
+}
+
+main();

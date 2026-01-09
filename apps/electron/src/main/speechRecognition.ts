@@ -42,14 +42,25 @@ let activeSession: SpeechSession | null = null;
 
 /** Resolve the speech helper path for the current environment. */
 function resolveSpeechHelperPath(): string | null {
-  if (process.platform !== "darwin") return null;
-  const binaryName = "teatime-speech";
+  const platform = process.platform;
+  let relativeDir: string;
+  let binaryName: string;
+
+  if (platform === "darwin") {
+    relativeDir = "macos";
+    binaryName = "teatime-speech";
+  } else if (platform === "win32") {
+    relativeDir = "windows";
+    binaryName = "teatime-speech.exe";
+  } else {
+    return null;
+  }
   // 中文注释：生产环境从 resources 读取，开发环境从 apps/electron/resources 读取。
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, "speech", "macos", binaryName);
+    return path.join(process.resourcesPath, "speech", relativeDir, binaryName);
   }
   const devRoot = path.resolve(__dirname, "../..");
-  return path.join(devRoot, "resources", "speech", "macos", binaryName);
+  return path.join(devRoot, "resources", "speech", relativeDir, binaryName);
 }
 
 /** Send an IPC event to a renderer. */
@@ -118,8 +129,8 @@ function handleSpeechStderr(data: Buffer, log: Logger) {
 export function createSpeechRecognitionManager(args: { log: Logger }) {
   /** Start a new speech recognition session. */
   const start = async ({ language, webContents }: SpeechStartArgs): Promise<SpeechStartResult> => {
-    if (process.platform !== "darwin") {
-      return { ok: false, reason: "当前仅支持 macOS 语音识别。" };
+    if (process.platform !== "darwin" && process.platform !== "win32") {
+      return { ok: false, reason: "当前仅支持 macOS/Windows 语音识别。" };
     }
     if (webContents.isDestroyed()) {
       return { ok: false, reason: "目标窗口已关闭。" };
@@ -127,7 +138,7 @@ export function createSpeechRecognitionManager(args: { log: Logger }) {
 
     const helperPath = resolveSpeechHelperPath();
     if (!helperPath || !fs.existsSync(helperPath)) {
-      return { ok: false, reason: "语音识别组件未构建，请先运行 buildSpeechHelper.sh。" };
+      return { ok: false, reason: "语音识别组件未构建，请先运行 pnpm --filter teatime run build:speech-helper。" };
     }
 
     // 中文注释：每次启动只保留一个会话，避免多进程抢占麦克风。
@@ -142,6 +153,7 @@ export function createSpeechRecognitionManager(args: { log: Logger }) {
 
     const child = spawn(helperPath, spawnArgs, {
       stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
     });
 
     activeSession = {

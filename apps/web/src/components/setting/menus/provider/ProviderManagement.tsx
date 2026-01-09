@@ -431,6 +431,27 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
               </Tabs>
             </TeatimeSettingsField>
           </div>
+
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">模型声音提示</div>
+              <div className="text-xs text-muted-foreground">
+                发送请求与结束时播放提示音
+              </div>
+            </div>
+
+            <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+              <div className="origin-right scale-110">
+                <Switch
+                  checked={basic.modelSoundEnabled}
+                  onCheckedChange={(checked) =>
+                    void setBasic({ modelSoundEnabled: checked })
+                  }
+                  aria-label="Model sound"
+                />
+              </div>
+            </TeatimeSettingsField>
+          </div>
         </div>
       </TeatimeSettingsGroup>
 

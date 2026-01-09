@@ -51,7 +51,8 @@ import {
 } from "./chat-input-utils";
 import { buildUriFromRoot, parseTeatimeFileUrl } from "@/components/project/filesystem/file-system-utils";
 import { trpc } from "@/utils/trpc";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { useProjects } from "@/hooks/use-projects";
 import { useTabs } from "@/hooks/use-tabs";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
@@ -152,6 +153,8 @@ export interface ChatInputBoxProps {
   defaultProjectId?: string;
   /** Dictation language for OS speech recognition. */
   dictationLanguage?: string;
+  /** Whether to play a start tone when dictation begins. */
+  dictationSoundEnabled?: boolean;
   /** Notify dictation listening state changes. */
   onDictationListeningChange?: (isListening: boolean) => void;
 }
@@ -184,6 +187,7 @@ export function ChatInputBox({
   onDropHandled,
   defaultProjectId,
   dictationLanguage,
+  dictationSoundEnabled,
   onDictationListeningChange,
 }: ChatInputBoxProps) {
   const initialValue = useMemo(() => parseChatValue(value), []);
@@ -200,7 +204,7 @@ export function ChatInputBox({
   const lastSerializedRef = useRef(value);
   /** Whether the file picker dialog is open. */
   const [filePickerOpen, setFilePickerOpen] = useState(false);
-  const { data: projects = [] } = useQuery(trpc.project.list.queryOptions());
+  const { data: projects = [] } = useProjects();
   const queryClient = useQueryClient();
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabs((s) => s.pushStackItem);
@@ -217,11 +221,13 @@ export function ChatInputBox({
     plugins,
     value: initialValue,
   });
-  const { isListening, isSupported: isDictationSupported, toggle: toggleDictation } = useSpeechDictation({
-    editor,
-    language: dictationLanguage,
-    onError: (message) => toast.error(message),
-  });
+  const { isListening, isSupported: isDictationSupported, toggle: toggleDictation } =
+    useSpeechDictation({
+      editor,
+      language: dictationLanguage,
+      enableStartTone: dictationSoundEnabled,
+      onError: (message) => toast.error(message),
+    });
   useEffect(() => {
     onDictationListeningChange?.(isListening);
   }, [isListening, onDictationListeningChange]);
@@ -795,6 +801,7 @@ export default function ChatInput({
   const { basic } = useBasicConfig();
   const setTabDictationStatus = useTabs((s) => s.setTabDictationStatus);
   const dictationLanguage = basic.modelResponseLanguage;
+  const dictationSoundEnabled = basic.appNotificationSoundEnabled;
   useEffect(() => {
     return () => {
       if (!tabId) return;
@@ -921,6 +928,7 @@ export default function ChatInput({
         onDropHandled={onDropHandled}
         defaultProjectId={projectId}
         dictationLanguage={dictationLanguage}
+        dictationSoundEnabled={dictationSoundEnabled}
         onDictationListeningChange={(isListening) => {
           if (!tabId) return;
           setTabDictationStatus(tabId, isListening);

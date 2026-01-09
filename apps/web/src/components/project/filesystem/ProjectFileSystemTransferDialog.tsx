@@ -40,6 +40,7 @@ import { FileSystemGrid } from "./FileSystemGrid";
 import { FolderPlus } from "lucide-react";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileRename } from "@/hooks/use-file-rename";
+import { useProjects } from "@/hooks/use-projects";
 import {
   IGNORE_NAMES,
   buildChildUri,
@@ -139,7 +140,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   onSelectFileRefs,
 }: ProjectFileSystemTransferDialogProps) {
   const queryClient = useQueryClient();
-  const projectListQuery = useQuery(trpc.project.list.queryOptions());
+  const projectListQuery = useProjects();
   const [activeRootUri, setActiveRootUri] = useState<string | null>(
     defaultRootUri ?? null
   );

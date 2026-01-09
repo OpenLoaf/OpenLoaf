@@ -276,6 +276,27 @@ export function BasicSettings() {
                     </Tabs>
                   </TeatimeSettingsField>
                 </div>
+
+                <div className="flex flex-wrap items-start gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">通知声音提示</div>
+                    <div className="text-xs text-muted-foreground">
+                      语音输入开始时播放提示音
+                    </div>
+                  </div>
+
+                  <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                    <div className="origin-right scale-125">
+                      <Switch
+                        checked={basic.appNotificationSoundEnabled}
+                        onCheckedChange={(checked) =>
+                          void setBasic({ appNotificationSoundEnabled: checked })
+                        }
+                        aria-label="Notification sound"
+                      />
+                    </div>
+                  </TeatimeSettingsField>
+                </div>
               </div>
             </TeatimeSettingsGroup>
 

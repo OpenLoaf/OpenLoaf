@@ -9,11 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { useProject } from "@/hooks/use-project";
+import { useProjects } from "@/hooks/use-projects";
 import ProjectIndex, { ProjectIndexHeader } from "./index/ProjectIndex";
 import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
 import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
@@ -158,7 +159,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
     setFileUri(rootUri ?? null);
   }, [rootUri]);
 
-  const projectListQuery = useQuery(trpc.project.list.queryOptions());
+  const projectListQuery = useProjects();
   const projectLookup = useMemo(
     () => buildProjectLookup(projectListQuery.data as ProjectTreeNode[] | undefined),
     [projectListQuery.data]

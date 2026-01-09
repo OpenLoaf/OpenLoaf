@@ -36,6 +36,7 @@ import { Label } from "@/components/ui/label";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { ChevronRight, FileText, Folder } from "lucide-react";
 import { trpc } from "@/utils/trpc";
+import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { toast } from "sonner";
 import {
   BOARD_INDEX_FILE_NAME,
@@ -540,7 +541,7 @@ export const PageTreeMenu = ({
       toast.success("重命名成功");
       setRenameTarget(null);
       await queryClient.invalidateQueries({
-        queryKey: trpc.project.list.queryOptions().queryKey,
+        queryKey: getProjectsQueryKey(),
       });
       if (renameTarget.node.kind !== "project") {
         const parentUri = getParentUri(renameTarget.node.uri);
@@ -585,7 +586,7 @@ export const PageTreeMenu = ({
       toast.success("项目已移除");
       setRemoveTarget(null);
       await queryClient.invalidateQueries({
-        queryKey: trpc.project.list.queryOptions().queryKey,
+        queryKey: getProjectsQueryKey(),
       });
     } catch (err: any) {
       toast.error(err?.message ?? "移除失败");
@@ -612,7 +613,7 @@ export const PageTreeMenu = ({
       toast.success("子项目已创建");
       setCreateChildTarget(null);
       await queryClient.invalidateQueries({
-        queryKey: trpc.project.list.queryOptions().queryKey,
+        queryKey: getProjectsQueryKey(),
       });
     } catch (err: any) {
       toast.error(err?.message ?? "创建失败");
@@ -640,7 +641,7 @@ export const PageTreeMenu = ({
       toast.success("子项目已导入");
       setImportChildTarget(null);
       await queryClient.invalidateQueries({
-        queryKey: trpc.project.list.queryOptions().queryKey,
+        queryKey: getProjectsQueryKey(),
       });
     } catch (err: any) {
       toast.error(err?.message ?? "导入失败");

@@ -3,7 +3,8 @@
 import type { UiEvent } from "@teatime-ai/api/types/event";
 import { UiEventKind } from "@teatime-ai/api/types/event";
 import { useTabs } from "@/hooks/use-tabs";
-import { queryClient, trpc } from "@/utils/trpc";
+import { getProjectsQueryKey } from "@/hooks/use-projects";
+import { queryClient } from "@/utils/trpc";
 
 /**
  * UI 事件分发器（传输层无关）。
@@ -24,7 +25,7 @@ export function handleUiEvent(event: UiEvent | undefined) {
       useTabs.getState().clearStack(e.tabId);
     },
     [UiEventKind.RefreshPageTree]: () => {
-      const queryKey = trpc.project.list.queryOptions().queryKey;
+      const queryKey = getProjectsQueryKey();
       void queryClient.invalidateQueries({ queryKey });
     },
     [UiEventKind.RefreshBasePanel]: (

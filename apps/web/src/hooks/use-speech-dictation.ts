@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlateEditor } from "platejs/react";
 import { Editor as SlateEditor, type BaseEditor } from "slate";
+import { playNotificationSound } from "@/lib/notification-sound";
 
 /** Default error message for dictation failures. */
 const DEFAULT_ERROR_MESSAGE = "语音识别不可用";
@@ -18,6 +19,8 @@ type SpeechDictationOptions = {
   editor: PlateEditor;
   /** Locale for speech recognition (e.g. zh-CN). */
   language?: string;
+  /** Whether to play a start tone when dictation begins. */
+  enableStartTone?: boolean;
   /** Error callback for dictation failures. */
   onError?: (message: string) => void;
 };
@@ -39,6 +42,7 @@ type SpeechDictationState = {
 export function useSpeechDictation({
   editor,
   language,
+  enableStartTone = true,
   onError,
 }: SpeechDictationOptions): SpeechDictationState {
   const [isListening, setIsListening] = useState(false);
@@ -46,8 +50,6 @@ export function useSpeechDictation({
   const isListeningRef = useRef(false);
   /** Track the last interim text to replace it on updates. */
   const lastInterimRef = useRef("");
-  /** Cache the audio context for dictation start tone. */
-  const audioContextRef = useRef<AudioContext | null>(null);
   const isElectron = useMemo(
     () =>
       process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -97,38 +99,6 @@ export function useSpeechDictation({
     },
     [editor, ensureSelection],
   );
-
-  /** Play a short tone when dictation starts. */
-  const playStartTone = useCallback(() => {
-    if (typeof window === "undefined") return;
-    const AudioContextCtor =
-      window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextCtor) return;
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContextCtor();
-    }
-    const context = audioContextRef.current;
-    if (!context) return;
-    // 中文注释：使用短促提示音提醒已开始语音输入。
-    const oscillator = context.createOscillator();
-    const gainNode = context.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.value = 880;
-    gainNode.gain.value = 0.04;
-    oscillator.connect(gainNode);
-    gainNode.connect(context.destination);
-    if (context.state === "suspended") {
-      void context.resume();
-    }
-    const now = context.currentTime;
-    oscillator.start(now);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
-    oscillator.stop(now + 0.12);
-    oscillator.onended = () => {
-      oscillator.disconnect();
-      gainNode.disconnect();
-    };
-  }, []);
 
   /** Handle speech result events from Electron. */
   const handleSpeechResult = useCallback(
@@ -196,10 +166,12 @@ export function useSpeechDictation({
     if (isListeningRef.current) {
       await stop();
     } else {
-      playStartTone();
+      if (enableStartTone) {
+        playNotificationSound("dictation-start");
+      }
       await start();
     }
-  }, [playStartTone, start, stop]);
+  }, [enableStartTone, start, stop]);
 
   useEffect(() => {
     if (!isSupported) return;

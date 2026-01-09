@@ -304,6 +304,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     next.modelQuality === "high" || next.modelQuality === "medium" || next.modelQuality === "low"
       ? next.modelQuality
       : current.modelQuality;
+  const modelSoundEnabled =
+    typeof next.modelSoundEnabled === "boolean"
+      ? next.modelSoundEnabled
+      : current.modelSoundEnabled;
   const uiLanguage =
     typeof next.uiLanguage === "string" &&
     ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
@@ -332,6 +336,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     typeof next.appAutoBackupDir === "string" ? next.appAutoBackupDir : current.appAutoBackupDir;
   const appCustomRules =
     typeof next.appCustomRules === "string" ? next.appCustomRules : current.appCustomRules;
+  const appNotificationSoundEnabled =
+    typeof next.appNotificationSoundEnabled === "boolean"
+      ? next.appNotificationSoundEnabled
+      : current.appNotificationSoundEnabled;
   const modelDefaultChatModelId =
     typeof next.modelDefaultChatModelId === "string"
       ? next.modelDefaultChatModelId
@@ -362,6 +370,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     s3AutoDeleteHours: Math.min(168, Math.max(1, Math.floor(next.s3AutoDeleteHours))),
     modelResponseLanguage: responseLanguage,
     modelQuality,
+    modelSoundEnabled,
     uiLanguage,
     uiFontSize,
     uiTheme,
@@ -369,6 +378,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     appLocalStorageDir,
     appAutoBackupDir,
     appCustomRules,
+    appNotificationSoundEnabled,
     modelDefaultChatModelId,
     appProjectRule,
     stepUpInitialized,
