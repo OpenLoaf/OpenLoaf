@@ -69,24 +69,24 @@ export function S3ProviderSection({
       >
         <TeatimeSettingsCard divided className="bg-background">
           <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 sm:w-100">
+            <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">图片自动上传</div>
               <div className="text-xs text-muted-foreground">
                 AI 对话需要公网访问图片时，将自动把图片上传到 S3。
               </div>
             </div>
-            <TeatimeSettingsField>
+            <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <Switch checked={autoUploadEnabled} onCheckedChange={onAutoUploadChange} />
             </TeatimeSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 sm:w-100">
+            <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">S3 图片自动删除</div>
               <div className="text-xs text-muted-foreground">
                 经过指定小时数后，自动从 S3 清理已上传的图片。
               </div>
             </div>
-            <TeatimeSettingsField className="gap-2">
+            <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="icon"
                 variant="outline"

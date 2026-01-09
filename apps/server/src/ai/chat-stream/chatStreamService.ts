@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { generateId, generateImage, type DataContent, type GeneratedFile, type UIMessage } from "ai";
 import type { ModelDefinition, ModelTag } from "@teatime-ai/api/common";
 import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
-import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
+import type { TeatimeUIMessage, TokenUsage } from "@teatime-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/resolveChatModel";
 import { resolveImageModel } from "@/ai/resolveImageModel";
@@ -26,6 +26,8 @@ import type { ChatStreamRequest } from "./chatStreamTypes";
 import { loadMessageChain } from "./messageChainLoader";
 import { buildFilePartFromTeatimeUrl, loadTeatimeImageBuffer, saveChatImageAttachment } from "./attachmentResolver";
 import { resolveRightmostLeafId, saveMessage } from "./messageStore";
+import type { ChatImageRequest, ChatImageRequestResult } from "./chatImageTypes";
+import { buildTimingMetadata } from "./metadataBuilder";
 import {
   createChatStreamResponse,
   createErrorStreamResponse,
@@ -34,6 +36,31 @@ import {
 
 /** Max messages to load for a chain. */
 const MAX_CHAIN_MESSAGES = 80;
+
+/** Format invalid request errors for client display. */
+function formatInvalidRequestMessage(message: string): string {
+  const trimmed = message.trim() || "Invalid request.";
+  if (trimmed.startsWith("请求无效：")) return trimmed;
+  return `请求无效：${trimmed}`;
+}
+
+/** Format image errors for client display. */
+function formatImageErrorMessage(error: unknown): string {
+  const message =
+    typeof error === "string"
+      ? error
+      : error instanceof Error
+        ? error.message
+        : "图片生成失败。";
+  const trimmed = message.trim() || "图片生成失败。";
+  if (trimmed.startsWith("请求失败：")) return trimmed;
+  return `请求失败：${trimmed}`;
+}
+
+/** Build an error result for image requests. */
+function createChatImageErrorResult(status: number, error: string): ChatImageRequestResult {
+  return { ok: false, status, error };
+}
 
 type GenerateImagePromptObject = {
   images: Array<DataContent>;
@@ -70,7 +97,45 @@ type ResolvedImagePrompt = {
   mask?: PromptImageInput;
 };
 
+type ImageModelRequest = {
+  /** Session id. */
+  sessionId: string;
+  /** Incoming UI messages. */
+  messages: UIMessage[];
+  /** Abort signal for image generation. */
+  abortSignal: AbortSignal;
+  /** Image model id. */
+  chatModelId?: string;
+  /** Optional model definition. */
+  modelDefinition?: ModelDefinition | null;
+};
+
+type ImageModelResult = {
+  /** Image parts for immediate response. */
+  imageParts: Array<{ type: "file"; url: string; mediaType: string }>;
+  /** Persisted image parts for message storage. */
+  persistedImageParts: Array<{ type: "file"; url: string; mediaType: string }>;
+  /** Revised prompt text. */
+  revisedPrompt?: string;
+  /** Agent metadata for persistence. */
+  agentMetadata: Record<string, unknown>;
+  /** Token usage for metadata. */
+  totalUsage?: TokenUsage;
+};
+
 type MaskFormat = "alpha" | "grey";
+
+/** Error with HTTP status for image requests. */
+class ChatImageRequestError extends Error {
+  /** HTTP status code. */
+  status: number;
+
+  /** Create a request error with HTTP status. */
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 /** Run chat stream and return SSE response. */
 export async function runChatStream(input: {
@@ -314,6 +379,178 @@ export async function runChatStream(input: {
   });
 }
 
+/** Run chat image request and return JSON-friendly result. */
+export async function runChatImageRequest(input: {
+  /** Chat request payload. */
+  request: ChatImageRequest;
+  /** Cookies from request. */
+  cookies: Record<string, string>;
+  /** Raw request signal. */
+  requestSignal: AbortSignal;
+}): Promise<ChatImageRequestResult> {
+  const {
+    sessionId,
+    messages: incomingMessages,
+    messageId,
+    clientId,
+    tabId,
+    chatModelId,
+    workspaceId,
+    projectId,
+  } = input.request;
+
+  setRequestContext({
+    sessionId,
+    cookies: input.cookies,
+    clientId: clientId || undefined,
+    tabId: tabId || undefined,
+    workspaceId: workspaceId || undefined,
+    projectId: projectId || undefined,
+  });
+
+  const abortController = new AbortController();
+  input.requestSignal.addEventListener("abort", () => {
+    abortController.abort();
+  });
+
+  const requestStartAt = new Date();
+  const assistantMessageId = typeof messageId === "string" && messageId ? messageId : generateId();
+  setAssistantMessageId(assistantMessageId);
+
+  const lastMessage = incomingMessages.at(-1) as TeatimeUIMessage | undefined;
+  if (!lastMessage || !lastMessage.role || !lastMessage.id) {
+    return createChatImageErrorResult(400, formatInvalidRequestMessage("缺少最后一条消息。"));
+  }
+
+  // 流程：
+  // 1) 保存最后一条消息并确定父消息
+  // 2) 加载消息链并替换图片输入
+  // 3) 解析图片模型并生成图片
+  // 4) 保存图片与 assistant 消息，返回完整 message
+  let leafMessageId = String(lastMessage.id);
+  let assistantParentUserId: string | null = null;
+
+  try {
+    if (lastMessage.role === "user") {
+      const explicitParent =
+        typeof lastMessage.parentMessageId === "string" || lastMessage.parentMessageId === null
+          ? (lastMessage.parentMessageId as string | null)
+          : undefined;
+      const parentMessageIdToUse =
+        explicitParent === undefined ? await resolveRightmostLeafId(sessionId) : explicitParent;
+
+      const saved = await saveMessage({
+        sessionId,
+        message: lastMessage as any,
+        parentMessageId: parentMessageIdToUse ?? null,
+        createdAt: requestStartAt,
+      });
+      leafMessageId = saved.id;
+      assistantParentUserId = saved.id;
+    } else if (lastMessage.role === "assistant") {
+      const parentId = typeof lastMessage.parentMessageId === "string" ? lastMessage.parentMessageId : null;
+      if (!parentId) {
+        return createChatImageErrorResult(400, formatInvalidRequestMessage("assistant 缺少 parentMessageId。"));
+      }
+      assistantParentUserId = parentId;
+
+      await saveMessage({
+        sessionId,
+        message: lastMessage as any,
+        parentMessageId: parentId,
+        allowEmpty: true,
+        createdAt: requestStartAt,
+      });
+      leafMessageId = String(lastMessage.id);
+    } else {
+      return createChatImageErrorResult(400, formatInvalidRequestMessage("不支持的消息角色。"));
+    }
+  } catch (err) {
+    logger.error({ err }, "[chat] save last message failed");
+    return createChatImageErrorResult(500, formatImageErrorMessage("保存消息出错。"));
+  }
+
+  const messages = await loadMessageChain({
+    sessionId,
+    leafMessageId,
+    maxMessages: MAX_CHAIN_MESSAGES,
+  });
+  logger.debug(
+    {
+      sessionId,
+      leafMessageId,
+      messageCount: Array.isArray(messages) ? messages.length : null,
+    },
+    "[chat] load message chain",
+  );
+
+  const modelMessages = await replaceTeatimeFileParts(messages as UIMessage[]);
+  if (messages.length === 0) {
+    return createChatImageErrorResult(400, formatImageErrorMessage("历史消息不存在。"));
+  }
+  if (!assistantParentUserId) {
+    return createChatImageErrorResult(400, formatImageErrorMessage("找不到父消息。"));
+  }
+
+  try {
+    const explicitModelDefinition = await resolveExplicitModelDefinition(chatModelId);
+    const imageResult = await generateImageModelResult({
+      sessionId,
+      messages: modelMessages as UIMessage[],
+      abortSignal: abortController.signal,
+      chatModelId,
+      modelDefinition: explicitModelDefinition,
+    });
+
+    const timingMetadata = buildTimingMetadata({
+      startedAt: requestStartAt,
+      finishedAt: new Date(),
+    });
+    const usageMetadata = imageResult.totalUsage ? { totalUsage: imageResult.totalUsage } : {};
+    const mergedMetadata: Record<string, unknown> = {
+      ...usageMetadata,
+      ...timingMetadata,
+      ...(Object.keys(imageResult.agentMetadata).length > 0
+        ? { agent: imageResult.agentMetadata }
+        : {}),
+    };
+
+    const revisedPromptPart = imageResult.revisedPrompt
+      ? [
+          {
+            type: "data-revised-prompt" as const,
+            data: { text: imageResult.revisedPrompt },
+          },
+        ]
+      : [];
+    const messageParts = [...imageResult.persistedImageParts, ...revisedPromptPart];
+
+    const message: TeatimeUIMessage = {
+      id: assistantMessageId,
+      role: "assistant",
+      parts: messageParts,
+      parentMessageId: assistantParentUserId,
+      metadata: mergedMetadata,
+    };
+
+    await saveMessage({
+      sessionId,
+      message,
+      parentMessageId: assistantParentUserId,
+      allowEmpty: false,
+      createdAt: requestStartAt,
+    });
+
+    return { ok: true, response: { sessionId, message } };
+  } catch (err) {
+    logger.error({ err, sessionId, chatModelId }, "[chat] image request failed");
+    if (err instanceof ChatImageRequestError) {
+      return createChatImageErrorResult(err.status, formatImageErrorMessage(err));
+    }
+    return createChatImageErrorResult(500, formatImageErrorMessage(err));
+  }
+}
+
 /** Replace teatime-file parts with data urls. */
 async function replaceTeatimeFileParts(messages: UIMessage[]): Promise<UIMessage[]> {
   const next: UIMessage[] = [];
@@ -433,6 +670,159 @@ async function resolveExplicitModelDefinition(
   return registryModel;
 }
 
+/** Generate image result for chat image flows. */
+async function generateImageModelResult(input: ImageModelRequest): Promise<ImageModelResult> {
+  const resolvedPrompt = resolveImagePrompt(input.messages);
+  if (!resolvedPrompt) {
+    throw new ChatImageRequestError("缺少图片生成提示词。", 400);
+  }
+  const modelId = input.chatModelId?.trim() ?? "";
+  if (!modelId) {
+    throw new ChatImageRequestError("未指定图片模型。", 400);
+  }
+
+  setAbortSignal(input.abortSignal);
+  const resolved = await resolveImageModel({ imageModelId: modelId });
+  let prompt = resolvedPrompt.prompt;
+  if (resolvedPrompt.hasMask && typeof prompt !== "string") {
+    prompt = await normalizePromptForImageEdit({
+      prompt,
+      images: resolvedPrompt.images,
+      mask: resolvedPrompt.mask,
+      sessionId: input.sessionId,
+      modelProviderId: resolved.modelInfo.provider,
+      modelAdapterId: resolved.modelInfo.adapterId,
+      abortSignal: input.abortSignal,
+    });
+  }
+  const promptTextLength =
+    typeof prompt === "string" ? prompt.length : prompt.text?.length ?? 0;
+  const promptImageCount = typeof prompt === "string" ? 0 : prompt.images.length;
+  const promptHasMask = typeof prompt === "string" ? false : Boolean(prompt.mask);
+  logger.debug(
+    {
+      sessionId: input.sessionId,
+      chatModelId: modelId,
+      modelDefinitionId: input.modelDefinition?.id,
+      modelProviderId: input.modelDefinition?.providerId,
+      modelTags: input.modelDefinition?.tags,
+      promptLength: promptTextLength,
+      imageCount: promptImageCount,
+      hasMask: promptHasMask,
+    },
+    "[chat] start image stream",
+  );
+  const imageOptions = resolveImageGenerateOptions(input.messages as UIMessage[]);
+  const requestedCount = imageOptions?.n ?? 1;
+  const maxImagesPerCall =
+    typeof (resolved.model as any).maxImagesPerCall === "number"
+      ? Math.max(1, Math.floor((resolved.model as any).maxImagesPerCall))
+      : undefined;
+  // 中文注释：模型可能限制单次图片数量，超出则向下裁剪。
+  const safeCount = maxImagesPerCall
+    ? Math.min(Math.max(1, requestedCount), maxImagesPerCall)
+    : Math.max(1, requestedCount);
+  const { n: _ignoredCount, size: rawSize, aspectRatio: rawAspectRatio, ...restImageOptions } =
+    imageOptions ?? {};
+  // 中文注释：SDK 需要 size 为 "{number}x{number}" 模板字面量类型，运行时仍用正则兜底。
+  const safeSize =
+    typeof rawSize === "string" && /^\d+x\d+$/u.test(rawSize)
+      ? (rawSize as `${number}x${number}`)
+      : undefined;
+  // 中文注释：SDK 需要 aspectRatio 为 "{number}:{number}" 模板字面量类型，运行时仍用正则兜底。
+  const safeAspectRatio =
+    typeof rawAspectRatio === "string" && /^\d+:\d+$/u.test(rawAspectRatio)
+      ? (rawAspectRatio as `${number}:${number}`)
+      : undefined;
+  const result = await generateImage({
+    model: resolved.model,
+    prompt,
+    n: safeCount,
+    ...(restImageOptions ?? {}),
+    ...(safeSize ? { size: safeSize } : {}),
+    ...(safeAspectRatio ? { aspectRatio: safeAspectRatio } : {}),
+    abortSignal: input.abortSignal,
+  });
+  const revisedPrompt = resolveRevisedPrompt(result.providerMetadata);
+  const imageParts = result.images.flatMap((image) => {
+    const mediaType = image.mediaType || "image/png";
+    const base64 = image.base64?.trim();
+    if (!base64) return [];
+    const url = base64.startsWith("data:")
+      ? base64
+      : `data:${mediaType};base64,${base64}`;
+    return [
+      {
+        type: "file" as const,
+        url,
+        mediaType,
+      },
+    ];
+  });
+  logger.debug(
+    {
+      sessionId: input.sessionId,
+      chatModelId: modelId,
+      revisedPromptLength: revisedPrompt?.length ?? 0,
+      imageCount: imageParts.length,
+      mediaTypes: imageParts.map((part) => part.mediaType),
+      urlPrefixes: imageParts.map((part) => part.url.slice(0, 30)),
+    },
+    "[chat] image parts prepared",
+  );
+  if (imageParts.length === 0) {
+    throw new Error("图片生成结果为空。");
+  }
+
+  const usage = result.usage ?? undefined;
+  const totalUsage: TokenUsage | undefined =
+    usage && (usage.inputTokens ?? usage.outputTokens ?? usage.totalTokens) != null
+      ? {
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          totalTokens: usage.totalTokens,
+        }
+      : undefined;
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    throw new Error("workspaceId 缺失，无法保存图片");
+  }
+  const projectId = getProjectId();
+  // 保存到本地磁盘，落库使用 teatime-file。
+  const persistedImageParts = await saveGeneratedImages({
+    images: result.images,
+    workspaceId,
+    sessionId: input.sessionId,
+    projectId: projectId || undefined,
+  });
+  logger.debug(
+    {
+      sessionId: input.sessionId,
+      chatModelId: modelId,
+      persistedImageCount: persistedImageParts.length,
+      urlPrefixes: persistedImageParts.map((part) => part.url.slice(0, 30)),
+    },
+    "[chat] image attachments saved",
+  );
+
+  const agentMetadata = {
+    id: "master-agent",
+    name: "MasterAgent",
+    kind: "master",
+    model: resolved.modelInfo,
+    chatModelId: resolved.imageModelId,
+    modelDefinition: resolved.modelDefinition ?? input.modelDefinition,
+  };
+
+  return {
+    imageParts,
+    persistedImageParts,
+    revisedPrompt,
+    agentMetadata,
+    totalUsage,
+  };
+}
+
 /** 生成图片并返回 SSE 响应。 */
 async function runImageModelStream(input: {
   sessionId: string;
@@ -444,178 +834,29 @@ async function runImageModelStream(input: {
   chatModelId?: string;
   modelDefinition?: ModelDefinition;
 }): Promise<Response> {
-  const resolvedPrompt = resolveImagePrompt(input.messages);
-  if (!resolvedPrompt) {
-    return createErrorStreamResponse({
-      sessionId: input.sessionId,
-      assistantMessageId: input.assistantMessageId,
-      parentMessageId: input.parentMessageId,
-      errorText: "请求失败：缺少图片生成提示词。",
-    });
-  }
-  const modelId = input.chatModelId?.trim() ?? "";
-  if (!modelId) {
-    return createErrorStreamResponse({
-      sessionId: input.sessionId,
-      assistantMessageId: input.assistantMessageId,
-      parentMessageId: input.parentMessageId,
-      errorText: "请求失败：未指定图片模型。",
-    });
-  }
-
   try {
-    setAbortSignal(input.abortSignal);
-    const resolved = await resolveImageModel({ imageModelId: modelId });
-    let prompt = resolvedPrompt.prompt;
-    if (resolvedPrompt.hasMask && typeof prompt !== "string") {
-      prompt = await normalizePromptForImageEdit({
-        prompt,
-        images: resolvedPrompt.images,
-        mask: resolvedPrompt.mask,
-        sessionId: input.sessionId,
-        modelProviderId: resolved.modelInfo.provider,
-        modelAdapterId: resolved.modelInfo.adapterId,
-        abortSignal: input.abortSignal,
-      });
-    }
-    const promptTextLength =
-      typeof prompt === "string" ? prompt.length : prompt.text?.length ?? 0;
-    const promptImageCount = typeof prompt === "string" ? 0 : prompt.images.length;
-    const promptHasMask = typeof prompt === "string" ? false : Boolean(prompt.mask);
-    logger.debug(
-      {
-        sessionId: input.sessionId,
-        chatModelId: modelId,
-        modelDefinitionId: input.modelDefinition?.id,
-        modelProviderId: input.modelDefinition?.providerId,
-        modelTags: input.modelDefinition?.tags,
-        promptLength: promptTextLength,
-        imageCount: promptImageCount,
-        hasMask: promptHasMask,
-      },
-      "[chat] start image stream",
-    );
-    const imageOptions = resolveImageGenerateOptions(input.messages as UIMessage[]);
-    const requestedCount = imageOptions?.n ?? 1;
-    const maxImagesPerCall =
-      typeof (resolved.model as any).maxImagesPerCall === "number"
-        ? Math.max(1, Math.floor((resolved.model as any).maxImagesPerCall))
-        : undefined;
-    // 中文注释：模型可能限制单次图片数量，超出则向下裁剪。
-    const safeCount = maxImagesPerCall
-      ? Math.min(Math.max(1, requestedCount), maxImagesPerCall)
-      : Math.max(1, requestedCount);
-    const { n: _ignoredCount, size: rawSize, aspectRatio: rawAspectRatio, ...restImageOptions } =
-      imageOptions ?? {};
-    // 中文注释：SDK 需要 size 为 "{number}x{number}" 模板字面量类型，运行时仍用正则兜底。
-    const safeSize =
-      typeof rawSize === "string" && /^\d+x\d+$/u.test(rawSize)
-        ? (rawSize as `${number}x${number}`)
-        : undefined;
-    // 中文注释：SDK 需要 aspectRatio 为 "{number}:{number}" 模板字面量类型，运行时仍用正则兜底。
-    const safeAspectRatio =
-      typeof rawAspectRatio === "string" && /^\d+:\d+$/u.test(rawAspectRatio)
-        ? (rawAspectRatio as `${number}:${number}`)
-        : undefined;
-    const result = await generateImage({
-      model: resolved.model,
-      prompt,
-      n: safeCount,
-      ...(restImageOptions ?? {}),
-      ...(safeSize ? { size: safeSize } : {}),
-      ...(safeAspectRatio ? { aspectRatio: safeAspectRatio } : {}),
-      abortSignal: input.abortSignal,
-    });
-    const revisedPrompt = resolveRevisedPrompt(result.providerMetadata);
-    const imageParts = result.images.flatMap((image) => {
-      const mediaType = image.mediaType || "image/png";
-      const base64 = image.base64?.trim();
-      if (!base64) return [];
-      const url = base64.startsWith("data:")
-        ? base64
-        : `data:${mediaType};base64,${base64}`;
-      return [
-        {
-          type: "file" as const,
-          url,
-          mediaType,
-        },
-      ];
-    });
-    logger.debug(
-      {
-        sessionId: input.sessionId,
-        chatModelId: modelId,
-        revisedPromptLength: revisedPrompt?.length ?? 0,
-        imageCount: imageParts.length,
-        mediaTypes: imageParts.map((part) => part.mediaType),
-        urlPrefixes: imageParts.map((part) => part.url.slice(0, 30)),
-      },
-      "[chat] image parts prepared",
-    );
-    if (imageParts.length === 0) {
-      return createErrorStreamResponse({
-        sessionId: input.sessionId,
-        assistantMessageId: input.assistantMessageId,
-        parentMessageId: input.parentMessageId,
-        errorText: "请求失败：图片生成结果为空。",
-      });
-    }
-
-    const usage = result.usage ?? undefined;
-    const totalUsage =
-      usage && (usage.inputTokens ?? usage.outputTokens ?? usage.totalTokens) != null
-        ? {
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            totalTokens: usage.totalTokens,
-          }
-        : undefined;
-    const workspaceId = getWorkspaceId();
-    if (!workspaceId) {
-      throw new Error("workspaceId 缺失，无法保存图片");
-    }
-    const projectId = getProjectId();
-    // 保存到本地磁盘，落库使用 teatime-file。
-    const persistedImageParts = await saveGeneratedImages({
-      images: result.images,
-      workspaceId,
+    const imageResult = await generateImageModelResult({
       sessionId: input.sessionId,
-      projectId: projectId || undefined,
+      messages: input.messages,
+      abortSignal: input.abortSignal,
+      chatModelId: input.chatModelId,
+      modelDefinition: input.modelDefinition,
     });
-    logger.debug(
-      {
-        sessionId: input.sessionId,
-        chatModelId: modelId,
-        persistedImageCount: persistedImageParts.length,
-        urlPrefixes: persistedImageParts.map((part) => part.url.slice(0, 30)),
-      },
-      "[chat] image attachments saved",
-    );
-
-    const agentMetadata = {
-      id: "master-agent",
-      name: "MasterAgent",
-      kind: "master",
-      model: resolved.modelInfo,
-      chatModelId: resolved.imageModelId,
-      modelDefinition: resolved.modelDefinition ?? input.modelDefinition,
-    };
-
     return await createImageStreamResponse({
       sessionId: input.sessionId,
       assistantMessageId: input.assistantMessageId,
       parentMessageId: input.parentMessageId,
       requestStartAt: input.requestStartAt,
-      imageParts,
-      persistedImageParts,
-      revisedPrompt,
-      agentMetadata,
-      totalUsage,
+      imageParts: imageResult.imageParts,
+      persistedImageParts: imageResult.persistedImageParts,
+      revisedPrompt: imageResult.revisedPrompt,
+      agentMetadata: imageResult.agentMetadata,
+      totalUsage: imageResult.totalUsage,
     });
   } catch (err) {
+    const modelId = input.chatModelId?.trim() ?? "";
     logger.error({ err, sessionId: input.sessionId, chatModelId: modelId }, "[chat] image stream failed");
-    const errorText = err instanceof Error ? `请求失败：${err.message}` : "请求失败：图片生成失败。";
+    const errorText = formatImageErrorMessage(err);
     return createErrorStreamResponse({
       sessionId: input.sessionId,
       assistantMessageId: input.assistantMessageId,

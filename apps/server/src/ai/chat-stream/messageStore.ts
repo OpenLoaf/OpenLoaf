@@ -1,6 +1,7 @@
 import { prisma } from "@teatime-ai/db";
 import type { MessageRole as DbMessageRole, Prisma } from "@teatime-ai/db/prisma/generated/client";
 import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
+import { replaceFileTokensWithNames } from "@/common/chatTitle";
 import { getProjectId, getWorkspaceId } from "./requestContext";
 
 /** Max session title length. */
@@ -263,8 +264,11 @@ function extractTitleTextFromParts(parts: unknown[]): string {
   const chunks: string[] = [];
   for (const part of parts as any[]) {
     if (!part || typeof part !== "object") continue;
-    if (part.type === "text" && typeof part.text === "string") chunks.push(part.text);
-    else if (typeof part.text === "string") chunks.push(part.text);
+    if (part.type === "text" && typeof part.text === "string") {
+      chunks.push(replaceFileTokensWithNames(part.text));
+    } else if (typeof part.text === "string") {
+      chunks.push(replaceFileTokensWithNames(part.text));
+    }
   }
   return chunks.join("\n").trim();
 }

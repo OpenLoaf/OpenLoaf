@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger as honoLogger } from "hono/logger";
 import { registerChatStreamRoutes } from "@/ai/chat-stream/chatStreamRoutes";
+import { registerChatImageRoutes } from "@/ai/chat-stream/chatImageRoutes";
 import { registerChatAttachmentRoutes } from "@/ai/chat-stream/chatAttachmentRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
@@ -66,6 +67,7 @@ export function createApp() {
   );
 
   registerChatStreamRoutes(app);
+  registerChatImageRoutes(app);
   registerChatAttachmentRoutes(app);
   registerFileSseRoutes(app);
   registerAuthRoutes(app);

@@ -55,6 +55,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
+import { handleChatMentionPointerDown, resolveProjectRootUri } from "@/lib/chat/mention-pointer";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { toast } from "sonner";
 import { normalizeImageOptions } from "@/lib/chat/image-options";
@@ -294,72 +295,19 @@ export function ChatInputBox({
   );
 
   const resolveRootUri = useCallback(
-    (projectId: string) => {
-      const queue = [...projects];
-      while (queue.length > 0) {
-        const node = queue.shift() as any;
-        if (!node) continue;
-        if (node.projectId === projectId && typeof node.rootUri === "string") {
-          return node.rootUri as string;
-        }
-        const children = Array.isArray(node.children) ? node.children : [];
-        for (const child of children) {
-          queue.push(child);
-        }
-      }
-      return "";
-    },
+    (projectId: string) => resolveProjectRootUri(projects, projectId),
     [projects]
   );
 
   const handleMentionPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      const target = event.target as HTMLElement | null;
-      if (!target) return;
-      if (target.closest("button")) return;
-      const mentionEl = target.closest<HTMLElement>("[data-teatime-mention=\"true\"]");
-      if (!mentionEl) return;
-      if (mentionEl.querySelector("button")?.contains(target)) return;
-      const value =
-        mentionEl.getAttribute("data-mention-value") ||
-        mentionEl.getAttribute("data-slate-value") ||
-        "";
-      if (!value) return;
-      const match = value.match(/^(.*?)(?::(\d+)-(\d+))?$/);
-      const baseValue = match?.[1] ?? value;
-      if (!baseValue.includes("/")) return;
-      const parts = baseValue.split("/");
-      const projectId = parts[0] ?? "";
-      const relativePath = parts.slice(1).join("/");
-      if (!projectId || !relativePath) return;
-      const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
-      // 根据扩展名判断文件类型（图片/代码）。
-      const isImageExt = /^(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(ext);
-      const isCodeExt = /^(js|ts|tsx|jsx|json|yml|yaml|toml|ini|py|go|rs|java|cpp|c|h|hpp|css|scss|less|html|xml|sh|zsh|md|mdx)$/i.test(ext);
-      if (!isImageExt && !isCodeExt) return;
-      const rootUri = resolveRootUri(projectId);
-      if (!rootUri) return;
-      const uri = buildUriFromRoot(rootUri, relativePath);
-      if (!uri || !activeTabId) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const fileName = relativePath.split("/").pop() ?? relativePath;
-      const stackId = `${isImageExt ? "image-viewer" : "code-viewer"}:${uri}`;
-      pushStackItem(activeTabId, {
-        id: stackId,
-        sourceKey: stackId,
-        component: isImageExt ? "image-viewer" : "code-viewer",
-        title: fileName,
-        params: {
-          uri,
-          name: fileName,
-          ext,
-          rootUri: isCodeExt ? rootUri : undefined,
-          projectId: isCodeExt ? projectId : undefined,
-        },
+      handleChatMentionPointerDown(event, {
+        activeTabId,
+        projects,
+        pushStackItem,
       });
     },
-    [activeTabId, pushStackItem, resolveRootUri]
+    [activeTabId, projects, pushStackItem]
   );
 
   const insertFileMention = useCallback((fileRef: string) => {

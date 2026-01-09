@@ -47,14 +47,14 @@ export function ModelManagement() {
       <TeatimeSettingsGroup title="模型设置">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 sm:w-56">
+            <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">工作空间项目划分规范</div>
               <div className="text-xs text-muted-foreground">
                 影响项目/会话的分类与组织方式
               </div>
             </div>
 
-            <TeatimeSettingsField>
+            <TeatimeSettingsField className="w-full sm:w-[420px] shrink-0 justify-end">
               <TeatimeAutoWidthInput
                 value={workspaceProjectRule}
                 onChange={(event) => void setBasic({ appProjectRule: event.target.value })}
@@ -64,14 +64,14 @@ export function ModelManagement() {
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 sm:w-56">
+            <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">默认聊天模型</div>
               <div className="text-xs text-muted-foreground">
                 新对话默认使用的模型
               </div>
             </div>
 
-            <TeatimeSettingsField>
+            <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

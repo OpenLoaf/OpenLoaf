@@ -157,14 +157,14 @@ export function BasicSettings() {
             <TeatimeSettingsGroup title="系统配置">
               <div className="divide-y divide-border">
                 <div className="flex flex-wrap items-start gap-3 py-3">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">语言</div>
                     <div className="text-xs text-muted-foreground">
                       暂不支持切换，仅保存偏好
                     </div>
                   </div>
 
-                  <TeatimeSettingsField>
+                  <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -199,14 +199,14 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">主题</div>
                     <div className="text-xs text-muted-foreground">
                       选择淡色或浅色
                     </div>
                   </div>
 
-                  <TeatimeSettingsField>
+                  <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <Tabs
                       value={themeTabsValue}
                       onValueChange={(next) => {
@@ -225,14 +225,14 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">主题系统自动切换</div>
                     <div className="text-xs text-muted-foreground">
                       跟随系统浅色/淡色
                     </div>
                   </div>
 
-                  <TeatimeSettingsField>
+                  <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <div className="origin-right scale-125">
                       <Switch
                         checked={isAutoTheme}
@@ -253,14 +253,14 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">字体大小</div>
                     <div className="text-xs text-muted-foreground">
                       小 / 中 / 大 / 特大
                     </div>
                   </div>
 
-                  <TeatimeSettingsField>
+                  <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <Tabs
                       value={fontSize}
                       onValueChange={(next) =>
@@ -282,14 +282,14 @@ export function BasicSettings() {
             <TeatimeSettingsGroup title="本地存储">
               <div className="divide-y divide-border">
                 <div className="flex flex-wrap items-start gap-2 py-3">
-                  <div className="min-w-0 sm:w-56">
+                  <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">本地文件存储路径</div>
                     <div className="text-xs text-muted-foreground">
                       用于保存导出文件等本地内容
                     </div>
                   </div>
 
-                  <TeatimeSettingsField className="gap-2">
+                  <TeatimeSettingsField className="w-full sm:w-[480px] shrink-0 justify-end gap-2">
                     <TeatimeAutoWidthInput
                       value={localStorageDir}
                       readOnly
@@ -315,14 +315,14 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-start gap-2 py-3">
-                  <div className="min-w-0 sm:w-56">
+                  <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">自动备份文件夹路径</div>
                     <div className="text-xs text-muted-foreground">
                       备份文件的保存位置
                     </div>
                   </div>
 
-                  <TeatimeSettingsField className="gap-2">
+                  <TeatimeSettingsField className="w-full sm:w-[480px] shrink-0 justify-end gap-2">
                     <TeatimeAutoWidthInput
                       value={autoBackupDir}
                       readOnly
@@ -395,14 +395,14 @@ export function BasicSettings() {
 
             <TeatimeSettingsGroup title="工具">
               <div className="flex flex-wrap items-start gap-3 py-3">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">界面重新加载</div>
                   <div className="text-xs text-muted-foreground">
                     刷新整个页面
                   </div>
                 </div>
 
-                <TeatimeSettingsField>
+                <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end">
                   <Button
                     variant="outline"
                     size="sm"

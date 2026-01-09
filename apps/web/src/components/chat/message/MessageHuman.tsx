@@ -1,13 +1,17 @@
 "use client";
 
 import { type UIMessage } from "@ai-sdk/react";
+import { useQuery } from "@tanstack/react-query";
 import React from "react";
-import { cn } from "@/lib/utils";
-import ChatMessageText from "./ChatMessageText";
-import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
-import { setImageDragPayload } from "@/lib/image/drag";
-import MaskedImage from "@/components/file/MaskedImage";
 import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
+import MaskedImage from "@/components/file/MaskedImage";
+import { useTabs } from "@/hooks/use-tabs";
+import { setImageDragPayload } from "@/lib/image/drag";
+import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
+import { handleChatMentionPointerDown } from "@/lib/chat/mention-pointer";
+import { cn } from "@/lib/utils";
+import { trpc } from "@/utils/trpc";
+import ChatMessageText from "./ChatMessageText";
 
 interface MessageHumanProps {
   message: UIMessage;
@@ -41,9 +45,22 @@ export default function MessageHuman({
   className,
   showText = true,
 }: MessageHumanProps) {
+  const { data: projects = [] } = useQuery(trpc.project.list.queryOptions());
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const pushStackItem = useTabs((s) => s.pushStackItem);
   const [imageState, setImageState] = React.useState<Record<string, ImagePreviewState>>({});
   const imageStateRef = React.useRef<Record<string, ImagePreviewState>>({});
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+  const handleMentionPointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      handleChatMentionPointerDown(event, {
+        activeTabId,
+        projects,
+        pushStackItem,
+      });
+    },
+    [activeTabId, projects, pushStackItem]
+  );
 
   React.useEffect(() => {
     imageStateRef.current = imageState;
@@ -165,7 +182,10 @@ export default function MessageHuman({
 
   return (
     <div className={cn("flex justify-end min-w-0", className)}>
-      <div className="max-w-[80%] min-w-0 p-3 rounded-lg bg-primary/90 text-primary-foreground">
+      <div
+        className="max-w-[80%] min-w-0 p-3 rounded-lg bg-primary/90 text-primary-foreground"
+        onPointerDownCapture={handleMentionPointerDown}
+      >
         {displayParts.length > 0 && (
           <div className="flex flex-wrap justify-end gap-2">
             {displayParts.map((part, index) => {

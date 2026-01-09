@@ -1,6 +1,7 @@
 import { BaseChatRouter, chatSchemas, t, shieldedProcedure, appRouterDefine } from "@teatime-ai/api";
 import { generateText } from "ai";
 import { xai } from "@ai-sdk/xai";
+import { replaceFileTokensWithNames } from "@/common/chatTitle";
 
 const TITLE_MAX_CHARS = 16;
 const LEAF_CANDIDATES = 50;
@@ -25,7 +26,10 @@ function extractTextFromParts(parts: unknown): string {
   const chunks: string[] = [];
   for (const part of arr) {
     if (!part || typeof part !== "object") continue;
-    if (typeof (part as any).text === "string") chunks.push(String((part as any).text));
+    if (typeof (part as any).text === "string") {
+      const text = String((part as any).text);
+      chunks.push(replaceFileTokensWithNames(text));
+    }
   }
   return chunks.join("\n").trim();
 }

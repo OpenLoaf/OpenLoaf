@@ -306,18 +306,17 @@ export default function SelectMode({ className }: SelectModeProps) {
     }
   };
 
-  /** Open settings panel to the provider menu inside the current tab stack. */
+  /** Open the provider management panel inside the current tab stack. */
   const handleOpenProviderSettings = () => {
     if (!tabId) return;
-    // 切换到当前标签页 stack 的设置面板，并定位到服务商菜单。
+    // 直接打开模型管理面板，避免进入设置菜单列表。
     pushStackItem(
       tabId,
       {
-        id: "settings-page:providers",
-        sourceKey: "settings-page:providers",
-        component: "settings-page",
-        title: "Settings",
-        params: { settingsMenu: "keys" },
+        id: "provider-management",
+        sourceKey: "provider-management",
+        component: "provider-management",
+        title: "管理模型",
       },
       100,
     );
