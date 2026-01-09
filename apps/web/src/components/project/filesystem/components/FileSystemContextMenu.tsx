@@ -8,7 +8,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import type { FileSystemEntry } from "./file-system-utils";
+import type { FileSystemEntry } from "../utils/file-system-utils";
 
 /** Actions for file system context menu items. */
 /** Generic menu action signature. */

@@ -22,7 +22,7 @@ import ProjectFileSystem, {
   ProjectFileSystemHeader,
   ProjectFileSystemHeaderSlotProvider,
   type ProjectBreadcrumbInfo,
-} from "./filesystem/ProjectFileSystem";
+} from "./filesystem/components/ProjectFileSystem";
 import ProjectSettingsPage, {
   ProjectSettingsHeader,
 } from "./settings/ProjectSettingsPage";

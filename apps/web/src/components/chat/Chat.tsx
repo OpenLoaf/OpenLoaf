@@ -22,7 +22,7 @@ import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import { buildMaskedPreviewUrl, resolveMaskFileName } from "@/lib/image/mask";
 import { readImageDragPayload } from "@/lib/image/drag";
 import { FILE_DRAG_REF_MIME } from "@/components/ui/teatime/drag-drop-types";
-import { parseTeatimeFileUrl } from "@/components/project/filesystem/file-system-utils";
+import { parseTeatimeFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -31,7 +31,12 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { createChatSessionId } from "@/lib/chat-session-id";
-import { supportsImageEdit, supportsToolCall } from "@/lib/model-capabilities";
+import {
+  supportsCode,
+  supportsImageEdit,
+  supportsImageInput,
+  supportsToolCall,
+} from "@/lib/model-capabilities";
 
 type ChatProps = {
   className?: string;
@@ -44,6 +49,29 @@ type ChatProps = {
     options?: { loadHistory?: boolean }
   ) => void;
 } & Record<string, unknown>;
+
+const IMAGE_FILE_NAME_REGEX = /\.(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i;
+
+function isImageFileRef(fileRef: string) {
+  const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+  const baseValue = match?.[1] ?? fileRef;
+  const name = baseValue.split("/").pop() ?? "";
+  return IMAGE_FILE_NAME_REGEX.test(name);
+}
+
+function hasImageFileUpload(dataTransfer: DataTransfer) {
+  const files = Array.from(dataTransfer.files ?? []);
+  if (files.length > 0) {
+    return files.some(
+      (file) =>
+        file.type.startsWith("image/") || IMAGE_FILE_NAME_REGEX.test(file.name)
+    );
+  }
+  const items = Array.from(dataTransfer.items ?? []);
+  return items.some(
+    (item) => item.kind === "file" && item.type.startsWith("image/")
+  );
+}
 
 export function Chat({
   className,
@@ -92,13 +120,20 @@ export function Chat({
   const selectedModel = modelOptions.find((option) => option.id === rawSelectedModelId);
   const selectedModelId = selectedModel ? rawSelectedModelId : "";
   const isAutoModel = !selectedModelId;
-  const canAttachAll = isAutoModel || supportsToolCall(selectedModel);
-  // 自动模式或支持工具调用时允许所有文件，其余仅支持图片编辑时允许图片。
-  const canAttachImage = canAttachAll || supportsImageEdit(selectedModel);
+  const isCodeModel = supportsCode(selectedModel);
+  const canAttachAll =
+    isAutoModel || supportsToolCall(selectedModel) || isCodeModel;
+  // 自动模式或支持图片输入/编辑时允许图片附件；工具调用仅在非代码模型时放开图片。
+  const canAttachImage =
+    isAutoModel ||
+    supportsImageInput(selectedModel) ||
+    supportsImageEdit(selectedModel) ||
+    (supportsToolCall(selectedModel) && !isCodeModel);
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
   const [isDragActive, setIsDragActive] = React.useState(false);
   const [dragMode, setDragMode] = React.useState<"allow" | "deny">("allow");
+  const [dragHint, setDragHint] = React.useState<"image" | "file">("file");
 
   React.useEffect(() => {
     attachmentsRef.current = attachments;
@@ -448,7 +483,6 @@ export function Chat({
     ]
   );
 
-  const canDropAny = canAttachAll || canAttachImage;
   const resetDragState = React.useCallback(() => {
     dragCounterRef.current = 0;
     setIsDragActive(false);
@@ -458,52 +492,69 @@ export function Chat({
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
     const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
-    const hasFileRef = event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
+    const hasFileRef =
+      event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
+    const fileRef = hasFileRef ? event.dataTransfer.getData(FILE_DRAG_REF_MIME) : "";
     if (!hasFiles && !hasImageDrag && !hasFileRef) return;
-    if (!canDropAny) {
+    const hasImageUpload = hasFiles && hasImageFileUpload(event.dataTransfer);
+    const isFileRefImage = hasFileRef && fileRef ? isImageFileRef(fileRef) : false;
+    const wantsImage = hasImageDrag || hasImageUpload || isFileRefImage;
+    const shouldDeny =
+      (wantsImage && !canAttachImage) ||
+      (hasFileRef && !canAttachAll) ||
+      (hasFiles && !hasImageUpload);
+    if (shouldDeny) {
       event.preventDefault();
       setIsDragActive(true);
       setDragMode("deny");
+      setDragHint(wantsImage ? "image" : "file");
       return;
     }
     dragCounterRef.current += 1;
     setIsDragActive(true);
     setDragMode("allow");
-  }, [canDropAny]);
+    setDragHint(wantsImage ? "image" : "file");
+  }, [canAttachAll, canAttachImage]);
 
   const handleDragOver = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
     const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
-    const hasFileRef = event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
+    const hasFileRef =
+      event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
+    const fileRef = hasFileRef ? event.dataTransfer.getData(FILE_DRAG_REF_MIME) : "";
     if (!hasFiles && !hasImageDrag && !hasFileRef) return;
-    if (!canDropAny) {
-      event.preventDefault();
+    const hasImageUpload = hasFiles && hasImageFileUpload(event.dataTransfer);
+    const isFileRefImage = hasFileRef && fileRef ? isImageFileRef(fileRef) : false;
+    const wantsImage = hasImageDrag || hasImageUpload || isFileRefImage;
+    const shouldDeny =
+      (wantsImage && !canAttachImage) ||
+      (hasFileRef && !canAttachAll) ||
+      (hasFiles && !hasImageUpload);
+    event.preventDefault();
+    if (shouldDeny) {
       setIsDragActive(true);
       setDragMode("deny");
+      setDragHint(wantsImage ? "image" : "file");
       return;
     }
-    event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
     setIsDragActive(true);
     setDragMode("allow");
-  }, [canDropAny]);
+    setDragHint(wantsImage ? "image" : "file");
+  }, [canAttachAll, canAttachImage]);
 
   const handleDragLeave = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
     const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
-    const hasFileRef = event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
+    const hasFileRef =
+      event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
     if (!hasFiles && !hasImageDrag && !hasFileRef) return;
-    if (!canDropAny) {
-      setIsDragActive(false);
-      setDragMode("allow");
-      return;
-    }
     dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
     if (dragCounterRef.current === 0) {
       setIsDragActive(false);
       setDragMode("allow");
     }
-  }, [canDropAny]);
+  }, []);
 
   const handleDrop = React.useCallback(
     async (event: React.DragEvent) => {
@@ -537,33 +588,38 @@ export function Chat({
         setDragMode("allow");
         return;
       }
+      const fileRef = event.dataTransfer?.getData(FILE_DRAG_REF_MIME) ?? "";
       const imagePayload = readImageDragPayload(event.dataTransfer);
       if (imagePayload) {
         event.preventDefault();
         dragCounterRef.current = 0;
         setIsDragActive(false);
-        if (!canDropAny) {
-          setDragMode("allow");
-          return;
-        }
         const payloadFileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
         const isPayloadImage =
-          Boolean(imagePayload.maskUri) || /\.(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(payloadFileName);
-        if (!isPayloadImage && canAttachAll) {
-          const fileRef =
-            event.dataTransfer.getData(FILE_DRAG_REF_MIME) ||
+          Boolean(imagePayload.maskUri) || IMAGE_FILE_NAME_REGEX.test(payloadFileName);
+        if (!isPayloadImage) {
+          if (!canAttachAll) {
+            setDragMode("allow");
+            return;
+          }
+          const resolvedFileRef =
+            fileRef ||
             (() => {
               if (!imagePayload.baseUri.startsWith("teatime-file://")) return "";
               const parsed = parseTeatimeFileUrl(imagePayload.baseUri);
               return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
             })();
-          if (fileRef) {
+          if (resolvedFileRef) {
             window.dispatchEvent(
               new CustomEvent("teatime:chat-insert-mention", {
-                detail: { value: fileRef },
+                detail: { value: resolvedFileRef },
               })
             );
           }
+          setDragMode("allow");
+          return;
+        }
+        if (!canAttachImage) {
           setDragMode("allow");
           return;
         }
@@ -597,18 +653,30 @@ export function Chat({
           return;
         }
       }
-      if (!event.dataTransfer?.files?.length) return;
+      const droppedFiles = Array.from(event.dataTransfer?.files ?? []);
+      if (droppedFiles.length > 0) {
+        event.preventDefault();
+        dragCounterRef.current = 0;
+        setIsDragActive(false);
+        setDragMode("allow");
+        if (!canAttachImage) return;
+        addAttachments(droppedFiles);
+        return;
+      }
+      if (!fileRef) return;
+      if (isImageFileRef(fileRef) && !canAttachImage) return;
       event.preventDefault();
       dragCounterRef.current = 0;
       setIsDragActive(false);
-      if (!canDropAny) {
-        setDragMode("allow");
-        return;
-      }
       setDragMode("allow");
-      addAttachments(event.dataTransfer.files);
+      if (!canAttachAll) return;
+      window.dispatchEvent(
+        new CustomEvent("teatime:chat-insert-mention", {
+          detail: { value: fileRef },
+        })
+      );
     },
-    [addAttachments, addMaskedAttachment, canDropAny]
+    [addAttachments, addMaskedAttachment, canAttachAll, canAttachImage]
   );
 
   return (
@@ -658,15 +726,31 @@ export function Chat({
 
         <DragDropOverlay
           open={isDragActive}
-          title={dragMode === "deny" ? "当前模型不支持图片" : "松开鼠标即可添加图片"}
+          title={
+            dragMode === "deny"
+              ? dragHint === "image"
+                ? "当前模型不支持图片"
+                : "当前模型不支持文件"
+              : dragHint === "image"
+                ? "松开鼠标即可添加图片"
+                : "松开鼠标即可添加文件"
+          }
           variant={dragMode === "deny" ? "warning" : "default"}
           radiusClassName="rounded-2xl"
-          description={dragMode === "deny" ? "请切换到支持图片输入的模型" : (
-            <>
-              支持 PNG / JPEG / WebP，单文件不超过{" "}
-              {formatFileSize(CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES)}，可多选
-            </>
-          )}
+          description={
+            dragMode === "deny" ? (
+              dragHint === "image"
+                ? "请切换到支持图片输入的模型"
+                : "仅支持拖入项目文件引用"
+            ) : dragHint === "image" ? (
+              <>
+                支持 PNG / JPEG / WebP，单文件不超过{" "}
+                {formatFileSize(CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES)}，可多选
+              </>
+            ) : (
+              "支持拖入项目文件引用"
+            )
+          }
         />
       </div>
     </ChatProvider>

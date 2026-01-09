@@ -43,7 +43,7 @@ import {
   getUniqueName,
   parseTeatimeFileUrl,
   type FileSystemEntry,
-} from "./file-system-utils";
+} from "../utils/file-system-utils";
 import { useFileSystemHistory, type HistoryAction } from "./file-system-history";
 
 // 用于“复制/粘贴”的内存剪贴板。

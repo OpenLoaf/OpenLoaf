@@ -9,7 +9,7 @@ import { trpc } from "@/utils/trpc";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useTabs } from "@/hooks/use-tabs";
-import { getRelativePathFromUri } from "@/components/project/filesystem/file-system-utils";
+import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 
 interface CodeViewerProps {
   uri?: string;

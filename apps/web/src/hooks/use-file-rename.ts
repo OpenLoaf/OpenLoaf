@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { getDisplayFileName } from "@/lib/file-name";
-import type { FileSystemEntry } from "@/components/project/filesystem/file-system-utils";
+import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
 type UseFileRenameArgs = {
   /** Entries used for rename validation and lookup. */

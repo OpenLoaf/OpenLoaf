@@ -15,7 +15,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { isBoardFolderName } from "@/lib/file-name";
-import { type FileSystemEntry } from "./file-system-utils";
+import { type FileSystemEntry } from "../utils/file-system-utils";
 
 export const IMAGE_EXTS = new Set([
   "png",

@@ -1,0 +1,487 @@
+"use client";
+
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
+import { toast } from "sonner";
+import { useFlipLayout } from "@/lib/use-flip-layout";
+import {
+  type FileSystemEntry,
+  getEntryExt,
+} from "../utils/file-system-utils";
+import {
+  CODE_EXTS,
+  DOC_EXTS,
+  IMAGE_EXTS,
+  PDF_EXTS,
+  SPREADSHEET_EXTS,
+} from "./FileSystemEntryVisual";
+import { FileSystemEntryCard } from "./FileSystemEntryCard";
+import { FileSystemEmptyState } from "./FileSystemEmptyState";
+import { FileSystemEntryRenameCard } from "./FileSystemEntryRenameCard";
+import { FileSystemParentEntryCard } from "./FileSystemParentEntryCard";
+import { useFileSystemDrag } from "../hooks/use-file-system-drag";
+import { useFileSystemSelection } from "../hooks/use-file-system-selection";
+import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
+import { isBoardFolderName } from "@/lib/file-name";
+
+/** Return true when the entry represents a board folder. */
+const isBoardFolderEntry = (entry: FileSystemEntry) =>
+  entry.kind === "folder" && isBoardFolderName(entry.name);
+
+type FileSystemGridProps = {
+  entries: FileSystemEntry[];
+  isLoading: boolean;
+  parentUri?: string | null;
+  /** Current folder uri used to request folder thumbnails. */
+  currentUri?: string | null;
+  /** Whether hidden files are included in the thumbnail query. */
+  includeHidden?: boolean;
+  dragProjectId?: string;
+  dragRootUri?: string;
+  onNavigate?: (nextUri: string) => void;
+  /** Open image entries in an external viewer. */
+  onOpenImage?: (entry: FileSystemEntry) => void;
+  /** Open code entries in an external viewer. */
+  onOpenCode?: (entry: FileSystemEntry) => void;
+  /** Open PDF entries in an external viewer. */
+  onOpenPdf?: (entry: FileSystemEntry) => void;
+  /** Open DOC entries in an external viewer. */
+  onOpenDoc?: (entry: FileSystemEntry) => void;
+  /** Open spreadsheet entries in an external viewer. */
+  onOpenSpreadsheet?: (entry: FileSystemEntry) => void;
+  /** Open board entries in the board viewer. */
+  onOpenBoard?: (entry: FileSystemEntry) => void;
+  showEmptyActions?: boolean;
+  /** Create a new board from empty state. */
+  onCreateBoard?: () => void;
+  renderEntry?: (entry: FileSystemEntry, node: ReactNode) => ReactNode;
+  onEntryClick?: (
+    entry: FileSystemEntry,
+    event: ReactMouseEvent<HTMLButtonElement>
+  ) => void;
+  onEntryContextMenu?: (
+    entry: FileSystemEntry,
+    event: ReactMouseEvent<HTMLButtonElement>
+  ) => void;
+  /** Resolve selection mode when starting a drag selection. */
+  resolveSelectionMode?: (
+    event: ReactMouseEvent<HTMLDivElement>
+  ) => "replace" | "toggle";
+  /** Capture context menu trigger before Radix handles it. */
+  onGridContextMenuCapture?: (
+    event: ReactMouseEvent<HTMLDivElement>,
+    payload: { uri: string | null }
+  ) => void;
+  selectedUris?: Set<string>;
+  onEntryDrop?: (
+    entry: FileSystemEntry,
+    event: DragEvent<HTMLButtonElement>
+  ) => void;
+  onEntryDragStart?: (
+    entry: FileSystemEntry,
+    event: DragEvent<HTMLButtonElement>
+  ) => void;
+  renamingUri?: string | null;
+  renamingValue?: string;
+  onRenamingChange?: (value: string) => void;
+  onRenamingSubmit?: () => void;
+  onRenamingCancel?: () => void;
+  onSelectionChange?: (uris: string[], mode: "replace" | "toggle") => void;
+};
+/** File system grid with empty state. */
+const FileSystemGrid = memo(function FileSystemGrid({
+  entries,
+  isLoading,
+  parentUri,
+  currentUri,
+  includeHidden,
+  dragProjectId,
+  dragRootUri,
+  onNavigate,
+  onOpenImage,
+  onOpenCode,
+  onOpenPdf,
+  onOpenDoc,
+  onOpenSpreadsheet,
+  onOpenBoard,
+  showEmptyActions = true,
+  onCreateBoard,
+  renderEntry,
+  onEntryClick,
+  onEntryContextMenu,
+  selectedUris,
+  onEntryDrop,
+  onEntryDragStart,
+  renamingUri,
+  renamingValue,
+  onRenamingChange,
+  onRenamingSubmit,
+  onRenamingCancel,
+  onSelectionChange,
+  resolveSelectionMode,
+  onGridContextMenuCapture,
+}: FileSystemGridProps) {
+  // 上一级入口仅在可回退且当前目录非空时显示，避免根目录与空目录误导。
+  const shouldShowParentEntry = Boolean(parentUri) && entries.length > 0;
+  const gridRef = useRef<HTMLDivElement>(null);
+  const gridListRef = useRef<HTMLDivElement>(null);
+  const parentEntry = useMemo<FileSystemEntry | null>(
+    () =>
+      parentUri
+        ? {
+            uri: parentUri,
+            name: "上一级",
+            kind: "folder",
+          }
+        : null,
+    [parentUri]
+  );
+  const entryByUri = useMemo(
+    () => new Map(entries.map((entry) => [entry.uri, entry])),
+    [entries]
+  );
+  const entryByUriRef = useRef(entryByUri);
+  entryByUriRef.current = entryByUri;
+  // 缓存最新数据供事件委托使用，避免频繁创建 handler。
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+  const selectedUrisRef = useRef(selectedUris);
+  selectedUrisRef.current = selectedUris;
+  const dragProjectIdRef = useRef(dragProjectId);
+  dragProjectIdRef.current = dragProjectId;
+  const dragRootUriRef = useRef(dragRootUri);
+  dragRootUriRef.current = dragRootUri;
+  const onEntryClickRef = useRef(onEntryClick);
+  onEntryClickRef.current = onEntryClick;
+  const onEntryContextMenuRef = useRef(onEntryContextMenu);
+  onEntryContextMenuRef.current = onEntryContextMenu;
+  const onEntryDragStartRef = useRef(onEntryDragStart);
+  onEntryDragStartRef.current = onEntryDragStart;
+  const onEntryDropRef = useRef(onEntryDrop);
+  onEntryDropRef.current = onEntryDrop;
+  const onOpenImageRef = useRef(onOpenImage);
+  onOpenImageRef.current = onOpenImage;
+  const onOpenCodeRef = useRef(onOpenCode);
+  onOpenCodeRef.current = onOpenCode;
+  const onOpenPdfRef = useRef(onOpenPdf);
+  onOpenPdfRef.current = onOpenPdf;
+  const onOpenDocRef = useRef(onOpenDoc);
+  onOpenDocRef.current = onOpenDoc;
+  const onOpenSpreadsheetRef = useRef(onOpenSpreadsheet);
+  onOpenSpreadsheetRef.current = onOpenSpreadsheet;
+  const onOpenBoardRef = useRef(onOpenBoard);
+  onOpenBoardRef.current = onOpenBoard;
+  const onNavigateRef = useRef(onNavigate);
+  onNavigateRef.current = onNavigate;
+  // 记录最近一次右键触发的条目与时间，用于 0.5 秒内拦截左右键误触。
+  const lastContextMenuRef = useRef<{ uri: string; at: number } | null>(null);
+  const { thumbnailByUri } = useFolderThumbnails({
+    currentUri,
+    includeHidden,
+  });
+
+  const entryOrderKey = useMemo(
+    () => entries.map((entry) => entry.uri).join("|"),
+    [entries]
+  );
+  const flipDeps = useMemo(
+    () => [
+      entryOrderKey,
+      shouldShowParentEntry ? parentEntry?.uri ?? "" : "",
+    ],
+    [entryOrderKey, parentEntry?.uri, shouldShowParentEntry]
+  );
+  useFlipLayout({
+    containerRef: gridListRef,
+    deps: flipDeps,
+    durationMs: 800,
+    easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+    enabled: !isLoading,
+    observeResize: false,
+  });
+
+  /** Resolve the entry associated with a card event. */
+  const resolveEntryFromEvent = useCallback(
+    (event: { currentTarget: HTMLElement }) => {
+      const uri = event.currentTarget.getAttribute("data-entry-uri") ?? "";
+      if (!uri) return null;
+      return entryByUriRef.current.get(uri) ?? null;
+    },
+    []
+  );
+
+  /** Block pointer events shortly after a context menu trigger. */
+  const shouldBlockPointerEvent = useCallback(
+    (event: { button?: number } | null | undefined) => {
+      const button = event?.button;
+      if (button !== 0 && button !== 2) return false;
+      const last = lastContextMenuRef.current;
+      if (!last) return false;
+      if (Date.now() - last.at > 500) {
+        lastContextMenuRef.current = null;
+        return false;
+      }
+      // 右键后 0.5 秒内屏蔽左右键事件，避免误触。
+      return true;
+    },
+    []
+  );
+
+  const { selectionRect, registerEntryRef, handleGridMouseDown } =
+    useFileSystemSelection({
+      gridRef,
+      entriesRef,
+      onSelectionChange,
+      resolveSelectionMode,
+      renamingUri,
+      onRenamingSubmit,
+      shouldBlockPointerEvent,
+    });
+
+  const {
+    dragOverFolderUri,
+    setDragOverFolderUri,
+    handleEntryDragStart,
+    handleEntryDragOver,
+    handleEntryDragEnter,
+    handleEntryDragLeave,
+    handleEntryDrop,
+  } = useFileSystemDrag({
+    entriesRef,
+    selectedUrisRef,
+    dragProjectIdRef,
+    dragRootUriRef,
+    onEntryDragStartRef,
+    onEntryDropRef,
+    resolveEntryFromEvent,
+    isBoardFolderEntry,
+    shouldBlockPointerEvent,
+  });
+
+  /** Handle entry click without recreating per-card closures. */
+  const handleEntryClick = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      if (shouldBlockPointerEvent(event)) return;
+      const entry = resolveEntryFromEvent(event);
+      if (!entry) return;
+      onEntryClickRef.current?.(entry, event);
+    },
+    [resolveEntryFromEvent, shouldBlockPointerEvent]
+  );
+
+  /** Handle entry double click without recreating per-card closures. */
+  const handleEntryDoubleClick = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      if (shouldBlockPointerEvent(event)) return;
+      if (event.button !== 0) return;
+      if (event.nativeEvent.which !== 1) return;
+      const entry = resolveEntryFromEvent(event);
+      if (!entry) return;
+      const entryExt = getEntryExt(entry);
+      if (entry.kind === "file" && IMAGE_EXTS.has(entryExt)) {
+        onOpenImageRef.current?.(entry);
+        return;
+      }
+      if (entry.kind === "file" && CODE_EXTS.has(entryExt)) {
+        onOpenCodeRef.current?.(entry);
+        return;
+      }
+      if (entry.kind === "file" && PDF_EXTS.has(entryExt)) {
+        onOpenPdfRef.current?.(entry);
+        return;
+      }
+      if (entry.kind === "file" && DOC_EXTS.has(entryExt)) {
+        onOpenDocRef.current?.(entry);
+        return;
+      }
+      if (entry.kind === "file" && SPREADSHEET_EXTS.has(entryExt)) {
+        onOpenSpreadsheetRef.current?.(entry);
+        return;
+      }
+      if (isBoardFolderEntry(entry)) {
+        onOpenBoardRef.current?.(entry);
+        return;
+      }
+      if (entry.kind === "file") {
+        // 不支持预览的文件类型交给系统默认程序打开。
+        const ok = window.confirm(
+          "此文件类型暂不支持预览，是否使用系统默认程序打开？"
+        );
+        if (!ok) return;
+        if (!window.teatimeElectron?.openPath) {
+          toast.error("网页版不支持打开本地文件");
+          return;
+        }
+        void window.teatimeElectron
+          .openPath({ uri: entry.uri })
+          .then((res) => {
+            if (!res?.ok) {
+              toast.error(res?.reason ?? "无法打开文件");
+            }
+          });
+        return;
+      }
+      if (entry.kind !== "folder") return;
+      // 双击文件夹进入下一级目录。
+      onNavigateRef.current?.(entry.uri);
+    },
+    [resolveEntryFromEvent, shouldBlockPointerEvent]
+  );
+
+  /** Handle entry context menu without recreating per-card closures. */
+  const handleEntryContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      if (shouldBlockPointerEvent(event)) return;
+      const entry = resolveEntryFromEvent(event);
+      if (!entry) return;
+      onEntryContextMenuRef.current?.(entry, event);
+    },
+    [resolveEntryFromEvent, shouldBlockPointerEvent]
+  );
+
+  const handleGridContextMenuCapture = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (shouldBlockPointerEvent(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      const entryEl = target?.closest(
+        '[data-entry-card="true"]'
+      ) as HTMLElement | null;
+      const uri = entryEl?.getAttribute("data-entry-uri") ?? "";
+      // 统一记录右键触发源，避免触控板右键后误触点击。
+      lastContextMenuRef.current = { uri, at: Date.now() };
+      onGridContextMenuCapture?.(event, { uri: uri || null });
+    },
+    [onGridContextMenuCapture, shouldBlockPointerEvent]
+  );
+
+  useEffect(() => {
+    const handleDocumentContextMenu = (event: MouseEvent) => {
+      const last = lastContextMenuRef.current;
+      if (!last) return;
+      if (Date.now() - last.at > 500) {
+        lastContextMenuRef.current = null;
+        return;
+      }
+      // 右键触发后短时间内拦截系统右键菜单，避免闪烁。
+      event.preventDefault();
+    };
+    document.addEventListener("contextmenu", handleDocumentContextMenu);
+    return () => {
+      document.removeEventListener("contextmenu", handleDocumentContextMenu);
+    };
+  }, []);
+
+  return (
+    <div className="flex min-h-full h-full flex-col">
+ 
+      {!isLoading && entries.length === 0 ? (
+        <FileSystemEmptyState
+          showEmptyActions={showEmptyActions}
+          parentEntry={parentEntry}
+          onCreateBoard={onCreateBoard}
+          onNavigate={onNavigate}
+          onEntryDrop={onEntryDrop}
+          setDragOverFolderUri={setDragOverFolderUri}
+          shouldBlockPointerEvent={shouldBlockPointerEvent}
+        />
+      ) : null}
+      <div
+        ref={gridRef}
+        tabIndex={-1}
+        className="relative flex-1 min-h-full h-full p-0.5 focus:outline-none @container/fs-grid"
+        onMouseDown={handleGridMouseDown}
+        onContextMenuCapture={handleGridContextMenuCapture}
+      >
+        {selectionRect && gridRef.current ? (
+          <div
+            className="pointer-events-none absolute z-10 rounded-md border border-primary/40 bg-primary/10"
+            style={{
+              left:
+                selectionRect.left -
+                gridRef.current.getBoundingClientRect().left,
+              top:
+                selectionRect.top - gridRef.current.getBoundingClientRect().top,
+              width: selectionRect.right - selectionRect.left,
+              height: selectionRect.bottom - selectionRect.top,
+            }}
+          />
+        ) : null}
+        <div
+          ref={gridListRef}
+          className="grid gap-5 justify-start [grid-template-columns:repeat(1,minmax(140px,1fr))] @[320px]/fs-grid:[grid-template-columns:repeat(2,minmax(140px,1fr))] @[480px]/fs-grid:[grid-template-columns:repeat(3,minmax(140px,1fr))] @[640px]/fs-grid:[grid-template-columns:repeat(4,minmax(140px,1fr))] @[800px]/fs-grid:[grid-template-columns:repeat(5,minmax(140px,1fr))] @[960px]/fs-grid:[grid-template-columns:repeat(6,minmax(140px,1fr))]"
+        >
+          {shouldShowParentEntry && parentEntry ? (
+            <FileSystemParentEntryCard
+              parentEntry={parentEntry}
+              isSelected={selectedUris?.has(parentEntry.uri)}
+              isDragOver={dragOverFolderUri === parentEntry.uri}
+              onNavigate={onNavigate}
+              onEntryDrop={onEntryDrop}
+              setDragOverFolderUri={setDragOverFolderUri}
+              shouldBlockPointerEvent={shouldBlockPointerEvent}
+            />
+          ) : null}
+          {entries.map((entry) => {
+            const isRenaming = renamingUri === entry.uri;
+            const isSelected = selectedUris?.has(entry.uri) ?? false;
+            const isDragOver = entry.kind === "folder" && dragOverFolderUri === entry.uri;
+            const thumbnailSrc = thumbnailByUri.get(entry.uri);
+            const card = isRenaming ? (
+              <FileSystemEntryRenameCard
+                entry={entry}
+                thumbnailSrc={thumbnailSrc}
+                entryRef={registerEntryRef(entry.uri)}
+                isSelected={isSelected}
+                renamingValue={renamingValue}
+                onRenamingChange={onRenamingChange}
+                onRenamingSubmit={onRenamingSubmit}
+                onRenamingCancel={onRenamingCancel}
+              />
+            ) : (
+              <FileSystemEntryCard
+                uri={entry.uri}
+                name={entry.name}
+                kind={entry.kind}
+                ext={entry.ext}
+                isEmpty={entry.isEmpty}
+                thumbnailSrc={thumbnailSrc}
+                ref={registerEntryRef(entry.uri)}
+                isSelected={isSelected}
+                isDragOver={isDragOver}
+                onClick={handleEntryClick}
+                onDoubleClick={handleEntryDoubleClick}
+                onContextMenu={handleEntryContextMenu}
+                onDragStart={handleEntryDragStart}
+                onDragOver={handleEntryDragOver}
+                onDragEnter={handleEntryDragEnter}
+                onDragLeave={handleEntryDragLeave}
+                onDrop={handleEntryDrop}
+              />
+            );
+            return (
+              <Fragment key={entry.uri}>
+                {renderEntry ? renderEntry(entry, card) : card}
+              </Fragment>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+export type { FileSystemEntry };
+export { FileSystemEntryCard, FileSystemGrid };

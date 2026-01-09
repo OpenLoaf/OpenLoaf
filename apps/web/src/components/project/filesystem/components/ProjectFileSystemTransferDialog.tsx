@@ -48,7 +48,7 @@ import {
   getRelativePathFromUri,
   getUniqueName,
   type FileSystemEntry,
-} from "./file-system-utils";
+} from "../utils/file-system-utils";
 
 type ProjectTreeNode = {
   projectId?: string;

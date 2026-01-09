@@ -8,7 +8,7 @@ import {
 } from "react";
 import { getEntryVisual } from "./FileSystemEntryVisual";
 import { FileSystemEntryName } from "./FileSystemEntryName";
-import { type FileSystemEntry } from "./file-system-utils";
+import { type FileSystemEntry } from "../utils/file-system-utils";
 
 type FileSystemEntryCardProps = {
   uri: string;

@@ -8,7 +8,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import type { FileSystemEntry } from "@/components/project/filesystem/file-system-utils";
+import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
 /** Context menu target snapshot. */
 type FileSystemContextMenuTarget =

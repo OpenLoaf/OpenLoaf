@@ -16,7 +16,7 @@ import {
   isBoardFolderName,
 } from "@/lib/file-name";
 import { resolveEntryExt } from "./FileSystemEntryVisual";
-import { type FileSystemEntry } from "./file-system-utils";
+import { type FileSystemEntry } from "../utils/file-system-utils";
 
 /** Render a file name with suffix-preserving truncation. */
 const FileSystemEntryName = memo(function FileSystemEntryName({

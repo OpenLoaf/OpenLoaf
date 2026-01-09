@@ -22,7 +22,7 @@ import {
   getRelativePathFromUri,
   getUniqueName,
   parseTeatimeFileUrl,
-} from "@/components/project/filesystem/file-system-utils";
+} from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import type {
   CanvasElement,

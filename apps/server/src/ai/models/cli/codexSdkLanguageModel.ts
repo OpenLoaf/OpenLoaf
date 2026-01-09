@@ -15,11 +15,10 @@ import type {
   SharedV3Warning,
 } from "@ai-sdk/provider";
 import { convertAsyncIteratorToReadableStream } from "@ai-sdk/provider-utils";
-import type { ThreadOptions, Usage } from "@openai/codex-sdk";
+import { Codex, type ThreadOptions, type Usage } from "@openai/codex-sdk";
 import { logger } from "@/common/logger";
 import { getProjectId, getSessionId, getWorkspaceId } from "@/ai/chat-stream/requestContext";
-import { getCodexClient } from "@/ai/models/cli/codexClientStore";
-import { getCodexThreadId, setCodexThreadId } from "@/ai/models/cli/codexThreadStore";
+import { getCliThreadInfo, setCliThreadInfo } from "@/ai/models/cli/cliThreadStore";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@teatime-ai/api/services/vfsService";
 
 /** Prompt part union used for CLI prompt serialization. */
@@ -46,6 +45,8 @@ export type CodexSdkLanguageModelInput = {
 
 /** Default empty warnings payload. */
 const EMPTY_WARNINGS: SharedV3Warning[] = [];
+/** Codex cli type prefix. */
+const CODEX_CLI_TYPE = "codex";
 /** Default sandbox mode for Codex. */
 const DEFAULT_SANDBOX_MODE: ThreadOptions["sandboxMode"] = "read-only";
 /** Default reasoning effort for Codex. */
@@ -179,6 +180,30 @@ function buildUsageFromCodex(usage: Usage | null | undefined): LanguageModelV3Us
   };
 }
 
+/** Build a Codex SDK client based on provider settings. */
+function buildCodexClient(input: CodexSdkLanguageModelInput): Codex {
+  if (!input.forceCustomApiKey) return new Codex();
+  const apiKey = input.apiKey.trim();
+  if (!apiKey) throw new Error("Codex SDK 缺少 API Key");
+  const baseUrl = input.apiUrl.trim();
+  return new Codex({
+    apiKey,
+    baseUrl: baseUrl ? baseUrl : undefined,
+  });
+}
+
+/** Resolve thread id for the current session. */
+async function resolveCodexThreadId(sessionId: string | undefined): Promise<string | null> {
+  if (!sessionId) return null;
+  const info = await getCliThreadInfo(sessionId);
+  if (!info) return null;
+  // 逻辑：会话已绑定其他 CLI 时直接拒绝，避免跨 provider 复用。
+  if (info.cliType !== CODEX_CLI_TYPE) {
+    throw new Error(`当前会话已绑定 CLI: ${info.cliType}，不允许切换 provider`);
+  }
+  return info.threadId;
+}
+
 /** Resolve the working directory for Codex execution. */
 function resolveCodexWorkingDirectory(): string {
   const projectId = getProjectId();
@@ -216,14 +241,12 @@ function resolvePromptText(prompt: LanguageModelV3Prompt, hasThread: boolean): s
 }
 
 /** Persist thread id for the current session. */
-function persistThreadId(
+async function persistThreadId(
   sessionId: string | undefined,
-  providerId: string,
-  modelId: string,
   threadId: string | null,
-): void {
+): Promise<void> {
   if (!sessionId || !threadId) return;
-  setCodexThreadId({ sessionId, providerId, modelId, threadId });
+  await setCliThreadInfo(sessionId, CODEX_CLI_TYPE, threadId);
 }
 
 /** Build a LanguageModelV3 instance backed by Codex SDK. */
@@ -239,37 +262,27 @@ export function buildCodexSdkLanguageModel(
     supportedUrls,
     async doGenerate(options: LanguageModelV3CallOptions): Promise<LanguageModelV3GenerateResult> {
       const sessionId = getSessionId();
-      const threadKey = sessionId
-        ? getCodexThreadId({
-            sessionId,
-            providerId: input.providerId,
-            modelId: input.modelId,
-          })
-        : null;
-      const codex = getCodexClient({
-        apiUrl: input.apiUrl,
-        apiKey: input.apiKey,
-        forceCustomApiKey: input.forceCustomApiKey,
-      });
+      const threadId = await resolveCodexThreadId(sessionId);
+      const codex = buildCodexClient(input);
       const threadOptions = buildThreadOptions(input.modelId);
-      const thread = threadKey
-        ? codex.resumeThread(threadKey, threadOptions)
+      const thread = threadId
+        ? codex.resumeThread(threadId, threadOptions)
         : codex.startThread(threadOptions);
-      const promptText = resolvePromptText(options.prompt, Boolean(threadKey));
+      const promptText = resolvePromptText(options.prompt, Boolean(threadId));
 
       logger.debug(
         {
           sessionId,
           providerId: input.providerId,
           modelId: input.modelId,
-          threadId: threadKey ?? undefined,
-          mode: threadKey ? "resume" : "start",
+          threadId: threadId ?? undefined,
+          mode: threadId ? "resume" : "start",
         },
         "[cli] codex sdk run",
       );
 
       const turn = await thread.run(promptText, { signal: options.abortSignal });
-      persistThreadId(sessionId, input.providerId, input.modelId, thread.id);
+      await persistThreadId(sessionId, thread.id);
 
       const text = turn.finalResponse?.trim() ?? "";
       return {
@@ -281,31 +294,21 @@ export function buildCodexSdkLanguageModel(
     },
     async doStream(options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult> {
       const sessionId = getSessionId();
-      const threadKey = sessionId
-        ? getCodexThreadId({
-            sessionId,
-            providerId: input.providerId,
-            modelId: input.modelId,
-          })
-        : null;
-      const codex = getCodexClient({
-        apiUrl: input.apiUrl,
-        apiKey: input.apiKey,
-        forceCustomApiKey: input.forceCustomApiKey,
-      });
+      const threadId = await resolveCodexThreadId(sessionId);
+      const codex = buildCodexClient(input);
       const threadOptions = buildThreadOptions(input.modelId);
-      const thread = threadKey
-        ? codex.resumeThread(threadKey, threadOptions)
+      const thread = threadId
+        ? codex.resumeThread(threadId, threadOptions)
         : codex.startThread(threadOptions);
-      const promptText = resolvePromptText(options.prompt, Boolean(threadKey));
+      const promptText = resolvePromptText(options.prompt, Boolean(threadId));
 
       logger.debug(
         {
           sessionId,
           providerId: input.providerId,
           modelId: input.modelId,
-          threadId: threadKey ?? undefined,
-          mode: threadKey ? "resume" : "start",
+          threadId: threadId ?? undefined,
+          mode: threadId ? "resume" : "start",
         },
         "[cli] codex sdk stream",
       );
@@ -325,7 +328,7 @@ export function buildCodexSdkLanguageModel(
 
         for await (const event of events) {
           if (event.type === "thread.started") {
-            persistThreadId(sessionId, input.providerId, input.modelId, event.thread_id);
+            await persistThreadId(sessionId, event.thread_id);
             continue;
           }
           if (event.type === "turn.completed") {

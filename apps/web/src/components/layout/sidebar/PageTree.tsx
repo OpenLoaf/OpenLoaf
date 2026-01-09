@@ -49,7 +49,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   buildTeatimeFileUrl,
   getRelativePathFromUri,
-} from "@/components/project/filesystem/file-system-utils";
+} from "@/components/project/filesystem/utils/file-system-utils";
 import { cn } from "@/lib/utils";
 
 type ProjectInfo = {

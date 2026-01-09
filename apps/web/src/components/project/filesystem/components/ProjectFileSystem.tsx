@@ -37,12 +37,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import type { FileSystemEntry } from "./file-system-utils";
+import type { FileSystemEntry } from "../utils/file-system-utils";
 import FileSystemContextMenu from "./FileSystemContextMenu";
 import { FileSystemGrid } from "./FileSystemGrid";
 import ProjectFileSystemTransferDialog from "./ProjectFileSystemTransferDialog";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
-import { useProjectFileSystemModel } from "./file-system-model";
+import { useProjectFileSystemModel } from "../models/file-system-model";
 import { useFileSystemContextMenu } from "@/hooks/use-file-system-context-menu";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileRename } from "@/hooks/use-file-rename";

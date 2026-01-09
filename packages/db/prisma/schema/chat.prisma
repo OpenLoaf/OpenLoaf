@@ -8,6 +8,7 @@ model ChatSession {
   workspaceId  String? /// Workspace id.
   projectId    String? /// Project id.
   boardId      String? /// Board id.
+  cliId        String? /// CLI thread id formatted as {cliType}_{threadId}.
   deletedAt    DateTime? /// @zod.optional()
   messages     ChatMessage[]
 

@@ -4,7 +4,7 @@ import type { PointerEvent } from "react";
 import {
   buildTeatimeFileUrl,
   buildUriFromRoot,
-} from "@/components/project/filesystem/file-system-utils";
+} from "@/components/project/filesystem/utils/file-system-utils";
 
 const IMAGE_EXTS = new Set([
   "png",

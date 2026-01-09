@@ -42,14 +42,14 @@ import { Editor as SlateEditor, Text, type BaseEditor } from "slate";
 import type { RenderLeafProps } from "platejs";
 import { Editor, EditorContainer } from "@/components/ui/editor";
 import { ParagraphElement } from "@/components/ui/paragraph-node";
-import ProjectFileSystemTransferDialog from "@/components/project/filesystem/ProjectFileSystemTransferDialog";
+import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
 import {
   buildMentionNode,
   getPlainTextValue,
   parseChatValue,
   serializeChatValue,
 } from "./chat-input-utils";
-import { buildUriFromRoot, parseTeatimeFileUrl } from "@/components/project/filesystem/file-system-utils";
+import { buildUriFromRoot, parseTeatimeFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
 import { trpc } from "@/utils/trpc";
 import { useQueryClient } from "@tanstack/react-query";
 import { useProjects } from "@/hooks/use-projects";
