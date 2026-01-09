@@ -130,7 +130,7 @@ export function handleChatMentionPointerDown(
           ? "doc-viewer"
           : "sheet-viewer";
   const stackUri = isPdfExt ? buildTeatimeFileUrl(projectId, relativePath) : uri;
-  const stackId = `${component}:${stackUri}`;
+  const stackId = uri || stackUri;
   pushStackItem(activeTabId, {
     id: stackId,
     sourceKey: stackId,

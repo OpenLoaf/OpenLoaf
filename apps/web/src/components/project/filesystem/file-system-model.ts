@@ -497,7 +497,7 @@ export function useProjectFileSystemModel({
       pushStackItem(
         activeTabId,
         {
-          id: generateId(),
+          id: entry.uri,
           component: "image-viewer",
           title: entry.name,
           params: {
@@ -519,7 +519,7 @@ export function useProjectFileSystemModel({
         return;
       }
       pushStackItem(activeTabId, {
-        id: generateId(),
+        id: entry.uri,
         component: "code-viewer",
         title: entry.name,
         params: {
@@ -551,7 +551,7 @@ export function useProjectFileSystemModel({
         return;
       }
       pushStackItem(activeTabId, {
-        id: generateId(),
+        id: entry.uri,
         component: "pdf-viewer",
         title: entry.name,
         params: {
@@ -573,7 +573,7 @@ export function useProjectFileSystemModel({
         return;
       }
       pushStackItem(activeTabId, {
-        id: generateId(),
+        id: entry.uri,
         component: "doc-viewer",
         title: entry.name,
         params: {
@@ -595,7 +595,7 @@ export function useProjectFileSystemModel({
         return;
       }
       pushStackItem(activeTabId, {
-        id: generateId(),
+        id: entry.uri,
         component: "sheet-viewer",
         title: entry.name,
         params: {
@@ -624,7 +624,7 @@ export function useProjectFileSystemModel({
       const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
       const displayName = getBoardDisplayName(entry.name);
       pushStackItem(activeTabId, {
-        id: generateId(),
+        id: entry.uri,
         component: "board-viewer",
         title: displayName,
         params: {

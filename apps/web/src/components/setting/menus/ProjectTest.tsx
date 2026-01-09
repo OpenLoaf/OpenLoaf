@@ -1,5 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { useTabs } from "@/hooks/use-tabs";
+import {
+  BROWSER_WINDOW_COMPONENT,
+  BROWSER_WINDOW_PANEL_ID,
+  useTabs,
+} from "@/hooks/use-tabs";
 import { Globe } from "lucide-react";
 import { memo } from "react";
 import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
@@ -141,8 +145,9 @@ const ProjectTest = memo(function ProjectTest() {
                     onClick={() => {
                       if (!activeTabId) return;
                       pushStackItem(activeTabId, {
-                        id: `browser-window:${Date.now()}`,
-                        component: "electron-browser-window",
+                        id: BROWSER_WINDOW_PANEL_ID,
+                        sourceKey: BROWSER_WINDOW_PANEL_ID,
+                        component: BROWSER_WINDOW_COMPONENT,
                         params: { url: "https://inside.hexems.com", autoOpen: true },
                         title: "Browser Window",
                       });

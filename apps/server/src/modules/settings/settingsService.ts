@@ -9,6 +9,7 @@ import {
   writeModelProviders,
   writeS3Providers,
 } from "@/modules/settings/teatimeConfStore";
+import { clearCodexClientCache } from "@/ai/models/cli/codexClientStore";
 import type {
   ModelProviderConf,
   ModelProviderValue,
@@ -109,6 +110,16 @@ function normalizeCliToolsConfig(raw: unknown, fallback: CliToolsConfig): CliToo
   const codex = normalizeCliToolConfig(source.codex, fallback.codex);
   const claudeCode = normalizeCliToolConfig(source.claudeCode, fallback.claudeCode);
   return { codex, claudeCode };
+}
+
+/** Check whether a CLI tool config has changed. */
+function isCliToolConfigChanged(prev: CliToolConfig, next: CliToolConfig): boolean {
+  // 逻辑：任一字段变化都视为配置更新。
+  return (
+    prev.apiUrl !== next.apiUrl ||
+    prev.apiKey !== next.apiKey ||
+    prev.forceCustomApiKey !== next.forceCustomApiKey
+  );
 }
 
 /** Normalize model map input. */
@@ -361,6 +372,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
   const proxyPassword =
     typeof next.proxyPassword === "string" ? next.proxyPassword : current.proxyPassword;
   const cliTools = normalizeCliToolsConfig(next.cliTools, current.cliTools);
+  if (isCliToolConfigChanged(current.cliTools.codex, cliTools.codex)) {
+    // 逻辑：Codex 配置变更时清理缓存，确保下次创建新 client。
+    clearCodexClientCache();
+  }
   const normalized: BasicConfig = {
     chatSource: next.chatSource === "cloud" ? "cloud" : "local",
     activeS3Id: typeof next.activeS3Id === "string" && next.activeS3Id.trim()

@@ -15,10 +15,12 @@ import type {
   SharedV3Warning,
 } from "@ai-sdk/provider";
 import { convertAsyncIteratorToReadableStream } from "@ai-sdk/provider-utils";
-import { Codex, type ThreadOptions, type Usage } from "@openai/codex-sdk";
+import type { ThreadOptions, Usage } from "@openai/codex-sdk";
 import { logger } from "@/common/logger";
-import { getSessionId } from "@/ai/chat-stream/requestContext";
+import { getProjectId, getSessionId, getWorkspaceId } from "@/ai/chat-stream/requestContext";
+import { getCodexClient } from "@/ai/models/cli/codexClientStore";
 import { getCodexThreadId, setCodexThreadId } from "@/ai/models/cli/codexThreadStore";
+import { getProjectRootPath, getWorkspaceRootPathById } from "@teatime-ai/api/services/vfsService";
 
 /** Prompt part union used for CLI prompt serialization. */
 type CliPromptPart =
@@ -177,16 +179,19 @@ function buildUsageFromCodex(usage: Usage | null | undefined): LanguageModelV3Us
   };
 }
 
-/** Build a Codex SDK client based on provider settings. */
-function buildCodexClient(input: CodexSdkLanguageModelInput): Codex {
-  if (!input.forceCustomApiKey) return new Codex();
-  const apiKey = input.apiKey.trim();
-  if (!apiKey) throw new Error("Codex SDK 缺少 API Key");
-  const baseUrl = input.apiUrl.trim();
-  return new Codex({
-    apiKey,
-    baseUrl: baseUrl ? baseUrl : undefined,
-  });
+/** Resolve the working directory for Codex execution. */
+function resolveCodexWorkingDirectory(): string {
+  const projectId = getProjectId();
+  if (projectId) {
+    const projectRootPath = getProjectRootPath(projectId);
+    if (projectRootPath) return projectRootPath;
+  }
+  const workspaceId = getWorkspaceId();
+  if (workspaceId) {
+    const workspaceRootPath = getWorkspaceRootPathById(workspaceId);
+    if (workspaceRootPath) return workspaceRootPath;
+  }
+  throw new Error("Codex 运行路径缺失：未找到 project 或 workspace 根目录");
 }
 
 /** Build the thread options for Codex execution. */
@@ -196,7 +201,7 @@ function buildThreadOptions(modelId: string): ThreadOptions {
     model: modelId,
     sandboxMode: DEFAULT_SANDBOX_MODE,
     skipGitRepoCheck: true,
-    workingDirectory: process.cwd(),
+    workingDirectory: resolveCodexWorkingDirectory(),
     modelReasoningEffort: DEFAULT_REASONING_EFFORT,
   };
 }
@@ -241,7 +246,11 @@ export function buildCodexSdkLanguageModel(
             modelId: input.modelId,
           })
         : null;
-      const codex = buildCodexClient(input);
+      const codex = getCodexClient({
+        apiUrl: input.apiUrl,
+        apiKey: input.apiKey,
+        forceCustomApiKey: input.forceCustomApiKey,
+      });
       const threadOptions = buildThreadOptions(input.modelId);
       const thread = threadKey
         ? codex.resumeThread(threadKey, threadOptions)
@@ -279,7 +288,11 @@ export function buildCodexSdkLanguageModel(
             modelId: input.modelId,
           })
         : null;
-      const codex = buildCodexClient(input);
+      const codex = getCodexClient({
+        apiUrl: input.apiUrl,
+        apiKey: input.apiKey,
+        forceCustomApiKey: input.forceCustomApiKey,
+      });
       const threadOptions = buildThreadOptions(input.modelId);
       const thread = threadKey
         ? codex.resumeThread(threadKey, threadOptions)

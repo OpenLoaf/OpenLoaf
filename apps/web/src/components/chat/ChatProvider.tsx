@@ -9,7 +9,12 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import { generateId } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { useTabs, type ChatStatus } from "@/hooks/use-tabs";
+import {
+  BROWSER_WINDOW_COMPONENT,
+  BROWSER_WINDOW_PANEL_ID,
+  useTabs,
+  type ChatStatus,
+} from "@/hooks/use-tabs";
 import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
 import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";
@@ -37,9 +42,9 @@ function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: strin
   useTabs.getState().pushStackItem(
     tabId,
     {
-      component: "electron-browser-window",
-      id: "browser-window",
-      sourceKey: "browser-window",
+      component: BROWSER_WINDOW_COMPONENT,
+      id: BROWSER_WINDOW_PANEL_ID,
+      sourceKey: BROWSER_WINDOW_PANEL_ID,
       params: { __customHeader: true, __open: { url, title, viewKey } },
     } as any,
     100,

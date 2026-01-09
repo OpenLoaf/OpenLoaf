@@ -6,7 +6,11 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-import { useTabs } from "@/hooks/use-tabs";
+import {
+  BROWSER_WINDOW_COMPONENT,
+  BROWSER_WINDOW_PANEL_ID,
+  useTabs,
+} from "@/hooks/use-tabs";
 import { useChatContext } from "@/components/chat/ChatProvider";
 import { Globe } from "lucide-react";
 
@@ -82,9 +86,9 @@ export function OpenUrlTool({ part }: { part: AnyToolPart }) {
     state.pushStackItem(
       tabId,
       {
-        id: "browser-window",
-        sourceKey: "browser-window",
-        component: "electron-browser-window",
+        id: BROWSER_WINDOW_PANEL_ID,
+        sourceKey: BROWSER_WINDOW_PANEL_ID,
+        component: BROWSER_WINDOW_COMPONENT,
         params: { __customHeader: true, __open: { url, title, viewKey } },
       } as any,
       100,

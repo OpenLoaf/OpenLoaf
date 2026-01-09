@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { useTabs } from "@/hooks/use-tabs";
-import { generateId } from "ai";
+import {
+  BROWSER_WINDOW_COMPONENT,
+  BROWSER_WINDOW_PANEL_ID,
+  useTabs,
+} from "@/hooks/use-tabs";
 
 export function DisableLinks() {
   useEffect(() => {
@@ -31,12 +34,17 @@ export function DisableLinks() {
         let title = anchor.textContent?.trim() || href;
         if (title.length > 50) title = title.substring(0, 47) + "...";
 
-        pushStackItem(activeTabId, {
-          id: generateId(),
-          component: "electron-browser-window",
-          title: title,
-          params: { url: href },
-        } as any, 70);
+        pushStackItem(
+          activeTabId,
+          {
+            id: BROWSER_WINDOW_PANEL_ID,
+            sourceKey: BROWSER_WINDOW_PANEL_ID,
+            component: BROWSER_WINDOW_COMPONENT,
+            title: title,
+            params: { url: href },
+          } as any,
+          70
+        );
       } else {
         console.warn("GlobalLinkHandler: No active tab found to open link.");
       }

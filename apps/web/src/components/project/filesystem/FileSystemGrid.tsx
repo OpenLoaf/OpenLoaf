@@ -2,11 +2,9 @@
 
 import {
   Fragment,
-  forwardRef,
   memo,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -15,21 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import {
-  ArrowLeftIcon,
-  FileArchive,
-  FileAudio,
-  FileCode,
-  FileImage,
-  FileScan,
-  FileSpreadsheet,
-  FileText,
-  FileType,
-  FileVideo,
-  Folder,
-  FolderOpen,
-  FolderUp,
-} from "lucide-react";
+import { ArrowLeftIcon, Folder, FolderUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -51,59 +35,20 @@ import {
   getRelativePathFromUri,
 } from "./file-system-utils";
 import {
+  CODE_EXTS,
+  DOC_EXTS,
+  IMAGE_EXTS,
+  PDF_EXTS,
+  SPREADSHEET_EXTS,
+  getEntryVisual,
+} from "./FileSystemEntryVisual";
+import { FileSystemEntryCard } from "./FileSystemEntryCard";
+import {
   getBoardDisplayName,
   getDisplayFileName,
-  isBoardFileExt,
   isBoardFolderName,
 } from "@/lib/file-name";
 import { setImageDragPayload } from "@/lib/image/drag";
-
-const IMAGE_EXTS = new Set([
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "bmp",
-  "webp",
-  "svg",
-  "avif",
-  "tiff",
-  "heic",
-]);
-const ARCHIVE_EXTS = new Set(["zip", "rar", "7z", "gz", "tar", "bz2", "xz"]);
-const AUDIO_EXTS = new Set(["mp3", "wav", "flac", "ogg", "m4a", "aac"]);
-const VIDEO_EXTS = new Set(["mp4", "mov", "avi", "mkv", "webm"]);
-const SPREADSHEET_EXTS = new Set(["xls", "xlsx", "csv", "tsv", "numbers"]);
-const PDF_EXTS = new Set(["pdf"]);
-const DOC_EXTS = new Set(["doc", "docx"]);
-const CODE_EXTS = new Set([
-  "js",
-  "ts",
-  "tsx",
-  "jsx",
-  "json",
-  "yml",
-  "yaml",
-  "toml",
-  "ini",
-  "py",
-  "go",
-  "rs",
-  "java",
-  "cpp",
-  "c",
-  "h",
-  "hpp",
-  "css",
-  "scss",
-  "less",
-  "html",
-  "xml",
-  "sh",
-  "zsh",
-  "md",
-  "mdx",
-]);
 
 /** Return true when the entry represents a board folder. */
 const isBoardFolderEntry = (entry: FileSystemEntry) =>
@@ -182,351 +127,6 @@ type FileSystemGridProps = {
   onRenamingCancel?: () => void;
   onSelectionChange?: (uris: string[], mode: "replace" | "toggle") => void;
 };
-
-type FileSystemEntryCardProps = {
-  uri: string;
-  name: string;
-  kind: FileSystemEntry["kind"];
-  ext?: string;
-  isEmpty?: boolean;
-  /** Thumbnail data url for image entries. */
-  thumbnailSrc?: string;
-  onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
-  onDoubleClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
-  onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
-  isSelected?: boolean;
-  isDragOver?: boolean;
-  onDragStart?: (event: DragEvent<HTMLButtonElement>) => void;
-  onDragOver?: (event: DragEvent<HTMLButtonElement>) => void;
-  onDragEnter?: (event: DragEvent<HTMLButtonElement>) => void;
-  onDragLeave?: (event: DragEvent<HTMLButtonElement>) => void;
-  onDrop?: (event: DragEvent<HTMLButtonElement>) => void;
-};
-
-/** Render a thumbnail preview for image files. */
-const ImageThumbnail = memo(function ImageThumbnail({
-  src,
-  name,
-}: {
-  src?: string | null;
-  name: string;
-}) {
-  return (
-    <div className="h-11 w-11 overflow-hidden rounded-md bg-muted/40">
-      {src ? (
-        <img
-          src={src}
-          alt={name}
-          className="h-full w-full object-cover"
-          loading="lazy"
-          decoding="async"
-        />
-      ) : (
-        <FileImage className="h-full w-full p-2 text-muted-foreground" />
-      )}
-    </div>
-  );
-});
-
-/** Resolve normalized file extension. */
-function resolveEntryExt(
-  kind: FileSystemEntry["kind"],
-  name: string,
-  ext?: string
-) {
-  if (kind !== "file") return "";
-  if (ext) return ext.toLowerCase();
-  const parts = name.split(".");
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
-}
-
-/** Resolve file icon or image thumbnail for grid items. */
-function getEntryVisual({
-  kind,
-  name,
-  ext,
-  isEmpty,
-  thumbnailSrc,
-}: {
-  kind: FileSystemEntry["kind"];
-  name: string;
-  ext?: string;
-  isEmpty?: boolean;
-  thumbnailSrc?: string;
-}) {
-  if (kind === "folder" && isBoardFolderName(name)) {
-    return (
-      <img
-        src="/board/sketchbook-sketch-svgrepo-com.svg"
-        alt="画布"
-        className="h-11 w-11"
-        loading="lazy"
-        decoding="async"
-      />
-    );
-  }
-  if (kind === "folder") {
-    if (isEmpty === true) {
-      return <Folder className="h-11 w-11 text-muted-foreground" />;
-    }
-    if (isEmpty === false) {
-      return <FolderOpen className="h-11 w-11 text-muted-foreground" />;
-    }
-    return <Folder className="h-11 w-11 text-muted-foreground" />;
-  }
-  const normalizedExt = resolveEntryExt(kind, name, ext);
-  if (IMAGE_EXTS.has(normalizedExt)) {
-    return <ImageThumbnail src={thumbnailSrc} name={name} />;
-  }
-  if (ARCHIVE_EXTS.has(normalizedExt)) {
-    return <FileArchive className="h-11 w-11 text-muted-foreground" />;
-  }
-  if (AUDIO_EXTS.has(normalizedExt)) {
-    return <FileAudio className="h-11 w-11 text-muted-foreground" />;
-  }
-  if (VIDEO_EXTS.has(normalizedExt)) {
-    return <FileVideo className="h-11 w-11 text-muted-foreground" />;
-  }
-  if (SPREADSHEET_EXTS.has(normalizedExt)) {
-    return <FileSpreadsheet className="h-11 w-11 text-muted-foreground" />;
-  }
-  if (CODE_EXTS.has(normalizedExt)) {
-    return <FileCode className="h-11 w-11 text-muted-foreground" />;
-  }
-  if (PDF_EXTS.has(normalizedExt)) {
-    return <FileScan className="h-11 w-11 text-muted-foreground" />;
-  }
-  if (DOC_EXTS.has(normalizedExt)) {
-    return <FileType className="h-11 w-11 text-muted-foreground" />;
-  }
-  return <FileText className="h-11 w-11 text-muted-foreground" />;
-}
-
-/** Render a file name with suffix-preserving truncation. */
-const FileSystemEntryName = memo(function FileSystemEntryName({
-  name,
-  kind,
-  ext,
-}: {
-  name: string;
-  kind: FileSystemEntry["kind"];
-  ext?: string;
-}) {
-  const labelRef = useRef<HTMLSpanElement>(null);
-  // 用于测量文本高度的隐藏节点。
-  const measureRef = useRef<HTMLSpanElement | null>(null);
-  const nameInfo = useMemo(() => {
-    const normalizedExt = resolveEntryExt(kind, name, ext);
-    const displayName = (() => {
-      if (kind === "folder" && isBoardFolderName(name)) {
-        return getBoardDisplayName(name);
-      }
-      if (kind === "file") {
-        return getDisplayFileName(name, normalizedExt);
-      }
-      return name;
-    })();
-    if (kind !== "file" || !normalizedExt || isBoardFileExt(normalizedExt)) {
-      return {
-        prefix: displayName,
-        suffix: "",
-        fullName: displayName,
-      };
-    }
-    const dotIndex = name.lastIndexOf(".");
-    if (dotIndex <= 0 || dotIndex >= name.length - 1) {
-      return {
-        prefix: displayName,
-        suffix: "",
-        fullName: displayName,
-      };
-    }
-    return {
-      prefix: name.slice(0, dotIndex),
-      suffix: name.slice(dotIndex),
-      fullName: name,
-    };
-  }, [ext, kind, name]);
-  // 缓存计算后的显示文本，避免频繁触发布局测量。
-  const [labelText, setLabelText] = useState(nameInfo.fullName);
-
-  /** Ensure the hidden measurement node exists. */
-  const ensureMeasureElement = useCallback((host: HTMLElement) => {
-    if (measureRef.current) return measureRef.current;
-    const span = document.createElement("span");
-    span.setAttribute("data-entry-name-measure", "true");
-    span.style.position = "absolute";
-    span.style.visibility = "hidden";
-    span.style.pointerEvents = "none";
-    span.style.left = "0";
-    span.style.top = "0";
-    span.style.padding = "0";
-    span.style.margin = "0";
-    span.style.border = "0";
-    span.style.boxSizing = "border-box";
-    span.style.whiteSpace = "normal";
-    span.style.overflowWrap = "break-word";
-    span.style.wordBreak = "break-word";
-    span.style.zIndex = "-1";
-    const container = host.parentElement ?? document.body;
-    container.appendChild(span);
-    measureRef.current = span;
-    return span;
-  }, []);
-
-  /** Recalculate the label text so the suffix stays visible. */
-  const recomputeLabel = useCallback(() => {
-    const labelEl = labelRef.current;
-    if (!labelEl) return;
-    if (!nameInfo.suffix) {
-      setLabelText(nameInfo.fullName);
-      return;
-    }
-    const width = labelEl.clientWidth;
-    if (!width) {
-      setLabelText(nameInfo.fullName);
-      return;
-    }
-    const measureEl = ensureMeasureElement(labelEl);
-    const computed = window.getComputedStyle(labelEl);
-    const fontSize = parseFloat(computed.fontSize || "0");
-    const parsedLineHeight = parseFloat(computed.lineHeight || "");
-    const lineHeight = Number.isNaN(parsedLineHeight)
-      ? Math.ceil(fontSize * 1.4)
-      : parsedLineHeight;
-    if (!lineHeight) {
-      setLabelText(nameInfo.fullName);
-      return;
-    }
-    // 同步文本样式与宽度，确保测量结果准确。
-    measureEl.style.width = `${width}px`;
-    measureEl.style.font = computed.font;
-    measureEl.style.letterSpacing = computed.letterSpacing;
-    measureEl.style.textTransform = computed.textTransform;
-    measureEl.style.textAlign = computed.textAlign;
-    measureEl.style.lineHeight = `${lineHeight}px`;
-    const maxHeight = lineHeight * 2 + 0.5;
-    const fits = (text: string) => {
-      measureEl.textContent = text;
-      return measureEl.getBoundingClientRect().height <= maxHeight;
-    };
-    if (fits(nameInfo.fullName)) {
-      setLabelText(nameInfo.fullName);
-      return;
-    }
-    const prefixChars = Array.from(nameInfo.prefix);
-    let low = 0;
-    let high = prefixChars.length;
-    let best = `...${nameInfo.suffix}`;
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      const candidate = `${prefixChars.slice(0, mid).join("")}...${nameInfo.suffix}`;
-      if (fits(candidate)) {
-        best = candidate;
-        low = mid + 1;
-      } else {
-        high = mid - 1;
-      }
-    }
-    setLabelText(best);
-  }, [ensureMeasureElement, nameInfo]);
-
-  useLayoutEffect(() => {
-    recomputeLabel();
-  }, [recomputeLabel]);
-
-  useEffect(() => {
-    if (!nameInfo.suffix) return;
-    const labelEl = labelRef.current;
-    if (!labelEl) return;
-    let frame = 0;
-    const observer = new ResizeObserver(() => {
-      if (frame) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        recomputeLabel();
-      });
-    });
-    observer.observe(labelEl);
-    return () => {
-      observer.disconnect();
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [recomputeLabel]);
-
-  useEffect(() => {
-    return () => {
-      if (measureRef.current) {
-        measureRef.current.remove();
-        measureRef.current = null;
-      }
-    };
-  }, []);
-
-  return (
-    <span
-      ref={labelRef}
-      className="line-clamp-2 min-h-[2rem] w-full break-words leading-4"
-    >
-      {labelText}
-    </span>
-  );
-});
-FileSystemEntryName.displayName = "FileSystemEntryName";
-
-/** Render a single file system entry card. */
-const FileSystemEntryCard = memo(
-  forwardRef<HTMLButtonElement, FileSystemEntryCardProps>(
-    function FileSystemEntryCard(
-      {
-        uri,
-        name,
-        kind,
-        ext,
-        isEmpty,
-        thumbnailSrc,
-        onClick,
-        onDoubleClick,
-        onContextMenu,
-        isSelected = false,
-        isDragOver = false,
-        onDragStart,
-        onDragOver,
-        onDragEnter,
-        onDragLeave,
-        onDrop,
-      },
-      ref
-    ) {
-      const visual = getEntryVisual({ kind, name, ext, isEmpty, thumbnailSrc });
-      return (
-        <button
-          ref={ref}
-          type="button"
-          data-entry-card="true"
-          data-entry-uri={uri}
-          data-flip-id={uri}
-          className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/80 ${
-            isSelected ? "bg-muted/70 ring-1 ring-border" : ""
-          } ${isDragOver ? "bg-muted/80 ring-1 ring-border" : ""}`}
-          draggable
-          onClick={onClick}
-          onDoubleClick={onDoubleClick}
-          onContextMenu={onContextMenu}
-          onDragStart={onDragStart}
-          onDragOver={onDragOver}
-          onDragEnter={onDragEnter}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-        >
-          {visual}
-          <FileSystemEntryName name={name} kind={kind} ext={ext} />
-        </button>
-      );
-    }
-  )
-);
-FileSystemEntryCard.displayName = "FileSystemEntryCard";
-
 /** File system grid with empty state. */
 const FileSystemGrid = memo(function FileSystemGrid({
   entries,
