@@ -578,6 +578,11 @@ const FileSystemGrid = memo(function FileSystemGrid({
         return false;
       }
       // 右键后 0.5 秒内屏蔽左右键事件，避免误触。
+      console.debug("[FileSystemGrid] block pointer event", {
+        at: new Date().toISOString(),
+        button,
+        lastContextMenu: last,
+      });
       return true;
     },
     []
@@ -597,6 +602,11 @@ const FileSystemGrid = memo(function FileSystemGrid({
       const uri = entryEl?.getAttribute("data-entry-uri") ?? "";
       // 中文注释：统一记录右键触发源，避免触控板右键后误触点击。
       lastContextMenuRef.current = { uri, at: Date.now() };
+      console.debug("[FileSystemGrid] grid context capture", {
+        at: new Date().toISOString(),
+        uri: uri || null,
+        targetTag: target?.tagName ?? null,
+      });
       onGridContextMenuCapture?.(event, { uri: uri || null });
     },
     [onGridContextMenuCapture, shouldBlockPointerEvent]
@@ -642,6 +652,14 @@ const FileSystemGrid = memo(function FileSystemGrid({
   /** Start drag selection when the user presses on empty space. */
   const handleGridMouseDown = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (event.button === 0) {
+        const target = event.target as HTMLElement | null;
+        console.debug("[FileSystemGrid] grid left mousedown", {
+          at: new Date().toISOString(),
+          targetTag: target?.tagName ?? null,
+          hasEntry: Boolean(target?.closest('[data-entry-card="true"]')),
+        });
+      }
       if (shouldBlockPointerEvent(event)) {
         event.preventDefault();
         return;
@@ -720,6 +738,23 @@ const FileSystemGrid = memo(function FileSystemGrid({
       if (frame) cancelAnimationFrame(frame);
     };
   }, [entries.length, shouldShowParentEntry]);
+
+  useEffect(() => {
+    const handleDocumentContextMenu = (event: MouseEvent) => {
+      const last = lastContextMenuRef.current;
+      if (!last) return;
+      if (Date.now() - last.at > 500) {
+        lastContextMenuRef.current = null;
+        return;
+      }
+      // 右键触发后短时间内拦截系统右键菜单，避免闪烁。
+      event.preventDefault();
+    };
+    document.addEventListener("contextmenu", handleDocumentContextMenu);
+    return () => {
+      document.removeEventListener("contextmenu", handleDocumentContextMenu);
+    };
+  }, []);
 
   return (
     <div className="flex min-h-full h-full flex-col">
@@ -884,6 +919,14 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 isSelected={isSelected}
                 isDragOver={isDragOver}
                 onClick={(event) => {
+                  console.debug("[FileSystemGrid] entry click", {
+                    at: new Date().toISOString(),
+                    uri: entry.uri,
+                    button: event.button,
+                    which: event.nativeEvent?.which,
+                    metaKey: event.metaKey,
+                    ctrlKey: event.ctrlKey,
+                  });
                   if (shouldBlockPointerEvent(event)) return;
                   onEntryClick?.(entry, event);
                 }}

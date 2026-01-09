@@ -533,16 +533,13 @@ export const useTabs = create<TabsState>()(
 
       setTabChatSession: (tabId, chatSessionId, options) => {
         set((state) => ({
-          stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
-          activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId, [tabId]: "" },
           tabs: updateTabById(state.tabs, tabId, (tab) =>
             normalizeDock({
               ...tab,
               chatSessionId,
               // loadHistory 是一次性的“下一次是否补历史”的开关，由 Chat 侧消费。
               chatLoadHistory: options?.loadHistory,
-              // 切换 chatSession 时清空左侧 stack（避免旧的工具/页面残留在左侧栈里）。
-              stack: [],
+              // 切换 chatSession 时保留左侧 stack 和隐藏状态，避免整页级刷新感。
             }),
           ),
         }));

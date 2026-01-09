@@ -134,7 +134,7 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     resizeMode: "uniform",
     rotatable: false,
     connectable: "anchors",
-    minSize: { w: 160, h: 120 },
+    minSize: { w: 120, h: 90 },
     maxSize: { w: 960, h: 720 },
   },
   // 逻辑：图片节点提供下载/复制原图入口，保持编辑与导出分离。
