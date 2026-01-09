@@ -4,6 +4,8 @@ interface UseChatScrollProps {
   scrollToBottomToken: number;
   scrollToMessageToken?: { messageId: string; token: number } | null;
   followToBottomToken?: number;
+  /** Trigger delayed follow-to-bottom on session switch. */
+  sessionSwitchToken?: number;
   /** Enable follow-to-bottom while SSE is loading. */
   forceFollow?: boolean;
   viewportRef: React.RefObject<HTMLDivElement | null>;
@@ -15,6 +17,7 @@ export function useChatScroll({
   scrollToBottomToken,
   scrollToMessageToken,
   followToBottomToken,
+  sessionSwitchToken,
   forceFollow,
   viewportRef,
   bottomRef,
@@ -29,6 +32,10 @@ export function useChatScroll({
   const forceFollowEnabledRef = React.useRef(false);
   // Whether we are currently forcing follow.
   const forceFollowRef = React.useRef(false);
+  // Session switch follow timeout id.
+  const sessionSwitchTimerRef = React.useRef<number | null>(null);
+  // Session switch follow interval id.
+  const sessionSwitchIntervalRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     // 中文注释：SSE loading 仅在未被用户上滑打断时才启用贴底跟随。
@@ -173,6 +180,68 @@ export function useChatScroll({
       isPinnedToBottomRef.current = getIsAtBottom();
     });
   }, [viewportRef, getIsAtBottom]);
+
+  React.useEffect(() => {
+    if (!sessionSwitchToken) return;
+    // 中文注释：切换会话后短暂延迟贴底，兜底异步内容（如图片）高度变化。
+    shouldAutoFollowRef.current = true;
+    isPinnedToBottomRef.current = true;
+    userScrollIntentRef.current = false;
+    if (forceFollowEnabledRef.current) {
+      forceFollowRef.current = true;
+    }
+
+    if (sessionSwitchTimerRef.current != null) {
+      window.clearTimeout(sessionSwitchTimerRef.current);
+      sessionSwitchTimerRef.current = null;
+    }
+    if (sessionSwitchIntervalRef.current != null) {
+      window.clearInterval(sessionSwitchIntervalRef.current);
+      sessionSwitchIntervalRef.current = null;
+    }
+
+    const delayMs = 160;
+    const followWindowMs = 1200;
+    const intervalMs = 220;
+    const startedAt = Date.now();
+
+    // 中文注释：仍允许跟随时才尝试贴底。
+    const tryFollow = () => {
+      const distance = getDistanceFromBottom();
+      const shouldFollow =
+        forceFollowRef.current ||
+        shouldAutoFollowRef.current ||
+        distance <= 8 ||
+        isPinnedToBottomRef.current;
+      if (!shouldFollow) return;
+      scrollToBottom("auto");
+    };
+
+    sessionSwitchTimerRef.current = window.setTimeout(() => {
+      tryFollow();
+      sessionSwitchIntervalRef.current = window.setInterval(() => {
+        if (Date.now() - startedAt >= followWindowMs) {
+          if (sessionSwitchIntervalRef.current != null) {
+            window.clearInterval(sessionSwitchIntervalRef.current);
+            sessionSwitchIntervalRef.current = null;
+          }
+          return;
+        }
+        tryFollow();
+      }, intervalMs);
+    }, delayMs);
+
+    return () => {
+      if (sessionSwitchTimerRef.current != null) {
+        window.clearTimeout(sessionSwitchTimerRef.current);
+        sessionSwitchTimerRef.current = null;
+      }
+      if (sessionSwitchIntervalRef.current != null) {
+        window.clearInterval(sessionSwitchIntervalRef.current);
+        sessionSwitchIntervalRef.current = null;
+      }
+    };
+  }, [sessionSwitchToken, scrollToBottom, getDistanceFromBottom]);
 
   React.useLayoutEffect(() => {
     if (!scrollToMessageToken) return;

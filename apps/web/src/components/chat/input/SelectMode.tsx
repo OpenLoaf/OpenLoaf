@@ -15,10 +15,14 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
-import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
+import {
+  buildChatModelOptions,
+  normalizeChatModelSource,
+  type ProviderModelOption,
+} from "@/lib/provider-models";
 import { resolveServerUrl } from "@/utils/server-url";
 import { useChatContext } from "../ChatProvider";
-import { MODEL_TAG_LABELS } from "@teatime-ai/api/common";
+import { MODEL_TAG_LABELS, type ModelTag } from "@teatime-ai/api/common";
 
 interface SelectModeProps {
   className?: string;
@@ -27,6 +31,24 @@ interface SelectModeProps {
 type AuthSessionResponse = {
   /** Whether user is logged in. */
   loggedIn: boolean;
+};
+
+type ProviderGroup = {
+  /** Provider id. */
+  providerId: string;
+  /** Provider display name. */
+  providerName: string;
+  /** Models under provider. */
+  models: ProviderModelOption[];
+};
+
+type FilteredProviderGroup = ProviderGroup & {
+  /** Filtered models. */
+  filteredModels: ProviderModelOption[];
+  /** Models that match current filters. */
+  matchCount: number;
+  /** Total model count. */
+  totalCount: number;
 };
 
 /** Fetch the current auth session from server. */
@@ -70,6 +92,10 @@ export default function SelectMode({ className }: SelectModeProps) {
   const { basic, setBasic } = useBasicConfig();
   const [open, setOpen] = useState(false);
   const [authLoggedIn, setAuthLoggedIn] = useState(false);
+  /** Active provider id for the model list. */
+  const [activeProviderId, setActiveProviderId] = useState<string>("");
+  /** Selected tags for model filtering. */
+  const [selectedTags, setSelectedTags] = useState<ModelTag[]>([]);
   const authBaseUrl = resolveServerUrl();
   const { tabId } = useChatContext();
   const pushStackItem = useTabs((s) => s.pushStackItem);
@@ -79,6 +105,53 @@ export default function SelectMode({ className }: SelectModeProps) {
     () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
     [chatModelSource, providerItems, cloudModels],
   );
+  /** Provider groups derived from model options. */
+  const providerGroups = useMemo<ProviderGroup[]>(() => {
+    const grouped = new Map<string, ProviderGroup>();
+    for (const option of modelOptions) {
+      const existing = grouped.get(option.providerId);
+      if (existing) {
+        existing.models.push(option);
+        continue;
+      }
+      // 按 providerId 分组，保留首次出现顺序。
+      grouped.set(option.providerId, {
+        providerId: option.providerId,
+        providerName: option.providerName,
+        models: [option],
+      });
+    }
+    return Array.from(grouped.values());
+  }, [modelOptions]);
+  /** Available tags for filtering. */
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<ModelTag>();
+    for (const option of modelOptions) {
+      for (const tag of option.tags ?? []) {
+        tagSet.add(tag);
+      }
+    }
+    return (Object.keys(MODEL_TAG_LABELS) as ModelTag[])
+      .filter((tag) => tagSet.has(tag))
+      .map((tag) => ({ tag, label: MODEL_TAG_LABELS[tag] ?? tag }));
+  }, [modelOptions]);
+  /** Provider groups enriched with tag filtering results. */
+  const filteredProviderGroups = useMemo<FilteredProviderGroup[]>(() => {
+    const hasFilters = selectedTags.length > 0;
+    return providerGroups.map((group) => {
+      const filteredModels = hasFilters
+        ? group.models.filter((model) =>
+            selectedTags.every((tag) => (model.tags ?? []).includes(tag)),
+          )
+        : group.models;
+      return {
+        ...group,
+        filteredModels,
+        matchCount: filteredModels.length,
+        totalCount: group.models.length,
+      };
+    });
+  }, [providerGroups, selectedTags]);
   const rawSelectedModelId =
     typeof basic.modelDefaultChatModelId === "string"
       ? basic.modelDefaultChatModelId.trim()
@@ -93,12 +166,31 @@ export default function SelectMode({ className }: SelectModeProps) {
   const showModelList = hasModels && !isAuto;
   const showAddButton = !isCloudSource && (!isAuto || !hasModels);
   const showTopSection = showAuto || showModelList;
+  /** Provider id of the currently selected model. */
+  const selectedProviderId = selectedModel?.providerId ?? "";
   /** Persist selected model id into basic config. */
   const persistModelDefaultId = useCallback((nextModelId: string) => {
     const normalized = typeof nextModelId === "string" ? nextModelId : "";
     if (normalized === rawSelectedModelId) return;
     void setBasic({ modelDefaultChatModelId: normalized });
   }, [rawSelectedModelId, setBasic]);
+  /** Toggle tag selection for filtering. */
+  const handleToggleTag = useCallback((tag: ModelTag) => {
+    setSelectedTags((prev) => {
+      if (prev.includes(tag)) {
+        return prev.filter((item) => item !== tag);
+      }
+      return [...prev, tag];
+    });
+  }, []);
+  /** Clear all selected tags. */
+  const handleClearTags = useCallback(() => {
+    setSelectedTags([]);
+  }, []);
+  /** Select provider for model list. */
+  const handleSelectProvider = useCallback((providerId: string) => {
+    setActiveProviderId(providerId);
+  }, []);
   useEffect(() => {
     if (!open) return;
     // 中文注释：展开模型列表时刷新服务端配置，确保展示最新模型。
@@ -124,6 +216,32 @@ export default function SelectMode({ className }: SelectModeProps) {
     // 中文注释：未登录时强制回退为本地模式，避免云端入口被直接开启。
     void setBasic({ chatSource: "local" });
   }, [authLoggedIn, isCloudSource, setBasic]);
+  useEffect(() => {
+    if (selectedTags.length === 0) return;
+    const availableTagSet = new Set(availableTags.map((item) => item.tag));
+    const nextTags = selectedTags.filter((tag) => availableTagSet.has(tag));
+    if (nextTags.length === selectedTags.length) return;
+    // 移除不可用标签，避免筛选条件失效但不可见。
+    setSelectedTags(nextTags);
+  }, [availableTags, selectedTags]);
+  useEffect(() => {
+    if (!open) return;
+    if (providerGroups.length === 0) {
+      if (activeProviderId) {
+        setActiveProviderId("");
+      }
+      return;
+    }
+    if (activeProviderId && providerGroups.some((group) => group.providerId === activeProviderId)) {
+      return;
+    }
+    const nextProviderId =
+      selectedProviderId && providerGroups.some((group) => group.providerId === selectedProviderId)
+        ? selectedProviderId
+        : providerGroups[0]!.providerId;
+    // 选择器打开时优先定位到已选模型对应的 provider。
+    setActiveProviderId(nextProviderId);
+  }, [open, providerGroups, activeProviderId, selectedProviderId]);
 
   /** Trigger login flow for cloud models. */
   const handleLogin = async () => {
@@ -163,6 +281,14 @@ export default function SelectMode({ className }: SelectModeProps) {
       persistModelDefaultId("");
     }
   };
+
+  /** Active provider group for rendering. */
+  const activeProviderGroup =
+    filteredProviderGroups.find((group) => group.providerId === activeProviderId) ??
+    filteredProviderGroups[0] ??
+    null;
+  /** Models for active provider after filtering. */
+  const activeProviderModels = activeProviderGroup?.filteredModels ?? [];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -246,6 +372,8 @@ export default function SelectMode({ className }: SelectModeProps) {
                           return;
                         }
                         if (modelOptions.length === 0) return;
+                        // 从 Auto 切换到手动时，默认定位到首个模型所在 provider。
+                        setActiveProviderId(modelOptions[0]!.providerId);
                         persistModelDefaultId(modelOptions[0]!.id);
                       }}
                     />
@@ -259,54 +387,145 @@ export default function SelectMode({ className }: SelectModeProps) {
               ) : null}
 
               {showModelList ? (
-                <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border/70 bg-muted/30 p-1">
-                  {modelOptions.map((option) => {
-                    const tagLabels =
-                      option.tags && option.tags.length > 0
-                        ? option.tags.map((tag) => MODEL_TAG_LABELS[tag] ?? tag)
-                        : null;
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => persistModelDefaultId(option.id)}
-                        className={cn(
-                          "h-16 w-full rounded-md border border-transparent px-3 py-2 text-right transition-colors hover:border-border/70 hover:bg-muted/60",
-                          selectedModelId === option.id && "border-border/70 bg-muted/70"
-                        )}
-                      >
-                        <div className="flex h-full items-center justify-between gap-3">
-                          <div className="min-w-0 flex-1 text-right">
-                            <div className="flex items-center justify-end gap-1 truncate text-sm font-medium text-foreground">
-                              {!isCloudSource ? (
-                                <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
-                              ) : null}
-                              <span className="truncate">
-                                {option.providerName}/{option.modelId}
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="sm:w-40">
+                    <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border/70 bg-muted/30 p-1">
+                      {filteredProviderGroups.map((group) => {
+                        const isActive = group.providerId === activeProviderId;
+                        const isEmpty = selectedTags.length > 0 && group.matchCount === 0;
+                        const countLabel =
+                          selectedTags.length > 0
+                            ? `${group.matchCount}/${group.totalCount}`
+                            : `${group.totalCount}`;
+                        return (
+                          <button
+                            key={group.providerId}
+                            type="button"
+                            onClick={() => handleSelectProvider(group.providerId)}
+                            className={cn(
+                              "w-full rounded-md border border-transparent px-2 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
+                              isActive && "border-border/70 bg-muted/70",
+                              isEmpty && "opacity-60"
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                                {group.providerName}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {countLabel}
                               </span>
                             </div>
-                            <div className="mt-1 flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted-foreground">
-                              <span className="flex flex-wrap items-center justify-end gap-1">
-                                {(tagLabels ?? []).map((label) => (
-                                  <span
-                                    key={`${option.id}-${label}`}
-                                    className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
-                                  >
-                                    {label}
-                                  </span>
-                                ))}
-                              </span>
-                            </div>
-                          </div>
-                          <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                            {selectedModelId === option.id ? (
-                              <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
-                            ) : null}
-                          </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="rounded-lg border border-border/70 bg-muted/30">
+                      {availableTags.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-1 border-b border-border/70 px-2 py-2">
+                          {availableTags.map(({ tag, label }) => {
+                            const isSelected = selectedTags.includes(tag);
+                            return (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => handleToggleTag(tag)}
+                                className={cn(
+                                  "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] transition-colors",
+                                  isSelected
+                                    ? "border-primary/50 bg-primary/10 text-primary"
+                                    : "border-border/70 bg-background text-muted-foreground hover:border-border/90"
+                                )}
+                                aria-pressed={isSelected}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                          {selectedTags.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={handleClearTags}
+                              className="ml-auto text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                              清空
+                            </button>
+                          ) : null}
                         </div>
-                      </button>
-                    );
-                  })}
+                      ) : (
+                        <div className="border-b border-border/70 px-2 py-2 text-[11px] text-muted-foreground">
+                          暂无可筛选标签
+                        </div>
+                      )}
+                      <div className="max-h-64 space-y-1 overflow-y-auto p-1">
+                        {activeProviderGroup ? (
+                          activeProviderModels.length > 0 ? (
+                            activeProviderModels.map((option) => {
+                              const tagLabels =
+                                option.tags && option.tags.length > 0
+                                  ? option.tags.map((tag) => MODEL_TAG_LABELS[tag] ?? tag)
+                                  : null;
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  onClick={() => persistModelDefaultId(option.id)}
+                                  className={cn(
+                                    "h-16 w-full rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
+                                    selectedModelId === option.id &&
+                                      "border-border/70 bg-muted/70"
+                                  )}
+                                >
+                                  <div className="flex h-full items-center justify-between gap-3">
+                                    <div className="min-w-0 flex-1 text-left">
+                                      <div className="flex items-center gap-1 truncate text-sm font-medium text-foreground">
+                                        {!isCloudSource ? (
+                                          <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                                        ) : null}
+                                        <span className="truncate">
+                                          {option.providerName}/{option.modelId}
+                                        </span>
+                                      </div>
+                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                                        <span className="flex flex-wrap items-center gap-1">
+                                          {(tagLabels ?? []).map((label) => (
+                                            <span
+                                              key={`${option.id}-${label}`}
+                                              className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
+                                            >
+                                              {label}
+                                            </span>
+                                          ))}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                                      {selectedModelId === option.id ? (
+                                        <Check
+                                          className="h-4 w-4 text-primary"
+                                          strokeWidth={2.5}
+                                        />
+                                      ) : null}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                              当前筛选无匹配模型
+                            </div>
+                          )
+                        ) : (
+                          <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                            暂无可用模型
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : null}
             </div>

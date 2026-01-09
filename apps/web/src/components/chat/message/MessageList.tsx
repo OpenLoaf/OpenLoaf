@@ -25,10 +25,15 @@ export default function MessageList({ className }: MessageListProps) {
     streamTick,
     isHistoryLoading,
     stepThinking,
+    sessionId,
   } = useChatContext();
   const viewportRef = React.useRef<HTMLDivElement | null>(null);
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
+  // Previous session id.
+  const prevSessionIdRef = React.useRef<string | null>(null);
+  /** Session switch follow token. */
+  const [sessionSwitchToken, setSessionSwitchToken] = React.useState(0);
 
   const lastHumanIndex = React.useMemo(
     () => (messages as any[]).findLastIndex((m) => m?.role === "user"),
@@ -41,6 +46,20 @@ export default function MessageList({ className }: MessageListProps) {
   const hideAiActions = status === "submitted" || status === "streaming";
   // SSE loading state.
   const isSseLoading = status === "submitted" || status === "streaming";
+  // 中文注释：空态时展示提示卡片。
+  const shouldShowHelper = !isHistoryLoading && messages.length === 0;
+
+  React.useEffect(() => {
+    if (!sessionId) return;
+    const prev = prevSessionIdRef.current;
+    if (!prev) {
+      prevSessionIdRef.current = sessionId;
+      return;
+    }
+    if (prev === sessionId) return;
+    prevSessionIdRef.current = sessionId;
+    setSessionSwitchToken((value) => value + 1);
+  }, [sessionId]);
 
   // 发送消息后，在 AI 还没返回任何可见内容前显示“正在思考中”
   const shouldShowThinking = React.useMemo(() => {
@@ -62,12 +81,13 @@ export default function MessageList({ className }: MessageListProps) {
       messages.length + streamTick + (status === "ready" ? 1 : 0) + (error ? 1 : 0),
     // 中文注释：SSE 请求中启用贴底跟随，用户上滑可暂停。
     forceFollow: isSseLoading,
+    sessionSwitchToken,
     viewportRef,
     bottomRef,
     contentRef,
   });
 
-  if (!isHistoryLoading && messages.length === 0) {
+  if (shouldShowHelper) {
     return (
       <div
         className={cn(

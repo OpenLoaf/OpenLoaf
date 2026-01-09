@@ -242,7 +242,7 @@ const FileSystemEntryName = memo(function FileSystemEntryName({
   entry: FileSystemEntry;
 }) {
   const labelRef = useRef<HTMLSpanElement>(null);
-  // 中文注释：用于测量文本高度的隐藏节点。
+  // 用于测量文本高度的隐藏节点。
   const measureRef = useRef<HTMLSpanElement | null>(null);
   const nameInfo = useMemo(() => {
     const normalizedExt = entry.kind === "file" ? getEntryExt(entry) : "";
@@ -276,7 +276,7 @@ const FileSystemEntryName = memo(function FileSystemEntryName({
       fullName: entry.name,
     };
   }, [entry.ext, entry.kind, entry.name]);
-  // 中文注释：缓存计算后的显示文本，避免频繁触发布局测量。
+  // 缓存计算后的显示文本，避免频繁触发布局测量。
   const [labelText, setLabelText] = useState(nameInfo.fullName);
 
   /** Ensure the hidden measurement node exists. */
@@ -327,7 +327,7 @@ const FileSystemEntryName = memo(function FileSystemEntryName({
       setLabelText(nameInfo.fullName);
       return;
     }
-    // 中文注释：同步文本样式与宽度，确保测量结果准确。
+    // 同步文本样式与宽度，确保测量结果准确。
     measureEl.style.width = `${width}px`;
     measureEl.style.font = computed.font;
     measureEl.style.letterSpacing = computed.letterSpacing;
@@ -496,7 +496,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
   } | null>(null);
   const selectionModeRef = useRef<"replace" | "toggle">("replace");
   const lastSelectedRef = useRef<string>("");
-  // 中文注释：记录当前拖拽悬停的文件夹，用于高亮提示。
+  // 记录当前拖拽悬停的文件夹，用于高亮提示。
   const [dragOverFolderUri, setDragOverFolderUri] = useState<string | null>(null);
   // 记录最近一次右键触发的条目与时间，用于 0.5 秒内拦截左右键误触。
   const lastContextMenuRef = useRef<{ uri: string; at: number } | null>(null);
@@ -530,7 +530,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
     return map;
   }, [thumbnailsQuery.data?.items]);
 
-  // 中文注释：登记网格条目节点，用于框选命中计算。
+  // 登记网格条目节点，用于框选命中计算。
   const registerEntryRef = useCallback((uri: string) => {
     return (node: HTMLElement | null) => {
       if (node) {
@@ -541,7 +541,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
     };
   }, []);
 
-  // 中文注释：根据框选矩形计算命中的条目集合。
+  // 根据框选矩形计算命中的条目集合。
   const updateSelectionFromRect = useCallback(
     (rect: { left: number; top: number; right: number; bottom: number }) => {
       if (!onSelectionChange) return;
@@ -578,11 +578,6 @@ const FileSystemGrid = memo(function FileSystemGrid({
         return false;
       }
       // 右键后 0.5 秒内屏蔽左右键事件，避免误触。
-      console.debug("[FileSystemGrid] block pointer event", {
-        at: new Date().toISOString(),
-        button,
-        lastContextMenu: last,
-      });
       return true;
     },
     []
@@ -600,13 +595,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
         '[data-entry-card="true"]'
       ) as HTMLElement | null;
       const uri = entryEl?.getAttribute("data-entry-uri") ?? "";
-      // 中文注释：统一记录右键触发源，避免触控板右键后误触点击。
+      // 统一记录右键触发源，避免触控板右键后误触点击。
       lastContextMenuRef.current = { uri, at: Date.now() };
-      console.debug("[FileSystemGrid] grid context capture", {
-        at: new Date().toISOString(),
-        uri: uri || null,
-        targetTag: target?.tagName ?? null,
-      });
       onGridContextMenuCapture?.(event, { uri: uri || null });
     },
     [onGridContextMenuCapture, shouldBlockPointerEvent]
@@ -642,7 +632,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
     setSelectionRect(null);
     window.removeEventListener("mousemove", handleMouseMove);
     window.removeEventListener("mouseup", handleMouseUp);
-    // 中文注释：未形成拖拽矩形时，视为点击空白处清空选择。
+    // 未形成拖拽矩形时，视为点击空白处清空选择。
     if (!rect && onSelectionChange) {
       lastSelectedRef.current = "";
       onSelectionChange([], "replace");
@@ -652,14 +642,6 @@ const FileSystemGrid = memo(function FileSystemGrid({
   /** Start drag selection when the user presses on empty space. */
   const handleGridMouseDown = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (event.button === 0) {
-        const target = event.target as HTMLElement | null;
-        console.debug("[FileSystemGrid] grid left mousedown", {
-          at: new Date().toISOString(),
-          targetTag: target?.tagName ?? null,
-          hasEntry: Boolean(target?.closest('[data-entry-card="true"]')),
-        });
-      }
       if (shouldBlockPointerEvent(event)) {
         event.preventDefault();
         return;
@@ -668,7 +650,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
       const target = event.target as HTMLElement | null;
       if (target?.closest('[data-entry-card="true"]')) return;
       if (renamingUri) {
-        // 中文注释：重命名时点击空白处直接提交，避免被框选逻辑拦截。
+        // 重命名时点击空白处直接提交，避免被框选逻辑拦截。
         onRenamingSubmit?.();
         return;
       }
@@ -694,29 +676,11 @@ const FileSystemGrid = memo(function FileSystemGrid({
     ]
   );
 
-  // 记录文件列表状态变化，方便定位异常跳转。
-  useEffect(() => {
-    console.debug("[FileSystemGrid] state", {
-      at: new Date().toISOString(),
-      isLoading,
-      entriesLength: entries.length,
-      parentUri,
-      showEmptyActions,
-      shouldShowParentEntry,
-    });
-  }, [
-    isLoading,
-    entries.length,
-    parentUri,
-    showEmptyActions,
-    shouldShowParentEntry,
-  ]);
-
   useEffect(() => {
     const gridEl = gridListRef.current;
     if (!gridEl) return;
     let frame = 0;
-    // 中文注释：通过子元素的 offsetTop 统计行数，决定整体对齐方式。
+    // 通过子元素的 offsetTop 统计行数，决定整体对齐方式。
     const measureRows = () => {
       const children = Array.from(gridEl.children) as HTMLElement[];
       const rowTops = new Set<number>();
@@ -786,25 +750,16 @@ const FileSystemGrid = memo(function FileSystemGrid({
               </EmptyContent>
             ) : null}
             {parentUri ? (
-              <Button
-                variant="link"
-                className="text-muted-foreground"
-                size="sm"
-                onClick={(event) => {
-                  if (shouldBlockPointerEvent(event)) return;
-                  console.debug("[FileSystemGrid] empty navigate", {
-                    at: new Date().toISOString(),
-                    uri: parentUri,
-                    button: event.button,
-                    detail: event.detail,
-                    type: event.type,
-                    which: event.nativeEvent?.which,
-                    buttons: event.nativeEvent?.buttons,
-                  });
-                  if (event.button !== 0) return;
-                  if (event.nativeEvent.which !== 1) return;
-                  onNavigate?.(parentUri);
-                }}
+                  <Button
+                    variant="link"
+                    className="text-muted-foreground"
+                    size="sm"
+                    onClick={(event) => {
+                      if (shouldBlockPointerEvent(event)) return;
+                      if (event.button !== 0) return;
+                      if (event.nativeEvent.which !== 1) return;
+                      onNavigate?.(parentUri);
+                    }}
               >
                 <ArrowLeftIcon />
                 返回上级
@@ -847,23 +802,6 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 if (shouldBlockPointerEvent(event)) return;
                 if (event.button !== 0) return;
                 if (event.nativeEvent.which !== 1) return;
-                const pointerType =
-                  "pointerType" in event.nativeEvent
-                    ? (event.nativeEvent as PointerEvent).pointerType
-                    : undefined;
-                console.debug("[FileSystemGrid] parent dblclick", {
-                  at: new Date().toISOString(),
-                  button: event.button,
-                  detail: event.detail,
-                  type: event.type,
-                  which: event.nativeEvent?.which,
-                  buttons: event.nativeEvent?.buttons,
-                  pointerType,
-                });
-                console.debug("[FileSystemGrid] parent navigate", {
-                  at: new Date().toISOString(),
-                  uri: parentUri,
-                });
                 onNavigate?.(parentUri!);
               }}
             >
@@ -919,93 +857,40 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 isSelected={isSelected}
                 isDragOver={isDragOver}
                 onClick={(event) => {
-                  console.debug("[FileSystemGrid] entry click", {
-                    at: new Date().toISOString(),
-                    uri: entry.uri,
-                    button: event.button,
-                    which: event.nativeEvent?.which,
-                    metaKey: event.metaKey,
-                    ctrlKey: event.ctrlKey,
-                  });
                   if (shouldBlockPointerEvent(event)) return;
                   onEntryClick?.(entry, event);
                 }}
                 onDoubleClick={(event) => {
                   if (shouldBlockPointerEvent(event)) return;
-                  const pointerType =
-                    "pointerType" in event.nativeEvent
-                      ? (event.nativeEvent as PointerEvent).pointerType
-                      : undefined;
-                  console.debug("[FileSystemGrid] entry dblclick", {
-                    at: new Date().toISOString(),
-                    name: entry.name,
-                    kind: entry.kind,
-                    button: event.button,
-                    detail: event.detail,
-                    type: event.type,
-                    which: event.nativeEvent?.which,
-                    buttons: event.nativeEvent?.buttons,
-                    pointerType,
-                  });
                   if (event.button !== 0) return;
                   if (event.nativeEvent.which !== 1) return;
                   const entryExt = getEntryExt(entry);
                   if (entry.kind === "file" && IMAGE_EXTS.has(entryExt)) {
-                    console.debug("[FileSystemGrid] entry image open", {
-                      at: new Date().toISOString(),
-                      name: entry.name,
-                      uri: entry.uri,
-                    });
                     onOpenImage?.(entry);
                     return;
                   }
                   if (entry.kind === "file" && CODE_EXTS.has(entryExt)) {
-                    console.debug("[FileSystemGrid] entry code open", {
-                      at: new Date().toISOString(),
-                      name: entry.name,
-                      uri: entry.uri,
-                    });
                     onOpenCode?.(entry);
                     return;
                   }
                   if (entry.kind === "file" && PDF_EXTS.has(entryExt)) {
-                    console.debug("[FileSystemGrid] entry pdf open", {
-                      at: new Date().toISOString(),
-                      name: entry.name,
-                      uri: entry.uri,
-                    });
                     onOpenPdf?.(entry);
                     return;
                   }
                   if (entry.kind === "file" && DOC_EXTS.has(entryExt)) {
-                    console.debug("[FileSystemGrid] entry doc open", {
-                      at: new Date().toISOString(),
-                      name: entry.name,
-                      uri: entry.uri,
-                    });
                     onOpenDoc?.(entry);
                     return;
                   }
                   if (entry.kind === "file" && SPREADSHEET_EXTS.has(entryExt)) {
-                    console.debug("[FileSystemGrid] entry spreadsheet open", {
-                      at: new Date().toISOString(),
-                      name: entry.name,
-                      uri: entry.uri,
-                    });
                     onOpenSpreadsheet?.(entry);
                     return;
                   }
                   if (isBoardFolderEntry(entry)) {
-                    console.debug("[FileSystemGrid] entry board folder open", {
-                      at: new Date().toISOString(),
-                      name: entry.name,
-                      uri: entry.uri,
-                    });
                     onOpenBoard?.(entry);
                     return;
                   }
                   if (entry.kind === "file") {
-                    // 中文注释：不支持预览的文件类型交给系统默认程序打开。
+                    // 不支持预览的文件类型交给系统默认程序打开。
                     const ok = window.confirm(
                       "此文件类型暂不支持预览，是否使用系统默认程序打开？"
                     );
@@ -1025,27 +910,9 @@ const FileSystemGrid = memo(function FileSystemGrid({
                   }
                   if (entry.kind !== "folder") return;
                   // 双击文件夹进入下一级目录。
-                  console.debug("[FileSystemGrid] entry navigate", {
-                    at: new Date().toISOString(),
-                    name: entry.name,
-                    uri: entry.uri,
-                  });
                   onNavigate?.(entry.uri);
                 }}
                 onContextMenu={(event) => {
-                  const pointerType =
-                    "pointerType" in event.nativeEvent
-                      ? (event.nativeEvent as PointerEvent).pointerType
-                      : undefined;
-                  console.debug("[FileSystemGrid] entry contextmenu", {
-                    at: new Date().toISOString(),
-                    name: entry.name,
-                    kind: entry.kind,
-                    button: event.button,
-                    detail: event.detail,
-                    type: event.type,
-                    pointerType,
-                  });
                   onEntryContextMenu?.(entry, event);
                 }}
                 onDragStart={(event) => {
@@ -1053,7 +920,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
                     event.preventDefault();
                     return;
                   }
-                  // 中文注释：固定拖拽预览为单个卡片，避免浏览器用整行作为拖拽影像。
+                  // 固定拖拽预览为单个卡片，避免浏览器用整行作为拖拽影像。
                   const dragPreview = event.currentTarget.cloneNode(true) as HTMLElement;
                   const rect = event.currentTarget.getBoundingClientRect();
                   dragPreview.style.position = "absolute";
@@ -1082,26 +949,14 @@ const FileSystemGrid = memo(function FileSystemGrid({
                       entry.uri
                     );
                     if (!relativePath) return entry.uri;
-                    // 中文注释：对外拖拽统一使用 teatime-file 协议。
+                    // 对外拖拽统一使用 teatime-file 协议。
                     return buildTeatimeFileUrl(dragProjectId, relativePath);
                   })();
                   setImageDragPayload(event.dataTransfer, {
                     baseUri: dragUri,
                     fileName: entry.name,
                   });
-                  console.debug(
-                    "[FileSystemGrid] dragstart payload",
-                    JSON.stringify({
-                      types: Array.from(event.dataTransfer.types ?? []),
-                      data: {
-                        fileUri: event.dataTransfer.getData(FILE_DRAG_URI_MIME),
-                        fileName: event.dataTransfer.getData(FILE_DRAG_NAME_MIME),
-                        fileRef: event.dataTransfer.getData(FILE_DRAG_REF_MIME),
-                        text: event.dataTransfer.getData("text/plain"),
-                      },
-                    })
-                  );
-                  // 中文注释：允许在应用内复制到聊天，同时支持文件管理中的移动操作。
+                  // 允许在应用内复制到聊天，同时支持文件管理中的移动操作。
                   event.dataTransfer.effectAllowed = "copyMove";
                   onEntryDragStart?.(entry, event);
                 }}
