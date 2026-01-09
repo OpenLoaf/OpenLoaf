@@ -88,3 +88,4 @@ docs/canvas-architecture-spec.md
 docs/canvas/board-user-manual.md
 .history
 .teatime/chat/
+apps/server/auth.json

@@ -21,10 +21,13 @@ import {
   FileAudio,
   FileCode,
   FileImage,
+  FileScan,
   FileSpreadsheet,
   FileText,
+  FileType,
   FileVideo,
   Folder,
+  FolderOpen,
   FolderUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -180,6 +183,7 @@ type FileSystemEntryCardProps = {
   name: string;
   kind: FileSystemEntry["kind"];
   ext?: string;
+  isEmpty?: boolean;
   /** Thumbnail data url for image entries. */
   thumbnailSrc?: string;
   onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
@@ -203,7 +207,7 @@ const ImageThumbnail = memo(function ImageThumbnail({
   name: string;
 }) {
   return (
-    <div className="h-10 w-10 overflow-hidden rounded-md bg-muted/40">
+    <div className="h-11 w-11 overflow-hidden rounded-md bg-muted/40">
       {src ? (
         <img
           src={src}
@@ -236,39 +240,61 @@ function getEntryVisual({
   kind,
   name,
   ext,
+  isEmpty,
   thumbnailSrc,
 }: {
   kind: FileSystemEntry["kind"];
   name: string;
   ext?: string;
+  isEmpty?: boolean;
   thumbnailSrc?: string;
 }) {
   if (kind === "folder" && isBoardFolderName(name)) {
-    return <FileText className="h-10 w-10 text-muted-foreground" />;
+    return (
+      <img
+        src="/board/sketchbook-sketch-svgrepo-com.svg"
+        alt="画布"
+        className="h-11 w-11"
+        loading="lazy"
+        decoding="async"
+      />
+    );
   }
   if (kind === "folder") {
-    return <Folder className="h-10 w-10 text-muted-foreground" />;
+    if (isEmpty === true) {
+      return <Folder className="h-11 w-11 text-muted-foreground" />;
+    }
+    if (isEmpty === false) {
+      return <FolderOpen className="h-11 w-11 text-muted-foreground" />;
+    }
+    return <Folder className="h-11 w-11 text-muted-foreground" />;
   }
   const normalizedExt = resolveEntryExt(kind, name, ext);
   if (IMAGE_EXTS.has(normalizedExt)) {
     return <ImageThumbnail src={thumbnailSrc} name={name} />;
   }
   if (ARCHIVE_EXTS.has(normalizedExt)) {
-    return <FileArchive className="h-10 w-10 text-muted-foreground" />;
+    return <FileArchive className="h-11 w-11 text-muted-foreground" />;
   }
   if (AUDIO_EXTS.has(normalizedExt)) {
-    return <FileAudio className="h-10 w-10 text-muted-foreground" />;
+    return <FileAudio className="h-11 w-11 text-muted-foreground" />;
   }
   if (VIDEO_EXTS.has(normalizedExt)) {
-    return <FileVideo className="h-10 w-10 text-muted-foreground" />;
+    return <FileVideo className="h-11 w-11 text-muted-foreground" />;
   }
   if (SPREADSHEET_EXTS.has(normalizedExt)) {
-    return <FileSpreadsheet className="h-10 w-10 text-muted-foreground" />;
+    return <FileSpreadsheet className="h-11 w-11 text-muted-foreground" />;
   }
   if (CODE_EXTS.has(normalizedExt)) {
-    return <FileCode className="h-10 w-10 text-muted-foreground" />;
+    return <FileCode className="h-11 w-11 text-muted-foreground" />;
   }
-  return <FileText className="h-10 w-10 text-muted-foreground" />;
+  if (PDF_EXTS.has(normalizedExt)) {
+    return <FileScan className="h-11 w-11 text-muted-foreground" />;
+  }
+  if (DOC_EXTS.has(normalizedExt)) {
+    return <FileType className="h-11 w-11 text-muted-foreground" />;
+  }
+  return <FileText className="h-11 w-11 text-muted-foreground" />;
 }
 
 /** Render a file name with suffix-preserving truncation. */
@@ -451,6 +477,7 @@ const FileSystemEntryCard = memo(
         name,
         kind,
         ext,
+        isEmpty,
         thumbnailSrc,
         onClick,
         onDoubleClick,
@@ -465,7 +492,7 @@ const FileSystemEntryCard = memo(
       },
       ref
     ) {
-      const visual = getEntryVisual({ kind, name, ext, thumbnailSrc });
+      const visual = getEntryVisual({ kind, name, ext, isEmpty, thumbnailSrc });
       return (
         <button
           ref={ref}
@@ -575,6 +602,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onEntryDragStartRef.current = onEntryDragStart;
   const onEntryDropRef = useRef(onEntryDrop);
   onEntryDropRef.current = onEntryDrop;
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  onSelectionChangeRef.current = onSelectionChange;
   const onOpenImageRef = useRef(onOpenImage);
   onOpenImageRef.current = onOpenImage;
   const onOpenCodeRef = useRef(onOpenCode);
@@ -873,6 +902,16 @@ const FileSystemGrid = memo(function FileSystemGrid({
     [resolveEntryFromEvent]
   );
 
+  /** Handle select-all shortcut for the grid. */
+  const handleSelectAll = useCallback(() => {
+    const change = onSelectionChangeRef.current;
+    if (!change) return;
+    const allUris = entriesRef.current.map((entry) => entry.uri);
+    const sorted = [...allUris].sort();
+    lastSelectedRef.current = sorted.join("|");
+    change(sorted, "replace");
+  }, []);
+
   const handleGridContextMenuCapture = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
       if (shouldBlockPointerEvent(event)) {
@@ -944,6 +983,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
         onRenamingSubmit?.();
         return;
       }
+      gridRef.current?.focus();
       selectionModeRef.current = resolveSelectionMode
         ? resolveSelectionMode(event)
         : event.metaKey || event.ctrlKey
@@ -965,6 +1005,29 @@ const FileSystemGrid = memo(function FileSystemGrid({
       shouldBlockPointerEvent,
     ]
   );
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        // 输入场景保留浏览器默认全选行为。
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) {
+          return;
+        }
+      }
+      const gridEl = gridRef.current;
+      if (!gridEl || !target || !gridEl.contains(target)) return;
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.key.toLowerCase() !== "a") return;
+      event.preventDefault();
+      handleSelectAll();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleSelectAll]);
 
   useEffect(() => {
     const gridEl = gridListRef.current;
@@ -1079,7 +1142,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
       ) : null}
       <div
         ref={gridRef}
-        className="relative flex-1 min-h-full h-full p-0.5"
+        tabIndex={-1}
+        className="relative flex-1 min-h-full h-full p-0.5 focus:outline-none"
         onMouseDown={handleGridMouseDown}
         onContextMenuCapture={handleGridContextMenuCapture}
       >
@@ -1139,7 +1203,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 onEntryDrop?.(parentEntry, event);
               }}
             >
-              <FolderUp className="h-10 w-10 text-muted-foreground" />
+              <FolderUp className="h-11 w-11 text-muted-foreground" />
               <span className="line-clamp-2 min-h-[2rem] w-full break-words leading-4">
                 上一级
               </span>
@@ -1154,6 +1218,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
               kind: entry.kind,
               name: entry.name,
               ext: entry.ext,
+              isEmpty: entry.isEmpty,
               thumbnailSrc,
             });
             const displayName =
@@ -1194,6 +1259,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 name={entry.name}
                 kind={entry.kind}
                 ext={entry.ext}
+                isEmpty={entry.isEmpty}
                 thumbnailSrc={thumbnailSrc}
                 ref={registerEntryRef(entry.uri)}
                 isSelected={isSelected}

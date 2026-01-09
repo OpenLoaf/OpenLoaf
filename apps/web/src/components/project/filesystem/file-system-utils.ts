@@ -5,6 +5,8 @@ export type FileSystemEntry = {
   ext?: string;
   size?: number;
   updatedAt?: string;
+  /** Whether the folder has no visible children. */
+  isEmpty?: boolean;
 };
 
 export const IGNORE_NAMES = new Set([
@@ -109,10 +111,10 @@ export function getUniqueName(name: string, existingNames: Set<string>) {
   const ext = hasExt ? `.${parts.pop()}` : "";
   const base = parts.join(".");
   let index = 1;
-  while (existingNames.has(`${base}-copy${index}${ext}`)) {
+  while (existingNames.has(`${base}-${index}${ext}`)) {
     index += 1;
   }
-  return `${base}-copy${index}${ext}`;
+  return `${base}-${index}${ext}`;
 }
 
 /** Format file size for display. */

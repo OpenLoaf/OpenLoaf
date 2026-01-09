@@ -5,6 +5,9 @@ import sharp from "sharp";
 import { t, shieldedProcedure } from "../index";
 import { resolveWorkspacePathFromUri, toFileUri } from "../services/vfsService";
 
+/** Board folder prefix for server-side sorting. */
+const BOARD_FOLDER_PREFIX = "ttboard_";
+
 const fsUriSchema = z.object({
   uri: z.string(),
 });
@@ -32,7 +35,12 @@ const fsThumbnailSchema = z.object({
 });
 
 /** Build a file node for UI consumption. */
-function buildFileNode(input: { name: string; fullPath: string; stat: Awaited<ReturnType<typeof fs.stat>> }) {
+function buildFileNode(input: {
+  name: string;
+  fullPath: string;
+  stat: Awaited<ReturnType<typeof fs.stat>>;
+  isEmpty?: boolean;
+}) {
   const ext = path.extname(input.name).replace(/^\./, "");
   const isDir = input.stat.isDirectory();
   return {
@@ -42,6 +50,7 @@ function buildFileNode(input: { name: string; fullPath: string; stat: Awaited<Re
     ext: ext || undefined,
     size: isDir ? undefined : input.stat.size,
     updatedAt: input.stat.mtime.toISOString(),
+    isEmpty: isDir ? input.isEmpty : undefined,
   };
 }
 
@@ -74,6 +83,24 @@ function getMimeByExt(ext: string) {
   }
 }
 
+/** Return true when the folder name follows the board prefix. */
+function isBoardFolderName(name: string): boolean {
+  return name.toLowerCase().startsWith(BOARD_FOLDER_PREFIX);
+}
+
+/** Resolve whether a folder should be treated as empty. */
+async function resolveFolderEmptyState(fullPath: string, includeHidden: boolean): Promise<boolean> {
+  try {
+    const entries = await fs.readdir(fullPath, { withFileTypes: true });
+    if (entries.length === 0) return true;
+    if (includeHidden) return false;
+    // 中文注释：隐藏文件不计入空目录判断。
+    return entries.every((entry) => entry.name.startsWith("."));
+  } catch {
+    return false;
+  }
+}
+
 export const fsRouter = t.router({
   /** Read metadata for a file or directory. */
   stat: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
@@ -92,7 +119,17 @@ export const fsRouter = t.router({
       if (!includeHidden && entry.name.startsWith(".")) continue;
       const entryPath = path.join(fullPath, entry.name);
       const stat = await fs.stat(entryPath);
-      nodes.push(buildFileNode({ name: entry.name, fullPath: entryPath, stat }));
+      const isEmpty = stat.isDirectory()
+        ? await resolveFolderEmptyState(entryPath, includeHidden)
+        : undefined;
+      nodes.push(
+        buildFileNode({
+          name: entry.name,
+          fullPath: entryPath,
+          stat,
+          isEmpty,
+        })
+      );
     }
     const sortField = input.sort?.field ?? "name";
     const sortOrder = input.sort?.order ?? "asc";
@@ -100,8 +137,15 @@ export const fsRouter = t.router({
     // 按规则排序：name 时文件夹优先；mtime 时直接全量排序。
     if (sortField === "name") {
       nodes.sort((a, b) => {
-        if (a.kind !== b.kind) {
-          return a.kind === "folder" ? -1 : 1;
+        const rank = (node: typeof a) => {
+          if (node.kind !== "folder") return 2;
+          return isBoardFolderName(node.name) ? 1 : 0;
+        };
+        const rankA = rank(a);
+        const rankB = rank(b);
+        if (rankA !== rankB) {
+          // 普通文件夹优先，画布文件夹排在文件夹末尾。
+          return rankA - rankB;
         }
         return a.name.localeCompare(b.name) * direction;
       });
