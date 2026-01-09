@@ -21,7 +21,12 @@ import type {
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import { buildMaskedPreviewUrl, resolveMaskFileName } from "@/lib/image/mask";
 import { readImageDragPayload } from "@/lib/image/drag";
-import { FILE_DRAG_REF_MIME } from "@/components/ui/teatime/drag-drop-types";
+import {
+  FILE_DRAG_NAME_MIME,
+  FILE_DRAG_IMAGE_MIME,
+  FILE_DRAG_REF_MIME,
+  FILE_DRAG_URI_MIME,
+} from "@/components/ui/teatime/drag-drop-types";
 import { parseTeatimeFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
@@ -50,8 +55,10 @@ type ChatProps = {
   ) => void;
 } & Record<string, unknown>;
 
+/** Image filename matcher. */
 const IMAGE_FILE_NAME_REGEX = /\.(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i;
 
+/** Check whether a file ref or name targets an image. */
 function isImageFileRef(fileRef: string) {
   const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? fileRef;
@@ -59,6 +66,7 @@ function isImageFileRef(fileRef: string) {
   return IMAGE_FILE_NAME_REGEX.test(name);
 }
 
+/** Check whether a drag payload includes image files. */
 function hasImageFileUpload(dataTransfer: DataTransfer) {
   const files = Array.from(dataTransfer.files ?? []);
   if (files.length > 0) {
@@ -71,6 +79,21 @@ function hasImageFileUpload(dataTransfer: DataTransfer) {
   return items.some(
     (item) => item.kind === "file" && item.type.startsWith("image/")
   );
+}
+
+/** Read the file reference from an internal drag payload. */
+function resolveTeatimeDragRef(dataTransfer: DataTransfer) {
+  const hasUri = dataTransfer.types.includes(FILE_DRAG_URI_MIME);
+  const hasRef = dataTransfer.types.includes(FILE_DRAG_REF_MIME);
+  if (!hasUri && !hasRef) return "";
+  return dataTransfer.getData(FILE_DRAG_REF_MIME) || "";
+}
+
+/** Read the file name from an internal drag payload. */
+function resolveTeatimeDragName(dataTransfer: DataTransfer) {
+  const hasUri = dataTransfer.types.includes(FILE_DRAG_URI_MIME);
+  if (!hasUri) return "";
+  return dataTransfer.getData(FILE_DRAG_NAME_MIME) || "";
 }
 
 export function Chat({
@@ -491,17 +514,23 @@ export function Chat({
 
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
-    const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
-    const hasFileRef =
+    const hasTeatimeRef =
       event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
-    const fileRef = hasFileRef ? event.dataTransfer.getData(FILE_DRAG_REF_MIME) : "";
-    if (!hasFiles && !hasImageDrag && !hasFileRef) return;
+    const hasTeatimeUri =
+      event.dataTransfer?.types?.includes(FILE_DRAG_URI_MIME) ?? false;
+    const hasTeatimeImage =
+      event.dataTransfer?.types?.includes(FILE_DRAG_IMAGE_MIME) ?? false;
+    if (!hasFiles && !hasTeatimeRef && !hasTeatimeUri) return;
+    const fileRef = resolveTeatimeDragRef(event.dataTransfer);
+    const fileName = resolveTeatimeDragName(event.dataTransfer);
     const hasImageUpload = hasFiles && hasImageFileUpload(event.dataTransfer);
-    const isFileRefImage = hasFileRef && fileRef ? isImageFileRef(fileRef) : false;
-    const wantsImage = hasImageDrag || hasImageUpload || isFileRefImage;
+    const isFileRefImage =
+      hasTeatimeImage ||
+      (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
+    const wantsImage = hasImageUpload || hasTeatimeImage || isFileRefImage;
     const shouldDeny =
       (wantsImage && !canAttachImage) ||
-      (hasFileRef && !canAttachAll) ||
+      ((hasTeatimeRef || hasTeatimeUri) && !canAttachAll) ||
       (hasFiles && !hasImageUpload);
     if (shouldDeny) {
       event.preventDefault();
@@ -518,17 +547,23 @@ export function Chat({
 
   const handleDragOver = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
-    const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
-    const hasFileRef =
+    const hasTeatimeRef =
       event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
-    const fileRef = hasFileRef ? event.dataTransfer.getData(FILE_DRAG_REF_MIME) : "";
-    if (!hasFiles && !hasImageDrag && !hasFileRef) return;
+    const hasTeatimeUri =
+      event.dataTransfer?.types?.includes(FILE_DRAG_URI_MIME) ?? false;
+    const hasTeatimeImage =
+      event.dataTransfer?.types?.includes(FILE_DRAG_IMAGE_MIME) ?? false;
+    if (!hasFiles && !hasTeatimeRef && !hasTeatimeUri) return;
+    const fileRef = resolveTeatimeDragRef(event.dataTransfer);
+    const fileName = resolveTeatimeDragName(event.dataTransfer);
     const hasImageUpload = hasFiles && hasImageFileUpload(event.dataTransfer);
-    const isFileRefImage = hasFileRef && fileRef ? isImageFileRef(fileRef) : false;
-    const wantsImage = hasImageDrag || hasImageUpload || isFileRefImage;
+    const isFileRefImage =
+      hasTeatimeImage ||
+      (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
+    const wantsImage = hasImageUpload || hasTeatimeImage || isFileRefImage;
     const shouldDeny =
       (wantsImage && !canAttachImage) ||
-      (hasFileRef && !canAttachAll) ||
+      ((hasTeatimeRef || hasTeatimeUri) && !canAttachAll) ||
       (hasFiles && !hasImageUpload);
     event.preventDefault();
     if (shouldDeny) {
@@ -545,10 +580,11 @@ export function Chat({
 
   const handleDragLeave = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
-    const hasImageDrag = Boolean(readImageDragPayload(event.dataTransfer));
-    const hasFileRef =
+    const hasTeatimeRef =
       event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
-    if (!hasFiles && !hasImageDrag && !hasFileRef) return;
+    const hasTeatimeUri =
+      event.dataTransfer?.types?.includes(FILE_DRAG_URI_MIME) ?? false;
+    if (!hasFiles && !hasTeatimeRef && !hasTeatimeUri) return;
     dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
     if (dragCounterRef.current === 0) {
       setIsDragActive(false);

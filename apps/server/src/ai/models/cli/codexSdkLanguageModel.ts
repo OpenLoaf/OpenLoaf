@@ -18,7 +18,13 @@ import { convertAsyncIteratorToReadableStream } from "@ai-sdk/provider-utils";
 import { Codex, type ThreadOptions, type Usage } from "@openai/codex-sdk";
 import { logger } from "@/common/logger";
 import { getProjectId, getSessionId, getWorkspaceId } from "@/ai/chat-stream/requestContext";
-import { getCliThreadInfo, setCliThreadInfo } from "@/ai/models/cli/cliThreadStore";
+import {
+  clearCachedCliThread,
+  getCachedCliThread,
+  getCliThreadInfo,
+  setCachedCliThread,
+  setCliThreadInfo,
+} from "@/ai/models/cli/cliThreadStore";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@teatime-ai/api/services/vfsService";
 
 /** Prompt part union used for CLI prompt serialization. */
@@ -51,6 +57,8 @@ const CODEX_CLI_TYPE = "codex";
 const DEFAULT_SANDBOX_MODE: ThreadOptions["sandboxMode"] = "read-only";
 /** Default reasoning effort for Codex. */
 const DEFAULT_REASONING_EFFORT: ThreadOptions["modelReasoningEffort"] = "medium";
+/** Codex thread instance type. */
+type CodexThread = ReturnType<Codex["startThread"]>;
 
 /** Build a prompt string from AI SDK prompt. */
 function buildCodexPromptText(prompt: LanguageModelV3Prompt): string {
@@ -204,6 +212,85 @@ async function resolveCodexThreadId(sessionId: string | undefined): Promise<stri
   return info.threadId;
 }
 
+type CodexThreadResolution = {
+  /** Codex thread instance. */
+  thread: CodexThread;
+  /** Thread id resolved from cache or storage. */
+  threadId: string | null;
+  /** Thread source mode. */
+  mode: "cache" | "resume" | "start";
+};
+
+/** Store Codex thread into memory cache. */
+function cacheCodexThread(
+  sessionId: string | undefined,
+  thread: CodexThread,
+  threadId: string | null,
+): void {
+  if (!sessionId) return;
+  setCachedCliThread(sessionId, {
+    cliType: CODEX_CLI_TYPE,
+    threadId,
+    thread,
+    lastUsedAt: Date.now(),
+  });
+}
+
+/** Resolve a Codex thread from cache or create a new one. */
+async function resolveCodexThread(
+  input: CodexSdkLanguageModelInput,
+  sessionId: string | undefined,
+): Promise<CodexThreadResolution> {
+  const storedThreadId = await resolveCodexThreadId(sessionId);
+  const cached = sessionId ? getCachedCliThread(sessionId) : null;
+  if (cached && cached.cliType === CODEX_CLI_TYPE) {
+    if (storedThreadId && cached.threadId && storedThreadId !== cached.threadId) {
+      // 逻辑：缓存与持久化不一致时丢弃缓存，避免错用 thread。
+      clearCachedCliThread(sessionId);
+    } else {
+      const normalizedThreadId = storedThreadId ?? cached.threadId ?? null;
+      if (normalizedThreadId && normalizedThreadId !== cached.threadId) {
+        // 逻辑：用持久化的 threadId 修正缓存条目。
+        cacheCodexThread(sessionId, cached.thread as CodexThread, normalizedThreadId);
+      }
+      return {
+        thread: cached.thread as CodexThread,
+        threadId: normalizedThreadId,
+        mode: "cache",
+      };
+    }
+  }
+  const codex = buildCodexClient(input);
+  const threadOptions = buildThreadOptions(input.modelId);
+  if (storedThreadId) {
+    const thread = codex.resumeThread(storedThreadId, threadOptions);
+    logger.debug(
+      {
+        sessionId,
+        providerId: input.providerId,
+        modelId: input.modelId,
+        threadId: storedThreadId,
+      },
+      "[cli] codex thread resume",
+    );
+    cacheCodexThread(sessionId, thread, storedThreadId);
+    return { thread, threadId: storedThreadId, mode: "resume" };
+  }
+  const thread = codex.startThread(threadOptions);
+  logger.debug(
+    {
+      sessionId,
+      providerId: input.providerId,
+      modelId: input.modelId,
+      threadId: typeof thread.id === "string" ? thread.id : undefined,
+    },
+    "[cli] codex thread start",
+  );
+  const threadId = typeof thread.id === "string" ? thread.id : null;
+  cacheCodexThread(sessionId, thread, threadId);
+  return { thread, threadId, mode: "start" };
+}
+
 /** Resolve the working directory for Codex execution. */
 function resolveCodexWorkingDirectory(): string {
   const projectId = getProjectId();
@@ -249,6 +336,15 @@ async function persistThreadId(
   await setCliThreadInfo(sessionId, CODEX_CLI_TYPE, threadId);
 }
 
+/** Resolve thread id from a thread instance. */
+function resolveThreadIdFromThread(
+  thread: CodexThread,
+  fallback: string | null,
+): string | null {
+  const id = typeof thread.id === "string" ? thread.id : null;
+  return id ?? fallback ?? null;
+}
+
 /** Build a LanguageModelV3 instance backed by Codex SDK. */
 export function buildCodexSdkLanguageModel(
   input: CodexSdkLanguageModelInput,
@@ -262,13 +358,8 @@ export function buildCodexSdkLanguageModel(
     supportedUrls,
     async doGenerate(options: LanguageModelV3CallOptions): Promise<LanguageModelV3GenerateResult> {
       const sessionId = getSessionId();
-      const threadId = await resolveCodexThreadId(sessionId);
-      const codex = buildCodexClient(input);
-      const threadOptions = buildThreadOptions(input.modelId);
-      const thread = threadId
-        ? codex.resumeThread(threadId, threadOptions)
-        : codex.startThread(threadOptions);
-      const promptText = resolvePromptText(options.prompt, Boolean(threadId));
+      const { thread, threadId, mode } = await resolveCodexThread(input, sessionId);
+      const promptText = resolvePromptText(options.prompt, mode !== "start");
 
       logger.debug(
         {
@@ -276,13 +367,15 @@ export function buildCodexSdkLanguageModel(
           providerId: input.providerId,
           modelId: input.modelId,
           threadId: threadId ?? undefined,
-          mode: threadId ? "resume" : "start",
+          mode,
         },
         "[cli] codex sdk run",
       );
 
       const turn = await thread.run(promptText, { signal: options.abortSignal });
-      await persistThreadId(sessionId, thread.id);
+      const nextThreadId = resolveThreadIdFromThread(thread, threadId);
+      await persistThreadId(sessionId, nextThreadId);
+      cacheCodexThread(sessionId, thread, nextThreadId);
 
       const text = turn.finalResponse?.trim() ?? "";
       return {
@@ -294,13 +387,8 @@ export function buildCodexSdkLanguageModel(
     },
     async doStream(options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult> {
       const sessionId = getSessionId();
-      const threadId = await resolveCodexThreadId(sessionId);
-      const codex = buildCodexClient(input);
-      const threadOptions = buildThreadOptions(input.modelId);
-      const thread = threadId
-        ? codex.resumeThread(threadId, threadOptions)
-        : codex.startThread(threadOptions);
-      const promptText = resolvePromptText(options.prompt, Boolean(threadId));
+      const { thread, threadId, mode } = await resolveCodexThread(input, sessionId);
+      const promptText = resolvePromptText(options.prompt, mode !== "start");
 
       logger.debug(
         {
@@ -308,7 +396,7 @@ export function buildCodexSdkLanguageModel(
           providerId: input.providerId,
           modelId: input.modelId,
           threadId: threadId ?? undefined,
-          mode: threadId ? "resume" : "start",
+          mode,
         },
         "[cli] codex sdk stream",
       );
@@ -329,6 +417,7 @@ export function buildCodexSdkLanguageModel(
         for await (const event of events) {
           if (event.type === "thread.started") {
             await persistThreadId(sessionId, event.thread_id);
+            cacheCodexThread(sessionId, thread, event.thread_id);
             continue;
           }
           if (event.type === "turn.completed") {

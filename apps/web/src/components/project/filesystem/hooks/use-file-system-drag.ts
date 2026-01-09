@@ -16,6 +16,14 @@ import {
   getRelativePathFromUri,
 } from "../utils/file-system-utils";
 
+/** Image filename matcher. */
+const IMAGE_FILE_NAME_REGEX = /\.(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i;
+
+/** Check whether a file system entry is an image. */
+function isImageEntry(entry: FileSystemEntry) {
+  return IMAGE_FILE_NAME_REGEX.test(entry.name);
+}
+
 type UseFileSystemDragParams = {
   entriesRef: MutableRefObject<FileSystemEntry[]>;
   selectedUrisRef: MutableRefObject<Set<string> | undefined>;
@@ -125,6 +133,8 @@ function useFileSystemDrag({
       setImageDragPayload(event.dataTransfer, {
         baseUri: dragUri,
         fileName: normalizedEntries[0]?.name ?? entry.name,
+      }, {
+        kind: isImageEntry(normalizedEntries[0] ?? entry) ? "image" : "file",
       });
       if (dragUris.length > 1) {
         // 多选拖拽时保留完整列表用于目录内移动。

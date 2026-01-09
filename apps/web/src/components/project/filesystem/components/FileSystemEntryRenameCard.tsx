@@ -55,16 +55,15 @@ const FileSystemEntryRenameCard = memo(function FileSystemEntryRenameCard({
       data-entry-uri={entry.uri}
       data-flip-id={entry.uri}
       ref={entryRef}
-      className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground transition-colors ring-1 ring-border/40 bg-muted/30 shadow-sm ${
-        isSelected ? "bg-muted/60 ring-border/70" : ""
+      className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground ${
+        isSelected ? "bg-muted/70 ring-1 ring-border" : ""
       }`}
     >
       {visual}
       <Input
         value={renamingValue ?? displayName}
         onChange={(event) => onRenamingChange?.(event.target.value)}
-        className="h-6 px-2 py-0 text-center text-[11px] leading-4 bg-background/80 shadow-none md:text-[11px]"
-        autoFocus
+        className="h-6 px-2 py-0 text-center text-xs leading-4 shadow-none md:text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
         onKeyDown={(event) => {
           if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
             event.stopPropagation();
