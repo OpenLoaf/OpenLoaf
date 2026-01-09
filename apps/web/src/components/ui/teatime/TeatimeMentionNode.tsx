@@ -56,7 +56,7 @@ export function TeatimeMentionElement(
     <PlateElement
       {...props}
       className={cn(
-        "mx-0.5 inline-flex items-center justify-center gap-1 rounded-md bg-muted px-1 py-0.5 align-baseline text-[10px] font-medium",
+        "mx-0.5 inline-flex items-center justify-center gap-1 rounded-md bg-muted px-1 py-0.5 align-baseline text-[10px] font-medium text-foreground",
         !readOnly && "cursor-pointer",
         selected && focused && "ring-1 ring-ring",
         element.children[0][KEYS.bold] === true && "font-bold",

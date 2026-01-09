@@ -12,6 +12,8 @@ export type ImagePreviewPayload = {
   previewSrc: string;
   /** File name for alt text. */
   fileName: string;
+  /** MIME type for the original image. */
+  mimeType?: string;
 };
 
 export type BoardActions = {

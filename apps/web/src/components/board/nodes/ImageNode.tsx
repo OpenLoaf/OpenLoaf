@@ -72,13 +72,32 @@ export function ImageNodeView({
   const { actions } = useBoardContext();
   /** Request opening the image preview on the canvas. */
   const requestPreview = useCallback(() => {
-    // 逻辑：节点双击触发预览，由 board action 统一接管显示。
+    const originalSrc = element.props.originalSrc;
+    const isRelativeTeatime = originalSrc.startsWith("teatime-file://./");
+    // 逻辑：ImageViewer 仅支持特定协议，相对路径与其他来源回退到压缩预览图。
+    const canUseOriginal =
+      !isRelativeTeatime &&
+      (originalSrc.startsWith("teatime-file://") ||
+        originalSrc.startsWith("data:") ||
+        originalSrc.startsWith("blob:") ||
+        originalSrc.startsWith("file://"));
+    const resolvedOriginal = canUseOriginal ? originalSrc : "";
+    // 逻辑：没有可用地址时不弹出预览，避免空白页面。
+    if (!resolvedOriginal && !previewSrc) return;
+    // 逻辑：点击图片触发预览，由 board action 统一接管显示。
     actions.openImagePreview({
-      originalSrc: resolveImageSource(element.props.originalSrc),
+      originalSrc: resolvedOriginal,
       previewSrc,
       fileName: element.props.fileName,
+      mimeType: element.props.mimeType,
     });
-  }, [actions, element.props.fileName, element.props.originalSrc, previewSrc]);
+  }, [
+    actions,
+    element.props.fileName,
+    element.props.mimeType,
+    element.props.originalSrc,
+    previewSrc,
+  ]);
 
   return (
     <>

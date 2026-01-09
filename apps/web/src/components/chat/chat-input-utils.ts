@@ -3,7 +3,7 @@
 import type { Value } from "platejs";
 import { KEYS } from "platejs";
 
-export const FILE_TOKEN_REGEX = /@\\{([^}]+)\\}/g;
+export const FILE_TOKEN_REGEX = /@\{([^}]+)\}/g;
 
 export type MentionNode = {
   type: typeof KEYS.mention;
@@ -107,7 +107,7 @@ export const serializeChatValue = (value: Value): string => {
 
 /** Normalize serialized text for clipboard usage. */
 export const normalizeSerializedForClipboard = (value: string) =>
-  value.replace(/\\s*@\\{([^}]+)\\}\\s*/g, (_match, token) => `@{${token}}`);
+  value.replace(/\s*@\{([^}]+)\}\s*/g, (_match, token) => `@{${token}}`);
 
 /** Build plain text for character counting. */
 export const getPlainTextValue = (value: Value): string =>

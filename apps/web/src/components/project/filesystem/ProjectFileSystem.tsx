@@ -546,10 +546,15 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               multiple
               className="hidden"
               onChange={async (event) => {
-                const files = Array.from(event.target.files ?? []);
+                const input = event.currentTarget;
+                const files = Array.from(input.files ?? []);
                 if (files.length === 0) return;
                 await model.handleUploadFiles(files);
-                event.currentTarget.value = "";
+                if (model.uploadInputRef.current) {
+                  model.uploadInputRef.current.value = "";
+                } else {
+                  input.value = "";
+                }
               }}
             />
             <div ref={model.searchContainerRef} className="flex items-center">

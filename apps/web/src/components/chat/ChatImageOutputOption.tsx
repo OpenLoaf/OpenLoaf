@@ -59,23 +59,35 @@ type OptionSelectProps = {
   value: string;
   /** Options for select. */
   options: Array<{ label: string; value: string }>;
+  /** Optional trigger className. */
+  triggerClassName?: string;
+  /** Optional content className. */
+  contentClassName?: string;
   /** Change handler. */
   onChange: (value: string) => void;
 };
 
 /** Render a compact select field. */
-function OptionSelect({ label, value, options, onChange }: OptionSelectProps) {
+function OptionSelect({
+  label,
+  value,
+  options,
+  triggerClassName,
+  contentClassName,
+  onChange,
+}: OptionSelectProps) {
   return (
     <OptionGroup label={label}>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger
           className={cn(
-            "h-7 min-w-[110px] rounded-md px-2 text-xs shadow-xs"
+            "h-7 min-w-[110px] rounded-md px-2 text-xs shadow-xs",
+            triggerClassName
           )}
         >
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className={contentClassName}>
           {options.map((option) => (
             <SelectItem
               key={option.value}
@@ -219,6 +231,8 @@ export default function ChatImageOutputOption({
             label: String(count),
             value: String(count),
           }))}
+          triggerClassName="min-w-[56px]"
+          contentClassName="min-w-[56px]"
           onChange={(value) => updateOptions({ n: Number(value) })}
         />
       ) : null}
@@ -228,6 +242,8 @@ export default function ChatImageOutputOption({
           label="图片比例"
           value={ratioSelectValue}
           options={RATIO_SELECT_OPTIONS}
+          triggerClassName="min-w-[63px]"
+          contentClassName="min-w-[63px]"
           onChange={(value) => updateOptions({ aspectRatio: value, size: undefined })}
         />
       ) : null}

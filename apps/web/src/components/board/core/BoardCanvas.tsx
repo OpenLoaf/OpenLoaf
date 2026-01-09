@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { createPortal } from "react-dom";
 import { cn } from "@udecode/cn";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
@@ -15,7 +14,8 @@ import { toScreenPoint } from "../utils/coordinates";
 import { buildImageNodePayloadFromFile } from "../utils/image";
 import { readImageDragPayload } from "@/lib/image/drag";
 import { FILE_DRAG_URI_MIME } from "@/components/ui/teatime/drag-drop-types";
-import { fetchBlobFromUri, getPreviewEndpoint, resolveFileName } from "@/lib/image/uri";
+import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
+import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import {
   buildChildUri,
   buildTeatimeFileUrl,
@@ -830,10 +830,9 @@ export function BoardCanvas({
           element.kind === "node" && element.id === inspectorNodeId
       ) ?? null
     : null;
-  const resolvedPreviewSrc =
-    imagePreview?.originalSrc && imagePreview.originalSrc.startsWith("teatime-file://")
-      ? getPreviewEndpoint(imagePreview.originalSrc)
-      : imagePreview?.originalSrc;
+  // 逻辑：预览优先使用原图地址，缺失时回退到压缩预览。
+  const imagePreviewUri =
+    imagePreview?.originalSrc || imagePreview?.previewSrc || "";
 
   useEffect(() => {
     if (!connectorDrop) return;
@@ -1114,32 +1113,27 @@ export function BoardCanvas({
           />
         ) : null}
       </div>
-      {imagePreview
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
-              onClick={closeImagePreview}
-              role="dialog"
-              aria-label="Image preview"
-            >
-              <div
-                className="max-h-full max-w-full"
-                onClick={event => {
-                  // 逻辑：阻止点击图片时关闭预览，允许继续放大观看。
-                  event.stopPropagation();
-                }}
-              >
-                <img
-                  src={resolvedPreviewSrc || imagePreview.previewSrc}
-                  alt={imagePreview.fileName || "Image"}
-                  className="max-h-[90vh] max-w-[90vw] object-contain"
-                  draggable={false}
-                />
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+      <ImagePreviewDialog
+        open={Boolean(imagePreview)}
+        onOpenChange={(open) => {
+          if (!open) closeImagePreview();
+        }}
+        items={
+          imagePreview
+            ? [
+                {
+                  uri: imagePreviewUri,
+                  title: imagePreview.fileName || "图片预览",
+                  saveName: imagePreview.fileName,
+                  mediaType: imagePreview.mimeType,
+                },
+              ]
+            : []
+        }
+        activeIndex={0}
+        showSave={false}
+        enableEdit={false}
+      />
     </BoardProvider>
   );
 }

@@ -650,6 +650,12 @@ export function Chat({
           onDropHandled={resetDragState}
         />
 
+        <div
+          data-teatime-chat-mask
+          className="absolute inset-0 z-30 hidden bg-transparent"
+          aria-hidden="true"
+        />
+
         <DragDropOverlay
           open={isDragActive}
           title={dragMode === "deny" ? "当前模型不支持图片" : "松开鼠标即可添加图片"}

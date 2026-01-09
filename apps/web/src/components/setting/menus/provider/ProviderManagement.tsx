@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
 import { ModelDialog } from "@/components/setting/menus/provider/ModelDialog";
 import { ProviderDialog } from "@/components/setting/menus/provider/ProviderDialog";
@@ -19,6 +20,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { normalizeChatModelSource } from "@/lib/provider-models";
 import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import { Switch } from "@/components/animate-ui/components/radix/switch";
+import { toast } from "sonner";
 import {
   useProviderManagement,
 } from "@/components/setting/menus/provider/use-provider-management";
@@ -37,6 +40,8 @@ type ModelResponseLanguageId =
  */
 export function ProviderManagement() {
   const { basic, setBasic } = useBasicConfig();
+  // 逻辑：默认关闭强制 API Key，等待后续与配置联动。
+  const [codexForceApiKey, setCodexForceApiKey] = useState(false);
 
   const modelResponseLanguage: ModelResponseLanguageId = basic.modelResponseLanguage;
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
@@ -50,6 +55,19 @@ export function ProviderManagement() {
     "de-DE": "Deutsch",
     "es-ES": "Español",
   };
+  // 逻辑：先用静态占位状态，等待接入 Codex CLI 的真实检测流程。
+  const codexStatus = {
+    installed: false,
+    currentVersion: "",
+    latestVersion: "",
+  };
+  const codexCurrentVersionLabel =
+    codexStatus.installed && codexStatus.currentVersion
+      ? `v${codexStatus.currentVersion}`
+      : "未安装";
+  const codexLatestVersionLabel = codexStatus.latestVersion
+    ? `v${codexStatus.latestVersion}`
+    : "未检测";
 
   const {
     entries,
@@ -217,6 +235,70 @@ export function ProviderManagement() {
             </TeatimeSettingsField>
           </div>
         </TeatimeSettingsCard>
+      </TeatimeSettingsGroup>
+
+      <TeatimeSettingsGroup title="Codex CLI">
+        <div className="divide-y divide-border">
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 sm:w-56">
+              <div className="text-sm font-medium">安装与版本</div>
+              <div className="text-xs text-muted-foreground">
+                当前版本：{codexCurrentVersionLabel}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                安装方式：npm i -g @openai/codex
+              </div>
+            </div>
+
+            <TeatimeSettingsField className="gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => toast.message("暂未接入 Codex CLI 安装流程")}
+              >
+                {codexStatus.installed ? "重新安装" : "安装"}
+              </Button>
+            </TeatimeSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 sm:w-56">
+              <div className="text-sm font-medium">更新检查</div>
+              <div className="text-xs text-muted-foreground">
+                最新版本：{codexLatestVersionLabel}
+              </div>
+            </div>
+
+            <TeatimeSettingsField className="gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => toast.message("暂未接入 Codex CLI 更新检查")}
+              >
+                检测更新
+              </Button>
+            </TeatimeSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 sm:w-56">
+              <div className="text-sm font-medium">强制使用自定义 API Key</div>
+              <div className="text-xs text-muted-foreground">
+                开启后使用供应商 API Key 覆盖本地登录
+              </div>
+            </div>
+
+            <TeatimeSettingsField>
+              <div className="origin-right scale-125">
+                <Switch
+                  checked={codexForceApiKey}
+                  onCheckedChange={setCodexForceApiKey}
+                  aria-label="Force codex api key"
+                />
+              </div>
+            </TeatimeSettingsField>
+          </div>
+        </div>
       </TeatimeSettingsGroup>
 
       <ProviderSection

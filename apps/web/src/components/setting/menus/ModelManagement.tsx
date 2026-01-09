@@ -129,7 +129,6 @@ export function ModelManagement() {
 
         </div>
       </TeatimeSettingsGroup>
-
     </div>
   );
 }

@@ -830,16 +830,46 @@ export function useProjectFileSystemModel({
   /** Upload files into the target directory. */
   const handleUploadFiles = async (files: File[], targetUri = activeUri) => {
     if (!targetUri || files.length === 0) return;
+    const targetEntries =
+      activeUri && targetUri === activeUri
+        ? new Map(fileEntries.map((entry) => [entry.name, entry.kind]))
+        : new Map(
+            (
+              await queryClient.fetchQuery(
+                trpc.fs.list.queryOptions({
+                  uri: targetUri,
+                  includeHidden: showHidden,
+                })
+              )
+            ).entries?.map((entry) => [entry.name, entry.kind]) ?? []
+          );
+    let uploadedCount = 0;
     for (const file of files) {
+      const existingKind = targetEntries.get(file.name);
+      if (existingKind === "folder") {
+        toast.error(`已存在同名文件夹：${file.name}`);
+        continue;
+      }
+      if (existingKind === "file") {
+        // 中文注释：存在同名文件时弹窗确认是否覆盖。
+        const ok = window.confirm(`"${file.name}" 已存在，是否覆盖？`);
+        if (!ok) {
+          continue;
+        }
+      }
       const nextUri = buildChildUri(targetUri, file.name);
       const base64 = await readFileAsBase64(file);
       await writeBinaryMutation.mutateAsync({
         uri: nextUri,
         contentBase64: base64,
       });
+      targetEntries.set(file.name, "file");
+      uploadedCount += 1;
     }
-    refreshList();
-    toast.success("已上传文件");
+    if (uploadedCount > 0) {
+      refreshList();
+      toast.success("已添加文件");
+    }
   };
 
   /** Import an image drag payload into the target folder. */
