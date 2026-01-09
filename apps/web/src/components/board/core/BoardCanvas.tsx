@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@udecode/cn";
-import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
+import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
@@ -14,7 +14,16 @@ import { isBoardUiTarget } from "../utils/dom";
 import { toScreenPoint } from "../utils/coordinates";
 import { buildImageNodePayloadFromFile } from "../utils/image";
 import { readImageDragPayload } from "@/lib/image/drag";
-import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
+import { FILE_DRAG_URI_MIME } from "@/components/ui/teatime/drag-drop-types";
+import { fetchBlobFromUri, getPreviewEndpoint, resolveFileName } from "@/lib/image/uri";
+import {
+  buildChildUri,
+  buildTeatimeFileUrl,
+  getRelativePathFromUri,
+  getUniqueName,
+  parseTeatimeFileUrl,
+} from "@/components/project/filesystem/file-system-utils";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import type {
   CanvasElement,
   CanvasConnectorElement,
@@ -50,6 +59,47 @@ const VIEWPORT_SAVE_DELAY = 800;
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
 /** Offset applied when stacking multiple dropped images. */
 const IMAGE_DROP_STACK_OFFSET = 24;
+/** Prefix used for board-relative teatime-file paths. */
+const BOARD_RELATIVE_URI_PREFIX = "teatime-file://./";
+
+/** Normalize a relative path string. */
+function normalizeRelativePath(value: string) {
+  return value.replace(/^\/+/, "");
+}
+
+/** Return true when the relative path attempts to traverse parents. */
+function hasParentTraversal(value: string) {
+  return value.split("/").some((segment) => segment === "..");
+}
+
+/** Map image node sources through a transform function. */
+function mapSnapshotImageSources(
+  snapshot: BoardSnapshotState,
+  transform: (source: string) => string
+): BoardSnapshotState {
+  let changed = false;
+  const nextNodes = snapshot.nodes.map((node) => {
+    if (node.type !== "image") return node;
+    const props = node.props as Record<string, unknown>;
+    const originalSrc = typeof props.originalSrc === "string" ? props.originalSrc : "";
+    if (!originalSrc) return node;
+    const nextSrc = transform(originalSrc);
+    if (!nextSrc || nextSrc === originalSrc) return node;
+    changed = true;
+    return {
+      ...node,
+      props: {
+        ...props,
+        originalSrc: nextSrc,
+      },
+    };
+  });
+  if (!changed) return snapshot;
+  return {
+    ...snapshot,
+    nodes: nextNodes,
+  };
+}
 
 /** Split elements into nodes and connectors. */
 const splitElements = (elements: CanvasElement[]) => {
@@ -75,7 +125,9 @@ const mergeElements = (
 const isImageDragEvent = (event: DragEvent<HTMLElement>) => {
   const types = event.dataTransfer?.types;
   if (!types) return false;
-  if (Array.from(types).includes("Files")) return true;
+  const typeList = Array.from(types);
+  if (typeList.includes("Files")) return true;
+  if (typeList.includes(FILE_DRAG_URI_MIME)) return true;
   return Boolean(readImageDragPayload(event.dataTransfer));
 };
 
@@ -102,8 +154,14 @@ export type BoardCanvasProps = {
   initialElements?: CanvasElement[];
   /** Workspace id for storage isolation. */
   workspaceId?: string;
+  /** Project id used for file resolution. */
+  projectId?: string;
+  /** Project root uri for attachment resolution. */
+  rootUri?: string;
   /** Optional board identifier used for storage scoping. */
   boardId?: string;
+  /** Board folder uri for attachment storage. */
+  boardFolderUri?: string;
   /** Board file URI used for file persistence. */
   boardFileUri?: string;
   /** Panel key for identifying board instances. */
@@ -118,7 +176,10 @@ export function BoardCanvas({
   nodes,
   initialElements,
   workspaceId,
+  projectId,
+  rootUri,
   boardId,
+  boardFolderUri,
   boardFileUri,
   panelKey,
   className,
@@ -130,6 +191,8 @@ export function BoardCanvas({
     () => externalEngine ?? new CanvasEngine(),
     [externalEngine]
   );
+  /** Query client for ad-hoc file listing. */
+  const queryClient = useQueryClient();
   /** Latest snapshot from the engine. */
   const snapshot = useBoardSnapshot(engine);
   /** Guard for first-time node registration. */
@@ -183,6 +246,18 @@ export function BoardCanvas({
     if (!resolvedWorkspaceId || !boardId) return null;
     return { workspaceId: resolvedWorkspaceId, boardId };
   }, [boardId, resolvedWorkspaceId]);
+  /** Board folder scope used for attachment resolution. */
+  const boardFolderScope = useMemo(() => {
+    if (!boardFolderUri || !projectId || !rootUri) return null;
+    const relativeFolderPath = getRelativePathFromUri(rootUri, boardFolderUri);
+    if (!relativeFolderPath) return null;
+    return { projectId, relativeFolderPath, boardFolderUri };
+  }, [boardFolderUri, projectId, rootUri]);
+  /** Assets folder uri inside the board folder. */
+  const assetsFolderUri = useMemo(() => {
+    if (!boardFolderUri) return null;
+    return buildChildUri(boardFolderUri, BOARD_ASSETS_DIR_NAME);
+  }, [boardFolderUri]);
   /** File scope used for persistence. */
   const fileScope = useMemo(() => {
     if (!boardFileUri) return null;
@@ -197,6 +272,166 @@ export function BoardCanvas({
   /** File snapshot save mutation. */
   const saveBoardSnapshot = useMutation(
     trpc.fs.writeFile.mutationOptions()
+  );
+  /** Asset file write mutation. */
+  const writeAssetMutation = useMutation(
+    trpc.fs.writeBinary.mutationOptions()
+  );
+  /** Asset folder creation mutation. */
+  const mkdirAssetMutation = useMutation(
+    trpc.fs.mkdir.mutationOptions()
+  );
+
+  /** Read a local file as base64 for asset uploads. */
+  const readFileAsBase64 = useCallback(
+    (file: File) =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result ?? "");
+          const base64 = result.split(",")[1] ?? "";
+          resolve(base64);
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      }),
+    []
+  );
+
+  /** Sanitize file names before writing to the assets folder. */
+  const sanitizeAssetFileName = useCallback((value: string) => {
+    const trimmed = value.trim();
+    const rawName = trimmed || "image.png";
+    // 中文注释：替换路径分隔符，防止文件名被当成目录。
+    return rawName.replace(/[\\/]/g, "-") || "image.png";
+  }, []);
+
+  /** Resolve a unique asset file name under the board assets folder. */
+  const resolveUniqueAssetName = useCallback(
+    async (fileName: string) => {
+      const safeName = sanitizeAssetFileName(fileName);
+      if (!assetsFolderUri) return safeName;
+      try {
+        const result = await queryClient.fetchQuery(
+          trpc.fs.list.queryOptions({ uri: assetsFolderUri })
+        );
+        const existing = new Set((result.entries ?? []).map((entry) => entry.name));
+        return getUniqueName(safeName, existing);
+      } catch {
+        return safeName;
+      }
+    },
+    [assetsFolderUri, queryClient, sanitizeAssetFileName]
+  );
+
+  /** Ensure the assets folder exists and return its uri. */
+  const ensureAssetsFolder = useCallback(async () => {
+    if (!assetsFolderUri) return null;
+    await mkdirAssetMutation.mutateAsync({ uri: assetsFolderUri, recursive: true });
+    return assetsFolderUri;
+  }, [assetsFolderUri, mkdirAssetMutation]);
+
+  /** Save an image asset to the board assets folder. */
+  const saveBoardAssetFile = useCallback(
+    async (file: File) => {
+      if (!assetsFolderUri) return null;
+      await ensureAssetsFolder();
+      const uniqueName = await resolveUniqueAssetName(file.name || "image.png");
+      const targetUri = buildChildUri(assetsFolderUri, uniqueName);
+      const base64 = await readFileAsBase64(file);
+      await writeAssetMutation.mutateAsync({ uri: targetUri, contentBase64: base64 });
+      return uniqueName;
+    },
+    [
+      assetsFolderUri,
+      ensureAssetsFolder,
+      readFileAsBase64,
+      resolveUniqueAssetName,
+      writeAssetMutation,
+    ]
+  );
+
+  /** Resolve board-relative teatime-file urls into absolute paths. */
+  const resolveBoardRelativeUri = useCallback(
+    (uri: string) => {
+      if (!boardFolderScope) return uri;
+      if (!uri.startsWith(BOARD_RELATIVE_URI_PREFIX)) return uri;
+      const relativePath = normalizeRelativePath(
+        uri.slice(BOARD_RELATIVE_URI_PREFIX.length)
+      );
+      if (!relativePath || hasParentTraversal(relativePath)) return uri;
+      if (!relativePath.startsWith(`${BOARD_ASSETS_DIR_NAME}/`)) return uri;
+      const combined = `${boardFolderScope.relativeFolderPath}/${relativePath}`;
+      return buildTeatimeFileUrl(boardFolderScope.projectId, combined);
+    },
+    [boardFolderScope]
+  );
+
+  /** Convert absolute teatime-file urls into board-relative paths. */
+  const toBoardRelativeUri = useCallback(
+    (uri: string) => {
+      if (!boardFolderScope) return uri;
+      const parsed = parseTeatimeFileUrl(uri);
+      if (!parsed) return uri;
+      if (parsed.projectId !== boardFolderScope.projectId) return uri;
+      const basePath = `${boardFolderScope.relativeFolderPath}/`;
+      if (!parsed.relativePath.startsWith(basePath)) return uri;
+      const relativePath = normalizeRelativePath(
+        parsed.relativePath.slice(basePath.length)
+      );
+      if (!relativePath || hasParentTraversal(relativePath)) return uri;
+      if (!relativePath.startsWith(`${BOARD_ASSETS_DIR_NAME}/`)) return uri;
+      return `${BOARD_RELATIVE_URI_PREFIX}${relativePath}`;
+    },
+    [boardFolderScope]
+  );
+
+  /** Build image payloads while persisting assets into the board folder. */
+  const buildBoardImagePayloadFromFile = useCallback(
+    async (file: File) => {
+      const payload = await buildImageNodePayloadFromFile(file);
+      if (!boardFolderScope || !assetsFolderUri) return payload;
+      try {
+        const assetName = await saveBoardAssetFile(file);
+        if (!assetName) return payload;
+        const relativePath = `${BOARD_ASSETS_DIR_NAME}/${assetName}`;
+        const absolute = buildTeatimeFileUrl(
+          boardFolderScope.projectId,
+          `${boardFolderScope.relativeFolderPath}/${relativePath}`
+        );
+        return {
+          ...payload,
+          props: {
+            ...payload.props,
+            originalSrc: absolute,
+          },
+        };
+      } catch {
+        return payload;
+      }
+    },
+    [assetsFolderUri, boardFolderScope, saveBoardAssetFile]
+  );
+
+  useEffect(() => {
+    engine.setImagePayloadBuilder(buildBoardImagePayloadFromFile);
+    return () => {
+      engine.setImagePayloadBuilder(null);
+    };
+  }, [buildBoardImagePayloadFromFile, engine]);
+
+  /** Normalize file-loaded snapshots for in-canvas rendering. */
+  const normalizeSnapshotForCanvas = useCallback(
+    (snapshotData: BoardSnapshotState) =>
+      mapSnapshotImageSources(snapshotData, resolveBoardRelativeUri),
+    [resolveBoardRelativeUri]
+  );
+
+  /** Normalize canvas snapshots before saving back to file. */
+  const normalizeSnapshotForFile = useCallback(
+    (snapshotData: BoardSnapshotState) =>
+      mapSnapshotImageSources(snapshotData, toBoardRelativeUri),
+    [toBoardRelativeUri]
   );
   useEffect(() => {
     if (!containerRef.current) return;
@@ -239,32 +474,33 @@ export function BoardCanvas({
   /** Apply a snapshot into the engine state. */
   const applySnapshot = useCallback(
     (snapshotData: BoardSnapshotState) => {
-      const nodes = Array.isArray(snapshotData.nodes) ? snapshotData.nodes : [];
-      const connectors = Array.isArray(snapshotData.connectors)
-        ? snapshotData.connectors
+      const normalized = normalizeSnapshotForCanvas(snapshotData);
+      const nodes = Array.isArray(normalized.nodes) ? normalized.nodes : [];
+      const connectors = Array.isArray(normalized.connectors)
+        ? normalized.connectors
         : [];
       const elements = mergeElements(nodes, connectors);
       hydratedRef.current = false;
       // 逻辑：恢复快照时先写入文档，再同步视口。
       engine.doc.setElements(elements);
-      if (snapshotData.viewport) {
+      if (normalized.viewport) {
         engine.viewport.setViewport(
-          snapshotData.viewport.zoom,
-          snapshotData.viewport.offset
+          normalized.viewport.zoom,
+          normalized.viewport.offset
         );
       }
       engine.commitHistory();
       lastSavedElementsRef.current = JSON.stringify(elements);
-      if (snapshotData.viewport) {
+      if (normalized.viewport) {
         lastSavedViewportRef.current = JSON.stringify({
-          zoom: snapshotData.viewport.zoom,
-          offset: snapshotData.viewport.offset,
+          zoom: normalized.viewport.zoom,
+          offset: normalized.viewport.offset,
         });
       }
-      currentVersionRef.current = snapshotData.version ?? 0;
+      currentVersionRef.current = normalized.version ?? 0;
       hydratedRef.current = true;
     },
-    [engine]
+    [engine, normalizeSnapshotForCanvas]
   );
   /** Persist the current snapshot to local cache. */
   const persistSnapshot = useCallback(
@@ -299,13 +535,13 @@ export function BoardCanvas({
 
       if (fileScope) {
         // 中文注释：合并短时间内的文件保存，避免频繁写文件。
-        pendingFileSnapshotRef.current = {
+        pendingFileSnapshotRef.current = normalizeSnapshotForFile({
           schemaVersion: BOARD_SCHEMA_VERSION,
           nodes: payload.nodes,
           connectors: payload.connectors,
           viewport: payload.viewport,
           version: nextVersion,
-        };
+        });
         if (remoteSaveTimeoutRef.current) {
           window.clearTimeout(remoteSaveTimeoutRef.current);
         }
@@ -319,7 +555,7 @@ export function BoardCanvas({
         }, VIEWPORT_SAVE_DELAY);
       }
     },
-    [boardScope, fileScope, saveBoardSnapshot]
+    [boardScope, fileScope, normalizeSnapshotForFile, saveBoardSnapshot]
   );
 
   useEffect(() => {
@@ -396,9 +632,10 @@ export function BoardCanvas({
     if (!localLoaded) return;
 
     const remote = parseBoardSnapshot(boardFileQuery.data?.content);
+    const resolvedRemote = remote ? normalizeSnapshotForCanvas(remote) : null;
     const local = localSnapshot;
 
-    if (!local && !remote) {
+    if (!local && !resolvedRemote) {
       if (initialElementsRef.current) return;
       if (!initialElements || initialElements.length === 0) return;
       // 逻辑：无本地/远端快照时写入初始元素。
@@ -408,45 +645,45 @@ export function BoardCanvas({
       return;
     }
 
-    if (!local && remote) {
-      applySnapshot(remote);
+    if (!local && resolvedRemote) {
+      applySnapshot(resolvedRemote);
       const snapshot: BoardSnapshotCacheRecord = {
         workspaceId: boardScope.workspaceId,
         boardId: boardScope.boardId,
-        schemaVersion: remote.schemaVersion ?? BOARD_SCHEMA_VERSION,
-        nodes: remote.nodes,
-        connectors: remote.connectors,
-        viewport: remote.viewport,
-        version: remote.version ?? 0,
+        schemaVersion: resolvedRemote.schemaVersion ?? BOARD_SCHEMA_VERSION,
+        nodes: resolvedRemote.nodes,
+        connectors: resolvedRemote.connectors,
+        viewport: resolvedRemote.viewport,
+        version: resolvedRemote.version ?? 0,
       };
       setLocalSnapshot(snapshot);
       void writeBoardSnapshotCache(snapshot);
       return;
     }
 
-    if (local && !remote) {
+    if (local && !resolvedRemote) {
       if (local.nodes.length === 0 && local.connectors.length === 0) return;
       // 逻辑：仅保留本地快照，不再回写远端。
       return;
     }
 
-    if (!local || !remote) return;
-    if (remote.version > local.version) {
-      applySnapshot(remote);
+    if (!local || !resolvedRemote) return;
+    if (resolvedRemote.version > local.version) {
+      applySnapshot(resolvedRemote);
       const snapshot: BoardSnapshotCacheRecord = {
         workspaceId: boardScope.workspaceId,
         boardId: boardScope.boardId,
-        schemaVersion: remote.schemaVersion ?? BOARD_SCHEMA_VERSION,
-        nodes: remote.nodes,
-        connectors: remote.connectors,
-        viewport: remote.viewport,
-        version: remote.version ?? 0,
+        schemaVersion: resolvedRemote.schemaVersion ?? BOARD_SCHEMA_VERSION,
+        nodes: resolvedRemote.nodes,
+        connectors: resolvedRemote.connectors,
+        viewport: resolvedRemote.viewport,
+        version: resolvedRemote.version ?? 0,
       };
       setLocalSnapshot(snapshot);
       void writeBoardSnapshotCache(snapshot);
       return;
     }
-    if (local.version > remote.version) {
+    if (local.version > resolvedRemote.version) {
       // 逻辑：本地版本更高时保持本地数据，不触发远端更新。
       return;
     }
@@ -460,6 +697,7 @@ export function BoardCanvas({
     initialElements,
     localLoaded,
     localSnapshot,
+    normalizeSnapshotForCanvas,
     persistSnapshot,
   ]);
 
@@ -592,6 +830,10 @@ export function BoardCanvas({
           element.kind === "node" && element.id === inspectorNodeId
       ) ?? null
     : null;
+  const resolvedPreviewSrc =
+    imagePreview?.originalSrc && imagePreview.originalSrc.startsWith("teatime-file://")
+      ? getPreviewEndpoint(imagePreview.originalSrc)
+      : imagePreview?.originalSrc;
 
   useEffect(() => {
     if (!connectorDrop) return;
@@ -682,7 +924,7 @@ export function BoardCanvas({
             type: blob.type || "application/octet-stream",
           });
           if (!isImageFile(file)) return;
-          const payload = await buildImageNodePayloadFromFile(file);
+          const payload = await engine.buildImagePayloadFromFile(file);
           const [width, height] = payload.size;
           engine.addNodeElement("image", payload.props, [
             dropPoint[0] - width / 2,
@@ -698,7 +940,7 @@ export function BoardCanvas({
       if (imageFiles.length === 0) return;
 
       for (const [index, file] of imageFiles.entries()) {
-        const payload = await buildImageNodePayloadFromFile(file);
+        const payload = await engine.buildImagePayloadFromFile(file);
         const [width, height] = payload.size;
         const offset = IMAGE_DROP_STACK_OFFSET * index;
         // 逻辑：以鼠标位置为中心放置节点，多文件时稍微错开。
@@ -888,7 +1130,7 @@ export function BoardCanvas({
                 }}
               >
                 <img
-                  src={imagePreview.originalSrc || imagePreview.previewSrc}
+                  src={resolvedPreviewSrc || imagePreview.previewSrc}
                   alt={imagePreview.fileName || "Image"}
                   className="max-h-[90vh] max-w-[90vw] object-contain"
                   draggable={false}

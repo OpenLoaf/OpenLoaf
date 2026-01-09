@@ -24,9 +24,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
-  ensureBoardFileName,
+  ensureBoardFolderName,
+  getBoardDisplayName,
   getDisplayFileName,
-  isBoardFileExt,
+  isBoardFolderName,
 } from "@/lib/file-name";
 
 /** Selector list for elements excluded from board exports. */
@@ -60,7 +61,9 @@ function isEditableTarget(target: EventTarget | null) {
 function buildBoardExportFileName(params: DockItem["params"] | undefined, title: string) {
   const name = typeof (params as any)?.name === "string" ? (params as any).name : title;
   const ext = typeof (params as any)?.ext === "string" ? (params as any).ext : undefined;
-  const baseName = getDisplayFileName(name || "board", ext).trim() || "board";
+  const baseName = isBoardFolderName(name)
+    ? getBoardDisplayName(name).trim() || "board"
+    : getDisplayFileName(name || "board", ext).trim() || "board";
   return baseName.endsWith(".png") ? baseName : `${baseName}.png`;
 }
 
@@ -376,12 +379,12 @@ export function LeftDock({ tabId }: { tabId: string }) {
         item.component === "board-viewer" &&
         Boolean(params?.__pendingRename) &&
         uri &&
-        isBoardFileExt(ext);
+        isBoardFolderName(name);
       if (!shouldPromptRename) {
         removeStackItem(tabId, item.id);
         return;
       }
-      setRenameValue(getDisplayFileName(name, ext));
+      setRenameValue(getBoardDisplayName(name));
       setRenameDialog({ tabId, itemId: item.id, uri, name, ext });
     },
     [removeStackItem, tabId]
@@ -391,7 +394,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
     if (!renameDialog) return;
     const rawName = renameValue.trim();
     if (!rawName) return;
-    const nextName = ensureBoardFileName(rawName);
+    const nextName = ensureBoardFolderName(rawName);
     const nextUri = buildRenamedUri(renameDialog.uri, nextName);
     try {
       await renameMutation.mutateAsync({ from: renameDialog.uri, to: nextUri });

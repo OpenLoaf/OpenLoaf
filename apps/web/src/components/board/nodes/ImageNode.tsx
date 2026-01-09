@@ -7,6 +7,7 @@ import { useCallback } from "react";
 import { z } from "zod";
 import { Download, Info } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
+import { getPreviewEndpoint } from "@/lib/image/uri";
 
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
@@ -23,10 +24,20 @@ export type ImageNodeProps = {
   naturalHeight: number;
 };
 
+/** Resolve image uri to a browser-friendly source. */
+function resolveImageSource(uri: string) {
+  if (!uri) return "";
+  if (uri.startsWith("teatime-file://./")) return "";
+  if (uri.startsWith("teatime-file://")) return getPreviewEndpoint(uri);
+  return uri;
+}
+
 /** Trigger a download for the original image. */
 function downloadOriginalImage(props: ImageNodeProps) {
+  const href = resolveImageSource(props.originalSrc);
+  if (!href) return;
   const link = document.createElement("a");
-  link.href = props.originalSrc;
+  link.href = href;
   link.download = props.fileName || "image";
   link.rel = "noreferrer";
   link.click();
@@ -63,7 +74,7 @@ export function ImageNodeView({
   const requestPreview = useCallback(() => {
     // 逻辑：节点双击触发预览，由 board action 统一接管显示。
     actions.openImagePreview({
-      originalSrc: element.props.originalSrc,
+      originalSrc: resolveImageSource(element.props.originalSrc),
       previewSrc,
       fileName: element.props.fileName,
     });

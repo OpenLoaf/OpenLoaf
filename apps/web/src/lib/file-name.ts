@@ -1,5 +1,11 @@
 /** File extension for board documents. */
 export const BOARD_FILE_EXT = "ttboard";
+/** Folder prefix for board containers. */
+export const BOARD_FOLDER_PREFIX = "ttboard_";
+/** Board snapshot file name stored inside board folders. */
+export const BOARD_INDEX_FILE_NAME = `index.${BOARD_FILE_EXT}`;
+/** Assets directory name inside board folders. */
+export const BOARD_ASSETS_DIR_NAME = "assets";
 
 /** Return true when the extension is a board file. */
 export function isBoardFileExt(ext?: string): boolean {
@@ -24,4 +30,26 @@ export function ensureBoardFileName(baseName: string): string {
     : trimmed;
   // 中文注释：强制固定后缀，避免用户通过重命名修改类型。
   return `${normalized}.${BOARD_FILE_EXT}`;
+}
+
+/** Return true when the folder name follows the board prefix. */
+export function isBoardFolderName(name: string): boolean {
+  return name.toLowerCase().startsWith(BOARD_FOLDER_PREFIX.toLowerCase());
+}
+
+/** Return a display name for a board folder by removing the prefix. */
+export function getBoardDisplayName(name: string): string {
+  if (!isBoardFolderName(name)) return name;
+  return name.slice(BOARD_FOLDER_PREFIX.length) || name;
+}
+
+/** Ensure a folder name follows the board prefix convention. */
+export function ensureBoardFolderName(baseName: string): string {
+  const trimmed = baseName.trim();
+  const normalized = isBoardFolderName(trimmed)
+    ? trimmed.slice(BOARD_FOLDER_PREFIX.length)
+    : trimmed;
+  const safeName = normalized || "board";
+  // 中文注释：统一在前缀后拼接名称，避免用户手动删除前缀。
+  return `${BOARD_FOLDER_PREFIX}${safeName}`;
 }

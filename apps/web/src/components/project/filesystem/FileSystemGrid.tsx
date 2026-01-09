@@ -48,7 +48,12 @@ import {
   getEntryExt,
   getRelativePathFromUri,
 } from "./file-system-utils";
-import { getDisplayFileName, isBoardFileExt } from "@/lib/file-name";
+import {
+  getBoardDisplayName,
+  getDisplayFileName,
+  isBoardFileExt,
+  isBoardFolderName,
+} from "@/lib/file-name";
 import { setImageDragPayload } from "@/lib/image/drag";
 
 const IMAGE_EXTS = new Set([
@@ -98,6 +103,10 @@ const CODE_EXTS = new Set([
   "mdx",
 ]);
 
+/** Return true when the entry represents a board folder. */
+const isBoardFolderEntry = (entry: FileSystemEntry) =>
+  entry.kind === "folder" && isBoardFolderName(entry.name);
+
 type FileSystemGridProps = {
   entries: FileSystemEntry[];
   isLoading: boolean;
@@ -128,6 +137,15 @@ type FileSystemGridProps = {
   onEntryContextMenu?: (
     entry: FileSystemEntry,
     event: ReactMouseEvent<HTMLButtonElement>
+  ) => void;
+  /** Resolve selection mode when starting a drag selection. */
+  resolveSelectionMode?: (
+    event: ReactMouseEvent<HTMLDivElement>
+  ) => "replace" | "toggle";
+  /** Capture context menu trigger before Radix handles it. */
+  onGridContextMenuCapture?: (
+    event: ReactMouseEvent<HTMLDivElement>,
+    payload: { uri: string | null }
   ) => void;
   selectedUris?: Set<string>;
   onEntryDrop?: (
@@ -189,6 +207,9 @@ const ImageThumbnail = memo(function ImageThumbnail({
 
 /** Resolve file icon or image thumbnail for grid items. */
 function getEntryVisual(entry: FileSystemEntry, thumbnailSrc?: string) {
+  if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
+    return <FileText className="h-10 w-10 text-muted-foreground" />;
+  }
   if (entry.kind === "folder") {
     return <Folder className="h-10 w-10 text-muted-foreground" />;
   }
@@ -225,10 +246,15 @@ const FileSystemEntryName = memo(function FileSystemEntryName({
   const measureRef = useRef<HTMLSpanElement | null>(null);
   const nameInfo = useMemo(() => {
     const normalizedExt = entry.kind === "file" ? getEntryExt(entry) : "";
-    const displayName =
-      entry.kind === "file"
-        ? getDisplayFileName(entry.name, normalizedExt)
-        : entry.name;
+    const displayName = (() => {
+      if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
+        return getBoardDisplayName(entry.name);
+      }
+      if (entry.kind === "file") {
+        return getDisplayFileName(entry.name, normalizedExt);
+      }
+      return entry.name;
+    })();
     if (entry.kind !== "file" || !normalizedExt || isBoardFileExt(normalizedExt)) {
       return {
         prefix: displayName,
@@ -453,6 +479,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onRenamingSubmit,
   onRenamingCancel,
   onSelectionChange,
+  resolveSelectionMode,
+  onGridContextMenuCapture,
 }: FileSystemGridProps) {
   // 上一级入口仅在可回退且当前目录非空时显示，避免根目录与空目录误导。
   const shouldShowParentEntry = Boolean(parentUri) && entries.length > 0;
@@ -470,7 +498,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
   const lastSelectedRef = useRef<string>("");
   // 中文注释：记录当前拖拽悬停的文件夹，用于高亮提示。
   const [dragOverFolderUri, setDragOverFolderUri] = useState<string | null>(null);
-  // 记录最近一次右键触发的条目，用于拦截触控板右键后的误触点击。
+  // 记录最近一次右键触发的条目与时间，用于 0.5 秒内拦截左右键误触。
   const lastContextMenuRef = useRef<{ uri: string; at: number } | null>(null);
   const [selectionRect, setSelectionRect] = useState<{
     left: number;
@@ -538,20 +566,30 @@ const FileSystemGrid = memo(function FileSystemGrid({
     [onSelectionChange]
   );
 
-  /** Ignore the synthetic click that follows a context-menu trigger. */
-  const shouldIgnoreContextClick = useCallback((uri: string) => {
-    const last = lastContextMenuRef.current;
-    if (!last || last.uri !== uri) return false;
-    if (Date.now() - last.at > 250) {
-      lastContextMenuRef.current = null;
-      return false;
-    }
-    lastContextMenuRef.current = null;
-    return true;
-  }, []);
+  /** Block pointer events shortly after a context menu trigger. */
+  const shouldBlockPointerEvent = useCallback(
+    (event: { button?: number } | null | undefined) => {
+      const button = event?.button;
+      if (button !== 0 && button !== 2) return false;
+      const last = lastContextMenuRef.current;
+      if (!last) return false;
+      if (Date.now() - last.at > 500) {
+        lastContextMenuRef.current = null;
+        return false;
+      }
+      // 右键后 0.5 秒内屏蔽左右键事件，避免误触。
+      return true;
+    },
+    []
+  );
 
   const handleGridContextMenuCapture = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (shouldBlockPointerEvent(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       const target = event.target as HTMLElement | null;
       const entryEl = target?.closest(
         '[data-entry-card="true"]'
@@ -559,8 +597,9 @@ const FileSystemGrid = memo(function FileSystemGrid({
       const uri = entryEl?.getAttribute("data-entry-uri") ?? "";
       // 中文注释：统一记录右键触发源，避免触控板右键后误触点击。
       lastContextMenuRef.current = { uri, at: Date.now() };
+      onGridContextMenuCapture?.(event, { uri: uri || null });
     },
-    []
+    [onGridContextMenuCapture, shouldBlockPointerEvent]
   );
 
   const handleMouseMove = useCallback(
@@ -603,6 +642,10 @@ const FileSystemGrid = memo(function FileSystemGrid({
   /** Start drag selection when the user presses on empty space. */
   const handleGridMouseDown = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (shouldBlockPointerEvent(event)) {
+        event.preventDefault();
+        return;
+      }
       if (event.button !== 0) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('[data-entry-card="true"]')) return;
@@ -611,8 +654,11 @@ const FileSystemGrid = memo(function FileSystemGrid({
         onRenamingSubmit?.();
         return;
       }
-      selectionModeRef.current =
-        event.metaKey || event.ctrlKey ? "toggle" : "replace";
+      selectionModeRef.current = resolveSelectionMode
+        ? resolveSelectionMode(event)
+        : event.metaKey || event.ctrlKey
+          ? "toggle"
+          : "replace";
       selectionStartRef.current = { x: event.clientX, y: event.clientY };
       selectionRectRef.current = null;
       lastSelectedRef.current = "";
@@ -620,7 +666,14 @@ const FileSystemGrid = memo(function FileSystemGrid({
       window.addEventListener("mouseup", handleMouseUp);
       event.preventDefault();
     },
-    [handleMouseMove, handleMouseUp, onRenamingSubmit, renamingUri]
+    [
+      handleMouseMove,
+      handleMouseUp,
+      onRenamingSubmit,
+      renamingUri,
+      resolveSelectionMode,
+      shouldBlockPointerEvent,
+    ]
   );
 
   // 记录文件列表状态变化，方便定位异常跳转。
@@ -685,7 +738,13 @@ const FileSystemGrid = memo(function FileSystemGrid({
               <EmptyContent>
                 <div className="flex gap-2">
                   <Button>创建文档</Button>
-                  <Button variant="outline" onClick={onCreateBoard}>
+                  <Button
+                    variant="outline"
+                    onClick={(event) => {
+                      if (shouldBlockPointerEvent(event)) return;
+                      onCreateBoard?.();
+                    }}
+                  >
                     创建画布
                   </Button>
                 </div>
@@ -697,6 +756,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 className="text-muted-foreground"
                 size="sm"
                 onClick={(event) => {
+                  if (shouldBlockPointerEvent(event)) return;
                   console.debug("[FileSystemGrid] empty navigate", {
                     at: new Date().toISOString(),
                     uri: parentUri,
@@ -749,6 +809,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
               type="button"
               className="flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/80"
               onDoubleClick={(event) => {
+                if (shouldBlockPointerEvent(event)) return;
                 if (event.button !== 0) return;
                 if (event.nativeEvent.which !== 1) return;
                 const pointerType =
@@ -784,9 +845,11 @@ const FileSystemGrid = memo(function FileSystemGrid({
             const thumbnailSrc = thumbnailByUri.get(entry.uri);
             const visual = getEntryVisual(entry, thumbnailSrc);
             const displayName =
-              entry.kind === "file"
-                ? getDisplayFileName(entry.name, entry.ext)
-                : entry.name;
+              entry.kind === "folder" && isBoardFolderName(entry.name)
+                ? getBoardDisplayName(entry.name)
+                : entry.kind === "file"
+                  ? getDisplayFileName(entry.name, entry.ext)
+                  : entry.name;
             const card = isRenaming ? (
               <div
                 data-entry-card="true"
@@ -821,11 +884,11 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 isSelected={isSelected}
                 isDragOver={isDragOver}
                 onClick={(event) => {
-                  if (shouldIgnoreContextClick(entry.uri)) return;
+                  if (shouldBlockPointerEvent(event)) return;
                   onEntryClick?.(entry, event);
                 }}
                 onDoubleClick={(event) => {
-                  if (shouldIgnoreContextClick(entry.uri)) return;
+                  if (shouldBlockPointerEvent(event)) return;
                   const pointerType =
                     "pointerType" in event.nativeEvent
                       ? (event.nativeEvent as PointerEvent).pointerType
@@ -889,8 +952,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
                     onOpenSpreadsheet?.(entry);
                     return;
                   }
-                  if (entry.kind === "file" && isBoardFileExt(entryExt)) {
-                    console.debug("[FileSystemGrid] entry board open", {
+                  if (isBoardFolderEntry(entry)) {
+                    console.debug("[FileSystemGrid] entry board folder open", {
                       at: new Date().toISOString(),
                       name: entry.name,
                       uri: entry.uri,
@@ -927,10 +990,6 @@ const FileSystemGrid = memo(function FileSystemGrid({
                   onNavigate?.(entry.uri);
                 }}
                 onContextMenu={(event) => {
-                  lastContextMenuRef.current = {
-                    uri: entry.uri,
-                    at: Date.now(),
-                  };
                   const pointerType =
                     "pointerType" in event.nativeEvent
                       ? (event.nativeEvent as PointerEvent).pointerType
@@ -947,6 +1006,10 @@ const FileSystemGrid = memo(function FileSystemGrid({
                   onEntryContextMenu?.(entry, event);
                 }}
                 onDragStart={(event) => {
+                  if (shouldBlockPointerEvent(event)) {
+                    event.preventDefault();
+                    return;
+                  }
                   // 中文注释：固定拖拽预览为单个卡片，避免浏览器用整行作为拖拽影像。
                   const dragPreview = event.currentTarget.cloneNode(true) as HTMLElement;
                   const rect = event.currentTarget.getBoundingClientRect();
@@ -1000,17 +1063,17 @@ const FileSystemGrid = memo(function FileSystemGrid({
                   onEntryDragStart?.(entry, event);
                 }}
                 onDragOver={(event) => {
-                  if (entry.kind !== "folder") return;
+                  if (entry.kind !== "folder" || isBoardFolderEntry(entry)) return;
                   setDragOverFolderUri(entry.uri);
                   event.preventDefault();
                   event.dataTransfer.dropEffect = "move";
                 }}
                 onDragEnter={(event) => {
-                  if (entry.kind !== "folder") return;
+                  if (entry.kind !== "folder" || isBoardFolderEntry(entry)) return;
                   setDragOverFolderUri(entry.uri);
                 }}
                 onDragLeave={(event) => {
-                  if (entry.kind !== "folder") return;
+                  if (entry.kind !== "folder" || isBoardFolderEntry(entry)) return;
                   const nextTarget = event.relatedTarget as Node | null;
                   if (nextTarget && event.currentTarget.contains(nextTarget)) return;
                   setDragOverFolderUri((current) =>
@@ -1018,7 +1081,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
                   );
                 }}
                 onDrop={(event) => {
-                  if (entry.kind !== "folder") return;
+                  if (entry.kind !== "folder" || isBoardFolderEntry(entry)) return;
                   setDragOverFolderUri(null);
                   onEntryDrop?.(entry, event);
                 }}

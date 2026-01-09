@@ -18,10 +18,12 @@ import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
 import {
-  BOARD_FILE_EXT,
-  ensureBoardFileName,
+  BOARD_ASSETS_DIR_NAME,
+  BOARD_INDEX_FILE_NAME,
+  ensureBoardFolderName,
+  getBoardDisplayName,
   getDisplayFileName,
-  isBoardFileExt,
+  isBoardFolderName,
 } from "@/lib/file-name";
 import { createEmptyBoardSnapshot } from "@/components/board/core/boardStorage";
 import { readImageDragPayload } from "@/lib/image/drag";
@@ -67,8 +69,12 @@ export type ProjectFileSystemModel = {
   isSearchOpen: boolean;
   showHidden: boolean;
   clipboardSize: number;
-  copyDialogOpen: boolean;
-  copyEntries: FileSystemEntry[];
+  /** Whether the transfer dialog is open. */
+  transferDialogOpen: boolean;
+  /** Entries pending for transfer. */
+  transferEntries: FileSystemEntry[];
+  /** Active transfer mode. */
+  transferMode: "copy" | "move" | "select";
   isDragActive: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -81,8 +87,13 @@ export type ProjectFileSystemModel = {
   setShowHidden: Dispatch<SetStateAction<boolean>>;
   handleSortByName: () => void;
   handleSortByTime: () => void;
-  handleCopyDialogOpenChange: (open: boolean) => void;
-  handleOpenCopyDialog: (entries: FileSystemEntry | FileSystemEntry[]) => void;
+  /** Toggle transfer dialog open state. */
+  handleTransferDialogOpenChange: (open: boolean) => void;
+  /** Open transfer dialog with entries and mode. */
+  handleOpenTransferDialog: (
+    entries: FileSystemEntry | FileSystemEntry[],
+    mode: "copy" | "move" | "select"
+  ) => void;
   handleCopyPath: (entry: FileSystemEntry) => Promise<void>;
   handleOpen: (entry: FileSystemEntry) => Promise<void>;
   handleOpenInFileManager: (entry: FileSystemEntry) => Promise<void>;
@@ -186,7 +197,10 @@ export function useProjectFileSystemModel({
     const query = searchValue.trim().toLowerCase();
     if (!query) return fileEntries;
     return fileEntries.filter((entry) => {
-      const displayName = getDisplayFileName(entry.name, entry.ext).toLowerCase();
+      const displayName =
+        entry.kind === "folder" && isBoardFolderName(entry.name)
+          ? getBoardDisplayName(entry.name).toLowerCase()
+          : getDisplayFileName(entry.name, entry.ext).toLowerCase();
       return displayName.includes(query);
     });
   }, [fileEntries, searchValue]);
@@ -196,9 +210,14 @@ export function useProjectFileSystemModel({
     [fileEntries]
   );
   const [clipboardSize, setClipboardSize] = useState(fileClipboard?.length ?? 0);
-  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
-  /** Entries selected for copy-to dialog. */
-  const [copyEntries, setCopyEntries] = useState<FileSystemEntry[]>([]);
+  /** Whether the transfer dialog is open. */
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  /** Entries selected for transfer dialog. */
+  const [transferEntries, setTransferEntries] = useState<FileSystemEntry[]>([]);
+  /** Current transfer mode (copy/move/select). */
+  const [transferMode, setTransferMode] = useState<"copy" | "move" | "select">(
+    "copy"
+  );
   const [isDragActive, setIsDragActive] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const trashRootUri = useMemo(
@@ -389,21 +408,28 @@ export function useProjectFileSystemModel({
       reader.readAsDataURL(file);
     });
 
-  /** Open copy-to dialog for one or more entries. */
-  const handleOpenCopyDialog = (entries: FileSystemEntry | FileSystemEntry[]) => {
+  /** Open transfer dialog for one or more entries. */
+  const handleOpenTransferDialog = (
+    entries: FileSystemEntry | FileSystemEntry[],
+    mode: "copy" | "move" | "select"
+  ) => {
     const normalized = Array.isArray(entries) ? entries : [entries];
-    if (normalized.length === 0) return;
-    fileClipboard = normalized;
-    setClipboardSize(fileClipboard.length);
-    setCopyEntries(normalized);
-    setCopyDialogOpen(true);
+    if (mode !== "select" && normalized.length === 0) return;
+    if (mode === "copy") {
+      // 中文注释：复制模式同步剪贴板，保持粘贴入口一致。
+      fileClipboard = normalized;
+      setClipboardSize(fileClipboard.length);
+    }
+    setTransferEntries(normalized);
+    setTransferMode(mode);
+    setTransferDialogOpen(true);
   };
 
-  /** Reset copy dialog state on close. */
-  const handleCopyDialogOpenChange = (open: boolean) => {
-    setCopyDialogOpen(open);
+  /** Reset transfer dialog state on close. */
+  const handleTransferDialogOpenChange = (open: boolean) => {
+    setTransferDialogOpen(open);
     if (!open) {
-      setCopyEntries([]);
+      setTransferEntries([]);
     }
   };
 
@@ -415,7 +441,7 @@ export function useProjectFileSystemModel({
 
   /** Open file/folder using platform integration. */
   const handleOpen = async (entry: FileSystemEntry) => {
-    if (entry.kind === "file" && isBoardFileExt(entry.ext)) {
+    if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
       handleOpenBoard(entry);
       return;
     }
@@ -570,35 +596,46 @@ export function useProjectFileSystemModel({
     [activeTabId, pushStackItem]
   );
 
-  /** Open a board file inside the current tab stack. */
+  /** Open a board folder inside the current tab stack. */
   const handleOpenBoard = useCallback(
     (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => {
       if (!activeTabId) {
         toast.error("未找到当前标签页");
         return;
       }
+      if (entry.kind !== "folder" || !isBoardFolderName(entry.name)) {
+        toast.error("当前画布目录无效");
+        return;
+      }
+      const boardFolderUri = entry.uri;
+      const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
+      const displayName = getBoardDisplayName(entry.name);
       pushStackItem(activeTabId, {
         id: generateId(),
         component: "board-viewer",
-        title: getDisplayFileName(entry.name, entry.ext),
+        title: displayName,
         params: {
-          uri: entry.uri,
+          uri: boardFolderUri,
+          boardFolderUri,
+          boardFileUri,
           name: entry.name,
-          ext: entry.ext,
+          projectId,
+          rootUri,
           __opaque: true,
           ...(options?.pendingRename ? { __pendingRename: true } : {}),
         },
       });
     },
-    [activeTabId, pushStackItem]
+    [activeTabId, projectId, pushStackItem, rootUri]
   );
 
   /** Rename a file or folder with validation and history tracking. */
   const renameEntry = async (entry: FileSystemEntry, nextName: string) => {
     if (!activeUri) return null;
-    const normalizedName = isBoardFileExt(entry.ext)
-      ? ensureBoardFileName(nextName)
-      : nextName;
+    const normalizedName =
+      entry.kind === "folder" && isBoardFolderName(entry.name)
+        ? ensureBoardFolderName(nextName)
+        : nextName;
     if (!normalizedName) return null;
     if (normalizedName === entry.name) return null;
     const existingNames = new Set(
@@ -729,23 +766,35 @@ export function useProjectFileSystemModel({
     return { uri: targetUri, name: targetName };
   };
 
-  /** Create a new board file in the current directory. */
+  /** Create a new board folder in the current directory. */
   const handleCreateBoard = async () => {
     if (!activeUri) return;
-    const targetName = getUniqueName(`新建画布.${BOARD_FILE_EXT}`, new Set(existingNames));
-    const targetUri = buildChildUri(activeUri, targetName);
+    const baseName = ensureBoardFolderName("新建画布");
+    const targetName = getUniqueName(baseName, new Set(existingNames));
+    const boardFolderUri = buildChildUri(activeUri, targetName);
+    const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
+    const assetsUri = buildChildUri(boardFolderUri, BOARD_ASSETS_DIR_NAME);
     const snapshot = createEmptyBoardSnapshot();
     // 中文注释：初始画布直接写入文件，保证后续保存落盘同一位置。
     const content = JSON.stringify(snapshot, null, 2);
-    await writeFileMutation.mutateAsync({ uri: targetUri, content });
-    pushHistory({ kind: "create", uri: targetUri, content });
+    // 中文注释：画布采用文件夹结构，包含 index.ttboard 与 assets 子目录。
+    await mkdirMutation.mutateAsync({ uri: boardFolderUri, recursive: true });
+    await mkdirMutation.mutateAsync({ uri: assetsUri, recursive: true });
+    await writeFileMutation.mutateAsync({ uri: boardFileUri, content });
+    pushHistory({
+      kind: "batch",
+      actions: [
+        { kind: "mkdir", uri: boardFolderUri },
+        { kind: "mkdir", uri: assetsUri },
+        { kind: "create", uri: boardFileUri, content },
+      ],
+    });
     refreshList();
     handleOpenBoard(
       {
-        uri: targetUri,
+        uri: boardFolderUri,
         name: targetName,
-        kind: "file",
-        ext: BOARD_FILE_EXT,
+        kind: "folder",
       },
       { pendingRename: true }
     );
@@ -979,8 +1028,9 @@ export function useProjectFileSystemModel({
     isSearchOpen,
     showHidden,
     clipboardSize,
-    copyDialogOpen,
-    copyEntries,
+    transferDialogOpen,
+    transferEntries,
+    transferMode,
     isDragActive,
     canUndo,
     canRedo,
@@ -993,8 +1043,8 @@ export function useProjectFileSystemModel({
     setShowHidden,
     handleSortByName,
     handleSortByTime,
-    handleCopyDialogOpenChange,
-    handleOpenCopyDialog,
+    handleTransferDialogOpenChange,
+    handleOpenTransferDialog,
     handleCopyPath,
     handleOpen,
     handleOpenInFileManager,

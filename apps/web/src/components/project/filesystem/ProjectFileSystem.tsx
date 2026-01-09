@@ -6,8 +6,11 @@ import {
   memo,
   useCallback,
   useContext,
-  useRef,
+  useEffect,
+  useMemo,
   useState,
+  type DragEvent as ReactDragEvent,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -40,12 +43,13 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import FileSystemGridController, {
-  type FileSystemGridControllerHandle,
-} from "./FileSystemGridController";
-import ProjectFileSystemCopyDialog from "./ProjectFileSystemCopyDialog";
+import type { FileSystemEntry } from "./file-system-utils";
+import { FileSystemGrid } from "./FileSystemGrid";
+import ProjectFileSystemTransferDialog from "./ProjectFileSystemTransferDialog";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import { useProjectFileSystemModel } from "./file-system-model";
+import { useFileSelection } from "@/hooks/use-file-selection";
+import { useFileRename } from "@/hooks/use-file-rename";
 
 type ProjectFileSystemProps = {
   projectId?: string;
@@ -288,38 +292,56 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     onNavigate,
   });
   const headerSlot = useProjectFileSystemHeaderSlot();
-  const gridControllerRef = useRef<FileSystemGridControllerHandle>(null);
-  /** Track last context menu open to guard against synthetic select. */
-  const contextMenuOpenAtRef = useRef<number | null>(null);
+  /** Track current grid selection. */
+  const {
+    selectedUris,
+    replaceSelection,
+    toggleSelection,
+    ensureSelected,
+    clearSelection,
+    applySelectionChange,
+  } = useFileSelection();
+  /** Track the entry that opened the context menu. */
+  const [contextTargetUri, setContextTargetUri] = useState<string | null>(null);
+  /** Resolve macOS-specific modifier behavior. */
+  const isMac = useMemo(
+    () =>
+      typeof navigator !== "undefined" &&
+      (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac")),
+    []
+  );
+  /** Manage rename state for file entries. */
+  const {
+    renamingUri,
+    renamingValue,
+    setRenamingValue,
+    requestRename,
+    requestRenameByInfo,
+    handleRenamingSubmit,
+    handleRenamingCancel,
+  } = useFileRename({
+    entries: model.fileEntries,
+    onRename: model.renameEntry,
+    onSelectionReplace: replaceSelection,
+  });
 
-  /** Mark the context menu as opened for guard timing. */
-  const markContextMenuOpen = useCallback(() => {
-    contextMenuOpenAtRef.current = Date.now();
-  }, []);
-
-  /** Guard context menu selection right after a contextmenu event. */
-  const shouldIgnoreContextMenuSelect = useCallback((event: Event) => {
-    const openedAt = contextMenuOpenAtRef.current;
-    if (!openedAt) return false;
-    contextMenuOpenAtRef.current = null;
-    // 中文注释：阻止右键抬起时误触菜单项触发操作。
-    if (Date.now() - openedAt < 200) {
-      event.preventDefault();
-      event.stopPropagation();
-      return true;
-    }
-    return false;
-  }, []);
-
-  /** Wrap a context menu action with the guard. */
-  const withContextMenuGuard = useCallback(
-    (handler: () => void) => {
-      return (event: Event) => {
-        if (shouldIgnoreContextMenuSelect(event)) return;
-        handler();
-      };
+  /** Resolve whether a click should toggle selection. */
+  const shouldToggleSelection = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      // 中文注释：macOS 只使用 Command 键，避免 Ctrl 右键误触切换。
+      return isMac ? event.metaKey : event.metaKey || event.ctrlKey;
     },
-    [shouldIgnoreContextMenuSelect]
+    [isMac]
+  );
+
+  /** Resolve selection mode for drag selection. */
+  const resolveSelectionMode = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      const toggle = isMac ? event.metaKey : event.metaKey || event.ctrlKey;
+      // 中文注释：macOS 下忽略 Ctrl，避免右键菜单触发框选切换。
+      return toggle ? "toggle" : "replace";
+    },
+    [isMac]
   );
 
   /** Resolve selected entries from the current file list. */
@@ -337,12 +359,84 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     [model.fileEntries]
   );
 
+  /** Resolve context menu target entry. */
+  const contextEntry = useMemo(() => {
+    if (!contextTargetUri) return null;
+    return model.fileEntries.find((entry) => entry.uri === contextTargetUri) ?? null;
+  }, [contextTargetUri, model.fileEntries]);
+
+  /** Cache selected entries for context menu actions. */
+  const selectedEntries = useMemo(
+    () => resolveSelectedEntries(selectedUris),
+    [resolveSelectedEntries, selectedUris]
+  );
+
+  /** Handle left-click selection updates. */
+  const handleEntryClick = useCallback(
+    (entry: FileSystemEntry, event: ReactMouseEvent<HTMLButtonElement>) => {
+      if (event.button !== 0) return;
+      if (event.nativeEvent?.which && event.nativeEvent.which !== 1) return;
+      if (isMac && event.ctrlKey) return;
+      if (shouldToggleSelection(event)) {
+        toggleSelection(entry.uri);
+        setContextTargetUri(null);
+        return;
+      }
+      replaceSelection([entry.uri]);
+      setContextTargetUri(null);
+    },
+    [isMac, replaceSelection, shouldToggleSelection, toggleSelection]
+  );
+
+  /** Handle selection updates from drag selection. */
+  const handleSelectionChange = useCallback(
+    (uris: string[], mode: "replace" | "toggle") => {
+      applySelectionChange(uris, mode);
+      setContextTargetUri(null);
+    },
+    [applySelectionChange]
+  );
+
+  /** Preserve selection when starting a drag action. */
+  const handleEntryDragStart = useCallback(
+    (entry: FileSystemEntry, event: ReactDragEvent<HTMLButtonElement>) => {
+      ensureSelected(entry.uri);
+      model.handleEntryDragStart(entry, event);
+    },
+    [ensureSelected, model]
+  );
+
+  /** Capture context menu target before menu opens. */
+  const handleGridContextMenuCapture = useCallback(
+    (_event: ReactMouseEvent<HTMLDivElement>, payload: { uri: string | null }) => {
+      setContextTargetUri(payload.uri);
+      if (!payload.uri) return;
+      if (!selectedUris.has(payload.uri)) {
+        replaceSelection([payload.uri]);
+      }
+    },
+    [replaceSelection, selectedUris]
+  );
+
+  /** Reset context target when menu closes. */
+  const handleContextMenuOpenChange = useCallback((open: boolean) => {
+    if (open) return;
+    setContextTargetUri(null);
+  }, []);
+
   const handleCreateFolder = async () => {
     const created = await model.handleCreateFolder();
     if (created) {
-      gridControllerRef.current?.requestRename(created);
+      requestRenameByInfo(created);
     }
   };
+
+  useEffect(() => {
+    // 中文注释：目录切换时重置选择与重命名状态，避免沿用旧目录的引用。
+    clearSelection();
+    handleRenamingCancel();
+    setContextTargetUri(null);
+  }, [clearSelection, handleRenamingCancel, model.activeUri]);
 
   if (!rootUri) {
     return <div className="p-4 text-sm text-muted-foreground">未绑定项目目录</div>;
@@ -504,11 +598,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     <div className="h-full flex flex-col gap-4">
       {toolbarPortal}
       <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
-        <ContextMenu>
+        <ContextMenu onOpenChange={handleContextMenuOpenChange}>
           <ContextMenuTrigger asChild>
             <div
               className="flex-1 min-h-0 h-full overflow-auto bg-background p-4"
-              onContextMenu={markContextMenuOpen}
               onDragEnter={model.handleDragEnter}
               onDragOver={model.handleDragOver}
               onDragLeave={model.handleDragLeave}
@@ -518,10 +611,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 key={model.activeUri ?? "root"}
                 className="min-h-full h-full animate-in fade-in slide-in-from-bottom-2 duration-200"
               >
-                <FileSystemGridController
-                  ref={gridControllerRef}
+                <FileSystemGrid
                   entries={model.displayEntries}
-                  renameEntries={model.fileEntries}
                   isLoading={model.listQuery.isLoading}
                   parentUri={model.parentUri}
                   dragProjectId={model.projectId}
@@ -534,134 +625,131 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   onOpenSpreadsheet={model.handleOpenSpreadsheet}
                   onOpenBoard={model.handleOpenBoard}
                   onCreateBoard={model.handleCreateBoard}
-                  onRename={(entry, nextName) => model.renameEntry(entry, nextName)}
-                  onEntryContextMenuOpen={markContextMenuOpen}
-                  renderContextMenu={(entry, ctx) => {
-                    const isMultiSelect = ctx.isMultiSelect;
-                    const selectedEntries = resolveSelectedEntries(ctx.selectedUris);
-                    return isMultiSelect ? (
-                      <>
-                        <ContextMenuItem disabled>
-                          已选择 {ctx.selectedUris.size} 项
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem
-                          onSelect={withContextMenuGuard(() =>
-                            model.handleOpenCopyDialog(selectedEntries)
-                          )}
-                        >
-                          复制到
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem
-                          onSelect={withContextMenuGuard(() =>
-                            model.handleDeleteBatch(selectedEntries)
-                          )}
-                        >
-                          删除
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onSelect={withContextMenuGuard(() =>
-                            model.handleDeletePermanentBatch(selectedEntries)
-                          )}
-                        >
-                          彻底删除
-                        </ContextMenuItem>
-                      </>
-                    ) : (
-                      <>
-                        <ContextMenuItem
-                          onSelect={withContextMenuGuard(() =>
-                            model.handleOpen(entry)
-                          )}
-                        >
-                          打开
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onSelect={withContextMenuGuard(() =>
-                            model.handleOpenInFileManager(entry)
-                          )}
-                        >
-                          在文件管理器中打开
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem
-                          onSelect={withContextMenuGuard(() =>
-                            model.handleOpenCopyDialog(entry)
-                          )}
-                        >
-                          复制到
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onSelect={withContextMenuGuard(() =>
-                            model.handleCopyPath(entry)
-                          )}
-                        >
-                          复制路径
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem onSelect={withContextMenuGuard(ctx.startRename)}>
-                          重命名
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onSelect={withContextMenuGuard(() =>
-                            model.handleDelete(entry)
-                          )}
-                        >
-                          删除
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onSelect={withContextMenuGuard(() =>
-                            model.handleDeletePermanent(entry)
-                          )}
-                        >
-                          彻底删除
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem
-                          onSelect={withContextMenuGuard(() =>
-                            model.handleShowInfo(entry)
-                          )}
-                        >
-                          基本信息
-                        </ContextMenuItem>
-                      </>
-                    );
-                  }}
-                  onEntryDragStart={model.handleEntryDragStart}
+                  selectedUris={selectedUris}
+                  onEntryClick={handleEntryClick}
+                  onSelectionChange={handleSelectionChange}
+                  resolveSelectionMode={resolveSelectionMode}
+                  onGridContextMenuCapture={handleGridContextMenuCapture}
+                  renamingUri={renamingUri}
+                  renamingValue={renamingValue}
+                  onRenamingChange={setRenamingValue}
+                  onRenamingSubmit={handleRenamingSubmit}
+                  onRenamingCancel={handleRenamingCancel}
+                  onEntryDragStart={handleEntryDragStart}
                   onEntryDrop={model.handleEntryDrop}
                 />
               </div>
             </div>
           </ContextMenuTrigger>
-          <ContextMenuContent className="w-44">
-            <ContextMenuItem onSelect={withContextMenuGuard(model.refreshList)}>
-              刷新
-            </ContextMenuItem>
-            <ContextMenuItem
-              onSelect={withContextMenuGuard(() =>
-                model.setShowHidden((prev) => !prev)
-              )}
-            >
-              {model.showHidden ? "✓ 显示隐藏" : "显示隐藏"}
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem onSelect={withContextMenuGuard(handleCreateFolder)}>
-              新建文件夹
-            </ContextMenuItem>
-            <ContextMenuItem disabled>新建文稿</ContextMenuItem>
-            <ContextMenuItem onSelect={withContextMenuGuard(model.handleCreateBoard)}>
-              新建画布
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              onSelect={withContextMenuGuard(() => {
-                model.handlePaste();
-              })}
-              disabled={model.clipboardSize === 0}
-            >
-              粘贴
-            </ContextMenuItem>
+          <ContextMenuContent className={contextEntry ? "w-52" : "w-44"}>
+            {contextEntry ? (
+              selectedEntries.length > 1 ? (
+                <>
+                  <ContextMenuItem disabled>
+                    已选择 {selectedEntries.length} 项
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onSelect={() =>
+                      model.handleOpenTransferDialog(selectedEntries, "copy")
+                    }
+                  >
+                    复制到
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() =>
+                      model.handleOpenTransferDialog(selectedEntries, "move")
+                    }
+                  >
+                    移动到
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onSelect={() => model.handleDeleteBatch(selectedEntries)}
+                  >
+                    删除
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => model.handleDeletePermanentBatch(selectedEntries)}
+                  >
+                    彻底删除
+                  </ContextMenuItem>
+                </>
+              ) : (
+                <>
+                  <ContextMenuItem onSelect={() => model.handleOpen(contextEntry)}>
+                    打开
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => model.handleOpenInFileManager(contextEntry)}
+                  >
+                    在文件管理器中打开
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onSelect={() =>
+                      model.handleOpenTransferDialog(contextEntry, "copy")
+                    }
+                  >
+                    复制到
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() =>
+                      model.handleOpenTransferDialog(contextEntry, "move")
+                    }
+                  >
+                    移动到
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => model.handleCopyPath(contextEntry)}
+                  >
+                    复制路径
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem onSelect={() => requestRename(contextEntry)}>
+                    重命名
+                  </ContextMenuItem>
+                  <ContextMenuItem onSelect={() => model.handleDelete(contextEntry)}>
+                    删除
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => model.handleDeletePermanent(contextEntry)}
+                  >
+                    彻底删除
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem onSelect={() => model.handleShowInfo(contextEntry)}>
+                    基本信息
+                  </ContextMenuItem>
+                </>
+              )
+            ) : (
+              <>
+                <ContextMenuItem onSelect={model.refreshList}>刷新</ContextMenuItem>
+                <ContextMenuItem
+                  onSelect={() => model.setShowHidden((prev) => !prev)}
+                >
+                  {model.showHidden ? "✓ 显示隐藏" : "显示隐藏"}
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem onSelect={handleCreateFolder}>
+                  新建文件夹
+                </ContextMenuItem>
+                <ContextMenuItem disabled>新建文稿</ContextMenuItem>
+                <ContextMenuItem onSelect={model.handleCreateBoard}>
+                  新建画布
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  onSelect={() => {
+                    model.handlePaste();
+                  }}
+                  disabled={model.clipboardSize === 0}
+                >
+                  粘贴
+                </ContextMenuItem>
+              </>
+            )}
           </ContextMenuContent>
         </ContextMenu>
         <DragDropOverlay
@@ -670,10 +758,11 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           radiusClassName="rounded-2xl"
         />
       </section>
-      <ProjectFileSystemCopyDialog
-        open={model.copyDialogOpen}
-        onOpenChange={model.handleCopyDialogOpenChange}
-        entries={model.copyEntries}
+      <ProjectFileSystemTransferDialog
+        open={model.transferDialogOpen}
+        onOpenChange={model.handleTransferDialogOpenChange}
+        entries={model.transferEntries}
+        mode={model.transferMode}
         defaultRootUri={rootUri}
       />
     </div>

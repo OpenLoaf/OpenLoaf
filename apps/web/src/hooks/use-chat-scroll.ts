@@ -58,8 +58,8 @@ export function useChatScroll({
   }, [viewportRef]);
 
   const getIsAtBottom = React.useCallback(() => {
-    const threshold = 48;
-    return getDistanceFromBottom() <= threshold;
+    const bottomThreshold = 48;
+    return getDistanceFromBottom() <= bottomThreshold;
   }, [getDistanceFromBottom]);
 
   React.useEffect(() => {
@@ -84,16 +84,24 @@ export function useChatScroll({
           const pinned = getIsAtBottom();
           const currentScrollTop = viewport.scrollTop;
           const scrolledUp = currentScrollTop < lastScrollTopRef.current - 2;
+          const scrolledDown = currentScrollTop > lastScrollTopRef.current + 2;
           const distanceFromBottom = getDistanceFromBottom();
           isPinnedToBottomRef.current = pinned;
           // 中文注释：只要用户有上滑动作就暂停自动跟随，避免被“拖回底部”。
-          if (
-            scrolledUp &&
-            distanceFromBottom > 8 &&
-            userScrollIntentRef.current
-          ) {
+          if (scrolledUp && distanceFromBottom > 8 && userScrollIntentRef.current) {
             shouldAutoFollowRef.current = false;
             forceFollowRef.current = false;
+          } else if (
+            forceFollowEnabledRef.current &&
+            !shouldAutoFollowRef.current &&
+            scrolledDown &&
+            distanceFromBottom <= 120 &&
+            userScrollIntentRef.current
+          ) {
+            // 中文注释：SSE loading 下用户向下滑接近底部时恢复跟随（避免追不上“移动的底部”）。
+            shouldAutoFollowRef.current = true;
+            forceFollowRef.current = true;
+            userScrollIntentRef.current = false;
           } else if (pinned) {
             // 中文注释：用户回到底部后恢复自动跟随。
             shouldAutoFollowRef.current = true;

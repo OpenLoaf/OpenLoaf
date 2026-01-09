@@ -8,7 +8,6 @@ import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasSnapshot } from "../engine/types";
 import { HoverPanel, IconBtn, PanelItem } from "../ui/ToolbarParts";
 import { isBoardUiTarget } from "../utils/dom";
-import { buildImageNodePayloadFromFile } from "../utils/image";
 
 export interface BoardToolbarProps {
   /** Canvas engine instance. */
@@ -751,7 +750,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
       const file = event.target.files?.[0];
       if (!file) return;
       try {
-        const payload = await buildImageNodePayloadFromFile(file);
+        const payload = await engine.buildImagePayloadFromFile(file);
         handleInsertRequest({
           id: "image",
           type: "image",
@@ -763,7 +762,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         event.target.value = "";
       }
     },
-    [handleInsertRequest]
+    [engine, handleInsertRequest]
   );
 
   // 统一按钮尺寸（“宽松”密度）

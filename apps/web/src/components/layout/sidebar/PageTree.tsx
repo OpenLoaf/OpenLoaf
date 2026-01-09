@@ -38,10 +38,11 @@ import { ChevronRight, FileText, Folder } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { toast } from "sonner";
 import {
-  BOARD_FILE_EXT,
-  ensureBoardFileName,
+  BOARD_INDEX_FILE_NAME,
+  ensureBoardFolderName,
+  getBoardDisplayName,
   getDisplayFileName,
-  isBoardFileExt,
+  isBoardFolderName,
 } from "@/lib/file-name";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -106,11 +107,12 @@ interface FileTreeNodeProps {
   subItemGapClassName?: string;
 }
 
-function resolveFileComponent(ext?: string) {
+function resolveFileComponent(node: FileNode) {
+  if (node.kind === "file" && isBoardFolderName(node.name)) return "board-viewer";
+  const ext = node.ext;
   if (!ext) return "file-viewer";
   if (ext === "ttdoc") return "file-viewer";
   if (ext === "ttcanvas") return "file-viewer";
-  if (ext === BOARD_FILE_EXT) return "board-viewer";
   if (ext === "ttskill") return "file-viewer";
   if (ext === "pdf") return "pdf-viewer";
   if (ext === "doc" || ext === "docx") return "doc-viewer";
@@ -123,6 +125,14 @@ function buildNextUri(uri: string, nextName: string) {
   const segments = url.pathname.split("/");
   segments[segments.length - 1] = nextName;
   url.pathname = segments.join("/");
+  return url.toString();
+}
+
+/** Build a child uri by appending a new path segment. */
+function buildChildUri(uri: string, childName: string) {
+  const url = new URL(uri);
+  const basePath = url.pathname.replace(/\/$/, "");
+  url.pathname = `${basePath}/${encodeURIComponent(childName)}`;
   return url.toString();
 }
 
@@ -175,15 +185,23 @@ function FileTreeNode({
     )
   );
   const fileChildren = listQuery.data?.entries ?? [];
+  const normalizedFileChildren = fileChildren.map((child) => {
+    if (child.kind === "folder" && isBoardFolderName(child.name)) {
+      return { ...child, kind: "file", ext: undefined };
+    }
+    return child;
+  });
   const projectChildren = node.kind === "project" ? node.children ?? [] : [];
-  const children = node.kind === "project" ? projectChildren : fileChildren;
+  const children = node.kind === "project" ? projectChildren : normalizedFileChildren;
   const hasChildren = node.kind === "project" ? children.length > 0 : true;
 
   const Item = depth === 0 ? SidebarMenuItem : SidebarMenuSubItem;
   const Button = depth === 0 ? SidebarMenuButton : SidebarMenuSubButton;
 
   if (node.kind === "file") {
-    const displayName = getDisplayFileName(node.name, node.ext);
+    const displayName = isBoardFolderName(node.name)
+      ? getBoardDisplayName(node.name)
+      : getDisplayFileName(node.name, node.ext);
     return (
       <Item key={node.uri}>
         <ContextMenu onOpenChange={(open) => onContextMenuOpenChange(node, open)}>
@@ -360,9 +378,11 @@ export const PageTreeMenu = ({
 
   const openFileTab = (node: FileNode) => {
     if (!workspace?.id) return;
-    const component = resolveFileComponent(node.ext);
+    const component = resolveFileComponent(node);
     const baseId = `file:${node.uri}`;
-    const displayName = getDisplayFileName(node.name, node.ext);
+    const displayName = isBoardFolderName(node.name)
+      ? getBoardDisplayName(node.name)
+      : getDisplayFileName(node.name, node.ext);
     const existing = tabs.find(
       (tab) => tab.workspaceId === workspace.id && tab.base?.id === baseId,
     );
@@ -397,6 +417,14 @@ export const PageTreeMenu = ({
         component,
         params: {
           uri: resolvedUri,
+          ...(component === "board-viewer"
+            ? {
+                boardFolderUri: node.uri,
+                boardFileUri: buildChildUri(node.uri, BOARD_INDEX_FILE_NAME),
+                projectId: node.projectId,
+                rootUri: projectRootById.get(node.projectId ?? "") ?? undefined,
+              }
+            : null),
           name: node.name,
           ext: node.ext,
           ...(needsCustomHeader ? { __customHeader: true } : {}),
@@ -424,7 +452,9 @@ export const PageTreeMenu = ({
   };
 
   const openRenameDialog = (node: FileNode) => {
-    const displayName = getDisplayFileName(node.name, node.ext);
+    const displayName = isBoardFolderName(node.name)
+      ? getBoardDisplayName(node.name)
+      : getDisplayFileName(node.name, node.ext);
     setRenameTarget({ node, nextName: displayName });
   };
 
@@ -487,8 +517,8 @@ export const PageTreeMenu = ({
     if (!renameTarget) return;
     const rawName = renameTarget.nextName.trim();
     if (!rawName) return;
-    const nextName = isBoardFileExt(renameTarget.node.ext)
-      ? ensureBoardFileName(rawName)
+    const nextName = isBoardFolderName(renameTarget.node.name)
+      ? ensureBoardFolderName(rawName)
       : rawName;
     try {
       setIsBusy(true);

@@ -64,7 +64,7 @@ import {
   buildConnectorEndpointUpdate,
 } from "./connectors";
 import { buildClipboardState, buildPastedElements, getClipboardInsertPayload } from "./clipboard";
-import { buildImageNodePayloadFromFile } from "../utils/image";
+import { buildImageNodePayloadFromFile, type ImageNodePayload } from "../utils/image";
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
 import { buildAnchorMap } from "./anchors";
 import {
@@ -95,6 +95,9 @@ import {
 } from "./selection-actions";
 import { expandSelectionWithGroupChildren } from "./grouping";
 import { generateElementId } from "./id";
+
+/** Builder for image payloads. */
+type ImagePayloadBuilder = (file: File) => Promise<ImageNodePayload>;
 
 export class CanvasEngine {
   /** Document model storing elements. */
@@ -155,6 +158,8 @@ export class CanvasEngine {
   private historyPaused = false;
   /** Clipboard for copy/paste. */
   private clipboard: CanvasClipboard | null = null;
+  /** Optional image payload builder for file inserts. */
+  private imagePayloadBuilder: ImagePayloadBuilder | null = null;
   /** Paste offset step counter. */
   private pasteCount = 0;
   /** Stroke tool settings state. */
@@ -920,6 +925,17 @@ export class CanvasEngine {
     this.commitHistory();
   }
 
+  /** Register a custom image payload builder for file insertions. */
+  setImagePayloadBuilder(builder: ImagePayloadBuilder | null): void {
+    this.imagePayloadBuilder = builder;
+  }
+
+  /** Build an image payload using the registered builder if available. */
+  async buildImagePayloadFromFile(file: File): Promise<ImageNodePayload> {
+    const builder = this.imagePayloadBuilder ?? buildImageNodePayloadFromFile;
+    return builder(file);
+  }
+
   /** Handle external clipboard payloads, with room for future node types. */
   private async handleExternalPaste(payload: ClipboardInsertPayload): Promise<void> {
     if (payload.kind === "image") {
@@ -933,7 +949,7 @@ export class CanvasEngine {
 
   /** Insert an image node from a file and place it at the viewport center. */
   private async insertImageFromFile(file: File): Promise<void> {
-    const payload = await buildImageNodePayloadFromFile(file);
+    const payload = await this.buildImagePayloadFromFile(file);
     const [width, height] = payload.size;
     const center = this.getViewportCenterWorld();
     this.addNodeElement("image", payload.props, [

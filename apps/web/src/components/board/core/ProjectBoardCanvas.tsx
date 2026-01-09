@@ -53,6 +53,8 @@ const ProjectBoardCanvas = memo(function ProjectBoardCanvas({
           ImageGroupNodeDefinition,
         ]}
         workspaceId={workspaceId}
+        projectId={projectId}
+        rootUri={rootUri}
         boardId={rootUri ?? projectId}
       />
     </div>

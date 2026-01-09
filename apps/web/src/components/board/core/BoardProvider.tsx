@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 
 export type ImagePreviewPayload = {
-  /** Original image data url. */
+  /** Original image uri. */
   originalSrc: string;
   /** Preview image data url. */
   previewSrc: string;
