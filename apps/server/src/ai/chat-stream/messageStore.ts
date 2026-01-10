@@ -3,6 +3,8 @@ import type { MessageRole as DbMessageRole, Prisma } from "@teatime-ai/db/prisma
 import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
 import { replaceFileTokensWithNames } from "@/common/chatTitle";
 import { getBoardId, getProjectId, getWorkspaceId } from "./requestContext";
+import { toNumberOrUndefined } from "@/ai/utils/number-utils";
+import { isRecord } from "@/ai/utils/type-guards";
 
 /** Max session title length. */
 const MAX_SESSION_TITLE_CHARS = 16;
@@ -191,16 +193,8 @@ function sanitizeMetadata(metadata: unknown): Record<string, unknown> | null {
   return Object.keys(next).length ? next : null;
 }
 
-/** Convert to finite number or undefined. */
-function toNumberOrUndefined(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
 /** Merge usage fields by summing values. */
 function mergeTotalUsage(prev: unknown, next: unknown): unknown | undefined {
-  const isRecord = (value: unknown): value is Record<string, unknown> =>
-    Boolean(value) && typeof value === "object" && !Array.isArray(value);
-
   const prevUsage = isRecord(prev) ? prev : undefined;
   const nextUsage = isRecord(next) ? next : undefined;
   if (!prevUsage && !nextUsage) return undefined;
@@ -230,8 +224,6 @@ function mergeMetadataWithAccumulatedUsage(
   next: Record<string, unknown> | null,
 ): Record<string, unknown> | null {
   if (!next) return null;
-  const isRecord = (value: unknown): value is Record<string, unknown> =>
-    Boolean(value) && typeof value === "object" && !Array.isArray(value);
   const prevRecord = isRecord(prev) ? prev : {};
 
   const merged: Record<string, unknown> = { ...prevRecord, ...next };

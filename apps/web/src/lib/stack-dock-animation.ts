@@ -1,6 +1,7 @@
 "use client";
 
 import { useTabs } from "@/hooks/use-tabs";
+import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
 
 /** Selector for the dock button anchor element. */
 const STACK_DOCK_BUTTON_SELECTOR = "[data-stack-dock-button]";
@@ -10,6 +11,7 @@ const STACK_PANEL_SELECTOR = "[data-stack-panel]";
 const STACK_ANIMATION_DURATION_MS = 650;
 /** Easing curve approximating the macOS minimize feel. */
 const STACK_ANIMATION_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
+const BOARD_VIEWER_COMPONENT = "board-viewer";
 
 type StackAnimationDirection = "minimize" | "restore";
 
@@ -19,6 +21,29 @@ let currentAnimation: Animation | null = null;
 let currentCleanup: (() => void) | null = null;
 let minimizeSignalSeed = 0;
 const minimizeSignalByTabId = new Map<string, number>();
+
+type TabsStateSnapshot = Pick<
+  ReturnType<typeof useTabs.getState>,
+  "tabs" | "activeStackItemIdByTabId"
+>;
+
+/** Resolve the active stack item for a tab. */
+function getActiveStackItem(state: TabsStateSnapshot, tabId: string) {
+  const tab = state.tabs.find((item) => item.id === tabId);
+  const stack = tab?.stack ?? [];
+  const activeId = state.activeStackItemIdByTabId[tabId] || stack.at(-1)?.id || "";
+  return stack.find((item) => item.id === activeId) ?? stack.at(-1);
+}
+
+/** Return true when the board stack is in full mode. */
+function isBoardStackFull(state: TabsStateSnapshot, tabId: string) {
+  const activeItem = getActiveStackItem(state, tabId);
+  if (activeItem?.component !== BOARD_VIEWER_COMPONENT) return false;
+  const tab = state.tabs.find((item) => item.id === tabId);
+  if (!tab?.rightChatCollapsed) return false;
+  const leftOpen = getLeftSidebarOpen();
+  return leftOpen === false;
+}
 
 /** Return true when user prefers reduced motion. */
 function prefersReducedMotion() {
@@ -118,7 +143,7 @@ function buildKeyframes(
 }
 
 /** Temporarily hide the real panel during the ghost animation. */
-function hidePanel(panel: HTMLElement) {
+function hidePanel(panel: HTMLElement): () => void {
   const prevOpacity = panel.style.opacity;
   const prevPointerEvents = panel.style.pointerEvents;
   panel.style.opacity = "0";
@@ -215,7 +240,7 @@ export async function animateStackRestore(tabId: string) {
       },
     });
   } finally {
-    restoreHidden?.();
+    (restoreHidden as (() => void) | null)?.();
   }
 }
 
@@ -224,6 +249,13 @@ export function requestStackMinimize(tabId: string) {
   if (!tabId) return;
   const state = useTabs.getState();
   if (state.stackHiddenByTabId[tabId]) return;
+  const shouldRestoreFull = isBoardStackFull(state, tabId);
+  state.setStackFullRestore(tabId, shouldRestoreFull);
+  if (shouldRestoreFull) {
+    // 逻辑：最小化时退出全屏模式，恢复左右侧边栏。
+    emitSidebarOpenRequest(true);
+    state.setTabRightChatCollapsed(tabId, false);
+  }
   minimizeSignalSeed += 1;
   minimizeSignalByTabId.set(tabId, minimizeSignalSeed);
   const panel = getStackPanel(tabId);
@@ -249,8 +281,9 @@ export function requestStackMinimize(tabId: string) {
     })
     .finally(() => {
       if (restoreHidden) {
+        const restore = restoreHidden as (() => void) | null;
         requestAnimationFrame(() => {
-          restoreHidden?.();
+          restore?.();
         });
       }
     });

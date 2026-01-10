@@ -5,14 +5,10 @@ import {
   saveChatImageAttachment,
   saveChatImageAttachmentFromTeatimeUrl,
 } from "./attachmentResolver";
+import { toText } from "@/routers/route-utils";
 
 /** Max upload size for chat images. */
 const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;
-
-/** Normalize string input. */
-function toText(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
 
 /** Check if value is file-like. */
 function isFileLike(value: unknown): value is File {

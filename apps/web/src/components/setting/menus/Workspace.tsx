@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
-import { Copy, Loader2, Save } from "lucide-react";
+import { Copy, FolderOpen, Loader2, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useProjects } from "@/hooks/use-projects";
 import type { ProjectNode } from "@teatime-ai/api/services/projectTreeService";
@@ -115,23 +115,51 @@ export function WorkspaceSettings() {
     setDraftWorkspaceName(activeWorkspace.name);
   }, [activeWorkspace?.name]);
 
-  /** Copy workspace id to clipboard. */
-  const handleCopyWorkspaceId = async () => {
-    if (!activeWorkspace?.id) return;
+  /**
+   * Copy text to clipboard with fallback support.
+   */
+  const copyTextToClipboard = async (value: string, message: string) => {
     try {
-      await navigator.clipboard.writeText(activeWorkspace.id);
-      toast.success("已复制工作空间ID");
+      await navigator.clipboard.writeText(value);
+      toast.success(message);
     } catch {
       // 兼容旧浏览器的降级方案。
       const textarea = document.createElement("textarea");
-      textarea.value = activeWorkspace.id;
+      textarea.value = value;
       textarea.style.position = "fixed";
       textarea.style.opacity = "0";
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand("copy");
       document.body.removeChild(textarea);
-      toast.success("已复制工作空间ID");
+      toast.success(message);
+    }
+  };
+
+  /** Copy workspace id to clipboard. */
+  const handleCopyWorkspaceId = async () => {
+    if (!activeWorkspace?.id) return;
+    await copyTextToClipboard(activeWorkspace.id, "已复制工作空间ID");
+  };
+
+  /** Copy workspace path to clipboard. */
+  const handleCopyWorkspacePath = async () => {
+    if (!activeWorkspace?.rootUri) return;
+    await copyTextToClipboard(displayWorkspacePath, "已复制存储路径");
+  };
+
+  /** Open workspace path in system file manager. */
+  const handleOpenWorkspacePath = async () => {
+    const rootUri = activeWorkspace?.rootUri;
+    if (!rootUri) return;
+    const api = window.teatimeElectron;
+    if (!api?.openPath) {
+      toast.error("网页版不支持打开文件管理器");
+      return;
+    }
+    const res = await api.openPath({ uri: rootUri });
+    if (!res?.ok) {
+      toast.error(res?.reason ?? "无法打开文件管理器");
     }
   };
 
@@ -196,8 +224,32 @@ export function WorkspaceSettings() {
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">存储路径</div>
-            <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
-              {displayWorkspacePath}
+            <TeatimeSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
+              <span className="min-w-0 flex-1 truncate">{displayWorkspacePath}</span>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                onClick={() => void handleCopyWorkspacePath()}
+                disabled={!activeWorkspace?.rootUri}
+                aria-label="复制存储路径"
+                title="复制"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                onClick={() => void handleOpenWorkspacePath()}
+                disabled={!activeWorkspace?.rootUri}
+                aria-label="打开文件管理器"
+                title="在文件管理器中打开"
+              >
+                <FolderOpen className="h-4 w-4" />
+              </Button>
             </TeatimeSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">

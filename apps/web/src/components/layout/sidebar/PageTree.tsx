@@ -161,6 +161,39 @@ function buildProjectNode(project: ProjectInfo): FileNode {
   };
 }
 
+/** Resolve the active project root uri from the active file uri. */
+function resolveActiveProjectRootUri(
+  projects: ProjectInfo[] | undefined,
+  activeUri: string | null
+): string | null {
+  if (!activeUri || !projects?.length) return null;
+  const roots: string[] = [];
+  const walk = (items: ProjectInfo[]) => {
+    items.forEach((item) => {
+      roots.push(item.rootUri);
+      if (item.children?.length) {
+        walk(item.children);
+      }
+    });
+  };
+  walk(projects);
+  let best: { uri: string; length: number } | null = null;
+  for (const uri of roots) {
+    try {
+      const rootUrl = new URL(uri);
+      const activeUrl = new URL(activeUri);
+      if (!activeUrl.pathname.startsWith(rootUrl.pathname)) continue;
+      const length = rootUrl.pathname.length;
+      if (!best || length > best.length) {
+        best = { uri, length };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return best?.uri ?? null;
+}
+
 /** Render a file tree node recursively. */
 function FileTreeNode({
   node,
@@ -331,6 +364,10 @@ export const PageTreeMenu = ({
     if (params?.uri && typeof params.uri === "string") return params.uri;
     return null;
   }, [activeTabId, tabs]);
+  const activeProjectRootUri = useMemo(
+    () => resolveActiveProjectRootUri(projects, activeUri),
+    [activeUri, projects]
+  );
 
   const setExpanded = (uri: string, isExpanded: boolean) => {
     setExpandedNodes((prev) => ({
@@ -695,6 +732,7 @@ export const PageTreeMenu = ({
           node={buildProjectNode(project)}
           depth={0}
           activeUri={activeUri}
+          activeProjectRootUri={activeProjectRootUri}
           expandedNodes={expandedNodes}
           setExpanded={setExpanded}
           onPrimaryClick={handlePrimaryClick}
@@ -973,34 +1011,10 @@ export const PageTreePicker = ({
   onSelect,
 }: PageTreePickerProps) => {
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
-  const activeProjectRootUri = useMemo(() => {
-    if (!activeUri || !projects?.length) return null;
-    const roots: string[] = [];
-    const walk = (items: ProjectInfo[]) => {
-      items.forEach((item) => {
-        roots.push(item.rootUri);
-        if (item.children?.length) {
-          walk(item.children);
-        }
-      });
-    };
-    walk(projects);
-    let best: { uri: string; length: number } | null = null;
-    for (const uri of roots) {
-      try {
-        const rootUrl = new URL(uri);
-        const activeUrl = new URL(activeUri);
-        if (!activeUrl.pathname.startsWith(rootUrl.pathname)) continue;
-        const length = rootUrl.pathname.length;
-        if (!best || length > best.length) {
-          best = { uri, length };
-        }
-      } catch {
-        continue;
-      }
-    }
-    return best?.uri ?? null;
-  }, [activeUri, projects]);
+  const activeProjectRootUri = useMemo(
+    () => resolveActiveProjectRootUri(projects, activeUri ?? null),
+    [activeUri, projects]
+  );
 
   const setExpanded = (uri: string, isExpanded: boolean) => {
     setExpandedNodes((prev) => ({

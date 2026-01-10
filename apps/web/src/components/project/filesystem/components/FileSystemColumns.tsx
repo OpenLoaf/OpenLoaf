@@ -373,7 +373,6 @@ const FileSystemColumns = memo(function FileSystemColumns({
         sort:
           sortField && sortOrder ? { field: sortField, order: sortOrder } : undefined,
       }),
-      placeholderData: (previous) => previous,
     })),
   });
   const hasExplicitSelection = (selectedUris?.size ?? 0) > 0;

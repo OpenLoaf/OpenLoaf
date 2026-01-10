@@ -1,8 +1,8 @@
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { logger } from "@/common/logger";
-import { chatImageRequestSchema } from "./chatImageTypes";
-import { runChatImageRequest } from "./chatStreamService";
+import { chatImageRequestSchema } from "@/ai/chat-stream/chatImageTypes";
+import { runChatImageRequest } from "@/ai/chat-stream/chatStreamService";
 
 /** Register chat image routes. */
 export function registerChatImageRoutes(app: Hono) {
@@ -34,7 +34,7 @@ export function registerChatImageRoutes(app: Hono) {
     });
 
     if (!result.ok) {
-      return c.json({ error: result.error }, result.status);
+      return c.json({ error: result.error }, result.status as any);
     }
 
     return c.json(result.response);

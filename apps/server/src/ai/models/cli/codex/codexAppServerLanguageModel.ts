@@ -1,6 +1,7 @@
 import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
+  LanguageModelV3FinishReason,
   LanguageModelV3GenerateResult,
   LanguageModelV3Prompt,
   LanguageModelV3StreamPart,
@@ -17,6 +18,7 @@ import type {
 import { convertAsyncIteratorToReadableStream } from "@ai-sdk/provider-utils";
 import { createHash } from "crypto";
 import { logger } from "@/common/logger";
+import { isRecord } from "@/ai/utils/type-guards";
 import {
   getCodexOptions,
   getProjectId,
@@ -100,6 +102,8 @@ type CodexServerNotification = {
 
 /** Default empty warnings payload. */
 const EMPTY_WARNINGS: SharedV3Warning[] = [];
+/** Default finish reason for completed turns. */
+const STOP_FINISH_REASON: LanguageModelV3FinishReason = { unified: "stop", raw: "stop" };
 /** Default sandbox mode for Codex. */
 const DEFAULT_SANDBOX_MODE: CodexSandboxMode = "read-only";
 /** Default reasoning effort for Codex. */
@@ -453,7 +457,7 @@ export function buildCodexAppServerLanguageModel(
       const result = await runCodexTurn(input, options);
       return {
         content: result.text ? [{ type: "text", text: result.text }] : [],
-        finishReason: "stop",
+        finishReason: STOP_FINISH_REASON,
         usage: result.usage,
         warnings: EMPTY_WARNINGS,
       };
@@ -514,12 +518,19 @@ async function* createCodexStream(
   const toolCallIdByItem = new Map<string, string>();
 
   const unsubscribe = connection.subscribeNotifications((notification) => {
-    const params = notification.params ?? {};
-    const paramsThreadId = typeof params.threadId === "string" ? params.threadId : null;
+    const params = isRecord(notification.params) ? notification.params : undefined;
+    const normalized: CodexServerNotification = {
+      method: notification.method,
+      ...(params ? { params } : {}),
+    };
+    const normalizedParams = normalized.params ?? {};
+    const paramsThreadId =
+      typeof normalizedParams.threadId === "string" ? normalizedParams.threadId : null;
     if (paramsThreadId && paramsThreadId !== threadId) return;
-    const paramsTurnId = typeof params.turnId === "string" ? params.turnId : null;
+    const paramsTurnId =
+      typeof normalizedParams.turnId === "string" ? normalizedParams.turnId : null;
     if (turnId && paramsTurnId && paramsTurnId !== turnId) return;
-    queue.push(notification);
+    queue.push(normalized);
   });
 
   const abortSignal = options.abortSignal;
@@ -662,7 +673,7 @@ async function* createCodexStream(
     if (textId) {
       yield { type: "text-end", id: textId };
     }
-    yield { type: "finish", usage, finishReason: "stop" };
+    yield { type: "finish", usage, finishReason: STOP_FINISH_REASON };
   } finally {
     queue.close();
     unsubscribe();

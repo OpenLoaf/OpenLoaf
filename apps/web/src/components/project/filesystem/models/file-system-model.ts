@@ -1148,7 +1148,7 @@ export function useProjectFileSystemModel({
           const parsed = JSON.parse(payload);
           if (Array.isArray(parsed)) {
             return parsed.filter(
-              (item): item is string => typeof item === "string" && item
+              (item): item is string => typeof item === "string" && item.length > 0
             );
           }
         } catch {

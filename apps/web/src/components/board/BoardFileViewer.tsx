@@ -2,7 +2,6 @@
 
 import { memo } from "react";
 import { BoardCanvas } from "./core/BoardCanvas";
-import { PlaceholderNodeDefinition } from "./nodes/PlaceholderNode";
 import { ImageNodeDefinition } from "./nodes/ImageNode";
 import { CalendarNodeDefinition } from "./nodes/CalendarNode";
 import { LinkNodeDefinition } from "./nodes/LinkNode";
@@ -72,7 +71,6 @@ const BoardFileViewer = memo(function BoardFileViewer({
         panelKey={panelKey}
         uiHidden={uiHidden}
         nodes={[
-          PlaceholderNodeDefinition,
           ImageNodeDefinition,
           CalendarNodeDefinition,
           LinkNodeDefinition,

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
 import { useTabs } from "@/hooks/use-tabs";
 import { animateStackRestore, requestStackMinimize } from "@/lib/stack-dock-animation";
+import { emitSidebarOpenRequest } from "@/lib/sidebar-state";
 import type { DockItem } from "@teatime-ai/api/common";
 import { StackHeader } from "./StackHeader";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -143,7 +144,7 @@ function PanelFrame({
             title={title}
             onRefresh={() => setRefreshKey((k) => k + 1)}
             rightSlotAfter={
-              <BoardPanelHeaderActions item={item} title={title} />
+              <BoardPanelHeaderActions item={item} title={title} tabId={tabId} />
             }
             onClose={canClose ? onClose : undefined}
             showMinimize
@@ -190,8 +191,11 @@ function getParentUri(uri: string): string {
 export function LeftDock({ tabId }: { tabId: string }) {
   const tab = useTabs((s) => s.tabs.find((t) => t.id === tabId));
   const stackHidden = useTabs((s) => Boolean(s.stackHiddenByTabId[tabId]));
+  const stackFullRestore = useTabs((s) => Boolean(s.stackFullRestoreByTabId[tabId]));
   const activeStackItemId = useTabs((s) => s.activeStackItemIdByTabId[tabId]);
   const removeStackItem = useTabs((s) => s.removeStackItem);
+  const setStackFullRestore = useTabs((s) => s.setStackFullRestore);
+  const setTabRightChatCollapsed = useTabs((s) => s.setTabRightChatCollapsed);
   const queryClient = useQueryClient();
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
   const [renameDialog, setRenameDialog] = React.useState<{
@@ -273,11 +277,24 @@ export function LeftDock({ tabId }: { tabId: string }) {
   React.useLayoutEffect(() => {
     const prevHidden = prevStackHiddenRef.current;
     if (prevHidden && !stackHidden && stack.length > 0) {
+      if (stackFullRestore) {
+        // 逻辑：恢复 stack 时回到全屏模式，收起左右栏。
+        emitSidebarOpenRequest(false);
+        setTabRightChatCollapsed(tabId, true);
+        setStackFullRestore(tabId, false);
+      }
       // 最小化恢复时触发反向“吸走”动画。
       void animateStackRestore(tabId);
     }
     prevStackHiddenRef.current = stackHidden;
-  }, [stack.length, stackHidden, tabId]);
+  }, [
+    setStackFullRestore,
+    setTabRightChatCollapsed,
+    stack.length,
+    stackFullRestore,
+    stackHidden,
+    tabId,
+  ]);
 
   if (!tab) return null;
 

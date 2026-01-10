@@ -1,9 +1,10 @@
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ChatModelSource } from "@teatime-ai/api/common";
-import type { ChatStreamRequest } from "./chatStreamTypes";
-import { runChatStream } from "./chatStreamService";
+import type { ChatStreamRequest } from "@/ai/chat-stream/chatStreamTypes";
+import { runChatStream } from "@/ai/chat-stream/chatStreamService";
 import { logger } from "@/common/logger";
+import { toText } from "./route-utils";
 
 /** Register chat stream routes. */
 export function registerChatStreamRoutes(app: Hono) {
@@ -65,11 +66,6 @@ function parseChatStreamRequest(body: unknown): { request?: ChatStreamRequest; e
       projectId: toText(raw.projectId) || undefined,
     },
   };
-}
-
-/** Normalize string input. */
-function toText(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
 }
 
 /** Normalize params input. */

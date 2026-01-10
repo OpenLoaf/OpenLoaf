@@ -40,6 +40,10 @@ type SidebarContextProps = {
   toggleSidebar: () => void;
 };
 
+type SidebarOpenRequestDetail = {
+  open: boolean;
+};
+
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
 
 function useSidebar() {
@@ -49,6 +53,11 @@ function useSidebar() {
   }
 
   return context;
+}
+
+/** Return sidebar context or null when the provider is missing. */
+function useOptionalSidebar() {
+  return React.useContext(SidebarContext);
 }
 
 function SidebarProvider({
@@ -96,6 +105,22 @@ function SidebarProvider({
     window.addEventListener("teatime:toggle-sidebar", handler);
     return () => window.removeEventListener("teatime:toggle-sidebar", handler);
   }, [toggleSidebar]);
+
+  React.useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<SidebarOpenRequestDetail>).detail;
+      if (!detail || typeof detail.open !== "boolean") return;
+      // 逻辑：允许非 SidebarProvider 树内的组件驱动侧边栏显隐。
+      if (isMobile) {
+        setOpenMobile(detail.open);
+      } else {
+        setOpen(detail.open);
+      }
+    };
+    window.addEventListener("teatime:set-sidebar-open", handler as EventListener);
+    return () =>
+      window.removeEventListener("teatime:set-sidebar-open", handler as EventListener);
+  }, [isMobile, setOpen, setOpenMobile]);
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
@@ -711,4 +736,5 @@ export {
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
+  useOptionalSidebar,
 };

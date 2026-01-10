@@ -554,8 +554,6 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         onRenamingChange={setRenamingValue}
         onRenamingSubmit={handleRenamingSubmit}
         onRenamingCancel={handleRenamingCancel}
-        disableEntryDoubleClick={disableEntryActions}
-        disableContextMenu={disableEntryActions}
       />
     </div>
   );

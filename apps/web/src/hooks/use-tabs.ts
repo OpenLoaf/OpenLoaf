@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { DEFAULT_TAB_INFO, type DockItem, type Tab } from "@teatime-ai/api/common";
 import { createChatSessionId } from "@/lib/chat-session-id";
+import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
 
 export const TABS_STORAGE_KEY = "teatime:tabs";
 
@@ -13,6 +14,7 @@ export const BROWSER_WINDOW_COMPONENT = "electron-browser-window";
 export const BROWSER_WINDOW_PANEL_ID = "browser-window";
 export const TERMINAL_WINDOW_COMPONENT = "terminal-viewer";
 export const TERMINAL_WINDOW_PANEL_ID = "terminal-window";
+const BOARD_VIEWER_COMPONENT = "board-viewer";
 
 type BrowserTab = { id: string; url: string; title?: string; viewKey: string; cdpTargetIds?: string[] };
 
@@ -270,6 +272,37 @@ function normalizeTerminalWindowItem(existing: DockItem | undefined, incoming: D
   };
 }
 
+type TabsStateSnapshot = {
+  tabs: Tab[];
+  activeStackItemIdByTabId: Record<string, string>;
+};
+
+/** Resolve the active stack item for a tab snapshot. */
+function getActiveStackItem(state: TabsStateSnapshot, tabId: string) {
+  const tab = state.tabs.find((item) => item.id === tabId);
+  const stack = tab?.stack ?? [];
+  const activeId = state.activeStackItemIdByTabId[tabId] || stack.at(-1)?.id || "";
+  return stack.find((item) => item.id === activeId) ?? stack.at(-1);
+}
+
+/** Return true when the active board stack is in full mode. */
+function isBoardStackFull(state: TabsStateSnapshot, tabId: string) {
+  const activeItem = getActiveStackItem(state, tabId);
+  if (activeItem?.component !== BOARD_VIEWER_COMPONENT) return false;
+  const tab = state.tabs.find((item) => item.id === tabId);
+  if (!tab?.rightChatCollapsed) return false;
+  const leftOpen = getLeftSidebarOpen();
+  return leftOpen === false;
+}
+
+/** Return true when closing should exit board full mode. */
+function shouldExitBoardFullOnClose(state: TabsStateSnapshot, tabId: string, itemId?: string) {
+  const activeItem = getActiveStackItem(state, tabId);
+  if (!activeItem || activeItem.component !== BOARD_VIEWER_COMPONENT) return false;
+  if (itemId && activeItem.id !== itemId) return false;
+  return isBoardStackFull(state, tabId);
+}
+
 function clampPercent(value: number) {
   // 约束百分比到 [0, 100]，并且对 NaN/Infinity 做兜底。
   if (!Number.isFinite(value)) return 0;
@@ -312,6 +345,9 @@ export interface TabsState {
 
   /** 当前 tab 的激活 stack item（不再通过“重排数组”来表示选中态） */
   activeStackItemIdByTabId: Record<string, string>;
+
+  /** Track whether a board stack should re-enter full mode after restore. */
+  stackFullRestoreByTabId: Record<string, boolean>;
 
   /** 运行时缓存：工具调用片段（不落盘，避免 localStorage 过大/频繁写入）。 */
   toolPartsByTabId: Record<string, Record<string, ToolPartSnapshot>>;
@@ -362,6 +398,8 @@ export interface TabsState {
   removeStackItem: (tabId: string, itemId: string) => void;
   clearStack: (tabId: string) => void;
   setStackHidden: (tabId: string, hidden: boolean) => void;
+  /** Update the restore flag for board full mode on stack restore. */
+  setStackFullRestore: (tabId: string, restore: boolean) => void;
   /**
    * Replace browser tabs state for the embedded browser panel.
    */
@@ -426,11 +464,12 @@ function updateTabById(tabs: Tab[], tabId: string, updater: (tab: Tab) => Tab) {
 
 export const useTabs = create<TabsState>()(
   persist(
-    (set, get) => ({
+    (set, get): TabsState => ({
       tabs: [],
       activeTabId: null,
       stackHiddenByTabId: {},
       activeStackItemIdByTabId: {},
+      stackFullRestoreByTabId: {},
       toolPartsByTabId: {},
       chatStatusByTabId: {},
       dictationStatusByTabId: {},
@@ -487,6 +526,10 @@ export const useTabs = create<TabsState>()(
             activeTabId: nextTab.id,
             stackHiddenByTabId: { ...state.stackHiddenByTabId, [nextTab.id]: false },
             activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId },
+            stackFullRestoreByTabId: {
+              ...state.stackFullRestoreByTabId,
+              [nextTab.id]: false,
+            },
           };
         });
       },
@@ -514,6 +557,8 @@ export const useTabs = create<TabsState>()(
           delete nextHidden[tabId];
           const nextActiveStack = { ...state.activeStackItemIdByTabId };
           delete nextActiveStack[tabId];
+          const nextFullRestore = { ...state.stackFullRestoreByTabId };
+          delete nextFullRestore[tabId];
 
           let nextActiveTabId = state.activeTabId;
           if (state.activeTabId === tabId) {
@@ -534,6 +579,7 @@ export const useTabs = create<TabsState>()(
             dictationStatusByTabId: nextDictationStatusByTabId,
             stackHiddenByTabId: nextHidden,
             activeStackItemIdByTabId: nextActiveStack,
+            stackFullRestoreByTabId: nextFullRestore,
           };
         });
       },
@@ -913,6 +959,11 @@ export const useTabs = create<TabsState>()(
       },
 
       removeStackItem: (tabId, itemId) => {
+        const shouldExitFull = shouldExitBoardFullOnClose(get(), tabId, itemId);
+        if (shouldExitFull) {
+          // 逻辑：关闭画布 stack 时退出全屏模式，恢复左右栏。
+          emitSidebarOpenRequest(true);
+        }
         set((state) => {
           const current = state.tabs.find((t) => t.id === tabId);
           const targetItem = (current?.stack ?? []).find((item) => item.id === itemId);
@@ -925,6 +976,10 @@ export const useTabs = create<TabsState>()(
             currentActiveId && currentActiveId !== itemId
               ? currentActiveId
               : (nextStack.at(-1)?.id ?? "");
+          const nextFullRestore = { ...state.stackFullRestoreByTabId };
+          if (shouldExitFull || nextStack.length === 0) {
+            delete nextFullRestore[tabId];
+          }
           return {
             stackHiddenByTabId: {
               ...state.stackHiddenByTabId,
@@ -937,10 +992,12 @@ export const useTabs = create<TabsState>()(
                     : state.stackHiddenByTabId[tabId],
             },
             activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId, [tabId]: nextActiveId },
+            stackFullRestoreByTabId: nextFullRestore,
             tabs: updateTabById(state.tabs, tabId, (tab) =>
               normalizeDock({
                 ...tab,
                 stack: (tab.stack ?? []).filter((item) => item.id !== itemId),
+                rightChatCollapsed: shouldExitFull ? false : tab.rightChatCollapsed,
               }),
             ),
           };
@@ -948,13 +1005,20 @@ export const useTabs = create<TabsState>()(
       },
 
       clearStack: (tabId) => {
+        const shouldExitFull = shouldExitBoardFullOnClose(get(), tabId);
+        if (shouldExitFull) {
+          // 逻辑：关闭全部 stack 时退出全屏模式，恢复左右栏。
+          emitSidebarOpenRequest(true);
+        }
         set((state) => ({
           stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
           activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId, [tabId]: "" },
+          stackFullRestoreByTabId: { ...state.stackFullRestoreByTabId, [tabId]: false },
           tabs: updateTabById(state.tabs, tabId, (tab) =>
             normalizeDock({
               ...tab,
               stack: [],
+              rightChatCollapsed: shouldExitFull ? false : tab.rightChatCollapsed,
             }),
           ),
         }));
@@ -963,6 +1027,15 @@ export const useTabs = create<TabsState>()(
       setStackHidden: (tabId, hidden) => {
         set((state) => ({
           stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: Boolean(hidden) },
+        }));
+      },
+
+      setStackFullRestore: (tabId, restore) => {
+        set((state) => ({
+          stackFullRestoreByTabId: {
+            ...state.stackFullRestoreByTabId,
+            [tabId]: Boolean(restore),
+          },
         }));
       },
 

@@ -1,6 +1,8 @@
 import type { Server as HttpServer, IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
 import { WebSocketServer } from "ws";
+import type { RawData, WebSocket } from "ws";
+import type { ServerType } from "@hono/node-server";
 import { logger } from "@/common/logger";
 import {
   getTerminalSession,
@@ -28,10 +30,11 @@ function parseUpgradeUrl(req: IncomingMessage): URL | null {
 }
 
 /** Handle websocket upgrade requests for terminal sessions. */
-export function attachTerminalWebSocket(server: HttpServer): void {
+export function attachTerminalWebSocket(server: ServerType): void {
   const wss = new WebSocketServer({ noServer: true });
+  const httpServer = server as HttpServer;
 
-  server.on("upgrade", (req: IncomingMessage, socket: Socket, head: Buffer) => {
+  httpServer.on("upgrade", (req: IncomingMessage, socket: Socket, head: Buffer) => {
     const url = parseUpgradeUrl(req);
     if (!url || url.pathname !== "/terminal/ws") return;
     if (!isTerminalEnabled()) {
@@ -43,7 +46,7 @@ export function attachTerminalWebSocket(server: HttpServer): void {
     });
   });
 
-  wss.on("connection", (ws, _req, url: URL) => {
+  wss.on("connection", (ws: WebSocket, _req: IncomingMessage, url: URL) => {
     const sessionId = url.searchParams.get("sessionId") ?? "";
     const token = url.searchParams.get("token") ?? "";
     const session = getTerminalSession(sessionId);
@@ -66,7 +69,7 @@ export function attachTerminalWebSocket(server: HttpServer): void {
       send({ type: "exit", code: event.exitCode, signal: event.signal });
     });
 
-    ws.on("message", (raw) => {
+    ws.on("message", (raw: RawData) => {
       const text = typeof raw === "string" ? raw : raw.toString();
       let payload: TerminalClientMessage | null = null;
       try {
@@ -95,7 +98,7 @@ export function attachTerminalWebSocket(server: HttpServer): void {
       dataDisposable.dispose();
       exitDisposable.dispose();
     });
-    ws.on("error", (error) => {
+    ws.on("error", (error: Error) => {
       logger.warn({ err: error, sessionId }, "[terminal] websocket error");
     });
   });

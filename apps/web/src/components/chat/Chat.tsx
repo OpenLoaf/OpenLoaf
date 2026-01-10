@@ -333,7 +333,7 @@ export function Chat({
 
   /** Normalize attachment inputs into source entries. */
   const normalizeAttachmentInputs = React.useCallback(
-    (input: FileList | ChatAttachmentInput[]) => {
+    (input: FileList | ChatAttachmentInput[]): ChatAttachmentSource[] => {
       if (input instanceof FileList) {
         return Array.from(input).map((file) => ({ file }));
       }

@@ -47,6 +47,16 @@ type SettingsMenuKey =
   | "whitelist"
   | "projectTest";
 
+const DEV_MENU: Array<{
+  key: SettingsMenuKey;
+  label: string;
+  Icon: ComponentType<{ className?: string }>;
+  Component: ComponentType;
+}> =
+  process.env.NODE_ENV === "development"
+    ? [{ key: "projectTest", label: "测试", Icon: FlaskConical, Component: TestSetting }]
+    : [];
+
 const MENU: Array<{
   key: SettingsMenuKey;
   label: string;
@@ -60,9 +70,7 @@ const MENU: Array<{
   { key: "whitelist", label: "白名单", Icon: ShieldCheck, Component: CommandAllowlist },
   { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
   { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
-  ...(process.env.NODE_ENV === "development"
-    ? [{ key: "projectTest", label: "测试", Icon: FlaskConical, Component: TestSetting }]
-    : []),
+  ...DEV_MENU,
   { key: "about", label: "关于Teatime", Icon: Info, Component: AboutTeatime },
 ];
 

@@ -3,7 +3,6 @@
 import { memo } from "react";
 
 import { BoardCanvas } from "./BoardCanvas";
-import { PlaceholderNodeDefinition } from "../nodes/PlaceholderNode";
 import { ImageNodeDefinition } from "../nodes/ImageNode";
 import { CalendarNodeDefinition } from "../nodes/CalendarNode";
 import { LinkNodeDefinition } from "../nodes/LinkNode";
@@ -43,7 +42,6 @@ const ProjectBoardCanvas = memo(function ProjectBoardCanvas({
         key={rootUri ?? projectId ?? "board"}
         className="h-full w-full"
         nodes={[
-          PlaceholderNodeDefinition,
           ImageNodeDefinition,
           CalendarNodeDefinition,
           LinkNodeDefinition,

@@ -6,7 +6,7 @@ import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/reac
 import { trpc } from "@/utils/trpc";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
-import { DEFAULT_NODE_SIZE, MINIMAP_HIDE_DELAY } from "../engine/constants";
+import { MINIMAP_HIDE_DELAY } from "../engine/constants";
 import BoardControls from "../controls/BoardControls";
 import BoardToolbar from "../toolbar/BoardToolbar";
 import { isBoardUiTarget } from "../utils/dom";
@@ -59,7 +59,7 @@ import {
 } from "./boardSnapshotCache";
 import { useBoardSnapshot } from "./useBoardSnapshot";
 import { imageConnectorDropGroups } from "../nodes/ImageNode";
-import { Image, StickyNote, Type } from "lucide-react";
+import { Type } from "lucide-react";
 const VIEWPORT_SAVE_DELAY = 800;
 /** Default size for auto-created text nodes. */
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
@@ -74,25 +74,11 @@ const DEFAULT_CONNECTOR_DROP_GROUPS: ConnectorDropGroup[] = [
     icon: <Type size={14} />,
     items: [
       {
-        label: "图片",
-        icon: <Image size={14} />,
-        type: "placeholder",
-        props: { title: "图片", description: "图片占位节点。" },
-        size: DEFAULT_NODE_SIZE,
-      },
-      {
-        label: "便签",
-        icon: <StickyNote size={14} />,
-        type: "placeholder",
-        props: { title: "便签", description: "便签占位节点。" },
-        size: DEFAULT_NODE_SIZE,
-      },
-      {
         label: "文字",
         icon: <Type size={14} />,
-        type: "placeholder",
-        props: { title: "文字", description: "文字占位节点。" },
-        size: DEFAULT_NODE_SIZE,
+        type: "text",
+        props: { autoFocus: true },
+        size: TEXT_NODE_DEFAULT_SIZE,
       },
     ],
   },

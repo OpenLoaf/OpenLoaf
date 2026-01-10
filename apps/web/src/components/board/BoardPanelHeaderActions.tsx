@@ -2,16 +2,19 @@
 
 import { useCallback } from "react";
 import { toBlob } from "html-to-image";
-import { Download } from "lucide-react";
+import { Columns2, Download } from "lucide-react";
 import { toast } from "sonner";
 import type { DockItem } from "@teatime-ai/api/common";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useOptionalSidebar } from "@/components/ui/sidebar";
 import {
   getBoardDisplayName,
   getDisplayFileName,
   isBoardFolderName,
 } from "@/lib/file-name";
+import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
+import { useTabs } from "@/hooks/use-tabs";
 
 /** Selector list for elements excluded from board exports. */
 const BOARD_EXPORT_IGNORE_SELECTOR = [
@@ -127,11 +130,29 @@ async function downloadBlobAsFile(blob: Blob, fileName: string): Promise<boolean
 export type BoardPanelHeaderActionsProps = {
   item: DockItem;
   title: string;
+  tabId: string;
 };
 
 /** Render header actions for board panels. */
-export function BoardPanelHeaderActions({ item, title }: BoardPanelHeaderActionsProps) {
+export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeaderActionsProps) {
   const isBoardPanel = item.component === "board-viewer";
+  const sidebar = useOptionalSidebar();
+  const isMobile = sidebar?.isMobile ?? false;
+  const open = sidebar?.open ?? false;
+  const openMobile = sidebar?.openMobile ?? false;
+  const leftOpenFallback = getLeftSidebarOpen();
+  const leftOpen = sidebar
+    ? isMobile
+      ? openMobile
+      : open
+    : leftOpenFallback ?? false;
+  const canToggleSidebar = Boolean(sidebar) || leftOpenFallback !== null;
+  const setOpen = sidebar?.setOpen;
+  const setOpenMobile = sidebar?.setOpenMobile;
+  const setTabRightChatCollapsed = useTabs((state) => state.setTabRightChatCollapsed);
+  const rightChatCollapsed = useTabs(
+    (state) => state.tabs.find((tab) => tab.id === tabId)?.rightChatCollapsed ?? false
+  );
 
   /** Export the current board panel to an image. */
   const handleExportBoard = useCallback(async () => {
@@ -150,7 +171,7 @@ export function BoardPanelHeaderActions({ item, title }: BoardPanelHeaderActions
       // 逻辑：导出时过滤工具条/控件，避免截图污染。
       const blob = await toBlob(target, {
         cacheBust: true,
-        backgroundColor: null,
+        backgroundColor: undefined,
         // 逻辑：跳过远程字体注入，避免跨域样式导致导出报错。
         skipFonts: true,
         filter: node => {
@@ -173,21 +194,73 @@ export function BoardPanelHeaderActions({ item, title }: BoardPanelHeaderActions
     }
   }, [isBoardPanel, item.id, item.params, title]);
 
+  /** Toggle the left sidebar and right AI panel together. */
+  const handleTogglePanels = useCallback(() => {
+    if (!tabId) return;
+    const shouldCollapse = leftOpen || !rightChatCollapsed;
+    // 逻辑：任一侧可见时进入专注模式，收起左右栏；否则恢复显示。
+    const nextLeftOpen = !shouldCollapse;
+    if (sidebar) {
+      if (isMobile) {
+        setOpenMobile?.(nextLeftOpen);
+      } else {
+        setOpen?.(nextLeftOpen);
+      }
+    } else {
+      emitSidebarOpenRequest(nextLeftOpen);
+    }
+    setTabRightChatCollapsed(tabId, shouldCollapse);
+  }, [
+    isMobile,
+    leftOpen,
+    rightChatCollapsed,
+    setOpen,
+    setOpenMobile,
+    sidebar,
+    setTabRightChatCollapsed,
+    tabId,
+  ]);
+
   if (!isBoardPanel) return null;
 
+  const shouldCollapsePanels = leftOpen || !rightChatCollapsed;
+  const toggleLabel =
+    canToggleSidebar
+      ? shouldCollapsePanels
+        ? "收起侧边栏和 AI 面板"
+        : "显示侧边栏和 AI 面板"
+      : rightChatCollapsed
+        ? "显示 AI 面板"
+        : "收起 AI 面板";
+
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          size="sm"
-          variant="ghost"
-          aria-label="导出图片"
-          onClick={() => void handleExportBoard()}
-        >
-          <Download className="h-4 w-4" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">导出图片</TooltipContent>
-    </Tooltip>
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label={toggleLabel}
+            onClick={handleTogglePanels}
+          >
+            <Columns2 className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{toggleLabel}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label="导出图片"
+            onClick={() => void handleExportBoard()}
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">导出图片</TooltipContent>
+      </Tooltip>
+    </>
   );
 }

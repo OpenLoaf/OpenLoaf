@@ -50,11 +50,13 @@ function bindWindowTitle(win: BrowserWindow): void {
  */
 function disableZoom(win: BrowserWindow): void {
   // 禁用缩放，避免快捷键或触控缩放改变显示比例。
-  win.webContents.setVisualZoomLevelLimits(1, 1).catch(() => undefined);
+  win.webContents.setVisualZoomLevelLimits(1, 1).catch((): void => undefined);
   // 中文注释：兼容旧版本 API，部分 Electron 版本没有 setLayoutZoomLevelLimits。
-  if (typeof (win.webContents as { setZoomLevelLimits?: (min: number, max: number) => void })
-    .setZoomLevelLimits === 'function') {
-    win.webContents.setZoomLevelLimits(0, 0);
+  const legacySetZoomLevelLimits = (
+    win.webContents as { setZoomLevelLimits?: (min: number, max: number) => void }
+  ).setZoomLevelLimits;
+  if (typeof legacySetZoomLevelLimits === 'function') {
+    legacySetZoomLevelLimits.call(win.webContents, 0, 0);
   }
   win.webContents.setZoomFactor(1);
   win.webContents.on('before-input-event', (event, input) => {

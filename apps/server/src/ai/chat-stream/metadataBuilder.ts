@@ -1,4 +1,6 @@
 import type { TokenUsage } from "@teatime-ai/api/types/message";
+import { toNumberOrUndefined } from "@/ai/utils/number-utils";
+import { isRecord } from "@/ai/utils/type-guards";
 
 /** Build usage metadata from stream part. */
 export function buildTokenUsageMetadata(
@@ -6,10 +8,7 @@ export function buildTokenUsageMetadata(
 ): { totalUsage: TokenUsage } | undefined {
   if (!part || typeof part !== "object") return;
   const totalUsage = (part as any).totalUsage;
-  if (!totalUsage || typeof totalUsage !== "object") return;
-
-  const toNumberOrUndefined = (value: unknown) =>
-    typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  if (!isRecord(totalUsage)) return;
 
   const usage: TokenUsage = {
     inputTokens: toNumberOrUndefined((totalUsage as any).inputTokens),
@@ -45,9 +44,6 @@ export function mergeAbortMetadata(
   metadata: unknown,
   input: { isAborted: boolean; finishReason?: string },
 ): Record<string, unknown> | undefined {
-  const isRecord = (value: unknown): value is Record<string, unknown> =>
-    Boolean(value) && typeof value === "object" && !Array.isArray(value);
-
   const base = isRecord(metadata) ? { ...metadata } : {};
   if (!input.isAborted) return Object.keys(base).length ? base : undefined;
 

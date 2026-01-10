@@ -134,12 +134,12 @@ function ensureSpawnHelperExecutable(): void {
 
 /** Build environment variables for the terminal process. */
 function buildTerminalEnv(): NodeJS.ProcessEnv {
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     // 中文注释：确保终端能力默认是 xterm-256color，便于颜色渲染。
     TERM: process.env.TERM || "xterm-256color",
   };
-  const pathEntries = (env.PATH ?? "").split(path.delimiter).filter(Boolean);
+  const pathEntries = (env["PATH"] ?? "").split(path.delimiter).filter(Boolean);
   const ensurePath = (entry: string) => {
     if (!pathEntries.includes(entry)) pathEntries.push(entry);
   };
@@ -152,7 +152,7 @@ function buildTerminalEnv(): NodeJS.ProcessEnv {
     ensurePath("/usr/local/bin");
     ensurePath("/opt/homebrew/bin");
   }
-  env.PATH = pathEntries.join(path.delimiter);
+  env["PATH"] = pathEntries.join(path.delimiter);
   return env;
 }
 

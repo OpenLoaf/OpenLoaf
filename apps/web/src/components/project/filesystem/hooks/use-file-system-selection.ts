@@ -24,7 +24,7 @@ type SelectionRect = {
 
 type UseFileSystemSelectionParams = {
   /** Grid container ref for focus and coordinate mapping. */
-  gridRef: RefObject<HTMLDivElement>;
+  gridRef: RefObject<HTMLDivElement | null>;
   /** Latest entries ref for selection shortcuts. */
   entriesRef: MutableRefObject<FileSystemEntry[]>;
   /** Selection change callback. */

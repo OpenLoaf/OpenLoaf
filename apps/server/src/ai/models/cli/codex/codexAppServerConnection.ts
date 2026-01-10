@@ -227,7 +227,7 @@ class CodexAppServerConnection {
     const id = String((this.nextRequestId += 1));
     const payload: JsonRpcRequest = { id, method, params };
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      this.pending.set(id, { resolve: resolve as (value: unknown) => void, reject });
       this.sendMessage(payload);
     });
   }

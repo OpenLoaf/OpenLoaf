@@ -92,7 +92,7 @@ export const chatImageRequestSchema: z.ZodType<ChatImageRequest> = z
     messageId: z.string().min(1).optional(),
     clientId: z.string().min(1).optional(),
     tabId: z.string().min(1).optional(),
-    params: z.record(z.unknown()).optional(),
+    params: z.record(z.string(), z.unknown()).optional(),
     trigger: z.string().min(1).optional(),
     retry: z.boolean().optional(),
     chatModelId: z.string().min(1),

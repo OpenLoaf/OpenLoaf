@@ -2,6 +2,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import sharp from "sharp";
+import type { UIMessage } from "ai";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@teatime-ai/api/services/vfsService";
 
 /** Max image edge length for chat. */
@@ -69,16 +70,6 @@ function buildTeatimeFileUrl(ownerId: string, relativePath: string): string {
   return `teatime-file://${ownerId}/${normalizeRelativePath(relativePath)}`;
 }
 
-/** Resolve project root path. */
-async function resolveProjectRootPath(projectId: string): Promise<string | null> {
-  return getProjectRootPath(projectId);
-}
-
-/** Resolve workspace root path. */
-function resolveWorkspaceRootPath(workspaceId: string): string | null {
-  return getWorkspaceRootPathById(workspaceId);
-}
-
 /** Resolve root path for chat attachments. */
 async function resolveChatAttachmentRoot(input: {
   /** Project id. */
@@ -88,12 +79,12 @@ async function resolveChatAttachmentRoot(input: {
 }): Promise<{ rootPath: string; ownerId: string } | null> {
   const projectId = input.projectId?.trim();
   if (projectId) {
-    const projectRootPath = await resolveProjectRootPath(projectId);
+    const projectRootPath = await getProjectRootPath(projectId);
     if (projectRootPath) return { rootPath: projectRootPath, ownerId: projectId };
   }
   const workspaceId = input.workspaceId?.trim();
   if (!workspaceId) return null;
-  const workspaceRootPath = resolveWorkspaceRootPath(workspaceId);
+  const workspaceRootPath = getWorkspaceRootPathById(workspaceId);
   if (!workspaceRootPath) return null;
   return { rootPath: workspaceRootPath, ownerId: workspaceId };
 }
@@ -111,8 +102,8 @@ async function resolveTeatimeFilePath(url: string): Promise<string | null> {
   if (!ownerId) return null;
   const relativePath = normalizeRelativePath(decodeURIComponent(parsed.pathname));
   if (!relativePath) return null;
-  const projectRootPath = await resolveProjectRootPath(ownerId);
-  const workspaceRootPath = projectRootPath ? null : resolveWorkspaceRootPath(ownerId);
+  const projectRootPath = await getProjectRootPath(ownerId);
+  const workspaceRootPath = projectRootPath ? null : getWorkspaceRootPathById(ownerId);
   const rootPath = projectRootPath ?? workspaceRootPath;
   if (!rootPath) return null;
 
@@ -294,4 +285,38 @@ export async function loadTeatimeImageBuffer(input: {
     buffer: compressed.buffer,
     mediaType: compressed.mediaType,
   };
+}
+
+/** Replace teatime-file parts with data urls. */
+export async function replaceTeatimeFileParts(messages: UIMessage[]): Promise<UIMessage[]> {
+  const next: UIMessage[] = [];
+  for (const message of messages) {
+    const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
+    const replaced: any[] = [];
+    for (const part of parts) {
+      if (!part || typeof part !== "object") {
+        replaced.push(part);
+        continue;
+      }
+      if ((part as any).type !== "file") {
+        replaced.push(part);
+        continue;
+      }
+      const url = typeof (part as any).url === "string" ? (part as any).url : "";
+      if (!url || !url.startsWith("teatime-file://")) {
+        replaced.push(part);
+        continue;
+      }
+      const mediaType =
+        typeof (part as any).mediaType === "string" ? (part as any).mediaType : undefined;
+      try {
+        const filePart = await buildFilePartFromTeatimeUrl({ url, mediaType });
+        if (filePart) replaced.push(filePart);
+      } catch {
+        // 读取或压缩失败时直接跳过该图片，避免阻断对话。
+      }
+    }
+    next.push({ ...message, parts: replaced } as UIMessage);
+  }
+  return next;
 }
