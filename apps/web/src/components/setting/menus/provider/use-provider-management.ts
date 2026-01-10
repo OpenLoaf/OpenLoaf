@@ -480,6 +480,10 @@ export function useProviderManagement() {
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   /** Track edited model id. */
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
+  /** Track edited model snapshot. */
+  const [editingModelSnapshot, setEditingModelSnapshot] = useState<ModelDefinition | null>(null);
+  /** Track provider entry for inline model edit. */
+  const [editingModelEntry, setEditingModelEntry] = useState<ProviderEntry | null>(null);
   /** Track draft model id. */
   const [draftModelId, setDraftModelId] = useState("");
   /** Track draft model tags. */
@@ -632,6 +636,8 @@ export function useProviderManagement() {
   function openModelDialog() {
     setModelError(null);
     setEditingModelId(null);
+    setEditingModelSnapshot(null);
+    setEditingModelEntry(null);
     setDraftModelId("");
     setDraftModelTags([]);
     setDraftModelContextK("0");
@@ -648,7 +654,9 @@ export function useProviderManagement() {
   function openModelEditDialog(model: ModelDefinition) {
     const tier = resolvePriceTier(model, 0);
     setModelError(null);
+    setEditingModelEntry(null);
     setEditingModelId(model.id);
+    setEditingModelSnapshot(model);
     setDraftModelId(model.id);
     setDraftModelTags(model.tags ?? []);
     setDraftModelContextK(Number.isFinite(model.maxContextK) ? String(model.maxContextK) : "0");
@@ -660,9 +668,20 @@ export function useProviderManagement() {
   }
 
   /**
+   * Open edit model dialog from the provider list.
+   */
+  function openProviderModelEditDialog(entry: ProviderEntry, model: ModelDefinition) {
+    setDraftProvider(entry.providerId);
+    setDraftCustomModels(entry.customModels ?? []);
+    setDraftModelIds(Object.keys(entry.models));
+    openModelEditDialog(model);
+    setEditingModelEntry(entry);
+  }
+
+  /**
    * Submit model draft and append to custom list.
    */
-  function submitModelDraft() {
+  async function submitModelDraft() {
     const modelId = draftModelId.trim();
     const isEditing = Boolean(editingModelId);
     if (!modelId) {
@@ -691,7 +710,9 @@ export function useProviderManagement() {
       return;
     }
     const currencySymbol = draftModelCurrencySymbol.trim();
+    const baseModel = editingModelSnapshot ?? {};
     const newModel: ModelDefinition = {
+      ...(baseModel as ModelDefinition),
       id: modelId,
       familyId: modelId,
       providerId: draftProvider,
@@ -708,6 +729,28 @@ export function useProviderManagement() {
       ],
       currencySymbol: currencySymbol || undefined,
     };
+    if (editingModelEntry) {
+      const nextModels = {
+        ...editingModelEntry.models,
+        [modelId]: newModel,
+      };
+      await setValue(
+        editingModelEntry.key,
+        {
+          providerId: editingModelEntry.providerId,
+          apiUrl: editingModelEntry.apiUrl,
+          authConfig: editingModelEntry.authConfig,
+          models: nextModels,
+          options: editingModelEntry.options,
+        },
+        "provider",
+      );
+      setEditingModelEntry(null);
+      setEditingModelId(null);
+      setEditingModelSnapshot(null);
+      setModelDialogOpen(false);
+      return;
+    }
     if (isEditing) {
       setDraftCustomModels((prev) => {
         const next = prev.filter((model) => model.id !== editingModelId);
@@ -718,11 +761,30 @@ export function useProviderManagement() {
         return Array.from(new Set([...next, modelId]));
       });
       setEditingModelId(null);
+      setEditingModelSnapshot(null);
     } else {
       setDraftCustomModels((prev) => [...prev, newModel]);
       setDraftModelIds((prev) => Array.from(new Set([...prev, modelId])));
     }
     setModelDialogOpen(false);
+  }
+
+  /**
+   * Delete model from provider entry.
+   */
+  async function deleteProviderModel(entry: ProviderEntry, modelId: string) {
+    const { [modelId]: _omit, ...nextModels } = entry.models;
+    await setValue(
+      entry.key,
+      {
+        providerId: entry.providerId,
+        apiUrl: entry.apiUrl,
+        authConfig: entry.authConfig,
+        models: nextModels,
+        options: entry.options,
+      },
+      "provider",
+    );
   }
 
   /**
@@ -847,6 +909,7 @@ export function useProviderManagement() {
     modelDialogOpen,
     setModelDialogOpen,
     editingModelId,
+    editingModelEntry,
     s3DialogOpen,
     setS3DialogOpen,
     editingKey,
@@ -934,7 +997,9 @@ export function useProviderManagement() {
     deleteProvider,
     openModelDialog,
     openModelEditDialog,
+    openProviderModelEditDialog,
     submitModelDraft,
+    deleteProviderModel,
     openS3Editor,
     submitS3Draft,
     deleteS3Provider,

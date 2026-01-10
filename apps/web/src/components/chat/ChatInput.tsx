@@ -151,6 +151,8 @@ export interface ChatInputBoxProps {
   onDropHandled?: () => void;
   /** Default project id for file selection. */
   defaultProjectId?: string;
+  /** Active chat tab id for mention inserts. */
+  tabId?: string;
   /** Dictation language for OS speech recognition. */
   dictationLanguage?: string;
   /** Whether to play a start tone when dictation begins. */
@@ -186,6 +188,7 @@ export function ChatInputBox({
   header,
   onDropHandled,
   defaultProjectId,
+  tabId,
   dictationLanguage,
   dictationSoundEnabled,
   onDictationListeningChange,
@@ -342,16 +345,26 @@ export function ChatInputBox({
     [activeTabId, projects, pushStackItem]
   );
 
+  /** Focus the editor without throwing when DOM is unavailable. */
+  const focusEditorSafely = useCallback(() => {
+    try {
+      editor.tf.focus();
+    } catch (error) {
+      console.warn("[ChatInput] focus failed", error);
+    }
+  }, [editor]);
+
+  /** Insert a file reference as a mention node. */
   const insertFileMention = useCallback((fileRef: string) => {
-    // 将文件引用插入为 mention，并补一个空格。
+    // 逻辑：将文件引用插入为 mention，并补一个空格。
     if (!editor.selection) {
       const endPoint = SlateEditor.end(editor as unknown as BaseEditor, []);
       editor.tf.select(endPoint);
     }
-    editor.tf.focus();
-    editor.tf.insertNodes(buildMentionNode(fileRef), { select: true });
+    focusEditorSafely();
+    editor.tf.insertNodes(buildMentionNode(fileRef));
     editor.tf.insertText(" ");
-  }, [editor]);
+  }, [editor, focusEditorSafely]);
 
   /** Insert file references using the same logic as drag-and-drop. */
   const handleProjectFileRefsInsert = useCallback(
@@ -431,6 +444,10 @@ export function ChatInputBox({
 
   useEffect(() => {
     const handleInsertMention = (event: Event) => {
+      // 中文注释：仅活跃标签页响应插入事件，避免隐藏面板触发 Slate DOM 错误。
+      if (tabId) {
+        if (!activeTabId || activeTabId !== tabId) return;
+      }
       const detail = (event as CustomEvent<{ value?: string }>).detail;
       const value = detail?.value?.trim();
       if (!value) return;
@@ -440,7 +457,7 @@ export function ChatInputBox({
     return () => {
       window.removeEventListener("teatime:chat-insert-mention", handleInsertMention);
     };
-  }, [insertFileMention]);
+  }, [activeTabId, insertFileMention, tabId]);
 
   const handleDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>) => {
     console.debug("[ChatInput] drop payload", formatDragData(event.dataTransfer));
@@ -927,6 +944,7 @@ export default function ChatInput({
         canAttachImage={allowImage}
         onDropHandled={onDropHandled}
         defaultProjectId={projectId}
+        tabId={tabId}
         dictationLanguage={dictationLanguage}
         dictationSoundEnabled={dictationSoundEnabled}
         onDictationListeningChange={(isListening) => {

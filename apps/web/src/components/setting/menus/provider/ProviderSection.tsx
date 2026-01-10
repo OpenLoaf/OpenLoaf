@@ -21,6 +21,7 @@ import {
   truncateDisplay,
   type ProviderEntry,
 } from "@/components/setting/menus/provider/use-provider-management";
+import type { ModelDefinition } from "@teatime-ai/api/common";
 
 type ProviderSectionProps = {
   /** Provider list entries. */
@@ -39,6 +40,10 @@ type ProviderSectionProps = {
   onCopiedKeyChange: Dispatch<SetStateAction<string | null>>;
   /** Toggle expanded rows. */
   onToggleExpand: (key: string) => void;
+  /** Edit model callback. */
+  onModelEdit: (entry: ProviderEntry, model: ModelDefinition) => void;
+  /** Delete model callback. */
+  onModelDelete: (entry: ProviderEntry, modelId: string) => void;
 };
 
 /**
@@ -71,6 +76,8 @@ export function ProviderSection({
   onDelete,
   onCopiedKeyChange,
   onToggleExpand,
+  onModelEdit,
+  onModelDelete,
 }: ProviderSectionProps) {
   return (
     <>
@@ -179,10 +186,11 @@ export function ProviderSection({
                     <TableRow>
                       <TableCell colSpan={4} className="p-0">
                         <div className="px-4 pb-4">
-                          <div className="hidden md:grid grid-cols-[200px_1fr_1.2fr] gap-3 px-1 py-2 text-xs font-semibold text-muted-foreground">
+                          <div className="hidden md:grid grid-cols-[260px_1fr_1fr_120px] gap-3 px-1 py-2 text-xs font-semibold text-muted-foreground">
                             <div>模型</div>
                             <div>能力</div>
                             <div>价格</div>
+                            <div className="text-right">操作</div>
                           </div>
                           <div className="divide-y divide-border/60">
                             {Object.keys(entry.models).map((modelId) => {
@@ -193,10 +201,13 @@ export function ProviderSection({
                                   entryCustomModels,
                                 ) ?? entry.models[modelId];
                               if (!modelDefinition) return null;
+                              const isCustomModel = entryCustomModels.some(
+                                (model) => model.id === modelDefinition.id,
+                              );
                               return (
                                 <div
                                   key={`${entry.key}-${modelId}`}
-                                  className="grid grid-cols-1 gap-3 px-1 py-3 text-sm md:grid-cols-[200px_1fr_1.2fr]"
+                                  className="grid grid-cols-1 gap-3 px-1 py-3 text-sm md:grid-cols-[260px_1fr_1fr_120px]"
                                 >
                                   <div>
                                     <div className="flex items-center gap-2">
@@ -209,6 +220,28 @@ export function ProviderSection({
                                   <div>{renderModelTagsCompact(modelDefinition.tags)}</div>
                                   <div className="text-xs text-muted-foreground">
                                     {formatModelPriceLabel(modelDefinition)}
+                                  </div>
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8"
+                                      onClick={() => onModelEdit(entry, modelDefinition)}
+                                      disabled={!isCustomModel}
+                                      title={isCustomModel ? "编辑模型" : "仅支持编辑自定义模型"}
+                                      aria-label="编辑模型"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8"
+                                      onClick={() => onModelDelete(entry, modelDefinition.id)}
+                                      aria-label="删除模型"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
                                   </div>
                                 </div>
                               );

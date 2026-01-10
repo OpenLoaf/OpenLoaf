@@ -207,7 +207,7 @@ export function ProviderDialog({
           <DialogTitle>{editingKey ? "编辑服务商" : "添加服务商"}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-6 lg:grid-cols-[0.85fr_1.65fr]">
+        <div className="grid gap-6 lg:grid-cols-[0.75fr_1.75fr]">
           <div className="space-y-4">
             <div className="space-y-2">
               <div className="text-sm font-medium">服务商</div>
@@ -376,7 +376,7 @@ export function ProviderDialog({
               </Button>
             </div>
             <div className="flex-1 min-h-[360px] rounded-md border border-border">
-              <div className="grid h-full min-h-[360px] grid-cols-[1.1fr_1fr] gap-3 p-3">
+              <div className="grid h-full min-h-[360px] grid-cols-[0.9fr_1fr] gap-3 p-3">
                 <div className="flex min-h-0 flex-col gap-2 pr-1">
                   <div className="flex-1 min-h-0 overflow-auto space-y-1">
                     {filteredModelOptions.length === 0 ? (
@@ -387,12 +387,11 @@ export function ProviderDialog({
                           key={model.id}
                           className={cn(
                             "flex items-center justify-between rounded-md border border-transparent px-2 py-2 text-sm transition-colors",
-                            draftModelIds.includes(model.id)
+                            focusedModel?.id === model.id
                               ? "bg-muted/60 border-border"
                               : "hover:bg-muted/30",
                           )}
-                          onMouseEnter={() => onFocusedModelIdChange(model.id)}
-                          onFocus={() => onFocusedModelIdChange(model.id)}
+                          onClick={() => onFocusedModelIdChange(model.id)}
                         >
                           <div className="flex-1">
                             <div className="flex items-center gap-2">

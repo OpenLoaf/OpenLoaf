@@ -51,7 +51,7 @@ export type ModelDialogProps = {
   /** Update output price. */
   onDraftModelOutputPriceChange: (value: string) => void;
   /** Submit callback. */
-  onSubmit: () => void;
+  onSubmit: () => Promise<void> | void;
 };
 
 /**

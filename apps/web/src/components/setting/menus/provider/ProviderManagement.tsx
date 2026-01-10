@@ -36,6 +36,7 @@ import type { CliToolConfig, CliToolsConfig } from "@teatime-ai/api/types/basic"
 import { queryClient, trpc } from "@/utils/trpc";
 import {
   useProviderManagement,
+  type ProviderEntry,
 } from "@/components/setting/menus/provider/use-provider-management";
 
 type ModelResponseLanguageId =
@@ -329,13 +330,27 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     deleteProvider,
     openModelDialog,
     openModelEditDialog,
+    openProviderModelEditDialog,
     submitModelDraft,
+    deleteProviderModel,
     PROVIDER_OPTIONS,
   } = useProviderManagement();
 
   const wrapperClassName = panelKey
     ? "h-full min-h-0 overflow-auto space-y-3"
     : "space-y-3";
+
+  /**
+   * Delete model entry from provider list with a minimum guard.
+   */
+  async function handleDeleteProviderModel(entry: ProviderEntry, modelId: string) {
+    if (Object.keys(entry.models).length <= 1) {
+      toast.error("至少保留一个模型");
+      return;
+    }
+    await deleteProviderModel(entry, modelId);
+    toast.success("已删除模型");
+  }
 
   return (
     <div className={wrapperClassName}>
@@ -570,6 +585,8 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
             [key]: !prev[key],
           }))
         }
+        onModelEdit={(entry, model) => openProviderModelEditDialog(entry, model)}
+        onModelDelete={(entry, modelId) => void handleDeleteProviderModel(entry, modelId)}
       />
 
       <ProviderDialog

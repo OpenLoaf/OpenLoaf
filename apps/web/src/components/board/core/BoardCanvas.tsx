@@ -223,6 +223,8 @@ export type BoardCanvasProps = {
   boardFileUri?: string;
   /** Panel key for identifying board instances. */
   panelKey?: string;
+  /** Hide interactive overlays when the panel is minimized. */
+  uiHidden?: boolean;
   /** Optional container class name. */
   className?: string;
 };
@@ -239,6 +241,7 @@ export function BoardCanvas({
   boardFolderUri,
   boardFileUri,
   panelKey,
+  uiHidden,
   className,
 }: BoardCanvasProps) {
   /** Root container element for canvas interactions. */
@@ -252,6 +255,7 @@ export function BoardCanvas({
   const queryClient = useQueryClient();
   /** Latest snapshot from the engine. */
   const snapshot = useBoardSnapshot(engine);
+  const showUi = !uiHidden;
   /** Guard for first-time node registration. */
   const nodesRegisteredRef = useRef(false);
   /** Guard for first-time initial element insertion. */

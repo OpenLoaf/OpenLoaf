@@ -17,7 +17,7 @@ export type ModelTag =
 export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
   text_generation: "文字生成",
   image_input: "图片输入",
-  image_generation: "图片生成",
+  image_generation: "文生图",
   image_multi_input: "多图输入",
   image_multi_generation: "多图生成",
   image_edit: "图片编辑",
