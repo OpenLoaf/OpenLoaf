@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { BROWSER_WINDOW_PANEL_ID, useTabs } from "@/hooks/use-tabs";
+import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { upsertTabSnapshotNow } from "@/lib/tab-snapshot";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { BrowserTabsBar } from "@/components/browser/BrowserTabsBar";
@@ -712,7 +713,7 @@ export default function ElectrronBrowserWindow({
             onMinimize={() => {
               if (!safeTabId) return;
               // 最小化仅隐藏 stack，不销毁内部标签页。
-              useTabs.getState().setStackHidden(safeTabId, true);
+              requestStackMinimize(safeTabId);
             }}
           >
             <div className="flex min-w-0 items-center gap-2">

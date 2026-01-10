@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { renderAsync } from "docx-preview";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabs } from "@/hooks/use-tabs";
+import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 
 import "./docx-preview.css";
@@ -38,7 +39,6 @@ export default function DocViewer({ uri, name, panelKey, tabId }: DocViewerProps
   const renderSeqRef = useRef(0);
   /** Tracks the document render status. */
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const setStackHidden = useTabs((s) => s.setStackHidden);
   const removeStackItem = useTabs((s) => s.removeStackItem);
 
   /** Flags whether the viewer should load via fs.readBinary. */
@@ -111,7 +111,7 @@ export default function DocViewer({ uri, name, panelKey, tabId }: DocViewerProps
         showMinimize
         onMinimize={() => {
           if (!tabId) return;
-          setStackHidden(tabId, true);
+          requestStackMinimize(tabId);
         }}
         onClose={() => {
           if (!tabId || !panelKey) return;

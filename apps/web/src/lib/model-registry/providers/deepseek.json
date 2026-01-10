@@ -11,6 +11,7 @@
       "id": "deepseek-chat",
       "familyId": "deepseek-chat",
       "providerId": "deepseek",
+      "icon": "DeepSeek",
       "tags": [
         "text_generation"
       ],
@@ -30,6 +31,7 @@
       "id": "deepseek-reasoner",
       "familyId": "deepseek-reasoner",
       "providerId": "deepseek",
+      "icon": "DeepSeek",
       "tags": [
         "text_generation"
       ],

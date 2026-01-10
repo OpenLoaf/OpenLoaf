@@ -46,6 +46,8 @@ export type ModelDefinition = {
   familyId: string;
   /** Provider id owning the model. */
   providerId: string;
+  /** Icon name for UI display. */
+  icon?: string;
   /** Tags for filtering. */
   tags: ModelTag[];
   /** Max context window (K) used for pricing tier selection. */

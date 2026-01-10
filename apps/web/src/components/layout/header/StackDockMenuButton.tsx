@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+import { motion, useAnimationControls } from "motion/react";
 import { Layers, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +15,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getPanelTitle } from "@/utils/panel-utils";
 import { BROWSER_WINDOW_COMPONENT, useTabs } from "@/hooks/use-tabs";
+import { getStackMinimizeSignal } from "@/lib/stack-dock-animation";
 import type { DockItem } from "@teatime-ai/api/common";
 
 // 保持空数组引用稳定，避免 useSyncExternalStore 报错。
@@ -64,6 +67,22 @@ export function StackDockMenuButton() {
   const stackHidden = useTabs((s) =>
     s.activeTabId ? Boolean(s.stackHiddenByTabId[s.activeTabId]) : false,
   );
+  const nudgeControls = useAnimationControls();
+  const lastSignalRef = React.useRef(0);
+
+  React.useEffect(() => {
+    if (!activeTabId) return;
+    if (!stackHidden) return;
+    if (stack.length === 0) return;
+    const signal = getStackMinimizeSignal(activeTabId);
+    if (!signal || signal === lastSignalRef.current) return;
+    lastSignalRef.current = signal;
+    void nudgeControls.start({
+      rotate: [0, -10, 10, -8, 8, 0],
+      x: [0, -2, 2, -1.5, 1.5, 0],
+      transition: { duration: 0.48, ease: "easeInOut" },
+    });
+  }, [activeTabId, nudgeControls, stack.length, stackHidden]);
 
   if (!activeTabId || stack.length === 0) return null;
   // 只有一个 stack 且正在显示时，不需要入口按钮（避免 UI 冗余）。
@@ -73,7 +92,6 @@ export function StackDockMenuButton() {
 
   const openStackItem = (item: DockItem) => {
     // 恢复显示并切换到目标 item（不再重排 stack 数组）。
-    useTabs.getState().setStackHidden(activeTabId, false);
     useTabs.getState().pushStackItem(activeTabId, item);
   };
 
@@ -105,9 +123,13 @@ export function StackDockMenuButton() {
             size="icon"
             onClick={() => openStackItem(stack[0]!)}
           >
-            <span className="relative">
+            <motion.span
+              className="relative"
+              animate={nudgeControls}
+              initial={{ rotate: 0, x: 0 }}
+            >
               <Layers className="h-4 w-4" />
-            </span>
+            </motion.span>
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
@@ -124,14 +146,18 @@ export function StackDockMenuButton() {
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="flex h-full w-full items-center justify-center">
-                <span className="relative">
+                <motion.span
+                  className="relative"
+                  animate={nudgeControls}
+                  initial={{ rotate: 0, x: 0 }}
+                >
                   <Layers className="h-4 w-4" />
                   {stack.length > 1 ? (
                     <span className="absolute -right-1.5 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-primary px-0.5 text-[9px] leading-none text-primary-foreground">
                       {stack.length}
                     </span>
                   ) : null}
-                </span>
+                </motion.span>
               </span>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>

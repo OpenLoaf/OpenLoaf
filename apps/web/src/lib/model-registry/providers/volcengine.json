@@ -12,6 +12,7 @@
       "id": "volcengine.t2i.v40",
       "familyId": "volcengine.t2i",
       "providerId": "volcengine",
+      "icon": "Volcengine",
       "tags": [
         "image_generation"
       ],
@@ -31,6 +32,7 @@
       "id": "volcengine.inpaint.v1",
       "familyId": "volcengine.inpaint",
       "providerId": "volcengine",
+      "icon": "Volcengine",
       "tags": [
         "image_edit"
       ],
@@ -50,6 +52,7 @@
       "id": "volcengine.material.v1",
       "familyId": "volcengine.material",
       "providerId": "volcengine",
+      "icon": "Volcengine",
       "tags": [
         "image_edit"
       ],
@@ -69,6 +72,7 @@
       "id": "volcengine.video.v30pro",
       "familyId": "volcengine.video",
       "providerId": "volcengine",
+      "icon": "Volcengine",
       "tags": [
         "video_generation"
       ],

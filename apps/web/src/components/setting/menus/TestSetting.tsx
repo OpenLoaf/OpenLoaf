@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import {
   BROWSER_WINDOW_COMPONENT,
   BROWSER_WINDOW_PANEL_ID,
+  TERMINAL_WINDOW_COMPONENT,
+  TERMINAL_WINDOW_PANEL_ID,
   useTabs,
 } from "@/hooks/use-tabs";
 import { Globe } from "lucide-react";
@@ -65,6 +67,10 @@ const TestSetting = memo(function TestSetting() {
    */
   function handleOpenWorkspaceTerminal() {
     if (!activeTabId) return;
+    if (terminalStatus.isLoading) {
+      toast.message("正在获取终端状态");
+      return;
+    }
     if (!terminalStatus.enabled) {
       toast.error("终端功能未开启");
       return;
@@ -75,13 +81,15 @@ const TestSetting = memo(function TestSetting() {
       return;
     }
     // 中文注释：终端使用 workspace root 作为 pwd。
-    const terminalKey = `terminal:${rootUri}`;
     pushStackItem(activeTabId, {
-      id: terminalKey,
-      sourceKey: terminalKey,
-      component: "terminal-viewer",
+      id: TERMINAL_WINDOW_PANEL_ID,
+      sourceKey: TERMINAL_WINDOW_PANEL_ID,
+      component: TERMINAL_WINDOW_COMPONENT,
       title: "Terminal",
-      params: { pwdUri: rootUri },
+      params: {
+        __customHeader: true,
+        __open: { pwdUri: rootUri },
+      },
     });
   }
 

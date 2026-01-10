@@ -116,7 +116,7 @@ type FileSystemListProps = {
   /** Capture context menu trigger before Radix handles it. */
   onGridContextMenuCapture?: (
     event: ReactMouseEvent<HTMLDivElement>,
-    payload: { uri: string | null }
+    payload: { uri: string | null; entry?: FileSystemEntry | null }
   ) => void;
   selectedUris?: Set<string>;
   onEntryDrop?: (

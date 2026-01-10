@@ -11,8 +11,19 @@ export const LEFT_DOCK_MIN_PX = 360;
 export const LEFT_DOCK_DEFAULT_PERCENT = 30;
 export const BROWSER_WINDOW_COMPONENT = "electron-browser-window";
 export const BROWSER_WINDOW_PANEL_ID = "browser-window";
+export const TERMINAL_WINDOW_COMPONENT = "terminal-viewer";
+export const TERMINAL_WINDOW_PANEL_ID = "terminal-window";
 
 type BrowserTab = { id: string; url: string; title?: string; viewKey: string; cdpTargetIds?: string[] };
+
+/** Terminal sub-tab metadata for the terminal panel. */
+export type TerminalTab = {
+  id: string;
+  title?: string;
+  component?: string;
+  params?: Record<string, unknown>;
+  pwdUri?: string;
+};
 
 function isBrowserWindowItem(item: DockItem | undefined): item is DockItem {
   return Boolean(item && item.component === BROWSER_WINDOW_COMPONENT);
@@ -108,6 +119,153 @@ function normalizeBrowserWindowItem(existing: DockItem | undefined, incoming: Do
       activeBrowserTabId: nextActive,
       ...(typeof refreshKey === "number" ? { __refreshKey: refreshKey } : {}),
       ...(typeof customHeader === "boolean" ? { __customHeader: customHeader } : {}),
+    },
+  };
+}
+
+/** Return true when the dock item is a terminal panel. */
+function isTerminalWindowItem(item: DockItem | undefined): item is DockItem {
+  return Boolean(item && item.component === TERMINAL_WINDOW_COMPONENT);
+}
+
+/** Normalize a terminal tab definition. */
+function normalizeTerminalTab(tab: TerminalTab): TerminalTab {
+  const component =
+    typeof tab.component === "string" && tab.component.trim()
+      ? tab.component
+      : "terminal";
+  const params = typeof tab.params === "object" && tab.params ? { ...tab.params } : {};
+  const legacyPwd = typeof tab.pwdUri === "string" ? tab.pwdUri : undefined;
+  if (legacyPwd && typeof params.pwdUri !== "string") {
+    params.pwdUri = legacyPwd;
+  }
+  return { ...tab, component, params };
+}
+
+/** Collect terminal tabs from a dock item, including legacy fields. */
+function getTerminalTabs(item: DockItem | undefined): TerminalTab[] {
+  if (!item) return [];
+  const raw = (item.params as any)?.terminalTabs;
+  if (Array.isArray(raw)) return (raw as TerminalTab[]).map(normalizeTerminalTab);
+  const legacyPwd =
+    typeof (item.params as any)?.pwdUri === "string"
+      ? String((item.params as any).pwdUri)
+      : "";
+  if (!legacyPwd) return [];
+  const legacyId =
+    item.id && item.id !== TERMINAL_WINDOW_PANEL_ID
+      ? item.id
+      : `${TERMINAL_WINDOW_PANEL_ID}:${legacyPwd}`;
+  return [
+    normalizeTerminalTab({
+      id: legacyId,
+      title: item.title,
+      component: "terminal",
+      params: { pwdUri: legacyPwd },
+      pwdUri: legacyPwd,
+    }),
+  ];
+}
+
+/** Get the active terminal tab id from a dock item. */
+function getActiveTerminalTabId(item: DockItem | undefined): string | undefined {
+  const id = (item?.params as any)?.activeTerminalTabId;
+  if (typeof id === "string") return id;
+  const tabs = getTerminalTabs(item);
+  return tabs[0]?.id;
+}
+
+/** Normalize terminal dock item data for multi-tab rendering. */
+function normalizeTerminalWindowItem(existing: DockItem | undefined, incoming: DockItem): DockItem {
+  const open = (incoming.params as any)?.__open as
+    | {
+        pwdUri?: string;
+        title?: string;
+        component?: string;
+        params?: Record<string, unknown>;
+        tabId?: string;
+      }
+    | undefined;
+  const legacyPwd =
+    typeof (incoming.params as any)?.pwdUri === "string"
+      ? String((incoming.params as any).pwdUri)
+      : "";
+  const refreshKey =
+    typeof (incoming.params as any)?.__refreshKey === "number"
+      ? (incoming.params as any).__refreshKey
+      : typeof (existing?.params as any)?.__refreshKey === "number"
+        ? (existing?.params as any).__refreshKey
+        : undefined;
+  const customHeader =
+    typeof (incoming.params as any)?.__customHeader === "boolean"
+      ? (incoming.params as any).__customHeader
+      : typeof (existing?.params as any)?.__customHeader === "boolean"
+        ? (existing?.params as any).__customHeader
+        : true;
+
+  const currentTabs = getTerminalTabs(existing);
+  const currentActive = getActiveTerminalTabId(existing);
+
+  // 1) params.terminalTabs：整体覆盖
+  // 2) params.__open：追加/激活一个 terminal 子标签
+  const nextTabs = Array.isArray((incoming.params as any)?.terminalTabs)
+    ? ((incoming.params as any).terminalTabs as TerminalTab[])
+    : [...currentTabs];
+
+  let nextActive =
+    typeof (incoming.params as any)?.activeTerminalTabId === "string"
+      ? String((incoming.params as any).activeTerminalTabId)
+      : currentActive;
+
+  const openPwd = String(open?.pwdUri ?? legacyPwd ?? "").trim();
+  if (openPwd) {
+    const id = open?.tabId
+      ? String(open.tabId)
+      : `${TERMINAL_WINDOW_PANEL_ID}:${Date.now()}`;
+    const baseParams =
+      typeof open?.params === "object" && open?.params ? { ...open.params } : {};
+    const patch: TerminalTab = {
+      id,
+      title: typeof open?.title === "string" ? open.title : undefined,
+      component: typeof open?.component === "string" ? open.component : "terminal",
+      params: { ...baseParams, ...(openPwd ? { pwdUri: openPwd } : {}) },
+    };
+    const idx = nextTabs.findIndex((t) => String((t as any)?.id ?? "") === id);
+    if (idx === -1) {
+      nextTabs.push(patch);
+    } else {
+      const existingTab = nextTabs[idx]!;
+      nextTabs[idx] = {
+        ...existingTab,
+        ...patch,
+        params: {
+          ...(typeof (existingTab as any)?.params === "object" ? (existingTab as any).params : {}),
+          ...(patch.params ?? {}),
+        },
+      };
+    }
+    nextActive = id;
+  }
+
+  const normalizedTabs = nextTabs.map(normalizeTerminalTab);
+
+  if (!nextActive && normalizedTabs.length > 0) nextActive = normalizedTabs[0]!.id;
+  if (nextActive && !normalizedTabs.some((t) => t.id === nextActive)) {
+    nextActive = normalizedTabs[0]?.id;
+  }
+
+  return {
+    ...existing,
+    ...incoming,
+    id: TERMINAL_WINDOW_PANEL_ID,
+    sourceKey: TERMINAL_WINDOW_PANEL_ID,
+    component: TERMINAL_WINDOW_COMPONENT,
+    title: existing?.title ?? incoming.title,
+    params: {
+      terminalTabs: normalizedTabs,
+      activeTerminalTabId: nextActive,
+      ...(typeof refreshKey === "number" ? { __refreshKey: refreshKey } : {}),
+      __customHeader: customHeader,
     },
   };
 }
@@ -208,6 +366,10 @@ export interface TabsState {
    * Replace browser tabs state for the embedded browser panel.
    */
   setBrowserTabs: (tabId: string, tabs: BrowserTab[], activeId?: string) => void;
+  /**
+   * Replace terminal tabs state for the terminal panel.
+   */
+  setTerminalTabs: (tabId: string, tabs: TerminalTab[], activeId?: string) => void;
 
   upsertToolPart: (tabId: string, key: string, part: ToolPartSnapshot) => void;
   clearToolPartsForTab: (tabId: string) => void;
@@ -596,7 +758,12 @@ export const useTabs = create<TabsState>()(
           const nextHidden = { ...state.stackHiddenByTabId, [tabId]: false };
 
           const isBrowser = nextItem.component === BROWSER_WINDOW_COMPONENT;
-          const activeId = isBrowser ? BROWSER_WINDOW_PANEL_ID : nextItem.id;
+          const isTerminal = nextItem.component === TERMINAL_WINDOW_COMPONENT;
+          const activeId = isBrowser
+            ? BROWSER_WINDOW_PANEL_ID
+            : isTerminal
+              ? TERMINAL_WINDOW_PANEL_ID
+              : nextItem.id;
 
           return {
             stackHiddenByTabId: nextHidden,
@@ -605,9 +772,17 @@ export const useTabs = create<TabsState>()(
             tabs: updateTabById(state.tabs, tabId, (tab) => {
               // 左侧 stack：同 sourceKey/id 视为同一条目（upsert），用于“同一个来源的面板重复打开”。
               const nextTab = normalizeDock(tab);
-              const key = isBrowser ? BROWSER_WINDOW_PANEL_ID : (nextItem.sourceKey ?? nextItem.id);
+              const key = isBrowser
+                ? BROWSER_WINDOW_PANEL_ID
+                : isTerminal
+                  ? TERMINAL_WINDOW_PANEL_ID
+                  : (nextItem.sourceKey ?? nextItem.id);
               const existingIndex = nextTab.stack.findIndex((s) =>
-                isBrowser ? s.component === BROWSER_WINDOW_COMPONENT : (s.sourceKey ?? s.id) === key,
+                isBrowser
+                  ? s.component === BROWSER_WINDOW_COMPONENT
+                  : isTerminal
+                    ? s.component === TERMINAL_WINDOW_COMPONENT
+                    : (s.sourceKey ?? s.id) === key,
               );
 
               const existing = existingIndex === -1 ? undefined : nextTab.stack[existingIndex];
@@ -617,22 +792,36 @@ export const useTabs = create<TabsState>()(
                     id: BROWSER_WINDOW_PANEL_ID,
                     sourceKey: BROWSER_WINDOW_PANEL_ID,
                   })
-                : nextItem;
+                : isTerminal
+                  ? normalizeTerminalWindowItem(
+                      isTerminalWindowItem(existing) ? existing : undefined,
+                      {
+                        ...nextItem,
+                        id: TERMINAL_WINDOW_PANEL_ID,
+                        sourceKey: TERMINAL_WINDOW_PANEL_ID,
+                      },
+                    )
+                  : nextItem;
 
               const nextStack = [...nextTab.stack];
               if (existingIndex === -1) nextStack.push(normalizedItem);
               else {
                 nextStack[existingIndex] = isBrowser
                   ? normalizedItem
-                  : { ...nextStack[existingIndex]!, ...item };
+                  : { ...nextStack[existingIndex]!, ...nextItem };
               }
 
               return normalizeDock({
                 ...nextTab,
-                // 每个 Tab 的 stack 中只允许一个 electron-browser-window。
+                // 每个 Tab 的 stack 中只允许一个 browser/terminal 窗口面板。
                 stack: isBrowser
                   ? [...nextStack.filter((s) => s.component !== BROWSER_WINDOW_COMPONENT), normalizedItem]
-                  : nextStack,
+                  : isTerminal
+                    ? [
+                        ...nextStack.filter((s) => s.component !== TERMINAL_WINDOW_COMPONENT),
+                        normalizedItem,
+                      ]
+                    : nextStack,
                 // 打开 stack 时自动撑开左栏：如果传了 percent 用它，否则保持原值/回退默认值。
                 leftWidthPercent: clampPercent(
                   Number.isFinite(percent)
@@ -679,6 +868,44 @@ export const useTabs = create<TabsState>()(
             activeStackItemIdByTabId: {
               ...state.activeStackItemIdByTabId,
               [tabId]: BROWSER_WINDOW_PANEL_ID,
+            },
+            stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
+          };
+        });
+      },
+
+      setTerminalTabs: (tabId, tabs, activeId) => {
+        set((state) => {
+          const nextTabs = Array.isArray(tabs) ? tabs : [];
+          const nextActiveId =
+            typeof activeId === "string" ? activeId : nextTabs[0]?.id ?? "";
+          return {
+            tabs: updateTabById(state.tabs, tabId, (tab) => {
+              const nextTab = normalizeDock(tab);
+              const nextStack = (nextTab.stack ?? []).filter(
+                (item) => item.component !== TERMINAL_WINDOW_COMPONENT,
+              );
+              // 中文注释：直接替换终端面板状态，避免 merge 造成“关闭又回滚”。
+              nextStack.push(
+                normalizeTerminalWindowItem(undefined, {
+                  id: TERMINAL_WINDOW_PANEL_ID,
+                  sourceKey: TERMINAL_WINDOW_PANEL_ID,
+                  component: TERMINAL_WINDOW_COMPONENT,
+                  params: {
+                    __customHeader: true,
+                    terminalTabs: nextTabs,
+                    activeTerminalTabId: nextActiveId,
+                  },
+                } as DockItem),
+              );
+              return normalizeDock({
+                ...nextTab,
+                stack: nextStack,
+              });
+            }),
+            activeStackItemIdByTabId: {
+              ...state.activeStackItemIdByTabId,
+              [tabId]: TERMINAL_WINDOW_PANEL_ID,
             },
             stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
           };

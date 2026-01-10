@@ -11,6 +11,7 @@
       "id": "gemini-3-pro-image-preview",
       "familyId": "gemini-3-pro-image-preview",
       "providerId": "google",
+      "icon": "Gemini",
       "tags": [
         "text_generation",
         "image_generation"
@@ -31,6 +32,7 @@
       "id": "gemini-3-flash-preview",
       "familyId": "gemini-3-flash-preview",
       "providerId": "google",
+      "icon": "Gemini",
       "tags": [
         "text_generation"
       ],

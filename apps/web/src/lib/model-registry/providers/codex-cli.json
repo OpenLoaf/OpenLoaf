@@ -11,9 +11,11 @@
       "id": "gpt-5.2-codex",
       "familyId": "gpt-5.2-codex",
       "providerId": "codex-cli",
+      "icon": "OpenAI",
       "tags": [
         "text_generation",
-        "code"
+        "code",
+        "image_input"
       ],
       "maxContextK": 128,
       "priceStrategyId": "tiered_token",

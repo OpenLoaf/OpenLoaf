@@ -1,9 +1,10 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { existsSync, statSync } from "node:fs";
+import { chmodSync, existsSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { spawn, type IPty } from "node-pty";
 import { logger } from "@/common/logger";
+import { createRequire } from "node:module";
 
 /** Idle timeout for terminal sessions (milliseconds). */
 const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
@@ -64,22 +65,95 @@ function resolveTerminalCwd(pwd: string): string {
 }
 
 /** Resolve the default shell for the current OS. */
-function resolveTerminalShell(): { file: string; args: string[] } {
+function resolveTerminalShellCandidates(): Array<{ file: string; args: string[] }> {
+  const customShell = process.env.TEATIME_TERMINAL_SHELL?.trim();
+  const candidates: Array<{ file: string; args: string[] }> = [];
+  const pushCandidate = (file?: string | null) => {
+    if (!file) return;
+    const trimmed = file.trim();
+    if (!trimmed) return;
+    candidates.push({ file: trimmed, args: resolveShellArgs(trimmed) });
+  };
+
   if (process.platform === "win32") {
-    const file = process.env.TEATIME_TERMINAL_SHELL || "powershell.exe";
-    return { file, args: ["-NoLogo"] };
+    const systemRoot = process.env.SystemRoot || "C:\\Windows";
+    pushCandidate(customShell);
+    pushCandidate(process.env.ComSpec);
+    pushCandidate(`${systemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`);
+    pushCandidate("powershell.exe");
+    pushCandidate("pwsh.exe");
+    pushCandidate("cmd.exe");
+    return candidates;
   }
-  const file = process.env.SHELL || "/bin/bash";
-  return { file, args: [] };
+
+  pushCandidate(customShell);
+  pushCandidate(process.env.SHELL);
+  pushCandidate("/bin/zsh");
+  pushCandidate("/bin/bash");
+  pushCandidate("/bin/sh");
+  pushCandidate("sh");
+  return candidates;
+}
+
+/** Resolve default args for a shell executable. */
+function resolveShellArgs(file: string): string[] {
+  const lowered = file.toLowerCase();
+  if (lowered.includes("powershell") || lowered.endsWith("pwsh.exe")) {
+    return ["-NoLogo"];
+  }
+  return [];
+}
+
+/** Ensure spawn-helper is executable for node-pty on unix. */
+function ensureSpawnHelperExecutable(): void {
+  if (process.platform === "win32") return;
+  try {
+    const require = createRequire(import.meta.url);
+    const packageRoot = path.dirname(require.resolve("node-pty/package.json"));
+    const candidates = [
+      path.join(packageRoot, "build", "Release", "spawn-helper"),
+      path.join(packageRoot, "build", "Debug", "spawn-helper"),
+      path.join(
+        packageRoot,
+        "prebuilds",
+        `${process.platform}-${process.arch}`,
+        "spawn-helper"
+      ),
+    ];
+    const helperPath = candidates.find((candidate) => existsSync(candidate));
+    if (!helperPath) return;
+    const stat = statSync(helperPath);
+    // 中文注释：确保 spawn-helper 可执行，避免 posix_spawnp 失败。
+    if ((stat.mode & 0o111) === 0) {
+      chmodSync(helperPath, stat.mode | 0o111);
+    }
+  } catch (error) {
+    logger.warn({ err: error }, "[terminal] ensure spawn-helper failed");
+  }
 }
 
 /** Build environment variables for the terminal process. */
 function buildTerminalEnv(): NodeJS.ProcessEnv {
-  return {
+  const env = {
     ...process.env,
     // 中文注释：确保终端能力默认是 xterm-256color，便于颜色渲染。
     TERM: process.env.TERM || "xterm-256color",
   };
+  const pathEntries = (env.PATH ?? "").split(path.delimiter).filter(Boolean);
+  const ensurePath = (entry: string) => {
+    if (!pathEntries.includes(entry)) pathEntries.push(entry);
+  };
+  // 中文注释：补齐常见 PATH，避免 GUI 进程缺失路径导致 spawn 失败。
+  ensurePath("/usr/bin");
+  ensurePath("/bin");
+  ensurePath("/usr/sbin");
+  ensurePath("/sbin");
+  if (process.platform === "darwin") {
+    ensurePath("/usr/local/bin");
+    ensurePath("/opt/homebrew/bin");
+  }
+  env.PATH = pathEntries.join(path.delimiter);
+  return env;
 }
 
 /** Ensure terminal feature flag is enabled. */
@@ -115,21 +189,47 @@ export function createTerminalSession(input: {
   rows?: number;
 }): { sessionId: string; token: string } {
   ensureTerminalEnabled();
+  ensureSpawnHelperExecutable();
   const cwd = resolveTerminalCwd(input.pwd);
-  const { file, args } = resolveTerminalShell();
   const cols = input.cols ?? 80;
   const rows = input.rows ?? 24;
   const sessionId = randomUUID();
   const token = randomUUID();
-  const pty = spawn(file, args, {
-    name: "xterm-256color",
-    cols,
-    rows,
-    cwd,
-    env: buildTerminalEnv(),
-    // 中文注释：Windows 端使用 ConPTY，提高兼容性。
-    useConpty: process.platform === "win32",
-  });
+  const candidates = resolveTerminalShellCandidates();
+  let pty: IPty | null = null;
+  let lastError: unknown = null;
+  for (const candidate of candidates) {
+    try {
+      // 中文注释：逐个尝试 shell，避免环境变量指向不存在的可执行文件。
+      pty = spawn(candidate.file, candidate.args, {
+        name: "xterm-256color",
+        cols,
+        rows,
+        cwd,
+        env: buildTerminalEnv(),
+        // 中文注释：Windows 端使用 ConPTY，提高兼容性。
+        useConpty: process.platform === "win32",
+      });
+      break;
+    } catch (error) {
+      lastError = error;
+      logger.warn(
+        {
+          err: error,
+          shell: candidate.file,
+          cwd,
+          errno: (error as any)?.errno,
+          code: (error as any)?.code,
+        },
+        "[terminal] spawn failed",
+      );
+    }
+  }
+  if (!pty) {
+    const reason =
+      lastError instanceof Error ? lastError.message : "unknown error";
+    throw new Error(`Terminal spawn failed: ${reason}`);
+  }
   const now = Date.now();
   sessions.set(sessionId, {
     id: sessionId,

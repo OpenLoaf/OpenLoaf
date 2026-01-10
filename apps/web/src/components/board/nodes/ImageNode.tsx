@@ -47,6 +47,7 @@ export const imageConnectorDropGroups: ConnectorDropGroup[] = [
     items: [
       {
         label: "生成提示词",
+        subtitle: "提取关键词",
         icon: <WandSparkles size={14} />,
         type: "placeholder",
         props: { title: "生成提示词", description: "基于图片生成提示词。" },
@@ -54,6 +55,7 @@ export const imageConnectorDropGroups: ConnectorDropGroup[] = [
       },
       {
         label: "生成文案",
+        subtitle: "生成描述文案",
         icon: <FileText size={14} />,
         type: "placeholder",
         props: { title: "生成文案", description: "基于图片生成文案。" },
@@ -67,6 +69,7 @@ export const imageConnectorDropGroups: ConnectorDropGroup[] = [
     items: [
       {
         label: "重新生成",
+        subtitle: "同风格重绘",
         icon: <Sparkles size={14} />,
         type: "placeholder",
         props: { title: "重新生成", description: "重新生成当前图片。" },
@@ -74,6 +77,7 @@ export const imageConnectorDropGroups: ConnectorDropGroup[] = [
       },
       {
         label: "图片编辑",
+        subtitle: "局部编辑调整",
         icon: <PencilLine size={14} />,
         type: "placeholder",
         props: { title: "图片编辑", description: "对图片进行编辑调整。" },
@@ -81,6 +85,7 @@ export const imageConnectorDropGroups: ConnectorDropGroup[] = [
       },
       {
         label: "抠图",
+        subtitle: "主体抠图",
         icon: <Scissors size={14} />,
         type: "placeholder",
         props: { title: "抠图", description: "抠出图片主体。" },
@@ -88,6 +93,7 @@ export const imageConnectorDropGroups: ConnectorDropGroup[] = [
       },
       {
         label: "扩图",
+        subtitle: "扩展画布",
         icon: <Maximize2 size={14} />,
         type: "placeholder",
         props: { title: "扩图", description: "扩展图片画布区域。" },
@@ -98,15 +104,13 @@ export const imageConnectorDropGroups: ConnectorDropGroup[] = [
   {
     label: "视频生成",
     icon: <Film size={14} />,
-    items: [
-      {
-        label: "生成视频",
-        icon: <Video size={14} />,
-        type: "placeholder",
-        props: { title: "生成视频", description: "基于图片生成视频。" },
-        size: DEFAULT_NODE_SIZE,
-      },
-    ],
+    item: {
+      label: "视频生成",
+      icon: <Video size={14} />,
+      type: "placeholder",
+      props: { title: "视频生成", description: "基于图片生成视频。" },
+      size: DEFAULT_NODE_SIZE,
+    },
   },
 ];
 

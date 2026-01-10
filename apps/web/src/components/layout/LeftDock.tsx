@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
 import { useTabs } from "@/hooks/use-tabs";
+import { animateStackRestore, requestStackMinimize } from "@/lib/stack-dock-animation";
 import type { DockItem } from "@teatime-ai/api/common";
 import { StackHeader } from "./StackHeader";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -191,7 +192,6 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const stackHidden = useTabs((s) => Boolean(s.stackHiddenByTabId[tabId]));
   const activeStackItemId = useTabs((s) => s.activeStackItemIdByTabId[tabId]);
   const removeStackItem = useTabs((s) => s.removeStackItem);
-  const setStackHidden = useTabs((s) => s.setStackHidden);
   const queryClient = useQueryClient();
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
   const [renameDialog, setRenameDialog] = React.useState<{
@@ -210,6 +210,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
   const hasOverlay = Boolean(base) && stack.length > 0 && !stackHidden;
   const floating = Boolean(base);
+  const prevStackHiddenRef = React.useRef(stackHidden);
 
   const requestCloseStackItem = React.useCallback(
     (item: DockItem | undefined) => {
@@ -259,18 +260,24 @@ export function LeftDock({ tabId }: { tabId: string }) {
       if (event.defaultPrevented) return;
       if (event.key !== "Escape") return;
       if (isEditableTarget(event.target)) return;
-      const targetId = activeStackId || stack.at(-1)?.id;
-      if (!targetId) return;
-      const targetItem = stack.find((item) => item.id === targetId);
-      // 中文注释：按下 ESC 时关闭当前 stack 面板。
+      // 按下 ESC 时最小化当前 stack 面板。
       event.preventDefault();
-      requestCloseStackItem(targetItem);
+      requestStackMinimize(tabId);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [stack.length, stackHidden, tabId, activeStackId, requestCloseStackItem, stack]);
+  }, [stack.length, stackHidden, tabId]);
+
+  React.useLayoutEffect(() => {
+    const prevHidden = prevStackHiddenRef.current;
+    if (prevHidden && !stackHidden && stack.length > 0) {
+      // 最小化恢复时触发反向“吸走”动画。
+      void animateStackRestore(tabId);
+    }
+    prevStackHiddenRef.current = stackHidden;
+  }, [stack.length, stackHidden, tabId]);
 
   if (!tab) return null;
 
@@ -300,19 +307,27 @@ export function LeftDock({ tabId }: { tabId: string }) {
           aria-hidden={stackHidden}
         >
           {stack.map((item) => {
-            const visible = !stackHidden && item.id === activeStackId;
+            const isActive = item.id === activeStackId;
+            const visible = !stackHidden && isActive;
+            // 最小化时保留当前面板节点，便于测量还原动画的目标位置。
+            const keepAlive = stackHidden && isActive;
             return (
               <div
                 key={item.id}
                 // stack 不再堆叠，只显示一个；其它 stack 保持挂载但隐藏，便于通过 Header 右上角按钮切换。
-                className={cn("absolute inset-0 px-5 pt-8 pb-4", !visible && "hidden")}
+                className={cn(
+                  "absolute inset-0 px-5 pt-8 pb-4",
+                  visible ? "block" : keepAlive ? "opacity-0" : "hidden"
+                )}
+                data-stack-panel={isActive ? tabId : undefined}
+                data-stack-item={isActive ? item.id : undefined}
               >
                 <PanelFrame
                   tabId={tabId}
                   item={item}
                   title={item.title ?? getPanelTitle(item.component)}
                   onClose={() => requestCloseStackItem(item)}
-                  onMinimize={() => setStackHidden(tabId, true)}
+                  onMinimize={() => requestStackMinimize(tabId)}
                   fillHeight
                   floating={floating}
                 />

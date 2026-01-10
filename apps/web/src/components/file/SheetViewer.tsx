@@ -10,6 +10,7 @@ import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTabs } from "@/hooks/use-tabs";
+import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 
 import "react-data-grid/lib/styles.css";
@@ -161,7 +162,7 @@ export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerP
   /** Marks whether the grid has unsaved changes. */
   const [isDirty, setIsDirty] = useState(false);
   /** Minimize current stack panel. */
-  const setStackHidden = useTabs((s) => s.setStackHidden);
+  const requestMinimize = requestStackMinimize;
   /** Close current stack panel. */
   const removeStackItem = useTabs((s) => s.removeStackItem);
 
@@ -367,7 +368,7 @@ export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerP
         showMinimize
         onMinimize={() => {
           if (!tabId) return;
-          setStackHidden(tabId, true);
+          requestMinimize(tabId);
         }}
         onClose={() => {
           if (!tabId || !panelKey) return;

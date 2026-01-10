@@ -11,6 +11,7 @@
       "id": "grok-4-1-fast-reasoning",
       "familyId": "grok-4-1-fast-reasoning",
       "providerId": "xai",
+      "icon": "Grok",
       "tags": [
         "text_generation",
         "tool_call",
@@ -32,6 +33,7 @@
       "id": "grok-4-fast-non-reasoning",
       "familyId": "grok-4-fast-non-reasoning",
       "providerId": "xai",
+      "icon": "Grok",
       "tags": [
         "text_generation",
         "tool_call",
@@ -53,6 +55,7 @@
       "id": "grok-code-fast-1",
       "familyId": "grok-code-fast-1",
       "providerId": "xai",
+      "icon": "Grok",
       "tags": [
         "text_generation",
         "tool_call",

@@ -11,6 +11,7 @@ import {
 import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { getModelLabel } from "@/lib/model-registry";
 import { Check, ChevronDown, ChevronUp, Copy, Pencil, Trash2 } from "lucide-react";
+import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
 import {
   copyToClipboard,
   formatModelPriceLabel,
@@ -198,7 +199,12 @@ export function ProviderSection({
                                   className="grid grid-cols-1 gap-3 px-1 py-3 text-sm md:grid-cols-[200px_1fr_1.2fr]"
                                 >
                                   <div>
-                                    <div className="text-foreground">{getModelLabel(modelDefinition)}</div>
+                                    <div className="flex items-center gap-2">
+                                      <ModelIcon icon={modelDefinition.icon} />
+                                      <div className="text-foreground">
+                                        {getModelLabel(modelDefinition)}
+                                      </div>
+                                    </div>
                                   </div>
                                   <div>{renderModelTagsCompact(modelDefinition.tags)}</div>
                                   <div className="text-xs text-muted-foreground">

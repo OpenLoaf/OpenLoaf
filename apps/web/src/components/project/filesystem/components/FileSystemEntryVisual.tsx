@@ -77,7 +77,7 @@ const ImageThumbnail = memo(function ImageThumbnail({
   iconClassName?: string;
 }) {
   return (
-    <div className={`${sizeClassName} overflow-hidden rounded-md bg-muted/40`}>
+    <div className={`${sizeClassName} overflow-hidden bg-muted/40`}>
       {src ? (
         <img
           src={src}

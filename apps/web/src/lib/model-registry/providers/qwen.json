@@ -11,6 +11,7 @@
       "id": "qwen-image-edit-plus",
       "familyId": "qwen-image-edit",
       "providerId": "qwen",
+      "icon": "Qwen",
       "tags": [
         "image_edit"
       ],
@@ -30,6 +31,7 @@
       "id": "wan2.5",
       "familyId": "wan2.5",
       "providerId": "qwen",
+      "icon": "Qwen",
       "tags": [
         "image_generation"
       ],
@@ -49,6 +51,7 @@
       "id": "z-image-turbo",
       "familyId": "z-image-turbo",
       "providerId": "qwen",
+      "icon": "Qwen",
       "tags": [
         "image_generation"
       ],

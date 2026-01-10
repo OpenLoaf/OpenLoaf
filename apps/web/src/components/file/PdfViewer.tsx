@@ -6,6 +6,7 @@ import { ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabs } from "@/hooks/use-tabs";
+import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { resolveServerUrl } from "@/utils/server-url";
 
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
@@ -30,7 +31,6 @@ export default function PdfViewer({ uri, name, panelKey, tabId }: PdfViewerProps
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1.1);
-  const setStackHidden = useTabs((s) => s.setStackHidden);
   const removeStackItem = useTabs((s) => s.removeStackItem);
   const zoomFrameRef = useRef<number | null>(null);
   const pendingScaleRef = useRef(scale);
@@ -116,7 +116,7 @@ export default function PdfViewer({ uri, name, panelKey, tabId }: PdfViewerProps
         showMinimize
         onMinimize={() => {
           if (!tabId) return;
-          setStackHidden(tabId, true);
+          requestStackMinimize(tabId);
         }}
         onClose={() => {
           if (!tabId || !panelKey) return;

@@ -16,6 +16,8 @@ import type {
 } from "@ai-sdk/provider";
 import { convertAsyncIteratorToReadableStream } from "@ai-sdk/provider-utils";
 import { createHash } from "crypto";
+import fs from "fs/promises";
+import path from "path";
 import { logger } from "@/common/logger";
 import { getProjectId, getSessionId, getWorkspaceId } from "@/ai/chat-stream/requestContext";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@teatime-ai/api/services/vfsService";
@@ -33,6 +35,20 @@ type CliPromptPart =
   | LanguageModelV3ToolCallPart
   | LanguageModelV3ToolResultPart
   | LanguageModelV3ToolApprovalResponsePart;
+
+type CodexInputItem =
+  | {
+      type: "text";
+      text: string;
+    }
+  | {
+      type: "image";
+      url: string;
+    }
+  | {
+      type: "localImage";
+      path: string;
+    };
 
 type CodexThreadResolution = {
   /** Thread id for the session. */
@@ -84,90 +100,132 @@ const CODEX_CUSTOM_PROVIDER_ID = "codex_cli_custom";
 /** Custom provider display name for Codex CLI. */
 const CODEX_CUSTOM_PROVIDER_NAME = "Codex CLI";
 
-/** Build a prompt string from AI SDK prompt. */
-function buildCodexPromptText(prompt: LanguageModelV3Prompt): string {
-  const lines: string[] = [];
-  // 逻辑：按 role 顺序拼接消息，适配 Codex app-server 的 text input。
-  for (const message of prompt) {
-    if (message.role === "system") {
-      const content = message.content.trim();
-      if (content) lines.push(`System: ${content}`);
-      continue;
-    }
-    const rawParts = Array.isArray(message.content) ? message.content : [];
-    const parts = rawParts as CliPromptPart[];
-    const content = extractPartsText(parts);
-    if (!content) continue;
-    if (message.role === "user") lines.push(`User: ${content}`);
-    else if (message.role === "assistant") lines.push(`Assistant: ${content}`);
-    else lines.push(`Tool: ${content}`);
-  }
-  return lines.join("\n").trim();
-}
-
-/** Build incremental prompt text for an existing thread. */
-function buildCodexIncrementalPrompt(prompt: LanguageModelV3Prompt): string {
-  const latestUserText = extractLatestUserText(prompt);
-  if (!latestUserText) return "";
-  // 逻辑：续聊只发送最新 user 指令，避免重复注入上下文。
-  return `User: ${latestUserText}`;
-}
-
-/** Extract the latest user text from a prompt. */
-function extractLatestUserText(prompt: LanguageModelV3Prompt): string {
+/** Extract the latest user message from a prompt. */
+function extractLatestUserMessage(
+  prompt: LanguageModelV3Prompt,
+): LanguageModelV3Prompt[number] | null {
   for (let i = prompt.length - 1; i >= 0; i -= 1) {
     const message = prompt[i];
     if (!message || message.role !== "user") continue;
-    const rawParts = Array.isArray(message.content) ? message.content : [];
-    const parts = rawParts as CliPromptPart[];
-    return extractPartsText(parts);
+    return message;
   }
-  return "";
+  return null;
 }
 
-/** Extract displayable text from prompt parts. */
-function extractPartsText(parts: CliPromptPart[]): string {
-  const chunks: string[] = [];
+/** Build Codex input items from the latest user message. */
+async function buildCodexInputItems(
+  prompt: LanguageModelV3Prompt,
+): Promise<CodexInputItem[]> {
+  const latestUser = extractLatestUserMessage(prompt);
+  if (!latestUser) return [];
+  const rawParts = Array.isArray(latestUser.content) ? latestUser.content : [];
+  const parts = rawParts as CliPromptPart[];
+  const items: CodexInputItem[] = [];
+  // 逻辑：仅发送最新 user 的内容，按顺序保留文本与图片输入。
   for (const part of parts) {
     if (!part || typeof part !== "object") continue;
     if (part.type === "text" || part.type === "reasoning") {
-      chunks.push(part.text);
-      continue;
-    }
-    if (part.type === "tool-call") {
-      const payload = safeJsonStringify(part.input);
-      chunks.push(`ToolCall(${part.toolName}): ${payload}`);
-      continue;
-    }
-    if (part.type === "tool-result") {
-      const payload = safeJsonStringify(part.output);
-      const name = part.toolName ? `(${part.toolName})` : "";
-      chunks.push(`ToolResult${name}: ${payload}`);
-      continue;
-    }
-    if (part.type === "tool-approval-response") {
-      chunks.push(
-        `ToolApproval(${part.approvalId}): ${part.approved ? "approved" : "rejected"}`,
-      );
+      const text = part.text;
+      if (!text || !text.trim()) continue;
+      items.push({ type: "text", text });
       continue;
     }
     if (part.type === "file") {
-      // 逻辑：避免把文件内容直接拼进 prompt。
-      const label = part.filename || part.mediaType || "file";
-      chunks.push(`[${label}]`);
+      const mediaType = part.mediaType;
+      const input = await buildCodexImageInput(part, mediaType);
+      if (input) items.push(input);
     }
   }
-  return chunks.join("\n").trim();
+  return items;
 }
 
-/** Safely stringify an input for prompt display. */
-function safeJsonStringify(value: unknown): string {
-  try {
-    const encoded = JSON.stringify(value);
-    return typeof encoded === "string" ? encoded : String(value ?? "");
-  } catch {
-    return String(value ?? "");
+/** Convert a file part into Codex image input. */
+async function buildCodexImageInput(
+  part: LanguageModelV3FilePart,
+  mediaType?: string,
+): Promise<CodexInputItem | null> {
+  const raw = part.data;
+  if (!raw) return null;
+  if (typeof raw === "string") {
+    const localPath = resolveLocalImagePath(raw);
+    if (localPath) return { type: "localImage", path: localPath };
+    if (raw.startsWith("data:")) {
+      const localImage = await persistDataUrlAsLocalImage(raw);
+      if (localImage) return { type: "localImage", path: localImage };
+      return null;
+    }
+    return { type: "image", url: raw };
   }
+  if (raw instanceof URL) {
+    const url = raw.toString();
+    const localPath = resolveLocalImagePath(url);
+    if (localPath) return { type: "localImage", path: localPath };
+    return { type: "image", url };
+  }
+  if (raw instanceof Uint8Array) {
+    const resolvedType = mediaType || "image/*";
+    const base64 = Buffer.from(raw).toString("base64");
+    const dataUrl = `data:${resolvedType};base64,${base64}`;
+    const localImage = await persistDataUrlAsLocalImage(dataUrl);
+    if (!localImage) return null;
+    return { type: "localImage", path: localImage };
+  }
+  return null;
+}
+
+/** Resolve file URL into a local image path. */
+function resolveLocalImagePath(value: string): string | null {
+  if (!value.startsWith("file://")) return null;
+  try {
+    const url = new URL(value);
+    const decodedPath = decodeURIComponent(url.pathname);
+    if (/^\/[A-Za-z]:\//u.test(decodedPath)) {
+      return decodedPath.slice(1);
+    }
+    return decodedPath;
+  } catch {
+    return value.slice("file://".length);
+  }
+}
+
+/** Persist a data URL as a local image and return the file path. */
+async function persistDataUrlAsLocalImage(dataUrl: string): Promise<string | null> {
+  const parsed = parseDataUrl(dataUrl);
+  if (!parsed) return null;
+  const workingDir = resolveCodexWorkingDirectory();
+  const imageDir = path.join(workingDir, ".teatime", "cli", "codex", "images");
+  const hash = createHash("sha256").update(dataUrl).digest("hex");
+  const ext = resolveImageExtension(parsed.mediaType);
+  const targetPath = path.join(imageDir, `${hash}.${ext}`);
+  await fs.mkdir(imageDir, { recursive: true });
+  try {
+    await fs.stat(targetPath);
+    return targetPath;
+  } catch (error) {
+    const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : null;
+    if (code && code !== "ENOENT") throw error;
+  }
+  const buffer = Buffer.from(parsed.base64, "base64");
+  await fs.writeFile(targetPath, buffer);
+  return targetPath;
+}
+
+/** Parse a base64 data URL payload. */
+function parseDataUrl(dataUrl: string): { mediaType: string; base64: string } | null {
+  const match = /^data:([^;]+);base64,(.+)$/u.exec(dataUrl);
+  if (!match) return null;
+  return { mediaType: match[1], base64: match[2] };
+}
+
+/** Resolve a filename extension from an image media type. */
+function resolveImageExtension(mediaType: string): string {
+  const normalized = mediaType.toLowerCase();
+  if (normalized.includes("png")) return "png";
+  if (normalized.includes("jpeg") || normalized.includes("jpg")) return "jpg";
+  if (normalized.includes("webp")) return "webp";
+  if (normalized.includes("gif")) return "gif";
+  if (normalized.includes("bmp")) return "bmp";
+  return "img";
 }
 
 /** Build a hash of the Codex config for cache invalidation. */
@@ -220,12 +278,12 @@ function resolveCodexWorkingDirectory(): string {
 }
 
 /** Resolve prompt text based on whether a thread already exists. */
-function resolvePromptText(prompt: LanguageModelV3Prompt): string {
-  const incremental = buildCodexIncrementalPrompt(prompt);
-  if (!incremental) {
+async function resolveCodexInput(prompt: LanguageModelV3Prompt): Promise<CodexInputItem[]> {
+  const items = await buildCodexInputItems(prompt);
+  if (items.length === 0) {
     throw new Error("Codex 输入为空：缺少用户内容");
   }
-  return incremental;
+  return items;
 }
 
 /** Build an empty usage payload when token counts are unavailable. */
@@ -437,7 +495,7 @@ async function* createCodexStream(
     input,
     sessionId,
   );
-  const promptText = resolvePromptText(options.prompt);
+  const promptInput = await resolveCodexInput(options.prompt);
   const connection = getCodexAppServerConnection();
   const queue = new AsyncQueue<CodexServerNotification>();
 
@@ -471,7 +529,7 @@ async function* createCodexStream(
   const resolvedModel = cachedModelId === input.modelId ? null : input.modelId;
   const turnResponse = await connection.sendRequest<CodexTurnStartResponse>("turn/start", {
     threadId,
-    input: [{ type: "text", text: promptText }],
+    input: promptInput,
     cwd: resolveCodexWorkingDirectory(),
     model: resolvedModel,
     effort: DEFAULT_REASONING_EFFORT,

@@ -15,7 +15,11 @@ import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/reac
 import { generateId } from "ai";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
-import { useTabs } from "@/hooks/use-tabs";
+import {
+  TERMINAL_WINDOW_COMPONENT,
+  TERMINAL_WINDOW_PANEL_ID,
+  useTabs,
+} from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
 import {
   BOARD_ASSETS_DIR_NAME,
@@ -691,14 +695,14 @@ export function useProjectFileSystemModel({
         toast.error("无法解析终端目录");
         return;
       }
-      const terminalKey = `terminal:${pwdUri}`;
       pushStackItem(activeTabId, {
-        id: terminalKey,
-        sourceKey: terminalKey,
-        component: "terminal-viewer",
+        id: TERMINAL_WINDOW_PANEL_ID,
+        sourceKey: TERMINAL_WINDOW_PANEL_ID,
+        component: TERMINAL_WINDOW_COMPONENT,
         title: "Terminal",
         params: {
-          pwdUri,
+          __customHeader: true,
+          __open: { pwdUri },
         },
       });
     },
@@ -719,21 +723,29 @@ export function useProjectFileSystemModel({
       toast.error("终端功能未开启");
       return;
     }
-    if (!activeUri) {
-      toast.error("未找到当前目录");
+    const fallbackUri = activeUri || rootUri;
+    if (!fallbackUri) {
+      toast.error("未找到工作区目录");
       return;
     }
-    const terminalKey = `terminal:${activeUri}`;
     pushStackItem(activeTabId, {
-      id: terminalKey,
-      sourceKey: terminalKey,
-      component: "terminal-viewer",
+      id: TERMINAL_WINDOW_PANEL_ID,
+      sourceKey: TERMINAL_WINDOW_PANEL_ID,
+      component: TERMINAL_WINDOW_COMPONENT,
       title: "Terminal",
       params: {
-        pwdUri: activeUri,
+        __customHeader: true,
+        __open: { pwdUri: fallbackUri },
       },
     });
-  }, [activeTabId, activeUri, isTerminalEnabled, pushStackItem, terminalStatus.isLoading]);
+  }, [
+    activeTabId,
+    activeUri,
+    isTerminalEnabled,
+    pushStackItem,
+    rootUri,
+    terminalStatus.isLoading,
+  ]);
 
   /** Rename a file or folder with validation and history tracking. */
   const renameEntry = async (entry: FileSystemEntry, nextName: string) => {

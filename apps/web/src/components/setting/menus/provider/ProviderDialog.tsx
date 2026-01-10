@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Eye, EyeOff, ChevronDown, Plus, Copy, Check } from "lucide-react";
 import { getModelLabel } from "@/lib/model-registry";
+import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
 import {
   formatModelPriceLabel,
   getDefaultApiUrl,
@@ -388,7 +389,10 @@ export function ProviderDialog({
                           onFocus={() => onFocusedModelIdChange(model.id)}
                         >
                           <div className="flex-1">
-                            <div className="text-foreground">{getModelLabel(model)}</div>
+                            <div className="flex items-center gap-2">
+                              <ModelIcon icon={model.icon} />
+                              <div className="text-foreground">{getModelLabel(model)}</div>
+                            </div>
                             <div className="mt-1">{renderModelTagsCompact(model.tags)}</div>
                           </div>
                           <Switch
@@ -410,11 +414,14 @@ export function ProviderDialog({
                     <div className="space-y-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div
-                            className="text-sm font-medium text-foreground truncate"
-                            title={getModelLabel(focusedModel)}
-                          >
-                            {truncateDisplay(getModelLabel(focusedModel), 48)}
+                          <div className="flex items-center gap-2">
+                            <ModelIcon icon={focusedModel.icon} size={18} />
+                            <div
+                              className="text-sm font-medium text-foreground truncate"
+                              title={getModelLabel(focusedModel)}
+                            >
+                              {truncateDisplay(getModelLabel(focusedModel), 48)}
+                            </div>
                           </div>
                           {getModelLabel(focusedModel) !== focusedModel.id ? (
                             <div className="text-xs text-muted-foreground truncate">

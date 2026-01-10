@@ -304,7 +304,7 @@ type FileSystemColumnsProps = {
   /** Capture context menu trigger before Radix handles it. */
   onGridContextMenuCapture?: (
     event: ReactMouseEvent<HTMLDivElement>,
-    payload: { uri: string | null }
+    payload: { uri: string | null; entry?: FileSystemEntry | null }
   ) => void;
   selectedUris?: Set<string>;
   onEntryDrop?: (
@@ -726,6 +726,23 @@ const FileSystemColumns = memo(function FileSystemColumns({
     [onGridContextMenuCapture, shouldBlockPointerEvent]
   );
 
+  const handlePreviewContextMenuCapture = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (!previewEntry) return;
+      if (shouldBlockPointerEvent(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      lastContextMenuRef.current = { uri: previewEntry.uri, at: Date.now() };
+      onGridContextMenuCapture?.(event, {
+        uri: previewEntry.uri,
+        entry: previewEntry,
+      });
+    },
+    [onGridContextMenuCapture, previewEntry, shouldBlockPointerEvent]
+  );
+
   useEffect(() => {
     const handleDocumentContextMenu = (event: MouseEvent) => {
       const last = lastContextMenuRef.current;
@@ -854,7 +871,10 @@ const FileSystemColumns = memo(function FileSystemColumns({
         </div>
       </div>
       {previewEntry ? (
-        <div className="flex h-full min-w-[320px] flex-1 flex-col border-l border-border/70 bg-background/95">
+        <div
+          className="flex h-full min-w-[320px] flex-1 flex-col border-l border-border/70 bg-background/95"
+          onContextMenuCapture={handlePreviewContextMenuCapture}
+        >
           <div className="flex h-full flex-col gap-3 p-3">
             <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md border border-border/70 bg-muted/30">
               {isPreviewImage || isPreviewPdf ? (
