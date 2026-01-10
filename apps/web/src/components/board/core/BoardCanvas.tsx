@@ -1121,10 +1121,12 @@ export function BoardCanvas({
           cursor === "default" && "cursor-default",
           className
         )}
-        tabIndex={0}
+        tabIndex={showUi ? 0 : -1}
+        aria-hidden={showUi ? undefined : true}
         onDragOver={handleCanvasDragOver}
         onDrop={handleCanvasDrop}
         onPointerDown={event => {
+          if (!showUi) return;
           const rawTarget = event.target as EventTarget | null;
           const target =
             rawTarget instanceof Element
@@ -1162,6 +1164,7 @@ export function BoardCanvas({
           }
         }}
         onDoubleClick={event => {
+          if (!showUi) return;
           const rawTarget = event.target as EventTarget | null;
           const target =
             rawTarget instanceof Element
@@ -1209,6 +1212,7 @@ export function BoardCanvas({
         <div
           className="absolute left-0 top-0 z-20 h-24 w-24"
           onPointerEnter={() => {
+            if (!showUi) return;
             if (miniMapTimeoutRef.current) {
               window.clearTimeout(miniMapTimeoutRef.current);
               miniMapTimeoutRef.current = null;
@@ -1217,6 +1221,7 @@ export function BoardCanvas({
             setShowMiniMap(true);
           }}
           onPointerLeave={() => {
+            if (!showUi) return;
             setHoverMiniMap(false);
             if (!snapshot.panning) {
               setShowMiniMap(false);
@@ -1224,12 +1229,12 @@ export function BoardCanvas({
           }}
         />
         <CanvasSurface snapshot={snapshot} hideGrid={exporting} />
-        <CanvasDomLayer engine={engine} snapshot={snapshot} />
-        <AnchorOverlay snapshot={snapshot} />
-        <MiniMap snapshot={snapshot} visible={shouldShowMiniMap} />
-        <BoardControls engine={engine} snapshot={snapshot} />
-        <BoardToolbar engine={engine} snapshot={snapshot} />
-        {selectedConnector ? (
+        {showUi ? <CanvasDomLayer engine={engine} snapshot={snapshot} /> : null}
+        {showUi ? <AnchorOverlay snapshot={snapshot} /> : null}
+        {showUi ? <MiniMap snapshot={snapshot} visible={shouldShowMiniMap} /> : null}
+        {showUi ? <BoardControls engine={engine} snapshot={snapshot} /> : null}
+        {showUi ? <BoardToolbar engine={engine} snapshot={snapshot} /> : null}
+        {showUi && selectedConnector ? (
           <ConnectorActionPanel
             snapshot={snapshot}
             connector={selectedConnector}
@@ -1237,8 +1242,8 @@ export function BoardCanvas({
             onDelete={() => engine.deleteSelection()}
           />
         ) : null}
-        <MultiSelectionOutline snapshot={snapshot} engine={engine} />
-        {selectedNode ? (
+        {showUi ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
+        {showUi && selectedNode ? (
           <SingleSelectionToolbar
             snapshot={snapshot}
             engine={engine}
@@ -1246,19 +1251,21 @@ export function BoardCanvas({
             onInspect={openInspector}
           />
         ) : null}
-        <MultiSelectionToolbar
-          snapshot={snapshot}
-          engine={engine}
-          onInspect={openInspector}
-        />
-        {inspectorElement ? (
+        {showUi ? (
+          <MultiSelectionToolbar
+            snapshot={snapshot}
+            engine={engine}
+            onInspect={openInspector}
+          />
+        ) : null}
+        {showUi && inspectorElement ? (
           <NodeInspectorPanel
             snapshot={snapshot}
             element={inspectorElement}
             onClose={() => setInspectorNodeId(null)}
           />
         ) : null}
-        {connectorDrop && connectorDropScreen ? (
+        {showUi && connectorDrop && connectorDropScreen ? (
           <ConnectorDropPanel
             ref={connectorDropRef}
             position={connectorDropScreen}
