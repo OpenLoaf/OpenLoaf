@@ -579,6 +579,11 @@ export class CanvasEngine {
   /** Update the pending connector drop. */
   setConnectorDrop(drop: CanvasConnectorDrop | null): void {
     this.connectorDrop = drop;
+    if (!drop) {
+      // 逻辑：关闭插入面板时同步清理草稿连线与悬停状态。
+      this.connectorDraft = null;
+      this.connectorHover = null;
+    }
     this.emitChange();
   }
 

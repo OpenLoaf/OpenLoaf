@@ -45,6 +45,7 @@ import {
   type FileSystemEntry,
 } from "../utils/file-system-utils";
 import { useFileSystemHistory, type HistoryAction } from "./file-system-history";
+import { useTerminalStatus } from "@/hooks/use-terminal-status";
 
 // 用于“复制/粘贴”的内存剪贴板。
 let fileClipboard: FileSystemEntry[] | null = null;
@@ -54,6 +55,10 @@ export type ProjectFileSystemModelArgs = {
   rootUri?: string;
   currentUri?: string | null;
   onNavigate?: (nextUri: string) => void;
+  /** Initial sort field restored from tab params. */
+  initialSortField?: "name" | "mtime" | null;
+  /** Initial sort order restored from tab params. */
+  initialSortOrder?: "asc" | "desc" | null;
 };
 
 export type ProjectFileSystemModel = {
@@ -62,6 +67,8 @@ export type ProjectFileSystemModel = {
   activeUri: string | null;
   /** Folder uri that matches the rendered list. */
   displayUri: string | null;
+  /** Whether terminal feature is enabled. */
+  isTerminalEnabled: boolean;
   listQuery: ReturnType<typeof useQuery>;
   fileEntries: FileSystemEntry[];
   displayEntries: FileSystemEntry[];
@@ -106,6 +113,8 @@ export type ProjectFileSystemModel = {
   handleOpenDoc: (entry: FileSystemEntry) => void;
   handleOpenSpreadsheet: (entry: FileSystemEntry) => void;
   handleOpenBoard: (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => void;
+  handleOpenTerminal: (entry: FileSystemEntry) => void;
+  handleOpenTerminalAtCurrent: () => void;
   renameEntry: (entry: FileSystemEntry, nextName: string) => Promise<string | null>;
   handleDelete: (entry: FileSystemEntry) => Promise<void>;
   handleDeleteBatch: (entries: FileSystemEntry[]) => Promise<void>;
@@ -152,12 +161,29 @@ function getParentUri(rootUri?: string, currentUri?: string | null): string | nu
   return parentUrl.toString();
 }
 
+/** Resolve the parent directory uri for an entry. */
+function getEntryParentUri(entry: FileSystemEntry): string | null {
+  try {
+    const url = new URL(entry.uri);
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (parts.length === 0) return null;
+    // 中文注释：文件条目使用父目录作为终端工作目录。
+    parts.pop();
+    url.pathname = `/${parts.map((part) => encodeURIComponent(decodeURIComponent(part))).join("/")}`;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 /** Build project file system state and actions. */
 export function useProjectFileSystemModel({
   projectId,
   rootUri,
   currentUri,
   onNavigate,
+  initialSortField = null,
+  initialSortOrder = null,
 }: ProjectFileSystemModelArgs): ProjectFileSystemModel {
   const activeUri = currentUri ?? rootUri ?? null;
   const isElectron = useMemo(
@@ -166,6 +192,8 @@ export function useProjectFileSystemModel({
       (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron")),
     []
   );
+  const terminalStatus = useTerminalStatus();
+  const isTerminalEnabled = terminalStatus.enabled;
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -173,8 +201,8 @@ export function useProjectFileSystemModel({
   const dragCounterRef = useRef(0);
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabs((s) => s.pushStackItem);
-  const [sortField, setSortField] = useState<"name" | "mtime" | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
+  const [sortField, setSortField] = useState<"name" | "mtime" | null>(initialSortField);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(initialSortOrder);
   const [searchValue, setSearchValue] = useState("");
   const [showHidden, setShowHidden] = useState(false);
   // 记录上一次稳定渲染的目录，用于占位数据期间维持「上一级」的一致性。
@@ -641,6 +669,71 @@ export function useProjectFileSystemModel({
     },
     [activeTabId, projectId, pushStackItem, rootUri]
   );
+
+  /** Open a terminal inside the current tab stack. */
+  const handleOpenTerminal = useCallback(
+    (entry: FileSystemEntry) => {
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      if (terminalStatus.isLoading) {
+        toast.message("正在获取终端状态");
+        return;
+      }
+      if (!isTerminalEnabled) {
+        toast.error("终端功能未开启");
+        return;
+      }
+      const pwdUri =
+        entry.kind === "folder" ? entry.uri : getEntryParentUri(entry);
+      if (!pwdUri) {
+        toast.error("无法解析终端目录");
+        return;
+      }
+      const terminalKey = `terminal:${pwdUri}`;
+      pushStackItem(activeTabId, {
+        id: terminalKey,
+        sourceKey: terminalKey,
+        component: "terminal-viewer",
+        title: "Terminal",
+        params: {
+          pwdUri,
+        },
+      });
+    },
+    [activeTabId, isTerminalEnabled, pushStackItem, terminalStatus.isLoading]
+  );
+
+  /** Open a terminal at the current directory. */
+  const handleOpenTerminalAtCurrent = useCallback(() => {
+    if (!activeTabId) {
+      toast.error("未找到当前标签页");
+      return;
+    }
+    if (terminalStatus.isLoading) {
+      toast.message("正在获取终端状态");
+      return;
+    }
+    if (!isTerminalEnabled) {
+      toast.error("终端功能未开启");
+      return;
+    }
+    if (!activeUri) {
+      toast.error("未找到当前目录");
+      return;
+    }
+    const terminalKey = `terminal:${activeUri}`;
+    pushStackItem(activeTabId, {
+      id: terminalKey,
+      sourceKey: terminalKey,
+      component: "terminal-viewer",
+      title: "Terminal",
+      params: {
+        pwdUri: activeUri,
+      },
+    });
+  }, [activeTabId, activeUri, isTerminalEnabled, pushStackItem, terminalStatus.isLoading]);
 
   /** Rename a file or folder with validation and history tracking. */
   const renameEntry = async (entry: FileSystemEntry, nextName: string) => {
@@ -1115,6 +1208,7 @@ export function useProjectFileSystemModel({
     rootUri,
     activeUri,
     displayUri,
+    isTerminalEnabled,
     listQuery,
     fileEntries,
     displayEntries,
@@ -1151,6 +1245,8 @@ export function useProjectFileSystemModel({
     handleOpenDoc,
     handleOpenSpreadsheet,
     handleOpenBoard,
+    handleOpenTerminal,
+    handleOpenTerminalAtCurrent,
     renameEntry,
     handleDelete,
     handleDeleteBatch,

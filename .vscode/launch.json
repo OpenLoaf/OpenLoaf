@@ -3,80 +3,16 @@
   "configurations": [
     {
       "type": "node",
-      "request": "launch",
-      "name": "Node: Debug File",
-      "program": "${file}",
-      "cwd": "${workspaceFolder}",
-      "runtimeArgs": ["--inspect"]
-    },
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Node: Debug Server",
-      "program": "${workspaceFolder}/apps/server/src/index.ts",
-      "cwd": "${workspaceFolder}/apps/server",
-      "runtimeArgs": ["--inspect:6785", "--loader", "tsx"],
-      "env": {
-        "NODE_ENV": "development"
-      }
-    },
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Server: Dev (inspect 6785)",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/pnpm",
-      "args": ["--filter", "server", "dev"],
-      "cwd": "${workspaceFolder}",
-      "env": {
-        "NODE_ENV": "development",
-        "NODE_OPTIONS": "--inspect=6785"
-      },
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
-    },
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Node: Debug Web",
-      "program": "${workspaceFolder}/node_modules/.bin/pnpm",
-      "args": ["dev"],
-      "cwd": "${workspaceFolder}/apps/web",
-      "runtimeArgs": ["--inspect=9229"],
-      "stopOnEntry": false,
-      "serverReadyAction": {
-        "pattern": "- Local:.+(https?://.+)",
-        "uriFormat": "%s",
-        "action": "debugWithChrome"
-      }
-    },
-    {
-      "type": "node",
       "request": "attach",
-      "name": "Attach Next.js (Node SSR)",
+      "name": "Attach apps/server (desktop)",
       "port": 9229,
       "restart": true,
-      "cwd": "${workspaceFolder}/apps/web",
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
-    },
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "React Scan",
-      "runtimeExecutable": "npx",
-      "args": ["react-scan@latest", "localhost:3001"],
-      "cwd": "${workspaceFolder}",
-      "stopOnEntry": false
-    }
-  ],
-  "compounds": [
-    {
-      "name": "Debug Web & Server & Scan",
-      "configurations": ["Node: Debug Web", "Node: Debug Server", "React Scan"],
-      "stopAll": true
-    },
-    {
-      "name": "Debug Web & Server",
-      "configurations": ["Node: Debug Web", "Node: Debug Server"],
-      "stopAll": true
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/apps/server/**",
+        "!**/node_modules/**"
+      ]
     }
   ]
 }

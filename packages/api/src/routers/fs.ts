@@ -49,12 +49,17 @@ function buildFileNode(input: {
 }) {
   const ext = path.extname(input.name).replace(/^\./, "");
   const isDir = input.stat.isDirectory();
+  // 创建时间优先使用 birthtime，避免受元数据变更影响。
+  const createdAt = Number.isNaN(input.stat.birthtime.getTime())
+    ? input.stat.ctime.toISOString()
+    : input.stat.birthtime.toISOString();
   return {
     uri: toFileUri(input.fullPath),
     name: input.name,
     kind: isDir ? "folder" : "file",
     ext: ext || undefined,
     size: isDir ? undefined : input.stat.size,
+    createdAt,
     updatedAt: input.stat.mtime.toISOString(),
     isEmpty: isDir ? input.isEmpty : undefined,
   };

@@ -1,5 +1,5 @@
 import type { ProviderAdapter } from "@/ai/models/providerAdapters";
-import { buildCodexSdkLanguageModel } from "@/ai/models/cli/codexSdkLanguageModel";
+import { buildCodexAppServerLanguageModel } from "@/ai/models/cli/codex/codexAppServerLanguageModel";
 
 /** CLI provider adapter definition. */
 export const cliAdapter: ProviderAdapter = {
@@ -15,7 +15,7 @@ export const cliAdapter: ProviderAdapter = {
     // 逻辑：CLI 配置通过 authConfig 透传，避免额外读取设置文件。
     const apiKey = typeof rawApiKey === "string" ? rawApiKey : "";
     const forceCustomApiKey = typeof rawForce === "boolean" ? rawForce : false;
-    return buildCodexSdkLanguageModel({
+    return buildCodexAppServerLanguageModel({
       providerId: resolvedProviderId,
       modelId,
       apiUrl: resolvedApiUrl,

@@ -382,13 +382,13 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
                 aria-hidden={activeTab !== "files"}
               >
                 {shouldRenderFiles ? (
-                  <ProjectFileSystem
-                    projectId={projectId}
-                    rootUri={rootUri}
-                    currentUri={fileUri}
-                    projectLookup={projectLookup}
-                    onNavigate={setFileUri}
-                  />
+                <ProjectFileSystem
+                  projectId={projectId}
+                  rootUri={rootUri}
+                  currentUri={fileUri}
+                  projectLookup={projectLookup}
+                  onNavigate={setFileUri}
+                />
                 ) : null}
               </div>
               <div

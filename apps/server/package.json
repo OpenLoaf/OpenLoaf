@@ -33,6 +33,7 @@
     "execa": "^9.6.0",
     "hono": "catalog:",
     "keyv": "^5.5.5",
+    "node-pty": "^1.1.0-beta25",
     "pino": "^10.1.0",
     "playwright-core": "^1.51.0",
     "qwen-ai-provider": "^0.1.1",
@@ -40,6 +41,7 @@
     "sharp": "^0.34.5",
     "undici": "^6.21.0",
     "uuid": "^13.0.0",
+    "ws": "^8.18.0",
     "zod": "^4.1.11"
   },
   "devDependencies": {

@@ -28,7 +28,7 @@ import { AgentManagement } from "./menus/agent/AgentManagement";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
 import { CommandAllowlist } from "./menus/CommandAllowlist";
-import ProjectTest from "./menus/ProjectTest";
+import TestSetting from "./menus/TestSetting";
 import { TeatimeSettingsLayout } from "@/components/ui/teatime/TeatimeSettingsLayout";
 import {
   TeatimeSettingsMenu,
@@ -59,7 +59,7 @@ const MENU: Array<{
   { key: "whitelist", label: "白名单", Icon: ShieldCheck, Component: CommandAllowlist },
   { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
   { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
-  { key: "projectTest", label: "测试", Icon: FlaskConical, Component: ProjectTest },
+  { key: "projectTest", label: "测试", Icon: FlaskConical, Component: TestSetting },
   { key: "about", label: "关于Teatime", Icon: Info, Component: AboutTeatime },
 ];
 

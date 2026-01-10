@@ -90,3 +90,6 @@ docs/canvas/board-user-manual.md
 .teatime/chat/
 apps/server/auth.json
 apps/electron/resources/speech/windows/publish
+.teatime/download-svgrepo-file-formats-text.py
+.teatime/svgrepo-file-formats-text-urls.txt
+.teatime/svgrepo-file-formats-text.md

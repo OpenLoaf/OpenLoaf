@@ -68,12 +68,16 @@ export const CODE_EXTS = new Set([
 const ImageThumbnail = memo(function ImageThumbnail({
   src,
   name,
+  sizeClassName = "h-11 w-11",
+  iconClassName = "h-full w-full p-2 text-muted-foreground",
 }: {
   src?: string | null;
   name: string;
+  sizeClassName?: string;
+  iconClassName?: string;
 }) {
   return (
-    <div className="h-11 w-11 overflow-hidden rounded-md bg-muted/40">
+    <div className={`${sizeClassName} overflow-hidden rounded-md bg-muted/40`}>
       {src ? (
         <img
           src={src}
@@ -83,7 +87,7 @@ const ImageThumbnail = memo(function ImageThumbnail({
           decoding="async"
         />
       ) : (
-        <FileImage className="h-full w-full p-2 text-muted-foreground" />
+        <FileImage className={iconClassName} />
       )}
     </div>
   );
@@ -108,19 +112,23 @@ export function getEntryVisual({
   ext,
   isEmpty,
   thumbnailSrc,
+  sizeClassName = "h-11 w-11",
+  thumbnailIconClassName = "h-full w-full p-2 text-muted-foreground",
 }: {
   kind: FileSystemEntry["kind"];
   name: string;
   ext?: string;
   isEmpty?: boolean;
   thumbnailSrc?: string;
+  sizeClassName?: string;
+  thumbnailIconClassName?: string;
 }) {
   if (kind === "folder" && isBoardFolderName(name)) {
     return (
       <img
         src="/board/sketchbook-sketch-svgrepo-com.svg"
         alt="画布"
-        className="h-11 w-11"
+        className={sizeClassName}
         loading="lazy"
         decoding="async"
       />
@@ -128,37 +136,46 @@ export function getEntryVisual({
   }
   if (kind === "folder") {
     if (isEmpty === true) {
-      return <Folder className="h-11 w-11 text-muted-foreground" />;
+      return <Folder className={`${sizeClassName} text-muted-foreground`} />;
     }
     if (isEmpty === false) {
-      return <FolderOpen className="h-11 w-11 text-muted-foreground" />;
+      return <FolderOpen className={`${sizeClassName} text-muted-foreground`} />;
     }
-    return <Folder className="h-11 w-11 text-muted-foreground" />;
+    return <Folder className={`${sizeClassName} text-muted-foreground`} />;
   }
   const normalizedExt = resolveEntryExt(kind, name, ext);
   if (IMAGE_EXTS.has(normalizedExt)) {
-    return <ImageThumbnail src={thumbnailSrc} name={name} />;
+    return (
+      <ImageThumbnail
+        src={thumbnailSrc}
+        name={name}
+        sizeClassName={sizeClassName}
+        iconClassName={thumbnailIconClassName}
+      />
+    );
   }
   if (ARCHIVE_EXTS.has(normalizedExt)) {
-    return <FileArchive className="h-11 w-11 text-muted-foreground" />;
+    return <FileArchive className={`${sizeClassName} text-muted-foreground`} />;
   }
   if (AUDIO_EXTS.has(normalizedExt)) {
-    return <FileAudio className="h-11 w-11 text-muted-foreground" />;
+    return <FileAudio className={`${sizeClassName} text-muted-foreground`} />;
   }
   if (VIDEO_EXTS.has(normalizedExt)) {
-    return <FileVideo className="h-11 w-11 text-muted-foreground" />;
+    return <FileVideo className={`${sizeClassName} text-muted-foreground`} />;
   }
   if (SPREADSHEET_EXTS.has(normalizedExt)) {
-    return <FileSpreadsheet className="h-11 w-11 text-muted-foreground" />;
+    return (
+      <FileSpreadsheet className={`${sizeClassName} text-muted-foreground`} />
+    );
   }
   if (CODE_EXTS.has(normalizedExt)) {
-    return <FileCode className="h-11 w-11 text-muted-foreground" />;
+    return <FileCode className={`${sizeClassName} text-muted-foreground`} />;
   }
   if (PDF_EXTS.has(normalizedExt)) {
-    return <FileScan className="h-11 w-11 text-muted-foreground" />;
+    return <FileScan className={`${sizeClassName} text-muted-foreground`} />;
   }
   if (DOC_EXTS.has(normalizedExt)) {
-    return <FileType className="h-11 w-11 text-muted-foreground" />;
+    return <FileType className={`${sizeClassName} text-muted-foreground`} />;
   }
-  return <FileText className="h-11 w-11 text-muted-foreground" />;
+  return <FileText className={`${sizeClassName} text-muted-foreground`} />;
 }

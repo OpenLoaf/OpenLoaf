@@ -25,6 +25,11 @@ import {
   linkPreviewSchemas,
 } from "./routers/absLinkPreview";
 import { projectRouter } from "./routers/project";
+import {
+  terminalRouter,
+  BaseTerminalRouter,
+  terminalSchemas,
+} from "./routers/terminal";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -37,6 +42,7 @@ export const appRouterDefine = {
   settings: settingRouter,
   ai: aiRouter,
   linkPreview: linkPreviewRouter,
+  terminal: terminalRouter,
 };
 
 export const appRouter = t.router({
@@ -82,6 +88,9 @@ export { BaseAiRouter, aiSchemas };
 
 // Export link preview router components
 export { BaseLinkPreviewRouter, linkPreviewSchemas };
+
+// Export terminal router components
+export { BaseTerminalRouter, terminalSchemas };
 
 // export const t = initTRPC.context<Context>().create({
 // });

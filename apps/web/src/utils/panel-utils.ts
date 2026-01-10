@@ -17,6 +17,7 @@ import PdfViewer from "@/components/file/PdfViewer";
 import DocViewer from "@/components/file/DocViewer";
 import SheetViewer from "@/components/file/SheetViewer";
 import BoardFileViewer from "@/components/board/BoardFileViewer";
+import TerminalViewer from "@/components/file/TerminalViewer";
 
 /**
  * 组件名称到组件的映射关系
@@ -44,6 +45,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "doc-viewer": DocViewer,
   "sheet-viewer": SheetViewer,
   "board-viewer": BoardFileViewer,
+  "terminal-viewer": TerminalViewer,
 };
 
 /**
@@ -85,6 +87,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Sheet";
     case "board-viewer":
       return "Board";
+    case "terminal-viewer":
+      return "Terminal";
     default:
       // 如果没有匹配的标题，直接返回组件名称
       return componentName;

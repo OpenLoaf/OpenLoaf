@@ -4,6 +4,8 @@ export type FileSystemEntry = {
   kind: "file" | "folder";
   ext?: string;
   size?: number;
+  /** File creation time in ISO format. */
+  createdAt?: string;
   updatedAt?: string;
   /** Whether the folder has no visible children. */
   isEmpty?: boolean;
@@ -130,10 +132,44 @@ export function formatSize(bytes?: number) {
   return `${gb.toFixed(1)} GB`;
 }
 
+/** Format a number as a two-digit string. */
+function formatTwoDigits(value: number) {
+  return value.toString().padStart(2, "0");
+}
+
+/** Format a date into yyyy-MM-dd. */
+function formatDatePart(date: Date) {
+  const year = date.getFullYear();
+  const month = formatTwoDigits(date.getMonth() + 1);
+  const day = formatTwoDigits(date.getDate());
+  return `${year}-${month}-${day}`;
+}
+
+/** Format a date into HH:mm:ss. */
+function formatTimePart(date: Date) {
+  const hour = formatTwoDigits(date.getHours());
+  const minute = formatTwoDigits(date.getMinutes());
+  const second = formatTwoDigits(date.getSeconds());
+  return `${hour}:${minute}:${second}`;
+}
+
 /** Format timestamp string for display. */
 export function formatTimestamp(value?: string) {
   if (!value) return "--";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "--";
-  return date.toLocaleString();
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const timePart = formatTimePart(date);
+  if (date >= startOfToday) {
+    // 今日仅展示时间，减少重复的日期信息。
+    return `今日 ${timePart}`;
+  }
+  if (date >= startOfYesterday) {
+    // 昨日保留时间，方便区分具体时刻。
+    return `昨日 ${timePart}`;
+  }
+  return `${formatDatePart(date)} ${timePart}`;
 }

@@ -1,0 +1,15 @@
+.terminal-viewer {
+  height: 100%;
+  width: 100%;
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+.terminal-viewer .xterm {
+  height: 100%;
+}
+
+.terminal-viewer .xterm-viewport,
+.terminal-viewer .xterm-screen {
+  height: 100%;
+}

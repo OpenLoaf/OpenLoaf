@@ -369,6 +369,7 @@ export class SelectTool implements CanvasTool {
   onPointerUp(ctx: ToolContext): void {
     if (this.connectorDrafting && this.connectorSource) {
       const draft = ctx.engine.getConnectorDraft();
+      let keepDraft = false;
       if (draft) {
         const isSameElement =
           "elementId" in draft.target &&
@@ -379,12 +380,16 @@ export class SelectTool implements CanvasTool {
             source: draft.source,
             point: draft.target.point,
           });
+          keepDraft = true;
         } else if (!isSameElement) {
           ctx.engine.addConnectorElement(draft);
         }
       }
 
-      ctx.engine.setConnectorDraft(null);
+      if (!keepDraft) {
+        // 逻辑：只有显示插入面板时才保留草稿连线。
+        ctx.engine.setConnectorDraft(null);
+      }
       ctx.engine.setConnectorHover(null);
       this.connectorSource = null;
       this.connectorDrafting = false;

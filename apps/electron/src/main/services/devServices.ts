@@ -103,6 +103,7 @@ export async function ensureDevServices(args: {
   }
 
   const pnpm = commandName('pnpm');
+  const node = commandName('node');
   const envBase = { ...process.env };
 
   const serverHost = new URL(serverUrl).hostname || '127.0.0.1';
@@ -113,6 +114,20 @@ export async function ensureDevServices(args: {
     serverUrl = `http://${serverHost}:${serverPort}`;
     args.log(`Server port in use; switched to ${serverUrl}`);
   }
+
+  // 开发态为 server 单独开启 Node Inspector，避免影响 Electron 主进程。
+  const inspectPortRaw = envBase.TEATIME_SERVER_INSPECT_PORT ?? '';
+  const inspectPortParsed = Number.parseInt(inspectPortRaw, 10);
+  const serverInspectPort = Number.isFinite(inspectPortParsed)
+    ? inspectPortParsed
+    : 9229;
+  const existingNodeOptions = envBase.NODE_OPTIONS ?? '';
+  const inspectOptionPattern =
+    /(^|\s)--inspect(?:-brk|-port|-publish-uid|-wait)?(?:=\S+)?/g;
+  const sanitizedNodeOptions = existingNodeOptions
+    .replace(inspectOptionPattern, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   const webHost = new URL(webUrl).hostname || '127.0.0.1';
   let webPort = Number(new URL(webUrl).port || 3001);
@@ -126,19 +141,41 @@ export async function ensureDevServices(args: {
   let managedWeb: ChildProcess | null = null;
 
   if (!serverOk) {
-    // 启动后端（server workspace）的 dev 模式。
-    managedServer = spawnLogged('server', pnpm, ['--filter', 'server', 'dev'], {
-      cwd: repoRoot,
-      env: {
-        ...envBase,
-        PORT: String(serverPort),
-        HOST: serverHost,
-        NODE_ENV: 'development',
-        TEATIME_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
-        // 允许 web dev server 作为 Origin 访问后端。
-        CORS_ORIGIN: `${webUrl},${envBase.CORS_ORIGIN ?? ''}`,
-      },
-    });
+    // 逻辑：避免 pnpm/tsx watch 管理进程占用调试端口，直接启动 server 进程。
+    const serverEntry = path.join(repoRoot, 'apps/server/src/index.ts');
+    const serverTsconfig = path.join(repoRoot, 'apps/server/tsconfig.json');
+    const serverEnv: NodeJS.ProcessEnv = {
+      ...envBase,
+      PORT: String(serverPort),
+      HOST: serverHost,
+      NODE_ENV: 'development',
+      TEATIME_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
+      TSX_TSCONFIG_PATH: serverTsconfig,
+      // 允许 web dev server 作为 Origin 访问后端。
+      CORS_ORIGIN: `${webUrl},${envBase.CORS_ORIGIN ?? ''}`,
+    };
+    if (sanitizedNodeOptions) {
+      serverEnv.NODE_OPTIONS = sanitizedNodeOptions;
+    } else {
+      delete serverEnv.NODE_OPTIONS;
+    }
+
+    managedServer = spawnLogged(
+      'server',
+      node,
+      [
+        `--inspect=${serverHost}:${serverInspectPort}`,
+        '--enable-source-maps',
+        '--import',
+        'tsx/esm',
+        '--watch',
+        serverEntry,
+      ],
+      {
+        cwd: path.join(repoRoot, 'apps/server'),
+        env: serverEnv,
+      }
+    );
 
     await waitForUrlOk(`${serverUrl}/`, { timeoutMs: 30_000, intervalMs: 300 });
   }

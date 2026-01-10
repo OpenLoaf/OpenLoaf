@@ -196,6 +196,9 @@ importers:
       keyv:
         specifier: ^5.5.5
         version: 5.5.5
+      node-pty:
+        specifier: ^1.1.0-beta25
+        version: 1.1.0
       pino:
         specifier: ^10.1.0
         version: 10.1.0
@@ -217,6 +220,9 @@ importers:
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
+      ws:
+        specifier: ^8.18.0
+        version: 8.18.3
       zod:
         specifier: ^4.1.11
         version: 4.2.1
@@ -440,6 +446,9 @@ importers:
       '@uploadthing/react':
         specifier: 7.3.3
         version: 7.3.3(next@16.1.0(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.2(react@19.1.2))(react@19.1.2)(sass@1.97.1))(react@19.1.2)(uploadthing@7.7.4(express@5.2.1)(next@16.1.0(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.2(react@19.1.2))(react@19.1.2)(sass@1.97.1))(tailwindcss@4.1.18))
+      '@xterm/addon-fit':
+        specifier: ^0.11.0
+        version: 0.11.0
       babel-plugin-react-compiler:
         specifier: ^1.0.0
         version: 1.0.0
@@ -584,6 +593,9 @@ importers:
       xlsx:
         specifier: ^0.18.5
         version: 0.18.5
+      xterm:
+        specifier: ^5.3.0
+        version: 5.3.0
       zod:
         specifier: ^4.1.13
         version: 4.2.1
@@ -5446,6 +5458,9 @@ packages:
     resolution: {integrity: sha512-cQzWCtO6C8TQiYl1ruKNn2U6Ao4o4WBBcbL61yJl84x+j5sOWWFU9X7DpND8XZG3daDppSsigMdfAIl2upQBRw==}
     engines: {node: '>=10.0.0'}
 
+  '@xterm/addon-fit@0.11.0':
+    resolution: {integrity: sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g==}
+
   '@xtuc/ieee754@1.2.0':
     resolution: {integrity: sha512-DX8nKgqcGwsc0eJSqYt5lwP4DH5FlHnmuWWBRy7X0NcaGR0ZtuyeESgMwTYVEtxmsNGY+qit4QYT/MIYTOTPeA==}
 
@@ -9581,6 +9596,9 @@ packages:
     resolution: {integrity: sha512-s+w+rBWnpTMwSFbaE0UXsRlg7hU4FjekKU4eyAih5T8nJuNZT1nNsskXpxmeqSK9UzkBl6UgRlnKc8hz8IEqOw==}
     hasBin: true
 
+  node-pty@1.1.0:
+    resolution: {integrity: sha512-20JqtutY6JPXTUnL0ij1uad7Qe1baT46lyolh2sSENDd4sTzKZ4nmAFkeAARDKwmlLjPx6XKRlwRUxwjOy+lUg==}
+
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
 
@@ -12409,6 +12427,10 @@ packages:
 
   xterm@4.19.0:
     resolution: {integrity: sha512-c3Cp4eOVsYY5Q839dR5IejghRPpxciGmLWWaP9g+ppfMeBChMeLa1DCA+pmX/jyDZ+zxFOmlJL/82qVdayVoGQ==}
+    deprecated: This package is now deprecated. Move to @xterm/xterm instead.
+
+  xterm@5.3.0:
+    resolution: {integrity: sha512-8QqjlekLUFTrU6x7xck1MsPzPA571K5zNqWm0M0oroYEWVOptZ0+ubQSkQ3uxIEhcIHRujJy6emDWX4A7qyFzg==}
     deprecated: This package is now deprecated. Move to @xterm/xterm instead.
 
   y18n@5.0.8:
@@ -18555,6 +18577,8 @@ snapshots:
 
   '@xmldom/xmldom@0.8.11': {}
 
+  '@xterm/addon-fit@0.11.0': {}
+
   '@xtuc/ieee754@1.2.0': {}
 
   '@xtuc/long@4.2.2': {}
@@ -23692,6 +23716,10 @@ snapshots:
       detect-libc: 2.1.2
     optional: true
 
+  node-pty@1.1.0:
+    dependencies:
+      node-addon-api: 7.1.1
+
   node-releases@2.0.27: {}
 
   non-layered-tidy-tree-layout@2.0.2: {}
@@ -27152,6 +27180,8 @@ snapshots:
       xterm: 4.19.0
 
   xterm@4.19.0: {}
+
+  xterm@5.3.0: {}
 
   y18n@5.0.8: {}
 

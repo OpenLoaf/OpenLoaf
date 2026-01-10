@@ -23,6 +23,8 @@ export type FileSystemContextMenuActions = {
   openEntry: MenuEntryAction;
   /** Open the entry in the OS file manager. */
   openInFileManager: MenuEntryAction;
+  /** Open a terminal at the entry path. */
+  openTerminal: MenuEntryAction;
   /** Open the transfer dialog. */
   openTransferDialog: (
     entries: FileSystemEntry | FileSystemEntry[],
@@ -50,6 +52,8 @@ export type FileSystemContextMenuActions = {
   createFolder: MenuAction;
   /** Create a new board. */
   createBoard: MenuAction;
+  /** Open a terminal at the current directory. */
+  openTerminalAtCurrent: MenuAction;
   /** Paste from clipboard. */
   paste: MenuAction;
 };
@@ -66,6 +70,8 @@ export type FileSystemContextMenuProps = {
   showHidden: boolean;
   /** Current clipboard size. */
   clipboardSize: number;
+  /** Whether to show terminal actions. */
+  showTerminal: boolean;
   /** Context menu open change handler. */
   onOpenChange: (open: boolean) => void;
   /** Guarded menu item action wrapper. */
@@ -81,6 +87,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
   selectedEntries,
   showHidden,
   clipboardSize,
+  showTerminal,
   onOpenChange,
   withMenuSelectGuard,
   actions,
@@ -137,6 +144,13 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               >
                 在文件管理器中打开
               </ContextMenuItem>
+              {showTerminal ? (
+                <ContextMenuItem
+                  onSelect={withMenuSelectGuard(() => actions.openTerminal(menuContextEntry))}
+                >
+                  在终端中打开
+                </ContextMenuItem>
+              ) : null}
               <ContextMenuSeparator />
               <ContextMenuItem
                 onSelect={withMenuSelectGuard(() =>
@@ -199,6 +213,11 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
             <ContextMenuItem onSelect={withMenuSelectGuard(actions.createBoard)}>
               新建画布
             </ContextMenuItem>
+            {showTerminal ? (
+              <ContextMenuItem onSelect={withMenuSelectGuard(actions.openTerminalAtCurrent)}>
+                打开终端
+              </ContextMenuItem>
+            ) : null}
             <ContextMenuSeparator />
             <ContextMenuItem
               onSelect={withMenuSelectGuard(actions.paste)}

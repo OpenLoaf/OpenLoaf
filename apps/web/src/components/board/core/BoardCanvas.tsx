@@ -6,7 +6,7 @@ import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/reac
 import { trpc } from "@/utils/trpc";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
-import { MINIMAP_HIDE_DELAY } from "../engine/constants";
+import { DEFAULT_NODE_SIZE, MINIMAP_HIDE_DELAY } from "../engine/constants";
 import BoardControls from "../controls/BoardControls";
 import BoardToolbar from "../toolbar/BoardToolbar";
 import { isBoardUiTarget } from "../utils/dom";
@@ -41,7 +41,11 @@ import {
   MultiSelectionToolbar,
   SingleSelectionToolbar,
 } from "./SelectionOverlay";
-import { ConnectorDropPanel, type ConnectorDropItem } from "./ConnectorDropPanel";
+import {
+  ConnectorDropPanel,
+  type ConnectorDropGroup,
+  type ConnectorDropItem,
+} from "./ConnectorDropPanel";
 import {
   BOARD_SCHEMA_VERSION,
   createEmptyBoardSnapshot,
@@ -54,6 +58,8 @@ import {
   type BoardSnapshotCacheRecord,
 } from "./boardSnapshotCache";
 import { useBoardSnapshot } from "./useBoardSnapshot";
+import { imageConnectorDropGroups } from "../nodes/ImageNode";
+import { Image, StickyNote, Type } from "lucide-react";
 const VIEWPORT_SAVE_DELAY = 800;
 /** Default size for auto-created text nodes. */
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
@@ -61,6 +67,36 @@ const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
 const IMAGE_DROP_STACK_OFFSET = 24;
 /** Prefix used for board-relative teatime-file paths. */
 const BOARD_RELATIVE_URI_PREFIX = "teatime-file://./";
+/** Default connector drop groups for non-image nodes. */
+const DEFAULT_CONNECTOR_DROP_GROUPS: ConnectorDropGroup[] = [
+  {
+    label: "基础组件",
+    icon: <Type size={14} />,
+    items: [
+      {
+        label: "图片",
+        icon: <Image size={14} />,
+        type: "placeholder",
+        props: { title: "图片", description: "图片占位节点。" },
+        size: DEFAULT_NODE_SIZE,
+      },
+      {
+        label: "便签",
+        icon: <StickyNote size={14} />,
+        type: "placeholder",
+        props: { title: "便签", description: "便签占位节点。" },
+        size: DEFAULT_NODE_SIZE,
+      },
+      {
+        label: "文字",
+        icon: <Type size={14} />,
+        type: "placeholder",
+        props: { title: "文字", description: "文字占位节点。" },
+        size: DEFAULT_NODE_SIZE,
+      },
+    ],
+  },
+];
 
 /** Normalize a relative path string. */
 function normalizeRelativePath(value: string) {
@@ -914,6 +950,17 @@ export function BoardCanvas({
   const connectorDropScreen = connectorDrop
     ? toScreenPoint(connectorDrop.point, snapshot)
     : null;
+  const connectorDropGroups = useMemo(() => {
+    // 逻辑：根据连线起点节点类型切换可插入的组件组。
+    if (!connectorDrop) return DEFAULT_CONNECTOR_DROP_GROUPS;
+    if ("elementId" in connectorDrop.source) {
+      const source = engine.doc.getElementById(connectorDrop.source.elementId);
+      if (source?.kind === "node" && source.type === "image") {
+        return imageConnectorDropGroups;
+      }
+    }
+    return DEFAULT_CONNECTOR_DROP_GROUPS;
+  }, [connectorDrop, engine]);
   const selectedConnector = getSingleSelectedElement(snapshot, "connector");
   const selectedNode = getSingleSelectedElement(snapshot, "node");
   const shouldShowMiniMap = showMiniMap || hoverMiniMap;
@@ -936,6 +983,9 @@ export function BoardCanvas({
       if (panel.contains(target)) return;
       // 逻辑：点击面板外部时关闭，不创建节点。
       engine.setConnectorDrop(null);
+      // 逻辑：关闭面板时同步清理草稿连线。
+      engine.setConnectorDraft(null);
+      engine.setConnectorHover(null);
     };
     document.addEventListener("pointerdown", handlePointerDown, { capture: true });
     return () => {
@@ -972,6 +1022,8 @@ export function BoardCanvas({
       });
     }
     engine.setConnectorDrop(null);
+    engine.setConnectorDraft(null);
+    engine.setConnectorHover(null);
   };
 
   /** Open the node inspector. */
@@ -1206,6 +1258,7 @@ export function BoardCanvas({
           <ConnectorDropPanel
             ref={connectorDropRef}
             position={connectorDropScreen}
+            groups={connectorDropGroups}
             onSelect={handleConnectorDropSelect}
           />
         ) : null}

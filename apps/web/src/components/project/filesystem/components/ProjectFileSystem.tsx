@@ -8,6 +8,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
@@ -20,6 +21,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   FolderPlus,
   LayoutGrid,
+  LayoutList,
+  Columns2,
   ArrowDownAZ,
   ArrowDownWideNarrow,
   ArrowUpAZ,
@@ -39,7 +42,9 @@ import {
 } from "@/components/ui/breadcrumb";
 import type { FileSystemEntry } from "../utils/file-system-utils";
 import FileSystemContextMenu from "./FileSystemContextMenu";
+import { FileSystemColumns } from "./FileSystemColumns";
 import { FileSystemGrid } from "./FileSystemGrid";
+import { FileSystemList, FileSystemListHeader } from "./FileSystemList";
 import ProjectFileSystemTransferDialog from "./ProjectFileSystemTransferDialog";
 import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
 import { useProjectFileSystemModel } from "../models/file-system-model";
@@ -64,6 +69,23 @@ type ProjectBreadcrumbItem = {
   label: string;
   uri: string;
 };
+
+/** Persisted toolbar state for the file system view. */
+type FileSystemToolbarState = {
+  viewMode: "grid" | "list" | "columns";
+  sortField: "name" | "mtime" | null;
+  sortOrder: "asc" | "desc" | null;
+};
+
+/** Default toolbar state for file system view. */
+const DEFAULT_TOOLBAR_STATE: FileSystemToolbarState = {
+  viewMode: "grid",
+  sortField: null,
+  sortOrder: null,
+};
+
+/** Storage key prefix for file system toolbar settings. */
+const FILE_SYSTEM_TOOLBAR_STORAGE_KEY = "teatime:fs:toolbar";
 
 type ProjectFileSystemBreadcrumbsProps = {
   isLoading: boolean;
@@ -164,6 +186,55 @@ function decodePathSegment(value: string) {
   }
 }
 
+/** Build storage key for the file system toolbar state. */
+function buildFileSystemToolbarStorageKey(projectId?: string, rootUri?: string) {
+  if (projectId) return `${FILE_SYSTEM_TOOLBAR_STORAGE_KEY}:${projectId}`;
+  if (rootUri) return `${FILE_SYSTEM_TOOLBAR_STORAGE_KEY}:${encodeURIComponent(rootUri)}`;
+  return `${FILE_SYSTEM_TOOLBAR_STORAGE_KEY}:global`;
+}
+
+/** Normalize persisted toolbar state payload. */
+function normalizeFileSystemToolbarState(
+  raw: Partial<FileSystemToolbarState> | null
+): FileSystemToolbarState {
+  if (!raw) return DEFAULT_TOOLBAR_STATE;
+  const viewMode =
+    raw.viewMode === "list" || raw.viewMode === "columns"
+      ? raw.viewMode
+      : "grid";
+  const sortField = raw.sortField === "name" || raw.sortField === "mtime" ? raw.sortField : null;
+  const sortOrder = raw.sortOrder === "asc" || raw.sortOrder === "desc" ? raw.sortOrder : null;
+  if (!sortField || !sortOrder) {
+    return { viewMode, sortField: null, sortOrder: null };
+  }
+  return { viewMode, sortField, sortOrder };
+}
+
+/** Read toolbar state from local storage. */
+function readFileSystemToolbarState(key: string): FileSystemToolbarState {
+  if (typeof window === "undefined") return DEFAULT_TOOLBAR_STATE;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return DEFAULT_TOOLBAR_STATE;
+    return normalizeFileSystemToolbarState(JSON.parse(raw) as Partial<FileSystemToolbarState>);
+  } catch {
+    return DEFAULT_TOOLBAR_STATE;
+  }
+}
+
+/** Write toolbar state to local storage. */
+function writeFileSystemToolbarState(
+  key: string,
+  state: FileSystemToolbarState
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(state));
+  } catch {
+    // ignore
+  }
+}
+
 /** Project file system header. */
 const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
   isLoading,
@@ -229,35 +300,53 @@ const ProjectFileSystemBreadcrumbs = memo(function ProjectFileSystemBreadcrumbs(
 }: ProjectFileSystemBreadcrumbsProps) {
   const breadcrumbItems = items ?? buildFileBreadcrumbs(rootUri, currentUri, projectLookup);
   const isVisible = !isLoading && breadcrumbItems.length > 0;
+  const breadcrumbKey = useMemo(
+    () => breadcrumbItems.map((item) => item.uri).join("|"),
+    [breadcrumbItems]
+  );
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    // 默认滚动到最右侧，确保当前目录可见。
+    requestAnimationFrame(() => {
+      container.scrollLeft = container.scrollWidth;
+    });
+  }, [breadcrumbKey, isVisible]);
 
   return (
     <div className="relative flex min-w-0 items-center">
       <div
-        className={`flex items-center gap-2 min-w-0 ${isVisible ? "opacity-100" : "opacity-0"}`}
+        ref={scrollRef}
+        className={`flex items-center justify-end gap-2 min-w-0 max-w-full overflow-x-auto overflow-y-hidden ${
+          isVisible ? "opacity-100" : "opacity-0"
+        }`}
       >
-        <Breadcrumb>
-          <BreadcrumbList>
-          {breadcrumbItems.map((item, index) => {
-            const isLast = index === breadcrumbItems.length - 1;
-            return (
-              <Fragment key={item.uri}>
-                <BreadcrumbItem>
-                  {isLast ? (
-                    <BreadcrumbPage>
-                      <span>{item.label}</span>
-                    </BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink asChild className="cursor-pointer">
-                      <button type="button" onClick={() => onNavigate?.(item.uri)}>
+        <Breadcrumb className="min-w-max ml-auto">
+          <BreadcrumbList className="flex-nowrap whitespace-nowrap break-normal">
+            {breadcrumbItems.map((item, index) => {
+              const isLast = index === breadcrumbItems.length - 1;
+              return (
+                <Fragment key={item.uri}>
+                  <BreadcrumbItem>
+                    {isLast ? (
+                      <BreadcrumbPage>
                         <span>{item.label}</span>
-                      </button>
-                    </BreadcrumbLink>
-                  )}
-                </BreadcrumbItem>
-                {!isLast ? <BreadcrumbSeparator /> : null}
-              </Fragment>
-            );
-          })}
+                      </BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink asChild className="cursor-pointer">
+                        <button type="button" onClick={() => onNavigate?.(item.uri)}>
+                          <span>{item.label}</span>
+                        </button>
+                      </BreadcrumbLink>
+                    )}
+                  </BreadcrumbItem>
+                  {!isLast ? <BreadcrumbSeparator /> : null}
+                </Fragment>
+              );
+            })}
           </BreadcrumbList>
         </Breadcrumb>
       </div>
@@ -279,13 +368,39 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   projectLookup,
   onNavigate,
 }: ProjectFileSystemProps) {
+  // 从本地缓存恢复文件系统工具栏状态。
+  const toolbarStorageKey = useMemo(
+    () => buildFileSystemToolbarStorageKey(projectId, rootUri),
+    [projectId, rootUri]
+  );
+  const toolbarStateFromStorage = useMemo<FileSystemToolbarState>(
+    () => readFileSystemToolbarState(toolbarStorageKey),
+    [toolbarStorageKey]
+  );
   const model = useProjectFileSystemModel({
     projectId,
     rootUri,
     currentUri,
     onNavigate,
+    initialSortField: toolbarStateFromStorage.sortField,
+    initialSortOrder: toolbarStateFromStorage.sortOrder,
   });
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "columns">(
+    toolbarStateFromStorage.viewMode
+  );
+  const isGridView = viewMode === "grid";
+  const isListView = viewMode === "list";
+  const isColumnsView = viewMode === "columns";
   const headerSlot = useProjectFileSystemHeaderSlot();
+  // 当前工具栏状态快照，保持引用稳定以减少无效写入。
+  const toolbarSnapshot = useMemo<FileSystemToolbarState>(
+    () => ({
+      viewMode,
+      sortField: model.sortField,
+      sortOrder: model.sortOrder,
+    }),
+    [model.sortField, model.sortOrder, viewMode]
+  );
   /** Track current grid selection. */
   const {
     selectedUris,
@@ -358,6 +473,14 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const handleSortByTimeClick = useCallback(() => {
     model.handleSortByTime();
   }, [model]);
+
+  /** Switch between file system view modes. */
+  const handleViewModeChange = useCallback(
+    (nextMode: "grid" | "list" | "columns") => {
+      setViewMode(nextMode);
+    },
+    []
+  );
 
   /** Resolve selected entries from the current file list. */
   const resolveSelectedEntries = useCallback(
@@ -447,6 +570,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     resetContextMenu();
   }, [clearSelection, handleRenamingCancel, model.activeUri, resetContextMenu]);
 
+  useEffect(() => {
+    writeFileSystemToolbarState(toolbarStorageKey, toolbarSnapshot);
+  }, [toolbarSnapshot, toolbarStorageKey]);
+
   if (!rootUri) {
     return <div className="p-4 text-sm text-muted-foreground">未绑定项目目录</div>;
   }
@@ -497,21 +624,56 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               </Tooltip>
             </>
           ) : null}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                aria-label="切换排列方式"
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>
-              切换排列方式
-            </TooltipContent>
-          </Tooltip>
+          <div className="flex items-center rounded-md bg-muted/40 p-0.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-7 w-7 ${isGridView ? "bg-foreground/10 text-foreground" : ""}`}
+                  aria-label="网格视图"
+                  onClick={() => handleViewModeChange("grid")}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                网格视图
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-7 w-7 ${isListView ? "bg-foreground/10 text-foreground" : ""}`}
+                  aria-label="列表视图"
+                  onClick={() => handleViewModeChange("list")}
+                >
+                  <LayoutList className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                列表视图
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-7 w-7 ${isColumnsView ? "bg-foreground/10 text-foreground" : ""}`}
+                  aria-label="列视图"
+                  onClick={() => handleViewModeChange("columns")}
+                >
+                  <Columns2 className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                列视图
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -661,11 +823,13 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           selectedEntries={selectedEntries}
           showHidden={model.showHidden}
           clipboardSize={model.clipboardSize}
+          showTerminal={model.isTerminalEnabled}
           onOpenChange={handleContextMenuOpenChange}
           withMenuSelectGuard={withMenuSelectGuard}
           actions={{
             openEntry: model.handleOpen,
             openInFileManager: model.handleOpenInFileManager,
+            openTerminal: model.handleOpenTerminal,
             openTransferDialog: model.handleOpenTransferDialog,
             copyPath: model.handleCopyPath,
             requestRename,
@@ -678,51 +842,146 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
             toggleHidden: () => model.setShowHidden((prev) => !prev),
             createFolder: handleCreateFolder,
             createBoard: model.handleCreateBoard,
+            openTerminalAtCurrent: model.handleOpenTerminalAtCurrent,
             paste: model.handlePaste,
           }}
         >
-          <div
-            className="flex-1 min-h-0 h-full overflow-auto bg-background p-4"
-            onDragEnter={model.handleDragEnter}
-            onDragOver={model.handleDragOver}
-            onDragLeave={model.handleDragLeave}
-            onDrop={model.handleDrop}
-          >
-            <div
-              key={model.activeUri ?? "root"}
-              className="min-h-full h-full"
-            >
-              <FileSystemGrid
-                entries={model.displayEntries}
-                isLoading={model.listQuery.isLoading}
-                parentUri={model.parentUri}
-                currentUri={model.displayUri}
-                includeHidden={model.showHidden}
-                dragProjectId={model.projectId}
-                dragRootUri={model.rootUri}
-                onNavigate={model.handleNavigate}
-                onOpenImage={model.handleOpenImage}
-                onOpenCode={model.handleOpenCode}
-                onOpenPdf={model.handleOpenPdf}
-                onOpenDoc={model.handleOpenDoc}
-                onOpenSpreadsheet={model.handleOpenSpreadsheet}
-                onOpenBoard={model.handleOpenBoard}
-                onCreateBoard={model.handleCreateBoard}
-                selectedUris={selectedUris}
-                onEntryClick={handleEntryClick}
-                onSelectionChange={handleSelectionChange}
-                resolveSelectionMode={resolveSelectionMode}
-                onGridContextMenuCapture={handleGridContextMenuCapture}
-                renamingUri={renamingUri}
-                renamingValue={renamingValue}
-                onRenamingChange={setRenamingValue}
-                onRenamingSubmit={handleRenamingSubmit}
-                onRenamingCancel={handleRenamingCancel}
-                onEntryDragStart={handleEntryDragStart}
-                onEntryDrop={handleEntryDrop}
-              />
+          {isListView ? (
+            <div className="flex-1 min-h-0 h-full flex flex-col @container/fs-list">
+              <div className="border-b border-border/70 bg-background px-4">
+                <FileSystemListHeader />
+              </div>
+              <div
+                className="flex-1 min-h-0 overflow-auto bg-background p-4"
+                onDragEnter={model.handleDragEnter}
+                onDragOver={model.handleDragOver}
+                onDragLeave={model.handleDragLeave}
+                onDrop={model.handleDrop}
+              >
+                <div
+                  key={model.activeUri ?? "root"}
+                  className="min-h-full h-full"
+                >
+                  <FileSystemList
+                    entries={model.displayEntries}
+                    isLoading={model.listQuery.isLoading}
+                    parentUri={model.parentUri}
+                    currentUri={model.displayUri}
+                    includeHidden={model.showHidden}
+                    dragProjectId={model.projectId}
+                    dragRootUri={model.rootUri}
+                    onNavigate={model.handleNavigate}
+                    onOpenImage={model.handleOpenImage}
+                    onOpenCode={model.handleOpenCode}
+                    onOpenPdf={model.handleOpenPdf}
+                    onOpenDoc={model.handleOpenDoc}
+                    onOpenSpreadsheet={model.handleOpenSpreadsheet}
+                    onOpenBoard={model.handleOpenBoard}
+                    onCreateBoard={model.handleCreateBoard}
+                    selectedUris={selectedUris}
+                    onEntryClick={handleEntryClick}
+                    onSelectionChange={handleSelectionChange}
+                    resolveSelectionMode={resolveSelectionMode}
+                    onGridContextMenuCapture={handleGridContextMenuCapture}
+                    renamingUri={renamingUri}
+                    renamingValue={renamingValue}
+                    onRenamingChange={setRenamingValue}
+                    onRenamingSubmit={handleRenamingSubmit}
+                    onRenamingCancel={handleRenamingCancel}
+                    onEntryDragStart={handleEntryDragStart}
+                    onEntryDrop={handleEntryDrop}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          ) : isColumnsView ? (
+            <div
+              className="flex-1 min-h-0 h-full overflow-hidden bg-background"
+              onDragEnter={model.handleDragEnter}
+              onDragOver={model.handleDragOver}
+              onDragLeave={model.handleDragLeave}
+              onDrop={model.handleDrop}
+            >
+              <div
+                key={model.displayUri ?? "root"}
+                className="min-h-full h-full"
+              >
+                <FileSystemColumns
+                  entries={model.displayEntries}
+                  isLoading={model.listQuery.isLoading}
+                  rootUri={rootUri}
+                  currentUri={model.displayUri}
+                  includeHidden={model.showHidden}
+                  sortField={model.sortField}
+                  sortOrder={model.sortOrder}
+                  dragProjectId={model.projectId}
+                  dragRootUri={model.rootUri}
+                  onNavigate={model.handleNavigate}
+                  onOpenImage={model.handleOpenImage}
+                  onOpenCode={model.handleOpenCode}
+                  onOpenPdf={model.handleOpenPdf}
+                  onOpenDoc={model.handleOpenDoc}
+                  onOpenSpreadsheet={model.handleOpenSpreadsheet}
+                  onOpenBoard={model.handleOpenBoard}
+                  selectedUris={selectedUris}
+                  onEntryClick={handleEntryClick}
+                  onSelectionChange={handleSelectionChange}
+                  resolveSelectionMode={resolveSelectionMode}
+                  onGridContextMenuCapture={handleGridContextMenuCapture}
+                  renamingUri={renamingUri}
+                  renamingValue={renamingValue}
+                  onRenamingChange={setRenamingValue}
+                  onRenamingSubmit={handleRenamingSubmit}
+                  onRenamingCancel={handleRenamingCancel}
+                  onEntryDragStart={handleEntryDragStart}
+                  onEntryDrop={handleEntryDrop}
+                />
+              </div>
+            </div>
+          ) : (
+            <div
+              className="flex-1 min-h-0 h-full overflow-auto bg-background p-4"
+              onDragEnter={model.handleDragEnter}
+              onDragOver={model.handleDragOver}
+              onDragLeave={model.handleDragLeave}
+              onDrop={model.handleDrop}
+            >
+              <div
+                key={model.activeUri ?? "root"}
+                className="min-h-full h-full"
+              >
+                <FileSystemGrid
+                  entries={model.displayEntries}
+                  isLoading={model.listQuery.isLoading}
+                  parentUri={model.parentUri}
+                  currentUri={model.displayUri}
+                  includeHidden={model.showHidden}
+                  dragProjectId={model.projectId}
+                  dragRootUri={model.rootUri}
+                  onNavigate={model.handleNavigate}
+                  onOpenImage={model.handleOpenImage}
+                  onOpenCode={model.handleOpenCode}
+                  onOpenPdf={model.handleOpenPdf}
+                  onOpenDoc={model.handleOpenDoc}
+                  onOpenSpreadsheet={model.handleOpenSpreadsheet}
+                  onOpenBoard={model.handleOpenBoard}
+                  onCreateBoard={model.handleCreateBoard}
+                  selectedUris={selectedUris}
+                  onEntryClick={handleEntryClick}
+                  onSelectionChange={handleSelectionChange}
+                  resolveSelectionMode={resolveSelectionMode}
+                  onGridContextMenuCapture={handleGridContextMenuCapture}
+                  renamingUri={renamingUri}
+                  renamingValue={renamingValue}
+                  onRenamingChange={setRenamingValue}
+                  onRenamingSubmit={handleRenamingSubmit}
+                  onRenamingCancel={handleRenamingCancel}
+                  onEntryDragStart={handleEntryDragStart}
+                  onEntryDrop={handleEntryDrop}
+                />
+              </div>
+            </div>
+          )}
         </FileSystemContextMenu>
         <DragDropOverlay
           open={model.isDragActive}

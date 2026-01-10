@@ -5,8 +5,22 @@ import type {
 } from "../engine/types";
 import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
-import { Download, Info } from "lucide-react";
+import {
+  Download,
+  Info,
+  FileText,
+  Film,
+  Maximize2,
+  PencilLine,
+  Scissors,
+  SlidersHorizontal,
+  Sparkles,
+  Video,
+  WandSparkles,
+} from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
+import type { ConnectorDropGroup } from "../core/ConnectorDropPanel";
+import { DEFAULT_NODE_SIZE } from "../engine/constants";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import { ImageNodeInput } from "./ImageNodeInput";
 
@@ -24,6 +38,77 @@ export type ImageNodeProps = {
   /** Original image height in pixels. */
   naturalHeight: number;
 };
+
+/** Connector drop groups available for image nodes. */
+export const imageConnectorDropGroups: ConnectorDropGroup[] = [
+  {
+    label: "图片理解",
+    icon: <Sparkles size={14} />,
+    items: [
+      {
+        label: "生成提示词",
+        icon: <WandSparkles size={14} />,
+        type: "placeholder",
+        props: { title: "生成提示词", description: "基于图片生成提示词。" },
+        size: DEFAULT_NODE_SIZE,
+      },
+      {
+        label: "生成文案",
+        icon: <FileText size={14} />,
+        type: "placeholder",
+        props: { title: "生成文案", description: "基于图片生成文案。" },
+        size: DEFAULT_NODE_SIZE,
+      },
+    ],
+  },
+  {
+    label: "图片调整",
+    icon: <SlidersHorizontal size={14} />,
+    items: [
+      {
+        label: "重新生成",
+        icon: <Sparkles size={14} />,
+        type: "placeholder",
+        props: { title: "重新生成", description: "重新生成当前图片。" },
+        size: DEFAULT_NODE_SIZE,
+      },
+      {
+        label: "图片编辑",
+        icon: <PencilLine size={14} />,
+        type: "placeholder",
+        props: { title: "图片编辑", description: "对图片进行编辑调整。" },
+        size: DEFAULT_NODE_SIZE,
+      },
+      {
+        label: "抠图",
+        icon: <Scissors size={14} />,
+        type: "placeholder",
+        props: { title: "抠图", description: "抠出图片主体。" },
+        size: DEFAULT_NODE_SIZE,
+      },
+      {
+        label: "扩图",
+        icon: <Maximize2 size={14} />,
+        type: "placeholder",
+        props: { title: "扩图", description: "扩展图片画布区域。" },
+        size: DEFAULT_NODE_SIZE,
+      },
+    ],
+  },
+  {
+    label: "视频生成",
+    icon: <Film size={14} />,
+    items: [
+      {
+        label: "生成视频",
+        icon: <Video size={14} />,
+        type: "placeholder",
+        props: { title: "生成视频", description: "基于图片生成视频。" },
+        size: DEFAULT_NODE_SIZE,
+      },
+    ],
+  },
+];
 
 /** Resolve image uri to a browser-friendly source. */
 function resolveImageSource(uri: string) {
