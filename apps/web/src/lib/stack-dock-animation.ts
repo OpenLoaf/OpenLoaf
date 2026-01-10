@@ -96,6 +96,12 @@ function clonePanel(panel: HTMLElement, rect: DOMRect) {
   ghost.style.transformOrigin = "top right";
   ghost.style.pointerEvents = "none";
   ghost.style.willChange = "transform, opacity, clip-path";
+  if (typeof window !== "undefined") {
+    const opacity = Number.parseFloat(window.getComputedStyle(panel).opacity);
+    if (!Number.isNaN(opacity) && opacity <= 0) {
+      ghost.style.opacity = "1";
+    }
+  }
 
   const layer = document.createElement("div");
   layer.style.position = "fixed";
@@ -250,7 +256,11 @@ export function requestStackMinimize(tabId: string) {
   const state = useTabs.getState();
   if (state.stackHiddenByTabId[tabId]) return;
   const shouldRestoreFull = isBoardStackFull(state, tabId);
-  state.setStackFullRestore(tabId, shouldRestoreFull);
+  const activeItem = getActiveStackItem(state, tabId);
+  if (activeItem?.component === BOARD_VIEWER_COMPONENT) {
+    // 逻辑：最小化前记录画布全屏状态，供恢复时读取。
+    state.setStackItemParams(tabId, activeItem.id, { __boardFull: shouldRestoreFull });
+  }
   if (shouldRestoreFull) {
     // 逻辑：最小化时退出全屏模式，恢复左右侧边栏。
     emitSidebarOpenRequest(true);

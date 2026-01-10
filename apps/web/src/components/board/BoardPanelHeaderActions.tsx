@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { toBlob } from "html-to-image";
-import { Columns2, Download } from "lucide-react";
+import { Download, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
 import type { DockItem } from "@teatime-ai/api/common";
 import { Button } from "@/components/ui/button";
@@ -150,6 +150,7 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
   const setOpen = sidebar?.setOpen;
   const setOpenMobile = sidebar?.setOpenMobile;
   const setTabRightChatCollapsed = useTabs((state) => state.setTabRightChatCollapsed);
+  const setStackItemParams = useTabs((state) => state.setStackItemParams);
   const rightChatCollapsed = useTabs(
     (state) => state.tabs.find((tab) => tab.id === tabId)?.rightChatCollapsed ?? false
   );
@@ -210,6 +211,7 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
       emitSidebarOpenRequest(nextLeftOpen);
     }
     setTabRightChatCollapsed(tabId, shouldCollapse);
+    setStackItemParams(tabId, item.id, { __boardFull: shouldCollapse });
   }, [
     isMobile,
     leftOpen,
@@ -218,12 +220,16 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
     setOpenMobile,
     sidebar,
     setTabRightChatCollapsed,
+    setStackItemParams,
     tabId,
+    item.id,
   ]);
 
   if (!isBoardPanel) return null;
 
   const shouldCollapsePanels = leftOpen || !rightChatCollapsed;
+  // 逻辑：左右面板都收起时视为画布全屏。
+  const isBoardFull = !shouldCollapsePanels;
   const toggleLabel =
     canToggleSidebar
       ? shouldCollapsePanels
@@ -243,7 +249,7 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
             aria-label={toggleLabel}
             onClick={handleTogglePanels}
           >
-            <Columns2 className="h-4 w-4" />
+            {isBoardFull ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">{toggleLabel}</TooltipContent>

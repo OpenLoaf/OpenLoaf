@@ -1,298 +1,154 @@
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
-import type { FocusEvent as ReactFocusEvent, MouseEvent as ReactMouseEvent } from "react";
+import type {
+  ChangeEvent as ReactChangeEvent,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { TElement, Value } from "platejs";
-import { KEYS } from "platejs";
-import {
-  Plate,
-  useEditorReadOnly,
-  useEditorRef,
-  useEditorSelection,
-  useEditorSelector,
-  usePlateEditor,
-  usePlateViewEditor,
-  useSelectionFragmentProp,
-} from "platejs/react";
 import { z } from "zod";
-import {
-  BoldIcon,
-  CheckIcon,
-  EraserIcon,
-  Heading1Icon,
-  Heading2Icon,
-  Heading3Icon,
-  Heading4Icon,
-  Heading5Icon,
-  Heading6Icon,
-  ItalicIcon,
-  PaletteIcon,
-  PilcrowIcon,
-  StrikethroughIcon,
-  UnderlineIcon,
-} from "lucide-react";
-import { Editor, EditorContainer } from "@/components/ui/editor";
-import { EditorStatic } from "@/components/ui/editor-static";
-import { FloatingToolbar } from "@/components/ui/floating-toolbar";
-import { ColorDropdownMenuItems } from "@/components/ui/font-color-toolbar-button";
-import { MarkToolbarButton } from "@/components/ui/mark-toolbar-button";
-import { DropdownMenuItemIndicator } from "@radix-ui/react-dropdown-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ToolbarButton, ToolbarGroup, ToolbarMenuGroup } from "@/components/ui/toolbar";
-import { BaseEditorKit } from "@/components/editor/editor-base-kit";
-import { EditorKit } from "@/components/editor/editor-kit";
-import { getBlockType, setBlockType } from "@/components/editor/transforms";
 import { useBoardEngine } from "../core/BoardProvider";
 
+/** Legacy Plate node shape used by older text nodes. */
+type LegacyPlateNode = {
+  /** Plain text stored on the legacy node. */
+  text?: string;
+  /** Children nodes for nested structure. */
+  children?: LegacyPlateNode[];
+};
+
+/** Legacy Plate document value stored on older text nodes. */
+type LegacyPlateValue = LegacyPlateNode[];
+
+/** Text value stored on the text node. */
+export type TextNodeValue = string | LegacyPlateValue;
+
 export type TextNodeProps = {
-  /** Plate document value stored on the node. */
-  value: Value;
+  /** Text content stored on the node. */
+  value: TextNodeValue;
   /** Whether the node should auto-enter edit mode on mount. */
   autoFocus?: boolean;
-  /** Collapsed height stored for restoring after edit mode. */
+  /** Collapsed height stored as view baseline size. */
   collapsedHeight?: number;
 };
 
-/** Default document content for new text nodes. */
-const DEFAULT_TEXT_VALUE: Value = [{ type: "p", children: [{ text: "" }] }];
+/** Default text content for new text nodes. */
+const DEFAULT_TEXT_VALUE = "";
 /** Placeholder copy for empty text nodes. */
-const TEXT_NODE_PLACEHOLDER = "支持 Markdown 语法输入内容";
+const TEXT_NODE_PLACEHOLDER = "输入文字内容";
 /** Shared text styling for text node content. */
 const TEXT_CONTENT_CLASSNAME =
   "text-[14px] leading-6 text-slate-900 dark:text-slate-100";
+/** Text styling for view mode. */
+const TEXT_VIEW_CLASSNAME = `${TEXT_CONTENT_CLASSNAME} whitespace-pre-wrap break-words`;
+/** Text styling for edit mode. */
+const TEXT_EDIT_CLASSNAME =
+  `${TEXT_CONTENT_CLASSNAME} h-full w-full resize-none bg-transparent outline-none`;
 /** Vertical padding used by the text node container. */
 const TEXT_NODE_VERTICAL_PADDING = 32;
 /** Ignore tiny resize deltas to avoid jitter. */
 const TEXT_NODE_RESIZE_EPSILON = 2;
-/** Available heading levels for quick selection. */
-const TEXT_NODE_HEADING_LEVELS = [
-  { icon: <PilcrowIcon />, label: "Text", value: KEYS.p },
-  { icon: <Heading1Icon />, label: "H1", value: "h1" },
-  { icon: <Heading2Icon />, label: "H2", value: "h2" },
-  { icon: <Heading3Icon />, label: "H3", value: "h3" },
-  { icon: <Heading4Icon />, label: "H4", value: "h4" },
-  { icon: <Heading5Icon />, label: "H5", value: "h5" },
-  { icon: <Heading6Icon />, label: "H6", value: "h6" },
-] as const;
-/** Text color choices aligned with the pen palette. */
-const TEXT_NODE_COLOR_OPTIONS = [
-  { name: "ink", value: "#111827", isBrightColor: false },
-  { name: "blue", value: "#1d4ed8", isBrightColor: false },
-  { name: "amber", value: "#f59e0b", isBrightColor: false },
-  { name: "red", value: "#ef4444", isBrightColor: false },
-  { name: "green", value: "#16a34a", isBrightColor: false },
-];
+/** Minimum size for text nodes. */
+const TEXT_NODE_MIN_SIZE = { w: 200, h: 100 };
+/** Maximum size for text nodes. */
+const TEXT_NODE_MAX_SIZE = { w: 720, h: 420 };
 
-/** Normalize the stored Plate value to a usable document structure. */
-function normalizeTextValue(value?: Value): Value {
-  if (Array.isArray(value) && value.length > 0) return value;
+/** Extract plain text from a legacy Plate node. */
+function extractLegacyText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  if ("text" in node && typeof node.text === "string") return node.text;
+  if ("children" in node && Array.isArray(node.children)) {
+    // 逻辑：递归拼接子节点文本，保留段落结构。
+    return node.children.map(extractLegacyText).join("");
+  }
+  return "";
+}
+
+/** Normalize the stored value to a plain text string. */
+function normalizeTextValue(value?: TextNodeValue): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    // 逻辑：兼容旧版 Plate 数据，按顶层节点换行合并。
+    return value.map(extractLegacyText).join("\n");
+  }
   return DEFAULT_TEXT_VALUE;
 }
 
-/** Cache the latest non-null selection for toolbar actions. */
-function useStableSelection() {
-  const selection = useEditorSelection();
-  const selectionRef = useRef(selection);
-
-  useEffect(() => {
-    if (!selection) return;
-    // 逻辑：仅在存在选区时缓存，避免工具操作时丢失焦点。
-    selectionRef.current = selection;
-  }, [selection]);
-
-  return selectionRef;
+/** Detect whether the text value is effectively empty. */
+function isTextValueEmpty(value: string): boolean {
+  return value.trim().length === 0;
 }
 
-/** Detect whether the Plate value is effectively empty. */
-function isTextValueEmpty(value: Value): boolean {
-  if (!Array.isArray(value) || value.length === 0) return true;
-  const isEmptyNode = (node: unknown): boolean => {
-    if (!node || typeof node !== "object") return true;
-    if ("text" in node) {
-      const text = (node as { text?: string }).text ?? "";
-      return text.trim().length === 0;
-    }
-    if ("children" in node) {
-      const children = (node as { children?: unknown[] }).children ?? [];
-      if (!Array.isArray(children) || children.length === 0) return true;
-      return children.every(isEmptyNode);
-    }
-    return true;
+/** Read element padding sizes in pixels. */
+function getElementPadding(element: HTMLElement): { x: number; y: number } {
+  const style = window.getComputedStyle(element);
+  const toNumber = (value: string) => Number.parseFloat(value) || 0;
+  return {
+    x: toNumber(style.paddingLeft) + toNumber(style.paddingRight),
+    y: toNumber(style.paddingTop) + toNumber(style.paddingBottom),
   };
-  return value.every(isEmptyNode);
 }
 
-/** Render quick heading level selection for text nodes. */
-function HeadingLevelToolbarButton() {
-  const editor = useEditorRef();
-  /** Cached selection for heading operations. */
-  const selectionRef = useStableSelection();
-  const [open, setOpen] = useState(false);
-  const value = useSelectionFragmentProp({
-    defaultValue: KEYS.p,
-    getProp: node => getBlockType(node as TElement),
-  });
-  const selectedItem =
-    TEXT_NODE_HEADING_LEVELS.find(item => item.value === (value ?? KEYS.p)) ??
-    TEXT_NODE_HEADING_LEVELS[0];
-
-  return (
-    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
-      <DropdownMenuTrigger asChild>
-        <ToolbarButton
-          className="min-w-[64px]"
-          pressed={open}
-          tooltip="Heading level"
-          isDropdown
-        >
-          {selectedItem.label}
-        </ToolbarButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        className="ignore-click-outside/toolbar min-w-0"
-        onCloseAutoFocus={event => {
-          event.preventDefault();
-          editor.tf.focus();
-        }}
-        align="start"
-      >
-        <ToolbarMenuGroup
-          value={value}
-          onValueChange={type => {
-            const selection = editor.selection ?? selectionRef.current;
-            if (selection) {
-              editor.tf.select(selection);
-            }
-            editor.tf.focus();
-            setBlockType(editor, type);
-          }}
-          label="Heading level"
-        >
-          {TEXT_NODE_HEADING_LEVELS.map(item => (
-            <DropdownMenuRadioItem
-              key={item.value}
-              className="min-w-[140px] pl-2 *:first:[span]:hidden"
-              value={item.value}
-            >
-              <span className="pointer-events-none absolute right-2 flex size-3.5 items-center justify-center">
-                <DropdownMenuItemIndicator>
-                  <CheckIcon />
-                </DropdownMenuItemIndicator>
-              </span>
-              {item.icon}
-              {item.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </ToolbarMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+/** Create a hidden element for text measurement. */
+function createMeasureElement(reference: HTMLElement): HTMLDivElement {
+  const style = window.getComputedStyle(reference);
+  const element = document.createElement("div");
+  element.style.position = "absolute";
+  element.style.visibility = "hidden";
+  element.style.pointerEvents = "none";
+  element.style.whiteSpace = "pre";
+  element.style.fontFamily = style.fontFamily;
+  element.style.fontSize = style.fontSize;
+  element.style.fontWeight = style.fontWeight;
+  element.style.fontStyle = style.fontStyle;
+  element.style.letterSpacing = style.letterSpacing;
+  element.style.lineHeight = style.lineHeight;
+  element.style.overflowWrap = "break-word";
+  element.style.wordBreak = "break-word";
+  return element;
 }
 
-/** Render the text color picker for the text node toolbar. */
-function TextColorToolbarButton() {
-  const editor = useEditorRef();
-  /** Cached selection for color operations. */
-  const selectionRef = useStableSelection();
-  const [open, setOpen] = useState(false);
-  /** Current color mark applied to selection. */
-  const color = useEditorSelector(
-    editorInstance => editorInstance.api.mark(KEYS.color) as string,
-    [KEYS.color]
-  );
-
-  /** Apply the selected text color mark. */
-  const applyColor = useCallback(
-    (nextColor: string) => {
-      const selection = editor.selection ?? selectionRef.current;
-      if (!selection) return;
-      editor.tf.select(selection);
-      editor.tf.focus();
-      editor.tf.addMarks({ [KEYS.color]: nextColor });
-      setOpen(false);
-    },
-    [editor, selectionRef]
-  );
-
-  /** Clear the current text color mark. */
-  const clearColor = useCallback(() => {
-    const selection = editor.selection ?? selectionRef.current;
-    if (!selection) return;
-    editor.tf.select(selection);
-    editor.tf.focus();
-    editor.tf.removeMarks(KEYS.color);
-    setOpen(false);
-  }, [editor, selectionRef]);
-
-  return (
-    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
-      <DropdownMenuTrigger asChild>
-        <ToolbarButton pressed={open} tooltip="Text color">
-          <PaletteIcon />
-        </ToolbarButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        onCloseAutoFocus={event => {
-          event.preventDefault();
-          editor.tf.focus();
-        }}
-      >
-        <ToolbarMenuGroup label="Colors">
-          <ColorDropdownMenuItems
-            className="grid-cols-5 gap-x-1 px-2"
-            colors={TEXT_NODE_COLOR_OPTIONS}
-            color={color}
-            updateColor={applyColor}
-          />
-        </ToolbarMenuGroup>
-        <DropdownMenuGroup>
-          <DropdownMenuItem className="p-2" onClick={clearColor}>
-            <EraserIcon />
-            <span>Clear</span>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+/** Measure text width using the reference styles. */
+function measureTextWidth(text: string, reference: HTMLElement): number {
+  const element = createMeasureElement(reference);
+  element.textContent = text;
+  document.body.appendChild(element);
+  const width = element.scrollWidth;
+  document.body.removeChild(element);
+  return width;
 }
 
-/** Render the inline formatting toolbar for text nodes. */
-function TextNodeToolbar() {
-  const readOnly = useEditorReadOnly();
-  if (readOnly) return null;
-
-  return (
-    <FloatingToolbar data-node-toolbar className="pointer-events-auto">
-      <ToolbarGroup>
-        <HeadingLevelToolbarButton />
-      </ToolbarGroup>
-      <ToolbarGroup>
-        <MarkToolbarButton nodeType={KEYS.bold} tooltip="Bold (⌘+B)">
-          <BoldIcon />
-        </MarkToolbarButton>
-        <MarkToolbarButton nodeType={KEYS.italic} tooltip="Italic (⌘+I)">
-          <ItalicIcon />
-        </MarkToolbarButton>
-        <MarkToolbarButton nodeType={KEYS.underline} tooltip="Underline (⌘+U)">
-          <UnderlineIcon />
-        </MarkToolbarButton>
-        <MarkToolbarButton nodeType={KEYS.strikethrough} tooltip="Strikethrough (⌘+⇧+M)">
-          <StrikethroughIcon />
-        </MarkToolbarButton>
-        <TextColorToolbarButton />
-      </ToolbarGroup>
-    </FloatingToolbar>
-  );
+/** Measure text height when wrapped to a specific width. */
+function measureTextHeight(
+  text: string,
+  reference: HTMLElement,
+  width: number
+): number {
+  const element = createMeasureElement(reference);
+  element.style.whiteSpace = "pre-wrap";
+  element.style.width = `${width}px`;
+  element.textContent = text;
+  document.body.appendChild(element);
+  const height = element.scrollHeight;
+  document.body.removeChild(element);
+  return height;
 }
 
-/** Render a text node with editable Plate content. */
+/** Measure content height without being affected by textarea sizing. */
+function getContentScrollHeight(content: HTMLElement): number {
+  if (!(content instanceof HTMLTextAreaElement)) {
+    return content.scrollHeight;
+  }
+  const prevHeight = content.style.height;
+  const prevOverflow = content.style.overflowY;
+  content.style.height = "auto";
+  content.style.overflowY = "hidden";
+  const measured = content.scrollHeight;
+  content.style.height = prevHeight;
+  content.style.overflowY = prevOverflow;
+  return measured;
+}
+
+/** Render a text node with plain textarea editing. */
 export function TextNodeView({
   element,
   selected,
@@ -308,58 +164,44 @@ export function TextNodeView({
   /** Container ref for focus boundary checks. */
   const containerRef = useRef<HTMLDivElement | null>(null);
   /** Editor content ref for auto-resize measurements. */
-  const contentRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | HTMLTextAreaElement | null>(null);
+  /** Textarea ref for focus control. */
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   /** Guard to consume autoFocus only once per node id. */
   const autoFocusConsumedRef = useRef(false);
-  /** Cached value snapshot for change detection. */
+  /** Cached text snapshot for change detection. */
   const lastValueRef = useRef("");
-  /** Track the collapsed height used for restoring after edit mode. */
+  /** Track the collapsed height baseline for edit expansion. */
   const collapsedHeightRef = useRef<number | null>(null);
-  /** Skip one collapsed height sync after leaving edit mode. */
-  const skipCollapsedSyncRef = useRef(false);
   /** Track the last edit mode state for height transitions. */
   const wasEditingRef = useRef(false);
   /** Track the latest edit mode flag for async callbacks. */
   const isEditingRef = useRef(false);
-  /** Track the last pointer interaction target to guard blur exits. */
-  const pointerDownInsideRef = useRef(false);
-  /** Pending blur timeout id. */
-  const blurTimeoutRef = useRef<number | null>(null);
   /** Pending auto-resize animation frame id. */
   const resizeRafRef = useRef<number | null>(null);
 
-  const value = useMemo(
+  const normalizedValue = useMemo(
     () => normalizeTextValue(element.props.value),
     [element.props.value]
   );
+  /** Local draft text for editing. */
+  const [draftText, setDraftText] = useState(normalizedValue);
   /** Whether the text node has any real content. */
-  const isEmpty = useMemo(() => isTextValueEmpty(value), [value]);
+  const isEmpty = useMemo(() => isTextValueEmpty(draftText), [draftText]);
   /** Whether the current content overflows the collapsed height. */
   const [isOverflowing, setIsOverflowing] = useState(false);
 
-  const editor = usePlateEditor(
-    {
-      id: `${element.id}-edit`,
-      enabled: isEditing,
-      plugins: EditorKit,
-      value,
-    },
-    [element.id, isEditing]
-  );
-
-  const viewEditor = usePlateViewEditor(
-    {
-      id: `${element.id}-view`,
-      enabled: true,
-      plugins: BaseEditorKit,
-      value,
-    },
-    [element.id]
-  );
-
   useEffect(() => {
-    lastValueRef.current = JSON.stringify(value);
-  }, [value]);
+    if (normalizedValue === lastValueRef.current) return;
+    if (!isEditing) {
+      // 逻辑：非编辑状态同步外部文本，避免覆盖输入。
+      lastValueRef.current = normalizedValue;
+      setDraftText(normalizedValue);
+      return;
+    }
+    // 逻辑：编辑中仅更新缓存，避免覆盖当前输入。
+    lastValueRef.current = normalizedValue;
+  }, [isEditing, normalizedValue]);
 
   useEffect(() => {
     autoFocusConsumedRef.current = false;
@@ -383,15 +225,68 @@ export function TextNodeView({
   }, [isEditing, selected]);
 
   useEffect(() => {
-    if (!shouldFocus) return;
+    if (!shouldFocus || !isEditing) return;
+    const timeout = window.setTimeout(() => {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+      setShouldFocus(false);
+    }, 0);
     // 逻辑：编辑器挂载后立即清理聚焦标记，避免重复触发。
-    const timeout = window.setTimeout(() => setShouldFocus(false), 0);
     return () => window.clearTimeout(timeout);
-  }, [shouldFocus]);
+  }, [isEditing, shouldFocus]);
 
   useEffect(() => {
     isEditingRef.current = isEditing;
   }, [isEditing]);
+
+  /** Assign textarea ref and sync measurement target. */
+  const setTextareaRef = useCallback((node: HTMLTextAreaElement | null) => {
+    textareaRef.current = node;
+    contentRef.current = node;
+  }, []);
+
+  /** Resize the node to fit content when exiting edit mode. */
+  const fitToContentIfNeeded = useCallback(() => {
+    const container = containerRef.current;
+    const content = contentRef.current;
+    if (!container || !content) return;
+    if (engine.isLocked() || element.locked) return;
+    const { x: paddingX, y: paddingY } = getElementPadding(container);
+    const [x, y, currentWidth, currentHeight] = element.xywh;
+    const intrinsicWidth = measureTextWidth(draftText, content);
+    const requiredWidth = intrinsicWidth + paddingX;
+    const clampedWidth = Math.min(
+      TEXT_NODE_MAX_SIZE.w,
+      Math.max(TEXT_NODE_MIN_SIZE.w, requiredWidth)
+    );
+    const nextWidth =
+      Math.abs(clampedWidth - currentWidth) > TEXT_NODE_RESIZE_EPSILON
+        ? clampedWidth
+        : currentWidth;
+    const contentWidth = Math.max(0, nextWidth - paddingX);
+    const measuredHeight = measureTextHeight(draftText, content, contentWidth);
+    const requiredHeight = measuredHeight + paddingY;
+    const clampedHeight = Math.min(
+      TEXT_NODE_MAX_SIZE.h,
+      Math.max(TEXT_NODE_MIN_SIZE.h, requiredHeight)
+    );
+    const nextHeight =
+      Math.abs(clampedHeight - currentHeight) > TEXT_NODE_RESIZE_EPSILON
+        ? clampedHeight
+        : currentHeight;
+    if (nextWidth === currentWidth && nextHeight === currentHeight) return;
+    // 逻辑：结束编辑时按内容收缩或扩展，保证尺寸匹配文本。
+    engine.doc.updateElement(element.id, { xywh: [x, y, nextWidth, nextHeight] });
+  }, [
+    draftText,
+    element.id,
+    element.locked,
+    element.xywh,
+    engine,
+  ]);
 
   /** Expand the node height to fit the full text content. */
   const expandToContent = useCallback(() => {
@@ -404,7 +299,7 @@ export function TextNodeView({
       if (engine.isLocked() || element.locked) return;
       const snapshot = engine.getSnapshot();
       if (snapshot.draggingId === element.id || snapshot.toolbarDragging) return;
-      const contentHeight = Math.ceil(content.scrollHeight);
+      const contentHeight = Math.ceil(getContentScrollHeight(content));
       const [x, y, w, h] = element.xywh;
       const baseHeight =
         collapsedHeightRef.current ??
@@ -426,17 +321,6 @@ export function TextNodeView({
     element.xywh,
   ]);
 
-  /** Restore the node height back to the collapsed size. */
-  const restoreCollapsedHeight = useCallback(() => {
-    const collapsedHeight =
-      collapsedHeightRef.current ?? element.props.collapsedHeight;
-    if (collapsedHeight === undefined) return;
-    const [x, y, w, h] = element.xywh;
-    if (Math.abs(h - collapsedHeight) <= TEXT_NODE_RESIZE_EPSILON) return;
-    // 逻辑：退出编辑时恢复折叠高度，确保视图尺寸一致。
-    engine.doc.updateElement(element.id, { xywh: [x, y, w, collapsedHeight] });
-  }, [engine, element.id, element.props.collapsedHeight, element.xywh]);
-
   /** Recalculate whether the content overflows the collapsed height. */
   const updateOverflowState = useCallback(() => {
     const content = contentRef.current;
@@ -451,16 +335,6 @@ export function TextNodeView({
     setIsOverflowing(isOverflow);
   }, [element.xywh, isEditing]);
 
-  /** Determine whether a target should keep the editor active. */
-  const isEditingUiTarget = useCallback((target: Element | null) => {
-    if (!target) return false;
-    if (containerRef.current?.contains(target)) return true;
-    if (target.closest("[data-node-toolbar]")) return true;
-    if (target.closest("[data-slot=dropdown-menu-content]")) return true;
-    if (target.closest("[data-slot=dropdown-menu-sub-content]")) return true;
-    return false;
-  }, []);
-
   useEffect(() => {
     if (isEditing) {
       if (!wasEditingRef.current) {
@@ -469,7 +343,7 @@ export function TextNodeView({
         collapsedHeightRef.current = collapsedHeight;
         wasEditingRef.current = true;
         if (element.props.collapsedHeight !== collapsedHeight) {
-          // 逻辑：首次进入编辑时缓存折叠高度，便于退出时恢复。
+          // 逻辑：首次进入编辑时缓存折叠高度，避免编辑基准丢失。
           onUpdate({ collapsedHeight });
         }
       }
@@ -479,28 +353,21 @@ export function TextNodeView({
 
     if (wasEditingRef.current) {
       wasEditingRef.current = false;
-      skipCollapsedSyncRef.current = true;
-      restoreCollapsedHeight();
+      fitToContentIfNeeded();
       collapsedHeightRef.current = null;
     }
   }, [
     element.id,
     element.props.collapsedHeight,
     element.xywh,
-    engine,
     expandToContent,
+    fitToContentIfNeeded,
     isEditing,
     onUpdate,
-    restoreCollapsedHeight,
   ]);
 
   useEffect(() => {
     if (isEditing) return;
-    if (skipCollapsedSyncRef.current) {
-      // 逻辑：退出编辑后的首次同步跳过，避免折叠高度被展开值覆盖。
-      skipCollapsedSyncRef.current = false;
-      return;
-    }
     const currentHeight = element.xywh[3];
     if (
       element.props.collapsedHeight === undefined ||
@@ -514,26 +381,10 @@ export function TextNodeView({
 
   useEffect(() => {
     updateOverflowState();
-  }, [element.xywh, isEditing, updateOverflowState, value]);
+  }, [draftText, element.xywh, isEditing, updateOverflowState]);
 
   useEffect(() => {
-    if (!isEditing) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      pointerDownInsideRef.current = isEditingUiTarget(
-        event.target as Element | null
-      );
-    };
-    // 逻辑：记录指针按下目标，避免工具栏交互触发编辑退出。
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    return () => {
-      pointerDownInsideRef.current = false;
-      document.removeEventListener("pointerdown", handlePointerDown, true);
-    };
-  }, [isEditing, isEditingUiTarget]);
-
-  useEffect(() => {
-    if (isEditing) return;
-    if (resizeRafRef.current !== null) {
+    if (!isEditing && resizeRafRef.current !== null) {
       window.cancelAnimationFrame(resizeRafRef.current);
       resizeRafRef.current = null;
     }
@@ -552,9 +403,6 @@ export function TextNodeView({
       if (resizeRafRef.current !== null) {
         window.cancelAnimationFrame(resizeRafRef.current);
       }
-      if (blurTimeoutRef.current !== null) {
-        window.clearTimeout(blurTimeoutRef.current);
-      }
     };
   }, []);
 
@@ -571,35 +419,29 @@ export function TextNodeView({
     [engine, element.locked, onSelect]
   );
 
-  /** Exit edit mode when focus leaves the node container. */
-  const handleEditorBlur = useCallback(
-    (event: ReactFocusEvent<HTMLDivElement>) => {
-      const nextTarget = event.relatedTarget as Element | null;
-      if (isEditingUiTarget(nextTarget) || pointerDownInsideRef.current) return;
-      if (blurTimeoutRef.current !== null) {
-        window.clearTimeout(blurTimeoutRef.current);
-      }
-      blurTimeoutRef.current = window.setTimeout(() => {
-        blurTimeoutRef.current = null;
-        const activeElement = document.activeElement as Element | null;
-        if (isEditingUiTarget(activeElement) || pointerDownInsideRef.current) {
-          return;
-        }
-        // 逻辑：焦点移出节点后结束编辑，避免工具与输入冲突。
-        isEditingRef.current = false;
-        restoreCollapsedHeight();
-        setIsEditing(false);
-      }, 0);
+  /** Exit edit mode when text input loses focus. */
+  const handleEditorBlur = useCallback(() => {
+    // 逻辑：焦点移出文本输入后结束编辑。
+    isEditingRef.current = false;
+    setIsEditing(false);
+  }, []);
+
+  /** Stop pointer events from bubbling to the canvas while editing. */
+  const handleEditorPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLTextAreaElement>) => {
+      // 逻辑：编辑状态下阻止画布工具接管指针事件。
+      event.stopPropagation();
     },
-    [isEditingUiTarget, restoreCollapsedHeight]
+    []
   );
 
-  /** Sync editor value changes into node props. */
-  const handleValueChange = useCallback(
-    ({ value: nextValue }: { value: Value }) => {
-      const nextPayload = JSON.stringify(nextValue);
-      if (nextPayload === lastValueRef.current) return;
-      lastValueRef.current = nextPayload;
+  /** Sync text changes into node props. */
+  const handleTextChange = useCallback(
+    (event: ReactChangeEvent<HTMLTextAreaElement>) => {
+      const nextValue = event.target.value;
+      setDraftText(nextValue);
+      if (nextValue === lastValueRef.current) return;
+      lastValueRef.current = nextValue;
       // 逻辑：每次编辑同步节点数据，保证刷新后内容一致。
       onUpdate({ value: nextValue, autoFocus: false });
       if (isEditing) {
@@ -621,26 +463,22 @@ export function TextNodeView({
   ].join(" ");
 
   if (isEditing) {
-    if (!editor) return null;
     return (
       <div
         ref={containerRef}
         className={containerClasses}
-        data-board-editor={isEditing ? "true" : undefined}
+        data-board-editor="true"
         onDoubleClick={handleDoubleClick}
       >
-        <Plate editor={editor} onValueChange={handleValueChange}>
-          <EditorContainer className="h-full w-full" data-allow-context-menu>
-            <Editor
-              variant="none"
-              className={TEXT_CONTENT_CLASSNAME}
-              autoFocus={shouldFocus}
-              onBlur={handleEditorBlur}
-              ref={contentRef}
-            />
-          </EditorContainer>
-          <TextNodeToolbar />
-        </Plate>
+        <textarea
+          ref={setTextareaRef}
+          className={TEXT_EDIT_CLASSNAME}
+          value={draftText}
+          onChange={handleTextChange}
+          onBlur={handleEditorBlur}
+          onPointerDown={handleEditorPointerDown}
+          data-allow-context-menu
+        />
         {isEmpty ? (
           <div className="pointer-events-none absolute left-4 top-4 text-[13px] text-slate-400/70">
             {TEXT_NODE_PLACEHOLDER}
@@ -650,15 +488,14 @@ export function TextNodeView({
     );
   }
 
-  if (!viewEditor) return null;
   return (
-    <div className={containerClasses} onDoubleClick={handleDoubleClick}>
-      <div ref={contentRef}>
-        <EditorStatic
-          editor={viewEditor}
-          value={value}
-          className={TEXT_CONTENT_CLASSNAME}
-        />
+    <div
+      ref={containerRef}
+      className={containerClasses}
+      onDoubleClick={handleDoubleClick}
+    >
+      <div ref={contentRef} className={TEXT_VIEW_CLASSNAME}>
+        {draftText}
       </div>
       {isEmpty ? (
         <div className="pointer-events-none absolute left-4 top-4 text-[13px] text-slate-400/70">
@@ -676,7 +513,7 @@ export function TextNodeView({
 export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
   type: "text",
   schema: z.object({
-    value: z.array(z.any()),
+    value: z.union([z.string(), z.array(z.any())]),
     autoFocus: z.boolean().optional(),
     collapsedHeight: z.number().optional(),
   }),
@@ -690,7 +527,7 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     resizable: true,
     rotatable: false,
     connectable: "anchors",
-    minSize: { w: 200, h: 100 },
-    maxSize: { w: 720, h: 420 },
+    minSize: TEXT_NODE_MIN_SIZE,
+    maxSize: TEXT_NODE_MAX_SIZE,
   },
 };

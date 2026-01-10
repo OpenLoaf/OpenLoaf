@@ -38,6 +38,7 @@ import {
   SPREADSHEET_EXTS,
   getEntryVisual,
 } from "./FileSystemEntryVisual";
+import { FileSystemSearchEmptyState } from "./FileSystemEmptyState";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
 import { useFileSystemSelection } from "../hooks/use-file-system-selection";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
@@ -268,6 +269,8 @@ FileSystemColumnRenameRow.displayName = "FileSystemColumnRenameRow";
 type FileSystemColumnsProps = {
   entries: FileSystemEntry[];
   isLoading: boolean;
+  isSearchLoading?: boolean;
+  searchQuery?: string;
   rootUri?: string;
   currentUri?: string | null;
   includeHidden?: boolean;
@@ -327,6 +330,8 @@ type FileSystemColumnsProps = {
 const FileSystemColumns = memo(function FileSystemColumns({
   entries,
   isLoading,
+  isSearchLoading = false,
+  searchQuery,
   rootUri,
   currentUri,
   includeHidden,
@@ -357,6 +362,10 @@ const FileSystemColumns = memo(function FileSystemColumns({
   onGridContextMenuCapture,
 }: FileSystemColumnsProps) {
   const activeUri = currentUri ?? rootUri ?? null;
+  const searchText = searchQuery?.trim() ?? "";
+  const hasSearchQuery = searchText.length > 0;
+  const shouldShowSearchEmpty =
+    hasSearchQuery && !isLoading && !isSearchLoading && entries.length === 0;
   const columnUris = useMemo(
     () => buildColumnUris(rootUri, activeUri),
     [rootUri, activeUri]
@@ -769,7 +778,12 @@ const FileSystemColumns = memo(function FileSystemColumns({
   }, [columnUris]);
 
   return (
-    <div className="flex min-h-full h-full overflow-hidden">
+    <div className="relative flex min-h-full h-full overflow-hidden">
+      {shouldShowSearchEmpty ? (
+        <div className="absolute inset-0 z-10">
+          <FileSystemSearchEmptyState query={searchText} />
+        </div>
+      ) : null}
       <div
         ref={gridRef}
         tabIndex={-1}

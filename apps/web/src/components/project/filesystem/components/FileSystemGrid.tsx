@@ -25,7 +25,7 @@ import {
   SPREADSHEET_EXTS,
 } from "./FileSystemEntryVisual";
 import { FileSystemEntryCard } from "./FileSystemEntryCard";
-import { FileSystemEmptyState } from "./FileSystemEmptyState";
+import { FileSystemEmptyState, FileSystemSearchEmptyState } from "./FileSystemEmptyState";
 import { FileSystemEntryRenameCard } from "./FileSystemEntryRenameCard";
 import { FileSystemParentEntryCard } from "./FileSystemParentEntryCard";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
@@ -40,6 +40,8 @@ const isBoardFolderEntry = (entry: FileSystemEntry) =>
 type FileSystemGridProps = {
   entries: FileSystemEntry[];
   isLoading: boolean;
+  isSearchLoading?: boolean;
+  searchQuery?: string;
   parentUri?: string | null;
   /** Current folder uri used to request folder thumbnails. */
   currentUri?: string | null;
@@ -101,6 +103,8 @@ type FileSystemGridProps = {
 const FileSystemGrid = memo(function FileSystemGrid({
   entries,
   isLoading,
+  isSearchLoading = false,
+  searchQuery,
   parentUri,
   currentUri,
   includeHidden,
@@ -132,6 +136,11 @@ const FileSystemGrid = memo(function FileSystemGrid({
 }: FileSystemGridProps) {
   // 上一级入口仅在可回退且当前目录非空时显示，避免根目录与空目录误导。
   const shouldShowParentEntry = Boolean(parentUri) && entries.length > 0;
+  const searchText = searchQuery?.trim() ?? "";
+  const hasSearchQuery = searchText.length > 0;
+  const shouldShowSearchEmpty =
+    hasSearchQuery && !isLoading && !isSearchLoading && entries.length === 0;
+  const shouldShowEmpty = !hasSearchQuery && !isLoading && entries.length === 0;
   const gridRef = useRef<HTMLDivElement>(null);
   const gridListRef = useRef<HTMLDivElement>(null);
   const parentEntry = useMemo<FileSystemEntry | null>(
@@ -387,7 +396,9 @@ const FileSystemGrid = memo(function FileSystemGrid({
   return (
     <div className="flex min-h-full h-full flex-col">
  
-      {!isLoading && entries.length === 0 ? (
+      {shouldShowSearchEmpty ? (
+        <FileSystemSearchEmptyState query={searchText} />
+      ) : shouldShowEmpty ? (
         <FileSystemEmptyState
           showEmptyActions={showEmptyActions}
           parentEntry={parentEntry}

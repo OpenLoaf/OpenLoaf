@@ -1,12 +1,27 @@
 import { z } from "zod";
 import path from "node:path";
-import { promises as fs } from "node:fs";
+import { promises as fs, type Dirent } from "node:fs";
 import sharp from "sharp";
 import { t, shieldedProcedure } from "../index";
 import { resolveWorkspacePathFromUri, toFileUri } from "../services/vfsService";
 
 /** Board folder prefix for server-side sorting. */
 const BOARD_FOLDER_PREFIX = "ttboard_";
+/** Directory names ignored by search when hidden entries are excluded. */
+const SEARCH_IGNORE_NAMES = new Set([
+  "node_modules",
+  ".git",
+  ".turbo",
+  ".next",
+  ".teatime-trash",
+  "dist",
+  "build",
+  "out",
+]);
+/** Default maximum number of search results to return. */
+const DEFAULT_SEARCH_LIMIT = 500;
+/** Default maximum depth for recursive search. */
+const DEFAULT_SEARCH_MAX_DEPTH = 12;
 
 const fsUriSchema = z.object({
   uri: z.string(),
@@ -22,6 +37,15 @@ const fsListSchema = z.object({
       order: z.enum(["asc", "desc"]),
     })
     .optional(),
+});
+
+/** Schema for folder search requests. */
+const fsSearchSchema = z.object({
+  rootUri: z.string(),
+  query: z.string(),
+  includeHidden: z.boolean().optional(),
+  limit: z.number().int().min(1).max(2000).optional(),
+  maxDepth: z.number().int().min(0).max(50).optional(),
 });
 
 const fsCopySchema = z.object({
@@ -102,6 +126,18 @@ function isImageExt(ext: string): boolean {
 /** Return true when the folder name follows the board prefix. */
 function isBoardFolderName(name: string): boolean {
   return name.toLowerCase().startsWith(BOARD_FOLDER_PREFIX);
+}
+
+/** Resolve board folder display name. */
+function getBoardDisplayName(name: string) {
+  return name.slice(BOARD_FOLDER_PREFIX.length) || name;
+}
+
+/** Resolve whether a search entry should be skipped. */
+function shouldSkipSearchEntry(name: string, includeHidden: boolean) {
+  if (!includeHidden && name.startsWith(".")) return true;
+  if (!includeHidden && SEARCH_IGNORE_NAMES.has(name)) return true;
+  return false;
 }
 
 /** Resolve whether a folder should be treated as empty. */
@@ -328,18 +364,66 @@ export const fsRouter = t.router({
     }),
 
   /** Search within workspace root (MVP stub). */
-  search: shieldedProcedure
-    .input(
-      z.object({
-        rootUri: z.string(),
-        query: z.string(),
-      })
-    )
-    .query(async ({ input }) => {
-      const rootPath = resolveWorkspacePathFromUri(input.rootUri);
-      const results = await fs.readdir(rootPath).then(() => []);
-      return { results };
-    }),
+  search: shieldedProcedure.input(fsSearchSchema).query(async ({ input }) => {
+    const rootPath = resolveWorkspacePathFromUri(input.rootUri);
+    const query = input.query.trim().toLowerCase();
+    if (!query) return { results: [] };
+    const includeHidden = Boolean(input.includeHidden);
+    const limit = input.limit ?? DEFAULT_SEARCH_LIMIT;
+    const maxDepth = input.maxDepth ?? DEFAULT_SEARCH_MAX_DEPTH;
+    let rootStat: Awaited<ReturnType<typeof fs.stat>> | null = null;
+    try {
+      rootStat = await fs.stat(rootPath);
+    } catch {
+      return { results: [] };
+    }
+    if (!rootStat.isDirectory()) return { results: [] };
+    const results = [];
+    const visit = async (dirPath: string, depth: number) => {
+      if (results.length >= limit) return;
+      let entries: Dirent[];
+      try {
+        entries = await fs.readdir(dirPath, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const entry of entries) {
+        if (results.length >= limit) return;
+        if (entry.isSymbolicLink()) continue;
+        if (shouldSkipSearchEntry(entry.name, includeHidden)) continue;
+        const entryPath = path.join(dirPath, entry.name);
+        let stat: Awaited<ReturnType<typeof fs.stat>>;
+        try {
+          stat = await fs.stat(entryPath);
+        } catch {
+          continue;
+        }
+        const displayName =
+          entry.isDirectory() && isBoardFolderName(entry.name)
+            ? getBoardDisplayName(entry.name)
+            : entry.name;
+        if (displayName.toLowerCase().includes(query)) {
+          const isEmpty = stat.isDirectory()
+            ? await resolveFolderEmptyState(entryPath, includeHidden)
+            : undefined;
+          results.push(
+            buildFileNode({
+              name: entry.name,
+              fullPath: entryPath,
+              stat,
+              isEmpty,
+            })
+          );
+        }
+        if (entry.isDirectory() && depth < maxDepth) {
+          await visit(entryPath, depth + 1);
+        }
+      }
+    };
+    // 中文注释：递归搜索目录，命中数量达到上限时直接停止。
+    await visit(rootPath, 0);
+    return { results };
+  }),
 });
 
 export type FsRouter = typeof fsRouter;

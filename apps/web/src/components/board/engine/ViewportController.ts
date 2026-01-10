@@ -26,6 +26,8 @@ export class ViewportController {
 
   /** Update viewport size based on container layout. */
   setSize(width: number, height: number): void {
+    // 逻辑：尺寸未变化时不触发更新，避免 ResizeObserver 触发循环刷新。
+    if (this.size[0] === width && this.size[1] === height) return;
     this.size = [width, height];
     this.emitChange();
   }

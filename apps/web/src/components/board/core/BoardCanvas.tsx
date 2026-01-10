@@ -1204,7 +1204,7 @@ export function BoardCanvas({
             "text",
             {
               autoFocus: true,
-              value: [{ type: "p", children: [{ text: "" }] }],
+              value: "",
             },
             [
               worldPoint[0] - width / 2,

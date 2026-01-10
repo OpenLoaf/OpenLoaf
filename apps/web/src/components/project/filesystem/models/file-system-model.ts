@@ -26,7 +26,6 @@ import {
   BOARD_INDEX_FILE_NAME,
   ensureBoardFolderName,
   getBoardDisplayName,
-  getDisplayFileName,
   isBoardFolderName,
 } from "@/lib/file-name";
 import { createEmptyBoardSnapshot } from "@/components/board/core/boardStorage";
@@ -50,6 +49,7 @@ import {
 } from "../utils/file-system-utils";
 import { useFileSystemHistory, type HistoryAction } from "./file-system-history";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
+import { useDebounce } from "@/hooks/use-debounce";
 
 // 用于“复制/粘贴”的内存剪贴板。
 let fileClipboard: FileSystemEntry[] | null = null;
@@ -74,6 +74,8 @@ export type ProjectFileSystemModel = {
   /** Whether terminal feature is enabled. */
   isTerminalEnabled: boolean;
   listQuery: ReturnType<typeof useQuery>;
+  /** Whether search query is fetching results. */
+  isSearchLoading: boolean;
   fileEntries: FileSystemEntry[];
   displayEntries: FileSystemEntry[];
   parentUri: string | null;
@@ -209,6 +211,8 @@ export function useProjectFileSystemModel({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(initialSortOrder);
   const [searchValue, setSearchValue] = useState("");
   const [showHidden, setShowHidden] = useState(false);
+  const trimmedSearchValue = searchValue.trim();
+  const debouncedSearchValue = useDebounce(trimmedSearchValue, 200);
   // 记录上一次稳定渲染的目录，用于占位数据期间维持「上一级」的一致性。
   const stableUriRef = useRef(activeUri);
   const listQuery = useQuery({
@@ -232,22 +236,36 @@ export function useProjectFileSystemModel({
     if (isPlaceholderData) return;
     stableUriRef.current = activeUri;
   }, [activeUri, isPlaceholderData]);
+  const searchQuery = useQuery({
+    ...trpc.fs.search.queryOptions(
+      activeUri && debouncedSearchValue
+        ? {
+            rootUri: activeUri,
+            query: debouncedSearchValue,
+            includeHidden: showHidden,
+            limit: 500,
+            maxDepth: 12,
+          }
+        : skipToken
+    ),
+    placeholderData: (previous) => previous,
+  });
+  const isSearchLoading =
+    Boolean(trimmedSearchValue) &&
+    (debouncedSearchValue !== trimmedSearchValue ||
+      searchQuery.isLoading ||
+      searchQuery.isFetching);
   const entries = listQuery.data?.entries ?? [];
+  const searchResults = searchQuery.data?.results ?? [];
   const visibleEntries = showHidden
     ? entries
     : entries.filter((entry) => !IGNORE_NAMES.has(entry.name));
   const fileEntries = useMemo(() => visibleEntries as FileSystemEntry[], [visibleEntries]);
   const displayEntries = useMemo(() => {
-    const query = searchValue.trim().toLowerCase();
-    if (!query) return fileEntries;
-    return fileEntries.filter((entry) => {
-      const displayName =
-        entry.kind === "folder" && isBoardFolderName(entry.name)
-          ? getBoardDisplayName(entry.name).toLowerCase()
-          : getDisplayFileName(entry.name, entry.ext).toLowerCase();
-      return displayName.includes(query);
-    });
-  }, [fileEntries, searchValue]);
+    if (!trimmedSearchValue) return fileEntries;
+    if (!debouncedSearchValue) return fileEntries;
+    return searchResults;
+  }, [debouncedSearchValue, fileEntries, searchResults, trimmedSearchValue]);
   const displayUri = isPlaceholderData ? stableUriRef.current : activeUri;
   const parentUri = getParentUri(rootUri, displayUri);
   const existingNames = useMemo(
@@ -374,13 +392,20 @@ export function useProjectFileSystemModel({
     const handleMouseDown = (event: MouseEvent) => {
       if (!searchContainerRef.current) return;
       if (searchContainerRef.current.contains(event.target as Node)) return;
+      if (trimmedSearchValue) return;
       setIsSearchOpen(false);
     };
     document.addEventListener("mousedown", handleMouseDown);
     return () => {
       document.removeEventListener("mousedown", handleMouseDown);
     };
-  }, [isSearchOpen]);
+  }, [isSearchOpen, trimmedSearchValue]);
+
+  useEffect(() => {
+    if (!trimmedSearchValue) return;
+    if (isSearchOpen) return;
+    setIsSearchOpen(true);
+  }, [isSearchOpen, trimmedSearchValue]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -398,6 +423,15 @@ export function useProjectFileSystemModel({
       const isCmdOrCtrl = event.metaKey || event.ctrlKey;
       if (!isCmdOrCtrl) return;
       const key = event.key.toLowerCase();
+      if (key === "f") {
+        event.preventDefault();
+        if (!isSearchOpen) {
+          setIsSearchOpen(true);
+          return;
+        }
+        searchInputRef.current?.focus();
+        return;
+      }
       if (key === "z" && event.shiftKey) {
         if (!canRedo) return;
         event.preventDefault();
@@ -420,7 +454,7 @@ export function useProjectFileSystemModel({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [canRedo, canUndo, redo, undo]);
+  }, [canRedo, canUndo, isSearchOpen, redo, setIsSearchOpen, undo]);
 
   /** Copy text to system clipboard with a fallback. */
   const copyText = async (text: string) => {
@@ -1212,6 +1246,7 @@ export function useProjectFileSystemModel({
     displayUri,
     isTerminalEnabled,
     listQuery,
+    isSearchLoading,
     fileEntries,
     displayEntries,
     parentUri,

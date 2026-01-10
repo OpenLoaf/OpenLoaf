@@ -5,8 +5,7 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
 import { useTabs } from "@/hooks/use-tabs";
-import { animateStackRestore, requestStackMinimize } from "@/lib/stack-dock-animation";
-import { emitSidebarOpenRequest } from "@/lib/sidebar-state";
+import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import type { DockItem } from "@teatime-ai/api/common";
 import { StackHeader } from "./StackHeader";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -191,11 +190,8 @@ function getParentUri(uri: string): string {
 export function LeftDock({ tabId }: { tabId: string }) {
   const tab = useTabs((s) => s.tabs.find((t) => t.id === tabId));
   const stackHidden = useTabs((s) => Boolean(s.stackHiddenByTabId[tabId]));
-  const stackFullRestore = useTabs((s) => Boolean(s.stackFullRestoreByTabId[tabId]));
   const activeStackItemId = useTabs((s) => s.activeStackItemIdByTabId[tabId]);
   const removeStackItem = useTabs((s) => s.removeStackItem);
-  const setStackFullRestore = useTabs((s) => s.setStackFullRestore);
-  const setTabRightChatCollapsed = useTabs((s) => s.setTabRightChatCollapsed);
   const queryClient = useQueryClient();
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
   const [renameDialog, setRenameDialog] = React.useState<{
@@ -214,7 +210,6 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
   const hasOverlay = Boolean(base) && stack.length > 0 && !stackHidden;
   const floating = Boolean(base);
-  const prevStackHiddenRef = React.useRef(stackHidden);
 
   const requestCloseStackItem = React.useCallback(
     (item: DockItem | undefined) => {
@@ -274,28 +269,6 @@ export function LeftDock({ tabId }: { tabId: string }) {
     };
   }, [stack.length, stackHidden, tabId]);
 
-  React.useLayoutEffect(() => {
-    const prevHidden = prevStackHiddenRef.current;
-    if (prevHidden && !stackHidden && stack.length > 0) {
-      if (stackFullRestore) {
-        // 逻辑：恢复 stack 时回到全屏模式，收起左右栏。
-        emitSidebarOpenRequest(false);
-        setTabRightChatCollapsed(tabId, true);
-        setStackFullRestore(tabId, false);
-      }
-      // 最小化恢复时触发反向“吸走”动画。
-      void animateStackRestore(tabId);
-    }
-    prevStackHiddenRef.current = stackHidden;
-  }, [
-    setStackFullRestore,
-    setTabRightChatCollapsed,
-    stack.length,
-    stackFullRestore,
-    stackHidden,
-    tabId,
-  ]);
-
   if (!tab) return null;
 
   return (
@@ -333,7 +306,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
                 key={item.id}
                 // stack 不再堆叠，只显示一个；其它 stack 保持挂载但隐藏，便于通过 Header 右上角按钮切换。
                 className={cn(
-                  "absolute inset-0 px-5 pt-8 pb-4",
+                  "absolute inset-0 px-5 pt-6 pb-4",
                   visible ? "block" : keepAlive ? "opacity-0" : "hidden"
                 )}
                 data-stack-panel={isActive ? tabId : undefined}

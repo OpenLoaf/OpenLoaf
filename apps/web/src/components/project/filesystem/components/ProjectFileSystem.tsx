@@ -257,6 +257,13 @@ const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
   onNavigate,
 }: ProjectFileSystemHeaderProps) {
   const headerSlot = useProjectFileSystemHeaderSlot();
+  const setToolbarMount = headerSlot?.setToolbarMount;
+  const handleToolbarMount = useCallback(
+    (node: HTMLDivElement | null) => {
+      setToolbarMount?.(node);
+    },
+    [setToolbarMount]
+  );
   const isAtRoot = isAtRootUri(rootUri, currentUri);
   const breadcrumbItems = buildFileBreadcrumbs(rootUri, currentUri, projectLookup);
 
@@ -293,9 +300,7 @@ const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
         </div>
       </div>
       <div
-        ref={(node) => {
-          headerSlot?.setToolbarMount(node);
-        }}
+        ref={handleToolbarMount}
         className="flex min-w-0 items-center justify-end"
       />
     </div>
@@ -432,7 +437,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     clearContextTargetIfClosed,
     resetContextMenu,
   } = useFileSystemContextMenu({
-    entries: model.fileEntries,
+    entries: model.displayEntries,
     selectedUris,
     onReplaceSelection: replaceSelection,
   });
@@ -443,6 +448,9 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac")),
     []
   );
+  const searchShortcutLabel = isMac ? "⌘F" : "Ctrl F";
+  const searchQuery = model.searchValue.trim();
+  const isSearchVisible = model.isSearchOpen || searchQuery.length > 0;
   /** Manage rename state for file entries. */
   const {
     renamingUri,
@@ -454,6 +462,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     handleRenamingCancel,
   } = useFileRename({
     entries: model.fileEntries,
+    allowRename: (entry) => model.fileEntries.some((item) => item.uri === entry.uri),
     onRename: model.renameEntry,
     onSelectionReplace: replaceSelection,
   });
@@ -499,15 +508,15 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const resolveSelectedEntries = useCallback(
     (uris: Set<string>) => {
       if (uris.size === 0) return [];
-      const index = new Map(model.fileEntries.map((entry) => [entry.uri, entry]));
-      const results: typeof model.fileEntries = [];
+      const index = new Map(model.displayEntries.map((entry) => [entry.uri, entry]));
+      const results: typeof model.displayEntries = [];
       uris.forEach((uri) => {
         const entry = index.get(uri);
         if (entry) results.push(entry);
       });
       return results;
     },
-    [model.fileEntries]
+    [model.displayEntries]
   );
 
   /** Cache selected entries for context menu actions. */
@@ -790,8 +799,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-7 w-7 ${
-                    model.isSearchOpen ? "w-0 opacity-0 pointer-events-none" : "opacity-100"
+                  className={`h-7 w-7 duration-150 ease-linear ${
+                    isSearchVisible ? "w-0 opacity-0 pointer-events-none" : "opacity-100"
                   }`}
                   aria-label="搜索"
                   onClick={() => model.setIsSearchOpen(true)}
@@ -800,12 +809,12 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
-                搜索
+                {`搜索 (${searchShortcutLabel})`}
               </TooltipContent>
             </Tooltip>
             <div
-              className={`relative overflow-hidden rounded-md ring-1 ring-border/60 bg-background/80 ${
-                model.isSearchOpen ? "w-56 opacity-100" : "w-0 opacity-0"
+              className={`relative overflow-hidden rounded-md ring-1 ring-border/60 bg-background/80 transition-[width,opacity] duration-150 ease-linear ${
+                isSearchVisible ? "w-56 opacity-100" : "w-0 opacity-0"
               }`}
             >
               <Input
@@ -817,6 +826,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 onChange={(event) => model.setSearchValue(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
+                    if (model.searchValue.trim()) {
+                      model.setSearchValue("");
+                      return;
+                    }
                     model.setIsSearchOpen(false);
                   }
                 }}
@@ -884,6 +897,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   <FileSystemList
                     entries={model.displayEntries}
                     isLoading={model.listQuery.isLoading}
+                    isSearchLoading={model.isSearchLoading}
+                    searchQuery={searchQuery}
                     parentUri={model.parentUri}
                     currentUri={model.displayUri}
                     includeHidden={model.showHidden}
@@ -928,6 +943,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 <FileSystemColumns
                   entries={model.displayEntries}
                   isLoading={model.listQuery.isLoading}
+                  isSearchLoading={model.isSearchLoading}
+                  searchQuery={searchQuery}
                   rootUri={rootUri}
                   currentUri={model.displayUri}
                   includeHidden={model.showHidden}
@@ -972,6 +989,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 <FileSystemGrid
                   entries={model.displayEntries}
                   isLoading={model.listQuery.isLoading}
+                  isSearchLoading={model.isSearchLoading}
+                  searchQuery={searchQuery}
                   parentUri={model.parentUri}
                   currentUri={model.displayUri}
                   includeHidden={model.showHidden}

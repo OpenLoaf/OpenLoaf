@@ -346,9 +346,6 @@ export interface TabsState {
   /** 当前 tab 的激活 stack item（不再通过“重排数组”来表示选中态） */
   activeStackItemIdByTabId: Record<string, string>;
 
-  /** Track whether a board stack should re-enter full mode after restore. */
-  stackFullRestoreByTabId: Record<string, boolean>;
-
   /** 运行时缓存：工具调用片段（不落盘，避免 localStorage 过大/频繁写入）。 */
   toolPartsByTabId: Record<string, Record<string, ToolPartSnapshot>>;
 
@@ -398,8 +395,8 @@ export interface TabsState {
   removeStackItem: (tabId: string, itemId: string) => void;
   clearStack: (tabId: string) => void;
   setStackHidden: (tabId: string, hidden: boolean) => void;
-  /** Update the restore flag for board full mode on stack restore. */
-  setStackFullRestore: (tabId: string, restore: boolean) => void;
+  /** Update params for a stack item. */
+  setStackItemParams: (tabId: string, itemId: string, params: Record<string, unknown>) => void;
   /**
    * Replace browser tabs state for the embedded browser panel.
    */
@@ -469,7 +466,6 @@ export const useTabs = create<TabsState>()(
       activeTabId: null,
       stackHiddenByTabId: {},
       activeStackItemIdByTabId: {},
-      stackFullRestoreByTabId: {},
       toolPartsByTabId: {},
       chatStatusByTabId: {},
       dictationStatusByTabId: {},
@@ -526,10 +522,6 @@ export const useTabs = create<TabsState>()(
             activeTabId: nextTab.id,
             stackHiddenByTabId: { ...state.stackHiddenByTabId, [nextTab.id]: false },
             activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId },
-            stackFullRestoreByTabId: {
-              ...state.stackFullRestoreByTabId,
-              [nextTab.id]: false,
-            },
           };
         });
       },
@@ -557,9 +549,6 @@ export const useTabs = create<TabsState>()(
           delete nextHidden[tabId];
           const nextActiveStack = { ...state.activeStackItemIdByTabId };
           delete nextActiveStack[tabId];
-          const nextFullRestore = { ...state.stackFullRestoreByTabId };
-          delete nextFullRestore[tabId];
-
           let nextActiveTabId = state.activeTabId;
           if (state.activeTabId === tabId) {
             const remaining = nextTabs.filter((tab) => tab.workspaceId === tabToClose.workspaceId);
@@ -579,7 +568,6 @@ export const useTabs = create<TabsState>()(
             dictationStatusByTabId: nextDictationStatusByTabId,
             stackHiddenByTabId: nextHidden,
             activeStackItemIdByTabId: nextActiveStack,
-            stackFullRestoreByTabId: nextFullRestore,
           };
         });
       },
@@ -791,8 +779,13 @@ export const useTabs = create<TabsState>()(
       },
 
       pushStackItem: (tabId, item, percent) => {
+        let shouldRestoreFull = false;
         set((state) => {
           const wasHidden = Boolean(state.stackHiddenByTabId[tabId]);
+          shouldRestoreFull =
+            wasHidden &&
+            item.component === BOARD_VIEWER_COMPONENT &&
+            Boolean((item.params as any)?.__boardFull);
           // 中文注释：如果之前是最小化状态，标记本次打开用于关闭时恢复隐藏。
           const nextItem = wasHidden
             ? {
@@ -876,10 +869,18 @@ export const useTabs = create<TabsState>()(
                       ? nextTab.leftWidthPercent
                       : LEFT_DOCK_DEFAULT_PERCENT,
                 ),
+                // 中文注释：恢复画布全屏时同步收起右侧面板，避免恢复后宽度闪动。
+                rightChatCollapsed: shouldRestoreFull
+                  ? true
+                  : nextTab.rightChatCollapsed,
               });
             }),
           };
         });
+        if (shouldRestoreFull) {
+          // 逻辑：恢复画布全屏时同步收起左侧栏。
+          emitSidebarOpenRequest(false);
+        }
       },
 
       setBrowserTabs: (tabId, tabs, activeId) => {
@@ -976,10 +977,6 @@ export const useTabs = create<TabsState>()(
             currentActiveId && currentActiveId !== itemId
               ? currentActiveId
               : (nextStack.at(-1)?.id ?? "");
-          const nextFullRestore = { ...state.stackFullRestoreByTabId };
-          if (shouldExitFull || nextStack.length === 0) {
-            delete nextFullRestore[tabId];
-          }
           return {
             stackHiddenByTabId: {
               ...state.stackHiddenByTabId,
@@ -992,7 +989,6 @@ export const useTabs = create<TabsState>()(
                     : state.stackHiddenByTabId[tabId],
             },
             activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId, [tabId]: nextActiveId },
-            stackFullRestoreByTabId: nextFullRestore,
             tabs: updateTabById(state.tabs, tabId, (tab) =>
               normalizeDock({
                 ...tab,
@@ -1013,7 +1009,6 @@ export const useTabs = create<TabsState>()(
         set((state) => ({
           stackHiddenByTabId: { ...state.stackHiddenByTabId, [tabId]: false },
           activeStackItemIdByTabId: { ...state.activeStackItemIdByTabId, [tabId]: "" },
-          stackFullRestoreByTabId: { ...state.stackFullRestoreByTabId, [tabId]: false },
           tabs: updateTabById(state.tabs, tabId, (tab) =>
             normalizeDock({
               ...tab,
@@ -1030,13 +1025,27 @@ export const useTabs = create<TabsState>()(
         }));
       },
 
-      setStackFullRestore: (tabId, restore) => {
-        set((state) => ({
-          stackFullRestoreByTabId: {
-            ...state.stackFullRestoreByTabId,
-            [tabId]: Boolean(restore),
-          },
-        }));
+      setStackItemParams: (tabId, itemId, params) => {
+        set((state) => {
+          const index = state.tabs.findIndex((tab) => tab.id === tabId);
+          if (index === -1) return state;
+          const tab = state.tabs[index];
+          const stack = tab?.stack ?? [];
+          const itemIndex = stack.findIndex((item) => item.id === itemId);
+          if (itemIndex === -1) return state;
+          const target = stack[itemIndex]!;
+          const currentParams = (target.params ?? {}) as Record<string, unknown>;
+          const nextParams = { ...currentParams, ...params };
+          const same =
+            Object.keys(nextParams).length === Object.keys(currentParams).length &&
+            Object.entries(nextParams).every(([key, value]) => currentParams[key] === value);
+          if (same) return state;
+          const nextStack = [...stack];
+          nextStack[itemIndex] = { ...target, params: nextParams };
+          const nextTabs = [...state.tabs];
+          nextTabs[index] = normalizeDock({ ...tab, stack: nextStack });
+          return { tabs: nextTabs };
+        });
       },
 
       upsertToolPart: (tabId, key, part) => {

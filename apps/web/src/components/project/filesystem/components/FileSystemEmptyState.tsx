@@ -6,7 +6,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { ArrowLeftIcon, Folder } from "lucide-react";
+import { ArrowLeftIcon, Folder, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -29,6 +29,11 @@ type FileSystemEmptyStateProps = {
   ) => void;
   setDragOverFolderUri: Dispatch<SetStateAction<string | null>>;
   shouldBlockPointerEvent: (event: { button?: number } | null | undefined) => boolean;
+};
+
+/** Props for search empty state. */
+type FileSystemSearchEmptyStateProps = {
+  query: string;
 };
 
 /** Render the empty state panel for the file system grid. */
@@ -108,4 +113,24 @@ const FileSystemEmptyState = memo(function FileSystemEmptyState({
 });
 FileSystemEmptyState.displayName = "FileSystemEmptyState";
 
-export { FileSystemEmptyState };
+/** Render the empty state panel for empty search results. */
+const FileSystemSearchEmptyState = memo(function FileSystemSearchEmptyState({
+  query,
+}: FileSystemSearchEmptyStateProps) {
+  return (
+    <div className="flex h-full items-center justify-center translate-y-2">
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Search />
+          </EmptyMedia>
+          <EmptyTitle>未找到匹配文件</EmptyTitle>
+          <EmptyDescription>{`没有找到包含 \"${query}\" 的文件或文件夹。`}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    </div>
+  );
+});
+FileSystemSearchEmptyState.displayName = "FileSystemSearchEmptyState";
+
+export { FileSystemEmptyState, FileSystemSearchEmptyState };
