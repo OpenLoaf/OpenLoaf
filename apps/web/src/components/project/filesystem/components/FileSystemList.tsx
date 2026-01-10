@@ -11,7 +11,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { FolderUp } from "lucide-react";
+import { ArrowDown, ArrowUp, FolderUp } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { useFlipLayout } from "@/lib/use-flip-layout";
@@ -46,7 +46,7 @@ const isBoardFolderEntry = (entry: FileSystemEntry) =>
 
 /** Responsive column template for list layout. */
 const listColumnClassName =
-  "grid-cols-[minmax(200px,1fr)] @[520px]/fs-list:grid-cols-[minmax(200px,1fr)_160px] @[760px]/fs-list:grid-cols-[minmax(220px,1fr)_160px_90px_140px] @[980px]/fs-list:grid-cols-[minmax(260px,1fr)_200px_110px_160px]";
+  "grid-cols-[minmax(200px,1fr)] @[520px]/fs-list:grid-cols-[minmax(200px,1fr)_160px] @[760px]/fs-list:grid-cols-[minmax(220px,1fr)_160px_140px_90px] @[980px]/fs-list:grid-cols-[minmax(260px,1fr)_200px_160px_110px]";
 /** Base layout for list rows. */
 const listRowBaseClassName =
   "grid items-center gap-3 rounded-md px-3 py-2 text-left text-xs leading-4";
@@ -61,14 +61,61 @@ const FILE_TYPE_LABEL_OVERRIDES: Record<string, string> = {
   jsx: "JavaScript",
 };
 
+type FileSystemListHeaderProps = {
+  sortField: "name" | "mtime" | null;
+  sortOrder: "asc" | "desc" | null;
+  onSortByName: () => void;
+  onSortByTime: () => void;
+};
+
 /** Render the list header row. */
-const FileSystemListHeader = memo(function FileSystemListHeader() {
+const FileSystemListHeader = memo(function FileSystemListHeader({
+  sortField,
+  sortOrder,
+  onSortByName,
+  onSortByTime,
+}: FileSystemListHeaderProps) {
+  const isNameSorted = sortField === "name";
+  const isTimeSorted = sortField === "mtime";
+  const sortIconClassName = "h-3 w-3 shrink-0";
+  const nameSortIcon =
+    isNameSorted && sortOrder
+      ? sortOrder === "asc"
+        ? <ArrowUp className={sortIconClassName} />
+        : <ArrowDown className={sortIconClassName} />
+      : null;
+  const timeSortIcon =
+    isTimeSorted && sortOrder
+      ? sortOrder === "asc"
+        ? <ArrowUp className={sortIconClassName} />
+        : <ArrowDown className={sortIconClassName} />
+      : null;
   return (
     <div className={`${listHeaderClassName} ${listColumnClassName}`}>
-      <div>名称</div>
-      <div className="hidden @[520px]/fs-list:block">修改时间</div>
-      <div className="hidden @[760px]/fs-list:block text-right">大小</div>
+      <button
+        type="button"
+        className={`flex w-full items-center justify-start gap-1 text-left ${
+          isNameSorted ? "text-foreground" : "text-muted-foreground"
+        } hover:text-foreground`}
+        aria-label="按名称排序"
+        onClick={onSortByName}
+      >
+        <span>名称</span>
+        {nameSortIcon}
+      </button>
+      <button
+        type="button"
+        className={`hidden w-full items-center justify-start gap-1 text-left @[520px]/fs-list:flex ${
+          isTimeSorted ? "text-foreground" : "text-muted-foreground"
+        } hover:text-foreground`}
+        aria-label="按修改时间排序"
+        onClick={onSortByTime}
+      >
+        <span>修改时间</span>
+        {timeSortIcon}
+      </button>
       <div className="hidden @[760px]/fs-list:block">类型</div>
+      <div className="hidden @[760px]/fs-list:block text-right">大小</div>
     </div>
   );
 });
@@ -206,11 +253,11 @@ const FileSystemListRowContent = memo(function FileSystemListRowContent({
       <div className="hidden @[520px]/fs-list:block text-muted-foreground truncate">
         {updatedLabel}
       </div>
-      <div className="hidden @[760px]/fs-list:block text-muted-foreground text-right">
-        {sizeLabel}
-      </div>
       <div className="hidden @[760px]/fs-list:block text-muted-foreground truncate">
         {typeLabel}
+      </div>
+      <div className="hidden @[760px]/fs-list:block text-muted-foreground text-right">
+        {sizeLabel}
       </div>
     </>
   );

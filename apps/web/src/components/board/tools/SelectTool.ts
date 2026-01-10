@@ -1,4 +1,9 @@
-import type { CanvasAnchorHit, CanvasPoint, CanvasRect } from "../engine/types";
+import type {
+  CanvasAnchorHit,
+  CanvasNodeElement,
+  CanvasPoint,
+  CanvasRect,
+} from "../engine/types";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import {
   DRAG_ACTIVATION_DISTANCE,
@@ -7,12 +12,17 @@ import {
   SELECTION_BOX_THRESHOLD,
   SNAP_PIXEL,
 } from "../engine/constants";
+import { sortElementsByZIndex } from "../engine/element-order";
 import {
   expandSelectionWithGroupChildren,
   resolveGroupSelectionId,
 } from "../engine/grouping";
 import { snapMoveRect } from "../utils/alignment-guides";
 import type { CanvasTool, ToolContext } from "./ToolTypes";
+
+// 逻辑：悬停判定比节点实际范围更大，延迟清理锚点避免闪烁。
+const IMAGE_HOVER_PADDING = 36;
+const HOVER_ANCHOR_CLEAR_DELAY = 200;
 
 export class SelectTool implements CanvasTool {
   /** Tool identifier. */
@@ -51,6 +61,8 @@ export class SelectTool implements CanvasTool {
   private readonly snapPixel = SNAP_PIXEL;
   /** Guide margin in screen space. */
   private readonly guideMargin = GUIDE_MARGIN;
+  /** Hover clear timeout id. */
+  private hoverClearTimeout: number | null = null;
 
   /** Handle pointer down to perform hit testing and selection. */
   onPointerDown(ctx: ToolContext): void {
@@ -90,6 +102,7 @@ export class SelectTool implements CanvasTool {
       // 逻辑：非节点区域才阻止默认事件，避免干扰节点自身双击等交互。
       ctx.event.preventDefault();
     }
+    const selectedIds = ctx.engine.selection.getSelectedIds();
     if (!ctx.engine.isLocked()) {
       if (ctx.event.target instanceof Element) {
         // 逻辑：命中缩放手柄时不触发连线。
@@ -98,9 +111,18 @@ export class SelectTool implements CanvasTool {
         }
       }
       const hoverAnchor = ctx.engine.getConnectorHover();
+      const hoverAnchorId = hoverAnchor?.elementId;
+      const anchorScope =
+        hoverAnchorId && !selectedIds.includes(hoverAnchorId)
+          ? [...selectedIds, hoverAnchorId]
+          : selectedIds;
       // 逻辑：只有在锚点已显示并命中时才开始连线，避免误触。
       if (hoverAnchor) {
-        const edgeHit = ctx.engine.findEdgeAnchorHit(ctx.worldPoint);
+        const edgeHit = ctx.engine.findEdgeAnchorHit(
+          ctx.worldPoint,
+          undefined,
+          anchorScope
+        );
         if (
           edgeHit &&
           edgeHit.elementId === hoverAnchor.elementId &&
@@ -122,7 +144,6 @@ export class SelectTool implements CanvasTool {
 
     const hit = ctx.engine.pickElementAt(ctx.worldPoint);
     if (!hit) {
-      const selectedIds = ctx.engine.selection.getSelectedIds();
       // 逻辑：空白点击时优先命中已选连线端点，便于快速重连。
       if (!ctx.event.shiftKey && selectedIds.length > 0 && !ctx.engine.isLocked()) {
         const endpointHit = ctx.engine.findConnectorEndpointHit(
@@ -227,7 +248,15 @@ export class SelectTool implements CanvasTool {
 
   /** Handle pointer move to drag selected nodes. */
   onPointerMove(ctx: ToolContext): void {
+    const selectedIds = ctx.engine.selection.getSelectedIds();
+    const hoverAnchor = ctx.engine.getConnectorHover();
+    const hoverAnchorId = hoverAnchor?.elementId;
+    const anchorScope =
+      hoverAnchorId && !selectedIds.includes(hoverAnchorId)
+        ? [...selectedIds, hoverAnchorId]
+        : selectedIds;
     if (this.connectorDrafting && this.connectorSource) {
+      this.cancelHoverClear();
       const targetNode = ctx.engine.findNodeAt(ctx.worldPoint);
       if (targetNode && targetNode.id !== this.connectorSource.elementId) {
         // 逻辑：拖拽过程中只要进入节点即可吸附，不要求命中边缘锚点。
@@ -249,10 +278,14 @@ export class SelectTool implements CanvasTool {
         }
       }
 
-      const edgeHover = ctx.engine.findEdgeAnchorHit(ctx.worldPoint, {
-        elementId: this.connectorSource.elementId,
-        anchorId: this.connectorSource.anchorId,
-      });
+      const edgeHover = ctx.engine.findEdgeAnchorHit(
+        ctx.worldPoint,
+        {
+          elementId: this.connectorSource.elementId,
+          anchorId: this.connectorSource.anchorId,
+        },
+        anchorScope
+      );
       ctx.engine.setConnectorHover(edgeHover);
       ctx.engine.setConnectorDraft({
         source: {
@@ -265,6 +298,7 @@ export class SelectTool implements CanvasTool {
       return;
     }
     if (this.connectorDragId && this.connectorDragRole) {
+      this.cancelHoverClear();
       if (ctx.engine.isLocked()) return;
       const hit = ctx.engine.findNodeAt(ctx.worldPoint);
       const hover = hit
@@ -283,8 +317,24 @@ export class SelectTool implements CanvasTool {
       ctx.engine.setConnectorHoverId(null);
     }
     if (!this.selectionStartWorld && !this.draggingId) {
-      const hover = ctx.engine.findEdgeAnchorHit(ctx.worldPoint);
-      ctx.engine.setConnectorHover(hover);
+      const hoverNode = this.getHoverImageNode(ctx.engine, ctx.worldPoint, selectedIds);
+      if (hoverNode) {
+        const hover = this.getImageSideAnchorHit(hoverNode, ctx.worldPoint);
+        ctx.engine.setConnectorHover(hover);
+        this.cancelHoverClear();
+      } else {
+        const hover = ctx.engine.findEdgeAnchorHit(
+          ctx.worldPoint,
+          undefined,
+          anchorScope
+        );
+        if (hover) {
+          ctx.engine.setConnectorHover(hover);
+          this.cancelHoverClear();
+        } else {
+          this.scheduleHoverClear(ctx.engine);
+        }
+      }
       const connectorHit = ctx.engine.pickElementAt(ctx.worldPoint);
       ctx.engine.setConnectorHoverId(
         connectorHit?.kind === "connector" ? connectorHit.id : null
@@ -423,6 +473,7 @@ export class SelectTool implements CanvasTool {
     this.dragStartRects.clear();
     this.dragStart = null;
     this.dragActivated = false;
+    this.cancelHoverClear();
   }
 
   /** Handle keyboard shortcuts for selection. */
@@ -506,6 +557,67 @@ export class SelectTool implements CanvasTool {
     const w = Math.abs(end[0] - start[0]);
     const h = Math.abs(end[1] - start[1]);
     return { x, y, w, h };
+  }
+
+  /** Resolve the nearest side anchor for a hovered image node. */
+  private getImageSideAnchorHit(
+    element: CanvasNodeElement,
+    point: CanvasPoint
+  ): CanvasAnchorHit | null {
+    const [x, y, w, h] = element.xywh;
+    const centerX = x + w / 2;
+    const anchorId = point[0] <= centerX ? "left" : "right";
+    // 逻辑：悬停时仅返回左右锚点，保持与选中态一致。
+    const anchorPoint: CanvasPoint =
+      anchorId === "left" ? [x, y + h / 2] : [x + w, y + h / 2];
+    return {
+      elementId: element.id,
+      anchorId,
+      point: anchorPoint,
+    };
+  }
+
+  /** Find the top-most hovered image node with expanded hit area. */
+  private getHoverImageNode(
+    engine: CanvasEngine,
+    point: CanvasPoint,
+    selectedIds: string[]
+  ): CanvasNodeElement | null {
+    const { zoom } = engine.viewport.getState();
+    // 逻辑：悬停范围比节点大一圈，便于拖出锚点。
+    const padding = IMAGE_HOVER_PADDING / Math.max(zoom, MIN_ZOOM);
+    const elements = sortElementsByZIndex(engine.doc.getElements());
+    for (let i = elements.length - 1; i >= 0; i -= 1) {
+      const element = elements[i];
+      if (!element || element.kind !== "node") continue;
+      if (element.type !== "image") continue;
+      if (element.locked) continue;
+      if (selectedIds.includes(element.id)) continue;
+      const [x, y, w, h] = element.xywh;
+      const within =
+        point[0] >= x - padding &&
+        point[0] <= x + w + padding &&
+        point[1] >= y - padding &&
+        point[1] <= y + h + padding;
+      if (within) return element;
+    }
+    return null;
+  }
+
+  /** Schedule clearing the hover anchor with a short delay. */
+  private scheduleHoverClear(engine: CanvasEngine): void {
+    if (this.hoverClearTimeout) return;
+    this.hoverClearTimeout = window.setTimeout(() => {
+      engine.setConnectorHover(null);
+      this.hoverClearTimeout = null;
+    }, HOVER_ANCHOR_CLEAR_DELAY);
+  }
+
+  /** Cancel any pending hover clear. */
+  private cancelHoverClear(): void {
+    if (!this.hoverClearTimeout) return;
+    window.clearTimeout(this.hoverClearTimeout);
+    this.hoverClearTimeout = null;
   }
 
   /** Check elements intersecting with the selection rectangle. */

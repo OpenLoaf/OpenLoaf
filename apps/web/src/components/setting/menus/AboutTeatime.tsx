@@ -155,6 +155,13 @@ export function AboutTeatime() {
     return () => window.removeEventListener("teatime:auto-update:status", onUpdateStatus);
   }, [isElectron]);
 
+  /** Reload the current page. */
+  const reloadPage = React.useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  }, []);
+
   /** Re-enter the setup flow by resetting step-up status. */
   const restartSetup = React.useCallback(async () => {
     // 流程：先重置初始化标记，再跳转到初始化页面；写入异常时也进入页面，避免卡在当前页。
@@ -286,6 +293,17 @@ export function AboutTeatime() {
 
       <TeatimeSettingsGroup title="操作">
         <div className="divide-y divide-border">
+          <div className="flex flex-wrap items-start gap-3 px-3 py-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">页面重新加载</div>
+              <div className="text-xs text-muted-foreground">刷新整个页面</div>
+            </div>
+            <TeatimeSettingsField>
+              <Button type="button" variant="outline" size="sm" onClick={reloadPage}>
+                刷新
+              </Button>
+            </TeatimeSettingsField>
+          </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">重新进入初始化</div>
             <TeatimeSettingsField>

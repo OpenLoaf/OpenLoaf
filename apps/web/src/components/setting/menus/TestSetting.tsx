@@ -13,10 +13,15 @@ import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsFie
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { toast } from "sonner";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
+import { useBasicConfig } from "@/hooks/use-basic-config";
+
+/** Setup entry route. */
+const STEP_UP_ROUTE = "/step-up";
 
 const TestSetting = memo(function TestSetting() {
   /** Active workspace info. */
   const { workspace } = useWorkspace();
+  const { setBasic } = useBasicConfig();
   const activeTabId = useTabs((s) => s.activeTabId);
   const activeStackCount = useTabs((s) => {
     const id = s.activeTabId;
@@ -91,6 +96,21 @@ const TestSetting = memo(function TestSetting() {
         __open: { pwdUri: rootUri },
       },
     });
+  }
+
+  /**
+   * Restarts the setup flow from the beginning.
+   */
+  async function handleRestartSetup() {
+    // 流程说明：先重置初始化标记，再跳转到初始化页面。
+    // 若写入失败或发生异常，也直接跳转，确保不会卡在当前页。
+    try {
+      await setBasic({ stepUpInitialized: false });
+    } finally {
+      if (typeof window !== "undefined") {
+        window.location.assign(STEP_UP_ROUTE);
+      }
+    }
   }
 
   return (
@@ -203,6 +223,19 @@ const TestSetting = memo(function TestSetting() {
                   </Button>
                 </>
               ) : null}
+            </TeatimeSettingsField>
+          </div>
+        </div>
+      </TeatimeSettingsGroup>
+
+      <TeatimeSettingsGroup title="操作">
+        <div className="divide-y divide-border">
+          <div className="flex flex-wrap items-start gap-3 py-3">
+            <div className="text-sm font-medium">重新进入初始化</div>
+            <TeatimeSettingsField>
+              <Button type="button" variant="outline" size="sm" onClick={handleRestartSetup}>
+                进入
+              </Button>
             </TeatimeSettingsField>
           </div>
         </div>

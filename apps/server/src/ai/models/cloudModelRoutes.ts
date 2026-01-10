@@ -17,19 +17,19 @@ type CloudModelResponse = {
 export function registerCloudModelRoutes(app: Hono): void {
   app.get("/llm/models", async (c) => {
     await ensureAccessTokenFresh();
-    const accessToken = getAccessToken();
-    if (!accessToken) {
-      return c.json({ error: "auth_required" }, 401);
-    }
     const saasBaseUrl = getSaasBaseUrl();
     if (!saasBaseUrl) {
       return c.json({ error: "saas_url_missing" }, 500);
     }
     try {
+      // 中文注释：允许匿名访问，存在 access token 时再附带鉴权头。
+      const accessToken = getAccessToken();
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+      }
       const response = await fetch(`${saasBaseUrl}/api/llm/models`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers,
       });
       const payload = (await response.json().catch(() => null)) as CloudModelResponse | null;
       if (!response.ok) {

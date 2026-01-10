@@ -148,9 +148,32 @@ export class ToolManager {
   /** Handle key down events from the canvas container. */
   handleKeyDown(event: KeyboardEvent): void {
     if (event.key === "Escape") {
+      const target = event.target;
+      const isEditableTarget =
+        target instanceof HTMLElement &&
+        target.closest(
+          "input, textarea, [contenteditable='true'], [contenteditable='']"
+        );
+      // 逻辑：ESC 优先关闭插入/连线状态，其次清空选区。
       if (this.engine.getPendingInsert()) {
         event.preventDefault();
         this.engine.setPendingInsert(null);
+        return;
+      }
+      if (this.engine.getConnectorDrop()) {
+        event.preventDefault();
+        this.engine.setConnectorDrop(null);
+        return;
+      }
+      if (this.engine.getConnectorDraft() || this.engine.getConnectorHover()) {
+        event.preventDefault();
+        this.engine.setConnectorDraft(null);
+        this.engine.setConnectorHover(null);
+        return;
+      }
+      if (!isEditableTarget && this.engine.selection.getSelectedIds().length > 0) {
+        event.preventDefault();
+        this.engine.selection.clear();
         return;
       }
     }

@@ -1157,13 +1157,14 @@ export class CanvasEngine {
   /** Find the closest edge-center anchor hit for nodes. */
   findEdgeAnchorHit(
     point: CanvasPoint,
-    exclude?: { elementId: string; anchorId: string }
+    exclude?: { elementId: string; anchorId: string },
+    selectedIds: string[] = []
   ): CanvasAnchorHit | null {
     const elements = this.getOrderedElements().filter(
       element => element.kind === "node"
     ) as CanvasNodeElement[];
     const { zoom } = this.viewport.getState();
-    return findEdgeAnchorHit(point, elements, this.nodes, zoom, exclude);
+    return findEdgeAnchorHit(point, elements, this.nodes, zoom, exclude, selectedIds);
   }
 
   /** Return bounds for a node by id if present. */

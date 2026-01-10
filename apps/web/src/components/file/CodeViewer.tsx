@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import Editor, { type BeforeMount, type OnMount } from "@monaco-editor/react";
+import type * as Monaco from "monaco-editor";
 import { Sparkles, Copy } from "lucide-react";
+import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { useTabs } from "@/hooks/use-tabs";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 
@@ -19,148 +20,57 @@ interface CodeViewerProps {
   projectId?: string;
 }
 
-const SYNTAX_HIGHLIGHTER_CUSTOM_STYLE: React.CSSProperties = {
-  margin: 0,
-  background: "transparent",
-  padding: "1rem",
-  fontSize: "13px",
-  lineHeight: "1.7",
-  fontFamily: "inherit",
-  textShadow: "none",
-  boxSizing: "border-box",
-  display: "block",
-  width: "100%",
-  maxWidth: "100%",
-  minWidth: 0,
-  overflowX: "auto",
-  overflowY: "hidden",
-  WebkitOverflowScrolling: "touch",
-  whiteSpace: "pre",
-  wordBreak: "normal",
-  overflowWrap: "normal",
-  userSelect: "text",
-  WebkitUserSelect: "text",
-  MozUserSelect: "text",
-  msUserSelect: "text",
-};
+type MonacoDisposable = { dispose: () => void };
 
-const SYNTAX_HIGHLIGHTER_LINE_NUMBER_STYLE: React.CSSProperties = {
-  minWidth: "2.25em",
-  paddingRight: "1em",
-  opacity: 0.6,
-  userSelect: "none",
-  WebkitUserSelect: "none",
-  MozUserSelect: "none",
-  msUserSelect: "none",
-  pointerEvents: "none",
-};
+/** Monaco theme name for the read-only viewer. */
+const MONACO_THEME_NAME = "teatime-dark";
 
-const SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS = {
-  style: {
-    fontFamily: "inherit",
-    textShadow: "none",
-    userSelect: "text",
-  } as React.CSSProperties,
-};
-
-function isLineNumberNode(node: Node | null) {
-  if (!node) return false;
-  if (!(node instanceof HTMLElement)) return false;
-  return (
-    node.classList.contains("react-syntax-highlighter-line-number") ||
-    node.classList.contains("linenumber")
-  );
-}
-
-function getFilteredTextNodes(root: HTMLElement) {
-  const nodes: Text[] = [];
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode: (node) => {
-      if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
-      const parent = node.parentElement;
-      if (parent && isLineNumberNode(parent)) return NodeFilter.FILTER_REJECT;
-      return NodeFilter.FILTER_ACCEPT;
-    },
-  });
-  while (walker.nextNode()) {
-    nodes.push(walker.currentNode as Text);
-  }
-  return nodes;
-}
-
-function resolveTextNode(node: Node, preferEnd: boolean) {
-  if (node.nodeType === Node.TEXT_NODE) return node as Text;
-  if (!(node instanceof HTMLElement)) return null;
-  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
-    acceptNode: (textNode) => {
-      const parent = textNode.parentElement;
-      if (parent && isLineNumberNode(parent)) return NodeFilter.FILTER_REJECT;
-      return NodeFilter.FILTER_ACCEPT;
-    },
-  });
-  if (preferEnd) {
-    let last: Text | null = null;
-    while (walker.nextNode()) {
-      last = walker.currentNode as Text;
-    }
-    return last;
-  }
-  return (walker.nextNode() ? (walker.currentNode as Text) : null) ?? null;
-}
-
-function getOffsetFromNode(nodes: Text[], target: Node, offset: number, preferEnd: boolean) {
-  const resolved = resolveTextNode(target, preferEnd);
-  if (!resolved) return null;
-  let count = 0;
-  for (const node of nodes) {
-    if (node === resolved) {
-      const nodeText = node.nodeValue ?? "";
-      const safeOffset = Math.max(0, Math.min(offset, nodeText.length));
-      return count + safeOffset;
-    }
-    count += node.nodeValue?.length ?? 0;
-  }
-  return null;
-}
-
-function getLineNumberFromOffset(text: string, offset: number) {
-  const safeOffset = Math.max(0, Math.min(offset, text.length));
-  return text.slice(0, safeOffset).split("\n").length;
-}
-
-/** Resolve a highlight language from extension. */
-function getLanguageFromExt(ext?: string) {
+/** Resolve a Monaco language id from extension. */
+function getMonacoLanguageId(ext?: string): string {
   const key = (ext ?? "").toLowerCase();
-  // 中文注释：按常见扩展名映射高亮语言，未命中时回退为文本。
-  const map: Record<string, string> = {
-    js: "javascript",
-    jsx: "jsx",
-    ts: "typescript",
-    tsx: "tsx",
-    json: "json",
-    yml: "yaml",
-    yaml: "yaml",
-    toml: "toml",
-    ini: "ini",
-    py: "python",
-    go: "go",
-    rs: "rust",
-    java: "java",
-    cpp: "cpp",
-    c: "c",
-    h: "c",
-    hpp: "cpp",
-    css: "css",
-    scss: "scss",
-    less: "less",
-    html: "html",
-    xml: "xml",
-    sh: "bash",
-    zsh: "bash",
-    md: "markdown",
-    mdx: "markdown",
-  };
-  return map[key] ?? "text";
+  // 逻辑：保持与旧映射一致，未命中时降级为纯文本。
+  switch (key) {
+    case "js":
+    case "jsx":
+      return "javascript";
+    case "ts":
+    case "tsx":
+      return "typescript";
+    case "json":
+      return "json";
+    case "yml":
+    case "yaml":
+      return "yaml";
+    case "py":
+      return "python";
+    case "go":
+      return "go";
+    case "rs":
+      return "rust";
+    case "java":
+      return "java";
+    case "cpp":
+    case "hpp":
+    case "h":
+      return "cpp";
+    case "c":
+      return "c";
+    case "css":
+      return "css";
+    case "scss":
+      return "scss";
+    case "less":
+      return "less";
+    case "html":
+      return "html";
+    case "xml":
+      return "xml";
+    case "md":
+    case "mdx":
+      return "markdown";
+    default:
+      return "plaintext";
+  }
 }
 
 /** Render a read-only code viewer. */
@@ -171,22 +81,194 @@ export default function CodeViewer({
   rootUri,
   projectId,
 }: CodeViewerProps) {
+  /** File content query. */
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(uri ? { uri } : skipToken)
   );
+  /** Monaco editor instance. */
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  /** Monaco disposables for listeners. */
+  const disposablesRef = useRef<MonacoDisposable[]>([]);
+  /** Container for toolbar positioning. */
   const containerRef = useRef<HTMLDivElement | null>(null);
+  /** Track toolbar interaction to avoid clearing selection on blur. */
+  const toolbarPointerDownRef = useRef(false);
+  /** Current selected text cache. */
   const selectionTextRef = useRef("");
+  /** Current selected line range cache. */
   const selectionRangeRef = useRef<{ startLine: number; endLine: number } | null>(
     null
   );
+  /** Current selected offset range cache. */
   const selectionOffsetRef = useRef<{ start: number; end: number } | null>(null);
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const setTabRightChatCollapsed = useTabs((s) => s.setTabRightChatCollapsed);
+  /** Current toolbar position. */
   const [selectionRect, setSelectionRect] = useState<{
     left: number;
     top: number;
   } | null>(null);
-  const fileContent = useMemo(() => fileQuery.data?.content ?? "", [fileQuery.data?.content]);
+  /** Active tab id for AI panel control. */
+  const activeTabId = useTabs((s) => s.activeTabId);
+  /** Collapse state setter for AI panel. */
+  const setTabRightChatCollapsed = useTabs((s) => s.setTabRightChatCollapsed);
+  /** Current file content string. */
+  const fileContent = useMemo(
+    () => fileQuery.data?.content ?? "",
+    [fileQuery.data?.content]
+  );
+  /** Monaco language id from extension. */
+  const languageId = useMemo(() => getMonacoLanguageId(ext), [ext]);
+
+  /** Clear cached selection state and hide the toolbar. */
+  const clearSelection = useCallback(() => {
+    selectionTextRef.current = "";
+    selectionRangeRef.current = null;
+    selectionOffsetRef.current = null;
+    setSelectionRect(null);
+  }, []);
+
+  /** Sync selection data from the current Monaco editor. */
+  const syncSelectionFromEditor = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const model = editor.getModel();
+    if (!model) return;
+    const selection = editor.getSelection();
+    // 逻辑：选区为空或不可见时直接收起工具栏。
+    if (!selection || selection.isEmpty()) {
+      clearSelection();
+      return;
+    }
+    const rawText = model.getValueInRange(selection);
+    const text = rawText.trim();
+    if (!text) {
+      clearSelection();
+      return;
+    }
+    const startPos = selection.getStartPosition();
+    const endPos = selection.getEndPosition();
+    const startOffset = model.getOffsetAt(startPos);
+    const endOffset = model.getOffsetAt(endPos);
+    const startLine = Math.min(startPos.lineNumber, endPos.lineNumber);
+    const endLine = Math.max(startPos.lineNumber, endPos.lineNumber);
+    selectionRangeRef.current = { startLine, endLine };
+    selectionOffsetRef.current = {
+      start: Math.min(startOffset, endOffset),
+      end: Math.max(startOffset, endOffset),
+    };
+    selectionTextRef.current = text;
+    const editorDom = editor.getDomNode();
+    const container = containerRef.current;
+    const startCoords = editor.getScrolledVisiblePosition(startPos);
+    const endCoords = editor.getScrolledVisiblePosition(endPos);
+    if (!editorDom || !container || !startCoords || !endCoords) {
+      clearSelection();
+      return;
+    }
+    const editorRect = editorDom.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const left =
+      editorRect.left +
+      (startCoords.left + endCoords.left) / 2 -
+      containerRect.left;
+    const top =
+      editorRect.top +
+      Math.min(startCoords.top, endCoords.top) -
+      containerRect.top;
+    // 逻辑：避免频繁 setState，位置变化较小时保持稳定。
+    setSelectionRect((prev) => {
+      if (!prev) return { left, top };
+      if (Math.abs(prev.left - left) < 0.5 && Math.abs(prev.top - top) < 0.5) {
+        return prev;
+      }
+      return { left, top };
+    });
+  }, [clearSelection]);
+
+  /** Register Monaco theme before editor mounts. */
+  const handleBeforeMount = useCallback<BeforeMount>((monaco) => {
+    // 逻辑：主题背景透明，避免覆盖容器背景。
+    monaco.editor.defineTheme(MONACO_THEME_NAME, {
+      base: "vs-dark",
+      inherit: true,
+      rules: [],
+      colors: {
+        "editor.background": "#00000000",
+        "editorGutter.background": "#00000000",
+        "editorLineNumber.foreground": "#7a8194",
+        "editorLineNumber.activeForeground": "#cbd5f5",
+      },
+    });
+  }, []);
+
+  /** Capture Monaco editor instance and attach listeners. */
+  const handleEditorMount = useCallback<OnMount>(
+    (editor, monaco) => {
+      editorRef.current = editor;
+      clearSelection();
+      disposablesRef.current.forEach((disposable) => disposable.dispose());
+      disposablesRef.current = [];
+      disposablesRef.current.push(
+        editor.onDidChangeCursorSelection(() => {
+          syncSelectionFromEditor();
+        })
+      );
+      disposablesRef.current.push(
+        editor.onDidScrollChange(() => {
+          if (!selectionTextRef.current) {
+            clearSelection();
+            return;
+          }
+          syncSelectionFromEditor();
+        })
+      );
+      disposablesRef.current.push(
+        editor.onDidBlurEditorText(() => {
+          if (toolbarPointerDownRef.current) return;
+          clearSelection();
+        })
+      );
+    },
+    [clearSelection, syncSelectionFromEditor]
+  );
+
+  /** Monaco editor options for read-only rendering. */
+  const editorOptions = useMemo<Monaco.editor.IStandaloneEditorConstructionOptions>(
+    () => ({
+      readOnly: true,
+      fontSize: 13,
+      lineHeight: 22,
+      fontFamily: "var(--font-mono, Menlo, Monaco, 'Courier New', monospace)",
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+      renderLineHighlight: "none",
+      overviewRulerLanes: 0,
+      hideCursorInOverviewRuler: true,
+      lineNumbersMinChars: 3,
+      folding: false,
+      wordWrap: "off",
+      smoothScrolling: true,
+      scrollbar: {
+        verticalScrollbarSize: 10,
+        horizontalScrollbarSize: 10,
+      },
+    }),
+    []
+  );
+
+  /** Keep selection when interacting with the toolbar. */
+  const handleToolbarPointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      // 逻辑：点击工具栏时阻止失焦清理，确保 AI/复制逻辑可用。
+      toolbarPointerDownRef.current = true;
+      event.preventDefault();
+    },
+    []
+  );
+
+  /** Release toolbar interaction lock after pointer ends. */
+  const handleToolbarPointerUp = useCallback(() => {
+    toolbarPointerDownRef.current = false;
+  }, []);
 
   /** Copy selection to clipboard. */
   const handleCopy = useCallback(async () => {
@@ -202,7 +284,7 @@ export default function CodeViewer({
       console.warn("[CodeViewer] copy failed", error);
       toast.error("复制失败");
     }
-  }, []);
+  }, [fileContent]);
 
   /** Send selection to AI panel. */
   const handleAi = useCallback(async () => {
@@ -242,127 +324,22 @@ export default function CodeViewer({
       mentionValue,
     });
     if (activeTabId) {
-      // 中文注释：展开右侧 AI 面板（不使用 stack）。
+      // 展开右侧 AI 面板（不使用 stack）。
       setTabRightChatCollapsed(activeTabId, false);
     }
   }, [activeTabId, fileContent, projectId, rootUri, setTabRightChatCollapsed, uri]);
 
   useEffect(() => {
-    let hideTimer: ReturnType<typeof setTimeout> | null = null;
-    const handleSelectionChange = () => {
-      const selection = window.getSelection();
-      const container = containerRef.current;
-      if (!selection || selection.rangeCount === 0 || !container) {
-        if (hideTimer) clearTimeout(hideTimer);
-        hideTimer = setTimeout(() => {
-          selectionTextRef.current = "";
-          selectionRangeRef.current = null;
-          selectionOffsetRef.current = null;
-          setSelectionRect(null);
-        }, 120);
-        return;
-      }
-      const text = selection.toString().trim();
-      if (!text) {
-        if (hideTimer) clearTimeout(hideTimer);
-        hideTimer = setTimeout(() => {
-          selectionTextRef.current = "";
-          selectionRangeRef.current = null;
-          selectionOffsetRef.current = null;
-          setSelectionRect(null);
-        }, 120);
-        return;
-      }
-      const range = selection.getRangeAt(0);
-      const commonNode = range.commonAncestorContainer;
-      if (!container.contains(commonNode)) {
-        if (hideTimer) clearTimeout(hideTimer);
-        hideTimer = setTimeout(() => {
-          selectionTextRef.current = "";
-          selectionRangeRef.current = null;
-          selectionOffsetRef.current = null;
-          setSelectionRect(null);
-        }, 120);
-        return;
-      }
-      const codeRoot = container.querySelector("code");
-      if (!codeRoot || !(codeRoot instanceof HTMLElement)) {
-        if (hideTimer) clearTimeout(hideTimer);
-        hideTimer = setTimeout(() => {
-          selectionTextRef.current = "";
-          selectionRangeRef.current = null;
-          selectionOffsetRef.current = null;
-          setSelectionRect(null);
-        }, 120);
-        return;
-      }
-      const nodes = getFilteredTextNodes(codeRoot);
-      const startOffset = getOffsetFromNode(
-        nodes,
-        range.startContainer,
-        range.startOffset,
-        false
-      );
-      const endOffset = getOffsetFromNode(
-        nodes,
-        range.endContainer,
-        range.endOffset,
-        true
-      );
-      if (startOffset === null || endOffset === null) {
-        if (hideTimer) clearTimeout(hideTimer);
-        hideTimer = setTimeout(() => {
-          selectionTextRef.current = "";
-          selectionRangeRef.current = null;
-          selectionOffsetRef.current = null;
-          setSelectionRect(null);
-        }, 120);
-        return;
-      }
-      if (hideTimer) clearTimeout(hideTimer);
-      const [start, end] =
-        startOffset <= endOffset ? [startOffset, endOffset] : [endOffset, startOffset];
-      const startLine = getLineNumberFromOffset(fileContent, start);
-      const endLine = getLineNumberFromOffset(fileContent, end);
-      selectionRangeRef.current = { startLine, endLine };
-      selectionOffsetRef.current = { start, end };
-      const rect = range.getBoundingClientRect();
-      if (!rect || (rect.width === 0 && rect.height === 0)) {
-        selectionTextRef.current = "";
-        selectionRangeRef.current = null;
-        selectionOffsetRef.current = null;
-        setSelectionRect(null);
-        return;
-      }
-      const containerRect = container.getBoundingClientRect();
-      const left = rect.left - containerRect.left + rect.width / 2;
-      const top = rect.top - containerRect.top;
-      selectionTextRef.current = text;
-      // 中文注释：工具栏显示在选区上方，避免遮挡代码。
-      setSelectionRect({ left, top });
-    };
+    clearSelection();
+  }, [clearSelection, fileContent, languageId]);
 
-    const handleScroll = () => {
-      selectionTextRef.current = "";
-      selectionRangeRef.current = null;
-      selectionOffsetRef.current = null;
-      setSelectionRect(null);
-    };
-
-    const handleMouseUp = () => {
-      handleSelectionChange();
-    };
-
-    document.addEventListener("selectionchange", handleSelectionChange);
-    document.addEventListener("mouseup", handleMouseUp);
-    containerRef.current?.addEventListener("scroll", handleScroll, { passive: true });
+  useEffect(() => {
     return () => {
-      if (hideTimer) clearTimeout(hideTimer);
-      document.removeEventListener("selectionchange", handleSelectionChange);
-      document.removeEventListener("mouseup", handleMouseUp);
-      containerRef.current?.removeEventListener("scroll", handleScroll);
+      disposablesRef.current.forEach((disposable) => disposable.dispose());
+      disposablesRef.current = [];
+      editorRef.current = null;
     };
-  }, [fileContent]);
+  }, []);
 
   if (!uri) {
     return <div className="h-full w-full p-4 text-muted-foreground">未选择文件</div>;
@@ -380,19 +357,8 @@ export default function CodeViewer({
     );
   }
 
-  const language = getLanguageFromExt(ext);
-
   return (
-    <div
-      ref={containerRef}
-      className="allow-text-select relative h-full w-full overflow-auto"
-      style={{
-        userSelect: "text",
-        WebkitUserSelect: "text",
-        MozUserSelect: "text",
-        msUserSelect: "text",
-      }}
-    >
+    <div ref={containerRef} className="code-viewer relative h-full w-full overflow-hidden">
       {selectionRect ? (
         <div
           className="absolute z-10 flex items-center gap-1 rounded-md border border-border/70 bg-background/95 px-1.5 py-1 shadow-sm"
@@ -401,6 +367,9 @@ export default function CodeViewer({
             top: Math.max(selectionRect.top - 10, 6),
             transform: "translate(-50%, -100%)",
           }}
+          onPointerDown={handleToolbarPointerDown}
+          onPointerUp={handleToolbarPointerUp}
+          onPointerCancel={handleToolbarPointerUp}
         >
           <Button
             variant="ghost"
@@ -424,28 +393,19 @@ export default function CodeViewer({
           </Button>
         </div>
       ) : null}
-      <SyntaxHighlighter
-        style={oneDark as any}
-        language={language}
-        PreTag="div"
-        showLineNumbers
-        wrapLines
-        lineProps={() => ({
-          style: {
-            userSelect: "text",
-            WebkitUserSelect: "text",
-            MozUserSelect: "text",
-            msUserSelect: "text",
-          },
-        })}
-        customStyle={SYNTAX_HIGHLIGHTER_CUSTOM_STYLE}
-        lineNumberStyle={SYNTAX_HIGHLIGHTER_LINE_NUMBER_STYLE}
-        codeTagProps={SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS}
-      >
-        {fileContent || ""}
-      </SyntaxHighlighter>
+      <Editor
+        height="100%"
+        width="100%"
+        path={uri}
+        value={fileContent}
+        language={languageId}
+        theme={MONACO_THEME_NAME}
+        beforeMount={handleBeforeMount}
+        onMount={handleEditorMount}
+        options={editorOptions}
+      />
       {fileContent ? null : (
-        <div className="px-4 pb-4 text-xs text-muted-foreground">
+        <div className="pointer-events-none absolute left-4 top-4 text-xs text-muted-foreground">
           {name ?? uri}
         </div>
       )}

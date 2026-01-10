@@ -41,10 +41,10 @@ function resolveModelIconName(icon?: string | null): ModelIconName {
 function resolveModelIconComponent(
   icon: (typeof MODEL_ICON_MAP)[ModelIconName],
 ): ComponentType<{ size?: number | string; className?: string; style?: CSSProperties }> {
-  // 逻辑：优先使用 Color 版本，不存在时退回 Combine 或 Mono。
+  // 逻辑：优先使用 Color 版本，不存在时退回 Mono，避免出现图标+文字组合。
   const colorComponent = "Color" in icon ? icon.Color : undefined;
   const combineComponent = "Combine" in icon ? icon.Combine : undefined;
-  return colorComponent ?? combineComponent ?? icon;
+  return colorComponent ?? icon ?? combineComponent;
 }
 
 /**

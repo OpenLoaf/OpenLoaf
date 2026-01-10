@@ -287,6 +287,10 @@ export class CanvasRenderer {
       const isHover =
         hoverAnchor?.elementId === resolved.elementId &&
         hoverAnchor.anchorId === resolved.anchorId;
+      if (this.isImageAnchorOverlayActive(resolved.elementId, snapshot)) {
+        // 逻辑：图片节点选中或悬停时由 DOM 层绘制锚点，避免重复显示。
+        return;
+      }
       const radius = (isSource || isHover ? 5.5 : 3.5) * this.dpr;
       const fill = isHover ? palette.anchorHover : palette.anchor;
       const stroke = palette.handleFill;
@@ -301,6 +305,14 @@ export class CanvasRenderer {
     });
 
     ctx.restore();
+  }
+
+  /** Return true when the element uses DOM overlay anchors. */
+  private isImageAnchorOverlayActive(elementId: string, snapshot: CanvasSnapshot): boolean {
+    const element = snapshot.elements.find(item => item.id === elementId);
+    if (!element || element.kind !== "node" || element.type !== "image") return false;
+    if (snapshot.selectedIds.includes(elementId)) return true;
+    return snapshot.connectorHover?.elementId === elementId;
   }
 
   /** Stroke a connector path with optional arrowhead. */

@@ -12,6 +12,17 @@ export const CONNECTOR_ENDPOINT_HIT_RADIUS = 6;
 export const CONNECTOR_HIT_RADIUS = 8;
 export const STROKE_HIT_RADIUS = 8;
 
+/** Base diameter for selected edge anchors in screen pixels. */
+export const SELECTED_ANCHOR_EDGE_SIZE = 14;
+/** Hover diameter for selected edge anchors in screen pixels. */
+export const SELECTED_ANCHOR_EDGE_SIZE_HOVER = 20;
+/** Base diameter for selected side anchors in screen pixels. */
+export const SELECTED_ANCHOR_SIDE_SIZE = 32;
+/** Hover diameter for selected side anchors in screen pixels. */
+export const SELECTED_ANCHOR_SIDE_SIZE_HOVER = 40;
+/** Extra gap from node edge to selected anchors in screen pixels. */
+export const SELECTED_ANCHOR_GAP = 6;
+
 export const MIN_ZOOM = 0.1;
 export const MIN_ZOOM_EPS = 0.0001;
 

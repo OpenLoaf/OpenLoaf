@@ -299,6 +299,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     draftModelFilter,
     setDraftModelFilter,
     setFocusedModelId,
+    editingModelId,
     draftModelId,
     setDraftModelId,
     draftModelTags,
@@ -327,6 +328,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     submitDraft,
     deleteProvider,
     openModelDialog,
+    openModelEditDialog,
     submitModelDraft,
     PROVIDER_OPTIONS,
   } = useProviderManagement();
@@ -608,11 +610,13 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         onDraftModelFilterChange={setDraftModelFilter}
         onFocusedModelIdChange={setFocusedModelId}
         onOpenModelDialog={openModelDialog}
+        onOpenModelEditDialog={openModelEditDialog}
         onSubmit={submitDraft}
       />
 
       <ModelDialog
         open={modelDialogOpen}
+        editingModelId={editingModelId}
         draftModelId={draftModelId}
         draftModelTags={draftModelTags}
         draftModelContextK={draftModelContextK}

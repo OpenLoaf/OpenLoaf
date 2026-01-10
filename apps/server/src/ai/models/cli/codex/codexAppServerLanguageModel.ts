@@ -16,8 +16,6 @@ import type {
 } from "@ai-sdk/provider";
 import { convertAsyncIteratorToReadableStream } from "@ai-sdk/provider-utils";
 import { createHash } from "crypto";
-import fs from "fs/promises";
-import path from "path";
 import { logger } from "@/common/logger";
 import { getProjectId, getSessionId, getWorkspaceId } from "@/ai/chat-stream/requestContext";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@teatime-ai/api/services/vfsService";
@@ -147,30 +145,47 @@ async function buildCodexImageInput(
   const raw = part.data;
   if (!raw) return null;
   if (typeof raw === "string") {
-    const localPath = resolveLocalImagePath(raw);
-    if (localPath) return { type: "localImage", path: localPath };
-    if (raw.startsWith("data:")) {
-      const localImage = await persistDataUrlAsLocalImage(raw);
-      if (localImage) return { type: "localImage", path: localImage };
-      return null;
-    }
-    return { type: "image", url: raw };
+    const input = resolveStringImageInput(raw, mediaType);
+    return input;
   }
   if (raw instanceof URL) {
     const url = raw.toString();
-    const localPath = resolveLocalImagePath(url);
-    if (localPath) return { type: "localImage", path: localPath };
-    return { type: "image", url };
+    const input = resolveStringImageInput(url, mediaType);
+    return input;
   }
   if (raw instanceof Uint8Array) {
     const resolvedType = mediaType || "image/*";
     const base64 = Buffer.from(raw).toString("base64");
     const dataUrl = `data:${resolvedType};base64,${base64}`;
-    const localImage = await persistDataUrlAsLocalImage(dataUrl);
-    if (!localImage) return null;
-    return { type: "localImage", path: localImage };
+    return { type: "image", url: dataUrl };
   }
   return null;
+}
+
+/** Resolve string input into Codex image input. */
+function resolveStringImageInput(
+  value: string,
+  mediaType?: string,
+): CodexInputItem | null {
+  const localPath = resolveLocalImagePath(value);
+  if (localPath) return { type: "localImage", path: localPath };
+  if (value.startsWith("data:")) {
+    return { type: "image", url: value };
+  }
+  const urlLike = resolveUrlIfValid(value);
+  if (urlLike) return { type: "image", url: urlLike.toString() };
+  if (!mediaType) return null;
+  // 中文注释：AI SDK 传入 base64 字符串时，需要补回 data URL 前缀。
+  return { type: "image", url: `data:${mediaType};base64,${value}` };
+}
+
+/** Parse a URL string if possible. */
+function resolveUrlIfValid(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
 }
 
 /** Resolve file URL into a local image path. */
@@ -186,46 +201,6 @@ function resolveLocalImagePath(value: string): string | null {
   } catch {
     return value.slice("file://".length);
   }
-}
-
-/** Persist a data URL as a local image and return the file path. */
-async function persistDataUrlAsLocalImage(dataUrl: string): Promise<string | null> {
-  const parsed = parseDataUrl(dataUrl);
-  if (!parsed) return null;
-  const workingDir = resolveCodexWorkingDirectory();
-  const imageDir = path.join(workingDir, ".teatime", "cli", "codex", "images");
-  const hash = createHash("sha256").update(dataUrl).digest("hex");
-  const ext = resolveImageExtension(parsed.mediaType);
-  const targetPath = path.join(imageDir, `${hash}.${ext}`);
-  await fs.mkdir(imageDir, { recursive: true });
-  try {
-    await fs.stat(targetPath);
-    return targetPath;
-  } catch (error) {
-    const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : null;
-    if (code && code !== "ENOENT") throw error;
-  }
-  const buffer = Buffer.from(parsed.base64, "base64");
-  await fs.writeFile(targetPath, buffer);
-  return targetPath;
-}
-
-/** Parse a base64 data URL payload. */
-function parseDataUrl(dataUrl: string): { mediaType: string; base64: string } | null {
-  const match = /^data:([^;]+);base64,(.+)$/u.exec(dataUrl);
-  if (!match) return null;
-  return { mediaType: match[1], base64: match[2] };
-}
-
-/** Resolve a filename extension from an image media type. */
-function resolveImageExtension(mediaType: string): string {
-  const normalized = mediaType.toLowerCase();
-  if (normalized.includes("png")) return "png";
-  if (normalized.includes("jpeg") || normalized.includes("jpg")) return "jpg";
-  if (normalized.includes("webp")) return "webp";
-  if (normalized.includes("gif")) return "gif";
-  if (normalized.includes("bmp")) return "bmp";
-  return "img";
 }
 
 /** Build a hash of the Codex config for cache invalidation. */

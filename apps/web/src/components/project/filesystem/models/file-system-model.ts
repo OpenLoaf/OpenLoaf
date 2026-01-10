@@ -1033,12 +1033,7 @@ export function useProjectFileSystemModel({
       setSortOrder("asc");
       return;
     }
-    if (sortOrder === "asc") {
-      setSortOrder("desc");
-      return;
-    }
-    setSortField(null);
-    setSortOrder(null);
+    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
   /** Toggle sort by time. */
@@ -1048,12 +1043,7 @@ export function useProjectFileSystemModel({
       setSortOrder("desc");
       return;
     }
-    if (sortOrder === "desc") {
-      setSortOrder("asc");
-      return;
-    }
-    setSortField(null);
-    setSortOrder(null);
+    setSortOrder(sortOrder === "desc" ? "asc" : "desc");
   };
 
   /** Move an entry into another folder and return the history action. */

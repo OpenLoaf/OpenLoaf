@@ -80,8 +80,8 @@ type FileSystemToolbarState = {
 /** Default toolbar state for file system view. */
 const DEFAULT_TOOLBAR_STATE: FileSystemToolbarState = {
   viewMode: "grid",
-  sortField: null,
-  sortOrder: null,
+  sortField: "name",
+  sortOrder: "asc",
 };
 
 /** Storage key prefix for file system toolbar settings. */
@@ -198,14 +198,27 @@ function normalizeFileSystemToolbarState(
   raw: Partial<FileSystemToolbarState> | null
 ): FileSystemToolbarState {
   if (!raw) return DEFAULT_TOOLBAR_STATE;
+  const hasSortField = Object.prototype.hasOwnProperty.call(raw, "sortField");
+  const hasSortOrder = Object.prototype.hasOwnProperty.call(raw, "sortOrder");
   const viewMode =
     raw.viewMode === "list" || raw.viewMode === "columns"
       ? raw.viewMode
       : "grid";
+  if (!hasSortField && !hasSortOrder) {
+    return {
+      viewMode,
+      sortField: DEFAULT_TOOLBAR_STATE.sortField,
+      sortOrder: DEFAULT_TOOLBAR_STATE.sortOrder,
+    };
+  }
   const sortField = raw.sortField === "name" || raw.sortField === "mtime" ? raw.sortField : null;
   const sortOrder = raw.sortOrder === "asc" || raw.sortOrder === "desc" ? raw.sortOrder : null;
   if (!sortField || !sortOrder) {
-    return { viewMode, sortField: null, sortOrder: null };
+    return {
+      viewMode,
+      sortField: DEFAULT_TOOLBAR_STATE.sortField,
+      sortOrder: DEFAULT_TOOLBAR_STATE.sortOrder,
+    };
   }
   return { viewMode, sortField, sortOrder };
 }
@@ -674,6 +687,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               </TooltipContent>
             </Tooltip>
           </div>
+          <div className="mx-1 h-4 w-px bg-border/70" />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -685,7 +699,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 aria-label="按字母排序"
                 onClick={handleSortByNameClick}
               >
-                {model.sortField === "name" && model.sortOrder === "desc" ? (
+                {model.sortField === "name" && model.sortOrder === "asc" ? (
                   <ArrowUpAZ className="h-3.5 w-3.5" />
                 ) : (
                   <ArrowDownAZ className="h-3.5 w-3.5" />
@@ -849,7 +863,12 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           {isListView ? (
             <div className="flex-1 min-h-0 h-full flex flex-col @container/fs-list">
               <div className="border-b border-border/70 bg-background px-4">
-                <FileSystemListHeader />
+                <FileSystemListHeader
+                  sortField={model.sortField}
+                  sortOrder={model.sortOrder}
+                  onSortByName={handleSortByNameClick}
+                  onSortByTime={handleSortByTimeClick}
+                />
               </div>
               <div
                 className="flex-1 min-h-0 overflow-auto bg-background p-4"

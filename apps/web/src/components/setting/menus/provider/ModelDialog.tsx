@@ -16,6 +16,8 @@ import {
 export type ModelDialogProps = {
   /** Dialog visibility. */
   open: boolean;
+  /** Editing model id. */
+  editingModelId: string | null;
   /** Draft model id. */
   draftModelId: string;
   /** Draft tag list. */
@@ -57,6 +59,7 @@ export type ModelDialogProps = {
  */
 export function ModelDialog({
   open,
+  editingModelId,
   draftModelId,
   draftModelTags,
   draftModelContextK,
@@ -75,11 +78,13 @@ export function ModelDialog({
   onDraftModelOutputPriceChange,
   onSubmit,
 }: ModelDialogProps) {
+  const isEditing = Boolean(editingModelId);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] w-full max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>新建模型</DialogTitle>
+          <DialogTitle>{isEditing ? "编辑模型" : "新建模型"}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -88,6 +93,7 @@ export function ModelDialog({
             <Input
               value={draftModelId}
               placeholder="例如：custom-chat-1"
+              disabled={isEditing}
               onChange={(event) => onDraftModelIdChange(event.target.value)}
             />
           </div>

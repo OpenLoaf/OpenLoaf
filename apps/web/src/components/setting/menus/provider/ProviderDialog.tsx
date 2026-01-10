@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Eye, EyeOff, ChevronDown, Plus, Copy, Check } from "lucide-react";
+import { Eye, EyeOff, ChevronDown, Plus, Copy, Check, Pencil } from "lucide-react";
 import { getModelLabel } from "@/lib/model-registry";
 import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
 import {
@@ -108,6 +108,8 @@ type ProviderDialogProps = {
   onFocusedModelIdChange: (value: string | null) => void;
   /** Open model dialog. */
   onOpenModelDialog: () => void;
+  /** Open edit model dialog. */
+  onOpenModelEditDialog: (model: ModelDefinition) => void;
   /** Submit draft callback. */
   onSubmit: () => Promise<void> | void;
 };
@@ -189,19 +191,23 @@ export function ProviderDialog({
   onDraftModelFilterChange,
   onFocusedModelIdChange,
   onOpenModelDialog,
+  onOpenModelEditDialog,
   onSubmit,
 }: ProviderDialogProps) {
   const [copiedModelId, setCopiedModelId] = useState<string | null>(null);
   const showResponsesToggle = draftProvider === "custom";
+  const canEditFocusedModel = Boolean(
+    focusedModel && draftCustomModels.some((model) => model.id === focusedModel.id),
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-full max-w-[60vw] overflow-y-auto lg:max-w-[900px]">
+      <DialogContent className="max-h-[90vh] w-full max-w-[70vw] overflow-y-auto lg:max-w-[1080px]">
         <DialogHeader>
           <DialogTitle>{editingKey ? "编辑服务商" : "添加服务商"}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+        <div className="grid gap-6 lg:grid-cols-[0.85fr_1.65fr]">
           <div className="space-y-4">
             <div className="space-y-2">
               <div className="text-sm font-medium">服务商</div>
@@ -355,7 +361,7 @@ export function ProviderDialog({
             ) : null}
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm font-medium">模型</div>
               <Button
@@ -369,10 +375,10 @@ export function ProviderDialog({
                 <Plus className="h-2.5 w-2.5" />
               </Button>
             </div>
-            <div className="rounded-md border border-border">
-              <div className="grid grid-cols-[1.1fr_1fr] gap-3 p-3">
-                <div className="flex h-64 flex-col gap-2 pr-1">
-                  <div className="flex-1 overflow-auto space-y-1">
+            <div className="flex-1 min-h-[360px] rounded-md border border-border">
+              <div className="grid h-full min-h-[360px] grid-cols-[1.1fr_1fr] gap-3 p-3">
+                <div className="flex min-h-0 flex-col gap-2 pr-1">
+                  <div className="flex-1 min-h-0 overflow-auto space-y-1">
                     {filteredModelOptions.length === 0 ? (
                       <div className="px-2 py-1.5 text-sm text-muted-foreground">暂无可选模型</div>
                     ) : (
@@ -409,7 +415,7 @@ export function ProviderDialog({
                     )}
                   </div>
                 </div>
-                <div className="h-64 overflow-auto rounded-md border border-border bg-muted/20 p-3 text-sm">
+                <div className="min-h-0 overflow-auto rounded-md border border-border bg-muted/20 p-3 text-sm">
                   {focusedModel ? (
                     <div className="space-y-4">
                       <div className="flex items-start justify-between gap-2">
@@ -429,28 +435,42 @@ export function ProviderDialog({
                             </div>
                           ) : null}
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          className="h-6 w-6"
-                          onClick={async () => {
-                            await copyToClipboard(focusedModel.id);
-                            setCopiedModelId(focusedModel.id);
-                            window.setTimeout(() => {
-                              setCopiedModelId((prev) =>
-                                prev === focusedModel.id ? null : prev,
-                              );
-                            }, 1200);
-                          }}
-                          aria-label="复制模型名称"
-                        >
-                          {copiedModelId === focusedModel.id ? (
-                            <Check className="h-3 w-3" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="h-6 w-6"
+                            onClick={async () => {
+                              await copyToClipboard(focusedModel.id);
+                              setCopiedModelId(focusedModel.id);
+                              window.setTimeout(() => {
+                                setCopiedModelId((prev) =>
+                                  prev === focusedModel.id ? null : prev,
+                                );
+                              }, 1200);
+                            }}
+                            aria-label="复制模型名称"
+                          >
+                            {copiedModelId === focusedModel.id ? (
+                              <Check className="h-3 w-3" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="h-6 w-6"
+                            onClick={() => onOpenModelEditDialog(focusedModel)}
+                            disabled={!canEditFocusedModel}
+                            title={canEditFocusedModel ? "编辑模型" : "仅支持编辑自定义模型"}
+                            aria-label="编辑模型"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">

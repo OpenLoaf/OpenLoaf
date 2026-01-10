@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   FlaskConical,
   Database,
+  Sparkles,
 } from "lucide-react";
 
 import { BasicSettings } from "./menus/BasicSettings";
@@ -54,12 +55,14 @@ const MENU: Array<{
 }> = [
   { key: "basic", label: "基础", Icon: SlidersHorizontal, Component: BasicSettings },
   { key: "workspace", label: "工作空间", Icon: Building2, Component: WorkspaceSettings },
-  { key: "keys", label: "模型服务", Icon: KeyRound, Component: ProviderManagement },
+  { key: "keys", label: "AI模型服务", Icon: Sparkles, Component: ProviderManagement },
   { key: "storage", label: "S3存储服务", Icon: Database, Component: ObjectStorageService },
   { key: "whitelist", label: "白名单", Icon: ShieldCheck, Component: CommandAllowlist },
   { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
   { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
-  { key: "projectTest", label: "测试", Icon: FlaskConical, Component: TestSetting },
+  ...(process.env.NODE_ENV === "development"
+    ? [{ key: "projectTest", label: "测试", Icon: FlaskConical, Component: TestSetting }]
+    : []),
   { key: "about", label: "关于Teatime", Icon: Info, Component: AboutTeatime },
 ];
 

@@ -40,6 +40,10 @@ type TerminalServerMessage =
   | { type: "output"; data: string }
   | { type: "exit"; code?: number; signal?: number };
 
+type TerminalShortcutAction =
+  | { type: "new" }
+  | { type: "select"; index: number };
+
 /** Build a websocket URL for terminal sessions. */
 function resolveTerminalWsUrl(sessionId: string, token: string): string {
   const baseUrl = resolveServerUrl();
@@ -76,6 +80,20 @@ function getTerminalTabPwdUri(tab: TerminalTab): string {
   return fromParams || direct;
 }
 
+/** Resolve Alt/Option shortcut intent for terminal tabs. */
+function resolveTerminalAltShortcut(event: KeyboardEvent): TerminalShortcutAction | null {
+  if (!event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return null;
+  const code = event.code || "";
+  const key = event.key.toLowerCase();
+  if (code === "KeyN" || key === "n") return { type: "new" };
+  const digitMatch = /^(Digit|Numpad)([0-9])$/.exec(code);
+  if (!digitMatch) return null;
+  const digit = Number(digitMatch[2]);
+  if (Number.isNaN(digit)) return null;
+  if (digit === 0) return { type: "new" };
+  return { type: "select", index: digit - 1 };
+}
+
 /** Build a display title for a terminal tab. */
 function getTerminalTabTitle(tab: TerminalTab): string {
   if (typeof tab.title === "string" && tab.title.trim()) return tab.title.trim();
@@ -99,6 +117,7 @@ function TerminalSessionView({
   enabled,
   allowShortcut,
   onRequestNewTab,
+  onRequestSelectTab,
 }: {
   tab: TerminalTab;
   active: boolean;
@@ -107,6 +126,8 @@ function TerminalSessionView({
   allowShortcut: boolean;
   /** Request handler for creating a new terminal tab. */
   onRequestNewTab?: () => void;
+  /** Request handler for selecting a terminal tab by index. */
+  onRequestSelectTab?: (index: number) => void;
 }) {
   const pwdUri = getTerminalTabPwdUri(tab);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -119,6 +140,7 @@ function TerminalSessionView({
   const resizeHandlerRef = useRef<(() => void) | null>(null);
   const allowShortcutRef = useRef(allowShortcut);
   const requestNewTabRef = useRef(onRequestNewTab);
+  const requestSelectTabRef = useRef(onRequestSelectTab);
   const [status, setStatus] = useState<"idle" | "connecting" | "ready" | "error">(
     "idle"
   );
@@ -143,6 +165,10 @@ function TerminalSessionView({
   useEffect(() => {
     requestNewTabRef.current = onRequestNewTab;
   }, [onRequestNewTab]);
+
+  useEffect(() => {
+    requestSelectTabRef.current = onRequestSelectTab;
+  }, [onRequestSelectTab]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -206,16 +232,16 @@ function TerminalSessionView({
     });
     terminal.attachCustomKeyEventHandler((domEvent) => {
       if (!allowShortcutRef.current) return true;
-      if (!domEvent.altKey || domEvent.metaKey || domEvent.ctrlKey || domEvent.shiftKey) {
-        return true;
-      }
-      const key = domEvent.key.toLowerCase();
-      const isMatch = domEvent.code === "KeyN" || key === "n";
-      if (!isMatch) return true;
-      // 中文注释：终端输入时捕获 Alt/Option + N，转为新建标签。
+      const action = resolveTerminalAltShortcut(domEvent);
+      if (!action) return true;
+      // 中文注释：终端输入时捕获 Alt/Option 快捷键，转为终端标签操作。
       domEvent.preventDefault();
       domEvent.stopPropagation();
-      requestNewTabRef.current?.();
+      if (action.type === "new") {
+        requestNewTabRef.current?.();
+      } else {
+        requestSelectTabRef.current?.(action.index);
+      }
       return false;
     });
 
@@ -426,22 +452,41 @@ export default function TerminalViewer({
     updateTerminalState([...tabsRef.current, nextTab], nextTab.id);
   }, [activeTab, enabled, safeTabId, updateTerminalState, workspace?.rootUri]);
 
+  /** Select terminal tab by numeric index (1-based shortcut). */
+  const selectTerminalTabByIndex = useCallback(
+    (index: number) => {
+      const currentTabs = tabsRef.current;
+      const target = currentTabs[index];
+      if (!target) return;
+      updateTerminalState(currentTabs, target.id);
+    },
+    [updateTerminalState],
+  );
+
   /** Handle Alt/Option shortcut for creating a new terminal tab. */
   const handleTerminalTabShortcut = useCallback(
     (event: KeyboardEvent) => {
       if (!tabActive) return;
       if (stackHidden || coveredByAnotherStackItem) return;
       if (event.repeat) return;
-      if (!event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
-      const key = event.key.toLowerCase();
-      const isMatch = event.code === "KeyN" || key === "n";
-      if (!isMatch) return;
-      // 中文注释：Alt/Option + N 快捷键仅在终端面板处于前台时生效，阻止输入死键符号。
+      const action = resolveTerminalAltShortcut(event);
+      if (!action) return;
+      // 中文注释：Alt/Option 快捷键仅在终端面板处于前台时生效，阻止输入死键符号。
       event.preventDefault();
       event.stopPropagation();
-      onNewTerminalTab();
+      if (action.type === "new") {
+        onNewTerminalTab();
+      } else {
+        selectTerminalTabByIndex(action.index);
+      }
     },
-    [coveredByAnotherStackItem, onNewTerminalTab, stackHidden, tabActive],
+    [
+      coveredByAnotherStackItem,
+      onNewTerminalTab,
+      selectTerminalTabByIndex,
+      stackHidden,
+      tabActive,
+    ],
   );
 
   useEffect(() => {
@@ -551,6 +596,7 @@ export default function TerminalViewer({
                   enabled && tabActive && !stackHidden && !coveredByAnotherStackItem
                 }
                 onRequestNewTab={onNewTerminalTab}
+                onRequestSelectTab={selectTerminalTabByIndex}
               />
             );
           })

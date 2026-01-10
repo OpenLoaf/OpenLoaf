@@ -478,6 +478,8 @@ export function useProviderManagement() {
   const [focusedModelId, setFocusedModelId] = useState<string | null>(null);
   /** Track create model dialog visibility. */
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
+  /** Track edited model id. */
+  const [editingModelId, setEditingModelId] = useState<string | null>(null);
   /** Track draft model id. */
   const [draftModelId, setDraftModelId] = useState("");
   /** Track draft model tags. */
@@ -629,6 +631,7 @@ export function useProviderManagement() {
    */
   function openModelDialog() {
     setModelError(null);
+    setEditingModelId(null);
     setDraftModelId("");
     setDraftModelTags([]);
     setDraftModelContextK("0");
@@ -640,16 +643,34 @@ export function useProviderManagement() {
   }
 
   /**
+   * Open edit model dialog and hydrate the draft fields.
+   */
+  function openModelEditDialog(model: ModelDefinition) {
+    const tier = resolvePriceTier(model, 0);
+    setModelError(null);
+    setEditingModelId(model.id);
+    setDraftModelId(model.id);
+    setDraftModelTags(model.tags ?? []);
+    setDraftModelContextK(Number.isFinite(model.maxContextK) ? String(model.maxContextK) : "0");
+    setDraftModelCurrencySymbol(model.currencySymbol ?? "");
+    setDraftModelInputPrice(tier ? String(tier.input ?? 0) : "");
+    setDraftModelInputCachePrice(tier ? String(tier.inputCache ?? 0) : "");
+    setDraftModelOutputPrice(tier ? String(tier.output ?? 0) : "");
+    setModelDialogOpen(true);
+  }
+
+  /**
    * Submit model draft and append to custom list.
    */
   function submitModelDraft() {
     const modelId = draftModelId.trim();
+    const isEditing = Boolean(editingModelId);
     if (!modelId) {
       setModelError("请填写模型 ID");
       return;
     }
     const existing = modelOptions.some((model) => model.id === modelId);
-    if (existing) {
+    if (existing && (!isEditing || modelId !== editingModelId)) {
       setModelError("模型 ID 已存在");
       return;
     }
@@ -687,8 +708,20 @@ export function useProviderManagement() {
       ],
       currencySymbol: currencySymbol || undefined,
     };
-    setDraftCustomModels((prev) => [...prev, newModel]);
-    setDraftModelIds((prev) => Array.from(new Set([...prev, modelId])));
+    if (isEditing) {
+      setDraftCustomModels((prev) => {
+        const next = prev.filter((model) => model.id !== editingModelId);
+        return [...next, newModel];
+      });
+      setDraftModelIds((prev) => {
+        const next = prev.filter((id) => id !== editingModelId);
+        return Array.from(new Set([...next, modelId]));
+      });
+      setEditingModelId(null);
+    } else {
+      setDraftCustomModels((prev) => [...prev, newModel]);
+      setDraftModelIds((prev) => Array.from(new Set([...prev, modelId])));
+    }
     setModelDialogOpen(false);
   }
 
@@ -813,6 +846,7 @@ export function useProviderManagement() {
     setDialogOpen,
     modelDialogOpen,
     setModelDialogOpen,
+    editingModelId,
     s3DialogOpen,
     setS3DialogOpen,
     editingKey,
@@ -899,6 +933,7 @@ export function useProviderManagement() {
     submitDraft,
     deleteProvider,
     openModelDialog,
+    openModelEditDialog,
     submitModelDraft,
     openS3Editor,
     submitS3Draft,

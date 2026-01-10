@@ -19,6 +19,9 @@ import {
   EDGE_ANCHOR_CENTER_RANGE,
   EDGE_ANCHOR_HIT_RADIUS,
   MIN_ZOOM,
+  SELECTED_ANCHOR_EDGE_SIZE,
+  SELECTED_ANCHOR_GAP,
+  SELECTED_ANCHOR_SIDE_SIZE,
   STROKE_HIT_RADIUS,
 } from "./constants";
 import type { NodeRegistry } from "./NodeRegistry";
@@ -179,11 +182,18 @@ function findEdgeAnchorHit(
   elements: CanvasNodeElement[],
   nodes: NodeRegistry,
   zoom: number,
-  exclude?: { elementId: string; anchorId: string }
+  exclude?: { elementId: string; anchorId: string },
+  selectedIds: string[] = []
 ): CanvasAnchorHit | null {
   // 逻辑：边缘命中半径随缩放换算，保证交互手感稳定。
   const hitRadius = EDGE_ANCHOR_HIT_RADIUS / Math.max(zoom, MIN_ZOOM);
   const centerRange = EDGE_ANCHOR_CENTER_RANGE / Math.max(zoom, MIN_ZOOM);
+  const selectedIdSet = selectedIds.length > 0 ? new Set(selectedIds) : null;
+  const zoomSafe = Math.max(zoom, MIN_ZOOM);
+  const selectedEdgeRadius = (SELECTED_ANCHOR_EDGE_SIZE / 2) / zoomSafe;
+  const selectedSideRadius = (SELECTED_ANCHOR_SIDE_SIZE / 2) / zoomSafe;
+  const selectedEdgeOffset = (SELECTED_ANCHOR_EDGE_SIZE / 2 + SELECTED_ANCHOR_GAP) / zoomSafe;
+  const selectedSideOffset = (SELECTED_ANCHOR_SIDE_SIZE / 2 + SELECTED_ANCHOR_GAP) / zoomSafe;
 
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
@@ -191,56 +201,89 @@ function findEdgeAnchorHit(
     const definition = nodes.getDefinition(element.type);
     const connectable = definition?.capabilities?.connectable ?? "auto";
     if (connectable === "auto" || connectable === "anchors") {
+      if (element.type === "image" && !selectedIdSet?.has(element.id)) {
+        // 逻辑：未选中的图片节点不显示锚点，避免悬浮时干扰。
+        continue;
+      }
+      // 逻辑：选中图片节点使用偏移锚点，命中区域跟随视觉锚点位置。
       const [x, y, w, h] = element.xywh;
-      const withinX = point[0] >= x - hitRadius && point[0] <= x + w + hitRadius;
-      const withinY = point[1] >= y - hitRadius && point[1] <= y + h + hitRadius;
+      const isSelectedImage =
+        selectedIdSet?.has(element.id) && element.type === "image";
+      const sideOffset = isSelectedImage ? selectedSideOffset : 0;
+      const edgeOffset = isSelectedImage ? selectedEdgeOffset : 0;
+      const sideHitRadius = isSelectedImage
+        ? Math.max(hitRadius, selectedSideRadius)
+        : hitRadius;
+      const edgeHitRadius = isSelectedImage
+        ? Math.max(hitRadius, selectedEdgeRadius)
+        : hitRadius;
+      const leftX = x - sideOffset;
+      const rightX = x + w + sideOffset;
+      const topY = y - edgeOffset;
+      const bottomY = y + h + edgeOffset;
+      const withinX =
+        point[0] >= leftX - sideHitRadius && point[0] <= rightX + sideHitRadius;
+      const withinY =
+        point[1] >= topY - edgeHitRadius && point[1] <= bottomY + edgeHitRadius;
       if (!withinX || !withinY) continue;
 
       const edgeHits: Array<{ id: string; distance: number; point: CanvasPoint }> = [];
       const centerY = y + h / 2;
       const centerX = x + w / 2;
       if (
-        point[0] >= x - hitRadius &&
-        point[0] <= x + hitRadius &&
+        point[0] >= leftX - sideHitRadius &&
+        point[0] <= leftX + sideHitRadius &&
         Math.abs(point[1] - centerY) <= centerRange
       ) {
-        edgeHits.push({ id: "left", distance: Math.abs(point[0] - x), point: [x, centerY] });
+        edgeHits.push({
+          id: "left",
+          distance: Math.abs(point[0] - leftX),
+          point: [leftX, centerY],
+        });
       }
       if (
-        point[0] >= x + w - hitRadius &&
-        point[0] <= x + w + hitRadius &&
+        point[0] >= rightX - sideHitRadius &&
+        point[0] <= rightX + sideHitRadius &&
         Math.abs(point[1] - centerY) <= centerRange
       ) {
         edgeHits.push({
           id: "right",
-          distance: Math.abs(point[0] - (x + w)),
-          point: [x + w, centerY],
+          distance: Math.abs(point[0] - rightX),
+          point: [rightX, centerY],
         });
       }
-      if (
-        point[1] >= y - hitRadius &&
-        point[1] <= y + hitRadius &&
-        Math.abs(point[0] - centerX) <= centerRange
-      ) {
-        edgeHits.push({ id: "top", distance: Math.abs(point[1] - y), point: [centerX, y] });
-      }
-      if (
-        point[1] >= y + h - hitRadius &&
-        point[1] <= y + h + hitRadius &&
-        Math.abs(point[0] - centerX) <= centerRange
-      ) {
-        edgeHits.push({
-          id: "bottom",
-          distance: Math.abs(point[1] - (y + h)),
-          point: [centerX, y + h],
-        });
+      // 逻辑：选中图片节点仅保留左右锚点，禁用上下锚点命中。
+      if (!isSelectedImage) {
+        if (
+          point[1] >= topY - edgeHitRadius &&
+          point[1] <= topY + edgeHitRadius &&
+          Math.abs(point[0] - centerX) <= centerRange
+        ) {
+          edgeHits.push({
+            id: "top",
+            distance: Math.abs(point[1] - topY),
+            point: [centerX, topY],
+          });
+        }
+        if (
+          point[1] >= bottomY - edgeHitRadius &&
+          point[1] <= bottomY + edgeHitRadius &&
+          Math.abs(point[0] - centerX) <= centerRange
+        ) {
+          edgeHits.push({
+            id: "bottom",
+            distance: Math.abs(point[1] - bottomY),
+            point: [centerX, bottomY],
+          });
+        }
       }
 
       if (edgeHits.length === 0) continue;
       edgeHits.sort((a, b) => a.distance - b.distance);
       const hit = edgeHits[0];
       if (!hit) continue;
-      if (hit.distance > hitRadius) continue;
+      const maxRadius = hit.id === "left" || hit.id === "right" ? sideHitRadius : edgeHitRadius;
+      if (hit.distance > maxRadius) continue;
       if (exclude && exclude.elementId === element.id && exclude.anchorId === hit.id) {
         continue;
       }
