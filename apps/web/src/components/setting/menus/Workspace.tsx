@@ -8,8 +8,10 @@ import { toast } from "sonner";
 import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
-import { Copy } from "lucide-react";
+import { Copy, Loader2, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useProjects } from "@/hooks/use-projects";
+import type { ProjectNode } from "@teatime-ai/api/services/projectTreeService";
 
 const TOKEN_K = 1000;
 const TOKEN_M = 1000 * 1000;
@@ -30,8 +32,17 @@ function formatTokenCount(value: number): string {
   return String(value);
 }
 
+/**
+ * Count project nodes in a workspace tree.
+ */
+function countProjectNodes(nodes?: ProjectNode[]): number {
+  if (!nodes?.length) return 0;
+  return nodes.reduce((total, node) => total + 1 + countProjectNodes(node.children), 0);
+}
+
 export function WorkspaceSettings() {
   const { data: activeWorkspace } = useQuery(trpc.workspace.getActive.queryOptions());
+  const projectsQuery = useProjects();
   /** Track workspace name draft. */
   const [draftWorkspaceName, setDraftWorkspaceName] = useState("");
   /** Workspace path for display. */
@@ -80,6 +91,11 @@ export function WorkspaceSettings() {
   /** Whether workspace name is modified. */
   const isWorkspaceNameDirty =
     draftWorkspaceName.trim() !== currentWorkspaceName.trim();
+  /** Total number of projects in current workspace. */
+  const totalProjectCount = useMemo(
+    () => countProjectNodes(projectsQuery.data),
+    [projectsQuery.data],
+  );
 
   /** Clear all chat data with a confirm gate. */
   const handleClearAllChat = async () => {
@@ -154,20 +170,27 @@ export function WorkspaceSettings() {
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">工作空间名称</div>
-            <TeatimeSettingsField className="w-full sm:w-[320px] shrink-0 justify-end gap-2">
+            <TeatimeSettingsField className="w-full sm:w-[320px] shrink-0 justify-end gap-2 text-right">
               <Input
                 value={draftWorkspaceName}
                 placeholder="输入工作空间名称"
                 onChange={(event) => setDraftWorkspaceName(event.target.value)}
+                className="text-right"
               />
               <Button
                 type="button"
-                size="sm"
+                size="icon"
                 variant="secondary"
                 disabled={!isWorkspaceNameDirty || updateWorkspaceName.isPending}
                 onClick={() => void handleSaveWorkspaceName()}
+                aria-label="保存工作空间名称"
+                title="保存"
               >
-                {updateWorkspaceName.isPending ? "保存中..." : "保存"}
+                {updateWorkspaceName.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
               </Button>
             </TeatimeSettingsField>
           </div>
@@ -175,6 +198,12 @@ export function WorkspaceSettings() {
             <div className="text-sm font-medium">存储路径</div>
             <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
               {displayWorkspacePath}
+            </TeatimeSettingsField>
+          </div>
+          <div className="flex flex-wrap items-start gap-3 px-3 py-3">
+            <div className="text-sm font-medium">项目数量</div>
+            <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
+              {projectsQuery.isLoading ? "加载中..." : totalProjectCount}
             </TeatimeSettingsField>
           </div>
         </div>

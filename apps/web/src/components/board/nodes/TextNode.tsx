@@ -610,7 +610,7 @@ export function TextNodeView({
   );
 
   const containerClasses = [
-    "relative h-full w-full rounded-sm border box-border p-4",
+    "relative h-full w-full rounded-sm border box-border p-2.5",
     "border-slate-300 bg-white",
     "dark:border-slate-700 dark:bg-slate-900",
     "text-slate-900 dark:text-slate-100",
