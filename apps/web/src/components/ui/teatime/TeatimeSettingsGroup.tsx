@@ -6,6 +6,8 @@ import { TeatimeSettingsCard, type TeatimeSettingsCardProps } from "./TeatimeSet
 
 export type TeatimeSettingsGroupProps = {
   title: string;
+  /** Optional header icon. */
+  icon?: ReactNode;
   subtitle?: string;
   action?: ReactNode;
   children: ReactNode;
@@ -17,6 +19,7 @@ export type TeatimeSettingsGroupProps = {
 /** Settings group with header, optional actions, and card wrapper. */
 export function TeatimeSettingsGroup({
   title,
+  icon,
   subtitle,
   action,
   children,
@@ -28,7 +31,14 @@ export function TeatimeSettingsGroup({
     <section className={cn("space-y-2", className)}>
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <div className="text-sm font-medium">{title}</div>
+          <div className="flex items-center gap-2 text-sm font-medium">
+            {icon ? (
+              <span className="inline-flex h-4 w-4 items-center justify-center text-muted-foreground">
+                {icon}
+              </span>
+            ) : null}
+            <span>{title}</span>
+          </div>
           {subtitle ? (
             <div className="text-xs text-muted-foreground">{subtitle}</div>
           ) : null}

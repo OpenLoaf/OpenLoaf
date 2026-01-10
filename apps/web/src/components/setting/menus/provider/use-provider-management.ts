@@ -501,7 +501,6 @@ export function useProviderManagement() {
   /** Track draft model validation errors. */
   const [modelError, setModelError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   /** Track expanded provider rows. */
   const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
 
@@ -984,8 +983,6 @@ export function useProviderManagement() {
     s3Error,
     error,
     modelError,
-    copiedKey,
-    setCopiedKey,
     expandedProviders,
     setExpandedProviders,
     providerLabelById,

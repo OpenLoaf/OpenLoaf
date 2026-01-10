@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { normalizeChatModelSource } from "@/lib/provider-models";
 import { ChevronDown } from "lucide-react";
+import { Claude, OpenAI } from "@lobehub/icons";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@/components/animate-ui/components/radix/switch";
 import { toast } from "sonner";
@@ -317,8 +318,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     setDraftModelOutputPrice,
     error,
     modelError,
-    copiedKey,
-    setCopiedKey,
     expandedProviders,
     setExpandedProviders,
     providerLabelById,
@@ -476,7 +475,15 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">{cliToolLabels.codex}</div>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <OpenAI
+                  size={16}
+                  style={{ color: OpenAI.colorPrimary }}
+                  className="dark:!text-white"
+                  aria-hidden="true"
+                />
+                <span>{cliToolLabels.codex}</span>
+              </div>
               <div className="text-xs text-muted-foreground">
                 {cliToolDescriptions.codex} · 版本：{resolveCliVersionLabel(cliStatuses.codex)}
               </div>
@@ -523,7 +530,10 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
 
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">{cliToolLabels.claudeCode}</div>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Claude.Color size={16} aria-hidden="true" />
+                <span>{cliToolLabels.claudeCode}</span>
+              </div>
               <div className="text-xs text-muted-foreground">
                 {cliToolDescriptions.claudeCode} · 版本：
                 {resolveCliVersionLabel(cliStatuses.claudeCode)}
@@ -574,11 +584,9 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
       <ProviderSection
         entries={entries}
         expandedProviders={expandedProviders}
-        copiedKey={copiedKey}
         onAdd={() => openEditor()}
         onEdit={(entry) => openEditor(entry)}
         onDelete={(key) => setConfirmDeleteId(key)}
-        onCopiedKeyChange={setCopiedKey}
         onToggleExpand={(key) =>
           setExpandedProviders((prev) => ({
             ...prev,

@@ -23,6 +23,7 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { playNotificationSound } from "@/lib/notification-sound";
 import type { TeatimeUIDataTypes } from "@teatime-ai/api/types/message";
 import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
+import type { CodexOptions } from "@/lib/chat/codex-options";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "./chat-attachments";
 import { createChatSessionId } from "@/lib/chat-session-id";
 
@@ -234,6 +235,10 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   imageOptions?: ImageGenerateOptions;
   /** Update image generation options for the current chat session. */
   setImageOptions: React.Dispatch<React.SetStateAction<ImageGenerateOptions | undefined>>;
+  /** Codex options for the current chat session. */
+  codexOptions?: CodexOptions;
+  /** Update Codex options for the current chat session. */
+  setCodexOptions: React.Dispatch<React.SetStateAction<CodexOptions | undefined>>;
   /** Add image attachments to the chat input. */
   addAttachments?: (files: FileList | ChatAttachmentInput[]) => void;
   /** Add a masked attachment to the chat input. */
@@ -589,6 +594,8 @@ export default function ChatProvider({
   const [input, setInput] = React.useState("");
   /** Image options for this chat session. */
   const [imageOptions, setImageOptions] = React.useState<ImageGenerateOptions | undefined>(undefined);
+  /** Codex options for this chat session. */
+  const [codexOptions, setCodexOptions] = React.useState<CodexOptions | undefined>(undefined);
 
   React.useEffect(() => {
     // 关键：空消息列表时不应存在 leafMessageId（否则会把“脏 leaf”带进首条消息的 parentMessageId）
@@ -859,6 +866,8 @@ export default function ChatProvider({
         stepThinking,
         imageOptions,
         setImageOptions,
+        codexOptions,
+        setCodexOptions,
         addAttachments,
         addMaskedAttachment,
       }}

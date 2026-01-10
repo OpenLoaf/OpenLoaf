@@ -15,7 +15,7 @@ type ConnectorDropItem = {
   /** Node type to insert. */
   type: string;
   /** Node props for insertion. */
-  props: Record<string, string>;
+  props: Record<string, unknown>;
   /** Default size for the node. */
   size: [number, number];
 };
@@ -152,7 +152,20 @@ const ConnectorDropPanel = forwardRef<HTMLDivElement, ConnectorDropPanelProps>(
                   <button
                     key={group.label}
                     type="button"
-                    onClick={directItem ? () => onSelect(directItem) : undefined}
+                    onPointerDown={
+                      directItem
+                        ? event => {
+                            // 逻辑：优先响应按下，避免 click 被画布层吞掉。
+                            event.stopPropagation();
+                            console.log("[board] connector drop select group item", {
+                              group: group.label,
+                              label: directItem.label,
+                              type: directItem.type,
+                            });
+                            onSelect(directItem);
+                          }
+                        : undefined
+                    }
                     onPointerEnter={() => {
                       clearCloseTimer();
                       if (hasSubmenu) {
@@ -219,7 +232,16 @@ const ConnectorDropPanel = forwardRef<HTMLDivElement, ConnectorDropPanelProps>(
                     <button
                       key={`${activeGroup.label}-${item.label}`}
                       type="button"
-                      onClick={() => onSelect(item)}
+                      onPointerDown={event => {
+                        // 逻辑：优先响应按下，避免 click 被画布层吞掉。
+                        event.stopPropagation();
+                        console.log("[board] connector drop select submenu item", {
+                          group: activeGroup.label,
+                          label: item.label,
+                          type: item.type,
+                        });
+                        onSelect(item);
+                      }}
                       className="group flex items-start rounded-lg border border-slate-200/80 bg-slate-50 px-2.5 py-1.5 text-[12px] text-slate-700 transition hover:bg-slate-100 dark:border-slate-700/80 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                     >
                       <span className="flex min-w-0 flex-col items-start">

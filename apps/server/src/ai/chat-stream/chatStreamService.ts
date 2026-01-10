@@ -14,6 +14,7 @@ import {
   setChatModel,
   setAbortSignal,
   setRequestContext,
+  setCodexOptions,
   getWorkspaceId,
   getProjectId,
 } from "@/ai/chat-stream/requestContext";
@@ -22,6 +23,10 @@ import { getProviderSettings } from "@/modules/settings/settingsService";
 import { readBasicConf, readS3Providers } from "@/modules/settings/teatimeConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
 import { getModelDefinition } from "@/ai/models/modelRegistry";
+import {
+  normalizeCodexOptions,
+  type CodexRequestOptions,
+} from "@/ai/models/cli/codex/codexOptions";
 import type { ChatStreamRequest } from "./chatStreamTypes";
 import { loadMessageChain } from "./messageChainLoader";
 import { buildFilePartFromTeatimeUrl, loadTeatimeImageBuffer, saveChatImageAttachment } from "./attachmentResolver";
@@ -276,6 +281,8 @@ export async function runChatStream(input: {
       errorText: "请求失败：找不到父消息。",
     });
   }
+
+  setCodexOptions(resolveCodexRequestOptions(messages as UIMessage[]));
 
   let agentMetadata: Record<string, unknown> = {};
   let masterAgent: ReturnType<typeof createMasterAgentRunner>;
@@ -931,6 +938,30 @@ function normalizeOpenAiOptions(value: unknown): { quality?: string; style?: str
     ...(quality ? { quality } : {}),
     ...(style ? { style } : {}),
   };
+}
+
+/** Resolve Codex options from message metadata. */
+function resolveCodexRequestOptions(messages: UIMessage[]): CodexRequestOptions | undefined {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i] as any;
+    if (!message || message.role !== "user") continue;
+    const parts = Array.isArray(message.parts) ? message.parts : [];
+    const text = parts
+      .filter((part: any) => part?.type === "text" && typeof part.text === "string")
+      .map((part: any) => part.text)
+      .join("")
+      .trim();
+    if (!text) continue;
+    // 仅使用与 prompt 对应的 user 消息配置，避免旧消息覆盖。
+    const metadata = message.metadata;
+    if (!isRecord(metadata)) return undefined;
+    const rawOptions = metadata.codexOptions;
+    if (!rawOptions) return undefined;
+    const normalized = normalizeCodexOptions(rawOptions);
+    if (!normalized) return undefined;
+    return normalized;
+  }
+  return undefined;
 }
 
 /** Resolve image generation options from message metadata. */

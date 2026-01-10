@@ -1,6 +1,7 @@
 import type { UIMessageStreamWriter } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { AsyncLocalStorage } from "node:async_hooks";
+import type { CodexRequestOptions } from "@/ai/models/cli/codex/codexOptions";
 
 export type AgentFrame = {
   kind: "master";
@@ -31,6 +32,8 @@ export type RequestContext = {
   abortSignal?: AbortSignal;
   /** Resolved chat model for tool execution. */
   chatModel?: LanguageModelV3;
+  /** Codex request options for this request. */
+  codexOptions?: CodexRequestOptions;
   /** Assistant message id for the current streaming response. */
   assistantMessageId?: string;
   /** Agent frame stack for nested agents. */
@@ -123,6 +126,18 @@ export function setChatModel(model: LanguageModelV3) {
 /** Gets the resolved chat model for this request. */
 export function getChatModel(): LanguageModelV3 | undefined {
   return getRequestContext()?.chatModel;
+}
+
+/** Sets Codex request options for this request. */
+export function setCodexOptions(options: CodexRequestOptions | undefined) {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.codexOptions = options;
+}
+
+/** Gets Codex request options for this request. */
+export function getCodexOptions(): CodexRequestOptions | undefined {
+  return getRequestContext()?.codexOptions;
 }
 
 /** Sets the assistant message id for this request. */

@@ -17,13 +17,24 @@ import type {
 import { convertAsyncIteratorToReadableStream } from "@ai-sdk/provider-utils";
 import { createHash } from "crypto";
 import { logger } from "@/common/logger";
-import { getProjectId, getSessionId, getWorkspaceId } from "@/ai/chat-stream/requestContext";
+import {
+  getCodexOptions,
+  getProjectId,
+  getSessionId,
+  getWorkspaceId,
+} from "@/ai/chat-stream/requestContext";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@teatime-ai/api/services/vfsService";
 import { getCodexAppServerConnection } from "@/ai/models/cli/codex/codexAppServerConnection";
 import {
   getCachedCodexThread,
   setCachedCodexThread,
 } from "@/ai/models/cli/codex/codexThreadStore";
+import {
+  DEFAULT_CODEX_MODE,
+  DEFAULT_CODEX_REASONING_EFFORT,
+  type CodexMode,
+  type CodexReasoningEffort,
+} from "@/ai/models/cli/codex/codexOptions";
 
 /** Prompt part union used for Codex prompt serialization. */
 type CliPromptPart =
@@ -59,6 +70,8 @@ type CodexThreadResolution = {
   configHash: string;
 };
 
+type CodexSandboxMode = "read-only" | "workspace-write" | "danger-full-access";
+
 type CodexAppServerLanguageModelInput = {
   /** Provider id. */
   providerId: string;
@@ -88,15 +101,28 @@ type CodexServerNotification = {
 /** Default empty warnings payload. */
 const EMPTY_WARNINGS: SharedV3Warning[] = [];
 /** Default sandbox mode for Codex. */
-const DEFAULT_SANDBOX_MODE = "read-only";
+const DEFAULT_SANDBOX_MODE: CodexSandboxMode = "read-only";
 /** Default reasoning effort for Codex. */
-const DEFAULT_REASONING_EFFORT = "medium";
+const DEFAULT_REASONING_EFFORT: CodexReasoningEffort = DEFAULT_CODEX_REASONING_EFFORT;
 /** Default approval policy for Codex. */
 const DEFAULT_APPROVAL_POLICY = "never";
 /** Custom provider id for Codex CLI. */
 const CODEX_CUSTOM_PROVIDER_ID = "codex_cli_custom";
 /** Custom provider display name for Codex CLI. */
 const CODEX_CUSTOM_PROVIDER_NAME = "Codex CLI";
+
+const CODEX_SANDBOX_BY_MODE: Record<CodexMode, CodexSandboxMode> = {
+  chat: "read-only",
+  agent: "workspace-write",
+  agent_full_access: "danger-full-access",
+};
+
+/** Resolve sandbox mode from Codex mode. */
+function resolveCodexSandboxMode(mode?: CodexMode): CodexSandboxMode {
+  // 逻辑：根据模式映射沙箱权限，非法值回退默认只读。
+  if (!mode) return DEFAULT_SANDBOX_MODE;
+  return CODEX_SANDBOX_BY_MODE[mode] ?? DEFAULT_SANDBOX_MODE;
+}
 
 /** Extract the latest user message from a prompt. */
 function extractLatestUserMessage(
@@ -204,11 +230,12 @@ function resolveLocalImagePath(value: string): string | null {
 }
 
 /** Build a hash of the Codex config for cache invalidation. */
-function buildConfigHash(input: CodexAppServerLanguageModelInput): string {
+function buildConfigHash(input: CodexAppServerLanguageModelInput, mode: CodexMode): string {
   const payload = {
     apiUrl: input.forceCustomApiKey ? input.apiUrl.trim() : "",
     apiKey: input.forceCustomApiKey ? input.apiKey.trim() : "",
     forceCustomApiKey: input.forceCustomApiKey,
+    mode,
   };
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
@@ -362,7 +389,10 @@ async function resolveCodexThread(
   input: CodexAppServerLanguageModelInput,
   sessionId: string | undefined,
 ): Promise<CodexThreadResolution> {
-  const configHash = buildConfigHash(input);
+  const codexOptions = getCodexOptions();
+  const resolvedMode = codexOptions?.mode ?? DEFAULT_CODEX_MODE;
+  const sandboxMode = resolveCodexSandboxMode(resolvedMode);
+  const configHash = buildConfigHash(input, resolvedMode);
   const cached = sessionId ? getCachedCodexThread(sessionId, configHash) : null;
   if (cached) {
     logger.debug(
@@ -387,7 +417,7 @@ async function resolveCodexThread(
       approvalPolicy: DEFAULT_APPROVAL_POLICY,
       baseInstructions: null,
       developerInstructions: null,
-      sandbox: DEFAULT_SANDBOX_MODE,
+      sandbox: sandboxMode,
       experimentalRawEvents: false,
     },
   );
@@ -470,6 +500,8 @@ async function* createCodexStream(
     input,
     sessionId,
   );
+  const codexOptions = getCodexOptions();
+  const reasoningEffort = codexOptions?.reasoningEffort ?? DEFAULT_REASONING_EFFORT;
   const promptInput = await resolveCodexInput(options.prompt);
   const connection = getCodexAppServerConnection();
   const queue = new AsyncQueue<CodexServerNotification>();
@@ -507,7 +539,7 @@ async function* createCodexStream(
     input: promptInput,
     cwd: resolveCodexWorkingDirectory(),
     model: resolvedModel,
-    effort: DEFAULT_REASONING_EFFORT,
+    effort: reasoningEffort,
     approvalPolicy: DEFAULT_APPROVAL_POLICY,
   });
   turnId = turnResponse?.turn?.id ?? null;

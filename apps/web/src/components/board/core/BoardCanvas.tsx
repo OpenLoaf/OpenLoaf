@@ -1009,7 +1009,18 @@ export function BoardCanvas({
 
   /** Create a node and connector from a drop panel selection. */
   const handleConnectorDropSelect = (item: ConnectorDropItem) => {
-    if (!connectorDrop) return;
+    if (!connectorDrop) {
+      console.log("[board] connector drop select missing drop state", {
+        item,
+      });
+      return;
+    }
+    const isPromptText = item.label === "生成提示词";
+    // 逻辑：生成提示词固定落地为文本节点，避免误插入占位组件。
+    const resolvedType = isPromptText ? "text" : item.type;
+    const resolvedProps = isPromptText
+      ? { ...item.props, autoFocus: true }
+      : item.props;
     const [width, height] = item.size;
     const xywh: [number, number, number, number] = [
       connectorDrop.point[0] - width / 2,
@@ -1017,7 +1028,16 @@ export function BoardCanvas({
       width,
       height,
     ];
-    const id = engine.addNodeElement(item.type, item.props, xywh);
+    console.log("[board] connector drop select", {
+      label: item.label,
+      type: item.type,
+      resolvedType,
+      size: item.size,
+      xywh,
+      source: connectorDrop.source,
+    });
+    const id = engine.addNodeElement(resolvedType, resolvedProps, xywh);
+    console.log("[board] connector drop create result", { id });
     if (id) {
       engine.addConnectorElement({
         source: connectorDrop.source,

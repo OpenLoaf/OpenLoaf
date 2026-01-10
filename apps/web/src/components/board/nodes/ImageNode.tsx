@@ -49,9 +49,9 @@ export const imageConnectorDropGroups: ConnectorDropGroup[] = [
         label: "生成提示词",
         subtitle: "提取关键词",
         icon: <WandSparkles size={14} />,
-        type: "placeholder",
-        props: { title: "生成提示词", description: "基于图片生成提示词。" },
-        size: DEFAULT_NODE_SIZE,
+        type: "text",
+        props: { autoFocus: true },
+        size: [280, 140],
       },
       {
         label: "生成文案",

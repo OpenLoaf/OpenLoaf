@@ -61,7 +61,9 @@ import { handleChatMentionPointerDown, resolveProjectRootUri } from "@/lib/chat/
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { toast } from "sonner";
 import { normalizeImageOptions } from "@/lib/chat/image-options";
+import { normalizeCodexOptions } from "@/lib/chat/codex-options";
 import ChatImageOutputOption from "./ChatImageOutputOption";
+import CodexOption from "./options/CodexOption";
 import { supportsImageEdit, supportsImageGeneration, supportsToolCall } from "@/lib/model-capabilities";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 
@@ -811,6 +813,7 @@ export default function ChatInput({
     setInput,
     isHistoryLoading,
     imageOptions,
+    codexOptions,
     addMaskedAttachment,
     projectId,
     tabId,
@@ -838,6 +841,7 @@ export default function ChatInput({
       : "";
   const isAutoModel = !selectedModelId;
   const selectedModel = modelOptions.find((option) => option.id === selectedModelId);
+  const isCodexProvider = selectedModel?.providerId === "codex-cli";
   const canImageGeneration = supportsImageGeneration(selectedModel);
   const canImageEdit = supportsImageEdit(selectedModel);
   // 模型声明图片生成时显示图片输出选项。
@@ -911,7 +915,15 @@ export default function ChatInput({
     const normalizedImageOptions = normalizeImageOptions(imageOptions);
     // 不支持图片生成时，不传递图片生成参数。
     const safeImageOptions = canImageGeneration ? normalizedImageOptions : undefined;
-    const metadata = safeImageOptions ? { imageOptions: safeImageOptions } : undefined;
+    const normalizedCodexOptions = isCodexProvider
+      ? normalizeCodexOptions(codexOptions)
+      : undefined;
+    const metadataPayload = {
+      ...(safeImageOptions ? { imageOptions: safeImageOptions } : {}),
+      ...(normalizedCodexOptions ? { codexOptions: normalizedCodexOptions } : {}),
+    };
+    const metadata =
+      Object.keys(metadataPayload).length > 0 ? metadataPayload : undefined;
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
     sendMessage({ parts, ...(metadata ? { metadata } : {}) } as any);
     setInput("");
@@ -952,12 +964,17 @@ export default function ChatInput({
           setTabDictationStatus(tabId, isListening);
         }}
         header={
-          showImageOutputOptions ? (
-            <ChatImageOutputOption
-              model={selectedModel}
-              variant="inline"
-              hideAspectRatio={hasMaskedAttachment}
-            />
+          showImageOutputOptions || isCodexProvider ? (
+            <div className="flex flex-col gap-2">
+              {showImageOutputOptions ? (
+                <ChatImageOutputOption
+                  model={selectedModel}
+                  variant="inline"
+                  hideAspectRatio={hasMaskedAttachment}
+                />
+              ) : null}
+              {isCodexProvider ? <CodexOption variant="inline" /> : null}
+            </div>
           ) : null
         }
       />

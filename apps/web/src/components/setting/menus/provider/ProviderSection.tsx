@@ -1,4 +1,4 @@
-import { Fragment, type Dispatch, type SetStateAction } from "react";
+import { Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -10,11 +10,9 @@ import {
 } from "@/components/ui/table";
 import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
 import { getModelLabel } from "@/lib/model-registry";
-import { Check, ChevronDown, ChevronUp, Copy, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
 import {
-  copyToClipboard,
-  formatModelPriceLabel,
   getProviderCapabilities,
   MODEL_TAG_LABELS,
   resolveMergedModelDefinition,
@@ -28,16 +26,12 @@ type ProviderSectionProps = {
   entries: ProviderEntry[];
   /** Expanded rows map. */
   expandedProviders: Record<string, boolean>;
-  /** Copied key indicator. */
-  copiedKey: string | null;
   /** Open editor callback. */
   onAdd: () => void;
   /** Edit entry callback. */
   onEdit: (entry: ProviderEntry) => void;
   /** Delete entry callback. */
   onDelete: (key: string) => void;
-  /** Update copied key state. */
-  onCopiedKeyChange: Dispatch<SetStateAction<string | null>>;
   /** Toggle expanded rows. */
   onToggleExpand: (key: string) => void;
   /** Edit model callback. */
@@ -70,11 +64,9 @@ function renderModelTagsCompact(tags?: (keyof typeof MODEL_TAG_LABELS)[]) {
 export function ProviderSection({
   entries,
   expandedProviders,
-  copiedKey,
   onAdd,
   onEdit,
   onDelete,
-  onCopiedKeyChange,
   onToggleExpand,
   onModelEdit,
   onModelDelete,
@@ -138,25 +130,6 @@ export function ProviderSection({
                         <div className="w-full">
                           <div className="text-sm truncate">{truncateDisplay(entry.apiUrl)}</div>
                         </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-5 w-5 text-muted-foreground/70"
-                          onClick={async () => {
-                            await copyToClipboard(entry.apiUrl);
-                            onCopiedKeyChange(entry.key);
-                            window.setTimeout(() => {
-                              onCopiedKeyChange((prev) => (prev === entry.key ? null : prev));
-                            }, 1200);
-                          }}
-                          aria-label="复制 API URL"
-                        >
-                          {copiedKey === entry.key ? (
-                            <Check className="h-3 w-3" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -186,10 +159,9 @@ export function ProviderSection({
                     <TableRow>
                       <TableCell colSpan={4} className="p-0">
                         <div className="px-4 pb-4">
-                          <div className="hidden md:grid grid-cols-[260px_1fr_1fr_120px] gap-3 px-1 py-2 text-xs font-semibold text-muted-foreground">
+                          <div className="hidden md:grid grid-cols-[260px_1fr_120px] gap-3 px-1 py-2 text-xs font-semibold text-muted-foreground">
                             <div>模型</div>
                             <div>能力</div>
-                            <div>价格</div>
                             <div className="text-right">操作</div>
                           </div>
                           <div className="divide-y divide-border/60">
@@ -207,7 +179,7 @@ export function ProviderSection({
                               return (
                                 <div
                                   key={`${entry.key}-${modelId}`}
-                                  className="grid grid-cols-1 gap-3 px-1 py-3 text-sm md:grid-cols-[260px_1fr_1fr_120px]"
+                                  className="grid grid-cols-1 gap-3 px-1 py-3 text-sm md:grid-cols-[260px_1fr_120px]"
                                 >
                                   <div>
                                     <div className="flex items-center gap-2">
@@ -218,9 +190,6 @@ export function ProviderSection({
                                     </div>
                                   </div>
                                   <div>{renderModelTagsCompact(modelDefinition.tags)}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {formatModelPriceLabel(modelDefinition)}
-                                  </div>
                                   <div className="flex items-center justify-end gap-1">
                                     <Button
                                       size="icon"
