@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeToggler } from "../../ThemeProvider";
@@ -13,6 +14,25 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 export const ModeToggle = () => {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const { basic, setBasic } = useBasicConfig();
+  const [iconTheme, setIconTheme] = useState<"light" | "dark">(
+    (resolvedTheme ?? "light") as "light" | "dark",
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    /** Read theme from the root class list. */
+    const readDomTheme = () =>
+      root.classList.contains("dark") ? "dark" : "light";
+
+    // 监听根节点类名变化，确保图标与真实主题一致。
+    const observer = new MutationObserver(() => {
+      setIconTheme(readDomTheme());
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+
+    setIconTheme((resolvedTheme ?? readDomTheme()) as "light" | "dark");
+    return () => observer.disconnect();
+  }, [resolvedTheme]);
 
   return (
     <ThemeToggler
@@ -39,7 +59,7 @@ export const ModeToggle = () => {
                 void setBasic({ uiTheme: nextTheme, uiThemeManual: nextTheme });
               }}
             >
-              {resolved === "light" ? (
+              {iconTheme === "light" ? (
                 <AnimateIcon animateOnHover>
                   <Sun animation="path-loop" />
                 </AnimateIcon>

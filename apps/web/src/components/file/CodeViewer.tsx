@@ -87,13 +87,14 @@ export default function CodeViewer({
   rootUri,
   projectId,
 }: CodeViewerProps) {
-  const { resolvedTheme } = useTheme();
   /** File content query. */
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(uri ? { uri } : skipToken)
   );
   /** Monaco editor instance. */
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  /** Monaco namespace instance. */
+  const monacoRef = useRef<typeof Monaco | null>(null);
   /** Monaco disposables for listeners. */
   const disposablesRef = useRef<MonacoDisposable[]>([]);
   /** Container for toolbar positioning. */
@@ -124,8 +125,33 @@ export default function CodeViewer({
   );
   /** Monaco language id from extension. */
   const languageId = useMemo(() => getMonacoLanguageId(ext), [ext]);
+  const { resolvedTheme } = useTheme();
+  /** Effective theme from next-themes or DOM class fallback. */
+  const [effectiveTheme, setEffectiveTheme] = useState<"light" | "dark">(
+    resolvedTheme === "dark" ? "dark" : "light"
+  );
   const monacoThemeName =
-    resolvedTheme === "dark" ? MONACO_THEME_DARK : MONACO_THEME_LIGHT;
+    effectiveTheme === "dark" ? MONACO_THEME_DARK : MONACO_THEME_LIGHT;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    /** Read theme from the root class list. */
+    const readDomTheme = () =>
+      root.classList.contains("dark") ? "dark" : "light";
+
+    // 逻辑：优先使用 next-themes 的 resolvedTheme，必要时回退到 DOM 主题。
+    if (resolvedTheme === "dark" || resolvedTheme === "light") {
+      setEffectiveTheme(resolvedTheme);
+    } else {
+      setEffectiveTheme(readDomTheme());
+    }
+
+    const observer = new MutationObserver(() => {
+      setEffectiveTheme(readDomTheme());
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, [resolvedTheme]);
 
   /** Clear cached selection state and hide the toolbar. */
   const clearSelection = useCallback(() => {
@@ -198,6 +224,7 @@ export default function CodeViewer({
   const handleEditorMount = useCallback<OnMount>(
     (editor, monaco) => {
       editorRef.current = editor;
+      monacoRef.current = monaco;
       clearSelection();
       disposablesRef.current.forEach((disposable) => disposable.dispose());
       disposablesRef.current = [];
@@ -224,6 +251,12 @@ export default function CodeViewer({
     },
     [clearSelection, syncSelectionFromEditor]
   );
+
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (!monaco) return;
+    monaco.editor.setTheme(monacoThemeName);
+  }, [monacoThemeName]);
 
   /** Monaco editor options for read-only rendering. */
   const editorOptions = useMemo<Monaco.editor.IStandaloneEditorConstructionOptions>(

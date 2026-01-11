@@ -120,6 +120,8 @@ function ThemeToggler({
             'dark',
             resolved === 'dark',
           );
+          // 立即同步 next-themes 状态，避免外部组件读到旧的 resolvedTheme。
+          setTheme(theme);
         });
       }).ready;
 
@@ -133,7 +135,6 @@ function ThemeToggler({
           },
         )
         .finished.finally(() => {
-          setTheme(theme);
           isTransitioning.current = false;
         });
     },
