@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import type { ModelTag } from "@teatime-ai/api/common";
-import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
+import type { ModelTag } from "@tenas-ai/api/common";
+import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
 import { mergeImageOptions } from "@/lib/chat/image-options";
 import { useChatContext } from "./ChatProvider";
 import { supportsImageGeneration } from "@/lib/model-capabilities";

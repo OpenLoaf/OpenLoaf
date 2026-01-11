@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
-import type { BasicConfig, BasicConfigUpdate } from "@teatime-ai/api/types/basic";
+import type { BasicConfig, BasicConfigUpdate } from "@tenas-ai/api/types/basic";
 
 const DEFAULT_BASIC_CONFIG: BasicConfig = {
   chatSource: "local",

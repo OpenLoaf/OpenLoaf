@@ -1,5 +1,5 @@
 import type { HeadersInit } from "undici";
-import { getEnvString } from "@teatime-ai/config";
+import { getEnvString } from "@tenas-ai/config";
 import { logger } from "@/common/logger";
 
 /** 将 Headers 规范化为普通对象。 */
@@ -18,7 +18,7 @@ function toHeaderRecord(headers?: HeadersInit): Record<string, string> {
 
 /** 构建 AI 请求调试用的 fetch。 */
 export function buildAiDebugFetch(): typeof fetch | undefined {
-  const enabled = getEnvString(process.env, "TEATIME_DEBUG_AI_STREAM");
+  const enabled = getEnvString(process.env, "TENAS_DEBUG_AI_STREAM");
   if (!enabled) return undefined;
   const log = logger.debug.bind(logger);
   return async (input, init) => {

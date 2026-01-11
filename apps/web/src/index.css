@@ -420,13 +420,13 @@ body {
 }
 
 /* AI 流式生成时输入框边框流动动画（提示“正在思考”） */
-@property --teatime-thinking-border-alpha {
+@property --tenas-thinking-border-alpha {
   syntax: "<number>";
   inherits: true;
   initial-value: 0;
 }
 
-@keyframes teatime-thinking-border-flow {
+@keyframes tenas-thinking-border-flow {
   0% {
     background-position: 0 0, 0% 50%;
   }
@@ -436,7 +436,7 @@ body {
 }
 
 /* 子Agent 思考中扫描文字 */
-@keyframes teatime-thinking-scan {
+@keyframes tenas-thinking-scan {
   0% {
     background-position: 0% 50%;
   }
@@ -445,47 +445,47 @@ body {
   }
 }
 
-.teatime-thinking-scan {
+.tenas-thinking-scan {
   background-size: 200% 100%;
   background-position: 0% 50%;
-  animation: teatime-thinking-scan 1.2s linear infinite;
+  animation: tenas-thinking-scan 1.2s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .teatime-thinking-scan {
+  .tenas-thinking-scan {
     animation: none;
   }
 }
 
-.teatime-thinking-border {
-  --teatime-thinking-border-alpha: 0;
+.tenas-thinking-border {
+  --tenas-thinking-border-alpha: 0;
   /* 关键：用双背景 + background-clip 实现“挖空”，避免 mask 在圆角处产生锯齿 */
   background:
-    linear-gradient(var(--teatime-thinking-border-fill, var(--color-background)), var(--teatime-thinking-border-fill, var(--color-background))) padding-box,
+    linear-gradient(var(--tenas-thinking-border-fill, var(--color-background)), var(--tenas-thinking-border-fill, var(--color-background))) padding-box,
     linear-gradient(
       90deg,
-      hsl(0 100% 60% / var(--teatime-thinking-border-alpha)),
-      hsl(30 100% 60% / var(--teatime-thinking-border-alpha)),
-      hsl(60 100% 60% / var(--teatime-thinking-border-alpha)),
-      hsl(120 100% 55% / var(--teatime-thinking-border-alpha)),
-      hsl(180 100% 55% / var(--teatime-thinking-border-alpha)),
-      hsl(210 100% 60% / var(--teatime-thinking-border-alpha)),
-      hsl(270 100% 65% / var(--teatime-thinking-border-alpha)),
-      hsl(330 100% 60% / var(--teatime-thinking-border-alpha)),
-      hsl(0 100% 60% / var(--teatime-thinking-border-alpha))
+      hsl(0 100% 60% / var(--tenas-thinking-border-alpha)),
+      hsl(30 100% 60% / var(--tenas-thinking-border-alpha)),
+      hsl(60 100% 60% / var(--tenas-thinking-border-alpha)),
+      hsl(120 100% 55% / var(--tenas-thinking-border-alpha)),
+      hsl(180 100% 55% / var(--tenas-thinking-border-alpha)),
+      hsl(210 100% 60% / var(--tenas-thinking-border-alpha)),
+      hsl(270 100% 65% / var(--tenas-thinking-border-alpha)),
+      hsl(330 100% 60% / var(--tenas-thinking-border-alpha)),
+      hsl(0 100% 60% / var(--tenas-thinking-border-alpha))
     ) border-box;
   background-size: auto, 200% 200%;
   background-position: 0 0, 0% 50%;
-  transition: --teatime-thinking-border-alpha 200ms ease-out;
+  transition: --tenas-thinking-border-alpha 200ms ease-out;
 }
 
-.teatime-thinking-border-on {
-  --teatime-thinking-border-alpha: 1;
-  animation: teatime-thinking-border-flow 1.4s linear infinite;
+.tenas-thinking-border-on {
+  --tenas-thinking-border-alpha: 1;
+  animation: tenas-thinking-border-flow 1.4s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .teatime-thinking-border-on {
+  .tenas-thinking-border-on {
     animation: none;
   }
 }

@@ -65,14 +65,14 @@ function main() {
 
   if (hasElectronBinary(electronDir)) return;
 
-  console.log("[teatime] Electron binary missing, running electron/install.js…");
+  console.log("[tenas] Electron binary missing, running electron/install.js…");
   const result = runElectronInstall(electronDir);
   if (result.status !== 0) process.exit(result.status ?? 1);
 
   // 二次校验：install.js 可能被环境变量跳过下载，导致仍然缺文件
   if (!hasElectronBinary(electronDir)) {
     console.error(
-      "[teatime] Electron install finished but binary is still missing. " +
+      "[tenas] Electron install finished but binary is still missing. " +
         "Try: rm -rf node_modules/electron && pnpm -w install",
     );
     process.exit(1);

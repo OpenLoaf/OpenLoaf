@@ -681,11 +681,11 @@ const FileSystemList = memo(function FileSystemList({
           "此文件类型暂不支持预览，是否使用系统默认程序打开？"
         );
         if (!ok) return;
-        if (!window.teatimeElectron?.openPath) {
+        if (!window.tenasElectron?.openPath) {
           toast.error("网页版不支持打开本地文件");
           return;
         }
-        void window.teatimeElectron
+        void window.tenasElectron
           .openPath({ uri: entry.uri })
           .then((res) => {
             if (!res?.ok) {

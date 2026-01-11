@@ -10,13 +10,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
-import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
-import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
+import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
-import { TeatimeAutoWidthInput } from "@/components/ui/teatime/TeatimeAutoWidthInput";
+import { TenasAutoWidthInput } from "@/components/ui/tenas/TenasAutoWidthInput";
 import { getModelLabel } from "@/lib/model-registry";
 
 export function ModelManagement() {
@@ -44,7 +44,7 @@ export function ModelManagement() {
 
   return (
     <div className="space-y-3">
-      <TeatimeSettingsGroup title="模型设置">
+      <TenasSettingsGroup title="模型设置">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
@@ -54,13 +54,13 @@ export function ModelManagement() {
               </div>
             </div>
 
-            <TeatimeSettingsField className="w-full sm:w-[420px] shrink-0 justify-end">
-              <TeatimeAutoWidthInput
+            <TenasSettingsField className="w-full sm:w-[420px] shrink-0 justify-end">
+              <TenasAutoWidthInput
                 value={workspaceProjectRule}
                 onChange={(event) => void setBasic({ appProjectRule: event.target.value })}
                 className="bg-background"
               />
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -71,7 +71,7 @@ export function ModelManagement() {
               </div>
             </div>
 
-            <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+            <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -124,11 +124,11 @@ export function ModelManagement() {
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
 
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
     </div>
   );
 }

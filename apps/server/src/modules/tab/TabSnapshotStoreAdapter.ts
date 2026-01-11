@@ -1,4 +1,4 @@
-import type { Tab } from "@teatime-ai/api/common";
+import type { Tab } from "@tenas-ai/api/common";
 
 type CacheKey = string;
 

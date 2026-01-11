@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 import path from "node:path";
 import chokidar from "chokidar";
-import { resolveWorkspacePathFromUri } from "@teatime-ai/api/services/vfsService";
+import { resolveWorkspacePathFromUri } from "@tenas-ai/api/services/vfsService";
 import { logger } from "@/common/logger";
 
 const SSE_HEADERS = {

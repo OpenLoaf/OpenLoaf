@@ -1,5 +1,7 @@
 # Project Index Homepage Plan (react-grid-layout)
 
+> Status: kept as an alternative. The current direction is `dnd-kit + CSS Grid + motion/react` for iOS-like live reflow and hit-testing. See `docs/project-index-dnd-kit-plan.zh-CN.md` (Chinese) for the updated plan.
+
 ## Overview
 Project home is a desktop-like canvas built on `react-grid-layout` (RGL). Users place widgets (files, folders, calendars, links, etc.) on a resizable grid and organize them into groups that open like iOS app folders. Group open/close should reuse the existing tab stack logic to keep behavior consistent with other panels.
 

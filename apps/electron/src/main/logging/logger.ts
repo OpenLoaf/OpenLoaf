@@ -19,7 +19,7 @@ const level: LogLevel = normalizeLogLevel(process.env.LOG_LEVEL) ?? defaultLevel
 // Electron main 进程统一日志入口；默认开发态 debug、生产态 info，可通过 LOG_LEVEL 覆盖。
 export const logger = pino({
   level,
-  base: { service: "teatime-electron", process: "main" },
+  base: { service: "tenas-electron", process: "main" },
   timestamp: pino.stdTimeFunctions.isoTime,
 });
 

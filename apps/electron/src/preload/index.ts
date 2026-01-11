@@ -31,64 +31,64 @@ type AutoUpdateStatus = {
  * preload 运行在隔离上下文中，是我们向 web UI（apps/web）暴露安全 API 的唯一入口。
  * 需要保持暴露面尽量小，并且用类型约束好输入/输出。
  */
-contextBridge.exposeInMainWorld('teatimeElectron', {
+contextBridge.exposeInMainWorld('tenasElectron', {
   // 请求主进程在独立窗口中打开外部 URL。
   openBrowserWindow: (url: string): Promise<OpenBrowserWindowResult> =>
-    ipcRenderer.invoke('teatime:open-browser-window', { url }),
+    ipcRenderer.invoke('tenas:open-browser-window', { url }),
   // 使用系统默认浏览器打开外部 URL。
   openExternal: (url: string): Promise<{ ok: true } | { ok: false; reason?: string }> =>
-    ipcRenderer.invoke('teatime:open-external', { url }),
+    ipcRenderer.invoke('tenas:open-external', { url }),
   // 确保某个 viewKey 对应的 WebContentsView 已存在，并返回 cdpTargetId（供 server attach）。
   ensureWebContentsView: (args: { key: string; url: string }): Promise<{ ok: true; webContentsId: number; cdpTargetId?: string } | { ok: false }> =>
-    ipcRenderer.invoke('teatime:webcontents-view:ensure', args),
+    ipcRenderer.invoke('tenas:webcontents-view:ensure', args),
   // 请求主进程使用 WebContentsView 将 URL 嵌入当前窗口。
   upsertWebContentsView: (args: {
     key: string;
     url: string;
     bounds: ViewBounds;
     visible?: boolean;
-  }): Promise<OkResult> => ipcRenderer.invoke('teatime:webcontents-view:upsert', args),
+  }): Promise<OkResult> => ipcRenderer.invoke('tenas:webcontents-view:upsert', args),
   // 请求主进程移除某个嵌入的 WebContentsView。
   destroyWebContentsView: (key: string): Promise<OkResult> =>
-    ipcRenderer.invoke('teatime:webcontents-view:destroy', { key }),
+    ipcRenderer.invoke('tenas:webcontents-view:destroy', { key }),
   // Navigate back within a WebContentsView.
   goBackWebContentsView: (key: string): Promise<OkResult> =>
-    ipcRenderer.invoke('teatime:webcontents-view:go-back', { key }),
+    ipcRenderer.invoke('tenas:webcontents-view:go-back', { key }),
   // Navigate forward within a WebContentsView.
   goForwardWebContentsView: (key: string): Promise<OkResult> =>
-    ipcRenderer.invoke('teatime:webcontents-view:go-forward', { key }),
+    ipcRenderer.invoke('tenas:webcontents-view:go-forward', { key }),
   // Clear all WebContentsViews for the current window.
   clearWebContentsViews: (): Promise<OkResult> =>
-    ipcRenderer.invoke('teatime:webcontents-view:clear'),
+    ipcRenderer.invoke('tenas:webcontents-view:clear'),
   // 获取当前窗口内 WebContentsView 数量（用于设置页展示/诊断）。
   getWebContentsViewCount: (): Promise<CountResult> =>
-    ipcRenderer.invoke('teatime:webcontents-view:count'),
+    ipcRenderer.invoke('tenas:webcontents-view:count'),
   // 获取应用版本号。
-  getAppVersion: (): Promise<string> => ipcRenderer.invoke('teatime:app:version'),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('tenas:app:version'),
   // Fetch runtime server/web URLs synchronously for early init.
   getRuntimePortsSync: (): { ok: boolean; serverUrl?: string; webUrl?: string } =>
-    ipcRenderer.sendSync('teatime:runtime:ports'),
+    ipcRenderer.sendSync('tenas:runtime:ports'),
   // 手动触发更新检查。
   checkForUpdates: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
-    ipcRenderer.invoke('teatime:auto-update:check'),
+    ipcRenderer.invoke('tenas:auto-update:check'),
   // 获取最新更新状态快照。
   getAutoUpdateStatus: (): Promise<AutoUpdateStatus> =>
-    ipcRenderer.invoke('teatime:auto-update:status'),
+    ipcRenderer.invoke('tenas:auto-update:status'),
   // 安装已下载的更新并重启。
   installUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
-    ipcRenderer.invoke('teatime:auto-update:install'),
+    ipcRenderer.invoke('tenas:auto-update:install'),
   // 使用系统默认程序打开文件/目录。
   openPath: (payload: { uri: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
-    ipcRenderer.invoke('teatime:fs:open-path', payload),
+    ipcRenderer.invoke('tenas:fs:open-path', payload),
   // 在系统文件管理器中定位文件/目录。
   showItemInFolder: (payload: { uri: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
-    ipcRenderer.invoke('teatime:fs:show-in-folder', payload),
+    ipcRenderer.invoke('tenas:fs:show-in-folder', payload),
   // 移动文件/目录到系统回收站。
   trashItem: (payload: { uri: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
-    ipcRenderer.invoke('teatime:fs:trash-item', payload),
+    ipcRenderer.invoke('tenas:fs:trash-item', payload),
   // 选择本地目录并返回完整路径。
   pickDirectory: (): Promise<{ ok: true; path: string } | { ok: false }> =>
-    ipcRenderer.invoke('teatime:fs:pick-directory'),
+    ipcRenderer.invoke('tenas:fs:pick-directory'),
   // Show save dialog and write base64 payload to file.
   saveFile: (payload: {
     contentBase64: string;
@@ -96,70 +96,70 @@ contextBridge.exposeInMainWorld('teatimeElectron', {
     suggestedName?: string;
     filters?: Array<{ name: string; extensions: string[] }>;
   }): Promise<{ ok: true; path: string } | { ok: false; canceled?: boolean; reason?: string }> =>
-    ipcRenderer.invoke('teatime:fs:save-file', payload),
+    ipcRenderer.invoke('tenas:fs:save-file', payload),
   // Start OS speech recognition (macOS helper).
   startSpeechRecognition: (payload: { language?: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
-    ipcRenderer.invoke('teatime:speech:start', payload),
+    ipcRenderer.invoke('tenas:speech:start', payload),
   // Stop OS speech recognition.
   stopSpeechRecognition: (): Promise<{ ok: true } | { ok: false; reason?: string }> =>
-    ipcRenderer.invoke('teatime:speech:stop'),
+    ipcRenderer.invoke('tenas:speech:stop'),
 });
 
 // 主进程会推送 WebContentsView 的真实加载状态（dom-ready 等），这里转成 window 事件给 web UI 消费。
-ipcRenderer.on('teatime:webcontents-view:status', (_event, detail) => {
+ipcRenderer.on('tenas:webcontents-view:status', (_event, detail) => {
   try {
     window.dispatchEvent(
-      new CustomEvent('teatime:webcontents-view:status', { detail })
+      new CustomEvent('tenas:webcontents-view:status', { detail })
     );
   } catch {
     // ignore
   }
 });
 
-ipcRenderer.on('teatime:webcontents-view:window-open', (_event, detail) => {
+ipcRenderer.on('tenas:webcontents-view:window-open', (_event, detail) => {
   try {
     window.dispatchEvent(
-      new CustomEvent('teatime:webcontents-view:window-open', { detail })
+      new CustomEvent('tenas:webcontents-view:window-open', { detail })
     );
   } catch {
     // ignore
   }
 });
 
-ipcRenderer.on('teatime:auto-update:status', (_event, detail) => {
+ipcRenderer.on('tenas:auto-update:status', (_event, detail) => {
   try {
     window.dispatchEvent(
-      new CustomEvent('teatime:auto-update:status', { detail })
+      new CustomEvent('tenas:auto-update:status', { detail })
     );
   } catch {
     // ignore
   }
 });
 
-ipcRenderer.on('teatime:speech:result', (_event, detail) => {
+ipcRenderer.on('tenas:speech:result', (_event, detail) => {
   try {
     window.dispatchEvent(
-      new CustomEvent('teatime:speech:result', { detail })
+      new CustomEvent('tenas:speech:result', { detail })
     );
   } catch {
     // ignore
   }
 });
 
-ipcRenderer.on('teatime:speech:state', (_event, detail) => {
+ipcRenderer.on('tenas:speech:state', (_event, detail) => {
   try {
     window.dispatchEvent(
-      new CustomEvent('teatime:speech:state', { detail })
+      new CustomEvent('tenas:speech:state', { detail })
     );
   } catch {
     // ignore
   }
 });
 
-ipcRenderer.on('teatime:speech:error', (_event, detail) => {
+ipcRenderer.on('tenas:speech:error', (_event, detail) => {
   try {
     window.dispatchEvent(
-      new CustomEvent('teatime:speech:error', { detail })
+      new CustomEvent('tenas:speech:error', { detail })
     );
   } catch {
     // ignore

@@ -5,7 +5,7 @@ import {
   browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
-} from "@teatime-ai/api/types/tools/browserAutomation";
+} from "@tenas-ai/api/types/tools/browserAutomation";
 import { getClientId, getSessionId } from "@/ai/chat-stream/requestContext";
 import { requireTabId } from "@/common/tabContext";
 import { sendCdpCommand } from "@/modules/browser/cdpClient";

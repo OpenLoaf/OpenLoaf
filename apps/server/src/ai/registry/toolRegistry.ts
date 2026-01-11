@@ -3,17 +3,17 @@ import { timeNowTool } from "@/ai/tools/system/timeNow";
 import { testApprovalTool } from "@/ai/tools/test/testApprovalTool";
 import { subAgentTool } from "@/ai/tools/delegation/subAgentTool";
 import { resolveNeedsApproval, type ToolPolicyMeta } from "@/ai/registry/policies";
-import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
+import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
   browserActToolDef,
   browserExtractToolDef,
   browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
-} from "@teatime-ai/api/types/tools/browserAutomation";
-import { timeNowToolDef } from "@teatime-ai/api/types/tools/system";
-import { testApprovalToolDef } from "@teatime-ai/api/types/tools/approvalTest";
-import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
+} from "@tenas-ai/api/types/tools/browserAutomation";
+import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
+import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
+import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
 import {
   browserActTool,
   browserExtractTool,

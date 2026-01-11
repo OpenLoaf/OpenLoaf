@@ -1,5 +1,5 @@
-import type { SettingDef } from "@teatime-ai/api/types/setting";
-import { PublicSettingDefs } from "@teatime-ai/api/types/setting";
+import type { SettingDef } from "@tenas-ai/api/types/setting";
+import { PublicSettingDefs } from "@tenas-ai/api/types/setting";
 
 export const ServerSettingDefs = {
   ...PublicSettingDefs,

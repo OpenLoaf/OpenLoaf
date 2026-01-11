@@ -16,9 +16,9 @@ export type RecentlyClosedSite = {
   closedAt: number;
 };
 
-const FAVORITES_KEY = "teatime:browser:favorites";
-const RECENTS_KEY = "teatime:browser:recently-closed";
-const STORAGE_EVENT = "teatime:browser-storage";
+const FAVORITES_KEY = "tenas:browser:favorites";
+const RECENTS_KEY = "tenas:browser:recently-closed";
+const STORAGE_EVENT = "tenas:browser-storage";
 const MAX_FAVORITES = 24;
 const MAX_RECENTS = 12;
 

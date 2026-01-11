@@ -120,7 +120,7 @@ export default function MessageHuman({
       if (imageStateRef.current[url]) return;
       setImageState((prev) => ({ ...prev, [url]: { status: "loading" } }));
       try {
-        if (url.startsWith("teatime-file://")) {
+        if (url.startsWith("tenas-file://")) {
           const blob = await fetchBlobFromUri(url);
           const objectUrl = URL.createObjectURL(blob);
           objectUrls.push(objectUrl);

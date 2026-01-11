@@ -3,7 +3,7 @@ import {
   terminalSchemas,
   t,
   shieldedProcedure,
-} from "@teatime-ai/api";
+} from "@tenas-ai/api";
 import {
   closeTerminalSession,
   createTerminalSession,

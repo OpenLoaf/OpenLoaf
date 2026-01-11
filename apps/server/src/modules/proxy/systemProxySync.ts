@@ -1,5 +1,5 @@
-import { getEnvString } from "@teatime-ai/config";
-import { readBasicConf, writeBasicConf } from "@/modules/settings/teatimeConfStore";
+import { getEnvString } from "@tenas-ai/config";
+import { readBasicConf, writeBasicConf } from "@/modules/settings/tenasConfStore";
 
 type ProxySettingsSnapshot = {
   enabled: boolean;
@@ -40,10 +40,10 @@ function readProxySettingsFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): ProxySettingsSnapshot {
   const proxyValue =
-    getEnvString(env, "TEATIME_HTTPS_PROXY") ??
+    getEnvString(env, "TENAS_HTTPS_PROXY") ??
     getEnvString(env, "HTTPS_PROXY") ??
     getEnvString(env, "https_proxy") ??
-    getEnvString(env, "TEATIME_HTTP_PROXY") ??
+    getEnvString(env, "TENAS_HTTP_PROXY") ??
     getEnvString(env, "HTTP_PROXY") ??
     getEnvString(env, "http_proxy") ??
     getEnvString(env, "ALL_PROXY") ??

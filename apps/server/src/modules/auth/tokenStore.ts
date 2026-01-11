@@ -1,4 +1,4 @@
-import { clearAuthRefreshToken, readAuthRefreshToken, writeAuthRefreshToken } from "@/modules/settings/teatimeConfStore";
+import { clearAuthRefreshToken, readAuthRefreshToken, writeAuthRefreshToken } from "@/modules/settings/tenasConfStore";
 
 export type AuthUser = {
   /** User subject id. */

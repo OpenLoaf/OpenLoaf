@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export type TeatimeSettingsCardProps = {
+export type TenasSettingsCardProps = {
   children: ReactNode;
   divided?: boolean;
   padding?: "none" | "x" | "xy";
@@ -12,13 +12,13 @@ export type TeatimeSettingsCardProps = {
 };
 
 /** Settings card container for grouped content. */
-export function TeatimeSettingsCard({
+export function TenasSettingsCard({
   children,
   divided = false,
   padding = "x",
   className,
   contentClassName,
-}: TeatimeSettingsCardProps) {
+}: TenasSettingsCardProps) {
   const paddingClass =
     padding === "xy" ? "p-3" : padding === "x" ? "px-3" : "";
 

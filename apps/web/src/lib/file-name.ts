@@ -1,7 +1,7 @@
 /** File extension for board documents. */
-export const BOARD_FILE_EXT = "ttboard";
+export const BOARD_FILE_EXT = "tnboard";
 /** Folder prefix for board containers. */
-export const BOARD_FOLDER_PREFIX = "ttboard_";
+export const BOARD_FOLDER_PREFIX = "tnboard_";
 /** Board snapshot file name stored inside board folders. */
 export const BOARD_INDEX_FILE_NAME = `index.${BOARD_FILE_EXT}`;
 /** Assets directory name inside board folders. */

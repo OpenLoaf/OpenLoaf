@@ -1,8 +1,8 @@
 export {};
 
 declare global {
-  type TeatimeViewBounds = { x: number; y: number; width: number; height: number };
-  type TeatimeAutoUpdateState =
+  type TenasViewBounds = { x: number; y: number; width: number; height: number };
+  type TenasAutoUpdateState =
     | "idle"
     | "checking"
     | "available"
@@ -10,8 +10,8 @@ declare global {
     | "downloading"
     | "downloaded"
     | "error";
-  type TeatimeAutoUpdateStatus = {
-    state: TeatimeAutoUpdateState;
+  type TenasAutoUpdateStatus = {
+    state: TenasAutoUpdateState;
     currentVersion: string;
     nextVersion?: string;
     releaseNotes?: string;
@@ -25,23 +25,23 @@ declare global {
     error?: string;
     ts: number;
   };
-  type TeatimeSpeechResult = {
+  type TenasSpeechResult = {
     type: "partial" | "final";
     text: string;
     lang?: string;
   };
-  type TeatimeSpeechState = {
+  type TenasSpeechState = {
     state: "listening" | "stopped" | "idle" | "error";
     reason?: string;
     lang?: string;
   };
-  type TeatimeSpeechError = {
+  type TenasSpeechError = {
     message: string;
     detail?: string;
   };
 
   interface Window {
-    teatimeElectron?: {
+    tenasElectron?: {
       openBrowserWindow: (url: string) => Promise<{ id: number }>;
       openExternal?: (url: string) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       ensureWebContentsView?: (args: {
@@ -53,7 +53,7 @@ declare global {
       upsertWebContentsView: (args: {
         key: string;
         url: string;
-        bounds: TeatimeViewBounds;
+        bounds: TenasViewBounds;
         visible?: boolean;
       }) => Promise<{ ok: true }>;
       destroyWebContentsView: (key: string) => Promise<{ ok: true }>;
@@ -65,7 +65,7 @@ declare global {
       /** Get runtime port info for backend connectivity. */
       getRuntimePortsSync?: () => { ok: boolean; serverUrl?: string; webUrl?: string };
       checkForUpdates?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
-      getAutoUpdateStatus?: () => Promise<TeatimeAutoUpdateStatus>;
+      getAutoUpdateStatus?: () => Promise<TenasAutoUpdateStatus>;
       installUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
       openPath?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       showItemInFolder?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;

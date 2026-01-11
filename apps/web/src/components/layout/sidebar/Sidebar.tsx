@@ -16,7 +16,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Search as SearchDialog } from "@/components/search/Search";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
-import { AI_CHAT_TAB_INPUT } from "@teatime-ai/api/common";
+import { AI_CHAT_TAB_INPUT } from "@tenas-ai/api/common";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useIsNarrowScreen } from "@/hooks/use-mobile";
 

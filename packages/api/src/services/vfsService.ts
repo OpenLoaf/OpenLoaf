@@ -10,7 +10,7 @@ import {
   setWorkspaces,
 } from "./workspaceConfig";
 
-const PROJECT_META_DIR = ".teatime";
+const PROJECT_META_DIR = ".tenas";
 const PROJECT_META_FILE = "project.json";
 
 /** Normalize a local path or file:// URI into a file:// URI. */

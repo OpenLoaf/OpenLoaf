@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { Chat } from "@/components/chat/Chat";
 import { useTabs, LEFT_DOCK_MIN_PX } from "@/hooks/use-tabs";
 import { LeftDock } from "./LeftDock";
-import type { Tab } from "@teatime-ai/api/common";
+import type { Tab } from "@tenas-ai/api/common";
 import {
   bindPanelHost,
   hasPanel,

@@ -6,7 +6,7 @@ export type BrowserTab = {
   cdpTargetIds?: string[];
 };
 
-export type TeatimeWebContentsViewStatus = {
+export type TenasWebContentsViewStatus = {
   key: string;
   webContentsId: number;
   url?: string;
@@ -21,7 +21,7 @@ export type TeatimeWebContentsViewStatus = {
   ts: number;
 };
 
-export type TeatimeWebContentsViewWindowOpen = {
+export type TenasWebContentsViewWindowOpen = {
   key: string;
   url: string;
   disposition?: string;

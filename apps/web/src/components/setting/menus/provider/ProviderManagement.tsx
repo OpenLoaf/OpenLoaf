@@ -6,8 +6,8 @@ import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/Confirm
 import { ModelDialog } from "@/components/setting/menus/provider/ModelDialog";
 import { ProviderDialog } from "@/components/setting/menus/provider/ProviderDialog";
 import { ProviderSection } from "@/components/setting/menus/provider/ProviderSection";
-import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
-import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
+import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
+import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,7 +33,7 @@ import { Claude, OpenAI } from "@lobehub/icons";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@/components/animate-ui/components/radix/switch";
 import { toast } from "sonner";
-import type { CliToolConfig, CliToolsConfig } from "@teatime-ai/api/types/basic";
+import type { CliToolConfig, CliToolsConfig } from "@tenas-ai/api/types/basic";
 import { queryClient, trpc } from "@/utils/trpc";
 import {
   useProviderManagement,
@@ -353,7 +353,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
 
   return (
     <div className={wrapperClassName}>
-      <TeatimeSettingsGroup
+      <TenasSettingsGroup
         title="模型设置"
         subtitle="调整模型响应语言、来源与质量偏好。"
         className="pb-4"
@@ -367,7 +367,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
               </div>
             </div>
 
-            <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -398,7 +398,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -409,7 +409,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
               </div>
             </div>
 
-            <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <Tabs
                 value={chatModelSource}
                 onValueChange={(next) =>
@@ -421,7 +421,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   <TabsTrigger value="cloud">云端</TabsTrigger>
                 </TabsList>
               </Tabs>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -432,7 +432,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
               </div>
             </div>
 
-            <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <Tabs
                 value={chatModelQuality}
                 onValueChange={(next) =>
@@ -445,7 +445,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   <TabsTrigger value="low">低</TabsTrigger>
                 </TabsList>
               </Tabs>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -456,7 +456,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
               </div>
             </div>
 
-            <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <div className="origin-right scale-110">
                 <Switch
                   checked={basic.modelSoundEnabled}
@@ -466,12 +466,12 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   aria-label="Model sound"
                 />
               </div>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
-      <TeatimeSettingsGroup title="Cli编程工具">
+      <TenasSettingsGroup title="Cli编程工具">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
@@ -489,7 +489,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
               </div>
             </div>
 
-            <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -525,7 +525,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   设置
                 </Button>
               ) : null}
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -540,7 +540,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
               </div>
             </div>
 
-            <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -576,10 +576,10 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   设置
                 </Button>
               ) : null}
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
       <ProviderSection
         entries={entries}

@@ -6,7 +6,7 @@ import {
   type UIMessage,
 } from "ai";
 import { logger } from "@/common/logger";
-import type { TokenUsage } from "@teatime-ai/api/types/message";
+import type { TokenUsage } from "@tenas-ai/api/types/message";
 import {
   getSessionId,
   popAgentFrame,

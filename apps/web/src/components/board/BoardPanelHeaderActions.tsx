@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { toBlob } from "html-to-image";
 import { Camera, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
-import type { DockItem } from "@teatime-ai/api/common";
+import type { DockItem } from "@tenas-ai/api/common";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useOptionalSidebar } from "@/components/ui/sidebar";
@@ -75,7 +75,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
 
 /** Notify a board canvas to toggle export mode. */
 function setBoardExporting(target: HTMLElement, exporting: boolean) {
-  const event = new CustomEvent("teatime:board-export", { detail: { exporting } });
+  const event = new CustomEvent("tenas:board-export", { detail: { exporting } });
   target.dispatchEvent(event);
 }
 
@@ -99,7 +99,7 @@ function waitForAnimationFrames(count: number): Promise<void> {
 /** Trigger a download for a blob without opening a new tab. */
 async function downloadBlobAsFile(blob: Blob, fileName: string): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  const saveFile = window.teatimeElectron?.saveFile;
+  const saveFile = window.tenasElectron?.saveFile;
   if (saveFile) {
     const contentBase64 = await blobToBase64(blob);
     const result = await saveFile({

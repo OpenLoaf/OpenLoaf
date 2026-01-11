@@ -2,8 +2,8 @@
 
 import { useMemo, useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
-import { TeatimeSettingsLayout } from "@/components/ui/teatime/TeatimeSettingsLayout";
-import { TeatimeSettingsMenu } from "@/components/ui/teatime/TeatimeSettingsMenu";
+import { TenasSettingsLayout } from "@/components/ui/tenas/TenasSettingsLayout";
+import { TenasSettingsMenu } from "@/components/ui/tenas/TenasSettingsMenu";
 import { BarChart3, SlidersHorizontal, Sparkles } from "lucide-react";
 
 import { ProjectBasicSettings } from "./menus/ProjectBasicSettings";
@@ -141,12 +141,12 @@ export default function ProjectSettingsPage({
   );
 
   return (
-    <TeatimeSettingsLayout
+    <TenasSettingsLayout
       ref={containerRef}
       isCollapsed={isCollapsed}
       sectionClassName="rounded-2xl  bg-background/70"
       menu={
-        <TeatimeSettingsMenu
+        <TenasSettingsMenu
           groups={[MENU]}
           activeKey={activeKey}
           isCollapsed={isCollapsed}

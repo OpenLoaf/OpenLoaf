@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { getEnvString } from "@teatime-ai/config";
+import { getEnvString } from "@tenas-ai/config";
 import { workspaceBase, type Workspace } from "../types/workspace";
 
 /** Schema for workspaces.json. */
@@ -18,7 +18,7 @@ let cachedWorkspaces: WorkspacesFile | null = null;
 
 /** Resolve config directory from env path. */
 function getConfigDir(): string {
-  const confPath = getEnvString(process.env, "TEATIME_CONF_PATH", { required: true });
+  const confPath = getEnvString(process.env, "TENAS_CONF_PATH", { required: true });
   const dir = path.dirname(confPath!);
   // 逻辑：确保配置目录存在，便于写入拆分文件。
   mkdirSync(dir, { recursive: true });

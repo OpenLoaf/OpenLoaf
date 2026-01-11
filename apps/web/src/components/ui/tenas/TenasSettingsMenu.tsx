@@ -4,30 +4,30 @@ import type { ComponentType, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type TeatimeSettingsMenuItem = {
+export type TenasSettingsMenuItem = {
   key: string;
   label: string;
   Icon?: ComponentType<{ className?: string }>;
 };
 
-export type TeatimeSettingsMenuProps = {
-  groups: TeatimeSettingsMenuItem[][];
+export type TenasSettingsMenuProps = {
+  groups: TenasSettingsMenuItem[][];
   activeKey: string;
   isCollapsed?: boolean;
   onChange: (key: string) => void;
-  renderItemWrapper?: (item: TeatimeSettingsMenuItem, button: ReactNode) => ReactNode;
+  renderItemWrapper?: (item: TenasSettingsMenuItem, button: ReactNode) => ReactNode;
   className?: string;
 };
 
 /** Settings menu list with grouped items. */
-export function TeatimeSettingsMenu({
+export function TenasSettingsMenu({
   groups,
   activeKey,
   isCollapsed = false,
   onChange,
   renderItemWrapper,
   className,
-}: TeatimeSettingsMenuProps) {
+}: TenasSettingsMenuProps) {
   return (
     <div className={cn("h-full overflow-auto", className)}>
       <div className="p-2 space-y-2 pr-3">

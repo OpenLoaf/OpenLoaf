@@ -4,13 +4,13 @@ import {
   type Workspace,
   BaseWorkspaceRouter,
   workspaceSchemas,
-} from "@teatime-ai/api";
+} from "@tenas-ai/api";
 import { v4 as uuidv4 } from "uuid";
 import {
   getActiveWorkspaceConfig,
   getWorkspaces,
   setWorkspaces,
-} from "@teatime-ai/api/services/workspaceConfig";
+} from "@tenas-ai/api/services/workspaceConfig";
 
 export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
   /** Workspace CRUD（MVP）：基于本地配置文件。 */

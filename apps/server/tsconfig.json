@@ -1,5 +1,5 @@
 {
-	"extends": "@teatime-ai/config/tsconfig.base.json",
+	"extends": "@tenas-ai/config/tsconfig.base.json",
 	"compilerOptions": {
 		"composite": true,
 		"outDir": "dist",

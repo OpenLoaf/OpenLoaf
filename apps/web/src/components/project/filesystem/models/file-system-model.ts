@@ -34,7 +34,7 @@ import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import {
   IGNORE_NAMES,
   buildChildUri,
-  buildTeatimeFileUrl,
+  buildTenasFileUrl,
   buildUriFromRoot,
   FILE_DRAG_REF_MIME,
   FILE_DRAG_URI_MIME,
@@ -44,7 +44,7 @@ import {
   getDisplayPathFromUri,
   getRelativePathFromUri,
   getUniqueName,
-  parseTeatimeFileUrl,
+  parseTenasFileUrl,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
 import { useFileSystemHistory, type HistoryAction } from "./file-system-history";
@@ -284,7 +284,7 @@ export function useProjectFileSystemModel({
   const [isDragActive, setIsDragActive] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const trashRootUri = useMemo(
-    () => (rootUri ? buildChildUri(rootUri, ".teatime-trash") : null),
+    () => (rootUri ? buildChildUri(rootUri, ".tenas-trash") : null),
     [rootUri]
   );
   const historyKey = useMemo(
@@ -344,7 +344,7 @@ export function useProjectFileSystemModel({
         await writeFileMutation.mutateAsync({ uri, content });
       },
       trash: async (uri) => {
-        const res = await window.teatimeElectron?.trashItem?.({ uri });
+        const res = await window.tenasElectron?.trashItem?.({ uri });
         if (!res?.ok) {
           throw new Error(res?.reason ?? "无法移动到回收站");
         }
@@ -532,7 +532,7 @@ export function useProjectFileSystemModel({
       toast.error("网页版不支持打开本地文件");
       return;
     }
-    const res = await window.teatimeElectron?.openPath?.({ uri: entry.uri });
+    const res = await window.tenasElectron?.openPath?.({ uri: entry.uri });
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件");
     }
@@ -546,8 +546,8 @@ export function useProjectFileSystemModel({
     }
     const res =
       entry.kind === "folder"
-        ? await window.teatimeElectron?.openPath?.({ uri: entry.uri })
-        : await window.teatimeElectron?.showItemInFolder?.({ uri: entry.uri });
+        ? await window.tenasElectron?.openPath?.({ uri: entry.uri })
+        : await window.tenasElectron?.showItemInFolder?.({ uri: entry.uri });
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件管理器");
     }
@@ -621,7 +621,7 @@ export function useProjectFileSystemModel({
         component: "pdf-viewer",
         title: entry.name,
         params: {
-          uri: buildTeatimeFileUrl(projectId, relativePath),
+          uri: buildTenasFileUrl(projectId, relativePath),
           name: entry.name,
           ext: entry.ext,
           __customHeader: true,
@@ -850,9 +850,9 @@ export function useProjectFileSystemModel({
   const handleDeletePermanent = async (entry: FileSystemEntry) => {
     const ok = window.confirm(`彻底删除「${entry.name}」？此操作不可撤回。`);
     if (!ok) return;
-    if (isElectron && window.teatimeElectron?.trashItem) {
+    if (isElectron && window.tenasElectron?.trashItem) {
       try {
-        const res = await window.teatimeElectron.trashItem({ uri: entry.uri });
+        const res = await window.tenasElectron.trashItem({ uri: entry.uri });
         if (!res?.ok) {
           toast.error(res?.reason ?? "无法移动到系统回收站");
           return;
@@ -877,9 +877,9 @@ export function useProjectFileSystemModel({
     );
     if (!ok) return;
     for (const entry of entries) {
-      if (isElectron && window.teatimeElectron?.trashItem) {
+      if (isElectron && window.tenasElectron?.trashItem) {
         try {
-          const res = await window.teatimeElectron.trashItem({ uri: entry.uri });
+          const res = await window.tenasElectron.trashItem({ uri: entry.uri });
           if (!res?.ok) {
             toast.error(res?.reason ?? "无法移动到系统回收站");
           }
@@ -929,7 +929,7 @@ export function useProjectFileSystemModel({
     const snapshot = createEmptyBoardSnapshot();
     // 中文注释：初始画布直接写入文件，保证后续保存落盘同一位置。
     const content = JSON.stringify(snapshot, null, 2);
-    // 中文注释：画布采用文件夹结构，包含 index.ttboard 与 assets 子目录。
+    // 中文注释：画布采用文件夹结构，包含 index.tnboard 与 assets 子目录。
     await mkdirMutation.mutateAsync({ uri: boardFolderUri, recursive: true });
     await mkdirMutation.mutateAsync({ uri: assetsUri, recursive: true });
     await writeFileMutation.mutateAsync({ uri: boardFileUri, content });
@@ -1203,8 +1203,8 @@ export function useProjectFileSystemModel({
     const actions: HistoryAction[] = [];
     for (const rawSourceUri of uniqueSourceUris) {
       let sourceUri = rawSourceUri;
-      if (rawSourceUri.startsWith("teatime-file://")) {
-        const parsed = parseTeatimeFileUrl(rawSourceUri);
+      if (rawSourceUri.startsWith("tenas-file://")) {
+        const parsed = parseTenasFileUrl(rawSourceUri);
         if (!parsed || !projectId || parsed.projectId !== projectId || !rootUri) {
           toast.error("无法移动跨项目文件");
           return 0;

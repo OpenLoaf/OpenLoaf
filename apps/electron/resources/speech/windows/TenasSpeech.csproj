@@ -4,8 +4,8 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>teatime-speech</AssemblyName>
-    <RootNamespace>TeatimeSpeech</RootNamespace>
+    <AssemblyName>tenas-speech</AssemblyName>
+    <RootNamespace>TenasSpeech</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

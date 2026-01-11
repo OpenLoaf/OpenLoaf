@@ -49,7 +49,7 @@ function resolveCodexCommand(): string {
 /** Build client info for Codex app-server initialization. */
 function buildClientInfo(): { name: string; title: string; version: string } {
   const version = process.env.npm_package_version ?? "0.0.0";
-  return { name: "teatime-ai", title: "Teatime AI", version };
+  return { name: "tenas-ai", title: "Tenas AI", version };
 }
 
 /** Default approval decision for v2 approvals. */

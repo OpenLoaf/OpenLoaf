@@ -1,6 +1,6 @@
 import { generateImage, type UIMessage } from "ai";
-import type { ModelDefinition } from "@teatime-ai/api/common";
-import type { TeatimeUIMessage, TokenUsage } from "@teatime-ai/api/types/message";
+import type { ModelDefinition } from "@tenas-ai/api/common";
+import type { TenasUIMessage, TokenUsage } from "@tenas-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/resolveChatModel";
 import { resolveImageModel } from "@/ai/resolveImageModel";
@@ -109,7 +109,7 @@ export async function runChatStream(input: {
     messageId,
   });
 
-  const lastMessage = incomingMessages.at(-1) as TeatimeUIMessage | undefined;
+  const lastMessage = incomingMessages.at(-1) as TenasUIMessage | undefined;
   if (!lastMessage || !lastMessage.role || !lastMessage.id) {
     return createErrorStreamResponse({
       sessionId,
@@ -300,7 +300,7 @@ export async function runChatImageRequest(input: {
     messageId,
   });
 
-  const lastMessage = incomingMessages.at(-1) as TeatimeUIMessage | undefined;
+  const lastMessage = incomingMessages.at(-1) as TenasUIMessage | undefined;
   if (!lastMessage || !lastMessage.role || !lastMessage.id) {
     return createChatImageErrorResult(400, formatInvalidRequestMessage("缺少最后一条消息。"));
   }
@@ -366,7 +366,7 @@ export async function runChatImageRequest(input: {
       : [];
     const messageParts = [...imageResult.persistedImageParts, ...revisedPromptPart];
 
-    const message: TeatimeUIMessage = {
+    const message: TenasUIMessage = {
       id: assistantMessageId,
       role: "assistant",
       parts: messageParts,
@@ -510,7 +510,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     throw new Error("workspaceId 缺失，无法保存图片");
   }
   const projectId = getProjectId();
-  // 保存到本地磁盘，落库使用 teatime-file。
+  // 保存到本地磁盘，落库使用 tenas-file。
   const persistedImageParts = await saveGeneratedImages({
     images: result.images,
     workspaceId,

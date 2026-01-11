@@ -87,7 +87,7 @@ importers:
 
   apps/electron:
     dependencies:
-      '@teatime-ai/config':
+      '@tenas-ai/config':
         specifier: workspace:*
         version: link:../../packages/config
       electron-updater:
@@ -163,13 +163,13 @@ importers:
       '@openai/codex-sdk':
         specifier: ^0.79.0
         version: 0.79.0
-      '@teatime-ai/api':
+      '@tenas-ai/api':
         specifier: workspace:*
         version: link:../../packages/api
-      '@teatime-ai/config':
+      '@tenas-ai/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@teatime-ai/db':
+      '@tenas-ai/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@trpc/server':
@@ -431,7 +431,7 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.85.5
         version: 5.90.12(react@19.1.2)
-      '@teatime-ai/api':
+      '@tenas-ai/api':
         specifier: workspace:*
         version: link:../../packages/api
       '@trpc/client':
@@ -615,7 +615,7 @@ importers:
       '@tanstack/react-query-devtools':
         specifier: ^5.85.5
         version: 5.91.1(@tanstack/react-query@5.90.12(react@19.1.2))(react@19.1.2)
-      '@teatime-ai/config':
+      '@tenas-ai/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@types/node':
@@ -645,7 +645,7 @@ importers:
       '@platejs/markdown':
         specifier: ^52.0.11
         version: 52.0.11(platejs@52.0.15(@types/react@19.2.7)(immer@11.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(scheduler@0.27.0)(use-sync-external-store@1.6.0(react@19.2.3)))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
-      '@teatime-ai/db':
+      '@tenas-ai/db':
         specifier: workspace:*
         version: link:../db
       '@trpc/client':
@@ -679,7 +679,7 @@ importers:
         specifier: ^4.1.11
         version: 4.2.1
     devDependencies:
-      '@teatime-ai/config':
+      '@tenas-ai/config':
         specifier: workspace:*
         version: link:../config
 
@@ -707,7 +707,7 @@ importers:
         specifier: ^4.1.11
         version: 4.2.1
     devDependencies:
-      '@teatime-ai/config':
+      '@tenas-ai/config':
         specifier: workspace:*
         version: link:../config
       prisma:

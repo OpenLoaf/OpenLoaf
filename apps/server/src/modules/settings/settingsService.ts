@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { ModelDefinition } from "@teatime-ai/api/common";
-import type { BasicConfig, BasicConfigUpdate } from "@teatime-ai/api/types/basic";
+import type { ModelDefinition } from "@tenas-ai/api/common";
+import type { BasicConfig, BasicConfigUpdate } from "@tenas-ai/api/types/basic";
 import {
   readModelProviders,
   readS3Providers,
@@ -8,7 +8,7 @@ import {
   writeBasicConf,
   writeModelProviders,
   writeS3Providers,
-} from "@/modules/settings/teatimeConfStore";
+} from "@/modules/settings/tenasConfStore";
 import type {
   ModelProviderConf,
   ModelProviderValue,

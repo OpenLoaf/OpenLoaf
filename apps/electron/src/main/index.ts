@@ -11,7 +11,7 @@ import { resolveRuntimePorts, type RuntimePorts } from './services/portAllocatio
 import { WEBPACK_ENTRIES } from './webpackEntries';
 import { createMainWindow } from './windows/mainWindow';
 
-const APP_DISPLAY_NAME = 'TeaTime';
+const APP_DISPLAY_NAME = 'Tenas';
 
 /**
  * A 方案架构说明：
@@ -33,16 +33,16 @@ log(`Resources Path: ${process.resourcesPath}`);
 
 let runtimePorts: RuntimePorts | null = null;
 const runtimePortsReady = resolveRuntimePorts({
-  serverUrlEnv: process.env.TEATIME_SERVER_URL,
-  webUrlEnv: process.env.TEATIME_WEB_URL,
-  cdpPortEnv: process.env.TEATIME_REMOTE_DEBUGGING_PORT,
-  cdpHostEnv: process.env.TEATIME_REMOTE_DEBUGGING_HOST,
+  serverUrlEnv: process.env.TENAS_SERVER_URL,
+  webUrlEnv: process.env.TENAS_WEB_URL,
+  cdpPortEnv: process.env.TENAS_REMOTE_DEBUGGING_PORT,
+  cdpHostEnv: process.env.TENAS_REMOTE_DEBUGGING_HOST,
 })
   .then((ports) => {
     // 中文注释：提前锁定随机端口并写回环境变量，保证 web/server/CDP 同步。
-    process.env.TEATIME_REMOTE_DEBUGGING_PORT = String(ports.cdpPort);
-    process.env.TEATIME_SERVER_URL = ports.serverUrl;
-    process.env.TEATIME_WEB_URL = ports.webUrl;
+    process.env.TENAS_REMOTE_DEBUGGING_PORT = String(ports.cdpPort);
+    process.env.TENAS_SERVER_URL = ports.serverUrl;
+    process.env.TENAS_WEB_URL = ports.webUrl;
     app.commandLine.appendSwitch('remote-debugging-port', String(ports.cdpPort));
     runtimePorts = ports;
     return ports;

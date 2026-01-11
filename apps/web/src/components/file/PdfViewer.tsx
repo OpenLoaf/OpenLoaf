@@ -41,7 +41,7 @@ export default function PdfViewer({ uri, name, panelKey, tabId }: PdfViewerProps
       setStatus("idle");
       return;
     }
-    if (!uri.startsWith("teatime-file://")) {
+    if (!uri.startsWith("tenas-file://")) {
       setData(null);
       setStatus("error");
       return;

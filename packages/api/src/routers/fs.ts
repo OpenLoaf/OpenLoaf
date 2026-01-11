@@ -6,14 +6,14 @@ import { t, shieldedProcedure } from "../index";
 import { resolveWorkspacePathFromUri, toFileUri } from "../services/vfsService";
 
 /** Board folder prefix for server-side sorting. */
-const BOARD_FOLDER_PREFIX = "ttboard_";
+const BOARD_FOLDER_PREFIX = "tnboard_";
 /** Directory names ignored by search when hidden entries are excluded. */
 const SEARCH_IGNORE_NAMES = new Set([
   "node_modules",
   ".git",
   ".turbo",
   ".next",
-  ".teatime-trash",
+  ".tenas-trash",
   "dist",
   "build",
   "out",
@@ -65,12 +65,23 @@ const fsFolderThumbnailSchema = z.object({
 });
 
 /** Build a file node for UI consumption. */
+type FsFileNode = {
+  uri: string;
+  name: string;
+  kind: "folder" | "file";
+  ext?: string;
+  size?: number;
+  createdAt: string;
+  updatedAt: string;
+  isEmpty?: boolean;
+};
+
 function buildFileNode(input: {
   name: string;
   fullPath: string;
   stat: Awaited<ReturnType<typeof fs.stat>>;
   isEmpty?: boolean;
-}) {
+}): FsFileNode {
   const ext = path.extname(input.name).replace(/^\./, "");
   const isDir = input.stat.isDirectory();
   // 创建时间优先使用 birthtime，避免受元数据变更影响。
@@ -82,7 +93,7 @@ function buildFileNode(input: {
     name: input.name,
     kind: isDir ? "folder" : "file",
     ext: ext || undefined,
-    size: isDir ? undefined : input.stat.size,
+    size: isDir ? undefined : Number(input.stat.size),
     createdAt,
     updatedAt: input.stat.mtime.toISOString(),
     isEmpty: isDir ? input.isEmpty : undefined,
@@ -378,7 +389,7 @@ export const fsRouter = t.router({
       return { results: [] };
     }
     if (!rootStat.isDirectory()) return { results: [] };
-    const results = [];
+    const results: Array<ReturnType<typeof buildFileNode>> = [];
     const visit = async (dirPath: string, depth: number) => {
       if (results.length >= limit) return;
       let entries: Dirent[];

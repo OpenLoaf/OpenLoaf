@@ -51,7 +51,7 @@ async function getCdpTargetId(webContents: Electron.WebContents): Promise<string
 
 /**
  * 注册主进程 IPC handlers（只注册一次）：
- * - 渲染端通过 preload 暴露的 `window.teatimeElectron` 调用这些能力
+ * - 渲染端通过 preload 暴露的 `window.tenasElectron` 调用这些能力
  * - 这里保持 handler 数量尽量少、职责清晰
  */
 export function registerIpcHandlers(args: { log: Logger }) {
@@ -60,23 +60,23 @@ export function registerIpcHandlers(args: { log: Logger }) {
   const speechManager = createSpeechRecognitionManager({ log: args.log });
 
   // 提供应用版本号给渲染端展示。
-  ipcMain.handle('teatime:app:version', async () => app.getVersion());
+  ipcMain.handle('tenas:app:version', async () => app.getVersion());
 
   // Provide runtime port info for renderer initialization.
-  ipcMain.on('teatime:runtime:ports', (event) => {
-    const serverUrl = process.env.TEATIME_SERVER_URL ?? '';
-    const webUrl = process.env.TEATIME_WEB_URL ?? '';
+  ipcMain.on('tenas:runtime:ports', (event) => {
+    const serverUrl = process.env.TENAS_SERVER_URL ?? '';
+    const webUrl = process.env.TENAS_WEB_URL ?? '';
     event.returnValue = { ok: Boolean(serverUrl), serverUrl, webUrl };
   });
 
   // 为用户输入的 URL 打开独立窗口（通常用于外部链接）。
-  ipcMain.handle('teatime:open-browser-window', async (_event, payload: { url: string }) => {
+  ipcMain.handle('tenas:open-browser-window', async (_event, payload: { url: string }) => {
     const win = createBrowserWindowForUrl(payload?.url ?? '');
     return { id: win.id };
   });
 
   // 使用系统默认浏览器打开外部 URL。
-  ipcMain.handle('teatime:open-external', async (_event, payload: { url: string }) => {
+  ipcMain.handle('tenas:open-external', async (_event, payload: { url: string }) => {
     const url = String(payload?.url ?? '').trim();
     if (!url) return { ok: false as const, reason: 'Invalid url' };
     args.log(`[open-external] ${url}`);
@@ -89,7 +89,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 调用系统语音识别（macOS helper）。渲染端通过事件接收识别文本。
-  ipcMain.handle('teatime:speech:start', async (event, payload: { language?: string }) => {
+  ipcMain.handle('tenas:speech:start', async (event, payload: { language?: string }) => {
     return await speechManager.start({
       language: String(payload?.language ?? '').trim() || undefined,
       webContents: event.sender,
@@ -97,12 +97,12 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 停止系统语音识别。
-  ipcMain.handle('teatime:speech:stop', async () => {
+  ipcMain.handle('tenas:speech:stop', async () => {
     return await speechManager.stop('user');
   });
 
   // 在调用方的 BrowserWindow 内创建/更新 WebContentsView（用于嵌入式浏览面板）。
-  ipcMain.handle('teatime:webcontents-view:upsert', async (event, payload: UpsertWebContentsViewArgs) => {
+  ipcMain.handle('tenas:webcontents-view:upsert', async (event, payload: UpsertWebContentsViewArgs) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     upsertWebContentsView(win, payload);
@@ -110,7 +110,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 确保某个 viewKey 对应的 WebContentsView 已存在，并返回其 cdpTargetId，供 server attach 控制。
-  ipcMain.handle('teatime:webcontents-view:ensure', async (event, payload: { key: string; url: string }) => {
+  ipcMain.handle('tenas:webcontents-view:ensure', async (event, payload: { key: string; url: string }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     const key = String(payload?.key ?? '').trim();
@@ -134,7 +134,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 销毁先前通过 `upsert` 创建的 WebContentsView。
-  ipcMain.handle('teatime:webcontents-view:destroy', async (event, payload: { key: string }) => {
+  ipcMain.handle('tenas:webcontents-view:destroy', async (event, payload: { key: string }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     destroyWebContentsView(win, String(payload?.key ?? ''));
@@ -142,7 +142,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // WebContentsView 后退导航。
-  ipcMain.handle('teatime:webcontents-view:go-back', async (event, payload: { key: string }) => {
+  ipcMain.handle('tenas:webcontents-view:go-back', async (event, payload: { key: string }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     goBackWebContentsView(win, String(payload?.key ?? ''));
@@ -150,7 +150,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // WebContentsView 前进导航。
-  ipcMain.handle('teatime:webcontents-view:go-forward', async (event, payload: { key: string }) => {
+  ipcMain.handle('tenas:webcontents-view:go-forward', async (event, payload: { key: string }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     goForwardWebContentsView(win, String(payload?.key ?? ''));
@@ -158,7 +158,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 清除当前窗口内所有 WebContentsView。
-  ipcMain.handle('teatime:webcontents-view:clear', async (event) => {
+  ipcMain.handle('tenas:webcontents-view:clear', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     destroyAllWebContentsViews(win);
@@ -166,29 +166,29 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 获取当前窗口内 WebContentsView 数量（渲染端用于展示/诊断）。
-  ipcMain.handle('teatime:webcontents-view:count', async (event) => {
+  ipcMain.handle('tenas:webcontents-view:count', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return { ok: false as const };
     return { ok: true as const, count: getWebContentsViewCount(win) };
   });
 
   // 手动触发更新检查（用于设置页“检测更新”按钮）。
-  ipcMain.handle('teatime:auto-update:check', async () => {
+  ipcMain.handle('tenas:auto-update:check', async () => {
     return await checkForUpdates('manual');
   });
 
   // 获取最新更新状态快照（用于设置页首次渲染）。
-  ipcMain.handle('teatime:auto-update:status', async () => {
+  ipcMain.handle('tenas:auto-update:status', async () => {
     return getAutoUpdateStatus();
   });
 
   // 安装已下载的更新并重启。
-  ipcMain.handle('teatime:auto-update:install', async () => {
+  ipcMain.handle('tenas:auto-update:install', async () => {
     return installUpdate();
   });
 
   // 使用系统默认程序打开文件/目录。
-  ipcMain.handle('teatime:fs:open-path', async (_event, payload: { uri: string }) => {
+  ipcMain.handle('tenas:fs:open-path', async (_event, payload: { uri: string }) => {
     const uri = String(payload?.uri ?? '');
     if (!uri.startsWith('file://')) return { ok: false as const, reason: 'Invalid uri' };
     const targetPath = fileURLToPath(uri);
@@ -198,7 +198,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 在系统文件管理器中显示文件/目录。
-  ipcMain.handle('teatime:fs:show-in-folder', async (_event, payload: { uri: string }) => {
+  ipcMain.handle('tenas:fs:show-in-folder', async (_event, payload: { uri: string }) => {
     const uri = String(payload?.uri ?? '');
     if (!uri.startsWith('file://')) return { ok: false as const, reason: 'Invalid uri' };
     const targetPath = fileURLToPath(uri);
@@ -207,7 +207,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 将文件/目录移动到系统回收站。
-  ipcMain.handle('teatime:fs:trash-item', async (_event, payload: { uri: string }) => {
+  ipcMain.handle('tenas:fs:trash-item', async (_event, payload: { uri: string }) => {
     const uri = String(payload?.uri ?? '');
     if (!uri.startsWith('file://')) return { ok: false as const, reason: 'Invalid uri' };
     const targetPath = fileURLToPath(uri);
@@ -220,7 +220,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 选择本地目录并返回完整路径。
-  ipcMain.handle('teatime:fs:pick-directory', async (event) => {
+  ipcMain.handle('tenas:fs:pick-directory', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     const result = await dialog.showOpenDialog(win ?? undefined, {
       properties: ['openDirectory'],
@@ -233,7 +233,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
 
   // Show save dialog and write file content.
   ipcMain.handle(
-    'teatime:fs:save-file',
+    'tenas:fs:save-file',
     async (
       event,
       payload: {

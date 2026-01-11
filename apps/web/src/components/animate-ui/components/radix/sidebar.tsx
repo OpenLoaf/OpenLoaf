@@ -93,8 +93,8 @@ function SidebarProvider({
 
   React.useEffect(() => {
     const handler = () => toggleSidebar();
-    window.addEventListener("teatime:toggle-sidebar", handler);
-    return () => window.removeEventListener("teatime:toggle-sidebar", handler);
+    window.addEventListener("tenas:toggle-sidebar", handler);
+    return () => window.removeEventListener("tenas:toggle-sidebar", handler);
   }, [toggleSidebar]);
 
   // We add a state so that we can do data-state="expanded" or "collapsed".

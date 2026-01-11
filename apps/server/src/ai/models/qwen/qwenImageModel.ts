@@ -4,7 +4,7 @@ import type {
   ImageModelV3Usage,
   SharedV3Warning,
 } from "@ai-sdk/provider";
-import type { ModelDefinition, ProviderDefinition } from "@teatime-ai/api/common";
+import type { ModelDefinition, ProviderDefinition } from "@tenas-ai/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { logger } from "@/common/logger";
 import { downloadImageData } from "@/ai/utils/image-download";

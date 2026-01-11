@@ -74,7 +74,7 @@ export default function MessageHelper() {
     // 注意：输入框在 ChatInput.tsx 内部；这里通过 data attribute 定位，避免引入跨组件 ref 依赖
     requestAnimationFrame(() => {
       const el = document.querySelector<HTMLElement>(
-        '[data-teatime-chat-input="true"]'
+        '[data-tenas-chat-input="true"]'
       );
       if (!el) return;
       el.focus();

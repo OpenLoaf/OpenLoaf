@@ -261,7 +261,7 @@ export default function StepUpPage() {
           : "未选择",
     model:
       modelChoice === "cloud"
-        ? "TeaTime Cloud"
+        ? "Tenas Cloud"
         : modelChoice === "custom"
           ? "自定义模型"
           : "未选择",

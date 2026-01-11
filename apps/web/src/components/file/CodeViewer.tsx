@@ -23,7 +23,7 @@ interface CodeViewerProps {
 type MonacoDisposable = { dispose: () => void };
 
 /** Monaco theme name for the read-only viewer. */
-const MONACO_THEME_NAME = "teatime-dark";
+const MONACO_THEME_NAME = "tenas-dark";
 
 /** Resolve a Monaco language id from extension. */
 function getMonacoLanguageId(ext?: string): string {
@@ -315,7 +315,7 @@ export default function CodeViewer({
     }
     const mentionValue = `${projectId}/${relativePath}:${range.startLine}-${range.endLine}`;
     window.dispatchEvent(
-      new CustomEvent("teatime:chat-insert-mention", {
+      new CustomEvent("tenas:chat-insert-mention", {
         detail: { value: mentionValue },
       })
     );

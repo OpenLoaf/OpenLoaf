@@ -1,12 +1,12 @@
 "use client";
 
 import { TriangleAlert } from "lucide-react";
-import type { TeatimeWebContentsViewStatus } from "@/components/browser/browser-types";
+import type { TenasWebContentsViewStatus } from "@/components/browser/browser-types";
 
 export function BrowserErrorOverlay({
   failed,
 }: {
-  failed?: TeatimeWebContentsViewStatus["failed"];
+  failed?: TenasWebContentsViewStatus["failed"];
 }) {
   if (!failed) return null;
   return (

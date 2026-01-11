@@ -9,8 +9,8 @@ import GlobalShortcuts from "@/components/GlobalShortcuts";
 import StepUpGate from "@/components/layout/StepUpGate";
 
 export const metadata: Metadata = {
-  title: "teatime-ai",
-  description: "teatime-ai",
+  title: "tenas-ai",
+  description: "tenas-ai",
 };
 
 export default function RootLayout({

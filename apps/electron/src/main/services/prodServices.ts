@@ -205,14 +205,14 @@ export async function startProductionServices(args: {
   const resolveEnvValue = (key: string, fallback?: string): string | undefined =>
     packagedEnv[key] ?? userEnv[key] ?? process.env[key] ?? fallback;
 
-  const dataDir = resolveEnvValue('TEATIME_DATA_DIR', path.join(userDataPath, 'data'))!;
+  const dataDir = resolveEnvValue('TENAS_DATA_DIR', path.join(userDataPath, 'data'))!;
   ensureDir(dataDir);
 
-  const defaultDbPath = path.join(dataDir, 'teatime.db');
-  const dbPath = resolveEnvValue('TEATIME_DB_PATH', defaultDbPath)!;
+  const defaultDbPath = path.join(dataDir, 'tenas.db');
+  const dbPath = resolveEnvValue('TENAS_DB_PATH', defaultDbPath)!;
 
-  const defaultConfPath = path.join(dataDir, 'teatime.conf');
-  const confPath = resolveEnvValue('TEATIME_CONF_PATH', defaultConfPath)!;
+  const defaultConfPath = path.join(dataDir, 'tenas.conf');
+  const confPath = resolveEnvValue('TENAS_CONF_PATH', defaultConfPath)!;
 
   // If user didn't create a `.env` yet, write a small template to guide production configuration.
   try {
@@ -220,13 +220,13 @@ export async function startProductionServices(args: {
       fs.writeFileSync(
         userEnvPath,
         [
-          '# Teatime Desktop runtime config (loaded by packaged app)',
+          '# Tenas Desktop runtime config (loaded by packaged app)',
           '# Examples:',
           '# OPENAI_API_KEY=sk-...',
           '# DEEPSEEK_API_KEY=...',
-          `# TEATIME_DATA_DIR=${dataDir}`,
-          `# TEATIME_DB_PATH=${dbPath}`,
-          `# TEATIME_CONF_PATH=${confPath}`,
+          `# TENAS_DATA_DIR=${dataDir}`,
+          `# TENAS_DB_PATH=${dbPath}`,
+          `# TENAS_CONF_PATH=${confPath}`,
           '',
         ].join('\n'),
         { encoding: 'utf-8', flag: 'wx' }
@@ -279,7 +279,7 @@ export async function startProductionServices(args: {
           PORT: String(serverPort),
           HOST: serverHost,
           DATABASE_URL: databaseUrl,
-          TEATIME_CONF_PATH: confPath,
+          TENAS_CONF_PATH: confPath,
           // 中文注释：生产环境需要显式放行 webUrl 作为 CORS origin。
           CORS_ORIGIN: `${args.webUrl},${process.env.CORS_ORIGIN ?? ''}`,
           // Allow the bundled server to resolve shipped native deps (e.g. `@libsql/darwin-arm64`)
@@ -291,7 +291,7 @@ export async function startProductionServices(args: {
           ...userEnv,
           ...packagedEnv,
           // 中文注释：强制对齐 Electron 与 Server 的 CDP 端口，避免运行时不一致。
-          TEATIME_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
+          TENAS_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });

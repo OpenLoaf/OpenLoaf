@@ -3,13 +3,13 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export type TeatimeSettingsFieldProps = {
+export type TenasSettingsFieldProps = {
   children: ReactNode;
   className?: string;
 };
 
 /** Right-side field wrapper for settings rows. */
-export function TeatimeSettingsField({ children, className }: TeatimeSettingsFieldProps) {
+export function TenasSettingsField({ children, className }: TenasSettingsFieldProps) {
   return (
     <div
       className={cn("flex flex-none items-center justify-end ml-auto", className)}

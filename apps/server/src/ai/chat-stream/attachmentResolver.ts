@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import sharp from "sharp";
 import type { UIMessage } from "ai";
-import { getProjectRootPath, getWorkspaceRootPathById } from "@teatime-ai/api/services/vfsService";
+import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
 
 /** Max image edge length for chat. */
 const CHAT_IMAGE_MAX_EDGE = 1024;
@@ -65,9 +65,9 @@ function normalizeRelativePath(input: string): string {
   return input.replace(/^\/+/, "");
 }
 
-/** Build teatime-file url. */
-function buildTeatimeFileUrl(ownerId: string, relativePath: string): string {
-  return `teatime-file://${ownerId}/${normalizeRelativePath(relativePath)}`;
+/** Build tenas-file url. */
+function buildTenasFileUrl(ownerId: string, relativePath: string): string {
+  return `tenas-file://${ownerId}/${normalizeRelativePath(relativePath)}`;
 }
 
 /** Resolve root path for chat attachments. */
@@ -89,15 +89,15 @@ async function resolveChatAttachmentRoot(input: {
   return { rootPath: workspaceRootPath, ownerId: workspaceId };
 }
 
-/** Resolve local file path from teatime-file url. */
-async function resolveTeatimeFilePath(url: string): Promise<string | null> {
+/** Resolve local file path from tenas-file url. */
+async function resolveTenasFilePath(url: string): Promise<string | null> {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
     return null;
   }
-  if (parsed.protocol !== "teatime-file:") return null;
+  if (parsed.protocol !== "tenas-file:") return null;
   const ownerId = parsed.hostname.trim();
   if (!ownerId) return null;
   const relativePath = normalizeRelativePath(decodeURIComponent(parsed.pathname));
@@ -164,7 +164,7 @@ export async function saveChatImageAttachment(input: {
     hash,
     ext: compressed.ext,
   });
-  const relativePath = path.posix.join(".teatime", "chat", input.sessionId, fileName);
+  const relativePath = path.posix.join(".tenas", "chat", input.sessionId, fileName);
   const root = await resolveChatAttachmentRoot({
     projectId: input.projectId,
     workspaceId: input.workspaceId,
@@ -173,37 +173,37 @@ export async function saveChatImageAttachment(input: {
     throw new Error("Workspace or project not found");
   }
 
-  const targetPath = path.join(root.rootPath, ".teatime", "chat", input.sessionId, fileName);
+  const targetPath = path.join(root.rootPath, ".tenas", "chat", input.sessionId, fileName);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.writeFile(targetPath, compressed.buffer);
 
   return {
-    url: buildTeatimeFileUrl(root.ownerId, relativePath),
+    url: buildTenasFileUrl(root.ownerId, relativePath),
     mediaType: compressed.mediaType,
   };
 }
 
-/** Save chat image attachment from a teatime-file url. */
-export async function saveChatImageAttachmentFromTeatimeUrl(input: {
+/** Save chat image attachment from a tenas-file url. */
+export async function saveChatImageAttachmentFromTenasUrl(input: {
   /** Workspace id. */
   workspaceId: string;
   /** Project id. */
   projectId?: string;
   /** Session id. */
   sessionId: string;
-  /** Source teatime-file url. */
+  /** Source tenas-file url. */
   url: string;
 }): Promise<{ url: string; mediaType: string }> {
-  const filePath = await resolveTeatimeFilePath(input.url);
+  const filePath = await resolveTenasFilePath(input.url);
   if (!filePath) {
-    throw new Error("Invalid teatime-file url");
+    throw new Error("Invalid tenas-file url");
   }
   const buffer = await fs.readFile(filePath);
   const format = resolveImageFormat("application/octet-stream", filePath);
   if (!format || !isSupportedImageMime(format.mediaType)) {
     throw new Error("Unsupported image type");
   }
-  // 中文注释：teatime-file 仍需压缩转码，统一 chat 侧尺寸与质量。
+  // 中文注释：tenas-file 仍需压缩转码，统一 chat 侧尺寸与质量。
   const compressed = await compressImageBuffer(buffer, format);
   const hash = createHash("sha256").update(compressed.buffer).digest("hex");
   const fileName = resolveChatAttachmentFileName({
@@ -211,7 +211,7 @@ export async function saveChatImageAttachmentFromTeatimeUrl(input: {
     hash,
     ext: compressed.ext,
   });
-  const relativePath = path.posix.join(".teatime", "chat", input.sessionId, fileName);
+  const relativePath = path.posix.join(".tenas", "chat", input.sessionId, fileName);
   const root = await resolveChatAttachmentRoot({
     projectId: input.projectId,
     workspaceId: input.workspaceId,
@@ -219,24 +219,24 @@ export async function saveChatImageAttachmentFromTeatimeUrl(input: {
   if (!root) {
     throw new Error("Workspace or project not found");
   }
-  const targetPath = path.join(root.rootPath, ".teatime", "chat", input.sessionId, fileName);
+  const targetPath = path.join(root.rootPath, ".tenas", "chat", input.sessionId, fileName);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.writeFile(targetPath, compressed.buffer);
 
   return {
-    url: buildTeatimeFileUrl(root.ownerId, relativePath),
+    url: buildTenasFileUrl(root.ownerId, relativePath),
     mediaType: compressed.mediaType,
   };
 }
 
-/** Build UI file part from teatime-file url. */
-export async function buildFilePartFromTeatimeUrl(input: {
+/** Build UI file part from tenas-file url. */
+export async function buildFilePartFromTenasUrl(input: {
   /** File url. */
   url: string;
   /** Media type override. */
   mediaType?: string;
 }): Promise<{ type: "file"; url: string; mediaType: string } | null> {
-  const payload = await loadTeatimeImageBuffer(input);
+  const payload = await loadTenasImageBuffer(input);
   if (!payload) return null;
   const base64 = payload.buffer.toString("base64");
   return {
@@ -247,11 +247,11 @@ export async function buildFilePartFromTeatimeUrl(input: {
 }
 
 /** Resolve preview content for supported attachments. */
-export async function getTeatimeFilePreview(input: {
+export async function getTenasFilePreview(input: {
   /** File url. */
   url: string;
 }): Promise<{ buffer: Buffer; mediaType: string } | null> {
-  const filePath = await resolveTeatimeFilePath(input.url);
+  const filePath = await resolveTenasFilePath(input.url);
   if (!filePath) return null;
   const lowerPath = filePath.toLowerCase();
   // PDF 直接返回原文件内容，图片继续压缩预览。
@@ -266,14 +266,14 @@ export async function getTeatimeFilePreview(input: {
   return { buffer: compressed.buffer, mediaType: compressed.mediaType };
 }
 
-/** Load image buffer from teatime-file url. */
-export async function loadTeatimeImageBuffer(input: {
+/** Load image buffer from tenas-file url. */
+export async function loadTenasImageBuffer(input: {
   /** File url. */
   url: string;
   /** Media type override. */
   mediaType?: string;
 }): Promise<{ buffer: Buffer; mediaType: string } | null> {
-  const filePath = await resolveTeatimeFilePath(input.url);
+  const filePath = await resolveTenasFilePath(input.url);
   if (!filePath) return null;
   const buffer = await fs.readFile(filePath);
   const fallbackType = input.mediaType || "application/octet-stream";
@@ -287,8 +287,8 @@ export async function loadTeatimeImageBuffer(input: {
   };
 }
 
-/** Replace teatime-file parts with data urls. */
-export async function replaceTeatimeFileParts(messages: UIMessage[]): Promise<UIMessage[]> {
+/** Replace tenas-file parts with data urls. */
+export async function replaceTenasFileParts(messages: UIMessage[]): Promise<UIMessage[]> {
   const next: UIMessage[] = [];
   for (const message of messages) {
     const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
@@ -303,14 +303,14 @@ export async function replaceTeatimeFileParts(messages: UIMessage[]): Promise<UI
         continue;
       }
       const url = typeof (part as any).url === "string" ? (part as any).url : "";
-      if (!url || !url.startsWith("teatime-file://")) {
+      if (!url || !url.startsWith("tenas-file://")) {
         replaced.push(part);
         continue;
       }
       const mediaType =
         typeof (part as any).mediaType === "string" ? (part as any).mediaType : undefined;
       try {
-        const filePart = await buildFilePartFromTeatimeUrl({ url, mediaType });
+        const filePart = await buildFilePartFromTenasUrl({ url, mediaType });
         if (filePart) replaced.push(filePart);
       } catch {
         // 读取或压缩失败时直接跳过该图片，避免阻断对话。

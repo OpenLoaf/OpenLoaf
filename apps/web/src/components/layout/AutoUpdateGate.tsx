@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 type AutoUpdateGateState = {
-  status: TeatimeAutoUpdateStatus | null;
+  status: TenasAutoUpdateStatus | null;
   open: boolean;
 };
 
@@ -34,7 +34,7 @@ export default function AutoUpdateGate() {
 
   /** Fetch initial update status from the main process. */
   const fetchInitialStatus = React.useCallback(async () => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!isElectron || !api?.getAutoUpdateStatus) return;
     try {
       const status = await api.getAutoUpdateStatus();
@@ -46,14 +46,14 @@ export default function AutoUpdateGate() {
 
   /** Handle update status events from Electron main process. */
   const handleStatusEvent = React.useCallback((event: Event) => {
-    const detail = (event as CustomEvent<TeatimeAutoUpdateStatus>).detail;
+    const detail = (event as CustomEvent<TenasAutoUpdateStatus>).detail;
     if (!detail) return;
     setState((prev) => ({ ...prev, status: detail }));
   }, []);
 
   /** Install the downloaded update and restart the app. */
   const installDownloadedUpdate = React.useCallback(async () => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!isElectron || !api?.installUpdate) return;
     await api.installUpdate();
   }, [isElectron]);
@@ -65,9 +65,9 @@ export default function AutoUpdateGate() {
 
   React.useEffect(() => {
     if (!isElectron) return;
-    window.addEventListener("teatime:auto-update:status", handleStatusEvent);
+    window.addEventListener("tenas:auto-update:status", handleStatusEvent);
     return () =>
-      window.removeEventListener("teatime:auto-update:status", handleStatusEvent);
+      window.removeEventListener("tenas:auto-update:status", handleStatusEvent);
   }, [isElectron, handleStatusEvent]);
 
   React.useEffect(() => {

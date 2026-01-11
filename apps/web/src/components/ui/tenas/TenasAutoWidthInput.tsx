@@ -4,13 +4,13 @@ import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
-export type TeatimeAutoWidthInputProps = ComponentProps<typeof Input> & {
+export type TenasAutoWidthInputProps = ComponentProps<typeof Input> & {
   minChars?: number;
   maxChars?: number;
 };
 
 /** Auto width input based on content length. */
-export function TeatimeAutoWidthInput({
+export function TenasAutoWidthInput({
   minChars = 12,
   maxChars = 42,
   value,
@@ -18,7 +18,7 @@ export function TeatimeAutoWidthInput({
   className,
   style,
   ...props
-}: TeatimeAutoWidthInputProps) {
+}: TenasAutoWidthInputProps) {
   const valueText = value == null ? "" : String(value);
   const placeholderText = typeof placeholder === "string" ? placeholder : "";
   const baseLength = Math.max(valueText.length, placeholderText.length, minChars);

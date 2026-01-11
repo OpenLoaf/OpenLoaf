@@ -8,11 +8,11 @@ import { playNotificationSound } from "@/lib/notification-sound";
 /** Default error message for dictation failures. */
 const DEFAULT_ERROR_MESSAGE = "语音识别不可用";
 
-type SpeechResultDetail = TeatimeSpeechResult;
+type SpeechResultDetail = TenasSpeechResult;
 
-type SpeechStateDetail = TeatimeSpeechState;
+type SpeechStateDetail = TenasSpeechState;
 
-type SpeechErrorDetail = TeatimeSpeechError;
+type SpeechErrorDetail = TenasSpeechError;
 
 type SpeechDictationOptions = {
   /** Plate editor instance to write dictation text into. */
@@ -59,7 +59,7 @@ export function useSpeechDictation({
   const isSupported = Boolean(
     isElectron &&
       typeof window !== "undefined" &&
-      window.teatimeElectron?.startSpeechRecognition,
+      window.tenasElectron?.startSpeechRecognition,
   );
 
   /** Update listener refs when listening state changes. */
@@ -137,11 +137,11 @@ export function useSpeechDictation({
 
   /** Start speech dictation in Electron main process. */
   const start = useCallback(async () => {
-    if (!isSupported || !window.teatimeElectron?.startSpeechRecognition) {
+    if (!isSupported || !window.tenasElectron?.startSpeechRecognition) {
       if (onError) onError(DEFAULT_ERROR_MESSAGE);
       return;
     }
-    const result = await window.teatimeElectron.startSpeechRecognition({
+    const result = await window.tenasElectron.startSpeechRecognition({
       language: language?.trim() || undefined,
     });
     if (result?.ok) {
@@ -155,8 +155,8 @@ export function useSpeechDictation({
 
   /** Stop speech dictation in Electron main process. */
   const stop = useCallback(async () => {
-    if (!window.teatimeElectron?.stopSpeechRecognition) return;
-    await window.teatimeElectron.stopSpeechRecognition();
+    if (!window.tenasElectron?.stopSpeechRecognition) return;
+    await window.tenasElectron.stopSpeechRecognition();
     lastInterimRef.current = "";
     setIsListening(false);
   }, []);
@@ -175,13 +175,13 @@ export function useSpeechDictation({
 
   useEffect(() => {
     if (!isSupported) return;
-    window.addEventListener("teatime:speech:result", handleSpeechResult);
-    window.addEventListener("teatime:speech:state", handleSpeechState);
-    window.addEventListener("teatime:speech:error", handleSpeechError);
+    window.addEventListener("tenas:speech:result", handleSpeechResult);
+    window.addEventListener("tenas:speech:state", handleSpeechState);
+    window.addEventListener("tenas:speech:error", handleSpeechError);
     return () => {
-      window.removeEventListener("teatime:speech:result", handleSpeechResult);
-      window.removeEventListener("teatime:speech:state", handleSpeechState);
-      window.removeEventListener("teatime:speech:error", handleSpeechError);
+      window.removeEventListener("tenas:speech:result", handleSpeechResult);
+      window.removeEventListener("tenas:speech:state", handleSpeechState);
+      window.removeEventListener("tenas:speech:error", handleSpeechError);
     };
   }, [handleSpeechResult, handleSpeechState, handleSpeechError, isSupported]);
 

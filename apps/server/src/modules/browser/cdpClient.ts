@@ -1,4 +1,4 @@
-import { getCdpConfig } from "@teatime-ai/config";
+import { getCdpConfig } from "@tenas-ai/config";
 import { getCdpSession } from "@/modules/browser/cdpSessionPool";
 
 type CdpTargetInfo = {

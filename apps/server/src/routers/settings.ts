@@ -1,4 +1,4 @@
-import { BaseSettingRouter, settingSchemas, t, shieldedProcedure } from "@teatime-ai/api";
+import { BaseSettingRouter, settingSchemas, t, shieldedProcedure } from "@tenas-ai/api";
 import {
   deleteSettingValueFromWeb,
   getBasicConfigForWeb,

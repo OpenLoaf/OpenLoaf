@@ -19,7 +19,7 @@ const isDevelopment = process.env.NODE_ENV !== "production";
 
 const baseOptions = {
   level,
-  base: { service: "teatime-server" },
+  base: { service: "tenas-server" },
   timestamp: pino.stdTimeFunctions.isoTime,
   mixin() {
     const ctx = getRequestContext();

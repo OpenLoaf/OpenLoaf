@@ -7,8 +7,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
-import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
+import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
+import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
 import { Switch } from "@/components/ui/switch";
 import { Minus, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { truncateDisplay, type S3ProviderEntry } from "@/components/setting/menus/provider/use-provider-management";
@@ -60,7 +60,7 @@ export function S3ProviderSection({
 }: S3ProviderSectionProps) {
   return (
     <>
-      <TeatimeSettingsGroup
+      <TenasSettingsGroup
         title="S3 存储服务商"
         subtitle="配置对象存储服务商的 Endpoint 与访问凭证。"
         className="pb-4"
@@ -73,9 +73,9 @@ export function S3ProviderSection({
                 AI 对话需要公网访问图片时，将自动把图片上传到 S3。
               </div>
             </div>
-            <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <Switch checked={autoUploadEnabled} onCheckedChange={onAutoUploadChange} />
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
@@ -84,7 +84,7 @@ export function S3ProviderSection({
                 经过指定小时数后，自动从 S3 清理已上传的图片。
               </div>
             </div>
-            <TeatimeSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="icon"
                 variant="outline"
@@ -106,12 +106,12 @@ export function S3ProviderSection({
               >
                 <Plus className="h-4 w-4" />
               </Button>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
-      <TeatimeSettingsGroup
+      <TenasSettingsGroup
         title="服务商列表"
         subtitle="管理已添加的服务商配置，支持激活与测试。"
         showBorder={false}
@@ -217,7 +217,7 @@ export function S3ProviderSection({
             </TableBody>
           </Table>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
     </>
   );
 }

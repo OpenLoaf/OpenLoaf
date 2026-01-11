@@ -29,7 +29,7 @@ import {
   FILE_DRAG_NAME_MIME,
   FILE_DRAG_URI_MIME,
   FILE_DRAG_MASK_URI_MIME,
-} from "@/components/ui/teatime/drag-drop-types";
+} from "@/components/ui/tenas/drag-drop-types";
 import { readImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import { buildMaskedPreviewUrl, resolveMaskFileName } from "@/lib/image/mask";
@@ -49,7 +49,7 @@ import {
   parseChatValue,
   serializeChatValue,
 } from "./chat-input-utils";
-import { buildUriFromRoot, parseTeatimeFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
+import { buildUriFromRoot, parseTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
 import { trpc } from "@/utils/trpc";
 import { useQueryClient } from "@tanstack/react-query";
 import { useProjects } from "@/hooks/use-projects";
@@ -378,8 +378,8 @@ export function ChatInputBox({
             .map((value) => {
               const trimmed = value.trim();
               if (!trimmed) return "";
-              if (trimmed.startsWith("teatime-file://")) {
-                const parsed = parseTeatimeFileUrl(trimmed);
+              if (trimmed.startsWith("tenas-file://")) {
+                const parsed = parseTenasFileUrl(trimmed);
                 return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
               }
               return trimmed;
@@ -455,9 +455,9 @@ export function ChatInputBox({
       if (!value) return;
       insertFileMention(value);
     };
-    window.addEventListener("teatime:chat-insert-mention", handleInsertMention);
+    window.addEventListener("tenas:chat-insert-mention", handleInsertMention);
     return () => {
-      window.removeEventListener("teatime:chat-insert-mention", handleInsertMention);
+      window.removeEventListener("tenas:chat-insert-mention", handleInsertMention);
     };
   }, [activeTabId, insertFileMention, tabId]);
 
@@ -472,8 +472,8 @@ export function ChatInputBox({
         const fileRef =
           event.dataTransfer.getData(FILE_DRAG_REF_MIME) ||
           (() => {
-            if (!imagePayload.baseUri.startsWith("teatime-file://")) return "";
-            const parsed = parseTeatimeFileUrl(imagePayload.baseUri);
+            if (!imagePayload.baseUri.startsWith("tenas-file://")) return "";
+            const parsed = parseTenasFileUrl(imagePayload.baseUri);
             return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
           })();
         if (fileRef) {
@@ -512,10 +512,10 @@ export function ChatInputBox({
         const file = new File([blob], fileName, {
           type: blob.type || "application/octet-stream",
         });
-        const sourceUrl = imagePayload.baseUri.startsWith("teatime-file://")
+        const sourceUrl = imagePayload.baseUri.startsWith("tenas-file://")
           ? imagePayload.baseUri
           : undefined;
-        // 中文注释：应用内拖拽优先使用 teatime-file 引用上传。
+        // 中文注释：应用内拖拽优先使用 tenas-file 引用上传。
         onAddAttachments([{ file, sourceUrl }]);
       } catch {
         return;
@@ -565,11 +565,11 @@ export function ChatInputBox({
         isFocused ? "border-primary ring-1 ring-primary/20" : "border-border",
         isOverLimit &&
           "border-destructive ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20",
-        "teatime-thinking-border",
+        "tenas-thinking-border",
         // SSE 请求进行中（含非流式）或语音输入中：给输入框加边框流动动画。
         (isStreaming || isListening) &&
           !isOverLimit &&
-          "teatime-thinking-border-on border-transparent",
+          "tenas-thinking-border-on border-transparent",
         className
       )}
       onPointerDownCapture={handleMentionPointerDown}
@@ -640,7 +640,7 @@ export function ChatInputBox({
                     onKeyDown={handleKeyDown}
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
-                    data-teatime-chat-input="true"
+                    data-tenas-chat-input="true"
                   />
                 </EditorContainer>
               </Plate>

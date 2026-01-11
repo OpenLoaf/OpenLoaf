@@ -1,5 +1,5 @@
 {
-  "name": "@teatime-ai/api",
+  "name": "@tenas-ai/api",
   "exports": {
     ".": {
       "default": "./src/index.ts"
@@ -14,7 +14,7 @@
     "lint": "eslint src"
   },
   "devDependencies": {
-    "@teatime-ai/config": "workspace:*"
+    "@tenas-ai/config": "workspace:*"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -23,7 +23,7 @@
     "@ai-sdk/deepseek": "^2.0.0",
     "@ai-sdk/openai": "^3.0.0",
     "@platejs/markdown": "^52.0.11",
-    "@teatime-ai/db": "workspace:*",
+    "@tenas-ai/db": "workspace:*",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "dotenv": "catalog:",

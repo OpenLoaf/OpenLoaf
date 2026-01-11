@@ -13,9 +13,9 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { TeatimeAutoWidthInput } from "@/components/ui/teatime/TeatimeAutoWidthInput";
-import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
-import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
+import { TenasAutoWidthInput } from "@/components/ui/tenas/TenasAutoWidthInput";
+import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
 import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 
@@ -154,7 +154,7 @@ export function BasicSettings() {
 
         return (
           <div className="space-y-6">
-            <TeatimeSettingsGroup title="系统配置">
+            <TenasSettingsGroup title="系统配置">
               <div className="divide-y divide-border">
                 <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0 flex-1">
@@ -164,7 +164,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -195,7 +195,7 @@ export function BasicSettings() {
                         </DropdownMenuRadioGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </TeatimeSettingsField>
+                  </TenasSettingsField>
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
@@ -206,7 +206,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <Tabs
                       value={themeTabsValue}
                       onValueChange={(next) => {
@@ -221,7 +221,7 @@ export function BasicSettings() {
                         <TabsTrigger value="light">浅色</TabsTrigger>
                       </TabsList>
                     </Tabs>
-                  </TeatimeSettingsField>
+                  </TenasSettingsField>
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
@@ -232,7 +232,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <div className="origin-right scale-125">
                       <Switch
                         checked={isAutoTheme}
@@ -249,7 +249,7 @@ export function BasicSettings() {
                         aria-label="Auto theme"
                       />
                     </div>
-                  </TeatimeSettingsField>
+                  </TenasSettingsField>
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
@@ -260,7 +260,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <Tabs
                       value={fontSize}
                       onValueChange={(next) =>
@@ -274,7 +274,7 @@ export function BasicSettings() {
                         <TabsTrigger value="xlarge">特大</TabsTrigger>
                       </TabsList>
                     </Tabs>
-                  </TeatimeSettingsField>
+                  </TenasSettingsField>
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
@@ -285,7 +285,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TeatimeSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <div className="origin-right scale-125">
                       <Switch
                         checked={basic.appNotificationSoundEnabled}
@@ -295,12 +295,12 @@ export function BasicSettings() {
                         aria-label="Notification sound"
                       />
                     </div>
-                  </TeatimeSettingsField>
+                  </TenasSettingsField>
                 </div>
               </div>
-            </TeatimeSettingsGroup>
+            </TenasSettingsGroup>
 
-            <TeatimeSettingsGroup title="本地存储">
+            <TenasSettingsGroup title="本地存储">
               <div className="divide-y divide-border">
                 <div className="flex flex-wrap items-start gap-2 py-3">
                   <div className="min-w-0 flex-1">
@@ -310,8 +310,8 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TeatimeSettingsField className="w-full sm:w-[480px] shrink-0 justify-end gap-2">
-                    <TeatimeAutoWidthInput
+                  <TenasSettingsField className="w-full sm:w-[480px] shrink-0 justify-end gap-2">
+                    <TenasAutoWidthInput
                       value={localStorageDir}
                       readOnly
                       placeholder="未选择"
@@ -332,7 +332,7 @@ export function BasicSettings() {
                     >
                       选择
                     </Button>
-                  </TeatimeSettingsField>
+                  </TenasSettingsField>
                 </div>
 
                 <div className="flex flex-wrap items-start gap-2 py-3">
@@ -343,8 +343,8 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TeatimeSettingsField className="w-full sm:w-[480px] shrink-0 justify-end gap-2">
-                    <TeatimeAutoWidthInput
+                  <TenasSettingsField className="w-full sm:w-[480px] shrink-0 justify-end gap-2">
+                    <TenasAutoWidthInput
                       value={autoBackupDir}
                       readOnly
                       placeholder="未选择"
@@ -365,12 +365,12 @@ export function BasicSettings() {
                     >
                       选择
                     </Button>
-                  </TeatimeSettingsField>
+                  </TenasSettingsField>
                 </div>
               </div>
-            </TeatimeSettingsGroup>
+            </TenasSettingsGroup>
 
-            <TeatimeSettingsGroup
+            <TenasSettingsGroup
               title="全局自定义规则"
               action={
                 isCustomRulesDirty ? (
@@ -412,7 +412,7 @@ export function BasicSettings() {
                   </div>
                 </div>
               </div>
-            </TeatimeSettingsGroup>
+            </TenasSettingsGroup>
 
           </div>
         );

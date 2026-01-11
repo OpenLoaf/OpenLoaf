@@ -144,7 +144,7 @@ export default function SubAgentTool({ part }: { part: SubAgentToolPart }) {
               ) : !hasOutput ? (
                 <div className="px-3 py-2 text-xs">
                   {/* 中文注释：子Agent输出未开始时显示占位文案。 */}
-                  <span className="teatime-thinking-scan inline-block bg-gradient-to-r from-muted-foreground via-foreground to-muted-foreground bg-clip-text text-transparent">
+                  <span className="tenas-thinking-scan inline-block bg-gradient-to-r from-muted-foreground via-foreground to-muted-foreground bg-clip-text text-transparent">
                     正在思考中
                   </span>
                 </div>

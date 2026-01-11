@@ -195,7 +195,7 @@ export function S3ProviderDialog({
             <div className="text-sm font-medium">Bucket</div>
             <Input
               value={draftBucket}
-              placeholder="例如：teatime-bucket"
+              placeholder="例如：tenas-bucket"
               onChange={(event) => onDraftBucketChange(event.target.value)}
             />
           </div>

@@ -116,7 +116,7 @@ export async function ensureDevServices(args: {
   }
 
   // 开发态为 server 单独开启 Node Inspector，避免影响 Electron 主进程。
-  const inspectPortRaw = envBase.TEATIME_SERVER_INSPECT_PORT ?? '';
+  const inspectPortRaw = envBase.TENAS_SERVER_INSPECT_PORT ?? '';
   const inspectPortParsed = Number.parseInt(inspectPortRaw, 10);
   const serverInspectPort = Number.isFinite(inspectPortParsed)
     ? inspectPortParsed
@@ -149,7 +149,7 @@ export async function ensureDevServices(args: {
       PORT: String(serverPort),
       HOST: serverHost,
       NODE_ENV: 'development',
-      TEATIME_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
+      TENAS_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
       TSX_TSCONFIG_PATH: serverTsconfig,
       // 允许 web dev server 作为 Origin 访问后端。
       CORS_ORIGIN: `${webUrl},${envBase.CORS_ORIGIN ?? ''}`,

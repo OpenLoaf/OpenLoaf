@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { UIMessage } from "@ai-sdk/react";
-import { estimateModelPrice, resolvePriceTier, type ModelDefinition } from "@teatime-ai/api/common";
+import { estimateModelPrice, resolvePriceTier, type ModelDefinition } from "@tenas-ai/api/common";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BarChart3, Clock3, Copy, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
@@ -179,11 +179,11 @@ function calculateUsageCost(
 }
 
 /**
- * Extract assistant elapsed time (ms) from metadata.teatime.
+ * Extract assistant elapsed time (ms) from metadata.tenas.
  */
 function extractAssistantElapsedMs(metadata: unknown): number | undefined {
   const meta = metadata as any;
-  const elapsed = meta?.teatime?.assistantElapsedMs;
+  const elapsed = meta?.tenas?.assistantElapsedMs;
   if (typeof elapsed === "number" && Number.isFinite(elapsed)) return elapsed;
   if (typeof elapsed === "string" && elapsed.trim() !== "" && Number.isFinite(Number(elapsed))) {
     return Number(elapsed);

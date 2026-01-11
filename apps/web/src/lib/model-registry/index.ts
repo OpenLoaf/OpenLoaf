@@ -2,7 +2,7 @@ import {
   createModelRegistry,
   type ModelDefinition,
   type ProviderDefinition,
-} from "@teatime-ai/api/common";
+} from "@tenas-ai/api/common";
 import qwenProvider from "./providers/qwen.json";
 import xaiProvider from "./providers/xai.json";
 import deepseekProvider from "./providers/deepseek.json";

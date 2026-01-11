@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { Workspace } from "@teatime-ai/api/types/workspace";
+import type { Workspace } from "@tenas-ai/api/types/workspace";
 
 export const WorkspaceContext = createContext<{
   workspace: Workspace;

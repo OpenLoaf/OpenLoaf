@@ -6,7 +6,7 @@ import type {
   ImageModelV3Usage,
   SharedV3Warning,
 } from "@ai-sdk/provider";
-import type { ProviderDefinition } from "@teatime-ai/api/common";
+import type { ProviderDefinition } from "@tenas-ai/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { logger } from "@/common/logger";
 import { buildAiDebugFetch } from "@/ai/utils/ai-debug-fetch";

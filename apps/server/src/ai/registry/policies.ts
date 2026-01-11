@@ -1,4 +1,4 @@
-import type { RiskType } from "@teatime-ai/api/types/toolResult";
+import type { RiskType } from "@tenas-ai/api/types/toolResult";
 
 export type ToolPolicyMeta = {
   riskType?: RiskType;

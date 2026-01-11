@@ -1,4 +1,4 @@
-import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
+import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
 
 /** Normalize image count into a safe integer range. */
 export function normalizeImageCount(value: unknown): number | undefined {

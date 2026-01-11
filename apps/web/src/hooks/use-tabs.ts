@@ -2,11 +2,11 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { DEFAULT_TAB_INFO, type DockItem, type Tab } from "@teatime-ai/api/common";
+import { DEFAULT_TAB_INFO, type DockItem, type Tab } from "@tenas-ai/api/common";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
 
-export const TABS_STORAGE_KEY = "teatime:tabs";
+export const TABS_STORAGE_KEY = "tenas:tabs";
 
 export const LEFT_DOCK_MIN_PX = 360;
 export const LEFT_DOCK_DEFAULT_PERCENT = 30;

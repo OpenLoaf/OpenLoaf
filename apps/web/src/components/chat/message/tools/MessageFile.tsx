@@ -37,7 +37,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
   // 控制图片预览弹窗开关。
   const [isPreviewOpen, setIsPreviewOpen] = React.useState(false);
   const isImage = isImageMediaType(mediaType);
-  const shouldFetchPreview = isImage && url.startsWith("teatime-file://");
+  const shouldFetchPreview = isImage && url.startsWith("tenas-file://");
   const chat = useChatContext();
   const projectId = chat.projectId;
   const projectQuery = useProject(projectId);
@@ -65,7 +65,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
       }
     };
 
-    // teatime-file 需要走预览接口获取可展示的 blob。
+    // tenas-file 需要走预览接口获取可展示的 blob。
     void run();
     return () => {
       aborted = true;
@@ -110,7 +110,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
           loading="lazy"
           draggable
           onDragStart={(event) => {
-            // 允许将消息内图片拖入输入框，复用 teatime-file 作为来源。
+            // 允许将消息内图片拖入输入框，复用 tenas-file 作为来源。
             event.dataTransfer.effectAllowed = "copy";
             const fallbackName = title?.trim() || resolveFileName(url, mediaType);
             setImageDragPayload(event.dataTransfer, { baseUri: url, fileName: fallbackName });

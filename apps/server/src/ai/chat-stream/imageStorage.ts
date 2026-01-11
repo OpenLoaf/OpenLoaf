@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import path from "node:path";
 import type { GeneratedFile } from "ai";
-import { readBasicConf, readS3Providers } from "@/modules/settings/teatimeConfStore";
+import { readBasicConf, readS3Providers } from "@/modules/settings/tenasConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
 import { saveChatImageAttachment } from "./attachmentResolver";
 

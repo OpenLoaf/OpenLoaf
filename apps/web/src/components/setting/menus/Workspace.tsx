@@ -5,13 +5,13 @@ import { Input } from "@/components/ui/input";
 import { queryClient, trpc } from "@/utils/trpc";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
-import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
+import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { Copy, FolderOpen, Loader2, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useProjects } from "@/hooks/use-projects";
-import type { ProjectNode } from "@teatime-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
 
 const TOKEN_K = 1000;
 const TOKEN_M = 1000 * 1000;
@@ -152,7 +152,7 @@ export function WorkspaceSettings() {
   const handleOpenWorkspacePath = async () => {
     const rootUri = activeWorkspace?.rootUri;
     if (!rootUri) return;
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!api?.openPath) {
       toast.error("网页版不支持打开文件管理器");
       return;
@@ -177,11 +177,11 @@ export function WorkspaceSettings() {
 
   return (
     <div className="space-y-6">
-      <TeatimeSettingsGroup title="基本信息">
+      <TenasSettingsGroup title="基本信息">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">工作空间ID</div>
-            <TeatimeSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
+            <TenasSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
               <span>{activeWorkspace?.id ?? "—"}</span>
               <Button
                 type="button"
@@ -194,11 +194,11 @@ export function WorkspaceSettings() {
               >
                 <Copy className="h-4 w-4" />
               </Button>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">工作空间名称</div>
-            <TeatimeSettingsField className="w-full sm:w-[320px] shrink-0 justify-end gap-2 text-right">
+            <TenasSettingsField className="w-full sm:w-[320px] shrink-0 justify-end gap-2 text-right">
               <Input
                 value={draftWorkspaceName}
                 placeholder="输入工作空间名称"
@@ -220,11 +220,11 @@ export function WorkspaceSettings() {
                   <Save className="h-4 w-4" />
                 )}
               </Button>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">存储路径</div>
-            <TeatimeSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
+            <TenasSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
               <span className="min-w-0 flex-1 truncate">{displayWorkspacePath}</span>
               <Button
                 type="button"
@@ -250,34 +250,34 @@ export function WorkspaceSettings() {
               >
                 <FolderOpen className="h-4 w-4" />
               </Button>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">项目数量</div>
-            <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
+            <TenasSettingsField className="text-right text-xs text-muted-foreground">
               {projectsQuery.isLoading ? "加载中..." : totalProjectCount}
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
-      <TeatimeSettingsGroup title="聊天数据">
+      <TenasSettingsGroup title="聊天数据">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">会话总数</div>
-            <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
+            <TenasSettingsField className="text-right text-xs text-muted-foreground">
               {typeof sessionCount === "number" ? sessionCount : "—"}
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">Token 总计</div>
-            <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
+            <TenasSettingsField className="text-right text-xs text-muted-foreground">
               {usage ? formatTokenCount(usage.totalTokens) : "—"}
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">Token 输入 / 输出</div>
-            <TeatimeSettingsField className="text-right text-xs text-muted-foreground">
+            <TenasSettingsField className="text-right text-xs text-muted-foreground">
               {usage
                 ? `${formatTokenCount(usage.inputTokens)}（输入: ${formatTokenCount(
                     Math.max(0, usage.inputTokens - usage.cachedInputTokens),
@@ -285,12 +285,12 @@ export function WorkspaceSettings() {
                     usage.outputTokens,
                   )}`
                 : "—"}
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
-      <TeatimeSettingsGroup title="清理">
+      <TenasSettingsGroup title="清理">
         <div className="flex flex-wrap items-start gap-3 py-3">
           <div className="min-w-0">
             <div className="text-sm font-medium">清除所有 AI 聊天内容</div>
@@ -299,7 +299,7 @@ export function WorkspaceSettings() {
             </div>
           </div>
 
-          <TeatimeSettingsField>
+          <TenasSettingsField>
             <Button
               type="button"
               size="sm"
@@ -309,9 +309,9 @@ export function WorkspaceSettings() {
             >
               {clearAllChat.isPending ? "清除中..." : "立即清除"}
             </Button>
-          </TeatimeSettingsField>
+          </TenasSettingsField>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
     </div>
   );
 }

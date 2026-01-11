@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { ChatModelSource } from "@teatime-ai/api/common";
-import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
+import type { ChatModelSource } from "@tenas-ai/api/common";
+import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 
 export type ChatImageMessageInput = {
   /** Message id. */
@@ -54,7 +54,7 @@ export type ChatImageResponse = {
   /** Session id. */
   sessionId: string;
   /** Assistant message payload. */
-  message: TeatimeUIMessage;
+  message: TenasUIMessage;
 };
 
 export type ChatImageRequestResult =

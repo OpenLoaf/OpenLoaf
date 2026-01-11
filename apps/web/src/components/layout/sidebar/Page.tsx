@@ -87,7 +87,7 @@ export const SidebarPage = () => {
 
   /** Pick a directory from system dialog (Electron only). */
   const pickDirectory = async (initialValue?: string) => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (api?.pickDirectory) {
       const result = await api.pickDirectory();
       if (result?.ok && result.path) return result.path;

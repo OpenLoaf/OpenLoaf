@@ -1,6 +1,6 @@
-import { timeNowToolDef } from "@teatime-ai/api/types/tools/system";
-import { testApprovalToolDef } from "@teatime-ai/api/types/tools/approvalTest";
-import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
+import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
+import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
+import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
 
 export type ToolPackId = "masterAgent";
 

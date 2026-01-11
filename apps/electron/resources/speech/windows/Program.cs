@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 
-namespace TeatimeSpeech;
+namespace TenasSpeech;
 
 internal sealed class Program
 {

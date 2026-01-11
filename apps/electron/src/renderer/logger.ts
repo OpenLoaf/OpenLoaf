@@ -23,6 +23,6 @@ const level: LogLevel = normalizeLogLevel(
 // renderer 侧仅用于最小入口日志；输出到浏览器控制台（pino browser 模式）。
 export const logger = pino({
   level,
-  base: { service: "teatime-electron", process: "renderer" },
+  base: { service: "tenas-electron", process: "renderer" },
   browser: { asObject: true },
 });

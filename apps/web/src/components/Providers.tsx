@@ -7,7 +7,7 @@ import { queryClient } from "@/utils/trpc";
 import { useDisableContextMenu } from "@/lib/useDisableContextMenu";
 import { ThemeProvider } from "./ThemeProvider";
 import { handleUiEvent } from "@/lib/chat/uiEvent";
-import type { UiEvent } from "@teatime-ai/api";
+import type { UiEvent } from "@tenas-ai/api";
 import { usePrewarmPlate } from "@/hooks/use-prewarm-plate";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import AutoUpdateGate from "@/components/layout/AutoUpdateGate";
@@ -136,13 +136,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Electron 主进程会通过 preload 桥接 `teatime:ui-event`，这里统一交给 handleUiEvent 分发。
+    // Electron 主进程会通过 preload 桥接 `tenas:ui-event`，这里统一交给 handleUiEvent 分发。
     const onUiEvent = (event: Event) => {
       const detail = (event as CustomEvent<UiEvent>).detail;
       handleUiEvent(detail);
     };
-    window.addEventListener("teatime:ui-event", onUiEvent);
-    return () => window.removeEventListener("teatime:ui-event", onUiEvent);
+    window.addEventListener("tenas:ui-event", onUiEvent);
+    return () => window.removeEventListener("tenas:ui-event", onUiEvent);
   }, []);
 
   return (

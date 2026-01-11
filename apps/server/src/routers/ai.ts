@@ -1,4 +1,4 @@
-import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@teatime-ai/api";
+import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@tenas-ai/api";
 import { runProviderRequest } from "@/ai/models/providerRequestRunner";
 
 /** Default provider id for AI media tasks. */

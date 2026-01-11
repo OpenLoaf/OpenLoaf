@@ -3,7 +3,7 @@
 import { startTransition } from "react";
 import { create } from "zustand";
 import { useTabs } from "@/hooks/use-tabs";
-import { AI_CHAT_TAB_INPUT } from "@teatime-ai/api/common";
+import { AI_CHAT_TAB_INPUT } from "@tenas-ai/api/common";
 
 export type GlobalShortcutDefinition = {
   id: string;
@@ -226,7 +226,7 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
 
   if (keyLower === "b" && withMod && event.shiftKey && !event.altKey) {
     event.preventDefault();
-    window.dispatchEvent(new CustomEvent("teatime:toggle-sidebar"));
+    window.dispatchEvent(new CustomEvent("tenas:toggle-sidebar"));
     return;
   }
 

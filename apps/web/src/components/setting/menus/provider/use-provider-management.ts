@@ -11,7 +11,7 @@ import {
   resolvePriceTier,
   type ModelDefinition,
   type ModelTag,
-} from "@teatime-ai/api/common";
+} from "@tenas-ai/api/common";
 
 type ProviderSettingValue = {
   /** Provider id. */

@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 import { BasicSettings } from "./menus/BasicSettings";
-import { AboutTeatime } from "./menus/AboutTeatime";
+import { AboutTenas } from "./menus/AboutTenas";
 import { ProviderManagement } from "./menus/ProviderManagement";
 import { ObjectStorageService } from "./menus/ObjectStorageService";
 import { AgentManagement } from "./menus/agent/AgentManagement";
@@ -30,11 +30,11 @@ import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
 import { CommandAllowlist } from "./menus/CommandAllowlist";
 import TestSetting from "./menus/TestSetting";
-import { TeatimeSettingsLayout } from "@/components/ui/teatime/TeatimeSettingsLayout";
+import { TenasSettingsLayout } from "@/components/ui/tenas/TenasSettingsLayout";
 import {
-  TeatimeSettingsMenu,
-  type TeatimeSettingsMenuItem,
-} from "@/components/ui/teatime/TeatimeSettingsMenu";
+  TenasSettingsMenu,
+  type TenasSettingsMenuItem,
+} from "@/components/ui/tenas/TenasSettingsMenu";
 
 type SettingsMenuKey =
   | "basic"
@@ -71,7 +71,7 @@ const MENU: Array<{
   { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
   { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
   ...DEV_MENU,
-  { key: "about", label: "关于Teatime", Icon: Info, Component: AboutTeatime },
+  { key: "about", label: "关于Tenas", Icon: Info, Component: AboutTenas },
 ];
 
 const MENU_KEY_SET = new Set<SettingsMenuKey>(MENU.map((item) => item.key));
@@ -183,7 +183,7 @@ export default function SettingsPage({
       byKey.get("projectTest"),
       byKey.get("about"),
     ].filter(Boolean);
-    return [group1, group2, group3] as TeatimeSettingsMenuItem[][];
+    return [group1, group2, group3] as TenasSettingsMenuItem[][];
   }, []);
 
   /** Persist the active menu into the dock base params. */
@@ -195,13 +195,13 @@ export default function SettingsPage({
   };
 
   return (
-    <TeatimeSettingsLayout
+    <TenasSettingsLayout
       ref={containerRef}
       isCollapsed={isCollapsed}
       contentWrapperClassName="min-w-[400px]"
       contentInnerClassName="p-3 pr-1"
       menu={
-        <TeatimeSettingsMenu
+        <TenasSettingsMenu
           groups={menuGroups}
           activeKey={activeKey}
           isCollapsed={isCollapsed}

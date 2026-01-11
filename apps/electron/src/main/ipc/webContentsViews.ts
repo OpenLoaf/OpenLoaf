@@ -71,7 +71,7 @@ function emitViewStatus(
   };
   map.set(key, payload);
   try {
-    win.webContents.send('teatime:webcontents-view:status', payload);
+    win.webContents.send('tenas:webcontents-view:status', payload);
   } catch {
     // ignore
   }
@@ -91,7 +91,7 @@ function emitWindowOpen(win: BrowserWindow, payload: WebContentsViewWindowOpen) 
   if (win.isDestroyed()) return;
   try {
     console.log('[webcontents-view] window-open', payload);
-    win.webContents.send('teatime:webcontents-view:window-open', payload);
+    win.webContents.send('tenas:webcontents-view:window-open', payload);
   } catch {
     // ignore
   }

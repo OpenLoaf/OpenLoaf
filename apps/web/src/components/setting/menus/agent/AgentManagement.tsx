@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
+import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
 import { AgentList } from "./AgentList";
 import { AgentDetailsDialog, DeleteAgentDialog } from "./AgentDialogs";
 
@@ -123,7 +123,7 @@ export function AgentManagement() {
 
   return (
     <>
-      <TeatimeSettingsGroup title="Agent 管理" showBorder={false}>
+      <TenasSettingsGroup title="Agent 管理" showBorder={false}>
         <AgentList
           agents={filteredAgents}
           selectedId={panel?.id ?? null}
@@ -133,7 +133,7 @@ export function AgentManagement() {
           onEdit={openEdit}
           onDelete={setDeleteId}
         />
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
       <AgentDetailsDialog
         panel={panel}

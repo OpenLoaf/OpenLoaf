@@ -44,7 +44,7 @@ interface ImageViewerProps {
   saveDefaultDir?: string;
   /** Optional media type for file naming. */
   mediaType?: string;
-  /** Optional initial mask for editing (teatime-file/data/blob). */
+  /** Optional initial mask for editing (tenas-file/data/blob). */
   initialMaskUri?: string;
   /** Optional override handler when applying mask. */
   onApplyMask?: (input: MaskedAttachmentInput) => void;
@@ -192,7 +192,7 @@ export default function ImageViewer({
   onApplyMask,
   onClose,
 }: ImageViewerProps) {
-  const isTeatimeFile = typeof uri === "string" && uri.startsWith("teatime-file://");
+  const isTenasFile = typeof uri === "string" && uri.startsWith("tenas-file://");
   const isDataUrl = typeof uri === "string" && uri.startsWith("data:");
   const isBlob = isBlobUrl(uri);
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
@@ -257,7 +257,7 @@ export default function ImageViewer({
   } | null>(null);
 
   React.useEffect(() => {
-    if (!uri || !isTeatimeFile) return;
+    if (!uri || !isTenasFile) return;
     let aborted = false;
     let objectUrl = "";
     const run = async () => {
@@ -277,7 +277,7 @@ export default function ImageViewer({
       aborted = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [uri, isTeatimeFile]);
+  }, [uri, isTenasFile]);
 
   const payload = shouldUseFs ? imageQuery.data : null;
   // 用 base64 构造 dataUrl，避免浏览器直接访问 file:// 资源。
@@ -356,7 +356,7 @@ export default function ImageViewer({
     if (!canSave) return;
     setIsSaving(true);
     try {
-      if (!isElectron || !window.teatimeElectron?.saveFile) {
+      if (!isElectron || !window.tenasElectron?.saveFile) {
         const link = document.createElement("a");
         link.href = dataUrl;
         link.download = fileName;
@@ -367,7 +367,7 @@ export default function ImageViewer({
       if (!res.ok) throw new Error("download failed");
       const buffer = await res.arrayBuffer();
       const contentBase64 = encodeArrayBufferToBase64(buffer);
-      const result = await window.teatimeElectron.saveFile({
+      const result = await window.tenasElectron.saveFile({
         contentBase64,
         defaultDir: saveDefaultDir,
         suggestedName: fileName,
@@ -886,7 +886,7 @@ export default function ImageViewer({
     return <div className="h-full w-full p-4 text-muted-foreground">未选择图片</div>;
   }
 
-  if (isTeatimeFile && (!preview || preview.status === "loading")) {
+  if (isTenasFile && (!preview || preview.status === "loading")) {
     return <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>;
   }
 
@@ -894,7 +894,7 @@ export default function ImageViewer({
     return <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>;
   }
 
-  if (isTeatimeFile && preview?.status === "error") {
+  if (isTenasFile && preview?.status === "error") {
     return (
       <div className="h-full w-full p-4 text-destructive">
         图片预览失败

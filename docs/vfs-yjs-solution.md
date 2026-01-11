@@ -11,11 +11,11 @@
 - 支持 URI 超链接关联（跨本地/远端/容器/WSL 等）。
 
 ## 关键决策
-- **统一资源标识**：使用 URI（`file://` / `teatime-remote://`）。
+- **统一资源标识**：使用 URI（`file://` / `tenas-remote://`）。
 - **文件系统为唯一真相**：协作状态、文档内容、项目配置均可仅凭文件恢复。
 - **Yjs 持久化纯文件化**：
   - 文档快照写回文件本体（`*.ttdoc/*.ttcanvas/*.ttskill`）。
-  - 增量写入 WAL（`.teatime/yjs/<fileId>.wal`），仅作为可靠性与性能加速。
+  - 增量写入 WAL（`.tenas/yjs/<fileId>.wal`），仅作为可靠性与性能加速。
 - **fileId 写在文件头**：移动/改名不丢协作链路。
 
 ## Project 结构与发现
@@ -23,7 +23,7 @@
 ```
 <workspaceRoot>/
   <projectRoot>/
-    .teatime/
+    .tenas/
       project.json
       yjs/
         <fileId>.wal
@@ -32,11 +32,11 @@
         <fileId>.txt
     docs/
       demo.ttdoc
-      demo.ttdoc.teatime/
+      demo.ttdoc.tenas/
         2f6c.png
         83a1.mp4
       canvas.ttcanvas
-      canvas.ttcanvas.teatime/
+      canvas.ttcanvas.tenas/
         9a1f.bin
 ```
 
@@ -52,11 +52,11 @@
 ```
 
 ### Project Root 计算规则
-1) 以 `apps/server/teatime.conf` 中激活 workspace 的 `projects` 映射为准。  
+1) 以 `apps/server/tenas.conf` 中激活 workspace 的 `projects` 映射为准。  
 2) `projects` 结构为 `{ [projectId]: "file://..." }`，值即项目 rootUri。  
-3) projectId 在 rootUri 下的 `.teatime/project.json` 内声明（用于显示信息）。  
+3) projectId 在 rootUri 下的 `.tenas/project.json` 内声明（用于显示信息）。  
 4) `childrenIds` 仍用于递归构建子项目树（子项目目录名）。  
-5) 不再使用 `.teatime/<projectId>.ttid` 标记文件。  
+5) 不再使用 `.tenas/<projectId>.ttid` 标记文件。  
 
 workspaceRootUri 已下放为 `workspaces[].rootUri`。
 
@@ -74,9 +74,9 @@ workspaceRootUri 已下放为 `workspaces[].rootUri`。
 
 Provider 注册表示例：
 - `file://`（本地，Electron 主进程）
-- `teatime-remote://ssh-remote+host/`（SSH）
-- `teatime-remote://dev-container+id/`（容器）
-- `teatime-remote://wsl+Ubuntu/`（WSL）
+- `tenas-remote://ssh-remote+host/`（SSH）
+- `tenas-remote://dev-container+id/`（容器）
+- `tenas-remote://wsl+Ubuntu/`（WSL）
 
 ## 自定义文件格式（文件为真）
 可协作文件：
@@ -93,16 +93,16 @@ Provider 注册表示例：
   "title": "文稿标题",
   "snapshot": "base64(yjs-doc)",
   "assets": {
-    "img_1": { "path": "./demo.ttdoc.teatime/2f6c.png", "mime": "image/png" },
-    "video_1": { "path": "./demo.ttdoc.teatime/83a1.mp4", "mime": "video/mp4" }
+    "img_1": { "path": "./demo.ttdoc.tenas/2f6c.png", "mime": "image/png" },
+    "video_1": { "path": "./demo.ttdoc.tenas/83a1.mp4", "mime": "video/mp4" }
   },
   "searchText": "用于全文检索的纯文本"
 }
 ```
 
 ### 资源与附件存储规则
-- 附件与二进制资源存放在同名目录：`<file>.ttdoc.teatime/`。
-- 资源目录后缀固定为 `.teatime`，与文件同级，不做嵌套分组。
+- 附件与二进制资源存放在同名目录：`<file>.ttdoc.tenas/`。
+- 资源目录后缀固定为 `.tenas`，与文件同级，不做嵌套分组。
 - JSON 内部使用相对路径引用，保证移动/拷贝项目不丢资源。
 - 文件名建议使用 hash/uuid，避免重名冲突并支持去重。
 - 重命名文件时同步重命名资源目录，删除文件时同步删除资源目录。
@@ -116,12 +116,12 @@ Provider 注册表示例：
 ## Yjs 协作与持久化流程（纯文件）
 ### 打开文件
 1) 读取 `*.ttdoc` 文件，解析 `snapshot` 与 `fileId`。  
-2) 若存在 `.teatime/yjs/<fileId>.wal`，依次回放增量。  
+2) 若存在 `.tenas/yjs/<fileId>.wal`，依次回放增量。  
 3) 合并生成 Yjs Doc，加入 WS 协作。
 
 ### 编辑中
 - 客户端产生 update → WS → server 广播。
-- server 追加写入 WAL（`.teatime/yjs/<fileId>.wal`）。
+- server 追加写入 WAL（`.tenas/yjs/<fileId>.wal`）。
 - 客户端写入 IndexedDB（缓存/离线）。
 
 ### 快照与 GC
@@ -138,8 +138,8 @@ Provider 注册表示例：
 
 ### 文件删除
 - 删除文件后，清理：
-  - `.teatime/yjs/<fileId>.wal`
-  - `.teatime/yjs/<fileId>.lock`
+  - `.tenas/yjs/<fileId>.wal`
+  - `.tenas/yjs/<fileId>.lock`
 
 ### 并发与锁
 - 同一 `fileId` 仅允许一个 server writer，使用 `.lock` 文件做互斥。
@@ -177,9 +177,9 @@ VSCode 的内容搜索核心是 **ripgrep**（`rg --json`）。
 
 ### 文本索引（可选）
 如需更快/更小体积，可维护派生索引：
-- `.teatime/index/<fileId>.txt`
+- `.tenas/index/<fileId>.txt`
 - 快照合并或空闲时更新索引
-- 搜索时同时扫描 `.teatime/index/`
+- 搜索时同时扫描 `.tenas/index/`
 
 ### 文件名搜索
 直接对目录树进行过滤，不依赖全文索引。
@@ -187,7 +187,7 @@ VSCode 的内容搜索核心是 **ripgrep**（`rg --json`）。
 ## 超链接关联
 文件内可直接存 URI：
 - `file://...`
-- `teatime-remote://ssh-remote+host/...`
+- `tenas-remote://ssh-remote+host/...`
 
 可选：提供 `*.ttlink` 文件作为“链接占位节点”，内容仅为 URI。
 
@@ -248,7 +248,7 @@ type FileNode = {
 ### 搜索入口
 - 搜索面板默认传入当前 project rootUri。
 - 本地 `rg` 扫描该 root。
-- 如启用索引，附加扫描 `.teatime/index/`。
+- 如启用索引，附加扫描 `.tenas/index/`。
 
 ### Web 与 Server 通信链路
 - 项目列表：Web → `project.list`（tRPC/HTTP）。
@@ -316,7 +316,7 @@ sequenceDiagram
   Provider-->>Server: fileSnapshot(fileId)
   Server-->>Web: fileSnapshot(fileId)
   Web->>WS: join(fileId)
-  WS->>Provider: readWal(.teatime/yjs/<fileId>.wal)
+  WS->>Provider: readWal(.tenas/yjs/<fileId>.wal)
   WS-->>Web: snapshot + updates
 ```
 
@@ -329,7 +329,7 @@ sequenceDiagram
   participant Web2 as Other Web
   Web->>WS: update
   WS-->>Web2: update
-  WS->>Provider: appendWal(.teatime/yjs/<fileId>.wal)
+  WS->>Provider: appendWal(.tenas/yjs/<fileId>.wal)
   WS->>Provider: writeSnapshot(ttdoc)
 ```
 
@@ -361,20 +361,20 @@ sequenceDiagram
 - [x] 项目 Intro/Board 改为文件格式：更新 `apps/web/src/components/project/intro/ProjectIntro.tsx`、`apps/web/src/components/project/intro/ProjectIntroPlate.tsx` 与 `apps/web/src/components/board/core/ProjectBoardCanvas.tsx` 走文件读写与 Yjs。
 - [x] Chat 关联改为 resourceUris：调整 `apps/server/src/ai/chat-stream/*`/`packages/api/src/routers/chat.ts` 去掉 `pageChatSession`，并更新 `apps/web/src/components/chat/session/SessionList.tsx` 按 `resourceUris` 过滤。
 - [x] Tool/类型同步：更新 `packages/api/src/types/tools/db.ts`（项目相关 tool）与 `packages/api/src/types/message.ts` 的 params 语义，统一使用资源 URI。
-- [ ] 搜索/索引落地：在 server 接入 `rg --json` 扫描与 `.teatime/index/` 更新策略，并在 Web 搜索入口调用 `fs.search`。
+- [ ] 搜索/索引落地：在 server 接入 `rg --json` 扫描与 `.tenas/index/` 更新策略，并在 Web 搜索入口调用 `fs.search`。
 
 ## 关键注意点
 - 统一 URI 规范化，避免路径逃逸。
-- `.teatime/` 目录对用户默认隐藏，但不可被忽略（含项目配置与 WAL）。
-- 文档附件目录为 `<file>.teatime/`，与项目级 `.teatime/` 是不同概念。
+- `.tenas/` 目录对用户默认隐藏，但不可被忽略（含项目配置与 WAL）。
+- 文档附件目录为 `<file>.tenas/`，与项目级 `.tenas/` 是不同概念。
 - `fileId` 必须稳定且只存在于可协作文档。
 - 远端 Provider 必须支持 `search` 和 `watch` 才能体验接近 VSCode。
 
 ## 仓库忽略建议（可选）
 建议保留项目配置，忽略派生文件：
 ```
-.teatime/yjs/*.wal
-.teatime/yjs/*.lock
-.teatime/index/
+.tenas/yjs/*.wal
+.tenas/yjs/*.lock
+.tenas/index/
 ```
 `project.json` 不应被忽略。

@@ -102,8 +102,8 @@ function SidebarProvider({
 
   React.useEffect(() => {
     const handler = () => toggleSidebar();
-    window.addEventListener("teatime:toggle-sidebar", handler);
-    return () => window.removeEventListener("teatime:toggle-sidebar", handler);
+    window.addEventListener("tenas:toggle-sidebar", handler);
+    return () => window.removeEventListener("tenas:toggle-sidebar", handler);
   }, [toggleSidebar]);
 
   React.useEffect(() => {
@@ -117,9 +117,9 @@ function SidebarProvider({
         setOpen(detail.open);
       }
     };
-    window.addEventListener("teatime:set-sidebar-open", handler as EventListener);
+    window.addEventListener("tenas:set-sidebar-open", handler as EventListener);
     return () =>
-      window.removeEventListener("teatime:set-sidebar-open", handler as EventListener);
+      window.removeEventListener("tenas:set-sidebar-open", handler as EventListener);
   }, [isMobile, setOpen, setOpenMobile]);
 
   // We add a state so that we can do data-state="expanded" or "collapsed".

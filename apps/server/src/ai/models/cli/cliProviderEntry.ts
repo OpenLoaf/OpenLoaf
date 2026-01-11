@@ -1,6 +1,6 @@
-import type { ProviderDefinition, ModelDefinition } from "@teatime-ai/api/common";
+import type { ProviderDefinition, ModelDefinition } from "@tenas-ai/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
-import { readBasicConf } from "@/modules/settings/teatimeConfStore";
+import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { getProviderDefinition } from "@/ai/models/modelRegistry";
 type CliProviderBinding = {
   /** Provider id in registry. */

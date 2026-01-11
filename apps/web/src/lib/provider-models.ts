@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatModelSource, ModelDefinition, ModelTag } from "@teatime-ai/api/common";
+import type { ChatModelSource, ModelDefinition, ModelTag } from "@tenas-ai/api/common";
 import { getProviderDefinition, getProviderDefinitions } from "@/lib/model-registry";
 
 type ProviderKeyEntry = {

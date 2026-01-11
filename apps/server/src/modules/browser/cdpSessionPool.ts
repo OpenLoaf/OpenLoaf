@@ -1,4 +1,4 @@
-import { getCdpConfig } from "@teatime-ai/config";
+import { getCdpConfig } from "@tenas-ai/config";
 
 const SESSION_IDLE_TTL_MS = 10 * 60 * 1000;
 

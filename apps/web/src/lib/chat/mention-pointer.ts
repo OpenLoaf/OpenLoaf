@@ -2,7 +2,7 @@
 
 import type { PointerEvent } from "react";
 import {
-  buildTeatimeFileUrl,
+  buildTenasFileUrl,
   buildUriFromRoot,
 } from "@/components/project/filesystem/utils/file-system-utils";
 
@@ -91,7 +91,7 @@ export function handleChatMentionPointerDown(
   const target = event.target as HTMLElement | null;
   if (!target) return;
   if (target.closest("button")) return;
-  const mentionEl = target.closest<HTMLElement>("[data-teatime-mention=\"true\"]");
+  const mentionEl = target.closest<HTMLElement>("[data-tenas-mention=\"true\"]");
   if (!mentionEl) return;
   if (mentionEl.querySelector("button")?.contains(target)) return;
   const value =
@@ -129,7 +129,7 @@ export function handleChatMentionPointerDown(
         : isDocExt
           ? "doc-viewer"
           : "sheet-viewer";
-  const stackUri = isPdfExt ? buildTeatimeFileUrl(projectId, relativePath) : uri;
+  const stackUri = isPdfExt ? buildTenasFileUrl(projectId, relativePath) : uri;
   const stackId = uri || stackUri;
   pushStackItem(activeTabId, {
     id: stackId,

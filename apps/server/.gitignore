@@ -54,7 +54,7 @@ lerna-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
-teatime.conf
+tenas.conf
 workspace
 settings.json
 providers.json

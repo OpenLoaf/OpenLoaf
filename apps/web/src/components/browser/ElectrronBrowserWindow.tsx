@@ -25,8 +25,8 @@ import {
 } from "@/components/browser/browser-storage";
 import type {
   BrowserTab,
-  TeatimeWebContentsViewStatus,
-  TeatimeWebContentsViewWindowOpen,
+  TenasWebContentsViewStatus,
+  TenasWebContentsViewWindowOpen,
 } from "@/components/browser/browser-types";
 import {
   Empty,
@@ -80,8 +80,8 @@ export default function ElectrronBrowserWindow({
   const overlayBlockedRef = useRef(false);
   const coveredByAnotherStackItemRef = useRef(false);
   const overlayIdsRef = useRef<Set<string>>(new Set());
-  const viewStatusByKeyRef = useRef<Map<string, TeatimeWebContentsViewStatus>>(new Map());
-  const [activeViewStatus, setActiveViewStatus] = useState<TeatimeWebContentsViewStatus | null>(null);
+  const viewStatusByKeyRef = useRef<Map<string, TenasWebContentsViewStatus>>(new Map());
+  const [activeViewStatus, setActiveViewStatus] = useState<TenasWebContentsViewStatus | null>(null);
   const isElectron = useMemo(
     () =>
       process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -128,7 +128,7 @@ export default function ElectrronBrowserWindow({
   };
 
   // Sync tab title from WebContents status events.
-  const syncTabTitleFromStatus = (status: TeatimeWebContentsViewStatus) => {
+  const syncTabTitleFromStatus = (status: TenasWebContentsViewStatus) => {
     if (!safeTabId) return;
     const nextTitle = status.title?.trim();
     if (!nextTitle) return;
@@ -143,7 +143,7 @@ export default function ElectrronBrowserWindow({
   };
 
   // Sync favorite icon when a page reports its favicon.
-  const syncFavoriteIconFromStatus = (status: TeatimeWebContentsViewStatus) => {
+  const syncFavoriteIconFromStatus = (status: TenasWebContentsViewStatus) => {
     if (!status.url || !status.faviconUrl) return;
     // 只有页面真实打开后才会触发 favicon 更新，避免未打开时写入。
     setFavoriteIconByUrl(status.url, status.faviconUrl);
@@ -180,7 +180,7 @@ export default function ElectrronBrowserWindow({
   }, [tabs, safeTabId, activeId]);
 
   useEffect(() => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!isElectron || !safeTabId) return;
     const ensureWebContentsView = api?.ensureWebContentsView;
     if (!ensureWebContentsView) return;
@@ -235,7 +235,7 @@ export default function ElectrronBrowserWindow({
     if (!isElectron) return;
 
     const handleStatus = (event: Event) => {
-      const detail = (event as CustomEvent<TeatimeWebContentsViewStatus>).detail;
+      const detail = (event as CustomEvent<TenasWebContentsViewStatus>).detail;
       if (!detail?.key) return;
 
       if (detail.destroyed) {
@@ -267,15 +267,15 @@ export default function ElectrronBrowserWindow({
       setLoading(nextLoading);
     };
 
-    window.addEventListener("teatime:webcontents-view:status", handleStatus);
-    return () => window.removeEventListener("teatime:webcontents-view:status", handleStatus);
+    window.addEventListener("tenas:webcontents-view:status", handleStatus);
+    return () => window.removeEventListener("tenas:webcontents-view:status", handleStatus);
   }, [isElectron, activeViewKey, targetUrl, activeId, safeTabId]);
 
   useEffect(() => {
     if (!isElectron || !safeTabId) return;
 
   const handleWindowOpen = (event: Event) => {
-    const detail = (event as CustomEvent<TeatimeWebContentsViewWindowOpen>).detail;
+    const detail = (event as CustomEvent<TenasWebContentsViewWindowOpen>).detail;
     if (!detail?.key || !detail?.url) return;
     console.log("[browser-tabs] window-open", detail);
     const nextUrl = normalizeUrl(detail.url);
@@ -296,9 +296,9 @@ export default function ElectrronBrowserWindow({
       updateBrowserState(nextTabs, openInBackground ? activeId : id);
     };
 
-    window.addEventListener("teatime:webcontents-view:window-open", handleWindowOpen);
+    window.addEventListener("tenas:webcontents-view:window-open", handleWindowOpen);
     return () =>
-      window.removeEventListener("teatime:webcontents-view:window-open", handleWindowOpen);
+      window.removeEventListener("tenas:webcontents-view:window-open", handleWindowOpen);
   }, [isElectron, safeTabId, activeId]);
 
   useEffect(() => {
@@ -331,11 +331,11 @@ export default function ElectrronBrowserWindow({
 
   const hostRef = useRef<HTMLDivElement | null>(null);
   const lastSentByKeyRef = useRef<
-    Map<string, { url: string; bounds: TeatimeViewBounds; visible: boolean }>
+    Map<string, { url: string; bounds: TenasViewBounds; visible: boolean }>
   >(new Map());
 
   useEffect(() => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!isElectron) return;
 
     const hideIfNeeded = () => {
@@ -388,12 +388,12 @@ export default function ElectrronBrowserWindow({
     };
 
     hideIfNeeded();
-    window.addEventListener("teatime:overlay", handleOverlay);
-    return () => window.removeEventListener("teatime:overlay", handleOverlay);
+    window.addEventListener("tenas:overlay", handleOverlay);
+    return () => window.removeEventListener("tenas:overlay", handleOverlay);
   }, [isElectron, activeViewKey]);
 
   useEffect(() => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!isElectron || !api?.upsertWebContentsView) return;
 
     let rafId = 0;
@@ -406,7 +406,7 @@ export default function ElectrronBrowserWindow({
       if (!viewAlive) return;
 
       const rect = host.getBoundingClientRect();
-      const next: { url: string; bounds: TeatimeViewBounds; visible: boolean } =
+      const next: { url: string; bounds: TenasViewBounds; visible: boolean } =
         {
           url: targetUrl,
           visible:
@@ -480,7 +480,7 @@ export default function ElectrronBrowserWindow({
   }, [targetUrl, isElectron, activeViewKey, tabActive, coveredByAnotherStackItem, stackHidden]);
 
   useEffect(() => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!isElectron || !api?.destroyWebContentsView) return;
     return () => {
       // 关闭整个浏览器面板时，销毁所有子标签对应的 WebContentsView，避免泄漏。
@@ -504,7 +504,7 @@ export default function ElectrronBrowserWindow({
   const onCloseBrowserTab = (id: string) => {
     if (!id) return;
     if (editingTabId === id) setEditingTabId(null);
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     const current = tabsRef.current;
     const closing = current.find((t) => t.id === id);
     const fallbackKey = closing?.id ? buildViewKey(closing.id) : "";
@@ -579,7 +579,7 @@ export default function ElectrronBrowserWindow({
       if (!ok) return;
     }
 
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (isElectron) {
       // 先主动销毁所有 view，保证 Electron 页面同步关闭。
       for (const t of tabsRef.current) {
@@ -630,7 +630,7 @@ export default function ElectrronBrowserWindow({
   // Navigate back within the active WebContentsView.
   const onGoBack = () => {
     if (!isElectron || !activeViewKey) return;
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!api?.goBackWebContentsView) return;
     void api.goBackWebContentsView(activeViewKey);
   };
@@ -638,7 +638,7 @@ export default function ElectrronBrowserWindow({
   // Navigate forward within the active WebContentsView.
   const onGoForward = () => {
     if (!isElectron || !activeViewKey) return;
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!api?.goForwardWebContentsView) return;
     void api.goForwardWebContentsView(activeViewKey);
   };

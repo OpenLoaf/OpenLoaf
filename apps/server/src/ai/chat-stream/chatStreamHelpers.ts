@@ -1,11 +1,11 @@
 import { generateId, type UIMessage } from "ai";
-import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
+import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import { logger } from "@/common/logger";
 import { setAssistantMessageId, setRequestContext } from "@/ai/chat-stream/requestContext";
 import { loadMessageChain } from "./messageChainLoader";
 import { resolveRightmostLeafId, saveMessage } from "./messageStore";
 import type { ChatImageRequestResult } from "./chatImageTypes";
-import { replaceTeatimeFileParts } from "./attachmentResolver";
+import { replaceTenasFileParts } from "./attachmentResolver";
 
 /** Format invalid request errors for client display. */
 export function formatInvalidRequestMessage(message: string): string {
@@ -129,7 +129,7 @@ export async function saveLastMessageAndResolveParent(input: {
   /** Chat session id. */
   sessionId: string;
   /** Last incoming message. */
-  lastMessage: TeatimeUIMessage;
+  lastMessage: TenasUIMessage;
   /** Request start timestamp. */
   requestStartAt: Date;
   /** Formatter for invalid request errors. */
@@ -222,7 +222,7 @@ export async function loadAndPrepareMessageChain(input: {
     "[chat] load message chain",
   );
 
-  const modelMessages = await replaceTeatimeFileParts(messages as UIMessage[]);
+  const modelMessages = await replaceTenasFileParts(messages as UIMessage[]);
   if (messages.length === 0) {
     return { ok: false, errorText: input.formatError("历史消息不存在。") };
   }

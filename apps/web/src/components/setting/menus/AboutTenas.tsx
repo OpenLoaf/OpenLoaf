@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { ChevronRight } from "lucide-react";
 import * as React from "react";
-import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
-import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
+import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 
 const STEP_UP_ROUTE = "/step-up";
@@ -19,13 +19,13 @@ const ITEMS: Array<{ key: string; label: string }> = [
   { key: "issues", label: "报告问题" },
 ];
 
-export function AboutTeatime() {
+export function AboutTenas() {
   const { setBasic } = useBasicConfig();
   const clientId = getWebClientId();
   const [copiedKey, setCopiedKey] = React.useState<"clientId" | null>(null);
   const [webContentsViewCount, setWebContentsViewCount] = React.useState<number | null>(null);
   const [appVersion, setAppVersion] = React.useState<string | null>(null);
-  const [updateStatus, setUpdateStatus] = React.useState<TeatimeAutoUpdateStatus | null>(
+  const [updateStatus, setUpdateStatus] = React.useState<TenasAutoUpdateStatus | null>(
     null,
   );
   const isElectron = React.useMemo(
@@ -57,7 +57,7 @@ export function AboutTeatime() {
 
   /** Fetch app version from Electron main process. */
   const fetchAppVersion = React.useCallback(async () => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!isElectron || !api?.getAppVersion) return;
     try {
       const version = await api.getAppVersion();
@@ -69,7 +69,7 @@ export function AboutTeatime() {
 
   /** Fetch latest update status snapshot from Electron main process. */
   const fetchUpdateStatus = React.useCallback(async () => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!isElectron || !api?.getAutoUpdateStatus) return;
     try {
       const status = await api.getAutoUpdateStatus();
@@ -81,7 +81,7 @@ export function AboutTeatime() {
 
   /** Trigger update check or install depending on current state. */
   const triggerUpdateAction = React.useCallback(async () => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!isElectron || !api) return;
     // 已下载则直接重启安装，否则触发更新检查。
     if (updateStatus?.state === "downloaded") {
@@ -93,7 +93,7 @@ export function AboutTeatime() {
 
   /** Fetch WebContentsView count from Electron main process via IPC. */
   const fetchWebContentsViewCount = React.useCallback(async () => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!isElectron || !api?.getWebContentsViewCount) return;
     try {
       const res = await api.getWebContentsViewCount();
@@ -105,7 +105,7 @@ export function AboutTeatime() {
 
   /** Clear all WebContentsViews via Electron IPC. */
   const clearWebContentsViews = React.useCallback(async () => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!isElectron || !api?.clearWebContentsViews) return;
     try {
       const res = await api.clearWebContentsViews();
@@ -146,13 +146,13 @@ export function AboutTeatime() {
     if (!isElectron) return;
 
     const onUpdateStatus = (event: Event) => {
-      const detail = (event as CustomEvent<TeatimeAutoUpdateStatus>).detail;
+      const detail = (event as CustomEvent<TenasAutoUpdateStatus>).detail;
       if (!detail) return;
       setUpdateStatus(detail);
     };
 
-    window.addEventListener("teatime:auto-update:status", onUpdateStatus);
-    return () => window.removeEventListener("teatime:auto-update:status", onUpdateStatus);
+    window.addEventListener("tenas:auto-update:status", onUpdateStatus);
+    return () => window.removeEventListener("tenas:auto-update:status", onUpdateStatus);
   }, [isElectron]);
 
   /** Reload the current page. */
@@ -208,17 +208,17 @@ export function AboutTeatime() {
 
   return (
     <div className="space-y-6">
-      <TeatimeSettingsGroup title="版本">
+      <TenasSettingsGroup title="版本">
         <div className="flex flex-wrap items-start gap-3 py-3">
           <div className="min-w-0">
             <div className="flex items-baseline gap-2">
-              <div className="text-sm font-medium">Teatime</div>
+              <div className="text-sm font-medium">Tenas</div>
               <div className="text-xs text-muted-foreground">v{currentVersion}</div>
             </div>
             <div className="text-xs text-muted-foreground">{updateLabel}</div>
           </div>
 
-          <TeatimeSettingsField>
+          <TenasSettingsField>
             <Button
               variant="outline"
               size="sm"
@@ -227,15 +227,15 @@ export function AboutTeatime() {
             >
               {updateActionLabel}
             </Button>
-          </TeatimeSettingsField>
+          </TenasSettingsField>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
-      <TeatimeSettingsGroup title="状态">
+      <TenasSettingsGroup title="状态">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">客户端ID</div>
-            <TeatimeSettingsField className="max-w-[70%]">
+            <TenasSettingsField className="max-w-[70%]">
               <button
                 type="button"
                 aria-label="点击复制客户端ID"
@@ -254,12 +254,12 @@ export function AboutTeatime() {
               >
                 {copiedKey === "clientId" ? "已复制" : clientId || "—"}
               </button>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
           {isElectron ? (
             <div className="flex flex-wrap items-start gap-3 px-3 py-3">
               <div className="text-sm font-medium">WebContentsView数</div>
-              <TeatimeSettingsField className="max-w-[70%] gap-2">
+              <TenasSettingsField className="max-w-[70%] gap-2">
                 <button
                   type="button"
                   aria-label="点击刷新 WebContentsView 数"
@@ -285,37 +285,37 @@ export function AboutTeatime() {
                 >
                   清除
                 </Button>
-              </TeatimeSettingsField>
+              </TenasSettingsField>
             </div>
           ) : null}
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
-      <TeatimeSettingsGroup title="操作">
+      <TenasSettingsGroup title="操作">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="min-w-0">
               <div className="text-sm font-medium">页面重新加载</div>
               <div className="text-xs text-muted-foreground">刷新整个页面</div>
             </div>
-            <TeatimeSettingsField>
+            <TenasSettingsField>
               <Button type="button" variant="outline" size="sm" onClick={reloadPage}>
                 刷新
               </Button>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">重新进入初始化</div>
-            <TeatimeSettingsField>
+            <TenasSettingsField>
               <Button type="button" variant="outline" size="sm" onClick={() => void restartSetup()}>
                 进入
               </Button>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
-      <TeatimeSettingsGroup title="信息">
+      <TenasSettingsGroup title="信息">
         <div className="divide-y divide-border">
           {ITEMS.map((item) => (
             <Button
@@ -329,7 +329,7 @@ export function AboutTeatime() {
             </Button>
           ))}
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
     </div>
   );
 }

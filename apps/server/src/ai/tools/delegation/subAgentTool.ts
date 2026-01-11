@@ -1,5 +1,5 @@
 import { streamText, tool, zodSchema } from "ai";
-import { subAgentToolDef } from "@teatime-ai/api/types/tools/subAgent";
+import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
 import { getChatModel, getUiWriter } from "@/ai/chat-stream/requestContext";
 
 const DEFAULT_SUB_AGENT_SYSTEM_PROMPT = [

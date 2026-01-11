@@ -14,21 +14,21 @@ import { isBoardUiTarget } from "../utils/dom";
 import { toScreenPoint } from "../utils/coordinates";
 import { buildImageNodePayloadFromFile, dataUrlToBlob } from "../utils/image";
 import { readImageDragPayload } from "@/lib/image/drag";
-import { FILE_DRAG_URI_MIME } from "@/components/ui/teatime/drag-drop-types";
+import { FILE_DRAG_URI_MIME } from "@/components/ui/tenas/drag-drop-types";
 import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import {
   buildChildUri,
-  buildTeatimeFileUrl,
+  buildTenasFileUrl,
   getRelativePathFromUri,
   getUniqueName,
-  parseTeatimeFileUrl,
+  parseTenasFileUrl,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { resolveServerUrl } from "@/utils/server-url";
-import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
+import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import type {
   CanvasElement,
   CanvasConnectorElement,
@@ -71,8 +71,8 @@ const VIEWPORT_SAVE_DELAY = 800;
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
 /** Offset applied when stacking multiple dropped images. */
 const IMAGE_DROP_STACK_OFFSET = 24;
-/** Prefix used for board-relative teatime-file paths. */
-const BOARD_RELATIVE_URI_PREFIX = "teatime-file://./";
+/** Prefix used for board-relative tenas-file paths. */
+const BOARD_RELATIVE_URI_PREFIX = "tenas-file://./";
 /** Default prompt for image understanding in text generation. */
 const IMAGE_PROMPT_TEXT = "分析一下当前的照片，生成当前照片详细的描述";
 /** Default connector drop groups for non-image nodes. */
@@ -334,7 +334,7 @@ export function BoardCanvas({
   /** Board folder scope used for attachment resolution. */
   const boardFolderScope = useMemo(() => {
     if (!boardFolderUri) return null;
-    const parsed = parseTeatimeFileUrl(boardFolderUri);
+    const parsed = parseTenasFileUrl(boardFolderUri);
     if (parsed) {
       return {
         projectId: parsed.projectId,
@@ -445,7 +445,7 @@ export function BoardCanvas({
     ]
   );
 
-  /** Resolve board-relative teatime-file urls into absolute paths. */
+  /** Resolve board-relative tenas-file urls into absolute paths. */
   const resolveBoardRelativeUri = useCallback(
     (uri: string) => {
       if (!boardFolderScope) return uri;
@@ -456,16 +456,16 @@ export function BoardCanvas({
       if (!relativePath || hasParentTraversal(relativePath)) return uri;
       if (!relativePath.startsWith(`${BOARD_ASSETS_DIR_NAME}/`)) return uri;
       const combined = `${boardFolderScope.relativeFolderPath}/${relativePath}`;
-      return buildTeatimeFileUrl(boardFolderScope.projectId, combined);
+      return buildTenasFileUrl(boardFolderScope.projectId, combined);
     },
     [boardFolderScope]
   );
 
-  /** Convert absolute teatime-file urls into board-relative paths. */
+  /** Convert absolute tenas-file urls into board-relative paths. */
   const toBoardRelativeUri = useCallback(
     (uri: string) => {
       if (!boardFolderScope) return uri;
-      const parsed = parseTeatimeFileUrl(uri);
+      const parsed = parseTenasFileUrl(uri);
       if (!parsed) return uri;
       if (parsed.projectId !== boardFolderScope.projectId) return uri;
       const basePath = `${boardFolderScope.relativeFolderPath}/`;
@@ -537,7 +537,7 @@ export function BoardCanvas({
       try {
         const sessionId = promptSessionIdRef.current;
         const messageId = generateId();
-        const userMessage: TeatimeUIMessage = {
+        const userMessage: TenasUIMessage = {
           id: messageId,
           role: "user",
           parentMessageId: null,
@@ -679,7 +679,7 @@ export function BoardCanvas({
         const assetName = await saveBoardAssetFile(file);
         if (!assetName) return payload;
         const relativePath = `${BOARD_ASSETS_DIR_NAME}/${assetName}`;
-        const absolute = buildTeatimeFileUrl(
+        const absolute = buildTenasFileUrl(
           boardFolderScope.projectId,
           `${boardFolderScope.relativeFolderPath}/${relativePath}`
         );
@@ -726,7 +726,7 @@ export function BoardCanvas({
           const assetName = await saveBoardAssetFile(file);
           if (!assetName) continue;
           const relativePath = `${BOARD_ASSETS_DIR_NAME}/${assetName}`;
-          const absolute = buildTeatimeFileUrl(
+          const absolute = buildTenasFileUrl(
             boardFolderScope.projectId,
             `${boardFolderScope.relativeFolderPath}/${relativePath}`
           );
@@ -761,7 +761,7 @@ export function BoardCanvas({
   const normalizeSnapshotForFile = useCallback(
     (snapshotData: BoardSnapshotState) => {
       const normalized = mapSnapshotImageSources(snapshotData, toBoardRelativeUri);
-      // 逻辑：落盘时移除预览图，避免 .ttboard 体积膨胀。
+      // 逻辑：落盘时移除预览图，避免 .tnboard 体积膨胀。
       return stripSnapshotImagePreviews(normalized);
     },
     [toBoardRelativeUri]
@@ -800,9 +800,9 @@ export function BoardCanvas({
       // 逻辑：导出时临时关闭网格渲染，避免截图包含网格。
       setExporting(detail.exporting);
     };
-    target.addEventListener("teatime:board-export", handleExportEvent);
+    target.addEventListener("tenas:board-export", handleExportEvent);
     return () => {
-      target.removeEventListener("teatime:board-export", handleExportEvent);
+      target.removeEventListener("tenas:board-export", handleExportEvent);
     };
   }, []);
 
@@ -1273,13 +1273,13 @@ export function BoardCanvas({
             : null;
         const resolvedImageUrl = imageProps ? resolvePromptImageUri(imageProps) : "";
         const mediaType = imageProps?.mimeType || "application/octet-stream";
-        const isRelativeTeatime = resolvedImageUrl.startsWith("teatime-file://./");
+        const isRelativeTenas = resolvedImageUrl.startsWith("tenas-file://./");
         if (
           !resolvedImageUrl ||
-          isRelativeTeatime ||
-          !resolvedImageUrl.startsWith("teatime-file://")
+          isRelativeTenas ||
+          !resolvedImageUrl.startsWith("tenas-file://")
         ) {
-          // 逻辑：仅支持可解析的 teatime-file 协议图片生成提示词。
+          // 逻辑：仅支持可解析的 tenas-file 协议图片生成提示词。
           toast.error("当前图片缺少可用的地址，无法生成提示词");
         } else {
           void streamPromptToTextNode({

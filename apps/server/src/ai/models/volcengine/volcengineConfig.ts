@@ -1,4 +1,4 @@
-import type { ProviderDefinition } from "@teatime-ai/api/common";
+import type { ProviderDefinition } from "@tenas-ai/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 
 export const VOLCENGINE_REGION = "cn-north-1";

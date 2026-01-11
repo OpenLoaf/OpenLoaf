@@ -2,7 +2,7 @@
 
 ## 目标
 - 设置持久化统一落在数据库 `Setting` 表
-- Workspace 配置不入库，统一由 `apps/server/teatime.conf` 提供
+- Workspace 配置不入库，统一由 `apps/server/tenas.conf` 提供
 - 可扩展、可审计、支持敏感信息脱敏/保护
 
 ## 约束
@@ -73,7 +73,7 @@
 - 需要时可扩展应用级加密（可选）
 
 ## Workspace 处理方式
-- Workspace 配置仅在 `apps/server/teatime.conf` 中维护
+- Workspace 配置仅在 `apps/server/tenas.conf` 中维护
 - Settings 页如需展示 workspace 信息，走 server 只读接口返回
 
 ## Server/Web 获取入口

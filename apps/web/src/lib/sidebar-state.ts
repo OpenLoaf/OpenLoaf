@@ -22,6 +22,6 @@ export function getLeftSidebarOpen(): boolean | null {
 /** Emit a global request to open/close the left sidebar. */
 export function emitSidebarOpenRequest(open: boolean) {
   if (typeof window === "undefined") return;
-  const event = new CustomEvent("teatime:set-sidebar-open", { detail: { open } });
+  const event = new CustomEvent("tenas:set-sidebar-open", { detail: { open } });
   window.dispatchEvent(event);
 }

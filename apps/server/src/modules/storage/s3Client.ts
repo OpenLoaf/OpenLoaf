@@ -1,4 +1,4 @@
-import type { S3ProviderConfig } from "@teatime-ai/api/types/storage";
+import type { S3ProviderConfig } from "@tenas-ai/api/types/storage";
 import { S3Client } from "@aws-sdk/client-s3";
 
 export type S3ClientConfig = {

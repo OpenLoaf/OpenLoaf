@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
+import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
 import { normalizeCodexOptions, type CodexRequestOptions } from "@/ai/models/cli/codex/codexOptions";
 import { isRecord } from "@/ai/utils/type-guards";
 

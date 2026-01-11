@@ -33,7 +33,7 @@ function assertFileExists(filePath, label) {
  */
 function buildMacHelper() {
   const sourcePath = join(rootDir, "resources", "speech", "macos", "SpeechRecognizer.swift");
-  const outputPath = join(rootDir, "resources", "speech", "macos", "teatime-speech");
+  const outputPath = join(rootDir, "resources", "speech", "macos", "tenas-speech");
 
   assertFileExists(sourcePath, "SpeechRecognizer.swift");
   runCommand("xcrun", [
@@ -57,12 +57,12 @@ function buildMacHelper() {
  * Build the Windows speech helper via dotnet publish.
  */
 function buildWindowsHelper() {
-  const projectPath = join(rootDir, "resources", "speech", "windows", "TeatimeSpeech.csproj");
+  const projectPath = join(rootDir, "resources", "speech", "windows", "TenasSpeech.csproj");
   const outputDir = join(rootDir, "resources", "speech", "windows", "publish");
-  const outputBinary = join(rootDir, "resources", "speech", "windows", "teatime-speech.exe");
+  const outputBinary = join(rootDir, "resources", "speech", "windows", "tenas-speech.exe");
   const runtime = process.arch === "arm64" ? "win-arm64" : "win-x64";
 
-  assertFileExists(projectPath, "TeatimeSpeech.csproj");
+  assertFileExists(projectPath, "TenasSpeech.csproj");
   mkdirSync(outputDir, { recursive: true });
 
   runCommand("dotnet", [
@@ -79,7 +79,7 @@ function buildWindowsHelper() {
     outputDir,
   ]);
 
-  const builtBinary = join(outputDir, "teatime-speech.exe");
+  const builtBinary = join(outputDir, "tenas-speech.exe");
   assertFileExists(builtBinary, "Speech helper binary");
   // 从 publish 输出物中提取单文件可执行程序。
   copyFileSync(builtBinary, outputBinary);

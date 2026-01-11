@@ -10,7 +10,7 @@ import {
 } from "./vfsService";
 
 /** Directory name for project metadata. */
-export const PROJECT_META_DIR = ".teatime";
+export const PROJECT_META_DIR = ".tenas";
 /** File name for project metadata. */
 export const PROJECT_META_FILE = "project.json";
 

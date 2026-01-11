@@ -634,8 +634,8 @@ async function fetchAuthBalance(baseUrl: string): Promise<BalanceResponse> {
 
 /** Open external URL in system browser (Electron) or new tab. */
 async function openExternalUrl(url: string): Promise<void> {
-  if (window.teatimeElectron?.openExternal) {
-    const result = await window.teatimeElectron.openExternal(url);
+  if (window.tenasElectron?.openExternal) {
+    const result = await window.tenasElectron.openExternal(url);
     if (!result.ok) {
       throw new Error(result.reason ?? "无法打开浏览器");
     }

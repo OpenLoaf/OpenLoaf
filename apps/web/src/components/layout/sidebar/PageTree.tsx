@@ -47,7 +47,7 @@ import {
 } from "@/lib/file-name";
 import { Switch } from "@/components/ui/switch";
 import {
-  buildTeatimeFileUrl,
+  buildTenasFileUrl,
   getRelativePathFromUri,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { cn } from "@/lib/utils";
@@ -438,7 +438,7 @@ export const PageTreeMenu = ({
             if (!rootUri) return node.uri;
             const relativePath = getRelativePathFromUri(rootUri, node.uri);
             if (!relativePath) return node.uri;
-            return buildTeatimeFileUrl(node.projectId, relativePath);
+            return buildTenasFileUrl(node.projectId, relativePath);
           })()
         : node.uri;
 
@@ -503,7 +503,7 @@ export const PageTreeMenu = ({
 
   /** Open the project root in system file manager. */
   const handleOpenInFileManager = async (node: FileNode) => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!api?.openPath) {
       toast.error("网页版不支持打开文件管理器");
       return;
@@ -522,7 +522,7 @@ export const PageTreeMenu = ({
 
   /** Pick a directory from system dialog (Electron only). */
   const pickDirectory = async (initialValue?: string) => {
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (api?.pickDirectory) {
       const result = await api.pickDirectory();
       if (result?.ok && result.path) return result.path;

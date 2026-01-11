@@ -25,7 +25,7 @@ import {
   getSessionId,
   getWorkspaceId,
 } from "@/ai/chat-stream/requestContext";
-import { getProjectRootPath, getWorkspaceRootPathById } from "@teatime-ai/api/services/vfsService";
+import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
 import { getCodexAppServerConnection } from "@/ai/models/cli/codex/codexAppServerConnection";
 import {
   getCachedCodexThread,

@@ -6,7 +6,7 @@ import {
   createProviderRegistry,
   type ModelDefinition,
   type ProviderDefinition,
-} from "@teatime-ai/api/common";
+} from "@tenas-ai/api/common";
 
 type RegistryCache = {
   /** Provider definitions. */

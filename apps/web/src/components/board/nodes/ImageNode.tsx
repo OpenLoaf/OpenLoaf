@@ -117,8 +117,8 @@ export const imageConnectorDropGroups: ConnectorDropGroup[] = [
 /** Resolve image uri to a browser-friendly source. */
 function resolveImageSource(uri: string) {
   if (!uri) return "";
-  if (uri.startsWith("teatime-file://./")) return "";
-  if (uri.startsWith("teatime-file://")) return getPreviewEndpoint(uri);
+  if (uri.startsWith("tenas-file://./")) return "";
+  if (uri.startsWith("tenas-file://")) return getPreviewEndpoint(uri);
   return uri;
 }
 
@@ -168,11 +168,11 @@ export function ImageNodeView({
   /** Request opening the image preview on the canvas. */
   const requestPreview = useCallback(() => {
     const originalSrc = element.props.originalSrc;
-    const isRelativeTeatime = originalSrc.startsWith("teatime-file://./");
+    const isRelativeTenas = originalSrc.startsWith("tenas-file://./");
     // 逻辑：ImageViewer 仅支持特定协议，相对路径与其他来源回退到压缩预览图。
     const canUseOriginal =
-      !isRelativeTeatime &&
-      (originalSrc.startsWith("teatime-file://") ||
+      !isRelativeTenas &&
+      (originalSrc.startsWith("tenas-file://") ||
         originalSrc.startsWith("data:") ||
         originalSrc.startsWith("blob:") ||
         originalSrc.startsWith("file://"));

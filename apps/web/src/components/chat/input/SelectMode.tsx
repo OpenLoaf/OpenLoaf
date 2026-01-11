@@ -22,7 +22,7 @@ import {
 } from "@/lib/provider-models";
 import { resolveServerUrl } from "@/utils/server-url";
 import { useOptionalChatContext } from "../ChatProvider";
-import { MODEL_TAG_LABELS, type ModelTag } from "@teatime-ai/api/common";
+import { MODEL_TAG_LABELS, type ModelTag } from "@tenas-ai/api/common";
 
 interface SelectModeProps {
   className?: string;
@@ -76,8 +76,8 @@ async function fetchLoginUrl(baseUrl: string): Promise<string> {
 
 /** Open external URL in system browser (Electron) or new tab. */
 async function openExternalUrl(url: string): Promise<void> {
-  if (window.teatimeElectron?.openExternal) {
-    const result = await window.teatimeElectron.openExternal(url);
+  if (window.tenasElectron?.openExternal) {
+    const result = await window.tenasElectron.openExternal(url);
     if (!result.ok) {
       throw new Error(result.reason ?? "无法打开浏览器");
     }
@@ -227,10 +227,10 @@ export default function SelectMode({ className }: SelectModeProps) {
   useEffect(() => {
     if (!tabId) return;
     const target = document.querySelector(
-      `[data-teatime-chat-root][data-tab-id="${tabId}"]`,
+      `[data-tenas-chat-root][data-tab-id="${tabId}"]`,
     );
     if (!target) return;
-    const mask = target.querySelector<HTMLElement>("[data-teatime-chat-mask]");
+    const mask = target.querySelector<HTMLElement>("[data-tenas-chat-mask]");
     // 弹出层打开时为 chat 主区域添加模糊效果。
     target.classList.toggle("blur-sm", open);
     target.classList.toggle("opacity-80", open);

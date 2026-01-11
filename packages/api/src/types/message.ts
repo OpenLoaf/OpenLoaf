@@ -10,10 +10,10 @@ type UIMessage<D = unknown, DT = UIDataTypes, T = UITools> = {
 };
 
 /**
- * Teatime 的 Agent 信息（参考 AI SDK 的 Agent/ToolLoopAgentSettings 设计）
+ * Tenas 的 Agent 信息（参考 AI SDK 的 Agent/ToolLoopAgentSettings 设计）
  * - 只存可序列化字段，用于 UI 展示与历史持久化
  */
-export type TeatimeAgentInfo = {
+export type TenasAgentInfo = {
   /** AI SDK Agent 版本标识（对齐 ai/dist 的 Agent.version） */
   version?: "agent-v1";
   /** 业务 agentId（例如 master/browser/...） */
@@ -34,7 +34,7 @@ export type TeatimeAgentInfo = {
 };
 
 /**
- * Teatime UIMessage（用于前端渲染/历史接口）
+ * Tenas UIMessage（用于前端渲染/历史接口）
  * - 扩展 parentMessageId（消息树）
  * - 扩展 agent（用于展示该消息由哪个 agent/model 产生）
  *
@@ -42,17 +42,17 @@ export type TeatimeAgentInfo = {
  * - UIMessage.role 仍然遵循 AI SDK：system/user/assistant
  * - metadata 保持原生 unknown（类型层不强约束）；持久化层负责剔除消息树字段
  */
-export interface TeatimeUIMessage extends UIMessage<unknown, TeatimeUIDataTypes, UITools> {
+export interface TenasUIMessage extends UIMessage<unknown, TenasUIDataTypes, UITools> {
   /** 消息树：父消息 ID（根节点为 null） */
   parentMessageId: string | null;
   /** 产生该消息的 agent 信息（可选；流式阶段可能缺失） */
-  agent?: TeatimeAgentInfo;
+  agent?: TenasAgentInfo;
 }
 
 /**
- * Teatime UI data parts。
+ * Tenas UI data parts。
  */
-export interface TeatimeUIDataTypes extends UIDataTypes {
+export interface TenasUIDataTypes extends UIDataTypes {
   "open-browser": {
     tabId: string;
     url: string;
@@ -70,7 +70,7 @@ export interface TeatimeUIDataTypes extends UIDataTypes {
 export type ChatRequestBody = {
   sessionId?: string;
   id?: string;
-  messages?: TeatimeUIMessage[];
+  messages?: TenasUIMessage[];
   /** 业务参数（如 mode 等），由前端透传 */
   params?: Record<string, unknown>;
   /** 当前应用 TabId（apps/web 的 useTabs 中的 Tab.id），用于 server 在本次 SSE 中绑定“操作目标 Tab”。 */

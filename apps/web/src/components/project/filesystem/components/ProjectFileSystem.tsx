@@ -46,7 +46,7 @@ import { FileSystemColumns } from "./FileSystemColumns";
 import { FileSystemGrid } from "./FileSystemGrid";
 import { FileSystemList, FileSystemListHeader } from "./FileSystemList";
 import ProjectFileSystemTransferDialog from "./ProjectFileSystemTransferDialog";
-import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
+import { DragDropOverlay } from "@/components/ui/tenas/drag-drop-overlay";
 import { useProjectFileSystemModel } from "../models/file-system-model";
 import { useFileSystemContextMenu } from "@/hooks/use-file-system-context-menu";
 import { useFileSelection } from "@/hooks/use-file-selection";
@@ -85,7 +85,7 @@ const DEFAULT_TOOLBAR_STATE: FileSystemToolbarState = {
 };
 
 /** Storage key prefix for file system toolbar settings. */
-const FILE_SYSTEM_TOOLBAR_STORAGE_KEY = "teatime:fs:toolbar";
+const FILE_SYSTEM_TOOLBAR_STORAGE_KEY = "tenas:fs:toolbar";
 
 type ProjectFileSystemBreadcrumbsProps = {
   isLoading: boolean;

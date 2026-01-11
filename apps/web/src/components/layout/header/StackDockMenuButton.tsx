@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { getPanelTitle } from "@/utils/panel-utils";
 import { BROWSER_WINDOW_COMPONENT, useTabs } from "@/hooks/use-tabs";
 import { getStackMinimizeSignal } from "@/lib/stack-dock-animation";
-import type { DockItem } from "@teatime-ai/api/common";
+import type { DockItem } from "@tenas-ai/api/common";
 
 // 保持空数组引用稳定，避免 useSyncExternalStore 报错。
 const EMPTY_STACK: DockItem[] = [];
@@ -33,7 +33,7 @@ function destroyBrowserViewsIfNeeded(item: DockItem) {
     (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
   if (!isElectron) return;
 
-  const api = window.teatimeElectron;
+  const api = window.tenasElectron;
   if (!api?.destroyWebContentsView) return;
 
   const tabs = (item.params as any)?.browserTabs;

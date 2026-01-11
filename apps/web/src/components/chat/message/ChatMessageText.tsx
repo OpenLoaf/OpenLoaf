@@ -83,7 +83,7 @@ export default function ChatMessageText({ value, className }: ChatMessageTextPro
           variant="none"
           className={cn("text-[13px] leading-5", className)}
           readOnly
-          data-teatime-chat-message="true"
+          data-tenas-chat-message="true"
         />
       </EditorContainer>
     </Plate>

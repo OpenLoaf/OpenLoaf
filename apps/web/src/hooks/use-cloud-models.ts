@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { create } from "zustand";
-import type { ModelDefinition } from "@teatime-ai/api/common";
+import type { ModelDefinition } from "@tenas-ai/api/common";
 import { resolveServerUrl } from "@/utils/server-url";
 
 type CloudModelState = {

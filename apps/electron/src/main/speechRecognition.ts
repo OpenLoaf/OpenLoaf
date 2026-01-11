@@ -48,10 +48,10 @@ function resolveSpeechHelperPath(): string | null {
 
   if (platform === "darwin") {
     relativeDir = "macos";
-    binaryName = "teatime-speech";
+    binaryName = "tenas-speech";
   } else if (platform === "win32") {
     relativeDir = "windows";
-    binaryName = "teatime-speech.exe";
+    binaryName = "tenas-speech.exe";
   } else {
     return null;
   }
@@ -77,17 +77,17 @@ function emitToRenderer(
 
 /** Emit speech result to renderer. */
 function emitSpeechResult(payload: SpeechResultPayload) {
-  emitToRenderer("teatime:speech:result", payload);
+  emitToRenderer("tenas:speech:result", payload);
 }
 
 /** Emit speech state to renderer. */
 function emitSpeechState(payload: SpeechStatePayload, target?: Electron.WebContents) {
-  emitToRenderer("teatime:speech:state", payload, target);
+  emitToRenderer("tenas:speech:state", payload, target);
 }
 
 /** Emit speech error to renderer. */
 function emitSpeechError(payload: SpeechErrorPayload, target?: Electron.WebContents) {
-  emitToRenderer("teatime:speech:error", payload, target);
+  emitToRenderer("tenas:speech:error", payload, target);
 }
 
 /** Handle stdout data from speech helper. */
@@ -138,7 +138,7 @@ export function createSpeechRecognitionManager(args: { log: Logger }) {
 
     const helperPath = resolveSpeechHelperPath();
     if (!helperPath || !fs.existsSync(helperPath)) {
-      return { ok: false, reason: "语音识别组件未构建，请先运行 pnpm --filter teatime run build:speech-helper。" };
+      return { ok: false, reason: "语音识别组件未构建，请先运行 pnpm --filter tenas run build:speech-helper。" };
     }
 
     // 中文注释：每次启动只保留一个会话，避免多进程抢占麦克风。

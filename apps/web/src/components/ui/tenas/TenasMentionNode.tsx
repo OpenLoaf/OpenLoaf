@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { useMounted } from "@/hooks/use-mounted";
 
 /** Render a mention chip with file reference styling. */
-export function TeatimeMentionElement(
+export function TenasMentionElement(
   props: PlateElementProps<TMentionElement> & {
     prefix?: string;
   }
@@ -67,7 +67,7 @@ export function TeatimeMentionElement(
         ...props.attributes,
         contentEditable: false,
         "data-slate-value": element.value,
-        "data-teatime-mention": "true",
+        "data-tenas-mention": "true",
         "data-mention-value": element.value,
         draggable: true,
       }}

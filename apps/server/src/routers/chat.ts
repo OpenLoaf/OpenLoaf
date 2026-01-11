@@ -1,4 +1,4 @@
-import { BaseChatRouter, chatSchemas, t, shieldedProcedure, appRouterDefine } from "@teatime-ai/api";
+import { BaseChatRouter, chatSchemas, t, shieldedProcedure, appRouterDefine } from "@tenas-ai/api";
 import { generateText } from "ai";
 import { xai } from "@ai-sdk/xai";
 import { replaceFileTokensWithNames } from "@/common/chatTitle";

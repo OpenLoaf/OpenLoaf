@@ -1,6 +1,6 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
-  "name": "teatime-ai",
+  "name": "tenas-ai",
   "formatter": {
     "enabled": true,
     "indentStyle": "space",

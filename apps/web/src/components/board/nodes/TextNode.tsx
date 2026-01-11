@@ -277,6 +277,10 @@ export function TextNodeView({
     textareaRef.current = node;
     contentRef.current = node;
   }, []);
+  /** Assign view-mode content ref for measurement target. */
+  const setContentDivRef = useCallback((node: HTMLDivElement | null) => {
+    contentRef.current = node;
+  }, []);
 
   /** Resize the node to fit content when exiting edit mode. */
   const fitToContentIfNeeded = useCallback(() => {
@@ -535,7 +539,7 @@ export function TextNodeView({
       ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"
       : "",
     isGenerating && !isPromptError
-      ? "teatime-thinking-border teatime-thinking-border-on border-transparent"
+      ? "tenas-thinking-border tenas-thinking-border-on border-transparent"
       : "",
   ].join(" ");
 
@@ -599,7 +603,7 @@ export function TextNodeView({
       className={containerClasses}
       onDoubleClick={handleDoubleClick}
     >
-      <div ref={contentRef} className={TEXT_VIEW_CLASSNAME}>
+      <div ref={setContentDivRef} className={TEXT_VIEW_CLASSNAME}>
         {draftText}
       </div>
       {isEmpty ? (

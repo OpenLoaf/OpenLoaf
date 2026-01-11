@@ -4,8 +4,8 @@ export const dynamic = 'force-static';
 
 export default function manifest(): MetadataRoute.Manifest {
 	return {
-		name: "teatime-ai",
-		short_name: "teatime-ai",
+		name: "tenas-ai",
+		short_name: "tenas-ai",
 		description: "my pwa app",
 		start_url: "/new",
 		display: "standalone",

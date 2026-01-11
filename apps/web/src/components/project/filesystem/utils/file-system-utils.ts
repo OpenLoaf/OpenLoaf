@@ -16,7 +16,7 @@ export const IGNORE_NAMES = new Set([
   ".git",
   ".turbo",
   ".next",
-  ".teatime-trash",
+  ".tenas-trash",
   "dist",
   "build",
   "out",
@@ -28,7 +28,7 @@ export {
   FILE_DRAG_REF_MIME,
   FILE_DRAG_URI_MIME,
   FILE_DRAG_URIS_MIME,
-} from "@/components/ui/teatime/drag-drop-types";
+} from "@/components/ui/tenas/drag-drop-types";
 
 /** Get a relative path for an entry under the project root. */
 export function getRelativePathFromUri(rootUri: string, entryUri: string) {
@@ -60,18 +60,18 @@ export function buildUriFromRoot(rootUri: string, relativePath: string) {
   }
 }
 
-/** Build teatime-file URL from projectId and relative path. */
-export function buildTeatimeFileUrl(projectId: string, relativePath: string) {
+/** Build tenas-file URL from projectId and relative path. */
+export function buildTenasFileUrl(projectId: string, relativePath: string) {
   const parts = relativePath.split("/").filter(Boolean);
   const encoded = parts.map((part) => encodeURIComponent(part));
-  return `teatime-file://${projectId}/${encoded.join("/")}`;
+  return `tenas-file://${projectId}/${encoded.join("/")}`;
 }
 
-/** Parse teatime-file URL into projectId and relative path. */
-export function parseTeatimeFileUrl(uri: string): { projectId: string; relativePath: string } | null {
+/** Parse tenas-file URL into projectId and relative path. */
+export function parseTenasFileUrl(uri: string): { projectId: string; relativePath: string } | null {
   try {
     const parsed = new URL(uri);
-    if (parsed.protocol !== "teatime-file:") return null;
+    if (parsed.protocol !== "tenas-file:") return null;
     const projectId = parsed.hostname.trim();
     const relativePath = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
     if (!projectId || !relativePath) return null;

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
 import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
-import type { DockItem } from "@teatime-ai/api/common";
+import type { DockItem } from "@tenas-ai/api/common";
 import { StackHeader } from "./StackHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/utils/trpc";

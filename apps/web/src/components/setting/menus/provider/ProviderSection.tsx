@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
+import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
 import { getModelLabel } from "@/lib/model-registry";
 import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
@@ -19,7 +19,7 @@ import {
   truncateDisplay,
   type ProviderEntry,
 } from "@/components/setting/menus/provider/use-provider-management";
-import type { ModelDefinition } from "@teatime-ai/api/common";
+import type { ModelDefinition } from "@tenas-ai/api/common";
 
 type ProviderSectionProps = {
   /** Provider list entries. */
@@ -73,7 +73,7 @@ export function ProviderSection({
 }: ProviderSectionProps) {
   return (
     <>
-      <TeatimeSettingsGroup
+      <TenasSettingsGroup
         title="AI 服务商"
         subtitle="配置模型服务商的 API URL 与认证信息。"
         showBorder={false}
@@ -84,7 +84,7 @@ export function ProviderSection({
         }
       >
         {null}
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
       <div className="rounded-lg border border-border overflow-hidden">
         <Table>

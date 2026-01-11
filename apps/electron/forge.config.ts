@@ -9,7 +9,7 @@ import { rendererConfig } from './webpack.renderer.config';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    appBundleId: 'com.hexems.teatime',
+    appBundleId: 'com.hexems.tenas',
     extendInfo: {
       NSMicrophoneUsageDescription: '语音输入需要访问麦克风。',
       NSSpeechRecognitionUsageDescription: '语音输入需要使用系统语音识别。',

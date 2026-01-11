@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import sharp from "sharp";
 import { downloadImageData } from "@/ai/utils/image-download";
-import { loadTeatimeImageBuffer } from "./attachmentResolver";
+import { loadTenasImageBuffer } from "./attachmentResolver";
 import {
   resolveActiveS3Storage,
   resolveBaseNameFromUrl,
@@ -43,8 +43,8 @@ async function resolveImageInputBuffer(input: {
     const raw = input.data.trim();
     const dataUrlType = raw.startsWith("data:") ? resolveMediaTypeFromDataUrl(raw) : "";
     const resolvedType = dataUrlType || mediaTypeHint || "image/png";
-    if (raw.startsWith("teatime-file://")) {
-      const payload = await loadTeatimeImageBuffer({ url: raw, mediaType: resolvedType });
+    if (raw.startsWith("tenas-file://")) {
+      const payload = await loadTenasImageBuffer({ url: raw, mediaType: resolvedType });
       if (!payload) {
         throw new Error("图片读取失败");
       }

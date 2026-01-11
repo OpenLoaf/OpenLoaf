@@ -9,7 +9,7 @@ import {
   ContextMenuItem,
   ContextMenuShortcut,
 } from "@/components/ui/context-menu";
-import type { Tab } from "@teatime-ai/api/common";
+import type { Tab } from "@tenas-ai/api/common";
 import type { CSSProperties } from "react";
 
 interface TabMenuProps {
@@ -48,7 +48,7 @@ export const TabMenu = ({
   const thinkingBorderStyle = showThinkingBorder
     ? ({
         // Tab 上的彩虹边框只需要“外框”，内部填充保持与当前区域一致，避免未激活 Tab 看起来像“被选中”。
-        ["--teatime-thinking-border-fill" as any]: isActive
+        ["--tenas-thinking-border-fill" as any]: isActive
           ? "var(--color-background)"
           : "var(--color-sidebar)",
       } as CSSProperties)
@@ -58,7 +58,7 @@ export const TabMenu = ({
       onOpenChange={(open) => {
         if (typeof window === "undefined") return;
         window.dispatchEvent(
-          new CustomEvent("teatime:overlay", {
+          new CustomEvent("tenas:overlay", {
             detail: { id: `tabmenu:${tab.id}`, open },
           })
         );
@@ -79,10 +79,10 @@ export const TabMenu = ({
           style={thinkingBorderStyle}
           className={cn(
             "h-7 pl-2 pr-7 text-xs gap-0 rounded-md text-muted-foreground bg-transparent aria-selected:bg-background aria-selected:text-foreground aria-selected:shadow-none relative z-10 flex items-center max-w-[180px] flex-none w-auto shrink-0 cursor-default active:cursor-grabbing data-[reordering=true]:cursor-grabbing border border-transparent",
-            // teatime-thinking-border 默认会设置 padding-box 的填充色（fallback 为 background）。
+            // tenas-thinking-border 默认会设置 padding-box 的填充色（fallback 为 background）。
             // 如果把它常驻在所有 Tab 上，会导致“未激活 Tab 也像被选中”（背景被覆盖）。
             // 因此这里仅在流式生成中才挂载该类名。
-            showThinkingBorder && "teatime-thinking-border teatime-thinking-border-on"
+            showThinkingBorder && "tenas-thinking-border tenas-thinking-border-on"
           )}
         >
           {tab.icon === "bot" ? (

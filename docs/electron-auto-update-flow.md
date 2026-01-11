@@ -1,4 +1,4 @@
-# Electron 自动更新流程（TeaTime）
+# Electron 自动更新流程（Tenas）
 
 本文描述当前项目的**自动更新业务逻辑与代码逻辑**，适用于 Electron 打包版本。  
 说明：dev 模式不会触发自动更新（`app.isPackaged === false` 会跳过）。
@@ -45,7 +45,7 @@
 职责：
 - 设置 `electron-updater` 事件监听  
 - 维护全局状态快照  
-- 向所有窗口广播 `teatime:auto-update:status`  
+- 向所有窗口广播 `tenas:auto-update:status`  
 - 提供手动检查与安装更新的函数  
 
 关键点：
@@ -58,33 +58,33 @@
 注册位置：`apps/electron/src/main/ipc/index.ts`
 
 通道：
-- `teatime:app:version`：返回当前版本号  
-- `teatime:auto-update:check`：手动检查更新  
-- `teatime:auto-update:status`：返回当前状态快照  
-- `teatime:auto-update:install`：安装已下载更新并重启  
+- `tenas:app:version`：返回当前版本号  
+- `tenas:auto-update:check`：手动检查更新  
+- `tenas:auto-update:status`：返回当前状态快照  
+- `tenas:auto-update:install`：安装已下载更新并重启  
 
 ### 预加载桥接（Preload）
 
 位置：`apps/electron/src/preload/index.ts`
 
-对 `window.teatimeElectron` 暴露方法：
+对 `window.tenasElectron` 暴露方法：
 - `getAppVersion()`  
 - `checkForUpdates()`  
 - `getAutoUpdateStatus()`  
 - `installUpdate()`  
 
 事件转发：
-- `teatime:auto-update:status` → `window` 事件 `teatime:auto-update:status`
+- `tenas:auto-update:status` → `window` 事件 `tenas:auto-update:status`
 
 ### Web 侧展示与交互
 
-1) 设置页：`apps/web/src/components/setting/menus/AboutTeatime.tsx`  
+1) 设置页：`apps/web/src/components/setting/menus/AboutTenas.tsx`  
 - 展示版本号与更新状态文案  
 - “检测更新”按钮触发 `checkForUpdates()`  
 - 若状态是 `downloaded`，按钮变为“立即重启”  
 
 2) 全局弹窗：`apps/web/src/components/layout/AutoUpdateGate.tsx`  
-- 监听 `teatime:auto-update:status`  
+- 监听 `tenas:auto-update:status`  
 - 当状态进入 `downloaded` 时弹出提示  
 - “立即重启”调用 `installUpdate()`  
 
@@ -103,7 +103,7 @@
 - `apps/electron/src/main/autoUpdate.ts`
 - `apps/electron/src/main/ipc/index.ts`
 - `apps/electron/src/preload/index.ts`
-- `apps/web/src/components/setting/menus/AboutTeatime.tsx`
+- `apps/web/src/components/setting/menus/AboutTenas.tsx`
 - `apps/web/src/components/layout/AutoUpdateGate.tsx`
 - `apps/web/src/components/Providers.tsx`
 - `apps/web/src/types/electron.d.ts`

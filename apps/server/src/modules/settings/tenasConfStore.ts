@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { getEnvString } from "@teatime-ai/config";
-import type { ChatModelSource } from "@teatime-ai/api/common";
+import { getEnvString } from "@tenas-ai/config";
+import type { ChatModelSource } from "@tenas-ai/api/common";
 import type {
   AuthConf,
   BasicConf,
@@ -297,7 +297,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
 
 /** Resolve config directory from environment. */
 function getConfigDir(): string {
-  const confPath = getEnvString(process.env, "TEATIME_CONF_PATH", { required: true });
+  const confPath = getEnvString(process.env, "TENAS_CONF_PATH", { required: true });
   const dir = path.dirname(confPath!);
   // 逻辑：确保配置目录存在，便于写入拆分文件。
   mkdirSync(dir, { recursive: true });

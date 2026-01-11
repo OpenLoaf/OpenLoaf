@@ -21,15 +21,15 @@ import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { playNotificationSound } from "@/lib/notification-sound";
-import type { TeatimeUIDataTypes } from "@teatime-ai/api/types/message";
-import type { ImageGenerateOptions } from "@teatime-ai/api/types/image";
+import type { TenasUIDataTypes } from "@tenas-ai/api/types/message";
+import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "./chat-attachments";
 import { createChatSessionId } from "@/lib/chat-session-id";
 
 function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
   if (input.dataPart?.type !== "data-open-browser") return false;
-  const data = input.dataPart?.data as TeatimeUIDataTypes["open-browser"] | undefined;
+  const data = input.dataPart?.data as TenasUIDataTypes["open-browser"] | undefined;
   if (!data) return true;
 
   const tabId = String(data.tabId || input.fallbackTabId || "");

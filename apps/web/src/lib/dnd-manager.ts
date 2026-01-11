@@ -1,7 +1,7 @@
 import { createDragDropManager, type DragDropManager } from 'dnd-core';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
-const DND_MANAGER_KEY = Symbol.for('teatime:dnd-manager');
+const DND_MANAGER_KEY = Symbol.for('tenas:dnd-manager');
 
 /**
  * Returns a global singleton DragDropManager for all editors.

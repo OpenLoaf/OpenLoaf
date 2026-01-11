@@ -8,8 +8,8 @@ import {
 } from "@/hooks/use-tabs";
 import { Globe } from "lucide-react";
 import { memo } from "react";
-import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
-import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
+import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { toast } from "sonner";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
@@ -115,7 +115,7 @@ const TestSetting = memo(function TestSetting() {
 
   return (
     <div className="space-y-6">
-      <TeatimeSettingsGroup title="实验功能">
+      <TenasSettingsGroup title="实验功能">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 py-3">
             <div className="min-w-0">
@@ -124,7 +124,7 @@ const TestSetting = memo(function TestSetting() {
                 快速创建用于测试的 stack 卡片
               </div>
             </div>
-            <TeatimeSettingsField className="flex-wrap gap-2">
+            <TenasSettingsField className="flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={handleCreateThreeStacks}>
                 Stack: Create 3 (demo)
               </Button>
@@ -154,7 +154,7 @@ const TestSetting = memo(function TestSetting() {
               >
                 Stack: Tool Result (demo)
               </Button>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-3 py-3">
@@ -164,7 +164,7 @@ const TestSetting = memo(function TestSetting() {
                 触发内置面板或浏览器窗口
               </div>
             </div>
-            <TeatimeSettingsField className="flex-wrap gap-2">
+            <TenasSettingsField className="flex-wrap gap-2">
               {terminalStatus.enabled ? (
                 <Button size="sm" variant="outline" onClick={handleOpenWorkspaceTerminal}>
                   Stack: Terminal (workspace)
@@ -223,25 +223,25 @@ const TestSetting = memo(function TestSetting() {
                   </Button>
                 </>
               ) : null}
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
-      <TeatimeSettingsGroup title="操作">
+      <TenasSettingsGroup title="操作">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 py-3">
             <div className="text-sm font-medium">重新进入初始化</div>
-            <TeatimeSettingsField>
+            <TenasSettingsField>
               <Button type="button" variant="outline" size="sm" onClick={handleRestartSetup}>
                 进入
               </Button>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
-      <TeatimeSettingsGroup title="Stack 状态">
+      <TenasSettingsGroup title="Stack 状态">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 py-3">
             <div className="min-w-0">
@@ -250,7 +250,7 @@ const TestSetting = memo(function TestSetting() {
                 当前 tab 的 stack items 数量
               </div>
             </div>
-            <TeatimeSettingsField className="gap-3">
+            <TenasSettingsField className="gap-3">
               <span className="text-xs text-muted-foreground tabular-nums">
                 {activeStackCount}
               </span>
@@ -265,10 +265,10 @@ const TestSetting = memo(function TestSetting() {
               >
                 清空
               </Button>
-            </TeatimeSettingsField>
+            </TenasSettingsField>
           </div>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
     </div>
   );
 });

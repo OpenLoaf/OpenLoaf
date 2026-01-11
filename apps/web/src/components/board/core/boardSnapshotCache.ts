@@ -1,6 +1,6 @@
 import type { BoardSnapshotState } from "./boardStorage";
 
-const BOARD_DB_NAME = "teatime-board";
+const BOARD_DB_NAME = "tenas-board";
 const BOARD_DB_VERSION = 2;
 const SNAPSHOT_STORE_NAME = "board_snapshots_v2";
 

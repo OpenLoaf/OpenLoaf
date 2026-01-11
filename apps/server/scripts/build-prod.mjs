@@ -7,7 +7,7 @@ import pino from "pino";
 
 const logger = pino({
   level: process.env.LOG_LEVEL ?? "info",
-  base: { service: "teatime-server", script: "build-prod" },
+  base: { service: "tenas-server", script: "build-prod" },
   timestamp: pino.stdTimeFunctions.isoTime,
 });
 

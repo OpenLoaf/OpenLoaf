@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import { timeNowToolDef } from "@teatime-ai/api/types/tools/system";
+import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 
 /**
  * Returns current server time info (MVP).

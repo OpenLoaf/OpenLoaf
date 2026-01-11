@@ -3,7 +3,7 @@
 import { forwardRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export type TeatimeSettingsLayoutProps = {
+export type TenasSettingsLayoutProps = {
   menu: ReactNode;
   content: ReactNode;
   isCollapsed?: boolean;
@@ -17,7 +17,7 @@ export type TeatimeSettingsLayoutProps = {
 };
 
 /** Settings page layout with menu and content regions. */
-export const TeatimeSettingsLayout = forwardRef<HTMLDivElement, TeatimeSettingsLayoutProps>(
+export const TenasSettingsLayout = forwardRef<HTMLDivElement, TenasSettingsLayoutProps>(
   (
     {
       menu,
@@ -63,4 +63,4 @@ export const TeatimeSettingsLayout = forwardRef<HTMLDivElement, TeatimeSettingsL
   ),
 );
 
-TeatimeSettingsLayout.displayName = "TeatimeSettingsLayout";
+TenasSettingsLayout.displayName = "TenasSettingsLayout";

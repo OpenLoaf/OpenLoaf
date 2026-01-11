@@ -5,7 +5,7 @@ import { StepUpStepShell } from "@/components/step-up/StepUpStepShell";
 import { ProviderEditorDialog } from "@/components/setting/menus/model/ProviderEditorDialog";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { getModelLabel, resolveModelDefinition } from "@/lib/model-registry";
-import type { ModelDefinition } from "@teatime-ai/api/common";
+import type { ModelDefinition } from "@tenas-ai/api/common";
 
 type StepUpProviderEntry = {
   /** Entry display name. */

@@ -1,6 +1,6 @@
 import { resolveServerUrl } from "@/utils/server-url";
 
-/** Resolve preview endpoint for a teatime-file url. */
+/** Resolve preview endpoint for a tenas-file url. */
 export function getPreviewEndpoint(uri: string) {
   const apiBase = resolveServerUrl();
   const encoded = encodeURIComponent(uri);
@@ -11,7 +11,7 @@ export function getPreviewEndpoint(uri: string) {
 
 /** Fetch a Blob from any supported uri. */
 export async function fetchBlobFromUri(uri: string) {
-  const endpoint = uri.startsWith("teatime-file://") ? getPreviewEndpoint(uri) : uri;
+  const endpoint = uri.startsWith("tenas-file://") ? getPreviewEndpoint(uri) : uri;
   const res = await fetch(endpoint);
   if (!res.ok) throw new Error("preview failed");
   return res.blob();

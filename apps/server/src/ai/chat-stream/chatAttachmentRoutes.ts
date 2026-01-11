@@ -1,9 +1,9 @@
 import type { Hono } from "hono";
-import { getWorkspaceByIdConfig } from "@teatime-ai/api/services/workspaceConfig";
+import { getWorkspaceByIdConfig } from "@tenas-ai/api/services/workspaceConfig";
 import {
-  getTeatimeFilePreview,
+  getTenasFilePreview,
   saveChatImageAttachment,
-  saveChatImageAttachmentFromTeatimeUrl,
+  saveChatImageAttachmentFromTenasUrl,
 } from "./attachmentResolver";
 import { toText } from "@/routers/route-utils";
 
@@ -72,7 +72,7 @@ export function registerChatAttachmentRoutes(app: Hono) {
         if (size > MAX_CHAT_IMAGE_BYTES) {
           return c.json({ error: "Image too large" }, 413);
         }
-        // 上传阶段即压缩并落盘，返回 teatime-file 地址给前端。
+        // 上传阶段即压缩并落盘，返回 tenas-file 地址给前端。
         const buffer = Buffer.from(await file.arrayBuffer());
         const mediaType = file.type || "application/octet-stream";
         const result = await saveChatImageAttachment({
@@ -85,11 +85,11 @@ export function registerChatAttachmentRoutes(app: Hono) {
         });
         return c.json({ url: result.url, mediaType: result.mediaType });
       }
-      if (!file.startsWith("teatime-file://")) {
+      if (!file.startsWith("tenas-file://")) {
         return c.json({ error: "Invalid attachment source" }, 400);
       }
-      // 中文注释：teatime-file 仍需压缩转码后再落盘。
-      const result = await saveChatImageAttachmentFromTeatimeUrl({
+      // 中文注释：tenas-file 仍需压缩转码后再落盘。
+      const result = await saveChatImageAttachmentFromTenasUrl({
         workspaceId,
         projectId,
         sessionId,
@@ -103,11 +103,11 @@ export function registerChatAttachmentRoutes(app: Hono) {
 
   app.get("/chat/attachments/preview", async (c) => {
     const url = c.req.query("url")?.trim() ?? "";
-    if (!url || !url.startsWith("teatime-file://")) {
+    if (!url || !url.startsWith("tenas-file://")) {
       return c.json({ error: "Invalid preview url" }, 400);
     }
     try {
-      const preview = await getTeatimeFilePreview({ url });
+      const preview = await getTenasFilePreview({ url });
       if (!preview) return c.json({ error: "Preview not found" }, 404);
       // Hono 的 body 需要 Uint8Array，避免 Buffer 类型推断问题。
       const arrayBuffer = new ArrayBuffer(preview.buffer.byteLength);

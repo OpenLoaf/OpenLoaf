@@ -2,7 +2,7 @@
 
 import { generateId } from "ai";
 
-const CLIENT_STREAM_CLIENT_ID_STORAGE_KEY = "teatime:chat:sse-client-id";
+const CLIENT_STREAM_CLIENT_ID_STORAGE_KEY = "tenas:chat:sse-client-id";
 
 // 关键：同一浏览器会话的 clientId 保持稳定，便于服务端识别。
 export function getWebClientId() {

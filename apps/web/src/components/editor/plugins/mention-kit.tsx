@@ -3,13 +3,13 @@
 import { MentionInputPlugin, MentionPlugin } from '@platejs/mention/react';
 
 import { MentionInputElement } from '@/components/ui/mention-node';
-import { TeatimeMentionElement } from '@/components/ui/teatime/TeatimeMentionNode';
+import { TenasMentionElement } from '@/components/ui/tenas/TenasMentionNode';
 
 export const MentionKit = [
   MentionPlugin.configure({
     options: {
       triggerPreviousCharPattern: /^$|^[\s"']$/,
     },
-  }).withComponent(TeatimeMentionElement),
+  }).withComponent(TenasMentionElement),
   MentionInputPlugin.withComponent(MentionInputElement),
 ];

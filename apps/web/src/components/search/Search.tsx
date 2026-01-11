@@ -13,7 +13,7 @@ import {
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
-import { AI_CHAT_TAB_INPUT } from "@teatime-ai/api/common";
+import { AI_CHAT_TAB_INPUT } from "@tenas-ai/api/common";
 import { CalendarDays, Inbox, LayoutTemplate, Sparkles } from "lucide-react";
 
 export function Search({
@@ -29,7 +29,7 @@ export function Search({
   const dispatchOverlay = React.useCallback((nextOpen: boolean) => {
     if (typeof window === "undefined") return;
     window.dispatchEvent(
-      new CustomEvent("teatime:overlay", {
+      new CustomEvent("tenas:overlay", {
         detail: { id: "search", open: nextOpen },
       }),
     );

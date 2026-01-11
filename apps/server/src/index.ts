@@ -2,7 +2,7 @@ import "dotenv/config";
 import { startServer } from "@/bootstrap/startServer";
 import { installHttpProxy } from "@/modules/proxy/httpProxy";
 import { syncSystemProxySettings } from "@/modules/proxy/systemProxySync";
-import { getWorkspaces } from "@teatime-ai/api/services/workspaceConfig";
+import { getWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
 
 installHttpProxy();
 void syncSystemProxySettings();

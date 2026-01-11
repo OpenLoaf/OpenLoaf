@@ -312,7 +312,7 @@ export function ImageNodeInput({
                 onKeyDown={handleKeyDown}
                 onFocus={() => setIsInputFocused(true)}
                 onBlur={() => setIsInputFocused(false)}
-                data-teatime-chat-input="true"
+                data-tenas-chat-input="true"
               />
             </EditorContainer>
           </Plate>

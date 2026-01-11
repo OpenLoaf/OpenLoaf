@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
-import type { ChatModelSource } from "@teatime-ai/api/common";
+import type { ChatModelSource } from "@tenas-ai/api/common";
 import type { ChatStreamRequest } from "@/ai/chat-stream/chatStreamTypes";
 import { runChatStream } from "@/ai/chat-stream/chatStreamService";
 import { logger } from "@/common/logger";

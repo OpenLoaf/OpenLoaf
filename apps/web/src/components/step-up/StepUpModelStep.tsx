@@ -13,13 +13,13 @@ export function StepUpModelStep({ value, onSelect }: StepUpModelStepProps) {
   return (
     <StepUpChoiceStep
       title="你希望模型由谁提供？"
-      subtitle="选择自己的模型或直接使用 TeaTime Cloud。"
+      subtitle="选择自己的模型或直接使用 Tenas Cloud。"
       value={value}
       onSelect={(next) => onSelect(next as StepUpModelChoice)}
       options={[
         {
           id: "cloud",
-          title: "TeaTime Cloud",
+          title: "Tenas Cloud",
           description: "官方托管服务",
           badge: "推荐",
           icon: <Cloud className="size-6" />,

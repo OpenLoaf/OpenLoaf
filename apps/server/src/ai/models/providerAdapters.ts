@@ -4,7 +4,7 @@ import { createDeepSeek } from "@ai-sdk/deepseek";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
-import type { ModelDefinition, ProviderDefinition } from "@teatime-ai/api/common";
+import type { ModelDefinition, ProviderDefinition } from "@tenas-ai/api/common";
 import { buildOpenAiCompatibleImageModel } from "@/ai/models/openaiCompatible/openaiCompatibleImageModel";
 import { qwenAdapter } from "@/ai/models/qwen/qwenAdapter";
 import { volcengineAdapter } from "@/ai/models/volcengine/volcengineAdapter";

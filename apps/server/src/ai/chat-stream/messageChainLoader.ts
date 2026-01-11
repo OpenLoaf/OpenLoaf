@@ -1,5 +1,5 @@
-import { prisma } from "@teatime-ai/db";
-import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
+import { prisma } from "@tenas-ai/db";
+import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 
 /** Default max messages in a chain. */
 const DEFAULT_MAX_MESSAGES = 80;
@@ -12,7 +12,7 @@ export async function loadMessageChain(input: {
   leafMessageId: string;
   /** Max messages to load. */
   maxMessages?: number;
-}): Promise<TeatimeUIMessage[]> {
+}): Promise<TenasUIMessage[]> {
   const sessionId = input.sessionId;
   const maxMessages = Number.isFinite(input.maxMessages)
     ? Number(input.maxMessages)

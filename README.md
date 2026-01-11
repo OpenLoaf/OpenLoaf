@@ -1,4 +1,4 @@
-# teatime-ai
+# tenas-ai
 
 This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, Hono, TRPC, and more.
 
@@ -60,7 +60,7 @@ The API is running at [http://localhost:3000](http://localhost:3000).
 ## Project Structure
 
 ```
-teatime-ai/
+tenas-ai/
 ├── apps/
 │   ├── web/         # Frontend application (Next.js)
 │   └── server/      # Backend API (Hono, TRPC)
@@ -76,8 +76,8 @@ teatime-ai/
 - `pnpm run dev:web`: Start only the web application
 - `pnpm run dev:server`: Start only the server
 - `pnpm run desktop`: Start the Electron app (dev)
-- `pnpm --filter teatime run make`: Build Electron distributables (DMG/ZIP) to `apps/electron/out/make`
-- `pnpm --filter teatime run make:noproxy`: Same as above but ignores proxy env vars (`http_proxy` / `https_proxy`)
+- `pnpm --filter tenas run make`: Build Electron distributables (DMG/ZIP) to `apps/electron/out/make`
+- `pnpm --filter tenas run make:noproxy`: Same as above but ignores proxy env vars (`http_proxy` / `https_proxy`)
 - `pnpm run check-types`: Check TypeScript types across all apps
 - `pnpm run db:push`: Push schema changes to database
 - `pnpm run db:studio`: Open database studio UI
@@ -85,7 +85,7 @@ teatime-ai/
 
 ## Desktop Production Config
 
-- Packaged app reads env from `~/Library/Application Support/Teatime/.env` (API keys, paths, etc.)
-- Default data directory: `~/Library/Application Support/Teatime/data`
-- Default DB path: `~/Library/Application Support/Teatime/data/teatime.db` (auto-initialized on first run)
-- Optional overrides in that `.env`: `TEATIME_DATA_DIR`, `TEATIME_DB_PATH`, `DATABASE_URL`, `TEATIME_CONF_PATH`
+- Packaged app reads env from `~/Library/Application Support/Tenas/.env` (API keys, paths, etc.)
+- Default data directory: `~/Library/Application Support/Tenas/data`
+- Default DB path: `~/Library/Application Support/Tenas/data/tenas.db` (auto-initialized on first run)
+- Optional overrides in that `.env`: `TENAS_DATA_DIR`, `TENAS_DB_PATH`, `DATABASE_URL`, `TENAS_CONF_PATH`

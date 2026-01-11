@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { ModelTag } from "@teatime-ai/api/common";
+import type { ModelTag } from "@tenas-ai/api/common";
 import {
   MODEL_TAG_OPTIONS,
   toggleSelection,

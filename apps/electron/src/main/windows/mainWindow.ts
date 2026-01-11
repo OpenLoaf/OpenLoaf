@@ -36,7 +36,7 @@ function getDefaultWindowSize(): { width: number; height: number } {
  * Keeps the window title pinned to the app display name.
  */
 function bindWindowTitle(win: BrowserWindow): void {
-  const displayName = app.name || 'TeaTime';
+  const displayName = app.name || 'Tenas';
   // 固定窗口标题，避免被 web 的 <title> 覆盖。
   win.setTitle(displayName);
   win.on('page-title-updated', (event) => {
@@ -100,7 +100,7 @@ export async function createMainWindow(args: {
         }
       : {}),
     webPreferences: {
-      // preload 提供最小、可类型约束的桥接（`window.teatimeElectron`），用于调用主进程 IPC。
+      // preload 提供最小、可类型约束的桥接（`window.tenasElectron`），用于调用主进程 IPC。
       preload: args.entries.mainPreload,
       // 渲染进程安全默认值：页面不允许直接使用 Node.js。
       contextIsolation: true,

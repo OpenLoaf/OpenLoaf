@@ -9,7 +9,7 @@
 - 系统浏览器登录（避免内嵌 WebView）
 - Auth0 PKCE 交换 token
 - access_token 仅内存保存
-- refresh_token 写入 `teatime.conf`（明文）
+- refresh_token 写入 `tenas.conf`（明文）
 - web 端 1s 轮询登录状态
 - 登录成功后定时获取 SaaS 余额
 - 允许用户取消登录
@@ -34,7 +34,7 @@ AUTH0_CLIENT_ID=xxxxxxxx
 AUTH0_AUDIENCE=https://your-api
 AUTH0_REDIRECT_URI=http://127.0.0.1:23333/auth/callback
 AUTH0_SCOPE=openid profile email offline_access
-TEATIME_SAAS_URL=http://localhost:3000
+TENAS_SAAS_URL=http://localhost:3000
 ```
 
 ---
@@ -53,7 +53,7 @@ Web 点击登录
         -> Server 校验 state
         -> /oauth/token 交换 token
            - access_token 内存
-           - refresh_token 写入 teatime.conf
+           - refresh_token 写入 tenas.conf
   -> Web 每 1s 轮询 GET /auth/session
      -> loggedIn = true
      -> UI 显示已登录
@@ -86,7 +86,7 @@ Web 点击取消
 - 校验 state
 - code + verifier 换 token
 - access_token 写内存
-- refresh_token 写 `teatime.conf`
+- refresh_token 写 `tenas.conf`
 - 返回 HTML（含倒计时关闭）
 
 ### GET /auth/session
@@ -130,7 +130,7 @@ Web 点击取消
 ## Token 存储策略
 
 - access_token：仅内存保存
-- refresh_token：`teatime.conf` 明文保存
+- refresh_token：`tenas.conf` 明文保存
 - 启动时：
   - 读取 refresh_token
   - 自动刷新 access_token
@@ -160,7 +160,7 @@ Server：
 - `apps/server/src/modules/auth/auth0/pkce.ts`
 - `apps/server/src/modules/auth/auth0/tokenStore.ts`
 - `apps/server/src/modules/auth/auth0/authRoutes.ts`
-- `apps/server/src/modules/settings/teatimeConfStore.ts`
+- `apps/server/src/modules/settings/tenasConfStore.ts`
 
 Electron：
 - `apps/electron/src/main/ipc/index.ts`

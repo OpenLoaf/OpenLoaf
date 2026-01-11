@@ -1,12 +1,12 @@
 {
-  "name": "teatime",
-  "productName": "TeaTime",
+  "name": "tenas",
+  "productName": "Tenas",
   "version": "1.0.0",
-  "description": "TeaTime desktop app",
+  "description": "Tenas desktop app",
   "main": ".webpack/main",
   "build": {
-    "appId": "com.hexems.teatime",
-    "productName": "TeaTime",
+    "appId": "com.hexems.tenas",
+    "productName": "Tenas",
     "asar": true,
     "extraMetadata": {
       "main": ".webpack/arm64/main/index.js"
@@ -91,7 +91,7 @@
     "email": "torykit@torykit.com"
   },
   "dependencies": {
-    "@teatime-ai/config": "workspace:*",
+    "@tenas-ai/config": "workspace:*",
     "electron-updater": "^6.3.0",
     "pino": "^10.1.0",
     "serve-handler": "^6.1.6"

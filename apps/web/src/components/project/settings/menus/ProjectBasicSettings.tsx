@@ -3,9 +3,9 @@ import { Copy, SmilePlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
-import { TeatimeSettingsField } from "@/components/ui/teatime/TeatimeSettingsField";
-import { TeatimeAutoWidthInput } from "@/components/ui/teatime/TeatimeAutoWidthInput";
+import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
+import { TenasAutoWidthInput } from "@/components/ui/tenas/TenasAutoWidthInput";
 import { useProject } from "@/hooks/use-project";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
@@ -66,7 +66,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
     try {
       const url = new URL(rootUri);
       const base = url.pathname.replace(/\/$/, "");
-      url.pathname = `${base}/.teatime_cache`;
+      url.pathname = `${base}/.tenas_cache`;
       return url.toString();
     } catch {
       return "";
@@ -82,14 +82,14 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
 
   return (
     <div className="space-y-4">
-      <TeatimeSettingsGroup title="项目设置" cardProps={{ divided: true, padding: "x" }}>
+      <TenasSettingsGroup title="项目设置" cardProps={{ divided: true, padding: "x" }}>
         <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">项目 ID</div>
             <div className="text-xs text-muted-foreground">仅用于识别与复制</div>
           </div>
 
-          <TeatimeSettingsField className="gap-2">
+          <TenasSettingsField className="gap-2">
             <div className="flex-1 text-right text-sm text-foreground">
               {projectId ?? "-"}
             </div>
@@ -108,7 +108,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               >
                 <Copy className="size-4" />
               </Button>
-          </TeatimeSettingsField>
+          </TenasSettingsField>
         </div>
 
         <div className="flex flex-wrap items-start gap-2 py-3">
@@ -117,7 +117,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             <div className="text-xs text-muted-foreground">支持 Emoji</div>
           </div>
 
-          <TeatimeSettingsField>
+          <TenasSettingsField>
             <Popover open={iconPickerOpen} onOpenChange={setIconPickerOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -148,7 +148,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
                 />
               </PopoverContent>
             </Popover>
-          </TeatimeSettingsField>
+          </TenasSettingsField>
         </div>
 
         <div className="flex flex-wrap items-start gap-2 py-3">
@@ -157,8 +157,8 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             <div className="text-xs text-muted-foreground">显示在项目标题处</div>
           </div>
 
-          <TeatimeSettingsField>
-            <TeatimeAutoWidthInput
+          <TenasSettingsField>
+            <TenasAutoWidthInput
               value={draftTitle}
               onChange={(event) => setDraftTitle(event.target.value)}
               onBlur={commitProjectTitle}
@@ -170,19 +170,19 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               className="bg-background"
               placeholder="请输入项目名称"
             />
-          </TeatimeSettingsField>
+          </TenasSettingsField>
         </div>
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
-      <TeatimeSettingsGroup title="存储管理" cardProps={{ divided: true, padding: "x" }}>
+      <TenasSettingsGroup title="存储管理" cardProps={{ divided: true, padding: "x" }}>
         <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">存储路径</div>
             <div className="text-xs text-muted-foreground">项目根目录</div>
           </div>
 
-          <TeatimeSettingsField>
-            <TeatimeAutoWidthInput
+          <TenasSettingsField>
+            <TenasAutoWidthInput
               value={storagePath}
               readOnly
               placeholder="未配置"
@@ -190,7 +190,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               minChars={16}
               maxChars={48}
             />
-          </TeatimeSettingsField>
+          </TenasSettingsField>
         </div>
 
         <div className="flex flex-wrap items-start gap-2 py-3">
@@ -199,8 +199,8 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             <div className="text-xs text-muted-foreground">临时文件缓存目录</div>
           </div>
 
-          <TeatimeSettingsField>
-            <TeatimeAutoWidthInput
+          <TenasSettingsField>
+            <TenasAutoWidthInput
               value={cachePath}
               readOnly
               placeholder="未配置"
@@ -208,10 +208,10 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               minChars={16}
               maxChars={48}
             />
-          </TeatimeSettingsField>
+          </TenasSettingsField>
         </div>
 
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
     </div>
   );
 });

@@ -255,7 +255,7 @@ export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerP
       toast.error("暂不支持此地址");
       return;
     }
-    const api = window.teatimeElectron;
+    const api = window.tenasElectron;
     if (!api?.openPath) {
       toast.error("网页版不支持打开本地文件");
       return;

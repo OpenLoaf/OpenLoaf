@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { tool, zodSchema } from "ai";
-import { openUrlToolDef } from "@teatime-ai/api/types/tools/browser";
+import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import { requireTabId } from "@/common/tabContext";
 import { getSessionId, getUiWriter, getWorkspaceId } from "@/ai/chat-stream/requestContext";
 

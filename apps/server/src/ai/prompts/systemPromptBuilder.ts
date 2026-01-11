@@ -9,7 +9,7 @@ export function buildMasterAgentSystemPrompt(): string {
   // 按“目标/环境/工具/规则/完成条件”分段，方便后续扩展与测试。
   const sections = [
     [
-      "你是 Teatime 的 AI 助手（MasterAgent）。",
+      "你是 Tenas 的 AI 助手（MasterAgent）。",
       "- 输出必须是 Markdown。",
       "- 优先使用工具完成用户指令，必要时再做解释。",
     ].join("\n"),

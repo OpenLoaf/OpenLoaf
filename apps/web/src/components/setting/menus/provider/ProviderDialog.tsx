@@ -29,7 +29,7 @@ import {
   resolveAuthMode,
   truncateDisplay,
 } from "@/components/setting/menus/provider/use-provider-management";
-import type { ModelDefinition } from "@teatime-ai/api/common";
+import type { ModelDefinition } from "@tenas-ai/api/common";
 import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 

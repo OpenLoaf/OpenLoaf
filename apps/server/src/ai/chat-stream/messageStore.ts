@@ -1,6 +1,6 @@
-import { prisma } from "@teatime-ai/db";
-import type { MessageRole as DbMessageRole, Prisma } from "@teatime-ai/db/prisma/generated/client";
-import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
+import { prisma } from "@tenas-ai/db";
+import type { MessageRole as DbMessageRole, Prisma } from "@tenas-ai/db/prisma/generated/client";
+import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import { replaceFileTokensWithNames } from "@/common/chatTitle";
 import { getBoardId, getProjectId, getWorkspaceId } from "./requestContext";
 import { toNumberOrUndefined } from "@/ai/utils/number-utils";
@@ -20,7 +20,7 @@ export type SaveMessageInput = {
   /** Session id. */
   sessionId: string;
   /** Message payload. */
-  message: TeatimeUIMessage | UIMessageLike;
+  message: TenasUIMessage | UIMessageLike;
   /** Parent message id. */
   parentMessageId: string | null;
   /** Workspace id for session binding. */
@@ -234,22 +234,22 @@ function mergeMetadataWithAccumulatedUsage(
   if (combinedTotal) merged.totalUsage = combinedTotal;
   else if ("totalUsage" in merged) delete merged.totalUsage;
 
-  const prevTeatime = isRecord(prevRecord.teatime) ? prevRecord.teatime : undefined;
-  const nextTeatime = isRecord(next.teatime) ? next.teatime : undefined;
-  if (prevTeatime || nextTeatime) {
+  const prevTenas = isRecord(prevRecord.tenas) ? prevRecord.tenas : undefined;
+  const nextTenas = isRecord(next.tenas) ? next.tenas : undefined;
+  if (prevTenas || nextTenas) {
     // assistantElapsedMs 需要在多次写入时累加。
-    const mergedTeatime: Record<string, unknown> = {
-      ...(prevTeatime ?? {}),
-      ...(nextTeatime ?? {}),
+    const mergedTenas: Record<string, unknown> = {
+      ...(prevTenas ?? {}),
+      ...(nextTenas ?? {}),
     };
-    const prevElapsed = toNumberOrUndefined(prevTeatime?.assistantElapsedMs);
-    const nextElapsed = toNumberOrUndefined(nextTeatime?.assistantElapsedMs);
+    const prevElapsed = toNumberOrUndefined(prevTenas?.assistantElapsedMs);
+    const nextElapsed = toNumberOrUndefined(nextTenas?.assistantElapsedMs);
     if (prevElapsed != null || nextElapsed != null) {
-      mergedTeatime.assistantElapsedMs = (prevElapsed ?? 0) + (nextElapsed ?? 0);
+      mergedTenas.assistantElapsedMs = (prevElapsed ?? 0) + (nextElapsed ?? 0);
     } else {
-      delete mergedTeatime.assistantElapsedMs;
+      delete mergedTenas.assistantElapsedMs;
     }
-    merged.teatime = Object.keys(mergedTeatime).length ? mergedTeatime : undefined;
+    merged.tenas = Object.keys(mergedTenas).length ? mergedTenas : undefined;
   }
 
   return Object.keys(merged).length ? merged : null;

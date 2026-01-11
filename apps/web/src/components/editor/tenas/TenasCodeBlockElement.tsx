@@ -11,7 +11,7 @@ import { CodeBlockElement } from '@/components/ui/code-block-node';
 import { MermaidBlock } from './MermaidBlock';
 
 /** Code block element with Mermaid preview support. */
-export function TeatimeCodeBlockElement(
+export function TenasCodeBlockElement(
   props: PlateElementProps<TCodeBlockElement>
 ) {
   const { element } = props;

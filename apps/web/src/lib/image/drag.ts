@@ -3,7 +3,7 @@ import {
   FILE_DRAG_MASK_URI_MIME,
   FILE_DRAG_NAME_MIME,
   FILE_DRAG_URI_MIME,
-} from "@/components/ui/teatime/drag-drop-types";
+} from "@/components/ui/tenas/drag-drop-types";
 import { resolveFileName } from "@/lib/image/uri";
 
 export type ImageDragPayload = {
@@ -38,7 +38,7 @@ export function setImageDragPayload(
     dataTransfer.setData(FILE_DRAG_IMAGE_MIME, "1");
   }
   // 中文注释：增加 text/plain 标记，确保应用内拖拽可被识别但不暴露文件内容。
-  dataTransfer.setData("text/plain", "teatime-file");
+  dataTransfer.setData("text/plain", "tenas-file");
 }
 
 /** Read drag payload for image attachments. */

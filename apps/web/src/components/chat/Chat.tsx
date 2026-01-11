@@ -26,9 +26,9 @@ import {
   FILE_DRAG_IMAGE_MIME,
   FILE_DRAG_REF_MIME,
   FILE_DRAG_URI_MIME,
-} from "@/components/ui/teatime/drag-drop-types";
-import { parseTeatimeFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
-import { DragDropOverlay } from "@/components/ui/teatime/drag-drop-overlay";
+} from "@/components/ui/tenas/drag-drop-types";
+import { parseTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
+import { DragDropOverlay } from "@/components/ui/tenas/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
 import { useSettingsValues } from "@/hooks/use-settings";
@@ -82,7 +82,7 @@ function hasImageFileUpload(dataTransfer: DataTransfer) {
 }
 
 /** Read the file reference from an internal drag payload. */
-function resolveTeatimeDragRef(dataTransfer: DataTransfer) {
+function resolveTenasDragRef(dataTransfer: DataTransfer) {
   const hasUri = dataTransfer.types.includes(FILE_DRAG_URI_MIME);
   const hasRef = dataTransfer.types.includes(FILE_DRAG_REF_MIME);
   if (!hasUri && !hasRef) return "";
@@ -90,7 +90,7 @@ function resolveTeatimeDragRef(dataTransfer: DataTransfer) {
 }
 
 /** Read the file name from an internal drag payload. */
-function resolveTeatimeDragName(dataTransfer: DataTransfer) {
+function resolveTenasDragName(dataTransfer: DataTransfer) {
   const hasUri = dataTransfer.types.includes(FILE_DRAG_URI_MIME);
   if (!hasUri) return "";
   return dataTransfer.getData(FILE_DRAG_NAME_MIME) || "";
@@ -233,11 +233,11 @@ export function Chat({
       if (!workspaceId) {
         return { ok: false as const, errorMessage: "当前标签页未绑定工作区，无法上传图片" };
       }
-      // 上传后端生成 teatime-file 地址，后续仅存该引用。
+      // 上传后端生成 tenas-file 地址，后续仅存该引用。
       const formData = new FormData();
       const sourceUrl = input.sourceUrl?.trim();
-      // 中文注释：内部拖拽若携带 teatime-file，则直接按引用上传。
-      if (sourceUrl && sourceUrl.startsWith("teatime-file://")) {
+      // 中文注释：内部拖拽若携带 tenas-file，则直接按引用上传。
+      if (sourceUrl && sourceUrl.startsWith("tenas-file://")) {
         formData.append("file", sourceUrl);
       } else {
         formData.append("file", input.file);
@@ -514,23 +514,23 @@ export function Chat({
 
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
-    const hasTeatimeRef =
+    const hasTenasRef =
       event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
-    const hasTeatimeUri =
+    const hasTenasUri =
       event.dataTransfer?.types?.includes(FILE_DRAG_URI_MIME) ?? false;
-    const hasTeatimeImage =
+    const hasTenasImage =
       event.dataTransfer?.types?.includes(FILE_DRAG_IMAGE_MIME) ?? false;
-    if (!hasFiles && !hasTeatimeRef && !hasTeatimeUri) return;
-    const fileRef = resolveTeatimeDragRef(event.dataTransfer);
-    const fileName = resolveTeatimeDragName(event.dataTransfer);
+    if (!hasFiles && !hasTenasRef && !hasTenasUri) return;
+    const fileRef = resolveTenasDragRef(event.dataTransfer);
+    const fileName = resolveTenasDragName(event.dataTransfer);
     const hasImageUpload = hasFiles && hasImageFileUpload(event.dataTransfer);
     const isFileRefImage =
-      hasTeatimeImage ||
+      hasTenasImage ||
       (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
-    const wantsImage = hasImageUpload || hasTeatimeImage || isFileRefImage;
+    const wantsImage = hasImageUpload || hasTenasImage || isFileRefImage;
     const shouldDeny =
       (wantsImage && !canAttachImage) ||
-      ((hasTeatimeRef || hasTeatimeUri) && !canAttachAll) ||
+      ((hasTenasRef || hasTenasUri) && !canAttachAll) ||
       (hasFiles && !hasImageUpload);
     if (shouldDeny) {
       event.preventDefault();
@@ -547,23 +547,23 @@ export function Chat({
 
   const handleDragOver = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
-    const hasTeatimeRef =
+    const hasTenasRef =
       event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
-    const hasTeatimeUri =
+    const hasTenasUri =
       event.dataTransfer?.types?.includes(FILE_DRAG_URI_MIME) ?? false;
-    const hasTeatimeImage =
+    const hasTenasImage =
       event.dataTransfer?.types?.includes(FILE_DRAG_IMAGE_MIME) ?? false;
-    if (!hasFiles && !hasTeatimeRef && !hasTeatimeUri) return;
-    const fileRef = resolveTeatimeDragRef(event.dataTransfer);
-    const fileName = resolveTeatimeDragName(event.dataTransfer);
+    if (!hasFiles && !hasTenasRef && !hasTenasUri) return;
+    const fileRef = resolveTenasDragRef(event.dataTransfer);
+    const fileName = resolveTenasDragName(event.dataTransfer);
     const hasImageUpload = hasFiles && hasImageFileUpload(event.dataTransfer);
     const isFileRefImage =
-      hasTeatimeImage ||
+      hasTenasImage ||
       (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
-    const wantsImage = hasImageUpload || hasTeatimeImage || isFileRefImage;
+    const wantsImage = hasImageUpload || hasTenasImage || isFileRefImage;
     const shouldDeny =
       (wantsImage && !canAttachImage) ||
-      ((hasTeatimeRef || hasTeatimeUri) && !canAttachAll) ||
+      ((hasTenasRef || hasTenasUri) && !canAttachAll) ||
       (hasFiles && !hasImageUpload);
     event.preventDefault();
     if (shouldDeny) {
@@ -580,11 +580,11 @@ export function Chat({
 
   const handleDragLeave = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
-    const hasTeatimeRef =
+    const hasTenasRef =
       event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
-    const hasTeatimeUri =
+    const hasTenasUri =
       event.dataTransfer?.types?.includes(FILE_DRAG_URI_MIME) ?? false;
-    if (!hasFiles && !hasTeatimeRef && !hasTeatimeUri) return;
+    if (!hasFiles && !hasTenasRef && !hasTenasUri) return;
     dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
     if (dragCounterRef.current === 0) {
       setIsDragActive(false);
@@ -607,9 +607,9 @@ export function Chat({
         })),
         data: {
           fileRef: event.dataTransfer?.getData(FILE_DRAG_REF_MIME),
-          fileUri: event.dataTransfer?.getData("application/x-teatime-file-uri"),
-          fileName: event.dataTransfer?.getData("application/x-teatime-file-name"),
-          fileMaskUri: event.dataTransfer?.getData("application/x-teatime-file-mask-uri"),
+          fileUri: event.dataTransfer?.getData("application/x-tenas-file-uri"),
+          fileName: event.dataTransfer?.getData("application/x-tenas-file-name"),
+          fileMaskUri: event.dataTransfer?.getData("application/x-tenas-file-mask-uri"),
           text: event.dataTransfer?.getData("text/plain"),
           uriList: event.dataTransfer?.getData("text/uri-list"),
         },
@@ -641,13 +641,13 @@ export function Chat({
           const resolvedFileRef =
             fileRef ||
             (() => {
-              if (!imagePayload.baseUri.startsWith("teatime-file://")) return "";
-              const parsed = parseTeatimeFileUrl(imagePayload.baseUri);
+              if (!imagePayload.baseUri.startsWith("tenas-file://")) return "";
+              const parsed = parseTenasFileUrl(imagePayload.baseUri);
               return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
             })();
           if (resolvedFileRef) {
             window.dispatchEvent(
-              new CustomEvent("teatime:chat-insert-mention", {
+              new CustomEvent("tenas:chat-insert-mention", {
                 detail: { value: resolvedFileRef },
               })
             );
@@ -679,7 +679,7 @@ export function Chat({
           const file = new File([blob], fileName, {
             type: blob.type || "application/octet-stream",
           });
-          const sourceUrl = imagePayload.baseUri.startsWith("teatime-file://")
+          const sourceUrl = imagePayload.baseUri.startsWith("tenas-file://")
             ? imagePayload.baseUri
             : undefined;
           // 中文注释：应用内拖拽在聊天根节点落下时，也按统一附件流程处理。
@@ -707,7 +707,7 @@ export function Chat({
       setDragMode("allow");
       if (!canAttachAll) return;
       window.dispatchEvent(
-        new CustomEvent("teatime:chat-insert-mention", {
+        new CustomEvent("tenas:chat-insert-mention", {
           detail: { value: fileRef },
         })
       );
@@ -733,7 +733,7 @@ export function Chat({
           "relative flex h-full w-full flex-col min-h-0 min-w-0 overflow-x-hidden overflow-y-hidden",
           className
         )}
-        data-teatime-chat-root
+        data-tenas-chat-root
         data-tab-id={tabId}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
@@ -755,7 +755,7 @@ export function Chat({
         />
 
         <div
-          data-teatime-chat-mask
+          data-tenas-chat-mask
           className="absolute inset-0 z-30 hidden bg-transparent"
           aria-hidden="true"
         />

@@ -1,7 +1,7 @@
 "use client";
 
-import type { UiEvent } from "@teatime-ai/api/types/event";
-import { UiEventKind } from "@teatime-ai/api/types/event";
+import type { UiEvent } from "@tenas-ai/api/types/event";
+import { UiEventKind } from "@tenas-ai/api/types/event";
 import { useTabs } from "@/hooks/use-tabs";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { queryClient } from "@/utils/trpc";

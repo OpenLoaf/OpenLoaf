@@ -2,9 +2,9 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { TeatimeSettingsCard, type TeatimeSettingsCardProps } from "./TeatimeSettingsCard";
+import { TenasSettingsCard, type TenasSettingsCardProps } from "./TenasSettingsCard";
 
-export type TeatimeSettingsGroupProps = {
+export type TenasSettingsGroupProps = {
   title: string;
   /** Optional header icon. */
   icon?: ReactNode;
@@ -12,12 +12,12 @@ export type TeatimeSettingsGroupProps = {
   action?: ReactNode;
   children: ReactNode;
   showBorder?: boolean;
-  cardProps?: Omit<TeatimeSettingsCardProps, "children">;
+  cardProps?: Omit<TenasSettingsCardProps, "children">;
   className?: string;
 };
 
 /** Settings group with header, optional actions, and card wrapper. */
-export function TeatimeSettingsGroup({
+export function TenasSettingsGroup({
   title,
   icon,
   subtitle,
@@ -26,7 +26,7 @@ export function TeatimeSettingsGroup({
   showBorder = true,
   cardProps,
   className,
-}: TeatimeSettingsGroupProps) {
+}: TenasSettingsGroupProps) {
   return (
     <section className={cn("space-y-2", className)}>
       <div className="flex items-start justify-between gap-4">
@@ -47,7 +47,7 @@ export function TeatimeSettingsGroup({
       </div>
 
       {showBorder ? (
-        <TeatimeSettingsCard {...cardProps}>{children}</TeatimeSettingsCard>
+        <TenasSettingsCard {...cardProps}>{children}</TenasSettingsCard>
       ) : (
         children
       )}

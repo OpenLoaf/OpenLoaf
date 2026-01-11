@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { shellCommandAllowlistEntries } from "@teatime-ai/api/types/tools/system";
-import { RiskType } from "@teatime-ai/api/types/toolResult";
-import { TeatimeSettingsGroup } from "@/components/ui/teatime/TeatimeSettingsGroup";
+import { shellCommandAllowlistEntries } from "@tenas-ai/api/types/tools/system";
+import { RiskType } from "@tenas-ai/api/types/toolResult";
+import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
 import { cn } from "@/lib/utils";
 
 type RiskLabel = {
@@ -34,13 +34,13 @@ export function CommandAllowlist() {
 
   return (
     <div className="space-y-3">
-      <TeatimeSettingsGroup
+      <TenasSettingsGroup
         title="白名单"
         subtitle="以下为系统工具允许执行的指令白名单（MVP）。规则以服务端校验为准。"
         showBorder={false}
       >
         {null}
-      </TeatimeSettingsGroup>
+      </TenasSettingsGroup>
 
       <div className="rounded-lg border border-border overflow-hidden">
         <div className="grid grid-cols-[1fr_140px_2fr] gap-3 px-4 py-3 text-sm font-semibold text-foreground/80 bg-muted/50 border-b border-border">

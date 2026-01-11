@@ -13,7 +13,7 @@
 
 - 组件：`MessageAi` / `MessageFile` / `MessageHuman` / `ChatInput` / `ChatImageAttachments` / `ImageViewer` / `ChatProvider`
 - 拖拽目标：`FileSystemGrid` / `BoardCanvas`
-- 协议：`teatime-file://`、`data:`、`blob:`、`http(s)`、`file://`
+- 协议：`tenas-file://`、`data:`、`blob:`、`http(s)`、`file://`
 
 ## 现存问题汇总（必须解决）
 
@@ -26,9 +26,9 @@
 ## 统一概念（数据模型）
 
 - **ImageRef**
-  - `originUri`：原始输入地址（teatime-file / data / blob / http / file）
+  - `originUri`：原始输入地址（tenas-file / data / blob / http / file）
   - `previewUrl`：可直接用于 `<img>` 的地址（data/blob/objectUrl）
-  - `fetchUrl`：可用于 `fetch()` 的地址（teatime-file -> preview endpoint）
+  - `fetchUrl`：可用于 `fetch()` 的地址（tenas-file -> preview endpoint）
   - `fileName`：用于下载/保存/拖拽的文件名
   - `mediaType`：真实或推断出的媒体类型
 
@@ -45,7 +45,7 @@
 
 ### 1) 地址规范
 
-- **teatime-file://**：必须通过 `/chat/attachments/preview?url=` 转换为 `blob` 再展示。
+- **tenas-file://**：必须通过 `/chat/attachments/preview?url=` 转换为 `blob` 再展示。
 - **data:** / **blob:**：可直接展示，无需二次转换。
 - **http(s):**：默认直接展示；若跨域失败，需要后端代理（后续扩展）。
 - **file://**：仅 Electron 环境可展示；Web 直接报错提示。
@@ -60,9 +60,9 @@
 
 统一自定义 MIME（内部拖拽）：
 
-- `application/x-teatime-file-uri`
-- `application/x-teatime-file-name`
-- `application/x-teatime-file-mask-uri`（可选）
+- `application/x-tenas-file-uri`
+- `application/x-tenas-file-name`
+- `application/x-tenas-file-mask-uri`（可选）
 
 统一拖拽写入方法：
 
@@ -137,7 +137,7 @@ OS Drag (Files)
   -> ChatInput.onDrop
   -> addAttachments(File[])
   -> /chat/attachments upload
-  -> remoteUrl = teatime-file://...
+  -> remoteUrl = tenas-file://...
   -> sendMessage(parts: file + text)
 ```
 
@@ -145,7 +145,7 @@ OS Drag (Files)
 
 ```text
 MessageFile/MessageHuman
-  -> setImageDragPayload (teatime-file + mask)
+  -> setImageDragPayload (tenas-file + mask)
 
 ChatInput.onDrop
   -> readImageDragPayload
@@ -158,7 +158,7 @@ ChatInput.onDrop
 
 ```text
 MessageFile/MessageHuman
-  -> setImageDragPayload (teatime-file + mask)
+  -> setImageDragPayload (tenas-file + mask)
 
 FileSystemGrid / Board
   -> readImageDragPayload
@@ -268,4 +268,4 @@ ImageViewer (涂抹编辑)
 
 ## 说明
 
-该方案只规范前端流程，不改变后端 `teatime-file` 流程与 S3 上传逻辑；后端 mask 转换（`_alpha.png` / `_grey.png`）仍在服务端文档中执行。
+该方案只规范前端流程，不改变后端 `tenas-file` 流程与 S3 上传逻辑；后端 mask 转换（`_alpha.png` / `_grey.png`）仍在服务端文档中执行。

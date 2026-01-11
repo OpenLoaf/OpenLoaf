@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { getEnvString } from "@teatime-ai/config";
+import { getEnvString } from "@tenas-ai/config";
 import { logger } from "@/common/logger";
 import {
   applyTokenExchangeResult,
@@ -311,7 +311,7 @@ function renderCallbackPage(message: string): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Teatime 登录</title>
+    <title>Tenas 登录</title>
     <style>
       :root {
         color-scheme: light;
@@ -381,7 +381,7 @@ function renderCallbackPage(message: string): string {
   </head>
   <body>
     <div class="card">
-      <div class="badge">Teatime Auth</div>
+      <div class="badge">Tenas Auth</div>
       <h1>${message}</h1>
       <p>此页面可安全关闭。</p>
       <div class="actions">请手动关闭此标签页</div>
@@ -397,7 +397,7 @@ function renderCallbackPage(message: string): string {
  * Resolve SaaS base URL from env.
  */
 export function getSaasBaseUrl(): string | null {
-  const value = getEnvString(process.env, "TEATIME_SAAS_URL");
+  const value = getEnvString(process.env, "TENAS_SAAS_URL");
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -408,7 +408,7 @@ export function getSaasBaseUrl(): string | null {
  * Resolve SaaS auth base URL from env.
  */
 function getSaasAuthBaseUrl(): string | null {
-  const value = getEnvString(process.env, "TEATIME_SAAS_AUTH_URL");
+  const value = getEnvString(process.env, "TENAS_SAAS_AUTH_URL");
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
