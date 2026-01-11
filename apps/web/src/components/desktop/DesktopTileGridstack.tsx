@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
+import { Pin, PinOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DesktopItem } from "./types";
 import DesktopTileContent from "./DesktopTileContent";
@@ -11,6 +12,9 @@ interface DesktopTileGridstackProps {
   item: DesktopItem;
   editMode: boolean;
   onEnterEditMode: () => void;
+  /** Update a single desktop item. */
+  onUpdateItem: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
+  /** Remove a desktop item. */
   onDeleteItem: (itemId: string) => void;
 }
 
@@ -19,10 +23,18 @@ export default function DesktopTileGridstack({
   item,
   editMode,
   onEnterEditMode,
+  onUpdateItem,
   onDeleteItem,
 }: DesktopTileGridstackProps) {
   const longPressTimerRef = React.useRef<number | null>(null);
   const pointerStartRef = React.useRef<{ id: number; x: number; y: number } | null>(null);
+  // 逻辑：Flip Clock 默认展示秒数。
+  const showSeconds =
+    item.kind === "widget" && item.widgetKey === "flip-clock"
+      ? (item.flipClock?.showSeconds ?? true)
+      : true;
+  // 逻辑：固定状态用于锁定拖拽与占位。
+  const isPinned = item.pinned ?? false;
 
   const clearLongPress = React.useCallback(() => {
     if (longPressTimerRef.current) {
@@ -34,18 +46,89 @@ export default function DesktopTileGridstack({
 
   React.useEffect(() => clearLongPress, [clearLongPress]);
 
+  /** Toggle pin state in edit mode. */
+  const handleTogglePin = React.useCallback(() => {
+    onUpdateItem(item.id, (current) => ({
+      ...current,
+      pinned: !(current.pinned ?? false),
+    }));
+  }, [item.id, onUpdateItem]);
+
+  /** Toggle flip clock seconds display in edit mode. */
+  const handleToggleFlipClock = React.useCallback(() => {
+    if (item.kind !== "widget" || item.widgetKey !== "flip-clock") return;
+    onUpdateItem(item.id, (current) => {
+      if (current.kind !== "widget" || current.widgetKey !== "flip-clock") return current;
+      const currentShowSeconds = current.flipClock?.showSeconds ?? true;
+      const nextShowSeconds = !currentShowSeconds;
+      // 逻辑：切换成时分时尝试缩小一列，切回秒数时再扩展一列。
+      const delta = nextShowSeconds ? 1 : -1;
+      const nextW = Math.max(
+        current.constraints.minW,
+        Math.min(current.constraints.maxW, current.layout.w + delta)
+      );
+      return {
+        ...current,
+        flipClock: { showSeconds: nextShowSeconds },
+        layout: { ...current.layout, w: nextW },
+      };
+    });
+  }, [item.id, item.kind, item.widgetKey, onUpdateItem]);
+
   return (
-    <div className="relative h-full w-full min-w-0">
+    <div className="group relative h-full w-full min-w-0">
       {editMode ? (
-        <DesktopTileDeleteButton onDelete={() => onDeleteItem(item.id)} />
+        <div className="absolute -left-2 -top-2 z-10 flex items-center gap-1">
+          <DesktopTileDeleteButton onDelete={() => onDeleteItem(item.id)} />
+          <button
+            type="button"
+            className={cn(
+              "flex size-6 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm",
+              isPinned
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto"
+            )}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              handleTogglePin();
+            }}
+            aria-label={isPinned ? "Unpin widget" : "Pin widget"}
+            title={isPinned ? "取消固定" : "固定"}
+          >
+            {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+          </button>
+        </div>
+      ) : null}
+      {editMode && item.kind === "widget" && item.widgetKey === "flip-clock" ? (
+        <button
+          type="button"
+          className="absolute right-2 top-2 z-10 rounded-full border border-border bg-background/90 px-2 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            handleToggleFlipClock();
+          }}
+          aria-label={showSeconds ? "Switch to hour and minute" : "Switch to full time"}
+          title={showSeconds ? "切换到小时:分" : "切换到完整时间"}
+        >
+          {showSeconds ? "时:分" : "带秒"}
+        </button>
       ) : null}
 
       <motion.div
         animate={{ scale: 1, boxShadow: "0 4px 10px rgba(0,0,0,0.08)" }}
         transition={{ type: "spring", stiffness: 450, damping: 32 }}
         className={cn(
-          "desktop-tile-handle group relative h-full w-full select-none overflow-hidden rounded-2xl",
-          "bg-card border border-border/60"
+          "desktop-tile-handle relative h-full w-full select-none overflow-hidden rounded-2xl",
+          "bg-card border border-border/60",
+          isPinned ? "ring-2 ring-primary/40" : ""
         )}
         title={item.title}
         aria-label={item.title}

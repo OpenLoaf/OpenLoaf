@@ -12,6 +12,7 @@ import "./docx-preview.css";
 
 interface DocViewerProps {
   uri?: string;
+  openUri?: string;
   name?: string;
   ext?: string;
   panelKey?: string;
@@ -30,7 +31,13 @@ function decodeBase64ToBytes(payload: string): Uint8Array {
 }
 
 /** Render a DOCX preview panel. */
-export default function DocViewer({ uri, name, panelKey, tabId }: DocViewerProps) {
+export default function DocViewer({
+  uri,
+  openUri,
+  name,
+  panelKey,
+  tabId,
+}: DocViewerProps) {
   /** Output container for docx-preview rendering. */
   const bodyRef = useRef<HTMLDivElement | null>(null);
   /** Style container for docx-preview rendering. */
@@ -108,6 +115,7 @@ export default function DocViewer({ uri, name, panelKey, tabId }: DocViewerProps
     <div className="flex h-full w-full flex-col overflow-hidden">
       <StackHeader
         title={displayTitle}
+        openUri={openUri}
         showMinimize
         onMinimize={() => {
           if (!tabId) return;

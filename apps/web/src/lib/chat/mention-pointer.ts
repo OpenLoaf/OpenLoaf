@@ -5,50 +5,15 @@ import {
   buildTenasFileUrl,
   buildUriFromRoot,
 } from "@/components/project/filesystem/utils/file-system-utils";
-
-const IMAGE_EXTS = new Set([
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "bmp",
-  "webp",
-  "svg",
-  "avif",
-  "tiff",
-  "heic",
-]);
-const CODE_EXTS = new Set([
-  "js",
-  "ts",
-  "tsx",
-  "jsx",
-  "json",
-  "yml",
-  "yaml",
-  "toml",
-  "ini",
-  "py",
-  "go",
-  "rs",
-  "java",
-  "cpp",
-  "c",
-  "h",
-  "hpp",
-  "css",
-  "scss",
-  "less",
-  "html",
-  "xml",
-  "sh",
-  "zsh",
-  "md",
-  "mdx",
-]);
-const PDF_EXTS = new Set(["pdf"]);
-const DOC_EXTS = new Set(["doc", "docx"]);
-const SPREADSHEET_EXTS = new Set(["xls", "xlsx", "csv", "tsv", "numbers"]);
+import {
+  CODE_EXTS,
+  DOC_EXTS,
+  IMAGE_EXTS,
+  MARKDOWN_EXTS,
+  PDF_EXTS,
+  SPREADSHEET_EXTS,
+  isTextFallbackExt,
+} from "@/components/project/filesystem/components/FileSystemEntryVisual";
 
 /** Shape of the project tree data used for root uri resolution. */
 type ProjectTreeNode = {
@@ -109,10 +74,22 @@ export function handleChatMentionPointerDown(
   const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
   const isImageExt = IMAGE_EXTS.has(ext);
   const isCodeExt = CODE_EXTS.has(ext);
+  const isMarkdownExt = MARKDOWN_EXTS.has(ext);
   const isPdfExt = PDF_EXTS.has(ext);
   const isDocExt = DOC_EXTS.has(ext);
   const isSheetExt = SPREADSHEET_EXTS.has(ext);
-  if (!isImageExt && !isCodeExt && !isPdfExt && !isDocExt && !isSheetExt) return;
+  const isTextExt = isTextFallbackExt(ext);
+  if (
+    !isImageExt &&
+    !isCodeExt &&
+    !isMarkdownExt &&
+    !isPdfExt &&
+    !isDocExt &&
+    !isSheetExt &&
+    !isTextExt
+  ) {
+    return;
+  }
   const rootUri = resolveProjectRootUri(projects, projectId);
   if (!rootUri) return;
   const uri = buildUriFromRoot(rootUri, relativePath);
@@ -122,13 +99,15 @@ export function handleChatMentionPointerDown(
   const fileName = relativePath.split("/").pop() ?? relativePath;
   const component = isImageExt
     ? "image-viewer"
-    : isCodeExt
-      ? "code-viewer"
-      : isPdfExt
-        ? "pdf-viewer"
-        : isDocExt
-          ? "doc-viewer"
-          : "sheet-viewer";
+    : isMarkdownExt
+      ? "markdown-viewer"
+      : isCodeExt || isTextExt
+        ? "code-viewer"
+        : isPdfExt
+          ? "pdf-viewer"
+          : isDocExt
+            ? "doc-viewer"
+            : "sheet-viewer";
   const stackUri = isPdfExt ? buildTenasFileUrl(projectId, relativePath) : uri;
   const stackId = uri || stackUri;
   pushStackItem(activeTabId, {
@@ -138,10 +117,11 @@ export function handleChatMentionPointerDown(
     title: fileName,
     params: {
       uri: stackUri,
+      openUri: uri,
       name: fileName,
       ext,
-      rootUri: isCodeExt ? rootUri : undefined,
-      projectId: isCodeExt ? projectId : undefined,
+      rootUri: isCodeExt || isTextExt ? rootUri : undefined,
+      projectId: isCodeExt || isTextExt ? projectId : undefined,
       __customHeader: isPdfExt || isDocExt || isSheetExt ? true : undefined,
     },
   });

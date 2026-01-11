@@ -726,6 +726,7 @@ export function useProjectFileSystemModel({
         title: displayName,
         params: {
           uri: boardFolderUri,
+          openUri: boardFolderUri,
           boardFolderUri,
           boardFileUri,
           name: entry.name,

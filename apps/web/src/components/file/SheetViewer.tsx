@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLinkIcon, Plus, Save } from "lucide-react";
+import { Plus, Save } from "lucide-react";
 import { DataGrid, renderTextEditor, type Column } from "react-data-grid";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
@@ -32,6 +32,7 @@ type SheetState = {
 
 interface SheetViewerProps {
   uri?: string;
+  openUri?: string;
   name?: string;
   ext?: string;
   panelKey?: string;
@@ -152,7 +153,13 @@ function resolveSaveUri(uri: string): string {
 }
 
 /** Render an Excel preview/editor panel. */
-export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerProps) {
+export default function SheetViewer({
+  uri,
+  openUri,
+  name,
+  panelKey,
+  tabId,
+}: SheetViewerProps) {
   /** Tracks the current loading status. */
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   /** Holds parsed sheets for preview/editing. */
@@ -248,24 +255,6 @@ export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerP
     }
   };
 
-  /** Open current file in the system default program. */
-  const handleOpenInSystem = useCallback(async () => {
-    if (!uri) return;
-    if (!shouldUseFs) {
-      toast.error("暂不支持此地址");
-      return;
-    }
-    const api = window.tenasElectron;
-    if (!api?.openPath) {
-      toast.error("网页版不支持打开本地文件");
-      return;
-    }
-    const res = await api.openPath({ uri });
-    if (!res?.ok) {
-      toast.error(res?.reason ?? "无法打开文件");
-    }
-  }, [shouldUseFs, uri]);
-
   /** Apply row changes from the grid. */
   const handleRowsChange = useCallback(
     (nextRows: SheetRow[]) => {
@@ -314,22 +303,9 @@ export default function SheetViewer({ uri, name, panelKey, tabId }: SheetViewerP
     <div className="flex h-full w-full flex-col overflow-hidden">
       <StackHeader
         title={displayTitle}
+        openUri={openUri}
         rightSlot={
           <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label="使用系统程序打开"
-                  onClick={() => void handleOpenInSystem()}
-                  disabled={!shouldUseFs}
-                >
-                  <ExternalLinkIcon className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">使用系统程序打开</TooltipContent>
-            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

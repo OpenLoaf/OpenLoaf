@@ -131,6 +131,14 @@ const ProjectIndex = React.memo(function ProjectIndex({
     setItems((prev) => [...prev, item]);
   }, []);
 
+  /** Update a single desktop item. */
+  const handleUpdateItem = React.useCallback(
+    (itemId: string, updater: (item: DesktopItem) => DesktopItem) => {
+      setItems((prev) => prev.map((item) => (item.id === itemId ? updater(item) : item)));
+    },
+    []
+  );
+
   /** Cancel edits and restore snapshot. */
   const handleCancel = React.useCallback(() => {
     const snapshot = editSnapshotRef.current;
@@ -169,6 +177,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
         items={items}
         editMode={editMode}
         onSetEditMode={handleSetEditMode}
+        onUpdateItem={handleUpdateItem}
         onChangeItems={setItems}
         compactSignal={compactSignal}
       />

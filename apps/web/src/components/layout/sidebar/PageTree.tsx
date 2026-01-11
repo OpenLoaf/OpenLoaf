@@ -115,7 +115,7 @@ interface FileTreeNodeProps {
 
 function resolveFileComponent(node: FileNode) {
   if (node.kind === "file" && isBoardFolderName(node.name)) return "board-viewer";
-  const ext = node.ext;
+  const ext = node.ext?.toLowerCase();
   if (!ext) return "code-viewer";
   if (ext === "ttdoc") return "file-viewer";
   if (ext === "ttcanvas") return "file-viewer";
@@ -451,7 +451,10 @@ export const PageTreeMenu = ({
         : node.uri;
 
     const needsCustomHeader =
-      component === "pdf-viewer" || component === "doc-viewer" || component === "sheet-viewer";
+      component === "pdf-viewer" ||
+      component === "doc-viewer" ||
+      component === "sheet-viewer" ||
+      component === "markdown-viewer";
     addTab({
       workspaceId: workspace.id,
       createNew: true,

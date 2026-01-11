@@ -24,6 +24,8 @@ function createWidgetItem(widgetKey: DesktopWidgetSelectedDetail["widgetKey"], i
   const { constraints } = catalogItem;
   // 逻辑：追加到当前内容底部，避免覆盖已存在的组件。
   const maxY = items.reduce((acc, item) => Math.max(acc, item.layout.y + item.layout.h), 0);
+  // 逻辑：Flip Clock 默认展示秒数。
+  const flipClock = widgetKey === "flip-clock" ? { showSeconds: true } : undefined;
 
   return {
     id: `w-${widgetKey}-${Date.now()}`,
@@ -32,6 +34,7 @@ function createWidgetItem(widgetKey: DesktopWidgetSelectedDetail["widgetKey"], i
     widgetKey: catalogItem.widgetKey,
     size: catalogItem.size,
     constraints,
+    flipClock,
     layout: { x: 0, y: maxY, w: constraints.defaultW, h: constraints.defaultH },
   };
 }

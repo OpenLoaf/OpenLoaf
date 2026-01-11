@@ -22,7 +22,13 @@ const Digit = ({ value }: { value: number }) => {
   );
 };
 
-export default function FlipClock() {
+interface FlipClockProps {
+  /** Whether to show seconds. */
+  showSeconds?: boolean;
+}
+
+/** Render a flip clock. */
+export default function FlipClock({ showSeconds = true }: FlipClockProps) {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -43,10 +49,14 @@ export default function FlipClock() {
       {minutes.split("").map((digit, i) => (
         <Digit key={`m-${i}`} value={parseInt(digit)} />
       ))}
-      <span className="text-3xl font-bold text-zinc-500 dark:text-zinc-300">:</span>
-      {seconds.split("").map((digit, i) => (
-        <Digit key={`s-${i}`} value={parseInt(digit)} />
-      ))}
+      {showSeconds ? (
+        <>
+          <span className="text-3xl font-bold text-zinc-500 dark:text-zinc-300">:</span>
+          {seconds.split("").map((digit, i) => (
+            <Digit key={`s-${i}`} value={parseInt(digit)} />
+          ))}
+        </>
+      ) : null}
     </div>
   );
 }

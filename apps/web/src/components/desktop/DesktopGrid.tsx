@@ -32,6 +32,8 @@ interface DesktopGridProps {
   items: DesktopItem[];
   editMode: boolean;
   onSetEditMode: (nextEditMode: boolean) => void;
+  /** Update a single desktop item. */
+  onUpdateItem: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
   onChangeItems: (nextItems: DesktopItem[]) => void;
   onDeleteItem: (itemId: string) => void;
   /** Signal value for triggering compact. */
@@ -43,6 +45,7 @@ export default function DesktopGrid({
   items,
   editMode,
   onSetEditMode,
+  onUpdateItem,
   onChangeItems,
   onDeleteItem,
   compactSignal,
@@ -280,7 +283,14 @@ export default function DesktopGrid({
         grid.makeWidget(el);
         registeredIds.add(item.id);
       }
-      grid.update(el, { ...item.layout });
+      // 逻辑：固定组件禁止拖拽/缩放，且不允许其他组件挤占。
+      const pinned = item.pinned ?? false;
+      grid.update(el, {
+        ...item.layout,
+        noMove: pinned,
+        noResize: pinned,
+        locked: pinned,
+      });
     }
     grid.batchUpdate(false);
     syncingRef.current = false;
@@ -309,6 +319,13 @@ export default function DesktopGrid({
                 "gs-y": viewItem.layout.y,
                 "gs-w": viewItem.layout.w,
                 "gs-h": viewItem.layout.h,
+                ...(item.pinned
+                  ? {
+                      "gs-no-move": "true",
+                      "gs-no-resize": "true",
+                      "gs-locked": "true",
+                    }
+                  : null),
                 ...(item.kind === "widget"
                   ? {
                       "gs-min-w": item.constraints.minW,
@@ -325,6 +342,7 @@ export default function DesktopGrid({
                   item={item}
                   editMode={editMode}
                   onEnterEditMode={() => onSetEditMode(true)}
+                  onUpdateItem={onUpdateItem}
                   onDeleteItem={(itemId) => {
                     const el = itemElByIdRef.current.get(itemId);
                     if (el && gridRef.current) gridRef.current.removeWidget(el, false);

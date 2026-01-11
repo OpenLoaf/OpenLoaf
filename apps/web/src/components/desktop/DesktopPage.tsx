@@ -13,6 +13,7 @@ const initialItems: DesktopItem[] = [
     widgetKey: "flip-clock",
     size: "4x2",
     constraints: { defaultW: 4, defaultH: 2, minW: 2, minH: 2, maxW: 6, maxH: 3 },
+    flipClock: { showSeconds: true },
     layout: { x: 0, y: 0, w: 4, h: 2 },
   },
   {
@@ -70,6 +71,8 @@ interface DesktopPageProps {
   editMode: boolean;
   /** Update edit mode. */
   onSetEditMode: (nextEditMode: boolean) => void;
+  /** Update a single desktop item. */
+  onUpdateItem: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
   /** Update items order after a drag ends. */
   onChangeItems: (nextItems: DesktopItem[]) => void;
   /** Signal value for triggering compact. */
@@ -81,6 +84,7 @@ export default function DesktopPage({
   items,
   editMode,
   onSetEditMode,
+  onUpdateItem,
   onChangeItems,
   compactSignal,
 }: DesktopPageProps) {
@@ -91,6 +95,7 @@ export default function DesktopPage({
           items={items}
           editMode={editMode}
           onSetEditMode={onSetEditMode}
+          onUpdateItem={onUpdateItem}
           onChangeItems={onChangeItems}
           onDeleteItem={(itemId) => onChangeItems(items.filter((item) => item.id !== itemId))}
           compactSignal={compactSignal}

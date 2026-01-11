@@ -14,6 +14,7 @@ import "react-pdf/dist/esm/Page/TextLayer.css";
 
 interface PdfViewerProps {
   uri?: string;
+  openUri?: string;
   name?: string;
   ext?: string;
   panelKey?: string;
@@ -26,7 +27,13 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 /** Render a PDF preview panel. */
-export default function PdfViewer({ uri, name, panelKey, tabId }: PdfViewerProps) {
+export default function PdfViewer({
+  uri,
+  openUri,
+  name,
+  panelKey,
+  tabId,
+}: PdfViewerProps) {
   const [data, setData] = useState<Uint8Array | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [numPages, setNumPages] = useState(0);
@@ -93,6 +100,7 @@ export default function PdfViewer({ uri, name, panelKey, tabId }: PdfViewerProps
     <div className="flex h-full w-full flex-col overflow-hidden">
       <StackHeader
         title={displayTitle}
+        openUri={openUri}
         rightSlot={
           <div className="flex items-center gap-1">
             <Button

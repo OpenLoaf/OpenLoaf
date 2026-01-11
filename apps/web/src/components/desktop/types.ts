@@ -21,6 +21,11 @@ export interface DesktopWidgetConstraints {
   maxH: number;
 }
 
+export interface DesktopFlipClockSettings {
+  /** Whether to show seconds. */
+  showSeconds: boolean;
+}
+
 export interface DesktopItemLayout {
   /** Grid column start (0-based). */
   x: number;
@@ -39,6 +44,8 @@ export interface DesktopItemBase {
   kind: DesktopItemKind;
   /** Display title. */
   title: string;
+  /** Whether the item is pinned (non-movable). */
+  pinned?: boolean;
   /** Gridstack layout. */
   layout: DesktopItemLayout;
 }
@@ -57,6 +64,8 @@ export interface DesktopWidgetItem extends DesktopItemBase {
   size: DesktopWidgetSize;
   /** Widget layout constraints for resizing. */
   constraints: DesktopWidgetConstraints;
+  /** Flip clock settings (when widgetKey is flip-clock). */
+  flipClock?: DesktopFlipClockSettings;
 }
 
 export type DesktopItem = DesktopIconItem | DesktopWidgetItem;

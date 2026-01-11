@@ -39,6 +39,8 @@ function getMonacoLanguageId(ext?: string): string {
     case "tsx":
       return "typescript";
     case "json":
+    case "jsonc":
+    case "jsonl":
       return "json";
     case "yml":
     case "yaml":
@@ -74,6 +76,10 @@ function getMonacoLanguageId(ext?: string): string {
     case "md":
     case "mdx":
       return "markdown";
+    case "txt":
+    case "text":
+    case "log":
+      return "plaintext";
     default:
       return "plaintext";
   }

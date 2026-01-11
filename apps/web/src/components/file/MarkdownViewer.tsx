@@ -38,6 +38,7 @@ const SPARK_TOOLBAR_ICON = `
 
 interface MarkdownViewerProps {
   uri?: string;
+  openUri?: string;
   name?: string;
   ext?: string;
   panelKey?: string;
@@ -92,6 +93,7 @@ class MarkdownViewerErrorBoundary extends Component<
 /** Render a markdown preview panel. */
 export default function MarkdownViewer({
   uri,
+  openUri,
   name,
   panelKey,
   tabId,
@@ -291,6 +293,7 @@ export default function MarkdownViewer({
     <div className="flex h-full w-full flex-col overflow-hidden">
       <StackHeader
         title={displayTitle}
+        openUri={openUri ?? uri}
         rightSlot={
           isDirty ? (
             <Tooltip>

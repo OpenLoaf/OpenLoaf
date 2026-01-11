@@ -26,7 +26,7 @@ export default function DesktopTileContent({ item }: DesktopTileContentProps) {
   if (item.widgetKey === "flip-clock") {
     return (
       <div className="flex h-full w-full items-center justify-center p-2">
-        <FlipClockWidget />
+        <FlipClockWidget showSeconds={item.flipClock?.showSeconds ?? true} />
       </div>
     );
   }

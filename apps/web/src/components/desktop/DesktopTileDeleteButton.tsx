@@ -18,7 +18,7 @@ export default function DesktopTileDeleteButton({
     <button
       type="button"
       className={cn(
-        "absolute -left-2 -top-2 z-10 flex size-6 items-center justify-center rounded-full",
+        "flex size-6 items-center justify-center rounded-full",
         "bg-background text-foreground shadow-sm border border-border",
         className
       )}
@@ -37,4 +37,3 @@ export default function DesktopTileDeleteButton({
     </button>
   );
 }
-
