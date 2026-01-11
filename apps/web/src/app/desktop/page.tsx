@@ -7,7 +7,7 @@ import {
   type DesktopWidgetSelectedDetail,
 } from "@/components/desktop/DesktopWidgetLibraryPanel";
 import { desktopWidgetCatalog } from "@/components/desktop/widget-catalog";
-import type { DesktopItem, DesktopWidgetSize } from "@/components/desktop/types";
+import type { DesktopItem } from "@/components/desktop/types";
 import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 
@@ -16,19 +16,12 @@ const DESKTOP_WIDGET_LIBRARY_COMPONENT = "desktop-widget-library";
 // 组件库面板 ID。
 const DESKTOP_WIDGET_LIBRARY_PANEL_ID = "desktop-widget-library";
 
-/** Resolve widget size to grid spans. */
-function getWidgetSpan(size: DesktopWidgetSize) {
-  if (size === "1x1") return { w: 1, h: 1 };
-  if (size === "2x2") return { w: 2, h: 2 };
-  return { w: 4, h: 2 };
-}
-
 /** Build a new widget item based on catalog metadata. */
 function createWidgetItem(widgetKey: DesktopWidgetSelectedDetail["widgetKey"], items: DesktopItem[]) {
   const catalogItem = desktopWidgetCatalog.find((item) => item.widgetKey === widgetKey);
   if (!catalogItem) return null;
 
-  const span = getWidgetSpan(catalogItem.size);
+  const { constraints } = catalogItem;
   // 逻辑：追加到当前内容底部，避免覆盖已存在的组件。
   const maxY = items.reduce((acc, item) => Math.max(acc, item.layout.y + item.layout.h), 0);
 
@@ -38,7 +31,8 @@ function createWidgetItem(widgetKey: DesktopWidgetSelectedDetail["widgetKey"], i
     title: catalogItem.title,
     widgetKey: catalogItem.widgetKey,
     size: catalogItem.size,
-    layout: { x: 0, y: maxY, w: span.w, h: span.h },
+    constraints,
+    layout: { x: 0, y: maxY, w: constraints.defaultW, h: constraints.defaultH },
   };
 }
 
@@ -48,6 +42,8 @@ export default function DesktopDemoPage() {
   const [items, setItems] = React.useState<DesktopItem[]>(() => initialItems);
   // 是否进入编辑模式。
   const [editMode, setEditMode] = React.useState(false);
+  // 触发整理布局的信号。
+  const [compactSignal, setCompactSignal] = React.useState(0);
   // 编辑前快照，用于取消回滚。
   const snapshotRef = React.useRef<DesktopItem[] | null>(null);
   // 当前激活的 tab。
@@ -80,6 +76,12 @@ export default function DesktopDemoPage() {
     });
   }, [activeTabId, pushStackItem]);
 
+  /** Trigger a compact layout pass. */
+  const handleCompact = React.useCallback(() => {
+    // 逻辑：递增信号用于触发 Gridstack compact。
+    setCompactSignal((prev) => prev + 1);
+  }, []);
+
   React.useEffect(() => {
     /** Handle widget selection event from the stack panel. */
     const handleWidgetSelected = (event: Event) => {
@@ -110,6 +112,9 @@ export default function DesktopDemoPage() {
             <>
               <Button type="button" size="sm" variant="secondary" onClick={handleOpenWidgetLibrary}>
                 添加组件
+              </Button>
+              <Button type="button" size="sm" variant="secondary" onClick={handleCompact}>
+                整理
               </Button>
               <Button
                 type="button"
@@ -149,6 +154,7 @@ export default function DesktopDemoPage() {
           editMode={editMode}
           onSetEditMode={handleSetEditMode}
           onChangeItems={setItems}
+          compactSignal={compactSignal}
         />
       </div>
     </div>

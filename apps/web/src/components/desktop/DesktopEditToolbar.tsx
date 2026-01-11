@@ -45,6 +45,8 @@ export interface DesktopEditToolbarProps {
   items: DesktopItem[];
   /** Append a new desktop item. */
   onAddItem: (item: DesktopItem) => void;
+  /** Compact current layout. */
+  onCompact: () => void;
   /** Cancel edits and exit edit mode. */
   onCancel: () => void;
   /** Finish edits and exit edit mode. */
@@ -57,6 +59,7 @@ export default function DesktopEditToolbar({
   editMode,
   items,
   onAddItem,
+  onCompact,
   onCancel,
   onDone,
 }: DesktopEditToolbarProps) {
@@ -101,6 +104,9 @@ export default function DesktopEditToolbar({
     <div className="flex items-center gap-2">
       <Button type="button" variant="secondary" size="sm" onClick={handleOpenWidgetLibrary}>
         添加组件
+      </Button>
+      <Button type="button" variant="secondary" size="sm" onClick={onCompact}>
+        整理
       </Button>
       <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
         取消

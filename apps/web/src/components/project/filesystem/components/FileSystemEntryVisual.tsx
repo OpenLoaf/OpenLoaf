@@ -37,6 +37,19 @@ export const PDF_EXTS = new Set(["pdf"]);
 export const DOC_EXTS = new Set(["doc", "docx"]);
 /** File extensions treated as markdown documents. */
 export const MARKDOWN_EXTS = new Set(["md", "mdx", "markdown"]);
+/** File extensions treated as plain text for the code viewer fallback. */
+export const TEXT_EXTS = new Set([
+  "txt",
+  "text",
+  "log",
+  "env",
+  "jsonl",
+  "jsonc",
+  "conf",
+  "properties",
+  "cfg",
+  "ini",
+]);
 export const CODE_EXTS = new Set([
   "js",
   "ts",
@@ -64,6 +77,21 @@ export const CODE_EXTS = new Set([
   "zsh",
   "mdx",
 ]);
+
+/** Return true when the extension should fall back to the code viewer. */
+export function isTextFallbackExt(ext?: string): boolean {
+  const normalized = (ext ?? "").toLowerCase();
+  if (!normalized) return true;
+  if (TEXT_EXTS.has(normalized)) return true;
+  if (IMAGE_EXTS.has(normalized)) return false;
+  if (ARCHIVE_EXTS.has(normalized)) return false;
+  if (AUDIO_EXTS.has(normalized)) return false;
+  if (VIDEO_EXTS.has(normalized)) return false;
+  if (PDF_EXTS.has(normalized)) return false;
+  if (DOC_EXTS.has(normalized)) return false;
+  if (SPREADSHEET_EXTS.has(normalized)) return false;
+  return true;
+}
 
 /** Render a thumbnail preview for image files. */
 const ImageThumbnail = memo(function ImageThumbnail({

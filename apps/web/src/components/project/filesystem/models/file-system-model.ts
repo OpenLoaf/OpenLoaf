@@ -569,6 +569,7 @@ export function useProjectFileSystemModel({
           title: entry.name,
           params: {
             uri: entry.uri,
+            openUri: entry.uri,
             name: entry.name,
             ext: entry.ext,
           },
@@ -591,6 +592,7 @@ export function useProjectFileSystemModel({
         title: entry.name,
         params: {
           uri: entry.uri,
+          openUri: entry.uri,
           name: entry.name,
           ext: entry.ext,
           __customHeader: true,
@@ -615,6 +617,7 @@ export function useProjectFileSystemModel({
         title: entry.name,
         params: {
           uri: entry.uri,
+          openUri: entry.uri,
           name: entry.name,
           ext: entry.ext,
           rootUri,
@@ -647,6 +650,7 @@ export function useProjectFileSystemModel({
         title: entry.name,
         params: {
           uri: buildTenasFileUrl(projectId, relativePath),
+          openUri: entry.uri,
           name: entry.name,
           ext: entry.ext,
           __customHeader: true,
@@ -669,6 +673,7 @@ export function useProjectFileSystemModel({
         title: entry.name,
         params: {
           uri: entry.uri,
+          openUri: entry.uri,
           name: entry.name,
           ext: entry.ext,
           __customHeader: true,
@@ -691,6 +696,7 @@ export function useProjectFileSystemModel({
         title: entry.name,
         params: {
           uri: entry.uri,
+          openUri: entry.uri,
           name: entry.name,
           ext: entry.ext,
           __customHeader: true,

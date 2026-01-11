@@ -34,6 +34,8 @@ interface DesktopGridProps {
   onSetEditMode: (nextEditMode: boolean) => void;
   onChangeItems: (nextItems: DesktopItem[]) => void;
   onDeleteItem: (itemId: string) => void;
+  /** Signal value for triggering compact. */
+  compactSignal: number;
 }
 
 /** Render a responsive Gridstack desktop grid; edit mode enables drag & resize. */
@@ -43,6 +45,7 @@ export default function DesktopGrid({
   onSetEditMode,
   onChangeItems,
   onDeleteItem,
+  compactSignal,
 }: DesktopGridProps) {
   const itemsRef = React.useRef(items);
   React.useEffect(() => {
@@ -61,6 +64,10 @@ export default function DesktopGrid({
   const itemElByIdRef = React.useRef(new Map<string, HTMLDivElement>());
   // 已注册到 Gridstack 的 item id 集合。
   const registeredIdsRef = React.useRef(new Set<string>());
+  // 逻辑：恢复布局后短暂屏蔽 change 事件，避免被 Gridstack 的最终布局覆盖。
+  const suppressChangeRef = React.useRef(false);
+  // 记录上次 compact 信号，避免进入编辑态时自动整理。
+  const lastCompactSignalRef = React.useRef<number>(-1);
 
   const [containerWidth, setContainerWidth] = React.useState<number>(0);
   React.useEffect(() => {
@@ -109,10 +116,12 @@ export default function DesktopGrid({
     gridRef.current = grid;
     grid.setStatic(!editMode);
 
+    /** Handle layout changes from Gridstack. */
     const onChange = (_event: Event, nodes: GridStackNode[]) => {
       if (syncingRef.current) return;
       // 布局变化只在编辑态持久化；响应式缩放导致的自动重排不应写回 state。
       if (!editModeRef.current) return;
+      if (suppressChangeRef.current) return;
 
       const nodeById = new Map<string, GridStackNode>();
       for (const node of nodes) {
@@ -139,10 +148,53 @@ export default function DesktopGrid({
       if (changed) onChangeItems(next);
     };
 
+    /** Sync layout state from Gridstack nodes. */
+    const syncItemsFromGrid = () => {
+      const nodeById = new Map<string, GridStackNode>();
+      for (const node of grid.engine?.nodes ?? []) {
+        const id = node.id != null ? String(node.id) : null;
+        if (!id) continue;
+        nodeById.set(id, node);
+      }
+
+      let changed = false;
+      const next = itemsRef.current.map((item) => {
+        const node = nodeById.get(item.id);
+        if (!node) return item;
+        const nextLayout = {
+          x: node.x ?? 0,
+          y: node.y ?? 0,
+          w: node.w ?? 1,
+          h: node.h ?? 1,
+        };
+        if (sameLayout(item.layout, nextLayout)) return item;
+        changed = true;
+        return { ...item, layout: nextLayout };
+      });
+
+      if (changed) onChangeItems(next);
+    };
+
+    /** Sync layout after drag stop. */
+    const onDragStop = (_event: Event, el?: HTMLElement) => {
+      if (!editModeRef.current) return;
+      syncItemsFromGrid();
+    };
+
+    /** Sync layout after resize stop. */
+    const onResizeStop = (_event: Event, el?: HTMLElement) => {
+      if (!editModeRef.current) return;
+      syncItemsFromGrid();
+    };
+
     grid.on("change", onChange);
+    grid.on("dragstop", onDragStop);
+    grid.on("resizestop", onResizeStop);
 
     return () => {
       grid.off("change");
+      grid.off("dragstop");
+      grid.off("resizestop");
       grid.destroy(false);
       gridRef.current = null;
     };
@@ -167,6 +219,43 @@ export default function DesktopGrid({
     grid.batchUpdate(false);
     syncingRef.current = false;
   }, [metrics.cell, metrics.cols, metrics.gap]);
+
+  React.useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    if (compactSignal === lastCompactSignalRef.current) return;
+    lastCompactSignalRef.current = compactSignal;
+    if (!editMode) return;
+    // 逻辑：仅在编辑态手动触发整理，允许用户保留空白布局。
+    suppressChangeRef.current = true;
+    grid.compact("list");
+    const nodeById = new Map<string, GridStackNode>();
+    for (const node of grid.engine?.nodes ?? []) {
+      const id = node.id != null ? String(node.id) : null;
+      if (!id) continue;
+      nodeById.set(id, node);
+    }
+
+    let changed = false;
+    const next = itemsRef.current.map((item) => {
+      const node = nodeById.get(item.id);
+      if (!node) return item;
+      const nextLayout = {
+        x: node.x ?? 0,
+        y: node.y ?? 0,
+        w: node.w ?? 1,
+        h: node.h ?? 1,
+      };
+      if (sameLayout(item.layout, nextLayout)) return item;
+      changed = true;
+      return { ...item, layout: nextLayout };
+    });
+
+    if (changed) onChangeItems(next);
+    window.setTimeout(() => {
+      suppressChangeRef.current = false;
+    }, 0);
+  }, [compactSignal, editMode, onChangeItems]);
 
   React.useEffect(() => {
     const grid = gridRef.current;

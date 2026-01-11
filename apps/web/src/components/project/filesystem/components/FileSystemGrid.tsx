@@ -24,6 +24,7 @@ import {
   MARKDOWN_EXTS,
   PDF_EXTS,
   SPREADSHEET_EXTS,
+  isTextFallbackExt,
 } from "./FileSystemEntryVisual";
 import { FileSystemEntryCard } from "./FileSystemEntryCard";
 import { FileSystemEmptyState, FileSystemSearchEmptyState } from "./FileSystemEmptyState";
@@ -311,6 +312,10 @@ const FileSystemGrid = memo(function FileSystemGrid({
         return;
       }
       if (entry.kind === "file" && CODE_EXTS.has(entryExt)) {
+        onOpenCodeRef.current?.(entry);
+        return;
+      }
+      if (entry.kind === "file" && isTextFallbackExt(entryExt)) {
         onOpenCodeRef.current?.(entry);
         return;
       }

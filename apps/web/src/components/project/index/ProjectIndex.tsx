@@ -92,6 +92,8 @@ const ProjectIndex = React.memo(function ProjectIndex({
 }: ProjectIndexProps) {
   const [items, setItems] = React.useState<DesktopItem[]>(() => initialItems);
   const [editMode, setEditMode] = React.useState(false);
+  /** Signal value used for triggering grid compact. */
+  const [compactSignal, setCompactSignal] = React.useState(0);
   const editSnapshotRef = React.useRef<DesktopItem[] | null>(null);
   const [controlsTarget, setControlsTarget] = React.useState<HTMLDivElement | null>(null);
 
@@ -143,6 +145,12 @@ const ProjectIndex = React.memo(function ProjectIndex({
     setEditMode(false);
   }, []);
 
+  /** Trigger a compact layout pass. */
+  const handleCompact = React.useCallback(() => {
+    // 逻辑：递增信号用于触发 Gridstack compact。
+    setCompactSignal((prev) => prev + 1);
+  }, []);
+
   if (!isActive) return null;
 
   return (
@@ -152,6 +160,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
         editMode={editMode}
         items={items}
         onAddItem={handleAddItem}
+        onCompact={handleCompact}
         onCancel={handleCancel}
         onDone={handleDone}
       />
@@ -161,6 +170,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
         editMode={editMode}
         onSetEditMode={handleSetEditMode}
         onChangeItems={setItems}
+        compactSignal={compactSignal}
       />
     </>
   );

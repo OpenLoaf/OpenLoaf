@@ -39,6 +39,11 @@ import { trpc } from "@/utils/trpc";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { toast } from "sonner";
 import {
+  CODE_EXTS,
+  MARKDOWN_EXTS,
+  isTextFallbackExt,
+} from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import {
   BOARD_INDEX_FILE_NAME,
   ensureBoardFolderName,
   getBoardDisplayName,
@@ -111,13 +116,16 @@ interface FileTreeNodeProps {
 function resolveFileComponent(node: FileNode) {
   if (node.kind === "file" && isBoardFolderName(node.name)) return "board-viewer";
   const ext = node.ext;
-  if (!ext) return "file-viewer";
+  if (!ext) return "code-viewer";
   if (ext === "ttdoc") return "file-viewer";
   if (ext === "ttcanvas") return "file-viewer";
   if (ext === "ttskill") return "file-viewer";
   if (ext === "pdf") return "pdf-viewer";
   if (ext === "doc" || ext === "docx") return "doc-viewer";
   if (ext === "xls" || ext === "xlsx" || ext === "csv" || ext === "tsv") return "sheet-viewer";
+  if (MARKDOWN_EXTS.has(ext)) return "markdown-viewer";
+  if (CODE_EXTS.has(ext)) return "code-viewer";
+  if (isTextFallbackExt(ext)) return "code-viewer";
   return "file-viewer";
 }
 
@@ -455,6 +463,7 @@ export const PageTreeMenu = ({
         component,
         params: {
           uri: resolvedUri,
+          openUri: node.uri,
           ...(component === "board-viewer"
             ? {
                 boardFolderUri: node.uri,

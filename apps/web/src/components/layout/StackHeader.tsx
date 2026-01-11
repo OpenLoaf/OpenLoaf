@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Minus, RotateCw, X } from "lucide-react";
+import { ExternalLink, Minus, RotateCw, X } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,6 +17,7 @@ export function StackHeader({
   children,
   rightSlot,
   rightSlotAfter,
+  openUri,
   onRefresh,
   onClose,
   showMinimize = false,
@@ -28,6 +30,7 @@ export function StackHeader({
   rightSlot?: React.ReactNode;
   /** Optional slot rendered after the refresh button. */
   rightSlotAfter?: React.ReactNode;
+  openUri?: string;
   onRefresh?: () => void;
   onClose?: () => void;
   showMinimize?: boolean;
@@ -35,6 +38,20 @@ export function StackHeader({
   canClose?: boolean;
   className?: string;
 }) {
+  /** Open the current file in the system default program. */
+  const handleOpenExternal = React.useCallback(async () => {
+    if (!openUri) return;
+    const api = window.tenasElectron;
+    if (!api?.openPath) {
+      toast.error("网页版不支持打开本地文件");
+      return;
+    }
+    const res = await api.openPath({ uri: openUri });
+    if (!res?.ok) {
+      toast.error(res?.reason ?? "无法打开文件");
+    }
+  }, [openUri]);
+
   return (
     <div className={cn("shrink-0 bg-background/70 backdrop-blur-sm", className)}>
       <div className="flex items-center justify-between gap-2 px-1 pt-0 py-2">
@@ -43,6 +60,21 @@ export function StackHeader({
         </div>
         <div className="flex items-center gap-1">
           {rightSlot}
+          {openUri ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label="系统打开"
+                  onClick={handleOpenExternal}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">系统打开</TooltipContent>
+            </Tooltip>
+          ) : null}
           {onRefresh ? (
             <Tooltip>
               <TooltipTrigger asChild>

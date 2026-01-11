@@ -37,6 +37,7 @@ import {
   MARKDOWN_EXTS,
   PDF_EXTS,
   SPREADSHEET_EXTS,
+  isTextFallbackExt,
   getEntryVisual,
 } from "./FileSystemEntryVisual";
 import { FileSystemSearchEmptyState } from "./FileSystemEmptyState";
@@ -665,6 +666,10 @@ const FileSystemColumns = memo(function FileSystemColumns({
         return;
       }
       if (entry.kind === "file" && CODE_EXTS.has(entryExt)) {
+        onOpenCodeRef.current?.(entry);
+        return;
+      }
+      if (entry.kind === "file" && isTextFallbackExt(entryExt)) {
         onOpenCodeRef.current?.(entry);
         return;
       }

@@ -72,6 +72,8 @@ interface DesktopPageProps {
   onSetEditMode: (nextEditMode: boolean) => void;
   /** Update items order after a drag ends. */
   onChangeItems: (nextItems: DesktopItem[]) => void;
+  /** Signal value for triggering compact. */
+  compactSignal: number;
 }
 
 /** Render a single-page desktop (MVP). */
@@ -80,16 +82,18 @@ export default function DesktopPage({
   editMode,
   onSetEditMode,
   onChangeItems,
+  compactSignal,
 }: DesktopPageProps) {
   return (
     <div className="h-full w-full overflow-hidden" title="Desktop" aria-label="Desktop">
-      <div className="h-full w-full bg-gradient-to-b from-background to-muted/40">
+      <div className="h-full w-full bg-gradient-to-b from-background ">
         <DesktopGrid
           items={items}
           editMode={editMode}
           onSetEditMode={onSetEditMode}
           onChangeItems={onChangeItems}
           onDeleteItem={(itemId) => onChangeItems(items.filter((item) => item.id !== itemId))}
+          compactSignal={compactSignal}
         />
       </div>
     </div>

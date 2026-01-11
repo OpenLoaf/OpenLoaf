@@ -120,6 +120,7 @@ function PanelFrame({
   const canClose = item.denyClose !== true;
   const customHeader = Boolean((item.params as any)?.__customHeader);
   const opaquePanel = Boolean((item.params as any)?.__opaque);
+  const openUri = (item.params as any)?.openUri as string | undefined;
 
   return (
     <div
@@ -141,6 +142,7 @@ function PanelFrame({
         {!customHeader ? (
           <StackHeader
             title={title}
+            openUri={openUri}
             onRefresh={() => setRefreshKey((k) => k + 1)}
             rightSlot={
               <BoardPanelHeaderActions item={item} title={title} tabId={tabId} />
