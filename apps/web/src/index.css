@@ -225,6 +225,16 @@ body {
   --color-sidebar-ring: var(--sidebar-ring);
   --color-brand: var(--brand);
   --color-highlight: var(--highlight);
+  @keyframes flip-top {
+  100% {
+    transform: rotateX(-180deg);
+    }
+  }
+  @keyframes flip-bottom {
+  100% {
+    transform: rotateX(0deg);
+    }
+  }
 }
 
 @layer base {
@@ -301,7 +311,6 @@ body {
   height: 0;
   display: none;
 }
-
 
 /* 隐藏所有默认滚动条 */
 ::-webkit-scrollbar {
@@ -532,7 +541,6 @@ body {
     animation: none;
   }
 }
-
 
 /* Puck 顶部控制条改由项目头部接管 */
 .puck-hide-controls [class*="_PuckCanvas-controls_"] {

@@ -249,12 +249,6 @@ export class SelectTool implements CanvasTool {
   /** Handle pointer move to drag selected nodes. */
   onPointerMove(ctx: ToolContext): void {
     const selectedIds = ctx.engine.selection.getSelectedIds();
-    const hoverAnchor = ctx.engine.getConnectorHover();
-    const hoverAnchorId = hoverAnchor?.elementId;
-    const anchorScope =
-      hoverAnchorId && !selectedIds.includes(hoverAnchorId)
-        ? [...selectedIds, hoverAnchorId]
-        : selectedIds;
     if (this.connectorDrafting && this.connectorSource) {
       this.cancelHoverClear();
       const targetNode = ctx.engine.findNodeAt(ctx.worldPoint);
@@ -265,7 +259,15 @@ export class SelectTool implements CanvasTool {
           this.connectorSource.point
         );
         if (hover) {
-          ctx.engine.setConnectorHover(hover);
+          ctx.engine.setNodeHoverId(targetNode.type === "image" ? targetNode.id : null);
+          const anchorScope =
+            targetNode.type === "image" && !selectedIds.includes(targetNode.id)
+              ? [...selectedIds, targetNode.id]
+              : selectedIds;
+          // 逻辑：仅在命中锚点 icon 时才标记 hover，用于触发大小变化。
+          ctx.engine.setConnectorHover(
+            ctx.engine.findEdgeAnchorHit(ctx.worldPoint, undefined, anchorScope)
+          );
           ctx.engine.setConnectorDraft({
             source: {
               elementId: this.connectorSource.elementId,
@@ -278,14 +280,8 @@ export class SelectTool implements CanvasTool {
         }
       }
 
-      const edgeHover = ctx.engine.findEdgeAnchorHit(
-        ctx.worldPoint,
-        {
-          elementId: this.connectorSource.elementId,
-          anchorId: this.connectorSource.anchorId,
-        },
-        anchorScope
-      );
+      ctx.engine.setNodeHoverId(null);
+      const edgeHover = ctx.engine.findEdgeAnchorHit(ctx.worldPoint, undefined, selectedIds);
       ctx.engine.setConnectorHover(edgeHover);
       ctx.engine.setConnectorDraft({
         source: {
@@ -301,6 +297,7 @@ export class SelectTool implements CanvasTool {
       this.cancelHoverClear();
       if (ctx.engine.isLocked()) return;
       const hit = ctx.engine.findNodeAt(ctx.worldPoint);
+      ctx.engine.setNodeHoverId(hit?.type === "image" ? hit.id : null);
       const hover = hit
         ? ctx.engine.getNearestEdgeAnchorHit(hit.id, ctx.worldPoint)
         : null;
@@ -310,7 +307,11 @@ export class SelectTool implements CanvasTool {
         this.connectorDragRole,
         end
       );
-      ctx.engine.setConnectorHover(hover);
+      const anchorScope =
+        hit?.type === "image" ? [...selectedIds, hit.id] : selectedIds;
+      ctx.engine.setConnectorHover(
+        ctx.engine.findEdgeAnchorHit(ctx.worldPoint, undefined, anchorScope)
+      );
       return;
     }
     if (this.selectionStartWorld || this.draggingId) {
@@ -319,22 +320,19 @@ export class SelectTool implements CanvasTool {
     if (!this.selectionStartWorld && !this.draggingId) {
       const hoverNode = this.getHoverImageNode(ctx.engine, ctx.worldPoint, selectedIds);
       if (hoverNode) {
-        const hover = this.getImageSideAnchorHit(hoverNode, ctx.worldPoint);
-        ctx.engine.setConnectorHover(hover);
+        ctx.engine.setNodeHoverId(hoverNode.id);
         this.cancelHoverClear();
       } else {
-        const hover = ctx.engine.findEdgeAnchorHit(
-          ctx.worldPoint,
-          undefined,
-          anchorScope
-        );
-        if (hover) {
-          ctx.engine.setConnectorHover(hover);
-          this.cancelHoverClear();
-        } else {
-          this.scheduleHoverClear(ctx.engine);
-        }
+        this.scheduleHoverClear(ctx.engine);
       }
+      const hoverNodeId = ctx.engine.getNodeHoverId();
+      const hoverScope =
+        hoverNodeId && !selectedIds.includes(hoverNodeId)
+          ? [...selectedIds, hoverNodeId]
+          : selectedIds;
+      ctx.engine.setConnectorHover(
+        ctx.engine.findEdgeAnchorHit(ctx.worldPoint, undefined, hoverScope)
+      );
       const connectorHit = ctx.engine.pickElementAt(ctx.worldPoint);
       ctx.engine.setConnectorHoverId(
         connectorHit?.kind === "connector" ? connectorHit.id : null
@@ -559,24 +557,6 @@ export class SelectTool implements CanvasTool {
     return { x, y, w, h };
   }
 
-  /** Resolve the nearest side anchor for a hovered image node. */
-  private getImageSideAnchorHit(
-    element: CanvasNodeElement,
-    point: CanvasPoint
-  ): CanvasAnchorHit | null {
-    const [x, y, w, h] = element.xywh;
-    const centerX = x + w / 2;
-    const anchorId = point[0] <= centerX ? "left" : "right";
-    // 逻辑：悬停时仅返回左右锚点，保持与选中态一致。
-    const anchorPoint: CanvasPoint =
-      anchorId === "left" ? [x, y + h / 2] : [x + w, y + h / 2];
-    return {
-      elementId: element.id,
-      anchorId,
-      point: anchorPoint,
-    };
-  }
-
   /** Find the top-most hovered image node with expanded hit area. */
   private getHoverImageNode(
     engine: CanvasEngine,
@@ -608,7 +588,7 @@ export class SelectTool implements CanvasTool {
   private scheduleHoverClear(engine: CanvasEngine): void {
     if (this.hoverClearTimeout) return;
     this.hoverClearTimeout = window.setTimeout(() => {
-      engine.setConnectorHover(null);
+      engine.setNodeHoverId(null);
       this.hoverClearTimeout = null;
     }, HOVER_ANCHOR_CLEAR_DELAY);
   }

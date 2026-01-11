@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 export default function QuickActionsWidget() {
   return (
     <div className="flex h-full w-full flex-col gap-3">
-      <div className="text-sm text-muted-foreground">Quick actions</div>
       <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"

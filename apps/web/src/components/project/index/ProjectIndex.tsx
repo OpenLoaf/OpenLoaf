@@ -1,10 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { createPortal } from "react-dom";
 import ProjectTitle from "../ProjectTitle";
 import DesktopPage, { initialItems } from "@/components/desktop/DesktopPage";
-import { Button } from "@/components/ui/button";
+import DesktopEditToolbar from "@/components/desktop/DesktopEditToolbar";
 import type { DesktopItem } from "@/components/desktop/types";
 
 interface ProjectIndexHeaderProps {
@@ -125,41 +124,37 @@ const ProjectIndex = React.memo(function ProjectIndex({
     [items]
   );
 
+  /** Append a new desktop item. */
+  const handleAddItem = React.useCallback((item: DesktopItem) => {
+    setItems((prev) => [...prev, item]);
+  }, []);
+
+  /** Cancel edits and restore snapshot. */
+  const handleCancel = React.useCallback(() => {
+    const snapshot = editSnapshotRef.current;
+    if (snapshot) setItems(snapshot);
+    editSnapshotRef.current = null;
+    setEditMode(false);
+  }, []);
+
+  /** Finish edits and clear snapshot. */
+  const handleDone = React.useCallback(() => {
+    editSnapshotRef.current = null;
+    setEditMode(false);
+  }, []);
+
   if (!isActive) return null;
 
   return (
     <>
-      {controlsTarget && editMode
-        ? createPortal(
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  const snapshot = editSnapshotRef.current;
-                  if (snapshot) setItems(snapshot);
-                  editSnapshotRef.current = null;
-                  setEditMode(false);
-                }}
-              >
-                取消
-              </Button>
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={() => {
-                  editSnapshotRef.current = null;
-                  setEditMode(false);
-                }}
-              >
-                完成
-              </Button>
-            </div>,
-            controlsTarget
-          )
-        : null}
+      <DesktopEditToolbar
+        controlsTarget={controlsTarget}
+        editMode={editMode}
+        items={items}
+        onAddItem={handleAddItem}
+        onCancel={handleCancel}
+        onDone={handleDone}
+      />
 
       <DesktopPage
         items={items}

@@ -59,6 +59,8 @@ export default function DesktopGrid({
   const gridRef = React.useRef<GridStack | null>(null);
   const syncingRef = React.useRef(false);
   const itemElByIdRef = React.useRef(new Map<string, HTMLDivElement>());
+  // 已注册到 Gridstack 的 item id 集合。
+  const registeredIdsRef = React.useRef(new Set<string>());
 
   const [containerWidth, setContainerWidth] = React.useState<number>(0);
   React.useEffect(() => {
@@ -76,8 +78,8 @@ export default function DesktopGrid({
     const width = containerWidth;
     const small = width > 0 && width < 520;
     // 最小单元高度：需要容纳 icon + title（含边框），避免在窄屏下被裁切。
-    const cell = small ? 80 : 84;
-    const gap = small ? 12 : 16;
+    const cell = small ? 80 : 85;
+    const gap = small ? 5 : 5;
     const padding = small ? 16 : 24;
 
     const usable = Math.max(0, width - padding * 2);
@@ -173,11 +175,22 @@ export default function DesktopGrid({
     // 仅用于渲染/更新 grid 的“视图布局”，不写回 items，避免窗口尺寸变化污染原始布局。
     const viewItems = items.map((item) => clampItemToCols(item, metrics.cols));
 
+    // 逻辑：新添加的 DOM 需要主动注册到 Gridstack，确保使用完整的尺寸。
+    const registeredIds = registeredIdsRef.current;
+    const nextIds = new Set(viewItems.map((item) => item.id));
+    for (const id of registeredIds) {
+      if (!nextIds.has(id)) registeredIds.delete(id);
+    }
+
     syncingRef.current = true;
     grid.batchUpdate();
     for (const item of viewItems) {
       const el = itemElByIdRef.current.get(item.id);
       if (!el) continue;
+      if (!registeredIds.has(item.id)) {
+        grid.makeWidget(el);
+        registeredIds.add(item.id);
+      }
       grid.update(el, { ...item.layout });
     }
     grid.batchUpdate(false);
@@ -190,13 +203,6 @@ export default function DesktopGrid({
         className="grid-stack"
         ref={gridContainerRef}
         style={{ padding: metrics.padding }}
-        onPointerDown={(event) => {
-          if (!editMode) return;
-          const target = event.target instanceof Element ? event.target : null;
-          if (!target) return;
-          if (target.closest('[data-desktop-tile="true"]')) return;
-          onSetEditMode(false);
-        }}
       >
         {items.map((item) => {
           const viewItem = clampItemToCols(item, metrics.cols);
@@ -214,6 +220,14 @@ export default function DesktopGrid({
                 "gs-y": viewItem.layout.y,
                 "gs-w": viewItem.layout.w,
                 "gs-h": viewItem.layout.h,
+                ...(item.kind === "widget"
+                  ? {
+                      "gs-min-w": item.constraints.minW,
+                      "gs-min-h": item.constraints.minH,
+                      "gs-max-w": item.constraints.maxW,
+                      "gs-max-h": item.constraints.maxH,
+                    }
+                  : null),
                 ...(item.kind === "icon" ? { "gs-no-resize": "true" } : null),
               } as Record<string, unknown>)}
             >

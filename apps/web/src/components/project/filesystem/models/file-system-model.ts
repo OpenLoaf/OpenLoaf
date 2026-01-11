@@ -593,6 +593,9 @@ export function useProjectFileSystemModel({
           uri: entry.uri,
           name: entry.name,
           ext: entry.ext,
+          __customHeader: true,
+          rootUri,
+          projectId,
         },
       });
     },

@@ -17,9 +17,9 @@ export const SELECTED_ANCHOR_EDGE_SIZE = 14;
 /** Hover diameter for selected edge anchors in screen pixels. */
 export const SELECTED_ANCHOR_EDGE_SIZE_HOVER = 20;
 /** Base diameter for selected side anchors in screen pixels. */
-export const SELECTED_ANCHOR_SIDE_SIZE = 32;
+export const SELECTED_ANCHOR_SIDE_SIZE = 20;
 /** Hover diameter for selected side anchors in screen pixels. */
-export const SELECTED_ANCHOR_SIDE_SIZE_HOVER = 40;
+export const SELECTED_ANCHOR_SIDE_SIZE_HOVER = 24;
 /** Extra gap from node edge to selected anchors in screen pixels. */
 export const SELECTED_ANCHOR_GAP = 6;
 

@@ -116,6 +116,8 @@ export class CanvasEngine {
   private connectorDraft: CanvasConnectorDraft | null = null;
   /** Hovered anchor while linking. */
   private connectorHover: CanvasAnchorHit | null = null;
+  /** Hovered node id used for showing anchor UI. */
+  private nodeHoverId: string | null = null;
   /** Hovered connector id for visual feedback. */
   private connectorHoverId: string | null = null;
   /** Active connector style for new links. */
@@ -379,6 +381,7 @@ export class CanvasEngine {
     }
     if (toolId !== "select") {
       this.connectorHoverId = null;
+      this.nodeHoverId = null;
     }
     // 逻辑：切换主工具时清空一次性插入状态。
     this.pendingInsert = null;
@@ -410,6 +413,7 @@ export class CanvasEngine {
       locked: this.locked,
       connectorDraft: this.connectorDraft,
       connectorHover: this.connectorHover,
+      nodeHoverId: this.nodeHoverId,
       connectorHoverId: this.connectorHoverId,
       connectorStyle: this.connectorStyle,
       connectorDrop: this.connectorDrop,
@@ -562,6 +566,18 @@ export class CanvasEngine {
   /** Return the current hover anchor. */
   getConnectorHover(): CanvasAnchorHit | null {
     return this.connectorHover;
+  }
+
+  /** Update hovered node id used for showing anchor UI. */
+  setNodeHoverId(id: string | null): void {
+    if (this.nodeHoverId === id) return;
+    this.nodeHoverId = id;
+    this.emitChange();
+  }
+
+  /** Return the hovered node id used for showing anchor UI. */
+  getNodeHoverId(): string | null {
+    return this.nodeHoverId;
   }
 
   /** Update hovered connector id for hover styling. */

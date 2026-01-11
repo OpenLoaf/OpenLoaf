@@ -12,6 +12,7 @@ const initialItems: DesktopItem[] = [
     title: "Flip Clock",
     widgetKey: "flip-clock",
     size: "4x2",
+    constraints: { defaultW: 4, defaultH: 2, minW: 2, minH: 2, maxW: 6, maxH: 3 },
     layout: { x: 0, y: 0, w: 4, h: 2 },
   },
   {
@@ -20,6 +21,7 @@ const initialItems: DesktopItem[] = [
     title: "Clock",
     widgetKey: "clock",
     size: "2x2",
+    constraints: { defaultW: 2, defaultH: 2, minW: 2, minH: 2, maxW: 3, maxH: 3 },
     layout: { x: 0, y: 2, w: 2, h: 2 },
   },
   {
@@ -28,6 +30,7 @@ const initialItems: DesktopItem[] = [
     title: "Actions",
     widgetKey: "quick-actions",
     size: "4x2",
+    constraints: { defaultW: 4, defaultH: 2, minW: 2, minH: 2, maxW: 6, maxH: 3 },
     layout: { x: 0, y: 4, w: 4, h: 2 },
   },
   {

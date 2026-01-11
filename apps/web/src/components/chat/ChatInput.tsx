@@ -357,13 +357,15 @@ export function ChatInputBox({
   }, [editor]);
 
   /** Insert a file reference as a mention node. */
-  const insertFileMention = useCallback((fileRef: string) => {
+  const insertFileMention = useCallback((fileRef: string, options?: { skipFocus?: boolean }) => {
     // 逻辑：将文件引用插入为 mention，并补一个空格。
     if (!editor.selection) {
       const endPoint = SlateEditor.end(editor as unknown as BaseEditor, []);
       editor.tf.select(endPoint);
     }
-    focusEditorSafely();
+    if (!options?.skipFocus) {
+      focusEditorSafely();
+    }
     editor.tf.insertNodes(buildMentionNode(fileRef));
     editor.tf.insertText(" ");
   }, [editor, focusEditorSafely]);
@@ -450,10 +452,10 @@ export function ChatInputBox({
       if (tabId) {
         if (!activeTabId || activeTabId !== tabId) return;
       }
-      const detail = (event as CustomEvent<{ value?: string }>).detail;
+      const detail = (event as CustomEvent<{ value?: string; keepSelection?: boolean }>).detail;
       const value = detail?.value?.trim();
       if (!value) return;
-      insertFileMention(value);
+      insertFileMention(value, { skipFocus: detail?.keepSelection });
     };
     window.addEventListener("tenas:chat-insert-mention", handleInsertMention);
     return () => {

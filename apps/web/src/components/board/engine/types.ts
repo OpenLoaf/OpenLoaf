@@ -242,6 +242,8 @@ export type CanvasSnapshot = {
   connectorDraft: CanvasConnectorDraft | null;
   /** Hovered anchor while linking. */
   connectorHover: CanvasAnchorHit | null;
+  /** Hovered node id used for showing anchor UI. */
+  nodeHoverId: string | null;
   /** Hovered connector id for visual feedback. */
   connectorHoverId: string | null;
   /** Active connector style for tooling. */

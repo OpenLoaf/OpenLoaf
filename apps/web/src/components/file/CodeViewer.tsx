@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import type { PointerEvent } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import Editor, { type BeforeMount, type OnMount } from "@monaco-editor/react";
+import Editor, { type OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { Sparkles, Copy } from "lucide-react";
 import { toast } from "sonner";
@@ -23,7 +24,8 @@ interface CodeViewerProps {
 type MonacoDisposable = { dispose: () => void };
 
 /** Monaco theme name for the read-only viewer. */
-const MONACO_THEME_NAME = "tenas-dark";
+const MONACO_THEME_DARK = "vs-dark";
+const MONACO_THEME_LIGHT = "vs";
 
 /** Resolve a Monaco language id from extension. */
 function getMonacoLanguageId(ext?: string): string {
@@ -41,6 +43,10 @@ function getMonacoLanguageId(ext?: string): string {
     case "yml":
     case "yaml":
       return "yaml";
+    case "sh":
+    case "bash":
+    case "zsh":
+      return "shell";
     case "py":
       return "python";
     case "go":
@@ -81,6 +87,7 @@ export default function CodeViewer({
   rootUri,
   projectId,
 }: CodeViewerProps) {
+  const { resolvedTheme } = useTheme();
   /** File content query. */
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(uri ? { uri } : skipToken)
@@ -117,6 +124,8 @@ export default function CodeViewer({
   );
   /** Monaco language id from extension. */
   const languageId = useMemo(() => getMonacoLanguageId(ext), [ext]);
+  const monacoThemeName =
+    resolvedTheme === "dark" ? MONACO_THEME_DARK : MONACO_THEME_LIGHT;
 
   /** Clear cached selection state and hide the toolbar. */
   const clearSelection = useCallback(() => {
@@ -184,21 +193,6 @@ export default function CodeViewer({
     });
   }, [clearSelection]);
 
-  /** Register Monaco theme before editor mounts. */
-  const handleBeforeMount = useCallback<BeforeMount>((monaco) => {
-    // 逻辑：主题背景透明，避免覆盖容器背景。
-    monaco.editor.defineTheme(MONACO_THEME_NAME, {
-      base: "vs-dark",
-      inherit: true,
-      rules: [],
-      colors: {
-        "editor.background": "#00000000",
-        "editorGutter.background": "#00000000",
-        "editorLineNumber.foreground": "#7a8194",
-        "editorLineNumber.activeForeground": "#cbd5f5",
-      },
-    });
-  }, []);
 
   /** Capture Monaco editor instance and attach listeners. */
   const handleEditorMount = useCallback<OnMount>(
@@ -399,8 +393,7 @@ export default function CodeViewer({
         path={uri}
         value={fileContent}
         language={languageId}
-        theme={MONACO_THEME_NAME}
-        beforeMount={handleBeforeMount}
+        theme={monacoThemeName}
         onMount={handleEditorMount}
         options={editorOptions}
       />

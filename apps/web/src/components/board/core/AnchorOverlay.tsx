@@ -86,7 +86,6 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
       {Array.from(uniqueAnchors.values()).map(anchor => {
         const screen = toScreenPoint(anchor.point, snapshot);
         const isHover =
-          anchor.origin === "connector" &&
           hoverAnchor?.elementId === anchor.elementId &&
           hoverAnchor.anchorId === anchor.anchorId;
         const isSideAnchor = anchor.anchorId === "left" || anchor.anchorId === "right";
@@ -102,7 +101,7 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
             : SELECTED_ANCHOR_EDGE_SIZE_HOVER
           : 11;
         const size = isHover ? hoverSize : baseSize;
-        const iconSize = isHover ? 28 : 24;
+        const iconSize = isHover ? 16 : 14;
         // 逻辑：选中锚点外扩保持固定距离，避免 hover 时跳动。
         const offsetDistance =
           useSelectedStyle ? baseSize / 2 + SELECTED_ANCHOR_GAP : 0;
@@ -174,8 +173,8 @@ function isSelectedImageAnchor(elementId: string, snapshot: CanvasSnapshot): boo
 
 /** Check whether the anchor belongs to a hovered image node. */
 function isHoverImageAnchor(elementId: string, snapshot: CanvasSnapshot): boolean {
-  const hoverAnchor = snapshot.connectorHover;
-  if (!hoverAnchor || hoverAnchor.elementId !== elementId) return false;
+  const hoverNodeId = snapshot.nodeHoverId;
+  if (!hoverNodeId || hoverNodeId !== elementId) return false;
   if (snapshot.selectedIds.includes(elementId)) return false;
   const element = snapshot.elements.find(item => item.id === elementId);
   return element?.kind === "node" && element.type === "image";
@@ -222,19 +221,19 @@ function getSelectedImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
 
 /** Collect anchors for hovered image nodes. */
 function getHoveredImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
-  const hoverAnchor = snapshot.connectorHover;
-  if (!hoverAnchor) return [];
-  if (snapshot.selectedIds.includes(hoverAnchor.elementId)) return [];
-  const element = snapshot.elements.find(item => item.id === hoverAnchor.elementId);
+  const hoverNodeId = snapshot.nodeHoverId;
+  if (!hoverNodeId) return [];
+  if (snapshot.selectedIds.includes(hoverNodeId)) return [];
+  const element = snapshot.elements.find(item => item.id === hoverNodeId);
   if (!element || element.kind !== "node" || element.type !== "image") return [];
-  const anchors = snapshot.anchors[hoverAnchor.elementId];
+  const anchors = snapshot.anchors[hoverNodeId];
   if (!anchors) return [];
   const hoveredAnchors: CanvasAnchorHit[] = [];
   anchors.forEach(anchor => {
     // 逻辑：图片节点悬停时仅展示左右锚点。
     if (anchor.id !== "left" && anchor.id !== "right") return;
     hoveredAnchors.push({
-      elementId: hoverAnchor.elementId,
+      elementId: hoverNodeId,
       anchorId: anchor.id,
       point: anchor.point as CanvasPoint,
     });

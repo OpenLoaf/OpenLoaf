@@ -41,7 +41,7 @@ export default function DesktopTileGridstack({
       ) : null}
 
       <motion.div
-        animate={{ scale: 1, boxShadow: "0 6px 14px rgba(0,0,0,0.10)" }}
+        animate={{ scale: 1, boxShadow: "0 4px 10px rgba(0,0,0,0.08)" }}
         transition={{ type: "spring", stiffness: 450, damping: 32 }}
         className={cn(
           "desktop-tile-handle group relative h-full w-full select-none overflow-hidden rounded-2xl",
@@ -91,7 +91,9 @@ export default function DesktopTileGridstack({
           window.addEventListener("pointercancel", onPointerUp);
         }}
       >
-        <DesktopTileContent item={item} />
+        <div className={cn("h-full w-full", editMode ? "pointer-events-none" : "")}>
+          <DesktopTileContent item={item} />
+        </div>
       </motion.div>
     </div>
   );
