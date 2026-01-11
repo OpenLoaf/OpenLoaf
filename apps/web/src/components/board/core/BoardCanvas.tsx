@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { cn } from "@udecode/cn";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { generateId } from "ai";
 import { trpc } from "@/utils/trpc";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
@@ -24,6 +25,10 @@ import {
   parseTeatimeFileUrl,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { createChatSessionId } from "@/lib/chat-session-id";
+import { getWebClientId } from "@/lib/chat/streamClientId";
+import { resolveServerUrl } from "@/utils/server-url";
+import type { TeatimeUIMessage } from "@teatime-ai/api/types/message";
 import type {
   CanvasElement,
   CanvasConnectorElement,
@@ -58,8 +63,9 @@ import {
   type BoardSnapshotCacheRecord,
 } from "./boardSnapshotCache";
 import { useBoardSnapshot } from "./useBoardSnapshot";
-import { imageConnectorDropGroups } from "../nodes/ImageNode";
+import { imageConnectorDropGroups, type ImageNodeProps } from "../nodes/ImageNode";
 import { Type } from "lucide-react";
+import { toast } from "sonner";
 const VIEWPORT_SAVE_DELAY = 800;
 /** Default size for auto-created text nodes. */
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
@@ -67,6 +73,8 @@ const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
 const IMAGE_DROP_STACK_OFFSET = 24;
 /** Prefix used for board-relative teatime-file paths. */
 const BOARD_RELATIVE_URI_PREFIX = "teatime-file://./";
+/** Default prompt for image understanding in text generation. */
+const IMAGE_PROMPT_TEXT = "分析一下当前的照片，生成当前照片详细的描述";
 /** Default connector drop groups for non-image nodes. */
 const DEFAULT_CONNECTOR_DROP_GROUPS: ConnectorDropGroup[] = [
   {
@@ -83,6 +91,14 @@ const DEFAULT_CONNECTOR_DROP_GROUPS: ConnectorDropGroup[] = [
     ],
   },
 ];
+
+/** Prompt payload stored for retrying generation requests. */
+type PromptSource = {
+  /** Image url used for prompt generation. */
+  imageUrl: string;
+  /** MIME type used for the image payload. */
+  mediaType: string;
+};
 
 /** Normalize a relative path string. */
 function normalizeRelativePath(value: string) {
@@ -177,6 +193,16 @@ const isImageDragEvent = (event: DragEvent<HTMLElement>) => {
 /** Check whether a file is a supported image. */
 const isImageFile = (file: File) => file.type.startsWith("image/");
 
+/** Extract SSE data payload from a single event chunk. */
+function extractSseData(chunk: string): string | null {
+  const lines = chunk.split("\n");
+  const dataLines = lines.filter((line) => line.startsWith("data:"));
+  if (dataLines.length === 0) return null;
+  return dataLines
+    .map((line) => line.slice(5).trimStart())
+    .join("\n");
+}
+
 /** Parse a board snapshot from file content. */
 function parseBoardSnapshot(content?: string | null): BoardSnapshotState | null {
   if (!content) return null;
@@ -266,6 +292,16 @@ export function BoardCanvas({
   const pendingFileSnapshotRef = useRef<BoardSnapshotState | null>(null);
   /** Image node ids currently upgrading to asset files. */
   const imageAssetUpgradeIdsRef = useRef<Set<string>>(new Set());
+  /** Node ids currently generating streamed text. */
+  const [generatingNodeIds, setGeneratingNodeIds] = useState<Set<string>>(new Set());
+  /** Node ids with prompt generation errors. */
+  const [promptErrorNodeIds, setPromptErrorNodeIds] = useState<Set<string>>(new Set());
+  /** Prompt payloads cached for retrying generation. */
+  const promptSourceByNodeIdRef = useRef<Map<string, PromptSource>>(new Map());
+  /** Abort controllers for active prompt generation streams. */
+  const promptAbortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  /** Session id used for board prompt generation. */
+  const promptSessionIdRef = useRef(createChatSessionId());
   /** Whether the minimap should stay visible. */
   const [showMiniMap, setShowMiniMap] = useState(false);
   /** Whether grid rendering is suppressed for export. */
@@ -444,6 +480,196 @@ export function BoardCanvas({
     [boardFolderScope]
   );
 
+  /** Update the generating flag for a text node. */
+  const setNodeGenerating = useCallback((nodeId: string, isGenerating: boolean) => {
+    setGeneratingNodeIds((prev) => {
+      const next = new Set(prev);
+      if (isGenerating) {
+        next.add(nodeId);
+      } else {
+        next.delete(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
+  /** Update the prompt error flag for a text node. */
+  const setNodePromptError = useCallback((nodeId: string, hasError: boolean) => {
+    setPromptErrorNodeIds((prev) => {
+      const next = new Set(prev);
+      if (hasError) {
+        next.add(nodeId);
+      } else {
+        next.delete(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
+  /** Resolve a prompt-ready image uri from an image node. */
+  const resolvePromptImageUri = useCallback(
+    (props: ImageNodeProps) => {
+      const rawUri = props.originalSrc || "";
+      if (!rawUri) return "";
+      return resolveBoardRelativeUri(rawUri);
+    },
+    [resolveBoardRelativeUri]
+  );
+
+  /** Stream prompt text into a text node using the chat SSE endpoint. */
+  const streamPromptToTextNode = useCallback(
+    async (input: { nodeId: string; imageUrl: string; mediaType: string }) => {
+      const { nodeId, imageUrl, mediaType } = input;
+      if (!imageUrl) return;
+      const previousController = promptAbortControllersRef.current.get(nodeId);
+      if (previousController) {
+        previousController.abort();
+      }
+      const controller = new AbortController();
+      promptAbortControllersRef.current.set(nodeId, controller);
+      // 逻辑：记录当前图片信息，便于失败后重试。
+      promptSourceByNodeIdRef.current.set(nodeId, { imageUrl, mediaType });
+      setNodePromptError(nodeId, false);
+      setNodeGenerating(nodeId, true);
+      // 逻辑：开始生成前先清空内容，保证流式文字从头写入。
+      engine.doc.updateNodeProps(nodeId, { value: "", autoFocus: false });
+
+      try {
+        const sessionId = promptSessionIdRef.current;
+        const messageId = generateId();
+        const userMessage: TeatimeUIMessage = {
+          id: messageId,
+          role: "user",
+          parentMessageId: null,
+          parts: [
+            {
+              type: "file",
+              url: imageUrl,
+              mediaType: mediaType || "application/octet-stream",
+            },
+            {
+              type: "text",
+              text: IMAGE_PROMPT_TEXT,
+            },
+          ],
+        };
+        const payload = {
+          sessionId,
+          messages: [userMessage],
+          clientId: getWebClientId() || undefined,
+          workspaceId: resolvedWorkspaceId || undefined,
+          projectId: boardFolderScope?.projectId ?? projectId ?? undefined,
+          trigger: "board-image-prompt",
+        };
+        // 逻辑：向 /chat/sse 发送流式请求，按 SSE chunk 逐段写入文本节点。
+        const response = await fetch(`${resolveServerUrl()}/chat/sse`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+        if (!response.ok || !response.body) {
+          throw new Error(`SSE request failed: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let streamedText = "";
+
+        // 逻辑：持续读取 SSE 数据流，解析 text-delta 事件并追加到文本节点。
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const chunks = buffer.split("\n\n");
+          buffer = chunks.pop() ?? "";
+
+          for (const chunk of chunks) {
+            const data = extractSseData(chunk);
+            if (!data) continue;
+            if (data === "[DONE]") {
+              await reader.cancel();
+              return;
+            }
+            let parsed: any;
+            try {
+              parsed = JSON.parse(data);
+            } catch {
+              continue;
+            }
+            const delta =
+              parsed?.type === "text-delta" && typeof parsed?.delta === "string"
+                ? parsed.delta
+                : parsed?.type === "text" && typeof parsed?.text === "string"
+                  ? parsed.text
+                  : typeof parsed?.data?.text === "string"
+                    ? parsed.data.text
+                    : "";
+            if (!delta) continue;
+            streamedText += delta;
+            // 逻辑：节点已被删除时终止写入，避免无效更新。
+            if (!engine.doc.getElementById(nodeId)) {
+              promptSourceByNodeIdRef.current.delete(nodeId);
+              setNodePromptError(nodeId, false);
+              controller.abort();
+              return;
+            }
+            engine.doc.updateNodeProps(nodeId, {
+              value: streamedText,
+              autoFocus: false,
+            });
+          }
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setNodePromptError(nodeId, true);
+          toast.error("生成提示词失败");
+        }
+      } finally {
+        if (promptAbortControllersRef.current.get(nodeId) === controller) {
+          promptAbortControllersRef.current.delete(nodeId);
+          setNodeGenerating(nodeId, false);
+        }
+      }
+    },
+    [
+      boardFolderScope?.projectId,
+      engine,
+      projectId,
+      resolvedWorkspaceId,
+      setNodeGenerating,
+      setNodePromptError,
+    ]
+  );
+
+  /** Retry prompt generation for a text node when data is available. */
+  const retryPromptGeneration = useCallback(
+    (nodeId: string) => {
+      // 逻辑：生成进行中时忽略重试，避免并发请求。
+      if (generatingNodeIds.has(nodeId)) return;
+      if (!engine.doc.getElementById(nodeId)) {
+        promptSourceByNodeIdRef.current.delete(nodeId);
+        setNodePromptError(nodeId, false);
+        return;
+      }
+      const source = promptSourceByNodeIdRef.current.get(nodeId);
+      if (!source || !source.imageUrl) {
+        // 逻辑：缺少可用图片时直接提示失败，避免无效请求。
+        toast.error("当前图片缺少可用的地址，无法生成提示词");
+        return;
+      }
+      // 逻辑：复用已缓存的图片信息重新发起生成。
+      void streamPromptToTextNode({
+        nodeId,
+        imageUrl: source.imageUrl,
+        mediaType: source.mediaType,
+      });
+    },
+    [engine, generatingNodeIds, setNodePromptError, streamPromptToTextNode]
+  );
+
   /** Build image payloads while persisting assets into the board folder. */
   const buildBoardImagePayloadFromFile = useCallback(
     async (file: File) => {
@@ -592,8 +818,8 @@ export function BoardCanvas({
   }, []);
   /** Shared board actions exposed to node components. */
   const boardActions = useMemo(
-    () => ({ openImagePreview, closeImagePreview }),
-    [openImagePreview, closeImagePreview]
+    () => ({ openImagePreview, closeImagePreview, retryPromptGeneration }),
+    [closeImagePreview, openImagePreview, retryPromptGeneration]
   );
   /** Apply a snapshot into the engine state. */
   const applySnapshot = useCallback(
@@ -993,6 +1219,15 @@ export function BoardCanvas({
     }
   }, [inspectorElement, inspectorNodeId, snapshot.selectedIds]);
 
+  /** Cleanup active prompt streams on unmount. */
+  useEffect(() => {
+    return () => {
+      // 逻辑：画布卸载时中止所有进行中的生成请求。
+      promptAbortControllersRef.current.forEach((controller) => controller.abort());
+      promptAbortControllersRef.current.clear();
+    };
+  }, []);
+
   /** Create a node and connector from a drop panel selection. */
   const handleConnectorDropSelect = (item: ConnectorDropItem) => {
     if (!connectorDrop) {
@@ -1005,7 +1240,7 @@ export function BoardCanvas({
     // 逻辑：生成提示词固定落地为文本节点，避免误插入占位组件。
     const resolvedType = isPromptText ? "text" : item.type;
     const resolvedProps = isPromptText
-      ? { ...item.props, autoFocus: true }
+      ? { ...item.props, autoFocus: false, value: "" }
       : item.props;
     const [width, height] = item.size;
     const xywh: [number, number, number, number] = [
@@ -1030,6 +1265,30 @@ export function BoardCanvas({
         target: { elementId: id },
         style: engine.getConnectorStyle(),
       });
+      if (isPromptText && "elementId" in connectorDrop.source) {
+        const sourceElement = engine.doc.getElementById(connectorDrop.source.elementId);
+        const imageProps =
+          sourceElement && sourceElement.kind === "node" && sourceElement.type === "image"
+            ? (sourceElement.props as ImageNodeProps)
+            : null;
+        const resolvedImageUrl = imageProps ? resolvePromptImageUri(imageProps) : "";
+        const mediaType = imageProps?.mimeType || "application/octet-stream";
+        const isRelativeTeatime = resolvedImageUrl.startsWith("teatime-file://./");
+        if (
+          !resolvedImageUrl ||
+          isRelativeTeatime ||
+          !resolvedImageUrl.startsWith("teatime-file://")
+        ) {
+          // 逻辑：仅支持可解析的 teatime-file 协议图片生成提示词。
+          toast.error("当前图片缺少可用的地址，无法生成提示词");
+        } else {
+          void streamPromptToTextNode({
+            nodeId: id,
+            imageUrl: resolvedImageUrl,
+            mediaType,
+          });
+        }
+      }
     }
     engine.setConnectorDrop(null);
     engine.setConnectorDraft(null);
@@ -1114,6 +1373,7 @@ export function BoardCanvas({
       engine={engine}
       actions={boardActions}
       fileContext={{ projectId, rootUri, boardFolderUri }}
+      runtime={{ generatingNodeIds, promptErrorNodeIds }}
     >
       <div
         ref={containerRef}

@@ -6,7 +6,7 @@ import type {
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { useBoardEngine } from "../core/BoardProvider";
+import { useBoardContext } from "../core/BoardProvider";
 
 /** Legacy Plate node shape used by older text nodes. */
 type LegacyPlateNode = {
@@ -156,7 +156,13 @@ export function TextNodeView({
   onUpdate,
 }: CanvasNodeViewProps<TextNodeProps>) {
   /** Engine instance used for lock checks. */
-  const engine = useBoardEngine();
+  const { engine, runtime, actions } = useBoardContext();
+  /** Whether the node is currently generating streamed content. */
+  const isGenerating = Boolean(runtime?.generatingNodeIds.has(element.id));
+  /** Whether the node is currently showing a prompt error state. */
+  const isPromptError = Boolean(runtime?.promptErrorNodeIds.has(element.id));
+  /** Whether the node is locked for edits. */
+  const isLocked = engine.isLocked() || element.locked;
   /** Local edit mode state. */
   const [isEditing, setIsEditing] = useState(false);
   /** One-shot focus flag for entering edit mode. */
@@ -179,6 +185,10 @@ export function TextNodeView({
   const isEditingRef = useRef(false);
   /** Pending auto-resize animation frame id. */
   const resizeRafRef = useRef<number | null>(null);
+  /** Track the latest generating flag for async callbacks. */
+  const isGeneratingRef = useRef(false);
+  /** Pending auto-fit animation frame id for streaming updates. */
+  const fitRafRef = useRef<number | null>(null);
 
   const normalizedValue = useMemo(
     () => normalizeTextValue(element.props.value),
@@ -209,13 +219,14 @@ export function TextNodeView({
 
   useEffect(() => {
     if (!element.props.autoFocus || autoFocusConsumedRef.current) return;
+    if (isGenerating || isPromptError) return;
     autoFocusConsumedRef.current = true;
     // 逻辑：自动创建的文本节点需要直接进入编辑并清除标记。
     onSelect();
     setIsEditing(true);
     setShouldFocus(true);
     onUpdate({ autoFocus: false });
-  }, [element.props.autoFocus, onSelect, onUpdate]);
+  }, [element.props.autoFocus, isGenerating, isPromptError, onSelect, onUpdate]);
 
   useEffect(() => {
     if (!selected && isEditing) {
@@ -223,6 +234,20 @@ export function TextNodeView({
       setIsEditing(false);
     }
   }, [isEditing, selected]);
+
+  useEffect(() => {
+    if (!isGenerating || !isEditing) return;
+    // 逻辑：生成中强制退出编辑，避免用户修改流式内容。
+    setIsEditing(false);
+    setShouldFocus(false);
+  }, [isEditing, isGenerating]);
+
+  useEffect(() => {
+    if (!isPromptError || !isEditing) return;
+    // 逻辑：错误状态强制退出编辑，避免继续修改。
+    setIsEditing(false);
+    setShouldFocus(false);
+  }, [isEditing, isPromptError]);
 
   useEffect(() => {
     if (!shouldFocus || !isEditing) return;
@@ -241,6 +266,11 @@ export function TextNodeView({
   useEffect(() => {
     isEditingRef.current = isEditing;
   }, [isEditing]);
+
+  useEffect(() => {
+    // 逻辑：同步生成状态到 ref，避免异步回调读取旧值。
+    isGeneratingRef.current = isGenerating;
+  }, [isGenerating]);
 
   /** Assign textarea ref and sync measurement target. */
   const setTextareaRef = useCallback((node: HTMLTextAreaElement | null) => {
@@ -287,6 +317,17 @@ export function TextNodeView({
     element.xywh,
     engine,
   ]);
+
+  /** Schedule fit-to-content sizing for streaming updates. */
+  const scheduleFitToContent = useCallback(() => {
+    if (fitRafRef.current !== null) return;
+    fitRafRef.current = window.requestAnimationFrame(() => {
+      fitRafRef.current = null;
+      if (!isGeneratingRef.current || isEditingRef.current) return;
+      // 逻辑：生成中按最新文本重新计算尺寸，避免频繁同步抖动。
+      fitToContentIfNeeded();
+    });
+  }, [fitToContentIfNeeded]);
 
   /** Expand the node height to fit the full text content. */
   const expandToContent = useCallback(() => {
@@ -384,11 +425,25 @@ export function TextNodeView({
   }, [draftText, element.xywh, isEditing, updateOverflowState]);
 
   useEffect(() => {
+    if (!isGenerating || isEditing) return;
+    // 逻辑：流式生成中跟随文本变化自动调整尺寸。
+    scheduleFitToContent();
+  }, [draftText, isEditing, isGenerating, scheduleFitToContent]);
+
+  useEffect(() => {
     if (!isEditing && resizeRafRef.current !== null) {
       window.cancelAnimationFrame(resizeRafRef.current);
       resizeRafRef.current = null;
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    if (isGenerating && fitRafRef.current !== null) return;
+    if (!isGenerating && fitRafRef.current !== null) {
+      window.cancelAnimationFrame(fitRafRef.current);
+      fitRafRef.current = null;
+    }
+  }, [isGenerating]);
 
   useEffect(() => {
     const content = contentRef.current;
@@ -403,6 +458,9 @@ export function TextNodeView({
       if (resizeRafRef.current !== null) {
         window.cancelAnimationFrame(resizeRafRef.current);
       }
+      if (fitRafRef.current !== null) {
+        window.cancelAnimationFrame(fitRafRef.current);
+      }
     };
   }, []);
 
@@ -410,13 +468,14 @@ export function TextNodeView({
   const handleDoubleClick = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
       event.stopPropagation();
-      if (engine.isLocked() || element.locked) return;
+      if (isLocked) return;
+      if (isGenerating || isPromptError) return;
       // 逻辑：双击进入编辑时保持节点选中状态。
       onSelect();
       setIsEditing(true);
       setShouldFocus(true);
     },
-    [engine, element.locked, onSelect]
+    [isGenerating, isLocked, isPromptError, onSelect]
   );
 
   /** Exit edit mode when text input loses focus. */
@@ -451,6 +510,18 @@ export function TextNodeView({
     [expandToContent, isEditing, onUpdate]
   );
 
+  /** Retry prompt generation for the text node. */
+  const handleRetryClick = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      if (isLocked || isGenerating) return;
+      // 逻辑：点击重试时保持节点选中。
+      onSelect();
+      actions.retryPromptGeneration(element.id);
+    },
+    [actions, element.id, isGenerating, isLocked, onSelect]
+  );
+
   const containerClasses = [
     "relative h-full w-full rounded-sm border box-border p-2.5",
     "border-slate-300 bg-white",
@@ -460,7 +531,41 @@ export function TextNodeView({
     selected
       ? "dark:border-sky-400 dark:shadow-[0_6px_14px_rgba(0,0,0,0.35)]"
       : "",
+    isPromptError
+      ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"
+      : "",
+    isGenerating && !isPromptError
+      ? "teatime-thinking-border teatime-thinking-border-on border-transparent"
+      : "",
   ].join(" ");
+
+  if (isPromptError) {
+    return (
+      <div
+        ref={containerRef}
+        className={containerClasses}
+        onDoubleClick={handleDoubleClick}
+      >
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-center">
+          <div className="text-sm font-semibold text-rose-500 dark:text-rose-400">
+            生成失败
+          </div>
+          <button
+            type="button"
+            className="rounded-full border border-rose-300 px-3 py-1 text-xs font-semibold text-rose-500 transition hover:bg-rose-100/60 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-500/50 dark:text-rose-300 dark:hover:bg-rose-900/40"
+            onPointerDown={(event) => {
+              // 逻辑：按钮点击时阻止画布接管拖拽。
+              event.stopPropagation();
+            }}
+            onClick={handleRetryClick}
+            disabled={isLocked || isGenerating}
+          >
+            重试
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isEditing) {
     return (

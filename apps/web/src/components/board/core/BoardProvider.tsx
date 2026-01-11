@@ -21,6 +21,8 @@ export type BoardActions = {
   openImagePreview: (payload: ImagePreviewPayload) => void;
   /** Close the fullscreen image preview. */
   closeImagePreview: () => void;
+  /** Retry prompt generation for a text node. */
+  retryPromptGeneration: (nodeId: string) => void;
 };
 
 export type BoardFileContext = {
@@ -32,6 +34,13 @@ export type BoardFileContext = {
   boardFolderUri?: string;
 };
 
+export type BoardRuntimeState = {
+  /** Node ids currently generating streamed content. */
+  generatingNodeIds: ReadonlySet<string>;
+  /** Node ids with prompt generation errors. */
+  promptErrorNodeIds: ReadonlySet<string>;
+};
+
 export type BoardContextValue = {
   /** Engine instance shared by board components. */
   engine: CanvasEngine;
@@ -39,6 +48,8 @@ export type BoardContextValue = {
   actions: BoardActions;
   /** File scope metadata for board nodes. */
   fileContext?: BoardFileContext;
+  /** Runtime-only state for transient UI behaviors. */
+  runtime?: BoardRuntimeState;
 };
 
 // 逻辑：节点事件由节点自身处理，跨层 UI 通过 actions 统一触发，避免画布层特判。
@@ -52,6 +63,8 @@ export type BoardProviderProps = {
   actions: BoardActions;
   /** File scope metadata for board nodes. */
   fileContext?: BoardFileContext;
+  /** Runtime-only state for transient UI behaviors. */
+  runtime?: BoardRuntimeState;
   /** Children rendered within the provider. */
   children: ReactNode;
 };
@@ -61,10 +74,11 @@ export function BoardProvider({
   engine,
   actions,
   fileContext,
+  runtime,
   children,
 }: BoardProviderProps) {
   return (
-    <BoardContext.Provider value={{ engine, actions, fileContext }}>
+    <BoardContext.Provider value={{ engine, actions, fileContext, runtime }}>
       {children}
     </BoardContext.Provider>
   );

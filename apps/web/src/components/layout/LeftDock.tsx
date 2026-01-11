@@ -142,7 +142,7 @@ function PanelFrame({
           <StackHeader
             title={title}
             onRefresh={() => setRefreshKey((k) => k + 1)}
-            rightSlotAfter={
+            rightSlot={
               <BoardPanelHeaderActions item={item} title={title} tabId={tabId} />
             }
             onClose={canClose ? onClose : undefined}

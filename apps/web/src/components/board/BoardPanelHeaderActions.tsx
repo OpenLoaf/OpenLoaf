@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { toBlob } from "html-to-image";
-import { Download, Maximize2, Minimize2 } from "lucide-react";
+import { Camera, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
 import type { DockItem } from "@teatime-ai/api/common";
 import { Button } from "@/components/ui/button";
@@ -127,6 +127,19 @@ async function downloadBlobAsFile(blob: Blob, fileName: string): Promise<boolean
   return true;
 }
 
+/** Return true when the target should ignore global shortcuts. */
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return (
+    target.isContentEditable ||
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.getAttribute("role") === "textbox"
+  );
+}
+
 export type BoardPanelHeaderActionsProps = {
   item: DockItem;
   title: string;
@@ -154,6 +167,12 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
   const rightChatCollapsed = useTabs(
     (state) => state.tabs.find((tab) => tab.id === tabId)?.rightChatCollapsed ?? false
   );
+  const activeStackItemId = useTabs((state) => {
+    const tab = state.tabs.find((target) => target.id === tabId);
+    const stack = tab?.stack ?? [];
+    return state.activeStackItemIdByTabId[tabId] ?? stack.at(-1)?.id ?? "";
+  });
+  const stackHidden = useTabs((state) => Boolean(state.stackHiddenByTabId[tabId]));
 
   /** Export the current board panel to an image. */
   const handleExportBoard = useCallback(async () => {
@@ -230,14 +249,39 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
   const shouldCollapsePanels = leftOpen || !rightChatCollapsed;
   // 逻辑：左右面板都收起时视为画布全屏。
   const isBoardFull = !shouldCollapsePanels;
-  const toggleLabel =
-    canToggleSidebar
-      ? shouldCollapsePanels
-        ? "收起侧边栏和 AI 面板"
-        : "显示侧边栏和 AI 面板"
-      : rightChatCollapsed
-        ? "显示 AI 面板"
-        : "收起 AI 面板";
+  const isActiveStackItem = activeStackItemId === item.id && !stackHidden;
+  const shortcutLabel = useMemo(() => {
+    if (typeof navigator === "undefined") return "Cmd+F";
+    const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
+    return isMac ? "Cmd+F" : "Ctrl+F";
+  }, []);
+  const toggleLabel = canToggleSidebar
+    ? isBoardFull
+      ? "退出全屏"
+      : "进入全屏"
+    : rightChatCollapsed
+      ? "显示 AI 面板"
+      : "收起 AI 面板";
+  const toggleTooltip = canToggleSidebar ? `${toggleLabel} (${shortcutLabel})` : toggleLabel;
+  const exportLabel = "截图画布";
+
+  useEffect(() => {
+    if (!isBoardPanel) return;
+    if (!isActiveStackItem) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      if (event.key.toLowerCase() !== "f") return;
+      if (isEditableTarget(event.target)) return;
+      // 逻辑：拦截 Command+F，切换画布全屏状态。
+      event.preventDefault();
+      handleTogglePanels();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleTogglePanels, isActiveStackItem, isBoardPanel]);
 
   return (
     <>
@@ -252,20 +296,20 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
             {isBoardFull ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">{toggleLabel}</TooltipContent>
+        <TooltipContent side="bottom">{toggleTooltip}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             size="sm"
             variant="ghost"
-            aria-label="导出图片"
+            aria-label={exportLabel}
             onClick={() => void handleExportBoard()}
           >
-            <Download className="h-4 w-4" />
+            <Camera className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">导出图片</TooltipContent>
+        <TooltipContent side="bottom">{exportLabel}</TooltipContent>
       </Tooltip>
     </>
   );
