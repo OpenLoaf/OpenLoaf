@@ -114,6 +114,7 @@ export type ProjectFileSystemModel = {
   handleOpen: (entry: FileSystemEntry) => Promise<void>;
   handleOpenInFileManager: (entry: FileSystemEntry) => Promise<void>;
   handleOpenImage: (entry: FileSystemEntry) => void;
+  handleOpenMarkdown: (entry: FileSystemEntry) => void;
   handleOpenCode: (entry: FileSystemEntry) => void;
   handleOpenPdf: (entry: FileSystemEntry) => void;
   handleOpenDoc: (entry: FileSystemEntry) => void;
@@ -573,6 +574,27 @@ export function useProjectFileSystemModel({
           },
         }
       );
+    },
+    [activeTabId, pushStackItem]
+  );
+
+  /** Open a markdown file inside the current tab stack. */
+  const handleOpenMarkdown = useCallback(
+    (entry: FileSystemEntry) => {
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: entry.uri,
+        component: "markdown-viewer",
+        title: entry.name,
+        params: {
+          uri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+        },
+      });
     },
     [activeTabId, pushStackItem]
   );
@@ -1277,6 +1299,7 @@ export function useProjectFileSystemModel({
     handleOpen,
     handleOpenInFileManager,
     handleOpenImage,
+    handleOpenMarkdown,
     handleOpenCode,
     handleOpenPdf,
     handleOpenDoc,

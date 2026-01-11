@@ -1,0 +1,20 @@
+.milkdown-viewer .ProseMirror {
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.milkdown-viewer .ProseMirror a {
+  text-decoration: none;
+}
+
+.milkdown-viewer .ProseMirror a:hover {
+  text-decoration: underline;
+}
+
+.milkdown-viewer .ProseMirror pre {
+  overflow-x: auto;
+}
+

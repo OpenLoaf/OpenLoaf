@@ -34,6 +34,7 @@ import {
   CODE_EXTS,
   DOC_EXTS,
   IMAGE_EXTS,
+  MARKDOWN_EXTS,
   PDF_EXTS,
   SPREADSHEET_EXTS,
   getEntryVisual,
@@ -281,6 +282,8 @@ type FileSystemColumnsProps = {
   onNavigate?: (nextUri: string) => void;
   /** Open image entries in an external viewer. */
   onOpenImage?: (entry: FileSystemEntry) => void;
+  /** Open markdown entries in a markdown viewer. */
+  onOpenMarkdown?: (entry: FileSystemEntry) => void;
   /** Open code entries in an external viewer. */
   onOpenCode?: (entry: FileSystemEntry) => void;
   /** Open PDF entries in an external viewer. */
@@ -341,6 +344,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
   dragRootUri,
   onNavigate,
   onOpenImage,
+  onOpenMarkdown,
   onOpenCode,
   onOpenPdf,
   onOpenDoc,
@@ -429,6 +433,8 @@ const FileSystemColumns = memo(function FileSystemColumns({
   onEntryDropRef.current = onEntryDrop;
   const onOpenImageRef = useRef(onOpenImage);
   onOpenImageRef.current = onOpenImage;
+  const onOpenMarkdownRef = useRef(onOpenMarkdown);
+  onOpenMarkdownRef.current = onOpenMarkdown;
   const onOpenCodeRef = useRef(onOpenCode);
   onOpenCodeRef.current = onOpenCode;
   const onOpenPdfRef = useRef(onOpenPdf);
@@ -652,6 +658,10 @@ const FileSystemColumns = memo(function FileSystemColumns({
       const entryExt = getEntryExt(entry);
       if (entry.kind === "file" && IMAGE_EXTS.has(entryExt)) {
         onOpenImageRef.current?.(entry);
+        return;
+      }
+      if (entry.kind === "file" && MARKDOWN_EXTS.has(entryExt)) {
+        onOpenMarkdownRef.current?.(entry);
         return;
       }
       if (entry.kind === "file" && CODE_EXTS.has(entryExt)) {

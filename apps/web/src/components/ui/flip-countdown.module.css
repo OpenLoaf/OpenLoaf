@@ -1,0 +1,103 @@
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.separator {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: color-mix(in oklch, var(--muted-foreground) 75%, transparent);
+  padding: 0 0.1rem;
+}
+
+.unit {
+  position: relative;
+  width: 2.2rem;
+  height: 3rem;
+  perspective: 900px;
+}
+
+.card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--flip-card-bg, var(--card));
+  color: var(--flip-card-text, var(--foreground));
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  font-size: 1.6rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* 上半片显示数字的“下半部分”，下半片显示数字的“上半部分”，避免看起来像两行字。 */
+.cardTop {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 50%;
+  padding-bottom: 0.18rem;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  overflow: hidden;
+  transform-origin: bottom;
+  backface-visibility: hidden;
+}
+
+.cardBottom {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  top: 50%;
+  height: 50%;
+  padding-top: 0.18rem;
+  border-top: 1px solid color-mix(in oklch, var(--border) 45%, transparent);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  overflow: hidden;
+  transform-origin: top;
+  backface-visibility: hidden;
+}
+
+.flipper {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.flipperTop {
+  transform: rotateX(0deg);
+}
+
+.flipperBottom {
+  transform: rotateX(180deg);
+}
+
+.isFlipping .flipperTop {
+  animation: flipTop 0.5s ease-in forwards;
+}
+
+.isFlipping .flipperBottom {
+  animation: flipBottom 0.5s ease-out forwards;
+  animation-delay: 0.5s;
+}
+
+@keyframes flipTop {
+  100% {
+    transform: rotateX(-180deg);
+  }
+}
+
+@keyframes flipBottom {
+  100% {
+    transform: rotateX(0deg);
+  }
+}
+

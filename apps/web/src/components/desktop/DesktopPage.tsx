@@ -7,12 +7,20 @@ import DesktopGrid from "./DesktopGrid";
 
 const initialItems: DesktopItem[] = [
   {
+    id: "w-flip-clock",
+    kind: "widget",
+    title: "Flip Clock",
+    widgetKey: "flip-clock",
+    size: "4x2",
+    layout: { x: 0, y: 0, w: 4, h: 2 },
+  },
+  {
     id: "w-clock",
     kind: "widget",
     title: "Clock",
     widgetKey: "clock",
     size: "2x2",
-    layout: { x: 0, y: 0, w: 2, h: 2 },
+    layout: { x: 0, y: 2, w: 2, h: 2 },
   },
   {
     id: "w-actions",
@@ -20,35 +28,35 @@ const initialItems: DesktopItem[] = [
     title: "Actions",
     widgetKey: "quick-actions",
     size: "4x2",
-    layout: { x: 0, y: 2, w: 4, h: 2 },
+    layout: { x: 0, y: 4, w: 4, h: 2 },
   },
   {
     id: "i-files",
     kind: "icon",
     title: "Files",
     icon: <FileText className="size-5" />,
-    layout: { x: 2, y: 0, w: 1, h: 1 },
+    layout: { x: 2, y: 2, w: 1, h: 1 },
   },
   {
     id: "i-tasks",
     kind: "icon",
     title: "Tasks",
     icon: <ListTodo className="size-5" />,
-    layout: { x: 3, y: 0, w: 1, h: 1 },
+    layout: { x: 3, y: 2, w: 1, h: 1 },
   },
   {
     id: "i-search",
     kind: "icon",
     title: "Search",
     icon: <Search className="size-5" />,
-    layout: { x: 2, y: 1, w: 1, h: 1 },
+    layout: { x: 2, y: 3, w: 1, h: 1 },
   },
   {
     id: "i-settings",
     kind: "icon",
     title: "Settings",
     icon: <Settings className="size-5" />,
-    layout: { x: 3, y: 1, w: 1, h: 1 },
+    layout: { x: 3, y: 3, w: 1, h: 1 },
   },
 ];
 

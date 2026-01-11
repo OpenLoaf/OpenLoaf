@@ -13,6 +13,7 @@ import TemplatePage from "@/components/template/Template";
 import FileViewer from "@/components/file/FileViewer";
 import ImageViewer from "@/components/file/ImageViewer";
 import CodeViewer from "@/components/file/CodeViewer";
+import MarkdownViewer from "@/components/file/MarkdownViewer";
 import PdfViewer from "@/components/file/PdfViewer";
 import DocViewer from "@/components/file/DocViewer";
 import SheetViewer from "@/components/file/SheetViewer";
@@ -23,7 +24,7 @@ import TerminalViewer from "@/components/file/TerminalViewer";
  * 组件名称到组件的映射关系
  * 用于根据字符串名称动态渲染不同组件
  */
-// 中文注释：项目页包含 Plate 编辑器，使用 lazy 避免首屏被重组件阻塞。
+// 逻辑：项目页包含 Plate 编辑器，使用 lazy 避免首屏被重组件阻塞。
 const LazyProjectPage = React.lazy(() => import("@/components/project/Project"));
 
 type PanelComponent = React.ComponentType<any> | React.LazyExoticComponent<React.ComponentType<any>>;
@@ -41,6 +42,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "file-viewer": FileViewer,
   "image-viewer": ImageViewer,
   "code-viewer": CodeViewer,
+  "markdown-viewer": MarkdownViewer,
   "pdf-viewer": PdfViewer,
   "doc-viewer": DocViewer,
   "sheet-viewer": SheetViewer,
@@ -79,6 +81,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Image";
     case "code-viewer":
       return "Code";
+    case "markdown-viewer":
+      return "Markdown";
     case "pdf-viewer":
       return "PDF";
     case "doc-viewer":

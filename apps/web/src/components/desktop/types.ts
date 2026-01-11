@@ -37,7 +37,7 @@ export interface DesktopIconItem extends DesktopItemBase {
 export interface DesktopWidgetItem extends DesktopItemBase {
   kind: "widget";
   /** Widget implementation key (built-in for MVP). */
-  widgetKey: "clock" | "quick-actions";
+  widgetKey: "clock" | "flip-clock" | "quick-actions";
   /** Widget size in grid units (MVP uses presets). */
   size: DesktopWidgetSize;
 }

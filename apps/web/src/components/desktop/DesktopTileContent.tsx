@@ -3,6 +3,7 @@
 import type { DesktopItem } from "./types";
 import DesktopIconLabel from "./DesktopIconLabel";
 import ClockWidget from "./widgets/ClockWidget";
+import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 
 interface DesktopTileContentProps {
@@ -18,6 +19,14 @@ export default function DesktopTileContent({ item }: DesktopTileContentProps) {
           {item.icon}
         </div>
         <DesktopIconLabel>{item.title}</DesktopIconLabel>
+      </div>
+    );
+  }
+
+  if (item.widgetKey === "flip-clock") {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-2">
+        <FlipClockWidget />
       </div>
     );
   }
