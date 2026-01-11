@@ -21,8 +21,19 @@ export type BoardActions = {
   openImagePreview: (payload: ImagePreviewPayload) => void;
   /** Close the fullscreen image preview. */
   closeImagePreview: () => void;
-  /** Retry prompt generation for a text node. */
-  retryPromptGeneration: (nodeId: string) => void;
+  /** Run a template node once. */
+  runTemplateNode: (input: {
+    nodeId: string;
+    chatModelId?: string;
+    chatModelSource?: "local" | "cloud";
+  }) => void;
+  /** Stop a running template node. */
+  stopTemplateNode: (nodeId: string) => void;
+};
+
+export type TemplateRuntimeState = {
+  /** 判断某个模板节点是否正在运行（不落盘，刷新后会重置）。 */
+  isRunning: (nodeId: string) => boolean;
 };
 
 export type BoardFileContext = {
@@ -34,22 +45,15 @@ export type BoardFileContext = {
   boardFolderUri?: string;
 };
 
-export type BoardRuntimeState = {
-  /** Node ids currently generating streamed content. */
-  generatingNodeIds: ReadonlySet<string>;
-  /** Node ids with prompt generation errors. */
-  promptErrorNodeIds: ReadonlySet<string>;
-};
-
 export type BoardContextValue = {
   /** Engine instance shared by board components. */
   engine: CanvasEngine;
   /** Action handlers exposed to node components. */
   actions: BoardActions;
+  /** 模板节点运行态（仅运行时存在，不写入 .tnboard）。 */
+  templateRuntime: TemplateRuntimeState;
   /** File scope metadata for board nodes. */
   fileContext?: BoardFileContext;
-  /** Runtime-only state for transient UI behaviors. */
-  runtime?: BoardRuntimeState;
 };
 
 // 逻辑：节点事件由节点自身处理，跨层 UI 通过 actions 统一触发，避免画布层特判。
@@ -61,10 +65,10 @@ export type BoardProviderProps = {
   engine: CanvasEngine;
   /** Action handlers exposed to node components. */
   actions: BoardActions;
+  /** Runtime-only state for template nodes. */
+  templateRuntime: TemplateRuntimeState;
   /** File scope metadata for board nodes. */
   fileContext?: BoardFileContext;
-  /** Runtime-only state for transient UI behaviors. */
-  runtime?: BoardRuntimeState;
   /** Children rendered within the provider. */
   children: ReactNode;
 };
@@ -73,12 +77,12 @@ export type BoardProviderProps = {
 export function BoardProvider({
   engine,
   actions,
+  templateRuntime,
   fileContext,
-  runtime,
   children,
 }: BoardProviderProps) {
   return (
-    <BoardContext.Provider value={{ engine, actions, fileContext, runtime }}>
+    <BoardContext.Provider value={{ engine, actions, templateRuntime, fileContext }}>
       {children}
     </BoardContext.Provider>
   );

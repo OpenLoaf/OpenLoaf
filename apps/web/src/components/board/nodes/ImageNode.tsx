@@ -8,19 +8,8 @@ import { z } from "zod";
 import {
   Download,
   Info,
-  FileText,
-  Film,
-  Maximize2,
-  PencilLine,
-  Scissors,
-  SlidersHorizontal,
-  Sparkles,
-  Video,
-  WandSparkles,
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
-import type { ConnectorDropGroup } from "../core/ConnectorDropPanel";
-import { DEFAULT_NODE_SIZE } from "../engine/constants";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import { ImageNodeInput } from "./ImageNodeInput";
 
@@ -38,81 +27,6 @@ export type ImageNodeProps = {
   /** Original image height in pixels. */
   naturalHeight: number;
 };
-
-/** Connector drop groups available for image nodes. */
-export const imageConnectorDropGroups: ConnectorDropGroup[] = [
-  {
-    label: "图片理解",
-    icon: <Sparkles size={14} />,
-    items: [
-      {
-        label: "生成提示词",
-        subtitle: "提取关键词",
-        icon: <WandSparkles size={14} />,
-        type: "text",
-        props: { autoFocus: true },
-        size: [280, 140],
-      },
-      {
-        label: "生成文案",
-        subtitle: "生成描述文案",
-        icon: <FileText size={14} />,
-        type: "text",
-        props: { autoFocus: true },
-        size: DEFAULT_NODE_SIZE,
-      },
-    ],
-  },
-  {
-    label: "图片调整",
-    icon: <SlidersHorizontal size={14} />,
-    items: [
-      {
-        label: "重新生成",
-        subtitle: "同风格重绘",
-        icon: <Sparkles size={14} />,
-        type: "text",
-        props: {},
-        size: DEFAULT_NODE_SIZE,
-      },
-      {
-        label: "图片编辑",
-        subtitle: "局部编辑调整",
-        icon: <PencilLine size={14} />,
-        type: "text",
-        props: {},
-        size: DEFAULT_NODE_SIZE,
-      },
-      {
-        label: "抠图",
-        subtitle: "主体抠图",
-        icon: <Scissors size={14} />,
-        type: "text",
-        props: {},
-        size: DEFAULT_NODE_SIZE,
-      },
-      {
-        label: "扩图",
-        subtitle: "扩展画布",
-        icon: <Maximize2 size={14} />,
-        type: "text",
-        props: {},
-        size: DEFAULT_NODE_SIZE,
-      },
-    ],
-  },
-  {
-    label: "视频生成",
-    icon: <Film size={14} />,
-    item: {
-      label: "视频生成",
-      icon: <Video size={14} />,
-      type: "text",
-      props: {},
-      size: DEFAULT_NODE_SIZE,
-    },
-  },
-];
 
 /** Resolve image uri to a browser-friendly source. */
 function resolveImageSource(uri: string) {

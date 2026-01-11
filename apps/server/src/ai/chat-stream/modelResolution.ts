@@ -92,6 +92,8 @@ export async function resolveExplicitModelDefinition(
 /** Resolve required input tags from message parts. */
 export function resolveRequiredInputTags(messages: UIMessage[]): ModelTag[] {
   const required = new Set<ModelTag>();
+  // 中文注释：/chat/sse 默认走文本对话链路，因此至少需要文本生成能力。
+  required.add("text_generation");
   for (const message of messages) {
     const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
     for (const part of parts) {
@@ -104,8 +106,8 @@ export function resolveRequiredInputTags(messages: UIMessage[]): ModelTag[] {
         required.add("image_edit");
         continue;
       }
-      // 中文注释：存在图片输入时统一走图片编辑能力。
-      required.add("image_edit");
+      // 中文注释：普通图片输入只要求 image_input，避免误判为图片编辑。
+      required.add("image_input");
     }
   }
   return Array.from(required);

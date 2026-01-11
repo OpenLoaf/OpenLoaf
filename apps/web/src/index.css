@@ -1,4 +1,47 @@
 @import "tailwindcss";
+@import "gridstack/dist/gridstack.min.css";
+
+/* Hide Gridstack resize arrows (keep resize interaction). */
+.grid-stack-item > .ui-resizable-handle {
+  background-image: none !important;
+  opacity: 0;
+  cursor: default !important;
+  pointer-events: none;
+}
+
+/* Give a larger invisible hit area for the single SE handle. */
+.grid-stack-item > .ui-resizable-se {
+  width: 28px;
+  height: 28px;
+  right: 2px;
+  bottom: 2px;
+  pointer-events: auto;
+  cursor: se-resize !important;
+}
+
+/* Drag placeholder should match tile rounded corners. */
+.grid-stack-placeholder {
+  border-radius: 1rem;
+}
+.grid-stack-placeholder > .placeholder-content {
+  border-radius: 1rem !important;
+  overflow: hidden;
+}
+
+/* While dragging, ensure the temporary dragged content keeps rounded corners. */
+.grid-stack > .grid-stack-item > .grid-stack-item-content {
+  border-radius: 1rem;
+}
+.ui-draggable-dragging > .grid-stack-item-content,
+.ui-resizable-resizing > .grid-stack-item-content {
+  border-radius: 1rem !important;
+  box-shadow: none !important;
+}
+
+.grid-stack-item.ui-draggable-dragging,
+.grid-stack-item.ui-resizable-resizing {
+  border-radius: 1rem !important;
+}
 @source "./components/board/**/*.{ts,tsx}";
 
 @plugin "tailwind-scrollbar-hide";

@@ -8,6 +8,7 @@ import { LinkNodeDefinition } from "./nodes/LinkNode";
 import { GroupNodeDefinition, ImageGroupNodeDefinition } from "./nodes/GroupNode";
 import { StrokeNodeDefinition } from "./nodes/StrokeNode";
 import { TextNodeDefinition } from "./nodes/TextNode";
+import { TemplateNodeDefinition } from "./nodes/TemplateNode";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 
@@ -76,6 +77,7 @@ const BoardFileViewer = memo(function BoardFileViewer({
           LinkNodeDefinition,
           StrokeNodeDefinition,
           TextNodeDefinition,
+          TemplateNodeDefinition,
           GroupNodeDefinition,
           ImageGroupNodeDefinition,
         ]}

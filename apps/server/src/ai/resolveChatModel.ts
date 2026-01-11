@@ -303,7 +303,7 @@ async function resolveCloudChatModel(_input: {
   }
   const providers = buildCloudProviderEntries({
     models: payload.data,
-    apiUrl: `${saasBaseUrl}/ttai/v1`,
+    apiUrl: `${saasBaseUrl}/tenas-ai/v1`,
     apiKey: accessToken,
   });
   return resolveChatModelFromProviders({

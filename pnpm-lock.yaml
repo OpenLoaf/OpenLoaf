@@ -254,6 +254,15 @@ importers:
       '@ariakit/react':
         specifier: ^0.4.20
         version: 0.4.20(react-dom@19.1.2(react@19.1.2))(react@19.1.2)
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@19.1.2(react@19.1.2))(react@19.1.2)
+      '@dnd-kit/sortable':
+        specifier: ^10.0.0
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.1.2(react@19.1.2))(react@19.1.2))(react@19.1.2)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@19.1.2)
       '@emoji-mart/data':
         specifier: ^1.2.1
         version: 1.2.1
@@ -473,6 +482,9 @@ importers:
       docx-preview:
         specifier: ^0.3.7
         version: 0.3.7
+      gridstack:
+        specifier: ^12.4.2
+        version: 12.4.2
       html-to-image:
         specifier: ^1.11.11
         version: 1.11.13
@@ -7716,6 +7728,9 @@ packages:
   graphql@16.12.0:
     resolution: {integrity: sha512-DKKrynuQRne0PNpEbzuEdHlYOMksHSUI8Zc9Unei5gTsMNA2/vMpoMz/yKba50pejK56qj98qM0SjYxAKi13gQ==}
     engines: {node: ^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0}
+
+  gridstack@12.4.2:
+    resolution: {integrity: sha512-aXbJrQpi3LwpYXYOr4UriPM5uc/dPcjK01SdOE5PDpx2vi8tnLhU7yBg/1i4T59UhNkG/RBfabdFUObuN+gMnw==}
 
   hachure-fill@0.5.2:
     resolution: {integrity: sha512-3GKBOn+m2LX9iq+JC1064cSFprJY4jL1jCXTcpnfER5HYE2l/4EfWSGzkPa/ZDBmYI0ZOEj5VHV/eKnPGkHuOg==}
@@ -21395,6 +21410,8 @@ snapshots:
   grammex@3.1.12: {}
 
   graphql@16.12.0: {}
+
+  gridstack@12.4.2: {}
 
   hachure-fill@0.5.2: {}
 
