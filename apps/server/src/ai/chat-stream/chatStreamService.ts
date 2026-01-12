@@ -14,7 +14,11 @@ import {
 import { logger } from "@/common/logger";
 import { normalizePromptForImageEdit } from "./imageEditNormalizer";
 import { resolveImagePrompt } from "./imagePrompt";
-import { saveGeneratedImages } from "./imageStorage";
+import {
+  resolveImageSaveDirectory,
+  saveGeneratedImages,
+  saveGeneratedImagesToDirectory,
+} from "./imageStorage";
 import {
   createChatImageErrorResult,
   formatImageErrorMessage,
@@ -55,6 +59,8 @@ type ImageModelRequest = {
   chatModelId?: string;
   /** Optional model definition. */
   modelDefinition?: ModelDefinition | null;
+  /** Optional image save directory uri. */
+  imageSaveDir?: string;
 };
 
 type ImageModelResult = {
@@ -291,6 +297,7 @@ export async function runChatImageRequest(input: {
     workspaceId,
     projectId,
     boardId,
+    image_save_dir: imageSaveDir,
   } = input.request;
 
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
@@ -350,6 +357,7 @@ export async function runChatImageRequest(input: {
       abortSignal: abortController.signal,
       chatModelId,
       modelDefinition: explicitModelDefinition,
+      imageSaveDir,
     });
 
     const timingMetadata = buildTimingMetadata({
@@ -524,6 +532,23 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     throw new Error("workspaceId 缺失，无法保存图片");
   }
   const projectId = getProjectId();
+  const imageSaveDirRaw =
+    typeof input.imageSaveDir === "string" ? input.imageSaveDir.trim() : "";
+  if (imageSaveDirRaw) {
+    const resolvedSaveDir = await resolveImageSaveDirectory({
+      imageSaveDir: imageSaveDirRaw,
+      workspaceId,
+      projectId: projectId || undefined,
+    });
+    if (!resolvedSaveDir) {
+      throw new ChatImageRequestError("image_save_dir 无效。", 400);
+    }
+    // 按用户指定目录落盘，失败时直接抛错反馈。
+    await saveGeneratedImagesToDirectory({
+      images: result.images,
+      directory: resolvedSaveDir,
+    });
+  }
   // 保存到本地磁盘，落库使用 tenas-file。
   const persistedImageParts = await saveGeneratedImages({
     images: result.images,

@@ -28,6 +28,8 @@ type FileSystemEntryCardProps = {
   onDragEnter?: (event: DragEvent<HTMLButtonElement>) => void;
   onDragLeave?: (event: DragEvent<HTMLButtonElement>) => void;
   onDrop?: (event: DragEvent<HTMLButtonElement>) => void;
+  /** Whether the entry is disabled for selection. */
+  isDisabled?: boolean;
 };
 
 /** Render a single file system entry card. */
@@ -51,6 +53,7 @@ const FileSystemEntryCard = memo(
         onDragEnter,
         onDragLeave,
         onDrop,
+        isDisabled = false,
       },
       ref
     ) {
@@ -62,10 +65,13 @@ const FileSystemEntryCard = memo(
           data-entry-card="true"
           data-entry-uri={uri}
           data-flip-id={uri}
-          className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground hover:bg-muted/80 ${
-            isSelected ? "bg-muted/70 ring-1 ring-border" : ""
-          } ${isDragOver ? "bg-muted/80 ring-1 ring-border" : ""}`}
-          draggable
+          className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground ${
+            isDisabled ? "cursor-not-allowed opacity-50" : "hover:bg-muted/80"
+          } ${isSelected ? "bg-muted/70 ring-1 ring-border" : ""} ${
+            isDragOver ? "bg-muted/80 ring-1 ring-border" : ""
+          }`}
+          draggable={!isDisabled}
+          aria-disabled={isDisabled}
           onClick={onClick}
           onDoubleClick={onDoubleClick}
           onContextMenu={onContextMenu}

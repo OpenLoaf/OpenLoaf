@@ -48,6 +48,8 @@ interface DesktopGridProps {
   onUpdateItem: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
   onChangeItems: (nextItems: DesktopItem[]) => void;
   onDeleteItem: (itemId: string) => void;
+  /** Request folder selection for 3d-folder widget. */
+  onSelectFolder: (itemId: string) => void;
   /** Signal value for triggering compact. */
   compactSignal: number;
 }
@@ -62,6 +64,7 @@ export default function DesktopGrid({
   onUpdateItem,
   onChangeItems,
   onDeleteItem,
+  onSelectFolder,
   compactSignal,
 }: DesktopGridProps) {
   const { basic } = useBasicConfig();
@@ -145,6 +148,8 @@ export default function DesktopGrid({
 
     setIsGridReady(false);
     didSetReadyRef.current = false;
+    // 逻辑：重建 Gridstack 时重置注册状态，确保组件重新注册并展示。
+    registeredIdsRef.current = new Set();
 
     const grid = GridStack.init(
       {
@@ -368,7 +373,7 @@ export default function DesktopGrid({
         setIsGridReady(true);
       });
     }
-  }, [items, metrics.cols, resolvedBreakpoint]);
+  }, [editMode, items, metrics.cols, resolvedBreakpoint]);
 
   return (
     <div ref={wrapperRef} className="relative h-full w-full">
@@ -391,6 +396,11 @@ export default function DesktopGrid({
                 else itemElByIdRef.current.delete(item.id);
               }}
               className="grid-stack-item"
+              style={
+                item.kind === "widget" && item.widgetKey === "3d-folder"
+                  ? { overflow: "visible" }
+                  : undefined
+              }
               {...({
                 "gs-id": item.id,
                 "gs-x": viewItem.layout.x,
@@ -426,6 +436,7 @@ export default function DesktopGrid({
                     if (el && gridRef.current) gridRef.current.removeWidget(el, false);
                     onDeleteItem(itemId);
                   }}
+                  onSelectFolder={onSelectFolder}
                 />
               </div>
             </div>

@@ -9,12 +9,15 @@
   },
   "models": [
     {
-      "id": "volcengine.t2i.v40",
+      "id": "jimeng_t2i_v40",
+      "name": "即梦 文生图 4.0",
       "familyId": "volcengine.t2i",
       "providerId": "volcengine",
       "icon": "Volcengine",
       "tags": [
-        "image_generation"
+        "image_generation",
+        "image_multi_input",
+        "image_multi_generation"
       ],
       "maxContextK": 1,
       "priceStrategyId": "tiered_token",
@@ -29,7 +32,31 @@
       ]
     },
     {
-      "id": "volcengine.inpaint.v1",
+      "id": "jimeng_t2i_v31",
+      "name": "即梦 文生图 3.1",
+      "familyId": "volcengine.t2i",
+      "providerId": "volcengine",
+      "icon": "Volcengine",
+      "tags": [
+        "image_generation",
+        "image_multi_input",
+        "image_multi_generation"
+      ],
+      "maxContextK": 1,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        {
+          "minContextK": 0,
+          "input": 0,
+          "inputCache": 0,
+          "output": 0
+        }
+      ]
+    },
+    {
+      "id": "jimeng_image2image_dream_inpaint",
+      "name": "即梦 局部重绘",
       "familyId": "volcengine.inpaint",
       "providerId": "volcengine",
       "icon": "Volcengine",
@@ -49,7 +76,8 @@
       ]
     },
     {
-      "id": "volcengine.material.v1",
+      "id": "i2i_material_extraction",
+      "name": "即梦 素材提取",
       "familyId": "volcengine.material",
       "providerId": "volcengine",
       "icon": "Volcengine",
@@ -69,7 +97,8 @@
       ]
     },
     {
-      "id": "volcengine.video.v30pro",
+      "id": "jimeng_ti2v_v30_pro",
+      "name": "即梦 文生视频 v30 Pro",
       "familyId": "volcengine.video",
       "providerId": "volcengine",
       "icon": "Volcengine",

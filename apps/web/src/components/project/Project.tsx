@@ -54,9 +54,17 @@ function getProjectTabByIndex(index: number) {
 }
 
 type ProjectTreeNode = {
+  /** Project id. */
+  projectId: string;
+  /** Project root uri. */
   rootUri: string;
+  /** Project display title. */
   title: string;
+  /** Project icon. */
   icon?: string;
+  /** Whether the project root belongs to a git repository. */
+  isGitProject?: boolean;
+  /** Child projects. */
   children?: ProjectTreeNode[];
 };
 
@@ -77,10 +85,39 @@ function buildProjectLookup(projects: ProjectTreeNode[] | undefined) {
   return map;
 }
 
+/** Find a project node by project id or root uri. */
+function findProjectNode(
+  projects: ProjectTreeNode[] | undefined,
+  target: { projectId?: string; rootUri?: string }
+): ProjectTreeNode | null {
+  if (!projects?.length) return null;
+  const targetId = target.projectId?.trim();
+  const targetRoot = target.rootUri?.trim();
+  const matchNode = (node: ProjectTreeNode) => {
+    if (targetId && node.projectId === targetId) return true;
+    if (targetRoot && node.rootUri === targetRoot) return true;
+    return false;
+  };
+  // 逻辑：优先按 projectId 命中，未命中再按 rootUri 回退。
+  const walk = (nodes: ProjectTreeNode[]): ProjectTreeNode | null => {
+    for (const node of nodes) {
+      if (matchNode(node)) return node;
+      if (node.children?.length) {
+        const hit = walk(node.children);
+        if (hit) return hit;
+      }
+    }
+    return null;
+  };
+  return walk(projects);
+}
+
 export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: ProjectPageProps) {
   const tabActive = useTabActive();
   const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
   const setTabBaseParams = useTabs((s) => s.setTabBaseParams);
+  const setTabTitle = useTabs((s) => s.setTabTitle);
+  const setTabIcon = useTabs((s) => s.setTabIcon);
   const appliedWidthRef = useRef(false);
   const mountedScopeRef = useRef<{ rootUri?: string; tabId?: string }>({
     rootUri,
@@ -93,6 +130,10 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
     invalidateProject,
     invalidateProjectList,
   } = useProject(projectId);
+  const [localTitle, setLocalTitle] = useState<string | null>(null);
+  const [localIcon, setLocalIcon] = useState<string | null>(null);
+  const lastTitleRef = useRef<string | null>(null);
+  const lastIconRef = useRef<string | null>(null);
 
   // 从持久化参数恢复上次的 Project 子标签，刷新后保持位置。
   const initialProjectTab =
@@ -111,8 +152,9 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   const indexControlsRef = useRef<HTMLDivElement | null>(null);
   const [fileUri, setFileUri] = useState<string | null>(rootUri ?? null);
 
-  const pageTitle = projectData?.project?.title || "Untitled Project";
-  const titleIcon: string | undefined = projectData?.project?.icon ?? undefined;
+  const pageTitle = localTitle ?? projectData?.project?.title ?? "Untitled Project";
+  const titleIcon: string | undefined =
+    localIcon ?? projectData?.project?.icon ?? undefined;
   const shouldRenderIndex = activeTab === "index" || mountedTabs.has("index");
   const shouldRenderFiles = activeTab === "files" || mountedTabs.has("files");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
@@ -131,23 +173,69 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   const handleUpdateTitle = useCallback(
     (nextTitle: string) => {
       if (!projectId) return;
-      updateProject.mutate({ projectId, title: nextTitle });
+      const fallbackTitle = projectData?.project?.title ?? "Untitled Project";
+      const previousTitle = localTitle ?? fallbackTitle;
+      lastTitleRef.current = previousTitle;
+      setLocalTitle(nextTitle);
+      updateProject.mutate(
+        { projectId, title: nextTitle },
+        {
+          onError: () => {
+            setLocalTitle(lastTitleRef.current ?? fallbackTitle);
+          },
+        }
+      );
     },
-    [projectId, updateProject]
+    [projectId, projectData?.project?.title, localTitle, updateProject]
   );
 
   /** Update project icon with optimistic cache. */
   const handleUpdateIcon = useCallback(
     (nextIcon: string) => {
       if (!projectId) return;
-      updateProject.mutate({ projectId, icon: nextIcon });
+      const fallbackIcon = projectData?.project?.icon ?? null;
+      const previousIcon = localIcon ?? fallbackIcon;
+      lastIconRef.current = previousIcon;
+      setLocalIcon(nextIcon);
+      updateProject.mutate(
+        { projectId, icon: nextIcon },
+        {
+          onError: () => {
+            setLocalIcon(lastIconRef.current ?? fallbackIcon);
+          },
+        }
+      );
     },
-    [projectId, updateProject]
+    [projectId, projectData?.project?.icon, localIcon, updateProject]
   );
 
   useEffect(() => {
     appliedWidthRef.current = false;
   }, [projectId, rootUri, tabId]);
+
+  useEffect(() => {
+    // 中文注释：同步服务端标题，避免更新后短暂回退。
+    if (!projectData?.project) return;
+    setLocalTitle(projectData.project.title ?? null);
+  }, [projectData?.project]);
+
+  useEffect(() => {
+    // 中文注释：同步服务端图标，避免更新后短暂回退。
+    if (!projectData?.project) return;
+    setLocalIcon(projectData.project.icon ?? null);
+  }, [projectData?.project]);
+
+  useEffect(() => {
+    if (!tabId) return;
+    // 中文注释：同步标题到 tab，保持标题一致。
+    setTabTitle(tabId, pageTitle);
+  }, [pageTitle, setTabTitle, tabId]);
+
+  useEffect(() => {
+    if (!tabId) return;
+    // 中文注释：同步图标到 tab，保持图标一致。
+    setTabIcon(tabId, titleIcon);
+  }, [setTabIcon, tabId, titleIcon]);
 
   // 页面切换时重置只读状态，避免沿用旧页面的编辑状态。
   useEffect(() => {
@@ -164,6 +252,15 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
     () => buildProjectLookup(projectListQuery.data as ProjectTreeNode[] | undefined),
     [projectListQuery.data]
   );
+  const currentProjectNode = useMemo(
+    () =>
+      findProjectNode(projectListQuery.data as ProjectTreeNode[] | undefined, {
+        projectId,
+        rootUri,
+      }),
+    [projectListQuery.data, projectId, rootUri]
+  );
+  const isGitProject = currentProjectNode?.isGitProject;
 
   useEffect(() => {
     if (!projectTab) return;
@@ -387,6 +484,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
                   projectId={projectId}
                   rootUri={rootUri}
                   currentUri={fileUri}
+                  isGitProject={isGitProject}
                   projectLookup={projectLookup}
                   onNavigate={setFileUri}
                 />

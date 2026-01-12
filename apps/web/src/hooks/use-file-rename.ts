@@ -2,7 +2,12 @@
 
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getDisplayFileName } from "@/lib/file-name";
+import {
+  ensureBoardFolderName,
+  getBoardDisplayName,
+  getDisplayFileName,
+  isBoardFolderName,
+} from "@/lib/file-name";
 import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
 type UseFileRenameArgs = {
@@ -30,17 +35,28 @@ export function useFileRename({
   /** 防止 blur 与 Enter 重复触发提交。 */
   const isSubmittingRef = useRef(false);
 
+  /** Resolve display name for rename input. */
+  const resolveRenameDisplayName = useCallback((entry: FileSystemEntry) => {
+    if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
+      return getBoardDisplayName(entry.name);
+    }
+    if (entry.kind === "file") {
+      return getDisplayFileName(entry.name, entry.ext);
+    }
+    return entry.name;
+  }, []);
+
   /** Request rename for an existing entry. */
   const requestRename = useCallback(
     (entry: FileSystemEntry) => {
       if (!allowRename(entry)) return;
       // 中文注释：重命名时同步选中当前条目。
       onSelectionReplace?.([entry.uri]);
-      const displayName = getDisplayFileName(entry.name, entry.ext);
+      const displayName = resolveRenameDisplayName(entry);
       setRenamingUri(entry.uri);
       setRenamingValue(displayName);
     },
-    [allowRename, onSelectionReplace]
+    [allowRename, onSelectionReplace, resolveRenameDisplayName]
   );
 
   /** Request rename by uri/name pair, typically after creation. */
@@ -49,7 +65,10 @@ export function useFileRename({
       // 中文注释：新建后立刻进入重命名状态。
       onSelectionReplace?.([payload.uri]);
       setRenamingUri(payload.uri);
-      setRenamingValue(payload.name);
+      const displayName = isBoardFolderName(payload.name)
+        ? getBoardDisplayName(payload.name)
+        : payload.name;
+      setRenamingValue(displayName);
     },
     [onSelectionReplace]
   );
@@ -68,14 +87,18 @@ export function useFileRename({
       setRenamingUri(null);
       return;
     }
-    if (nextName === targetEntry.name) {
+    const normalizedName =
+      targetEntry.kind === "folder" && isBoardFolderName(targetEntry.name)
+        ? ensureBoardFolderName(nextName)
+        : nextName;
+    if (normalizedName === targetEntry.name) {
       setRenamingUri(null);
       return;
     }
     const existingNames = new Set(
       entries.filter((item) => item.uri !== targetEntry.uri).map((item) => item.name)
     );
-    if (existingNames.has(nextName)) {
+    if (existingNames.has(normalizedName)) {
       toast.error("已存在同名文件或文件夹");
       return;
     }
@@ -85,7 +108,7 @@ export function useFileRename({
     }
     isSubmittingRef.current = true;
     try {
-      const nextUri = await onRename(targetEntry, nextName);
+      const nextUri = await onRename(targetEntry, normalizedName);
       if (nextUri) {
         onSelectionReplace?.([nextUri]);
       }

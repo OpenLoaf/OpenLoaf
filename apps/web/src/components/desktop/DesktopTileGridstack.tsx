@@ -18,6 +18,8 @@ interface DesktopTileGridstackProps {
   onUpdateItem: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
   /** Remove a desktop item. */
   onDeleteItem: (itemId: string) => void;
+  /** Request folder selection for 3d-folder widget. */
+  onSelectFolder: (itemId: string) => void;
 }
 
 /** Render a Gridstack tile UI (no dnd-kit). */
@@ -27,6 +29,7 @@ export default function DesktopTileGridstack({
   onEnterEditMode,
   onUpdateItem,
   onDeleteItem,
+  onSelectFolder,
 }: DesktopTileGridstackProps) {
   const longPressTimerRef = React.useRef<number | null>(null);
   const pointerStartRef = React.useRef<{ id: number; x: number; y: number } | null>(null);
@@ -80,6 +83,9 @@ export default function DesktopTileGridstack({
     });
   }, [item.id, item.kind, item.widgetKey, onUpdateItem]);
 
+  const allowOverflow =
+    item.kind === "widget" && item.widgetKey === "3d-folder";
+
   return (
     <div className="group relative h-full w-full min-w-0">
       {editMode ? (
@@ -127,12 +133,31 @@ export default function DesktopTileGridstack({
           {showSeconds ? "时:分" : "带秒"}
         </button>
       ) : null}
+      {editMode && item.kind === "widget" && item.widgetKey === "3d-folder" ? (
+        <button
+          type="button"
+          className="absolute right-2 top-2 z-10 rounded-full border border-border bg-background/90 px-2 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onSelectFolder(item.id);
+          }}
+          aria-label="Select folder"
+          title="选择文件夹"
+        >
+          选择
+        </button>
+      ) : null}
 
       <motion.div
         animate={{ scale: 1, boxShadow: "none" }}
         transition={{ type: "spring", stiffness: 450, damping: 32 }}
         className={cn(
-          "desktop-tile-handle relative h-full w-full select-none overflow-hidden rounded-2xl",
+          "desktop-tile-handle relative h-full w-full select-none rounded-2xl",
+          allowOverflow ? "overflow-visible" : "overflow-hidden",
           "bg-card border border-border/40 dark:bg-card",
           "bg-slate-50/90",
           isPinned ? "ring-2 ring-primary/40" : ""

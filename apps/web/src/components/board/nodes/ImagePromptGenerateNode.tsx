@@ -1,7 +1,11 @@
-import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
+import type {
+  CanvasConnectorTemplateDefinition,
+  CanvasNodeDefinition,
+  CanvasNodeViewProps,
+} from "../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { ChevronDown, Play, RotateCcw, Square, Sparkles } from "lucide-react";
+import { Play, RotateCcw, Square, Sparkles } from "lucide-react";
 import { generateId } from "ai";
 
 import { useBoardContext } from "../core/BoardProvider";
@@ -11,17 +15,27 @@ import { useSettingsValues } from "@/hooks/use-settings";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { getWebClientId } from "@/lib/chat/streamClientId";
-import { resolveServerUrl } from "@/utils/server-url";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import type { ImageNodeProps } from "./ImageNode";
-import {
-  buildTenasFileUrl,
-  getRelativePathFromUri,
-  parseTenasFileUrl,
-} from "@/components/project/filesystem/utils/file-system-utils";
-import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import type { ModelTag } from "@tenas-ai/api/common";
 import { getWorkspaceIdFromCookie } from "../core/boardStorage";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAutoResizeNode } from "./lib/use-auto-resize-node";
+import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
+import {
+  BOARD_RELATIVE_URI_PREFIX,
+  filterModelOptionsByTags,
+  resolveBoardFolderScope,
+  resolveBoardRelativeUri,
+  runChatSseRequest,
+} from "./lib/image-generation";
 
 /** Node type identifier for image prompt generation. */
 export const IMAGE_PROMPT_GENERATE_NODE_TYPE = "image_prompt_generate";
@@ -55,60 +69,8 @@ export const IMAGE_PROMPT_TEXT = `你是一位顶级图像视觉分析师，精�
 4. **图像生成优化**：分层构图、色彩精确、氛围强烈。
 5. **纯中文**：专业视觉语言，无口语化。输出纯文本，禁止输出markdown格式，代码块，标签，序号等。`;
 
-/** Prefix used for board-relative tenas-file paths. */
-const BOARD_RELATIVE_URI_PREFIX = "tenas-file://./";
-
-type BoardFolderScope = {
-  /** Project id for resolving absolute file urls. */
-  projectId: string;
-  /** Relative folder path under the project root. */
-  relativeFolderPath: string;
-};
-
-/** Normalize a relative path string. */
-function normalizeRelativePath(value: string) {
-  return value.replace(/^\/+/, "");
-}
-
-/** Return true when the relative path attempts to traverse parents. */
-function hasParentTraversal(value: string) {
-  return value.split("/").some((segment) => segment === "..");
-}
-
-/** Resolve board-relative tenas-file urls into absolute paths. */
-function resolveBoardRelativeUri(
-  uri: string,
-  boardFolderScope: BoardFolderScope | null
-) {
-  if (!boardFolderScope) return uri;
-  if (!uri.startsWith(BOARD_RELATIVE_URI_PREFIX)) return uri;
-  const relativePath = normalizeRelativePath(uri.slice(BOARD_RELATIVE_URI_PREFIX.length));
-  if (!relativePath || hasParentTraversal(relativePath)) return uri;
-  // 逻辑：仅允许解析资产目录内的相对路径，避免误引用工程外文件。
-  if (!relativePath.startsWith(`${BOARD_ASSETS_DIR_NAME}/`)) return uri;
-  const combined = `${boardFolderScope.relativeFolderPath}/${relativePath}`;
-  return buildTenasFileUrl(boardFolderScope.projectId, combined);
-}
-
-/** Resolve a prompt-ready image uri from an image node. */
-function resolvePromptImageUri(
-  props: ImageNodeProps,
-  boardFolderScope: BoardFolderScope | null
-) {
-  const rawUri = props.originalSrc || "";
-  if (!rawUri) return "";
-  return resolveBoardRelativeUri(rawUri, boardFolderScope);
-}
-
-/** Extract SSE data payload from a single event chunk. */
-function extractSseData(chunk: string): string | null {
-  const lines = chunk.split("\n");
-  const dataLines = lines.filter((line) => line.startsWith("data:"));
-  if (dataLines.length === 0) return null;
-  return dataLines
-    .map((line) => line.slice(5).trimStart())
-    .join("\n");
-}
+/** Minimum height for image prompt node. */
+const IMAGE_PROMPT_GENERATE_MIN_HEIGHT = 0;
 
 export type ImagePromptGenerateNodeProps = {
   /** Selected chatModelId (profileId:modelId). */
@@ -125,15 +87,25 @@ const ImagePromptGenerateNodeSchema = z.object({
   errorText: z.string().optional(),
 });
 
-const REQUIRED_TAGS = ["image_input", "text_generation"] as const;
-const EXCLUDED_TAGS = ["image_edit", "image_generation"] as const;
+/** Required tags for image prompt models. */
+const REQUIRED_TAGS: ModelTag[] = ["image_input", "text_generation"];
+/** Excluded tags for image prompt models. */
+const EXCLUDED_TAGS: ModelTag[] = ["image_edit", "image_generation", "code"];
 
-function isCompatible(tags: string[] | undefined) {
-  const list = Array.isArray(tags) ? tags : [];
-  if (!REQUIRED_TAGS.every((tag) => list.includes(tag))) return false;
-  if (EXCLUDED_TAGS.some((tag) => list.includes(tag))) return false;
-  return true;
-}
+/** Connector templates offered by the image prompt node. */
+const IMAGE_PROMPT_GENERATE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
+  {
+    id: IMAGE_GENERATE_NODE_TYPE,
+    label: "图片生成",
+    description: "基于提示词与图片生成新图",
+    size: [320, 260],
+    icon: <Sparkles size={14} />,
+    createNode: () => ({
+      type: IMAGE_GENERATE_NODE_TYPE,
+      props: {},
+    }),
+  },
+];
 
 /** Render the image prompt generation node. */
 export function ImagePromptGenerateNodeView({
@@ -152,28 +124,17 @@ export function ImagePromptGenerateNodeView({
     [chatSource, providerItems, cloudModels]
   );
   const candidates = useMemo(() => {
-    return modelOptions.filter((option) => isCompatible(option.tags));
+    return filterModelOptionsByTags(modelOptions, {
+      required: REQUIRED_TAGS,
+      excluded: EXCLUDED_TAGS,
+    });
   }, [modelOptions]);
 
   /** Board folder scope used for resolving relative asset uris. */
-  const boardFolderScope = useMemo<BoardFolderScope | null>(() => {
-    if (!fileContext?.boardFolderUri) return null;
-    // 逻辑：优先解析 boardFolderUri，失败时用 rootUri 计算相对路径。
-    const parsed = parseTenasFileUrl(fileContext.boardFolderUri);
-    if (parsed) {
-      return {
-        projectId: parsed.projectId,
-        relativeFolderPath: parsed.relativePath,
-      };
-    }
-    if (!fileContext.projectId || !fileContext.rootUri) return null;
-    const relativeFolderPath = getRelativePathFromUri(
-      fileContext.rootUri,
-      fileContext.boardFolderUri
-    );
-    if (!relativeFolderPath) return null;
-    return { projectId: fileContext.projectId, relativeFolderPath };
-  }, [fileContext?.boardFolderUri, fileContext?.projectId, fileContext?.rootUri]);
+  const boardFolderScope = useMemo(
+    () => resolveBoardFolderScope(fileContext),
+    [fileContext?.boardFolderUri, fileContext?.projectId, fileContext?.rootUri]
+  );
   /** Session id used for image prompt runs inside this node. */
   const sessionIdRef = useRef(createChatSessionId());
   /** Abort controller for the active request. */
@@ -184,6 +145,11 @@ export function ImagePromptGenerateNodeView({
   const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
   const errorText = element.props.errorText ?? "";
   const resultText = element.props.resultText ?? "";
+  const { containerRef } = useAutoResizeNode({
+    engine,
+    elementId: element.id,
+    minHeight: IMAGE_PROMPT_GENERATE_MIN_HEIGHT,
+  });
   // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
   let inputImageId = "";
   let inputImageOriginalSrc = "";
@@ -276,7 +242,10 @@ export function ImagePromptGenerateNodeView({
           break;
         }
       }
-      const imageUrl = imageProps ? resolvePromptImageUri(imageProps, boardFolderScope) : "";
+      const rawImageUrl = imageProps?.originalSrc ?? "";
+      const imageUrl = rawImageUrl
+        ? resolveBoardRelativeUri(rawImageUrl, boardFolderScope)
+        : "";
       const mediaType = imageProps?.mimeType || "application/octet-stream";
       const isRelativeTenas = imageUrl.startsWith(BOARD_RELATIVE_URI_PREFIX);
       if (!imageUrl || isRelativeTenas || !imageUrl.startsWith("tenas-file://")) {
@@ -322,42 +291,12 @@ export function ImagePromptGenerateNodeView({
           chatModelId,
           chatModelSource: input.chatModelSource,
         };
-        const response = await fetch(`${resolveServerUrl()}/chat/sse`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
-        if (!response.ok || !response.body) {
-          throw new Error(`SSE request failed: ${response.status}`);
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
         let streamedText = "";
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const chunks = buffer.split("\n\n");
-          buffer = chunks.pop() ?? "";
-
-          for (const chunk of chunks) {
-            const data = extractSseData(chunk);
-            if (!data) continue;
-            if (data === "[DONE]") {
-              await reader.cancel();
-              return;
-            }
-            let parsed: any;
-            try {
-              parsed = JSON.parse(data);
-            } catch {
-              continue;
-            }
+        await runChatSseRequest({
+          payload,
+          signal: controller.signal,
+          onEvent: (event) => {
+            const parsed = event as any;
             const delta =
               parsed?.type === "text-delta" && typeof parsed?.delta === "string"
                 ? parsed.delta
@@ -366,17 +305,17 @@ export function ImagePromptGenerateNodeView({
                   : typeof parsed?.data?.text === "string"
                     ? parsed.data.text
                     : "";
-            if (!delta) continue;
+            if (!delta) return;
             streamedText += delta;
             // 逻辑：节点被删除时终止写入，避免无效更新。
             if (!engine.doc.getElementById(nodeId)) {
               controller.abort();
               setIsRunning(false);
-              return;
+              return false;
             }
             engine.doc.updateNodeProps(nodeId, { resultText: streamedText });
-          }
-        }
+          },
+        });
       } catch (error) {
         if (!controller.signal.aborted) {
           engine.doc.updateNodeProps(nodeId, {
@@ -410,14 +349,26 @@ export function ImagePromptGenerateNodeView({
     return "idle";
   }, [candidates.length, errorText, hasValidInput, isRunning, resultText]);
 
+  /** Short status label for the badge and header. */
+  const statusLabel =
+    viewStatus === "running"
+      ? "生成中…"
+      : viewStatus === "done"
+        ? "已完成"
+        : viewStatus === "error"
+          ? "生成失败"
+          : viewStatus === "needs_model"
+            ? "需要配置模型"
+            : viewStatus === "needs_input"
+              ? "需要连接图片输入"
+              : "待运行";
+
   const containerClassName = [
-    "relative h-full w-full rounded-sm border box-border p-2.5",
-    "border-slate-300 bg-white",
-    "dark:border-slate-700 dark:bg-slate-900",
-    "text-slate-900 dark:text-slate-100",
-    selected
-      ? "dark:border-sky-400 dark:shadow-[0_6px_14px_rgba(0,0,0,0.35)]"
-      : "",
+    "relative flex w-full flex-col gap-2 rounded-xl border border-slate-200/80 bg-background/95 p-3 text-slate-700 backdrop-blur",
+    "bg-[radial-gradient(180px_circle_at_top_right,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_15%_85%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
+    "dark:border-slate-700/80 dark:text-slate-200",
+    "dark:bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_left,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
+    selected ? "ring-1 ring-slate-300 dark:ring-slate-600" : "",
     viewStatus === "running"
       ? "tenas-thinking-border tenas-thinking-border-on border-transparent"
       : "",
@@ -426,8 +377,30 @@ export function ImagePromptGenerateNodeView({
       : "",
   ].join(" ");
 
+  /** Status hint text shown beneath controls. */
+  const statusHint = useMemo(() => {
+    if (viewStatus === "needs_input") {
+      return { tone: "warn", text: "需要连接一张可用图片后才能生成提示词。" };
+    }
+    if (viewStatus === "needs_model") {
+      return {
+        tone: "warn",
+        text: "未找到支持「图片输入 + 文本生成」的模型，请先在设置中配置。",
+      };
+    }
+    if (viewStatus === "error") {
+      return { tone: "error", text: errorText || "生成提示词失败，请重试。" };
+    }
+    if (viewStatus === "running") {
+      return { tone: "info", text: "正在生成提示词，请稍等…" };
+    }
+    if (viewStatus === "done") return null;
+    return { tone: "info", text: "准备就绪，点击运行即可生成提示词。" };
+  }, [errorText, viewStatus]);
+
   return (
     <div
+      ref={containerRef}
       className={containerClassName}
       onPointerDown={(event) => {
         // 逻辑：点击节点本体保持选中。
@@ -437,23 +410,13 @@ export function ImagePromptGenerateNodeView({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
             <Sparkles size={14} />
           </span>
           <div className="min-w-0">
             <div className="text-[12px] font-semibold leading-4">图片提示词</div>
             <div className="mt-0.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
-              {viewStatus === "running"
-                ? "生成中…"
-                : viewStatus === "done"
-                  ? "已完成"
-                  : viewStatus === "error"
-                    ? "生成失败"
-                    : viewStatus === "needs_model"
-                      ? "需要配置模型"
-                      : viewStatus === "needs_input"
-                        ? "需要连接图片输入"
-                        : "待运行"}
+              {statusLabel}
             </div>
           </div>
         </div>
@@ -500,55 +463,59 @@ export function ImagePromptGenerateNodeView({
         </div>
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">模型</div>
-          <div className="relative min-w-0 flex-1">
-            <select
-              value={effectiveModelId}
-              disabled={candidates.length === 0 || isRunning}
-              onChange={(event) => {
-                const next = event.target.value;
-                onUpdate({ chatModelId: next });
-              }}
-              className="w-full appearance-none rounded-md border border-slate-200/80 bg-background px-2 py-1 pr-6 text-[11px] text-slate-700 outline-none dark:border-slate-700/80 dark:text-slate-200"
-            >
-              {candidates.length ? null : <option value="">无可用模型</option>}
+      <div className="mt-1 flex items-center gap-2">
+        <div className="text-[11px] text-slate-500 dark:text-slate-400">模型</div>
+        <div className="min-w-0 flex-1">
+          <Select
+            value={effectiveModelId}
+            onValueChange={(value) => {
+              onUpdate({ chatModelId: value });
+            }}
+            disabled={candidates.length === 0 || isRunning}
+          >
+            <SelectTrigger className="h-7 w-full px-2 text-[11px] shadow-none">
+              <SelectValue placeholder="无可用模型" />
+            </SelectTrigger>
+            <SelectContent className="text-[11px]">
+              {candidates.length ? null : (
+                <SelectItem value="__none__" disabled className="text-[11px]">
+                  无可用模型
+                </SelectItem>
+              )}
               {candidates.map((option) => (
-                <option key={option.id} value={option.id}>
+                <SelectItem
+                  key={option.id}
+                  value={option.id}
+                  className="text-[11px]"
+                >
                   {option.providerName}:{option.modelId}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-            <ChevronDown
-              size={14}
-              className="pointer-events-none absolute right-1 top-1.5 text-slate-400"
-            />
-          </div>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      <div className="mt-2 h-[calc(100%-76px)] overflow-auto rounded-md border border-slate-200/70 bg-slate-50 p-2 text-[11px] leading-4 text-slate-700 dark:border-slate-700/70 dark:bg-slate-800 dark:text-slate-200">
-        {viewStatus === "needs_input" ? (
-          <div className="text-slate-500 dark:text-slate-400">
-            请先连接一个可用的图片节点（需要可访问的图片地址）
-          </div>
-        ) : viewStatus === "needs_model" ? (
-          <div className="text-rose-500 dark:text-rose-300">
-            未找到同时支持「图片输入 + 文本生成」的模型，请先去设置中配置。
-          </div>
-        ) : viewStatus === "error" ? (
-          <div className="text-rose-500 dark:text-rose-300">
-            {errorText || "无法生成。"}
-          </div>
-        ) : resultText ? (
+      {statusHint ? (
+        <div
+          className={[
+            "rounded-md border px-2 py-1 text-[11px] leading-4",
+            statusHint.tone === "error"
+              ? "border-rose-200/70 bg-rose-50 text-rose-600 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+              : statusHint.tone === "warn"
+                ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+                : "border-sky-200/70 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-200",
+          ].join(" ")}
+        >
+          {statusHint.text}
+        </div>
+      ) : null}
+
+      {resultText ? (
+        <div className="rounded-md border border-slate-200/70 p-2 text-[11px] leading-4 text-slate-700 dark:border-slate-700/70 dark:text-slate-200">
           <pre className="whitespace-pre-wrap break-words font-sans">{resultText}</pre>
-        ) : (
-          <div className="text-slate-500 dark:text-slate-400">
-            结果将保留在此节点中
-          </div>
-        )}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -562,8 +529,9 @@ export const ImagePromptGenerateNodeDefinition: CanvasNodeDefinition<ImagePrompt
     },
     view: ImagePromptGenerateNodeView,
     capabilities: {
-      resizable: true,
-      connectable: "auto",
-      minSize: { w: 260, h: 180 },
+      resizable: false,
+      connectable: "anchors",
+      minSize: { w: 260, h: IMAGE_PROMPT_GENERATE_MIN_HEIGHT },
     },
+    connectorTemplates: () => IMAGE_PROMPT_GENERATE_CONNECTOR_TEMPLATES,
   };

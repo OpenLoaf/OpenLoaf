@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Copy, SmilePlus, Trash2 } from "lucide-react";
+import { Copy, SmilePlus } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,7 @@ export default function ProjectTitle({
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState(currentTitle ?? projectTitle ?? "");
-  const titleEditableRef = useRef<HTMLSpanElement | null>(null);
-  const titleClickPointRef = useRef<{ x: number; y: number } | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (isEditingTitle) return;
@@ -42,45 +41,13 @@ export default function ProjectTitle({
   useEffect(() => {
     if (!isEditingTitle) return;
     requestAnimationFrame(() => {
-      const el = titleEditableRef.current;
-      if (!el) return;
-      el.innerText = draftTitle;
-      el.focus();
-
-      const clickPoint = titleClickPointRef.current;
-      titleClickPointRef.current = null;
-
-      const selection = window.getSelection();
-      if (!selection) return;
-
-      let range: Range | null = null;
-      const anyDocument = document as any;
-      if (clickPoint && typeof anyDocument.caretRangeFromPoint === "function") {
-        range = anyDocument.caretRangeFromPoint(clickPoint.x, clickPoint.y);
-      } else if (
-        clickPoint &&
-        typeof anyDocument.caretPositionFromPoint === "function"
-      ) {
-        const pos = anyDocument.caretPositionFromPoint(clickPoint.x, clickPoint.y);
-        if (pos?.offsetNode) {
-          range = document.createRange();
-          range.setStart(pos.offsetNode, pos.offset);
-          range.collapse(true);
-        }
-      }
-
-      selection.removeAllRanges();
-      if (range && el.contains(range.startContainer)) {
-        selection.addRange(range);
-        return;
-      }
-
-      const endRange = document.createRange();
-      endRange.selectNodeContents(el);
-      endRange.collapse(false);
-      selection.addRange(endRange);
+      const input = titleInputRef.current;
+      if (!input) return;
+      input.focus();
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
     });
-  }, [isEditingTitle, draftTitle]);
+  }, [isEditingTitle]);
 
   const commitTitle = () => {
     setIsEditingTitle(false);
@@ -89,12 +56,6 @@ export default function ProjectTitle({
     const latestTitle = currentTitle ?? projectTitle ?? "";
     if (nextTitle === latestTitle) return;
     onUpdateTitle(nextTitle);
-  };
-
-  /** Clear the current title back to default. */
-  const handleDeleteTitle = () => {
-    if (!projectId || isUpdating) return;
-    onUpdateTitle("Untitled Page");
   };
 
   return (
@@ -133,11 +94,12 @@ export default function ProjectTitle({
           </Popover>
 
           {isEditingTitle ? (
-            <span
+            <input
               key="edit"
-              ref={titleEditableRef}
-              contentEditable={!isUpdating}
-              suppressContentEditableWarning
+              ref={titleInputRef}
+              value={draftTitle}
+              disabled={isUpdating}
+              onChange={(e) => setDraftTitle(e.target.value)}
               onBlur={commitTitle}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -147,24 +109,18 @@ export default function ProjectTitle({
                 }
                 if (e.key === "Escape") {
                   e.preventDefault();
-                  titleClickPointRef.current = null;
                   setDraftTitle(currentTitle ?? projectTitle ?? "");
                   setIsEditingTitle(false);
                 }
               }}
-              onInput={(e) => setDraftTitle(e.currentTarget.innerText)}
-              className="min-w-0 flex-1 whitespace-nowrap overflow-hidden text-ellipsis outline-none text-xl md:text-xl font-semibold leading-normal"
+              className="min-w-0 flex-1 bg-transparent outline-none text-xl md:text-xl font-semibold leading-normal"
               aria-label="Edit project title"
-              role="textbox"
             />
           ) : (
             <span key="view" className="group/title flex min-w-0 items-center gap-1">
               <button
                 type="button"
                 className="truncate text-left"
-                onMouseDown={(e) => {
-                  titleClickPointRef.current = { x: e.clientX, y: e.clientY };
-                }}
                 onClick={() => setIsEditingTitle(true)}
                 aria-label="Edit project title"
                 title="Click to edit"
@@ -190,22 +146,6 @@ export default function ProjectTitle({
                 }}
               >
                 <Copy className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="shrink-0 opacity-0 group-hover/title:opacity-100 focus-visible:opacity-100 text-muted-foreground hover:text-foreground"
-                aria-label="Delete title"
-                title="Delete title"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleDeleteTitle();
-                }}
-                disabled={!projectId || isUpdating}
-              >
-                <Trash2 className="size-4" />
               </Button>
             </span>
           )}

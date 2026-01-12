@@ -231,7 +231,7 @@ prompt: {
 
 ### Volcengine
 
-- `volcengine.inpaint.v1` 必须提供原图 + mask。
+- `jimeng_image2image_dream_inpaint` 必须提供原图 + mask。
 - 支持 URL 或 base64，但不可混用。
 - 统一使用 URL，mask 强制转 `{原图名}_grey.png`，灰度规则与文档一致。
 

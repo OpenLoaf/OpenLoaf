@@ -5,10 +5,10 @@ import { runProviderRequest } from "@/ai/models/providerRequestRunner";
 const VOLCENGINE_PROVIDER_ID = "volcengine";
 /** Default model ids for each AI task kind. */
 const VOLCENGINE_MODEL_IDS = {
-  textToImage: "volcengine.t2i.v40",
-  inpaint: "volcengine.inpaint.v1",
-  materialExtract: "volcengine.material.v1",
-  videoGenerate: "volcengine.video.v30pro",
+  textToImage: "jimeng_t2i_v40",
+  inpaint: "jimeng_image2image_dream_inpaint",
+  materialExtract: "i2i_material_extraction",
+  videoGenerate: "jimeng_ti2v_v30_pro",
 } as const;
 
 export class AiRouterImpl extends BaseAiRouter {

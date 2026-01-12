@@ -9,6 +9,7 @@ import { GroupNodeDefinition, ImageGroupNodeDefinition } from "./nodes/GroupNode
 import { StrokeNodeDefinition } from "./nodes/StrokeNode";
 import { TextNodeDefinition } from "./nodes/TextNode";
 import { ImagePromptGenerateNodeDefinition } from "./nodes/ImagePromptGenerateNode";
+import { ImageGenerateNodeDefinition } from "./nodes/ImageGenerateNode";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 
@@ -78,6 +79,7 @@ const BoardFileViewer = memo(function BoardFileViewer({
           StrokeNodeDefinition,
           TextNodeDefinition,
           ImagePromptGenerateNodeDefinition,
+          ImageGenerateNodeDefinition,
           GroupNodeDefinition,
           ImageGroupNodeDefinition,
         ]}

@@ -1,6 +1,15 @@
 "use client";
 
 import * as React from "react";
+import { useProjects } from "@/hooks/use-projects";
+import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
+import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import {
+  buildTenasFileUrl,
+  buildUriFromRoot,
+  getRelativePathFromUri,
+  parseTenasFileUrl,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import type { DesktopItem } from "./types";
 import type { DesktopBreakpoint } from "./desktop-breakpoints";
 import { getBreakpointConfig } from "./desktop-breakpoints";
@@ -78,6 +87,46 @@ const initialItems: DesktopItem[] = [
   },
 ];
 
+type ProjectRootInfo = {
+  /** Project id. */
+  projectId: string;
+  /** Project root uri. */
+  rootUri: string;
+  /** Project display title. */
+  title: string;
+};
+
+/** Flatten the project tree into root info entries. */
+function flattenProjectTree(nodes?: ProjectNode[]): ProjectRootInfo[] {
+  const results: ProjectRootInfo[] = [];
+  const walk = (items?: ProjectNode[]) => {
+    items?.forEach((item) => {
+      results.push({ projectId: item.projectId, rootUri: item.rootUri, title: item.title });
+      if (item.children?.length) {
+        walk(item.children);
+      }
+    });
+  };
+  walk(nodes);
+  return results;
+}
+
+/** Check whether a target uri is under a project root uri. */
+function isUriUnderRoot(rootUri: string, targetUri: string) {
+  try {
+    const rootUrl = new URL(rootUri);
+    const targetUrl = new URL(targetUri);
+    if (rootUrl.protocol !== targetUrl.protocol || rootUrl.hostname !== targetUrl.hostname) {
+      return false;
+    }
+    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
+    const targetParts = targetUrl.pathname.split("/").filter(Boolean);
+    return rootParts.every((part, index) => part === targetParts[index]);
+  } catch {
+    return false;
+  }
+}
+
 interface DesktopPageProps {
   /** Items in rendering order. */
   items: DesktopItem[];
@@ -109,6 +158,61 @@ export default function DesktopPage({
   compactSignal,
 }: DesktopPageProps) {
   const editMaxWidth = editMode ? getEditMaxWidth(activeBreakpoint) : undefined;
+  const projectListQuery = useProjects();
+  const projectRoots = React.useMemo(
+    () => flattenProjectTree(projectListQuery.data),
+    [projectListQuery.data]
+  );
+  const [isFolderDialogOpen, setIsFolderDialogOpen] = React.useState(false);
+  const [activeFolderItemId, setActiveFolderItemId] = React.useState<string | null>(null);
+
+  /** Resolve the selected folder into tenas-file metadata. */
+  const resolveFolderSelection = React.useCallback(
+    (targetUri: string) => {
+      // 中文注释：使用项目根目录匹配目标路径，生成 tenas-file 协议引用。
+      for (const project of projectRoots) {
+        if (!isUriUnderRoot(project.rootUri, targetUri)) continue;
+        const relativePath = getRelativePathFromUri(project.rootUri, targetUri);
+        const folderUri = buildTenasFileUrl(project.projectId, relativePath);
+        const relativeParts = relativePath.split("/").filter(Boolean);
+        const title =
+          relativeParts[relativeParts.length - 1] || project.title || "Folder";
+        return { folderUri, title, defaultRootUri: project.rootUri };
+      }
+      return null;
+    },
+    [projectRoots]
+  );
+
+  /** Resolve default dialog uris from the current folder reference. */
+  const resolveDefaultFolderUris = React.useCallback(
+    (folderUri?: string) => {
+      if (!folderUri) return { defaultRootUri: undefined, defaultActiveUri: undefined };
+      const parsed = (() => {
+        const parsedValue = parseTenasFileUrl(folderUri);
+        if (parsedValue) return parsedValue;
+        try {
+          const url = new URL(folderUri);
+          if (url.protocol !== "tenas-file:") return null;
+          return {
+            projectId: url.hostname.trim(),
+            relativePath: decodeURIComponent(url.pathname.replace(/^\/+/, "")),
+          };
+        } catch {
+          return null;
+        }
+      })();
+      if (!parsed) return { defaultRootUri: undefined, defaultActiveUri: undefined };
+      const root = projectRoots.find((item) => item.projectId === parsed.projectId);
+      if (!root) return { defaultRootUri: undefined, defaultActiveUri: undefined };
+      if (!parsed.relativePath) {
+        return { defaultRootUri: root.rootUri, defaultActiveUri: root.rootUri };
+      }
+      const activeUri = buildUriFromRoot(root.rootUri, parsed.relativePath);
+      return { defaultRootUri: root.rootUri, defaultActiveUri: activeUri || root.rootUri };
+    },
+    [projectRoots]
+  );
 
   return (
     <div className="h-full w-full overflow-hidden" title="Desktop" aria-label="Desktop">
@@ -123,10 +227,47 @@ export default function DesktopPage({
             onUpdateItem={onUpdateItem}
             onChangeItems={onChangeItems}
             onDeleteItem={(itemId) => onChangeItems(items.filter((item) => item.id !== itemId))}
+            onSelectFolder={(itemId) => {
+              setActiveFolderItemId(itemId);
+              setIsFolderDialogOpen(true);
+            }}
             compactSignal={compactSignal}
           />
         </div>
       </div>
+      <ProjectFileSystemTransferDialog
+        open={isFolderDialogOpen}
+        onOpenChange={(open) => {
+          setIsFolderDialogOpen(open);
+          if (!open) setActiveFolderItemId(null);
+        }}
+        mode="select"
+        selectTarget="folder"
+        {...(() => {
+          const targetItem = items.find((item) => item.id === activeFolderItemId);
+          const defaultUris = resolveDefaultFolderUris(
+            targetItem && targetItem.kind === "widget" && targetItem.widgetKey === "3d-folder"
+              ? targetItem.folderUri
+              : undefined
+          );
+          return defaultUris;
+        })()}
+        onSelectTarget={(targetUri) => {
+          if (!activeFolderItemId) return;
+          const resolved = resolveFolderSelection(targetUri);
+          if (!resolved) return;
+          onUpdateItem(activeFolderItemId, (current) => {
+            if (current.kind !== "widget" || current.widgetKey !== "3d-folder") return current;
+            return {
+              ...current,
+              title: resolved.title,
+              folderUri: resolved.folderUri,
+            };
+          });
+          setIsFolderDialogOpen(false);
+          setActiveFolderItemId(null);
+        }}
+      />
     </div>
   );
 }

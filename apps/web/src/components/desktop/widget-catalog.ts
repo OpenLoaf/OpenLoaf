@@ -36,7 +36,7 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
   {
     widgetKey: "3d-folder",
     title: "3D Folder",
-    size: "4x2",
-    constraints: { defaultW: 4, defaultH: 2, minW: 3, minH: 2, maxW: 6, maxH: 3 },
+    size: "4x3",
+    constraints: { defaultW: 4, defaultH: 3, minW: 1, minH: 1, maxW: 12, maxH: 20 },
   },
 ];

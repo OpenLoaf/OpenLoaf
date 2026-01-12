@@ -5,7 +5,7 @@ import type { DesktopBreakpoint } from "./desktop-breakpoints";
 
 export type DesktopItemKind = "icon" | "widget";
 
-export type DesktopWidgetSize = "1x1" | "2x2" | "4x2";
+export type DesktopWidgetSize = "1x1" | "2x2" | "4x2" | "4x3";
 
 export interface DesktopWidgetConstraints {
   /** Default grid width in columns. */

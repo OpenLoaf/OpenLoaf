@@ -1,6 +1,5 @@
 import type {
   CanvasAnchorHit,
-  CanvasConnectorDraft,
   CanvasPoint,
   CanvasSnapshot,
 } from "../engine/types";
@@ -14,6 +13,7 @@ import {
   SELECTED_ANCHOR_SIDE_SIZE_HOVER,
 } from "../engine/constants";
 import { toScreenPoint } from "../utils/coordinates";
+import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
 
 type AnchorOverlayItem = CanvasAnchorHit & {
   /** Anchor source used for styling offsets. */
@@ -27,16 +27,10 @@ type AnchorOverlayProps = {
 
 /** Render anchor handles above nodes for linking. */
 export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
-  const sourceAnchor = getDraftAnchor(snapshot.connectorDraft);
   const hoverAnchor = snapshot.connectorHover;
   const selectedAnchors = getSelectedImageAnchors(snapshot);
   const hoverAnchors = getHoveredImageAnchors(snapshot);
-  if (
-    !sourceAnchor &&
-    !hoverAnchor &&
-    selectedAnchors.length === 0 &&
-    hoverAnchors.length === 0
-  ) {
+  if (!hoverAnchor && selectedAnchors.length === 0 && hoverAnchors.length === 0) {
     return null;
   }
 
@@ -47,24 +41,6 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
   hoverAnchors.forEach(anchor => {
     anchors.push({ ...anchor, origin: "hover" });
   });
-  if (sourceAnchor) {
-    // 逻辑：补齐草稿源锚点的坐标，用于正确定位圆点。
-    const resolved = resolveAnchorHit(sourceAnchor, snapshot);
-    if (
-      resolved &&
-      !isSelectedImageAnchor(resolved.elementId, snapshot) &&
-      !isHoverImageAnchor(resolved.elementId, snapshot)
-    ) {
-      anchors.push({ ...resolved, origin: "connector" });
-    }
-  }
-  if (
-    hoverAnchor &&
-    !isSelectedImageAnchor(hoverAnchor.elementId, snapshot) &&
-    !isHoverImageAnchor(hoverAnchor.elementId, snapshot)
-  ) {
-    anchors.push({ ...hoverAnchor, origin: "connector" });
-  }
   const uniqueAnchors = new Map<string, AnchorOverlayItem>();
   anchors.forEach(anchor => {
     const key = `${anchor.elementId}-${anchor.anchorId}`;
@@ -139,45 +115,30 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
   );
 }
 
-/** Extract draft source anchor for overlay rendering. */
-function getDraftAnchor(draft: CanvasConnectorDraft | null): CanvasAnchorHit | null {
-  if (!draft) return null;
-  if ("elementId" in draft.source && draft.source.anchorId) {
-    return {
-      elementId: draft.source.elementId,
-      anchorId: draft.source.anchorId,
-      point: [0, 0],
-    };
-  }
-  return null;
-}
-
-/** Resolve anchor hit with the latest anchor coordinates. */
-function resolveAnchorHit(
-  anchor: CanvasAnchorHit,
+/** Check whether the anchor belongs to a selected large-anchor node. */
+function isSelectedLargeAnchorNode(
+  elementId: string,
   snapshot: CanvasSnapshot
-): CanvasAnchorHit | null {
-  const list = snapshot.anchors[anchor.elementId];
-  if (!list) return null;
-  const match = list.find(item => item.id === anchor.anchorId);
-  if (!match) return null;
-  return { ...anchor, point: match.point as CanvasPoint };
-}
-
-/** Check whether the anchor belongs to a selected image node. */
-function isSelectedImageAnchor(elementId: string, snapshot: CanvasSnapshot): boolean {
+): boolean {
   if (!snapshot.selectedIds.includes(elementId)) return false;
   const element = snapshot.elements.find(item => item.id === elementId);
-  return element?.kind === "node" && element.type === "image";
+  return (
+    element?.kind === "node" && LARGE_ANCHOR_NODE_TYPES.has(element.type)
+  );
 }
 
-/** Check whether the anchor belongs to a hovered image node. */
-function isHoverImageAnchor(elementId: string, snapshot: CanvasSnapshot): boolean {
+/** Check whether the anchor belongs to a hovered large-anchor node. */
+function isHoverLargeAnchorNode(
+  elementId: string,
+  snapshot: CanvasSnapshot
+): boolean {
   const hoverNodeId = snapshot.nodeHoverId;
   if (!hoverNodeId || hoverNodeId !== elementId) return false;
   if (snapshot.selectedIds.includes(elementId)) return false;
   const element = snapshot.elements.find(item => item.id === elementId);
-  return element?.kind === "node" && element.type === "image";
+  return (
+    element?.kind === "node" && LARGE_ANCHOR_NODE_TYPES.has(element.type)
+  );
 }
 
 /** Resolve the screen-space offset for a specific anchor id. */
@@ -196,18 +157,18 @@ function resolveAnchorScreenOffset(anchorId: string, distance: number): CanvasPo
   }
 }
 
-/** Collect anchors for selected image nodes. */
+/** Collect anchors for selected large-anchor nodes. */
 function getSelectedImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
   if (snapshot.selectedIds.length === 0) return [];
   const selectedAnchors: CanvasAnchorHit[] = [];
   snapshot.selectedIds.forEach(selectedId => {
     const element = snapshot.elements.find(item => item.id === selectedId);
     if (!element || element.kind !== "node") return;
-    if (element.type !== "image") return;
+    if (!LARGE_ANCHOR_NODE_TYPES.has(element.type)) return;
     const anchors = snapshot.anchors[selectedId];
     if (!anchors) return;
     anchors.forEach(anchor => {
-      // 逻辑：图片节点选中时仅保留左右锚点。
+      // 逻辑：大锚点节点选中时仅保留左右锚点。
       if (anchor.id !== "left" && anchor.id !== "right") return;
       selectedAnchors.push({
         elementId: selectedId,
@@ -219,18 +180,24 @@ function getSelectedImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
   return selectedAnchors;
 }
 
-/** Collect anchors for hovered image nodes. */
+/** Collect anchors for hovered large-anchor nodes. */
 function getHoveredImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
   const hoverNodeId = snapshot.nodeHoverId;
   if (!hoverNodeId) return [];
   if (snapshot.selectedIds.includes(hoverNodeId)) return [];
   const element = snapshot.elements.find(item => item.id === hoverNodeId);
-  if (!element || element.kind !== "node" || element.type !== "image") return [];
+  if (
+    !element ||
+    element.kind !== "node" ||
+    !LARGE_ANCHOR_NODE_TYPES.has(element.type)
+  ) {
+    return [];
+  }
   const anchors = snapshot.anchors[hoverNodeId];
   if (!anchors) return [];
   const hoveredAnchors: CanvasAnchorHit[] = [];
   anchors.forEach(anchor => {
-    // 逻辑：图片节点悬停时仅展示左右锚点。
+    // 逻辑：大锚点节点悬停时仅展示左右锚点。
     if (anchor.id !== "left" && anchor.id !== "right") return;
     hoveredAnchors.push({
       elementId: hoverNodeId,

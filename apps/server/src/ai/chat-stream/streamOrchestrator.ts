@@ -262,7 +262,8 @@ export async function createImageStreamResponse(
 
   const body = [
     toSseChunk({ type: "start", messageId: input.assistantMessageId }),
-    ...input.imageParts.map((part) =>
+    // 中文注释：SSE 直接返回持久化 tenas-file，避免前端收到 base64。
+    ...persistedImageParts.map((part) =>
       toSseChunk({ type: "file", url: part.url, mediaType: part.mediaType }),
     ),
     ...revisedPromptPart.map((part) =>

@@ -4,7 +4,7 @@ import type {
   CanvasNodeViewProps,
   CanvasToolbarContext,
 } from "../engine/types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import {
   Download,
@@ -14,8 +14,10 @@ import {
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
 import { getPreviewEndpoint } from "@/lib/image/uri";
+import { buildImageNodePayloadFromUri } from "../utils/image";
 import { ImageNodeInput } from "./ImageNodeInput";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./ImagePromptGenerateNode";
+import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
 
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
@@ -83,6 +85,17 @@ const IMAGE_NODE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
     }),
   },
   {
+    id: IMAGE_GENERATE_NODE_TYPE,
+    label: "图片生成",
+    description: "输入图片与文字生成新图",
+    size: [320, 260],
+    icon: <Sparkles size={14} />,
+    createNode: () => ({
+      type: IMAGE_GENERATE_NODE_TYPE,
+      props: {},
+    }),
+  },
+  {
     id: "text",
     label: "文字",
     description: "插入可编辑文本",
@@ -100,6 +113,8 @@ export function ImageNodeView({
   element,
   selected,
 }: CanvasNodeViewProps<ImageNodeProps>) {
+  /** Guard against repeated hydration requests. */
+  const hydrationRef = useRef<string | null>(null);
   const previewSrc =
     element.props.previewSrc || resolveImageSource(element.props.originalSrc);
   const hasPreview = Boolean(previewSrc);
@@ -144,6 +159,61 @@ export function ImageNodeView({
       setShowInput(false);
     }
   }, [isLocked, selected]);
+
+  useEffect(() => {
+    const originalSrc = element.props.originalSrc;
+    if (!originalSrc || !originalSrc.startsWith("tenas-file://")) return;
+    const hasPreview = Boolean(element.props.previewSrc);
+    const hasSize =
+      element.props.naturalWidth > 1 && element.props.naturalHeight > 1;
+    if (hasPreview && hasSize) return;
+    if (hydrationRef.current === originalSrc) return;
+    hydrationRef.current = originalSrc;
+
+    let cancelled = false;
+    const nodeId = element.id;
+    // 逻辑：从 tenas-file 拉取预览与尺寸，避免外部节点重复处理。
+    void (async () => {
+      try {
+        const payload = await buildImageNodePayloadFromUri(originalSrc);
+        if (cancelled) return;
+        if (!engine.doc.getElementById(nodeId)) return;
+        const patch: Partial<ImageNodeProps> = {};
+        if (!element.props.previewSrc && payload.props.previewSrc) {
+          patch.previewSrc = payload.props.previewSrc;
+        }
+        if (element.props.naturalWidth <= 1 || element.props.naturalHeight <= 1) {
+          patch.naturalWidth = payload.props.naturalWidth;
+          patch.naturalHeight = payload.props.naturalHeight;
+        }
+        if (!element.props.mimeType && payload.props.mimeType) {
+          patch.mimeType = payload.props.mimeType;
+        }
+        if (!element.props.fileName && payload.props.fileName) {
+          patch.fileName = payload.props.fileName;
+        }
+        if (Object.keys(patch).length > 0) {
+          engine.doc.updateNodeProps(nodeId, patch);
+        }
+      } catch {
+        // 逻辑：预览加载失败时保持原状，避免阻断渲染。
+        hydrationRef.current = null;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    element.id,
+    element.props.fileName,
+    element.props.mimeType,
+    element.props.naturalHeight,
+    element.props.naturalWidth,
+    element.props.originalSrc,
+    element.props.previewSrc,
+    engine,
+  ]);
 
   return (
     <div className="relative h-full w-full">

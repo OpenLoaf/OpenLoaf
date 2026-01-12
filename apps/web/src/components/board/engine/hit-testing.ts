@@ -24,6 +24,7 @@ import {
   SELECTED_ANCHOR_SIDE_SIZE,
   STROKE_HIT_RADIUS,
 } from "./constants";
+import { LARGE_ANCHOR_NODE_TYPES } from "./anchorTypes";
 import type { NodeRegistry } from "./NodeRegistry";
 import { resolveConnectorEndpointsWithBounds } from "./connector-resolve";
 import {
@@ -201,20 +202,20 @@ function findEdgeAnchorHit(
     const definition = nodes.getDefinition(element.type);
     const connectable = definition?.capabilities?.connectable ?? "auto";
     if (connectable === "auto" || connectable === "anchors") {
-      if (element.type === "image" && !selectedIdSet?.has(element.id)) {
-        // 逻辑：未选中的图片节点不显示锚点，避免悬浮时干扰。
+      const isLargeAnchorNode = LARGE_ANCHOR_NODE_TYPES.has(element.type);
+      if (!isLargeAnchorNode || !selectedIdSet?.has(element.id)) {
+        // 逻辑：仅允许大锚点节点参与边缘命中，隐藏小锚点交互。
         continue;
       }
+      const isActiveLargeAnchor = true;
       // 逻辑：选中图片节点使用偏移锚点，命中区域跟随视觉锚点位置。
       const [x, y, w, h] = element.xywh;
-      const isSelectedImage =
-        selectedIdSet?.has(element.id) && element.type === "image";
-      const sideOffset = isSelectedImage ? selectedSideOffset : 0;
-      const edgeOffset = isSelectedImage ? selectedEdgeOffset : 0;
-      const sideHitRadius = isSelectedImage
+      const sideOffset = isActiveLargeAnchor ? selectedSideOffset : 0;
+      const edgeOffset = isActiveLargeAnchor ? selectedEdgeOffset : 0;
+      const sideHitRadius = isActiveLargeAnchor
         ? Math.max(hitRadius, selectedSideRadius)
         : hitRadius;
-      const edgeHitRadius = isSelectedImage
+      const edgeHitRadius = isActiveLargeAnchor
         ? Math.max(hitRadius, selectedEdgeRadius)
         : hitRadius;
       const leftX = x - sideOffset;
@@ -253,7 +254,7 @@ function findEdgeAnchorHit(
         });
       }
       // 逻辑：选中图片节点仅保留左右锚点，禁用上下锚点命中。
-      if (!isSelectedImage) {
+      if (!isActiveLargeAnchor) {
         if (
           point[1] >= topY - edgeHitRadius &&
           point[1] <= topY + edgeHitRadius &&

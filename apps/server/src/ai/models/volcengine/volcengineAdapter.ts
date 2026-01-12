@@ -13,10 +13,11 @@ const VOLCENGINE_ACTION_SUBMIT = "CVSync2AsyncSubmitTask";
 
 /** Map model ids to req_key values. */
 const VOLCENGINE_MODEL_REQ_KEYS = {
-  "volcengine.t2i.v40": "jimeng_t2i_v40",
-  "volcengine.inpaint.v1": "jimeng_image2image_dream_inpaint",
-  "volcengine.material.v1": "i2i_material_extraction",
-  "volcengine.video.v30pro": "jimeng_ti2v_v30_pro",
+  jimeng_t2i_v40: "jimeng_t2i_v40",
+  jimeng_t2i_v31: "jimeng_t2i_v31",
+  jimeng_image2image_dream_inpaint: "jimeng_image2image_dream_inpaint",
+  i2i_material_extraction: "i2i_material_extraction",
+  jimeng_ti2v_v30_pro: "jimeng_ti2v_v30_pro",
 } as const;
 
 /** Map model ids to supported request kind. */
@@ -24,10 +25,11 @@ const VOLCENGINE_MODEL_KINDS: Record<
   keyof typeof VOLCENGINE_MODEL_REQ_KEYS,
   ProviderRequestInput["kind"]
 > = {
-  "volcengine.t2i.v40": "textToImage",
-  "volcengine.inpaint.v1": "inpaint",
-  "volcengine.material.v1": "materialExtract",
-  "volcengine.video.v30pro": "videoGenerate",
+  jimeng_t2i_v40: "textToImage",
+  jimeng_t2i_v31: "textToImage",
+  jimeng_image2image_dream_inpaint: "inpaint",
+  i2i_material_extraction: "materialExtract",
+  jimeng_ti2v_v30_pro: "videoGenerate",
 };
 
 type VolcengineResponse<T> = {

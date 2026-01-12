@@ -23,6 +23,7 @@ import {
   LayoutGrid,
   LayoutList,
   Columns2,
+  FolderTree,
   ArrowDownAZ,
   ArrowDownWideNarrow,
   ArrowUpAZ,
@@ -40,22 +41,54 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import type { FileSystemEntry } from "../utils/file-system-utils";
+import {
+  buildChildUri,
+  buildTenasFileUrl,
+  getEntryExt,
+  getRelativePathFromUri,
+  type FileSystemEntry,
+} from "../utils/file-system-utils";
 import FileSystemContextMenu from "./FileSystemContextMenu";
 import { FileSystemColumns } from "./FileSystemColumns";
 import { FileSystemGrid } from "./FileSystemGrid";
 import { FileSystemList, FileSystemListHeader } from "./FileSystemList";
 import ProjectFileSystemTransferDialog from "./ProjectFileSystemTransferDialog";
+import FileSystemGitTree from "./FileSystemGitTree";
 import { DragDropOverlay } from "@/components/ui/tenas/drag-drop-overlay";
 import { useProjectFileSystemModel } from "../models/file-system-model";
 import { useFileSystemContextMenu } from "@/hooks/use-file-system-context-menu";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileRename } from "@/hooks/use-file-rename";
+import {
+  CODE_EXTS,
+  DOC_EXTS,
+  IMAGE_EXTS,
+  MARKDOWN_EXTS,
+  PDF_EXTS,
+  SPREADSHEET_EXTS,
+  isTextFallbackExt,
+} from "./FileSystemEntryVisual";
+import {
+  BOARD_INDEX_FILE_NAME,
+  getBoardDisplayName,
+  getDisplayFileName,
+  isBoardFolderName,
+} from "@/lib/file-name";
+import BoardFileViewer from "@/components/board/BoardFileViewer";
+import CodeViewer from "@/components/file/CodeViewer";
+import DocViewer from "@/components/file/DocViewer";
+import FileViewer from "@/components/file/FileViewer";
+import ImageViewer from "@/components/file/ImageViewer";
+import MarkdownViewer from "@/components/file/MarkdownViewer";
+import PdfViewer from "@/components/file/PdfViewer";
+import SheetViewer from "@/components/file/SheetViewer";
 
 type ProjectFileSystemProps = {
   projectId?: string;
   rootUri?: string;
   currentUri?: string | null;
+  /** Whether the current project is a git repository. */
+  isGitProject?: boolean;
   projectLookup?: Map<string, ProjectBreadcrumbInfo>;
   onNavigate?: (nextUri: string) => void;
 };
@@ -72,7 +105,7 @@ type ProjectBreadcrumbItem = {
 
 /** Persisted toolbar state for the file system view. */
 type FileSystemToolbarState = {
-  viewMode: "grid" | "list" | "columns";
+  viewMode: "grid" | "list" | "columns" | "tree";
   sortField: "name" | "mtime" | null;
   sortOrder: "asc" | "desc" | null;
 };
@@ -186,6 +219,32 @@ function decodePathSegment(value: string) {
   }
 }
 
+/** Resolve a parent uri from a file or folder uri. */
+function resolveParentUriFromEntry(entry: FileSystemEntry): string | null {
+  try {
+    const url = new URL(entry.uri);
+    const segments = url.pathname.split("/").filter(Boolean);
+    if (segments.length === 0) return null;
+    // 逻辑：回退到父目录，保证工具栏操作落在可写目录。
+    segments.pop();
+    url.pathname = `/${segments.join("/")}`;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve a display label for the tree viewer. */
+function resolveTreeViewerLabel(entry: FileSystemEntry): string {
+  if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
+    return getBoardDisplayName(entry.name);
+  }
+  if (entry.kind === "file") {
+    return getDisplayFileName(entry.name, getEntryExt(entry));
+  }
+  return entry.name;
+}
+
 /** Build storage key for the file system toolbar state. */
 function buildFileSystemToolbarStorageKey(projectId?: string, rootUri?: string) {
   if (projectId) return `${FILE_SYSTEM_TOOLBAR_STORAGE_KEY}:${projectId}`;
@@ -201,7 +260,7 @@ function normalizeFileSystemToolbarState(
   const hasSortField = Object.prototype.hasOwnProperty.call(raw, "sortField");
   const hasSortOrder = Object.prototype.hasOwnProperty.call(raw, "sortOrder");
   const viewMode =
-    raw.viewMode === "list" || raw.viewMode === "columns"
+    raw.viewMode === "list" || raw.viewMode === "columns" || raw.viewMode === "tree"
       ? raw.viewMode
       : "grid";
   if (!hasSortField && !hasSortOrder) {
@@ -383,6 +442,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   projectId,
   rootUri,
   currentUri,
+  isGitProject,
   projectLookup,
   onNavigate,
 }: ProjectFileSystemProps) {
@@ -403,12 +463,22 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     initialSortField: toolbarStateFromStorage.sortField,
     initialSortOrder: toolbarStateFromStorage.sortOrder,
   });
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "columns">(
-    toolbarStateFromStorage.viewMode
+  const isTreeViewEnabled = isGitProject === true;
+  const shouldDisableTreeView = isGitProject === false;
+  /** Initial view mode based on storage and git availability. */
+  const initialViewMode = useMemo(() => {
+    if (toolbarStateFromStorage.viewMode === "tree" && shouldDisableTreeView) {
+      return "grid";
+    }
+    return toolbarStateFromStorage.viewMode;
+  }, [shouldDisableTreeView, toolbarStateFromStorage.viewMode]);
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "columns" | "tree">(
+    initialViewMode
   );
   const isGridView = viewMode === "grid";
   const isListView = viewMode === "list";
   const isColumnsView = viewMode === "columns";
+  const isTreeView = viewMode === "tree";
   const headerSlot = useProjectFileSystemHeaderSlot();
   // 当前工具栏状态快照，保持引用稳定以减少无效写入。
   const toolbarSnapshot = useMemo<FileSystemToolbarState>(
@@ -428,6 +498,12 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     clearSelection,
     applySelectionChange,
   } = useFileSelection();
+  /** Track active entry in tree view. */
+  const [treeSelectedEntry, setTreeSelectedEntry] = useState<FileSystemEntry | null>(
+    null
+  );
+  /** Tree root display title. */
+  const treeProjectTitle = rootUri ? projectLookup?.get(rootUri)?.title : undefined;
   /** Manage context menu state for the grid. */
   const {
     menuContextEntry,
@@ -437,7 +513,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     clearContextTargetIfClosed,
     resetContextMenu,
   } = useFileSystemContextMenu({
-    entries: model.displayEntries,
+    entries: isTreeView ? [] : model.displayEntries,
     selectedUris,
     onReplaceSelection: replaceSelection,
   });
@@ -498,10 +574,32 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   /** Switch between file system view modes. */
   const handleViewModeChange = useCallback(
-    (nextMode: "grid" | "list" | "columns") => {
+    (nextMode: "grid" | "list" | "columns" | "tree") => {
       setViewMode(nextMode);
     },
     []
+  );
+
+  /** Select an entry inside the tree view. */
+  const handleTreeEntrySelect = useCallback(
+    (entry: FileSystemEntry) => {
+      setTreeSelectedEntry(entry);
+      replaceSelection([entry.uri]);
+      clearContextTargetIfClosed();
+      if (!onNavigate || !rootUri) return;
+      // 逻辑：文件/画布定位到父目录，文件夹直接进入该目录。
+      if (entry.kind === "folder" && !isBoardFolderName(entry.name)) {
+        onNavigate(entry.uri);
+        return;
+      }
+      const parentUri = resolveParentUriFromEntry(entry);
+      if (parentUri) {
+        onNavigate(parentUri);
+      } else {
+        onNavigate(rootUri);
+      }
+    },
+    [clearContextTargetIfClosed, onNavigate, replaceSelection, rootUri]
   );
 
   /** Resolve selected entries from the current file list. */
@@ -521,9 +619,102 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   /** Cache selected entries for context menu actions. */
   const selectedEntries = useMemo(
-    () => resolveSelectedEntries(selectedUris),
-    [resolveSelectedEntries, selectedUris]
+    () => {
+      if (!isTreeView) return resolveSelectedEntries(selectedUris);
+      if (!treeSelectedEntry) return [];
+      if (!selectedUris.has(treeSelectedEntry.uri)) return [];
+      return [treeSelectedEntry];
+    },
+    [isTreeView, resolveSelectedEntries, selectedUris, treeSelectedEntry]
   );
+
+  /** Resolve the viewer content for tree view selection. */
+  const treeViewer = useMemo(() => {
+    if (!treeSelectedEntry) {
+      return <div className="h-full w-full p-4 text-muted-foreground">未选择文件</div>;
+    }
+    const entry = treeSelectedEntry;
+    const displayName = resolveTreeViewerLabel(entry);
+    if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
+      const boardFolderUri = entry.uri;
+      const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
+      return (
+        <BoardFileViewer
+          boardFolderUri={boardFolderUri}
+          boardFileUri={boardFileUri}
+          projectId={projectId}
+          rootUri={rootUri}
+        />
+      );
+    }
+    if (entry.kind === "folder") {
+      return (
+        <div className="h-full w-full p-4 text-muted-foreground">
+          请选择文件以预览
+        </div>
+      );
+    }
+    const ext = getEntryExt(entry);
+    // 逻辑：先匹配二进制类型，再回退到文本/默认预览。
+    if (IMAGE_EXTS.has(ext)) {
+      return <ImageViewer uri={entry.uri} name={displayName} ext={ext} />;
+    }
+    if (MARKDOWN_EXTS.has(ext)) {
+      return (
+        <MarkdownViewer
+          uri={entry.uri}
+          openUri={entry.uri}
+          name={displayName}
+          ext={ext}
+          rootUri={rootUri}
+          projectId={projectId}
+        />
+      );
+    }
+    if (CODE_EXTS.has(ext) || isTextFallbackExt(ext)) {
+      return (
+        <CodeViewer
+          uri={entry.uri}
+          name={displayName}
+          ext={ext}
+          rootUri={rootUri}
+          projectId={projectId}
+        />
+      );
+    }
+    if (PDF_EXTS.has(ext)) {
+      if (!projectId || !rootUri) {
+        return <div className="h-full w-full p-4 text-destructive">未找到项目路径</div>;
+      }
+      const relativePath = getRelativePathFromUri(rootUri, entry.uri);
+      if (!relativePath) {
+        return <div className="h-full w-full p-4 text-destructive">无法解析PDF路径</div>;
+      }
+      const pdfUri = buildTenasFileUrl(projectId, relativePath);
+      return (
+        <PdfViewer
+          uri={pdfUri}
+          openUri={entry.uri}
+          name={displayName}
+          ext={ext}
+        />
+      );
+    }
+    if (DOC_EXTS.has(ext)) {
+      return <DocViewer uri={entry.uri} openUri={entry.uri} name={displayName} ext={ext} />;
+    }
+    if (SPREADSHEET_EXTS.has(ext)) {
+      return (
+        <SheetViewer
+          uri={entry.uri}
+          openUri={entry.uri}
+          name={displayName}
+          ext={ext}
+        />
+      );
+    }
+    return <FileViewer uri={entry.uri} name={displayName} ext={ext} />;
+  }, [projectId, rootUri, treeSelectedEntry]);
 
   /** Handle left-click selection updates. */
   const handleEntryClick = useCallback(
@@ -586,11 +777,31 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   };
 
   useEffect(() => {
+    if (!shouldDisableTreeView) return;
+    if (!isTreeView) return;
+    // 逻辑：非 Git 项目禁用树视图时，自动回退到网格视图。
+    setViewMode("grid");
+  }, [isTreeView, shouldDisableTreeView]);
+
+  useEffect(() => {
+    // 逻辑：切换项目时清空树选中状态，避免展示旧文件内容。
+    setTreeSelectedEntry(null);
+  }, [projectId, rootUri]);
+
+  useEffect(() => {
+    if (isTreeView) return;
     // 目录切换时重置选择与重命名状态，避免沿用旧目录的引用。
     clearSelection();
     handleRenamingCancel();
     resetContextMenu();
-  }, [clearSelection, handleRenamingCancel, model.activeUri, resetContextMenu]);
+  }, [clearSelection, handleRenamingCancel, isTreeView, model.activeUri, resetContextMenu]);
+
+  useEffect(() => {
+    // 逻辑：切换项目根目录时重置选择与菜单状态。
+    clearSelection();
+    handleRenamingCancel();
+    resetContextMenu();
+  }, [clearSelection, handleRenamingCancel, resetContextMenu, rootUri]);
 
   useEffect(() => {
     writeFileSystemToolbarState(toolbarStorageKey, toolbarSnapshot);
@@ -695,6 +906,24 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 列视图
               </TooltipContent>
             </Tooltip>
+            {isTreeViewEnabled ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-6 w-6 ${isTreeView ? "bg-foreground/10 text-foreground" : ""}`}
+                    aria-label="文件树视图"
+                    onClick={() => handleViewModeChange("tree")}
+                  >
+                    <FolderTree className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  文件树视图
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
           </div>
           <div className="mx-1 h-4 w-px bg-border/70" />
           <Tooltip>
@@ -873,7 +1102,45 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
             paste: model.handlePaste,
           }}
         >
-          {isListView ? (
+          {isTreeView ? (
+            <div
+              className="flex-1 min-h-0 h-full overflow-hidden bg-background"
+              onDragEnter={model.handleDragEnter}
+              onDragOver={model.handleDragOver}
+              onDragLeave={model.handleDragLeave}
+              onDrop={model.handleDrop}
+            >
+              <div className="flex h-full min-h-0">
+                <div className="flex w-72 min-w-[220px] flex-col border-r border-border/70 bg-background">
+                  <div className="flex-1 min-h-0 overflow-auto p-3">
+                    <FileSystemGitTree
+                      rootUri={rootUri}
+                      projectTitle={treeProjectTitle}
+                      currentUri={model.displayUri}
+                      selectedUris={selectedUris}
+                      showHidden={model.showHidden}
+                      sortField={model.sortField}
+                      sortOrder={model.sortOrder}
+                      dragProjectId={model.projectId}
+                      dragRootUri={model.rootUri}
+                      renamingUri={renamingUri}
+                      renamingValue={renamingValue}
+                      onRenamingChange={setRenamingValue}
+                      onRenamingSubmit={handleRenamingSubmit}
+                      onRenamingCancel={handleRenamingCancel}
+                      onSelectEntry={handleTreeEntrySelect}
+                      onContextMenuCapture={handleGridContextMenuCapture}
+                      onEntryDragStart={handleEntryDragStart}
+                      onEntryDrop={handleEntryDrop}
+                    />
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0 overflow-hidden bg-background">
+                  {treeViewer}
+                </div>
+              </div>
+            </div>
+          ) : isListView ? (
             <div className="flex-1 min-h-0 h-full flex flex-col @container/fs-list">
               <div className="border-b border-border/70 bg-background px-4">
                 <FileSystemListHeader

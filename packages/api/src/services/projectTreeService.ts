@@ -40,6 +40,8 @@ export type ProjectNode = {
   icon?: string;
   /** Project root URI. */
   rootUri: string;
+  /** Whether the project root belongs to a git repository. */
+  isGitProject: boolean;
   /** Child projects. */
   children: ProjectNode[];
 };
@@ -87,6 +89,36 @@ async function fileExists(filePath: string): Promise<boolean> {
   } catch (err) {
     return (err as NodeJS.ErrnoException).code === "ENOENT" ? false : false;
   }
+}
+
+/** Resolve whether a project path is inside a git repository. */
+async function resolveGitProjectStatus(
+  projectRootPath: string,
+  workspaceRootPath?: string,
+): Promise<boolean> {
+  const resolvedProjectRoot = path.resolve(projectRootPath);
+  const resolvedWorkspaceRoot = workspaceRootPath
+    ? path.resolve(workspaceRootPath)
+    : "";
+  const shouldBoundWorkspace =
+    Boolean(resolvedWorkspaceRoot) &&
+    (resolvedProjectRoot === resolvedWorkspaceRoot ||
+      resolvedProjectRoot.startsWith(resolvedWorkspaceRoot + path.sep));
+  const limitRoot = shouldBoundWorkspace ? resolvedWorkspaceRoot : "";
+  const filesystemRoot = path.parse(resolvedProjectRoot).root;
+  let cursor = resolvedProjectRoot;
+  // 逻辑：在工作区内则限制向上扫描到工作区根，否则只扫描到文件系统根。
+  // 逻辑：从项目根目录向上查找 .git，命中即视为 Git 项目。
+  while (true) {
+    const gitPath = path.join(cursor, ".git");
+    if (await fileExists(gitPath)) return true;
+    if (limitRoot && cursor === limitRoot) break;
+    if (cursor === filesystemRoot) break;
+    const parent = path.dirname(cursor);
+    if (parent === cursor) break;
+    cursor = parent;
+  }
+  return false;
 }
 
 /** Build project.json path from a project root. */
@@ -144,6 +176,7 @@ function resolveChildProjectPath(rootPath: string, childName: string): string | 
 async function readProjectTree(
   projectRootPath: string,
   projectIdOverride?: string,
+  workspaceRootPath?: string,
 ): Promise<ProjectNode | null> {
   try {
     const config = await readProjectConfig(projectRootPath, projectIdOverride);
@@ -162,7 +195,11 @@ async function readProjectTree(
         }
         const metaPath = getProjectMetaPath(childPath);
         if (!(await fileExists(metaPath))) continue;
-        const childNode = await readProjectTree(childPath, childProjectId);
+        const childNode = await readProjectTree(
+          childPath,
+          childProjectId,
+          workspaceRootPath,
+        );
         if (childNode) childNodes.push(childNode);
       }
     } else {
@@ -171,7 +208,11 @@ async function readProjectTree(
         if (!childPath) continue;
         const metaPath = getProjectMetaPath(childPath);
         if (!(await fileExists(metaPath))) continue;
-        const childNode = await readProjectTree(childPath);
+        const childNode = await readProjectTree(
+          childPath,
+          undefined,
+          workspaceRootPath,
+        );
         if (childNode) childNodes.push(childNode);
       }
     }
@@ -180,11 +221,16 @@ async function readProjectTree(
       // 中文注释：配置缺失 projectId 时视为异常，避免返回不完整节点。
       throw new Error("projectId missing in project config.");
     }
+    const isGitProject = await resolveGitProjectStatus(
+      projectRootPath,
+      workspaceRootPath,
+    );
     return {
       projectId,
       title: config.title ?? path.basename(projectRootPath),
       icon: config.icon ?? undefined,
       rootUri: toFileUri(projectRootPath),
+      isGitProject,
       children: childNodes,
     };
   } catch {
@@ -198,6 +244,12 @@ export async function readWorkspaceProjectTrees(workspaceId?: string): Promise<P
   const trimmedId = typeof workspaceId === "string" ? workspaceId.trim() : "";
   const workspace = trimmedId ? getWorkspaceById(trimmedId) : getActiveWorkspace();
   if (!workspace) return [];
+  let workspaceRootPath: string | undefined;
+  try {
+    workspaceRootPath = resolveFilePathFromUri(workspace.rootUri);
+  } catch {
+    workspaceRootPath = undefined;
+  }
   const projectEntries = Object.entries(workspace.projects ?? {});
   const projects: ProjectNode[] = [];
   for (const [projectId, rootUri] of projectEntries) {
@@ -207,7 +259,7 @@ export async function readWorkspaceProjectTrees(workspaceId?: string): Promise<P
     } catch {
       continue;
     }
-    const node = await readProjectTree(rootPath, projectId);
+    const node = await readProjectTree(rootPath, projectId, workspaceRootPath);
     if (node) projects.push(node);
   }
   return projects;

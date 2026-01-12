@@ -102,6 +102,8 @@ type FileSystemGridProps = {
   onRenamingSubmit?: () => void;
   onRenamingCancel?: () => void;
   onSelectionChange?: (uris: string[], mode: "replace" | "toggle") => void;
+  /** Resolve whether an entry is selectable. */
+  isEntrySelectable?: (entry: FileSystemEntry) => boolean;
 };
 /** File system grid with empty state. */
 const FileSystemGrid = memo(function FileSystemGrid({
@@ -136,6 +138,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onRenamingSubmit,
   onRenamingCancel,
   onSelectionChange,
+  isEntrySelectable,
   resolveSelectionMode,
   onGridContextMenuCapture,
 }: FileSystemGridProps) {
@@ -198,6 +201,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onOpenBoardRef.current = onOpenBoard;
   const onNavigateRef = useRef(onNavigate);
   onNavigateRef.current = onNavigate;
+  const isEntrySelectableRef = useRef(isEntrySelectable);
+  isEntrySelectableRef.current = isEntrySelectable;
   // 记录最近一次右键触发的条目与时间，用于 0.5 秒内拦截左右键误触。
   const lastContextMenuRef = useRef<{ uri: string; at: number } | null>(null);
   const { thumbnailByUri } = useFolderThumbnails({
@@ -256,6 +261,11 @@ const FileSystemGrid = memo(function FileSystemGrid({
     useFileSystemSelection({
       gridRef,
       entriesRef,
+      isUriSelectable: (uri) => {
+        const entry = entryByUriRef.current.get(uri);
+        if (!entry) return false;
+        return isEntrySelectableRef.current ? isEntrySelectableRef.current(entry) : true;
+      },
       onSelectionChange,
       resolveSelectionMode,
       renamingUri,
@@ -289,6 +299,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
       if (shouldBlockPointerEvent(event)) return;
       const entry = resolveEntryFromEvent(event);
       if (!entry) return;
+      if (isEntrySelectableRef.current && !isEntrySelectableRef.current(entry)) return;
       onEntryClickRef.current?.(entry, event);
     },
     [resolveEntryFromEvent, shouldBlockPointerEvent]
@@ -302,6 +313,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
       if (event.nativeEvent.which !== 1) return;
       const entry = resolveEntryFromEvent(event);
       if (!entry) return;
+      if (isEntrySelectableRef.current && !isEntrySelectableRef.current(entry)) return;
       const entryExt = getEntryExt(entry);
       if (entry.kind === "file" && IMAGE_EXTS.has(entryExt)) {
         onOpenImageRef.current?.(entry);
@@ -367,6 +379,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
       if (shouldBlockPointerEvent(event)) return;
       const entry = resolveEntryFromEvent(event);
       if (!entry) return;
+      if (isEntrySelectableRef.current && !isEntrySelectableRef.current(entry)) return;
       onEntryContextMenuRef.current?.(entry, event);
     },
     [resolveEntryFromEvent, shouldBlockPointerEvent]
@@ -465,6 +478,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
             const isSelected = selectedUris?.has(entry.uri) ?? false;
             const isDragOver = entry.kind === "folder" && dragOverFolderUri === entry.uri;
             const thumbnailSrc = thumbnailByUri.get(entry.uri);
+            const isDisabled = isEntrySelectable ? !isEntrySelectable(entry) : false;
             const card = isRenaming ? (
               <FileSystemEntryRenameCard
                 entry={entry}
@@ -486,6 +500,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
                 thumbnailSrc={thumbnailSrc}
                 ref={registerEntryRef(entry.uri)}
                 isSelected={isSelected}
+                isDisabled={isDisabled}
                 isDragOver={isDragOver}
                 onClick={handleEntryClick}
                 onDoubleClick={handleEntryDoubleClick}

@@ -27,6 +27,8 @@ type UseFileSystemSelectionParams = {
   gridRef: RefObject<HTMLDivElement | null>;
   /** Latest entries ref for selection shortcuts. */
   entriesRef: MutableRefObject<FileSystemEntry[]>;
+  /** Resolve whether a uri is selectable. */
+  isUriSelectable?: (uri: string) => boolean;
   /** Selection change callback. */
   onSelectionChange?: (uris: string[], mode: "replace" | "toggle") => void;
   /** Resolve selection mode on mouse down. */
@@ -59,6 +61,7 @@ function useFileSystemSelection({
   renamingUri,
   onRenamingSubmit,
   shouldBlockPointerEvent,
+  isUriSelectable,
 }: UseFileSystemSelectionParams): UseFileSystemSelectionResult {
   // 记录条目节点用于命中判断。
   const entryRefs = useRef(new Map<string, HTMLElement>());
@@ -75,6 +78,8 @@ function useFileSystemSelection({
   // 保持最新的选择回调引用。
   const onSelectionChangeRef = useRef(onSelectionChange);
   onSelectionChangeRef.current = onSelectionChange;
+  const isUriSelectableRef = useRef(isUriSelectable);
+  isUriSelectableRef.current = isUriSelectable;
 
   /** Register entry nodes for hit testing. */
   const registerEntryRef = useCallback((uri: string) => {
@@ -93,6 +98,9 @@ function useFileSystemSelection({
       if (!onSelectionChange) return;
       const next: string[] = [];
       entryRefs.current.forEach((node, uri) => {
+        if (isUriSelectableRef.current && !isUriSelectableRef.current(uri)) {
+          return;
+        }
         const box = node.getBoundingClientRect();
         const hit =
           rect.left <= box.right &&
@@ -116,7 +124,11 @@ function useFileSystemSelection({
   const handleSelectAll = useCallback(() => {
     const change = onSelectionChangeRef.current;
     if (!change) return;
-    const allUris = entriesRef.current.map((entry) => entry.uri);
+    const allUris = entriesRef.current
+      .map((entry) => entry.uri)
+      .filter((uri) =>
+        isUriSelectableRef.current ? isUriSelectableRef.current(uri) : true
+      );
     const sorted = [...allUris].sort();
     lastSelectedRef.current = sorted.join("|");
     change(sorted, "replace");

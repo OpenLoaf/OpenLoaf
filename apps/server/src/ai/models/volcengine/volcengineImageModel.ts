@@ -22,14 +22,20 @@ const DEFAULT_POLL_INTERVAL_MS = 1000;
 /** Default maximum polling attempts. */
 const DEFAULT_MAX_POLL_ATTEMPTS = 60;
 
-/** Map image model ids to req_key values. */
-const VOLCENGINE_IMAGE_REQ_KEYS = {
-  "volcengine.t2i.v40": "jimeng_t2i_v40",
-  "volcengine.inpaint.v1": "jimeng_image2image_dream_inpaint",
-  "volcengine.material.v1": "i2i_material_extraction",
-} as const;
+/** Supported Volcengine image model ids. */
+const VOLCENGINE_IMAGE_MODEL_IDS = [
+  "jimeng_t2i_v40",
+  "jimeng_t2i_v31",
+  "jimeng_image2image_dream_inpaint",
+  "i2i_material_extraction",
+] as const;
 
-type VolcengineImageModelId = keyof typeof VOLCENGINE_IMAGE_REQ_KEYS;
+type VolcengineImageModelId = (typeof VOLCENGINE_IMAGE_MODEL_IDS)[number];
+
+/** Check whether the model id is supported. */
+function isVolcengineImageModelId(value: string): value is VolcengineImageModelId {
+  return VOLCENGINE_IMAGE_MODEL_IDS.includes(value as VolcengineImageModelId);
+}
 
 /** Volcengine response wrapper. */
 type VolcengineResponse<T> = {
@@ -147,10 +153,10 @@ function buildVolcengineImagePayload(
   modelId: VolcengineImageModelId,
   options: ImageModelV3CallOptions,
 ): Record<string, unknown> {
-  const reqKey = VOLCENGINE_IMAGE_REQ_KEYS[modelId];
+  const reqKey = modelId;
   const { width, height } = parseSize(options.size);
 
-  if (modelId === "volcengine.t2i.v40") {
+  if (modelId === "jimeng_t2i_v40" || modelId === "jimeng_t2i_v31") {
     return {
       req_key: reqKey,
       prompt: options.prompt,
@@ -162,7 +168,7 @@ function buildVolcengineImagePayload(
     };
   }
 
-  if (modelId === "volcengine.inpaint.v1") {
+  if (modelId === "jimeng_image2image_dream_inpaint") {
     // 中文注释：修复模式需要原图与 mask 两张图。
     const sourceFile = options.files?.[0];
     const fallbackMask = options.files?.[1];
@@ -182,7 +188,7 @@ function buildVolcengineImagePayload(
     };
   }
 
-  if (modelId === "volcengine.material.v1") {
+  if (modelId === "i2i_material_extraction") {
     // 中文注释：素材提取只允许单张图片。
     const { imageUrls, binaryDataBase64 } = resolveImageInputs(options.files?.slice(0, 1));
     return {
@@ -345,11 +351,11 @@ class VolcengineImageModel implements ImageModelV3 {
 
   /** Generate images via Volcengine tasks. */
   async doGenerate(options: ImageModelV3CallOptions) {
-    const modelId = this.modelId as VolcengineImageModelId;
-    const reqKey = VOLCENGINE_IMAGE_REQ_KEYS[modelId];
-    if (!reqKey) {
+    const modelId = this.modelId;
+    if (!isVolcengineImageModelId(modelId)) {
       throw new Error("不支持的即梦模型");
     }
+    const reqKey = modelId;
     const warnings = buildWarnings(options);
     const payload = buildVolcengineImagePayload(modelId, options);
     const submitRequest = buildVolcengineRequest(
@@ -410,8 +416,7 @@ class VolcengineImageModel implements ImageModelV3 {
 export function buildVolcengineImageModel(
   input: VolcengineImageModelInput,
 ): ImageModelV3 | null {
-  const modelId = input.modelId as VolcengineImageModelId;
-  if (!VOLCENGINE_IMAGE_REQ_KEYS[modelId]) {
+  if (!isVolcengineImageModelId(input.modelId)) {
     return null;
   }
   return new VolcengineImageModel(input);

@@ -1,6 +1,12 @@
 import { Buffer } from "node:buffer";
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { GeneratedFile } from "ai";
+import {
+  getProjectRootPath,
+  getWorkspaceRootPathById,
+  resolveFilePathFromUri,
+} from "@tenas-ai/api/services/vfsService";
 import { readBasicConf, readS3Providers } from "@/modules/settings/tenasConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
 import { saveChatImageAttachment } from "./attachmentResolver";
@@ -50,6 +56,123 @@ export function resolveImageExtension(mediaType: string): string {
   if (mediaType === "image/jpeg") return "jpg";
   if (mediaType === "image/webp") return "webp";
   return "png";
+}
+
+/** Supported image extensions for directory inference. */
+const IMAGE_SAVE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+
+/** Check whether extension is a known image extension. */
+function isImageSaveExtension(ext: string): boolean {
+  return IMAGE_SAVE_EXTENSIONS.has(ext.toLowerCase());
+}
+
+/** Normalize a target path into a directory. */
+async function normalizeImageSaveDirectory(targetPath: string): Promise<string> {
+  try {
+    const stat = await fs.stat(targetPath);
+    // 已存在文件时使用其所在目录，避免覆盖文件。
+    if (stat.isFile()) return path.dirname(targetPath);
+    return targetPath;
+  } catch {
+    const ext = path.extname(targetPath).toLowerCase();
+    // 兼容传入文件路径时自动取目录。
+    if (isImageSaveExtension(ext)) return path.dirname(targetPath);
+    return targetPath;
+  }
+}
+
+/** Resolve local directory from a tenas-file uri. */
+async function resolveTenasSaveDirectory(input: {
+  /** tenas-file uri input. */
+  uri: string;
+  /** Optional workspace id fallback. */
+  workspaceId?: string | null;
+  /** Optional project id fallback. */
+  projectId?: string | null;
+}): Promise<string | null> {
+  let parsed: URL;
+  try {
+    parsed = new URL(input.uri);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "tenas-file:") return null;
+
+  const ownerId = parsed.hostname.trim();
+  let rootPath: string | null = null;
+  if (ownerId && ownerId !== ".") {
+    rootPath = getProjectRootPath(ownerId) ?? getWorkspaceRootPathById(ownerId);
+  }
+  if (!rootPath) {
+    const projectRootPath = input.projectId ? getProjectRootPath(input.projectId) : null;
+    const workspaceRootPath =
+      projectRootPath || !input.workspaceId ? null : getWorkspaceRootPathById(input.workspaceId);
+    rootPath = projectRootPath ?? workspaceRootPath;
+  }
+  if (!rootPath) return null;
+
+  const relativePath = decodeURIComponent(parsed.pathname).replace(/^\/+/, "");
+  const targetPath = path.resolve(rootPath, relativePath || ".");
+  const rootPathResolved = path.resolve(rootPath);
+  // 限制在 workspace/project 根目录内，避免路径穿越。
+  if (targetPath !== rootPathResolved && !targetPath.startsWith(rootPathResolved + path.sep)) {
+    return null;
+  }
+  return targetPath;
+}
+
+/** Resolve local directory from image_save_dir input. */
+export async function resolveImageSaveDirectory(input: {
+  /** Raw image save directory uri. */
+  imageSaveDir: string;
+  /** Optional workspace id fallback. */
+  workspaceId?: string | null;
+  /** Optional project id fallback. */
+  projectId?: string | null;
+}): Promise<string | null> {
+  const raw = input.imageSaveDir.trim();
+  if (!raw) return null;
+
+  if (raw.startsWith("file://")) {
+    try {
+      const filePath = resolveFilePathFromUri(raw);
+      return normalizeImageSaveDirectory(filePath);
+    } catch {
+      return null;
+    }
+  }
+
+  if (raw.startsWith("tenas-file://")) {
+    const dirPath = await resolveTenasSaveDirectory({
+      uri: raw,
+      workspaceId: input.workspaceId,
+      projectId: input.projectId,
+    });
+    if (!dirPath) return null;
+    return normalizeImageSaveDirectory(dirPath);
+  }
+
+  return null;
+}
+
+/** Save generated images into a local directory. */
+export async function saveGeneratedImagesToDirectory(input: {
+  /** Generated image files from provider. */
+  images: GeneratedFile[];
+  /** Target directory path. */
+  directory: string;
+}): Promise<string[]> {
+  const savedPaths: string[] = [];
+  await fs.mkdir(input.directory, { recursive: true });
+  for (const [index, image] of input.images.entries()) {
+    const mediaType = image.mediaType || "image/png";
+    const buffer = Buffer.from(image.uint8Array);
+    const fileName = buildImageFileName(index, mediaType);
+    const filePath = path.join(input.directory, fileName);
+    await fs.writeFile(filePath, buffer);
+    savedPaths.push(filePath);
+  }
+  return savedPaths;
 }
 
 /** 保存生成图片到磁盘并返回落库 parts。 */

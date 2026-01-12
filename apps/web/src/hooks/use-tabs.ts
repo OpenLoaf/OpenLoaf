@@ -367,6 +367,8 @@ export interface TabsState {
   ) => void;
   setTabPinned: (tabId: string, isPin: boolean) => void;
   setTabTitle: (tabId: string, title: string) => void;
+  /** Update tab icon. */
+  setTabIcon: (tabId: string, icon?: string | null) => void;
 
   setTabBase: (tabId: string, base: DockItem | undefined) => void;
   /**
@@ -657,6 +659,16 @@ export const useTabs = create<TabsState>()(
             normalizeDock({
               ...tab,
               title,
+            }),
+          ),
+        }));
+      },
+      setTabIcon: (tabId, icon) => {
+        set((state) => ({
+          tabs: updateTabById(state.tabs, tabId, (tab) =>
+            normalizeDock({
+              ...tab,
+              icon: icon ?? DEFAULT_TAB_INFO.icon,
             }),
           ),
         }));

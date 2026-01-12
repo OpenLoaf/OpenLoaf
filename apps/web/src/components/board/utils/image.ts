@@ -1,3 +1,5 @@
+import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
+
 export type ImageNodePayload = {
   /** Props used by the image node component. */
   props: {
@@ -128,6 +130,47 @@ export async function buildImageNodePayloadFromFile(
       originalSrc,
       mimeType: file.type || "image/png",
       fileName: file.name || "Image",
+      naturalWidth,
+      naturalHeight,
+    },
+    size: [nodeWidth, nodeHeight],
+  };
+}
+
+/** Build image node props and a suggested size from a uri. */
+export async function buildImageNodePayloadFromUri(
+  uri: string,
+  options?: {
+    /** Max dimension for the preview bitmap. */
+    maxPreviewDimension?: number;
+    /** Max dimension for the initial node size. */
+    maxNodeDimension?: number;
+    /** Quality used when encoding compressed previews. */
+    quality?: number;
+  }
+): Promise<ImageNodePayload> {
+  const blob = await fetchBlobFromUri(uri);
+  const dataUrl = await readBlobAsDataUrl(blob);
+  const image = await decodeImage(dataUrl);
+  const naturalWidth = image.naturalWidth || 1;
+  const naturalHeight = image.naturalHeight || 1;
+  const mimeType = blob.type || "image/png";
+  const { previewSrc } = await buildPreviewDataUrl(image, mimeType, {
+    maxDimension: options?.maxPreviewDimension ?? DEFAULT_PREVIEW_MAX,
+    quality: options?.quality ?? DEFAULT_PREVIEW_QUALITY,
+  });
+  const [nodeWidth, nodeHeight] = fitSize(
+    naturalWidth,
+    naturalHeight,
+    options?.maxNodeDimension ?? DEFAULT_NODE_MAX
+  );
+
+  return {
+    props: {
+      previewSrc,
+      originalSrc: uri,
+      mimeType,
+      fileName: resolveFileName(uri, mimeType),
       naturalWidth,
       naturalHeight,
     },

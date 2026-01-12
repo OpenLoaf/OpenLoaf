@@ -183,6 +183,10 @@ export class CanvasEngine {
   private container: HTMLElement | null = null;
   /** Resize observer for viewport sync. */
   private resizeObserver: ResizeObserver | null = null;
+  /** Pending frame id for resize observer updates. */
+  private resizeRaf: number | null = null;
+  /** Last measured size from the resize observer. */
+  private resizeSize: CanvasPoint | null = null;
   /** Pointer down handler bound to the engine instance. */
   private readonly onPointerDown = (event: PointerEvent) => {
     this.tools.handlePointerDown(event);
@@ -310,13 +314,15 @@ export class CanvasEngine {
     this.container.addEventListener("wheel", this.onWheel, { passive: false });
 
     const rect = this.container.getBoundingClientRect();
-    this.viewport.setSize(rect.width, rect.height);
+    const nextWidth = Math.max(0, Math.round(rect.width));
+    const nextHeight = Math.max(0, Math.round(rect.height));
+    this.resizeSize = [nextWidth, nextHeight];
+    this.viewport.setSize(nextWidth, nextHeight);
 
     this.resizeObserver = new ResizeObserver(entries => {
       const entry = entries[0];
       if (!entry) return;
-      const { width, height } = entry.contentRect;
-      this.viewport.setSize(width, height);
+      this.scheduleViewportResize(entry.contentRect.width, entry.contentRect.height);
     });
     this.resizeObserver.observe(this.container);
   }
@@ -332,12 +338,38 @@ export class CanvasEngine {
     this.container.removeEventListener("wheel", this.onWheel);
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    if (this.resizeRaf !== null) {
+      window.cancelAnimationFrame(this.resizeRaf);
+      this.resizeRaf = null;
+    }
+    this.resizeSize = null;
     this.container = null;
   }
 
   /** Return the current container element. */
   getContainer(): HTMLElement | null {
     return this.container;
+  }
+
+  /** Schedule a viewport resize from observer measurements. */
+  private scheduleViewportResize(width: number, height: number): void {
+    const nextWidth = Math.max(0, Math.round(width));
+    const nextHeight = Math.max(0, Math.round(height));
+    if (
+      this.resizeSize &&
+      this.resizeSize[0] === nextWidth &&
+      this.resizeSize[1] === nextHeight
+    ) {
+      return;
+    }
+    this.resizeSize = [nextWidth, nextHeight];
+    if (this.resizeRaf !== null) return;
+    // 逻辑：用 rAF 节流 ResizeObserver 回调，避免布局循环触发。
+    this.resizeRaf = window.requestAnimationFrame(() => {
+      this.resizeRaf = null;
+      if (!this.resizeSize) return;
+      this.viewport.setSize(this.resizeSize[0], this.resizeSize[1]);
+    });
   }
 
   /** Convert a screen-space point to world coordinates. */

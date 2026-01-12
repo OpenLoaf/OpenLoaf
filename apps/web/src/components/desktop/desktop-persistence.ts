@@ -23,13 +23,22 @@ type DesktopFileItem = {
   kind: "icon" | "widget";
   title: string;
   widgetKey?: "clock" | "flip-clock" | "quick-actions" | "3d-folder";
-  size?: "1x1" | "2x2" | "4x2";
+  size?: "1x1" | "2x2" | "4x2" | "4x3";
   constraints?: DesktopWidgetConstraints;
   pinned?: boolean;
   iconKey?: DesktopIconKey;
   params?: Record<string, unknown>;
   layout?: DesktopItemLayout;
   layoutByBreakpoint: Record<DesktopBreakpoint, DesktopItemLayout>;
+};
+
+const THREE_D_FOLDER_CONSTRAINTS: DesktopWidgetConstraints = {
+  defaultW: 4,
+  defaultH: 3,
+  minW: 1,
+  minH: 1,
+  maxW: 12,
+  maxH: 20,
 };
 
 type DesktopFilePayload = {
@@ -127,13 +136,15 @@ export function deserializeDesktopItems(raw: string): DesktopItem[] | null {
 
         if (!item.widgetKey || !item.constraints || !item.size) return null;
         const params = item.params ?? {};
+        const constraints =
+          item.widgetKey === "3d-folder" ? THREE_D_FOLDER_CONSTRAINTS : item.constraints;
         return {
           id: item.id,
           kind: "widget",
           title: item.title,
           widgetKey: item.widgetKey,
           size: item.size,
-          constraints: item.constraints,
+          constraints,
           pinned: item.pinned,
           folderUri:
             item.widgetKey === "3d-folder" && typeof params.folderUri === "string"

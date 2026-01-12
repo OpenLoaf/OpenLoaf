@@ -41,6 +41,7 @@ import { FolderPlus } from "lucide-react";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileRename } from "@/hooks/use-file-rename";
 import { useProjects } from "@/hooks/use-projects";
+import { isBoardFolderName } from "@/lib/file-name";
 import {
   IGNORE_NAMES,
   buildChildUri,
@@ -396,6 +397,10 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         if (selectedFileRefs.length === 0) return;
         onSelectFileRefs?.(selectedFileRefs);
       } else {
+        if (isActiveBoardFolder) {
+          toast.error("画布目录不可选");
+          return;
+        }
         onSelectTarget?.(activeUri);
       }
       onOpenChange(false);
@@ -532,8 +537,24 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
     !activeUri ||
     (mode !== "select" && transferEntries.length === 0) ||
     (mode === "select" && selectTarget === "file" && selectedFileRefs.length === 0);
+  const isActiveBoardFolder = useMemo(() => {
+    if (!activeUri) return false;
+    try {
+      const url = new URL(activeUri);
+      const parts = url.pathname.split("/").filter(Boolean);
+      const name = decodeURIComponent(parts[parts.length - 1] ?? "");
+      return isBoardFolderName(name);
+    } catch {
+      return false;
+    }
+  }, [activeUri]);
+  const effectiveConfirmDisabled =
+    confirmDisabled ||
+    (mode === "select" && selectTarget === "folder" && isActiveBoardFolder);
   /** Whether to disable preview/context menu interactions. */
   const disableEntryActions = mode === "select";
+
+  const isFolderOnlySelection = mode === "select" && selectTarget === "folder";
 
   const gridBody = (
     <div className="h-full">
@@ -549,6 +570,11 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         onSelectionChange={handleSelectionChange}
         resolveSelectionMode={resolveSelectionMode}
         onGridContextMenuCapture={handleGridContextMenuCapture}
+        isEntrySelectable={(entry) =>
+          isFolderOnlySelection
+            ? entry.kind === "folder" && !isBoardFolderName(entry.name)
+            : true
+        }
         renamingUri={renamingUri}
         renamingValue={renamingValue}
         onRenamingChange={setRenamingValue}
@@ -659,7 +685,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
           <Button
             type="button"
             onClick={handleConfirmTransfer}
-            disabled={confirmDisabled}
+            disabled={effectiveConfirmDisabled}
           >
             {confirmLabel}
           </Button>

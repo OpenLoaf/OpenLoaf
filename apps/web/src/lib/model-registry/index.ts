@@ -74,7 +74,8 @@ export function getProviderModels(providerId: string): ModelDefinition[] {
 
 /** Resolve display label for a model. */
 export function getModelLabel(model: ModelDefinition): string {
-  return model.id;
+  // 中文注释：优先使用配置的展示名，没有就回退到 id。
+  return model.name ?? model.id;
 }
 
 /** Build a concise label for selected models. */

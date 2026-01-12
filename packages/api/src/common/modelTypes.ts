@@ -42,6 +42,8 @@ export type PriceTier = {
 export type ModelDefinition = {
   /** Unique model id. */
   id: string;
+  /** Display name for UI. */
+  name?: string;
   /** Model family id. */
   familyId: string;
   /** Provider id owning the model. */
