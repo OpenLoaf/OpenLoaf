@@ -1,6 +1,7 @@
 "use client";
 
 import type * as React from "react";
+import type { DesktopBreakpoint } from "./desktop-breakpoints";
 
 export type DesktopItemKind = "icon" | "widget";
 
@@ -46,12 +47,18 @@ export interface DesktopItemBase {
   title: string;
   /** Whether the item is pinned (non-movable). */
   pinned?: boolean;
+  /** Layout map for multiple breakpoints. */
+  layoutByBreakpoint?: Partial<Record<DesktopBreakpoint, DesktopItemLayout>>;
   /** Gridstack layout. */
   layout: DesktopItemLayout;
 }
 
+export type DesktopIconKey = "files" | "tasks" | "search" | "settings";
+
 export interface DesktopIconItem extends DesktopItemBase {
   kind: "icon";
+  /** Icon key for persistence. */
+  iconKey: DesktopIconKey;
   /** Icon element. */
   icon: React.ReactNode;
 }

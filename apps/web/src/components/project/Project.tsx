@@ -203,7 +203,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
 
   // 面板按需挂载，header 常驻渲染并用 CSS 过渡控制显示与交互。
   const headerBaseClass =
-    "absolute inset-0 flex items-center pl-2 transition-opacity duration-240 ease-out";
+    "flex items-center pl-2 transition-opacity duration-240 ease-out min-w-0";
   const panelBaseClass =
     "absolute inset-0 box-border pt-0 transition-opacity duration-240 ease-out";
 
@@ -269,14 +269,14 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
 
   return (
     <ProjectFileSystemHeaderSlotProvider>
-      <div className="flex h-full w-full flex-col min-h-0">
-      <div className="relative flex items-center py-0 w-full min-w-0 gap-3 pb-2">
-        <div className="relative flex-1 min-w-0 min-h-[36px]">
+      <div className="project-shell flex h-full w-full flex-col min-h-0">
+      <div className="project-header w-full min-w-0">
+        <div className="project-header-main relative min-w-0 min-h-[36px]">
           <div
             className={`${headerBaseClass} ${
               activeTab === "index"
-                ? "opacity-100 pointer-events-auto"
-                : "opacity-0 pointer-events-none"
+                ? "relative opacity-100 pointer-events-auto w-full"
+                : "absolute inset-0 opacity-0 pointer-events-none"
             }`}
             aria-hidden={activeTab !== "index"}
           >
@@ -298,8 +298,8 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
           <div
             className={`${headerBaseClass} ${
               activeTab === "files"
-                ? "opacity-100 pointer-events-auto"
-                : "opacity-0 pointer-events-none"
+                ? "relative opacity-100 pointer-events-auto w-full"
+                : "absolute inset-0 opacity-0 pointer-events-none"
             }`}
             aria-hidden={activeTab !== "files"}
           >
@@ -314,8 +314,8 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
           <div
             className={`${headerBaseClass} ${
               activeTab === "tasks"
-                ? "opacity-100 pointer-events-auto"
-                : "opacity-0 pointer-events-none"
+                ? "relative opacity-100 pointer-events-auto w-full"
+                : "absolute inset-0 opacity-0 pointer-events-none"
             }`}
             aria-hidden={activeTab !== "tasks"}
           >
@@ -324,15 +324,15 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
           <div
             className={`${headerBaseClass} ${
               activeTab === "settings"
-                ? "opacity-100 pointer-events-auto"
-                : "opacity-0 pointer-events-none"
+                ? "relative opacity-100 pointer-events-auto w-full"
+                : "absolute inset-0 opacity-0 pointer-events-none"
             }`}
             aria-hidden={activeTab !== "settings"}
           >
             <ProjectSettingsHeader isLoading={isLoading} pageTitle={pageTitle} />
           </div>
         </div>
-        <div className="shrink-0">
+        <div className="project-header-tabs">
           <ProjectTabs
             value={activeTab}
             onValueChange={handleProjectTabChange}
@@ -362,6 +362,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
                     isLoading={isLoading}
                     isActive={tabActive && activeTab === "index"}
                     projectId={projectId}
+                    rootUri={rootUri}
                     projectTitle={pageTitle}
                     readOnly={indexReadOnly}
                     onDirtyChange={setIndexDirty}

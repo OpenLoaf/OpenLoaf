@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -393,6 +393,43 @@ export const PageTreeMenu = ({
     }
     return map;
   }, [projects]);
+
+  /** Map child project id to its ancestor root uri list. */
+  const ancestorRootsByProjectId = useMemo(() => {
+    const map = new Map<string, string[]>();
+    const walk = (items: ProjectInfo[], ancestors: string[]) => {
+      items.forEach((item) => {
+        if (item.projectId && ancestors.length > 0) {
+          map.set(item.projectId, [...ancestors]);
+        }
+        if (item.children?.length) {
+          const nextAncestors = item.rootUri
+            ? [...ancestors, item.rootUri]
+            : [...ancestors];
+          walk(item.children, nextAncestors);
+        }
+      });
+    };
+    walk(projects, []);
+    return map;
+  }, [projects]);
+
+  useEffect(() => {
+    // 中文注释：激活带 projectId 的标签时，自动展开祖先项目，保证树结构可见。
+    const activeTab = tabs.find((tab) => tab.id === activeTabId);
+    const params = activeTab?.base?.params as any;
+    const projectId = params?.projectId ?? activeTab?.chatParams?.projectId;
+    if (!projectId) return;
+    const ancestorRoots = ancestorRootsByProjectId.get(projectId);
+    if (!ancestorRoots?.length) return;
+    setExpandedNodes((prev) => ({
+      ...prev,
+      ...ancestorRoots.reduce<Record<string, boolean>>((acc, rootUri) => {
+        if (!prev[rootUri]) acc[rootUri] = true;
+        return acc;
+      }, {}),
+    }));
+  }, [activeTabId, ancestorRootsByProjectId, setExpandedNodes, tabs]);
 
   const openProjectTab = (project: ProjectInfo) => {
     if (!workspace?.id) return;

@@ -2,7 +2,14 @@
 
 import * as React from "react";
 import { GridStack, type GridStackNode } from "gridstack";
-import type { DesktopItem } from "./types";
+import type { DesktopItem, DesktopItemLayout } from "./types";
+import {
+  getBreakpointConfig,
+  getBreakpointForWidth,
+  getItemLayoutForBreakpoint,
+  updateItemLayoutForBreakpoint,
+  type DesktopBreakpoint,
+} from "./desktop-breakpoints";
 import DesktopTileGridstack from "./DesktopTileGridstack";
 
 function sameLayout(
@@ -19,11 +26,11 @@ interface DesktopMetrics {
   padding: number;
 }
 
-function clampItemToCols(item: DesktopItem, cols: number): DesktopItem {
-  const w = Math.max(1, Math.min(cols, item.layout.w));
-  const h = Math.max(1, item.layout.h);
-  const x = Math.max(0, Math.min(cols - w, item.layout.x));
-  const y = Math.max(0, item.layout.y);
+function clampItemToCols(item: DesktopItem, cols: number, layout: DesktopItemLayout): DesktopItem {
+  const w = Math.max(1, Math.min(cols, layout.w));
+  const h = Math.max(1, layout.h);
+  const x = Math.max(0, Math.min(cols - w, layout.x));
+  const y = Math.max(0, layout.y);
   if (sameLayout(item.layout, { x, y, w, h })) return item;
   return { ...item, layout: { x, y, w, h } };
 }
@@ -31,6 +38,10 @@ function clampItemToCols(item: DesktopItem, cols: number): DesktopItem {
 interface DesktopGridProps {
   items: DesktopItem[];
   editMode: boolean;
+  /** Active breakpoint when editing. */
+  activeBreakpoint: DesktopBreakpoint;
+  /** Notify view-mode breakpoint changes. */
+  onViewBreakpointChange?: (breakpoint: DesktopBreakpoint) => void;
   onSetEditMode: (nextEditMode: boolean) => void;
   /** Update a single desktop item. */
   onUpdateItem: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
@@ -44,6 +55,8 @@ interface DesktopGridProps {
 export default function DesktopGrid({
   items,
   editMode,
+  activeBreakpoint,
+  onViewBreakpointChange,
   onSetEditMode,
   onUpdateItem,
   onChangeItems,
@@ -84,19 +97,30 @@ export default function DesktopGrid({
     return () => ro.disconnect();
   }, []);
 
-  const metrics = React.useMemo<DesktopMetrics>(() => {
-    const width = containerWidth;
-    const small = width > 0 && width < 520;
-    // 最小单元高度：需要容纳 icon + title（含边框），避免在窄屏下被裁切。
-    const cell = small ? 80 : 85;
-    const gap = small ? 5 : 5;
-    const padding = small ? 16 : 24;
+  const resolvedBreakpoint = React.useMemo(
+    () => (editMode ? activeBreakpoint : getBreakpointForWidth(containerWidth)),
+    [activeBreakpoint, containerWidth, editMode]
+  );
 
-    const usable = Math.max(0, width - padding * 2);
-    const rawCols = usable > 0 ? Math.floor((usable + gap) / (cell + gap)) : 6;
-    const cols = Math.max(4, Math.min(10, rawCols || 6));
-    return { cols, cell, gap, padding };
-  }, [containerWidth]);
+  const breakpointRef = React.useRef(resolvedBreakpoint);
+  React.useEffect(() => {
+    breakpointRef.current = resolvedBreakpoint;
+  }, [resolvedBreakpoint]);
+
+  React.useEffect(() => {
+    if (editMode) return;
+    onViewBreakpointChange?.(resolvedBreakpoint);
+  }, [editMode, onViewBreakpointChange, resolvedBreakpoint]);
+
+  const metrics = React.useMemo<DesktopMetrics>(() => {
+    const config = getBreakpointConfig(resolvedBreakpoint);
+    return {
+      cols: config.columns,
+      cell: config.rowHeight,
+      gap: config.gap,
+      padding: config.padding,
+    };
+  }, [resolvedBreakpoint]);
 
   React.useEffect(() => {
     const el = gridContainerRef.current;
@@ -134,6 +158,7 @@ export default function DesktopGrid({
       }
 
       const current = itemsRef.current;
+      const active = breakpointRef.current;
       let changed = false;
       const next = current.map((item) => {
         const node = nodeById.get(item.id);
@@ -143,9 +168,10 @@ export default function DesktopGrid({
         const w = node.w ?? 1;
         const h = node.h ?? 1;
         const nextLayout = { x, y, w, h };
-        if (sameLayout(item.layout, nextLayout)) return item;
+        const currentLayout = getItemLayoutForBreakpoint(item, active);
+        if (sameLayout(currentLayout, nextLayout)) return item;
         changed = true;
-        return { ...item, layout: nextLayout };
+        return updateItemLayoutForBreakpoint(item, active, nextLayout);
       });
 
       if (changed) onChangeItems(next);
@@ -161,6 +187,7 @@ export default function DesktopGrid({
       }
 
       let changed = false;
+      const active = breakpointRef.current;
       const next = itemsRef.current.map((item) => {
         const node = nodeById.get(item.id);
         if (!node) return item;
@@ -170,9 +197,10 @@ export default function DesktopGrid({
           w: node.w ?? 1,
           h: node.h ?? 1,
         };
-        if (sameLayout(item.layout, nextLayout)) return item;
+        const currentLayout = getItemLayoutForBreakpoint(item, active);
+        if (sameLayout(currentLayout, nextLayout)) return item;
         changed = true;
-        return { ...item, layout: nextLayout };
+        return updateItemLayoutForBreakpoint(item, active, nextLayout);
       });
 
       if (changed) onChangeItems(next);
@@ -232,6 +260,7 @@ export default function DesktopGrid({
     // 逻辑：仅在编辑态手动触发整理，允许用户保留空白布局。
     suppressChangeRef.current = true;
     grid.compact("list");
+    const active = breakpointRef.current;
     const nodeById = new Map<string, GridStackNode>();
     for (const node of grid.engine?.nodes ?? []) {
       const id = node.id != null ? String(node.id) : null;
@@ -249,9 +278,10 @@ export default function DesktopGrid({
         w: node.w ?? 1,
         h: node.h ?? 1,
       };
-      if (sameLayout(item.layout, nextLayout)) return item;
+      const currentLayout = getItemLayoutForBreakpoint(item, active);
+      if (sameLayout(currentLayout, nextLayout)) return item;
       changed = true;
-      return { ...item, layout: nextLayout };
+      return updateItemLayoutForBreakpoint(item, active, nextLayout);
     });
 
     if (changed) onChangeItems(next);
@@ -265,7 +295,14 @@ export default function DesktopGrid({
     if (!grid) return;
 
     // 仅用于渲染/更新 grid 的“视图布局”，不写回 items，避免窗口尺寸变化污染原始布局。
-    const viewItems = items.map((item) => clampItemToCols(item, metrics.cols));
+    const viewItems = items.map((item) => {
+      const layout = getItemLayoutForBreakpoint(item, resolvedBreakpoint);
+      return clampItemToCols(
+        { ...item, layout },
+        metrics.cols,
+        layout
+      );
+    });
 
     // 逻辑：新添加的 DOM 需要主动注册到 Gridstack，确保使用完整的尺寸。
     const registeredIds = registeredIdsRef.current;
@@ -294,7 +331,7 @@ export default function DesktopGrid({
     }
     grid.batchUpdate(false);
     syncingRef.current = false;
-  }, [items, metrics.cols]);
+  }, [items, metrics.cols, resolvedBreakpoint]);
 
   return (
     <div ref={wrapperRef} className="relative h-full w-full">
@@ -304,8 +341,9 @@ export default function DesktopGrid({
         style={{ padding: metrics.padding }}
       >
         {items.map((item) => {
-          const viewItem = clampItemToCols(item, metrics.cols);
-          return (
+      const layout = getItemLayoutForBreakpoint(item, resolvedBreakpoint);
+      const viewItem = clampItemToCols({ ...item, layout }, metrics.cols, layout);
+      return (
             <div
               key={item.id}
               ref={(node) => {

@@ -85,7 +85,7 @@ export const Header = () => {
       }
     >
       <div
-        className={`flex shrink-0 h-(--header-height) items-center  transition-[width] duration-200 ease-linear ${
+        className={`flex shrink-0 h-(--header-height) items-center transition-[width] duration-200 ease-linear ${
           leftOpen
             ? "w-[calc(var(--sidebar-width)-var(--macos-traffic-lights-width))] "
             : "w-[max(5rem,calc(6rem-var(--macos-traffic-lights-width)))] "

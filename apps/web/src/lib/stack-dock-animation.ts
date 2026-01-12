@@ -51,6 +51,13 @@ function prefersReducedMotion() {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 }
 
+/** Read UI animation level from document dataset. */
+function getUiAnimationLevel() {
+  if (typeof document === "undefined") return "high";
+  const level = document.documentElement.dataset.uiAnimationLevel;
+  return level === "low" || level === "medium" || level === "high" ? level : "high";
+}
+
 /** Get the dock button element used as the animation target. */
 function getDockButton(): HTMLElement | null {
   if (typeof document === "undefined") return null;
@@ -255,6 +262,11 @@ export function requestStackMinimize(tabId: string) {
   if (!tabId) return;
   const state = useTabs.getState();
   if (state.stackHiddenByTabId[tabId]) return;
+  // 逻辑：动画级别为低时直接隐藏，不执行最小化动画。
+  if (getUiAnimationLevel() === "low") {
+    state.setStackHidden(tabId, true);
+    return;
+  }
   const shouldRestoreFull = isBoardStackFull(state, tabId);
   const activeItem = getActiveStackItem(state, tabId);
   if (activeItem?.component === BOARD_VIEWER_COMPONENT) {

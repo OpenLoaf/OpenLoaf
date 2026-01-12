@@ -133,7 +133,7 @@ export default function DesktopTileGridstack({
         transition={{ type: "spring", stiffness: 450, damping: 32 }}
         className={cn(
           "desktop-tile-handle relative h-full w-full select-none overflow-hidden rounded-2xl",
-          "bg-card border border-border/60 dark:bg-card",
+          "bg-card border border-border/40 dark:bg-card",
           "bg-slate-50/90",
           isPinned ? "ring-2 ring-primary/40" : ""
         )}

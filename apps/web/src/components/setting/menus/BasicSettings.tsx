@@ -290,7 +290,7 @@ export function BasicSettings() {
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">动画级别</div>
                     <div className="text-xs text-muted-foreground">
-                      低 / 中 / 高
+                      降低动画将节省系统资源
                     </div>
                   </div>
 

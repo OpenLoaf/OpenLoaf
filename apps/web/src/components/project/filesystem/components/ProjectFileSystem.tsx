@@ -272,8 +272,8 @@ const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 min-w-0 w-full">
-      <div className="flex items-center gap-2 min-w-0">
+    <div className="project-files-header flex items-center justify-between gap-3 min-w-0 w-full">
+      <div className="project-files-header-title flex items-center gap-2 min-w-0">
         <button
           type="button"
           className={`text-base font-semibold ${isAtRoot ? "" : "hover:opacity-80"}`}
@@ -301,7 +301,7 @@ const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
       </div>
       <div
         ref={handleToolbarMount}
-        className="flex min-w-0 items-center justify-end"
+        className="project-files-header-controls flex min-w-0 items-center justify-end"
       />
     </div>
   );

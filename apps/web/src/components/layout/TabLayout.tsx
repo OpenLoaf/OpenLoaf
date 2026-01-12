@@ -70,6 +70,7 @@ export function TabLayout({
   );
   const stackHidden = useTabs((s) => Boolean(s.stackHiddenByTabId[activeTabId]));
   const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
+  // 逻辑：按 MotionConfig / 系统偏好关闭侧边栏切换动画。
   const reduceMotion = useReducedMotion();
 
   const containerRef = React.useRef<HTMLDivElement>(null);

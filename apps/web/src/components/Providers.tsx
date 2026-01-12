@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { MotionConfig } from "motion/react";
 import { queryClient } from "@/utils/trpc";
 import { useDisableContextMenu } from "@/lib/useDisableContextMenu";
 import { ThemeProvider } from "./ThemeProvider";
@@ -40,6 +41,22 @@ function ThemeSettingsBootstrap() {
     appliedThemeRef.current = true;
     setTheme(nextTheme);
   }, [isLoading, basic.uiTheme, theme, setTheme]);
+
+  return null;
+}
+
+/** Apply animation level to the document root. */
+function AnimationSettingsBootstrap() {
+  const { basic, isLoading } = useBasicConfig();
+
+  useEffect(() => {
+    if (isLoading) return;
+    const level = basic.uiAnimationLevel;
+    const next =
+      level === "low" || level === "medium" || level === "high" ? level : "high";
+    // 逻辑：统一写入到根节点，供非 React 模块读取。
+    document.documentElement.dataset.uiAnimationLevel = next;
+  }, [basic.uiAnimationLevel, isLoading]);
 
   return null;
 }
@@ -154,10 +171,25 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     >
       <QueryClientProvider client={queryClient}>
         <ThemeSettingsBootstrap />
-        {children}
-        <AutoUpdateGate />
-        {/* <ReactQueryDevtools initialIsOpen={false} /> */}
+        <AnimationSettingsBootstrap />
+        <MotionSettingsBootstrap>
+          {children}
+          <AutoUpdateGate />
+          {/* <ReactQueryDevtools initialIsOpen={false} /> */}
+        </MotionSettingsBootstrap>
       </QueryClientProvider>
     </ThemeProvider>
+  );
+}
+
+function MotionSettingsBootstrap({ children }: { children: React.ReactNode }) {
+  const { basic } = useBasicConfig();
+  // 逻辑：动画级别为低时全局禁用 motion 动画。
+  const reduceMotion = basic.uiAnimationLevel === "low";
+
+  return (
+    <MotionConfig reducedMotion={reduceMotion ? "always" : "never"}>
+      {children}
+    </MotionConfig>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { FileText, ListTodo, Search, Settings } from "lucide-react";
 import type { DesktopItem } from "./types";
+import type { DesktopBreakpoint } from "./desktop-breakpoints";
 import DesktopGrid from "./DesktopGrid";
+import { getDesktopIconByKey } from "./desktop-icons";
 
 const initialItems: DesktopItem[] = [
   {
@@ -38,28 +39,32 @@ const initialItems: DesktopItem[] = [
     id: "i-files",
     kind: "icon",
     title: "Files",
-    icon: <FileText className="size-5" />,
+    iconKey: "files",
+    icon: getDesktopIconByKey("files"),
     layout: { x: 2, y: 2, w: 1, h: 1 },
   },
   {
     id: "i-tasks",
     kind: "icon",
     title: "Tasks",
-    icon: <ListTodo className="size-5" />,
+    iconKey: "tasks",
+    icon: getDesktopIconByKey("tasks"),
     layout: { x: 3, y: 2, w: 1, h: 1 },
   },
   {
     id: "i-search",
     kind: "icon",
     title: "Search",
-    icon: <Search className="size-5" />,
+    iconKey: "search",
+    icon: getDesktopIconByKey("search"),
     layout: { x: 2, y: 3, w: 1, h: 1 },
   },
   {
     id: "i-settings",
     kind: "icon",
     title: "Settings",
-    icon: <Settings className="size-5" />,
+    iconKey: "settings",
+    icon: getDesktopIconByKey("settings"),
     layout: { x: 3, y: 3, w: 1, h: 1 },
   },
 ];
@@ -69,6 +74,10 @@ interface DesktopPageProps {
   items: DesktopItem[];
   /** Whether desktop is in edit mode. */
   editMode: boolean;
+  /** Active breakpoint when editing. */
+  activeBreakpoint: DesktopBreakpoint;
+  /** Notify view-mode breakpoint changes. */
+  onViewBreakpointChange?: (breakpoint: DesktopBreakpoint) => void;
   /** Update edit mode. */
   onSetEditMode: (nextEditMode: boolean) => void;
   /** Update a single desktop item. */
@@ -83,6 +92,8 @@ interface DesktopPageProps {
 export default function DesktopPage({
   items,
   editMode,
+  activeBreakpoint,
+  onViewBreakpointChange,
   onSetEditMode,
   onUpdateItem,
   onChangeItems,
@@ -94,6 +105,8 @@ export default function DesktopPage({
         <DesktopGrid
           items={items}
           editMode={editMode}
+          activeBreakpoint={activeBreakpoint}
+          onViewBreakpointChange={onViewBreakpointChange}
           onSetEditMode={onSetEditMode}
           onUpdateItem={onUpdateItem}
           onChangeItems={onChangeItems}

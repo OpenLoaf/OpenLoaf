@@ -1,11 +1,22 @@
 "use client";
 
 import * as React from "react";
+import { useMutation } from "@tanstack/react-query";
 import ProjectTitle from "../ProjectTitle";
 import DesktopPage, { initialItems } from "@/components/desktop/DesktopPage";
 import DesktopEditToolbar from "@/components/desktop/DesktopEditToolbar";
 import type { DesktopItem } from "@/components/desktop/types";
 import { areDesktopItemsEqual, cloneDesktopItems } from "@/components/desktop/desktop-history";
+import {
+  ensureLayoutByBreakpoint,
+  type DesktopBreakpoint,
+} from "@/components/desktop/desktop-breakpoints";
+import {
+  deserializeDesktopItems,
+  getDesktopFileUri,
+  serializeDesktopItems,
+} from "@/components/desktop/desktop-persistence";
+import { queryClient, trpc } from "@/utils/trpc";
 
 interface ProjectIndexHeaderProps {
   /** Whether the project data is loading. */
@@ -41,6 +52,8 @@ interface ProjectIndexProps {
   isActive: boolean;
   /** Current project id. */
   projectId?: string;
+  /** Current project root uri. */
+  rootUri?: string;
   /** Current project title. */
   projectTitle: string;
   /** Whether the homepage is read-only. */
@@ -75,7 +88,7 @@ const ProjectIndexHeader = React.memo(function ProjectIndexHeader({
   controlsSlotRef,
 }: ProjectIndexHeaderProps) {
   return (
-    <div className="flex items-center justify-between gap-3 w-full min-w-0">
+    <div className="project-index-header flex items-center justify-between gap-3 w-full min-w-0">
       <ProjectTitle
         isLoading={isLoading}
         projectId={projectId}
@@ -87,7 +100,7 @@ const ProjectIndexHeader = React.memo(function ProjectIndexHeader({
         onUpdateIcon={onUpdateIcon}
       />
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="project-index-header-controls flex items-center gap-2 shrink-0">
         <div ref={controlsSlotRef} className="flex items-center gap-2" />
       </div>
     </div>
@@ -99,9 +112,14 @@ const ProjectIndex = React.memo(function ProjectIndex({
   isActive,
   onDirtyChange,
   controlsSlotRef,
+  rootUri,
 }: ProjectIndexProps) {
-  const [items, setItems] = React.useState<DesktopItem[]>(() => initialItems);
+  const [items, setItems] = React.useState<DesktopItem[]>(() =>
+    ensureLayoutByBreakpoint(initialItems)
+  );
   const [editMode, setEditMode] = React.useState(false);
+  const [viewBreakpoint, setViewBreakpoint] = React.useState<DesktopBreakpoint>("lg");
+  const [editBreakpoint, setEditBreakpoint] = React.useState<DesktopBreakpoint>("lg");
   /** Signal value used for triggering grid compact. */
   const [compactSignal, setCompactSignal] = React.useState(0);
   const editSnapshotRef = React.useRef<DesktopItem[] | null>(null);
@@ -112,6 +130,39 @@ const ProjectIndex = React.memo(function ProjectIndex({
     suspended: false,
   });
   const [controlsTarget, setControlsTarget] = React.useState<HTMLDivElement | null>(null);
+  // 逻辑：桌面布局持久化文件路径。
+  const desktopFileUri = React.useMemo(
+    () => (rootUri ? getDesktopFileUri(rootUri) : null),
+    [rootUri]
+  );
+  const loadedUriRef = React.useRef<string | null>(null);
+  const saveDesktopMutation = useMutation(trpc.fs.writeFile.mutationOptions());
+
+  React.useEffect(() => {
+    if (!desktopFileUri) return;
+    if (loadedUriRef.current === desktopFileUri) return;
+    loadedUriRef.current = desktopFileUri;
+    let alive = true;
+
+    const loadDesktop = async () => {
+      try {
+        // 逻辑：读取 desktop.tenas 并初始化桌面布局。
+        const result = await queryClient.fetchQuery(
+          trpc.fs.readFile.queryOptions({ uri: desktopFileUri })
+        );
+        const parsed = deserializeDesktopItems(result.content);
+        if (!parsed || !alive) return;
+        setItems(ensureLayoutByBreakpoint(parsed));
+      } catch {
+        // ignore missing desktop file
+      }
+    };
+
+    void loadDesktop();
+    return () => {
+      alive = false;
+    };
+  }, [desktopFileUri]);
 
   React.useEffect(() => {
     // 桌面 MVP 暂时不产生“脏状态”，先专注交互与动画。
@@ -129,6 +180,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
         if (!prev && nextEditMode) {
           // 进入编辑态时记录快照，用于“取消”回滚。
           editSnapshotRef.current = cloneDesktopItems(items);
+          setEditBreakpoint(viewBreakpoint);
         }
         if (prev && !nextEditMode) {
           editSnapshotRef.current = null;
@@ -136,7 +188,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
         return nextEditMode;
       });
     },
-    [items]
+    [items, viewBreakpoint]
   );
 
   /** Append a new desktop item. */
@@ -192,10 +244,17 @@ const ProjectIndex = React.memo(function ProjectIndex({
   }, []);
 
   /** Finish edits and clear snapshot. */
-  const handleDone = React.useCallback(() => {
+  const handleDone = React.useCallback(async () => {
     editSnapshotRef.current = null;
     setEditMode(false);
-  }, []);
+    if (!desktopFileUri) return;
+    // 逻辑：保存当前桌面布局到 desktop.tenas。
+    const payload = serializeDesktopItems(items);
+    await saveDesktopMutation.mutateAsync({
+      uri: desktopFileUri,
+      content: JSON.stringify(payload, null, 2),
+    });
+  }, [desktopFileUri, items, saveDesktopMutation]);
 
   /** Trigger a compact layout pass. */
   const handleCompact = React.useCallback(() => {
@@ -270,7 +329,9 @@ const ProjectIndex = React.memo(function ProjectIndex({
       <DesktopEditToolbar
         controlsTarget={controlsTarget}
         editMode={editMode}
+        activeBreakpoint={editBreakpoint}
         items={items}
+        onChangeBreakpoint={setEditBreakpoint}
         onAddItem={handleAddItem}
         onCompact={handleCompact}
         onCancel={handleCancel}
@@ -280,6 +341,8 @@ const ProjectIndex = React.memo(function ProjectIndex({
       <DesktopPage
         items={items}
         editMode={editMode}
+        activeBreakpoint={editBreakpoint}
+        onViewBreakpointChange={setViewBreakpoint}
         onSetEditMode={handleSetEditMode}
         onUpdateItem={handleUpdateItem}
         onChangeItems={setItems}

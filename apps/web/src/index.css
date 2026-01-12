@@ -536,6 +536,88 @@ body {
   animation: tenas-thinking-border-flow 1.4s linear infinite;
 }
 
+.project-shell {
+  container-type: inline-size;
+}
+
+.project-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.project-header-tabs {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.project-header-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.project-index-header {
+  flex-wrap: nowrap;
+}
+
+.project-index-header-controls {
+  flex: 0 0 auto;
+}
+
+@container (max-width: 900px) {
+  .project-header {
+    display: grid;
+    grid-template-rows: auto auto;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .project-header-tabs {
+    width: 100%;
+    margin-left: 0;
+    order: 1;
+  }
+
+  .project-header-main {
+    order: 2;
+  }
+}
+
+@container (max-width: 980px) {
+  .project-index-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .project-index-header-controls {
+    width: 100%;
+  }
+}
+
+@container (max-width: 720px) {
+  .project-index-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@container (max-width: 720px) {
+  .project-files-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .project-files-header-title {
+    width: 100%;
+  }
+
+  .project-files-header-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tenas-thinking-border-on {
     animation: none;
@@ -658,4 +740,14 @@ body {
 }
 .dark .puck-theme [class*="_Layer-inner_"] {
   background-color: var(--puck-color-grey-03);
+}
+
+/* 逻辑：动画级别为低时禁用全局 CSS 动画与过渡。 */
+html[data-ui-animation-level="low"] *,
+html[data-ui-animation-level="low"] *::before,
+html[data-ui-animation-level="low"] *::after {
+  animation-duration: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0ms !important;
+  transition-delay: 0ms !important;
 }
