@@ -20,6 +20,7 @@ import {
   normalizeChatModelSource,
   type ProviderModelOption,
 } from "@/lib/provider-models";
+import { getModelLabel } from "@/lib/model-registry";
 import { resolveServerUrl } from "@/utils/server-url";
 import { useOptionalChatContext } from "../ChatProvider";
 import { MODEL_TAG_LABELS, type ModelTag } from "@tenas-ai/api/common";
@@ -168,6 +169,11 @@ export default function SelectMode({ className }: SelectModeProps) {
   const selectedModel =
     modelOptions.find((option) => option.id === rawSelectedModelId) ?? null;
   const selectedModelId = selectedModel?.id ?? "";
+  // 中文注释：优先展示模型 name，没有则回退到 id。
+  const selectedModelLabel =
+    selectedModel?.modelDefinition
+      ? getModelLabel(selectedModel.modelDefinition)
+      : selectedModel?.modelId ?? "Auto";
   const isAuto = !selectedModelId;
   const hasModels = modelOptions.length > 0;
   const showCloudEmpty = isCloudSource && !hasModels;
@@ -368,7 +374,7 @@ export default function SelectMode({ className }: SelectModeProps) {
                   <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
                 ) : null}
                 <span className="truncate">
-                  {selectedModel?.modelId ?? "Auto"}
+                  {selectedModelLabel}
                 </span>
               </span>
             )}
@@ -541,6 +547,9 @@ export default function SelectMode({ className }: SelectModeProps) {
                             {activeProviderGroup ? (
                               activeProviderModels.length > 0 ? (
                                 activeProviderModels.map((option) => {
+                                  const optionLabel = option.modelDefinition
+                                    ? getModelLabel(option.modelDefinition)
+                                    : option.modelId;
                                   const tagLabels =
                                     option.tags && option.tags.length > 0
                                       ? option.tags.map((tag) => MODEL_TAG_LABELS[tag] ?? tag)
@@ -563,7 +572,7 @@ export default function SelectMode({ className }: SelectModeProps) {
                                               <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
                                             ) : null}
                                             <span className="truncate">
-                                              {option.modelId}
+                                              {optionLabel}
                                             </span>
                                           </div>
                                           <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">

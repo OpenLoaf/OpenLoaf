@@ -20,6 +20,8 @@ export type ModelDialogProps = {
   editingModelId: string | null;
   /** Draft model id. */
   draftModelId: string;
+  /** Draft model name. */
+  draftModelName: string;
   /** Draft tag list. */
   draftModelTags: ModelTag[];
   /** Draft context size. */
@@ -38,6 +40,8 @@ export type ModelDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** Update draft model id. */
   onDraftModelIdChange: (value: string) => void;
+  /** Update draft model name. */
+  onDraftModelNameChange: (value: string) => void;
   /** Update draft model tags. */
   onDraftModelTagsChange: (value: ModelTag[]) => void;
   /** Update context size. */
@@ -61,6 +65,7 @@ export function ModelDialog({
   open,
   editingModelId,
   draftModelId,
+  draftModelName,
   draftModelTags,
   draftModelContextK,
   draftModelCurrencySymbol,
@@ -70,6 +75,7 @@ export function ModelDialog({
   modelError,
   onOpenChange,
   onDraftModelIdChange,
+  onDraftModelNameChange,
   onDraftModelTagsChange,
   onDraftModelContextKChange,
   onDraftModelCurrencySymbolChange,
@@ -95,6 +101,15 @@ export function ModelDialog({
               placeholder="例如：custom-chat-1"
               disabled={isEditing}
               onChange={(event) => onDraftModelIdChange(event.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <div className="text-sm font-medium">模型名称</div>
+            <Input
+              value={draftModelName}
+              placeholder="例如：自定义对话模型"
+              onChange={(event) => onDraftModelNameChange(event.target.value)}
             />
           </div>
 

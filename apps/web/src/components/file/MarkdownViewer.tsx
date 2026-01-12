@@ -124,6 +124,8 @@ export default function MarkdownViewer({
   const [initError, setInitError] = useState<unknown>(null);
   /** Header display title. */
   const displayTitle = useMemo(() => name ?? uri ?? "Markdown", [name, uri]);
+  /** Controls whether stack header actions are visible. */
+  const shouldRenderStackHeader = Boolean(tabId && panelKey);
 
   /** Get selected line range from the Milkdown editor. */
   const getSelectedLineRange = useCallback(() => {
@@ -291,38 +293,40 @@ export default function MarkdownViewer({
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
-      <StackHeader
-        title={displayTitle}
-        openUri={openUri ?? uri}
-        rightSlot={
-          isDirty ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label="保存"
-                  onClick={handleSave}
-                  disabled={writeFileMutation.isPending}
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">保存</TooltipContent>
-            </Tooltip>
-          ) : null
-        }
-        showMinimize
-        onMinimize={() => {
-          if (!tabId) return;
-          requestStackMinimize(tabId);
-        }}
-        onClose={() => {
-          if (!tabId || !panelKey) return;
-          removeStackItem(tabId, panelKey);
-        }}
-      />
-      <div className="relative h-full w-full overflow-auto px-4 pb-4 pt-0">
+      {shouldRenderStackHeader ? (
+        <StackHeader
+          title={displayTitle}
+          openUri={openUri ?? uri}
+          rightSlot={
+            isDirty ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="保存"
+                    onClick={handleSave}
+                    disabled={writeFileMutation.isPending}
+                  >
+                    <Save className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">保存</TooltipContent>
+              </Tooltip>
+            ) : null
+          }
+          showMinimize
+          onMinimize={() => {
+            if (!tabId) return;
+            requestStackMinimize(tabId);
+          }}
+          onClose={() => {
+            if (!tabId || !panelKey) return;
+            removeStackItem(tabId, panelKey);
+          }}
+        />
+      ) : null}
+      <div className="relative h-full w-full overflow-auto px-2 pb-4 pt-0">
         <div className="milkdown milkdown-viewer min-w-0 w-full max-w-full text-sm leading-relaxed">
           <MarkdownViewerErrorBoundary markdown={content}>
             {initError ? (

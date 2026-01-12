@@ -164,8 +164,10 @@ export function filterImageGenerationModelOptions(
   input: { imageCount: number; outputCount: number },
 ) {
   const requiredTags: ModelTag[] = ["image_generation"];
-  // 逻辑：多图输出时需要 image_multi_generation。
-  if (input.outputCount > 1) requiredTags.push("image_multi_generation");
+  // 逻辑：纯文本生成时只要求 image_generation，避免过度过滤模型。
+  if (input.imageCount > 0 && input.outputCount > 1) {
+    requiredTags.push("image_multi_generation");
+  }
   return options.filter((option) => {
     const tags = Array.isArray(option.tags) ? option.tags : [];
     // 逻辑：必须命中基础生成标签。
@@ -189,7 +191,9 @@ export function resolveImageGenerationRequiredTags(input: {
 }) {
   const requiredTags: ModelTag[] = ["image_generation"];
   // 逻辑：多图输出时需要 image_multi_generation。
-  if (input.outputCount > 1) requiredTags.push("image_multi_generation");
+  if (input.imageCount > 0 && input.outputCount > 1) {
+    requiredTags.push("image_multi_generation");
+  }
   if (input.imageCount > 1) {
     // 逻辑：多图输入必须包含 image_multi_input。
     requiredTags.push("image_multi_input");

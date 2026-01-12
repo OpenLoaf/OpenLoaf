@@ -1,6 +1,5 @@
 import type { UIMessage } from "ai";
 import type { ModelDefinition, ModelTag } from "@tenas-ai/api/common";
-import { logger } from "@/common/logger";
 import { getModelDefinition } from "@/ai/models/modelRegistry";
 import { getProviderSettings } from "@/modules/settings/settingsService";
 
@@ -10,18 +9,15 @@ export async function resolveExplicitModelDefinition(
 ): Promise<ModelDefinition | null> {
   const normalized = typeof chatModelId === "string" ? chatModelId.trim() : "";
   if (!normalized) {
-    logger.debug({ chatModelId }, "[chat] explicit model skipped");
     return null;
   }
   const separatorIndex = normalized.indexOf(":");
   if (separatorIndex <= 0 || separatorIndex >= normalized.length - 1) {
-    logger.debug({ chatModelId: normalized }, "[chat] explicit model id invalid");
     return null;
   }
   const profileId = normalized.slice(0, separatorIndex).trim();
   const modelId = normalized.slice(separatorIndex + 1).trim();
   if (!profileId || !modelId) {
-    logger.debug({ chatModelId: normalized }, "[chat] explicit model id empty");
     return null;
   }
 
@@ -29,63 +25,17 @@ export async function resolveExplicitModelDefinition(
   const providerEntry = providers.find((entry) => entry.id === profileId);
   if (!providerEntry) {
     const registryModel = getModelDefinition(profileId, modelId) ?? null;
-    logger.debug(
-      {
-        profileId,
-        modelId,
-        registryProviderId: registryModel?.providerId,
-        registryTags: registryModel?.tags,
-      },
-      "[chat] explicit model from registry",
-    );
     return registryModel;
   }
   const fromConfig = providerEntry.models[modelId];
-  logger.debug(
-    {
-      profileId,
-      modelId,
-      providerId: providerEntry.providerId,
-      hasConfigModel: Boolean(fromConfig),
-    },
-    "[chat] explicit model from provider config",
-  );
   if (!fromConfig) {
     const registryModel = getModelDefinition(providerEntry.providerId, modelId) ?? null;
-    logger.debug(
-      {
-        profileId,
-        modelId,
-        registryProviderId: registryModel?.providerId,
-        registryTags: registryModel?.tags,
-      },
-      "[chat] explicit model fallback to registry",
-    );
     return registryModel;
   }
   if (Array.isArray(fromConfig.tags) && fromConfig.tags.length > 0) {
-    logger.debug(
-      {
-        profileId,
-        modelId,
-        providerId: providerEntry.providerId,
-        tags: fromConfig.tags,
-      },
-      "[chat] explicit model use config tags",
-    );
     return fromConfig;
   }
   const registryModel = getModelDefinition(providerEntry.providerId, modelId) ?? fromConfig;
-  logger.debug(
-    {
-      profileId,
-      modelId,
-      providerId: providerEntry.providerId,
-      registryProviderId: registryModel?.providerId,
-      registryTags: registryModel?.tags,
-    },
-    "[chat] explicit model merge registry",
-  );
   return registryModel;
 }
 

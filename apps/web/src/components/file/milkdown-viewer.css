@@ -13,6 +13,14 @@
   overflow-wrap: anywhere;
 }
 
+.milkdown-viewer .ProseMirror * {
+  font-family: inherit;
+}
+
+.milkdown-viewer .ProseMirror > :first-child {
+  margin-top: 0;
+}
+
 .milkdown-viewer .ProseMirror a {
   text-decoration: none;
 }

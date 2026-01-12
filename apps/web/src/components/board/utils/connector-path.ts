@@ -52,10 +52,42 @@ export function resolveConnectorEndpointsSmart(
   const targetHint = resolveHint(source, bounds);
   const sourceAuto = isAutoAnchor(source);
   const targetAuto = isAutoAnchor(target);
+  const sourceAnchorId = "elementId" in source ? source.anchorId : undefined;
+  const targetAnchorId = "elementId" in target ? target.anchorId : undefined;
+  const sourceList = "elementId" in source ? anchors[source.elementId] ?? [] : [];
+  const targetList = "elementId" in target ? anchors[target.elementId] ?? [] : [];
+
+  if (!sourceAuto && targetAuto && sourceAnchorId) {
+    const requiredTargetId = oppositeAnchorId(sourceAnchorId);
+    if (requiredTargetId) {
+      const targetAnchor = targetList.find(anchor => anchor.id === requiredTargetId);
+      if (targetAnchor) {
+        return {
+          source: resolveConnectorEndpoint(source, anchors, sourceHint),
+          target: targetAnchor.point,
+          sourceAnchorId,
+          targetAnchorId: requiredTargetId,
+        };
+      }
+    }
+  }
+
+  if (sourceAuto && !targetAuto && targetAnchorId) {
+    const requiredSourceId = oppositeAnchorId(targetAnchorId);
+    if (requiredSourceId) {
+      const sourceAnchor = sourceList.find(anchor => anchor.id === requiredSourceId);
+      if (sourceAnchor) {
+        return {
+          source: sourceAnchor.point,
+          target: resolveConnectorEndpoint(target, anchors, targetHint),
+          sourceAnchorId: requiredSourceId,
+          targetAnchorId,
+        };
+      }
+    }
+  }
 
   if (sourceAuto && targetAuto) {
-    const sourceList = anchors[source.elementId] ?? [];
-    const targetList = anchors[target.elementId] ?? [];
     const pair = pickAnchorPair(
       sourceList,
       targetList,
@@ -75,8 +107,8 @@ export function resolveConnectorEndpointsSmart(
   return {
     source: resolveConnectorEndpoint(source, anchors, sourceHint),
     target: resolveConnectorEndpoint(target, anchors, targetHint),
-    sourceAnchorId: "elementId" in source ? source.anchorId : undefined,
-    targetAnchorId: "elementId" in target ? target.anchorId : undefined,
+    sourceAnchorId,
+    targetAnchorId,
   };
 }
 
@@ -110,6 +142,7 @@ function pickAnchorPair(
 
   sourceList.forEach(source => {
     targetList.forEach(target => {
+      if (!isCompatibleAnchorPair(source.id, target.id)) return;
       const dx = target.point[0] - source.point[0];
       const dy = target.point[1] - source.point[1];
       const dist = Math.hypot(dx, dy);
@@ -225,6 +258,30 @@ function anchorDirection(anchorId: string): CanvasPoint | null {
     default:
       return null;
   }
+}
+
+function oppositeAnchorId(anchorId: string): string | null {
+  switch (anchorId) {
+    case "left":
+      return "right";
+    case "right":
+      return "left";
+    case "top":
+      return "bottom";
+    case "bottom":
+      return "top";
+    default:
+      return null;
+  }
+}
+
+function isCompatibleAnchorPair(sourceId: string, targetId: string): boolean {
+  const sourceOpposite = oppositeAnchorId(sourceId);
+  const targetOpposite = oppositeAnchorId(targetId);
+  if (!sourceOpposite && !targetOpposite) return true;
+  if (sourceOpposite && targetId !== sourceOpposite) return false;
+  if (targetOpposite && sourceId !== targetOpposite) return false;
+  return true;
 }
 
 /** Pick the closest anchor point relative to the hint. */

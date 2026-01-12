@@ -107,6 +107,7 @@ export async function runChatStream(input: {
     chatModelSource,
     workspaceId,
     projectId,
+    boardId,
   } = input.request;
 
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
@@ -116,6 +117,7 @@ export async function runChatStream(input: {
     tabId,
     workspaceId,
     projectId,
+    boardId,
     requestSignal: input.requestSignal,
     messageId,
   });
@@ -180,37 +182,12 @@ export async function runChatStream(input: {
   let masterAgent: ReturnType<typeof createMasterAgentRunner>;
 
   try {
-    logger.debug(
-      {
-        sessionId,
-        chatModelId,
-        chatModelSource,
-      },
-      "[chat] resolve explicit model definition",
-    );
     const explicitModelDefinition = await resolveExplicitModelDefinition(chatModelId);
-    logger.debug(
-      {
-        sessionId,
-        chatModelId,
-        explicitModelId: explicitModelDefinition?.id,
-        explicitProviderId: explicitModelDefinition?.providerId,
-        explicitTags: explicitModelDefinition?.tags,
-      },
-      "[chat] explicit model resolved",
-    );
     if (
       explicitModelDefinition?.tags?.includes("image_generation") ||
       explicitModelDefinition?.tags?.includes("image_edit")
     ) {
-      logger.debug(
-        {
-          sessionId,
-          chatModelId,
-          tags: explicitModelDefinition.tags,
-        },
-        "[chat] route to image stream",
-      );
+      logger.debug({}, "[chat] route to image stream");
       return await runImageModelStream({
         sessionId,
         assistantMessageId,
@@ -445,11 +422,6 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
   const promptHasMask = typeof prompt === "string" ? false : Boolean(prompt.mask);
   logger.debug(
     {
-      sessionId: input.sessionId,
-      chatModelId: modelId,
-      modelDefinitionId: input.modelDefinition?.id,
-      modelProviderId: input.modelDefinition?.providerId,
-      modelTags: input.modelDefinition?.tags,
       promptLength: promptTextLength,
       imageCount: promptImageCount,
       hasMask: promptHasMask,
@@ -505,12 +477,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
   });
   logger.debug(
     {
-      sessionId: input.sessionId,
-      chatModelId: modelId,
-      revisedPromptLength: revisedPrompt?.length ?? 0,
       imageCount: imageParts.length,
-      mediaTypes: imageParts.map((part) => part.mediaType),
-      urlPrefixes: imageParts.map((part) => part.url.slice(0, 30)),
     },
     "[chat] image parts prepared",
   );
@@ -558,10 +525,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
   });
   logger.debug(
     {
-      sessionId: input.sessionId,
-      chatModelId: modelId,
       persistedImageCount: persistedImageParts.length,
-      urlPrefixes: persistedImageParts.map((part) => part.url.slice(0, 30)),
     },
     "[chat] image attachments saved",
   );

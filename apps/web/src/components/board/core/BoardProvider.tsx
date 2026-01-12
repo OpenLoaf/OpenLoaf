@@ -28,6 +28,8 @@ export type BoardFileContext = {
   projectId?: string;
   /** Project root uri for file resolution. */
   rootUri?: string;
+  /** Board id used for chat/session association. */
+  boardId?: string;
   /** Board folder uri for attachment storage. */
   boardFolderUri?: string;
 };

@@ -486,6 +486,8 @@ export function useProviderManagement() {
   const [editingModelEntry, setEditingModelEntry] = useState<ProviderEntry | null>(null);
   /** Track draft model id. */
   const [draftModelId, setDraftModelId] = useState("");
+  /** Track draft model name. */
+  const [draftModelName, setDraftModelName] = useState("");
   /** Track draft model tags. */
   const [draftModelTags, setDraftModelTags] = useState<ModelTag[]>([]);
   /** Track draft model context window. */
@@ -638,6 +640,7 @@ export function useProviderManagement() {
     setEditingModelSnapshot(null);
     setEditingModelEntry(null);
     setDraftModelId("");
+    setDraftModelName("");
     setDraftModelTags([]);
     setDraftModelContextK("0");
     setDraftModelCurrencySymbol("");
@@ -657,6 +660,7 @@ export function useProviderManagement() {
     setEditingModelId(model.id);
     setEditingModelSnapshot(model);
     setDraftModelId(model.id);
+    setDraftModelName(model.name ?? "");
     setDraftModelTags(model.tags ?? []);
     setDraftModelContextK(Number.isFinite(model.maxContextK) ? String(model.maxContextK) : "0");
     setDraftModelCurrencySymbol(model.currencySymbol ?? "");
@@ -682,6 +686,7 @@ export function useProviderManagement() {
    */
   async function submitModelDraft() {
     const modelId = draftModelId.trim();
+    const modelName = draftModelName.trim();
     const isEditing = Boolean(editingModelId);
     if (!modelId) {
       setModelError("请填写模型 ID");
@@ -713,6 +718,7 @@ export function useProviderManagement() {
     const newModel: ModelDefinition = {
       ...(baseModel as ModelDefinition),
       id: modelId,
+      name: modelName || undefined,
       familyId: modelId,
       providerId: draftProvider,
       tags: draftModelTags,
@@ -948,6 +954,8 @@ export function useProviderManagement() {
     setFocusedModelId,
     draftModelId,
     setDraftModelId,
+    draftModelName,
+    setDraftModelName,
     draftModelTags,
     setDraftModelTags,
     draftModelContextK,

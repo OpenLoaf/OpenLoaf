@@ -230,6 +230,8 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
   const isRenaming = renamingUri === node.entry.uri;
   const isDragOver = node.isFolder && dragOverFolderUri === node.entry.uri;
   const shouldFetchChildren = node.isFolder && isExpanded && canExpand;
+  // 逻辑：根目录节点不渲染行，只展示其子项。
+  const shouldRenderRow = !node.isRoot;
   // 逻辑：仅在展开时拉取子目录，避免深层目录导致请求爆炸。
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
@@ -252,6 +254,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
       : entries.filter((entry) => !IGNORE_NAMES.has(entry.name));
     return visibleEntries.map(buildTreeNode);
   }, [listQuery.data?.entries, showHidden]);
+  const childDepth = node.isRoot ? depth : depth + 1;
 
   useEffect(() => {
     return registerEntry(node.entry);
@@ -300,88 +303,90 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
 
   return (
     <div className="select-none">
-      <div
-        role="button"
-        tabIndex={-1}
-        className={cn(
-          "group relative flex w-full items-center gap-2 rounded-md px-2 py-1 text-left",
-          "transition-all duration-200 ease-out",
-          isSelected ? "bg-muted/70 ring-1 ring-border/70" : "hover:bg-muted/40",
-          isDragOver ? "bg-muted/80 ring-1 ring-border" : null
-        )}
-        data-entry-uri={node.entry.uri}
-        draggable={!node.isRoot && !isRenaming}
-        onClick={handleRowClick}
-        onContextMenuCapture={handleContextMenuCapture}
-        onDragStart={handleDragStart}
-        onDragOver={onDragOver}
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
-      >
+      {shouldRenderRow ? (
         <div
+          role="button"
+          tabIndex={-1}
           className={cn(
-            "flex h-4 w-4 items-center justify-center transition-transform duration-200 ease-out",
-            node.isFolder && isExpanded && "rotate-90",
-            !canExpand && "opacity-40"
+            "group relative flex w-full items-center gap-2 rounded-md px-2 py-1 text-left",
+            "transition-all duration-200 ease-out",
+            isSelected ? "bg-muted/70 ring-1 ring-border/70" : "hover:bg-muted/40",
+            isDragOver ? "bg-muted/80 ring-1 ring-border" : null
           )}
+          data-entry-uri={node.entry.uri}
+          draggable={!node.isRoot && !isRenaming}
+          onClick={handleRowClick}
+          onContextMenuCapture={handleContextMenuCapture}
+          onDragStart={handleDragStart}
+          onDragOver={onDragOver}
+          onDragEnter={onDragEnter}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          style={{ paddingLeft: `${depth * 12 + 8}px` }}
         >
-          {node.isFolder ? <ChevronRight className="h-3 w-3 text-muted-foreground" /> : null}
-        </div>
-        <div className="flex h-5 w-5 items-center justify-center text-muted-foreground">
-          {node.isFolder ? (
-            isExpanded ? <FolderOpen className="h-4 w-4" /> : <Folder className="h-4 w-4" />
+          <div
+            className={cn(
+              "flex h-4 w-4 items-center justify-center transition-transform duration-200 ease-out",
+              node.isFolder && isExpanded && "rotate-90",
+              !canExpand && "opacity-40"
+            )}
+          >
+            {node.isFolder ? <ChevronRight className="h-3 w-3 text-muted-foreground" /> : null}
+          </div>
+          <div className="flex h-5 w-5 items-center justify-center text-muted-foreground">
+            {node.isFolder ? (
+              isExpanded ? <FolderOpen className="h-4 w-4" /> : <Folder className="h-4 w-4" />
+            ) : (
+              <FileText className="h-4 w-4" />
+            )}
+          </div>
+          {isRenaming ? (
+            <Input
+              autoFocus
+              value={renamingValue ?? node.label}
+              onChange={(event) => onRenamingChange?.(event.target.value)}
+              className="h-6 w-full rounded-sm border border-border/60 bg-background px-2 py-0 text-left text-xs leading-4 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              onKeyDown={(event) => {
+                if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+                  event.stopPropagation();
+                  return;
+                }
+                if (event.key === "Enter") {
+                  onRenamingSubmit?.();
+                }
+                if (event.key === "Escape") {
+                  onRenamingCancel?.();
+                }
+              }}
+              onBlur={() => onRenamingSubmit?.()}
+              onClick={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+            />
           ) : (
-            <FileText className="h-4 w-4" />
+            <span className="truncate text-sm text-foreground/90">{node.label}</span>
           )}
         </div>
-        {isRenaming ? (
-          <Input
-            autoFocus
-            value={renamingValue ?? node.label}
-            onChange={(event) => onRenamingChange?.(event.target.value)}
-            className="h-6 w-full rounded-sm border border-border/60 bg-background px-2 py-0 text-left text-xs leading-4 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            onKeyDown={(event) => {
-              if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
-                event.stopPropagation();
-                return;
-              }
-              if (event.key === "Enter") {
-                onRenamingSubmit?.();
-              }
-              if (event.key === "Escape") {
-                onRenamingCancel?.();
-              }
-            }}
-            onBlur={() => onRenamingSubmit?.()}
-            onClick={(event) => event.stopPropagation()}
-            onMouseDown={(event) => event.stopPropagation()}
-          />
-        ) : (
-          <span className="truncate text-sm text-foreground/90">{node.label}</span>
-        )}
-      </div>
+      ) : null}
       {node.isFolder && isExpanded ? (
         <div className="overflow-hidden transition-all duration-300 ease-out">
           {listQuery.isLoading ? (
             <div
               className="py-1 pl-8 text-xs text-muted-foreground"
-              style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
+              style={{ paddingLeft: `${childDepth * 12 + 8}px` }}
             >
               加载中...
             </div>
           ) : listQuery.isError ? (
             <div
               className="py-1 pl-8 text-xs text-destructive"
-              style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
+              style={{ paddingLeft: `${childDepth * 12 + 8}px` }}
             >
               加载失败
             </div>
           ) : childNodes.length === 0 ? (
             <div
               className="py-1 pl-8 text-xs text-muted-foreground"
-              style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
+              style={{ paddingLeft: `${childDepth * 12 + 8}px` }}
             >
               （空）
             </div>
@@ -390,7 +395,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
               <FileSystemGitTreeNode
                 key={child.entry.uri}
                 node={child}
-                depth={depth + 1}
+                depth={childDepth}
                 expandedNodes={expandedNodes}
                 dragOverFolderUri={dragOverFolderUri}
                 onToggle={onToggle}

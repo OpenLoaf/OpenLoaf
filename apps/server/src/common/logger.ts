@@ -1,5 +1,5 @@
 import pino from "pino";
-import { getCurrentAgentFrame, getRequestContext } from "../ai/chat-stream/requestContext";
+import { getRequestContext } from "../ai/chat-stream/requestContext";
 
 type LogLevel = pino.LevelWithSilent;
 
@@ -23,14 +23,8 @@ const baseOptions = {
   timestamp: pino.stdTimeFunctions.isoTime,
   mixin() {
     const ctx = getRequestContext();
-    const frame = getCurrentAgentFrame();
     return {
       sessionId: ctx?.sessionId,
-      clientId: ctx?.clientId,
-      tabId: ctx?.tabId,
-      agent: frame
-        ? { kind: frame.kind, name: frame.name, agentId: frame.agentId, path: frame.path }
-        : undefined,
     };
   },
 };

@@ -16,8 +16,7 @@
       "icon": "Volcengine",
       "tags": [
         "image_generation",
-        "image_multi_input",
-        "image_multi_generation"
+        "image_multi_input"
       ],
       "maxContextK": 1,
       "priceStrategyId": "tiered_token",

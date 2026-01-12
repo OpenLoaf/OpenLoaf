@@ -1083,7 +1083,7 @@ export function BoardCanvas({
     <BoardProvider
       engine={engine}
       actions={boardActions}
-      fileContext={{ projectId, rootUri, boardFolderUri }}
+      fileContext={{ projectId, rootUri, boardId, boardFolderUri }}
     >
       <div
         ref={containerRef}

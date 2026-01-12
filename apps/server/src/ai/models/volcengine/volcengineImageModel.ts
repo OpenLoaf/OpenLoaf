@@ -8,6 +8,8 @@ import type {
 } from "@ai-sdk/provider";
 import type { ModelDefinition, ProviderDefinition } from "@tenas-ai/api/common";
 import { Buffer } from "node:buffer";
+import { logger } from "@/common/logger";
+import { isRecord } from "@/ai/utils/type-guards";
 import { buildVolcengineRequest } from "./volcengineClient";
 import { resolveVolcengineConfig } from "./volcengineConfig";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
@@ -19,8 +21,10 @@ const VOLCENGINE_ACTION_RESULT = "CVSync2AsyncGetResult";
 
 /** Default polling interval in milliseconds. */
 const DEFAULT_POLL_INTERVAL_MS = 1000;
-/** Default maximum polling attempts. */
-const DEFAULT_MAX_POLL_ATTEMPTS = 60;
+/** Default maximum polling attempts (5 minutes at 1s interval). */
+const DEFAULT_MAX_POLL_ATTEMPTS = 300;
+/** Maximum input images for jimeng_t2i_v40. */
+const MAX_VOLCENGINE_IMAGE_INPUTS = 10;
 
 /** Supported Volcengine image model ids. */
 const VOLCENGINE_IMAGE_MODEL_IDS = [
@@ -62,6 +66,19 @@ type VolcengineImageResult = {
   status?: string;
 };
 
+type VolcengineProviderOptions = {
+  /** Prompt influence scale. */
+  scale?: number;
+  /** Force single image output. */
+  forceSingle?: boolean;
+  /** Minimum aspect ratio. */
+  minRatio?: number;
+  /** Maximum aspect ratio. */
+  maxRatio?: number;
+  /** Image area size. */
+  size?: number;
+};
+
 /** Volcengine image model builder input. */
 type VolcengineImageModelInput = {
   /** Provider settings entry. */
@@ -93,6 +110,113 @@ function unwrapVolcengineResponse<T>(response: VolcengineResponse<T>): T | null 
     throw new Error(`Volcengine请求失败: ${message}`);
   }
   return response.data ?? null;
+}
+
+/** Submit Volcengine async task and return task id. */
+async function submitVolcengineImageTask(input: {
+  /** Provider config. */
+  config: ReturnType<typeof resolveVolcengineConfig>;
+  /** Request payload. */
+  payload: Record<string, unknown>;
+  /** Abort signal. */
+  abortSignal?: AbortSignal;
+  /** Whether to log request info. */
+  logRequest?: boolean;
+}) {
+  const submitRequest = buildVolcengineRequest(
+    input.config,
+    VOLCENGINE_ACTION_SUBMIT,
+    input.payload,
+  );
+  if (input.logRequest) {
+    logger.debug(
+      {
+        requestUrl: submitRequest.url,
+        body: buildVolcengineLogBody(input.payload),
+      },
+      "[volcengine] image submit request",
+    );
+  }
+  const submitResponse = await fetch(submitRequest.url, {
+    method: submitRequest.method,
+    headers: submitRequest.headers,
+    body: submitRequest.body,
+    signal: input.abortSignal,
+  });
+
+  if (!submitResponse.ok) {
+    const text = await submitResponse.text();
+    throw new Error(`模型请求失败: ${submitResponse.status} ${text}`);
+  }
+
+  const submitJson = (await submitResponse.json()) as VolcengineResponse<{ task_id?: string }>;
+  const submitData = unwrapVolcengineResponse(submitJson);
+  const taskId = submitData?.task_id?.trim();
+  if (!taskId) {
+    throw new Error("提交任务失败：task_id 为空");
+  }
+  return taskId;
+}
+
+/** Resolve Volcengine-specific options from provider options. */
+function resolveVolcengineProviderOptions(options: ImageModelV3CallOptions): VolcengineProviderOptions {
+  const raw = (options.providerOptions as Record<string, unknown> | undefined)?.volcengine;
+  if (!isRecord(raw)) return {};
+  const scaleRaw = typeof raw.scale === "number" ? raw.scale : undefined;
+  const scale =
+    scaleRaw != null && Number.isFinite(scaleRaw) && scaleRaw >= 0 && scaleRaw <= 1
+      ? scaleRaw
+      : undefined;
+  const minRatioRaw =
+    typeof raw.minRatio === "number"
+      ? raw.minRatio
+      : typeof raw.min_ratio === "number"
+        ? raw.min_ratio
+        : undefined;
+  const minRatio =
+    minRatioRaw != null && Number.isFinite(minRatioRaw) && minRatioRaw >= 1 / 16 && minRatioRaw < 16
+      ? minRatioRaw
+      : undefined;
+  const maxRatioRaw =
+    typeof raw.maxRatio === "number"
+      ? raw.maxRatio
+      : typeof raw.max_ratio === "number"
+        ? raw.max_ratio
+        : undefined;
+  const maxRatio =
+    maxRatioRaw != null && Number.isFinite(maxRatioRaw) && maxRatioRaw >= 1 / 16 && maxRatioRaw < 16
+      ? maxRatioRaw
+      : undefined;
+  const sizeRaw = typeof raw.size === "number" ? raw.size : undefined;
+  const size =
+    sizeRaw != null && Number.isFinite(sizeRaw) && sizeRaw > 0
+      ? Math.floor(sizeRaw)
+      : undefined;
+  const forceSingleRaw =
+    typeof raw.forceSingle === "boolean"
+      ? raw.forceSingle
+      : typeof raw.force_single === "boolean"
+        ? raw.force_single
+        : undefined;
+  return {
+    ...(scale != null ? { scale } : {}),
+    ...(forceSingleRaw != null ? { forceSingle: forceSingleRaw } : {}),
+    ...(minRatio != null ? { minRatio } : {}),
+    ...(maxRatio != null ? { maxRatio } : {}),
+    ...(size != null ? { size } : {}),
+  };
+}
+
+/** Build log-friendly body for Volcengine requests. */
+function buildVolcengineLogBody(payload: Record<string, unknown>): Record<string, unknown> {
+  const logBody: Record<string, unknown> = { ...payload };
+  if (Array.isArray(logBody.binary_data_base64)) {
+    // 中文注释：base64 过长时仅记录长度，避免日志膨胀。
+    logBody.binary_data_base64 = logBody.binary_data_base64.map((item) =>
+      typeof item === "string" ? `[base64:${item.length}]` : item,
+    );
+  }
+  return logBody;
 }
 
 /** Convert ImageModelV3 file parts into Volcengine inputs. */
@@ -155,16 +279,28 @@ function buildVolcengineImagePayload(
 ): Record<string, unknown> {
   const reqKey = modelId;
   const { width, height } = parseSize(options.size);
+  const providerOptions = resolveVolcengineProviderOptions(options);
 
   if (modelId === "jimeng_t2i_v40" || modelId === "jimeng_t2i_v31") {
+    const forceSingle = providerOptions.forceSingle ?? (options.n <= 1 ? true : undefined);
+    const sizeArea = width && height ? undefined : providerOptions.size;
+    // 中文注释：最多支持 10 张输入图片，超出部分直接忽略。
+    const { imageUrls, binaryDataBase64 } = resolveImageInputs(
+      options.files?.slice(0, MAX_VOLCENGINE_IMAGE_INPUTS),
+    );
     return {
       req_key: reqKey,
       prompt: options.prompt,
       width,
       height,
+      ...(sizeArea != null ? { size: sizeArea } : {}),
+      scale: providerOptions.scale,
+      min_ratio: providerOptions.minRatio,
+      max_ratio: providerOptions.maxRatio,
+      force_single: forceSingle,
       seed: options.seed,
-      ...resolveImageInputs(options.files?.slice(0, 1)),
-      force_single: true,
+      image_urls: imageUrls,
+      binary_data_base64: binaryDataBase64,
     };
   }
 
@@ -234,11 +370,23 @@ async function fetchVolcengineImageResult(input: {
   taskId: string;
   /** Abort signal. */
   abortSignal?: AbortSignal;
+  /** Whether to log request info. */
+  logRequest?: boolean;
 }) {
-  const request = buildVolcengineRequest(input.config, VOLCENGINE_ACTION_RESULT, {
+  const payload = {
     req_key: input.reqKey,
     task_id: input.taskId,
-  });
+  };
+  const request = buildVolcengineRequest(input.config, VOLCENGINE_ACTION_RESULT, payload);
+  if (input.logRequest) {
+    logger.debug(
+      {
+        requestUrl: request.url,
+        body: buildVolcengineLogBody(payload),
+      },
+      "[volcengine] image result request",
+    );
+  }
   const response = await fetch(request.url, {
     method: request.method,
     headers: request.headers,
@@ -274,14 +422,29 @@ async function waitForVolcengineImageResult(input: {
 }) {
   const intervalMs = input.intervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const maxAttempts = input.maxAttempts ?? DEFAULT_MAX_POLL_ATTEMPTS;
+  let lastStatus: string | undefined;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     // 中文注释：每次轮询前检查取消信号，避免无效等待。
     if (input.abortSignal?.aborted) {
       throw new Error("请求已取消");
     }
-    const result = await fetchVolcengineImageResult(input);
+    const result = await fetchVolcengineImageResult({
+      ...input,
+      logRequest: attempt === 0,
+    });
     const status = result.data?.status;
+    if (status && status !== lastStatus) {
+      lastStatus = status;
+      logger.debug(
+        {
+          attempt: attempt + 1,
+          maxAttempts,
+          status,
+        },
+        "[volcengine] image task status",
+      );
+    }
     if (status === "done") {
       return result;
     }
@@ -299,14 +462,6 @@ async function waitForVolcengineImageResult(input: {
 function buildWarnings(options: ImageModelV3CallOptions): SharedV3Warning[] {
   const warnings: SharedV3Warning[] = [];
 
-  if (options.n > 1) {
-    warnings.push({
-      type: "unsupported",
-      feature: "n",
-      details: "即梦图像接口不支持单次多图输出，将忽略 n>1",
-    });
-  }
-
   if (options.aspectRatio) {
     warnings.push({
       type: "unsupported",
@@ -315,11 +470,13 @@ function buildWarnings(options: ImageModelV3CallOptions): SharedV3Warning[] {
     });
   }
 
-  if (Object.keys(options.providerOptions ?? {}).length > 0) {
+  const providerOptionKeys = Object.keys(options.providerOptions ?? {});
+  const unsupportedProviders = providerOptionKeys.filter((key) => key !== "volcengine");
+  if (unsupportedProviders.length > 0) {
     warnings.push({
       type: "unsupported",
       feature: "providerOptions",
-      details: "即梦图像接口暂不支持 providerOptions",
+      details: "即梦图像接口暂不支持非 volcengine 的 providerOptions",
     });
   }
 
@@ -358,40 +515,22 @@ class VolcengineImageModel implements ImageModelV3 {
     const reqKey = modelId;
     const warnings = buildWarnings(options);
     const payload = buildVolcengineImagePayload(modelId, options);
-    const submitRequest = buildVolcengineRequest(
-      this.config,
-      VOLCENGINE_ACTION_SUBMIT,
+    const taskId = await submitVolcengineImageTask({
+      config: this.config,
       payload,
-    );
-
-    const submitResponse = await fetch(submitRequest.url, {
-      method: submitRequest.method,
-      headers: submitRequest.headers,
-      body: submitRequest.body,
-      signal: options.abortSignal,
+      abortSignal: options.abortSignal,
+      logRequest: true,
     });
-
-    if (!submitResponse.ok) {
-      const text = await submitResponse.text();
-      throw new Error(`模型请求失败: ${submitResponse.status} ${text}`);
-    }
-
-    const submitJson = (await submitResponse.json()) as VolcengineResponse<{ task_id?: string }>;
-    const submitData = unwrapVolcengineResponse(submitJson);
-    const taskId = submitData?.task_id?.trim();
-    if (!taskId) {
-      throw new Error("提交任务失败：task_id 为空");
-    }
-
     const result = await waitForVolcengineImageResult({
       config: this.config,
       reqKey,
       taskId,
       abortSignal: options.abortSignal,
     });
-
     const images = result.data?.binary_data_base64 ?? [];
-    if (images.length === 0) {
+    // 中文注释：模型可能返回多图，按请求数量裁剪，避免超量输出。
+    const limitedImages = images.slice(0, Math.max(1, Math.floor(options.n)));
+    if (limitedImages.length === 0) {
       throw new Error("模型未返回图片结果");
     }
 
@@ -399,7 +538,7 @@ class VolcengineImageModel implements ImageModelV3 {
     const providerMetadata: ImageModelV3ProviderMetadata | undefined = undefined;
 
     return {
-      images,
+      images: limitedImages,
       warnings,
       providerMetadata,
       response: {

@@ -10,4 +10,6 @@ export type ChatStreamRequest = ChatRequestBody & {
   workspaceId?: string;
   /** Project id for this request. */
   projectId?: string;
+  /** Board id for this request. */
+  boardId?: string;
 };

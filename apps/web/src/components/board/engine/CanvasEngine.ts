@@ -1258,7 +1258,11 @@ export class CanvasEngine {
     const container = this.container;
     if (!container) return;
     handleWheel(event, container, this.viewport, {
-      ignoreSelectors: ["[data-canvas-toolbar]", "[data-board-controls]"],
+      ignoreSelectors: [
+        "[data-canvas-toolbar]",
+        "[data-board-controls]",
+        "[data-board-scroll]",
+      ],
       onPan: (dx, dy) => this.panViewportBy(dx, dy),
     });
   }

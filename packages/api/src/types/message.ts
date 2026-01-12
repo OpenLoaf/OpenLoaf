@@ -91,6 +91,8 @@ export type ChatRequestBody = {
   chatModelSource?: ChatModelSource;
   /** Web UI 侧稳定 clientId（用于会话关联） */
   clientId?: string;
+  /** Board id for associating chat sessions. */
+  boardId?: string;
 };
 
 export type TokenUsage = {

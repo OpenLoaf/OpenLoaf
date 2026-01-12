@@ -3,7 +3,6 @@ import type { ModelDefinition } from "@tenas-ai/api/common";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegistry";
 import { PROVIDER_ADAPTERS } from "@/ai/models/providerAdapters";
-import { logger } from "@/common/logger";
 
 type ResolvedImageModel = {
   /** Resolved ImageModelV3 instance. */
@@ -91,15 +90,6 @@ async function resolveImageModelFromProviders(input: {
     throw new Error("未找到可用模型配置");
   }
 
-  logger.debug(
-    {
-      imageModelId: normalized,
-      candidateCount: candidates.length,
-      candidates,
-    },
-    "[image-model] resolve candidates",
-  );
-
   let lastError: Error | null = null;
 
   for (const candidate of candidates) {
@@ -128,19 +118,6 @@ async function resolveImageModelFromProviders(input: {
       const adapterId =
         resolvedProviderId === "custom" ? "openai" : providerDefinition?.adapterId ?? resolvedProviderId;
       const adapter = PROVIDER_ADAPTERS[adapterId];
-      logger.debug(
-        {
-          candidate,
-          profileId: parsed.profileId,
-          modelId: parsed.modelId,
-          providerId: providerEntry.providerId,
-          resolvedProviderId,
-          adapterId,
-          modelDefinitionProviderId: modelDefinition?.providerId,
-          modelDefinitionTags: modelDefinition?.tags,
-        },
-        "[image-model] resolve adapter",
-      );
       if (!adapter) throw new Error("不支持的模型服务商");
       const model = adapter.buildImageModel({
         provider: mappedProviderEntry,
@@ -161,13 +138,6 @@ async function resolveImageModelFromProviders(input: {
       };
     } catch (err) {
       const error = err instanceof Error ? err : new Error("模型解析失败");
-      logger.debug(
-        {
-          candidate,
-          error: error.message,
-        },
-        "[image-model] resolve candidate failed",
-      );
       lastError = error;
     }
   }
@@ -180,12 +150,5 @@ export async function resolveImageModel(input: {
   imageModelId?: string | null;
 }): Promise<ResolvedImageModel> {
   const providers = await getProviderSettings();
-  logger.debug(
-    {
-      imageModelId: input.imageModelId,
-      providerCount: providers.length,
-    },
-    "[image-model] resolve from settings",
-  );
   return resolveImageModelFromProviders({ providers, imageModelId: input.imageModelId });
 }

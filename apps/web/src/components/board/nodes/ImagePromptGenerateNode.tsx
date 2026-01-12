@@ -5,7 +5,7 @@ import type {
 } from "../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { Play, RotateCcw, Square, Sparkles } from "lucide-react";
+import { Copy, Play, RotateCcw, Square, Sparkles } from "lucide-react";
 import { generateId } from "ai";
 
 import { useBoardContext } from "../core/BoardProvider";
@@ -71,6 +71,8 @@ export const IMAGE_PROMPT_TEXT = `你是一位顶级图像视觉分析师，精�
 
 /** Minimum height for image prompt node. */
 const IMAGE_PROMPT_GENERATE_MIN_HEIGHT = 0;
+/** Maximum height for prompt output before scrolling. */
+const IMAGE_PROMPT_GENERATE_RESULT_MAX_HEIGHT = 180;
 
 export type ImagePromptGenerateNodeProps = {
   /** Selected chatModelId (profileId:modelId). */
@@ -287,6 +289,7 @@ export function ImagePromptGenerateNodeView({
           clientId: getWebClientId() || undefined,
           workspaceId: resolvedWorkspaceId || undefined,
           projectId: boardFolderScope?.projectId ?? fileContext?.projectId ?? undefined,
+          boardId: fileContext?.boardId ?? undefined,
           trigger: "board-image-prompt",
           chatModelId,
           chatModelSource: input.chatModelSource,
@@ -398,6 +401,28 @@ export function ImagePromptGenerateNodeView({
     return { tone: "info", text: "准备就绪，点击运行即可生成提示词。" };
   }, [errorText, viewStatus]);
 
+  const handleCopyResult = useCallback(async () => {
+    if (!resultText) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(resultText);
+      } else {
+        // 逻辑：兼容不支持 Clipboard API 的环境。
+        const textarea = document.createElement("textarea");
+        textarea.value = resultText;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      toast.success("已复制提示词");
+    } catch {
+      toast.error("复制失败");
+    }
+  }, [resultText]);
+
   return (
     <div
       ref={containerRef}
@@ -421,6 +446,21 @@ export function ImagePromptGenerateNodeView({
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {resultText ? (
+            <button
+              type="button"
+              className="rounded-md border border-slate-200/70 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 dark:border-slate-700/70 dark:text-slate-200 dark:hover:bg-slate-800"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={handleCopyResult}
+            >
+              <span className="inline-flex items-center gap-1">
+                <Copy size={12} />
+                复制
+              </span>
+            </button>
+          ) : null}
           {viewStatus === "running" ? (
             <button
               type="button"
@@ -455,8 +495,12 @@ export function ImagePromptGenerateNodeView({
               }}
             >
               <span className="inline-flex items-center gap-1">
-                {viewStatus === "error" ? <RotateCcw size={12} /> : <Play size={12} />}
-                {viewStatus === "error" ? "重试" : "运行"}
+                {viewStatus === "error" || resultText ? (
+                  <RotateCcw size={12} />
+                ) : (
+                  <Play size={12} />
+                )}
+                {viewStatus === "error" ? "重试" : resultText ? "重新生成" : "运行"}
               </span>
             </button>
           ) : null}
@@ -512,7 +556,11 @@ export function ImagePromptGenerateNodeView({
       ) : null}
 
       {resultText ? (
-        <div className="rounded-md border border-slate-200/70 p-2 text-[11px] leading-4 text-slate-700 dark:border-slate-700/70 dark:text-slate-200">
+        <div
+          data-board-scroll
+          className="show-scrollbar rounded-md border border-slate-200/70 p-2 text-[11px] leading-4 text-slate-700 dark:border-slate-700/70 dark:text-slate-200 overflow-y-auto"
+          style={{ maxHeight: IMAGE_PROMPT_GENERATE_RESULT_MAX_HEIGHT }}
+        >
           <pre className="whitespace-pre-wrap break-words font-sans">{resultText}</pre>
         </div>
       ) : null}

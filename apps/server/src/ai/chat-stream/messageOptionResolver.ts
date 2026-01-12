@@ -41,6 +41,61 @@ function normalizeOpenAiOptions(value: unknown): { quality?: string; style?: str
   };
 }
 
+/** Normalize Volcengine image provider options. */
+function normalizeVolcengineOptions(
+  value: unknown,
+): {
+  scale?: number;
+  forceSingle?: boolean;
+  minRatio?: number;
+  maxRatio?: number;
+  size?: number;
+} | undefined {
+  if (!isRecord(value)) return undefined;
+  const scale = typeof value.scale === "number" && Number.isFinite(value.scale) ? value.scale : undefined;
+  const forceSingleRaw =
+    typeof value.forceSingle === "boolean"
+      ? value.forceSingle
+      : typeof value.force_single === "boolean"
+        ? value.force_single
+        : undefined;
+  const minRatioRaw =
+    typeof value.minRatio === "number"
+      ? value.minRatio
+      : typeof value.min_ratio === "number"
+        ? value.min_ratio
+        : undefined;
+  const maxRatioRaw =
+    typeof value.maxRatio === "number"
+      ? value.maxRatio
+      : typeof value.max_ratio === "number"
+        ? value.max_ratio
+        : undefined;
+  const size = typeof value.size === "number" && Number.isFinite(value.size) ? value.size : undefined;
+  const forceSingle =
+    forceSingleRaw !== undefined ? forceSingleRaw : undefined;
+  const minRatio =
+    minRatioRaw !== undefined && Number.isFinite(minRatioRaw) ? minRatioRaw : undefined;
+  const maxRatio =
+    maxRatioRaw !== undefined && Number.isFinite(maxRatioRaw) ? maxRatioRaw : undefined;
+  if (
+    scale === undefined &&
+    forceSingle === undefined &&
+    minRatio === undefined &&
+    maxRatio === undefined &&
+    size === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    ...(scale !== undefined ? { scale } : {}),
+    ...(forceSingle !== undefined ? { forceSingle } : {}),
+    ...(minRatio !== undefined ? { minRatio } : {}),
+    ...(maxRatio !== undefined ? { maxRatio } : {}),
+    ...(size !== undefined ? { size } : {}),
+  };
+}
+
 /** Find the last user message that contains text content. */
 function findLastUserTextMessage(messages: UIMessage[]): UIMessage | undefined {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -94,7 +149,14 @@ export function resolveImageGenerateOptions(
     ? rawOptions.providerOptions
     : undefined;
   const openaiOptions = normalizeOpenAiOptions(providerOptionsRaw?.openai);
-  const providerOptions = openaiOptions ? { openai: openaiOptions } : undefined;
+  const volcengineOptions = normalizeVolcengineOptions(providerOptionsRaw?.volcengine);
+  const providerOptions =
+    openaiOptions || volcengineOptions
+      ? {
+          ...(openaiOptions ? { openai: openaiOptions } : {}),
+          ...(volcengineOptions ? { volcengine: volcengineOptions } : {}),
+        }
+      : undefined;
 
   if (count === undefined && !size && !aspectRatio && seed === undefined && !providerOptions) {
     return undefined;

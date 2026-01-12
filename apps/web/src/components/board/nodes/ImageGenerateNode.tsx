@@ -1,7 +1,7 @@
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { z } from "zod";
-import { ChevronDown, ImagePlus, Play, RotateCcw, Square } from "lucide-react";
+import { ImagePlus, Play, RotateCcw, Square } from "lucide-react";
 import { generateId } from "ai";
 
 import { useBoardContext } from "../core/BoardProvider";
@@ -17,6 +17,15 @@ import { getWorkspaceIdFromCookie } from "../core/boardStorage";
 import { toast } from "sonner";
 import type { ImageNodeProps } from "./ImageNode";
 import type { TextNodeValue } from "./TextNode";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   BOARD_RELATIVE_URI_PREFIX,
   IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
@@ -34,6 +43,10 @@ import { buildTenasFileUrl } from "@/components/project/filesystem/utils/file-sy
 export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
 /** Gap between generated image nodes. */
 const GENERATED_IMAGE_NODE_GAP = 32;
+/** Preset aspect ratios for image generation. */
+const IMAGE_GENERATE_RATIO_OPTIONS = ["1:1", "4:3", "3:4", "16:9", "9:16"];
+/** Default aspect ratio when none is specified. */
+const IMAGE_GENERATE_DEFAULT_RATIO = "4:3";
 
 /** Legacy Plate node shape used by older text nodes. */
 type LegacyPlateNode = {
@@ -49,6 +62,10 @@ type LegacyPlateValue = LegacyPlateNode[];
 export type ImageGenerateNodeProps = {
   /** Selected chat model id (profileId:modelId). */
   chatModelId?: string;
+  /** Local prompt text entered in the node. */
+  promptText?: string;
+  /** Aspect ratio for generated images. */
+  aspectRatio?: string;
   /** Requested output image count. */
   outputCount?: number;
   /** Generated image urls. */
@@ -60,6 +77,8 @@ export type ImageGenerateNodeProps = {
 /** Schema for image generation node props. */
 const ImageGenerateNodeSchema = z.object({
   chatModelId: z.string().optional(),
+  promptText: z.string().optional(),
+  aspectRatio: z.string().optional(),
   outputCount: z.number().optional(),
   resultImages: z.array(z.string()).optional(),
   errorText: z.string().optional(),
@@ -147,6 +166,10 @@ export function ImageGenerateNodeView({
     ? element.props.resultImages
     : [];
   const outputCount = normalizeOutputCount(element.props.outputCount);
+  const localPromptText =
+    typeof element.props.promptText === "string" ? element.props.promptText : "";
+  const selectedAspectRatio =
+    typeof element.props.aspectRatio === "string" ? element.props.aspectRatio.trim() : "";
 
   // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
   const inputImageNodes: ImageNodeProps[] = [];
@@ -169,10 +192,23 @@ export function ImageGenerateNodeView({
     if (source.type === "text") {
       const rawText = normalizeTextValue((source.props as any)?.value);
       if (rawText.trim()) inputTextSegments.push(rawText.trim());
+      continue;
+    }
+    if (source.type === "image_prompt_generate") {
+      const rawText =
+        typeof (source.props as any)?.resultText === "string"
+          ? ((source.props as any).resultText as string)
+          : "";
+      if (rawText.trim()) inputTextSegments.push(rawText.trim());
     }
   }
 
-  const promptText = inputTextSegments.join("\n").trim();
+  const upstreamPromptText = inputTextSegments.join("\n").trim();
+  const sanitizedLocalPrompt = localPromptText.trim();
+  // 逻辑：合并上游与本地提示词，保证两者都参与生成。
+  const promptText = [upstreamPromptText, sanitizedLocalPrompt]
+    .filter(Boolean)
+    .join("\n");
   const hasPrompt = Boolean(promptText);
   const overflowCount = Math.max(0, inputImageNodes.length - IMAGE_GENERATE_MAX_INPUT_IMAGES);
   const limitedInputImages = inputImageNodes.slice(0, IMAGE_GENERATE_MAX_INPUT_IMAGES);
@@ -195,7 +231,7 @@ export function ImageGenerateNodeView({
     });
   }
 
-  const hasValidImages = resolvedImages.length > 0;
+  const hasAnyImageInput = inputImageNodes.length > 0;
   const hasInvalidImages = invalidImageCount > 0;
   const hasTooManyImages = overflowCount > 0;
 
@@ -220,12 +256,23 @@ export function ImageGenerateNodeView({
     return candidates[0]?.id ?? "";
   }, [candidates, defaultModelId, selectedModelId]);
 
+  const effectiveAspectRatio = useMemo(() => {
+    if (selectedAspectRatio) return selectedAspectRatio;
+    return IMAGE_GENERATE_DEFAULT_RATIO;
+  }, [selectedAspectRatio]);
+
   useEffect(() => {
     // 逻辑：当默认模型可用时自动写入节点，避免用户每次重复选择。
     if (!effectiveModelId) return;
     if (selectedModelId) return;
     onUpdate({ chatModelId: effectiveModelId });
   }, [effectiveModelId, onUpdate, selectedModelId]);
+
+  useEffect(() => {
+    // 逻辑：未设置比例时写入默认值，避免发送空参数。
+    if (!effectiveAspectRatio || selectedAspectRatio) return;
+    onUpdate({ aspectRatio: effectiveAspectRatio });
+  }, [effectiveAspectRatio, onUpdate, selectedAspectRatio]);
 
   /** Stop the current image generation request. */
   const stopImageGenerate = useCallback(() => {
@@ -264,14 +311,7 @@ export function ImageGenerateNodeView({
 
       if (!hasPrompt) {
         engine.doc.updateNodeProps(nodeId, {
-          errorText: "请先连接一个文字节点作为提示词",
-        });
-        return;
-      }
-
-      if (!hasValidImages) {
-        engine.doc.updateNodeProps(nodeId, {
-          errorText: "请先连接至少一张可用图片",
+          errorText: "请先输入或连接提示词",
         });
         return;
       }
@@ -312,7 +352,10 @@ export function ImageGenerateNodeView({
           url: image.url,
           mediaType: image.mediaType,
         }));
-        const normalizedOptions = normalizeImageOptions({ n: outputCount });
+        const normalizedOptions = normalizeImageOptions({
+          n: outputCount,
+          aspectRatio: effectiveAspectRatio,
+        });
         const metadata = normalizedOptions ? { imageOptions: normalizedOptions } : undefined;
         const userMessage: TenasUIMessage = {
           id: messageId,
@@ -327,6 +370,7 @@ export function ImageGenerateNodeView({
           clientId: getWebClientId() || undefined,
           workspaceId: resolvedWorkspaceId || undefined,
           projectId: boardFolderScope?.projectId ?? fileContext?.projectId ?? undefined,
+          boardId: fileContext?.boardId ?? undefined,
           image_save_dir: imageSaveDir || undefined,
           trigger: "board-image-generate",
           chatModelId,
@@ -469,10 +513,11 @@ export function ImageGenerateNodeView({
       element.id,
       engine,
       fileContext?.projectId,
+      effectiveAspectRatio,
       hasInvalidImages,
       hasPrompt,
       hasTooManyImages,
-      hasValidImages,
+      imageSaveDir,
       outputCount,
       promptText,
       resolvedImages,
@@ -483,7 +528,6 @@ export function ImageGenerateNodeView({
   const viewStatus = useMemo(() => {
     // 逻辑：运行态以 SSE 请求为准，不写入节点，避免刷新后卡死。
     if (isRunning) return "running";
-    if (!hasValidImages) return "needs_image";
     if (!hasPrompt) return "needs_prompt";
     if (hasTooManyImages) return "too_many_images";
     if (hasInvalidImages) return "invalid_image";
@@ -497,14 +541,15 @@ export function ImageGenerateNodeView({
     hasInvalidImages,
     hasPrompt,
     hasTooManyImages,
-    hasValidImages,
     isRunning,
     outputImages.length,
   ]);
 
   const containerClassName = [
-    "relative flex h-full w-full flex-col gap-2 rounded-xl border border-slate-200/80 bg-background/95 p-3 text-slate-700 shadow-sm backdrop-blur",
+    "relative flex w-full flex-col gap-2 rounded-xl border border-slate-200/80 bg-background/95 p-3 text-slate-700 backdrop-blur",
+    "bg-[radial-gradient(180px_circle_at_top_left,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_85%_15%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
     "dark:border-slate-700/80 dark:text-slate-200",
+    "dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
     selected ? "ring-1 ring-slate-300 dark:ring-slate-600" : "",
     viewStatus === "running"
       ? "tenas-thinking-border tenas-thinking-border-on border-transparent"
@@ -514,10 +559,41 @@ export function ImageGenerateNodeView({
       : "",
   ].join(" ");
 
+  const statusHint = useMemo(() => {
+    if (viewStatus === "needs_prompt") {
+      return { tone: "warn", text: "需要输入或连接提示词后才能生成图片。" };
+    }
+    if (viewStatus === "too_many_images") {
+      return {
+        tone: "warn",
+        text: `最多支持 ${IMAGE_GENERATE_MAX_INPUT_IMAGES} 张图片输入，已连接 ${inputImageNodes.length} 张。`,
+      };
+    }
+    if (viewStatus === "invalid_image") {
+      return { tone: "warn", text: "存在无法访问的图片地址，请检查输入。" };
+    }
+    if (viewStatus === "needs_model") {
+      return {
+        tone: "warn",
+        text: "未找到支持「图片生成」的模型，请先在设置中配置。",
+      };
+    }
+    if (viewStatus === "error") {
+      return { tone: "error", text: errorText || "生成图片失败，请重试。" };
+    }
+    if (viewStatus === "running") {
+      return { tone: "info", text: "正在生成图片，请稍等…" };
+    }
+    if (viewStatus === "done") return null;
+    if (!hasAnyImageInput) {
+      return { tone: "info", text: "未连接图片，将以纯文本生成。" };
+    }
+    return { tone: "info", text: "准备就绪，点击运行即可生成图片。" };
+  }, [errorText, hasAnyImageInput, inputImageNodes.length, viewStatus]);
+
   const canRun =
     !isRunning &&
     hasPrompt &&
-    hasValidImages &&
     !hasTooManyImages &&
     !hasInvalidImages &&
     candidates.length > 0 &&
@@ -544,14 +620,12 @@ export function ImageGenerateNodeView({
           : viewStatus === "needs_model"
             ? "需要配置模型"
             : viewStatus === "needs_prompt"
-              ? "需要连接文字输入"
-              : viewStatus === "needs_image"
-                ? "需要连接图片输入"
-                : viewStatus === "too_many_images"
-                  ? "图片数量过多"
-                  : viewStatus === "invalid_image"
-                    ? "图片地址不可用"
-                    : "待运行";
+              ? "需要提示词"
+              : viewStatus === "too_many_images"
+                ? "图片数量过多"
+                : viewStatus === "invalid_image"
+                  ? "图片地址不可用"
+                  : "待运行";
 
   return (
     <div
@@ -564,7 +638,7 @@ export function ImageGenerateNodeView({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
             <ImagePlus size={14} />
           </span>
           <div className="min-w-0">
@@ -589,7 +663,7 @@ export function ImageGenerateNodeView({
                 停止
               </span>
             </button>
-          ) : hasValidImages ? (
+          ) : (
             <button
               type="button"
               disabled={!canRun}
@@ -608,70 +682,136 @@ export function ImageGenerateNodeView({
                 {viewStatus === "error" ? "重试" : "运行"}
               </span>
             </button>
-          ) : null}
+          )}
         </div>
       </div>
 
       <div className="mt-1 flex flex-col gap-2" data-board-editor>
         <div className="flex items-center gap-2">
           <div className="text-[11px] text-slate-500 dark:text-slate-400">模型</div>
-          <div className="relative min-w-0 flex-1">
-            <select
+          <div className="min-w-0 flex-1">
+            <Select
               value={effectiveModelId}
-              disabled={candidates.length === 0 || isRunning}
-              onChange={(event) => {
-                const next = event.target.value;
-                onUpdate({ chatModelId: next });
+              onValueChange={(value) => {
+                onUpdate({ chatModelId: value });
               }}
-              className="w-full appearance-none rounded-md border border-slate-200/80 bg-background px-2 py-1 pr-6 text-[11px] text-slate-700 outline-none dark:border-slate-700/80 dark:text-slate-200"
+              disabled={candidates.length === 0 || isRunning}
             >
-              {candidates.length ? null : <option value="">无可用模型</option>}
-              {candidates.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.providerName}:{option.modelId}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={14}
-              className="pointer-events-none absolute right-1 top-1.5 text-slate-400"
-            />
+              <SelectTrigger className="h-7 w-full px-2 text-[11px] shadow-none">
+                <SelectValue placeholder="无可用模型" />
+              </SelectTrigger>
+              <SelectContent className="text-[11px]">
+                {candidates.length ? null : (
+                  <SelectItem value="__none__" disabled className="text-[11px]">
+                    无可用模型
+                  </SelectItem>
+                )}
+                {candidates.map((option) => (
+                  <SelectItem
+                    key={option.id}
+                    value={option.id}
+                    className="text-[11px]"
+                  >
+                    {option.providerName}:{option.modelId}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="text-[11px] text-slate-500 dark:text-slate-400">
-            生成数量
+            数量
           </div>
-          <input
+          <Input
             type="number"
             min={1}
             max={IMAGE_GENERATE_MAX_OUTPUT_IMAGES}
             value={outputCount}
             disabled={engine.isLocked() || element.locked}
             onChange={handleOutputCountChange}
-            className="h-6 w-16 rounded-md border border-slate-200/80 bg-background px-2 text-[11px] text-slate-700 outline-none dark:border-slate-700/80 dark:text-slate-200"
+            className="h-7 w-16 px-2 text-[11px]"
           />
           <div className="text-[11px] text-slate-400 dark:text-slate-500">
             张
           </div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+            比例
+          </div>
+          <Select
+            value={effectiveAspectRatio}
+            onValueChange={(value) => {
+              onUpdate({ aspectRatio: value });
+            }}
+            disabled={isRunning}
+          >
+            <SelectTrigger className="h-7 w-16 px-2 text-[11px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="text-[11px]">
+              {IMAGE_GENERATE_RATIO_OPTIONS.map((ratio) => (
+                <SelectItem key={ratio} value={ratio} className="text-[11px]">
+                  {ratio}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {upstreamPromptText ? (
+          <div className="space-y-1">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+              上游提示词
+            </div>
+            <div
+              data-board-scroll
+              className="show-scrollbar rounded-md border border-slate-200/70 bg-white/70 p-2 text-[11px] leading-4 text-slate-600 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-200 overflow-y-auto"
+              style={{ maxHeight: 96 }}
+            >
+              <pre className="whitespace-pre-wrap break-words font-sans">
+                {upstreamPromptText}
+              </pre>
+            </div>
+          </div>
+        ) : null}
+        <div className="flex items-start gap-2">
+          <div className="pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            提示词
+          </div>
+          <div className="min-w-0 flex-1 space-y-1">
+            <Textarea
+              value={localPromptText}
+              maxLength={500}
+              placeholder="输入补充提示词（最多 500 字）"
+              onChange={(event) => {
+                const next = event.target.value.slice(0, 500);
+                onUpdate({ promptText: next });
+              }}
+              data-board-scroll
+              className="min-h-[88px] px-2 py-1 text-[11px]"
+              disabled={engine.isLocked() || element.locked || isRunning}
+            />
+            <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500">
+              <span>最多 500 字</span>
+              <span>{localPromptText.length}/500</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="rounded-md border border-slate-200/70 bg-slate-50 p-2 text-[11px] leading-4 text-slate-600 dark:border-slate-700/70 dark:bg-slate-800 dark:text-slate-300">
-        <div className="font-medium text-slate-700 dark:text-slate-200">输入</div>
-        <div className="mt-1 text-slate-500 dark:text-slate-400">
-          Prompt：{hasPrompt ? "已连接" : "未连接"}
+      {statusHint ? (
+        <div
+          className={[
+            "rounded-md border px-2 py-1 text-[11px] leading-4",
+            statusHint.tone === "error"
+              ? "border-rose-200/70 bg-rose-50 text-rose-600 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+              : statusHint.tone === "warn"
+                ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+                : "border-sky-200/70 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-200",
+          ].join(" ")}
+        >
+          {statusHint.text}
         </div>
-        <div className="text-slate-500 dark:text-slate-400">
-          图片：已连接 {inputImageNodes.length} 张
-          {hasTooManyImages ? `（超出 ${IMAGE_GENERATE_MAX_INPUT_IMAGES} 张）` : ""}
-        </div>
-        {hasInvalidImages ? (
-          <div className="text-rose-500 dark:text-rose-300">
-            存在无法访问的图片地址
-          </div>
-        ) : null}
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -683,6 +823,8 @@ export const ImageGenerateNodeDefinition: CanvasNodeDefinition<ImageGenerateNode
   defaultProps: {
     outputCount: IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
     resultImages: [],
+    promptText: "",
+    aspectRatio: IMAGE_GENERATE_DEFAULT_RATIO,
   },
   view: ImageGenerateNodeView,
   capabilities: {

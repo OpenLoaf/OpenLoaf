@@ -304,6 +304,8 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     editingModelId,
     draftModelId,
     setDraftModelId,
+    draftModelName,
+    setDraftModelName,
     draftModelTags,
     setDraftModelTags,
     draftModelContextK,
@@ -643,6 +645,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         open={modelDialogOpen}
         editingModelId={editingModelId}
         draftModelId={draftModelId}
+        draftModelName={draftModelName}
         draftModelTags={draftModelTags}
         draftModelContextK={draftModelContextK}
         draftModelCurrencySymbol={draftModelCurrencySymbol}
@@ -652,6 +655,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         modelError={modelError}
         onOpenChange={setModelDialogOpen}
         onDraftModelIdChange={setDraftModelId}
+        onDraftModelNameChange={setDraftModelName}
         onDraftModelTagsChange={setDraftModelTags}
         onDraftModelContextKChange={setDraftModelContextK}
         onDraftModelCurrencySymbolChange={setDraftModelCurrencySymbol}

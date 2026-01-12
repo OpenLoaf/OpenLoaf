@@ -16,5 +16,18 @@ export type ImageGenerateOptions = {
       /** Image style (e.g. "vivid", "natural"). */
       style?: string;
     };
+    /** Volcengine image options. */
+    volcengine?: {
+      /** Prompt influence scale (0-1). */
+      scale?: number;
+      /** Force single image output. */
+      forceSingle?: boolean;
+      /** Minimum width/height ratio. */
+      minRatio?: number;
+      /** Maximum width/height ratio. */
+      maxRatio?: number;
+      /** Image area size (width * height). */
+      size?: number;
+    };
   };
 };

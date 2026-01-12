@@ -64,6 +64,7 @@ function parseChatStreamRequest(body: unknown): { request?: ChatStreamRequest; e
       chatModelSource: normalizeChatModelSource(raw.chatModelSource),
       workspaceId: toText(raw.workspaceId) || undefined,
       projectId: toText(raw.projectId) || undefined,
+      boardId: toText(raw.boardId) || undefined,
     },
   };
 }
