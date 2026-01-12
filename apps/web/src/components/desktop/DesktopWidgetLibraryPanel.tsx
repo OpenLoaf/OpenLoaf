@@ -8,6 +8,7 @@ import { desktopWidgetCatalog } from "./widget-catalog";
 import ClockWidget from "./widgets/ClockWidget";
 import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
+import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
 
 // 组件选择事件名称。
 export const DESKTOP_WIDGET_SELECTED_EVENT = "tenas:desktop-widget-selected";
@@ -31,6 +32,7 @@ function WidgetEntityPreview({ widgetKey }: { widgetKey: DesktopWidgetItem["widg
   if (widgetKey === "clock") return <ClockWidget />;
   if (widgetKey === "flip-clock") return <FlipClockWidget />;
   if (widgetKey === "quick-actions") return <QuickActionsWidget />;
+  if (widgetKey === "3d-folder") return <ThreeDFolderWidget />;
   return <div className="text-sm text-muted-foreground">Widget</div>;
 }
 

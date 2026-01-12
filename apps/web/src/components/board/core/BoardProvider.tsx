@@ -21,19 +21,6 @@ export type BoardActions = {
   openImagePreview: (payload: ImagePreviewPayload) => void;
   /** Close the fullscreen image preview. */
   closeImagePreview: () => void;
-  /** Run the image prompt generation node once. */
-  runImagePromptGenerateNode: (input: {
-    nodeId: string;
-    chatModelId?: string;
-    chatModelSource?: "local" | "cloud";
-  }) => void;
-  /** Stop a running image prompt generation node. */
-  stopImagePromptGenerateNode: (nodeId: string) => void;
-};
-
-export type ImagePromptRuntimeState = {
-  /** Return true when the image prompt node is running (runtime-only). */
-  isRunning: (nodeId: string) => boolean;
 };
 
 export type BoardFileContext = {
@@ -50,8 +37,6 @@ export type BoardContextValue = {
   engine: CanvasEngine;
   /** Action handlers exposed to node components. */
   actions: BoardActions;
-  /** Runtime state for image prompt nodes (not persisted). */
-  imagePromptRuntime: ImagePromptRuntimeState;
   /** File scope metadata for board nodes. */
   fileContext?: BoardFileContext;
 };
@@ -65,8 +50,6 @@ export type BoardProviderProps = {
   engine: CanvasEngine;
   /** Action handlers exposed to node components. */
   actions: BoardActions;
-  /** Runtime-only state for image prompt nodes. */
-  imagePromptRuntime: ImagePromptRuntimeState;
   /** File scope metadata for board nodes. */
   fileContext?: BoardFileContext;
   /** Children rendered within the provider. */
@@ -77,12 +60,11 @@ export type BoardProviderProps = {
 export function BoardProvider({
   engine,
   actions,
-  imagePromptRuntime,
   fileContext,
   children,
 }: BoardProviderProps) {
   return (
-    <BoardContext.Provider value={{ engine, actions, imagePromptRuntime, fileContext }}>
+    <BoardContext.Provider value={{ engine, actions, fileContext }}>
       {children}
     </BoardContext.Provider>
   );

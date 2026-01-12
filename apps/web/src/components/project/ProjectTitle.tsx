@@ -30,14 +30,14 @@ export default function ProjectTitle({
 }: ProjectTitleProps) {
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [draftTitle, setDraftTitle] = useState(currentTitle ?? "");
+  const [draftTitle, setDraftTitle] = useState(currentTitle ?? projectTitle ?? "");
   const titleEditableRef = useRef<HTMLSpanElement | null>(null);
   const titleClickPointRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (isEditingTitle) return;
-    setDraftTitle(currentTitle ?? "");
-  }, [isEditingTitle, currentTitle]);
+    setDraftTitle(currentTitle ?? projectTitle ?? "");
+  }, [isEditingTitle, currentTitle, projectTitle]);
 
   useEffect(() => {
     if (!isEditingTitle) return;
@@ -85,9 +85,8 @@ export default function ProjectTitle({
   const commitTitle = () => {
     setIsEditingTitle(false);
     if (!projectId) return;
-    const nextTitle =
-      (titleEditableRef.current?.innerText ?? draftTitle).trim() || "Untitled Page";
-    const latestTitle = currentTitle ?? "";
+    const nextTitle = draftTitle.trim() || "Untitled Page";
+    const latestTitle = currentTitle ?? projectTitle ?? "";
     if (nextTitle === latestTitle) return;
     onUpdateTitle(nextTitle);
   };
@@ -135,6 +134,7 @@ export default function ProjectTitle({
 
           {isEditingTitle ? (
             <span
+              key="edit"
               ref={titleEditableRef}
               contentEditable={!isUpdating}
               suppressContentEditableWarning
@@ -148,7 +148,7 @@ export default function ProjectTitle({
                 if (e.key === "Escape") {
                   e.preventDefault();
                   titleClickPointRef.current = null;
-                  setDraftTitle(currentTitle ?? "");
+                  setDraftTitle(currentTitle ?? projectTitle ?? "");
                   setIsEditingTitle(false);
                 }
               }}
@@ -158,7 +158,7 @@ export default function ProjectTitle({
               role="textbox"
             />
           ) : (
-            <span className="group/title flex min-w-0 items-center gap-1">
+            <span key="view" className="group/title flex min-w-0 items-center gap-1">
               <button
                 type="button"
                 className="truncate text-left"

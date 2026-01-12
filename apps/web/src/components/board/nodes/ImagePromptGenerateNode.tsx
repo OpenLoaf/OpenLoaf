@@ -1,13 +1,27 @@
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { ChevronDown, Play, RotateCcw, Square, Sparkles } from "lucide-react";
+import { generateId } from "ai";
 
 import { useBoardContext } from "../core/BoardProvider";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useCloudModels } from "@/hooks/use-cloud-models";
+import { createChatSessionId } from "@/lib/chat-session-id";
+import { getWebClientId } from "@/lib/chat/streamClientId";
+import { resolveServerUrl } from "@/utils/server-url";
+import type { TenasUIMessage } from "@tenas-ai/api/types/message";
+import type { ImageNodeProps } from "./ImageNode";
+import {
+  buildTenasFileUrl,
+  getRelativePathFromUri,
+  parseTenasFileUrl,
+} from "@/components/project/filesystem/utils/file-system-utils";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { getWorkspaceIdFromCookie } from "../core/boardStorage";
+import { toast } from "sonner";
 
 /** Node type identifier for image prompt generation. */
 export const IMAGE_PROMPT_GENERATE_NODE_TYPE = "image_prompt_generate";
@@ -39,7 +53,62 @@ export const IMAGE_PROMPT_TEXT = `你是一位顶级图像视觉分析师，精�
 2. **超详细**：材质（如丝绸、光滑金属）、光影（如柔和侧光、逆光轮廓）、微细节（如汗珠、纹路）。
 3. **智能适配**：人物强调表情/服装，美食强调质感/摆盘，文字强调内容/字体。
 4. **图像生成优化**：分层构图、色彩精确、氛围强烈。
-5. **纯中文**：专业视觉语言，无口语化。`;
+5. **纯中文**：专业视觉语言，无口语化。输出纯文本，禁止输出markdown格式，代码块，标签，序号等。`;
+
+/** Prefix used for board-relative tenas-file paths. */
+const BOARD_RELATIVE_URI_PREFIX = "tenas-file://./";
+
+type BoardFolderScope = {
+  /** Project id for resolving absolute file urls. */
+  projectId: string;
+  /** Relative folder path under the project root. */
+  relativeFolderPath: string;
+};
+
+/** Normalize a relative path string. */
+function normalizeRelativePath(value: string) {
+  return value.replace(/^\/+/, "");
+}
+
+/** Return true when the relative path attempts to traverse parents. */
+function hasParentTraversal(value: string) {
+  return value.split("/").some((segment) => segment === "..");
+}
+
+/** Resolve board-relative tenas-file urls into absolute paths. */
+function resolveBoardRelativeUri(
+  uri: string,
+  boardFolderScope: BoardFolderScope | null
+) {
+  if (!boardFolderScope) return uri;
+  if (!uri.startsWith(BOARD_RELATIVE_URI_PREFIX)) return uri;
+  const relativePath = normalizeRelativePath(uri.slice(BOARD_RELATIVE_URI_PREFIX.length));
+  if (!relativePath || hasParentTraversal(relativePath)) return uri;
+  // 逻辑：仅允许解析资产目录内的相对路径，避免误引用工程外文件。
+  if (!relativePath.startsWith(`${BOARD_ASSETS_DIR_NAME}/`)) return uri;
+  const combined = `${boardFolderScope.relativeFolderPath}/${relativePath}`;
+  return buildTenasFileUrl(boardFolderScope.projectId, combined);
+}
+
+/** Resolve a prompt-ready image uri from an image node. */
+function resolvePromptImageUri(
+  props: ImageNodeProps,
+  boardFolderScope: BoardFolderScope | null
+) {
+  const rawUri = props.originalSrc || "";
+  if (!rawUri) return "";
+  return resolveBoardRelativeUri(rawUri, boardFolderScope);
+}
+
+/** Extract SSE data payload from a single event chunk. */
+function extractSseData(chunk: string): string | null {
+  const lines = chunk.split("\n");
+  const dataLines = lines.filter((line) => line.startsWith("data:"));
+  if (dataLines.length === 0) return null;
+  return dataLines
+    .map((line) => line.slice(5).trimStart())
+    .join("\n");
+}
 
 export type ImagePromptGenerateNodeProps = {
   /** Selected chatModelId (profileId:modelId). */
@@ -73,7 +142,7 @@ export function ImagePromptGenerateNodeView({
   onSelect,
   onUpdate,
 }: CanvasNodeViewProps<ImagePromptGenerateNodeProps>) {
-  const { actions, engine, imagePromptRuntime } = useBoardContext();
+  const { engine, fileContext } = useBoardContext();
   const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
@@ -86,7 +155,33 @@ export function ImagePromptGenerateNodeView({
     return modelOptions.filter((option) => isCompatible(option.tags));
   }, [modelOptions]);
 
-  const isRunning = imagePromptRuntime.isRunning(element.id);
+  /** Board folder scope used for resolving relative asset uris. */
+  const boardFolderScope = useMemo<BoardFolderScope | null>(() => {
+    if (!fileContext?.boardFolderUri) return null;
+    // 逻辑：优先解析 boardFolderUri，失败时用 rootUri 计算相对路径。
+    const parsed = parseTenasFileUrl(fileContext.boardFolderUri);
+    if (parsed) {
+      return {
+        projectId: parsed.projectId,
+        relativeFolderPath: parsed.relativePath,
+      };
+    }
+    if (!fileContext.projectId || !fileContext.rootUri) return null;
+    const relativeFolderPath = getRelativePathFromUri(
+      fileContext.rootUri,
+      fileContext.boardFolderUri
+    );
+    if (!relativeFolderPath) return null;
+    return { projectId: fileContext.projectId, relativeFolderPath };
+  }, [fileContext?.boardFolderUri, fileContext?.projectId, fileContext?.rootUri]);
+  /** Session id used for image prompt runs inside this node. */
+  const sessionIdRef = useRef(createChatSessionId());
+  /** Abort controller for the active request. */
+  const abortControllerRef = useRef<AbortController | null>(null);
+  /** Runtime running flag for this node. */
+  const [isRunning, setIsRunning] = useState(false);
+  /** Workspace id used for SSE payload metadata. */
+  const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
   const errorText = element.props.errorText ?? "";
   const resultText = element.props.resultText ?? "";
   // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
@@ -131,6 +226,179 @@ export function ImagePromptGenerateNodeView({
     if (selectedModelId) return;
     onUpdate({ chatModelId: effectiveModelId });
   }, [effectiveModelId, onUpdate, selectedModelId]);
+
+  /** Stop the current image prompt request. */
+  const stopImagePromptGenerate = useCallback(() => {
+    // 逻辑：先结束运行态再中止请求，避免 UI 卡死。
+    setIsRunning(false);
+    if (!abortControllerRef.current) return;
+    abortControllerRef.current.abort();
+    abortControllerRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (!abortControllerRef.current) return;
+      // 逻辑：节点卸载时中止请求，避免泄露连接。
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    };
+  }, []);
+
+  /** Run an image prompt generation request via /chat/sse. */
+  const runImagePromptGenerate = useCallback(
+    async (input: { chatModelId?: string; chatModelSource?: "local" | "cloud" }) => {
+      const nodeId = element.id;
+      const node = engine.doc.getElementById(nodeId);
+      if (!node || node.kind !== "node" || node.type !== IMAGE_PROMPT_GENERATE_NODE_TYPE) {
+        return;
+      }
+
+      const chatModelId = (input.chatModelId ?? (node.props as any)?.chatModelId ?? "").trim();
+      if (!chatModelId) {
+        engine.doc.updateNodeProps(nodeId, {
+          errorText: "请选择支持「图片输入 + 文本生成」的模型",
+        });
+        return;
+      }
+
+      // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
+      let imageProps: ImageNodeProps | null = null;
+      for (const item of engine.doc.getElements()) {
+        if (item.kind !== "connector") continue;
+        if (!item.target || !("elementId" in item.target)) continue;
+        if (item.target.elementId !== nodeId) continue;
+        if (!item.source || !("elementId" in item.source)) continue;
+        const sourceElementId = item.source.elementId;
+        const source = sourceElementId ? engine.doc.getElementById(sourceElementId) : null;
+        if (source && source.kind === "node" && source.type === "image") {
+          imageProps = source.props as ImageNodeProps;
+          break;
+        }
+      }
+      const imageUrl = imageProps ? resolvePromptImageUri(imageProps, boardFolderScope) : "";
+      const mediaType = imageProps?.mimeType || "application/octet-stream";
+      const isRelativeTenas = imageUrl.startsWith(BOARD_RELATIVE_URI_PREFIX);
+      if (!imageUrl || isRelativeTenas || !imageUrl.startsWith("tenas-file://")) {
+        engine.doc.updateNodeProps(nodeId, {
+          errorText: "当前图片缺少可用的地址，无法生成提示词",
+        });
+        return;
+      }
+
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      // 逻辑：开始生成前先清空错误与结果，保证流式从头写入。
+      setIsRunning(true);
+      engine.doc.updateNodeProps(nodeId, {
+        errorText: "",
+        resultText: "",
+        chatModelId,
+      });
+
+      try {
+        const sessionId = sessionIdRef.current;
+        const messageId = generateId();
+        const userMessage: TenasUIMessage = {
+          id: messageId,
+          role: "user",
+          parentMessageId: null,
+          parts: [
+            { type: "file", url: imageUrl, mediaType },
+            { type: "text", text: IMAGE_PROMPT_TEXT },
+          ],
+        };
+        const payload = {
+          sessionId,
+          messages: [userMessage],
+          clientId: getWebClientId() || undefined,
+          workspaceId: resolvedWorkspaceId || undefined,
+          projectId: boardFolderScope?.projectId ?? fileContext?.projectId ?? undefined,
+          trigger: "board-image-prompt",
+          chatModelId,
+          chatModelSource: input.chatModelSource,
+        };
+        const response = await fetch(`${resolveServerUrl()}/chat/sse`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+        if (!response.ok || !response.body) {
+          throw new Error(`SSE request failed: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let streamedText = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const chunks = buffer.split("\n\n");
+          buffer = chunks.pop() ?? "";
+
+          for (const chunk of chunks) {
+            const data = extractSseData(chunk);
+            if (!data) continue;
+            if (data === "[DONE]") {
+              await reader.cancel();
+              return;
+            }
+            let parsed: any;
+            try {
+              parsed = JSON.parse(data);
+            } catch {
+              continue;
+            }
+            const delta =
+              parsed?.type === "text-delta" && typeof parsed?.delta === "string"
+                ? parsed.delta
+                : parsed?.type === "text" && typeof parsed?.text === "string"
+                  ? parsed.text
+                  : typeof parsed?.data?.text === "string"
+                    ? parsed.data.text
+                    : "";
+            if (!delta) continue;
+            streamedText += delta;
+            // 逻辑：节点被删除时终止写入，避免无效更新。
+            if (!engine.doc.getElementById(nodeId)) {
+              controller.abort();
+              setIsRunning(false);
+              return;
+            }
+            engine.doc.updateNodeProps(nodeId, { resultText: streamedText });
+          }
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          engine.doc.updateNodeProps(nodeId, {
+            errorText: "生成提示词失败",
+          });
+          toast.error("生成提示词失败");
+        }
+      } finally {
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null;
+        }
+        setIsRunning(false);
+      }
+    },
+    [
+      boardFolderScope,
+      element.id,
+      engine,
+      fileContext?.projectId,
+      resolvedWorkspaceId,
+    ]
+  );
 
   const viewStatus = useMemo(() => {
     // 逻辑：运行态以 SSE 请求为准，不写入节点，避免刷新后卡死。
@@ -196,7 +464,7 @@ export function ImagePromptGenerateNodeView({
               className="rounded-md border border-slate-200/80 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
               onPointerDown={(event) => {
                 event.stopPropagation();
-                actions.stopImagePromptGenerateNode(element.id);
+                stopImagePromptGenerate();
               }}
             >
               <span className="inline-flex items-center gap-1">
@@ -217,8 +485,7 @@ export function ImagePromptGenerateNodeView({
               onPointerDown={(event) => {
                 event.stopPropagation();
                 onSelect();
-                actions.runImagePromptGenerateNode({
-                  nodeId: element.id,
+                runImagePromptGenerate({
                   chatModelId: effectiveModelId,
                   chatModelSource: chatSource,
                 });

@@ -141,6 +141,10 @@ body {
   --canvas-connector-handle-fill: #ffffff;
   --canvas-connector-handle-stroke: #0f172a;
   --canvas-drag-shadow: rgba(15, 23, 42, 0.18);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --folder-back: oklch(0.75 0.12 45);
+  --folder-front: oklch(0.8 0.14 50);
+  --folder-tab: oklch(0.7 0.1 40);
 }
 
 .dark {
@@ -185,6 +189,10 @@ body {
   --canvas-connector-handle-fill: #0f172a;
   --canvas-connector-handle-stroke: #f8fafc;
   --canvas-drag-shadow: rgba(0, 0, 0, 0.6);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --folder-back: oklch(0.65 0.12 45);
+  --folder-front: oklch(0.7 0.14 50);
+  --folder-tab: oklch(0.6 0.1 40);
 }
 
 @theme inline {
@@ -235,6 +243,11 @@ body {
     transform: rotateX(0deg);
     }
   }
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-folder-back: var(--folder-back);
+  --color-folder-front: var(--folder-front);
+  --color-folder-tab: var(--folder-tab);
+  --radius: var(----radius)
 }
 
 @layer base {

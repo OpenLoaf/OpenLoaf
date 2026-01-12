@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { cn } from "@udecode/cn";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { generateId } from "ai";
 import { trpc } from "@/utils/trpc";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
@@ -25,10 +24,6 @@ import {
   parseTenasFileUrl,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
-import { createChatSessionId } from "@/lib/chat-session-id";
-import { getWebClientId } from "@/lib/chat/streamClientId";
-import { resolveServerUrl } from "@/utils/server-url";
-import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import type {
   CanvasElement,
   CanvasConnectorElement,
@@ -59,12 +54,6 @@ import {
   type BoardSnapshotCacheRecord,
 } from "./boardSnapshotCache";
 import { useBoardSnapshot } from "./useBoardSnapshot";
-import type { ImageNodeProps } from "../nodes/ImageNode";
-import {
-  IMAGE_PROMPT_GENERATE_NODE_TYPE,
-  IMAGE_PROMPT_TEXT,
-} from "../nodes/ImagePromptGenerateNode";
-import { toast } from "sonner";
 const VIEWPORT_SAVE_DELAY = 800;
 /** Default size for double-click created text nodes. */
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
@@ -166,16 +155,6 @@ const isImageDragEvent = (event: DragEvent<HTMLElement>) => {
 /** Check whether a file is a supported image. */
 const isImageFile = (file: File) => file.type.startsWith("image/");
 
-/** Extract SSE data payload from a single event chunk. */
-function extractSseData(chunk: string): string | null {
-  const lines = chunk.split("\n");
-  const dataLines = lines.filter((line) => line.startsWith("data:"));
-  if (dataLines.length === 0) return null;
-  return dataLines
-    .map((line) => line.slice(5).trimStart())
-    .join("\n");
-}
-
 /** Parse a board snapshot from file content. */
 function parseBoardSnapshot(content?: string | null): BoardSnapshotState | null {
   if (!content) return null;
@@ -265,28 +244,6 @@ export function BoardCanvas({
   const pendingFileSnapshotRef = useRef<BoardSnapshotState | null>(null);
   /** Image node ids currently upgrading to asset files. */
   const imageAssetUpgradeIdsRef = useRef<Set<string>>(new Set());
-  /** Abort controllers for active image prompt streams. */
-  const imagePromptAbortControllersRef = useRef<Map<string, AbortController>>(new Map());
-  /** Runtime running flags for image prompt nodes (not persisted). */
-  const [imagePromptRunningNodeIds, setImagePromptRunningNodeIds] = useState<
-    Record<string, true>
-  >({});
-  const setImagePromptRunning = useCallback((nodeId: string, running: boolean) => {
-    setImagePromptRunningNodeIds((prev) => {
-      const isRunning = Boolean(prev[nodeId]);
-      if (running === isRunning) return prev;
-      if (running) return { ...prev, [nodeId]: true };
-      const next = { ...prev };
-      delete next[nodeId];
-      return next;
-    });
-  }, []);
-  const isImagePromptRunning = useCallback(
-    (nodeId: string) => Boolean(imagePromptRunningNodeIds[nodeId]),
-    [imagePromptRunningNodeIds]
-  );
-  /** Session id used for image prompt runs inside this board. */
-  const imagePromptSessionIdRef = useRef(createChatSessionId());
   /** Whether the minimap should stay visible. */
   const [showMiniMap, setShowMiniMap] = useState(false);
   /** Whether grid rendering is suppressed for export. */
@@ -465,187 +422,6 @@ export function BoardCanvas({
     [boardFolderScope]
   );
 
-  /** Resolve a prompt-ready image uri from an image node. */
-  const resolvePromptImageUri = useCallback(
-    (props: ImageNodeProps) => {
-      const rawUri = props.originalSrc || "";
-      if (!rawUri) return "";
-      return resolveBoardRelativeUri(rawUri);
-    },
-    [resolveBoardRelativeUri]
-  );
-
-  /** Stop a running image prompt stream. */
-  const stopImagePromptGenerateNode = useCallback(
-    (nodeId: string) => {
-      const controller = imagePromptAbortControllersRef.current.get(nodeId);
-      // 逻辑：运行态不落盘，用户点击停止时先退出“生成中”样式，避免 UI 卡死。
-      setImagePromptRunning(nodeId, false);
-      if (!controller) return;
-      controller.abort();
-      imagePromptAbortControllersRef.current.delete(nodeId);
-    },
-    [setImagePromptRunning]
-  );
-
-  /** Run an image prompt generation node via /chat/sse. */
-  const runImagePromptGenerateNode = useCallback(
-    async (input: {
-      nodeId: string;
-      chatModelId?: string;
-      chatModelSource?: "local" | "cloud";
-    }) => {
-      const nodeId = input.nodeId;
-      const node = engine.doc.getElementById(nodeId);
-      if (!node || node.kind !== "node" || node.type !== IMAGE_PROMPT_GENERATE_NODE_TYPE) {
-        return;
-      }
-
-      const chatModelId = (input.chatModelId ?? (node.props as any)?.chatModelId ?? "").trim();
-      if (!chatModelId) {
-        engine.doc.updateNodeProps(nodeId, {
-          errorText: "请选择支持「图片输入 + 文本生成」的模型",
-        });
-        return;
-      }
-
-      // 逻辑：输入以“连线关系”为准，避免模板节点 props 与连接状态不一致。
-      let imageProps: ImageNodeProps | null = null;
-      for (const element of engine.doc.getElements()) {
-        if (element.kind !== "connector") continue;
-        if (!element.target || !("elementId" in element.target)) continue;
-        if (element.target.elementId !== nodeId) continue;
-        if (!element.source || !("elementId" in element.source)) continue;
-        const sourceElementId = element.source.elementId;
-        const source = sourceElementId ? engine.doc.getElementById(sourceElementId) : null;
-        if (source && source.kind === "node" && source.type === "image") {
-          imageProps = source.props as ImageNodeProps;
-          break;
-        }
-      }
-      const imageUrl = imageProps ? resolvePromptImageUri(imageProps) : "";
-      const mediaType = imageProps?.mimeType || "application/octet-stream";
-      const isRelativeTenas = imageUrl.startsWith("tenas-file://./");
-      if (!imageUrl || isRelativeTenas || !imageUrl.startsWith("tenas-file://")) {
-        engine.doc.updateNodeProps(nodeId, {
-          errorText: "当前图片缺少可用的地址，无法生成提示词",
-        });
-        return;
-      }
-
-      const previousController = imagePromptAbortControllersRef.current.get(nodeId);
-      if (previousController) previousController.abort();
-      const controller = new AbortController();
-      imagePromptAbortControllersRef.current.set(nodeId, controller);
-
-      // 逻辑：开始生成前先清空错误与结果，保证流式从头写入。
-      setImagePromptRunning(nodeId, true);
-      engine.doc.updateNodeProps(nodeId, {
-        errorText: "",
-        resultText: "",
-        chatModelId,
-      });
-
-      try {
-        const sessionId = imagePromptSessionIdRef.current;
-        const messageId = generateId();
-        const userMessage: TenasUIMessage = {
-          id: messageId,
-          role: "user",
-          parentMessageId: null,
-          parts: [
-            { type: "file", url: imageUrl, mediaType },
-            { type: "text", text: IMAGE_PROMPT_TEXT },
-          ],
-        };
-        const payload = {
-          sessionId,
-          messages: [userMessage],
-          clientId: getWebClientId() || undefined,
-          workspaceId: resolvedWorkspaceId || undefined,
-          projectId: boardFolderScope?.projectId ?? projectId ?? undefined,
-          trigger: "board-image-prompt",
-          chatModelId,
-          chatModelSource: input.chatModelSource,
-        };
-        const response = await fetch(`${resolveServerUrl()}/chat/sse`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
-        if (!response.ok || !response.body) {
-          throw new Error(`SSE request failed: ${response.status}`);
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let streamedText = "";
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const chunks = buffer.split("\n\n");
-          buffer = chunks.pop() ?? "";
-
-          for (const chunk of chunks) {
-            const data = extractSseData(chunk);
-            if (!data) continue;
-            if (data === "[DONE]") {
-              await reader.cancel();
-              return;
-            }
-            let parsed: any;
-            try {
-              parsed = JSON.parse(data);
-            } catch {
-              continue;
-            }
-            const delta =
-              parsed?.type === "text-delta" && typeof parsed?.delta === "string"
-                ? parsed.delta
-                : parsed?.type === "text" && typeof parsed?.text === "string"
-                  ? parsed.text
-                  : typeof parsed?.data?.text === "string"
-                    ? parsed.data.text
-                    : "";
-            if (!delta) continue;
-            streamedText += delta;
-            // 逻辑：节点被删除时终止写入，避免无效更新。
-            if (!engine.doc.getElementById(nodeId)) {
-              controller.abort();
-              setImagePromptRunning(nodeId, false);
-              return;
-            }
-            engine.doc.updateNodeProps(nodeId, { resultText: streamedText });
-          }
-        }
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          engine.doc.updateNodeProps(nodeId, {
-            errorText: "生成提示词失败",
-          });
-          toast.error("生成提示词失败");
-        }
-      } finally {
-        if (imagePromptAbortControllersRef.current.get(nodeId) === controller) {
-          imagePromptAbortControllersRef.current.delete(nodeId);
-        }
-        setImagePromptRunning(nodeId, false);
-      }
-    },
-    [
-      boardFolderScope?.projectId,
-      engine,
-      projectId,
-      resolvePromptImageUri,
-      resolvedWorkspaceId,
-      setImagePromptRunning,
-    ],
-  );
 
   /** Build image payloads while persisting assets into the board folder. */
   const buildBoardImagePayloadFromFile = useCallback(
@@ -798,20 +574,8 @@ export function BoardCanvas({
     () => ({
       openImagePreview,
       closeImagePreview,
-      runImagePromptGenerateNode,
-      stopImagePromptGenerateNode,
     }),
-    [
-      closeImagePreview,
-      openImagePreview,
-      runImagePromptGenerateNode,
-      stopImagePromptGenerateNode,
-    ]
-  );
-  /** Shared image prompt runtime helpers exposed to node components. */
-  const imagePromptRuntime = useMemo(
-    () => ({ isRunning: isImagePromptRunning }),
-    [isImagePromptRunning]
+    [closeImagePreview, openImagePreview]
   );
   /** Apply a snapshot into the engine state. */
   const applySnapshot = useCallback(
@@ -1200,17 +964,6 @@ export function BoardCanvas({
     }
   }, [inspectorElement, inspectorNodeId, snapshot.selectedIds]);
 
-  /** Cleanup active image prompt streams on unmount. */
-  useEffect(() => {
-    return () => {
-      // 逻辑：画布卸载时中止所有进行中的生成请求。
-      imagePromptAbortControllersRef.current.forEach((controller) =>
-        controller.abort()
-      );
-      imagePromptAbortControllersRef.current.clear();
-    };
-  }, []);
-
   /** Connector templates available for the current drop source. */
   const availableTemplates = useMemo(() => {
     if (!connectorDrop) return [];
@@ -1330,7 +1083,6 @@ export function BoardCanvas({
     <BoardProvider
       engine={engine}
       actions={boardActions}
-      imagePromptRuntime={imagePromptRuntime}
       fileContext={{ projectId, rootUri, boardFolderUri }}
     >
       <div

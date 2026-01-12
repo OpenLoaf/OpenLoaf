@@ -5,6 +5,7 @@ import DesktopIconLabel from "./DesktopIconLabel";
 import ClockWidget from "./widgets/ClockWidget";
 import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
+import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
 
 interface DesktopTileContentProps {
   item: DesktopItem;
@@ -27,6 +28,14 @@ export default function DesktopTileContent({ item }: DesktopTileContentProps) {
     return (
       <div className="flex h-full w-full items-center justify-center p-2">
         <FlipClockWidget showSeconds={item.flipClock?.showSeconds ?? true} />
+      </div>
+    );
+  }
+
+  if (item.widgetKey === "3d-folder") {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-2">
+        <ThreeDFolderWidget title={item.title} folderUri={item.folderUri} />
       </div>
     );
   }
