@@ -10,6 +10,7 @@ import { desktopWidgetCatalog } from "@/components/desktop/widget-catalog";
 import type { DesktopItem } from "@/components/desktop/types";
 import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
+import { areDesktopItemsEqual, cloneDesktopItems } from "@/components/desktop/desktop-history";
 
 // 组件库面板标识。
 const DESKTOP_WIDGET_LIBRARY_COMPONENT = "desktop-widget-library";
@@ -49,6 +50,12 @@ export default function DesktopDemoPage() {
   const [compactSignal, setCompactSignal] = React.useState(0);
   // 编辑前快照，用于取消回滚。
   const snapshotRef = React.useRef<DesktopItem[] | null>(null);
+  // 历史栈快照，用于撤回与前进。
+  const historyRef = React.useRef({
+    past: [] as DesktopItem[][],
+    future: [] as DesktopItem[][],
+    suspended: false,
+  });
   // 当前激活的 tab。
   const activeTabId = useTabs((s) => s.activeTabId);
   // 打开 stack 面板的方法。
@@ -58,10 +65,7 @@ export default function DesktopDemoPage() {
   const handleSetEditMode = React.useCallback((nextEditMode: boolean) => {
     setEditMode((prev) => {
       if (!prev && nextEditMode) {
-        snapshotRef.current = items.map((item) => ({
-          ...item,
-          layout: { ...item.layout },
-        }));
+        snapshotRef.current = cloneDesktopItems(items);
       }
       if (prev && !nextEditMode) snapshotRef.current = null;
       return nextEditMode;
@@ -75,6 +79,37 @@ export default function DesktopDemoPage() {
     },
     []
   );
+
+  /** Undo the latest edit. */
+  const handleUndo = React.useCallback(() => {
+    const history = historyRef.current;
+    if (history.past.length <= 1) return;
+    const current = history.past[history.past.length - 1];
+    const previous = history.past[history.past.length - 2];
+    // 逻辑：撤回到上一个快照，并记录到 future。
+    history.suspended = true;
+    history.past = history.past.slice(0, -1);
+    history.future = [current, ...history.future];
+    setItems(cloneDesktopItems(previous));
+    window.setTimeout(() => {
+      historyRef.current.suspended = false;
+    }, 0);
+  }, []);
+
+  /** Redo the latest reverted edit. */
+  const handleRedo = React.useCallback(() => {
+    const history = historyRef.current;
+    if (history.future.length === 0) return;
+    const next = history.future[0];
+    // 逻辑：前进到 future 的最新快照。
+    history.suspended = true;
+    history.future = history.future.slice(1);
+    history.past = [...history.past, next];
+    setItems(cloneDesktopItems(next));
+    window.setTimeout(() => {
+      historyRef.current.suspended = false;
+    }, 0);
+  }, []);
 
   /** Open the desktop widget library stack panel. */
   const handleOpenWidgetLibrary = React.useCallback(() => {
@@ -113,6 +148,66 @@ export default function DesktopDemoPage() {
       window.removeEventListener(DESKTOP_WIDGET_SELECTED_EVENT, handleWidgetSelected as EventListener);
     };
   }, [activeTabId]);
+
+  React.useEffect(() => {
+    if (!editMode) {
+      historyRef.current = { past: [], future: [], suspended: false };
+      return;
+    }
+    // 逻辑：进入编辑态时重置历史，只保留当前快照。
+    historyRef.current = {
+      past: [cloneDesktopItems(items)],
+      future: [],
+      suspended: false,
+    };
+  }, [editMode, items]);
+
+  React.useEffect(() => {
+    if (!editMode) return;
+    const history = historyRef.current;
+    if (history.suspended) return;
+    const nextSnapshot = cloneDesktopItems(items);
+    const lastSnapshot = history.past[history.past.length - 1];
+    if (lastSnapshot && areDesktopItemsEqual(lastSnapshot, nextSnapshot)) return;
+    // 逻辑：每次状态变更写入历史，并清空未来栈。
+    history.past = [...history.past, nextSnapshot];
+    history.future = [];
+  }, [editMode, items]);
+
+  React.useEffect(() => {
+    if (!editMode) return;
+
+    /** Handle undo/redo shortcuts in edit mode. */
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        if (target.isContentEditable) return;
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      }
+
+      const hasModifier = event.metaKey || event.ctrlKey;
+      if (!hasModifier) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) handleRedo();
+        else handleUndo();
+        return;
+      }
+
+      if (key === "y") {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [editMode, handleRedo, handleUndo]);
 
   return (
     <div className="flex h-full w-full min-w-0 flex-col">

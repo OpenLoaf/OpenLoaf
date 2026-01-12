@@ -79,11 +79,12 @@ export default function DesktopTileGridstack({
     <div className="group relative h-full w-full min-w-0">
       {editMode ? (
         <div className="absolute -left-2 -top-2 z-10 flex items-center gap-1">
-          <DesktopTileDeleteButton onDelete={() => onDeleteItem(item.id)} />
+          {isPinned ? null : <DesktopTileDeleteButton onDelete={() => onDeleteItem(item.id)} />}
           <button
             type="button"
             className={cn(
               "flex size-6 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm",
+              isPinned ? "text-red-500" : "",
               isPinned
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto"
