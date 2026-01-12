@@ -9,7 +9,7 @@ import { LinkNodeDefinition } from "../nodes/LinkNode";
 import { GroupNodeDefinition, ImageGroupNodeDefinition } from "../nodes/GroupNode";
 import { StrokeNodeDefinition } from "../nodes/StrokeNode";
 import { TextNodeDefinition } from "../nodes/TextNode";
-import { TemplateNodeDefinition } from "../nodes/TemplateNode";
+import { ImagePromptGenerateNodeDefinition } from "../nodes/ImagePromptGenerateNode";
 
 export interface ProjectBoardCanvasProps {
   /** Loading state for the project page. */
@@ -48,7 +48,7 @@ const ProjectBoardCanvas = memo(function ProjectBoardCanvas({
           LinkNodeDefinition,
           StrokeNodeDefinition,
           TextNodeDefinition,
-          TemplateNodeDefinition,
+          ImagePromptGenerateNodeDefinition,
           GroupNodeDefinition,
           ImageGroupNodeDefinition,
         ]}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getDisplayFileName } from "@/lib/file-name";
 import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
@@ -27,6 +27,8 @@ export function useFileRename({
   const [renamingUri, setRenamingUri] = useState<string | null>(null);
   /** Current rename input value. */
   const [renamingValue, setRenamingValue] = useState("");
+  /** 防止 blur 与 Enter 重复触发提交。 */
+  const isSubmittingRef = useRef(false);
 
   /** Request rename for an existing entry. */
   const requestRename = useCallback(
@@ -55,6 +57,7 @@ export function useFileRename({
   /** Submit rename changes with validation. */
   const handleRenamingSubmit = useCallback(async () => {
     if (!renamingUri) return;
+    if (isSubmittingRef.current) return;
     const targetEntry = entries.find((item) => item.uri === renamingUri);
     if (!targetEntry) {
       setRenamingUri(null);
@@ -80,11 +83,17 @@ export function useFileRename({
       setRenamingUri(null);
       return;
     }
-    const nextUri = await onRename(targetEntry, nextName);
-    if (nextUri) {
-      onSelectionReplace?.([nextUri]);
+    isSubmittingRef.current = true;
+    try {
+      const nextUri = await onRename(targetEntry, nextName);
+      if (nextUri) {
+        onSelectionReplace?.([nextUri]);
+      }
+      setRenamingUri(null);
+    } finally {
+      // 中文注释：确保异常也释放提交锁，避免后续无法重命名。
+      isSubmittingRef.current = false;
     }
-    setRenamingUri(null);
   }, [entries, onRename, onSelectionReplace, renamingUri, renamingValue]);
 
   /** Cancel rename editing. */

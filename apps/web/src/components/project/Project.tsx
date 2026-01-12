@@ -203,7 +203,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
 
   // 面板按需挂载，header 常驻渲染并用 CSS 过渡控制显示与交互。
   const headerBaseClass =
-    "flex items-center pl-2 transition-opacity duration-240 ease-out min-w-0";
+    "flex min-h-[36px] items-center pl-2 transition-opacity duration-240 ease-out min-w-0";
   const panelBaseClass =
     "absolute inset-0 box-border pt-0 transition-opacity duration-240 ease-out";
 

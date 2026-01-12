@@ -189,6 +189,27 @@ export type CanvasInsertRequest = {
   size?: [number, number];
 };
 
+/** Template entry shown when dragging a connector from a node anchor. */
+export type CanvasConnectorTemplateDefinition = {
+  /** Template identifier used by the picker. */
+  id: string;
+  /** Display label for the picker. */
+  label: string;
+  /** Description shown under the label. */
+  description: string;
+  /** Default size for the created node. */
+  size: [number, number];
+  /** Optional icon rendered in the picker. */
+  icon?: ReactNode;
+  /** Build the node payload inserted by the picker. */
+  createNode: (input: { sourceElementId?: string }) => {
+    /** Node type identifier to insert. */
+    type: string;
+    /** Node props passed to the engine. */
+    props: Record<string, unknown>;
+  };
+};
+
 /** Union of all supported element types. */
 export type CanvasElement = CanvasNodeElement | CanvasConnectorElement;
 
@@ -339,6 +360,8 @@ export type CanvasNodeDefinition<P> = {
   };
   /** Anchor resolver for connectors. */
   anchors?: (props: P, bounds: CanvasRect) => CanvasAnchorDefinition[];
+  /** Connector templates shown when dragging from this node's anchors. */
+  connectorTemplates?: (element: CanvasNodeElement<P>) => CanvasConnectorTemplateDefinition[];
   /** Toolbar definition for the node. */
   toolbar?: (ctx: CanvasToolbarContext<P>) => CanvasToolbarItem[];
   /** Capability flags for tools and UI. */

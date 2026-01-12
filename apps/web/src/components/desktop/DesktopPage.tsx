@@ -3,8 +3,17 @@
 import * as React from "react";
 import type { DesktopItem } from "./types";
 import type { DesktopBreakpoint } from "./desktop-breakpoints";
+import { getBreakpointConfig } from "./desktop-breakpoints";
 import DesktopGrid from "./DesktopGrid";
 import { getDesktopIconByKey } from "./desktop-icons";
+
+/** Resolve edit-mode max width by breakpoint (lg is unconstrained). */
+function getEditMaxWidth(breakpoint: DesktopBreakpoint) {
+  if (breakpoint === "lg") return undefined;
+  const config = getBreakpointConfig(breakpoint);
+  // 中文注释：使用行高作为列宽的近似值，按列数推导当前断点的可视宽度。
+  return config.columns * config.rowHeight + (config.columns - 1) * config.gap + config.padding * 2;
+}
 
 const initialItems: DesktopItem[] = [
   {
@@ -99,20 +108,24 @@ export default function DesktopPage({
   onChangeItems,
   compactSignal,
 }: DesktopPageProps) {
+  const editMaxWidth = editMode ? getEditMaxWidth(activeBreakpoint) : undefined;
+
   return (
     <div className="h-full w-full overflow-hidden" title="Desktop" aria-label="Desktop">
-      <div className="h-full w-full bg-gradient-to-b from-background ">
-        <DesktopGrid
-          items={items}
-          editMode={editMode}
-          activeBreakpoint={activeBreakpoint}
-          onViewBreakpointChange={onViewBreakpointChange}
-          onSetEditMode={onSetEditMode}
-          onUpdateItem={onUpdateItem}
-          onChangeItems={onChangeItems}
-          onDeleteItem={(itemId) => onChangeItems(items.filter((item) => item.id !== itemId))}
-          compactSignal={compactSignal}
-        />
+      <div className="h-full w-full bg-gradient-to-b from-background">
+        <div className="h-full w-full" style={editMaxWidth ? { maxWidth: editMaxWidth, margin: "0 auto" } : undefined}>
+          <DesktopGrid
+            items={items}
+            editMode={editMode}
+            activeBreakpoint={activeBreakpoint}
+            onViewBreakpointChange={onViewBreakpointChange}
+            onSetEditMode={onSetEditMode}
+            onUpdateItem={onUpdateItem}
+            onChangeItems={onChangeItems}
+            onDeleteItem={(itemId) => onChangeItems(items.filter((item) => item.id !== itemId))}
+            compactSignal={compactSignal}
+          />
+        </div>
       </div>
     </div>
   );

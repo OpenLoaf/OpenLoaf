@@ -55,6 +55,32 @@ export async function resolveRightmostLeafId(sessionId: string): Promise<string 
   return row?.id ?? null;
 }
 
+/** Set the latest error message for a chat session. */
+export async function setSessionErrorMessage(input: {
+  /** Session id. */
+  sessionId: string;
+  /** Error message to persist. */
+  errorMessage: string;
+}): Promise<void> {
+  const trimmed = input.errorMessage.trim();
+  if (!trimmed) return;
+  await prisma.chatSession.updateMany({
+    where: { id: input.sessionId },
+    data: { errorMessage: trimmed },
+  });
+}
+
+/** Clear the error message for a chat session. */
+export async function clearSessionErrorMessage(input: {
+  /** Session id. */
+  sessionId: string;
+}): Promise<void> {
+  await prisma.chatSession.updateMany({
+    where: { id: input.sessionId },
+    data: { errorMessage: null },
+  });
+}
+
 /** Save a chat message node. */
 export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageResult> {
   const messageId = String((input.message as any)?.id ?? "").trim();

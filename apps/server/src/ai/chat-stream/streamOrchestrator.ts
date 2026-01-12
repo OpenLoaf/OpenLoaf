@@ -15,7 +15,12 @@ import {
   setUiWriter,
 } from "@/ai/chat-stream/requestContext";
 import type { MasterAgentRunner } from "@/ai/agents/masterAgent/masterAgentRunner";
-import { appendMessagePart, saveMessage } from "./messageStore";
+import {
+  appendMessagePart,
+  clearSessionErrorMessage,
+  saveMessage,
+  setSessionErrorMessage,
+} from "./messageStore";
 import { buildTokenUsageMetadata, buildTimingMetadata, mergeAbortMetadata } from "./metadataBuilder";
 
 /** 构建错误 SSE 响应的输入。 */
@@ -175,6 +180,10 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                 allowEmpty: isAborted,
                 createdAt: input.requestStartAt,
               });
+              if (!isAborted && finishReason !== "error") {
+                // 中文注释：仅在成功完成时清空会话错误。
+                await clearSessionErrorMessage({ sessionId: currentSessionId });
+              }
             } catch (err) {
               logger.error({ err }, "[chat] save assistant failed");
             } finally {
@@ -248,6 +257,8 @@ export async function createImageStreamResponse(
     allowEmpty: false,
     createdAt: input.requestStartAt,
   });
+  // 中文注释：图片生成成功后清空会话错误。
+  await clearSessionErrorMessage({ sessionId: input.sessionId });
 
   const body = [
     toSseChunk({ type: "start", messageId: input.assistantMessageId }),
@@ -265,6 +276,8 @@ export async function createImageStreamResponse(
 /** 持久化错误消息到消息树。 */
 async function saveErrorMessage(input: ErrorStreamInput) {
   const part = { type: "text", text: input.errorText, state: "done" };
+  // 中文注释：错误文本写入会话，保证刷新后仍可见。
+  await setSessionErrorMessage({ sessionId: input.sessionId, errorMessage: input.errorText });
   const appended = await appendMessagePart({
     sessionId: input.sessionId,
     messageId: input.assistantMessageId,

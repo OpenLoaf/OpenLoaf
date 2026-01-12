@@ -1,10 +1,9 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import { useChatContext } from "../ChatProvider";
+import { useChatContext } from "../../ChatProvider";
 import { Button } from "@/components/ui/button";
-import { RotateCcw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Copy, RotateCcw } from "lucide-react";
 
 interface MessageErrorProps {
   /**
@@ -18,7 +17,7 @@ interface MessageErrorProps {
 type ParsedError = {
   title: string;
   message: string;
-  details?: string;
+  displayMessage: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -48,7 +47,22 @@ function tryExtractJsonErrorMessage(text: string): string | undefined {
 }
 
 /**
- * 把 unknown 异常对象转成用户可读的结构，并保留可展开的详情信息。
+ * Map raw error text to a unified display message.
+ */
+function resolveDisplayMessage(rawMessage: string): string {
+  const trimmed = rawMessage.trim();
+  const normalized = trimmed.toLowerCase();
+  if (normalized.includes("upstream error: do request failed")) {
+    return "模型配置存在问题，请检查配置。";
+  }
+  if (normalized.includes("not implemented")) {
+    return "不支持的接口，请检查模型接口配置。";
+  }
+  return trimmed ? "请求失败，请稍后重试。" : "请求失败，请稍后重试。";
+}
+
+/**
+ * Parse unknown error into display-friendly info.
  */
 function parseChatError(error: unknown): ParsedError {
   const title = "出错了";
@@ -56,32 +70,15 @@ function parseChatError(error: unknown): ParsedError {
   if (error instanceof Error) {
     const extracted = tryExtractJsonErrorMessage(error.message);
     const message = extracted ?? error.message ?? String(error);
-
-    const cause = (error as any).cause as unknown;
-    const causeText =
-      cause instanceof Error
-        ? `${cause.name}: ${cause.message}`
-        : typeof cause === "string"
-          ? cause
-          : isRecord(cause) && typeof cause.message === "string"
-            ? cause.message
-            : undefined;
-
-    const details = [
-      error.name ? `name: ${error.name}` : null,
-      causeText ? `cause: ${causeText}` : null,
-      error.stack ? `stack:\n${error.stack}` : null,
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-
-    return { title, message, details: details || undefined };
+    return { title, message, displayMessage: resolveDisplayMessage(message) };
   }
 
   if (typeof error === "string") {
+    const message = tryExtractJsonErrorMessage(error) ?? error;
     return {
       title,
-      message: tryExtractJsonErrorMessage(error) ?? error,
+      message,
+      displayMessage: resolveDisplayMessage(message),
     };
   }
 
@@ -96,18 +93,11 @@ function parseChatError(error: unknown): ParsedError {
     const message =
       (rawMessage ? tryExtractJsonErrorMessage(rawMessage) ?? rawMessage : undefined) ??
       "发生未知错误（error 不是标准 Error 实例）。";
-
-    let details: string | undefined;
-    try {
-      details = JSON.stringify(error, null, 2);
-    } catch {
-      details = String(error);
-    }
-
-    return { title, message, details };
+    return { title, message, displayMessage: resolveDisplayMessage(message) };
   }
 
-  return { title, message: String(error) };
+  const message = String(error);
+  return { title, message, displayMessage: resolveDisplayMessage(message) };
 }
 
 export default function MessageError({ error }: MessageErrorProps) {
@@ -118,6 +108,11 @@ export default function MessageError({ error }: MessageErrorProps) {
   const handleRetry = () => {
     clearError();
     regenerate();
+  };
+
+  const handleCopy = () => {
+    if (!parsed.message) return;
+    void navigator.clipboard?.writeText(parsed.message);
   };
 
   // 仅在“正在提交/流式输出”时禁用重试；error 状态需要允许用户重试
@@ -140,24 +135,21 @@ export default function MessageError({ error }: MessageErrorProps) {
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium">{parsed.title}</span>
         </div>
-        <p className="text-xs mt-1 break-words">{parsed.message}</p>
+        <p className="text-xs mt-1 break-words">{parsed.displayMessage}</p>
 
-        {parsed.details ? (
-          <details className="mt-2">
-            <summary className="cursor-pointer select-none text-xs text-destructive/80">
-              详情
-            </summary>
-            <pre
-              className={cn(
-                "mt-2 max-h-48 overflow-auto rounded bg-background/60 p-2 text-[11px] leading-4 text-foreground/80",
-              )}
-            >
-              {parsed.details}
-            </pre>
-          </details>
-        ) : null}
-
-        <div className="mt-2 flex justify-end">
+        <div className="mt-2 flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/20"
+            onClick={handleCopy}
+            aria-label="复制错误日志"
+            title="复制错误日志"
+          >
+            <Copy className="size-3 mr-1" />
+            复制错误
+          </Button>
           <Button
             type="button"
             variant="ghost"

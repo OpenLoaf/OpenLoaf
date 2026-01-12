@@ -3,6 +3,7 @@ model ChatSession {
   title        String        @default("新对话") /// @zod.min(1)
   isUserRename Boolean       @default(false)
   isPin        Boolean       @default(false)
+  errorMessage String? /// Error message for last failed request.
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   workspaceId  String? /// Workspace id.

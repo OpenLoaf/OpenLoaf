@@ -3,6 +3,7 @@
 import * as React from "react";
 import { GridStack, type GridStackNode } from "gridstack";
 import type { DesktopItem, DesktopItemLayout } from "./types";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 import {
   getBreakpointConfig,
   getBreakpointForWidth,
@@ -63,6 +64,13 @@ export default function DesktopGrid({
   onDeleteItem,
   compactSignal,
 }: DesktopGridProps) {
+  const { basic } = useBasicConfig();
+  // 中文注释：动画等级为低时禁用 Gridstack 动画。
+  const enableGridAnimation = basic.uiAnimationLevel !== "low";
+  // 中文注释：首屏初始化完成前隐藏网格，避免布局闪烁。
+  const [isGridReady, setIsGridReady] = React.useState(false);
+  const didSetReadyRef = React.useRef(false);
+  const lastWidthRef = React.useRef(0);
   const itemsRef = React.useRef(items);
   React.useEffect(() => {
     itemsRef.current = items;
@@ -91,15 +99,24 @@ export default function DesktopGrid({
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
-      setContainerWidth(entry?.contentRect?.width ?? 0);
+      const nextWidth = entry?.contentRect?.width ?? 0;
+      if (nextWidth > 0) lastWidthRef.current = nextWidth;
+      setContainerWidth(nextWidth);
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
+  const effectiveWidth = containerWidth || lastWidthRef.current;
+
   const resolvedBreakpoint = React.useMemo(
-    () => (editMode ? activeBreakpoint : getBreakpointForWidth(containerWidth)),
-    [activeBreakpoint, containerWidth, editMode]
+    () =>
+      editMode
+        ? activeBreakpoint
+        : effectiveWidth > 0
+          ? getBreakpointForWidth(effectiveWidth)
+          : "lg",
+    [activeBreakpoint, editMode, effectiveWidth]
   );
 
   const breakpointRef = React.useRef(resolvedBreakpoint);
@@ -126,13 +143,16 @@ export default function DesktopGrid({
     const el = gridContainerRef.current;
     if (!el) return;
 
+    setIsGridReady(false);
+    didSetReadyRef.current = false;
+
     const grid = GridStack.init(
       {
         column: metrics.cols,
         cellHeight: metrics.cell,
         margin: metrics.gap,
         float: true,
-        animate: true,
+        animate: enableGridAnimation,
         draggable: { handle: ".desktop-tile-handle" },
         // 只保留右下角的 resize 交互区（不显示四周箭头）。
         resizable: { handles: "se" },
@@ -229,8 +249,18 @@ export default function DesktopGrid({
       grid.destroy(false);
       gridRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enableGridAnimation, editMode]);
+
+  React.useEffect(() => {
+    const el = gridContainerRef.current;
+    if (!el) return;
+    if (enableGridAnimation) {
+      el.classList.add("grid-stack-animate");
+    } else {
+      el.classList.remove("grid-stack-animate");
+    }
+  }, [enableGridAnimation]);
 
   React.useEffect(() => {
     const grid = gridRef.current;
@@ -331,6 +361,13 @@ export default function DesktopGrid({
     }
     grid.batchUpdate(false);
     syncingRef.current = false;
+
+    if (!didSetReadyRef.current) {
+      didSetReadyRef.current = true;
+      requestAnimationFrame(() => {
+        setIsGridReady(true);
+      });
+    }
   }, [items, metrics.cols, resolvedBreakpoint]);
 
   return (
@@ -338,12 +375,15 @@ export default function DesktopGrid({
       <div
         className="grid-stack"
         ref={gridContainerRef}
-        style={{ padding: metrics.padding }}
+        style={{
+          padding: metrics.padding,
+          opacity: isGridReady ? 1 : 0,
+        }}
       >
         {items.map((item) => {
-      const layout = getItemLayoutForBreakpoint(item, resolvedBreakpoint);
-      const viewItem = clampItemToCols({ ...item, layout }, metrics.cols, layout);
-      return (
+          const layout = getItemLayoutForBreakpoint(item, resolvedBreakpoint);
+          const viewItem = clampItemToCols({ ...item, layout }, metrics.cols, layout);
+          return (
             <div
               key={item.id}
               ref={(node) => {

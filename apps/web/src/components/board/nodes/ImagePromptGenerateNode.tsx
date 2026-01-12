@@ -1,8 +1,5 @@
-import type {
-  CanvasNodeDefinition,
-  CanvasNodeViewProps,
-} from "../engine/types";
-import { useEffect, useMemo, useRef } from "react";
+import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
+import { useEffect, useMemo } from "react";
 import { z } from "zod";
 import { ChevronDown, Play, RotateCcw, Square, Sparkles } from "lucide-react";
 
@@ -12,20 +9,49 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 
-export type TemplateNodeProps = {
-  templateId: "image_prompt";
-  /** 选中的 chatModelId（profileId:modelId）。 */
+/** Node type identifier for image prompt generation. */
+export const IMAGE_PROMPT_GENERATE_NODE_TYPE = "image_prompt_generate";
+/** Default prompt for image understanding in text generation. */
+export const IMAGE_PROMPT_TEXT = `你是一位顶级图像视觉分析师，精通**所有类型图片**的详细结构化描述，用于AI图像生成（如Midjourney/DALL-E）。根据提供的图片，输出**高度详细的中文描述**，**智能适配图片类型**。
+
+### 支持类型（自动识别，无需指定）：
+- **人物**：肖像、人物、模特、名人、自拍
+- **美食**：食物、料理、甜点、餐桌
+- **动物/宠物**：猫狗、野生动物、宠物照
+- **风光**：山水、城市、建筑、日落、云海
+- **物品**：静物、产品、日用品、艺术品
+- **表情包/Meme**：卡通、搞笑图、表情
+- **文字/扫描**：文档、海报、书籍、OCR内容
+- **抽象/艺术**：画作、设计、图案、数字艺术
+- **其他**：车辆、室内、运动、事件等任意类型
+
+### 输出格式（严格逐字使用此模板）：
+[主体物体/场景]，[数量/规模/类型描述]，[姿态/布局/分布]。  
+[环境/背景描述]，[氛围效果如光影、天气、粒子]。  
+[光线/色彩描述]，照亮/突出[具体细节]。  
+细节包括[列出4-6个关键特征：材质、纹理、颜色、形状、装饰]。  
+[构图视角]视角，[前景/中景/背景三层分明描述]。  
+整体色调：[主色+2-3个辅助色]，[明暗对比/饱和度]。  
+[动态感/空间感/情绪氛围总结]，[独特卖点或视觉焦点]。
+
+### 核心要求：
+1. **长度**：50-200字，信息密集。
+2. **超详细**：材质（如丝绸、光滑金属）、光影（如柔和侧光、逆光轮廓）、微细节（如汗珠、纹路）。
+3. **智能适配**：人物强调表情/服装，美食强调质感/摆盘，文字强调内容/字体。
+4. **图像生成优化**：分层构图、色彩精确、氛围强烈。
+5. **纯中文**：专业视觉语言，无口语化。`;
+
+export type ImagePromptGenerateNodeProps = {
+  /** Selected chatModelId (profileId:modelId). */
   chatModelId?: string;
-  /** 自动运行标记，仅消费一次。 */
-  autoRun?: boolean;
+  /** Generated result text. */
   resultText?: string;
+  /** Error text for failed runs. */
   errorText?: string;
 };
 
-const TemplateNodeSchema = z.object({
-  templateId: z.literal("image_prompt"),
+const ImagePromptGenerateNodeSchema = z.object({
   chatModelId: z.string().optional(),
-  autoRun: z.boolean().optional(),
   resultText: z.string().optional(),
   errorText: z.string().optional(),
 });
@@ -40,27 +66,27 @@ function isCompatible(tags: string[] | undefined) {
   return true;
 }
 
-/** Render the image prompt template node. */
-export function TemplateNodeView({
+/** Render the image prompt generation node. */
+export function ImagePromptGenerateNodeView({
   element,
   selected,
   onSelect,
   onUpdate,
-}: CanvasNodeViewProps<TemplateNodeProps>) {
-  const { actions, engine, templateRuntime } = useBoardContext();
+}: CanvasNodeViewProps<ImagePromptGenerateNodeProps>) {
+  const { actions, engine, imagePromptRuntime } = useBoardContext();
   const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
   const chatSource = normalizeChatModelSource(basic.chatSource);
   const modelOptions = useMemo(
     () => buildChatModelOptions(chatSource, providerItems, cloudModels),
-    [chatSource, providerItems, cloudModels],
+    [chatSource, providerItems, cloudModels]
   );
   const candidates = useMemo(() => {
     return modelOptions.filter((option) => isCompatible(option.tags));
   }, [modelOptions]);
 
-  const isRunning = templateRuntime.isRunning(element.id);
+  const isRunning = imagePromptRuntime.isRunning(element.id);
   const errorText = element.props.errorText ?? "";
   const resultText = element.props.resultText ?? "";
   // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
@@ -83,7 +109,7 @@ export function TemplateNodeView({
     }
   }
   const hasValidInput = Boolean(
-    inputImageId && inputImageOriginalSrc.trim().startsWith("tenas-file://"),
+    inputImageId && inputImageOriginalSrc.trim().startsWith("tenas-file://")
   );
   const selectedModelId = (element.props.chatModelId ?? "").trim();
   const defaultModelId =
@@ -99,41 +125,12 @@ export function TemplateNodeView({
     return candidates[0]?.id ?? "";
   }, [candidates, defaultModelId, selectedModelId]);
 
-  const autoRunConsumedRef = useRef(false);
-
   useEffect(() => {
     // 逻辑：当默认模型可用时自动写入节点，避免用户每次重复选择。
     if (!effectiveModelId) return;
     if (selectedModelId) return;
     onUpdate({ chatModelId: effectiveModelId });
   }, [effectiveModelId, onUpdate, selectedModelId]);
-
-  useEffect(() => {
-    // 逻辑：autoRun 仅消费一次，避免节点渲染抖动导致重复请求。
-    if (!element.props.autoRun) return;
-    if (autoRunConsumedRef.current) return;
-    if (!effectiveModelId) return;
-    if (!hasValidInput) return;
-    if (candidates.length === 0) return;
-    if (isRunning) return;
-    autoRunConsumedRef.current = true;
-    onUpdate({ autoRun: false });
-    actions.runTemplateNode({
-      nodeId: element.id,
-      chatModelId: effectiveModelId,
-      chatModelSource: chatSource,
-    });
-  }, [
-    actions,
-    chatSource,
-    candidates.length,
-    effectiveModelId,
-    element.id,
-    element.props.autoRun,
-    hasValidInput,
-    isRunning,
-    onUpdate,
-  ]);
 
   const viewStatus = useMemo(() => {
     // 逻辑：运行态以 SSE 请求为准，不写入节点，避免刷新后卡死。
@@ -188,7 +185,7 @@ export function TemplateNodeView({
                       ? "需要配置模型"
                       : viewStatus === "needs_input"
                         ? "需要连接图片输入"
-                      : "待运行"}
+                        : "待运行"}
             </div>
           </div>
         </div>
@@ -199,7 +196,7 @@ export function TemplateNodeView({
               className="rounded-md border border-slate-200/80 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
               onPointerDown={(event) => {
                 event.stopPropagation();
-                actions.stopTemplateNode(element.id);
+                actions.stopImagePromptGenerateNode(element.id);
               }}
             >
               <span className="inline-flex items-center gap-1">
@@ -210,12 +207,17 @@ export function TemplateNodeView({
           ) : hasValidInput ? (
             <button
               type="button"
-              disabled={candidates.length === 0 || !effectiveModelId || engine.isLocked() || element.locked}
+              disabled={
+                candidates.length === 0 ||
+                !effectiveModelId ||
+                engine.isLocked() ||
+                element.locked
+              }
               className="rounded-md border border-slate-200/80 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
               onPointerDown={(event) => {
                 event.stopPropagation();
                 onSelect();
-                actions.runTemplateNode({
+                actions.runImagePromptGenerateNode({
                   nodeId: element.id,
                   chatModelId: effectiveModelId,
                   chatModelSource: chatSource,
@@ -244,9 +246,7 @@ export function TemplateNodeView({
               }}
               className="w-full appearance-none rounded-md border border-slate-200/80 bg-background px-2 py-1 pr-6 text-[11px] text-slate-700 outline-none dark:border-slate-700/80 dark:text-slate-200"
             >
-              {candidates.length ? null : (
-                <option value="">无可用模型</option>
-              )}
+              {candidates.length ? null : <option value="">无可用模型</option>}
               {candidates.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.providerName}:{option.modelId}
@@ -286,17 +286,17 @@ export function TemplateNodeView({
   );
 }
 
-export const TemplateNodeDefinition: CanvasNodeDefinition<TemplateNodeProps> = {
-  type: "template",
-  schema: TemplateNodeSchema,
-  defaultProps: {
-    templateId: "image_prompt",
-    resultText: "",
-  },
-  view: TemplateNodeView,
-  capabilities: {
-    resizable: true,
-    connectable: "auto",
-    minSize: { w: 260, h: 180 },
-  },
-};
+export const ImagePromptGenerateNodeDefinition: CanvasNodeDefinition<ImagePromptGenerateNodeProps> =
+  {
+    type: IMAGE_PROMPT_GENERATE_NODE_TYPE,
+    schema: ImagePromptGenerateNodeSchema,
+    defaultProps: {
+      resultText: "",
+    },
+    view: ImagePromptGenerateNodeView,
+    capabilities: {
+      resizable: true,
+      connectable: "auto",
+      minSize: { w: 260, h: 180 },
+    },
+  };

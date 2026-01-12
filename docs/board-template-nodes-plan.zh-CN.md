@@ -1,4 +1,4 @@
-# 画布模板节点（Template Node）方案（MVP）
+# 画布节点插入与图片提示词节点方案（MVP）
 
 ## 背景与问题
 
@@ -8,31 +8,31 @@
 
 ## 目标
 
-1. 交互更轻：从“多级列表”改为“模板选择 + 模板节点承载结果”。
-2. 结果落地在模板节点中（不再固定创建文本节点）。
+1. 交互更轻：从“多级列表”改为“节点选择 + 节点承载结果”。
+2. 结果落地在图片提示词节点中（不再固定创建文本节点）。
 3. 模型选择最小打扰：
    - 默认优先使用用户的默认聊天模型（若满足标签）
    - 不满足时才要求用户在节点内选择
    - 如果没有任何匹配模型，引导用户去设置配置
 4. 「生成提示词」所需标签是 **AND**：`image_input` + `text_generation`。
 
-## 交互方案（方案 E：模板节点）
+## 交互方案（方案 E：节点选择器 + 图片提示词节点）
 
-### 1) 连线创建节点：弹出模板选择器（单层）
+### 1) 连线创建节点：弹出节点选择器（单层）
 
 用户从图片节点拖出连线，在空白处松开时：
 
-- 弹出一个“模板选择器”（单层列表 + 搜索）
+- 弹出一个“节点选择器”（单层列表 + 搜索）
 - 选择后创建目标节点，并自动连线
 
-MVP 模板：
+MVP 可选节点：
 
 - `文字`：插入普通文本节点
-- `图片提示词`：插入模板节点（Template Node），用于生成图片描述
+- `图片提示词`：插入图片提示词节点，用于生成图片描述
 
-### 2) 结果落地：模板节点承载运行、模型、输出
+### 2) 结果落地：图片提示词节点承载运行、模型、输出
 
-`图片提示词` 模板节点内包含：
+`图片提示词` 节点内包含：
 
 - 模型选择下拉（只展示满足标签的模型）
 - 运行 / 重试 / 停止
@@ -40,26 +40,22 @@ MVP 模板：
 
 ### 3) 模型选择策略（最小打扰）
 
-模板节点的模型选择顺序：
+图片提示词节点的模型选择顺序：
 
 1. 若节点自身已保存 `chatModelId`，优先使用它
 2. 否则尝试使用全局默认聊天模型（若满足标签）
 3. 否则使用候选列表的第一个模型
 4. 若候选列表为空：节点进入 `needs_model` 并提示用户去设置配置
 
-> 说明：模板节点会把最终选中的 `chatModelId` 写回到节点 props，后续不需要重复选择。
+> 说明：图片提示词节点会把最终选中的 `chatModelId` 写回到节点 props，后续不需要重复选择。
 
 ## 数据结构（节点 props）
 
-MVP 只做一个模板：`image_prompt`
+MVP 只做一个图片提示词节点：`image_prompt_generate`
 
 ```ts
-type TemplateNodeProps = {
-  templateId: "image_prompt";
-  sourceElementId: string;        // 上游图片节点 id
+type ImagePromptGenerateNodeProps = {
   chatModelId?: string;           // profileId:modelId
-  autoRun?: boolean;              // 创建后自动运行（只消费一次）
-  status?: "idle" | "needs_model" | "running" | "done" | "error";
   resultText?: string;            // 流式输出累积
   errorText?: string;             // 错误提示
 };
@@ -69,10 +65,10 @@ type TemplateNodeProps = {
 
 ### 触发
 
-- 选择模板后创建 `template` 节点，写入 `templateId/sourceElementId/autoRun`
+- 选择节点后创建 `image_prompt_generate` 节点并自动连线
 - 节点渲染后：
   - 自动确定 `chatModelId`（按上面的策略）
-  - 若 `autoRun=true` 且 `chatModelId` 有效，则调用画布 actions 开始执行
+  - 点击“运行”后调用画布 actions 开始执行
 
 ### 请求
 
@@ -104,10 +100,10 @@ type TemplateNodeProps = {
 
 ### Phase 1：交互改造（已实现）
 
-1. 用 `TemplatePicker` 替代旧的多级插入面板
-2. 引入 `BOARD_TEMPLATES`（模板目录，MVP 两个模板）
-3. 新增 `TemplateNode`（`type="template"`）并注册到 board
-4. 模板节点结果保留在节点中，不再生成文本节点
+1. 用 `NodePicker` 替代旧的多级插入面板
+2. 可选节点由源节点定义提供（`connectorTemplates`），不再使用全局模板目录
+3. 新增 `ImagePromptGenerateNode`（`type="image_prompt_generate"`）并注册到 board
+4. 图片提示词节点结果保留在节点中，不再生成文本节点
 
 ### Phase 2：模型选择（已实现）
 
@@ -125,14 +121,13 @@ type TemplateNodeProps = {
 
 1. 启动现有 web/server（你环境里已在跑 next dev，避免重复启动）
 2. 画布拖出连线 → 选择 `图片提示词`
-3. 节点内自动选中一个满足标签的模型并运行
-4. 输出流式写入并最终保留在模板节点中
+3. 节点内自动选中一个满足标签的模型，点击运行
+4. 输出流式写入并最终保留在图片提示词节点中
 
 ## 代码落点（当前实现）
 
-- 模板目录：`apps/web/src/components/board/templates/template-catalog.ts`
-- 模板选择器：`apps/web/src/components/board/core/TemplatePicker.tsx`
-- 模板节点：`apps/web/src/components/board/nodes/TemplateNode.tsx`
+- 节点选择器：`apps/web/src/components/board/core/NodePicker.tsx`
+- 图片提示词节点：`apps/web/src/components/board/nodes/ImagePromptGenerateNode.tsx`
+- 连接模板定义：`apps/web/src/components/board/nodes/ImageNode.tsx`
 - 画布执行链路：`apps/web/src/components/board/core/BoardCanvas.tsx`
 - 服务端 requiredTags：`apps/server/src/ai/chat-stream/modelResolution.ts`
-

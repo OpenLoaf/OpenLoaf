@@ -19,6 +19,8 @@ export type ChatSessionListItem = {
   isPin: boolean;
   /** Whether the title is renamed by user. */
   isUserRename: boolean;
+  /** Error message for last failed request. */
+  errorMessage: string | null;
   /** Project id bound to session. */
   projectId: string | null;
   /** Project name resolved from tree. */

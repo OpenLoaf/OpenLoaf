@@ -332,6 +332,8 @@ export default function ChatProvider({
     Record<string, SubAgentStreamState>
   >({});
   const [stepThinking, setStepThinking] = React.useState(false);
+  /** Session error message persisted on server. */
+  const [sessionErrorMessage, setSessionErrorMessage] = React.useState<string | null>(null);
   const upsertToolPart = useTabs((s) => s.upsertToolPart);
   const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
   const setTabChatStatus = useTabs((s) => s.setTabChatStatus);
@@ -442,6 +444,8 @@ export default function ChatProvider({
         needsBranchMetaRefreshRef.current = false;
         void refreshBranchMeta(assistantId);
       }
+      // 中文注释：成功完成后清空会话错误提示。
+      setSessionErrorMessage(null);
     },
     [refreshBranchMeta, sessionId]
   );
@@ -470,6 +474,11 @@ export default function ChatProvider({
   const { basic } = useBasicConfig();
   const prevStatusRef = React.useRef(chat.status);
   setMessagesRef.current = chat.setMessages;
+  const effectiveError =
+    chat.error ??
+    (chat.status === "ready" && sessionErrorMessage
+      ? new Error(sessionErrorMessage)
+      : undefined);
 
   React.useEffect(() => {
     const previousStatus = prevStatusRef.current;
@@ -519,6 +528,7 @@ export default function ChatProvider({
       setSiblingNav({});
       setSubAgentStreams({});
       setStepThinking(false);
+      setSessionErrorMessage(null);
       if (clearTools && tabId) clearToolPartsForTab(tabId);
     },
     [chat.stop, chat.setMessages, tabId, clearToolPartsForTab]
@@ -546,6 +556,9 @@ export default function ChatProvider({
   React.useEffect(() => {
     const data = branchQuery.data;
     if (!data) return;
+    const nextErrorMessage =
+      typeof data.errorMessage === "string" ? data.errorMessage : null;
+    setSessionErrorMessage(nextErrorMessage);
 
     // 关键：历史接口已按时间正序返回（最早在前），可直接渲染
     if (chat.messages.length === 0) {
@@ -842,6 +855,7 @@ export default function ChatProvider({
     <ChatContext.Provider
       value={{
         ...chat,
+        error: effectiveError,
         sendMessage,
         input,
         setInput,

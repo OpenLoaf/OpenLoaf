@@ -1,4 +1,5 @@
 import type {
+  CanvasConnectorTemplateDefinition,
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
@@ -8,10 +9,13 @@ import { z } from "zod";
 import {
   Download,
   Info,
+  Sparkles,
+  Type,
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import { ImageNodeInput } from "./ImageNodeInput";
+import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./ImagePromptGenerateNode";
 
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
@@ -64,6 +68,32 @@ function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
     },
   ];
 }
+
+/** Connector templates offered by the image node. */
+const IMAGE_NODE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
+  {
+    id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
+    label: "图片提示词",
+    description: "分析图片并生成描述",
+    size: [320, 220],
+    icon: <Sparkles size={14} />,
+    createNode: () => ({
+      type: IMAGE_PROMPT_GENERATE_NODE_TYPE,
+      props: {},
+    }),
+  },
+  {
+    id: "text",
+    label: "文字",
+    description: "插入可编辑文本",
+    size: [280, 140],
+    icon: <Type size={14} />,
+    createNode: () => ({
+      type: "text",
+      props: { autoFocus: true, value: "" },
+    }),
+  },
+];
 
 /** Render an image node using a compressed preview bitmap. */
 export function ImageNodeView({
@@ -190,6 +220,7 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     minSize: { w: 120, h: 90 },
     maxSize: { w: 960, h: 720 },
   },
+  connectorTemplates: () => IMAGE_NODE_CONNECTOR_TEMPLATES,
   // 逻辑：图片节点提供下载/复制原图入口，保持编辑与导出分离。
   toolbar: ctx => createImageToolbarItems(ctx),
 };

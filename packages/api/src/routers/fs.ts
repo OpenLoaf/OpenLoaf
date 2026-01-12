@@ -277,8 +277,16 @@ export const fsRouter = t.router({
   /** Read a text file. */
   readFile: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
     const fullPath = resolveWorkspacePathFromUri(input.uri);
-    const content = await fs.readFile(fullPath, "utf-8");
-    return { content };
+    try {
+      const content = await fs.readFile(fullPath, "utf-8");
+      return { content };
+    } catch (error) {
+      // 中文注释：文件不存在时返回空内容，避免首次读取落盘失败。
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return { content: "" };
+      }
+      throw error;
+    }
   }),
 
   /** Read a binary file (base64 payload). */

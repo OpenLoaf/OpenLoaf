@@ -46,7 +46,7 @@ import {
   MultiSelectionToolbar,
   SingleSelectionToolbar,
 } from "./SelectionOverlay";
-import { TemplatePicker } from "./TemplatePicker";
+import { NodePicker } from "./NodePicker";
 import {
   BOARD_SCHEMA_VERSION,
   createEmptyBoardSnapshot,
@@ -60,8 +60,11 @@ import {
 } from "./boardSnapshotCache";
 import { useBoardSnapshot } from "./useBoardSnapshot";
 import type { ImageNodeProps } from "../nodes/ImageNode";
+import {
+  IMAGE_PROMPT_GENERATE_NODE_TYPE,
+  IMAGE_PROMPT_TEXT,
+} from "../nodes/ImagePromptGenerateNode";
 import { toast } from "sonner";
-import { BOARD_TEMPLATES, type BoardTemplateId } from "../templates/template-catalog";
 const VIEWPORT_SAVE_DELAY = 800;
 /** Default size for double-click created text nodes. */
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
@@ -69,8 +72,6 @@ const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
 const IMAGE_DROP_STACK_OFFSET = 24;
 /** Prefix used for board-relative tenas-file paths. */
 const BOARD_RELATIVE_URI_PREFIX = "tenas-file://./";
-/** Default prompt for image understanding in text generation. */
-const IMAGE_PROMPT_TEXT = "分析一下当前的照片，生成当前照片详细的描述";
 
 /** Normalize a relative path string. */
 function normalizeRelativePath(value: string) {
@@ -245,7 +246,7 @@ export function BoardCanvas({
   /** Guard for first-time initial element insertion. */
   const initialElementsRef = useRef(false);
   /** Panel ref used for outside-click detection. */
-  const templatePickerRef = useRef<HTMLDivElement | null>(null);
+  const nodePickerRef = useRef<HTMLDivElement | null>(null);
   /** Node inspector target id. */
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   /** Whether the server snapshot has been hydrated. */
@@ -264,12 +265,14 @@ export function BoardCanvas({
   const pendingFileSnapshotRef = useRef<BoardSnapshotState | null>(null);
   /** Image node ids currently upgrading to asset files. */
   const imageAssetUpgradeIdsRef = useRef<Set<string>>(new Set());
-  /** Abort controllers for active template streams. */
-  const templateAbortControllersRef = useRef<Map<string, AbortController>>(new Map());
-  /** 模板节点运行态（不落盘，刷新后会重置）。 */
-  const [templateRunningNodeIds, setTemplateRunningNodeIds] = useState<Record<string, true>>({});
-  const setTemplateRunning = useCallback((nodeId: string, running: boolean) => {
-    setTemplateRunningNodeIds((prev) => {
+  /** Abort controllers for active image prompt streams. */
+  const imagePromptAbortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  /** Runtime running flags for image prompt nodes (not persisted). */
+  const [imagePromptRunningNodeIds, setImagePromptRunningNodeIds] = useState<
+    Record<string, true>
+  >({});
+  const setImagePromptRunning = useCallback((nodeId: string, running: boolean) => {
+    setImagePromptRunningNodeIds((prev) => {
       const isRunning = Boolean(prev[nodeId]);
       if (running === isRunning) return prev;
       if (running) return { ...prev, [nodeId]: true };
@@ -278,12 +281,12 @@ export function BoardCanvas({
       return next;
     });
   }, []);
-  const isTemplateRunning = useCallback(
-    (nodeId: string) => Boolean(templateRunningNodeIds[nodeId]),
-    [templateRunningNodeIds],
+  const isImagePromptRunning = useCallback(
+    (nodeId: string) => Boolean(imagePromptRunningNodeIds[nodeId]),
+    [imagePromptRunningNodeIds]
   );
-  /** Session id used for template runs inside this board. */
-  const templateSessionIdRef = useRef(createChatSessionId());
+  /** Session id used for image prompt runs inside this board. */
+  const imagePromptSessionIdRef = useRef(createChatSessionId());
   /** Whether the minimap should stay visible. */
   const [showMiniMap, setShowMiniMap] = useState(false);
   /** Whether grid rendering is suppressed for export. */
@@ -472,24 +475,31 @@ export function BoardCanvas({
     [resolveBoardRelativeUri]
   );
 
-  /** Stop a running template node stream. */
-  const stopTemplateNode = useCallback((nodeId: string) => {
-    const controller = templateAbortControllersRef.current.get(nodeId);
-    // 逻辑：运行态不落盘，用户点击停止时先退出“生成中”样式，避免 UI 卡死。
-    setTemplateRunning(nodeId, false);
-    if (!controller) return;
-    controller.abort();
-    templateAbortControllersRef.current.delete(nodeId);
-  }, [setTemplateRunning]);
+  /** Stop a running image prompt stream. */
+  const stopImagePromptGenerateNode = useCallback(
+    (nodeId: string) => {
+      const controller = imagePromptAbortControllersRef.current.get(nodeId);
+      // 逻辑：运行态不落盘，用户点击停止时先退出“生成中”样式，避免 UI 卡死。
+      setImagePromptRunning(nodeId, false);
+      if (!controller) return;
+      controller.abort();
+      imagePromptAbortControllersRef.current.delete(nodeId);
+    },
+    [setImagePromptRunning]
+  );
 
-  /** Run an image prompt template node via /chat/sse. */
-  const runTemplateNode = useCallback(
-    async (input: { nodeId: string; chatModelId?: string; chatModelSource?: "local" | "cloud" }) => {
+  /** Run an image prompt generation node via /chat/sse. */
+  const runImagePromptGenerateNode = useCallback(
+    async (input: {
+      nodeId: string;
+      chatModelId?: string;
+      chatModelSource?: "local" | "cloud";
+    }) => {
       const nodeId = input.nodeId;
       const node = engine.doc.getElementById(nodeId);
-      if (!node || node.kind !== "node" || node.type !== "template") return;
-      const templateId = (node.props as any)?.templateId;
-      if (templateId !== "image_prompt") return;
+      if (!node || node.kind !== "node" || node.type !== IMAGE_PROMPT_GENERATE_NODE_TYPE) {
+        return;
+      }
 
       const chatModelId = (input.chatModelId ?? (node.props as any)?.chatModelId ?? "").trim();
       if (!chatModelId) {
@@ -523,13 +533,13 @@ export function BoardCanvas({
         return;
       }
 
-      const previousController = templateAbortControllersRef.current.get(nodeId);
+      const previousController = imagePromptAbortControllersRef.current.get(nodeId);
       if (previousController) previousController.abort();
       const controller = new AbortController();
-      templateAbortControllersRef.current.set(nodeId, controller);
+      imagePromptAbortControllersRef.current.set(nodeId, controller);
 
       // 逻辑：开始生成前先清空错误与结果，保证流式从头写入。
-      setTemplateRunning(nodeId, true);
+      setImagePromptRunning(nodeId, true);
       engine.doc.updateNodeProps(nodeId, {
         errorText: "",
         resultText: "",
@@ -537,7 +547,7 @@ export function BoardCanvas({
       });
 
       try {
-        const sessionId = templateSessionIdRef.current;
+        const sessionId = imagePromptSessionIdRef.current;
         const messageId = generateId();
         const userMessage: TenasUIMessage = {
           id: messageId,
@@ -607,7 +617,7 @@ export function BoardCanvas({
             // 逻辑：节点被删除时终止写入，避免无效更新。
             if (!engine.doc.getElementById(nodeId)) {
               controller.abort();
-              setTemplateRunning(nodeId, false);
+              setImagePromptRunning(nodeId, false);
               return;
             }
             engine.doc.updateNodeProps(nodeId, { resultText: streamedText });
@@ -621,10 +631,10 @@ export function BoardCanvas({
           toast.error("生成提示词失败");
         }
       } finally {
-        if (templateAbortControllersRef.current.get(nodeId) === controller) {
-          templateAbortControllersRef.current.delete(nodeId);
+        if (imagePromptAbortControllersRef.current.get(nodeId) === controller) {
+          imagePromptAbortControllersRef.current.delete(nodeId);
         }
-        setTemplateRunning(nodeId, false);
+        setImagePromptRunning(nodeId, false);
       }
     },
     [
@@ -633,7 +643,7 @@ export function BoardCanvas({
       projectId,
       resolvePromptImageUri,
       resolvedWorkspaceId,
-      setTemplateRunning,
+      setImagePromptRunning,
     ],
   );
 
@@ -785,11 +795,24 @@ export function BoardCanvas({
   }, []);
   /** Shared board actions exposed to node components. */
   const boardActions = useMemo(
-    () => ({ openImagePreview, closeImagePreview, runTemplateNode, stopTemplateNode }),
-    [closeImagePreview, openImagePreview, runTemplateNode, stopTemplateNode]
+    () => ({
+      openImagePreview,
+      closeImagePreview,
+      runImagePromptGenerateNode,
+      stopImagePromptGenerateNode,
+    }),
+    [
+      closeImagePreview,
+      openImagePreview,
+      runImagePromptGenerateNode,
+      stopImagePromptGenerateNode,
+    ]
   );
-  /** Shared template runtime helpers exposed to node components. */
-  const templateRuntime = useMemo(() => ({ isRunning: isTemplateRunning }), [isTemplateRunning]);
+  /** Shared image prompt runtime helpers exposed to node components. */
+  const imagePromptRuntime = useMemo(
+    () => ({ isRunning: isImagePromptRunning }),
+    [isImagePromptRunning]
+  );
   /** Apply a snapshot into the engine state. */
   const applySnapshot = useCallback(
     (snapshotData: BoardSnapshotState) => {
@@ -1152,7 +1175,7 @@ export function BoardCanvas({
     if (!connectorDrop) return;
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null;
-      const panel = templatePickerRef.current;
+      const panel = nodePickerRef.current;
       if (!panel || !target) return;
       if (panel.contains(target)) return;
       // 逻辑：点击面板外部时关闭，不创建节点。
@@ -1177,30 +1200,32 @@ export function BoardCanvas({
     }
   }, [inspectorElement, inspectorNodeId, snapshot.selectedIds]);
 
-  /** Cleanup active template streams on unmount. */
+  /** Cleanup active image prompt streams on unmount. */
   useEffect(() => {
     return () => {
       // 逻辑：画布卸载时中止所有进行中的生成请求。
-      templateAbortControllersRef.current.forEach((controller) => controller.abort());
-      templateAbortControllersRef.current.clear();
+      imagePromptAbortControllersRef.current.forEach((controller) =>
+        controller.abort()
+      );
+      imagePromptAbortControllersRef.current.clear();
     };
   }, []);
 
-  /** Templates available for current connector drop. */
+  /** Connector templates available for the current drop source. */
   const availableTemplates = useMemo(() => {
     if (!connectorDrop) return [];
     const sourceElementId =
       "elementId" in connectorDrop.source ? connectorDrop.source.elementId : "";
     const source = sourceElementId ? engine.doc.getElementById(sourceElementId) : null;
-    const isImageSource = Boolean(source && source.kind === "node" && source.type === "image");
-    return BOARD_TEMPLATES.filter((item) => {
-      if (item.id === "image_prompt") return isImageSource;
-      return true;
-    });
+    if (!source || source.kind !== "node") return [];
+    // 逻辑：可用节点由源节点定义提供，避免全局模板硬编码。
+    const definition = engine.nodes.getDefinition(source.type);
+    if (!definition?.connectorTemplates) return [];
+    return definition.connectorTemplates(source as CanvasNodeElement);
   }, [connectorDrop, engine]);
 
-  /** Create a node and connector from a template selection. */
-  const handleTemplateSelect = (templateId: BoardTemplateId) => {
+  /** Create a node and connector from a connector picker selection. */
+  const handleTemplateSelect = (templateId: string) => {
     if (!connectorDrop) return;
     const template = availableTemplates.find((item) => item.id === templateId);
     if (!template) return;
@@ -1305,7 +1330,7 @@ export function BoardCanvas({
     <BoardProvider
       engine={engine}
       actions={boardActions}
-      templateRuntime={templateRuntime}
+      imagePromptRuntime={imagePromptRuntime}
       fileContext={{ projectId, rootUri, boardFolderUri }}
     >
       <div
@@ -1465,8 +1490,8 @@ export function BoardCanvas({
           />
         ) : null}
         {showUi && connectorDrop && connectorDropScreen ? (
-          <TemplatePicker
-            ref={templatePickerRef}
+          <NodePicker
+            ref={nodePickerRef}
             position={connectorDropScreen}
             templates={availableTemplates}
             onSelect={handleTemplateSelect}

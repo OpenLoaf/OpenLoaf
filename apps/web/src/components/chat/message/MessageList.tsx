@@ -7,7 +7,7 @@ import * as React from "react";
 import { useChatScroll } from "@/hooks/use-chat-scroll";
 import MessageItem from "./MessageItem";
 import MessageThinking from "./MessageThinking";
-import MessageError from "./MessageError";
+import MessageError from "./tools/MessageError";
 import { AnimatePresence } from "motion/react";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 

@@ -41,6 +41,8 @@ export type ChatSessionSummary = {
   isPin: boolean;
   /** Whether the title is renamed by user. */
   isUserRename: boolean;
+  /** Error message for last failed request. */
+  errorMessage: string | null;
   /** Project id bound to session. */
   projectId: string | null;
   /** Project name resolved from tree. */
@@ -389,6 +391,11 @@ export const chatRouter = t.router({
       const includeSiblingNav = input.include?.siblingNav !== false;
       const limit = input.window?.limit ?? DEFAULT_VIEW_LIMIT;
       const anchorStrategy = input.anchor?.strategy ?? "latestLeafInSubtree";
+      const sessionErrorMessage =
+        (await ctx.prisma.chatSession.findUnique({
+          where: { id: input.sessionId },
+          select: { errorMessage: true },
+        }))?.errorMessage ?? null;
 
       const leafFromCursor = input.window?.cursor?.beforeMessageId
         ? await resolveLeafIdFromCursor({
@@ -410,6 +417,7 @@ export const chatRouter = t.router({
         return {
           leafMessageId: null,
           branchMessageIds: [],
+          errorMessage: sessionErrorMessage,
           ...(includeMessages ? { messages: [] as ChatUIMessage[] } : {}),
           ...(includeSiblingNav ? { siblingNav: {} as Record<string, any> } : {}),
           pageInfo: { nextCursor: null, hasMore: false },
@@ -429,6 +437,7 @@ export const chatRouter = t.router({
         return {
           leafMessageId: null,
           branchMessageIds: [],
+          errorMessage: sessionErrorMessage,
           ...(includeMessages ? { messages: [] as ChatUIMessage[] } : {}),
           ...(includeSiblingNav ? { siblingNav: {} as Record<string, any> } : {}),
           pageInfo: { nextCursor: null, hasMore: false },
@@ -498,6 +507,7 @@ export const chatRouter = t.router({
       return {
         leafMessageId,
         branchMessageIds,
+        errorMessage: sessionErrorMessage,
         ...(includeMessages ? { messages } : {}),
         ...(includeSiblingNav ? { siblingNav } : {}),
         pageInfo: {
@@ -561,6 +571,7 @@ export const chatRouter = t.router({
           updatedAt: true,
           isPin: true,
           isUserRename: true,
+          errorMessage: true,
           projectId: true,
         },
       });

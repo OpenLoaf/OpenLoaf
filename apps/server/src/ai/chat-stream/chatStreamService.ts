@@ -30,7 +30,12 @@ import {
   resolveRequiredInputTags,
 } from "./modelResolution";
 import type { ChatStreamRequest } from "./chatStreamTypes";
-import { resolveRightmostLeafId, saveMessage } from "./messageStore";
+import {
+  clearSessionErrorMessage,
+  resolveRightmostLeafId,
+  saveMessage,
+  setSessionErrorMessage,
+} from "./messageStore";
 import type { ChatImageRequest, ChatImageRequestResult } from "./chatImageTypes";
 import { buildTimingMetadata } from "./metadataBuilder";
 import {
@@ -302,7 +307,9 @@ export async function runChatImageRequest(input: {
 
   const lastMessage = incomingMessages.at(-1) as TenasUIMessage | undefined;
   if (!lastMessage || !lastMessage.role || !lastMessage.id) {
-    return createChatImageErrorResult(400, formatInvalidRequestMessage("缺少最后一条消息。"));
+    const errorText = formatInvalidRequestMessage("缺少最后一条消息。");
+    await setSessionErrorMessage({ sessionId, errorMessage: errorText });
+    return createChatImageErrorResult(400, errorText);
   }
 
   // 流程：
@@ -318,6 +325,7 @@ export async function runChatImageRequest(input: {
     formatSaveError: formatImageErrorMessage,
   });
   if (!saveResult.ok) {
+    await setSessionErrorMessage({ sessionId, errorMessage: saveResult.errorText });
     return createChatImageErrorResult(saveResult.status, saveResult.errorText);
   }
 
@@ -329,6 +337,7 @@ export async function runChatImageRequest(input: {
     formatError: formatImageErrorMessage,
   });
   if (!chainResult.ok) {
+    await setSessionErrorMessage({ sessionId, errorMessage: chainResult.errorText });
     return createChatImageErrorResult(400, chainResult.errorText);
   }
   const { messages, modelMessages } = chainResult;
@@ -381,14 +390,19 @@ export async function runChatImageRequest(input: {
       allowEmpty: false,
       createdAt: requestStartAt,
     });
+    await clearSessionErrorMessage({ sessionId });
 
     return { ok: true, response: { sessionId, message } };
   } catch (err) {
     logger.error({ err, sessionId, chatModelId }, "[chat] image request failed");
     if (err instanceof ChatImageRequestError) {
-      return createChatImageErrorResult(err.status, formatImageErrorMessage(err));
+      const errorText = formatImageErrorMessage(err);
+      await setSessionErrorMessage({ sessionId, errorMessage: errorText });
+      return createChatImageErrorResult(err.status, errorText);
     }
-    return createChatImageErrorResult(500, formatImageErrorMessage(err));
+    const errorText = formatImageErrorMessage(err);
+    await setSessionErrorMessage({ sessionId, errorMessage: errorText });
+    return createChatImageErrorResult(500, errorText);
   }
 }
 

@@ -603,7 +603,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   // 通过 portal 把功能栏渲染到 header 右侧槽位，避免状态外提。
   const toolbarPortal = headerSlot?.toolbarMount
     ? createPortal(
-        <div className="flex flex-wrap items-center justify-end gap-1 rounded-b-2xl px-4 py-2.5">
+        <div className="flex flex-wrap items-center justify-end gap-1 rounded-b-2xl px-1 py-0">
           {model.canUndo || model.canRedo ? (
             <>
               <Tooltip>
@@ -611,14 +611,14 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-6 w-6"
                     aria-label="撤回"
                     disabled={!model.canUndo}
                     onClick={() => {
                       model.undo();
                     }}
                   >
-                    <Undo2 className="h-3.5 w-3.5" />
+                    <Undo2 className="h-3 w-3" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>
@@ -630,14 +630,14 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-6 w-6"
                     aria-label="前进"
                     disabled={!model.canRedo}
                     onClick={() => {
                       model.redo();
                     }}
                   >
-                    <Redo2 className="h-3.5 w-3.5" />
+                    <Redo2 className="h-3 w-3" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>
@@ -652,11 +652,11 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-7 w-7 ${isGridView ? "bg-foreground/10 text-foreground" : ""}`}
+                  className={`h-6 w-6 ${isGridView ? "bg-foreground/10 text-foreground" : ""}`}
                   aria-label="网格视图"
                   onClick={() => handleViewModeChange("grid")}
                 >
-                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <LayoutGrid className="h-3 w-3" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
@@ -668,11 +668,11 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-7 w-7 ${isListView ? "bg-foreground/10 text-foreground" : ""}`}
+                  className={`h-6 w-6 ${isListView ? "bg-foreground/10 text-foreground" : ""}`}
                   aria-label="列表视图"
                   onClick={() => handleViewModeChange("list")}
                 >
-                  <LayoutList className="h-3.5 w-3.5" />
+                  <LayoutList className="h-3 w-3" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
@@ -684,11 +684,11 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-7 w-7 ${isColumnsView ? "bg-foreground/10 text-foreground" : ""}`}
+                  className={`h-6 w-6 ${isColumnsView ? "bg-foreground/10 text-foreground" : ""}`}
                   aria-label="列视图"
                   onClick={() => handleViewModeChange("columns")}
                 >
-                  <Columns2 className="h-3.5 w-3.5" />
+                  <Columns2 className="h-3 w-3" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
@@ -702,16 +702,16 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               <Button
                 variant="ghost"
                 size="icon"
-                className={`h-7 w-7 ${
+                className={`h-6 w-6 ${
                   model.sortField === "name" ? "bg-foreground/10 text-foreground" : ""
                 }`}
                 aria-label="按字母排序"
                 onClick={handleSortByNameClick}
               >
                 {model.sortField === "name" && model.sortOrder === "asc" ? (
-                  <ArrowUpAZ className="h-3.5 w-3.5" />
+                  <ArrowUpAZ className="h-3 w-3" />
                 ) : (
-                  <ArrowDownAZ className="h-3.5 w-3.5" />
+                  <ArrowDownAZ className="h-3 w-3" />
                 )}
               </Button>
             </TooltipTrigger>
@@ -724,16 +724,16 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               <Button
                 variant="ghost"
                 size="icon"
-                className={`h-7 w-7 ${
+                className={`h-6 w-6 ${
                   model.sortField === "mtime" ? "bg-foreground/10 text-foreground" : ""
                 }`}
                 aria-label="按时间排序"
                 onClick={handleSortByTimeClick}
               >
                 {model.sortField === "mtime" && model.sortOrder === "asc" ? (
-                  <ArrowUpWideNarrow className="h-3.5 w-3.5" />
+                  <ArrowUpWideNarrow className="h-3 w-3" />
                 ) : (
-                  <ArrowDownWideNarrow className="h-3.5 w-3.5" />
+                  <ArrowDownWideNarrow className="h-3 w-3" />
                 )}
               </Button>
             </TooltipTrigger>
@@ -747,11 +747,11 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-6 w-6"
                 aria-label="新建文件夹"
                 onClick={handleCreateFolder}
               >
-                <FolderPlus className="h-3.5 w-3.5" />
+                <FolderPlus className="h-3 w-3" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
@@ -763,13 +763,13 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-6 w-6"
                 aria-label="添加文件"
                 onClick={() => {
                   model.uploadInputRef.current?.click();
                 }}
               >
-                <Upload className="h-3.5 w-3.5" />
+                <Upload className="h-3 w-3" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
@@ -799,13 +799,13 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-7 w-7 duration-150 ease-linear ${
+                  className={`h-6 w-6 duration-150 ease-linear ${
                     isSearchVisible ? "w-0 opacity-0 pointer-events-none" : "opacity-100"
                   }`}
                   aria-label="搜索"
                   onClick={() => model.setIsSearchOpen(true)}
                 >
-                  <Search className="h-3.5 w-3.5" />
+                  <Search className="h-3 w-3" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>

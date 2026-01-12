@@ -1,0 +1,243 @@
+{
+  "version": 1,
+  "updatedAt": "2026-01-12T05:51:53.991Z",
+  "grid": {
+    "breakpoints": {
+      "sm": {
+        "minWidth": 0,
+        "columns": 4,
+        "rowHeight": 78,
+        "gap": 4,
+        "padding": 16
+      },
+      "md": {
+        "minWidth": 560,
+        "columns": 6,
+        "rowHeight": 82,
+        "gap": 6,
+        "padding": 20
+      },
+      "lg": {
+        "minWidth": 960,
+        "columns": 10,
+        "rowHeight": 88,
+        "gap": 8,
+        "padding": 24
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "w-flip-clock",
+      "kind": "widget",
+      "title": "Flip Clock",
+      "widgetKey": "flip-clock",
+      "size": "4x2",
+      "constraints": {
+        "defaultW": 4,
+        "defaultH": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": 6,
+        "maxH": 3
+      },
+      "params": {
+        "showSeconds": true
+      },
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 2
+        },
+        "md": {
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 2
+        },
+        "lg": {
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 2
+        }
+      }
+    },
+    {
+      "id": "w-clock",
+      "kind": "widget",
+      "title": "Clock",
+      "widgetKey": "clock",
+      "size": "2x2",
+      "constraints": {
+        "defaultW": 2,
+        "defaultH": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": 3,
+        "maxH": 3
+      },
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 0,
+          "y": 2,
+          "w": 2,
+          "h": 2
+        },
+        "md": {
+          "x": 0,
+          "y": 2,
+          "w": 2,
+          "h": 2
+        },
+        "lg": {
+          "x": 4,
+          "y": 0,
+          "w": 2,
+          "h": 2
+        }
+      }
+    },
+    {
+      "id": "w-actions",
+      "kind": "widget",
+      "title": "Actions",
+      "widgetKey": "quick-actions",
+      "size": "4x2",
+      "constraints": {
+        "defaultW": 4,
+        "defaultH": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": 6,
+        "maxH": 3
+      },
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 0,
+          "y": 4,
+          "w": 4,
+          "h": 2
+        },
+        "md": {
+          "x": 0,
+          "y": 4,
+          "w": 4,
+          "h": 2
+        },
+        "lg": {
+          "x": 6,
+          "y": 1,
+          "w": 4,
+          "h": 2
+        }
+      }
+    },
+    {
+      "id": "i-files",
+      "kind": "icon",
+      "title": "Files",
+      "iconKey": "files",
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 2,
+          "y": 2,
+          "w": 1,
+          "h": 1
+        },
+        "md": {
+          "x": 2,
+          "y": 2,
+          "w": 1,
+          "h": 1
+        },
+        "lg": {
+          "x": 3,
+          "y": 6,
+          "w": 1,
+          "h": 1
+        }
+      }
+    },
+    {
+      "id": "i-tasks",
+      "kind": "icon",
+      "title": "Tasks",
+      "iconKey": "tasks",
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 3,
+          "y": 2,
+          "w": 1,
+          "h": 1
+        },
+        "md": {
+          "x": 3,
+          "y": 2,
+          "w": 1,
+          "h": 1
+        },
+        "lg": {
+          "x": 7,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      }
+    },
+    {
+      "id": "i-search",
+      "kind": "icon",
+      "title": "Search",
+      "iconKey": "search",
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 2,
+          "y": 3,
+          "w": 1,
+          "h": 1
+        },
+        "md": {
+          "x": 2,
+          "y": 3,
+          "w": 1,
+          "h": 1
+        },
+        "lg": {
+          "x": 8,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      }
+    },
+    {
+      "id": "i-settings",
+      "kind": "icon",
+      "title": "Settings",
+      "iconKey": "settings",
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 3,
+          "y": 3,
+          "w": 1,
+          "h": 1
+        },
+        "md": {
+          "x": 3,
+          "y": 3,
+          "w": 1,
+          "h": 1
+        },
+        "lg": {
+          "x": 9,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      }
+    }
+  ]
+}
