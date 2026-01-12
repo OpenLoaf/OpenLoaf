@@ -322,6 +322,12 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     next.uiFontSize === "xlarge"
       ? next.uiFontSize
       : current.uiFontSize;
+  const uiAnimationLevel =
+    next.uiAnimationLevel === "low" ||
+    next.uiAnimationLevel === "medium" ||
+    next.uiAnimationLevel === "high"
+      ? next.uiAnimationLevel
+      : current.uiAnimationLevel;
   const uiTheme =
     next.uiTheme === "system" || next.uiTheme === "light" || next.uiTheme === "dark"
       ? next.uiTheme
@@ -373,6 +379,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     modelSoundEnabled,
     uiLanguage,
     uiFontSize,
+    uiAnimationLevel,
     uiTheme,
     uiThemeManual,
     appLocalStorageDir,

@@ -28,6 +28,9 @@ export const uiThemeSchema = z.enum(["system", "light", "dark"]);
 
 export const uiThemeManualSchema = z.enum(["light", "dark"]);
 
+// UI animation intensity setting.
+export const uiAnimationLevelSchema = z.enum(["low", "medium", "high"]);
+
 /** CLI tool config schema. */
 export const cliToolConfigSchema = z.object({
   apiUrl: z.string(),
@@ -67,6 +70,8 @@ export const basicConfigSchema = z.object({
   modelSoundEnabled: z.boolean(),
   uiLanguage: uiLanguageSchema,
   uiFontSize: uiFontSizeSchema,
+  // UI animation intensity.
+  uiAnimationLevel: uiAnimationLevelSchema,
   uiTheme: uiThemeSchema,
   uiThemeManual: uiThemeManualSchema,
   appLocalStorageDir: z.string(),

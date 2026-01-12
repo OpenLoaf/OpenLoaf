@@ -14,6 +14,8 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   modelSoundEnabled: true,
   uiLanguage: "zh-CN",
   uiFontSize: "medium",
+  // UI animation intensity.
+  uiAnimationLevel: "high",
   uiTheme: "system",
   uiThemeManual: "light",
   appLocalStorageDir: "",

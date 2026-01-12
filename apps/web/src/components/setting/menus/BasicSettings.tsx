@@ -20,6 +20,7 @@ import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 
 type FontSizeKey = "small" | "medium" | "large" | "xlarge";
+type AnimationLevel = "low" | "medium" | "high";
 type LanguageId = "zh-CN" | "en-US" | "ja-JP" | "ko-KR" | "fr-FR" | "de-DE" | "es-ES";
 
 export function BasicSettings() {
@@ -32,6 +33,7 @@ export function BasicSettings() {
 
   const uiLanguageRaw = basic.uiLanguage;
   const fontSizeRaw = basic.uiFontSize;
+  const animationLevelRaw = basic.uiAnimationLevel;
   const localStorageDirRaw = basic.appLocalStorageDir;
   const autoBackupDirRaw = basic.appAutoBackupDir;
   const savedCustomRulesValue = basic.appCustomRules;
@@ -59,6 +61,13 @@ export function BasicSettings() {
     fontSizeRaw === "xlarge"
       ? fontSizeRaw
       : "medium";
+  // 逻辑：动画级别缺失时默认回退到高。
+  const animationLevel: AnimationLevel =
+    animationLevelRaw === "low" ||
+    animationLevelRaw === "medium" ||
+    animationLevelRaw === "high"
+      ? animationLevelRaw
+      : "high";
   const localStorageDir =
     typeof localStorageDirRaw === "string" ? localStorageDirRaw : "";
   const autoBackupDir =
@@ -272,6 +281,30 @@ export function BasicSettings() {
                         <TabsTrigger value="medium">中</TabsTrigger>
                         <TabsTrigger value="large">大</TabsTrigger>
                         <TabsTrigger value="xlarge">特大</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </TenasSettingsField>
+                </div>
+
+                <div className="flex flex-wrap items-start gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">动画级别</div>
+                    <div className="text-xs text-muted-foreground">
+                      低 / 中 / 高
+                    </div>
+                  </div>
+
+                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                    <Tabs
+                      value={animationLevel}
+                      onValueChange={(next) =>
+                        void setBasic({ uiAnimationLevel: next as AnimationLevel })
+                      }
+                    >
+                      <TabsList>
+                        <TabsTrigger value="low">低</TabsTrigger>
+                        <TabsTrigger value="medium">中</TabsTrigger>
+                        <TabsTrigger value="high">高</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </TenasSettingsField>

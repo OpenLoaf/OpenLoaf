@@ -4,6 +4,8 @@ import * as React from "react";
 import { motion } from "motion/react";
 import { Pin, PinOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 import type { DesktopItem } from "./types";
 import DesktopTileContent from "./DesktopTileContent";
 import DesktopTileDeleteButton from "./DesktopTileDeleteButton";
@@ -28,6 +30,7 @@ export default function DesktopTileGridstack({
 }: DesktopTileGridstackProps) {
   const longPressTimerRef = React.useRef<number | null>(null);
   const pointerStartRef = React.useRef<{ id: number; x: number; y: number } | null>(null);
+  const { basic } = useBasicConfig();
   // 逻辑：Flip Clock 默认展示秒数。
   const showSeconds =
     item.kind === "widget" && item.widgetKey === "flip-clock"
@@ -35,6 +38,8 @@ export default function DesktopTileGridstack({
       : true;
   // 逻辑：固定状态用于锁定拖拽与占位。
   const isPinned = item.pinned ?? false;
+  // 逻辑：仅在动画等级为高时显示七彩发光。
+  const enableGlow = !editMode && basic.uiAnimationLevel === "high";
 
   const clearLongPress = React.useCallback(() => {
     if (longPressTimerRef.current) {
@@ -124,11 +129,12 @@ export default function DesktopTileGridstack({
       ) : null}
 
       <motion.div
-        animate={{ scale: 1, boxShadow: "0 4px 10px rgba(0,0,0,0.08)" }}
+        animate={{ scale: 1, boxShadow: "none" }}
         transition={{ type: "spring", stiffness: 450, damping: 32 }}
         className={cn(
           "desktop-tile-handle relative h-full w-full select-none overflow-hidden rounded-2xl",
-          "bg-card border border-border/60",
+          "bg-card border border-border/60 dark:bg-card",
+          "bg-slate-50/90",
           isPinned ? "ring-2 ring-primary/40" : ""
         )}
         title={item.title}
@@ -175,7 +181,19 @@ export default function DesktopTileGridstack({
           window.addEventListener("pointercancel", onPointerUp);
         }}
       >
-        <div className={cn("h-full w-full", editMode ? "pointer-events-none" : "")}>
+        {enableGlow ? (
+          <GlowingEffect
+            blur={10}
+            spread={60}
+            glow={true}
+            disabled={false}
+            proximity={120}
+            inactiveZone={0}
+            borderWidth={3}
+            className="opacity-100 mix-blend-multiply dark:opacity-70 dark:mix-blend-normal"
+          />
+        ) : null}
+        <div className={cn("relative h-full w-full", editMode ? "pointer-events-none" : "")}>
           <DesktopTileContent item={item} />
         </div>
       </motion.div>

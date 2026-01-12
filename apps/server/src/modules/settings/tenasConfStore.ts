@@ -42,6 +42,8 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   modelSoundEnabled: true,
   uiLanguage: "zh-CN",
   uiFontSize: "medium",
+  // UI animation intensity.
+  uiAnimationLevel: "high",
   uiTheme: "system",
   uiThemeManual: "light",
   appLocalStorageDir: "",
@@ -175,6 +177,16 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
           fallbackSource.uiFontSize === "xlarge"
         ? fallbackSource.uiFontSize
         : DEFAULT_BASIC_CONF.uiFontSize;
+  const uiAnimationLevel =
+    source.uiAnimationLevel === "low" ||
+    source.uiAnimationLevel === "medium" ||
+    source.uiAnimationLevel === "high"
+      ? source.uiAnimationLevel
+      : fallbackSource.uiAnimationLevel === "low" ||
+          fallbackSource.uiAnimationLevel === "medium" ||
+          fallbackSource.uiAnimationLevel === "high"
+        ? fallbackSource.uiAnimationLevel
+        : DEFAULT_BASIC_CONF.uiAnimationLevel;
   const uiTheme =
     source.uiTheme === "system" || source.uiTheme === "light" || source.uiTheme === "dark"
       ? source.uiTheme
@@ -277,6 +289,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     modelSoundEnabled,
     uiLanguage,
     uiFontSize,
+    uiAnimationLevel,
     uiTheme,
     uiThemeManual,
     appLocalStorageDir,
