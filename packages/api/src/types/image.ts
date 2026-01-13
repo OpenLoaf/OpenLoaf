@@ -31,3 +31,72 @@ export type ImageGenerateOptions = {
     };
   };
 };
+
+export type TenasImageMetadataV1 = {
+  /** Schema version. */
+  version: 1;
+  /** Chat session id. */
+  chatSessionId: string;
+  /** Prompt text sent to the model. */
+  prompt: string;
+  /** Revised prompt from provider. */
+  revised_prompt?: string;
+  /** Resolved model id without source prefix. */
+  modelId: string;
+  /** Raw chat model id (may include source prefix). */
+  chatModelId?: string;
+  /** Model source marker. */
+  modelSource?: "local" | "cloud";
+  /** Provider id used to resolve model. */
+  providerId?: string;
+  /** Workspace id for storage scope. */
+  workspaceId?: string;
+  /** Project id for storage scope. */
+  projectId?: string;
+  /** Board id for board scope. */
+  boardId?: string;
+  /** Trigger source for the request. */
+  trigger?: string;
+  /** Request message id. */
+  requestMessageId?: string;
+  /** Response message id. */
+  responseMessageId?: string;
+  /** Created time in ISO format. */
+  createdAt: string;
+  /** Image generation options. */
+  imageOptions?: {
+    /** Number of images requested. */
+    n?: number;
+    /** Image size in "{width}x{height}". */
+    size?: string;
+    /** Image aspect ratio in "{width}:{height}". */
+    aspectRatio?: string;
+  };
+  /** Sanitized request payload. */
+  request?: {
+    /** Sanitized parts from the latest user message. */
+    parts?: Array<{
+      /** Part type. */
+      type: string;
+      /** Text payload. */
+      text?: string;
+      /** Url payload. */
+      url?: string;
+      /** Media type hint. */
+      mediaType?: string;
+    }>;
+    /** Raw metadata from the user message. */
+    metadata?: unknown;
+  };
+  /** Metadata flags. */
+  flags?: {
+    /** Whether metadata was truncated. */
+    truncated?: boolean;
+    /** Whether data urls were omitted. */
+    hasDataUrlOmitted?: boolean;
+    /** Whether binary payloads were omitted. */
+    hasBinaryOmitted?: boolean;
+  };
+  /** Warning messages captured during serialization. */
+  warnings?: string[];
+};

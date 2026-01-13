@@ -1,8 +1,8 @@
 import path from "node:path";
-import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import sharp from "sharp";
 import type { UIMessage } from "ai";
+import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
 
 /** Max image edge length for chat. */
@@ -11,6 +11,28 @@ const CHAT_IMAGE_MAX_EDGE = 1024;
 const CHAT_IMAGE_QUALITY = 80;
 /** Supported image types. */
 const SUPPORTED_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
+/** PNG metadata key for image payloads. */
+const IMAGE_METADATA_KEY = "tenas-image:metadata";
+/** Max metadata bytes allowed in embedded chunk. */
+const METADATA_MAX_BYTES = 128 * 1024;
+/** PNG file signature bytes. */
+const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+/** CRC32 lookup table. */
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i += 1) {
+    let value = i;
+    for (let j = 0; j < 8; j += 1) {
+      value = (value & 1) ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+    }
+    table[i] = value >>> 0;
+  }
+  return table;
+})();
+/** Last timestamp used for name generation. */
+let lastTimestamp = 0;
+/** Sequence counter for same-timestamp collisions. */
+let timestampSequence = 0;
 
 /** Image format definition. */
 type ImageFormat = {
@@ -26,18 +48,31 @@ type ImageOutput = ImageFormat & {
   buffer: Buffer;
 };
 
+/** Format timestamp base name as YYYYMMDD_HHmmss_SSS. */
+function formatTimestampBaseName(date: Date): string {
+  const pad = (value: number, size = 2) => String(value).padStart(size, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(
+    date.getHours(),
+  )}${pad(date.getMinutes())}${pad(date.getSeconds())}_${pad(date.getMilliseconds(), 3)}`;
+}
+
+/** Build a unique timestamp base name for attachments. */
+function buildTimestampBaseName(): string {
+  const now = Date.now();
+  if (now === lastTimestamp) {
+    timestampSequence += 1;
+  } else {
+    lastTimestamp = now;
+    timestampSequence = 0;
+  }
+  const base = formatTimestampBaseName(new Date(now));
+  if (timestampSequence === 0) return base;
+  return `${base}_${String(timestampSequence).padStart(2, "0")}`;
+}
+
 /** Resolve stored file name for chat attachment. */
-function resolveChatAttachmentFileName(input: {
-  fileName: string;
-  hash: string;
-  ext: string;
-}): string {
-  const parsed = path.parse(input.fileName);
-  const baseName = parsed.name || "upload";
-  const isMask = /_(mask|alpha|grey)$/i.test(baseName);
-  // 遮罩图保留原始命名，便于区分来源。
-  if (isMask) return `${baseName}.${input.ext}`;
-  return `${input.hash}.${input.ext}`;
+function buildChatAttachmentFileName(ext: string): string {
+  return `${buildTimestampBaseName()}.${ext}`;
 }
 
 /** Check whether mime is supported. */
@@ -70,6 +105,187 @@ function buildTenasFileUrl(ownerId: string, relativePath: string): string {
   return `tenas-file://${ownerId}/${normalizeRelativePath(relativePath)}`;
 }
 
+/** Compute CRC32 for PNG chunk integrity. */
+function computeCrc32(input: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of input) {
+    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/** Build a PNG iTXt metadata chunk. */
+function buildPngMetadataChunk(metadata: string): Buffer {
+  const keyword = Buffer.from(IMAGE_METADATA_KEY, "utf8");
+  const text = Buffer.from(metadata, "utf8");
+  const zero = Buffer.from([0]);
+  const flags = Buffer.from([0, 0]);
+  const data = Buffer.concat([keyword, zero, flags, zero, zero, text]);
+  const type = Buffer.from("iTXt", "ascii");
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length, 0);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(computeCrc32(Buffer.concat([type, data])), 0);
+  return Buffer.concat([length, type, data, crc]);
+}
+
+/** Inject metadata chunk into a PNG buffer. */
+export function injectPngMetadata(buffer: Buffer, metadata: string): Buffer {
+  if (buffer.length < PNG_SIGNATURE.length) return buffer;
+  if (!buffer.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) return buffer;
+  const chunk = buildPngMetadataChunk(metadata);
+  let offset = PNG_SIGNATURE.length;
+  while (offset + 8 <= buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    const nextOffset = offset + 12 + length;
+    if (nextOffset > buffer.length) break;
+    if (type === "IEND") {
+      return Buffer.concat([buffer.subarray(0, offset), chunk, buffer.subarray(offset)]);
+    }
+    offset = nextOffset;
+  }
+  return buffer;
+}
+
+/** Resolve sidecar metadata path for an image file. */
+export function resolveMetadataSidecarPath(filePath: string): string {
+  const parsed = path.parse(filePath);
+  return path.join(parsed.dir, `${parsed.name}.json`);
+}
+
+/** Trim text to a maximum utf8 byte length. */
+function trimTextToBytes(text: string, maxBytes: number): string {
+  if (Buffer.byteLength(text, "utf8") <= maxBytes) return text;
+  const sliced = Buffer.from(text, "utf8").subarray(0, maxBytes);
+  return sliced.toString("utf8");
+}
+
+/** Serialize metadata and enforce byte limits for embedded chunks. */
+export function serializeImageMetadata(metadata: TenasImageMetadataV1): {
+  fullJson: string;
+  chunkJson: string;
+} {
+  const fullPayload: TenasImageMetadataV1 = {
+    ...metadata,
+    flags: { ...metadata.flags },
+  };
+  const fullJson = JSON.stringify(fullPayload);
+  if (Buffer.byteLength(fullJson, "utf8") <= METADATA_MAX_BYTES) {
+    return { fullJson, chunkJson: fullJson };
+  }
+  const flaggedPayload: TenasImageMetadataV1 = {
+    ...fullPayload,
+    flags: { ...fullPayload.flags, truncated: true },
+  };
+  const flaggedJson = JSON.stringify(flaggedPayload);
+
+  const trimmedPayload: TenasImageMetadataV1 = {
+    ...flaggedPayload,
+    request: undefined,
+    flags: { ...flaggedPayload.flags, truncated: true },
+  };
+  const trimmedJson = JSON.stringify(trimmedPayload);
+  if (Buffer.byteLength(trimmedJson, "utf8") <= METADATA_MAX_BYTES) {
+    return { fullJson: flaggedJson, chunkJson: trimmedJson };
+  }
+
+  const minimalPayload: TenasImageMetadataV1 = {
+    version: flaggedPayload.version,
+    chatSessionId: flaggedPayload.chatSessionId,
+    prompt: flaggedPayload.prompt,
+    revised_prompt: flaggedPayload.revised_prompt,
+    modelId: flaggedPayload.modelId,
+    createdAt: flaggedPayload.createdAt,
+    flags: { ...flaggedPayload.flags, truncated: true },
+  };
+  let minimalJson = JSON.stringify(minimalPayload);
+  if (Buffer.byteLength(minimalJson, "utf8") > METADATA_MAX_BYTES) {
+    // 逻辑：prompt 过长时做截断，保证 chunk 不超过上限。
+    minimalPayload.prompt = trimTextToBytes(flaggedPayload.prompt, 4096);
+    minimalJson = JSON.stringify(minimalPayload);
+  }
+  return { fullJson: flaggedJson, chunkJson: minimalJson };
+}
+
+/** Read metadata from a PNG iTXt/tEXt chunk. */
+function readPngMetadataText(buffer: Buffer): string | null {
+  if (buffer.length < PNG_SIGNATURE.length) return null;
+  if (!buffer.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) return null;
+  let offset = PNG_SIGNATURE.length;
+  while (offset + 8 <= buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + length;
+    const nextOffset = dataEnd + 4;
+    if (nextOffset > buffer.length) break;
+    if (type === "iTXt") {
+      const chunk = buffer.subarray(dataStart, dataEnd);
+      const keywordEnd = chunk.indexOf(0);
+      if (keywordEnd <= 0) {
+        offset = nextOffset;
+        continue;
+      }
+      const keyword = chunk.subarray(0, keywordEnd).toString("utf8");
+      if (keyword !== IMAGE_METADATA_KEY) {
+        offset = nextOffset;
+        continue;
+      }
+      const compressionFlag = chunk[keywordEnd + 1];
+      const compressionMethod = chunk[keywordEnd + 2];
+      if (compressionFlag !== 0 || compressionMethod !== 0) {
+        offset = nextOffset;
+        continue;
+      }
+      let cursor = keywordEnd + 3;
+      const languageEnd = chunk.indexOf(0, cursor);
+      if (languageEnd === -1) return null;
+      cursor = languageEnd + 1;
+      const translatedEnd = chunk.indexOf(0, cursor);
+      if (translatedEnd === -1) return null;
+      const text = chunk.subarray(translatedEnd + 1).toString("utf8").trim();
+      return text || null;
+    }
+    if (type === "tEXt") {
+      const chunk = buffer.subarray(dataStart, dataEnd);
+      const keywordEnd = chunk.indexOf(0);
+      if (keywordEnd <= 0) {
+        offset = nextOffset;
+        continue;
+      }
+      const keyword = chunk.subarray(0, keywordEnd).toString("utf8");
+      if (keyword !== IMAGE_METADATA_KEY) {
+        offset = nextOffset;
+        continue;
+      }
+      const text = chunk.subarray(keywordEnd + 1).toString("utf8").trim();
+      return text || null;
+    }
+    offset = nextOffset;
+  }
+  return null;
+}
+
+/** Resolve metadata text from sidecar or embedded PNG chunk. */
+async function resolveImageMetadataText(filePath: string): Promise<string | null> {
+  const sidecarPath = resolveMetadataSidecarPath(filePath);
+  try {
+    const raw = await fs.readFile(sidecarPath, "utf8");
+    if (!raw.trim()) return null;
+    const parsed = JSON.parse(raw) as TenasImageMetadataV1;
+    return serializeImageMetadata(parsed).chunkJson;
+  } catch {
+    // 逻辑：sidecar 不存在或解析失败时回退读取 PNG chunk。
+  }
+  if (!filePath.toLowerCase().endsWith(".png")) return null;
+  try {
+    const buffer = await fs.readFile(filePath);
+    return readPngMetadataText(buffer);
+  } catch {
+    return null;
+  }
+}
 /** Resolve root path for chat attachments. */
 async function resolveChatAttachmentRoot(input: {
   /** Project id. */
@@ -150,6 +366,8 @@ export async function saveChatImageAttachment(input: {
   mediaType: string;
   /** File buffer. */
   buffer: Buffer;
+  /** Optional image metadata. */
+  metadata?: TenasImageMetadataV1;
 }): Promise<{ url: string; mediaType: string }> {
   const format = resolveImageFormat(input.mediaType, input.fileName);
   if (!format || !isSupportedImageMime(format.mediaType)) {
@@ -158,12 +376,7 @@ export async function saveChatImageAttachment(input: {
 
   // 上传阶段即压缩并落盘，避免保存原图。
   const compressed = await compressImageBuffer(input.buffer, format);
-  const hash = createHash("sha256").update(compressed.buffer).digest("hex");
-  const fileName = resolveChatAttachmentFileName({
-    fileName: input.fileName,
-    hash,
-    ext: compressed.ext,
-  });
+  const fileName = buildChatAttachmentFileName(compressed.ext);
   const relativePath = path.posix.join(".tenas", "chat", input.sessionId, fileName);
   const root = await resolveChatAttachmentRoot({
     projectId: input.projectId,
@@ -175,7 +388,17 @@ export async function saveChatImageAttachment(input: {
 
   const targetPath = path.join(root.rootPath, ".tenas", "chat", input.sessionId, fileName);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
-  await fs.writeFile(targetPath, compressed.buffer);
+  // 逻辑：PNG 写入 iTXt，其他格式仅写 sidecar。
+  const metadataPayload = input.metadata ? serializeImageMetadata(input.metadata) : null;
+  const outputBuffer =
+    compressed.ext === "png" && metadataPayload
+      ? injectPngMetadata(compressed.buffer, metadataPayload.chunkJson)
+      : compressed.buffer;
+  await fs.writeFile(targetPath, outputBuffer);
+  if (metadataPayload) {
+    const sidecarPath = resolveMetadataSidecarPath(targetPath);
+    await fs.writeFile(sidecarPath, metadataPayload.fullJson, "utf8");
+  }
 
   return {
     url: buildTenasFileUrl(root.ownerId, relativePath),
@@ -193,6 +416,8 @@ export async function saveChatImageAttachmentFromTenasUrl(input: {
   sessionId: string;
   /** Source tenas-file url. */
   url: string;
+  /** Optional image metadata. */
+  metadata?: TenasImageMetadataV1;
 }): Promise<{ url: string; mediaType: string }> {
   const filePath = await resolveTenasFilePath(input.url);
   if (!filePath) {
@@ -205,12 +430,7 @@ export async function saveChatImageAttachmentFromTenasUrl(input: {
   }
   // 中文注释：tenas-file 仍需压缩转码，统一 chat 侧尺寸与质量。
   const compressed = await compressImageBuffer(buffer, format);
-  const hash = createHash("sha256").update(compressed.buffer).digest("hex");
-  const fileName = resolveChatAttachmentFileName({
-    fileName: path.basename(filePath),
-    hash,
-    ext: compressed.ext,
-  });
+  const fileName = buildChatAttachmentFileName(compressed.ext);
   const relativePath = path.posix.join(".tenas", "chat", input.sessionId, fileName);
   const root = await resolveChatAttachmentRoot({
     projectId: input.projectId,
@@ -221,7 +441,17 @@ export async function saveChatImageAttachmentFromTenasUrl(input: {
   }
   const targetPath = path.join(root.rootPath, ".tenas", "chat", input.sessionId, fileName);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
-  await fs.writeFile(targetPath, compressed.buffer);
+  // 逻辑：PNG 写入 iTXt，其他格式仅写 sidecar。
+  const metadataPayload = input.metadata ? serializeImageMetadata(input.metadata) : null;
+  const outputBuffer =
+    compressed.ext === "png" && metadataPayload
+      ? injectPngMetadata(compressed.buffer, metadataPayload.chunkJson)
+      : compressed.buffer;
+  await fs.writeFile(targetPath, outputBuffer);
+  if (metadataPayload) {
+    const sidecarPath = resolveMetadataSidecarPath(targetPath);
+    await fs.writeFile(sidecarPath, metadataPayload.fullJson, "utf8");
+  }
 
   return {
     url: buildTenasFileUrl(root.ownerId, relativePath),
@@ -250,20 +480,23 @@ export async function buildFilePartFromTenasUrl(input: {
 export async function getTenasFilePreview(input: {
   /** File url. */
   url: string;
-}): Promise<{ buffer: Buffer; mediaType: string } | null> {
+  /** Whether to include metadata. */
+  includeMetadata?: boolean;
+}): Promise<{ buffer: Buffer; mediaType: string; metadata?: string | null } | null> {
   const filePath = await resolveTenasFilePath(input.url);
   if (!filePath) return null;
   const lowerPath = filePath.toLowerCase();
   // PDF 直接返回原文件内容，图片继续压缩预览。
   if (lowerPath.endsWith(".pdf")) {
     const buffer = await fs.readFile(filePath);
-    return { buffer, mediaType: "application/pdf" };
+    return { buffer, mediaType: "application/pdf", metadata: null };
   }
   const format = resolveImageFormat("application/octet-stream", filePath);
   if (!format || !isSupportedImageMime(format.mediaType)) return null;
   const buffer = await fs.readFile(filePath);
   const compressed = await compressImageBuffer(buffer, format);
-  return { buffer: compressed.buffer, mediaType: compressed.mediaType };
+  const metadata = input.includeMetadata ? await resolveImageMetadataText(filePath) : null;
+  return { buffer: compressed.buffer, mediaType: compressed.mediaType, metadata };
 }
 
 /** Load image buffer from tenas-file url. */

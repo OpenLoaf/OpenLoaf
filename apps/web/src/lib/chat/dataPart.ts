@@ -1,5 +1,7 @@
 "use client";
 
+import { useTabs } from "@/hooks/use-tabs";
+
 export function handleChatDataPart({
   dataPart,
   tabId,
@@ -25,6 +27,26 @@ function handleToolChunk({
   // MVP：tool parts（用于 ToolResultPanel 渲染）
   if (!tabId) return;
   switch (dataPart?.type) {
+    case "data-cli-thinking-delta": {
+      const payload = dataPart?.data ?? {};
+      const toolCallId = typeof payload?.toolCallId === "string" ? payload.toolCallId : "";
+      const delta = typeof payload?.delta === "string" ? payload.delta : "";
+      if (!toolCallId || !delta) break;
+      const toolKey = String(toolCallId);
+      const current = useTabs.getState().toolPartsByTabId[tabId]?.[toolKey];
+      const currentOutput = typeof current?.output === "string" ? current.output : "";
+      // 逻辑：CLI delta 追加到当前输出，保证可实时刷新工具面板。
+      upsertToolPartMerged(toolKey, {
+        variant: "cli-thinking",
+        type: current?.type ?? "tool-cli-thinking",
+        toolCallId,
+        toolName: current?.toolName ?? "shell",
+        title: current?.title ?? "CLI 输出",
+        state: "output-streaming",
+        output: `${currentOutput}${delta}`,
+      });
+      break;
+    }
     case "tool-input-start": {
       upsertToolPartMerged(String(dataPart.toolCallId), {
         type: dataPart.dynamic ? "dynamic-tool" : `tool-${dataPart.toolName}`,

@@ -9,7 +9,13 @@ import {
 } from "@tenas-ai/api/services/vfsService";
 import { readBasicConf, readS3Providers } from "@/modules/settings/tenasConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
-import { saveChatImageAttachment } from "./attachmentResolver";
+import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
+import {
+  injectPngMetadata,
+  resolveMetadataSidecarPath,
+  saveChatImageAttachment,
+  serializeImageMetadata,
+} from "./attachmentResolver";
 
 /** Resolve active S3 storage service. */
 export function resolveActiveS3Storage() {
@@ -161,21 +167,34 @@ export async function saveGeneratedImagesToDirectory(input: {
   images: GeneratedFile[];
   /** Target directory path. */
   directory: string;
+  /** Optional image metadata. */
+  metadata?: TenasImageMetadataV1;
 }): Promise<string[]> {
   const savedPaths: string[] = [];
   await fs.mkdir(input.directory, { recursive: true });
+  const baseTime = Date.now();
   for (const [index, image] of input.images.entries()) {
     const mediaType = image.mediaType || "image/png";
     const buffer = Buffer.from(image.uint8Array);
-    const fileName = buildImageFileName(index, mediaType);
+    const fileName = buildImageFileName(index, mediaType, baseTime);
     const filePath = path.join(input.directory, fileName);
-    await fs.writeFile(filePath, buffer);
+    // 逻辑：metadata 写入 PNG iTXt，并落 sidecar JSON。
+    const metadataPayload = input.metadata ? serializeImageMetadata(input.metadata) : null;
+    const outputBuffer =
+      mediaType === "image/png" && metadataPayload
+        ? injectPngMetadata(buffer, metadataPayload.chunkJson)
+        : buffer;
+    await fs.writeFile(filePath, outputBuffer);
+    if (metadataPayload) {
+      const sidecarPath = resolveMetadataSidecarPath(filePath);
+      await fs.writeFile(sidecarPath, metadataPayload.fullJson, "utf8");
+    }
     savedPaths.push(filePath);
   }
   return savedPaths;
 }
 
-/** 保存生成图片到磁盘并返回落库 parts。 */
+/** Save generated images and return persisted parts. */
 export async function saveGeneratedImages(input: {
   /** Generated image files from provider. */
   images: GeneratedFile[];
@@ -185,12 +204,15 @@ export async function saveGeneratedImages(input: {
   sessionId: string;
   /** Optional project id for storage scoping. */
   projectId?: string;
+  /** Optional image metadata. */
+  metadata?: TenasImageMetadataV1;
 }): Promise<Array<{ type: "file"; url: string; mediaType: string }>> {
   const parts: Array<{ type: "file"; url: string; mediaType: string }> = [];
+  const baseTime = Date.now();
   for (const [index, image] of input.images.entries()) {
     const mediaType = image.mediaType || "image/png";
     const buffer = Buffer.from(image.uint8Array);
-    const fileName = buildImageFileName(index, mediaType);
+    const fileName = buildImageFileName(index, mediaType, baseTime);
     const saved = await saveChatImageAttachment({
       workspaceId: input.workspaceId,
       projectId: input.projectId,
@@ -198,14 +220,25 @@ export async function saveGeneratedImages(input: {
       fileName,
       mediaType,
       buffer,
+      metadata: input.metadata,
     });
     parts.push({ type: "file", url: saved.url, mediaType: saved.mediaType });
   }
   return parts;
 }
 
-/** 构建图片文件名。 */
-function buildImageFileName(index: number, mediaType: string): string {
+/** Build image file name. */
+function buildImageFileName(index: number, mediaType: string, baseTime: number): string {
   const ext = resolveImageExtension(mediaType);
-  return `image-${index + 1}.${ext}`;
+  const base = formatTimestampBaseName(new Date(baseTime));
+  const suffix = index > 0 ? `_${String(index + 1).padStart(2, "0")}` : "";
+  return `${base}${suffix}.${ext}`;
+}
+
+/** Format timestamp base name as YYYYMMDD_HHmmss_SSS. */
+function formatTimestampBaseName(date: Date): string {
+  const pad = (value: number, size = 2) => String(value).padStart(size, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(
+    date.getHours(),
+  )}${pad(date.getMinutes())}${pad(date.getSeconds())}_${pad(date.getMilliseconds(), 3)}`;
 }

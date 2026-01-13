@@ -23,6 +23,7 @@ import {
   getCodexOptions,
   getProjectId,
   getSessionId,
+  getUiWriter,
   getWorkspaceId,
 } from "@/ai/chat-stream/requestContext";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
@@ -292,6 +293,12 @@ async function resolveCodexInput(prompt: LanguageModelV3Prompt): Promise<CodexIn
   return items;
 }
 
+/** Strip ANSI control sequences from CLI output. */
+function stripAnsiControlSequences(value: string): string {
+  // 逻辑：剔除常见 ANSI CSI 控制序列，避免 UI 看到乱码。
+  return value.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
+}
+
 /** Build an empty usage payload when token counts are unavailable. */
 function buildEmptyUsage(): LanguageModelV3Usage {
   return {
@@ -509,6 +516,7 @@ async function* createCodexStream(
   const promptInput = await resolveCodexInput(options.prompt);
   const connection = getCodexAppServerConnection();
   const queue = new AsyncQueue<CodexServerNotification>();
+  const uiWriter = getUiWriter();
 
   let turnId: string | null = null;
   let usage = buildEmptyUsage();
@@ -598,11 +606,28 @@ async function* createCodexStream(
         continue;
       }
       if (method === "item/commandExecution/outputDelta") {
-        const itemId = typeof params.itemId === "string" ? params.itemId : null;
+        const rawItemId = params.itemId;
+        const itemId =
+          typeof rawItemId === "string"
+            ? rawItemId
+            : typeof rawItemId === "number"
+              ? String(rawItemId)
+              : null;
         const delta = typeof params.delta === "string" ? params.delta : "";
         if (!itemId || !delta) continue;
         const nextOutput = `${commandOutputByItem.get(itemId) ?? ""}${delta}`;
         commandOutputByItem.set(itemId, nextOutput);
+        const toolCallId = toolCallIdByItem.get(itemId) ?? `codex-cmd:${itemId}`;
+        toolCallIdByItem.set(itemId, toolCallId);
+        if (uiWriter) {
+          const normalized = stripAnsiControlSequences(delta);
+          if (normalized) {
+            uiWriter.write({
+              type: "data-cli-thinking-delta",
+              data: { toolCallId, delta: normalized },
+            } as any);
+          }
+        }
         logger.debug({ itemId, delta }, "[cli] codex command output");
         continue;
       }

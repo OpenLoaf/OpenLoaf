@@ -14,6 +14,7 @@ import {
   MULTI_SELECTION_OUTLINE_PADDING,
 } from "../engine/constants";
 import { SelectionToolbarContainer, ToolbarGroup } from "../ui/SelectionToolbar";
+import { useBoardContext } from "./BoardProvider";
 
 type SingleSelectionToolbarProps = {
   /** Canvas engine instance. */
@@ -33,12 +34,14 @@ export function SingleSelectionToolbar({
   snapshot,
   onInspect,
 }: SingleSelectionToolbarProps) {
+  const { fileContext } = useBoardContext();
   // 逻辑：画布锁定时隐藏节点工具条。
   if (snapshot.locked) return null;
   const definition = engine.nodes.getDefinition(element.type);
   const items = definition?.toolbar?.({
     element,
     selected: true,
+    fileContext,
     openInspector: onInspect,
     updateNodeProps: patch => {
       engine.doc.updateNodeProps(element.id, patch);
@@ -98,6 +101,7 @@ export function MultiSelectionToolbar({
   engine,
   onInspect,
 }: MultiSelectionToolbarProps) {
+  const { fileContext } = useBoardContext();
   // 逻辑：画布锁定时隐藏节点工具条。
   if (snapshot.locked) return null;
   const selectedNodes = snapshot.selectedIds
@@ -113,6 +117,7 @@ export function MultiSelectionToolbar({
     ? definition.toolbar({
       element: firstNode,
       selected: true,
+      fileContext,
       openInspector: onInspect,
       updateNodeProps: patch => {
         engine.doc.updateNodeProps(firstNode.id, patch);

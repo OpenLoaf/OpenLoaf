@@ -1,0 +1,62 @@
+.streamdown-viewer {
+  padding: 6px 32px;
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.7;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.streamdown-viewer > :first-child {
+  margin-top: 0;
+}
+
+.streamdown-viewer a {
+  text-decoration: none;
+}
+
+.streamdown-viewer a:hover {
+  text-decoration: underline;
+}
+
+.streamdown-viewer code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+}
+
+.streamdown-viewer [data-streamdown="inline-code"] {
+  color: var(--foreground);
+  background-color: color-mix(in oklch, var(--muted) 85%, var(--foreground) 6%);
+  border: 1px solid var(--border);
+}
+
+.streamdown-viewer strong,
+.streamdown-viewer [data-streamdown="strong"] {
+  color: color-mix(in oklch, var(--brand) 85%, var(--foreground) 15%);
+}
+
+.dark .streamdown-viewer {
+  --shiki-dark-bg: #0a0c10;
+  --shiki-dark: #f0f3f6;
+}
+
+.dark .streamdown-viewer [data-streamdown="inline-code"] {
+  color: color-mix(in oklch, var(--foreground) 92%, white);
+  background-color: color-mix(in oklch, var(--background) 65%, var(--foreground) 18%);
+  border-color: color-mix(in oklch, var(--border) 70%, var(--foreground));
+}
+
+.dark .streamdown-viewer strong,
+.dark .streamdown-viewer [data-streamdown="strong"] {
+  color: color-mix(in oklch, var(--brand) 90%, white 10%);
+}
+
+.dark .streamdown-viewer [data-streamdown="code-block-body"] {
+  background-color: var(--shiki-dark-bg);
+  color: var(--shiki-dark);
+}
+
+.dark .streamdown-viewer [data-streamdown="code-block-body"] span {
+  color: var(--shiki-dark, #f0f3f6) !important;
+}

@@ -103,7 +103,7 @@ const IMAGE_PROMPT_GENERATE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefiniti
     size: [320, 260],
     icon: (
       <img
-        src="/board/text-font-svgrepo-com.svg"
+        src="/board/converted_small.svg"
         alt=""
         aria-hidden="true"
         className="h-4 w-4"
@@ -361,9 +361,9 @@ export function ImagePromptGenerateNodeView({
   }, [candidates.length, errorText, hasValidInput, isRunning, resultText]);
 
   const containerClassName = [
-    "relative flex w-full flex-col gap-2 rounded-xl border border-slate-200/80 bg-background/95 p-3 text-slate-700 backdrop-blur",
+    "relative flex w-full flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
     "bg-[radial-gradient(180px_circle_at_top_right,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_15%_85%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
-    "dark:border-slate-700/80 dark:text-slate-200",
+    "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
     "dark:bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_left,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
     selected ? "ring-1 ring-slate-300 dark:ring-slate-600" : "",
     viewStatus === "running"
@@ -408,16 +408,16 @@ export function ImagePromptGenerateNodeView({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+          <span className="relative flex h-8 w-8 items-center justify-center overflow-visible text-slate-500 dark:text-slate-300">
             <img
-              src="/board/text-font-svgrepo-com.svg"
+              src="/board/converted_small.svg"
               alt=""
               aria-hidden="true"
-              className="h-4 w-4"
+              className="absolute -left-10 -top-10 h-24 w-24 max-h-none max-w-none"
               draggable={false}
             />
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 ml-1">
             <div className="text-[12px] font-semibold leading-4">图生文</div>
             <div className="mt-0.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
               描述：根据图片生成文字内容
@@ -496,7 +496,7 @@ export function ImagePromptGenerateNodeView({
                   value={option.id}
                   className="text-[11px]"
                 >
-                  {option.providerName}:{option.modelId}
+                  {option.providerName}:{option.modelDefinition?.name || option.modelId}
                 </SelectItem>
               ))}
             </SelectContent>

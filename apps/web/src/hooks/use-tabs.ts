@@ -310,6 +310,8 @@ function clampPercent(value: number) {
 }
 
 export type ToolPartSnapshot = {
+  /** Rendering variant for tool cards. */
+  variant?: string;
   type: string;
   toolCallId?: string;
   toolName?: string;

@@ -13,7 +13,8 @@
       "providerId": "qwen",
       "icon": "Qwen",
       "tags": [
-        "image_edit"
+        "image_generation",
+        "image_multi_input"
       ],
       "maxContextK": 0,
       "priceStrategyId": "tiered_token",

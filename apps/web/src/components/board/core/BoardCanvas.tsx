@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { cn } from "@udecode/cn";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
@@ -30,12 +38,14 @@ import type {
   CanvasNodeDefinition,
   CanvasNodeElement,
   CanvasSnapshot,
+  CanvasPoint,
 } from "../engine/types";
 import { ConnectorActionPanel, NodeInspectorPanel } from "../ui/CanvasPanels";
 import { CanvasSurface } from "../render/CanvasSurface";
 import { CanvasDomLayer } from "./CanvasDomLayer";
 import { AnchorOverlay } from "./AnchorOverlay";
 import { MiniMap } from "./MiniMap";
+import { getClipboardInsertPayload } from "../engine/clipboard";
 import {
   MultiSelectionOutline,
   MultiSelectionToolbar,
@@ -258,6 +268,8 @@ export function BoardCanvas({
   const [localSnapshot, setLocalSnapshot] = useState<BoardSnapshotCacheRecord | null>(null);
   /** Whether local snapshot has been loaded. */
   const [localLoaded, setLocalLoaded] = useState(false);
+  /** Last pointer location inside the canvas, in world coordinates. */
+  const lastPointerWorldRef = useRef<CanvasPoint | null>(null);
   /** Last viewport snapshot to detect changes. */
   const lastViewportRef = useRef(snapshot.viewport);
   /** Last panning state to detect transitions. */
@@ -543,6 +555,73 @@ export function BoardCanvas({
       engine.detach();
     };
   }, [engine]);
+
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!showUi) return;
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      lastPointerWorldRef.current = engine.screenToWorld([
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+      ]);
+    },
+    [engine, showUi]
+  );
+
+  useEffect(() => {
+    if (!showUi) return;
+    const handleGlobalPaste = (event: ClipboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (engine.isLocked()) return;
+      const container = containerRef.current;
+      if (!container) return;
+      const activeElement = document.activeElement;
+      if (!activeElement || !container.contains(activeElement)) return;
+      const payload = getClipboardInsertPayload(event);
+      if (!payload || payload.kind !== "image") return;
+      event.preventDefault();
+      event.stopPropagation();
+      void (async () => {
+        const imagePayload = await engine.buildImagePayloadFromFile(payload.file);
+        const [width, height] = imagePayload.size;
+        const center =
+          lastPointerWorldRef.current ?? engine.getViewportCenterWorld();
+        engine.addNodeElement("image", imagePayload.props, [
+          center[0] - width / 2,
+          center[1] - height / 2,
+          width,
+          height,
+        ]);
+      })();
+    };
+    document.addEventListener("paste", handleGlobalPaste, { capture: true });
+    return () => {
+      document.removeEventListener("paste", handleGlobalPaste, { capture: true });
+    };
+  }, [engine, showUi]);
+
+  useEffect(() => {
+    if (!showUi) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const handleWheelCapture = (event: WheelEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (!target.closest("[data-board-scroll]")) return;
+      // 逻辑：滚动区域内的滚轮不驱动画布。
+      event.stopPropagation();
+    };
+    container.addEventListener("wheel", handleWheelCapture, {
+      capture: true,
+      passive: true,
+    });
+    return () => {
+      container.removeEventListener("wheel", handleWheelCapture, {
+        capture: true,
+      });
+    };
+  }, [showUi]);
 
   useEffect(() => {
     const target = containerRef.current;
@@ -1099,6 +1178,7 @@ export function BoardCanvas({
         )}
         tabIndex={showUi ? 0 : -1}
         aria-hidden={showUi ? undefined : true}
+        onPointerMove={handlePointerMove}
         onDragOver={handleCanvasDragOver}
         onDrop={handleCanvasDrop}
         onPointerDown={event => {
@@ -1122,6 +1202,9 @@ export function BoardCanvas({
                   event.clientY - rect.top,
                 ])
               : null;
+          if (worldPoint) {
+            lastPointerWorldRef.current = worldPoint;
+          }
           const hitElement = worldPoint ? engine.pickElementAt(worldPoint) : null;
           const shouldClear =
             snapshot.activeToolId === "select" &&

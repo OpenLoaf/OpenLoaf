@@ -1,5 +1,6 @@
 import { generateImage, type UIMessage } from "ai";
-import type { ModelDefinition } from "@tenas-ai/api/common";
+import type { ChatModelSource, ModelDefinition } from "@tenas-ai/api/common";
+import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
 import type { TenasUIMessage, TokenUsage } from "@tenas-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/resolveChatModel";
@@ -13,7 +14,7 @@ import {
 } from "@/ai/chat-stream/requestContext";
 import { logger } from "@/common/logger";
 import { normalizePromptForImageEdit } from "./imageEditNormalizer";
-import { resolveImagePrompt } from "./imagePrompt";
+import { resolveImagePrompt, type GenerateImagePrompt } from "./imagePrompt";
 import {
   resolveImageSaveDirectory,
   saveGeneratedImages,
@@ -53,12 +54,24 @@ type ImageModelRequest = {
   sessionId: string;
   /** Incoming UI messages. */
   messages: UIMessage[];
+  /** Raw UI messages for metadata. */
+  metadataMessages?: UIMessage[];
   /** Abort signal for image generation. */
   abortSignal: AbortSignal;
   /** Image model id. */
   chatModelId?: string;
+  /** Image model source. */
+  chatModelSource?: ChatModelSource;
   /** Optional model definition. */
   modelDefinition?: ModelDefinition | null;
+  /** Optional request message id. */
+  requestMessageId?: string;
+  /** Optional response message id. */
+  responseMessageId?: string;
+  /** Optional trigger source. */
+  trigger?: string;
+  /** Optional board id. */
+  boardId?: string | null;
   /** Optional image save directory uri. */
   imageSaveDir?: string;
 };
@@ -108,6 +121,7 @@ export async function runChatStream(input: {
     workspaceId,
     projectId,
     boardId,
+    trigger,
   } = input.request;
 
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
@@ -194,9 +208,15 @@ export async function runChatStream(input: {
         parentMessageId,
         requestStartAt,
         messages: modelMessages as UIMessage[],
+        metadataMessages: messages as UIMessage[],
         abortSignal: abortController.signal,
         chatModelId: chatModelId ?? undefined,
+        chatModelSource,
         modelDefinition: explicitModelDefinition,
+        requestMessageId: parentMessageId,
+        responseMessageId: assistantMessageId,
+        trigger,
+        boardId,
       });
     }
 
@@ -271,10 +291,12 @@ export async function runChatImageRequest(input: {
     clientId,
     tabId,
     chatModelId,
+    chatModelSource,
     workspaceId,
     projectId,
     boardId,
     image_save_dir: imageSaveDir,
+    trigger,
   } = input.request;
 
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
@@ -331,9 +353,15 @@ export async function runChatImageRequest(input: {
     const imageResult = await generateImageModelResult({
       sessionId,
       messages: modelMessages as UIMessage[],
+      metadataMessages: messages as UIMessage[],
       abortSignal: abortController.signal,
       chatModelId,
+      chatModelSource,
       modelDefinition: explicitModelDefinition,
+      requestMessageId: assistantParentUserId ?? undefined,
+      responseMessageId: assistantMessageId,
+      trigger,
+      boardId,
       imageSaveDir,
     });
 
@@ -416,6 +444,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
       abortSignal: input.abortSignal,
     });
   }
+  const promptText = resolvePromptText(prompt);
   const promptTextLength =
     typeof prompt === "string" ? prompt.length : prompt.text?.length ?? 0;
   const promptImageCount = typeof prompt === "string" ? 0 : prompt.images.length;
@@ -485,6 +514,27 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     throw new Error("图片生成结果为空。");
   }
 
+  // 逻辑：生成图片元信息用于持久化与预览查询。
+  const metadataPayload = buildImageMetadata({
+    sessionId: input.sessionId,
+    prompt: promptText,
+    revisedPrompt,
+    modelId: resolved.modelInfo.modelId,
+    chatModelId: input.chatModelId,
+    chatModelSource: input.chatModelSource,
+    providerId: resolved.modelInfo.provider,
+    requestMessageId: input.requestMessageId,
+    responseMessageId: input.responseMessageId,
+    trigger: input.trigger,
+    boardId: input.boardId,
+    imageOptions: {
+      n: safeCount,
+      size: safeSize,
+      aspectRatio: safeAspectRatio,
+    },
+    messages: input.metadataMessages ?? input.messages,
+  });
+
   const usage = result.usage ?? undefined;
   const totalUsage: TokenUsage | undefined =
     usage && (usage.inputTokens ?? usage.outputTokens ?? usage.totalTokens) != null
@@ -514,6 +564,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     await saveGeneratedImagesToDirectory({
       images: result.images,
       directory: resolvedSaveDir,
+      metadata: metadataPayload,
     });
   }
   // 保存到本地磁盘，落库使用 tenas-file。
@@ -522,6 +573,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     workspaceId,
     sessionId: input.sessionId,
     projectId: projectId || undefined,
+    metadata: metadataPayload,
   });
   logger.debug(
     {
@@ -555,17 +607,30 @@ async function runImageModelStream(input: {
   parentMessageId: string;
   requestStartAt: Date;
   messages: UIMessage[];
+  /** Raw UI messages for metadata. */
+  metadataMessages?: UIMessage[];
   abortSignal: AbortSignal;
   chatModelId?: string;
+  chatModelSource?: ChatModelSource;
   modelDefinition?: ModelDefinition;
+  requestMessageId?: string;
+  responseMessageId?: string;
+  trigger?: string;
+  boardId?: string | null;
 }): Promise<Response> {
   try {
     const imageResult = await generateImageModelResult({
       sessionId: input.sessionId,
       messages: input.messages,
+      metadataMessages: input.metadataMessages,
       abortSignal: input.abortSignal,
       chatModelId: input.chatModelId,
+      chatModelSource: input.chatModelSource,
       modelDefinition: input.modelDefinition,
+      requestMessageId: input.requestMessageId,
+      responseMessageId: input.responseMessageId,
+      trigger: input.trigger,
+      boardId: input.boardId,
     });
     return await createImageStreamResponse({
       sessionId: input.sessionId,
@@ -591,7 +656,7 @@ async function runImageModelStream(input: {
   }
 }
 
-/** 解析图片生成的 revised prompt。 */
+/** Resolve revised prompt from provider metadata. */
 function resolveRevisedPrompt(metadata: unknown): string | undefined {
   if (!metadata || typeof metadata !== "object") return undefined;
   const providers = Object.values(metadata as Record<string, any>);
@@ -611,4 +676,132 @@ function resolveRevisedPrompt(metadata: unknown): string | undefined {
     }
   }
   return undefined;
+}
+
+type SanitizedRequestParts = {
+  /** Sanitized parts for metadata. */
+  parts: Array<{ type: string; text?: string; url?: string; mediaType?: string }>;
+  /** Metadata flags derived from sanitization. */
+  flags: { hasDataUrlOmitted?: boolean; hasBinaryOmitted?: boolean };
+  /** Warning messages for logs. */
+  warnings: string[];
+};
+
+/** Resolve prompt text from image prompt payload. */
+function resolvePromptText(prompt: GenerateImagePrompt): string {
+  if (typeof prompt === "string") return prompt.trim();
+  return typeof prompt.text === "string" ? prompt.text.trim() : "";
+}
+
+/** Resolve the latest user message in a message list. */
+function resolveLatestUserMessage(messages: UIMessage[]): UIMessage | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i] as UIMessage;
+    if (message?.role === "user") return message;
+  }
+  return null;
+}
+
+/** Sanitize request parts for metadata persistence. */
+function sanitizeRequestParts(parts: unknown[]): SanitizedRequestParts {
+  const sanitized: Array<{ type: string; text?: string; url?: string; mediaType?: string }> = [];
+  const warnings: string[] = [];
+  const flags: { hasDataUrlOmitted?: boolean; hasBinaryOmitted?: boolean } = {};
+  let dataUrlCount = 0;
+  let binaryCount = 0;
+
+  for (const rawPart of parts) {
+    if (!rawPart || typeof rawPart !== "object") continue;
+    const part = rawPart as Record<string, unknown>;
+    const type = typeof part.type === "string" ? part.type : "";
+    if (type === "text") {
+      if (typeof part.text === "string" && part.text.trim()) {
+        sanitized.push({ type: "text", text: part.text });
+      }
+      continue;
+    }
+    if (type === "file") {
+      const mediaType = typeof part.mediaType === "string" ? part.mediaType : undefined;
+      const url = typeof part.url === "string" ? part.url : "";
+      if (url.startsWith("data:")) {
+        // 逻辑：data url 不写入元信息，改为占位符。
+        dataUrlCount += 1;
+        flags.hasDataUrlOmitted = true;
+        sanitized.push({ type: "file", url: "[data-url-omitted]", mediaType });
+        continue;
+      }
+      if (!url) {
+        // 逻辑：未知二进制内容不写入元信息，改为占位符。
+        binaryCount += 1;
+        flags.hasBinaryOmitted = true;
+        sanitized.push({ type: "file", url: "[binary-omitted]", mediaType });
+        continue;
+      }
+      sanitized.push({ type: "file", url, mediaType });
+    }
+  }
+
+  if (dataUrlCount > 0) {
+    warnings.push(`metadata omitted ${dataUrlCount} data url(s)`);
+  }
+  if (binaryCount > 0) {
+    warnings.push(`metadata omitted ${binaryCount} binary part(s)`);
+  }
+
+  return { parts: sanitized, flags, warnings };
+}
+
+/** Build image metadata payload for persistence. */
+function buildImageMetadata(input: {
+  sessionId: string;
+  prompt: string;
+  revisedPrompt?: string;
+  modelId: string;
+  chatModelId?: string;
+  chatModelSource?: ChatModelSource;
+  providerId?: string;
+  requestMessageId?: string;
+  responseMessageId?: string;
+  trigger?: string;
+  boardId?: string | null;
+  imageOptions?: { n?: number; size?: string; aspectRatio?: string };
+  messages: UIMessage[];
+}): TenasImageMetadataV1 {
+  const latestUser = resolveLatestUserMessage(input.messages);
+  const rawParts = Array.isArray((latestUser as any)?.parts) ? ((latestUser as any).parts as unknown[]) : [];
+  const sanitized = sanitizeRequestParts(rawParts);
+  if (sanitized.warnings.length > 0) {
+    logger.warn(
+      { sessionId: input.sessionId, warnings: sanitized.warnings },
+      "[chat] image metadata sanitized",
+    );
+  }
+  const workspaceId = getWorkspaceId();
+  const projectId = getProjectId();
+
+  return {
+    version: 1,
+    chatSessionId: input.sessionId,
+    prompt: input.prompt,
+    revised_prompt: input.revisedPrompt,
+    modelId: input.modelId,
+    chatModelId: input.chatModelId,
+    modelSource: input.chatModelSource,
+    providerId: input.providerId,
+    workspaceId: workspaceId || undefined,
+    projectId: projectId || undefined,
+    boardId: input.boardId || undefined,
+    trigger: input.trigger,
+    requestMessageId:
+      input.requestMessageId ?? (typeof (latestUser as any)?.id === "string" ? (latestUser as any).id : undefined),
+    responseMessageId: input.responseMessageId,
+    createdAt: new Date().toISOString(),
+    imageOptions: input.imageOptions,
+    request: {
+      parts: sanitized.parts,
+      metadata: (latestUser as any)?.metadata,
+    },
+    flags: sanitized.flags,
+    warnings: sanitized.warnings.length > 0 ? sanitized.warnings : undefined,
+  };
 }

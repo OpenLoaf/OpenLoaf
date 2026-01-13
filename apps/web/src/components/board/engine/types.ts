@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 import type { ZodType } from "zod";
+import type { BoardFileContext } from "../core/BoardProvider";
 
 /** 2D point in canvas space. */
 export type CanvasPoint = [number, number];
@@ -327,6 +328,8 @@ export type CanvasToolbarContext<P> = {
   element: CanvasNodeElement<P>;
   /** Current selection state. */
   selected: boolean;
+  /** File scope metadata for board nodes. */
+  fileContext?: BoardFileContext;
   /** Open the node inspector panel. */
   openInspector: (elementId: string) => void;
   /** Update node props and commit to history. */

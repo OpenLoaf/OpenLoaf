@@ -1,53 +1,20 @@
 "use client";
 
-import {
-  Children,
-  Component,
-  type ComponentProps,
-  type ComponentType,
-  type ReactElement,
-  type ReactNode,
-  isValidElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CrepeBuilder } from "@milkdown/crepe/builder";
-import { blockEdit } from "@milkdown/crepe/feature/block-edit";
-import { toolbar } from "@milkdown/crepe/feature/toolbar";
-import { editorViewCtx } from "@milkdown/kit/core";
-import "@milkdown/crepe/theme/common/style.css";
-import "@milkdown/crepe/theme/nord.css";
-import "@milkdown/crepe/theme/nord-dark.css";
-import type { Components } from "react-markdown";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { skipToken, useQuery } from "@tanstack/react-query";
+import { Streamdown, defaultRemarkPlugins } from "streamdown";
 import remarkMdx from "remark-mdx";
-import { Save } from "lucide-react";
-import { toast } from "sonner";
+import { Eye, PencilLine, Save, Undo2 } from "lucide-react";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
-import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
-import { MermaidBlock } from "@/components/editor/tenas/MermaidBlock";
-import { markdownComponents as chatMarkdownComponents } from "@/components/chat/message/markdown/MarkdownComponents";
-import MarkdownPre from "@/components/chat/message/markdown/MarkdownPre";
+import CodeViewer, { type CodeViewerActions, type CodeViewerStatus } from "@/components/file/CodeViewer";
 
-import "./milkdown-viewer.css";
+import "./streamdown-viewer.css";
 
-/** Spark icon for the Milkdown toolbar. */
-const SPARK_TOOLBAR_ICON = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-    <path fill="currentColor" d="M12 2l1.9 5.7L19 9l-5.1 1.3L12 16l-1.9-5.7L5 9l5.1-1.3L12 2zM19 14l.9 2.7 2.1.3-2.1.6L19 20l-.9-2.4-2.1-.6 2.1-.3L19 14zM4.5 14l.6 1.9 1.9.3-1.9.5-.6 1.8-.6-1.8-1.9-.5 1.9-.3.6-1.9z"/>
-  </svg>
-`;
+type MarkdownViewerMode = "preview" | "edit";
 
 interface MarkdownViewerProps {
   uri?: string;
@@ -60,101 +27,99 @@ interface MarkdownViewerProps {
   projectId?: string;
 }
 
-type MarkdownViewerErrorBoundaryProps = {
-  /** Raw markdown for fallback rendering. */
-  markdown: string;
-  /** Child renderer. */
-  children: ReactNode;
+type MdxAttribute = { name?: string };
+type MdxNode = {
+  type?: string;
+  name?: string;
+  value?: string;
+  attributes?: MdxAttribute[];
+  children?: MdxNode[];
 };
 
-type MarkdownViewerErrorBoundaryState = {
-  /** Whether Milkdown rendering failed. */
-  hasError: boolean;
+/** Default viewer mode for markdown files. */
+const DEFAULT_MARKDOWN_MODE: MarkdownViewerMode = "preview";
+/** Prefix for MDX JSX placeholders. */
+const MDX_PLACEHOLDER_PREFIX = "[MDX]";
+/** Prefix for MDX expression placeholders. */
+const MDX_EXPRESSION_PREFIX = "[MDX表达式]";
+/** 默认编辑状态快照。 */
+/** 默认编辑状态快照。 */
+const DEFAULT_CODE_STATUS: CodeViewerStatus = {
+  isDirty: false,
+  isReadOnly: false,
+  canSave: false,
+  canUndo: false,
 };
+/** Streamdown 代码高亮主题。 */
+const STREAMDOWN_SHIKI_THEME = ["github-light", "github-dark-high-contrast"] as const;
 
-/** Extract plain text from a React node tree. */
-function extractText(node: ReactNode): string {
-  if (node == null) return "";
-  if (typeof node === "string") return node;
-  if (Array.isArray(node)) return node.map(extractText).join("");
-  return "";
+/** Format MDX attributes into a short label. */
+function formatMdxAttributes(attributes?: MdxAttribute[]) {
+  if (!attributes?.length) return "";
+  // 逻辑：只保留属性名，避免占位过长。
+  const names = attributes.map((attr) => attr.name).filter(Boolean);
+  return names.length ? ` ${names.join(" ")}` : "";
 }
 
-/** Render code blocks with Mermaid support for markdown preview. */
-function MarkdownViewerPre({ children }: ComponentProps<"pre">) {
-  const child = Children.toArray(children)[0];
+/** Build a placeholder label for MDX JSX elements. */
+function buildMdxElementPlaceholder(node: MdxNode) {
+  const name = node.name ?? "MDX";
+  const attrs = formatMdxAttributes(node.attributes);
+  return `${MDX_PLACEHOLDER_PREFIX} <${name}${attrs}>`;
+}
 
-  if (isValidElement(child)) {
-    const anyChild = child as ReactElement<{ className?: string; children?: ReactNode }>;
-    const match = /language-(\w+)/.exec(anyChild.props.className || "");
-    const language = match?.[1]?.toLowerCase() ?? "";
-    const code = extractText(anyChild.props.children).replace(/\n$/, "");
-    if (language === "mermaid") {
-      return (
-        <div className="my-3 rounded-md border border-border/60 bg-muted/10 p-3">
-          <MermaidBlock code={code} />
-        </div>
-      );
+/** Build a placeholder label for MDX expressions. */
+function buildMdxExpressionPlaceholder(value?: string) {
+  const trimmed = value?.trim();
+  if (!trimmed) return `${MDX_EXPRESSION_PREFIX} {...}`;
+  return `${MDX_EXPRESSION_PREFIX} {${trimmed}}`;
+}
+
+/** Create a text node for mdast. */
+function createTextNode(value: string): MdxNode {
+  return { type: "text", value };
+}
+
+/** Create a paragraph node for mdast. */
+function createParagraphNode(value: string): MdxNode {
+  return { type: "paragraph", children: [createTextNode(value)] };
+}
+
+/** Replace MDX nodes with readable placeholders for preview. */
+function replaceMdxNodes(node: MdxNode) {
+  if (!node.children) return;
+  node.children = node.children.flatMap((child) => {
+    if (child.type === "mdxJsxFlowElement") {
+      // 逻辑：块级 JSX 用段落占位，保证布局稳定。
+      return [createParagraphNode(buildMdxElementPlaceholder(child))];
     }
-  }
-
-  return <MarkdownPre>{children}</MarkdownPre>;
+    if (child.type === "mdxJsxTextElement") {
+      return [createTextNode(buildMdxElementPlaceholder(child))];
+    }
+    if (child.type === "mdxjsEsm") {
+      // 逻辑：忽略 ESM 语句，避免渲染层报错。
+      return [];
+    }
+    if (child.type === "mdxFlowExpression") {
+      return [createParagraphNode(buildMdxExpressionPlaceholder(child.value))];
+    }
+    if (child.type === "mdxTextExpression") {
+      return [createTextNode(buildMdxExpressionPlaceholder(child.value))];
+    }
+    replaceMdxNodes(child);
+    return [child];
+  });
 }
 
-/** Render a placeholder for MDX JSX elements while keeping their children. */
-function MarkdownViewerMdxElement({
-  node,
-  children,
-}: {
-  node?: { name?: string; attributes?: { name: string; value?: string }[] };
-  children?: ReactNode;
-}) {
-  const tagName = node?.name ?? "MDX";
-  const attrs = node?.attributes?.length
-    ? node.attributes.map((attr) => attr.name).join(", ")
-    : "";
-  return (
-    <div className="my-2 rounded-md border border-dashed border-border/60 bg-muted/10 px-3 py-2">
-      <div className="text-xs text-muted-foreground">
-        {attrs ? `${tagName} (${attrs})` : tagName}
-      </div>
-      {children ? <div className="mt-2">{children}</div> : null}
-    </div>
-  );
+/** Remark plugin for reducing MDX nodes into placeholders. */
+function mdxPlaceholderPlugin() {
+  return (tree: MdxNode) => {
+    // 逻辑：将 MDX JSX/表达式降级为文本，占位避免渲染报错。
+    replaceMdxNodes(tree);
+  };
 }
 
-/** Render fallback content when Milkdown fails (e.g. MDX syntax). */
-class MarkdownViewerErrorBoundary extends Component<
-  MarkdownViewerErrorBoundaryProps,
-  MarkdownViewerErrorBoundaryState
-> {
-  state: MarkdownViewerErrorBoundaryState = { hasError: false };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: unknown) {
-    // 逻辑：部分 mdx/自定义语法可能导致 Milkdown 解析报错，这里降级为纯文本展示。
-    console.warn("[MarkdownViewer] milkdown render failed", error);
-  }
-
-  render() {
-    if (!this.state.hasError) return this.props.children;
-    return (
-      <div className="rounded-md border border-border/60 bg-muted/20 p-3">
-        <div className="mb-2 text-xs text-muted-foreground">
-          当前文档包含 Markdown 暂不支持的语法，已降级为纯文本预览
-        </div>
-        <pre className="whitespace-pre-wrap font-mono text-[12px] leading-5">
-          {this.props.markdown}
-        </pre>
-      </div>
-    );
-  }
-}
-
-/** Render a markdown preview panel. */
+/** Render a markdown preview panel with a streamdown viewer. */
 export default function MarkdownViewer({
   uri,
   openUri,
@@ -165,221 +130,62 @@ export default function MarkdownViewer({
   rootUri,
   projectId,
 }: MarkdownViewerProps) {
-  /** File content query. */
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(uri ? { uri } : skipToken)
   );
-  const content = fileQuery.data?.content ?? "";
-
-  const queryClient = useQueryClient();
-  const writeFileMutation = useMutation(trpc.fs.writeFile.mutationOptions());
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const setTabRightChatCollapsed = useTabs((s) => s.setTabRightChatCollapsed);
-  /** Close the current stack item. */
+  const [mode, setMode] = useState<MarkdownViewerMode>(DEFAULT_MARKDOWN_MODE);
+  /** 头部按钮需要的编辑器操作句柄。 */
+  const codeActionsRef = useRef<CodeViewerActions | null>(null);
+  /** 头部按钮状态。 */
+  const [codeStatus, setCodeStatus] = useState<CodeViewerStatus>(DEFAULT_CODE_STATUS);
   const removeStackItem = useTabs((s) => s.removeStackItem);
-  const editorRootRef = useRef<HTMLDivElement | null>(null);
-  const builderRef = useRef<CrepeBuilder | null>(null);
-  const saveTimerRef = useRef<number | null>(null);
-  const uriRef = useRef<string | null>(null);
-  const lastSyncedMarkdownRef = useRef<string>("");
-  /** Latest markdown snapshot from the editor. */
-  const currentMarkdownRef = useRef<string>("");
-  /** Tracks whether the editor content differs from the last saved snapshot. */
-  const [isDirty, setIsDirty] = useState(false);
-  const [initError, setInitError] = useState<unknown>(null);
-  /** Header display title. */
-  const displayTitle = useMemo(() => name ?? uri ?? "Markdown", [name, uri]);
-  /** Controls whether stack header actions are visible. */
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
-  /** Whether to use the static markdown renderer (MDX or Mermaid). */
-  const shouldUseStaticRenderer = useMemo(() => {
-    const normalizedExt = (ext ?? "").toLowerCase();
-    if (normalizedExt === "mdx") return true;
-    return content.includes("```mermaid");
-  }, [content, ext]);
-  /** Markdown renderer components with Mermaid + MDX support. */
-  const markdownViewerComponents = useMemo(() => {
-    const baseComponents = chatMarkdownComponents;
-    const components: Components & Record<string, ComponentType<any>> = {
-      ...baseComponents,
-      pre: MarkdownViewerPre,
-      mdxJsxFlowElement: MarkdownViewerMdxElement,
-      mdxJsxTextElement: MarkdownViewerMdxElement,
-    };
-    return components as Components;
-  }, []);
-
-  /** Get selected line range from the Milkdown editor. */
-  const getSelectedLineRange = useCallback(() => {
-    const builder = builderRef.current;
-    if (!builder) return null;
-    return builder.editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      const { from, to, empty } = view.state.selection;
-      if (empty) return null;
-      // 逻辑：通过 ProseMirror 文本拆分计算行号，作为 Markdown 的近似行号。
-      const beforeFrom = view.state.doc.textBetween(0, from, "\n", "\n");
-      const beforeTo = view.state.doc.textBetween(0, to, "\n", "\n");
-      const startLine = Math.max(1, beforeFrom.split("\n").length);
-      const endLine = Math.max(startLine, beforeTo.split("\n").length);
-      return { startLine, endLine };
-    });
-  }, []);
+  const displayTitle = useMemo(() => name ?? uri ?? "Markdown", [name, uri]);
 
   useEffect(() => {
-    uriRef.current = uri ?? null;
-    return () => {
-      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-      builderRef.current?.destroy();
-      builderRef.current = null;
-    };
+    setMode(DEFAULT_MARKDOWN_MODE);
+    setCodeStatus(DEFAULT_CODE_STATUS);
   }, [uri]);
-
-  useEffect(() => {
-    if (!shouldUseStaticRenderer) return;
-    // 逻辑：切换为静态渲染时销毁编辑器，避免残留状态。
-    builderRef.current?.destroy();
-    builderRef.current = null;
-  }, [shouldUseStaticRenderer]);
-
-  /** Persist markdown changes back to the file system. */
-  const saveMarkdown = useCallback(
-    (markdown: string) => {
-      const nextUri = uriRef.current;
-      if (!nextUri) return;
-      writeFileMutation.mutate(
-        { uri: nextUri, content: markdown },
-        {
-          onSuccess: () => {
-            lastSyncedMarkdownRef.current = markdown;
-            // 逻辑：保存完成后再同步 dirty 状态，避免覆盖新的输入。
-            setIsDirty(currentMarkdownRef.current !== markdown);
-            queryClient.invalidateQueries({
-              queryKey: trpc.fs.readFile.queryOptions({ uri: nextUri }).queryKey,
-            });
-          },
-        }
-      );
-    },
-    [queryClient, writeFileMutation]
-  );
-
-  /** Save handler for the header action. */
-  const handleSave = useCallback(() => {
-    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = null;
-    saveMarkdown(currentMarkdownRef.current);
-  }, [saveMarkdown]);
-
-  /** Send selection to AI panel. */
-  const handleAi = useCallback(async () => {
-    const selectionText = window.getSelection()?.toString().trim() ?? "";
-    if (!selectionText) {
-      toast.error("请先选中文本");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(selectionText);
-    } catch (error) {
-      console.warn("[MarkdownViewer] copy for ai failed", error);
-    }
-    if (!activeTabId) {
-      toast.error("未找到当前标签页");
-      return;
-    }
-    if (!projectId || !rootUri || !uri) {
-      toast.error("无法解析文件路径");
-      return;
-    }
-    const relativePath = getRelativePathFromUri(rootUri, uri);
-    if (!relativePath) {
-      toast.error("无法解析文件路径");
-      return;
-    }
-    const lineRange = getSelectedLineRange();
-    const mentionValue = lineRange
-      ? `${projectId}/${relativePath}:${lineRange.startLine}-${lineRange.endLine}`
-      : `${projectId}/${relativePath}`;
-    window.dispatchEvent(
-      new CustomEvent("tenas:chat-insert-mention", {
-        detail: { value: mentionValue, keepSelection: true },
-      })
-    );
-    console.debug("[MarkdownViewer] insert mention", {
-      at: new Date().toISOString(),
-      mentionValue,
-    });
-    // 展开右侧 AI 面板（不使用 stack）。
-    setTabRightChatCollapsed(activeTabId, false);
-  }, [activeTabId, getSelectedLineRange, projectId, rootUri, setTabRightChatCollapsed, uri]);
-
-  useEffect(() => {
-    setInitError(null);
-    setIsDirty(false);
-    if (!uri) return;
-    if (!fileQuery.isSuccess) return;
-    if (shouldUseStaticRenderer) return;
-    if (builderRef.current) return;
-    const root = editorRootRef.current;
-    if (!root) return;
-
-    try {
-      lastSyncedMarkdownRef.current = content;
-      currentMarkdownRef.current = content;
-      const builder = new CrepeBuilder({ root, defaultValue: content });
-      builder.addFeature(blockEdit);
-      builder.addFeature(toolbar, {
-        buildToolbar: (groupBuilder) => {
-          groupBuilder
-            .addGroup("ai", "AI")
-            .addItem("ai-mention", {
-              icon: SPARK_TOOLBAR_ICON,
-              active: () => false,
-              onRun: () => {
-                void handleAi();
-              },
-            });
-        },
-      });
-      builder.on((listener) => {
-        listener.markdownUpdated((_ctx, markdown, prevMarkdown) => {
-          if (!uriRef.current) return;
-          if (markdown === prevMarkdown) return;
-          currentMarkdownRef.current = markdown;
-          const changed = markdown !== lastSyncedMarkdownRef.current;
-          setIsDirty(changed);
-          if (!changed) return;
-
-          if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
-          saveTimerRef.current = window.setTimeout(() => {
-            saveMarkdown(markdown);
-          }, 500);
-        });
-      });
-      builder.create();
-      builderRef.current = builder;
-    } catch (error) {
-      setInitError(error);
-      console.warn("[MarkdownViewer] crepe init failed", error);
-    }
-  }, [content, fileQuery.isSuccess, handleAi, saveMarkdown, shouldUseStaticRenderer, uri]);
 
   if (!uri) {
     return <div className="h-full w-full p-4 text-muted-foreground">未选择文件</div>;
   }
 
-  if (fileQuery.isLoading) {
-    return <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>;
-  }
+  const content = fileQuery.data?.content ?? "";
+  const isMdx = (ext ?? "").toLowerCase() === "mdx";
+  const remarkPlugins = useMemo(() => {
+    const basePlugins = Object.values(defaultRemarkPlugins);
+    // 逻辑：仅在 mdx 文件启用 mdx 解析，避免普通 markdown 报错。
+    return isMdx ? [...basePlugins, remarkMdx, mdxPlaceholderPlugin] : basePlugins;
+  }, [isMdx]);
+  const isEditMode = mode === "edit";
+  const editorExt = ext ?? "md";
 
-  if (fileQuery.isError) {
-    return (
-      <div className="h-full w-full p-4 text-destructive">
-        {fileQuery.error?.message ?? "读取失败"}
-      </div>
-    );
-  }
+  /** Toggle preview/edit mode for the markdown panel. */
+  const toggleMode = () => {
+    setMode((prev) => (prev === "preview" ? "edit" : "preview"));
+  };
+  /** Trigger save from the stack header. */
+  const handleSave = () => codeActionsRef.current?.save();
+  /** Trigger undo from the stack header. */
+  const handleUndo = () => codeActionsRef.current?.undo();
+
+  const previewContent = fileQuery.isLoading ? (
+    <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>
+  ) : fileQuery.isError ? (
+    <div className="h-full w-full p-4 text-destructive">
+      {fileQuery.error?.message ?? "读取失败"}
+    </div>
+  ) : (
+    <Streamdown
+      mode="static"
+      className="streamdown-viewer space-y-3"
+      remarkPlugins={remarkPlugins}
+      shikiTheme={STREAMDOWN_SHIKI_THEME}
+    >
+      {content}
+    </Streamdown>
+  );
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
@@ -388,22 +194,45 @@ export default function MarkdownViewer({
           title={displayTitle}
           openUri={openUri ?? uri}
           rightSlot={
-            isDirty ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
+            <div className="flex items-center gap-1">
+              {isEditMode ? (
+                <>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    aria-label="保存"
+                    size="icon"
                     onClick={handleSave}
-                    disabled={writeFileMutation.isPending}
+                    disabled={!codeStatus.canSave}
+                    aria-label="保存"
+                    title="保存"
                   >
                     <Save className="h-4 w-4" />
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">保存</TooltipContent>
-              </Tooltip>
-            ) : null
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleUndo}
+                    disabled={!codeStatus.canUndo}
+                    aria-label="撤销"
+                    title="撤销"
+                  >
+                    <Undo2 className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : null}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleMode}
+                aria-label={isEditMode ? "预览" : "编辑"}
+                title={isEditMode ? "预览" : "编辑"}
+              >
+                {isEditMode ? (
+                  <Eye className="h-4 w-4" />
+                ) : (
+                  <PencilLine className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           }
           showMinimize
           onMinimize={() => {
@@ -416,31 +245,22 @@ export default function MarkdownViewer({
           }}
         />
       ) : null}
-      <div className="relative h-full w-full overflow-auto px-2 pb-4 pt-0">
-        <div className="milkdown milkdown-viewer min-w-0 w-full max-w-full text-sm leading-relaxed">
-          {shouldUseStaticRenderer ? (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath, remarkMdx]}
-              components={markdownViewerComponents}
-            >
-              {content}
-            </ReactMarkdown>
-          ) : (
-            <MarkdownViewerErrorBoundary markdown={content}>
-              {initError ? (
-                <div className="rounded-md border border-border/60 bg-muted/20 p-3">
-                  <div className="mb-2 text-xs text-muted-foreground">
-                    当前文档无法加载为 Milkdown 编辑器，已降级为纯文本预览
-                  </div>
-                  <pre className="whitespace-pre-wrap font-mono text-[12px] leading-5">
-                    {content}
-                  </pre>
-                </div>
-              ) : (
-                <div ref={editorRootRef} />
-              )}
-            </MarkdownViewerErrorBoundary>
-          )}
+      <div className="min-h-0 flex-1">
+        <div className={isEditMode ? "h-full" : "hidden"}>
+          <CodeViewer
+            uri={uri}
+            name={name}
+            ext={editorExt}
+            rootUri={rootUri}
+            projectId={projectId}
+            mode="edit"
+            visible={isEditMode}
+            actionsRef={codeActionsRef}
+            onStatusChange={setCodeStatus}
+          />
+        </div>
+        <div className={isEditMode ? "hidden" : "h-full overflow-auto"}>
+          {previewContent}
         </div>
       </div>
     </div>

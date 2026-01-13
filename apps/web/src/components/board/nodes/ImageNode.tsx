@@ -14,10 +14,12 @@ import {
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
 import { getPreviewEndpoint } from "@/lib/image/uri";
+import { buildUriFromRoot, parseTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
 import { buildImageNodePayloadFromUri } from "../utils/image";
-import { ImageNodeInput } from "./ImageNodeInput";
+import { ImageNodeDetail } from "./ImageNodeDetail";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./ImagePromptGenerateNode";
 import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
+import type { BoardFileContext } from "../core/BoardProvider";
 
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
@@ -42,10 +44,65 @@ function resolveImageSource(uri: string) {
   return uri;
 }
 
+/** Convert ArrayBuffer to a base64 string without data url prefix. */
+function encodeArrayBufferToBase64(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  // 逻辑：分片拼接，避免大数组一次展开导致栈溢出。
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+/** Resolve the default directory for download dialogs. */
+function resolveDownloadDefaultDir(fileContext?: BoardFileContext) {
+  const boardFolderUri = fileContext?.boardFolderUri?.trim();
+  if (boardFolderUri) {
+    if (boardFolderUri.startsWith("file://")) return boardFolderUri;
+    if (boardFolderUri.startsWith("tenas-file://")) {
+      const parsed = parseTenasFileUrl(boardFolderUri);
+      const rootUri = fileContext?.rootUri?.trim() ?? "";
+      if (parsed && rootUri.startsWith("file://")) {
+        // 逻辑：尽量还原到画布目录，便于保存到当前画布位置。
+        return buildUriFromRoot(rootUri, parsed.relativePath);
+      }
+    }
+  }
+  const rootUri = fileContext?.rootUri?.trim();
+  if (rootUri && rootUri.startsWith("file://")) return rootUri;
+  return "";
+}
+
 /** Trigger a download for the original image. */
-function downloadOriginalImage(props: ImageNodeProps) {
+async function downloadOriginalImage(
+  props: ImageNodeProps,
+  fileContext?: BoardFileContext,
+) {
   const href = resolveImageSource(props.originalSrc);
   if (!href) return;
+  const saveFile = window.tenasElectron?.saveFile;
+  if (saveFile) {
+    try {
+      const response = await fetch(href);
+      if (!response.ok) throw new Error("download failed");
+      const buffer = await response.arrayBuffer();
+      const contentBase64 = encodeArrayBufferToBase64(buffer);
+      const defaultDir = resolveDownloadDefaultDir(fileContext);
+      const fileName = props.fileName || "image.png";
+      const extension = fileName.split(".").pop() || "png";
+      const result = await saveFile({
+        contentBase64,
+        defaultDir: defaultDir || undefined,
+        suggestedName: fileName,
+        filters: [{ name: "Image", extensions: [extension] }],
+      });
+      if (result?.ok || result?.canceled) return;
+    } catch {
+      // 逻辑：桌面保存失败时回退到浏览器下载方式。
+    }
+  }
   const link = document.createElement("a");
   link.href = href;
   link.download = props.fileName || "image";
@@ -60,7 +117,7 @@ function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
       id: "download",
       label: "下载",
       icon: <Download size={14} />,
-      onSelect: () => downloadOriginalImage(ctx.element.props),
+      onSelect: () => void downloadOriginalImage(ctx.element.props, ctx.fileContext),
     },
     {
       id: "inspect",
@@ -120,8 +177,8 @@ export function ImageNodeView({
   const hasPreview = Boolean(previewSrc);
   /** Board actions for preview requests. */
   const { actions, engine } = useBoardContext();
-  /** Local flag for displaying the inline input. */
-  const [showInput, setShowInput] = useState(false);
+  /** Local flag for displaying the inline detail panel. */
+  const [showDetail, setShowDetail] = useState(false);
   /** Whether the node or canvas is locked. */
   const isLocked = engine.isLocked() || element.locked === true;
   /** Request opening the image preview on the canvas. */
@@ -156,7 +213,7 @@ export function ImageNodeView({
   useEffect(() => {
     if (!selected || isLocked) {
       // 逻辑：未选中或锁定状态时收起输入框。
-      setShowInput(false);
+      setShowDetail(false);
     }
   }, [isLocked, selected]);
 
@@ -226,7 +283,7 @@ export function ImageNodeView({
           if (isLocked) return;
           if (event.button !== 0) return;
           // 逻辑：按下时先展示输入框，避免选中置顶导致 click 丢失。
-          setShowInput(true);
+          setShowDetail(true);
         }}
         onDoubleClick={event => {
           event.stopPropagation();
@@ -246,7 +303,7 @@ export function ImageNodeView({
           </div>
         )}
       </div>
-      {showInput ? (
+      {showDetail ? (
         <div
           className="absolute left-1/2 top-full mt-3 -translate-x-1/2"
           data-board-editor
@@ -255,7 +312,7 @@ export function ImageNodeView({
             event.stopPropagation();
           }}
         >
-          <ImageNodeInput nodeId={element.id} />
+          <ImageNodeDetail source={element.props.originalSrc} fallbackSource={previewSrc} />
         </div>
       ) : null}
     </div>

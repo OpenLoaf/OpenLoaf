@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { useTheme } from "next-themes";
 import type { PointerEvent } from "react";
-import { skipToken, useQuery } from "@tanstack/react-query";
+import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { Sparkles, Copy } from "lucide-react";
@@ -13,19 +13,69 @@ import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 
+export type CodeViewerActions = {
+  save: () => void;
+  undo: () => void;
+  toggleReadOnly: () => void;
+};
+
+export type CodeViewerStatus = {
+  isDirty: boolean;
+  isReadOnly: boolean;
+  canSave: boolean;
+  canUndo: boolean;
+};
+
 interface CodeViewerProps {
   uri?: string;
   name?: string;
   ext?: string;
   rootUri?: string;
   projectId?: string;
+  /** Viewer mode for Monaco. */
+  mode?: CodeViewerMode;
+  /** Whether the editor is visible (used to trigger layout). */
+  visible?: boolean;
+  /** Expose editor actions for external controls. */
+  actionsRef?: MutableRefObject<CodeViewerActions | null>;
+  /** Notify external controls about editor state. */
+  onStatusChange?: (status: CodeViewerStatus) => void;
 }
 
 type MonacoDisposable = { dispose: () => void };
+type CodeViewerMode = "preview" | "edit";
 
-/** Monaco theme name for the read-only viewer. */
-const MONACO_THEME_DARK = "vs-dark";
+/** Monaco theme name for the viewer. */
+const MONACO_THEME_DARK = "tenas-dark";
 const MONACO_THEME_LIGHT = "vs";
+/** Default viewer mode for code files. */
+const DEFAULT_CODE_VIEWER_MODE: CodeViewerMode = "preview";
+
+const DARK_THEME_COLORS: Monaco.editor.IColors = {
+  "editor.background": "#0c1118",
+  "editor.foreground": "#e6e6e6",
+  "editorLineNumber.foreground": "#6b7280",
+  "editorLineNumber.activeForeground": "#e5e7eb",
+  "editorGutter.background": "#0c1118",
+  "editor.selectionBackground": "#1f3a5f",
+  "editor.inactiveSelectionBackground": "#19293f",
+  "editor.selectionHighlightBackground": "#1b2a40",
+  "editorCursor.foreground": "#e6e6e6",
+};
+
+/** Apply Monaco theme with improved dark-mode contrast. */
+function applyMonacoTheme(monaco: typeof Monaco, themeName: string) {
+  if (themeName === MONACO_THEME_DARK) {
+    // 逻辑：自定义深色主题，提升背景和文字对比度。
+    monaco.editor.defineTheme(MONACO_THEME_DARK, {
+      base: "vs-dark",
+      inherit: true,
+      rules: [],
+      colors: DARK_THEME_COLORS,
+    });
+  }
+  monaco.editor.setTheme(themeName);
+}
 
 /** Resolve a Monaco language id from extension. */
 function getMonacoLanguageId(ext?: string): string {
@@ -85,18 +135,24 @@ function getMonacoLanguageId(ext?: string): string {
   }
 }
 
-/** Render a read-only code viewer. */
+/** Render a code preview/editor panel. */
 export default function CodeViewer({
   uri,
   name,
   ext,
   rootUri,
   projectId,
+  mode = DEFAULT_CODE_VIEWER_MODE,
+  visible = true,
+  actionsRef,
+  onStatusChange,
 }: CodeViewerProps) {
   /** File content query. */
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(uri ? { uri } : skipToken)
   );
+  const queryClient = useQueryClient();
+  const writeFileMutation = useMutation(trpc.fs.writeFile.mutationOptions());
   /** Monaco editor instance. */
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   /** Monaco namespace instance. */
@@ -120,6 +176,14 @@ export default function CodeViewer({
     left: number;
     top: number;
   } | null>(null);
+  /** Local draft for editable content. */
+  const [draftContent, setDraftContent] = useState("");
+  /** Tracks whether the draft differs from the last saved value. */
+  const [isDirty, setIsDirty] = useState(false);
+  /** Tracks read-only state in edit mode. */
+  const [isReadOnly, setIsReadOnly] = useState(false);
+  /** Snapshot of the last saved content. */
+  const lastSavedRef = useRef("");
   /** Active tab id for AI panel control. */
   const activeTabId = useTabs((s) => s.activeTabId);
   /** Collapse state setter for AI panel. */
@@ -129,6 +193,8 @@ export default function CodeViewer({
     () => fileQuery.data?.content ?? "",
     [fileQuery.data?.content]
   );
+  const isEditMode = mode === "edit";
+  const effectiveReadOnly = !isEditMode || isReadOnly;
   /** Monaco language id from extension. */
   const languageId = useMemo(() => getMonacoLanguageId(ext), [ext]);
   const { resolvedTheme } = useTheme();
@@ -158,6 +224,22 @@ export default function CodeViewer({
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
   }, [resolvedTheme]);
+
+  useEffect(() => {
+    // 逻辑：切换文件时重置草稿，避免状态串联。
+    setDraftContent("");
+    setIsDirty(false);
+    setIsReadOnly(false);
+    lastSavedRef.current = "";
+  }, [uri]);
+
+  useEffect(() => {
+    if (!fileQuery.isSuccess) return;
+    if (isDirty) return;
+    // 逻辑：未编辑时同步最新内容，避免覆盖本地草稿。
+    setDraftContent(fileContent);
+    lastSavedRef.current = fileContent;
+  }, [fileContent, fileQuery.isSuccess, isDirty]);
 
   /** Clear cached selection state and hide the toolbar. */
   const clearSelection = useCallback(() => {
@@ -225,12 +307,21 @@ export default function CodeViewer({
     });
   }, [clearSelection]);
 
+  /** Update local draft content from Monaco changes. */
+  const handleEditorChange = useCallback((value?: string) => {
+    const nextValue = value ?? "";
+    setDraftContent(nextValue);
+    // 逻辑：草稿与上次保存不一致时标记为脏。
+    setIsDirty(nextValue !== lastSavedRef.current);
+  }, []);
+
 
   /** Capture Monaco editor instance and attach listeners. */
   const handleEditorMount = useCallback<OnMount>(
     (editor, monaco) => {
       editorRef.current = editor;
       monacoRef.current = monaco;
+      applyMonacoTheme(monaco, monacoThemeName);
       clearSelection();
       disposablesRef.current.forEach((disposable) => disposable.dispose());
       disposablesRef.current = [];
@@ -261,13 +352,43 @@ export default function CodeViewer({
   useEffect(() => {
     const monaco = monacoRef.current;
     if (!monaco) return;
-    monaco.editor.setTheme(monacoThemeName);
+    applyMonacoTheme(monaco, monacoThemeName);
   }, [monacoThemeName]);
 
-  /** Monaco editor options for read-only rendering. */
+  // 逻辑：同步编辑状态到外部控制区。
+  useEffect(() => {
+    if (!onStatusChange) return;
+    const canSave = isEditMode && isDirty && !effectiveReadOnly && !writeFileMutation.isPending;
+    const canUndo = isEditMode && !effectiveReadOnly;
+    onStatusChange({
+      isDirty,
+      isReadOnly: effectiveReadOnly,
+      canSave,
+      canUndo,
+    });
+  }, [
+    effectiveReadOnly,
+    isDirty,
+    isEditMode,
+    onStatusChange,
+    writeFileMutation.isPending,
+  ]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    // 逻辑：面板从隐藏变为可见时强制布局，避免编辑器尺寸异常。
+    const frame = window.requestAnimationFrame(() => {
+      editor.layout();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [visible]);
+
+  /** Monaco editor options for code rendering/editing. */
   const editorOptions = useMemo<Monaco.editor.IStandaloneEditorConstructionOptions>(
     () => ({
-      readOnly: true,
+      readOnly: effectiveReadOnly,
       fontSize: 13,
       lineHeight: 22,
       fontFamily: "var(--font-mono, Menlo, Monaco, 'Courier New', monospace)",
@@ -285,7 +406,7 @@ export default function CodeViewer({
         horizontalScrollbarSize: 10,
       },
     }),
-    []
+    [effectiveReadOnly]
   );
 
   /** Keep selection when interacting with the toolbar. */
@@ -307,7 +428,7 @@ export default function CodeViewer({
   const handleCopy = useCallback(async () => {
     const range = selectionOffsetRef.current;
     const text = range
-      ? fileContent.slice(range.start, range.end).trim()
+      ? draftContent.slice(range.start, range.end).trim()
       : selectionTextRef.current.trim();
     if (!text) return;
     try {
@@ -317,13 +438,13 @@ export default function CodeViewer({
       console.warn("[CodeViewer] copy failed", error);
       toast.error("复制失败");
     }
-  }, [fileContent]);
+  }, [draftContent]);
 
   /** Send selection to AI panel. */
   const handleAi = useCallback(async () => {
     const rangeOffsets = selectionOffsetRef.current;
     const text = rangeOffsets
-      ? fileContent.slice(rangeOffsets.start, rangeOffsets.end).trim()
+      ? draftContent.slice(rangeOffsets.start, rangeOffsets.end).trim()
       : selectionTextRef.current.trim();
     const range = selectionRangeRef.current;
     if (!text) return;
@@ -360,11 +481,57 @@ export default function CodeViewer({
       // 展开右侧 AI 面板（不使用 stack）。
       setTabRightChatCollapsed(activeTabId, false);
     }
-  }, [activeTabId, fileContent, projectId, rootUri, setTabRightChatCollapsed, uri]);
+  }, [activeTabId, draftContent, projectId, rootUri, setTabRightChatCollapsed, uri]);
+
+  /** Save current draft content to the file system. */
+  const handleSave = useCallback(() => {
+    if (!uri) return;
+    if (effectiveReadOnly) return;
+    if (!isDirty) return;
+    const nextContent = draftContent;
+    writeFileMutation.mutate(
+      { uri, content: nextContent },
+      {
+        onSuccess: () => {
+          lastSavedRef.current = nextContent;
+          setIsDirty(false);
+          queryClient.invalidateQueries({
+            queryKey: trpc.fs.readFile.queryOptions({ uri }).queryKey,
+          });
+          toast.success("已保存");
+        },
+        onError: (error) => {
+          toast.error(error?.message ?? "保存失败");
+        },
+      }
+    );
+  }, [draftContent, effectiveReadOnly, isDirty, queryClient, uri, writeFileMutation]);
+
+  /** Undo the last editor change. */
+  const handleUndo = useCallback(() => {
+    const action = editorRef.current?.getAction("undo");
+    if (!action || !action.isSupported()) return;
+    void action.run();
+  }, []);
+
+  /** Toggle read-only state in edit mode. */
+  const handleToggleReadOnly = useCallback(() => {
+    setIsReadOnly((prev) => !prev);
+  }, []);
+
+  // 逻辑：向外部暴露保存/撤销/只读切换能力。
+  useEffect(() => {
+    if (!actionsRef) return;
+    actionsRef.current = {
+      save: handleSave,
+      undo: handleUndo,
+      toggleReadOnly: handleToggleReadOnly,
+    };
+  }, [actionsRef, handleSave, handleToggleReadOnly, handleUndo]);
 
   useEffect(() => {
     clearSelection();
-  }, [clearSelection, fileContent, languageId]);
+  }, [clearSelection, draftContent, languageId]);
 
   useEffect(() => {
     return () => {
@@ -390,8 +557,12 @@ export default function CodeViewer({
     );
   }
 
+  const containerClassName = `code-viewer relative h-full w-full overflow-hidden${
+    isEditMode ? " pl-2" : ""
+  }`;
+
   return (
-    <div ref={containerRef} className="code-viewer relative h-full w-full overflow-hidden">
+    <div ref={containerRef} className={containerClassName}>
       {selectionRect ? (
         <div
           className="absolute z-10 flex items-center gap-1 rounded-md border border-border/70 bg-background/95 px-1.5 py-1 shadow-sm"
@@ -430,13 +601,14 @@ export default function CodeViewer({
         height="100%"
         width="100%"
         path={uri}
-        value={fileContent}
+        value={draftContent}
         language={languageId}
         theme={monacoThemeName}
         onMount={handleEditorMount}
+        onChange={handleEditorChange}
         options={editorOptions}
       />
-      {fileContent ? null : (
+      {draftContent ? null : (
         <div className="pointer-events-none absolute left-4 top-4 text-xs text-muted-foreground">
           {name ?? uri}
         </div>

@@ -9,6 +9,33 @@ import { toText } from "@/routers/route-utils";
 
 /** Max upload size for chat images. */
 const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;
+/** Multipart boundary prefix for preview responses. */
+const MULTIPART_BOUNDARY_PREFIX = "tenas-preview";
+
+/** Build multipart/mixed response payload. */
+function buildMultipartMixed(input: {
+  metadata: string | null | undefined;
+  buffer: Buffer;
+  mediaType: string;
+}): { body: Uint8Array; contentType: string } {
+  const boundary = `${MULTIPART_BOUNDARY_PREFIX}-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+  const metadataBody = input.metadata?.trim() ? input.metadata : "null";
+  // 逻辑：metadata 放首段，图片放第二段，前端可只解析元信息。
+  const header =
+    `--${boundary}\r\n` +
+    "Content-Type: application/json; charset=utf-8\r\n\r\n" +
+    `${metadataBody}\r\n` +
+    `--${boundary}\r\n` +
+    `Content-Type: ${input.mediaType}\r\n\r\n`;
+  const footer = `\r\n--${boundary}--\r\n`;
+  const body = Buffer.concat([Buffer.from(header, "utf8"), input.buffer, Buffer.from(footer, "utf8")]);
+  return {
+    body,
+    contentType: `multipart/mixed; boundary=${boundary}`,
+  };
+}
 
 /** Check if value is file-like. */
 function isFileLike(value: unknown): value is File {
@@ -103,12 +130,23 @@ export function registerChatAttachmentRoutes(app: Hono) {
 
   app.get("/chat/attachments/preview", async (c) => {
     const url = c.req.query("url")?.trim() ?? "";
+    const includeMetadata = c.req.query("includeMetadata") === "1";
     if (!url || !url.startsWith("tenas-file://")) {
       return c.json({ error: "Invalid preview url" }, 400);
     }
     try {
-      const preview = await getTenasFilePreview({ url });
+      const preview = await getTenasFilePreview({ url, includeMetadata });
       if (!preview) return c.json({ error: "Preview not found" }, 404);
+      if (includeMetadata) {
+        const multipart = buildMultipartMixed({
+          metadata: preview.metadata ?? null,
+          buffer: preview.buffer,
+          mediaType: preview.mediaType,
+        });
+        return c.body(multipart.body, 200, {
+          "Content-Type": multipart.contentType,
+        });
+      }
       // Hono 的 body 需要 Uint8Array，避免 Buffer 类型推断问题。
       const arrayBuffer = new ArrayBuffer(preview.buffer.byteLength);
       const body = new Uint8Array(arrayBuffer);

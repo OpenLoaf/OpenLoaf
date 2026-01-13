@@ -7,14 +7,18 @@ import { Check, ChevronDown, Copy } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { toast } from "sonner";
+import { useTabs } from "@/hooks/use-tabs";
 import { OpenUrlTool } from "./OpenUrlTool";
 import { TestApprovalTool } from "./TestApprovalTool";
 import SubAgentTool from "./SubAgentTool";
+import CliThinkingTool from "./CliThinkingTool";
 import { useChatContext } from "../../ChatProvider";
 
 // MVP：只展示工具名称 + 输入 + 输出（去掉语法高亮/格式化/多层折叠）
 type AnyToolPart = {
   type: string; // `tool-xxx` / `dynamic-tool`
+  /** Tool call id for state lookup. */
+  toolCallId?: string;
   toolName?: string;
   title?: string;
   state?: string;
@@ -22,6 +26,8 @@ type AnyToolPart = {
   output?: unknown;
   errorText?: string;
   approval?: { id?: string; approved?: boolean; reason?: string };
+  /** Rendering variant for specialized tool UI. */
+  variant?: string;
 };
 
 function getToolName(part: AnyToolPart) {
@@ -164,30 +170,41 @@ export default function MessageTool({
   variant?: "default" | "nested";
 }) {
   const chat = useChatContext();
+  const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
+  const cliToolSnapshot = useTabs((state) =>
+    toolCallId && chat.tabId ? state.toolPartsByTabId[chat.tabId]?.[toolCallId] : undefined,
+  );
+  // 逻辑：CLI 输出走 data-stream 时，用 toolParts 合并覆盖 message part。
+  const resolvedPart =
+    cliToolSnapshot?.variant === "cli-thinking" ? { ...part, ...cliToolSnapshot } : part;
 
   // open-url 使用专用组件，支持“流结束后手动点击打开左侧网页”。
-  if (part.toolName === "open-url" || part.type === "tool-open-url") {
-    return <OpenUrlTool part={part} />;
+  if (resolvedPart.toolName === "open-url" || resolvedPart.type === "tool-open-url") {
+    return <OpenUrlTool part={resolvedPart} />;
   }
-  if (part.toolName === "test-approval" || part.type === "tool-test-approval") {
-    return <TestApprovalTool part={part} />;
+  if (resolvedPart.toolName === "test-approval" || resolvedPart.type === "tool-test-approval") {
+    return <TestApprovalTool part={resolvedPart} />;
   }
-  if (part.toolName === "sub-agent" || part.type === "tool-sub-agent") {
-    return <SubAgentTool part={part} />;
+  if (resolvedPart.toolName === "sub-agent" || resolvedPart.type === "tool-sub-agent") {
+    return <SubAgentTool part={resolvedPart} />;
+  }
+  if (resolvedPart.variant === "cli-thinking") {
+    return <CliThinkingTool part={resolvedPart} />;
   }
 
-  const toolName = getToolName(part);
-  const statusText = getToolStatusText(part);
-  const showInput = !isEmptyInput(part.input);
-  const inputText = safeStringify(part.input);
-  const outputText = safeStringify(part.output);
-  const hasErrorText = typeof part.errorText === "string" && part.errorText.trim().length > 0;
+  const toolName = getToolName(resolvedPart);
+  const statusText = getToolStatusText(resolvedPart);
+  const showInput = !isEmptyInput(resolvedPart.input);
+  const inputText = safeStringify(resolvedPart.input);
+  const outputText = safeStringify(resolvedPart.output);
+  const hasErrorText =
+    typeof resolvedPart.errorText === "string" && resolvedPart.errorText.trim().length > 0;
   const outputDisplayText =
     outputText ||
     (hasErrorText
-      ? `（错误：${part.errorText}）`
-      : part.state && part.state !== "output-available"
-        ? `（${part.state}）`
+      ? `（错误：${resolvedPart.errorText}）`
+      : resolvedPart.state && resolvedPart.state !== "output-available"
+        ? `（${resolvedPart.state}）`
         : "（暂无返回结果）");
 
   const [copied, setCopied] = React.useState(false);
@@ -195,11 +212,19 @@ export default function MessageTool({
   const [inputJsonExpanded, setInputJsonExpanded] = React.useState(false);
   const [outputJsonExpanded, setOutputJsonExpanded] = React.useState(false);
 
-  const inputJsonDisplay = React.useMemo(() => getJsonDisplay(part.input), [part.input]);
-  const outputJsonDisplay = React.useMemo(() => getJsonDisplay(part.output), [part.output]);
+  const inputJsonDisplay = React.useMemo(
+    () => getJsonDisplay(resolvedPart.input),
+    [resolvedPart.input],
+  );
+  const outputJsonDisplay = React.useMemo(
+    () => getJsonDisplay(resolvedPart.output),
+    [resolvedPart.output],
+  );
 
-  const approvalId = typeof part.approval?.id === "string" ? part.approval?.id : undefined;
-  const showApprovalActions = part.state === "approval-requested" && Boolean(approvalId);
+  const approvalId =
+    typeof resolvedPart.approval?.id === "string" ? resolvedPart.approval?.id : undefined;
+  const showApprovalActions =
+    resolvedPart.state === "approval-requested" && Boolean(approvalId);
 
   const handleCopyAll = async (event: React.MouseEvent) => {
     // 关键：summary 内点击按钮不应触发折叠开关
