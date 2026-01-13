@@ -1044,9 +1044,14 @@ export class CanvasEngine {
     nudgeSelection(this.getSelectionDeps(), nodeIds, dx, dy);
   }
 
-  /** Auto layout selected nodes in a simple row. */
-  layoutSelection(): void {
-    layoutSelection(this.getSelectionDeps(), this.getSelectedNodeElements(), LAYOUT_GAP);
+  /** Auto layout selected nodes in a simple row or column. */
+  layoutSelection(direction: "row" | "column" = "row"): void {
+    layoutSelection(
+      this.getSelectionDeps(),
+      this.getSelectedNodeElements(),
+      LAYOUT_GAP,
+      direction
+    );
   }
 
   /** Toggle lock state for a node element. */

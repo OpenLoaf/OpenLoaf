@@ -95,6 +95,9 @@ type MultiSelectionToolbarProps = {
   onInspect: (elementId: string) => void;
 };
 
+/** Tolerance in px when checking layout spacing/alignment. */
+const LAYOUT_SPACING_TOLERANCE = 2;
+
 /** Render a toolbar for multi-selected nodes. */
 export function MultiSelectionToolbar({
   snapshot,
@@ -130,6 +133,24 @@ export function MultiSelectionToolbar({
     })
     : [];
 
+  const layoutAxis = getSelectionLayoutAxis(selectedNodes);
+  const isUniformRow =
+    layoutAxis === "row"
+    && hasUniformSpacing(selectedNodes, "row", LAYOUT_SPACING_TOLERANCE);
+  const isUniformColumn =
+    layoutAxis === "column"
+    && hasUniformSpacing(selectedNodes, "column", LAYOUT_SPACING_TOLERANCE);
+  const layoutLabel = isUniformRow
+    ? "竖向排列"
+    : isUniformColumn
+      ? "横向排列"
+      : "自动布局";
+  const layoutDirection = isUniformRow
+    ? "column"
+    : isUniformColumn
+      ? "row"
+      : resolveAutoLayoutDirection(selectedNodes, layoutAxis);
+
   const bounds = computeSelectionBounds(selectedNodes);
 
   return (
@@ -157,9 +178,9 @@ export function MultiSelectionToolbar({
             },
             {
               id: "layout",
-              label: "布局",
+              label: layoutLabel,
               icon: <LayoutGrid size={14} />,
-              onSelect: () => engine.layoutSelection(),
+              onSelect: () => engine.layoutSelection(layoutDirection),
             },
             {
               id: "delete",
@@ -481,6 +502,74 @@ function computeSelectionBounds(elements: CanvasElement[]): CanvasRect {
     return { x: 0, y: 0, w: 0, h: 0 };
   }
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+type LayoutAxis = "row" | "column" | "mixed";
+
+/** Detect the layout axis for a list of nodes. */
+function getSelectionLayoutAxis(nodes: CanvasNodeElement[]): LayoutAxis {
+  if (nodes.length < 2) return "mixed";
+
+  let maxLeft = Number.NEGATIVE_INFINITY;
+  let minRight = Number.POSITIVE_INFINITY;
+  let maxTop = Number.NEGATIVE_INFINITY;
+  let minBottom = Number.POSITIVE_INFINITY;
+  nodes.forEach(node => {
+    const [x, y, w, h] = node.xywh;
+    maxLeft = Math.max(maxLeft, x);
+    minRight = Math.min(minRight, x + w);
+    maxTop = Math.max(maxTop, y);
+    minBottom = Math.min(minBottom, y + h);
+  });
+  // 逻辑：通过横纵向重叠关系判断布局方向。
+  const overlapX = maxLeft <= minRight + LAYOUT_SPACING_TOLERANCE;
+  const overlapY = maxTop <= minBottom + LAYOUT_SPACING_TOLERANCE;
+  if (overlapY && !overlapX) return "row";
+  if (overlapX && !overlapY) return "column";
+  return "mixed";
+}
+
+/** Resolve which layout direction to apply when auto layout is requested. */
+function resolveAutoLayoutDirection(
+  nodes: CanvasNodeElement[],
+  axis: LayoutAxis
+): "row" | "column" {
+  if (axis === "row" || axis === "column") return axis;
+  const bounds = computeSelectionBounds(nodes);
+  return bounds.w >= bounds.h ? "row" : "column";
+}
+
+/** Check whether nodes are aligned and evenly spaced along the given axis. */
+function hasUniformSpacing(
+  nodes: CanvasNodeElement[],
+  axis: "row" | "column",
+  tolerance: number
+): boolean {
+  if (nodes.length < 2) return false;
+  const sorted = [...nodes].sort((a, b) =>
+    axis === "row" ? a.xywh[0] - b.xywh[0] : a.xywh[1] - b.xywh[1]
+  );
+
+  let minGap = Number.POSITIVE_INFINITY;
+  let maxGap = Number.NEGATIVE_INFINITY;
+  for (let index = 1; index < sorted.length; index += 1) {
+    const previous = sorted[index - 1];
+    const current = sorted[index];
+    const gap = axis === "row"
+      ? current.xywh[0] - (previous.xywh[0] + previous.xywh[2])
+      : current.xywh[1] - (previous.xywh[1] + previous.xywh[3]);
+    if (gap < -tolerance) return false;
+    minGap = Math.min(minGap, gap);
+    maxGap = Math.max(maxGap, gap);
+  }
+
+  const crossPositions = nodes.map(node => (axis === "row" ? node.xywh[1] : node.xywh[0]));
+  const minCross = Math.min(...crossPositions);
+  const maxCross = Math.max(...crossPositions);
+
+  // 逻辑：需要主轴间距一致且交叉轴对齐。
+  if (maxCross - minCross > tolerance) return false;
+  return maxGap - minGap <= tolerance;
 }
 
 /** Check whether the selected node overlaps any other node. */

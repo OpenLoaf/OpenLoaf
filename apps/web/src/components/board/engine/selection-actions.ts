@@ -173,26 +173,30 @@ function nudgeSelection(
   deps.commitHistory();
 }
 
-/** Auto layout selected nodes in a simple row. */
+/** Auto layout selected nodes in a simple row or column. */
 function layoutSelection(
   deps: SelectionDeps,
   nodes: CanvasNodeElement[],
-  gap: number
+  gap: number,
+  direction: "row" | "column" = "row"
 ): void {
   if (deps.isLocked()) return;
   if (nodes.length < 2) return;
 
-  const sorted = [...nodes].sort((a, b) => a.xywh[0] - b.xywh[0]);
+  const sorted = [...nodes].sort((a, b) =>
+    direction === "row" ? a.xywh[0] - b.xywh[0] : a.xywh[1] - b.xywh[1]
+  );
   const bounds = computeNodeBounds(sorted);
-  let cursorX = bounds.x;
-  const top = bounds.y;
+  let cursor = direction === "row" ? bounds.x : bounds.y;
 
-  // 逻辑：多选节点按行排列，保持宽高不变。
+  // 逻辑：多选节点按指定方向排列，保持宽高不变。
   deps.doc.transact(() => {
     sorted.forEach(node => {
       const [, , w, h] = node.xywh;
-      deps.doc.updateElement(node.id, { xywh: [cursorX, top, w, h] });
-      cursorX += w + gap;
+      const nextX = direction === "row" ? cursor : bounds.x;
+      const nextY = direction === "row" ? bounds.y : cursor;
+      deps.doc.updateElement(node.id, { xywh: [nextX, nextY, w, h] });
+      cursor += (direction === "row" ? w : h) + gap;
     });
   });
   deps.commitHistory();
