@@ -150,6 +150,8 @@ export class CanvasEngine {
   private elementsBoundsDirty = true;
   /** Active dragging element id. */
   private draggingElementId: string | null = null;
+  /** Node id currently in edit mode. */
+  private editingNodeId: string | null = null;
   /** Whether the viewport is currently being panned. */
   private panning = false;
   /** History stack for undo operations. */
@@ -433,6 +435,7 @@ export class CanvasEngine {
     return {
       elements: this.getOrderedElements(),
       selectedIds: this.selection.getSelectedIds(),
+      editingNodeId: this.editingNodeId,
       viewport: this.viewport.getState(),
       anchors: this.getAnchorMap(),
       alignmentGuides: this.alignmentGuides,
@@ -453,6 +456,18 @@ export class CanvasEngine {
       pendingInsertPoint: this.pendingInsertPoint,
       toolbarDragging: this.toolbarDragging,
     };
+  }
+
+  /** Return the node id currently in edit mode. */
+  getEditingNodeId(): string | null {
+    return this.editingNodeId;
+  }
+
+  /** Update the node id currently in edit mode. */
+  setEditingNodeId(nodeId: string | null): void {
+    if (this.editingNodeId === nodeId) return;
+    this.editingNodeId = nodeId;
+    this.emitChange();
   }
 
   /** Return whether the canvas is locked. */
@@ -1130,6 +1145,10 @@ export class CanvasEngine {
     });
     // 逻辑：插入后默认选中新节点，便于后续编辑。
     this.selection.setSelection([id]);
+    if (type === "text" && (props as any)?.autoFocus) {
+      // 逻辑：自动聚焦的文本节点直接进入编辑态。
+      this.editingNodeId = id;
+    }
     this.commitHistory();
     return id;
   }

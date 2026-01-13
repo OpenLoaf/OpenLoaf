@@ -7,7 +7,6 @@ import { cn } from "@udecode/cn";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasSnapshot } from "../engine/types";
 import { HoverPanel, IconBtn, PanelItem } from "../ui/ToolbarParts";
-import { isBoardUiTarget } from "../utils/dom";
 
 export interface BoardToolbarProps {
   /** Canvas engine instance. */
@@ -431,7 +430,8 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         engine.setPendingInsert(null);
         return;
       }
-      if (isBoardUiTarget(event.target, ["[data-board-node]"])) {
+      const hit = engine.pickElementAt(worldPoint);
+      if (hit?.kind === "node") {
         engine.setPendingInsert(null);
         return;
       }

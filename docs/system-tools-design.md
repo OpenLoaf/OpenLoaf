@@ -25,7 +25,7 @@
 - 说明：`toolRegistry` 只允许引用 ToolDef.id，不手写字符串。
 
 ### 3. 执行层（工具实现）
-- 位置：`apps/server/src/ai/tools/system/systemTools.ts`
+- 位置：`apps/server/src/ai/tools/system/*.ts`
 - 每个工具使用 `tool()` + `zodSchema()`，返回 `{ ok: true, data: ... }`。
 
 ### 4. 上下文层（projectId 来源）

@@ -152,6 +152,7 @@ function getContentScrollHeight(content: HTMLElement): number {
 export function TextNodeView({
   element,
   selected,
+  editing,
   onSelect,
   onUpdate,
 }: CanvasNodeViewProps<TextNodeProps>) {
@@ -160,7 +161,7 @@ export function TextNodeView({
   /** Whether the node is locked for edits. */
   const isLocked = engine.isLocked() || element.locked;
   /** Local edit mode state. */
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(Boolean(editing));
   /** One-shot focus flag for entering edit mode. */
   const [shouldFocus, setShouldFocus] = useState(false);
   /** Container ref for focus boundary checks. */
@@ -210,6 +211,21 @@ export function TextNodeView({
   }, [element.id]);
 
   useEffect(() => {
+    if (!editing) {
+      if (isEditing) {
+        // 逻辑：外部结束编辑时同步退出状态。
+        setIsEditing(false);
+      }
+      return;
+    }
+    if (!isEditing) {
+      // 逻辑：外部进入编辑时触发聚焦流程。
+      setIsEditing(true);
+      setShouldFocus(true);
+    }
+  }, [editing, isEditing]);
+
+  useEffect(() => {
     if (!element.props.autoFocus || autoFocusConsumedRef.current) return;
     autoFocusConsumedRef.current = true;
     // 逻辑：自动创建的文本节点需要直接进入编辑并清除标记。
@@ -220,11 +236,11 @@ export function TextNodeView({
   }, [element.props.autoFocus, onSelect, onUpdate]);
 
   useEffect(() => {
-    if (!selected && isEditing) {
-      // 逻辑：失去选中时退出编辑，避免输入状态悬挂。
+    if (!selected && isEditing && !editing) {
+      // 逻辑：选中失效且未处于外部编辑时结束本地编辑。
       setIsEditing(false);
     }
-  }, [isEditing, selected]);
+  }, [editing, isEditing, selected]);
 
   useEffect(() => {
     if (!shouldFocus || !isEditing) return;
@@ -421,8 +437,9 @@ export function TextNodeView({
       onSelect();
       setIsEditing(true);
       setShouldFocus(true);
+      engine.setEditingNodeId(element.id);
     },
-    [isLocked, onSelect]
+    [element.id, engine, isLocked, onSelect]
   );
 
   /** Exit edit mode when text input loses focus. */
@@ -430,7 +447,8 @@ export function TextNodeView({
     // 逻辑：焦点移出文本输入后结束编辑。
     isEditingRef.current = false;
     setIsEditing(false);
-  }, []);
+    engine.setEditingNodeId(null);
+  }, [engine]);
 
   /** Stop pointer events from bubbling to the canvas while editing. */
   const handleEditorPointerDown = useCallback(

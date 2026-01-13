@@ -74,7 +74,8 @@ export class ToolManager {
       if (this.engine.isLocked()) {
         return;
       }
-      if (isBoardUiTarget(event.target, ["[data-board-node]"])) return;
+      const hit = this.engine.pickElementAt(ctx.worldPoint);
+      if (hit?.kind === "node") return;
       const [width, height] = pendingInsert.size ?? DEFAULT_NODE_SIZE;
       const [x, y] = ctx.worldPoint;
       this.engine.addNodeElement(pendingInsert.type, pendingInsert.props, [

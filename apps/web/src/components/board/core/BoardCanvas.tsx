@@ -20,6 +20,11 @@ import BoardToolbar from "../toolbar/BoardToolbar";
 import { isBoardUiTarget } from "../utils/dom";
 import { toScreenPoint } from "../utils/coordinates";
 import { buildImageNodePayloadFromFile, dataUrlToBlob } from "../utils/image";
+import { openLinkInStack as openLinkInStackAction, resolveLinkTitle } from "../nodes/lib/link-actions";
+import type { ImageNodeProps } from "../nodes/ImageNode";
+import type { LinkNodeProps } from "../nodes/LinkNode";
+import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/ImageGenerateNode";
+import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/ImagePromptGenerateNode";
 import { readImageDragPayload } from "@/lib/image/drag";
 import { FILE_DRAG_URI_MIME } from "@/components/ui/tenas/drag-drop-types";
 import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
@@ -43,12 +48,14 @@ import type {
 import { ConnectorActionPanel, NodeInspectorPanel } from "../ui/CanvasPanels";
 import { CanvasSurface } from "../render/CanvasSurface";
 import { CanvasDomLayer } from "./CanvasDomLayer";
+import { BoardPerfOverlay } from "./BoardPerfOverlay";
 import { AnchorOverlay } from "./AnchorOverlay";
 import { MiniMap } from "./MiniMap";
 import { getClipboardInsertPayload } from "../engine/clipboard";
 import {
   MultiSelectionOutline,
   MultiSelectionToolbar,
+  SingleSelectionResizeHandle,
   SingleSelectionToolbar,
 } from "./SelectionOverlay";
 import { NodePicker } from "./NodePicker";
@@ -71,6 +78,11 @@ const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
 const IMAGE_DROP_STACK_OFFSET = 24;
 /** Prefix used for board-relative tenas-file paths. */
 const BOARD_RELATIVE_URI_PREFIX = "tenas-file://./";
+const EDITABLE_NODE_TYPES = new Set([
+  "text",
+  IMAGE_GENERATE_NODE_TYPE,
+  IMAGE_PROMPT_GENERATE_NODE_TYPE,
+]);
 
 /** Normalize a relative path string. */
 function normalizeRelativePath(value: string) {
@@ -668,6 +680,17 @@ export function BoardCanvas({
     };
   }, []);
 
+  useEffect(() => {
+    if (!snapshot.editingNodeId) return;
+    const exists = snapshot.elements.some(
+      (element) => element.id === snapshot.editingNodeId
+    );
+    if (!exists) {
+      // 逻辑：编辑节点被删除时清理编辑态。
+      engine.setEditingNodeId(null);
+    }
+  }, [engine, snapshot.editingNodeId, snapshot.elements]);
+
   /** Open the fullscreen image preview overlay. */
   const openImagePreview = useCallback((payload: ImagePreviewPayload) => {
     // 逻辑：节点请求预览时直接替换当前预览数据。
@@ -685,6 +708,56 @@ export function BoardCanvas({
       closeImagePreview,
     }),
     [closeImagePreview, openImagePreview]
+  );
+
+  /** Open image preview for an image node. */
+  const openImagePreviewFromNode = useCallback(
+    (element: CanvasNodeElement) => {
+      if (element.type !== "image") return;
+      const props = element.props as ImageNodeProps;
+      const originalSrc = props.originalSrc || "";
+      const previewSrc = props.previewSrc || "";
+      const isRelativeTenas = originalSrc.startsWith("tenas-file://./");
+      const canUseOriginal =
+        !isRelativeTenas &&
+        (originalSrc.startsWith("tenas-file://") ||
+          originalSrc.startsWith("data:") ||
+          originalSrc.startsWith("blob:") ||
+          originalSrc.startsWith("file://"));
+      const resolvedOriginal = canUseOriginal ? originalSrc : "";
+      if (!resolvedOriginal && !previewSrc) return;
+      openImagePreview({
+        originalSrc: resolvedOriginal,
+        previewSrc,
+        fileName: props.fileName || "Image",
+        mimeType: props.mimeType,
+      });
+    },
+    [openImagePreview]
+  );
+
+  /** Handle node double click actions. */
+  const handleNodeDoubleClick = useCallback(
+    (element: CanvasNodeElement) => {
+      if (element.type === "link") {
+        const props = element.props as LinkNodeProps;
+        openLinkInStackAction({
+          url: props.url,
+          title: resolveLinkTitle(props.url, props.title),
+        });
+        return;
+      }
+      if (element.type === "image") {
+        engine.setEditingNodeId(element.id);
+        openImagePreviewFromNode(element);
+        return;
+      }
+      if (EDITABLE_NODE_TYPES.has(element.type)) {
+        engine.selection.setSelection([element.id]);
+        engine.setEditingNodeId(element.id);
+      }
+    },
+    [engine, openImagePreviewFromNode]
   );
   /** Apply a snapshot into the engine state. */
   const applySnapshot = useCallback(
@@ -1236,6 +1309,22 @@ export function BoardCanvas({
             lastPointerWorldRef.current = worldPoint;
           }
           const hitElement = worldPoint ? engine.pickElementAt(worldPoint) : null;
+          const isUiTarget = target
+            ? isBoardUiTarget(target, [
+                "[data-connector-drop-panel]",
+                "[data-resize-handle]",
+                "[data-multi-resize-handle]",
+              ])
+            : false;
+          if (snapshot.editingNodeId && !isUiTarget) {
+            const isEditingTarget =
+              hitElement?.kind === "node" &&
+              hitElement.id === snapshot.editingNodeId;
+            if (!isEditingTarget) {
+              // 逻辑：点击编辑节点外部时退出编辑态。
+              engine.setEditingNodeId(null);
+            }
+          }
           const shouldClear =
             snapshot.activeToolId === "select" &&
             !snapshot.pendingInsert &&
@@ -1243,10 +1332,8 @@ export function BoardCanvas({
             !event.shiftKey &&
             target &&
             hitElement?.kind !== "connector" &&
-            !isBoardUiTarget(target, [
-              "[data-board-node]",
-              "[data-connector-drop-panel]",
-            ]);
+            hitElement?.kind !== "node" &&
+            !isUiTarget;
           if (shouldClear) {
             // 逻辑：空白点击时清空选区，避免残留高亮。
             engine.selection.clear();
@@ -1265,12 +1352,7 @@ export function BoardCanvas({
           if (snapshot.activeToolId !== "select") return;
           if (snapshot.pendingInsert || snapshot.toolbarDragging) return;
           if (engine.isLocked()) return;
-          if (
-            isBoardUiTarget(target, [
-              "[data-board-node]",
-              "[data-connector-drop-panel]",
-            ])
-          ) {
+          if (isBoardUiTarget(target, ["[data-connector-drop-panel]"])) {
             return;
           }
           const rect = containerRef.current?.getBoundingClientRect();
@@ -1280,10 +1362,14 @@ export function BoardCanvas({
             event.clientY - rect.top,
           ]);
           const hitElement = engine.pickElementAt(worldPoint);
+          if (hitElement?.kind === "node") {
+            handleNodeDoubleClick(hitElement);
+            return;
+          }
           if (hitElement) return;
           const [width, height] = TEXT_NODE_DEFAULT_SIZE;
           // 逻辑：双击空白处创建文本节点并立即进入编辑。
-          engine.addNodeElement(
+          const newNodeId = engine.addNodeElement(
             "text",
             {
               autoFocus: true,
@@ -1296,6 +1382,9 @@ export function BoardCanvas({
               height,
             ]
           );
+          if (newNodeId) {
+            engine.setEditingNodeId(newNodeId);
+          }
         }}
       >
         <div
@@ -1332,6 +1421,13 @@ export function BoardCanvas({
           />
         ) : null}
         {showUi ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
+        {showUi && selectedNode ? (
+          <SingleSelectionResizeHandle
+            snapshot={snapshot}
+            engine={engine}
+            element={selectedNode}
+          />
+        ) : null}
         {showUi && selectedNode ? (
           <SingleSelectionToolbar
             snapshot={snapshot}

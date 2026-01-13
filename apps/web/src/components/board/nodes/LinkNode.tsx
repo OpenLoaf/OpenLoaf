@@ -3,26 +3,10 @@ import type {
   CanvasNodeViewProps,
   CanvasToolbarContext,
 } from "../engine/types";
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { z } from "zod";
 import { Copy, ExternalLink, RotateCw } from "lucide-react";
-import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID, useTabs } from "@/hooks/use-tabs";
-
-/** Create a unique browser sub-tab id. */
-function createBrowserTabId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
-
-/** Build the browser view key for stack entries. */
-function buildBrowserViewKey(input: {
-  workspaceId: string;
-  tabId: string;
-  chatSessionId: string;
-  browserTabId: string;
-}) {
-  return `browser:${input.workspaceId}:${input.tabId}:${input.chatSessionId}:${input.browserTabId}`;
-}
+import { openLinkInStack as openLinkInStackAction } from "./lib/link-actions";
 
 export type LinkNodeProps = {
   /** Destination URL. */
@@ -47,12 +31,7 @@ function createLinkToolbarItems(ctx: CanvasToolbarContext<LinkNodeProps>) {
       label: "打开",
       icon: <ExternalLink size={14} />,
       onSelect: () => {
-        if (typeof window !== "undefined") {
-          const openEvent = new CustomEvent("board-link-open", {
-            detail: { id: ctx.element.id },
-          });
-          window.dispatchEvent(openEvent);
-        }
+        openLinkInStackAction({ url: ctx.element.props.url, title: ctx.element.props.title });
       },
     },
     {
@@ -60,12 +39,7 @@ function createLinkToolbarItems(ctx: CanvasToolbarContext<LinkNodeProps>) {
       label: "刷新",
       icon: <RotateCw size={14} />,
       onSelect: () => {
-        if (typeof window !== "undefined") {
-          const refreshEvent = new CustomEvent("board-link-refresh", {
-            detail: { id: ctx.element.id },
-          });
-          window.dispatchEvent(refreshEvent);
-        }
+        // 逻辑：暂时关闭远端预览更新，忽略刷新请求。
       },
     },
     {
@@ -115,60 +89,10 @@ export function LinkNodeView({
   }
   const displayTitle = title || displayHost || url;
   const previewSrc = imageSrc || logoSrc;
-  /** Active tab id used for stack operations. */
-  const activeTabId = useTabs((state) => state.activeTabId);
-
   /** Open the link in the current tab's browser stack. */
   const openLinkInStack = useCallback(() => {
-    if (!url) return;
-    const state = useTabs.getState();
-    const tabId = activeTabId ?? state.activeTabId;
-    if (!tabId) return;
-    const tab = state.getTabById(tabId);
-    if (!tab) return;
-
-    const viewKey = buildBrowserViewKey({
-      workspaceId: tab.workspaceId ?? "unknown",
-      tabId,
-      chatSessionId: tab.chatSessionId ?? "unknown",
-      browserTabId: createBrowserTabId(),
-    });
-
-    // 逻辑：双击链接节点时在当前 tab 打开浏览器 stack。
-    state.pushStackItem(
-      tabId,
-      {
-        component: BROWSER_WINDOW_COMPONENT,
-        id: BROWSER_WINDOW_PANEL_ID,
-        sourceKey: BROWSER_WINDOW_PANEL_ID,
-        params: { __customHeader: true, __open: { url, title: displayTitle, viewKey } },
-      } as any,
-      100
-    );
-  }, [activeTabId, displayTitle, url]);
-
-  useEffect(() => {
-    if (!url) return;
-    /** Listen for manual refresh requests. */
-    const handleRefresh = (event: Event) => {
-      const detail = (event as CustomEvent<{ id?: string }>).detail;
-      if (!detail?.id || detail.id !== element.id) return;
-      // 逻辑：暂时关闭远端预览更新，忽略刷新请求。
-    };
-    /** Listen for manual open requests. */
-    const handleOpen = (event: Event) => {
-      const detail = (event as CustomEvent<{ id?: string }>).detail;
-      if (!detail?.id || detail.id !== element.id) return;
-      // 逻辑：响应工具栏打开事件，复用双击逻辑。
-      openLinkInStack();
-    };
-    window.addEventListener("board-link-refresh", handleRefresh);
-    window.addEventListener("board-link-open", handleOpen);
-    return () => {
-      window.removeEventListener("board-link-refresh", handleRefresh);
-      window.removeEventListener("board-link-open", handleOpen);
-    };
-  }, [url, element.id, openLinkInStack]);
+    openLinkInStackAction({ url, title: displayTitle });
+  }, [displayTitle, url]);
 
   return (
     <div

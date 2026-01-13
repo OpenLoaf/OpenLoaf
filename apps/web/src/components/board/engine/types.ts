@@ -240,6 +240,8 @@ export type CanvasSnapshot = {
   elements: CanvasElement[];
   /** Selected element ids. */
   selectedIds: string[];
+  /** Node id currently in edit mode. */
+  editingNodeId: string | null;
   /** Current viewport state. */
   viewport: CanvasViewportState;
   /** Anchor map used for rendering connectors. */
@@ -286,6 +288,8 @@ export type CanvasNodeViewProps<P> = {
   element: CanvasNodeElement<P>;
   /** Current selection state for the node. */
   selected: boolean;
+  /** Whether the node is in edit mode. */
+  editing?: boolean;
   /** Request selecting this node. */
   onSelect: () => void;
   /** Request updating node props. */

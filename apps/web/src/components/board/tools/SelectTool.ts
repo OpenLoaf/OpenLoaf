@@ -89,16 +89,7 @@ export class SelectTool implements CanvasTool {
         return;
       }
     }
-    const resolveNodeTarget = (target: EventTarget | null) => {
-      const element =
-        target instanceof Element
-          ? target
-          : target instanceof Node
-            ? target.parentElement
-            : null;
-      return element?.closest("[data-board-node]") ?? null;
-    };
-    const isNodeTarget = Boolean(resolveNodeTarget(ctx.event.target));
+    const isNodeTarget = ctx.engine.pickElementAt(ctx.worldPoint)?.kind === "node";
     if (!isNodeTarget) {
       // 逻辑：非节点区域才阻止默认事件，避免干扰节点自身双击等交互。
       ctx.event.preventDefault();
