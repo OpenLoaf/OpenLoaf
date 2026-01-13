@@ -1,5 +1,17 @@
 import { openUrlTool } from "@/ai/tools/ui/openUrl";
-import { timeNowTool } from "@/ai/tools/system/timeNow";
+import {
+  fileDeleteTool,
+  fileListTool,
+  fileReadTool,
+  fileSearchTool,
+  fileWriteTool,
+  shellDestructiveTool,
+  shellReadonlyTool,
+  shellWriteTool,
+  timeNowTool,
+  webFetchTool,
+  webSearchTool,
+} from "@/ai/tools/system/systemTools";
 import { testApprovalTool } from "@/ai/tools/test/testApprovalTool";
 import { subAgentTool } from "@/ai/tools/delegation/subAgentTool";
 import { resolveNeedsApproval, type ToolPolicyMeta } from "@/ai/registry/policies";
@@ -11,9 +23,23 @@ import {
   browserSnapshotToolDef,
   browserWaitToolDef,
 } from "@tenas-ai/api/types/tools/browserAutomation";
-import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
+import {
+  fileDeleteToolDef,
+  fileListToolDef,
+  fileReadToolDef,
+  fileSearchToolDef,
+  fileWriteToolDef,
+  shellDestructiveToolDef,
+  shellReadonlyToolDef,
+  shellWriteToolDef,
+  systemToolMeta,
+  timeNowToolDef,
+  webFetchToolDef,
+  webSearchToolDef,
+} from "@tenas-ai/api/types/tools/system";
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
+import { RiskType } from "@tenas-ai/api/types/toolResult";
 import {
   browserActTool,
   browserExtractTool,
@@ -27,11 +53,34 @@ type ToolEntry = {
   meta?: ToolPolicyMeta;
 };
 
+/** Build a tool entry from system tool meta. */
+function buildSystemToolEntry(toolId: string, tool: any): ToolEntry {
+  const riskType = (systemToolMeta as Record<string, { riskType: RiskType }>)[toolId]?.riskType;
+  return {
+    tool,
+    meta: {
+      riskType,
+      // 逻辑：读操作无需审批，写入与破坏性操作需要审批。
+      needsApproval: riskType === RiskType.Write || riskType === RiskType.Destructive,
+    },
+  };
+}
+
 const TOOL_REGISTRY: Record<string, ToolEntry> = {
-  [timeNowToolDef.id]: {
-    tool: timeNowTool,
-    meta: { needsApproval: false },
-  },
+  [timeNowToolDef.id]: buildSystemToolEntry(timeNowToolDef.id, timeNowTool),
+  [fileReadToolDef.id]: buildSystemToolEntry(fileReadToolDef.id, fileReadTool),
+  [fileListToolDef.id]: buildSystemToolEntry(fileListToolDef.id, fileListTool),
+  [fileSearchToolDef.id]: buildSystemToolEntry(fileSearchToolDef.id, fileSearchTool),
+  [fileWriteToolDef.id]: buildSystemToolEntry(fileWriteToolDef.id, fileWriteTool),
+  [fileDeleteToolDef.id]: buildSystemToolEntry(fileDeleteToolDef.id, fileDeleteTool),
+  [shellReadonlyToolDef.id]: buildSystemToolEntry(shellReadonlyToolDef.id, shellReadonlyTool),
+  [shellWriteToolDef.id]: buildSystemToolEntry(shellWriteToolDef.id, shellWriteTool),
+  [shellDestructiveToolDef.id]: buildSystemToolEntry(
+    shellDestructiveToolDef.id,
+    shellDestructiveTool,
+  ),
+  [webFetchToolDef.id]: buildSystemToolEntry(webFetchToolDef.id, webFetchTool),
+  [webSearchToolDef.id]: buildSystemToolEntry(webSearchToolDef.id, webSearchTool),
   [openUrlToolDef.id]: {
     tool: openUrlTool,
     meta: { needsApproval: false },

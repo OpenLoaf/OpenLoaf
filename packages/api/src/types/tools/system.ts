@@ -1,68 +1,134 @@
 import { z } from "zod";
 import { RiskType } from "../toolResult";
 
+/** File read tool definition. */
 export const fileReadToolDef = {
   id: "file-read",
   description:
-    "读取指定文件的内容，返回UTF-8编码的文本。适用于需要访问项目内提示词、模板或文档片段的场景。仅允许读取白名单目录下的文件，并有文件大小限制。",
+    "读取指定文件的文本内容（UTF-8）。仅允许访问当前 projectId 对应的项目目录内路径。",
   parameters: z.object({
     path: z
       .string()
-      .describe(
-        "文件路径（相对或绝对）。仅允许访问白名单目录：apps/server/src/chat、apps/server/prompts、docs。",
-      ),
+      .describe("文件路径（相对项目根目录或 tenas-file://{projectId}/...）。"),
   }),
   component: null,
 } as const;
 
+/** File list tool definition. */
+export const fileListToolDef = {
+  id: "file-list",
+  description:
+    "列出指定目录的文件与子目录，仅允许访问当前 projectId 对应的项目目录内路径。",
+  parameters: z.object({
+    path: z
+      .string()
+      .optional()
+      .describe("目录路径（相对项目根目录或 tenas-file://{projectId}/...）。默认项目根。"),
+  }),
+  component: null,
+} as const;
+
+/** File search tool definition. */
+export const fileSearchToolDef = {
+  id: "file-search",
+  description:
+    "在项目目录内搜索文本内容，返回匹配的文件路径列表。",
+  parameters: z.object({
+    query: z.string().describe("搜索关键词（纯文本匹配）。"),
+    path: z
+      .string()
+      .optional()
+      .describe("搜索根目录（相对项目根目录或 tenas-file://{projectId}/...）。默认项目根。"),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe("返回条数上限（默认 50）。"),
+  }),
+  component: null,
+} as const;
+
+/** File write tool definition. */
+export const fileWriteToolDef = {
+  id: "file-write",
+  description:
+    "写入文本内容到指定文件路径（可覆盖或追加），仅允许访问当前 projectId 对应的项目目录内路径。",
+  parameters: z.object({
+    path: z
+      .string()
+      .describe("文件路径（相对项目根目录或 tenas-file://{projectId}/...）。"),
+    content: z.string().describe("要写入的文本内容。"),
+    mode: z
+      .enum(["overwrite", "append"])
+      .optional()
+      .describe("写入模式：overwrite 或 append（默认 overwrite）。"),
+  }),
+  component: null,
+} as const;
+
+/** File delete tool definition. */
+export const fileDeleteToolDef = {
+  id: "file-delete",
+  description:
+    "删除指定文件（不支持删除目录），仅允许访问当前 projectId 对应的项目目录内路径。",
+  parameters: z.object({
+    path: z
+      .string()
+      .describe("文件路径（相对项目根目录或 tenas-file://{projectId}/...）。"),
+  }),
+  component: null,
+} as const;
+
+/** Shell readonly tool definition. */
 export const shellReadonlyToolDef = {
   id: "shell-readonly",
   description:
-    "执行只读 shell 命令并返回输出，适用于获取系统信息、查看文件列表、查看当前目录等场景。仅允许执行安全的只读命令，包括 date、uname、whoami、pwd、ls，禁止使用管道、重定向等复杂操作。",
+    "执行只读 shell 命令并返回输出（MVP：仅允许 date、uname、whoami、pwd、ls）。",
   parameters: z.object({
     cmd: z
       .string()
-      .describe(
-        "要执行的命令。仅允许：date、uname、whoami、pwd、ls。禁止 | ; && > 等复杂操作。",
-      ),
+      .describe("要执行的命令。仅允许：date、uname、whoami、pwd、ls。"),
   }),
   component: null,
 } as const;
 
-/**
- * Shell 工具命令白名单（MVP）
- * - 说明：这里的配置作为“单一事实来源”，供 server 执行校验与 web 设置页展示共用。
- */
-export const shellReadonlyAllowNoArgs = [
-  "date",
-  "uname",
-  "whoami",
-  "pwd",
-] as const;
+/** Shell write tool definition. */
+export const shellWriteToolDef = {
+  id: "shell-write",
+  description:
+    "执行会修改文件系统的命令（MVP：仅支持 mkdir <path>）。",
+  parameters: z.object({
+    cmd: z.string().describe("要执行的命令。仅支持：mkdir <path>。"),
+  }),
+  component: null,
+} as const;
 
-export const shellReadonlyLsAllowedFlags = ["-l", "-a", "-la"] as const;
-
-export const shellReadonlyLsAllowedRoots = [
-  "apps/server/src/chat",
-  "apps/server/prompts",
-  "docs",
-] as const;
-
-export const shellWriteAllowedCommand = "mkdir" as const;
-export const shellWriteAllowedRoots = ["apps/server/src/chat"] as const;
-
-export const shellDestructiveAllowedCommand = "rm" as const;
-export const shellDestructiveAllowedRoots = ["apps/server/src/chat"] as const;
+/** Shell destructive tool definition. */
+export const shellDestructiveToolDef = {
+  id: "shell-destructive",
+  description:
+    "执行破坏性命令（MVP：仅支持 rm <file>，且不能删除目录）。",
+  parameters: z.object({
+    cmd: z.string().describe("要执行的命令。仅支持：rm <file>。"),
+  }),
+  component: null,
+} as const;
 
 export type ShellCommandAllowlistEntry = {
+  /** Entry id. */
   id: string;
+  /** Command display text. */
   command: string;
+  /** Risk type for UI. */
   riskType: RiskType;
+  /** Human-readable description. */
   description: string;
 };
 
 /**
- * 用于 UI 展示的白名单列表（MVP）
+ * Shell 工具命令白名单（用于 UI 展示）
  * - 说明：该列表是“人类可读”的摘要，详细规则以 server 校验逻辑为准。
  */
 export const shellCommandAllowlistEntries = [
@@ -70,79 +136,45 @@ export const shellCommandAllowlistEntries = [
     id: "date",
     command: "date",
     riskType: RiskType.Read,
-    description: "获取当前时间（MVP：不允许带参数）。",
+    description: "获取当前时间。",
   },
   {
     id: "uname",
     command: "uname",
     riskType: RiskType.Read,
-    description: "获取系统信息（MVP：不允许带参数）。",
+    description: "获取系统信息。",
   },
   {
     id: "whoami",
     command: "whoami",
     riskType: RiskType.Read,
-    description: "获取当前用户（MVP：不允许带参数）。",
+    description: "获取当前用户。",
   },
   {
     id: "pwd",
     command: "pwd",
     riskType: RiskType.Read,
-    description: "获取当前工作目录（MVP：不允许带参数）。",
+    description: "获取项目根目录路径。",
   },
   {
     id: "ls",
-    command: "ls",
+    command: "ls <path>",
     riskType: RiskType.Read,
-    description: `列出文件列表（允许参数：${shellReadonlyLsAllowedFlags.join(
-      ", ",
-    )}；仅允许访问目录：${shellReadonlyLsAllowedRoots.join(", ")}）。`,
+    description: "列出指定目录的文件（仅允许项目内路径）。",
   },
   {
     id: "mkdir",
     command: "mkdir <path>",
     riskType: RiskType.Write,
-    description: `创建目录（需要审批；仅允许在目录：${shellWriteAllowedRoots.join(
-      ", ",
-    )}）。`,
+    description: "创建目录（需要审批，仅允许项目内路径）。",
   },
   {
     id: "rm",
     command: "rm <file>",
     riskType: RiskType.Destructive,
-    description: `删除文件（需要审批；仅允许在目录：${shellDestructiveAllowedRoots.join(
-      ", ",
-    )}；MVP：只能删除文件，不能删除目录）。`,
+    description: "删除文件（需要审批，仅允许项目内路径）。",
   },
 ] as const satisfies ReadonlyArray<ShellCommandAllowlistEntry>;
-
-export const shellWriteToolDef = {
-  id: "shell-write",
-  description:
-    "执行可能修改文件系统的命令，需要审批。适用于创建目录等场景。当前仅支持 mkdir <path> 命令，且路径必须在白名单目录内。",
-  parameters: z.object({
-    cmd: z
-      .string()
-      .describe(
-        "要执行的命令。当前仅支持：mkdir <path>。路径必须在白名单目录内。",
-      ),
-  }),
-  component: null,
-} as const;
-
-export const shellDestructiveToolDef = {
-  id: "shell-destructive",
-  description:
-    "执行破坏性命令，需要审批。适用于删除文件等场景。当前仅支持 rm <file> 命令，且路径必须在白名单目录内，只能删除文件，不能删除目录。",
-  parameters: z.object({
-    cmd: z
-      .string()
-      .describe(
-        "要执行的命令。当前仅支持：rm <file>。路径必须在白名单目录内，且只能删除文件。",
-      ),
-  }),
-  component: null,
-} as const;
 
 export const timeNowToolDef = {
   id: "time-now",
@@ -195,7 +227,11 @@ export const systemToolMeta = {
   [webFetchToolDef.id]: { riskType: RiskType.Read },
   [webSearchToolDef.id]: { riskType: RiskType.Read },
   [fileReadToolDef.id]: { riskType: RiskType.Read },
+  [fileListToolDef.id]: { riskType: RiskType.Read },
+  [fileSearchToolDef.id]: { riskType: RiskType.Read },
   [shellReadonlyToolDef.id]: { riskType: RiskType.Read },
+  [fileWriteToolDef.id]: { riskType: RiskType.Write },
   [shellWriteToolDef.id]: { riskType: RiskType.Write },
+  [fileDeleteToolDef.id]: { riskType: RiskType.Destructive },
   [shellDestructiveToolDef.id]: { riskType: RiskType.Destructive },
 } as const;

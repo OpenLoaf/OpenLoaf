@@ -10,7 +10,7 @@
 - `projectId` 只允许从 `apps/server/src/ai/chat-stream/requestContext.ts` 获取。
 - `tenas-file://` 仅允许解析为当前 `projectId`。
 - 访问路径必须落在 `getProjectRootPath(projectId)` 返回的根目录内。
-- 默认拒绝 `.tenas`、`.git`、`node_modules` 等敏感目录。
+- 搜索工具默认跳过 `.tenas`、`.git`、`node_modules` 等目录。
 
 ## 架构设计
 ### 1. 定义层（单一事实来源）
@@ -25,8 +25,8 @@
 - 说明：`toolRegistry` 只允许引用 ToolDef.id，不手写字符串。
 
 ### 3. 执行层（工具实现）
-- 位置：`apps/server/src/ai/tools/system/*.ts`
-- 每个工具使用 `tool()` + `zodSchema()`，并返回 `SystemToolResult<T>`。
+- 位置：`apps/server/src/ai/tools/system/systemTools.ts`
+- 每个工具使用 `tool()` + `zodSchema()`，返回 `{ ok: true, data: ... }`。
 
 ### 4. 上下文层（projectId 来源）
 - 位置：`apps/server/src/ai/chat-stream/requestContext.ts`
@@ -47,8 +47,7 @@
 建议新增统一 helper：`apps/server/src/ai/tools/system/projectPath.ts`
 
 #### 输入
-- `path?: string`（相对路径）
-- `uri?: string`（`tenas-file://{projectId}/...`）
+- `path: string`（相对路径或 `tenas-file://{projectId}/...`）
 
 #### 输出
 - `projectId`
@@ -59,32 +58,31 @@
 #### 逻辑步骤
 1. 读取 `projectId = getProjectId()`，为空直接报错。
 2. `rootPath = getProjectRootPath(projectId)`，为空报错。
-3. 若传 `uri`：
-   - 解析 `tenas-file://{projectId}/...`。
+3. 若传 `tenas-file://`：
+   - 解析 `tenas-file://{projectId}/...` 或 `tenas-file://./...`。
    - 若 `projectId` 不一致则拒绝。
    - 取出相对路径。
-4. 若传 `path`：
-   - 禁止绝对路径与空路径。
-5. `absPath = path.resolve(rootPath, relativePath)`。
+4. 若传相对路径：`absPath = path.resolve(rootPath, path)`。
+5. 若传绝对路径：先 `path.resolve`，再校验在 `rootPath` 内。
 6. 校验 `absPath` 必须位于 `rootPath` 内（防止 `..` 越界）。
-7. 过滤敏感目录（默认拒绝 `.tenas/.git/node_modules` 等）。
 
 ### B. 文件工具逻辑
 #### file-read
-- 参数：`path?` / `uri?` / `offset?` / `limit?`
-- 行数/字节上限，超出时截断并返回提示。
+- 参数：`path`
+- 有字节上限（默认 256KB），超出时直接报错。
 
 #### file-list
-- 参数：`path?` / `includeHidden?` / `maxDepth?`
-- 仅允许列出项目内目录，默认过滤隐藏与敏感目录。
+- 参数：`path?`
+- 列出当前目录的一级文件与子目录。
 
 #### file-search
 - 参数：`path?` / `query` / `limit?`
-- 建议使用 ripgrep，返回匹配的文件与行号摘要。
+- 广度遍历目录树（深度默认 12），跳过 `.git/.tenas/node_modules`。
+- 文件名或内容包含关键字即命中，返回相对路径列表。
 
-#### file-write / file-patch
-- 需审批（write）。
-- 禁止写入隐藏目录与敏感目录。
+#### file-write
+- 参数：`path` / `content` / `mode?`
+- 需审批（write），写入前自动创建目录。
 
 #### file-delete
 - 需审批（destructive）。
@@ -105,11 +103,11 @@
 #### web-fetch
 - 仅允许 http/https。
 - 限制最大响应大小、超时。
-- 可选 markdown/text/html 输出。
+- 返回原始文本内容。
 
 #### web-search
 - 支持 query + limit。
-- 通过服务配置的搜索提供方执行。
+- 通过 DuckDuckGo JSON 接口执行（MVP）。
 
 ## 工具清单（建议）
 | Tool ID | 风险 | 说明 |
@@ -119,7 +117,6 @@
 | file-list | read | 列出目录 |
 | file-search | read | 搜索文件内容 |
 | file-write | write | 写入文件 |
-| file-patch | write | 应用补丁 |
 | file-delete | destructive | 删除文件 |
 | shell-readonly | read | 只读 shell |
 | shell-write | write | mkdir |
@@ -133,23 +130,12 @@
 - write/destructive 必须审批，read 默认不需要。
 
 ## 输出结构
-- 所有 system tools 统一返回：`SystemToolResult<T>`。
-- error 必须携带 `riskType` 与 `code`。
+- 所有 system tools 返回 `{ ok: true, data: ... }`。
+- 失败时直接抛错，由上层统一处理。
 
 示例：
 ```json
 { "ok": true, "data": { "content": "..." } }
-```
-
-```json
-{
-  "ok": false,
-  "error": {
-    "code": "INVALID_INPUT",
-    "message": "path is required",
-    "riskType": "read"
-  }
-}
 ```
 
 ## 安全边界检查清单
@@ -164,5 +150,5 @@
 1. 新增 `projectPath` helper 并覆盖所有 file/shell 工具。
 2. 补齐 system tools 实现（read/list/search/write/patch/delete/web/shell）。
 3. 更新 ToolDef 参数（移除 projectId）。
-4. 注册 toolRegistry + toolPacks。
+4. 注册 toolRegistry 并在 MasterAgent 中配置工具列表。
 5. 补充单测与手工验证清单。
