@@ -270,6 +270,11 @@ export function BoardCanvas({
   const [localLoaded, setLocalLoaded] = useState(false);
   /** Last pointer location inside the canvas, in world coordinates. */
   const lastPointerWorldRef = useRef<CanvasPoint | null>(null);
+  /** Track wheel gesture target to avoid mid-gesture handoff. */
+  const wheelGestureRef = useRef<{
+    mode: "canvas" | "scroll" | null;
+    ts: number;
+  }>({ mode: null, ts: 0 });
   /** Last viewport snapshot to detect changes. */
   const lastViewportRef = useRef(snapshot.viewport);
   /** Last panning state to detect transitions. */
@@ -608,7 +613,32 @@ export function BoardCanvas({
     const handleWheelCapture = (event: WheelEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
-      if (!target.closest("[data-board-scroll]")) return;
+      const scrollTarget = target.closest("[data-board-scroll]") as HTMLElement | null;
+      const now = performance.now();
+      if (!scrollTarget) {
+        wheelGestureRef.current = { mode: "canvas", ts: now };
+        return;
+      }
+      if (event.ctrlKey || event.metaKey) {
+        // 逻辑：缩放手势统一交给画布处理。
+        wheelGestureRef.current = { mode: "canvas", ts: now };
+        return;
+      }
+      const isScrollable =
+        scrollTarget.scrollHeight > scrollTarget.clientHeight ||
+        scrollTarget.scrollWidth > scrollTarget.clientWidth;
+      if (!isScrollable) {
+        wheelGestureRef.current = { mode: "canvas", ts: now };
+        return;
+      }
+      const lastGesture = wheelGestureRef.current;
+      const withinGesture = now - lastGesture.ts < 160;
+      const mode = withinGesture ? lastGesture.mode : "scroll";
+      if (mode === "canvas") {
+        wheelGestureRef.current = { mode: "canvas", ts: now };
+        return;
+      }
+      wheelGestureRef.current = { mode: "scroll", ts: now };
       // 逻辑：滚动区域内的滚轮不驱动画布。
       event.stopPropagation();
     };

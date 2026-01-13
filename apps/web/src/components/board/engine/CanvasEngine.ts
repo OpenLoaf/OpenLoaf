@@ -1261,7 +1261,6 @@ export class CanvasEngine {
       ignoreSelectors: [
         "[data-canvas-toolbar]",
         "[data-board-controls]",
-        "[data-board-scroll]",
       ],
       onPan: (dx, dy) => this.panViewportBy(dx, dy),
     });
