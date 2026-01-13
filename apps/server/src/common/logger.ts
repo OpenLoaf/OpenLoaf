@@ -19,7 +19,7 @@ const isDevelopment = process.env.NODE_ENV !== "production";
 
 const baseOptions = {
   level,
-  base: { service: "tenas-server" },
+  base: null,
   timestamp: pino.stdTimeFunctions.isoTime,
   mixin() {
     const ctx = getRequestContext();
@@ -38,7 +38,7 @@ export const logger = pino(
           target: "pino-pretty",
           options: {
             colorize: true,
-            translateTime: "HH:MM:ss",
+            translateTime: "SYS:HH:mm:ss",
             ignore: "pid,hostname",
             singleLine: false,
           },

@@ -5,7 +5,7 @@ import type {
 } from "../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { Copy, Play, RotateCcw, Square, Sparkles } from "lucide-react";
+import { Copy, Play, RotateCcw, Square } from "lucide-react";
 import { generateId } from "ai";
 
 import { useBoardContext } from "../core/BoardProvider";
@@ -101,7 +101,15 @@ const IMAGE_PROMPT_GENERATE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefiniti
     label: "图片生成",
     description: "基于提示词与图片生成新图",
     size: [320, 260],
-    icon: <Sparkles size={14} />,
+    icon: (
+      <img
+        src="/board/text-font-svgrepo-com.svg"
+        alt=""
+        aria-hidden="true"
+        className="h-4 w-4"
+        draggable={false}
+      />
+    ),
     createNode: () => ({
       type: IMAGE_GENERATE_NODE_TYPE,
       props: {},
@@ -352,20 +360,6 @@ export function ImagePromptGenerateNodeView({
     return "idle";
   }, [candidates.length, errorText, hasValidInput, isRunning, resultText]);
 
-  /** Short status label for the badge and header. */
-  const statusLabel =
-    viewStatus === "running"
-      ? "生成中…"
-      : viewStatus === "done"
-        ? "已完成"
-        : viewStatus === "error"
-          ? "生成失败"
-          : viewStatus === "needs_model"
-            ? "需要配置模型"
-            : viewStatus === "needs_input"
-              ? "需要连接图片输入"
-              : "待运行";
-
   const containerClassName = [
     "relative flex w-full flex-col gap-2 rounded-xl border border-slate-200/80 bg-background/95 p-3 text-slate-700 backdrop-blur",
     "bg-[radial-gradient(180px_circle_at_top_right,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_15%_85%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
@@ -379,27 +373,6 @@ export function ImagePromptGenerateNodeView({
       ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"
       : "",
   ].join(" ");
-
-  /** Status hint text shown beneath controls. */
-  const statusHint = useMemo(() => {
-    if (viewStatus === "needs_input") {
-      return { tone: "warn", text: "需要连接一张可用图片后才能生成提示词。" };
-    }
-    if (viewStatus === "needs_model") {
-      return {
-        tone: "warn",
-        text: "未找到支持「图片输入 + 文本生成」的模型，请先在设置中配置。",
-      };
-    }
-    if (viewStatus === "error") {
-      return { tone: "error", text: errorText || "生成提示词失败，请重试。" };
-    }
-    if (viewStatus === "running") {
-      return { tone: "info", text: "正在生成提示词，请稍等…" };
-    }
-    if (viewStatus === "done") return null;
-    return { tone: "info", text: "准备就绪，点击运行即可生成提示词。" };
-  }, [errorText, viewStatus]);
 
   const handleCopyResult = useCallback(async () => {
     if (!resultText) return;
@@ -436,31 +409,22 @@ export function ImagePromptGenerateNodeView({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-            <Sparkles size={14} />
+            <img
+              src="/board/text-font-svgrepo-com.svg"
+              alt=""
+              aria-hidden="true"
+              className="h-4 w-4"
+              draggable={false}
+            />
           </span>
           <div className="min-w-0">
-            <div className="text-[12px] font-semibold leading-4">图片提示词</div>
+            <div className="text-[12px] font-semibold leading-4">图生文</div>
             <div className="mt-0.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
-              {statusLabel}
+              描述：根据图片生成文字内容
             </div>
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {resultText ? (
-            <button
-              type="button"
-              className="rounded-md border border-slate-200/70 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 dark:border-slate-700/70 dark:text-slate-200 dark:hover:bg-slate-800"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-              }}
-              onClick={handleCopyResult}
-            >
-              <span className="inline-flex items-center gap-1">
-                <Copy size={12} />
-                复制
-              </span>
-            </button>
-          ) : null}
           {viewStatus === "running" ? (
             <button
               type="button"
@@ -540,28 +504,34 @@ export function ImagePromptGenerateNodeView({
         </div>
       </div>
 
-      {statusHint ? (
-        <div
-          className={[
-            "rounded-md border px-2 py-1 text-[11px] leading-4",
-            statusHint.tone === "error"
-              ? "border-rose-200/70 bg-rose-50 text-rose-600 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-              : statusHint.tone === "warn"
-                ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
-                : "border-sky-200/70 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-200",
-          ].join(" ")}
-        >
-          {statusHint.text}
-        </div>
-      ) : null}
-
       {resultText ? (
-        <div
-          data-board-scroll
-          className="show-scrollbar rounded-md border border-slate-200/70 p-2 text-[11px] leading-4 text-slate-700 dark:border-slate-700/70 dark:text-slate-200 overflow-y-auto"
-          style={{ maxHeight: IMAGE_PROMPT_GENERATE_RESULT_MAX_HEIGHT }}
-        >
-          <pre className="whitespace-pre-wrap break-words font-sans">{resultText}</pre>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+              图片内容
+            </div>
+            <button
+              type="button"
+              className="rounded-md px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={handleCopyResult}
+            >
+              <span className="inline-flex items-center gap-1">
+                <Copy size={10} />
+              </span>
+            </button>
+          </div>
+          <div
+            data-board-scroll
+            className="show-scrollbar rounded-md border border-slate-200/70 p-2 text-[11px] leading-4 text-slate-700 dark:border-slate-700/70 dark:text-slate-200 overflow-y-auto"
+            style={{ maxHeight: IMAGE_PROMPT_GENERATE_RESULT_MAX_HEIGHT }}
+          >
+            <pre className="whitespace-pre-wrap break-words font-sans">
+              {resultText}
+            </pre>
+          </div>
         </div>
       ) : null}
     </div>

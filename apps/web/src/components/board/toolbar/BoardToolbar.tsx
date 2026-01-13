@@ -249,7 +249,7 @@ const INSERT_ITEMS: InsertItem[] = [
     icon: PageIcon,
     nodeType: "text",
     props: { autoFocus: true },
-    size: [260, 180],
+    size: [200, 100],
   },
   {
     id: "image",

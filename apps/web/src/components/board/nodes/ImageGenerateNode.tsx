@@ -1,7 +1,7 @@
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { z } from "zod";
-import { ImagePlus, Play, RotateCcw, Square } from "lucide-react";
+import { Copy, Play, RotateCcw, Square } from "lucide-react";
 import { generateId } from "ai";
 
 import { useBoardContext } from "../core/BoardProvider";
@@ -43,6 +43,8 @@ import { buildTenasFileUrl } from "@/components/project/filesystem/utils/file-sy
 export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
 /** Gap between generated image nodes. */
 const GENERATED_IMAGE_NODE_GAP = 32;
+/** Extra horizontal gap for the first generated image node. */
+const GENERATED_IMAGE_NODE_FIRST_GAP = 64;
 /** Preset aspect ratios for image generation. */
 const IMAGE_GENERATE_RATIO_OPTIONS = ["1:1", "4:3", "3:4", "16:9", "9:16"];
 /** Default aspect ratio when none is specified. */
@@ -428,7 +430,6 @@ export function ImageGenerateNodeView({
           const sourceNode = engine.doc.getElementById(nodeId);
           if (sourceNode && sourceNode.kind === "node") {
             const [nodeX, nodeY, nodeW] = sourceNode.xywh;
-            const baseX = nodeX + nodeW + GENERATED_IMAGE_NODE_GAP;
             const seenUrls = new Set<string>();
             const uniqueOutputs = streamedImagePayloads.filter((output) => {
               const key = output.url.trim();
@@ -447,10 +448,25 @@ export function ImageGenerateNodeView({
               }
               return [...nodes, target];
             }, [] as Array<typeof sourceNode>);
-            const startY = existingOutputs.reduce((maxY, target) => {
-              const bottom = target.xywh[1] + target.xywh[3];
-              return Math.max(maxY, bottom + GENERATED_IMAGE_NODE_GAP);
-            }, nodeY);
+            const firstOutput = existingOutputs.reduce((current, target) => {
+              if (!current) return target;
+              const [currentX, currentY] = current.xywh;
+              const [targetX, targetY] = target.xywh;
+              if (targetY < currentY) return target;
+              if (targetY === currentY && targetX < currentX) return target;
+              return current;
+            }, null as typeof sourceNode | null);
+            const baseX = firstOutput
+              ? firstOutput.xywh[0]
+              : nodeX + nodeW + GENERATED_IMAGE_NODE_FIRST_GAP;
+            const startY =
+              existingOutputs.length > 0
+                ? existingOutputs.reduce((maxY, target) => {
+                    const bottom = target.xywh[1] + target.xywh[3];
+                    return Math.max(maxY, bottom);
+                  }, firstOutput ? firstOutput.xywh[1] + firstOutput.xywh[3] : nodeY) +
+                  GENERATED_IMAGE_NODE_GAP
+                : nodeY;
             const selectionSnapshot = engine.selection.getSelectedIds();
             let currentY = startY;
             for (const output of uniqueOutputs) {
@@ -610,6 +626,28 @@ export function ImageGenerateNodeView({
     [onUpdate]
   );
 
+  const handleCopyError = useCallback(async () => {
+    const copyText = errorText.trim() || "生成图片失败，请重试。";
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(copyText);
+      } else {
+        // 逻辑：兼容不支持 Clipboard API 的环境。
+        const textarea = document.createElement("textarea");
+        textarea.value = copyText;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      toast.success("已复制错误信息");
+    } catch {
+      toast.error("复制失败");
+    }
+  }, [errorText]);
+
   const statusLabel =
     viewStatus === "running"
       ? "生成中…"
@@ -639,7 +677,13 @@ export function ImageGenerateNodeView({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-            <ImagePlus size={14} />
+            <img
+              src="/board/pictures-svgrepo-com.svg"
+              alt=""
+              aria-hidden="true"
+              className="h-4 w-4"
+              draggable={false}
+            />
           </span>
           <div className="min-w-0">
             <div className="text-[12px] font-semibold leading-4">图片生成</div>
@@ -757,27 +801,21 @@ export function ImageGenerateNodeView({
             </SelectContent>
           </Select>
         </div>
-        {upstreamPromptText ? (
-          <div className="space-y-1">
-            <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              上游提示词
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+              <span>提示词</span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                {localPromptText.length}/500
+              </span>
             </div>
-            <div
-              data-board-scroll
-              className="show-scrollbar rounded-md border border-slate-200/70 bg-white/70 p-2 text-[11px] leading-4 text-slate-600 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-200 overflow-y-auto"
-              style={{ maxHeight: 96 }}
-            >
-              <pre className="whitespace-pre-wrap break-words font-sans">
-                {upstreamPromptText}
-              </pre>
-            </div>
+            {upstreamPromptText ? (
+              <div className="rounded-md border border-slate-200/70 bg-white/70 px-1.5 py-[1px] text-[10px] leading-[14px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300">
+                已加载上游提示词
+              </div>
+            ) : null}
           </div>
-        ) : null}
-        <div className="flex items-start gap-2">
-          <div className="pt-1 text-[11px] text-slate-500 dark:text-slate-400">
-            提示词
-          </div>
-          <div className="min-w-0 flex-1 space-y-1">
+          <div className="min-w-0 space-y-1">
             <Textarea
               value={localPromptText}
               maxLength={500}
@@ -787,30 +825,45 @@ export function ImageGenerateNodeView({
                 onUpdate({ promptText: next });
               }}
               data-board-scroll
-              className="min-h-[88px] px-2 py-1 text-[11px]"
+              className="min-h-[88px] px-2 py-1 text-[11px] leading-4 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[11px]"
               disabled={engine.isLocked() || element.locked || isRunning}
             />
-            <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500">
-              <span>最多 500 字</span>
-              <span>{localPromptText.length}/500</span>
-            </div>
           </div>
         </div>
       </div>
 
       {statusHint ? (
-        <div
-          className={[
-            "rounded-md border px-2 py-1 text-[11px] leading-4",
-            statusHint.tone === "error"
-              ? "border-rose-200/70 bg-rose-50 text-rose-600 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-              : statusHint.tone === "warn"
+        statusHint.tone === "error" ? (
+          <div className="relative rounded-md border border-rose-200/70 bg-rose-50 p-2 text-[11px] leading-4 text-rose-600 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+            <button
+              type="button"
+              className="absolute right-2 top-2 rounded-md border border-rose-200/70 bg-background px-2 py-0.5 text-[10px] text-rose-600 hover:bg-rose-50 dark:border-rose-900/50 dark:text-rose-200 dark:hover:bg-rose-950/60"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={handleCopyError}
+            >
+              <span className="inline-flex items-center gap-1">
+                <Copy size={10} />
+                复制
+              </span>
+            </button>
+            <pre className="whitespace-pre-wrap break-words pr-14 font-sans">
+              {statusHint.text}
+            </pre>
+          </div>
+        ) : (
+          <div
+            className={[
+              "rounded-md border px-2 py-1 text-[11px] leading-4",
+              statusHint.tone === "warn"
                 ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
                 : "border-sky-200/70 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-200",
-          ].join(" ")}
-        >
-          {statusHint.text}
-        </div>
+            ].join(" ")}
+          >
+            {statusHint.text}
+          </div>
+        )
       ) : null}
     </div>
   );

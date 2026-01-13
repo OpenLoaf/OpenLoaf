@@ -37,7 +37,7 @@ const DEFAULT_TEXT_VALUE = "";
 const TEXT_NODE_PLACEHOLDER = "输入文字内容";
 /** Shared text styling for text node content. */
 const TEXT_CONTENT_CLASSNAME =
-  "text-[14px] leading-6 text-slate-900 dark:text-slate-100";
+  "text-[11px] leading-4 text-slate-600 dark:text-slate-200 md:text-[11px]";
 /** Text styling for view mode. */
 const TEXT_VIEW_CLASSNAME = `${TEXT_CONTENT_CLASSNAME} whitespace-pre-wrap break-words`;
 /** Text styling for edit mode. */
@@ -486,7 +486,7 @@ export function TextNodeView({
           data-allow-context-menu
         />
         {isEmpty ? (
-          <div className="pointer-events-none absolute left-4 top-3 text-[13px] text-slate-400/70">
+          <div className="pointer-events-none absolute left-4 top-3 text-[11px] leading-4 text-slate-400 dark:text-slate-500">
             {TEXT_NODE_PLACEHOLDER}
           </div>
         ) : null}
@@ -504,7 +504,7 @@ export function TextNodeView({
         {draftText}
       </div>
       {isEmpty ? (
-        <div className="pointer-events-none absolute left-4 top-3 text-[13px] text-slate-400/70">
+        <div className="pointer-events-none absolute left-4 top-3 text-[11px] leading-4 text-slate-400 dark:text-slate-500">
           {TEXT_NODE_PLACEHOLDER}
         </div>
       ) : null}

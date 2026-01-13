@@ -627,6 +627,9 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     },
     [isTreeView, resolveSelectedEntries, selectedUris, treeSelectedEntry]
   );
+  /** Track preview visibility for fade transition. */
+  const [isTreeViewerVisible, setIsTreeViewerVisible] = useState(true);
+  const treeViewerInitRef = useRef(true);
 
   /** Resolve the viewer content for tree view selection. */
   const treeViewer = useMemo(() => {
@@ -715,6 +718,21 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     }
     return <FileViewer uri={entry.uri} name={displayName} ext={ext} />;
   }, [projectId, rootUri, treeSelectedEntry]);
+  const treeViewerKey = treeSelectedEntry?.uri ?? "empty";
+
+  useEffect(() => {
+    if (!isTreeView) return;
+    if (treeViewerInitRef.current) {
+      treeViewerInitRef.current = false;
+      return;
+    }
+    // 逻辑：切换预览内容时先淡出再淡入，降低视觉跳变。
+    setIsTreeViewerVisible(false);
+    const timer = window.setTimeout(() => {
+      setIsTreeViewerVisible(true);
+    }, 40);
+    return () => window.clearTimeout(timer);
+  }, [isTreeView, treeViewerKey]);
 
   /** Handle left-click selection updates. */
   const handleEntryClick = useCallback(
@@ -1135,8 +1153,14 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                     />
                   </div>
                 </div>
-                <div className="flex-1 min-h-0 overflow-hidden bg-background">
-                  {treeViewer}
+                <div
+                  className={`flex-1 min-h-0 overflow-hidden bg-background transition-opacity duration-200 ease-out ${
+                    isTreeViewerVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+                  }`}
+                >
+                  <div key={treeViewerKey} className="h-full w-full">
+                    {treeViewer}
+                  </div>
                 </div>
               </div>
             </div>

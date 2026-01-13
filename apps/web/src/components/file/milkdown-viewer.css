@@ -2,6 +2,10 @@
   color: var(--foreground);
 }
 
+.milkdown .ProseMirror {
+  padding: 5px 80px;
+}
+
 .milkdown-viewer .ProseMirror {
   color: var(--foreground);
   background-color: var(--background);

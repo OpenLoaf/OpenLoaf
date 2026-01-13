@@ -1,8 +1,13 @@
 "use client";
 
 import {
+  Children,
   Component,
+  type ComponentProps,
+  type ComponentType,
+  type ReactElement,
   type ReactNode,
+  isValidElement,
   useCallback,
   useEffect,
   useMemo,
@@ -17,6 +22,11 @@ import { editorViewCtx } from "@milkdown/kit/core";
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/nord.css";
 import "@milkdown/crepe/theme/nord-dark.css";
+import type { Components } from "react-markdown";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import remarkMdx from "remark-mdx";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
 import { StackHeader } from "@/components/layout/StackHeader";
@@ -26,6 +36,9 @@ import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
+import { MermaidBlock } from "@/components/editor/tenas/MermaidBlock";
+import { markdownComponents as chatMarkdownComponents } from "@/components/chat/message/markdown/MarkdownComponents";
+import MarkdownPre from "@/components/chat/message/markdown/MarkdownPre";
 
 import "./milkdown-viewer.css";
 
@@ -58,6 +71,57 @@ type MarkdownViewerErrorBoundaryState = {
   /** Whether Milkdown rendering failed. */
   hasError: boolean;
 };
+
+/** Extract plain text from a React node tree. */
+function extractText(node: ReactNode): string {
+  if (node == null) return "";
+  if (typeof node === "string") return node;
+  if (Array.isArray(node)) return node.map(extractText).join("");
+  return "";
+}
+
+/** Render code blocks with Mermaid support for markdown preview. */
+function MarkdownViewerPre({ children }: ComponentProps<"pre">) {
+  const child = Children.toArray(children)[0];
+
+  if (isValidElement(child)) {
+    const anyChild = child as ReactElement<{ className?: string; children?: ReactNode }>;
+    const match = /language-(\w+)/.exec(anyChild.props.className || "");
+    const language = match?.[1]?.toLowerCase() ?? "";
+    const code = extractText(anyChild.props.children).replace(/\n$/, "");
+    if (language === "mermaid") {
+      return (
+        <div className="my-3 rounded-md border border-border/60 bg-muted/10 p-3">
+          <MermaidBlock code={code} />
+        </div>
+      );
+    }
+  }
+
+  return <MarkdownPre>{children}</MarkdownPre>;
+}
+
+/** Render a placeholder for MDX JSX elements while keeping their children. */
+function MarkdownViewerMdxElement({
+  node,
+  children,
+}: {
+  node?: { name?: string; attributes?: { name: string; value?: string }[] };
+  children?: ReactNode;
+}) {
+  const tagName = node?.name ?? "MDX";
+  const attrs = node?.attributes?.length
+    ? node.attributes.map((attr) => attr.name).join(", ")
+    : "";
+  return (
+    <div className="my-2 rounded-md border border-dashed border-border/60 bg-muted/10 px-3 py-2">
+      <div className="text-xs text-muted-foreground">
+        {attrs ? `${tagName} (${attrs})` : tagName}
+      </div>
+      {children ? <div className="mt-2">{children}</div> : null}
+    </div>
+  );
+}
 
 /** Render fallback content when Milkdown fails (e.g. MDX syntax). */
 class MarkdownViewerErrorBoundary extends Component<
@@ -95,6 +159,7 @@ export default function MarkdownViewer({
   uri,
   openUri,
   name,
+  ext,
   panelKey,
   tabId,
   rootUri,
@@ -126,6 +191,23 @@ export default function MarkdownViewer({
   const displayTitle = useMemo(() => name ?? uri ?? "Markdown", [name, uri]);
   /** Controls whether stack header actions are visible. */
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
+  /** Whether to use the static markdown renderer (MDX or Mermaid). */
+  const shouldUseStaticRenderer = useMemo(() => {
+    const normalizedExt = (ext ?? "").toLowerCase();
+    if (normalizedExt === "mdx") return true;
+    return content.includes("```mermaid");
+  }, [content, ext]);
+  /** Markdown renderer components with Mermaid + MDX support. */
+  const markdownViewerComponents = useMemo(() => {
+    const baseComponents = chatMarkdownComponents;
+    const components: Components & Record<string, ComponentType<any>> = {
+      ...baseComponents,
+      pre: MarkdownViewerPre,
+      mdxJsxFlowElement: MarkdownViewerMdxElement,
+      mdxJsxTextElement: MarkdownViewerMdxElement,
+    };
+    return components as Components;
+  }, []);
 
   /** Get selected line range from the Milkdown editor. */
   const getSelectedLineRange = useCallback(() => {
@@ -153,6 +235,13 @@ export default function MarkdownViewer({
       builderRef.current = null;
     };
   }, [uri]);
+
+  useEffect(() => {
+    if (!shouldUseStaticRenderer) return;
+    // 逻辑：切换为静态渲染时销毁编辑器，避免残留状态。
+    builderRef.current?.destroy();
+    builderRef.current = null;
+  }, [shouldUseStaticRenderer]);
 
   /** Persist markdown changes back to the file system. */
   const saveMarkdown = useCallback(
@@ -230,6 +319,7 @@ export default function MarkdownViewer({
     setIsDirty(false);
     if (!uri) return;
     if (!fileQuery.isSuccess) return;
+    if (shouldUseStaticRenderer) return;
     if (builderRef.current) return;
     const root = editorRootRef.current;
     if (!root) return;
@@ -273,7 +363,7 @@ export default function MarkdownViewer({
       setInitError(error);
       console.warn("[MarkdownViewer] crepe init failed", error);
     }
-  }, [content, fileQuery.isSuccess, handleAi, saveMarkdown, uri]);
+  }, [content, fileQuery.isSuccess, handleAi, saveMarkdown, shouldUseStaticRenderer, uri]);
 
   if (!uri) {
     return <div className="h-full w-full p-4 text-muted-foreground">未选择文件</div>;
@@ -328,20 +418,29 @@ export default function MarkdownViewer({
       ) : null}
       <div className="relative h-full w-full overflow-auto px-2 pb-4 pt-0">
         <div className="milkdown milkdown-viewer min-w-0 w-full max-w-full text-sm leading-relaxed">
-          <MarkdownViewerErrorBoundary markdown={content}>
-            {initError ? (
-              <div className="rounded-md border border-border/60 bg-muted/20 p-3">
-                <div className="mb-2 text-xs text-muted-foreground">
-                  当前文档无法加载为 Milkdown 编辑器，已降级为纯文本预览
+          {shouldUseStaticRenderer ? (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath, remarkMdx]}
+              components={markdownViewerComponents}
+            >
+              {content}
+            </ReactMarkdown>
+          ) : (
+            <MarkdownViewerErrorBoundary markdown={content}>
+              {initError ? (
+                <div className="rounded-md border border-border/60 bg-muted/20 p-3">
+                  <div className="mb-2 text-xs text-muted-foreground">
+                    当前文档无法加载为 Milkdown 编辑器，已降级为纯文本预览
+                  </div>
+                  <pre className="whitespace-pre-wrap font-mono text-[12px] leading-5">
+                    {content}
+                  </pre>
                 </div>
-                <pre className="whitespace-pre-wrap font-mono text-[12px] leading-5">
-                  {content}
-                </pre>
-              </div>
-            ) : (
-              <div ref={editorRootRef} />
-            )}
-          </MarkdownViewerErrorBoundary>
+              ) : (
+                <div ref={editorRootRef} />
+              )}
+            </MarkdownViewerErrorBoundary>
+          )}
         </div>
       </div>
     </div>
