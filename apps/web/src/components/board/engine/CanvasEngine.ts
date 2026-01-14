@@ -21,6 +21,7 @@ import type {
   CanvasStrokePoint,
   CanvasStrokeSettings,
   CanvasStrokeTool,
+  CanvasViewState,
 } from "./types";
 import type { CanvasHistoryState } from "./history-utils";
 import type { CanvasClipboard, ClipboardInsertPayload } from "./clipboard";
@@ -181,6 +182,8 @@ export class CanvasEngine {
   };
   /** Change subscribers. */
   private readonly listeners = new Set<() => void>();
+  /** View change subscribers. */
+  private readonly viewListeners = new Set<() => void>();
   /** Attached container element. */
   private container: HTMLElement | null = null;
   /** Resize observer for viewport sync. */
@@ -272,6 +275,7 @@ export class CanvasEngine {
   /** Create a new canvas engine. */
   constructor() {
     const emitChange = () => this.emitChange();
+    const emitViewChange = () => this.emitViewChange();
     const emitSelectionChange = () => {
       this.orderedElementsDirty = true;
       this.orderedElementsCache = null;
@@ -286,7 +290,7 @@ export class CanvasEngine {
       this.emitChange();
     };
     this.doc = new CanvasDoc(emitDocChange);
-    this.viewport = new ViewportController(emitChange);
+    this.viewport = new ViewportController(emitViewChange);
     this.selection = new SelectionManager(emitSelectionChange);
     this.nodes = new NodeRegistry();
     this.tools = new ToolManager(this);
@@ -406,6 +410,14 @@ export class CanvasEngine {
     };
   }
 
+  /** Subscribe to view changes only. */
+  subscribeView(listener: () => void): () => void {
+    this.viewListeners.add(listener);
+    return () => {
+      this.viewListeners.delete(listener);
+    };
+  }
+
   /** Set the currently active tool. */
   setActiveTool(toolId: string): void {
     this.tools.setActive(toolId);
@@ -456,6 +468,14 @@ export class CanvasEngine {
       pendingInsert: this.pendingInsert,
       pendingInsertPoint: this.pendingInsertPoint,
       toolbarDragging: this.toolbarDragging,
+    };
+  }
+
+  /** Build a view snapshot for render layers. */
+  getViewState(): CanvasViewState {
+    return {
+      viewport: this.viewport.getState(),
+      panning: this.panning,
     };
   }
 
@@ -555,7 +575,7 @@ export class CanvasEngine {
   /** Mark the viewport panning state. */
   setPanning(panning: boolean): void {
     this.panning = panning;
-    this.emitChange();
+    this.emitViewChange();
   }
 
   /** Return the active connector style. */
@@ -1296,6 +1316,12 @@ export class CanvasEngine {
     this.listeners.forEach(listener => listener());
   }
 
+  /** Emit view change notifications to subscribers. */
+  private emitViewChange(): void {
+    this.viewListeners.forEach(listener => listener());
+    this.listeners.forEach(listener => listener());
+  }
+
   /** Pan the viewport while applying soft bounds. */
   panViewportBy(dx: number, dy: number): void {
     const { offset } = this.viewport.getState();
@@ -1310,7 +1336,7 @@ export class CanvasEngine {
 
   /** Force a view refresh without mutating document state. */
   refreshView(): void {
-    this.emitChange();
+    this.emitViewChange();
   }
 
   /** Return elements sorted by zIndex with stable fallback. */

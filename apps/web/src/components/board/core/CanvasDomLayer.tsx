@@ -1,6 +1,13 @@
 import { cn } from "@udecode/cn";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { CanvasRect, CanvasSnapshot } from "../engine/types";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import type { CanvasRect, CanvasSnapshot, CanvasViewState } from "../engine/types";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import { MIN_ZOOM_EPS } from "../engine/constants";
 
@@ -24,6 +31,8 @@ type CanvasDomLayerProps = {
 
 /** Screen-space padding for viewport culling in pixels. */
 const VIEWPORT_CULL_PADDING = 240;
+/** Throttle interval for viewport-driven culling updates. */
+const VIEWPORT_CULL_UPDATE_MS = 80;
 
 /** Compute the viewport bounds in world coordinates with padding. */
 function getViewportBounds(
@@ -49,14 +58,114 @@ function isRectVisible(rect: CanvasRect, bounds: CanvasRect): boolean {
   );
 }
 
+/** Return true when two string arrays share the same values. */
+function isStringArrayEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 /** Render the DOM-based node layer. */
-export function CanvasDomLayer({ engine, snapshot, onCullingStatsChange }: CanvasDomLayerProps) {
-  const { zoom, offset } = snapshot.viewport;
-  const [isZooming, setIsZooming] = useState(false);
-  const lastZoomRef = useRef(zoom);
+function CanvasDomLayerBase({
+  engine,
+  snapshot,
+  onCullingStatsChange,
+}: CanvasDomLayerProps) {
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  const viewStateRef = useRef<CanvasViewState>(engine.getViewState());
+  const pendingViewRef = useRef<CanvasViewState | null>(null);
+  const pendingCullingRef = useRef<CanvasViewState | null>(null);
+  const lastZoomRef = useRef(viewStateRef.current.viewport.zoom);
   const zoomTimeoutRef = useRef<number | null>(null);
+  const transformRafRef = useRef<number | null>(null);
+  const cullingTimerRef = useRef<number | null>(null);
+  const isZoomingRef = useRef(false);
   const lastStatsRef = useRef<CanvasCullingStats | null>(null);
-  const viewportBounds = getViewportBounds(snapshot.viewport, VIEWPORT_CULL_PADDING);
+  const onCullingStatsRef = useRef(onCullingStatsChange);
+  const [cullingView, setCullingView] = useState<CanvasViewState>(
+    viewStateRef.current
+  );
+
+  const applyTransform = useCallback((view: CanvasViewState) => {
+    const layer = layerRef.current;
+    if (!layer) return;
+    const { zoom, offset } = view.viewport;
+    layer.style.transform = `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`;
+    layer.style.willChange =
+      view.panning || isZoomingRef.current ? "transform" : "";
+  }, []);
+
+  const scheduleTransform = useCallback(
+    (view: CanvasViewState) => {
+      pendingViewRef.current = view;
+      if (transformRafRef.current !== null) return;
+      transformRafRef.current = window.requestAnimationFrame(() => {
+        transformRafRef.current = null;
+        const next = pendingViewRef.current;
+        if (!next) return;
+        applyTransform(next);
+      });
+    },
+    [applyTransform]
+  );
+
+  const scheduleCullingUpdate = useCallback((view: CanvasViewState) => {
+    pendingCullingRef.current = view;
+    if (cullingTimerRef.current !== null) return;
+    cullingTimerRef.current = window.setTimeout(() => {
+      cullingTimerRef.current = null;
+      if (!pendingCullingRef.current) return;
+      setCullingView(pendingCullingRef.current);
+    }, VIEWPORT_CULL_UPDATE_MS);
+  }, []);
+
+  useEffect(() => {
+    onCullingStatsRef.current = onCullingStatsChange;
+  }, [onCullingStatsChange]);
+
+  useEffect(() => {
+    const handleViewChange = () => {
+      const next = engine.getViewState();
+      viewStateRef.current = next;
+      if (lastZoomRef.current !== next.viewport.zoom) {
+        lastZoomRef.current = next.viewport.zoom;
+        isZoomingRef.current = true;
+        if (zoomTimeoutRef.current) {
+          window.clearTimeout(zoomTimeoutRef.current);
+        }
+        zoomTimeoutRef.current = window.setTimeout(() => {
+          isZoomingRef.current = false;
+          scheduleTransform(viewStateRef.current);
+          zoomTimeoutRef.current = null;
+        }, 160);
+      }
+      // 逻辑：视图变化优先更新 transform，并节流裁剪刷新。
+      scheduleTransform(next);
+      scheduleCullingUpdate(next);
+    };
+
+    handleViewChange();
+    const unsubscribe = engine.subscribeView(handleViewChange);
+    return () => {
+      unsubscribe();
+      if (zoomTimeoutRef.current) {
+        window.clearTimeout(zoomTimeoutRef.current);
+        zoomTimeoutRef.current = null;
+      }
+      if (transformRafRef.current !== null) {
+        window.cancelAnimationFrame(transformRafRef.current);
+        transformRafRef.current = null;
+      }
+      if (cullingTimerRef.current) {
+        window.clearTimeout(cullingTimerRef.current);
+        cullingTimerRef.current = null;
+      }
+    };
+  }, [engine, scheduleCullingUpdate, scheduleTransform]);
+
+  const viewportBounds = getViewportBounds(cullingView.viewport, VIEWPORT_CULL_PADDING);
   const selectedNodeIds = new Set(
     snapshot.selectedIds.filter(id => {
       const element = snapshot.elements.find(item => item.id === id);
@@ -67,28 +176,6 @@ export function CanvasDomLayer({ engine, snapshot, onCullingStatsChange }: Canva
     snapshot.draggingId !== null &&
     selectedNodeIds.size > 1 &&
     selectedNodeIds.has(snapshot.draggingId);
-
-  useEffect(() => {
-    if (lastZoomRef.current === zoom) return;
-    // 逻辑：缩放期间启用 will-change，结束后移除以触发清晰重绘。
-    lastZoomRef.current = zoom;
-    setIsZooming(true);
-    if (zoomTimeoutRef.current) {
-      window.clearTimeout(zoomTimeoutRef.current);
-    }
-    zoomTimeoutRef.current = window.setTimeout(() => {
-      setIsZooming(false);
-      zoomTimeoutRef.current = null;
-    }, 160);
-  }, [zoom]);
-
-  useEffect(() => {
-    return () => {
-      if (zoomTimeoutRef.current) {
-        window.clearTimeout(zoomTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const nodeViews: ReactNode[] = [];
   let totalNodes = 0;
@@ -146,7 +233,7 @@ export function CanvasDomLayer({ engine, snapshot, onCullingStatsChange }: Canva
   const culledNodes = totalNodes - visibleNodes;
 
   useEffect(() => {
-    if (!onCullingStatsChange) return;
+    if (!onCullingStatsRef.current) return;
     const nextStats: CanvasCullingStats = { totalNodes, visibleNodes, culledNodes };
     const prev = lastStatsRef.current;
     if (
@@ -159,20 +246,35 @@ export function CanvasDomLayer({ engine, snapshot, onCullingStatsChange }: Canva
     }
     lastStatsRef.current = nextStats;
     // 逻辑：仅在统计变化时通知，避免重复触发渲染。
-    onCullingStatsChange(nextStats);
-  }, [culledNodes, onCullingStatsChange, totalNodes, visibleNodes]);
+    onCullingStatsRef.current?.(nextStats);
+  }, [culledNodes, totalNodes, visibleNodes]);
 
   return (
     <div
-      className={cn(
-        "pointer-events-none absolute inset-0 origin-top-left",
-        (snapshot.panning || isZooming) && "will-change-transform"
-      )}
+      ref={layerRef}
+      className="pointer-events-none absolute inset-0 origin-top-left"
       style={{
-        transform: `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`,
+        transform: `translate(${cullingView.viewport.offset[0]}px, ${cullingView.viewport.offset[1]}px) scale(${cullingView.viewport.zoom})`,
       }}
     >
       {nodeViews}
     </div>
   );
 }
+
+/** Compare props for DOM layer rendering. */
+function areDomLayerPropsEqual(
+  prev: CanvasDomLayerProps,
+  next: CanvasDomLayerProps
+): boolean {
+  if (prev.engine !== next.engine) return false;
+  if (prev.snapshot.elements !== next.snapshot.elements) return false;
+  if (prev.snapshot.draggingId !== next.snapshot.draggingId) return false;
+  if (prev.snapshot.editingNodeId !== next.snapshot.editingNodeId) return false;
+  if (!isStringArrayEqual(prev.snapshot.selectedIds, next.snapshot.selectedIds)) {
+    return false;
+  }
+  return true;
+}
+
+export const CanvasDomLayer = memo(CanvasDomLayerBase, areDomLayerPropsEqual);

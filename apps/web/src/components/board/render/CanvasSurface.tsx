@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useRef } from "react";
 import type { CanvasSnapshot, CanvasViewportState } from "../engine/types";
 import type {

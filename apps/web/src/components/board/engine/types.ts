@@ -234,6 +234,14 @@ export type CanvasViewportState = {
   size: CanvasPoint;
 };
 
+/** View state used for DOM and overlay layers. */
+export type CanvasViewState = {
+  /** Current viewport state. */
+  viewport: CanvasViewportState;
+  /** Whether the viewport is being panned. */
+  panning: boolean;
+};
+
 /** Snapshot of the canvas for React rendering. */
 export type CanvasSnapshot = {
   /** Ordered elements for rendering. */

@@ -4,12 +4,27 @@ import type { Value } from "platejs";
 import { KEYS } from "platejs";
 import { parseTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
 
-export const FILE_TOKEN_REGEX = /@(tenas-file:\/\/[^\s]+)/g;
+const FILE_TOKEN_BODY =
+  "tenas-file://[A-Za-z0-9%._~:/?#\\[\\]@!$&'()*+,;=-]+";
+export const FILE_TOKEN_REGEX = new RegExp(`@(${FILE_TOKEN_BODY})`, "g");
 
 /** Normalize mention value by trimming leading "@". */
 const normalizeMentionValue = (value: string) => {
   const trimmed = value.trim();
   return trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+};
+
+/** Normalize spacing around file mention tokens. */
+export const normalizeFileMentionSpacing = (value: string) => {
+  if (!value.includes("@tenas-file://")) return value;
+  const withLeadingSpace = value.replace(
+    new RegExp(`(\\\\S)(@${FILE_TOKEN_BODY})`, "g"),
+    (_match, lead, token) => `${lead} ${token}`,
+  );
+  return withLeadingSpace.replace(
+    new RegExp(`(@${FILE_TOKEN_BODY})(?=\\\\S)`, "g"),
+    (_match, token) => `${token} `,
+  );
 };
 
 export type MentionNode = {
@@ -61,6 +76,11 @@ export const buildInlineNodesFromText = (text: string) => {
     const tokenValue = normalizeMentionValue(match[1] ?? "");
     if (tokenValue) {
       nodes.push(buildMentionNode(tokenValue));
+      const nextChar = text[match.index + match[0].length];
+      if (nextChar && !/\s/.test(nextChar)) {
+        // 中文注释：文件引用后若紧跟文本，自动插入空格便于阅读。
+        nodes.push({ text: " " });
+      }
     } else {
       nodes.push({ text: match[0] });
     }
@@ -113,12 +133,12 @@ export const serializeChatValue = (value: Value): string => {
   while (normalized.length > 0 && normalized[normalized.length - 1] === "") {
     normalized.pop();
   }
-  return normalized.join("\n");
+  return normalizeFileMentionSpacing(normalized.join("\n"));
 };
 
 /** Normalize serialized text for clipboard usage. */
 export const normalizeSerializedForClipboard = (value: string) =>
-  value.replace(/\s*(@tenas-file:\/\/[^\s]+)\s*/g, (_match, token) => token);
+  normalizeFileMentionSpacing(value);
 
 /** Build plain text for character counting. */
 export const getPlainTextValue = (value: Value): string =>
