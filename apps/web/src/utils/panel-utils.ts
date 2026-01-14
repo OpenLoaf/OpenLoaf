@@ -20,6 +20,7 @@ import SheetViewer from "@/components/file/SheetViewer";
 import BoardFileViewer from "@/components/board/BoardFileViewer";
 import TerminalViewer from "@/components/file/TerminalViewer";
 import DesktopWidgetLibraryPanel from "@/components/desktop/DesktopWidgetLibraryPanel";
+import FolderTreePreview from "@/components/project/filesystem/FolderTreePreview";
 
 /**
  * 组件名称到组件的映射关系
@@ -50,6 +51,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "board-viewer": BoardFileViewer,
   "terminal-viewer": TerminalViewer,
   "desktop-widget-library": DesktopWidgetLibraryPanel,
+  "folder-tree-preview": FolderTreePreview,
 };
 
 /**
@@ -97,6 +99,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Terminal";
     case "desktop-widget-library":
       return "Widget Library";
+    case "folder-tree-preview":
+      return "Folder";
     default:
       // 如果没有匹配的标题，直接返回组件名称
       return componentName;

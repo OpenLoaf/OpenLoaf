@@ -135,11 +135,11 @@ function resolveChatAttachmentContext(): ChatAttachmentContext {
 async function loadExcelBuffer(
   absPath: string,
 ): Promise<{ buffer: Buffer; bytes: number; ext: string }> {
+  const stat = await ensureFile(absPath);
   const ext = path.extname(absPath).toLowerCase();
   if (!SUPPORTED_EXCEL_EXTS.has(ext)) {
     throw new Error("Only .xlsx/.xls/.xlsm files are supported.");
   }
-  const stat = await ensureFile(absPath);
   // 逻辑：限制文件大小，避免解析超大 Excel。
   if (stat.size > MAX_EXCEL_BYTES) {
     throw new Error("Excel file too large.");

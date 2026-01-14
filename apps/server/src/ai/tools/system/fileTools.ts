@@ -104,6 +104,10 @@ type FileDeleteToolOutput = {
 /** Ensure the target is a file. */
 export async function ensureFile(targetPath: string): Promise<Stats> {
   const stat = await fs.stat(targetPath);
+  // 逻辑：目录输入直接报错，避免被当作文件读取。
+  if (stat.isDirectory()) {
+    throw new Error("Target is a directory.");
+  }
   if (!stat.isFile()) {
     throw new Error("Target is not a file.");
   }

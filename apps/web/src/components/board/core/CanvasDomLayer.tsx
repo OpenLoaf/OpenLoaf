@@ -33,6 +33,15 @@ type CanvasDomLayerProps = {
 const VIEWPORT_CULL_PADDING = 240;
 /** Throttle interval for viewport-driven culling updates. */
 const VIEWPORT_CULL_UPDATE_MS = 80;
+/** Cell size for the node spatial index in world space. */
+const GRID_CELL_SIZE = 512;
+
+type GridIndex = {
+  /** Size of each grid cell in world units. */
+  cellSize: number;
+  /** Map of cell keys to node id sets. */
+  cells: Map<string, Set<string>>;
+};
 
 /** Compute the viewport bounds in world coordinates with padding. */
 function getViewportBounds(
@@ -56,6 +65,75 @@ function isRectVisible(rect: CanvasRect, bounds: CanvasRect): boolean {
     rect.y + rect.h < bounds.y ||
     rect.y > bounds.y + bounds.h
   );
+}
+
+/** Return the bounding rect for a node element. */
+function getNodeBounds(
+  element: Extract<CanvasSnapshot["elements"][number], { kind: "node" }>
+): CanvasRect {
+  const [x, y, w, h] = element.xywh;
+  if (!element.rotate) return { x, y, w, h };
+  const rad = (element.rotate * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  // 逻辑：旋转节点先转成包围盒，避免裁剪漏掉可见区域。
+  const halfW = (Math.abs(w * cos) + Math.abs(h * sin)) / 2;
+  const halfH = (Math.abs(w * sin) + Math.abs(h * cos)) / 2;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  return {
+    x: cx - halfW,
+    y: cy - halfH,
+    w: halfW * 2,
+    h: halfH * 2,
+  };
+}
+
+/** Build a spatial index for node elements. */
+function buildGridIndex(
+  elements: CanvasSnapshot["elements"],
+  cellSize: number
+): GridIndex {
+  const cells = new Map<string, Set<string>>();
+  elements.forEach((element) => {
+    if (element.kind !== "node") return;
+    const bounds = getNodeBounds(element);
+    const minX = Math.floor(bounds.x / cellSize);
+    const maxX = Math.floor((bounds.x + bounds.w) / cellSize);
+    const minY = Math.floor(bounds.y / cellSize);
+    const maxY = Math.floor((bounds.y + bounds.h) / cellSize);
+    for (let gx = minX; gx <= maxX; gx += 1) {
+      for (let gy = minY; gy <= maxY; gy += 1) {
+        const key = `${gx}:${gy}`;
+        let bucket = cells.get(key);
+        if (!bucket) {
+          bucket = new Set<string>();
+          cells.set(key, bucket);
+        }
+        bucket.add(element.id);
+      }
+    }
+  });
+  return { cellSize, cells };
+}
+
+/** Collect candidate node ids for a viewport bounds. */
+function collectCandidateIds(index: GridIndex, bounds: CanvasRect): Set<string> {
+  const result = new Set<string>();
+  const minX = Math.floor(bounds.x / index.cellSize);
+  const maxX = Math.floor((bounds.x + bounds.w) / index.cellSize);
+  const minY = Math.floor(bounds.y / index.cellSize);
+  const maxY = Math.floor((bounds.y + bounds.h) / index.cellSize);
+  for (let gx = minX; gx <= maxX; gx += 1) {
+    for (let gy = minY; gy <= maxY; gy += 1) {
+      const bucket = index.cells.get(`${gx}:${gy}`);
+      if (!bucket) continue;
+      bucket.forEach((id) => {
+        result.add(id);
+      });
+    }
+  }
+  return result;
 }
 
 /** Return true when two string arrays share the same values. */
@@ -87,6 +165,8 @@ function CanvasDomLayerBase({
   const [cullingView, setCullingView] = useState<CanvasViewState>(
     viewStateRef.current
   );
+  const gridIndexRef = useRef<GridIndex | null>(null);
+  const lastDocRevisionRef = useRef<number | null>(null);
 
   const applyTransform = useCallback((view: CanvasViewState) => {
     const layer = layerRef.current;
@@ -124,6 +204,13 @@ function CanvasDomLayerBase({
   useEffect(() => {
     onCullingStatsRef.current = onCullingStatsChange;
   }, [onCullingStatsChange]);
+
+  useEffect(() => {
+    if (lastDocRevisionRef.current === snapshot.docRevision) return;
+    // 逻辑：文档变更时重建空间索引，避免拖拽/缩放重复全量扫描。
+    gridIndexRef.current = buildGridIndex(snapshot.elements, GRID_CELL_SIZE);
+    lastDocRevisionRef.current = snapshot.docRevision;
+  }, [snapshot.docRevision, snapshot.elements]);
 
   useEffect(() => {
     const handleViewChange = () => {
@@ -166,6 +253,9 @@ function CanvasDomLayerBase({
   }, [engine, scheduleCullingUpdate, scheduleTransform]);
 
   const viewportBounds = getViewportBounds(cullingView.viewport, VIEWPORT_CULL_PADDING);
+  const candidateIds = gridIndexRef.current
+    ? collectCandidateIds(gridIndexRef.current, viewportBounds)
+    : null;
   const selectedNodeIds = new Set(
     snapshot.selectedIds.filter(id => {
       const element = snapshot.elements.find(item => item.id === id);
@@ -182,13 +272,14 @@ function CanvasDomLayerBase({
   let visibleNodes = 0;
   snapshot.elements.forEach((element) => {
     if (element.kind !== "node") return;
+    if (candidateIds && !candidateIds.has(element.id)) return;
     const definition = engine.nodes.getDefinition(element.type);
     if (!definition) return;
     totalNodes += 1;
     const View = definition.view;
     const [x, y, w, h] = element.xywh;
     // 逻辑：只渲染视窗附近的节点，减少 DOM 开销。
-    if (!isRectVisible({ x, y, w, h }, viewportBounds)) return;
+    if (!isRectVisible(getNodeBounds(element), viewportBounds)) return;
     visibleNodes += 1;
     const selected = selectedNodeIds.has(element.id);
     const isDragging =

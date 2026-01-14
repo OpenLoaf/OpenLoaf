@@ -92,11 +92,11 @@ function resolveChatAttachmentContext(): ChatAttachmentContext {
 async function loadDocxBuffer(
   absPath: string,
 ): Promise<{ buffer: Buffer; bytes: number }> {
+  const stat = await ensureFile(absPath);
   const ext = path.extname(absPath).toLowerCase();
   if (ext !== DOCX_EXTENSION) {
     throw new Error("Only .docx files are supported.");
   }
-  const stat = await ensureFile(absPath);
   // 逻辑：限制文件大小，避免解析超大文档。
   if (stat.size > MAX_DOCX_BYTES) {
     throw new Error("Docx file too large.");

@@ -5,6 +5,7 @@ import {
   buildTenasFileUrl,
   buildUriFromRoot,
   parseTenasFileUrl,
+  type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import {
   CODE_EXTS,
@@ -15,11 +16,13 @@ import {
   SPREADSHEET_EXTS,
   isTextFallbackExt,
 } from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import { queryClient, trpc } from "@/utils/trpc";
 
 /** Shape of the project tree data used for root uri resolution. */
 type ProjectTreeNode = {
   projectId?: string;
   rootUri?: string;
+  title?: string;
   children?: ProjectTreeNode[];
 };
 
@@ -52,6 +55,34 @@ export function resolveProjectRootUri(projects: ProjectTreeNode[], projectId: st
     }
   }
   return "";
+}
+
+/** Resolve the project title from a project tree. */
+function resolveProjectTitle(projects: ProjectTreeNode[], projectId: string): string {
+  const queue = [...projects];
+  while (queue.length > 0) {
+    const node = queue.shift();
+    if (!node) continue;
+    if (node.projectId === projectId && typeof node.title === "string") {
+      return node.title;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const child of children) {
+      queue.push(child);
+    }
+  }
+  return "";
+}
+
+/** Fetch filesystem metadata for a mention target. */
+async function fetchMentionEntry(uri: string): Promise<FileSystemEntry | null> {
+  try {
+    return (await queryClient.fetchQuery(
+      trpc.fs.stat.queryOptions({ uri })
+    )) as FileSystemEntry;
+  } catch {
+    return null;
+  }
 }
 
 /** Parse a mention value into a project file reference. */
@@ -92,58 +123,78 @@ export function handleChatMentionPointerDown(
   if (!fileRef) return;
   const { projectId, relativePath } = fileRef;
   if (!projectId || !relativePath) return;
-  const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
-  const isImageExt = IMAGE_EXTS.has(ext);
-  const isCodeExt = CODE_EXTS.has(ext);
-  const isMarkdownExt = MARKDOWN_EXTS.has(ext);
-  const isPdfExt = PDF_EXTS.has(ext);
-  const isDocExt = DOC_EXTS.has(ext);
-  const isSheetExt = SPREADSHEET_EXTS.has(ext);
-  const isTextExt = isTextFallbackExt(ext);
-  if (
-    !isImageExt &&
-    !isCodeExt &&
-    !isMarkdownExt &&
-    !isPdfExt &&
-    !isDocExt &&
-    !isSheetExt &&
-    !isTextExt
-  ) {
-    return;
-  }
   const rootUri = resolveProjectRootUri(projects, projectId);
   if (!rootUri) return;
   const uri = buildUriFromRoot(rootUri, relativePath);
-  if (!uri && !isPdfExt) return;
+  if (!uri) return;
   event.preventDefault();
   event.stopPropagation();
-  const fileName = relativePath.split("/").pop() ?? relativePath;
-  const component = isImageExt
-    ? "image-viewer"
-    : isMarkdownExt
-      ? "markdown-viewer"
-      : isCodeExt || isTextExt
-        ? "code-viewer"
-        : isPdfExt
-          ? "pdf-viewer"
-          : isDocExt
-            ? "doc-viewer"
-            : "sheet-viewer";
-  const stackUri = isPdfExt ? buildTenasFileUrl(projectId, relativePath) : uri;
-  const stackId = uri || stackUri;
-  pushStackItem(activeTabId, {
-    id: stackId,
-    sourceKey: stackId,
-    component,
-    title: fileName,
-    params: {
-      uri: stackUri,
-      openUri: uri,
-      name: fileName,
-      ext,
-      rootUri: isCodeExt || isTextExt ? rootUri : undefined,
-      projectId: isCodeExt || isTextExt ? projectId : undefined,
-      __customHeader: isPdfExt || isDocExt || isSheetExt ? true : undefined,
-    },
-  });
+  void (async () => {
+    const entry = await fetchMentionEntry(uri);
+    if (entry?.kind === "folder") {
+      const folderName = entry.name || relativePath.split("/").pop() || relativePath;
+      const projectTitle = resolveProjectTitle(projects, projectId);
+      pushStackItem(activeTabId, {
+        id: entry.uri,
+        sourceKey: entry.uri,
+        component: "folder-tree-preview",
+        title: folderName,
+        params: {
+          rootUri,
+          currentUri: entry.uri,
+          projectId,
+          projectTitle: projectTitle || undefined,
+        },
+      });
+      return;
+    }
+    const ext = (entry?.ext ?? relativePath.split(".").pop() ?? "").toLowerCase();
+    const isImageExt = IMAGE_EXTS.has(ext);
+    const isCodeExt = CODE_EXTS.has(ext);
+    const isMarkdownExt = MARKDOWN_EXTS.has(ext);
+    const isPdfExt = PDF_EXTS.has(ext);
+    const isDocExt = DOC_EXTS.has(ext);
+    const isSheetExt = SPREADSHEET_EXTS.has(ext);
+    const isTextExt = isTextFallbackExt(ext);
+    if (
+      !isImageExt &&
+      !isCodeExt &&
+      !isMarkdownExt &&
+      !isPdfExt &&
+      !isDocExt &&
+      !isSheetExt &&
+      !isTextExt
+    ) {
+      return;
+    }
+    const fileName = entry?.name ?? relativePath.split("/").pop() ?? relativePath;
+    const component = isImageExt
+      ? "image-viewer"
+      : isMarkdownExt
+        ? "markdown-viewer"
+        : isCodeExt || isTextExt
+          ? "code-viewer"
+          : isPdfExt
+            ? "pdf-viewer"
+            : isDocExt
+              ? "doc-viewer"
+              : "sheet-viewer";
+    const stackUri = isPdfExt ? buildTenasFileUrl(projectId, relativePath) : uri;
+    const stackId = uri || stackUri;
+    pushStackItem(activeTabId, {
+      id: stackId,
+      sourceKey: stackId,
+      component,
+      title: fileName,
+      params: {
+        uri: stackUri,
+        openUri: uri,
+        name: fileName,
+        ext,
+        rootUri: isCodeExt || isTextExt ? rootUri : undefined,
+        projectId: isCodeExt || isTextExt ? projectId : undefined,
+        __customHeader: isPdfExt || isDocExt || isSheetExt ? true : undefined,
+      },
+    });
+  })();
 }
