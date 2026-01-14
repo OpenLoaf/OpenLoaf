@@ -336,6 +336,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     next.uiThemeManual === "light" || next.uiThemeManual === "dark"
       ? next.uiThemeManual
       : current.uiThemeManual;
+  const boardDebugEnabled =
+    typeof next.boardDebugEnabled === "boolean"
+      ? next.boardDebugEnabled
+      : current.boardDebugEnabled;
   const appLocalStorageDir =
     typeof next.appLocalStorageDir === "string" ? next.appLocalStorageDir : current.appLocalStorageDir;
   const appAutoBackupDir =
@@ -382,6 +386,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     uiAnimationLevel,
     uiTheme,
     uiThemeManual,
+    boardDebugEnabled,
     appLocalStorageDir,
     appAutoBackupDir,
     appCustomRules,

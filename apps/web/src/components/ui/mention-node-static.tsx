@@ -7,6 +7,7 @@ import { KEYS } from 'platejs';
 import { SlateElement } from 'platejs/static';
 
 import { cn } from '@/lib/utils';
+import { parseTenasFileUrl } from '@/components/project/filesystem/utils/file-system-utils';
 
 export function MentionElementStatic(
   props: SlateElementProps<TMentionElement> & {
@@ -15,11 +16,15 @@ export function MentionElementStatic(
 ) {
   const { prefix } = props;
   const element = props.element;
-  const match = element.value.match(/^(.*?)(?::(\d+)-(\d+))?$/);
-  const baseValue = match?.[1] ?? element.value;
+  const rawValue = element.value ?? '';
+  const normalizedValue = rawValue.startsWith('@') ? rawValue.slice(1) : rawValue;
+  const match = normalizedValue.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+  const baseValue = match?.[1] ?? normalizedValue;
   const lineStart = match?.[2];
   const lineEnd = match?.[3];
-  const label = baseValue.split("/").pop() || baseValue;
+  const parsed = baseValue.startsWith('tenas-file://') ? parseTenasFileUrl(baseValue) : null;
+  const labelBase = parsed?.relativePath ?? baseValue;
+  const label = labelBase.split('/')?.pop() || labelBase;
   const labelWithLines =
     lineStart && lineEnd ? `${label} ${lineStart}:${lineEnd}` : label;
 

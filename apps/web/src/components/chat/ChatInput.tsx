@@ -359,6 +359,10 @@ export function ChatInputBox({
   /** Insert a file reference as a mention node. */
   const insertFileMention = useCallback((fileRef: string, options?: { skipFocus?: boolean }) => {
     // 逻辑：将文件引用插入为 mention，并补一个空格。
+    const normalizedRef = fileRef.trim().startsWith("@")
+      ? fileRef.trim().slice(1)
+      : fileRef.trim();
+    if (!normalizedRef.startsWith("tenas-file://")) return;
     if (!editor.selection) {
       const endPoint = SlateEditor.end(editor as unknown as BaseEditor, []);
       editor.tf.select(endPoint);
@@ -366,9 +370,17 @@ export function ChatInputBox({
     if (!options?.skipFocus) {
       focusEditorSafely();
     }
-    editor.tf.insertNodes(buildMentionNode(fileRef));
+    editor.tf.insertNodes(buildMentionNode(normalizedRef));
     editor.tf.insertText(" ");
   }, [editor, focusEditorSafely]);
+
+  /** Normalize a file reference string to a tenas-file url. */
+  const normalizeFileRef = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+    return normalized.startsWith("tenas-file://") ? normalized : "";
+  }, []);
 
   /** Insert file references using the same logic as drag-and-drop. */
   const handleProjectFileRefsInsert = useCallback(
@@ -377,25 +389,16 @@ export function ChatInputBox({
       const normalizedRefs = Array.from(
         new Set(
           fileRefs
-            .map((value) => {
-              const trimmed = value.trim();
-              if (!trimmed) return "";
-              if (trimmed.startsWith("tenas-file://")) {
-                const parsed = parseTenasFileUrl(trimmed);
-                return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
-              }
-              return trimmed;
-            })
+            .map((value) => normalizeFileRef(value))
             .filter(Boolean)
         )
       );
       for (const fileRef of normalizedRefs) {
         const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
         const baseValue = match?.[1] ?? fileRef;
-        if (!baseValue.includes("/")) continue;
-        const parts = baseValue.split("/");
-        const projectId = parts[0] ?? "";
-        const relativePath = parts.slice(1).join("/");
+        const parsed = parseTenasFileUrl(baseValue);
+        const projectId = parsed?.projectId ?? "";
+        const relativePath = parsed?.relativePath ?? "";
         if (!projectId || !relativePath) continue;
         const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
         const isImageExt = /^(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i.test(ext);
@@ -433,6 +436,7 @@ export function ChatInputBox({
       insertFileMention,
       onAddAttachments,
       queryClient,
+      normalizeFileRef,
       resolveRootUri,
       trpc.fs.readBinary,
     ]
@@ -453,15 +457,16 @@ export function ChatInputBox({
         if (!activeTabId || activeTabId !== tabId) return;
       }
       const detail = (event as CustomEvent<{ value?: string; keepSelection?: boolean }>).detail;
-      const value = detail?.value?.trim();
-      if (!value) return;
-      insertFileMention(value, { skipFocus: detail?.keepSelection });
+      const value = detail?.value ?? "";
+      const normalizedRef = normalizeFileRef(value);
+      if (!normalizedRef) return;
+      insertFileMention(normalizedRef, { skipFocus: detail?.keepSelection });
     };
     window.addEventListener("tenas:chat-insert-mention", handleInsertMention);
     return () => {
       window.removeEventListener("tenas:chat-insert-mention", handleInsertMention);
     };
-  }, [activeTabId, insertFileMention, tabId]);
+  }, [activeTabId, insertFileMention, normalizeFileRef, tabId]);
 
   const handleDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>) => {
     console.debug("[ChatInput] drop payload", formatDragData(event.dataTransfer));
@@ -472,12 +477,10 @@ export function ChatInputBox({
       const isPayloadImage = Boolean(imagePayload.maskUri) || isImageFileName(payloadFileName);
       if (!isPayloadImage && canAttachAll) {
         const fileRef =
-          event.dataTransfer.getData(FILE_DRAG_REF_MIME) ||
-          (() => {
-            if (!imagePayload.baseUri.startsWith("tenas-file://")) return "";
-            const parsed = parseTenasFileUrl(imagePayload.baseUri);
-            return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
-          })();
+          normalizeFileRef(event.dataTransfer.getData(FILE_DRAG_REF_MIME)) ||
+          (imagePayload.baseUri.startsWith("tenas-file://")
+            ? imagePayload.baseUri
+            : "");
         if (fileRef) {
           await handleProjectFileRefsInsert([fileRef]);
         }
@@ -540,7 +543,7 @@ export function ChatInputBox({
       }
       return;
     }
-    const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
+    const fileRef = normalizeFileRef(event.dataTransfer.getData(FILE_DRAG_REF_MIME));
     if (!fileRef) return;
     await handleProjectFileRefsInsert([fileRef]);
   }, [
@@ -549,6 +552,7 @@ export function ChatInputBox({
     handleProjectFileRefsInsert,
     onAddAttachments,
     onAddMaskedAttachment,
+    normalizeFileRef,
     queryClient,
     resolveRootUri,
     trpc.fs.readBinary,
@@ -586,10 +590,10 @@ export function ChatInputBox({
         event.preventDefault();
       }}
       onDropCapture={(event) => {
-        const fileRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME);
-        const imagePayload = readImageDragPayload(event.dataTransfer);
-        const hasFiles = event.dataTransfer.files?.length > 0;
-        if (!fileRef && !imagePayload && !hasFiles) return;
+    const fileRef = normalizeFileRef(event.dataTransfer.getData(FILE_DRAG_REF_MIME));
+    const imagePayload = readImageDragPayload(event.dataTransfer);
+    const hasFiles = event.dataTransfer.files?.length > 0;
+    if (!fileRef && !imagePayload && !hasFiles) return;
         event.preventDefault();
         event.stopPropagation();
         onDropHandled?.();

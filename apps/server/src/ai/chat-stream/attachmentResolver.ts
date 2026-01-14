@@ -9,6 +9,8 @@ import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/serv
 const CHAT_IMAGE_MAX_EDGE = 1024;
 /** Image output quality for chat. */
 const CHAT_IMAGE_QUALITY = 80;
+/** Max bytes for chat binary attachments. */
+const CHAT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 /** Supported image types. */
 const SUPPORTED_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
 /** PNG metadata key for image payloads. */
@@ -303,6 +305,67 @@ async function resolveChatAttachmentRoot(input: {
   const workspaceRootPath = getWorkspaceRootPathById(workspaceId);
   if (!workspaceRootPath) return null;
   return { rootPath: workspaceRootPath, ownerId: workspaceId };
+}
+
+export type ChatBinaryAttachmentResult = {
+  /** tenas-file url for the saved attachment. */
+  url: string;
+  /** Media type for the attachment. */
+  mediaType: string;
+  /** Stored file name. */
+  fileName: string;
+  /** Relative path within the project/workspace root. */
+  relativePath: string;
+  /** File size in bytes. */
+  bytes: number;
+};
+
+/** Save a binary attachment for the current chat session. */
+export async function saveChatBinaryAttachment(input: {
+  /** Workspace id. */
+  workspaceId?: string;
+  /** Project id. */
+  projectId?: string;
+  /** Session id. */
+  sessionId: string;
+  /** Source file name. */
+  fileName: string;
+  /** File buffer. */
+  buffer: Buffer;
+  /** Optional media type. */
+  mediaType?: string;
+}): Promise<ChatBinaryAttachmentResult> {
+  const sessionId = input.sessionId?.trim();
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+  if (!input.projectId && !input.workspaceId) {
+    throw new Error("workspaceId is required when projectId is missing.");
+  }
+  if (input.buffer.length > CHAT_ATTACHMENT_MAX_BYTES) {
+    throw new Error("Attachment too large.");
+  }
+  const root = await resolveChatAttachmentRoot({
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+  });
+  if (!root) {
+    throw new Error("Workspace or project not found");
+  }
+  const ext = path.extname(input.fileName).toLowerCase().replace(/^\./, "") || "bin";
+  const storedName = buildChatAttachmentFileName(ext);
+  const relativePath = path.posix.join(".tenas", "chat", sessionId, storedName);
+  const targetPath = path.join(root.rootPath, ".tenas", "chat", sessionId, storedName);
+  // 逻辑：确保目录存在后再写入文件，避免落盘失败。
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.writeFile(targetPath, input.buffer);
+  return {
+    url: buildTenasFileUrl(root.ownerId, relativePath),
+    mediaType: input.mediaType ?? "application/octet-stream",
+    fileName: storedName,
+    relativePath,
+    bytes: input.buffer.length,
+  };
 }
 
 /** Resolve local file path from tenas-file url. */

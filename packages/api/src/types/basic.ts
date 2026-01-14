@@ -74,6 +74,8 @@ export const basicConfigSchema = z.object({
   uiAnimationLevel: uiAnimationLevelSchema,
   uiTheme: uiThemeSchema,
   uiThemeManual: uiThemeManualSchema,
+  /** Show board debug overlay. */
+  boardDebugEnabled: z.boolean(),
   appLocalStorageDir: z.string(),
   appAutoBackupDir: z.string(),
   appCustomRules: z.string(),

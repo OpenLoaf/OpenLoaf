@@ -243,7 +243,7 @@ function MessageItem({
 
   return (
     <div
-      className={cn("group my-0.5", message.role === "user" && "pr-4")}
+      className={cn("group my-0.5 px-4", message.role === "user" && "pr-5")}
       data-message-id={message.id}
     >
       {message.role === "user" ? (

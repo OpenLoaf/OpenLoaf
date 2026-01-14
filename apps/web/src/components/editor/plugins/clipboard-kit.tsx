@@ -29,13 +29,13 @@ export const ClipboardKit = [
       const serialized = normalizeSerializedForClipboard(
         serializeChatValue(fragment as Value)
       );
-      // 中文注释：覆写纯文本剪贴板格式，统一为 @{...} 协议。
+      // 中文注释：覆写纯文本剪贴板格式，统一为 @tenas-file:// 协议。
       data.setData('text/plain', serialized);
     };
 
     slateEditor.insertData = (data: DataTransfer) => {
       const text = data.getData('text/plain');
-      if (!text || !text.includes('@{')) {
+      if (!text || !text.includes('@tenas-file://')) {
         originalInsertData(data);
         return;
       }

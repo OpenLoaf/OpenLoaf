@@ -81,6 +81,32 @@ export const fileDeleteToolDef = {
   component: null,
 } as const;
 
+/** Excel read tool definition. */
+export const fileReadExcelToolDef = {
+  id: "file-read-excel",
+  description:
+    "读取 Excel（.xlsx/.xls/.xlsm）文件内容并返回纯文本，若包含图片则保存到当前会话的 .tenas/chat/{sessionId}/ 并返回引用（.xls 仅支持文本），仅允许访问当前 projectId 对应的项目目录内路径。",
+  parameters: z.object({
+    path: z
+      .string()
+      .describe("文件路径（相对项目根目录或 tenas-file://{projectId}/...）。"),
+  }),
+  component: null,
+} as const;
+
+/** Docx read tool definition. */
+export const fileReadDocxToolDef = {
+  id: "file-read-docx",
+  description:
+    "读取 Word（.docx）文件内容并返回纯文本，若包含图片则保存到当前会话的 .tenas/chat/{sessionId}/ 并返回引用，仅允许访问当前 projectId 对应的项目目录内路径。",
+  parameters: z.object({
+    path: z
+      .string()
+      .describe("文件路径（相对项目根目录或 tenas-file://{projectId}/...）。"),
+  }),
+  component: null,
+} as const;
+
 /** Shell readonly tool definition. */
 export const shellReadonlyToolDef = {
   id: "shell-readonly",
@@ -229,6 +255,8 @@ export const systemToolMeta = {
   [fileReadToolDef.id]: { riskType: RiskType.Read },
   [fileListToolDef.id]: { riskType: RiskType.Read },
   [fileSearchToolDef.id]: { riskType: RiskType.Read },
+  [fileReadExcelToolDef.id]: { riskType: RiskType.Read },
+  [fileReadDocxToolDef.id]: { riskType: RiskType.Read },
   [shellReadonlyToolDef.id]: { riskType: RiskType.Read },
   [fileWriteToolDef.id]: { riskType: RiskType.Write },
   [shellWriteToolDef.id]: { riskType: RiskType.Write },

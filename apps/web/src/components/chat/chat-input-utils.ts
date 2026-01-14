@@ -2,8 +2,15 @@
 
 import type { Value } from "platejs";
 import { KEYS } from "platejs";
+import { parseTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
 
-export const FILE_TOKEN_REGEX = /@\{([^}]+)\}/g;
+export const FILE_TOKEN_REGEX = /@(tenas-file:\/\/[^\s]+)/g;
+
+/** Normalize mention value by trimming leading "@". */
+const normalizeMentionValue = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+};
 
 export type MentionNode = {
   type: typeof KEYS.mention;
@@ -14,18 +21,21 @@ export type MentionNode = {
 /** Build a mention node for file references. */
 export const buildMentionNode = (value: string): MentionNode => ({
   type: KEYS.mention,
-  value,
+  value: normalizeMentionValue(value),
   children: [{ text: "" }],
 });
 
 /** Get the visible label for a file reference. */
 export const getFileLabel = (value: string) => {
-  const match = value.match(/^(.*?)(?::(\d+)-(\d+))?$/);
-  const baseValue = match?.[1] ?? value;
+  const normalized = normalizeMentionValue(value);
+  const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+  const baseValue = match?.[1] ?? normalized;
   const lineStart = match?.[2];
   const lineEnd = match?.[3];
-  const parts = baseValue.split("/");
-  const label = parts[parts.length - 1] || baseValue;
+  const parsed = baseValue.startsWith("tenas-file://") ? parseTenasFileUrl(baseValue) : null;
+  const labelBase = parsed?.relativePath ?? baseValue;
+  const parts = labelBase.split("/");
+  const label = parts[parts.length - 1] || labelBase;
   return lineStart && lineEnd ? `${label} ${lineStart}:${lineEnd}` : label;
 };
 
@@ -48,7 +58,7 @@ export const buildInlineNodesFromText = (text: string) => {
     if (match.index > lastIndex) {
       nodes.push({ text: text.slice(lastIndex, match.index) });
     }
-    const tokenValue = match[1]?.trim();
+    const tokenValue = normalizeMentionValue(match[1] ?? "");
     if (tokenValue) {
       nodes.push(buildMentionNode(tokenValue));
     } else {
@@ -71,7 +81,8 @@ const serializeChildren = (nodes: any[]): string =>
   nodes
     .map((node) => {
       if (node?.type === KEYS.mention) {
-        return `@{${node.value ?? ""}}`;
+        const value = normalizeMentionValue(String(node.value ?? ""));
+        return value ? `@${value}` : "";
       }
       if (typeof node?.text === "string") {
         return node.text;
@@ -107,7 +118,7 @@ export const serializeChatValue = (value: Value): string => {
 
 /** Normalize serialized text for clipboard usage. */
 export const normalizeSerializedForClipboard = (value: string) =>
-  value.replace(/\s*@\{([^}]+)\}\s*/g, (_match, token) => `@{${token}}`);
+  value.replace(/\s*(@tenas-file:\/\/[^\s]+)\s*/g, (_match, token) => token);
 
 /** Build plain text for character counting. */
 export const getPlainTextValue = (value: Value): string =>

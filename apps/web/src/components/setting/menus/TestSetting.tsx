@@ -14,6 +14,7 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { toast } from "sonner";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import { Switch } from "@/components/ui/switch";
 
 /** Setup entry route. */
 const STEP_UP_ROUTE = "/step-up";
@@ -21,7 +22,7 @@ const STEP_UP_ROUTE = "/step-up";
 const TestSetting = memo(function TestSetting() {
   /** Active workspace info. */
   const { workspace } = useWorkspace();
-  const { setBasic } = useBasicConfig();
+  const { basic, setBasic } = useBasicConfig();
   const activeTabId = useTabs((s) => s.activeTabId);
   const activeStackCount = useTabs((s) => {
     const id = s.activeTabId;
@@ -223,6 +224,25 @@ const TestSetting = memo(function TestSetting() {
                   </Button>
                 </>
               ) : null}
+            </TenasSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-3 py-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">画布调试信息</div>
+              <div className="text-xs text-muted-foreground">
+                显示性能面板（FPS/裁剪/帧时间）
+              </div>
+            </div>
+            <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+              <Switch
+                checked={Boolean(basic.boardDebugEnabled)}
+                onCheckedChange={(checked) => {
+                  // 逻辑：实时切换画布调试面板显示状态。
+                  void setBasic({ boardDebugEnabled: checked });
+                }}
+                aria-label="Board debug overlay"
+              />
             </TenasSettingsField>
           </div>
         </div>

@@ -71,6 +71,7 @@ import {
   type BoardSnapshotCacheRecord,
 } from "./boardSnapshotCache";
 import { useBoardSnapshot } from "./useBoardSnapshot";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 const VIEWPORT_SAVE_DELAY = 800;
 /** Default size for double-click created text nodes. */
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
@@ -242,6 +243,10 @@ export function BoardCanvas({
   /** Latest snapshot from the engine. */
   const snapshot = useBoardSnapshot(engine);
   const showUi = !uiHidden;
+  /** Basic settings for UI toggles. */
+  const { basic } = useBasicConfig();
+  /** Whether the performance overlay is visible. */
+  const showPerfOverlay = Boolean(basic.boardDebugEnabled);
   /** Guard for first-time node registration. */
   const nodesRegisteredRef = useRef(false);
   /** Guard for first-time initial element insertion. */
@@ -250,6 +255,16 @@ export function BoardCanvas({
   const nodePickerRef = useRef<HTMLDivElement | null>(null);
   /** Node inspector target id. */
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
+  /** Culling stats for the performance overlay. */
+  const [cullingStats, setCullingStats] = useState({
+    totalNodes: 0,
+    visibleNodes: 0,
+    culledNodes: 0,
+  });
+  /** GPU stats for the performance overlay. */
+  const [gpuStats, setGpuStats] = useState({
+    imageTextures: 0,
+  });
   /** Whether the server snapshot has been hydrated. */
   const hydratedRef = useRef(false);
   /** Last saved elements snapshot for change detection. */
@@ -1406,8 +1421,25 @@ export function BoardCanvas({
             }
           }}
         />
-        <CanvasSurface snapshot={snapshot} hideGrid={exporting} />
-        {showUi ? <CanvasDomLayer engine={engine} snapshot={snapshot} /> : null}
+        <CanvasSurface
+          snapshot={snapshot}
+          hideGrid={exporting}
+          onStats={showPerfOverlay ? setGpuStats : undefined}
+        />
+        {showUi ? (
+          <CanvasDomLayer
+            engine={engine}
+            snapshot={snapshot}
+            onCullingStatsChange={showPerfOverlay ? setCullingStats : undefined}
+          />
+        ) : null}
+        {showPerfOverlay ? (
+          <BoardPerfOverlay
+            stats={cullingStats}
+            zoom={snapshot.viewport.zoom}
+            gpuStats={gpuStats}
+          />
+        ) : null}
         {showUi ? <AnchorOverlay snapshot={snapshot} /> : null}
         {showUi ? <MiniMap snapshot={snapshot} visible={shouldShowMiniMap} /> : null}
         {showUi ? <BoardControls engine={engine} snapshot={snapshot} /> : null}

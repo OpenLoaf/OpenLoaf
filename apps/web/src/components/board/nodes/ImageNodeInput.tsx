@@ -219,12 +219,16 @@ export function ImageNodeInput({
   const insertFileMention = useCallback(
     (fileRef: string) => {
       if (!editor) return;
+      const normalizedRef = fileRef.trim().startsWith("@")
+        ? fileRef.trim().slice(1)
+        : fileRef.trim();
+      if (!normalizedRef.startsWith("tenas-file://")) return;
       if (!editor.selection) {
         const endPoint = SlateEditor.end(editor as unknown as BaseEditor, []);
         editor.tf.select(endPoint);
       }
       editor.tf.focus();
-      editor.tf.insertNodes(buildMentionNode(fileRef), { select: true });
+      editor.tf.insertNodes(buildMentionNode(normalizedRef), { select: true });
       editor.tf.insertText(" ");
     },
     [editor]

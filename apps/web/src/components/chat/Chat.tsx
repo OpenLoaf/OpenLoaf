@@ -60,9 +60,13 @@ const IMAGE_FILE_NAME_REGEX = /\.(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i;
 
 /** Check whether a file ref or name targets an image. */
 function isImageFileRef(fileRef: string) {
-  const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
-  const baseValue = match?.[1] ?? fileRef;
-  const name = baseValue.split("/").pop() ?? "";
+  const normalized = fileRef.trim().startsWith("@")
+    ? fileRef.trim().slice(1)
+    : fileRef.trim();
+  const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+  const baseValue = match?.[1] ?? normalized;
+  const parsed = baseValue.startsWith("tenas-file://") ? parseTenasFileUrl(baseValue) : null;
+  const name = (parsed?.relativePath ?? baseValue).split("/").pop() ?? "";
   return IMAGE_FILE_NAME_REGEX.test(name);
 }
 
@@ -640,15 +644,16 @@ export function Chat({
           }
           const resolvedFileRef =
             fileRef ||
-            (() => {
-              if (!imagePayload.baseUri.startsWith("tenas-file://")) return "";
-              const parsed = parseTenasFileUrl(imagePayload.baseUri);
-              return parsed ? `${parsed.projectId}/${parsed.relativePath}` : "";
-            })();
-          if (resolvedFileRef) {
+            (imagePayload.baseUri.startsWith("tenas-file://")
+              ? imagePayload.baseUri
+              : "");
+          const normalizedRef = resolvedFileRef.startsWith("@")
+            ? resolvedFileRef.slice(1)
+            : resolvedFileRef;
+          if (normalizedRef.startsWith("tenas-file://")) {
             window.dispatchEvent(
               new CustomEvent("tenas:chat-insert-mention", {
-                detail: { value: resolvedFileRef },
+                detail: { value: normalizedRef },
               })
             );
           }

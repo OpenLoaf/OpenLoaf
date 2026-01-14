@@ -434,6 +434,7 @@ export class CanvasEngine {
   getSnapshot(): CanvasSnapshot {
     return {
       elements: this.getOrderedElements(),
+      docRevision: this.doc.getRevision(),
       selectedIds: this.selection.getSelectedIds(),
       editingNodeId: this.editingNodeId,
       viewport: this.viewport.getState(),

@@ -6,6 +6,8 @@ export {
   fileSearchTool,
   fileWriteTool,
 } from "./fileTools";
+export { fileReadExcelTool } from "./excelTools";
+export { fileReadDocxTool } from "./docxTools";
 export {
   shellDestructiveTool,
   shellReadonlyTool,

@@ -18,6 +18,7 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   uiAnimationLevel: "high",
   uiTheme: "system",
   uiThemeManual: "light",
+  boardDebugEnabled: false,
   appLocalStorageDir: "",
   appAutoBackupDir: "",
   appCustomRules: "",

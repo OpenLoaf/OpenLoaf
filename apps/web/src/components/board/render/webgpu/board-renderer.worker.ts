@@ -1,12 +1,18 @@
 /* eslint-disable no-restricted-globals */
-import type { GpuMessage, GpuPalette, GpuWorkerEvent } from "./gpu-protocol";
+import type {
+  GpuMessage,
+  GpuPalette,
+  GpuSceneSnapshot,
+  GpuStateSnapshot,
+  GpuWorkerEvent,
+} from "./gpu-protocol";
 import type {
   CanvasAlignmentGuide,
   CanvasConnectorElement,
   CanvasNodeElement,
   CanvasPoint,
   CanvasRect,
-  CanvasSnapshot,
+  CanvasViewportState,
 } from "../../engine/types";
 import { DEFAULT_NODE_SIZE } from "../../engine/constants";
 import {
@@ -18,6 +24,20 @@ const GRID_SIZE = 80;
 const TEXT_ATLAS_SIZE = 1024;
 const TEXT_FONT_FAMILY = "ui-sans-serif, system-ui, sans-serif";
 const TEXT_MAX_LENGTH = 120;
+const PALETTE_KEYS: Array<keyof GpuPalette> = [
+  "grid",
+  "nodeFill",
+  "nodeStroke",
+  "nodeSelected",
+  "text",
+  "textMuted",
+  "connector",
+  "connectorSelected",
+  "connectorDraft",
+  "selectionFill",
+  "selectionStroke",
+  "guide",
+];
 
 type Vec4 = [number, number, number, number];
 
@@ -53,13 +73,43 @@ type ImageQuad = {
   y: number;
   w: number;
   h: number;
-  texture: GPUTexture;
+  asset: ImageAsset;
 };
 
 type ImageAsset = {
   texture: GPUTexture;
   width: number;
   height: number;
+  bindGroup?: GPUBindGroup;
+};
+
+type ImageDraw = {
+  buffer: GPUBuffer;
+  bindGroup: GPUBindGroup;
+};
+
+type SceneBuffers = {
+  rectBuffer: GPUBuffer | null;
+  rectCount: number;
+  lineBuffer: GPUBuffer | null;
+  lineCount: number;
+  textBuffer: GPUBuffer | null;
+  textCount: number;
+  imageDraws: ImageDraw[];
+};
+
+type SceneGeometry = {
+  rects: RectInstance[];
+  lines: LineVertex[];
+  textQuads: TextQuad[];
+  imageQuads: ImageQuad[];
+};
+
+type ViewState = {
+  viewport: CanvasViewportState;
+  palette: GpuPalette;
+  hideGrid: boolean;
+  renderNodes: boolean;
 };
 
 class TextAtlas {
@@ -133,14 +183,33 @@ let viewBindGroup: GPUBindGroup | null = null;
 let rectPipeline: GPURenderPipeline | null = null;
 let linePipeline: GPURenderPipeline | null = null;
 let texturePipeline: GPURenderPipeline | null = null;
+/** Cached bind group layout for texture sampling. */
+let textureBindGroupLayout: GPUBindGroupLayout | null = null;
 let quadBuffer: GPUBuffer | null = null;
 let textAtlas: TextAtlas | null = null;
 let textTexture: GPUTexture | null = null;
 let textSampler: GPUSampler | null = null;
-let latestSnapshot: CanvasSnapshot | null = null;
-let latestPalette: GpuPalette | null = null;
-let latestHideGrid = false;
-let latestRenderNodes = true;
+/** Bind group for the text atlas texture. */
+let textBindGroup: GPUBindGroup | null = null;
+/** Latest scene data for GPU rendering. */
+let latestScene: GpuSceneSnapshot | null = null;
+/** Latest state data for GPU rendering. */
+let latestState: GpuStateSnapshot | null = null;
+/** Latest view data for GPU rendering. */
+let latestView: ViewState | null = null;
+/** Cached GPU buffers for the current scene. */
+let sceneBuffers: SceneBuffers | null = null;
+/** Cached GPU buffer for grid lines. */
+let gridLineBuffer: GPUBuffer | null = null;
+/** Cached grid line vertex count. */
+let gridLineCount = 0;
+/** Dirty flag for scene geometry rebuild. */
+let sceneDirty = false;
+/** Dirty flag for grid geometry rebuild. */
+let gridDirty = false;
+/** Render scheduling guard. */
+let renderScheduled = false;
+let lastImageTextureCount = -1;
 
 const imageCache = new Map<string, ImageAsset>();
 const imageLoading = new Map<string, Promise<void>>();
@@ -317,7 +386,7 @@ function createResources() {
     minFilter: "linear",
   });
 
-  const textureBindGroupLayout = device.createBindGroupLayout({
+  textureBindGroupLayout = device.createBindGroupLayout({
     entries: [
       { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: { type: "filtering" } },
       { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "float" } },
@@ -364,9 +433,19 @@ function createResources() {
     },
     primitive: { topology: "triangle-list" },
   });
+
+  if (textTexture && textSampler && textureBindGroupLayout) {
+    textBindGroup = device.createBindGroup({
+      layout: textureBindGroupLayout,
+      entries: [
+        { binding: 0, resource: textSampler },
+        { binding: 1, resource: textTexture.createView() },
+      ],
+    });
+  }
 }
 
-function updateViewUniform(viewport: CanvasSnapshot["viewport"]) {
+function updateViewUniform(viewport: CanvasViewportState) {
   if (!device || !viewUniformBuffer) return;
   const data = new Float32Array([
     canvasSize[0] * dpr,
@@ -383,6 +462,51 @@ function updateViewUniform(viewport: CanvasSnapshot["viewport"]) {
 
 function postWorkerEvent(event: GpuWorkerEvent) {
   (self as DedicatedWorkerGlobalScope).postMessage(event);
+}
+
+/** Return true when two viewport states share the same values. */
+function isViewportEqual(a: CanvasViewportState | null, b: CanvasViewportState): boolean {
+  if (!a) return false;
+  return (
+    a.zoom === b.zoom &&
+    a.offset[0] === b.offset[0] &&
+    a.offset[1] === b.offset[1] &&
+    a.size[0] === b.size[0] &&
+    a.size[1] === b.size[1]
+  );
+}
+
+/** Return true when two palettes share the same values. */
+function isPaletteEqual(a: GpuPalette | null, b: GpuPalette): boolean {
+  if (!a) return false;
+  return PALETTE_KEYS.every((key) => {
+    const left = a[key];
+    const right = b[key];
+    return (
+      left[0] === right[0] &&
+      left[1] === right[1] &&
+      left[2] === right[2] &&
+      left[3] === right[3]
+    );
+  });
+}
+
+/** Schedule a coalesced render in the worker. */
+function scheduleRender() {
+  if (renderScheduled) return;
+  renderScheduled = true;
+  queueMicrotask(() => {
+    renderScheduled = false;
+    renderFrame();
+  });
+}
+
+function emitStats() {
+  const imageTextures = imageCache.size;
+  if (imageTextures === lastImageTextureCount) return;
+  lastImageTextureCount = imageTextures;
+  // 逻辑：仅在纹理数量变化时上报，减少主线程通信。
+  postWorkerEvent({ type: "stats", imageTextures });
 }
 
 function ensureImageTexture(src: string) {
@@ -406,20 +530,29 @@ function ensureImageTexture(src: string) {
         { texture },
         { width: bitmap.width, height: bitmap.height }
       );
-      imageCache.set(src, { texture, width: bitmap.width, height: bitmap.height });
+      const asset: ImageAsset = { texture, width: bitmap.width, height: bitmap.height };
+      if (textureBindGroupLayout && textSampler) {
+        asset.bindGroup = device.createBindGroup({
+          layout: textureBindGroupLayout,
+          entries: [
+            { binding: 0, resource: textSampler },
+            { binding: 1, resource: texture.createView() },
+          ],
+        });
+      }
+      imageCache.set(src, asset);
     })
     .catch(() => {})
     .finally(() => {
       imageLoading.delete(src);
-      if (latestSnapshot) {
-        // 逻辑：图片加载完成后补一帧刷新。
-        render(latestSnapshot, latestPalette, latestHideGrid, latestRenderNodes);
-      }
+      // 逻辑：图片纹理就绪后触发一次场景重建。
+      sceneDirty = true;
+      scheduleRender();
     });
   imageLoading.set(src, promise);
 }
 
-function getNodeBoundsMap(elements: CanvasSnapshot["elements"]) {
+function getNodeBoundsMap(elements: GpuSceneSnapshot["elements"]) {
   const bounds: Record<string, CanvasRect | undefined> = {};
   elements.forEach((element) => {
     if (element.kind !== "node") return;
@@ -434,7 +567,7 @@ function appendLine(lines: LineVertex[], a: CanvasPoint, b: CanvasPoint, color: 
   lines.push({ x: b[0], y: b[1], color });
 }
 
-function buildGridLines(viewport: CanvasSnapshot["viewport"], color: Vec4) {
+function buildGridLines(viewport: CanvasViewportState, color: Vec4) {
   const lines: LineVertex[] = [];
   const zoom = viewport.zoom;
   const [width, height] = viewport.size;
@@ -480,7 +613,8 @@ function sampleBezier(points: CanvasPoint[], segments = 24) {
 
 function appendConnectorLines(
   connector: CanvasConnectorElement,
-  snapshot: CanvasSnapshot,
+  state: GpuStateSnapshot,
+  anchors: GpuSceneSnapshot["anchors"],
   boundsMap: Record<string, CanvasRect | undefined>,
   lines: LineVertex[],
   palette: GpuPalette
@@ -488,17 +622,17 @@ function appendConnectorLines(
   const resolved = resolveConnectorEndpointsSmart(
     connector.source,
     connector.target,
-    snapshot.anchors,
+    anchors,
     boundsMap
   );
   const { source, target } = resolved;
   if (!source || !target) return;
-  const style = connector.style ?? snapshot.connectorStyle;
+  const style = connector.style ?? state.connectorStyle;
   const path = buildConnectorPath(style, source, target, {
     sourceAnchorId: resolved.sourceAnchorId,
     targetAnchorId: resolved.targetAnchorId,
   });
-  const isSelected = snapshot.selectedIds.includes(connector.id);
+  const isSelected = state.selectedIds.includes(connector.id);
   const color = toColor(isSelected ? palette.connectorSelected : palette.connector);
   const points = path.kind === "bezier" ? sampleBezier(path.points as CanvasPoint[]) : path.points;
   for (let i = 0; i < points.length - 1; i += 1) {
@@ -652,49 +786,37 @@ function trimText(value: string) {
   return `${value.slice(0, TEXT_MAX_LENGTH - 3)}...`;
 }
 
-function render(
-  snapshot: CanvasSnapshot,
-  palette: GpuPalette | null,
-  hideGrid: boolean,
+/** Build geometry for the current scene and state. */
+function buildSceneGeometry(
+  scene: GpuSceneSnapshot,
+  state: GpuStateSnapshot,
+  palette: GpuPalette,
   renderNodes: boolean
-) {
-  if (!device || !context || !rectPipeline || !linePipeline || !texturePipeline || !viewBindGroup || !quadBuffer) {
-    return;
-  }
-  if (!palette || !textAtlas || !textTexture || !textSampler) return;
-
-  updateViewUniform(snapshot.viewport);
-
+): SceneGeometry {
   const rects: RectInstance[] = [];
   const lines: LineVertex[] = [];
   const textQuads: TextQuad[] = [];
   const imageQuads: ImageQuad[] = [];
-  const boundsMap = getNodeBoundsMap(snapshot.elements);
+  const atlas = textAtlas;
+  const boundsMap = getNodeBoundsMap(scene.elements);
 
-  textAtlas.begin();
-
-  if (!hideGrid) {
-    const gridLines = buildGridLines(snapshot.viewport, toColor(palette.grid));
-    lines.push(...gridLines);
-  }
-
-  const connectorElements = snapshot.elements.filter(
+  const connectorElements = scene.elements.filter(
     (element): element is CanvasConnectorElement => element.kind === "connector"
   );
   connectorElements.forEach((connector) => {
-    appendConnectorLines(connector, snapshot, boundsMap, lines, palette);
+    appendConnectorLines(connector, state, scene.anchors, boundsMap, lines, palette);
   });
-  if (snapshot.connectorDraft) {
-    const draft = snapshot.connectorDraft;
+  if (state.connectorDraft) {
+    const draft = state.connectorDraft;
     const resolved = resolveConnectorEndpointsSmart(
       draft.source,
       draft.target,
-      snapshot.anchors,
+      scene.anchors,
       boundsMap
     );
     const { source, target } = resolved;
     if (source && target) {
-      const style = draft.style ?? snapshot.connectorStyle;
+      const style = draft.style ?? state.connectorStyle;
       const path = buildConnectorPath(style, source, target, {
         sourceAnchorId: resolved.sourceAnchorId,
         targetAnchorId: resolved.targetAnchorId,
@@ -708,10 +830,10 @@ function render(
   }
 
   if (renderNodes) {
-    const selectedIds = new Set(snapshot.selectedIds);
-    snapshot.elements.forEach((element) => {
+    const selectedIds = new Set(state.selectedIds);
+    scene.elements.forEach((element) => {
       if (element.kind !== "node") return;
-      if (element.id === snapshot.editingNodeId) return;
+      if (element.id === state.editingNodeId) return;
       const [x, y, w, h] = element.xywh;
       const isSelected = selectedIds.has(element.id);
       const opacity = element.opacity ?? 1;
@@ -761,7 +883,7 @@ function render(
             }
             const dx = x + (w - drawW) / 2;
             const dy = y + (h - drawH) / 2;
-            imageQuads.push({ x: dx, y: dy, w: drawW, h: drawH, texture: asset.texture });
+            imageQuads.push({ x: dx, y: dy, w: drawW, h: drawH, asset });
           }
         }
       }
@@ -776,12 +898,15 @@ function render(
         const textValue = isPlaceholder ? "输入文字内容" : rawText;
         const fontSize = 13;
         const lineHeight = fontSize + 4;
-        textAtlas.ctx.font = `${fontSize}px ${TEXT_FONT_FAMILY}`;
+        const ctx = atlas?.ctx;
+        if (ctx) {
+          ctx.font = `${fontSize}px ${TEXT_FONT_FAMILY}`;
+        }
         const maxLines = Math.max(1, Math.floor((h - padding * 2) / lineHeight));
-        const linesValue = wrapText(textValue, maxWidth, textAtlas.ctx, maxLines);
+        const linesValue = ctx ? wrapText(textValue, maxWidth, ctx, maxLines) : [];
         linesValue.forEach((line, index) => {
-          if (!line) return;
-          const entry = textAtlas.draw(line, fontSize);
+          if (!line || !atlas) return;
+          const entry = atlas.draw(line, fontSize);
           textQuads.push({
             x: x + padding,
             y: y + padding + index * lineHeight,
@@ -795,9 +920,9 @@ function render(
           });
         });
       } else {
-        if (title) {
+        if (title && atlas) {
           const fontSize = 12;
-          const entry = textAtlas.draw(title, fontSize);
+          const entry = atlas.draw(title, fontSize);
           textQuads.push({
             x: x + padding,
             y: y + padding,
@@ -810,9 +935,9 @@ function render(
             color: toColor(palette.text),
           });
         }
-        if (subtitle) {
+        if (subtitle && atlas) {
           const fontSize = 11;
-          const entry = textAtlas.draw(subtitle, fontSize);
+          const entry = atlas.draw(subtitle, fontSize);
           textQuads.push({
             x: x + padding,
             y: y + padding + 16,
@@ -829,16 +954,16 @@ function render(
     });
   }
 
-  if (snapshot.pendingInsert && snapshot.pendingInsertPoint) {
-    const [w, h] = snapshot.pendingInsert.size ?? DEFAULT_NODE_SIZE;
-    const x = snapshot.pendingInsertPoint[0] - w / 2;
-    const y = snapshot.pendingInsertPoint[1] - h / 2;
+  if (state.pendingInsert && state.pendingInsertPoint) {
+    const [w, h] = state.pendingInsert.size ?? DEFAULT_NODE_SIZE;
+    const x = state.pendingInsertPoint[0] - w / 2;
+    const y = state.pendingInsertPoint[1] - h / 2;
     const base = toColor(palette.nodeFill);
     rects.push({ x, y, w, h, rotation: 0, color: [base[0], base[1], base[2], base[3] * 0.5] });
-    const label = trimText(snapshot.pendingInsert.type);
-    if (label) {
+    const label = trimText(state.pendingInsert.type);
+    if (label && atlas) {
       const fontSize = 12;
-      const entry = textAtlas.draw(label, fontSize);
+      const entry = atlas.draw(label, fontSize);
       textQuads.push({
         x: x + 10,
         y: y + 10,
@@ -853,9 +978,8 @@ function render(
     }
   }
 
-  // selection box
-  if (snapshot.selectionBox) {
-    const { x, y, w, h } = snapshot.selectionBox;
+  if (state.selectionBox) {
+    const { x, y, w, h } = state.selectionBox;
     rects.push({
       x,
       y,
@@ -871,8 +995,7 @@ function render(
     appendLine(lines, [x, y + h], [x, y], stroke);
   }
 
-  // alignment guides
-  snapshot.alignmentGuides.forEach((guide: CanvasAlignmentGuide) => {
+  state.alignmentGuides.forEach((guide: CanvasAlignmentGuide) => {
     const color = toColor(palette.guide);
     if (guide.axis === "x") {
       appendLine(lines, [guide.value, guide.start], [guide.value, guide.end], color);
@@ -881,18 +1004,123 @@ function render(
     }
   });
 
-  if (textQuads.length > 0) {
+  return { rects, lines, textQuads, imageQuads };
+}
+
+/** Ensure a bind group exists for the image asset. */
+function ensureImageBindGroup(asset: ImageAsset): GPUBindGroup | null {
+  if (asset.bindGroup) return asset.bindGroup;
+  if (!device || !textureBindGroupLayout || !textSampler) return null;
+  const bindGroup = device.createBindGroup({
+    layout: textureBindGroupLayout,
+    entries: [
+      { binding: 0, resource: textSampler },
+      { binding: 1, resource: asset.texture.createView() },
+    ],
+  });
+  asset.bindGroup = bindGroup;
+  return bindGroup;
+}
+
+/** Build GPU draw data for image quads. */
+function buildImageDraws(imageQuads: ImageQuad[]): ImageDraw[] {
+  const draws: ImageDraw[] = [];
+  imageQuads.forEach((quad) => {
+    const buffer = buildImageBuffer([quad]);
+    if (!buffer) return;
+    const bindGroup = ensureImageBindGroup(quad.asset);
+    if (!bindGroup) {
+      buffer.destroy();
+      return;
+    }
+    draws.push({ buffer, bindGroup });
+  });
+  return draws;
+}
+
+/** Destroy cached scene buffers. */
+function destroySceneBuffers(buffers: SceneBuffers | null) {
+  if (!buffers) return;
+  buffers.rectBuffer?.destroy();
+  buffers.lineBuffer?.destroy();
+  buffers.textBuffer?.destroy();
+  buffers.imageDraws.forEach(draw => draw.buffer.destroy());
+}
+
+/** Destroy cached grid buffer. */
+function destroyGridBuffer() {
+  if (gridLineBuffer) {
+    gridLineBuffer.destroy();
+    gridLineBuffer = null;
+  }
+  gridLineCount = 0;
+}
+
+/** Rebuild scene buffers from latest data. */
+function rebuildSceneBuffers(scene: GpuSceneSnapshot, state: GpuStateSnapshot, view: ViewState) {
+  destroySceneBuffers(sceneBuffers);
+  sceneBuffers = buildSceneBuffers(scene, state, view);
+}
+
+/** Rebuild grid buffers for the current view. */
+function rebuildGridBuffer(view: ViewState) {
+  destroyGridBuffer();
+  if (view.hideGrid) return;
+  const gridLines = buildGridLines(view.viewport, toColor(view.palette.grid));
+  gridLineBuffer = buildLineBuffer(gridLines);
+  gridLineCount = gridLines.length;
+}
+
+/** Build GPU buffers for the current scene. */
+function buildSceneBuffers(
+  scene: GpuSceneSnapshot,
+  state: GpuStateSnapshot,
+  view: ViewState
+): SceneBuffers | null {
+  if (!device || !textAtlas || !textTexture || !textSampler) return null;
+  textAtlas.begin();
+  const geometry = buildSceneGeometry(scene, state, view.palette, view.renderNodes);
+  if (geometry.textQuads.length > 0) {
     device.queue.copyExternalImageToTexture(
       { source: textAtlas.canvas },
       { texture: textTexture },
       { width: textAtlas.canvas.width, height: textAtlas.canvas.height }
     );
   }
+  const rectBuffer = buildRectBuffer(geometry.rects);
+  const lineBuffer = buildLineBuffer(geometry.lines);
+  const textBuffer = buildTextBuffer(geometry.textQuads);
+  const imageDraws = buildImageDraws(geometry.imageQuads);
+  return {
+    rectBuffer,
+    rectCount: geometry.rects.length,
+    lineBuffer,
+    lineCount: geometry.lines.length,
+    textBuffer,
+    textCount: geometry.textQuads.length,
+    imageDraws,
+  };
+}
 
-  const rectBuffer = buildRectBuffer(rects);
-  const lineBuffer = buildLineBuffer(lines);
-  const textBuffer = buildTextBuffer(textQuads);
-  const imageBuffers: GPUBuffer[] = [];
+/** Render a frame using cached buffers. */
+function renderFrame() {
+  if (!device || !context || !rectPipeline || !linePipeline || !texturePipeline || !viewBindGroup || !quadBuffer) {
+    return;
+  }
+  if (!latestScene || !latestState || !latestView) return;
+
+  if (sceneDirty) {
+    // 逻辑：场景或状态变化时重建缓存几何。
+    rebuildSceneBuffers(latestScene, latestState, latestView);
+    sceneDirty = false;
+  }
+  if (gridDirty) {
+    // 逻辑：视图或配色变化时重建网格线。
+    rebuildGridBuffer(latestView);
+    gridDirty = false;
+  }
+
+  updateViewUniform(latestView.viewport);
 
   const encoder = device.createCommandEncoder();
   const view = context.getCurrentTexture().createView();
@@ -907,64 +1135,50 @@ function render(
     ],
   });
 
-  if (lineBuffer && linePipeline) {
+  if (linePipeline) {
     renderPass.setPipeline(linePipeline);
     renderPass.setBindGroup(0, viewBindGroup);
-    renderPass.setVertexBuffer(0, lineBuffer);
-    renderPass.draw(lines.length, 1, 0, 0);
+    if (gridLineBuffer) {
+      renderPass.setVertexBuffer(0, gridLineBuffer);
+      renderPass.draw(gridLineCount, 1, 0, 0);
+    }
+    if (sceneBuffers?.lineBuffer) {
+      renderPass.setVertexBuffer(0, sceneBuffers.lineBuffer);
+      renderPass.draw(sceneBuffers.lineCount, 1, 0, 0);
+    }
   }
 
-  if (rectBuffer && rectPipeline) {
+  if (sceneBuffers?.rectBuffer && rectPipeline) {
     renderPass.setPipeline(rectPipeline);
     renderPass.setBindGroup(0, viewBindGroup);
     renderPass.setVertexBuffer(0, quadBuffer);
-    renderPass.setVertexBuffer(1, rectBuffer);
-    renderPass.draw(6, rects.length, 0, 0);
+    renderPass.setVertexBuffer(1, sceneBuffers.rectBuffer);
+    renderPass.draw(6, sceneBuffers.rectCount, 0, 0);
   }
 
-  if (textBuffer && texturePipeline && textTexture && textSampler) {
-    const textBindGroup = device.createBindGroup({
-      layout: texturePipeline.getBindGroupLayout(1),
-      entries: [
-        { binding: 0, resource: textSampler },
-        { binding: 1, resource: textTexture.createView() },
-      ],
-    });
+  if (sceneBuffers?.textBuffer && textBindGroup) {
     renderPass.setPipeline(texturePipeline);
     renderPass.setBindGroup(0, viewBindGroup);
     renderPass.setBindGroup(1, textBindGroup);
     renderPass.setVertexBuffer(0, quadBuffer);
-    renderPass.setVertexBuffer(1, textBuffer);
-    renderPass.draw(6, textQuads.length, 0, 0);
+    renderPass.setVertexBuffer(1, sceneBuffers.textBuffer);
+    renderPass.draw(6, sceneBuffers.textCount, 0, 0);
   }
 
-  if (imageQuads.length > 0 && texturePipeline) {
-    for (const quad of imageQuads) {
-      const imageBuffer = buildImageBuffer([quad]);
-      if (!imageBuffer) continue;
-      imageBuffers.push(imageBuffer);
-      const imageBindGroup = device.createBindGroup({
-        layout: texturePipeline.getBindGroupLayout(1),
-        entries: [
-          { binding: 0, resource: textSampler as GPUSampler },
-          { binding: 1, resource: quad.texture.createView() },
-        ],
-      });
-      renderPass.setPipeline(texturePipeline);
-      renderPass.setBindGroup(0, viewBindGroup);
-      renderPass.setBindGroup(1, imageBindGroup);
+  if (sceneBuffers?.imageDraws.length) {
+    renderPass.setPipeline(texturePipeline);
+    renderPass.setBindGroup(0, viewBindGroup);
+    sceneBuffers.imageDraws.forEach((draw) => {
+      renderPass.setBindGroup(1, draw.bindGroup);
       renderPass.setVertexBuffer(0, quadBuffer);
-      renderPass.setVertexBuffer(1, imageBuffer);
+      renderPass.setVertexBuffer(1, draw.buffer);
       renderPass.draw(6, 1, 0, 0);
-    }
+    });
   }
 
   renderPass.end();
   device.queue.submit([encoder.finish()]);
-  rectBuffer?.destroy();
-  lineBuffer?.destroy();
-  textBuffer?.destroy();
-  imageBuffers.forEach(buffer => buffer.destroy());
+  emitStats();
 }
 
 function buildRectBuffer(rects: RectInstance[]) {
@@ -1209,19 +1423,53 @@ self.onmessage = (event: MessageEvent<GpuMessage>) => {
     canvasSize = message.size;
     dpr = message.dpr;
     configureContext();
+    gridDirty = true;
+    scheduleRender();
     return;
   }
-  if (message.type === "snapshot") {
-    latestSnapshot = message.snapshot;
-    latestPalette = message.palette;
-    latestHideGrid = Boolean(message.hideGrid);
-    latestRenderNodes = message.renderNodes !== false;
-    render(message.snapshot, message.palette, latestHideGrid, latestRenderNodes);
+  if (message.type === "scene") {
+    latestScene = message.scene;
+    sceneDirty = true;
+    scheduleRender();
+    return;
+  }
+  if (message.type === "state") {
+    latestState = message.state;
+    sceneDirty = true;
+    scheduleRender();
+    return;
+  }
+  if (message.type === "view") {
+    const nextView: ViewState = {
+      viewport: message.viewport,
+      palette: message.palette,
+      hideGrid: Boolean(message.hideGrid),
+      renderNodes: message.renderNodes !== false,
+    };
+    const prevView = latestView;
+    const viewportChanged = !prevView || !isViewportEqual(prevView.viewport, nextView.viewport);
+    const paletteChanged = !prevView || !isPaletteEqual(prevView.palette, nextView.palette);
+    const hideGridChanged = !prevView || prevView.hideGrid !== nextView.hideGrid;
+    const renderNodesChanged = !prevView || prevView.renderNodes !== nextView.renderNodes;
+    latestView = nextView;
+    if (paletteChanged || renderNodesChanged) {
+      sceneDirty = true;
+    }
+    if (paletteChanged || viewportChanged || hideGridChanged) {
+      gridDirty = true;
+    }
+    scheduleRender();
     return;
   }
   if (message.type === "dispose") {
-    latestSnapshot = null;
-    latestPalette = null;
+    latestScene = null;
+    latestState = null;
+    latestView = null;
+    destroySceneBuffers(sceneBuffers);
+    sceneBuffers = null;
+    destroyGridBuffer();
+    sceneDirty = false;
+    gridDirty = false;
     return;
   }
 };

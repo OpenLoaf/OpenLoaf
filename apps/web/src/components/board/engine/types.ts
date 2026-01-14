@@ -238,6 +238,8 @@ export type CanvasViewportState = {
 export type CanvasSnapshot = {
   /** Ordered elements for rendering. */
   elements: CanvasElement[];
+  /** Current document revision for render caching. */
+  docRevision: number;
   /** Selected element ids. */
   selectedIds: string[];
   /** Node id currently in edit mode. */

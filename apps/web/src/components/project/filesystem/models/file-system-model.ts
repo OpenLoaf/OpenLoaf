@@ -1185,7 +1185,7 @@ export function useProjectFileSystemModel({
     if (!relativePath) return;
     event.dataTransfer.setData(
       FILE_DRAG_REF_MIME,
-      `${projectId}/${relativePath}`
+      buildTenasFileUrl(projectId, relativePath)
     );
   };
 

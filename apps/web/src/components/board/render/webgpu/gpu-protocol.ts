@@ -1,4 +1,14 @@
-import type { CanvasSnapshot } from "../../engine/types";
+import type {
+  CanvasAlignmentGuide,
+  CanvasAnchorMap,
+  CanvasConnectorDraft,
+  CanvasConnectorStyle,
+  CanvasElement,
+  CanvasInsertRequest,
+  CanvasPoint,
+  CanvasSelectionBox,
+  CanvasViewportState,
+} from "../../engine/types";
 
 export type GpuPalette = {
   grid: [number, number, number, number];
@@ -28,10 +38,45 @@ export type GpuResizeMessage = {
   dpr: number;
 };
 
-export type GpuSnapshotMessage = {
-  type: "snapshot";
-  frameId: number;
-  snapshot: CanvasSnapshot;
+export type GpuSceneSnapshot = {
+  /** Renderable elements for GPU drawing. */
+  elements: CanvasElement[];
+  /** Anchor map for connector routing. */
+  anchors: CanvasAnchorMap;
+};
+
+export type GpuStateSnapshot = {
+  /** Selected element ids for highlighting. */
+  selectedIds: string[];
+  /** Node id currently in edit mode. */
+  editingNodeId: string | null;
+  /** Draft connector for interactive linking. */
+  connectorDraft: CanvasConnectorDraft | null;
+  /** Active connector style for previews. */
+  connectorStyle: CanvasConnectorStyle;
+  /** Pending insert request for ghost preview. */
+  pendingInsert: CanvasInsertRequest | null;
+  /** Pending insert cursor point in world space. */
+  pendingInsertPoint: CanvasPoint | null;
+  /** Selection box for rectangle selection. */
+  selectionBox: CanvasSelectionBox | null;
+  /** Alignment guides for snapping feedback. */
+  alignmentGuides: CanvasAlignmentGuide[];
+};
+
+export type GpuSceneMessage = {
+  type: "scene";
+  scene: GpuSceneSnapshot;
+};
+
+export type GpuStateMessage = {
+  type: "state";
+  state: GpuStateSnapshot;
+};
+
+export type GpuViewMessage = {
+  type: "view";
+  viewport: CanvasViewportState;
   palette: GpuPalette;
   hideGrid?: boolean;
   renderNodes?: boolean;
@@ -45,9 +90,12 @@ export type GpuDisposeMessage = {
 export type GpuMessage =
   | GpuInitMessage
   | GpuResizeMessage
-  | GpuSnapshotMessage
+  | GpuSceneMessage
+  | GpuStateMessage
+  | GpuViewMessage
   | GpuDisposeMessage;
 
 export type GpuWorkerEvent =
   | { type: "ready" }
+  | { type: "stats"; imageTextures: number }
   | { type: "error"; message: string };

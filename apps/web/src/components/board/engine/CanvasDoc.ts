@@ -9,6 +9,10 @@ export class CanvasDoc {
   private transactionDepth = 0;
   /** Pending change marker to coalesce updates. */
   private hasPendingChange = false;
+  /** Current document revision. */
+  private revision = 0;
+  /** Pending revision marker for batched updates. */
+  private hasPendingRevision = false;
 
   /** Create a new canvas document. */
   constructor(emitChange: () => void) {
@@ -18,6 +22,11 @@ export class CanvasDoc {
   /** Return all elements in insertion order. */
   getElements(): CanvasElement[] {
     return Array.from(this.elements.values());
+  }
+
+  /** Return the current document revision. */
+  getRevision(): number {
+    return this.revision;
   }
 
   /** Return a single element by id. */
@@ -106,6 +115,10 @@ export class CanvasDoc {
       this.transactionDepth -= 1;
       if (this.transactionDepth === 0 && this.hasPendingChange) {
         this.hasPendingChange = false;
+        if (this.hasPendingRevision) {
+          this.revision += 1;
+          this.hasPendingRevision = false;
+        }
         this.emitChange();
       }
     }
@@ -115,8 +128,10 @@ export class CanvasDoc {
   private queueChange(): void {
     if (this.transactionDepth > 0) {
       this.hasPendingChange = true;
+      this.hasPendingRevision = true;
       return;
     }
+    this.revision += 1;
     this.emitChange();
   }
 }

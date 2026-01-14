@@ -182,7 +182,7 @@ export default function MessageHuman({
   return (
     <div className={cn("flex justify-end min-w-0", className)}>
       <div
-        className="max-w-[80%] min-w-0 p-3 rounded-lg bg-primary/90 text-primary-foreground"
+        className="max-w-[80%] min-w-0 p-3 rounded-lg bg-primary/85 text-primary-foreground border border-primary/35 shadow-sm"
         onPointerDownCapture={handleMentionPointerDown}
       >
         {displayParts.length > 0 && (

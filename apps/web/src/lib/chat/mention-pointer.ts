@@ -4,6 +4,7 @@ import type { PointerEvent } from "react";
 import {
   buildTenasFileUrl,
   buildUriFromRoot,
+  parseTenasFileUrl,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import {
   CODE_EXTS,
@@ -29,6 +30,13 @@ type MentionPointerDownOptions = {
   pushStackItem: (tabId: string, item: any) => void;
 };
 
+type MentionFileRef = {
+  projectId: string;
+  relativePath: string;
+  lineStart?: string;
+  lineEnd?: string;
+};
+
 /** Resolve the project root uri from a project tree. */
 export function resolveProjectRootUri(projects: ProjectTreeNode[], projectId: string): string {
   const queue = [...projects];
@@ -44,6 +52,23 @@ export function resolveProjectRootUri(projects: ProjectTreeNode[], projectId: st
     }
   }
   return "";
+}
+
+/** Parse a mention value into a project file reference. */
+function parseMentionFileRef(value: string): MentionFileRef | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+  const baseValue = match?.[1] ?? normalized;
+  const parsed = baseValue.startsWith("tenas-file://") ? parseTenasFileUrl(baseValue) : null;
+  if (!parsed) return null;
+  return {
+    projectId: parsed.projectId,
+    relativePath: parsed.relativePath,
+    lineStart: match?.[2],
+    lineEnd: match?.[3],
+  };
 }
 
 /** Handle pointer down on file mentions to open the viewer stack. */
@@ -63,13 +88,9 @@ export function handleChatMentionPointerDown(
     mentionEl.getAttribute("data-mention-value") ||
     mentionEl.getAttribute("data-slate-value") ||
     "";
-  if (!value) return;
-  const match = value.match(/^(.*?)(?::(\d+)-(\d+))?$/);
-  const baseValue = match?.[1] ?? value;
-  if (!baseValue.includes("/")) return;
-  const parts = baseValue.split("/");
-  const projectId = parts[0] ?? "";
-  const relativePath = parts.slice(1).join("/");
+  const fileRef = value ? parseMentionFileRef(value) : null;
+  if (!fileRef) return;
+  const { projectId, relativePath } = fileRef;
   if (!projectId || !relativePath) return;
   const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
   const isImageExt = IMAGE_EXTS.has(ext);

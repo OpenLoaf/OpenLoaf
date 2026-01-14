@@ -46,6 +46,7 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   uiAnimationLevel: "high",
   uiTheme: "system",
   uiThemeManual: "light",
+  boardDebugEnabled: false,
   appLocalStorageDir: "",
   appAutoBackupDir: "",
   appCustomRules: "",
@@ -201,6 +202,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : fallbackSource.uiThemeManual === "light" || fallbackSource.uiThemeManual === "dark"
         ? fallbackSource.uiThemeManual
         : DEFAULT_BASIC_CONF.uiThemeManual;
+  const boardDebugEnabled =
+    typeof source.boardDebugEnabled === "boolean"
+      ? source.boardDebugEnabled
+      : typeof fallbackSource.boardDebugEnabled === "boolean"
+        ? fallbackSource.boardDebugEnabled
+        : DEFAULT_BASIC_CONF.boardDebugEnabled;
   const appLocalStorageDir =
     typeof source.appLocalStorageDir === "string"
       ? source.appLocalStorageDir
@@ -292,6 +299,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     uiAnimationLevel,
     uiTheme,
     uiThemeManual,
+    boardDebugEnabled,
     appLocalStorageDir,
     appAutoBackupDir,
     appCustomRules,

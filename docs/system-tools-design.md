@@ -71,6 +71,18 @@
 - 参数：`path`
 - 有字节上限（默认 256KB），超出时直接报错。
 
+#### file-read-excel
+- 参数：`path`
+- 仅支持 `.xlsx/.xls/.xlsm`，提取纯文本。
+- 有字节与输出长度上限，超出时截断。
+- 若包含图片，会从 `xl/media` 提取并保存到 `.tenas/chat/<sessionId>/`，返回 `tenas-file://` 引用（`.xls` 仅支持文本）。
+
+#### file-read-docx
+- 参数：`path`
+- 仅支持 `.docx`，提取纯文本。
+- 有字节与输出长度上限，超出时截断。
+- 若包含图片，会从 `word/media` 提取并保存到 `.tenas/chat/<sessionId>/`，返回 `tenas-file://` 引用。
+
 #### file-list
 - 参数：`path?`
 - 列出当前目录的一级文件与子目录。
@@ -114,6 +126,8 @@
 | --- | --- | --- |
 | time-now | read | 获取服务器时间 |
 | file-read | read | 读取项目内文件 |
+| file-read-excel | read | 读取 Excel 并提取文本 |
+| file-read-docx | read | 读取 Docx 并提取文本 |
 | file-list | read | 列出目录 |
 | file-search | read | 搜索文件内容 |
 | file-write | write | 写入文件 |

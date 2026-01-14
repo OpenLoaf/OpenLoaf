@@ -1,6 +1,8 @@
-import { memo, useState } from "react";
+import { memo, useMemo, useState } from "react";
+import { MessageCircle } from "lucide-react";
 
 import { Calendar } from "@/components/ui/calendar";
+import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
 
 interface ProjectTasksProps {
   isLoading: boolean;
@@ -9,6 +11,32 @@ interface ProjectTasksProps {
 interface ProjectTasksHeaderProps {
   isLoading: boolean;
   pageTitle: string;
+}
+
+/** Format date as day key for grouping. */
+function buildDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Format date label for task header. */
+function formatDateLabel(date: Date): string {
+  return date.toLocaleDateString("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+  });
+}
+
+/** Format time label for session rows. */
+function formatTimeLabel(value: string | Date): string {
+  return new Date(value).toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 /** Project tasks header. */
@@ -33,6 +61,41 @@ const ProjectTasks = memo(function ProjectTasks({
   isLoading,
 }: ProjectTasksProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const { sessions, isLoading: isSessionsLoading } = useChatSessions();
+
+  const { sessionsByDay, sessionDates } = useMemo(() => {
+    const map = new Map<string, ChatSessionListItem[]>();
+    const dates: Date[] = [];
+    const seenKeys = new Set<string>();
+
+    // 中文注释：按会话创建日期聚合，供日历标记与列表渲染。
+    for (const session of sessions) {
+      const createdAt = new Date(session.createdAt);
+      const key = buildDateKey(createdAt);
+      const list = map.get(key);
+      if (list) {
+        list.push(session);
+      } else {
+        map.set(key, [session]);
+      }
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        dates.push(new Date(createdAt.getFullYear(), createdAt.getMonth(), createdAt.getDate()));
+      }
+    }
+
+    for (const list of map.values()) {
+      list.sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+    }
+
+    return { sessionsByDay: map, sessionDates: dates };
+  }, [sessions]);
+
+  const activeDate = selectedDate ?? new Date();
+  const activeDateKey = buildDateKey(activeDate);
+  const activeSessions = sessionsByDay.get(activeDateKey) ?? [];
 
   if (isLoading) {
     return null;
@@ -44,8 +107,14 @@ const ProjectTasks = memo(function ProjectTasks({
         <section>
           <Calendar
             mode="single"
+            required
             selected={selectedDate}
             onSelect={setSelectedDate}
+            modifiers={{ hasTasks: sessionDates }}
+            modifiersClassNames={{
+              hasTasks:
+                "after:content-[''] after:mt-0.5 after:h-1 after:w-1 after:rounded-full after:bg-primary/70 after:mx-auto",
+            }}
             className="w-full rounded-xl border border-border/60 bg-background/80 p-3"
           />
         </section>
@@ -53,45 +122,57 @@ const ProjectTasks = memo(function ProjectTasks({
         <section className="rounded-2xl border border-border/60 bg-card/60 p-4">
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold text-foreground">任务列表</div>
-            <div className="text-xs text-muted-foreground">本周 · 12 项</div>
+            <div className="text-xs text-muted-foreground">
+              {formatDateLabel(activeDate)} ·{" "}
+              {isSessionsLoading ? "加载中…" : `${activeSessions.length} 项`}
+            </div>
           </div>
           <div className="mt-4 space-y-3">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={`task-row-${index}`}
-                className="flex items-center justify-between rounded-xl border border-border/60 bg-background/80 px-3 py-2"
-              >
-                <div className="space-y-2">
-                  <div className="h-2 w-36 rounded-full bg-muted" />
-                  <div className="h-2 w-24 rounded-full bg-muted/70" />
-                </div>
-                <div className="h-6 w-6 rounded-full border border-dashed border-border/60" />
+            {isSessionsLoading ? (
+              <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+                加载中…
               </div>
-            ))}
+            ) : activeSessions.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+                当天暂无任务
+              </div>
+            ) : (
+              activeSessions.map((session) => (
+                <div
+                  key={session.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/80 px-3 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">
+                        <MessageCircle className="h-4 w-4" />
+                      </div>
+                      <div className="truncate text-sm font-medium text-foreground">
+                        {session.title.trim() || "未命名会话"}
+                      </div>
+                      {session.isPin ? (
+                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          置顶
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {formatTimeLabel(session.createdAt)} 创建
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {formatTimeLabel(session.updatedAt)}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </section>
       </div>
 
-      <section className="rounded-2xl border border-border/60 bg-card/60 p-4">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-foreground">任务历史</div>
-          <div className="text-xs text-muted-foreground">最近 7 天</div>
-        </div>
-        <div className="mt-4 space-y-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div
-              key={`history-row-${index}`}
-              className="flex items-start gap-3 rounded-xl border border-border/60 bg-background/80 px-3 py-3"
-            >
-              <div className="mt-1 h-2 w-2 rounded-full bg-muted-foreground/60" />
-              <div className="flex-1 space-y-2">
-                <div className="h-2 w-44 rounded-full bg-muted" />
-                <div className="h-2 w-28 rounded-full bg-muted/70" />
-              </div>
-              <div className="text-[11px] text-muted-foreground">09:30</div>
-            </div>
-          ))}
-        </div>
+      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border/60 bg-card/60 p-4">
+        <div className="text-sm font-semibold text-foreground">当日总结</div>
+        <div className="mt-4 flex-1" />
       </section>
     </div>
   );
