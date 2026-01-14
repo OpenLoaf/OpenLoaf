@@ -8,6 +8,7 @@ import {
   useState,
   type DragEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
 } from "react";
 import { cn } from "@udecode/cn";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,6 +40,7 @@ import {
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import type {
   CanvasElement,
+  CanvasConnectorTemplateDefinition,
   CanvasConnectorElement,
   CanvasNodeDefinition,
   CanvasNodeElement,
@@ -71,6 +73,7 @@ import {
   type BoardSnapshotCacheRecord,
 } from "./boardSnapshotCache";
 import { useBoardSnapshot } from "./useBoardSnapshot";
+import { useBoardViewState } from "./useBoardViewState";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 const VIEWPORT_SAVE_DELAY = 800;
 /** Default size for double-click created text nodes. */
@@ -281,14 +284,10 @@ export function BoardCanvas({
   const pendingFileSnapshotRef = useRef<BoardSnapshotState | null>(null);
   /** Image node ids currently upgrading to asset files. */
   const imageAssetUpgradeIdsRef = useRef<Set<string>>(new Set());
-  /** Whether the minimap should stay visible. */
-  const [showMiniMap, setShowMiniMap] = useState(false);
   /** Whether grid rendering is suppressed for export. */
   const [exporting, setExporting] = useState(false);
-  /** Whether the minimap hover zone is active. */
-  const [hoverMiniMap, setHoverMiniMap] = useState(false);
-  /** Timeout id for hiding the minimap. */
-  const miniMapTimeoutRef = useRef<number | null>(null);
+  /** Current cursor state applied to the canvas container. */
+  const cursorRef = useRef<"crosshair" | "grabbing" | "grab" | "default">("default");
   /** Image preview payload for the fullscreen viewer. */
   const [imagePreview, setImagePreview] = useState<ImagePreviewPayload | null>(null);
   /** Cached local snapshot for comparisons. */
@@ -302,10 +301,6 @@ export function BoardCanvas({
     mode: "canvas" | "scroll" | null;
     ts: number;
   }>({ mode: null, ts: 0 });
-  /** Last viewport snapshot to detect changes. */
-  const lastViewportRef = useRef(snapshot.viewport);
-  /** Last panning state to detect transitions. */
-  const lastPanningRef = useRef(snapshot.panning);
   /** Latest snapshot ref for save callbacks. */
   const latestSnapshotRef = useRef(snapshot);
   /** Latest snapshot version for sync decisions. */
@@ -1028,73 +1023,36 @@ export function BoardCanvas({
 
   useEffect(() => {
     if (!boardScope) return;
-    if (!hydratedRef.current) return;
-    const viewportState = engine.viewport.getState();
-    const viewportPayload = {
-      zoom: viewportState.zoom,
-      offset: viewportState.offset,
+    const handleViewChange = () => {
+      if (!hydratedRef.current) return;
+      const viewportState = engine.viewport.getState();
+      const viewportPayload = {
+        zoom: viewportState.zoom,
+        offset: viewportState.offset,
+      };
+      const viewportKey = JSON.stringify(viewportPayload);
+      const viewportChanged = viewportKey !== lastSavedViewportRef.current;
+      if (!viewportChanged) return;
+      if (viewportSaveTimeoutRef.current) {
+        window.clearTimeout(viewportSaveTimeoutRef.current);
+      }
+      // 逻辑：视口变更只触发保存，不刷新全量快照。
+      viewportSaveTimeoutRef.current = window.setTimeout(() => {
+        if (!boardScope || !hydratedRef.current) return;
+        lastSavedViewportRef.current = viewportKey;
+        const { nodes, connectors } = splitElements(latestSnapshotRef.current.elements);
+        persistSnapshot(nodes, connectors, viewportPayload);
+      }, VIEWPORT_SAVE_DELAY);
     };
-    const viewportKey = JSON.stringify(viewportPayload);
-    const viewportChanged = viewportKey !== lastSavedViewportRef.current;
-    if (!viewportChanged) return;
-    if (viewportSaveTimeoutRef.current) {
-      window.clearTimeout(viewportSaveTimeoutRef.current);
-    }
-    viewportSaveTimeoutRef.current = window.setTimeout(() => {
-      if (!boardScope || !hydratedRef.current) return;
-      lastSavedViewportRef.current = viewportKey;
-      const { nodes, connectors } = splitElements(snapshot.elements);
-      persistSnapshot(nodes, connectors, viewportPayload);
-    }, VIEWPORT_SAVE_DELAY);
+
+    const unsubscribe = engine.subscribeView(handleViewChange);
     return () => {
+      unsubscribe();
       if (viewportSaveTimeoutRef.current) {
         window.clearTimeout(viewportSaveTimeoutRef.current);
       }
     };
-  }, [boardScope, engine, snapshot.elements, snapshot.panning, snapshot.viewport, persistSnapshot]);
-
-  useEffect(() => {
-    const lastViewport = lastViewportRef.current;
-    const viewportChanged =
-      lastViewport.zoom !== snapshot.viewport.zoom ||
-      lastViewport.offset[0] !== snapshot.viewport.offset[0] ||
-      lastViewport.offset[1] !== snapshot.viewport.offset[1] ||
-      lastViewport.size[0] !== snapshot.viewport.size[0] ||
-      lastViewport.size[1] !== snapshot.viewport.size[1];
-    const wasPanning = lastPanningRef.current;
-
-    lastViewportRef.current = snapshot.viewport;
-    lastPanningRef.current = snapshot.panning;
-
-    if (snapshot.panning || viewportChanged) {
-      setShowMiniMap(true);
-    }
-
-    if (snapshot.panning) {
-      if (miniMapTimeoutRef.current) {
-        window.clearTimeout(miniMapTimeoutRef.current);
-        miniMapTimeoutRef.current = null;
-      }
-      return;
-    }
-
-    if (viewportChanged || wasPanning) {
-      if (miniMapTimeoutRef.current) {
-        window.clearTimeout(miniMapTimeoutRef.current);
-      }
-      miniMapTimeoutRef.current = window.setTimeout(() => {
-        setShowMiniMap(false);
-      }, MINIMAP_HIDE_DELAY);
-    }
-  }, [snapshot.panning, snapshot.viewport]);
-
-  useEffect(() => {
-    return () => {
-      if (miniMapTimeoutRef.current) {
-        window.clearTimeout(miniMapTimeoutRef.current);
-      }
-    };
-  }, []);
+  }, [boardScope, engine, persistSnapshot]);
 
   useEffect(() => {
     return () => {
@@ -1104,24 +1062,44 @@ export function BoardCanvas({
     };
   }, []);
 
-  const cursor =
-    snapshot.pendingInsert
-      ? "crosshair"
-      : snapshot.activeToolId === "hand"
-        ? snapshot.panning
-          ? "grabbing"
-          : "grab"
-        : snapshot.draggingId
-          ? "grabbing"
-        : "default";
+  /** Resolve the cursor style for the current tool and view. */
+  const resolveCursor = useCallback(() => {
+    const viewState = engine.getViewState();
+    if (snapshot.pendingInsert) return "crosshair";
+    if (snapshot.activeToolId === "hand") {
+      return viewState.panning ? "grabbing" : "grab";
+    }
+    if (snapshot.draggingId) return "grabbing";
+    return "default";
+  }, [engine, snapshot.activeToolId, snapshot.draggingId, snapshot.pendingInsert]);
+
+  /** Apply the cursor style to the canvas container. */
+  const applyCursor = useCallback(() => {
+    const nextCursor = resolveCursor();
+    if (cursorRef.current === nextCursor) return;
+    cursorRef.current = nextCursor;
+    const container = containerRef.current;
+    if (!container) return;
+    // 逻辑：直接更新 DOM 光标，避免视图变化触发全量渲染。
+    container.style.cursor = nextCursor;
+  }, [resolveCursor]);
+
+  useEffect(() => {
+    applyCursor();
+  }, [applyCursor]);
+
+  useEffect(() => {
+    const unsubscribe = engine.subscribeView(() => {
+      applyCursor();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [engine, applyCursor]);
 
   const connectorDrop = snapshot.connectorDrop;
-  const connectorDropScreen = connectorDrop
-    ? toScreenPoint(connectorDrop.point, snapshot)
-    : null;
   const selectedConnector = getSingleSelectedElement(snapshot, "connector");
   const selectedNode = getSingleSelectedElement(snapshot, "node");
-  const shouldShowMiniMap = showMiniMap || hoverMiniMap;
   const inspectorElement = inspectorNodeId
     ? snapshot.elements.find(
         (element): element is CanvasNodeElement =>
@@ -1288,10 +1266,6 @@ export function BoardCanvas({
         data-board-panel={panelKey}
         className={cn(
           "relative h-full w-full overflow-hidden outline-none",
-          cursor === "crosshair" && "cursor-crosshair",
-          cursor === "grabbing" && "cursor-grabbing",
-          cursor === "grab" && "cursor-grab",
-          cursor === "default" && "cursor-default",
           className
         )}
         tabIndex={showUi ? 0 : -1}
@@ -1402,25 +1376,7 @@ export function BoardCanvas({
           }
         }}
       >
-        <div
-          className="absolute left-0 top-0 z-20 h-24 w-24"
-          onPointerEnter={() => {
-            if (!showUi) return;
-            if (miniMapTimeoutRef.current) {
-              window.clearTimeout(miniMapTimeoutRef.current);
-              miniMapTimeoutRef.current = null;
-            }
-            setHoverMiniMap(true);
-            setShowMiniMap(true);
-          }}
-          onPointerLeave={() => {
-            if (!showUi) return;
-            setHoverMiniMap(false);
-            if (!snapshot.panning) {
-              setShowMiniMap(false);
-            }
-          }}
-        />
+        {showUi ? <MiniMapLayer engine={engine} snapshot={snapshot} /> : null}
         <CanvasSurface
           snapshot={snapshot}
           hideGrid={exporting}
@@ -1434,14 +1390,9 @@ export function BoardCanvas({
           />
         ) : null}
         {showPerfOverlay ? (
-          <BoardPerfOverlay
-            stats={cullingStats}
-            zoom={snapshot.viewport.zoom}
-            gpuStats={gpuStats}
-          />
+          <BoardPerfOverlay stats={cullingStats} gpuStats={gpuStats} />
         ) : null}
         {showUi ? <AnchorOverlay snapshot={snapshot} /> : null}
-        {showUi ? <MiniMap snapshot={snapshot} visible={shouldShowMiniMap} /> : null}
         {showUi ? <BoardControls engine={engine} snapshot={snapshot} /> : null}
         {showUi ? <BoardToolbar engine={engine} snapshot={snapshot} /> : null}
         {showUi && selectedConnector ? (
@@ -1477,17 +1428,17 @@ export function BoardCanvas({
         ) : null}
         {showUi && inspectorElement ? (
           <NodeInspectorPanel
-            snapshot={snapshot}
             element={inspectorElement}
             onClose={() => setInspectorNodeId(null)}
           />
         ) : null}
-        {showUi && connectorDrop && connectorDropScreen ? (
-          <NodePicker
-            ref={nodePickerRef}
-            position={connectorDropScreen}
+        {showUi ? (
+          <ConnectorDropPanel
+            engine={engine}
+            snapshot={snapshot}
             templates={availableTemplates}
             onSelect={handleTemplateSelect}
+            panelRef={nodePickerRef}
           />
         ) : null}
       </div>
@@ -1513,6 +1464,140 @@ export function BoardCanvas({
         enableEdit={false}
       />
     </BoardProvider>
+  );
+}
+
+type MiniMapLayerProps = {
+  /** Canvas engine instance. */
+  engine: CanvasEngine;
+  /** Snapshot for minimap contents. */
+  snapshot: CanvasSnapshot;
+};
+
+/** Render the minimap hover zone and overlay. */
+function MiniMapLayer({ engine, snapshot }: MiniMapLayerProps) {
+  /** Latest view state for minimap visibility rules. */
+  const viewState = useBoardViewState(engine);
+  /** Whether the minimap should stay visible. */
+  const [showMiniMap, setShowMiniMap] = useState(false);
+  /** Whether the minimap hover zone is active. */
+  const [hoverMiniMap, setHoverMiniMap] = useState(false);
+  /** Timeout id for hiding the minimap. */
+  const miniMapTimeoutRef = useRef<number | null>(null);
+  /** Last viewport snapshot for change detection. */
+  const lastViewportRef = useRef(viewState.viewport);
+  /** Last panning state for change detection. */
+  const lastPanningRef = useRef(viewState.panning);
+
+  useEffect(() => {
+    const lastViewport = lastViewportRef.current;
+    const viewportChanged =
+      lastViewport.zoom !== viewState.viewport.zoom ||
+      lastViewport.offset[0] !== viewState.viewport.offset[0] ||
+      lastViewport.offset[1] !== viewState.viewport.offset[1] ||
+      lastViewport.size[0] !== viewState.viewport.size[0] ||
+      lastViewport.size[1] !== viewState.viewport.size[1];
+    const wasPanning = lastPanningRef.current;
+
+    lastViewportRef.current = viewState.viewport;
+    lastPanningRef.current = viewState.panning;
+
+    // 逻辑：视口变化或拖拽时保持小地图可见。
+    if (viewState.panning || viewportChanged) {
+      setShowMiniMap(true);
+    }
+
+    if (viewState.panning) {
+      if (miniMapTimeoutRef.current) {
+        window.clearTimeout(miniMapTimeoutRef.current);
+        miniMapTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    if (viewportChanged || wasPanning) {
+      if (miniMapTimeoutRef.current) {
+        window.clearTimeout(miniMapTimeoutRef.current);
+      }
+      // 逻辑：视图停止后延迟隐藏小地图，避免闪烁。
+      miniMapTimeoutRef.current = window.setTimeout(() => {
+        setShowMiniMap(false);
+      }, MINIMAP_HIDE_DELAY);
+    }
+  }, [viewState]);
+
+  useEffect(() => {
+    return () => {
+      if (miniMapTimeoutRef.current) {
+        window.clearTimeout(miniMapTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const shouldShowMiniMap = showMiniMap || hoverMiniMap;
+
+  return (
+    <>
+      <div
+        className="absolute left-0 top-0 z-20 h-24 w-24"
+        onPointerEnter={() => {
+          if (miniMapTimeoutRef.current) {
+            window.clearTimeout(miniMapTimeoutRef.current);
+            miniMapTimeoutRef.current = null;
+          }
+          setHoverMiniMap(true);
+          setShowMiniMap(true);
+        }}
+        onPointerLeave={() => {
+          setHoverMiniMap(false);
+          if (!viewState.panning) {
+            setShowMiniMap(false);
+          }
+        }}
+      />
+      <MiniMap
+        snapshot={snapshot}
+        viewport={viewState.viewport}
+        visible={shouldShowMiniMap}
+      />
+    </>
+  );
+}
+
+type ConnectorDropPanelProps = {
+  /** Canvas engine instance. */
+  engine: CanvasEngine;
+  /** Snapshot used for drop positioning. */
+  snapshot: CanvasSnapshot;
+  /** Templates available for the picker. */
+  templates: CanvasConnectorTemplateDefinition[];
+  /** Selection handler for templates. */
+  onSelect: (templateId: string) => void;
+  /** Ref for the picker panel element. */
+  panelRef: RefObject<HTMLDivElement>;
+};
+
+/** Render the connector drop picker at the correct viewport position. */
+function ConnectorDropPanel({
+  engine,
+  snapshot,
+  templates,
+  onSelect,
+  panelRef,
+}: ConnectorDropPanelProps) {
+  /** View state used for converting drop coordinates. */
+  const viewState = useBoardViewState(engine);
+  const connectorDrop = snapshot.connectorDrop;
+  if (!connectorDrop) return null;
+  // 逻辑：根据当前视口把世界坐标转换为屏幕位置。
+  const screen = toScreenPoint(connectorDrop.point, viewState);
+  return (
+    <NodePicker
+      ref={panelRef}
+      position={screen}
+      templates={templates}
+      onSelect={onSelect}
+    />
   );
 }
 

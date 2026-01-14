@@ -7,6 +7,7 @@ import { Lock, Maximize2, Redo2, Undo2, Unlock, ZoomIn, ZoomOut } from "lucide-r
 import { IconBtn } from "../ui/ToolbarParts";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasSnapshot } from "../engine/types";
+import { useBoardViewState } from "../core/useBoardViewState";
 
 export interface BoardControlsProps {
   /** Canvas engine instance. */
@@ -28,7 +29,9 @@ const buildControlTitle = (label: string, shortcut?: string) =>
 
 /** Render the left-side toolbar for the board canvas. */
 const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardControlsProps) {
-  const { zoom, size } = snapshot.viewport;
+  // 逻辑：视图状态独立订阅，避免缩放时触发全局快照刷新。
+  const viewState = useBoardViewState(engine);
+  const { zoom, size } = viewState.viewport;
   const zoomLimits = engine.viewport.getZoomLimits();
   const minZoomReached = zoom <= zoomLimits.min;
   const maxZoomReached = zoom >= zoomLimits.max;

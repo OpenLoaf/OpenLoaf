@@ -7,6 +7,7 @@ import type {
   CanvasPoint,
   CanvasRect,
   CanvasSnapshot,
+  CanvasViewportState,
 } from "../engine/types";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import {
@@ -19,6 +20,7 @@ import {
 import { snapResizeRectSE } from "../utils/alignment-guides";
 import { SelectionToolbarContainer, ToolbarGroup } from "../ui/SelectionToolbar";
 import { useBoardContext } from "./BoardProvider";
+import { useBoardViewState } from "./useBoardViewState";
 
 type SingleSelectionToolbarProps = {
   /** Canvas engine instance. */
@@ -71,7 +73,6 @@ export function SingleSelectionToolbar({
 
   return (
     <SelectionToolbarContainer
-      snapshot={snapshot}
       bounds={bounds}
       offsetClass="-translate-y-full -mt-3"
       onPointerDown={event => {
@@ -159,7 +160,6 @@ export function MultiSelectionToolbar({
 
   return (
     <SelectionToolbarContainer
-      snapshot={snapshot}
       bounds={bounds}
       offsetClass="-translate-y-full -mt-3"
       onPointerDown={event => {
@@ -208,6 +208,8 @@ type MultiSelectionOutlineProps = {
 
 /** Render outline box for multi-selected nodes. */
 export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlineProps) {
+  // 逻辑：视图状态单独订阅，避免多选框跟随缩放时触发全局渲染。
+  const viewState = useBoardViewState(engine);
   const selectedElements = snapshot.selectedIds
     .map(id => snapshot.elements.find(element => element.id === id))
     .filter((element): element is CanvasElement =>
@@ -224,7 +226,7 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
   });
 
   const bounds = computeSelectionBounds(selectedElements);
-  const { zoom, offset } = snapshot.viewport;
+  const { zoom, offset } = viewState.viewport;
   const left = bounds.x * zoom + offset[0];
   const top = bounds.y * zoom + offset[1];
   const width = bounds.w * zoom;
@@ -249,7 +251,7 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
           engine={engine}
           nodes={resizableNodes}
           bounds={bounds}
-          viewport={snapshot.viewport}
+          viewport={viewState.viewport}
           size={handleSize}
           padding={padding}
         />
@@ -277,7 +279,9 @@ export function SingleSelectionResizeHandle({
   const canResize = definition?.capabilities?.resizable !== false;
   if (!canResize || snapshot.locked || element.locked) return null;
 
-  const { zoom, offset } = snapshot.viewport;
+  // 逻辑：视图变化时单独更新控制柄位置，避免全量快照渲染。
+  const viewState = useBoardViewState(engine);
+  const { zoom, offset } = viewState.viewport;
   const left = element.xywh[0] * zoom + offset[0];
   const top = element.xywh[1] * zoom + offset[1];
   const width = element.xywh[2] * zoom;
@@ -435,7 +439,7 @@ type MultiSelectionResizeHandleProps = {
   /** Selection bounds in world space. */
   bounds: CanvasRect;
   /** Viewport state for positioning. */
-  viewport: CanvasSnapshot["viewport"];
+  viewport: CanvasViewportState;
   /** Handle size in px. */
   size: number;
   /** Outline padding in px. */

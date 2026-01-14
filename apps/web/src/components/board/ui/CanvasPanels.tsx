@@ -19,6 +19,8 @@ import type {
   CanvasSnapshot,
 } from "../engine/types";
 import { toScreenPoint } from "../utils/coordinates";
+import { useBoardEngine } from "../core/BoardProvider";
+import { useBoardViewState } from "../core/useBoardViewState";
 
 type ConnectorActionPanelProps = {
   /** Snapshot used for positioning. */
@@ -40,7 +42,10 @@ function ConnectorActionPanel({
 }: ConnectorActionPanelProps) {
   const [x, y, w, h] = connector.xywh;
   const center: CanvasPoint = [x + w / 2, y + h / 2];
-  const screen = toScreenPoint(center, snapshot);
+  // 逻辑：面板位置随视口变化实时更新。
+  const engine = useBoardEngine();
+  const viewState = useBoardViewState(engine);
+  const screen = toScreenPoint(center, viewState);
   const currentStyle = connector.style ?? snapshot.connectorStyle;
 
   return (
@@ -147,8 +152,6 @@ function ConnectorStyleButton({
 }
 
 type NodeInspectorPanelProps = {
-  /** Snapshot for positioning. */
-  snapshot: CanvasSnapshot;
   /** Target node element. */
   element: CanvasNodeElement;
   /** Close handler. */
@@ -156,13 +159,16 @@ type NodeInspectorPanelProps = {
 };
 
 /** Render a compact inspector panel for a node. */
-function NodeInspectorPanel({ snapshot, element, onClose }: NodeInspectorPanelProps) {
+function NodeInspectorPanel({ element, onClose }: NodeInspectorPanelProps) {
   const [x, y, w, h] = element.xywh;
-  const { zoom, offset, size } = snapshot.viewport;
+  // 逻辑：使用独立视图订阅计算面板位置，避免依赖全量快照更新。
+  const engine = useBoardEngine();
+  const viewState = useBoardViewState(engine);
+  const { zoom, offset, size } = viewState.viewport;
   const nodeTop = y * zoom + offset[1];
   const showBelow = nodeTop <= size[1] * 0.15;
   const anchor: CanvasPoint = showBelow ? [x + w / 2, y + h] : [x + w / 2, y];
-  const screen = toScreenPoint(anchor, snapshot);
+  const screen = toScreenPoint(anchor, viewState);
 
   const details = extractNodeDetails(element);
 

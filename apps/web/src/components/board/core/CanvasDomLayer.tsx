@@ -7,7 +7,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CanvasRect, CanvasSnapshot, CanvasViewState } from "../engine/types";
+import type {
+  CanvasRect,
+  CanvasSnapshot,
+  CanvasViewState,
+  CanvasViewportState,
+} from "../engine/types";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import { MIN_ZOOM_EPS } from "../engine/constants";
 
@@ -33,6 +38,8 @@ type CanvasDomLayerProps = {
 const VIEWPORT_CULL_PADDING = 240;
 /** Throttle interval for viewport-driven culling updates. */
 const VIEWPORT_CULL_UPDATE_MS = 80;
+/** Minimum node count before enabling viewport culling. */
+const CULLING_NODE_THRESHOLD = 120;
 /** Cell size for the node spatial index in world space. */
 const GRID_CELL_SIZE = 512;
 
@@ -45,7 +52,7 @@ type GridIndex = {
 
 /** Compute the viewport bounds in world coordinates with padding. */
 function getViewportBounds(
-  viewport: CanvasSnapshot["viewport"],
+  viewport: CanvasViewportState,
   padding: number
 ): CanvasRect {
   const safeZoom = Math.max(viewport.zoom, MIN_ZOOM_EPS);
@@ -192,6 +199,7 @@ function CanvasDomLayerBase({
   );
 
   const scheduleCullingUpdate = useCallback((view: CanvasViewState) => {
+    if (!gridIndexRef.current) return;
     pendingCullingRef.current = view;
     if (cullingTimerRef.current !== null) return;
     cullingTimerRef.current = window.setTimeout(() => {
@@ -207,9 +215,25 @@ function CanvasDomLayerBase({
 
   useEffect(() => {
     if (lastDocRevisionRef.current === snapshot.docRevision) return;
+    const nodeCount = snapshot.elements.reduce((count, element) => {
+      if (element.kind !== "node") return count;
+      return count + 1;
+    }, 0);
+    if (nodeCount < CULLING_NODE_THRESHOLD) {
+      // 逻辑：节点数量较少时跳过裁剪，避免滚动触发重渲染。
+      gridIndexRef.current = null;
+      pendingCullingRef.current = null;
+      if (cullingTimerRef.current) {
+        window.clearTimeout(cullingTimerRef.current);
+        cullingTimerRef.current = null;
+      }
+      lastDocRevisionRef.current = snapshot.docRevision;
+      return;
+    }
     // 逻辑：文档变更时重建空间索引，避免拖拽/缩放重复全量扫描。
     gridIndexRef.current = buildGridIndex(snapshot.elements, GRID_CELL_SIZE);
     lastDocRevisionRef.current = snapshot.docRevision;
+    setCullingView(viewStateRef.current);
   }, [snapshot.docRevision, snapshot.elements]);
 
   useEffect(() => {
@@ -252,10 +276,14 @@ function CanvasDomLayerBase({
     };
   }, [engine, scheduleCullingUpdate, scheduleTransform]);
 
-  const viewportBounds = getViewportBounds(cullingView.viewport, VIEWPORT_CULL_PADDING);
-  const candidateIds = gridIndexRef.current
-    ? collectCandidateIds(gridIndexRef.current, viewportBounds)
+  const shouldCull = Boolean(gridIndexRef.current);
+  const viewportBounds = shouldCull
+    ? getViewportBounds(cullingView.viewport, VIEWPORT_CULL_PADDING)
     : null;
+  const candidateIds =
+    shouldCull && gridIndexRef.current && viewportBounds
+      ? collectCandidateIds(gridIndexRef.current, viewportBounds)
+      : null;
   const selectedNodeIds = new Set(
     snapshot.selectedIds.filter(id => {
       const element = snapshot.elements.find(item => item.id === id);
@@ -272,14 +300,16 @@ function CanvasDomLayerBase({
   let visibleNodes = 0;
   snapshot.elements.forEach((element) => {
     if (element.kind !== "node") return;
-    if (candidateIds && !candidateIds.has(element.id)) return;
+    if (shouldCull && candidateIds && !candidateIds.has(element.id)) return;
     const definition = engine.nodes.getDefinition(element.type);
     if (!definition) return;
     totalNodes += 1;
     const View = definition.view;
     const [x, y, w, h] = element.xywh;
     // 逻辑：只渲染视窗附近的节点，减少 DOM 开销。
-    if (!isRectVisible(getNodeBounds(element), viewportBounds)) return;
+    if (shouldCull && viewportBounds && !isRectVisible(getNodeBounds(element), viewportBounds)) {
+      return;
+    }
     visibleNodes += 1;
     const selected = selectedNodeIds.has(element.id);
     const isDragging =

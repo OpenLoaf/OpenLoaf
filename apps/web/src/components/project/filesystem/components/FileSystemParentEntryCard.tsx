@@ -6,8 +6,8 @@ import {
   type DragEvent,
   type SetStateAction,
 } from "react";
-import { FolderUp } from "lucide-react";
 import { type FileSystemEntry } from "../utils/file-system-utils";
+import { FolderIcon } from "./FileSystemEntryVisual";
 
 type FileSystemParentEntryCardProps = {
   parentEntry: FileSystemEntry;
@@ -69,7 +69,7 @@ const FileSystemParentEntryCard = memo(function FileSystemParentEntryCard({
         onEntryDrop?.(parentEntry, event);
       }}
     >
-      <FolderUp className="h-11 w-11 text-muted-foreground" />
+      <FolderIcon className="h-11 w-11" showArrow />
       <span className="line-clamp-2 min-h-[2rem] w-full break-words leading-4">
         上一级
       </span>

@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, session } from 'electron';
+import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import { installAutoUpdate } from './autoUpdate';
 import {
   createStartupLogger,
@@ -54,6 +55,8 @@ const runtimePortsReady = resolveRuntimePorts({
 
 let services: ServiceManager | null = null;
 let mainWindow: BrowserWindow | null = null;
+/** Whether React DevTools has been installed in this session. */
+let reactDevToolsInstalled = false;
 
 type ProxyConfig = {
   rules: string;
@@ -280,6 +283,24 @@ function installApplicationMenu() {
 }
 
 /**
+ * Installs React DevTools in development mode.
+ */
+async function installReactDevTools(log: Logger): Promise<void> {
+  if (app.isPackaged) return;
+  if (reactDevToolsInstalled) return;
+  try {
+    await installExtension(REACT_DEVELOPER_TOOLS, {
+      loadExtensionOptions: { allowFileAccess: true },
+    });
+    reactDevToolsInstalled = true;
+    log('React DevTools installed.');
+  } catch (error) {
+    // 逻辑：调试工具安装失败不阻塞启动。
+    log(`React DevTools install failed: ${String(error)}`);
+  }
+}
+
+/**
  * 应用启动主流程：
  * - 注册 IPC
  * - 启动/确认 dev/prod 服务
@@ -290,6 +311,7 @@ async function boot() {
 
   ensureLocalNoProxy();
   await configureProxy(log);
+  await installReactDevTools(log);
 
   // IPC handlers 必须先注册，避免渲染端（apps/web）调用时找不到处理器。
   registerIpcHandlers({ log });
@@ -317,8 +339,9 @@ async function boot() {
   installAutoUpdate({ log });
 
   if (!app.isPackaged) {
-    // 开发体验：dev 模式默认打开 DevTools。
-    mainWindow.webContents.openDevTools();
+    // 逻辑：开发环境默认打开 DevTools，方便调试。
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    log('DevTools opened (dev mode).');
   }
 }
 

@@ -741,6 +741,17 @@ export class CanvasEngine {
     this.emitChange();
   }
 
+  /** Update selection box and selection with a single notification. */
+  setSelectionBoxAndSelection(
+    box: CanvasSelectionBox | null,
+    selectionIds: string[]
+  ): void {
+    this.selectionBox = box;
+    this.selection.setSelection(selectionIds, { emit: false });
+    // 逻辑：框选过程中合并通知，减少重复渲染。
+    this.emitChange();
+  }
+
   /** Return whether undo is available. */
   canUndo(): boolean {
     return this.historyPast.length > 1;
@@ -1318,8 +1329,8 @@ export class CanvasEngine {
 
   /** Emit view change notifications to subscribers. */
   private emitViewChange(): void {
+    // 逻辑：视图更新仅通知视图订阅，避免触发全量快照刷新。
     this.viewListeners.forEach(listener => listener());
-    this.listeners.forEach(listener => listener());
   }
 
   /** Pan the viewport while applying soft bounds. */

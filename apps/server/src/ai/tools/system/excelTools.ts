@@ -177,7 +177,7 @@ async function saveExtractedImages(input: {
 
 /** Read Excel file content as plain text. */
 export const fileReadExcelTool = tool({
-  description: fileReadExcelToolDef.description,
+  description: `${fileReadExcelToolDef.description}路径不要使用 URL Encoding 编码。`,
   inputSchema: zodSchema(fileReadExcelToolDef.parameters),
   execute: async ({ path: rawPath }): Promise<FileReadExcelToolOutput> => {
     const resolved = resolveProjectPath(rawPath);

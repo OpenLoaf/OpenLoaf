@@ -61,15 +61,17 @@ export function resolveProjectPath(raw: string): ResolvedProjectPath {
     throw new Error("path is required.");
   }
 
+  // 逻辑：用户输入可能携带 @tenas-file 前缀，解析前先去掉 @。
+  const normalized = trimmed.startsWith("@tenas-file://") ? trimmed.slice(1) : trimmed;
   const { projectId, rootPath } = resolveProjectRootPath();
 
-  let absPath = trimmed;
-  if (trimmed.startsWith("tenas-file://")) {
-    absPath = resolveTenasFilePath({ uri: trimmed, projectId, rootPath });
-  } else if (!path.isAbsolute(trimmed)) {
-    absPath = path.resolve(rootPath, trimmed);
+  let absPath = normalized;
+  if (normalized.startsWith("tenas-file://")) {
+    absPath = resolveTenasFilePath({ uri: normalized, projectId, rootPath });
+  } else if (!path.isAbsolute(normalized)) {
+    absPath = path.resolve(rootPath, normalized);
   } else {
-    absPath = path.resolve(trimmed);
+    absPath = path.resolve(normalized);
   }
 
   const resolvedRoot = rootPath;

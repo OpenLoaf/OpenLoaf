@@ -8,6 +8,8 @@ import type {
   GpuStateSnapshot,
   GpuWorkerEvent,
 } from "./webgpu/gpu-protocol";
+import { useBoardEngine } from "../core/BoardProvider";
+import { useBoardViewState } from "../core/useBoardViewState";
 
 const PALETTE_LIGHT: GpuPalette = {
   grid: [148, 163, 184, 0.2],
@@ -150,11 +152,16 @@ type CanvasSurfaceProps = {
 
 /** Render the canvas surface layer with WebGPU. */
 export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProps) {
+  // 逻辑：视图变化独立订阅，避免全量快照刷新。
+  const engine = useBoardEngine();
+  const viewState = useBoardViewState(engine);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const readyRef = useRef(false);
   const pendingFrameRef = useRef<number | null>(null);
   const latestSnapshotRef = useRef(snapshot);
+  /** Latest view state for GPU viewport updates. */
+  const latestViewRef = useRef(viewState);
   const latestHideGridRef = useRef(hideGrid ?? false);
   const lastDocRevisionRef = useRef<number | null>(null);
   const lastStateRef = useRef<GpuStateSnapshot | null>(null);
@@ -173,6 +180,7 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
       const worker = workerRef.current;
       if (!worker) return;
       const latestSnapshot = latestSnapshotRef.current;
+      const viewport = latestViewRef.current.viewport;
       const palette = resolvePalette();
       const state = buildState(latestSnapshot);
       const docRevision = latestSnapshot.docRevision;
@@ -195,19 +203,19 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
       }
 
       const viewChanged =
-        !isViewportEqual(lastViewportRef.current, latestSnapshot.viewport) ||
+        !isViewportEqual(lastViewportRef.current, viewport) ||
         !isPaletteEqual(lastPaletteRef.current, palette) ||
         lastHideGridRef.current !== hideGridValue;
 
       if (viewChanged) {
         worker.postMessage({
           type: "view",
-          viewport: latestSnapshot.viewport,
+          viewport,
           palette,
           hideGrid: hideGridValue,
           renderNodes: RENDER_GPU_NODES,
         } satisfies GpuMessage);
-        lastViewportRef.current = latestSnapshot.viewport;
+        lastViewportRef.current = viewport;
         lastPaletteRef.current = palette;
         lastHideGridRef.current = hideGridValue;
       }
@@ -221,6 +229,12 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
   useEffect(() => {
     latestHideGridRef.current = hideGrid ?? false;
   }, [hideGrid]);
+
+  useEffect(() => {
+    // 逻辑：视图变化时仅刷新 GPU 视口数据。
+    latestViewRef.current = viewState;
+    scheduleFrame();
+  }, [scheduleFrame, viewState]);
 
   useEffect(() => {
     onStatsRef.current = onStats;
@@ -256,8 +270,8 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
     const offscreen = canvas.transferControlToOffscreen();
     const dpr = window.devicePixelRatio || 1;
     const size: [number, number] = [
-      Math.max(1, Math.floor(latestSnapshotRef.current.viewport.size[0])),
-      Math.max(1, Math.floor(latestSnapshotRef.current.viewport.size[1])),
+      Math.max(1, Math.floor(latestViewRef.current.viewport.size[0])),
+      Math.max(1, Math.floor(latestViewRef.current.viewport.size[1])),
     ];
 
     const initMessage: GpuMessage = {
@@ -282,8 +296,8 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
     if (!canvas || !worker) return;
     const dpr = window.devicePixelRatio || 1;
     const size: [number, number] = [
-      Math.max(1, Math.floor(snapshot.viewport.size[0])),
-      Math.max(1, Math.floor(snapshot.viewport.size[1])),
+      Math.max(1, Math.floor(viewState.viewport.size[0])),
+      Math.max(1, Math.floor(viewState.viewport.size[1])),
     ];
     canvas.style.width = `${size[0]}px`;
     canvas.style.height = `${size[1]}px`;
@@ -294,7 +308,7 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
       dpr,
     };
     worker.postMessage(resizeMessage);
-  }, [snapshot.viewport.size[0], snapshot.viewport.size[1]]);
+  }, [viewState.viewport.size[0], viewState.viewport.size[1]]);
 
   useEffect(() => {
     scheduleFrame();

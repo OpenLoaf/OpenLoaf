@@ -38,6 +38,32 @@ import { isBoardFolderName } from "@/lib/file-name";
 /** Return true when the entry represents a board folder. */
 const isBoardFolderEntry = (entry: FileSystemEntry) =>
   entry.kind === "folder" && isBoardFolderName(entry.name);
+/** Supported document extensions for the built-in viewer. */
+const SUPPORTED_DOC_EXTS = new Set(["docx"]);
+/** Supported spreadsheet extensions for the built-in viewer. */
+const SUPPORTED_SHEET_EXTS = new Set(["xls", "xlsx"]);
+
+/** Return true when the office file should open with the system default app. */
+function shouldOpenOfficeWithSystem(ext: string): boolean {
+  // 逻辑：仅对内置未覆盖的 Office 扩展使用系统默认程序。
+  if (DOC_EXTS.has(ext)) return !SUPPORTED_DOC_EXTS.has(ext);
+  if (SPREADSHEET_EXTS.has(ext)) return !SUPPORTED_SHEET_EXTS.has(ext);
+  return false;
+}
+
+/** Open a file via the system default handler. */
+function openWithDefaultApp(entry: FileSystemEntry): void {
+  // 逻辑：桌面端通过 openPath 调起系统默认应用。
+  if (!window.tenasElectron?.openPath) {
+    toast.error("网页版不支持打开本地文件");
+    return;
+  }
+  void window.tenasElectron.openPath({ uri: entry.uri }).then((res) => {
+    if (!res?.ok) {
+      toast.error(res?.reason ?? "无法打开文件");
+    }
+  });
+}
 
 type FileSystemGridProps = {
   entries: FileSystemEntry[];
@@ -336,10 +362,18 @@ const FileSystemGrid = memo(function FileSystemGrid({
         return;
       }
       if (entry.kind === "file" && DOC_EXTS.has(entryExt)) {
+        if (shouldOpenOfficeWithSystem(entryExt)) {
+          openWithDefaultApp(entry);
+          return;
+        }
         onOpenDocRef.current?.(entry);
         return;
       }
       if (entry.kind === "file" && SPREADSHEET_EXTS.has(entryExt)) {
+        if (shouldOpenOfficeWithSystem(entryExt)) {
+          openWithDefaultApp(entry);
+          return;
+        }
         onOpenSpreadsheetRef.current?.(entry);
         return;
       }
@@ -353,17 +387,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
           "此文件类型暂不支持预览，是否使用系统默认程序打开？"
         );
         if (!ok) return;
-        if (!window.tenasElectron?.openPath) {
-          toast.error("网页版不支持打开本地文件");
-          return;
-        }
-        void window.tenasElectron
-          .openPath({ uri: entry.uri })
-          .then((res) => {
-            if (!res?.ok) {
-              toast.error(res?.reason ?? "无法打开文件");
-            }
-          });
+        openWithDefaultApp(entry);
         return;
       }
       if (entry.kind !== "folder") return;

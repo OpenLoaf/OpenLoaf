@@ -1,11 +1,46 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Plus, Save } from "lucide-react";
-import { DataGrid, renderTextEditor, type Column } from "react-data-grid";
+import { Save } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import {
+  CellValueType,
+  CommandType,
+  ICommandService,
+  LocaleType,
+  LogLevel,
+  mergeLocales,
+  ThemeService,
+  Univer,
+  UniverInstanceType,
+  mergeWorksheetSnapshotWithDefault,
+  type ICellData,
+  type IDisposable,
+  type IWorkbookData,
+  type IWorksheetData,
+} from "@univerjs/core";
+import { defaultTheme } from "@univerjs/design";
+import enUS from "@univerjs/design/locale/en-US";
+import zhCN from "@univerjs/design/locale/zh-CN";
+import { UniverRenderEnginePlugin } from "@univerjs/engine-render";
+import { UniverFormulaEnginePlugin } from "@univerjs/engine-formula";
+import { UniverDocsPlugin } from "@univerjs/docs";
+import { UniverDocsUIPlugin } from "@univerjs/docs-ui";
+import { UniverSheetsFormulaPlugin } from "@univerjs/sheets-formula";
+import { UniverSheetsPlugin } from "@univerjs/sheets";
+import { UniverSheetsUIPlugin } from "@univerjs/sheets-ui";
+import { UniverUIPlugin } from "@univerjs/ui";
+import uiEnUS from "@univerjs/ui/locale/en-US";
+import uiZhCN from "@univerjs/ui/locale/zh-CN";
+import sheetsEnUS from "@univerjs/sheets/locale/en-US";
+import sheetsZhCN from "@univerjs/sheets/locale/zh-CN";
+import sheetsUiEnUS from "@univerjs/sheets-ui/locale/en-US";
+import sheetsUiZhCN from "@univerjs/sheets-ui/locale/zh-CN";
+import docsUiEnUS from "@univerjs/docs-ui/locale/en-US";
+import docsUiZhCN from "@univerjs/docs-ui/locale/zh-CN";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -13,22 +48,10 @@ import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 
-import "react-data-grid/lib/styles.css";
-import "./spreadsheet-viewer.css";
-
-type SheetCell = string;
-type SheetRow = Record<string, SheetCell> & { __rowId: string };
-
-type SheetState = {
-  /** Sheet display name. */
-  name: string;
-  /** Sheet row data for the grid. */
-  rows: SheetRow[];
-  /** Column definitions for the grid. */
-  columns: Column<SheetRow>[];
-  /** Column key order for serialization. */
-  columnKeys: string[];
-};
+import "@univerjs/design/lib/index.css";
+import "@univerjs/ui/lib/index.css";
+import "@univerjs/sheets-ui/lib/index.css";
+import "@univerjs/docs-ui/lib/index.css";
 
 interface SheetViewerProps {
   uri?: string;
@@ -39,15 +62,33 @@ interface SheetViewerProps {
   tabId?: string;
 }
 
-/** Convert base64 payload into a Uint8Array for SheetJS. */
-function decodeBase64ToBytes(payload: string): Uint8Array {
-  // 使用 atob 解码 base64，再转成 Uint8Array，避免额外依赖。
+type SheetViewerStatus = "idle" | "loading" | "ready" | "error";
+
+type SheetCellMatrix = Record<number, Record<number, ICellData>>;
+type SheetBookType = "xls" | "xlsx";
+/** Minimal workbook interface for save/dispose operations. */
+type SheetWorkbook = {
+  /** Dispose workbook resources. */
+  dispose: () => void;
+  /** Persist workbook snapshot. */
+  save: () => IWorkbookData;
+};
+
+/** Locale map for Univer UI text. */
+const DEFAULT_LOCALES = {
+  [LocaleType.ZH_CN]: mergeLocales(zhCN, uiZhCN, sheetsZhCN, sheetsUiZhCN, docsUiZhCN),
+  [LocaleType.EN_US]: mergeLocales(enUS, uiEnUS, sheetsEnUS, sheetsUiEnUS, docsUiEnUS),
+};
+
+/** Convert base64 payload into ArrayBuffer for SheetJS parsing. */
+function decodeBase64ToArrayBuffer(payload: string): ArrayBuffer {
+  // 使用 atob 解码 base64，再拷贝到 ArrayBuffer，避免额外依赖。
   const binary = atob(payload);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes;
+  return bytes.buffer;
 }
 
 /** Convert ArrayBuffer into base64 payload for fs.writeBinary. */
@@ -63,87 +104,163 @@ function encodeArrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-/** Normalize cell value for grid editing. */
-function normalizeCellValue(
-  value: string | number | boolean | null | undefined
-): string {
-  if (value === null || value === undefined) return "";
-  return String(value);
+/** Build a stable id for Univer units. */
+function createUnitId(prefix: string): string {
+  // 逻辑：组合时间戳与随机串，减少短时间内的冲突概率。
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Normalize an Excel sheet into grid rows/columns. */
-function buildSheetState(name: string, sheet?: XLSX.WorkSheet): SheetState {
-  /** Row number column stays frozen on the left. */
-  const rowNumberColumn: Column<SheetRow> = {
-    key: "__rowNumber",
-    name: "",
-    width: 56,
-    minWidth: 56,
-    maxWidth: 72,
-    frozen: true,
-    editable: false,
-    resizable: false,
-    sortable: false,
-    headerCellClass: "sheet-viewer-row-number-header",
-    cellClass: "sheet-viewer-row-number-cell",
-    renderCell: ({ rowIdx }) => (
-      <span className="sheet-viewer-row-number">{rowIdx + 1}</span>
-    ),
-  };
-  if (!sheet) {
-    return {
-      name,
-      rows: [],
-      columns: [
-        rowNumberColumn,
-        { key: "A", name: "A", editable: true, renderEditCell: renderTextEditor },
-      ],
-      columnKeys: ["A"],
-    };
+/** Normalize a SheetJS cell value into Univer cell payload. */
+function normalizeCell(value: unknown): ICellData | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") {
+    return { v: value, t: CellValueType.NUMBER };
   }
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true }) as Array<
-    Array<string | number | boolean | null | undefined>
-  >;
-  const ref = sheet["!ref"];
-  const range = ref ? XLSX.utils.decode_range(ref) : null;
-  const maxCols = Math.max(
-    range ? range.e.c + 1 : 0,
-    rows.reduce((max, row) => Math.max(max, row.length), 0),
-    1
-  );
-  const normalizedRows: SheetRow[] = rows.map((row, rowIndex) => {
-    const nextRow: SheetRow = { __rowId: `row-${rowIndex}` };
-    for (let colIndex = 0; colIndex < maxCols; colIndex += 1) {
-      const key = XLSX.utils.encode_col(colIndex);
-      nextRow[key] = normalizeCellValue(row[colIndex]);
-    }
-    return nextRow;
-  });
-  const columnKeys = Array.from({ length: maxCols }, (_, colIndex) =>
-    XLSX.utils.encode_col(colIndex)
-  );
-  const columns: Column<SheetRow>[] = columnKeys.map((key) => {
-    return {
-      key,
-      name: key,
-      editable: true,
-      renderEditCell: renderTextEditor,
-    };
-  });
-  return { name, rows: normalizedRows, columns: [rowNumberColumn, ...columns], columnKeys };
+  if (typeof value === "boolean") {
+    return { v: value, t: CellValueType.BOOLEAN };
+  }
+  if (value instanceof Date) {
+    return { v: value.toISOString(), t: CellValueType.STRING };
+  }
+  return { v: String(value), t: CellValueType.STRING };
 }
 
-/** Build a new file uri for saving xlsx. */
-function resolveSaveUri(uri: string): string {
+/** Build worksheet snapshot data from SheetJS rows. */
+function buildWorksheetSnapshot(
+  sheetName: string,
+  rows: unknown[][]
+): { sheetId: string; data: IWorksheetData } {
+  // 逻辑：按最大行列构建 cellData 矩阵，保留已有值。
+  let maxColumn = 0;
+  for (const row of rows) {
+    if (row.length > maxColumn) maxColumn = row.length;
+  }
+  const cellData: SheetCellMatrix = {};
+  rows.forEach((row, rowIndex) => {
+    row.forEach((cell, colIndex) => {
+      const normalized = normalizeCell(cell);
+      if (!normalized) return;
+      if (!cellData[rowIndex]) cellData[rowIndex] = {};
+      cellData[rowIndex][colIndex] = normalized;
+    });
+  });
+  const rowCount = Math.max(rows.length, 1);
+  const columnCount = Math.max(maxColumn, 1);
+  const sheetId = createUnitId("sheet");
+  const snapshot = mergeWorksheetSnapshotWithDefault({
+    id: sheetId,
+    name: sheetName || "Sheet",
+    cellData,
+    rowCount,
+    columnCount,
+  });
+  return { sheetId, data: snapshot };
+}
+
+/** Convert an ArrayBuffer into Univer workbook snapshot. */
+function buildWorkbookSnapshot(buffer: ArrayBuffer, title: string): IWorkbookData {
+  // 逻辑：使用 SheetJS 读取数据，再映射到 Univer workbook 快照结构。
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const sheetNames = workbook.SheetNames.length ? workbook.SheetNames : ["Sheet1"];
+  const workbookId = createUnitId("workbook");
+  const sheets: Record<string, IWorksheetData> = {};
+  const sheetOrder: string[] = [];
+  sheetNames.forEach((sheetName, index) => {
+    const sheet = workbook.Sheets[sheetName];
+    const rows = sheet
+      ? (XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true }) as unknown[][])
+      : [];
+    const fallbackName = sheetName || `Sheet${index + 1}`;
+    const { sheetId, data } = buildWorksheetSnapshot(fallbackName, rows);
+    sheets[sheetId] = data;
+    sheetOrder.push(sheetId);
+  });
+  return {
+    id: workbookId,
+    name: title,
+    appVersion: "0.15.1",
+    locale: LocaleType.ZH_CN,
+    styles: {},
+    sheetOrder,
+    sheets,
+  };
+}
+
+/** Resolve max row/column from Univer cell matrix. */
+function resolveMatrixSize(cellData?: SheetCellMatrix): { rows: number; columns: number } {
+  if (!cellData) return { rows: 1, columns: 1 };
+  let maxRow = 0;
+  let maxCol = 0;
+  for (const [rowKey, row] of Object.entries(cellData)) {
+    const rowIndex = Number(rowKey);
+    if (Number.isNaN(rowIndex)) continue;
+    maxRow = Math.max(maxRow, rowIndex + 1);
+    for (const colKey of Object.keys(row)) {
+      const colIndex = Number(colKey);
+      if (Number.isNaN(colIndex)) continue;
+      maxCol = Math.max(maxCol, colIndex + 1);
+    }
+  }
+  return {
+    rows: Math.max(maxRow, 1),
+    columns: Math.max(maxCol, 1),
+  };
+}
+
+/** Convert Univer worksheet snapshot into SheetJS rows. */
+function buildRowsFromWorksheet(sheet?: Partial<IWorksheetData>): Array<Array<string | number | boolean | null>> {
+  // 逻辑：按最大行列输出二维数组，缺失单元格填 null。
+  const cellData = sheet?.cellData as SheetCellMatrix | undefined;
+  const { rows, columns } = resolveMatrixSize(cellData);
+  const output: Array<Array<string | number | boolean | null>> = [];
+  for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
+    const row: Array<string | number | boolean | null> = [];
+    for (let colIndex = 0; colIndex < columns; colIndex += 1) {
+      const cell = cellData?.[rowIndex]?.[colIndex];
+      row.push(cell?.v ?? null);
+    }
+    output.push(row);
+  }
+  return output;
+}
+
+/** Convert Univer workbook snapshot into an ArrayBuffer for Excel. */
+function buildXlsxBuffer(snapshot: IWorkbookData, bookType: SheetBookType): ArrayBuffer {
+  // 逻辑：仅导出单元格值，样式与公式保持最小化处理。
+  const workbook = XLSX.utils.book_new();
+  snapshot.sheetOrder.forEach((sheetId, index) => {
+    const sheet = snapshot.sheets[sheetId];
+    if (!sheet) return;
+    const rows = buildRowsFromWorksheet(sheet);
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const name = sheet.name || `Sheet${index + 1}`;
+    XLSX.utils.book_append_sheet(workbook, worksheet, name);
+  });
+  return XLSX.write(workbook, { type: "array", bookType });
+}
+
+/** Resolve Excel book type by extension or URI suffix. */
+function resolveBookType(ext?: string, uri?: string): SheetBookType {
+  const key = (ext ?? "").toLowerCase();
+  if (key === "xls") return "xls";
+  if (key === "xlsx") return "xlsx";
+  if (uri && uri.toLowerCase().endsWith(".xls")) return "xls";
+  return "xlsx";
+}
+
+/** Build a new file uri for saving excel files. */
+function resolveSaveUri(uri: string, ext?: string): string {
   try {
     const url = new URL(uri);
     const parts = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
     const currentName = parts.pop() ?? "workbook.xlsx";
-    if (currentName.toLowerCase().endsWith(".xlsx")) {
+    const lowerName = currentName.toLowerCase();
+    const fallbackExt = (ext ?? "").toLowerCase() === "xls" ? "xls" : "xlsx";
+    if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
       return uri;
     }
     const baseName = currentName.replace(/\.[^.]+$/, "") || currentName;
-    const nextName = `${baseName}.xlsx`;
+    const nextName = `${baseName}.${fallbackExt}`;
     parts.push(nextName);
     url.pathname = `/${parts.map(encodeURIComponent).join("/")}`;
     return url.toString();
@@ -152,26 +269,76 @@ function resolveSaveUri(uri: string): string {
   }
 }
 
-/** Render an Excel preview/editor panel. */
+/** Create a Univer instance for sheet editing. */
+function createSheetUniver(container: HTMLElement, isDark: boolean): Univer {
+  const univer = new Univer({
+    theme: defaultTheme,
+    locale: LocaleType.ZH_CN,
+    locales: DEFAULT_LOCALES,
+    logLevel: LogLevel.SILENT,
+    darkMode: isDark,
+  });
+  univer.registerPlugin(UniverRenderEnginePlugin);
+  univer.registerPlugin(UniverUIPlugin, {
+    container,
+    header: true,
+    toolbar: true,
+    footer: true,
+    headerMenu: false,
+    contextMenu: true,
+    disableAutoFocus: true,
+  });
+  // Sheets UI 依赖 EditorService，需要提前注册 Docs UI 相关插件。
+  univer.registerPlugin(UniverDocsPlugin);
+  univer.registerPlugin(UniverDocsUIPlugin);
+  univer.registerPlugin(UniverSheetsPlugin);
+  univer.registerPlugin(UniverFormulaEnginePlugin);
+  univer.registerPlugin(UniverSheetsFormulaPlugin);
+  univer.registerPlugin(UniverSheetsUIPlugin, {
+    formulaBar: true,
+    // 逻辑：关闭“数字以文本存储”的提示弹窗。
+    disableForceStringAlert: true,
+    footer: {
+      sheetBar: true,
+      statisticBar: true,
+      menus: true,
+      zoomSlider: true,
+    },
+  });
+  return univer;
+}
+
+/** Render an Excel preview/editor panel powered by Univer. */
 export default function SheetViewer({
   uri,
   openUri,
   name,
+  ext,
   panelKey,
   tabId,
 }: SheetViewerProps) {
   /** Tracks the current loading status. */
-  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  /** Holds parsed sheets for preview/editing. */
-  const [sheets, setSheets] = useState<SheetState[]>([]);
-  /** Active sheet index for tab switching. */
-  const [activeSheetIndex, setActiveSheetIndex] = useState(0);
-  /** Marks whether the grid has unsaved changes. */
+  const [status, setStatus] = useState<SheetViewerStatus>("idle");
+  /** Track whether the workbook has unsaved changes. */
   const [isDirty, setIsDirty] = useState(false);
-  /** Minimize current stack panel. */
-  const requestMinimize = requestStackMinimize;
+  /** Holds the latest workbook snapshot for initialization. */
+  const [snapshot, setSnapshot] = useState<IWorkbookData | null>(null);
+  /** Holds the Univer instance for disposal. */
+  const univerRef = useRef<Univer | null>(null);
+  /** Holds the workbook instance for save operations. */
+  const workbookRef = useRef<SheetWorkbook | null>(null);
+  /** Holds the command listener disposable. */
+  const commandDisposableRef = useRef<IDisposable | null>(null);
+  /** Marks initialization to avoid dirty flag on first load. */
+  const initializingRef = useRef(true);
+  /** Container element for Univer workbench. */
+  const containerRef = useRef<HTMLDivElement | null>(null);
   /** Close current stack panel. */
   const removeStackItem = useTabs((s) => s.removeStackItem);
+  /** Resolve current theme for Univer dark mode. */
+  const { resolvedTheme } = useTheme();
+  /** Current Univer dark mode flag synced from theme. */
+  const [isDark, setIsDark] = useState(false);
 
   /** Flags whether the viewer should load via fs.readBinary. */
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
@@ -180,18 +347,34 @@ export default function SheetViewer({
     ...trpc.fs.readBinary.queryOptions({ uri: uri ?? "" }),
     enabled: shouldUseFs && Boolean(uri),
   });
+  /** Mutation handler for persisting binary payloads. */
   const writeBinaryMutation = useMutation(trpc.fs.writeBinary.mutationOptions());
 
   /** Display name shown in the panel header. */
   const displayTitle = useMemo(() => name ?? uri ?? "Excel", [name, uri]);
-  const sheetNames = useMemo(() => sheets.map((sheet) => sheet.name), [sheets]);
-  const activeSheet = sheets[activeSheetIndex];
+
+  useEffect(() => {
+    const root = document.documentElement;
+    /** Read theme from root class list. */
+    const readDomTheme = () => root.classList.contains("dark");
+    // 逻辑：优先使用 next-themes 的 resolvedTheme，必要时回退到 DOM 主题。
+    if (resolvedTheme === "dark" || resolvedTheme === "light") {
+      setIsDark(resolvedTheme === "dark");
+    } else {
+      setIsDark(readDomTheme());
+    }
+    const observer = new MutationObserver(() => {
+      setIsDark(readDomTheme());
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, [resolvedTheme]);
 
   useEffect(() => {
     setStatus("idle");
-    setSheets([]);
-    setActiveSheetIndex(0);
     setIsDirty(false);
+    setSnapshot(null);
+    initializingRef.current = true;
   }, [uri]);
 
   useEffect(() => {
@@ -208,45 +391,91 @@ export default function SheetViewer({
     }
     setStatus("loading");
     try {
-      const data = decodeBase64ToBytes(payload);
-      const workbook = XLSX.read(data, { type: "array" });
-      const nextSheets = workbook.SheetNames.map((sheetName) =>
-        buildSheetState(sheetName, workbook.Sheets[sheetName])
-      );
-      setSheets(nextSheets);
-      setActiveSheetIndex(0);
-      setStatus("ready");
+      const buffer = decodeBase64ToArrayBuffer(payload);
+      const nextSnapshot = buildWorkbookSnapshot(buffer, displayTitle);
+      setSnapshot(nextSnapshot);
+      setIsDirty(false);
     } catch {
       setStatus("error");
     }
-  }, [fileQuery.data?.contentBase64, fileQuery.isError, fileQuery.isLoading, shouldUseFs]);
+  }, [displayTitle, fileQuery.data?.contentBase64, fileQuery.isError, fileQuery.isLoading, shouldUseFs]);
 
-  /** Persist current workbook to an xlsx file. */
+  // 逻辑：切换主题会重置未保存编辑，因此不跟随 isDark 重新初始化。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!snapshot) return;
+    const container = containerRef.current;
+    if (!container) return;
+    // 逻辑：使用独立挂载节点，避免异步卸载影响新实例。
+    const mountContainer = document.createElement("div");
+    mountContainer.className = "h-full w-full";
+    container.replaceChildren(mountContainer);
+
+    initializingRef.current = true;
+    const univer = createSheetUniver(mountContainer, isDark);
+    univerRef.current = univer;
+    const workbook = univer.createUnit(
+      UniverInstanceType.UNIVER_SHEET,
+      snapshot
+    ) as SheetWorkbook;
+    workbookRef.current = workbook;
+
+    const commandService = univer.__getInjector().get(ICommandService);
+    commandDisposableRef.current = commandService.onCommandExecuted((commandInfo) => {
+      if (initializingRef.current) return;
+      if (commandInfo.type !== CommandType.MUTATION) return;
+      setIsDirty(true);
+    });
+    setStatus("ready");
+    initializingRef.current = false;
+
+    return () => {
+      const commandDisposable = commandDisposableRef.current;
+      const workbook = workbookRef.current;
+      const univerInstance = univerRef.current;
+      commandDisposableRef.current = null;
+      workbookRef.current = null;
+      univerRef.current = null;
+      // 逻辑：延迟卸载内部 React root，避免渲染期同步 unmount。
+      window.setTimeout(() => {
+        commandDisposable?.dispose();
+        workbook?.dispose();
+        univerInstance?.dispose();
+        mountContainer.remove();
+      }, 0);
+    };
+  }, [snapshot]);
+
+  useEffect(() => {
+    const univer = univerRef.current;
+    if (!univer) return;
+    // 逻辑：切换主题时同步 Univer 的暗黑模式，避免重新初始化实例。
+    const themeService = univer.__getInjector().get(ThemeService);
+    themeService.setDarkMode(isDark);
+  }, [isDark]);
+
+  /** Persist current workbook to an Excel file. */
   const handleSave = async () => {
+    // 逻辑：导出当前快照为 Excel，并写回本地文件。
     if (!uri || !shouldUseFs) {
       toast.error("暂不支持保存此地址");
       return;
     }
-    if (!sheets.length) {
+    const workbook = workbookRef.current;
+    if (!workbook) {
       toast.error("没有可保存的内容");
       return;
     }
     try {
-      const workbook = XLSX.utils.book_new();
-      for (const sheet of sheets) {
-        const data = sheet.rows.map((row) =>
-          sheet.columnKeys.map((key) => (row[key] === "" ? null : row[key]))
-        );
-        const worksheet = XLSX.utils.aoa_to_sheet(data);
-        XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name);
-      }
-      const buffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+      const snapshot = workbook.save();
+      const bookType = resolveBookType(ext, uri);
+      const buffer = buildXlsxBuffer(snapshot, bookType);
       const contentBase64 = encodeArrayBufferToBase64(buffer);
-      const saveUri = resolveSaveUri(uri);
+      const saveUri = resolveSaveUri(uri, ext);
       await writeBinaryMutation.mutateAsync({ uri: saveUri, contentBase64 });
       setIsDirty(false);
       if (saveUri !== uri) {
-        toast.success("已另存为 XLSX 文件");
+        toast.success("已另存为 Excel 文件");
       } else {
         toast.success("已保存");
       }
@@ -254,46 +483,6 @@ export default function SheetViewer({
       toast.error("保存失败");
     }
   };
-
-  /** Apply row changes from the grid. */
-  const handleRowsChange = useCallback(
-    (nextRows: SheetRow[]) => {
-      setSheets((prev) =>
-        prev.map((sheet, index) => {
-          if (index !== activeSheetIndex) return sheet;
-          // 确保每行都有稳定的 row id，避免编辑时丢失。
-          const normalizedRows = nextRows.map((row, rowIndex) => {
-            const nextRow: SheetRow = {
-              ...(row.__rowId ? row : { ...row, __rowId: `row-${rowIndex}` }),
-              __rowId: row.__rowId ?? `row-${rowIndex}`,
-            };
-            for (const key of sheet.columnKeys) {
-              nextRow[key] = normalizeCellValue(nextRow[key]);
-            }
-            return nextRow;
-          });
-          return { ...sheet, rows: normalizedRows };
-        })
-      );
-      setIsDirty(true);
-    },
-    [activeSheetIndex]
-  );
-
-  /** Add an empty row to the active sheet. */
-  const handleAddRow = useCallback(() => {
-    if (!activeSheet) return;
-    const nextRow: SheetRow = { __rowId: `row-${Date.now()}` };
-    for (const key of activeSheet.columnKeys) {
-      nextRow[key] = "";
-    }
-    setSheets((prev) =>
-      prev.map((sheet, index) =>
-        index === activeSheetIndex ? { ...sheet, rows: [...sheet.rows, nextRow] } : sheet
-      )
-    );
-    setIsDirty(true);
-  }, [activeSheet, activeSheetIndex]);
 
   if (!uri) {
     return <div className="h-full w-full p-4 text-muted-foreground">未选择表格</div>;
@@ -305,46 +494,25 @@ export default function SheetViewer({
         title={displayTitle}
         openUri={openUri}
         rightSlot={
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label="新增行"
-                  onClick={handleAddRow}
-                  disabled={!activeSheet || status !== "ready"}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">新增行</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label="保存"
-                  onClick={() => void handleSave()}
-                  disabled={
-                    !shouldUseFs ||
-                    status !== "ready" ||
-                    writeBinaryMutation.isPending ||
-                    !isDirty
-                  }
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">保存</TooltipContent>
-            </Tooltip>
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="保存"
+                onClick={() => void handleSave()}
+                disabled={!shouldUseFs || status !== "ready" || writeBinaryMutation.isPending}
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">保存</TooltipContent>
+          </Tooltip>
         }
         showMinimize
         onMinimize={() => {
           if (!tabId) return;
-          requestMinimize(tabId);
+          requestStackMinimize(tabId);
         }}
         onClose={() => {
           if (!tabId || !panelKey) return;
@@ -355,25 +523,6 @@ export default function SheetViewer({
           removeStackItem(tabId, panelKey);
         }}
       />
-      <div className="border-b border-border/60 px-3 py-2">
-        <div className="flex items-center gap-2 overflow-x-auto">
-          {sheetNames.length === 0 ? (
-            <span className="text-xs text-muted-foreground">无工作表</span>
-          ) : (
-            sheetNames.map((sheetName, index) => (
-              <Button
-                key={sheetName}
-                variant={index === activeSheetIndex ? "secondary" : "ghost"}
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={() => setActiveSheetIndex(index)}
-              >
-                {sheetName}
-              </Button>
-            ))
-          )}
-        </div>
-      </div>
       <div className="flex min-h-0 flex-1 flex-col">
         {!shouldUseFs ? (
           <div className="mx-4 mt-3 rounded-md border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">
@@ -390,18 +539,7 @@ export default function SheetViewer({
             表格预览失败
           </div>
         ) : null}
-        {activeSheet ? (
-          <div className="flex min-h-0 flex-1 flex-col p-3">
-            <DataGrid
-              className="sheet-viewer-grid"
-              columns={activeSheet.columns}
-              rows={activeSheet.rows}
-              rowKeyGetter={(row) => row.__rowId}
-              onRowsChange={handleRowsChange}
-              style={{ height: "100%" }}
-            />
-          </div>
-        ) : null}
+        <div className="h-full min-h-0 flex-1" ref={containerRef} />
       </div>
     </div>
   );

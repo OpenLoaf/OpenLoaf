@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useBoardEngine } from "./BoardProvider";
+import { useBoardViewState } from "./useBoardViewState";
 
 type BoardPerfStats = {
   /** Total renderable node count. */
@@ -17,8 +19,6 @@ type BoardGpuStats = {
 type BoardPerfOverlayProps = {
   /** Stats collected from the DOM culling pass. */
   stats: BoardPerfStats;
-  /** Current viewport zoom. */
-  zoom: number;
   /** GPU-side stats from the renderer. */
   gpuStats: BoardGpuStats;
 };
@@ -27,7 +27,11 @@ type BoardPerfOverlayProps = {
 const LONG_FRAME_MS = 50;
 
 /** Render the board performance overlay. */
-export function BoardPerfOverlay({ stats, zoom, gpuStats }: BoardPerfOverlayProps) {
+export function BoardPerfOverlay({ stats, gpuStats }: BoardPerfOverlayProps) {
+  // 逻辑：视图状态独立订阅，避免缩放时触发全量快照渲染。
+  const engine = useBoardEngine();
+  const viewState = useBoardViewState(engine);
+  const zoom = viewState.viewport.zoom;
   /** FPS sampled per second. */
   const [fps, setFps] = useState(0);
   /** Average frame time sampled per second. */

@@ -11,7 +11,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { ArrowDown, ArrowUp, FolderUp } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { useFlipLayout } from "@/lib/use-flip-layout";
@@ -34,6 +34,7 @@ import {
   MARKDOWN_EXTS,
   PDF_EXTS,
   SPREADSHEET_EXTS,
+  FolderIcon,
   isTextFallbackExt,
   getEntryVisual,
 } from "./FileSystemEntryVisual";
@@ -55,6 +56,10 @@ const listRowBaseClassName =
 /** Base layout for list headers. */
 const listHeaderClassName =
   "grid items-center gap-3 px-3 py-2 text-left text-[11px] font-medium text-muted-foreground";
+/** Supported document extensions for the built-in viewer. */
+const SUPPORTED_DOC_EXTS = new Set(["docx"]);
+/** Supported spreadsheet extensions for the built-in viewer. */
+const SUPPORTED_SHEET_EXTS = new Set(["xls", "xlsx"]);
 /** Extension display labels for list type column. */
 const FILE_TYPE_LABEL_OVERRIDES: Record<string, string> = {
   ts: "TypeScript",
@@ -62,6 +67,28 @@ const FILE_TYPE_LABEL_OVERRIDES: Record<string, string> = {
   js: "JavaScript",
   jsx: "JavaScript",
 };
+
+/** Return true when the office file should open with the system default app. */
+function shouldOpenOfficeWithSystem(ext: string): boolean {
+  // 逻辑：仅对内置未覆盖的 Office 扩展使用系统默认程序。
+  if (DOC_EXTS.has(ext)) return !SUPPORTED_DOC_EXTS.has(ext);
+  if (SPREADSHEET_EXTS.has(ext)) return !SUPPORTED_SHEET_EXTS.has(ext);
+  return false;
+}
+
+/** Open a file via the system default handler. */
+function openWithDefaultApp(entry: FileSystemEntry): void {
+  // 逻辑：桌面端通过 openPath 调起系统默认应用。
+  if (!window.tenasElectron?.openPath) {
+    toast.error("网页版不支持打开本地文件");
+    return;
+  }
+  void window.tenasElectron.openPath({ uri: entry.uri }).then((res) => {
+    if (!res?.ok) {
+      toast.error(res?.reason ?? "无法打开文件");
+    }
+  });
+}
 
 type FileSystemListHeaderProps = {
   sortField: "name" | "mtime" | null;
@@ -451,7 +478,7 @@ const FileSystemParentEntryRow = memo(function FileSystemParentEntryRow({
     >
       <FileSystemListRowContent
         entry={parentEntry}
-        visualOverride={<FolderUp className="h-6 w-6 text-muted-foreground" />}
+        visualOverride={<FolderIcon className="h-6 w-6" showArrow />}
       />
     </button>
   );
@@ -679,10 +706,18 @@ const FileSystemList = memo(function FileSystemList({
         return;
       }
       if (entry.kind === "file" && DOC_EXTS.has(entryExt)) {
+        if (shouldOpenOfficeWithSystem(entryExt)) {
+          openWithDefaultApp(entry);
+          return;
+        }
         onOpenDocRef.current?.(entry);
         return;
       }
       if (entry.kind === "file" && SPREADSHEET_EXTS.has(entryExt)) {
+        if (shouldOpenOfficeWithSystem(entryExt)) {
+          openWithDefaultApp(entry);
+          return;
+        }
         onOpenSpreadsheetRef.current?.(entry);
         return;
       }
@@ -696,17 +731,7 @@ const FileSystemList = memo(function FileSystemList({
           "此文件类型暂不支持预览，是否使用系统默认程序打开？"
         );
         if (!ok) return;
-        if (!window.tenasElectron?.openPath) {
-          toast.error("网页版不支持打开本地文件");
-          return;
-        }
-        void window.tenasElectron
-          .openPath({ uri: entry.uri })
-          .then((res) => {
-            if (!res?.ok) {
-              toast.error(res?.reason ?? "无法打开文件");
-            }
-          });
+        openWithDefaultApp(entry);
         return;
       }
       if (entry.kind !== "folder") return;

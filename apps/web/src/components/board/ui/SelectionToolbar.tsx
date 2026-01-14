@@ -6,15 +6,14 @@ import { cn } from "@udecode/cn";
 import type {
   CanvasPoint,
   CanvasRect,
-  CanvasSnapshot,
   CanvasToolbarItem,
 } from "../engine/types";
 import { toScreenPoint } from "../utils/coordinates";
 import { PanelItem } from "./ToolbarParts";
+import { useBoardEngine } from "../core/BoardProvider";
+import { useBoardViewState } from "../core/useBoardViewState";
 
 type SelectionToolbarContainerProps = {
-  /** Snapshot used for positioning. */
-  snapshot: CanvasSnapshot;
   /** Anchor bounds in world coordinates. */
   bounds: CanvasRect;
   /** Tailwind offset class for toolbar positioning. */
@@ -27,16 +26,17 @@ type SelectionToolbarContainerProps = {
 
 /** Shared container for selection toolbars. */
 function SelectionToolbarContainer({
-  snapshot,
   bounds,
   offsetClass,
   onPointerDown,
   children,
 }: SelectionToolbarContainerProps) {
-  const { zoom, offset } = snapshot.viewport;
+  // 逻辑：视图变化时独立刷新位置，避免依赖全量快照更新。
+  const engine = useBoardEngine();
+  const viewState = useBoardViewState(engine);
   // 逻辑：工具条固定在节点上方，不再自动切换上下位置。
   const anchor: CanvasPoint = [bounds.x + bounds.w / 2, bounds.y];
-  const screen = toScreenPoint(anchor, snapshot);
+  const screen = toScreenPoint(anchor, viewState);
 
   return (
     <div

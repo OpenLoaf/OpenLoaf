@@ -56,6 +56,10 @@ export class SelectTool implements CanvasTool {
   private selectionBaseIds: string[] = [];
   /** Whether rectangle selection is additive. */
   private selectionAdditive = false;
+  /** Pending selection box end point. */
+  private selectionPendingWorld: CanvasPoint | null = null;
+  /** Selection update animation frame id. */
+  private selectionFrameId: number | null = null;
   /** Selection drag threshold in screen pixels. */
   private readonly selectionThreshold = SELECTION_BOX_THRESHOLD;
   /** Snap pixel threshold in screen space. */
@@ -156,6 +160,9 @@ export class SelectTool implements CanvasTool {
       this.selectionStartWorld = ctx.worldPoint;
       this.selectionStartScreen = ctx.screenPoint;
       this.selectionBoxActive = false;
+      // 逻辑：重新开始框选时清理待处理的帧更新。
+      this.cancelSelectionUpdate();
+      this.selectionPendingWorld = null;
       this.draggingId = null;
       this.draggingIds = [];
       this.dragStartRects.clear();
@@ -341,16 +348,10 @@ export class SelectTool implements CanvasTool {
       const dy = ctx.screenPoint[1] - this.selectionStartScreen[1];
       const distance = Math.hypot(dx, dy);
       if (!this.selectionBoxActive && distance < this.selectionThreshold) return;
-      this.selectionBoxActive = true;
-      const rect = this.buildSelectionRect(this.selectionStartWorld, ctx.worldPoint);
-      ctx.engine.setSelectionBox(rect);
-      const hits = this.pickNodesInRect(rect, ctx.engine);
-      if (this.selectionAdditive) {
-        const merged = new Set([...this.selectionBaseIds, ...hits]);
-        ctx.engine.selection.setSelection(Array.from(merged));
-      } else {
-        ctx.engine.selection.setSelection(hits);
+      if (!this.selectionBoxActive) {
+        this.selectionBoxActive = true;
       }
+      this.scheduleSelectionUpdate(ctx.engine, ctx.worldPoint);
       return;
     }
     if (!this.draggingId || !this.dragStart) return;
@@ -450,12 +451,18 @@ export class SelectTool implements CanvasTool {
       return;
     }
     if (this.selectionStartWorld) {
-      ctx.engine.setSelectionBox(null);
+      this.cancelSelectionUpdate();
+      if (this.selectionBoxActive) {
+        this.applySelectionUpdate(ctx.engine, ctx.worldPoint, true);
+      } else {
+        ctx.engine.setSelectionBox(null);
+      }
       this.selectionStartWorld = null;
       this.selectionStartScreen = null;
       this.selectionBoxActive = false;
       this.selectionBaseIds = [];
       this.selectionAdditive = false;
+      this.selectionPendingWorld = null;
     }
     if (this.draggingId) {
       ctx.engine.setDraggingElementId(null);
@@ -555,6 +562,54 @@ export class SelectTool implements CanvasTool {
     return { x, y, w, h };
   }
 
+  /** Merge base selection ids with new hits. */
+  private mergeSelectionIds(baseIds: string[], hits: string[]): string[] {
+    if (baseIds.length === 0) return hits;
+    const merged = new Set(baseIds);
+    hits.forEach(id => merged.add(id));
+    return Array.from(merged);
+  }
+
+  /** Apply a rectangle selection update. */
+  private applySelectionUpdate(
+    engine: CanvasEngine,
+    endWorld: CanvasPoint,
+    clearBox: boolean
+  ): void {
+    if (!this.selectionStartWorld) return;
+    const rect = this.buildSelectionRect(this.selectionStartWorld, endWorld);
+    const hits = this.pickNodesInRect(rect, engine);
+    const selectionIds = this.selectionAdditive
+      ? this.mergeSelectionIds(this.selectionBaseIds, hits)
+      : hits;
+    const box = clearBox ? null : rect;
+    engine.setSelectionBoxAndSelection(box, selectionIds);
+  }
+
+  /** Schedule rectangle selection updates for the next frame. */
+  private scheduleSelectionUpdate(engine: CanvasEngine, endWorld: CanvasPoint): void {
+    this.selectionPendingWorld = endWorld;
+    if (this.selectionFrameId !== null) return;
+    this.selectionFrameId = window.requestAnimationFrame(() => {
+      this.selectionFrameId = null;
+      const pending = this.selectionPendingWorld;
+      if (!pending) return;
+      this.selectionPendingWorld = null;
+      if (!this.selectionStartWorld) return;
+      // 逻辑：框选刷新合并到帧回调，降低高频指针事件的渲染压力。
+      this.applySelectionUpdate(engine, pending, false);
+    });
+  }
+
+  /** Cancel any pending selection frame. */
+  private cancelSelectionUpdate(): void {
+    if (this.selectionFrameId !== null) {
+      window.cancelAnimationFrame(this.selectionFrameId);
+      this.selectionFrameId = null;
+    }
+    this.selectionPendingWorld = null;
+  }
+
   /** Find the top-most hovered large-anchor node with expanded hit area. */
   private getHoverAnchorNode(
     engine: CanvasEngine,
@@ -601,12 +656,11 @@ export class SelectTool implements CanvasTool {
   /** Check elements intersecting with the selection rectangle. */
   private pickNodesInRect(rect: CanvasRect, engine: CanvasEngine): string[] {
     const elements = engine.doc.getElements();
-    const hits = elements
-      .filter(element => element.kind === "node")
-      .filter(element => !element.locked)
-      .filter(element => this.rectsIntersect(rect, element));
     const selectionIds = new Set<string>();
-    hits.forEach(element => {
+    elements.forEach(element => {
+      if (element.kind !== "node") return;
+      if (element.locked) return;
+      if (!this.rectsIntersect(rect, element)) return;
       selectionIds.add(resolveGroupSelectionId(elements, element));
     });
     return Array.from(selectionIds);

@@ -220,7 +220,7 @@ async function searchFiles(input: {
 
 /** Read a project file. */
 export const fileReadTool = tool({
-  description: fileReadToolDef.description,
+  description: `${fileReadToolDef.description}路径不要使用 URL Encoding 编码。`,
   inputSchema: zodSchema(fileReadToolDef.parameters),
   execute: async ({ path: rawPath }): Promise<FileReadToolOutput> => {
     const resolved = resolveProjectPath(rawPath);
@@ -238,7 +238,7 @@ export const fileReadTool = tool({
 
 /** List files under a project directory. */
 export const fileListTool = tool({
-  description: fileListToolDef.description,
+  description: `${fileListToolDef.description}路径不要使用 URL Encoding 编码。`,
   inputSchema: zodSchema(fileListToolDef.parameters),
   execute: async ({ path: rawPath }): Promise<FileListToolOutput> => {
     const targetPath = rawPath?.trim() || ".";
@@ -260,7 +260,7 @@ export const fileListTool = tool({
 
 /** Search project files for a query string. */
 export const fileSearchTool = tool({
-  description: fileSearchToolDef.description,
+  description: `${fileSearchToolDef.description}路径不要使用 URL Encoding 编码。`,
   inputSchema: zodSchema(fileSearchToolDef.parameters),
   execute: async ({ query, path: rawPath, limit }): Promise<FileSearchToolOutput> => {
     const trimmedQuery = query.trim();
@@ -289,7 +289,7 @@ export const fileSearchTool = tool({
 
 /** Write content into a project file. */
 export const fileWriteTool = tool({
-  description: fileWriteToolDef.description,
+  description: `${fileWriteToolDef.description}路径不要使用 URL Encoding 编码。`,
   inputSchema: zodSchema(fileWriteToolDef.parameters),
   needsApproval: true,
   execute: async ({ path: rawPath, content, mode }): Promise<FileWriteToolOutput> => {
@@ -316,7 +316,7 @@ export const fileWriteTool = tool({
 
 /** Delete a project file. */
 export const fileDeleteTool = tool({
-  description: fileDeleteToolDef.description,
+  description: `${fileDeleteToolDef.description}路径不要使用 URL Encoding 编码。`,
   inputSchema: zodSchema(fileDeleteToolDef.parameters),
   needsApproval: true,
   execute: async ({ path: rawPath }): Promise<FileDeleteToolOutput> => {

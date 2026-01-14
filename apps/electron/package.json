@@ -102,8 +102,9 @@
     "@electron-forge/maker-zip": "^7.10.2",
     "@electron-forge/plugin-webpack": "^7.10.2",
     "@electron-forge/shared-types": "^7.10.2",
-    "electron-builder": "^24.13.3",
     "electron": "39.2.7",
+    "electron-builder": "^24.13.3",
+    "electron-devtools-installer": "^4.0.0",
     "ts-loader": "^9.2.2",
     "typescript": "catalog:"
   }

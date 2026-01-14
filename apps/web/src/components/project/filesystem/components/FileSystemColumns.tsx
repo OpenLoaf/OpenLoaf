@@ -52,6 +52,10 @@ const isBoardFolderEntry = (entry: FileSystemEntry) =>
 /** Base layout for column rows. */
 const columnRowBaseClassName =
   "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-foreground";
+/** Supported document extensions for the built-in viewer. */
+const SUPPORTED_DOC_EXTS = new Set(["docx"]);
+/** Supported spreadsheet extensions for the built-in viewer. */
+const SUPPORTED_SHEET_EXTS = new Set(["xls", "xlsx"]);
 
 /** Extension display labels for column metadata. */
 const COLUMN_TYPE_LABEL_OVERRIDES: Record<string, string> = {
@@ -60,6 +64,28 @@ const COLUMN_TYPE_LABEL_OVERRIDES: Record<string, string> = {
   js: "JavaScript",
   jsx: "JavaScript",
 };
+
+/** Return true when the office file should open with the system default app. */
+function shouldOpenOfficeWithSystem(ext: string): boolean {
+  // 逻辑：仅对内置未覆盖的 Office 扩展使用系统默认程序。
+  if (DOC_EXTS.has(ext)) return !SUPPORTED_DOC_EXTS.has(ext);
+  if (SPREADSHEET_EXTS.has(ext)) return !SUPPORTED_SHEET_EXTS.has(ext);
+  return false;
+}
+
+/** Open a file via the system default handler. */
+function openWithDefaultApp(entry: FileSystemEntry): void {
+  // 逻辑：桌面端通过 openPath 调起系统默认应用。
+  if (!window.tenasElectron?.openPath) {
+    toast.error("网页版不支持打开本地文件");
+    return;
+  }
+  void window.tenasElectron.openPath({ uri: entry.uri }).then((res) => {
+    if (!res?.ok) {
+      toast.error(res?.reason ?? "无法打开文件");
+    }
+  });
+}
 
 /** Build column uris from root to current. */
 function buildColumnUris(rootUri?: string, currentUri?: string | null) {
@@ -678,10 +704,18 @@ const FileSystemColumns = memo(function FileSystemColumns({
         return;
       }
       if (entry.kind === "file" && DOC_EXTS.has(entryExt)) {
+        if (shouldOpenOfficeWithSystem(entryExt)) {
+          openWithDefaultApp(entry);
+          return;
+        }
         onOpenDocRef.current?.(entry);
         return;
       }
       if (entry.kind === "file" && SPREADSHEET_EXTS.has(entryExt)) {
+        if (shouldOpenOfficeWithSystem(entryExt)) {
+          openWithDefaultApp(entry);
+          return;
+        }
         onOpenSpreadsheetRef.current?.(entry);
         return;
       }
@@ -695,17 +729,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
           "此文件类型暂不支持预览，是否使用系统默认程序打开？"
         );
         if (!ok) return;
-        if (!window.tenasElectron?.openPath) {
-          toast.error("网页版不支持打开本地文件");
-          return;
-        }
-        void window.tenasElectron
-          .openPath({ uri: entry.uri })
-          .then((res) => {
-            if (!res?.ok) {
-              toast.error(res?.reason ?? "无法打开文件");
-            }
-          });
+        openWithDefaultApp(entry);
         return;
       }
       if (entry.kind !== "folder") return;

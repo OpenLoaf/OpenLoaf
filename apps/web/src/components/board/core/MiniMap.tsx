@@ -1,5 +1,6 @@
 import { cn } from "@udecode/cn";
-import type { CanvasElement, CanvasRect, CanvasSnapshot } from "../engine/types";
+import { useMemo } from "react";
+import type { CanvasElement, CanvasRect, CanvasSnapshot, CanvasViewportState } from "../engine/types";
 import {
   MINIMAP_HEIGHT,
   MINIMAP_PADDING_MIN,
@@ -11,16 +12,21 @@ import {
 type MiniMapProps = {
   /** Snapshot for rendering the minimap. */
   snapshot: CanvasSnapshot;
+  /** Viewport state for the minimap camera. */
+  viewport: CanvasViewportState;
   /** Whether the minimap should be visible. */
   visible: boolean;
 };
 
 /** Render a lightweight minimap for viewport context. */
-export function MiniMap({ snapshot, visible }: MiniMapProps) {
+export function MiniMap({ snapshot, viewport, visible }: MiniMapProps) {
   const mapWidth = MINIMAP_WIDTH;
   const mapHeight = MINIMAP_HEIGHT;
-  const elementsBounds = computeElementsBounds(snapshot.elements);
-  const viewportBounds = getViewportBounds(snapshot.viewport);
+  const elementsBounds = useMemo(
+    () => computeElementsBounds(snapshot.elements),
+    [snapshot.docRevision, snapshot.elements]
+  );
+  const viewportBounds = getViewportBounds(viewport);
   const worldBounds = mergeBounds(elementsBounds, viewportBounds);
   const padding = Math.max(
     MINIMAP_PADDING_MIN,
@@ -35,17 +41,29 @@ export function MiniMap({ snapshot, visible }: MiniMapProps) {
   const scaleX = mapWidth / Math.max(paddedBounds.w, 1);
   const scaleY = mapHeight / Math.max(paddedBounds.h, 1);
   const scale = Math.min(scaleX, scaleY);
-  const elementRects = snapshot.elements.map(element =>
-    mapRectToMiniMap(
-      {
-        x: element.xywh[0],
-        y: element.xywh[1],
-        w: element.xywh[2],
-        h: element.xywh[3],
-      },
-      paddedBounds,
-      scale
-    )
+  const elementRects = useMemo(
+    () =>
+      snapshot.elements.map(element =>
+        mapRectToMiniMap(
+          {
+            x: element.xywh[0],
+            y: element.xywh[1],
+            w: element.xywh[2],
+            h: element.xywh[3],
+          },
+          paddedBounds,
+          scale
+        )
+      ),
+    [
+      snapshot.docRevision,
+      snapshot.elements,
+      paddedBounds.x,
+      paddedBounds.y,
+      paddedBounds.w,
+      paddedBounds.h,
+      scale,
+    ]
   );
   const viewRect = mapRectToMiniMap(viewportBounds, paddedBounds, scale);
 
@@ -122,7 +140,7 @@ function computeElementsBounds(elements: CanvasElement[]): CanvasRect | null {
 }
 
 /** Compute the current viewport bounds in world coordinates. */
-function getViewportBounds(viewport: CanvasSnapshot["viewport"]): CanvasRect {
+function getViewportBounds(viewport: CanvasViewportState): CanvasRect {
   const safeZoom = Math.max(viewport.zoom, MIN_ZOOM_EPS);
   const x = -viewport.offset[0] / safeZoom;
   const y = -viewport.offset[1] / safeZoom;

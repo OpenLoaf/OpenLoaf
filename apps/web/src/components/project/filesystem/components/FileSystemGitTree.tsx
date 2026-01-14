@@ -11,7 +11,8 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import { ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
@@ -27,7 +28,9 @@ import {
   getRelativePathFromUri,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
+import { DOC_EXTS, SPREADSHEET_EXTS, getEntryVisual } from "./FileSystemEntryVisual";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
+import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
 
 type FileSystemGitTreeProps = {
   /** Project root uri. */
@@ -82,6 +85,8 @@ type GitTreeNode = {
   entry: FileSystemEntry;
   /** Display label for the node. */
   label: string;
+  /** Thumbnail data url for image entries. */
+  thumbnailSrc?: string;
   /** Whether the node can expand. */
   isFolder: boolean;
   /** Whether the node is a board folder. */
@@ -147,6 +152,32 @@ type FileSystemGitTreeNodeProps = {
 /** Check whether the entry is a board folder. */
 const isBoardFolderEntry = (entry: FileSystemEntry) =>
   entry.kind === "folder" && isBoardFolderName(entry.name);
+/** Supported document extensions for the built-in viewer. */
+const SUPPORTED_DOC_EXTS = new Set(["docx"]);
+/** Supported spreadsheet extensions for the built-in viewer. */
+const SUPPORTED_SHEET_EXTS = new Set(["xls", "xlsx"]);
+
+/** Return true when the office file should open with the system default app. */
+function shouldOpenOfficeWithSystem(ext: string): boolean {
+  // 逻辑：仅对内置未覆盖的 Office 扩展使用系统默认程序。
+  if (DOC_EXTS.has(ext)) return !SUPPORTED_DOC_EXTS.has(ext);
+  if (SPREADSHEET_EXTS.has(ext)) return !SUPPORTED_SHEET_EXTS.has(ext);
+  return false;
+}
+
+/** Open a file via the system default handler. */
+function openWithDefaultApp(entry: FileSystemEntry): void {
+  // 逻辑：桌面端通过 openPath 调起系统默认应用。
+  if (!window.tenasElectron?.openPath) {
+    toast.error("网页版不支持打开本地文件");
+    return;
+  }
+  void window.tenasElectron.openPath({ uri: entry.uri }).then((res) => {
+    if (!res?.ok) {
+      toast.error(res?.reason ?? "无法打开文件");
+    }
+  });
+}
 
 /** Resolve the display label for a filesystem entry. */
 function resolveEntryLabel(entry: FileSystemEntry): string {
@@ -173,11 +204,12 @@ function resolveRootLabel(rootUri: string, projectTitle?: string): string {
 }
 
 /** Build a tree node from a filesystem entry. */
-function buildTreeNode(entry: FileSystemEntry): GitTreeNode {
+function buildTreeNode(entry: FileSystemEntry, thumbnailSrc?: string): GitTreeNode {
   const isBoardFolder = entry.kind === "folder" && isBoardFolderName(entry.name);
   return {
     entry,
     label: resolveEntryLabel(entry),
+    thumbnailSrc,
     isFolder: entry.kind === "folder" && !isBoardFolder,
     isBoardFolder,
   };
@@ -247,14 +279,41 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
         : skipToken
     )
   );
+  const { thumbnailByUri } = useFolderThumbnails({
+    currentUri: shouldFetchChildren ? node.entry.uri : null,
+    includeHidden: showHidden,
+  });
   const childNodes = useMemo(() => {
     const entries = listQuery.data?.entries ?? [];
     const visibleEntries = showHidden
       ? entries
       : entries.filter((entry) => !IGNORE_NAMES.has(entry.name));
-    return visibleEntries.map(buildTreeNode);
-  }, [listQuery.data?.entries, showHidden]);
+    // 逻辑：子节点缩略图来自当前目录的缩略图映射。
+    return visibleEntries.map((entry) =>
+      buildTreeNode(entry, thumbnailByUri.get(entry.uri))
+    );
+  }, [listQuery.data?.entries, showHidden, thumbnailByUri]);
   const childDepth = node.isRoot ? depth : depth + 1;
+
+  const visual = useMemo(
+    () =>
+      getEntryVisual({
+        kind: node.entry.kind,
+        name: node.entry.name,
+        ext: node.entry.ext,
+        isEmpty: node.entry.isEmpty,
+        thumbnailSrc: node.thumbnailSrc,
+        sizeClassName: "h-4 w-4",
+        thumbnailIconClassName: "h-full w-full p-0.5 text-muted-foreground",
+      }),
+    [
+      node.entry.ext,
+      node.entry.isEmpty,
+      node.entry.kind,
+      node.entry.name,
+      node.thumbnailSrc,
+    ]
+  );
 
   useEffect(() => {
     return registerEntry(node.entry);
@@ -278,6 +337,21 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
       onToggle,
       shouldBlockPointerEvent,
     ]
+  );
+
+  /** Handle double click for unsupported office files. */
+  const handleRowDoubleClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (shouldBlockPointerEvent(event)) return;
+      if (event.button !== 0) return;
+      if (event.nativeEvent?.which && event.nativeEvent.which !== 1) return;
+      if (node.entry.kind !== "file") return;
+      const ext = getEntryExt(node.entry);
+      if (!shouldOpenOfficeWithSystem(ext)) return;
+      // 逻辑：无法内置处理的 Office 文件双击交给系统默认程序打开。
+      openWithDefaultApp(node.entry);
+    },
+    [node.entry, shouldBlockPointerEvent]
   );
 
   /** Handle drag start for a tree row. */
@@ -316,6 +390,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
           data-entry-uri={node.entry.uri}
           draggable={!node.isRoot && !isRenaming}
           onClick={handleRowClick}
+          onDoubleClick={handleRowDoubleClick}
           onContextMenuCapture={handleContextMenuCapture}
           onDragStart={handleDragStart}
           onDragOver={onDragOver}
@@ -333,13 +408,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
           >
             {node.isFolder ? <ChevronRight className="h-3 w-3 text-muted-foreground" /> : null}
           </div>
-          <div className="flex h-5 w-5 items-center justify-center text-muted-foreground">
-            {node.isFolder ? (
-              isExpanded ? <FolderOpen className="h-4 w-4" /> : <Folder className="h-4 w-4" />
-            ) : (
-              <FileText className="h-4 w-4" />
-            )}
-          </div>
+          <div className="flex h-5 w-5 items-center justify-center">{visual}</div>
           {isRenaming ? (
             <Input
               autoFocus

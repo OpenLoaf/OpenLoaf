@@ -14,6 +14,8 @@ import {
 } from "../engine/constants";
 import { toScreenPoint } from "../utils/coordinates";
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
+import { useBoardEngine } from "./BoardProvider";
+import { useBoardViewState } from "./useBoardViewState";
 
 type AnchorOverlayItem = CanvasAnchorHit & {
   /** Anchor source used for styling offsets. */
@@ -27,6 +29,9 @@ type AnchorOverlayProps = {
 
 /** Render anchor handles above nodes for linking. */
 export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
+  // 逻辑：视图变化时独立刷新锚点位置，避免全量快照重算。
+  const engine = useBoardEngine();
+  const viewState = useBoardViewState(engine);
   const hoverAnchor = snapshot.connectorHover;
   const selectedAnchors = getSelectedImageAnchors(snapshot);
   const hoverAnchors = getHoveredImageAnchors(snapshot);
@@ -60,7 +65,7 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
       className="pointer-events-none absolute inset-0 z-20"
     >
       {Array.from(uniqueAnchors.values()).map(anchor => {
-        const screen = toScreenPoint(anchor.point, snapshot);
+        const screen = toScreenPoint(anchor.point, viewState);
         const isHover =
           hoverAnchor?.elementId === anchor.elementId &&
           hoverAnchor.anchorId === anchor.anchorId;

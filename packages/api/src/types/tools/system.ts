@@ -9,7 +9,9 @@ export const fileReadToolDef = {
   parameters: z.object({
     path: z
       .string()
-      .describe("文件路径（相对项目根目录或 tenas-file://{projectId}/...）。"),
+      .describe(
+        "文件路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。",
+      ),
   }),
   component: null,
 } as const;
@@ -23,7 +25,9 @@ export const fileListToolDef = {
     path: z
       .string()
       .optional()
-      .describe("目录路径（相对项目根目录或 tenas-file://{projectId}/...）。默认项目根。"),
+      .describe(
+        "目录路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。默认项目根。",
+      ),
   }),
   component: null,
 } as const;
@@ -38,7 +42,9 @@ export const fileSearchToolDef = {
     path: z
       .string()
       .optional()
-      .describe("搜索根目录（相对项目根目录或 tenas-file://{projectId}/...）。默认项目根。"),
+      .describe(
+        "搜索根目录（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。默认项目根。",
+      ),
     limit: z
       .number()
       .int()
@@ -58,7 +64,9 @@ export const fileWriteToolDef = {
   parameters: z.object({
     path: z
       .string()
-      .describe("文件路径（相对项目根目录或 tenas-file://{projectId}/...）。"),
+      .describe(
+        "文件路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。",
+      ),
     content: z.string().describe("要写入的文本内容。"),
     mode: z
       .enum(["overwrite", "append"])
@@ -76,7 +84,9 @@ export const fileDeleteToolDef = {
   parameters: z.object({
     path: z
       .string()
-      .describe("文件路径（相对项目根目录或 tenas-file://{projectId}/...）。"),
+      .describe(
+        "文件路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。",
+      ),
   }),
   component: null,
 } as const;
@@ -89,7 +99,9 @@ export const fileReadExcelToolDef = {
   parameters: z.object({
     path: z
       .string()
-      .describe("文件路径（相对项目根目录或 tenas-file://{projectId}/...）。"),
+      .describe(
+        "文件路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。",
+      ),
   }),
   component: null,
 } as const;
@@ -102,7 +114,9 @@ export const fileReadDocxToolDef = {
   parameters: z.object({
     path: z
       .string()
-      .describe("文件路径（相对项目根目录或 tenas-file://{projectId}/...）。"),
+      .describe(
+        "文件路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。",
+      ),
   }),
   component: null,
 } as const;
