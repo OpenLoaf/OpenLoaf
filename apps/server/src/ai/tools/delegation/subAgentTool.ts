@@ -1,23 +1,16 @@
-import { streamText, tool, zodSchema } from "ai";
+import { tool, zodSchema } from "ai";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
+import {
+  BROWSER_SUB_AGENT_NAME,
+  createBrowserSubAgent,
+} from "@/ai/agents/subagent/browserSubAgent";
 import { getChatModel, getUiWriter } from "@/ai/chat-stream/requestContext";
-
-const DEFAULT_SUB_AGENT_SYSTEM_PROMPT = [
-  "你是一个子Agent，负责独立完成指定任务。",
-  "只输出任务相关的结果与必要步骤，不要复述任务。",
-].join("\n");
 
 /**
  * Builds sub-agent messages for streaming execution.
  */
-function buildSubAgentMessages(input: { name: string; task: string }) {
-  return [
-    {
-      role: "system",
-      content: `子Agent名称：${input.name}\n${DEFAULT_SUB_AGENT_SYSTEM_PROMPT}`,
-    },
-    { role: "user", content: input.task },
-  ] as const;
+function buildSubAgentMessages(input: { task: string }) {
+  return [{ role: "user", content: input.task }] as const;
 }
 
 /**
@@ -32,6 +25,13 @@ export const subAgentTool = tool({
       throw new Error("chat model is not available.");
     }
 
+    if (name !== BROWSER_SUB_AGENT_NAME) {
+      // 逻辑：仅允许已注册的 BrowserSubAgent，避免未知子Agent执行。
+      throw new Error(
+        `unsupported sub-agent: ${name}. only ${BROWSER_SUB_AGENT_NAME} is allowed.`,
+      );
+    }
+
     const writer = getUiWriter();
     const toolCallId = options.toolCallId;
 
@@ -42,15 +42,15 @@ export const subAgentTool = tool({
       } as any);
     }
 
-    const result = streamText({
-      model,
-      messages: buildSubAgentMessages({ name, task }) as any,
+    const agent = createBrowserSubAgent({ model });
+    const result = await agent.stream({
+      messages: buildSubAgentMessages({ task }) as any,
       abortSignal: options.abortSignal,
     });
 
     let outputText = "";
     try {
-      // 中文注释：边生成边把子Agent文本流推送给前端。
+      // 逻辑：边生成边把子Agent文本流推送给前端。
       for await (const delta of result.textStream) {
         if (!delta) continue;
         outputText += delta;

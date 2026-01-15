@@ -124,13 +124,22 @@ export function useFileSystemContextMenu({
       clearMenuTargetTimeout();
       const targetUri = payload.entry?.uri ?? payload.uri;
       setMenuTargetFromUri(targetUri ?? null);
-      setMenuTargetEntry(payload.entry ?? null);
+      // 逻辑：缓存目标条目快照，避免目录切换时菜单内容闪动。
+      const targetEntry =
+        payload.entry ?? (targetUri ? entries.find((entry) => entry.uri === targetUri) : null);
+      setMenuTargetEntry(targetEntry ?? null);
       if (!targetUri) return;
       if (!selectedUris.has(targetUri)) {
         onReplaceSelection([targetUri]);
       }
     },
-    [clearMenuTargetTimeout, onReplaceSelection, selectedUris, setMenuTargetFromUri]
+    [
+      clearMenuTargetTimeout,
+      entries,
+      onReplaceSelection,
+      selectedUris,
+      setMenuTargetFromUri,
+    ]
   );
 
   /** Ignore menu selection triggered by the opening right-click release. */

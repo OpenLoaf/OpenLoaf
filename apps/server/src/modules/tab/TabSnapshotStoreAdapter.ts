@@ -52,20 +52,34 @@ export const tabSnapshotStore = {
   },
 } as const;
 
-export type TabBrowserTarget = { viewKey?: string; cdpTargetIds?: string[] };
+export type TabBrowserTarget = { id?: string; cdpTargetIds?: string[] };
 
-/** Collect de-duplicated CDP target ids from a tab snapshot. */
-export function getTabCdpTargetIds(tab: Tab | null): string[] {
-  if (!tab) return [];
+/** Resolve the latest CDP target id for the active browser tab in a snapshot. */
+export function getActiveBrowserTargetId(tab: Tab | null): string | null {
+  if (!tab) return null;
   const stack = Array.isArray(tab.stack) ? tab.stack : [];
   const browserItem = stack.find((item) => item?.component === BROWSER_WINDOW_COMPONENT);
-  const browserTabs = (browserItem?.params as any)?.browserTabs as TabBrowserTarget[] | undefined;
-  if (!Array.isArray(browserTabs)) return [];
-  // 统一去重，确保 server 侧只拿到可控 targetId 列表。
-  const merged = new Set<string>();
-  for (const browserTab of browserTabs) {
-    const ids = Array.isArray(browserTab?.cdpTargetIds) ? browserTab.cdpTargetIds : [];
-    for (const id of ids) merged.add(id);
-  }
-  return Array.from(merged);
+  const params = (browserItem?.params ?? {}) as Record<string, unknown>;
+  const browserTabs = Array.isArray((params as any).browserTabs)
+    ? ((params as any).browserTabs as TabBrowserTarget[])
+    : [];
+  if (browserTabs.length === 0) return null;
+
+  const activeId =
+    typeof (params as any).activeBrowserTabId === "string"
+      ? String((params as any).activeBrowserTabId)
+      : "";
+  // 只允许命中激活中的浏览器标签，避免跨标签页误操作。
+  const activeTab = activeId
+    ? browserTabs.find((item) => item?.id === activeId)
+    : browserTabs.length === 1
+      ? browserTabs[0]
+      : undefined;
+  if (!activeTab) return null;
+
+  const ids = Array.isArray(activeTab.cdpTargetIds) ? activeTab.cdpTargetIds : [];
+  const usableIds = ids.filter((id) => typeof id === "string" && id.length > 0);
+  if (usableIds.length === 0) return null;
+  // 优先取最新的 targetId，避免旧目标覆盖当前页面。
+  return usableIds[usableIds.length - 1]!;
 }

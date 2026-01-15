@@ -9,7 +9,7 @@ import {
 import { getClientId, getSessionId } from "@/ai/chat-stream/requestContext";
 import { requireTabId } from "@/common/tabContext";
 import { sendCdpCommand } from "@/modules/browser/cdpClient";
-import { getTabCdpTargetIds, tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
+import { getActiveBrowserTargetId, tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 
 // 页面文本截断上限，避免快照过大。
 const MAX_TEXT_LENGTH = 10_000;
@@ -36,10 +36,9 @@ function pickActiveTargetId(): string {
   const clientId = requireClientId();
   const tabId = requireTabId();
   const tab = tabSnapshotStore.get({ sessionId, clientId, tabId });
-  const ids = getTabCdpTargetIds(tab);
-  if (ids.length === 0) throw new Error("cdpTargetId is not available.");
-  // 优先取最后一个，避免旧 target 覆盖最新页面。
-  return ids[ids.length - 1]!;
+  const targetId = getActiveBrowserTargetId(tab);
+  if (!targetId) throw new Error("active browser tab cdpTargetId is not available.");
+  return targetId;
 }
 
 /** Evaluate a JavaScript expression in the target context. */
