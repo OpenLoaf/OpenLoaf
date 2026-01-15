@@ -4,8 +4,8 @@ import type { Value } from "platejs";
 import { KEYS } from "platejs";
 import { parseTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
 
-const FILE_TOKEN_BODY =
-  "tenas-file://[A-Za-z0-9%._~:/?#\\[\\]@!$&'()*+,;=-]+";
+// 逻辑：允许非 URL 编码的路径，使用非空白字符匹配文件引用。
+const FILE_TOKEN_BODY = "tenas-file://\\S+";
 export const FILE_TOKEN_REGEX = new RegExp(`@(${FILE_TOKEN_BODY})`, "g");
 
 /** Normalize mention value by trimming leading "@". */

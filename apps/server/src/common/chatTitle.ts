@@ -1,6 +1,6 @@
 /** File token matcher for @tenas-file:// placeholders. */
-const FILE_TOKEN_REGEX =
-  /@(tenas-file:\/\/[A-Za-z0-9%._~:/?#\[\]@!$&'()*+,;=-]+)/g;
+// 逻辑：匹配非 URL 编码的 tenas-file 路径，避免漏掉中文字符。
+const FILE_TOKEN_REGEX = /@(tenas-file:\/\/\S+)/g;
 
 /** Extract a readable file label from a token value. */
 function extractFileLabel(token: string): string {

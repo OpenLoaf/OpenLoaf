@@ -1103,6 +1103,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           actions={{
             openEntry: model.handleOpen,
             openInFileManager: model.handleOpenInFileManager,
+            enterBoardFolder: (entry) => model.handleNavigate(entry.uri),
             openTerminal: model.handleOpenTerminal,
             openTransferDialog: model.handleOpenTransferDialog,
             copyPath: model.handleCopyPath,

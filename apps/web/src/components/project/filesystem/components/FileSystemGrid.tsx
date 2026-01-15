@@ -38,16 +38,16 @@ import { isBoardFolderName } from "@/lib/file-name";
 /** Return true when the entry represents a board folder. */
 const isBoardFolderEntry = (entry: FileSystemEntry) =>
   entry.kind === "folder" && isBoardFolderName(entry.name);
-/** Supported document extensions for the built-in viewer. */
-const SUPPORTED_DOC_EXTS = new Set(["docx"]);
-/** Supported spreadsheet extensions for the built-in viewer. */
-const SUPPORTED_SHEET_EXTS = new Set(["xls", "xlsx"]);
+/** Document extensions handled by the built-in viewer. */
+const INTERNAL_DOC_EXTS = new Set<string>();
+/** Spreadsheet extensions handled by the built-in viewer. */
+const INTERNAL_SHEET_EXTS = new Set(["csv"]);
 
 /** Return true when the office file should open with the system default app. */
 function shouldOpenOfficeWithSystem(ext: string): boolean {
   // 逻辑：仅对内置未覆盖的 Office 扩展使用系统默认程序。
-  if (DOC_EXTS.has(ext)) return !SUPPORTED_DOC_EXTS.has(ext);
-  if (SPREADSHEET_EXTS.has(ext)) return !SUPPORTED_SHEET_EXTS.has(ext);
+  if (DOC_EXTS.has(ext)) return !INTERNAL_DOC_EXTS.has(ext);
+  if (SPREADSHEET_EXTS.has(ext)) return !INTERNAL_SHEET_EXTS.has(ext);
   return false;
 }
 

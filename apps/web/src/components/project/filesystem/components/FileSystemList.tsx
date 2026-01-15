@@ -56,10 +56,10 @@ const listRowBaseClassName =
 /** Base layout for list headers. */
 const listHeaderClassName =
   "grid items-center gap-3 px-3 py-2 text-left text-[11px] font-medium text-muted-foreground";
-/** Supported document extensions for the built-in viewer. */
-const SUPPORTED_DOC_EXTS = new Set(["docx"]);
-/** Supported spreadsheet extensions for the built-in viewer. */
-const SUPPORTED_SHEET_EXTS = new Set(["xls", "xlsx"]);
+/** Document extensions handled by the built-in viewer. */
+const INTERNAL_DOC_EXTS = new Set<string>();
+/** Spreadsheet extensions handled by the built-in viewer. */
+const INTERNAL_SHEET_EXTS = new Set(["csv"]);
 /** Extension display labels for list type column. */
 const FILE_TYPE_LABEL_OVERRIDES: Record<string, string> = {
   ts: "TypeScript",
@@ -71,8 +71,8 @@ const FILE_TYPE_LABEL_OVERRIDES: Record<string, string> = {
 /** Return true when the office file should open with the system default app. */
 function shouldOpenOfficeWithSystem(ext: string): boolean {
   // 逻辑：仅对内置未覆盖的 Office 扩展使用系统默认程序。
-  if (DOC_EXTS.has(ext)) return !SUPPORTED_DOC_EXTS.has(ext);
-  if (SPREADSHEET_EXTS.has(ext)) return !SUPPORTED_SHEET_EXTS.has(ext);
+  if (DOC_EXTS.has(ext)) return !INTERNAL_DOC_EXTS.has(ext);
+  if (SPREADSHEET_EXTS.has(ext)) return !INTERNAL_SHEET_EXTS.has(ext);
   return false;
 }
 

@@ -63,8 +63,8 @@ export function buildUriFromRoot(rootUri: string, relativePath: string) {
 /** Build tenas-file URL from projectId and relative path. */
 export function buildTenasFileUrl(projectId: string, relativePath: string) {
   const parts = relativePath.split("/").filter(Boolean);
-  const encoded = parts.map((part) => encodeURIComponent(part));
-  return `tenas-file://${projectId}/${encoded.join("/")}`;
+  // 逻辑：tenas-file 路径保持原始字符，不进行 URL Encoding。
+  return `tenas-file://${projectId}/${parts.join("/")}`;
 }
 
 /** Parse tenas-file URL into projectId and relative path. */

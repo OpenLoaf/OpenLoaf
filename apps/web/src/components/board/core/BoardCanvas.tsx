@@ -270,8 +270,8 @@ export function BoardCanvas({
   });
   /** Whether the server snapshot has been hydrated. */
   const hydratedRef = useRef(false);
-  /** Last saved elements snapshot for change detection. */
-  const lastSavedElementsRef = useRef<string>("");
+  /** Last saved document revision for change detection. */
+  const lastSavedRevisionRef = useRef<number | null>(null);
   /** Last saved viewport snapshot for change detection. */
   const lastSavedViewportRef = useRef<string>("");
   /** Pending save marker during drag interactions. */
@@ -781,14 +781,15 @@ export function BoardCanvas({
       hydratedRef.current = false;
       // 逻辑：恢复快照时先写入文档，再同步视口。
       engine.doc.setElements(elements);
+      lastSavedRevisionRef.current = engine.doc.getRevision();
       if (normalized.viewport) {
         engine.viewport.setViewport(
           normalized.viewport.zoom,
           normalized.viewport.offset
         );
       }
-      engine.commitHistory();
-      lastSavedElementsRef.current = JSON.stringify(elements);
+      // 逻辑：恢复快照仅重置历史，不触发额外渲染。
+      engine.resetHistory({ emit: false });
       if (normalized.viewport) {
         lastSavedViewportRef.current = JSON.stringify({
           zoom: normalized.viewport.zoom,
@@ -895,6 +896,7 @@ export function BoardCanvas({
     if (!boardScope) return;
     missingScopeLoggedRef.current = false;
     hydratedRef.current = false;
+    lastSavedRevisionRef.current = null;
     setLocalLoaded(false);
     setLocalSnapshot(null);
 
@@ -1002,10 +1004,11 @@ export function BoardCanvas({
       pendingSaveRef.current = true;
       return;
     }
-    const elementsPayload = JSON.stringify(snapshot.elements);
-    const elementsChanged = elementsPayload !== lastSavedElementsRef.current;
-    if (!elementsChanged && !pendingSaveRef.current) return;
-    lastSavedElementsRef.current = elementsPayload;
+    // 逻辑：使用文档版本判断变更，避免首屏频繁 JSON 序列化。
+    const docRevision = snapshot.docRevision;
+    const hasRevisionChange = lastSavedRevisionRef.current !== docRevision;
+    if (!hasRevisionChange && !pendingSaveRef.current) return;
+    lastSavedRevisionRef.current = docRevision;
     pendingSaveRef.current = false;
     if (viewportSaveTimeoutRef.current) {
       window.clearTimeout(viewportSaveTimeoutRef.current);
@@ -1019,7 +1022,14 @@ export function BoardCanvas({
     lastSavedViewportRef.current = JSON.stringify(viewportPayload);
     const { nodes, connectors } = splitElements(snapshot.elements);
     persistSnapshot(nodes, connectors, viewportPayload);
-  }, [boardScope, engine, snapshot.draggingId, snapshot.elements, persistSnapshot]);
+  }, [
+    boardScope,
+    engine,
+    snapshot.docRevision,
+    snapshot.draggingId,
+    snapshot.elements,
+    persistSnapshot,
+  ]);
 
   useEffect(() => {
     if (!boardScope) return;

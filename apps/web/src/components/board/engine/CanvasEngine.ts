@@ -779,6 +779,15 @@ export class CanvasEngine {
     this.emitChange();
   }
 
+  /** Reset history to the current document state. */
+  resetHistory(options?: { emit?: boolean }): void {
+    const snapshot = this.captureHistoryState();
+    this.historyPast = [snapshot];
+    this.historyFuture = [];
+    if (options?.emit === false) return;
+    this.emitChange();
+  }
+
   /** Undo the latest change. */
   undo(): void {
     if (!this.canUndo()) return;

@@ -8,6 +8,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { isBoardFolderName } from "@/lib/file-name";
 import type { FileSystemEntry } from "../utils/file-system-utils";
 
 /** Actions for file system context menu items. */
@@ -23,6 +24,8 @@ export type FileSystemContextMenuActions = {
   openEntry: MenuEntryAction;
   /** Open the entry in the OS file manager. */
   openInFileManager: MenuEntryAction;
+  /** Enter the board folder in the file list. */
+  enterBoardFolder: MenuEntryAction;
   /** Open a terminal at the entry path. */
   openTerminal: MenuEntryAction;
   /** Open the transfer dialog. */
@@ -94,6 +97,8 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
 }: FileSystemContextMenuProps) {
   const isMultiSelection = selectedEntries.length > 1;
   const toggleHiddenLabel = showHidden ? "✓ 显示隐藏" : "显示隐藏";
+  const shouldShowEnterBoardFolder =
+    menuContextEntry?.kind === "folder" && isBoardFolderName(menuContextEntry.name);
 
   return (
     <ContextMenu onOpenChange={onOpenChange}>
@@ -137,6 +142,15 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               >
                 打开
               </ContextMenuItem>
+              {shouldShowEnterBoardFolder ? (
+                <ContextMenuItem
+                  onSelect={withMenuSelectGuard(() =>
+                    actions.enterBoardFolder(menuContextEntry)
+                  )}
+                >
+                  进入画布文件夹
+                </ContextMenuItem>
+              ) : null}
               <ContextMenuItem
                 onSelect={withMenuSelectGuard(() =>
                   actions.openInFileManager(menuContextEntry)
