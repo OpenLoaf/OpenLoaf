@@ -46,7 +46,7 @@ export default function MessageHuman({
   showText = true,
 }: MessageHumanProps) {
   const { data: projects = [] } = useProjects();
-  const { projectId } = useChatContext();
+  const { projectId, workspaceId } = useChatContext();
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabs((s) => s.pushStackItem);
   const [imageState, setImageState] = React.useState<Record<string, ImagePreviewState>>({});
@@ -56,12 +56,13 @@ export default function MessageHuman({
     (event: React.PointerEvent<HTMLDivElement>) => {
       handleChatMentionPointerDown(event, {
         activeTabId,
+        workspaceId,
         projectId,
         projects,
         pushStackItem,
       });
     },
-    [activeTabId, projectId, projects, pushStackItem]
+    [activeTabId, projectId, projects, pushStackItem, workspaceId]
   );
 
   React.useEffect(() => {

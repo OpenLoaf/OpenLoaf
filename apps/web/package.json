@@ -18,6 +18,7 @@
     "@emoji-mart/react": "^1.1.1",
     "@faker-js/faker": "^10.1.0",
     "@floating-ui/react": "^0.27.16",
+    "@hocuspocus/provider": "^3.4.3",
     "@lightenna/react-mermaid-diagram": "^1.0.22",
     "@lobehub/icons": "^4.0.2",
     "@measured/puck": "^0.20.2",
@@ -149,6 +150,7 @@
     "xlsx": "^0.18.5",
     "xterm": "^5.3.0",
     "yjs": "^13.6.29",
+    "y-webrtc": "^10.3.0",
     "zod": "^4.1.13",
     "zustand": "^5.0.9"
   },

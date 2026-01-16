@@ -23,6 +23,7 @@ import type { MaskedAttachmentInput } from "@/components/chat/chat-attachments";
 import { fetchBlobFromUri, loadImageFromUri } from "@/lib/image/uri";
 import { resolveMaskFileName } from "@/lib/image/mask";
 import { supportsImageEdit } from "@/lib/model-capabilities";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 interface ImageViewerProps {
   uri?: string;
@@ -226,6 +227,8 @@ export default function ImageViewer({
   const [canUndo, setCanUndo] = React.useState(false);
   const [canRedo, setCanRedo] = React.useState(false);
   const appliedRef = React.useRef<string>("");
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const chat = useOptionalChatContext();
   const projectId = chat?.projectId;
   const { basic, setBasic } = useBasicConfig();
@@ -249,8 +252,8 @@ export default function ImageViewer({
   }, [basic.activeS3Id, s3ProviderItems]);
 
   const imageQuery = useQuery({
-    ...trpc.fs.readBinary.queryOptions({ uri: uri ?? "" }),
-    enabled: shouldUseFs && Boolean(uri),
+    ...trpc.fs.readBinary.queryOptions({ workspaceId, uri: uri ?? "" }),
+    enabled: shouldUseFs && Boolean(uri) && Boolean(workspaceId),
   });
   const [preview, setPreview] = React.useState<{
     status: "loading" | "ready" | "error";

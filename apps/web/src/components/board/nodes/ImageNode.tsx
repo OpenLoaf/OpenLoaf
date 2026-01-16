@@ -13,13 +13,18 @@ import {
   Type,
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
-import { buildUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { buildImageNodePayloadFromUri } from "../utils/image";
 import { ImageNodeDetail } from "./ImageNodeDetail";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./ImagePromptGenerateNode";
 import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
 import type { BoardFileContext } from "../core/BoardProvider";
-import { isBoardRelativePath, resolveBoardRelativeUri } from "../core/boardFilePath";
+import {
+  isBoardRelativePath,
+  resolveBoardFolderScope,
+  resolveBoardRelativeProjectPath,
+} from "../core/boardFilePath";
+import { arrayBufferToBase64 } from "../utils/base64";
+import { getPreviewEndpoint } from "@/lib/image/uri";
 
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
@@ -36,24 +41,22 @@ export type ImageNodeProps = {
   naturalHeight: number;
 };
 
-/** Resolve image uri to a browser-friendly source. */
-function resolveImageSource(uri: string, boardFolderUri?: string) {
-  if (!uri) return "";
-  const resolved = resolveBoardRelativeUri(uri, boardFolderUri);
-  if (!resolved || isBoardRelativePath(resolved)) return "";
-  return resolved;
+/** Resolve board-relative path into a project-relative path. */
+function resolveProjectRelativePath(uri: string, fileContext?: BoardFileContext) {
+  if (!isBoardRelativePath(uri)) return "";
+  const scope = resolveBoardFolderScope(fileContext);
+  return resolveBoardRelativeProjectPath(uri, scope);
 }
 
-/** Convert ArrayBuffer to a base64 string without data url prefix. */
-function encodeArrayBufferToBase64(buffer: ArrayBuffer) {
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  let binary = "";
-  // 逻辑：分片拼接，避免大数组一次展开导致栈溢出。
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+/** Resolve image uri to a browser-friendly source. */
+function resolveImageSource(uri: string, fileContext?: BoardFileContext) {
+  if (!uri) return "";
+  if (isBoardRelativePath(uri)) {
+    const projectPath = resolveProjectRelativePath(uri, fileContext);
+    if (!projectPath) return "";
+    return getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId });
   }
-  return btoa(binary);
+  return uri;
 }
 
 /** Resolve the default directory for download dialogs. */
@@ -72,7 +75,7 @@ async function downloadOriginalImage(
   props: ImageNodeProps,
   fileContext?: BoardFileContext,
 ) {
-  const href = resolveImageSource(props.originalSrc, fileContext?.boardFolderUri);
+  const href = resolveImageSource(props.originalSrc, fileContext);
   if (!href) return;
   const saveFile = window.tenasElectron?.saveFile;
   if (saveFile) {
@@ -80,7 +83,7 @@ async function downloadOriginalImage(
       const response = await fetch(href);
       if (!response.ok) throw new Error("download failed");
       const buffer = await response.arrayBuffer();
-      const contentBase64 = encodeArrayBufferToBase64(buffer);
+      const contentBase64 = arrayBufferToBase64(buffer);
       const defaultDir = resolveDownloadDefaultDir(fileContext);
       const fileName = props.fileName || "image.png";
       const extension = fileName.split(".").pop() || "png";
@@ -167,27 +170,30 @@ export function ImageNodeView({
   const { actions, engine, fileContext } = useBoardContext();
   const previewSrc =
     element.props.previewSrc ||
-    resolveImageSource(element.props.originalSrc, fileContext?.boardFolderUri);
+    resolveImageSource(element.props.originalSrc, fileContext);
   const hasPreview = Boolean(previewSrc);
+  const projectRelativeOriginal = resolveProjectRelativePath(
+    element.props.originalSrc,
+    fileContext
+  );
+  const resolvedOriginal = projectRelativeOriginal || element.props.originalSrc;
   /** Local flag for displaying the inline detail panel. */
   const [showDetail, setShowDetail] = useState(false);
   /** Whether the node or canvas is locked. */
   const isLocked = engine.isLocked() || element.locked === true;
   /** Request opening the image preview on the canvas. */
   const requestPreview = useCallback(() => {
-    const originalSrc = element.props.originalSrc;
-    const resolvedOriginal = resolveBoardRelativeUri(
-      originalSrc,
-      fileContext?.boardFolderUri
-    );
-    const isRelative = isBoardRelativePath(resolvedOriginal);
+    const originalSrc = resolvedOriginal;
+    const isRelative = isBoardRelativePath(originalSrc);
     // 逻辑：ImageViewer 仅支持特定协议，相对路径与其他来源回退到压缩预览图。
     const canUseOriginal =
       !isRelative &&
-      (resolvedOriginal.startsWith("data:") ||
-        resolvedOriginal.startsWith("blob:") ||
-        resolvedOriginal.startsWith("file://"));
-    const finalOriginal = canUseOriginal ? resolvedOriginal : "";
+      (originalSrc.startsWith("data:") ||
+        originalSrc.startsWith("blob:") ||
+        originalSrc.startsWith("file://") ||
+        originalSrc.startsWith("http://") ||
+        originalSrc.startsWith("https://"));
+    const finalOriginal = canUseOriginal ? originalSrc : "";
     // 逻辑：没有可用地址时不弹出预览，避免空白页面。
     if (!finalOriginal && !previewSrc) return;
     // 逻辑：点击图片触发预览，由 board action 统一接管显示。
@@ -197,7 +203,7 @@ export function ImageNodeView({
       fileName: element.props.fileName,
       mimeType: element.props.mimeType,
     });
-  }, [actions, element.props.fileName, element.props.mimeType, element.props.originalSrc, fileContext?.boardFolderUri, previewSrc]);
+  }, [actions, element.props.fileName, element.props.mimeType, previewSrc, resolvedOriginal]);
 
   useEffect(() => {
     if (!selected || isLocked) {
@@ -207,11 +213,6 @@ export function ImageNodeView({
   }, [isLocked, selected]);
 
   useEffect(() => {
-    const originalSrc = element.props.originalSrc;
-    const resolvedOriginal = resolveBoardRelativeUri(
-      originalSrc,
-      fileContext?.boardFolderUri
-    );
     if (!resolvedOriginal || isBoardRelativePath(resolvedOriginal)) return;
     const hasPreview = Boolean(element.props.previewSrc);
     const hasSize =
@@ -265,8 +266,8 @@ export function ImageNodeView({
     element.props.originalSrc,
     element.props.previewSrc,
     engine,
-    fileContext?.boardFolderUri,
     fileContext?.projectId,
+    resolvedOriginal,
   ]);
 
   return (
@@ -310,10 +311,12 @@ export function ImageNodeView({
           }}
         >
           <ImageNodeDetail
-            source={resolveBoardRelativeUri(
-              element.props.originalSrc,
-              fileContext?.boardFolderUri
-            )}
+            source={
+              projectRelativeOriginal ||
+              (!isBoardRelativePath(element.props.originalSrc)
+                ? element.props.originalSrc
+                : undefined)
+            }
             fallbackSource={previewSrc}
             projectId={fileContext?.projectId}
           />

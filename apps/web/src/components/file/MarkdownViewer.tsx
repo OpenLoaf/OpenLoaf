@@ -11,6 +11,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 import CodeViewer, { type CodeViewerActions, type CodeViewerStatus } from "@/components/file/CodeViewer";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 import "./streamdown-viewer.css";
 
@@ -130,8 +131,12 @@ export default function MarkdownViewer({
   rootUri,
   projectId,
 }: MarkdownViewerProps) {
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const fileQuery = useQuery(
-    trpc.fs.readFile.queryOptions(uri ? { uri } : skipToken)
+    trpc.fs.readFile.queryOptions(
+      uri && workspaceId ? { workspaceId, projectId, uri } : skipToken
+    )
   );
   const [mode, setMode] = useState<MarkdownViewerMode>(DEFAULT_MARKDOWN_MODE);
   /** 头部按钮需要的编辑器操作句柄。 */

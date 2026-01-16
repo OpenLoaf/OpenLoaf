@@ -15,6 +15,7 @@ import {
 } from "@/lib/file-name";
 import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
 import { useTabs } from "@/hooks/use-tabs";
+import { blobToBase64 } from "./utils/base64";
 
 /** Selector list for elements excluded from board exports. */
 const BOARD_EXPORT_IGNORE_SELECTOR = [
@@ -58,19 +59,6 @@ function isCrossOriginMediaElement(element: Element): boolean {
   } catch {
     return true;
   }
-}
-
-/** Convert a Blob into a base64 string without a data URL prefix. */
-async function blobToBase64(blob: Blob): Promise<string> {
-  const buffer = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  let binary = "";
-  // 逻辑：分片拼接避免大数组展开导致栈溢出。
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
 }
 
 /** Notify a board canvas to toggle export mode. */

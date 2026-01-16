@@ -8,6 +8,7 @@ import { getPreviewEndpoint } from "@/lib/image/uri";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
 import { trpc } from "@/utils/trpc";
 import { IMAGE_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 import {
   buildUriFromRoot,
   getDisplayPathFromUri,
@@ -89,6 +90,8 @@ export default function ThreeDFolderWidget({
   folderUri,
   projects,
 }: ThreeDFolderWidgetProps) {
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const resolvedTitle = React.useMemo(() => {
     // 中文注释：优先使用外部传入的标题，其次从目录路径提取显示名。
     if (title && title.trim().length > 0) return title.trim();
@@ -107,7 +110,14 @@ export default function ThreeDFolderWidget({
 
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
-      resolvedFolder?.fileUri ? { uri: resolvedFolder.fileUri, includeHidden: false } : skipToken
+      resolvedFolder?.fileUri && workspaceId
+        ? {
+            workspaceId,
+            projectId: resolvedFolder.projectId,
+            uri: resolvedFolder.fileUri,
+            includeHidden: false,
+          }
+        : skipToken
     )
   );
   const folderEntries = (listQuery.data?.entries ?? []) as FileSystemEntry[];

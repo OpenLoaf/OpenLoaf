@@ -213,6 +213,8 @@ function FileTreeNode({
   onContextMenuOpenChange,
   subItemGapClassName,
 }: FileTreeNodeProps) {
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const isExpanded = expandedNodes[node.uri] ?? false;
   const isActive =
     activeUri === node.uri ||
@@ -220,7 +222,9 @@ function FileTreeNode({
     (node.kind === "project" && activeProjectRootUri === node.uri);
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
-      node.kind === "folder" && isExpanded ? { uri: node.uri } : skipToken
+      node.kind === "folder" && isExpanded && workspaceId
+        ? { workspaceId, uri: node.uri }
+        : skipToken
     )
   );
   const fileChildren = listQuery.data?.entries ?? [];
@@ -343,6 +347,7 @@ export const PageTreeMenu = ({
   const activeTabId = useTabs((s) => s.activeTabId);
   const tabs = useTabs((s) => s.tabs);
   const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const queryClient = useQueryClient();
   const renameProject = useMutation(trpc.project.update.mutationOptions());
   const createProject = useMutation(trpc.project.create.mutationOptions());
@@ -618,6 +623,7 @@ export const PageTreeMenu = ({
       } else {
         const nextUri = buildNextUri(renameTarget.node.uri, nextName);
         await renameFile.mutateAsync({
+          workspaceId,
           from: renameTarget.node.uri,
           to: nextUri,
         });
@@ -630,7 +636,7 @@ export const PageTreeMenu = ({
       if (renameTarget.node.kind !== "project") {
         const parentUri = getParentUri(renameTarget.node.uri);
         await queryClient.invalidateQueries({
-          queryKey: trpc.fs.list.queryOptions({ uri: parentUri }).queryKey,
+          queryKey: trpc.fs.list.queryOptions({ workspaceId, uri: parentUri }).queryKey,
         });
       }
     } catch (err: any) {
@@ -644,11 +650,15 @@ export const PageTreeMenu = ({
     if (!deleteTarget) return;
     try {
       setIsBusy(true);
-      await deleteFile.mutateAsync({ uri: deleteTarget.uri, recursive: true });
+      await deleteFile.mutateAsync({
+        workspaceId,
+        uri: deleteTarget.uri,
+        recursive: true,
+      });
       toast.success("已删除");
       const parentUri = getParentUri(deleteTarget.uri);
       await queryClient.invalidateQueries({
-        queryKey: trpc.fs.list.queryOptions({ uri: parentUri }).queryKey,
+        queryKey: trpc.fs.list.queryOptions({ workspaceId, uri: parentUri }).queryKey,
       });
       setDeleteTarget(null);
     } catch (err: any) {

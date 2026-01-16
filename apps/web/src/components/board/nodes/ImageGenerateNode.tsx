@@ -16,7 +16,6 @@ import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import { getWorkspaceIdFromCookie } from "../core/boardSession";
 import { toast } from "sonner";
 import type { ImageNodeProps } from "./ImageNode";
-import type { TextNodeValue } from "./TextNode";
 import {
   Select,
   SelectContent,
@@ -52,16 +51,6 @@ const IMAGE_GENERATE_RATIO_OPTIONS = ["1:1", "4:3", "3:4", "16:9", "9:16"];
 /** Default aspect ratio when none is specified. */
 const IMAGE_GENERATE_DEFAULT_RATIO = "4:3";
 
-/** Legacy Plate node shape used by older text nodes. */
-type LegacyPlateNode = {
-  /** Plain text stored on the legacy node. */
-  text?: string;
-  /** Children nodes for nested structure. */
-  children?: LegacyPlateNode[];
-};
-
-/** Legacy Plate document value stored on older text nodes. */
-type LegacyPlateValue = LegacyPlateNode[];
 
 export type ImageGenerateNodeProps = {
   /** Selected chat model id (profileId:modelId). */
@@ -88,26 +77,9 @@ const ImageGenerateNodeSchema = z.object({
   errorText: z.string().optional(),
 });
 
-/** Extract plain text from a legacy Plate node. */
-function extractLegacyText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  if ("text" in node && typeof node.text === "string") return node.text;
-  if ("children" in node && Array.isArray(node.children)) {
-    // 逻辑：递归拼接子节点文本，保留段落结构。
-    return node.children.map(extractLegacyText).join("");
-  }
-  return "";
-}
-
 /** Normalize the stored value to a plain text string. */
-function normalizeTextValue(value?: TextNodeValue): string {
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) {
-    const legacyValue = value as LegacyPlateValue;
-    // 逻辑：兼容旧版 Plate 数据，按顶层节点换行合并。
-    return legacyValue.map(extractLegacyText).join("\n");
-  }
-  return "";
+function normalizeTextValue(value?: unknown): string {
+  return typeof value === "string" ? value : "";
 }
 
 /** Normalize the output count within supported bounds. */

@@ -47,6 +47,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 import "@univerjs/design/lib/index.css";
 import "@univerjs/ui/lib/index.css";
@@ -317,6 +318,8 @@ export default function SheetViewer({
   panelKey,
   tabId,
 }: SheetViewerProps) {
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   /** Tracks the current loading status. */
   const [status, setStatus] = useState<SheetViewerStatus>("idle");
   /** Track whether the workbook has unsaved changes. */
@@ -344,8 +347,8 @@ export default function SheetViewer({
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
   /** Holds the binary payload fetched from the fs API. */
   const fileQuery = useQuery({
-    ...trpc.fs.readBinary.queryOptions({ uri: uri ?? "" }),
-    enabled: shouldUseFs && Boolean(uri),
+    ...trpc.fs.readBinary.queryOptions({ workspaceId, uri: uri ?? "" }),
+    enabled: shouldUseFs && Boolean(uri) && Boolean(workspaceId),
   });
   /** Mutation handler for persisting binary payloads. */
   const writeBinaryMutation = useMutation(trpc.fs.writeBinary.mutationOptions());
@@ -472,7 +475,11 @@ export default function SheetViewer({
       const buffer = buildXlsxBuffer(snapshot, bookType);
       const contentBase64 = encodeArrayBufferToBase64(buffer);
       const saveUri = resolveSaveUri(uri, ext);
-      await writeBinaryMutation.mutateAsync({ uri: saveUri, contentBase64 });
+      await writeBinaryMutation.mutateAsync({
+        workspaceId,
+        uri: saveUri,
+        contentBase64,
+      });
       setIsDirty(false);
       if (saveUri !== uri) {
         toast.success("已另存为 Excel 文件");

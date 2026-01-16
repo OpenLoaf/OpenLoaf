@@ -9,6 +9,7 @@ import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 import "./docx-preview.css";
 
@@ -40,6 +41,8 @@ export default function DocViewer({
   panelKey,
   tabId,
 }: DocViewerProps) {
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   /** Output container for docx-preview rendering. */
   const bodyRef = useRef<HTMLDivElement | null>(null);
   /** Style container for docx-preview rendering. */
@@ -55,8 +58,8 @@ export default function DocViewer({
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
   /** Holds the binary payload fetched from the fs API. */
   const fileQuery = useQuery({
-    ...trpc.fs.readBinary.queryOptions({ uri: uri ?? "" }),
-    enabled: shouldUseFs && Boolean(uri),
+    ...trpc.fs.readBinary.queryOptions({ workspaceId, uri: uri ?? "" }),
+    enabled: shouldUseFs && Boolean(uri) && Boolean(workspaceId),
   });
 
   /** Display name shown in the panel header. */

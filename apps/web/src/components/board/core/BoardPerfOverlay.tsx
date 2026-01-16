@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useBoardEngine } from "./BoardProvider";
 import { useBoardViewState } from "./useBoardViewState";
+import { Button } from "@/components/ui/button";
 
 type BoardPerfStats = {
   /** Total renderable node count. */
@@ -21,13 +22,15 @@ type BoardPerfOverlayProps = {
   stats: BoardPerfStats;
   /** GPU-side stats from the renderer. */
   gpuStats: BoardGpuStats;
+  /** Trigger a log sync into base/json files. */
+  onSyncLog?: () => void;
 };
 
 /** Threshold in ms for long frames. */
 const LONG_FRAME_MS = 50;
 
 /** Render the board performance overlay. */
-export function BoardPerfOverlay({ stats, gpuStats }: BoardPerfOverlayProps) {
+export function BoardPerfOverlay({ stats, gpuStats, onSyncLog }: BoardPerfOverlayProps) {
   // 逻辑：视图状态独立订阅，避免缩放时触发全量快照渲染。
   const engine = useBoardEngine();
   const viewState = useBoardViewState(engine);
@@ -53,6 +56,11 @@ export function BoardPerfOverlay({ stats, gpuStats }: BoardPerfOverlayProps) {
     stats.totalNodes > 0
       ? Math.round((stats.visibleNodes / stats.totalNodes) * 100)
       : 100;
+  /** Click handler for syncing log data. */
+  const handleSyncLog = useCallback(() => {
+    if (!onSyncLog) return;
+    onSyncLog();
+  }, [onSyncLog]);
 
   useEffect(() => {
     const now = performance.now();
@@ -128,6 +136,18 @@ export function BoardPerfOverlay({ stats, gpuStats }: BoardPerfOverlayProps) {
           <span className="text-slate-300">图片纹理</span>
           <span className="font-mono text-slate-50">{gpuStats.imageTextures}</span>
         </div>
+        {onSyncLog ? (
+          <div className="mt-2 flex justify-end pointer-events-auto">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-7 px-2 text-[11px]"
+              onClick={handleSyncLog}
+            >
+              同步日志
+            </Button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

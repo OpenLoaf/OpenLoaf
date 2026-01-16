@@ -2,6 +2,7 @@ import { createAdaptorServer } from "@hono/node-server";
 import { createApp } from "./createApp";
 import { logger } from "@/common/logger";
 import { attachTerminalWebSocket } from "@/modules/terminal/terminalWebSocket";
+import { attachBoardCollabWebSocket } from "@/modules/board/boardCollabWebSocket";
 
 /**
  * 启动 HTTP server（MVP）：
@@ -19,6 +20,7 @@ export function startServer() {
   });
 
   attachTerminalWebSocket(server);
+  attachBoardCollabWebSocket(server);
 
   server.listen(port, hostname, () => {
     const info = server.address();

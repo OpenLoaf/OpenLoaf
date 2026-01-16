@@ -83,7 +83,7 @@ interface ChatInputProps {
   onDropHandled?: () => void;
 }
 
-const MAX_CHARS = 2000;
+const MAX_CHARS = 20000;
 const COMMAND_REGEX = /(^|\s)(\/[\w-]+)/g;
 
 
@@ -157,6 +157,8 @@ export interface ChatInputBoxProps {
   onDropHandled?: () => void;
   /** Default project id for file selection. */
   defaultProjectId?: string;
+  /** Workspace id for mention file resolution. */
+  workspaceId?: string;
   /** Active chat tab id for mention inserts. */
   tabId?: string;
   /** Dictation language for OS speech recognition. */
@@ -194,6 +196,7 @@ export function ChatInputBox({
   header,
   onDropHandled,
   defaultProjectId,
+  workspaceId,
   tabId,
   dictationLanguage,
   dictationSoundEnabled,
@@ -344,12 +347,13 @@ export function ChatInputBox({
     (event: React.PointerEvent<HTMLDivElement>) => {
       handleChatMentionPointerDown(event, {
         activeTabId,
+        workspaceId,
         projectId: defaultProjectId,
         projects,
         pushStackItem,
       });
     },
-    [activeTabId, defaultProjectId, projects, pushStackItem]
+    [activeTabId, defaultProjectId, projects, pushStackItem, workspaceId]
   );
 
   /** Focus the editor without throwing when DOM is unavailable. */
@@ -405,6 +409,7 @@ export function ChatInputBox({
   const handleProjectFileRefsInsert = useCallback(
     async (fileRefs: string[]) => {
       if (!canAttachAll && !canAttachImage) return;
+      if (!workspaceId) return;
       const normalizedRefs = Array.from(
         new Set(
           fileRefs
@@ -434,7 +439,11 @@ export function ChatInputBox({
         try {
           // 将项目内图片转为 File，交给 ChatImageAttachments 走上传。
           const payload = await queryClient.fetchQuery(
-            trpc.fs.readBinary.queryOptions({ uri })
+            trpc.fs.readBinary.queryOptions({
+              workspaceId,
+              projectId,
+              uri,
+            })
           );
           if (!payload?.contentBase64) continue;
           const bytes = base64ToUint8Array(payload.contentBase64);
@@ -459,6 +468,7 @@ export function ChatInputBox({
       normalizeFileRef,
       resolveRootUri,
       trpc.fs.readBinary,
+      workspaceId,
     ]
   );
 
@@ -845,6 +855,7 @@ export default function ChatInput({
     codexOptions,
     addMaskedAttachment,
     projectId,
+    workspaceId,
     tabId,
   } = useChatContext();
   const { basic } = useBasicConfig();
@@ -985,6 +996,7 @@ export default function ChatInput({
         canAttachImage={allowImage}
         onDropHandled={onDropHandled}
         defaultProjectId={projectId}
+        workspaceId={workspaceId}
         tabId={tabId}
         dictationLanguage={dictationLanguage}
         dictationSoundEnabled={dictationSoundEnabled}

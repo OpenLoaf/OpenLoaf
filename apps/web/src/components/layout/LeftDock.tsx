@@ -191,6 +191,7 @@ function getParentUri(uri: string): string {
 // Render the left dock contents for a tab.
 export function LeftDock({ tabId }: { tabId: string }) {
   const tab = useTabs((s) => s.tabs.find((t) => t.id === tabId));
+  const workspaceId = tab?.workspaceId ?? "";
   const stackHidden = useTabs((s) => Boolean(s.stackHiddenByTabId[tabId]));
   const activeStackItemId = useTabs((s) => s.activeStackItemIdByTabId[tabId]);
   const removeStackItem = useTabs((s) => s.removeStackItem);
@@ -237,14 +238,22 @@ export function LeftDock({ tabId }: { tabId: string }) {
 
   const handleRenameConfirm = React.useCallback(async () => {
     if (!renameDialog) return;
+    if (!workspaceId) return;
     const rawName = renameValue.trim();
     if (!rawName) return;
     const nextName = ensureBoardFolderName(rawName);
     const nextUri = buildRenamedUri(renameDialog.uri, nextName);
     try {
-      await renameMutation.mutateAsync({ from: renameDialog.uri, to: nextUri });
+      await renameMutation.mutateAsync({
+        workspaceId,
+        from: renameDialog.uri,
+        to: nextUri,
+      });
       await queryClient.invalidateQueries({
-        queryKey: trpc.fs.list.queryOptions({ uri: getParentUri(renameDialog.uri) }).queryKey,
+        queryKey: trpc.fs.list.queryOptions({
+          workspaceId,
+          uri: getParentUri(renameDialog.uri),
+        }).queryKey,
       });
       setRenameDialog(null);
       removeStackItem(renameDialog.tabId, renameDialog.itemId);
@@ -252,7 +261,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
       console.warn("[LeftDock] rename board failed", error);
       toast.error("重命名失败");
     }
-  }, [removeStackItem, renameDialog, renameMutation, renameValue]);
+  }, [removeStackItem, renameDialog, renameMutation, renameValue, workspaceId, queryClient]);
 
   React.useEffect(() => {
     if (stack.length === 0) return;

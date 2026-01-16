@@ -198,6 +198,8 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   tabId?: string;
   /** 当前会话 ID（与 useChat 的 id 一致） */
   sessionId: string;
+  /** 当前聊天绑定的 workspaceId（用于文件/资源请求） */
+  workspaceId?: string;
   /** 当前聊天绑定的 projectId（用于默认保存路径等场景） */
   projectId?: string;
   /** 当前分支的叶子节点（消息树） */
@@ -362,6 +364,11 @@ export default function ChatProvider({
 
   const paramsRef = React.useRef<Record<string, unknown> | undefined>(params);
   const tabIdRef = React.useRef<string | null | undefined>(tabId);
+  const workspaceId = React.useMemo(() => {
+    if (typeof params?.workspaceId !== "string") return undefined;
+    const trimmed = params.workspaceId.trim();
+    return trimmed ? trimmed : undefined;
+  }, [params]);
   const projectId = React.useMemo(() => {
     if (typeof params?.projectId !== "string") return undefined;
     const trimmed = params.projectId.trim();
@@ -868,6 +875,7 @@ export default function ChatProvider({
         updateMessage,
         tabId,
         sessionId,
+        workspaceId,
         projectId,
         leafMessageId,
         branchMessageIds,

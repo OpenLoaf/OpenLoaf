@@ -27,8 +27,15 @@ function MessageItem({
   isLastAiMessage,
   hideAiActions,
 }: MessageItemProps) {
-  const { resendUserMessage, status, clearError, branchMessageIds, siblingNav, projectId } =
-    useChatContext();
+  const {
+    resendUserMessage,
+    status,
+    clearError,
+    branchMessageIds,
+    siblingNav,
+    projectId,
+    workspaceId,
+  } = useChatContext();
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [editAttachments, setEditAttachments] = React.useState<ChatAttachment[]>([]);
@@ -267,6 +274,7 @@ function MessageItem({
                 onRemoveAttachment={removeEditAttachment}
                 attachmentEditEnabled={false}
                 defaultProjectId={projectId}
+                workspaceId={workspaceId}
                 onSubmit={handleResend}
               />
             </div>

@@ -5,7 +5,7 @@ import type {
 } from "../engine/types";
 import { useCallback } from "react";
 import { z } from "zod";
-import { Copy, ExternalLink, RotateCw } from "lucide-react";
+import { Copy, ExternalLink } from "lucide-react";
 import { openLinkInStack as openLinkInStackAction } from "./lib/link-actions";
 
 export type LinkNodeProps = {
@@ -32,14 +32,6 @@ function createLinkToolbarItems(ctx: CanvasToolbarContext<LinkNodeProps>) {
       icon: <ExternalLink size={14} />,
       onSelect: () => {
         openLinkInStackAction({ url: ctx.element.props.url, title: ctx.element.props.title });
-      },
-    },
-    {
-      id: "refresh",
-      label: "刷新",
-      icon: <RotateCw size={14} />,
-      onSelect: () => {
-        // 逻辑：暂时关闭远端预览更新，忽略刷新请求。
       },
     },
     {

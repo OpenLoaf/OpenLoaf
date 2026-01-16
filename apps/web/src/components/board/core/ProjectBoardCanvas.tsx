@@ -3,14 +3,7 @@
 import { memo } from "react";
 
 import { BoardCanvas } from "./BoardCanvas";
-import { ImageNodeDefinition } from "../nodes/ImageNode";
-import { CalendarNodeDefinition } from "../nodes/CalendarNode";
-import { LinkNodeDefinition } from "../nodes/LinkNode";
-import { GroupNodeDefinition, ImageGroupNodeDefinition } from "../nodes/GroupNode";
-import { StrokeNodeDefinition } from "../nodes/StrokeNode";
-import { TextNodeDefinition } from "../nodes/TextNode";
-import { ImagePromptGenerateNodeDefinition } from "../nodes/ImagePromptGenerateNode";
-import { ImageGenerateNodeDefinition } from "../nodes/ImageGenerateNode";
+import { BOARD_NODE_DEFINITIONS } from "./board-nodes";
 
 export interface ProjectBoardCanvasProps {
   /** Loading state for the project page. */
@@ -43,17 +36,7 @@ const ProjectBoardCanvas = memo(function ProjectBoardCanvas({
       <BoardCanvas
         key={rootUri ?? projectId ?? "board"}
         className="h-full w-full"
-        nodes={[
-          ImageNodeDefinition,
-          CalendarNodeDefinition,
-          LinkNodeDefinition,
-          StrokeNodeDefinition,
-          TextNodeDefinition,
-          ImagePromptGenerateNodeDefinition,
-          ImageGenerateNodeDefinition,
-          GroupNodeDefinition,
-          ImageGroupNodeDefinition,
-        ]}
+        nodes={BOARD_NODE_DEFINITIONS}
         workspaceId={workspaceId}
         projectId={projectId}
         rootUri={rootUri}

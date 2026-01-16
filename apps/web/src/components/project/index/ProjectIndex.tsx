@@ -17,6 +17,7 @@ import {
   serializeDesktopItems,
 } from "@/components/desktop/desktop-persistence";
 import { queryClient, trpc } from "@/utils/trpc";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 interface ProjectIndexHeaderProps {
   /** Whether the project data is loading. */
@@ -112,8 +113,11 @@ const ProjectIndex = React.memo(function ProjectIndex({
   isActive,
   onDirtyChange,
   controlsSlotRef,
+  projectId,
   rootUri,
 }: ProjectIndexProps) {
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const [items, setItems] = React.useState<DesktopItem[]>(() =>
     ensureLayoutByBreakpoint(initialItems)
   );
@@ -140,6 +144,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
 
   React.useEffect(() => {
     if (!desktopFileUri) return;
+    if (!workspaceId) return;
     if (loadedUriRef.current === desktopFileUri) return;
     loadedUriRef.current = desktopFileUri;
     let alive = true;
@@ -148,7 +153,11 @@ const ProjectIndex = React.memo(function ProjectIndex({
       try {
         // 逻辑：读取 desktop.tenas 并初始化桌面布局。
         const result = await queryClient.fetchQuery(
-          trpc.fs.readFile.queryOptions({ uri: desktopFileUri })
+          trpc.fs.readFile.queryOptions({
+            workspaceId,
+            projectId,
+            uri: desktopFileUri,
+          })
         );
         const parsed = deserializeDesktopItems(result.content);
         if (!parsed || !alive) return;
@@ -162,7 +171,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
     return () => {
       alive = false;
     };
-  }, [desktopFileUri]);
+  }, [desktopFileUri, projectId, workspaceId]);
 
   React.useEffect(() => {
     // 桌面 MVP 暂时不产生“脏状态”，先专注交互与动画。
@@ -248,13 +257,16 @@ const ProjectIndex = React.memo(function ProjectIndex({
     editSnapshotRef.current = null;
     setEditMode(false);
     if (!desktopFileUri) return;
+    if (!workspaceId) return;
     // 逻辑：保存当前桌面布局到 desktop.tenas。
     const payload = serializeDesktopItems(items);
     await saveDesktopMutation.mutateAsync({
+      workspaceId,
+      projectId,
       uri: desktopFileUri,
       content: JSON.stringify(payload, null, 2),
     });
-  }, [desktopFileUri, items, saveDesktopMutation]);
+  }, [desktopFileUri, items, projectId, saveDesktopMutation, workspaceId]);
 
   /** Trigger a compact layout pass. */
   const handleCompact = React.useCallback(() => {

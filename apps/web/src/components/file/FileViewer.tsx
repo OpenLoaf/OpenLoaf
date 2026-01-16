@@ -2,6 +2,7 @@
 
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 interface FileViewerProps {
   uri?: string;
@@ -11,8 +12,12 @@ interface FileViewerProps {
 
 /** Render a simple file preview panel. */
 export default function FileViewer({ uri, name }: FileViewerProps) {
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const fileQuery = useQuery(
-    trpc.fs.readFile.queryOptions(uri ? { uri } : skipToken)
+    trpc.fs.readFile.queryOptions(
+      uri && workspaceId ? { workspaceId, uri } : skipToken
+    )
   );
 
   if (!uri) {

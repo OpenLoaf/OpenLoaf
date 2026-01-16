@@ -2,14 +2,7 @@
 
 import { memo } from "react";
 import { BoardCanvas } from "./core/BoardCanvas";
-import { ImageNodeDefinition } from "./nodes/ImageNode";
-import { CalendarNodeDefinition } from "./nodes/CalendarNode";
-import { LinkNodeDefinition } from "./nodes/LinkNode";
-import { GroupNodeDefinition, ImageGroupNodeDefinition } from "./nodes/GroupNode";
-import { StrokeNodeDefinition } from "./nodes/StrokeNode";
-import { TextNodeDefinition } from "./nodes/TextNode";
-import { ImagePromptGenerateNodeDefinition } from "./nodes/ImagePromptGenerateNode";
-import { ImageGenerateNodeDefinition } from "./nodes/ImageGenerateNode";
+import { BOARD_NODE_DEFINITIONS } from "./core/board-nodes";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 
@@ -56,6 +49,10 @@ const BoardFileViewer = memo(function BoardFileViewer({
   });
   const uiHidden = stackHidden && isStackItem && activeStackId === panelKey;
 
+  if (!workspace?.id) {
+    return <div className="h-full w-full p-4 text-muted-foreground">工作区加载中</div>;
+  }
+
   if (!boardFolderUri || !boardFileUri) {
     return <div className="h-full w-full p-4 text-muted-foreground">未选择画布</div>;
   }
@@ -64,7 +61,7 @@ const BoardFileViewer = memo(function BoardFileViewer({
     <div className="h-full w-full bg-background">
       <BoardCanvas
         className="h-full w-full"
-        workspaceId={workspace?.id}
+        workspaceId={workspace.id}
         boardId={boardFolderUri}
         boardFolderUri={boardFolderUri}
         boardFileUri={boardFileUri}
@@ -72,17 +69,7 @@ const BoardFileViewer = memo(function BoardFileViewer({
         rootUri={rootUri}
         panelKey={panelKey}
         uiHidden={uiHidden}
-        nodes={[
-          ImageNodeDefinition,
-          CalendarNodeDefinition,
-          LinkNodeDefinition,
-          StrokeNodeDefinition,
-          TextNodeDefinition,
-          ImagePromptGenerateNodeDefinition,
-          ImageGenerateNodeDefinition,
-          GroupNodeDefinition,
-          ImageGroupNodeDefinition,
-        ]}
+        nodes={BOARD_NODE_DEFINITIONS}
       />
     </div>
   );

@@ -41,6 +41,7 @@ import { FolderPlus } from "lucide-react";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileRename } from "@/hooks/use-file-rename";
 import { useProjects } from "@/hooks/use-projects";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { isBoardFolderName } from "@/lib/file-name";
 import {
   IGNORE_NAMES,
@@ -141,6 +142,8 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   onSelectTarget,
   onSelectFileRefs,
 }: ProjectFileSystemTransferDialogProps) {
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const queryClient = useQueryClient();
   const projectListQuery = useProjects();
   const [activeRootUri, setActiveRootUri] = useState<string | null>(
@@ -154,7 +157,9 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   const mkdirMutation = useMutation(trpc.fs.mkdir.mutationOptions());
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
   const listQuery = useQuery(
-    trpc.fs.list.queryOptions(activeUri ? { uri: activeUri } : skipToken)
+    trpc.fs.list.queryOptions(
+      activeUri && workspaceId ? { workspaceId, uri: activeUri } : skipToken
+    )
   );
 
   const projectOptions = useMemo(
@@ -242,6 +247,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
       try {
         const targetUri = buildChildUri(activeUri, nextName);
         await renameMutation.mutateAsync({
+          workspaceId,
           from: target.uri,
           to: targetUri,
         });
@@ -253,7 +259,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         return null;
       }
     },
-    [activeUri, listQuery, renameMutation]
+    [activeUri, listQuery, renameMutation, workspaceId]
   );
 
   /** Manage rename state for folder entries. */
@@ -410,7 +416,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
     if (transferEntries.length === 0) return;
     try {
       const targetList = await queryClient.fetchQuery(
-        trpc.fs.list.queryOptions({ uri: activeUri })
+        trpc.fs.list.queryOptions({ workspaceId, uri: activeUri })
       );
       const targetNames = new Set(
         (targetList.entries ?? []).map((item) => item.name)
@@ -435,9 +441,17 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         const targetUri = buildChildUri(activeUri, targetName);
         if (mode === "move") {
           if (targetUri === entry.uri) continue;
-          await renameMutation.mutateAsync({ from: entry.uri, to: targetUri });
+          await renameMutation.mutateAsync({
+            workspaceId,
+            from: entry.uri,
+            to: targetUri,
+          });
         } else {
-          await copyMutation.mutateAsync({ from: entry.uri, to: targetUri });
+          await copyMutation.mutateAsync({
+            workspaceId,
+            from: entry.uri,
+            to: targetUri,
+          });
         }
       }
       const invalidateUris = new Set<string>([activeUri]);
@@ -448,7 +462,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
       });
       invalidateUris.forEach((uri) => {
         queryClient.invalidateQueries({
-          queryKey: trpc.fs.list.queryOptions({ uri }).queryKey,
+          queryKey: trpc.fs.list.queryOptions({ workspaceId, uri }).queryKey,
         });
       });
       const successLabel =
@@ -505,7 +519,11 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
       const existingNames = new Set(gridEntries.map((item) => item.name));
       const targetName = getUniqueName("新建文件夹", existingNames);
       const targetUri = buildChildUri(activeUri, targetName);
-      await mkdirMutation.mutateAsync({ uri: targetUri, recursive: true });
+      await mkdirMutation.mutateAsync({
+        workspaceId,
+        uri: targetUri,
+        recursive: true,
+      });
       requestRenameByInfo({ uri: targetUri, name: targetName });
       await listQuery.refetch();
       toast.success("已新建文件夹");

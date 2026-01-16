@@ -25,7 +25,7 @@ const DEFAULT_NODE_MAX = 420;
 const DEFAULT_PREVIEW_QUALITY = 0.82;
 
 /** Read a blob as a data url string. */
-export function readBlobAsDataUrl(blob: Blob): Promise<string> {
+function readBlobAsDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ""));

@@ -84,8 +84,9 @@ function readProjectConfigProjects(rootUri: string): {
   }
 }
 
-export function getProjectRootUri(projectId: string): string | null {
-  const workspace = getActiveWorkspace();
+export function getProjectRootUri(projectId: string, workspaceId?: string): string | null {
+  const workspace = workspaceId ? getWorkspaceById(workspaceId) : getActiveWorkspace();
+  if (!workspace) return null;
   const direct = workspace.projects?.[projectId];
   if (direct) return direct;
 
@@ -108,8 +109,8 @@ export function getProjectRootUri(projectId: string): string | null {
 }
 
 /** Get project root path by project id. */
-export function getProjectRootPath(projectId: string): string | null {
-  const rootUri = getProjectRootUri(projectId);
+export function getProjectRootPath(projectId: string, workspaceId?: string): string | null {
+  const rootUri = getProjectRootUri(projectId, workspaceId);
   if (!rootUri) return null;
   return fileURLToPath(rootUri);
 }
@@ -169,4 +170,37 @@ export function resolveFilePathFromUri(uri: string): string {
 /** Resolve a URI into an absolute local path. */
 export function resolveWorkspacePathFromUri(uri: string): string {
   return path.resolve(resolveFilePathFromUri(uri));
+}
+
+/** Resolve an input path from file uri, absolute path, or workspace/project scope. */
+export function resolveScopedPath(input: {
+  workspaceId: string;
+  projectId?: string;
+  target: string;
+}): string {
+  const raw = input.target.trim();
+  if (!raw) {
+    throw new Error("Path is required.");
+  }
+  if (raw.startsWith("file:")) {
+    return resolveWorkspacePathFromUri(raw);
+  }
+  if (path.isAbsolute(raw)) {
+    return path.resolve(raw);
+  }
+  const projectId = input.projectId?.trim();
+  if (projectId) {
+    const projectRootPath = getProjectRootPath(projectId, input.workspaceId);
+    if (!projectRootPath) {
+      throw new Error("Project not found.");
+    }
+    // 相对路径优先拼接到项目根目录下。
+    return path.resolve(projectRootPath, raw);
+  }
+  const workspaceRootPath = getWorkspaceRootPathById(input.workspaceId);
+  if (!workspaceRootPath) {
+    throw new Error("Workspace not found.");
+  }
+  // 相对路径使用工作区根目录作为基准。
+  return path.resolve(workspaceRootPath, raw);
 }

@@ -24,12 +24,10 @@ import { resolveServerUrl } from "@/utils/server-url";
 import {
   BOARD_ASSETS_DIR_NAME,
   BOARD_INDEX_FILE_NAME,
-  BOARD_LOG_FILE_NAME,
   ensureBoardFolderName,
   getBoardDisplayName,
   isBoardFolderName,
 } from "@/lib/file-name";
-import { createEmptyBoardBase64 } from "@/components/board/core/boardYjsStore";
 import { readImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import {
@@ -51,6 +49,7 @@ import {
 import { useFileSystemHistory, type HistoryAction } from "./file-system-history";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 // 用于“复制/粘贴”的内存剪贴板。
 let fileClipboard: FileSystemEntry[] | null = null;
@@ -194,6 +193,8 @@ export function useProjectFileSystemModel({
   initialSortOrder = null,
 }: ProjectFileSystemModelArgs): ProjectFileSystemModel {
   const activeUri = currentUri ?? rootUri ?? null;
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const isElectron = useMemo(
     () =>
       process.env.NEXT_PUBLIC_ELECTRON === "1" ||
@@ -219,8 +220,10 @@ export function useProjectFileSystemModel({
   const stableUriRef = useRef(activeUri);
   const listQuery = useQuery({
     ...trpc.fs.list.queryOptions(
-      activeUri
+      activeUri && workspaceId
         ? {
+            workspaceId,
+            projectId,
             uri: activeUri,
             includeHidden: showHidden,
             sort:
@@ -240,8 +243,10 @@ export function useProjectFileSystemModel({
   }, [activeUri, isPlaceholderData]);
   const searchQuery = useQuery({
     ...trpc.fs.search.queryOptions(
-      activeUri && debouncedSearchValue
+      activeUri && debouncedSearchValue && workspaceId
         ? {
+            workspaceId,
+            projectId,
             rootUri: activeUri,
             query: debouncedSearchValue,
             includeHidden: showHidden,
@@ -316,10 +321,16 @@ export function useProjectFileSystemModel({
   /** Refresh the current folder list. */
   const refreshList = useCallback(() => {
     if (!activeUri) return;
+    if (!workspaceId) return;
     queryClient.invalidateQueries({
-      queryKey: trpc.fs.list.queryOptions({ uri: activeUri, includeHidden: showHidden }).queryKey,
+      queryKey: trpc.fs.list.queryOptions({
+        workspaceId,
+        projectId,
+        uri: activeUri,
+        includeHidden: showHidden,
+      }).queryKey,
     });
-  }, [activeUri, queryClient, showHidden]);
+  }, [activeUri, projectId, queryClient, showHidden, workspaceId]);
 
   const {
     canUndo,
@@ -331,22 +342,42 @@ export function useProjectFileSystemModel({
   } = useFileSystemHistory(
     {
       rename: async (from, to) => {
-        await renameMutation.mutateAsync({ from, to });
+        await renameMutation.mutateAsync({ workspaceId, projectId, from, to });
       },
       copy: async (from, to) => {
-        await copyMutation.mutateAsync({ from, to });
+        await copyMutation.mutateAsync({ workspaceId, projectId, from, to });
       },
       mkdir: async (uri) => {
-        await mkdirMutation.mutateAsync({ uri, recursive: true });
+        await mkdirMutation.mutateAsync({
+          workspaceId,
+          projectId,
+          uri,
+          recursive: true,
+        });
       },
       delete: async (uri) => {
-        await deleteMutation.mutateAsync({ uri, recursive: true });
+        await deleteMutation.mutateAsync({
+          workspaceId,
+          projectId,
+          uri,
+          recursive: true,
+        });
       },
       writeFile: async (uri, content) => {
-        await writeFileMutation.mutateAsync({ uri, content });
+        await writeFileMutation.mutateAsync({
+          workspaceId,
+          projectId,
+          uri,
+          content,
+        });
       },
       writeBinary: async (uri, contentBase64) => {
-        await writeBinaryMutation.mutateAsync({ uri, contentBase64 });
+        await writeBinaryMutation.mutateAsync({
+          workspaceId,
+          projectId,
+          uri,
+          contentBase64,
+        });
       },
       trash: async (uri) => {
         const res = await window.tenasElectron?.trashItem?.({ uri });
@@ -820,7 +851,7 @@ export function useProjectFileSystemModel({
 
   /** Rename a file or folder with validation and history tracking. */
   const renameEntry = async (entry: FileSystemEntry, nextName: string) => {
-    if (!activeUri) return null;
+    if (!activeUri || !workspaceId) return null;
     const normalizedName =
       entry.kind === "folder" && isBoardFolderName(entry.name)
         ? ensureBoardFolderName(nextName)
@@ -837,7 +868,12 @@ export function useProjectFileSystemModel({
       return null;
     }
     const targetUri = buildChildUri(activeUri, normalizedName);
-    await renameMutation.mutateAsync({ from: entry.uri, to: targetUri });
+    await renameMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      from: entry.uri,
+      to: targetUri,
+    });
     pushHistory({ kind: "rename", from: entry.uri, to: targetUri });
     refreshList();
     return targetUri;
@@ -845,6 +881,7 @@ export function useProjectFileSystemModel({
 
   /** Delete file or folder. */
   const handleDelete = async (entry: FileSystemEntry) => {
+    if (!workspaceId) return;
     const ok = window.confirm(`确认删除「${entry.name}」？`);
     if (!ok) return;
     if (!trashRootUri) return;
@@ -853,8 +890,18 @@ export function useProjectFileSystemModel({
     const trashName = `${stamp}-${suffix}-${entry.name}`;
     const trashUri = buildChildUri(trashRootUri, trashName);
     // 中文注释：非 Electron 端先挪进隐藏回收站，便于撤回。
-    await mkdirMutation.mutateAsync({ uri: trashRootUri, recursive: true });
-    await renameMutation.mutateAsync({ from: entry.uri, to: trashUri });
+    await mkdirMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      uri: trashRootUri,
+      recursive: true,
+    });
+    await renameMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      from: entry.uri,
+      to: trashUri,
+    });
     pushHistory({ kind: "delete", uri: entry.uri, trashUri });
     refreshList();
   };
@@ -862,17 +909,28 @@ export function useProjectFileSystemModel({
   /** Delete multiple files or folders with a single confirmation. */
   const handleDeleteBatch = async (entries: FileSystemEntry[]) => {
     if (entries.length === 0) return;
+    if (!workspaceId) return;
     const ok = window.confirm(`确认删除已选择的 ${entries.length} 项？`);
     if (!ok) return;
     if (!trashRootUri) return;
-    await mkdirMutation.mutateAsync({ uri: trashRootUri, recursive: true });
+    await mkdirMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      uri: trashRootUri,
+      recursive: true,
+    });
     const actions: HistoryAction[] = [];
     for (const entry of entries) {
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const suffix = Math.random().toString(36).slice(2, 6);
       const trashName = `${stamp}-${suffix}-${entry.name}`;
       const trashUri = buildChildUri(trashRootUri, trashName);
-      await renameMutation.mutateAsync({ from: entry.uri, to: trashUri });
+      await renameMutation.mutateAsync({
+        workspaceId,
+        projectId,
+        from: entry.uri,
+        to: trashUri,
+      });
       actions.push({ kind: "delete", uri: entry.uri, trashUri });
     }
     if (actions.length === 1) {
@@ -885,6 +943,7 @@ export function useProjectFileSystemModel({
 
   /** Permanently delete (system trash if available). */
   const handleDeletePermanent = async (entry: FileSystemEntry) => {
+    if (!workspaceId) return;
     const ok = window.confirm(`彻底删除「${entry.name}」？此操作不可撤回。`);
     if (!ok) return;
     if (isElectron && window.tenasElectron?.trashItem) {
@@ -902,13 +961,19 @@ export function useProjectFileSystemModel({
         return;
       }
     }
-    await deleteMutation.mutateAsync({ uri: entry.uri, recursive: true });
+    await deleteMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      uri: entry.uri,
+      recursive: true,
+    });
     refreshList();
   };
 
   /** Permanently delete multiple entries with a single confirmation. */
   const handleDeletePermanentBatch = async (entries: FileSystemEntry[]) => {
     if (entries.length === 0) return;
+    if (!workspaceId) return;
     const ok = window.confirm(
       `彻底删除已选择的 ${entries.length} 项？此操作不可撤回。`
     );
@@ -927,7 +992,12 @@ export function useProjectFileSystemModel({
           continue;
         }
       }
-      await deleteMutation.mutateAsync({ uri: entry.uri, recursive: true });
+      await deleteMutation.mutateAsync({
+        workspaceId,
+        projectId,
+        uri: entry.uri,
+        recursive: true,
+      });
     }
     refreshList();
   };
@@ -945,11 +1015,16 @@ export function useProjectFileSystemModel({
 
   /** Create a new folder in the current directory. */
   const handleCreateFolder = async () => {
-    if (!activeUri) return null;
+    if (!activeUri || !workspaceId) return null;
     // 以默认名称创建并做唯一性处理，避免覆盖已有目录。
     const targetName = getUniqueName("新建文件夹", new Set(existingNames));
     const targetUri = buildChildUri(activeUri, targetName);
-    await mkdirMutation.mutateAsync({ uri: targetUri, recursive: true });
+    await mkdirMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      uri: targetUri,
+      recursive: true,
+    });
     pushHistory({ kind: "mkdir", uri: targetUri });
     refreshList();
     return { uri: targetUri, name: targetName };
@@ -957,27 +1032,37 @@ export function useProjectFileSystemModel({
 
   /** Create a new board folder in the current directory. */
   const handleCreateBoard = async () => {
-    if (!activeUri) return;
+    if (!activeUri || !workspaceId) return;
     const baseName = ensureBoardFolderName("新建画布");
     const targetName = getUniqueName(baseName, new Set(existingNames));
     const boardFolderUri = buildChildUri(activeUri, targetName);
     const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
-    const boardLogUri = buildChildUri(boardFolderUri, BOARD_LOG_FILE_NAME);
     const assetsUri = buildChildUri(boardFolderUri, BOARD_ASSETS_DIR_NAME);
-    // 逻辑：初始画布写入 Yjs 数据，保证后续保存落盘同一位置。
-    const contentBase64 = createEmptyBoardBase64();
-    // 逻辑：画布采用文件夹结构，包含 index.tnboard、index.tnboard.log 与 assets 子目录。
-    await mkdirMutation.mutateAsync({ uri: boardFolderUri, recursive: true });
-    await mkdirMutation.mutateAsync({ uri: assetsUri, recursive: true });
-    await writeBinaryMutation.mutateAsync({ uri: boardFileUri, contentBase64 });
-    await writeBinaryMutation.mutateAsync({ uri: boardLogUri, contentBase64: "" });
+    // 逻辑：画布采用文件夹结构，包含 index.tnboard 与 assets 子目录。
+    await mkdirMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      uri: boardFolderUri,
+      recursive: true,
+    });
+    await mkdirMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      uri: assetsUri,
+      recursive: true,
+    });
+    await writeBinaryMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      uri: boardFileUri,
+      contentBase64: "",
+    });
     pushHistory({
       kind: "batch",
       actions: [
         { kind: "mkdir", uri: boardFolderUri },
         { kind: "mkdir", uri: assetsUri },
-        { kind: "create", uri: boardFileUri, contentBase64 },
-        { kind: "create", uri: boardLogUri, contentBase64: "" },
+        { kind: "create", uri: boardFileUri, contentBase64: "" },
       ],
     });
     refreshList();
@@ -1004,7 +1089,12 @@ export function useProjectFileSystemModel({
       const targetName = getUniqueName(entry.name, names);
       names.add(targetName);
       const targetUri = buildChildUri(activeUri, targetName);
-      await copyMutation.mutateAsync({ from: entry.uri, to: targetUri });
+      await copyMutation.mutateAsync({
+        workspaceId,
+        projectId,
+        from: entry.uri,
+        to: targetUri,
+      });
       actions.push({ kind: "copy", from: entry.uri, to: targetUri } as const);
     }
     if (actions.length === 1) {
@@ -1027,6 +1117,8 @@ export function useProjectFileSystemModel({
             (
               await queryClient.fetchQuery(
                 trpc.fs.list.queryOptions({
+                  workspaceId,
+                  projectId,
                   uri: targetUri,
                   includeHidden: showHidden,
                 })
@@ -1050,6 +1142,8 @@ export function useProjectFileSystemModel({
       const nextUri = buildChildUri(targetUri, file.name);
       const base64 = await readFileAsBase64(file);
       await writeBinaryMutation.mutateAsync({
+        workspaceId,
+        projectId,
         uri: nextUri,
         contentBase64: base64,
       });
@@ -1136,14 +1230,24 @@ export function useProjectFileSystemModel({
     let targetNames = options?.targetNames;
     if (!targetNames) {
       const targetList = await queryClient.fetchQuery(
-        trpc.fs.list.queryOptions({ uri: target.uri, includeHidden: showHidden })
+        trpc.fs.list.queryOptions({
+          workspaceId,
+          projectId,
+          uri: target.uri,
+          includeHidden: showHidden,
+        })
       );
       targetNames = new Set((targetList.entries ?? []).map((entry) => entry.name));
     }
     const targetName = getUniqueName(source.name, targetNames);
     targetNames.add(targetName);
     const targetUri = buildChildUri(target.uri, targetName);
-    await renameMutation.mutateAsync({ from: source.uri, to: targetUri });
+    await renameMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      from: source.uri,
+      to: targetUri,
+    });
     return { kind: "rename", from: source.uri, to: targetUri };
   };
 
@@ -1234,7 +1338,12 @@ export function useProjectFileSystemModel({
     if (rawSourceUris.length === 0) return 0;
     const uniqueSourceUris = Array.from(new Set(rawSourceUris));
     const targetList = await queryClient.fetchQuery(
-      trpc.fs.list.queryOptions({ uri: target.uri, includeHidden: showHidden })
+      trpc.fs.list.queryOptions({
+        workspaceId,
+        projectId,
+        uri: target.uri,
+        includeHidden: showHidden,
+      })
     );
     const targetNames = new Set(
       (targetList.entries ?? []).map((entry) => entry.name)
@@ -1254,7 +1363,7 @@ export function useProjectFileSystemModel({
       let source = fileEntries.find((item) => item.uri === sourceUri);
       if (!source) {
         const stat = await queryClient.fetchQuery(
-          trpc.fs.stat.queryOptions({ uri: sourceUri })
+          trpc.fs.stat.queryOptions({ workspaceId, projectId, uri: sourceUri })
         );
         source = {
           uri: stat.uri,

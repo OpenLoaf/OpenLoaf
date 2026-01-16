@@ -3,7 +3,7 @@ import path from "node:path";
 import { promises as fs, type Dirent } from "node:fs";
 import sharp from "sharp";
 import { t, shieldedProcedure } from "../index";
-import { resolveWorkspacePathFromUri, toFileUri } from "../services/vfsService";
+import { resolveScopedPath, toFileUri } from "../services/vfsService";
 
 /** Board folder prefix for server-side sorting. */
 const BOARD_FOLDER_PREFIX = "tnboard_";
@@ -23,11 +23,17 @@ const DEFAULT_SEARCH_LIMIT = 500;
 /** Default maximum depth for recursive search. */
 const DEFAULT_SEARCH_MAX_DEPTH = 12;
 
-const fsUriSchema = z.object({
+/** Schema for workspace/project scope. */
+const fsScopeSchema = z.object({
+  workspaceId: z.string().trim().min(1),
+  projectId: z.string().trim().optional(),
+});
+
+const fsUriSchema = fsScopeSchema.extend({
   uri: z.string(),
 });
 
-const fsListSchema = z.object({
+const fsListSchema = fsScopeSchema.extend({
   uri: z.string(),
   includeHidden: z.boolean().optional(),
   // 排序选项：name 按文件名，mtime 按修改时间。
@@ -40,7 +46,7 @@ const fsListSchema = z.object({
 });
 
 /** Schema for folder search requests. */
-const fsSearchSchema = z.object({
+const fsSearchSchema = fsScopeSchema.extend({
   rootUri: z.string(),
   query: z.string(),
   includeHidden: z.boolean().optional(),
@@ -48,18 +54,18 @@ const fsSearchSchema = z.object({
   maxDepth: z.number().int().min(0).max(50).optional(),
 });
 
-const fsCopySchema = z.object({
+const fsCopySchema = fsScopeSchema.extend({
   from: z.string(),
   to: z.string(),
 });
 
 /** Schema for batch thumbnail requests. */
-const fsThumbnailSchema = z.object({
+const fsThumbnailSchema = fsScopeSchema.extend({
   uris: z.array(z.string()).max(50),
 });
 
 /** Schema for folder thumbnail requests. */
-const fsFolderThumbnailSchema = z.object({
+const fsFolderThumbnailSchema = fsScopeSchema.extend({
   uri: z.string(),
   includeHidden: z.boolean().optional(),
 });
@@ -98,6 +104,18 @@ function buildFileNode(input: {
     updatedAt: input.stat.mtime.toISOString(),
     isEmpty: isDir ? input.isEmpty : undefined,
   };
+}
+
+/** Resolve a filesystem path for the scoped input. */
+function resolveFsTarget(
+  scope: { workspaceId: string; projectId?: string },
+  target: string
+): string {
+  return resolveScopedPath({
+    workspaceId: scope.workspaceId,
+    projectId: scope.projectId,
+    target,
+  });
 }
 
 /** Resolve a simple mime type from file extension. */
@@ -167,14 +185,14 @@ async function resolveFolderEmptyState(fullPath: string, includeHidden: boolean)
 export const fsRouter = t.router({
   /** Read metadata for a file or directory. */
   stat: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
-    const fullPath = resolveWorkspacePathFromUri(input.uri);
+    const fullPath = resolveFsTarget(input, input.uri);
     const stat = await fs.stat(fullPath);
     return buildFileNode({ name: path.basename(fullPath), fullPath, stat });
   }),
 
   /** List direct children of a directory. */
   list: shieldedProcedure.input(fsListSchema).query(async ({ input }) => {
-    const fullPath = resolveWorkspacePathFromUri(input.uri);
+    const fullPath = resolveFsTarget(input, input.uri);
     const entries = await fs.readdir(fullPath, { withFileTypes: true });
     const includeHidden = Boolean(input.includeHidden);
     const nodes = [];
@@ -226,7 +244,7 @@ export const fsRouter = t.router({
     const items = await Promise.all(
       input.uris.map(async (uri) => {
         try {
-          const fullPath = resolveWorkspacePathFromUri(uri);
+          const fullPath = resolveFsTarget(input, uri);
           const buffer = await sharp(fullPath)
             .resize(40, 40, { fit: "cover" })
             .webp({ quality: 45 })
@@ -244,7 +262,7 @@ export const fsRouter = t.router({
   folderThumbnails: shieldedProcedure
     .input(fsFolderThumbnailSchema)
     .query(async ({ input }) => {
-      const fullPath = resolveWorkspacePathFromUri(input.uri);
+      const fullPath = resolveFsTarget(input, input.uri);
       const includeHidden = Boolean(input.includeHidden);
       const entries = await fs.readdir(fullPath, { withFileTypes: true });
       const imageFiles = entries.filter((entry) => {
@@ -276,7 +294,7 @@ export const fsRouter = t.router({
 
   /** Read a text file. */
   readFile: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
-    const fullPath = resolveWorkspacePathFromUri(input.uri);
+    const fullPath = resolveFsTarget(input, input.uri);
     try {
       const content = await fs.readFile(fullPath, "utf-8");
       return { content };
@@ -291,7 +309,7 @@ export const fsRouter = t.router({
 
   /** Read a binary file (base64 payload). */
   readBinary: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
-    const fullPath = resolveWorkspacePathFromUri(input.uri);
+    const fullPath = resolveFsTarget(input, input.uri);
     const ext = path.extname(fullPath).replace(/^\./, "");
     try {
       const buffer = await fs.readFile(fullPath);
@@ -309,13 +327,13 @@ export const fsRouter = t.router({
   /** Write a text file. */
   writeFile: shieldedProcedure
     .input(
-      z.object({
+      fsScopeSchema.extend({
         uri: z.string(),
         content: z.string(),
       })
     )
     .mutation(async ({ input }) => {
-      const fullPath = resolveWorkspacePathFromUri(input.uri);
+      const fullPath = resolveFsTarget(input, input.uri);
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       await fs.writeFile(fullPath, input.content, "utf-8");
       return { ok: true };
@@ -324,13 +342,13 @@ export const fsRouter = t.router({
   /** Create a directory. */
   mkdir: shieldedProcedure
     .input(
-      z.object({
+      fsScopeSchema.extend({
         uri: z.string(),
         recursive: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
-      const fullPath = resolveWorkspacePathFromUri(input.uri);
+      const fullPath = resolveFsTarget(input, input.uri);
       await fs.mkdir(fullPath, { recursive: input.recursive ?? true });
       return { ok: true };
     }),
@@ -338,14 +356,14 @@ export const fsRouter = t.router({
   /** Rename or move a file/folder. */
   rename: shieldedProcedure
     .input(
-      z.object({
+      fsScopeSchema.extend({
         from: z.string(),
         to: z.string(),
       })
     )
     .mutation(async ({ input }) => {
-      const fromPath = resolveWorkspacePathFromUri(input.from);
-      const toPath = resolveWorkspacePathFromUri(input.to);
+      const fromPath = resolveFsTarget(input, input.from);
+      const toPath = resolveFsTarget(input, input.to);
       await fs.mkdir(path.dirname(toPath), { recursive: true });
       await fs.rename(fromPath, toPath);
       return { ok: true };
@@ -353,8 +371,8 @@ export const fsRouter = t.router({
 
   /** Copy a file/folder. */
   copy: shieldedProcedure.input(fsCopySchema).mutation(async ({ input }) => {
-    const fromPath = resolveWorkspacePathFromUri(input.from);
-    const toPath = resolveWorkspacePathFromUri(input.to);
+    const fromPath = resolveFsTarget(input, input.from);
+    const toPath = resolveFsTarget(input, input.to);
     await fs.mkdir(path.dirname(toPath), { recursive: true });
     await fs.cp(fromPath, toPath, { recursive: true });
     return { ok: true };
@@ -363,13 +381,13 @@ export const fsRouter = t.router({
   /** Delete a file/folder. */
   delete: shieldedProcedure
     .input(
-      z.object({
+      fsScopeSchema.extend({
         uri: z.string(),
         recursive: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
-      const fullPath = resolveWorkspacePathFromUri(input.uri);
+      const fullPath = resolveFsTarget(input, input.uri);
       await fs.rm(fullPath, { recursive: input.recursive ?? true, force: true });
       return { ok: true };
     }),
@@ -377,13 +395,13 @@ export const fsRouter = t.router({
   /** Write a binary file (base64 payload). */
   writeBinary: shieldedProcedure
     .input(
-      z.object({
+      fsScopeSchema.extend({
         uri: z.string(),
         contentBase64: z.string(),
       })
     )
     .mutation(async ({ input }) => {
-      const fullPath = resolveWorkspacePathFromUri(input.uri);
+      const fullPath = resolveFsTarget(input, input.uri);
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       const buffer = Buffer.from(input.contentBase64, "base64");
       await fs.writeFile(fullPath, buffer);
@@ -393,13 +411,13 @@ export const fsRouter = t.router({
   /** Append a binary payload to an existing file. */
   appendBinary: shieldedProcedure
     .input(
-      z.object({
+      fsScopeSchema.extend({
         uri: z.string(),
         contentBase64: z.string(),
       })
     )
     .mutation(async ({ input }) => {
-      const fullPath = resolveWorkspacePathFromUri(input.uri);
+      const fullPath = resolveFsTarget(input, input.uri);
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       const buffer = Buffer.from(input.contentBase64, "base64");
       await fs.appendFile(fullPath, buffer);
@@ -408,7 +426,7 @@ export const fsRouter = t.router({
 
   /** Search within workspace root (MVP stub). */
   search: shieldedProcedure.input(fsSearchSchema).query(async ({ input }) => {
-    const rootPath = resolveWorkspacePathFromUri(input.rootUri);
+    const rootPath = resolveFsTarget(input, input.rootUri);
     const query = input.query.trim().toLowerCase();
     if (!query) return { results: [] };
     const includeHidden = Boolean(input.includeHidden);

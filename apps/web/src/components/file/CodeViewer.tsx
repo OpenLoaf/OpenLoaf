@@ -12,6 +12,7 @@ import { trpc } from "@/utils/trpc";
 import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 export type CodeViewerActions = {
   save: () => void;
@@ -147,9 +148,13 @@ export default function CodeViewer({
   actionsRef,
   onStatusChange,
 }: CodeViewerProps) {
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   /** File content query. */
   const fileQuery = useQuery(
-    trpc.fs.readFile.queryOptions(uri ? { uri } : skipToken)
+    trpc.fs.readFile.queryOptions(
+      uri && workspaceId ? { workspaceId, projectId, uri } : skipToken
+    )
   );
   const queryClient = useQueryClient();
   const writeFileMutation = useMutation(trpc.fs.writeFile.mutationOptions());
@@ -490,13 +495,14 @@ export default function CodeViewer({
     if (!isDirty) return;
     const nextContent = draftContent;
     writeFileMutation.mutate(
-      { uri, content: nextContent },
+      { workspaceId, projectId, uri, content: nextContent },
       {
         onSuccess: () => {
           lastSavedRef.current = nextContent;
           setIsDirty(false);
           queryClient.invalidateQueries({
-            queryKey: trpc.fs.readFile.queryOptions({ uri }).queryKey,
+            queryKey: trpc.fs.readFile.queryOptions({ workspaceId, projectId, uri })
+              .queryKey,
           });
           toast.success("已保存");
         },
@@ -505,7 +511,16 @@ export default function CodeViewer({
         },
       }
     );
-  }, [draftContent, effectiveReadOnly, isDirty, queryClient, uri, writeFileMutation]);
+  }, [
+    draftContent,
+    effectiveReadOnly,
+    isDirty,
+    projectId,
+    queryClient,
+    uri,
+    workspaceId,
+    writeFileMutation,
+  ]);
 
   /** Undo the last editor change. */
   const handleUndo = useCallback(() => {

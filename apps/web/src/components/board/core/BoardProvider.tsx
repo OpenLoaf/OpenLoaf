@@ -24,6 +24,8 @@ export type BoardActions = {
 };
 
 export type BoardFileContext = {
+  /** Workspace id used for file resolution. */
+  workspaceId?: string;
   /** Project id used for file resolution. */
   projectId?: string;
   /** Project root uri for file resolution. */

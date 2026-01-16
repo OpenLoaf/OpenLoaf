@@ -19,6 +19,7 @@
     "@ai-sdk/xai": "^3.0.0",
     "@aws-sdk/client-s3": "^3.962.0",
     "@aws-sdk/s3-request-presigner": "^3.962.0",
+    "@hocuspocus/server": "^3.4.3",
     "@hono/node-server": "^1.14.4",
     "@hono/trpc-server": "^0.4.0",
     "@openai/codex-sdk": "^0.79.0",
@@ -45,6 +46,7 @@
     "uuid": "^13.0.0",
     "ws": "^8.18.0",
     "xlsx": "^0.18.5",
+    "yjs": "^13.6.29",
     "zod": "^4.1.11"
   },
   "devDependencies": {

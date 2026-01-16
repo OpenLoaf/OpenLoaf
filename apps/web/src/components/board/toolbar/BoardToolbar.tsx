@@ -7,6 +7,7 @@ import { cn } from "@udecode/cn";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasSnapshot } from "../engine/types";
 import { HoverPanel, IconBtn, PanelItem } from "../ui/ToolbarParts";
+import { getStackedImageRect } from "../utils/image-insert";
 
 export interface BoardToolbarProps {
   /** Canvas engine instance. */
@@ -79,8 +80,6 @@ const SELECT_SVG_SRC = "/board/select-cursor-svgrepo-com.svg";
 const DRAG_SVG_SRC = "/board/drag-svgrepo-com.svg";
 const NOTE_SVG_SRC = "/board/notes-note-svgrepo-com.svg";
 const PICTURE_SVG_SRC = "/board/picture-photo-svgrepo-com.svg";
-/** Offset applied when inserting multiple images from picker. */
-const IMAGE_PICK_STACK_OFFSET = 24;
 
 const prefixSvgIds = (svg: string, prefix: string) => {
   const safePrefix = prefix.replace(/:/g, "");
@@ -400,6 +399,21 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     [engine]
   );
 
+  /** Insert image payloads as stacked nodes around a center point. */
+  const insertImagePayloadsAtPoint = useCallback(
+    (
+      payloads: Array<{ props: Record<string, unknown>; size: [number, number] }>,
+      center: [number, number]
+    ) => {
+      payloads.forEach((payload, index) => {
+        const rect = getStackedImageRect(center, payload.size, index);
+        // 逻辑：批量插入图片时错位堆叠，避免完全重叠。
+        engine.addNodeElement("image", payload.props, rect);
+      });
+    },
+    [engine]
+  );
+
   useEffect(() => {
     if (!toolbarDragging) return;
     const handlePointerMove = (event: PointerEvent) => {
@@ -471,24 +485,17 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           return;
         }
         const center = engine.getViewportCenterWorld();
-        for (const [index, file] of imageFiles.entries()) {
-          const payload = await engine.buildImagePayloadFromFile(file);
-          const [width, height] = payload.size;
-          const offset = IMAGE_PICK_STACK_OFFSET * index;
-          // 逻辑：批量插入图片时错位堆叠，避免完全重叠。
-          engine.addNodeElement("image", payload.props, [
-            center[0] - width / 2 + offset,
-            center[1] - height / 2 + offset,
-            width,
-            height,
-          ]);
+        const payloads = [];
+        for (const file of imageFiles) {
+          payloads.push(await engine.buildImagePayloadFromFile(file));
         }
+        insertImagePayloadsAtPoint(payloads, center);
       } finally {
         // 逻辑：清空输入，保证再次选择同一文件可触发 change
         event.target.value = "";
       }
     },
-    [engine, handleInsertRequest]
+    [engine, handleInsertRequest, insertImagePayloadsAtPoint]
   );
 
   // 统一按钮尺寸（“宽松”密度）

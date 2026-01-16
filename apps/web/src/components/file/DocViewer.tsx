@@ -37,6 +37,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 import "@univerjs/design/lib/index.css";
 import "@univerjs/ui/lib/index.css";
@@ -183,6 +184,8 @@ export default function DocViewer({
   panelKey,
   tabId,
 }: DocViewerProps) {
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   /** Tracks the document render status. */
   const [status, setStatus] = useState<DocViewerStatus>("idle");
   /** Track whether the document has unsaved changes. */
@@ -214,8 +217,8 @@ export default function DocViewer({
     (typeof uri === "string" && uri.toLowerCase().endsWith(".doc"));
   /** Holds the binary payload fetched from the fs API. */
   const fileQuery = useQuery({
-    ...trpc.fs.readBinary.queryOptions({ uri: uri ?? "" }),
-    enabled: shouldUseFs && Boolean(uri) && !isLegacyDoc,
+    ...trpc.fs.readBinary.queryOptions({ workspaceId, uri: uri ?? "" }),
+    enabled: shouldUseFs && Boolean(uri) && !isLegacyDoc && Boolean(workspaceId),
   });
   /** Mutation handler for persisting binary payloads. */
   const writeBinaryMutation = useMutation(trpc.fs.writeBinary.mutationOptions());
@@ -356,7 +359,11 @@ export default function DocViewer({
       const buffer = await buildDocxBuffer(text);
       const contentBase64 = encodeArrayBufferToBase64(buffer);
       const saveUri = resolveSaveUri(uri);
-      await writeBinaryMutation.mutateAsync({ uri: saveUri, contentBase64 });
+      await writeBinaryMutation.mutateAsync({
+        workspaceId,
+        uri: saveUri,
+        contentBase64,
+      });
       setIsDirty(false);
       if (saveUri !== uri) {
         toast.success("已另存为 DOCX 文件");

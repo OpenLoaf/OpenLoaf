@@ -8,19 +8,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { useBoardContext } from "../core/BoardProvider";
 
-/** Legacy Plate node shape used by older text nodes. */
-type LegacyPlateNode = {
-  /** Plain text stored on the legacy node. */
-  text?: string;
-  /** Children nodes for nested structure. */
-  children?: LegacyPlateNode[];
-};
-
-/** Legacy Plate document value stored on older text nodes. */
-type LegacyPlateValue = LegacyPlateNode[];
-
 /** Text value stored on the text node. */
-export type TextNodeValue = string | LegacyPlateValue;
+export type TextNodeValue = string;
 
 export type TextNodeProps = {
   /** Text content stored on the node. */
@@ -52,25 +41,9 @@ const TEXT_NODE_MIN_SIZE = { w: 200, h: 100 };
 /** Maximum size for text nodes. */
 const TEXT_NODE_MAX_SIZE = { w: 720, h: 420 };
 
-/** Extract plain text from a legacy Plate node. */
-function extractLegacyText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  if ("text" in node && typeof node.text === "string") return node.text;
-  if ("children" in node && Array.isArray(node.children)) {
-    // 逻辑：递归拼接子节点文本，保留段落结构。
-    return node.children.map(extractLegacyText).join("");
-  }
-  return "";
-}
-
 /** Normalize the stored value to a plain text string. */
 function normalizeTextValue(value?: TextNodeValue): string {
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) {
-    // 逻辑：兼容旧版 Plate 数据，按顶层节点换行合并。
-    return value.map(extractLegacyText).join("\n");
-  }
-  return DEFAULT_TEXT_VALUE;
+  return typeof value === "string" ? value : DEFAULT_TEXT_VALUE;
 }
 
 /** Detect whether the text value is effectively empty. */
@@ -537,7 +510,7 @@ export function TextNodeView({
 export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
   type: "text",
   schema: z.object({
-    value: z.union([z.string(), z.array(z.any())]),
+    value: z.string(),
     autoFocus: z.boolean().optional(),
     collapsedHeight: z.number().optional(),
   }),

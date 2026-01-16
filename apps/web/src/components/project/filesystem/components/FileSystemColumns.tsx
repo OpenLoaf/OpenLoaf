@@ -44,6 +44,7 @@ import { FileSystemSearchEmptyState } from "./FileSystemEmptyState";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
 import { useFileSystemSelection } from "../hooks/use-file-system-selection";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 /** Return true when the entry represents a board folder. */
 const isBoardFolderEntry = (entry: FileSystemEntry) =>
@@ -392,6 +393,8 @@ const FileSystemColumns = memo(function FileSystemColumns({
   resolveSelectionMode,
   onGridContextMenuCapture,
 }: FileSystemColumnsProps) {
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const activeUri = currentUri ?? rootUri ?? null;
   const searchText = searchQuery?.trim() ?? "";
   const hasSearchQuery = searchText.length > 0;
@@ -408,11 +411,13 @@ const FileSystemColumns = memo(function FileSystemColumns({
   const columnQueries = useQueries({
     queries: columnUris.map((uri) => ({
       ...trpc.fs.list.queryOptions({
+        workspaceId,
         uri,
         includeHidden,
         sort:
           sortField && sortOrder ? { field: sortField, order: sortOrder } : undefined,
       }),
+      enabled: Boolean(workspaceId),
     })),
   });
   const hasExplicitSelection = (selectedUris?.size ?? 0) > 0;
@@ -514,8 +519,11 @@ const FileSystemColumns = memo(function FileSystemColumns({
     (isPreviewImage || isPreviewPdf) &&
     Boolean(previewEntry?.uri?.startsWith("file://"));
   const previewQuery = useQuery({
-    ...trpc.fs.readBinary.queryOptions({ uri: previewEntry?.uri ?? "" }),
-    enabled: shouldLoadPreview,
+    ...trpc.fs.readBinary.queryOptions({
+      workspaceId,
+      uri: previewEntry?.uri ?? "",
+    }),
+    enabled: shouldLoadPreview && Boolean(workspaceId),
   });
   const previewSrc = useMemo(() => {
     if (!previewEntry) return "";

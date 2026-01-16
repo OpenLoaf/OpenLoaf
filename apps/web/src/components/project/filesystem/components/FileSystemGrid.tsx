@@ -461,89 +461,92 @@ const FileSystemGrid = memo(function FileSystemGrid({
           shouldBlockPointerEvent={shouldBlockPointerEvent}
         />
       ) : null}
-      <div
-        ref={gridRef}
-        tabIndex={-1}
-        className="relative flex-1 min-h-full h-full p-0.5 focus:outline-none @container/fs-grid"
-        onMouseDown={handleGridMouseDown}
-        onContextMenuCapture={handleGridContextMenuCapture}
-      >
-        {selectionRect && gridRef.current ? (
-          <div
-            className="pointer-events-none absolute z-10 rounded-md border border-primary/40 bg-primary/10"
-            style={{
-              left:
-                selectionRect.left -
-                gridRef.current.getBoundingClientRect().left,
-              top:
-                selectionRect.top - gridRef.current.getBoundingClientRect().top,
-              width: selectionRect.right - selectionRect.left,
-              height: selectionRect.bottom - selectionRect.top,
-            }}
-          />
-        ) : null}
+      {shouldShowEmpty ? null : (
         <div
-          ref={gridListRef}
-          className="grid gap-5 justify-start [grid-template-columns:repeat(1,minmax(140px,1fr))] @[320px]/fs-grid:[grid-template-columns:repeat(2,minmax(140px,1fr))] @[480px]/fs-grid:[grid-template-columns:repeat(3,minmax(140px,1fr))] @[640px]/fs-grid:[grid-template-columns:repeat(4,minmax(140px,1fr))] @[800px]/fs-grid:[grid-template-columns:repeat(5,minmax(140px,1fr))] @[960px]/fs-grid:[grid-template-columns:repeat(6,minmax(140px,1fr))]"
+          ref={gridRef}
+          tabIndex={-1}
+          className="relative flex-1 min-h-full h-full p-0.5 focus:outline-none @container/fs-grid"
+          onMouseDown={handleGridMouseDown}
+          onContextMenuCapture={handleGridContextMenuCapture}
         >
-          {shouldShowParentEntry && parentEntry ? (
-            <FileSystemParentEntryCard
-              parentEntry={parentEntry}
-              isSelected={selectedUris?.has(parentEntry.uri)}
-              isDragOver={dragOverFolderUri === parentEntry.uri}
-              onNavigate={onNavigate}
-              onEntryDrop={onEntryDrop}
-              setDragOverFolderUri={setDragOverFolderUri}
-              shouldBlockPointerEvent={shouldBlockPointerEvent}
+          {selectionRect && gridRef.current ? (
+            <div
+              className="pointer-events-none absolute z-10 rounded-md border border-primary/40 bg-primary/10"
+              style={{
+                left:
+                  selectionRect.left -
+                  gridRef.current.getBoundingClientRect().left,
+                top:
+                  selectionRect.top - gridRef.current.getBoundingClientRect().top,
+                width: selectionRect.right - selectionRect.left,
+                height: selectionRect.bottom - selectionRect.top,
+              }}
             />
           ) : null}
-          {entries.map((entry) => {
-            const isRenaming = renamingUri === entry.uri;
-            const isSelected = selectedUris?.has(entry.uri) ?? false;
-            const isDragOver = entry.kind === "folder" && dragOverFolderUri === entry.uri;
-            const thumbnailSrc = thumbnailByUri.get(entry.uri);
-            const isDisabled = isEntrySelectable ? !isEntrySelectable(entry) : false;
-            const card = isRenaming ? (
-              <FileSystemEntryRenameCard
-                entry={entry}
-                thumbnailSrc={thumbnailSrc}
-                entryRef={registerEntryRef(entry.uri)}
-                isSelected={isSelected}
-                renamingValue={renamingValue}
-                onRenamingChange={onRenamingChange}
-                onRenamingSubmit={onRenamingSubmit}
-                onRenamingCancel={onRenamingCancel}
+          <div
+            ref={gridListRef}
+            className="grid gap-5 justify-start [grid-template-columns:repeat(1,minmax(140px,1fr))] @[320px]/fs-grid:[grid-template-columns:repeat(2,minmax(140px,1fr))] @[480px]/fs-grid:[grid-template-columns:repeat(3,minmax(140px,1fr))] @[640px]/fs-grid:[grid-template-columns:repeat(4,minmax(140px,1fr))] @[800px]/fs-grid:[grid-template-columns:repeat(5,minmax(140px,1fr))] @[960px]/fs-grid:[grid-template-columns:repeat(6,minmax(140px,1fr))]"
+          >
+            {shouldShowParentEntry && parentEntry ? (
+              <FileSystemParentEntryCard
+                parentEntry={parentEntry}
+                isSelected={selectedUris?.has(parentEntry.uri)}
+                isDragOver={dragOverFolderUri === parentEntry.uri}
+                onNavigate={onNavigate}
+                onEntryDrop={onEntryDrop}
+                setDragOverFolderUri={setDragOverFolderUri}
+                shouldBlockPointerEvent={shouldBlockPointerEvent}
               />
-            ) : (
-              <FileSystemEntryCard
-                uri={entry.uri}
-                name={entry.name}
-                kind={entry.kind}
-                ext={entry.ext}
-                isEmpty={entry.isEmpty}
-                thumbnailSrc={thumbnailSrc}
-                ref={registerEntryRef(entry.uri)}
-                isSelected={isSelected}
-                isDisabled={isDisabled}
-                isDragOver={isDragOver}
-                onClick={handleEntryClick}
-                onDoubleClick={handleEntryDoubleClick}
-                onContextMenu={handleEntryContextMenu}
-                onDragStart={handleEntryDragStart}
-                onDragOver={handleEntryDragOver}
-                onDragEnter={handleEntryDragEnter}
-                onDragLeave={handleEntryDragLeave}
-                onDrop={handleEntryDrop}
-              />
-            );
-            return (
-              <Fragment key={entry.uri}>
-                {renderEntry ? renderEntry(entry, card) : card}
-              </Fragment>
-            );
-          })}
+            ) : null}
+            {entries.map((entry) => {
+              const isRenaming = renamingUri === entry.uri;
+              const isSelected = selectedUris?.has(entry.uri) ?? false;
+              const isDragOver =
+                entry.kind === "folder" && dragOverFolderUri === entry.uri;
+              const thumbnailSrc = thumbnailByUri.get(entry.uri);
+              const isDisabled = isEntrySelectable ? !isEntrySelectable(entry) : false;
+              const card = isRenaming ? (
+                <FileSystemEntryRenameCard
+                  entry={entry}
+                  thumbnailSrc={thumbnailSrc}
+                  entryRef={registerEntryRef(entry.uri)}
+                  isSelected={isSelected}
+                  renamingValue={renamingValue}
+                  onRenamingChange={onRenamingChange}
+                  onRenamingSubmit={onRenamingSubmit}
+                  onRenamingCancel={onRenamingCancel}
+                />
+              ) : (
+                <FileSystemEntryCard
+                  uri={entry.uri}
+                  name={entry.name}
+                  kind={entry.kind}
+                  ext={entry.ext}
+                  isEmpty={entry.isEmpty}
+                  thumbnailSrc={thumbnailSrc}
+                  ref={registerEntryRef(entry.uri)}
+                  isSelected={isSelected}
+                  isDisabled={isDisabled}
+                  isDragOver={isDragOver}
+                  onClick={handleEntryClick}
+                  onDoubleClick={handleEntryDoubleClick}
+                  onContextMenu={handleEntryContextMenu}
+                  onDragStart={handleEntryDragStart}
+                  onDragOver={handleEntryDragOver}
+                  onDragEnter={handleEntryDragEnter}
+                  onDragLeave={handleEntryDragLeave}
+                  onDrop={handleEntryDrop}
+                />
+              );
+              return (
+                <Fragment key={entry.uri}>
+                  {renderEntry ? renderEntry(entry, card) : card}
+                </Fragment>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 });
