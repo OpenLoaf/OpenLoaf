@@ -9,7 +9,7 @@ import type {
 import type { ModelDefinition, ProviderDefinition } from "@tenas-ai/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { logger } from "@/common/logger";
-import { loadTenasImageBuffer } from "@/ai/chat-stream/attachmentResolver";
+import { loadProjectImageBuffer } from "@/ai/chat-stream/attachmentResolver";
 import { downloadImageData } from "@/ai/utils/image-download";
 import { resolveQwenConfig } from "./qwenConfig";
 import {
@@ -96,6 +96,11 @@ function buildDataUrl(mediaType: string, data: Uint8Array | Buffer | string): st
   return `data:${mediaType};base64,${base64}`;
 }
 
+/** Check whether the input string is a relative path. */
+function isRelativePath(value: string): boolean {
+  return !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value);
+}
+
 /** Resolve a file part into data url. */
 function resolveFileDataUrl(file: ImageModelV3File): string {
   if (file.type === "url") {
@@ -118,8 +123,8 @@ async function resolveLocalImageUrl(input: {
   abortSignal?: AbortSignal;
 }): Promise<string> {
   const url = input.url.trim();
-  if (url.startsWith("tenas-file://")) {
-    const payload = await loadTenasImageBuffer({ url });
+  if (isRelativePath(url)) {
+    const payload = await loadProjectImageBuffer({ path: url });
     if (!payload) {
       throw new Error("图片读取失败");
     }

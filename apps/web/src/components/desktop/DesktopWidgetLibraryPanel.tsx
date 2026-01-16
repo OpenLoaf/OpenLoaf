@@ -13,7 +13,7 @@ import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
 import {
-  buildTenasFileUrl,
+  formatScopedProjectPath,
   getRelativePathFromUri,
 } from "@/components/project/filesystem/utils/file-system-utils";
 
@@ -105,7 +105,7 @@ export default function DesktopWidgetLibraryPanel({
   const removeStackItem = useTabs((s) => s.removeStackItem);
   // 过滤关键字。
   const [query, setQuery] = React.useState("");
-  // 项目列表（用于解析 tenas-file 目录引用）。
+  // 项目列表（用于解析项目目录引用）。
   const projectListQuery = useProjects();
   const projectRoots = React.useMemo(
     () => flattenProjectTree(projectListQuery.data),
@@ -116,14 +116,17 @@ export default function DesktopWidgetLibraryPanel({
   const [pendingFolderWidget, setPendingFolderWidget] =
     React.useState<DesktopWidgetItem["widgetKey"] | null>(null);
 
-  /** Resolve the selected folder into tenas-file metadata. */
+  /** Resolve the selected folder into a scoped relative path. */
   const resolveFolderSelection = React.useCallback(
     (targetUri: string) => {
-      // 中文注释：使用项目根目录匹配目标路径，生成 tenas-file 协议引用。
+      // 使用项目根目录匹配目标路径，生成带 projectId 的相对路径引用。
       for (const project of projectRoots) {
         if (!isUriUnderRoot(project.rootUri, targetUri)) continue;
         const relativePath = getRelativePathFromUri(project.rootUri, targetUri);
-        const folderUri = buildTenasFileUrl(project.projectId, relativePath);
+        const folderUri = formatScopedProjectPath({
+          projectId: project.projectId,
+          relativePath,
+        });
         const relativeParts = relativePath.split("/").filter(Boolean);
         const title =
           relativeParts[relativeParts.length - 1] || project.title || "Folder";

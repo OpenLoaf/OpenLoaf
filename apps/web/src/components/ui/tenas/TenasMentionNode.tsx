@@ -17,7 +17,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { useMounted } from "@/hooks/use-mounted";
-import { parseTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
+import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 
 /** Render a mention chip with file reference styling. */
 export function TenasMentionElement(
@@ -37,7 +37,7 @@ export function TenasMentionElement(
   const baseValue = match?.[1] ?? normalizedValue;
   const lineStart = match?.[2];
   const lineEnd = match?.[3];
-  const parsed = baseValue.startsWith("tenas-file://") ? parseTenasFileUrl(baseValue) : null;
+  const parsed = parseScopedProjectPath(baseValue);
   const labelBase = parsed?.relativePath ?? baseValue;
   const label = labelBase.split("/").pop() || labelBase;
   const labelWithLines =

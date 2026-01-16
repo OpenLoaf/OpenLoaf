@@ -11,7 +11,7 @@
 - 当当前模式无 `image_mesk_input` 标签模型时提示不可用。
 - 保存后将模型切换到当前模式下第一个带 `image_mesk_input` 的模型。
 
-> 关键调整：不再写入原文件路径；统一走 ChatInput 的上传逻辑（`/chat/attachments`），让后端生成新的 `tenas-file://`。
+> 关键调整：不再写入原文件路径；统一走 ChatInput 的上传逻辑（`/chat/attachments`），让后端生成新的相对路径。
 
 ---
 
@@ -164,7 +164,7 @@ type GenerateImagePrompt =
 
 新增统一转换函数（服务端）：
 
-- `tenas-file://`：读取二进制，生成 `Uint8Array`。
+- 相对路径：读取二进制，生成 `Uint8Array`。
 - `data:`：解析 base64 -> `Uint8Array`。
 - `http(s)`：视为 URL。
 
@@ -239,14 +239,14 @@ prompt: {
 
 ## 文件路径变化链（统一理解）
 
-1. ImageViewer 显示：`data:` / `tenas-file://` / `file://`
+1. ImageViewer 显示：`data:` / 相对路径 / `file://`
 2. ImageViewer 生成 File -> ChatInput 上传 `/chat/attachments`
-3. 服务端保存：`tenas-file://.../.tenas/chat/{sessionId}/{hash}.{ext}`
+3. 服务端保存：`.tenas/chat/{sessionId}/{hash}.{ext}`
 4. 模型调用（图像编辑场景）：  
    - 生成 `{原图名}_alpha.png` 或 `{原图名}_grey.png`  
    - 原图 + mask 上传到 S3，获得 URL  
    - 使用 URL 调用模型  
-5. SSE 输出：data URL -> 落盘 -> `tenas-file://`
+5. SSE 输出：data URL -> 落盘 -> 相对路径
 
 ---
 
@@ -301,7 +301,7 @@ prompt: {
                调用 ImageModel
                      |
                      v
-           SSE 返回图片 -> 落盘 -> tenas-file
+           SSE 返回图片 -> 落盘 -> 相对路径
 ```
 
 ---

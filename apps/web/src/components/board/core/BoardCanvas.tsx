@@ -10,6 +10,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
+import * as Y from "yjs";
 import { cn } from "@udecode/cn";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
@@ -27,17 +28,14 @@ import type { LinkNodeProps } from "../nodes/LinkNode";
 import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/ImageGenerateNode";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/ImagePromptGenerateNode";
 import { readImageDragPayload } from "@/lib/image/drag";
-import { FILE_DRAG_URI_MIME } from "@/components/ui/tenas/drag-drop-types";
+import { FILE_DRAG_URI_MIME, FILE_DRAG_URIS_MIME } from "@/components/ui/tenas/drag-drop-types";
 import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import {
   buildChildUri,
-  buildTenasFileUrl,
-  getRelativePathFromUri,
   getUniqueName,
-  parseTenasFileUrl,
 } from "@/components/project/filesystem/utils/file-system-utils";
-import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { BOARD_ASSETS_DIR_NAME, BOARD_LOG_FILE_NAME } from "@/lib/file-name";
 import type {
   CanvasElement,
   CanvasConnectorTemplateDefinition,
@@ -62,91 +60,40 @@ import {
 } from "./SelectionOverlay";
 import { NodePicker } from "./NodePicker";
 import {
-  BOARD_SCHEMA_VERSION,
-  createEmptyBoardSnapshot,
-  getWorkspaceIdFromCookie,
-  type BoardSnapshotState,
-} from "./boardStorage";
+  applyBoardDocUpdate,
+  createBoardDoc,
+  decodeBase64,
+  decodeBoardLogEntries,
+  encodeBase64,
+  encodeBoardDocUpdate,
+  encodeBoardLogEntry,
+  readBoardDocPayload,
+  type BoardDocPayload,
+  writeBoardDocPayload,
+} from "./boardYjsStore";
 import {
-  readBoardSnapshotCache,
-  writeBoardSnapshotCache,
-  type BoardSnapshotCacheRecord,
-} from "./boardSnapshotCache";
+  isBoardRelativePath,
+  resolveBoardFolderScope,
+  resolveBoardRelativeUri,
+  toBoardRelativePath,
+} from "./boardFilePath";
 import { useBoardSnapshot } from "./useBoardSnapshot";
 import { useBoardViewState } from "./useBoardViewState";
 import { useBasicConfig } from "@/hooks/use-basic-config";
-const VIEWPORT_SAVE_DELAY = 800;
+const BOARD_SAVE_DELAY = 800;
+/** Max bytes allowed in the incremental log before compaction. */
+const BOARD_LOG_MAX_BYTES = 512 * 1024;
+/** Max update entries allowed in the incremental log before compaction. */
+const BOARD_LOG_MAX_UPDATES = 40;
 /** Default size for double-click created text nodes. */
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
 /** Offset applied when stacking multiple dropped images. */
 const IMAGE_DROP_STACK_OFFSET = 24;
-/** Prefix used for board-relative tenas-file paths. */
-const BOARD_RELATIVE_URI_PREFIX = "tenas-file://./";
 const EDITABLE_NODE_TYPES = new Set([
   "text",
   IMAGE_GENERATE_NODE_TYPE,
   IMAGE_PROMPT_GENERATE_NODE_TYPE,
 ]);
-
-/** Normalize a relative path string. */
-function normalizeRelativePath(value: string) {
-  return value.replace(/^\/+/, "");
-}
-
-/** Return true when the relative path attempts to traverse parents. */
-function hasParentTraversal(value: string) {
-  return value.split("/").some((segment) => segment === "..");
-}
-
-/** Map image node sources through a transform function. */
-function mapSnapshotImageSources(
-  snapshot: BoardSnapshotState,
-  transform: (source: string) => string
-): BoardSnapshotState {
-  let changed = false;
-  const nextNodes = snapshot.nodes.map((node) => {
-    if (node.type !== "image") return node;
-    const props = node.props as Record<string, unknown>;
-    const originalSrc = typeof props.originalSrc === "string" ? props.originalSrc : "";
-    if (!originalSrc) return node;
-    const nextSrc = transform(originalSrc);
-    if (!nextSrc || nextSrc === originalSrc) return node;
-    changed = true;
-    return {
-      ...node,
-      props: {
-        ...props,
-        originalSrc: nextSrc,
-      },
-    };
-  });
-  if (!changed) return snapshot;
-  return {
-    ...snapshot,
-    nodes: nextNodes,
-  };
-}
-
-/** Strip preview sources from image nodes for file persistence. */
-function stripSnapshotImagePreviews(snapshot: BoardSnapshotState): BoardSnapshotState {
-  let changed = false;
-  const nextNodes = snapshot.nodes.map((node) => {
-    if (node.type !== "image") return node;
-    const props = node.props as Record<string, unknown>;
-    if (!Object.prototype.hasOwnProperty.call(props, "previewSrc")) return node;
-    changed = true;
-    const { previewSrc: _previewSrc, ...rest } = props;
-    return {
-      ...node,
-      props: rest,
-    };
-  });
-  if (!changed) return snapshot;
-  return {
-    ...snapshot,
-    nodes: nextNodes,
-  };
-}
 
 /** Split elements into nodes and connectors. */
 const splitElements = (elements: CanvasElement[]) => {
@@ -181,17 +128,6 @@ const isImageDragEvent = (event: DragEvent<HTMLElement>) => {
 /** Check whether a file is a supported image. */
 const isImageFile = (file: File) => file.type.startsWith("image/");
 
-/** Parse a board snapshot from file content. */
-function parseBoardSnapshot(content?: string | null): BoardSnapshotState | null {
-  if (!content) return null;
-  try {
-    return JSON.parse(content) as BoardSnapshotState;
-  } catch {
-    // 中文注释：解析失败时回退为空画布，保证后续编辑可以覆盖保存。
-    return createEmptyBoardSnapshot();
-  }
-}
-
 export type BoardCanvasProps = {
   /** External engine instance, optional for integration scenarios. */
   engine?: CanvasEngine;
@@ -224,7 +160,6 @@ export function BoardCanvas({
   engine: externalEngine,
   nodes,
   initialElements,
-  workspaceId,
   projectId,
   rootUri,
   boardId,
@@ -272,16 +207,20 @@ export function BoardCanvas({
   const hydratedRef = useRef(false);
   /** Last saved document revision for change detection. */
   const lastSavedRevisionRef = useRef<number | null>(null);
-  /** Last saved viewport snapshot for change detection. */
-  const lastSavedViewportRef = useRef<string>("");
   /** Pending save marker during drag interactions. */
   const pendingSaveRef = useRef(false);
-  /** Timeout id for debounced viewport save. */
-  const viewportSaveTimeoutRef = useRef<number | null>(null);
-  /** Timeout id for debounced file snapshot save. */
+  /** Timeout id for debounced file save. */
   const remoteSaveTimeoutRef = useRef<number | null>(null);
-  /** Latest payload queued for file save. */
-  const pendingFileSnapshotRef = useRef<BoardSnapshotState | null>(null);
+  /** Yjs document used for persistence. */
+  const boardDocRef = useRef<Y.Doc | null>(null);
+  /** State vector used for incremental updates. */
+  const boardStateVectorRef = useRef<Uint8Array | null>(null);
+  /** Accumulated log size in bytes. */
+  const logSizeRef = useRef(0);
+  /** Accumulated log update count. */
+  const logUpdateCountRef = useRef(0);
+  /** Serial queue for persistence writes. */
+  const saveQueueRef = useRef(Promise.resolve());
   /** Image node ids currently upgrading to asset files. */
   const imageAssetUpgradeIdsRef = useRef<Set<string>>(new Set());
   /** Whether grid rendering is suppressed for export. */
@@ -290,10 +229,6 @@ export function BoardCanvas({
   const cursorRef = useRef<"crosshair" | "grabbing" | "grab" | "default">("default");
   /** Image preview payload for the fullscreen viewer. */
   const [imagePreview, setImagePreview] = useState<ImagePreviewPayload | null>(null);
-  /** Cached local snapshot for comparisons. */
-  const [localSnapshot, setLocalSnapshot] = useState<BoardSnapshotCacheRecord | null>(null);
-  /** Whether local snapshot has been loaded. */
-  const [localLoaded, setLocalLoaded] = useState(false);
   /** Last pointer location inside the canvas, in world coordinates. */
   const lastPointerWorldRef = useRef<CanvasPoint | null>(null);
   /** Track wheel gesture target to avoid mid-gesture handoff. */
@@ -303,50 +238,51 @@ export function BoardCanvas({
   }>({ mode: null, ts: 0 });
   /** Latest snapshot ref for save callbacks. */
   const latestSnapshotRef = useRef(snapshot);
-  /** Latest snapshot version for sync decisions. */
-  const currentVersionRef = useRef(0);
-  /** Workspace id resolved from props or cookie. */
-  const resolvedWorkspaceId = workspaceId ?? getWorkspaceIdFromCookie();
-  /** Board scope used for local cache. */
-  const boardScope = useMemo(() => {
-    if (!resolvedWorkspaceId || !boardId) return null;
-    return { workspaceId: resolvedWorkspaceId, boardId };
-  }, [boardId, resolvedWorkspaceId]);
   /** Board folder scope used for attachment resolution. */
-  const boardFolderScope = useMemo(() => {
-    if (!boardFolderUri) return null;
-    const parsed = parseTenasFileUrl(boardFolderUri);
-    if (parsed) {
-      return {
-        projectId: parsed.projectId,
-        relativeFolderPath: parsed.relativePath,
-        boardFolderUri,
-      };
-    }
-    if (!projectId || !rootUri) return null;
-    const relativeFolderPath = getRelativePathFromUri(rootUri, boardFolderUri);
-    if (!relativeFolderPath) return null;
-    return { projectId, relativeFolderPath, boardFolderUri };
-  }, [boardFolderUri, projectId, rootUri]);
+  const boardFolderScope = useMemo(
+    () => resolveBoardFolderScope({ projectId, rootUri, boardFolderUri }),
+    [boardFolderUri, projectId, rootUri]
+  );
   /** Assets folder uri inside the board folder. */
   const assetsFolderUri = useMemo(() => {
     if (!boardFolderUri) return null;
     return buildChildUri(boardFolderUri, BOARD_ASSETS_DIR_NAME);
   }, [boardFolderUri]);
+  /** Log file uri stored inside the board folder. */
+  const boardLogUri = useMemo(() => {
+    if (boardFolderUri) {
+      return buildChildUri(boardFolderUri, BOARD_LOG_FILE_NAME);
+    }
+    if (boardFileUri) return `${boardFileUri}.log`;
+    return null;
+  }, [boardFileUri, boardFolderUri]);
   /** File scope used for persistence. */
-  const fileScope = useMemo(() => {
+  const boardFileScope = useMemo(() => {
     if (!boardFileUri) return null;
     return { uri: boardFileUri };
   }, [boardFileUri]);
+  /** Log file scope used for persistence. */
+  const boardLogScope = useMemo(() => {
+    if (!boardLogUri) return null;
+    return { uri: boardLogUri };
+  }, [boardLogUri]);
   /** Log guard for missing scope. */
   const missingScopeLoggedRef = useRef(false);
   /** File snapshot query for the board. */
   const boardFileQuery = useQuery(
-    trpc.fs.readFile.queryOptions(fileScope ?? skipToken)
+    trpc.fs.readBinary.queryOptions(boardFileScope ?? skipToken)
+  );
+  /** Log file query for the board. */
+  const boardLogQuery = useQuery(
+    trpc.fs.readBinary.queryOptions(boardLogScope ?? skipToken)
   );
   /** File snapshot save mutation. */
-  const saveBoardSnapshot = useMutation(
-    trpc.fs.writeFile.mutationOptions()
+  const writeBoardSnapshot = useMutation(
+    trpc.fs.writeBinary.mutationOptions()
+  );
+  /** Log append mutation. */
+  const appendBoardLog = useMutation(
+    trpc.fs.appendBinary.mutationOptions()
   );
   /** Asset file write mutation. */
   const writeAssetMutation = useMutation(
@@ -426,73 +362,33 @@ export function BoardCanvas({
     ]
   );
 
-  /** Resolve board-relative tenas-file urls into absolute paths. */
-  const resolveBoardRelativeUri = useCallback(
-    (uri: string) => {
-      if (!boardFolderScope) return uri;
-      if (!uri.startsWith(BOARD_RELATIVE_URI_PREFIX)) return uri;
-      const relativePath = normalizeRelativePath(
-        uri.slice(BOARD_RELATIVE_URI_PREFIX.length)
-      );
-      if (!relativePath || hasParentTraversal(relativePath)) return uri;
-      if (!relativePath.startsWith(`${BOARD_ASSETS_DIR_NAME}/`)) return uri;
-      const combined = `${boardFolderScope.relativeFolderPath}/${relativePath}`;
-      return buildTenasFileUrl(boardFolderScope.projectId, combined);
-    },
-    [boardFolderScope]
-  );
-
-  /** Convert absolute tenas-file urls into board-relative paths. */
-  const toBoardRelativeUri = useCallback(
-    (uri: string) => {
-      if (!boardFolderScope) return uri;
-      const parsed = parseTenasFileUrl(uri);
-      if (!parsed) return uri;
-      if (parsed.projectId !== boardFolderScope.projectId) return uri;
-      const basePath = `${boardFolderScope.relativeFolderPath}/`;
-      if (!parsed.relativePath.startsWith(basePath)) return uri;
-      const relativePath = normalizeRelativePath(
-        parsed.relativePath.slice(basePath.length)
-      );
-      if (!relativePath || hasParentTraversal(relativePath)) return uri;
-      if (!relativePath.startsWith(`${BOARD_ASSETS_DIR_NAME}/`)) return uri;
-      return `${BOARD_RELATIVE_URI_PREFIX}${relativePath}`;
-    },
-    [boardFolderScope]
-  );
-
-
   /** Build image payloads while persisting assets into the board folder. */
   const buildBoardImagePayloadFromFile = useCallback(
     async (file: File) => {
       const payload = await buildImageNodePayloadFromFile(file);
-      if (!boardFolderScope || !assetsFolderUri) return payload;
+      if (!assetsFolderUri) return payload;
       try {
         const assetName = await saveBoardAssetFile(file);
         if (!assetName) return payload;
         const relativePath = `${BOARD_ASSETS_DIR_NAME}/${assetName}`;
-        const absolute = buildTenasFileUrl(
-          boardFolderScope.projectId,
-          `${boardFolderScope.relativeFolderPath}/${relativePath}`
-        );
         return {
           ...payload,
           props: {
             ...payload.props,
-            originalSrc: absolute,
+            originalSrc: relativePath,
           },
         };
       } catch {
         return payload;
       }
     },
-    [assetsFolderUri, boardFolderScope, saveBoardAssetFile]
+    [assetsFolderUri, saveBoardAssetFile]
   );
 
   /** Upgrade image nodes with data URLs into asset files. */
   const upgradeImageNodeAssets = useCallback(
     async (nodes: CanvasNodeElement[]) => {
-      if (!boardFolderScope || !assetsFolderUri) return false;
+      if (!assetsFolderUri) return false;
       let updated = false;
       let pending = false;
       for (const node of nodes) {
@@ -518,21 +414,18 @@ export function BoardCanvas({
           const assetName = await saveBoardAssetFile(file);
           if (!assetName) continue;
           const relativePath = `${BOARD_ASSETS_DIR_NAME}/${assetName}`;
-          const absolute = buildTenasFileUrl(
-            boardFolderScope.projectId,
-            `${boardFolderScope.relativeFolderPath}/${relativePath}`
-          );
-          engine.doc.updateNodeProps(node.id, { originalSrc: absolute });
+          engine.doc.updateNodeProps(node.id, { originalSrc: relativePath });
           updated = true;
         } catch {
-          // 逻辑：升级失败时保留 base64，避免阻塞保存流程。
+          // 逻辑：升级失败时阻止落盘，避免保存 base64 到画布文件。
+          pending = true;
         } finally {
           imageAssetUpgradeIdsRef.current.delete(node.id);
         }
       }
       return updated || pending;
     },
-    [assetsFolderUri, boardFolderScope, engine, saveBoardAssetFile]
+    [assetsFolderUri, engine, saveBoardAssetFile]
   );
 
   useEffect(() => {
@@ -542,39 +435,131 @@ export function BoardCanvas({
     };
   }, [buildBoardImagePayloadFromFile, engine]);
 
-  /** Normalize file-loaded snapshots for in-canvas rendering. */
-  const normalizeSnapshotForCanvas = useCallback(
-    (snapshotData: BoardSnapshotState) =>
-      mapSnapshotImageSources(snapshotData, resolveBoardRelativeUri),
-    [resolveBoardRelativeUri]
-  );
-
-  /** Normalize canvas snapshots before saving back to file. */
-  const normalizeSnapshotForFile = useCallback(
-    (snapshotData: BoardSnapshotState) => {
-      const normalized = mapSnapshotImageSources(snapshotData, toBoardRelativeUri);
-      // 逻辑：落盘时移除预览图，避免 .tnboard 体积膨胀。
-      return stripSnapshotImagePreviews(normalized);
+  /** Normalize image sources before saving back to disk. */
+  const normalizeNodesForSave = useCallback(
+    (nodes: CanvasNodeElement[]) => {
+      let changed = false;
+      const nextNodes = nodes.map((node) => {
+        if (node.type !== "image") return node;
+        const props = node.props as Record<string, unknown>;
+        const originalSrc = typeof props.originalSrc === "string" ? props.originalSrc : "";
+        const previewSrc = typeof props.previewSrc === "string" ? props.previewSrc : "";
+        const nextOriginal = toBoardRelativePath(
+          originalSrc,
+          boardFolderScope,
+          boardFolderUri
+        );
+        let nextPreview = previewSrc;
+        if (previewSrc.startsWith("data:") || previewSrc.startsWith("blob:")) {
+          // 逻辑：预览数据不落盘，避免文件中出现 base64 或临时 blob。
+          nextPreview = "";
+        } else if (previewSrc) {
+          nextPreview = toBoardRelativePath(
+            previewSrc,
+            boardFolderScope,
+            boardFolderUri
+          );
+        }
+        if (nextOriginal === originalSrc && nextPreview === previewSrc) {
+          return node;
+        }
+        changed = true;
+        let nextProps = props;
+        if (nextOriginal !== originalSrc) {
+          nextProps = { ...nextProps, originalSrc: nextOriginal };
+        }
+        if (nextPreview !== previewSrc) {
+          nextProps = { ...nextProps, previewSrc: nextPreview };
+        }
+        return {
+          ...node,
+          props: nextProps,
+        };
+      });
+      return changed ? nextNodes : nodes;
     },
-    [toBoardRelativeUri]
+    [boardFolderScope, boardFolderUri]
   );
 
-  /** Persist the latest file snapshot with asset upgrades applied. */
-  const savePendingSnapshotToFile = useCallback(async () => {
-    if (!fileScope) return;
-    const pending = pendingFileSnapshotRef.current;
-    if (!pending) return;
-    const upgraded = await upgradeImageNodeAssets(pending.nodes);
-    if (upgraded) {
-      // 逻辑：升级图片会触发快照变更，等待下一轮保存。
-      return;
-    }
-    const normalized = normalizeSnapshotForFile(pending);
-    saveBoardSnapshot.mutate({
-      uri: fileScope.uri,
-      content: JSON.stringify(normalized, null, 2),
+  /** Enqueue a persistence task to keep file writes in order. */
+  const enqueueSave = useCallback((task: () => Promise<void>) => {
+    saveQueueRef.current = saveQueueRef.current.then(task).catch(() => undefined);
+  }, []);
+
+  /** Persist the latest doc snapshot into base file and log. */
+  const persistBoardDoc = useCallback(() => {
+    enqueueSave(async () => {
+      if (!boardFileScope || !boardLogScope) return;
+      const doc = boardDocRef.current;
+      if (!doc) return;
+      const latest = latestSnapshotRef.current;
+      const { nodes, connectors } = splitElements(latest.elements);
+      const upgraded = await upgradeImageNodeAssets(nodes);
+      if (upgraded) {
+        // 逻辑：升级图片会触发快照变更，等待下一轮保存。
+        return;
+      }
+      const normalizedNodes = normalizeNodesForSave(nodes);
+      writeBoardDocPayload(doc, { nodes: normalizedNodes, connectors });
+      const stateVector = boardStateVectorRef.current ?? new Uint8Array(0);
+      const update = Y.encodeStateAsUpdate(doc, stateVector);
+      if (update.length === 0) return;
+      const logEntry = encodeBoardLogEntry(update);
+      const logEntryBase64 = encodeBase64(logEntry);
+      const fullUpdate = encodeBoardDocUpdate(doc);
+      const fullBase64 = encodeBase64(fullUpdate);
+      let logAppended = false;
+      try {
+        await appendBoardLog.mutateAsync({
+          uri: boardLogScope.uri,
+          contentBase64: logEntryBase64,
+        });
+        logAppended = true;
+      } catch {
+        // 逻辑：日志追加失败时仍尝试落盘基础文件。
+      }
+      let baseWritten = false;
+      try {
+        await writeBoardSnapshot.mutateAsync({
+          uri: boardFileScope.uri,
+          contentBase64: fullBase64,
+        });
+        baseWritten = true;
+      } catch {
+        // 逻辑：基础文件失败时保留日志，确保仍可恢复。
+      }
+      if (!logAppended && !baseWritten) return;
+      boardStateVectorRef.current = Y.encodeStateVector(doc);
+      if (!logAppended) return;
+      logSizeRef.current += logEntry.length;
+      logUpdateCountRef.current += 1;
+      if (
+        logSizeRef.current >= BOARD_LOG_MAX_BYTES ||
+        logUpdateCountRef.current >= BOARD_LOG_MAX_UPDATES
+      ) {
+        // 逻辑：日志过大时直接清空，避免重放成本过高。
+        try {
+          await writeBoardSnapshot.mutateAsync({
+            uri: boardLogScope.uri,
+            contentBase64: "",
+          });
+          logSizeRef.current = 0;
+          logUpdateCountRef.current = 0;
+        } catch {
+          // 逻辑：清理失败时保留统计，避免误判。
+        }
+      }
     });
-  }, [fileScope, normalizeSnapshotForFile, saveBoardSnapshot, upgradeImageNodeAssets]);
+  }, [
+    appendBoardLog,
+    boardFileScope,
+    boardLogScope,
+    encodeBoardDocUpdate,
+    enqueueSave,
+    normalizeNodesForSave,
+    upgradeImageNodeAssets,
+    writeBoardSnapshot,
+  ]);
   useEffect(() => {
     if (!containerRef.current) return;
     engine.attach(containerRef.current);
@@ -605,21 +590,32 @@ export function BoardCanvas({
       if (!container) return;
       const activeElement = document.activeElement;
       if (!activeElement || !container.contains(activeElement)) return;
-      const payload = getClipboardInsertPayload(event);
-      if (!payload || payload.kind !== "image") return;
+      const payloads = getClipboardInsertPayload(event);
+      if (!payloads || payloads.length === 0) return;
+      const imagePayloads = payloads.filter(
+        (
+          payload
+        ): payload is Extract<typeof payloads[number], { kind: "image" }> =>
+          payload.kind === "image"
+      );
+      if (imagePayloads.length === 0) return;
       event.preventDefault();
       event.stopPropagation();
       void (async () => {
-        const imagePayload = await engine.buildImagePayloadFromFile(payload.file);
-        const [width, height] = imagePayload.size;
         const center =
           lastPointerWorldRef.current ?? engine.getViewportCenterWorld();
-        engine.addNodeElement("image", imagePayload.props, [
-          center[0] - width / 2,
-          center[1] - height / 2,
-          width,
-          height,
-        ]);
+        for (const [index, payload] of imagePayloads.entries()) {
+          const imagePayload = await engine.buildImagePayloadFromFile(payload.file);
+          const [width, height] = imagePayload.size;
+          const offset = IMAGE_DROP_STACK_OFFSET * index;
+          // 逻辑：多张图片按偏移堆叠，避免重叠在同一点。
+          engine.addNodeElement("image", imagePayload.props, [
+            center[0] - width / 2 + offset,
+            center[1] - height / 2 + offset,
+            width,
+            height,
+          ]);
+        }
       })();
     };
     document.addEventListener("paste", handleGlobalPaste, { capture: true });
@@ -726,24 +722,24 @@ export function BoardCanvas({
       if (element.type !== "image") return;
       const props = element.props as ImageNodeProps;
       const originalSrc = props.originalSrc || "";
+      const resolvedOriginal = resolveBoardRelativeUri(originalSrc, boardFolderUri);
       const previewSrc = props.previewSrc || "";
-      const isRelativeTenas = originalSrc.startsWith("tenas-file://./");
+      const isRelative = isBoardRelativePath(resolvedOriginal);
       const canUseOriginal =
-        !isRelativeTenas &&
-        (originalSrc.startsWith("tenas-file://") ||
-          originalSrc.startsWith("data:") ||
-          originalSrc.startsWith("blob:") ||
-          originalSrc.startsWith("file://"));
-      const resolvedOriginal = canUseOriginal ? originalSrc : "";
-      if (!resolvedOriginal && !previewSrc) return;
+        !isRelative &&
+        (resolvedOriginal.startsWith("data:") ||
+          resolvedOriginal.startsWith("blob:") ||
+          resolvedOriginal.startsWith("file://"));
+      const finalOriginal = canUseOriginal ? resolvedOriginal : "";
+      if (!finalOriginal && !previewSrc) return;
       openImagePreview({
-        originalSrc: resolvedOriginal,
+        originalSrc: finalOriginal,
         previewSrc,
         fileName: props.fileName || "Image",
         mimeType: props.mimeType,
       });
     },
-    [openImagePreview]
+    [boardFolderUri, openImagePreview]
   );
 
   /** Handle node double click actions. */
@@ -769,87 +765,25 @@ export function BoardCanvas({
     },
     [engine, openImagePreviewFromNode]
   );
-  /** Apply a snapshot into the engine state. */
-  const applySnapshot = useCallback(
-    (snapshotData: BoardSnapshotState) => {
-      const normalized = normalizeSnapshotForCanvas(snapshotData);
-      const nodes = Array.isArray(normalized.nodes) ? normalized.nodes : [];
-      const connectors = Array.isArray(normalized.connectors)
-        ? normalized.connectors
+  /** Apply a board payload into the engine state. */
+  const applyBoardPayload = useCallback(
+    (payload: BoardDocPayload) => {
+      const nodes = Array.isArray(payload.nodes) ? payload.nodes : [];
+      const connectors = Array.isArray(payload.connectors)
+        ? payload.connectors
         : [];
       const elements = mergeElements(nodes, connectors);
       hydratedRef.current = false;
-      // 逻辑：恢复快照时先写入文档，再同步视口。
+      // 逻辑：恢复快照后重置历史，再执行视口自适应。
       engine.doc.setElements(elements);
       lastSavedRevisionRef.current = engine.doc.getRevision();
-      if (normalized.viewport) {
-        engine.viewport.setViewport(
-          normalized.viewport.zoom,
-          normalized.viewport.offset
-        );
-      }
-      // 逻辑：恢复快照仅重置历史，不触发额外渲染。
       engine.resetHistory({ emit: false });
-      if (normalized.viewport) {
-        lastSavedViewportRef.current = JSON.stringify({
-          zoom: normalized.viewport.zoom,
-          offset: normalized.viewport.offset,
-        });
-      }
-      currentVersionRef.current = normalized.version ?? 0;
       hydratedRef.current = true;
+      window.requestAnimationFrame(() => {
+        engine.fitToElements();
+      });
     },
-    [engine, normalizeSnapshotForCanvas]
-  );
-  /** Persist the current snapshot to local cache. */
-  const persistSnapshot = useCallback(
-    (
-      nodes: CanvasNodeElement[],
-      connectors: CanvasConnectorElement[],
-      viewport: BoardSnapshotState["viewport"],
-      options?: { bumpVersion?: boolean }
-    ) => {
-      if (!boardScope) return;
-      const bumpVersion = options?.bumpVersion ?? true;
-      const nextVersion = bumpVersion
-        ? currentVersionRef.current + 1
-        : currentVersionRef.current;
-      // 逻辑：转成 JSON 安全对象，避免 undefined 写库失败。
-      const payload = JSON.parse(
-        JSON.stringify({ nodes, connectors, viewport })
-      ) as Pick<BoardSnapshotState, "nodes" | "connectors" | "viewport">;
-      // 逻辑：统一在此处拼装存储数据，避免多处重复。
-      const localSnapshotPayload: BoardSnapshotCacheRecord = {
-        workspaceId: boardScope.workspaceId,
-        boardId: boardScope.boardId,
-        schemaVersion: BOARD_SCHEMA_VERSION,
-        nodes: payload.nodes,
-        connectors: payload.connectors,
-        viewport: payload.viewport,
-        version: nextVersion,
-      };
-      currentVersionRef.current = nextVersion;
-      setLocalSnapshot(localSnapshotPayload);
-      void writeBoardSnapshotCache(localSnapshotPayload);
-
-      if (fileScope) {
-        // 逻辑：合并短时间内的文件保存，避免频繁写文件。
-        pendingFileSnapshotRef.current = normalizeSnapshotForFile({
-          schemaVersion: BOARD_SCHEMA_VERSION,
-          nodes: payload.nodes,
-          connectors: payload.connectors,
-          viewport: payload.viewport,
-          version: nextVersion,
-        });
-        if (remoteSaveTimeoutRef.current) {
-          window.clearTimeout(remoteSaveTimeoutRef.current);
-        }
-        remoteSaveTimeoutRef.current = window.setTimeout(() => {
-          void savePendingSnapshotToFile();
-        }, VIEWPORT_SAVE_DELAY);
-      }
-    },
-    [boardScope, fileScope, normalizeSnapshotForFile, savePendingSnapshotToFile]
+    [engine, projectId]
   );
 
   useEffect(() => {
@@ -885,184 +819,111 @@ export function BoardCanvas({
   }, [engine, nodes]);
 
   useEffect(() => {
-    if (!boardScope && !missingScopeLoggedRef.current) {
-      // 逻辑：workspaceId/boardId 缺失时记录一次，避免误判无保存请求。
-      console.warn("[board] save skipped: missing workspaceId/boardId", {
-        workspaceId: resolvedWorkspaceId,
-        boardId,
+    if ((!boardFileScope || !boardLogScope) && !missingScopeLoggedRef.current) {
+      // 逻辑：文件路径缺失时记录一次，避免误判无保存请求。
+      console.warn("[board] save skipped: missing board file scope", {
+        boardFileUri,
+        boardLogUri,
       });
       missingScopeLoggedRef.current = true;
     }
-    if (!boardScope) return;
+    if (!boardFileScope || !boardLogScope) return;
     missingScopeLoggedRef.current = false;
     hydratedRef.current = false;
     lastSavedRevisionRef.current = null;
-    setLocalLoaded(false);
-    setLocalSnapshot(null);
+    boardDocRef.current = null;
+    boardStateVectorRef.current = null;
+    logSizeRef.current = 0;
+    logUpdateCountRef.current = 0;
+    pendingSaveRef.current = false;
+    if (remoteSaveTimeoutRef.current) {
+      window.clearTimeout(remoteSaveTimeoutRef.current);
+      remoteSaveTimeoutRef.current = null;
+    }
+    if (!boardFileQuery.isFetched || !boardLogQuery.isFetched) return;
 
-    let cancelled = false;
-    const loadLocalSnapshot = async () => {
-      const local = await readBoardSnapshotCache(
-        boardScope.workspaceId,
-        boardScope.boardId
-      );
-      if (cancelled) return;
-      setLocalSnapshot(local);
-      setLocalLoaded(true);
-      if (local) {
-        // 逻辑：优先恢复本地快照，保证首屏加载速度。
-        applySnapshot(local);
+    const doc = createBoardDoc();
+    const baseBytes = decodeBase64(boardFileQuery.data?.contentBase64 ?? "");
+    if (baseBytes.length > 0) {
+      try {
+        applyBoardDocUpdate(doc, baseBytes);
+      } catch {
+        // 逻辑：解析失败时回退为空文档，避免阻塞加载。
       }
-    };
-    void loadLocalSnapshot();
-    return () => {
-      cancelled = true;
-    };
-  }, [applySnapshot, boardId, boardScope, resolvedWorkspaceId]);
+    }
+    const logBytes = decodeBase64(boardLogQuery.data?.contentBase64 ?? "");
+    const logUpdates = decodeBoardLogEntries(logBytes);
+    for (const update of logUpdates) {
+      try {
+        applyBoardDocUpdate(doc, update);
+      } catch {
+        // 逻辑：单条日志异常时跳过，保证后续内容可继续加载。
+      }
+    }
+    boardDocRef.current = doc;
+    boardStateVectorRef.current = Y.encodeStateVector(doc);
+    logSizeRef.current = logBytes.length;
+    logUpdateCountRef.current = logUpdates.length;
 
-  useEffect(() => {
-    if (!boardScope) return;
-    if (!fileScope) return;
-    if (!boardFileQuery.isFetched) return;
-    if (!localLoaded) return;
-
-    const remote = parseBoardSnapshot(boardFileQuery.data?.content);
-    const resolvedRemote = remote ? normalizeSnapshotForCanvas(remote) : null;
-    const local = localSnapshot;
-
-    if (!local && !resolvedRemote) {
-      if (initialElementsRef.current) return;
-      if (!initialElements || initialElements.length === 0) return;
-      // 逻辑：无本地/远端快照时写入初始元素。
-      engine.setInitialElements(initialElements);
-      initialElementsRef.current = true;
-      hydratedRef.current = true;
+    const payload = readBoardDocPayload(doc);
+    const hasContent = payload.nodes.length > 0 || payload.connectors.length > 0;
+    if (!hasContent && initialElements && initialElements.length > 0) {
+      if (!initialElementsRef.current) {
+        // 逻辑：无数据时注入初始元素，并等待保存落盘。
+        engine.setInitialElements(initialElements);
+        initialElementsRef.current = true;
+        hydratedRef.current = true;
+        pendingSaveRef.current = true;
+        window.requestAnimationFrame(() => {
+          engine.fitToElements();
+        });
+      }
       return;
     }
-
-    if (!local && resolvedRemote) {
-      applySnapshot(resolvedRemote);
-      const snapshot: BoardSnapshotCacheRecord = {
-        workspaceId: boardScope.workspaceId,
-        boardId: boardScope.boardId,
-        schemaVersion: resolvedRemote.schemaVersion ?? BOARD_SCHEMA_VERSION,
-        nodes: resolvedRemote.nodes,
-        connectors: resolvedRemote.connectors,
-        viewport: resolvedRemote.viewport,
-        version: resolvedRemote.version ?? 0,
-      };
-      setLocalSnapshot(snapshot);
-      void writeBoardSnapshotCache(snapshot);
-      return;
-    }
-
-    if (local && !resolvedRemote) {
-      if (local.nodes.length === 0 && local.connectors.length === 0) return;
-      // 逻辑：仅保留本地快照，不再回写远端。
-      return;
-    }
-
-    if (!local || !resolvedRemote) return;
-    if (resolvedRemote.version > local.version) {
-      applySnapshot(resolvedRemote);
-      const snapshot: BoardSnapshotCacheRecord = {
-        workspaceId: boardScope.workspaceId,
-        boardId: boardScope.boardId,
-        schemaVersion: resolvedRemote.schemaVersion ?? BOARD_SCHEMA_VERSION,
-        nodes: resolvedRemote.nodes,
-        connectors: resolvedRemote.connectors,
-        viewport: resolvedRemote.viewport,
-        version: resolvedRemote.version ?? 0,
-      };
-      setLocalSnapshot(snapshot);
-      void writeBoardSnapshotCache(snapshot);
-      return;
-    }
-    if (local.version > resolvedRemote.version) {
-      // 逻辑：本地版本更高时保持本地数据，不触发远端更新。
-      return;
-    }
+    applyBoardPayload(payload);
   }, [
-    applySnapshot,
-    boardScope,
+    applyBoardDocUpdate,
+    applyBoardPayload,
     boardFileQuery.data,
     boardFileQuery.isFetched,
-    fileScope,
+    boardFileScope,
+    boardFileUri,
+    boardLogQuery.data,
+    boardLogQuery.isFetched,
+    boardLogScope,
+    boardLogUri,
+    decodeBase64,
+    decodeBoardLogEntries,
     engine,
     initialElements,
-    localLoaded,
-    localSnapshot,
-    normalizeSnapshotForCanvas,
-    persistSnapshot,
   ]);
 
   useEffect(() => {
-    if (!boardScope) return;
+    if (!boardFileScope || !boardLogScope) return;
     if (!hydratedRef.current) return;
     if (snapshot.draggingId) {
       // 逻辑：拖拽过程中先标记，等放开后再保存。
       pendingSaveRef.current = true;
       return;
     }
-    // 逻辑：使用文档版本判断变更，避免首屏频繁 JSON 序列化。
     const docRevision = snapshot.docRevision;
     const hasRevisionChange = lastSavedRevisionRef.current !== docRevision;
     if (!hasRevisionChange && !pendingSaveRef.current) return;
     lastSavedRevisionRef.current = docRevision;
     pendingSaveRef.current = false;
-    if (viewportSaveTimeoutRef.current) {
-      window.clearTimeout(viewportSaveTimeoutRef.current);
-      viewportSaveTimeoutRef.current = null;
+    if (remoteSaveTimeoutRef.current) {
+      window.clearTimeout(remoteSaveTimeoutRef.current);
     }
-    const viewportState = engine.viewport.getState();
-    const viewportPayload = {
-      zoom: viewportState.zoom,
-      offset: viewportState.offset,
-    };
-    lastSavedViewportRef.current = JSON.stringify(viewportPayload);
-    const { nodes, connectors } = splitElements(snapshot.elements);
-    persistSnapshot(nodes, connectors, viewportPayload);
+    remoteSaveTimeoutRef.current = window.setTimeout(() => {
+      persistBoardDoc();
+    }, BOARD_SAVE_DELAY);
   }, [
-    boardScope,
-    engine,
+    boardFileScope,
+    boardLogScope,
+    persistBoardDoc,
     snapshot.docRevision,
     snapshot.draggingId,
-    snapshot.elements,
-    persistSnapshot,
   ]);
-
-  useEffect(() => {
-    if (!boardScope) return;
-    const handleViewChange = () => {
-      if (!hydratedRef.current) return;
-      const viewportState = engine.viewport.getState();
-      const viewportPayload = {
-        zoom: viewportState.zoom,
-        offset: viewportState.offset,
-      };
-      const viewportKey = JSON.stringify(viewportPayload);
-      const viewportChanged = viewportKey !== lastSavedViewportRef.current;
-      if (!viewportChanged) return;
-      if (viewportSaveTimeoutRef.current) {
-        window.clearTimeout(viewportSaveTimeoutRef.current);
-      }
-      // 逻辑：视口变更只触发保存，不刷新全量快照。
-      viewportSaveTimeoutRef.current = window.setTimeout(() => {
-        if (!boardScope || !hydratedRef.current) return;
-        lastSavedViewportRef.current = viewportKey;
-        const { nodes, connectors } = splitElements(latestSnapshotRef.current.elements);
-        persistSnapshot(nodes, connectors, viewportPayload);
-      }, VIEWPORT_SAVE_DELAY);
-    };
-
-    const unsubscribe = engine.subscribeView(handleViewChange);
-    return () => {
-      unsubscribe();
-      if (viewportSaveTimeoutRef.current) {
-        window.clearTimeout(viewportSaveTimeoutRef.current);
-      }
-    };
-  }, [boardScope, engine, persistSnapshot]);
 
   useEffect(() => {
     return () => {
@@ -1227,20 +1088,45 @@ export function BoardCanvas({
 
       if (imagePayload) {
         try {
-          const blob = await fetchBlobFromUri(imagePayload.baseUri);
-          const fileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
-          const file = new File([blob], fileName, {
-            type: blob.type || "application/octet-stream",
-          });
-          if (!isImageFile(file)) return;
-          const payload = await engine.buildImagePayloadFromFile(file);
-          const [width, height] = payload.size;
-          engine.addNodeElement("image", payload.props, [
-            dropPoint[0] - width / 2,
-            dropPoint[1] - height / 2,
-            width,
-            height,
-          ]);
+          // 逻辑：优先读取多选拖拽的 uri 列表，兼容文件管理器批量拖入。
+          const dragUris = (() => {
+            const payload = dataTransfer.getData(FILE_DRAG_URIS_MIME);
+            if (!payload) return [];
+            try {
+              const parsed = JSON.parse(payload);
+              if (Array.isArray(parsed)) {
+                return parsed.filter(
+                  (item): item is string =>
+                    typeof item === "string" && item.length > 0
+                );
+              }
+            } catch {
+              return [];
+            }
+            return [];
+          })();
+          const uniqueUris =
+            dragUris.length > 0
+              ? Array.from(new Set(dragUris))
+              : [imagePayload.baseUri];
+          for (const [index, uri] of uniqueUris.entries()) {
+            const blob = await fetchBlobFromUri(uri, { projectId });
+            const fileName = resolveFileName(uri);
+            const file = new File([blob], fileName, {
+              type: blob.type || "application/octet-stream",
+            });
+            if (!isImageFile(file)) continue;
+            const payload = await engine.buildImagePayloadFromFile(file);
+            const [width, height] = payload.size;
+            const offset = IMAGE_DROP_STACK_OFFSET * index;
+            // 逻辑：内部拖拽多图时偏移排列，确保全部可见。
+            engine.addNodeElement("image", payload.props, [
+              dropPoint[0] - width / 2 + offset,
+              dropPoint[1] - height / 2 + offset,
+              width,
+              height,
+            ]);
+          }
           return;
         } catch {
           return;

@@ -45,7 +45,7 @@ import { isBoardFolderName } from "@/lib/file-name";
 import {
   IGNORE_NAMES,
   buildChildUri,
-  buildTenasFileUrl,
+  formatScopedProjectPath,
   getDisplayPathFromUri,
   getRelativePathFromUri,
   getUniqueName,
@@ -202,7 +202,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
       .map((entry) => {
         const relativePath = getRelativePathFromUri(activeRootUri, entry.uri);
         if (!relativePath) return "";
-        return buildTenasFileUrl(projectId, relativePath);
+        return formatScopedProjectPath({ projectId, relativePath });
       })
       .filter(Boolean);
   }, [activeRootUri, mode, projectIdByRootUri, selectTarget, selectedEntries]);

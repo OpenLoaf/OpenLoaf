@@ -38,7 +38,7 @@ export function setImageDragPayload(
     dataTransfer.setData(FILE_DRAG_IMAGE_MIME, "1");
   }
   // 中文注释：增加 text/plain 标记，确保应用内拖拽可被识别但不暴露文件内容。
-  dataTransfer.setData("text/plain", "tenas-file");
+  dataTransfer.setData("text/plain", "teatime-file");
 }
 
 /** Read drag payload for image attachments. */

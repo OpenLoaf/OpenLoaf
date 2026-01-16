@@ -51,10 +51,7 @@ import {
   isBoardFolderName,
 } from "@/lib/file-name";
 import { Switch } from "@/components/ui/switch";
-import {
-  buildTenasFileUrl,
-  getRelativePathFromUri,
-} from "@/components/project/filesystem/utils/file-system-utils";
+import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { cn } from "@/lib/utils";
 
 type ProjectInfo = {
@@ -483,7 +480,7 @@ export const PageTreeMenu = ({
             if (!rootUri) return node.uri;
             const relativePath = getRelativePathFromUri(rootUri, node.uri);
             if (!relativePath) return node.uri;
-            return buildTenasFileUrl(node.projectId, relativePath);
+            return relativePath;
           })()
         : node.uri;
 
@@ -515,6 +512,7 @@ export const PageTreeMenu = ({
           name: node.name,
           ext: node.ext,
           ...(needsCustomHeader ? { __customHeader: true } : {}),
+          ...(component === "pdf-viewer" ? { projectId: node.projectId } : {}),
         },
       },
       chatParams: { projectId: node.projectId },

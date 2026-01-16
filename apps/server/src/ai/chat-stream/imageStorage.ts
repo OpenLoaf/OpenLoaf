@@ -46,6 +46,11 @@ export function resolveMediaTypeFromDataUrl(value: string): string {
 /** Resolve base name from url path. */
 export function resolveBaseNameFromUrl(value: string, fallback: string): string {
   if (value.startsWith("data:")) return fallback;
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) {
+    const baseName = stripFileExtension(path.basename(value));
+    const sanitized = sanitizeFileName(baseName);
+    return sanitized || fallback;
+  }
   try {
     const parsed = new URL(value);
     const fileName = decodeURIComponent(parsed.pathname);
@@ -87,38 +92,25 @@ async function normalizeImageSaveDirectory(targetPath: string): Promise<string> 
   }
 }
 
-/** Resolve local directory from a tenas-file uri. */
-async function resolveTenasSaveDirectory(input: {
-  /** tenas-file uri input. */
-  uri: string;
+/** Resolve local directory from a project-relative path. */
+function resolveRelativeSaveDirectory(input: {
+  /** Relative path input. */
+  path: string;
   /** Optional workspace id fallback. */
   workspaceId?: string | null;
   /** Optional project id fallback. */
   projectId?: string | null;
-}): Promise<string | null> {
-  let parsed: URL;
-  try {
-    parsed = new URL(input.uri);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== "tenas-file:") return null;
-
-  const ownerId = parsed.hostname.trim();
-  let rootPath: string | null = null;
-  if (ownerId && ownerId !== ".") {
-    rootPath = getProjectRootPath(ownerId) ?? getWorkspaceRootPathById(ownerId);
-  }
-  if (!rootPath) {
-    const projectRootPath = input.projectId ? getProjectRootPath(input.projectId) : null;
-    const workspaceRootPath =
-      projectRootPath || !input.workspaceId ? null : getWorkspaceRootPathById(input.workspaceId);
-    rootPath = projectRootPath ?? workspaceRootPath;
-  }
+}): string | null {
+  const normalized = input.path.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/^\/+/, "");
+  if (!normalized) return null;
+  if (normalized.split("/").some((segment) => segment === "..")) return null;
+  const projectRootPath = input.projectId ? getProjectRootPath(input.projectId) : null;
+  const workspaceRootPath =
+    projectRootPath || !input.workspaceId ? null : getWorkspaceRootPathById(input.workspaceId);
+  const rootPath = projectRootPath ?? workspaceRootPath;
   if (!rootPath) return null;
 
-  const relativePath = decodeURIComponent(parsed.pathname).replace(/^\/+/, "");
-  const targetPath = path.resolve(rootPath, relativePath || ".");
+  const targetPath = path.resolve(rootPath, normalized);
   const rootPathResolved = path.resolve(rootPath);
   // 限制在 workspace/project 根目录内，避免路径穿越。
   if (targetPath !== rootPathResolved && !targetPath.startsWith(rootPathResolved + path.sep)) {
@@ -148,9 +140,9 @@ export async function resolveImageSaveDirectory(input: {
     }
   }
 
-  if (raw.startsWith("tenas-file://")) {
-    const dirPath = await resolveTenasSaveDirectory({
-      uri: raw,
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)) {
+    const dirPath = resolveRelativeSaveDirectory({
+      path: raw,
       workspaceId: input.workspaceId,
       projectId: input.projectId,
     });

@@ -1,9 +1,9 @@
 import type { Hono } from "hono";
 import { getWorkspaceByIdConfig } from "@tenas-ai/api/services/workspaceConfig";
 import {
-  getTenasFilePreview,
+  getFilePreview,
   saveChatImageAttachment,
-  saveChatImageAttachmentFromTenasUrl,
+  saveChatImageAttachmentFromPath,
 } from "./attachmentResolver";
 import { toText } from "@/routers/route-utils";
 
@@ -99,7 +99,7 @@ export function registerChatAttachmentRoutes(app: Hono) {
         if (size > MAX_CHAT_IMAGE_BYTES) {
           return c.json({ error: "Image too large" }, 413);
         }
-        // 上传阶段即压缩并落盘，返回 tenas-file 地址给前端。
+        // 上传阶段即压缩并落盘，返回相对路径给前端。
         const buffer = Buffer.from(await file.arrayBuffer());
         const mediaType = file.type || "application/octet-stream";
         const result = await saveChatImageAttachment({
@@ -112,15 +112,12 @@ export function registerChatAttachmentRoutes(app: Hono) {
         });
         return c.json({ url: result.url, mediaType: result.mediaType });
       }
-      if (!file.startsWith("tenas-file://")) {
-        return c.json({ error: "Invalid attachment source" }, 400);
-      }
-      // 中文注释：tenas-file 仍需压缩转码后再落盘。
-      const result = await saveChatImageAttachmentFromTenasUrl({
+      // 中文注释：相对路径仍需压缩转码后再落盘。
+      const result = await saveChatImageAttachmentFromPath({
         workspaceId,
         projectId,
         sessionId,
-        url: file,
+        path: file,
       });
       return c.json({ url: result.url, mediaType: result.mediaType });
     } catch (error) {
@@ -129,13 +126,14 @@ export function registerChatAttachmentRoutes(app: Hono) {
   });
 
   app.get("/chat/attachments/preview", async (c) => {
-    const url = c.req.query("url")?.trim() ?? "";
+    const path = c.req.query("path")?.trim() ?? "";
+    const projectId = c.req.query("projectId")?.trim() || undefined;
     const includeMetadata = c.req.query("includeMetadata") === "1";
-    if (!url || !url.startsWith("tenas-file://")) {
-      return c.json({ error: "Invalid preview url" }, 400);
+    if (!path) {
+      return c.json({ error: "Invalid preview path" }, 400);
     }
     try {
-      const preview = await getTenasFilePreview({ url, includeMetadata });
+      const preview = await getFilePreview({ path, projectId, includeMetadata });
       if (!preview) return c.json({ error: "Preview not found" }, 404);
       if (includeMetadata) {
         const multipart = buildMultipartMixed({

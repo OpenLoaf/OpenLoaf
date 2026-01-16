@@ -8,7 +8,7 @@ import type { CanvasEngine } from "../engine/CanvasEngine";
 export type ImagePreviewPayload = {
   /** Original image uri. */
   originalSrc: string;
-  /** Preview image data url. */
+  /** Preview image source. */
   previewSrc: string;
   /** File name for alt text. */
   fileName: string;

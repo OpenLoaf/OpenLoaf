@@ -155,7 +155,7 @@ async function saveExtractedImages(input: {
 }): Promise<ChatAttachmentInfo[]> {
   const results: ChatAttachmentInfo[] = [];
   for (const image of input.images) {
-    // 逻辑：逐张写入 .tenas/chat/{sessionId}，并返回 tenas-file url。
+    // 逻辑：逐张写入 .tenas/chat/{sessionId}，并返回相对路径。
     const saved = await saveChatBinaryAttachment({
       workspaceId: input.context.workspaceId,
       projectId: input.context.projectId,

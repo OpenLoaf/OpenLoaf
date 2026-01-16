@@ -6,6 +6,7 @@ import { Editor as SlateEditor, type BaseEditor } from 'slate';
 
 import {
   buildInlineNodesFromText,
+  FILE_TOKEN_REGEX,
   normalizeSerializedForClipboard,
   serializeChatValue,
 } from '@/components/chat/chat-input-utils';
@@ -29,13 +30,14 @@ export const ClipboardKit = [
       const serialized = normalizeSerializedForClipboard(
         serializeChatValue(fragment as Value)
       );
-      // 中文注释：覆写纯文本剪贴板格式，统一为 @tenas-file:// 协议。
+      // 中文注释：覆写纯文本剪贴板格式，统一为文件引用格式。
       data.setData('text/plain', serialized);
     };
 
     slateEditor.insertData = (data: DataTransfer) => {
       const text = data.getData('text/plain');
-      if (!text || !text.includes('@tenas-file://')) {
+      FILE_TOKEN_REGEX.lastIndex = 0;
+      if (!text || !FILE_TOKEN_REGEX.test(text)) {
         originalInsertData(data);
         return;
       }

@@ -6,6 +6,7 @@ import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
 import MaskedImage from "@/components/file/MaskedImage";
 import { useTabs } from "@/hooks/use-tabs";
 import { useProjects } from "@/hooks/use-projects";
+import { useChatContext } from "@/components/chat/ChatProvider";
 import { setImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
 import { handleChatMentionPointerDown } from "@/lib/chat/mention-pointer";
@@ -45,6 +46,7 @@ export default function MessageHuman({
   showText = true,
 }: MessageHumanProps) {
   const { data: projects = [] } = useProjects();
+  const { projectId } = useChatContext();
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabs((s) => s.pushStackItem);
   const [imageState, setImageState] = React.useState<Record<string, ImagePreviewState>>({});
@@ -54,11 +56,12 @@ export default function MessageHuman({
     (event: React.PointerEvent<HTMLDivElement>) => {
       handleChatMentionPointerDown(event, {
         activeTabId,
+        projectId,
         projects,
         pushStackItem,
       });
     },
-    [activeTabId, projects, pushStackItem]
+    [activeTabId, projectId, projects, pushStackItem]
   );
 
   React.useEffect(() => {
@@ -120,8 +123,8 @@ export default function MessageHuman({
       if (imageStateRef.current[url]) return;
       setImageState((prev) => ({ ...prev, [url]: { status: "loading" } }));
       try {
-        if (url.startsWith("tenas-file://")) {
-          const blob = await fetchBlobFromUri(url);
+        if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) {
+          const blob = await fetchBlobFromUri(url, { projectId });
           const objectUrl = URL.createObjectURL(blob);
           objectUrls.push(objectUrl);
           if (aborted) return;

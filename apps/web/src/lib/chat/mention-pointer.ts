@@ -2,9 +2,8 @@
 
 import type { PointerEvent } from "react";
 import {
-  buildTenasFileUrl,
   buildUriFromRoot,
-  parseTenasFileUrl,
+  parseScopedProjectPath,
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import {
@@ -29,6 +28,7 @@ type ProjectTreeNode = {
 /** Dependencies for mention pointer handling. */
 type MentionPointerDownOptions = {
   activeTabId?: string | null;
+  projectId?: string;
   projects: ProjectTreeNode[];
   pushStackItem: (tabId: string, item: any) => void;
 };
@@ -86,16 +86,17 @@ async function fetchMentionEntry(uri: string): Promise<FileSystemEntry | null> {
 }
 
 /** Parse a mention value into a project file reference. */
-function parseMentionFileRef(value: string): MentionFileRef | null {
+function parseMentionFileRef(value: string, defaultProjectId?: string): MentionFileRef | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
   const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? normalized;
-  const parsed = baseValue.startsWith("tenas-file://") ? parseTenasFileUrl(baseValue) : null;
-  if (!parsed) return null;
+  const parsed = parseScopedProjectPath(baseValue);
+  const projectId = parsed?.projectId ?? defaultProjectId;
+  if (!projectId || !parsed?.relativePath) return null;
   return {
-    projectId: parsed.projectId,
+    projectId,
     relativePath: parsed.relativePath,
     lineStart: match?.[2],
     lineEnd: match?.[3],
@@ -107,7 +108,7 @@ export function handleChatMentionPointerDown(
   event: PointerEvent<HTMLElement>,
   options: MentionPointerDownOptions
 ) {
-  const { activeTabId, projects, pushStackItem } = options;
+  const { activeTabId, projectId: defaultProjectId, projects, pushStackItem } = options;
   if (!activeTabId) return;
   const target = event.target as HTMLElement | null;
   if (!target) return;
@@ -119,7 +120,7 @@ export function handleChatMentionPointerDown(
     mentionEl.getAttribute("data-mention-value") ||
     mentionEl.getAttribute("data-slate-value") ||
     "";
-  const fileRef = value ? parseMentionFileRef(value) : null;
+  const fileRef = value ? parseMentionFileRef(value, defaultProjectId) : null;
   if (!fileRef) return;
   const { projectId, relativePath } = fileRef;
   if (!projectId || !relativePath) return;
@@ -179,7 +180,7 @@ export function handleChatMentionPointerDown(
             : isDocExt
               ? "doc-viewer"
               : "sheet-viewer";
-    const stackUri = isPdfExt ? buildTenasFileUrl(projectId, relativePath) : uri;
+    const stackUri = isPdfExt ? relativePath : uri;
     const stackId = uri || stackUri;
     pushStackItem(activeTabId, {
       id: stackId,
@@ -192,7 +193,7 @@ export function handleChatMentionPointerDown(
         name: fileName,
         ext,
         rootUri: isCodeExt || isTextExt ? rootUri : undefined,
-        projectId: isCodeExt || isTextExt ? projectId : undefined,
+        projectId: isCodeExt || isTextExt || isPdfExt ? projectId : undefined,
         __customHeader: isPdfExt || isDocExt || isSheetExt ? true : undefined,
       },
     });

@@ -5,7 +5,6 @@ import FileSystemGitTree from "./components/FileSystemGitTree";
 import type { FileSystemEntry } from "./utils/file-system-utils";
 import {
   buildChildUri,
-  buildTenasFileUrl,
   getEntryExt,
   getRelativePathFromUri,
 } from "./utils/file-system-utils";
@@ -164,8 +163,16 @@ export default function FolderTreePreview({
       if (!relativePath) {
         return <div className="h-full w-full p-4 text-destructive">无法解析PDF路径</div>;
       }
-      const pdfUri = buildTenasFileUrl(projectId, relativePath);
-      return <PdfViewer uri={pdfUri} openUri={entry.uri} name={displayName} ext={ext} />;
+      const pdfUri = relativePath;
+      return (
+        <PdfViewer
+          uri={pdfUri}
+          openUri={entry.uri}
+          name={displayName}
+          ext={ext}
+          projectId={projectId}
+        />
+      );
     }
     if (DOC_EXTS.has(ext)) {
       return <DocViewer uri={entry.uri} openUri={entry.uri} name={displayName} ext={ext} />;

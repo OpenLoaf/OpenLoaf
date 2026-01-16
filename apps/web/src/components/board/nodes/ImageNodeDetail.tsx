@@ -21,6 +21,8 @@ export type ImageNodeDetailProps = {
   source?: string;
   /** Fallback image source when primary is not readable. */
   fallbackSource?: string;
+  /** Project id for resolving relative paths. */
+  projectId?: string;
   /** Optional wrapper class name. */
   className?: string;
 };
@@ -33,9 +35,10 @@ type PromptDetail = {
 };
 
 /** Resolve preview endpoint for metadata extraction. */
-function resolveMetadataEndpoint(source?: string): string | null {
-  if (!source || !source.startsWith("tenas-file://")) return null;
-  const base = getPreviewEndpoint(source);
+function resolveMetadataEndpoint(source?: string, projectId?: string): string | null {
+  if (!source) return null;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(source)) return null;
+  const base = getPreviewEndpoint(source, { projectId });
   const separator = base.includes("?") ? "&" : "?";
   return `${base}${separator}${PREVIEW_METADATA_QUERY}`;
 }
@@ -113,10 +116,11 @@ function resolvePromptDetail(metadata: TenasImageMetadataV1 | null): PromptDetai
 
 /** Load prompt detail from a preview endpoint list. */
 async function loadPromptDetailFromSources(
-  sources: Array<string | undefined>
+  sources: Array<string | undefined>,
+  projectId?: string
 ): Promise<PromptDetail | null> {
   for (const source of sources) {
-    const endpoint = resolveMetadataEndpoint(source);
+    const endpoint = resolveMetadataEndpoint(source, projectId);
     if (!endpoint) continue;
     // 逻辑：仅在预览接口返回 multipart/mixed 时解析元信息。
     const response = await fetch(endpoint);
@@ -134,7 +138,12 @@ async function loadPromptDetailFromSources(
 }
 
 /** Render a readonly detail panel for image metadata. */
-export function ImageNodeDetail({ source, fallbackSource, className }: ImageNodeDetailProps) {
+export function ImageNodeDetail({
+  source,
+  fallbackSource,
+  className,
+  projectId,
+}: ImageNodeDetailProps) {
   const [promptDetail, setPromptDetail] = useState<PromptDetail | null>(null);
   const sources = useMemo(() => [source, fallbackSource], [fallbackSource, source]);
 
@@ -143,7 +152,7 @@ export function ImageNodeDetail({ source, fallbackSource, className }: ImageNode
     setPromptDetail(null);
     void (async () => {
       try {
-        const detail = await loadPromptDetailFromSources(sources);
+        const detail = await loadPromptDetailFromSources(sources, projectId);
         if (cancelled) return;
         setPromptDetail(detail);
       } catch {
@@ -154,7 +163,7 @@ export function ImageNodeDetail({ source, fallbackSource, className }: ImageNode
     return () => {
       cancelled = true;
     };
-  }, [sources]);
+  }, [projectId, sources]);
 
   if (!promptDetail?.text) return null;
 

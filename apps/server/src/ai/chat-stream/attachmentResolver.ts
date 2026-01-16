@@ -4,6 +4,7 @@ import sharp from "sharp";
 import type { UIMessage } from "ai";
 import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
+import { getProjectId, getWorkspaceId } from "@/ai/chat-stream/requestContext";
 
 /** Max image edge length for chat. */
 const CHAT_IMAGE_MAX_EDGE = 1024;
@@ -97,14 +98,14 @@ function resolveImageFormat(mime: string, fileName: string): ImageFormat | null 
   return null;
 }
 
-/** Normalize relative path for storage. */
+/** Normalize a relative path for storage. */
 function normalizeRelativePath(input: string): string {
-  return input.replace(/^\/+/, "");
+  return input.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/^\/+/, "");
 }
 
-/** Build tenas-file url. */
-function buildTenasFileUrl(ownerId: string, relativePath: string): string {
-  return `tenas-file://${ownerId}/${normalizeRelativePath(relativePath)}`;
+/** Return true when a relative path attempts to traverse parents. */
+function hasParentTraversal(value: string): boolean {
+  return value.split("/").some((segment) => segment === "..");
 }
 
 /** Compute CRC32 for PNG chunk integrity. */
@@ -294,21 +295,21 @@ async function resolveChatAttachmentRoot(input: {
   projectId?: string;
   /** Workspace id. */
   workspaceId?: string;
-}): Promise<{ rootPath: string; ownerId: string } | null> {
+}): Promise<{ rootPath: string } | null> {
   const projectId = input.projectId?.trim();
   if (projectId) {
     const projectRootPath = await getProjectRootPath(projectId);
-    if (projectRootPath) return { rootPath: projectRootPath, ownerId: projectId };
+    if (projectRootPath) return { rootPath: projectRootPath };
   }
   const workspaceId = input.workspaceId?.trim();
   if (!workspaceId) return null;
   const workspaceRootPath = getWorkspaceRootPathById(workspaceId);
   if (!workspaceRootPath) return null;
-  return { rootPath: workspaceRootPath, ownerId: workspaceId };
+  return { rootPath: workspaceRootPath };
 }
 
 export type ChatBinaryAttachmentResult = {
-  /** tenas-file url for the saved attachment. */
+  /** Relative path for the saved attachment. */
   url: string;
   /** Media type for the attachment. */
   mediaType: string;
@@ -360,7 +361,7 @@ export async function saveChatBinaryAttachment(input: {
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.writeFile(targetPath, input.buffer);
   return {
-    url: buildTenasFileUrl(root.ownerId, relativePath),
+    url: relativePath,
     mediaType: input.mediaType ?? "application/octet-stream",
     fileName: storedName,
     relativePath,
@@ -368,29 +369,52 @@ export async function saveChatBinaryAttachment(input: {
   };
 }
 
-/** Resolve local file path from tenas-file url. */
-async function resolveTenasFilePath(url: string): Promise<string | null> {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
+/** Scoped project path matcher like [projectId]/path/to/file. */
+const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\]\/(.+)$/;
+/** Scheme matcher for absolute URLs. */
+const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+
+/** Parse a scoped relative path with optional [projectId] prefix. */
+function parseScopedRelativePath(raw: string): { projectId?: string; relativePath: string } | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  if (SCHEME_REGEX.test(normalized)) return null;
+  const match = normalized.match(PROJECT_SCOPE_REGEX);
+  if (match) {
+    return {
+      projectId: match[1]?.trim(),
+      relativePath: match[2] ?? "",
+    };
+  }
+  return { relativePath: normalized };
+}
+
+/** Resolve a relative path into an absolute file path within the project/workspace root. */
+async function resolveProjectFilePath(input: {
+  /** Raw relative path string. */
+  path: string;
+  /** Optional project id override. */
+  projectId?: string;
+  /** Optional workspace id fallback. */
+  workspaceId?: string;
+}): Promise<{ absPath: string; relativePath: string } | null> {
+  const parsed = parseScopedRelativePath(input.path);
+  if (!parsed) return null;
+  const relativePath = normalizeRelativePath(parsed.relativePath);
+  if (!relativePath || hasParentTraversal(relativePath)) return null;
+  const root = await resolveChatAttachmentRoot({
+    projectId: parsed.projectId ?? input.projectId ?? getProjectId(),
+    workspaceId: input.workspaceId ?? getWorkspaceId(),
+  });
+  if (!root) return null;
+  const targetPath = path.resolve(root.rootPath, relativePath);
+  const rootPathResolved = path.resolve(root.rootPath);
+  // 逻辑：必须限制在 rootPath 内，避免路径穿越。
+  if (targetPath !== rootPathResolved && !targetPath.startsWith(rootPathResolved + path.sep)) {
     return null;
   }
-  if (parsed.protocol !== "tenas-file:") return null;
-  const ownerId = parsed.hostname.trim();
-  if (!ownerId) return null;
-  const relativePath = normalizeRelativePath(decodeURIComponent(parsed.pathname));
-  if (!relativePath) return null;
-  const projectRootPath = await getProjectRootPath(ownerId);
-  const workspaceRootPath = projectRootPath ? null : getWorkspaceRootPathById(ownerId);
-  const rootPath = projectRootPath ?? workspaceRootPath;
-  if (!rootPath) return null;
-
-  const targetPath = path.resolve(rootPath, relativePath);
-  const rootPathResolved = path.resolve(rootPath);
-  if (targetPath === rootPathResolved) return null;
-  if (!targetPath.startsWith(rootPathResolved + path.sep)) return null;
-  return targetPath;
+  return { absPath: targetPath, relativePath };
 }
 
 /** Compress image buffer to chat constraints. */
@@ -464,34 +488,39 @@ export async function saveChatImageAttachment(input: {
   }
 
   return {
-    url: buildTenasFileUrl(root.ownerId, relativePath),
+    url: relativePath,
     mediaType: compressed.mediaType,
   };
 }
 
-/** Save chat image attachment from a tenas-file url. */
-export async function saveChatImageAttachmentFromTenasUrl(input: {
+/** Save chat image attachment from a project-relative path. */
+export async function saveChatImageAttachmentFromPath(input: {
   /** Workspace id. */
   workspaceId: string;
   /** Project id. */
   projectId?: string;
   /** Session id. */
   sessionId: string;
-  /** Source tenas-file url. */
-  url: string;
+  /** Source relative path. */
+  path: string;
   /** Optional image metadata. */
   metadata?: TenasImageMetadataV1;
 }): Promise<{ url: string; mediaType: string }> {
-  const filePath = await resolveTenasFilePath(input.url);
-  if (!filePath) {
-    throw new Error("Invalid tenas-file url");
+  const resolved = await resolveProjectFilePath({
+    path: input.path,
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+  });
+  if (!resolved) {
+    throw new Error("Invalid attachment path");
   }
+  const filePath = resolved.absPath;
   const buffer = await fs.readFile(filePath);
   const format = resolveImageFormat("application/octet-stream", filePath);
   if (!format || !isSupportedImageMime(format.mediaType)) {
     throw new Error("Unsupported image type");
   }
-  // 中文注释：tenas-file 仍需压缩转码，统一 chat 侧尺寸与质量。
+  // 中文注释：相对路径来源仍需压缩转码，统一 chat 侧尺寸与质量。
   const compressed = await compressImageBuffer(buffer, format);
   const fileName = buildChatAttachmentFileName(compressed.ext);
   const relativePath = path.posix.join(".tenas", "chat", input.sessionId, fileName);
@@ -517,19 +546,23 @@ export async function saveChatImageAttachmentFromTenasUrl(input: {
   }
 
   return {
-    url: buildTenasFileUrl(root.ownerId, relativePath),
+    url: relativePath,
     mediaType: compressed.mediaType,
   };
 }
 
-/** Build UI file part from tenas-file url. */
-export async function buildFilePartFromTenasUrl(input: {
-  /** File url. */
-  url: string;
+/** Build UI file part from a relative path. */
+export async function buildFilePartFromPath(input: {
+  /** File path. */
+  path: string;
+  /** Project id for resolving path. */
+  projectId?: string;
+  /** Workspace id for resolving path. */
+  workspaceId?: string;
   /** Media type override. */
   mediaType?: string;
 }): Promise<{ type: "file"; url: string; mediaType: string } | null> {
-  const payload = await loadTenasImageBuffer(input);
+  const payload = await loadProjectImageBuffer(input);
   if (!payload) return null;
   const base64 = payload.buffer.toString("base64");
   return {
@@ -540,14 +573,23 @@ export async function buildFilePartFromTenasUrl(input: {
 }
 
 /** Resolve preview content for supported attachments. */
-export async function getTenasFilePreview(input: {
-  /** File url. */
-  url: string;
+export async function getFilePreview(input: {
+  /** File path. */
+  path: string;
+  /** Project id for resolving path. */
+  projectId?: string;
+  /** Workspace id for resolving path. */
+  workspaceId?: string;
   /** Whether to include metadata. */
   includeMetadata?: boolean;
 }): Promise<{ buffer: Buffer; mediaType: string; metadata?: string | null } | null> {
-  const filePath = await resolveTenasFilePath(input.url);
-  if (!filePath) return null;
+  const resolved = await resolveProjectFilePath({
+    path: input.path,
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+  });
+  if (!resolved) return null;
+  const filePath = resolved.absPath;
   const lowerPath = filePath.toLowerCase();
   // PDF 直接返回原文件内容，图片继续压缩预览。
   if (lowerPath.endsWith(".pdf")) {
@@ -562,15 +604,24 @@ export async function getTenasFilePreview(input: {
   return { buffer: compressed.buffer, mediaType: compressed.mediaType, metadata };
 }
 
-/** Load image buffer from tenas-file url. */
-export async function loadTenasImageBuffer(input: {
-  /** File url. */
-  url: string;
+/** Load image buffer from a relative path. */
+export async function loadProjectImageBuffer(input: {
+  /** File path. */
+  path: string;
+  /** Project id for resolving path. */
+  projectId?: string;
+  /** Workspace id for resolving path. */
+  workspaceId?: string;
   /** Media type override. */
   mediaType?: string;
 }): Promise<{ buffer: Buffer; mediaType: string } | null> {
-  const filePath = await resolveTenasFilePath(input.url);
-  if (!filePath) return null;
+  const resolved = await resolveProjectFilePath({
+    path: input.path,
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+  });
+  if (!resolved) return null;
+  const filePath = resolved.absPath;
   const buffer = await fs.readFile(filePath);
   const fallbackType = input.mediaType || "application/octet-stream";
   const format = resolveImageFormat(fallbackType, filePath);
@@ -583,8 +634,8 @@ export async function loadTenasImageBuffer(input: {
   };
 }
 
-/** Replace tenas-file parts with data urls. */
-export async function replaceTenasFileParts(messages: UIMessage[]): Promise<UIMessage[]> {
+/** Replace relative file parts with data urls. */
+export async function replaceRelativeFileParts(messages: UIMessage[]): Promise<UIMessage[]> {
   const next: UIMessage[] = [];
   for (const message of messages) {
     const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
@@ -599,14 +650,14 @@ export async function replaceTenasFileParts(messages: UIMessage[]): Promise<UIMe
         continue;
       }
       const url = typeof (part as any).url === "string" ? (part as any).url : "";
-      if (!url || !url.startsWith("tenas-file://")) {
+      if (!url || SCHEME_REGEX.test(url)) {
         replaced.push(part);
         continue;
       }
       const mediaType =
         typeof (part as any).mediaType === "string" ? (part as any).mediaType : undefined;
       try {
-        const filePart = await buildFilePartFromTenasUrl({ url, mediaType });
+        const filePart = await buildFilePartFromPath({ path: url, mediaType });
         if (filePart) replaced.push(filePart);
       } catch {
         // 读取或压缩失败时直接跳过该图片，避免阻断对话。

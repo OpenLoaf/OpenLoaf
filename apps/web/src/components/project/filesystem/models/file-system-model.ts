@@ -24,27 +24,28 @@ import { resolveServerUrl } from "@/utils/server-url";
 import {
   BOARD_ASSETS_DIR_NAME,
   BOARD_INDEX_FILE_NAME,
+  BOARD_LOG_FILE_NAME,
   ensureBoardFolderName,
   getBoardDisplayName,
   isBoardFolderName,
 } from "@/lib/file-name";
-import { createEmptyBoardSnapshot } from "@/components/board/core/boardStorage";
+import { createEmptyBoardBase64 } from "@/components/board/core/boardYjsStore";
 import { readImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import {
   IGNORE_NAMES,
   buildChildUri,
-  buildTenasFileUrl,
   buildUriFromRoot,
   FILE_DRAG_REF_MIME,
   FILE_DRAG_URI_MIME,
   FILE_DRAG_URIS_MIME,
+  formatScopedProjectPath,
   formatSize,
   formatTimestamp,
   getDisplayPathFromUri,
   getRelativePathFromUri,
   getUniqueName,
-  parseTenasFileUrl,
+  parseScopedProjectPath,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
 import { useFileSystemHistory, type HistoryAction } from "./file-system-history";
@@ -343,6 +344,9 @@ export function useProjectFileSystemModel({
       },
       writeFile: async (uri, content) => {
         await writeFileMutation.mutateAsync({ uri, content });
+      },
+      writeBinary: async (uri, contentBase64) => {
+        await writeBinaryMutation.mutateAsync({ uri, contentBase64 });
       },
       trash: async (uri) => {
         const res = await window.tenasElectron?.trashItem?.({ uri });
@@ -649,10 +653,11 @@ export function useProjectFileSystemModel({
         component: "pdf-viewer",
         title: entry.name,
         params: {
-          uri: buildTenasFileUrl(projectId, relativePath),
+          uri: relativePath,
           openUri: entry.uri,
           name: entry.name,
           ext: entry.ext,
+          projectId,
           __customHeader: true,
         },
       });
@@ -957,20 +962,22 @@ export function useProjectFileSystemModel({
     const targetName = getUniqueName(baseName, new Set(existingNames));
     const boardFolderUri = buildChildUri(activeUri, targetName);
     const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
+    const boardLogUri = buildChildUri(boardFolderUri, BOARD_LOG_FILE_NAME);
     const assetsUri = buildChildUri(boardFolderUri, BOARD_ASSETS_DIR_NAME);
-    const snapshot = createEmptyBoardSnapshot();
-    // 中文注释：初始画布直接写入文件，保证后续保存落盘同一位置。
-    const content = JSON.stringify(snapshot, null, 2);
-    // 中文注释：画布采用文件夹结构，包含 index.tnboard 与 assets 子目录。
+    // 逻辑：初始画布写入 Yjs 数据，保证后续保存落盘同一位置。
+    const contentBase64 = createEmptyBoardBase64();
+    // 逻辑：画布采用文件夹结构，包含 index.tnboard、index.tnboard.log 与 assets 子目录。
     await mkdirMutation.mutateAsync({ uri: boardFolderUri, recursive: true });
     await mkdirMutation.mutateAsync({ uri: assetsUri, recursive: true });
-    await writeFileMutation.mutateAsync({ uri: boardFileUri, content });
+    await writeBinaryMutation.mutateAsync({ uri: boardFileUri, contentBase64 });
+    await writeBinaryMutation.mutateAsync({ uri: boardLogUri, contentBase64: "" });
     pushHistory({
       kind: "batch",
       actions: [
         { kind: "mkdir", uri: boardFolderUri },
         { kind: "mkdir", uri: assetsUri },
-        { kind: "create", uri: boardFileUri, content },
+        { kind: "create", uri: boardFileUri, contentBase64 },
+        { kind: "create", uri: boardLogUri, contentBase64: "" },
       ],
     });
     refreshList();
@@ -1062,7 +1069,7 @@ export function useProjectFileSystemModel({
   ): Promise<boolean> => {
     if (!targetUri || !payload) return false;
     try {
-      const blob = await fetchBlobFromUri(payload.baseUri);
+      const blob = await fetchBlobFromUri(payload.baseUri, { projectId });
       const fileName = payload.fileName || resolveFileName(payload.baseUri);
       const file = new File([blob], fileName, {
         type: blob.type || "application/octet-stream",
@@ -1185,7 +1192,7 @@ export function useProjectFileSystemModel({
     if (!relativePath) return;
     event.dataTransfer.setData(
       FILE_DRAG_REF_MIME,
-      buildTenasFileUrl(projectId, relativePath)
+      formatScopedProjectPath({ projectId, relativePath })
     );
   };
 
@@ -1235,9 +1242,10 @@ export function useProjectFileSystemModel({
     const actions: HistoryAction[] = [];
     for (const rawSourceUri of uniqueSourceUris) {
       let sourceUri = rawSourceUri;
-      if (rawSourceUri.startsWith("tenas-file://")) {
-        const parsed = parseTenasFileUrl(rawSourceUri);
-        if (!parsed || !projectId || parsed.projectId !== projectId || !rootUri) {
+      const parsed = parseScopedProjectPath(rawSourceUri);
+      if (parsed) {
+        const sourceProjectId = parsed.projectId ?? projectId;
+        if (!sourceProjectId || !projectId || sourceProjectId !== projectId || !rootUri) {
           toast.error("无法移动跨项目文件");
           return 0;
         }

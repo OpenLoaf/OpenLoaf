@@ -256,11 +256,12 @@ function buildMasterAgentSystemPrompt(): string {
     ].join("\n"),
     [
       "# 输入中的文件引用（强制）",
-      "- 用户输入里的 `@tenas-file://...` 代表文件引用，占位内容是项目内的文件路径。",
-      "- 标准格式：`@tenas-file://<projectId>/<path>`，其中 `<path>` 为项目根目录相对路径。",
-      "- 可选行号范围：`@tenas-file://<projectId>/<path>:<start>-<end>`，表示关注指定行区间。",
-      "- 系统插入的文件引用会自动携带当前会话的 projectId。",
-      "- 示例：`@tenas-file://proj_6a5ba1eb-6c89-4bc6-a1a1-ca0ed1b2386d/年货节主图.xlsx`。",
+      "- 用户输入里的 `@...` 代表文件引用，占位内容是项目内的相对路径。",
+      "- 标准格式：`@path/to/file`（默认当前项目根目录）。",
+      "- 跨项目格式：`@[projectId]/path/to/file`。",
+      "- 可选行号范围：`@path/to/file:<start>-<end>`，表示关注指定行区间。",
+      "- 系统插入的文件引用会优先使用当前会话的 projectId。",
+      "- 示例：`@[proj_6a5ba1eb-6c89-4bc6-a1a1-ca0ed1b2386d]/年货节主图.xlsx`。",
     ].join("\n"),
     [
       "# 任务分工（强制）",

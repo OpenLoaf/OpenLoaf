@@ -18,7 +18,7 @@ import { getWebClientId } from "@/lib/chat/streamClientId";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import type { ImageNodeProps } from "./ImageNode";
 import type { ModelTag } from "@tenas-ai/api/common";
-import { getWorkspaceIdFromCookie } from "../core/boardStorage";
+import { getWorkspaceIdFromCookie } from "../core/boardSession";
 import { toast } from "sonner";
 import {
   Select,
@@ -30,12 +30,10 @@ import {
 import { useAutoResizeNode } from "./lib/use-auto-resize-node";
 import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
 import {
-  BOARD_RELATIVE_URI_PREFIX,
   filterModelOptionsByTags,
-  resolveBoardFolderScope,
-  resolveBoardRelativeUri,
   runChatSseRequest,
 } from "./lib/image-generation";
+import { resolveBoardFolderScope, resolveBoardRelativeProjectPath } from "../core/boardFilePath";
 
 /** Node type identifier for image prompt generation. */
 export const IMAGE_PROMPT_GENERATE_NODE_TYPE = "image_prompt_generate";
@@ -179,9 +177,11 @@ export function ImagePromptGenerateNodeView({
       break;
     }
   }
-  const hasValidInput = Boolean(
-    inputImageId && inputImageOriginalSrc.trim().startsWith("tenas-file://")
+  const resolvedInputPath = resolveBoardRelativeProjectPath(
+    inputImageOriginalSrc.trim(),
+    boardFolderScope
   );
+  const hasValidInput = Boolean(inputImageId && resolvedInputPath);
   const selectedModelId = (element.props.chatModelId ?? "").trim();
   const defaultModelId =
     typeof basic.modelDefaultChatModelId === "string"
@@ -253,12 +253,9 @@ export function ImagePromptGenerateNodeView({
         }
       }
       const rawImageUrl = imageProps?.originalSrc ?? "";
-      const imageUrl = rawImageUrl
-        ? resolveBoardRelativeUri(rawImageUrl, boardFolderScope)
-        : "";
+      const imageUrl = resolveBoardRelativeProjectPath(rawImageUrl, boardFolderScope);
       const mediaType = imageProps?.mimeType || "application/octet-stream";
-      const isRelativeTenas = imageUrl.startsWith(BOARD_RELATIVE_URI_PREFIX);
-      if (!imageUrl || isRelativeTenas || !imageUrl.startsWith("tenas-file://")) {
+      if (!imageUrl) {
         engine.doc.updateNodeProps(nodeId, {
           errorText: "当前图片缺少可用的地址，无法生成提示词",
         });
@@ -345,6 +342,8 @@ export function ImagePromptGenerateNodeView({
       boardFolderScope,
       element.id,
       engine,
+      fileContext?.boardFolderUri,
+      fileContext?.boardId,
       fileContext?.projectId,
       resolvedWorkspaceId,
     ]

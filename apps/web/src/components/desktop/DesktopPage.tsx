@@ -5,10 +5,10 @@ import { useProjects } from "@/hooks/use-projects";
 import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
 import {
-  buildTenasFileUrl,
   buildUriFromRoot,
+  formatScopedProjectPath,
   getRelativePathFromUri,
-  parseTenasFileUrl,
+  parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import type { DesktopItem } from "./types";
 import type { DesktopBreakpoint } from "./desktop-breakpoints";
@@ -166,14 +166,17 @@ export default function DesktopPage({
   const [isFolderDialogOpen, setIsFolderDialogOpen] = React.useState(false);
   const [activeFolderItemId, setActiveFolderItemId] = React.useState<string | null>(null);
 
-  /** Resolve the selected folder into tenas-file metadata. */
+  /** Resolve the selected folder into scoped metadata. */
   const resolveFolderSelection = React.useCallback(
     (targetUri: string) => {
-      // 中文注释：使用项目根目录匹配目标路径，生成 tenas-file 协议引用。
+      // 中文注释：使用项目根目录匹配目标路径，生成可持久化的相对路径引用。
       for (const project of projectRoots) {
         if (!isUriUnderRoot(project.rootUri, targetUri)) continue;
         const relativePath = getRelativePathFromUri(project.rootUri, targetUri);
-        const folderUri = buildTenasFileUrl(project.projectId, relativePath);
+        const folderUri = formatScopedProjectPath({
+          projectId: project.projectId,
+          relativePath,
+        });
         const relativeParts = relativePath.split("/").filter(Boolean);
         const title =
           relativeParts[relativeParts.length - 1] || project.title || "Folder";
@@ -188,20 +191,7 @@ export default function DesktopPage({
   const resolveDefaultFolderUris = React.useCallback(
     (folderUri?: string) => {
       if (!folderUri) return { defaultRootUri: undefined, defaultActiveUri: undefined };
-      const parsed = (() => {
-        const parsedValue = parseTenasFileUrl(folderUri);
-        if (parsedValue) return parsedValue;
-        try {
-          const url = new URL(folderUri);
-          if (url.protocol !== "tenas-file:") return null;
-          return {
-            projectId: url.hostname.trim(),
-            relativePath: decodeURIComponent(url.pathname.replace(/^\/+/, "")),
-          };
-        } catch {
-          return null;
-        }
-      })();
+      const parsed = parseScopedProjectPath(folderUri);
       if (!parsed) return { defaultRootUri: undefined, defaultActiveUri: undefined };
       const root = projectRoots.find((item) => item.projectId === parsed.projectId);
       if (!root) return { defaultRootUri: undefined, defaultActiveUri: undefined };

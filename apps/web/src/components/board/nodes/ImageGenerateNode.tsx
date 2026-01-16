@@ -13,7 +13,7 @@ import { createChatSessionId } from "@/lib/chat-session-id";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { normalizeImageOptions } from "@/lib/chat/image-options";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
-import { getWorkspaceIdFromCookie } from "../core/boardStorage";
+import { getWorkspaceIdFromCookie } from "../core/boardSession";
 import { toast } from "sonner";
 import type { ImageNodeProps } from "./ImageNode";
 import type { TextNodeValue } from "./TextNode";
@@ -27,17 +27,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  BOARD_RELATIVE_URI_PREFIX,
   IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
   IMAGE_GENERATE_MAX_INPUT_IMAGES,
   IMAGE_GENERATE_MAX_OUTPUT_IMAGES,
   filterImageGenerationModelOptions,
-  resolveBoardFolderScope,
-  resolveBoardRelativeUri,
   runChatSseRequest,
 } from "./lib/image-generation";
 import { buildImageNodePayloadFromUri } from "../utils/image";
-import { buildTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
+import { buildUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  resolveBoardFolderScope,
+  resolveBoardRelativeProjectPath,
+  toBoardRelativePath,
+} from "../core/boardFilePath";
 
 /** Node type identifier for image generation. */
 export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
@@ -146,14 +148,10 @@ export function ImageGenerateNodeView({
   const imageSaveDir = useMemo(() => {
     if (boardFolderScope) {
       // 逻辑：默认使用画布所在目录保存生成图片。
-      return buildTenasFileUrl(
-        boardFolderScope.projectId,
-        boardFolderScope.relativeFolderPath
-      );
+      return boardFolderScope.relativeFolderPath;
     }
-    const fallback = fileContext?.boardFolderUri ?? "";
-    return fallback.startsWith("tenas-file://") ? fallback : "";
-  }, [boardFolderScope, fileContext?.boardFolderUri]);
+    return "";
+  }, [boardFolderScope]);
   /** Session id used for image generation requests. */
   const sessionIdRef = useRef(createChatSessionId());
   /** Abort controller for the active request. */
@@ -219,11 +217,8 @@ export function ImageGenerateNodeView({
 
   for (const imageProps of limitedInputImages) {
     const rawUri = imageProps?.originalSrc ?? "";
-    const resolvedUri = rawUri
-      ? resolveBoardRelativeUri(rawUri, boardFolderScope)
-      : "";
-    const isRelative = resolvedUri.startsWith(BOARD_RELATIVE_URI_PREFIX);
-    if (!resolvedUri || isRelative || !resolvedUri.startsWith("tenas-file://")) {
+    const resolvedUri = resolveBoardRelativeProjectPath(rawUri, boardFolderScope);
+    if (!resolvedUri) {
       invalidImageCount += 1;
       continue;
     }
@@ -393,16 +388,23 @@ export function ImageGenerateNodeView({
           onEvent: (event) => {
             const parsed = event as any;
             if (parsed?.type === "file" && typeof parsed?.url === "string") {
-              const resolvedUrl = resolveBoardRelativeUri(parsed.url, boardFolderScope);
-              if (!resolvedUrl) return;
+              const absoluteUrl = fileContext?.rootUri
+                ? buildUriFromRoot(fileContext.rootUri, parsed.url)
+                : "";
+              if (!absoluteUrl) return;
+              const storedUrl = toBoardRelativePath(
+                absoluteUrl,
+                boardFolderScope,
+                fileContext?.boardFolderUri
+              );
               const mediaType =
                 typeof parsed?.mediaType === "string" ? parsed.mediaType : undefined;
               const fileName =
                 typeof parsed?.fileName === "string" ? parsed.fileName : undefined;
-              streamedImages = [...streamedImages, resolvedUrl];
+              streamedImages = [...streamedImages, storedUrl];
               streamedImagePayloads = [
                 ...streamedImagePayloads,
-                { url: resolvedUrl, mediaType, fileName },
+                { url: absoluteUrl, mediaType, fileName },
               ];
               // 逻辑：节点被删除时终止写入，避免无效更新。
               if (!engine.doc.getElementById(nodeId)) {
@@ -471,7 +473,9 @@ export function ImageGenerateNodeView({
             let currentY = startY;
             for (const output of uniqueOutputs) {
               try {
-                const payload = await buildImageNodePayloadFromUri(output.url);
+                const payload = await buildImageNodePayloadFromUri(output.url, {
+                  projectId: fileContext?.projectId,
+                });
                 const [outputW, outputH] = payload.size;
                 const xywh: [number, number, number, number] = [
                   baseX,
@@ -528,6 +532,8 @@ export function ImageGenerateNodeView({
       boardFolderScope,
       element.id,
       engine,
+      fileContext?.boardFolderUri,
+      fileContext?.boardId,
       fileContext?.projectId,
       effectiveAspectRatio,
       hasInvalidImages,

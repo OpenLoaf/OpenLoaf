@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
-import { resolveServerUrl } from "@/utils/server-url";
+import { getPreviewEndpoint } from "@/lib/image/uri";
 
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
@@ -17,6 +17,7 @@ interface PdfViewerProps {
   openUri?: string;
   name?: string;
   ext?: string;
+  projectId?: string;
   panelKey?: string;
   tabId?: string;
 }
@@ -31,6 +32,7 @@ export default function PdfViewer({
   uri,
   openUri,
   name,
+  projectId,
   panelKey,
   tabId,
 }: PdfViewerProps) {
@@ -48,34 +50,31 @@ export default function PdfViewer({
       setStatus("idle");
       return;
     }
-    if (!uri.startsWith("tenas-file://")) {
-      setData(null);
-      setStatus("error");
-      return;
+    if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(uri)) {
+      const controller = new AbortController();
+      const run = async () => {
+        setStatus("loading");
+        try {
+          const endpoint = getPreviewEndpoint(uri, { projectId });
+          const res = await fetch(endpoint, { signal: controller.signal });
+          if (!res.ok) throw new Error("preview failed");
+          const buffer = await res.arrayBuffer();
+          if (controller.signal.aborted) return;
+          setData(new Uint8Array(buffer));
+          setStatus("ready");
+        } catch {
+          if (controller.signal.aborted) return;
+          setData(null);
+          setStatus("error");
+        }
+      };
+      void run();
+      return () => controller.abort();
     }
-    const controller = new AbortController();
-    const run = async () => {
-      setStatus("loading");
-      try {
-        const apiBase = resolveServerUrl();
-        const endpoint = apiBase
-          ? `${apiBase}/chat/attachments/preview?url=${encodeURIComponent(uri)}`
-          : `/chat/attachments/preview?url=${encodeURIComponent(uri)}`;
-        const res = await fetch(endpoint, { signal: controller.signal });
-        if (!res.ok) throw new Error("preview failed");
-        const buffer = await res.arrayBuffer();
-        if (controller.signal.aborted) return;
-        setData(new Uint8Array(buffer));
-        setStatus("ready");
-      } catch {
-        if (controller.signal.aborted) return;
-        setData(null);
-        setStatus("error");
-      }
-    };
-    void run();
-    return () => controller.abort();
-  }, [uri]);
+    setData(null);
+    setStatus("error");
+    return;
+  }, [projectId, uri]);
 
   const displayTitle = useMemo(() => name ?? uri ?? "PDF", [name, uri]);
   const documentFile = useMemo(() => (data ? { data } : null), [data]);

@@ -567,7 +567,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
       metadata: metadataPayload,
     });
   }
-  // 保存到本地磁盘，落库使用 tenas-file。
+  // 保存到本地磁盘，落库使用相对路径。
   const persistedImageParts = await saveGeneratedImages({
     images: result.images,
     workspaceId,

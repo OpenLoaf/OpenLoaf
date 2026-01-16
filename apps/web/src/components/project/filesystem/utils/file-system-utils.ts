@@ -60,25 +60,48 @@ export function buildUriFromRoot(rootUri: string, relativePath: string) {
   }
 }
 
-/** Build tenas-file URL from projectId and relative path. */
-export function buildTenasFileUrl(projectId: string, relativePath: string) {
-  const parts = relativePath.split("/").filter(Boolean);
-  // 逻辑：tenas-file 路径保持原始字符，不进行 URL Encoding。
-  return `tenas-file://${projectId}/${parts.join("/")}`;
+/** Scoped project path matcher like [projectId]/path/to/file. */
+const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\]\/(.+)$/;
+
+/** Normalize a project-relative path string. */
+export function normalizeProjectRelativePath(value: string) {
+  return value.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/^\/+/, "");
 }
 
-/** Parse tenas-file URL into projectId and relative path. */
-export function parseTenasFileUrl(uri: string): { projectId: string; relativePath: string } | null {
-  try {
-    const parsed = new URL(uri);
-    if (parsed.protocol !== "tenas-file:") return null;
-    const projectId = parsed.hostname.trim();
-    const relativePath = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
-    if (!projectId || !relativePath) return null;
-    return { projectId, relativePath };
-  } catch {
-    return null;
-  }
+/** Parse a scoped project path string. */
+export function parseScopedProjectPath(
+  value: string
+): { projectId?: string; relativePath: string } | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(normalized)) return null;
+  // 逻辑：支持 [projectId]/path 形式的跨项目引用。
+  const match = normalized.match(PROJECT_SCOPE_REGEX);
+  const relativePath = normalizeProjectRelativePath(match ? match[2] ?? "" : normalized);
+  if (!relativePath) return null;
+  return { projectId: match?.[1]?.trim(), relativePath };
+}
+
+/** Format a scoped project path string. */
+export function formatScopedProjectPath(input: {
+  /** Relative path under project root. */
+  relativePath: string;
+  /** Project id for scoping. */
+  projectId?: string;
+  /** Current project id for de-dup. */
+  currentProjectId?: string;
+  /** Whether to prefix with "@". */
+  includeAt?: boolean;
+}) {
+  const relativePath = normalizeProjectRelativePath(input.relativePath);
+  if (!relativePath) return "";
+  const shouldScope =
+    Boolean(input.projectId) &&
+    (!input.currentProjectId || input.projectId !== input.currentProjectId);
+  const prefix = shouldScope ? `[${input.projectId}]/` : "";
+  const scoped = `${prefix}${relativePath}`;
+  return input.includeAt ? `@${scoped}` : scoped;
 }
 
 /** Get a normalized extension string for a file entry. */

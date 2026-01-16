@@ -79,6 +79,8 @@ const SELECT_SVG_SRC = "/board/select-cursor-svgrepo-com.svg";
 const DRAG_SVG_SRC = "/board/drag-svgrepo-com.svg";
 const NOTE_SVG_SRC = "/board/notes-note-svgrepo-com.svg";
 const PICTURE_SVG_SRC = "/board/picture-photo-svgrepo-com.svg";
+/** Offset applied when inserting multiple images from picker. */
+const IMAGE_PICK_STACK_OFFSET = 24;
 
 const prefixSvgIds = (svg: string, prefix: string) => {
   const safePrefix = prefix.replace(/:/g, "");
@@ -454,16 +456,33 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   /** Handle inserting selected image files. */
   const handleImageChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
       try {
-        const payload = await engine.buildImagePayloadFromFile(file);
-        handleInsertRequest({
-          id: "image",
-          type: "image",
-          props: payload.props,
-          size: payload.size,
-        });
+        const files = Array.from(event.target.files ?? []);
+        const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+        if (imageFiles.length === 0) return;
+        if (imageFiles.length === 1) {
+          const payload = await engine.buildImagePayloadFromFile(imageFiles[0]);
+          handleInsertRequest({
+            id: "image",
+            type: "image",
+            props: payload.props,
+            size: payload.size,
+          });
+          return;
+        }
+        const center = engine.getViewportCenterWorld();
+        for (const [index, file] of imageFiles.entries()) {
+          const payload = await engine.buildImagePayloadFromFile(file);
+          const [width, height] = payload.size;
+          const offset = IMAGE_PICK_STACK_OFFSET * index;
+          // 逻辑：批量插入图片时错位堆叠，避免完全重叠。
+          engine.addNodeElement("image", payload.props, [
+            center[0] - width / 2 + offset,
+            center[1] - height / 2 + offset,
+            width,
+            height,
+          ]);
+        }
       } finally {
         // 逻辑：清空输入，保证再次选择同一文件可触发 change
         event.target.value = "";
@@ -701,6 +720,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           ref={imageInputRef}
           type="file"
           accept="image/*"
+          multiple
           className="hidden"
           onChange={handleImageChange}
         />

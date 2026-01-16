@@ -100,6 +100,9 @@ import { generateElementId } from "./id";
 /** Builder for image payloads. */
 type ImagePayloadBuilder = (file: File) => Promise<ImageNodePayload>;
 
+/** Offset applied when inserting multiple images from paste. */
+const IMAGE_PASTE_STACK_OFFSET = 24;
+
 export class CanvasEngine {
   /** Document model storing elements. */
   readonly doc: CanvasDoc;
@@ -256,10 +259,10 @@ export class CanvasEngine {
         textUriListLength: textUriList.length,
       });
     }
-    const payload = getClipboardInsertPayload(event);
-    if (payload) {
+    const payloads = getClipboardInsertPayload(event);
+    if (payloads && payloads.length > 0) {
       event.preventDefault();
-      void this.handleExternalPaste(payload);
+      void this.handleExternalPaste(payloads);
       return;
     }
     if (this.clipboard) {
@@ -1051,27 +1054,47 @@ export class CanvasEngine {
   }
 
   /** Handle external clipboard payloads, with room for future node types. */
-  private async handleExternalPaste(payload: ClipboardInsertPayload): Promise<void> {
-    if (payload.kind === "image") {
-      await this.insertImageFromFile(payload.file);
+  private async handleExternalPaste(
+    payloads: ClipboardInsertPayload[]
+  ): Promise<void> {
+    const imageFiles = payloads
+      .filter(
+        (
+          payload
+        ): payload is Extract<typeof payloads[number], { kind: "image" }> =>
+          payload.kind === "image"
+      )
+      .map((payload) => payload.file);
+    if (imageFiles.length > 0) {
+      await this.insertImagesFromFiles(imageFiles);
       return;
     }
-    if (payload.kind === "url") {
-      this.insertLinkFromUrl(payload.url);
+    const urlPayload = payloads.find((payload) => payload.kind === "url");
+    if (urlPayload) {
+      this.insertLinkFromUrl(urlPayload.url);
     }
   }
 
   /** Insert an image node from a file and place it at the viewport center. */
   private async insertImageFromFile(file: File): Promise<void> {
-    const payload = await this.buildImagePayloadFromFile(file);
-    const [width, height] = payload.size;
+    await this.insertImagesFromFiles([file]);
+  }
+
+  /** Insert multiple image nodes from files near the viewport center. */
+  private async insertImagesFromFiles(files: File[]): Promise<void> {
     const center = this.getViewportCenterWorld();
-    this.addNodeElement("image", payload.props, [
-      center[0] - width / 2,
-      center[1] - height / 2,
-      width,
-      height,
-    ]);
+    for (const [index, file] of files.entries()) {
+      const payload = await this.buildImagePayloadFromFile(file);
+      const [width, height] = payload.size;
+      const offset = IMAGE_PASTE_STACK_OFFSET * index;
+      // 逻辑：多图粘贴时错位摆放，保证每张图片可见。
+      this.addNodeElement("image", payload.props, [
+        center[0] - width / 2 + offset,
+        center[1] - height / 2 + offset,
+        width,
+        height,
+      ]);
+    }
   }
 
   /** Insert a link node from a URL and place it at the viewport center. */

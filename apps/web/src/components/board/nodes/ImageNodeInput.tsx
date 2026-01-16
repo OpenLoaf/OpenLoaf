@@ -16,6 +16,10 @@ import {
   parseChatValue,
   serializeChatValue,
 } from "@/components/chat/chat-input-utils";
+import {
+  formatScopedProjectPath,
+  parseScopedProjectPath,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import { MentionKit } from "@/components/editor/plugins/mention-kit";
 import { ClipboardKit } from "@/components/editor/plugins/clipboard-kit";
 import { ParagraphElement } from "@/components/ui/paragraph-node";
@@ -71,7 +75,7 @@ export function ImageNodeInput({
   /** Active viewport animation frame id. */
   const viewportAnimationRef = useRef<number | null>(null);
   const { data: projects = [] } = useProjects({ enabled: isInputFocused });
-  const { engine } = useBoardContext();
+  const { engine, fileContext } = useBoardContext();
   const activeTabId = useTabs((state) => state.activeTabId);
   const pushStackItem = useTabs((state) => state.pushStackItem);
   const plugins = useMemo(
@@ -91,11 +95,12 @@ export function ImageNodeInput({
     (event: React.PointerEvent<HTMLDivElement>) => {
       handleChatMentionPointerDown(event, {
         activeTabId,
+        projectId: fileContext?.projectId,
         projects,
         pushStackItem,
       });
     },
-    [activeTabId, projects, pushStackItem]
+    [activeTabId, fileContext?.projectId, projects, pushStackItem]
   );
 
   /** Animate the viewport towards a target zoom + offset. */
@@ -222,16 +227,23 @@ export function ImageNodeInput({
       const normalizedRef = fileRef.trim().startsWith("@")
         ? fileRef.trim().slice(1)
         : fileRef.trim();
-      if (!normalizedRef.startsWith("tenas-file://")) return;
+      const parsed = parseScopedProjectPath(normalizedRef);
+      if (!parsed) return;
+      const scoped = formatScopedProjectPath({
+        projectId: parsed.projectId,
+        currentProjectId: fileContext?.projectId,
+        relativePath: parsed.relativePath,
+      });
+      if (!scoped) return;
       if (!editor.selection) {
         const endPoint = SlateEditor.end(editor as unknown as BaseEditor, []);
         editor.tf.select(endPoint);
       }
       editor.tf.focus();
-      editor.tf.insertNodes(buildMentionNode(normalizedRef), { select: true });
+      editor.tf.insertNodes(buildMentionNode(scoped), { select: true });
       editor.tf.insertText(" ");
     },
-    [editor]
+    [editor, fileContext?.projectId]
   );
 
   /** Sync editor value into serialized string state. */

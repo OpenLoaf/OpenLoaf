@@ -43,7 +43,6 @@ import {
 } from "@/components/ui/breadcrumb";
 import {
   buildChildUri,
-  buildTenasFileUrl,
   getEntryExt,
   getRelativePathFromUri,
   type FileSystemEntry,
@@ -693,13 +692,14 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       if (!relativePath) {
         return <div className="h-full w-full p-4 text-destructive">无法解析PDF路径</div>;
       }
-      const pdfUri = buildTenasFileUrl(projectId, relativePath);
+      const pdfUri = relativePath;
       return (
         <PdfViewer
           uri={pdfUri}
           openUri={entry.uri}
           name={displayName}
           ext={ext}
+          projectId={projectId}
         />
       );
     }

@@ -51,19 +51,20 @@ type PasteOptions = {
   getNextZIndex: () => number;
 };
 
-type ClipboardParser = (event: ClipboardEvent) => ClipboardInsertPayload | null;
+type ClipboardParser = (event: ClipboardEvent) => ClipboardInsertPayload[] | null;
 
 /** Detect image files from clipboard data. */
 const parseImageClipboard: ClipboardParser = event => {
   const items = Array.from(event.clipboardData?.items ?? []);
+  const payloads: ClipboardInsertPayload[] = [];
   for (const item of items) {
     if (!item.type.startsWith("image/")) continue;
     const file = item.getAsFile();
     if (file) {
-      return { kind: "image", file };
+      payloads.push({ kind: "image", file });
     }
   }
-  return null;
+  return payloads.length > 0 ? payloads : null;
 };
 
 /** Detect plain URL text from clipboard data. */
@@ -73,18 +74,18 @@ const parseUrlClipboard: ClipboardParser = event => {
   if (!trimmed) return null;
   if (/[\r\n]/.test(trimmed)) return null;
   if (!/^https?:\/\//i.test(trimmed)) return null;
-  return { kind: "url", url: trimmed };
+  return [{ kind: "url", url: trimmed }];
 };
 
 /** Resolve external clipboard data into insert payloads. */
 export function getClipboardInsertPayload(
   event: ClipboardEvent
-): ClipboardInsertPayload | null {
+): ClipboardInsertPayload[] | null {
   // 逻辑：按顺序尝试解析器，方便后续扩展更多剪贴板类型。
   const parsers: ClipboardParser[] = [parseImageClipboard, parseUrlClipboard];
   for (const parser of parsers) {
-    const payload = parser(event);
-    if (payload) return payload;
+    const payloads = parser(event);
+    if (payloads && payloads.length > 0) return payloads;
   }
   return null;
 }

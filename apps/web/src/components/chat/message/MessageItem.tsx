@@ -27,7 +27,8 @@ function MessageItem({
   isLastAiMessage,
   hideAiActions,
 }: MessageItemProps) {
-  const { resendUserMessage, status, clearError, branchMessageIds, siblingNav } = useChatContext();
+  const { resendUserMessage, status, clearError, branchMessageIds, siblingNav, projectId } =
+    useChatContext();
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [editAttachments, setEditAttachments] = React.useState<ChatAttachment[]>([]);
@@ -185,7 +186,7 @@ function MessageItem({
         try {
           const fileName = resolveFileName(part.url, part.mediaType);
           const baseName = resolveBaseName(fileName);
-          const baseBlob = await fetchBlobFromUri(part.url);
+          const baseBlob = await fetchBlobFromUri(part.url, { projectId });
           if (aborted) return;
           const baseFile = new File([baseBlob], fileName, {
             type: part.mediaType || baseBlob.type || "image/png",
@@ -203,7 +204,7 @@ function MessageItem({
 
           const mask = baseName ? maskMap.get(baseName) : undefined;
           if (mask?.url) {
-            const maskBlob = await fetchBlobFromUri(mask.url);
+            const maskBlob = await fetchBlobFromUri(mask.url, { projectId });
             if (aborted) return;
             const maskFileName = resolveFileName(mask.url, mask.mediaType);
             const maskFile = new File([maskBlob], maskFileName, {
@@ -265,6 +266,7 @@ function MessageItem({
                 attachments={editAttachments}
                 onRemoveAttachment={removeEditAttachment}
                 attachmentEditEnabled={false}
+                defaultProjectId={projectId}
                 onSubmit={handleResend}
               />
             </div>

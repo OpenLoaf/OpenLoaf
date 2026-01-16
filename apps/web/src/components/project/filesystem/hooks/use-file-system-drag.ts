@@ -11,7 +11,7 @@ import {
 import { setImageDragPayload } from "@/lib/image/drag";
 import {
   type FileSystemEntry,
-  buildTenasFileUrl,
+  formatScopedProjectPath,
   FILE_DRAG_URIS_MIME,
   getRelativePathFromUri,
 } from "../utils/file-system-utils";
@@ -63,8 +63,8 @@ const resolveEntryDragUri = (
   if (!dragProjectId || !dragRootUri) return entry.uri;
   const relativePath = getRelativePathFromUri(dragRootUri, entry.uri);
   if (!relativePath) return entry.uri;
-  // 对外拖拽统一使用 tenas-file 协议。
-  return buildTenasFileUrl(dragProjectId, relativePath);
+  // 对外拖拽统一使用项目相对路径引用。
+  return formatScopedProjectPath({ projectId: dragProjectId, relativePath });
 };
 
 /** Manage drag interactions for file system entries. */

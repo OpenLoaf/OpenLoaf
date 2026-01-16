@@ -44,7 +44,7 @@ interface ImageViewerProps {
   saveDefaultDir?: string;
   /** Optional media type for file naming. */
   mediaType?: string;
-  /** Optional initial mask for editing (tenas-file/data/blob). */
+  /** Optional initial mask for editing (relative/data/blob). */
   initialMaskUri?: string;
   /** Optional override handler when applying mask. */
   onApplyMask?: (input: MaskedAttachmentInput) => void;
@@ -192,7 +192,7 @@ export default function ImageViewer({
   onApplyMask,
   onClose,
 }: ImageViewerProps) {
-  const isTenasFile = typeof uri === "string" && uri.startsWith("tenas-file://");
+  const isRelative = typeof uri === "string" && !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(uri);
   const isDataUrl = typeof uri === "string" && uri.startsWith("data:");
   const isBlob = isBlobUrl(uri);
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
@@ -227,6 +227,7 @@ export default function ImageViewer({
   const [canRedo, setCanRedo] = React.useState(false);
   const appliedRef = React.useRef<string>("");
   const chat = useOptionalChatContext();
+  const projectId = chat?.projectId;
   const { basic, setBasic } = useBasicConfig();
   const { providerItems, s3ProviderItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
@@ -257,13 +258,13 @@ export default function ImageViewer({
   } | null>(null);
 
   React.useEffect(() => {
-    if (!uri || !isTenasFile) return;
+    if (!uri || !isRelative) return;
     let aborted = false;
     let objectUrl = "";
     const run = async () => {
       setPreview({ status: "loading" });
       try {
-        const blob = await fetchBlobFromUri(uri);
+        const blob = await fetchBlobFromUri(uri, { projectId });
         objectUrl = URL.createObjectURL(blob);
         if (aborted) return;
         setPreview({ status: "ready", src: objectUrl });
@@ -277,7 +278,7 @@ export default function ImageViewer({
       aborted = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [uri, isTenasFile]);
+  }, [projectId, uri, isRelative]);
 
   const payload = shouldUseFs ? imageQuery.data : null;
   // 用 base64 构造 dataUrl，避免浏览器直接访问 file:// 资源。
@@ -444,7 +445,7 @@ export default function ImageViewer({
     const maskCtx = maskCanvas.getContext("2d");
     if (!maskCtx) return;
     maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
-    const maskImage = await loadImageFromUri(initialMaskUri);
+    const maskImage = await loadImageFromUri(initialMaskUri, { projectId });
     maskCtx.drawImage(maskImage, 0, 0, maskCanvas.width, maskCanvas.height);
     maskCanvasRef.current = maskCanvas;
     renderComposite();
@@ -886,7 +887,7 @@ export default function ImageViewer({
     return <div className="h-full w-full p-4 text-muted-foreground">未选择图片</div>;
   }
 
-  if (isTenasFile && (!preview || preview.status === "loading")) {
+  if (isRelative && (!preview || preview.status === "loading")) {
     return <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>;
   }
 
@@ -894,7 +895,7 @@ export default function ImageViewer({
     return <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>;
   }
 
-  if (isTenasFile && preview?.status === "error") {
+  if (isRelative && preview?.status === "error") {
     return (
       <div className="h-full w-full p-4 text-destructive">
         图片预览失败

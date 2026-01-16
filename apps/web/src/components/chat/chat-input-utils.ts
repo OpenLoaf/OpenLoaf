@@ -2,10 +2,10 @@
 
 import type { Value } from "platejs";
 import { KEYS } from "platejs";
-import { parseTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
+import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 
 // 逻辑：允许非 URL 编码的路径，使用非空白字符匹配文件引用。
-const FILE_TOKEN_BODY = "tenas-file://\\S+";
+const FILE_TOKEN_BODY = "(?:\\[[^\\]]+\\]/\\S+|[^\\s@]+/\\S+)(?::\\d+-\\d+)?";
 export const FILE_TOKEN_REGEX = new RegExp(`@(${FILE_TOKEN_BODY})`, "g");
 
 /** Normalize mention value by trimming leading "@". */
@@ -16,7 +16,8 @@ const normalizeMentionValue = (value: string) => {
 
 /** Normalize spacing around file mention tokens. */
 export const normalizeFileMentionSpacing = (value: string) => {
-  if (!value.includes("@tenas-file://")) return value;
+  FILE_TOKEN_REGEX.lastIndex = 0;
+  if (!FILE_TOKEN_REGEX.test(value)) return value;
   const withLeadingSpace = value.replace(
     new RegExp(`(\\\\S)(@${FILE_TOKEN_BODY})`, "g"),
     (_match, lead, token) => `${lead} ${token}`,
@@ -47,7 +48,7 @@ export const getFileLabel = (value: string) => {
   const baseValue = match?.[1] ?? normalized;
   const lineStart = match?.[2];
   const lineEnd = match?.[3];
-  const parsed = baseValue.startsWith("tenas-file://") ? parseTenasFileUrl(baseValue) : null;
+  const parsed = parseScopedProjectPath(baseValue);
   const labelBase = parsed?.relativePath ?? baseValue;
   const parts = labelBase.split("/");
   const label = parts[parts.length - 1] || labelBase;

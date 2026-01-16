@@ -31,13 +31,18 @@ function isImageMediaType(mediaType?: string) {
   return typeof mediaType === "string" && mediaType.startsWith("image/");
 }
 
+/** Check whether the value is a relative path. */
+function isRelativePath(value: string) {
+  return !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value);
+}
+
 /** Render file part for AI messages. */
 export default function MessageFile({ url, mediaType, title, className }: MessageFileProps) {
   const [preview, setPreview] = React.useState<PreviewState | null>(null);
   // 控制图片预览弹窗开关。
   const [isPreviewOpen, setIsPreviewOpen] = React.useState(false);
   const isImage = isImageMediaType(mediaType);
-  const shouldFetchPreview = isImage && url.startsWith("tenas-file://");
+  const shouldFetchPreview = isImage && isRelativePath(url);
   const chat = useChatContext();
   const projectId = chat.projectId;
   const projectQuery = useProject(projectId);
@@ -55,7 +60,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
     const run = async () => {
       setPreview({ status: "loading" });
       try {
-        const blob = await fetchBlobFromUri(url);
+        const blob = await fetchBlobFromUri(url, { projectId });
         objectUrl = URL.createObjectURL(blob);
         if (aborted) return;
         setPreview({ status: "ready", src: objectUrl });
@@ -65,7 +70,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
       }
     };
 
-    // tenas-file 需要走预览接口获取可展示的 blob。
+    // 相对路径需要走预览接口获取可展示的 blob。
     void run();
     return () => {
       aborted = true;
@@ -110,7 +115,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
           loading="lazy"
           draggable
           onDragStart={(event) => {
-            // 允许将消息内图片拖入输入框，复用 tenas-file 作为来源。
+            // 允许将消息内图片拖入输入框，复用当前图片来源。
             event.dataTransfer.effectAllowed = "copy";
             const fallbackName = title?.trim() || resolveFileName(url, mediaType);
             setImageDragPayload(event.dataTransfer, { baseUri: url, fileName: fallbackName });

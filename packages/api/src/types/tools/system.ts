@@ -10,7 +10,7 @@ export const fileReadToolDef = {
     path: z
       .string()
       .describe(
-        "文件路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。",
+        "文件路径（相对项目根目录；跨项目可用 [projectId]/...；路径不要使用 URL Encoding 编码）。",
       ),
   }),
   component: null,
@@ -26,7 +26,7 @@ export const fileListToolDef = {
       .string()
       .optional()
       .describe(
-        "目录路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。默认项目根。",
+        "目录路径（相对项目根目录；跨项目可用 [projectId]/...；路径不要使用 URL Encoding 编码）。默认项目根。",
       ),
   }),
   component: null,
@@ -43,7 +43,7 @@ export const fileSearchToolDef = {
       .string()
       .optional()
       .describe(
-        "搜索根目录（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。默认项目根。",
+        "搜索根目录（相对项目根目录；跨项目可用 [projectId]/...；路径不要使用 URL Encoding 编码）。默认项目根。",
       ),
     limit: z
       .number()
@@ -65,7 +65,7 @@ export const fileWriteToolDef = {
     path: z
       .string()
       .describe(
-        "文件路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。",
+        "文件路径（相对项目根目录；跨项目可用 [projectId]/...；路径不要使用 URL Encoding 编码）。",
       ),
     content: z.string().describe("要写入的文本内容。"),
     mode: z
@@ -85,7 +85,7 @@ export const fileDeleteToolDef = {
     path: z
       .string()
       .describe(
-        "文件路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。",
+        "文件路径（相对项目根目录；跨项目可用 [projectId]/...；路径不要使用 URL Encoding 编码）。",
       ),
   }),
   component: null,
@@ -100,7 +100,7 @@ export const fileReadExcelToolDef = {
     path: z
       .string()
       .describe(
-        "文件路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。",
+        "文件路径（相对项目根目录；跨项目可用 [projectId]/...；路径不要使用 URL Encoding 编码）。",
       ),
   }),
   component: null,
@@ -115,7 +115,7 @@ export const fileReadDocxToolDef = {
     path: z
       .string()
       .describe(
-        "文件路径（相对项目根目录或 tenas-file://{projectId}/...；路径不要使用 URL Encoding 编码）。",
+        "文件路径（相对项目根目录；跨项目可用 [projectId]/...；路径不要使用 URL Encoding 编码）。",
       ),
   }),
   component: null,

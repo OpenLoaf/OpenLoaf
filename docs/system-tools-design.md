@@ -8,7 +8,7 @@
 
 ## 约束
 - `projectId` 只允许从 `apps/server/src/ai/chat-stream/requestContext.ts` 获取。
-- `tenas-file://` 仅允许解析为当前 `projectId`。
+- 路径默认使用当前 `projectId`，如需跨项目需显式传入 `[projectId]/...`。
 - 访问路径必须落在 `getProjectRootPath(projectId)` 返回的根目录内。
 - 搜索工具默认跳过 `.tenas`、`.git`、`node_modules` 等目录。
 
@@ -47,7 +47,7 @@
 建议新增统一 helper：`apps/server/src/ai/tools/system/projectPath.ts`
 
 #### 输入
-- `path: string`（相对路径或 `tenas-file://{projectId}/...`）
+- `path: string`（相对路径或 `[projectId]/...`）
 
 #### 输出
 - `projectId`
@@ -58,10 +58,8 @@
 #### 逻辑步骤
 1. 读取 `projectId = getProjectId()`，为空直接报错。
 2. `rootPath = getProjectRootPath(projectId)`，为空报错。
-3. 若传 `tenas-file://`：
-   - 解析 `tenas-file://{projectId}/...` 或 `tenas-file://./...`。
-   - 若 `projectId` 不一致则拒绝。
-   - 取出相对路径。
+3. 若传 `[projectId]/...`：
+   - 解析出 `projectId` 与相对路径。
 4. 若传相对路径：`absPath = path.resolve(rootPath, path)`。
 5. 若传绝对路径：先 `path.resolve`，再校验在 `rootPath` 内。
 6. 校验 `absPath` 必须位于 `rootPath` 内（防止 `..` 越界）。
@@ -75,13 +73,13 @@
 - 参数：`path`
 - 仅支持 `.xlsx/.xls/.xlsm`，提取纯文本。
 - 有字节与输出长度上限，超出时截断。
-- 若包含图片，会从 `xl/media` 提取并保存到 `.tenas/chat/<sessionId>/`，返回 `tenas-file://` 引用（`.xls` 仅支持文本）。
+- 若包含图片，会从 `xl/media` 提取并保存到 `.tenas/chat/<sessionId>/`，返回相对路径引用（`.xls` 仅支持文本）。
 
 #### file-read-docx
 - 参数：`path`
 - 仅支持 `.docx`，提取纯文本。
 - 有字节与输出长度上限，超出时截断。
-- 若包含图片，会从 `word/media` 提取并保存到 `.tenas/chat/<sessionId>/`，返回 `tenas-file://` 引用。
+- 若包含图片，会从 `word/media` 提取并保存到 `.tenas/chat/<sessionId>/`，返回相对路径引用。
 
 #### file-list
 - 参数：`path?`
@@ -155,7 +153,7 @@
 ## 安全边界检查清单
 - 是否存在 `projectId`。
 - 是否存在 `projectRootPath`。
-- `tenas-file` 解析后 projectId 是否一致。
+- scoped path 解析后 projectId 是否有效。
 - `absPath` 是否在 rootPath 下。
 - 是否访问敏感目录或隐藏目录。
 - 输出是否受限（行数/字节）。

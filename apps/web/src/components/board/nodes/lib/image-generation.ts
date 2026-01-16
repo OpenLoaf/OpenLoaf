@@ -2,13 +2,6 @@ import type { ModelTag } from "@tenas-ai/api/common";
 
 import type { ProviderModelOption } from "@/lib/provider-models";
 import { resolveServerUrl } from "@/utils/server-url";
-import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
-import {
-  buildTenasFileUrl,
-  getRelativePathFromUri,
-  parseTenasFileUrl,
-} from "@/components/project/filesystem/utils/file-system-utils";
-import type { BoardFileContext } from "../../core/BoardProvider";
 
 /** Shared helpers for image generation nodes (SSE/model selection). */
 /** Default output count for image generation nodes. */
@@ -17,16 +10,6 @@ export const IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT = 1;
 export const IMAGE_GENERATE_MAX_INPUT_IMAGES = 9;
 /** Maximum number of output images supported by image generation nodes. */
 export const IMAGE_GENERATE_MAX_OUTPUT_IMAGES = 4;
-/** Prefix used for board-relative tenas-file paths. */
-export const BOARD_RELATIVE_URI_PREFIX = "tenas-file://./";
-
-export type BoardFolderScope = {
-  /** Project id for resolving absolute file urls. */
-  projectId: string;
-  /** Relative folder path under the project root. */
-  relativeFolderPath: string;
-};
-
 export type ChatSseRequest = {
   /** Payload posted to the SSE endpoint. */
   payload: unknown;
@@ -36,16 +19,6 @@ export type ChatSseRequest = {
   onEvent: (event: unknown) => void | boolean;
 };
 
-/** Normalize a relative path string. */
-function normalizeRelativePath(value: string) {
-  return value.replace(/^\/+/, "");
-}
-
-/** Return true when the relative path attempts to traverse parents. */
-function hasParentTraversal(value: string) {
-  return value.split("/").some((segment) => segment === "..");
-}
-
 /** Extract SSE data payload from a single event chunk. */
 function extractSseData(chunk: string): string | null {
   const lines = chunk.split("\n");
@@ -54,43 +27,6 @@ function extractSseData(chunk: string): string | null {
   return dataLines
     .map((line) => line.slice(5).trimStart())
     .join("\n");
-}
-
-/** Resolve the board folder scope from file context. */
-export function resolveBoardFolderScope(
-  fileContext?: BoardFileContext,
-): BoardFolderScope | null {
-  if (!fileContext?.boardFolderUri) return null;
-  // 逻辑：优先解析 boardFolderUri，失败时用 rootUri 计算相对路径。
-  const parsed = parseTenasFileUrl(fileContext.boardFolderUri);
-  if (parsed) {
-    return {
-      projectId: parsed.projectId,
-      relativeFolderPath: parsed.relativePath,
-    };
-  }
-  if (!fileContext.projectId || !fileContext.rootUri) return null;
-  const relativeFolderPath = getRelativePathFromUri(
-    fileContext.rootUri,
-    fileContext.boardFolderUri,
-  );
-  if (!relativeFolderPath) return null;
-  return { projectId: fileContext.projectId, relativeFolderPath };
-}
-
-/** Resolve board-relative tenas-file urls into absolute paths. */
-export function resolveBoardRelativeUri(
-  uri: string,
-  boardFolderScope: BoardFolderScope | null,
-) {
-  if (!boardFolderScope) return uri;
-  if (!uri.startsWith(BOARD_RELATIVE_URI_PREFIX)) return uri;
-  const relativePath = normalizeRelativePath(uri.slice(BOARD_RELATIVE_URI_PREFIX.length));
-  if (!relativePath || hasParentTraversal(relativePath)) return uri;
-  // 逻辑：仅允许解析资产目录内的相对路径，避免误引用工程外文件。
-  if (!relativePath.startsWith(`${BOARD_ASSETS_DIR_NAME}/`)) return uri;
-  const combined = `${boardFolderScope.relativeFolderPath}/${relativePath}`;
-  return buildTenasFileUrl(boardFolderScope.projectId, combined);
 }
 
 /** Stream SSE events from the chat endpoint. */

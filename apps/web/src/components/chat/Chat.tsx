@@ -26,8 +26,9 @@ import {
   FILE_DRAG_IMAGE_MIME,
   FILE_DRAG_REF_MIME,
   FILE_DRAG_URI_MIME,
+  FILE_DRAG_MASK_URI_MIME,
 } from "@/components/ui/tenas/drag-drop-types";
-import { parseTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
+import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 import { DragDropOverlay } from "@/components/ui/tenas/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -65,9 +66,14 @@ function isImageFileRef(fileRef: string) {
     : fileRef.trim();
   const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? normalized;
-  const parsed = baseValue.startsWith("tenas-file://") ? parseTenasFileUrl(baseValue) : null;
+  const parsed = parseScopedProjectPath(baseValue);
   const name = (parsed?.relativePath ?? baseValue).split("/").pop() ?? "";
   return IMAGE_FILE_NAME_REGEX.test(name);
+}
+
+/** Check whether a value is a relative path. */
+function isRelativePath(value: string) {
+  return !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value);
 }
 
 /** Check whether a drag payload includes image files. */
@@ -86,7 +92,7 @@ function hasImageFileUpload(dataTransfer: DataTransfer) {
 }
 
 /** Read the file reference from an internal drag payload. */
-function resolveTenasDragRef(dataTransfer: DataTransfer) {
+function resolveDragRef(dataTransfer: DataTransfer) {
   const hasUri = dataTransfer.types.includes(FILE_DRAG_URI_MIME);
   const hasRef = dataTransfer.types.includes(FILE_DRAG_REF_MIME);
   if (!hasUri && !hasRef) return "";
@@ -94,7 +100,7 @@ function resolveTenasDragRef(dataTransfer: DataTransfer) {
 }
 
 /** Read the file name from an internal drag payload. */
-function resolveTenasDragName(dataTransfer: DataTransfer) {
+function resolveDragName(dataTransfer: DataTransfer) {
   const hasUri = dataTransfer.types.includes(FILE_DRAG_URI_MIME);
   if (!hasUri) return "";
   return dataTransfer.getData(FILE_DRAG_NAME_MIME) || "";
@@ -237,11 +243,11 @@ export function Chat({
       if (!workspaceId) {
         return { ok: false as const, errorMessage: "当前标签页未绑定工作区，无法上传图片" };
       }
-      // 上传后端生成 tenas-file 地址，后续仅存该引用。
+      // 上传后端生成相对路径，后续仅存该引用。
       const formData = new FormData();
       const sourceUrl = input.sourceUrl?.trim();
-      // 中文注释：内部拖拽若携带 tenas-file，则直接按引用上传。
-      if (sourceUrl && sourceUrl.startsWith("tenas-file://")) {
+      // 中文注释：内部拖拽若携带相对路径，则直接按引用上传。
+      if (sourceUrl && isRelativePath(sourceUrl)) {
         formData.append("file", sourceUrl);
       } else {
         formData.append("file", input.file);
@@ -525,8 +531,8 @@ export function Chat({
     const hasTenasImage =
       event.dataTransfer?.types?.includes(FILE_DRAG_IMAGE_MIME) ?? false;
     if (!hasFiles && !hasTenasRef && !hasTenasUri) return;
-    const fileRef = resolveTenasDragRef(event.dataTransfer);
-    const fileName = resolveTenasDragName(event.dataTransfer);
+    const fileRef = resolveDragRef(event.dataTransfer);
+    const fileName = resolveDragName(event.dataTransfer);
     const hasImageUpload = hasFiles && hasImageFileUpload(event.dataTransfer);
     const isFileRefImage =
       hasTenasImage ||
@@ -558,8 +564,8 @@ export function Chat({
     const hasTenasImage =
       event.dataTransfer?.types?.includes(FILE_DRAG_IMAGE_MIME) ?? false;
     if (!hasFiles && !hasTenasRef && !hasTenasUri) return;
-    const fileRef = resolveTenasDragRef(event.dataTransfer);
-    const fileName = resolveTenasDragName(event.dataTransfer);
+    const fileRef = resolveDragRef(event.dataTransfer);
+    const fileName = resolveDragName(event.dataTransfer);
     const hasImageUpload = hasFiles && hasImageFileUpload(event.dataTransfer);
     const isFileRefImage =
       hasTenasImage ||
@@ -611,9 +617,9 @@ export function Chat({
         })),
         data: {
           fileRef: event.dataTransfer?.getData(FILE_DRAG_REF_MIME),
-          fileUri: event.dataTransfer?.getData("application/x-tenas-file-uri"),
-          fileName: event.dataTransfer?.getData("application/x-tenas-file-name"),
-          fileMaskUri: event.dataTransfer?.getData("application/x-tenas-file-mask-uri"),
+          fileUri: event.dataTransfer?.getData(FILE_DRAG_URI_MIME),
+          fileName: event.dataTransfer?.getData(FILE_DRAG_NAME_MIME),
+          fileMaskUri: event.dataTransfer?.getData(FILE_DRAG_MASK_URI_MIME),
           text: event.dataTransfer?.getData("text/plain"),
           uriList: event.dataTransfer?.getData("text/uri-list"),
         },
@@ -643,14 +649,11 @@ export function Chat({
             return;
           }
           const resolvedFileRef =
-            fileRef ||
-            (imagePayload.baseUri.startsWith("tenas-file://")
-              ? imagePayload.baseUri
-              : "");
+            fileRef || (isRelativePath(imagePayload.baseUri) ? imagePayload.baseUri : "");
           const normalizedRef = resolvedFileRef.startsWith("@")
             ? resolvedFileRef.slice(1)
             : resolvedFileRef;
-          if (normalizedRef.startsWith("tenas-file://")) {
+          if (normalizedRef && isRelativePath(normalizedRef)) {
             window.dispatchEvent(
               new CustomEvent("tenas:chat-insert-mention", {
                 detail: { value: normalizedRef },
@@ -667,8 +670,8 @@ export function Chat({
         try {
           if (imagePayload.maskUri) {
             const fileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
-            const baseBlob = await fetchBlobFromUri(imagePayload.baseUri);
-            const maskBlob = await fetchBlobFromUri(imagePayload.maskUri);
+            const baseBlob = await fetchBlobFromUri(imagePayload.baseUri, { projectId });
+            const maskBlob = await fetchBlobFromUri(imagePayload.maskUri, { projectId });
             const baseFile = new File([baseBlob], fileName, {
               type: baseBlob.type || "application/octet-stream",
             });
@@ -680,11 +683,11 @@ export function Chat({
             return;
           }
           const fileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
-          const blob = await fetchBlobFromUri(imagePayload.baseUri);
+          const blob = await fetchBlobFromUri(imagePayload.baseUri, { projectId });
           const file = new File([blob], fileName, {
             type: blob.type || "application/octet-stream",
           });
-          const sourceUrl = imagePayload.baseUri.startsWith("tenas-file://")
+          const sourceUrl = isRelativePath(imagePayload.baseUri)
             ? imagePayload.baseUri
             : undefined;
           // 中文注释：应用内拖拽在聊天根节点落下时，也按统一附件流程处理。
@@ -717,7 +720,7 @@ export function Chat({
         })
       );
     },
-    [addAttachments, addMaskedAttachment, canAttachAll, canAttachImage]
+    [addAttachments, addMaskedAttachment, canAttachAll, canAttachImage, projectId]
   );
 
   return (

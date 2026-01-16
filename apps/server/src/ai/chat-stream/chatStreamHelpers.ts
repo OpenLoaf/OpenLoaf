@@ -5,7 +5,7 @@ import { setAssistantMessageId, setRequestContext } from "@/ai/chat-stream/reque
 import { loadMessageChain } from "./messageChainLoader";
 import { resolveRightmostLeafId, saveMessage } from "./messageStore";
 import type { ChatImageRequestResult } from "./chatImageTypes";
-import { replaceTenasFileParts } from "./attachmentResolver";
+import { replaceRelativeFileParts } from "./attachmentResolver";
 
 /** Format invalid request errors for client display. */
 export function formatInvalidRequestMessage(message: string): string {
@@ -222,7 +222,7 @@ export async function loadAndPrepareMessageChain(input: {
     "[chat] load message chain",
   );
 
-  const modelMessages = await replaceTenasFileParts(messages as UIMessage[]);
+  const modelMessages = await replaceRelativeFileParts(messages as UIMessage[]);
   if (messages.length === 0) {
     return { ok: false, errorText: input.formatError("历史消息不存在。") };
   }

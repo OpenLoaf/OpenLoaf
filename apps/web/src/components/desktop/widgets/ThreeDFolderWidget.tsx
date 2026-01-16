@@ -10,10 +10,10 @@ import { trpc } from "@/utils/trpc";
 import { IMAGE_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import {
   buildUriFromRoot,
-  buildTenasFileUrl,
   getDisplayPathFromUri,
   getEntryExt,
-  parseTenasFileUrl,
+  normalizeProjectRelativePath,
+  parseScopedProjectPath,
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
 
@@ -38,7 +38,7 @@ function resolveFolderTitle(folderUri?: string) {
 }
 
 type ResolvedFolderInfo = {
-  /** Project id from tenas-file. */
+  /** Project id from scoped path. */
   projectId: string;
   /** Relative path under project root. */
   relativePath: string;
@@ -61,23 +61,11 @@ function flattenProjectTree(nodes?: ProjectNode[]): ProjectNode[] {
   return results;
 }
 
-/** Resolve tenas-file folder uri into file uri metadata. */
+/** Resolve scoped folder reference into file uri metadata. */
 function resolveFolderInfo(folderUri: string, roots: ProjectNode[]): ResolvedFolderInfo | null {
-  const parsed = parseTenasFileUrl(folderUri);
-  const fallback = (() => {
-    try {
-      const url = new URL(folderUri);
-      if (url.protocol !== "tenas-file:") return null;
-      return {
-        projectId: url.hostname.trim(),
-        relativePath: decodeURIComponent(url.pathname.replace(/^\/+/, "")),
-      };
-    } catch {
-      return null;
-    }
-  })();
-  const projectId = parsed?.projectId ?? fallback?.projectId ?? "";
-  const relativePath = parsed?.relativePath ?? fallback?.relativePath ?? "";
+  const parsed = parseScopedProjectPath(folderUri);
+  const projectId = parsed?.projectId ?? "";
+  const relativePath = parsed?.relativePath ?? "";
   if (!projectId) return null;
   const root = roots.find((item) => item.projectId === projectId);
   if (!root?.rootUri) return null;
@@ -89,7 +77,7 @@ function resolveFolderInfo(folderUri: string, roots: ProjectNode[]): ResolvedFol
 export interface ThreeDFolderWidgetProps {
   /** Optional folder display title override. */
   title?: string;
-  /** Selected folder uri (tenas-file). */
+  /** Selected folder reference. */
   folderUri?: string;
   /** Optional preview projects override. */
   projects?: FolderProject[];
@@ -143,13 +131,11 @@ export default function ThreeDFolderWidget({
     // 中文注释：有图片时优先展示图片，数量不足时不补文件。
     if (imageEntries.length > 0) {
       return imageEntries.slice(0, 3).map((entry) => {
-        const relativePath = [resolvedFolder.relativePath, entry.name]
-          .filter(Boolean)
-          .join("/");
-        const entryTenasUri = buildTenasFileUrl(resolvedFolder.projectId, relativePath);
+        const entryPath = [resolvedFolder.relativePath, entry.name].filter(Boolean).join("/");
+        const relativePath = normalizeProjectRelativePath(entryPath);
         return {
           id: entry.uri,
-          image: getPreviewEndpoint(entryTenasUri),
+          image: getPreviewEndpoint(relativePath, { projectId: resolvedFolder.projectId }),
           title: entry.name,
         };
       });

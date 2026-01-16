@@ -18,7 +18,7 @@
 2. 初始化请求上下文（AsyncLocalStorage、abort signal、assistant message id）。
 3. 校验最后一条消息（必须包含 `role` 与 `id`）。
 4. 保存最后一条消息并确定父节点关系。
-5. 加载消息链，并将 `tenas-file://` 附件替换为 data URL 供模型使用。
+5. 加载消息链，并将相对路径附件替换为 data URL 供模型使用。
 6. 解析模型路由：
 
    * 若显式模型带 `image_generation` 或 `image_edit` 标签，进入图片流程。
@@ -82,7 +82,7 @@ flowchart TD
 
 * 若为图片编辑，进行遮罩规范化并上传至 S3。
 
-* 调用 `generateImage` 生成图片，构建 data URL part 与持久化 `tenas-file://` part。
+* 调用 `generateImage` 生成图片，构建 data URL part 与持久化相对路径 part。
 
 * SSE 输出图片 part 与元数据。
 
@@ -94,7 +94,7 @@ flowchart TD
 2. 初始化请求上下文（AsyncLocalStorage、abort signal、assistant message id）。
 3. 校验最后一条消息（必须包含 `role` 与 `id`）。
 4. 保存最后一条消息并确定父节点关系。
-5. 加载消息链，并将 `tenas-file://` 附件替换为 data URL。
+5. 加载消息链，并将相对路径附件替换为 data URL。
 6. 调用 `generateImageModelResult` 生成图片结果。
 7. 保存 assistant 消息（图片 part + revised prompt 元数据）。
 8. 返回 JSON `{ sessionId, message }`。
@@ -154,7 +154,7 @@ flowchart TD
 
 * 从 metadata 解析图片参数（数量、尺寸、比例、provider options）。
 
-* 调用 `generateImage`，生成图片并保存为 `tenas-file://`。
+* 调用 `generateImage`，生成图片并保存为相对路径。
 
 ## 持久化与元数据
 

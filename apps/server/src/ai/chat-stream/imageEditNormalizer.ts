@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import sharp from "sharp";
 import { downloadImageData } from "@/ai/utils/image-download";
-import { loadTenasImageBuffer } from "./attachmentResolver";
+import { loadProjectImageBuffer } from "./attachmentResolver";
 import {
   resolveActiveS3Storage,
   resolveBaseNameFromUrl,
@@ -26,6 +26,11 @@ type ResolvedImageInput = {
 
 type MaskFormat = "alpha" | "grey";
 
+/** Check whether the input string is a relative path. */
+function isRelativePath(value: string): boolean {
+  return !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value);
+}
+
 /** Resolve image input into buffer + meta. */
 async function resolveImageInputBuffer(input: {
   /** Raw input data. */
@@ -43,8 +48,8 @@ async function resolveImageInputBuffer(input: {
     const raw = input.data.trim();
     const dataUrlType = raw.startsWith("data:") ? resolveMediaTypeFromDataUrl(raw) : "";
     const resolvedType = dataUrlType || mediaTypeHint || "image/png";
-    if (raw.startsWith("tenas-file://")) {
-      const payload = await loadTenasImageBuffer({ url: raw, mediaType: resolvedType });
+    if (isRelativePath(raw)) {
+      const payload = await loadProjectImageBuffer({ path: raw, mediaType: resolvedType });
       if (!payload) {
         throw new Error("图片读取失败");
       }

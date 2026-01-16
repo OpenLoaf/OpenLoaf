@@ -4,6 +4,8 @@ export const BOARD_FILE_EXT = "tnboard";
 export const BOARD_FOLDER_PREFIX = "tnboard_";
 /** Board snapshot file name stored inside board folders. */
 export const BOARD_INDEX_FILE_NAME = `index.${BOARD_FILE_EXT}`;
+/** Board log file name stored inside board folders. */
+export const BOARD_LOG_FILE_NAME = `index.${BOARD_FILE_EXT}.log`;
 /** Assets directory name inside board folders. */
 export const BOARD_ASSETS_DIR_NAME = "assets";
 

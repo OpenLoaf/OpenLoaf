@@ -292,10 +292,18 @@ export const fsRouter = t.router({
   /** Read a binary file (base64 payload). */
   readBinary: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
     const fullPath = resolveWorkspacePathFromUri(input.uri);
-    const buffer = await fs.readFile(fullPath);
     const ext = path.extname(fullPath).replace(/^\./, "");
-    // 中文注释：二进制文件转 base64 供前端 dataUrl 预览。
-    return { contentBase64: buffer.toString("base64"), mime: getMimeByExt(ext) };
+    try {
+      const buffer = await fs.readFile(fullPath);
+      // 中文注释：二进制文件转 base64 供前端 dataUrl 预览。
+      return { contentBase64: buffer.toString("base64"), mime: getMimeByExt(ext) };
+    } catch (error) {
+      // 中文注释：文件不存在时返回空内容，便于前端自行初始化。
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return { contentBase64: "", mime: getMimeByExt(ext) };
+      }
+      throw error;
+    }
   }),
 
   /** Write a text file. */
@@ -379,6 +387,22 @@ export const fsRouter = t.router({
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       const buffer = Buffer.from(input.contentBase64, "base64");
       await fs.writeFile(fullPath, buffer);
+      return { ok: true };
+    }),
+
+  /** Append a binary payload to an existing file. */
+  appendBinary: shieldedProcedure
+    .input(
+      z.object({
+        uri: z.string(),
+        contentBase64: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const fullPath = resolveWorkspacePathFromUri(input.uri);
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      const buffer = Buffer.from(input.contentBase64, "base64");
+      await fs.appendFile(fullPath, buffer);
       return { ok: true };
     }),
 

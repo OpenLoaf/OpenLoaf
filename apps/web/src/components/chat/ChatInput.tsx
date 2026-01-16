@@ -49,7 +49,11 @@ import {
   parseChatValue,
   serializeChatValue,
 } from "./chat-input-utils";
-import { buildUriFromRoot, parseTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  buildUriFromRoot,
+  formatScopedProjectPath,
+  parseScopedProjectPath,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import { trpc } from "@/utils/trpc";
 import { useQueryClient } from "@tanstack/react-query";
 import { useProjects } from "@/hooks/use-projects";
@@ -340,11 +344,12 @@ export function ChatInputBox({
     (event: React.PointerEvent<HTMLDivElement>) => {
       handleChatMentionPointerDown(event, {
         activeTabId,
+        projectId: defaultProjectId,
         projects,
         pushStackItem,
       });
     },
-    [activeTabId, projects, pushStackItem]
+    [activeTabId, defaultProjectId, projects, pushStackItem]
   );
 
   /** Focus the editor without throwing when DOM is unavailable. */
@@ -356,13 +361,32 @@ export function ChatInputBox({
     }
   }, [editor]);
 
+  /** Normalize a file reference string to a scoped path. */
+  const normalizeFileRef = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+    const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+    const baseValue = match?.[1] ?? normalized;
+    const parsed = parseScopedProjectPath(baseValue);
+    if (!parsed) return "";
+    const scoped = formatScopedProjectPath({
+      projectId: parsed.projectId,
+      currentProjectId: defaultProjectId,
+      relativePath: parsed.relativePath,
+    });
+    if (!scoped) return "";
+    if (match?.[2] && match?.[3]) {
+      return `${scoped}:${match[2]}-${match[3]}`;
+    }
+    return scoped;
+  }, [defaultProjectId]);
+
   /** Insert a file reference as a mention node. */
   const insertFileMention = useCallback((fileRef: string, options?: { skipFocus?: boolean }) => {
     // 逻辑：将文件引用插入为 mention，并补一个空格。
-    const normalizedRef = fileRef.trim().startsWith("@")
-      ? fileRef.trim().slice(1)
-      : fileRef.trim();
-    if (!normalizedRef.startsWith("tenas-file://")) return;
+    const normalizedRef = normalizeFileRef(fileRef);
+    if (!normalizedRef) return;
     if (!editor.selection) {
       const endPoint = SlateEditor.end(editor as unknown as BaseEditor, []);
       editor.tf.select(endPoint);
@@ -372,15 +396,10 @@ export function ChatInputBox({
     }
     editor.tf.insertNodes(buildMentionNode(normalizedRef));
     editor.tf.insertText(" ");
-  }, [editor, focusEditorSafely]);
+  }, [editor, focusEditorSafely, normalizeFileRef]);
 
-  /** Normalize a file reference string to a tenas-file url. */
-  const normalizeFileRef = useCallback((value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return "";
-    const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
-    return normalized.startsWith("tenas-file://") ? normalized : "";
-  }, []);
+  /** Check whether a value is a relative path. */
+  const isRelativePath = (value: string) => !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value);
 
   /** Insert file references using the same logic as drag-and-drop. */
   const handleProjectFileRefsInsert = useCallback(
@@ -396,8 +415,8 @@ export function ChatInputBox({
       for (const fileRef of normalizedRefs) {
         const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
         const baseValue = match?.[1] ?? fileRef;
-        const parsed = parseTenasFileUrl(baseValue);
-        const projectId = parsed?.projectId ?? "";
+        const parsed = parseScopedProjectPath(baseValue);
+        const projectId = parsed?.projectId ?? defaultProjectId ?? "";
         const relativePath = parsed?.relativePath ?? "";
         if (!projectId || !relativePath) continue;
         const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
@@ -433,6 +452,7 @@ export function ChatInputBox({
     [
       canAttachAll,
       canAttachImage,
+      defaultProjectId,
       insertFileMention,
       onAddAttachments,
       queryClient,
@@ -478,9 +498,7 @@ export function ChatInputBox({
       if (!isPayloadImage && canAttachAll) {
         const fileRef =
           normalizeFileRef(event.dataTransfer.getData(FILE_DRAG_REF_MIME)) ||
-          (imagePayload.baseUri.startsWith("tenas-file://")
-            ? imagePayload.baseUri
-            : "");
+          (isRelativePath(imagePayload.baseUri) ? imagePayload.baseUri : "");
         if (fileRef) {
           await handleProjectFileRefsInsert([fileRef]);
         }
@@ -491,8 +509,12 @@ export function ChatInputBox({
         try {
           // 逻辑：拖拽带 mask 的图片时，合成预览并写入附件列表。
           const fileName = payloadFileName;
-          const baseBlob = await fetchBlobFromUri(imagePayload.baseUri);
-          const maskBlob = await fetchBlobFromUri(imagePayload.maskUri);
+          const baseBlob = await fetchBlobFromUri(imagePayload.baseUri, {
+            projectId: defaultProjectId,
+          });
+          const maskBlob = await fetchBlobFromUri(imagePayload.maskUri, {
+            projectId: defaultProjectId,
+          });
           const baseFile = new File([baseBlob], fileName, {
             type: baseBlob.type || "application/octet-stream",
           });
@@ -511,16 +533,18 @@ export function ChatInputBox({
         // 处理从消息中拖拽的图片，复用附件上传流程。
         const fileName = payloadFileName;
         const isImageByName = isImageFileName(fileName);
-        const blob = await fetchBlobFromUri(imagePayload.baseUri);
+        const blob = await fetchBlobFromUri(imagePayload.baseUri, {
+          projectId: defaultProjectId,
+        });
         const isImageByType = blob.type.startsWith("image/");
         if (!isImageByName && !isImageByType) return;
         const file = new File([blob], fileName, {
           type: blob.type || "application/octet-stream",
         });
-        const sourceUrl = imagePayload.baseUri.startsWith("tenas-file://")
+        const sourceUrl = isRelativePath(imagePayload.baseUri)
           ? imagePayload.baseUri
           : undefined;
-        // 中文注释：应用内拖拽优先使用 tenas-file 引用上传。
+        // 中文注释：应用内拖拽优先使用相对路径上传。
         onAddAttachments([{ file, sourceUrl }]);
       } catch {
         return;
@@ -549,13 +573,12 @@ export function ChatInputBox({
   }, [
     canAttachAll,
     canAttachImage,
+    defaultProjectId,
     handleProjectFileRefsInsert,
+    isRelativePath,
     onAddAttachments,
     onAddMaskedAttachment,
     normalizeFileRef,
-    queryClient,
-    resolveRootUri,
-    trpc.fs.readBinary,
   ]);
 
 

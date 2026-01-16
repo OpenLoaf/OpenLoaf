@@ -1,17 +1,23 @@
 import { resolveServerUrl } from "@/utils/server-url";
 
-/** Resolve preview endpoint for a tenas-file url. */
-export function getPreviewEndpoint(uri: string) {
+/** Resolve preview endpoint for a project-relative path. */
+export function getPreviewEndpoint(path: string, options?: { projectId?: string }) {
   const apiBase = resolveServerUrl();
-  const encoded = encodeURIComponent(uri);
+  const encodedPath = encodeURIComponent(path);
+  const projectParam = options?.projectId ? `&projectId=${encodeURIComponent(options.projectId)}` : "";
   return apiBase
-    ? `${apiBase}/chat/attachments/preview?url=${encoded}`
-    : `/chat/attachments/preview?url=${encoded}`;
+    ? `${apiBase}/chat/attachments/preview?path=${encodedPath}${projectParam}`
+    : `/chat/attachments/preview?path=${encodedPath}${projectParam}`;
+}
+
+/** Check whether a uri is a relative path. */
+function isRelativePath(uri: string) {
+  return !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(uri);
 }
 
 /** Fetch a Blob from any supported uri. */
-export async function fetchBlobFromUri(uri: string) {
-  const endpoint = uri.startsWith("tenas-file://") ? getPreviewEndpoint(uri) : uri;
+export async function fetchBlobFromUri(uri: string, options?: { projectId?: string }) {
+  const endpoint = isRelativePath(uri) ? getPreviewEndpoint(uri, options) : uri;
   const res = await fetch(endpoint);
   if (!res.ok) throw new Error("preview failed");
   return res.blob();
@@ -35,8 +41,8 @@ export async function loadImageFromBlob(blob: Blob) {
 }
 
 /** Load an Image element from a uri. */
-export async function loadImageFromUri(uri: string) {
-  const blob = await fetchBlobFromUri(uri);
+export async function loadImageFromUri(uri: string, options?: { projectId?: string }) {
+  const blob = await fetchBlobFromUri(uri, options);
   return loadImageFromBlob(blob);
 }
 

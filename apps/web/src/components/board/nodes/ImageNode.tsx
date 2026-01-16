@@ -13,18 +13,18 @@ import {
   Type,
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
-import { getPreviewEndpoint } from "@/lib/image/uri";
-import { buildUriFromRoot, parseTenasFileUrl } from "@/components/project/filesystem/utils/file-system-utils";
+import { buildUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { buildImageNodePayloadFromUri } from "../utils/image";
 import { ImageNodeDetail } from "./ImageNodeDetail";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./ImagePromptGenerateNode";
 import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
 import type { BoardFileContext } from "../core/BoardProvider";
+import { isBoardRelativePath, resolveBoardRelativeUri } from "../core/boardFilePath";
 
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
   previewSrc: string;
-  /** Original image data url used for download/copy actions. */
+  /** Original image uri used for download/copy actions. */
   originalSrc: string;
   /** MIME type for the original image. */
   mimeType: string;
@@ -37,11 +37,11 @@ export type ImageNodeProps = {
 };
 
 /** Resolve image uri to a browser-friendly source. */
-function resolveImageSource(uri: string) {
+function resolveImageSource(uri: string, boardFolderUri?: string) {
   if (!uri) return "";
-  if (uri.startsWith("tenas-file://./")) return "";
-  if (uri.startsWith("tenas-file://")) return getPreviewEndpoint(uri);
-  return uri;
+  const resolved = resolveBoardRelativeUri(uri, boardFolderUri);
+  if (!resolved || isBoardRelativePath(resolved)) return "";
+  return resolved;
 }
 
 /** Convert ArrayBuffer to a base64 string without data url prefix. */
@@ -61,14 +61,6 @@ function resolveDownloadDefaultDir(fileContext?: BoardFileContext) {
   const boardFolderUri = fileContext?.boardFolderUri?.trim();
   if (boardFolderUri) {
     if (boardFolderUri.startsWith("file://")) return boardFolderUri;
-    if (boardFolderUri.startsWith("tenas-file://")) {
-      const parsed = parseTenasFileUrl(boardFolderUri);
-      const rootUri = fileContext?.rootUri?.trim() ?? "";
-      if (parsed && rootUri.startsWith("file://")) {
-        // 逻辑：尽量还原到画布目录，便于保存到当前画布位置。
-        return buildUriFromRoot(rootUri, parsed.relativePath);
-      }
-    }
   }
   const rootUri = fileContext?.rootUri?.trim();
   if (rootUri && rootUri.startsWith("file://")) return rootUri;
@@ -80,7 +72,7 @@ async function downloadOriginalImage(
   props: ImageNodeProps,
   fileContext?: BoardFileContext,
 ) {
-  const href = resolveImageSource(props.originalSrc);
+  const href = resolveImageSource(props.originalSrc, fileContext?.boardFolderUri);
   if (!href) return;
   const saveFile = window.tenasElectron?.saveFile;
   if (saveFile) {
@@ -172,11 +164,11 @@ export function ImageNodeView({
 }: CanvasNodeViewProps<ImageNodeProps>) {
   /** Guard against repeated hydration requests. */
   const hydrationRef = useRef<string | null>(null);
+  const { actions, engine, fileContext } = useBoardContext();
   const previewSrc =
-    element.props.previewSrc || resolveImageSource(element.props.originalSrc);
+    element.props.previewSrc ||
+    resolveImageSource(element.props.originalSrc, fileContext?.boardFolderUri);
   const hasPreview = Boolean(previewSrc);
-  /** Board actions for preview requests. */
-  const { actions, engine } = useBoardContext();
   /** Local flag for displaying the inline detail panel. */
   const [showDetail, setShowDetail] = useState(false);
   /** Whether the node or canvas is locked. */
@@ -184,31 +176,28 @@ export function ImageNodeView({
   /** Request opening the image preview on the canvas. */
   const requestPreview = useCallback(() => {
     const originalSrc = element.props.originalSrc;
-    const isRelativeTenas = originalSrc.startsWith("tenas-file://./");
+    const resolvedOriginal = resolveBoardRelativeUri(
+      originalSrc,
+      fileContext?.boardFolderUri
+    );
+    const isRelative = isBoardRelativePath(resolvedOriginal);
     // 逻辑：ImageViewer 仅支持特定协议，相对路径与其他来源回退到压缩预览图。
     const canUseOriginal =
-      !isRelativeTenas &&
-      (originalSrc.startsWith("tenas-file://") ||
-        originalSrc.startsWith("data:") ||
-        originalSrc.startsWith("blob:") ||
-        originalSrc.startsWith("file://"));
-    const resolvedOriginal = canUseOriginal ? originalSrc : "";
+      !isRelative &&
+      (resolvedOriginal.startsWith("data:") ||
+        resolvedOriginal.startsWith("blob:") ||
+        resolvedOriginal.startsWith("file://"));
+    const finalOriginal = canUseOriginal ? resolvedOriginal : "";
     // 逻辑：没有可用地址时不弹出预览，避免空白页面。
-    if (!resolvedOriginal && !previewSrc) return;
+    if (!finalOriginal && !previewSrc) return;
     // 逻辑：点击图片触发预览，由 board action 统一接管显示。
     actions.openImagePreview({
-      originalSrc: resolvedOriginal,
+      originalSrc: finalOriginal,
       previewSrc,
       fileName: element.props.fileName,
       mimeType: element.props.mimeType,
     });
-  }, [
-    actions,
-    element.props.fileName,
-    element.props.mimeType,
-    element.props.originalSrc,
-    previewSrc,
-  ]);
+  }, [actions, element.props.fileName, element.props.mimeType, element.props.originalSrc, fileContext?.boardFolderUri, previewSrc]);
 
   useEffect(() => {
     if (!selected || isLocked) {
@@ -219,20 +208,26 @@ export function ImageNodeView({
 
   useEffect(() => {
     const originalSrc = element.props.originalSrc;
-    if (!originalSrc || !originalSrc.startsWith("tenas-file://")) return;
+    const resolvedOriginal = resolveBoardRelativeUri(
+      originalSrc,
+      fileContext?.boardFolderUri
+    );
+    if (!resolvedOriginal || isBoardRelativePath(resolvedOriginal)) return;
     const hasPreview = Boolean(element.props.previewSrc);
     const hasSize =
       element.props.naturalWidth > 1 && element.props.naturalHeight > 1;
     if (hasPreview && hasSize) return;
-    if (hydrationRef.current === originalSrc) return;
-    hydrationRef.current = originalSrc;
+    if (hydrationRef.current === resolvedOriginal) return;
+    hydrationRef.current = resolvedOriginal;
 
     let cancelled = false;
     const nodeId = element.id;
-    // 逻辑：从 tenas-file 拉取预览与尺寸，避免外部节点重复处理。
+    // 逻辑：拉取预览与尺寸，避免外部节点重复处理。
     void (async () => {
       try {
-        const payload = await buildImageNodePayloadFromUri(originalSrc);
+        const payload = await buildImageNodePayloadFromUri(resolvedOriginal, {
+          projectId: fileContext?.projectId,
+        });
         if (cancelled) return;
         if (!engine.doc.getElementById(nodeId)) return;
         const patch: Partial<ImageNodeProps> = {};
@@ -270,6 +265,8 @@ export function ImageNodeView({
     element.props.originalSrc,
     element.props.previewSrc,
     engine,
+    fileContext?.boardFolderUri,
+    fileContext?.projectId,
   ]);
 
   return (
@@ -312,7 +309,14 @@ export function ImageNodeView({
             event.stopPropagation();
           }}
         >
-          <ImageNodeDetail source={element.props.originalSrc} fallbackSource={previewSrc} />
+          <ImageNodeDetail
+            source={resolveBoardRelativeUri(
+              element.props.originalSrc,
+              fileContext?.boardFolderUri
+            )}
+            fallbackSource={previewSrc}
+            projectId={fileContext?.projectId}
+          />
         </div>
       ) : null}
     </div>

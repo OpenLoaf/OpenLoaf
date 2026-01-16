@@ -5,7 +5,7 @@ export type ImageNodePayload = {
   props: {
     /** Compressed preview used for rendering. */
     previewSrc: string;
-    /** Original image data url used for download/copy. */
+    /** Original image uri used for download/copy. */
     originalSrc: string;
     /** MIME type for the original image. */
     mimeType: string;
@@ -147,9 +147,11 @@ export async function buildImageNodePayloadFromUri(
     maxNodeDimension?: number;
     /** Quality used when encoding compressed previews. */
     quality?: number;
+    /** Project id for resolving relative paths. */
+    projectId?: string;
   }
 ): Promise<ImageNodePayload> {
-  const blob = await fetchBlobFromUri(uri);
+  const blob = await fetchBlobFromUri(uri, { projectId: options?.projectId });
   const dataUrl = await readBlobAsDataUrl(blob);
   const image = await decodeImage(dataUrl);
   const naturalWidth = image.naturalWidth || 1;

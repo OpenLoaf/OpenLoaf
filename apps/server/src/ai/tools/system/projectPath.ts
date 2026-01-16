@@ -14,12 +14,15 @@ export type ResolvedProjectPath = {
   relativePath: string;
 };
 
-/** tenas-file protocol marker. */
-const TENAS_FILE_PROTOCOL = "tenas-file:";
+/** Scoped project path matcher like [projectId]/path/to/file. */
+const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\]\/(.+)$/;
 
-/** Resolve project root path from request context. */
-export function resolveProjectRootPath(): { projectId: string; rootPath: string } {
-  const projectId = getProjectId();
+/** Resolve project root path from request context or an explicit project id. */
+export function resolveProjectRootPath(projectIdOverride?: string): {
+  projectId: string;
+  rootPath: string;
+} {
+  const projectId = projectIdOverride?.trim() || getProjectId();
   if (!projectId) {
     throw new Error("projectId is required.");
   }
@@ -30,48 +33,31 @@ export function resolveProjectRootPath(): { projectId: string; rootPath: string 
   return { projectId, rootPath: path.resolve(rootPath) };
 }
 
-/** Resolve a tenas-file uri into absolute path within the project. */
-function resolveTenasFilePath(input: {
-  uri: string;
-  projectId: string;
-  rootPath: string;
-}): string {
-  let parsed: URL;
-  try {
-    parsed = new URL(input.uri);
-  } catch {
-    throw new Error("Invalid tenas-file uri.");
-  }
-  if (parsed.protocol !== TENAS_FILE_PROTOCOL) {
-    throw new Error("Invalid tenas-file protocol.");
-  }
-  const ownerId = parsed.hostname.trim();
-  // 逻辑：允许 tenas-file://{projectId}/... 或 tenas-file://./...，禁止跨项目访问。
-  if (ownerId && ownerId !== "." && ownerId !== input.projectId) {
-    throw new Error("tenas-file projectId mismatch.");
-  }
-  const relativePath = decodeURIComponent(parsed.pathname).replace(/^\/+/, "");
-  return path.resolve(input.rootPath, relativePath || ".");
+/** Parse a scoped project path string. */
+function parseScopedProjectPath(raw: string): { projectId?: string; relativePath: string } {
+  // 逻辑：支持 [projectId]/path 形式的跨项目路径输入。
+  const match = raw.match(PROJECT_SCOPE_REGEX);
+  if (!match) return { relativePath: raw };
+  return { projectId: match[1]?.trim(), relativePath: match[2] ?? "" };
 }
 
-/** Resolve a raw path or tenas-file uri into a project-bound absolute path. */
+/** Resolve a raw path into a project-bound absolute path. */
 export function resolveProjectPath(raw: string): ResolvedProjectPath {
   const trimmed = raw.trim();
   if (!trimmed) {
     throw new Error("path is required.");
   }
 
-  // 逻辑：用户输入可能携带 @tenas-file 前缀，解析前先去掉 @。
-  const normalized = trimmed.startsWith("@tenas-file://") ? trimmed.slice(1) : trimmed;
-  const { projectId, rootPath } = resolveProjectRootPath();
+  // 逻辑：用户输入可能携带 @ 前缀，解析前先去掉。
+  const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  const scoped = parseScopedProjectPath(normalized);
+  const { projectId, rootPath } = resolveProjectRootPath(scoped.projectId);
 
-  let absPath = normalized;
-  if (normalized.startsWith("tenas-file://")) {
-    absPath = resolveTenasFilePath({ uri: normalized, projectId, rootPath });
-  } else if (!path.isAbsolute(normalized)) {
-    absPath = path.resolve(rootPath, normalized);
+  let absPath = scoped.relativePath;
+  if (!path.isAbsolute(scoped.relativePath)) {
+    absPath = path.resolve(rootPath, scoped.relativePath);
   } else {
-    absPath = path.resolve(normalized);
+    absPath = path.resolve(scoped.relativePath);
   }
 
   const resolvedRoot = rootPath;
