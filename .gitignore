@@ -35,6 +35,7 @@ lerna-debug.log*
 
 # Turbo
 .turbo
+.worktrees
 
 # Better-T-Stack
 .alchemy
@@ -100,4 +101,4 @@ apps/electron/resources/speech/windows/publish
 .tenas/desktop.tenas
 .tenas/project.json
 .pnpm-store
-.pnpm-store/v3/*
+.pnpm-store/*
