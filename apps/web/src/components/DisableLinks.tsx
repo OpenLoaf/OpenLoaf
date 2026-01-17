@@ -1,11 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  BROWSER_WINDOW_COMPONENT,
-  BROWSER_WINDOW_PANEL_ID,
-  useTabs,
-} from "@/hooks/use-tabs";
+import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
+import { useTabs } from "@/hooks/use-tabs";
 
 export function DisableLinks() {
   useEffect(() => {
@@ -41,7 +38,7 @@ export function DisableLinks() {
             sourceKey: BROWSER_WINDOW_PANEL_ID,
             component: BROWSER_WINDOW_COMPONENT,
             title: title,
-            params: { url: href },
+            params: { __customHeader: true, __open: { url: href, title } },
           } as any,
           70
         );

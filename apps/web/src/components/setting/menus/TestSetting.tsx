@@ -4,8 +4,8 @@ import {
   BROWSER_WINDOW_PANEL_ID,
   TERMINAL_WINDOW_COMPONENT,
   TERMINAL_WINDOW_PANEL_ID,
-  useTabs,
-} from "@/hooks/use-tabs";
+} from "@tenas-ai/api/common";
+import { useTabs } from "@/hooks/use-tabs";
 import { Globe } from "lucide-react";
 import { memo } from "react";
 import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
@@ -214,7 +214,11 @@ const TestSetting = memo(function TestSetting() {
                         id: BROWSER_WINDOW_PANEL_ID,
                         sourceKey: BROWSER_WINDOW_PANEL_ID,
                         component: BROWSER_WINDOW_COMPONENT,
-                        params: { url: "https://inside.hexems.com", autoOpen: true },
+                        params: {
+                          __customHeader: true,
+                          __open: { url: "https://inside.hexems.com" },
+                          autoOpen: true,
+                        },
                         title: "Browser Window",
                       });
                     }}

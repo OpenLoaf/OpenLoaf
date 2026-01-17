@@ -201,11 +201,11 @@ type FileSystemListProps = {
   selectedUris?: Set<string>;
   onEntryDrop?: (
     entry: FileSystemEntry,
-    event: DragEvent<HTMLButtonElement>
+    event: DragEvent<HTMLElement>
   ) => void;
   onEntryDragStart?: (
     entry: FileSystemEntry,
-    event: DragEvent<HTMLButtonElement>
+    event: DragEvent<HTMLElement>
   ) => void;
   renamingUri?: string | null;
   renamingValue?: string;
@@ -306,11 +306,11 @@ type FileSystemListRowProps = {
   onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   onDoubleClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   onContextMenu?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
-  onDragStart?: (event: DragEvent<HTMLButtonElement>) => void;
-  onDragOver?: (event: DragEvent<HTMLButtonElement>) => void;
-  onDragEnter?: (event: DragEvent<HTMLButtonElement>) => void;
-  onDragLeave?: (event: DragEvent<HTMLButtonElement>) => void;
-  onDrop?: (event: DragEvent<HTMLButtonElement>) => void;
+  onDragStart?: (event: DragEvent<HTMLElement>) => void;
+  onDragOver?: (event: DragEvent<HTMLElement>) => void;
+  onDragEnter?: (event: DragEvent<HTMLElement>) => void;
+  onDragLeave?: (event: DragEvent<HTMLElement>) => void;
+  onDrop?: (event: DragEvent<HTMLElement>) => void;
 };
 
 /** Render a single list row entry. */
@@ -425,7 +425,7 @@ type FileSystemParentEntryRowProps = {
   onNavigate?: (nextUri: string) => void;
   onEntryDrop?: (
     entry: FileSystemEntry,
-    event: DragEvent<HTMLButtonElement>
+    event: DragEvent<HTMLElement>
   ) => void;
   setDragOverFolderUri: (value: string | null) => void;
   shouldBlockPointerEvent: (event: { button?: number } | null | undefined) => boolean;

@@ -17,7 +17,7 @@ function buildMultipartMixed(input: {
   metadata: string | null | undefined;
   buffer: Buffer;
   mediaType: string;
-}): { body: Uint8Array; contentType: string } {
+}): { body: Uint8Array<ArrayBuffer>; contentType: string } {
   const boundary = `${MULTIPART_BOUNDARY_PREFIX}-${Date.now().toString(36)}-${Math.random()
     .toString(36)
     .slice(2, 8)}`;
@@ -30,7 +30,14 @@ function buildMultipartMixed(input: {
     `--${boundary}\r\n` +
     `Content-Type: ${input.mediaType}\r\n\r\n`;
   const footer = `\r\n--${boundary}--\r\n`;
-  const body = Buffer.concat([Buffer.from(header, "utf8"), input.buffer, Buffer.from(footer, "utf8")]);
+  const bodyBuffer = Buffer.concat([
+    Buffer.from(header, "utf8"),
+    input.buffer,
+    Buffer.from(footer, "utf8"),
+  ]);
+  const arrayBuffer = new ArrayBuffer(bodyBuffer.byteLength);
+  const body = new Uint8Array(arrayBuffer);
+  body.set(bodyBuffer);
   return {
     body,
     contentType: `multipart/mixed; boundary=${boundary}`,

@@ -9,12 +9,8 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import { generateId } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import {
-  BROWSER_WINDOW_COMPONENT,
-  BROWSER_WINDOW_PANEL_ID,
-  useTabs,
-  type ChatStatus,
-} from "@/hooks/use-tabs";
+import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
+import { useTabs, type ChatStatus } from "@/hooks/use-tabs";
 import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
 import { createChatTransport } from "@/lib/chat/transport";
 import { handleChatDataPart } from "@/lib/chat/dataPart";

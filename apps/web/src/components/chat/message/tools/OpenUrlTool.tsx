@@ -9,8 +9,9 @@ import {
 import {
   BROWSER_WINDOW_COMPONENT,
   BROWSER_WINDOW_PANEL_ID,
-  useTabs,
-} from "@/hooks/use-tabs";
+} from "@tenas-ai/api/common";
+import { useTabs } from "@/hooks/use-tabs";
+import { createBrowserTabId } from "@/hooks/tab-id";
 import { useChatContext } from "@/components/chat/ChatProvider";
 import { Globe } from "lucide-react";
 
@@ -45,11 +46,6 @@ function isToolFinished(part: AnyToolPart) {
 function buildViewKey(input: { workspaceId: string; tabId: string; chatSessionId: string }) {
   // baseKey 用于定位“浏览器面板”，实际每个网页子标签用 baseKey + browserTabId 区分。
   return `browser:${input.workspaceId}:${input.tabId}:${input.chatSessionId}`;
-}
-
-function createBrowserTabId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
 /**

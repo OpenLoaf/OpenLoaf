@@ -56,7 +56,7 @@ function assertPublicUrl(url: URL): void {
     throw new Error("Localhost is not allowed.");
   }
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) {
-    const [a, b] = hostname.split(".").map((part) => Number(part));
+    const [a = -1, b = -1] = hostname.split(".").map((part) => Number(part));
     // 逻辑：拦截常见内网与保留地址段。
     if (
       a === 10 ||

@@ -30,7 +30,7 @@ export type BoardCanvasRenderProps = {
   /** Whether the performance overlay is visible. */
   showPerfOverlay: boolean;
   /** Container ref for export events. */
-  containerRef: RefObject<HTMLDivElement>;
+  containerRef: RefObject<HTMLDivElement | null>;
   /** Manual log sync callback. */
   onSyncLog?: () => void;
 };

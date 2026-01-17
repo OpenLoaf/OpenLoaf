@@ -6,7 +6,7 @@ import {
   useRef,
   type RefObject,
   type DragEvent,
-  type PointerEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import { cn } from "@udecode/cn";
@@ -25,7 +25,7 @@ import { readImageDragPayload } from "@/lib/image/drag";
 import { FILE_DRAG_URI_MIME, FILE_DRAG_URIS_MIME } from "@/components/ui/tenas/drag-drop-types";
 import { fetchBlobFromUri, getPreviewEndpoint, resolveFileName } from "@/lib/image/uri";
 import { getStackedImageRect } from "../utils/image-insert";
-import { ImagePreviewPayload } from "./BoardProvider";
+import type { ImagePreviewPayload } from "./BoardProvider";
 import { useBoardViewState } from "./useBoardViewState";
 import { NodePicker } from "./NodePicker";
 import { openLinkInStack as openLinkInStackAction, resolveLinkTitle } from "../nodes/lib/link-actions";
@@ -42,7 +42,7 @@ type BoardCanvasInteractionProps = {
   /** Snapshot for current scene. */
   snapshot: CanvasSnapshot;
   /** Container ref for pointer calculations. */
-  containerRef: RefObject<HTMLDivElement>;
+  containerRef: RefObject<HTMLDivElement | null>;
   /** Project id for file resolution. */
   projectId?: string;
   /** Project root uri for file resolution. */
@@ -94,7 +94,7 @@ export function BoardCanvasInteraction({
     latestSnapshotRef.current = snapshot;
   }, [snapshot]);
 
-  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!showUi) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -230,7 +230,7 @@ export function BoardCanvasInteraction({
 
   useEffect(() => {
     if (!snapshot.connectorDrop) return;
-    const handlePointerDown = (event: PointerEvent) => {
+    const handlePointerDown = (event: globalThis.PointerEvent) => {
       const target = event.target as Node | null;
       const panel = nodePickerRef.current;
       if (!panel || !target) return;
@@ -576,7 +576,7 @@ type ConnectorDropPanelProps = {
   /** Selection handler for templates. */
   onSelect: (templateId: string) => void;
   /** Ref for the picker panel element. */
-  panelRef: RefObject<HTMLDivElement>;
+  panelRef: RefObject<HTMLDivElement | null>;
 };
 
 /** Render the connector drop picker at the correct viewport position. */

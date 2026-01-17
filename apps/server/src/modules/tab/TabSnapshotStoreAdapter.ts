@@ -1,4 +1,4 @@
-import type { Tab } from "@tenas-ai/api/common";
+import { BROWSER_WINDOW_COMPONENT, type BrowserTab, type Tab } from "@tenas-ai/api/common";
 
 type CacheKey = string;
 
@@ -10,7 +10,6 @@ type Entry = {
 
 const TAB_SNAPSHOT_TTL_MS = 15 * 60 * 1000;
 const cache = new Map<CacheKey, Entry>();
-const BROWSER_WINDOW_COMPONENT = "electron-browser-window";
 
 function buildKey(input: { sessionId: string; clientId: string; tabId: string }): CacheKey {
   return `tabSnapshot:${input.sessionId}:${input.clientId}:${input.tabId}`;
@@ -52,7 +51,7 @@ export const tabSnapshotStore = {
   },
 } as const;
 
-export type TabBrowserTarget = { id?: string; cdpTargetIds?: string[] };
+export type TabBrowserTarget = Pick<BrowserTab, "id" | "cdpTargetIds">;
 
 /** Resolve the latest CDP target id for the active browser tab in a snapshot. */
 export function getActiveBrowserTargetId(tab: Tab | null): string | null {

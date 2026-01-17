@@ -30,11 +30,11 @@ type UseFileSystemDragParams = {
   dragProjectIdRef: MutableRefObject<string | undefined>;
   dragRootUriRef: MutableRefObject<string | undefined>;
   onEntryDragStartRef: MutableRefObject<
-    | ((entry: FileSystemEntry, event: DragEvent<HTMLButtonElement>) => void)
+    | ((entry: FileSystemEntry, event: DragEvent<HTMLElement>) => void)
     | undefined
   >;
   onEntryDropRef: MutableRefObject<
-    | ((entry: FileSystemEntry, event: DragEvent<HTMLButtonElement>) => void)
+    | ((entry: FileSystemEntry, event: DragEvent<HTMLElement>) => void)
     | undefined
   >;
   resolveEntryFromEvent: (event: {
@@ -47,11 +47,11 @@ type UseFileSystemDragParams = {
 type UseFileSystemDragResult = {
   dragOverFolderUri: string | null;
   setDragOverFolderUri: Dispatch<SetStateAction<string | null>>;
-  handleEntryDragStart: (event: DragEvent<HTMLButtonElement>) => void;
-  handleEntryDragOver: (event: DragEvent<HTMLButtonElement>) => void;
-  handleEntryDragEnter: (event: DragEvent<HTMLButtonElement>) => void;
-  handleEntryDragLeave: (event: DragEvent<HTMLButtonElement>) => void;
-  handleEntryDrop: (event: DragEvent<HTMLButtonElement>) => void;
+  handleEntryDragStart: (event: DragEvent<HTMLElement>) => void;
+  handleEntryDragOver: (event: DragEvent<HTMLElement>) => void;
+  handleEntryDragEnter: (event: DragEvent<HTMLElement>) => void;
+  handleEntryDragLeave: (event: DragEvent<HTMLElement>) => void;
+  handleEntryDrop: (event: DragEvent<HTMLElement>) => void;
 };
 
 /** Resolve drag uri for a file system entry. */
@@ -88,7 +88,7 @@ function useFileSystemDrag({
 
   /** Handle entry drag start without recreating per-card closures. */
   const handleEntryDragStart = useCallback(
-    (event: DragEvent<HTMLButtonElement>) => {
+    (event: DragEvent<HTMLElement>) => {
       if (shouldBlockPointerEvent(event)) {
         event.preventDefault();
         return;
@@ -161,7 +161,7 @@ function useFileSystemDrag({
 
   /** Handle drag over on entry folders. */
   const handleEntryDragOver = useCallback(
-    (event: DragEvent<HTMLButtonElement>) => {
+    (event: DragEvent<HTMLElement>) => {
       const entry = resolveEntryFromEvent(event);
       if (!entry || entry.kind !== "folder" || isBoardFolderEntry(entry)) return;
       setDragOverFolderUri(entry.uri);
@@ -173,7 +173,7 @@ function useFileSystemDrag({
 
   /** Handle drag enter on entry folders. */
   const handleEntryDragEnter = useCallback(
-    (event: DragEvent<HTMLButtonElement>) => {
+    (event: DragEvent<HTMLElement>) => {
       const entry = resolveEntryFromEvent(event);
       if (!entry || entry.kind !== "folder" || isBoardFolderEntry(entry)) return;
       setDragOverFolderUri(entry.uri);
@@ -183,7 +183,7 @@ function useFileSystemDrag({
 
   /** Handle drag leave on entry folders. */
   const handleEntryDragLeave = useCallback(
-    (event: DragEvent<HTMLButtonElement>) => {
+    (event: DragEvent<HTMLElement>) => {
       const entry = resolveEntryFromEvent(event);
       if (!entry || entry.kind !== "folder" || isBoardFolderEntry(entry)) return;
       const nextTarget = event.relatedTarget as Node | null;
@@ -195,7 +195,7 @@ function useFileSystemDrag({
 
   /** Handle drop on entry folders. */
   const handleEntryDrop = useCallback(
-    (event: DragEvent<HTMLButtonElement>) => {
+    (event: DragEvent<HTMLElement>) => {
       const entry = resolveEntryFromEvent(event);
       if (!entry || entry.kind !== "folder" || isBoardFolderEntry(entry)) return;
       setDragOverFolderUri(null);

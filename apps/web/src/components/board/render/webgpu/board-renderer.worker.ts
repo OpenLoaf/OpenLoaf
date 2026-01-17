@@ -1,3 +1,4 @@
+/// <reference types="@webgpu/types" />
 /* eslint-disable no-restricted-globals */
 import type {
   GpuMessage,
@@ -245,10 +246,10 @@ function initGpu(canvas: OffscreenCanvas, size: [number, number], nextDpr: numbe
   context = ctx;
   format = navigator.gpu.getPreferredCanvasFormat();
 
-  return navigator.gpu.requestAdapter().then((adapter) => {
+  return navigator.gpu.requestAdapter().then((adapter: GPUAdapter | null) => {
     if (!adapter) throw new Error("Failed to acquire GPU adapter.");
     return adapter.requestDevice();
-  }).then((gpuDevice) => {
+  }).then((gpuDevice: GPUDevice) => {
     device = gpuDevice;
     configureContext();
     createResources();
@@ -461,7 +462,7 @@ function updateViewUniform(viewport: CanvasViewportState) {
 }
 
 function postWorkerEvent(event: GpuWorkerEvent) {
-  (self as DedicatedWorkerGlobalScope).postMessage(event);
+  self.postMessage(event);
 }
 
 /** Return true when two viewport states share the same values. */
@@ -1414,7 +1415,7 @@ self.onmessage = (event: MessageEvent<GpuMessage>) => {
   const message = event.data;
   if (message.type === "init") {
     initGpu(message.canvas, message.size, message.dpr)
-      .catch((error) => {
+      .catch((error: unknown) => {
         postWorkerEvent({ type: "error", message: error instanceof Error ? error.message : String(error) });
       });
     return;

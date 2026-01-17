@@ -139,7 +139,7 @@ export async function listDirectory(targetPath: string): Promise<DirectoryEntry[
   await ensureDirectory(targetPath);
   const entries = await fs.readdir(targetPath, { withFileTypes: true });
   return entries
-    .map((entry) => ({
+    .map<DirectoryEntry>((entry) => ({
       name: entry.name,
       path: entry.name,
       type: entry.isDirectory() ? "dir" : "file",

@@ -768,7 +768,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   /** Preserve selection when starting a drag action. */
   const handleEntryDragStart = useCallback(
-    (entry: FileSystemEntry, event: ReactDragEvent<HTMLButtonElement>) => {
+    (entry: FileSystemEntry, event: ReactDragEvent<HTMLElement>) => {
       ensureSelected(entry.uri);
       model.handleEntryDragStart(entry, event);
     },
@@ -777,7 +777,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   /** Sync selection to the drop target after a successful move. */
   const handleEntryDrop = useCallback(
-    async (entry: FileSystemEntry, event: ReactDragEvent<HTMLButtonElement>) => {
+    async (entry: FileSystemEntry, event: ReactDragEvent<HTMLElement>) => {
       const movedCount = await model.handleEntryDrop(entry, event);
       if (movedCount > 0) {
         replaceSelection([entry.uri]);

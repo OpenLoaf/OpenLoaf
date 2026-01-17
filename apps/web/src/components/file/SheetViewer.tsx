@@ -420,7 +420,7 @@ export default function SheetViewer({
     const workbook = univer.createUnit(
       UniverInstanceType.UNIVER_SHEET,
       snapshot
-    ) as SheetWorkbook;
+    ) as unknown as SheetWorkbook;
     workbookRef.current = workbook;
 
     const commandService = univer.__getInjector().get(ICommandService);

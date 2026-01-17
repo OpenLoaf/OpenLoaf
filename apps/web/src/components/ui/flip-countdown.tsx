@@ -44,6 +44,9 @@ const FlipUnit = ({
   );
 };
 
+const BIGINT_ZERO = BigInt(0);
+const BIGINT_ONE = BigInt(1);
+
 // Main exported component, now supporting arbitrarily large numbers
 export const FlipCountdown = ({
   countFrom = 99,
@@ -73,7 +76,9 @@ export const FlipCountdown = ({
 
     const timer = setInterval(() => {
       // Use BigInt arithmetic (e.g., 1n)
-      setCount((prevCount) => (isCountingDown ? prevCount - 1n : prevCount + 1n));
+      setCount((prevCount) =>
+        (isCountingDown ? prevCount - BIGINT_ONE : prevCount + BIGINT_ONE)
+      );
     }, 1000);
 
     return () => clearInterval(timer);
@@ -83,7 +88,7 @@ export const FlipCountdown = ({
   const paddedCount = useMemo(() => {
     const maxVal = from > to ? from : to;
     const numDigits = String(maxVal).length;
-    const displayCount = count < 0n ? 0n : count;
+    const displayCount = count < BIGINT_ZERO ? BIGINT_ZERO : count;
     
     return String(displayCount).padStart(numDigits, '0');
   }, [count, from, to]);

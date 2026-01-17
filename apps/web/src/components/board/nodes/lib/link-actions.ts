@@ -1,10 +1,6 @@
-import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID, useTabs } from "@/hooks/use-tabs";
-
-/** Create a unique browser sub-tab id. */
-function createBrowserTabId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
+import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
+import { useTabs } from "@/hooks/use-tabs";
+import { createBrowserTabId } from "@/hooks/tab-id";
 
 /** Build the browser view key for stack entries. */
 function buildBrowserViewKey(input: {

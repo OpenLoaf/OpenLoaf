@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { TerminalTab } from "@/hooks/use-tabs";
+import type { TerminalTab } from "@tenas-ai/api/common";
 
 /** Render a tabs bar for terminal sub-tabs. */
 export function TerminalTabsBar({

@@ -7,6 +7,7 @@ import {
   type DesktopWidgetSelectedDetail,
 } from "@/components/desktop/DesktopWidgetLibraryPanel";
 import { desktopWidgetCatalog } from "@/components/desktop/widget-catalog";
+import type { DesktopBreakpoint } from "@/components/desktop/desktop-breakpoints";
 import type { DesktopItem } from "@/components/desktop/types";
 import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
@@ -46,6 +47,8 @@ export default function DesktopDemoPage() {
   const [items, setItems] = React.useState<DesktopItem[]>(() => initialItems);
   // 是否进入编辑模式。
   const [editMode, setEditMode] = React.useState(false);
+  // 当前断点。
+  const [activeBreakpoint, setActiveBreakpoint] = React.useState<DesktopBreakpoint>("lg");
   // 触发整理布局的信号。
   const [compactSignal, setCompactSignal] = React.useState(0);
   // 编辑前快照，用于取消回滚。
@@ -258,6 +261,8 @@ export default function DesktopDemoPage() {
         <DesktopPage
           items={items}
           editMode={editMode}
+          activeBreakpoint={activeBreakpoint}
+          onViewBreakpointChange={setActiveBreakpoint}
           onSetEditMode={handleSetEditMode}
           onUpdateItem={handleUpdateItem}
           onChangeItems={setItems}

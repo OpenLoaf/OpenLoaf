@@ -18,8 +18,8 @@ import { trpc } from "@/utils/trpc";
 import {
   TERMINAL_WINDOW_COMPONENT,
   TERMINAL_WINDOW_PANEL_ID,
-  useTabs,
-} from "@/hooks/use-tabs";
+} from "@tenas-ai/api/common";
+import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
 import {
   BOARD_ASSETS_DIR_NAME,
@@ -142,11 +142,11 @@ export type ProjectFileSystemModel = {
   ) => Promise<void>;
   handleEntryDragStart: (
     entry: FileSystemEntry,
-    event: DragEvent<HTMLButtonElement>
+    event: DragEvent<HTMLElement>
   ) => void;
   handleEntryDrop: (
     target: FileSystemEntry,
-    event: DragEvent<HTMLButtonElement>
+    event: DragEvent<HTMLElement>
   ) => Promise<number>;
   undo: () => void;
   redo: () => void;
@@ -1289,7 +1289,7 @@ export function useProjectFileSystemModel({
   /** Prepare drag payload for entry moves. */
   const handleEntryDragStart = (
     entry: FileSystemEntry,
-    event: DragEvent<HTMLButtonElement>
+    event: DragEvent<HTMLElement>
   ) => {
     if (!rootUri || !projectId) return;
     const relativePath = getRelativePathFromUri(rootUri, entry.uri);
@@ -1303,7 +1303,7 @@ export function useProjectFileSystemModel({
   /** Handle drop onto a target entry. */
   const handleEntryDrop = async (
     target: FileSystemEntry,
-    event: DragEvent<HTMLButtonElement>
+    event: DragEvent<HTMLElement>
   ): Promise<number> => {
     event.preventDefault();
     event.stopPropagation();

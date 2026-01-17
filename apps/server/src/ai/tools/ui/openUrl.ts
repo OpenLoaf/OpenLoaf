@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { tool, zodSchema } from "ai";
+import { BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import { requireTabId } from "@/common/tabContext";
 import { getSessionId, getUiWriter, getWorkspaceId } from "@/ai/chat-stream/requestContext";
@@ -40,7 +41,7 @@ export const openUrlTool = tool({
     const baseKey = buildBrowserBaseKey({ workspaceId, tabId, chatSessionId });
     const browserTabId = crypto.randomUUID();
     const viewKey = `${baseKey}:${browserTabId}`;
-    const panelKey = "browser-window";
+    const panelKey = BROWSER_WINDOW_PANEL_ID;
 
     // 通过 data part 让前端在对应 tab 打开浏览器面板；该链路是 V2 的硬约束。
     writer.write({

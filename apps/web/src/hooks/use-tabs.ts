@@ -2,312 +2,33 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { DEFAULT_TAB_INFO, type DockItem, type Tab } from "@tenas-ai/api/common";
+import {
+  BROWSER_WINDOW_COMPONENT,
+  BROWSER_WINDOW_PANEL_ID,
+  DEFAULT_TAB_INFO,
+  TERMINAL_WINDOW_COMPONENT,
+  TERMINAL_WINDOW_PANEL_ID,
+  type BrowserTab,
+  type DockItem,
+  type Tab,
+  type TerminalTab,
+} from "@tenas-ai/api/common";
 import { createChatSessionId } from "@/lib/chat-session-id";
-import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
+import { emitSidebarOpenRequest } from "@/lib/sidebar-state";
+import {
+  BOARD_VIEWER_COMPONENT,
+  LEFT_DOCK_DEFAULT_PERCENT,
+  LEFT_DOCK_MIN_PX,
+  clampPercent,
+  normalizeDock,
+  shouldExitBoardFullOnClose,
+  updateTabById,
+} from "@/hooks/tab-utils";
+import { isBrowserWindowItem, normalizeBrowserWindowItem } from "@/hooks/browser-panel";
+import { isTerminalWindowItem, normalizeTerminalWindowItem } from "@/hooks/terminal-panel";
 
 export const TABS_STORAGE_KEY = "tenas:tabs";
-
-export const LEFT_DOCK_MIN_PX = 360;
-export const LEFT_DOCK_DEFAULT_PERCENT = 30;
-export const BROWSER_WINDOW_COMPONENT = "electron-browser-window";
-export const BROWSER_WINDOW_PANEL_ID = "browser-window";
-export const TERMINAL_WINDOW_COMPONENT = "terminal-viewer";
-export const TERMINAL_WINDOW_PANEL_ID = "terminal-window";
-const BOARD_VIEWER_COMPONENT = "board-viewer";
-
-type BrowserTab = { id: string; url: string; title?: string; viewKey: string; cdpTargetIds?: string[] };
-
-/** Terminal sub-tab metadata for the terminal panel. */
-export type TerminalTab = {
-  id: string;
-  title?: string;
-  component?: string;
-  params?: Record<string, unknown>;
-  pwdUri?: string;
-};
-
-function isBrowserWindowItem(item: DockItem | undefined): item is DockItem {
-  return Boolean(item && item.component === BROWSER_WINDOW_COMPONENT);
-}
-
-function getBrowserTabs(item: DockItem | undefined): BrowserTab[] {
-  if (!item) return [];
-  const raw = (item.params as any)?.browserTabs;
-  return Array.isArray(raw) ? (raw as BrowserTab[]) : [];
-}
-
-function getActiveBrowserTabId(item: DockItem | undefined): string | undefined {
-  const id = (item?.params as any)?.activeBrowserTabId;
-  return typeof id === "string" ? id : undefined;
-}
-
-function normalizeBrowserWindowItem(existing: DockItem | undefined, incoming: DockItem): DockItem {
-  const open = (incoming.params as any)?.__open as
-    | { url?: string; title?: string; viewKey?: string }
-    | undefined;
-  const legacyUrl = typeof (incoming.params as any)?.url === "string" ? String((incoming.params as any).url) : "";
-  const legacyViewKey =
-    typeof (incoming.params as any)?.viewKey === "string" ? String((incoming.params as any).viewKey) : "";
-  const refreshKey =
-    typeof (incoming.params as any)?.__refreshKey === "number"
-      ? (incoming.params as any).__refreshKey
-      : typeof (existing?.params as any)?.__refreshKey === "number"
-        ? (existing?.params as any).__refreshKey
-        : undefined;
-  const customHeader =
-    typeof (incoming.params as any)?.__customHeader === "boolean"
-      ? (incoming.params as any).__customHeader
-      : typeof (existing?.params as any)?.__customHeader === "boolean"
-        ? (existing?.params as any).__customHeader
-        : undefined;
-
-  const currentTabs = getBrowserTabs(existing);
-  const currentActive = getActiveBrowserTabId(existing);
-  const mergeTargetIds = (base?: string[], next?: string[]) => {
-    // 合并目标列表，避免重复写入。
-    const set = new Set<string>([...(base ?? []), ...(next ?? [])].filter(Boolean));
-    return set.size ? Array.from(set) : undefined;
-  };
-
-  // 两种写入方式：
-  // 1) params.__open：追加/激活一个浏览器子标签（open-url / agent 事件使用）
-  // 2) params.browserTabs：整体覆盖（由 ElectrronBrowserWindow 内部切换/关闭使用）
-  const nextTabs = Array.isArray((incoming.params as any)?.browserTabs)
-    ? ((incoming.params as any).browserTabs as BrowserTab[])
-    : [...currentTabs];
-
-  let nextActive = typeof (incoming.params as any)?.activeBrowserTabId === "string"
-    ? String((incoming.params as any).activeBrowserTabId)
-    : currentActive;
-
-  const openUrl = String(open?.url ?? legacyUrl ?? "").trim();
-  const openViewKey = String(open?.viewKey ?? legacyViewKey ?? "").trim();
-  if (openUrl) {
-    const id = openViewKey || `${BROWSER_WINDOW_PANEL_ID}:${Date.now()}`;
-    const idx = nextTabs.findIndex((t) => String((t as any)?.id ?? "") === id);
-    const patch: BrowserTab = {
-      id,
-      viewKey: openViewKey || id,
-      url: openUrl,
-      title: typeof open?.title === "string" ? open.title : undefined,
-      cdpTargetIds: (incoming.params as any)?.cdpTargetIds as any,
-    };
-    if (idx === -1) {
-      nextTabs.push(patch);
-    } else {
-      const existingTab = nextTabs[idx];
-      nextTabs[idx] = {
-        ...existingTab,
-        ...patch,
-        cdpTargetIds: mergeTargetIds(existingTab?.cdpTargetIds, patch.cdpTargetIds),
-      };
-    }
-    nextActive = id;
-  }
-
-  if (!nextActive && nextTabs.length > 0) nextActive = nextTabs[0]!.id;
-  if (nextActive && !nextTabs.some((t) => t.id === nextActive)) nextActive = nextTabs[0]?.id;
-
-  return {
-    ...existing,
-    ...incoming,
-    id: existing?.id ?? incoming.id ?? BROWSER_WINDOW_PANEL_ID,
-    component: BROWSER_WINDOW_COMPONENT,
-    sourceKey: existing?.sourceKey ?? incoming.sourceKey ?? BROWSER_WINDOW_PANEL_ID,
-    title: existing?.title ?? incoming.title,
-    params: {
-      browserTabs: nextTabs,
-      activeBrowserTabId: nextActive,
-      ...(typeof refreshKey === "number" ? { __refreshKey: refreshKey } : {}),
-      ...(typeof customHeader === "boolean" ? { __customHeader: customHeader } : {}),
-    },
-  };
-}
-
-/** Return true when the dock item is a terminal panel. */
-function isTerminalWindowItem(item: DockItem | undefined): item is DockItem {
-  return Boolean(item && item.component === TERMINAL_WINDOW_COMPONENT);
-}
-
-/** Normalize a terminal tab definition. */
-function normalizeTerminalTab(tab: TerminalTab): TerminalTab {
-  const component =
-    typeof tab.component === "string" && tab.component.trim()
-      ? tab.component
-      : "terminal";
-  const params = typeof tab.params === "object" && tab.params ? { ...tab.params } : {};
-  const legacyPwd = typeof tab.pwdUri === "string" ? tab.pwdUri : undefined;
-  if (legacyPwd && typeof params.pwdUri !== "string") {
-    params.pwdUri = legacyPwd;
-  }
-  return { ...tab, component, params };
-}
-
-/** Collect terminal tabs from a dock item, including legacy fields. */
-function getTerminalTabs(item: DockItem | undefined): TerminalTab[] {
-  if (!item) return [];
-  const raw = (item.params as any)?.terminalTabs;
-  if (Array.isArray(raw)) return (raw as TerminalTab[]).map(normalizeTerminalTab);
-  const legacyPwd =
-    typeof (item.params as any)?.pwdUri === "string"
-      ? String((item.params as any).pwdUri)
-      : "";
-  if (!legacyPwd) return [];
-  const legacyId =
-    item.id && item.id !== TERMINAL_WINDOW_PANEL_ID
-      ? item.id
-      : `${TERMINAL_WINDOW_PANEL_ID}:${legacyPwd}`;
-  return [
-    normalizeTerminalTab({
-      id: legacyId,
-      title: item.title,
-      component: "terminal",
-      params: { pwdUri: legacyPwd },
-      pwdUri: legacyPwd,
-    }),
-  ];
-}
-
-/** Get the active terminal tab id from a dock item. */
-function getActiveTerminalTabId(item: DockItem | undefined): string | undefined {
-  const id = (item?.params as any)?.activeTerminalTabId;
-  if (typeof id === "string") return id;
-  const tabs = getTerminalTabs(item);
-  return tabs[0]?.id;
-}
-
-/** Normalize terminal dock item data for multi-tab rendering. */
-function normalizeTerminalWindowItem(existing: DockItem | undefined, incoming: DockItem): DockItem {
-  const open = (incoming.params as any)?.__open as
-    | {
-        pwdUri?: string;
-        title?: string;
-        component?: string;
-        params?: Record<string, unknown>;
-        tabId?: string;
-      }
-    | undefined;
-  const legacyPwd =
-    typeof (incoming.params as any)?.pwdUri === "string"
-      ? String((incoming.params as any).pwdUri)
-      : "";
-  const refreshKey =
-    typeof (incoming.params as any)?.__refreshKey === "number"
-      ? (incoming.params as any).__refreshKey
-      : typeof (existing?.params as any)?.__refreshKey === "number"
-        ? (existing?.params as any).__refreshKey
-        : undefined;
-  const customHeader =
-    typeof (incoming.params as any)?.__customHeader === "boolean"
-      ? (incoming.params as any).__customHeader
-      : typeof (existing?.params as any)?.__customHeader === "boolean"
-        ? (existing?.params as any).__customHeader
-        : true;
-
-  const currentTabs = getTerminalTabs(existing);
-  const currentActive = getActiveTerminalTabId(existing);
-
-  // 1) params.terminalTabs：整体覆盖
-  // 2) params.__open：追加/激活一个 terminal 子标签
-  const nextTabs = Array.isArray((incoming.params as any)?.terminalTabs)
-    ? ((incoming.params as any).terminalTabs as TerminalTab[])
-    : [...currentTabs];
-
-  let nextActive =
-    typeof (incoming.params as any)?.activeTerminalTabId === "string"
-      ? String((incoming.params as any).activeTerminalTabId)
-      : currentActive;
-
-  const openPwd = String(open?.pwdUri ?? legacyPwd ?? "").trim();
-  if (openPwd) {
-    const id = open?.tabId
-      ? String(open.tabId)
-      : `${TERMINAL_WINDOW_PANEL_ID}:${Date.now()}`;
-    const baseParams =
-      typeof open?.params === "object" && open?.params ? { ...open.params } : {};
-    const patch: TerminalTab = {
-      id,
-      title: typeof open?.title === "string" ? open.title : undefined,
-      component: typeof open?.component === "string" ? open.component : "terminal",
-      params: { ...baseParams, ...(openPwd ? { pwdUri: openPwd } : {}) },
-    };
-    const idx = nextTabs.findIndex((t) => String((t as any)?.id ?? "") === id);
-    if (idx === -1) {
-      nextTabs.push(patch);
-    } else {
-      const existingTab = nextTabs[idx]!;
-      nextTabs[idx] = {
-        ...existingTab,
-        ...patch,
-        params: {
-          ...(typeof (existingTab as any)?.params === "object" ? (existingTab as any).params : {}),
-          ...(patch.params ?? {}),
-        },
-      };
-    }
-    nextActive = id;
-  }
-
-  const normalizedTabs = nextTabs.map(normalizeTerminalTab);
-
-  if (!nextActive && normalizedTabs.length > 0) nextActive = normalizedTabs[0]!.id;
-  if (nextActive && !normalizedTabs.some((t) => t.id === nextActive)) {
-    nextActive = normalizedTabs[0]?.id;
-  }
-
-  return {
-    ...existing,
-    ...incoming,
-    id: TERMINAL_WINDOW_PANEL_ID,
-    sourceKey: TERMINAL_WINDOW_PANEL_ID,
-    component: TERMINAL_WINDOW_COMPONENT,
-    title: existing?.title ?? incoming.title,
-    params: {
-      terminalTabs: normalizedTabs,
-      activeTerminalTabId: nextActive,
-      ...(typeof refreshKey === "number" ? { __refreshKey: refreshKey } : {}),
-      __customHeader: customHeader,
-    },
-  };
-}
-
-type TabsStateSnapshot = {
-  tabs: Tab[];
-  activeStackItemIdByTabId: Record<string, string>;
-};
-
-/** Resolve the active stack item for a tab snapshot. */
-function getActiveStackItem(state: TabsStateSnapshot, tabId: string) {
-  const tab = state.tabs.find((item) => item.id === tabId);
-  const stack = tab?.stack ?? [];
-  const activeId = state.activeStackItemIdByTabId[tabId] || stack.at(-1)?.id || "";
-  return stack.find((item) => item.id === activeId) ?? stack.at(-1);
-}
-
-/** Return true when the active board stack is in full mode. */
-function isBoardStackFull(state: TabsStateSnapshot, tabId: string) {
-  const activeItem = getActiveStackItem(state, tabId);
-  if (activeItem?.component !== BOARD_VIEWER_COMPONENT) return false;
-  const tab = state.tabs.find((item) => item.id === tabId);
-  if (!tab?.rightChatCollapsed) return false;
-  const leftOpen = getLeftSidebarOpen();
-  return leftOpen === false;
-}
-
-/** Return true when closing should exit board full mode. */
-function shouldExitBoardFullOnClose(state: TabsStateSnapshot, tabId: string, itemId?: string) {
-  const activeItem = getActiveStackItem(state, tabId);
-  if (!activeItem || activeItem.component !== BOARD_VIEWER_COMPONENT) return false;
-  if (itemId && activeItem.id !== itemId) return false;
-  return isBoardStackFull(state, tabId);
-}
-
-function clampPercent(value: number) {
-  // 约束百分比到 [0, 100]，并且对 NaN/Infinity 做兜底。
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(100, value));
-}
+export { LEFT_DOCK_DEFAULT_PERCENT, LEFT_DOCK_MIN_PX };
 
 export type ToolPartSnapshot = {
   /** Rendering variant for tool cards. */
@@ -433,34 +154,6 @@ function orderWorkspaceTabs(tabs: Tab[]) {
   }
 
   return [...pinned, ...regular];
-}
-
-function normalizeDock(tab: Tab): Tab {
-  // 归一化/修复 Tab 的布局字段：
-  // - stack 必须是数组
-  // - 没有左侧内容时 leftWidthPercent 强制为 0（左面板彻底隐藏）
-  // - 只有在 base 存在时才允许 rightChatCollapsed（避免“空 base 仍折叠右侧”）
-  const stack = Array.isArray(tab.stack) ? tab.stack : [];
-  const hasLeftContent = Boolean(tab.base) || stack.length > 0;
-  const leftWidthPercent = hasLeftContent
-    ? clampPercent(tab.leftWidthPercent > 0 ? tab.leftWidthPercent : LEFT_DOCK_DEFAULT_PERCENT)
-    : 0;
-
-  return {
-    ...tab,
-    stack,
-    leftWidthPercent,
-    rightChatCollapsed: tab.base ? Boolean(tab.rightChatCollapsed) : false,
-  };
-}
-
-function updateTabById(tabs: Tab[], tabId: string, updater: (tab: Tab) => Tab) {
-  // immutable 更新指定 tab，保持数组引用变化以触发订阅更新。
-  const index = tabs.findIndex((tab) => tab.id === tabId);
-  if (index === -1) return tabs;
-  const nextTabs = [...tabs];
-  nextTabs[index] = updater(nextTabs[index]!);
-  return nextTabs;
 }
 
 export const useTabs = create<TabsState>()(
@@ -1083,15 +776,45 @@ export const useTabs = create<TabsState>()(
     {
       name: TABS_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      version: 4,
+      version: 5,
       migrate: (persisted: any) => {
-        // 存储迁移（v2）：清理历史字段（leftWidthPx -> leftWidthPercent）。
+        const now = Date.now();
         const tabs = Array.isArray(persisted?.tabs) ? persisted.tabs : [];
+
+        /** Normalize a persisted dock item from storage. */
+        const normalizeDockItem = (raw: any): DockItem | null => {
+          if (!raw || typeof raw !== "object") return null;
+          const id = typeof raw.id === "string" ? raw.id : "";
+          const component = typeof raw.component === "string" ? raw.component : "";
+          if (!id || !component) return null;
+          const params =
+            typeof raw.params === "object" && raw.params ? { ...raw.params } : undefined;
+          const item: DockItem = {
+            id,
+            component,
+            params,
+            title: typeof raw.title === "string" ? raw.title : undefined,
+            sourceKey: typeof raw.sourceKey === "string" ? raw.sourceKey : undefined,
+            denyClose: typeof raw.denyClose === "boolean" ? raw.denyClose : undefined,
+          };
+          if (component === BROWSER_WINDOW_COMPONENT) {
+            return normalizeBrowserWindowItem(undefined, item);
+          }
+          if (component === TERMINAL_WINDOW_COMPONENT) {
+            return normalizeTerminalWindowItem(undefined, item);
+          }
+          return item;
+        };
+
         return {
           ...persisted,
           tabs: tabs.map((tab: any) => {
             const stack = Array.isArray(tab?.stack) ? tab.stack : [];
-            const hasLeftContent = Boolean(tab?.base) || stack.length > 0;
+            const normalizedStack = stack
+              .map(normalizeDockItem)
+              .filter(Boolean) as DockItem[];
+            const normalizedBase = normalizeDockItem(tab?.base) ?? undefined;
+            const hasLeftContent = Boolean(normalizedBase) || normalizedStack.length > 0;
             const legacyPx = Number(tab?.leftWidthPx);
             const leftWidthPercent = hasLeftContent
               ? (Number.isFinite(tab?.leftWidthPercent)
@@ -1100,7 +823,37 @@ export const useTabs = create<TabsState>()(
                     ? LEFT_DOCK_DEFAULT_PERCENT
                     : LEFT_DOCK_DEFAULT_PERCENT)
               : 0;
-            return normalizeDock({ ...tab, stack, leftWidthPercent } as Tab);
+            return normalizeDock({
+              id: typeof tab?.id === "string" && tab.id ? tab.id : generateId("tab"),
+              workspaceId:
+                typeof tab?.workspaceId === "string" && tab.workspaceId
+                  ? tab.workspaceId
+                  : "unknown",
+              title:
+                typeof tab?.title === "string" && tab.title
+                  ? tab.title
+                  : DEFAULT_TAB_INFO.title,
+              icon:
+                typeof tab?.icon === "string" && tab.icon ? tab.icon : DEFAULT_TAB_INFO.icon,
+              isPin: Boolean(tab?.isPin),
+              chatSessionId:
+                typeof tab?.chatSessionId === "string" && tab.chatSessionId
+                  ? tab.chatSessionId
+                  : createChatSessionId(),
+              chatParams:
+                typeof tab?.chatParams === "object" && tab.chatParams ? tab.chatParams : undefined,
+              chatLoadHistory:
+                typeof tab?.chatLoadHistory === "boolean" ? tab.chatLoadHistory : undefined,
+              rightChatCollapsed:
+                typeof tab?.rightChatCollapsed === "boolean" ? tab.rightChatCollapsed : false,
+              base: normalizedBase,
+              stack: normalizedStack,
+              leftWidthPercent,
+              minLeftWidth:
+                Number.isFinite(tab?.minLeftWidth) ? tab.minLeftWidth : undefined,
+              createdAt: Number.isFinite(tab?.createdAt) ? tab.createdAt : now,
+              lastActiveAt: Number.isFinite(tab?.lastActiveAt) ? tab.lastActiveAt : now,
+            } as Tab);
           }),
           // v3 新增 stackHiddenByTabId，默认不隐藏。
           stackHiddenByTabId: persisted?.stackHiddenByTabId ?? {},

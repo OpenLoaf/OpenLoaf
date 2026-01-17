@@ -14,7 +14,7 @@ type UseAutoResizeNodeOptions = {
 
 type UseAutoResizeNodeResult = {
   /** Ref for the node root container. */
-  containerRef: RefObject<HTMLDivElement>;
+  containerRef: RefObject<HTMLDivElement | null>;
   /** Force a resize measurement. */
   requestResize: () => void;
 };

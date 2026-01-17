@@ -43,6 +43,7 @@ export default function DesktopTileGridstack({
   const isPinned = item.pinned ?? false;
   // 逻辑：仅在动画等级为高时显示七彩发光。
   const enableGlow = !editMode && basic.uiAnimationLevel === "high";
+  const widgetKey = item.kind === "widget" ? item.widgetKey : null;
 
   const clearLongPress = React.useCallback(() => {
     if (longPressTimerRef.current) {
@@ -64,7 +65,7 @@ export default function DesktopTileGridstack({
 
   /** Toggle flip clock seconds display in edit mode. */
   const handleToggleFlipClock = React.useCallback(() => {
-    if (item.kind !== "widget" || item.widgetKey !== "flip-clock") return;
+    if (widgetKey !== "flip-clock") return;
     onUpdateItem(item.id, (current) => {
       if (current.kind !== "widget" || current.widgetKey !== "flip-clock") return current;
       const currentShowSeconds = current.flipClock?.showSeconds ?? true;
@@ -81,10 +82,9 @@ export default function DesktopTileGridstack({
         layout: { ...current.layout, w: nextW },
       };
     });
-  }, [item.id, item.kind, item.widgetKey, onUpdateItem]);
+  }, [item.id, widgetKey, onUpdateItem]);
 
-  const allowOverflow =
-    item.kind === "widget" && item.widgetKey === "3d-folder";
+  const allowOverflow = widgetKey === "3d-folder";
 
   return (
     <div className="group relative h-full w-full min-w-0">
@@ -115,7 +115,7 @@ export default function DesktopTileGridstack({
           </button>
         </div>
       ) : null}
-      {editMode && item.kind === "widget" && item.widgetKey === "flip-clock" ? (
+      {editMode && widgetKey === "flip-clock" ? (
         <button
           type="button"
           className="absolute right-2 top-2 z-10 rounded-full border border-border bg-background/90 px-2 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur"

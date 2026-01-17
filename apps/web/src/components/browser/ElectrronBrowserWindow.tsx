@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
-import { BROWSER_WINDOW_PANEL_ID, useTabs } from "@/hooks/use-tabs";
+import { BROWSER_WINDOW_PANEL_ID, type BrowserTab } from "@tenas-ai/api/common";
+import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { upsertTabSnapshotNow } from "@/lib/tab-snapshot";
 import { StackHeader } from "@/components/layout/StackHeader";
@@ -24,10 +25,10 @@ import {
   setFavoriteIconByUrl,
 } from "@/components/browser/browser-storage";
 import type {
-  BrowserTab,
   TenasWebContentsViewStatus,
   TenasWebContentsViewWindowOpen,
 } from "@/components/browser/browser-types";
+import { createBrowserTabId } from "@/hooks/tab-id";
 import {
   Empty,
   EmptyDescription,
@@ -113,11 +114,6 @@ export default function ElectrronBrowserWindow({
     syncFavorites();
     return onBrowserStorageChange(syncFavorites);
   }, []);
-
-  const createBrowserTabId = () => {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-    return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-  };
 
   const buildViewKey = (browserTabId: string) => {
     if (!safeTabId) return `${BROWSER_WINDOW_PANEL_ID}:${browserTabId}`;

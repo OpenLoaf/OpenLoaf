@@ -64,8 +64,10 @@ export function getDesktopFileUri(rootUri: string): string {
 /** Convert desktop items into a serializable payload. */
 export function serializeDesktopItems(items: DesktopItem[]): DesktopFilePayload {
   const payloadItems: DesktopFileItem[] = items.map((item) => {
-    const layoutByBreakpoint =
-      item.layoutByBreakpoint ?? createLayoutByBreakpoint(item.layout);
+    const layoutByBreakpoint = {
+      ...createLayoutByBreakpoint(item.layout),
+      ...(item.layoutByBreakpoint ?? {}),
+    };
     if (item.kind === "icon") {
       return {
         id: item.id,

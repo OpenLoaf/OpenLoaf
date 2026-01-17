@@ -102,7 +102,7 @@ function buildDocumentSnapshot(text: string, title: string): IDocumentData {
   // 逻辑：使用 RichTextValue 自动补齐文档结构，确保数据可渲染。
   const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const dataStream = `${normalized.split("\n").join("\r\n")}\r\n`;
-  const docData = RichTextValue.create({ body: { dataStream } }).getData();
+  const docData = RichTextValue.createByBody({ dataStream }).getData();
   docData.id = createUnitId("doc");
   docData.title = title;
   docData.locale = LocaleType.ZH_CN;
@@ -305,7 +305,7 @@ export default function DocViewer({
     const docModel = univer.createUnit(
       UniverInstanceType.UNIVER_DOC,
       snapshot
-    ) as DocModel;
+    ) as unknown as DocModel;
     docRef.current = docModel;
 
     const commandService = univer.__getInjector().get(ICommandService);

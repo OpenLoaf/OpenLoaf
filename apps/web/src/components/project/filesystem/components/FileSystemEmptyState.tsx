@@ -18,7 +18,7 @@ type FileSystemEmptyStateProps = {
   onNavigate?: (nextUri: string) => void;
   onEntryDrop?: (
     entry: FileSystemEntry,
-    event: DragEvent<HTMLButtonElement>
+    event: DragEvent<HTMLElement>
   ) => void;
   setDragOverFolderUri: Dispatch<SetStateAction<string | null>>;
   shouldBlockPointerEvent: (event: { button?: number } | null | undefined) => boolean;

@@ -72,12 +72,12 @@ type FileSystemGitTreeProps = {
   /** Triggered when a drag starts. */
   onEntryDragStart?: (
     entry: FileSystemEntry,
-    event: ReactDragEvent<HTMLButtonElement>
+    event: ReactDragEvent<HTMLElement>
   ) => void;
   /** Triggered when dropping onto a folder. */
   onEntryDrop?: (
     entry: FileSystemEntry,
-    event: ReactDragEvent<HTMLButtonElement>
+    event: ReactDragEvent<HTMLElement>
   ) => void;
 };
 
@@ -130,15 +130,15 @@ type FileSystemGitTreeNodeProps = {
   /** Register entry for drag operations. */
   registerEntry: (entry: FileSystemEntry) => () => void;
   /** Drag start handler. */
-  onDragStart: (event: ReactDragEvent<HTMLButtonElement>) => void;
+  onDragStart: (event: ReactDragEvent<HTMLElement>) => void;
   /** Drag over handler. */
-  onDragOver: (event: ReactDragEvent<HTMLButtonElement>) => void;
+  onDragOver: (event: ReactDragEvent<HTMLElement>) => void;
   /** Drag enter handler. */
-  onDragEnter: (event: ReactDragEvent<HTMLButtonElement>) => void;
+  onDragEnter: (event: ReactDragEvent<HTMLElement>) => void;
   /** Drag leave handler. */
-  onDragLeave: (event: ReactDragEvent<HTMLButtonElement>) => void;
+  onDragLeave: (event: ReactDragEvent<HTMLElement>) => void;
   /** Drop handler. */
-  onDrop: (event: ReactDragEvent<HTMLButtonElement>) => void;
+  onDrop: (event: ReactDragEvent<HTMLElement>) => void;
   /** Block pointer events after a context menu trigger. */
   shouldBlockPointerEvent: (
     event: { button?: number } | null | undefined
@@ -360,7 +360,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
 
   /** Handle drag start for a tree row. */
   const handleDragStart = useCallback(
-    (event: ReactDragEvent<HTMLButtonElement>) => {
+    (event: ReactDragEvent<HTMLElement>) => {
       if (node.isRoot || isRenaming) {
         event.preventDefault();
         return;

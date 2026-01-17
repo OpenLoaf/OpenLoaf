@@ -1,10 +1,4 @@
-export type BrowserTab = {
-  id: string;
-  url: string;
-  title?: string;
-  viewKey: string;
-  cdpTargetIds?: string[];
-};
+export type { BrowserTab } from "@tenas-ai/api/common";
 
 export type TenasWebContentsViewStatus = {
   key: string;

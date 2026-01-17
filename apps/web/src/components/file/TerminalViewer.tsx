@@ -9,16 +9,14 @@ import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { TerminalTabsBar } from "@/components/file/TerminalTabsBar";
-import {
-  TERMINAL_WINDOW_PANEL_ID,
-  useTabs,
-  type TerminalTab,
-} from "@/hooks/use-tabs";
+import { TERMINAL_WINDOW_PANEL_ID, type TerminalTab } from "@tenas-ai/api/common";
+import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { resolveServerUrl } from "@/utils/server-url";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
+import { createTerminalTabId } from "@/hooks/tab-id";
 
 import "xterm/css/xterm.css";
 import "./terminal-viewer.css";
@@ -64,19 +62,11 @@ function parseTerminalMessage(raw: string): TerminalServerMessage | null {
   }
 }
 
-/** Generate a terminal tab id. */
-function createTerminalTabId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
-
 /** Extract pwd uri from a terminal tab. */
 function getTerminalTabPwdUri(tab: TerminalTab): string {
-  const direct = typeof tab.pwdUri === "string" ? tab.pwdUri : "";
   const params = tab.params as { pwdUri?: string } | undefined;
   const fromParams = typeof params?.pwdUri === "string" ? params.pwdUri : "";
+  const direct = typeof tab.pwdUri === "string" ? tab.pwdUri : "";
   return fromParams || direct;
 }
 

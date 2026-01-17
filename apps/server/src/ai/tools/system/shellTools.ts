@@ -113,12 +113,9 @@ export const shellWriteTool = tool({
     if (command !== "mkdir") {
       throw new Error("Only mkdir is supported.");
     }
-    if (args.length !== 1 || args[0].startsWith("-")) {
+    const [targetPath] = args;
+    if (args.length !== 1 || !targetPath || targetPath.startsWith("-")) {
       throw new Error("mkdir requires a single path.");
-    }
-    const targetPath = args[0];
-    if (!targetPath) {
-      throw new Error("mkdir requires a path.");
     }
     const resolved = resolveProjectPath(targetPath);
     await fs.mkdir(resolved.absPath, { recursive: true });
@@ -136,12 +133,9 @@ export const shellDestructiveTool = tool({
     if (command !== "rm") {
       throw new Error("Only rm is supported.");
     }
-    if (args.length !== 1 || args[0].startsWith("-")) {
+    const [targetPath] = args;
+    if (args.length !== 1 || !targetPath || targetPath.startsWith("-")) {
       throw new Error("rm requires a single file path.");
-    }
-    const targetPath = args[0];
-    if (!targetPath) {
-      throw new Error("rm requires a path.");
     }
     const resolved = resolveProjectPath(targetPath);
     await ensureFile(resolved.absPath);

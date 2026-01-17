@@ -112,7 +112,7 @@ function hasParentTraversal(value: string): boolean {
 function computeCrc32(input: Buffer): number {
   let crc = 0xffffffff;
   for (const byte of input) {
-    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+    crc = CRC_TABLE[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
   }
   return (crc ^ 0xffffffff) >>> 0;
 }

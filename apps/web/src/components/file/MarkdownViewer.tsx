@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { Streamdown, defaultRemarkPlugins } from "streamdown";
+import type { BundledTheme } from "shiki";
 import remarkMdx from "remark-mdx";
 import { Eye, PencilLine, Save, Undo2 } from "lucide-react";
 import { StackHeader } from "@/components/layout/StackHeader";
@@ -52,7 +53,10 @@ const DEFAULT_CODE_STATUS: CodeViewerStatus = {
   canUndo: false,
 };
 /** Streamdown 代码高亮主题。 */
-const STREAMDOWN_SHIKI_THEME = ["github-light", "github-dark-high-contrast"] as const;
+const STREAMDOWN_SHIKI_THEME: [BundledTheme, BundledTheme] = [
+  "github-light",
+  "github-dark-high-contrast",
+];
 
 /** Format MDX attributes into a short label. */
 function formatMdxAttributes(attributes?: MdxAttribute[]) {
