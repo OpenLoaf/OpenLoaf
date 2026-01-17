@@ -13,7 +13,8 @@
       "providerId": "deepseek",
       "icon": "DeepSeek",
       "tags": [
-        "text_generation"
+        "text_generation",
+        "tool_call"
       ],
       "maxContextK": 128,
       "priceStrategyId": "tiered_token",
@@ -33,7 +34,8 @@
       "providerId": "deepseek",
       "icon": "DeepSeek",
       "tags": [
-        "text_generation"
+        "text_generation",
+        "tool_call"
       ],
       "maxContextK": 128,
       "priceStrategyId": "tiered_token",

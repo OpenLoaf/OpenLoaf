@@ -90,6 +90,8 @@ export function initRequestContext(input: {
   projectId?: string | null;
   /** Board id for request scope. */
   boardId?: string | null;
+  /** Selected skills for this request. */
+  selectedSkills?: string[] | null;
   /** Abort signal from the incoming request. */
   requestSignal: AbortSignal;
   /** Optional message id override. */
@@ -104,6 +106,11 @@ export function initRequestContext(input: {
     tabId: input.tabId || undefined,
     workspaceId: input.workspaceId || undefined,
     projectId: input.projectId || undefined,
+    // 逻辑：仅在请求参数中显式选择时注入技能列表。
+    selectedSkills:
+      Array.isArray(input.selectedSkills) && input.selectedSkills.length > 0
+        ? [...input.selectedSkills]
+        : undefined,
     ...(boardId ? { boardId } : {}),
   });
 

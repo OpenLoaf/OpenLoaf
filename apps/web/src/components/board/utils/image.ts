@@ -147,11 +147,16 @@ export async function buildImageNodePayloadFromUri(
     maxNodeDimension?: number;
     /** Quality used when encoding compressed previews. */
     quality?: number;
+    /** Target byte size for preview fetch. */
+    maxPreviewBytes?: number;
     /** Project id for resolving relative paths. */
     projectId?: string;
   }
 ): Promise<ImageNodePayload> {
-  const blob = await fetchBlobFromUri(uri, { projectId: options?.projectId });
+  const blob = await fetchBlobFromUri(uri, {
+    projectId: options?.projectId,
+    maxBytes: options?.maxPreviewBytes,
+  });
   const dataUrl = await readBlobAsDataUrl(blob);
   const image = await decodeImage(dataUrl);
   const naturalWidth = image.naturalWidth || 1;

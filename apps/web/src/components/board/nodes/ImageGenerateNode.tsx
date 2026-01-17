@@ -829,7 +829,7 @@ export function ImageGenerateNodeView({
                 onUpdate({ promptText: next });
               }}
               data-board-scroll
-              className="min-h-[88px] px-2 py-1 text-[11px] leading-4 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[11px]"
+              className="min-h-[88px] px-2 py-1 text-[12px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[12px]"
               disabled={engine.isLocked() || element.locked || isRunning}
             />
           </div>

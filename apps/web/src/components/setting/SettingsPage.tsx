@@ -19,6 +19,7 @@ import {
   FlaskConical,
   Database,
   Sparkles,
+  Wand2Icon,
 } from "lucide-react";
 
 import { BasicSettings } from "./menus/BasicSettings";
@@ -30,6 +31,7 @@ import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
 import { CommandAllowlist } from "./menus/CommandAllowlist";
 import TestSetting from "./menus/TestSetting";
+import { SkillSettings } from "./menus/SkillSettings";
 import { TenasSettingsLayout } from "@/components/ui/tenas/TenasSettingsLayout";
 import {
   TenasSettingsMenu,
@@ -43,6 +45,7 @@ type SettingsMenuKey =
   | "storage"
   | "agents"
   | "workspace"
+  | "skills"
   | "shortcuts"
   | "whitelist"
   | "projectTest";
@@ -65,6 +68,7 @@ const MENU: Array<{
 }> = [
   { key: "basic", label: "基础", Icon: SlidersHorizontal, Component: BasicSettings },
   { key: "workspace", label: "工作空间", Icon: Building2, Component: WorkspaceSettings },
+  { key: "skills", label: "技能", Icon: Wand2Icon, Component: SkillSettings },
   { key: "keys", label: "AI模型服务", Icon: Sparkles, Component: ProviderManagement },
   { key: "storage", label: "S3存储服务", Icon: Database, Component: ObjectStorageService },
   { key: "whitelist", label: "白名单", Icon: ShieldCheck, Component: CommandAllowlist },
@@ -173,6 +177,7 @@ export default function SettingsPage({
     const byKey = new Map(MENU.map((item) => [item.key, item]));
     const group1 = [byKey.get("basic"), byKey.get("workspace")].filter(Boolean);
     const group2 = [
+      byKey.get("skills"),
       byKey.get("keys"),
       byKey.get("storage"),
       byKey.get("whitelist"),

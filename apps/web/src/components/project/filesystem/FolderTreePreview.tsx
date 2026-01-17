@@ -34,6 +34,8 @@ import SheetViewer from "@/components/file/SheetViewer";
 
 interface FolderTreePreviewProps {
   rootUri?: string;
+  /** Optional root uri for preview resolution. */
+  viewerRootUri?: string;
   currentUri?: string | null;
   projectId?: string;
   projectTitle?: string;
@@ -64,6 +66,7 @@ function resolveViewerLabel(entry: FileSystemEntry): string {
 /** Render a lightweight folder tree preview panel. */
 export default function FolderTreePreview({
   rootUri,
+  viewerRootUri,
   currentUri,
   projectId,
   projectTitle,
@@ -108,6 +111,7 @@ export default function FolderTreePreview({
     }
     const entry = selectedEntry;
     const displayName = resolveViewerLabel(entry);
+    const effectiveViewerRootUri = viewerRootUri ?? rootUri;
     if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
       const boardFolderUri = entry.uri;
       const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
@@ -116,7 +120,7 @@ export default function FolderTreePreview({
           boardFolderUri={boardFolderUri}
           boardFileUri={boardFileUri}
           projectId={projectId}
-          rootUri={rootUri}
+          rootUri={effectiveViewerRootUri}
         />
       );
     }
@@ -139,7 +143,7 @@ export default function FolderTreePreview({
           openUri={entry.uri}
           name={displayName}
           ext={ext}
-          rootUri={rootUri}
+          rootUri={effectiveViewerRootUri}
           projectId={projectId}
         />
       );
@@ -150,16 +154,16 @@ export default function FolderTreePreview({
           uri={entry.uri}
           name={displayName}
           ext={ext}
-          rootUri={rootUri}
+          rootUri={effectiveViewerRootUri}
           projectId={projectId}
         />
       );
     }
     if (PDF_EXTS.has(ext)) {
-      if (!projectId || !rootUri) {
+      if (!projectId || !effectiveViewerRootUri) {
         return <div className="h-full w-full p-4 text-destructive">未找到项目路径</div>;
       }
-      const relativePath = getRelativePathFromUri(rootUri, entry.uri);
+      const relativePath = getRelativePathFromUri(effectiveViewerRootUri, entry.uri);
       if (!relativePath) {
         return <div className="h-full w-full p-4 text-destructive">无法解析PDF路径</div>;
       }
@@ -181,7 +185,7 @@ export default function FolderTreePreview({
       return <SheetViewer uri={entry.uri} openUri={entry.uri} name={displayName} ext={ext} />;
     }
     return <FileViewer uri={entry.uri} name={displayName} ext={ext} />;
-  }, [projectId, rootUri, selectedEntry]);
+  }, [projectId, rootUri, selectedEntry, viewerRootUri]);
 
   if (!rootUri) {
     return <div className="h-full w-full p-4 text-muted-foreground">未找到目录</div>;

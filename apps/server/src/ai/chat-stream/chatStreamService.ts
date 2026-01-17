@@ -9,10 +9,15 @@ import {
   setChatModel,
   setAbortSignal,
   setCodexOptions,
+  setParentProjectRootPaths,
   getWorkspaceId,
   getProjectId,
 } from "@/ai/chat-stream/requestContext";
+import { isRecord } from "@/ai/utils/type-guards";
 import { logger } from "@/common/logger";
+import { prisma } from "@tenas-ai/db";
+import { resolveProjectAncestorRootUris } from "@tenas-ai/api/services/projectDbService";
+import { resolveFilePathFromUri } from "@tenas-ai/api/services/vfsService";
 import { normalizePromptForImageEdit } from "./imageEditNormalizer";
 import { resolveImagePrompt, type GenerateImagePrompt } from "./imagePrompt";
 import {
@@ -89,6 +94,51 @@ type ImageModelResult = {
   totalUsage?: TokenUsage;
 };
 
+/** Resolve selected skills from request params. */
+function resolveSelectedSkills(params?: Record<string, unknown> | null): string[] {
+  if (!isRecord(params)) return [];
+  const rawSkills = params.skills;
+  let candidates: string[] = [];
+  if (Array.isArray(rawSkills)) {
+    candidates = rawSkills.filter((value): value is string => typeof value === "string");
+  } else if (typeof rawSkills === "string") {
+    candidates = rawSkills.split(",");
+  }
+
+  // 逻辑：只保留非空字符串，并按输入顺序去重。
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const value of candidates) {
+    const trimmed = value.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+  return normalized;
+}
+
+/** Resolve parent project root paths from database. */
+async function resolveParentProjectRootPaths(projectId?: string): Promise<string[]> {
+  const normalizedId = projectId?.trim() ?? "";
+  if (!normalizedId) return [];
+  try {
+    const parentRootUris = await resolveProjectAncestorRootUris(prisma, normalizedId);
+    // 逻辑：父项目 rootUri 需转成本地路径，过滤掉无效 URI。
+    return parentRootUris
+      .map((rootUri) => {
+        try {
+          return resolveFilePathFromUri(rootUri);
+        } catch {
+          return null;
+        }
+      })
+      .filter((rootPath): rootPath is string => Boolean(rootPath));
+  } catch (error) {
+    logger.warn({ err: error, projectId: normalizedId }, "[chat] resolve parent project roots");
+    return [];
+  }
+}
+
 /** Error with HTTP status for image requests. */
 class ChatImageRequestError extends Error {
   /** HTTP status code. */
@@ -122,8 +172,10 @@ export async function runChatStream(input: {
     projectId,
     boardId,
     trigger,
+    params,
   } = input.request;
 
+  const selectedSkills = resolveSelectedSkills(params);
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
     sessionId,
     cookies: input.cookies,
@@ -132,6 +184,7 @@ export async function runChatStream(input: {
     workspaceId,
     projectId,
     boardId,
+    selectedSkills,
     requestSignal: input.requestSignal,
     messageId,
   });
@@ -181,6 +234,8 @@ export async function runChatStream(input: {
 
   const { messages, modelMessages } = chainResult;
   setCodexOptions(resolveCodexRequestOptions(messages as UIMessage[]));
+  const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
+  setParentProjectRootPaths(parentProjectRootPaths);
 
   if (!assistantParentUserId) {
     return createErrorStreamResponse({
@@ -297,8 +352,10 @@ export async function runChatImageRequest(input: {
     boardId,
     image_save_dir: imageSaveDir,
     trigger,
+    params,
   } = input.request;
 
+  const selectedSkills = resolveSelectedSkills(params);
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
     sessionId,
     cookies: input.cookies,
@@ -307,6 +364,7 @@ export async function runChatImageRequest(input: {
     workspaceId,
     projectId,
     boardId,
+    selectedSkills,
     requestSignal: input.requestSignal,
     messageId,
   });

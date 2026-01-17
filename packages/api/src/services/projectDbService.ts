@@ -3,6 +3,11 @@ import { readWorkspaceProjectTrees } from "./projectTreeService";
 
 export type ProjectDbClient = {
   project: {
+    /** Find a project record by filter. */
+    findFirst: (args: {
+      where: { id: string; isDeleted: boolean };
+      select: { id: true; rootUri: true; parentId: true };
+    }) => Promise<{ id: string; rootUri: string; parentId: string | null } | null>;
     upsert: (args: {
       where: { id: string };
       create: {
@@ -126,4 +131,35 @@ export async function getWorkspaceProjectTitleMap(
     map.set(row.id, row.title);
   }
   return map;
+}
+
+/** Resolve ancestor project root URIs from database. */
+export async function resolveProjectAncestorRootUris(
+  prisma: ProjectDbClient,
+  projectId: string,
+): Promise<string[]> {
+  const normalizedId = projectId.trim();
+  if (!normalizedId) return [];
+  const ancestors: string[] = [];
+  const visited = new Set<string>();
+  let cursorId: string | null = normalizedId;
+  let isFirst = true;
+
+  // 逻辑：从当前项目向上追溯 parentId，收集父级 rootUri，直到顶层或出现循环。
+  while (cursorId) {
+    if (visited.has(cursorId)) break;
+    visited.add(cursorId);
+    const row = await prisma.project.findFirst({
+      where: { id: cursorId, isDeleted: false },
+      select: { id: true, rootUri: true, parentId: true },
+    });
+    if (!row) break;
+    if (!isFirst && row.rootUri) ancestors.push(row.rootUri);
+    isFirst = false;
+    const nextParentId = row.parentId?.trim();
+    if (!nextParentId) break;
+    cursorId = nextParentId;
+  }
+
+  return ancestors;
 }

@@ -27,6 +27,9 @@ import { arrayBufferToBase64 } from "../utils/base64";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import { isProjectAbsolutePath } from "@/components/project/filesystem/utils/file-system-utils";
 
+/** Max bytes for image node preview fetches. */
+const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
+
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
   previewSrc: string;
@@ -243,6 +246,7 @@ export function ImageNodeView({
       try {
         const payload = await buildImageNodePayloadFromUri(resolvedOriginal, {
           projectId: fileContext?.projectId,
+          maxPreviewBytes: IMAGE_NODE_PREVIEW_MAX_BYTES,
         });
         if (cancelled) return;
         if (!engine.doc.getElementById(nodeId)) return;

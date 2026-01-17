@@ -1,12 +1,18 @@
 import { memo } from "react";
+import { SkillsSettingsPanel } from "@/components/setting/skills/SkillsSettingsPanel";
 
-/** Project skill settings placeholder. */
-const ProjectSkillSettings = memo(function ProjectSkillSettings() {
-  return (
-    <div className="rounded-xl border border-dashed border-border/70 bg-muted/10 p-6 text-sm text-muted-foreground">
-      技能设置占位
-    </div>
-  );
+type ProjectSkillSettingsProps = {
+  /** Project id for skills lookup. */
+  projectId?: string;
+  /** Project root uri (reserved). */
+  rootUri?: string;
+};
+
+/** Project skill settings page. */
+const ProjectSkillSettings = memo(function ProjectSkillSettings({
+  projectId,
+}: ProjectSkillSettingsProps) {
+  return <SkillsSettingsPanel projectId={projectId} />;
 });
 
 export { ProjectSkillSettings };

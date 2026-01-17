@@ -2,6 +2,7 @@
 
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import {
+  memo,
   startTransition,
   useCallback,
   useEffect,
@@ -19,8 +20,6 @@ import ProjectIndex, { ProjectIndexHeader } from "./index/ProjectIndex";
 import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
 import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
 import ProjectFileSystem, {
-  ProjectFileSystemHeader,
-  ProjectFileSystemHeaderSlotProvider,
   type ProjectBreadcrumbInfo,
 } from "./filesystem/components/ProjectFileSystem";
 import ProjectSettingsPage, {
@@ -67,6 +66,30 @@ type ProjectTreeNode = {
   /** Child projects. */
   children?: ProjectTreeNode[];
 };
+
+interface ProjectFileSystemHeaderProps {
+  /** Whether the file system data is loading. */
+  isLoading: boolean;
+  /** Display title for the current project. */
+  pageTitle: string;
+}
+
+/** Project file system header. */
+const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
+  isLoading,
+  pageTitle,
+}: ProjectFileSystemHeaderProps) {
+  if (isLoading) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <span className="text-base font-semibold">文件</span>
+      <span className="text-xs text-muted-foreground truncate">{pageTitle}</span>
+    </div>
+  );
+});
 
 /** Flatten project tree into a lookup map. */
 function buildProjectLookup(projects: ProjectTreeNode[] | undefined) {
@@ -365,8 +388,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
   }, [handleProjectTabShortcut]);
 
   return (
-    <ProjectFileSystemHeaderSlotProvider>
-      <div className="project-shell flex h-full w-full flex-col min-h-0">
+    <div className="project-shell flex h-full w-full flex-col min-h-0">
       <div className="project-header w-full min-w-0">
         <div className="project-header-main relative min-w-0 min-h-[36px]">
           <div
@@ -400,13 +422,7 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
             }`}
             aria-hidden={activeTab !== "files"}
           >
-            <ProjectFileSystemHeader
-              isLoading={isLoading}
-              rootUri={rootUri}
-              currentUri={fileUri}
-              projectLookup={projectLookup}
-              onNavigate={setFileUri}
-            />
+            <ProjectFileSystemHeader isLoading={isLoading} pageTitle={pageTitle} />
           </div>
           <div
             className={`${headerBaseClass} ${
@@ -480,14 +496,15 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
                 aria-hidden={activeTab !== "files"}
               >
                 {shouldRenderFiles ? (
-                <ProjectFileSystem
-                  projectId={projectId}
-                  rootUri={rootUri}
-                  currentUri={fileUri}
-                  isGitProject={isGitProject}
-                  projectLookup={projectLookup}
-                  onNavigate={setFileUri}
-                />
+                  <ProjectFileSystem
+                    projectId={projectId}
+                    rootUri={rootUri}
+                    currentUri={fileUri}
+                    isLoading={isLoading}
+                    isGitProject={isGitProject}
+                    projectLookup={projectLookup}
+                    onNavigate={setFileUri}
+                  />
                 ) : null}
               </div>
               <div
@@ -528,7 +545,6 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
         </ScrollArea.Scrollbar>
         <ScrollArea.Corner />
       </ScrollArea.Root>
-      </div>
-    </ProjectFileSystemHeaderSlotProvider>
+    </div>
   );
 }

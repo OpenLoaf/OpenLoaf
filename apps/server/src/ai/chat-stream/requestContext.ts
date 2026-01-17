@@ -36,6 +36,10 @@ export type RequestContext = {
   codexOptions?: CodexRequestOptions;
   /** Assistant message id for the current streaming response. */
   assistantMessageId?: string;
+  /** Selected skills for this request. */
+  selectedSkills?: string[];
+  /** Parent project root paths resolved from database. */
+  parentProjectRootPaths?: string[];
   /** Agent frame stack for nested agents. */
   agentStack?: AgentFrame[];
 };
@@ -138,6 +142,23 @@ export function setCodexOptions(options: CodexRequestOptions | undefined) {
 /** Gets Codex request options for this request. */
 export function getCodexOptions(): CodexRequestOptions | undefined {
   return getRequestContext()?.codexOptions;
+}
+
+/** Set parent project root paths for this request. */
+export function setParentProjectRootPaths(rootPaths?: string[]) {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.parentProjectRootPaths = rootPaths && rootPaths.length > 0 ? [...rootPaths] : undefined;
+}
+
+/** Get parent project root paths for this request. */
+export function getParentProjectRootPaths(): string[] | undefined {
+  return getRequestContext()?.parentProjectRootPaths;
+}
+
+/** Get selected skills for this request. */
+export function getSelectedSkills(): string[] {
+  return getRequestContext()?.selectedSkills ?? [];
 }
 
 /** Sets the assistant message id for this request. */

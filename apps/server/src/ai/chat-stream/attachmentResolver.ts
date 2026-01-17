@@ -419,10 +419,22 @@ async function resolveProjectFilePath(input: {
 
 /** Compress image buffer to chat constraints. */
 async function compressImageBuffer(input: Buffer, format: ImageFormat): Promise<ImageOutput> {
-  // 统一限制最大边长与质量，避免超大图片传给模型。
+  return compressImageBufferWithOptions(input, format, {
+    maxEdge: CHAT_IMAGE_MAX_EDGE,
+    quality: CHAT_IMAGE_QUALITY,
+  });
+}
+
+/** Compress image buffer with explicit size/quality settings. */
+async function compressImageBufferWithOptions(
+  input: Buffer,
+  format: ImageFormat,
+  options: { maxEdge: number; quality: number }
+): Promise<ImageOutput> {
+  // 逻辑：统一限制最大边长与质量，避免超大图片传给模型。
   const transformer = sharp(input).resize({
-    width: CHAT_IMAGE_MAX_EDGE,
-    height: CHAT_IMAGE_MAX_EDGE,
+    width: options.maxEdge,
+    height: options.maxEdge,
     fit: "inside",
     withoutEnlargement: true,
   });
@@ -431,12 +443,53 @@ async function compressImageBuffer(input: Buffer, format: ImageFormat): Promise<
   if (format.ext === "png") {
     buffer = await transformer.png({ compressionLevel: 9 }).toBuffer();
   } else if (format.ext === "webp") {
-    buffer = await transformer.webp({ quality: CHAT_IMAGE_QUALITY }).toBuffer();
+    buffer = await transformer.webp({ quality: options.quality }).toBuffer();
   } else {
-    buffer = await transformer.jpeg({ quality: CHAT_IMAGE_QUALITY, mozjpeg: true }).toBuffer();
+    buffer = await transformer.jpeg({ quality: options.quality, mozjpeg: true }).toBuffer();
   }
 
   return { buffer, ext: format.ext, mediaType: format.mediaType };
+}
+
+/** Compress image buffer until it is close to a target byte size. */
+async function compressImageBufferToTarget(
+  input: Buffer,
+  format: ImageFormat,
+  options: { maxBytes: number }
+): Promise<ImageOutput> {
+  const qualitySteps = [CHAT_IMAGE_QUALITY, 70, 60, 50, 40, 30];
+  const edgeScales = [1, 0.85, 0.7, 0.55, 0.45, 0.35, 0.25];
+  const formatCandidates: ImageFormat[] = [format];
+
+  // 逻辑：先降质量再缩尺寸，尽量贴近目标体积。
+  // 逻辑：原格式仍偏大时尝试 webp，以进一步压缩体积。
+  if (format.ext !== "webp") {
+    formatCandidates.push({ ext: "webp", mediaType: "image/webp" });
+  }
+
+  let best: ImageOutput | null = null;
+  for (const candidate of formatCandidates) {
+    for (const scale of edgeScales) {
+      const maxEdge = Math.max(1, Math.round(CHAT_IMAGE_MAX_EDGE * scale));
+      for (const quality of qualitySteps) {
+        const result = await compressImageBufferWithOptions(input, candidate, {
+          maxEdge,
+          quality,
+        });
+        if (!best || result.buffer.byteLength < best.buffer.byteLength) {
+          best = result;
+        }
+        if (result.buffer.byteLength <= options.maxBytes) {
+          return result;
+        }
+        if (candidate.ext === "png") {
+          break;
+        }
+      }
+    }
+  }
+
+  return best ?? compressImageBuffer(input, format);
 }
 
 /** Save chat image attachment and return url. */
@@ -582,6 +635,8 @@ export async function getFilePreview(input: {
   workspaceId?: string;
   /** Whether to include metadata. */
   includeMetadata?: boolean;
+  /** Target byte size for preview compression. */
+  maxBytes?: number;
 }): Promise<{ buffer: Buffer; mediaType: string; metadata?: string | null } | null> {
   const resolved = await resolveProjectFilePath({
     path: input.path,
@@ -599,7 +654,9 @@ export async function getFilePreview(input: {
   const format = resolveImageFormat("application/octet-stream", filePath);
   if (!format || !isSupportedImageMime(format.mediaType)) return null;
   const buffer = await fs.readFile(filePath);
-  const compressed = await compressImageBuffer(buffer, format);
+  const compressed = input.maxBytes
+    ? await compressImageBufferToTarget(buffer, format, { maxBytes: input.maxBytes })
+    : await compressImageBuffer(buffer, format);
   const metadata = input.includeMetadata ? await resolveImageMetadataText(filePath) : null;
   return { buffer: compressed.buffer, mediaType: compressed.mediaType, metadata };
 }

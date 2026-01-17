@@ -12,6 +12,14 @@ const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;
 /** Multipart boundary prefix for preview responses. */
 const MULTIPART_BOUNDARY_PREFIX = "tenas-preview";
 
+/** Parse a positive integer from a query value. */
+function parsePositiveInt(value?: string): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+  return parsed;
+}
+
 /** Build multipart/mixed response payload. */
 function buildMultipartMixed(input: {
   metadata: string | null | undefined;
@@ -136,11 +144,12 @@ export function registerChatAttachmentRoutes(app: Hono) {
     const path = c.req.query("path")?.trim() ?? "";
     const projectId = c.req.query("projectId")?.trim() || undefined;
     const includeMetadata = c.req.query("includeMetadata") === "1";
+    const maxBytes = parsePositiveInt(c.req.query("maxBytes")?.trim());
     if (!path) {
       return c.json({ error: "Invalid preview path" }, 400);
     }
     try {
-      const preview = await getFilePreview({ path, projectId, includeMetadata });
+      const preview = await getFilePreview({ path, projectId, includeMetadata, maxBytes });
       if (!preview) return c.json({ error: "Preview not found" }, 404);
       if (includeMetadata) {
         const multipart = buildMultipartMixed({

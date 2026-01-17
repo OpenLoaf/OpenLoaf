@@ -1,4 +1,11 @@
-import { BaseSettingRouter, settingSchemas, t, shieldedProcedure } from "@tenas-ai/api";
+import {
+  BaseSettingRouter,
+  getProjectRootPath,
+  getWorkspaceRootPath,
+  settingSchemas,
+  shieldedProcedure,
+  t,
+} from "@tenas-ai/api";
 import {
   deleteSettingValueFromWeb,
   getBasicConfigForWeb,
@@ -13,6 +20,7 @@ import {
   getCliToolsStatus,
   installCliTool,
 } from "@/ai/models/cli/cliToolService";
+import { loadSkillSummaries } from "@/ai/agents/masterAgent/skillsLoader";
 
 export class SettingRouterImpl extends BaseSettingRouter {
   /** Settings read/write (server-side). */
@@ -42,6 +50,18 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .output(settingSchemas.getCliToolsStatus.output)
         .query(async () => {
           return await getCliToolsStatus();
+        }),
+      /** List skills for settings UI. */
+      getSkills: shieldedProcedure
+        .input(settingSchemas.getSkills.input)
+        .output(settingSchemas.getSkills.output)
+        .query(async ({ input }) => {
+          const workspaceRootPath = getWorkspaceRootPath();
+          const projectRootPath = input?.projectId
+            ? getProjectRootPath(input.projectId) ?? undefined
+            : undefined;
+          // 中文注释：优先读取项目技能，同时包含工作空间级别技能。
+          return loadSkillSummaries({ workspaceRootPath, projectRootPath });
         }),
       set: shieldedProcedure
         .input(settingSchemas.set.input)

@@ -532,7 +532,7 @@ export function ImagePromptGenerateNodeView({
           </div>
           <div
             data-board-scroll
-            className="show-scrollbar rounded-md border border-slate-200/70 p-2 text-[11px] leading-4 text-slate-700 dark:border-slate-700/70 dark:text-slate-200 overflow-y-auto"
+            className="show-scrollbar rounded-md border border-slate-200/70 p-2 text-[12px] leading-5 text-slate-700 dark:border-slate-700/70 dark:text-slate-200 overflow-y-auto"
             style={{ maxHeight: IMAGE_PROMPT_GENERATE_RESULT_MAX_HEIGHT }}
           >
             <pre className="whitespace-pre-wrap break-words font-sans">

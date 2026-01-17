@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CanvasSnapshot, CanvasViewportState } from "../engine/types";
 import type {
   GpuMessage,
@@ -9,7 +9,6 @@ import type {
   GpuWorkerEvent,
 } from "./webgpu/gpu-protocol";
 import { useBoardEngine } from "../core/BoardProvider";
-import { useBoardViewState } from "../core/useBoardViewState";
 
 const PALETTE_LIGHT: GpuPalette = {
   grid: [148, 163, 184, 0.2],
@@ -152,9 +151,9 @@ type CanvasSurfaceProps = {
 
 /** Render the canvas surface layer with WebGPU. */
 export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProps) {
-  // 逻辑：视图变化独立订阅，避免全量快照刷新。
   const engine = useBoardEngine();
-  const viewState = useBoardViewState(engine);
+  /** Latest view state for React-driven sizing. */
+  const [viewState, setViewState] = useState(() => engine.getViewState());
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const readyRef = useRef(false);
@@ -171,70 +170,82 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
   /** Latest stats callback for worker events. */
   const onStatsRef = useRef(onStats);
 
+  /** Flush the latest GPU state to the worker. */
+  const flushFrame = useCallback(() => {
+    if (!workerRef.current || !readyRef.current) return;
+    const worker = workerRef.current;
+    if (!worker) return;
+    const latestSnapshot = latestSnapshotRef.current;
+    const viewport = latestViewRef.current.viewport;
+    const palette = resolvePalette();
+    const state = buildState(latestSnapshot);
+    const docRevision = latestSnapshot.docRevision;
+    const hideGridValue = latestHideGridRef.current;
+
+    if (lastDocRevisionRef.current !== docRevision) {
+      worker.postMessage({
+        type: "scene",
+        scene: {
+          elements: latestSnapshot.elements,
+          anchors: latestSnapshot.anchors,
+        },
+      } satisfies GpuMessage);
+      lastDocRevisionRef.current = docRevision;
+    }
+
+    if (!isStateEqual(lastStateRef.current, state)) {
+      worker.postMessage({ type: "state", state } satisfies GpuMessage);
+      lastStateRef.current = state;
+    }
+
+    const viewChanged =
+      !isViewportEqual(lastViewportRef.current, viewport) ||
+      !isPaletteEqual(lastPaletteRef.current, palette) ||
+      lastHideGridRef.current !== hideGridValue;
+
+    if (viewChanged) {
+      worker.postMessage({
+        type: "view",
+        viewport,
+        palette,
+        hideGrid: hideGridValue,
+        renderNodes: RENDER_GPU_NODES,
+      } satisfies GpuMessage);
+      lastViewportRef.current = viewport;
+      lastPaletteRef.current = palette;
+      lastHideGridRef.current = hideGridValue;
+    }
+  }, []);
+
   /** Schedule a coalesced GPU update frame. */
   const scheduleFrame = useCallback(() => {
     if (!workerRef.current || !readyRef.current) return;
     if (pendingFrameRef.current !== null) return;
     pendingFrameRef.current = window.requestAnimationFrame(() => {
       pendingFrameRef.current = null;
-      const worker = workerRef.current;
-      if (!worker) return;
-      const latestSnapshot = latestSnapshotRef.current;
-      const viewport = latestViewRef.current.viewport;
-      const palette = resolvePalette();
-      const state = buildState(latestSnapshot);
-      const docRevision = latestSnapshot.docRevision;
-      const hideGridValue = latestHideGridRef.current;
-
-      if (lastDocRevisionRef.current !== docRevision) {
-        worker.postMessage({
-          type: "scene",
-          scene: {
-            elements: latestSnapshot.elements,
-            anchors: latestSnapshot.anchors,
-          },
-        } satisfies GpuMessage);
-        lastDocRevisionRef.current = docRevision;
-      }
-
-      if (!isStateEqual(lastStateRef.current, state)) {
-        worker.postMessage({ type: "state", state } satisfies GpuMessage);
-        lastStateRef.current = state;
-      }
-
-      const viewChanged =
-        !isViewportEqual(lastViewportRef.current, viewport) ||
-        !isPaletteEqual(lastPaletteRef.current, palette) ||
-        lastHideGridRef.current !== hideGridValue;
-
-      if (viewChanged) {
-        worker.postMessage({
-          type: "view",
-          viewport,
-          palette,
-          hideGrid: hideGridValue,
-          renderNodes: RENDER_GPU_NODES,
-        } satisfies GpuMessage);
-        lastViewportRef.current = viewport;
-        lastPaletteRef.current = palette;
-        lastHideGridRef.current = hideGridValue;
-      }
+      flushFrame();
     });
-  }, []);
+  }, [flushFrame]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     latestSnapshotRef.current = snapshot;
-  }, [snapshot]);
-
-  useEffect(() => {
     latestHideGridRef.current = hideGrid ?? false;
-  }, [hideGrid]);
+    // 逻辑：DOM 提交后、绘制前刷新 GPU，避免连线落后一帧。
+    flushFrame();
+  }, [flushFrame, hideGrid, snapshot]);
 
-  useEffect(() => {
-    // 逻辑：视图变化时仅刷新 GPU 视口数据。
-    latestViewRef.current = viewState;
-    scheduleFrame();
-  }, [scheduleFrame, viewState]);
+  useLayoutEffect(() => {
+    const unsubscribe = engine.subscribeView(() => {
+      const next = engine.getViewState();
+      // 逻辑：视图变化即时更新 GPU 视口，避免平移时连线滞后。
+      latestViewRef.current = next;
+      setViewState(next);
+      flushFrame();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [engine, flushFrame]);
 
   useEffect(() => {
     onStatsRef.current = onStats;
@@ -309,10 +320,6 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
     };
     worker.postMessage(resizeMessage);
   }, [viewState.viewport.size[0], viewState.viewport.size[1]]);
-
-  useEffect(() => {
-    scheduleFrame();
-  }, [hideGrid, scheduleFrame, snapshot]);
 
   useEffect(() => {
     return () => {

@@ -1,13 +1,17 @@
 import { resolveServerUrl } from "@/utils/server-url";
 
 /** Resolve preview endpoint for a project-relative path. */
-export function getPreviewEndpoint(path: string, options?: { projectId?: string }) {
+export function getPreviewEndpoint(
+  path: string,
+  options?: { projectId?: string; maxBytes?: number }
+) {
   const apiBase = resolveServerUrl();
   const encodedPath = encodeURIComponent(path);
   const projectParam = options?.projectId ? `&projectId=${encodeURIComponent(options.projectId)}` : "";
+  const maxBytesParam = options?.maxBytes ? `&maxBytes=${options.maxBytes}` : "";
   return apiBase
-    ? `${apiBase}/chat/attachments/preview?path=${encodedPath}${projectParam}`
-    : `/chat/attachments/preview?path=${encodedPath}${projectParam}`;
+    ? `${apiBase}/chat/attachments/preview?path=${encodedPath}${projectParam}${maxBytesParam}`
+    : `/chat/attachments/preview?path=${encodedPath}${projectParam}${maxBytesParam}`;
 }
 
 /** Check whether a uri is a relative path. */
@@ -16,7 +20,10 @@ function isRelativePath(uri: string) {
 }
 
 /** Fetch a Blob from any supported uri. */
-export async function fetchBlobFromUri(uri: string, options?: { projectId?: string }) {
+export async function fetchBlobFromUri(
+  uri: string,
+  options?: { projectId?: string; maxBytes?: number }
+) {
   const endpoint = isRelativePath(uri) ? getPreviewEndpoint(uri, options) : uri;
   const res = await fetch(endpoint);
   if (!res.ok) throw new Error("preview failed");

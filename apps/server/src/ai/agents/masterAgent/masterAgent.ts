@@ -4,7 +4,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { ToolLoopAgent } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { AgentFrame } from "@/ai/chat-stream/requestContext";
-import { getProjectId, getWorkspaceId } from "@/ai/chat-stream/requestContext";
+import {
+  getParentProjectRootPaths,
+  getProjectId,
+  getSelectedSkills,
+  getWorkspaceId,
+} from "@/ai/chat-stream/requestContext";
 import { buildToolset } from "@/ai/registry/toolRegistry";
 import { getAuthSessionSnapshot } from "@/modules/auth/tokenStore";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
@@ -32,6 +37,7 @@ import {
   webSearchToolDef,
 } from "@tenas-ai/api/types/tools/system";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
+import { loadSkillSummaries, type SkillSummary } from "./skillsLoader";
 
 /** Master agent display name. */
 const MASTER_AGENT_NAME = "MasterAgent";
@@ -64,6 +70,8 @@ const PROJECT_META_DIR = ".tenas";
 const PROJECT_META_FILE = "project.json";
 /** Root rules file name. */
 const ROOT_RULES_FILE = "AGENTS.md";
+/** Master agent base prompt url. */
+const MASTER_AGENT_PROMPT_URL = new URL("./masterAgentPrompt.zh.md", import.meta.url);
 
 export type MasterAgentModelInfo = {
   /** Model provider name. */
@@ -109,6 +117,60 @@ function readTextFileIfExists(filePath: string): string {
   } catch {
     return "";
   }
+}
+
+/** Read base system prompt markdown content. */
+function readMasterAgentBasePrompt(): string {
+  try {
+    // 逻辑：基础提示词固定在 masterAgent 目录下的 md 文件。
+    return readFileSync(MASTER_AGENT_PROMPT_URL, "utf8").trim();
+  } catch {
+    return "";
+  }
+}
+
+/** Build skills summary section for prompt injection. */
+function buildSkillsSummarySection(summaries: SkillSummary[]): string {
+  const lines = [
+    "# Skills 列表（摘要）",
+    "- 仅注入 YAML front matter（name/description）。",
+    "- 需要完整说明请使用工具读取对应 SKILL.md。",
+  ];
+
+  if (summaries.length === 0) {
+    lines.push("- 未发现可用 skills。");
+    return lines.join("\n");
+  }
+
+  for (const summary of summaries) {
+    lines.push(
+      `- ${summary.name} [${summary.scope}] ${summary.description} (path: \`${summary.path}\`)`,
+    );
+  }
+  return lines.join("\n");
+}
+
+/** Build selected skills section from request params. */
+function buildSelectedSkillsSection(
+  selectedSkills: string[],
+  summaries: SkillSummary[],
+): string {
+  const lines = ["# 已选择技能（来自 params.skills）"];
+  if (selectedSkills.length === 0) {
+    lines.push("- 无");
+    return lines.join("\n");
+  }
+
+  const summaryMap = new Map(summaries.map((summary) => [summary.name, summary]));
+  for (const name of selectedSkills) {
+    const summary = summaryMap.get(name);
+    if (!summary) {
+      lines.push(`- ${name} (未找到对应 SKILL.md)`);
+      continue;
+    }
+    lines.push(`- ${summary.name} [${summary.scope}] (path: \`${summary.path}\`)`);
+  }
+  return lines.join("\n");
 }
 
 /** Resolve workspace metadata for prompt injection. */
@@ -211,15 +273,20 @@ function buildMasterAgentSystemPrompt(): string {
   const responseLanguage = resolveResponseLanguage();
   const platform = `${os.platform()} ${os.release()}`;
   const date = new Date().toDateString();
+  const basePrompt = readMasterAgentBasePrompt();
+  const skillSummaries = loadSkillSummaries({
+    workspaceRootPath: workspace.rootPath !== UNKNOWN_VALUE ? workspace.rootPath : undefined,
+    projectRootPath: project.rootPath !== UNKNOWN_VALUE ? project.rootPath : undefined,
+    parentProjectRootPaths: getParentProjectRootPaths(),
+  });
+  const selectedSkills = getSelectedSkills();
+  // 逻辑：skills 仅注入摘要与选择信息，不注入正文。
+  const skillsSummarySection = buildSkillsSummarySection(skillSummaries);
+  const selectedSkillsSection = buildSelectedSkillsSection(selectedSkills, skillSummaries);
 
   // 按“角色/语言/环境/规则/执行/分工/动态加载/完成条件”分段。
   const sections = [
-    [
-      "你是 Tenas 的 AI 助手，负责在当前项目范围内完成用户任务。",
-      "- 输出必须是 Markdown。",
-      "- 轻量任务必须亲自完成，复杂任务必须调用 subAgent 工具拆解处理。",
-      "- 不得捏造事实，未知信息必须通过工具获取。",
-    ].join("\n"),
+    basePrompt,
     [
       "# 语言强制",
       `- 当前输出语言：${responseLanguage}`,
@@ -245,6 +312,8 @@ function buildMasterAgentSystemPrompt(): string {
       project.rules,
       "</project-rules>",
     ].join("\n"),
+    skillsSummarySection,
+    selectedSkillsSection,
     [
       "# 执行规则（强制）",
       "- 工具优先：先用工具获取事实，再输出结论。",
@@ -282,7 +351,7 @@ function buildMasterAgentSystemPrompt(): string {
     ["# 完成条件", "- 用户问题被解决，或给出明确可执行的下一步操作。"].join("\n"),
   ];
 
-  return sections.join("\n\n");
+  return sections.filter((section) => section.trim().length > 0).join("\n\n");
 }
 
 /**

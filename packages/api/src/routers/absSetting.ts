@@ -22,6 +22,21 @@ const cliToolStatusSchema = z.object({
   hasUpdate: z.boolean().optional(),
 });
 
+/** Skill scope enum. */
+const skillScopeSchema = z.enum(["workspace", "project"]);
+
+/** Skill summary payload. */
+const skillSummarySchema = z.object({
+  /** Skill name. */
+  name: z.string(),
+  /** Skill description. */
+  description: z.string(),
+  /** Skill file path. */
+  path: z.string(),
+  /** Skill scope. */
+  scope: skillScopeSchema,
+});
+
 export const settingSchemas = {
   getAll: {
     output: z.array(settingItemSchema),
@@ -37,6 +52,16 @@ export const settingSchemas = {
   },
   getCliToolsStatus: {
     output: z.array(cliToolStatusSchema),
+  },
+  /** Get skills summary list. */
+  getSkills: {
+    input: z
+      .object({
+        /** Project id for project-scoped skills. */
+        projectId: z.string().optional(),
+      })
+      .optional(),
+    output: z.array(skillSummarySchema),
   },
   set: {
     input: z.object({
@@ -105,6 +130,12 @@ export abstract class BaseSettingRouter {
         }),
       getCliToolsStatus: shieldedProcedure
         .output(settingSchemas.getCliToolsStatus.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getSkills: shieldedProcedure
+        .input(settingSchemas.getSkills.input)
+        .output(settingSchemas.getSkills.output)
         .query(async () => {
           throw new Error("Not implemented in base class");
         }),
