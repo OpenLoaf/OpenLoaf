@@ -29,6 +29,7 @@ interface ImageViewerProps {
   uri?: string;
   name?: string;
   ext?: string;
+  projectId?: string;
   /** Optional header title for modal usage. */
   title?: string;
   /** Optional suggested base name for saving. */
@@ -181,6 +182,7 @@ export default function ImageViewer({
   uri,
   name,
   ext,
+  projectId: projectIdProp,
   title,
   saveName,
   showHeader,
@@ -230,7 +232,7 @@ export default function ImageViewer({
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const chat = useOptionalChatContext();
-  const projectId = chat?.projectId;
+  const projectId = projectIdProp ?? chat?.projectId;
   const { basic, setBasic } = useBasicConfig();
   const { providerItems, s3ProviderItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
@@ -252,7 +254,11 @@ export default function ImageViewer({
   }, [basic.activeS3Id, s3ProviderItems]);
 
   const imageQuery = useQuery({
-    ...trpc.fs.readBinary.queryOptions({ workspaceId, uri: uri ?? "" }),
+    ...trpc.fs.readBinary.queryOptions({
+      workspaceId,
+      projectId,
+      uri: uri ?? "",
+    }),
     enabled: shouldUseFs && Boolean(uri) && Boolean(workspaceId),
   });
   const [preview, setPreview] = React.useState<{

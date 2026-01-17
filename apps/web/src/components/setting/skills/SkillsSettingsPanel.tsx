@@ -1,16 +1,18 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
 import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
 import { useTabs } from "@/hooks/use-tabs";
 import { Button } from "@/components/ui/button";
-import { FolderOpen } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { FolderOpen, Trash2 } from "lucide-react";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useProject } from "@/hooks/use-project";
 import { buildUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
+import { toast } from "sonner";
 
 type SkillScope = "workspace" | "project";
 
@@ -21,8 +23,16 @@ type SkillSummary = {
   description: string;
   /** Absolute skill file path. */
   path: string;
+  /** Skill folder name. */
+  folderName: string;
+  /** Ignore key for toggling. */
+  ignoreKey: string;
   /** Skill scope. */
   scope: SkillScope;
+  /** Whether the skill is enabled in current scope. */
+  isEnabled: boolean;
+  /** Whether the skill can be deleted in current list. */
+  isDeletable: boolean;
 };
 
 type SkillsSettingsPanelProps = {
@@ -91,6 +101,7 @@ function resolveSkillFolderUri(
     try {
       const rootUrl = new URL(baseRootUri);
       const rootPath = normalizePath(decodeURIComponent(rootUrl.pathname)).replace(/\/$/, "");
+      // 技能路径落在 root 之下时，优先转换为相对路径拼接。
       if (directoryPath.startsWith(rootPath)) {
         const relative = directoryPath.slice(rootPath.length).replace(/^\/+/, "");
         return relative ? buildUriFromRoot(baseRootUri, relative) : baseRootUri;
@@ -115,7 +126,7 @@ function resolveSkillUri(skillPath: string, rootUri?: string): string | undefine
     const rootPath = normalizePath(decodeURIComponent(rootUrl.pathname)).replace(/\/$/, "");
     const normalizedSkillPath = normalizePath(skillPath);
     if (normalizedSkillPath.startsWith(rootPath)) {
-      // 中文注释：优先使用 rootUri + 相对路径拼接，保持 URI 编码一致。
+      // 优先使用 rootUri + 相对路径拼接，保持 URI 编码一致。
       const relative = normalizedSkillPath.slice(rootPath.length).replace(/^\/+/, "");
       if (!relative) return rootUri;
       return buildUriFromRoot(rootUri, relative);
@@ -151,7 +162,7 @@ function buildSkillSummaryText(input: {
   if (isLoading) return "读取中...";
   if (isError) return "读取失败";
   if (!skills.length) return "未发现技能";
-  // 中文注释：统计 workspace/project 的数量，输出摘要信息。
+  // 统计 workspace/project 的数量，输出摘要信息。
   const counts = skills.reduce(
     (acc, skill) => {
       if (skill.scope === "project") {
@@ -171,6 +182,7 @@ function buildSkillSummaryText(input: {
 
 /** Shared skills settings panel. */
 export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
+  const isProjectList = Boolean(projectId);
   const queryOptions = projectId
     ? trpc.settings.getSkills.queryOptions({ projectId })
     : trpc.settings.getSkills.queryOptions();
@@ -180,6 +192,42 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const { data: projectData } = useProject(projectId);
   const activeTabId = useTabs((state) => state.activeTabId);
   const pushStackItem = useTabs((state) => state.pushStackItem);
+
+  const updateSkillMutation = useMutation(
+    trpc.settings.setSkillEnabled.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.settings.getSkills.queryOptions().queryKey,
+        });
+        if (projectId) {
+          queryClient.invalidateQueries({
+            queryKey: trpc.settings.getSkills.queryOptions({ projectId }).queryKey,
+          });
+        }
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    }),
+  );
+  const deleteSkillMutation = useMutation(
+    trpc.settings.deleteSkill.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.settings.getSkills.queryOptions().queryKey,
+        });
+        if (projectId) {
+          queryClient.invalidateQueries({
+            queryKey: trpc.settings.getSkills.queryOptions({ projectId }).queryKey,
+          });
+        }
+        toast.success("已删除技能");
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    }),
+  );
 
   const summaryText = useMemo(
     () =>
@@ -201,16 +249,18 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
       const rootUri = resolveSkillFolderUri(skill.path, baseRootUri);
       if (!rootUri) return;
       const currentUri = resolveSkillUri(skill.path, rootUri);
+      const stackKey = skill.ignoreKey.trim() || skill.path || skill.name;
       const titlePrefix = isProjectSkill ? "项目技能" : "工作空间技能";
-      // 中文注释：打开左侧 stack 的文件系统预览，根目录固定为技能所在目录。
+      // 打开左侧 stack 的文件系统预览，根目录固定为技能所在目录。
       pushStackItem(activeTabId, {
-        id: `skill:${skill.scope}:${skill.name}`,
-        sourceKey: `skill:${skill.scope}:${skill.name}`,
+        id: `skill:${skill.scope}:${stackKey}`,
+        sourceKey: `skill:${skill.scope}:${stackKey}`,
         component: "folder-tree-preview",
         title: `${titlePrefix} · ${skill.name}`,
         params: {
           rootUri,
           currentUri,
+          currentEntryKind: "file",
           projectId: isProjectSkill ? projectId : undefined,
           projectTitle: skill.name,
           viewerRootUri: baseRootUri,
@@ -220,13 +270,45 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     [activeTabId, projectData?.project?.rootUri, projectId, pushStackItem, workspace?.rootUri],
   );
 
+  /** Toggle skill enable state for current scope. */
+  const handleToggleSkill = useCallback(
+    (skill: SkillSummary, nextEnabled: boolean) => {
+      if (!skill.ignoreKey.trim()) return;
+      const scope = isProjectList ? "project" : "workspace";
+      updateSkillMutation.mutate({
+        scope,
+        projectId: scope === "project" ? projectId : undefined,
+        ignoreKey: skill.ignoreKey,
+        enabled: nextEnabled,
+      });
+    },
+    [isProjectList, projectId, updateSkillMutation],
+  );
+
+  /** Delete a skill folder with confirmation. */
+  const handleDeleteSkill = useCallback(
+    async (skill: SkillSummary) => {
+      if (!skill.isDeletable || !skill.ignoreKey.trim()) return;
+      const confirmed = window.confirm(`确认删除技能「${skill.name}」？此操作不可撤销。`);
+      if (!confirmed) return;
+      const scope = isProjectList ? "project" : "workspace";
+      await deleteSkillMutation.mutateAsync({
+        scope,
+        projectId: scope === "project" ? projectId : undefined,
+        ignoreKey: skill.ignoreKey,
+        skillPath: skill.path,
+      });
+    },
+    [deleteSkillMutation, isProjectList, projectId],
+  );
+
   return (
     <div className="space-y-4">
       <TenasSettingsGroup title="技能列表" subtitle={summaryText}>
         <div className="divide-y divide-border">
           {skills.map((skill) => (
             <div
-              key={`${skill.scope}:${skill.name}`}
+              key={skill.ignoreKey || skill.path || `${skill.scope}:${skill.name}`}
               className="flex flex-wrap items-start gap-3 px-3 py-3"
             >
               <div className="min-w-0 flex-1 space-y-1">
@@ -237,26 +319,46 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                     </div>
                     <ScopeTag scope={skill.scope} />
                   </div>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label="打开技能目录"
-                    title="打开技能目录"
-                    className="h-8 w-8"
-                    onClick={() => handleOpenSkill(skill)}
-                    disabled={
-                      !activeTabId ||
-                      !resolveSkillFolderUri(
-                        skill.path,
-                        skill.scope === "project"
-                          ? projectData?.project?.rootUri
-                          : workspace?.rootUri,
-                      )
-                    }
-                  >
-                    <FolderOpen className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      aria-label="删除技能"
+                      title={skill.isDeletable ? "删除技能" : "仅允许删除当前项目技能"}
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => handleDeleteSkill(skill)}
+                      disabled={!skill.isDeletable || deleteSkillMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      aria-label="打开技能目录"
+                      title="打开技能目录"
+                      className="h-8 w-8"
+                      onClick={() => handleOpenSkill(skill)}
+                      disabled={
+                        !activeTabId ||
+                        !resolveSkillFolderUri(
+                          skill.path,
+                          skill.scope === "project"
+                            ? projectData?.project?.rootUri
+                            : workspace?.rootUri,
+                        )
+                      }
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                    </Button>
+                    <Switch
+                      checked={skill.isEnabled}
+                      onCheckedChange={(checked) => handleToggleSkill(skill, checked)}
+                      aria-label="启用技能"
+                      disabled={updateSkillMutation.isPending}
+                    />
+                  </div>
                 </div>
                 <div className="text-xs text-muted-foreground line-clamp-2">
                   {skill.description}

@@ -109,6 +109,106 @@ type AccountSnapshot = {
   email: string;
 };
 
+/** Normalize ignoreSkills values. */
+function normalizeIgnoreSkills(values?: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  const trimmed = values
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean);
+  return Array.from(new Set(trimmed));
+}
+
+/** Normalize workspace ignore keys to workspace: prefix. */
+function normalizeWorkspaceIgnoreKeys(values?: unknown): string[] {
+  const keys = normalizeIgnoreSkills(values);
+  return keys
+    .map((key) => (key.startsWith("workspace:") ? key : `workspace:${key}`))
+    .filter((key) => key.startsWith("workspace:"));
+}
+
+/** Build workspace ignore key from folder name. */
+function buildWorkspaceIgnoreKey(folderName: string): string {
+  const trimmed = folderName.trim();
+  return trimmed ? `workspace:${trimmed}` : "";
+}
+
+/** Build project ignore key from folder name. */
+function buildProjectIgnoreKey(input: {
+  folderName: string;
+  ownerProjectId?: string | null;
+  currentProjectId?: string | null;
+}): string {
+  const trimmed = input.folderName.trim();
+  if (!trimmed) return "";
+  if (input.ownerProjectId && input.ownerProjectId !== input.currentProjectId) {
+    return `${input.ownerProjectId}:${trimmed}`;
+  }
+  return trimmed;
+}
+
+/** Resolve ignoreSkills from workspace config. */
+function resolveWorkspaceIgnoreSkills(workspaceId?: string): string[] {
+  try {
+    const workspace = workspaceId ? getWorkspaceById(workspaceId) : null;
+    const target = workspace ?? getActiveWorkspace();
+    return normalizeWorkspaceIgnoreKeys(target?.ignoreSkills);
+  } catch {
+    return [];
+  }
+}
+
+/** Resolve ignoreSkills from project.json. */
+function resolveProjectIgnoreSkills(projectRootPath?: string): string[] {
+  if (!projectRootPath || projectRootPath === UNKNOWN_VALUE) return [];
+  const metaPath = path.join(projectRootPath, PROJECT_META_DIR, PROJECT_META_FILE);
+  if (!existsSync(metaPath)) return [];
+  try {
+    const raw = JSON.parse(readFileSync(metaPath, "utf8")) as { ignoreSkills?: unknown };
+    return normalizeIgnoreSkills(raw.ignoreSkills);
+  } catch {
+    return [];
+  }
+}
+
+/** Resolve project id from project.json. */
+function resolveProjectIdFromMeta(projectRootPath: string): string | null {
+  const metaPath = path.join(projectRootPath, PROJECT_META_DIR, PROJECT_META_FILE);
+  if (!existsSync(metaPath)) return null;
+  try {
+    const raw = JSON.parse(readFileSync(metaPath, "utf8")) as { projectId?: string };
+    const projectId = typeof raw.projectId === "string" ? raw.projectId.trim() : "";
+    return projectId || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Normalize an absolute path for comparison. */
+function normalizeFsPath(input: string): string {
+  return path.resolve(input);
+}
+
+/** Resolve owner project id from skill path. */
+function resolveOwnerProjectId(input: {
+  skillPath: string;
+  candidates: Array<{ rootPath: string; projectId: string }>;
+}): string | null {
+  const normalizedSkillPath = normalizeFsPath(input.skillPath);
+  let matched: { rootPath: string; projectId: string } | null = null;
+  for (const candidate of input.candidates) {
+    const normalizedRoot = normalizeFsPath(candidate.rootPath);
+    if (
+      normalizedSkillPath === normalizedRoot ||
+      normalizedSkillPath.startsWith(`${normalizedRoot}${path.sep}`)
+    ) {
+      if (!matched || normalizedRoot.length > matched.rootPath.length) {
+        matched = { rootPath: normalizedRoot, projectId: candidate.projectId };
+      }
+    }
+  }
+  return matched?.projectId ?? null;
+}
+
 /** Read a text file if it exists. */
 function readTextFileIfExists(filePath: string): string {
   if (!existsSync(filePath)) return "";
@@ -274,15 +374,49 @@ function buildMasterAgentSystemPrompt(): string {
   const platform = `${os.platform()} ${os.release()}`;
   const date = new Date().toDateString();
   const basePrompt = readMasterAgentBasePrompt();
+  const parentProjectRootPaths = getParentProjectRootPaths() ?? [];
   const skillSummaries = loadSkillSummaries({
     workspaceRootPath: workspace.rootPath !== UNKNOWN_VALUE ? workspace.rootPath : undefined,
     projectRootPath: project.rootPath !== UNKNOWN_VALUE ? project.rootPath : undefined,
-    parentProjectRootPaths: getParentProjectRootPaths(),
+    parentProjectRootPaths,
   });
   const selectedSkills = getSelectedSkills();
+  const workspaceIgnoreSkills = resolveWorkspaceIgnoreSkills(workspaceId);
+  const projectIgnoreSkills = resolveProjectIgnoreSkills(project.rootPath);
+  const projectCandidates: Array<{ rootPath: string; projectId: string }> = [];
+  if (project.rootPath && project.rootPath !== UNKNOWN_VALUE && projectId) {
+    projectCandidates.push({ rootPath: project.rootPath, projectId });
+  }
+  for (const parentRootPath of parentProjectRootPaths) {
+    const parentId = resolveProjectIdFromMeta(parentRootPath);
+    if (!parentId) continue;
+    projectCandidates.push({ rootPath: parentRootPath, projectId: parentId });
+  }
+  // 忽略项同时作用于 workspace/project skill 列表与选择结果。
+  const filteredSkillSummaries = skillSummaries.filter((summary) => {
+    if (summary.scope === "workspace") {
+      const key = buildWorkspaceIgnoreKey(summary.folderName);
+      if (workspaceIgnoreSkills.includes(key)) return false;
+      return !projectIgnoreSkills.includes(key);
+    }
+    const key = buildProjectIgnoreKey({
+      folderName: summary.folderName,
+      ownerProjectId: resolveOwnerProjectId({
+        skillPath: summary.path,
+        candidates: projectCandidates,
+      }),
+      currentProjectId: projectId ?? null,
+    });
+    return !projectIgnoreSkills.includes(key);
+  });
+  const allowedSkillNames = new Set(filteredSkillSummaries.map((summary) => summary.name));
+  const filteredSelectedSkills = selectedSkills.filter((name) => allowedSkillNames.has(name));
   // 逻辑：skills 仅注入摘要与选择信息，不注入正文。
-  const skillsSummarySection = buildSkillsSummarySection(skillSummaries);
-  const selectedSkillsSection = buildSelectedSkillsSection(selectedSkills, skillSummaries);
+  const skillsSummarySection = buildSkillsSummarySection(filteredSkillSummaries);
+  const selectedSkillsSection = buildSelectedSkillsSection(
+    filteredSelectedSkills,
+    filteredSkillSummaries,
+  );
 
   // 按“角色/语言/环境/规则/执行/分工/动态加载/完成条件”分段。
   const sections = [
@@ -369,7 +503,7 @@ export function createMasterAgent(input: { model: LanguageModelV3 }) {
  * Creates the frame metadata for the master agent (MVP).
  */
 export function createMasterAgentFrame(input: { model: MasterAgentModelInfo }): AgentFrame {
-  // 中文注释：当前仅保留 MasterAgent，便于定位消息来源。
+  // 当前仅保留 MasterAgent，便于定位消息来源。
   return {
     kind: "master",
     name: MASTER_AGENT_NAME,

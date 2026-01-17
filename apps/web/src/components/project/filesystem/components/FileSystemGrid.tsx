@@ -16,6 +16,7 @@ import { useFlipLayout } from "@/lib/use-flip-layout";
 import {
   type FileSystemEntry,
   getEntryExt,
+  resolveFileUriFromRoot,
 } from "../utils/file-system-utils";
 import {
   CODE_EXTS,
@@ -52,13 +53,14 @@ function shouldOpenOfficeWithSystem(ext: string): boolean {
 }
 
 /** Open a file via the system default handler. */
-function openWithDefaultApp(entry: FileSystemEntry): void {
+function openWithDefaultApp(entry: FileSystemEntry, rootUri?: string): void {
   // 逻辑：桌面端通过 openPath 调起系统默认应用。
   if (!window.tenasElectron?.openPath) {
     toast.error("网页版不支持打开本地文件");
     return;
   }
-  void window.tenasElectron.openPath({ uri: entry.uri }).then((res) => {
+  const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
+  void window.tenasElectron.openPath({ uri: fileUri }).then((res) => {
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件");
     }
@@ -70,6 +72,8 @@ type FileSystemGridProps = {
   isLoading: boolean;
   isSearchLoading?: boolean;
   searchQuery?: string;
+  projectId?: string;
+  rootUri?: string;
   parentUri?: string | null;
   /** Current folder uri used to request folder thumbnails. */
   currentUri?: string | null;
@@ -137,6 +141,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   isLoading,
   isSearchLoading = false,
   searchQuery,
+  projectId,
+  rootUri,
   parentUri,
   currentUri,
   includeHidden,
@@ -234,6 +240,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
   const { thumbnailByUri } = useFolderThumbnails({
     currentUri,
     includeHidden,
+    projectId,
   });
 
   const entryOrderKey = useMemo(
@@ -363,7 +370,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
       }
       if (entry.kind === "file" && DOC_EXTS.has(entryExt)) {
         if (shouldOpenOfficeWithSystem(entryExt)) {
-          openWithDefaultApp(entry);
+          openWithDefaultApp(entry, rootUri);
           return;
         }
         onOpenDocRef.current?.(entry);
@@ -371,7 +378,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
       }
       if (entry.kind === "file" && SPREADSHEET_EXTS.has(entryExt)) {
         if (shouldOpenOfficeWithSystem(entryExt)) {
-          openWithDefaultApp(entry);
+          openWithDefaultApp(entry, rootUri);
           return;
         }
         onOpenSpreadsheetRef.current?.(entry);
@@ -387,7 +394,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
           "此文件类型暂不支持预览，是否使用系统默认程序打开？"
         );
         if (!ok) return;
-        openWithDefaultApp(entry);
+        openWithDefaultApp(entry, rootUri);
         return;
       }
       if (entry.kind !== "folder") return;

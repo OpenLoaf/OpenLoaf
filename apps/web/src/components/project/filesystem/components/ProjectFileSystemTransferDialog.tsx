@@ -48,6 +48,7 @@ import {
   buildChildUri,
   formatScopedProjectPath,
   getDisplayPathFromUri,
+  getParentRelativePath,
   getRelativePathFromUri,
   getUniqueName,
   type FileSystemEntry,
@@ -130,6 +131,12 @@ function normalizePageTreeProjects(nodes?: ProjectTreeNode[]): PageTreeProject[]
   return walk(nodes);
 }
 
+/** Check if target uri is inside source uri. */
+function isSubPath(sourceUri: string, targetUri: string) {
+  if (!sourceUri || !targetUri) return false;
+  return targetUri === sourceUri || targetUri.startsWith(`${sourceUri}/`);
+}
+
 /** Transfer dialog for copy/move/select actions. */
 const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferDialog({
   open,
@@ -149,19 +156,11 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   const [activeRootUri, setActiveRootUri] = useState<string | null>(
     defaultRootUri ?? null
   );
-  const [activeUri, setActiveUri] = useState<string | null>(
-    defaultRootUri ?? null
-  );
+  const [activeUri, setActiveUri] = useState<string | null>(null);
 
   const copyMutation = useMutation(trpc.fs.copy.mutationOptions());
   const mkdirMutation = useMutation(trpc.fs.mkdir.mutationOptions());
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
-  const listQuery = useQuery(
-    trpc.fs.list.queryOptions(
-      activeUri && workspaceId ? { workspaceId, uri: activeUri } : skipToken
-    )
-  );
-
   const projectOptions = useMemo(
     () => flattenProjects(projectListQuery.data as ProjectTreeNode[] | undefined),
     [projectListQuery.data]
@@ -176,6 +175,17 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
     });
     return map;
   }, [projectOptions]);
+  const activeProjectId = useMemo(
+    () => (activeRootUri ? projectIdByRootUri.get(activeRootUri) : undefined),
+    [activeRootUri, projectIdByRootUri]
+  );
+  const listQuery = useQuery(
+    trpc.fs.list.queryOptions(
+      activeUri !== null && workspaceId
+        ? { workspaceId, projectId: activeProjectId, uri: activeUri }
+        : skipToken
+    )
+  );
   const projectTree = useMemo(
     () => normalizePageTreeProjects(projectListQuery.data as ProjectTreeNode[] | undefined),
     [projectListQuery.data]
@@ -221,17 +231,14 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
     []
   );
   const parentUri = useMemo(() => {
-    if (!activeUri || !activeRootUri) return null;
-    const rootUrl = new URL(activeRootUri);
-    const currentUrl = new URL(activeUri);
-    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
-    const currentParts = currentUrl.pathname.split("/").filter(Boolean);
+    if (activeUri === null || !activeRootUri) return null;
+    const rootRelative = getRelativePathFromUri(activeRootUri, activeRootUri);
+    const currentRelative = getRelativePathFromUri(activeRootUri, activeUri);
+    const rootParts = rootRelative ? rootRelative.split("/").filter(Boolean) : [];
+    const currentParts = currentRelative ? currentRelative.split("/").filter(Boolean) : [];
     // 已到根目录时不再返回上级。
     if (currentParts.length <= rootParts.length) return null;
-    const parentParts = currentParts.slice(0, -1);
-    const parentUrl = new URL(activeRootUri);
-    parentUrl.pathname = `/${parentParts.join("/")}`;
-    return parentUrl.toString();
+    return currentParts.slice(0, -1).join("/");
   }, [activeUri, activeRootUri]);
 
   /** Resolve context menu target entry. */
@@ -243,11 +250,12 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   /** Rename a folder entry within the active directory. */
   const handleRename = useCallback(
     async (target: FileSystemEntry, nextName: string) => {
-      if (!activeUri) return null;
+      if (activeUri === null) return null;
       try {
         const targetUri = buildChildUri(activeUri, nextName);
         await renameMutation.mutateAsync({
           workspaceId,
+          projectId: activeProjectId,
           from: target.uri,
           to: targetUri,
         });
@@ -259,7 +267,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         return null;
       }
     },
-    [activeUri, listQuery, renameMutation, workspaceId]
+    [activeProjectId, activeUri, listQuery, renameMutation, workspaceId]
   );
 
   /** Manage rename state for folder entries. */
@@ -343,39 +351,18 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
 
   /** Resolve parent uri for a file system entry. */
   const resolveParentUri = useCallback((entry: FileSystemEntry) => {
-    try {
-      const url = new URL(entry.uri);
-      const parts = url.pathname.split("/").filter(Boolean);
-      if (parts.length <= 1) {
-        url.pathname = "/";
-        return url.toString();
-      }
-      url.pathname = `/${parts.slice(0, -1).join("/")}`;
-      return url.toString();
-    } catch {
-      return null;
-    }
+    const parent = getParentRelativePath(entry.uri);
+    return parent;
   }, []);
 
   /** Resolve the initial folder under the active project root. */
   const resolveInitialActiveUri = useCallback(
     (rootUri?: string | null, activeUri?: string | null) => {
       if (!rootUri) return null;
-      if (!activeUri) return rootUri;
-      try {
-        const rootUrl = new URL(rootUri);
-        const activeUrl = new URL(activeUri);
-        const rootParts = rootUrl.pathname.split("/").filter(Boolean);
-        const activeParts = activeUrl.pathname.split("/").filter(Boolean);
-        // 中文注释：确保默认目录在项目根目录下，避免打开无效路径。
-        const isSameRoot =
-          rootUrl.protocol === activeUrl.protocol &&
-          rootUrl.hostname === activeUrl.hostname &&
-          rootParts.every((part, index) => part === activeParts[index]);
-        return isSameRoot ? activeUri : rootUri;
-      } catch {
-        return rootUri;
-      }
+      if (!activeUri) return "";
+      const relative = getRelativePathFromUri(rootUri, activeUri);
+      // 中文注释：确保默认目录在项目根目录下，避免打开无效路径。
+      return relative;
     },
     []
   );
@@ -389,7 +376,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
 
   const handleSelectProject = (uri: string) => {
     setActiveRootUri(uri);
-    setActiveUri(uri);
+    setActiveUri("");
   };
 
   const handleNavigate = (uri: string) => {
@@ -398,7 +385,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
 
   /** Confirm the transfer action based on the current mode. */
   const handleConfirmTransfer = async () => {
-    if (!activeUri) return;
+    if (activeUri === null) return;
     if (mode === "select") {
       if (selectTarget === "file") {
         if (selectedFileRefs.length === 0) return;
@@ -416,17 +403,19 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
     if (transferEntries.length === 0) return;
     try {
       const targetList = await queryClient.fetchQuery(
-        trpc.fs.list.queryOptions({ workspaceId, uri: activeUri })
+        trpc.fs.list.queryOptions({
+          workspaceId,
+          projectId: activeProjectId,
+          uri: activeUri,
+        })
       );
       const targetNames = new Set(
         (targetList.entries ?? []).map((item) => item.name)
       );
       for (const entry of transferEntries) {
         if (mode === "move" && entry.kind === "folder") {
-          const sourceUrl = new URL(entry.uri);
-          const targetUrl = new URL(activeUri);
           // 中文注释：禁止移动到自身或子目录。
-          if (targetUrl.pathname.startsWith(sourceUrl.pathname)) {
+          if (isSubPath(entry.uri, activeUri)) {
             toast.error("无法移动到自身目录");
             return;
           }
@@ -434,7 +423,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         if (mode === "move") {
           const parentUri = resolveParentUri(entry);
           // 中文注释：移动到当前目录时跳过，避免无意义的重命名。
-          if (parentUri && parentUri === activeUri) continue;
+          if (parentUri !== null && parentUri === activeUri) continue;
         }
         const targetName = getUniqueName(entry.name, targetNames);
         targetNames.add(targetName);
@@ -443,12 +432,14 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
           if (targetUri === entry.uri) continue;
           await renameMutation.mutateAsync({
             workspaceId,
+            projectId: activeProjectId,
             from: entry.uri,
             to: targetUri,
           });
         } else {
           await copyMutation.mutateAsync({
             workspaceId,
+            projectId: activeProjectId,
             from: entry.uri,
             to: targetUri,
           });
@@ -458,11 +449,15 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
       // 中文注释：失效源目录与目标目录，确保列表刷新。
       transferEntries.forEach((entry) => {
         const parentUri = resolveParentUri(entry);
-        if (parentUri) invalidateUris.add(parentUri);
+        if (parentUri !== null) invalidateUris.add(parentUri);
       });
       invalidateUris.forEach((uri) => {
         queryClient.invalidateQueries({
-          queryKey: trpc.fs.list.queryOptions({ workspaceId, uri }).queryKey,
+          queryKey: trpc.fs.list.queryOptions({
+            workspaceId,
+            projectId: activeProjectId,
+            uri,
+          }).queryKey,
         });
       });
       const successLabel =
@@ -483,11 +478,11 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
 
   /** Build breadcrumb items for the selected directory. */
   const breadcrumbItems = useMemo(() => {
-    if (!activeRootUri || !activeUri) return [];
-    const rootUrl = new URL(activeRootUri);
-    const currentUrl = new URL(activeUri);
-    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
-    const currentParts = currentUrl.pathname.split("/").filter(Boolean);
+    if (!activeRootUri || activeUri === null) return [];
+    const rootRelative = getRelativePathFromUri(activeRootUri, activeRootUri);
+    const currentRelative = getRelativePathFromUri(activeRootUri, activeUri);
+    const rootParts = rootRelative ? rootRelative.split("/").filter(Boolean) : [];
+    const currentParts = currentRelative ? currentRelative.split("/").filter(Boolean) : [];
     // 中文注释：仅展示根目录之后的路径片段，避免重复显示整条绝对路径。
     const relativeParts = currentParts.slice(rootParts.length);
     const decodeLabel = (value: string) => {
@@ -501,19 +496,18 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
       projectOptions.find((item) => item.rootUri === activeRootUri)?.title ??
       decodeLabel(getDisplayPathFromUri(activeRootUri));
     const items: Array<{ label: string; uri: string }> = [
-      { label: rootTitle, uri: activeRootUri },
+      { label: rootTitle, uri: rootRelative },
     ];
     relativeParts.forEach((part, index) => {
-      const nextUrl = new URL(activeRootUri);
-      nextUrl.pathname = `/${[...rootParts, ...relativeParts.slice(0, index + 1)].join("/")}`;
-      items.push({ label: decodeLabel(part), uri: nextUrl.toString() });
+      const nextUri = [...rootParts, ...relativeParts.slice(0, index + 1)].join("/");
+      items.push({ label: decodeLabel(part), uri: nextUri });
     });
     return items;
   }, [activeRootUri, activeUri, projectOptions]);
 
   /** Create a new folder in the target directory. */
   const handleCreateFolder = async () => {
-    if (!activeUri) return;
+    if (activeUri === null) return;
     try {
       // 以默认名称创建并做唯一性处理，避免覆盖已有目录。
       const existingNames = new Set(gridEntries.map((item) => item.name));
@@ -521,6 +515,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
       const targetUri = buildChildUri(activeUri, targetName);
       await mkdirMutation.mutateAsync({
         workspaceId,
+        projectId: activeProjectId,
         uri: targetUri,
         recursive: true,
       });
@@ -553,19 +548,14 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
     mode === "move" ? "确认移动" : mode === "select" ? "确认选择" : "确认复制";
   /** Whether confirm should be disabled for current state. */
   const confirmDisabled =
-    !activeUri ||
+    activeUri === null ||
     (mode !== "select" && transferEntries.length === 0) ||
     (mode === "select" && selectTarget === "file" && selectedFileRefs.length === 0);
   const isActiveBoardFolder = useMemo(() => {
-    if (!activeUri) return false;
-    try {
-      const url = new URL(activeUri);
-      const parts = url.pathname.split("/").filter(Boolean);
-      const name = decodeURIComponent(parts[parts.length - 1] ?? "");
-      return isBoardFolderName(name);
-    } catch {
-      return false;
-    }
+    if (activeUri === null) return false;
+    const parts = activeUri.split("/").filter(Boolean);
+    const name = parts[parts.length - 1] ?? "";
+    return isBoardFolderName(name);
   }, [activeUri]);
   const effectiveConfirmDisabled =
     confirmDisabled ||
@@ -581,7 +571,9 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         entries={gridEntries}
         isLoading={listQuery.isLoading}
         parentUri={parentUri}
+        rootUri={activeRootUri ?? undefined}
         currentUri={activeUri}
+        projectId={activeProjectId ?? undefined}
         onNavigate={handleNavigate}
         showEmptyActions={false}
         selectedUris={selectedUris}
@@ -628,7 +620,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
             ) : (
               <PageTreePicker
                 projects={projectTree}
-                activeUri={activeUri}
+                activeUri={activeRootUri}
                 onSelect={handleSelectProject}
               />
             )}

@@ -40,8 +40,11 @@ import {
 } from "@/components/ui/breadcrumb";
 import {
   buildChildUri,
+  buildFileUriFromRoot,
   getEntryExt,
+  getParentRelativePath,
   getRelativePathFromUri,
+  normalizeRelativePath,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
 import FileSystemContextMenu from "./FileSystemContextMenu";
@@ -149,23 +152,24 @@ function buildFileBreadcrumbs(
   projectLookup?: Map<string, ProjectBreadcrumbInfo>
 ): ProjectBreadcrumbItem[] {
   if (!rootUri || !currentUri) return [];
-  const rootUrl = new URL(rootUri);
-  const currentUrl = new URL(currentUri);
-  const rootParts = rootUrl.pathname.split("/").filter(Boolean);
-  const currentParts = currentUrl.pathname.split("/").filter(Boolean);
+  const rootRelative = getRelativePathFromUri(rootUri, rootUri);
+  const currentRelative = getRelativePathFromUri(rootUri, currentUri);
+  const rootParts = rootRelative ? rootRelative.split("/").filter(Boolean) : [];
+  const currentParts = currentRelative ? currentRelative.split("/").filter(Boolean) : [];
   const relativeParts = currentParts.slice(rootParts.length);
   const items: ProjectBreadcrumbItem[] = [];
   let accumParts = [...rootParts];
   // 从 root 向下拼接，构建可点击的面包屑路径。
   for (const part of relativeParts) {
     accumParts = [...accumParts, part];
-    const nextUrl = new URL(rootUri);
-    nextUrl.pathname = `/${accumParts.join("/")}`;
-    const nextUri = nextUrl.toString();
-    const info = projectLookup?.get(nextUri);
+    const nextRelative = accumParts.join("/");
+    const lookupUri = rootUri.startsWith("file://")
+      ? buildFileUriFromRoot(rootUri, nextRelative)
+      : "";
+    const info = lookupUri ? projectLookup?.get(lookupUri) : undefined;
     items.push({
       label: info?.title ?? decodePathSegment(part),
-      uri: nextUri,
+      uri: nextRelative,
     });
   }
   return items;
@@ -174,16 +178,12 @@ function buildFileBreadcrumbs(
 /** Check if the current uri equals the root uri. */
 function isAtRootUri(rootUri?: string, currentUri?: string | null) {
   if (!rootUri || !currentUri) return true;
-  try {
-    const rootUrl = new URL(rootUri);
-    const currentUrl = new URL(currentUri);
-    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
-    const currentParts = currentUrl.pathname.split("/").filter(Boolean);
-    // 当前路径不超过 root 层级时视为根目录。
-    return currentParts.length <= rootParts.length;
-  } catch {
-    return true;
-  }
+  const rootRelative = getRelativePathFromUri(rootUri, rootUri);
+  const currentRelative = getRelativePathFromUri(rootUri, currentUri);
+  const rootParts = rootRelative ? rootRelative.split("/").filter(Boolean) : [];
+  const currentParts = currentRelative ? currentRelative.split("/").filter(Boolean) : [];
+  // 当前路径不超过 root 层级时视为根目录。
+  return currentParts.length <= rootParts.length;
 }
 
 function decodePathSegment(value: string) {
@@ -196,17 +196,9 @@ function decodePathSegment(value: string) {
 
 /** Resolve a parent uri from a file or folder uri. */
 function resolveParentUriFromEntry(entry: FileSystemEntry): string | null {
-  try {
-    const url = new URL(entry.uri);
-    const segments = url.pathname.split("/").filter(Boolean);
-    if (segments.length === 0) return null;
-    // 逻辑：回退到父目录，保证工具栏操作落在可写目录。
-    segments.pop();
-    url.pathname = `/${segments.join("/")}`;
-    return url.toString();
-  } catch {
-    return null;
-  }
+  const parent = getParentRelativePath(entry.uri);
+  // 逻辑：回退到父目录，保证工具栏操作落在可写目录。
+  return parent;
 }
 
 /** Resolve a display label for the tree viewer. */
@@ -330,7 +322,10 @@ const ProjectFileSystemBreadcrumbs = memo(function ProjectFileSystemBreadcrumbs(
   items,
 }: ProjectFileSystemBreadcrumbsProps) {
   const baseItems = items ?? buildFileBreadcrumbs(rootUri, currentUri, projectLookup);
-  const breadcrumbItems = rootUri ? [{ label: "/", uri: rootUri }, ...baseItems] : baseItems;
+  const rootRelative = rootUri ? getRelativePathFromUri(rootUri, rootUri) : "";
+  const breadcrumbItems = rootUri
+    ? [{ label: "/", uri: rootRelative }, ...baseItems]
+    : baseItems;
   const isVisible = !isLoading && breadcrumbItems.length > 0;
   const breadcrumbKey = useMemo(
     () => breadcrumbItems.map((item) => item.uri).join("|"),
@@ -617,7 +612,14 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     const ext = getEntryExt(entry);
     // 逻辑：先匹配二进制类型，再回退到文本/默认预览。
     if (IMAGE_EXTS.has(ext)) {
-      return <ImageViewer uri={entry.uri} name={displayName} ext={ext} />;
+      return (
+        <ImageViewer
+          uri={entry.uri}
+          name={displayName}
+          ext={ext}
+          projectId={projectId}
+        />
+      );
     }
     if (MARKDOWN_EXTS.has(ext)) {
       return (
@@ -662,7 +664,15 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       );
     }
     if (DOC_EXTS.has(ext)) {
-      return <DocViewer uri={entry.uri} openUri={entry.uri} name={displayName} ext={ext} />;
+      return (
+        <DocViewer
+          uri={entry.uri}
+          openUri={entry.uri}
+          name={displayName}
+          ext={ext}
+          projectId={projectId}
+        />
+      );
     }
     if (SPREADSHEET_EXTS.has(ext)) {
       return (
@@ -671,10 +681,18 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           openUri={entry.uri}
           name={displayName}
           ext={ext}
+          projectId={projectId}
         />
       );
     }
-    return <FileViewer uri={entry.uri} name={displayName} ext={ext} />;
+    return (
+      <FileViewer
+        uri={entry.uri}
+        name={displayName}
+        ext={ext}
+        projectId={projectId}
+      />
+    );
   }, [projectId, rootUri, treeSelectedEntry]);
   const treeViewerKey = treeSelectedEntry?.uri ?? "empty";
 
@@ -1097,6 +1115,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   <div className="flex-1 min-h-0 overflow-auto p-3">
                     <FileSystemGitTree
                       rootUri={rootUri}
+                      projectId={model.projectId}
                       projectTitle={treeProjectTitle}
                       currentUri={model.displayUri}
                       selectedUris={selectedUris}
@@ -1154,6 +1173,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                     isLoading={model.listQuery.isLoading}
                     isSearchLoading={model.isSearchLoading}
                     searchQuery={searchQuery}
+                    projectId={model.projectId}
+                    rootUri={rootUri}
                     parentUri={model.parentUri}
                     currentUri={model.displayUri}
                     includeHidden={model.showHidden}
@@ -1201,6 +1222,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   isLoading={model.listQuery.isLoading}
                   isSearchLoading={model.isSearchLoading}
                   searchQuery={searchQuery}
+                  projectId={model.projectId}
                   rootUri={rootUri}
                   currentUri={model.displayUri}
                   includeHidden={model.showHidden}
@@ -1248,6 +1270,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   isLoading={model.listQuery.isLoading}
                   isSearchLoading={model.isSearchLoading}
                   searchQuery={searchQuery}
+                  projectId={model.projectId}
+                  rootUri={rootUri}
                   parentUri={model.parentUri}
                   currentUri={model.displayUri}
                   includeHidden={model.showHidden}

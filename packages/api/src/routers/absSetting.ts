@@ -33,8 +33,16 @@ const skillSummarySchema = z.object({
   description: z.string(),
   /** Skill file path. */
   path: z.string(),
+  /** Skill folder name. */
+  folderName: z.string(),
+  /** Skill ignore key. */
+  ignoreKey: z.string().describe("workspace:folder or parentId:folder or folder"),
   /** Skill scope. */
   scope: skillScopeSchema,
+  /** Whether the skill is enabled for current scope. */
+  isEnabled: z.boolean(),
+  /** Whether the skill can be deleted in current list. */
+  isDeletable: z.boolean(),
 });
 
 export const settingSchemas = {
@@ -62,6 +70,26 @@ export const settingSchemas = {
       })
       .optional(),
     output: z.array(skillSummarySchema),
+  },
+  /** Toggle skill enabled state for workspace or project. */
+  setSkillEnabled: {
+    input: z.object({
+      scope: skillScopeSchema,
+      projectId: z.string().optional(),
+      ignoreKey: z.string(),
+      enabled: z.boolean(),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
+  /** Delete a skill folder. */
+  deleteSkill: {
+    input: z.object({
+      scope: skillScopeSchema,
+      projectId: z.string().optional(),
+      ignoreKey: z.string(),
+      skillPath: z.string(),
+    }),
+    output: z.object({ ok: z.boolean() }),
   },
   set: {
     input: z.object({
@@ -137,6 +165,18 @@ export abstract class BaseSettingRouter {
         .input(settingSchemas.getSkills.input)
         .output(settingSchemas.getSkills.output)
         .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      setSkillEnabled: shieldedProcedure
+        .input(settingSchemas.setSkillEnabled.input)
+        .output(settingSchemas.setSkillEnabled.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      deleteSkill: shieldedProcedure
+        .input(settingSchemas.deleteSkill.input)
+        .output(settingSchemas.deleteSkill.output)
+        .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),
       set: shieldedProcedure

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useProjects } from "@/hooks/use-projects";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -22,7 +23,6 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -32,12 +32,14 @@ import { Label } from "@/components/ui/label";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { PageTreeMenu } from "./PageTree";
 import { toast } from "sonner";
+import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 
 export const SidebarPage = () => {
   // 当前项目列表查询。
   const projectListQuery = useProjects();
   const projects = projectListQuery.data ?? [];
   const createProject = useMutation(trpc.project.create.mutationOptions());
+  const { workspace } = useWorkspace();
 
   // 将状态提升到顶层组件，确保整个页面树只有一个状态管理
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>(
@@ -47,6 +49,8 @@ export const SidebarPage = () => {
   const [isPlatformOpen, setIsPlatformOpen] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
+  const [folderName, setFolderName] = useState("");
+  const [isFolderNameSynced, setIsFolderNameSynced] = useState(true);
   const [useCustomPath, setUseCustomPath] = useState(false);
   const [customPath, setCustomPath] = useState("");
   const [isBusy, setIsBusy] = useState(false);
@@ -55,14 +59,18 @@ export const SidebarPage = () => {
   /** Create a new project and refresh list. */
   const handleCreateProject = async () => {
     const title = createTitle.trim();
+    const folderNameValue = folderName.trim();
     try {
       setIsBusy(true);
       await createProject.mutateAsync({
         title: title || undefined,
+        folderName: folderNameValue || undefined,
         rootUri: useCustomPath ? customPath.trim() || undefined : undefined,
       });
       toast.success("项目已创建");
       setCreateTitle("");
+      setFolderName("");
+      setIsFolderNameSynced(true);
       setUseCustomPath(false);
       setCustomPath("");
       setIsCreateOpen(false);
@@ -83,6 +91,36 @@ export const SidebarPage = () => {
     } catch (err: any) {
       toast.error(err?.message ?? "刷新失败");
     }
+  };
+
+  /** Copy text to clipboard with fallback. */
+  const copyTextToClipboard = async (value: string, message: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(message);
+    } catch {
+      // 中文注释：剪贴板 API 失败时使用降级复制。
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      toast.success(message);
+    }
+  };
+
+  /** Copy workspace path to clipboard. */
+  const handleCopyWorkspacePath = async () => {
+    const rootUri = workspace?.rootUri;
+    if (!rootUri) {
+      toast.error("未找到工作空间路径");
+      return;
+    }
+    const displayPath = getDisplayPathFromUri(rootUri);
+    await copyTextToClipboard(displayPath, "已复制路径");
   };
 
   /** Pick a directory from system dialog (Electron only). */
@@ -152,6 +190,9 @@ export const SidebarPage = () => {
           <ContextMenuItem onClick={() => void handleRefreshProjects()}>
             刷新
           </ContextMenuItem>
+          <ContextMenuItem onClick={() => void handleCopyWorkspacePath()}>
+            复制工作空间路径
+          </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem onClick={() => setIsCreateOpen(true)}>
             新建项目
@@ -171,6 +212,8 @@ export const SidebarPage = () => {
           }
           setIsCreateOpen(false);
           setCreateTitle("");
+          setFolderName("");
+          setIsFolderNameSynced(true);
           setUseCustomPath(false);
           setCustomPath("");
         }}
@@ -178,19 +221,45 @@ export const SidebarPage = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>新建项目</DialogTitle>
-            <DialogDescription>请输入项目名称。</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="project-title" className="text-right">
-                名称
+                显示名称
               </Label>
               <Input
                 id="project-title"
                 value={createTitle}
-                onChange={(event) => setCreateTitle(event.target.value)}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setCreateTitle(nextValue);
+                  // 中文注释：文件夹名称未手动修改时，默认与显示名称同步。
+                  if (isFolderNameSynced) {
+                    setFolderName(nextValue);
+                  }
+                }}
                 className="col-span-3"
                 autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    handleCreateProject();
+                  }
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="project-folder-name" className="text-right">
+                文件夹名称
+              </Label>
+              <Input
+                id="project-folder-name"
+                value={folderName}
+                onChange={(event) => {
+                  setFolderName(event.target.value);
+                  setIsFolderNameSynced(false);
+                }}
+                className="col-span-3"
+                placeholder="默认与显示名称一致"
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     handleCreateProject();
@@ -245,9 +314,6 @@ export const SidebarPage = () => {
                 取消
               </Button>
             </DialogClose>
-            <Button variant="secondary" type="button" onClick={() => void handleImportProject()}>
-              导入项目
-            </Button>
             <Button onClick={handleCreateProject} disabled={isBusy}>
               创建
             </Button>

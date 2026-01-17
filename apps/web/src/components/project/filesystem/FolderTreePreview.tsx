@@ -36,6 +36,8 @@ interface FolderTreePreviewProps {
   rootUri?: string;
   /** Optional root uri for preview resolution. */
   viewerRootUri?: string;
+  /** Optional kind for the initial entry. */
+  currentEntryKind?: "file" | "folder";
   currentUri?: string | null;
   projectId?: string;
   projectTitle?: string;
@@ -43,12 +45,18 @@ interface FolderTreePreviewProps {
 
 /** Resolve the entry name from uri. */
 function resolveEntryNameFromUri(uri: string): string {
+  const trimmed = uri.trim();
+  if (!trimmed) return "";
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+    const parts = trimmed.split("/").filter(Boolean);
+    return parts.at(-1) ?? "";
+  }
   try {
-    const url = new URL(uri);
+    const url = new URL(trimmed);
     const parts = url.pathname.split("/").filter(Boolean);
     return decodeURIComponent(parts.at(-1) ?? "");
   } catch {
-    return uri;
+    return trimmed;
   }
 }
 
@@ -67,6 +75,7 @@ function resolveViewerLabel(entry: FileSystemEntry): string {
 export default function FolderTreePreview({
   rootUri,
   viewerRootUri,
+  currentEntryKind,
   currentUri,
   projectId,
   projectTitle,
@@ -81,7 +90,7 @@ export default function FolderTreePreview({
     return {
       uri: initial,
       name: resolveEntryNameFromUri(initial),
-      kind: "folder",
+      kind: currentEntryKind ?? "folder",
     };
   });
 
@@ -93,11 +102,11 @@ export default function FolderTreePreview({
         ? {
             uri: initial,
             name: resolveEntryNameFromUri(initial),
-            kind: "folder",
+            kind: currentEntryKind ?? "folder",
           }
         : null
     );
-  }, [currentUri, rootUri]);
+  }, [currentEntryKind, currentUri, rootUri]);
 
   const handleSelectEntry = useCallback((entry: FileSystemEntry) => {
     // 中文注释：点击条目时更新高亮与预览内容。
@@ -134,7 +143,14 @@ export default function FolderTreePreview({
     const ext = getEntryExt(entry);
     // 逻辑：先处理已知类型，再回退到通用预览。
     if (IMAGE_EXTS.has(ext)) {
-      return <ImageViewer uri={entry.uri} name={displayName} ext={ext} />;
+      return (
+        <ImageViewer
+          uri={entry.uri}
+          name={displayName}
+          ext={ext}
+          projectId={projectId}
+        />
+      );
     }
     if (MARKDOWN_EXTS.has(ext)) {
       return (
@@ -179,12 +195,35 @@ export default function FolderTreePreview({
       );
     }
     if (DOC_EXTS.has(ext)) {
-      return <DocViewer uri={entry.uri} openUri={entry.uri} name={displayName} ext={ext} />;
+      return (
+        <DocViewer
+          uri={entry.uri}
+          openUri={entry.uri}
+          name={displayName}
+          ext={ext}
+          projectId={projectId}
+        />
+      );
     }
     if (SPREADSHEET_EXTS.has(ext)) {
-      return <SheetViewer uri={entry.uri} openUri={entry.uri} name={displayName} ext={ext} />;
+      return (
+        <SheetViewer
+          uri={entry.uri}
+          openUri={entry.uri}
+          name={displayName}
+          ext={ext}
+          projectId={projectId}
+        />
+      );
     }
-    return <FileViewer uri={entry.uri} name={displayName} ext={ext} />;
+    return (
+      <FileViewer
+        uri={entry.uri}
+        name={displayName}
+        ext={ext}
+        projectId={projectId}
+      />
+    );
   }, [projectId, rootUri, selectedEntry, viewerRootUri]);
 
   if (!rootUri) {
@@ -198,6 +237,7 @@ export default function FolderTreePreview({
           <div className="flex-1 min-h-0 overflow-auto p-2">
             <FileSystemGitTree
               rootUri={rootUri}
+              projectId={projectId}
               projectTitle={projectTitle}
               currentUri={currentUri}
               selectedUris={selectedUris}

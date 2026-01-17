@@ -8,15 +8,16 @@ interface FileViewerProps {
   uri?: string;
   name?: string;
   ext?: string;
+  projectId?: string;
 }
 
 /** Render a simple file preview panel. */
-export default function FileViewer({ uri, name }: FileViewerProps) {
+export default function FileViewer({ uri, name, projectId }: FileViewerProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
-      uri && workspaceId ? { workspaceId, uri } : skipToken
+      uri && workspaceId ? { workspaceId, projectId, uri } : skipToken
     )
   );
 

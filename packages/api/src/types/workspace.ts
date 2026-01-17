@@ -11,6 +11,10 @@ export const workspaceBase = z.object({
     .record(z.string(), z.string())
     .optional()
     .describe("Workspace project map: { projectId: rootUri }."),
+  ignoreSkills: z
+    .array(z.string())
+    .optional()
+    .describe("Skill folder names to ignore at workspace scope."),
 });
 
 // 导出TypeScript类型

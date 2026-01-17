@@ -47,6 +47,7 @@ function ensureDefaultWorkspaces(): WorkspacesFile {
     isActive: true,
     rootUri: resolveDefaultWorkspaceRootUri(),
     projects: {},
+    ignoreSkills: [],
   };
   const payload: WorkspacesFile = { workspaces: [workspace] };
   writeWorkspacesFile(payload);
@@ -67,6 +68,7 @@ function readWorkspacesFile(): WorkspacesFile {
         ...workspace,
         rootUri: workspace.rootUri || resolveDefaultWorkspaceRootUri(),
         projects: workspace.projects ?? {},
+        ignoreSkills: workspace.ignoreSkills ?? [],
       })),
     };
     cachedWorkspaces = normalized;
@@ -99,6 +101,7 @@ export function setWorkspaces(workspaces: Workspace[]): void {
     ...workspace,
     rootUri: workspace.rootUri || resolveDefaultWorkspaceRootUri(),
     projects: workspace.projects ?? {},
+    ignoreSkills: workspace.ignoreSkills ?? [],
   }));
   writeWorkspacesFile({ workspaces: normalized });
 }

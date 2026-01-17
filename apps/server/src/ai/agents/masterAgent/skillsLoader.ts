@@ -10,6 +10,8 @@ type SkillSummary = {
   description: string;
   /** Absolute path to SKILL.md. */
   path: string;
+  /** Skill folder name (parent directory of SKILL.md). */
+  folderName: string;
   /** Skill scope (workspace/project). */
   scope: SkillScope;
 };
@@ -139,10 +141,12 @@ function readSkillSummary(filePath: string, scope: SkillScope): SkillSummary | n
     const name = (frontMatter.name || fallbackName).trim();
     if (!name) return null;
     const description = normalizeDescription(frontMatter.description);
+    const folderName = path.basename(path.dirname(filePath)) || fallbackName;
     return {
       name,
       description,
       path: filePath,
+      folderName,
       scope,
     };
   } catch {

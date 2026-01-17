@@ -6,7 +6,7 @@ import {
   getActiveWorkspace,
   getWorkspaceById,
   resolveFilePathFromUri,
-  toFileUri,
+  toFileUriWithoutEncoding,
 } from "./vfsService";
 
 /** Directory name for project metadata. */
@@ -24,6 +24,8 @@ export const projectConfigSchema = z
     childrenIds: z.array(z.string()).optional(),
     // Child project map uses projectId -> rootUri.
     projects: z.record(z.string(), z.string()).optional(),
+    // Skill folder names to ignore for this project.
+    ignoreSkills: z.array(z.string()).optional(),
   })
   .passthrough();
 
@@ -177,6 +179,7 @@ async function readProjectTree(
   projectRootPath: string,
   projectIdOverride?: string,
   workspaceRootPath?: string,
+  rootUriOverride?: string,
 ): Promise<ProjectNode | null> {
   try {
     const config = await readProjectConfig(projectRootPath, projectIdOverride);
@@ -199,6 +202,7 @@ async function readProjectTree(
           childPath,
           childProjectId,
           workspaceRootPath,
+          childRootUri,
         );
         if (childNode) childNodes.push(childNode);
       }
@@ -229,7 +233,7 @@ async function readProjectTree(
       projectId,
       title: config.title ?? path.basename(projectRootPath),
       icon: config.icon ?? undefined,
-      rootUri: toFileUri(projectRootPath),
+      rootUri: rootUriOverride ?? toFileUriWithoutEncoding(projectRootPath),
       isGitProject,
       children: childNodes,
     };
@@ -259,7 +263,12 @@ export async function readWorkspaceProjectTrees(workspaceId?: string): Promise<P
     } catch {
       continue;
     }
-    const node = await readProjectTree(rootPath, projectId, workspaceRootPath);
+    const node = await readProjectTree(
+      rootPath,
+      projectId,
+      workspaceRootPath,
+      rootUri
+    );
     if (node) projects.push(node);
   }
   return projects;

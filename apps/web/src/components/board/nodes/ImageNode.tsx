@@ -4,7 +4,7 @@ import type {
   CanvasNodeViewProps,
   CanvasToolbarContext,
 } from "../engine/types";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { z } from "zod";
 import {
   Download,
@@ -29,6 +29,22 @@ import { isProjectAbsolutePath } from "@/components/project/filesystem/utils/fil
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
+
+/** Render a checkerboard skeleton for image nodes. */
+function ImageNodeSkeleton() {
+  return (
+    <div
+      className="h-full w-full animate-pulse"
+      style={{
+        backgroundColor: "#f8fafc",
+        backgroundImage:
+          "linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 75%, #e2e8f0 75%, #e2e8f0), linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 75%, #e2e8f0 75%, #e2e8f0)",
+        backgroundSize: "16px 16px",
+        backgroundPosition: "0 0, 8px 8px",
+      }}
+    />
+  );
+}
 
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
@@ -192,6 +208,11 @@ export function ImageNodeView({
   const resolvedOriginal = projectRelativeOriginal || element.props.originalSrc;
   /** Local flag for displaying the inline detail panel. */
   const [showDetail, setShowDetail] = useState(false);
+  /** Whether the preview fetch is still in flight. */
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  /** Whether the img element is still loading. */
+  const [isImageLoading, setIsImageLoading] = useState(() => Boolean(previewSrc));
+  const lastPreviewRef = useRef<string>("");
   /** Whether the node or canvas is locked. */
   const isLocked = engine.isLocked() || element.locked === true;
   /** Request opening the image preview on the canvas. */
@@ -230,12 +251,16 @@ export function ImageNodeView({
       isBoardRelativePath(resolvedOriginal) ||
       resolvedOriginal.startsWith("file://")
     ) {
+      setIsPreviewLoading(false);
       return;
     }
     const hasPreview = Boolean(element.props.previewSrc);
     const hasSize =
       element.props.naturalWidth > 1 && element.props.naturalHeight > 1;
-    if (hasPreview && hasSize) return;
+    if (hasPreview && hasSize) {
+      setIsPreviewLoading(false);
+      return;
+    }
     if (hydrationRef.current === resolvedOriginal) return;
     hydrationRef.current = resolvedOriginal;
 
@@ -243,10 +268,13 @@ export function ImageNodeView({
     const nodeId = element.id;
     // 逻辑：拉取预览与尺寸，避免外部节点重复处理。
     void (async () => {
+      setIsPreviewLoading(true);
       try {
+        // 逻辑：ImageNode 复用预览 URL，避免 data url 二次加载闪烁。
         const payload = await buildImageNodePayloadFromUri(resolvedOriginal, {
           projectId: fileContext?.projectId,
           maxPreviewBytes: IMAGE_NODE_PREVIEW_MAX_BYTES,
+          previewMode: "none",
         });
         if (cancelled) return;
         if (!engine.doc.getElementById(nodeId)) return;
@@ -278,6 +306,10 @@ export function ImageNodeView({
       } catch {
         // 逻辑：预览加载失败时保持原状，避免阻断渲染。
         hydrationRef.current = null;
+      } finally {
+        if (!cancelled) {
+          setIsPreviewLoading(false);
+        }
       }
     })();
 
@@ -296,6 +328,19 @@ export function ImageNodeView({
     fileContext?.projectId,
     resolvedOriginal,
   ]);
+
+  useLayoutEffect(() => {
+    // 逻辑：预览地址变化时同步更新加载态，避免首帧闪烁。
+    if (!previewSrc) {
+      lastPreviewRef.current = "";
+      setIsImageLoading(false);
+      return;
+    }
+    if (previewSrc !== lastPreviewRef.current) {
+      lastPreviewRef.current = previewSrc;
+      setIsImageLoading(true);
+    }
+  }, [previewSrc]);
 
   return (
     <div className="relative h-full w-full">
@@ -316,15 +361,27 @@ export function ImageNodeView({
         }}
       >
         {hasPreview ? (
-          <img
-            src={previewSrc}
-            alt={element.props.fileName || "Image"}
-            className="h-full w-full object-contain"
-            draggable={false}
-          />
+          <>
+            <img
+              src={previewSrc}
+              alt={element.props.fileName || "Image"}
+              className={[
+                "h-full w-full object-contain transition-opacity duration-200 ease-out",
+                isImageLoading ? "opacity-0" : "opacity-100",
+              ].join(" ")}
+              draggable={false}
+              onLoad={() => setIsImageLoading(false)}
+              onError={() => setIsImageLoading(false)}
+            />
+            {isImageLoading ? (
+              <div className="absolute inset-0">
+                <ImageNodeSkeleton />
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
-            Image
+            {isPreviewLoading ? <ImageNodeSkeleton /> : "Image"}
           </div>
         )}
       </div>

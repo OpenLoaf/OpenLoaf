@@ -30,15 +30,47 @@ export {
   FILE_DRAG_URIS_MIME,
 } from "@/components/ui/tenas/drag-drop-types";
 
+/** Scoped project path matcher like [projectId]/path/to/file. */
+const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\]\/(.+)$/;
+/** Project-scoped absolute path matcher like @[projectId]/path/to/file. */
+const PROJECT_ABSOLUTE_REGEX = /^@\[[^\]]+\]\//;
+/** Scheme matcher for absolute URLs. */
+const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+
+/** Check whether the value looks like a URI with scheme. */
+function hasUriScheme(value: string) {
+  return SCHEME_REGEX.test(value.trim());
+}
+
 /** Get a relative path for an entry under the project root. */
 export function getRelativePathFromUri(rootUri: string, entryUri: string) {
+  const trimmedEntry = entryUri.trim();
+  if (!trimmedEntry) return "";
+  if (!hasUriScheme(trimmedEntry)) return normalizeRelativePath(trimmedEntry);
+  const trimmedRoot = rootUri.trim();
+  if (!trimmedRoot || !hasUriScheme(trimmedRoot)) return "";
   try {
-    const rootUrl = new URL(rootUri);
-    const entryUrl = new URL(entryUri);
-    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
-    const entryParts = entryUrl.pathname.split("/").filter(Boolean);
+    const rootUrl = new URL(trimmedRoot);
+    const entryUrl = new URL(trimmedEntry);
+    if (rootUrl.protocol !== "file:" || entryUrl.protocol !== "file:") return "";
+    const rootParts = rootUrl.pathname.split("/").filter(Boolean).map((part) => {
+      try {
+        return decodeURIComponent(part);
+      } catch {
+        return part;
+      }
+    });
+    const entryParts = entryUrl.pathname.split("/").filter(Boolean).map((part) => {
+      try {
+        return decodeURIComponent(part);
+      } catch {
+        return part;
+      }
+    });
+    const isPrefix = rootParts.every((part, index) => part === entryParts[index]);
+    if (!isPrefix) return "";
     const relativeParts = entryParts.slice(rootParts.length);
-    return decodeURIComponent(relativeParts.join("/"));
+    return normalizeRelativePath(relativeParts.join("/"));
   } catch {
     return "";
   }
@@ -46,26 +78,43 @@ export function getRelativePathFromUri(rootUri: string, entryUri: string) {
 
 /** Build a file URI by joining root with a relative path. */
 export function buildUriFromRoot(rootUri: string, relativePath: string) {
-  try {
-    const rootUrl = new URL(rootUri);
-    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
-    const relativeParts = relativePath.split("/").filter(Boolean);
-    const nextParts = [...rootParts, ...relativeParts].map((part) =>
-      encodeURIComponent(decodeURIComponent(part))
-    );
-    rootUrl.pathname = `/${nextParts.join("/")}`;
-    return rootUrl.toString();
-  } catch {
-    return "";
+  const trimmedRelative = relativePath.trim();
+  if (!trimmedRelative) {
+    if (!rootUri?.trim() || hasUriScheme(rootUri)) return "";
+    return normalizeRelativePath(rootUri);
   }
+  if (hasUriScheme(trimmedRelative)) return trimmedRelative;
+  const normalizedRelative = normalizeRelativePath(trimmedRelative);
+  if (!rootUri?.trim() || hasUriScheme(rootUri)) return normalizedRelative;
+  return joinRelativePath(rootUri, normalizedRelative);
 }
 
-/** Scoped project path matcher like [projectId]/path/to/file. */
-const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\]\/(.+)$/;
-/** Project-scoped absolute path matcher like @[projectId]/path/to/file. */
-const PROJECT_ABSOLUTE_REGEX = /^@\[[^\]]+\]\//;
-/** Scheme matcher for absolute URLs. */
-const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+/** Normalize a relative path string to POSIX format. */
+export function normalizeRelativePath(value: string) {
+  const normalized = value
+    .replace(/\\/g, "/")
+    .replace(/^(\.\/)+/, "")
+    .replace(/^\/+/, "");
+  return normalized === "." ? "" : normalized;
+}
+
+/** Join two relative path segments. */
+export function joinRelativePath(base: string, segment: string) {
+  const normalizedBase = normalizeRelativePath(base);
+  const normalizedSegment = normalizeRelativePath(segment);
+  if (!normalizedBase) return normalizedSegment;
+  if (!normalizedSegment) return normalizedBase;
+  return normalizeRelativePath(`${normalizedBase}/${normalizedSegment}`);
+}
+
+/** Resolve a parent relative path, return null when already at root. */
+export function getParentRelativePath(value: string): string | null {
+  const normalized = normalizeRelativePath(value);
+  if (!normalized) return null;
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length <= 1) return "";
+  return parts.slice(0, -1).join("/");
+}
 
 /** Normalize a project-relative path string. */
 export function normalizeProjectRelativePath(value: string) {
@@ -123,20 +172,57 @@ export function getEntryExt(entry: FileSystemEntry) {
 
 /** Convert a file URI to a display path string. */
 export function getDisplayPathFromUri(uri: string) {
+  const trimmed = uri.trim();
+  if (!trimmed) return "/";
+  if (!hasUriScheme(trimmed)) return normalizeRelativePath(trimmed) || "/";
   try {
-    const url = new URL(uri);
+    const url = new URL(trimmed);
     return decodeURIComponent(url.pathname);
   } catch {
-    return uri;
+    return trimmed;
   }
 }
 
 /** Build a child URI by appending a name to the base directory URI. */
 export function buildChildUri(baseUri: string, name: string) {
-  const nextUrl = new URL(baseUri);
-  const basePath = nextUrl.pathname.replace(/\/$/, "");
-  nextUrl.pathname = `${basePath}/${encodeURIComponent(name)}`;
-  return nextUrl.toString();
+  const trimmedBase = baseUri.trim();
+  if (!trimmedBase) return normalizeRelativePath(name);
+  if (!hasUriScheme(trimmedBase)) return joinRelativePath(trimmedBase, name);
+  try {
+    const nextUrl = new URL(trimmedBase);
+    const basePath = nextUrl.pathname.replace(/\/$/, "");
+    nextUrl.pathname = `${basePath}/${encodeURIComponent(name)}`;
+    return nextUrl.toString();
+  } catch {
+    return trimmedBase;
+  }
+}
+
+/** Build a file:// URI by joining root with a relative path. */
+export function buildFileUriFromRoot(rootUri: string, relativePath: string) {
+  if (!rootUri?.trim() || !rootUri.startsWith("file://")) return "";
+  const normalizedRelative = normalizeRelativePath(relativePath);
+  if (!normalizedRelative) return rootUri;
+  try {
+    const rootUrl = new URL(rootUri);
+    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
+    const relativeParts = normalizedRelative.split("/").filter(Boolean);
+    const nextParts = [...rootParts, ...relativeParts].map((part) =>
+      encodeURIComponent(decodeURIComponent(part))
+    );
+    rootUrl.pathname = `/${nextParts.join("/")}`;
+    return rootUrl.toString();
+  } catch {
+    return rootUri;
+  }
+}
+
+/** Resolve a file:// URI for local integrations. */
+export function resolveFileUriFromRoot(rootUri: string | undefined, uri: string) {
+  if (!uri?.trim()) return "";
+  if (uri.startsWith("file://")) return uri;
+  if (!rootUri?.trim()) return uri;
+  return buildFileUriFromRoot(rootUri, uri) || uri;
 }
 
 /** Ensure a filename is unique in the current directory. */

@@ -162,7 +162,7 @@ export default function DesktopTileGridstack({
           "bg-slate-50/90",
           isPinned ? "ring-2 ring-primary/40" : ""
         )}
-        title={item.title}
+        title={widgetKey === "3d-folder" ? undefined : item.title}
         aria-label={item.title}
         data-desktop-tile="true"
         onPointerDownCapture={(event) => {

@@ -1,4 +1,4 @@
-import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
+import { fetchBlobFromUri, loadImageFromBlob, resolveFileName } from "@/lib/image/uri";
 
 export type ImageNodePayload = {
   /** Props used by the image node component. */
@@ -149,6 +149,8 @@ export async function buildImageNodePayloadFromUri(
     quality?: number;
     /** Target byte size for preview fetch. */
     maxPreviewBytes?: number;
+    /** Preview source mode used for data url generation. */
+    previewMode?: "dataUrl" | "none";
     /** Project id for resolving relative paths. */
     projectId?: string;
   }
@@ -157,15 +159,23 @@ export async function buildImageNodePayloadFromUri(
     projectId: options?.projectId,
     maxBytes: options?.maxPreviewBytes,
   });
-  const dataUrl = await readBlobAsDataUrl(blob);
-  const image = await decodeImage(dataUrl);
+  const previewMode = options?.previewMode ?? "dataUrl";
+  const image =
+    previewMode === "none"
+      ? await loadImageFromBlob(blob)
+      : await decodeImage(await readBlobAsDataUrl(blob));
   const naturalWidth = image.naturalWidth || 1;
   const naturalHeight = image.naturalHeight || 1;
   const mimeType = blob.type || "image/png";
-  const { previewSrc } = await buildPreviewDataUrl(image, mimeType, {
-    maxDimension: options?.maxPreviewDimension ?? DEFAULT_PREVIEW_MAX,
-    quality: options?.quality ?? DEFAULT_PREVIEW_QUALITY,
-  });
+  const previewSrc =
+    previewMode === "none"
+      ? ""
+      : (
+          await buildPreviewDataUrl(image, mimeType, {
+            maxDimension: options?.maxPreviewDimension ?? DEFAULT_PREVIEW_MAX,
+            quality: options?.quality ?? DEFAULT_PREVIEW_QUALITY,
+          })
+        ).previewSrc;
   const [nodeWidth, nodeHeight] = fitSize(
     naturalWidth,
     naturalHeight,

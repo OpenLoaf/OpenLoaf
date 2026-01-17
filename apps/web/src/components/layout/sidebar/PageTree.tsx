@@ -51,7 +51,14 @@ import {
   isBoardFolderName,
 } from "@/lib/file-name";
 import { Switch } from "@/components/ui/switch";
-import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  getDisplayPathFromUri,
+  getRelativePathFromUri,
+  getParentRelativePath,
+  buildChildUri,
+  normalizeRelativePath,
+  resolveFileUriFromRoot,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import { cn } from "@/lib/utils";
 
 type ProjectInfo = {
@@ -71,6 +78,11 @@ type FileNode = {
   projectId?: string;
   projectIcon?: string;
 };
+
+function getNodeKey(node: FileNode): string {
+  const projectId = node.projectId?.trim();
+  return projectId ? `${projectId}:${node.uri}` : node.uri;
+}
 
 type RenameTarget = {
   node: FileNode;
@@ -127,28 +139,41 @@ function resolveFileComponent(node: FileNode) {
 }
 
 function buildNextUri(uri: string, nextName: string) {
-  const url = new URL(uri);
-  const segments = url.pathname.split("/");
+  const trimmed = uri.trim();
+  if (!trimmed) return normalizeRelativePath(nextName);
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      const segments = url.pathname.split("/");
+      segments[segments.length - 1] = nextName;
+      url.pathname = segments.join("/");
+      return url.toString();
+    } catch {
+      return trimmed;
+    }
+  }
+  const segments = normalizeRelativePath(trimmed).split("/").filter(Boolean);
+  if (segments.length === 0) return normalizeRelativePath(nextName);
   segments[segments.length - 1] = nextName;
-  url.pathname = segments.join("/");
-  return url.toString();
-}
-
-/** Build a child uri by appending a new path segment. */
-function buildChildUri(uri: string, childName: string) {
-  const url = new URL(uri);
-  const basePath = url.pathname.replace(/\/$/, "");
-  url.pathname = `${basePath}/${encodeURIComponent(childName)}`;
-  return url.toString();
+  return segments.join("/");
 }
 
 function getParentUri(uri: string) {
-  const url = new URL(uri);
-  const segments = url.pathname.split("/");
-  segments.pop();
-  const nextPath = segments.join("/") || "/";
-  url.pathname = nextPath;
-  return url.toString();
+  const trimmed = uri.trim();
+  if (!trimmed) return "";
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      const segments = url.pathname.split("/");
+      segments.pop();
+      const nextPath = segments.join("/") || "/";
+      url.pathname = nextPath;
+      return url.toString();
+    } catch {
+      return trimmed;
+    }
+  }
+  return getParentRelativePath(trimmed) ?? "";
 }
 
 /** Build project nodes recursively from API payload. */
@@ -215,24 +240,25 @@ function FileTreeNode({
 }: FileTreeNodeProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
-  const isExpanded = expandedNodes[node.uri] ?? false;
+  const nodeKey = getNodeKey(node);
+  const isExpanded = expandedNodes[nodeKey] ?? false;
   const isActive =
     activeUri === node.uri ||
-    contextSelectedUri === node.uri ||
+    contextSelectedUri === nodeKey ||
     (node.kind === "project" && activeProjectRootUri === node.uri);
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
       node.kind === "folder" && isExpanded && workspaceId
-        ? { workspaceId, uri: node.uri }
+        ? { workspaceId, projectId: node.projectId, uri: node.uri }
         : skipToken
     )
   );
   const fileChildren = listQuery.data?.entries ?? [];
   const normalizedFileChildren = fileChildren.map((child) => {
     if (child.kind === "folder" && isBoardFolderName(child.name)) {
-      return { ...child, kind: "file", ext: undefined };
+      return { ...child, kind: "file", ext: undefined, projectId: node.projectId };
     }
-    return child;
+    return { ...child, projectId: node.projectId };
   });
   const projectChildren = node.kind === "project" ? node.children ?? [] : [];
   const children = node.kind === "project" ? projectChildren : normalizedFileChildren;
@@ -246,7 +272,7 @@ function FileTreeNode({
       ? getBoardDisplayName(node.name)
       : getDisplayFileName(node.name, node.ext);
     return (
-      <Item key={node.uri}>
+      <Item key={nodeKey}>
         <ContextMenu onOpenChange={(open) => onContextMenuOpenChange(node, open)}>
           <ContextMenuTrigger asChild>
             <Button
@@ -267,10 +293,10 @@ function FileTreeNode({
 
   return (
     <CollapsiblePrimitive.Root
-      key={node.uri}
+      key={nodeKey}
       asChild
       open={isExpanded}
-      onOpenChange={(open) => setExpanded(node.uri, open)}
+      onOpenChange={(open) => setExpanded(nodeKey, open)}
       className="group/collapsible"
     >
       <Item>
@@ -307,7 +333,7 @@ function FileTreeNode({
             <SidebarMenuSub className={cn("mx-1 px-1", subItemGapClassName)}>
               {children.map((child: any) => (
                 <FileTreeNode
-                  key={child.uri}
+                  key={getNodeKey(child)}
                   node={{
                     uri: child.uri,
                     name: child.name,
@@ -367,17 +393,21 @@ export const PageTreeMenu = ({
   /** Busy state for removing project. */
   const [isRemoveBusy, setIsRemoveBusy] = useState(false);
 
-  const activeUri = useMemo(() => {
+  const activeTabParams = useMemo(() => {
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
-    const params = activeTab?.base?.params as any;
-    if (params?.rootUri && typeof params.rootUri === "string") return params.rootUri;
-    if (params?.uri && typeof params.uri === "string") return params.uri;
-    return null;
+    return (activeTab?.base?.params ?? {}) as Record<string, unknown>;
   }, [activeTabId, tabs]);
-  const activeProjectRootUri = useMemo(
-    () => resolveActiveProjectRootUri(projects, activeUri),
-    [activeUri, projects]
-  );
+  const activeUri = useMemo(() => {
+    const rootUri = activeTabParams.rootUri;
+    const uri = activeTabParams.uri;
+    if (typeof rootUri === "string") return rootUri;
+    if (typeof uri === "string") return uri;
+    return null;
+  }, [activeTabParams]);
+  const activeProjectId = useMemo(() => {
+    const projectId = activeTabParams.projectId;
+    return typeof projectId === "string" && projectId.trim() ? projectId : null;
+  }, [activeTabParams]);
 
   const setExpanded = (uri: string, isExpanded: boolean) => {
     setExpandedNodes((prev) => ({
@@ -395,6 +425,12 @@ export const PageTreeMenu = ({
     }
     return map;
   }, [projects]);
+  const activeProjectRootUri = useMemo(() => {
+    if (activeProjectId) {
+      return projectRootById.get(activeProjectId) ?? null;
+    }
+    return resolveActiveProjectRootUri(projects, activeUri);
+  }, [activeProjectId, activeUri, projectRootById, projects]);
 
   /** Map child project id to its ancestor root uri list. */
   const ancestorRootsByProjectId = useMemo(() => {
@@ -538,7 +574,8 @@ export const PageTreeMenu = ({
       openFileTab(node);
       return;
     }
-    setExpanded(node.uri, !(expandedNodes[node.uri] ?? false));
+    const nodeKey = getNodeKey(node);
+    setExpanded(nodeKey, !(expandedNodes[nodeKey] ?? false));
   };
 
   const openRenameDialog = (node: FileNode) => {
@@ -560,7 +597,9 @@ export const PageTreeMenu = ({
       toast.error("网页版不支持打开文件管理器");
       return;
     }
-    const res = await api.openPath({ uri: node.uri });
+    const rootUri = node.projectId ? projectRootById.get(node.projectId) : undefined;
+    const fileUri = resolveFileUriFromRoot(rootUri, node.uri);
+    const res = await api.openPath({ uri: fileUri });
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件管理器");
     }
@@ -570,6 +609,32 @@ export const PageTreeMenu = ({
   const openRemoveDialog = (node: FileNode) => {
     if (node.kind !== "project") return;
     setRemoveTarget(node);
+  };
+
+  /** Copy text to clipboard with fallback. */
+  const copyTextToClipboard = async (value: string, message: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(message);
+    } catch {
+      // 中文注释：剪贴板 API 失败时使用降级复制。
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      toast.success(message);
+    }
+  };
+
+  /** Copy project path to clipboard. */
+  const handleCopyProjectPath = async (node: FileNode) => {
+    if (node.kind !== "project") return;
+    const displayPath = getDisplayPathFromUri(node.uri);
+    await copyTextToClipboard(displayPath, "已复制路径");
   };
 
   /** Pick a directory from system dialog (Electron only). */
@@ -622,8 +687,12 @@ export const PageTreeMenu = ({
         });
       } else {
         const nextUri = buildNextUri(renameTarget.node.uri, nextName);
+        if (!renameTarget.node.projectId) {
+          throw new Error("缺少项目 ID");
+        }
         await renameFile.mutateAsync({
           workspaceId,
+          projectId: renameTarget.node.projectId,
           from: renameTarget.node.uri,
           to: nextUri,
         });
@@ -636,7 +705,11 @@ export const PageTreeMenu = ({
       if (renameTarget.node.kind !== "project") {
         const parentUri = getParentUri(renameTarget.node.uri);
         await queryClient.invalidateQueries({
-          queryKey: trpc.fs.list.queryOptions({ workspaceId, uri: parentUri }).queryKey,
+          queryKey: trpc.fs.list.queryOptions({
+            workspaceId,
+            projectId: renameTarget.node.projectId,
+            uri: parentUri,
+          }).queryKey,
         });
       }
     } catch (err: any) {
@@ -650,15 +723,23 @@ export const PageTreeMenu = ({
     if (!deleteTarget) return;
     try {
       setIsBusy(true);
+      if (!deleteTarget.projectId) {
+        throw new Error("缺少项目 ID");
+      }
       await deleteFile.mutateAsync({
         workspaceId,
+        projectId: deleteTarget.projectId,
         uri: deleteTarget.uri,
         recursive: true,
       });
       toast.success("已删除");
       const parentUri = getParentUri(deleteTarget.uri);
       await queryClient.invalidateQueries({
-        queryKey: trpc.fs.list.queryOptions({ workspaceId, uri: parentUri }).queryKey,
+        queryKey: trpc.fs.list.queryOptions({
+          workspaceId,
+          projectId: deleteTarget.projectId,
+          uri: parentUri,
+        }).queryKey,
       });
       setDeleteTarget(null);
     } catch (err: any) {
@@ -757,6 +838,11 @@ export const PageTreeMenu = ({
         </ContextMenuItem>
       ) : null}
       {node.kind === "project" ? (
+        <ContextMenuItem onClick={() => void handleCopyProjectPath(node)}>
+          复制路径
+        </ContextMenuItem>
+      ) : null}
+      {node.kind === "project" ? (
         <>
           <ContextMenuSeparator />
           <ContextMenuItem onClick={() => openCreateChildDialog(node)}>
@@ -778,7 +864,7 @@ export const PageTreeMenu = ({
   );
 
   const handleContextMenuOpenChange = (node: FileNode, open: boolean) => {
-    setContextSelectedUri(open ? node.uri : null);
+    setContextSelectedUri(open ? getNodeKey(node) : null);
   };
 
   return (
@@ -1085,8 +1171,9 @@ export const PageTreePicker = ({
     if (node.kind === "project") {
       onSelect(node.uri);
     }
-    const isExpanded = expandedNodes[node.uri] ?? false;
-    setExpanded(node.uri, !isExpanded);
+    const nodeKey = getNodeKey(node);
+    const isExpanded = expandedNodes[nodeKey] ?? false;
+    setExpanded(nodeKey, !isExpanded);
   };
 
   const renderContextMenuContent = () => null;

@@ -8,7 +8,7 @@ import {
   getWorkspaceRootPath,
   removeActiveWorkspaceProject,
   resolveFilePathFromUri,
-  toFileUri,
+  toFileUriWithoutEncoding,
   upsertActiveWorkspaceProject,
 } from "../services/vfsService";
 import {
@@ -158,6 +158,7 @@ export const projectRouter = t.router({
     .input(
       z.object({
         title: z.string().nullable().optional(),
+        folderName: z.string().nullable().optional(),
         icon: z.string().nullable().optional(),
         rootUri: z.string().optional(),
         parentProjectId: z.string().optional(),
@@ -166,7 +167,7 @@ export const projectRouter = t.router({
     .mutation(async ({ input }) => {
       const workspaceRootPath = getWorkspaceRootPath();
       const title = input.title?.trim() || DEFAULT_PROJECT_TITLE;
-      const folderName = toSafeFolderName(title);
+      const folderName = toSafeFolderName(input.folderName?.trim() || title);
       let projectRootPath: string;
       let existingConfig: ProjectConfig | null = null;
       if (input.rootUri?.trim()) {
@@ -182,6 +183,7 @@ export const projectRouter = t.router({
       } else {
         projectRootPath = await ensureUniqueProjectRoot(workspaceRootPath, folderName);
       }
+      const projectRootUri = toFileUriWithoutEncoding(projectRootPath);
       const projectId = existingConfig?.projectId ?? `${PROJECT_ID_PREFIX}${randomUUID()}`;
       const fallbackTitle = input.rootUri
         ? path.basename(projectRootPath)
@@ -202,13 +204,13 @@ export const projectRouter = t.router({
         await writeJsonAtomic(metaPath, { ...existingConfig, projects: {} });
       }
       if (!input.parentProjectId) {
-        upsertActiveWorkspaceProject(projectId, toFileUri(projectRootPath));
+        upsertActiveWorkspaceProject(projectId, projectRootUri);
       }
       if (input.parentProjectId) {
         await appendChildProjectEntry(
           input.parentProjectId,
           projectId,
-          toFileUri(projectRootPath)
+          projectRootUri
         );
       }
       return {
@@ -216,7 +218,7 @@ export const projectRouter = t.router({
           projectId: config.projectId,
           title: config.title ?? fallbackTitle,
           icon: config.icon ?? undefined,
-          rootUri: toFileUri(projectRootPath),
+          rootUri: projectRootUri,
         },
       };
     }),
@@ -232,7 +234,7 @@ export const projectRouter = t.router({
           projectId: input.projectId,
           title: config.title ?? path.basename(rootPath),
           icon: config.icon ?? undefined,
-          rootUri: toFileUri(rootPath),
+          rootUri: toFileUriWithoutEncoding(rootPath),
         },
       };
     }),

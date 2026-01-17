@@ -466,8 +466,7 @@ export default function CodeViewer({
       toast.error("未找到当前标签页");
       return;
     }
-    const relativePath =
-      rootUri && uri ? getRelativePathFromUri(rootUri, uri) : null;
+    const relativePath = uri ? getRelativePathFromUri(rootUri ?? "", uri) : null;
     if (!projectId || !relativePath) {
       toast.error("无法解析文件路径");
       return;

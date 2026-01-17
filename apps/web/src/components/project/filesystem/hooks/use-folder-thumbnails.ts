@@ -8,19 +8,22 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 type UseFolderThumbnailsParams = {
   currentUri?: string | null;
   includeHidden?: boolean;
+  projectId?: string;
 };
 
 /** Fetch folder thumbnails and normalize them into a map. */
 function useFolderThumbnails({
   currentUri,
   includeHidden,
+  projectId,
 }: UseFolderThumbnailsParams) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
+  const shouldFetch = currentUri !== null && currentUri !== undefined && Boolean(workspaceId);
   const thumbnailsQuery = useQuery(
     trpc.fs.folderThumbnails.queryOptions(
-      currentUri && workspaceId
-        ? { workspaceId, uri: currentUri, includeHidden }
+      shouldFetch
+        ? { workspaceId, projectId, uri: currentUri, includeHidden }
         : skipToken
     )
   );

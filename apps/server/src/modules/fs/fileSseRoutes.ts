@@ -1,7 +1,10 @@
 import type { Hono } from "hono";
 import path from "node:path";
 import chokidar from "chokidar";
-import { resolveWorkspacePathFromUri } from "@tenas-ai/api/services/vfsService";
+import {
+  resolveScopedRootPath,
+  resolveScopedPath,
+} from "@tenas-ai/api/services/vfsService";
 import { logger } from "@/common/logger";
 
 const SSE_HEADERS = {
@@ -23,14 +26,18 @@ type FileWatchPayload = {
 export function registerFileSseRoutes(app: Hono) {
   app.get("/fs/watch", async (c) => {
     const projectId = c.req.query("projectId")?.trim() ?? "";
-    const dirUri = c.req.query("dirUri")?.trim() ?? "";
-    if (!projectId || !dirUri) {
-      return c.json({ error: "Missing projectId or dirUri" }, 400);
+    const workspaceId = c.req.query("workspaceId")?.trim() ?? "";
+    const rawDirUri = c.req.query("dirUri");
+    if (!projectId || !workspaceId || rawDirUri === undefined) {
+      return c.json({ error: "Missing projectId, workspaceId or dirUri" }, 400);
     }
+    const dirUri = rawDirUri.trim();
 
     let fullPath: string;
     try {
-      fullPath = resolveWorkspacePathFromUri(dirUri);
+      fullPath = dirUri
+        ? resolveScopedPath({ workspaceId, projectId, target: dirUri })
+        : resolveScopedRootPath({ workspaceId, projectId });
     } catch (error) {
       logger.warn({ err: error }, "[fs] invalid dirUri");
       return c.json({ error: "Invalid dirUri" }, 400);

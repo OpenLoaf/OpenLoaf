@@ -28,6 +28,7 @@ export const projectCreateToolDef = {
       .optional()
       .describe("项目根目录 URI（file://...，将写入 .tenas/project.json）"),
     title: z.string().nullable().optional().describe("项目标题（可选）"),
+    folderName: z.string().nullable().optional().describe("项目目录名称（可选）"),
     icon: z.string().nullable().optional().describe("项目图标（可选）"),
   }),
   needsApproval: true,

@@ -48,6 +48,7 @@ interface DocViewerProps {
   openUri?: string;
   name?: string;
   ext?: string;
+  projectId?: string;
   panelKey?: string;
   tabId?: string;
 }
@@ -133,13 +134,27 @@ async function buildDocxBuffer(text: string): Promise<ArrayBuffer> {
 
 /** Build a new file uri for saving docx files. */
 function resolveSaveUri(uri: string): string {
+  const trimmed = uri.trim();
+  if (!trimmed) return uri;
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+    const parts = trimmed.split("/").filter(Boolean);
+    const currentName = parts.pop() ?? "document.docx";
+    const lowerName = currentName.toLowerCase();
+    if (lowerName.endsWith(".docx")) {
+      return trimmed;
+    }
+    const baseName = currentName.replace(/\.[^.]+$/, "") || currentName;
+    const nextName = `${baseName}.docx`;
+    parts.push(nextName);
+    return parts.join("/");
+  }
   try {
-    const url = new URL(uri);
+    const url = new URL(trimmed);
     const parts = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
     const currentName = parts.pop() ?? "document.docx";
     const lowerName = currentName.toLowerCase();
     if (lowerName.endsWith(".docx")) {
-      return uri;
+      return trimmed;
     }
     const baseName = currentName.replace(/\.[^.]+$/, "") || currentName;
     const nextName = `${baseName}.docx`;
@@ -147,7 +162,7 @@ function resolveSaveUri(uri: string): string {
     url.pathname = `/${parts.map(encodeURIComponent).join("/")}`;
     return url.toString();
   } catch {
-    return uri;
+    return trimmed;
   }
 }
 
@@ -181,6 +196,7 @@ export default function DocViewer({
   openUri,
   name,
   ext,
+  projectId,
   panelKey,
   tabId,
 }: DocViewerProps) {
@@ -210,14 +226,21 @@ export default function DocViewer({
   const [isDark, setIsDark] = useState(false);
 
   /** Flags whether the viewer should load via fs.readBinary. */
-  const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
+  const shouldUseFs =
+    typeof uri === "string" &&
+    uri.trim().length > 0 &&
+    (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(uri) || uri.startsWith("file://"));
   /** Flags legacy doc extension that cannot be parsed. */
   const isLegacyDoc =
     (ext ?? "").toLowerCase() === "doc" ||
     (typeof uri === "string" && uri.toLowerCase().endsWith(".doc"));
   /** Holds the binary payload fetched from the fs API. */
   const fileQuery = useQuery({
-    ...trpc.fs.readBinary.queryOptions({ workspaceId, uri: uri ?? "" }),
+    ...trpc.fs.readBinary.queryOptions({
+      workspaceId,
+      projectId,
+      uri: uri ?? "",
+    }),
     enabled: shouldUseFs && Boolean(uri) && !isLegacyDoc && Boolean(workspaceId),
   });
   /** Mutation handler for persisting binary payloads. */
@@ -361,6 +384,7 @@ export default function DocViewer({
       const saveUri = resolveSaveUri(uri);
       await writeBinaryMutation.mutateAsync({
         workspaceId,
+        projectId,
         uri: saveUri,
         contentBase64,
       });

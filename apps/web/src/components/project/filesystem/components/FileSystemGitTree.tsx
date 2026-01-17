@@ -26,6 +26,7 @@ import {
   buildChildUri,
   getEntryExt,
   getRelativePathFromUri,
+  resolveFileUriFromRoot,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
 import { DOC_EXTS, SPREADSHEET_EXTS, getEntryVisual } from "./FileSystemEntryVisual";
@@ -36,6 +37,8 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 type FileSystemGitTreeProps = {
   /** Project root uri. */
   rootUri: string;
+  /** Project id for scoped file system queries. */
+  projectId?: string;
   /** Optional project title for root display. */
   projectTitle?: string;
   /** Current folder uri used for auto expansion. */
@@ -99,6 +102,10 @@ type GitTreeNode = {
 type FileSystemGitTreeNodeProps = {
   /** Node data. */
   node: GitTreeNode;
+  /** Project id for scoped file system queries. */
+  projectId?: string;
+  /** Root uri for local integrations. */
+  rootUri?: string;
   /** Depth in the tree. */
   depth: number;
   /** Expanded state map. */
@@ -167,13 +174,14 @@ function shouldOpenOfficeWithSystem(ext: string): boolean {
 }
 
 /** Open a file via the system default handler. */
-function openWithDefaultApp(entry: FileSystemEntry): void {
+function openWithDefaultApp(entry: FileSystemEntry, rootUri?: string): void {
   // 逻辑：桌面端通过 openPath 调起系统默认应用。
   if (!window.tenasElectron?.openPath) {
     toast.error("网页版不支持打开本地文件");
     return;
   }
-  void window.tenasElectron.openPath({ uri: entry.uri }).then((res) => {
+  const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
+  void window.tenasElectron.openPath({ uri: fileUri }).then((res) => {
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件");
     }
@@ -195,8 +203,14 @@ function resolveEntryLabel(entry: FileSystemEntry): string {
 function resolveRootLabel(rootUri: string, projectTitle?: string): string {
   const trimmedTitle = projectTitle?.trim();
   if (trimmedTitle) return trimmedTitle;
+  const trimmedRoot = rootUri.trim();
+  if (!trimmedRoot) return "Project";
+  if (!trimmedRoot.startsWith("file://")) {
+    const parts = trimmedRoot.split("/").filter(Boolean);
+    return decodeURIComponent(parts.at(-1) ?? "Project");
+  }
   try {
-    const url = new URL(rootUri);
+    const url = new URL(trimmedRoot);
     const parts = url.pathname.split("/").filter(Boolean);
     return decodeURIComponent(parts.at(-1) ?? "Project");
   } catch {
@@ -218,13 +232,16 @@ function buildTreeNode(entry: FileSystemEntry, thumbnailSrc?: string): GitTreeNo
 
 /** Build ancestor uris from root to target. */
 function buildAncestorUris(rootUri: string, targetUri: string): string[] {
-  const relativePath = getRelativePathFromUri(rootUri, targetUri);
-  if (!relativePath) return [];
-  const parts = relativePath.split("/").filter(Boolean);
+  const rootRelative = getRelativePathFromUri(rootUri, rootUri);
+  const targetRelative = getRelativePathFromUri(rootUri, targetUri);
+  if (!targetRelative) return [];
+  const rootParts = rootRelative ? rootRelative.split("/").filter(Boolean) : [];
+  const targetParts = targetRelative.split("/").filter(Boolean);
+  const relativeParts = targetParts.slice(rootParts.length);
   const uris: string[] = [];
-  let cursor = rootUri;
+  let cursor = rootRelative;
   // 逻辑：逐级拼接路径，保证树节点能按层级展开。
-  for (const part of parts) {
+  for (const part of relativeParts) {
     cursor = buildChildUri(cursor, part);
     uris.push(cursor);
   }
@@ -243,6 +260,8 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
   showHidden,
   sortField,
   sortOrder,
+  projectId,
+  rootUri,
   renamingUri,
   renamingValue,
   onRenamingChange,
@@ -273,6 +292,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
       shouldFetchChildren && workspaceId
         ? {
             workspaceId,
+            projectId,
             uri: node.entry.uri,
             includeHidden: showHidden,
             sort:
@@ -286,6 +306,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
   const { thumbnailByUri } = useFolderThumbnails({
     currentUri: shouldFetchChildren ? node.entry.uri : null,
     includeHidden: showHidden,
+    projectId,
   });
   const childNodes = useMemo(() => {
     const entries = listQuery.data?.entries ?? [];
@@ -353,7 +374,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
       const ext = getEntryExt(node.entry);
       if (!shouldOpenOfficeWithSystem(ext)) return;
       // 逻辑：无法内置处理的 Office 文件双击交给系统默认程序打开。
-      openWithDefaultApp(node.entry);
+      openWithDefaultApp(node.entry, rootUri);
     },
     [node.entry, shouldBlockPointerEvent]
   );
@@ -468,6 +489,8 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
               <FileSystemGitTreeNode
                 key={child.entry.uri}
                 node={child}
+                projectId={projectId}
+                rootUri={rootUri}
                 depth={childDepth}
                 expandedNodes={expandedNodes}
                 dragOverFolderUri={dragOverFolderUri}
@@ -503,6 +526,7 @@ FileSystemGitTreeNode.displayName = "FileSystemGitTreeNode";
 /** Render a git-aware file tree with lazy loading. */
 export default function FileSystemGitTree({
   rootUri,
+  projectId,
   projectTitle,
   currentUri,
   selectedUris,
@@ -546,10 +570,14 @@ export default function FileSystemGitTree({
     () => resolveRootLabel(rootUri, projectTitle),
     [projectTitle, rootUri]
   );
+  const rootRelative = useMemo(
+    () => getRelativePathFromUri(rootUri, rootUri),
+    [rootUri]
+  );
   const rootNode = useMemo<GitTreeNode>(
     () => ({
       entry: {
-        uri: rootUri,
+        uri: rootRelative,
         name: rootLabel,
         kind: "folder",
       },
@@ -558,10 +586,10 @@ export default function FileSystemGitTree({
       isBoardFolder: false,
       isRoot: true,
     }),
-    [rootLabel, rootUri]
+    [rootLabel, rootRelative]
   );
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>(() => ({
-    [rootUri]: true,
+    [rootRelative]: true,
   }));
 
   /** Register a node entry for drag resolution. */
@@ -628,8 +656,8 @@ export default function FileSystemGitTree({
   }, [currentUri, selectedUris]);
 
   useEffect(() => {
-    setExpandedNodes({ [rootUri]: true });
-  }, [rootUri]);
+    setExpandedNodes({ [rootRelative]: true });
+  }, [rootRelative]);
 
   useEffect(() => {
     if (!revealUri) return;
@@ -672,6 +700,8 @@ export default function FileSystemGitTree({
     <div className="flex h-full min-h-0 flex-col gap-1">
       <FileSystemGitTreeNode
         node={rootNode}
+        projectId={projectId}
+        rootUri={rootUri}
         depth={0}
         expandedNodes={expandedNodes}
         dragOverFolderUri={dragOverFolderUri}

@@ -28,7 +28,9 @@ import {
   formatSize,
   formatTimestamp,
   getEntryExt,
+  getRelativePathFromUri,
   IGNORE_NAMES,
+  resolveFileUriFromRoot,
 } from "../utils/file-system-utils";
 import {
   CODE_EXTS,
@@ -75,13 +77,14 @@ function shouldOpenOfficeWithSystem(ext: string): boolean {
 }
 
 /** Open a file via the system default handler. */
-function openWithDefaultApp(entry: FileSystemEntry): void {
+function openWithDefaultApp(entry: FileSystemEntry, rootUri?: string): void {
   // 逻辑：桌面端通过 openPath 调起系统默认应用。
   if (!window.tenasElectron?.openPath) {
     toast.error("网页版不支持打开本地文件");
     return;
   }
-  void window.tenasElectron.openPath({ uri: entry.uri }).then((res) => {
+  const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
+  void window.tenasElectron.openPath({ uri: fileUri }).then((res) => {
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件");
     }
@@ -91,27 +94,21 @@ function openWithDefaultApp(entry: FileSystemEntry): void {
 /** Build column uris from root to current. */
 function buildColumnUris(rootUri?: string, currentUri?: string | null) {
   if (!rootUri) return [];
-  if (!currentUri) return [rootUri];
-  try {
-    const rootUrl = new URL(rootUri);
-    const currentUrl = new URL(currentUri);
-    const rootParts = rootUrl.pathname.split("/").filter(Boolean);
-    const currentParts = currentUrl.pathname.split("/").filter(Boolean);
-    if (currentParts.length < rootParts.length) return [rootUri];
-    const relativeParts = currentParts.slice(rootParts.length);
-    const uris: string[] = [rootUri];
-    let accumParts = [...rootParts];
-    // 从 root 向下构建列路径，确保列顺序稳定。
-    for (const part of relativeParts) {
-      accumParts = [...accumParts, part];
-      const nextUrl = new URL(rootUri);
-      nextUrl.pathname = `/${accumParts.join("/")}`;
-      uris.push(nextUrl.toString());
-    }
-    return uris;
-  } catch {
-    return [rootUri];
+  const rootRelative = getRelativePathFromUri(rootUri, rootUri);
+  if (!currentUri) return [rootRelative];
+  const currentRelative = getRelativePathFromUri(rootUri, currentUri);
+  const rootParts = rootRelative ? rootRelative.split("/").filter(Boolean) : [];
+  const currentParts = currentRelative ? currentRelative.split("/").filter(Boolean) : [];
+  if (currentParts.length < rootParts.length) return [rootRelative];
+  const relativeParts = currentParts.slice(rootParts.length);
+  const uris: string[] = [rootRelative];
+  let accumParts = [...rootParts];
+  // 从 root 向下构建列路径，确保列顺序稳定。
+  for (const part of relativeParts) {
+    accumParts = [...accumParts, part];
+    uris.push(accumParts.join("/"));
   }
+  return uris;
 }
 
 /** Resolve the display name for column rows. */
@@ -300,6 +297,7 @@ type FileSystemColumnsProps = {
   isLoading: boolean;
   isSearchLoading?: boolean;
   searchQuery?: string;
+  projectId?: string;
   rootUri?: string;
   currentUri?: string | null;
   includeHidden?: boolean;
@@ -363,6 +361,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
   isLoading,
   isSearchLoading = false,
   searchQuery,
+  projectId,
   rootUri,
   currentUri,
   includeHidden,
@@ -412,6 +411,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
     queries: columnUris.map((uri) => ({
       ...trpc.fs.list.queryOptions({
         workspaceId,
+        projectId,
         uri,
         includeHidden,
         sort:
@@ -486,6 +486,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
   const { thumbnailByUri } = useFolderThumbnails({
     currentUri: activeUri,
     includeHidden,
+    projectId,
   });
 
   const fallbackPreviewUri = useMemo(() => {
@@ -515,12 +516,11 @@ const FileSystemColumns = memo(function FileSystemColumns({
   const isPreviewImage = previewEntry ? IMAGE_EXTS.has(previewExt) : false;
   const isPreviewPdf = previewEntry ? PDF_EXTS.has(previewExt) : false;
   const shouldLoadPreview =
-    Boolean(previewEntry) &&
-    (isPreviewImage || isPreviewPdf) &&
-    Boolean(previewEntry?.uri?.startsWith("file://"));
+    Boolean(previewEntry) && (isPreviewImage || isPreviewPdf);
   const previewQuery = useQuery({
     ...trpc.fs.readBinary.queryOptions({
       workspaceId,
+      projectId,
       uri: previewEntry?.uri ?? "",
     }),
     enabled: shouldLoadPreview && Boolean(workspaceId),
@@ -713,7 +713,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
       }
       if (entry.kind === "file" && DOC_EXTS.has(entryExt)) {
         if (shouldOpenOfficeWithSystem(entryExt)) {
-          openWithDefaultApp(entry);
+          openWithDefaultApp(entry, rootUri);
           return;
         }
         onOpenDocRef.current?.(entry);
@@ -721,7 +721,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
       }
       if (entry.kind === "file" && SPREADSHEET_EXTS.has(entryExt)) {
         if (shouldOpenOfficeWithSystem(entryExt)) {
-          openWithDefaultApp(entry);
+          openWithDefaultApp(entry, rootUri);
           return;
         }
         onOpenSpreadsheetRef.current?.(entry);
@@ -737,7 +737,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
           "此文件类型暂不支持预览，是否使用系统默认程序打开？"
         );
         if (!ok) return;
-        openWithDefaultApp(entry);
+        openWithDefaultApp(entry, rootUri);
         return;
       }
       if (entry.kind !== "folder") return;

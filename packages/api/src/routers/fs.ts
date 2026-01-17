@@ -3,7 +3,7 @@ import path from "node:path";
 import { promises as fs, type Dirent } from "node:fs";
 import sharp from "sharp";
 import { t, shieldedProcedure } from "../index";
-import { resolveScopedPath, toFileUri } from "../services/vfsService";
+import { resolveScopedPath, resolveScopedRootPath, toRelativePath } from "../services/vfsService";
 
 /** Board folder prefix for server-side sorting. */
 const BOARD_FOLDER_PREFIX = "tnboard_";
@@ -85,6 +85,7 @@ type FsFileNode = {
 function buildFileNode(input: {
   name: string;
   fullPath: string;
+  rootPath: string;
   stat: Awaited<ReturnType<typeof fs.stat>>;
   isEmpty?: boolean;
 }): FsFileNode {
@@ -95,7 +96,7 @@ function buildFileNode(input: {
     ? input.stat.ctime.toISOString()
     : input.stat.birthtime.toISOString();
   return {
-    uri: toFileUri(input.fullPath),
+    uri: toRelativePath(input.rootPath, input.fullPath),
     name: input.name,
     kind: isDir ? "folder" : "file",
     ext: ext || undefined,
@@ -111,11 +112,19 @@ function resolveFsTarget(
   scope: { workspaceId: string; projectId?: string },
   target: string
 ): string {
+  if (!target?.trim()) {
+    return resolveFsRootPath(scope);
+  }
   return resolveScopedPath({
     workspaceId: scope.workspaceId,
     projectId: scope.projectId,
     target,
   });
+}
+
+/** Resolve root path for scoped file system operations. */
+function resolveFsRootPath(scope: { workspaceId: string; projectId?: string }): string {
+  return resolveScopedRootPath(scope);
 }
 
 /** Resolve a simple mime type from file extension. */
@@ -185,13 +194,20 @@ async function resolveFolderEmptyState(fullPath: string, includeHidden: boolean)
 export const fsRouter = t.router({
   /** Read metadata for a file or directory. */
   stat: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
+    const rootPath = resolveFsRootPath(input);
     const fullPath = resolveFsTarget(input, input.uri);
     const stat = await fs.stat(fullPath);
-    return buildFileNode({ name: path.basename(fullPath), fullPath, stat });
+    return buildFileNode({
+      name: path.basename(fullPath),
+      fullPath,
+      rootPath,
+      stat,
+    });
   }),
 
   /** List direct children of a directory. */
   list: shieldedProcedure.input(fsListSchema).query(async ({ input }) => {
+    const rootPath = resolveFsRootPath(input);
     const fullPath = resolveFsTarget(input, input.uri);
     const entries = await fs.readdir(fullPath, { withFileTypes: true });
     const includeHidden = Boolean(input.includeHidden);
@@ -207,6 +223,7 @@ export const fsRouter = t.router({
         buildFileNode({
           name: entry.name,
           fullPath: entryPath,
+          rootPath,
           stat,
           isEmpty,
         })
@@ -240,6 +257,7 @@ export const fsRouter = t.router({
 
   /** Build thumbnails for image entries. */
   thumbnails: shieldedProcedure.input(fsThumbnailSchema).query(async ({ input }) => {
+    const rootPath = resolveFsRootPath(input);
     // 生成 40x40 的低质量缩略图，避免传输原图。
     const items = await Promise.all(
       input.uris.map(async (uri) => {
@@ -249,7 +267,10 @@ export const fsRouter = t.router({
             .resize(40, 40, { fit: "cover" })
             .webp({ quality: 45 })
             .toBuffer();
-          return { uri, dataUrl: `data:image/webp;base64,${buffer.toString("base64")}` };
+          return {
+            uri: toRelativePath(rootPath, fullPath),
+            dataUrl: `data:image/webp;base64,${buffer.toString("base64")}`,
+          };
         } catch {
           return null;
         }
@@ -262,6 +283,7 @@ export const fsRouter = t.router({
   folderThumbnails: shieldedProcedure
     .input(fsFolderThumbnailSchema)
     .query(async ({ input }) => {
+      const rootPath = resolveFsRootPath(input);
       const fullPath = resolveFsTarget(input, input.uri);
       const includeHidden = Boolean(input.includeHidden);
       const entries = await fs.readdir(fullPath, { withFileTypes: true });
@@ -281,7 +303,7 @@ export const fsRouter = t.router({
               .webp({ quality: 45 })
               .toBuffer();
             return {
-              uri: toFileUri(entryPath),
+              uri: toRelativePath(rootPath, entryPath),
               dataUrl: `data:image/webp;base64,${buffer.toString("base64")}`,
             };
           } catch {
@@ -426,7 +448,8 @@ export const fsRouter = t.router({
 
   /** Search within workspace root (MVP stub). */
   search: shieldedProcedure.input(fsSearchSchema).query(async ({ input }) => {
-    const rootPath = resolveFsTarget(input, input.rootUri);
+    const rootBasePath = resolveFsRootPath(input);
+    const searchRootPath = resolveFsTarget(input, input.rootUri);
     const query = input.query.trim().toLowerCase();
     if (!query) return { results: [] };
     const includeHidden = Boolean(input.includeHidden);
@@ -434,7 +457,7 @@ export const fsRouter = t.router({
     const maxDepth = input.maxDepth ?? DEFAULT_SEARCH_MAX_DEPTH;
     let rootStat: Awaited<ReturnType<typeof fs.stat>> | null = null;
     try {
-      rootStat = await fs.stat(rootPath);
+      rootStat = await fs.stat(searchRootPath);
     } catch {
       return { results: [] };
     }
@@ -471,6 +494,7 @@ export const fsRouter = t.router({
             buildFileNode({
               name: entry.name,
               fullPath: entryPath,
+              rootPath: rootBasePath,
               stat,
               isEmpty,
             })
@@ -482,7 +506,7 @@ export const fsRouter = t.router({
       }
     };
     // 中文注释：递归搜索目录，命中数量达到上限时直接停止。
-    await visit(rootPath, 0);
+    await visit(searchRootPath, 0);
     return { results };
   }),
 });

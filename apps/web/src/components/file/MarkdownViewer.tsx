@@ -37,6 +37,13 @@ type MdxNode = {
   attributes?: MdxAttribute[];
   children?: MdxNode[];
 };
+type FrontMatterValue = string | string[];
+type FrontMatterEntry = {
+  /** Front matter key. */
+  key: string;
+  /** Front matter value. */
+  value: FrontMatterValue;
+};
 
 /** Default viewer mode for markdown files. */
 const DEFAULT_MARKDOWN_MODE: MarkdownViewerMode = "preview";
@@ -44,6 +51,10 @@ const DEFAULT_MARKDOWN_MODE: MarkdownViewerMode = "preview";
 const MDX_PLACEHOLDER_PREFIX = "[MDX]";
 /** Prefix for MDX expression placeholders. */
 const MDX_EXPRESSION_PREFIX = "[MDX表达式]";
+/** YAML front matter delimiter. */
+const FRONT_MATTER_DELIMITER = "---";
+/** YAML front matter end delimiter. */
+const FRONT_MATTER_END_DELIMITER = "...";
 /** 默认编辑状态快照。 */
 /** 默认编辑状态快照。 */
 const DEFAULT_CODE_STATUS: CodeViewerStatus = {
@@ -124,6 +135,155 @@ function mdxPlaceholderPlugin() {
   };
 }
 
+/** Extract YAML front matter block from markdown content. */
+function extractFrontMatter(content: string): { raw: string; body: string } | null {
+  const lines = content.split(/\r?\n/u);
+  if (lines.length === 0) return null;
+  if (lines[0]?.trim() !== FRONT_MATTER_DELIMITER) return null;
+
+  let endIndex = -1;
+  for (let index = 1; index < lines.length; index += 1) {
+    const trimmed = lines[index]?.trim() ?? "";
+    if (trimmed === FRONT_MATTER_DELIMITER || trimmed === FRONT_MATTER_END_DELIMITER) {
+      endIndex = index;
+      break;
+    }
+  }
+
+  if (endIndex === -1) return null;
+  // 逻辑：仅处理起始 front matter，避免误伤正文中的分隔符。
+  const raw = lines.slice(1, endIndex).join("\n");
+  const body = lines.slice(endIndex + 1).join("\n");
+  return { raw, body };
+}
+
+/** Normalize YAML scalar values for display. */
+function normalizeFrontMatterScalar(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (
+    (trimmed.startsWith("\"") && trimmed.endsWith("\"")) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+/** Parse inline YAML array syntax. */
+function parseInlineArray(value: string): string[] | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return null;
+  const inner = trimmed.slice(1, -1).trim();
+  if (!inner) return [];
+  return inner
+    .split(",")
+    .map((item) => normalizeFrontMatterScalar(item))
+    .filter(Boolean);
+}
+
+/** Collect indented block lines for YAML values. */
+function collectIndentedBlock(lines: string[], startIndex: number): {
+  blockLines: string[];
+  nextIndex: number;
+} {
+  const blockLines: string[] = [];
+  let index = startIndex;
+  // 逻辑：读取缩进块并保留空行，直到遇到下一条顶层键。
+  for (; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (line.trim() === "") {
+      blockLines.push("");
+      continue;
+    }
+    if (!line.startsWith(" ") && !line.startsWith("\t")) break;
+    blockLines.push(line.replace(/^\s+/u, ""));
+  }
+  return { blockLines, nextIndex: index };
+}
+
+/** Parse YAML list items from indented block. */
+function parseYamlList(lines: string[]): string[] | null {
+  const items: string[] = [];
+  // 逻辑：仅当所有非空行均为列表项时才按数组处理。
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (!trimmed.startsWith("-")) return null;
+    const value = normalizeFrontMatterScalar(trimmed.replace(/^-\s*/u, ""));
+    if (value) items.push(value);
+  }
+  return items.length ? items : null;
+}
+
+/** Parse YAML front matter block into display entries. */
+function parseFrontMatterEntries(raw: string): FrontMatterEntry[] {
+  const lines = raw.split(/\r?\n/u);
+  const entries: FrontMatterEntry[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const match = /^([A-Za-z0-9_-]+):\s*(.*)$/u.exec(line);
+    if (!match) continue;
+    const key = match[1];
+    const rawValue = match[2] ?? "";
+    const valueTrimmed = rawValue.trim();
+
+    if (valueTrimmed === "|" || valueTrimmed === ">") {
+      // 逻辑：块标量按单行或多行展示，避免丢失上下文。
+      const { blockLines, nextIndex } = collectIndentedBlock(lines, index + 1);
+      const joined = valueTrimmed === ">" ? blockLines.join(" ") : blockLines.join("\n");
+      const normalized = joined.trim();
+      if (normalized) {
+        entries.push({ key, value: normalized });
+      }
+      index = nextIndex - 1;
+      continue;
+    }
+
+    if (!valueTrimmed) {
+      const { blockLines, nextIndex } = collectIndentedBlock(lines, index + 1);
+      const listValues = parseYamlList(blockLines);
+      if (listValues?.length) {
+        entries.push({ key, value: listValues });
+      } else {
+        const joined = blockLines.join("\n").trim();
+        if (joined) {
+          entries.push({ key, value: joined });
+        }
+      }
+      index = nextIndex - 1;
+      continue;
+    }
+
+    const inlineArray = parseInlineArray(valueTrimmed);
+    if (inlineArray) {
+      if (inlineArray.length) {
+        entries.push({ key, value: inlineArray });
+      }
+      continue;
+    }
+
+    const normalized = normalizeFrontMatterScalar(valueTrimmed);
+    if (normalized) {
+      entries.push({ key, value: normalized });
+    }
+  }
+
+  return entries;
+}
+
+/** Format front matter values for display. */
+function formatFrontMatterValue(value: FrontMatterValue): string {
+  if (Array.isArray(value)) {
+    return value.join("\n");
+  }
+  return value;
+}
+
 /** Render a markdown preview panel with a streamdown viewer. */
 export default function MarkdownViewer({
   uri,
@@ -161,6 +321,23 @@ export default function MarkdownViewer({
   }
 
   const content = fileQuery.data?.content ?? "";
+  const { frontMatter, previewMarkdown } = useMemo(() => {
+    const extracted = extractFrontMatter(content);
+    if (!extracted) {
+      return { frontMatter: null, previewMarkdown: content };
+    }
+    const raw = extracted.raw.trim();
+    if (!raw) {
+      return { frontMatter: null, previewMarkdown: extracted.body };
+    }
+    return {
+      frontMatter: {
+        raw,
+        entries: parseFrontMatterEntries(raw),
+      },
+      previewMarkdown: extracted.body,
+    };
+  }, [content]);
   const isMdx = (ext ?? "").toLowerCase() === "mdx";
   const remarkPlugins = useMemo(() => {
     const basePlugins = Object.values(defaultRemarkPlugins);
@@ -186,14 +363,41 @@ export default function MarkdownViewer({
       {fileQuery.error?.message ?? "读取失败"}
     </div>
   ) : (
-    <Streamdown
-      mode="static"
-      className="streamdown-viewer space-y-3"
-      remarkPlugins={remarkPlugins}
-      shikiTheme={STREAMDOWN_SHIKI_THEME}
-    >
-      {content}
-    </Streamdown>
+    <>
+      {frontMatter ? (
+        <div className="px-8 pt-3">
+          <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-xs">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              YAML Front Matter
+            </div>
+            {frontMatter.entries.length ? (
+              <dl className="mt-2 grid gap-2">
+                {frontMatter.entries.map((entry) => (
+                  <div key={entry.key} className="grid gap-1 sm:grid-cols-[140px,1fr]">
+                    <dt className="font-medium text-foreground">{entry.key}</dt>
+                    <dd className="break-words whitespace-pre-wrap text-muted-foreground">
+                      {formatFrontMatterValue(entry.value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <pre className="mt-2 whitespace-pre-wrap font-mono text-xs text-muted-foreground">
+                {frontMatter.raw}
+              </pre>
+            )}
+          </div>
+        </div>
+      ) : null}
+      <Streamdown
+        mode="static"
+        className="streamdown-viewer space-y-3"
+        remarkPlugins={remarkPlugins}
+        shikiTheme={STREAMDOWN_SHIKI_THEME}
+      >
+        {previewMarkdown}
+      </Streamdown>
+    </>
   );
 
   return (

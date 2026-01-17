@@ -41,9 +41,12 @@ import {
   formatSize,
   formatTimestamp,
   getDisplayPathFromUri,
+  getParentRelativePath,
   getRelativePathFromUri,
   getUniqueName,
+  normalizeRelativePath,
   parseScopedProjectPath,
+  resolveFileUriFromRoot,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
 import { useFileSystemHistory, type HistoryAction } from "./file-system-history";
@@ -155,32 +158,32 @@ export type ProjectFileSystemModel = {
 
 /** Resolve parent uri for the current folder. */
 function getParentUri(rootUri?: string, currentUri?: string | null): string | null {
-  if (!rootUri || !currentUri) return null;
-  const rootUrl = new URL(rootUri);
-  const currentUrl = new URL(currentUri);
-  const rootParts = rootUrl.pathname.split("/").filter(Boolean);
-  const currentParts = currentUrl.pathname.split("/").filter(Boolean);
+  if (!currentUri) return null;
+  const normalizedRoot = rootUri ? normalizeRelativePath(rootUri) : "";
+  const normalizedCurrent = normalizeRelativePath(currentUri);
+  const rootParts = normalizedRoot ? normalizedRoot.split("/").filter(Boolean) : [];
+  const currentParts = normalizedCurrent ? normalizedCurrent.split("/").filter(Boolean) : [];
   // 已到根目录时不再返回上级。
   if (currentParts.length <= rootParts.length) return null;
-  const parentParts = currentParts.slice(0, -1);
-  const parentUrl = new URL(rootUri);
-  parentUrl.pathname = `/${parentParts.join("/")}`;
-  return parentUrl.toString();
+  return currentParts.slice(0, -1).join("/");
 }
 
 /** Resolve the parent directory uri for an entry. */
 function getEntryParentUri(entry: FileSystemEntry): string | null {
-  try {
-    const url = new URL(entry.uri);
-    const parts = url.pathname.split("/").filter(Boolean);
-    if (parts.length === 0) return null;
-    // 中文注释：文件条目使用父目录作为终端工作目录。
-    parts.pop();
-    url.pathname = `/${parts.map((part) => encodeURIComponent(decodeURIComponent(part))).join("/")}`;
-    return url.toString();
-  } catch {
-    return null;
-  }
+  const parent = getParentRelativePath(entry.uri);
+  // 中文注释：文件条目使用父目录作为终端工作目录。
+  return parent;
+}
+
+/** Check if target uri is inside source uri. */
+function isSubPath(sourceUri: string, targetUri: string) {
+  const normalizedSource = normalizeRelativePath(sourceUri);
+  const normalizedTarget = normalizeRelativePath(targetUri);
+  if (!normalizedSource || !normalizedTarget) return false;
+  return (
+    normalizedTarget === normalizedSource ||
+    normalizedTarget.startsWith(`${normalizedSource}/`)
+  );
 }
 
 /** Build project file system state and actions. */
@@ -192,7 +195,11 @@ export function useProjectFileSystemModel({
   initialSortField = null,
   initialSortOrder = null,
 }: ProjectFileSystemModelArgs): ProjectFileSystemModel {
-  const activeUri = currentUri ?? rootUri ?? null;
+  const normalizedRootUri = rootUri ? getRelativePathFromUri(rootUri, rootUri) : "";
+  const normalizedCurrentUri = currentUri
+    ? getRelativePathFromUri(rootUri ?? "", currentUri)
+    : null;
+  const activeUri = normalizedCurrentUri ?? (rootUri ? normalizedRootUri : null);
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const isElectron = useMemo(
@@ -220,7 +227,7 @@ export function useProjectFileSystemModel({
   const stableUriRef = useRef(activeUri);
   const listQuery = useQuery({
     ...trpc.fs.list.queryOptions(
-      activeUri && workspaceId
+      activeUri !== null && workspaceId
         ? {
             workspaceId,
             projectId,
@@ -243,7 +250,7 @@ export function useProjectFileSystemModel({
   }, [activeUri, isPlaceholderData]);
   const searchQuery = useQuery({
     ...trpc.fs.search.queryOptions(
-      activeUri && debouncedSearchValue && workspaceId
+      activeUri !== null && debouncedSearchValue && workspaceId
         ? {
             workspaceId,
             projectId,
@@ -274,7 +281,7 @@ export function useProjectFileSystemModel({
     return searchResults;
   }, [debouncedSearchValue, fileEntries, searchResults, trimmedSearchValue]);
   const displayUri = isPlaceholderData ? stableUriRef.current : activeUri;
-  const parentUri = getParentUri(rootUri, displayUri);
+  const parentUri = getParentUri(normalizedRootUri, displayUri);
   const existingNames = useMemo(
     () => new Set(fileEntries.map((entry) => entry.name)),
     [fileEntries]
@@ -291,8 +298,8 @@ export function useProjectFileSystemModel({
   const [isDragActive, setIsDragActive] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const trashRootUri = useMemo(
-    () => (rootUri ? buildChildUri(rootUri, ".tenas-trash") : null),
-    [rootUri]
+    () => (rootUri ? buildChildUri(normalizedRootUri, ".tenas-trash") : null),
+    [normalizedRootUri, rootUri]
   );
   const historyKey = useMemo(
     () => projectId ?? rootUri ?? "project-files",
@@ -320,7 +327,7 @@ export function useProjectFileSystemModel({
 
   /** Refresh the current folder list. */
   const refreshList = useCallback(() => {
-    if (!activeUri) return;
+    if (activeUri === null) return;
     if (!workspaceId) return;
     queryClient.invalidateQueries({
       queryKey: trpc.fs.list.queryOptions({
@@ -380,7 +387,8 @@ export function useProjectFileSystemModel({
         });
       },
       trash: async (uri) => {
-        const res = await window.tenasElectron?.trashItem?.({ uri });
+        const fileUri = resolveFileUriFromRoot(rootUri, uri);
+        const res = await window.tenasElectron?.trashItem?.({ uri: fileUri });
         if (!res?.ok) {
           throw new Error(res?.reason ?? "无法移动到回收站");
         }
@@ -391,10 +399,12 @@ export function useProjectFileSystemModel({
   );
 
   useEffect(() => {
-    if (!projectId || !activeUri) return;
+    if (!projectId || !workspaceId || activeUri === null) return;
     const baseUrl = resolveServerUrl();
     const url = `${baseUrl}/fs/watch?projectId=${encodeURIComponent(
       projectId
+    )}&workspaceId=${encodeURIComponent(
+      workspaceId
     )}&dirUri=${encodeURIComponent(activeUri)}`;
     const eventSource = new EventSource(url);
     eventSource.onmessage = (event) => {
@@ -412,7 +422,7 @@ export function useProjectFileSystemModel({
     return () => {
       eventSource.close();
     };
-  }, [projectId, activeUri, refreshList]);
+  }, [projectId, activeUri, refreshList, workspaceId]);
 
   useEffect(() => {
     clearHistory();
@@ -568,7 +578,8 @@ export function useProjectFileSystemModel({
       toast.error("网页版不支持打开本地文件");
       return;
     }
-    const res = await window.tenasElectron?.openPath?.({ uri: entry.uri });
+    const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
+    const res = await window.tenasElectron?.openPath?.({ uri: fileUri });
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件");
     }
@@ -580,10 +591,11 @@ export function useProjectFileSystemModel({
       toast.error("网页版不支持打开文件管理器");
       return;
     }
+    const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
     const res =
       entry.kind === "folder"
-        ? await window.tenasElectron?.openPath?.({ uri: entry.uri })
-        : await window.tenasElectron?.showItemInFolder?.({ uri: entry.uri });
+        ? await window.tenasElectron?.openPath?.({ uri: fileUri })
+        : await window.tenasElectron?.showItemInFolder?.({ uri: fileUri });
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件管理器");
     }
@@ -674,7 +686,7 @@ export function useProjectFileSystemModel({
         toast.error("未找到项目路径");
         return;
       }
-      const relativePath = getRelativePathFromUri(rootUri, entry.uri);
+      const relativePath = getRelativePathFromUri(rootUri ?? "", entry.uri);
       if (!relativePath) {
         toast.error("无法解析PDF路径");
         return;
@@ -791,8 +803,11 @@ export function useProjectFileSystemModel({
         toast.error("终端功能未开启");
         return;
       }
-      const pwdUri =
+      const pwdRelative =
         entry.kind === "folder" ? entry.uri : getEntryParentUri(entry);
+      const pwdUri = pwdRelative
+        ? resolveFileUriFromRoot(rootUri, pwdRelative)
+        : "";
       if (!pwdUri) {
         toast.error("无法解析终端目录");
         return;
@@ -808,7 +823,7 @@ export function useProjectFileSystemModel({
         },
       });
     },
-    [activeTabId, isTerminalEnabled, pushStackItem, terminalStatus.isLoading]
+    [activeTabId, isTerminalEnabled, pushStackItem, rootUri, terminalStatus.isLoading]
   );
 
   /** Open a terminal at the current directory. */
@@ -825,8 +840,9 @@ export function useProjectFileSystemModel({
       toast.error("终端功能未开启");
       return;
     }
-    const fallbackUri = activeUri || rootUri;
-    if (!fallbackUri) {
+    const fallbackUri = activeUri ?? normalizedRootUri;
+    const pwdUri = resolveFileUriFromRoot(rootUri, fallbackUri ?? "");
+    if (!pwdUri) {
       toast.error("未找到工作区目录");
       return;
     }
@@ -837,13 +853,14 @@ export function useProjectFileSystemModel({
       title: "Terminal",
       params: {
         __customHeader: true,
-        __open: { pwdUri: fallbackUri },
+        __open: { pwdUri },
       },
     });
   }, [
     activeTabId,
     activeUri,
     isTerminalEnabled,
+    normalizedRootUri,
     pushStackItem,
     rootUri,
     terminalStatus.isLoading,
@@ -851,7 +868,7 @@ export function useProjectFileSystemModel({
 
   /** Rename a file or folder with validation and history tracking. */
   const renameEntry = async (entry: FileSystemEntry, nextName: string) => {
-    if (!activeUri || !workspaceId) return null;
+    if (activeUri === null || !workspaceId) return null;
     const normalizedName =
       entry.kind === "folder" && isBoardFolderName(entry.name)
         ? ensureBoardFolderName(nextName)
@@ -948,7 +965,8 @@ export function useProjectFileSystemModel({
     if (!ok) return;
     if (isElectron && window.tenasElectron?.trashItem) {
       try {
-        const res = await window.tenasElectron.trashItem({ uri: entry.uri });
+        const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
+        const res = await window.tenasElectron.trashItem({ uri: fileUri });
         if (!res?.ok) {
           toast.error(res?.reason ?? "无法移动到系统回收站");
           return;
@@ -981,7 +999,8 @@ export function useProjectFileSystemModel({
     for (const entry of entries) {
       if (isElectron && window.tenasElectron?.trashItem) {
         try {
-          const res = await window.tenasElectron.trashItem({ uri: entry.uri });
+          const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
+          const res = await window.tenasElectron.trashItem({ uri: fileUri });
           if (!res?.ok) {
             toast.error(res?.reason ?? "无法移动到系统回收站");
           }
@@ -1015,7 +1034,7 @@ export function useProjectFileSystemModel({
 
   /** Create a new folder in the current directory. */
   const handleCreateFolder = async () => {
-    if (!activeUri || !workspaceId) return null;
+    if (activeUri === null || !workspaceId) return null;
     // 以默认名称创建并做唯一性处理，避免覆盖已有目录。
     const targetName = getUniqueName("新建文件夹", new Set(existingNames));
     const targetUri = buildChildUri(activeUri, targetName);
@@ -1032,7 +1051,7 @@ export function useProjectFileSystemModel({
 
   /** Create a new board folder in the current directory. */
   const handleCreateBoard = async () => {
-    if (!activeUri || !workspaceId) return;
+    if (activeUri === null || !workspaceId) return;
     const baseName = ensureBoardFolderName("新建画布");
     const targetName = getUniqueName(baseName, new Set(existingNames));
     const boardFolderUri = buildChildUri(activeUri, targetName);
@@ -1078,7 +1097,7 @@ export function useProjectFileSystemModel({
 
   /** Paste copied files into the current directory. */
   const handlePaste = async () => {
-    if (!activeUri) return;
+    if (activeUri === null) return;
     if (!fileClipboard || fileClipboard.length === 0) {
       toast.error("剪贴板为空");
       return;
@@ -1109,9 +1128,9 @@ export function useProjectFileSystemModel({
 
   /** Upload files into the target directory. */
   const handleUploadFiles = async (files: File[], targetUri = activeUri) => {
-    if (!targetUri || files.length === 0) return;
+    if (targetUri === null || files.length === 0) return;
     const targetEntries =
-      activeUri && targetUri === activeUri
+      activeUri !== null && targetUri === activeUri
         ? new Map(fileEntries.map((entry) => [entry.name, entry.kind]))
         : new Map(
             (
@@ -1161,7 +1180,7 @@ export function useProjectFileSystemModel({
     targetUri: string | null,
     payload: ReturnType<typeof readImageDragPayload>
   ): Promise<boolean> => {
-    if (!targetUri || !payload) return false;
+    if (targetUri === null || !payload) return false;
     try {
       const blob = await fetchBlobFromUri(payload.baseUri, { projectId });
       const fileName = payload.fileName || resolveFileName(payload.baseUri);
@@ -1221,9 +1240,7 @@ export function useProjectFileSystemModel({
   ): Promise<HistoryAction | null> => {
     if (source.kind === "folder" && source.uri === target.uri) return null;
     if (source.uri === target.uri) return null;
-    const sourceUrl = new URL(source.uri);
-    const targetUrl = new URL(target.uri);
-    if (targetUrl.pathname.startsWith(sourceUrl.pathname)) {
+    if (isSubPath(source.uri, target.uri)) {
       toast.error("无法移动到自身目录");
       return null;
     }
@@ -1292,7 +1309,7 @@ export function useProjectFileSystemModel({
     event: DragEvent<HTMLElement>
   ) => {
     if (!rootUri || !projectId) return;
-    const relativePath = getRelativePathFromUri(rootUri, entry.uri);
+    const relativePath = getRelativePathFromUri(rootUri ?? "", entry.uri);
     if (!relativePath) return;
     event.dataTransfer.setData(
       FILE_DRAG_REF_MIME,

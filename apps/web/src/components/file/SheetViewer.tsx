@@ -59,6 +59,7 @@ interface SheetViewerProps {
   openUri?: string;
   name?: string;
   ext?: string;
+  projectId?: string;
   panelKey?: string;
   tabId?: string;
 }
@@ -251,14 +252,28 @@ function resolveBookType(ext?: string, uri?: string): SheetBookType {
 
 /** Build a new file uri for saving excel files. */
 function resolveSaveUri(uri: string, ext?: string): string {
-  try {
-    const url = new URL(uri);
-    const parts = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-    const currentName = parts.pop() ?? "workbook.xlsx";
+  const trimmed = uri.trim();
+  if (!trimmed) return uri;
+  const fallbackExt = (ext ?? "").toLowerCase() === "xls" ? "xls" : "xlsx";
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+    const parts = trimmed.split("/").filter(Boolean);
+    const currentName = parts.pop() ?? `workbook.${fallbackExt}`;
     const lowerName = currentName.toLowerCase();
-    const fallbackExt = (ext ?? "").toLowerCase() === "xls" ? "xls" : "xlsx";
     if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
-      return uri;
+      return trimmed;
+    }
+    const baseName = currentName.replace(/\.[^.]+$/, "") || currentName;
+    const nextName = `${baseName}.${fallbackExt}`;
+    parts.push(nextName);
+    return parts.join("/");
+  }
+  try {
+    const url = new URL(trimmed);
+    const parts = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    const currentName = parts.pop() ?? `workbook.${fallbackExt}`;
+    const lowerName = currentName.toLowerCase();
+    if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
+      return trimmed;
     }
     const baseName = currentName.replace(/\.[^.]+$/, "") || currentName;
     const nextName = `${baseName}.${fallbackExt}`;
@@ -266,7 +281,7 @@ function resolveSaveUri(uri: string, ext?: string): string {
     url.pathname = `/${parts.map(encodeURIComponent).join("/")}`;
     return url.toString();
   } catch {
-    return uri;
+    return trimmed;
   }
 }
 
@@ -315,6 +330,7 @@ export default function SheetViewer({
   openUri,
   name,
   ext,
+  projectId,
   panelKey,
   tabId,
 }: SheetViewerProps) {
@@ -344,10 +360,17 @@ export default function SheetViewer({
   const [isDark, setIsDark] = useState(false);
 
   /** Flags whether the viewer should load via fs.readBinary. */
-  const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
+  const shouldUseFs =
+    typeof uri === "string" &&
+    uri.trim().length > 0 &&
+    (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(uri) || uri.startsWith("file://"));
   /** Holds the binary payload fetched from the fs API. */
   const fileQuery = useQuery({
-    ...trpc.fs.readBinary.queryOptions({ workspaceId, uri: uri ?? "" }),
+    ...trpc.fs.readBinary.queryOptions({
+      workspaceId,
+      projectId,
+      uri: uri ?? "",
+    }),
     enabled: shouldUseFs && Boolean(uri) && Boolean(workspaceId),
   });
   /** Mutation handler for persisting binary payloads. */
@@ -477,6 +500,7 @@ export default function SheetViewer({
       const saveUri = resolveSaveUri(uri, ext);
       await writeBinaryMutation.mutateAsync({
         workspaceId,
+        projectId,
         uri: saveUri,
         contentBase64,
       });

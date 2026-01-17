@@ -160,6 +160,14 @@ export function toFileUri(targetPath: string): string {
   return pathToFileURL(targetPath).href;
 }
 
+/** Convert a local path to file:// URI without URL encoding. */
+export function toFileUriWithoutEncoding(targetPath: string): string {
+  const resolved = path.resolve(targetPath);
+  const normalized = resolved.replace(/\\/g, "/");
+  if (normalized.startsWith("/")) return `file://${normalized}`;
+  return `file:///${normalized}`;
+}
+
 /** Resolve a file:// URI into a local path. */
 export function resolveFilePathFromUri(uri: string): string {
   const url = new URL(uri);
@@ -172,6 +180,41 @@ export function resolveFilePathFromUri(uri: string): string {
 /** Resolve a URI into an absolute local path. */
 export function resolveWorkspacePathFromUri(uri: string): string {
   return path.resolve(resolveFilePathFromUri(uri));
+}
+
+/** Resolve the root path for scoped filesystem operations. */
+export function resolveScopedRootPath(input: {
+  workspaceId: string;
+  projectId?: string;
+}): string {
+  const projectId = input.projectId?.trim();
+  if (projectId) {
+    const projectRootPath = getProjectRootPath(projectId, input.workspaceId);
+    if (!projectRootPath) {
+      throw new Error("Project not found.");
+    }
+    return projectRootPath;
+  }
+  const workspaceRootPath = getWorkspaceRootPathById(input.workspaceId);
+  if (!workspaceRootPath) {
+    throw new Error("Workspace not found.");
+  }
+  return workspaceRootPath;
+}
+
+/** Normalize a relative path to use POSIX separators. */
+export function normalizeRelativePath(value: string): string {
+  const normalized = value
+    .replace(/\\/g, "/")
+    .replace(/^(\.\/)+/, "")
+    .replace(/^\/+/, "");
+  return normalized === "." ? "" : normalized;
+}
+
+/** Convert an absolute path to a normalized relative path. */
+export function toRelativePath(rootPath: string, targetPath: string): string {
+  const relative = path.relative(rootPath, targetPath);
+  return normalizeRelativePath(relative);
 }
 
 /** Resolve an input path from file uri, absolute path, or workspace/project scope. */
