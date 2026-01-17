@@ -15,6 +15,7 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -390,6 +391,7 @@ export const PageTreeMenu = ({
   const renameProject = useMutation(trpc.project.update.mutationOptions());
   const createProject = useMutation(trpc.project.create.mutationOptions());
   const removeProject = useMutation(trpc.project.remove.mutationOptions());
+  const destroyProject = useMutation(trpc.project.destroy.mutationOptions());
   const renameFile = useMutation(trpc.fs.rename.mutationOptions());
   const deleteFile = useMutation(trpc.fs.delete.mutationOptions());
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
@@ -402,7 +404,11 @@ export const PageTreeMenu = ({
   const [isImportChildBusy, setIsImportChildBusy] = useState(false);
   /** Remove target for project detach. */
   const [removeTarget, setRemoveTarget] = useState<FileNode | null>(null);
-  /** Busy state for removing project. */
+  /** Permanent delete checkbox state. */
+  const [isPermanentRemoveChecked, setIsPermanentRemoveChecked] = useState(false);
+  /** Permanent delete confirmation input. */
+  const [permanentRemoveText, setPermanentRemoveText] = useState("");
+  /** Busy state for removing or destroying project. */
   const [isRemoveBusy, setIsRemoveBusy] = useState(false);
 
   const activeTabParams = useMemo(() => {
@@ -772,6 +778,13 @@ export const PageTreeMenu = ({
     }
   };
 
+  /** Reset remove dialog state. */
+  const resetRemoveDialogState = () => {
+    setRemoveTarget(null);
+    setIsPermanentRemoveChecked(false);
+    setPermanentRemoveText("");
+  };
+
   /** Remove project from list without deleting files. */
   const handleRemoveProject = async () => {
     if (!removeTarget?.projectId) {
@@ -782,12 +795,33 @@ export const PageTreeMenu = ({
       setIsRemoveBusy(true);
       await removeProject.mutateAsync({ projectId: removeTarget.projectId });
       toast.success("项目已移除");
-      setRemoveTarget(null);
+      resetRemoveDialogState();
       await queryClient.invalidateQueries({
         queryKey: getProjectsQueryKey(),
       });
     } catch (err: any) {
       toast.error(err?.message ?? "移除失败");
+    } finally {
+      setIsRemoveBusy(false);
+    }
+  };
+
+  /** Permanently delete project files and remove it from workspace. */
+  const handleDestroyProject = async () => {
+    if (!removeTarget?.projectId) {
+      toast.error("缺少项目 ID");
+      return;
+    }
+    try {
+      setIsRemoveBusy(true);
+      await destroyProject.mutateAsync({ projectId: removeTarget.projectId });
+      toast.success("项目已彻底删除");
+      resetRemoveDialogState();
+      await queryClient.invalidateQueries({
+        queryKey: getProjectsQueryKey(),
+      });
+    } catch (err: any) {
+      toast.error(err?.message ?? "彻底删除失败");
     } finally {
       setIsRemoveBusy(false);
     }
@@ -904,6 +938,15 @@ export const PageTreeMenu = ({
   const handleContextMenuOpenChange = (node: FileNode, open: boolean) => {
     setContextSelectedUri(open ? getNodeKey(node) : null);
   };
+
+  const isPermanentRemoveConfirmed =
+    isPermanentRemoveChecked && permanentRemoveText.trim() === "delete";
+  const removeAction = isPermanentRemoveChecked
+    ? handleDestroyProject
+    : handleRemoveProject;
+  const removeButtonText = isPermanentRemoveChecked ? "彻底删除" : "移除";
+  const isRemoveActionDisabled =
+    isRemoveBusy || (isPermanentRemoveChecked && !isPermanentRemoveConfirmed);
 
   return (
     <>
@@ -1155,7 +1198,7 @@ export const PageTreeMenu = ({
         open={Boolean(removeTarget)}
         onOpenChange={(open) => {
           if (open) return;
-          setRemoveTarget(null);
+          resetRemoveDialogState();
         }}
       >
         <DialogContent>
@@ -1163,14 +1206,51 @@ export const PageTreeMenu = ({
             <DialogTitle>确认移除</DialogTitle>
             <DialogDescription>仅从项目列表移除，不会删除磁盘内容。</DialogDescription>
           </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="remove-project-permanent"
+                checked={isPermanentRemoveChecked}
+                onCheckedChange={(checked) => {
+                  const nextChecked = Boolean(checked);
+                  setIsPermanentRemoveChecked(nextChecked);
+                  if (!nextChecked) {
+                    // 中文注释：取消勾选时清空确认输入，避免误触发彻底删除。
+                    setPermanentRemoveText("");
+                  }
+                }}
+              />
+              <Label htmlFor="remove-project-permanent">
+                勾选后将会彻底删除项目（会删除磁盘文件）
+              </Label>
+            </div>
+            {isPermanentRemoveChecked ? (
+              <div className="grid gap-2">
+                <Label htmlFor="remove-project-confirm">输入 delete 以确认</Label>
+                <Input
+                  id="remove-project-confirm"
+                  value={permanentRemoveText}
+                  onChange={(event) => setPermanentRemoveText(event.target.value)}
+                  placeholder="delete"
+                />
+                <p className="text-xs text-muted-foreground">
+                  输入 delete 后才允许彻底删除
+                </p>
+              </div>
+            ) : null}
+          </div>
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" type="button">
                 取消
               </Button>
             </DialogClose>
-            <Button variant="destructive" onClick={handleRemoveProject} disabled={isRemoveBusy}>
-              移除
+            <Button
+              variant="destructive"
+              onClick={removeAction}
+              disabled={isRemoveActionDisabled}
+            >
+              {removeButtonText}
             </Button>
           </DialogFooter>
         </DialogContent>

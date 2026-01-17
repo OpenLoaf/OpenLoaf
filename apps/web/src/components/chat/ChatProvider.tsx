@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import { generateId } from "ai";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { useTabs, type ChatStatus } from "@/hooks/use-tabs";
@@ -246,6 +246,8 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   retryAssistantMessage: (assistantMessageId: string) => void;
   /** 编辑重发 user：在同 parent 下创建新的 sibling 分支 */
   resendUserMessage: (userMessageId: string, nextText: string, nextParts?: any[]) => void;
+  /** Delete a message subtree including the node itself and its descendants. */
+  deleteMessageSubtree: (messageId: string) => Promise<boolean>;
   /** 用户手动停止生成（通知服务端终止当前流） */
   stopGenerating: () => void;
   /** 子Agent流式输出缓存（key 为 toolCallId） */
@@ -359,6 +361,9 @@ export default function ChatProvider({
   const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
   const setTabChatStatus = useTabs((s) => s.setTabChatStatus);
   const queryClient = useQueryClient();
+  const deleteMessageSubtreeMutation = useMutation(
+    trpc.chatmessage.deleteManyChatMessage.mutationOptions()
+  );
   const sessionIdRef = React.useRef(sessionId);
   sessionIdRef.current = sessionId;
   const chatModelIdRef = React.useRef<string | null>(
@@ -899,6 +904,70 @@ export default function ChatProvider({
     ]
   );
 
+  /**
+   * Delete a message subtree and refresh the current view snapshot.
+   */
+  const deleteMessageSubtree = React.useCallback(
+    async (messageId: string) => {
+      const normalizedId = String(messageId ?? "").trim();
+      if (!normalizedId) return false;
+
+      chat.stop();
+
+      // 中文注释：先定位目标消息的 path/parent，防止误删其他会话数据。
+      const target = await queryClient.fetchQuery(
+        trpc.chatmessage.findUniqueChatMessage.queryOptions({
+          where: { id: normalizedId },
+          select: { id: true, sessionId: true, parentMessageId: true, path: true },
+        })
+      );
+      if (!target || target.sessionId !== sessionId) return false;
+
+      const targetPath = String((target as any)?.path ?? "");
+      if (!targetPath) return false;
+
+      // 中文注释：按 path 前缀删除整个子树（包含自身与所有后代）。
+      await deleteMessageSubtreeMutation.mutateAsync({
+        where: {
+          sessionId,
+          path: { startsWith: targetPath },
+        },
+      });
+
+      // 中文注释：删除后回到父节点视图，刷新消息与分支导航。
+      const viewInput: Parameters<typeof trpc.chat.getChatView.queryOptions>[0] = {
+        sessionId,
+        window: { limit: 50 },
+      };
+      if (target.parentMessageId) {
+        viewInput.anchor = { messageId: String(target.parentMessageId) };
+      }
+
+      const data = await queryClient.fetchQuery(
+        trpc.chat.getChatView.queryOptions(viewInput)
+      );
+      const messages = (data?.messages ?? []) as UIMessage[];
+      chat.setMessages(messages);
+      if (tabId) {
+        clearToolPartsForTab(tabId);
+        syncToolPartsFromMessages({ tabId, messages });
+      }
+      setLeafMessageId(data?.leafMessageId ?? null);
+      setBranchMessageIds(data?.branchMessageIds ?? []);
+      setSiblingNav(data?.siblingNav ?? {});
+      return true;
+    },
+    [
+      chat.stop,
+      chat.setMessages,
+      queryClient,
+      deleteMessageSubtreeMutation.mutateAsync,
+      sessionId,
+      tabId,
+      clearToolPartsForTab,
+    ]
+  );
+
   const stopGenerating = React.useCallback(() => {
     // 中文注释：使用 AI SDK 内置中断，直接终止当前请求。
     chat.stop();
@@ -929,6 +998,7 @@ export default function ChatProvider({
         switchSibling,
         retryAssistantMessage,
         resendUserMessage,
+        deleteMessageSubtree,
         stopGenerating,
         subAgentStreams,
         stepThinking,

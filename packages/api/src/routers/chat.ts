@@ -11,6 +11,10 @@ import {
   getWorkspaceProjectTitleMap,
   syncWorkspaceProjectsFromDisk,
 } from "../services/projectDbService";
+import {
+  clearProjectChatData,
+  getProjectChatStats,
+} from "../services/projectChatService";
 import type { ChatMessageKind } from "../types/message";
 
 /**
@@ -595,6 +599,24 @@ export const chatRouter = t.router({
           ? projectTitleMap.get(session.projectId) ?? null
           : null,
       })) as ChatSessionSummary[];
+    }),
+
+  /**
+   * Get project chat stats.
+   */
+  getProjectChatStats: shieldedProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return getProjectChatStats(ctx.prisma, input.projectId);
+    }),
+
+  /**
+   * Clear chat data for a project.
+   */
+  clearProjectChat: shieldedProcedure
+    .input(z.object({ projectId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return clearProjectChatData(ctx.prisma, input.projectId);
     }),
 
   /**

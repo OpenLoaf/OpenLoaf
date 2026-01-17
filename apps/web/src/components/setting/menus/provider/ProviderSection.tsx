@@ -103,14 +103,20 @@ export function ProviderSection({
               const capabilities = getProviderCapabilities(entry.providerId, entryCustomModels);
               return (
                 <Fragment key={entry.key}>
-                  <TableRow>
+                  <TableRow
+                    className="cursor-pointer"
+                    onClick={() => onToggleExpand(entry.key)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-2 text-sm">
                         <Button
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7"
-                          onClick={() => onToggleExpand(entry.key)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onToggleExpand(entry.key);
+                          }}
                           aria-label={isExpanded ? "收起模型列表" : "展开模型列表"}
                         >
                           {isExpanded ? (
@@ -138,7 +144,10 @@ export function ProviderSection({
                           size="icon"
                           variant="ghost"
                           className="h-9 w-9"
-                          onClick={() => onEdit(entry)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onEdit(entry);
+                          }}
                           aria-label="Edit key"
                         >
                           <Pencil className="h-4 w-4" />
@@ -147,7 +156,10 @@ export function ProviderSection({
                           size="icon"
                           variant="ghost"
                           className="h-9 w-9"
-                          onClick={() => onDelete(entry.key)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onDelete(entry.key);
+                          }}
                           aria-label="Delete key"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -159,11 +171,6 @@ export function ProviderSection({
                     <TableRow>
                       <TableCell colSpan={4} className="p-0">
                         <div className="px-4 pb-4">
-                          <div className="hidden md:grid grid-cols-[260px_1fr_120px] gap-3 px-1 py-2 text-xs font-semibold text-muted-foreground">
-                            <div>模型</div>
-                            <div>能力</div>
-                            <div className="text-right">操作</div>
-                          </div>
                           <div className="divide-y divide-border/60">
                             {Object.keys(entry.models).map((modelId) => {
                               const modelDefinition =

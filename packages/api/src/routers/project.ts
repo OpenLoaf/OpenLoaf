@@ -21,6 +21,7 @@ import {
   readWorkspaceProjectTrees,
   type ProjectConfig,
 } from "../services/projectTreeService";
+import { moveProjectStorage } from "../services/projectStorageService";
 
 /** File name for project homepage content. */
 const PAGE_HOME_FILE = "page-home.json";
@@ -279,6 +280,31 @@ export const projectRouter = t.router({
       return { ok: true };
     }),
 
+  /** Permanently delete a project from disk and remove it from workspace. */
+  destroy: shieldedProcedure
+    .input(z.object({ projectId: z.string() }))
+    .mutation(async ({ input }) => {
+      const projectTrees = await readWorkspaceProjectTrees();
+      const sourceEntry = findProjectNodeWithParent(projectTrees, input.projectId);
+      if (!sourceEntry) {
+        throw new Error("Project not found.");
+      }
+      const rootUri = getProjectRootUri(input.projectId);
+      if (!rootUri) {
+        throw new Error("Project not found.");
+      }
+      const rootPath = resolveFilePathFromUri(rootUri);
+      // 中文注释：先删除磁盘目录，再移除项目映射，避免列表与磁盘状态不一致。
+      await fs.rm(rootPath, { recursive: true, force: true });
+      const parentProjectId = sourceEntry.parentProjectId;
+      if (parentProjectId) {
+        await removeChildProjectEntry(parentProjectId, input.projectId);
+      } else {
+        removeActiveWorkspaceProject(input.projectId);
+      }
+      return { ok: true };
+    }),
+
   /** Move a project under another parent or to workspace root. */
   move: shieldedProcedure
     .input(
@@ -333,6 +359,27 @@ export const projectRouter = t.router({
       }
 
       return { ok: true };
+    }),
+
+  /** Move project storage folder and update paths. */
+  moveStorage: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        targetParentPath: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await moveProjectStorage({
+        projectId: input.projectId,
+        targetParentPath: input.targetParentPath,
+        prisma: ctx.prisma,
+      });
+      return {
+        ok: true,
+        rootUri: result.rootUri,
+        unchanged: result.unchanged ?? false,
+      };
     }),
 
   /** Get homepage data for a project. */

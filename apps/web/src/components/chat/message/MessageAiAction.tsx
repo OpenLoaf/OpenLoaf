@@ -11,6 +11,7 @@ import {
   Copy,
   Minimize2,
   RotateCcw,
+  Trash2,
   ThumbsUp,
   ThumbsDown,
 } from "lucide-react";
@@ -259,10 +260,18 @@ export default function MessageAiAction({
   message: UIMessage;
   className?: string;
 }) {
-  const { retryAssistantMessage, clearError, status, updateMessage, sendMessage, leafMessageId } =
-    useChatContext();
+  const {
+    retryAssistantMessage,
+    clearError,
+    status,
+    updateMessage,
+    sendMessage,
+    leafMessageId,
+    deleteMessageSubtree,
+  } = useChatContext();
   const [isCopying, setIsCopying] = React.useState(false);
   const [compactOpen, setCompactOpen] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
   const text = getMessageTextWithToolCalls(message);
 
   const handleCopy = async () => {
@@ -283,6 +292,28 @@ export default function MessageAiAction({
     clearError();
     // 关键：允许对任意 assistant 消息重试（会在该节点处产生新分支）
     retryAssistantMessage(message.id);
+  };
+
+  /**
+   * Delete the current message subtree.
+   */
+  const handleDeleteSubtree = async () => {
+    const targetId = String(message?.id ?? "").trim();
+    if (!targetId || isBusy || isDeleting) return;
+    try {
+      setIsDeleting(true);
+      const ok = await deleteMessageSubtree(targetId);
+      if (ok) {
+        toast.success("已删除");
+      } else {
+        toast.error("删除失败");
+      }
+    } catch (error) {
+      toast.error("删除失败");
+      console.error(error);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // 仅在“正在提交/流式输出”时禁用交互；error/ready 状态都允许重试
@@ -392,6 +423,19 @@ export default function MessageAiAction({
         title="重试"
       >
         <RotateCcw className="size-3" />
+      </Button>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className={messageActionIconButtonClassName}
+        onClick={handleDeleteSubtree}
+        disabled={isBusy || isDeleting}
+        aria-label="删除节点"
+        title="删除节点"
+      >
+        <Trash2 className="size-3" />
       </Button>
 
       <Button
