@@ -70,6 +70,8 @@ import ChatImageOutputOption from "./ChatImageOutputOption";
 import CodexOption from "./options/CodexOption";
 import { supportsImageEdit, supportsImageGeneration, supportsToolCall } from "@/lib/model-capabilities";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
+import { SUMMARY_HISTORY_COMMAND } from "@tenas-ai/api/common";
+import ChatCommandMenu from "./input/ChatCommandMenu";
 
 interface ChatInputProps {
   className?: string;
@@ -161,6 +163,8 @@ export interface ChatInputBoxProps {
   workspaceId?: string;
   /** Active chat tab id for mention inserts. */
   tabId?: string;
+  /** Whether to show slash command menu. */
+  commandMenuEnabled?: boolean;
   /** Dictation language for OS speech recognition. */
   dictationLanguage?: string;
   /** Whether to play a start tone when dictation begins. */
@@ -198,6 +202,7 @@ export function ChatInputBox({
   defaultProjectId,
   workspaceId,
   tabId,
+  commandMenuEnabled = false,
   dictationLanguage,
   dictationSoundEnabled,
   onDictationListeningChange,
@@ -633,6 +638,14 @@ export function ChatInputBox({
         void handleDrop(event);
       }}
     >
+      {commandMenuEnabled ? (
+        <ChatCommandMenu
+          value={value}
+          onChange={onChange}
+          onRequestFocus={focusEditorSafely}
+          isFocused={isFocused}
+        />
+      ) : null}
       {header ? (
         <div className="rounded-t-xl border-b border-border bg-muted/30">
           {header}
@@ -910,11 +923,11 @@ export default function ChatInput({
     // 切换 session 的历史加载期间禁止发送，避免 parentMessageId 与当前会话链不一致
     if (isHistoryLoading) return;
     const textValue = value.trim();
-    // 中文注释：/compact 作为手动压缩指令，直接发起并清空输入与附件。
-    if (textValue === "/compact") {
+    // 中文注释：/summary-history 作为手动压缩指令，直接发起并清空输入与附件。
+    if (textValue === SUMMARY_HISTORY_COMMAND) {
       if (status === "error") clearError();
       sendMessage({
-        parts: [{ type: "text", text: "/compact" }],
+        parts: [{ type: "text", text: SUMMARY_HISTORY_COMMAND }],
         messageKind: "compact_prompt",
       } as any);
       setInput("");
@@ -1006,6 +1019,7 @@ export default function ChatInput({
         canAttachAll={allowAll}
         canAttachImage={allowImage}
         onDropHandled={onDropHandled}
+        commandMenuEnabled
         defaultProjectId={projectId}
         workspaceId={workspaceId}
         tabId={tabId}

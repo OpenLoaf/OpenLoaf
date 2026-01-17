@@ -87,8 +87,9 @@ contextBridge.exposeInMainWorld('tenasElectron', {
   trashItem: (payload: { uri: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('tenas:fs:trash-item', payload),
   // 选择本地目录并返回完整路径。
-  pickDirectory: (): Promise<{ ok: true; path: string } | { ok: false }> =>
-    ipcRenderer.invoke('tenas:fs:pick-directory'),
+  pickDirectory: (payload?: { defaultPath?: string }): Promise<
+    { ok: true; path: string } | { ok: false }
+  > => ipcRenderer.invoke('tenas:fs:pick-directory', payload),
   // Show save dialog and write base64 payload to file.
   saveFile: (payload: {
     contentBase64: string;

@@ -220,10 +220,25 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 选择本地目录并返回完整路径。
-  ipcMain.handle('tenas:fs:pick-directory', async (event) => {
+  ipcMain.handle('tenas:fs:pick-directory', async (event, payload?: { defaultPath?: string }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
+    const defaultPathRaw = String(payload?.defaultPath ?? '').trim();
+    let defaultPath: string | undefined;
+    if (defaultPathRaw) {
+      if (defaultPathRaw.startsWith('file://')) {
+        try {
+          defaultPath = fileURLToPath(defaultPathRaw);
+        } catch {
+          defaultPath = undefined;
+        }
+      } else {
+        defaultPath = defaultPathRaw;
+      }
+    }
+    // 逻辑：默认打开当前路径，减少目录跳转成本。
     const result = await dialog.showOpenDialog(win ?? undefined, {
       properties: ['openDirectory'],
+      ...(defaultPath ? { defaultPath } : {}),
     });
     if (result.canceled || result.filePaths.length === 0) {
       return { ok: false as const };

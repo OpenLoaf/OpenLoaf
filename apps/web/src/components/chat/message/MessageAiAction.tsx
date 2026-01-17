@@ -2,7 +2,12 @@
 
 import * as React from "react";
 import type { UIMessage } from "@ai-sdk/react";
-import { estimateModelPrice, resolvePriceTier, type ModelDefinition } from "@tenas-ai/api/common";
+import {
+  SUMMARY_HISTORY_COMMAND,
+  estimateModelPrice,
+  resolvePriceTier,
+  type ModelDefinition,
+} from "@tenas-ai/api/common";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -271,6 +276,7 @@ export default function MessageAiAction({
   } = useChatContext();
   const [isCopying, setIsCopying] = React.useState(false);
   const [compactOpen, setCompactOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const text = getMessageTextWithToolCalls(message);
 
@@ -392,7 +398,7 @@ export default function MessageAiAction({
     if (status === "error") clearError();
     sendMessage({
       role: "user",
-      parts: [{ type: "text", text: "/compact" }],
+      parts: [{ type: "text", text: SUMMARY_HISTORY_COMMAND }],
       messageKind: "compact_prompt",
     } as any);
   }, [clearError, isBusy, sendMessage, status]);
@@ -425,18 +431,35 @@ export default function MessageAiAction({
         <RotateCcw className="size-3" />
       </Button>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        className={messageActionIconButtonClassName}
-        onClick={handleDeleteSubtree}
-        disabled={isBusy || isDeleting}
-        aria-label="删除节点"
-        title="删除节点"
-      >
-        <Trash2 className="size-3" />
-      </Button>
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className={messageActionIconButtonClassName}
+            disabled={isBusy || isDeleting}
+            aria-label="删除节点"
+            title="删除节点"
+          >
+            <Trash2 className="size-3" />
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除该节点及其子节点？</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogDescription className="text-sm text-muted-foreground">
+            删除后将无法恢复该节点及其所有后代消息。
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSubtree} disabled={isDeleting || isBusy}>
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Button
         type="button"

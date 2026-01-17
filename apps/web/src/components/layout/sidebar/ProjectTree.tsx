@@ -661,7 +661,9 @@ export const PageTreeMenu = ({
   const pickDirectory = async (initialValue?: string) => {
     const api = window.tenasElectron;
     if (api?.pickDirectory) {
-      const result = await api.pickDirectory();
+      const result = await api.pickDirectory(
+        initialValue ? { defaultPath: initialValue } : undefined,
+      );
       if (result?.ok && result.path) return result.path;
     }
     if (initialValue) return initialValue;

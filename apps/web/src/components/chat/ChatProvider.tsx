@@ -21,10 +21,9 @@ import type { TenasUIDataTypes } from "@tenas-ai/api/types/message";
 import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
 import type { ChatMessageKind } from "@tenas-ai/api";
+import { SUMMARY_HISTORY_COMMAND } from "@tenas-ai/api/common";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "./chat-attachments";
 import { createChatSessionId } from "@/lib/chat-session-id";
-
-const COMPACT_COMMAND = "/compact";
 
 /** Extract plain text from UI message parts. */
 function extractTextFromParts(parts: unknown[]): string {
@@ -43,7 +42,7 @@ function isCompactCommandMessage(input: {
 }): boolean {
   if (input.messageKind === "compact_prompt") return true;
   const text = extractTextFromParts(input.parts ?? []);
-  return text === COMPACT_COMMAND;
+  return text === SUMMARY_HISTORY_COMMAND;
 }
 
 function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
@@ -712,7 +711,7 @@ export default function ChatProvider({
         !nextMessage.messageKind &&
         isCompactCommandMessage(nextMessage)
       ) {
-        // 中文注释：/compact 指令统一标记为 compact_prompt，避免 UI 直接展示。
+        // 中文注释：/summary-history 指令统一标记为 compact_prompt，避免 UI 直接展示。
         nextMessage.messageKind = "compact_prompt";
       }
       if (nextMessage.role === "user" && isCompactCommandMessage(nextMessage)) {

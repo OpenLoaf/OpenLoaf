@@ -1,5 +1,5 @@
 import { generateId, generateImage, type UIMessage } from "ai";
-import type { ChatModelSource, ModelDefinition } from "@tenas-ai/api/common";
+import { SUMMARY_HISTORY_COMMAND, type ChatModelSource, type ModelDefinition } from "@tenas-ai/api/common";
 import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
 import type { TenasUIMessage, TokenUsage } from "@tenas-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
@@ -101,8 +101,6 @@ type ImageModelResult = {
   totalUsage?: TokenUsage;
 };
 
-const COMPACT_COMMAND = "/compact";
-
 /** Resolve selected skills from request params. */
 function resolveSelectedSkills(params?: Record<string, unknown> | null): string[] {
   if (!isRecord(params)) return [];
@@ -141,7 +139,7 @@ function isCompactCommandMessage(message: TenasUIMessage | undefined): boolean {
   if (!message || message.role !== "user") return false;
   if ((message as any)?.messageKind === "compact_prompt") return true;
   const text = extractTextFromParts(message.parts ?? []);
-  return text === COMPACT_COMMAND;
+  return text === SUMMARY_HISTORY_COMMAND;
 }
 
 /** Build the compact prompt text sent to the model. */
@@ -377,7 +375,7 @@ export async function runChatStream(input: {
   let includeCompactPrompt = false;
 
   if (isCompactCommand) {
-    // 中文注释：/compact 指令走压缩流程，先写 compact_prompt 再生成 summary。
+    // 中文注释：/summary-history 指令走压缩流程，先写 compact_prompt 再生成 summary。
     if (!lastMessage || lastMessage.role !== "user") {
       return createErrorStreamResponse({
         sessionId,

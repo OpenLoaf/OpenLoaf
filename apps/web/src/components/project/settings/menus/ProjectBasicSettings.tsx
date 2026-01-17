@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Copy, SmilePlus } from "lucide-react";
+import { ArrowRightLeft, PencilLine, SmilePlus } from "lucide-react";
 import { toast } from "sonner";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -241,11 +241,13 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
       toast.error("网页版不支持选择目录");
       return;
     }
-    const result = await api.pickDirectory();
+    const result = await api.pickDirectory({
+      defaultPath: rootUri ?? undefined,
+    });
     if (!result?.ok || !result.path) return;
     setMoveTargetParentPath(result.path);
     setMoveProgress(0);
-  }, [projectId]);
+  }, [projectId, rootUri]);
 
   /** Handle storage move confirmation. */
   const handleConfirmMove = useCallback(async () => {
@@ -329,25 +331,20 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             <div className="text-xs text-muted-foreground">仅用于识别与复制</div>
           </div>
 
-          <TenasSettingsField className="gap-2">
-            <div className="flex-1 text-right text-sm text-foreground">
-              {projectId ?? "-"}
-            </div>
-            <Button
+          <TenasSettingsField>
+            <button
               type="button"
-              variant="outline"
-              size="icon"
-              aria-label="复制项目 ID"
-              title="复制项目 ID"
+              className="flex-1 text-right text-sm text-foreground truncate hover:underline disabled:cursor-default disabled:no-underline disabled:text-muted-foreground"
               disabled={!projectId}
               onClick={async () => {
                 if (!projectId) return;
                 await copyToClipboard(projectId);
                 toast.success("已复制项目 ID");
               }}
+              title={projectId ?? "-"}
             >
-              <Copy className="size-4" />
-            </Button>
+              {projectId ?? "-"}
+            </button>
           </TenasSettingsField>
         </div>
 
@@ -362,7 +359,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               <PopoverTrigger asChild>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   size="icon"
                   className="h-9 w-9"
                   disabled={!projectId || !rootUri}
@@ -403,12 +400,14 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             </div>
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon"
               disabled={!projectId}
               onClick={handleOpenRename}
+              aria-label="修改项目名称"
+              title="修改项目名称"
             >
-              修改
+              <PencilLine className="size-4" />
             </Button>
           </TenasSettingsField>
         </div>
@@ -430,12 +429,14 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             </div>
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon"
               disabled={!projectId || !rootUri || moveBusy}
               onClick={() => void handlePickStorageParent()}
+              aria-label="修改存储路径"
+              title="修改存储路径"
             >
-              修改
+              <ArrowRightLeft className="size-4" />
             </Button>
           </TenasSettingsField>
         </div>
