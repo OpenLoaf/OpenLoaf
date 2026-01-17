@@ -176,6 +176,7 @@ export default function DesktopPage({
         const folderUri = formatScopedProjectPath({
           projectId: project.projectId,
           relativePath,
+          includeAt: true,
         });
         const relativeParts = relativePath.split("/").filter(Boolean);
         const title =

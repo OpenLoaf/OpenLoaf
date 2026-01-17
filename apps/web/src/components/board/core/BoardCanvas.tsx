@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasElement, CanvasNodeDefinition } from "../engine/types";
@@ -11,6 +11,12 @@ import { useBoardSnapshot } from "./useBoardSnapshot";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
+import {
+  formatScopedProjectPath,
+  getRelativePathFromUri,
+  normalizeProjectRelativePath,
+  parseScopedProjectPath,
+} from "@/components/project/filesystem/utils/file-system-utils";
 
 export type BoardCanvasProps = {
   /** External engine instance, optional for integration scenarios. */
@@ -39,6 +45,9 @@ export type BoardCanvasProps = {
   className?: string;
 };
 
+/** Scheme matcher for absolute URIs. */
+const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+
 /** Render the new board canvas surface and DOM layers. */
 export function BoardCanvas({
   engine: externalEngine,
@@ -56,6 +65,37 @@ export function BoardCanvas({
 }: BoardCanvasProps) {
   const { workspace } = useWorkspace();
   const resolvedWorkspaceId = workspaceId ?? workspace?.id ?? "";
+  const resolvedBoardId = useMemo(() => {
+    if (boardFolderUri) {
+      if (!SCHEME_REGEX.test(boardFolderUri)) {
+        return normalizeProjectRelativePath(boardFolderUri);
+      }
+      if (rootUri) {
+        const relativePath = getRelativePathFromUri(rootUri, boardFolderUri);
+        if (relativePath) return normalizeProjectRelativePath(relativePath);
+      }
+    }
+    const rawBoardId = boardId?.trim() ?? "";
+    if (rawBoardId) {
+      if (SCHEME_REGEX.test(rawBoardId)) {
+        if (rootUri) {
+          const relativePath = getRelativePathFromUri(rootUri, rawBoardId);
+          if (relativePath) return normalizeProjectRelativePath(relativePath);
+        }
+        return projectId ?? "";
+      }
+      const parsed = parseScopedProjectPath(rawBoardId);
+      if (!parsed) return rawBoardId;
+      const normalized = formatScopedProjectPath({
+        projectId: parsed.projectId,
+        currentProjectId: projectId,
+        relativePath: parsed.relativePath,
+        includeAt: true,
+      });
+      return normalized || parsed.relativePath;
+    }
+    return projectId ?? "";
+  }, [boardFolderUri, boardId, projectId, rootUri]);
   /** Root container element for canvas interactions. */
   const containerRef = useRef<HTMLDivElement | null>(null);
   /** Engine instance used for rendering and interaction. */
@@ -121,7 +161,7 @@ export function BoardCanvas({
         workspaceId: resolvedWorkspaceId || undefined,
         projectId,
         rootUri,
-        boardId,
+        boardId: resolvedBoardId || undefined,
         boardFolderUri,
       }}
     >

@@ -126,6 +126,7 @@ export default function DesktopWidgetLibraryPanel({
         const folderUri = formatScopedProjectPath({
           projectId: project.projectId,
           relativePath,
+          includeAt: true,
         });
         const relativeParts = relativePath.split("/").filter(Boolean);
         const title =

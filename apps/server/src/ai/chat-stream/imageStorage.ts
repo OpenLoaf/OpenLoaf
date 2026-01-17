@@ -71,6 +71,8 @@ export function resolveImageExtension(mediaType: string): string {
 
 /** Supported image extensions for directory inference. */
 const IMAGE_SAVE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+/** Scoped project path matcher like @[projectId]/path/to/dir. */
+const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/;
 
 /** Check whether extension is a known image extension. */
 function isImageSaveExtension(ext: string): boolean {
@@ -138,6 +140,20 @@ export async function resolveImageSaveDirectory(input: {
     } catch {
       return null;
     }
+  }
+
+  const scopeMatch = raw.match(PROJECT_SCOPE_REGEX);
+  if (scopeMatch) {
+    const scopedProjectId = scopeMatch[1]?.trim();
+    const scopedRelativePath = scopeMatch[2] ?? "";
+    if (!scopedProjectId) return null;
+    const dirPath = resolveRelativeSaveDirectory({
+      path: scopedRelativePath,
+      workspaceId: input.workspaceId,
+      projectId: scopedProjectId,
+    });
+    if (!dirPath) return null;
+    return normalizeImageSaveDirectory(dirPath);
   }
 
   if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)) {

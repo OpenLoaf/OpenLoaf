@@ -64,7 +64,11 @@ const resolveEntryDragUri = (
   const relativePath = getRelativePathFromUri(dragRootUri, entry.uri);
   if (!relativePath) return entry.uri;
   // 对外拖拽统一使用项目相对路径引用。
-  return formatScopedProjectPath({ projectId: dragProjectId, relativePath });
+  return formatScopedProjectPath({
+    projectId: dragProjectId,
+    relativePath,
+    includeAt: true,
+  });
 };
 
 /** Manage drag interactions for file system entries. */

@@ -1,8 +1,11 @@
 import type { BoardFileContext } from "./BoardProvider";
 import {
   buildChildUri,
+  formatScopedProjectPath,
   getRelativePathFromUri,
+  isProjectAbsolutePath,
   normalizeProjectRelativePath,
+  parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
 
 export type BoardFolderScope = {
@@ -11,6 +14,13 @@ export type BoardFolderScope = {
   /** Relative folder path under the project root. */
   relativeFolderPath: string;
 };
+
+/** Scheme matcher for absolute URIs. */
+const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+/** Board asset folder prefix (preferred). */
+const BOARD_ASSET_PREFIX = ".asset";
+/** Legacy board asset folder prefix. */
+const LEGACY_ASSET_PREFIX = "assets";
 
 /** Normalize a relative path string. */
 export function normalizeRelativePath(value: string): string {
@@ -25,10 +35,16 @@ export function hasParentTraversal(value: string): boolean {
 /** Return true when a path is board-relative. */
 export function isBoardRelativePath(value: string): boolean {
   if (!value) return false;
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) return false;
+  if (SCHEME_REGEX.test(value)) return false;
+  if (isProjectAbsolutePath(value)) return false;
   const normalized = normalizeRelativePath(value);
   if (!normalized) return false;
-  return true;
+  return (
+    normalized === BOARD_ASSET_PREFIX ||
+    normalized.startsWith(`${BOARD_ASSET_PREFIX}/`) ||
+    normalized === LEGACY_ASSET_PREFIX ||
+    normalized.startsWith(`${LEGACY_ASSET_PREFIX}/`)
+  );
 }
 
 /** Resolve the board folder scope from file context. */
@@ -64,14 +80,14 @@ export function toBoardRelativePath(
   boardFolderUri?: string
 ): string {
   if (!value) return value;
-  const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value);
+  const hasScheme = SCHEME_REGEX.test(value);
   if (!hasScheme) return value;
   if (boardFolderUri) {
     const relativePath = normalizeRelativePath(
       getRelativePathFromUri(boardFolderUri, value)
     );
     if (!relativePath || hasParentTraversal(relativePath)) return value;
-    return `./${relativePath}`;
+    return relativePath;
   }
   return value;
 }
@@ -89,4 +105,37 @@ export function resolveBoardRelativeProjectPath(
   return normalizeProjectRelativePath(
     `${boardFolderScope.relativeFolderPath}/${normalized}`
   );
+}
+
+/** Resolve a board-scoped uri into a project-relative path when possible. */
+export function resolveProjectPathFromBoardUri(input: {
+  /** Raw uri to resolve. */
+  uri: string;
+  /** Board folder scope for board-relative resolution. */
+  boardFolderScope: BoardFolderScope | null;
+  /** Current project id for scoped path normalization. */
+  currentProjectId?: string;
+  /** Project root uri for file:// fallback. */
+  rootUri?: string;
+}): string {
+  const trimmed = input.uri.trim();
+  if (!trimmed) return "";
+  if (SCHEME_REGEX.test(trimmed)) {
+    if (trimmed.startsWith("file://") && input.rootUri) {
+      const relativePath = getRelativePathFromUri(input.rootUri, trimmed);
+      return relativePath ? normalizeProjectRelativePath(relativePath) : "";
+    }
+    return "";
+  }
+  if (isBoardRelativePath(trimmed)) {
+    return resolveBoardRelativeProjectPath(trimmed, input.boardFolderScope);
+  }
+  const parsed = parseScopedProjectPath(trimmed);
+  if (!parsed) return "";
+  return formatScopedProjectPath({
+    projectId: parsed.projectId,
+    currentProjectId: input.currentProjectId,
+    relativePath: parsed.relativePath,
+    includeAt: true,
+  });
 }

@@ -10,12 +10,23 @@ import type { CanvasEngine } from "../engine/CanvasEngine";
 import { buildImageNodePayloadFromFile } from "../utils/image";
 import { fileToBase64 } from "../utils/base64";
 import { readBoardDocPayload, writeBoardDocPayload } from "./boardYjsStore";
-import { resolveBoardFolderScope, toBoardRelativePath } from "./boardFilePath";
+import {
+  normalizeRelativePath,
+  resolveBoardFolderScope,
+  toBoardRelativePath,
+} from "./boardFilePath";
 import {
   BOARD_ASSETS_DIR_NAME,
   BOARD_META_FILE_NAME,
 } from "@/lib/file-name";
-import { buildChildUri, getUniqueName } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  buildChildUri,
+  formatScopedProjectPath,
+  getRelativePathFromUri,
+  getUniqueName,
+  normalizeProjectRelativePath,
+  parseScopedProjectPath,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import { resolveServerUrl } from "@/utils/server-url";
 import { trpc } from "@/utils/trpc";
 import { BOARD_COLLAB_WS_PATH } from "@tenas-ai/api/types/boardCollab";
@@ -42,6 +53,61 @@ type BoardCanvasCollabProps = {
 const BOARD_DOC_ORIGIN = "board-engine";
 const BOARD_META_DOC_ID_KEY = "docId";
 const BOARD_SYNC_SIGNAL = "flush";
+/** Scheme matcher for absolute URIs. */
+const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+
+/** Resolve a project-scoped reference from an input value. */
+function resolveProjectScopedRef(input: {
+  /** Input path or uri. */
+  value?: string;
+  /** Project root uri for file:// fallback. */
+  rootUri?: string;
+  /** Current project id for scope downgrade. */
+  currentProjectId?: string;
+}): string {
+  const raw = input.value?.trim() ?? "";
+  if (!raw) return "";
+  if (SCHEME_REGEX.test(raw)) {
+    if (input.rootUri) {
+      const relativePath = getRelativePathFromUri(input.rootUri, raw);
+      return relativePath ? normalizeProjectRelativePath(relativePath) : "";
+    }
+    return raw;
+  }
+  const parsed = parseScopedProjectPath(raw);
+  if (!parsed) return "";
+  return formatScopedProjectPath({
+    projectId: parsed.projectId,
+    currentProjectId: input.currentProjectId,
+    relativePath: parsed.relativePath,
+    includeAt: true,
+  });
+}
+
+/** Resolve a board-relative reference from a board file uri when possible. */
+function resolveBoardFileRef(input: {
+  /** Board file uri. */
+  boardFileUri?: string;
+  /** Board folder uri. */
+  boardFolderUri?: string;
+  /** Board folder reference in project scope. */
+  boardFolderRef?: string;
+}): string {
+  const raw = input.boardFileUri?.trim() ?? "";
+  if (!raw) return "";
+  if (input.boardFolderUri && SCHEME_REGEX.test(input.boardFolderUri) && SCHEME_REGEX.test(raw)) {
+    const relativePath = getRelativePathFromUri(input.boardFolderUri, raw);
+    return relativePath ? normalizeRelativePath(relativePath) : "";
+  }
+  if (input.boardFolderRef) {
+    const normalizedFile = normalizeRelativePath(raw);
+    const normalizedFolder = normalizeRelativePath(input.boardFolderRef);
+    if (normalizedFile.startsWith(`${normalizedFolder}/`)) {
+      return normalizeRelativePath(normalizedFile.slice(normalizedFolder.length + 1));
+    }
+  }
+  return normalizeRelativePath(raw);
+}
 
 /** Split elements into nodes and connectors. */
 function splitElements(elements: CanvasElement[]) {
@@ -172,6 +238,29 @@ export function BoardCanvasCollab({
       }),
     [boardFolderUri, projectId, rootUri]
   );
+  const boardFolderRef = useMemo(
+    () =>
+      resolveProjectScopedRef({
+        value: boardFolderUri,
+        rootUri,
+        currentProjectId: projectId,
+      }),
+    [boardFolderUri, projectId, rootUri]
+  );
+  const boardFileRef = useMemo(() => {
+    if (boardFolderRef) {
+      return resolveBoardFileRef({
+        boardFileUri,
+        boardFolderUri,
+        boardFolderRef,
+      });
+    }
+    return resolveProjectScopedRef({
+      value: boardFileUri,
+      rootUri,
+      currentProjectId: projectId,
+    });
+  }, [boardFileUri, boardFolderRef, boardFolderUri, projectId, rootUri]);
   const assetsFolderUri = useMemo(
     () => (boardFolderUri ? buildChildUri(boardFolderUri, BOARD_ASSETS_DIR_NAME) : ""),
     [boardFolderUri]
@@ -370,8 +459,8 @@ export function BoardCanvasCollab({
       const wsUrl = resolveBoardCollabUrl({
         workspaceId,
         projectId,
-        boardFileUri,
-        boardFolderUri,
+        boardFileUri: boardFileRef || undefined,
+        boardFolderUri: boardFolderRef || undefined,
         docId,
       });
       provider = new HocuspocusProvider({

@@ -207,7 +207,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
       .map((entry) => {
         const relativePath = getRelativePathFromUri(activeRootUri, entry.uri);
         if (!relativePath) return "";
-        return formatScopedProjectPath({ projectId, relativePath });
+        return formatScopedProjectPath({ projectId, relativePath, includeAt: true });
       })
       .filter(Boolean);
   }, [activeRootUri, mode, projectIdByRootUri, selectTarget, selectedEntries]);

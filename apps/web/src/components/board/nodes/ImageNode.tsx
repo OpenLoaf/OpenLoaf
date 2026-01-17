@@ -21,10 +21,11 @@ import type { BoardFileContext } from "../core/BoardProvider";
 import {
   isBoardRelativePath,
   resolveBoardFolderScope,
-  resolveBoardRelativeProjectPath,
+  resolveProjectPathFromBoardUri,
 } from "../core/boardFilePath";
 import { arrayBufferToBase64 } from "../utils/base64";
 import { getPreviewEndpoint } from "@/lib/image/uri";
+import { isProjectAbsolutePath } from "@/components/project/filesystem/utils/file-system-utils";
 
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
@@ -41,22 +42,31 @@ export type ImageNodeProps = {
   naturalHeight: number;
 };
 
-/** Resolve board-relative path into a project-relative path. */
+/** Resolve a board-scoped uri into a project-scoped path. */
 function resolveProjectRelativePath(uri: string, fileContext?: BoardFileContext) {
-  if (!isBoardRelativePath(uri)) return "";
   const scope = resolveBoardFolderScope(fileContext);
-  return resolveBoardRelativeProjectPath(uri, scope);
+  return resolveProjectPathFromBoardUri({
+    uri,
+    boardFolderScope: scope,
+    currentProjectId: fileContext?.projectId,
+    rootUri: fileContext?.rootUri,
+  });
 }
 
 /** Resolve image uri to a browser-friendly source. */
 function resolveImageSource(uri: string, fileContext?: BoardFileContext) {
   if (!uri) return "";
-  if (isBoardRelativePath(uri)) {
-    const projectPath = resolveProjectRelativePath(uri, fileContext);
-    if (!projectPath) return "";
-    return getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId });
+  if (
+    uri.startsWith("data:") ||
+    uri.startsWith("blob:") ||
+    uri.startsWith("http://") ||
+    uri.startsWith("https://")
+  ) {
+    return uri;
   }
-  return uri;
+  const projectPath = resolveProjectRelativePath(uri, fileContext);
+  if (!projectPath) return "";
+  return getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId });
 }
 
 /** Resolve the default directory for download dialogs. */
@@ -184,13 +194,12 @@ export function ImageNodeView({
   /** Request opening the image preview on the canvas. */
   const requestPreview = useCallback(() => {
     const originalSrc = resolvedOriginal;
-    const isRelative = isBoardRelativePath(originalSrc);
+    const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(originalSrc);
     // 逻辑：ImageViewer 仅支持特定协议，相对路径与其他来源回退到压缩预览图。
     const canUseOriginal =
-      !isRelative &&
+      hasScheme &&
       (originalSrc.startsWith("data:") ||
         originalSrc.startsWith("blob:") ||
-        originalSrc.startsWith("file://") ||
         originalSrc.startsWith("http://") ||
         originalSrc.startsWith("https://"));
     const finalOriginal = canUseOriginal ? originalSrc : "";
@@ -213,7 +222,13 @@ export function ImageNodeView({
   }, [isLocked, selected]);
 
   useEffect(() => {
-    if (!resolvedOriginal || isBoardRelativePath(resolvedOriginal)) return;
+    if (
+      !resolvedOriginal ||
+      isBoardRelativePath(resolvedOriginal) ||
+      resolvedOriginal.startsWith("file://")
+    ) {
+      return;
+    }
     const hasPreview = Boolean(element.props.previewSrc);
     const hasSize =
       element.props.naturalWidth > 1 && element.props.naturalHeight > 1;
@@ -232,6 +247,14 @@ export function ImageNodeView({
         if (cancelled) return;
         if (!engine.doc.getElementById(nodeId)) return;
         const patch: Partial<ImageNodeProps> = {};
+        if (
+          (element.props.originalSrc.startsWith("file://") ||
+            isProjectAbsolutePath(element.props.originalSrc)) &&
+          projectRelativeOriginal &&
+          projectRelativeOriginal !== element.props.originalSrc
+        ) {
+          patch.originalSrc = projectRelativeOriginal;
+        }
         if (!element.props.previewSrc && payload.props.previewSrc) {
           patch.previewSrc = payload.props.previewSrc;
         }

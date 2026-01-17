@@ -260,18 +260,28 @@ export async function createImageStreamResponse(
   // 中文注释：图片生成成功后清空会话错误。
   await clearSessionErrorMessage({ sessionId: input.sessionId });
 
-  const body = [
-    toSseChunk({ type: "start", messageId: input.assistantMessageId }),
-    // 中文注释：SSE 直接返回持久化相对路径，避免前端收到 base64。
-    ...persistedImageParts.map((part) =>
-      toSseChunk({ type: "file", url: part.url, mediaType: part.mediaType }),
-    ),
-    ...revisedPromptPart.map((part) =>
-      toSseChunk({ type: part.type, data: part.data }),
-    ),
-    toSseChunk({ type: "finish", finishReason: "stop", messageMetadata: mergedMetadata }),
-  ].join("");
-  return new Response(body, { headers: UI_MESSAGE_STREAM_HEADERS });
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const encoder = new TextEncoder();
+      const enqueueChunk = (chunk: string) => {
+        controller.enqueue(encoder.encode(chunk));
+      };
+
+      enqueueChunk(toSseChunk({ type: "start", messageId: input.assistantMessageId }));
+      // 中文注释：逐条推送图片事件，确保前端能及时更新预览。
+      for (const part of persistedImageParts) {
+        enqueueChunk(toSseChunk({ type: "file", url: part.url, mediaType: part.mediaType }));
+      }
+      for (const part of revisedPromptPart) {
+        enqueueChunk(toSseChunk({ type: part.type, data: part.data }));
+      }
+      enqueueChunk(
+        toSseChunk({ type: "finish", finishReason: "stop", messageMetadata: mergedMetadata }),
+      );
+      controller.close();
+    },
+  });
+  return new Response(stream, { headers: UI_MESSAGE_STREAM_HEADERS });
 }
 
 /** 持久化错误消息到消息树。 */

@@ -31,11 +31,7 @@ import { NodePicker } from "./NodePicker";
 import { openLinkInStack as openLinkInStackAction, resolveLinkTitle } from "../nodes/lib/link-actions";
 import type { ImageNodeProps } from "../nodes/ImageNode";
 import type { LinkNodeProps } from "../nodes/LinkNode";
-import {
-  isBoardRelativePath,
-  resolveBoardFolderScope,
-  resolveBoardRelativeProjectPath,
-} from "./boardFilePath";
+import { resolveBoardFolderScope, resolveProjectPathFromBoardUri } from "./boardFilePath";
 
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
 const EDITABLE_NODE_TYPES = new Set(["text", "image-generate", "image-prompt-generate"]);
@@ -340,13 +336,17 @@ export function BoardCanvasInteraction({
   };
 
   const resolveProjectRelativePath = (value: string) => {
-    if (!isBoardRelativePath(value)) return "";
     const scope = resolveBoardFolderScope({
       projectId,
       rootUri,
       boardFolderUri,
     });
-    return resolveBoardRelativeProjectPath(value, scope);
+    return resolveProjectPathFromBoardUri({
+      uri: value,
+      boardFolderScope: scope,
+      currentProjectId: projectId,
+      rootUri,
+    });
   };
 
   const openImagePreviewFromNode = (element: CanvasNodeElement) => {
@@ -358,12 +358,15 @@ export function BoardCanvasInteraction({
       ? getPreviewEndpoint(projectRelativeOriginal, { projectId })
       : originalSrc;
     const previewSrc = props.previewSrc || "";
-    const isRelative = isBoardRelativePath(originalSrc);
+    const projectRelativePreview = resolveProjectRelativePath(previewSrc);
+    const resolvedPreview = projectRelativePreview
+      ? getPreviewEndpoint(projectRelativePreview, { projectId })
+      : previewSrc;
+    const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(originalSrc);
     const canUseOriginal =
-      !isRelative &&
+      hasScheme &&
       (resolvedOriginal.startsWith("data:") ||
         resolvedOriginal.startsWith("blob:") ||
-        resolvedOriginal.startsWith("file://") ||
         resolvedOriginal.startsWith("http://") ||
         resolvedOriginal.startsWith("https://"));
     const finalOriginal = projectRelativeOriginal
@@ -371,10 +374,11 @@ export function BoardCanvasInteraction({
       : canUseOriginal
       ? resolvedOriginal
       : "";
-    if (!finalOriginal && !previewSrc) return;
+    const finalPreview = resolvedPreview || previewSrc;
+    if (!finalOriginal && !finalPreview) return;
     onOpenImagePreview({
       originalSrc: finalOriginal,
-      previewSrc,
+      previewSrc: finalPreview,
       fileName: props.fileName || "Image",
       mimeType: props.mimeType,
     });

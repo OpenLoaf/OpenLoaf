@@ -9,7 +9,7 @@ export const BOARD_JSON_FILE_NAME = `index.${BOARD_FILE_EXT}.json`;
 /** Board metadata file name stored inside board folders. */
 export const BOARD_META_FILE_NAME = `index.${BOARD_FILE_EXT}.meta.json`;
 /** Assets directory name inside board folders. */
-export const BOARD_ASSETS_DIR_NAME = "assets";
+export const BOARD_ASSETS_DIR_NAME = ".asset";
 
 /** Return true when the extension is a board file. */
 export function isBoardFileExt(ext?: string): boolean {

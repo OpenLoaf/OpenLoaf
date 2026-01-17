@@ -1038,7 +1038,7 @@ export function useProjectFileSystemModel({
     const boardFolderUri = buildChildUri(activeUri, targetName);
     const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
     const assetsUri = buildChildUri(boardFolderUri, BOARD_ASSETS_DIR_NAME);
-    // 逻辑：画布采用文件夹结构，包含 index.tnboard 与 assets 子目录。
+    // 逻辑：画布采用文件夹结构，包含 index.tnboard 与 .asset 子目录。
     await mkdirMutation.mutateAsync({
       workspaceId,
       projectId,
@@ -1296,7 +1296,7 @@ export function useProjectFileSystemModel({
     if (!relativePath) return;
     event.dataTransfer.setData(
       FILE_DRAG_REF_MIME,
-      formatScopedProjectPath({ projectId, relativePath })
+      formatScopedProjectPath({ projectId, relativePath, includeAt: true })
     );
   };
 

@@ -33,7 +33,7 @@ import {
   filterModelOptionsByTags,
   runChatSseRequest,
 } from "./lib/image-generation";
-import { resolveBoardFolderScope, resolveBoardRelativeProjectPath } from "../core/boardFilePath";
+import { resolveBoardFolderScope, resolveProjectPathFromBoardUri } from "../core/boardFilePath";
 
 /** Node type identifier for image prompt generation. */
 export const IMAGE_PROMPT_GENERATE_NODE_TYPE = "image_prompt_generate";
@@ -177,10 +177,12 @@ export function ImagePromptGenerateNodeView({
       break;
     }
   }
-  const resolvedInputPath = resolveBoardRelativeProjectPath(
-    inputImageOriginalSrc.trim(),
-    boardFolderScope
-  );
+  const resolvedInputPath = resolveProjectPathFromBoardUri({
+    uri: inputImageOriginalSrc.trim(),
+    boardFolderScope,
+    currentProjectId: boardFolderScope?.projectId ?? fileContext?.projectId,
+    rootUri: fileContext?.rootUri,
+  });
   const hasValidInput = Boolean(inputImageId && resolvedInputPath);
   const selectedModelId = (element.props.chatModelId ?? "").trim();
   const defaultModelId =
@@ -253,7 +255,12 @@ export function ImagePromptGenerateNodeView({
         }
       }
       const rawImageUrl = imageProps?.originalSrc ?? "";
-      const imageUrl = resolveBoardRelativeProjectPath(rawImageUrl, boardFolderScope);
+      const imageUrl = resolveProjectPathFromBoardUri({
+        uri: rawImageUrl,
+        boardFolderScope,
+        currentProjectId: boardFolderScope?.projectId ?? fileContext?.projectId,
+        rootUri: fileContext?.rootUri,
+      });
       const mediaType = imageProps?.mimeType || "application/octet-stream";
       if (!imageUrl) {
         engine.doc.updateNodeProps(nodeId, {
@@ -345,6 +352,7 @@ export function ImagePromptGenerateNodeView({
       fileContext?.boardFolderUri,
       fileContext?.boardId,
       fileContext?.projectId,
+      fileContext?.rootUri,
       resolvedWorkspaceId,
     ]
   );

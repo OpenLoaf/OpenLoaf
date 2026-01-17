@@ -12,6 +12,8 @@ import {
 
 const PROJECT_META_DIR = ".tenas";
 const PROJECT_META_FILE = "project.json";
+/** Scoped project path matcher like @[projectId]/path/to/file. */
+const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/;
 
 /** Normalize a local path or file:// URI into a file:// URI. */
 function normalizeFileUri(raw: string): string {
@@ -187,6 +189,23 @@ export function resolveScopedPath(input: {
   }
   if (path.isAbsolute(raw)) {
     return path.resolve(raw);
+  }
+  const scopeMatch = raw.match(PROJECT_SCOPE_REGEX);
+  if (scopeMatch) {
+    const scopedProjectId = scopeMatch[1]?.trim();
+    const scopedRelativePath = scopeMatch[2] ?? "";
+    if (!scopedProjectId) {
+      throw new Error("Project not found.");
+    }
+    const projectRootPath = getProjectRootPath(scopedProjectId, input.workspaceId);
+    if (!projectRootPath) {
+      throw new Error("Project not found.");
+    }
+    const normalizedRelative = scopedRelativePath
+      .replace(/\\/g, "/")
+      .replace(/^(\.\/)+/, "")
+      .replace(/^\/+/, "");
+    return path.resolve(projectRootPath, normalizedRelative);
   }
   const projectId = input.projectId?.trim();
   if (projectId) {

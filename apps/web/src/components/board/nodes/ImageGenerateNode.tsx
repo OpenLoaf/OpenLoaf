@@ -33,12 +33,17 @@ import {
   runChatSseRequest,
 } from "./lib/image-generation";
 import { buildImageNodePayloadFromUri } from "../utils/image";
-import { buildUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  formatScopedProjectPath,
+  normalizeProjectRelativePath,
+  parseScopedProjectPath,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import {
   resolveBoardFolderScope,
-  resolveBoardRelativeProjectPath,
+  resolveProjectPathFromBoardUri,
   toBoardRelativePath,
 } from "../core/boardFilePath";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 
 /** Node type identifier for image generation. */
 export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
@@ -117,10 +122,13 @@ export function ImageGenerateNodeView({
     () => resolveBoardFolderScope(fileContext),
     [fileContext?.boardFolderUri, fileContext?.projectId, fileContext?.rootUri]
   );
+  const currentProjectId = boardFolderScope?.projectId ?? fileContext?.projectId;
   const imageSaveDir = useMemo(() => {
     if (boardFolderScope) {
-      // 逻辑：默认使用画布所在目录保存生成图片。
-      return boardFolderScope.relativeFolderPath;
+      // 逻辑：默认写入画布资产目录，避免图片散落在画布根目录。
+      return normalizeProjectRelativePath(
+        `${boardFolderScope.relativeFolderPath}/${BOARD_ASSETS_DIR_NAME}`
+      );
     }
     return "";
   }, [boardFolderScope]);
@@ -189,7 +197,12 @@ export function ImageGenerateNodeView({
 
   for (const imageProps of limitedInputImages) {
     const rawUri = imageProps?.originalSrc ?? "";
-    const resolvedUri = resolveBoardRelativeProjectPath(rawUri, boardFolderScope);
+    const resolvedUri = resolveProjectPathFromBoardUri({
+      uri: rawUri,
+      boardFolderScope,
+      currentProjectId,
+      rootUri: fileContext?.rootUri,
+    });
     if (!resolvedUri) {
       invalidImageCount += 1;
       continue;
@@ -360,12 +373,23 @@ export function ImageGenerateNodeView({
           onEvent: (event) => {
             const parsed = event as any;
             if (parsed?.type === "file" && typeof parsed?.url === "string") {
-              const absoluteUrl = fileContext?.rootUri
-                ? buildUriFromRoot(fileContext.rootUri, parsed.url)
-                : "";
-              if (!absoluteUrl) return;
+              const rawUrl = parsed.url.trim();
+              const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(rawUrl);
+              const resolvedUrl = hasScheme
+                ? rawUrl
+                : (() => {
+                    const scoped = parseScopedProjectPath(rawUrl);
+                    if (!scoped) return "";
+                    return formatScopedProjectPath({
+                      projectId: scoped.projectId,
+                      currentProjectId,
+                      relativePath: scoped.relativePath,
+                      includeAt: true,
+                    });
+                  })();
+              if (!resolvedUrl) return;
               const storedUrl = toBoardRelativePath(
-                absoluteUrl,
+                resolvedUrl,
                 boardFolderScope,
                 fileContext?.boardFolderUri
               );
@@ -376,7 +400,7 @@ export function ImageGenerateNodeView({
               streamedImages = [...streamedImages, storedUrl];
               streamedImagePayloads = [
                 ...streamedImagePayloads,
-                { url: absoluteUrl, mediaType, fileName },
+                { url: resolvedUrl, mediaType, fileName },
               ];
               // 逻辑：节点被删除时终止写入，避免无效更新。
               if (!engine.doc.getElementById(nodeId)) {
@@ -507,6 +531,7 @@ export function ImageGenerateNodeView({
       fileContext?.boardFolderUri,
       fileContext?.boardId,
       fileContext?.projectId,
+      currentProjectId,
       effectiveAspectRatio,
       hasInvalidImages,
       hasPrompt,

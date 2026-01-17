@@ -62,10 +62,19 @@ export function buildUriFromRoot(rootUri: string, relativePath: string) {
 
 /** Scoped project path matcher like [projectId]/path/to/file. */
 const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\]\/(.+)$/;
+/** Project-scoped absolute path matcher like @[projectId]/path/to/file. */
+const PROJECT_ABSOLUTE_REGEX = /^@\[[^\]]+\]\//;
+/** Scheme matcher for absolute URLs. */
+const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 
 /** Normalize a project-relative path string. */
 export function normalizeProjectRelativePath(value: string) {
   return value.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/^\/+/, "");
+}
+
+/** Check whether the value is a project-scoped absolute path. */
+export function isProjectAbsolutePath(value: string) {
+  return PROJECT_ABSOLUTE_REGEX.test(value.trim());
 }
 
 /** Parse a scoped project path string. */
@@ -75,8 +84,8 @@ export function parseScopedProjectPath(
   const trimmed = value.trim();
   if (!trimmed) return null;
   const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(normalized)) return null;
-  // 逻辑：支持 [projectId]/path 形式的跨项目引用。
+  if (SCHEME_REGEX.test(normalized)) return null;
+  // 逻辑：支持 @[projectId]/path 形式的跨项目引用。
   const match = normalized.match(PROJECT_SCOPE_REGEX);
   const relativePath = normalizeProjectRelativePath(match ? match[2] ?? "" : normalized);
   if (!relativePath) return null;
@@ -101,7 +110,8 @@ export function formatScopedProjectPath(input: {
     (!input.currentProjectId || input.projectId !== input.currentProjectId);
   const prefix = shouldScope ? `[${input.projectId}]/` : "";
   const scoped = `${prefix}${relativePath}`;
-  return input.includeAt ? `@${scoped}` : scoped;
+  if (input.includeAt && shouldScope) return `@${scoped}`;
+  return scoped;
 }
 
 /** Get a normalized extension string for a file entry. */
