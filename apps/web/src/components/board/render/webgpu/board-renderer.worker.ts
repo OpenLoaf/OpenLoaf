@@ -568,26 +568,6 @@ function appendLine(lines: LineVertex[], a: CanvasPoint, b: CanvasPoint, color: 
   lines.push({ x: b[0], y: b[1], color });
 }
 
-function appendThickLine(
-  lines: LineVertex[],
-  a: CanvasPoint,
-  b: CanvasPoint,
-  color: Vec4,
-  offset: number
-) {
-  // 逻辑：用多条平行线模拟加粗连线。
-  appendLine(lines, a, b, color);
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const len = Math.hypot(dx, dy) || 1;
-  const nx = -dy / len;
-  const ny = dx / len;
-  const ox = nx * offset;
-  const oy = ny * offset;
-  appendLine(lines, [a[0] + ox, a[1] + oy], [b[0] + ox, b[1] + oy], color);
-  appendLine(lines, [a[0] - ox, a[1] - oy], [b[0] - ox, b[1] - oy], color);
-}
-
 function buildGridLines(viewport: CanvasViewportState, color: Vec4) {
   const lines: LineVertex[] = [];
   const zoom = viewport.zoom;
@@ -656,9 +636,8 @@ function appendConnectorLines(
   const isSelected = state.selectedIds.includes(connector.id);
   const color = toColor(isSelected ? palette.connectorSelected : palette.connector);
   const points = path.kind === "bezier" ? sampleBezier(path.points as CanvasPoint[]) : path.points;
-  const thicknessOffset = 1.2;
   for (let i = 0; i < points.length - 1; i += 1) {
-    appendThickLine(lines, points[i]!, points[i + 1]!, color, thicknessOffset);
+    appendLine(lines, points[i]!, points[i + 1]!, color);
   }
 
   if (points.length >= 2) {
@@ -669,28 +648,16 @@ function appendConnectorLines(
     const len = Math.hypot(dx, dy) || 1;
     const ux = dx / len;
     const uy = dy / len;
-    const size = 14;
-    const angle = Math.PI / 6;
+    const size = 10;
+    const angle = Math.PI / 7;
     const sin = Math.sin(angle);
     const cos = Math.cos(angle);
     const lx = ux * cos - uy * sin;
     const ly = ux * sin + uy * cos;
     const rx = ux * cos + uy * sin;
     const ry = -ux * sin + uy * cos;
-    appendThickLine(
-      lines,
-      end,
-      [end[0] - lx * size, end[1] - ly * size],
-      color,
-      thicknessOffset
-    );
-    appendThickLine(
-      lines,
-      end,
-      [end[0] - rx * size, end[1] - ry * size],
-      color,
-      thicknessOffset
-    );
+    appendLine(lines, end, [end[0] - lx * size, end[1] - ly * size], color);
+    appendLine(lines, end, [end[0] - rx * size, end[1] - ry * size], color);
   }
 }
 
