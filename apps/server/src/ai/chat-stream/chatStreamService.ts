@@ -101,6 +101,8 @@ type ImageModelResult = {
   totalUsage?: TokenUsage;
 };
 
+const COMPACT_COMMAND = "/compact";
+
 /** Resolve selected skills from request params. */
 function resolveSelectedSkills(params?: Record<string, unknown> | null): string[] {
   if (!isRecord(params)) return [];
@@ -122,6 +124,43 @@ function resolveSelectedSkills(params?: Record<string, unknown> | null): string[
     normalized.push(trimmed);
   }
   return normalized;
+}
+
+/** Extract plain text from UI message parts. */
+function extractTextFromParts(parts: unknown[]): string {
+  const items = Array.isArray(parts) ? (parts as any[]) : [];
+  return items
+    .filter((part) => part?.type === "text" && typeof part.text === "string")
+    .map((part) => String(part.text))
+    .join("\n")
+    .trim();
+}
+
+/** Check whether the message is a compact command request. */
+function isCompactCommandMessage(message: TenasUIMessage | undefined): boolean {
+  if (!message || message.role !== "user") return false;
+  if ((message as any)?.messageKind === "compact_prompt") return true;
+  const text = extractTextFromParts(message.parts ?? []);
+  return text === COMPACT_COMMAND;
+}
+
+/** Build the compact prompt text sent to the model. */
+function buildCompactPromptText(): string {
+  return [
+    "# 任务",
+    "请对当前对话进行压缩摘要，供后续继续对话使用。",
+    "要求：",
+    "- 保留明确需求、约束、决策、关键事实。",
+    "- 保留重要数据、参数、文件路径、命令、接口信息。",
+    "- 标注未完成事项与风险。",
+    "- 用精简要点，不要展开推理过程。",
+    "输出格式：",
+    "## 摘要",
+    "## 关键决策",
+    "## 待办",
+    "## 风险/疑点",
+    "## 涉及文件",
+  ].join("\n");
 }
 
 /** Build skills summary section for a session preface. */
@@ -332,28 +371,93 @@ export async function runChatStream(input: {
     boardId: boardId ?? undefined,
   });
 
-  // 流程：保存最后一条消息 -> 补全历史链路 -> 解析模型 -> 启动 SSE stream 并落库 assistant。
-  const saveResult = await saveLastMessageAndResolveParent({
-    sessionId,
-    lastMessage,
-    requestStartAt,
-    formatInvalid: (message) => `请求无效：${message}`,
-    formatSaveError: (message) => `请求失败：${message}`,
-  });
-  if (!saveResult.ok) {
-    return createErrorStreamResponse({
+  const isCompactCommand = isCompactCommandMessage(lastMessage);
+  let leafMessageId = "";
+  let assistantParentUserId: string | null = null;
+  let includeCompactPrompt = false;
+
+  if (isCompactCommand) {
+    // 中文注释：/compact 指令走压缩流程，先写 compact_prompt 再生成 summary。
+    if (!lastMessage || lastMessage.role !== "user") {
+      return createErrorStreamResponse({
+        sessionId,
+        assistantMessageId,
+        parentMessageId: await resolveRightmostLeafId(sessionId),
+        errorText: "请求无效：压缩指令必须来自用户消息。",
+      });
+    }
+
+    const explicitParent =
+      typeof lastMessage.parentMessageId === "string" || lastMessage.parentMessageId === null
+        ? (lastMessage.parentMessageId as string | null)
+        : undefined;
+    const parentMessageId =
+      explicitParent === undefined
+        ? await resolveRightmostLeafId(sessionId)
+        : explicitParent;
+    if (!parentMessageId) {
+      return createErrorStreamResponse({
+        sessionId,
+        assistantMessageId,
+        parentMessageId: await resolveRightmostLeafId(sessionId),
+        errorText: "请求失败：找不到可压缩的对话节点。",
+      });
+    }
+
+    const compactPromptMessage: TenasUIMessage = {
+      id: lastMessage.id,
+      role: "user",
+      parentMessageId,
+      messageKind: "compact_prompt",
+      parts: [{ type: "text", text: buildCompactPromptText() }],
+    };
+
+    try {
+      const saved = await saveMessage({
+        sessionId,
+        message: compactPromptMessage,
+        parentMessageId,
+        createdAt: requestStartAt,
+      });
+      leafMessageId = saved.id;
+      assistantParentUserId = saved.id;
+      includeCompactPrompt = true;
+    } catch (err) {
+      logger.error({ err }, "[chat] save compact prompt failed");
+      return createErrorStreamResponse({
+        sessionId,
+        assistantMessageId,
+        parentMessageId,
+        errorText: "请求失败：保存压缩指令出错。",
+      });
+    }
+  } else {
+    // 流程：保存最后一条消息 -> 补全历史链路 -> 解析模型 -> 启动 SSE stream 并落库 assistant。
+    const saveResult = await saveLastMessageAndResolveParent({
       sessionId,
-      assistantMessageId,
-      parentMessageId: await resolveRightmostLeafId(sessionId),
-      errorText: saveResult.errorText,
+      lastMessage,
+      requestStartAt,
+      formatInvalid: (message) => `请求无效：${message}`,
+      formatSaveError: (message) => `请求失败：${message}`,
     });
+    if (!saveResult.ok) {
+      return createErrorStreamResponse({
+        sessionId,
+        assistantMessageId,
+        parentMessageId: await resolveRightmostLeafId(sessionId),
+        errorText: saveResult.errorText,
+      });
+    }
+
+    leafMessageId = saveResult.leafMessageId;
+    assistantParentUserId = saveResult.assistantParentUserId;
   }
 
-  const { leafMessageId, assistantParentUserId } = saveResult;
   const chainResult = await loadAndPrepareMessageChain({
     sessionId,
     leafMessageId,
     assistantParentUserId,
+    includeCompactPrompt,
     formatError: (message) => `请求失败：${message}`,
   });
   if (!chainResult.ok) {
@@ -459,6 +563,7 @@ export async function runChatStream(input: {
     agentRunner: masterAgent,
     agentMetadata,
     abortController,
+    assistantMessageKind: isCompactCommand ? "compact_summary" : undefined,
   });
 }
 

@@ -185,6 +185,8 @@ export default function ProjectPage({
   const pageTitle = localTitle ?? projectData?.project?.title ?? "Untitled Project";
   const titleIcon: string | undefined =
     localIcon ?? projectData?.project?.icon ?? undefined;
+  // 逻辑：项目数据未加载前不覆盖持久化标题/图标，避免切换时闪动。
+  const shouldSyncTabMeta = localTitle !== null || localIcon !== null || Boolean(projectData?.project);
   const shouldRenderIndex = activeTab === "index" || mountedTabs.has("index");
   const shouldRenderFiles = activeTab === "files" || mountedTabs.has("files");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
@@ -257,15 +259,17 @@ export default function ProjectPage({
 
   useEffect(() => {
     if (!tabId) return;
+    if (!shouldSyncTabMeta) return;
     // 中文注释：同步标题到 tab，保持标题一致。
     setTabTitle(tabId, pageTitle);
-  }, [pageTitle, setTabTitle, tabId]);
+  }, [pageTitle, setTabTitle, shouldSyncTabMeta, tabId]);
 
   useEffect(() => {
     if (!tabId) return;
+    if (!shouldSyncTabMeta) return;
     // 中文注释：同步图标到 tab，保持图标一致。
     setTabIcon(tabId, titleIcon);
-  }, [setTabIcon, tabId, titleIcon]);
+  }, [setTabIcon, shouldSyncTabMeta, tabId, titleIcon]);
 
   // 页面切换时重置只读状态，避免沿用旧页面的编辑状态。
   useEffect(() => {

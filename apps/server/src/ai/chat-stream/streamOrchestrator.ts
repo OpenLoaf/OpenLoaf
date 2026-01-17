@@ -6,7 +6,7 @@ import {
   type UIMessage,
 } from "ai";
 import { logger } from "@/common/logger";
-import type { TokenUsage } from "@tenas-ai/api/types/message";
+import type { ChatMessageKind, TokenUsage } from "@tenas-ai/api";
 import {
   getSessionId,
   popAgentFrame,
@@ -53,6 +53,8 @@ export type ChatStreamResponseInput = {
   agentMetadata: Record<string, unknown>;
   /** Abort controller. */
   abortController: AbortController;
+  /** Optional assistant message kind override. */
+  assistantMessageKind?: ChatMessageKind;
 };
 
 /** 构建图片 SSE 响应的输入。 */
@@ -169,10 +171,14 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                 agent: input.agentMetadata,
               };
 
+              const responseWithKind = input.assistantMessageKind
+                ? { ...(responseMessage as any), messageKind: input.assistantMessageKind }
+                : (responseMessage as any);
+
               await saveMessage({
                 sessionId: currentSessionId,
                 message: {
-                  ...(responseMessage as any),
+                  ...responseWithKind,
                   id: input.assistantMessageId,
                   metadata: mergeAbortMetadata(mergedMetadata, { isAborted, finishReason }),
                 } as any,

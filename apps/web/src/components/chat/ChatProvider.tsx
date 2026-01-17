@@ -20,8 +20,31 @@ import { playNotificationSound } from "@/lib/notification-sound";
 import type { TenasUIDataTypes } from "@tenas-ai/api/types/message";
 import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
+import type { ChatMessageKind } from "@tenas-ai/api";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "./chat-attachments";
 import { createChatSessionId } from "@/lib/chat-session-id";
+
+const COMPACT_COMMAND = "/compact";
+
+/** Extract plain text from UI message parts. */
+function extractTextFromParts(parts: unknown[]): string {
+  const items = Array.isArray(parts) ? (parts as any[]) : [];
+  return items
+    .filter((part) => part?.type === "text" && typeof part.text === "string")
+    .map((part) => String(part.text))
+    .join("\n")
+    .trim();
+}
+
+/** Check whether the message is a compact command request. */
+function isCompactCommandMessage(input: {
+  parts?: unknown[];
+  messageKind?: ChatMessageKind;
+}): boolean {
+  if (input.messageKind === "compact_prompt") return true;
+  const text = extractTextFromParts(input.parts ?? []);
+  return text === COMPACT_COMMAND;
+}
 
 function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
   if (input.dataPart?.type !== "data-open-browser") return false;
@@ -351,6 +374,8 @@ export default function ChatProvider({
   const needsBranchMetaRefreshRef = React.useRef(false);
   // 关键：useChat 的 onFinish 里需要 setMessages，但 chat 在 hook 调用之后才可用
   const setMessagesRef = React.useRef<ReturnType<typeof useChat>["setMessages"] | null>(null);
+  // 关键：标记当前请求是否为 compact，以便回写 compact_summary。
+  const pendingCompactRequestRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (tabId) {
@@ -441,6 +466,18 @@ export default function ChatProvider({
           )
         );
       }
+      if (parentUserMessageId && pendingCompactRequestRef.current === parentUserMessageId) {
+        pendingCompactRequestRef.current = null;
+        if (setMessagesRef.current) {
+          setMessagesRef.current((messages) =>
+            (messages as any[]).map((m) =>
+              String((m as any)?.id) === assistantId
+                ? { ...(m as any), messageKind: "compact_summary" }
+                : m
+            )
+          );
+        }
+      }
 
       // 关键：retry/resend 的 sibling 信息必须等 SSE 完全结束后再刷新（否则 DB 还没落库）
       if (needsBranchMetaRefreshRef.current) {
@@ -526,6 +563,7 @@ export default function ChatProvider({
       setStreamTick(0);
       pendingUserMessageIdRef.current = null;
       needsBranchMetaRefreshRef.current = false;
+      pendingCompactRequestRef.current = null;
       setLeafMessageId(null);
       setBranchMessageIds([]);
       setSiblingNav({});
@@ -663,6 +701,18 @@ export default function ChatProvider({
         ...(id ? { id } : {}),
         parentMessageId,
       };
+
+      if (
+        nextMessage.role === "user" &&
+        !nextMessage.messageKind &&
+        isCompactCommandMessage(nextMessage)
+      ) {
+        // 中文注释：/compact 指令统一标记为 compact_prompt，避免 UI 直接展示。
+        nextMessage.messageKind = "compact_prompt";
+      }
+      if (nextMessage.role === "user" && isCompactCommandMessage(nextMessage)) {
+        pendingCompactRequestRef.current = String(nextMessage.id);
+      }
 
       pendingUserMessageIdRef.current = String(nextMessage.id);
 

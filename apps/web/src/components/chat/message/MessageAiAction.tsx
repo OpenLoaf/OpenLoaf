@@ -5,7 +5,15 @@ import type { UIMessage } from "@ai-sdk/react";
 import { estimateModelPrice, resolvePriceTier, type ModelDefinition } from "@tenas-ai/api/common";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { BarChart3, Clock3, Copy, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
+import {
+  BarChart3,
+  Clock3,
+  Copy,
+  Minimize2,
+  RotateCcw,
+  ThumbsUp,
+  ThumbsDown,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useChatContext } from "../ChatProvider";
 import { trpc } from "@/utils/trpc";
@@ -14,6 +22,17 @@ import MessageBranchNav from "./MessageBranchNav";
 import { getMessageTextWithToolCalls } from "@/lib/chat/message-text";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { messageActionIconButtonClassName } from "./message-action-styles";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const TOKEN_K = 1000;
 const TOKEN_M = 1000 * 1000;
@@ -240,8 +259,10 @@ export default function MessageAiAction({
   message: UIMessage;
   className?: string;
 }) {
-  const { retryAssistantMessage, clearError, status, updateMessage } = useChatContext();
+  const { retryAssistantMessage, clearError, status, updateMessage, sendMessage, leafMessageId } =
+    useChatContext();
   const [isCopying, setIsCopying] = React.useState(false);
+  const [compactOpen, setCompactOpen] = React.useState(false);
   const text = getMessageTextWithToolCalls(message);
 
   const handleCopy = async () => {
@@ -266,6 +287,10 @@ export default function MessageAiAction({
 
   // 仅在“正在提交/流式输出”时禁用交互；error/ready 状态都允许重试
   const isBusy = status === "submitted" || status === "streaming";
+  const messageId = String((message as any)?.id ?? "");
+  const isLeafMessage = Boolean(messageId && leafMessageId && messageId === String(leafMessageId));
+  const messageKind = (message as any)?.messageKind;
+  const canCompact = message.role === "assistant" && isLeafMessage && messageKind !== "compact_summary";
 
   const ratingValue = (message.metadata as any)?.isGood ?? null;
 
@@ -330,6 +355,17 @@ export default function MessageAiAction({
     });
   };
 
+  const handleCompactConfirm = React.useCallback(() => {
+    if (isBusy) return;
+    setCompactOpen(false);
+    if (status === "error") clearError();
+    sendMessage({
+      role: "user",
+      parts: [{ type: "text", text: "/compact" }],
+      messageKind: "compact_prompt",
+    } as any);
+  }, [clearError, isBusy, sendMessage, status]);
+
   return (
     <div className={cn("group flex ml-1 select-none items-center justify-start gap-0.5", className)}>
       <Button
@@ -393,6 +429,38 @@ export default function MessageAiAction({
           )}
         />
       </Button>
+
+      {canCompact ? (
+        <AlertDialog open={compactOpen} onOpenChange={setCompactOpen}>
+          <AlertDialogTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className={messageActionIconButtonClassName}
+              disabled={isBusy}
+              aria-label="压缩上下文"
+              title="压缩上下文"
+            >
+              <Minimize2 className="size-3" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认压缩上下文？</AlertDialogTitle>
+            </AlertDialogHeader>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              该操作会生成一条压缩摘要，并用于后续对话上下文。
+            </AlertDialogDescription>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction onClick={handleCompactConfirm} disabled={isBusy}>
+                确认压缩
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
 
       <Tooltip>
         <TooltipTrigger asChild>

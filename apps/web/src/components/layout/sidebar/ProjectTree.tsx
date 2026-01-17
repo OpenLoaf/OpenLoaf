@@ -381,6 +381,7 @@ export const PageTreeMenu = ({
 }: PageTreeMenuProps) => {
   const addTab = useTabs((s) => s.addTab);
   const setActiveTab = useTabs((s) => s.setActiveTab);
+  const setTabTitle = useTabs((s) => s.setTabTitle);
   const activeTabId = useTabs((s) => s.activeTabId);
   const tabs = useTabs((s) => s.tabs);
   const { workspace } = useWorkspace();
@@ -694,9 +695,18 @@ export const PageTreeMenu = ({
         if (!renameTarget.node.projectId) {
           throw new Error("缺少项目 ID");
         }
+        const projectId = renameTarget.node.projectId;
         await renameProject.mutateAsync({
           projectId: renameTarget.node.projectId,
           title: nextName,
+        });
+        // 中文注释：同步已打开的项目 Tab 标题，避免缓存导致 UI 不更新。
+        const baseId = `project:${projectId}`;
+        tabs
+          .filter((tab) => tab.base?.id === baseId)
+          .forEach((tab) => setTabTitle(tab.id, nextName));
+        await queryClient.invalidateQueries({
+          queryKey: trpc.project.get.queryOptions({ projectId }).queryKey,
         });
       } else {
         const nextUri = buildNextUri(renameTarget.node.uri, nextName);

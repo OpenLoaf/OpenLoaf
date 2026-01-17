@@ -206,9 +206,16 @@ export async function saveLastMessageAndResolveParent(input: {
 }
 
 /** Build the model chain by trimming to the latest compact summary. */
-function buildModelChain(messages: UIMessage[]): UIMessage[] {
+function buildModelChain(
+  messages: UIMessage[],
+  options?: {
+    /** Whether to keep compact prompt in the model chain. */
+    includeCompactPrompt?: boolean;
+  },
+): UIMessage[] {
   const fullChain = Array.isArray(messages) ? messages : [];
   if (fullChain.length === 0) return [];
+  const includeCompactPrompt = Boolean(options?.includeCompactPrompt);
 
   let latestSummaryIndex = -1;
   let sessionPreface: UIMessage | null = null;
@@ -220,7 +227,9 @@ function buildModelChain(messages: UIMessage[]): UIMessage[] {
   }
 
   const baseSlice = latestSummaryIndex >= 0 ? fullChain.slice(latestSummaryIndex) : fullChain;
-  const trimmed = baseSlice.filter((message: any) => message?.messageKind !== "compact_prompt");
+  const trimmed = includeCompactPrompt
+    ? baseSlice
+    : baseSlice.filter((message: any) => message?.messageKind !== "compact_prompt");
 
   if (!sessionPreface) return trimmed;
   const withoutPreface = trimmed.filter(
@@ -237,6 +246,8 @@ export async function loadAndPrepareMessageChain(input: {
   leafMessageId: string;
   /** Parent user message id for assistant. */
   assistantParentUserId: string | null;
+  /** Whether to include compact prompt in model chain. */
+  includeCompactPrompt?: boolean;
   /** Formatter for chain errors. */
   formatError: (message: string) => string;
 }): Promise<LoadMessageChainResult> {
@@ -253,7 +264,9 @@ export async function loadAndPrepareMessageChain(input: {
     "[chat] load message chain",
   );
 
-  const modelChain = buildModelChain(messages as UIMessage[]);
+  const modelChain = buildModelChain(messages as UIMessage[], {
+    includeCompactPrompt: input.includeCompactPrompt,
+  });
   const modelMessages = await replaceRelativeFileParts(modelChain as UIMessage[]);
   if (messages.length === 0) {
     return { ok: false, errorText: input.formatError("历史消息不存在。") };
