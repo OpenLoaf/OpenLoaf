@@ -1,6 +1,6 @@
 import * as React from "react"
 import * as ContextMenuPrimitive from "@radix-ui/react-context-menu"
-import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
+import { CheckIcon, ChevronRightIcon, CircleIcon, type LucideIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -113,10 +113,13 @@ function ContextMenuItem({
   className,
   inset,
   variant = "default",
+  icon: Icon,
+  children,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Item> & {
   inset?: boolean
   variant?: "default" | "destructive"
+  icon?: LucideIcon
 }) {
   return (
     <ContextMenuPrimitive.Item
@@ -128,7 +131,10 @@ function ContextMenuItem({
         className
       )}
       {...props}
-    />
+    >
+      {Icon ? <Icon className="h-4 w-4" /> : null}
+      {children}
+    </ContextMenuPrimitive.Item>
   )
 }
 

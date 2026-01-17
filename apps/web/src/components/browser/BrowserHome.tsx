@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Globe } from "lucide-react";
+import { ClipboardCopy, Globe, Link, PencilLine, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getFavoriteSites,
@@ -287,17 +287,29 @@ export function BrowserHome({ onOpenUrl }: { onOpenUrl?: (url: string) => void }
                     </motion.button>
                   </ContextMenuTrigger>
                   <ContextMenuContent className="w-44">
-                    <ContextMenuItem onSelect={() => openEditDialog(s, "rename")}>
+                    <ContextMenuItem
+                      icon={PencilLine}
+                      onSelect={() => openEditDialog(s, "rename")}
+                    >
                       重命名
                     </ContextMenuItem>
-                    <ContextMenuItem onSelect={() => openEditDialog(s, "edit-url")}>
+                    <ContextMenuItem
+                      icon={Link}
+                      onSelect={() => openEditDialog(s, "edit-url")}
+                    >
                       编辑地址
                     </ContextMenuItem>
-                    <ContextMenuItem onSelect={() => handleCopyFavoriteUrl(s)}>
+                    <ContextMenuItem
+                      icon={ClipboardCopy}
+                      onSelect={() => handleCopyFavoriteUrl(s)}
+                    >
                       复制地址
                     </ContextMenuItem>
                     <ContextMenuSeparator />
-                    <ContextMenuItem onSelect={() => handleDeleteFavorite(s)}>
+                    <ContextMenuItem
+                      icon={Trash2}
+                      onSelect={() => handleDeleteFavorite(s)}
+                    >
                       删除
                     </ContextMenuItem>
                   </ContextMenuContent>

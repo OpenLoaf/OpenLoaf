@@ -6,7 +6,7 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { TabMenu } from "./TabMenu";
+import { TabMenu } from "./HeaderTabMenu";
 
 /** Format a shortcut string for tooltip display. */
 function formatShortcutLabel(shortcut: string, isMac: boolean): string {

@@ -13,9 +13,14 @@ import { useChatContext } from "../ChatProvider";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 import type { ChatAttachment } from "../chat-attachments";
 import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
+import type { ChatMessageKind } from "@tenas-ai/api";
+import { getMessagePlainText } from "@/lib/chat/message-text";
+import CompactSummaryDivider from "./CompactSummaryDivider";
+
+type ChatMessage = UIMessage & { messageKind?: ChatMessageKind };
 
 interface MessageItemProps {
-  message: UIMessage;
+  message: ChatMessage;
   isLastHumanMessage?: boolean;
   isLastAiMessage?: boolean;
   hideAiActions?: boolean;
@@ -40,6 +45,7 @@ function MessageItem({
   const [draft, setDraft] = React.useState("");
   const [editAttachments, setEditAttachments] = React.useState<ChatAttachment[]>([]);
   const editAttachmentsRef = React.useRef<ChatAttachment[]>([]);
+  const messageKind = message.messageKind;
 
   const messageText = React.useMemo(() => {
     return (message.parts ?? [])
@@ -248,6 +254,20 @@ function MessageItem({
       }
     };
   }, [imageParts, isEditing, revokeAttachmentUrls]);
+
+  if (messageKind === "session_preface" || messageKind === "compact_prompt") {
+    return null;
+  }
+
+  if (messageKind === "compact_summary") {
+    const summaryText = getMessagePlainText(message);
+    // 中文注释：压缩摘要消息用分隔条展示，并支持点击展开。
+    return (
+      <div className="group my-0.5 px-4" data-message-id={message.id}>
+        <CompactSummaryDivider summary={summaryText} />
+      </div>
+    );
+  }
 
   return (
     <div

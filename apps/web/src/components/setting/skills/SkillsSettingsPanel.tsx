@@ -9,6 +9,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Eye, FolderOpen, Trash2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useProject } from "@/hooks/use-project";
 import {
@@ -362,18 +363,24 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         title="技能列表"
         subtitle={summaryText}
         action={
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8"
-            onClick={() => void handleOpenSkillsRoot()}
-            disabled={!skillsRootUri || !workspaceId || (isProjectList && !projectId)}
-            aria-label="打开技能目录"
-            title="打开技能目录"
-          >
-            <FolderOpen className="h-4 w-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => void handleOpenSkillsRoot()}
+                disabled={!skillsRootUri || !workspaceId || (isProjectList && !projectId)}
+                aria-label="打开技能目录"
+              >
+                <FolderOpen className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              打开技能目录
+            </TooltipContent>
+          </Tooltip>
         }
       >
         <div className="divide-y divide-border">
@@ -405,26 +412,32 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     ) : null}
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      aria-label="查看技能目录"
-                      title="查看技能目录"
-                      className="h-8 w-8"
-                      onClick={() => handleOpenSkill(skill)}
-                      disabled={
-                        !activeTabId ||
-                        !resolveSkillFolderUri(
-                          skill.path,
-                          skill.scope === "project"
-                            ? projectData?.project?.rootUri
-                            : workspace?.rootUri,
-                        )
-                      }
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          aria-label="查看技能目录"
+                          className="h-8 w-8"
+                          onClick={() => handleOpenSkill(skill)}
+                          disabled={
+                            !activeTabId ||
+                            !resolveSkillFolderUri(
+                              skill.path,
+                              skill.scope === "project"
+                                ? projectData?.project?.rootUri
+                                : workspace?.rootUri,
+                            )
+                          }
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={6}>
+                        查看技能目录
+                      </TooltipContent>
+                    </Tooltip>
                     <Switch
                       checked={skill.isEnabled}
                       onCheckedChange={(checked) => handleToggleSkill(skill, checked)}

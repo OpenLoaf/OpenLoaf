@@ -32,6 +32,7 @@ import {
   IGNORE_NAMES,
   resolveFileUriFromRoot,
 } from "../utils/file-system-utils";
+import { sortEntriesByType } from "../utils/entry-sort";
 import {
   CODE_EXTS,
   DOC_EXTS,
@@ -429,9 +430,12 @@ const FileSystemColumns = memo(function FileSystemColumns({
           includeHidden ? true : !IGNORE_NAMES.has(entry.name)
         );
       const isActiveColumn = index === columnUris.length - 1;
+      const orderedEntries = sortEntriesByType(
+        isActiveColumn ? entries : queryEntries
+      );
       return {
         uri,
-        entries: isActiveColumn ? entries : queryEntries,
+        entries: orderedEntries,
         isLoading: isActiveColumn ? isLoading : Boolean(query?.isLoading),
         pathSelectedUri: columnSelection[index] ?? null,
       };

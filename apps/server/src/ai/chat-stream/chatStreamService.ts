@@ -1,4 +1,4 @@
-import { generateImage, type UIMessage } from "ai";
+import { generateId, generateImage, type UIMessage } from "ai";
 import type { ChatModelSource, ModelDefinition } from "@tenas-ai/api/common";
 import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
 import type { TenasUIMessage, TokenUsage } from "@tenas-ai/api/types/message";
@@ -17,7 +17,13 @@ import { isRecord } from "@/ai/utils/type-guards";
 import { logger } from "@/common/logger";
 import { prisma } from "@tenas-ai/db";
 import { resolveProjectAncestorRootUris } from "@tenas-ai/api/services/projectDbService";
-import { resolveFilePathFromUri } from "@tenas-ai/api/services/vfsService";
+import {
+  getProjectRootPath,
+  getWorkspaceRootPath,
+  getWorkspaceRootPathById,
+  resolveFilePathFromUri,
+} from "@tenas-ai/api/services/vfsService";
+import { loadSkillSummaries, type SkillSummary } from "@/ai/agents/masterAgent/skillsLoader";
 import { normalizePromptForImageEdit } from "./imageEditNormalizer";
 import { resolveImagePrompt, type GenerateImagePrompt } from "./imagePrompt";
 import {
@@ -42,6 +48,7 @@ import {
 import type { ChatStreamRequest } from "./chatStreamTypes";
 import {
   clearSessionErrorMessage,
+  ensureSessionPreface,
   resolveRightmostLeafId,
   saveMessage,
   setSessionErrorMessage,
@@ -115,6 +122,113 @@ function resolveSelectedSkills(params?: Record<string, unknown> | null): string[
     normalized.push(trimmed);
   }
   return normalized;
+}
+
+/** Build skills summary section for a session preface. */
+function buildSkillsSummarySection(summaries: SkillSummary[]): string {
+  const lines = [
+    "# Skills 列表（摘要）",
+    "- 仅注入 YAML front matter（name/description）。",
+    "- 需要完整说明请使用工具读取对应 SKILL.md。",
+  ];
+
+  if (summaries.length === 0) {
+    lines.push("- 未发现可用 skills。");
+    return lines.join("\n");
+  }
+
+  for (const summary of summaries) {
+    lines.push(
+      `- ${summary.name} [${summary.scope}] ${summary.description} (path: \`${summary.path}\`)`,
+    );
+  }
+  return lines.join("\n");
+}
+
+/** Build selected skills section for a session preface. */
+function buildSelectedSkillsSection(
+  selectedSkills: string[],
+  summaries: SkillSummary[],
+): string {
+  const lines = ["# 已选择技能（来自 params.skills）"];
+  if (selectedSkills.length === 0) {
+    lines.push("- 无");
+    return lines.join("\n");
+  }
+
+  const summaryMap = new Map(summaries.map((summary) => [summary.name, summary]));
+  for (const name of selectedSkills) {
+    const summary = summaryMap.get(name);
+    if (!summary) {
+      lines.push(`- ${name} (未找到对应 SKILL.md)`);
+      continue;
+    }
+    lines.push(`- ${summary.name} [${summary.scope}] (path: \`${summary.path}\`)`);
+  }
+  return lines.join("\n");
+}
+
+/** Build a session preface message for compaction context. */
+function buildSessionPrefaceMessage(input: {
+  sessionId: string;
+  workspaceId?: string;
+  projectId?: string;
+  selectedSkills: string[];
+  parentProjectRootPaths: string[];
+}): TenasUIMessage {
+  let workspaceRootPath = "";
+  let projectRootPath = "";
+  try {
+    const workspaceId = input.workspaceId?.trim() ?? "";
+    if (workspaceId) {
+      workspaceRootPath = getWorkspaceRootPathById(workspaceId) ?? "";
+    } else {
+      workspaceRootPath = getWorkspaceRootPath() ?? "";
+    }
+  } catch {
+    // 逻辑：读取工作区路径失败时回退为空字符串。
+    workspaceRootPath = "";
+  }
+
+  try {
+    const projectId = input.projectId?.trim() ?? "";
+    if (projectId) {
+      projectRootPath = getProjectRootPath(projectId) ?? "";
+    }
+  } catch {
+    // 逻辑：读取项目路径失败时回退为空字符串。
+    projectRootPath = "";
+  }
+
+  const summaries = loadSkillSummaries({
+    workspaceRootPath: workspaceRootPath || undefined,
+    projectRootPath: projectRootPath || undefined,
+    parentProjectRootPaths: input.parentProjectRootPaths,
+  });
+  const skillsSummarySection = buildSkillsSummarySection(summaries);
+  const selectedSkillsSection = buildSelectedSkillsSection(input.selectedSkills, summaries);
+
+  const sections = [
+    [
+      "# 会话上下文（preface）",
+      `- sessionId: ${input.sessionId}`,
+      `- workspaceId: ${input.workspaceId ?? "unknown"}`,
+      `- workspaceRootPath: ${workspaceRootPath || "unknown"}`,
+      `- projectId: ${input.projectId ?? "unknown"}`,
+      `- projectRootPath: ${projectRootPath || "unknown"}`,
+    ].join("\n"),
+    ["# AGENTS 规则（占位）", "- 当前未注入 AGENTS 链。"].join("\n"),
+    skillsSummarySection,
+    selectedSkillsSection,
+  ];
+
+  return {
+    id: generateId(),
+    role: "user",
+    parentMessageId: null,
+    messageKind: "session_preface",
+    parts: [{ type: "text", text: sections.join("\n\n") }],
+  };
 }
 
 /** Resolve parent project root paths from database. */
@@ -199,6 +313,25 @@ export async function runChatStream(input: {
     });
   }
 
+  // 逻辑：在首条用户消息前确保 preface 已落库。
+  const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
+  const resolvedWorkspaceId = getWorkspaceId() ?? workspaceId ?? undefined;
+  const resolvedProjectId = getProjectId() ?? projectId ?? undefined;
+  await ensureSessionPreface({
+    sessionId,
+    message: buildSessionPrefaceMessage({
+      sessionId,
+      workspaceId: resolvedWorkspaceId,
+      projectId: resolvedProjectId,
+      selectedSkills,
+      parentProjectRootPaths,
+    }),
+    createdAt: requestStartAt,
+    workspaceId: resolvedWorkspaceId,
+    projectId: resolvedProjectId,
+    boardId: boardId ?? undefined,
+  });
+
   // 流程：保存最后一条消息 -> 补全历史链路 -> 解析模型 -> 启动 SSE stream 并落库 assistant。
   const saveResult = await saveLastMessageAndResolveParent({
     sessionId,
@@ -234,7 +367,6 @@ export async function runChatStream(input: {
 
   const { messages, modelMessages } = chainResult;
   setCodexOptions(resolveCodexRequestOptions(messages as UIMessage[]));
-  const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
   setParentProjectRootPaths(parentProjectRootPaths);
 
   if (!assistantParentUserId) {
@@ -375,6 +507,25 @@ export async function runChatImageRequest(input: {
     await setSessionErrorMessage({ sessionId, errorMessage: errorText });
     return createChatImageErrorResult(400, errorText);
   }
+
+  // 逻辑：在首条用户消息前确保 preface 已落库。
+  const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
+  const resolvedWorkspaceId = getWorkspaceId() ?? workspaceId ?? undefined;
+  const resolvedProjectId = getProjectId() ?? projectId ?? undefined;
+  await ensureSessionPreface({
+    sessionId,
+    message: buildSessionPrefaceMessage({
+      sessionId,
+      workspaceId: resolvedWorkspaceId,
+      projectId: resolvedProjectId,
+      selectedSkills,
+      parentProjectRootPaths,
+    }),
+    createdAt: requestStartAt,
+    workspaceId: resolvedWorkspaceId,
+    projectId: resolvedProjectId,
+    boardId: boardId ?? undefined,
+  });
 
   // 流程：
   // 1) 保存最后一条消息并确定父消息

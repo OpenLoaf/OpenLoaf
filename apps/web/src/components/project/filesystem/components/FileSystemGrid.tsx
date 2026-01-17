@@ -97,6 +97,8 @@ type FileSystemGridProps = {
   /** Open board entries in the board viewer. */
   onOpenBoard?: (entry: FileSystemEntry) => void;
   showEmptyActions?: boolean;
+  /** Create a new markdown document from empty state. */
+  onCreateDocument?: () => void;
   /** Create a new board from empty state. */
   onCreateBoard?: () => void;
   renderEntry?: (entry: FileSystemEntry, node: ReactNode) => ReactNode;
@@ -157,6 +159,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onOpenSpreadsheet,
   onOpenBoard,
   showEmptyActions = true,
+  onCreateDocument,
   onCreateBoard,
   renderEntry,
   onEntryClick,
@@ -459,12 +462,13 @@ const FileSystemGrid = memo(function FileSystemGrid({
       {shouldShowSearchEmpty ? (
         <FileSystemSearchEmptyState query={searchText} />
       ) : shouldShowEmpty ? (
-        <FileSystemEmptyState
-          showEmptyActions={showEmptyActions}
-          parentEntry={parentEntry}
-          onCreateBoard={onCreateBoard}
-          onNavigate={onNavigate}
-          onEntryDrop={onEntryDrop}
+          <FileSystemEmptyState
+            showEmptyActions={showEmptyActions}
+            parentEntry={parentEntry}
+            onCreateDocument={onCreateDocument}
+            onCreateBoard={onCreateBoard}
+            onNavigate={onNavigate}
+            onEntryDrop={onEntryDrop}
           setDragOverFolderUri={setDragOverFolderUri}
           shouldBlockPointerEvent={shouldBlockPointerEvent}
         />

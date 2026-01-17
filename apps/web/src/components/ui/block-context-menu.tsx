@@ -10,6 +10,23 @@ import {
 } from '@platejs/selection/react';
 import { KEYS } from 'platejs';
 import { useEditorPlugin, usePlateState, usePluginOption } from 'platejs/react';
+import {
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
+  Copy,
+  Heading1,
+  Heading2,
+  Heading3,
+  IndentIcon,
+  OutdentIcon,
+  Pilcrow,
+  Quote,
+  Sparkles,
+  Trash2,
+  Type,
+} from 'lucide-react';
 
 import {
   ContextMenu,
@@ -110,6 +127,7 @@ export function BlockContextMenu({ children }: { children: React.ReactNode }) {
         >
           <ContextMenuGroup>
             <ContextMenuItem
+              icon={Sparkles}
               onClick={() => {
                 setValue('askAI');
               }}
@@ -117,6 +135,7 @@ export function BlockContextMenu({ children }: { children: React.ReactNode }) {
               Ask AI
             </ContextMenuItem>
             <ContextMenuItem
+              icon={Trash2}
               onClick={() => {
                 editor
                   .getTransforms(BlockSelectionPlugin)
@@ -127,6 +146,7 @@ export function BlockContextMenu({ children }: { children: React.ReactNode }) {
               Delete
             </ContextMenuItem>
             <ContextMenuItem
+              icon={Copy}
               onClick={() => {
                 editor
                   .getTransforms(BlockSelectionPlugin)
@@ -137,22 +157,26 @@ export function BlockContextMenu({ children }: { children: React.ReactNode }) {
               {/* <ContextMenuShortcut>⌘ + D</ContextMenuShortcut> */}
             </ContextMenuItem>
             <ContextMenuSub>
-              <ContextMenuSubTrigger>Turn into</ContextMenuSubTrigger>
+              <ContextMenuSubTrigger className="gap-2">
+                <Type className="h-4 w-4" />
+                Turn into
+              </ContextMenuSubTrigger>
               <ContextMenuSubContent className="w-48">
-                <ContextMenuItem onClick={() => handleTurnInto(KEYS.p)}>
+                <ContextMenuItem icon={Pilcrow} onClick={() => handleTurnInto(KEYS.p)}>
                   Paragraph
                 </ContextMenuItem>
 
-                <ContextMenuItem onClick={() => handleTurnInto(KEYS.h1)}>
+                <ContextMenuItem icon={Heading1} onClick={() => handleTurnInto(KEYS.h1)}>
                   Heading 1
                 </ContextMenuItem>
-                <ContextMenuItem onClick={() => handleTurnInto(KEYS.h2)}>
+                <ContextMenuItem icon={Heading2} onClick={() => handleTurnInto(KEYS.h2)}>
                   Heading 2
                 </ContextMenuItem>
-                <ContextMenuItem onClick={() => handleTurnInto(KEYS.h3)}>
+                <ContextMenuItem icon={Heading3} onClick={() => handleTurnInto(KEYS.h3)}>
                   Heading 3
                 </ContextMenuItem>
                 <ContextMenuItem
+                  icon={Quote}
                   onClick={() => handleTurnInto(KEYS.blockquote)}
                 >
                   Blockquote
@@ -163,6 +187,7 @@ export function BlockContextMenu({ children }: { children: React.ReactNode }) {
 
           <ContextMenuGroup>
             <ContextMenuItem
+              icon={IndentIcon}
               onClick={() =>
                 editor
                   .getTransforms(BlockSelectionPlugin)
@@ -172,6 +197,7 @@ export function BlockContextMenu({ children }: { children: React.ReactNode }) {
               Indent
             </ContextMenuItem>
             <ContextMenuItem
+              icon={OutdentIcon}
               onClick={() =>
                 editor
                   .getTransforms(BlockSelectionPlugin)
@@ -181,15 +207,21 @@ export function BlockContextMenu({ children }: { children: React.ReactNode }) {
               Outdent
             </ContextMenuItem>
             <ContextMenuSub>
-              <ContextMenuSubTrigger>Align</ContextMenuSubTrigger>
+              <ContextMenuSubTrigger className="gap-2">
+                <AlignJustify className="h-4 w-4" />
+                Align
+              </ContextMenuSubTrigger>
               <ContextMenuSubContent className="w-48">
-                <ContextMenuItem onClick={() => handleAlign('left')}>
+                <ContextMenuItem icon={AlignLeft} onClick={() => handleAlign('left')}>
                   Left
                 </ContextMenuItem>
-                <ContextMenuItem onClick={() => handleAlign('center')}>
+                <ContextMenuItem
+                  icon={AlignCenter}
+                  onClick={() => handleAlign('center')}
+                >
                   Center
                 </ContextMenuItem>
-                <ContextMenuItem onClick={() => handleAlign('right')}>
+                <ContextMenuItem icon={AlignRight} onClick={() => handleAlign('right')}>
                   Right
                 </ContextMenuItem>
               </ContextMenuSubContent>

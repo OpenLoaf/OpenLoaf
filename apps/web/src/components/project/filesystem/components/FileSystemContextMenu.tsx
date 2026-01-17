@@ -9,6 +9,25 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { isBoardFolderName } from "@/lib/file-name";
+import {
+  ArrowRightLeft,
+  ArrowUpRight,
+  ClipboardCopy,
+  ClipboardPaste,
+  Copy,
+  Eye,
+  EyeOff,
+  FilePlus,
+  FolderOpen,
+  FolderPlus,
+  Info,
+  LayoutGrid,
+  PencilLine,
+  RotateCw,
+  Terminal,
+  Trash,
+  Trash2,
+} from "lucide-react";
 import type { FileSystemEntry } from "../utils/file-system-utils";
 
 /** Actions for file system context menu items. */
@@ -55,6 +74,8 @@ export type FileSystemContextMenuActions = {
   copyPathAtCurrent: MenuAction;
   /** Create a new folder. */
   createFolder: MenuAction;
+  /** Create a new markdown document. */
+  createDocument: MenuAction;
   /** Create a new board. */
   createBoard: MenuAction;
   /** Open a terminal at the current directory. */
@@ -112,6 +133,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
           isMultiSelection ? (
             <>
               <ContextMenuItem
+                icon={Copy}
                 onSelect={withMenuSelectGuard(() =>
                   actions.openTransferDialog(selectedEntries, "copy")
                 )}
@@ -119,6 +141,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                 复制到
               </ContextMenuItem>
               <ContextMenuItem
+                icon={ArrowRightLeft}
                 onSelect={withMenuSelectGuard(() =>
                   actions.openTransferDialog(selectedEntries, "move")
                 )}
@@ -127,11 +150,13 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
+                icon={Trash2}
                 onSelect={withMenuSelectGuard(() => actions.deleteEntries(selectedEntries))}
               >
                 删除
               </ContextMenuItem>
               <ContextMenuItem
+                icon={Trash}
                 onSelect={withMenuSelectGuard(() =>
                   actions.deleteEntriesPermanent(selectedEntries)
                 )}
@@ -142,12 +167,14 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
           ) : (
             <>
               <ContextMenuItem
+                icon={ArrowUpRight}
                 onSelect={withMenuSelectGuard(() => actions.openEntry(menuContextEntry))}
               >
                 打开
               </ContextMenuItem>
               {shouldShowEnterBoardFolder ? (
                 <ContextMenuItem
+                  icon={LayoutGrid}
                   onSelect={withMenuSelectGuard(() =>
                     actions.enterBoardFolder(menuContextEntry)
                   )}
@@ -156,6 +183,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                 </ContextMenuItem>
               ) : null}
               <ContextMenuItem
+                icon={FolderOpen}
                 onSelect={withMenuSelectGuard(() =>
                   actions.openInFileManager(menuContextEntry)
                 )}
@@ -164,6 +192,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               </ContextMenuItem>
               {showTerminal ? (
                 <ContextMenuItem
+                  icon={Terminal}
                   onSelect={withMenuSelectGuard(() => actions.openTerminal(menuContextEntry))}
                 >
                   在终端中打开
@@ -171,6 +200,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               ) : null}
               <ContextMenuSeparator />
               <ContextMenuItem
+                icon={Copy}
                 onSelect={withMenuSelectGuard(() =>
                   actions.openTransferDialog(menuContextEntry, "copy")
                 )}
@@ -178,6 +208,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                 复制到
               </ContextMenuItem>
               <ContextMenuItem
+                icon={ArrowRightLeft}
                 onSelect={withMenuSelectGuard(() =>
                   actions.openTransferDialog(menuContextEntry, "move")
                 )}
@@ -185,22 +216,26 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                 移动到
               </ContextMenuItem>
               <ContextMenuItem
+                icon={ClipboardCopy}
                 onSelect={withMenuSelectGuard(() => actions.copyPath(menuContextEntry))}
               >
                 复制路径
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
+                icon={PencilLine}
                 onSelect={withMenuSelectGuard(() => actions.requestRename(menuContextEntry))}
               >
                 重命名
               </ContextMenuItem>
               <ContextMenuItem
+                icon={Trash2}
                 onSelect={withMenuSelectGuard(() => actions.deleteEntry(menuContextEntry))}
               >
                 删除
               </ContextMenuItem>
               <ContextMenuItem
+                icon={Trash}
                 onSelect={withMenuSelectGuard(() =>
                   actions.deleteEntryPermanent(menuContextEntry)
                 )}
@@ -209,6 +244,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
+                icon={Info}
                 onSelect={withMenuSelectGuard(() => actions.showInfo(menuContextEntry))}
               >
                 基本信息
@@ -217,36 +253,61 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
           )
         ) : (
           <>
-            <ContextMenuItem onSelect={withMenuSelectGuard(actions.refreshList)}>
+            <ContextMenuItem
+              icon={RotateCw}
+              onSelect={withMenuSelectGuard(actions.refreshList)}
+            >
               刷新
             </ContextMenuItem>
-            <ContextMenuItem onSelect={withMenuSelectGuard(actions.toggleHidden)}>
+            <ContextMenuItem
+              icon={showHidden ? Eye : EyeOff}
+              onSelect={withMenuSelectGuard(actions.toggleHidden)}
+            >
               {toggleHiddenLabel}
             </ContextMenuItem>
-            <ContextMenuItem onSelect={withMenuSelectGuard(actions.copyPathAtCurrent)}>
+            <ContextMenuItem
+              icon={ClipboardCopy}
+              onSelect={withMenuSelectGuard(actions.copyPathAtCurrent)}
+            >
               复制路径
             </ContextMenuItem>
             <ContextMenuItem
+              icon={ClipboardPaste}
               onSelect={withMenuSelectGuard(actions.paste)}
               disabled={clipboardSize === 0}
             >
               粘贴
             </ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem onSelect={withMenuSelectGuard(actions.createFolder)}>
+            <ContextMenuItem
+              icon={FolderPlus}
+              onSelect={withMenuSelectGuard(actions.createFolder)}
+            >
               新建文件夹
             </ContextMenuItem>
-            <ContextMenuItem disabled>新建文稿</ContextMenuItem>
-            <ContextMenuItem onSelect={withMenuSelectGuard(actions.createBoard)}>
+            <ContextMenuItem
+              icon={FilePlus}
+              onSelect={withMenuSelectGuard(actions.createDocument)}
+            >
+              新建文稿
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={LayoutGrid}
+              onSelect={withMenuSelectGuard(actions.createBoard)}
+            >
               新建画布
             </ContextMenuItem>
             <ContextMenuSeparator />
             {showTerminal ? (
-              <ContextMenuItem onSelect={withMenuSelectGuard(actions.openTerminalAtCurrent)}>
+              <ContextMenuItem
+                icon={Terminal}
+                onSelect={withMenuSelectGuard(actions.openTerminalAtCurrent)}
+              >
                 在终端中打开
               </ContextMenuItem>
             ) : null}
             <ContextMenuItem
+              icon={FolderOpen}
               onSelect={withMenuSelectGuard(actions.openInFileManagerAtCurrent)}
             >
               在文件管理器中打开

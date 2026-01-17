@@ -29,6 +29,7 @@ import {
   resolveFileUriFromRoot,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
+import { sortEntriesByType } from "../utils/entry-sort";
 import { DOC_EXTS, SPREADSHEET_EXTS, getEntryVisual } from "./FileSystemEntryVisual";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
@@ -313,8 +314,9 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
     const visibleEntries = showHidden
       ? entries
       : entries.filter((entry) => !IGNORE_NAMES.has(entry.name));
+    const sortedEntries = sortEntriesByType(visibleEntries as FileSystemEntry[]);
     // 逻辑：子节点缩略图来自当前目录的缩略图映射。
-    return visibleEntries.map((entry) =>
+    return sortedEntries.map((entry) =>
       buildTreeNode(entry, thumbnailByUri.get(entry.uri))
     );
   }, [listQuery.data?.entries, showHidden, thumbnailByUri]);

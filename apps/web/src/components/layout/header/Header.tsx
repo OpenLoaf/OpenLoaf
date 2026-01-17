@@ -10,7 +10,7 @@ import { motion } from "motion/react";
 import type { CSSProperties } from "react";
 import { openSettingsTab } from "@/lib/globalShortcuts";
 
-import { HeaderTabs } from "./Tabs";
+import { HeaderTabs } from "./HeaderTabs";
 import { ModeToggle } from "./ModeToggle";
 import { AnimateIcon } from "@/components/animate-ui/icons/icon";
 import { Bot } from "@/components/animate-ui/icons/bot";

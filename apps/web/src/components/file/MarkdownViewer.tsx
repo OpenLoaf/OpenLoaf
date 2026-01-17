@@ -406,6 +406,7 @@ export default function MarkdownViewer({
         <StackHeader
           title={displayTitle}
           openUri={openUri ?? uri}
+          openRootUri={rootUri}
           rightSlot={
             <div className="flex items-center gap-1">
               {isEditMode ? (

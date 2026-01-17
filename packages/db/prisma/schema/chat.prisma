@@ -28,6 +28,8 @@ model ChatMessage {
   path            String
   // 角色：与 AI SDK UIMessage.role 保持一致（小写）
   role            MessageRole @default(user)
+  // Message kind for preface/compaction handling.
+  messageKind     MessageKind @default(normal)
   // UIMessage.parts 原始数组（只存可渲染/可回放的 parts）
   parts           Json
   // UIMessage.metadata（禁止保存消息树信息：id/sessionId/parentMessageId/path）
@@ -47,4 +49,11 @@ enum MessageRole {
   user
   assistant
   system
+}
+
+enum MessageKind {
+  normal
+  session_preface
+  compact_prompt
+  compact_summary
 }

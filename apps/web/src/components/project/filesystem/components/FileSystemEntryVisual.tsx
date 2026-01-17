@@ -24,7 +24,7 @@ export const SPREADSHEET_EXTS = new Set(["xls", "xlsx", "csv", "tsv", "numbers"]
 export const PDF_EXTS = new Set(["pdf"]);
 export const DOC_EXTS = new Set(["doc", "docx"]);
 /** File extensions treated as markdown documents. */
-export const MARKDOWN_EXTS = new Set(["md", "mdx", "markdown"]);
+export const MARKDOWN_EXTS = new Set(["md", "mdc", "mdx", "markdown"]);
 /** File extensions treated as plain text for the code viewer fallback. */
 export const TEXT_EXTS = new Set([
   "txt",
@@ -141,6 +141,15 @@ function resolveBoardIconStyle() {
     gradientColor: "#C7E6FF",
     gradientOpacity: 0.65,
     glyphColor: "#1E3A8A",
+  };
+}
+
+/** Resolve markdown icon palette for document entries. */
+function resolveMarkdownIconStyle() {
+  const base = resolveBoardIconStyle();
+  return {
+    ...base,
+    accentColor: "#1E3A8A",
   };
 }
 
@@ -295,6 +304,66 @@ const BoardIcon = memo(function BoardIcon({
   );
 });
 
+/** Markdown icon render options. */
+type MarkdownIconProps = {
+  /** Tailwind class names for sizing. */
+  className?: string;
+};
+
+/** Render a markdown document icon. */
+const MarkdownIcon = memo(function MarkdownIcon({
+  className = "h-full w-full",
+}: MarkdownIconProps) {
+  const { color, gradientColor, gradientOpacity, glyphColor, accentColor } =
+    resolveMarkdownIconStyle();
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect x="3" y="4" width="18" height="15.5" rx="3" fill={color} />
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="3.2"
+        rx="3"
+        fill={gradientColor}
+        opacity={gradientOpacity}
+      />
+      <path
+        d="M6.5 9.8h8"
+        stroke={accentColor}
+        strokeWidth={1.4}
+        strokeLinecap="round"
+      />
+      <path
+        d="M6.5 12.4h11"
+        stroke={glyphColor}
+        strokeWidth={1.2}
+        strokeLinecap="round"
+        strokeOpacity={0.9}
+      />
+      <path
+        d="M6.5 14.9h9"
+        stroke={glyphColor}
+        strokeWidth={1.2}
+        strokeLinecap="round"
+        strokeOpacity={0.85}
+      />
+      <path
+        d="M6.5 17.3h6.5"
+        stroke={glyphColor}
+        strokeWidth={1.2}
+        strokeLinecap="round"
+        strokeOpacity={0.8}
+      />
+    </svg>
+  );
+});
+
 /** Render a thumbnail preview for image files. */
 const ImageThumbnail = memo(function ImageThumbnail({
   src,
@@ -378,6 +447,9 @@ export function getEntryVisual({
   const normalizedExt = resolveEntryExt(kind, name, ext);
   if (isBoardFileExt(normalizedExt)) {
     return <BoardIcon className={sizeClassName} />;
+  }
+  if (MARKDOWN_EXTS.has(normalizedExt)) {
+    return <MarkdownIcon className={sizeClassName} />;
   }
   if (IMAGE_EXTS.has(normalizedExt)) {
     return (

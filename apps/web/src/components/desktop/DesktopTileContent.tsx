@@ -1,12 +1,17 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
+import { useGlobalOverlay } from "@/lib/globalShortcuts";
+import { useTabs } from "@/hooks/use-tabs";
 import type { DesktopItem } from "./types";
 import DesktopIconLabel from "./DesktopIconLabel";
 import ClockWidget from "./widgets/ClockWidget";
 import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
+import type { DesktopIconKey } from "./types";
 
 interface DesktopTileContentProps {
   item: DesktopItem;
@@ -14,12 +19,43 @@ interface DesktopTileContentProps {
 
 /** Render tile content (icon or widget) with shared layout styles. */
 export default function DesktopTileContent({ item }: DesktopTileContentProps) {
+  const { workspace } = useWorkspace();
+  const tabs = useTabs((state) => state.tabs);
+  const activeTabId = useTabs((state) => state.activeTabId);
+  const setTabBaseParams = useTabs((state) => state.setTabBaseParams);
+  const setSearchOpen = useGlobalOverlay((state) => state.setSearchOpen);
   const hoverBoundaryRef = React.useRef<HTMLDivElement | null>(null);
   const rafIdRef = React.useRef<number | null>(null);
   const pointerRef = React.useRef<{ x: number; y: number } | null>(null);
   const hoverStateRef = React.useRef(false);
   const [isHovered, setIsHovered] = React.useState(false);
   const widgetKey = item.kind === "widget" ? item.widgetKey : null;
+
+  /** Handle desktop icon activation. */
+  const handleIconClick = React.useCallback(
+    (iconKey: DesktopIconKey) => {
+      if (iconKey === "search") {
+        setSearchOpen(true);
+        return;
+      }
+      if (!workspace?.id) {
+        toast.error("未找到工作区");
+        return;
+      }
+      const activeTab = tabs.find(
+        (tab) => tab.id === activeTabId && tab.workspaceId === workspace.id
+      );
+      if (!activeTab?.base?.id?.startsWith("project:")) {
+        toast.error("请先打开一个项目标签页");
+        return;
+      }
+      const nextTab =
+        iconKey === "tasks" ? "tasks" : iconKey === "settings" ? "settings" : "files";
+      // 中文注释：仅更新当前激活的项目 tab 子页签。
+      setTabBaseParams(activeTab.id, { projectTab: nextTab });
+    },
+    [activeTabId, setSearchOpen, setTabBaseParams, tabs, workspace?.id]
+  );
 
   React.useEffect(() => {
     // 逻辑：仅 3d-folder 使用容器边界做 hover 命中，避免溢出元素误触发。
@@ -79,12 +115,19 @@ export default function DesktopTileContent({ item }: DesktopTileContentProps) {
 
   if (item.kind === "icon") {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2">
-        <div className="flex size-10 items-center justify-center rounded-2xl text-foreground">
+      <button
+        type="button"
+        className="group flex h-full w-full flex-col items-center justify-center gap-1 p-2"
+        onClick={() => handleIconClick(item.iconKey)}
+        aria-label={item.title}
+      >
+        <div className="flex size-10 items-center justify-center rounded-2xl text-foreground transition-transform duration-200 ease-out group-hover:-translate-y-1 group-hover:rotate-3 group-hover:scale-110">
           {item.icon}
         </div>
-        <DesktopIconLabel>{item.title}</DesktopIconLabel>
-      </div>
+        <DesktopIconLabel className="-mt-0.5 transition-transform duration-200 ease-out group-hover:-translate-y-0.5 group-hover:scale-[1.03]">
+          {item.title}
+        </DesktopIconLabel>
+      </button>
     );
   }
 

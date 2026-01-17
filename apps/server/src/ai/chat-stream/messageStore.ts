@@ -1,6 +1,7 @@
+import { generateId } from "ai";
 import { prisma } from "@tenas-ai/db";
 import type { MessageRole as DbMessageRole, Prisma } from "@tenas-ai/db/prisma/generated/client";
-import type { TenasUIMessage } from "@tenas-ai/api/types/message";
+import type { ChatMessageKind, TenasUIMessage } from "@tenas-ai/api";
 import { replaceFileTokensWithNames } from "@/common/chatTitle";
 import { getBoardId, getProjectId, getWorkspaceId } from "./requestContext";
 import { toNumberOrUndefined } from "@/ai/utils/number-utils";
@@ -14,6 +15,19 @@ const PATH_SEGMENT_WIDTH = 2;
 const MAX_PATH_SEGMENT_SEQ = 99;
 /** Metadata keys that should never be persisted. */
 const FORBIDDEN_METADATA_KEYS = ["id", "sessionId", "parentMessageId", "path"] as const;
+
+/** Normalize message kind from unknown input. */
+function normalizeMessageKind(value: unknown): ChatMessageKind | null {
+  if (value == null) return null;
+  if (
+    value === "session_preface" ||
+    value === "compact_prompt" ||
+    value === "compact_summary"
+  ) {
+    return value;
+  }
+  return "normal";
+}
 
 /** Input for saving a chat message. */
 export type SaveMessageInput = {
@@ -55,6 +69,119 @@ export async function resolveRightmostLeafId(sessionId: string): Promise<string 
   return row?.id ?? null;
 }
 
+/** Ensure a session preface message exists as the first node when session is empty. */
+export async function ensureSessionPreface(input: {
+  /** Session id. */
+  sessionId: string;
+  /** Preface message payload. */
+  message: TenasUIMessage;
+  /** Created time override. */
+  createdAt?: Date;
+  /** Workspace id for session binding. */
+  workspaceId?: string;
+  /** Project id for session binding. */
+  projectId?: string;
+  /** Board id for session binding. */
+  boardId?: string;
+}): Promise<string | null> {
+  const existingPreface = await prisma.chatMessage.findFirst({
+    where: { sessionId: input.sessionId, messageKind: "session_preface" },
+    orderBy: [{ path: "asc" }],
+    select: { id: true },
+  });
+  if (existingPreface?.id) {
+    // 逻辑：preface 已存在时更新内容，避免重复插入。
+    await prisma.chatMessage.update({
+      where: { id: existingPreface.id },
+      data: {
+        parts: Array.isArray(input.message.parts) ? (input.message.parts as any) : [],
+        metadata:
+          (sanitizeMetadata(input.message.metadata) as Prisma.InputJsonValue) ??
+          undefined,
+        messageKind: "session_preface",
+      },
+    });
+    return existingPreface.id;
+  }
+
+  const anyMessage = await prisma.chatMessage.findFirst({
+    where: { sessionId: input.sessionId },
+    select: { id: true },
+  });
+  // 逻辑：已有历史时不强行插入 preface，避免破坏顺序。
+  if (anyMessage?.id) return null;
+
+  const prefaceMessage = {
+    ...input.message,
+    role: "user",
+    messageKind: "session_preface",
+  } as TenasUIMessage;
+
+  const saved = await saveMessage({
+    sessionId: input.sessionId,
+    message: prefaceMessage,
+    parentMessageId: null,
+    createdAt: input.createdAt,
+    workspaceId: input.workspaceId,
+    projectId: input.projectId,
+    boardId: input.boardId,
+  });
+
+  return saved.id;
+}
+
+/** Save a compaction prompt message (user) for context trimming. */
+export async function saveCompactPromptMessage(input: {
+  /** Session id. */
+  sessionId: string;
+  /** Parent message id. */
+  parentMessageId: string | null;
+  /** Prompt text for compaction. */
+  text: string;
+  /** Created time override. */
+  createdAt?: Date;
+}): Promise<SaveMessageResult> {
+  const message: TenasUIMessage = {
+    id: generateId(),
+    role: "user",
+    parentMessageId: input.parentMessageId,
+    messageKind: "compact_prompt",
+    parts: [{ type: "text", text: input.text }],
+  };
+  return saveMessage({
+    sessionId: input.sessionId,
+    message,
+    parentMessageId: input.parentMessageId,
+    createdAt: input.createdAt,
+  });
+}
+
+/** Save a compaction summary message (assistant) for context trimming. */
+export async function saveCompactSummaryMessage(input: {
+  /** Session id. */
+  sessionId: string;
+  /** Parent message id. */
+  parentMessageId: string | null;
+  /** Summary text. */
+  text: string;
+  /** Created time override. */
+  createdAt?: Date;
+}): Promise<SaveMessageResult> {
+  const message: TenasUIMessage = {
+    id: generateId(),
+    role: "assistant",
+    parentMessageId: input.parentMessageId,
+    messageKind: "compact_summary",
+    parts: [{ type: "text", text: input.text }],
+  };
+  return saveMessage({
+    sessionId: input.sessionId,
+    message,
+    parentMessageId: input.parentMessageId,
+    createdAt: input.createdAt,
+  });
+}
+
 /** Set the latest error message for a chat session. */
 export async function setSessionErrorMessage(input: {
   /** Session id. */
@@ -86,10 +213,15 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
   const messageId = String((input.message as any)?.id ?? "").trim();
   if (!messageId) throw new Error("message.id is required.");
 
+  const messageKind = normalizeMessageKind((input.message as any)?.messageKind);
   const role = normalizeRole((input.message as any)?.role);
   const parts = normalizeParts((input.message as any)?.parts);
   const metadata = sanitizeMetadata((input.message as any)?.metadata);
-  const title = role === "user" ? normalizeTitle(extractTitleTextFromParts(parts)) : "";
+  // 逻辑：preface/compact prompt 不参与会话标题生成。
+  const title =
+    role === "user" && messageKind !== "session_preface" && messageKind !== "compact_prompt"
+      ? normalizeTitle(extractTitleTextFromParts(parts))
+      : "";
   const workspaceId = normalizeOptionalId(input.workspaceId) ?? getWorkspaceId();
   const projectId = normalizeOptionalId(input.projectId) ?? getProjectId();
   const boardId = normalizeOptionalId(input.boardId) ?? getBoardId();
@@ -132,6 +264,7 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
           data: {
             ...(parts.length ? { parts: parts as any } : {}),
             ...(mergedMetadata ? { metadata: mergedMetadata as any } : {}),
+            ...(messageKind ? { messageKind } : {}),
           },
         });
       }
@@ -157,6 +290,7 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
         parentMessageId: parentId,
         path,
         role,
+        messageKind: messageKind ?? "normal",
         parts: parts as any,
         metadata: (metadata as any) ?? undefined,
         createdAt: input.createdAt,

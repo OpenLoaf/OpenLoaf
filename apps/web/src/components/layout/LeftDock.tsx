@@ -121,6 +121,7 @@ function PanelFrame({
   const customHeader = Boolean((item.params as any)?.__customHeader);
   const opaquePanel = Boolean((item.params as any)?.__opaque);
   const openUri = (item.params as any)?.openUri as string | undefined;
+  const openRootUri = (item.params as any)?.rootUri as string | undefined;
 
   return (
     <div
@@ -143,6 +144,7 @@ function PanelFrame({
           <StackHeader
             title={title}
             openUri={openUri}
+            openRootUri={openRootUri}
             onRefresh={() => setRefreshKey((k) => k + 1)}
             rightSlot={
               <BoardPanelHeaderActions item={item} title={title} tabId={tabId} />

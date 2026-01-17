@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useCallback } from "react";
-import { SidebarPage } from "@/components/layout/sidebar/Page";
+import { SidebarProject } from "@/components/layout/sidebar/SidebarProject";
 import { SidebarWorkspace } from "../../workspace/SidebarWorkspace";
 import {
   Sidebar,
@@ -186,7 +186,7 @@ export const AppSidebar = ({
         <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
       </SidebarHeader>
       <SidebarContent>
-        <SidebarPage />
+        <SidebarProject />
       </SidebarContent>
     </Sidebar>
   );

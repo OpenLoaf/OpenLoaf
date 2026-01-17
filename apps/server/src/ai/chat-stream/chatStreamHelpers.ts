@@ -205,6 +205,30 @@ export async function saveLastMessageAndResolveParent(input: {
   }
 }
 
+/** Build the model chain by trimming to the latest compact summary. */
+function buildModelChain(messages: UIMessage[]): UIMessage[] {
+  const fullChain = Array.isArray(messages) ? messages : [];
+  if (fullChain.length === 0) return [];
+
+  let latestSummaryIndex = -1;
+  let sessionPreface: UIMessage | null = null;
+  for (let i = 0; i < fullChain.length; i += 1) {
+    const message = fullChain[i] as any;
+    const kind = message?.messageKind;
+    if (kind === "session_preface") sessionPreface = fullChain[i]!;
+    if (kind === "compact_summary") latestSummaryIndex = i;
+  }
+
+  const baseSlice = latestSummaryIndex >= 0 ? fullChain.slice(latestSummaryIndex) : fullChain;
+  const trimmed = baseSlice.filter((message: any) => message?.messageKind !== "compact_prompt");
+
+  if (!sessionPreface) return trimmed;
+  const withoutPreface = trimmed.filter(
+    (message: any) => message?.messageKind !== "session_preface",
+  );
+  return [sessionPreface, ...withoutPreface];
+}
+
 /** Load message chain and replace file parts. */
 export async function loadAndPrepareMessageChain(input: {
   /** Chat session id. */
@@ -229,7 +253,8 @@ export async function loadAndPrepareMessageChain(input: {
     "[chat] load message chain",
   );
 
-  const modelMessages = await replaceRelativeFileParts(messages as UIMessage[]);
+  const modelChain = buildModelChain(messages as UIMessage[]);
+  const modelMessages = await replaceRelativeFileParts(modelChain as UIMessage[]);
   if (messages.length === 0) {
     return { ok: false, errorText: input.formatError("历史消息不存在。") };
   }

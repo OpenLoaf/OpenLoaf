@@ -1,4 +1,11 @@
-import { BaseChatRouter, chatSchemas, t, shieldedProcedure, appRouterDefine } from "@tenas-ai/api";
+import {
+  BaseChatRouter,
+  chatSchemas,
+  t,
+  shieldedProcedure,
+  appRouterDefine,
+  type ChatMessageKind,
+} from "@tenas-ai/api";
 import { generateText } from "ai";
 import { xai } from "@ai-sdk/xai";
 import { replaceFileTokensWithNames } from "@/common/chatTitle";
@@ -8,7 +15,14 @@ const LEAF_CANDIDATES = 50;
 const TITLE_CONTEXT_TAKE = 24;
 const TITLE_AGENT_NAME = "session-title-agent";
 
-function isRenderableRow(row: { role: string; parts: unknown }): boolean {
+function isRenderableRow(row: {
+  role: string;
+  parts: unknown;
+  messageKind?: ChatMessageKind | null;
+}): boolean {
+  const kind = row.messageKind ?? "normal";
+  if (kind === "session_preface" || kind === "compact_prompt") return false;
+  if (kind === "compact_summary") return true;
   if (row.role === "user") return true;
   const parts = row.parts;
   return Array.isArray(parts) && parts.length > 0;
@@ -47,7 +61,7 @@ async function resolveSessionRightmostLeafId(prisma: any, sessionId: string): Pr
     where: { sessionId },
     orderBy: [{ path: "desc" }, { id: "desc" }],
     take: LEAF_CANDIDATES,
-    select: { id: true, role: true, parts: true },
+    select: { id: true, role: true, parts: true, messageKind: true },
   });
   for (const row of candidates) {
     if (isRenderableRow(row)) return String(row.id);
@@ -73,7 +87,7 @@ async function loadRightmostChainRows(prisma: any, sessionId: string): Promise<a
   return prisma.chatMessage.findMany({
     where: { sessionId, path: { in: selectedPaths } },
     orderBy: [{ path: "asc" }],
-    select: { role: true, parts: true },
+    select: { role: true, parts: true, messageKind: true },
   });
 }
 
@@ -133,7 +147,8 @@ export class ChatRouterImpl extends BaseChatRouter {
           if (session.isUserRename) return { ok: true, title: session.title };
 
           const chainRows = await loadRightmostChainRows(ctx.prisma, input.sessionId);
-          const historyText = buildTitlePrompt(chainRows);
+          const renderableRows = chainRows.filter((row) => isRenderableRow(row));
+          const historyText = buildTitlePrompt(renderableRows);
           if (!historyText) return { ok: true, title: session.title };
 
           let title = "";

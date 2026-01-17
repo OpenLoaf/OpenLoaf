@@ -38,6 +38,7 @@ interface SheetViewerProps {
   openUri?: string;
   name?: string;
   ext?: string;
+  rootUri?: string;
   panelKey?: string;
   tabId?: string;
 }
@@ -160,6 +161,7 @@ export default function SheetViewer({
   uri,
   openUri,
   name,
+  rootUri,
   panelKey,
   tabId,
 }: SheetViewerProps) {
@@ -316,6 +318,7 @@ export default function SheetViewer({
       <StackHeader
         title={displayTitle}
         openUri={openUri}
+        openRootUri={rootUri}
         rightSlot={
           <div className="flex items-center gap-2">
             <Tooltip>

@@ -30,11 +30,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
-import { PageTreeMenu } from "./PageTree";
+import { PageTreeMenu } from "./ProjectTree";
 import { toast } from "sonner";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
+import { ClipboardCopy, FolderOpen, FolderPlus, RotateCw } from "lucide-react";
 
-export const SidebarPage = () => {
+export const SidebarProject = () => {
   // 当前项目列表查询。
   const projectListQuery = useProjects();
   const projects = projectListQuery.data ?? [];
@@ -187,17 +188,20 @@ export const SidebarPage = () => {
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-44">
-          <ContextMenuItem onClick={() => void handleRefreshProjects()}>
+          <ContextMenuItem icon={RotateCw} onClick={() => void handleRefreshProjects()}>
             刷新
           </ContextMenuItem>
-          <ContextMenuItem onClick={() => void handleCopyWorkspacePath()}>
+          <ContextMenuItem
+            icon={ClipboardCopy}
+            onClick={() => void handleCopyWorkspacePath()}
+          >
             复制工作空间路径
           </ContextMenuItem>
           <ContextMenuSeparator />
-          <ContextMenuItem onClick={() => setIsCreateOpen(true)}>
+          <ContextMenuItem icon={FolderPlus} onClick={() => setIsCreateOpen(true)}>
             新建项目
           </ContextMenuItem>
-          <ContextMenuItem onClick={() => void handleImportProject()}>
+          <ContextMenuItem icon={FolderOpen} onClick={() => void handleImportProject()}>
             导入项目
           </ContextMenuItem>
         </ContextMenuContent>

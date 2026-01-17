@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   FolderPlus,
+  FilePlus,
   LayoutGrid,
   LayoutList,
   Columns2,
@@ -47,6 +48,7 @@ import {
   normalizeRelativePath,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
+import { sortEntriesByType } from "../utils/entry-sort";
 import FileSystemContextMenu from "./FileSystemContextMenu";
 import { FileSystemColumns } from "./FileSystemColumns";
 import { FileSystemGrid } from "./FileSystemGrid";
@@ -212,6 +214,7 @@ function resolveTreeViewerLabel(entry: FileSystemEntry): string {
   return entry.name;
 }
 
+/** Resolve sort priority for file system entries. */
 /** Build storage key for the file system toolbar state. */
 function buildFileSystemToolbarStorageKey(projectId?: string, rootUri?: string) {
   if (projectId) return `${FILE_SYSTEM_TOOLBAR_STORAGE_KEY}:${projectId}`;
@@ -441,6 +444,9 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     }),
     [model.sortField, model.sortOrder, viewMode]
   );
+  const sortedDisplayEntries = useMemo(() => {
+    return sortEntriesByType(model.displayEntries);
+  }, [model.displayEntries]);
   /** Track current grid selection. */
   const {
     selectedUris,
@@ -465,7 +471,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     clearContextTargetIfClosed,
     resetContextMenu,
   } = useFileSystemContextMenu({
-    entries: isTreeView ? [] : model.displayEntries,
+    entries: isTreeView ? [] : sortedDisplayEntries,
     selectedUris,
     onReplaceSelection: replaceSelection,
   });
@@ -558,15 +564,15 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const resolveSelectedEntries = useCallback(
     (uris: Set<string>) => {
       if (uris.size === 0) return [];
-      const index = new Map(model.displayEntries.map((entry) => [entry.uri, entry]));
-      const results: typeof model.displayEntries = [];
+      const index = new Map(sortedDisplayEntries.map((entry) => [entry.uri, entry]));
+      const results: typeof sortedDisplayEntries = [];
       uris.forEach((uri) => {
         const entry = index.get(uri);
         if (entry) results.push(entry);
       });
       return results;
     },
-    [model.displayEntries]
+    [sortedDisplayEntries]
   );
 
   /** Cache selected entries for context menu actions. */
@@ -660,6 +666,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           name={displayName}
           ext={ext}
           projectId={projectId}
+          rootUri={rootUri}
         />
       );
     }
@@ -671,6 +678,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           name={displayName}
           ext={ext}
           projectId={projectId}
+          rootUri={rootUri}
         />
       );
     }
@@ -682,6 +690,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           name={displayName}
           ext={ext}
           projectId={projectId}
+          rootUri={rootUri}
         />
       );
     }
@@ -765,6 +774,14 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   /** Create a folder and enter rename mode. */
   const handleCreateFolder = async () => {
     const created = await model.handleCreateFolder();
+    if (created) {
+      requestRenameByInfo(created);
+    }
+  };
+
+  /** Create a markdown document and enter rename mode. */
+  const handleCreateDocument = async () => {
+    const created = await model.handleCreateMarkdown();
     if (created) {
       requestRenameByInfo(created);
     }
@@ -986,6 +1003,22 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
             variant="ghost"
             size="icon"
             className="h-6 w-6"
+            aria-label="新建文稿"
+            onClick={handleCreateDocument}
+          >
+            <FilePlus className="h-3 w-3" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" sideOffset={6}>
+          新建文稿
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
             aria-label="添加文件"
             onClick={() => {
               model.uploadInputRef.current?.click();
@@ -1099,6 +1132,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
             toggleHidden: () => model.setShowHidden((prev) => !prev),
             copyPathAtCurrent: model.handleCopyPathAtCurrent,
             createFolder: handleCreateFolder,
+            createDocument: handleCreateDocument,
             createBoard: model.handleCreateBoard,
             openTerminalAtCurrent: model.handleOpenTerminalAtCurrent,
             paste: model.handlePaste,
@@ -1171,7 +1205,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   className="min-h-full h-full"
                 >
                   <FileSystemList
-                    entries={model.displayEntries}
+                    entries={sortedDisplayEntries}
                     isLoading={model.listQuery.isLoading}
                     isSearchLoading={model.isSearchLoading}
                     searchQuery={searchQuery}
@@ -1190,6 +1224,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                     onOpenDoc={model.handleOpenDoc}
                     onOpenSpreadsheet={model.handleOpenSpreadsheet}
                     onOpenBoard={model.handleOpenBoard}
+                    onCreateDocument={handleCreateDocument}
                     onCreateBoard={model.handleCreateBoard}
                     selectedUris={selectedUris}
                     onEntryClick={handleEntryClick}
@@ -1220,7 +1255,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 className="min-h-full h-full"
               >
                 <FileSystemColumns
-                  entries={model.displayEntries}
+                  entries={sortedDisplayEntries}
                   isLoading={model.listQuery.isLoading}
                   isSearchLoading={model.isSearchLoading}
                   searchQuery={searchQuery}
@@ -1268,7 +1303,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 className="min-h-full h-full"
               >
                 <FileSystemGrid
-                  entries={model.displayEntries}
+                  entries={sortedDisplayEntries}
                   isLoading={model.listQuery.isLoading}
                   isSearchLoading={model.isSearchLoading}
                   searchQuery={searchQuery}
@@ -1287,6 +1322,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   onOpenDoc={model.handleOpenDoc}
                   onOpenSpreadsheet={model.handleOpenSpreadsheet}
                   onOpenBoard={model.handleOpenBoard}
+                  onCreateDocument={handleCreateDocument}
                   onCreateBoard={model.handleCreateBoard}
                   selectedUris={selectedUris}
                   onEntryClick={handleEntryClick}

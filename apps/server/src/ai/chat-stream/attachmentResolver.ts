@@ -13,7 +13,12 @@ const CHAT_IMAGE_QUALITY = 80;
 /** Max bytes for chat binary attachments. */
 const CHAT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 /** Supported image types. */
-const SUPPORTED_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
+const SUPPORTED_IMAGE_MIME = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+]);
 /** PNG metadata key for image payloads. */
 const IMAGE_METADATA_KEY = "tenas-image:metadata";
 /** Max metadata bytes allowed in embedded chunk. */
@@ -94,6 +99,9 @@ function resolveImageFormat(mime: string, fileName: string): ImageFormat | null 
   }
   if (mime === "image/jpeg" || lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) {
     return { ext: "jpg", mediaType: "image/jpeg" };
+  }
+  if (mime === "image/svg+xml" || lowerName.endsWith(".svg")) {
+    return { ext: "svg", mediaType: "image/svg+xml" };
   }
   return null;
 }
@@ -431,6 +439,10 @@ async function compressImageBufferWithOptions(
   format: ImageFormat,
   options: { maxEdge: number; quality: number }
 ): Promise<ImageOutput> {
+  if (format.ext === "svg") {
+    // 中文注释：SVG 直接返回原始内容，避免栅格化。
+    return { buffer: input, ext: format.ext, mediaType: format.mediaType };
+  }
   // 逻辑：统一限制最大边长与质量，避免超大图片传给模型。
   const transformer = sharp(input).resize({
     width: options.maxEdge,

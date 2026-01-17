@@ -182,6 +182,8 @@ type FileSystemListProps = {
   /** Open board entries in the board viewer. */
   onOpenBoard?: (entry: FileSystemEntry) => void;
   showEmptyActions?: boolean;
+  /** Create a new markdown document from empty state. */
+  onCreateDocument?: () => void;
   /** Create a new board from empty state. */
   onCreateBoard?: () => void;
   renderEntry?: (entry: FileSystemEntry, node: ReactNode) => ReactNode;
@@ -511,6 +513,7 @@ const FileSystemList = memo(function FileSystemList({
   onOpenSpreadsheet,
   onOpenBoard,
   showEmptyActions = true,
+  onCreateDocument,
   onCreateBoard,
   renderEntry,
   onEntryClick,
@@ -826,6 +829,7 @@ const FileSystemList = memo(function FileSystemList({
           <FileSystemEmptyState
             showEmptyActions={showEmptyActions}
             parentEntry={parentEntry}
+            onCreateDocument={onCreateDocument}
             onCreateBoard={onCreateBoard}
             onNavigate={onNavigate}
             onEntryDrop={onEntryDrop}

@@ -9,6 +9,13 @@ type UIMessage<D = unknown, DT = UIDataTypes, T = UITools> = {
   metadata?: any;
 };
 
+/** Chat message kind for compaction/preface handling. */
+export type ChatMessageKind =
+  | "normal"
+  | "session_preface"
+  | "compact_prompt"
+  | "compact_summary";
+
 /**
  * Tenas 的 Agent 信息（参考 AI SDK 的 Agent/ToolLoopAgentSettings 设计）
  * - 只存可序列化字段，用于 UI 展示与历史持久化
@@ -45,6 +52,8 @@ export type TenasAgentInfo = {
 export interface TenasUIMessage extends UIMessage<unknown, TenasUIDataTypes, UITools> {
   /** 消息树：父消息 ID（根节点为 null） */
   parentMessageId: string | null;
+  /** Message kind for compaction/preface handling. */
+  messageKind?: ChatMessageKind;
   /** 产生该消息的 agent 信息（可选；流式阶段可能缺失） */
   agent?: TenasAgentInfo;
 }

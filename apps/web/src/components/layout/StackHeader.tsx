@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { resolveFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 
 /**
  * StackHeader：左侧 stack 面板的统一顶部栏（MVP）
@@ -18,6 +19,7 @@ export function StackHeader({
   rightSlot,
   rightSlotAfter,
   openUri,
+  openRootUri,
   onRefresh,
   onClose,
   showMinimize = false,
@@ -31,6 +33,8 @@ export function StackHeader({
   /** Optional slot rendered after the refresh button. */
   rightSlotAfter?: React.ReactNode;
   openUri?: string;
+  /** Optional root uri for resolving relative file paths. */
+  openRootUri?: string;
   onRefresh?: () => void;
   onClose?: () => void;
   showMinimize?: boolean;
@@ -41,17 +45,30 @@ export function StackHeader({
   /** Open the current file in the system default program. */
   const handleOpenExternal = React.useCallback(async () => {
     if (!openUri) return;
-    console.warn("[StackHeader] open external", { openUri });
+    const trimmedUri = openUri.trim();
+    if (!trimmedUri) return;
+    const resolvedUri = (() => {
+      const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmedUri);
+      if (hasScheme) return trimmedUri;
+      if (!openRootUri) return "";
+      const scopedMatch = trimmedUri.match(/^@\[[^\]]+\]\/?(.*)$/);
+      const relativePath = scopedMatch ? scopedMatch[1] ?? "" : trimmedUri;
+      return resolveFileUriFromRoot(openRootUri, relativePath);
+    })();
     const api = window.tenasElectron;
     if (!api?.openPath) {
       toast.error("网页版不支持打开本地文件");
       return;
     }
-    const res = await api.openPath({ uri: openUri });
+    if (!resolvedUri) {
+      toast.error("未找到文件路径");
+      return;
+    }
+    const res = await api.openPath({ uri: resolvedUri });
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件");
     }
-  }, [openUri]);
+  }, [openRootUri, openUri]);
 
   return (
     <div className={cn("shrink-0 bg-background/70 backdrop-blur-sm", className)}>

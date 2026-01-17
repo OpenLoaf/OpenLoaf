@@ -12,7 +12,7 @@ import {
   createLayoutByBreakpoint,
   type DesktopBreakpoint,
 } from "./desktop-breakpoints";
-import { getDesktopIconByKey } from "./desktop-icons";
+import { getDesktopIconByKey } from "./widgets/DesktopIconWidget";
 
 type DesktopFileGrid = {
   breakpoints: typeof DESKTOP_BREAKPOINTS;

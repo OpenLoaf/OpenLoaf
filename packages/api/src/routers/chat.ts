@@ -11,6 +11,7 @@ import {
   getWorkspaceProjectTitleMap,
   syncWorkspaceProjectsFromDisk,
 } from "../services/projectDbService";
+import type { ChatMessageKind } from "../types/message";
 
 /**
  * Chat UIMessage 结构（MVP）
@@ -23,6 +24,8 @@ export type ChatUIMessage = {
   parentMessageId: string | null;
   parts: any[];
   metadata?: any;
+  /** Message kind for compaction/preface handling. */
+  messageKind?: ChatMessageKind;
   /** 产生该消息的 agent 信息（便于 UI 直接读取） */
   agent?: any;
 };
@@ -120,7 +123,14 @@ function resolveBoardIdFilter(value: string | null | undefined): string | null |
   return normalizeOptionalId(value);
 }
 
-function isRenderableRow(row: { role: string; parts: unknown }): boolean {
+function isRenderableRow(row: {
+  role: string;
+  parts: unknown;
+  messageKind?: ChatMessageKind | null;
+}): boolean {
+  const kind = row.messageKind ?? "normal";
+  if (kind === "session_preface" || kind === "compact_prompt") return false;
+  if (kind === "compact_summary") return true;
   if (row.role === "user") return true;
   const parts = row.parts;
   return Array.isArray(parts) && parts.length > 0;
@@ -172,6 +182,7 @@ async function loadMainChainRows({
       role: true,
       parts: true,
       metadata: true,
+      messageKind: true,
     },
   });
 
@@ -205,7 +216,7 @@ async function resolveLatestLeafId({
     },
     orderBy: [{ path: "desc" }],
     take: LEAF_CANDIDATES,
-    select: { id: true, role: true, parts: true },
+    select: { id: true, role: true, parts: true, messageKind: true },
   });
   for (const row of candidates) {
     if (isRenderableRow(row)) return row.id;
@@ -227,7 +238,7 @@ async function resolveSessionRightmostLeafId({
     },
     orderBy: [{ path: "desc" }],
     take: LEAF_CANDIDATES,
-    select: { id: true, role: true, parts: true },
+    select: { id: true, role: true, parts: true, messageKind: true },
   });
   for (const row of candidates) {
     if (isRenderableRow(row)) return row.id;
@@ -451,17 +462,19 @@ export const chatRouter = t.router({
         limit,
       });
 
-      const branchMessageIds = chainRows.map((r) => String(r.id));
+      const renderableRows = chainRows.filter((row) => isRenderableRow(row));
+      const branchMessageIds = renderableRows.map((r) => String(r.id));
 
       const messages: ChatUIMessage[] = [];
       if (includeMessages) {
-        for (const row of chainRows) {
+        for (const row of renderableRows) {
           messages.push({
             id: String(row.id),
             role: row.role,
             parentMessageId: row.parentMessageId ?? null,
             parts: Array.isArray(row.parts) ? row.parts : [],
             metadata: row.metadata ?? undefined,
+            messageKind: row.messageKind ?? undefined,
             agent: (row.metadata as any)?.agent ?? undefined,
           });
         }
@@ -471,7 +484,7 @@ export const chatRouter = t.router({
         ? await buildSiblingNavByMessageId({
             prisma: ctx.prisma,
             sessionId: input.sessionId,
-            branchRows: chainRows.map((r) => ({
+            branchRows: renderableRows.map((r) => ({
               id: String(r.id),
               parentMessageId: (r.parentMessageId ?? null) as string | null,
             })),
@@ -490,7 +503,7 @@ export const chatRouter = t.router({
       > = {};
       if (includeSiblingNav) {
         // 保证主链每个节点都有 siblingNav（即使只有 1 个 sibling 也要有），避免前端短暂缺失导致闪烁。
-        for (const row of chainRows) {
+        for (const row of renderableRows) {
           const id = String(row.id);
           siblingNav[id] =
             siblingNavById[id] ??

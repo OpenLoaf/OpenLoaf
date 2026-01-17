@@ -191,6 +191,7 @@ export default function FolderTreePreview({
           name={displayName}
           ext={ext}
           projectId={projectId}
+          rootUri={effectiveViewerRootUri}
         />
       );
     }
@@ -202,6 +203,7 @@ export default function FolderTreePreview({
           name={displayName}
           ext={ext}
           projectId={projectId}
+          rootUri={effectiveViewerRootUri}
         />
       );
     }
@@ -213,6 +215,7 @@ export default function FolderTreePreview({
           name={displayName}
           ext={ext}
           projectId={projectId}
+          rootUri={effectiveViewerRootUri}
         />
       );
     }

@@ -56,6 +56,66 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 // 用于“复制/粘贴”的内存剪贴板。
 let fileClipboard: FileSystemEntry[] | null = null;
+/** Default template for new markdown documents. */
+const DEFAULT_MARKDOWN_TEMPLATE = [
+  "---",
+  'title: "New Document"',
+  "status: draft",
+  "tags:",
+  "  - markdown",
+  "  - mdx",
+  "categories: [notes, demo]",
+  "summary: |",
+  "  A starter MDX document with common markdown features.",
+  "  Replace this template when ready.",
+  "---",
+  "",
+  "# New Document",
+  "",
+  "> Tip: This file is `.mdx`, so MDX syntax is allowed.",
+  "",
+  "## Formatting",
+  "- **bold**, *italic*, ~~strikethrough~~, `inline code`",
+  "- [link](https://example.com)",
+  "",
+  "## Lists",
+  "1. Ordered item",
+  "2. Another item",
+  "   - Nested item",
+  "",
+  "## Task List",
+  "- [x] Setup",
+  "- [ ] Write",
+  "",
+  "## Table",
+  "| Feature | Status |",
+  "| --- | --- |",
+  "| Front matter | OK |",
+  "| Markdown | OK |",
+  "| MDX | OK |",
+  "",
+  "## Code",
+  "~~~ts",
+  "export function greet(name: string) {",
+  "  return `Hello, ${name}!`;",
+  "}",
+  "~~~",
+  "",
+  "## Quote",
+  "> A short quote to highlight a key idea.",
+  "",
+  "## MDX",
+  '<Note tone="info">',
+  "  You can embed components in MDX files.",
+  "</Note>",
+  "",
+  "{1 + 1}",
+  "",
+  "---",
+  "",
+  "## Next",
+  "- Replace this template with your content.",
+].join("\n");
 
 export type ProjectFileSystemModelArgs = {
   projectId?: string;
@@ -135,6 +195,7 @@ export type ProjectFileSystemModel = {
   handleDeletePermanentBatch: (entries: FileSystemEntry[]) => Promise<void>;
   handleShowInfo: (entry: FileSystemEntry) => void;
   handleCreateFolder: () => Promise<{ uri: string; name: string } | null>;
+  handleCreateMarkdown: () => Promise<{ uri: string; name: string } | null>;
   handleCreateBoard: () => Promise<void>;
   handlePaste: () => Promise<void>;
   handleUploadFiles: (files: File[], targetUri?: string | null) => Promise<void>;
@@ -660,11 +721,12 @@ export function useProjectFileSystemModel({
             ext: entry.ext,
             projectId,
             thumbnailSrc,
+            rootUri,
           },
         }
       );
     },
-    [activeTabId, projectId, pushStackItem]
+    [activeTabId, projectId, pushStackItem, rootUri]
   );
 
   /** Open a markdown file inside the current tab stack. */
@@ -689,7 +751,7 @@ export function useProjectFileSystemModel({
         },
       });
     },
-    [activeTabId, pushStackItem]
+    [activeTabId, pushStackItem, rootUri]
   );
 
   /** Open a code file inside the current tab stack. */
@@ -742,6 +804,7 @@ export function useProjectFileSystemModel({
           name: entry.name,
           ext: entry.ext,
           projectId,
+          rootUri,
           __customHeader: true,
         },
       });
@@ -765,11 +828,12 @@ export function useProjectFileSystemModel({
           openUri: entry.uri,
           name: entry.name,
           ext: entry.ext,
+          rootUri,
           __customHeader: true,
         },
       });
     },
-    [activeTabId, pushStackItem]
+    [activeTabId, pushStackItem, rootUri]
   );
 
   /** Open a spreadsheet file inside the current tab stack. */
@@ -788,6 +852,7 @@ export function useProjectFileSystemModel({
           openUri: entry.uri,
           name: entry.name,
           ext: entry.ext,
+          rootUri,
           __customHeader: true,
         },
       });
@@ -1087,6 +1152,33 @@ export function useProjectFileSystemModel({
     });
     pushHistory({ kind: "mkdir", uri: targetUri });
     refreshList();
+    return { uri: targetUri, name: targetName };
+  };
+
+  /** Create a new markdown document in the current directory. */
+  const handleCreateMarkdown = async () => {
+    if (activeUri === null || !workspaceId) return null;
+    const targetName = getUniqueName("新建文稿.mdx", new Set(existingNames));
+    const targetUri = buildChildUri(activeUri, targetName);
+    // 逻辑：使用默认模板生成可直接预览的 MDX 文稿。
+    await writeFileMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      uri: targetUri,
+      content: DEFAULT_MARKDOWN_TEMPLATE,
+    });
+    pushHistory({
+      kind: "create",
+      uri: targetUri,
+      content: DEFAULT_MARKDOWN_TEMPLATE,
+    });
+    refreshList();
+    handleOpenMarkdown({
+      uri: targetUri,
+      name: targetName,
+      kind: "file",
+      ext: "mdx",
+    });
     return { uri: targetUri, name: targetName };
   };
 
@@ -1501,6 +1593,7 @@ export function useProjectFileSystemModel({
     handleDeletePermanentBatch,
     handleShowInfo,
     handleCreateFolder,
+    handleCreateMarkdown,
     handleCreateBoard,
     handlePaste,
     handleUploadFiles,

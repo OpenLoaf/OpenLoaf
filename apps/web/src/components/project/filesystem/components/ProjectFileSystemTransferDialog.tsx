@@ -35,9 +35,9 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { toast } from "sonner";
-import { PageTreePicker } from "@/components/layout/sidebar/PageTree";
+import { PageTreePicker } from "@/components/layout/sidebar/ProjectTree";
 import { FileSystemGrid } from "./FileSystemGrid";
-import { FolderPlus } from "lucide-react";
+import { Ban, FolderPlus, PencilLine } from "lucide-react";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileRename } from "@/hooks/use-file-rename";
 import { useProjects } from "@/hooks/use-projects";
@@ -54,6 +54,7 @@ import {
   getUniqueName,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
+import { sortEntriesByType } from "../utils/entry-sort";
 
 type ProjectTreeNode = {
   projectId?: string;
@@ -191,9 +192,12 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
     () => normalizePageTreeProjects(projectListQuery.data as ProjectTreeNode[] | undefined),
     [projectListQuery.data]
   );
-  const gridEntries = ((listQuery.data?.entries ?? []) as FileSystemEntry[]).filter(
-    (entry) => !IGNORE_NAMES.has(entry.name)
-  );
+  const gridEntries = useMemo(() => {
+    const entries = ((listQuery.data?.entries ?? []) as FileSystemEntry[]).filter(
+      (entry) => !IGNORE_NAMES.has(entry.name)
+    );
+    return sortEntriesByType(entries);
+  }, [listQuery.data?.entries]);
   /** Track current grid selection. */
   const {
     selectedUris,
@@ -707,11 +711,16 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
                   <ContextMenuTrigger asChild>{gridBody}</ContextMenuTrigger>
                   <ContextMenuContent className="w-40">
                     {contextEntry && contextEntry.kind === "folder" ? (
-                      <ContextMenuItem onSelect={() => requestRename(contextEntry)}>
+                      <ContextMenuItem
+                        icon={PencilLine}
+                        onSelect={() => requestRename(contextEntry)}
+                      >
                         重命名
                       </ContextMenuItem>
                     ) : (
-                      <ContextMenuItem disabled>无可用操作</ContextMenuItem>
+                      <ContextMenuItem icon={Ban} disabled>
+                        无可用操作
+                      </ContextMenuItem>
                     )}
                   </ContextMenuContent>
                 </ContextMenu>

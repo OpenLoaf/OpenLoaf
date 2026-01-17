@@ -49,6 +49,7 @@ interface DocViewerProps {
   name?: string;
   ext?: string;
   projectId?: string;
+  rootUri?: string;
   panelKey?: string;
   tabId?: string;
 }
@@ -197,6 +198,7 @@ export default function DocViewer({
   name,
   ext,
   projectId,
+  rootUri,
   panelKey,
   tabId,
 }: DocViewerProps) {
@@ -408,6 +410,7 @@ export default function DocViewer({
       <StackHeader
         title={displayTitle}
         openUri={openUri}
+        openRootUri={rootUri}
         rightSlot={
           <Tooltip>
             <TooltipTrigger asChild>

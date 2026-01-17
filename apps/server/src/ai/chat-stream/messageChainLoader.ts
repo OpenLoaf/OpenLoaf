@@ -47,6 +47,7 @@ export async function loadMessageChain(input: {
       parentMessageId: true,
       parts: true,
       metadata: true,
+      messageKind: true,
     },
   });
 
@@ -56,5 +57,6 @@ export async function loadMessageChain(input: {
     parentMessageId: row.parentMessageId ?? null,
     parts: (row.parts as any) ?? [],
     metadata: (row.metadata as any) ?? undefined,
+    messageKind: (row as any).messageKind ?? "normal",
   }));
 }

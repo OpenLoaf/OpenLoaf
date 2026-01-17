@@ -1,4 +1,4 @@
-import { X, Bot, Globe } from "lucide-react";
+import { Bot, CircleX, Globe, Pin, PinOff, X } from "lucide-react";
 import { TabsTrigger } from "@/components/animate-ui/components/radix/tabs";
 import { useTabs } from "@/hooks/use-tabs";
 import { cn } from "@/lib/utils";
@@ -123,10 +123,14 @@ export const TabMenu = ({
         </TabsTrigger>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
-        <ContextMenuItem onClick={() => onTogglePin?.(tab.id, !isPinned)}>
+        <ContextMenuItem
+          icon={isPinned ? PinOff : Pin}
+          onClick={() => onTogglePin?.(tab.id, !isPinned)}
+        >
           {isPinned ? "取消置顶" : "置顶"}
         </ContextMenuItem>
         <ContextMenuItem
+          icon={X}
           onClick={() => {
             if (workspaceTabs.length > 1 && !isPinned) {
               closeTab(tab.id);
@@ -138,6 +142,7 @@ export const TabMenu = ({
           <ContextMenuShortcut>⌘W</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem
+          icon={CircleX}
           onClick={() => {
             const tabsToClose = workspaceTabs.filter(
               (t) => t.id !== tab.id && !t.isPin

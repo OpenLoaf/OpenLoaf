@@ -14,6 +14,7 @@ import { type FileSystemEntry } from "../utils/file-system-utils";
 type FileSystemEmptyStateProps = {
   showEmptyActions?: boolean;
   parentEntry?: FileSystemEntry | null;
+  onCreateDocument?: () => void;
   onCreateBoard?: () => void;
   onNavigate?: (nextUri: string) => void;
   onEntryDrop?: (
@@ -33,6 +34,7 @@ type FileSystemSearchEmptyStateProps = {
 const FileSystemEmptyState = memo(function FileSystemEmptyState({
   showEmptyActions = true,
   parentEntry,
+  onCreateDocument,
   onCreateBoard,
   onNavigate,
   onEntryDrop,
@@ -44,13 +46,20 @@ const FileSystemEmptyState = memo(function FileSystemEmptyState({
       <div className="flex w-full flex-col items-center gap-4">
         <EmptyState
           title="暂无文件"
-          description="创建一个文档或画布开始工作。"
+          description="创建一个文稿或画布开始工作。"
           icons={[Folder, FileText, FolderOpen]}
           className="border-0 hover:border-0"
           actions={
             showEmptyActions ? (
               <>
-                <Button>创建文档</Button>
+                <Button
+                  onClick={(event) => {
+                    if (shouldBlockPointerEvent(event)) return;
+                    onCreateDocument?.();
+                  }}
+                >
+                  创建文稿
+                </Button>
                 <Button
                   variant="outline"
                   onClick={(event) => {

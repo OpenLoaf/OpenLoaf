@@ -158,7 +158,8 @@ function readSkillSummary(filePath: string, scope: SkillScope): SkillSummary | n
 function parseFrontMatter(content: string): SkillFrontMatter {
   const lines = content.split(/\r?\n/u);
   if (lines.length === 0) return {};
-  if (lines[0].trim() !== FRONT_MATTER_DELIMITER) return {};
+  const firstLine = lines[0] ?? "";
+  if (firstLine.trim() !== FRONT_MATTER_DELIMITER) return {};
 
   const result: SkillFrontMatter = {};
   let currentKey: "name" | "description" | null = null;
@@ -197,7 +198,7 @@ function parseFrontMatter(content: string): SkillFrontMatter {
     const match = /^([A-Za-z0-9_-]+):\s*(.*)$/u.exec(line);
     if (!match) continue;
     const key = match[1];
-    const rawValue = match[2].trim();
+    const rawValue = (match[2] ?? "").trim();
     if (key !== "name" && key !== "description") continue;
 
     if (rawValue === "|" || rawValue === ">") {

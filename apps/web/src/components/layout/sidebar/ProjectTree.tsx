@@ -34,7 +34,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
-import { ChevronRight, FileText, Folder } from "lucide-react";
+import {
+  ArrowUpRight,
+  ChevronRight,
+  ClipboardCopy,
+  FileText,
+  Folder,
+  FolderOpen,
+  FolderPlus,
+  PencilLine,
+  Trash2,
+  X,
+} from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { toast } from "sonner";
@@ -525,6 +536,7 @@ export const PageTreeMenu = ({
           })()
         : node.uri;
 
+    const resolvedRootUri = projectRootById.get(node.projectId ?? "") ?? undefined;
     const needsCustomHeader =
       component === "pdf-viewer" ||
       component === "doc-viewer" ||
@@ -539,19 +551,20 @@ export const PageTreeMenu = ({
       base: {
         id: baseId,
         component,
-        params: {
-          uri: resolvedUri,
-          openUri: node.uri,
-          ...(component === "board-viewer"
-            ? {
-                boardFolderUri: node.uri,
-                boardFileUri: buildChildUri(node.uri, BOARD_INDEX_FILE_NAME),
-                projectId: node.projectId,
-                rootUri: projectRootById.get(node.projectId ?? "") ?? undefined,
-              }
-            : null),
-          name: node.name,
-          ext: node.ext,
+          params: {
+            uri: resolvedUri,
+            openUri: node.uri,
+            rootUri: resolvedRootUri,
+            ...(component === "board-viewer"
+              ? {
+                  boardFolderUri: node.uri,
+                  boardFileUri: buildChildUri(node.uri, BOARD_INDEX_FILE_NAME),
+                  projectId: node.projectId,
+                  rootUri: resolvedRootUri,
+                }
+              : null),
+            name: node.name,
+            ext: node.ext,
           ...(needsCustomHeader ? { __customHeader: true } : {}),
           ...(component === "pdf-viewer" ? { projectId: node.projectId } : {}),
         },
@@ -828,37 +841,52 @@ export const PageTreeMenu = ({
   const renderContextMenuContent = (node: FileNode) => (
     <ContextMenuContent className="w-52">
       {node.kind === "file" || node.kind === "project" ? (
-        <ContextMenuItem onClick={() => handlePrimaryClick(node)}>
+        <ContextMenuItem icon={ArrowUpRight} onClick={() => handlePrimaryClick(node)}>
           打开
         </ContextMenuItem>
       ) : null}
       {node.kind === "project" ? (
-        <ContextMenuItem onClick={() => void handleOpenInFileManager(node)}>
+        <ContextMenuItem
+          icon={FolderOpen}
+          onClick={() => void handleOpenInFileManager(node)}
+        >
           在文件管理器中打开
         </ContextMenuItem>
       ) : null}
       {node.kind === "project" ? (
-        <ContextMenuItem onClick={() => void handleCopyProjectPath(node)}>
+        <ContextMenuItem
+          icon={ClipboardCopy}
+          onClick={() => void handleCopyProjectPath(node)}
+        >
           复制路径
         </ContextMenuItem>
       ) : null}
       {node.kind === "project" ? (
         <>
           <ContextMenuSeparator />
-          <ContextMenuItem onClick={() => openCreateChildDialog(node)}>
+          <ContextMenuItem icon={FolderPlus} onClick={() => openCreateChildDialog(node)}>
             新建子项目
           </ContextMenuItem>
-          <ContextMenuItem onClick={() => void openImportChildDialog(node)}>
+          <ContextMenuItem
+            icon={FolderOpen}
+            onClick={() => void openImportChildDialog(node)}
+          >
             导入子项目
           </ContextMenuItem>
         </>
       ) : null}
       <ContextMenuSeparator />
-      <ContextMenuItem onClick={() => openRenameDialog(node)}>重命名</ContextMenuItem>
+      <ContextMenuItem icon={PencilLine} onClick={() => openRenameDialog(node)}>
+        重命名
+      </ContextMenuItem>
       {node.kind === "project" ? (
-        <ContextMenuItem onClick={() => openRemoveDialog(node)}>移除</ContextMenuItem>
+        <ContextMenuItem icon={X} onClick={() => openRemoveDialog(node)}>
+          移除
+        </ContextMenuItem>
       ) : (
-        <ContextMenuItem onClick={() => openDeleteDialog(node)}>删除</ContextMenuItem>
+        <ContextMenuItem icon={Trash2} onClick={() => openDeleteDialog(node)}>
+          删除
+        </ContextMenuItem>
       )}
     </ContextMenuContent>
   );

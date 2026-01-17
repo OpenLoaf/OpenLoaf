@@ -18,6 +18,7 @@ interface DocViewerProps {
   openUri?: string;
   name?: string;
   ext?: string;
+  rootUri?: string;
   panelKey?: string;
   tabId?: string;
 }
@@ -38,6 +39,7 @@ export default function DocViewer({
   uri,
   openUri,
   name,
+  rootUri,
   panelKey,
   tabId,
 }: DocViewerProps) {
@@ -122,6 +124,7 @@ export default function DocViewer({
       <StackHeader
         title={displayTitle}
         openUri={openUri}
+        openRootUri={rootUri}
         showMinimize
         onMinimize={() => {
           if (!tabId) return;

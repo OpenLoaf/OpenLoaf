@@ -18,6 +18,7 @@ interface PdfViewerProps {
   name?: string;
   ext?: string;
   projectId?: string;
+  rootUri?: string;
   panelKey?: string;
   tabId?: string;
 }
@@ -33,6 +34,7 @@ export default function PdfViewer({
   openUri,
   name,
   projectId,
+  rootUri,
   panelKey,
   tabId,
 }: PdfViewerProps) {
@@ -100,6 +102,7 @@ export default function PdfViewer({
       <StackHeader
         title={displayTitle}
         openUri={openUri}
+        openRootUri={rootUri}
         rightSlot={
           <div className="flex items-center gap-1">
             <Button

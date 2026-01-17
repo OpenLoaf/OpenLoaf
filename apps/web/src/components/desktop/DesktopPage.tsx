@@ -14,7 +14,7 @@ import type { DesktopItem } from "./types";
 import type { DesktopBreakpoint } from "./desktop-breakpoints";
 import { getBreakpointConfig } from "./desktop-breakpoints";
 import DesktopGrid from "./DesktopGrid";
-import { getDesktopIconByKey } from "./desktop-icons";
+import { getDesktopIconByKey } from "./widgets/DesktopIconWidget";
 
 /** Resolve edit-mode max width by breakpoint (lg is unconstrained). */
 function getEditMaxWidth(breakpoint: DesktopBreakpoint) {

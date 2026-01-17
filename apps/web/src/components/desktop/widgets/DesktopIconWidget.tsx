@@ -1,9 +1,14 @@
 "use client";
 
 import { FileText, ListTodo, Search, Settings } from "lucide-react";
-import type { DesktopIconKey } from "./types";
+import type { DesktopIconKey } from "../types";
 
-/** Resolve a desktop icon element by its key. */
+interface DesktopIconWidgetProps {
+  /** Icon key to render. */
+  iconKey: DesktopIconKey;
+}
+
+/** Render a desktop icon glyph by key. */
 export function getDesktopIconByKey(key: DesktopIconKey) {
   switch (key) {
     case "files":
@@ -17,4 +22,9 @@ export function getDesktopIconByKey(key: DesktopIconKey) {
     default:
       return <FileText className="size-5" />;
   }
+}
+
+/** Render a desktop icon widget. */
+export default function DesktopIconWidget({ iconKey }: DesktopIconWidgetProps) {
+  return getDesktopIconByKey(iconKey);
 }
