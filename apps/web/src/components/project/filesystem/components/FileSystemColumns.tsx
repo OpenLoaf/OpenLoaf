@@ -307,7 +307,7 @@ type FileSystemColumnsProps = {
   dragRootUri?: string;
   onNavigate?: (nextUri: string) => void;
   /** Open image entries in an external viewer. */
-  onOpenImage?: (entry: FileSystemEntry) => void;
+  onOpenImage?: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
   /** Open markdown entries in a markdown viewer. */
   onOpenMarkdown?: (entry: FileSystemEntry) => void;
   /** Open code entries in an external viewer. */
@@ -692,7 +692,8 @@ const FileSystemColumns = memo(function FileSystemColumns({
       if (!entry) return;
       const entryExt = getEntryExt(entry);
       if (entry.kind === "file" && IMAGE_EXTS.has(entryExt)) {
-        onOpenImageRef.current?.(entry);
+        const thumbnailSrc = thumbnailByUri.get(entry.uri);
+        onOpenImageRef.current?.(entry, thumbnailSrc);
         return;
       }
       if (entry.kind === "file" && MARKDOWN_EXTS.has(entryExt)) {
@@ -744,7 +745,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
       // 双击文件夹进入下一级目录。
       onNavigateRef.current?.(entry.uri);
     },
-    [resolveEntryFromEvent, shouldBlockPointerEvent]
+    [resolveEntryFromEvent, shouldBlockPointerEvent, thumbnailByUri]
   );
 
   /** Handle entry context menu without recreating per-row closures. */

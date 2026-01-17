@@ -291,7 +291,7 @@ export const SidebarPage = () => {
                     id="project-custom-path-input"
                     value={customPath}
                     onChange={(event) => setCustomPath(event.target.value)}
-                    placeholder="file://... 或 /path/to/project"
+                    placeholder="/path/to/project"
                   />
                   <Button
                     type="button"

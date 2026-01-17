@@ -41,6 +41,7 @@ export function StackHeader({
   /** Open the current file in the system default program. */
   const handleOpenExternal = React.useCallback(async () => {
     if (!openUri) return;
+    console.warn("[StackHeader] open external", { openUri });
     const api = window.tenasElectron;
     if (!api?.openPath) {
       toast.error("网页版不支持打开本地文件");

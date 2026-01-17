@@ -50,6 +50,7 @@ import {
   getDisplayPathFromUri,
   getParentRelativePath,
   getRelativePathFromUri,
+  parseScopedProjectPath,
   getUniqueName,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
@@ -395,7 +396,36 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
           toast.error("画布目录不可选");
           return;
         }
-        onSelectTarget?.(activeUri);
+        const selectedFolder = selectedEntries.find((entry) => entry.kind === "folder");
+        // 中文注释：优先使用选中的文件夹；否则使用当前目录作为目标。
+        const targetUri = selectedFolder?.uri ?? activeUri ?? "";
+        const parsed = parseScopedProjectPath(targetUri);
+        if (parsed) {
+          const resolved = formatScopedProjectPath({
+            projectId: parsed.projectId,
+            relativePath: parsed.relativePath,
+            includeAt: true,
+          });
+          onSelectTarget?.(resolved);
+          onOpenChange(false);
+          return;
+        }
+        const relativePath = activeRootUri
+          ? getRelativePathFromUri(activeRootUri, targetUri)
+          : getRelativePathFromUri("", targetUri);
+        const projectId = activeRootUri ? projectIdByRootUri.get(activeRootUri) : undefined;
+        if (!projectId) {
+          toast.error("请选择一个项目位置");
+          return;
+        }
+        const resolvedTarget = relativePath
+          ? formatScopedProjectPath({
+              projectId,
+              relativePath,
+              includeAt: true,
+            })
+          : `@[${projectId}]/`;
+        onSelectTarget?.(resolvedTarget);
       }
       onOpenChange(false);
       return;

@@ -31,6 +31,7 @@ interface ProjectPageProps {
   projectId?: string;
   rootUri?: string;
   projectTab?: ProjectTabValue;
+  fileUri?: string | null;
   [key: string]: any;
 }
 
@@ -135,7 +136,13 @@ function findProjectNode(
   return walk(projects);
 }
 
-export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: ProjectPageProps) {
+export default function ProjectPage({
+  projectId,
+  rootUri,
+  tabId,
+  projectTab,
+  fileUri: externalFileUri,
+}: ProjectPageProps) {
   const tabActive = useTabActive();
   const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
   const setTabBaseParams = useTabs((s) => s.setTabBaseParams);
@@ -292,6 +299,12 @@ export default function ProjectPage({ projectId, rootUri, tabId, projectTab }: P
     // 恢复持久化的子标签，避免 F5 后回到默认页。
     setActiveTab(projectTab);
   }, [projectTab, activeTab]);
+
+  useEffect(() => {
+    // 逻辑：外部指定 fileUri 时同步到文件系统当前位置。
+    if (!externalFileUri) return;
+    setFileUri(externalFileUri);
+  }, [externalFileUri]);
 
   // 面板首次访问后保留挂载状态，避免初始化时一次性渲染所有重组件。
   // 记录页面上下文变化，避免仅切换子 tab 时重置挂载缓存。

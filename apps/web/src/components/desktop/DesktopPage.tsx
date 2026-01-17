@@ -169,6 +169,19 @@ export default function DesktopPage({
   /** Resolve the selected folder into scoped metadata. */
   const resolveFolderSelection = React.useCallback(
     (targetUri: string) => {
+      const parsed = parseScopedProjectPath(targetUri);
+      if (parsed) {
+        const project = projectRoots.find((item) => item.projectId === parsed.projectId);
+        const relativeParts = parsed.relativePath.split("/").filter(Boolean);
+        const title =
+          relativeParts[relativeParts.length - 1] || project?.title || "Folder";
+        const folderUri = formatScopedProjectPath({
+          projectId: parsed.projectId,
+          relativePath: parsed.relativePath,
+          includeAt: true,
+        });
+        return { folderUri, title, defaultRootUri: project?.rootUri };
+      }
       // 中文注释：使用项目根目录匹配目标路径，生成可持久化的相对路径引用。
       for (const project of projectRoots) {
         if (!isUriUnderRoot(project.rootUri, targetUri)) continue;

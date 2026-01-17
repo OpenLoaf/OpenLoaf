@@ -8,10 +8,13 @@ import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
 import { useTabs } from "@/hooks/use-tabs";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { FolderOpen, Trash2 } from "lucide-react";
+import { Eye, FolderOpen, Trash2 } from "lucide-react";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useProject } from "@/hooks/use-project";
-import { buildUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  buildFileUriFromRoot,
+  buildUriFromRoot,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import { toast } from "sonner";
 
 type SkillScope = "workspace" | "project";
@@ -192,6 +195,25 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const { data: projectData } = useProject(projectId);
   const activeTabId = useTabs((state) => state.activeTabId);
   const pushStackItem = useTabs((state) => state.pushStackItem);
+  const workspaceId = workspace?.id ?? "";
+  /** Skills root uri for system file manager open. */
+  const skillsRootUri = useMemo(() => {
+    const baseRootUri = isProjectList ? projectData?.project?.rootUri : workspace?.rootUri;
+    if (!baseRootUri) return "";
+    if (baseRootUri.startsWith("file://")) {
+      return buildFileUriFromRoot(baseRootUri, ".tenas/skills");
+    }
+    const normalizedRoot = baseRootUri.replace(/[/\\]+$/, "");
+    return normalizedRoot ? `${normalizedRoot}/.tenas/skills` : "";
+  }, [isProjectList, projectData?.project?.rootUri, workspace?.rootUri]);
+
+  const mkdirMutation = useMutation(
+    trpc.fs.mkdir.mutationOptions({
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    }),
+  );
 
   const updateSkillMutation = useMutation(
     trpc.settings.setSkillEnabled.mutationOptions({
@@ -239,6 +261,38 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
       }),
     [projectId, skills, skillsQuery.isLoading, skillsQuery.isError],
   );
+
+  /** Open skills folder in system file manager. */
+  const handleOpenSkillsRoot = useCallback(async () => {
+    if (!skillsRootUri) return;
+    if (!workspaceId) {
+      toast.error("未找到工作空间");
+      return;
+    }
+    if (isProjectList && !projectId) {
+      toast.error("未找到项目");
+      return;
+    }
+    try {
+      await mkdirMutation.mutateAsync({
+        workspaceId,
+        projectId: isProjectList ? projectId : undefined,
+        uri: ".tenas/skills",
+        recursive: true,
+      });
+    } catch {
+      return;
+    }
+    const api = window.tenasElectron;
+    if (!api?.openPath) {
+      toast.error("网页版不支持打开文件管理器");
+      return;
+    }
+    const res = await api.openPath({ uri: skillsRootUri });
+    if (!res?.ok) {
+      toast.error(res?.reason ?? "无法打开文件管理器");
+    }
+  }, [isProjectList, mkdirMutation, projectId, skillsRootUri, workspaceId]);
 
   /** Open a skill folder tree in stack. */
   const handleOpenSkill = useCallback(
@@ -304,7 +358,24 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
 
   return (
     <div className="space-y-4">
-      <TenasSettingsGroup title="技能列表" subtitle={summaryText}>
+      <TenasSettingsGroup
+        title="技能列表"
+        subtitle={summaryText}
+        action={
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            onClick={() => void handleOpenSkillsRoot()}
+            disabled={!skillsRootUri || !workspaceId || (isProjectList && !projectId)}
+            aria-label="打开技能目录"
+            title="打开技能目录"
+          >
+            <FolderOpen className="h-4 w-4" />
+          </Button>
+        }
+      >
         <div className="divide-y divide-border">
           {skills.map((skill) => (
             <div
@@ -320,24 +391,26 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                     <ScopeTag scope={skill.scope} />
                   </div>
                   <div className="flex items-center gap-2">
+                    {skill.isDeletable ? (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        aria-label="删除技能"
+                        title="删除技能"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => handleDeleteSkill(skill)}
+                        disabled={deleteSkillMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       size="icon"
                       variant="ghost"
-                      aria-label="删除技能"
-                      title={skill.isDeletable ? "删除技能" : "仅允许删除当前项目技能"}
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => handleDeleteSkill(skill)}
-                      disabled={!skill.isDeletable || deleteSkillMutation.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      aria-label="打开技能目录"
-                      title="打开技能目录"
+                      aria-label="查看技能目录"
+                      title="查看技能目录"
                       className="h-8 w-8"
                       onClick={() => handleOpenSkill(skill)}
                       disabled={
@@ -350,7 +423,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                         )
                       }
                     >
-                      <FolderOpen className="h-4 w-4" />
+                      <Eye className="h-4 w-4" />
                     </Button>
                     <Switch
                       checked={skill.isEnabled}

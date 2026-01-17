@@ -83,7 +83,7 @@ type FileSystemGridProps = {
   dragRootUri?: string;
   onNavigate?: (nextUri: string) => void;
   /** Open image entries in an external viewer. */
-  onOpenImage?: (entry: FileSystemEntry) => void;
+  onOpenImage?: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
   /** Open markdown entries in a markdown viewer. */
   onOpenMarkdown?: (entry: FileSystemEntry) => void;
   /** Open code entries in an external viewer. */
@@ -174,8 +174,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   resolveSelectionMode,
   onGridContextMenuCapture,
 }: FileSystemGridProps) {
-  // 上一级入口仅在可回退且当前目录非空时显示，避免根目录与空目录误导。
-  const shouldShowParentEntry = Boolean(parentUri) && entries.length > 0;
+  // 上一级入口仅在可回退时显示，允许回到根目录。
+  const shouldShowParentEntry = parentUri !== null && parentUri !== undefined;
   const searchText = searchQuery?.trim() ?? "";
   const hasSearchQuery = searchText.length > 0;
   const shouldShowSearchEmpty =
@@ -185,7 +185,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
   const gridListRef = useRef<HTMLDivElement>(null);
   const parentEntry = useMemo<FileSystemEntry | null>(
     () =>
-      parentUri
+      parentUri !== null && parentUri !== undefined
         ? {
             uri: parentUri,
             name: "上一级",
@@ -349,7 +349,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
       if (isEntrySelectableRef.current && !isEntrySelectableRef.current(entry)) return;
       const entryExt = getEntryExt(entry);
       if (entry.kind === "file" && IMAGE_EXTS.has(entryExt)) {
-        onOpenImageRef.current?.(entry);
+        const thumbnailSrc = thumbnailByUri.get(entry.uri);
+        onOpenImageRef.current?.(entry, thumbnailSrc);
         return;
       }
       if (entry.kind === "file" && MARKDOWN_EXTS.has(entryExt)) {
@@ -401,7 +402,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
       // 双击文件夹进入下一级目录。
       onNavigateRef.current?.(entry.uri);
     },
-    [resolveEntryFromEvent, shouldBlockPointerEvent]
+    [resolveEntryFromEvent, shouldBlockPointerEvent, thumbnailByUri]
   );
 
   /** Handle entry context menu without recreating per-card closures. */

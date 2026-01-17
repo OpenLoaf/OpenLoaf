@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { forwardRef, useState } from "react"
 import { cn } from "@/lib/utils"
 
-interface Project {
+export type AnimatedFolderProject = {
   id: string
   image: string
   title: string
@@ -11,18 +11,21 @@ interface Project {
   ext?: string
   projectId?: string
   rootUri?: string
+  kind?: "file" | "folder"
 }
 
 interface AnimatedFolderProps {
   title: string
-  projects: Project[]
+  projects: AnimatedFolderProject[]
   className?: string
   /** Optional controlled hover state for external hit testing. */
   hovered?: boolean
   /** Toggle interactive behaviors like hover handlers and clicks. */
   interactive?: boolean
   /** Optional project open handler for preview. */
-  onProjectOpen?: (project: Project) => void
+  onProjectOpen?: (project: AnimatedFolderProject) => void
+  /** Optional folder open handler for clicking the folder body. */
+  onFolderOpen?: () => void
 }
 
 export function AnimatedFolder({
@@ -32,11 +35,12 @@ export function AnimatedFolder({
   hovered,
   interactive = true,
   onProjectOpen,
+  onFolderOpen,
 }: AnimatedFolderProps) {
   const [isHovered, setIsHovered] = useState(false)
   const resolvedHover = hovered ?? isHovered
 
-  const handleProjectClick = (project: Project) => {
+  const handleProjectClick = (project: AnimatedFolderProject) => {
     if (!interactive || !resolvedHover) return
     onProjectOpen?.(project)
   }
@@ -60,6 +64,7 @@ export function AnimatedFolder({
           minHeight: "320px",
           perspective: "1000px",
         }}
+        onClick={interactive ? onFolderOpen : undefined}
         onMouseEnter={
           hovered === undefined && interactive ? () => setIsHovered(true) : undefined
         }

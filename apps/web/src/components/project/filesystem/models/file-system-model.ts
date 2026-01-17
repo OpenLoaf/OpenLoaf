@@ -116,7 +116,10 @@ export type ProjectFileSystemModel = {
   handleCopyPath: (entry: FileSystemEntry) => Promise<void>;
   handleOpen: (entry: FileSystemEntry) => Promise<void>;
   handleOpenInFileManager: (entry: FileSystemEntry) => Promise<void>;
-  handleOpenImage: (entry: FileSystemEntry) => void;
+  /** Copy current directory path to clipboard. */
+  handleCopyPathAtCurrent: () => Promise<void>;
+  handleOpenInFileManagerAtCurrent: () => Promise<void>;
+  handleOpenImage: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
   handleOpenMarkdown: (entry: FileSystemEntry) => void;
   handleOpenCode: (entry: FileSystemEntry) => void;
   handleOpenPdf: (entry: FileSystemEntry) => void;
@@ -153,7 +156,8 @@ export type ProjectFileSystemModel = {
   ) => Promise<number>;
   undo: () => void;
   redo: () => void;
-  refreshList: () => void;
+  /** Refresh a folder list and thumbnails. */
+  refreshList: (targetUri?: string | null) => void;
 };
 
 /** Resolve parent uri for the current folder. */
@@ -325,15 +329,23 @@ export function useProjectFileSystemModel({
     [onNavigate]
   );
 
-  /** Refresh the current folder list. */
-  const refreshList = useCallback(() => {
-    if (activeUri === null) return;
+  /** Refresh the current folder list and thumbnails. */
+  const refreshList = useCallback((targetUri = activeUri) => {
+    if (targetUri === null || targetUri === undefined) return;
     if (!workspaceId) return;
     queryClient.invalidateQueries({
       queryKey: trpc.fs.list.queryOptions({
         workspaceId,
         projectId,
-        uri: activeUri,
+        uri: targetUri,
+        includeHidden: showHidden,
+      }).queryKey,
+    });
+    queryClient.invalidateQueries({
+      queryKey: trpc.fs.folderThumbnails.queryOptions({
+        workspaceId,
+        projectId,
+        uri: targetUri,
         includeHidden: showHidden,
       }).queryKey,
     });
@@ -601,9 +613,36 @@ export function useProjectFileSystemModel({
     }
   };
 
+  /** Copy current directory path to clipboard. */
+  const handleCopyPathAtCurrent = async () => {
+    const targetUri = activeUri ?? normalizedRootUri ?? "";
+    await copyText(getDisplayPathFromUri(targetUri));
+    toast.success("已复制路径");
+  };
+
+  /** Open the current folder in the system file manager. */
+  const handleOpenInFileManagerAtCurrent = async () => {
+    if (!isElectron) {
+      toast.error("网页版不支持打开文件管理器");
+      return;
+    }
+    const fallbackUri = activeUri ?? normalizedRootUri;
+    const targetUri = fallbackUri
+      ? resolveFileUriFromRoot(rootUri, fallbackUri)
+      : rootUri ?? "";
+    if (!targetUri) {
+      toast.error("未找到工作区目录");
+      return;
+    }
+    const res = await window.tenasElectron?.openPath?.({ uri: targetUri });
+    if (!res?.ok) {
+      toast.error(res?.reason ?? "无法打开文件管理器");
+    }
+  };
+
   /** Open an image file inside the current tab stack. */
   const handleOpenImage = useCallback(
-    (entry: FileSystemEntry) => {
+    (entry: FileSystemEntry, thumbnailSrc?: string) => {
       if (!activeTabId) {
         toast.error("未找到当前标签页");
         return;
@@ -619,11 +658,13 @@ export function useProjectFileSystemModel({
             openUri: entry.uri,
             name: entry.name,
             ext: entry.ext,
+            projectId,
+            thumbnailSrc,
           },
         }
       );
     },
-    [activeTabId, pushStackItem]
+    [activeTabId, projectId, pushStackItem]
   );
 
   /** Open a markdown file inside the current tab stack. */
@@ -1170,7 +1211,7 @@ export function useProjectFileSystemModel({
       uploadedCount += 1;
     }
     if (uploadedCount > 0) {
-      refreshList();
+      refreshList(targetUri);
       toast.success("已添加文件");
     }
   };
@@ -1442,6 +1483,8 @@ export function useProjectFileSystemModel({
     handleCopyPath,
     handleOpen,
     handleOpenInFileManager,
+    handleCopyPathAtCurrent,
+    handleOpenInFileManagerAtCurrent,
     handleOpenImage,
     handleOpenMarkdown,
     handleOpenCode,

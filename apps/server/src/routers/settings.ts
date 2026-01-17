@@ -411,6 +411,23 @@ export class SettingRouterImpl extends BaseSettingRouter {
             skillPath: input.skillPath,
           });
           await fs.rm(target.skillDir, { recursive: true, force: true });
+          if (input.scope === "workspace") {
+            updateWorkspaceIgnoreSkills({ ignoreKey, enabled: true });
+            return { ok: true };
+          }
+          const projectId = input.projectId?.trim();
+          if (!projectId) {
+            throw new Error("Project id is required.");
+          }
+          const projectRootPath = getProjectRootPath(projectId);
+          if (!projectRootPath) {
+            throw new Error("Project not found.");
+          }
+          await updateProjectIgnoreSkills({
+            projectRootPath,
+            ignoreKey,
+            enabled: true,
+          });
           return { ok: true };
         }),
       set: shieldedProcedure

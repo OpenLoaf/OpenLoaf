@@ -1084,6 +1084,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           actions={{
             openEntry: model.handleOpen,
             openInFileManager: model.handleOpenInFileManager,
+            openInFileManagerAtCurrent: model.handleOpenInFileManagerAtCurrent,
             enterBoardFolder: (entry) => model.handleNavigate(entry.uri),
             openTerminal: model.handleOpenTerminal,
             openTransferDialog: model.handleOpenTransferDialog,
@@ -1096,6 +1097,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
             showInfo: model.handleShowInfo,
             refreshList: model.refreshList,
             toggleHidden: () => model.setShowHidden((prev) => !prev),
+            copyPathAtCurrent: model.handleCopyPathAtCurrent,
             createFolder: handleCreateFolder,
             createBoard: model.handleCreateBoard,
             openTerminalAtCurrent: model.handleOpenTerminalAtCurrent,

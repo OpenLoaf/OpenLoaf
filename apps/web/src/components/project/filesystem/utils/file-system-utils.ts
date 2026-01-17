@@ -30,10 +30,10 @@ export {
   FILE_DRAG_URIS_MIME,
 } from "@/components/ui/tenas/drag-drop-types";
 
-/** Scoped project path matcher like [projectId]/path/to/file. */
-const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\]\/(.+)$/;
-/** Project-scoped absolute path matcher like @[projectId]/path/to/file. */
-const PROJECT_ABSOLUTE_REGEX = /^@\[[^\]]+\]\//;
+/** Scoped project path matcher like [projectId]/path/to/file or [projectId]/. */
+const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\](?:\/(.*))?$/;
+/** Project-scoped absolute path matcher like @[projectId]/path/to/file or @[projectId]/. */
+const PROJECT_ABSOLUTE_REGEX = /^@\[[^\]]+\](?:\/|$)/;
 /** Scheme matcher for absolute URLs. */
 const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 
@@ -137,7 +137,7 @@ export function parseScopedProjectPath(
   // 逻辑：支持 @[projectId]/path 形式的跨项目引用。
   const match = normalized.match(PROJECT_SCOPE_REGEX);
   const relativePath = normalizeProjectRelativePath(match ? match[2] ?? "" : normalized);
-  if (!relativePath) return null;
+  if (!relativePath && !match) return null;
   return { projectId: match?.[1]?.trim(), relativePath };
 }
 
@@ -153,7 +153,10 @@ export function formatScopedProjectPath(input: {
   includeAt?: boolean;
 }) {
   const relativePath = normalizeProjectRelativePath(input.relativePath);
-  if (!relativePath) return "";
+  if (!relativePath) {
+    if (input.includeAt && input.projectId) return `@[${input.projectId}]/`;
+    return "";
+  }
   const shouldScope =
     Boolean(input.projectId) &&
     (!input.currentProjectId || input.projectId !== input.currentProjectId);

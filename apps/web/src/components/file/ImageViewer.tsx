@@ -30,6 +30,8 @@ interface ImageViewerProps {
   name?: string;
   ext?: string;
   projectId?: string;
+  /** Optional thumbnail placeholder to show before full image loads. */
+  thumbnailSrc?: string;
   /** Optional header title for modal usage. */
   title?: string;
   /** Optional suggested base name for saving. */
@@ -183,6 +185,7 @@ export default function ImageViewer({
   name,
   ext,
   projectId: projectIdProp,
+  thumbnailSrc,
   title,
   saveName,
   showHeader,
@@ -231,6 +234,8 @@ export default function ImageViewer({
   const appliedRef = React.useRef<string>("");
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
+  const shouldUseBinary =
+    Boolean(uri) && Boolean(workspaceId) && (shouldUseFs || isRelative);
   const chat = useOptionalChatContext();
   const projectId = projectIdProp ?? chat?.projectId;
   const { basic, setBasic } = useBasicConfig();
@@ -259,7 +264,7 @@ export default function ImageViewer({
       projectId,
       uri: uri ?? "",
     }),
-    enabled: shouldUseFs && Boolean(uri) && Boolean(workspaceId),
+    enabled: shouldUseBinary,
   });
   const [preview, setPreview] = React.useState<{
     status: "loading" | "ready" | "error";
@@ -267,7 +272,7 @@ export default function ImageViewer({
   } | null>(null);
 
   React.useEffect(() => {
-    if (!uri || !isRelative) return;
+    if (!uri || !isRelative || shouldUseBinary) return;
     let aborted = false;
     let objectUrl = "";
     const run = async () => {
@@ -287,15 +292,16 @@ export default function ImageViewer({
       aborted = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [projectId, uri, isRelative]);
+  }, [projectId, uri, isRelative, shouldUseBinary]);
 
-  const payload = shouldUseFs ? imageQuery.data : null;
+  const payload = shouldUseBinary ? imageQuery.data : null;
+  const placeholderSrc = thumbnailSrc || preview?.src || "";
   // 用 base64 构造 dataUrl，避免浏览器直接访问 file:// 资源。
   const dataUrl = isDataUrl || isBlob
     ? uri
     : payload?.contentBase64 && payload?.mime
       ? `data:${payload.mime};base64,${payload.contentBase64}`
-      : preview?.src ?? "";
+      : placeholderSrc;
 
   const displayTitle = title || name || "图片预览";
   // 默认保存名按图片加载时刻生成，避免对话框内不断变化。
@@ -896,15 +902,15 @@ export default function ImageViewer({
     return <div className="h-full w-full p-4 text-muted-foreground">未选择图片</div>;
   }
 
-  if (isRelative && (!preview || preview.status === "loading")) {
+  if (isRelative && !shouldUseBinary && (!preview || preview.status === "loading")) {
     return <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>;
   }
 
-  if (shouldUseFs && imageQuery.isLoading) {
+  if (shouldUseBinary && imageQuery.isLoading && !placeholderSrc) {
     return <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>;
   }
 
-  if (isRelative && preview?.status === "error") {
+  if (isRelative && !shouldUseBinary && preview?.status === "error") {
     return (
       <div className="h-full w-full p-4 text-destructive">
         图片预览失败
@@ -912,7 +918,7 @@ export default function ImageViewer({
     );
   }
 
-  if (shouldUseFs && imageQuery.isError) {
+  if (shouldUseBinary && imageQuery.isError && !placeholderSrc) {
     return (
       <div className="h-full w-full p-4 text-destructive">
         {imageQuery.error?.message ?? "读取失败"}

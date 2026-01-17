@@ -3,7 +3,7 @@
 import * as React from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AnimatedFolder } from "@/components/ui/3d-folder";
+import { AnimatedFolder, type AnimatedFolderProject } from "@/components/ui/3d-folder";
 import { useProjects } from "@/hooks/use-projects";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
@@ -30,13 +30,15 @@ import {
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
 
-type FolderProject = {
+type FolderProject = AnimatedFolderProject & {
   /** Project id for the preview card. */
   id: string;
   /** Preview image url. */
   image: string;
   /** Preview title. */
   title: string;
+  /** Entry kind for preview behavior. */
+  kind: "file" | "folder";
   /** File uri for preview. */
   uri?: string;
   /** File extension for preview. */
@@ -95,7 +97,7 @@ function resolveFolderInfo(folderUri: string, roots: ProjectNode[]): ResolvedFol
   const root = roots.find((item) => item.projectId === projectId);
   if (!root?.rootUri) return null;
   const fileUri = buildUriFromRoot(root.rootUri, relativePath);
-  if (!fileUri) return null;
+  if (!fileUri && relativePath) return null;
   return { projectId, relativePath, fileUri, rootUri: root.rootUri };
 }
 
@@ -120,7 +122,11 @@ export default function ThreeDFolderWidget({
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const activeTabId = useTabs((state) => state.activeTabId);
+  const tabs = useTabs((state) => state.tabs);
+  const setActiveTab = useTabs((state) => state.setActiveTab);
   const pushStackItem = useTabs((state) => state.pushStackItem);
+  const addTab = useTabs((state) => state.addTab);
+  const setTabBaseParams = useTabs((state) => state.setTabBaseParams);
   const resolvedTitle = React.useMemo(() => {
     // 中文注释：优先使用外部传入的标题，其次从目录路径提取显示名。
     if (title && title.trim().length > 0) return title.trim();
@@ -139,7 +145,7 @@ export default function ThreeDFolderWidget({
 
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
-      resolvedFolder?.fileUri && workspaceId
+      resolvedFolder && workspaceId
         ? {
             workspaceId,
             projectId: resolvedFolder.projectId,
@@ -155,6 +161,10 @@ export default function ThreeDFolderWidget({
       folderEntries.filter(
         (entry) => entry.kind === "file" && IMAGE_EXTS.has(getEntryExt(entry))
       ),
+    [folderEntries]
+  );
+  const directoryEntries = React.useMemo(
+    () => folderEntries.filter((entry) => entry.kind === "folder"),
     [folderEntries]
   );
   const fileEntries = React.useMemo(
@@ -177,6 +187,7 @@ export default function ThreeDFolderWidget({
           id: entry.uri,
           image: getPreviewEndpoint(relativePath, { projectId: resolvedFolder.projectId }),
           title: entry.name,
+          kind: "file",
           uri: entry.uri,
           ext,
           projectId: resolvedFolder.projectId,
@@ -184,31 +195,91 @@ export default function ThreeDFolderWidget({
         };
       });
     }
-    // 中文注释：无图片时使用文件图标占位展示。
-    if (fileEntries.length > 0) {
-      return fileEntries.slice(0, 3).map((entry) => ({
-        id: entry.uri,
-        image: "",
-        title: entry.name,
-        icon: getEntryVisual({
-          kind: "file",
-          name: entry.name,
-          ext: getEntryExt(entry),
-          sizeClassName: "h-12 w-12",
-          thumbnailIconClassName: "h-12 w-12 p-2 text-muted-foreground",
-        }),
-        uri: entry.uri,
-        ext: getEntryExt(entry),
-        projectId: resolvedFolder.projectId,
-        rootUri: resolvedFolder.rootUri,
-      }));
+    // 中文注释：无图片时优先展示文件夹，其次补充文件图标。
+    const mixedEntries = [...directoryEntries, ...fileEntries].slice(0, 3);
+    if (mixedEntries.length > 0) {
+      return mixedEntries.map((entry) => {
+        const ext = entry.kind === "file" ? getEntryExt(entry) : "";
+        return {
+          id: entry.uri,
+          image: "",
+          title: entry.name,
+          kind: entry.kind,
+          icon: getEntryVisual({
+            kind: entry.kind,
+            name: entry.name,
+            ext,
+            isEmpty: entry.isEmpty,
+            sizeClassName: "h-12 w-12",
+            thumbnailIconClassName: "h-12 w-12 p-2 text-muted-foreground",
+          }),
+          uri: entry.uri,
+          ext,
+          projectId: resolvedFolder.projectId,
+          rootUri: resolvedFolder.rootUri,
+        };
+      });
     }
     return projects ?? FALLBACK_PROJECTS;
-  }, [fileEntries, imageEntries, projects, resolvedFolder]);
+  }, [directoryEntries, fileEntries, imageEntries, projects, resolvedFolder]);
 
   const resolvedHover = hovered ?? false;
+  const openFolderInFileSystem = React.useCallback(
+    (input: { projectId?: string; rootUri?: string; uri?: string }) => {
+      if (!workspaceId) {
+        toast.error("未找到工作区");
+        return;
+      }
+      if (!input.projectId || !input.rootUri || input.uri === undefined || input.uri === null) {
+        toast.error("未找到文件夹信息");
+        return;
+      }
+      const baseId = `project:${input.projectId}`;
+      const existing = tabs.find(
+        (tab) => tab.workspaceId === workspaceId && tab.base?.id === baseId
+      );
+      const projectNode = projectRoots.find((node) => node.projectId === input.projectId);
+      const baseParams = {
+        projectId: input.projectId,
+        rootUri: input.rootUri,
+        projectTab: "files",
+        fileUri: input.uri,
+      };
+
+      if (existing) {
+        setActiveTab(existing.id);
+        setTabBaseParams(existing.id, baseParams);
+        return;
+      }
+
+      addTab({
+        workspaceId,
+        createNew: true,
+        title: projectNode?.title || "Untitled Project",
+        icon: projectNode?.icon ?? undefined,
+        leftWidthPercent: 90,
+        base: {
+          id: baseId,
+          component: "plant-page",
+          params: baseParams,
+        },
+        chatParams: { projectId: input.projectId },
+      });
+    },
+    [addTab, projectRoots, setActiveTab, setTabBaseParams, tabs, workspaceId]
+  );
   const handleProjectOpen = React.useCallback(
-    (project: FolderProject) => {
+    (project: AnimatedFolderProject) => {
+      const entryKind = project.kind ?? "file";
+      if (entryKind === "folder") {
+        openFolderInFileSystem({
+          projectId: project.projectId,
+          rootUri: project.rootUri,
+          uri: project.uri,
+        });
+        return;
+      }
+
       if (!activeTabId) {
         toast.error("未找到当前标签页");
         return;
@@ -301,7 +372,7 @@ export default function ThreeDFolderWidget({
         params: baseParams,
       });
     },
-    [activeTabId, pushStackItem]
+    [activeTabId, openFolderInFileSystem, pushStackItem]
   );
 
   return (
@@ -313,6 +384,13 @@ export default function ThreeDFolderWidget({
           hovered={resolvedHover}
           interactive={true}
           onProjectOpen={handleProjectOpen}
+          onFolderOpen={() =>
+            openFolderInFileSystem({
+              projectId: resolvedFolder?.projectId,
+              rootUri: resolvedFolder?.rootUri,
+              uri: resolvedFolder?.fileUri ?? "",
+            })
+          }
           className="w-full bg-transparent border-transparent shadow-none [&>div:nth-child(2)]:mb-1 [&>h3]:mt-1 [&>p]:hidden [&>div:last-child]:hidden"
         />
       </div>

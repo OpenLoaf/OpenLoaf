@@ -51,12 +51,16 @@ export type FileSystemContextMenuActions = {
   refreshList: MenuAction;
   /** Toggle hidden files visibility. */
   toggleHidden: MenuAction;
+  /** Copy current directory path to clipboard. */
+  copyPathAtCurrent: MenuAction;
   /** Create a new folder. */
   createFolder: MenuAction;
   /** Create a new board. */
   createBoard: MenuAction;
   /** Open a terminal at the current directory. */
   openTerminalAtCurrent: MenuAction;
+  /** Open the current directory in the OS file manager. */
+  openInFileManagerAtCurrent: MenuAction;
   /** Paste from clipboard. */
   paste: MenuAction;
 };
@@ -219,6 +223,15 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
             <ContextMenuItem onSelect={withMenuSelectGuard(actions.toggleHidden)}>
               {toggleHiddenLabel}
             </ContextMenuItem>
+            <ContextMenuItem onSelect={withMenuSelectGuard(actions.copyPathAtCurrent)}>
+              复制路径
+            </ContextMenuItem>
+            <ContextMenuItem
+              onSelect={withMenuSelectGuard(actions.paste)}
+              disabled={clipboardSize === 0}
+            >
+              粘贴
+            </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem onSelect={withMenuSelectGuard(actions.createFolder)}>
               新建文件夹
@@ -227,17 +240,16 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
             <ContextMenuItem onSelect={withMenuSelectGuard(actions.createBoard)}>
               新建画布
             </ContextMenuItem>
+            <ContextMenuSeparator />
             {showTerminal ? (
               <ContextMenuItem onSelect={withMenuSelectGuard(actions.openTerminalAtCurrent)}>
-                打开终端
+                在终端中打开
               </ContextMenuItem>
             ) : null}
-            <ContextMenuSeparator />
             <ContextMenuItem
-              onSelect={withMenuSelectGuard(actions.paste)}
-              disabled={clipboardSize === 0}
+              onSelect={withMenuSelectGuard(actions.openInFileManagerAtCurrent)}
             >
-              粘贴
+              在文件管理器中打开
             </ContextMenuItem>
           </>
         )}
