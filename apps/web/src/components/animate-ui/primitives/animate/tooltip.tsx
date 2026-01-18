@@ -94,7 +94,7 @@ type TooltipProviderProps = {
 function TooltipProvider({
   children,
   id,
-  openDelay = 700,
+  openDelay = 200,
   closeDelay = 300,
   transition = { type: 'spring', stiffness: 300, damping: 35 },
 }: TooltipProviderProps) {

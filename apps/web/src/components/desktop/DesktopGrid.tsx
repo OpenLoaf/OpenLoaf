@@ -27,6 +27,27 @@ interface DesktopMetrics {
   padding: number;
 }
 
+type FontSizeSelection = "small" | "medium" | "large" | "xlarge";
+
+/** Normalize font size selection from config. */
+function normalizeFontSizeSelection(value: unknown): FontSizeSelection {
+  if (value === "small" || value === "medium" || value === "large" || value === "xlarge") {
+    return value;
+  }
+  return "medium";
+}
+
+/** Resolve scale factor for a font size selection. */
+function getFontSizeScale(value: FontSizeSelection): number {
+  return value === "small"
+    ? 0.875
+    : value === "medium"
+      ? 1
+      : value === "large"
+        ? 1.125
+        : 1.25;
+}
+
 function clampItemToCols(item: DesktopItem, cols: number, layout: DesktopItemLayout): DesktopItem {
   const w = Math.max(1, Math.min(cols, layout.w));
   const h = Math.max(1, layout.h);
@@ -73,6 +94,8 @@ export default function DesktopGrid({
   // 中文注释：首屏初始化完成前隐藏网格，避免布局闪烁。
   const [isGridReady, setIsGridReady] = React.useState(false);
   const didSetReadyRef = React.useRef(false);
+  // 中文注释：仅首次初始化时隐藏网格，避免编辑模式切换时闪一下。
+  const hasShownGridRef = React.useRef(false);
   const lastWidthRef = React.useRef(0);
   const itemsRef = React.useRef(items);
   React.useEffect(() => {
@@ -132,21 +155,31 @@ export default function DesktopGrid({
     onViewBreakpointChange?.(resolvedBreakpoint);
   }, [editMode, onViewBreakpointChange, resolvedBreakpoint]);
 
+  // 逻辑：依据字号档位缩放网格尺寸，避免大字号导致布局溢出。
+  const fontScale = React.useMemo(() => {
+    const normalized = normalizeFontSizeSelection(basic.uiFontSize);
+    return getFontSizeScale(normalized);
+  }, [basic.uiFontSize]);
+
   const metrics = React.useMemo<DesktopMetrics>(() => {
     const config = getBreakpointConfig(resolvedBreakpoint);
+    /** Scale grid metric with current font size. */
+    const scaleMetric = (value: number) => Math.max(1, Math.round(value * fontScale));
     return {
       cols: config.columns,
-      cell: config.rowHeight,
-      gap: config.gap,
-      padding: config.padding,
+      cell: scaleMetric(config.rowHeight),
+      gap: scaleMetric(config.gap),
+      padding: scaleMetric(config.padding),
     };
-  }, [resolvedBreakpoint]);
+  }, [fontScale, resolvedBreakpoint]);
 
   React.useEffect(() => {
     const el = gridContainerRef.current;
     if (!el) return;
 
-    setIsGridReady(false);
+    if (!hasShownGridRef.current) {
+      setIsGridReady(false);
+    }
     didSetReadyRef.current = false;
     // 逻辑：重建 Gridstack 时重置注册状态，确保组件重新注册并展示。
     registeredIdsRef.current = new Set();
@@ -371,6 +404,9 @@ export default function DesktopGrid({
       didSetReadyRef.current = true;
       requestAnimationFrame(() => {
         setIsGridReady(true);
+        if (!hasShownGridRef.current) {
+          hasShownGridRef.current = true;
+        }
       });
     }
   }, [editMode, items, metrics.cols, resolvedBreakpoint]);

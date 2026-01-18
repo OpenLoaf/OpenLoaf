@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 
 type TooltipProviderProps = TooltipProviderPrimitiveProps;
 
-function TooltipProvider({ openDelay = 0, ...props }: TooltipProviderProps) {
+function TooltipProvider({ openDelay = 200, ...props }: TooltipProviderProps) {
   return <TooltipProviderPrimitive openDelay={openDelay} {...props} />;
 }
 

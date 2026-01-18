@@ -56,6 +56,21 @@ function normalizeTitle(raw: string): string {
   return title.trim();
 }
 
+/** Resolve session preface text from stored message parts. */
+async function resolveSessionPrefaceText(
+  prisma: any,
+  sessionId: string,
+): Promise<string> {
+  const row = await prisma.chatMessage.findFirst({
+    where: { sessionId, messageKind: "session_preface" },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    select: { parts: true },
+  });
+  if (!row) return "";
+  // 逻辑：preface 为空时返回空字符串，避免前端误判成错误。
+  return extractTextFromParts(row.parts);
+}
+
 async function resolveSessionRightmostLeafId(prisma: any, sessionId: string): Promise<string | null> {
   const candidates = await prisma.chatMessage.findMany({
     where: { sessionId },
@@ -132,6 +147,20 @@ export class ChatRouterImpl extends BaseChatRouter {
     return t.router({
       // 复用 packages/api 的 chat router（getChatView 等），这里只补齐 server 实现。
       ...appRouterDefine.chat._def.procedures,
+
+      getSessionPreface: shieldedProcedure
+        .input(chatSchemas.getSessionPreface.input)
+        .output(chatSchemas.getSessionPreface.output)
+        .query(async ({ ctx, input }) => {
+          const session = await ctx.prisma.chatSession.findUnique({
+            where: { id: input.sessionId },
+            select: { id: true, deletedAt: true },
+          });
+          if (!session || session.deletedAt) throw new Error("session not found");
+
+          const content = await resolveSessionPrefaceText(ctx.prisma, input.sessionId);
+          return { content };
+        }),
 
       autoTitle: shieldedProcedure
         .input(chatSchemas.autoTitle.input)

@@ -44,6 +44,8 @@ interface ProjectIndexHeaderProps {
   controlsSlotRef: React.RefObject<HTMLDivElement | null>;
   /** Whether to show editing controls. */
   showControls: boolean;
+  /** Whether desktop edit mode is active. */
+  editMode: boolean;
 }
 
 interface ProjectIndexProps {
@@ -65,6 +67,8 @@ interface ProjectIndexProps {
   onPublishSuccess: () => void;
   /** Controls slot for header actions. */
   controlsSlotRef: React.RefObject<HTMLDivElement | null>;
+  /** Notify parent when edit mode changes. */
+  onEditModeChange?: (nextEditMode: boolean) => void;
 }
 
 interface DesktopHistorySnapshot {
@@ -87,19 +91,26 @@ const ProjectIndexHeader = React.memo(function ProjectIndexHeader({
   onUpdateTitle,
   onUpdateIcon,
   controlsSlotRef,
+  editMode,
 }: ProjectIndexHeaderProps) {
   return (
-    <div className="project-index-header flex items-center justify-between gap-3 w-full min-w-0">
-      <ProjectTitle
-        isLoading={isLoading}
-        projectId={projectId}
-        projectTitle={projectTitle}
-        titleIcon={titleIcon}
-        currentTitle={currentTitle}
-        isUpdating={isUpdating}
-        onUpdateTitle={onUpdateTitle}
-        onUpdateIcon={onUpdateIcon}
-      />
+    <div
+      className={`project-index-header flex items-center ${
+        editMode ? "justify-start" : "justify-between"
+      } gap-3 w-full min-w-0`}
+    >
+      {editMode ? null : (
+        <ProjectTitle
+          isLoading={isLoading}
+          projectId={projectId}
+          projectTitle={projectTitle}
+          titleIcon={titleIcon}
+          currentTitle={currentTitle}
+          isUpdating={isUpdating}
+          onUpdateTitle={onUpdateTitle}
+          onUpdateIcon={onUpdateIcon}
+        />
+      )}
 
       <div className="project-index-header-controls flex items-center gap-2 shrink-0">
         <div ref={controlsSlotRef} className="flex items-center gap-2" />
@@ -113,6 +124,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
   isActive,
   onDirtyChange,
   controlsSlotRef,
+  onEditModeChange,
   projectId,
   rootUri,
 }: ProjectIndexProps) {
@@ -182,6 +194,11 @@ const ProjectIndex = React.memo(function ProjectIndex({
     // header slot ref 由上层控制，这里等其挂载后再渲染 portal。
     setControlsTarget(controlsSlotRef.current);
   }, [controlsSlotRef]);
+
+  React.useLayoutEffect(() => {
+    // 逻辑：同步桌面编辑态到头部控制区，避免首帧闪动。
+    onEditModeChange?.(editMode);
+  }, [editMode, onEditModeChange]);
 
   const handleSetEditMode = React.useCallback(
     (nextEditMode: boolean) => {

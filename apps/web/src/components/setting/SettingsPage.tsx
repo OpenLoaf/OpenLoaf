@@ -216,7 +216,7 @@ export default function SettingsPage({
             if (!tooltipEnabled) return button;
             return (
               <Tooltip
-                delayDuration={0}
+                delayDuration={200}
                 open={openTooltipKey === item.key}
                 onOpenChange={(open) => {
                   if (open) {

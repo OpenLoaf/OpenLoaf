@@ -176,6 +176,8 @@ export default function ProjectPage({
   );
   /** Homepage read-only state. */
   const [indexReadOnly, setIndexReadOnly] = useState(true);
+  /** Homepage desktop edit mode state. */
+  const [indexEditMode, setIndexEditMode] = useState(false);
   /** Homepage dirty state. */
   const [indexDirty, setIndexDirty] = useState(false);
   /** Puck header controls mount target. */
@@ -429,6 +431,7 @@ export default function ProjectPage({
               onSetReadOnly={handleSetIndexReadOnly}
               controlsSlotRef={indexControlsRef}
               showControls={!indexReadOnly}
+              editMode={indexEditMode}
             />
           </div>
           <div
@@ -498,6 +501,7 @@ export default function ProjectPage({
                     onDirtyChange={setIndexDirty}
                     onPublishSuccess={handleIndexPublish}
                     controlsSlotRef={indexControlsRef}
+                    onEditModeChange={setIndexEditMode}
                   />
                 ) : null}
               </div>

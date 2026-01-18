@@ -631,9 +631,10 @@ export function useProjectFileSystemModel({
     }
   };
 
-  /** Copy file path to clipboard. */
+  /** Copy file or folder path to clipboard. */
   const handleCopyPath = async (entry: FileSystemEntry) => {
-    await copyText(getDisplayPathFromUri(entry.uri));
+    const targetUri = resolveFileUriFromRoot(rootUri, entry.uri);
+    await copyText(getDisplayPathFromUri(targetUri));
     toast.success("已复制路径");
   };
 
@@ -911,9 +912,12 @@ export function useProjectFileSystemModel({
       }
       const pwdRelative =
         entry.kind === "folder" ? entry.uri : getEntryParentUri(entry);
-      const pwdUri = pwdRelative
-        ? resolveFileUriFromRoot(rootUri, pwdRelative)
-        : "";
+      const pwdUri =
+        pwdRelative === null || pwdRelative === undefined
+          ? ""
+          : pwdRelative
+            ? resolveFileUriFromRoot(rootUri, pwdRelative)
+            : rootUri ?? "";
       if (!pwdUri) {
         toast.error("无法解析终端目录");
         return;
@@ -947,7 +951,9 @@ export function useProjectFileSystemModel({
       return;
     }
     const fallbackUri = activeUri ?? normalizedRootUri;
-    const pwdUri = resolveFileUriFromRoot(rootUri, fallbackUri ?? "");
+    const pwdUri = fallbackUri
+      ? resolveFileUriFromRoot(rootUri, fallbackUri)
+      : rootUri ?? "";
     if (!pwdUri) {
       toast.error("未找到工作区目录");
       return;

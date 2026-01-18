@@ -171,7 +171,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   }, [moveTargetParentPath, projectFolderName]);
   const chatSessionCount = chatStatsQuery.data?.sessionCount;
   const baseValueClass =
-    "flex-1 text-right text-sm text-foreground hover:underline disabled:cursor-default disabled:no-underline disabled:text-muted-foreground";
+    "flex-1 text-right text-xs text-muted-foreground hover:text-foreground hover:underline disabled:cursor-default disabled:no-underline disabled:text-muted-foreground";
   const baseValueTruncateClass = `${baseValueClass} truncate`;
   const baseValueWrapClass = `${baseValueClass} break-all`;
   const projectTree = projectsQuery.data ?? [];

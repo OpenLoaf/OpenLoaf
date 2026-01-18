@@ -1,7 +1,9 @@
 import * as nodeFs from "node:fs";
 import { promises as fs } from "node:fs";
+import { execFile } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import * as git from "isomorphic-git";
 import { getProjectRootUri, resolveFilePathFromUri } from "./vfsService";
 
@@ -18,6 +20,54 @@ export type ProjectGitInfo = {
   userEmail: string | null;
 };
 
+export type ProjectGitBranch = {
+  /** Branch name. */
+  name: string;
+  /** Whether this branch is the current branch. */
+  isCurrent: boolean;
+};
+
+export type ProjectGitBranchList = {
+  /** Whether the project root belongs to a git repository. */
+  isGitProject: boolean;
+  /** Current branch name. */
+  currentBranch: string | null;
+  /** Local branches list. */
+  branches: ProjectGitBranch[];
+};
+
+export type ProjectGitCommit = {
+  /** Full commit oid. */
+  oid: string;
+  /** Short commit oid. */
+  shortOid: string;
+  /** Commit summary (first line). */
+  summary: string;
+  /** Author name. */
+  authorName: string | null;
+  /** Author email. */
+  authorEmail: string | null;
+  /** Commit time (ISO string). */
+  authoredAt: string;
+  /** Changed files count. */
+  filesChanged: number;
+  /** Inserted lines count. */
+  insertions: number;
+  /** Deleted lines count. */
+  deletions: number;
+};
+
+export type ProjectGitCommitPage = {
+  /** Whether the project root belongs to a git repository. */
+  isGitProject: boolean;
+  /** Branch name used for listing. */
+  branch: string | null;
+  /** Commit items. */
+  items: ProjectGitCommit[];
+  /** Cursor to load the next page. */
+  nextCursor: string | null;
+};
+
 type GitRepoContext = {
   /** Working directory that contains the .git entry. */
   workdir: string;
@@ -32,8 +82,68 @@ type GitConfigSection = {
   key: string;
 };
 
-/** Resolve git working directory and gitdir by walking up from a start path. */
-async function resolveGitRepoContext(startPath: string): Promise<GitRepoContext | null> {
+type GitCommitStats = {
+  /** Changed files count. */
+  filesChanged: number;
+  /** Inserted lines count. */
+  insertions: number;
+  /** Deleted lines count. */
+  deletions: number;
+};
+
+type GitWalkEntry = {
+  /** Resolve entry type. */
+  type: () => Promise<string>;
+  /** Resolve entry oid. */
+  oid: () => Promise<string>;
+  /** Resolve entry content. */
+  content: () => Promise<Uint8Array>;
+};
+
+type GitCliCommitQuery = {
+  /** Repo context for CLI execution. */
+  ctx: GitRepoContext;
+  /** Ref or cursor to use for git log. */
+  ref: string;
+  /** Pagination cursor. */
+  cursor: string | null;
+  /** Page size. */
+  pageSize: number;
+};
+
+/** Default commit page size for history queries. */
+const DEFAULT_GIT_PAGE_SIZE = 30;
+/** Max commit page size to avoid heavy git log scans. */
+const MAX_GIT_PAGE_SIZE = 120;
+/** Maximum blob size (bytes) to run line diff in fallback mode. */
+const MAX_DIFF_BYTES = 200_000;
+/** Maximum total DP cells for line diff. */
+const MAX_DIFF_CELLS = 2_000_000;
+/** Timeout for detecting git CLI (ms). */
+const GIT_CLI_VERSION_TIMEOUT_MS = 1500;
+/** Timeout for git log command (ms). */
+const GIT_CLI_LOG_TIMEOUT_MS = 6000;
+/** Separator for git log commit header. */
+const GIT_LOG_SEPARATOR = "@@@";
+/** Field separator in git log format. */
+const GIT_LOG_FIELD_SEPARATOR = "\x1f";
+/** Cached git CLI availability. */
+let gitCliAvailable: boolean | null = null;
+
+/** Exec helper for git CLI. */
+const execFileAsync = promisify(execFile);
+
+type GitRepoResolveOptions = {
+  /** Whether to scan parent directories for .git. */
+  allowParentScan?: boolean;
+};
+
+/** Resolve git working directory and gitdir for a project path. */
+async function resolveGitRepoContext(
+  startPath: string,
+  options: GitRepoResolveOptions = {}
+): Promise<GitRepoContext | null> {
+  const allowParentScan = options.allowParentScan === true;
   let cursor = path.resolve(startPath);
   let previous = "";
 
@@ -63,6 +173,8 @@ async function resolveGitRepoContext(startPath: string): Promise<GitRepoContext 
         throw err;
       }
     }
+    // 逻辑：默认仅检查项目根目录，显式开启时才向上查找。
+    if (!allowParentScan) break;
     previous = cursor;
     cursor = path.dirname(cursor);
   }
@@ -203,6 +315,307 @@ async function readGitConfigValue(
   return null;
 }
 
+/** Normalize page size for git history queries. */
+function normalizeGitPageSize(pageSize?: number | null): number {
+  if (!pageSize || Number.isNaN(pageSize)) return DEFAULT_GIT_PAGE_SIZE;
+  const normalized = Math.floor(pageSize);
+  return Math.min(Math.max(normalized, 1), MAX_GIT_PAGE_SIZE);
+}
+
+/** Resolve the commit summary from a raw git message. */
+function resolveCommitSummary(message: string | undefined): string {
+  const summary = (message ?? "").split(/\r?\n/)[0]?.trim() ?? "";
+  return summary || "无提交信息";
+}
+
+/** Build a short oid for display. */
+function buildShortOid(oid: string): string {
+  return oid.slice(0, 7);
+}
+
+/** Check whether git CLI is available on this host. */
+async function checkGitCliAvailable(workdir: string): Promise<boolean> {
+  if (gitCliAvailable !== null) return gitCliAvailable;
+  try {
+    await execFileAsync("git", ["--version"], {
+      cwd: workdir,
+      timeout: GIT_CLI_VERSION_TIMEOUT_MS,
+    });
+    gitCliAvailable = true;
+  } catch {
+    gitCliAvailable = false;
+  }
+  return gitCliAvailable;
+}
+
+/** Parse git log header line into commit metadata. */
+function parseGitLogHeaderLine(line: string): ProjectGitCommit | null {
+  if (!line.startsWith(GIT_LOG_SEPARATOR)) return null;
+  const payload = line.slice(GIT_LOG_SEPARATOR.length);
+  const parts = payload.split(GIT_LOG_FIELD_SEPARATOR);
+  const [oid, authorName, authorEmail, authoredAtRaw, summaryRaw] = parts;
+  if (!oid) return null;
+  const timestamp = Number(authoredAtRaw ?? "0");
+  const authoredAt = Number.isNaN(timestamp)
+    ? new Date(0).toISOString()
+    : new Date(timestamp * 1000).toISOString();
+  return {
+    oid,
+    shortOid: buildShortOid(oid),
+    summary: resolveCommitSummary(summaryRaw ?? ""),
+    authorName: authorName?.trim() || null,
+    authorEmail: authorEmail?.trim() || null,
+    authoredAt,
+    filesChanged: 0,
+    insertions: 0,
+    deletions: 0,
+  };
+}
+
+/** Parse a git numstat line into change counts. */
+function parseGitNumstatLine(line: string): {
+  insertions: number;
+  deletions: number;
+  isBinary: boolean;
+} | null {
+  const match = /^(\d+|-)\t(\d+|-)\t(.+)$/.exec(line);
+  if (!match) return null;
+  const rawInsertions = match[1] ?? "-";
+  const rawDeletions = match[2] ?? "-";
+  const isBinary = rawInsertions === "-" || rawDeletions === "-";
+  const insertions = isBinary ? 0 : Number.parseInt(rawInsertions, 10);
+  const deletions = isBinary ? 0 : Number.parseInt(rawDeletions, 10);
+  return {
+    insertions: Number.isNaN(insertions) ? 0 : insertions,
+    deletions: Number.isNaN(deletions) ? 0 : deletions,
+    isBinary,
+  };
+}
+
+/** Parse git log output with numstat into commit items. */
+function parseGitLogWithNumstat(raw: string): ProjectGitCommit[] {
+  const commits: ProjectGitCommit[] = [];
+  const lines = raw.split(/\r?\n/);
+  let current: ProjectGitCommit | null = null;
+  for (const line of lines) {
+    if (!line) continue;
+    if (line.startsWith(GIT_LOG_SEPARATOR)) {
+      if (current) commits.push(current);
+      current = parseGitLogHeaderLine(line);
+      continue;
+    }
+    if (!current) continue;
+    const stats = parseGitNumstatLine(line);
+    if (!stats) continue;
+    current.filesChanged += 1;
+    current.insertions += stats.insertions;
+    current.deletions += stats.deletions;
+  }
+  if (current) commits.push(current);
+  return commits;
+}
+
+/** Detect whether a buffer is binary-ish. */
+function isBinaryBuffer(buffer: Buffer): boolean {
+  // 中文注释：包含 0 字节则视为二进制文件。
+  for (let index = 0; index < buffer.length; index += 1) {
+    if (buffer[index] === 0) return true;
+  }
+  return false;
+}
+
+/** Split text into lines for diff. */
+function splitLines(text: string): string[] {
+  if (!text) return [];
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  if (lines.length > 0 && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+  return lines;
+}
+
+/** Count lines in a buffer (text only). */
+function countLinesFromBuffer(buffer: Buffer): number {
+  const text = buffer.toString("utf8");
+  return splitLines(text).length;
+}
+
+/** Compute LCS length for two line arrays. */
+function lcsLength(a: string[], b: string[]): number {
+  if (b.length === 0 || a.length === 0) return 0;
+  const shorter = a.length < b.length ? a : b;
+  const longer = a.length < b.length ? b : a;
+  let prev = new Array(shorter.length + 1).fill(0);
+  let curr = new Array(shorter.length + 1).fill(0);
+  for (let i = 1; i <= longer.length; i += 1) {
+    const line = longer[i - 1];
+    for (let j = 1; j <= shorter.length; j += 1) {
+      if (line === shorter[j - 1]) {
+        curr[j] = prev[j - 1] + 1;
+      } else {
+        curr[j] = Math.max(prev[j], curr[j - 1]);
+      }
+    }
+    [prev, curr] = [curr, prev];
+    curr.fill(0);
+  }
+  return prev[shorter.length] ?? 0;
+}
+
+/** Compute line insertions/deletions for two text blobs. */
+function computeLineChanges(
+  beforeText: string,
+  afterText: string
+): Pick<GitCommitStats, "insertions" | "deletions"> {
+  const beforeLines = splitLines(beforeText);
+  const afterLines = splitLines(afterText);
+  const cells = beforeLines.length * afterLines.length;
+  if (cells > MAX_DIFF_CELLS) {
+    return {
+      insertions: afterLines.length,
+      deletions: beforeLines.length,
+    };
+  }
+  const lcs = lcsLength(beforeLines, afterLines);
+  return {
+    insertions: Math.max(0, afterLines.length - lcs),
+    deletions: Math.max(0, beforeLines.length - lcs),
+  };
+}
+
+/** Check whether a blob should skip line diff. */
+function shouldSkipLineDiff(buffer: Buffer): boolean {
+  return buffer.length > MAX_DIFF_BYTES || isBinaryBuffer(buffer);
+}
+
+/** Read git walker entry content as a buffer. */
+async function readEntryBuffer(entry: GitWalkEntry | null): Promise<Buffer | null> {
+  if (!entry) return null;
+  const type = await entry.type();
+  if (type !== "blob") return null;
+  const content = await entry.content();
+  return Buffer.isBuffer(content) ? content : Buffer.from(content);
+}
+
+/** Collect commit stats via git walk diff. */
+async function collectCommitStatsWithGitWalk(
+  ctx: GitRepoContext,
+  currentOid: string,
+  parentOid: string | null
+): Promise<GitCommitStats> {
+  const stats: GitCommitStats = {
+    filesChanged: 0,
+    insertions: 0,
+    deletions: 0,
+  };
+
+  if (!parentOid) {
+    // 中文注释：初始提交，所有文件视为新增。
+    await git.walk({
+      fs: nodeFs,
+      dir: ctx.workdir,
+      gitdir: ctx.gitdir,
+      trees: [git.TREE({ ref: currentOid })],
+      map: async (filepath, entries) => {
+        if (filepath === ".") return;
+        const entry = (entries?.[0] ?? null) as GitWalkEntry | null;
+        if (!entry) return;
+        const entryType = await entry.type();
+        if (entryType === "tree") return;
+        stats.filesChanged += 1;
+        const buffer = await readEntryBuffer(entry);
+        if (!buffer) return;
+        if (shouldSkipLineDiff(buffer)) return;
+        stats.insertions += countLinesFromBuffer(buffer);
+      },
+    });
+    return stats;
+  }
+
+  await git.walk({
+    fs: nodeFs,
+    dir: ctx.workdir,
+    gitdir: ctx.gitdir,
+    trees: [git.TREE({ ref: parentOid }), git.TREE({ ref: currentOid })],
+    map: async (filepath, entries) => {
+      if (filepath === ".") return;
+      const beforeEntry = (entries?.[0] ?? null) as GitWalkEntry | null;
+      const afterEntry = (entries?.[1] ?? null) as GitWalkEntry | null;
+      if (!beforeEntry && !afterEntry) return;
+      const beforeType = beforeEntry ? await beforeEntry.type() : null;
+      const afterType = afterEntry ? await afterEntry.type() : null;
+      if (beforeType === "tree" || afterType === "tree") return;
+      if (beforeEntry && afterEntry) {
+        const [beforeOid, afterOid] = await Promise.all([
+          beforeEntry.oid(),
+          afterEntry.oid(),
+        ]);
+        if (beforeOid && afterOid && beforeOid === afterOid) return;
+      }
+      stats.filesChanged += 1;
+
+      const [beforeBuffer, afterBuffer] = await Promise.all([
+        readEntryBuffer(beforeEntry),
+        readEntryBuffer(afterEntry),
+      ]);
+      if (!beforeBuffer && !afterBuffer) return;
+      if (beforeBuffer && !afterBuffer) {
+        if (shouldSkipLineDiff(beforeBuffer)) return;
+        stats.deletions += countLinesFromBuffer(beforeBuffer);
+        return;
+      }
+      if (!beforeBuffer && afterBuffer) {
+        if (shouldSkipLineDiff(afterBuffer)) return;
+        stats.insertions += countLinesFromBuffer(afterBuffer);
+        return;
+      }
+      if (!beforeBuffer || !afterBuffer) return;
+      if (shouldSkipLineDiff(beforeBuffer) || shouldSkipLineDiff(afterBuffer)) return;
+      const beforeText = beforeBuffer.toString("utf8");
+      const afterText = afterBuffer.toString("utf8");
+      const diff = computeLineChanges(beforeText, afterText);
+      stats.insertions += diff.insertions;
+      stats.deletions += diff.deletions;
+    },
+  });
+
+  return stats;
+}
+
+/** Read git commit history with CLI numstat. */
+async function readGitCommitsWithCli(
+  input: GitCliCommitQuery
+): Promise<{ items: ProjectGitCommit[]; hasMore: boolean }> {
+  const maxCount = input.pageSize + (input.cursor ? 2 : 1);
+  const format = [
+    `${GIT_LOG_SEPARATOR}%H`,
+    "%an",
+    "%ae",
+    "%at",
+    "%s",
+  ].join(GIT_LOG_FIELD_SEPARATOR);
+  const args = [
+    "--no-pager",
+    "log",
+    "--numstat",
+    `--max-count=${maxCount}`,
+    `--format=${format}`,
+    input.ref,
+  ];
+  const { stdout } = await execFileAsync("git", args, {
+    cwd: input.ctx.workdir,
+    timeout: GIT_CLI_LOG_TIMEOUT_MS,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  const parsed = parseGitLogWithNumstat(stdout ?? "");
+  const trimmed = input.cursor ? parsed.slice(1) : parsed;
+  const items = trimmed.slice(0, input.pageSize);
+  return {
+    items,
+    hasMore: trimmed.length > input.pageSize,
+  };
+}
+
 /** Get git info for a single project. */
 export async function getProjectGitInfo(projectId: string): Promise<ProjectGitInfo> {
   const trimmedId = projectId.trim();
@@ -238,5 +651,154 @@ export async function getProjectGitInfo(projectId: string): Promise<ProjectGitIn
     originUrl,
     userName,
     userEmail,
+  };
+}
+
+/** Get local git branches for a project. */
+export async function getProjectGitBranches(
+  projectId: string
+): Promise<ProjectGitBranchList> {
+  const trimmedId = projectId.trim();
+  if (!trimmedId) {
+    throw new Error("项目 ID 不能为空");
+  }
+  const rootUri = getProjectRootUri(trimmedId);
+  if (!rootUri) {
+    throw new Error("项目不存在");
+  }
+  const rootPath = resolveFilePathFromUri(rootUri);
+  const repoContext = await resolveGitRepoContext(rootPath);
+  if (!repoContext) {
+    return {
+      isGitProject: false,
+      currentBranch: null,
+      branches: [],
+    };
+  }
+
+  const [currentBranch, branchNames] = await Promise.all([
+    resolveCurrentBranch(repoContext),
+    git.listBranches({
+      fs: nodeFs,
+      dir: repoContext.workdir,
+      gitdir: repoContext.gitdir,
+    }),
+  ]);
+
+  // 中文注释：当前分支置顶，其余按名称排序。
+  const sorted = [...branchNames].sort((a, b) => {
+    if (currentBranch && a === currentBranch) return -1;
+    if (currentBranch && b === currentBranch) return 1;
+    return a.localeCompare(b);
+  });
+
+  return {
+    isGitProject: true,
+    currentBranch,
+    branches: sorted.map((name) => ({
+      name,
+      isCurrent: currentBranch === name,
+    })),
+  };
+}
+
+/** Get git commits for a project with cursor pagination. */
+export async function getProjectGitCommits(input: {
+  projectId: string;
+  branch?: string | null;
+  cursor?: string | null;
+  pageSize?: number | null;
+}): Promise<ProjectGitCommitPage> {
+  const trimmedId = input.projectId.trim();
+  if (!trimmedId) {
+    throw new Error("项目 ID 不能为空");
+  }
+  const rootUri = getProjectRootUri(trimmedId);
+  if (!rootUri) {
+    throw new Error("项目不存在");
+  }
+  const rootPath = resolveFilePathFromUri(rootUri);
+  const repoContext = await resolveGitRepoContext(rootPath);
+  if (!repoContext) {
+    return {
+      isGitProject: false,
+      branch: null,
+      items: [],
+      nextCursor: null,
+    };
+  }
+
+  const requestedBranch = input.branch?.trim() || null;
+  const currentBranch = await resolveCurrentBranch(repoContext);
+  const resolvedBranch = requestedBranch || currentBranch;
+  const cursor = input.cursor?.trim() || null;
+  const pageSize = normalizeGitPageSize(input.pageSize);
+  const offset = cursor ? 1 : 0;
+  const depth = pageSize + offset + 1;
+  const ref = cursor ?? resolvedBranch ?? "HEAD";
+
+  // 中文注释：优先使用 git CLI 计算 numstat，失败后回退到 isomorphic-git。
+  if (await checkGitCliAvailable(repoContext.workdir)) {
+    try {
+      const cliResult = await readGitCommitsWithCli({
+        ctx: repoContext,
+        ref,
+        cursor,
+        pageSize,
+      });
+      const nextCursor =
+        cliResult.hasMore && cliResult.items.length > 0
+          ? cliResult.items[cliResult.items.length - 1].oid
+          : null;
+      return {
+        isGitProject: true,
+        branch: resolvedBranch,
+        items: cliResult.items,
+        nextCursor,
+      };
+    } catch {
+      // 中文注释：CLI 异常时使用 isomorphic-git 保障可用性。
+    }
+  }
+
+  // 中文注释：cursor 作为 ref 定位起点，额外取一条判断是否还有下一页。
+  const logEntries = await git.log({
+    fs: nodeFs,
+    dir: repoContext.workdir,
+    gitdir: repoContext.gitdir,
+    ref,
+    depth,
+  });
+
+  const pageEntries = logEntries.slice(offset, offset + pageSize);
+  const hasMore = logEntries.length > offset + pageSize;
+  const items: ProjectGitCommit[] = [];
+  for (const entry of pageEntries) {
+    const parentOid = entry.commit.parent?.[0] ?? null;
+    const stats = await collectCommitStatsWithGitWalk(
+      repoContext,
+      entry.oid,
+      parentOid
+    );
+    items.push({
+      oid: entry.oid,
+      shortOid: buildShortOid(entry.oid),
+      summary: resolveCommitSummary(entry.commit.message),
+      authorName: entry.commit.author.name?.trim() || null,
+      authorEmail: entry.commit.author.email?.trim() || null,
+      authoredAt: new Date(entry.commit.author.timestamp * 1000).toISOString(),
+      filesChanged: stats.filesChanged,
+      insertions: stats.insertions,
+      deletions: stats.deletions,
+    });
+  }
+  const nextCursor =
+    hasMore && items.length > 0 ? items[items.length - 1].oid : null;
+
+  return {
+    isGitProject: true,
+    branch: resolvedBranch,
+    items,
+    nextCursor,
   };
 }

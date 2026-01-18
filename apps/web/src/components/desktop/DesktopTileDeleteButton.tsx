@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Minus } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DesktopTileDeleteButtonProps {
@@ -18,10 +18,11 @@ export default function DesktopTileDeleteButton({
     <button
       type="button"
       className={cn(
-        "flex size-6 items-center justify-center rounded-full",
-        "bg-background text-foreground shadow-sm border border-border",
+        "desktop-edit-action-button desktop-trash-button flex size-6 items-center justify-center rounded-full",
+        "bg-transparent text-destructive border border-border shadow-sm",
         className
       )}
+      data-wiggle="loop"
       onPointerDown={(event) => {
         event.stopPropagation();
       }}
@@ -33,7 +34,7 @@ export default function DesktopTileDeleteButton({
       aria-label="Delete"
       title="Delete"
     >
-      <Minus className="size-4" />
+      <Trash2 className="desktop-edit-action-icon desktop-trash-icon size-4" />
     </button>
   );
 }

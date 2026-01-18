@@ -14,7 +14,7 @@ export default function DesktopIconLabel({ children, className }: DesktopIconLab
     <div
       className={cn(
         // 说明：truncate 会带 overflow-hidden，line-height 过小会导致文字被裁切，这里给足行高。
-        "w-full truncate text-center text-[11px] leading-[14px] text-muted-foreground",
+        "w-full truncate text-center text-[0.6875rem] leading-[0.875rem] text-muted-foreground",
         className
       )}
     >

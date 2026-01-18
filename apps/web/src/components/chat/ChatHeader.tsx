@@ -23,6 +23,7 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
   const { id: activeSessionId, newSession, selectSession, messages, tabId } =
     useChatContext();
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  /** Preface button loading state. */
   const [prefaceLoading, setPrefaceLoading] = React.useState(false);
   const menuLockRef = React.useRef(false);
   const { sessions, refetch: refetchSessions } = useChatSessions({ tabId });
@@ -39,7 +40,8 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
 
   const tabTitle = String(tab?.title ?? "").trim();
   const hasTabBase = Boolean(tab?.base);
-  const showPrefaceButton = Boolean(basic.chatPrefaceEnabled);
+  // 逻辑：仅在存在历史消息时显示 Preface 查看按钮。
+  const showPrefaceButton = Boolean(basic.chatPrefaceEnabled) && messages.length > 0;
 
   const syncHistoryTitleToTabTitle = useMutation({
     ...(trpc.chatsession.updateManyChatSession.mutationOptions() as any),

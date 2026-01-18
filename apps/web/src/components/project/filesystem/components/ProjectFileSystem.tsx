@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Fragment,
   memo,
   useCallback,
   useEffect,
@@ -10,51 +9,25 @@ import {
   useState,
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
-  type ReactNode,
 } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  FolderPlus,
-  FilePlus,
-  LayoutGrid,
-  LayoutList,
-  Columns2,
-  FolderTree,
-  ArrowDownAZ,
-  ArrowDownWideNarrow,
-  ArrowUpAZ,
-  ArrowUpWideNarrow,
-  Redo2,
-  Search,
-  Undo2,
-  Upload,
-} from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import {
   buildChildUri,
-  buildFileUriFromRoot,
   getEntryExt,
   getParentRelativePath,
   getRelativePathFromUri,
-  normalizeRelativePath,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
 import { sortEntriesByType } from "../utils/entry-sort";
 import FileSystemContextMenu from "./FileSystemContextMenu";
 import { FileSystemColumns } from "./FileSystemColumns";
 import { FileSystemGrid } from "./FileSystemGrid";
-import { FileSystemList, FileSystemListHeader } from "./FileSystemList";
+import { FileSystemList } from "./FileSystemList";
 import ProjectFileSystemTransferDialog from "./ProjectFileSystemTransferDialog";
 import FileSystemGitTree from "./FileSystemGitTree";
+import {
+  ProjectFileSystemHeader,
+  type ProjectBreadcrumbInfo,
+} from "./ProjectFileSystemHeader";
 import { DragDropOverlay } from "@/components/ui/tenas/drag-drop-overlay";
 import { useProjectFileSystemModel } from "../models/file-system-model";
 import { useFileSystemContextMenu } from "@/hooks/use-file-system-context-menu";
@@ -96,16 +69,6 @@ type ProjectFileSystemProps = {
   onNavigate?: (nextUri: string) => void;
 };
 
-type ProjectBreadcrumbInfo = {
-  title: string;
-  icon?: string;
-};
-
-type ProjectBreadcrumbItem = {
-  label: string;
-  uri: string;
-};
-
 /** Persisted toolbar state for the file system view. */
 type FileSystemToolbarState = {
   viewMode: "grid" | "list" | "columns" | "tree";
@@ -122,79 +85,6 @@ const DEFAULT_TOOLBAR_STATE: FileSystemToolbarState = {
 
 /** Storage key prefix for file system toolbar settings. */
 const FILE_SYSTEM_TOOLBAR_STORAGE_KEY = "tenas:fs:toolbar";
-
-type ProjectFileSystemBreadcrumbsProps = {
-  isLoading: boolean;
-  rootUri?: string;
-  currentUri?: string | null;
-  projectLookup?: Map<string, ProjectBreadcrumbInfo>;
-  onNavigate?: (nextUri: string) => void;
-  items?: ProjectBreadcrumbItem[];
-};
-
-type ProjectFileSystemInsideHeaderProps = {
-  /** Whether the file system data is loading. */
-  isLoading: boolean;
-  /** Root uri for the current project. */
-  rootUri?: string;
-  /** Current folder uri. */
-  currentUri?: string | null;
-  /** Lookup map for project breadcrumb titles. */
-  projectLookup?: Map<string, ProjectBreadcrumbInfo>;
-  /** Navigate to target uri. */
-  onNavigate?: (nextUri: string) => void;
-  /** Right-side toolbar content. */
-  toolbar?: ReactNode;
-};
-
-/** Build breadcrumb items for the project file system. */
-function buildFileBreadcrumbs(
-  rootUri?: string,
-  currentUri?: string | null,
-  projectLookup?: Map<string, ProjectBreadcrumbInfo>
-): ProjectBreadcrumbItem[] {
-  if (!rootUri || !currentUri) return [];
-  const rootRelative = getRelativePathFromUri(rootUri, rootUri);
-  const currentRelative = getRelativePathFromUri(rootUri, currentUri);
-  const rootParts = rootRelative ? rootRelative.split("/").filter(Boolean) : [];
-  const currentParts = currentRelative ? currentRelative.split("/").filter(Boolean) : [];
-  const relativeParts = currentParts.slice(rootParts.length);
-  const items: ProjectBreadcrumbItem[] = [];
-  let accumParts = [...rootParts];
-  // 从 root 向下拼接，构建可点击的面包屑路径。
-  for (const part of relativeParts) {
-    accumParts = [...accumParts, part];
-    const nextRelative = accumParts.join("/");
-    const lookupUri = rootUri.startsWith("file://")
-      ? buildFileUriFromRoot(rootUri, nextRelative)
-      : "";
-    const info = lookupUri ? projectLookup?.get(lookupUri) : undefined;
-    items.push({
-      label: info?.title ?? decodePathSegment(part),
-      uri: nextRelative,
-    });
-  }
-  return items;
-}
-
-/** Check if the current uri equals the root uri. */
-function isAtRootUri(rootUri?: string, currentUri?: string | null) {
-  if (!rootUri || !currentUri) return true;
-  const rootRelative = getRelativePathFromUri(rootUri, rootUri);
-  const currentRelative = getRelativePathFromUri(rootUri, currentUri);
-  const rootParts = rootRelative ? rootRelative.split("/").filter(Boolean) : [];
-  const currentParts = currentRelative ? currentRelative.split("/").filter(Boolean) : [];
-  // 当前路径不超过 root 层级时视为根目录。
-  return currentParts.length <= rootParts.length;
-}
-
-function decodePathSegment(value: string) {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
 
 /** Resolve a parent uri from a file or folder uri. */
 function resolveParentUriFromEntry(entry: FileSystemEntry): string | null {
@@ -277,121 +167,6 @@ function writeFileSystemToolbarState(
   }
 }
 
-/** Project file system inside header. */
-const ProjectFileSystemInsideHeader = memo(function ProjectFileSystemInsideHeader({
-  isLoading,
-  rootUri,
-  currentUri,
-  projectLookup,
-  onNavigate,
-  toolbar,
-}: ProjectFileSystemInsideHeaderProps) {
-  const breadcrumbItems = buildFileBreadcrumbs(rootUri, currentUri, projectLookup);
-
-  if (isLoading) {
-    return null;
-  }
-
-  return (
-    <div className="project-files-header flex items-center justify-between gap-3 min-w-0 w-full pl-2">
-      <div className="project-files-header-title flex items-center gap-2 min-w-0">
-        <div className="min-w-0">
-          <ProjectFileSystemBreadcrumbs
-            isLoading={isLoading}
-            rootUri={rootUri}
-            currentUri={currentUri}
-            projectLookup={projectLookup}
-            onNavigate={onNavigate}
-            items={breadcrumbItems}
-          />
-        </div>
-      </div>
-      {toolbar ? (
-        <div className="project-files-header-controls flex min-w-0 items-center justify-end">
-          {toolbar}
-        </div>
-      ) : null}
-    </div>
-  );
-});
-
-/** Project file system breadcrumbs. */
-const ProjectFileSystemBreadcrumbs = memo(function ProjectFileSystemBreadcrumbs({
-  isLoading,
-  rootUri,
-  currentUri,
-  projectLookup,
-  onNavigate,
-  items,
-}: ProjectFileSystemBreadcrumbsProps) {
-  const baseItems = items ?? buildFileBreadcrumbs(rootUri, currentUri, projectLookup);
-  const rootRelative = rootUri ? getRelativePathFromUri(rootUri, rootUri) : "";
-  const breadcrumbItems = rootUri
-    ? [{ label: "/", uri: rootRelative }, ...baseItems]
-    : baseItems;
-  const isVisible = !isLoading && breadcrumbItems.length > 0;
-  const breadcrumbKey = useMemo(
-    () => breadcrumbItems.map((item) => item.uri).join("|"),
-    [breadcrumbItems]
-  );
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isVisible) return;
-    const container = scrollRef.current;
-    if (!container) return;
-    // 默认滚动到最右侧，确保当前目录可见。
-    requestAnimationFrame(() => {
-      container.scrollLeft = container.scrollWidth;
-    });
-  }, [breadcrumbKey, isVisible]);
-
-  return (
-    <div className="relative flex min-w-0 items-center">
-      <div
-        ref={scrollRef}
-        className={`flex items-center justify-end gap-2 min-w-0 max-w-full overflow-x-auto overflow-y-hidden ${
-          isVisible ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <Breadcrumb className="min-w-max ml-auto">
-          <BreadcrumbList className="flex-nowrap whitespace-nowrap break-normal">
-            {breadcrumbItems.map((item, index) => {
-              const isLast = index === breadcrumbItems.length - 1;
-              const isRootItem = Boolean(rootUri) && index === 0 && item.uri === rootUri;
-              const shouldUseLink = !isLast || isRootItem;
-              return (
-                <Fragment key={`${item.uri}-${index}`}>
-                  <BreadcrumbItem>
-                    {shouldUseLink ? (
-                      <BreadcrumbLink asChild className="cursor-pointer">
-                        <button type="button" onClick={() => onNavigate?.(item.uri)}>
-                          <span>{item.label}</span>
-                        </button>
-                      </BreadcrumbLink>
-                    ) : (
-                      <BreadcrumbPage>
-                        <span>{item.label}</span>
-                      </BreadcrumbPage>
-                    )}
-                  </BreadcrumbItem>
-                  {!isLast ? <BreadcrumbSeparator /> : null}
-                </Fragment>
-              );
-            })}
-          </BreadcrumbList>
-        </Breadcrumb>
-      </div>
-      <div
-        className={`absolute inset-y-0 left-0 flex items-center ${
-          isVisible ? "opacity-0 pointer-events-none" : "opacity-100"
-        }`}
-      >
-        <span className="h-5 w-36 " />
-      </div>
-    </div>
-  );
-});
 
 const ProjectFileSystem = memo(function ProjectFileSystem({
   projectId,
@@ -431,7 +206,6 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   const [viewMode, setViewMode] = useState<"grid" | "list" | "columns" | "tree">(
     initialViewMode
   );
-  const isGridView = viewMode === "grid";
   const isListView = viewMode === "list";
   const isColumnsView = viewMode === "columns";
   const isTreeView = viewMode === "tree";
@@ -824,288 +598,37 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     return <div className="p-4 text-sm text-muted-foreground">未绑定项目目录</div>;
   }
 
-  // 工具栏移到面板上方，避免占用项目头部区域。
-  const toolbar = (
-    <div className="flex flex-wrap items-center justify-end gap-1 rounded-b-2xl px-1 py-0">
-      {model.canUndo || model.canRedo ? (
-        <>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                aria-label="撤回"
-                disabled={!model.canUndo}
-                onClick={() => {
-                  model.undo();
-                }}
-              >
-                <Undo2 className="h-3 w-3" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>
-              撤回
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                aria-label="前进"
-                disabled={!model.canRedo}
-                onClick={() => {
-                  model.redo();
-                }}
-              >
-                <Redo2 className="h-3 w-3" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>
-              前进
-            </TooltipContent>
-          </Tooltip>
-        </>
-      ) : null}
-      <div className="flex items-center rounded-md bg-muted/40 p-0.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-6 w-6 ${isGridView ? "bg-foreground/10 text-foreground" : ""}`}
-              aria-label="网格视图"
-              onClick={() => handleViewModeChange("grid")}
-            >
-              <LayoutGrid className="h-3 w-3" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={6}>
-            网格视图
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-6 w-6 ${isListView ? "bg-foreground/10 text-foreground" : ""}`}
-              aria-label="列表视图"
-              onClick={() => handleViewModeChange("list")}
-            >
-              <LayoutList className="h-3 w-3" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={6}>
-            列表视图
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-6 w-6 ${isColumnsView ? "bg-foreground/10 text-foreground" : ""}`}
-              aria-label="列视图"
-              onClick={() => handleViewModeChange("columns")}
-            >
-              <Columns2 className="h-3 w-3" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={6}>
-            列视图
-          </TooltipContent>
-        </Tooltip>
-        {isTreeViewEnabled ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-6 w-6 ${isTreeView ? "bg-foreground/10 text-foreground" : ""}`}
-                aria-label="文件树视图"
-                onClick={() => handleViewModeChange("tree")}
-              >
-                <FolderTree className="h-3 w-3" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>
-              文件树视图
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
-      </div>
-      <div className="mx-1 h-4 w-px bg-border/70" />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-6 w-6 ${
-              model.sortField === "name" ? "bg-foreground/10 text-foreground" : ""
-            }`}
-            aria-label="按字母排序"
-            onClick={handleSortByNameClick}
-          >
-            {model.sortField === "name" && model.sortOrder === "asc" ? (
-              <ArrowUpAZ className="h-3 w-3" />
-            ) : (
-              <ArrowDownAZ className="h-3 w-3" />
-            )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={6}>
-          按字母排序
-        </TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-6 w-6 ${
-              model.sortField === "mtime" ? "bg-foreground/10 text-foreground" : ""
-            }`}
-            aria-label="按时间排序"
-            onClick={handleSortByTimeClick}
-          >
-            {model.sortField === "mtime" && model.sortOrder === "asc" ? (
-              <ArrowUpWideNarrow className="h-3 w-3" />
-            ) : (
-              <ArrowDownWideNarrow className="h-3 w-3" />
-            )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={6}>
-          按时间排序
-        </TooltipContent>
-      </Tooltip>
-      <div className="mx-1 h-4 w-px bg-border/70" />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            aria-label="新建文件夹"
-            onClick={handleCreateFolder}
-          >
-            <FolderPlus className="h-3 w-3" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={6}>
-          新建文件夹
-        </TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            aria-label="新建文稿"
-            onClick={handleCreateDocument}
-          >
-            <FilePlus className="h-3 w-3" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={6}>
-          新建文稿
-        </TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            aria-label="添加文件"
-            onClick={() => {
-              model.uploadInputRef.current?.click();
-            }}
-          >
-            <Upload className="h-3 w-3" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={6}>
-          添加文件
-        </TooltipContent>
-      </Tooltip>
-      <input
-        ref={model.uploadInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={async (event) => {
-          const input = event.currentTarget;
-          const files = Array.from(input.files ?? []);
-          if (files.length === 0) return;
-          await model.handleUploadFiles(files);
-          if (model.uploadInputRef.current) {
-            model.uploadInputRef.current.value = "";
-          } else {
-            input.value = "";
-          }
-        }}
-      />
-      <div ref={model.searchContainerRef} className="flex items-center">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-6 w-6 duration-150 ease-linear ${
-                isSearchVisible ? "w-0 opacity-0 pointer-events-none" : "opacity-100"
-              }`}
-              aria-label="搜索"
-              onClick={() => model.setIsSearchOpen(true)}
-            >
-              <Search className="h-3 w-3" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={6}>
-            {`搜索 (${searchShortcutLabel})`}
-          </TooltipContent>
-        </Tooltip>
-        <div
-          className={`relative overflow-hidden rounded-md ring-1 ring-border/60 bg-background/80 transition-[width,opacity] duration-150 ease-linear ${
-            isSearchVisible ? "w-56 opacity-100" : "w-0 opacity-0"
-          }`}
-        >
-          <Input
-            ref={model.searchInputRef}
-            className="h-7 w-56 border-0 bg-transparent px-3 text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
-            placeholder="搜索文件或文件夹"
-            type="search"
-            value={model.searchValue}
-            onChange={(event) => model.setSearchValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                if (model.searchValue.trim()) {
-                  model.setSearchValue("");
-                  return;
-                }
-                model.setIsSearchOpen(false);
-              }
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="h-full flex flex-col">
       {/* 文件系统面包屑与工具栏在面板上方渲染。 */}
-      <ProjectFileSystemInsideHeader
+      <ProjectFileSystemHeader
         isLoading={isLoading ?? false}
         rootUri={rootUri}
         currentUri={model.displayUri}
         projectLookup={projectLookup}
         onNavigate={model.handleNavigate}
-        toolbar={toolbar}
+        canUndo={model.canUndo}
+        canRedo={model.canRedo}
+        onUndo={model.undo}
+        onRedo={model.redo}
+        viewMode={viewMode}
+        isTreeViewEnabled={isTreeViewEnabled}
+        onViewModeChange={handleViewModeChange}
+        sortField={model.sortField}
+        sortOrder={model.sortOrder}
+        onSortByName={handleSortByNameClick}
+        onSortByTime={handleSortByTimeClick}
+        onCreateFolder={handleCreateFolder}
+        onCreateDocument={handleCreateDocument}
+        onUploadFiles={model.handleUploadFiles}
+        uploadInputRef={model.uploadInputRef}
+        searchContainerRef={model.searchContainerRef}
+        searchInputRef={model.searchInputRef}
+        searchValue={model.searchValue}
+        isSearchVisible={isSearchVisible}
+        onSearchValueChange={model.setSearchValue}
+        onSearchOpenChange={model.setIsSearchOpen}
+        searchShortcutLabel={searchShortcutLabel}
       />
       <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <FileSystemContextMenu
@@ -1187,14 +710,6 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
             </div>
           ) : isListView ? (
             <div className="flex-1 min-h-0 h-full flex flex-col @container/fs-list">
-              <div className="border-b border-border/70 bg-background px-4">
-                <FileSystemListHeader
-                  sortField={model.sortField}
-                  sortOrder={model.sortOrder}
-                  onSortByName={handleSortByNameClick}
-                  onSortByTime={handleSortByTimeClick}
-                />
-              </div>
               <div
                 className="flex-1 min-h-0 overflow-hidden bg-background"
                 onDragEnter={model.handleDragEnter}
@@ -1360,9 +875,5 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   );
 });
 
-export type { ProjectBreadcrumbInfo };
-export {
-  ProjectFileSystemBreadcrumbs,
-  ProjectFileSystemInsideHeader,
-};
+export type { ProjectBreadcrumbInfo } from "./ProjectFileSystemHeader";
 export default ProjectFileSystem;

@@ -94,12 +94,13 @@ export default function DesktopTileGridstack({
           <button
             type="button"
             className={cn(
-              "flex size-6 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm",
+              "desktop-edit-action-button flex size-6 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm",
               isPinned ? "text-red-500" : "",
               isPinned
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto"
             )}
+            data-wiggle="loop"
             onPointerDown={(event) => {
               event.stopPropagation();
             }}
@@ -111,7 +112,11 @@ export default function DesktopTileGridstack({
             aria-label={isPinned ? "Unpin widget" : "Pin widget"}
             title={isPinned ? "取消固定" : "固定"}
           >
-            {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+            {isPinned ? (
+              <PinOff className="desktop-edit-action-icon size-3.5" />
+            ) : (
+              <Pin className="desktop-edit-action-icon size-3.5" />
+            )}
           </button>
         </div>
       ) : null}

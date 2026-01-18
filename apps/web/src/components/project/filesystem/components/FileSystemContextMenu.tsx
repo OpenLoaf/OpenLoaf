@@ -124,6 +124,10 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
   const toggleHiddenLabel = showHidden ? "✓ 显示隐藏" : "显示隐藏";
   const shouldShowEnterBoardFolder =
     menuContextEntry?.kind === "folder" && isBoardFolderName(menuContextEntry.name);
+  const shouldShowEntryFileManager =
+    Boolean(menuContextEntry) && menuContextEntry.kind === "folder";
+  const shouldShowEntryTerminal =
+    showTerminal && menuContextEntry?.kind === "folder";
 
   return (
     <ContextMenu onOpenChange={onOpenChange}>
@@ -182,15 +186,17 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   进入画布文件夹
                 </ContextMenuItem>
               ) : null}
-              <ContextMenuItem
-                icon={FolderOpen}
-                onSelect={withMenuSelectGuard(() =>
-                  actions.openInFileManager(menuContextEntry)
-                )}
-              >
-                在文件管理器中打开
-              </ContextMenuItem>
-              {showTerminal ? (
+              {shouldShowEntryFileManager ? (
+                <ContextMenuItem
+                  icon={FolderOpen}
+                  onSelect={withMenuSelectGuard(() =>
+                    actions.openInFileManager(menuContextEntry)
+                  )}
+                >
+                  在文件管理器中打开
+                </ContextMenuItem>
+              ) : null}
+              {shouldShowEntryTerminal ? (
                 <ContextMenuItem
                   icon={Terminal}
                   onSelect={withMenuSelectGuard(() => actions.openTerminal(menuContextEntry))}

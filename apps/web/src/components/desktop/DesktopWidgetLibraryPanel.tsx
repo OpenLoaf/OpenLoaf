@@ -189,13 +189,13 @@ export default function DesktopWidgetLibraryPanel({
       <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索组件…" />
 
       <div className="min-h-0 flex-1 overflow-auto">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((item) => (
             <div
               key={item.widgetKey}
               role="button"
               tabIndex={0}
-              className="group flex min-w-0 flex-col gap-2 rounded-xl border border-border/60 bg-background p-3 text-left hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="group flex min-w-0 flex-col gap-2 rounded-xl border border-border/60 bg-background p-2 text-left hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               onClick={() => {
                 if (item.widgetKey === "3d-folder") {
                   // 中文注释：3D 文件夹需要先选择目录。
@@ -219,8 +219,10 @@ export default function DesktopWidgetLibraryPanel({
                 removeStackItem(tabId, panelKey);
               }}
             >
-              <div className="pointer-events-none h-36 overflow-hidden rounded-lg border border-border bg-card p-3">
-                <WidgetEntityPreview widgetKey={item.widgetKey} />
+              <div className="pointer-events-none flex h-28 items-center justify-center overflow-hidden rounded-lg border border-border bg-card p-2">
+                <div className="h-full w-full origin-center scale-[0.8]">
+                  <WidgetEntityPreview widgetKey={item.widgetKey} />
+                </div>
               </div>
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium">{item.title}</div>

@@ -510,6 +510,64 @@ body {
   }
 }
 
+/* 桌面组件编辑按钮 hover 摇晃动画 */
+@keyframes desktop-edit-wiggle {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-6deg);
+  }
+  40% {
+    transform: rotate(6deg);
+  }
+  60% {
+    transform: rotate(-4deg);
+  }
+  80% {
+    transform: rotate(4deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes desktop-trash-wiggle {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-10deg);
+  }
+  40% {
+    transform: rotate(10deg);
+  }
+  60% {
+    transform: rotate(-7deg);
+  }
+  80% {
+    transform: rotate(7deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.desktop-edit-action-button[data-wiggle="true"] .desktop-edit-action-icon {
+  transform-origin: center;
+  animation: desktop-edit-wiggle 350ms ease-in-out 2;
+}
+
+.desktop-edit-action-button[data-wiggle="loop"] .desktop-edit-action-icon {
+  transform-origin: center;
+  animation: desktop-trash-wiggle 520ms ease-in-out infinite;
+}
+
+.desktop-trash-button[data-wiggle="loop"] .desktop-trash-icon {
+  transform-origin: center;
+  animation: desktop-trash-wiggle 520ms ease-in-out infinite;
+}
+
 .tenas-thinking-scan {
   background-size: 200% 100%;
   background-position: 0% 50%;
@@ -518,6 +576,15 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .tenas-thinking-scan {
+    animation: none;
+  }
+  .desktop-edit-action-button[data-wiggle="true"] .desktop-edit-action-icon {
+    animation: none;
+  }
+  .desktop-edit-action-button[data-wiggle="loop"] .desktop-edit-action-icon {
+    animation: none;
+  }
+  .desktop-trash-button[data-wiggle="loop"] .desktop-trash-icon {
     animation: none;
   }
 }
@@ -559,7 +626,7 @@ body {
   gap: 0.5rem;
   padding-bottom: 0.5rem;
   --project-header-tabs-width: 260px;
-  --project-header-main-max-width: 420px;
+  --project-header-main-max-width: 100%;
   --project-header-main-min-width: 200px;
 }
 

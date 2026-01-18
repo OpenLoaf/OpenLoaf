@@ -21,7 +21,11 @@ import {
   readWorkspaceProjectTrees,
   type ProjectConfig,
 } from "../services/projectTreeService";
-import { getProjectGitInfo } from "../services/projectGitService";
+import {
+  getProjectGitBranches,
+  getProjectGitCommits,
+  getProjectGitInfo,
+} from "../services/projectGitService";
 import { moveProjectStorage } from "../services/projectStorageService";
 
 /** File name for project homepage content. */
@@ -246,6 +250,27 @@ export const projectRouter = t.router({
     .input(z.object({ projectId: z.string() }))
     .query(async ({ input }) => {
       return getProjectGitInfo(input.projectId);
+    }),
+
+  /** Get git branches for a project. */
+  getGitBranches: shieldedProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ input }) => {
+      return getProjectGitBranches(input.projectId);
+    }),
+
+  /** Get git commits for a project. */
+  getGitCommits: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        branch: z.string().nullable().optional(),
+        cursor: z.string().nullable().optional(),
+        pageSize: z.number().int().min(1).max(120).nullable().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      return getProjectGitCommits(input);
     }),
 
   /** Update project metadata. */

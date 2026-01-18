@@ -642,6 +642,17 @@ export const chatRouter = t.router({
   }),
 
   /**
+   * Fetch session preface content (MVP).
+   * - Implemented in server chat router.
+   */
+  getSessionPreface: shieldedProcedure
+    .input(chatSchemas.getSessionPreface.input)
+    .output(chatSchemas.getSessionPreface.output)
+    .query(async () => {
+      throw new Error("Not implemented: override in server chat router.");
+    }),
+
+  /**
    * 清除所有聊天数据（MVP）
    * - 直接物理删除：会话 / 消息 / 关联表
    */

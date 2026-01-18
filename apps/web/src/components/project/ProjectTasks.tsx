@@ -102,7 +102,7 @@ const ProjectTasks = memo(function ProjectTasks({
   }
 
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="h-full flex flex-col">
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
         <section>
           <Calendar

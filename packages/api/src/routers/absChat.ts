@@ -16,6 +16,17 @@ export const chatSchemas = {
       title: z.string().min(1),
     }),
   },
+  /**
+   * Fetch session preface content (MVP).
+   */
+  getSessionPreface: {
+    input: z.object({
+      sessionId: z.string().min(1),
+    }),
+    output: z.object({
+      content: z.string(),
+    }),
+  },
 };
 
 export abstract class BaseChatRouter {
@@ -29,10 +40,15 @@ export abstract class BaseChatRouter {
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),
+      getSessionPreface: shieldedProcedure
+        .input(chatSchemas.getSessionPreface.input)
+        .output(chatSchemas.getSessionPreface.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
     });
   }
 }
 
 export const chatBaseRouter = BaseChatRouter.createRouter();
 export type ChatBaseRouter = typeof chatBaseRouter;
-

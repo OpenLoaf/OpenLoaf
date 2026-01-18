@@ -175,7 +175,7 @@ export const SidebarProject = () => {
                     <span className="text-muted-foreground">项目</span>
                   </SidebarGroupLabel>
                 </CollapsiblePrimitive.Trigger>
-                <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                <CollapsiblePrimitive.Content className="data-[state=closed]:overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down data-[state=open]:overflow-visible">
                   <SidebarMenu>
                     <PageTreeMenu
                       projects={projects}

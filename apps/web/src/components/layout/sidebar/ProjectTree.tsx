@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -119,6 +119,31 @@ function describeDragTarget(target: EventTarget | null): string {
   return `${tag}${id}${className}`;
 }
 
+/** Apply a stable drag preview for project drag. */
+function applyProjectDragPreview(
+  target: HTMLElement,
+  event: React.DragEvent<HTMLElement>,
+): void {
+  // 逻辑：使用克隆节点作为拖拽影像，避免拖拽过程中 DOM 变更导致中断。
+  const dragPreview = target.cloneNode(true) as HTMLElement;
+  const rect = target.getBoundingClientRect();
+  dragPreview.style.position = "absolute";
+  dragPreview.style.top = "-9999px";
+  dragPreview.style.left = "-9999px";
+  dragPreview.style.pointerEvents = "none";
+  dragPreview.style.width = `${rect.width}px`;
+  dragPreview.style.height = `${rect.height}px`;
+  dragPreview.style.transform = "none";
+  dragPreview.style.opacity = "0.9";
+  document.body.appendChild(dragPreview);
+  if (event.dataTransfer?.setDragImage) {
+    event.dataTransfer.setDragImage(dragPreview, rect.width / 2, rect.height / 2);
+  }
+  requestAnimationFrame(() => {
+    dragPreview.remove();
+  });
+}
+
 function getNodeKey(node: FileNode): string {
   const projectId = node.projectId?.trim();
   return projectId ? `${projectId}:${node.uri}` : node.uri;
@@ -161,6 +186,8 @@ interface FileTreeNodeProps {
   onContextMenuOpenChange: (node: FileNode, open: boolean) => void;
   subItemGapClassName?: string;
   dragOverProjectId?: string | null;
+  draggingProjectId?: string | null;
+  disableNativeDrag?: boolean;
   onProjectDragStart?: (
     node: FileNode,
     event: React.DragEvent<HTMLElement>
@@ -180,6 +207,10 @@ interface FileTreeNodeProps {
   onProjectDragEnd?: (
     node: FileNode,
     event: React.DragEvent<HTMLElement>
+  ) => void;
+  onProjectPointerDown?: (
+    node: FileNode,
+    event: React.PointerEvent<HTMLElement>
   ) => void;
 }
 
@@ -299,11 +330,14 @@ function FileTreeNode({
   onContextMenuOpenChange,
   subItemGapClassName,
   dragOverProjectId,
+  draggingProjectId,
+  disableNativeDrag,
   onProjectDragStart,
   onProjectDragOver,
   onProjectDragLeave,
   onProjectDrop,
   onProjectDragEnd,
+  onProjectPointerDown,
 }: FileTreeNodeProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
@@ -331,9 +365,11 @@ function FileTreeNode({
   const children = node.kind === "project" ? projectChildren : normalizedFileChildren;
   const hasChildren = node.kind === "project" ? children.length > 0 : true;
   const isProjectNode = node.kind === "project" && Boolean(node.projectId);
-  const isDraggable = isProjectNode && Boolean(onProjectDragStart);
+  const isDraggable = isProjectNode && Boolean(onProjectDragStart) && !disableNativeDrag;
   const isDragOver =
     isProjectNode && dragOverProjectId && node.projectId === dragOverProjectId;
+  const isDraggingSelf =
+    isProjectNode && draggingProjectId && node.projectId === draggingProjectId;
 
   const Item = depth === 0 ? SidebarMenuItem : SidebarMenuSubItem;
   const Button = depth === 0 ? SidebarMenuButton : SidebarMenuSubButton;
@@ -378,13 +414,15 @@ function FileTreeNode({
               tooltip={node.name}
               isActive={isActive}
               className={cn(
-                "text-sidebar-foreground/80 [&>svg]:text-muted-foreground",
+                "overflow-visible text-sidebar-foreground/80 [&>svg]:text-muted-foreground",
                 isDragOver && "ring-1 ring-ring/60 bg-sidebar-accent/70",
+                isDraggingSelf && "opacity-60",
               )}
             >
               <div
                 role="button"
                 tabIndex={0}
+                data-project-id={node.projectId ?? undefined}
                 onClick={() => onPrimaryClick(node)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
@@ -398,6 +436,7 @@ function FileTreeNode({
                     button: event.button,
                     draggable: isDraggable,
                   });
+                  onProjectPointerDown?.(node, event);
                 }}
                 onMouseDown={(event) => {
                   logProjectDrag("mousedown", {
@@ -407,11 +446,19 @@ function FileTreeNode({
                   });
                 }}
                 draggable={isDraggable}
-                onDragStart={(event) => onProjectDragStart?.(node, event)}
-                onDragOver={(event) => onProjectDragOver?.(node, event)}
-                onDragLeave={(event) => onProjectDragLeave?.(node, event)}
-                onDrop={(event) => onProjectDrop?.(node, event)}
-                onDragEnd={(event) => onProjectDragEnd?.(node, event)}
+                onDragStart={
+                  isDraggable ? (event) => onProjectDragStart?.(node, event) : undefined
+                }
+                onDragOver={
+                  isDraggable ? (event) => onProjectDragOver?.(node, event) : undefined
+                }
+                onDragLeave={
+                  isDraggable ? (event) => onProjectDragLeave?.(node, event) : undefined
+                }
+                onDrop={isDraggable ? (event) => onProjectDrop?.(node, event) : undefined}
+                onDragEnd={
+                  isDraggable ? (event) => onProjectDragEnd?.(node, event) : undefined
+                }
               >
                 {node.projectIcon ? (
                   <span className="text-sm leading-none">{node.projectIcon}</span>
@@ -435,7 +482,7 @@ function FileTreeNode({
           </CollapsiblePrimitive.Trigger>
         ) : null}
         {children.length > 0 ? (
-          <CollapsiblePrimitive.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+          <CollapsiblePrimitive.Content className="data-[state=closed]:overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down data-[state=open]:overflow-visible">
             <SidebarMenuSub className={cn("mx-1 px-1", subItemGapClassName)}>
               {children.map((child: any) => (
                 <FileTreeNode
@@ -460,11 +507,13 @@ function FileTreeNode({
                   onContextMenuOpenChange={onContextMenuOpenChange}
                   subItemGapClassName={subItemGapClassName}
                   dragOverProjectId={dragOverProjectId}
+                  draggingProjectId={draggingProjectId}
                   onProjectDragStart={onProjectDragStart}
                   onProjectDragOver={onProjectDragOver}
                   onProjectDragLeave={onProjectDragLeave}
                   onProjectDrop={onProjectDrop}
                   onProjectDragEnd={onProjectDragEnd}
+                  onProjectPointerDown={onProjectPointerDown}
                 />
               ))}
             </SidebarMenuSub>
@@ -487,6 +536,9 @@ export const PageTreeMenu = ({
   const tabs = useTabs((s) => s.tabs);
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
+  const isElectron =
+    process.env.NEXT_PUBLIC_ELECTRON === "1" ||
+    (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
   const queryClient = useQueryClient();
   const renameProject = useMutation(trpc.project.update.mutationOptions());
   const createProject = useMutation(trpc.project.create.mutationOptions());
@@ -527,6 +579,24 @@ export const PageTreeMenu = ({
   } | null>(null);
   /** Track move request state. */
   const [isMoveBusy, setIsMoveBusy] = useState(false);
+  /** Drag ghost overlay state for pointer drag. */
+  const [dragGhost, setDragGhost] = useState<{
+    projectId: string;
+    title: string;
+    icon?: string | null;
+    x: number;
+    y: number;
+  } | null>(null);
+  /** Drag ghost position cache for pointer drag updates. */
+  const dragGhostPositionRef = useRef<{ x: number; y: number } | null>(null);
+  /** Drag ghost animation frame handle. */
+  const dragGhostRafRef = useRef<number | null>(null);
+  /** Auto expand timer for drag hover. */
+  const autoExpandRef = useRef<{ projectId: string; timer: number | null } | null>(
+    null,
+  );
+  /** Track whether next click should be ignored after pointer drag. */
+  const suppressNextClickRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -724,6 +794,10 @@ export const PageTreeMenu = ({
   };
 
   const handlePrimaryClick = (node: FileNode) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
     if (node.kind === "project") {
       openProjectTab({
         projectId: node.projectId ?? node.uri,
@@ -1027,11 +1101,69 @@ export const PageTreeMenu = ({
     }
   };
 
+  /** Clear drag ghost overlay state. */
+  const clearDragGhost = () => {
+    if (dragGhostRafRef.current !== null) {
+      cancelAnimationFrame(dragGhostRafRef.current);
+      dragGhostRafRef.current = null;
+    }
+    dragGhostPositionRef.current = null;
+    setDragGhost(null);
+  };
+
+  /** Schedule drag ghost position update. */
+  const scheduleDragGhostUpdate = (x: number, y: number) => {
+    if (typeof window === "undefined") return;
+    dragGhostPositionRef.current = { x, y };
+    if (dragGhostRafRef.current !== null) return;
+    dragGhostRafRef.current = window.requestAnimationFrame(() => {
+      dragGhostRafRef.current = null;
+      const next = dragGhostPositionRef.current;
+      if (!next) return;
+      setDragGhost((prev) => (prev ? { ...prev, x: next.x, y: next.y } : prev));
+    });
+  };
+
+  /** Clear pending auto-expand timer. */
+  const clearAutoExpand = () => {
+    const current = autoExpandRef.current;
+    if (current?.timer) {
+      window.clearTimeout(current.timer);
+    }
+    autoExpandRef.current = null;
+  };
+
+  /** Schedule auto-expand for a collapsed project. */
+  const scheduleAutoExpand = (projectId: string | null) => {
+    if (typeof window === "undefined") return;
+    if (!projectId) {
+      clearAutoExpand();
+      return;
+    }
+    if (autoExpandRef.current?.projectId === projectId) return;
+    clearAutoExpand();
+    const rootUri = projectHierarchy.rootUriById.get(projectId);
+    if (!rootUri) return;
+    const descendants = projectHierarchy.descendantsById.get(projectId);
+    if (!descendants || descendants.size === 0) return;
+    const nodeKey = `${projectId}:${rootUri}`;
+    const isExpanded = expandedNodes[nodeKey] ?? false;
+    if (isExpanded) return;
+    // 逻辑：拖拽悬停 300ms 后自动展开，便于继续拖到子项目。
+    const timer = window.setTimeout(() => {
+      setExpanded(nodeKey, true);
+      autoExpandRef.current = null;
+    }, 300);
+    autoExpandRef.current = { projectId, timer };
+  };
+
   /** Reset drag state for project moves. */
   const resetProjectDragState = () => {
     setDraggingProject(null);
     setDragOverProjectId(null);
     setIsRootDropActive(false);
+    clearAutoExpand();
+    clearDragGhost();
   };
 
   /** Resolve project title from index with fallback. */
@@ -1073,6 +1205,7 @@ export const PageTreeMenu = ({
     event: React.DragEvent<HTMLElement>
   ) => {
     if (node.kind !== "project" || !node.projectId) return;
+    applyProjectDragPreview(event.currentTarget, event);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", node.projectId);
     setDraggingProject({ projectId: node.projectId, title: node.name });
@@ -1080,6 +1213,114 @@ export const PageTreeMenu = ({
       projectId: node.projectId,
       targetTag: event.currentTarget.tagName,
     });
+    logProjectDrag("dragstart-data", {
+      types: Array.from(event.dataTransfer?.types ?? []),
+    });
+  };
+
+  /** Handle pointer-based drag for Electron. */
+  const handleProjectPointerDown = (
+    node: FileNode,
+    event: React.PointerEvent<HTMLElement>
+  ) => {
+    if (!isElectron) return;
+    if (event.button !== 0) return;
+    if (node.kind !== "project" || !node.projectId) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const pointerId = event.pointerId;
+    const sourceProject = {
+      projectId: node.projectId,
+      title: node.name,
+      icon: node.projectIcon ?? null,
+    };
+    let hasStartedDrag = false;
+    let lastTargetProjectId: string | null = null;
+    let lastRootDropActive = false;
+
+    const updateDropTarget = (moveEvent: PointerEvent) => {
+      const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
+      const rootTarget = target?.closest?.("[data-project-root-drop=\"true\"]");
+      const projectTarget = target?.closest?.("[data-project-id]") as HTMLElement | null;
+      const targetProjectId = projectTarget?.getAttribute("data-project-id") ?? null;
+      if (rootTarget) {
+        setIsRootDropActive(true);
+        setDragOverProjectId(null);
+        lastRootDropActive = true;
+        lastTargetProjectId = null;
+        return;
+      }
+      setIsRootDropActive(false);
+      lastRootDropActive = false;
+      if (targetProjectId && canDropProject(sourceProject.projectId, targetProjectId)) {
+        setDragOverProjectId(targetProjectId);
+        lastTargetProjectId = targetProjectId;
+        scheduleAutoExpand(targetProjectId);
+      } else {
+        setDragOverProjectId(null);
+        lastTargetProjectId = null;
+        scheduleAutoExpand(null);
+      }
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+      if (!hasStartedDrag) {
+        if (Math.hypot(deltaX, deltaY) < 4) return;
+        // 中文注释：鼠标位移超过阈值后才进入拖拽态，避免误触打开项目。
+        hasStartedDrag = true;
+        suppressNextClickRef.current = true;
+        setDraggingProject(sourceProject);
+        setDragGhost({
+          projectId: sourceProject.projectId,
+          title: sourceProject.title,
+          icon: sourceProject.icon,
+          x: startX + 12,
+          y: startY + 12,
+        });
+        logProjectDrag("pointer-drag-start", { projectId: sourceProject.projectId });
+      }
+      if (!hasStartedDrag) return;
+      moveEvent.preventDefault();
+      // 逻辑：拖拽影像略微偏移，避免遮挡指针。
+      scheduleDragGhostUpdate(moveEvent.clientX + 12, moveEvent.clientY + 12);
+      updateDropTarget(moveEvent);
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      if (!hasStartedDrag) return;
+      if (lastRootDropActive) {
+        const currentParentId =
+          projectHierarchy.parentById.get(sourceProject.projectId) ?? null;
+        if (currentParentId) {
+          setPendingMove({ projectId: sourceProject.projectId, targetParentId: null });
+        }
+      } else if (lastTargetProjectId) {
+        const currentParentId =
+          projectHierarchy.parentById.get(sourceProject.projectId) ?? null;
+        if (
+          canDropProject(sourceProject.projectId, lastTargetProjectId) &&
+          currentParentId !== lastTargetProjectId
+        ) {
+          setPendingMove({
+            projectId: sourceProject.projectId,
+            targetParentId: lastTargetProjectId,
+          });
+        }
+      }
+      resetProjectDragState();
+      logProjectDrag("pointer-drag-end", { projectId: sourceProject.projectId });
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
   };
 
   /** Handle drag over a project node. */
@@ -1092,6 +1333,7 @@ export const PageTreeMenu = ({
     event.preventDefault();
     setDragOverProjectId(node.projectId);
     setIsRootDropActive(false);
+    scheduleAutoExpand(node.projectId);
     logProjectDrag("dragover", { projectId: node.projectId });
   };
 
@@ -1103,6 +1345,7 @@ export const PageTreeMenu = ({
     if (dragOverProjectId && node.projectId === dragOverProjectId) {
       setDragOverProjectId(null);
     }
+    scheduleAutoExpand(null);
     logProjectDrag("dragleave", { projectId: node.projectId });
   };
 
@@ -1145,12 +1388,14 @@ export const PageTreeMenu = ({
     event.preventDefault();
     setIsRootDropActive(true);
     setDragOverProjectId(null);
+    scheduleAutoExpand(null);
     logProjectDrag("root-dragover");
   };
 
   /** Handle drag leave root drop zone. */
   const handleRootDragLeave = () => {
     setIsRootDropActive(false);
+    scheduleAutoExpand(null);
     logProjectDrag("root-dragleave");
   };
 
@@ -1242,20 +1487,21 @@ export const PageTreeMenu = ({
 
   return (
     <>
-      {draggingProject ? (
-        <SidebarMenuItem>
-          <div
-            className={cn(
-              "mx-1 rounded-md border border-dashed border-border/70 px-2 py-1 text-xs text-muted-foreground transition-colors",
-              isRootDropActive && "border-primary/70 bg-primary/10 text-primary",
+      {dragGhost ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed z-50"
+          style={{ left: dragGhost.x, top: dragGhost.y }}
+        >
+          <div className="flex max-w-[240px] items-center gap-2 rounded-md border border-border/70 bg-background/90 px-2 py-1 text-xs text-foreground shadow-lg">
+            {dragGhost.icon ? (
+              <span className="text-sm leading-none">{dragGhost.icon}</span>
+            ) : (
+              <Folder className="h-3.5 w-3.5" />
             )}
-            onDragOver={handleRootDragOver}
-            onDragLeave={handleRootDragLeave}
-            onDrop={handleRootDrop}
-          >
-            拖到此处移到根项目
+            <span className="truncate">{dragGhost.title}</span>
           </div>
-        </SidebarMenuItem>
+        </div>
       ) : null}
       {projects.map((project) => (
         <FileTreeNode
@@ -1271,13 +1517,34 @@ export const PageTreeMenu = ({
           contextSelectedUri={contextSelectedUri}
           onContextMenuOpenChange={handleContextMenuOpenChange}
           dragOverProjectId={dragOverProjectId ?? null}
+          draggingProjectId={draggingProject?.projectId ?? null}
+          disableNativeDrag={isElectron}
           onProjectDragStart={handleProjectDragStart}
           onProjectDragOver={handleProjectDragOver}
           onProjectDragLeave={handleProjectDragLeave}
           onProjectDrop={handleProjectDrop}
           onProjectDragEnd={handleProjectDragEnd}
+          onProjectPointerDown={handleProjectPointerDown}
         />
       ))}
+      <SidebarMenuItem
+        aria-hidden={!draggingProject}
+        className={cn(!draggingProject && "h-0 overflow-hidden")}
+      >
+        <div
+          data-project-root-drop="true"
+          className={cn(
+            "mx-1 rounded-md border border-dashed border-border/70 px-2 py-1 text-xs text-muted-foreground transition-colors",
+            isRootDropActive && "border-primary/70 bg-primary/10 text-primary",
+            !draggingProject && "pointer-events-none max-h-0 py-0 opacity-0",
+          )}
+          onDragOver={handleRootDragOver}
+          onDragLeave={handleRootDragLeave}
+          onDrop={handleRootDrop}
+        >
+          拖到此处移到根项目
+        </div>
+      </SidebarMenuItem>
 
       <Dialog
         open={Boolean(renameTarget)}
@@ -1664,6 +1931,7 @@ export const PageTreePicker = ({
             contextSelectedUri={null}
             onContextMenuOpenChange={() => undefined}
             subItemGapClassName="gap-2"
+            draggingProjectId={null}
           />
         ))}
       </SidebarMenu>

@@ -11,7 +11,6 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { useFlipLayout } from "@/lib/use-flip-layout";
@@ -42,10 +41,7 @@ import {
 import { FileSystemEmptyState, FileSystemSearchEmptyState } from "./FileSystemEmptyState";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
 import { useFileSystemSelection } from "../hooks/use-file-system-selection";
-import { useFileSystemPreview } from "../hooks/use-file-system-preview";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
-import { FileSystemPreviewPanel } from "./FileSystemPreviewPanel";
-import { FileSystemPreviewStack } from "./FileSystemPreviewStack";
 
 /** Return true when the entry represents a board folder. */
 const isBoardFolderEntry = (entry: FileSystemEntry) =>
@@ -57,9 +53,6 @@ const listColumnClassName =
 /** Base layout for list rows. */
 const listRowBaseClassName =
   "grid items-center gap-3 rounded-md px-3 py-2 text-left text-xs leading-4";
-/** Base layout for list headers. */
-const listHeaderClassName =
-  "grid items-center gap-3 px-3 py-2 text-left text-[11px] font-medium text-muted-foreground";
 /** Document extensions handled by the built-in viewer. */
 const INTERNAL_DOC_EXTS = new Set<string>();
 /** Spreadsheet extensions handled by the built-in viewer. */
@@ -94,66 +87,6 @@ function openWithDefaultApp(entry: FileSystemEntry, rootUri?: string): void {
     }
   });
 }
-
-type FileSystemListHeaderProps = {
-  sortField: "name" | "mtime" | null;
-  sortOrder: "asc" | "desc" | null;
-  onSortByName: () => void;
-  onSortByTime: () => void;
-};
-
-/** Render the list header row. */
-const FileSystemListHeader = memo(function FileSystemListHeader({
-  sortField,
-  sortOrder,
-  onSortByName,
-  onSortByTime,
-}: FileSystemListHeaderProps) {
-  const isNameSorted = sortField === "name";
-  const isTimeSorted = sortField === "mtime";
-  const sortIconClassName = "h-3 w-3 shrink-0";
-  const nameSortIcon =
-    isNameSorted && sortOrder
-      ? sortOrder === "asc"
-        ? <ArrowUp className={sortIconClassName} />
-        : <ArrowDown className={sortIconClassName} />
-      : null;
-  const timeSortIcon =
-    isTimeSorted && sortOrder
-      ? sortOrder === "asc"
-        ? <ArrowUp className={sortIconClassName} />
-        : <ArrowDown className={sortIconClassName} />
-      : null;
-  return (
-    <div className={`${listHeaderClassName} ${listColumnClassName}`}>
-      <button
-        type="button"
-        className={`flex w-full items-center justify-start gap-1 text-left ${
-          isNameSorted ? "text-foreground" : "text-muted-foreground"
-        } hover:text-foreground`}
-        aria-label="按名称排序"
-        onClick={onSortByName}
-      >
-        <span>名称</span>
-        {nameSortIcon}
-      </button>
-      <button
-        type="button"
-        className={`hidden w-full items-center justify-start gap-1 text-left @[520px]/fs-list:flex ${
-          isTimeSorted ? "text-foreground" : "text-muted-foreground"
-        } hover:text-foreground`}
-        aria-label="按修改时间排序"
-        onClick={onSortByTime}
-      >
-        <span>修改时间</span>
-        {timeSortIcon}
-      </button>
-      <div className="hidden @[760px]/fs-list:block">类型</div>
-      <div className="hidden @[760px]/fs-list:block text-right">大小</div>
-    </div>
-  );
-});
-FileSystemListHeader.displayName = "FileSystemListHeader";
 
 type FileSystemListProps = {
   entries: FileSystemEntry[];
@@ -599,20 +532,6 @@ const FileSystemList = memo(function FileSystemList({
     includeHidden,
     projectId,
   });
-  const {
-    previewEntry,
-    setPreviewUri,
-    previewDisplayName,
-    previewTypeLabel,
-    previewSizeLabel,
-    previewCreatedLabel,
-    previewUpdatedLabel,
-  } = useFileSystemPreview({
-    entries,
-    selectedUris,
-    resolveDisplayName: resolveEntryDisplayName,
-    resolveTypeLabel: resolveEntryTypeLabel,
-  });
 
   const entryOrderKey = useMemo(
     () => entries.map((entry) => entry.uri).join("|"),
@@ -698,19 +617,9 @@ const FileSystemList = memo(function FileSystemList({
       if (shouldBlockPointerEvent(event)) return;
       const entry = resolveEntryFromEvent(event);
       if (!entry) return;
-      const isPrimaryClick =
-        event.button === 0 && (event.nativeEvent?.which ?? 1) === 1;
-      const hasModifier = event.metaKey || event.ctrlKey;
-      if (isPrimaryClick && !hasModifier) {
-        if (entry.kind === "file") {
-          setPreviewUri(entry.uri);
-        } else {
-          setPreviewUri(null);
-        }
-      }
       onEntryClickRef.current?.(entry, event);
     },
-    [resolveEntryFromEvent, setPreviewUri, shouldBlockPointerEvent]
+    [resolveEntryFromEvent, shouldBlockPointerEvent]
   );
 
   /** Handle entry double click without recreating per-row closures. */
@@ -807,23 +716,6 @@ const FileSystemList = memo(function FileSystemList({
       onGridContextMenuCapture?.(event, { uri: uri || null });
     },
     [onGridContextMenuCapture, shouldBlockPointerEvent]
-  );
-
-  const handlePreviewContextMenuCapture = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (!previewEntry) return;
-      if (shouldBlockPointerEvent(event)) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      lastContextMenuRef.current = { uri: previewEntry.uri, at: Date.now() };
-      onGridContextMenuCapture?.(event, {
-        uri: previewEntry.uri,
-        entry: previewEntry,
-      });
-    },
-    [onGridContextMenuCapture, previewEntry, shouldBlockPointerEvent]
   );
 
   useEffect(() => {
@@ -932,26 +824,8 @@ const FileSystemList = memo(function FileSystemList({
     </div>
   );
 
-  return (
-    <FileSystemPreviewStack
-      className="flex min-h-full h-full"
-      content={listContent}
-      preview={
-        <FileSystemPreviewPanel
-          previewEntry={previewEntry}
-          projectId={projectId}
-          rootUri={rootUri}
-          previewDisplayName={previewDisplayName}
-          previewTypeLabel={previewTypeLabel}
-          previewSizeLabel={previewSizeLabel}
-          previewCreatedLabel={previewCreatedLabel}
-          previewUpdatedLabel={previewUpdatedLabel}
-          onContextMenuCapture={handlePreviewContextMenuCapture}
-        />
-      }
-    />
-  );
+  return listContent;
 });
 FileSystemList.displayName = "FileSystemList";
 
-export { FileSystemList, FileSystemListHeader };
+export { FileSystemList };
