@@ -123,7 +123,7 @@ export default function SubAgentTool({ part }: { part: SubAgentToolPart }) {
         <div className="mt-2 space-y-2">
           {task ? (
             <div>
-              <div className="text-[11px] text-muted-foreground">任务</div>
+              <div className="text-[11px] text-muted-foreground">历史</div>
               <pre className="mt-1 whitespace-pre-wrap break-words bg-background p-2 text-xs">
                 {task}
               </pre>

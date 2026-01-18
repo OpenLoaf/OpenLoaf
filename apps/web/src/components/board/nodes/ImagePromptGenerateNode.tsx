@@ -223,7 +223,7 @@ export function ImagePromptGenerateNodeView({
     };
   }, []);
 
-  /** Run an image prompt generation request via /chat/sse. */
+  /** Run an image prompt generation request via /ai/execute. */
   const runImagePromptGenerate = useCallback(
     async (input: { chatModelId?: string; chatModelSource?: "local" | "cloud" }) => {
       const nodeId = element.id;
@@ -305,6 +305,8 @@ export function ImagePromptGenerateNodeView({
           trigger: "board-image-prompt",
           chatModelId,
           chatModelSource: input.chatModelSource,
+          intent: "image",
+          responseMode: "stream",
         };
         let streamedText = "";
         await runChatSseRequest({

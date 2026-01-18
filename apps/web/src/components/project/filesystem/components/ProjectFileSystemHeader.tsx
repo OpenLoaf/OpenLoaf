@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Toolbar, ToolbarToggleGroup, ToolbarToggleItem } from "@/components/ui/toolbar";
 import {
   ArrowDownAZ,
   ArrowDownWideNarrow,
@@ -168,7 +169,7 @@ const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
 
   return (
     <div className="project-files-header flex min-w-0 w-full pl-2">
-      <div className="project-files-header-panel flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/40 px-2 py-1">
+      <div className="project-files-header-panel flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/40 px-2">
         <div className="project-files-header-title flex items-center gap-2 min-w-0">
           <div className="min-w-0">
             <ProjectFileSystemBreadcrumbs
@@ -318,7 +319,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                 disabled={!canUndo}
                 onClick={onUndo}
               >
-                <Undo2 className="h-2 w-2" />
+                <Undo2 className="size-3" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
@@ -335,7 +336,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                 disabled={!canRedo}
                 onClick={onRedo}
               >
-                <Redo2 className="h-2 w-2" />
+                <Redo2 className="size-3" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
@@ -344,81 +345,81 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
           </Tooltip>
         </>
       ) : null}
-      <div className="flex items-center gap-1 rounded-md bg-muted/60 p-0.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-5 w-5 text-muted-foreground ${
-                isGridView ? "bg-foreground/10 text-foreground" : ""
-              }`}
-              aria-label="网格视图"
-              onClick={() => onViewModeChange("grid")}
-            >
-              <LayoutGrid className="h-2 w-2" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={6}>
-            网格视图
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-5 w-5 text-muted-foreground ${
-                isListView ? "bg-foreground/10 text-foreground" : ""
-              }`}
-              aria-label="列表视图"
-              onClick={() => onViewModeChange("list")}
-            >
-              <LayoutList className="h-2 w-2" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={6}>
-            列表视图
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-5 w-5 text-muted-foreground ${
-                isColumnsView ? "bg-foreground/10 text-foreground" : ""
-              }`}
-              aria-label="列视图"
-              onClick={() => onViewModeChange("columns")}
-            >
-              <Columns2 className="h-2 w-2" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={6}>
-            列视图
-          </TooltipContent>
-        </Tooltip>
-        {isTreeViewEnabled ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-5 w-5 text-muted-foreground ${
-                isTreeView ? "bg-foreground/10 text-foreground" : ""
-              }`}
-              aria-label="文件树视图"
-              onClick={() => onViewModeChange("tree")}
-            >
-              <FolderTree className="h-2 w-2" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>
-              文件树视图
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
+      <div className="flex items-center rounded-lg border border-border/60 bg-background/70 p-0.5">
+        <Toolbar className="rounded-md">
+          <ToolbarToggleGroup
+            type="single"
+            value={viewMode}
+            className="gap-1"
+            onValueChange={(value) => {
+              if (!value) return;
+              onViewModeChange(value as FileSystemViewMode);
+            }}
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToolbarToggleItem
+                  value="grid"
+                  size="sm"
+                  className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+                  aria-label="网格视图"
+                >
+                  <LayoutGrid className="size-3" />
+                </ToolbarToggleItem>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                网格视图
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToolbarToggleItem
+                  value="list"
+                  size="sm"
+                  className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+                  aria-label="列表视图"
+                >
+                  <LayoutList className="size-3" />
+                </ToolbarToggleItem>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                列表视图
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToolbarToggleItem
+                  value="columns"
+                  size="sm"
+                  className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+                  aria-label="列视图"
+                >
+                  <Columns2 className="size-3" />
+                </ToolbarToggleItem>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                列视图
+              </TooltipContent>
+            </Tooltip>
+            {isTreeViewEnabled ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToolbarToggleItem
+                    value="tree"
+                    size="sm"
+                    className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+                    aria-label="文件树视图"
+                  >
+                    <FolderTree className="size-3" />
+                  </ToolbarToggleItem>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  文件树视图
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+          </ToolbarToggleGroup>
+        </Toolbar>
       </div>
       <div className="mx-1 h-4 w-px bg-border/70" />
         <Tooltip>
@@ -433,9 +434,9 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               onClick={onSortByName}
             >
             {sortField === "name" && sortOrder === "asc" ? (
-              <ArrowUpAZ className="h-2 w-2" />
+              <ArrowUpAZ className="size-3" />
             ) : (
-              <ArrowDownAZ className="h-2 w-2" />
+              <ArrowDownAZ className="size-3" />
             )}
           </Button>
         </TooltipTrigger>
@@ -455,9 +456,9 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               onClick={onSortByTime}
             >
             {sortField === "mtime" && sortOrder === "asc" ? (
-              <ArrowUpWideNarrow className="h-2 w-2" />
+              <ArrowUpWideNarrow className="size-3" />
             ) : (
-              <ArrowDownWideNarrow className="h-2 w-2" />
+              <ArrowDownWideNarrow className="size-3" />
             )}
           </Button>
         </TooltipTrigger>
@@ -475,7 +476,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               aria-label="新建文件夹"
               onClick={onCreateFolder}
             >
-              <FolderPlus className="h-2 w-2" />
+              <FolderPlus className="size-3" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
@@ -491,7 +492,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               aria-label="新建文稿"
               onClick={onCreateDocument}
             >
-              <FilePlus className="h-2 w-2" />
+              <FilePlus className="size-3" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
@@ -509,7 +510,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                 uploadInputRef.current?.click();
               }}
           >
-            <Upload className="h-2 w-2" />
+            <Upload className="size-3" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
@@ -545,7 +546,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               aria-label="搜索"
               onClick={() => onSearchOpenChange(true)}
             >
-              <Search className="h-2 w-2" />
+              <Search className="size-3" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" sideOffset={6}>
@@ -559,7 +560,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
         >
           <Input
             ref={searchInputRef}
-            className="h-6 w-52 border-0 bg-transparent px-2.5 text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-5 w-52 border-0 bg-transparent px-2.5 text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
             placeholder="搜索文件或文件夹"
             type="search"
             value={searchValue}

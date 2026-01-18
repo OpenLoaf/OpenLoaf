@@ -1,5 +1,4 @@
 import {
-  createAgentUIStream,
   createUIMessageStream,
   JsonToSseTransformStream,
   UI_MESSAGE_STREAM_HEADERS,
@@ -15,6 +14,7 @@ import {
   setUiWriter,
 } from "@/ai/chat-stream/requestContext";
 import type { MasterAgentRunner } from "@/ai/agents/masterAgent/masterAgentRunner";
+import { buildModelMessages } from "@/ai/pipeline/messageConverter";
 import {
   appendMessagePart,
   clearSessionErrorMessage,
@@ -125,11 +125,16 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
       pushAgentFrame(input.agentRunner.frame);
 
       try {
-        const uiStream = await createAgentUIStream({
-          agent: input.agentRunner.agent,
-          uiMessages: input.modelMessages as any[],
-          originalMessages: input.modelMessages as any[],
+        const modelMessages = await buildModelMessages(
+          input.modelMessages as UIMessage[],
+          input.agentRunner.agent.tools,
+        );
+        const agentStream = await input.agentRunner.agent.stream({
+          messages: modelMessages,
           abortSignal: input.abortController.signal,
+        });
+        const uiStream = agentStream.toUIMessageStream({
+          originalMessages: input.modelMessages as any[],
           generateMessageId: () => input.assistantMessageId,
           messageMetadata: ({ part }) => {
             const usageMetadata = buildTokenUsageMetadata(part);

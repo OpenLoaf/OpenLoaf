@@ -17,7 +17,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useProject } from "@/hooks/use-project";
 import { useProjects } from "@/hooks/use-projects";
 import ProjectIndex, { ProjectIndexHeader } from "./index/ProjectIndex";
-import ProjectTasks, { ProjectTasksHeader } from "./ProjectTasks";
+import ProjectHistory, { ProjectHistoryHeader } from "./ProjectHistory";
 import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
 import ProjectFileSystem, {
   type ProjectBreadcrumbInfo,
@@ -452,7 +452,7 @@ export default function ProjectPage({
             }`}
             aria-hidden={activeTab !== "tasks"}
           >
-            <ProjectTasksHeader isLoading={isLoading} pageTitle={pageTitle} />
+            <ProjectHistoryHeader isLoading={isLoading} pageTitle={pageTitle} />
           </div>
           <div
             className={`${headerBaseClass} ${
@@ -540,7 +540,7 @@ export default function ProjectPage({
                 aria-hidden={activeTab !== "tasks"}
               >
                 {shouldRenderTasks ? (
-                  <ProjectTasks isLoading={isLoading} />
+                  <ProjectHistory isLoading={isLoading} />
                 ) : null}
               </div>
               <div

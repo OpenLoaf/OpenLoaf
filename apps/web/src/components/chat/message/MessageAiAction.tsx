@@ -399,7 +399,6 @@ export default function MessageAiAction({
     sendMessage({
       role: "user",
       parts: [{ type: "text", text: SUMMARY_HISTORY_COMMAND }],
-      messageKind: "compact_prompt",
     } as any);
   }, [clearError, isBusy, sendMessage, status]);
 

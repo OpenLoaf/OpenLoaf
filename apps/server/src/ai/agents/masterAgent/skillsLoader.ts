@@ -50,7 +50,7 @@ export function loadSkillSummaries(input: {
     const skillFiles = findSkillFiles(skillsRootPath);
 
     for (const filePath of skillFiles) {
-      const summary = readSkillSummary(filePath, source.scope);
+      const summary = readSkillSummaryFromPath(filePath, source.scope);
       if (!summary) continue;
       if (!summaryByName.has(summary.name)) {
         orderedNames.push(summary.name);
@@ -132,7 +132,7 @@ function findSkillFiles(rootPath: string): string[] {
 }
 
 /** Read a single skill summary from SKILL.md front matter. */
-function readSkillSummary(filePath: string, scope: SkillScope): SkillSummary | null {
+export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): SkillSummary | null {
   if (!existsSync(filePath)) return null;
   try {
     const content = readFileSync(filePath, "utf8");
@@ -152,6 +152,32 @@ function readSkillSummary(filePath: string, scope: SkillScope): SkillSummary | n
   } catch {
     return null;
   }
+}
+
+export function readSkillContentFromPath(filePath: string): string {
+  if (!existsSync(filePath)) return "";
+  try {
+    const content = readFileSync(filePath, "utf8");
+    return stripSkillFrontMatter(content);
+  } catch {
+    return "";
+  }
+}
+
+export function stripSkillFrontMatter(content: string): string {
+  const lines = content.split(/\r?\n/u);
+  if (lines.length === 0) return "";
+  const firstLine = lines[0] ?? "";
+  if (firstLine.trim() !== FRONT_MATTER_DELIMITER) {
+    return content.trim();
+  }
+  for (let index = 1; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (line.trim() === FRONT_MATTER_DELIMITER) {
+      return lines.slice(index + 1).join("\n").trim();
+    }
+  }
+  return "";
 }
 
 /** Parse YAML front matter for name/description only. */

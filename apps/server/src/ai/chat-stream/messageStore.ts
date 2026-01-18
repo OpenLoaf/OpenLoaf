@@ -438,6 +438,32 @@ function normalizeTitle(raw: string): string {
   return title.trim();
 }
 
+/** Normalize session title input. */
+export function normalizeSessionTitle(raw: string): string {
+  return normalizeTitle(raw);
+}
+
+/** Update chat session title. */
+export async function updateSessionTitle(input: {
+  /** Session id. */
+  sessionId: string;
+  /** Title text. */
+  title: string;
+  /** Whether the title is manually renamed. */
+  isUserRename?: boolean;
+}): Promise<boolean> {
+  const normalized = normalizeTitle(input.title);
+  if (!normalized) return false;
+  const result = await prisma.chatSession.updateMany({
+    where: { id: input.sessionId },
+    data: {
+      title: normalized,
+      ...(typeof input.isUserRename === "boolean" ? { isUserRename: input.isUserRename } : {}),
+    },
+  });
+  return result.count > 0;
+}
+
 /** Normalize optional id. */
 function normalizeOptionalId(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;

@@ -90,6 +90,13 @@ type FileNode = {
 /** Debug localStorage key for project drag logging. */
 const PROJECT_DRAG_DEBUG_KEY = "debugProjectDrag";
 
+type ProjectDropPosition = "inside" | "before" | "after";
+
+type DragInsertTarget = {
+  projectId: string;
+  position: "before" | "after";
+};
+
 /** Check whether project drag debug logging is enabled. */
 function isProjectDragDebugEnabled(): boolean {
   if (typeof window === "undefined") return false;
@@ -117,6 +124,20 @@ function describeDragTarget(target: EventTarget | null): string {
       ? `.${target.className}`
       : "";
   return `${tag}${id}${className}`;
+}
+
+/** Resolve drop position based on pointer location. */
+function resolveProjectDropPosition(
+  target: HTMLElement,
+  clientY: number,
+): ProjectDropPosition {
+  const rect = target.getBoundingClientRect();
+  if (!rect.height) return "inside";
+  const ratio = (clientY - rect.top) / rect.height;
+  // 逻辑：上/下 25% 视为插入线区域，中间为放入子项目。
+  if (ratio <= 0.25) return "before";
+  if (ratio >= 0.75) return "after";
+  return "inside";
 }
 
 /** Apply a stable drag preview for project drag. */
@@ -186,6 +207,7 @@ interface FileTreeNodeProps {
   onContextMenuOpenChange: (node: FileNode, open: boolean) => void;
   subItemGapClassName?: string;
   dragOverProjectId?: string | null;
+  dragInsertTarget?: DragInsertTarget | null;
   draggingProjectId?: string | null;
   disableNativeDrag?: boolean;
   onProjectDragStart?: (
@@ -330,6 +352,7 @@ function FileTreeNode({
   onContextMenuOpenChange,
   subItemGapClassName,
   dragOverProjectId,
+  dragInsertTarget,
   draggingProjectId,
   disableNativeDrag,
   onProjectDragStart,
@@ -370,6 +393,10 @@ function FileTreeNode({
     isProjectNode && dragOverProjectId && node.projectId === dragOverProjectId;
   const isDraggingSelf =
     isProjectNode && draggingProjectId && node.projectId === draggingProjectId;
+  const insertPosition =
+    isProjectNode && dragInsertTarget?.projectId === node.projectId
+      ? dragInsertTarget.position
+      : null;
 
   const Item = depth === 0 ? SidebarMenuItem : SidebarMenuSubItem;
   const Button = depth === 0 ? SidebarMenuButton : SidebarMenuSubButton;
@@ -407,6 +434,15 @@ function FileTreeNode({
       className="group/collapsible"
     >
       <Item>
+        {insertPosition ? (
+          <span
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute left-2 right-2 h-0.5 rounded-full bg-primary",
+              insertPosition === "before" ? "top-0" : "bottom-0"
+            )}
+          />
+        ) : null}
         <ContextMenu onOpenChange={(open) => onContextMenuOpenChange(node, open)}>
           <ContextMenuTrigger asChild>
             <Button
@@ -507,6 +543,7 @@ function FileTreeNode({
                   onContextMenuOpenChange={onContextMenuOpenChange}
                   subItemGapClassName={subItemGapClassName}
                   dragOverProjectId={dragOverProjectId}
+                  dragInsertTarget={dragInsertTarget}
                   draggingProjectId={draggingProjectId}
                   onProjectDragStart={onProjectDragStart}
                   onProjectDragOver={onProjectDragOver}
@@ -570,12 +607,19 @@ export const PageTreeMenu = ({
   } | null>(null);
   /** Track drag-over project id. */
   const [dragOverProjectId, setDragOverProjectId] = useState<string | null>(null);
+  /** Track drag insert target for reorder. */
+  const [dragInsertTarget, setDragInsertTarget] = useState<DragInsertTarget | null>(
+    null,
+  );
   /** Track root drop zone active state. */
   const [isRootDropActive, setIsRootDropActive] = useState(false);
   /** Track pending project move confirmation. */
   const [pendingMove, setPendingMove] = useState<{
     projectId: string;
     targetParentId: string | null;
+    targetSiblingId?: string | null;
+    targetPosition?: "before" | "after";
+    mode: "reparent" | "reorder";
   } | null>(null);
   /** Track move request state. */
   const [isMoveBusy, setIsMoveBusy] = useState(false);
@@ -601,7 +645,7 @@ export const PageTreeMenu = ({
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!isProjectDragDebugEnabled()) return;
-    // 中文注释：调试模式下监听全局拖拽事件，确认事件是否进入页面。
+    // 逻辑：调试模式下监听全局拖拽事件，确认事件是否进入页面。
     /** Log pointer events while drag debug is enabled. */
     const logPointerEvent = (event: Event) => {
       logProjectDrag("global", event.type, {
@@ -663,18 +707,20 @@ export const PageTreeMenu = ({
     return resolveActiveProjectRootUri(projects, activeUri);
   }, [activeProjectId, activeUri, projectRootById, projects]);
 
-  /** Map child project id to its ancestor root uri list. */
-  const ancestorRootsByProjectId = useMemo(() => {
+  /** 逻辑：记录子项目对应的祖先节点 key 列表。 */
+  const ancestorNodeKeysByProjectId = useMemo(() => {
     const map = new Map<string, string[]>();
+    /** Build node key for a project item. */
+    const getProjectNodeKey = (item: ProjectInfo) =>
+      item.projectId ? `${item.projectId}:${item.rootUri}` : item.rootUri;
     const walk = (items: ProjectInfo[], ancestors: string[]) => {
       items.forEach((item) => {
         if (item.projectId && ancestors.length > 0) {
           map.set(item.projectId, [...ancestors]);
         }
         if (item.children?.length) {
-          const nextAncestors = item.rootUri
-            ? [...ancestors, item.rootUri]
-            : [...ancestors];
+          const nodeKey = item.rootUri ? getProjectNodeKey(item) : "";
+          const nextAncestors = nodeKey ? [...ancestors, nodeKey] : [...ancestors];
           walk(item.children, nextAncestors);
         }
       });
@@ -684,21 +730,21 @@ export const PageTreeMenu = ({
   }, [projects]);
 
   useEffect(() => {
-    // 中文注释：激活带 projectId 的标签时，自动展开祖先项目，保证树结构可见。
+    // 逻辑：激活带 projectId 的标签时，自动展开祖先项目，保证树结构可见。
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
     const params = activeTab?.base?.params as any;
     const projectId = params?.projectId ?? activeTab?.chatParams?.projectId;
     if (!projectId) return;
-    const ancestorRoots = ancestorRootsByProjectId.get(projectId);
-    if (!ancestorRoots?.length) return;
+    const ancestorNodeKeys = ancestorNodeKeysByProjectId.get(projectId);
+    if (!ancestorNodeKeys?.length) return;
     setExpandedNodes((prev) => ({
       ...prev,
-      ...ancestorRoots.reduce<Record<string, boolean>>((acc, rootUri) => {
-        if (!prev[rootUri]) acc[rootUri] = true;
+      ...ancestorNodeKeys.reduce<Record<string, boolean>>((acc, nodeKey) => {
+        if (!prev[nodeKey]) acc[nodeKey] = true;
         return acc;
       }, {}),
     }));
-  }, [activeTabId, ancestorRootsByProjectId, setExpandedNodes, tabs]);
+  }, [activeTabId, ancestorNodeKeysByProjectId, setExpandedNodes, tabs]);
 
   const openProjectTab = (project: ProjectInfo) => {
     if (!workspace?.id) return;
@@ -854,7 +900,7 @@ export const PageTreeMenu = ({
       await navigator.clipboard.writeText(value);
       toast.success(message);
     } catch {
-      // 中文注释：剪贴板 API 失败时使用降级复制。
+      // 逻辑：剪贴板 API 失败时使用降级复制。
       const textarea = document.createElement("textarea");
       textarea.value = value;
       textarea.style.position = "fixed";
@@ -925,7 +971,7 @@ export const PageTreeMenu = ({
           projectId: renameTarget.node.projectId,
           title: nextName,
         });
-        // 中文注释：同步已打开的项目 Tab 标题，避免缓存导致 UI 不更新。
+        // 逻辑：同步已打开的项目 Tab 标题，避免缓存导致 UI 不更新。
         const baseId = `project:${projectId}`;
         tabs
           .filter((tab) => tab.base?.id === baseId)
@@ -1161,6 +1207,7 @@ export const PageTreeMenu = ({
   const resetProjectDragState = () => {
     setDraggingProject(null);
     setDragOverProjectId(null);
+    setDragInsertTarget(null);
     setIsRootDropActive(false);
     clearAutoExpand();
     clearDragGhost();
@@ -1180,16 +1227,23 @@ export const PageTreeMenu = ({
     return true;
   };
 
-  /** Confirm project move after user approval. */
-  const handleConfirmProjectMove = async () => {
-    if (!pendingMove?.projectId) return;
+  /** Apply project move mutation and refresh data. */
+  const applyProjectMove = async (payload: {
+    projectId: string;
+    targetParentId: string | null;
+    targetSiblingId?: string | null;
+    targetPosition?: "before" | "after";
+    mode: "reparent" | "reorder";
+  }) => {
     try {
       setIsMoveBusy(true);
       await moveProject.mutateAsync({
-        projectId: pendingMove.projectId,
-        targetParentProjectId: pendingMove.targetParentId ?? null,
+        projectId: payload.projectId,
+        targetParentProjectId: payload.targetParentId ?? null,
+        targetSiblingProjectId: payload.targetSiblingId ?? undefined,
+        targetPosition: payload.targetPosition ?? undefined,
       });
-      toast.success("项目层级已更新");
+      toast.success(payload.mode === "reorder" ? "项目顺序已更新" : "项目层级已更新");
       setPendingMove(null);
       await queryClient.invalidateQueries({ queryKey: getProjectsQueryKey() });
     } catch (err: any) {
@@ -1197,6 +1251,18 @@ export const PageTreeMenu = ({
     } finally {
       setIsMoveBusy(false);
     }
+  };
+
+  /** Confirm project move after user approval. */
+  const handleConfirmProjectMove = async () => {
+    if (!pendingMove?.projectId) return;
+    void applyProjectMove({
+      projectId: pendingMove.projectId,
+      targetParentId: pendingMove.targetParentId ?? null,
+      targetSiblingId: pendingMove.targetSiblingId ?? undefined,
+      targetPosition: pendingMove.targetPosition ?? undefined,
+      mode: pendingMove.mode,
+    });
   };
 
   /** Handle project drag start from tree. */
@@ -1235,7 +1301,8 @@ export const PageTreeMenu = ({
       icon: node.projectIcon ?? null,
     };
     let hasStartedDrag = false;
-    let lastTargetProjectId: string | null = null;
+    let lastDropTarget: { projectId: string; position: ProjectDropPosition } | null =
+      null;
     let lastRootDropActive = false;
 
     const updateDropTarget = (moveEvent: PointerEvent) => {
@@ -1246,21 +1313,47 @@ export const PageTreeMenu = ({
       if (rootTarget) {
         setIsRootDropActive(true);
         setDragOverProjectId(null);
+        setDragInsertTarget(null);
         lastRootDropActive = true;
-        lastTargetProjectId = null;
+        lastDropTarget = null;
         return;
       }
       setIsRootDropActive(false);
       lastRootDropActive = false;
-      if (targetProjectId && canDropProject(sourceProject.projectId, targetProjectId)) {
-        setDragOverProjectId(targetProjectId);
-        lastTargetProjectId = targetProjectId;
-        scheduleAutoExpand(targetProjectId);
-      } else {
-        setDragOverProjectId(null);
-        lastTargetProjectId = null;
-        scheduleAutoExpand(null);
+      if (
+        targetProjectId &&
+        projectTarget &&
+        targetProjectId !== sourceProject.projectId
+      ) {
+        const dropPosition = resolveProjectDropPosition(
+          projectTarget,
+          moveEvent.clientY
+        );
+        const targetParentId =
+          dropPosition === "inside"
+            ? targetProjectId
+            : projectHierarchy.parentById.get(targetProjectId) ?? null;
+        if (canDropProject(sourceProject.projectId, targetParentId)) {
+          if (dropPosition === "inside") {
+            setDragOverProjectId(targetProjectId);
+            setDragInsertTarget(null);
+            scheduleAutoExpand(targetProjectId);
+          } else {
+            setDragOverProjectId(null);
+            setDragInsertTarget({
+              projectId: targetProjectId,
+              position: dropPosition === "before" ? "before" : "after",
+            });
+            scheduleAutoExpand(null);
+          }
+          lastDropTarget = { projectId: targetProjectId, position: dropPosition };
+          return;
+        }
       }
+      setDragOverProjectId(null);
+      setDragInsertTarget(null);
+      lastDropTarget = null;
+      scheduleAutoExpand(null);
     };
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -1269,7 +1362,7 @@ export const PageTreeMenu = ({
       const deltaY = moveEvent.clientY - startY;
       if (!hasStartedDrag) {
         if (Math.hypot(deltaX, deltaY) < 4) return;
-        // 中文注释：鼠标位移超过阈值后才进入拖拽态，避免误触打开项目。
+        // 逻辑：鼠标位移超过阈值后才进入拖拽态，避免误触打开项目。
         hasStartedDrag = true;
         suppressNextClickRef.current = true;
         setDraggingProject(sourceProject);
@@ -1299,19 +1392,40 @@ export const PageTreeMenu = ({
         const currentParentId =
           projectHierarchy.parentById.get(sourceProject.projectId) ?? null;
         if (currentParentId) {
-          setPendingMove({ projectId: sourceProject.projectId, targetParentId: null });
-        }
-      } else if (lastTargetProjectId) {
-        const currentParentId =
-          projectHierarchy.parentById.get(sourceProject.projectId) ?? null;
-        if (
-          canDropProject(sourceProject.projectId, lastTargetProjectId) &&
-          currentParentId !== lastTargetProjectId
-        ) {
           setPendingMove({
             projectId: sourceProject.projectId,
-            targetParentId: lastTargetProjectId,
+            targetParentId: null,
+            mode: "reparent",
           });
+        }
+      } else if (lastDropTarget) {
+        const currentParentId =
+          projectHierarchy.parentById.get(sourceProject.projectId) ?? null;
+        if (lastDropTarget.position === "inside") {
+          if (
+            canDropProject(sourceProject.projectId, lastDropTarget.projectId) &&
+            currentParentId !== lastDropTarget.projectId
+          ) {
+            setPendingMove({
+              projectId: sourceProject.projectId,
+              targetParentId: lastDropTarget.projectId,
+              mode: "reparent",
+            });
+          }
+        } else {
+          const targetParentId =
+            projectHierarchy.parentById.get(lastDropTarget.projectId) ?? null;
+          if (canDropProject(sourceProject.projectId, targetParentId)) {
+            // 逻辑：调整顺序无需确认，直接提交变更。
+            void applyProjectMove({
+              projectId: sourceProject.projectId,
+              targetParentId,
+              targetSiblingId: lastDropTarget.projectId,
+              targetPosition:
+                lastDropTarget.position === "before" ? "before" : "after",
+              mode: "reorder",
+            });
+          }
         }
       }
       resetProjectDragState();
@@ -1329,12 +1443,36 @@ export const PageTreeMenu = ({
     event: React.DragEvent<HTMLElement>
   ) => {
     if (!draggingProject || node.kind !== "project" || !node.projectId) return;
-    if (!canDropProject(draggingProject.projectId, node.projectId)) return;
+    if (node.projectId === draggingProject.projectId) return;
+    const dropPosition = resolveProjectDropPosition(
+      event.currentTarget,
+      event.clientY
+    );
+    const targetParentId =
+      dropPosition === "inside"
+        ? node.projectId
+        : projectHierarchy.parentById.get(node.projectId) ?? null;
+    if (!canDropProject(draggingProject.projectId, targetParentId)) {
+      setDragOverProjectId(null);
+      setDragInsertTarget(null);
+      scheduleAutoExpand(null);
+      return;
+    }
     event.preventDefault();
-    setDragOverProjectId(node.projectId);
+    if (dropPosition === "inside") {
+      setDragOverProjectId(node.projectId);
+      setDragInsertTarget(null);
+      scheduleAutoExpand(node.projectId);
+    } else {
+      setDragOverProjectId(null);
+      setDragInsertTarget({
+        projectId: node.projectId,
+        position: dropPosition === "before" ? "before" : "after",
+      });
+      scheduleAutoExpand(null);
+    }
     setIsRootDropActive(false);
-    scheduleAutoExpand(node.projectId);
-    logProjectDrag("dragover", { projectId: node.projectId });
+    logProjectDrag("dragover", { projectId: node.projectId, position: dropPosition });
   };
 
   /** Handle drag leave a project node. */
@@ -1344,6 +1482,9 @@ export const PageTreeMenu = ({
   ) => {
     if (dragOverProjectId && node.projectId === dragOverProjectId) {
       setDragOverProjectId(null);
+    }
+    if (dragInsertTarget?.projectId === node.projectId) {
+      setDragInsertTarget(null);
     }
     scheduleAutoExpand(null);
     logProjectDrag("dragleave", { projectId: node.projectId });
@@ -1355,23 +1496,45 @@ export const PageTreeMenu = ({
     event: React.DragEvent<HTMLElement>
   ) => {
     if (!draggingProject || node.kind !== "project" || !node.projectId) return;
-    if (!canDropProject(draggingProject.projectId, node.projectId)) return;
+    if (node.projectId === draggingProject.projectId) return;
+    const dropPosition = resolveProjectDropPosition(
+      event.currentTarget,
+      event.clientY
+    );
+    const targetParentId =
+      dropPosition === "inside"
+        ? node.projectId
+        : projectHierarchy.parentById.get(node.projectId) ?? null;
+    if (!canDropProject(draggingProject.projectId, targetParentId)) return;
     event.preventDefault();
     const currentParentId =
       projectHierarchy.parentById.get(draggingProject.projectId) ?? null;
-    // 逻辑：拖到同一父节点时不触发确认。
-    if (currentParentId === node.projectId) {
-      resetProjectDragState();
-      return;
+    if (dropPosition === "inside") {
+      // 逻辑：拖到同一父节点时不触发确认。
+      if (currentParentId === node.projectId) {
+        resetProjectDragState();
+        return;
+      }
+      setPendingMove({
+        projectId: draggingProject.projectId,
+        targetParentId: node.projectId,
+        mode: "reparent",
+      });
+    } else {
+      // 逻辑：调整顺序无需确认，直接提交变更。
+      void applyProjectMove({
+        projectId: draggingProject.projectId,
+        targetParentId,
+        targetSiblingId: node.projectId,
+        targetPosition: dropPosition === "before" ? "before" : "after",
+        mode: "reorder",
+      });
     }
-    setPendingMove({
-      projectId: draggingProject.projectId,
-      targetParentId: node.projectId,
-    });
     resetProjectDragState();
     logProjectDrag("drop", {
       projectId: draggingProject.projectId,
-      targetParentId: node.projectId,
+      targetParentId,
+      position: dropPosition,
     });
   };
 
@@ -1388,6 +1551,7 @@ export const PageTreeMenu = ({
     event.preventDefault();
     setIsRootDropActive(true);
     setDragOverProjectId(null);
+    setDragInsertTarget(null);
     scheduleAutoExpand(null);
     logProjectDrag("root-dragover");
   };
@@ -1395,6 +1559,7 @@ export const PageTreeMenu = ({
   /** Handle drag leave root drop zone. */
   const handleRootDragLeave = () => {
     setIsRootDropActive(false);
+    setDragInsertTarget(null);
     scheduleAutoExpand(null);
     logProjectDrag("root-dragleave");
   };
@@ -1414,6 +1579,7 @@ export const PageTreeMenu = ({
     setPendingMove({
       projectId: draggingProject.projectId,
       targetParentId: null,
+      mode: "reparent",
     });
     resetProjectDragState();
     logProjectDrag("root-drop", { projectId: draggingProject.projectId });
@@ -1517,6 +1683,7 @@ export const PageTreeMenu = ({
           contextSelectedUri={contextSelectedUri}
           onContextMenuOpenChange={handleContextMenuOpenChange}
           dragOverProjectId={dragOverProjectId ?? null}
+          dragInsertTarget={dragInsertTarget ?? null}
           draggingProjectId={draggingProject?.projectId ?? null}
           disableNativeDrag={isElectron}
           onProjectDragStart={handleProjectDragStart}
@@ -1795,7 +1962,7 @@ export const PageTreeMenu = ({
                   const nextChecked = Boolean(checked);
                   setIsPermanentRemoveChecked(nextChecked);
                   if (!nextChecked) {
-                    // 中文注释：取消勾选时清空确认输入，避免误触发彻底删除。
+                    // 逻辑：取消勾选时清空确认输入，避免误触发彻底删除。
                     setPermanentRemoveText("");
                   }
                 }}
@@ -1837,7 +2004,7 @@ export const PageTreeMenu = ({
       </Dialog>
 
       <Dialog
-        open={Boolean(pendingMove)}
+        open={Boolean(pendingMove && pendingMove.mode === "reparent")}
         onOpenChange={(open) => {
           if (open || isMoveBusy) return;
           setPendingMove(null);
@@ -1845,12 +2012,16 @@ export const PageTreeMenu = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>确认移动</DialogTitle>
+            <DialogTitle>
+              {pendingMove?.mode === "reorder" ? "确认调整" : "确认移动"}
+            </DialogTitle>
             <DialogDescription>
               {pendingMove
-                ? pendingMove.targetParentId
-                  ? `将「${resolveProjectTitle(pendingMove.projectId)}」移动到「${resolveProjectTitle(pendingMove.targetParentId)}」下？`
-                  : `将「${resolveProjectTitle(pendingMove.projectId)}」移到根项目？`
+                ? pendingMove.mode === "reorder"
+                  ? `调整「${resolveProjectTitle(pendingMove.projectId)}」在「${pendingMove.targetParentId ? resolveProjectTitle(pendingMove.targetParentId) : "根项目"}」中的顺序？`
+                  : pendingMove.targetParentId
+                    ? `将「${resolveProjectTitle(pendingMove.projectId)}」移动到「${resolveProjectTitle(pendingMove.targetParentId)}」下？`
+                    : `将「${resolveProjectTitle(pendingMove.projectId)}」移到根项目？`
                 : "确认调整项目层级。"}
             </DialogDescription>
           </DialogHeader>
@@ -1864,7 +2035,13 @@ export const PageTreeMenu = ({
               </Button>
             </DialogClose>
             <Button onClick={handleConfirmProjectMove} disabled={isMoveBusy}>
-              {isMoveBusy ? "移动中..." : "确认移动"}
+              {isMoveBusy
+                ? pendingMove?.mode === "reorder"
+                  ? "调整中..."
+                  : "移动中..."
+                : pendingMove?.mode === "reorder"
+                  ? "确认调整"
+                  : "确认移动"}
             </Button>
           </DialogFooter>
         </DialogContent>

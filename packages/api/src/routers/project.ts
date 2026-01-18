@@ -5,9 +5,11 @@ import { randomUUID } from "node:crypto";
 import { t, shieldedProcedure } from "../index";
 import {
   getProjectRootUri,
+  getActiveWorkspace,
   getWorkspaceRootPath,
   removeActiveWorkspaceProject,
   resolveFilePathFromUri,
+  setActiveWorkspaceProjectEntries,
   toFileUriWithoutEncoding,
   upsertActiveWorkspaceProject,
 } from "../services/vfsService";
@@ -63,7 +65,7 @@ async function ensureUniqueProjectRoot(
 ): Promise<string> {
   let candidate = baseName;
   let counter = 1;
-  // 中文注释：目录名冲突时递增后缀，直到找到可用目录。
+  // 逻辑：目录名冲突时递增后缀，直到找到可用目录。
   while (await fileExists(path.join(workspaceRootPath, candidate))) {
     candidate = `${baseName}-${counter}`;
     counter += 1;
@@ -128,7 +130,7 @@ async function appendChildProjectEntry(
     ...parsed,
     projects: nextProjects,
   });
-  // 中文注释：更新父项目的子项目列表，避免重复写入。
+  // 逻辑：更新父项目的子项目列表，避免重复写入。
   await writeJsonAtomic(metaPath, nextConfig);
 }
 
@@ -150,6 +152,80 @@ async function removeChildProjectEntry(
     projects: nextProjects,
   });
   await writeJsonAtomic(metaPath, nextConfig);
+}
+
+type ProjectOrderPosition = "before" | "after";
+
+/** Build ordered project entries after insert or reorder. */
+function buildOrderedProjectEntries(
+  entries: Array<[string, string]>,
+  projectId: string,
+  projectRootUri: string,
+  targetSiblingProjectId?: string | null,
+  targetPosition?: ProjectOrderPosition,
+): Array<[string, string]> {
+  const nextEntries = entries.filter(([id]) => id !== projectId);
+  const position = targetPosition === "before" ? "before" : "after";
+  if (!targetSiblingProjectId) {
+    return [...nextEntries, [projectId, projectRootUri]];
+  }
+  const targetIndex = nextEntries.findIndex(([id]) => id === targetSiblingProjectId);
+  if (targetIndex < 0) {
+    return [...nextEntries, [projectId, projectRootUri]];
+  }
+  const insertIndex = position === "before" ? targetIndex : targetIndex + 1;
+  nextEntries.splice(insertIndex, 0, [projectId, projectRootUri]);
+  return nextEntries;
+}
+
+/** Reorder child project entries under a parent project.json. */
+async function reorderChildProjectEntry(
+  parentProjectId: string,
+  childProjectId: string,
+  childRootUri: string,
+  targetSiblingProjectId?: string | null,
+  targetPosition?: ProjectOrderPosition,
+): Promise<void> {
+  const parentRootPath = resolveProjectRootPath(parentProjectId);
+  const metaPath = getProjectMetaPath(parentRootPath);
+  const existing = (await readJsonFile(metaPath)) ?? {};
+  const parsed = projectConfigSchema.parse(existing);
+  const ordered = buildOrderedProjectEntries(
+    Object.entries(parsed.projects ?? {}),
+    childProjectId,
+    childRootUri,
+    targetSiblingProjectId,
+    targetPosition,
+  );
+  const nextConfig = projectConfigSchema.parse({
+    ...parsed,
+    projects: Object.fromEntries(ordered),
+  });
+  // 逻辑：按目标位置重排子项目顺序，保持排序落盘。
+  await writeJsonAtomic(metaPath, nextConfig);
+}
+
+/** Reorder root project entries in active workspace config. */
+function reorderWorkspaceProjectEntry(
+  projectId: string,
+  projectRootUri: string,
+  targetSiblingProjectId?: string | null,
+  targetPosition?: ProjectOrderPosition,
+): void {
+  const ordered = buildOrderedProjectEntries(
+    Object.entries(getActiveWorkspaceProjects()),
+    projectId,
+    projectRootUri,
+    targetSiblingProjectId,
+    targetPosition,
+  );
+  // 逻辑：重建 workspace 项目映射，保持根项目排序。
+  setActiveWorkspaceProjectEntries(ordered);
+}
+
+/** Return the active workspace project map. */
+function getActiveWorkspaceProjects(): Record<string, string> {
+  return getActiveWorkspace().projects ?? {};
 }
 
 
@@ -327,7 +403,7 @@ export const projectRouter = t.router({
         throw new Error("Project not found.");
       }
       const rootPath = resolveFilePathFromUri(rootUri);
-      // 中文注释：先删除磁盘目录，再移除项目映射，避免列表与磁盘状态不一致。
+      // 逻辑：先删除磁盘目录，再移除项目映射，避免列表与磁盘状态不一致。
       await fs.rm(rootPath, { recursive: true, force: true });
       const parentProjectId = sourceEntry.parentProjectId;
       if (parentProjectId) {
@@ -344,10 +420,15 @@ export const projectRouter = t.router({
       z.object({
         projectId: z.string(),
         targetParentProjectId: z.string().nullable().optional(),
+        targetSiblingProjectId: z.string().nullable().optional(),
+        targetPosition: z.enum(["before", "after"]).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
-      const targetParentProjectId = input.targetParentProjectId ?? null;
+      const targetSiblingProjectId = input.targetSiblingProjectId?.trim() || null;
+      const targetPosition =
+        input.targetPosition === "before" ? "before" : "after";
+      let targetParentProjectId = input.targetParentProjectId?.trim() || null;
       const projectTrees = await readWorkspaceProjectTrees();
       const sourceEntry = findProjectNodeWithParent(projectTrees, input.projectId);
       if (!sourceEntry) {
@@ -355,6 +436,20 @@ export const projectRouter = t.router({
       }
       const sourceNode = sourceEntry.node;
       const projectRootUri = sourceNode.rootUri;
+
+      if (targetSiblingProjectId === input.projectId) {
+        throw new Error("Cannot move project relative to itself.");
+      }
+      if (targetSiblingProjectId) {
+        const siblingEntry = findProjectNodeWithParent(
+          projectTrees,
+          targetSiblingProjectId
+        );
+        if (!siblingEntry) {
+          throw new Error("Target sibling project not found.");
+        }
+        targetParentProjectId = siblingEntry.parentProjectId;
+      }
 
       if (targetParentProjectId === input.projectId) {
         throw new Error("Cannot move project under itself.");
@@ -370,25 +465,48 @@ export const projectRouter = t.router({
       }
 
       const parentProjectId = sourceEntry.parentProjectId;
-      if (parentProjectId === targetParentProjectId) {
+      const isSameParent = parentProjectId === targetParentProjectId;
+      const shouldReorder = Boolean(targetSiblingProjectId);
+      if (!shouldReorder && isSameParent) {
         return { ok: true, unchanged: true };
       }
 
-      // 先从原父节点移除，避免重复挂载。
-      if (parentProjectId) {
-        await removeChildProjectEntry(parentProjectId, input.projectId);
-      } else {
-        removeActiveWorkspaceProject(input.projectId);
+      if (!isSameParent) {
+        // 先从原父节点移除，避免重复挂载。
+        if (parentProjectId) {
+          await removeChildProjectEntry(parentProjectId, input.projectId);
+        } else {
+          removeActiveWorkspaceProject(input.projectId);
+        }
       }
 
       if (targetParentProjectId) {
-        await appendChildProjectEntry(
-          targetParentProjectId,
-          input.projectId,
-          projectRootUri
-        );
+        if (shouldReorder) {
+          await reorderChildProjectEntry(
+            targetParentProjectId,
+            input.projectId,
+            projectRootUri,
+            targetSiblingProjectId,
+            targetPosition,
+          );
+        } else {
+          await appendChildProjectEntry(
+            targetParentProjectId,
+            input.projectId,
+            projectRootUri
+          );
+        }
       } else {
-        upsertActiveWorkspaceProject(input.projectId, projectRootUri);
+        if (shouldReorder) {
+          reorderWorkspaceProjectEntry(
+            input.projectId,
+            projectRootUri,
+            targetSiblingProjectId,
+            targetPosition,
+          );
+        } else {
+          upsertActiveWorkspaceProject(input.projectId, projectRootUri);
+        }
       }
 
       return { ok: true };
@@ -459,7 +577,7 @@ export const projectRouter = t.router({
         updatedAt: new Date(version).toISOString(),
         data: input.data,
       };
-      // 中文注释：仅发布时写入首页内容，避免编辑中产生脏数据。
+      // 逻辑：仅发布时写入首页内容，避免编辑中产生脏数据。
       await writeJsonAtomic(pagePath, payload);
       return {
         ok: true,

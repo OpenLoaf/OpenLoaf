@@ -1,34 +1,43 @@
-# Chat 流程（SSE + Image）
+# Chat 流程（/ai/execute）
 
 范围：
 
-* `apps/server/src/routers/chatStreamRoutes.ts`
+* `apps/server/src/routers/aiExecuteRoutes.ts`
 
-* `apps/server/src/routers/chatImageRoutes.ts`
+* `apps/server/src/ai/pipeline/*`
 
 * `apps/server/src/ai/chat-stream/*`
 
-本文档描述 `/chat/sse` 与 `/ai/image` 的完整链路，包括校验、持久化、模型解析与响应输出。
+本文档描述统一入口 `/ai/execute` 的完整链路（命令、技能、聊天流与图片请求）。
 
-## /chat/sse（SSE 聊天流）
+## /ai/execute（统一入口）
+
+核心参数：
+
+* `intent`: `chat` / `image` / `command` / `utility`
+
+* `responseMode`: `stream` / `json`
+
+### SSE 聊天流（intent=chat，responseMode=stream）
 
 主流程：
 
-1. 解析 JSON 并在 `parseChatStreamRequest` 中归一化字段。
-2. 初始化请求上下文（AsyncLocalStorage、abort signal、assistant message id）。
-3. 校验最后一条消息（必须包含 `role` 与 `id`）。
-4. 保存最后一条消息并确定父节点关系。
-5. 加载消息链，并将相对路径附件替换为 data URL 供模型使用。
-6. 解析模型路由：
-
-   * 若显式模型带 `image_generation` 或 `image_edit` 标签，进入图片流程。
-
-   * 否则根据输入能力与历史偏好解析聊天模型。
-7. 通过 SSE 返回流式响应，并在结束时落库 assistant 消息。
+1. 解析 JSON 并归一化字段（`aiExecuteRoutes.ts`）。
+2. 命令解析：仅当输入首部匹配 `/summary-history` 或 `/summary-title` 才触发。
+3. 技能解析：从用户文本提取 `/skill/NAME`，按“当前项目 -> 父项目 -> 工作空间”解析。
+4. 追加 `data-skill` parts 到用户消息，并写入 `selectedSkills`。
+5. 初始化请求上下文（AsyncLocalStorage、abort signal、assistant message id）。
+6. 确保 session preface 存在并保存最后一条消息。
+7. 加载消息链，替换相对路径附件为 data URL。
+8. 解析模型（显式模型优先，后按输入能力与历史偏好）。
+9. 将 UI messages 转为 model messages（`messageConverter.ts` 注入 data-skill）。
+10. 通过 ToolLoopAgent 流式返回 SSE，结束时落库 assistant 消息。
 
 关键模块：
 
-* 请求解析：`apps/server/src/routers/chatStreamRoutes.ts`
+* 请求解析：`apps/server/src/routers/aiExecuteRoutes.ts`
+
+* 管线入口：`apps/server/src/ai/pipeline/aiPipeline.ts`
 
 * 上下文与通用流程：`apps/server/src/ai/chat-stream/requestContext.ts`、`apps/server/src/ai/chat-stream/chatStreamHelpers.ts`
 
@@ -38,109 +47,39 @@
 
 * 模型解析：`apps/server/src/ai/resolveChatModel.ts`、`apps/server/src/ai/chat-stream/modelResolution.ts`
 
+* 数据注入：`apps/server/src/ai/pipeline/messageConverter.ts`
+
 * 流式与 SSE：`apps/server/src/ai/chat-stream/streamOrchestrator.ts`
 
-错误处理：
+### /summary-title（session command）
 
-* 请求非法或最后一条消息缺失 -> `createErrorStreamResponse` + 写入 session error。
+1. 检测到 `/summary-title` 后不写入消息。
+2. 从右侧叶子节点加载消息链并构建模型上下文。
+3. 追加“标题生成”提示词后调用 LLM 生成标题。
+4. 更新 `chatSession.title`。
+5. SSE 返回 `data-session-title`（transient）与 finish。
 
-* 模型解析失败 -> SSE 错误流。
+### 图片请求（intent=image）
 
-* 流式过程中异常 -> 持久化错误 + SSE error finish。
+* `responseMode=stream`：仍通过聊天流（SSE）返回图片 part。
 
-### 流程图（SSE）
+* `responseMode=json`：走 `runChatImageRequest`，返回 `{ sessionId, message }`。
 
-```mermaid
-flowchart TD
-  A[POST /chat/sse] --> B[解析 JSON]
-  B -->|失败| B1[400 JSON 错误]
-  B --> C[parseChatStreamRequest]
-  C -->|失败| C1[400 JSON 错误]
-  C --> D[initRequestContext]
-  D --> E[校验最后一条消息]
-  E -->|失败| E1[createErrorStreamResponse]
-  E --> F[saveLastMessageAndResolveParent]
-  F -->|失败| F1[createErrorStreamResponse]
-  F --> G[loadAndPrepareMessageChain]
-  G -->|失败| G1[createErrorStreamResponse]
-  G --> H[解析显式模型标签]
-  H -->|图片标签| I[runImageModelStream]
-  I --> I1[generateImageModelResult]
-  I1 --> I2[createImageStreamResponse]
-  H -->|聊天| J[resolveChatModel + createMasterAgentRunner]
-  J --> K[createChatStreamResponse]
-  K --> K1[SSE 流 + onFinish 落库]
-```
-
-### /chat/sse 内的图片分支
-
-图片分支与 `/ai/image` 共用同一生成流程：
+图片生成子流程（共享）：
 
 * 解析提示词（文本 + 图片 + 可选 mask）。
 
-* 解析图片模型（基于 `chatModelId`）。
+* 解析图片模型（`chatModelId`）。
 
 * 若为图片编辑，进行遮罩规范化并上传至 S3。
 
-* 调用 `generateImage` 生成图片，构建 data URL part 与持久化相对路径 part。
+* 调用 `generateImage`，生成图片并写入相对路径。
 
-* SSE 输出图片 part 与元数据。
+## 持久化与元数据
 
-## /ai/image（JSON 图片请求）
+* `saveMessage` 使用物化路径保存消息，并合并 usage / timing 等 metadata。
 
-主流程：
-
-1. 解析 JSON，并用 `chatImageRequestSchema` 严格校验。
-2. 初始化请求上下文（AsyncLocalStorage、abort signal、assistant message id）。
-3. 校验最后一条消息（必须包含 `role` 与 `id`）。
-4. 保存最后一条消息并确定父节点关系。
-5. 加载消息链，并将相对路径附件替换为 data URL。
-6. 调用 `generateImageModelResult` 生成图片结果。
-7. 保存 assistant 消息（图片 part + revised prompt 元数据）。
-8. 返回 JSON `{ sessionId, message }`。
-
-关键模块：
-
-* 请求校验：`apps/server/src/routers/chatImageRoutes.ts`
-
-* Schema：`apps/server/src/ai/chat-stream/chatImageTypes.ts`
-
-* 图片生成：`apps/server/src/ai/chat-stream/chatStreamService.ts`（generateImageModelResult）
-
-* 提示词解析：`apps/server/src/ai/chat-stream/imagePrompt.ts`
-
-* 图片编辑规范化：`apps/server/src/ai/chat-stream/imageEditNormalizer.ts`
-
-* 图片落盘：`apps/server/src/ai/chat-stream/imageStorage.ts`
-
-错误处理：
-
-* Zod 校验失败 -> 400 JSON 错误。
-
-* 最后一条消息非法 -> 写 session error + 400 结果。
-
-* 生成失败 -> 写 session error + `{ ok: false, status, error }`。
-
-### 流程图（/ai/image）
-
-```mermaid
-flowchart TD
-  A[POST /ai/image] --> B[解析 JSON]
-  B -->|失败| B1[400 JSON 错误]
-  B --> C[Zod 校验 chatImageRequestSchema]
-  C -->|失败| C1[400 JSON 错误]
-  C --> D[initRequestContext]
-  D --> E[校验最后一条消息]
-  E -->|失败| E1[setSessionError + 400 结果]
-  E --> F[saveLastMessageAndResolveParent]
-  F -->|失败| F1[setSessionError + error 结果]
-  F --> G[loadAndPrepareMessageChain]
-  G -->|失败| G1[setSessionError + error 结果]
-  G --> H[generateImageModelResult]
-  H --> I[保存 assistant 消息]
-  I --> J[clearSessionErrorMessage]
-  J --> K[返回 JSON 响应]
-```
+* session error 存于 `chatSession.errorMessage`，成功后清空。
 
 ## 图片生成子流程（共享）
 

@@ -155,6 +155,25 @@ export function removeActiveWorkspaceProject(projectId: string): void {
   setWorkspaces(nextWorkspaces);
 }
 
+/** Replace active workspace project mapping with ordered entries. */
+export function setActiveWorkspaceProjectEntries(
+  entries: Array<[string, string]>,
+): void {
+  const workspaces = getWorkspaces();
+  const activeIndex = workspaces.findIndex((workspace) => workspace.isActive);
+  const targetIndex = activeIndex >= 0 ? activeIndex : 0;
+  const active = workspaces[targetIndex];
+  if (!active) {
+    throw new Error("Active workspace not found.");
+  }
+  // 逻辑：按传入顺序重建项目映射，保持根项目排序。
+  const nextProjects = normalizeProjects(Object.fromEntries(entries));
+  const nextWorkspaces = workspaces.map((workspace, index) =>
+    index === targetIndex ? { ...workspace, projects: nextProjects } : workspace
+  );
+  setWorkspaces(nextWorkspaces);
+}
+
 /** Convert a local path to file:// URI. */
 export function toFileUri(targetPath: string): string {
   return pathToFileURL(targetPath).href;

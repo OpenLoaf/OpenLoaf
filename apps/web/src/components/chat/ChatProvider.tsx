@@ -21,7 +21,8 @@ import type { TenasUIDataTypes } from "@tenas-ai/api/types/message";
 import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
 import type { ChatMessageKind } from "@tenas-ai/api";
-import { SUMMARY_HISTORY_COMMAND } from "@tenas-ai/api/common";
+import { SUMMARY_HISTORY_COMMAND, SUMMARY_TITLE_COMMAND } from "@tenas-ai/api/common";
+import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "./chat-attachments";
 import { createChatSessionId } from "@/lib/chat-session-id";
 
@@ -42,7 +43,21 @@ function isCompactCommandMessage(input: {
 }): boolean {
   if (input.messageKind === "compact_prompt") return true;
   const text = extractTextFromParts(input.parts ?? []);
-  return text === SUMMARY_HISTORY_COMMAND;
+  return isCommandAtStart(text, SUMMARY_HISTORY_COMMAND);
+}
+
+/** Check whether the message is a session command request. */
+function isSessionCommandMessage(input: { parts?: unknown[] }): boolean {
+  const text = extractTextFromParts(input.parts ?? []);
+  return isCommandAtStart(text, SUMMARY_TITLE_COMMAND);
+}
+
+/** Check whether text starts with the given command token. */
+function isCommandAtStart(text: string, command: string): boolean {
+  const trimmed = text.trimStart();
+  if (!trimmed.startsWith(command)) return false;
+  const rest = trimmed.slice(command.length);
+  return rest.length === 0 || /^\s/u.test(rest);
 }
 
 function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
@@ -380,6 +395,8 @@ export default function ChatProvider({
   const setMessagesRef = React.useRef<ReturnType<typeof useChat>["setMessages"] | null>(null);
   // 关键：标记当前请求是否为 compact，以便回写 compact_summary。
   const pendingCompactRequestRef = React.useRef<string | null>(null);
+  // 关键：session command 不应更新 leafMessageId。
+  const pendingSessionCommandRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (tabId) {
@@ -453,6 +470,12 @@ export default function ChatProvider({
     ({ message }: { message: UIMessage }) => {
       // 关键：切换 session 后，旧请求的 onFinish 可能晚到；必须忽略，避免污染新会话的 leafMessageId。
       if (sessionIdRef.current !== sessionId) return;
+      if (pendingSessionCommandRef.current) {
+        pendingSessionCommandRef.current = null;
+        pendingUserMessageIdRef.current = null;
+        pendingCompactRequestRef.current = null;
+        return;
+      }
       const assistantId = String((message as any)?.id ?? "");
       if (!assistantId) return;
       setLeafMessageId(assistantId);
@@ -505,13 +528,26 @@ export default function ChatProvider({
         // 关键：切换 session 后忽略旧流的 dataPart，避免 toolParts 被写回新会话 UI。
         if (sessionIdRef.current !== sessionId) return;
         if (handleOpenBrowserDataPart({ dataPart, fallbackTabId: tabId })) return;
+        if (dataPart?.type === "data-session-title") {
+          invalidateChatSessions(queryClient);
+          return;
+        }
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
         if (handleSubAgentDataPart({ dataPart, setSubAgentStreams })) return;
         handleChatDataPart({ dataPart, tabId, upsertToolPartMerged });
         setStreamTick((prev) => prev + 1);
       },
     }),
-    [sessionId, tabId, transport, upsertToolPartMerged, onFinish, setSubAgentStreams, setStepThinking]
+    [
+      sessionId,
+      tabId,
+      transport,
+      upsertToolPartMerged,
+      onFinish,
+      setSubAgentStreams,
+      setStepThinking,
+      queryClient,
+    ]
   );
 
   const chat = useChat(chatConfig);
@@ -716,6 +752,9 @@ export default function ChatProvider({
       }
       if (nextMessage.role === "user" && isCompactCommandMessage(nextMessage)) {
         pendingCompactRequestRef.current = String(nextMessage.id);
+      }
+      if (nextMessage.role === "user" && isSessionCommandMessage(nextMessage)) {
+        pendingSessionCommandRef.current = String(nextMessage.id);
       }
 
       pendingUserMessageIdRef.current = String(nextMessage.id);

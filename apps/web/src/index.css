@@ -42,6 +42,12 @@
 .grid-stack-item.ui-resizable-resizing {
   border-radius: 1rem !important;
 }
+
+.grid-stack-item.desktop-placement-dragging > .grid-stack-item-content {
+  box-shadow: 1px 4px 6px rgba(0, 0, 0, 0.2);
+  opacity: 0.9;
+}
+
 @source "./components/board/**/*.{ts,tsx}";
 
 @plugin "tailwind-scrollbar-hide";

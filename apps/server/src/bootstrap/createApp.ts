@@ -4,8 +4,7 @@ import { createContext } from "@tenas-ai/api/context";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger as honoLogger } from "hono/logger";
-import { registerChatStreamRoutes } from "@/routers/chatStreamRoutes";
-import { registerChatImageRoutes } from "@/routers/chatImageRoutes";
+import { registerAiExecuteRoutes } from "@/routers/aiExecuteRoutes";
 import { registerChatAttachmentRoutes } from "@/ai/chat-stream/chatAttachmentRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
@@ -67,8 +66,7 @@ export function createApp() {
     }),
   );
 
-  registerChatStreamRoutes(app);
-  registerChatImageRoutes(app);
+  registerAiExecuteRoutes(app);
   registerChatAttachmentRoutes(app);
   registerFileSseRoutes(app);
   registerAuthRoutes(app);

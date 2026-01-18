@@ -274,7 +274,7 @@ export function ImageGenerateNodeView({
     };
   }, []);
 
-  /** Run an image generation request via /chat/sse. */
+  /** Run an image generation request via /ai/execute. */
   const runImageGenerate = useCallback(
     async (input: { chatModelId?: string; chatModelSource?: "local" | "cloud" }) => {
       const nodeId = element.id;
@@ -353,10 +353,12 @@ export function ImageGenerateNodeView({
           workspaceId: resolvedWorkspaceId || undefined,
           projectId: boardFolderScope?.projectId ?? fileContext?.projectId ?? undefined,
           boardId: fileContext?.boardId ?? undefined,
-          image_save_dir: imageSaveDir || undefined,
+          imageSaveDir: imageSaveDir || undefined,
           trigger: "board-image-generate",
           chatModelId,
           chatModelSource: input.chatModelSource,
+          intent: "image",
+          responseMode: "stream",
         };
 
         let streamedImages: string[] = [];

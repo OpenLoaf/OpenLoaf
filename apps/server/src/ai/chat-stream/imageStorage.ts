@@ -121,7 +121,7 @@ function resolveRelativeSaveDirectory(input: {
   return targetPath;
 }
 
-/** Resolve local directory from image_save_dir input. */
+/** Resolve local directory from imageSaveDir input. */
 export async function resolveImageSaveDirectory(input: {
   /** Raw image save directory uri. */
   imageSaveDir: string;

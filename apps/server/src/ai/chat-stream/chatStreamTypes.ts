@@ -12,4 +12,6 @@ export type ChatStreamRequest = ChatRequestBody & {
   projectId?: string;
   /** Board id for this request. */
   boardId?: string;
+  /** Selected skill names for this request. */
+  selectedSkills?: string[];
 };

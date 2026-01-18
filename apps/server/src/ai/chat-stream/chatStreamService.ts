@@ -1,5 +1,5 @@
 import { generateId, generateImage, type UIMessage } from "ai";
-import { SUMMARY_HISTORY_COMMAND, type ChatModelSource, type ModelDefinition } from "@tenas-ai/api/common";
+import { type ChatModelSource, type ModelDefinition } from "@tenas-ai/api/common";
 import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
 import type { TenasUIMessage, TokenUsage } from "@tenas-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
@@ -13,17 +13,15 @@ import {
   getWorkspaceId,
   getProjectId,
 } from "@/ai/chat-stream/requestContext";
-import { isRecord } from "@/ai/utils/type-guards";
 import { logger } from "@/common/logger";
-import { prisma } from "@tenas-ai/db";
-import { resolveProjectAncestorRootUris } from "@tenas-ai/api/services/projectDbService";
 import {
   getProjectRootPath,
   getWorkspaceRootPath,
   getWorkspaceRootPathById,
-  resolveFilePathFromUri,
 } from "@tenas-ai/api/services/vfsService";
 import { loadSkillSummaries, type SkillSummary } from "@/ai/agents/masterAgent/skillsLoader";
+import { resolveParentProjectRootPaths } from "@/ai/utils/projectRoots";
+import { parseCommandAtStart } from "@/ai/pipeline/commandParser";
 import { normalizePromptForImageEdit } from "./imageEditNormalizer";
 import { resolveImagePrompt, type GenerateImagePrompt } from "./imagePrompt";
 import {
@@ -101,17 +99,10 @@ type ImageModelResult = {
   totalUsage?: TokenUsage;
 };
 
-/** Resolve selected skills from request params. */
-function resolveSelectedSkills(params?: Record<string, unknown> | null): string[] {
-  if (!isRecord(params)) return [];
-  const rawSkills = params.skills;
-  let candidates: string[] = [];
-  if (Array.isArray(rawSkills)) {
-    candidates = rawSkills.filter((value): value is string => typeof value === "string");
-  } else if (typeof rawSkills === "string") {
-    candidates = rawSkills.split(",");
-  }
-
+/** Normalize selected skills input. */
+function normalizeSelectedSkills(input?: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const candidates = input.filter((value): value is string => typeof value === "string");
   // 逻辑：只保留非空字符串，并按输入顺序去重。
   const seen = new Set<string>();
   const normalized: string[] = [];
@@ -139,7 +130,8 @@ function isCompactCommandMessage(message: TenasUIMessage | undefined): boolean {
   if (!message || message.role !== "user") return false;
   if ((message as any)?.messageKind === "compact_prompt") return true;
   const text = extractTextFromParts(message.parts ?? []);
-  return text === SUMMARY_HISTORY_COMMAND;
+  const command = parseCommandAtStart(text);
+  return command?.id === "summary-history";
 }
 
 /** Build the compact prompt text sent to the model. */
@@ -187,7 +179,7 @@ function buildSelectedSkillsSection(
   selectedSkills: string[],
   summaries: SkillSummary[],
 ): string {
-  const lines = ["# 已选择技能（来自 params.skills）"];
+  const lines = ["# 已选择技能（来自 /skill/ 指令）"];
   if (selectedSkills.length === 0) {
     lines.push("- 无");
     return lines.join("\n");
@@ -268,28 +260,6 @@ function buildSessionPrefaceMessage(input: {
   };
 }
 
-/** Resolve parent project root paths from database. */
-async function resolveParentProjectRootPaths(projectId?: string): Promise<string[]> {
-  const normalizedId = projectId?.trim() ?? "";
-  if (!normalizedId) return [];
-  try {
-    const parentRootUris = await resolveProjectAncestorRootUris(prisma, normalizedId);
-    // 逻辑：父项目 rootUri 需转成本地路径，过滤掉无效 URI。
-    return parentRootUris
-      .map((rootUri) => {
-        try {
-          return resolveFilePathFromUri(rootUri);
-        } catch {
-          return null;
-        }
-      })
-      .filter((rootPath): rootPath is string => Boolean(rootPath));
-  } catch (error) {
-    logger.warn({ err: error, projectId: normalizedId }, "[chat] resolve parent project roots");
-    return [];
-  }
-}
-
 /** Error with HTTP status for image requests. */
 class ChatImageRequestError extends Error {
   /** HTTP status code. */
@@ -323,10 +293,9 @@ export async function runChatStream(input: {
     projectId,
     boardId,
     trigger,
-    params,
   } = input.request;
 
-  const selectedSkills = resolveSelectedSkills(params);
+  const selectedSkills = normalizeSelectedSkills((input.request as any)?.selectedSkills);
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
     sessionId,
     cookies: input.cookies,
@@ -585,12 +554,11 @@ export async function runChatImageRequest(input: {
     workspaceId,
     projectId,
     boardId,
-    image_save_dir: imageSaveDir,
+    imageSaveDir,
     trigger,
-    params,
   } = input.request;
 
-  const selectedSkills = resolveSelectedSkills(params);
+  const selectedSkills = normalizeSelectedSkills((input.request as any)?.selectedSkills);
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
     sessionId,
     cookies: input.cookies,
@@ -870,7 +838,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
       projectId: projectId || undefined,
     });
     if (!resolvedSaveDir) {
-      throw new ChatImageRequestError("image_save_dir 无效。", 400);
+      throw new ChatImageRequestError("imageSaveDir 无效。", 400);
     }
     // 按用户指定目录落盘，失败时直接抛错反馈。
     await saveGeneratedImagesToDirectory({

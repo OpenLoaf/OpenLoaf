@@ -49,7 +49,9 @@ export type ChatImageRequest = {
   /** Board id. */
   boardId?: string | null;
   /** Image save directory uri. */
-  image_save_dir?: string;
+  imageSaveDir?: string;
+  /** Selected skill names for this request. */
+  selectedSkills?: string[];
 };
 
 export type ChatImageResponse = {
@@ -102,6 +104,7 @@ export const chatImageRequestSchema: z.ZodType<ChatImageRequest> = z
     workspaceId: z.string().min(1).optional(),
     projectId: z.string().min(1).optional(),
     boardId: z.string().min(1).nullable().optional(),
-    image_save_dir: z.string().min(1).optional(),
+    imageSaveDir: z.string().min(1).optional(),
+    selectedSkills: z.array(z.string().min(1)).optional(),
   })
   .strict();

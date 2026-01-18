@@ -206,7 +206,7 @@ export async function saveLastMessageAndResolveParent(input: {
 }
 
 /** Build the model chain by trimming to the latest compact summary. */
-function buildModelChain(
+export function buildModelChain(
   messages: UIMessage[],
   options?: {
     /** Whether to keep compact prompt in the model chain. */

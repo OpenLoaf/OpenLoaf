@@ -29,7 +29,7 @@ export function createChatTransport({
   chatModelIdRef?: RefObject<string | null | undefined>;
   chatModelSourceRef?: RefObject<string | null | undefined>;
 }) {
-  const apiBase = `${resolveServerUrl()}/chat/sse`;
+  const apiBase = `${resolveServerUrl()}/ai/execute`;
 
   return new DefaultChatTransport({
     api: apiBase,
@@ -76,6 +76,8 @@ export function createChatTransport({
         clientId: clientId || undefined,
         tabId,
         messageId,
+        intent: "chat",
+        responseMode: "stream",
         ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
         ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
       };

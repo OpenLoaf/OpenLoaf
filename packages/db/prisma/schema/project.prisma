@@ -5,6 +5,7 @@ model Project {
   icon        String? /// Project icon.
   rootUri     String /// Project root URI.
   parentId    String? /// Parent project id.
+  sortIndex   Int      @default(0) /// Project sort index under parent.
   isDeleted   Boolean  @default(false) /// Soft delete flag.
   deletedAt   DateTime? /// Soft delete timestamp.
   createdAt   DateTime @default(now())
@@ -15,6 +16,7 @@ model Project {
 
   @@index([workspaceId])
   @@index([workspaceId, parentId])
+  @@index([workspaceId, parentId, sortIndex])
   @@index([workspaceId, isDeleted])
   @@index([deletedAt])
 }

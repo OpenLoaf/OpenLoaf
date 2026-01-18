@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-01-17T15:43:08.821Z",
+  "updatedAt": "2026-01-18T10:14:18.072Z",
   "grid": {
     "breakpoints": {
       "sm": {
@@ -96,41 +96,6 @@
           "x": 4,
           "y": 0,
           "w": 2,
-          "h": 2
-        }
-      }
-    },
-    {
-      "id": "w-actions",
-      "kind": "widget",
-      "title": "Actions",
-      "widgetKey": "quick-actions",
-      "size": "4x2",
-      "constraints": {
-        "defaultW": 4,
-        "defaultH": 2,
-        "minW": 2,
-        "minH": 2,
-        "maxW": 6,
-        "maxH": 3
-      },
-      "layoutByBreakpoint": {
-        "sm": {
-          "x": 0,
-          "y": 4,
-          "w": 4,
-          "h": 2
-        },
-        "md": {
-          "x": 0,
-          "y": 5,
-          "w": 4,
-          "h": 2
-        },
-        "lg": {
-          "x": 6,
-          "y": 1,
-          "w": 4,
           "h": 2
         }
       }
@@ -270,10 +235,45 @@
           "h": 3
         },
         "lg": {
+          "x": 6,
+          "y": 1,
+          "w": 4,
+          "h": 3
+        }
+      }
+    },
+    {
+      "id": "w-quick-actions-1768731103224",
+      "kind": "widget",
+      "title": "Actions",
+      "widgetKey": "quick-actions",
+      "size": "4x2",
+      "constraints": {
+        "defaultW": 4,
+        "defaultH": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": 6,
+        "maxH": 3
+      },
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 0,
+          "y": 5,
+          "w": 4,
+          "h": 2
+        },
+        "md": {
+          "x": 0,
+          "y": 5,
+          "w": 4,
+          "h": 2
+        },
+        "lg": {
           "x": 0,
           "y": 2,
           "w": 4,
-          "h": 3
+          "h": 2
         }
       }
     }

@@ -4,11 +4,11 @@ import { MessageCircle } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
 
-interface ProjectTasksProps {
+interface ProjectHistoryProps {
   isLoading: boolean;
 }
 
-interface ProjectTasksHeaderProps {
+interface ProjectHistoryHeaderProps {
   isLoading: boolean;
   pageTitle: string;
 }
@@ -21,7 +21,7 @@ function buildDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Format date label for task header. */
+/** Format date label for history header. */
 function formatDateLabel(date: Date): string {
   return date.toLocaleDateString("zh-CN", {
     month: "numeric",
@@ -39,27 +39,27 @@ function formatTimeLabel(value: string | Date): string {
   });
 }
 
-/** Project tasks header. */
-const ProjectTasksHeader = memo(function ProjectTasksHeader({
+/** Project history header. */
+const ProjectHistoryHeader = memo(function ProjectHistoryHeader({
   isLoading,
   pageTitle,
-}: ProjectTasksHeaderProps) {
+}: ProjectHistoryHeaderProps) {
   if (isLoading) {
     return null;
   }
 
   return (
     <div className="flex items-center gap-2 min-w-0">
-      <span className="text-base font-semibold">任务</span>
+      <span className="text-base font-semibold">历史</span>
       <span className="text-xs text-muted-foreground truncate">{pageTitle}</span>
     </div>
   );
 });
 
-/** Project tasks panel. */
-const ProjectTasks = memo(function ProjectTasks({
+/** Project history panel. */
+const ProjectHistory = memo(function ProjectHistory({
   isLoading,
-}: ProjectTasksProps) {
+}: ProjectHistoryProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { sessions, isLoading: isSessionsLoading } = useChatSessions();
 
@@ -102,7 +102,7 @@ const ProjectTasks = memo(function ProjectTasks({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
         <section>
           <Calendar
@@ -110,9 +110,9 @@ const ProjectTasks = memo(function ProjectTasks({
             required
             selected={selectedDate}
             onSelect={setSelectedDate}
-            modifiers={{ hasTasks: sessionDates }}
+            modifiers={{ hasHistory: sessionDates }}
             modifiersClassNames={{
-              hasTasks:
+              hasHistory:
                 "after:content-[''] after:mt-0.5 after:h-1 after:w-1 after:rounded-full after:bg-primary/70 after:mx-auto",
             }}
             className="w-full rounded-xl border border-border/60 bg-background/80 p-3"
@@ -121,7 +121,7 @@ const ProjectTasks = memo(function ProjectTasks({
 
         <section className="rounded-2xl border border-border/60 bg-card/60 p-4">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-foreground">任务列表</div>
+            <div className="text-sm font-semibold text-foreground">历史列表</div>
             <div className="text-xs text-muted-foreground">
               {formatDateLabel(activeDate)} ·{" "}
               {isSessionsLoading ? "加载中…" : `${activeSessions.length} 项`}
@@ -134,7 +134,7 @@ const ProjectTasks = memo(function ProjectTasks({
               </div>
             ) : activeSessions.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                当天暂无任务
+                当天暂无历史
               </div>
             ) : (
               activeSessions.map((session) => (
@@ -178,5 +178,5 @@ const ProjectTasks = memo(function ProjectTasks({
   );
 });
 
-export { ProjectTasksHeader };
-export default ProjectTasks;
+export { ProjectHistoryHeader };
+export default ProjectHistory;

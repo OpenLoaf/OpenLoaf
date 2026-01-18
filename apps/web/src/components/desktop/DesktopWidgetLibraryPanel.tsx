@@ -31,6 +31,10 @@ export type DesktopWidgetSelectedDetail = {
   title?: string;
   /** Optional folder uri for 3d-folder widget. */
   folderUri?: string;
+  /** Optional pointer X for placement start. */
+  clientX?: number;
+  /** Optional pointer Y for placement start. */
+  clientY?: number;
 };
 
 /** Emit a desktop widget selection event (stack -> desktop page bridge). */
@@ -196,14 +200,19 @@ export default function DesktopWidgetLibraryPanel({
               role="button"
               tabIndex={0}
               className="group flex min-w-0 flex-col gap-2 rounded-xl border border-border/60 bg-background p-2 text-left hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-              onClick={() => {
+              onClick={(event) => {
                 if (item.widgetKey === "3d-folder") {
                   // 中文注释：3D 文件夹需要先选择目录。
                   setPendingFolderWidget(item.widgetKey);
                   setIsFolderDialogOpen(true);
                   return;
                 }
-                emitDesktopWidgetSelected({ tabId, widgetKey: item.widgetKey });
+                emitDesktopWidgetSelected({
+                  tabId,
+                  widgetKey: item.widgetKey,
+                  clientX: event.clientX,
+                  clientY: event.clientY,
+                });
                 removeStackItem(tabId, panelKey);
               }}
               onKeyDown={(event) => {
@@ -215,7 +224,10 @@ export default function DesktopWidgetLibraryPanel({
                   setIsFolderDialogOpen(true);
                   return;
                 }
-                emitDesktopWidgetSelected({ tabId, widgetKey: item.widgetKey });
+                emitDesktopWidgetSelected({
+                  tabId,
+                  widgetKey: item.widgetKey,
+                });
                 removeStackItem(tabId, panelKey);
               }}
             >

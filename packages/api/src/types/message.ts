@@ -69,6 +69,16 @@ export interface TenasUIDataTypes extends UIDataTypes {
     viewKey: string;
     panelKey: string;
   };
+  skill: {
+    name: string;
+    path: string;
+    scope: "project" | "parent" | "workspace";
+    content: string;
+  };
+  "session-title": {
+    sessionId: string;
+    title: string;
+  };
 }
 
 /**
@@ -88,6 +98,10 @@ export type ChatRequestBody = {
   trigger?: "submit-message" | "regenerate-message" | string;
   /** regenerate 时的 messageId（AI SDK transport 提供） */
   messageId?: string;
+  /** Intent for unified AI endpoint. */
+  intent?: "chat" | "image" | "command" | "utility";
+  /** Response mode for unified AI endpoint. */
+  responseMode?: "stream" | "json";
   /**
    * 是否为 retry：
    * - true：复用已存在的 user 消息重新生成 assistant（服务端禁止再次保存该 user 消息）
@@ -102,6 +116,14 @@ export type ChatRequestBody = {
   clientId?: string;
   /** Board id for associating chat sessions. */
   boardId?: string;
+  /** Workspace id for this request. */
+  workspaceId?: string;
+  /** Project id for this request. */
+  projectId?: string;
+  /** Image save directory uri. */
+  imageSaveDir?: string;
+  /** Selected skill names for this request. */
+  selectedSkills?: string[];
 };
 
 export type TokenUsage = {

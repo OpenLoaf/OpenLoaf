@@ -70,8 +70,7 @@ import ChatImageOutputOption from "./ChatImageOutputOption";
 import CodexOption from "./options/CodexOption";
 import { supportsImageEdit, supportsImageGeneration, supportsToolCall } from "@/lib/model-capabilities";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
-import { SUMMARY_HISTORY_COMMAND } from "@tenas-ai/api/common";
-import ChatCommandMenu from "./input/ChatCommandMenu";
+import ChatCommandMenu, { type ChatCommandMenuHandle } from "./input/ChatCommandMenu";
 
 interface ChatInputProps {
   className?: string;
@@ -221,6 +220,8 @@ export function ChatInputBox({
   const lastSerializedRef = useRef(value);
   /** Whether the file picker dialog is open. */
   const [filePickerOpen, setFilePickerOpen] = useState(false);
+  /** Slash command menu handle. */
+  const commandMenuRef = useRef<ChatCommandMenuHandle | null>(null);
   const { data: projects = [] } = useProjects();
   const queryClient = useQueryClient();
   const activeTabId = useTabs((s) => s.activeTabId);
@@ -261,6 +262,9 @@ export function ChatInputBox({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // 检查是否正在使用输入法进行输入，如果是则不发送消息
     if (e.nativeEvent.isComposing) {
+      return;
+    }
+    if (commandMenuRef.current?.handleKeyDown(e)) {
       return;
     }
 
@@ -640,10 +644,12 @@ export function ChatInputBox({
     >
       {commandMenuEnabled ? (
         <ChatCommandMenu
+          ref={commandMenuRef}
           value={value}
           onChange={onChange}
           onRequestFocus={focusEditorSafely}
           isFocused={isFocused}
+          projectId={defaultProjectId}
         />
       ) : null}
       {header ? (
@@ -923,17 +929,6 @@ export default function ChatInput({
     // 切换 session 的历史加载期间禁止发送，避免 parentMessageId 与当前会话链不一致
     if (isHistoryLoading) return;
     const textValue = value.trim();
-    // 中文注释：/summary-history 作为手动压缩指令，直接发起并清空输入与附件。
-    if (textValue === SUMMARY_HISTORY_COMMAND) {
-      if (status === "error") clearError();
-      sendMessage({
-        parts: [{ type: "text", text: SUMMARY_HISTORY_COMMAND }],
-        messageKind: "compact_prompt",
-      } as any);
-      setInput("");
-      onClearAttachments?.();
-      return;
-    }
     if (hasPendingAttachments) return;
     const readyImages = (attachments ?? []).filter((item) => {
       if (item.status !== "ready" || !item.remoteUrl) return false;

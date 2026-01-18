@@ -77,6 +77,8 @@ export interface DesktopEditToolbarProps {
   onChangeBreakpoint: (breakpoint: DesktopBreakpoint) => void;
   /** Append a new desktop item. */
   onAddItem: (item: DesktopItem) => void;
+  /** Start placement mode for a newly added item. */
+  onStartPlacement: (itemId: string, pointer?: { clientX: number; clientY: number }) => void;
   /** Compact current layout. */
   onCompact: () => void;
   /** Cancel edits and exit edit mode. */
@@ -93,6 +95,7 @@ export default function DesktopEditToolbar({
   items,
   onChangeBreakpoint,
   onAddItem,
+  onStartPlacement,
   onCompact,
   onCancel,
   onDone,
@@ -127,13 +130,18 @@ export default function DesktopEditToolbar({
       });
       if (!nextItem) return;
       onAddItem(nextItem);
+      if (detail.clientX != null && detail.clientY != null) {
+        onStartPlacement(nextItem.id, { clientX: detail.clientX, clientY: detail.clientY });
+      } else {
+        onStartPlacement(nextItem.id);
+      }
     };
 
     window.addEventListener(DESKTOP_WIDGET_SELECTED_EVENT, handleWidgetSelected as EventListener);
     return () => {
       window.removeEventListener(DESKTOP_WIDGET_SELECTED_EVENT, handleWidgetSelected as EventListener);
     };
-  }, [activeBreakpoint, activeTabId, items, onAddItem]);
+  }, [activeBreakpoint, activeTabId, items, onAddItem, onStartPlacement]);
 
   if (!controlsTarget || !editMode) return null;
 

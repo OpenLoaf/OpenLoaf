@@ -13,6 +13,7 @@ export type ChatCommand = {
 
 export const SUMMARY_HISTORY_COMMAND = "/summary-history";
 export const SUMMARY_TITLE_COMMAND = "/summary-title";
+export const SKILL_COMMAND_PREFIX = "/skill/";
 
 /** Shared slash command definitions. */
 export const CHAT_COMMANDS: ChatCommand[] = [
@@ -20,12 +21,12 @@ export const CHAT_COMMANDS: ChatCommand[] = [
     id: "summary-history",
     command: SUMMARY_HISTORY_COMMAND,
     title: "Summary History",
-    description: "Summarize the conversation for future context.",
+    description: "总结当前对话内容，便于后续继续对话。",
   },
   {
     id: "summary-title",
     command: SUMMARY_TITLE_COMMAND,
     title: "Summary Title",
-    description: "Generate a title for the conversation.",
+    description: "生成当前对话的标题。",
   },
 ];

@@ -17,6 +17,7 @@ export type ProjectDbClient = {
         icon: string | null;
         rootUri: string;
         parentId: string | null;
+        sortIndex: number;
         isDeleted: boolean;
         deletedAt: Date | null;
       };
@@ -25,6 +26,7 @@ export type ProjectDbClient = {
         icon: string | null;
         rootUri: string;
         parentId: string | null;
+        sortIndex: number;
         isDeleted: boolean;
         deletedAt: Date | null;
       };
@@ -52,14 +54,21 @@ type ProjectRecord = {
   icon: string | null;
   rootUri: string;
   parentId: string | null;
+  sortIndex: number;
 };
 
 /** Flatten project tree nodes into records for persistence. */
 function flattenProjectTrees(projects: ProjectNode[], workspaceId: string): ProjectRecord[] {
   const records: ProjectRecord[] = [];
-  const stack: Array<{ node: ProjectNode; parentId: string | null }> = projects.map(
-    (node) => ({ node, parentId: null })
-  );
+  const stack: Array<{
+    node: ProjectNode;
+    parentId: string | null;
+    sortIndex: number;
+  }> = projects.map((node, index) => ({
+    node,
+    parentId: null,
+    sortIndex: index,
+  }));
   while (stack.length > 0) {
     const current = stack.pop();
     if (!current) continue;
@@ -70,9 +79,14 @@ function flattenProjectTrees(projects: ProjectNode[], workspaceId: string): Proj
       icon: current.node.icon ?? null,
       rootUri: current.node.rootUri,
       parentId: current.parentId,
+      sortIndex: current.sortIndex,
     });
-    for (const child of current.node.children ?? []) {
-      stack.push({ node: child, parentId: current.node.projectId });
+    for (const [index, child] of (current.node.children ?? []).entries()) {
+      stack.push({
+        node: child,
+        parentId: current.node.projectId,
+        sortIndex: index,
+      });
     }
   }
   return records;
@@ -101,6 +115,7 @@ export async function syncWorkspaceProjectsFromDisk(
         icon: record.icon,
         rootUri: record.rootUri,
         parentId: record.parentId,
+        sortIndex: record.sortIndex,
         isDeleted: false,
         deletedAt: null,
       },

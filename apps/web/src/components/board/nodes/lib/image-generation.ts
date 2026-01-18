@@ -29,9 +29,9 @@ function extractSseData(chunk: string): string | null {
     .join("\n");
 }
 
-/** Stream SSE events from the chat endpoint. */
+/** Stream SSE events from the unified AI endpoint. */
 export async function runChatSseRequest({ payload, signal, onEvent }: ChatSseRequest) {
-  const response = await fetch(`${resolveServerUrl()}/chat/sse`, {
+  const response = await fetch(`${resolveServerUrl()}/ai/execute`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
