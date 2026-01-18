@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useChatContext } from "../../ChatProvider";
 
 type TestApprovalToolPart = {
@@ -18,6 +19,17 @@ export function TestApprovalTool({ part }: { part: TestApprovalToolPart }) {
   const chat = useChatContext();
   const approvalId = typeof part.approval?.id === "string" ? part.approval?.id : undefined;
   const showActions = part.state === "approval-requested" && Boolean(approvalId);
+  // 中文注释：审批中展示彩虹外框，审批完成后自动移除。
+  const showThinkingBorder = showActions;
+  const isRejected = part.approval?.approved === false;
+  const thinkingBorderClassName = showThinkingBorder
+    ? "tenas-thinking-border tenas-thinking-border-on border border-transparent"
+    : isRejected
+      ? "border border-destructive/50 bg-destructive/5"
+    : undefined;
+  const thinkingBorderStyle = showThinkingBorder
+    ? ({ ["--tenas-thinking-border-fill" as any]: "var(--color-muted)" } as React.CSSProperties)
+    : undefined;
   const approved = part.approval?.approved;
   const statusLabel =
     approved === true
@@ -31,7 +43,13 @@ export function TestApprovalTool({ part }: { part: TestApprovalToolPart }) {
             : "未知状态";
 
   return (
-    <div className="flex w-full items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-foreground">
+    <div
+      className={cn(
+        "flex w-full items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-foreground",
+        thinkingBorderClassName,
+      )}
+      style={thinkingBorderStyle}
+    >
       <span className="text-xs text-muted-foreground">测试审批</span>
       <span className="text-xs text-muted-foreground/80">•</span>
       <span className="text-xs text-muted-foreground">{statusLabel}</span>

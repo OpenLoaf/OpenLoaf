@@ -7,6 +7,7 @@ import { shellTool } from "@/ai/tools/runtime/shellTool";
 import { shellCommandTool } from "@/ai/tools/runtime/shellCommandTool";
 import { writeStdinTool } from "@/ai/tools/runtime/writeStdinTool";
 import { grepFilesTool, listDirTool, readFileTool } from "@/ai/tools/runtime/fileTools";
+import { updatePlanTool } from "@/ai/tools/runtime/updatePlanTool";
 import { resolveNeedsApproval, type ToolPolicyMeta } from "@/ai/registry/policies";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
@@ -31,6 +32,7 @@ import {
   execCommandToolDefWin,
   writeStdinToolDefUnix,
   writeStdinToolDefWin,
+  updatePlanToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
 import { RiskType } from "@tenas-ai/api/types/toolResult";
 import {
@@ -125,6 +127,10 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [grepFilesToolDef.id]: {
     tool: grepFilesTool,
+    meta: { needsApproval: false },
+  },
+  [updatePlanToolDef.id]: {
+    tool: updatePlanTool,
     meta: { needsApproval: false },
   },
 };

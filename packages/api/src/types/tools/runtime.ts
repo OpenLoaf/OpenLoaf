@@ -176,3 +176,34 @@ export const grepFilesToolDef = {
   }),
   component: null,
 } as const;
+
+const planStepStatusSchema = z
+  .enum(["pending", "in_progress", "completed"])
+  .describe("Plan step status: pending, in_progress, or completed.");
+
+const planItemSchema = z.object({
+  step: z.string().min(1).describe("Plan step text."),
+  status: planStepStatusSchema.describe("Plan step status."),
+});
+
+/** Update-plan tool definition for storing assistant plans. */
+export const updatePlanToolDef = {
+  id: "update-plan",
+  description: `Updates the task plan for the current assistant turn.
+Provide an optional explanation and a list of plan items, each with a step and status.
+At most one step can be in_progress at a time.`,
+  parameters: z.object({
+    explanation: z.string().optional().describe("Optional plan summary."),
+    plan: z.array(planItemSchema).min(1).describe("Plan step list."),
+  }),
+  component: null,
+} as const;
+
+/** Plan step status type for update-plan payloads. */
+export type PlanStepStatus = z.infer<typeof planStepStatusSchema>;
+
+/** Plan step item type for update-plan payloads. */
+export type PlanItem = z.infer<typeof planItemSchema>;
+
+/** Update-plan payload type for update-plan tool. */
+export type UpdatePlanArgs = z.infer<typeof updatePlanToolDef.parameters>;

@@ -2,6 +2,7 @@ import type { UIMessageStreamWriter } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { CodexRequestOptions } from "@/ai/models/cli/codex/codexOptions";
+import type { UpdatePlanArgs } from "@tenas-ai/api/types/tools/runtime";
 
 export type AgentFrame = {
   kind: "master";
@@ -36,6 +37,8 @@ export type RequestContext = {
   codexOptions?: CodexRequestOptions;
   /** Assistant message id for the current streaming response. */
   assistantMessageId?: string;
+  /** Latest plan update for the current request. */
+  planUpdate?: UpdatePlanArgs;
   /** Selected skills for this request. */
   selectedSkills?: string[];
   /** Parent project root paths resolved from database. */
@@ -171,6 +174,22 @@ export function setAssistantMessageId(messageId: string) {
 /** Gets the assistant message id for this request. */
 export function getAssistantMessageId(): string | undefined {
   return getRequestContext()?.assistantMessageId;
+}
+
+/**
+ * Sets the latest plan update for this request.
+ */
+export function setPlanUpdate(planUpdate: UpdatePlanArgs) {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.planUpdate = planUpdate;
+}
+
+/**
+ * Gets the latest plan update for this request.
+ */
+export function getPlanUpdate(): UpdatePlanArgs | undefined {
+  return getRequestContext()?.planUpdate;
 }
 
 /** 获取 agent 栈（MVP：用于打标消息来源）。 */

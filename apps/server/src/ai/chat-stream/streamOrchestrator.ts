@@ -8,6 +8,7 @@ import { logger } from "@/common/logger";
 import type { ChatMessageKind, TokenUsage } from "@tenas-ai/api";
 import {
   getSessionId,
+  getPlanUpdate,
   popAgentFrame,
   pushAgentFrame,
   setAbortSignal,
@@ -175,6 +176,11 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                 ...timingMetadata,
                 agent: input.agentMetadata,
               };
+              const planUpdate = getPlanUpdate();
+              if (planUpdate) {
+                // 逻辑：将本次请求的 plan 挂到 assistant metadata，方便后续回放。
+                mergedMetadata.plan = planUpdate;
+              }
 
               const responseWithKind = input.assistantMessageKind
                 ? { ...(responseMessage as any), messageKind: input.assistantMessageKind }

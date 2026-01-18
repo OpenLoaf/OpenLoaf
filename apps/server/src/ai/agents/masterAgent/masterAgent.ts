@@ -35,6 +35,7 @@ import {
   execCommandToolDefWin,
   writeStdinToolDefUnix,
   writeStdinToolDefWin,
+  updatePlanToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
 import { loadSkillSummaries, type SkillSummary } from "./skillsLoader";
 
@@ -59,6 +60,7 @@ const MASTER_AGENT_TOOL_IDS = [
   readFileToolDef.id,
   listDirToolDef.id,
   grepFilesToolDef.id,
+  updatePlanToolDef.id,
 ] as const;
 
 /** Unknown value fallback. */
