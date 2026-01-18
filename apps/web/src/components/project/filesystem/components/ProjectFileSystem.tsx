@@ -679,6 +679,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           ext={ext}
           projectId={projectId}
           rootUri={rootUri}
+          readOnly
         />
       );
     }
@@ -691,6 +692,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           ext={ext}
           projectId={projectId}
           rootUri={rootUri}
+          readOnly
         />
       );
     }
@@ -1194,7 +1196,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                 />
               </div>
               <div
-                className="flex-1 min-h-0 overflow-auto bg-background p-4"
+                className="flex-1 min-h-0 overflow-hidden bg-background"
                 onDragEnter={model.handleDragEnter}
                 onDragOver={model.handleDragOver}
                 onDragLeave={model.handleDragLeave}

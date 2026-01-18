@@ -19,6 +19,8 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   uiTheme: "system",
   uiThemeManual: "light",
   boardDebugEnabled: false,
+  // Toggle chat preface viewer button.
+  chatPrefaceEnabled: false,
   appLocalStorageDir: "",
   appAutoBackupDir: "",
   appCustomRules: "",

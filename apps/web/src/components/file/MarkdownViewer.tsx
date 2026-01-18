@@ -23,6 +23,8 @@ interface MarkdownViewerProps {
   openUri?: string;
   name?: string;
   ext?: string;
+  /** Inline markdown content to preview. */
+  content?: string;
   panelKey?: string;
   tabId?: string;
   rootUri?: string;
@@ -290,6 +292,7 @@ export default function MarkdownViewer({
   openUri,
   name,
   ext,
+  content: inlineContent,
   panelKey,
   tabId,
   rootUri,
@@ -297,9 +300,10 @@ export default function MarkdownViewer({
 }: MarkdownViewerProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
+  const hasInlineContent = typeof inlineContent === "string";
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
-      uri && workspaceId ? { workspaceId, projectId, uri } : skipToken
+      !hasInlineContent && uri && workspaceId ? { workspaceId, projectId, uri } : skipToken
     )
   );
   const [mode, setMode] = useState<MarkdownViewerMode>(DEFAULT_MARKDOWN_MODE);
@@ -314,17 +318,17 @@ export default function MarkdownViewer({
   useEffect(() => {
     setMode(DEFAULT_MARKDOWN_MODE);
     setCodeStatus(DEFAULT_CODE_STATUS);
-  }, [uri]);
+  }, [uri, inlineContent]);
 
-  if (!uri) {
+  if (!uri && !hasInlineContent) {
     return <div className="h-full w-full p-4 text-muted-foreground">未选择文件</div>;
   }
 
-  const content = fileQuery.data?.content ?? "";
+  const resolvedContent = hasInlineContent ? inlineContent ?? "" : fileQuery.data?.content ?? "";
   const { frontMatter, previewMarkdown } = useMemo(() => {
-    const extracted = extractFrontMatter(content);
+    const extracted = extractFrontMatter(resolvedContent);
     if (!extracted) {
-      return { frontMatter: null, previewMarkdown: content };
+      return { frontMatter: null, previewMarkdown: resolvedContent };
     }
     const raw = extracted.raw.trim();
     if (!raw) {
@@ -337,18 +341,20 @@ export default function MarkdownViewer({
       },
       previewMarkdown: extracted.body,
     };
-  }, [content]);
+  }, [resolvedContent]);
   const isMdx = (ext ?? "").toLowerCase() === "mdx";
   const remarkPlugins = useMemo(() => {
     const basePlugins = Object.values(defaultRemarkPlugins);
     // 逻辑：仅在 mdx 文件启用 mdx 解析，避免普通 markdown 报错。
     return isMdx ? [...basePlugins, remarkMdx, mdxPlaceholderPlugin] : basePlugins;
   }, [isMdx]);
-  const isEditMode = mode === "edit";
+  const canEdit = !hasInlineContent;
+  const isEditMode = canEdit && mode === "edit";
   const editorExt = ext ?? "md";
 
   /** Toggle preview/edit mode for the markdown panel. */
   const toggleMode = () => {
+    if (!canEdit) return;
     setMode((prev) => (prev === "preview" ? "edit" : "preview"));
   };
   /** Trigger save from the stack header. */
@@ -356,9 +362,9 @@ export default function MarkdownViewer({
   /** Trigger undo from the stack header. */
   const handleUndo = () => codeActionsRef.current?.undo();
 
-  const previewContent = fileQuery.isLoading ? (
+  const previewContent = !hasInlineContent && fileQuery.isLoading ? (
     <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>
-  ) : fileQuery.isError ? (
+  ) : !hasInlineContent && fileQuery.isError ? (
     <div className="h-full w-full p-4 text-destructive">
       {fileQuery.error?.message ?? "读取失败"}
     </div>
@@ -405,11 +411,11 @@ export default function MarkdownViewer({
       {shouldRenderStackHeader ? (
         <StackHeader
           title={displayTitle}
-          openUri={openUri ?? uri}
+          openUri={hasInlineContent ? undefined : openUri ?? uri}
           openRootUri={rootUri}
           rightSlot={
             <div className="flex items-center gap-1">
-              {isEditMode ? (
+              {canEdit && isEditMode ? (
                 <>
                   <Button
                     variant="ghost"
@@ -433,19 +439,21 @@ export default function MarkdownViewer({
                   </Button>
                 </>
               ) : null}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleMode}
-                aria-label={isEditMode ? "预览" : "编辑"}
-                title={isEditMode ? "预览" : "编辑"}
-              >
-                {isEditMode ? (
-                  <Eye className="h-4 w-4" />
-                ) : (
-                  <PencilLine className="h-4 w-4" />
-                )}
-              </Button>
+              {canEdit ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleMode}
+                  aria-label={isEditMode ? "预览" : "编辑"}
+                  title={isEditMode ? "预览" : "编辑"}
+                >
+                  {isEditMode ? (
+                    <Eye className="h-4 w-4" />
+                  ) : (
+                    <PencilLine className="h-4 w-4" />
+                  )}
+                </Button>
+              ) : null}
             </div>
           }
           showMinimize
@@ -460,22 +468,28 @@ export default function MarkdownViewer({
         />
       ) : null}
       <div className="min-h-0 flex-1">
-        <div className={isEditMode ? "h-full" : "hidden"}>
-          <CodeViewer
-            uri={uri}
-            name={name}
-            ext={editorExt}
-            rootUri={rootUri}
-            projectId={projectId}
-            mode="edit"
-            visible={isEditMode}
-            actionsRef={codeActionsRef}
-            onStatusChange={setCodeStatus}
-          />
-        </div>
-        <div className={isEditMode ? "hidden" : "h-full overflow-auto"}>
-          {previewContent}
-        </div>
+        {canEdit ? (
+          <>
+            <div className={isEditMode ? "h-full" : "hidden"}>
+              <CodeViewer
+                uri={uri}
+                name={name}
+                ext={editorExt}
+                rootUri={rootUri}
+                projectId={projectId}
+                mode="edit"
+                visible={isEditMode}
+                actionsRef={codeActionsRef}
+                onStatusChange={setCodeStatus}
+              />
+            </div>
+            <div className={isEditMode ? "hidden" : "h-full overflow-auto"}>
+              {previewContent}
+            </div>
+          </>
+        ) : (
+          <div className="h-full overflow-auto">{previewContent}</div>
+        )}
       </div>
     </div>
   );

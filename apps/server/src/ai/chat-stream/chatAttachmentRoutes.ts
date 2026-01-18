@@ -151,6 +151,17 @@ export function registerChatAttachmentRoutes(app: Hono) {
     try {
       const preview = await getFilePreview({ path, projectId, includeMetadata, maxBytes });
       if (!preview) return c.json({ error: "Preview not found" }, 404);
+      if (preview.kind === "too-large") {
+        // 逻辑：附件超过预览阈值时告知前端大小与上限。
+        return c.json(
+          {
+            error: "Preview too large",
+            sizeBytes: preview.sizeBytes,
+            maxBytes: preview.maxBytes,
+          },
+          413
+        );
+      }
       if (includeMetadata) {
         const multipart = buildMultipartMixed({
           metadata: preview.metadata ?? null,

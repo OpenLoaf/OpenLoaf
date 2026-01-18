@@ -9,6 +9,7 @@ import { Document, Packer, Paragraph } from "docx";
 import { toast } from "sonner";
 import {
   CommandType,
+  CanceledError,
   ICommandService,
   LocaleType,
   LogLevel,
@@ -52,6 +53,8 @@ interface DocViewerProps {
   rootUri?: string;
   panelKey?: string;
   tabId?: string;
+  /** Whether the viewer is read-only. */
+  readOnly?: boolean;
 }
 
 type DocViewerStatus = "idle" | "loading" | "ready" | "error" | "unsupported";
@@ -201,7 +204,12 @@ export default function DocViewer({
   rootUri,
   panelKey,
   tabId,
+  readOnly,
 }: DocViewerProps) {
+  // 逻辑：仅在 stack 面板场景下展示最小化/关闭按钮。
+  const canMinimize = Boolean(tabId);
+  const canClose = Boolean(tabId && panelKey);
+  const isReadOnly = Boolean(readOnly);
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   /** Tracks the document render status. */
@@ -216,6 +224,8 @@ export default function DocViewer({
   const docRef = useRef<DocModel | null>(null);
   /** Holds the command listener disposable. */
   const commandDisposableRef = useRef<IDisposable | null>(null);
+  /** Holds the disposable for read-only command guards. */
+  const readOnlyDisposableRef = useRef<IDisposable | null>(null);
   /** Marks initialization to avoid dirty flag on first load. */
   const initializingRef = useRef(true);
   /** Container element for Univer workbench. */
@@ -339,25 +349,36 @@ export default function DocViewer({
       if (commandInfo.type !== CommandType.MUTATION) return;
       setIsDirty(true);
     });
+    if (isReadOnly) {
+      readOnlyDisposableRef.current = commandService.beforeCommandExecuted((commandInfo) => {
+        if (initializingRef.current) return;
+        if (commandInfo.type !== CommandType.MUTATION) return;
+        // 逻辑：只读模式拦截写入类 mutation。
+        throw new CanceledError();
+      });
+    }
     setStatus("ready");
     initializingRef.current = false;
 
     return () => {
       const commandDisposable = commandDisposableRef.current;
+      const readOnlyDisposable = readOnlyDisposableRef.current;
       const docModel = docRef.current;
       const univerInstance = univerRef.current;
       commandDisposableRef.current = null;
+      readOnlyDisposableRef.current = null;
       docRef.current = null;
       univerRef.current = null;
       // 逻辑：延迟卸载内部 React root，避免渲染期同步 unmount。
       window.setTimeout(() => {
         commandDisposable?.dispose();
+        readOnlyDisposable?.dispose();
         docModel?.dispose();
         univerInstance?.dispose();
         mountContainer.remove();
       }, 0);
     };
-  }, [snapshot]);
+  }, [snapshot, isReadOnly]);
 
   useEffect(() => {
     const univer = univerRef.current;
@@ -412,34 +433,42 @@ export default function DocViewer({
         openUri={openUri}
         openRootUri={rootUri}
         rightSlot={
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label="保存"
-                onClick={() => void handleSave()}
-                disabled={!shouldUseFs || status !== "ready" || writeBinaryMutation.isPending}
-              >
-                <Save className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">保存</TooltipContent>
-          </Tooltip>
+          !isReadOnly ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="保存"
+                  onClick={() => void handleSave()}
+                  disabled={!shouldUseFs || status !== "ready" || writeBinaryMutation.isPending}
+                >
+                  <Save className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">保存</TooltipContent>
+            </Tooltip>
+          ) : null
         }
-        showMinimize
-        onMinimize={() => {
-          if (!tabId) return;
-          requestStackMinimize(tabId);
-        }}
-        onClose={() => {
-          if (!tabId || !panelKey) return;
-          if (isDirty) {
-            const ok = window.confirm("当前文档尚未保存，确定要关闭吗？");
-            if (!ok) return;
-          }
-          removeStackItem(tabId, panelKey);
-        }}
+        showMinimize={canMinimize}
+        onMinimize={
+          canMinimize
+            ? () => {
+                requestStackMinimize(tabId!);
+              }
+            : undefined
+        }
+        onClose={
+          canClose
+            ? () => {
+                if (isDirty) {
+                  const ok = window.confirm("当前文档尚未保存，确定要关闭吗？");
+                  if (!ok) return;
+                }
+                removeStackItem(tabId!, panelKey!);
+              }
+            : undefined
+        }
       />
       <div className="flex min-h-0 flex-1 flex-col">
         {!shouldUseFs ? (

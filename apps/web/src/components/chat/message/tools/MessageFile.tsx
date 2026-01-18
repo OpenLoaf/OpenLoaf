@@ -1,12 +1,22 @@
 "use client";
 
 import React from "react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/components/chat/ChatProvider";
+import { Button } from "@/components/ui/button";
 import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
 import { useProject } from "@/hooks/use-project";
-import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
+import {
+  fetchBlobFromUri,
+  isPreviewTooLargeError,
+  resolveFileName,
+} from "@/lib/image/uri";
 import { setImageDragPayload } from "@/lib/image/drag";
+import {
+  formatSize,
+  resolveFileUriFromRoot,
+} from "@/components/project/filesystem/utils/file-system-utils";
 
 interface MessageFileProps {
   /** File URL to render. */
@@ -24,6 +34,10 @@ type PreviewState = {
   status: "loading" | "ready" | "error";
   /** Resolved preview src. */
   src?: string;
+  /** Error kind for preview failures. */
+  errorKind?: "too-large";
+  /** Size in bytes for the original file. */
+  sizeBytes?: number;
 };
 
 /** Check whether the media type is an image type. */
@@ -48,6 +62,26 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
   const projectQuery = useProject(projectId);
   const projectRootUri = projectQuery.data?.project?.rootUri;
 
+  /** Open the current file with system default application. */
+  const handleOpenWithSystem = React.useCallback(() => {
+    // 逻辑：仅桌面端可用，优先解析本地路径后交给系统打开。
+    const api = window.tenasElectron;
+    if (!api?.openPath) {
+      toast.error("网页版不支持打开本地文件");
+      return;
+    }
+    const resolvedUri = resolveFileUriFromRoot(projectRootUri, url);
+    if (!resolvedUri) {
+      toast.error("未找到文件路径");
+      return;
+    }
+    void api.openPath({ uri: resolvedUri }).then((res) => {
+      if (!res?.ok) {
+        toast.error(res?.reason ?? "无法打开文件");
+      }
+    });
+  }, [projectRootUri, url]);
+
   React.useEffect(() => {
     if (!shouldFetchPreview) {
       setPreview(null);
@@ -64,8 +98,16 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
         objectUrl = URL.createObjectURL(blob);
         if (aborted) return;
         setPreview({ status: "ready", src: objectUrl });
-      } catch {
+      } catch (error) {
         if (aborted) return;
+        if (isPreviewTooLargeError(error)) {
+          setPreview({
+            status: "error",
+            errorKind: "too-large",
+            sizeBytes: error.sizeBytes,
+          });
+          return;
+        }
         setPreview({ status: "error" });
       }
     };
@@ -93,6 +135,19 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
   }
 
   if (shouldFetchPreview && preview?.status === "error") {
+    if (preview.errorKind === "too-large") {
+      const sizeLabel = formatSize(preview.sizeBytes);
+      return (
+        <div className={cn("flex flex-col gap-2 text-xs text-muted-foreground", className)}>
+          <div>文件过大（{sizeLabel}），请使用系统工具打开</div>
+          <div>
+            <Button type="button" size="sm" variant="outline" onClick={handleOpenWithSystem}>
+              系统打开
+            </Button>
+          </div>
+        </div>
+      );
+    }
     return <div className={cn("text-xs text-muted-foreground", className)}>图片加载失败</div>;
   }
 

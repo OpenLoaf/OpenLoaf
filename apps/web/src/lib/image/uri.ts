@@ -1,5 +1,14 @@
 import { resolveServerUrl } from "@/utils/server-url";
 
+export type PreviewTooLargeError = Error & {
+  /** Error code for preview size limit. */
+  code: "PREVIEW_TOO_LARGE";
+  /** Actual file size in bytes. */
+  sizeBytes?: number;
+  /** Max preview size in bytes. */
+  maxBytes?: number;
+};
+
 /** Resolve preview endpoint for a project-relative path. */
 export function getPreviewEndpoint(
   path: string,
@@ -19,6 +28,14 @@ function isRelativePath(uri: string) {
   return !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(uri);
 }
 
+/** Check whether an error is a preview-too-large error. */
+export function isPreviewTooLargeError(error: unknown): error is PreviewTooLargeError {
+  return (
+    error instanceof Error &&
+    (error as PreviewTooLargeError).code === "PREVIEW_TOO_LARGE"
+  );
+}
+
 /** Fetch a Blob from any supported uri. */
 export async function fetchBlobFromUri(
   uri: string,
@@ -26,7 +43,18 @@ export async function fetchBlobFromUri(
 ) {
   const endpoint = isRelativePath(uri) ? getPreviewEndpoint(uri, options) : uri;
   const res = await fetch(endpoint);
-  if (!res.ok) throw new Error("preview failed");
+  if (!res.ok) {
+    if (res.status === 413) {
+      // 逻辑：预览被拦截时解析体积信息，供前端提示。
+      const payload = await res.json().catch(() => null);
+      const error = new Error("preview too large") as PreviewTooLargeError;
+      error.code = "PREVIEW_TOO_LARGE";
+      error.sizeBytes = payload?.sizeBytes;
+      error.maxBytes = payload?.maxBytes;
+      throw error;
+    }
+    throw new Error("preview failed");
+  }
   return res.blob();
 }
 

@@ -340,6 +340,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     typeof next.boardDebugEnabled === "boolean"
       ? next.boardDebugEnabled
       : current.boardDebugEnabled;
+  const chatPrefaceEnabled =
+    typeof next.chatPrefaceEnabled === "boolean"
+      ? next.chatPrefaceEnabled
+      : current.chatPrefaceEnabled;
   const appLocalStorageDir =
     typeof next.appLocalStorageDir === "string" ? next.appLocalStorageDir : current.appLocalStorageDir;
   const appAutoBackupDir =
@@ -387,6 +391,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     uiTheme,
     uiThemeManual,
     boardDebugEnabled,
+    chatPrefaceEnabled,
     appLocalStorageDir,
     appAutoBackupDir,
     appCustomRules,

@@ -14,6 +14,7 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import AutoUpdateGate from "@/components/layout/AutoUpdateGate";
 
 type ThemeSelection = "light" | "dark" | "system";
+type FontSizeSelection = "small" | "medium" | "large" | "xlarge";
 
 /** Normalize theme selection from unknown input. */
 function normalizeThemeSelection(value: unknown): ThemeSelection | null {
@@ -21,6 +22,25 @@ function normalizeThemeSelection(value: unknown): ThemeSelection | null {
     return value;
   }
   return null;
+}
+
+/** Normalize font size selection from unknown input. */
+function normalizeFontSizeSelection(value: unknown): FontSizeSelection {
+  if (value === "small" || value === "medium" || value === "large" || value === "xlarge") {
+    return value;
+  }
+  return "medium";
+}
+
+/** Convert font size selection to root font size. */
+function toRootFontSize(value: FontSizeSelection): string {
+  return value === "small"
+    ? "14px"
+    : value === "medium"
+      ? "16px"
+      : value === "large"
+        ? "18px"
+        : "20px";
 }
 
 /** Apply theme from settings once when the app boots. */
@@ -41,6 +61,20 @@ function ThemeSettingsBootstrap() {
     appliedThemeRef.current = true;
     setTheme(nextTheme);
   }, [isLoading, basic.uiTheme, theme, setTheme]);
+
+  return null;
+}
+
+/** Apply font size from settings to the document root. */
+function FontSizeSettingsBootstrap() {
+  const { basic, isLoading } = useBasicConfig();
+
+  useEffect(() => {
+    if (isLoading) return;
+    const nextFontSize = toRootFontSize(normalizeFontSizeSelection(basic.uiFontSize));
+    // 逻辑：启动时把字号写入根节点，避免未打开设置页时字号不生效。
+    document.documentElement.style.fontSize = nextFontSize;
+  }, [basic.uiFontSize, isLoading]);
 
   return null;
 }
@@ -171,6 +205,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     >
       <QueryClientProvider client={queryClient}>
         <ThemeSettingsBootstrap />
+        <FontSizeSettingsBootstrap />
         <AnimationSettingsBootstrap />
         <MotionSettingsBootstrap>
           {children}

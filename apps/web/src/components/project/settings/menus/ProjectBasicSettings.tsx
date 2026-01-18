@@ -1,12 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRightLeft, PencilLine, SmilePlus } from "lucide-react";
+import { FilePenLine, PencilLine, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
 import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
 import { useProject } from "@/hooks/use-project";
+import { useProjects } from "@/hooks/use-projects";
 import { trpc } from "@/utils/trpc";
+import { PageTreePicker } from "@/components/layout/sidebar/ProjectTree";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import {
@@ -33,6 +35,7 @@ import {
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
 import { useTabs } from "@/hooks/use-tabs";
+import { buildProjectHierarchyIndex, filterProjectTree } from "@/lib/project-tree";
 
 type ProjectBasicSettingsProps = {
   projectId?: string;
@@ -110,6 +113,16 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   const [renameBusy, setRenameBusy] = useState(false);
   /** Track icon picker popover state. */
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  /** Track parent picker dialog open state. */
+  const [parentPickerOpen, setParentPickerOpen] = useState(false);
+  /** Track selected parent project id. */
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+  /** Track pending parent move confirmation. */
+  const [pendingParentMove, setPendingParentMove] = useState<{
+    targetParentId: string | null;
+  } | null>(null);
+  /** Track parent move request state. */
+  const [moveParentBusy, setMoveParentBusy] = useState(false);
   /** Track target parent path for storage move. */
   const [moveTargetParentPath, setMoveTargetParentPath] = useState<string | null>(null);
   /** Track move progress percentage. */
@@ -131,6 +144,9 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   );
 
   const moveStorage = useMutation(trpc.project.moveStorage.mutationOptions({}));
+  const moveProjectParent = useMutation(trpc.project.move.mutationOptions({}));
+
+  const projectsQuery = useProjects({ enabled: Boolean(projectId) });
 
   const chatStatsQuery = useQuery({
     ...trpc.chat.getProjectChatStats.queryOptions(
@@ -154,11 +170,54 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
     return joinParentPath(moveTargetParentPath, projectFolderName);
   }, [moveTargetParentPath, projectFolderName]);
   const chatSessionCount = chatStatsQuery.data?.sessionCount;
+  const baseValueClass =
+    "flex-1 text-right text-sm text-foreground hover:underline disabled:cursor-default disabled:no-underline disabled:text-muted-foreground";
+  const baseValueTruncateClass = `${baseValueClass} truncate`;
+  const baseValueWrapClass = `${baseValueClass} break-all`;
+  const projectTree = projectsQuery.data ?? [];
+  const projectHierarchy = useMemo(
+    () => buildProjectHierarchyIndex(projectTree),
+    [projectTree],
+  );
+  const currentParentId = useMemo(() => {
+    if (!projectId) return null;
+    return projectHierarchy.parentById.get(projectId) ?? null;
+  }, [projectHierarchy, projectId]);
+  const currentParent = useMemo(() => {
+    if (!currentParentId) return null;
+    return projectHierarchy.projectById.get(currentParentId) ?? null;
+  }, [currentParentId, projectHierarchy]);
+  const excludedParentIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!projectId) return ids;
+    ids.add(projectId);
+    const descendants = projectHierarchy.descendantsById.get(projectId);
+    if (descendants) {
+      for (const id of descendants) {
+        ids.add(id);
+      }
+    }
+    return ids;
+  }, [projectHierarchy, projectId]);
+  const selectableProjects = useMemo(
+    () => filterProjectTree(projectTree, excludedParentIds),
+    [excludedParentIds, projectTree],
+  );
+  const parentPickerActiveUri = useMemo(() => {
+    const activeId = selectedParentId ?? currentParentId;
+    if (!activeId) return null;
+    return projectHierarchy.rootUriById.get(activeId) ?? null;
+  }, [currentParentId, projectHierarchy, selectedParentId]);
 
   useEffect(() => {
     if (!renameOpen) return;
     setRenameDraft(project?.title ?? "");
   }, [renameOpen, project?.title]);
+
+  useEffect(() => {
+    if (!parentPickerOpen) return;
+    setSelectedParentId(currentParentId);
+  }, [currentParentId, parentPickerOpen]);
 
   useEffect(() => {
     return () => {
@@ -229,6 +288,90 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
       setRenameBusy(false);
     }
   }, [projectId, renameDraft, project?.title, updateProject, tabs, setTabTitle]);
+
+  /** Open the parent picker dialog. */
+  const handleOpenParentPicker = useCallback(() => {
+    if (!projectId) {
+      toast.error("缺少项目 ID");
+      return;
+    }
+    if (selectableProjects.length === 0) {
+      toast.error("暂无可选父项目");
+      return;
+    }
+    setParentPickerOpen(true);
+  }, [projectId, selectableProjects.length]);
+
+  /** Handle selecting parent project from picker. */
+  const handleSelectParentUri = useCallback(
+    (uri: string) => {
+      const targetId = projectHierarchy.projectIdByRootUri.get(uri);
+      if (!targetId) {
+        toast.error("未找到目标项目");
+        return;
+      }
+      setSelectedParentId(targetId);
+    },
+    [projectHierarchy],
+  );
+
+  /** Confirm selection from parent picker. */
+  const handleSubmitParentSelection = useCallback(() => {
+    if (!selectedParentId) {
+      toast.error("请选择父项目");
+      return;
+    }
+    // 逻辑：选择同一父项目时不触发确认。
+    if (selectedParentId === currentParentId) {
+      toast.error("已在该父项目下");
+      return;
+    }
+    setParentPickerOpen(false);
+    setPendingParentMove({ targetParentId: selectedParentId });
+  }, [currentParentId, selectedParentId]);
+
+  /** Trigger move to root confirmation. */
+  const handleMoveToRoot = useCallback(() => {
+    if (!projectId) {
+      toast.error("缺少项目 ID");
+      return;
+    }
+    if (!currentParentId) return;
+    setPendingParentMove({ targetParentId: null });
+  }, [currentParentId, projectId]);
+
+  /** Resolve project title from index with fallback. */
+  const resolveProjectTitle = useCallback(
+    (targetId: string | null) => {
+      if (!targetId) return "根项目";
+      return projectHierarchy.projectById.get(targetId)?.title ?? "未命名项目";
+    },
+    [projectHierarchy],
+  );
+
+  /** Confirm parent move after user approval. */
+  const handleConfirmParentMove = useCallback(async () => {
+    if (!projectId || !pendingParentMove) {
+      toast.error("缺少项目 ID");
+      return;
+    }
+    try {
+      setMoveParentBusy(true);
+      // 逻辑：确认后再提交父项目变更。
+      await moveProjectParent.mutateAsync({
+        projectId,
+        targetParentProjectId: pendingParentMove.targetParentId ?? null,
+      });
+      toast.success("父项目已更新");
+      setPendingParentMove(null);
+      setSelectedParentId(null);
+      await invalidateProjectList();
+    } catch (err: any) {
+      toast.error(err?.message ?? "更新失败");
+    } finally {
+      setMoveParentBusy(false);
+    }
+  }, [invalidateProjectList, moveProjectParent, pendingParentMove, projectId]);
 
   /** Pick target parent folder for storage move. */
   const handlePickStorageParent = useCallback(async () => {
@@ -334,7 +477,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           <TenasSettingsField>
             <button
               type="button"
-              className="flex-1 text-right text-sm text-foreground truncate hover:underline disabled:cursor-default disabled:no-underline disabled:text-muted-foreground"
+              className={baseValueTruncateClass}
               disabled={!projectId}
               onClick={async () => {
                 if (!projectId) return;
@@ -395,9 +538,20 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           </div>
 
           <TenasSettingsField className="gap-2">
-            <div className="flex-1 text-right text-sm text-foreground truncate">
+            <button
+              type="button"
+              className={baseValueTruncateClass}
+              disabled={!project?.title}
+              onClick={async () => {
+                const title = project?.title?.trim();
+                if (!title) return;
+                await copyToClipboard(title);
+                toast.success("已复制项目名称");
+              }}
+              title={project?.title ?? "-"}
+            >
               {project?.title ?? "-"}
-            </div>
+            </button>
             <Button
               type="button"
               variant="ghost"
@@ -411,6 +565,50 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             </Button>
           </TenasSettingsField>
         </div>
+
+        <div className="flex flex-wrap items-start gap-2 py-3">
+          <div className="min-w-0 sm:w-56">
+            <div className="text-sm font-medium">父项目</div>
+            <div className="text-xs text-muted-foreground">
+              也可在左侧项目树中拖拽调整层级
+            </div>
+          </div>
+
+          <TenasSettingsField className="gap-2">
+            <button
+              type="button"
+              className={baseValueTruncateClass}
+              onClick={async () => {
+                const title = currentParent?.title ?? "无父项目";
+                await copyToClipboard(title);
+                toast.success("已复制父项目");
+              }}
+              title={currentParent?.title ?? "无父项目"}
+            >
+              {currentParent?.title ?? "无父项目"}
+            </button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!projectId || selectableProjects.length === 0}
+              onClick={handleOpenParentPicker}
+            >
+              更改父项目
+            </Button>
+            {currentParentId ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={!projectId}
+                onClick={handleMoveToRoot}
+              >
+                移到根项目
+              </Button>
+            ) : null}
+          </TenasSettingsField>
+        </div>
       </TenasSettingsGroup>
 
       <TenasSettingsGroup title="存储管理" cardProps={{ divided: true, padding: "x" }}>
@@ -421,12 +619,19 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           </div>
 
           <TenasSettingsField className="gap-2">
-            <div
-              className="flex-1 text-right text-xs text-muted-foreground break-all"
+            <button
+              type="button"
+              className={baseValueWrapClass}
+              disabled={!storagePath}
+              onClick={async () => {
+                if (!displayStoragePath || displayStoragePath === "-") return;
+                await copyToClipboard(displayStoragePath);
+                toast.success("已复制存储路径");
+              }}
               title={displayStoragePath}
             >
               {displayStoragePath}
-            </div>
+            </button>
             <Button
               type="button"
               variant="ghost"
@@ -436,7 +641,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               aria-label="修改存储路径"
               title="修改存储路径"
             >
-              <ArrowRightLeft className="size-4" />
+              <FilePenLine className="size-4" />
             </Button>
           </TenasSettingsField>
         </div>
@@ -450,18 +655,36 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           </div>
 
           <TenasSettingsField className="gap-2">
-            <div className="flex-1 text-right text-sm text-foreground">
-              {typeof chatSessionCount === "number" ? chatSessionCount : "-"}
-            </div>
-            <Button
+            <button
               type="button"
-              variant="destructive"
-              size="sm"
-              disabled={!projectId || clearProjectChat.isPending}
-              onClick={() => setClearChatOpen(true)}
+              className={baseValueTruncateClass}
+              disabled={typeof chatSessionCount !== "number"}
+              onClick={async () => {
+                if (typeof chatSessionCount !== "number") return;
+                await copyToClipboard(String(chatSessionCount));
+                toast.success("已复制聊天记录数量");
+              }}
+              title={
+                typeof chatSessionCount === "number"
+                  ? String(chatSessionCount)
+                  : "-"
+              }
             >
-              {clearProjectChat.isPending ? "清空中..." : "清空"}
-            </Button>
+              {typeof chatSessionCount === "number" ? chatSessionCount : "-"}
+            </button>
+            {typeof chatSessionCount === "number" && chatSessionCount > 0 ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="ml-2"
+                disabled={!projectId || clearProjectChat.isPending}
+                onClick={() => setClearChatOpen(true)}
+              >
+                <Trash2 className="size-4" />
+                <span>{clearProjectChat.isPending ? "清空中..." : "清空"}</span>
+              </Button>
+            ) : null}
           </TenasSettingsField>
         </div>
       </TenasSettingsGroup>
@@ -510,6 +733,87 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={parentPickerOpen}
+        onOpenChange={(open) => {
+          if (!open && moveParentBusy) return;
+          setParentPickerOpen(open);
+          if (!open) {
+            setSelectedParentId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>选择父项目</DialogTitle>
+            <DialogDescription>选择要挂载的父项目。</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[360px] overflow-y-auto rounded-xl border border-border/60 bg-card/60 p-3">
+            {selectableProjects.length === 0 ? (
+              <div className="text-xs text-muted-foreground">暂无可选父项目</div>
+            ) : (
+              <PageTreePicker
+                projects={selectableProjects}
+                activeUri={parentPickerActiveUri}
+                onSelect={handleSelectParentUri}
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" type="button">
+                取消
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              onClick={handleSubmitParentSelection}
+              disabled={!selectedParentId || selectedParentId === currentParentId}
+            >
+              下一步
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={Boolean(pendingParentMove)}
+        onOpenChange={(open) => {
+          if (!open && moveParentBusy) return;
+          if (!open) {
+            setPendingParentMove(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认移动</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingParentMove
+                ? pendingParentMove.targetParentId
+                  ? `将「${project?.title ?? "当前项目"}」移动到「${resolveProjectTitle(pendingParentMove.targetParentId)}」下？`
+                  : `将「${project?.title ?? "当前项目"}」移到根项目？`
+                : "确认调整项目层级。"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="text-xs text-muted-foreground">
+            调整后子项目会随项目一起移动。
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={moveParentBusy}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmParentMove();
+              }}
+              disabled={moveParentBusy}
+            >
+              {moveParentBusy ? "移动中..." : "确认移动"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={Boolean(moveTargetParentPath)}

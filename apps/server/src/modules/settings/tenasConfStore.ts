@@ -47,6 +47,8 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   uiTheme: "system",
   uiThemeManual: "light",
   boardDebugEnabled: false,
+  // Show chat preface viewer button.
+  chatPrefaceEnabled: false,
   appLocalStorageDir: "",
   appAutoBackupDir: "",
   appCustomRules: "",
@@ -208,6 +210,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.boardDebugEnabled === "boolean"
         ? fallbackSource.boardDebugEnabled
         : DEFAULT_BASIC_CONF.boardDebugEnabled;
+  const chatPrefaceEnabled =
+    typeof source.chatPrefaceEnabled === "boolean"
+      ? source.chatPrefaceEnabled
+      : typeof fallbackSource.chatPrefaceEnabled === "boolean"
+        ? fallbackSource.chatPrefaceEnabled
+        : DEFAULT_BASIC_CONF.chatPrefaceEnabled;
   const appLocalStorageDir =
     typeof source.appLocalStorageDir === "string"
       ? source.appLocalStorageDir
@@ -300,6 +308,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     uiTheme,
     uiThemeManual,
     boardDebugEnabled,
+    chatPrefaceEnabled,
     appLocalStorageDir,
     appAutoBackupDir,
     appCustomRules,

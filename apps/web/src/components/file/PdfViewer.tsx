@@ -3,11 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { ZoomIn, ZoomOut } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
-import { getPreviewEndpoint } from "@/lib/image/uri";
+import { fetchBlobFromUri, isPreviewTooLargeError } from "@/lib/image/uri";
+import {
+  formatSize,
+  resolveFileUriFromRoot,
+} from "@/components/project/filesystem/utils/file-system-utils";
 
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
@@ -38,8 +43,15 @@ export default function PdfViewer({
   panelKey,
   tabId,
 }: PdfViewerProps) {
+  // 逻辑：仅在 stack 面板场景下展示最小化/关闭按钮。
+  const canMinimize = Boolean(tabId);
+  const canClose = Boolean(tabId && panelKey);
   const [data, setData] = useState<Uint8Array | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [previewError, setPreviewError] = useState<{
+    kind: "too-large";
+    sizeBytes?: number;
+  } | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1.1);
   const removeStackItem = useTabs((s) => s.removeStackItem);
@@ -50,33 +62,68 @@ export default function PdfViewer({
     if (!uri) {
       setData(null);
       setStatus("idle");
+      setPreviewError(null);
       return;
     }
     if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(uri)) {
-      const controller = new AbortController();
+      let aborted = false;
       const run = async () => {
         setStatus("loading");
+        setPreviewError(null);
         try {
-          const endpoint = getPreviewEndpoint(uri, { projectId });
-          const res = await fetch(endpoint, { signal: controller.signal });
-          if (!res.ok) throw new Error("preview failed");
-          const buffer = await res.arrayBuffer();
-          if (controller.signal.aborted) return;
+          const blob = await fetchBlobFromUri(uri, { projectId });
+          const buffer = await blob.arrayBuffer();
+          if (aborted) return;
           setData(new Uint8Array(buffer));
           setStatus("ready");
-        } catch {
-          if (controller.signal.aborted) return;
+        } catch (error) {
+          if (aborted) return;
+          if (isPreviewTooLargeError(error)) {
+            setPreviewError({ kind: "too-large", sizeBytes: error.sizeBytes });
+          }
           setData(null);
           setStatus("error");
         }
       };
       void run();
-      return () => controller.abort();
+      return () => {
+        aborted = true;
+      };
     }
     setData(null);
     setStatus("error");
+    setPreviewError(null);
     return;
   }, [projectId, uri]);
+
+  /** Open the current PDF with system default application. */
+  const handleOpenWithSystem = () => {
+    if (!openUri) return;
+    const trimmedUri = openUri.trim();
+    if (!trimmedUri) return;
+    const resolvedUri = (() => {
+      const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmedUri);
+      if (hasScheme) return trimmedUri;
+      if (!rootUri) return "";
+      const scopedMatch = trimmedUri.match(/^@\[[^\]]+\]\/?(.*)$/);
+      const relativePath = scopedMatch ? scopedMatch[1] ?? "" : trimmedUri;
+      return resolveFileUriFromRoot(rootUri, relativePath);
+    })();
+    const api = window.tenasElectron;
+    if (!api?.openPath) {
+      toast.error("网页版不支持打开本地文件");
+      return;
+    }
+    if (!resolvedUri) {
+      toast.error("未找到文件路径");
+      return;
+    }
+    void api.openPath({ uri: resolvedUri }).then((res) => {
+      if (!res?.ok) {
+        toast.error(res?.reason ?? "无法打开文件");
+      }
+    });
+  };
 
   const displayTitle = useMemo(() => name ?? uri ?? "PDF", [name, uri]);
   const documentFile = useMemo(() => (data ? { data } : null), [data]);
@@ -90,6 +137,19 @@ export default function PdfViewer({
   }
 
   if (status === "error") {
+    if (previewError?.kind === "too-large") {
+      const sizeLabel = formatSize(previewError.sizeBytes);
+      return (
+        <div className="flex h-full w-full flex-col items-start gap-3 p-4 text-sm text-muted-foreground">
+          <div>文件过大（{sizeLabel}），请使用系统工具打开</div>
+          {openUri ? (
+            <Button type="button" size="sm" variant="outline" onClick={handleOpenWithSystem}>
+              系统打开
+            </Button>
+          ) : null}
+        </div>
+      );
+    }
     return (
       <div className="h-full w-full p-4 text-destructive">
         PDF 预览失败
@@ -123,15 +183,21 @@ export default function PdfViewer({
             </Button>
           </div>
         }
-        showMinimize
-        onMinimize={() => {
-          if (!tabId) return;
-          requestStackMinimize(tabId);
-        }}
-        onClose={() => {
-          if (!tabId || !panelKey) return;
-          removeStackItem(tabId, panelKey);
-        }}
+        showMinimize={canMinimize}
+        onMinimize={
+          canMinimize
+            ? () => {
+                requestStackMinimize(tabId!);
+              }
+            : undefined
+        }
+        onClose={
+          canClose
+            ? () => {
+                removeStackItem(tabId!, panelKey!);
+              }
+            : undefined
+        }
       />
       <div
         className="flex-1 overflow-auto p-4"

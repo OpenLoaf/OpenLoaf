@@ -28,6 +28,7 @@
     "@trpc/server": "catalog:",
     "dotenv": "catalog:",
     "hono": "catalog:",
+    "isomorphic-git": "^1.32.0",
     "platejs": "^52.0.11",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",

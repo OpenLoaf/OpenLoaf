@@ -76,6 +76,8 @@ export const basicConfigSchema = z.object({
   uiThemeManual: uiThemeManualSchema,
   /** Show board debug overlay. */
   boardDebugEnabled: z.boolean(),
+  /** Show chat preface viewer button. */
+  chatPrefaceEnabled: z.boolean(),
   appLocalStorageDir: z.string(),
   appAutoBackupDir: z.string(),
   appCustomRules: z.string(),

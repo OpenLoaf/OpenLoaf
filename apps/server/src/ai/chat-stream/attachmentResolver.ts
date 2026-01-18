@@ -12,6 +12,8 @@ const CHAT_IMAGE_MAX_EDGE = 1024;
 const CHAT_IMAGE_QUALITY = 80;
 /** Max bytes for chat binary attachments. */
 const CHAT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+/** Max bytes for chat attachment preview payloads. */
+const CHAT_ATTACHMENT_PREVIEW_MAX_BYTES = 30 * 1024 * 1024;
 /** Supported image types. */
 const SUPPORTED_IMAGE_MIME = new Set([
   "image/png",
@@ -55,6 +57,27 @@ type ImageOutput = ImageFormat & {
   /** Output buffer. */
   buffer: Buffer;
 };
+
+/** File preview result for attachment previews. */
+type FilePreviewResult =
+  | {
+      /** Result kind. */
+      kind: "ready";
+      /** Preview payload buffer. */
+      buffer: Buffer;
+      /** Preview media type. */
+      mediaType: string;
+      /** Optional metadata payload. */
+      metadata?: string | null;
+    }
+  | {
+      /** Result kind. */
+      kind: "too-large";
+      /** Original file size. */
+      sizeBytes: number;
+      /** Max bytes allowed for preview. */
+      maxBytes: number;
+    };
 
 /** Format timestamp base name as YYYYMMDD_HHmmss_SSS. */
 function formatTimestampBaseName(date: Date): string {
@@ -649,7 +672,7 @@ export async function getFilePreview(input: {
   includeMetadata?: boolean;
   /** Target byte size for preview compression. */
   maxBytes?: number;
-}): Promise<{ buffer: Buffer; mediaType: string; metadata?: string | null } | null> {
+}): Promise<FilePreviewResult | null> {
   const resolved = await resolveProjectFilePath({
     path: input.path,
     projectId: input.projectId,
@@ -658,10 +681,19 @@ export async function getFilePreview(input: {
   if (!resolved) return null;
   const filePath = resolved.absPath;
   const lowerPath = filePath.toLowerCase();
+  // 逻辑：超出预览体积阈值时不返回内容，仅返回大小信息。
+  const sizeBytes = (await fs.stat(filePath)).size;
+  if (sizeBytes > CHAT_ATTACHMENT_PREVIEW_MAX_BYTES) {
+    return {
+      kind: "too-large",
+      sizeBytes,
+      maxBytes: CHAT_ATTACHMENT_PREVIEW_MAX_BYTES,
+    };
+  }
   // PDF 直接返回原文件内容，图片继续压缩预览。
   if (lowerPath.endsWith(".pdf")) {
     const buffer = await fs.readFile(filePath);
-    return { buffer, mediaType: "application/pdf", metadata: null };
+    return { kind: "ready", buffer, mediaType: "application/pdf", metadata: null };
   }
   const format = resolveImageFormat("application/octet-stream", filePath);
   if (!format || !isSupportedImageMime(format.mediaType)) return null;
@@ -670,7 +702,12 @@ export async function getFilePreview(input: {
     ? await compressImageBufferToTarget(buffer, format, { maxBytes: input.maxBytes })
     : await compressImageBuffer(buffer, format);
   const metadata = input.includeMetadata ? await resolveImageMetadataText(filePath) : null;
-  return { buffer: compressed.buffer, mediaType: compressed.mediaType, metadata };
+  return {
+    kind: "ready",
+    buffer: compressed.buffer,
+    mediaType: compressed.mediaType,
+    metadata,
+  };
 }
 
 /** Load image buffer from a relative path. */

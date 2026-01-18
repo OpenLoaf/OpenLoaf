@@ -30,6 +30,12 @@ import {
   getDisplayFileName,
   isBoardFolderName,
 } from "@/lib/file-name";
+import {
+  getParentRelativePath,
+  isProjectAbsolutePath,
+  normalizeProjectRelativePath,
+  parseScopedProjectPath,
+} from "@/components/project/filesystem/utils/file-system-utils";
 
 /** Returns true when the event target is an editable element. */
 function isEditableTarget(target: EventTarget | null) {
@@ -173,21 +179,36 @@ function PanelFrame({
 
 /** Build a sibling uri with the new filename. */
 function buildRenamedUri(uri: string, nextName: string): string {
-  const url = new URL(uri);
-  const parts = url.pathname.split("/");
-  parts[parts.length - 1] = encodeURIComponent(nextName);
-  url.pathname = parts.join("/");
-  return url.toString();
+  const parsed = parseRenamePath(uri);
+  if (!parsed) return uri;
+  const parts = parsed.relativePath.split("/").filter(Boolean);
+  if (parts.length === 0) return parsed.prefix || uri;
+  parts[parts.length - 1] = nextName;
+  const nextRelativePath = parts.join("/");
+  return parsed.prefix ? `${parsed.prefix}${nextRelativePath}` : nextRelativePath;
 }
 
 /** Resolve the parent uri for a file path. */
 function getParentUri(uri: string): string {
-  const url = new URL(uri);
-  const parts = url.pathname.split("/");
-  parts.pop();
-  const nextPath = parts.join("/") || "/";
-  url.pathname = nextPath;
-  return url.toString();
+  const parsed = parseRenamePath(uri);
+  if (!parsed) return "";
+  const parentPath = getParentRelativePath(parsed.relativePath);
+  if (parentPath === null) return parsed.prefix;
+  return parsed.prefix ? `${parsed.prefix}${parentPath}` : parentPath;
+}
+
+/** Parse a UI path into a prefix and relative path for safe renaming. */
+function parseRenamePath(uri: string) {
+  const trimmed = uri.trim();
+  if (!trimmed) return null;
+  const parsed = parseScopedProjectPath(trimmed);
+  if (!parsed) return null;
+  if (isProjectAbsolutePath(trimmed)) {
+    if (!parsed.projectId) return null;
+    return { prefix: `@[${parsed.projectId}]/`, relativePath: parsed.relativePath };
+  }
+  // 中文注释：非 @[] 形式一律视为项目相对路径，避免拼出完整 file:// 路径。
+  return { prefix: "", relativePath: normalizeProjectRelativePath(trimmed) };
 }
 
 // Render the left dock contents for a tab.
@@ -205,6 +226,8 @@ export function LeftDock({ tabId }: { tabId: string }) {
     uri: string;
     name: string;
     ext?: string;
+    /** Project id for resolving project-relative paths. */
+    projectId?: string;
   } | null>(null);
   const [renameValue, setRenameValue] = React.useState("");
 
@@ -223,6 +246,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
       const uri = typeof params?.uri === "string" ? params.uri : "";
       const name = typeof params?.name === "string" ? params.name : "";
       const ext = typeof params?.ext === "string" ? params.ext : undefined;
+      const projectId = typeof params?.projectId === "string" ? params.projectId : undefined;
       const shouldPromptRename =
         item.component === "board-viewer" &&
         Boolean(params?.__pendingRename) &&
@@ -233,7 +257,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
         return;
       }
       setRenameValue(getBoardDisplayName(name));
-      setRenameDialog({ tabId, itemId: item.id, uri, name, ext });
+      setRenameDialog({ tabId, itemId: item.id, uri, name, ext, projectId });
     },
     [removeStackItem, tabId]
   );
@@ -248,12 +272,14 @@ export function LeftDock({ tabId }: { tabId: string }) {
     try {
       await renameMutation.mutateAsync({
         workspaceId,
+        projectId: renameDialog.projectId,
         from: renameDialog.uri,
         to: nextUri,
       });
       await queryClient.invalidateQueries({
         queryKey: trpc.fs.list.queryOptions({
           workspaceId,
+          projectId: renameDialog.projectId,
           uri: getParentUri(renameDialog.uri),
         }).queryKey,
       });

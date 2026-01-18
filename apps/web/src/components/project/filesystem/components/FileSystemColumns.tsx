@@ -7,12 +7,11 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   type DragEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { useQuery, useQueries } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -25,8 +24,6 @@ import {
 } from "@/lib/file-name";
 import {
   type FileSystemEntry,
-  formatSize,
-  formatTimestamp,
   getEntryExt,
   getRelativePathFromUri,
   IGNORE_NAMES,
@@ -46,7 +43,10 @@ import {
 import { FileSystemSearchEmptyState } from "./FileSystemEmptyState";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
 import { useFileSystemSelection } from "../hooks/use-file-system-selection";
+import { useFileSystemPreview } from "../hooks/use-file-system-preview";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
+import { FileSystemPreviewPanel } from "./FileSystemPreviewPanel";
+import { FileSystemPreviewStack } from "./FileSystemPreviewStack";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 /** Return true when the entry represents a board folder. */
@@ -486,93 +486,26 @@ const FileSystemColumns = memo(function FileSystemColumns({
   const gridRef = useRef<HTMLDivElement>(null);
   // 记录最近一次右键触发的条目与时间，用于 0.5 秒内拦截左右键误触。
   const lastContextMenuRef = useRef<{ uri: string; at: number } | null>(null);
-  const [previewUri, setPreviewUri] = useState<string | null>(null);
   const { thumbnailByUri } = useFolderThumbnails({
     currentUri: activeUri,
     includeHidden,
     projectId,
   });
 
-  const fallbackPreviewUri = useMemo(() => {
-    if (!selectedUris || selectedUris.size !== 1) return null;
-    const uri = selectedUris.values().next().value;
-    if (!uri) return null;
-    const entry = entryByUri.get(uri);
-    if (!entry || entry.kind !== "file") return null;
-    return entry.uri;
-  }, [entryByUri, selectedUris]);
-  const previewEntry = useMemo(() => {
-    const uri = previewUri ?? fallbackPreviewUri;
-    if (!uri) return null;
-    const entry = entryByUri.get(uri);
-    if (!entry || entry.kind !== "file") return null;
-    return entry;
-  }, [entryByUri, fallbackPreviewUri, previewUri]);
-  useEffect(() => {
-    if (!previewUri) return;
-    if (entryByUri.has(previewUri)) return;
-    setPreviewUri(null);
-  }, [entryByUri, previewUri]);
-  const previewExt = useMemo(
-    () => (previewEntry ? getEntryExt(previewEntry) : ""),
-    [previewEntry]
-  );
-  const isPreviewImage = previewEntry ? IMAGE_EXTS.has(previewExt) : false;
-  const isPreviewPdf = previewEntry ? PDF_EXTS.has(previewExt) : false;
-  const shouldLoadPreview =
-    Boolean(previewEntry) && (isPreviewImage || isPreviewPdf);
-  const previewQuery = useQuery({
-    ...trpc.fs.readBinary.queryOptions({
-      workspaceId,
-      projectId,
-      uri: previewEntry?.uri ?? "",
-    }),
-    enabled: shouldLoadPreview && Boolean(workspaceId),
+  const {
+    previewEntry,
+    setPreviewUri,
+    previewDisplayName,
+    previewTypeLabel,
+    previewSizeLabel,
+    previewCreatedLabel,
+    previewUpdatedLabel,
+  } = useFileSystemPreview({
+    entries: allEntries,
+    selectedUris,
+    resolveDisplayName: resolveColumnDisplayName,
+    resolveTypeLabel: resolveEntryTypeLabel,
   });
-  const previewSrc = useMemo(() => {
-    if (!previewEntry) return "";
-    const payload = previewQuery.data;
-    if (!payload?.contentBase64) return "";
-    if (isPreviewImage) {
-      const mime = payload.mime || "image/*";
-      return `data:${mime};base64,${payload.contentBase64}`;
-    }
-    if (isPreviewPdf) {
-      return `data:application/pdf;base64,${payload.contentBase64}`;
-    }
-    return "";
-  }, [isPreviewImage, isPreviewPdf, previewEntry, previewQuery.data]);
-  const previewDisplayName = useMemo(
-    () => (previewEntry ? resolveColumnDisplayName(previewEntry) : ""),
-    [previewEntry]
-  );
-  const previewTypeLabel = useMemo(
-    () => (previewEntry ? resolveEntryTypeLabel(previewEntry) : ""),
-    [previewEntry]
-  );
-  const previewSizeLabel = useMemo(
-    () => (previewEntry ? formatSize(previewEntry.size) : "--"),
-    [previewEntry]
-  );
-  const previewCreatedLabel = useMemo(
-    () => (previewEntry ? formatTimestamp(previewEntry.createdAt) : "--"),
-    [previewEntry]
-  );
-  const previewUpdatedLabel = useMemo(
-    () => (previewEntry ? formatTimestamp(previewEntry.updatedAt) : "--"),
-    [previewEntry]
-  );
-  const previewVisual = useMemo(() => {
-    if (!previewEntry) return null;
-    return getEntryVisual({
-      kind: previewEntry.kind,
-      name: previewEntry.name,
-      ext: previewEntry.ext,
-      isEmpty: previewEntry.isEmpty,
-      sizeClassName: "h-16 w-16",
-      thumbnailIconClassName: "h-full w-full p-3 text-muted-foreground",
-    });
-  }, [previewEntry]);
   const previewColumnIndex = useMemo(() => {
     if (!previewEntry) return null;
     const targetUri = previewEntry.uri;
@@ -829,164 +762,131 @@ const FileSystemColumns = memo(function FileSystemColumns({
     });
   }, [columnUris]);
 
-  return (
-    <div className="relative flex min-h-full h-full overflow-hidden">
-      {shouldShowSearchEmpty ? (
-        <div className="absolute inset-0 z-10">
-          <FileSystemSearchEmptyState query={searchText} />
-        </div>
-      ) : null}
-      <div
-        ref={gridRef}
-        tabIndex={-1}
-        className="relative flex-none min-h-full h-full min-w-0 overflow-x-auto overflow-y-hidden focus:outline-none"
-        style={columnsWidthStyle}
-        onMouseDown={handleGridMouseDown}
-        onContextMenuCapture={handleGridContextMenuCapture}
-      >
-        {selectionRect && gridRef.current ? (
-          <div
-            className="pointer-events-none absolute z-10 rounded-md border border-primary/40 bg-primary/10"
-            style={{
-              left:
-                selectionRect.left - gridRef.current.getBoundingClientRect().left,
-              top:
-                selectionRect.top - gridRef.current.getBoundingClientRect().top,
-              width: selectionRect.right - selectionRect.left,
-              height: selectionRect.bottom - selectionRect.top,
-            }}
-          />
-        ) : null}
-        <div className="flex min-h-full h-full w-max">
-          {visibleColumns.map((column, columnIndex) => (
-            <div
-              key={column.uri}
-              className={`flex h-full w-72 shrink-0 flex-col border-r border-border/70 bg-background/95 ${
-                columnIndex === visibleColumns.length - 1 ? "border-r-0" : ""
-              }`}
-            >
-              <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
-                {column.isLoading ? (
-                  <div className="px-2 py-1 text-xs text-muted-foreground">
-                    加载中...
-                  </div>
-                ) : column.entries.length === 0 ? (
-                  <div className="px-2 py-1 text-xs text-muted-foreground">
-                    暂无内容
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-0.5">
-                    {column.entries.map((entry) => {
-                      const isRenaming = renamingUri === entry.uri;
-                      const isPreviewSelected = previewEntry?.uri === entry.uri;
-                      const isSelected =
-                        (selectedUris?.has(entry.uri) ?? false) || isPreviewSelected;
-                      const isPreviewColumn = previewColumnIndex === columnIndex;
-                      const isPathSelected =
-                        !hasExplicitSelection &&
-                        !isPreviewColumn &&
-                        column.pathSelectedUri === entry.uri;
-                      const isDragOver =
-                        entry.kind === "folder" && dragOverFolderUri === entry.uri;
-                      const thumbnailSrc = thumbnailByUri.get(entry.uri);
-                      const entryRef =
-                        columnIndex === visibleColumns.length - 1
-                          ? registerEntryRef(entry.uri)
-                          : undefined;
-                      const row = isRenaming ? (
-                        <FileSystemColumnRenameRow
-                          entry={entry}
-                          entryRef={entryRef}
-                          thumbnailSrc={thumbnailSrc}
-                          isSelected={isSelected}
-                          renamingValue={renamingValue}
-                          onRenamingChange={onRenamingChange}
-                          onRenamingSubmit={onRenamingSubmit}
-                          onRenamingCancel={onRenamingCancel}
-                        />
-                      ) : (
-                        <FileSystemColumnRow
-                          entry={entry}
-                          entryRef={entryRef}
-                          thumbnailSrc={thumbnailSrc}
-                          isSelected={isSelected}
-                          isPathSelected={isPathSelected}
-                          isDragOver={isDragOver}
-                          onClick={handleEntryClick}
-                          onDoubleClick={handleEntryDoubleClick}
-                          onContextMenu={handleEntryContextMenu}
-                          onDragStart={handleEntryDragStart}
-                          onDragOver={handleEntryDragOver}
-                          onDragEnter={handleEntryDragEnter}
-                          onDragLeave={handleEntryDragLeave}
-                          onDrop={handleEntryDrop}
-                        />
-                      );
-                      return (
-                        <Fragment key={entry.uri}>
-                          {renderEntry ? renderEntry(entry, row) : row}
-                        </Fragment>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      {previewEntry ? (
+  const searchOverlay = shouldShowSearchEmpty ? (
+    <div className="absolute inset-0 z-10">
+      <FileSystemSearchEmptyState query={searchText} />
+    </div>
+  ) : null;
+
+  const columnsContent = (
+    <div
+      ref={gridRef}
+      tabIndex={-1}
+      className="relative flex-none min-h-full h-full min-w-0 overflow-x-auto overflow-y-hidden focus:outline-none"
+      style={columnsWidthStyle}
+      onMouseDown={handleGridMouseDown}
+      onContextMenuCapture={handleGridContextMenuCapture}
+    >
+      {selectionRect && gridRef.current ? (
         <div
-          className="flex h-full min-w-[320px] flex-1 flex-col border-l border-border/70 bg-background/95"
-          onContextMenuCapture={handlePreviewContextMenuCapture}
-        >
-          <div className="flex h-full flex-col gap-3 p-3">
-            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md border border-border/70 bg-muted/30">
-              {isPreviewImage || isPreviewPdf ? (
-                previewQuery.isLoading ? (
-                  <div className="text-xs text-muted-foreground">预览加载中...</div>
-                ) : previewSrc ? (
-                  isPreviewImage ? (
-                    <img
-                      src={previewSrc}
-                      alt={previewDisplayName}
-                      className="h-full w-full object-contain"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ) : (
-                    <iframe
-                      title={previewDisplayName}
-                      src={previewSrc}
-                      className="h-full w-full"
-                    />
-                  )
-                ) : (
-                  <div className="flex flex-col items-center gap-2 text-xs text-muted-foreground">
-                    {previewVisual}
-                    <span>预览失败</span>
-                  </div>
-                )
+          className="pointer-events-none absolute z-10 rounded-md border border-primary/40 bg-primary/10"
+          style={{
+            left: selectionRect.left - gridRef.current.getBoundingClientRect().left,
+            top: selectionRect.top - gridRef.current.getBoundingClientRect().top,
+            width: selectionRect.right - selectionRect.left,
+            height: selectionRect.bottom - selectionRect.top,
+          }}
+        />
+      ) : null}
+      <div className="flex min-h-full h-full w-max">
+        {visibleColumns.map((column, columnIndex) => (
+          <div
+            key={column.uri}
+            className={`flex h-full w-72 shrink-0 flex-col border-r border-border/70 bg-background/95 ${
+              columnIndex === visibleColumns.length - 1 ? "border-r-0" : ""
+            }`}
+          >
+            <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
+              {column.isLoading ? (
+                <div className="px-2 py-1 text-xs text-muted-foreground">
+                  加载中...
+                </div>
+              ) : column.entries.length === 0 ? (
+                <div className="px-2 py-1 text-xs text-muted-foreground">
+                  暂无内容
+                </div>
               ) : (
-                previewVisual
+                <div className="flex flex-col gap-0.5">
+                  {column.entries.map((entry) => {
+                    const isRenaming = renamingUri === entry.uri;
+                    const isPreviewSelected = previewEntry?.uri === entry.uri;
+                    const isSelected =
+                      (selectedUris?.has(entry.uri) ?? false) || isPreviewSelected;
+                    const isPreviewColumn = previewColumnIndex === columnIndex;
+                    const isPathSelected =
+                      !hasExplicitSelection &&
+                      !isPreviewColumn &&
+                      column.pathSelectedUri === entry.uri;
+                    const isDragOver =
+                      entry.kind === "folder" && dragOverFolderUri === entry.uri;
+                    const thumbnailSrc = thumbnailByUri.get(entry.uri);
+                    const entryRef =
+                      columnIndex === visibleColumns.length - 1
+                        ? registerEntryRef(entry.uri)
+                        : undefined;
+                    const row = isRenaming ? (
+                      <FileSystemColumnRenameRow
+                        entry={entry}
+                        entryRef={entryRef}
+                        thumbnailSrc={thumbnailSrc}
+                        isSelected={isSelected}
+                        renamingValue={renamingValue}
+                        onRenamingChange={onRenamingChange}
+                        onRenamingSubmit={onRenamingSubmit}
+                        onRenamingCancel={onRenamingCancel}
+                      />
+                    ) : (
+                      <FileSystemColumnRow
+                        entry={entry}
+                        entryRef={entryRef}
+                        thumbnailSrc={thumbnailSrc}
+                        isSelected={isSelected}
+                        isPathSelected={isPathSelected}
+                        isDragOver={isDragOver}
+                        onClick={handleEntryClick}
+                        onDoubleClick={handleEntryDoubleClick}
+                        onContextMenu={handleEntryContextMenu}
+                        onDragStart={handleEntryDragStart}
+                        onDragOver={handleEntryDragOver}
+                        onDragEnter={handleEntryDragEnter}
+                        onDragLeave={handleEntryDragLeave}
+                        onDrop={handleEntryDrop}
+                      />
+                    );
+                    return (
+                      <Fragment key={entry.uri}>
+                        {renderEntry ? renderEntry(entry, row) : row}
+                      </Fragment>
+                    );
+                  })}
+                </div>
               )}
             </div>
-            <div className="grid grid-cols-[72px_1fr] gap-x-2 gap-y-2 text-xs">
-              <div className="text-muted-foreground">文件名</div>
-              <div className="break-all text-foreground">{previewDisplayName}</div>
-              <div className="text-muted-foreground">文件类型</div>
-              <div className="break-all text-foreground">{previewTypeLabel}</div>
-              <div className="text-muted-foreground">大小</div>
-              <div className="break-all text-foreground">{previewSizeLabel}</div>
-              <div className="text-muted-foreground">创建时间</div>
-              <div className="break-all text-foreground">{previewCreatedLabel}</div>
-              <div className="text-muted-foreground">修改时间</div>
-              <div className="break-all text-foreground">{previewUpdatedLabel}</div>
-            </div>
           </div>
-        </div>
-      ) : null}
+        ))}
+      </div>
     </div>
+  );
+
+  return (
+    <FileSystemPreviewStack
+      className="relative flex min-h-full h-full overflow-hidden"
+      overlay={searchOverlay}
+      content={columnsContent}
+      preview={
+        <FileSystemPreviewPanel
+          previewEntry={previewEntry}
+          projectId={projectId}
+          rootUri={rootUri}
+          previewDisplayName={previewDisplayName}
+          previewTypeLabel={previewTypeLabel}
+          previewSizeLabel={previewSizeLabel}
+          previewCreatedLabel={previewCreatedLabel}
+          previewUpdatedLabel={previewUpdatedLabel}
+          onContextMenuCapture={handlePreviewContextMenuCapture}
+        />
+      }
+    />
   );
 });
 FileSystemColumns.displayName = "FileSystemColumns";

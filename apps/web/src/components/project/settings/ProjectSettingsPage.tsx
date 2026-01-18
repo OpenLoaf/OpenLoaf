@@ -2,11 +2,14 @@
 
 import { useMemo, useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { TenasSettingsLayout } from "@/components/ui/tenas/TenasSettingsLayout";
 import { TenasSettingsMenu } from "@/components/ui/tenas/TenasSettingsMenu";
-import { BarChart3, SlidersHorizontal, Sparkles } from "lucide-react";
+import { BarChart3, GitBranch, SlidersHorizontal, Sparkles } from "lucide-react";
+import { trpc } from "@/utils/trpc";
 
 import { ProjectBasicSettings } from "./menus/ProjectBasicSettings";
+import { ProjectGitSettings } from "./menus/ProjectGitSettings";
 import { ProjectSkillSettings } from "./menus/ProjectSkillSettings";
 import { ProjectStatsSettings } from "./menus/ProjectStatsSettings";
 
@@ -15,9 +18,9 @@ type ProjectSettingsPanelProps = {
   rootUri?: string;
 };
 
-type ProjectSettingsMenuKey = "basic" | "skills" | "stats";
+type ProjectSettingsMenuKey = "basic" | "skills" | "stats" | "git";
 
-const MENU: Array<{
+const BASE_MENU: Array<{
   key: ProjectSettingsMenuKey;
   label: string;
   Icon: ComponentType<{ className?: string }>;
@@ -43,8 +46,20 @@ const MENU: Array<{
   },
 ];
 
+const GIT_MENU = {
+  key: "git",
+  label: "Git",
+  Icon: GitBranch,
+  Component: ProjectGitSettings,
+} satisfies {
+  key: ProjectSettingsMenuKey;
+  label: string;
+  Icon: ComponentType<{ className?: string }>;
+  Component: ComponentType<ProjectSettingsPanelProps>;
+};
+
 const MENU_KEY_SET = new Set<ProjectSettingsMenuKey>(
-  MENU.map((item) => item.key)
+  [...BASE_MENU, GIT_MENU].map((item) => item.key)
 );
 
 /** Check whether the value is a valid project settings menu key. */
@@ -92,11 +107,27 @@ export default function ProjectSettingsPage({
   const [activeKey, setActiveKey] = useState<ProjectSettingsMenuKey>(() =>
     isProjectSettingsMenuKey(settingsMenu) ? settingsMenu : "basic"
   );
+  const gitInfoQuery = useQuery({
+    ...trpc.project.getGitInfo.queryOptions(
+      projectId ? { projectId } : skipToken,
+    ),
+    staleTime: 5000,
+  });
+  const isGitProject = gitInfoQuery.data?.isGitProject === true;
+  const menuItems = useMemo(
+    () => (isGitProject ? [...BASE_MENU, GIT_MENU] : BASE_MENU),
+    [isGitProject],
+  );
   const [isCollapsed, setIsCollapsed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const collapseRafRef = useRef<number | null>(null);
   const pendingWidthRef = useRef<number | null>(null);
   const lastCollapsedRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    if (menuItems.some((item) => item.key === activeKey)) return;
+    setActiveKey("basic");
+  }, [activeKey, menuItems]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -136,8 +167,8 @@ export default function ProjectSettingsPage({
 
   const ActiveComponent = useMemo(
     () =>
-      MENU.find((item) => item.key === activeKey)?.Component ?? (() => null),
-    [activeKey]
+      menuItems.find((item) => item.key === activeKey)?.Component ?? (() => null),
+    [activeKey, menuItems]
   );
 
   return (
@@ -147,7 +178,7 @@ export default function ProjectSettingsPage({
       sectionClassName="rounded-2xl  bg-background/70"
       menu={
         <TenasSettingsMenu
-          groups={[MENU]}
+          groups={[menuItems]}
           activeKey={activeKey}
           isCollapsed={isCollapsed}
           onChange={(key) => setActiveKey(key as ProjectSettingsMenuKey)}

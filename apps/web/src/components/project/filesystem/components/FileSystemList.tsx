@@ -42,7 +42,10 @@ import {
 import { FileSystemEmptyState, FileSystemSearchEmptyState } from "./FileSystemEmptyState";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
 import { useFileSystemSelection } from "../hooks/use-file-system-selection";
+import { useFileSystemPreview } from "../hooks/use-file-system-preview";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
+import { FileSystemPreviewPanel } from "./FileSystemPreviewPanel";
+import { FileSystemPreviewStack } from "./FileSystemPreviewStack";
 
 /** Return true when the entry represents a board folder. */
 const isBoardFolderEntry = (entry: FileSystemEntry) =>
@@ -596,6 +599,20 @@ const FileSystemList = memo(function FileSystemList({
     includeHidden,
     projectId,
   });
+  const {
+    previewEntry,
+    setPreviewUri,
+    previewDisplayName,
+    previewTypeLabel,
+    previewSizeLabel,
+    previewCreatedLabel,
+    previewUpdatedLabel,
+  } = useFileSystemPreview({
+    entries,
+    selectedUris,
+    resolveDisplayName: resolveEntryDisplayName,
+    resolveTypeLabel: resolveEntryTypeLabel,
+  });
 
   const entryOrderKey = useMemo(
     () => entries.map((entry) => entry.uri).join("|"),
@@ -681,9 +698,19 @@ const FileSystemList = memo(function FileSystemList({
       if (shouldBlockPointerEvent(event)) return;
       const entry = resolveEntryFromEvent(event);
       if (!entry) return;
+      const isPrimaryClick =
+        event.button === 0 && (event.nativeEvent?.which ?? 1) === 1;
+      const hasModifier = event.metaKey || event.ctrlKey;
+      if (isPrimaryClick && !hasModifier) {
+        if (entry.kind === "file") {
+          setPreviewUri(entry.uri);
+        } else {
+          setPreviewUri(null);
+        }
+      }
       onEntryClickRef.current?.(entry, event);
     },
-    [resolveEntryFromEvent, shouldBlockPointerEvent]
+    [resolveEntryFromEvent, setPreviewUri, shouldBlockPointerEvent]
   );
 
   /** Handle entry double click without recreating per-row closures. */
@@ -782,6 +809,23 @@ const FileSystemList = memo(function FileSystemList({
     [onGridContextMenuCapture, shouldBlockPointerEvent]
   );
 
+  const handlePreviewContextMenuCapture = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (!previewEntry) return;
+      if (shouldBlockPointerEvent(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      lastContextMenuRef.current = { uri: previewEntry.uri, at: Date.now() };
+      onGridContextMenuCapture?.(event, {
+        uri: previewEntry.uri,
+        entry: previewEntry,
+      });
+    },
+    [onGridContextMenuCapture, previewEntry, shouldBlockPointerEvent]
+  );
+
   useEffect(() => {
     const handleDocumentContextMenu = (event: MouseEvent) => {
       const last = lastContextMenuRef.current;
@@ -799,99 +843,113 @@ const FileSystemList = memo(function FileSystemList({
     };
   }, []);
 
-  return (
-    <div className="flex min-h-full h-full flex-col">
-      <div
-        ref={gridRef}
-        tabIndex={-1}
-        className="relative flex-1 min-h-full h-full focus:outline-none"
-        onMouseDown={handleGridMouseDown}
-        onContextMenuCapture={handleGridContextMenuCapture}
-      >
-        {selectionRect && gridRef.current ? (
-          <div
-            className="pointer-events-none absolute z-10 rounded-md border border-primary/40 bg-primary/10"
-            style={{
-              left:
-                selectionRect.left -
-                gridRef.current.getBoundingClientRect().left,
-              top:
-                selectionRect.top -
-                gridRef.current.getBoundingClientRect().top,
-              width: selectionRect.right - selectionRect.left,
-              height: selectionRect.bottom - selectionRect.top,
-            }}
-          />
-        ) : null}
-        {shouldShowSearchEmpty ? (
-          <FileSystemSearchEmptyState query={searchText} />
-        ) : shouldShowEmpty ? (
-          <FileSystemEmptyState
-            showEmptyActions={showEmptyActions}
+  const listContent = (
+    <div
+      ref={gridRef}
+      tabIndex={-1}
+      className="relative flex-1 min-h-full h-full min-w-0 overflow-auto bg-background p-4 focus:outline-none"
+      onMouseDown={handleGridMouseDown}
+      onContextMenuCapture={handleGridContextMenuCapture}
+    >
+      {selectionRect && gridRef.current ? (
+        <div
+          className="pointer-events-none absolute z-10 rounded-md border border-primary/40 bg-primary/10"
+          style={{
+            left: selectionRect.left - gridRef.current.getBoundingClientRect().left,
+            top: selectionRect.top - gridRef.current.getBoundingClientRect().top,
+            width: selectionRect.right - selectionRect.left,
+            height: selectionRect.bottom - selectionRect.top,
+          }}
+        />
+      ) : null}
+      {shouldShowSearchEmpty ? (
+        <FileSystemSearchEmptyState query={searchText} />
+      ) : shouldShowEmpty ? (
+        <FileSystemEmptyState
+          showEmptyActions={showEmptyActions}
+          parentEntry={parentEntry}
+          onCreateDocument={onCreateDocument}
+          onCreateBoard={onCreateBoard}
+          onNavigate={onNavigate}
+          onEntryDrop={onEntryDrop}
+          setDragOverFolderUri={setDragOverFolderUri}
+          shouldBlockPointerEvent={shouldBlockPointerEvent}
+        />
+      ) : null}
+      <div ref={listRef} className="flex flex-col gap-1 py-1">
+        {shouldShowParentEntry && parentEntry ? (
+          <FileSystemParentEntryRow
             parentEntry={parentEntry}
-            onCreateDocument={onCreateDocument}
-            onCreateBoard={onCreateBoard}
+            isSelected={selectedUris?.has(parentEntry.uri)}
+            isDragOver={dragOverFolderUri === parentEntry.uri}
             onNavigate={onNavigate}
             onEntryDrop={onEntryDrop}
             setDragOverFolderUri={setDragOverFolderUri}
             shouldBlockPointerEvent={shouldBlockPointerEvent}
           />
         ) : null}
-        <div ref={listRef} className="flex flex-col gap-1 py-1">
-          {shouldShowParentEntry && parentEntry ? (
-            <FileSystemParentEntryRow
-              parentEntry={parentEntry}
-              isSelected={selectedUris?.has(parentEntry.uri)}
-              isDragOver={dragOverFolderUri === parentEntry.uri}
-              onNavigate={onNavigate}
-              onEntryDrop={onEntryDrop}
-              setDragOverFolderUri={setDragOverFolderUri}
-              shouldBlockPointerEvent={shouldBlockPointerEvent}
+        {entries.map((entry) => {
+          const isRenaming = renamingUri === entry.uri;
+          const isSelected = selectedUris?.has(entry.uri) ?? false;
+          const isDragOver =
+            entry.kind === "folder" && dragOverFolderUri === entry.uri;
+          const thumbnailSrc = thumbnailByUri.get(entry.uri);
+          const row = isRenaming ? (
+            <FileSystemEntryRenameRow
+              entry={entry}
+              thumbnailSrc={thumbnailSrc}
+              entryRef={registerEntryRef(entry.uri)}
+              isSelected={isSelected}
+              renamingValue={renamingValue}
+              onRenamingChange={onRenamingChange}
+              onRenamingSubmit={onRenamingSubmit}
+              onRenamingCancel={onRenamingCancel}
             />
-          ) : null}
-          {entries.map((entry) => {
-            const isRenaming = renamingUri === entry.uri;
-            const isSelected = selectedUris?.has(entry.uri) ?? false;
-            const isDragOver =
-              entry.kind === "folder" && dragOverFolderUri === entry.uri;
-            const thumbnailSrc = thumbnailByUri.get(entry.uri);
-            const row = isRenaming ? (
-              <FileSystemEntryRenameRow
-                entry={entry}
-                thumbnailSrc={thumbnailSrc}
-                entryRef={registerEntryRef(entry.uri)}
-                isSelected={isSelected}
-                renamingValue={renamingValue}
-                onRenamingChange={onRenamingChange}
-                onRenamingSubmit={onRenamingSubmit}
-                onRenamingCancel={onRenamingCancel}
-              />
-            ) : (
-              <FileSystemListRow
-                entry={entry}
-                thumbnailSrc={thumbnailSrc}
-                entryRef={registerEntryRef(entry.uri)}
-                isSelected={isSelected}
-                isDragOver={isDragOver}
-                onClick={handleEntryClick}
-                onDoubleClick={handleEntryDoubleClick}
-                onContextMenu={handleEntryContextMenu}
-                onDragStart={handleEntryDragStart}
-                onDragOver={handleEntryDragOver}
-                onDragEnter={handleEntryDragEnter}
-                onDragLeave={handleEntryDragLeave}
-                onDrop={handleEntryDrop}
-              />
-            );
-            return (
-              <Fragment key={entry.uri}>
-                {renderEntry ? renderEntry(entry, row) : row}
-              </Fragment>
-            );
-          })}
-        </div>
+          ) : (
+            <FileSystemListRow
+              entry={entry}
+              thumbnailSrc={thumbnailSrc}
+              entryRef={registerEntryRef(entry.uri)}
+              isSelected={isSelected}
+              isDragOver={isDragOver}
+              onClick={handleEntryClick}
+              onDoubleClick={handleEntryDoubleClick}
+              onContextMenu={handleEntryContextMenu}
+              onDragStart={handleEntryDragStart}
+              onDragOver={handleEntryDragOver}
+              onDragEnter={handleEntryDragEnter}
+              onDragLeave={handleEntryDragLeave}
+              onDrop={handleEntryDrop}
+            />
+          );
+          return (
+            <Fragment key={entry.uri}>
+              {renderEntry ? renderEntry(entry, row) : row}
+            </Fragment>
+          );
+        })}
       </div>
     </div>
+  );
+
+  return (
+    <FileSystemPreviewStack
+      className="flex min-h-full h-full"
+      content={listContent}
+      preview={
+        <FileSystemPreviewPanel
+          previewEntry={previewEntry}
+          projectId={projectId}
+          rootUri={rootUri}
+          previewDisplayName={previewDisplayName}
+          previewTypeLabel={previewTypeLabel}
+          previewSizeLabel={previewSizeLabel}
+          previewCreatedLabel={previewCreatedLabel}
+          previewUpdatedLabel={previewUpdatedLabel}
+          onContextMenuCapture={handlePreviewContextMenuCapture}
+        />
+      }
+    />
   );
 });
 FileSystemList.displayName = "FileSystemList";

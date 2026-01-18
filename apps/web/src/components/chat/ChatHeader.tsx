@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils";
-import { PlusCircle, History } from "lucide-react";
+import { Eye, PlusCircle, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -9,9 +9,11 @@ import SessionList from "@/components/chat/session/SessionList";
 import * as React from "react";
 import { useChatContext } from "./ChatProvider";
 import { useMutation } from "@tanstack/react-query";
-import { queryClient, trpc } from "@/utils/trpc";
+import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessions";
+import { useBasicConfig } from "@/hooks/use-basic-config";
+import { toast } from "sonner";
 
 interface ChatHeaderProps {
   className?: string;
@@ -21,10 +23,13 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
   const { id: activeSessionId, newSession, selectSession, messages, tabId } =
     useChatContext();
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  const [prefaceLoading, setPrefaceLoading] = React.useState(false);
   const menuLockRef = React.useRef(false);
   const { sessions, refetch: refetchSessions } = useChatSessions({ tabId });
   const tab = useTabs((s) => (tabId ? s.tabs.find((t) => t.id === tabId) : undefined));
   const setTabTitle = useTabs((s) => s.setTabTitle);
+  const pushStackItem = useTabs((s) => s.pushStackItem);
+  const { basic } = useBasicConfig();
 
   const activeSession = React.useMemo(
     () => sessions.find((session) => session.id === activeSessionId),
@@ -34,6 +39,7 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
 
   const tabTitle = String(tab?.title ?? "").trim();
   const hasTabBase = Boolean(tab?.base);
+  const showPrefaceButton = Boolean(basic.chatPrefaceEnabled);
 
   const syncHistoryTitleToTabTitle = useMutation({
     ...(trpc.chatsession.updateManyChatSession.mutationOptions() as any),
@@ -47,6 +53,52 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
     menuLockRef.current = open;
     if (open) setHistoryOpen(true);
   };
+
+  /**
+   * Open the current session preface in a markdown stack panel.
+   */
+  const handleViewPreface = React.useCallback(async () => {
+    if (!tabId) {
+      toast.error("未找到当前标签页");
+      return;
+    }
+    if (!activeSessionId) {
+      toast.error("未找到当前会话");
+      return;
+    }
+    if (prefaceLoading) return;
+
+    setPrefaceLoading(true);
+    try {
+      const res = await trpcClient.chat.getSessionPreface.query({
+        sessionId: activeSessionId,
+      });
+      const content = typeof res?.content === "string" ? res.content : "";
+      if (content.trim().length === 0) {
+        toast.message("暂无 Preface");
+        return;
+      }
+      const panelKey = `preface:${activeSessionId}`;
+      // 逻辑：按会话复用同一 stack，避免重复堆叠。
+      pushStackItem(tabId, {
+        id: panelKey,
+        sourceKey: panelKey,
+        component: "markdown-viewer",
+        title: "Chat Preface",
+        params: {
+          name: "Chat Preface",
+          ext: "md",
+          content,
+          __customHeader: true,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "读取 Preface 失败";
+      toast.error(message);
+    } finally {
+      setPrefaceLoading(false);
+    }
+  }, [activeSessionId, prefaceLoading, pushStackItem, tabId]);
 
   // Chat-only tab：让 Tab 标题跟随 chatSession.title（避免一直显示默认 “AI Chat”）
   React.useEffect(() => {
@@ -69,6 +121,24 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
         {sessionTitle.length > 0 ? sessionTitle : null}
       </div>
       <div className="min-w-0 flex items-center justify-end gap-1">
+        {showPrefaceButton ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="View Preface"
+                onClick={handleViewPreface}
+                disabled={prefaceLoading}
+              >
+                <Eye size={20} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              查看 Preface
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
         {messages.length > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>

@@ -72,14 +72,10 @@ import {
   resolveFileUriFromRoot,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { cn } from "@/lib/utils";
+import { buildProjectHierarchyIndex } from "@/lib/project-tree";
+import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
 
-type ProjectInfo = {
-  projectId: string;
-  title: string;
-  icon?: string;
-  rootUri: string;
-  children?: ProjectInfo[];
-};
+type ProjectInfo = ProjectNode;
 
 type FileNode = {
   uri: string;
@@ -90,6 +86,38 @@ type FileNode = {
   projectId?: string;
   projectIcon?: string;
 };
+
+/** Debug localStorage key for project drag logging. */
+const PROJECT_DRAG_DEBUG_KEY = "debugProjectDrag";
+
+/** Check whether project drag debug logging is enabled. */
+function isProjectDragDebugEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(PROJECT_DRAG_DEBUG_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Log drag diagnostics for project tree when enabled. */
+function logProjectDrag(...args: unknown[]): void {
+  if (!isProjectDragDebugEnabled()) return;
+  console.info("[ProjectTreeDrag]", ...args);
+}
+
+/** Summarize event target for debug logging. */
+function describeDragTarget(target: EventTarget | null): string {
+  if (typeof window === "undefined") return String(target ?? "null");
+  if (!(target instanceof HTMLElement)) return String(target ?? "null");
+  const tag = target.tagName.toLowerCase();
+  const id = target.id ? `#${target.id}` : "";
+  const className =
+    typeof target.className === "string" && target.className
+      ? `.${target.className}`
+      : "";
+  return `${tag}${id}${className}`;
+}
 
 function getNodeKey(node: FileNode): string {
   const projectId = node.projectId?.trim();
@@ -132,6 +160,27 @@ interface FileTreeNodeProps {
   contextSelectedUri: string | null;
   onContextMenuOpenChange: (node: FileNode, open: boolean) => void;
   subItemGapClassName?: string;
+  dragOverProjectId?: string | null;
+  onProjectDragStart?: (
+    node: FileNode,
+    event: React.DragEvent<HTMLElement>
+  ) => void;
+  onProjectDragOver?: (
+    node: FileNode,
+    event: React.DragEvent<HTMLElement>
+  ) => void;
+  onProjectDragLeave?: (
+    node: FileNode,
+    event: React.DragEvent<HTMLElement>
+  ) => void;
+  onProjectDrop?: (
+    node: FileNode,
+    event: React.DragEvent<HTMLElement>
+  ) => void;
+  onProjectDragEnd?: (
+    node: FileNode,
+    event: React.DragEvent<HTMLElement>
+  ) => void;
 }
 
 function resolveFileComponent(node: FileNode) {
@@ -249,6 +298,12 @@ function FileTreeNode({
   contextSelectedUri,
   onContextMenuOpenChange,
   subItemGapClassName,
+  dragOverProjectId,
+  onProjectDragStart,
+  onProjectDragOver,
+  onProjectDragLeave,
+  onProjectDrop,
+  onProjectDragEnd,
 }: FileTreeNodeProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
@@ -275,6 +330,10 @@ function FileTreeNode({
   const projectChildren = node.kind === "project" ? node.children ?? [] : [];
   const children = node.kind === "project" ? projectChildren : normalizedFileChildren;
   const hasChildren = node.kind === "project" ? children.length > 0 : true;
+  const isProjectNode = node.kind === "project" && Boolean(node.projectId);
+  const isDraggable = isProjectNode && Boolean(onProjectDragStart);
+  const isDragOver =
+    isProjectNode && dragOverProjectId && node.projectId === dragOverProjectId;
 
   const Item = depth === 0 ? SidebarMenuItem : SidebarMenuSubItem;
   const Button = depth === 0 ? SidebarMenuButton : SidebarMenuSubButton;
@@ -315,17 +374,52 @@ function FileTreeNode({
         <ContextMenu onOpenChange={(open) => onContextMenuOpenChange(node, open)}>
           <ContextMenuTrigger asChild>
             <Button
+              asChild
               tooltip={node.name}
               isActive={isActive}
-              className="text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
-              onClick={() => onPrimaryClick(node)}
-            >
-              {node.projectIcon ? (
-                <span className="text-sm leading-none">{node.projectIcon}</span>
-              ) : (
-                <Folder className="h-4 w-4" />
+              className={cn(
+                "text-sidebar-foreground/80 [&>svg]:text-muted-foreground",
+                isDragOver && "ring-1 ring-ring/60 bg-sidebar-accent/70",
               )}
-              <span>{node.name}</span>
+            >
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => onPrimaryClick(node)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onPrimaryClick(node);
+                  }
+                }}
+                onPointerDown={(event) => {
+                  logProjectDrag("pointerdown", {
+                    projectId: node.projectId,
+                    button: event.button,
+                    draggable: isDraggable,
+                  });
+                }}
+                onMouseDown={(event) => {
+                  logProjectDrag("mousedown", {
+                    projectId: node.projectId,
+                    button: event.button,
+                    draggable: isDraggable,
+                  });
+                }}
+                draggable={isDraggable}
+                onDragStart={(event) => onProjectDragStart?.(node, event)}
+                onDragOver={(event) => onProjectDragOver?.(node, event)}
+                onDragLeave={(event) => onProjectDragLeave?.(node, event)}
+                onDrop={(event) => onProjectDrop?.(node, event)}
+                onDragEnd={(event) => onProjectDragEnd?.(node, event)}
+              >
+                {node.projectIcon ? (
+                  <span className="text-sm leading-none">{node.projectIcon}</span>
+                ) : (
+                  <Folder className="h-4 w-4" />
+                )}
+                <span>{node.name}</span>
+              </div>
             </Button>
           </ContextMenuTrigger>
           {renderContextMenuContent(node)}
@@ -355,16 +449,22 @@ function FileTreeNode({
                     projectId: child.projectId,
                     projectIcon: child.projectIcon,
                   }}
-                depth={depth + 1}
-                activeUri={activeUri}
-                activeProjectRootUri={activeProjectRootUri}
-                expandedNodes={expandedNodes}
-                setExpanded={setExpanded}
-                onPrimaryClick={onPrimaryClick}
+                  depth={depth + 1}
+                  activeUri={activeUri}
+                  activeProjectRootUri={activeProjectRootUri}
+                  expandedNodes={expandedNodes}
+                  setExpanded={setExpanded}
+                  onPrimaryClick={onPrimaryClick}
                   renderContextMenuContent={renderContextMenuContent}
                   contextSelectedUri={contextSelectedUri}
                   onContextMenuOpenChange={onContextMenuOpenChange}
                   subItemGapClassName={subItemGapClassName}
+                  dragOverProjectId={dragOverProjectId}
+                  onProjectDragStart={onProjectDragStart}
+                  onProjectDragOver={onProjectDragOver}
+                  onProjectDragLeave={onProjectDragLeave}
+                  onProjectDrop={onProjectDrop}
+                  onProjectDragEnd={onProjectDragEnd}
                 />
               ))}
             </SidebarMenuSub>
@@ -392,6 +492,7 @@ export const PageTreeMenu = ({
   const createProject = useMutation(trpc.project.create.mutationOptions());
   const removeProject = useMutation(trpc.project.remove.mutationOptions());
   const destroyProject = useMutation(trpc.project.destroy.mutationOptions());
+  const moveProject = useMutation(trpc.project.move.mutationOptions());
   const renameFile = useMutation(trpc.fs.rename.mutationOptions());
   const deleteFile = useMutation(trpc.fs.delete.mutationOptions());
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
@@ -410,6 +511,55 @@ export const PageTreeMenu = ({
   const [permanentRemoveText, setPermanentRemoveText] = useState("");
   /** Busy state for removing or destroying project. */
   const [isRemoveBusy, setIsRemoveBusy] = useState(false);
+  /** Track currently dragging project info. */
+  const [draggingProject, setDraggingProject] = useState<{
+    projectId: string;
+    title: string;
+  } | null>(null);
+  /** Track drag-over project id. */
+  const [dragOverProjectId, setDragOverProjectId] = useState<string | null>(null);
+  /** Track root drop zone active state. */
+  const [isRootDropActive, setIsRootDropActive] = useState(false);
+  /** Track pending project move confirmation. */
+  const [pendingMove, setPendingMove] = useState<{
+    projectId: string;
+    targetParentId: string | null;
+  } | null>(null);
+  /** Track move request state. */
+  const [isMoveBusy, setIsMoveBusy] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isProjectDragDebugEnabled()) return;
+    // 中文注释：调试模式下监听全局拖拽事件，确认事件是否进入页面。
+    /** Log pointer events while drag debug is enabled. */
+    const logPointerEvent = (event: Event) => {
+      logProjectDrag("global", event.type, {
+        target: describeDragTarget(event.target),
+      });
+    };
+    /** Log drag events while drag debug is enabled. */
+    const logDragEvent = (event: DragEvent) => {
+      logProjectDrag("global", event.type, {
+        target: describeDragTarget(event.target),
+        dataTypes: event.dataTransfer?.types,
+      });
+    };
+    window.document.addEventListener("pointerdown", logPointerEvent, true);
+    window.document.addEventListener("mousedown", logPointerEvent, true);
+    window.document.addEventListener("dragstart", logDragEvent, true);
+    window.document.addEventListener("dragover", logDragEvent, true);
+    window.document.addEventListener("drop", logDragEvent, true);
+    window.document.addEventListener("dragend", logDragEvent, true);
+    return () => {
+      window.document.removeEventListener("pointerdown", logPointerEvent, true);
+      window.document.removeEventListener("mousedown", logPointerEvent, true);
+      window.document.removeEventListener("dragstart", logDragEvent, true);
+      window.document.removeEventListener("dragover", logDragEvent, true);
+      window.document.removeEventListener("drop", logDragEvent, true);
+      window.document.removeEventListener("dragend", logDragEvent, true);
+    };
+  }, []);
 
   const activeTabParams = useMemo(() => {
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -434,15 +584,8 @@ export const PageTreeMenu = ({
     }));
   };
 
-  const projectRootById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const project of projects) {
-      if (project.projectId && project.rootUri) {
-        map.set(project.projectId, project.rootUri);
-      }
-    }
-    return map;
-  }, [projects]);
+  const projectHierarchy = useMemo(() => buildProjectHierarchyIndex(projects), [projects]);
+  const projectRootById = projectHierarchy.rootUriById;
   const activeProjectRootUri = useMemo(() => {
     if (activeProjectId) {
       return projectRootById.get(activeProjectId) ?? null;
@@ -884,6 +1027,153 @@ export const PageTreeMenu = ({
     }
   };
 
+  /** Reset drag state for project moves. */
+  const resetProjectDragState = () => {
+    setDraggingProject(null);
+    setDragOverProjectId(null);
+    setIsRootDropActive(false);
+  };
+
+  /** Resolve project title from index with fallback. */
+  const resolveProjectTitle = (projectId: string) =>
+    projectHierarchy.projectById.get(projectId)?.title ?? "未命名项目";
+
+  /** Check whether a drop target is valid. */
+  const canDropProject = (sourceId: string, targetParentId: string | null) => {
+    if (!sourceId) return false;
+    if (targetParentId === sourceId) return false;
+    const descendants = projectHierarchy.descendantsById.get(sourceId);
+    // 逻辑：禁止把项目拖到自身或后代节点。
+    if (targetParentId && descendants?.has(targetParentId)) return false;
+    return true;
+  };
+
+  /** Confirm project move after user approval. */
+  const handleConfirmProjectMove = async () => {
+    if (!pendingMove?.projectId) return;
+    try {
+      setIsMoveBusy(true);
+      await moveProject.mutateAsync({
+        projectId: pendingMove.projectId,
+        targetParentProjectId: pendingMove.targetParentId ?? null,
+      });
+      toast.success("项目层级已更新");
+      setPendingMove(null);
+      await queryClient.invalidateQueries({ queryKey: getProjectsQueryKey() });
+    } catch (err: any) {
+      toast.error(err?.message ?? "移动失败");
+    } finally {
+      setIsMoveBusy(false);
+    }
+  };
+
+  /** Handle project drag start from tree. */
+  const handleProjectDragStart = (
+    node: FileNode,
+    event: React.DragEvent<HTMLElement>
+  ) => {
+    if (node.kind !== "project" || !node.projectId) return;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", node.projectId);
+    setDraggingProject({ projectId: node.projectId, title: node.name });
+    logProjectDrag("dragstart", {
+      projectId: node.projectId,
+      targetTag: event.currentTarget.tagName,
+    });
+  };
+
+  /** Handle drag over a project node. */
+  const handleProjectDragOver = (
+    node: FileNode,
+    event: React.DragEvent<HTMLElement>
+  ) => {
+    if (!draggingProject || node.kind !== "project" || !node.projectId) return;
+    if (!canDropProject(draggingProject.projectId, node.projectId)) return;
+    event.preventDefault();
+    setDragOverProjectId(node.projectId);
+    setIsRootDropActive(false);
+    logProjectDrag("dragover", { projectId: node.projectId });
+  };
+
+  /** Handle drag leave a project node. */
+  const handleProjectDragLeave = (
+    node: FileNode,
+    _event: React.DragEvent<HTMLElement>
+  ) => {
+    if (dragOverProjectId && node.projectId === dragOverProjectId) {
+      setDragOverProjectId(null);
+    }
+    logProjectDrag("dragleave", { projectId: node.projectId });
+  };
+
+  /** Handle dropping a project onto another project node. */
+  const handleProjectDrop = (
+    node: FileNode,
+    event: React.DragEvent<HTMLElement>
+  ) => {
+    if (!draggingProject || node.kind !== "project" || !node.projectId) return;
+    if (!canDropProject(draggingProject.projectId, node.projectId)) return;
+    event.preventDefault();
+    const currentParentId =
+      projectHierarchy.parentById.get(draggingProject.projectId) ?? null;
+    // 逻辑：拖到同一父节点时不触发确认。
+    if (currentParentId === node.projectId) {
+      resetProjectDragState();
+      return;
+    }
+    setPendingMove({
+      projectId: draggingProject.projectId,
+      targetParentId: node.projectId,
+    });
+    resetProjectDragState();
+    logProjectDrag("drop", {
+      projectId: draggingProject.projectId,
+      targetParentId: node.projectId,
+    });
+  };
+
+  /** Handle drag end cleanup. */
+  const handleProjectDragEnd = () => {
+    resetProjectDragState();
+    logProjectDrag("dragend");
+  };
+
+  /** Handle drag over root drop zone. */
+  const handleRootDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!draggingProject) return;
+    if (!canDropProject(draggingProject.projectId, null)) return;
+    event.preventDefault();
+    setIsRootDropActive(true);
+    setDragOverProjectId(null);
+    logProjectDrag("root-dragover");
+  };
+
+  /** Handle drag leave root drop zone. */
+  const handleRootDragLeave = () => {
+    setIsRootDropActive(false);
+    logProjectDrag("root-dragleave");
+  };
+
+  /** Handle dropping a project onto root drop zone. */
+  const handleRootDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!draggingProject) return;
+    if (!canDropProject(draggingProject.projectId, null)) return;
+    event.preventDefault();
+    const currentParentId =
+      projectHierarchy.parentById.get(draggingProject.projectId) ?? null;
+    // 逻辑：已经是根项目则不触发确认。
+    if (!currentParentId) {
+      resetProjectDragState();
+      return;
+    }
+    setPendingMove({
+      projectId: draggingProject.projectId,
+      targetParentId: null,
+    });
+    resetProjectDragState();
+    logProjectDrag("root-drop", { projectId: draggingProject.projectId });
+  };
+
   const renderContextMenuContent = (node: FileNode) => (
     <ContextMenuContent className="w-52">
       {node.kind === "file" || node.kind === "project" ? (
@@ -952,6 +1242,21 @@ export const PageTreeMenu = ({
 
   return (
     <>
+      {draggingProject ? (
+        <SidebarMenuItem>
+          <div
+            className={cn(
+              "mx-1 rounded-md border border-dashed border-border/70 px-2 py-1 text-xs text-muted-foreground transition-colors",
+              isRootDropActive && "border-primary/70 bg-primary/10 text-primary",
+            )}
+            onDragOver={handleRootDragOver}
+            onDragLeave={handleRootDragLeave}
+            onDrop={handleRootDrop}
+          >
+            拖到此处移到根项目
+          </div>
+        </SidebarMenuItem>
+      ) : null}
       {projects.map((project) => (
         <FileTreeNode
           key={project.rootUri}
@@ -965,6 +1270,12 @@ export const PageTreeMenu = ({
           renderContextMenuContent={renderContextMenuContent}
           contextSelectedUri={contextSelectedUri}
           onContextMenuOpenChange={handleContextMenuOpenChange}
+          dragOverProjectId={dragOverProjectId ?? null}
+          onProjectDragStart={handleProjectDragStart}
+          onProjectDragOver={handleProjectDragOver}
+          onProjectDragLeave={handleProjectDragLeave}
+          onProjectDrop={handleProjectDrop}
+          onProjectDragEnd={handleProjectDragEnd}
         />
       ))}
 
@@ -1253,6 +1564,40 @@ export const PageTreeMenu = ({
               disabled={isRemoveActionDisabled}
             >
               {removeButtonText}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingMove)}
+        onOpenChange={(open) => {
+          if (open || isMoveBusy) return;
+          setPendingMove(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认移动</DialogTitle>
+            <DialogDescription>
+              {pendingMove
+                ? pendingMove.targetParentId
+                  ? `将「${resolveProjectTitle(pendingMove.projectId)}」移动到「${resolveProjectTitle(pendingMove.targetParentId)}」下？`
+                  : `将「${resolveProjectTitle(pendingMove.projectId)}」移到根项目？`
+                : "确认调整项目层级。"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-xs text-muted-foreground">
+            调整后子项目会随项目一起移动。
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" type="button" disabled={isMoveBusy}>
+                取消
+              </Button>
+            </DialogClose>
+            <Button onClick={handleConfirmProjectMove} disabled={isMoveBusy}>
+              {isMoveBusy ? "移动中..." : "确认移动"}
             </Button>
           </DialogFooter>
         </DialogContent>

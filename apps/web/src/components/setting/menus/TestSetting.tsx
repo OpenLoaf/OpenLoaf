@@ -114,6 +114,14 @@ const TestSetting = memo(function TestSetting() {
     }
   }
 
+  /**
+   * Toggle chat preface viewer button.
+   */
+  function handleToggleChatPreface(checked: boolean) {
+    // 逻辑：实时控制 Chat Header 是否展示 Preface 查看按钮。
+    void setBasic({ chatPrefaceEnabled: checked });
+  }
+
   return (
     <div className="space-y-6">
       <TenasSettingsGroup title="实验功能">
@@ -246,6 +254,22 @@ const TestSetting = memo(function TestSetting() {
                   void setBasic({ boardDebugEnabled: checked });
                 }}
                 aria-label="Board debug overlay"
+              />
+            </TenasSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-3 py-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">显示 Chat Preface</div>
+              <div className="text-xs text-muted-foreground">
+                控制 Chat Header 是否显示 Preface 查看按钮
+              </div>
+            </div>
+            <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+              <Switch
+                checked={Boolean(basic.chatPrefaceEnabled)}
+                onCheckedChange={handleToggleChatPreface}
+                aria-label="Chat preface viewer"
               />
             </TenasSettingsField>
           </div>

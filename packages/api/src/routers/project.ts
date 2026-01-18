@@ -21,6 +21,7 @@ import {
   readWorkspaceProjectTrees,
   type ProjectConfig,
 } from "../services/projectTreeService";
+import { getProjectGitInfo } from "../services/projectGitService";
 import { moveProjectStorage } from "../services/projectStorageService";
 
 /** File name for project homepage content. */
@@ -238,6 +239,13 @@ export const projectRouter = t.router({
           rootUri: toFileUriWithoutEncoding(rootPath),
         },
       };
+    }),
+
+  /** Get git info for a project. */
+  getGitInfo: shieldedProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ input }) => {
+      return getProjectGitInfo(input.projectId);
     }),
 
   /** Update project metadata. */
