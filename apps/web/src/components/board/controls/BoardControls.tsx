@@ -134,7 +134,8 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
   const undoTitle = buildControlTitle("撤销", undoShortcut);
   const redoTitle = buildControlTitle("前进", redoShortcut);
   const fitTitle = buildControlTitle("全屏", "F");
-  const autoLayoutTitle = buildControlTitle("自动布局");
+  const autoLayoutShortcut = isMac ? "⌘⇧L" : "Ctrl+Shift+L";
+  const autoLayoutTitle = buildControlTitle("自动布局", autoLayoutShortcut);
   const lockTitle = buildControlTitle(snapshot.locked ? "解锁" : "锁定", "L");
 
   return (

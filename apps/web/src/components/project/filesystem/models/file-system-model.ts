@@ -46,6 +46,7 @@ import {
   getUniqueName,
   normalizeRelativePath,
   parseScopedProjectPath,
+  resolveBoardFolderEntryFromIndexFile,
   resolveFileUriFromRoot,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
@@ -640,6 +641,12 @@ export function useProjectFileSystemModel({
 
   /** Open file/folder using platform integration. */
   const handleOpen = async (entry: FileSystemEntry) => {
+    // 逻辑：index.tnboard 与画布目录统一打开画布栈。
+    const boardFolderEntry = resolveBoardFolderEntryFromIndexFile(entry);
+    if (boardFolderEntry) {
+      handleOpenBoard(boardFolderEntry);
+      return;
+    }
     if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
       handleOpenBoard(entry);
       return;

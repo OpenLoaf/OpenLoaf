@@ -13,6 +13,7 @@ const writeStdinToolDef = process.platform === "win32" ? writeStdinToolDefWin : 
 export const writeStdinTool = tool({
   description: writeStdinToolDef.description,
   inputSchema: zodSchema(writeStdinToolDef.parameters),
+  needsApproval: true,
   execute: async ({ sessionId, chars, yieldTimeMs, maxOutputTokens }): Promise<string> => {
     writeExecStdin({ sessionId, chars });
     const resolvedYieldTimeMs = typeof yieldTimeMs === "number" ? yieldTimeMs : 250;

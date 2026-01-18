@@ -3,7 +3,7 @@ import { tool, zodSchema } from "ai";
 import { shellToolDefUnix, shellToolDefWin } from "@tenas-ai/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/runtime/toolScope";
-import { buildExecEnv } from "@/ai/tools/runtime/execUtils";
+import { buildExecEnv, formatStructuredOutput } from "@/ai/tools/runtime/execUtils";
 
 const shellToolDef = process.platform === "win32" ? shellToolDefWin : shellToolDefUnix;
 
@@ -11,6 +11,7 @@ const shellToolDef = process.platform === "win32" ? shellToolDefWin : shellToolD
 export const shellTool = tool({
   description: shellToolDef.description,
   inputSchema: zodSchema(shellToolDef.parameters),
+  needsApproval: true,
   execute: async ({ command, workdir, timeoutMs }): Promise<string> => {
     if (!command?.length) throw new Error("command is required.");
     const allowOutside = readBasicConf().toolAllowOutsideScope;
@@ -57,7 +58,7 @@ export const shellTool = tool({
       : aggregatedOutput;
 
     const payload = {
-      output,
+      output: formatStructuredOutput(output),
       metadata: {
         exit_code: code ?? -1,
         duration_seconds: durationSeconds,

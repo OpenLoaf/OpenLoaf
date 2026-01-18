@@ -69,11 +69,21 @@ type DirEntry = {
   kind: DirEntryKind;
 };
 
-/** Truncate a string to the max line length without breaking characters. */
+/** Clamp a byte index to a UTF-8 boundary. */
+function clampUtf8End(buffer: Buffer, index: number): number {
+  let cursor = Math.max(0, Math.min(index, buffer.length));
+  while (cursor > 0 && (buffer[cursor] & 0b1100_0000) === 0b1000_0000) {
+    cursor -= 1;
+  }
+  return cursor;
+}
+
+/** Truncate a string to the max byte length without breaking characters. */
 function truncateLine(line: string, maxLength: number): string {
-  const chars = Array.from(line);
-  if (chars.length <= maxLength) return line;
-  return chars.slice(0, maxLength).join("");
+  const bytes = Buffer.from(line, "utf8");
+  if (bytes.length <= maxLength) return line;
+  const end = clampUtf8End(bytes, maxLength);
+  return bytes.toString("utf8", 0, end);
 }
 
 /** Split file contents into lines while matching Codex newline handling. */

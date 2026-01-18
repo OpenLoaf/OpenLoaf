@@ -1,11 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import type { IPty } from "node-pty";
+import { truncateText } from "@/ai/tools/runtime/execUtils";
 
 type ExecSession = {
   /** Session id. */
   id: string;
   /** Child process instance. */
-  process: ChildProcessWithoutNullStreams;
+  process: ChildProcessWithoutNullStreams | IPty;
+  /** Whether process is a PTY. */
+  isPty: boolean;
   /** Combined output buffer. */
   buffer: string;
   /** Read offset in buffer. */
@@ -31,12 +35,18 @@ const sessions = new Map<string, ExecSession>();
 const MAX_BUFFER_SIZE = 1024 * 1024;
 const SESSION_TTL_MS = 5 * 60 * 1000;
 
+function isPtyProcess(process: ChildProcessWithoutNullStreams | IPty): process is IPty {
+  return typeof (process as IPty).onData === "function";
+}
+
 /** Create a new exec session and start capturing output. */
-export function createExecSession(process: ChildProcessWithoutNullStreams): ExecSession {
+export function createExecSession(process: ChildProcessWithoutNullStreams | IPty): ExecSession {
   const id = randomUUID();
+  const isPty = isPtyProcess(process);
   const session: ExecSession = {
     id,
     process,
+    isPty,
     buffer: "",
     readOffset: 0,
     exitCode: null,
@@ -56,24 +66,39 @@ export function createExecSession(process: ChildProcessWithoutNullStreams): Exec
     }
   };
 
-  session.process.stdout.setEncoding("utf-8");
-  session.process.stderr.setEncoding("utf-8");
-  session.process.stdout.on("data", append);
-  session.process.stderr.on("data", append);
+  if (isPtyProcess(process)) {
+    process.onData((data) => {
+      append(data);
+    });
+    process.onExit((event) => {
+      session.exitCode = event.exitCode ?? null;
+      session.signal = null;
+      session.endedAt = Date.now();
+      const cleanupTimer = setTimeout(() => {
+        sessions.delete(id);
+      }, SESSION_TTL_MS);
+      cleanupTimer.unref?.();
+    });
+  } else {
+    process.stdout.setEncoding("utf-8");
+    process.stderr.setEncoding("utf-8");
+    process.stdout.on("data", append);
+    process.stderr.on("data", append);
 
-  session.process.once("exit", (code, signal) => {
-    session.exitCode = code;
-    session.signal = signal;
-    session.endedAt = Date.now();
-    const cleanupTimer = setTimeout(() => {
-      sessions.delete(id);
-    }, SESSION_TTL_MS);
-    cleanupTimer.unref?.();
-  });
+    process.once("exit", (code, signal) => {
+      session.exitCode = code;
+      session.signal = signal;
+      session.endedAt = Date.now();
+      const cleanupTimer = setTimeout(() => {
+        sessions.delete(id);
+      }, SESSION_TTL_MS);
+      cleanupTimer.unref?.();
+    });
 
-  session.process.once("error", (error) => {
-    append(`[process-error] ${String(error)}\n`);
-  });
+    process.once("error", (error) => {
+      append(`[process-error] ${String(error)}\n`);
+    });
+  }
 
   return session;
 }
@@ -98,15 +123,20 @@ export function readExecOutput(input: {
     session.readOffset = session.buffer.length;
     return { output: pending, truncated: false, chunkId, wallTimeMs };
   }
-  const output = pending.slice(0, input.maxChars);
-  session.readOffset += output.length;
-  return { output, truncated: true, chunkId, wallTimeMs };
+  const truncated = truncateText(pending, { kind: "chars", limit: input.maxChars });
+  // 中文注释：截断后仍然视为“已消费”，避免后续返回重复内容。
+  session.readOffset = session.buffer.length;
+  return { output: truncated.text, truncated: true, chunkId, wallTimeMs };
 }
 
 /** Write input to the exec session stdin. */
 export function writeExecStdin(input: { sessionId: string; chars?: string }): void {
   const session = getExecSession(input.sessionId);
   if (!session) throw new Error("Exec session not found.");
+  if (session.isPty) {
+    if (input.chars) (session.process as IPty).write(input.chars);
+    return;
+  }
   if (input.chars && session.process.stdin.writable) {
     session.process.stdin.write(input.chars);
   }

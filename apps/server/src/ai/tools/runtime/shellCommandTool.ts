@@ -3,7 +3,7 @@ import { tool, zodSchema } from "ai";
 import { shellCommandToolDefUnix, shellCommandToolDefWin } from "@tenas-ai/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/runtime/toolScope";
-import { buildExecEnv } from "@/ai/tools/runtime/execUtils";
+import { buildExecEnv, formatFreeformOutput } from "@/ai/tools/runtime/execUtils";
 
 const shellCommandToolDef =
   process.platform === "win32" ? shellCommandToolDefWin : shellCommandToolDefUnix;
@@ -20,12 +20,13 @@ function buildShellCommand(input: ShellCommandInput): { file: string; args: stri
   const trimmed = input.command.trim();
   if (!trimmed) throw new Error("command is required.");
   if (process.platform === "win32") {
-    return { file: "powershell.exe", args: ["-NoLogo", "-Command", trimmed] };
+    const args: string[] = [];
+    if (input.login === false) args.push("-NoProfile");
+    args.push("-Command", trimmed);
+    return { file: "powershell.exe", args };
   }
   const resolvedShell = process.env.SHELL || "/bin/sh";
-  const args: string[] = [];
-  if (input.login ?? true) args.push("-l");
-  args.push("-c", trimmed);
+  const args: string[] = [(input.login ?? true) ? "-lc" : "-c", trimmed];
   return { file: resolvedShell, args };
 }
 
@@ -33,6 +34,7 @@ function buildShellCommand(input: ShellCommandInput): { file: string; args: stri
 export const shellCommandTool = tool({
   description: shellCommandToolDef.description,
   inputSchema: zodSchema(shellCommandToolDef.parameters),
+  needsApproval: true,
   execute: async ({ command, workdir, timeoutMs, login }): Promise<string> => {
     const allowOutside = readBasicConf().toolAllowOutsideScope;
     const { cwd } = resolveToolWorkdir({ workdir, allowOutside });
@@ -78,12 +80,12 @@ export const shellCommandTool = tool({
       ? `command timed out after ${durationMs} milliseconds\n${aggregatedOutput}`
       : aggregatedOutput;
 
-    const sections = [
-      `Exit code: ${code ?? -1}`,
-      `Wall time: ${durationSeconds} seconds`,
-      "Output:",
-      output,
-    ];
+    const truncated = formatFreeformOutput(output);
+    const sections = [`Exit code: ${code ?? -1}`, `Wall time: ${durationSeconds} seconds`];
+    if (truncated.totalLines !== truncated.truncatedLines) {
+      sections.push(`Total output lines: ${truncated.totalLines}`);
+    }
+    sections.push("Output:", truncated.text);
 
     return sections.join("\n");
   },

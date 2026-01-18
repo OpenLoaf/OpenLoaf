@@ -270,51 +270,59 @@ export default function MessageTool({
             <span className="ml-2 text-[11px] text-muted-foreground/80">{statusText}</span>
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="h-7 w-7 shrink-0 bg-transparent text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground"
-            onClick={handleCopyAll}
-            aria-label="复制工具信息"
-            title="复制：标题 + 输入 + 输出"
-          >
-            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-          </Button>
+          <div className="flex items-center gap-2">
+            {showApprovalActions ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-[11px] text-muted-foreground">需要审批</div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  disabled={chat.status === "streaming" || chat.status === "submitted"}
+                  onClick={async (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    await chat.addToolApprovalResponse({ id: approvalId!, approved: true });
+                    // 按 AI SDK 官方流程，审批回应写入 messages 后需要再触发一次 sendMessage 才会执行工具并继续生成。
+                    await chat.sendMessage();
+                  }}
+                >
+                  允许
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={chat.status === "streaming" || chat.status === "submitted"}
+                  onClick={async (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    await chat.addToolApprovalResponse({ id: approvalId!, approved: false });
+                    await chat.sendMessage();
+                  }}
+                >
+                  拒绝
+                </Button>
+              </div>
+            ) : null}
+
+            {!showApprovalActions ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="h-7 w-7 shrink-0 bg-transparent text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground"
+                onClick={handleCopyAll}
+                aria-label="复制工具信息"
+                title="复制：标题 + 输入 + 输出"
+              >
+                {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+              </Button>
+            ) : null}
+          </div>
         </summary>
 
         <div className="mt-2 space-y-2">
-          {showApprovalActions ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="text-[11px] text-muted-foreground">需要审批</div>
-              <Button
-                type="button"
-                size="sm"
-                variant="default"
-                disabled={chat.status === "streaming" || chat.status === "submitted"}
-                onClick={async () => {
-                  await chat.addToolApprovalResponse({ id: approvalId!, approved: true });
-                  // 按 AI SDK 官方流程，审批回应写入 messages 后需要再触发一次 sendMessage 才会执行工具并继续生成。
-                  await chat.sendMessage();
-                }}
-              >
-                允许
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={chat.status === "streaming" || chat.status === "submitted"}
-                onClick={async () => {
-                  await chat.addToolApprovalResponse({ id: approvalId!, approved: false });
-                  await chat.sendMessage();
-                }}
-              >
-                拒绝
-              </Button>
-            </div>
-          ) : null}
-
           {showInput ? (
             <div>
               <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
@@ -358,55 +366,66 @@ export default function MessageTool({
             </div>
           ) : null}
 
-          <div>
-            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-              <div>{hasErrorText ? "错误信息" : "输出结果"}</div>
-              {!hasErrorText && outputJsonDisplay ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className="h-6 w-6 shrink-0 bg-transparent text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground"
-                  onClick={() => setOutputJsonExpanded((value) => !value)}
-                  aria-label={outputJsonExpanded ? "收起 JSON" : "展开 JSON"}
-                  title={outputJsonExpanded ? "收起（紧凑）" : "展开（格式化）"}
-                >
-                  <ChevronDown className={cn("size-3 transition-transform", outputJsonExpanded ? "rotate-180" : "rotate-0")} />
+          {!showApprovalActions ? (
+            <div>
+              <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <div>{hasErrorText ? "错误信息" : "输出结果"}</div>
+                {!hasErrorText && outputJsonDisplay ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="h-6 w-6 shrink-0 bg-transparent text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground"
+                    onClick={() => setOutputJsonExpanded((value) => !value)}
+                    aria-label={outputJsonExpanded ? "收起 JSON" : "展开 JSON"}
+                    title={outputJsonExpanded ? "收起（紧凑）" : "展开（格式化）"}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "size-3 transition-transform",
+                        outputJsonExpanded ? "rotate-180" : "rotate-0",
+                      )}
+                    />
                   </Button>
                 ) : null}
+              </div>
+              {hasErrorText ? (
+                <pre
+                  className={cn(
+                    "mt-1 whitespace-pre-wrap break-words bg-background p-2 text-xs text-destructive/80",
+                    variant === "nested" ? "max-h-none overflow-visible" : "max-h-64 overflow-auto",
+                  )}
+                >
+                  {part.errorText}
+                </pre>
+              ) : outputJsonDisplay ? (
+                <JsonSyntaxBlock
+                  code={
+                    outputJsonExpanded
+                      ? outputJsonDisplay.expandedText
+                      : outputJsonDisplay.collapsedText
+                  }
+                  className={
+                    variant === "nested"
+                      ? "max-h-none"
+                      : outputJsonExpanded
+                        ? "max-h-[36rem]"
+                        : "max-h-32"
+                  }
+                  variant={variant}
+                />
+              ) : (
+                <pre
+                  className={cn(
+                    "mt-1 whitespace-pre-wrap break-words bg-background p-2 text-xs",
+                    variant === "nested" ? "max-h-none overflow-visible" : "max-h-64 overflow-auto",
+                  )}
+                >
+                  {outputDisplayText}
+                </pre>
+              )}
             </div>
-            {hasErrorText ? (
-              <pre
-                className={cn(
-                  "mt-1 whitespace-pre-wrap break-words bg-background p-2 text-xs text-destructive/80",
-                  variant === "nested" ? "max-h-none overflow-visible" : "max-h-64 overflow-auto",
-                )}
-              >
-                {part.errorText}
-              </pre>
-            ) : outputJsonDisplay ? (
-              <JsonSyntaxBlock
-                code={outputJsonExpanded ? outputJsonDisplay.expandedText : outputJsonDisplay.collapsedText}
-                className={
-                  variant === "nested"
-                    ? "max-h-none"
-                    : outputJsonExpanded
-                      ? "max-h-[36rem]"
-                      : "max-h-32"
-                }
-                variant={variant}
-              />
-            ) : (
-              <pre
-                className={cn(
-                  "mt-1 whitespace-pre-wrap break-words bg-background p-2 text-xs",
-                  variant === "nested" ? "max-h-none overflow-visible" : "max-h-64 overflow-auto",
-                )}
-              >
-                {outputDisplayText}
-              </pre>
-            )}
-          </div>
+          ) : null}
         </div>
       </details>
     </div>

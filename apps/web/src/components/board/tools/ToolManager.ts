@@ -187,6 +187,9 @@ export class ToolManager {
     if (this.handleLockShortcut(event)) {
       return;
     }
+    if (this.handleAutoLayoutShortcut(event)) {
+      return;
+    }
     this.getActiveTool()?.onKeyDown?.(event, this.engine);
   }
 
@@ -265,6 +268,18 @@ export class ToolManager {
     if (key !== "l") return false;
     event.preventDefault();
     this.engine.setLocked(!this.engine.isLocked());
+    return true;
+  }
+
+  /** Handle auto layout shortcut (Ctrl/Cmd+Shift+L). */
+  private handleAutoLayoutShortcut(event: KeyboardEvent): boolean {
+    // 逻辑：输入控件内不响应自动布局快捷键，避免误触。
+    if (this.isEditableTarget(event.target)) return false;
+    const key = event.key.toLowerCase();
+    if (key !== "l") return false;
+    if (!(event.ctrlKey || event.metaKey) || !event.shiftKey) return false;
+    event.preventDefault();
+    this.engine.autoLayoutBoard();
     return true;
   }
 

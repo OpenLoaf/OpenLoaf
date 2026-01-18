@@ -12,7 +12,6 @@ import {
 } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
-import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
@@ -26,14 +25,14 @@ import {
   buildChildUri,
   getEntryExt,
   getRelativePathFromUri,
-  resolveFileUriFromRoot,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
 import { sortEntriesByType } from "../utils/entry-sort";
-import { DOC_EXTS, SPREADSHEET_EXTS, getEntryVisual } from "./FileSystemEntryVisual";
+import { getEntryVisual } from "./FileSystemEntryVisual";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
+import { openWithDefaultApp, shouldOpenOfficeWithSystem } from "../utils/entry-open";
 
 type FileSystemGitTreeProps = {
   /** Project root uri. */
@@ -161,34 +160,6 @@ type FileSystemGitTreeNodeProps = {
 /** Check whether the entry is a board folder. */
 const isBoardFolderEntry = (entry: FileSystemEntry) =>
   entry.kind === "folder" && isBoardFolderName(entry.name);
-/** Document extensions handled by the built-in viewer. */
-const INTERNAL_DOC_EXTS = new Set<string>();
-/** Spreadsheet extensions handled by the built-in viewer. */
-const INTERNAL_SHEET_EXTS = new Set(["csv"]);
-
-/** Return true when the office file should open with the system default app. */
-function shouldOpenOfficeWithSystem(ext: string): boolean {
-  // 逻辑：仅对内置未覆盖的 Office 扩展使用系统默认程序。
-  if (DOC_EXTS.has(ext)) return !INTERNAL_DOC_EXTS.has(ext);
-  if (SPREADSHEET_EXTS.has(ext)) return !INTERNAL_SHEET_EXTS.has(ext);
-  return false;
-}
-
-/** Open a file via the system default handler. */
-function openWithDefaultApp(entry: FileSystemEntry, rootUri?: string): void {
-  // 逻辑：桌面端通过 openPath 调起系统默认应用。
-  if (!window.tenasElectron?.openPath) {
-    toast.error("网页版不支持打开本地文件");
-    return;
-  }
-  const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
-  void window.tenasElectron.openPath({ uri: fileUri }).then((res) => {
-    if (!res?.ok) {
-      toast.error(res?.reason ?? "无法打开文件");
-    }
-  });
-}
-
 /** Resolve the display label for a filesystem entry. */
 function resolveEntryLabel(entry: FileSystemEntry): string {
   if (entry.kind === "folder" && isBoardFolderName(entry.name)) {

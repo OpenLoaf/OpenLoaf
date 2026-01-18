@@ -11,7 +11,6 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { useFlipLayout } from "@/lib/use-flip-layout";
 import {
@@ -25,24 +24,16 @@ import {
   formatSize,
   formatTimestamp,
   getEntryExt,
-  resolveFileUriFromRoot,
-  resolveBoardFolderEntryFromIndexFile,
 } from "../utils/file-system-utils";
 import {
-  CODE_EXTS,
-  DOC_EXTS,
-  IMAGE_EXTS,
-  MARKDOWN_EXTS,
-  PDF_EXTS,
-  SPREADSHEET_EXTS,
   FolderIcon,
-  isTextFallbackExt,
   getEntryVisual,
 } from "./FileSystemEntryVisual";
 import { FileSystemEmptyState, FileSystemSearchEmptyState } from "./FileSystemEmptyState";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
 import { useFileSystemSelection } from "../hooks/use-file-system-selection";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
+import { handleFileSystemEntryOpen } from "../utils/entry-open";
 
 /** Return true when the entry represents a board folder. */
 const isBoardFolderEntry = (entry: FileSystemEntry) =>
@@ -54,10 +45,6 @@ const listColumnClassName =
 /** Base layout for list rows. */
 const listRowBaseClassName =
   "grid items-center gap-3 rounded-md px-3 py-2 text-left text-xs leading-4";
-/** Document extensions handled by the built-in viewer. */
-const INTERNAL_DOC_EXTS = new Set<string>();
-/** Spreadsheet extensions handled by the built-in viewer. */
-const INTERNAL_SHEET_EXTS = new Set(["csv"]);
 /** Extension display labels for list type column. */
 const FILE_TYPE_LABEL_OVERRIDES: Record<string, string> = {
   ts: "TypeScript",
@@ -65,29 +52,6 @@ const FILE_TYPE_LABEL_OVERRIDES: Record<string, string> = {
   js: "JavaScript",
   jsx: "JavaScript",
 };
-
-/** Return true when the office file should open with the system default app. */
-function shouldOpenOfficeWithSystem(ext: string): boolean {
-  // 逻辑：仅对内置未覆盖的 Office 扩展使用系统默认程序。
-  if (DOC_EXTS.has(ext)) return !INTERNAL_DOC_EXTS.has(ext);
-  if (SPREADSHEET_EXTS.has(ext)) return !INTERNAL_SHEET_EXTS.has(ext);
-  return false;
-}
-
-/** Open a file via the system default handler. */
-function openWithDefaultApp(entry: FileSystemEntry, rootUri?: string): void {
-  // 逻辑：桌面端通过 openPath 调起系统默认应用。
-  if (!window.tenasElectron?.openPath) {
-    toast.error("网页版不支持打开本地文件");
-    return;
-  }
-  const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
-  void window.tenasElectron.openPath({ uri: fileUri }).then((res) => {
-    if (!res?.ok) {
-      toast.error(res?.reason ?? "无法打开文件");
-    }
-  });
-}
 
 type FileSystemListProps = {
   entries: FileSystemEntry[];
@@ -631,65 +595,22 @@ const FileSystemList = memo(function FileSystemList({
       if (event.nativeEvent.which !== 1) return;
       const entry = resolveEntryFromEvent(event);
       if (!entry) return;
-      const entryExt = getEntryExt(entry);
-      if (entry.kind === "file" && IMAGE_EXTS.has(entryExt)) {
-        const thumbnailSrc = thumbnailByUri.get(entry.uri);
-        onOpenImageRef.current?.(entry, thumbnailSrc);
-        return;
-      }
-      if (entry.kind === "file" && MARKDOWN_EXTS.has(entryExt)) {
-        onOpenMarkdownRef.current?.(entry);
-        return;
-      }
-      if (entry.kind === "file" && CODE_EXTS.has(entryExt)) {
-        onOpenCodeRef.current?.(entry);
-        return;
-      }
-      if (entry.kind === "file" && isTextFallbackExt(entryExt)) {
-        onOpenCodeRef.current?.(entry);
-        return;
-      }
-      if (entry.kind === "file" && PDF_EXTS.has(entryExt)) {
-        onOpenPdfRef.current?.(entry);
-        return;
-      }
-      if (entry.kind === "file" && DOC_EXTS.has(entryExt)) {
-        if (shouldOpenOfficeWithSystem(entryExt)) {
-          openWithDefaultApp(entry, rootUri);
-          return;
-        }
-        onOpenDocRef.current?.(entry);
-        return;
-      }
-      if (entry.kind === "file" && SPREADSHEET_EXTS.has(entryExt)) {
-        if (shouldOpenOfficeWithSystem(entryExt)) {
-          openWithDefaultApp(entry, rootUri);
-          return;
-        }
-        onOpenSpreadsheetRef.current?.(entry);
-        return;
-      }
-      const boardFolderEntry = resolveBoardFolderEntryFromIndexFile(entry);
-      if (boardFolderEntry) {
-        onOpenBoardRef.current?.(boardFolderEntry);
-        return;
-      }
-      if (isBoardFolderEntry(entry)) {
-        onOpenBoardRef.current?.(entry);
-        return;
-      }
-      if (entry.kind === "file") {
-        // 不支持预览的文件类型交给系统默认程序打开。
-        const ok = window.confirm(
-          "此文件类型暂不支持预览，是否使用系统默认程序打开？"
-        );
-        if (!ok) return;
-        openWithDefaultApp(entry, rootUri);
-        return;
-      }
-      if (entry.kind !== "folder") return;
-      // 双击文件夹进入下一级目录。
-      onNavigateRef.current?.(entry.uri);
+      const thumbnailSrc = thumbnailByUri.get(entry.uri);
+      handleFileSystemEntryOpen({
+        entry,
+        rootUri,
+        thumbnailSrc,
+        handlers: {
+          onOpenImage: onOpenImageRef.current,
+          onOpenMarkdown: onOpenMarkdownRef.current,
+          onOpenCode: onOpenCodeRef.current,
+          onOpenPdf: onOpenPdfRef.current,
+          onOpenDoc: onOpenDocRef.current,
+          onOpenSpreadsheet: onOpenSpreadsheetRef.current,
+          onOpenBoard: onOpenBoardRef.current,
+          onNavigate: onNavigateRef.current,
+        },
+      });
     },
     [resolveEntryFromEvent, shouldBlockPointerEvent, thumbnailByUri]
   );

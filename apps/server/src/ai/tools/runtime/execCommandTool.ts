@@ -1,10 +1,11 @@
-import { spawn } from "node:child_process";
+import { spawn as spawnPty } from "node-pty";
 import { tool, zodSchema } from "ai";
 import { execCommandToolDefUnix, execCommandToolDefWin } from "@tenas-ai/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/runtime/toolScope";
 import {
   buildExecEnv,
+  ensurePtyHelperExecutable,
   formatUnifiedExecOutput,
   resolveMaxOutputChars,
   waitForOutput,
@@ -17,6 +18,17 @@ import {
 
 const execCommandToolDef = process.platform === "win32" ? execCommandToolDefWin : execCommandToolDefUnix;
 
+type WindowsShellKind = "powershell" | "cmd";
+
+/** Resolve Windows shell kind from a provided shell path. */
+function detectWindowsShellKind(shellPath: string): WindowsShellKind | null {
+  const lowered = shellPath.toLowerCase();
+  const base = lowered.split(/[/\\]/).pop() || lowered;
+  if (base.includes("powershell") || base.startsWith("pwsh")) return "powershell";
+  if (base === "cmd" || base === "cmd.exe") return "cmd";
+  return null;
+}
+
 /** Build shell command arguments from exec input. */
 function buildShellCommand(input: {
   cmd: string;
@@ -25,22 +37,24 @@ function buildShellCommand(input: {
 }): { file: string; args: string[] } {
   const trimmed = input.cmd.trim();
   if (!trimmed) throw new Error("cmd is required.");
-  const resolvedShell =
-    input.shell?.trim() ||
-    (process.platform === "win32"
-      ? process.env.ComSpec || "cmd.exe"
-      : process.env.SHELL || "/bin/sh");
-
   if (process.platform === "win32") {
-    const lowered = resolvedShell.toLowerCase();
-    const isPowerShell = lowered.includes("powershell") || lowered.includes("pwsh");
-    const args = isPowerShell ? ["-NoLogo", "-Command", trimmed] : ["/d", "/s", "/c", trimmed];
-    return { file: resolvedShell, args };
+    const providedShell = input.shell?.trim();
+    const detectedKind = providedShell ? detectWindowsShellKind(providedShell) : "powershell";
+    const kind = detectedKind ?? "cmd";
+    const file =
+      providedShell ||
+      (kind === "powershell" ? "powershell.exe" : process.env.ComSpec || "cmd.exe");
+    if (kind === "powershell") {
+      const args: string[] = [];
+      if (input.login === false) args.push("-NoProfile");
+      args.push("-Command", trimmed);
+      return { file, args };
+    }
+    return { file, args: ["/c", trimmed] };
   }
 
-  const args = [];
-  if (input.login ?? true) args.push("-l");
-  args.push("-c", trimmed);
+  const resolvedShell = input.shell?.trim() || process.env.SHELL || "/bin/sh";
+  const args = [(input.login ?? true) ? "-lc" : "-c", trimmed];
   return { file: resolvedShell, args };
 }
 
@@ -48,6 +62,7 @@ function buildShellCommand(input: {
 export const execCommandTool = tool({
   description: execCommandToolDef.description,
   inputSchema: zodSchema(execCommandToolDef.parameters),
+  needsApproval: true,
   execute: async ({
     cmd,
     workdir,
@@ -61,10 +76,15 @@ export const execCommandTool = tool({
     const { cwd } = resolveToolWorkdir({ workdir, allowOutside });
     const { file, args } = buildShellCommand({ cmd, shell, login });
 
-    const child = spawn(file, args, {
+    ensurePtyHelperExecutable();
+    const child = spawnPty(file, args, {
       cwd,
       env: buildExecEnv({ tty }),
-      stdio: "pipe",
+      name: tty ? "xterm-256color" : "xterm",
+      cols: 80,
+      rows: 24,
+      // 中文注释：Windows 端使用 ConPTY，提高兼容性。
+      useConpty: process.platform === "win32",
     });
 
     const session = createExecSession(child);
