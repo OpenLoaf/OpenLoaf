@@ -96,6 +96,9 @@ const ProjectHistory = memo(function ProjectHistory({
   const activeDate = selectedDate ?? new Date();
   const activeDateKey = buildDateKey(activeDate);
   const activeSessions = sessionsByDay.get(activeDateKey) ?? [];
+  // 当天零点，用于禁用未来日期。
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   if (isLoading) {
     return null;
@@ -110,10 +113,11 @@ const ProjectHistory = memo(function ProjectHistory({
             required
             selected={selectedDate}
             onSelect={setSelectedDate}
+            disabled={{ after: today }}
             modifiers={{ hasHistory: sessionDates }}
             modifiersClassNames={{
               hasHistory:
-                "after:content-[''] after:mt-0.5 after:h-1 after:w-1 after:rounded-full after:bg-primary/70 after:mx-auto",
+                "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary/70 after:pointer-events-none after:z-10",
             }}
             className="w-full rounded-xl border border-border/60 bg-background/80 p-3"
           />

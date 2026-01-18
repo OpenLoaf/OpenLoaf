@@ -7,12 +7,8 @@ import {
 
 /** Convert UI messages into model messages with custom data-part handling. */
 export async function buildModelMessages(messages: UIMessage[], tools?: ToolSet) {
-  const normalized = messages.map((message) => {
-    const { id: _id, ...rest } = message as any;
-    return rest;
-  });
-  validateUIMessages({ messages: normalized as any });
-  return convertToModelMessages(normalized as any, {
+  validateUIMessages({ messages: messages as any });
+  return convertToModelMessages(messages as any, {
     tools,
     convertDataPart: (part) => {
       if (part?.type !== "data-skill") return undefined;

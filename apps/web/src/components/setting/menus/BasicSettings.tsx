@@ -39,6 +39,7 @@ export function BasicSettings() {
   const savedCustomRulesValue = basic.appCustomRules;
   const uiTheme = basic.uiTheme;
   const uiThemeManual = basic.uiThemeManual;
+  const toolAllowOutsideScope = Boolean(basic.toolAllowOutsideScope);
 
   const [savedCustomRules, setSavedCustomRules] = useState("");
   const [customRules, setCustomRules] = useState("");
@@ -326,6 +327,27 @@ export function BasicSettings() {
                           void setBasic({ appNotificationSoundEnabled: checked })
                         }
                         aria-label="Notification sound"
+                      />
+                    </div>
+                  </TenasSettingsField>
+                </div>
+
+                <div className="flex flex-wrap items-start gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">允许工具访问工作区外路径</div>
+                    <div className="text-xs text-muted-foreground">
+                      关闭时仅允许在 project / workspace 根目录内访问
+                    </div>
+                  </div>
+
+                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                    <div className="origin-right scale-125">
+                      <Switch
+                        checked={toolAllowOutsideScope}
+                        onCheckedChange={(checked) =>
+                          void setBasic({ toolAllowOutsideScope: checked })
+                        }
+                        aria-label="Allow tool outside scope"
                       />
                     </div>
                   </TenasSettingsField>

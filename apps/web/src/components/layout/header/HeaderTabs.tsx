@@ -1,11 +1,19 @@
-import { Plus } from "lucide-react";
-import { Tabs, TabsList } from "@/components/animate-ui/components/radix/tabs";
+import { Bot, Globe, Plus, X } from "lucide-react";
+import { AnimatedTabs } from "@/components/ui/animated-tabs";
 import { useTabs } from "@/hooks/use-tabs";
-import { DEFAULT_TAB_INFO } from "@tenas-ai/api/common";
+import { DEFAULT_TAB_INFO, type Tab } from "@tenas-ai/api/common";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { TabMenu } from "./HeaderTabMenu";
 
 /** Format a shortcut string for tooltip display. */
@@ -48,6 +56,8 @@ export const HeaderTabs = () => {
   const tabs = useTabs((s) => s.tabs);
   const reorderTabs = useTabs((s) => s.reorderTabs);
   const setTabPinned = useTabs((s) => s.setTabPinned);
+  const chatStatusByTabId = useTabs((s) => s.chatStatusByTabId);
+  const dictationStatusByTabId = useTabs((s) => s.dictationStatusByTabId);
   const { workspace: activeWorkspace } = useWorkspace();
   const activeWorkspaceIdRef = useRef<string | null>(null);
   const seededWorkspaceRef = useRef<Record<string, boolean>>({});
@@ -91,6 +101,12 @@ export const HeaderTabs = () => {
   }));
   const pinnedTabs = workspaceTabs.filter((tab) => tab.isPin);
   const regularTabs = workspaceTabs.filter((tab) => !tab.isPin);
+  const allTabs = useMemo(
+    () => [...pinnedTabs, ...regularTabs],
+    [pinnedTabs, regularTabs]
+  );
+  const shouldShowSeparator = pinnedTabs.length > 0 && regularTabs.length > 0;
+  const firstRegularTabId = regularTabs[0]?.id ?? null;
 
   // 当工作区激活且没有标签页时，添加默认标签页
   useEffect(() => {
@@ -273,6 +289,59 @@ export const HeaderTabs = () => {
     setTabPinned(tabId, pin);
   };
 
+  /** Render tab content for the animated tabs. */
+  const renderTab = useCallback(
+    (tab: Tab, isActive: boolean) => {
+      const hasBrowserWindow =
+        Array.isArray(tab.stack) &&
+        tab.stack.some((s) => s.component === "electron-browser-window");
+      const isPinned = Boolean(tab.isPin);
+
+      return (
+        <>
+          {tab.icon === "bot" ? (
+            <Bot className="h-3.5 w-3.5 mr-1.5 text-muted-foreground shrink-0" />
+          ) : (
+            tab.icon && <span className="mr-1.5 shrink-0">{tab.icon}</span>
+          )}
+          <span className="min-w-0 flex-1 truncate">
+            {tab.title || "Untitled"}
+          </span>
+          {hasBrowserWindow ? (
+            <Globe className="ml-1 size-3 shrink-0 text-muted-foreground/80" />
+          ) : null}
+          {!isPinned && (
+            <span
+              className={`absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 transition-opacity delay-0 group-hover:delay-300 ${
+                workspaceTabs.length <= 1
+                  ? "opacity-0"
+                  : "opacity-0 group-hover:opacity-100"
+              } ${
+                isActive
+                  ? "group-hover:bg-background hover:bg-background"
+                  : "group-hover:bg-sidebar hover:bg-sidebar"
+              } z-20 p-0 cursor-pointer flex items-center justify-center rounded-full`}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (workspaceTabs.length > 1) {
+                  closeTab(tab.id);
+                }
+              }}
+              aria-label="Close tab"
+              role="button"
+              style={{
+                pointerEvents: workspaceTabs.length <= 1 ? "none" : "auto",
+              }}
+            >
+              <X className="h-3.5 w-3.5" />
+            </span>
+          )}
+        </>
+      );
+    },
+    [closeTab, workspaceTabs]
+  );
+
   useEffect(() => {
     const viewport = tabsScrollViewportRef.current;
     const activeEl = activeTabRef.current;
@@ -296,18 +365,8 @@ export const HeaderTabs = () => {
   }, [activeTabId]);
 
   return (
-    <Tabs
-      value={activeTabId || ""}
-      onValueChange={(nextTabId) => {
-        startTransition(() => {
-          setActiveTab(nextTabId);
-        });
-      }}
-      className="relative z-10 w-full min-w-0"
-    >
-      <TabsList
-        className="h-[calc(var(--header-height))] w-full min-w-0 bg-sidebar border-sidebar-border rounded-none p-0 relative overflow-hidden flex items-center justify-start"
-      >
+    <div className="relative z-10 w-full min-w-0">
+      <div className="h-[calc(var(--header-height))] w-full min-w-0 bg-sidebar border-sidebar-border rounded-none p-0 relative overflow-hidden flex items-center justify-start">
         <div
           ref={tabsScrollViewportRef}
           className="relative z-10 flex-1 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-hide"
@@ -328,7 +387,7 @@ export const HeaderTabs = () => {
         >
           <div
             ref={tabsScrollContentRef}
-            className="relative flex w-max items-center gap-1 [&_[data-slot=tabs-highlight-item]]:flex-none"
+            className="relative flex w-max items-center gap-1"
             onClickCapture={(event) => {
               if (pointerSessionRef.current?.didReorder) {
                 event.preventDefault();
@@ -337,40 +396,79 @@ export const HeaderTabs = () => {
               }
             }}
           >
-            {pinnedTabs.map((tab) => (
-              <TabMenu
-                key={tab.id}
-                tab={tab}
-                activeTabId={activeTabId}
-                activeTabRef={activeTabRef}
-                closeTab={closeTab}
-                workspaceTabs={workspaceTabs}
-                onReorderPointerDown={handleReorderPointerDown}
-                isDragging={reorderingTabId === tab.id}
-                isPinned={tab.isPin}
-                onTogglePin={handleTogglePin}
-              />
-            ))}
-            {pinnedTabs.length > 0 && regularTabs.length > 0 && (
-              <div
-                className="h-7 w-px bg-sidebar-border ml-1 mr-2 select-none"
-                aria-hidden
-              />
-            )}
-            {regularTabs.map((tab) => (
-              <TabMenu
-                key={tab.id}
-                tab={tab}
-                activeTabId={activeTabId}
-                activeTabRef={activeTabRef}
-                closeTab={closeTab}
-                workspaceTabs={workspaceTabs}
-                onReorderPointerDown={handleReorderPointerDown}
-                isDragging={reorderingTabId === tab.id}
-                isPinned={tab.isPin}
-                onTogglePin={handleTogglePin}
-              />
-            ))}
+            <AnimatedTabs
+              tabs={allTabs}
+              value={activeTabId || ""}
+              onValueChange={(nextTabId) => {
+                startTransition(() => {
+                  setActiveTab(nextTabId);
+                });
+              }}
+              tabClassName="h-7 pl-2 pr-7 text-xs gap-0 rounded-md bg-transparent relative z-10 flex items-center max-w-[180px] flex-none w-auto shrink-0 cursor-default active:cursor-grabbing data-[reordering=true]:cursor-grabbing border border-transparent group"
+              tabActiveClassName="text-foreground bg-background"
+              tabInactiveClassName="text-muted-foreground"
+              renderTab={renderTab}
+              getTabProps={(tab, isActive) => {
+                const chatStatus = chatStatusByTabId[tab.id];
+                const isDictating = Boolean(dictationStatusByTabId[tab.id]);
+                // 中文注释：与 ChatInput 一致，submitted/streaming 都算 SSE 正在加载。
+                const showThinkingBorder =
+                  chatStatus === "submitted" ||
+                  chatStatus === "streaming" ||
+                  isDictating;
+                const thinkingBorderStyle = showThinkingBorder
+                  ? ({
+                      // Tab 上的彩虹边框只需要“外框”，内部填充保持与当前区域一致，避免未激活 Tab 看起来像“被选中”。
+                      ["--tenas-thinking-border-fill" as any]: isActive
+                        ? "var(--color-background)"
+                        : "var(--color-sidebar)",
+                    } as CSSProperties)
+                  : undefined;
+
+                return {
+                  ref: tab.id === activeTabId ? activeTabRef : undefined,
+                  "data-no-drag": "true",
+                  "data-tab-id": tab.id,
+                  "data-pinned": tab.isPin ? "true" : "false",
+                  "data-reordering":
+                    reorderingTabId === tab.id ? "true" : "false",
+                  onPointerDown: (event) => {
+                    handleReorderPointerDown(event, tab.id);
+                  },
+                  style: thinkingBorderStyle,
+                  className: showThinkingBorder
+                    ? "tenas-thinking-border tenas-thinking-border-on"
+                    : undefined,
+                };
+              }}
+              wrapTab={(tab, button) => {
+                const menu = (
+                  <TabMenu
+                    tab={tab}
+                    closeTab={closeTab}
+                    workspaceTabs={workspaceTabs}
+                    isPinned={tab.isPin}
+                    onTogglePin={handleTogglePin}
+                  >
+                    {button}
+                  </TabMenu>
+                );
+
+                if (shouldShowSeparator && tab.id === firstRegularTabId) {
+                  return (
+                    <>
+                      <div
+                        className="h-7 w-px bg-sidebar-border ml-1 mr-2 select-none"
+                        aria-hidden
+                      />
+                      {menu}
+                    </>
+                  );
+                }
+
+                return menu;
+              }}
+            />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -390,7 +488,7 @@ export const HeaderTabs = () => {
             </Tooltip>
           </div>
         </div>
-      </TabsList>
-    </Tabs>
+      </div>
+    </div>
   );
 };

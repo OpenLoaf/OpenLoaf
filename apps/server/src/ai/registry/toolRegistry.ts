@@ -1,21 +1,11 @@
 import { openUrlTool } from "@/ai/tools/ui/openUrl";
-import {
-  fileDeleteTool,
-  fileListTool,
-  fileReadTool,
-  fileReadDocxTool,
-  fileReadExcelTool,
-  fileSearchTool,
-  fileWriteTool,
-  shellDestructiveTool,
-  shellReadonlyTool,
-  shellWriteTool,
-  timeNowTool,
-  webFetchTool,
-  webSearchTool,
-} from "@/ai/tools/system/systemTools";
+import { timeNowTool } from "@/ai/tools/system/timeNowTool";
 import { testApprovalTool } from "@/ai/tools/test/testApprovalTool";
 import { subAgentTool } from "@/ai/tools/delegation/subAgentTool";
+import { execCommandTool } from "@/ai/tools/runtime/execCommandTool";
+import { shellCommandTool } from "@/ai/tools/runtime/shellCommandTool";
+import { writeStdinTool } from "@/ai/tools/runtime/writeStdinTool";
+import { grepFilesTool, listDirTool, readFileTool } from "@/ai/tools/runtime/fileTools";
 import { resolveNeedsApproval, type ToolPolicyMeta } from "@/ai/registry/policies";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
@@ -25,24 +15,17 @@ import {
   browserSnapshotToolDef,
   browserWaitToolDef,
 } from "@tenas-ai/api/types/tools/browserAutomation";
-import {
-  fileDeleteToolDef,
-  fileListToolDef,
-  fileReadToolDef,
-  fileReadDocxToolDef,
-  fileReadExcelToolDef,
-  fileSearchToolDef,
-  fileWriteToolDef,
-  shellDestructiveToolDef,
-  shellReadonlyToolDef,
-  shellWriteToolDef,
-  systemToolMeta,
-  timeNowToolDef,
-  webFetchToolDef,
-  webSearchToolDef,
-} from "@tenas-ai/api/types/tools/system";
+import { systemToolMeta, timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
+import {
+  execCommandToolDef,
+  grepFilesToolDef,
+  listDirToolDef,
+  readFileToolDef,
+  shellCommandToolDef,
+  writeStdinToolDef,
+} from "@tenas-ai/api/types/tools/runtime";
 import { RiskType } from "@tenas-ai/api/types/toolResult";
 import {
   browserActTool,
@@ -72,21 +55,6 @@ function buildSystemToolEntry(toolId: string, tool: any): ToolEntry {
 
 const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [timeNowToolDef.id]: buildSystemToolEntry(timeNowToolDef.id, timeNowTool),
-  [fileReadToolDef.id]: buildSystemToolEntry(fileReadToolDef.id, fileReadTool),
-  [fileListToolDef.id]: buildSystemToolEntry(fileListToolDef.id, fileListTool),
-  [fileSearchToolDef.id]: buildSystemToolEntry(fileSearchToolDef.id, fileSearchTool),
-  [fileReadExcelToolDef.id]: buildSystemToolEntry(fileReadExcelToolDef.id, fileReadExcelTool),
-  [fileReadDocxToolDef.id]: buildSystemToolEntry(fileReadDocxToolDef.id, fileReadDocxTool),
-  [fileWriteToolDef.id]: buildSystemToolEntry(fileWriteToolDef.id, fileWriteTool),
-  [fileDeleteToolDef.id]: buildSystemToolEntry(fileDeleteToolDef.id, fileDeleteTool),
-  [shellReadonlyToolDef.id]: buildSystemToolEntry(shellReadonlyToolDef.id, shellReadonlyTool),
-  [shellWriteToolDef.id]: buildSystemToolEntry(shellWriteToolDef.id, shellWriteTool),
-  [shellDestructiveToolDef.id]: buildSystemToolEntry(
-    shellDestructiveToolDef.id,
-    shellDestructiveTool,
-  ),
-  [webFetchToolDef.id]: buildSystemToolEntry(webFetchToolDef.id, webFetchTool),
-  [webSearchToolDef.id]: buildSystemToolEntry(webSearchToolDef.id, webSearchTool),
   [openUrlToolDef.id]: {
     tool: openUrlTool,
     meta: { needsApproval: false },
@@ -117,6 +85,30 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [browserWaitToolDef.id]: {
     tool: browserWaitTool,
+    meta: { needsApproval: false },
+  },
+  [shellCommandToolDef.id]: {
+    tool: shellCommandTool,
+    meta: { needsApproval: true },
+  },
+  [execCommandToolDef.id]: {
+    tool: execCommandTool,
+    meta: { needsApproval: true },
+  },
+  [writeStdinToolDef.id]: {
+    tool: writeStdinTool,
+    meta: { needsApproval: true },
+  },
+  [readFileToolDef.id]: {
+    tool: readFileTool,
+    meta: { needsApproval: false },
+  },
+  [listDirToolDef.id]: {
+    tool: listDirTool,
+    meta: { needsApproval: false },
+  },
+  [grepFilesToolDef.id]: {
+    tool: grepFilesTool,
     meta: { needsApproval: false },
   },
 };

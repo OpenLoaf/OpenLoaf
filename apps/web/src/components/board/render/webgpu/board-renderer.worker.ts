@@ -612,19 +612,45 @@ function sampleBezier(points: CanvasPoint[], segments = 24) {
   return out;
 }
 
+/** Collect bounds for nodes connected from the same source node. */
+function getConnectorAvoidRects(
+  connector: CanvasConnectorElement,
+  connectors: CanvasConnectorElement[],
+  boundsMap: Record<string, CanvasRect | undefined>
+): CanvasRect[] {
+  if (!("elementId" in connector.source)) return [];
+  const sourceId = connector.source.elementId;
+  const targetId = "elementId" in connector.target ? connector.target.elementId : undefined;
+  const avoidRects: CanvasRect[] = [];
+  connectors.forEach(other => {
+    if (other.id === connector.id) return;
+    if (!("elementId" in other.source)) return;
+    if (other.source.elementId !== sourceId) return;
+    if (!("elementId" in other.target)) return;
+    const otherTargetId = other.target.elementId;
+    if (!otherTargetId || otherTargetId === targetId) return;
+    const bounds = boundsMap[otherTargetId];
+    if (bounds) avoidRects.push(bounds);
+  });
+  return avoidRects;
+}
+
 function appendConnectorLines(
   connector: CanvasConnectorElement,
   state: GpuStateSnapshot,
   anchors: GpuSceneSnapshot["anchors"],
+  connectors: CanvasConnectorElement[],
   boundsMap: Record<string, CanvasRect | undefined>,
   lines: LineVertex[],
   palette: GpuPalette
 ) {
+  const avoidRects = getConnectorAvoidRects(connector, connectors, boundsMap);
   const resolved = resolveConnectorEndpointsSmart(
     connector.source,
     connector.target,
     anchors,
-    boundsMap
+    boundsMap,
+    { avoidRects, connectorStyle: connector.style ?? state.connectorStyle }
   );
   const { source, target } = resolved;
   if (!source || !target) return;
@@ -805,7 +831,15 @@ function buildSceneGeometry(
     (element): element is CanvasConnectorElement => element.kind === "connector"
   );
   connectorElements.forEach((connector) => {
-    appendConnectorLines(connector, state, scene.anchors, boundsMap, lines, palette);
+    appendConnectorLines(
+      connector,
+      state,
+      scene.anchors,
+      connectorElements,
+      boundsMap,
+      lines,
+      palette
+    );
   });
   if (state.connectorDraft) {
     const draft = state.connectorDraft;

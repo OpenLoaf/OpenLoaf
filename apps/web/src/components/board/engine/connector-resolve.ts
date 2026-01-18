@@ -1,4 +1,10 @@
-import type { CanvasAnchorMap, CanvasConnectorEnd, CanvasPoint, CanvasRect } from "./types";
+import type {
+  CanvasAnchorMap,
+  CanvasConnectorEnd,
+  CanvasConnectorStyle,
+  CanvasPoint,
+  CanvasRect,
+} from "./types";
 import { resolveConnectorEndpointsSmart } from "../utils/connector-path";
 
 type NodeBoundsProvider = (id: string) => CanvasRect | undefined;
@@ -8,7 +14,8 @@ function resolveConnectorEndpointsWithBounds(
   source: CanvasConnectorEnd,
   target: CanvasConnectorEnd,
   anchors: CanvasAnchorMap,
-  getNodeBounds: NodeBoundsProvider
+  getNodeBounds: NodeBoundsProvider,
+  options?: { avoidRects?: CanvasRect[]; connectorStyle?: CanvasConnectorStyle }
 ): {
   source: CanvasPoint | null;
   target: CanvasPoint | null;
@@ -24,7 +31,7 @@ function resolveConnectorEndpointsWithBounds(
     const bounds = getNodeBounds(target.elementId);
     if (bounds) boundsMap[target.elementId] = bounds;
   }
-  const resolved = resolveConnectorEndpointsSmart(source, target, anchors, boundsMap);
+  const resolved = resolveConnectorEndpointsSmart(source, target, anchors, boundsMap, options);
   const sourceAnchorId =
     "elementId" in source ? source.anchorId ?? resolved.sourceAnchorId : resolved.sourceAnchorId;
   const targetAnchorId =

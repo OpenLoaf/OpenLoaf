@@ -84,6 +84,8 @@ export const basicConfigSchema = z.object({
   appNotificationSoundEnabled: z.boolean(),
   modelDefaultChatModelId: z.string(),
   appProjectRule: z.string(),
+  /** Allow tools to access paths outside workspace/project roots. */
+  toolAllowOutsideScope: z.boolean(),
   stepUpInitialized: z.boolean(),
   proxyEnabled: z.boolean(),
   proxyHost: z.string(),

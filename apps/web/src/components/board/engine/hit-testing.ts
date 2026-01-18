@@ -8,6 +8,7 @@ import type {
   CanvasConnectorEnd,
   CanvasConnectorStyle,
   CanvasElement,
+  CanvasRect,
   CanvasNodeElement,
   CanvasPoint,
   StrokeNodeProps,
@@ -105,11 +106,13 @@ function findConnectorEndpointHit(
   let closestDistance = hitRadius;
 
   filtered.forEach(connector => {
+    const avoidRects = getConnectorAvoidRects(connector, connectors, getNodeBoundsById);
     const { source, target } = resolveConnectorEndpointsWithBounds(
       connector.source,
       connector.target,
       anchors,
-      getNodeBoundsById
+      getNodeBoundsById,
+      { avoidRects, connectorStyle: connector.style ?? "curve" }
     );
     if (source) {
       const dist = Math.hypot(point[0] - source[0], point[1] - source[1]);
@@ -136,6 +139,29 @@ function findConnectorEndpointHit(
   });
 
   return closest;
+}
+
+/** Collect bounds for nodes connected from the same source node. */
+function getConnectorAvoidRects(
+  connector: CanvasConnectorElement,
+  connectors: CanvasConnectorElement[],
+  getNodeBoundsById: (elementId: string) => CanvasRect | undefined
+): CanvasRect[] {
+  if (!("elementId" in connector.source)) return [];
+  const sourceId = connector.source.elementId;
+  const targetId = "elementId" in connector.target ? connector.target.elementId : undefined;
+  const avoidRects: CanvasRect[] = [];
+  connectors.forEach(other => {
+    if (other.id === connector.id) return;
+    if (!("elementId" in other.source)) return;
+    if (other.source.elementId !== sourceId) return;
+    if (!("elementId" in other.target)) return;
+    const otherTargetId = other.target.elementId;
+    if (!otherTargetId || otherTargetId === targetId) return;
+    const bounds = getNodeBoundsById(otherTargetId);
+    if (bounds) avoidRects.push(bounds);
+  });
+  return avoidRects;
 }
 
 /** Find the nearest anchor within a hit radius. */
@@ -309,6 +335,9 @@ function pickElementAt(
   getNodeBoundsById: (elementId: string) => { x: number; y: number; w: number; h: number } | undefined
 ): CanvasElement | null {
   if (elements.length === 0) return null;
+  const connectorElements = elements.filter(
+    (element): element is CanvasConnectorElement => element.kind === "connector"
+  );
   const nodeHitRadius = 0;
   const connectorHitRadius = CONNECTOR_HIT_RADIUS / Math.max(zoom, MIN_ZOOM);
   const strokeHitRadius = STROKE_HIT_RADIUS / Math.max(zoom, MIN_ZOOM);
@@ -357,12 +386,14 @@ function pickElementAt(
       continue;
     }
     if (element.kind === "connector") {
+      const avoidRects = getConnectorAvoidRects(element, connectorElements, getNodeBoundsById);
       const { source, target, sourceAnchorId, targetAnchorId } =
         resolveConnectorEndpointsWithBounds(
           element.source,
           element.target,
           anchors,
-          getNodeBoundsById
+          getNodeBoundsById,
+          { avoidRects, connectorStyle: element.style ?? connectorStyle }
         );
       if (!source || !target) continue;
       const style = element.style ?? connectorStyle;

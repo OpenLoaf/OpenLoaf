@@ -23,7 +23,8 @@ function buildConnectorElement(
   anchors: CanvasAnchorMap,
   connectorStyle: CanvasConnectorStyle,
   getNodeBoundsById: (elementId: string) => CanvasRect | undefined,
-  generateId: (prefix: string) => string
+  generateId: (prefix: string) => string,
+  options?: { avoidRects?: CanvasRect[] }
 ): CanvasConnectorElement | null {
   // 逻辑：新连线默认以节点自动锚点保存，移动时动态选择最短路径。
   const normalizedSource = normalizeConnectorEnd(draft.source);
@@ -33,7 +34,8 @@ function buildConnectorElement(
       normalizedSource,
       normalizedTarget,
       anchors,
-      getNodeBoundsById
+      getNodeBoundsById,
+      { avoidRects: options?.avoidRects, connectorStyle }
     );
   if (!sourcePoint || !targetPoint) return null;
 
@@ -65,7 +67,8 @@ function buildConnectorEndpointUpdate(
   end: CanvasConnectorEnd,
   anchors: CanvasAnchorMap,
   connectorStyle: CanvasConnectorStyle,
-  getNodeBoundsById: (elementId: string) => CanvasRect | undefined
+  getNodeBoundsById: (elementId: string) => CanvasRect | undefined,
+  options?: { avoidRects?: CanvasRect[] }
 ): { update: Partial<CanvasConnectorElement>; sourcePoint?: CanvasPoint; targetPoint?: CanvasPoint } {
   // 逻辑：端点绑定到节点时不固化锚点，保持最短路径自动选择。
   const normalizedEnd = normalizeConnectorEnd(end);
@@ -76,7 +79,8 @@ function buildConnectorEndpointUpdate(
       nextSource,
       nextTarget,
       anchors,
-      getNodeBoundsById
+      getNodeBoundsById,
+      { avoidRects: options?.avoidRects, connectorStyle: element.style ?? connectorStyle }
     );
   let nextXYWH: [number, number, number, number] | undefined;
   if (sourcePoint && targetPoint) {

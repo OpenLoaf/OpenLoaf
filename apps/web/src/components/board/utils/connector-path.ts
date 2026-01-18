@@ -20,6 +20,13 @@ export type CanvasConnectorPath =
       points: [CanvasPoint, CanvasPoint, CanvasPoint, CanvasPoint];
     };
 
+type ResolveConnectorOptions = {
+  /** Rects to avoid crossing when selecting auto anchors. */
+  avoidRects?: CanvasRect[];
+  /** Connector style used for intersection checks. */
+  connectorStyle?: CanvasConnectorStyle;
+};
+
 /** Resolve a connector endpoint to a world point. */
 export function resolveConnectorEndpoint(
   end: CanvasConnectorEnd,
@@ -41,7 +48,8 @@ export function resolveConnectorEndpointsSmart(
   source: CanvasConnectorEnd,
   target: CanvasConnectorEnd,
   anchors: CanvasAnchorMap,
-  bounds: Record<string, CanvasRect | undefined>
+  bounds: Record<string, CanvasRect | undefined>,
+  options?: ResolveConnectorOptions
 ): {
   source: CanvasPoint | null;
   target: CanvasPoint | null;
@@ -95,21 +103,39 @@ export function resolveConnectorEndpointsSmart(
       bounds[target.elementId]
     );
     if (pair) {
-      return {
+      const baseResult = {
         source: pair.source,
         target: pair.target,
         sourceAnchorId: pair.sourceId,
         targetAnchorId: pair.targetId,
       };
+      const next = applyAvoidance(
+        baseResult,
+        sourceList,
+        targetList,
+        bounds[source.elementId],
+        bounds[target.elementId],
+        options
+      );
+      return next;
     }
   }
 
-  return {
+  const result = {
     source: resolveConnectorEndpoint(source, anchors, sourceHint),
     target: resolveConnectorEndpoint(target, anchors, targetHint),
     sourceAnchorId,
     targetAnchorId,
   };
+  if (!sourceAuto || !targetAuto) return result;
+  return applyAvoidance(
+    result,
+    sourceList,
+    targetList,
+    bounds[source.elementId],
+    bounds[target.elementId],
+    options
+  );
 }
 
 function isAutoAnchor(end: CanvasConnectorEnd): end is { elementId: string } {
@@ -169,6 +195,74 @@ function pickAnchorPair(
   });
 
   return best;
+}
+
+/** Apply avoidance for auto anchor selection. */
+function applyAvoidance(
+  result: {
+    source: CanvasPoint | null;
+    target: CanvasPoint | null;
+    sourceAnchorId?: string;
+    targetAnchorId?: string;
+  },
+  sourceList: { id: string; point: CanvasPoint }[],
+  targetList: { id: string; point: CanvasPoint }[],
+  sourceRect: CanvasRect | undefined,
+  targetRect: CanvasRect | undefined,
+  options?: ResolveConnectorOptions
+) {
+  const avoidRects = options?.avoidRects ?? [];
+  if (avoidRects.length === 0) return result;
+  if (!result.source || !result.target) return result;
+  const style = options?.connectorStyle ?? "curve";
+  // 逻辑：连线穿过同源其它节点时优先改走左右锚点。
+  const intersects = connectorIntersectsRects(
+    result.source,
+    result.target,
+    style,
+    { sourceAnchorId: result.sourceAnchorId, targetAnchorId: result.targetAnchorId },
+    avoidRects
+  );
+  if (!intersects) return result;
+  const horizontal = pickHorizontalPair(sourceList, targetList, sourceRect, targetRect);
+  if (!horizontal) return result;
+  const horizontalIntersects = connectorIntersectsRects(
+    horizontal.source,
+    horizontal.target,
+    style,
+    { sourceAnchorId: horizontal.sourceId, targetAnchorId: horizontal.targetId },
+    avoidRects
+  );
+  if (horizontalIntersects) return result;
+  return {
+    source: horizontal.source,
+    target: horizontal.target,
+    sourceAnchorId: horizontal.sourceId,
+    targetAnchorId: horizontal.targetId,
+  };
+}
+
+/** Choose a left/right anchor pair based on node centers. */
+function pickHorizontalPair(
+  sourceList: { id: string; point: CanvasPoint }[],
+  targetList: { id: string; point: CanvasPoint }[],
+  sourceRect?: CanvasRect,
+  targetRect?: CanvasRect
+): { source: CanvasPoint; target: CanvasPoint; sourceId: string; targetId: string } | null {
+  const sourceCenter = resolveCenter(sourceList, sourceRect);
+  const targetCenter = resolveCenter(targetList, targetRect);
+  const preferRight = targetCenter[0] >= sourceCenter[0];
+  const sourceId = preferRight ? "right" : "left";
+  const targetId = preferRight ? "left" : "right";
+  const sourceAnchor = sourceList.find(anchor => anchor.id === sourceId);
+  const targetAnchor = targetList.find(anchor => anchor.id === targetId);
+  if (!sourceAnchor || !targetAnchor) return null;
+  return {
+    source: sourceAnchor.point,
+    target: targetAnchor.point,
+    sourceId,
+    targetId,
+  };
 }
 
 function resolveCenter(
@@ -299,6 +393,83 @@ function pickClosestAnchor(
     }
   });
   return closest ?? hint;
+}
+
+/** Test whether the resolved connector path crosses any rect. */
+function connectorIntersectsRects(
+  source: CanvasPoint,
+  target: CanvasPoint,
+  style: CanvasConnectorStyle,
+  options: { sourceAnchorId?: string; targetAnchorId?: string },
+  avoidRects: CanvasRect[]
+): boolean {
+  const path = buildConnectorPath(style, source, target, options);
+  const polyline = flattenConnectorPath(path, 16);
+  return avoidRects.some(rect => polylineIntersectsRect(polyline, rect));
+}
+
+/** Test whether a polyline intersects a rect. */
+function polylineIntersectsRect(points: CanvasPoint[], rect: CanvasRect): boolean {
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const start = points[i];
+    const end = points[i + 1];
+    if (!start || !end) continue;
+    if (segmentIntersectsRect(start, end, rect)) return true;
+  }
+  return false;
+}
+
+/** Test whether a segment intersects a rect. */
+function segmentIntersectsRect(a: CanvasPoint, b: CanvasPoint, rect: CanvasRect): boolean {
+  if (pointInRect(a, rect) || pointInRect(b, rect)) return true;
+  const x1 = rect.x;
+  const y1 = rect.y;
+  const x2 = rect.x + rect.w;
+  const y2 = rect.y + rect.h;
+  const edges: Array<[CanvasPoint, CanvasPoint]> = [
+    [[x1, y1], [x2, y1]],
+    [[x2, y1], [x2, y2]],
+    [[x2, y2], [x1, y2]],
+    [[x1, y2], [x1, y1]],
+  ];
+  return edges.some(([p1, p2]) => segmentsIntersect(a, b, p1, p2));
+}
+
+/** Check whether a point lies inside a rect. */
+function pointInRect(point: CanvasPoint, rect: CanvasRect): boolean {
+  return (
+    point[0] >= rect.x &&
+    point[0] <= rect.x + rect.w &&
+    point[1] >= rect.y &&
+    point[1] <= rect.y + rect.h
+  );
+}
+
+/** Test whether two segments intersect. */
+function segmentsIntersect(a: CanvasPoint, b: CanvasPoint, c: CanvasPoint, d: CanvasPoint): boolean {
+  const cross = (p: CanvasPoint, q: CanvasPoint, r: CanvasPoint) =>
+    (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+  const ab = cross(a, b, c);
+  const ab2 = cross(a, b, d);
+  const cd = cross(c, d, a);
+  const cd2 = cross(c, d, b);
+
+  if (ab === 0 && onSegment(a, b, c)) return true;
+  if (ab2 === 0 && onSegment(a, b, d)) return true;
+  if (cd === 0 && onSegment(c, d, a)) return true;
+  if (cd2 === 0 && onSegment(c, d, b)) return true;
+
+  return (ab > 0) !== (ab2 > 0) && (cd > 0) !== (cd2 > 0);
+}
+
+/** Check whether a point lies on a segment (colinear). */
+function onSegment(a: CanvasPoint, b: CanvasPoint, p: CanvasPoint): boolean {
+  return (
+    p[0] >= Math.min(a[0], b[0]) &&
+    p[0] <= Math.max(a[0], b[0]) &&
+    p[1] >= Math.min(a[1], b[1]) &&
+    p[1] <= Math.max(a[1], b[1])
+  );
 }
 
 /** Build a connector path based on style. */

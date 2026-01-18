@@ -360,6 +360,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
       : current.modelDefaultChatModelId;
   const appProjectRule =
     typeof next.appProjectRule === "string" ? next.appProjectRule : current.appProjectRule;
+  const toolAllowOutsideScope =
+    typeof next.toolAllowOutsideScope === "boolean"
+      ? next.toolAllowOutsideScope
+      : current.toolAllowOutsideScope;
   const stepUpInitialized =
     typeof next.stepUpInitialized === "boolean"
       ? next.stepUpInitialized
@@ -398,6 +402,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     appNotificationSoundEnabled,
     modelDefaultChatModelId,
     appProjectRule,
+    toolAllowOutsideScope,
     stepUpInitialized,
     proxyEnabled,
     proxyHost,

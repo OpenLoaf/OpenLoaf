@@ -503,6 +503,17 @@ export default function DesktopGrid({
     const onDragStop = (_event: Event, el?: HTMLElement) => {
       if (!editModeRef.current) return;
       syncItemsFromGrid();
+      const placementId = placementItemIdRef.current;
+      if (!placementId) return;
+      if (placementCanceledRef.current) {
+        placementCanceledRef.current = false;
+        return;
+      }
+      const dragId =
+        el?.getAttribute("gs-id") ??
+        (el?.gridstackNode?.id != null ? String(el.gridstackNode.id) : null);
+      if (!dragId || dragId !== placementId) return;
+      placementEndRef.current?.("commit", placementId);
     };
 
     /** Sync layout after resize stop. */
@@ -646,9 +657,6 @@ export default function DesktopGrid({
     }
   }, [editMode, items, metrics.cols, resolvedBreakpoint]);
 
-  // 逻辑：放置模式下使用覆盖层捕获鼠标事件。
-  const isPlacing = editMode && Boolean(placementItemId);
-
   return (
     <div ref={wrapperRef} className="relative h-full w-full">
       <div
@@ -669,7 +677,7 @@ export default function DesktopGrid({
                 if (node) itemElByIdRef.current.set(item.id, node);
                 else itemElByIdRef.current.delete(item.id);
               }}
-              className={`grid-stack-item${isPlacing && item.id === placementItemId ? " desktop-placement-dragging" : ""}`}
+              className="grid-stack-item"
               style={
                 item.kind === "widget" && item.widgetKey === "3d-folder"
                   ? { overflow: "visible" }
@@ -717,26 +725,6 @@ export default function DesktopGrid({
           );
         })}
       </div>
-      {isPlacing ? (
-        <div
-          className="absolute inset-0 z-30 cursor-crosshair"
-          onMouseMove={(event) => {
-            schedulePlacementUpdate(event.clientX, event.clientY);
-          }}
-          onMouseDown={(event) => {
-            if (event.button !== 0) return;
-            event.preventDefault();
-            event.stopPropagation();
-            schedulePlacementUpdate(event.clientX, event.clientY);
-            handlePlacementCommit();
-          }}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            handlePlacementCancel();
-          }}
-        />
-      ) : null}
     </div>
   );
 }

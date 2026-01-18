@@ -15,7 +15,6 @@ import {
   Info,
   Keyboard,
   Building2,
-  ShieldCheck,
   FlaskConical,
   Database,
   Sparkles,
@@ -29,7 +28,6 @@ import { ObjectStorageService } from "./menus/ObjectStorageService";
 import { AgentManagement } from "./menus/agent/AgentManagement";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
-import { CommandAllowlist } from "./menus/CommandAllowlist";
 import TestSetting from "./menus/TestSetting";
 import { SkillSettings } from "./menus/SkillSettings";
 import { TenasSettingsLayout } from "@/components/ui/tenas/TenasSettingsLayout";
@@ -47,7 +45,6 @@ type SettingsMenuKey =
   | "workspace"
   | "skills"
   | "shortcuts"
-  | "whitelist"
   | "projectTest";
 
 const DEV_MENU: Array<{
@@ -71,7 +68,6 @@ const MENU: Array<{
   { key: "skills", label: "技能", Icon: Wand2Icon, Component: SkillSettings },
   { key: "keys", label: "AI模型服务", Icon: Sparkles, Component: ProviderManagement },
   { key: "storage", label: "S3存储服务", Icon: Database, Component: ObjectStorageService },
-  { key: "whitelist", label: "白名单", Icon: ShieldCheck, Component: CommandAllowlist },
   { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
   { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
   ...DEV_MENU,

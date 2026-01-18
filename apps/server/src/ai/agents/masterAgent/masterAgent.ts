@@ -21,22 +21,16 @@ import {
   getWorkspaceRootPathById,
 } from "@tenas-ai/api/services/vfsService";
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
-import {
-  fileDeleteToolDef,
-  fileListToolDef,
-  fileReadToolDef,
-  fileReadDocxToolDef,
-  fileReadExcelToolDef,
-  fileSearchToolDef,
-  fileWriteToolDef,
-  shellDestructiveToolDef,
-  shellReadonlyToolDef,
-  shellWriteToolDef,
-  timeNowToolDef,
-  webFetchToolDef,
-  webSearchToolDef,
-} from "@tenas-ai/api/types/tools/system";
+import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
+import {
+  execCommandToolDef,
+  grepFilesToolDef,
+  listDirToolDef,
+  readFileToolDef,
+  shellCommandToolDef,
+  writeStdinToolDef,
+} from "@tenas-ai/api/types/tools/runtime";
 import { loadSkillSummaries, type SkillSummary } from "./skillsLoader";
 
 /** Master agent display name. */
@@ -46,20 +40,14 @@ const MASTER_AGENT_ID = "master-agent";
 /** Master agent tool ids. */
 const MASTER_AGENT_TOOL_IDS = [
   timeNowToolDef.id,
-  fileReadToolDef.id,
-  fileListToolDef.id,
-  fileSearchToolDef.id,
-  fileReadExcelToolDef.id,
-  fileReadDocxToolDef.id,
-  fileWriteToolDef.id,
-  fileDeleteToolDef.id,
-  shellReadonlyToolDef.id,
-  shellWriteToolDef.id,
-  shellDestructiveToolDef.id,
-  webFetchToolDef.id,
-  webSearchToolDef.id,
   testApprovalToolDef.id,
   subAgentToolDef.id,
+  shellCommandToolDef.id,
+  execCommandToolDef.id,
+  writeStdinToolDef.id,
+  readFileToolDef.id,
+  listDirToolDef.id,
+  grepFilesToolDef.id,
 ] as const;
 
 /** Unknown value fallback. */
