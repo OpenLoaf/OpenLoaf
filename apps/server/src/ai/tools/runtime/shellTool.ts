@@ -1,48 +1,26 @@
 import { spawn } from "node:child_process";
 import { tool, zodSchema } from "ai";
-import { shellCommandToolDefUnix, shellCommandToolDefWin } from "@tenas-ai/api/types/tools/runtime";
+import { shellToolDefUnix, shellToolDefWin } from "@tenas-ai/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/runtime/toolScope";
 import { buildExecEnv } from "@/ai/tools/runtime/execUtils";
 
-const shellCommandToolDef =
-  process.platform === "win32" ? shellCommandToolDefWin : shellCommandToolDefUnix;
-
-type ShellCommandInput = {
-  /** Shell command string. */
-  command: string;
-  /** Whether to run as login shell. */
-  login?: boolean;
-};
-
-/** Build shell command arguments from shell_command input. */
-function buildShellCommand(input: ShellCommandInput): { file: string; args: string[] } {
-  const trimmed = input.command.trim();
-  if (!trimmed) throw new Error("command is required.");
-  if (process.platform === "win32") {
-    return { file: "powershell.exe", args: ["-NoLogo", "-Command", trimmed] };
-  }
-  const resolvedShell = process.env.SHELL || "/bin/sh";
-  const args: string[] = [];
-  if (input.login ?? true) args.push("-l");
-  args.push("-c", trimmed);
-  return { file: resolvedShell, args };
-}
+const shellToolDef = process.platform === "win32" ? shellToolDefWin : shellToolDefUnix;
 
 /** Execute a one-shot shell command with scope enforcement. */
-export const shellCommandTool = tool({
-  description: shellCommandToolDef.description,
-  inputSchema: zodSchema(shellCommandToolDef.parameters),
-  execute: async ({ command, workdir, timeoutMs, login }): Promise<string> => {
+export const shellTool = tool({
+  description: shellToolDef.description,
+  inputSchema: zodSchema(shellToolDef.parameters),
+  execute: async ({ command, workdir, timeoutMs }): Promise<string> => {
+    if (!command?.length) throw new Error("command is required.");
     const allowOutside = readBasicConf().toolAllowOutsideScope;
     const { cwd } = resolveToolWorkdir({ workdir, allowOutside });
-    const { file, args } = buildShellCommand({ command, login });
 
     const startAt = Date.now();
     const outputChunks: string[] = [];
     let timedOut = false;
 
-    const child = spawn(file, args, {
+    const child = spawn(command[0], command.slice(1), {
       cwd,
       env: buildExecEnv({}),
       stdio: "pipe",
@@ -78,13 +56,14 @@ export const shellCommandTool = tool({
       ? `command timed out after ${durationMs} milliseconds\n${aggregatedOutput}`
       : aggregatedOutput;
 
-    const sections = [
-      `Exit code: ${code ?? -1}`,
-      `Wall time: ${durationSeconds} seconds`,
-      "Output:",
+    const payload = {
       output,
-    ];
+      metadata: {
+        exit_code: code ?? -1,
+        duration_seconds: durationSeconds,
+      },
+    };
 
-    return sections.join("\n");
+    return JSON.stringify(payload);
   },
 });

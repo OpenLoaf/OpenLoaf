@@ -1,27 +1,21 @@
 import { spawn } from "node:child_process";
 import { tool, zodSchema } from "ai";
-import { execCommandToolDef } from "@tenas-ai/api/types/tools/runtime";
+import { execCommandToolDefUnix, execCommandToolDefWin } from "@tenas-ai/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/runtime/toolScope";
-import { buildExecEnv, resolveMaxOutputChars, waitForOutput } from "@/ai/tools/runtime/execUtils";
+import {
+  buildExecEnv,
+  formatUnifiedExecOutput,
+  resolveMaxOutputChars,
+  waitForOutput,
+} from "@/ai/tools/runtime/execUtils";
 import {
   createExecSession,
   getExecSessionStatus,
   readExecOutput,
 } from "@/ai/tools/runtime/execSessionStore";
 
-type ExecCommandToolOutput = {
-  ok: true;
-  data: {
-    sessionId: string;
-    cwd: string;
-    rootLabel: "workspace" | "project" | "external";
-    output: string;
-    truncated: boolean;
-    exitCode: number | null;
-    signal: NodeJS.Signals | null;
-  };
-};
+const execCommandToolDef = process.platform === "win32" ? execCommandToolDefWin : execCommandToolDefUnix;
 
 /** Build shell command arguments from exec input. */
 function buildShellCommand(input: {
@@ -45,7 +39,7 @@ function buildShellCommand(input: {
   }
 
   const args = [];
-  if (input.login) args.push("-l");
+  if (input.login ?? true) args.push("-l");
   args.push("-c", trimmed);
   return { file: resolvedShell, args };
 }
@@ -62,9 +56,9 @@ export const execCommandTool = tool({
     tty,
     yieldTimeMs,
     maxOutputTokens,
-  }): Promise<ExecCommandToolOutput> => {
+  }): Promise<string> => {
     const allowOutside = readBasicConf().toolAllowOutsideScope;
-    const { cwd, rootLabel } = resolveToolWorkdir({ workdir, allowOutside });
+    const { cwd } = resolveToolWorkdir({ workdir, allowOutside });
     const { file, args } = buildShellCommand({ cmd, shell, login });
 
     const child = spawn(file, args, {
@@ -74,24 +68,21 @@ export const execCommandTool = tool({
     });
 
     const session = createExecSession(child);
-    await waitForOutput(yieldTimeMs);
-    const { output, truncated } = readExecOutput({
+    const resolvedYieldTimeMs = typeof yieldTimeMs === "number" ? yieldTimeMs : 10000;
+    await waitForOutput(resolvedYieldTimeMs);
+    const { output, chunkId, wallTimeMs } = readExecOutput({
       sessionId: session.id,
       maxChars: resolveMaxOutputChars(maxOutputTokens),
     });
     const status = getExecSessionStatus(session.id);
+    const sessionId = status.exitCode === null ? session.id : undefined;
 
-    return {
-      ok: true,
-      data: {
-        sessionId: session.id,
-        cwd,
-        rootLabel,
-        output,
-        truncated,
-        exitCode: status.exitCode,
-        signal: status.signal,
-      },
-    };
+    return formatUnifiedExecOutput({
+      chunkId,
+      wallTimeMs,
+      exitCode: status.exitCode,
+      sessionId,
+      output,
+    });
   },
 });

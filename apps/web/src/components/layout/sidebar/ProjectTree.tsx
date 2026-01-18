@@ -87,44 +87,12 @@ type FileNode = {
   projectIcon?: string;
 };
 
-/** Debug localStorage key for project drag logging. */
-const PROJECT_DRAG_DEBUG_KEY = "debugProjectDrag";
-
 type ProjectDropPosition = "inside" | "before" | "after";
 
 type DragInsertTarget = {
   projectId: string;
   position: "before" | "after";
 };
-
-/** Check whether project drag debug logging is enabled. */
-function isProjectDragDebugEnabled(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(PROJECT_DRAG_DEBUG_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-/** Log drag diagnostics for project tree when enabled. */
-function logProjectDrag(...args: unknown[]): void {
-  if (!isProjectDragDebugEnabled()) return;
-  console.info("[ProjectTreeDrag]", ...args);
-}
-
-/** Summarize event target for debug logging. */
-function describeDragTarget(target: EventTarget | null): string {
-  if (typeof window === "undefined") return String(target ?? "null");
-  if (!(target instanceof HTMLElement)) return String(target ?? "null");
-  const tag = target.tagName.toLowerCase();
-  const id = target.id ? `#${target.id}` : "";
-  const className =
-    typeof target.className === "string" && target.className
-      ? `.${target.className}`
-      : "";
-  return `${tag}${id}${className}`;
-}
 
 /** Resolve drop position based on pointer location. */
 function resolveProjectDropPosition(
@@ -466,21 +434,7 @@ function FileTreeNode({
                     onPrimaryClick(node);
                   }
                 }}
-                onPointerDown={(event) => {
-                  logProjectDrag("pointerdown", {
-                    projectId: node.projectId,
-                    button: event.button,
-                    draggable: isDraggable,
-                  });
-                  onProjectPointerDown?.(node, event);
-                }}
-                onMouseDown={(event) => {
-                  logProjectDrag("mousedown", {
-                    projectId: node.projectId,
-                    button: event.button,
-                    draggable: isDraggable,
-                  });
-                }}
+                onPointerDown={(event) => onProjectPointerDown?.(node, event)}
                 draggable={isDraggable}
                 onDragStart={
                   isDraggable ? (event) => onProjectDragStart?.(node, event) : undefined
@@ -642,39 +596,6 @@ export const PageTreeMenu = ({
   /** Track whether next click should be ignored after pointer drag. */
   const suppressNextClickRef = useRef(false);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!isProjectDragDebugEnabled()) return;
-    // 逻辑：调试模式下监听全局拖拽事件，确认事件是否进入页面。
-    /** Log pointer events while drag debug is enabled. */
-    const logPointerEvent = (event: Event) => {
-      logProjectDrag("global", event.type, {
-        target: describeDragTarget(event.target),
-      });
-    };
-    /** Log drag events while drag debug is enabled. */
-    const logDragEvent = (event: DragEvent) => {
-      logProjectDrag("global", event.type, {
-        target: describeDragTarget(event.target),
-        dataTypes: event.dataTransfer?.types,
-      });
-    };
-    window.document.addEventListener("pointerdown", logPointerEvent, true);
-    window.document.addEventListener("mousedown", logPointerEvent, true);
-    window.document.addEventListener("dragstart", logDragEvent, true);
-    window.document.addEventListener("dragover", logDragEvent, true);
-    window.document.addEventListener("drop", logDragEvent, true);
-    window.document.addEventListener("dragend", logDragEvent, true);
-    return () => {
-      window.document.removeEventListener("pointerdown", logPointerEvent, true);
-      window.document.removeEventListener("mousedown", logPointerEvent, true);
-      window.document.removeEventListener("dragstart", logDragEvent, true);
-      window.document.removeEventListener("dragover", logDragEvent, true);
-      window.document.removeEventListener("drop", logDragEvent, true);
-      window.document.removeEventListener("dragend", logDragEvent, true);
-    };
-  }, []);
-
   const activeTabParams = useMemo(() => {
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
     return (activeTab?.base?.params ?? {}) as Record<string, unknown>;
@@ -808,6 +729,7 @@ export const PageTreeMenu = ({
       component === "doc-viewer" ||
       component === "sheet-viewer" ||
       component === "markdown-viewer";
+    const openUri = component === "board-viewer" ? undefined : node.uri;
     addTab({
       workspaceId: workspace.id,
       createNew: true,
@@ -819,7 +741,8 @@ export const PageTreeMenu = ({
         component,
           params: {
             uri: resolvedUri,
-            openUri: node.uri,
+            // 逻辑：画布面板不显示“系统打开”按钮。
+            openUri,
             rootUri: resolvedRootUri,
             ...(component === "board-viewer"
               ? {
@@ -1275,13 +1198,6 @@ export const PageTreeMenu = ({
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", node.projectId);
     setDraggingProject({ projectId: node.projectId, title: node.name });
-    logProjectDrag("dragstart", {
-      projectId: node.projectId,
-      targetTag: event.currentTarget.tagName,
-    });
-    logProjectDrag("dragstart-data", {
-      types: Array.from(event.dataTransfer?.types ?? []),
-    });
   };
 
   /** Handle pointer-based drag for Electron. */
@@ -1373,7 +1289,6 @@ export const PageTreeMenu = ({
           x: startX + 12,
           y: startY + 12,
         });
-        logProjectDrag("pointer-drag-start", { projectId: sourceProject.projectId });
       }
       if (!hasStartedDrag) return;
       moveEvent.preventDefault();
@@ -1429,7 +1344,6 @@ export const PageTreeMenu = ({
         }
       }
       resetProjectDragState();
-      logProjectDrag("pointer-drag-end", { projectId: sourceProject.projectId });
     };
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -1472,7 +1386,6 @@ export const PageTreeMenu = ({
       scheduleAutoExpand(null);
     }
     setIsRootDropActive(false);
-    logProjectDrag("dragover", { projectId: node.projectId, position: dropPosition });
   };
 
   /** Handle drag leave a project node. */
@@ -1487,7 +1400,6 @@ export const PageTreeMenu = ({
       setDragInsertTarget(null);
     }
     scheduleAutoExpand(null);
-    logProjectDrag("dragleave", { projectId: node.projectId });
   };
 
   /** Handle dropping a project onto another project node. */
@@ -1531,17 +1443,11 @@ export const PageTreeMenu = ({
       });
     }
     resetProjectDragState();
-    logProjectDrag("drop", {
-      projectId: draggingProject.projectId,
-      targetParentId,
-      position: dropPosition,
-    });
   };
 
   /** Handle drag end cleanup. */
   const handleProjectDragEnd = () => {
     resetProjectDragState();
-    logProjectDrag("dragend");
   };
 
   /** Handle drag over root drop zone. */
@@ -1553,7 +1459,6 @@ export const PageTreeMenu = ({
     setDragOverProjectId(null);
     setDragInsertTarget(null);
     scheduleAutoExpand(null);
-    logProjectDrag("root-dragover");
   };
 
   /** Handle drag leave root drop zone. */
@@ -1561,7 +1466,6 @@ export const PageTreeMenu = ({
     setIsRootDropActive(false);
     setDragInsertTarget(null);
     scheduleAutoExpand(null);
-    logProjectDrag("root-dragleave");
   };
 
   /** Handle dropping a project onto root drop zone. */
@@ -1582,7 +1486,6 @@ export const PageTreeMenu = ({
       mode: "reparent",
     });
     resetProjectDragState();
-    logProjectDrag("root-drop", { projectId: draggingProject.projectId });
   };
 
   const renderContextMenuContent = (node: FileNode) => (

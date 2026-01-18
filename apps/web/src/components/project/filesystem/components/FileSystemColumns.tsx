@@ -28,6 +28,7 @@ import {
   getRelativePathFromUri,
   IGNORE_NAMES,
   resolveFileUriFromRoot,
+  resolveBoardFolderEntryFromIndexFile,
 } from "../utils/file-system-utils";
 import { sortEntriesByType } from "../utils/entry-sort";
 import {
@@ -663,6 +664,11 @@ const FileSystemColumns = memo(function FileSystemColumns({
           return;
         }
         onOpenSpreadsheetRef.current?.(entry);
+        return;
+      }
+      const boardFolderEntry = resolveBoardFolderEntryFromIndexFile(entry);
+      if (boardFolderEntry) {
+        onOpenBoardRef.current?.(boardFolderEntry);
         return;
       }
       if (isBoardFolderEntry(entry)) {

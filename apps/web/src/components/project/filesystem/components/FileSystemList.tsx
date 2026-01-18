@@ -26,6 +26,7 @@ import {
   formatTimestamp,
   getEntryExt,
   resolveFileUriFromRoot,
+  resolveBoardFolderEntryFromIndexFile,
 } from "../utils/file-system-utils";
 import {
   CODE_EXTS,
@@ -666,6 +667,11 @@ const FileSystemList = memo(function FileSystemList({
           return;
         }
         onOpenSpreadsheetRef.current?.(entry);
+        return;
+      }
+      const boardFolderEntry = resolveBoardFolderEntryFromIndexFile(entry);
+      if (boardFolderEntry) {
+        onOpenBoardRef.current?.(boardFolderEntry);
         return;
       }
       if (isBoardFolderEntry(entry)) {

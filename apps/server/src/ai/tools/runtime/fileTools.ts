@@ -1,4 +1,5 @@
 import path from "node:path";
+import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { tool, zodSchema } from "ai";
 import {
@@ -9,122 +10,89 @@ import {
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolPath, resolveToolWorkdir } from "@/ai/tools/runtime/toolScope";
 
-type ReadFileToolOutput = {
-  ok: true;
-  data: {
-    /** Absolute file path. */
-    path: string;
-    /** Root label describing scope. */
-    rootLabel: "workspace" | "project" | "external";
-    /** Read mode. */
-    mode: "slice" | "indentation";
-    /** 1-based start line. */
-    startLine: number;
-    /** 1-based end line. */
-    endLine: number;
-    /** Total lines in file. */
-    totalLines: number;
-    /** Returned content text. */
-    content: string;
-    /** Whether the output is truncated. */
-    truncated: boolean;
-  };
-};
+const MAX_LINE_LENGTH = 500;
+const DEFAULT_READ_LIMIT = 2000;
+const TAB_WIDTH = 4;
+const COMMENT_PREFIXES = ["#", "//", "--"];
 
-type ListDirToolOutput = {
-  ok: true;
-  data: {
-    /** Absolute directory path. */
-    path: string;
-    /** Root label describing scope. */
-    rootLabel: "workspace" | "project" | "external";
-    /** Recursion depth. */
-    depth: number;
-    /** Total entries before pagination. */
-    total: number;
-    /** Entries after pagination. */
-    entries: Array<{
-      /** Entry name. */
-      name: string;
-      /** Relative path from base directory. */
-      relativePath: string;
-      /** Absolute path. */
-      path: string;
-      /** Entry kind. */
-      kind: "file" | "folder";
-      /** Recursion depth for this entry. */
-      depth: number;
-      /** Byte size for files. */
-      size?: number;
-      /** Last modified time. */
-      updatedAt: string;
-    }>;
-    /** Whether entries were truncated. */
-    truncated: boolean;
-  };
-};
+const MAX_ENTRY_LENGTH = 500;
+const INDENTATION_SPACES = 2;
+const DEFAULT_LIST_LIMIT = 25;
+const DEFAULT_LIST_DEPTH = 2;
 
-type GrepMatch = {
-  /** Absolute file path. */
-  path: string;
-  /** Relative path from base directory. */
-  relativePath: string;
-  /** 1-based line number. */
-  line: number;
-  /** Line text. */
-  text: string;
-  /** Matched snippet. */
-  match: string;
-};
+const DEFAULT_GREP_LIMIT = 100;
+const MAX_GREP_LIMIT = 2000;
+const GREP_TIMEOUT_MS = 30_000;
 
-type GrepFilesToolOutput = {
-  ok: true;
-  data: {
-    /** Base search path. */
-    basePath: string;
-    /** Root label describing scope. */
-    rootLabel: "workspace" | "project" | "external";
-    /** Regex pattern string. */
-    pattern: string;
-    /** Optional include filter. */
-    include?: string;
-    /** Total matches returned. */
-    totalMatches: number;
-    /** Whether results were truncated. */
-    truncated: boolean;
-    /** Scanned file count. */
-    scannedFiles: number;
-    /** Skipped file count. */
-    skippedFiles: number;
-    /** Matched entries. */
-    matches: GrepMatch[];
-  };
-};
+type ReadMode = "slice" | "indentation";
 
-type IndentationSliceInput = {
-  /** Full lines of file. */
-  lines: string[];
-  /** 1-based anchor line. */
+type IndentationOptions = {
+  /** Anchor line to center the indentation lookup on. */
   anchorLine: number;
-  /** Maximum levels to include. */
+  /** How many parent indentation levels to include. */
   maxLevels: number;
-  /** Include siblings around anchor. */
+  /** Whether to include sibling blocks at the same indentation. */
   includeSiblings: boolean;
-  /** Include parent header. */
+  /** Whether to include header lines above the anchor block. */
   includeHeader: boolean;
-  /** Max output lines. */
+  /** Hard cap on returned lines. */
   maxLines: number;
 };
 
-type IndentationSliceResult = {
-  startLine: number;
-  endLine: number;
-  content: string;
-  truncated: boolean;
+type LineRecord = {
+  /** 1-based line number. */
+  number: number;
+  /** Raw line text. */
+  raw: string;
+  /** Display text (possibly truncated). */
+  display: string;
+  /** Measured indentation. */
+  indent: number;
+  /** Effective indentation for blank lines. */
+  effectiveIndent: number;
+  /** Whether line is blank. */
+  isBlank: boolean;
+  /** Whether line is a comment. */
+  isComment: boolean;
 };
 
-/** Resolve indentation count for a line. */
-function resolveIndent(line: string): number {
+type DirEntryKind = "directory" | "file" | "symlink" | "other";
+
+type DirEntry = {
+  /** Sort key. */
+  name: string;
+  /** Display name. */
+  displayName: string;
+  /** Depth for indentation. */
+  depth: number;
+  /** Entry kind. */
+  kind: DirEntryKind;
+};
+
+/** Truncate a string to the max line length without breaking characters. */
+function truncateLine(line: string, maxLength: number): string {
+  const chars = Array.from(line);
+  if (chars.length <= maxLength) return line;
+  return chars.slice(0, maxLength).join("");
+}
+
+/** Split file contents into lines while matching Codex newline handling. */
+function splitLines(raw: string): string[] {
+  if (!raw) return [];
+  const lines = raw.split(/\r?\n/);
+  if (raw.endsWith("\n") || raw.endsWith("\r\n")) {
+    lines.pop();
+  }
+  return lines;
+}
+
+/** Format a line record to output format. */
+function formatLineRecord(record: LineRecord): string {
+  return `L${record.number}: ${record.display}`;
+}
+
+/** Measure indentation width (tabs are TAB_WIDTH). */
+function measureIndent(line: string): number {
   let count = 0;
   for (const ch of line) {
     if (ch === " ") {
@@ -132,7 +100,7 @@ function resolveIndent(line: string): number {
       continue;
     }
     if (ch === "\t") {
-      count += 2;
+      count += TAB_WIDTH;
       continue;
     }
     break;
@@ -140,145 +108,123 @@ function resolveIndent(line: string): number {
   return count;
 }
 
-/** Resolve whether a line is blank. */
-function isBlankLine(line: string): boolean {
-  return line.trim().length === 0;
+/** Build line records with effective indentation. */
+function collectLineRecords(lines: string[]): LineRecord[] {
+  const records: LineRecord[] = [];
+  let previousIndent = 0;
+  lines.forEach((raw, index) => {
+    const indent = measureIndent(raw);
+    const isBlank = raw.trim().length === 0;
+    const effectiveIndent = isBlank ? previousIndent : indent;
+    if (!isBlank) previousIndent = indent;
+    const isComment = COMMENT_PREFIXES.some((prefix) => raw.trim().startsWith(prefix));
+    records.push({
+      number: index + 1,
+      raw,
+      display: truncateLine(raw, MAX_LINE_LENGTH),
+      indent,
+      effectiveIndent,
+      isBlank,
+      isComment,
+    });
+  });
+  return records;
 }
 
-/** Resolve the indentation unit size from an anchor block. */
-function resolveIndentUnit(lines: string[], anchorIndex: number, anchorIndent: number): number {
-  let minDiff = Infinity;
-  for (let i = anchorIndex + 1; i < lines.length; i += 1) {
-    const line = lines[i] ?? "";
-    if (isBlankLine(line)) continue;
-    const indent = resolveIndent(line);
-    if (indent <= anchorIndent) break;
-    minDiff = Math.min(minDiff, indent - anchorIndent);
-    if (minDiff === 1) break;
+/** Trim empty lines from both ends of the index list. */
+function trimEmptyLines(indices: number[], records: LineRecord[]): number[] {
+  let start = 0;
+  let end = indices.length - 1;
+  while (start <= end && records[indices[start]]?.isBlank) start += 1;
+  while (end >= start && records[indices[end]]?.isBlank) end -= 1;
+  return indices.slice(start, end + 1);
+}
+
+/** Build indentation-aware output lines. */
+function readIndentationBlock(
+  records: LineRecord[],
+  offset: number,
+  limit: number,
+  options: IndentationOptions,
+): string[] {
+  const anchorLine = options.anchorLine || offset;
+  if (anchorLine <= 0) throw new Error("anchorLine must be a 1-indexed line number");
+  if (!records.length || anchorLine > records.length) {
+    throw new Error("anchorLine exceeds file length");
   }
-  return Number.isFinite(minDiff) && minDiff > 0 ? minDiff : 2;
-}
 
-/** Resolve the line index to use as anchor when empty lines are involved. */
-function resolveAnchorIndex(lines: string[], anchorIndex: number): number {
-  let cursor = Math.min(Math.max(anchorIndex, 0), Math.max(lines.length - 1, 0));
-  while (cursor > 0 && isBlankLine(lines[cursor] ?? "")) {
-    cursor -= 1;
+  const anchorIndex = anchorLine - 1;
+  const anchorIndent = records[anchorIndex]?.effectiveIndent ?? 0;
+  const minIndent = options.maxLevels === 0 ? 0 : Math.max(0, anchorIndent - options.maxLevels * TAB_WIDTH);
+  const finalLimit = Math.min(limit, options.maxLines, records.length);
+
+  if (finalLimit === 1) {
+    return [formatLineRecord(records[anchorIndex])];
   }
-  return cursor;
-}
 
-/** Find the parent header line for an anchor indentation. */
-function findHeaderIndex(lines: string[], anchorIndex: number, anchorIndent: number): number | null {
-  for (let i = anchorIndex - 1; i >= 0; i -= 1) {
-    const line = lines[i] ?? "";
-    if (isBlankLine(line)) continue;
-    const indent = resolveIndent(line);
-    if (indent < anchorIndent) return i;
-    if (indent === 0) break;
-  }
-  return null;
-}
+  let i = anchorIndex - 1;
+  let j = anchorIndex + 1;
+  let iCounterMinIndent = 0;
+  let jCounterMinIndent = 0;
+  const outputIndices: number[] = [anchorIndex];
 
-/** Find the block start line for the same indentation level. */
-function findBlockStart(lines: string[], anchorIndex: number, anchorIndent: number): number {
-  let cursor = anchorIndex;
-  while (cursor > 0) {
-    const prevLine = lines[cursor - 1] ?? "";
-    if (isBlankLine(prevLine)) {
-      cursor -= 1;
-      continue;
+  while (outputIndices.length < finalLimit) {
+    let progressed = 0;
+
+    // 向上扩展：遇到小于 minIndent 的缩进就停止。
+    if (i >= 0) {
+      const index = i;
+      const record = records[index];
+      if (record && record.effectiveIndent >= minIndent) {
+        outputIndices.unshift(index);
+        progressed += 1;
+        i -= 1;
+
+        if (record.effectiveIndent === minIndent && !options.includeSiblings) {
+          const allowHeaderComment = options.includeHeader && record.isComment;
+          const canTakeLine = allowHeaderComment || iCounterMinIndent === 0;
+          if (canTakeLine) {
+            iCounterMinIndent += 1;
+          } else {
+            outputIndices.shift();
+            progressed -= 1;
+            i = -1;
+          }
+        }
+
+        if (outputIndices.length >= finalLimit) break;
+      } else {
+        i = -1;
+      }
     }
-    const indent = resolveIndent(prevLine);
-    if (indent < anchorIndent) break;
-    cursor -= 1;
-  }
-  return cursor;
-}
 
-/** Find the block end line for the same indentation level. */
-function findBlockEnd(lines: string[], anchorIndex: number, anchorIndent: number): number {
-  let cursor = anchorIndex;
-  for (let i = anchorIndex + 1; i < lines.length; i += 1) {
-    const line = lines[i] ?? "";
-    if (isBlankLine(line)) {
-      cursor = i;
-      continue;
+    // 向下扩展：与向上逻辑保持一致。
+    if (j < records.length) {
+      const index = j;
+      const record = records[index];
+      if (record && record.effectiveIndent >= minIndent) {
+        outputIndices.push(index);
+        progressed += 1;
+        j += 1;
+
+        if (record.effectiveIndent === minIndent && !options.includeSiblings) {
+          if (jCounterMinIndent > 0) {
+            outputIndices.pop();
+            progressed -= 1;
+            j = records.length;
+          }
+          jCounterMinIndent += 1;
+        }
+      } else {
+        j = records.length;
+      }
     }
-    const indent = resolveIndent(line);
-    if (indent < anchorIndent) break;
-    cursor = i;
-  }
-  return cursor;
-}
 
-/** Find the block end line for the anchor node only. */
-function findAnchorBlockEnd(lines: string[], anchorIndex: number, anchorIndent: number): number {
-  let cursor = anchorIndex;
-  for (let i = anchorIndex + 1; i < lines.length; i += 1) {
-    const line = lines[i] ?? "";
-    if (isBlankLine(line)) {
-      cursor = i;
-      continue;
-    }
-    const indent = resolveIndent(line);
-    if (indent <= anchorIndent) break;
-    cursor = i;
-  }
-  return cursor;
-}
-
-/** Build indentation-based slice result. */
-function buildIndentationSlice(input: IndentationSliceInput): IndentationSliceResult {
-  const lineCount = input.lines.length;
-  const anchorIndex = resolveAnchorIndex(input.lines, input.anchorLine - 1);
-  const anchorIndent = resolveIndent(input.lines[anchorIndex] ?? "");
-  const indentUnit = resolveIndentUnit(input.lines, anchorIndex, anchorIndent);
-
-  const blockStart = input.includeSiblings
-    ? findBlockStart(input.lines, anchorIndex, anchorIndent)
-    : anchorIndex;
-  // 中文注释：不包含兄弟节点时仅截取锚点子树范围。
-  const blockEnd = input.includeSiblings
-    ? findBlockEnd(input.lines, anchorIndex, anchorIndent)
-    : findAnchorBlockEnd(input.lines, anchorIndex, anchorIndent);
-
-  const headerIndex = input.includeHeader
-    ? findHeaderIndex(input.lines, blockStart, anchorIndent)
-    : null;
-
-  const maxIndent = anchorIndent + indentUnit * input.maxLevels;
-  const indices: number[] = [];
-
-  if (headerIndex !== null) {
-    indices.push(headerIndex);
+    if (progressed === 0) break;
   }
 
-  for (let i = blockStart; i <= blockEnd; i += 1) {
-    const line = input.lines[i] ?? "";
-    if (isBlankLine(line)) {
-      indices.push(i);
-      continue;
-    }
-    const indent = resolveIndent(line);
-    if (indent <= maxIndent) {
-      indices.push(i);
-    }
-  }
-
-  const uniqueIndices = Array.from(new Set(indices)).sort((a, b) => a - b);
-  const limitedIndices =
-    uniqueIndices.length > input.maxLines
-      ? uniqueIndices.slice(0, input.maxLines)
-      : uniqueIndices;
-  const truncated = uniqueIndices.length > limitedIndices.length;
-  const startLine = limitedIndices[0] != null ? limitedIndices[0] + 1 : 1;
-  const endLine = limitedIndices.length
-    ? (limitedIndices[limitedIndices.length - 1] ?? 0) + 1
-    : Math.min(Math.max(input.anchorLine, 1), Math.max(lineCount, 1));
-  const content = limitedIndices.map((index) => input.lines[index] ?? "").join("\n");
-
-  return { startLine, endLine, content, truncated };
+  const trimmed = trimEmptyLines(outputIndices, records);
+  return trimmed.map((index) => formatLineRecord(records[index]));
 }
 
 /** Execute file read tool with slice or indentation mode. */
@@ -295,64 +241,40 @@ export const readFileTool = tool({
     includeSiblings,
     includeHeader,
     maxLines,
-  }): Promise<ReadFileToolOutput> => {
+  }): Promise<string> => {
     const allowOutside = readBasicConf().toolAllowOutsideScope;
-    const { absPath, rootLabel } = resolveToolPath({ target: filePath, allowOutside });
+    const { absPath } = resolveToolPath({ target: filePath, allowOutside });
     const stat = await fs.stat(absPath);
     if (!stat.isFile()) throw new Error("Path is not a file.");
+
     const raw = await fs.readFile(absPath, "utf-8");
-    const lines = raw.split(/\r?\n/);
-    const totalLines = lines.length;
-    const resolvedMode = mode === "indentation" ? "indentation" : "slice";
+    const lines = splitLines(raw);
+    const records = collectLineRecords(lines);
+    const resolvedOffset = typeof offset === "number" ? offset : 1;
+    const resolvedLimit = typeof limit === "number" ? limit : DEFAULT_READ_LIMIT;
+
+    if (resolvedOffset <= 0) throw new Error("offset must be a 1-indexed line number");
+    if (resolvedLimit <= 0) throw new Error("limit must be greater than zero");
+
+    const resolvedMode: ReadMode = mode === "indentation" ? "indentation" : "slice";
 
     if (resolvedMode === "indentation") {
-      const resolvedAnchor = anchorLine ?? offset ?? 1;
-      const resolvedMaxLevels = typeof maxLevels === "number" ? Math.max(0, maxLevels) : 3;
-      const resolvedMaxLines = typeof maxLines === "number" ? Math.max(1, maxLines) : 200;
-      // 中文注释：缩进模式提取与锚点相关的代码块，避免一次返回整文件。
-      const slice = buildIndentationSlice({
-        lines,
-        anchorLine: resolvedAnchor,
-        maxLevels: resolvedMaxLevels,
+      const options: IndentationOptions = {
+        anchorLine: anchorLine ?? resolvedOffset,
+        maxLevels: typeof maxLevels === "number" ? Math.max(0, maxLevels) : 0,
         includeSiblings: Boolean(includeSiblings),
-        includeHeader: Boolean(includeHeader),
-        maxLines: resolvedMaxLines,
-      });
-      return {
-        ok: true,
-        data: {
-          path: absPath,
-          rootLabel,
-          mode: resolvedMode,
-          startLine: slice.startLine,
-          endLine: slice.endLine,
-          totalLines,
-          content: slice.content,
-          truncated: slice.truncated,
-        },
+        includeHeader: includeHeader !== false,
+        maxLines: typeof maxLines === "number" ? Math.max(1, maxLines) : resolvedLimit,
       };
+      return readIndentationBlock(records, resolvedOffset, resolvedLimit, options).join("\n");
     }
 
-    const startLine = Math.max(1, typeof offset === "number" ? offset : 1);
-    const maxLinesToRead = Math.max(1, typeof limit === "number" ? limit : 200);
-    const startIndex = Math.min(startLine - 1, Math.max(totalLines - 1, 0));
-    const endIndex = Math.min(startIndex + maxLinesToRead - 1, Math.max(totalLines - 1, 0));
-    const content = lines.slice(startIndex, endIndex + 1).join("\n");
-    const truncated = endIndex < totalLines - 1;
+    if (resolvedOffset > records.length) throw new Error("offset exceeds file length");
 
-    return {
-      ok: true,
-      data: {
-        path: absPath,
-        rootLabel,
-        mode: resolvedMode,
-        startLine: startIndex + 1,
-        endLine: endIndex + 1,
-        totalLines,
-        content,
-        truncated,
-      },
-    };
+    const startIndex = resolvedOffset - 1;
+    const endIndex = Math.min(startIndex + resolvedLimit - 1, records.length - 1);
+    const slice = records.slice(startIndex, endIndex + 1).map(formatLineRecord);
+    return slice.join("\n");
   },
 });
 
@@ -360,218 +282,242 @@ export const readFileTool = tool({
 export const listDirTool = tool({
   description: listDirToolDef.description,
   inputSchema: zodSchema(listDirToolDef.parameters),
-  execute: async ({ path: targetPath, offset, limit, depth }): Promise<ListDirToolOutput> => {
+  execute: async ({ path: targetPath, offset, limit, depth }): Promise<string> => {
     const allowOutside = readBasicConf().toolAllowOutsideScope;
-    const { absPath, rootLabel } = resolveToolPath({ target: targetPath, allowOutside });
+    const { absPath } = resolveToolPath({ target: targetPath, allowOutside });
     const stat = await fs.stat(absPath);
     if (!stat.isDirectory()) throw new Error("Path is not a directory.");
-    const resolvedDepth = typeof depth === "number" && depth > 0 ? Math.floor(depth) : 1;
-    const entries: ListDirToolOutput["data"]["entries"] = [];
 
-    const walk = async (basePath: string, currentDepth: number): Promise<void> => {
-      if (currentDepth > resolvedDepth) return;
-      const dirEntries = await fs.readdir(basePath, { withFileTypes: true });
-      for (const entry of dirEntries) {
-        const entryPath = path.join(basePath, entry.name);
-        const entryStat = await fs.stat(entryPath);
-        const kind = entryStat.isDirectory() ? "folder" : "file";
-        const relativePath = path.relative(absPath, entryPath);
-        entries.push({
-          name: entry.name,
-          relativePath: relativePath || entry.name,
-          path: entryPath,
-          kind,
-          depth: currentDepth,
-          size: entryStat.isFile() ? entryStat.size : undefined,
-          updatedAt: entryStat.mtime.toISOString(),
-        });
-        if (entryStat.isDirectory()) {
-          await walk(entryPath, currentDepth + 1);
-        }
-      }
-    };
+    const resolvedOffset = typeof offset === "number" ? offset : 1;
+    const resolvedLimit = typeof limit === "number" ? limit : DEFAULT_LIST_LIMIT;
+    const resolvedDepth = typeof depth === "number" ? depth : DEFAULT_LIST_DEPTH;
 
-    // 中文注释：递归遍历目录并记录层级信息，便于分页与展示。
-    await walk(absPath, 1);
+    if (resolvedOffset <= 0) throw new Error("offset must be a 1-indexed entry number");
+    if (resolvedLimit <= 0) throw new Error("limit must be greater than zero");
+    if (resolvedDepth <= 0) throw new Error("depth must be greater than zero");
 
-    entries.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-    const total = entries.length;
-    const start = Math.max(1, typeof offset === "number" ? offset : 1);
-    const maxItems = Math.max(1, typeof limit === "number" ? limit : total || 1);
-    const startIndex = Math.min(start - 1, Math.max(total - 1, 0));
-    const endIndex = Math.min(startIndex + maxItems, total);
-    const sliced = entries.slice(startIndex, endIndex);
-    const truncated = sliced.length < total;
+    const entries = await collectDirEntries(absPath, resolvedDepth);
+    const output: string[] = [`Absolute path: ${absPath}`];
 
-    return {
-      ok: true,
-      data: {
-        path: absPath,
-        rootLabel,
-        depth: resolvedDepth,
-        total,
-        entries: sliced,
-        truncated,
-      },
-    };
+    if (entries.length === 0) {
+      return output.join("\n");
+    }
+
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+
+    const startIndex = resolvedOffset - 1;
+    if (startIndex >= entries.length) {
+      throw new Error("offset exceeds directory entry count");
+    }
+
+    const remaining = entries.length - startIndex;
+    const cappedLimit = Math.min(resolvedLimit, remaining);
+    const endIndex = startIndex + cappedLimit;
+    const selected = entries.slice(startIndex, endIndex);
+
+    selected.forEach((entry) => output.push(formatDirEntry(entry)));
+
+    if (endIndex < entries.length) {
+      output.push(`More than ${cappedLimit} entries found`);
+    }
+
+    return output.join("\n");
   },
 });
 
-/** Build a regex from input pattern. */
-function buildSearchRegex(pattern: string): RegExp {
-  const trimmed = pattern.trim();
-  if (!trimmed) throw new Error("pattern is required.");
-  if (trimmed.startsWith("/") && trimmed.lastIndexOf("/") > 0) {
-    const lastSlash = trimmed.lastIndexOf("/");
-    const body = trimmed.slice(1, lastSlash);
-    const flags = trimmed.slice(lastSlash + 1);
-    const normalizedFlags = flags.includes("g") ? flags : `${flags}g`;
-    return new RegExp(body, normalizedFlags);
+/** Collect directory entries in BFS order with depth. */
+async function collectDirEntries(basePath: string, depth: number): Promise<DirEntry[]> {
+  const entries: DirEntry[] = [];
+  const queue: Array<{ dirPath: string; prefix: string; remaining: number }> = [
+    { dirPath: basePath, prefix: "", remaining: depth },
+  ];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) break;
+
+    const dirEntries = await fs.readdir(current.dirPath, { withFileTypes: true });
+    const collected: Array<{ entryPath: string; relativePath: string; entry: DirEntry; kind: DirEntryKind }> = [];
+
+    for (const entry of dirEntries) {
+      const relativePath = current.prefix ? path.join(current.prefix, entry.name) : entry.name;
+      const normalized = relativePath.split(path.sep).join("/");
+      const depthLevel = current.prefix ? current.prefix.split(path.sep).length : 0;
+      const displayName = truncateLine(entry.name, MAX_ENTRY_LENGTH);
+      const kind: DirEntryKind = entry.isDirectory()
+        ? "directory"
+        : entry.isSymbolicLink()
+          ? "symlink"
+          : entry.isFile()
+            ? "file"
+            : "other";
+      collected.push({
+        entryPath: path.join(current.dirPath, entry.name),
+        relativePath,
+        kind,
+        entry: {
+          name: truncateLine(normalized, MAX_ENTRY_LENGTH),
+          displayName,
+          depth: depthLevel,
+          kind,
+        },
+      });
+    }
+
+    collected.sort((a, b) => a.entry.name.localeCompare(b.entry.name));
+
+    for (const item of collected) {
+      entries.push(item.entry);
+      if (item.kind === "directory" && current.remaining > 1) {
+        queue.push({ dirPath: item.entryPath, prefix: item.relativePath, remaining: current.remaining - 1 });
+      }
+    }
   }
-  return new RegExp(trimmed, "g");
+
+  return entries;
 }
 
-/** Escape a string for regex usage. */
-function escapeRegex(raw: string): string {
-  return raw.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
-}
-
-/** Build include matcher from a glob-like string. */
-function buildIncludeMatcher(include?: string): (value: string) => boolean {
-  if (!include) return () => true;
-  const trimmed = include.trim();
-  if (!trimmed) return () => true;
-  if (trimmed.startsWith("re:")) {
-    const regex = new RegExp(trimmed.slice(3));
-    return (value: string) => regex.test(value);
-  }
-  const pattern = escapeRegex(trimmed)
-    .replace(/\\\*\\\*\/?/g, ".*")
-    .replace(/\\\*/g, "[^/]*")
-    .replace(/\\\?/g, "[^/]");
-  const regex = new RegExp(`^${pattern}$`);
-  return (value: string) => regex.test(value);
-}
-
-/** Check if a buffer is likely binary content. */
-function isBinaryBuffer(buffer: Buffer): boolean {
-  const sample = buffer.subarray(0, 4096);
-  return sample.includes(0);
-}
-
-/** Resolve base path and label for grep tool. */
-function resolveGrepBase(input: {
-  target?: string;
-  allowOutside: boolean;
-}): { basePath: string; rootLabel: "workspace" | "project" | "external" } {
-  if (input.target) {
-    const resolved = resolveToolPath({ target: input.target, allowOutside: input.allowOutside });
-    return { basePath: resolved.absPath, rootLabel: resolved.rootLabel };
-  }
-  const { cwd, rootLabel } = resolveToolWorkdir({ allowOutside: input.allowOutside });
-  return { basePath: cwd, rootLabel };
+/** Format directory entry line. */
+function formatDirEntry(entry: DirEntry): string {
+  const indent = " ".repeat(entry.depth * INDENTATION_SPACES);
+  let name = entry.displayName;
+  if (entry.kind === "directory") name += "/";
+  if (entry.kind === "symlink") name += "@";
+  if (entry.kind === "other") name += "?";
+  return `${indent}${name}`;
 }
 
 /** Execute grep files tool with scope enforcement. */
 export const grepFilesTool = tool({
   description: grepFilesToolDef.description,
   inputSchema: zodSchema(grepFilesToolDef.parameters),
-  execute: async ({ pattern, include, path: targetPath, limit }): Promise<GrepFilesToolOutput> => {
+  execute: async ({ pattern, include, path: targetPath, limit }): Promise<string> => {
+    const trimmedPattern = pattern.trim();
+    if (!trimmedPattern) throw new Error("pattern must not be empty");
+
+    const resolvedLimit = typeof limit === "number" ? limit : DEFAULT_GREP_LIMIT;
+    if (resolvedLimit <= 0) throw new Error("limit must be greater than zero");
+
     const allowOutside = readBasicConf().toolAllowOutsideScope;
-    const { basePath, rootLabel } = resolveGrepBase({ target: targetPath, allowOutside });
-    const stat = await fs.stat(basePath);
-    const regex = buildSearchRegex(pattern);
-    const includeMatcher = buildIncludeMatcher(include);
-    const maxMatches = Math.max(1, typeof limit === "number" ? limit : 50);
-    const matches: GrepMatch[] = [];
-    let scannedFiles = 0;
-    let skippedFiles = 0;
+    const { basePath, cwd } = resolveGrepBase({ target: targetPath, allowOutside });
+    await fs.stat(basePath);
 
-    const scanFile = async (filePath: string) => {
-      if (matches.length >= maxMatches) return;
-      let entryStat: Awaited<ReturnType<typeof fs.stat>>;
-      try {
-        entryStat = await fs.stat(filePath);
-      } catch {
-        return;
-      }
-      if (!entryStat.isFile()) return;
-      if (entryStat.size > 2 * 1024 * 1024) {
-        // 中文注释：超过 2MB 的文件直接跳过，避免占用过多内存。
-        skippedFiles += 1;
-        return;
-      }
-      const buffer = await fs.readFile(filePath);
-      if (isBinaryBuffer(buffer)) {
-        skippedFiles += 1;
-        return;
-      }
-      const text = buffer.toString("utf-8");
-      const lines = text.split(/\r?\n/);
-      scannedFiles += 1;
-      for (let i = 0; i < lines.length; i += 1) {
-        const lineText = lines[i] ?? "";
-        regex.lastIndex = 0;
-        let match: RegExpExecArray | null;
-        while ((match = regex.exec(lineText)) !== null) {
-          matches.push({
-            path: filePath,
-            relativePath: path.relative(basePath, filePath) || path.basename(filePath),
-            line: i + 1,
-            text: lineText,
-            match: match[0],
-          });
-          if (matches.length >= maxMatches) return;
-          if (!regex.global) break;
-        }
-      }
-    };
+    const includeValue = include?.trim() || undefined;
+    const results = await runRgSearch({
+      pattern: trimmedPattern,
+      include: includeValue,
+      searchPath: basePath,
+      limit: Math.min(resolvedLimit, MAX_GREP_LIMIT),
+      cwd,
+    });
 
-    const walk = async (dirPath: string) => {
-      if (matches.length >= maxMatches) return;
-      const entries = await fs.readdir(dirPath, { withFileTypes: true });
-      for (const entry of entries) {
-        if (matches.length >= maxMatches) return;
-        if (entry.isSymbolicLink()) {
-          // 中文注释：跳过符号链接，避免循环引用。
-          continue;
-        }
-        const entryPath = path.join(dirPath, entry.name);
-        const relativePath = path.relative(basePath, entryPath) || entry.name;
-        if (entry.isDirectory()) {
-          await walk(entryPath);
-          continue;
-        }
-        const normalizedRelative = relativePath.split(path.sep).join("/");
-        if (!includeMatcher(normalizedRelative)) continue;
-        await scanFile(entryPath);
-      }
-    };
-
-    // 中文注释：若目标是文件则直接扫描，否则递归遍历目录。
-    if (stat.isFile()) {
-      if (includeMatcher(path.basename(basePath))) {
-        await scanFile(basePath);
-      }
-    } else if (stat.isDirectory()) {
-      await walk(basePath);
-    } else {
-      throw new Error("Path must be a file or directory.");
-    }
-
-    return {
-      ok: true,
-      data: {
-        basePath,
-        rootLabel,
-        pattern,
-        include: include?.trim() || undefined,
-        totalMatches: matches.length,
-        truncated: matches.length >= maxMatches,
-        scannedFiles,
-        skippedFiles,
-        matches,
-      },
-    };
+    if (!results.length) return "No matches found.";
+    return results.join("\n");
   },
 });
+
+type GrepBase = {
+  /** Base search path. */
+  basePath: string;
+  /** Working directory for rg. */
+  cwd: string;
+};
+
+/** Resolve base path and cwd for grep tool. */
+function resolveGrepBase(input: { target?: string; allowOutside: boolean }): GrepBase {
+  const { cwd } = resolveToolWorkdir({ allowOutside: input.allowOutside });
+  if (input.target) {
+    const resolved = resolveToolPath({ target: input.target, allowOutside: input.allowOutside });
+    return { basePath: resolved.absPath, cwd };
+  }
+  return { basePath: cwd, cwd };
+}
+
+type RgSearchInput = {
+  /** Regex pattern string. */
+  pattern: string;
+  /** Optional glob filter. */
+  include?: string;
+  /** Search path. */
+  searchPath: string;
+  /** Maximum results. */
+  limit: number;
+  /** Working directory. */
+  cwd: string;
+};
+
+/** Run a ripgrep search and return file paths. */
+async function runRgSearch(input: RgSearchInput): Promise<string[]> {
+  const args = [
+    "--files-with-matches",
+    "--sortr=modified",
+    "--regexp",
+    input.pattern,
+    "--no-messages",
+  ];
+  if (input.include) {
+    args.push("--glob", input.include);
+  }
+  args.push("--", input.searchPath);
+
+  const output = await runCommand("rg", args, input.cwd, GREP_TIMEOUT_MS);
+
+  if (output.exitCode === 1) return [];
+  if (output.exitCode !== 0) {
+    const stderr = output.stderr || "rg failed";
+    throw new Error(stderr);
+  }
+
+  const lines = output.stdout.split("\n").filter(Boolean);
+  return lines.slice(0, input.limit);
+}
+
+type CommandOutput = {
+  /** Exit code. */
+  exitCode: number | null;
+  /** Stdout content. */
+  stdout: string;
+  /** Stderr content. */
+  stderr: string;
+};
+
+/** Run a command with timeout and capture output. */
+function runCommand(
+  command: string,
+  args: string[],
+  cwd: string,
+  timeoutMs: number,
+): Promise<CommandOutput> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { cwd, stdio: "pipe" });
+    const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
+
+    child.stdout.setEncoding("utf-8");
+    child.stderr.setEncoding("utf-8");
+    child.stdout.on("data", (chunk) => stdoutChunks.push(String(chunk)));
+    child.stderr.on("data", (chunk) => stderrChunks.push(String(chunk)));
+
+    let timeoutId: NodeJS.Timeout | null = null;
+    if (timeoutMs > 0) {
+      timeoutId = setTimeout(() => {
+        child.kill("SIGTERM");
+        reject(new Error("rg timed out after 30 seconds"));
+      }, timeoutMs);
+    }
+
+    child.once("error", (error) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      reject(new Error(`failed to launch rg: ${String(error)}. Ensure ripgrep is installed and on PATH.`));
+    });
+
+    child.once("exit", (code) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      resolve({
+        exitCode: code,
+        stdout: stdoutChunks.join(""),
+        stderr: stderrChunks.join(""),
+      });
+    });
+  });
+}

@@ -1,9 +1,17 @@
 import { z } from "zod";
 
-export const shellCommandToolDef = {
-  id: "shell-command",
-  description:
-    "执行受控的命令行指令（以参数数组形式传入），适用于一次性命令调用。支持工作目录、超时与沙盒权限控制。",
+export const shellToolDefWin = {
+  id: "shell-win",
+  description: `Runs a Powershell command (Windows) and returns its output. Arguments to \`shell\` will be passed to CreateProcessW(). Most commands should be prefixed with ["powershell.exe", "-Command"].
+
+Examples of valid command strings:
+
+- ls -a (show hidden): ["powershell.exe", "-Command", "Get-ChildItem -Force"]
+- recursive find by name: ["powershell.exe", "-Command", "Get-ChildItem -Recurse -Filter *.py"]
+- recursive grep: ["powershell.exe", "-Command", "Get-ChildItem -Path C:\\\\myrepo -Recurse | Select-String -Pattern 'TODO' -CaseSensitive"]
+- ps aux | grep python: ["powershell.exe", "-Command", "Get-Process | Where-Object { $_.ProcessName -like '*python*' }"]
+- setting an env var: ["powershell.exe", "-Command", "$env:FOO='bar'; echo $env:FOO"]
+- running an inline Python script: ["powershell.exe", "-Command", "@'\\nprint('Hello, world!')\\n'@ | python -"]`,
   parameters: z.object({
     command: z.array(z.string()).min(1),
     workdir: z.string().optional(),
@@ -14,10 +22,62 @@ export const shellCommandToolDef = {
   component: null,
 } as const;
 
-export const execCommandToolDef = {
-  id: "exec-command",
-  description:
-    "启动可交互的统一执行会话，返回 sessionId 供后续写入 stdin 并读取输出。",
+export const shellToolDefUnix = {
+  id: "shell-unix",
+  description: `Runs a shell command and returns its output.
+- The arguments to \`shell\` will be passed to execvp(). Most terminal commands should be prefixed with ["bash", "-lc"].
+- Always set the \`workdir\` param when using the shell function. Do not use \`cd\` unless absolutely necessary.`,
+  parameters: z.object({
+    command: z.array(z.string()).min(1),
+    workdir: z.string().optional(),
+    timeoutMs: z.number().int().positive().optional(),
+    sandboxPermissions: z.enum(["use_default", "require_escalated"]).optional(),
+    justification: z.string().optional(),
+  }),
+  component: null,
+} as const;
+
+export const shellCommandToolDefWin = {
+  id: "shell-command-win",
+  description: `Runs a Powershell command (Windows) and returns its output.
+
+Examples of valid command strings:
+
+- ls -a (show hidden): "Get-ChildItem -Force"
+- recursive find by name: "Get-ChildItem -Recurse -Filter *.py"
+- recursive grep: "Get-ChildItem -Path C:\\\\myrepo -Recurse | Select-String -Pattern 'TODO' -CaseSensitive"
+- ps aux | grep python: "Get-Process | Where-Object { $_.ProcessName -like '*python*' }"
+- setting an env var: "$env:FOO='bar'; echo $env:FOO"
+- running an inline Python script: "@'\\nprint('Hello, world!')\\n'@ | python -"`,
+  parameters: z.object({
+    command: z.string().min(1),
+    workdir: z.string().optional(),
+    login: z.boolean().optional(),
+    timeoutMs: z.number().int().positive().optional(),
+    sandboxPermissions: z.enum(["use_default", "require_escalated"]).optional(),
+    justification: z.string().optional(),
+  }),
+  component: null,
+} as const;
+
+export const shellCommandToolDefUnix = {
+  id: "shell-command-unix",
+  description: `Runs a shell command and returns its output.
+- Always set the \`workdir\` param when using the shell_command function. Do not use \`cd\` unless absolutely necessary.`,
+  parameters: z.object({
+    command: z.string().min(1),
+    workdir: z.string().optional(),
+    login: z.boolean().optional(),
+    timeoutMs: z.number().int().positive().optional(),
+    sandboxPermissions: z.enum(["use_default", "require_escalated"]).optional(),
+    justification: z.string().optional(),
+  }),
+  component: null,
+} as const;
+
+export const execCommandToolDefWin = {
+  id: "exec-command-win",
+  description: "Runs a command in a PTY, returning output or a session ID for ongoing interaction.",
   parameters: z.object({
     cmd: z.string().min(1),
     workdir: z.string().optional(),
@@ -32,9 +92,38 @@ export const execCommandToolDef = {
   component: null,
 } as const;
 
-export const writeStdinToolDef = {
-  id: "write-stdin",
-  description: "向已建立的统一执行会话写入输入并读取新增输出。",
+export const execCommandToolDefUnix = {
+  id: "exec-command-unix",
+  description: "Runs a command in a PTY, returning output or a session ID for ongoing interaction.",
+  parameters: z.object({
+    cmd: z.string().min(1),
+    workdir: z.string().optional(),
+    shell: z.string().optional(),
+    login: z.boolean().optional(),
+    tty: z.boolean().optional(),
+    yieldTimeMs: z.number().int().positive().optional(),
+    maxOutputTokens: z.number().int().positive().optional(),
+    sandboxPermissions: z.enum(["use_default", "require_escalated"]).optional(),
+    justification: z.string().optional(),
+  }),
+  component: null,
+} as const;
+
+export const writeStdinToolDefWin = {
+  id: "write-stdin-win",
+  description: "Writes characters to an existing unified exec session and returns recent output.",
+  parameters: z.object({
+    sessionId: z.string().min(1),
+    chars: z.string().optional(),
+    yieldTimeMs: z.number().int().positive().optional(),
+    maxOutputTokens: z.number().int().positive().optional(),
+  }),
+  component: null,
+} as const;
+
+export const writeStdinToolDefUnix = {
+  id: "write-stdin-unix",
+  description: "Writes characters to an existing unified exec session and returns recent output.",
   parameters: z.object({
     sessionId: z.string().min(1),
     chars: z.string().optional(),
@@ -47,7 +136,7 @@ export const writeStdinToolDef = {
 export const readFileToolDef = {
   id: "read-file",
   description:
-    "读取文件内容，支持行偏移、最大行数与缩进树形切片等模式。",
+    "Reads a local file with 1-indexed line numbers, supporting slice and indentation-aware block modes.",
   parameters: z.object({
     path: z.string().min(1),
     offset: z.number().int().min(1).optional(),
@@ -64,7 +153,8 @@ export const readFileToolDef = {
 
 export const listDirToolDef = {
   id: "list-dir",
-  description: "列出指定目录下的文件与子目录，可控制深度与分页。",
+  description:
+    "Lists entries in a local directory with 1-indexed entry numbers and simple type labels.",
   parameters: z.object({
     path: z.string().min(1),
     offset: z.number().int().min(1).optional(),
@@ -76,7 +166,8 @@ export const listDirToolDef = {
 
 export const grepFilesToolDef = {
   id: "grep-files",
-  description: "在指定路径范围内按正则检索文本内容。",
+  description:
+    "Finds files whose contents match the pattern and lists them by modification time.",
   parameters: z.object({
     pattern: z.string().min(1),
     include: z.string().optional(),

@@ -69,6 +69,7 @@ import { buildClipboardState, buildPastedElements, getClipboardInsertPayload } f
 import { buildImageNodePayloadFromFile, type ImageNodePayload } from "../utils/image";
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
 import { buildAnchorMap } from "./anchors";
+import { computeAutoLayoutUpdates } from "./auto-layout";
 import {
   addStrokeElement as addStrokeElementToDoc,
   eraseStrokesAt as eraseStrokesAtDoc,
@@ -1143,6 +1144,20 @@ export class CanvasEngine {
       LAYOUT_GAP,
       direction
     );
+  }
+
+  /** Auto layout all nodes on the board. */
+  autoLayoutBoard(): void {
+    if (this.locked) return;
+    const updates = computeAutoLayoutUpdates(this.doc.getElements());
+    if (updates.length === 0) return;
+    // 逻辑：一次性提交布局结果，避免历史记录拆分。
+    this.doc.transact(() => {
+      updates.forEach(update => {
+        this.doc.updateElement(update.id, { xywh: update.xywh });
+      });
+    });
+    this.commitHistory();
   }
 
   /** Toggle lock state for a node element. */

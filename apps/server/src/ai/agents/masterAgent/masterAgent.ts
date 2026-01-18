@@ -24,12 +24,17 @@ import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
 import {
-  execCommandToolDef,
   grepFilesToolDef,
   listDirToolDef,
   readFileToolDef,
-  shellCommandToolDef,
-  writeStdinToolDef,
+  shellCommandToolDefUnix,
+  shellCommandToolDefWin,
+  shellToolDefUnix,
+  shellToolDefWin,
+  execCommandToolDefUnix,
+  execCommandToolDefWin,
+  writeStdinToolDefUnix,
+  writeStdinToolDefWin,
 } from "@tenas-ai/api/types/tools/runtime";
 import { loadSkillSummaries, type SkillSummary } from "./skillsLoader";
 
@@ -37,11 +42,17 @@ import { loadSkillSummaries, type SkillSummary } from "./skillsLoader";
 const MASTER_AGENT_NAME = "MasterAgent";
 /** Master agent id. */
 const MASTER_AGENT_ID = "master-agent";
+const isWindows = process.platform === "win32";
+const shellToolDef = isWindows ? shellToolDefWin : shellToolDefUnix;
+const shellCommandToolDef = isWindows ? shellCommandToolDefWin : shellCommandToolDefUnix;
+const execCommandToolDef = isWindows ? execCommandToolDefWin : execCommandToolDefUnix;
+const writeStdinToolDef = isWindows ? writeStdinToolDefWin : writeStdinToolDefUnix;
 /** Master agent tool ids. */
 const MASTER_AGENT_TOOL_IDS = [
   timeNowToolDef.id,
   testApprovalToolDef.id,
   subAgentToolDef.id,
+  shellToolDef.id,
   shellCommandToolDef.id,
   execCommandToolDef.id,
   writeStdinToolDef.id,

@@ -3,6 +3,7 @@ import { timeNowTool } from "@/ai/tools/system/timeNowTool";
 import { testApprovalTool } from "@/ai/tools/test/testApprovalTool";
 import { subAgentTool } from "@/ai/tools/delegation/subAgentTool";
 import { execCommandTool } from "@/ai/tools/runtime/execCommandTool";
+import { shellTool } from "@/ai/tools/runtime/shellTool";
 import { shellCommandTool } from "@/ai/tools/runtime/shellCommandTool";
 import { writeStdinTool } from "@/ai/tools/runtime/writeStdinTool";
 import { grepFilesTool, listDirTool, readFileTool } from "@/ai/tools/runtime/fileTools";
@@ -19,12 +20,17 @@ import { systemToolMeta, timeNowToolDef } from "@tenas-ai/api/types/tools/system
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
 import {
-  execCommandToolDef,
   grepFilesToolDef,
   listDirToolDef,
   readFileToolDef,
-  shellCommandToolDef,
-  writeStdinToolDef,
+  shellCommandToolDefUnix,
+  shellCommandToolDefWin,
+  shellToolDefUnix,
+  shellToolDefWin,
+  execCommandToolDefUnix,
+  execCommandToolDefWin,
+  writeStdinToolDefUnix,
+  writeStdinToolDefWin,
 } from "@tenas-ai/api/types/tools/runtime";
 import { RiskType } from "@tenas-ai/api/types/toolResult";
 import {
@@ -39,6 +45,12 @@ type ToolEntry = {
   tool: any;
   meta?: ToolPolicyMeta;
 };
+
+const isWindows = process.platform === "win32";
+const shellToolDef = isWindows ? shellToolDefWin : shellToolDefUnix;
+const shellCommandToolDef = isWindows ? shellCommandToolDefWin : shellCommandToolDefUnix;
+const execCommandToolDef = isWindows ? execCommandToolDefWin : execCommandToolDefUnix;
+const writeStdinToolDef = isWindows ? writeStdinToolDefWin : writeStdinToolDefUnix;
 
 /** Build a tool entry from system tool meta. */
 function buildSystemToolEntry(toolId: string, tool: any): ToolEntry {
@@ -86,6 +98,10 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [browserWaitToolDef.id]: {
     tool: browserWaitTool,
     meta: { needsApproval: false },
+  },
+  [shellToolDef.id]: {
+    tool: shellTool,
+    meta: { needsApproval: true },
   },
   [shellCommandToolDef.id]: {
     tool: shellCommandTool,

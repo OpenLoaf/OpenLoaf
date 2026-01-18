@@ -14,8 +14,8 @@ type ExecSession = {
   exitCode: number | null;
   /** Exit signal when process ends. */
   signal: NodeJS.Signals | null;
-  /** Creation timestamp. */
-  createdAt: number;
+  /** Session start timestamp. */
+  startedAt: number;
   /** End timestamp if finished. */
   endedAt?: number;
 };
@@ -23,6 +23,8 @@ type ExecSession = {
 type ExecReadResult = {
   output: string;
   truncated: boolean;
+  chunkId: string;
+  wallTimeMs: number;
 };
 
 const sessions = new Map<string, ExecSession>();
@@ -39,7 +41,7 @@ export function createExecSession(process: ChildProcessWithoutNullStreams): Exec
     readOffset: 0,
     exitCode: null,
     signal: null,
-    createdAt: Date.now(),
+    startedAt: Date.now(),
   };
   sessions.set(id, session);
 
@@ -48,7 +50,7 @@ export function createExecSession(process: ChildProcessWithoutNullStreams): Exec
     session.buffer += text;
     if (session.buffer.length > MAX_BUFFER_SIZE) {
       const overflow = session.buffer.length - MAX_BUFFER_SIZE;
-      // 中文注释：缓冲区超限时截断旧内容并同步 readOffset。
+      // 缓冲区超限时截断旧内容并同步 readOffset。
       session.buffer = session.buffer.slice(overflow);
       session.readOffset = Math.max(0, session.readOffset - overflow);
     }
@@ -88,14 +90,17 @@ export function readExecOutput(input: {
 }): ExecReadResult {
   const session = getExecSession(input.sessionId);
   if (!session) throw new Error("Exec session not found.");
+  const now = Date.now();
+  const chunkId = randomUUID();
+  const wallTimeMs = (session.endedAt ?? now) - session.startedAt;
   const pending = session.buffer.slice(session.readOffset);
   if (!input.maxChars || pending.length <= input.maxChars) {
     session.readOffset = session.buffer.length;
-    return { output: pending, truncated: false };
+    return { output: pending, truncated: false, chunkId, wallTimeMs };
   }
   const output = pending.slice(0, input.maxChars);
   session.readOffset += output.length;
-  return { output, truncated: true };
+  return { output, truncated: true, chunkId, wallTimeMs };
 }
 
 /** Write input to the exec session stdin. */

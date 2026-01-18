@@ -880,8 +880,8 @@ export function useProjectFileSystemModel({
         component: "board-viewer",
         title: displayName,
         params: {
+          // 逻辑：画布不暴露系统打开入口，避免显示“系统打开”按钮。
           uri: boardFolderUri,
-          openUri: boardFolderUri,
           boardFolderUri,
           boardFileUri,
           name: entry.name,

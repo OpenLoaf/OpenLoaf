@@ -2,7 +2,16 @@
 
 import { memo, useCallback, useMemo, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { Lock, Maximize2, Redo2, Undo2, Unlock, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  LayoutGrid,
+  Lock,
+  Maximize2,
+  Redo2,
+  Undo2,
+  Unlock,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
 import { IconBtn } from "../ui/ToolbarParts";
 import type { CanvasEngine } from "../engine/CanvasEngine";
@@ -88,6 +97,13 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
     engine.fitToElements();
   }, [engine]);
 
+  /** Trigger auto layout for the board. */
+  const handleAutoLayout = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    engine.autoLayoutBoard();
+  }, [engine]);
+
   const handleUndo = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -118,6 +134,7 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
   const undoTitle = buildControlTitle("撤销", undoShortcut);
   const redoTitle = buildControlTitle("前进", redoShortcut);
   const fitTitle = buildControlTitle("全屏", "F");
+  const autoLayoutTitle = buildControlTitle("自动布局");
   const lockTitle = buildControlTitle(snapshot.locked ? "解锁" : "锁定", "L");
 
   return (
@@ -168,6 +185,15 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
         </IconBtn>
         <IconBtn title={fitTitle} onPointerDown={handleFitView} tooltipSide="right" className="group h-8 w-8">
           <Maximize2 size={iconSize} className={controlIconClassName} />
+        </IconBtn>
+        <IconBtn
+          title={autoLayoutTitle}
+          onPointerDown={handleAutoLayout}
+          disabled={snapshot.locked}
+          tooltipSide="right"
+          className="group h-8 w-8"
+        >
+          <LayoutGrid size={iconSize} className={controlIconClassName} />
         </IconBtn>
         <IconBtn
           title={lockTitle}
