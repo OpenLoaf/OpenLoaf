@@ -17,17 +17,17 @@ flowchart TB
     Routes["aiExecuteRoutes / chatAttachmentRoutes"]
   end
   subgraph Application
-    UseCases["AiExecuteService / ChatStreamUseCase / ImageRequestUseCase / SummaryTitleUseCase"]
-    Ports["MessageRepository / SessionRepository / AuthGateway / SettingsRepository / VfsGateway / ToolRegistryPort / AgentRunnerPort / AttachmentResolverPort / ModelRegistryPort"]
+    UseCases["AiExecuteService<br/>ChatStreamUseCase<br/>ImageRequestUseCase<br/>SummaryHistoryUseCase<br/>SummaryTitleUseCase<br/>SummaryProjectUseCase<br/>UpdateProjectSummaryUseCase<br/>SummaryDayUseCase<br/>ContextExpansionUseCase<br/>HelperProjectUseCase<br/>HelperWorkspaceUseCase<br/>VideoRequestUseCase<br/>BackgroundTaskService"]
+    Ports["MessageRepository / SessionRepository / AuthGateway / SettingsRepository / VfsGateway / ToolRegistryPort / AgentRunnerPort / AttachmentResolverPort / ModelRegistryPort / SchedulerPort / JobRepository / TaskStatusRepository"]
   end
   subgraph Domain
-    Entities["ChatMessage / MessageKind / PromptContext / SkillSummary / ModelCandidate"]
-    Services["MessageChainBuilder / PrefaceBuilder / CommandParser / SkillSelector"]
+    Entities["ChatMessage / MessageKind / PromptContext / SkillSummary / ModelCandidate / ProjectSummary / TaskStatus / ScheduleJob"]
+    Services["MessageChainBuilder / PrefaceBuilder / CommandParser / SkillSelector / PromptBuilder / ToolsetSpec"]
   end
   subgraph Infrastructure
-    Repos["PrismaMessageRepository / PrismaSessionRepository"]
+    Repos["PrismaMessageRepository / PrismaSessionRepository / PrismaJobRepository / PrismaTaskStatusRepository"]
     Gateways["AuthSessionGateway / SettingsGateway / VfsGatewayImpl"]
-    Adapters["ToolLoopAgentAdapter / ModelResolverAdapter / ProviderAdapterRegistry / AttachmentResolverAdapter"]
+    Adapters["ToolLoopAgentAdapter / ModelRegistryAdapter / ProviderAdapterRegistry / AttachmentResolverAdapter / SchedulerAdapters"]
   end
 
   Routes --> Controller --> UseCases
@@ -46,49 +46,36 @@ classDiagram
   class AiExecuteService {
     +execute(request): Response
   }
-  class ChatStreamUseCase {
-    +run(request, scope): Response
-  }
-  class ImageRequestUseCase {
-    +run(request, scope): Response
-  }
-  class SummaryTitleUseCase {
-    +run(request, scope): Response
-  }
-  class MessageRepository {
-    <<interface>>
-    +saveMessage(...)
-    +ensurePreface(...)
-    +loadChain(...)
-  }
-  class SessionRepository {
-    <<interface>>
-    +updateTitle(...)
-    +setError(...)
-    +clearError(...)
-  }
-  class AgentRunnerPort {
-    <<interface>>
-    +stream(messages, tools, signal)
-  }
-  class ToolRegistryPort {
-    <<interface>>
-    +buildToolset(ids)
-    +needsApproval(id)
-  }
-  class ModelResolverAdapter
-  class ToolLoopAgentAdapter
-  class PrismaMessageRepository
+  class ChatStreamUseCase
+  class ImageRequestUseCase
+  class SummaryHistoryUseCase
+  class SummaryTitleUseCase
+  class SummaryProjectUseCase
+  class UpdateProjectSummaryUseCase
+  class SummaryDayUseCase
+  class ContextExpansionUseCase
+  class HelperProjectUseCase
+  class HelperWorkspaceUseCase
+  class VideoRequestUseCase
+  class BackgroundTaskService
+  class MessageRepository
+  class SessionRepository
+  class SchedulerPort
+  class TaskStatusRepository
 
   AiExecuteService --> ChatStreamUseCase
   AiExecuteService --> ImageRequestUseCase
+  AiExecuteService --> SummaryHistoryUseCase
   AiExecuteService --> SummaryTitleUseCase
-  ChatStreamUseCase --> MessageRepository
-  ChatStreamUseCase --> AgentRunnerPort
-  ChatStreamUseCase --> ToolRegistryPort
-  MessageRepository <|.. PrismaMessageRepository
-  AgentRunnerPort <|.. ToolLoopAgentAdapter
-  ModelResolverAdapter --> ChatStreamUseCase
+  AiExecuteService --> SummaryProjectUseCase
+  AiExecuteService --> UpdateProjectSummaryUseCase
+  AiExecuteService --> SummaryDayUseCase
+  AiExecuteService --> ContextExpansionUseCase
+  AiExecuteService --> HelperProjectUseCase
+  AiExecuteService --> HelperWorkspaceUseCase
+  AiExecuteService --> VideoRequestUseCase
+  BackgroundTaskService --> SchedulerPort
+  BackgroundTaskService --> TaskStatusRepository
 ```
 
 ## 4. 核心流程编排（时序图）
@@ -167,6 +154,7 @@ apps/server/src/ai/
       ToolRegistryPort.ts
       VfsGateway.ts
     services/
+      BackgroundTaskService.ts
       ModelSelectionService.ts
       ToolsetAssembler.ts
     use-cases/
@@ -186,6 +174,9 @@ apps/server/src/ai/
     entities/
       ChatMessage.ts
       MessageKind.ts
+      ProjectSummary.ts
+      ScheduleJob.ts
+      TaskStatus.ts
       PromptContext.ts
       SkillSummary.ts
       ModelCandidate.ts
@@ -212,6 +203,7 @@ apps/server/src/ai/
       SettingsGateway.ts
       VfsGatewayImpl.ts
     repositories/
+      PrismaJobRepository.ts
       PrismaMessageRepository.ts
       PrismaSessionRepository.ts
       PrismaTaskStatusRepository.ts
@@ -268,6 +260,13 @@ classDiagram
   class ImageRequestUseCase
   class SummaryHistoryUseCase
   class SummaryTitleUseCase
+  class SummaryProjectUseCase
+  class UpdateProjectSummaryUseCase
+  class SummaryDayUseCase
+  class ContextExpansionUseCase
+  class HelperProjectUseCase
+  class HelperWorkspaceUseCase
+  class VideoRequestUseCase
   class CommandExecutionStrategy
   class CompactionStrategy
   class ModelSelectionService
@@ -278,8 +277,15 @@ classDiagram
   BaseUseCase <|-- BaseStreamUseCase
   BaseStreamUseCase <|-- ChatStreamUseCase
   BaseStreamUseCase <|-- ImageRequestUseCase
+  BaseStreamUseCase <|-- VideoRequestUseCase
   BaseUseCase <|-- SummaryHistoryUseCase
   BaseUseCase <|-- SummaryTitleUseCase
+  BaseUseCase <|-- SummaryProjectUseCase
+  BaseUseCase <|-- UpdateProjectSummaryUseCase
+  BaseUseCase <|-- SummaryDayUseCase
+  BaseUseCase <|-- ContextExpansionUseCase
+  BaseUseCase <|-- HelperProjectUseCase
+  BaseUseCase <|-- HelperWorkspaceUseCase
   ChatStreamUseCase --> PipelineStrategy
   SummaryHistoryUseCase --> CompactionStrategy
   SummaryTitleUseCase --> CommandExecutionStrategy
@@ -572,6 +578,7 @@ flowchart LR
   InProc --> Policy --> Jobs
   External --> Policy --> Jobs
   Jobs --> TaskRunner[BackgroundTaskService]
+  TaskRunner --> UpdateSummary[UpdateProjectSummaryUseCase]
 ```
 
 ### 19.3 视频生成接口
@@ -580,11 +587,34 @@ flowchart LR
 - `VideoStorageGateway`（S3 或本地）
 - `VideoResultPersister`（输出路径与元数据）
 
+```mermaid
+sequenceDiagram
+  participant UC as VideoRequestUseCase
+  participant PR as VideoPromptResolver
+  participant MR as VideoModelSelector
+  participant VR as VideoModelRunner
+  participant PS as VideoResultPersister
+  UC->>PR: resolve prompt
+  PR-->>UC: prompt payload
+  UC->>MR: select model
+  MR-->>UC: model
+  UC->>VR: generate video
+  VR-->>UC: files/metadata
+  UC->>PS: persist outputs
+```
+
 ### 19.4 后台 LLM 任务可视化
 
 - `BackgroundTaskService`：统一执行后台 LLM 作业  
 - `TaskStatusRepository`：任务状态（queued/running/success/failed）  
 - `TaskEvents`：UI 订阅当前运行任务基本信息  
+
+```mermaid
+flowchart LR
+  UI[Frontend] --> Events[TaskEvents]
+  Events --> Status[TaskStatusRepository]
+  Background[BackgroundTaskService] --> Status
+```
 
 ## 20. 风险与验证
 
