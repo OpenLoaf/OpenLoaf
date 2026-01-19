@@ -1,4 +1,4 @@
-import type { CanvasPoint } from "./types";
+import type { CanvasPoint, CanvasRect } from "./types";
 import { DEFAULT_FIT_PADDING, MIN_ZOOM } from "./constants";
 import type { CanvasDoc } from "./CanvasDoc";
 import type { ViewportController } from "./ViewportController";
@@ -64,6 +64,31 @@ function fitToElements(
   viewport.setViewport(nextZoom, offset);
 }
 
+/** Compute the viewport zoom/offset to fit a target rectangle. */
+function computeViewportForRect(
+  viewport: ViewportController,
+  rect: CanvasRect,
+  padding = DEFAULT_FIT_PADDING
+): { zoom: number; offset: CanvasPoint } | null {
+  const { size } = viewport.getState();
+  if (size[0] <= 0 || size[1] <= 0) return null;
+  if (rect.w <= 0 || rect.h <= 0) return null;
+
+  const targetWidth = Math.max(1, rect.w + padding * 2);
+  const targetHeight = Math.max(1, rect.h + padding * 2);
+  const scaleX = size[0] / targetWidth;
+  const scaleY = size[1] / targetHeight;
+  const limits = viewport.getZoomLimits();
+  const nextZoom = clampZoom(Math.min(scaleX, scaleY), limits.min, limits.max);
+  const centerX = rect.x + rect.w / 2;
+  const centerY = rect.y + rect.h / 2;
+  const offset: CanvasPoint = [
+    size[0] / 2 - centerX * nextZoom,
+    size[1] / 2 - centerY * nextZoom,
+  ];
+  return { zoom: nextZoom, offset };
+}
+
 /** Handle wheel events for zooming and panning. */
 function handleWheel(
   event: WheelEvent,
@@ -113,6 +138,7 @@ function scaleByZoom(value: number, zoom: number): number {
 export {
   getViewportCenterWorld,
   fitToElements,
+  computeViewportForRect,
   handleWheel,
   clampZoom,
   scaleByZoom,

@@ -35,6 +35,7 @@ import {
   installCliTool,
 } from "@/ai/models/cli/cliToolService";
 import { loadSkillSummaries } from "@/ai/agents/masterAgent/skillsLoader";
+import { resolveSystemCliInfo } from "@/modules/settings/resolveSystemCliInfo";
 
 /** Normalize ignoreSkills list for persistence. */
 function normalizeIgnoreSkills(values?: unknown): string[] {
@@ -256,6 +257,12 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .output(settingSchemas.getCliToolsStatus.output)
         .query(async () => {
           return await getCliToolsStatus();
+        }),
+      /** Get system CLI info for settings UI. */
+      systemCliInfo: shieldedProcedure
+        .output(settingSchemas.systemCliInfo.output)
+        .query(async () => {
+          return await resolveSystemCliInfo();
         }),
       /** List skills for settings UI. */
       getSkills: shieldedProcedure

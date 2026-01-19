@@ -41,7 +41,7 @@ const SUGGESTIONS = [
 
 步骤 2：shell-command（字符串命令）
 - 要做什么：生成 TEMP_FILE 与 TOKEN，把 TOKEN 写入 TEMP_FILE，并打印 TEMP_FILE 与 TOKEN。
-- 预期：输出包含 Exit code: 0，并能看到 TEMP_FILE=<name> 与 TOKEN=<token>。
+- 预期：输出包含 Exit code: 0，并能看到 TEMP_FILE=【TEMP_FILE】 与 TOKEN=【TOKEN】。
 - 调用：shell-command 工具（优先 *-unix），command="python - <<'PY'\\nimport secrets, string, pathlib\\nchars = string.ascii_lowercase + string.digits\\ntoken = ''.join(secrets.choice(chars) for _ in range(10))\\nname = ''.join(secrets.choice(chars) for _ in range(8)) + '.txt'\\npath = pathlib.Path(name)\\npath.write_text(token, encoding='utf-8')\\nprint(f'TEMP_FILE={name}')\\nprint(f'TOKEN={token}')\\nPY"。
 
 步骤 3：exec-command（启动交互会话）

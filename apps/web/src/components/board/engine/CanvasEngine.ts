@@ -84,6 +84,7 @@ import {
   fitToElements,
   getViewportCenterWorld,
   handleWheel,
+  computeViewportForRect,
 } from "./viewport-actions";
 import {
   deleteSelection,
@@ -104,6 +105,12 @@ type ImagePayloadBuilder = (file: File) => Promise<ImageNodePayload>;
 
 /** Offset applied when inserting multiple images from paste. */
 const IMAGE_PASTE_STACK_OFFSET = 24;
+/** Default duration for viewport focus animation. */
+const DEFAULT_FOCUS_DURATION_MS = 280;
+/** Small threshold for skipping near-identical focus animations. */
+const FOCUS_VIEWPORT_DELTA_EPS = 0.005;
+/** Pixel threshold for skipping tiny offset changes. */
+const FOCUS_VIEWPORT_OFFSET_EPS = 2;
 
 export class CanvasEngine {
   /** Document model storing elements. */
@@ -160,6 +167,10 @@ export class CanvasEngine {
   private editingNodeId: string | null = null;
   /** Whether the viewport is currently being panned. */
   private panning = false;
+  /** Animation frame id for viewport focus. */
+  private focusViewportFrameId: number | null = null;
+  /** Token used to cancel stale viewport focus animations. */
+  private focusViewportToken = 0;
   /** History stack for undo operations. */
   private historyPast: CanvasHistoryState[] = [];
   /** History stack for redo operations. */
@@ -1371,6 +1382,62 @@ export class CanvasEngine {
   /** Fit the viewport to include all node elements. */
   fitToElements(padding = DEFAULT_FIT_PADDING): void {
     fitToElements(this.doc, this.viewport, padding);
+  }
+
+  /** Focus the viewport on a target rect with smooth animation. */
+  focusViewportToRect(
+    rect: CanvasRect,
+    options?: { padding?: number; durationMs?: number }
+  ): void {
+    // 逻辑：拖拽中不触发视图动画，避免与用户操作冲突。
+    if (this.panning) return;
+    const target = computeViewportForRect(this.viewport, rect, options?.padding);
+    if (!target) return;
+    const { zoom: startZoom, offset: startOffset } = this.viewport.getState();
+    const zoomDelta = Math.abs(target.zoom - startZoom);
+    const offsetDelta = Math.hypot(
+      target.offset[0] - startOffset[0],
+      target.offset[1] - startOffset[1]
+    );
+    if (zoomDelta < FOCUS_VIEWPORT_DELTA_EPS && offsetDelta < FOCUS_VIEWPORT_OFFSET_EPS) return;
+
+    if (typeof window === "undefined") {
+      this.viewport.setViewport(target.zoom, target.offset);
+      return;
+    }
+
+    if (this.focusViewportFrameId !== null) {
+      window.cancelAnimationFrame(this.focusViewportFrameId);
+      this.focusViewportFrameId = null;
+    }
+
+    const duration = Math.max(0, options?.durationMs ?? DEFAULT_FOCUS_DURATION_MS);
+    if (duration === 0) {
+      this.viewport.setViewport(target.zoom, target.offset);
+      return;
+    }
+
+    const startTime = window.performance?.now ? window.performance.now() : Date.now();
+    const token = (this.focusViewportToken += 1);
+    const step = (now: number) => {
+      if (token !== this.focusViewportToken) return;
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      // 逻辑：使用缓动曲线让视图收敛更自然。
+      const eased = t * (2 - t);
+      const nextZoom = startZoom + (target.zoom - startZoom) * eased;
+      const nextOffset: CanvasPoint = [
+        startOffset[0] + (target.offset[0] - startOffset[0]) * eased,
+        startOffset[1] + (target.offset[1] - startOffset[1]) * eased,
+      ];
+      this.viewport.setViewport(nextZoom, nextOffset);
+      if (t < 1) {
+        this.focusViewportFrameId = window.requestAnimationFrame(step);
+      } else {
+        this.focusViewportFrameId = null;
+      }
+    };
+    this.focusViewportFrameId = window.requestAnimationFrame(step);
   }
 
   /** Generate a unique id for canvas elements. */

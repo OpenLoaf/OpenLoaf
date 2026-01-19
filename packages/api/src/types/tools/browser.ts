@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const openUrlToolDef = {
   id: "open-url",
+  name: "打开网页",
   description:
     "在应用内打开一个网页链接（浏览器面板）。适用于需要用户查看指定页面内容的场景。URL 可省略协议，服务端会做规范化处理（例如 example.com -> https://example.com）。",
   parameters: z.object({
@@ -10,4 +11,3 @@ export const openUrlToolDef = {
   }),
   component: null,
 } as const;
-

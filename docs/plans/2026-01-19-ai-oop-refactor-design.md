@@ -117,27 +117,63 @@ flowchart TD
   B --> C[提取最后一条消息/解析命令/解析技能]
   C --> D{命令在输入首部?}
 
-  D -- /summary-title --> ST[SummaryTitleUseCase\n不落库]
-  D -- /summary-history /summary-day /summary-project /update-project-summary --> SH[Summary*UseCase\n压缩/总结流]
-  D -- /expand-context-* --> EC[ContextExpansionUseCase\n一次性返回 text]
-  D -- /helper-project /helper-workspace --> HP[Helper*UseCase\n一次性返回 text]
+  D -- /summary-title --> ST[SummaryTitleUseCase<br/>不落库]
+  ST --> ST1[加载右侧叶子链]
+  ST1 --> ST2[构造标题 prompt]
+  ST2 --> ST3[generateText]
+  ST3 --> ST4[更新 session.title]
+  ST4 --> R1[SSE data-session-title]
+
+  D -- /summary-history /summary-day /summary-project /update-project-summary --> SH[Summary*UseCase<br/>压缩/总结流]
+  SH --> SH1[写入 compact_prompt]
+  SH1 --> SH2[加载链路 + 构建模型链]
+  SH2 --> SH3[模型选择]
+  SH3 --> SH4[Agent stream]
+  SH4 --> SH5[保存 compact_summary]
+  SH5 --> R2[SSE stream]
+
+  D -- /expand-context-* --> EC[ContextExpansionUseCase<br/>一次性返回 text]
+  EC --> EC1[构造扩展 prompt]
+  EC1 --> EC2[generateText]
+  EC2 --> R3[JSON/SSE 一次性文本]
+
+  D -- /helper-project /helper-workspace --> HP[Helper*UseCase<br/>一次性返回 text]
+  HP --> HP1[构造推荐 prompt]
+  HP1 --> HP2[generateText]
+  HP2 --> R3
+
   D -- 否 --> I{intent}
 
   I -- chat --> CS[ChatStreamUseCase]
+  CS --> CS1[ensure preface<br/>保存最后一条消息]
+  CS1 --> CS2[加载链路 + 构建模型链]
+  CS2 --> CS3[解析模型<br/>必要时路由图片流]
+  CS3 --> CS4[Agent stream]
+  CS4 --> CS5[保存 assistant]
+  CS5 --> R2
+
   I -- image --> IM{responseMode}
   IM -- json --> IJ[ImageRequestUseCase(JSON)]
-  IM -- stream --> IS[ImageRequestUseCase(Stream)]
-  I -- video --> VR[VideoRequestUseCase]
-  I -- utility --> UT[UtilityUseCase（预留）]
+  IJ --> IJ1[解析 prompt + 归一化编辑]
+  IJ1 --> IJ2[S3 上传（编辑模式）]
+  IJ2 --> IJ3[generateImage]
+  IJ3 --> IJ4[保存图片 + metadata]
+  IJ4 --> R4[JSON response]
 
-  ST --> R1[SSE data-session-title]
-  SH --> R2[SSE stream]
-  EC --> R3[JSON/SSE 一次性文本]
-  HP --> R3
-  CS --> R2
-  IS --> R2
-  IJ --> R4[JSON response]
-  VR --> R2
+  IM -- stream --> IS[ImageRequestUseCase(Stream)]
+  IS --> IS1[解析 prompt + 归一化编辑]
+  IS1 --> IS2[S3 上传（编辑模式）]
+  IS2 --> IS3[generateImage]
+  IS3 --> IS4[保存图片 + metadata]
+  IS4 --> R2
+
+  I -- video --> VR[VideoRequestUseCase]
+  VR --> VR1[解析 prompt + 选择模型]
+  VR1 --> VR2[生成视频]
+  VR2 --> VR3[保存输出]
+  VR3 --> R2
+
+  I -- utility --> UT[UtilityUseCase (reserved)]
   UT --> R4
 ```
 
@@ -152,10 +188,10 @@ flowchart TD
   C1 --> D1[检查 workspace 是否存在]
   D1 -->|不存在| E3[400 Workspace not found]
   D1 --> F1{文件类型}
-  F1 -- 上传文件 --> G1[校验大小 ≤ MAX_CHAT_IMAGE_BYTES]
+  F1 -- 上传文件 --> G1[校验大小 <= MAX_CHAT_IMAGE_BYTES]
   G1 -->|过大| E4[413 Image too large]
-  G1 --> H1[saveChatImageAttachment\n压缩 + 落盘]
-  F1 -- 相对路径 --> H2[saveChatImageAttachmentFromPath\n压缩 + 落盘]
+  G1 --> H1[saveChatImageAttachment<br/>压缩 + 落盘]
+  F1 -- 相对路径 --> H2[saveChatImageAttachmentFromPath<br/>压缩 + 落盘]
   H1 --> I1[返回 JSON {url, mediaType}]
   H2 --> I1
 
@@ -165,7 +201,7 @@ flowchart TD
   C2 -->|不存在| E6[404 Preview not found]
   C2 -->|过大| E7[413 Preview too large]
   C2 --> D2{includeMetadata?}
-  D2 -- 是 --> M1[multipart/mixed\nmetadata + binary]
+  D2 -- 是 --> M1[multipart/mixed<br/>metadata + binary]
   D2 -- 否 --> M2[binary response]
 ```
 

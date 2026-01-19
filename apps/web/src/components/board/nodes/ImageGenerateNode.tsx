@@ -136,6 +136,8 @@ export function ImageGenerateNodeView({
   const sessionIdRef = useRef(createChatSessionId());
   /** Abort controller for the active request. */
   const abortControllerRef = useRef<AbortController | null>(null);
+  /** Throttle timestamp for focus-driven viewport moves. */
+  const focusThrottleRef = useRef(0);
   /** Runtime running flag for this node. */
   const [isRunning, setIsRunning] = useState(false);
   /** Workspace id used for SSE payload metadata. */
@@ -653,6 +655,17 @@ export function ImageGenerateNodeView({
     }
   }, [errorText]);
 
+  const handlePromptFocus = useCallback(() => {
+    const now = Date.now();
+    if (now - focusThrottleRef.current < 300) return;
+    focusThrottleRef.current = now;
+    if (engine.getViewState().panning) return;
+    // 逻辑：引擎实例可能来自旧热更新，缺少方法时直接跳过。
+    if (typeof engine.focusViewportToRect !== "function") return;
+    const [x, y, w, h] = element.xywh;
+    engine.focusViewportToRect({ x, y, w, h }, { padding: 120, durationMs: 280 });
+  }, [engine, element.xywh]);
+
   const statusLabel =
     viewStatus === "running"
       ? "生成中…"
@@ -830,6 +843,7 @@ export function ImageGenerateNodeView({
                 const next = event.target.value.slice(0, 500);
                 onUpdate({ promptText: next });
               }}
+              onFocus={handlePromptFocus}
               data-board-scroll
               className="min-h-[88px] px-2 py-1 text-[12px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[12px]"
               disabled={engine.isLocked() || element.locked || isRunning}

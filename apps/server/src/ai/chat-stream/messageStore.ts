@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { generateId } from "ai";
 import { prisma } from "@tenas-ai/db";
 import type { MessageRole as DbMessageRole, Prisma } from "@tenas-ai/db/prisma/generated/client";
@@ -15,6 +16,8 @@ const PATH_SEGMENT_WIDTH = 2;
 const MAX_PATH_SEGMENT_SEQ = 99;
 /** Metadata keys that should never be persisted. */
 const FORBIDDEN_METADATA_KEYS = ["id", "sessionId", "parentMessageId", "path"] as const;
+/** Metadata key for session preface hash. */
+const PREFACE_HASH_KEY = "prefaceHash";
 
 /** Normalize message kind from unknown input. */
 function normalizeMessageKind(value: unknown): ChatMessageKind | null {
@@ -84,20 +87,25 @@ export async function ensureSessionPreface(input: {
   /** Board id for session binding. */
   boardId?: string;
 }): Promise<string | null> {
+  const prefaceHash = buildPrefaceHash(input.message);
+  const nextParts = normalizeParts(input.message.parts);
+  const nextMetadata = buildPrefaceMetadata(input.message, prefaceHash);
   const existingPreface = await prisma.chatMessage.findFirst({
     where: { sessionId: input.sessionId, messageKind: "session_preface" },
     orderBy: [{ path: "asc" }],
-    select: { id: true },
+    select: { id: true, metadata: true },
   });
   if (existingPreface?.id) {
-    // 逻辑：preface 已存在时更新内容，避免重复插入。
+    const storedHash = readPrefaceHash(existingPreface.metadata);
+    // 逻辑：hash 相同则跳过更新，避免重复写入。
+    if (storedHash && storedHash === prefaceHash) {
+      return existingPreface.id;
+    }
     await prisma.chatMessage.update({
       where: { id: existingPreface.id },
       data: {
-        parts: Array.isArray(input.message.parts) ? (input.message.parts as any) : [],
-        metadata:
-          (sanitizeMetadata(input.message.metadata) as Prisma.InputJsonValue) ??
-          undefined,
+        parts: nextParts as any,
+        metadata: (nextMetadata as Prisma.InputJsonValue) ?? undefined,
         messageKind: "session_preface",
       },
     });
@@ -115,6 +123,8 @@ export async function ensureSessionPreface(input: {
     ...input.message,
     role: "user",
     messageKind: "session_preface",
+    parts: nextParts as any,
+    metadata: nextMetadata,
   } as TenasUIMessage;
 
   const saved = await saveMessage({
@@ -339,6 +349,26 @@ function normalizeRole(role: unknown): DbMessageRole {
 function normalizeParts(parts: unknown): unknown[] {
   const arr = Array.isArray(parts) ? parts : [];
   return arr.filter((part) => !(part && typeof part === "object" && (part as any).type === "step-start"));
+}
+
+/** Build a stable hash for session preface content. */
+function buildPrefaceHash(message: TenasUIMessage): string {
+  const parts = normalizeParts(message.parts);
+  const payload = JSON.stringify(parts);
+  return createHash("sha256").update(payload).digest("hex");
+}
+
+/** Read stored preface hash from metadata. */
+function readPrefaceHash(metadata: unknown): string | null {
+  if (!isRecord(metadata)) return null;
+  const value = metadata[PREFACE_HASH_KEY];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+/** Merge preface hash into metadata. */
+function buildPrefaceMetadata(message: TenasUIMessage, hash: string): Record<string, unknown> {
+  const base = sanitizeMetadata(message.metadata) ?? {};
+  return { ...base, [PREFACE_HASH_KEY]: hash };
 }
 
 /** Sanitize metadata fields before persistence. */

@@ -4,6 +4,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "@/hooks/use-tabs";
 import type { ToolPartSnapshot } from "@/hooks/use-tabs";
+import { resolveToolDisplayName } from "@/lib/chat/tool-name";
 
 function safeStringify(value: unknown) {
   if (value == null) return "";
@@ -18,14 +19,6 @@ function safeStringify(value: unknown) {
 function truncate(text: string, maxChars = 20_000) {
   if (text.length <= maxChars) return { text, truncated: false };
   return { text: `${text.slice(0, maxChars)}\n…(truncated)`, truncated: true };
-}
-
-function getToolDisplayName(part: ToolPartSnapshot | undefined, fallback: string) {
-  if (!part) return fallback;
-  if (part.title) return part.title;
-  if (part.toolName) return part.toolName;
-  if (part.type.startsWith("tool-")) return part.type.slice("tool-".length);
-  return part.type || fallback;
 }
 
 function isEmpty(value: unknown) {
@@ -49,7 +42,13 @@ export default function ToolResultPanel({
     tabId && toolKey ? s.toolPartsByTabId[tabId]?.[toolKey] : undefined,
   );
 
-  const title = getToolDisplayName(part, "Tool Result");
+  const title = part
+    ? resolveToolDisplayName({
+        title: part.title,
+        toolName: part.toolName,
+        type: part.type,
+      })
+    : "Tool Result";
   const inputText = safeStringify(part?.input);
   const outputText = safeStringify(part?.output ?? part?.errorText ?? "");
   const inputDisplay = truncate(inputText);
@@ -85,4 +84,3 @@ export default function ToolResultPanel({
     </div>
   );
 }
-

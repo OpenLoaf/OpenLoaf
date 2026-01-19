@@ -1,6 +1,7 @@
 "use client";
 
 import { isToolPart } from "./message-parts";
+import { resolveToolDisplayName } from "./tool-name";
 
 type AnyMessagePart = {
   type?: string;
@@ -51,18 +52,6 @@ export function getMessageTextWithToolCalls(message: { parts?: unknown[] } | und
 }
 
 /**
- * Resolves a readable tool name from a tool part.
- */
-function getToolName(part: AnyMessagePart): string {
-  if (part.title) return part.title;
-  if (part.toolName) return part.toolName;
-  if (typeof part.type === "string" && part.type.startsWith("tool-")) {
-    return part.type.slice("tool-".length);
-  }
-  return typeof part.type === "string" ? part.type : "unknown";
-}
-
-/**
  * Normalizes tool input values for copy output.
  */
 function safeStringify(value: unknown): string {
@@ -90,7 +79,11 @@ function isEmptyInput(value: unknown): boolean {
  * Builds the copy payload for a tool part.
  */
 function getToolCopyText(part: AnyMessagePart): string {
-  const toolName = getToolName(part);
+  const toolName = resolveToolDisplayName({
+    title: part.title,
+    toolName: part.toolName,
+    type: typeof part.type === "string" ? part.type : undefined,
+  });
   const showInput = !isEmptyInput(part.input);
   const inputText = safeStringify(part.input);
   const outputText = safeStringify(part.output);

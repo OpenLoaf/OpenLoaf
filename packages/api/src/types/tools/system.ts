@@ -3,6 +3,7 @@ import { RiskType } from "../toolResult";
 
 export const timeNowToolDef = {
   id: "time-now",
+  name: "当前时间",
   description:
     "获取当前服务器时间信息，包括格式化的时间字符串、Unix时间戳（毫秒）和时区。当需要了解当前时间或进行时间相关计算时调用此工具，可通过可选参数指定时区。",
   parameters: z.object({

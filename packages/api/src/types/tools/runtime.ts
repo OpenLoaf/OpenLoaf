@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const shellToolDefWin = {
   id: "shell-win",
+  name: "Shell 命令（Windows/数组）",
   description: `Runs a Powershell command (Windows) and returns its output. Arguments to \`shell\` will be passed to CreateProcessW(). Most commands should be prefixed with ["powershell.exe", "-Command"].
 
 Examples of valid command strings:
@@ -24,6 +25,7 @@ Examples of valid command strings:
 
 export const shellToolDefUnix = {
   id: "shell-unix",
+  name: "Shell 命令（Unix/数组）",
   description: `Runs a shell command and returns its output.
 - The arguments to \`shell\` will be passed to execvp(). Most terminal commands should be prefixed with ["bash", "-lc"].
 - Always set the \`workdir\` param when using the shell function. Do not use \`cd\` unless absolutely necessary.`,
@@ -39,6 +41,7 @@ export const shellToolDefUnix = {
 
 export const shellCommandToolDefWin = {
   id: "shell-command-win",
+  name: "Shell 命令（Windows/字符串）",
   description: `Runs a Powershell command (Windows) and returns its output.
 
 Examples of valid command strings:
@@ -62,6 +65,7 @@ Examples of valid command strings:
 
 export const shellCommandToolDefUnix = {
   id: "shell-command-unix",
+  name: "Shell 命令（Unix/字符串）",
   description: `Runs a shell command and returns its output.
 - Always set the \`workdir\` param when using the shell_command function. Do not use \`cd\` unless absolutely necessary.`,
   parameters: z.object({
@@ -77,6 +81,7 @@ export const shellCommandToolDefUnix = {
 
 export const execCommandToolDefWin = {
   id: "exec-command-win",
+  name: "交互命令（Windows）",
   description: "Runs a command in a PTY, returning output or a session ID for ongoing interaction.",
   parameters: z.object({
     cmd: z.string().min(1),
@@ -94,6 +99,7 @@ export const execCommandToolDefWin = {
 
 export const execCommandToolDefUnix = {
   id: "exec-command-unix",
+  name: "交互命令（Unix）",
   description: "Runs a command in a PTY, returning output or a session ID for ongoing interaction.",
   parameters: z.object({
     cmd: z.string().min(1),
@@ -111,6 +117,7 @@ export const execCommandToolDefUnix = {
 
 export const writeStdinToolDefWin = {
   id: "write-stdin-win",
+  name: "写入会话（Windows）",
   description: "Writes characters to an existing unified exec session and returns recent output.",
   parameters: z.object({
     sessionId: z.string().min(1),
@@ -123,6 +130,7 @@ export const writeStdinToolDefWin = {
 
 export const writeStdinToolDefUnix = {
   id: "write-stdin-unix",
+  name: "写入会话（Unix）",
   description: "Writes characters to an existing unified exec session and returns recent output.",
   parameters: z.object({
     sessionId: z.string().min(1),
@@ -135,6 +143,7 @@ export const writeStdinToolDefUnix = {
 
 export const readFileToolDef = {
   id: "read-file",
+  name: "读取文件",
   description:
     "Reads a local file with 1-indexed line numbers, supporting slice and indentation-aware block modes.",
   parameters: z.object({
@@ -153,6 +162,7 @@ export const readFileToolDef = {
 
 export const listDirToolDef = {
   id: "list-dir",
+  name: "列出目录",
   description:
     "Lists entries in a local directory with 1-indexed entry numbers and simple type labels.",
   parameters: z.object({
@@ -166,6 +176,7 @@ export const listDirToolDef = {
 
 export const grepFilesToolDef = {
   id: "grep-files",
+  name: "搜索文件",
   description:
     "Finds files whose contents match the pattern and lists them by modification time.",
   parameters: z.object({
@@ -189,6 +200,7 @@ const planItemSchema = z.object({
 /** Update-plan tool definition for storing assistant plans. */
 export const updatePlanToolDef = {
   id: "update-plan",
+  name: "更新计划",
   description: `Updates the task plan for the current assistant turn.
 Provide an optional explanation and a list of plan items, each with a step and status.
 At most one step can be in_progress at a time.`,

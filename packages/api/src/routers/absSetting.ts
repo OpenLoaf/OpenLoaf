@@ -24,6 +24,21 @@ const cliToolStatusSchema = z.object({
   path: z.string().optional(),
 });
 
+/** System CLI environment info. */
+const systemCliInfoSchema = z.object({
+  platform: z.enum(["darwin", "linux", "win32", "unknown"]),
+  system: z.object({
+    name: z.string(),
+    version: z.string().optional(),
+  }),
+  shell: z.object({
+    name: z.enum(["bash", "powershell", "unknown"]),
+    available: z.boolean(),
+    path: z.string().optional(),
+    version: z.string().optional(),
+  }),
+});
+
 /** Skill scope enum. */
 const skillScopeSchema = z.enum(["workspace", "project"]);
 
@@ -62,6 +77,9 @@ export const settingSchemas = {
   },
   getCliToolsStatus: {
     output: z.array(cliToolStatusSchema),
+  },
+  systemCliInfo: {
+    output: systemCliInfoSchema,
   },
   /** Get skills summary list. */
   getSkills: {
@@ -160,6 +178,11 @@ export abstract class BaseSettingRouter {
         }),
       getCliToolsStatus: shieldedProcedure
         .output(settingSchemas.getCliToolsStatus.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      systemCliInfo: shieldedProcedure
+        .output(settingSchemas.systemCliInfo.output)
         .query(async () => {
           throw new Error("Not implemented in base class");
         }),

@@ -19,6 +19,7 @@ import {
   Database,
   Sparkles,
   Wand2Icon,
+  Terminal,
 } from "lucide-react";
 
 import { BasicSettings } from "./menus/BasicSettings";
@@ -30,6 +31,7 @@ import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
 import TestSetting from "./menus/TestSetting";
 import { SkillSettings } from "./menus/SkillSettings";
+import { ThirdPartyTools } from "./menus/ThirdPartyTools";
 import { TenasSettingsLayout } from "@/components/ui/tenas/TenasSettingsLayout";
 import {
   TenasSettingsMenu,
@@ -44,6 +46,7 @@ type SettingsMenuKey =
   | "agents"
   | "workspace"
   | "skills"
+  | "thirdPartyTools"
   | "shortcuts"
   | "projectTest";
 
@@ -66,6 +69,7 @@ const MENU: Array<{
   { key: "basic", label: "基础", Icon: SlidersHorizontal, Component: BasicSettings },
   { key: "workspace", label: "工作空间", Icon: Building2, Component: WorkspaceSettings },
   { key: "skills", label: "技能", Icon: Wand2Icon, Component: SkillSettings },
+  { key: "thirdPartyTools", label: "第三方工具", Icon: Terminal, Component: ThirdPartyTools },
   { key: "keys", label: "AI模型服务", Icon: Sparkles, Component: ProviderManagement },
   { key: "storage", label: "S3存储服务", Icon: Database, Component: ObjectStorageService },
   { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
@@ -174,6 +178,7 @@ export default function SettingsPage({
     const group1 = [byKey.get("basic"), byKey.get("workspace")].filter(Boolean);
     const group2 = [
       byKey.get("skills"),
+      byKey.get("thirdPartyTools"),
       byKey.get("keys"),
       byKey.get("storage"),
       byKey.get("whitelist"),

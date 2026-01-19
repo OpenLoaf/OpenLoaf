@@ -12,6 +12,7 @@ import WriteStdinTool from "./runtime/WriteStdinTool";
 import ReadFileTool from "./file/ReadFileTool";
 import ListDirTool from "./file/ListDirTool";
 import GrepFilesTool from "./file/GrepFilesTool";
+import PlanTool from "./PlanTool";
 import GenericTool from "./shared/GenericTool";
 import { useChatContext } from "../../ChatProvider";
 import type { AnyToolPart, ToolVariant } from "./shared/tool-utils";
@@ -82,6 +83,9 @@ export default function MessageTool({
   }
   if (toolKind === "grep-files") {
     return <GrepFilesTool part={resolvedPart} className={className} variant={variant} />;
+  }
+  if (toolKind === "update-plan") {
+    return <PlanTool part={resolvedPart} className={className} />;
   }
 
   return <GenericTool part={resolvedPart} className={className} variant={variant} />;

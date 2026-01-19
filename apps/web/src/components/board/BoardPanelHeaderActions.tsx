@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
-import { toBlob } from "html-to-image";
 import { Camera, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
 import type { DockItem } from "@tenas-ai/api/common";
@@ -16,20 +15,11 @@ import {
 import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
 import { useTabs } from "@/hooks/use-tabs";
 import { blobToBase64 } from "./utils/base64";
-
-/** Selector list for elements excluded from board exports. */
-const BOARD_EXPORT_IGNORE_SELECTOR = [
-  "[data-canvas-toolbar]",
-  "[data-board-controls]",
-  "[data-node-toolbar]",
-  "[data-node-inspector]",
-  "[data-connector-drop-panel]",
-  "[data-connector-action]",
-  "[data-multi-resize-handle]",
-  "[data-board-minimap]",
-  "[data-board-anchor-overlay]",
-  "[data-board-selection-outline]",
-].join(",");
+import {
+  captureBoardImageBlob,
+  setBoardExporting,
+  waitForAnimationFrames,
+} from "./utils/board-export";
 
 /** Build a filename for board image exports. */
 function buildBoardExportFileName(
@@ -42,46 +32,6 @@ function buildBoardExportFileName(
     ? getBoardDisplayName(name).trim() || "board"
     : getDisplayFileName(name || "board", ext).trim() || "board";
   return baseName.endsWith(".png") ? baseName : `${baseName}.png`;
-}
-
-/** Return true when the media element is cross-origin and may taint canvas. */
-function isCrossOriginMediaElement(element: Element): boolean {
-  if (typeof window === "undefined") return false;
-  if (!(element instanceof HTMLImageElement || element instanceof HTMLVideoElement)) {
-    return false;
-  }
-  const rawSrc = element.currentSrc || element.src;
-  if (!rawSrc) return false;
-  if (rawSrc.startsWith("data:") || rawSrc.startsWith("blob:")) return false;
-  try {
-    const url = new URL(rawSrc, window.location.href);
-    return url.origin !== window.location.origin;
-  } catch {
-    return true;
-  }
-}
-
-/** Notify a board canvas to toggle export mode. */
-function setBoardExporting(target: HTMLElement, exporting: boolean) {
-  const event = new CustomEvent("tenas:board-export", { detail: { exporting } });
-  target.dispatchEvent(event);
-}
-
-/** Wait for a number of animation frames. */
-function waitForAnimationFrames(count: number): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
-  return new Promise(resolve => {
-    let remaining = count;
-    const step = () => {
-      remaining -= 1;
-      if (remaining <= 0) {
-        resolve();
-        return;
-      }
-      window.requestAnimationFrame(step);
-    };
-    window.requestAnimationFrame(step);
-  });
 }
 
 /** Trigger a download for a blob without opening a new tab. */
@@ -177,17 +127,7 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
       setBoardExporting(target, true);
       await waitForAnimationFrames(2);
       // 逻辑：导出时过滤工具条/控件，避免截图污染。
-      const blob = await toBlob(target, {
-        cacheBust: true,
-        backgroundColor: undefined,
-        // 逻辑：跳过远程字体注入，避免跨域样式导致导出报错。
-        skipFonts: true,
-        filter: node => {
-          if (!(node instanceof Element)) return true;
-          if (isCrossOriginMediaElement(node)) return false;
-          return !node.closest(BOARD_EXPORT_IGNORE_SELECTOR);
-        },
-      });
+      const blob = await captureBoardImageBlob(target);
       if (!blob) {
         toast.error("导出失败：无法生成图片");
         return;

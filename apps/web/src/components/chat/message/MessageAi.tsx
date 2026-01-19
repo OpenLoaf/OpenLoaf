@@ -3,7 +3,7 @@
 import { type UIMessage } from "@ai-sdk/react";
 import { cn } from "@/lib/utils";
 import { renderMessageParts } from "./renderMessageParts";
-import MessagePlan from "./MessagePlan";
+import MessagePlan from "./tools/MessagePlan";
 
 interface MessageAiProps {
   /** Message data to render. */

@@ -1,5 +1,7 @@
 "use client";
 
+import { resolveToolDisplayName } from "@/lib/chat/tool-name";
+
 export type ToolVariant = "default" | "nested";
 
 export type AnyToolPart = {
@@ -45,10 +47,11 @@ export type ToolStatusTone = "default" | "success" | "warning" | "error";
 
 /** Resolve tool display name. */
 export function getToolName(part: AnyToolPart): string {
-  if (part.title) return part.title;
-  if (part.toolName) return part.toolName;
-  if (part.type.startsWith("tool-")) return part.type.slice("tool-".length);
-  return part.type;
+  return resolveToolDisplayName({
+    title: part.title,
+    toolName: part.toolName,
+    type: part.type,
+  });
 }
 
 /** Normalize any value into displayable string. */

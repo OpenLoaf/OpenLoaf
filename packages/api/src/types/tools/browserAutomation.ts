@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const browserSnapshotToolDef = {
   id: "browser-snapshot",
+  name: "浏览器快照",
   description: "获取当前可控页面的快照（URL/标题/可见文本/可交互元素）。",
   parameters: z.object({}),
   component: null,
@@ -9,6 +10,7 @@ export const browserSnapshotToolDef = {
 
 export const browserObserveToolDef = {
   id: "browser-observe",
+  name: "页面观察",
   description: "观察当前页面并返回快照，可用于寻找下一步动作线索。",
   parameters: z.object({
     task: z.string().describe("观察目标/关注点。"),
@@ -18,6 +20,7 @@ export const browserObserveToolDef = {
 
 export const browserExtractToolDef = {
   id: "browser-extract",
+  name: "页面提取",
   description: "从当前页面提取与 query 相关的文本内容。",
   parameters: z.object({
     query: z.string().describe("要提取的信息描述。"),
@@ -27,6 +30,7 @@ export const browserExtractToolDef = {
 
 export const browserActToolDef = {
   id: "browser-act",
+  name: "页面动作",
   description: "在当前页面执行一个结构化动作（click-css/click-text/type/fill/press/press-on/scroll）。",
   parameters: z
     .object({
@@ -67,6 +71,7 @@ export const browserActToolDef = {
 
 export const browserWaitToolDef = {
   id: "browser-wait",
+  name: "页面等待",
   description: "等待页面满足条件后再返回。",
   parameters: z.object({
     type: z.enum(["timeout", "load", "networkidle", "urlIncludes", "textIncludes"]),

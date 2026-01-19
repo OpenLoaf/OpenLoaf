@@ -242,7 +242,7 @@ export default function MessageHuman({
               <ChatMessageText
                 key={`text-${index}`}
                 value={part.text}
-                className="text-primary-foreground"
+                className="text-primary-foreground text-[12px] leading-4"
               />
             );
           })}
