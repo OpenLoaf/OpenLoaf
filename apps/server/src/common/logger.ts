@@ -1,5 +1,5 @@
 import pino from "pino";
-import { getRequestContext } from "../ai/chat-stream/requestContext";
+import { getRequestContext } from "../ai/shared/context/requestContext";
 
 type LogLevel = pino.LevelWithSilent;
 

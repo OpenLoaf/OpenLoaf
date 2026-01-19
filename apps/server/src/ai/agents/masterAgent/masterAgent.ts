@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { ToolLoopAgent } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
-import type { AgentFrame } from "@/ai/chat-stream/requestContext";
+import type { AgentFrame } from "@/ai/shared/context/requestContext";
 import { buildToolset } from "@/ai/registry/toolRegistry";
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";

@@ -1,5 +1,5 @@
-import { runChatStream } from "@/ai/chat-stream/chatStreamService";
-import type { ChatStreamRequest } from "@/ai/chat-stream/chatStreamTypes";
+import { runChatStream } from "@/ai/application/services/chatStream/chatStreamService";
+import type { ChatStreamRequest } from "@/ai/application/dto/chatStreamTypes";
 
 type SummaryHistoryUseCaseInput = {
   /** Chat request payload. */

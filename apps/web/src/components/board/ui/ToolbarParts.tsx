@@ -15,6 +15,8 @@ function IconBtn(props: {
   disabled?: boolean;
   /** Tooltip placement side. */
   tooltipSide?: "top" | "right" | "bottom" | "left";
+  /** Whether to show tooltip content. */
+  showTooltip?: boolean;
 }) {
   const {
     title,
@@ -25,6 +27,7 @@ function IconBtn(props: {
     className,
     disabled,
     tooltipSide = "top",
+    showTooltip = true,
   } = props;
   const pointerHandledRef = useRef(false);
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -62,6 +65,9 @@ function IconBtn(props: {
     </button>
   );
 
+  if (!showTooltip) {
+    return button;
+  }
   return (
     <Tooltip>
       <TooltipTrigger asChild>{button}</TooltipTrigger>

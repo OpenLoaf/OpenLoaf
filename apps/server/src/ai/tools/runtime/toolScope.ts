@@ -1,5 +1,5 @@
 import path from "node:path";
-import { getProjectId, getWorkspaceId } from "@/ai/chat-stream/requestContext";
+import { getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";
 import {
   getProjectRootPath,
   getWorkspaceRootPathById,

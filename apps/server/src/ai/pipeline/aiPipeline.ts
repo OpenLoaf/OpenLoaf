@@ -1,7 +1,7 @@
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
-import type { ChatStreamRequest } from "@/ai/chat-stream/chatStreamTypes";
-import type { ChatImageMessageInput, ChatImageRequest } from "@/ai/chat-stream/chatImageTypes";
+import type { ChatStreamRequest } from "@/ai/application/dto/chatStreamTypes";
+import type { ChatImageMessageInput, ChatImageRequest } from "@/ai/application/dto/chatImageTypes";
 import { ChatStreamUseCase } from "@/ai/application/use-cases/ChatStreamUseCase";
 import { SummaryTitleUseCase } from "@/ai/application/use-cases/SummaryTitleUseCase";
 import { ImageRequestUseCase } from "@/ai/application/use-cases/ImageRequestUseCase";

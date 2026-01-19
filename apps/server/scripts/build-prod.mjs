@@ -19,7 +19,7 @@ await build({
   format: "esm",
   outfile: "dist/server.mjs",
   banner: {
-    js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
+    js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
   },
 });
 
@@ -48,7 +48,6 @@ const wipeSql = [
   "BEGIN;",
   "DELETE FROM ChatMessage;",
   "DELETE FROM ChatSession;",
-  "DELETE FROM Setting;",
   "COMMIT;",
 ].join("\n");
 

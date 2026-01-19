@@ -10,7 +10,7 @@ import {
   resolveRightmostLeafId,
   setSessionErrorMessage,
   updateSessionTitle,
-} from "@/ai/chat-stream/messageStore";
+} from "@/ai/infrastructure/repositories/messageStore";
 
 export class PrismaSessionRepository implements SessionRepository {
   /** Resolve rightmost leaf message id for a session. */

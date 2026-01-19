@@ -4,7 +4,7 @@ import { prisma } from "@tenas-ai/db";
 import type { MessageRole as DbMessageRole, Prisma } from "@tenas-ai/db/prisma/generated/client";
 import type { ChatMessageKind, TenasUIMessage } from "@tenas-ai/api";
 import { replaceFileTokensWithNames } from "@/common/chatTitle";
-import { getBoardId, getProjectId, getWorkspaceId } from "./requestContext";
+import { getBoardId, getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";
 import { toNumberOrUndefined } from "@/ai/utils/number-utils";
 import { isRecord } from "@/ai/utils/type-guards";
 

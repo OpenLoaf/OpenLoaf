@@ -17,7 +17,7 @@ import {
   replaceRelativeFileParts,
   saveChatImageAttachment,
   saveChatImageAttachmentFromPath,
-} from "@/ai/chat-stream/attachmentResolver";
+} from "@/ai/infrastructure/adapters/attachmentResolver";
 import type { UIMessage } from "ai";
 
 export class AttachmentResolverAdapter implements AttachmentResolverPort {

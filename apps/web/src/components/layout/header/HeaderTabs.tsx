@@ -1,4 +1,4 @@
-import { Bot, Globe, Plus, X } from "lucide-react";
+import { Bot, ChevronLeft, ChevronRight, Globe, Plus, X } from "lucide-react";
 import { AnimatedTabs } from "@/components/ui/animated-tabs";
 import { useTabs } from "@/hooks/use-tabs";
 import { DEFAULT_TAB_INFO, type Tab } from "@tenas-ai/api/common";
@@ -59,6 +59,7 @@ export const HeaderTabs = () => {
   const chatStatusByTabId = useTabs((s) => s.chatStatusByTabId);
   const dictationStatusByTabId = useTabs((s) => s.dictationStatusByTabId);
   const { workspace: activeWorkspace } = useWorkspace();
+  const activeWorkspaceId = activeWorkspace?.id ?? null;
   const activeWorkspaceIdRef = useRef<string | null>(null);
   const seededWorkspaceRef = useRef<Record<string, boolean>>({});
   const tabsScrollViewportRef = useRef<HTMLDivElement>(null);
@@ -82,6 +83,12 @@ export const HeaderTabs = () => {
   } | null>(null);
   const swapRafRef = useRef<number | null>(null);
   const lastSwapKeyRef = useRef<string | null>(null);
+  /** Stores tab navigation history per workspace. */
+  const historyByWorkspaceRef = useRef<
+    Record<string, { back: string[]; forward: string[]; lastActiveId: string | null }>
+  >({});
+  /** Flags a history-driven navigation to avoid double-recording. */
+  const isHistoryNavRef = useRef(false);
   const isMac = useMemo(
     () =>
       typeof navigator !== "undefined" &&
@@ -94,11 +101,80 @@ export const HeaderTabs = () => {
   const workspaceTabs = activeWorkspace
     ? getWorkspaceTabs(activeWorkspace.id)
     : [];
-  activeWorkspaceIdRef.current = activeWorkspace?.id ?? null;
+  activeWorkspaceIdRef.current = activeWorkspaceId;
   workspaceTabsRef.current = workspaceTabs.map((t) => ({
     id: t.id,
     isPin: t.isPin,
   }));
+  const workspaceTabIdSet = useMemo(
+    () => new Set(workspaceTabs.map((tab) => tab.id)),
+    [workspaceTabs],
+  );
+
+  /** Get or create tab history for a workspace. */
+  const getWorkspaceHistory = useCallback((workspaceId: string) => {
+    const existing = historyByWorkspaceRef.current[workspaceId];
+    if (existing) return existing;
+    const created = { back: [], forward: [], lastActiveId: null };
+    historyByWorkspaceRef.current[workspaceId] = created;
+    return created;
+  }, []);
+
+  /** Pop a valid history target while skipping closed tabs. */
+  const popHistoryTarget = useCallback((stack: string[], validIds: Set<string>) => {
+    // 回退/前进时跳过已经关闭的标签。
+    while (stack.length > 0) {
+      const candidate = stack.pop();
+      if (candidate && validIds.has(candidate)) return candidate;
+    }
+    return null;
+  }, []);
+
+  /** Navigate to the previous tab in history. */
+  const handleHistoryBack = useCallback(() => {
+    if (!activeWorkspaceId || !activeTabId) return;
+
+    const history = getWorkspaceHistory(activeWorkspaceId);
+    const nextId = popHistoryTarget(history.back, workspaceTabIdSet);
+    if (!nextId) return;
+
+    // 当前 tab 写入前进栈，供“向前”恢复。
+    if (workspaceTabIdSet.has(activeTabId)) {
+      history.forward.push(activeTabId);
+    }
+    isHistoryNavRef.current = true;
+    setActiveTab(nextId);
+  }, [
+    activeTabId,
+    activeWorkspaceId,
+    getWorkspaceHistory,
+    popHistoryTarget,
+    setActiveTab,
+    workspaceTabIdSet,
+  ]);
+
+  /** Navigate to the next tab in history. */
+  const handleHistoryForward = useCallback(() => {
+    if (!activeWorkspaceId || !activeTabId) return;
+
+    const history = getWorkspaceHistory(activeWorkspaceId);
+    const nextId = popHistoryTarget(history.forward, workspaceTabIdSet);
+    if (!nextId) return;
+
+    // 当前 tab 写入回退栈，供“向后”恢复。
+    if (workspaceTabIdSet.has(activeTabId)) {
+      history.back.push(activeTabId);
+    }
+    isHistoryNavRef.current = true;
+    setActiveTab(nextId);
+  }, [
+    activeTabId,
+    activeWorkspaceId,
+    getWorkspaceHistory,
+    popHistoryTarget,
+    setActiveTab,
+    workspaceTabIdSet,
+  ]);
   const pinnedTabs = workspaceTabs.filter((tab) => tab.isPin);
   const regularTabs = workspaceTabs.filter((tab) => !tab.isPin);
   const allTabs = useMemo(
@@ -145,8 +221,70 @@ export const HeaderTabs = () => {
   }, [activeTabId, activeWorkspace, setActiveTab, workspaceTabs]);
 
   useEffect(() => {
+    if (!activeWorkspaceId || !activeTabId) return;
+
+    const history = getWorkspaceHistory(activeWorkspaceId);
+    const inWorkspace = workspaceTabIdSet.has(activeTabId);
+    if (!inWorkspace) return;
+
+    if (history.lastActiveId === activeTabId) return;
+
+    if (isHistoryNavRef.current) {
+      // 回退/前进导致的切换不写入历史。
+      history.lastActiveId = activeTabId;
+      isHistoryNavRef.current = false;
+      return;
+    }
+
+    // 手动切换时，记录回退栈并清空前进栈。
+    if (history.lastActiveId && workspaceTabIdSet.has(history.lastActiveId)) {
+      history.back.push(history.lastActiveId);
+    }
+    history.forward = [];
+    history.lastActiveId = activeTabId;
+  }, [activeTabId, activeWorkspaceId, getWorkspaceHistory, workspaceTabIdSet]);
+
+  /** Indicates if back history exists for the current workspace. */
+  const canGoBack = useMemo(() => {
+    if (!activeWorkspaceId || !activeTabId) return false;
+    const history = getWorkspaceHistory(activeWorkspaceId);
+    return history.back.some((tabId) => workspaceTabIdSet.has(tabId));
+  }, [activeTabId, activeWorkspaceId, getWorkspaceHistory, workspaceTabIdSet]);
+
+  /** Indicates if forward history exists for the current workspace. */
+  const canGoForward = useMemo(() => {
+    if (!activeWorkspaceId || !activeTabId) return false;
+    const history = getWorkspaceHistory(activeWorkspaceId);
+    return history.forward.some((tabId) => workspaceTabIdSet.has(tabId));
+  }, [activeTabId, activeWorkspaceId, getWorkspaceHistory, workspaceTabIdSet]);
+
+  useEffect(() => {
     return () => {
       if (swapRafRef.current) cancelAnimationFrame(swapRafRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const viewport = tabsScrollViewportRef.current;
+    if (!viewport) return;
+
+    /** Handle wheel events for horizontal tab scrolling. */
+    const handleWheel = (event: WheelEvent) => {
+      const canScroll = viewport.scrollWidth > viewport.clientWidth;
+      if (!canScroll) return;
+      if (event.shiftKey) return;
+
+      const { deltaX, deltaY } = event;
+      if (Math.abs(deltaY) <= Math.abs(deltaX)) return;
+
+      // 逻辑：将纵向滚轮映射为横向滚动，并阻止默认的纵向滚动。
+      viewport.scrollLeft += deltaY;
+      event.preventDefault();
+    };
+
+    viewport.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      viewport.removeEventListener("wheel", handleWheel);
     };
   }, []);
 
@@ -367,23 +505,33 @@ export const HeaderTabs = () => {
   return (
     <div className="relative z-10 w-full min-w-0">
       <div className="h-[calc(var(--header-height))] w-full min-w-0 bg-sidebar border-sidebar-border rounded-none p-0 relative overflow-hidden flex items-center justify-start">
+        <div className="flex items-center gap-1 pl-1 pr-1">
+          <Button
+            data-no-drag="true"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent disabled:opacity-40"
+            aria-label="Go back tab history"
+            onClick={handleHistoryBack}
+            disabled={!canGoBack}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            data-no-drag="true"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent disabled:opacity-40"
+            aria-label="Go forward tab history"
+            onClick={handleHistoryForward}
+            disabled={!canGoForward}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
         <div
           ref={tabsScrollViewportRef}
           className="relative z-10 flex-1 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-hide"
-          onWheel={(event) => {
-            const viewport = tabsScrollViewportRef.current;
-            if (!viewport) return;
-
-            const canScroll = viewport.scrollWidth > viewport.clientWidth;
-            if (!canScroll) return;
-            if (event.shiftKey) return;
-
-            const { deltaX, deltaY } = event;
-            if (Math.abs(deltaY) <= Math.abs(deltaX)) return;
-
-            viewport.scrollLeft += deltaY;
-            event.preventDefault();
-          }}
         >
           <div
             ref={tabsScrollContentRef}

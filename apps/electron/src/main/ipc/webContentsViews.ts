@@ -1,4 +1,5 @@
 import { BrowserWindow, WebContents, WebContentsView } from 'electron';
+import { resolveWindowIconPath } from '../resolveWindowIcon';
 
 type ViewBounds = { x: number; y: number; width: number; height: number };
 export type UpsertWebContentsViewArgs = {
@@ -364,10 +365,12 @@ export function createBrowserWindowForUrl(url: string): BrowserWindow {
   }
 
   const parent = BrowserWindow.getAllWindows()[0];
+  const windowIcon = resolveWindowIconPath();
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
     parent: parent ?? undefined,
+    ...(windowIcon ? { icon: windowIcon } : {}),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

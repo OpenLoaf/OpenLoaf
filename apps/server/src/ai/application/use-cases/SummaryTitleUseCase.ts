@@ -3,20 +3,20 @@ import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import type { AiExecuteRequest } from "@/ai/pipeline/aiTypes";
 import { resolveChatModel } from "@/ai/resolveChatModel";
-import { resolveRequiredInputTags, resolvePreviousChatModelId } from "@/ai/chat-stream/modelResolution";
-import { initRequestContext } from "@/ai/chat-stream/chatStreamHelpers";
-import { replaceRelativeFileParts } from "@/ai/chat-stream/attachmentResolver";
-import { loadMessageChain } from "@/ai/chat-stream/messageChainLoader";
-import { buildModelChain } from "@/ai/chat-stream/chatStreamHelpers";
-import { setChatModel, setCodexOptions } from "@/ai/chat-stream/requestContext";
-import { resolveCodexRequestOptions } from "@/ai/chat-stream/messageOptionResolver";
+import { resolveRequiredInputTags, resolvePreviousChatModelId } from "@/ai/application/services/chatStream/modelResolution";
+import { initRequestContext } from "@/ai/application/services/chatStream/chatStreamHelpers";
+import { replaceRelativeFileParts } from "@/ai/infrastructure/adapters/attachmentResolver";
+import { loadMessageChain } from "@/ai/infrastructure/repositories/messageChainLoader";
+import { buildModelChain } from "@/ai/application/services/chatStream/chatStreamHelpers";
+import { setChatModel, setCodexOptions } from "@/ai/shared/context/requestContext";
+import { resolveCodexRequestOptions } from "@/ai/application/services/chatStream/messageOptionResolver";
 import {
   clearSessionErrorMessage,
   normalizeSessionTitle,
   resolveRightmostLeafId,
   setSessionErrorMessage,
   updateSessionTitle,
-} from "@/ai/chat-stream/messageStore";
+} from "@/ai/infrastructure/repositories/messageStore";
 import { logger } from "@/common/logger";
 import { buildModelMessages } from "@/ai/pipeline/messageConverter";
 

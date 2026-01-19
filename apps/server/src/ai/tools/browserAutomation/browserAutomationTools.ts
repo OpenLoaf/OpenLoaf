@@ -6,7 +6,7 @@ import {
   browserSnapshotToolDef,
   browserWaitToolDef,
 } from "@tenas-ai/api/types/tools/browserAutomation";
-import { getClientId, getSessionId } from "@/ai/chat-stream/requestContext";
+import { getClientId, getSessionId } from "@/ai/shared/context/requestContext";
 import { requireTabId } from "@/common/tabContext";
 import { sendCdpCommand } from "@/modules/browser/cdpClient";
 import { getActiveBrowserTargetId, tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";

@@ -251,8 +251,6 @@ export const SidebarWorkspace = () => {
   const displayEmail =
     authUser?.email ?? authUser?.name ?? userEmail ?? (authLoggedIn ? "已登录" : undefined);
   const displayAvatar = authUser?.avatarUrl ?? userAvatarUrl;
-  const displayInitial =
-    (authUser?.name ?? displayEmail ?? "?")[0]?.toUpperCase() ?? "?";
 
   const activateWorkspace = useMutation(
     trpc.workspace.activate.mutationOptions({
@@ -386,8 +384,8 @@ export const SidebarWorkspace = () => {
                   {displayAvatar ? (
                     <AvatarImage src={displayAvatar} alt={displayEmail ?? "User"} />
                   ) : null}
-                  <AvatarFallback className="text-[11px]">
-                    {displayInitial}
+                  <AvatarFallback>
+                    <img src="/logo.svg" alt="Tenas" className="size-full object-cover" />
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0 text-left">
@@ -412,8 +410,8 @@ export const SidebarWorkspace = () => {
                   {displayAvatar ? (
                     <AvatarImage src={displayAvatar} alt={displayEmail ?? "User"} />
                   ) : null}
-                  <AvatarFallback className="text-xs">
-                    {displayInitial}
+                  <AvatarFallback>
+                    <img src="/logo.svg" alt="Tenas" className="size-full object-cover" />
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">

@@ -1,6 +1,7 @@
 import { CalendarNodeDefinition } from "../nodes/CalendarNode";
 import { GroupNodeDefinition, ImageGroupNodeDefinition } from "../nodes/GroupNode";
 import { ImageGenerateNodeDefinition } from "../nodes/ImageGenerateNode";
+import { VideoGenerateNodeDefinition } from "../nodes/VideoGenerateNode";
 import { ImageNodeDefinition } from "../nodes/ImageNode";
 import { ImagePromptGenerateNodeDefinition } from "../nodes/ImagePromptGenerateNode";
 import { LinkNodeDefinition } from "../nodes/LinkNode";
@@ -16,6 +17,7 @@ export const BOARD_NODE_DEFINITIONS = [
   TextNodeDefinition,
   ImagePromptGenerateNodeDefinition,
   ImageGenerateNodeDefinition,
+  VideoGenerateNodeDefinition,
   GroupNodeDefinition,
   ImageGroupNodeDefinition,
 ];

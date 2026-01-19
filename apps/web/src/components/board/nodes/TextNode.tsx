@@ -1,4 +1,8 @@
-import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
+import type {
+  CanvasConnectorTemplateDefinition,
+  CanvasNodeDefinition,
+  CanvasNodeViewProps,
+} from "../engine/types";
 import type {
   ChangeEvent as ReactChangeEvent,
   MouseEvent as ReactMouseEvent,
@@ -6,7 +10,9 @@ import type {
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
+import { Play } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
+import { VIDEO_GENERATE_NODE_TYPE } from "./VideoGenerateNode";
 
 /** Text value stored on the text node. */
 export type TextNodeValue = string;
@@ -40,6 +46,20 @@ const TEXT_NODE_RESIZE_EPSILON = 2;
 const TEXT_NODE_MIN_SIZE = { w: 200, h: 100 };
 /** Maximum size for text nodes. */
 const TEXT_NODE_MAX_SIZE = { w: 720, h: 420 };
+/** Connector templates offered by the text node. */
+const TEXT_NODE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
+  {
+    id: VIDEO_GENERATE_NODE_TYPE,
+    label: "生成视频",
+    description: "基于文本生成视频",
+    size: [360, 280],
+    icon: <Play size={14} />,
+    createNode: () => ({
+      type: VIDEO_GENERATE_NODE_TYPE,
+      props: {},
+    }),
+  },
+];
 
 /** Normalize the stored value to a plain text string. */
 function normalizeTextValue(value?: TextNodeValue): string {
@@ -520,6 +540,7 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     collapsedHeight: undefined,
   },
   view: TextNodeView,
+  connectorTemplates: () => TEXT_NODE_CONNECTOR_TEMPLATES,
   capabilities: {
     resizable: true,
     rotatable: false,

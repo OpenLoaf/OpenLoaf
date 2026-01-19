@@ -25,7 +25,7 @@ import {
   getSessionId,
   getUiWriter,
   getWorkspaceId,
-} from "@/ai/chat-stream/requestContext";
+} from "@/ai/shared/context/requestContext";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
 import { getCodexAppServerConnection } from "@/ai/models/cli/codex/codexAppServerConnection";
 import {

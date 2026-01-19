@@ -3,7 +3,7 @@ import type {
   MessageRepository,
   SaveMessageInput,
 } from "@/ai/application/ports/MessageRepository";
-import { ensureSessionPreface, saveMessage } from "@/ai/chat-stream/messageStore";
+import { ensureSessionPreface, saveMessage } from "@/ai/infrastructure/repositories/messageStore";
 
 export class PrismaMessageRepository implements MessageRepository {
   /** Ensure a session preface message exists. */

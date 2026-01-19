@@ -1,4 +1,5 @@
 import { app, BrowserWindow, screen } from 'electron';
+import { resolveWindowIconPath } from '../resolveWindowIcon';
 import type { Logger } from '../logging/startupLogger';
 import type { ServiceManager } from '../services/serviceManager';
 import { waitForUrlOk } from '../services/urlHealth';
@@ -87,12 +88,14 @@ export async function createMainWindow(args: {
 
   const { width, height } = getDefaultWindowSize();
   const isMac = process.platform === 'darwin';
+  const windowIcon = resolveWindowIconPath();
 
   const mainWindow = new BrowserWindow({
     height,
     width,
     minWidth: 800,
     minHeight: 640,
+    ...(windowIcon ? { icon: windowIcon } : {}),
     ...(isMac
       ? {
           titleBarStyle: 'hiddenInset' as const,

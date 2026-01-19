@@ -1,8 +1,10 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { MessageCircle } from "lucide-react";
 
 import { Calendar } from "@/components/ui/calendar";
 import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
+import { useTabs } from "@/hooks/use-tabs";
+import { cn } from "@/lib/utils";
 
 interface ProjectHistoryProps {
   isLoading: boolean;
@@ -62,6 +64,12 @@ const ProjectHistory = memo(function ProjectHistory({
 }: ProjectHistoryProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { sessions, isLoading: isSessionsLoading } = useChatSessions();
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const activeTab = useTabs((s) =>
+    s.activeTabId ? s.getTabById(s.activeTabId) : undefined
+  );
+  const setTabChatSession = useTabs((s) => s.setTabChatSession);
+  const activeChatSessionId = activeTab?.chatSessionId;
 
   const { sessionsByDay, sessionDates } = useMemo(() => {
     const map = new Map<string, ChatSessionListItem[]>();
@@ -100,6 +108,17 @@ const ProjectHistory = memo(function ProjectHistory({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  /** Select a chat session for the active tab and load its history. */
+  const handleSessionSelect = useCallback(
+    (sessionId: string) => {
+      if (!activeTabId) return;
+      if (activeChatSessionId === sessionId) return;
+      // 中文注释：点击历史会话后切换右侧聊天并加载历史记录。
+      setTabChatSession(activeTabId, sessionId, { loadHistory: true });
+    },
+    [activeChatSessionId, activeTabId, setTabChatSession]
+  );
+
   if (isLoading) {
     return null;
   }
@@ -117,7 +136,7 @@ const ProjectHistory = memo(function ProjectHistory({
             modifiers={{ hasHistory: sessionDates }}
             modifiersClassNames={{
               hasHistory:
-                "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary/70 after:pointer-events-none after:z-10",
+                "after:content-[''] after:absolute after:bottom-3 after:left-1/2 after:h-1.5 after:w-1.5 after:-translate-x-1/2 after:rounded-full after:bg-amber-400/80 dark:after:bg-amber-300/90 after:pointer-events-none after:z-10",
             }}
             className="w-full rounded-xl border border-border/60 bg-background/80 p-3"
           />
@@ -142,9 +161,17 @@ const ProjectHistory = memo(function ProjectHistory({
               </div>
             ) : (
               activeSessions.map((session) => (
-                <div
+                <button
                   key={session.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/80 px-3 py-2"
+                  type="button"
+                  aria-pressed={activeChatSessionId === session.id}
+                  onClick={() => handleSessionSelect(session.id)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2 text-left transition-colors",
+                    activeChatSessionId === session.id
+                      ? "border-primary/40 bg-primary/10"
+                      : "bg-background/80 hover:bg-accent/40"
+                  )}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 min-w-0">
@@ -167,7 +194,7 @@ const ProjectHistory = memo(function ProjectHistory({
                   <div className="text-[11px] text-muted-foreground">
                     {formatTimeLabel(session.updatedAt)}
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>

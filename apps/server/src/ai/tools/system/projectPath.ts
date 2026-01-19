@@ -1,5 +1,5 @@
 import path from "node:path";
-import { getProjectId } from "@/ai/chat-stream/requestContext";
+import { getProjectId } from "@/ai/shared/context/requestContext";
 import { getProjectRootPath } from "@tenas-ai/api/services/vfsService";
 
 /** Project path resolution result. */

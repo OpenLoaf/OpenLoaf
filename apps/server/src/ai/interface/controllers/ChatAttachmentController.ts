@@ -4,7 +4,7 @@ import {
   getFilePreview,
   saveChatImageAttachment,
   saveChatImageAttachmentFromPath,
-} from "@/ai/chat-stream/attachmentResolver";
+} from "@/ai/infrastructure/adapters/attachmentResolver";
 
 /** Max upload size for chat images. */
 const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;

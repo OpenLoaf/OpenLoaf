@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   Download,
   Info,
+  Play,
   Sparkles,
   Type,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { buildImageNodePayloadFromUri } from "../utils/image";
 import { ImageNodeDetail } from "./ImageNodeDetail";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./ImagePromptGenerateNode";
 import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
+import { VIDEO_GENERATE_NODE_TYPE } from "./VideoGenerateNode";
 import type { BoardFileContext } from "../core/BoardProvider";
 import {
   isBoardRelativePath,
@@ -173,6 +175,17 @@ const IMAGE_NODE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
     icon: <Sparkles size={14} />,
     createNode: () => ({
       type: IMAGE_GENERATE_NODE_TYPE,
+      props: {},
+    }),
+  },
+  {
+    id: VIDEO_GENERATE_NODE_TYPE,
+    label: "生成视频",
+    description: "基于图片与提示词生成视频",
+    size: [360, 280],
+    icon: <Play size={14} />,
+    createNode: () => ({
+      type: VIDEO_GENERATE_NODE_TYPE,
       props: {},
     }),
   },

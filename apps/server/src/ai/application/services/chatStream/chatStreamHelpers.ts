@@ -1,11 +1,11 @@
 import { generateId, type UIMessage } from "ai";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import { logger } from "@/common/logger";
-import { setAssistantMessageId, setRequestContext } from "@/ai/chat-stream/requestContext";
-import { loadMessageChain } from "./messageChainLoader";
-import { resolveRightmostLeafId, saveMessage } from "./messageStore";
-import type { ChatImageRequestResult } from "./chatImageTypes";
-import { replaceRelativeFileParts } from "./attachmentResolver";
+import { setAssistantMessageId, setRequestContext } from "@/ai/shared/context/requestContext";
+import { loadMessageChain } from "@/ai/infrastructure/repositories/messageChainLoader";
+import { resolveRightmostLeafId, saveMessage } from "@/ai/infrastructure/repositories/messageStore";
+import type { ChatImageRequestResult } from "@/ai/application/dto/chatImageTypes";
+import { replaceRelativeFileParts } from "@/ai/infrastructure/adapters/attachmentResolver";
 
 /** Format invalid request errors for client display. */
 export function formatInvalidRequestMessage(message: string): string {

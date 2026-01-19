@@ -773,6 +773,8 @@ function resolveNodeTitle(element: CanvasNodeElement) {
       }
     case "image_generate":
       return "生成图片";
+    case "video_generate":
+      return "生成视频";
     case "image_prompt_generate":
       return "图片提示";
     case "calendar":
@@ -796,6 +798,14 @@ function resolveNodeSubtitle(element: CanvasNodeElement) {
     if (results && results.length > 0) return `已生成 ${results.length} 张`;
     const prompt = (element.props as any).promptText as string | undefined;
     return prompt || "";
+  }
+  if (element.type === "video_generate") {
+    const errorText = (element.props as any).errorText;
+    if (errorText) return `错误: ${errorText}`;
+    const prompt = (element.props as any).promptText as string | undefined;
+    if (prompt) return prompt;
+    const duration = (element.props as any).durationSeconds as number | undefined;
+    return duration ? `时长 ${duration}s` : "";
   }
   if (element.type === "image_prompt_generate") {
     const errorText = (element.props as any).errorText;

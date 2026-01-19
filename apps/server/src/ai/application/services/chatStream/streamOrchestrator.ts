@@ -13,7 +13,7 @@ import {
   pushAgentFrame,
   setAbortSignal,
   setUiWriter,
-} from "@/ai/chat-stream/requestContext";
+} from "@/ai/shared/context/requestContext";
 import type { MasterAgentRunner } from "@/ai/agents/masterAgent/masterAgentRunner";
 import { buildModelMessages } from "@/ai/pipeline/messageConverter";
 import {
@@ -21,7 +21,7 @@ import {
   clearSessionErrorMessage,
   saveMessage,
   setSessionErrorMessage,
-} from "./messageStore";
+} from "@/ai/infrastructure/repositories/messageStore";
 import { buildTokenUsageMetadata, buildTimingMetadata, mergeAbortMetadata } from "./metadataBuilder";
 
 /** 构建错误 SSE 响应的输入。 */

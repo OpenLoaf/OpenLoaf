@@ -12,18 +12,18 @@ import {
   setParentProjectRootPaths,
   getWorkspaceId,
   getProjectId,
-} from "@/ai/chat-stream/requestContext";
+} from "@/ai/shared/context/requestContext";
 import { logger } from "@/common/logger";
 import { resolveParentProjectRootPaths } from "@/ai/utils/projectRoots";
 import { parseCommandAtStart } from "@/ai/pipeline/commandParser";
 import { buildSessionPrefaceMessage } from "@/ai/domain/services/prefaceBuilder";
-import { normalizePromptForImageEdit } from "./imageEditNormalizer";
+import { normalizePromptForImageEdit } from "@/ai/infrastructure/adapters/imageEditNormalizer";
 import { resolveImagePrompt, type GenerateImagePrompt } from "./imagePrompt";
 import {
   resolveImageSaveDirectory,
   saveGeneratedImages,
   saveGeneratedImagesToDirectory,
-} from "./imageStorage";
+} from "@/ai/infrastructure/adapters/imageStorage";
 import {
   createChatImageErrorResult,
   formatImageErrorMessage,
@@ -38,15 +38,15 @@ import {
   resolvePreviousChatModelId,
   resolveRequiredInputTags,
 } from "./modelResolution";
-import type { ChatStreamRequest } from "./chatStreamTypes";
+import type { ChatStreamRequest } from "@/ai/application/dto/chatStreamTypes";
 import {
   clearSessionErrorMessage,
   ensureSessionPreface,
   resolveRightmostLeafId,
   saveMessage,
   setSessionErrorMessage,
-} from "./messageStore";
-import type { ChatImageRequest, ChatImageRequestResult } from "./chatImageTypes";
+} from "@/ai/infrastructure/repositories/messageStore";
+import type { ChatImageRequest, ChatImageRequestResult } from "@/ai/application/dto/chatImageTypes";
 import { buildTimingMetadata } from "./metadataBuilder";
 import {
   createChatStreamResponse,

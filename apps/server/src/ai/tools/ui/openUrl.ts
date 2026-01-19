@@ -3,7 +3,7 @@ import { tool, zodSchema } from "ai";
 import { BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import { requireTabId } from "@/common/tabContext";
-import { getSessionId, getUiWriter, getWorkspaceId } from "@/ai/chat-stream/requestContext";
+import { getSessionId, getUiWriter, getWorkspaceId } from "@/ai/shared/context/requestContext";
 
 function normalizeUrl(raw: string): string {
   const value = raw.trim();

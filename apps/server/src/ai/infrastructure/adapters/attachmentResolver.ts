@@ -4,7 +4,7 @@ import sharp from "sharp";
 import type { UIMessage } from "ai";
 import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
-import { getProjectId, getWorkspaceId } from "@/ai/chat-stream/requestContext";
+import { getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";
 
 /** Max image edge length for chat. */
 const CHAT_IMAGE_MAX_EDGE = 1024;

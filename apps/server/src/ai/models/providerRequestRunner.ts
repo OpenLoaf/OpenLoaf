@@ -1,4 +1,4 @@
-import { getAbortSignal } from "@/ai/chat-stream/requestContext";
+import { getAbortSignal } from "@/ai/shared/context/requestContext";
 import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegistry";
 import {
   PROVIDER_ADAPTERS,

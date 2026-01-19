@@ -25,6 +25,18 @@
         "to": "speech"
       },
       {
+        "from": "resources/icon.icns",
+        "to": "icon.icns"
+      },
+      {
+        "from": "resources/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "resources/icon.png",
+        "to": "icon.png"
+      },
+      {
         "from": "../../apps/server/dist/server.mjs",
         "to": "server.mjs"
       },
@@ -49,6 +61,10 @@
         "to": "@img"
       },
       {
+        "from": "../../node_modules/node-pty/prebuilds",
+        "to": "prebuilds"
+      },
+      {
         "from": "../../node_modules/@libsql",
         "to": "@libsql"
       }
@@ -58,10 +74,17 @@
         "dmg",
         "zip"
       ],
+      "icon": "resources/icon.icns",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "语音输入需要访问麦克风。",
         "NSSpeechRecognitionUsageDescription": "语音输入需要使用系统语音识别。"
       }
+    },
+    "win": {
+      "icon": "resources/icon.ico"
+    },
+    "linux": {
+      "icon": "resources/icon.png"
     },
     "publish": [
       {
@@ -102,7 +125,7 @@
     "@electron-forge/maker-zip": "^7.10.2",
     "@electron-forge/plugin-webpack": "^7.10.2",
     "@electron-forge/shared-types": "^7.10.2",
-    "electron": "39.2.7",
+    "electron": "40.0.0",
     "electron-builder": "^24.13.3",
     "electron-devtools-installer": "^4.0.0",
     "ts-loader": "^9.2.2",

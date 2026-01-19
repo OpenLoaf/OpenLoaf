@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, session } from 'electron';
+import { app, BrowserWindow, Menu, session, nativeImage } from 'electron';
 import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import { installAutoUpdate } from './autoUpdate';
 import {
@@ -11,6 +11,11 @@ import { createServiceManager, type ServiceManager } from './services/serviceMan
 import { resolveRuntimePorts, type RuntimePorts } from './services/portAllocation';
 import { WEBPACK_ENTRIES } from './webpackEntries';
 import { createMainWindow } from './windows/mainWindow';
+import {
+  resolveWindowIconImage,
+  resolveWindowIconInfo,
+  resolveWindowIconPath,
+} from './resolveWindowIcon';
 
 const APP_DISPLAY_NAME = 'Tenas';
 
@@ -370,6 +375,19 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     log('App ready.');
+    if (process.platform === 'darwin' && app.dock) {
+      const iconInfo = resolveWindowIconInfo();
+      if (iconInfo) {
+        // 中文注释：开发模式下也显式设置 Dock / Cmd+Tab 图标。
+        app.dock.setIcon(iconInfo.image);
+        log(`Dock icon path: ${iconInfo.path}`);
+        // 中文注释：输出到控制台，方便本地调试时直接查看。
+        console.log(`Dock icon path: ${iconInfo.path}`);
+      } else {
+        log('Dock icon path not found.');
+        console.log('Dock icon path not found.');
+      }
+    }
     void boot();
   });
 

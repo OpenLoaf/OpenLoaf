@@ -4,7 +4,7 @@ import {
   BROWSER_SUB_AGENT_NAME,
   createBrowserSubAgent,
 } from "@/ai/agents/subagent/browserSubAgent";
-import { getChatModel, getUiWriter } from "@/ai/chat-stream/requestContext";
+import { getChatModel, getUiWriter } from "@/ai/shared/context/requestContext";
 
 /**
  * Builds sub-agent messages for streaming execution.

@@ -3,7 +3,7 @@ import {
   updatePlanToolDef,
   type UpdatePlanArgs,
 } from "@tenas-ai/api/types/tools/runtime";
-import { setPlanUpdate } from "@/ai/chat-stream/requestContext";
+import { setPlanUpdate } from "@/ai/shared/context/requestContext";
 
 type UpdatePlanToolOutput = {
   /** Whether the tool execution succeeded. */

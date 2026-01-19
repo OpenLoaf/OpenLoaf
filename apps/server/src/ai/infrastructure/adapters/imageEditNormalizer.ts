@@ -13,7 +13,7 @@ import type {
   GenerateImagePrompt,
   GenerateImagePromptObject,
   PromptImageInput,
-} from "./imagePrompt";
+} from "@/ai/application/services/chatStream/imagePrompt";
 
 type ResolvedImageInput = {
   /** Image buffer for upload. */
