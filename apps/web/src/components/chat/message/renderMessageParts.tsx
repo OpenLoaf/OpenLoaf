@@ -71,6 +71,11 @@ export const MESSAGE_FILE_CLASSNAME = cn(
   "flex flex-wrap gap-2",
 );
 
+const MESSAGE_REMARK_REHYPE_OPTIONS = {
+  // 逻辑：禁用 raw HTML 渲染，避免 <token> 之类的标签触发 React 警告。
+  allowDangerousHtml: false,
+};
+
 export function renderMessageParts(
   parts: AnyMessagePart[],
   options?: {
@@ -98,6 +103,7 @@ export function renderMessageParts(
             components={markdownComponents}
             parseIncompleteMarkdown
             isAnimating={isAnimating}
+            remarkRehypeOptions={MESSAGE_REMARK_REHYPE_OPTIONS}
           >
             {preprocessText(String(part.text ?? ""))}
           </Streamdown>
@@ -109,7 +115,12 @@ export function renderMessageParts(
       if (!renderText) return null;
       return (
         <div key={index} className={cn(MESSAGE_REASONING_CLASSNAME, options?.textClassName)}>
-          <Streamdown components={markdownComponents} parseIncompleteMarkdown isAnimating={isAnimating}>
+          <Streamdown
+            components={markdownComponents}
+            parseIncompleteMarkdown
+            isAnimating={isAnimating}
+            remarkRehypeOptions={MESSAGE_REMARK_REHYPE_OPTIONS}
+          >
             {preprocessText(String(part.text ?? ""))}
           </Streamdown>
         </div>
@@ -123,7 +134,12 @@ export function renderMessageParts(
       return (
         <div key={index} className={cn(MESSAGE_REVISED_PROMPT_CLASSNAME, options?.textClassName)}>
           <div className="text-[11px] font-medium text-muted-foreground/80">改写提示词</div>
-          <Streamdown components={markdownComponents} parseIncompleteMarkdown isAnimating={isAnimating}>
+          <Streamdown
+            components={markdownComponents}
+            parseIncompleteMarkdown
+            isAnimating={isAnimating}
+            remarkRehypeOptions={MESSAGE_REMARK_REHYPE_OPTIONS}
+          >
             {preprocessText(String(revisedText))}
           </Streamdown>
         </div>
