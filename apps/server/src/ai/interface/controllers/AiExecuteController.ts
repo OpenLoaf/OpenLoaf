@@ -1,6 +1,21 @@
+import type { AiExecuteRequest } from "@/ai/application/dto/aiTypes";
+import { AiExecuteService } from "@/ai/application/use-cases/AiExecuteService";
+
+type AiExecuteControllerDeps = {
+  /** Execute service. */
+  executeService: AiExecuteService;
+};
+
 export class AiExecuteController {
+  constructor(private readonly deps: AiExecuteControllerDeps) {}
+
   /** Execute AI request. */
-  execute(): void {
-    // 中文注释：接口层占位，实际逻辑仍走现有 service。
+  execute(input: {
+    request: AiExecuteRequest;
+    cookies: Record<string, string>;
+    requestSignal: AbortSignal;
+  }) {
+    // 逻辑：控制器只做编排，避免掺入业务逻辑。
+    return this.deps.executeService.execute(input);
   }
 }
