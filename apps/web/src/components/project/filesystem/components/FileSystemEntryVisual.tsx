@@ -304,6 +304,34 @@ const BoardIcon = memo(function BoardIcon({
   );
 });
 
+/** Render a thumbnail preview for board folders. */
+const BoardThumbnail = memo(function BoardThumbnail({
+  src,
+  name,
+  sizeClassName = "h-11 w-11",
+}: {
+  src?: string | null;
+  name: string;
+  sizeClassName?: string;
+}) {
+  return (
+    <div className={`${sizeClassName} overflow-hidden bg-muted/40`}>
+      {src ? (
+        <img
+          src={src}
+          alt={name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : (
+        // 逻辑：缩略图缺失时回退到画布图标。
+        <BoardIcon className="h-full w-full" />
+      )}
+    </div>
+  );
+});
+
 /** Markdown icon render options. */
 type MarkdownIconProps = {
   /** Tailwind class names for sizing. */
@@ -431,9 +459,7 @@ export function getEntryVisual({
   thumbnailIconClassName?: string;
 }) {
   if (kind === "folder" && isBoardFolderName(name)) {
-    return (
-      <BoardIcon className={sizeClassName} />
-    );
+    return <BoardThumbnail src={thumbnailSrc} name={name} sizeClassName={sizeClassName} />;
   }
   if (kind === "folder") {
     return (

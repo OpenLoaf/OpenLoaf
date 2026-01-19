@@ -7,6 +7,8 @@ import { resolveScopedPath, resolveScopedRootPath, toRelativePath } from "../ser
 
 /** Board folder prefix for server-side sorting. */
 const BOARD_FOLDER_PREFIX = "tnboard_";
+/** Board thumbnail file name inside a board folder. */
+const BOARD_THUMBNAIL_FILE_NAME = "index.png";
 /** Directory names ignored by search when hidden entries are excluded. */
 const SEARCH_IGNORE_NAMES = new Set([
   "node_modules",
@@ -294,6 +296,11 @@ export const fsRouter = t.router({
         // 只处理图片文件，减少无效 IO 与 sharp 解码开销。
         return isImageExt(ext);
       });
+      const boardFolders = entries.filter((entry) => {
+        if (!entry.isDirectory()) return false;
+        if (!includeHidden && entry.name.startsWith(".")) return false;
+        return isBoardFolderName(entry.name);
+      });
       const items = await Promise.all(
         imageFiles.map(async (entry) => {
           try {
@@ -311,7 +318,29 @@ export const fsRouter = t.router({
           }
         })
       );
-      return { items: items.filter((item): item is { uri: string; dataUrl: string } => Boolean(item)) };
+      const boardItems = await Promise.all(
+        boardFolders.map(async (entry) => {
+          try {
+            const entryPath = path.join(fullPath, entry.name);
+            const thumbnailPath = path.join(entryPath, BOARD_THUMBNAIL_FILE_NAME);
+            // 逻辑：优先使用 board 文件夹内的 index.png 作为缩略图来源。
+            const buffer = await sharp(thumbnailPath)
+              .resize(40, 40, { fit: "cover" })
+              .webp({ quality: 45 })
+              .toBuffer();
+            return {
+              uri: toRelativePath(rootPath, entryPath),
+              dataUrl: `data:image/webp;base64,${buffer.toString("base64")}`,
+            };
+          } catch {
+            return null;
+          }
+        })
+      );
+      const mergedItems = [...items, ...boardItems].filter(
+        (item): item is { uri: string; dataUrl: string } => Boolean(item)
+      );
+      return { items: mergedItems };
     }),
 
   /** Read a text file. */
