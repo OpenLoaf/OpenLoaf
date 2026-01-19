@@ -350,6 +350,7 @@ sequenceDiagram
    - 记录当前 SSE 结构、模型选择错误文案、prefaceHash 更新行为（作为回归基线）。
 2) **Phase 1：引入分层与端口**
    - 新增 `domain/`、`application/ports/`，用 Adapter 包装现有函数（不改行为）。
+   - 引入统一异常与日志基类（`BaseUseCase` 错误/日志挂钩）。
 3) **Phase 2：聊天流迁移**
    - `ChatStreamUseCase` 替代 `chatStreamService` 内部流程，保留 API 入口与输出格式。
 4) **Phase 3：图片流迁移**
@@ -361,7 +362,76 @@ sequenceDiagram
 7) **Phase 6：清理与路径收敛**
    - 移除旧模块、收敛 import 路径、补齐文档与回归核对。
 
-## 16. 风险与验证
+## 16. 统一异常管理（本次必须）
+
+- `AiError`：统一错误基类，包含 `code` / `message` / `cause` / `context`。
+- `ErrorCode`：覆盖请求无效、模型解析失败、工具执行失败、S3 配置缺失、存储失败、超时/中断等。
+- `ErrorMapper`：将内部错误映射为用户可读文案（保持现有文案语义）。
+- `ErrorPolicy`：统一 HTTP/SSE 的错误结构与 `chatSession.errorMessage` 更新策略。
+- `BaseUseCase.handleError()`：统一入口，避免子类各自拼装错误导致不一致。
+
+## 17. 统一日志管理（本次必须）
+
+- `AiLogger`：结构化日志接口，支持 `info/warn/error/debug`。
+- `LogContext`：携带 `requestId/sessionId/workspaceId/projectId/userId/modelId/toolCallId/taskId/agentId`。
+- `TraceSpan`：统一阶段耗时记录（解析/模型选择/工具执行/持久化/外部请求）。
+- `BaseUseCase.execute()`：自动注入上下文并贯穿到 SubAgent 与后台任务。
+
+## 18. 可靠性评估与加固建议
+
+- **隐式上下文风险**：`RequestScope` 与 AsyncLocalStorage 混用 → 以 `RequestScope` 为主，AsyncLocal 仅做兼容层。
+- **策略分散风险**：模型/命令/提示词规则散落 → 引入 `SpecRegistry` 统一注册与选择。
+- **长链路失败风险**：S3/模型/工具任一失败导致不透明 → 统一 `ErrorCode` + 可读文案。
+- **并发可观测性风险**：后台任务无状态 → `TaskStatusRepository` + UI 订阅通道。
+- **SubAgent 可控性风险**：UI writer 依赖隐式注入 → `BaseSubAgentRunner` 统一注入与输出。
+
+## 19. 未来功能占位（本次不实现）
+
+### 19.1 计划命令与 UseCase
+
+| Command | 归属 UseCase | 说明 | 触发 |
+| --- | --- | --- | --- |
+| `/summary-project` | SummaryProjectUseCase | 总结整个项目，指定工具/模型/提示词 | 手动 + 定时 |
+| `/update-project-summary` | UpdateProjectSummaryUseCase | 更新项目总结（增量） | 手动 + 定时 |
+| `/summary-day` | SummaryDayUseCase | 总结某一天的工作与变更 | 手动 |
+| `/expand-context-*` | ContextExpansionUseCase | 扩展特定上下文（image/chat） | 手动 |
+| `/helper-project` | HelperProjectUseCase | 项目级推荐 | 手动 |
+| `/helper-workspace` | HelperWorkspaceUseCase | 工作空间级推荐 | 手动 |
+
+### 19.2 定时与外部调度（双通道）
+
+- `SchedulerPort`：统一调度入口  
+  - `InProcessSchedulerAdapter`（内部定时器）  
+  - `ExternalSchedulerAdapter`（外部调度触发，如 webhook/任务系统）  
+- `JobRepository`：持久化任务配置与执行记录  
+- `SchedulePolicy`：定义周期（周更/日更）与触发窗口  
+
+```mermaid
+flowchart LR
+  subgraph Scheduling
+    InProc[InProcessSchedulerAdapter]
+    External[ExternalSchedulerAdapter]
+    Policy[SchedulePolicy]
+    Jobs[JobRepository]
+  end
+  InProc --> Policy --> Jobs
+  External --> Policy --> Jobs
+  Jobs --> TaskRunner[BackgroundTaskService]
+```
+
+### 19.3 视频生成接口
+
+- `VideoRequestUseCase` / `VideoModelSelector` / `VideoPromptResolver`
+- `VideoStorageGateway`（S3 或本地）
+- `VideoResultPersister`（输出路径与元数据）
+
+### 19.4 后台 LLM 任务可视化
+
+- `BackgroundTaskService`：统一执行后台 LLM 作业  
+- `TaskStatusRepository`：任务状态（queued/running/success/failed）  
+- `TaskEvents`：UI 订阅当前运行任务基本信息  
+
+## 20. 风险与验证
 
 - 风险：路径迁移导致循环依赖、SSE chunk 结构变化、模型 fallback 行为变化。
 - 验证：  
@@ -370,7 +440,7 @@ sequenceDiagram
   - 手工验证 /summary-title、图片生成、技能注入  
   - 运行 `pnpm check-types`
 
-## 17. 参考与依据
+## 21. 参考与依据
 
 - AI SDK v6：ToolLoopAgent、tool()、ToolSet、ModelMessage/tool-call/tool-result 结构  
 - 项目文档：`docs/system-tools-design.md`、`docs/model-provider-architecture.md`、`apps/server/src/ai/chat-flow.md`  
