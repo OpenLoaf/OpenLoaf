@@ -15,7 +15,7 @@ import {
   setUiWriter,
 } from "@/ai/shared/context/requestContext";
 import type { MasterAgentRunner } from "@/ai/agents/masterAgent/masterAgentRunner";
-import { buildModelMessages } from "@/ai/pipeline/messageConverter";
+import { buildModelMessages } from "@/ai/application/services/messageConverter";
 import {
   appendMessagePart,
   clearSessionErrorMessage,

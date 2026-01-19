@@ -1,7 +1,7 @@
 import { generateId, generateText, type UIMessage } from "ai";
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
-import type { AiExecuteRequest } from "@/ai/pipeline/aiTypes";
+import type { AiExecuteRequest } from "@/ai/application/dto/aiTypes";
 import { resolveChatModel } from "@/ai/resolveChatModel";
 import { resolveRequiredInputTags, resolvePreviousChatModelId } from "@/ai/application/services/chatStream/modelResolution";
 import { initRequestContext } from "@/ai/application/services/chatStream/chatStreamHelpers";
@@ -18,7 +18,7 @@ import {
   updateSessionTitle,
 } from "@/ai/infrastructure/repositories/messageStore";
 import { logger } from "@/common/logger";
-import { buildModelMessages } from "@/ai/pipeline/messageConverter";
+import { buildModelMessages } from "@/ai/application/services/messageConverter";
 
 type CommandDataPart = {
   /** SSE event type. */

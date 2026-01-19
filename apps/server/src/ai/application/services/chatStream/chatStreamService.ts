@@ -15,7 +15,7 @@ import {
 } from "@/ai/shared/context/requestContext";
 import { logger } from "@/common/logger";
 import { resolveParentProjectRootPaths } from "@/ai/utils/projectRoots";
-import { parseCommandAtStart } from "@/ai/pipeline/commandParser";
+import { parseCommandAtStart } from "@/ai/domain/services/CommandParser";
 import { buildSessionPrefaceMessage } from "@/ai/domain/services/prefaceBuilder";
 import { normalizePromptForImageEdit } from "@/ai/infrastructure/adapters/imageEditNormalizer";
 import { resolveImagePrompt, type GenerateImagePrompt } from "./imagePrompt";
