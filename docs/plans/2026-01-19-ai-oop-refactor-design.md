@@ -130,7 +130,7 @@ sequenceDiagram
 
 - `ModelResolver` 作为 Application Service，依赖 `ModelRegistryPort + ProviderAdapterRegistry + SettingsRepository`，保持现有 fallback/requiredTags 文案。
 - `ProviderAdapter` 体系保留：OpenAI/Anthropic/Qwen/Volcengine/CLI，支持 AI SDK 或自定义请求。
-- `ToolRegistryPort` 统一返回 ToolSet（AI SDK v6 约束），审批策略仍由 `systemToolMeta`/riskType 判定。
+- `ToolRegistryPort` 提供原子工具注册；`ToolsetAssembler` 负责按 Command/Agent 的 `ToolsetSpec` 组装 ToolSet（可 include/exclude/风险等级过滤）。
 - `AgentRunnerPort` 封装 ToolLoopAgent 的构建与 stream，保证 messages/tool-call/tool-result 结构不变。
 
 ## 7. SSE、错误处理与可观测性
@@ -152,28 +152,25 @@ sequenceDiagram
 1) **兼容阶段**：新增分层目录与类实现，`apps/server/src/ai/index.ts` 继续 re-export 旧路径，功能不变。  
 2) **清理阶段**：系统性迁移 import 路径、删除旧模块、收敛重复逻辑。
 
-## 9. 继承体系与基类设计（模板方法）
+## 9. 继承体系与基类设计（精简继承 + 策略组合）
 
-继承体系以流程为主轴，UseCase 用模板方法保证流程一致、可插拔策略扩展。核心基类与方法如下：
+继承仅保留两层：`BaseUseCase` 与 `BaseStreamUseCase`。其余流程差异通过策略组合实现，避免多层基类导致的隐式流程与维护成本。
 
 - `BaseUseCase`
   - `execute(request)`：统一入口
   - `validateRequest()`：参数校验
   - `buildScope()`：构建 RequestScope
-  - `prePersist()` / `runCore()` / `postPersist()`：流程钩子
   - `handleError()`：错误映射
 - `BaseStreamUseCase`（继承 `BaseUseCase`）
   - `buildStream()` / `attachMetadata()` / `persistAssistant()`
-- `BaseCommandUseCase`（继承 `BaseUseCase`）
-  - `buildCommandPrompt()` / `runCommand()`
-- `BaseCompactionUseCase`（继承 `BaseStreamUseCase`）
-  - `buildCompactPrompt()` / `persistCompactPrompt()` / `persistCompactSummary()`
-- `BaseModelSelector`
-  - `resolveExplicit()` / `collectCandidates()` / `pickPreferred()` / `buildModel()`
-- `BasePromptBuilder`
-  - `build()` / `buildHeader()` / `buildContext()` / `buildRules()` / `buildSkills()` / `buildFooter()`
-- `BaseAgent` / `BaseSubAgent`
-  - `buildTools()` / `buildInstructions()` / `createAgent()`
+
+策略类（组合）：
+- `CommandExecutionStrategy`：summary-title / expand-context / helper
+- `CompactionStrategy`：summary-history / summary-day / summary-project
+- `ModelSelectionService`：统一模型选择（显式/偏好/候选）
+- `ToolsetAssembler`：按 Command/Agent 组装工具集
+- `PromptBuilder`：master/summary/expansion prompts
+- `PipelineStrategy`：chat/image/video 的核心流程
 
 ```mermaid
 classDiagram
@@ -181,9 +178,6 @@ classDiagram
     +execute()
     #validateRequest()
     #buildScope()
-    #prePersist()
-    #runCore()
-    #postPersist()
     #handleError()
   }
   class BaseStreamUseCase {
@@ -191,27 +185,28 @@ classDiagram
     #attachMetadata()
     #persistAssistant()
   }
-  class BaseCommandUseCase {
-    #buildCommandPrompt()
-    #runCommand()
-  }
-  class BaseCompactionUseCase {
-    #buildCompactPrompt()
-    #persistCompactPrompt()
-    #persistCompactSummary()
-  }
   class ChatStreamUseCase
   class ImageRequestUseCase
-  class SummaryTitleUseCase
   class SummaryHistoryUseCase
+  class SummaryTitleUseCase
+  class CommandExecutionStrategy
+  class CompactionStrategy
+  class ModelSelectionService
+  class ToolsetAssembler
+  class PromptBuilder
+  class PipelineStrategy
 
   BaseUseCase <|-- BaseStreamUseCase
-  BaseUseCase <|-- BaseCommandUseCase
-  BaseStreamUseCase <|-- BaseCompactionUseCase
   BaseStreamUseCase <|-- ChatStreamUseCase
   BaseStreamUseCase <|-- ImageRequestUseCase
-  BaseCommandUseCase <|-- SummaryTitleUseCase
-  BaseCompactionUseCase <|-- SummaryHistoryUseCase
+  BaseUseCase <|-- SummaryHistoryUseCase
+  BaseUseCase <|-- SummaryTitleUseCase
+  ChatStreamUseCase --> PipelineStrategy
+  SummaryHistoryUseCase --> CompactionStrategy
+  SummaryTitleUseCase --> CommandExecutionStrategy
+  BaseUseCase --> ModelSelectionService
+  BaseUseCase --> ToolsetAssembler
+  BaseUseCase --> PromptBuilder
 ```
 
 ## 10. SummaryHistory / SummaryTitle 详细计划
@@ -222,7 +217,7 @@ classDiagram
     1) `CommandParser` 仅在输入首部识别命令
     2) 写入 `compact_prompt`（messageKind=compact_prompt，parent=leaf）
     3) `MessageChainBuilder` 构建模型链（preface + latest compact_summary + 之后消息）
-    4) 解析模型（`ChatModelSelector`）
+    4) 解析模型（`ModelSelectionService` + `ModelSelectionSpec`）
     5) 运行 Agent → 保存 `compact_summary`（assistantMessageKind）
 
 ```mermaid
@@ -246,9 +241,9 @@ sequenceDiagram
   - 特点：不落库消息，仅更新 `chatSession.title`
   - 流程：右侧叶子链 → 构造标题 prompt → `generateText` → `updateTitle`
 
-## 11. 模型匹配与自动模型选择
+## 11. 模型匹配与自动模型选择（合并为单一服务）
 
-统一由 `ModelSelectionUseCase` 调度，底层使用 `ChatModelSelector` / `ImageModelSelector`：
+统一由 `ModelSelectionService` 处理，输入 `ModelSelectionSpec`，输出 `ModelSelectionResult + DecisionTrace`：
 
 - 显式模型：严格解析，不做 fallback
 - 自动模型：按 requiredTags（文本/图片/编辑）过滤候选
@@ -257,7 +252,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-  A[输入 chatModelId] --> B{显式模型?}
+  A[输入 ModelSelectionSpec] --> B{显式模型?}
   B -- 是 --> C[严格解析 buildModel]
   B -- 否 --> D[requiredTags 过滤候选]
   D --> E{有偏好模型?}
@@ -394,7 +389,7 @@ sequenceDiagram
 | `/summary-project` | SummaryProjectUseCase | 总结整个项目，指定工具/模型/提示词 | 手动 + 定时 |
 | `/update-project-summary` | UpdateProjectSummaryUseCase | 更新项目总结（增量） | 手动 + 定时 |
 | `/summary-day` | SummaryDayUseCase | 总结某一天的工作与变更 | 手动 |
-| `/expand-context-*` | ContextExpansionUseCase | 扩展特定上下文（image/chat） | 手动 |
+| `/expand-context-*` | ContextExpansionUseCase | 一次性扩展上下文，直接返回 text，不落库 | 手动 |
 | `/helper-project` | HelperProjectUseCase | 项目级推荐 | 手动 |
 | `/helper-workspace` | HelperWorkspaceUseCase | 工作空间级推荐 | 手动 |
 
