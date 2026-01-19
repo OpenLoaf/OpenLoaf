@@ -141,12 +141,91 @@ sequenceDiagram
 
 ## 8. 文件结构与迁移策略
 
-### 结构建议
-- `domain/`：实体与领域服务
-- `application/`：UseCase + Ports
-- `infrastructure/`：Repository/Gateway/Adapter
-- `interface/`：Controller/Routes
-- `composition/`：依赖装配
+### 最终文件结构
+
+```
+apps/server/src/ai/
+  composition/
+    AiModule.ts
+  interface/
+    controllers/
+      AiExecuteController.ts
+      ChatAttachmentController.ts
+    routes/
+      aiExecuteRoutes.ts
+      chatAttachmentRoutes.ts
+  application/
+    ports/
+      AgentRunnerPort.ts
+      AttachmentResolverPort.ts
+      AuthGateway.ts
+      MessageRepository.ts
+      ModelRegistryPort.ts
+      SchedulerPort.ts
+      SettingsRepository.ts
+      TaskStatusRepository.ts
+      ToolRegistryPort.ts
+      VfsGateway.ts
+    services/
+      ModelSelectionService.ts
+      ToolsetAssembler.ts
+    use-cases/
+      AiExecuteService.ts
+      ChatStreamUseCase.ts
+      ImageRequestUseCase.ts
+      SummaryHistoryUseCase.ts
+      SummaryTitleUseCase.ts
+      ContextExpansionUseCase.ts
+      HelperProjectUseCase.ts
+      HelperWorkspaceUseCase.ts
+      SummaryProjectUseCase.ts
+      SummaryDayUseCase.ts
+      UpdateProjectSummaryUseCase.ts
+      VideoRequestUseCase.ts
+  domain/
+    entities/
+      ChatMessage.ts
+      MessageKind.ts
+      PromptContext.ts
+      SkillSummary.ts
+      ModelCandidate.ts
+    services/
+      CommandParser.ts
+      MessageChainBuilder.ts
+      PrefaceBuilder.ts
+      PromptBuilder.ts
+      SkillSelector.ts
+    value-objects/
+      AttachmentRef.ts
+      ModelSelectionSpec.ts
+      ToolsetSpec.ts
+  infrastructure/
+    adapters/
+      AgentRunnerAdapter.ts
+      AttachmentResolverAdapter.ts
+      ModelRegistryAdapter.ts
+      ProviderAdapterRegistry.ts
+      SchedulerAdapters.ts
+      ToolRegistryAdapter.ts
+    gateways/
+      AuthSessionGateway.ts
+      SettingsGateway.ts
+      VfsGatewayImpl.ts
+    repositories/
+      PrismaMessageRepository.ts
+      PrismaSessionRepository.ts
+      PrismaTaskStatusRepository.ts
+  shared/
+    errors/
+      AiError.ts
+      ErrorCode.ts
+      ErrorMapper.ts
+      ErrorPolicy.ts
+    logging/
+      AiLogger.ts
+      LogContext.ts
+      TraceSpan.ts
+```
 
 ### 迁移策略（两阶段）
 1) **兼容阶段**：新增分层目录与类实现，`apps/server/src/ai/index.ts` 继续 re-export 旧路径，功能不变。  
@@ -359,18 +438,99 @@ sequenceDiagram
 
 ## 16. 统一异常管理（本次必须）
 
-- `AiError`：统一错误基类，包含 `code` / `message` / `cause` / `context`。
-- `ErrorCode`：覆盖请求无效、模型解析失败、工具执行失败、S3 配置缺失、存储失败、超时/中断等。
-- `ErrorMapper`：将内部错误映射为用户可读文案（保持现有文案语义）。
-- `ErrorPolicy`：统一 HTTP/SSE 的错误结构与 `chatSession.errorMessage` 更新策略。
-- `BaseUseCase.handleError()`：统一入口，避免子类各自拼装错误导致不一致。
+### 数据结构（字段清单）
+
+```ts
+type ErrorCode =
+  | "invalid_request"
+  | "model_not_found"
+  | "model_build_failed"
+  | "tool_execution_failed"
+  | "storage_not_configured"
+  | "storage_failed"
+  | "attachment_not_found"
+  | "timeout"
+  | "aborted"
+  | "unknown";
+
+type AiErrorContext = {
+  requestId?: string;
+  sessionId?: string;
+  workspaceId?: string;
+  projectId?: string;
+  userId?: string;
+  toolId?: string;
+  toolCallId?: string;
+  modelId?: string;
+  providerId?: string;
+  commandId?: string;
+  taskId?: string;
+};
+
+class AiError extends Error {
+  code: ErrorCode;
+  context?: AiErrorContext;
+  cause?: unknown;
+}
+```
+
+### 处理策略
+
+- `ErrorMapper`：`AiError | unknown` → 用户可读文案（复用现有错误文本语义）
+- `ErrorPolicy`：统一 HTTP/SSE 输出格式与 `chatSession.errorMessage` 更新规则
+- `BaseUseCase.handleError()`：唯一入口，保证一致性
 
 ## 17. 统一日志管理（本次必须）
 
-- `AiLogger`：结构化日志接口，支持 `info/warn/error/debug`。
-- `LogContext`：携带 `requestId/sessionId/workspaceId/projectId/userId/modelId/toolCallId/taskId/agentId`。
-- `TraceSpan`：统一阶段耗时记录（解析/模型选择/工具执行/持久化/外部请求）。
-- `BaseUseCase.execute()`：自动注入上下文并贯穿到 SubAgent 与后台任务。
+### 数据结构（字段清单）
+
+```ts
+type LogLevel = "debug" | "info" | "warn" | "error";
+
+type LogContext = {
+  requestId?: string;
+  sessionId?: string;
+  workspaceId?: string;
+  projectId?: string;
+  userId?: string;
+  agentId?: string;
+  modelId?: string;
+  providerId?: string;
+  toolId?: string;
+  toolCallId?: string;
+  commandId?: string;
+  taskId?: string;
+};
+
+type TraceSpan = {
+  name: string;
+  startAt: number;
+  endAt?: number;
+  durationMs?: number;
+  attrs?: Record<string, unknown>;
+};
+
+type LogEntry = {
+  level: LogLevel;
+  message: string;
+  context?: LogContext;
+  span?: TraceSpan;
+  error?: { name: string; message: string; stack?: string };
+};
+
+interface AiLogger {
+  log(entry: LogEntry): void;
+  debug(message: string, context?: LogContext): void;
+  info(message: string, context?: LogContext): void;
+  warn(message: string, context?: LogContext): void;
+  error(message: string, context?: LogContext): void;
+}
+```
+
+### 处理策略
+
+- `BaseUseCase.execute()` 自动注入 `LogContext`
+- `TraceSpan` 覆盖解析/模型选择/工具执行/持久化/外部请求
 
 ## 18. 可靠性评估与加固建议
 
