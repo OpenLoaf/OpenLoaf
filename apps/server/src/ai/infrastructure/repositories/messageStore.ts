@@ -10,6 +10,10 @@ import { isRecord } from "@/ai/utils/type-guards";
 
 /** Max session title length. */
 const MAX_SESSION_TITLE_CHARS = 16;
+/** Initial title word limit for spaced text. */
+const INITIAL_TITLE_WORD_LIMIT = 10;
+/** Initial title character limit for no-space text. */
+const INITIAL_TITLE_CHAR_LIMIT = 10;
 /** Fixed width for each path segment. */
 const PATH_SEGMENT_WIDTH = 2;
 /** Max siblings per parent. */
@@ -456,7 +460,20 @@ function extractTitleTextFromParts(parts: unknown[]): string {
       chunks.push(replaceFileTokensWithNames(part.text));
     }
   }
-  return chunks.join("\n").trim();
+  const raw = chunks.join("\n").trim();
+  return trimTitleByWordsOrChars(raw);
+}
+
+/** Trim title to the first N words (whitespace) or N characters. */
+function trimTitleByWordsOrChars(input: string): string {
+  const normalized = input.replace(/\s+/gu, " ").trim();
+  if (!normalized) return "";
+  // 逻辑：含空格按词切分，否则按字符切分。
+  if (normalized.includes(" ")) {
+    const words = normalized.split(/\s+/gu).filter(Boolean);
+    return words.slice(0, INITIAL_TITLE_WORD_LIMIT).join(" ");
+  }
+  return Array.from(normalized).slice(0, INITIAL_TITLE_CHAR_LIMIT).join("");
 }
 
 /** Normalize session title. */
