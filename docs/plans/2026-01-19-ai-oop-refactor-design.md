@@ -152,7 +152,216 @@ sequenceDiagram
 1) **兼容阶段**：新增分层目录与类实现，`apps/server/src/ai/index.ts` 继续 re-export 旧路径，功能不变。  
 2) **清理阶段**：系统性迁移 import 路径、删除旧模块、收敛重复逻辑。
 
-## 9. 风险与验证
+## 9. 继承体系与基类设计（模板方法）
+
+继承体系以流程为主轴，UseCase 用模板方法保证流程一致、可插拔策略扩展。核心基类与方法如下：
+
+- `BaseUseCase`
+  - `execute(request)`：统一入口
+  - `validateRequest()`：参数校验
+  - `buildScope()`：构建 RequestScope
+  - `prePersist()` / `runCore()` / `postPersist()`：流程钩子
+  - `handleError()`：错误映射
+- `BaseStreamUseCase`（继承 `BaseUseCase`）
+  - `buildStream()` / `attachMetadata()` / `persistAssistant()`
+- `BaseCommandUseCase`（继承 `BaseUseCase`）
+  - `buildCommandPrompt()` / `runCommand()`
+- `BaseCompactionUseCase`（继承 `BaseStreamUseCase`）
+  - `buildCompactPrompt()` / `persistCompactPrompt()` / `persistCompactSummary()`
+- `BaseModelSelector`
+  - `resolveExplicit()` / `collectCandidates()` / `pickPreferred()` / `buildModel()`
+- `BasePromptBuilder`
+  - `build()` / `buildHeader()` / `buildContext()` / `buildRules()` / `buildSkills()` / `buildFooter()`
+- `BaseAgent` / `BaseSubAgent`
+  - `buildTools()` / `buildInstructions()` / `createAgent()`
+
+```mermaid
+classDiagram
+  class BaseUseCase {
+    +execute()
+    #validateRequest()
+    #buildScope()
+    #prePersist()
+    #runCore()
+    #postPersist()
+    #handleError()
+  }
+  class BaseStreamUseCase {
+    #buildStream()
+    #attachMetadata()
+    #persistAssistant()
+  }
+  class BaseCommandUseCase {
+    #buildCommandPrompt()
+    #runCommand()
+  }
+  class BaseCompactionUseCase {
+    #buildCompactPrompt()
+    #persistCompactPrompt()
+    #persistCompactSummary()
+  }
+  class ChatStreamUseCase
+  class ImageRequestUseCase
+  class SummaryTitleUseCase
+  class SummaryHistoryUseCase
+
+  BaseUseCase <|-- BaseStreamUseCase
+  BaseUseCase <|-- BaseCommandUseCase
+  BaseStreamUseCase <|-- BaseCompactionUseCase
+  BaseStreamUseCase <|-- ChatStreamUseCase
+  BaseStreamUseCase <|-- ImageRequestUseCase
+  BaseCommandUseCase <|-- SummaryTitleUseCase
+  BaseCompactionUseCase <|-- SummaryHistoryUseCase
+```
+
+## 10. SummaryHistory / SummaryTitle 详细计划
+
+- SummaryHistory（`/summary-history`）
+  - 归属：`SummaryHistoryUseCase`（`application/use-cases`）
+  - 流程：
+    1) `CommandParser` 仅在输入首部识别命令
+    2) 写入 `compact_prompt`（messageKind=compact_prompt，parent=leaf）
+    3) `MessageChainBuilder` 构建模型链（preface + latest compact_summary + 之后消息）
+    4) 解析模型（`ChatModelSelector`）
+    5) 运行 Agent → 保存 `compact_summary`（assistantMessageKind）
+
+```mermaid
+sequenceDiagram
+  participant UI as Client
+  participant UC as SummaryHistoryUseCase
+  participant MR as MessageRepository
+  participant MS as ModelSelector
+  participant AG as AgentRunner
+  UI->>UC: /summary-history
+  UC->>MR: save compact_prompt
+  UC->>MR: load chain
+  UC->>MS: resolve chat model
+  UC->>AG: stream summary
+  AG-->>UC: compact_summary
+  UC->>MR: save compact_summary
+```
+
+- SummaryTitle（`/summary-title`）
+  - 归属：`SummaryTitleUseCase`（`application/use-cases`）
+  - 特点：不落库消息，仅更新 `chatSession.title`
+  - 流程：右侧叶子链 → 构造标题 prompt → `generateText` → `updateTitle`
+
+## 11. 模型匹配与自动模型选择
+
+统一由 `ModelSelectionUseCase` 调度，底层使用 `ChatModelSelector` / `ImageModelSelector`：
+
+- 显式模型：严格解析，不做 fallback
+- 自动模型：按 requiredTags（文本/图片/编辑）过滤候选
+- 偏好模型：若历史链存在且满足 requiredTags，优先
+- 失败策略：按候选顺序尝试，直至成功或抛出明确错误
+
+```mermaid
+flowchart TD
+  A[输入 chatModelId] --> B{显式模型?}
+  B -- 是 --> C[严格解析 buildModel]
+  B -- 否 --> D[requiredTags 过滤候选]
+  D --> E{有偏好模型?}
+  E -- 是 --> F[优先偏好模型]
+  E -- 否 --> G[按候选顺序尝试]
+  F --> H{buildModel 成功?}
+  G --> H
+  H -- 否 --> I[返回错误文案]
+  H -- 是 --> J[返回 model + modelInfo]
+```
+
+## 12. 图片处理与 S3 上传
+
+归属 `ImageRequestUseCase`（`application/use-cases`），拆分策略类：
+
+- `ImagePromptResolver`：解析文本/图片/mask
+- `ImageEditNormalizer`：图片编辑强制转换为 S3 URL（alpha/grey mask）
+- `S3StorageGateway`：统一 `ai-temp/chat/<sessionId>/` 上传
+- `ImageModelRunner`：调用 `generateImage` 或 provider request
+- `ImageResultPersister`：保存 `.tenas/chat/...` 或 `imageSaveDir`
+
+```mermaid
+sequenceDiagram
+  participant UC as ImageRequestUseCase
+  participant PR as ImagePromptResolver
+  participant NE as ImageEditNormalizer
+  participant S3 as S3StorageGateway
+  participant MR as ImageModelRunner
+  participant PS as ImageResultPersister
+  UC->>PR: resolve prompt
+  PR-->>UC: images/mask/text
+  UC->>NE: normalize edit prompt
+  NE->>S3: upload base + mask
+  S3-->>NE: urls
+  UC->>MR: generate image
+  MR-->>UC: files/revisedPrompt
+  UC->>PS: persist outputs
+```
+
+## 13. 提示词拼接与上下文构建
+
+`PromptContextService` 负责收集 workspace/project/account/python/skills/rules，`PromptBuilder` 负责拼接，保证 session_preface 的稳定格式与 hash 去重逻辑。
+
+```mermaid
+flowchart TB
+  subgraph Context
+    Auth[AuthGateway]
+    Settings[SettingsRepository]
+    Vfs[VfsGateway]
+    Skills[SkillRepository]
+    Python[PythonRuntimeGateway]
+  end
+  subgraph Prompt
+    PCS[PromptContextService]
+    PB[MasterAgentPromptBuilder]
+  end
+  Auth --> PCS
+  Settings --> PCS
+  Vfs --> PCS
+  Skills --> PCS
+  Python --> PCS
+  PCS --> PB --> Preface[session_preface text]
+```
+
+## 14. SubAgent 继承与执行体系
+
+- `BaseSubAgent` 提供 `buildTools()` / `buildInstructions()` / `createAgent()`
+- `BrowserSubAgent` 继承并固定工具集与 prompt
+- `BaseSubAgentRunner` 统一 UI 事件流（start/delta/end/error）
+- `SubAgentRegistry` 统一注册与白名单校验
+- `SubAgentTool` 只做路由与参数校验
+
+```mermaid
+sequenceDiagram
+  participant Tool as SubAgentTool
+  participant Reg as SubAgentRegistry
+  participant Run as BaseSubAgentRunner
+  participant Agent as BrowserSubAgent
+  Tool->>Reg: resolve(name)
+  Reg-->>Tool: agent
+  Tool->>Run: run(task, model)
+  Run->>Agent: stream(messages)
+  Agent-->>Run: textStream
+  Run-->>Tool: data-sub-agent-* events
+```
+
+## 15. 实施计划（细化）
+
+1) **Phase 0：安全与基线**
+   - 记录当前 SSE 结构、模型选择错误文案、prefaceHash 更新行为（作为回归基线）。
+2) **Phase 1：引入分层与端口**
+   - 新增 `domain/`、`application/ports/`，用 Adapter 包装现有函数（不改行为）。
+3) **Phase 2：聊天流迁移**
+   - `ChatStreamUseCase` 替代 `chatStreamService` 内部流程，保留 API 入口与输出格式。
+4) **Phase 3：图片流迁移**
+   - `ImageRequestUseCase` + `ImageEditNormalizer` + `S3StorageGateway` 组合，覆盖生成/编辑。
+5) **Phase 4：命令与技能**
+   - `SummaryHistoryUseCase` / `SummaryTitleUseCase` 与 `CommandParser` 迁移。
+6) **Phase 5：SubAgent 体系**
+   - 引入 `BaseSubAgentRunner` 与 `SubAgentRegistry`，保持 UI 事件不变。
+7) **Phase 6：清理与路径收敛**
+   - 移除旧模块、收敛 import 路径、补齐文档与回归核对。
+
+## 16. 风险与验证
 
 - 风险：路径迁移导致循环依赖、SSE chunk 结构变化、模型 fallback 行为变化。
 - 验证：  
@@ -161,7 +370,7 @@ sequenceDiagram
   - 手工验证 /summary-title、图片生成、技能注入  
   - 运行 `pnpm check-types`
 
-## 10. 参考与依据
+## 17. 参考与依据
 
 - AI SDK v6：ToolLoopAgent、tool()、ToolSet、ModelMessage/tool-call/tool-result 结构  
 - 项目文档：`docs/system-tools-design.md`、`docs/model-provider-architecture.md`、`apps/server/src/ai/chat-flow.md`  
