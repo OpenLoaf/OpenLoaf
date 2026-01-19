@@ -12,7 +12,7 @@ const settingItemSchema = z.object({
   syncToCloud: z.boolean().optional(),
 });
 
-const cliToolIdSchema = z.enum(["codex", "claudeCode"]);
+const cliToolIdSchema = z.enum(["codex", "claudeCode", "python"]);
 
 const cliToolStatusSchema = z.object({
   id: cliToolIdSchema,
@@ -20,6 +20,8 @@ const cliToolStatusSchema = z.object({
   version: z.string().optional(),
   latestVersion: z.string().optional(),
   hasUpdate: z.boolean().optional(),
+  /** Installed binary path. */
+  path: z.string().optional(),
 });
 
 /** Skill scope enum. */

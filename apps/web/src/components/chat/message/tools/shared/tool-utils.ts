@@ -41,6 +41,8 @@ export type ToolOutputState = {
   displayText: string;
 };
 
+export type ToolStatusTone = "default" | "success" | "warning" | "error";
+
 /** Resolve tool display name. */
 export function getToolName(part: AnyToolPart): string {
   if (part.title) return part.title;
@@ -58,6 +60,74 @@ export function safeStringify(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+/** Parse JSON text safely. */
+export function parseJsonValue(value: unknown): unknown | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const maybeJson = trimmed.startsWith("{") || trimmed.startsWith("[");
+  if (!maybeJson) return null;
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+/** Normalize tool input, allowing JSON string payloads. */
+export function normalizeToolInput(value: unknown): unknown {
+  const parsed = parseJsonValue(value);
+  return parsed ?? value;
+}
+
+/** Ensure value is a plain object. */
+export function asPlainObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+/** Format value into a readable string. */
+export function formatValue(value: unknown): string {
+  if (value == null) return "—";
+  if (typeof value === "boolean") return value ? "是" : "否";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "—";
+  if (typeof value === "string") return value.trim() || "—";
+  if (Array.isArray(value)) return value.map((item) => String(item)).join(" ");
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+/** Format duration in milliseconds. */
+export function formatDurationMs(value: unknown): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  if (value < 1000) return `${Math.round(value)}ms`;
+  return `${Math.round((value / 1000) * 10) / 10}s`;
+}
+
+/** Format command array or string to a single line. */
+export function formatCommand(value: unknown): string {
+  if (Array.isArray(value)) return value.map((item) => String(item)).join(" ");
+  if (typeof value === "string") return value.trim();
+  return formatValue(value);
+}
+
+/** Truncate long text for previews. */
+export function truncateText(value: string, maxLength = 120): string {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength)}…`;
+}
+
+/** Extract the output section from unified tool outputs. */
+export function extractOutputSection(value: string): string {
+  const marker = "Output:";
+  const index = value.indexOf(marker);
+  if (index === -1) return value.trim();
+  return value.slice(index + marker.length).trimStart();
 }
 
 /** Resolve JSON rendering payload when the value is JSON or JSON-like. */
@@ -106,6 +176,26 @@ export function getToolStatusText(part: AnyToolPart): string {
   if (part.state && part.state !== "output-available") return String(part.state);
   if (part.output != null) return "完成";
   return "运行中";
+}
+
+/** Resolve status tone for tool header. */
+export function getToolStatusTone(part: AnyToolPart): ToolStatusTone {
+  if (typeof part.errorText === "string" && part.errorText.trim()) return "error";
+  if (part.state === "approval-requested") return "warning";
+  if (part.output != null) return "success";
+  return "default";
+}
+
+/** Resolve approval id from tool part. */
+export function getApprovalId(part: AnyToolPart): string | undefined {
+  return typeof part.approval?.id === "string" ? part.approval?.id : undefined;
+}
+
+/** Determine if tool is awaiting approval decision. */
+export function isApprovalPending(part: AnyToolPart): boolean {
+  const approvalId = getApprovalId(part);
+  const decided = part.approval?.approved === true || part.approval?.approved === false;
+  return part.state === "approval-requested" && Boolean(approvalId) && !decided;
 }
 
 /** Resolve output state for tool rendering. */

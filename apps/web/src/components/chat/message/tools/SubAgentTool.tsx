@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { ChevronDown } from "lucide-react";
 import { renderMessageParts } from "../renderMessageParts";
 import { useChatContext } from "../../ChatProvider";
+import ToolInfoCard from "./shared/ToolInfoCard";
+import { getToolStatusTone } from "./shared/tool-utils";
 
 type SubAgentToolPart = {
   type?: string;
@@ -59,11 +60,16 @@ export default function SubAgentTool({ part }: { part: SubAgentToolPart }) {
   const name = getSubAgentName({ ...part, input: effectiveInput });
   const task = getSubAgentTask({ ...part, input: effectiveInput });
   const statusText = getSubAgentStatus({ ...part, errorText: effectiveErrorText, state: effectiveState });
+  const statusTone = getToolStatusTone({
+    type: part.type ?? "tool-sub-agent",
+    state: effectiveState,
+    errorText: effectiveErrorText,
+    output: effectiveOutput,
+  });
   const isStreaming = effectiveState === "output-streaming";
   const outputText = effectiveOutput;
   const hasOutput = typeof outputText === "string" && outputText.length > 0;
 
-  const [isExpanded, setIsExpanded] = React.useState(true);
   const outputRef = React.useRef<HTMLDivElement | null>(null);
   const outputPinnedRef = React.useRef(true);
   const outputLastScrollTopRef = React.useRef(0);
@@ -97,66 +103,45 @@ export default function SubAgentTool({ part }: { part: SubAgentToolPart }) {
     outputLastScrollTopRef.current = currentScrollTop;
   }, []);
 
-  return (
-    <div className="flex w-full min-w-0 max-w-full justify-start">
-      <details
-        className="w-full min-w-0 rounded-lg bg-muted/40 px-3 py-2 text-foreground"
-        open={isExpanded}
-        onToggle={(event) => setIsExpanded(event.currentTarget.open)}
-      >
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs text-muted-foreground">
-          <div className="flex min-w-0 flex-1 items-center gap-1 truncate">
-            <span className="flex h-5 w-5 items-center justify-center text-muted-foreground">
-              <ChevronDown
-                className={cn(
-                  "size-3 transition-transform",
-                  isExpanded ? "rotate-0" : "-rotate-90",
-                )}
-              />
-            </span>
-            <span className="shrink-0">子Agent：</span>
-            <span className="text-foreground/80">{name}</span>
-            <span className="ml-2 text-[11px] text-muted-foreground/80">{statusText}</span>
-          </div>
-        </summary>
-
-        <div className="mt-2 space-y-2">
-          {task ? (
-            <div>
-              <div className="text-[11px] text-muted-foreground">历史</div>
-              <pre className="mt-1 whitespace-pre-wrap break-words bg-background p-2 text-xs">
-                {task}
-              </pre>
-            </div>
-          ) : null}
-
-          <div>
-            <div className="text-[11px] text-muted-foreground">输出</div>
-            <div
-              ref={outputRef}
-              className="mt-1 w-full max-h-[360px] overflow-auto rounded-md bg-background py-2"
-              onScroll={handleOutputScroll}
-            >
-              {typeof effectiveErrorText === "string" && effectiveErrorText.trim() ? (
-                <pre className="whitespace-pre-wrap break-words px-3 text-xs text-destructive/80">
-                  {effectiveErrorText}
-                </pre>
-              ) : !hasOutput ? (
-                <div className="px-3 py-2 text-xs">
-                  {/* 中文注释：子Agent输出未开始时显示占位文案。 */}
-                  <span className="tenas-thinking-scan inline-block bg-gradient-to-r from-muted-foreground via-foreground to-muted-foreground bg-clip-text text-transparent">
-                    正在思考中
-                  </span>
-                </div>
-              ) : (
-                <div className="min-w-0 w-full">
-                  {renderMessageParts(nestedParts as any[], { isAnimating: isStreaming })}
-                </div>
-              )}
-            </div>
-          </div>
+  const outputBody = (
+    <div
+      ref={outputRef}
+      className="max-h-[360px] overflow-auto rounded-md bg-muted/30 p-2"
+      onScroll={handleOutputScroll}
+    >
+      {typeof effectiveErrorText === "string" && effectiveErrorText.trim() ? (
+        <pre className="whitespace-pre-wrap break-words px-2 text-xs text-destructive/80">
+          {effectiveErrorText}
+        </pre>
+      ) : !hasOutput ? (
+        <div className="px-2 py-1 text-xs">
+          {/* 中文注释：子Agent输出未开始时显示占位文案。 */}
+          <span className={cn(isStreaming && "tenas-thinking-scan")}>正在思考中</span>
         </div>
-      </details>
+      ) : (
+        <div className="min-w-0 w-full">
+          {renderMessageParts(nestedParts as any[], { isAnimating: isStreaming })}
+        </div>
+      )}
     </div>
+  );
+
+  return (
+    <ToolInfoCard
+      title="sub-agent"
+      action={`执行子任务：${name}`}
+      status={statusText}
+      statusTone={statusTone}
+      params={[
+        { label: "子Agent", value: name },
+        { label: "任务", value: task || "—" },
+      ]}
+      output={{
+        title: "输出",
+        body: outputBody,
+        collapsible: true,
+        defaultOpen: true,
+      }}
+    />
   );
 }

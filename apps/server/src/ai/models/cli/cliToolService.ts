@@ -1,8 +1,15 @@
 import { execa } from "execa";
+import {
+  downloadPythonInstaller,
+  installPythonOnLinux,
+  openPythonInstaller,
+  resolveLatestPythonRelease,
+  resolvePythonInstallInfo,
+} from "@/ai/models/cli/pythonTool";
 import { logger } from "@/common/logger";
 
 /** Supported CLI tool ids. */
-export type CliToolId = "codex" | "claudeCode";
+export type CliToolId = "codex" | "claudeCode" | "python";
 
 export type CliToolStatus = {
   /** Tool id. */
@@ -15,11 +22,16 @@ export type CliToolStatus = {
   latestVersion?: string;
   /** Whether update is available. */
   hasUpdate?: boolean;
+  /** Installed binary path. */
+  path?: string;
 };
+
+/** NPM-managed CLI tool id. */
+type NpmCliToolId = Exclude<CliToolId, "python">;
 
 type CliToolDefinition = {
   /** Tool id. */
-  id: CliToolId;
+  id: NpmCliToolId;
   /** Display name. */
   label: string;
   /** CLI command name. */
@@ -33,7 +45,7 @@ type CliToolDefinition = {
 };
 
 /** Static CLI tool definitions. */
-const CLI_TOOL_DEFINITIONS: Record<CliToolId, CliToolDefinition> = {
+const CLI_TOOL_DEFINITIONS: Record<NpmCliToolId, CliToolDefinition> = {
   codex: {
     id: "codex",
     label: "Codex CLI",
@@ -52,7 +64,7 @@ const CLI_TOOL_DEFINITIONS: Record<CliToolId, CliToolDefinition> = {
 };
 
 /** Resolve CLI tool definition by id. */
-function getCliToolDefinition(id: CliToolId): CliToolDefinition {
+function getCliToolDefinition(id: NpmCliToolId): CliToolDefinition {
   return CLI_TOOL_DEFINITIONS[id];
 }
 
@@ -151,8 +163,15 @@ async function resolveLatestVersion(definition: CliToolDefinition): Promise<stri
   return extractVersion(output);
 }
 
+/** Resolve python tool status. */
+async function getPythonToolStatus(): Promise<CliToolStatus> {
+  const info = await resolvePythonInstallInfo();
+  return { id: "python", ...info };
+}
+
 /** Resolve CLI tool status. */
 export async function getCliToolStatus(id: CliToolId): Promise<CliToolStatus> {
+  if (id === "python") return await getPythonToolStatus();
   const definition = getCliToolDefinition(id);
   const info = await resolveCliToolInstallInfo(definition);
   if (!info.installed) return { id, installed: false };
@@ -161,13 +180,27 @@ export async function getCliToolStatus(id: CliToolId): Promise<CliToolStatus> {
 
 /** Resolve CLI tools status list. */
 export async function getCliToolsStatus(): Promise<CliToolStatus[]> {
-  const ids = Object.keys(CLI_TOOL_DEFINITIONS) as CliToolId[];
+  const ids: CliToolId[] = [
+    "python",
+    ...(Object.keys(CLI_TOOL_DEFINITIONS) as NpmCliToolId[]),
+  ];
   const statuses = await Promise.all(ids.map((id) => getCliToolStatus(id)));
   return statuses;
 }
 
 /** Check update for a CLI tool. */
 export async function checkCliToolUpdate(id: CliToolId): Promise<CliToolStatus> {
+  if (id === "python") {
+    const status = await getPythonToolStatus();
+    if (!status.installed || !status.version) return status;
+    const latest = await resolveLatestPythonRelease();
+    const comparison = compareVersions(status.version, latest.version);
+    return {
+      ...status,
+      latestVersion: latest.version,
+      hasUpdate: comparison !== null ? comparison < 0 : undefined,
+    };
+  }
   const definition = getCliToolDefinition(id);
   const status = await getCliToolStatus(id);
   if (!status.installed || !status.version) return status;
@@ -183,6 +216,15 @@ export async function checkCliToolUpdate(id: CliToolId): Promise<CliToolStatus> 
 
 /** Install CLI tool using npm. */
 export async function installCliTool(id: CliToolId): Promise<CliToolStatus> {
+  if (id === "python") {
+    if (process.platform === "linux") {
+      await installPythonOnLinux();
+    } else {
+      const installerPath = await downloadPythonInstaller();
+      await openPythonInstaller(installerPath);
+    }
+    return await getPythonToolStatus();
+  }
   const definition = getCliToolDefinition(id);
   const status = await getCliToolStatus(id);
   if (status.installed && definition.updateArgs?.length) {

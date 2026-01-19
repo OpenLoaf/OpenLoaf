@@ -151,11 +151,12 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
     unlinkedLayoutNodes.set(id, node);
   });
   const linkedEdges = edges.filter(edge => linkedIds.has(edge.from) && linkedIds.has(edge.to));
+  const linkedComponents = linkedEdges.length
+    ? buildConnectedComponents(Array.from(linkedLayoutNodes.keys()), linkedEdges)
+    : [];
 
   const direction: LayoutDirection = dxSum >= dySum ? "horizontal" : "vertical";
   if (linkedLayoutNodes.size >= 2 && linkedEdges.length > 0) {
-    const linkedIdsArray = Array.from(linkedLayoutNodes.keys());
-    const linkedComponents = buildConnectedComponents(linkedIdsArray, linkedEdges);
     linkedComponents.forEach(componentIds => {
       if (componentIds.length < 2) return;
       const componentSet = new Set(componentIds);
@@ -263,7 +264,7 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
         cursor += size + LAYER_GAP;
       });
 
-      const desiredCenters = getDesiredSecondaryCenters(componentNodes, componentEdges, direction);
+      const incomingMap = buildIncomingMap(componentNodes, componentEdges);
       layerIndices.forEach(layer => {
         const ids = layerOrders.get(layer) ?? [];
         if (ids.length === 0) return;
@@ -299,28 +300,67 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
           });
           return;
         }
-
-        const desiredOrder = [...ids].sort((left, right) => {
-          const leftCenter = desiredCenters.get(left) ?? 0;
-          const rightCenter = desiredCenters.get(right) ?? 0;
-          return leftCenter - rightCenter;
-        });
+        const desiredCenters = computeDesiredCentersForLayer(
+          ids,
+          componentNodes,
+          incomingMap,
+          direction,
+          layoutPositions
+        );
+        const grouped = groupByDesiredCenter(ids, desiredCenters);
         let secondaryCursor = -Infinity;
-        desiredOrder.forEach(id => {
-          const node = componentNodes.get(id);
-          if (!node || node.locked) return;
-          const size = direction === "horizontal" ? node.xywh[3] : node.xywh[2];
-          const desiredCenter = desiredCenters.get(id) ?? getSecondaryCenter(node.xywh, direction);
-          let start = desiredCenter - size / 2;
+        grouped.forEach(group => {
+          const sizes = group.map(id => {
+            const node = componentNodes.get(id);
+            return node ? (direction === "horizontal" ? node.xywh[3] : node.xywh[2]) : 0;
+          });
+          const totalSize =
+            sizes.reduce((acc, value) => acc + value, 0) + NODE_GAP * Math.max(group.length - 1, 0);
+          const desiredCenter = desiredCenters.get(group[0]) ?? 0;
+          // 逻辑：多子节点先整体居中，再做最小间距分布。
+          let start = desiredCenter - totalSize / 2;
           if (Number.isFinite(secondaryCursor)) {
             start = Math.max(start, secondaryCursor + NODE_GAP);
           }
-          const nextX = direction === "horizontal" ? axis : start;
-          const nextY = direction === "horizontal" ? start : axis;
-          layoutPositions.set(id, [nextX, nextY]);
-          secondaryCursor = start + size;
+          let cursor = start;
+          group.forEach((id, index) => {
+            const node = componentNodes.get(id);
+            if (!node || node.locked) return;
+            const size = sizes[index] ?? 0;
+            const nextX = direction === "horizontal" ? axis : cursor;
+            const nextY = direction === "horizontal" ? cursor : axis;
+            layoutPositions.set(id, [nextX, nextY]);
+            cursor += size + NODE_GAP;
+          });
+          secondaryCursor = cursor - NODE_GAP;
         });
       });
+
+      const originalCenter = computeComponentSecondaryCenter(
+        componentIds,
+        componentNodes,
+        direction
+      );
+      const nextCenter = computeComponentSecondaryCenter(
+        componentIds,
+        componentNodes,
+        direction,
+        layoutPositions
+      );
+      if (Number.isFinite(originalCenter) && Number.isFinite(nextCenter)) {
+        const delta = originalCenter - nextCenter;
+        if (Math.abs(delta) > 0.1) {
+          componentIds.forEach(nodeId => {
+            const node = componentNodes.get(nodeId);
+            if (!node) return;
+            const pos = layoutPositions.get(nodeId);
+            const [x, y] = pos ?? node.xywh;
+            const nextX = direction === "horizontal" ? x : x + delta;
+            const nextY = direction === "horizontal" ? y + delta : y;
+            layoutPositions.set(nodeId, [nextX, nextY]);
+          });
+        }
+      }
     });
   }
 
@@ -346,10 +386,6 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
     const [x, y, w, h] = node.xywh;
     return pos ? [pos[0], pos[1], w, h] : [x, y, w, h];
   };
-  const linkedIdsArray = Array.from(linkedLayoutNodes.keys());
-  const linkedComponents = linkedEdges.length
-    ? buildConnectedComponents(linkedIdsArray, linkedEdges)
-    : [];
   const componentEntries: Array<{ id: string; nodeIds: string[]; locked: boolean }> = [];
   linkedComponents.forEach((ids, index) => {
     const locked = ids.some(id => layoutNodes.get(id)?.locked);
@@ -473,6 +509,21 @@ function getSecondaryCenter(rect: RectTuple, direction: LayoutDirection): number
   return getSecondaryAxis(rect, direction) + (direction === "horizontal" ? rect[3] : rect[2]) / 2;
 }
 
+/** Compute secondary center with optional layout positions. */
+function getSecondaryCenterWithPosition(
+  id: string,
+  node: LayoutNode,
+  layoutPositions: Map<string, [number, number]> | undefined,
+  direction: LayoutDirection
+): number {
+  const pos = layoutPositions?.get(id);
+  if (pos) {
+    const [x, y, w, h] = node.xywh;
+    return getSecondaryCenter([pos[0], pos[1], w, h], direction);
+  }
+  return getSecondaryCenter(node.xywh, direction);
+}
+
 /** Approximate a layer index from the current position. */
 function getApproxLayer(
   rect: RectTuple,
@@ -541,7 +592,8 @@ function topoSort(
     });
   }
 
-  const remaining = nodeIds.filter(id => !order.includes(id));
+  const visited = new Set(order);
+  const remaining = nodeIds.filter(id => !visited.has(id));
   return { order, remaining };
 }
 
@@ -597,6 +649,8 @@ function reorderLayer(
   if (current.length <= 1) return current;
   const neighborIndex = new Map<string, number>();
   neighbor.forEach((id, index) => neighborIndex.set(id, index));
+  const currentIndex = new Map<string, number>();
+  current.forEach((id, index) => currentIndex.set(id, index));
 
   const scores = current.map(id => {
     const neighbors = edges
@@ -610,7 +664,7 @@ function reorderLayer(
     const barycenter =
       neighbors.length > 0
         ? neighbors.reduce((acc, value) => acc + value, 0) / neighbors.length
-        : current.indexOf(id);
+        : currentIndex.get(id) ?? 0;
     return { id, barycenter };
   });
 
@@ -690,6 +744,25 @@ function computeComponentRect(
   return [minX, minY, maxX - minX, maxY - minY];
 }
 
+/** Compute secondary axis center for a component. */
+function computeComponentSecondaryCenter(
+  nodeIds: string[],
+  layoutNodes: Map<string, LayoutNode>,
+  direction: LayoutDirection,
+  layoutPositions?: Map<string, [number, number]>
+): number {
+  let sum = 0;
+  let count = 0;
+  nodeIds.forEach(id => {
+    const node = layoutNodes.get(id);
+    if (!node) return;
+    const center = getSecondaryCenterWithPosition(id, node, layoutPositions, direction);
+    sum += center;
+    count += 1;
+  });
+  return count > 0 ? sum / count : 0;
+}
+
 /** Build connected components from directed edges (treated as undirected). */
 function buildConnectedComponents(nodeIds: string[], edges: LayoutEdge[]): string[][] {
   const adjacency = new Map<string, Set<string>>();
@@ -730,29 +803,35 @@ function spansOverlap(
 }
 
 /** Compute desired secondary centers from directional edges. */
-function getDesiredSecondaryCenters(
+function buildIncomingMap(
   layoutNodes: Map<string, LayoutNode>,
-  edges: LayoutEdge[],
-  direction: LayoutDirection
-): Map<string, number> {
+  edges: LayoutEdge[]
+): Map<string, string[]> {
   const incoming = new Map<string, string[]>();
-  const outgoing = new Map<string, string[]>();
   layoutNodes.forEach((_, id) => {
     incoming.set(id, []);
-    outgoing.set(id, []);
   });
   edges.forEach(edge => {
-    const fromBucket = outgoing.get(edge.from);
-    if (fromBucket) fromBucket.push(edge.to);
     const toBucket = incoming.get(edge.to);
     if (toBucket) toBucket.push(edge.from);
   });
+  return incoming;
+}
+
+function computeDesiredCentersForLayer(
+  ids: string[],
+  layoutNodes: Map<string, LayoutNode>,
+  incoming: Map<string, string[]>,
+  direction: LayoutDirection,
+  layoutPositions?: Map<string, [number, number]>
+): Map<string, number> {
   const centers = new Map<string, number>();
-  layoutNodes.forEach((node, id) => {
+  ids.forEach(id => {
+    const node = layoutNodes.get(id);
+    if (!node) return;
     const sources = incoming.get(id) ?? [];
-    const targets = outgoing.get(id) ?? [];
-    if (sources.length === 0 && targets.length === 0) {
-      centers.set(id, getSecondaryCenter(node.xywh, direction));
+    if (sources.length === 0) {
+      centers.set(id, getSecondaryCenterWithPosition(id, node, layoutPositions, direction));
       return;
     }
     let sum = 0;
@@ -760,22 +839,45 @@ function getDesiredSecondaryCenters(
     sources.forEach(sourceId => {
       const source = layoutNodes.get(sourceId);
       if (!source) return;
-      sum += getSecondaryCenter(source.xywh, direction);
+      sum += getSecondaryCenterWithPosition(sourceId, source, layoutPositions, direction);
       count += 1;
     });
-    targets.forEach(targetId => {
-      const target = layoutNodes.get(targetId);
-      if (!target) return;
-      sum += getSecondaryCenter(target.xywh, direction);
-      count += 1;
-    });
-    if (count === 0) {
-      centers.set(id, getSecondaryCenter(node.xywh, direction));
-      return;
-    }
-    centers.set(id, sum / count);
+    centers.set(id, count > 0 ? sum / count : getSecondaryCenter(node.xywh, direction));
   });
   return centers;
+}
+
+function groupByDesiredCenter(
+  ids: string[],
+  desiredCenters: Map<string, number>,
+  tolerance = 1
+): string[][] {
+  const sorted = [...ids].sort((left, right) => {
+    const leftCenter = desiredCenters.get(left) ?? 0;
+    const rightCenter = desiredCenters.get(right) ?? 0;
+    if (leftCenter !== rightCenter) return leftCenter - rightCenter;
+    return left.localeCompare(right);
+  });
+  const groups: string[][] = [];
+  let current: string[] = [];
+  let currentCenter: number | null = null;
+  sorted.forEach(id => {
+    const center = desiredCenters.get(id) ?? 0;
+    if (current.length === 0) {
+      current = [id];
+      currentCenter = center;
+      return;
+    }
+    if (currentCenter !== null && Math.abs(center - currentCenter) <= tolerance) {
+      current.push(id);
+      return;
+    }
+    groups.push(current);
+    current = [id];
+    currentCenter = center;
+  });
+  if (current.length > 0) groups.push(current);
+  return groups;
 }
 
 /** Build clusters for unlinked nodes using expanded bounding boxes. */

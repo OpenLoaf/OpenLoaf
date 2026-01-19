@@ -39,7 +39,6 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="text-[11px] text-muted-foreground">需要审批</div>
       <Button type="button" size="sm" variant="default" disabled={disabled} onClick={handleApprove}>
         允许
       </Button>

@@ -42,6 +42,7 @@ export const cliToolConfigSchema = z.object({
 export const cliToolsConfigSchema = z.object({
   codex: cliToolConfigSchema,
   claudeCode: cliToolConfigSchema,
+  python: cliToolConfigSchema,
 });
 
 export type CliToolConfig = {
@@ -58,6 +59,8 @@ export type CliToolsConfig = {
   codex: CliToolConfig;
   /** Claude Code CLI config. */
   claudeCode: CliToolConfig;
+  /** Python CLI config. */
+  python: CliToolConfig;
 };
 
 export const basicConfigSchema = z.object({

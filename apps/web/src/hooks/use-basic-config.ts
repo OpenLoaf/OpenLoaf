@@ -44,6 +44,11 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
       apiKey: "",
       forceCustomApiKey: false,
     },
+    python: {
+      apiUrl: "",
+      apiKey: "",
+      forceCustomApiKey: false,
+    },
   },
 };
 

@@ -22,9 +22,13 @@ type MiniMapProps = {
 export function MiniMap({ snapshot, viewport, visible }: MiniMapProps) {
   const mapWidth = MINIMAP_WIDTH;
   const mapHeight = MINIMAP_HEIGHT;
-  const elementsBounds = useMemo(
-    () => computeElementsBounds(snapshot.elements),
+  const nodeElements = useMemo(
+    () => snapshot.elements.filter(element => element.kind === "node"),
     [snapshot.docRevision, snapshot.elements]
+  );
+  const elementsBounds = useMemo(
+    () => computeElementsBounds(nodeElements),
+    [nodeElements]
   );
   const viewportBounds = getViewportBounds(viewport);
   const worldBounds = mergeBounds(elementsBounds, viewportBounds);
@@ -43,7 +47,7 @@ export function MiniMap({ snapshot, viewport, visible }: MiniMapProps) {
   const scale = Math.min(scaleX, scaleY);
   const elementRects = useMemo(
     () =>
-      snapshot.elements.map(element =>
+      nodeElements.map(element =>
         mapRectToMiniMap(
           {
             x: element.xywh[0],
@@ -56,8 +60,7 @@ export function MiniMap({ snapshot, viewport, visible }: MiniMapProps) {
         )
       ),
     [
-      snapshot.docRevision,
-      snapshot.elements,
+      nodeElements,
       paddedBounds.x,
       paddedBounds.y,
       paddedBounds.w,

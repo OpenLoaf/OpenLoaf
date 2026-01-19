@@ -108,7 +108,8 @@ function normalizeCliToolsConfig(raw: unknown, fallback: CliToolsConfig): CliToo
   // CLI 配置缺失时回退当前配置，避免被更新请求清空。
   const codex = normalizeCliToolConfig(source.codex, fallback.codex);
   const claudeCode = normalizeCliToolConfig(source.claudeCode, fallback.claudeCode);
-  return { codex, claudeCode };
+  const python = normalizeCliToolConfig(source.python, fallback.python);
+  return { codex, claudeCode, python };
 }
 
 /** Normalize model map input. */

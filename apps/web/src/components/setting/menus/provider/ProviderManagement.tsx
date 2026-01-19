@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
 import { ModelDialog } from "@/components/setting/menus/provider/ModelDialog";
@@ -63,10 +63,44 @@ type CliToolStatus = {
   latestVersion?: string;
   /** Whether an update is available. */
   hasUpdate?: boolean;
+  /** Installed binary path. */
+  path?: string;
 };
 
 type CliStatusMap = Record<CliToolKind, CliToolStatus>;
 type CliSettingsMap = CliToolsConfig;
+
+/** Python icon path data. */
+const PYTHON_ICON_PATH =
+  "M14.25.18l.9.2.73.26.59.3.45.32.34.34.25.34.16.33.1.3.04.26.02.2-.01.13V8.5l-.05.63-.13.55-.21.46-.26.38-.3.31-.33.25-.35.19-.35.14-.33.1-.3.07-.26.04-.21.02H8.77l-.69.05-.59.14-.5.22-.41.27-.33.32-.27.35-.2.36-.15.37-.1.35-.07.32-.04.27-.02.21v3.06H3.17l-.21-.03-.28-.07-.32-.12-.35-.18-.36-.26-.36-.36-.35-.46-.32-.59-.28-.73-.21-.88-.14-1.05-.05-1.23.06-1.22.16-1.04.24-.87.32-.71.36-.57.4-.44.42-.33.42-.24.4-.16.36-.1.32-.05.24-.01h.16l.06.01h8.16v-.83H6.18l-.01-2.75-.02-.37.05-.34.11-.31.17-.28.25-.26.31-.23.38-.2.44-.18.51-.15.58-.12.64-.1.71-.06.77-.04.84-.02 1.27.05zm-6.3 1.98l-.23.33-.08.41.08.41.23.34.33.22.41.09.41-.09.33-.22.23-.34.08-.41-.08-.41-.23-.33-.33-.22-.41-.09-.41.09zm13.09 3.95l.28.06.32.12.35.18.36.27.36.35.35.47.32.59.28.73.21.88.14 1.04.05 1.23-.06 1.23-.16 1.04-.24.86-.32.71-.36.57-.4.45-.42.33-.42.24-.4.16-.36.09-.32.05-.24.02-.16-.01h-8.22v.82h5.84l.01 2.76.02.36-.05.34-.11.31-.17.29-.25.25-.31.24-.38.2-.44.17-.51.15-.58.13-.64.09-.71.07-.77.04-.84.01-1.27-.04-1.07-.14-.9-.2-.73-.25-.59-.3-.45-.33-.34-.34-.25-.34-.16-.33-.1-.3-.04-.25-.02-.2.01-.13v-5.34l.05-.64.13-.54.21-.46.26-.38.3-.32.33-.24.35-.2.35-.14.33-.1.3-.06.26-.04.21-.02.13-.01h5.84l.69-.05.59-.14.5-.21.41-.28.33-.32.27-.35.2-.36.15-.36.1-.35.07-.32.04-.28.02-.21V6.07h2.09l.14.01zm-6.47 14.25l-.23.33-.08.41.08.41.23.33.33.23.41.08.41-.08.33-.23.23-.33.08-.41-.08-.41-.23-.33-.33-.23-.41-.08-.41.08z";
+
+/** Python icon brand color. */
+const PYTHON_ICON_COLOR = "#3776AB";
+
+type PythonIconProps = {
+  /** Icon size in pixels. */
+  size?: number;
+  /** Additional class name. */
+  className?: string;
+  /** Additional styles. */
+  style?: CSSProperties;
+};
+
+/** Render Python icon glyph. */
+function PythonIcon({ size = 16, className, style }: PythonIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      style={style}
+      aria-hidden="true"
+    >
+      <path d={PYTHON_ICON_PATH} fill="currentColor" />
+    </svg>
+  );
+}
 
 /** Build editable CLI settings from basic config. */
 function buildCliSettingsFromBasic(cliTools: CliToolsConfig): CliSettingsMap {
@@ -81,6 +115,11 @@ function buildCliSettingsFromBasic(cliTools: CliToolsConfig): CliSettingsMap {
       apiKey: cliTools.claudeCode.apiKey,
       forceCustomApiKey: cliTools.claudeCode.forceCustomApiKey,
     },
+    python: {
+      apiUrl: cliTools.python.apiUrl,
+      apiKey: cliTools.python.apiKey,
+      forceCustomApiKey: cliTools.python.forceCustomApiKey,
+    },
   };
 }
 
@@ -89,6 +128,7 @@ function buildCliStatusMap(list?: CliToolStatus[]): CliStatusMap {
   const fallback: CliStatusMap = {
     codex: { id: "codex", installed: false },
     claudeCode: { id: "claudeCode", installed: false },
+    python: { id: "python", installed: false },
   };
   if (!list?.length) return fallback;
   // 逻辑：服务端返回按 id 覆盖默认项，保证 UI 总是有值。
@@ -241,11 +281,13 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const cliToolLabels: Record<CliToolKind, string> = {
     codex: "Codex CLI",
     claudeCode: "Claude Code",
+    python: "Python",
   };
   /** CLI tool descriptions. */
   const cliToolDescriptions: Record<CliToolKind, string> = {
     codex: "OpenAI Codex CLI 编程助手",
     claudeCode: "Anthropic Claude Code CLI 编程助手",
+    python: "Python 运行时环境",
   };
   const cliDialogTitle = `${cliToolLabels[activeCliTool]} 设置`;
 
@@ -473,8 +515,51 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         </div>
       </TenasSettingsGroup>
 
-      <TenasSettingsGroup title="Cli编程工具">
+      <TenasSettingsGroup title="第三方工具">
         <div className="divide-y divide-border">
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <PythonIcon size={16} style={{ color: PYTHON_ICON_COLOR }} />
+                <span>{cliToolLabels.python}</span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {cliToolDescriptions.python} · 版本：
+                {resolveCliVersionLabel(cliStatuses.python)}
+                {cliStatuses.python.path ? ` · 路径：${cliStatuses.python.path}` : ""}
+              </div>
+            </div>
+
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={
+                  (installCliMutation.isPending &&
+                    installCliMutation.variables?.id === "python") ||
+                  (checkUpdateMutation.isPending &&
+                    checkUpdateMutation.variables?.id === "python")
+                }
+                onClick={() => void handleCliPrimaryAction("python")}
+              >
+                {cliStatuses.python.installed
+                  ? installCliMutation.isPending &&
+                    installCliMutation.variables?.id === "python"
+                    ? "升级中..."
+                    : cliStatuses.python.hasUpdate && cliStatuses.python.latestVersion
+                      ? `升级到v${cliStatuses.python.latestVersion}`
+                      : checkUpdateMutation.isPending &&
+                          checkUpdateMutation.variables?.id === "python"
+                        ? "检测中..."
+                        : "检测更新"
+                  : installCliMutation.isPending &&
+                      installCliMutation.variables?.id === "python"
+                    ? "安装中..."
+                    : "安装"}
+              </Button>
+            </TenasSettingsField>
+          </div>
+
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-sm font-medium">

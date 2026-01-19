@@ -2,18 +2,17 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
-import {
-  BROWSER_WINDOW_COMPONENT,
-  BROWSER_WINDOW_PANEL_ID,
-} from "@tenas-ai/api/common";
+import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { createBrowserTabId } from "@/hooks/tab-id";
 import { useChatContext } from "@/components/chat/ChatProvider";
-import { Globe } from "lucide-react";
+import ToolInfoCard from "./shared/ToolInfoCard";
+import {
+  getToolName,
+  getToolStatusText,
+  getToolStatusTone,
+  safeStringify,
+} from "./shared/tool-utils";
 
 type AnyToolPart = {
   type: string;
@@ -61,6 +60,9 @@ export function OpenUrlTool({ part }: { part: AnyToolPart }) {
   const finished = isToolFinished(part);
   const hasError = typeof part.errorText === "string" && part.errorText.trim().length > 0;
 
+  const statusText = getToolStatusText(part as any);
+  const statusTone = getToolStatusTone(part as any);
+
   const onOpen = React.useCallback(() => {
     if (!tabId) return;
     if (!url) return;
@@ -92,51 +94,39 @@ export function OpenUrlTool({ part }: { part: AnyToolPart }) {
   }, [tabId, url, finished, hasError, title]);
 
   return (
-    <div className="flex ml-2 w-full min-w-0 max-w-full justify-start">
-      <Card className="w-full min-w-0 max-w-[520px] py-2 shadow-none mr-6">
-        <CardContent className="px-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="shrink-0 text-muted-foreground">
-              <Globe className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm text-foreground/90">
-                {title ?? "—"}
-              </div>
-              <div className="truncate text-xs text-muted-foreground">
-                {url ? (
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:underline"
-                    title={url}
-                  >
-                    {url}
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </div>
-              {hasError ? (
-                <div className="mt-1 truncate text-xs text-destructive">
-                  {String(part.errorText)}
-                </div>
-              ) : null}
-            </div>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={!finished || hasError || !url || !tabId}
-              onClick={onOpen}
-            >
-              打开
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <ToolInfoCard
+      title={getToolName(part as any)}
+      action="打开网页"
+      status={statusText}
+      statusTone={statusTone}
+      params={[
+        { label: "地址", value: url || "—", mono: true },
+        { label: "标题", value: title ?? "—" },
+      ]}
+      actions={
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={!finished || hasError || !url || !tabId}
+          onClick={onOpen}
+        >
+          打开
+        </Button>
+      }
+      output={{
+        title: "结果",
+        summaryRows: [
+          {
+            label: "状态",
+            value: hasError ? "失败" : finished ? "已准备打开" : "执行中",
+            tone: hasError ? "danger" : "muted",
+          },
+        ],
+        rawText: hasError ? String(part.errorText ?? "") : safeStringify(part.output),
+        tone: hasError ? "error" : "default",
+        defaultOpen: hasError,
+      }}
+    />
   );
 }

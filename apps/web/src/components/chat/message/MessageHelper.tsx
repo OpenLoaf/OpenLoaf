@@ -32,7 +32,7 @@ const SUGGESTIONS = [
 统一规则：
 - 不使用绝对路径，不写死固定内容。
 - 在当前项目根目录操作，路径仅使用当前目录或相对路径。
-- 先生成随机文件名 TEMP_FILE 与随机标记 TOKEN，后续步骤复用；遇到占位符时用实际值替换。
+- 先生成随机文件名 TEMP_FILE 与随机标记 TOKEN，后续步骤复用；遇到占位符时用实际值替换（使用【TEMP_FILE】/【TOKEN】标识）。
 
 步骤 1：shell（数组命令）
 - 要做什么：在当前目录执行 pwd。
@@ -52,12 +52,12 @@ const SUGGESTIONS = [
 步骤 4：write-stdin（写入并读取）
 - 要做什么：向步骤3的 sessionId 写入 TOKEN 并读取回显。
 - 预期：Output 中包含 TOKEN。
-- 调用：write-stdin 工具，sessionId=<步骤3的ID>，chars="<TOKEN>\\n"，yieldTimeMs=500。
+- 调用：write-stdin 工具，sessionId=<步骤3的ID>，chars="【TOKEN】\\n"，yieldTimeMs=500。
 
 步骤 5：read-file
 - 要做什么：读取 TEMP_FILE 的前 20 行。
 - 预期：内容包含 TOKEN。
-- 调用：read-file 工具，path="<TEMP_FILE>"，offset=1，limit=20。
+- 调用：read-file 工具，path="【TEMP_FILE】"，offset=1，limit=20。
 
 步骤 6：list-dir
 - 要做什么：列出当前目录一级内容。
@@ -67,12 +67,12 @@ const SUGGESTIONS = [
 步骤 7：grep-files
 - 要做什么：在当前目录查找包含 TOKEN 的文件。
 - 预期：输出文件列表包含 TEMP_FILE。
-- 调用：grep-files 工具，pattern="<TOKEN>"，path="."。
+- 调用：grep-files 工具，pattern="【TOKEN】"，path="."。
 
 步骤 8：shell-command（清理）
 - 要做什么：删除 TEMP_FILE。
 - 预期：输出包含 Exit code: 0。
-- 调用：shell-command 工具，command="rm -f <TEMP_FILE>"。
+- 调用：shell-command 工具，command="rm -f 【TEMP_FILE】"。
 
 全部通过后输出：ALL PASS，并简短列出每一步通过的证据摘要。`,
   },

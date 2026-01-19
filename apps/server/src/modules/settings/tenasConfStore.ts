@@ -73,6 +73,11 @@ const DEFAULT_BASIC_CONF: BasicConf = {
       apiKey: "",
       forceCustomApiKey: false,
     },
+    python: {
+      apiUrl: "",
+      apiKey: "",
+      forceCustomApiKey: false,
+    },
   },
 };
 
@@ -100,7 +105,8 @@ function normalizeCliToolsConfig(raw: unknown, fallback: CliToolsConfig): CliToo
   // CLI 工具配置缺失时回退到默认值，避免配置读取出错。
   const codex = normalizeCliToolConfig(source.codex, fallback.codex);
   const claudeCode = normalizeCliToolConfig(source.claudeCode, fallback.claudeCode);
-  return { codex, claudeCode };
+  const python = normalizeCliToolConfig(source.python, fallback.python);
+  return { codex, claudeCode, python };
 }
 
 function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicConf>): BasicConf {
