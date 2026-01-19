@@ -375,6 +375,13 @@ export default function ChatProvider({
   const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
   const setTabChatStatus = useTabs((s) => s.setTabChatStatus);
   const queryClient = useQueryClient();
+  // 中文注释：每 5 次 assistant 回复触发自动标题更新。
+  const autoTitleMutation = useMutation({
+    ...(trpc.chat.autoTitle.mutationOptions() as any),
+    onSuccess: () => {
+      invalidateChatSessions(queryClient);
+    },
+  });
   const deleteMessageSubtreeMutation = useMutation(
     trpc.chatmessage.deleteManyChatMessage.mutationOptions()
   );
@@ -397,6 +404,14 @@ export default function ChatProvider({
   const pendingCompactRequestRef = React.useRef<string | null>(null);
   // 关键：session command 不应更新 leafMessageId。
   const pendingSessionCommandRef = React.useRef<string | null>(null);
+  // 关键：用于自动标题更新的回复计数与首条消息刷新。
+  const assistantReplyCountRef = React.useRef(0);
+  const pendingInitialTitleRefreshRef = React.useRef(false);
+
+  React.useEffect(() => {
+    assistantReplyCountRef.current = 0;
+    pendingInitialTitleRefreshRef.current = false;
+  }, [sessionId]);
 
   React.useEffect(() => {
     if (tabId) {
@@ -513,8 +528,17 @@ export default function ChatProvider({
       }
       // 中文注释：成功完成后清空会话错误提示。
       setSessionErrorMessage(null);
+      if (pendingInitialTitleRefreshRef.current) {
+        pendingInitialTitleRefreshRef.current = false;
+        invalidateChatSessions(queryClient);
+      }
+      // 中文注释：每 5 次 assistant 回复触发 AI 自动标题。
+      assistantReplyCountRef.current += 1;
+      if (assistantReplyCountRef.current % 5 === 0 && !autoTitleMutation.isPending) {
+        autoTitleMutation.mutate({ sessionId });
+      }
     },
-    [refreshBranchMeta, sessionId]
+    [autoTitleMutation, queryClient, refreshBranchMeta, sessionId]
   );
 
   const chatConfig = React.useMemo(
@@ -755,6 +779,15 @@ export default function ChatProvider({
       }
       if (nextMessage.role === "user" && isSessionCommandMessage(nextMessage)) {
         pendingSessionCommandRef.current = String(nextMessage.id);
+      }
+      if (
+        nextMessage.role === "user" &&
+        !(chat.messages ?? []).some((m) => (m as any)?.role === "user") &&
+        !isCompactCommandMessage(nextMessage) &&
+        !isSessionCommandMessage(nextMessage)
+      ) {
+        // 中文注释：首条用户消息完成后刷新会话列表，展示标题。
+        pendingInitialTitleRefreshRef.current = true;
       }
 
       pendingUserMessageIdRef.current = String(nextMessage.id);
