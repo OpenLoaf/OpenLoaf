@@ -23,6 +23,8 @@ export interface BoardControlsProps {
   engine: CanvasEngine;
   /** Snapshot used for viewport state. */
   snapshot: CanvasSnapshot;
+  /** Auto layout callback. */
+  onAutoLayout?: () => void;
 }
 
 const ZOOM_STEP = 1.1;
@@ -37,7 +39,11 @@ const buildControlTitle = (label: string, shortcut?: string) =>
   shortcut ? `${label} (${shortcut})` : label;
 
 /** Render the left-side toolbar for the board canvas. */
-const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardControlsProps) {
+const BoardControls = memo(function BoardControls({
+  engine,
+  snapshot,
+  onAutoLayout,
+}: BoardControlsProps) {
   // 逻辑：视图状态独立订阅，避免缩放时触发全局快照刷新。
   const viewState = useBoardViewState(engine);
   const { zoom, size } = viewState.viewport;
@@ -102,7 +108,9 @@ const BoardControls = memo(function BoardControls({ engine, snapshot }: BoardCon
     event.preventDefault();
     event.stopPropagation();
     engine.autoLayoutBoard();
-  }, [engine]);
+    // 逻辑：自动布局后通知上层调度缩略图截取。
+    onAutoLayout?.();
+  }, [engine, onAutoLayout]);
 
   const handleUndo = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
     event.preventDefault();

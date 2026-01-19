@@ -33,6 +33,8 @@ export type BoardCanvasRenderProps = {
   containerRef: RefObject<HTMLDivElement | null>;
   /** Manual log sync callback. */
   onSyncLog?: () => void;
+  /** Auto layout callback. */
+  onAutoLayout?: () => void;
 };
 
 /** Render board layers and overlays. */
@@ -43,6 +45,7 @@ export function BoardCanvasRender({
   showPerfOverlay,
   containerRef,
   onSyncLog,
+  onAutoLayout,
 }: BoardCanvasRenderProps) {
   /** Culling stats for the performance overlay. */
   const [cullingStats, setCullingStats] = useState({
@@ -134,7 +137,9 @@ export function BoardCanvasRender({
         />
       ) : null}
       {showUi ? <AnchorOverlay snapshot={snapshot} /> : null}
-      {showUi ? <BoardControls engine={engine} snapshot={snapshot} /> : null}
+      {showUi ? (
+        <BoardControls engine={engine} snapshot={snapshot} onAutoLayout={onAutoLayout} />
+      ) : null}
       {showUi ? <BoardToolbar engine={engine} snapshot={snapshot} /> : null}
       {showUi && selectedConnector ? (
         <ConnectorActionPanel

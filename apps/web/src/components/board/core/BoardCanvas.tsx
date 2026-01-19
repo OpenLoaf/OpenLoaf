@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasElement, CanvasNodeDefinition } from "../engine/types";
@@ -8,15 +9,23 @@ import { BoardCanvasInteraction } from "./BoardCanvasInteraction";
 import { BoardCanvasCollab } from "./BoardCanvasCollab";
 import { BoardCanvasRender } from "./BoardCanvasRender";
 import { useBoardSnapshot } from "./useBoardSnapshot";
+import { blobToBase64 } from "../utils/base64";
+import {
+  captureBoardImageBlob,
+  setBoardExporting,
+  waitForAnimationFrames,
+} from "../utils/board-export";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
 import {
+  buildChildUri,
   formatScopedProjectPath,
   getRelativePathFromUri,
   normalizeProjectRelativePath,
   parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
+import { trpc } from "@/utils/trpc";
 
 export type BoardCanvasProps = {
   /** External engine instance, optional for integration scenarios. */
@@ -47,6 +56,56 @@ export type BoardCanvasProps = {
 
 /** Scheme matcher for absolute URIs. */
 const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+/** Board thumbnail file name. */
+const BOARD_THUMBNAIL_FILE_NAME = "index.png";
+/** Board thumbnail width in pixels. */
+const BOARD_THUMBNAIL_WIDTH = 320;
+/** Board thumbnail height in pixels. */
+const BOARD_THUMBNAIL_HEIGHT = 200;
+/** Delay before capturing auto layout thumbnail. */
+const AUTO_LAYOUT_THUMBNAIL_DELAY = 30_000;
+
+/** Render a fixed-size thumbnail blob from a source image blob. */
+async function renderBoardThumbnailBlob(
+  source: Blob,
+  width: number,
+  height: number
+): Promise<Blob | null> {
+  if (typeof window === "undefined") return null;
+  const url = URL.createObjectURL(source);
+  const image = new Image();
+  const loadImage = new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("thumbnail image load failed"));
+  });
+  image.decoding = "async";
+  image.src = url;
+  try {
+    await loadImage;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  if (!sourceWidth || !sourceHeight) return null;
+  const scale = Math.max(width / sourceWidth, height / sourceHeight);
+  const drawWidth = sourceWidth * scale;
+  const drawHeight = sourceHeight * scale;
+  const offsetX = (width - drawWidth) / 2;
+  const offsetY = (height - drawHeight) / 2;
+  // 逻辑：用 cover 缩放填满画布，避免出现黑边。
+  context.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/png");
+  });
+}
 
 /** Render the new board canvas surface and DOM layers. */
 export function BoardCanvas({
@@ -98,6 +157,8 @@ export function BoardCanvas({
   }, [boardFolderUri, boardId, projectId, rootUri]);
   /** Root container element for canvas interactions. */
   const containerRef = useRef<HTMLDivElement | null>(null);
+  /** Latest canvas element reference used for exports. */
+  const exportTargetRef = useRef<HTMLElement | null>(null);
   /** Engine instance used for rendering and interaction. */
   const engineRef = useRef<CanvasEngine | null>(null);
   if (!engineRef.current) {
@@ -120,6 +181,14 @@ export function BoardCanvas({
     canSyncLog: boolean;
     onSyncLog?: () => void;
   }>({ canSyncLog: false });
+  /** Board thumbnail writer mutation. */
+  const writeThumbnailMutation = useMutation(trpc.fs.writeBinary.mutationOptions());
+  /** Latest thumbnail writer callback reference. */
+  const writeThumbnailRef = useRef(writeThumbnailMutation.mutateAsync);
+  /** Promise queue for sequential thumbnail captures. */
+  const thumbnailQueueRef = useRef(Promise.resolve());
+  /** Timer id for auto layout thumbnail capture. */
+  const autoLayoutTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -128,6 +197,14 @@ export function BoardCanvas({
       engine.detach();
     };
   }, [engine]);
+
+  useEffect(() => {
+    exportTargetRef.current = containerRef.current;
+  }, []);
+
+  useEffect(() => {
+    writeThumbnailRef.current = writeThumbnailMutation.mutateAsync;
+  }, [writeThumbnailMutation.mutateAsync]);
 
   useEffect(() => {
     if (nodesRegisteredRef.current) return;
@@ -146,6 +223,77 @@ export function BoardCanvas({
     // 逻辑：关闭预览时清空当前预览数据。
     setImagePreview(null);
   };
+
+  /** Resolve the current board DOM element for exports. */
+  const resolveExportTarget = useCallback(() => {
+    if (exportTargetRef.current) return exportTargetRef.current;
+    if (!panelKey) return null;
+    const selector = `[data-board-canvas][data-board-panel="${panelKey}"]`;
+    return document.querySelector(selector) as HTMLElement | null;
+  }, [panelKey]);
+
+  /** Capture and persist the current board thumbnail. */
+  const saveBoardThumbnail = useCallback(
+    (reason: "close" | "autoLayout") => {
+      if (!boardFolderUri) return;
+      if (!resolvedWorkspaceId) return;
+      // 逻辑：顺序执行截图任务，避免并发占用渲染资源。
+      thumbnailQueueRef.current = thumbnailQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          const target = resolveExportTarget();
+          if (!target) return;
+          try {
+            setBoardExporting(target, true);
+            await waitForAnimationFrames(2);
+            const blob = await captureBoardImageBlob(target);
+            if (!blob) return;
+            const thumbnailBlob = await renderBoardThumbnailBlob(
+              blob,
+              BOARD_THUMBNAIL_WIDTH,
+              BOARD_THUMBNAIL_HEIGHT
+            );
+            if (!thumbnailBlob) return;
+            const contentBase64 = await blobToBase64(thumbnailBlob);
+            const uri = buildChildUri(boardFolderUri, BOARD_THUMBNAIL_FILE_NAME);
+            await writeThumbnailRef.current({
+              workspaceId: resolvedWorkspaceId,
+              projectId,
+              uri,
+              contentBase64,
+            });
+          } catch (error) {
+            console.error("Board thumbnail capture failed", reason, error);
+          } finally {
+            setBoardExporting(target, false);
+          }
+        });
+    },
+    [boardFolderUri, projectId, resolveExportTarget, resolvedWorkspaceId]
+  );
+
+  /** Schedule a thumbnail capture after auto layout. */
+  const scheduleAutoLayoutThumbnail = useCallback(() => {
+    if (!boardFolderUri) return;
+    if (!resolvedWorkspaceId) return;
+    if (autoLayoutTimerRef.current) {
+      window.clearTimeout(autoLayoutTimerRef.current);
+    }
+    // 逻辑：自动布局结束后延迟 30 秒截取缩略图。
+    autoLayoutTimerRef.current = window.setTimeout(() => {
+      saveBoardThumbnail("autoLayout");
+    }, AUTO_LAYOUT_THUMBNAIL_DELAY);
+  }, [boardFolderUri, resolvedWorkspaceId, saveBoardThumbnail]);
+
+  useEffect(() => {
+    return () => {
+      if (autoLayoutTimerRef.current) {
+        window.clearTimeout(autoLayoutTimerRef.current);
+        autoLayoutTimerRef.current = null;
+      }
+      saveBoardThumbnail("close");
+    };
+  }, [saveBoardThumbnail]);
 
   // 逻辑：预览优先使用原图地址，缺失时回退到压缩预览。
   const imagePreviewUri = imagePreview?.originalSrc || imagePreview?.previewSrc || "";
@@ -194,6 +342,7 @@ export function BoardCanvas({
           showPerfOverlay={showPerfOverlay}
           containerRef={containerRef}
           onSyncLog={syncLogState.canSyncLog ? syncLogState.onSyncLog : undefined}
+          onAutoLayout={scheduleAutoLayoutThumbnail}
         />
       </BoardCanvasInteraction>
       <ImagePreviewDialog
