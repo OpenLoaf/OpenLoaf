@@ -27,6 +27,7 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   appNotificationSoundEnabled: true,
   modelDefaultChatModelId: "codex-cli:gpt-5.2-codex",
   appProjectRule: "按项目划分",
+  toolAllowOutsideScope: false,
   stepUpInitialized: false,
   proxyEnabled: false,
   proxyHost: "",

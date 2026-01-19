@@ -2,7 +2,7 @@ import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ChatModelSource } from "@tenas-ai/api/common";
 import type { AiExecuteRequest, AiIntent, AiResponseMode } from "@/ai/pipeline/aiTypes";
-import { runAiExecute } from "@/ai/pipeline/aiPipeline";
+import { AiExecuteService } from "@/ai/application/use-cases/AiExecuteService";
 import { logger } from "@/common/logger";
 import { toText } from "./route-utils";
 
@@ -29,7 +29,7 @@ export function registerAiExecuteRoutes(app: Hono) {
     );
 
     const cookies = getCookie(c) || {};
-    return runAiExecute({
+    return new AiExecuteService().execute({
       request: parsed.request,
       cookies,
       requestSignal: c.req.raw.signal,

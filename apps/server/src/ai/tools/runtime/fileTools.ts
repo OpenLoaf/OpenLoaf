@@ -72,7 +72,10 @@ type DirEntry = {
 /** Clamp a byte index to a UTF-8 boundary. */
 function clampUtf8End(buffer: Buffer, index: number): number {
   let cursor = Math.max(0, Math.min(index, buffer.length));
-  while (cursor > 0 && (buffer[cursor] & 0b1100_0000) === 0b1000_0000) {
+  while (cursor > 0) {
+    const byte = buffer[cursor - 1];
+    if (byte === undefined) break;
+    if ((byte & 0b1100_0000) !== 0b1000_0000) break;
     cursor -= 1;
   }
   return cursor;
@@ -145,8 +148,16 @@ function collectLineRecords(lines: string[]): LineRecord[] {
 function trimEmptyLines(indices: number[], records: LineRecord[]): number[] {
   let start = 0;
   let end = indices.length - 1;
-  while (start <= end && records[indices[start]]?.isBlank) start += 1;
-  while (end >= start && records[indices[end]]?.isBlank) end -= 1;
+  while (start <= end) {
+    const index = indices[start];
+    if (index == null || !records[index]?.isBlank) break;
+    start += 1;
+  }
+  while (end >= start) {
+    const index = indices[end];
+    if (index == null || !records[index]?.isBlank) break;
+    end -= 1;
+  }
   return indices.slice(start, end + 1);
 }
 
@@ -169,7 +180,7 @@ function readIndentationBlock(
   const finalLimit = Math.min(limit, options.maxLines, records.length);
 
   if (finalLimit === 1) {
-    return [formatLineRecord(records[anchorIndex])];
+    return [formatLineRecord(records[anchorIndex]!)];
   }
 
   let i = anchorIndex - 1;
@@ -234,7 +245,7 @@ function readIndentationBlock(
   }
 
   const trimmed = trimEmptyLines(outputIndices, records);
-  return trimmed.map((index) => formatLineRecord(records[index]));
+  return trimmed.map((index) => formatLineRecord(records[index]!));
 }
 
 /** Execute file read tool with slice or indentation mode. */

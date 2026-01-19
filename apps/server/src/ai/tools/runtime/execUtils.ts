@@ -108,7 +108,10 @@ function formatTruncationMarker(policy: TruncationPolicy, removedUnits: number):
 /** Adjust a byte index to the previous UTF-8 boundary. */
 function clampUtf8End(buffer: Buffer, index: number): number {
   let cursor = Math.max(0, Math.min(index, buffer.length));
-  while (cursor > 0 && (buffer[cursor] & 0b1100_0000) === 0b1000_0000) {
+  while (cursor > 0) {
+    const byte = buffer[cursor - 1];
+    if (byte === undefined) break;
+    if ((byte & 0b1100_0000) !== 0b1000_0000) break;
     cursor -= 1;
   }
   return cursor;
@@ -117,7 +120,10 @@ function clampUtf8End(buffer: Buffer, index: number): number {
 /** Adjust a byte index to the next UTF-8 boundary. */
 function clampUtf8Start(buffer: Buffer, index: number): number {
   let cursor = Math.max(0, Math.min(index, buffer.length));
-  while (cursor < buffer.length && (buffer[cursor] & 0b1100_0000) === 0b1000_0000) {
+  while (cursor < buffer.length) {
+    const byte = buffer[cursor];
+    if (byte === undefined) break;
+    if ((byte & 0b1100_0000) !== 0b1000_0000) break;
     cursor += 1;
   }
   return cursor;

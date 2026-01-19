@@ -1,36 +1,20 @@
-import { generateId, generateText, type UIMessage } from "ai";
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
-import { resolveChatModel } from "@/ai/resolveChatModel";
-import { resolveRequiredInputTags, resolvePreviousChatModelId } from "@/ai/chat-stream/modelResolution";
-import { initRequestContext } from "@/ai/chat-stream/chatStreamHelpers";
-import { replaceRelativeFileParts } from "@/ai/chat-stream/attachmentResolver";
-import {
-  clearSessionErrorMessage,
-  normalizeSessionTitle,
-  resolveRightmostLeafId,
-  setSessionErrorMessage,
-  updateSessionTitle,
-} from "@/ai/chat-stream/messageStore";
-import { loadMessageChain } from "@/ai/chat-stream/messageChainLoader";
-import { buildModelChain } from "@/ai/chat-stream/chatStreamHelpers";
-import { runChatStream, runChatImageRequest } from "@/ai/chat-stream/chatStreamService";
 import type { ChatStreamRequest } from "@/ai/chat-stream/chatStreamTypes";
-import type { ChatImageRequest } from "@/ai/chat-stream/chatImageTypes";
-import { setChatModel, setCodexOptions } from "@/ai/chat-stream/requestContext";
+import type { ChatImageMessageInput, ChatImageRequest } from "@/ai/chat-stream/chatImageTypes";
+import { ChatStreamUseCase } from "@/ai/application/use-cases/ChatStreamUseCase";
+import { SummaryTitleUseCase } from "@/ai/application/use-cases/SummaryTitleUseCase";
+import { ImageRequestUseCase } from "@/ai/application/use-cases/ImageRequestUseCase";
 import {
   getProjectRootPath,
   getWorkspaceRootPath,
   getWorkspaceRootPathById,
 } from "@tenas-ai/api/services/vfsService";
 import { resolveParentProjectRootPaths } from "@/ai/utils/projectRoots";
-import { resolveCodexRequestOptions } from "@/ai/chat-stream/messageOptionResolver";
-import { logger } from "@/common/logger";
 import { parseCommandAtStart } from "./commandParser";
 import type { AiExecuteRequest } from "./aiTypes";
 import { extractSkillNamesFromText, resolveSkillByName } from "./skillResolver";
 import type { SkillMatch } from "./skillRegistry";
-import { buildModelMessages } from "./messageConverter";
 
 /** Run unified AI execution pipeline. */
 export async function runAiExecute(input: {
@@ -59,7 +43,7 @@ export async function runAiExecute(input: {
     lastMessage.role === "user" ? parseCommandAtStart(lastText) : null;
 
   if (commandContext?.id === "summary-title") {
-    return runSummaryTitleCommand({
+    return new SummaryTitleUseCase().execute({
       request,
       cookies: input.cookies,
       requestSignal: input.requestSignal,
@@ -96,7 +80,7 @@ export async function runAiExecute(input: {
       lastMessage: enrichedLastMessage,
       selectedSkills,
     });
-    const result = await runChatImageRequest({
+    const result = await new ImageRequestUseCase().execute({
       request: imageRequest,
       cookies: input.cookies,
       requestSignal: input.requestSignal,
@@ -119,146 +103,11 @@ export async function runAiExecute(input: {
     lastMessage: enrichedLastMessage,
     selectedSkills,
   });
-  return runChatStream({
+  return new ChatStreamUseCase().execute({
     request: chatRequest,
     cookies: input.cookies,
     requestSignal: input.requestSignal,
   });
-}
-
-type SummaryTitleCommandInput = {
-  request: AiExecuteRequest;
-  cookies: Record<string, string>;
-  requestSignal: AbortSignal;
-  commandArgs?: string;
-};
-
-/** Execute /summary-title command without persisting messages. */
-async function runSummaryTitleCommand(input: SummaryTitleCommandInput): Promise<Response> {
-  const sessionId = input.request.sessionId?.trim() ?? "";
-  if (!sessionId) {
-    return createCommandStreamResponse({
-      dataParts: [],
-      errorText: "请求无效：缺少 sessionId。",
-    });
-  }
-
-  const { abortController } = initRequestContext({
-    sessionId,
-    cookies: input.cookies,
-    clientId: input.request.clientId,
-    tabId: input.request.tabId,
-    workspaceId: input.request.workspaceId,
-    projectId: input.request.projectId,
-    boardId: input.request.boardId,
-    selectedSkills: [],
-    requestSignal: input.requestSignal,
-    messageId: input.request.messageId,
-  });
-
-  const leafMessageId = await resolveRightmostLeafId(sessionId);
-  if (!leafMessageId) {
-    return createCommandStreamResponse({
-      dataParts: [],
-      errorText: "请求失败：找不到可生成标题的历史记录。",
-    });
-  }
-
-  const chain = await loadMessageChain({ sessionId, leafMessageId });
-  const modelChain = buildModelChain(chain as UIMessage[]);
-  const modelMessages = await replaceRelativeFileParts(modelChain as UIMessage[]);
-  if (modelMessages.length === 0) {
-    return createCommandStreamResponse({
-      dataParts: [],
-      errorText: "请求失败：历史消息为空。",
-    });
-  }
-
-  const promptMessage: TenasUIMessage = {
-    id: generateId(),
-    role: "user",
-    parentMessageId: null,
-    parts: [{ type: "text", text: buildSummaryTitlePrompt(input.commandArgs) }],
-  };
-  const promptChain = stripPromptParts([...modelMessages, promptMessage]);
-
-  try {
-    const requiredTags = !input.request.chatModelId
-      ? resolveRequiredInputTags(modelMessages as UIMessage[])
-      : [];
-    const preferredChatModelId = !input.request.chatModelId
-      ? resolvePreviousChatModelId(modelMessages as UIMessage[])
-      : null;
-    const resolved = await resolveChatModel({
-      chatModelId: input.request.chatModelId,
-      chatModelSource: input.request.chatModelSource,
-      requiredTags,
-      preferredChatModelId,
-    });
-
-    setChatModel(resolved.model);
-    setCodexOptions(resolveCodexRequestOptions(modelMessages as UIMessage[]));
-
-    const modelPromptMessages = await buildModelMessages(promptChain as UIMessage[]);
-    const result = await generateText({
-      model: resolved.model,
-      system: buildSummaryTitleSystemPrompt(),
-      messages: modelPromptMessages,
-      abortSignal: abortController.signal,
-    });
-
-    const title = result.text ?? "";
-    const normalized = normalizeSessionTitle(title);
-    if (!normalized) {
-      return createCommandStreamResponse({
-        dataParts: [],
-        errorText: "请求失败：未生成有效标题。",
-      });
-    }
-
-    await updateSessionTitle({
-      sessionId,
-      title: normalized,
-      isUserRename: false,
-    });
-    await clearSessionErrorMessage({ sessionId });
-
-    return createCommandStreamResponse({
-      dataParts: [
-        {
-          type: "data-session-title",
-          data: { sessionId, title: normalized },
-        },
-      ],
-    });
-  } catch (err) {
-    logger.error({ err, sessionId }, "[chat] summary-title failed");
-    const errorText =
-      err instanceof Error ? `请求失败：${err.message}` : "请求失败：生成标题失败。";
-    await setSessionErrorMessage({ sessionId, errorMessage: errorText });
-    return createCommandStreamResponse({
-      dataParts: [],
-      errorText,
-    });
-  }
-}
-
-/** Build system prompt for summary title generation. */
-function buildSummaryTitleSystemPrompt(): string {
-  return [
-    "你是一个对话标题生成器。",
-    "- 只输出一个标题，不要解释。",
-    "- 标题不超过 16 个字。",
-    "- 不要输出引号、编号、Markdown。",
-  ].join("\n");
-}
-
-/** Build summary title prompt message. */
-function buildSummaryTitlePrompt(extra?: string): string {
-  if (extra && extra.trim()) {
-    return `请根据以上对话生成一个标题。额外要求：${extra.trim()}`;
-  }
-  return "请根据以上对话生成一个简短标题。";
 }
 
 /** Extract plain text from message parts. */
@@ -269,18 +118,6 @@ function extractTextFromParts(parts: unknown[]): string {
     .map((part) => String(part.text))
     .join("\n")
     .trim();
-}
-
-/** Keep only prompt-relevant parts for command execution. */
-function stripPromptParts(messages: UIMessage[]): UIMessage[] {
-  return messages.map((message) => {
-    const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
-    const filtered = parts.filter((part: any) => {
-      const type = part?.type;
-      return type === "text" || type === "file" || type === "data-skill";
-    });
-    return { ...(message as any), parts: filtered };
-  });
 }
 
 /** Build chat request for streaming pipeline. */
@@ -316,9 +153,13 @@ function buildChatImageRequest(input: {
   lastMessage: TenasUIMessage;
   selectedSkills: string[];
 }): ChatImageRequest {
+  const imageMessage: ChatImageMessageInput = {
+    ...input.lastMessage,
+    parentMessageId: input.lastMessage.parentMessageId ?? null,
+  };
   return {
     sessionId: input.sessionId,
-    messages: [input.lastMessage],
+    messages: [imageMessage],
     id: input.request.id,
     messageId: input.request.messageId,
     clientId: input.request.clientId,
@@ -343,7 +184,7 @@ async function resolveSkillMatches(input: {
 }): Promise<SkillMatch[]> {
   if (input.names.length === 0) return [];
   const projectRoot = input.request.projectId
-    ? getProjectRootPath(input.request.projectId)
+    ? getProjectRootPath(input.request.projectId) ?? undefined
     : undefined;
   const workspaceRootFromId = input.request.workspaceId
     ? getWorkspaceRootPathById(input.request.workspaceId)

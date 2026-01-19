@@ -13,6 +13,9 @@ import {
 } from "./desktop-breakpoints";
 import DesktopTileGridstack from "./DesktopTileGridstack";
 
+type GridstackElement = HTMLDivElement & { gridstackNode?: GridStackNode };
+type GridStackWithCancel = GridStack & { cancelDrag?: () => void };
+
 function sameLayout(
   a: { x: number; y: number; w: number; h: number },
   b: { x: number; y: number; w: number; h: number }
@@ -280,7 +283,7 @@ export default function DesktopGrid({
       if (!grid) return false;
       const el = itemElByIdRef.current.get(itemId);
       if (!el) return false;
-      const node = el.gridstackNode;
+      const node = (el as GridstackElement).gridstackNode;
       if (!node || node.grid !== grid) return false;
       const rect = el.getBoundingClientRect();
       if (rect.width < 2 || rect.height < 2) return false;
@@ -349,7 +352,8 @@ export default function DesktopGrid({
       window.cancelAnimationFrame(placementDragFrameRef.current);
       placementDragFrameRef.current = null;
     }
-    if (gridRef.current) gridRef.current.cancelDrag();
+    const grid = gridRef.current as GridStackWithCancel | null;
+    grid?.cancelDrag?.();
     // 逻辑：取消放置时移除临时组件。
     const el = itemElByIdRef.current.get(placementItemId);
     if (el && gridRef.current) gridRef.current.removeWidget(el, false);
@@ -509,9 +513,10 @@ export default function DesktopGrid({
         placementCanceledRef.current = false;
         return;
       }
+      const gridEl = el as GridstackElement | undefined;
       const dragId =
         el?.getAttribute("gs-id") ??
-        (el?.gridstackNode?.id != null ? String(el.gridstackNode.id) : null);
+        (gridEl?.gridstackNode?.id != null ? String(gridEl.gridstackNode.id) : null);
       if (!dragId || dragId !== placementId) return;
       placementEndRef.current?.("commit", placementId);
     };

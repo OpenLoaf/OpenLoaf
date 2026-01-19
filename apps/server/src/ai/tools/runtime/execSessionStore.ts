@@ -133,8 +133,8 @@ export function readExecOutput(input: {
 export function writeExecStdin(input: { sessionId: string; chars?: string }): void {
   const session = getExecSession(input.sessionId);
   if (!session) throw new Error("Exec session not found.");
-  if (session.isPty) {
-    if (input.chars) (session.process as IPty).write(input.chars);
+  if (isPtyProcess(session.process)) {
+    if (input.chars) session.process.write(input.chars);
     return;
   }
   if (input.chars && session.process.stdin.writable) {

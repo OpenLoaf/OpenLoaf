@@ -1,13 +1,18 @@
 "use client";
 
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import type { ChangeEvent, CSSProperties, ReactElement } from "react";
+import type { ChangeEvent, ComponentType, CSSProperties, ForwardRefExoticComponent } from "react";
+import { FolderOpen, Image as ImageLucide, Play, Sparkles } from "lucide-react";
+import type { LucideProps } from "lucide-react";
 import { cn } from "@udecode/cn";
 
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasSnapshot } from "../engine/types";
 import { HoverPanel, IconBtn, PanelItem } from "../ui/ToolbarParts";
 import { getStackedImageRect } from "../utils/image-insert";
+import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/ImageGenerateNode";
+import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/ImagePromptGenerateNode";
+import { VIDEO_GENERATE_NODE_TYPE } from "../nodes/VideoGenerateNode";
 
 export interface BoardToolbarProps {
   /** Canvas engine instance. */
@@ -18,10 +23,9 @@ export interface BoardToolbarProps {
 
 type ToolMode = "select" | "hand" | "pen" | "highlighter" | "eraser";
 
-type IconProps = {
-  size?: number;
-  className?: string;
-};
+type IconProps = LucideProps;
+
+type IconComponent = ComponentType<IconProps> | ForwardRefExoticComponent<IconProps>;
 
 const PEN_SIZES = [3, 6, 10, 14];
 const PEN_COLORS = ["#111827", "#1d4ed8", "#f59e0b", "#ef4444", "#16a34a"];
@@ -30,7 +34,7 @@ type InsertItem = {
   id: string;
   title: string;
   description: string;
-  icon: (props: IconProps) => ReactElement;
+  icon: IconComponent;
   /** Node type inserted by this item. */
   nodeType?: string;
   /** Optional custom props for the inserted node. */
@@ -270,10 +274,43 @@ const INSERT_ITEMS: InsertItem[] = [
   },
 ];
 
+/** Generate tool entries for the toolbar flyout. */
+const GENERATE_INSERT_ITEMS: InsertItem[] = [
+  {
+    id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
+    title: "图片提示词",
+    description: "分析图片并生成描述",
+    icon: Sparkles,
+    nodeType: IMAGE_PROMPT_GENERATE_NODE_TYPE,
+    props: {},
+    size: [320, 220],
+  },
+  {
+    id: IMAGE_GENERATE_NODE_TYPE,
+    title: "图片生成",
+    description: "输入图片与文字生成新图",
+    icon: ImageLucide,
+    nodeType: IMAGE_GENERATE_NODE_TYPE,
+    props: {},
+    size: [320, 260],
+  },
+  {
+    id: VIDEO_GENERATE_NODE_TYPE,
+    title: "生成视频",
+    description: "基于图片与提示词生成视频",
+    icon: Play,
+    nodeType: VIDEO_GENERATE_NODE_TYPE,
+    props: {},
+    size: [360, 280],
+  },
+];
+
 /** Render the bottom toolbar for the board canvas. */
 const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolbarProps) {
   // 悬停展开的组 id（用字符串常量标识）
   const [hoverGroup, setHoverGroup] = useState<string | null>(null);
+  /** Whether the generate panel should stay pinned open. */
+  const [insertPanelPinned, setInsertPanelPinned] = useState(false);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const isSelectTool = snapshot.activeToolId === "select";
@@ -283,6 +320,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const isLocked = snapshot.locked;
   const pendingInsert = snapshot.pendingInsert;
   const penPanelOpen = !isLocked && (hoverGroup === "pen" || isPenTool);
+  const insertPanelOpen = !isLocked && (hoverGroup === "insert" || insertPanelPinned);
 
   const [penVariant, setPenVariant] = useState<"pen" | "highlighter">("pen");
   const [penSize, setPenSize] = useState<number>(6);
@@ -321,24 +359,32 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     if (!isLocked) return;
     // 逻辑：锁定画布时关闭悬浮面板，避免残留交互入口。
     setHoverGroup(null);
+    setInsertPanelPinned(false);
   }, [isLocked]);
 
   useEffect(() => {
-    if (!hoverGroup) return;
+    if (!hoverGroup && !insertPanelPinned) return;
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null;
       const container = toolbarRef.current;
       if (!container || !target) return;
       // 逻辑：点击工具条外部时关闭子面板。
       if (container.contains(target)) return;
-      if (hoverGroup === "pen" && isPenTool) return;
+      if (hoverGroup === "pen" && isPenTool) {
+        if (insertPanelPinned) {
+          // 逻辑：点击外部时优先关闭生成面板，保留画笔面板。
+          setInsertPanelPinned(false);
+        }
+        return;
+      }
       setHoverGroup(null);
+      setInsertPanelPinned(false);
     };
     document.addEventListener("pointerdown", handlePointerDown, { capture: true });
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown, { capture: true });
     };
-  }, [hoverGroup, isPenTool]);
+  }, [hoverGroup, insertPanelPinned, isPenTool]);
 
   const handleToolChange = useCallback(
     (tool: ToolMode, options?: { keepPanel?: boolean }) => {
@@ -367,6 +413,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
       }
       engine.setPendingInsert(request);
       setHoverGroup(null);
+      setInsertPanelPinned(false);
     },
     [engine, isLocked, pendingInsert?.id]
   );
@@ -722,6 +769,62 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
               </IconBtn>
             );
           })}
+        </div>
+        <span className="h-8 w-px bg-border/80" />
+        {/* 生成工具面板 */}
+        <div
+          className="relative"
+          onMouseEnter={() => {
+            if (isLocked) return;
+            setHoverGroup("insert");
+          }}
+          onMouseLeave={() => {
+            if (insertPanelPinned) return;
+            setHoverGroup(null);
+          }}
+        >
+          <IconBtn
+            title="生成工具"
+            onPointerDown={() => {
+              if (isLocked) return;
+              // 逻辑：点击主图标时固定展开面板。
+              setHoverGroup("insert");
+              setInsertPanelPinned(true);
+            }}
+            disabled={isLocked}
+            className="group h-8 w-8"
+            showTooltip={false}
+          >
+            <FolderOpen size={toolbarIconSize} className={toolbarIconClassName} />
+          </IconBtn>
+          <HoverPanel open={insertPanelOpen} className="w-max">
+            <div className="flex items-center gap-2">
+              {GENERATE_INSERT_ITEMS.map(item => {
+                const Icon = item.icon;
+                const request: CanvasInsertRequest = {
+                  id: item.id,
+                  type: item.nodeType ?? "text",
+                  props: item.props ?? {},
+                  size: item.size,
+                };
+                return (
+                  <PanelItem
+                    key={item.id}
+                    title={item.title}
+                    active={pendingInsert?.id === item.id}
+                    onPointerDown={() => {
+                      if (isLocked) return;
+                      // 逻辑：选择后进入待插入模式，并关闭面板。
+                      handleInsertRequest(request);
+                      setInsertPanelPinned(false);
+                    }}
+                  >
+                    <Icon size={16} />
+                  </PanelItem>
+                );
+              })}
+            </div>
+          </HoverPanel>
         </div>
         <input
           ref={imageInputRef}

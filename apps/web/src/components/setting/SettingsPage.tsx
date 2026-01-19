@@ -181,7 +181,6 @@ export default function SettingsPage({
       byKey.get("thirdPartyTools"),
       byKey.get("keys"),
       byKey.get("storage"),
-      byKey.get("whitelist"),
       byKey.get("agents"),
     ].filter(Boolean);
     const group3 = [

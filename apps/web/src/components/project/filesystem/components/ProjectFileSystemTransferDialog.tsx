@@ -43,6 +43,7 @@ import { useFileRename } from "@/hooks/use-file-rename";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { isBoardFolderName } from "@/lib/file-name";
+import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
 import {
   IGNORE_NAMES,
   buildChildUri,
@@ -56,21 +57,7 @@ import {
 } from "../utils/file-system-utils";
 import { sortEntriesByType } from "../utils/entry-sort";
 
-type ProjectTreeNode = {
-  projectId?: string;
-  rootUri: string;
-  title: string;
-  icon?: string;
-  children?: ProjectTreeNode[];
-};
-
-type PageTreeProject = {
-  projectId: string;
-  rootUri: string;
-  title: string;
-  icon?: string;
-  children?: PageTreeProject[];
-};
+type ProjectTreeNode = ProjectNode;
 
 /** Transfer mode for the dialog. */
 type TransferMode = "copy" | "move" | "select";
@@ -118,17 +105,14 @@ function flattenProjects(nodes?: ProjectTreeNode[]) {
 }
 
 /** Normalize project tree for PageTreePicker. */
-function normalizePageTreeProjects(nodes?: ProjectTreeNode[]): PageTreeProject[] {
-  const walk = (items?: ProjectTreeNode[]): PageTreeProject[] =>
+function normalizePageTreeProjects(nodes?: ProjectTreeNode[]): ProjectTreeNode[] {
+  const walk = (items?: ProjectTreeNode[]): ProjectTreeNode[] =>
     (items ?? [])
       // 过滤掉缺失 projectId 的节点，避免 UI 产生不完整的项目入口。
       .filter((item) => Boolean(item.projectId))
       .map((item) => ({
-        projectId: item.projectId ?? item.rootUri,
-        rootUri: item.rootUri,
-        title: item.title,
-        icon: item.icon,
-        children: item.children?.length ? walk(item.children) : undefined,
+        ...item,
+        children: item.children?.length ? walk(item.children) : [],
       }));
   return walk(nodes);
 }

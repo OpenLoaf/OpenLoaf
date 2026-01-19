@@ -13,7 +13,9 @@ export const shellTool = tool({
   inputSchema: zodSchema(shellToolDef.parameters),
   needsApproval: true,
   execute: async ({ command, workdir, timeoutMs }): Promise<string> => {
-    if (!command?.length) throw new Error("command is required.");
+    const resolvedCommand = command ?? [];
+    const [commandBin, ...commandArgs] = resolvedCommand;
+    if (!commandBin) throw new Error("command is required.");
     const allowOutside = readBasicConf().toolAllowOutsideScope;
     const { cwd } = resolveToolWorkdir({ workdir, allowOutside });
 
@@ -21,7 +23,7 @@ export const shellTool = tool({
     const outputChunks: string[] = [];
     let timedOut = false;
 
-    const child = spawn(command[0], command.slice(1), {
+    const child = spawn(commandBin, commandArgs, {
       cwd,
       env: buildExecEnv({}),
       stdio: "pipe",
@@ -29,8 +31,8 @@ export const shellTool = tool({
 
     child.stdout.setEncoding("utf-8");
     child.stderr.setEncoding("utf-8");
-    child.stdout.on("data", (chunk) => outputChunks.push(String(chunk)));
-    child.stderr.on("data", (chunk) => outputChunks.push(String(chunk)));
+    child.stdout.on("data", (chunk: string) => outputChunks.push(String(chunk)));
+    child.stderr.on("data", (chunk: string) => outputChunks.push(String(chunk)));
 
     let timeoutId: NodeJS.Timeout | null = null;
     if (typeof timeoutMs === "number" && Number.isFinite(timeoutMs) && timeoutMs > 0) {
@@ -43,7 +45,7 @@ export const shellTool = tool({
 
     const { code } = await new Promise<{ code: number | null }>((resolve, reject) => {
       child.once("error", reject);
-      child.once("exit", (exitCode) => {
+      child.once("exit", (exitCode: number | null) => {
         resolve({ code: exitCode });
       });
     }).finally(() => {

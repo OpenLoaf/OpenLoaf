@@ -31,6 +31,13 @@ const DEFAULT_BROWSER_SUB_AGENT_SYSTEM_PROMPT = [
   "只输出任务相关的结果与必要步骤，不要复述任务。",
 ].join("\n");
 
+export type CreateBrowserSubAgentInput = {
+  /** Model instance for the sub-agent. */
+  model: LanguageModelV3;
+  /** Optional tool ids override. */
+  toolIds?: readonly string[];
+};
+
 /**
  * Builds the system prompt for the browser sub-agent.
  */
@@ -42,12 +49,14 @@ function buildBrowserSubAgentSystemPrompt(): string {
 /**
  * Creates the browser sub-agent instance.
  */
-export function createBrowserSubAgent(input: { model: LanguageModelV3 }) {
+export function createBrowserSubAgent(input: CreateBrowserSubAgentInput) {
   // 逻辑：仅暴露网页操作相关工具，避免误用其他能力。
+  // 逻辑：未传 toolIds 时沿用默认工具集。
+  const toolIds = input.toolIds ?? BROWSER_SUB_AGENT_TOOL_IDS;
   return new ToolLoopAgent({
     id: BROWSER_SUB_AGENT_ID,
     model: input.model,
     instructions: buildBrowserSubAgentSystemPrompt(),
-    tools: buildToolset(BROWSER_SUB_AGENT_TOOL_IDS),
+    tools: buildToolset(toolIds),
   });
 }

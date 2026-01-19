@@ -125,7 +125,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
   const shouldShowEnterBoardFolder =
     menuContextEntry?.kind === "folder" && isBoardFolderName(menuContextEntry.name);
   const shouldShowEntryFileManager =
-    Boolean(menuContextEntry) && menuContextEntry.kind === "folder";
+    menuContextEntry?.kind === "folder";
   const shouldShowEntryTerminal =
     showTerminal && menuContextEntry?.kind === "folder";
 

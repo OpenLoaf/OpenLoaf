@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { getLocalTimeZone, today } from "@internationalized/date";
+import { getLocalTimeZone, today, type CalendarDate } from "@internationalized/date";
 import type { ComponentProps } from "react";
 import {
   Button,
@@ -58,14 +58,14 @@ const CalendarGridComponent = ({
   return (
     <CalendarGridRac>
       <CalendarGridHeaderRac>
-        {(day) => (
+        {(day: string) => (
           <CalendarHeaderCellRac className="size-9 rounded-lg p-0 text-xs font-medium text-muted-foreground/80">
             {day}
           </CalendarHeaderCellRac>
         )}
       </CalendarGridHeaderRac>
       <CalendarGridBodyRac className="[&_td]:px-0">
-        {(date) => {
+        {(date: CalendarDate) => {
           // 中文注释：根据 YYYY-MM-DD key 标记历史日期。
           const isMarked = markedDates?.has(date.toString());
 
@@ -101,7 +101,7 @@ const Calendar = ({ className, markedDates, ...props }: CalendarProps) => {
   return (
     <CalendarRac
       {...props}
-      className={composeRenderProps(className, (className) =>
+      className={composeRenderProps(className, (className?: string) =>
         cn("w-fit", className)
       )}
     >
@@ -120,7 +120,7 @@ const RangeCalendar = ({
   return (
     <RangeCalendarRac
       {...props}
-      className={composeRenderProps(className, (className) =>
+      className={composeRenderProps(className, (className?: string) =>
         cn("w-fit", className)
       )}
     >

@@ -746,10 +746,8 @@ export async function getProjectGitCommits(input: {
         cursor,
         pageSize,
       });
-      const nextCursor =
-        cliResult.hasMore && cliResult.items.length > 0
-          ? cliResult.items[cliResult.items.length - 1].oid
-          : null;
+      const lastCliItem = cliResult.items.at(-1);
+      const nextCursor = cliResult.hasMore && lastCliItem ? lastCliItem.oid : null;
       return {
         isGitProject: true,
         branch: resolvedBranch,
@@ -792,8 +790,8 @@ export async function getProjectGitCommits(input: {
       deletions: stats.deletions,
     });
   }
-  const nextCursor =
-    hasMore && items.length > 0 ? items[items.length - 1].oid : null;
+  const lastItem = items.at(-1);
+  const nextCursor = hasMore && lastItem ? lastItem.oid : null;
 
   return {
     isGitProject: true,

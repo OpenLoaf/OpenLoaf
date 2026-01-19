@@ -61,7 +61,8 @@ export function resolveToolWorkdir(input: {
   allowOutside: boolean;
 }): { cwd: string; rootLabel: "workspace" | "project" | "external" } {
   if (input.workdir) {
-    return resolveToolPath({ target: input.workdir, allowOutside: input.allowOutside });
+    const resolved = resolveToolPath({ target: input.workdir, allowOutside: input.allowOutside });
+    return { cwd: resolved.absPath, rootLabel: resolved.rootLabel };
   }
   const { workspaceRoot, projectRoot } = resolveToolRoots();
   const cwd = projectRoot ?? workspaceRoot;

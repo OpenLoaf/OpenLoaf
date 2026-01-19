@@ -362,7 +362,7 @@ function FileTreeNode({
   const isDraggingSelf =
     isProjectNode && draggingProjectId && node.projectId === draggingProjectId;
   const insertPosition =
-    isProjectNode && dragInsertTarget?.projectId === node.projectId
+    isProjectNode && dragInsertTarget && dragInsertTarget.projectId === node.projectId
       ? dragInsertTarget.position
       : null;
 
@@ -768,12 +768,18 @@ export const PageTreeMenu = ({
       return;
     }
     if (node.kind === "project") {
-      openProjectTab({
-        projectId: node.projectId ?? node.uri,
-        title: node.name,
-        icon: node.projectIcon,
-        rootUri: node.uri,
-      });
+      const projectId = node.projectId ?? node.uri;
+      const projectInfo =
+        projectHierarchy.projectById.get(projectId) ??
+        {
+          projectId,
+          title: node.name,
+          icon: node.projectIcon,
+          rootUri: node.uri,
+          isGitProject: false,
+          children: [],
+        };
+      openProjectTab(projectInfo);
       return;
     }
     if (node.kind === "file") {

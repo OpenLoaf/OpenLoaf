@@ -145,7 +145,7 @@ export function getToolById(toolId: string): ToolEntry | undefined {
 /**
  * Builds a ToolLoopAgent toolset from a list of ToolDef.id (MVP).
  */
-export function buildToolset(toolIds: readonly string[]) {
+export function buildToolset(toolIds: readonly string[] = []) {
   // AI SDK 的 ToolLoopAgent 需要一个 { [toolName]: tool } 的对象；这里严格用 ToolDef.id 作为 key。
   const toolset: Record<string, any> = {};
   for (const toolId of toolIds) {

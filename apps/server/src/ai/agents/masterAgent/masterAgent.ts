@@ -55,6 +55,13 @@ export type MasterAgentModelInfo = {
   modelId: string;
 };
 
+export type CreateMasterAgentInput = {
+  /** Model instance for the agent. */
+  model: LanguageModelV3;
+  /** Optional tool ids override. */
+  toolIds?: readonly string[];
+};
+
 /** Read base system prompt markdown content. */
 function readMasterAgentBasePrompt(): string {
   try {
@@ -66,21 +73,15 @@ function readMasterAgentBasePrompt(): string {
 }
 
 /**
- * Builds the system prompt for the master agent (MVP).
- */
-function buildMasterAgentSystemPrompt(): string {
-  const basePrompt = readMasterAgentBasePrompt();
-  return basePrompt;
-}
-
-/**
  * Creates the master agent instance (MVP).
  */
-export function createMasterAgent(input: { model: LanguageModelV3 }) {
+export function createMasterAgent(input: CreateMasterAgentInput) {
+  // 逻辑：未传 toolIds 时沿用默认工具集。
+  const toolIds = input.toolIds ?? MASTER_AGENT_TOOL_IDS;
   return new ToolLoopAgent({
     model: input.model,
-    instructions: buildMasterAgentSystemPrompt(),
-    tools: buildToolset(MASTER_AGENT_TOOL_IDS),
+    instructions: readMasterAgentBasePrompt(),
+    tools: buildToolset(toolIds),
   });
 }
 

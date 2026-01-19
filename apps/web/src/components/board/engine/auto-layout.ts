@@ -164,9 +164,13 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
         edge => componentSet.has(edge.from) && componentSet.has(edge.to)
       );
       if (componentEdges.length === 0) return;
-      const componentNodes = new Map(
-        componentIds.map(id => [id, linkedLayoutNodes.get(id)]).filter(([, node]) => Boolean(node))
-      ) as Map<string, LayoutNode>;
+      const componentNodes = new Map<string, LayoutNode>();
+      componentIds.forEach(id => {
+        const node = linkedLayoutNodes.get(id);
+        if (node) {
+          componentNodes.set(id, node);
+        }
+      });
       const { order, edges: dagEdges } = buildAcyclicOrder(componentIds, componentEdges);
 
       const axisMin = getAxisMin(componentNodes, direction);

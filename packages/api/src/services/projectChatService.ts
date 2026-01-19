@@ -16,7 +16,9 @@ export type ProjectChatDbClient = {
     deleteMany: (args: { where: { session: { projectId: string } } }) => Promise<{ count: number }>;
   };
   /** Run a transaction. */
-  $transaction: <T>(operations: Promise<T>[]) => Promise<T[]>;
+  $transaction: <T extends readonly Promise<unknown>[]>(
+    operations: T,
+  ) => Promise<{ [K in keyof T]: Awaited<T[K]> }>;
 };
 
 export type ProjectChatStats = {
@@ -74,7 +76,7 @@ export async function clearProjectChatData(
   const [messages, sessions] = await prisma.$transaction([
     prisma.chatMessage.deleteMany({ where: { session: { projectId: trimmedId } } }),
     prisma.chatSession.deleteMany({ where: { projectId: trimmedId } }),
-  ]);
+  ] as const);
 
   return {
     deletedSessions: sessions.count,
