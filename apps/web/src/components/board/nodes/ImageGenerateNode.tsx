@@ -663,7 +663,7 @@ export function ImageGenerateNodeView({
     // 逻辑：引擎实例可能来自旧热更新，缺少方法时直接跳过。
     if (typeof engine.focusViewportToRect !== "function") return;
     const [x, y, w, h] = element.xywh;
-    engine.focusViewportToRect({ x, y, w, h }, { padding: 120, durationMs: 280 });
+    engine.focusViewportToRect({ x, y, w, h }, { padding: 320, durationMs: 280 });
   }, [engine, element.xywh]);
 
   const statusLabel =
