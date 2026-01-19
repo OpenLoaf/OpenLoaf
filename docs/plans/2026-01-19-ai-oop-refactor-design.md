@@ -106,6 +106,69 @@ sequenceDiagram
   SO->>MR: saveAssistantMessage()
 ```
 
+## 4.1 aiExecuteRoutes / chatAttachmentRoutes 完整流程图
+
+### aiExecuteRoutes（统一入口）
+
+```mermaid
+flowchart TD
+  A[POST /ai/execute] --> B[解析与校验请求]
+  B -->|无效| E[返回错误响应]
+  B --> C[提取最后一条消息/解析命令/解析技能]
+  C --> D{命令在输入首部?}
+
+  D -- /summary-title --> ST[SummaryTitleUseCase\n不落库]
+  D -- /summary-history /summary-day /summary-project /update-project-summary --> SH[Summary*UseCase\n压缩/总结流]
+  D -- /expand-context-* --> EC[ContextExpansionUseCase\n一次性返回 text]
+  D -- /helper-project /helper-workspace --> HP[Helper*UseCase\n一次性返回 text]
+  D -- 否 --> I{intent}
+
+  I -- chat --> CS[ChatStreamUseCase]
+  I -- image --> IM{responseMode}
+  IM -- json --> IJ[ImageRequestUseCase(JSON)]
+  IM -- stream --> IS[ImageRequestUseCase(Stream)]
+  I -- video --> VR[VideoRequestUseCase]
+  I -- utility --> UT[UtilityUseCase（预留）]
+
+  ST --> R1[SSE data-session-title]
+  SH --> R2[SSE stream]
+  EC --> R3[JSON/SSE 一次性文本]
+  HP --> R3
+  CS --> R2
+  IS --> R2
+  IJ --> R4[JSON response]
+  VR --> R2
+  UT --> R4
+```
+
+### chatAttachmentRoutes（附件上传与预览）
+
+```mermaid
+flowchart TD
+  A1[POST /chat/attachments] --> B1[解析 multipart body]
+  B1 -->|无效| E1[400 Invalid multipart body]
+  B1 --> C1[校验 workspaceId/sessionId/file]
+  C1 -->|缺失| E2[400 Missing required upload fields]
+  C1 --> D1[检查 workspace 是否存在]
+  D1 -->|不存在| E3[400 Workspace not found]
+  D1 --> F1{文件类型}
+  F1 -- 上传文件 --> G1[校验大小 ≤ MAX_CHAT_IMAGE_BYTES]
+  G1 -->|过大| E4[413 Image too large]
+  G1 --> H1[saveChatImageAttachment\n压缩 + 落盘]
+  F1 -- 相对路径 --> H2[saveChatImageAttachmentFromPath\n压缩 + 落盘]
+  H1 --> I1[返回 JSON {url, mediaType}]
+  H2 --> I1
+
+  A2[GET /chat/attachments/preview] --> B2[校验 path]
+  B2 -->|无效| E5[400 Invalid preview path]
+  B2 --> C2[getFilePreview]
+  C2 -->|不存在| E6[404 Preview not found]
+  C2 -->|过大| E7[413 Preview too large]
+  C2 --> D2{includeMetadata?}
+  D2 -- 是 --> M1[multipart/mixed\nmetadata + binary]
+  D2 -- 否 --> M2[binary response]
+```
+
 ## 5. 数据访问与事务边界
 
 - `MessageRepository.saveMessage` 内部保留单事务写入（path/materialized tree 与 title 更新一致）。
