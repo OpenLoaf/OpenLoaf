@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggler } from "@/components/ThemeProvider";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import { clearThemeOverride, writeThemeOverride } from "@/lib/theme-override";
 
 /** Animated theme toggle button bound to the app theme. */
 export const AnimatedThemeToggle = ({
@@ -51,9 +52,12 @@ export const AnimatedThemeToggle = ({
             // 同步主题选择到设置存储，便于下次启动恢复。
             if (basic.uiTheme === "system") {
               // 保持系统自动切换开关不变，只更新手动偏好。
+              // 逻辑：仅当日覆盖，避免跨日影响系统主题切换。
+              writeThemeOverride(nextTheme);
               void setBasic({ uiThemeManual: nextTheme });
               return;
             }
+            clearThemeOverride();
             void setBasic({ uiTheme: nextTheme, uiThemeManual: nextTheme });
           }}
           className={cn("px-2.5 bg-transparent hover:bg-transparent", className)}
