@@ -18,6 +18,7 @@ import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
 import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
 import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
 
 type FontSizeKey = "small" | "medium" | "large" | "xlarge";
 type AnimationLevel = "low" | "medium" | "high";
@@ -95,7 +96,14 @@ export function BasicSettings() {
 
   useEffect(() => {
     if (basicLoading) return;
-    if (uiTheme === "dark" || uiTheme === "light" || uiTheme === "system") {
+    if (uiTheme === "system") {
+      // 逻辑：系统模式优先应用当日覆盖，跨日自动回到 system。
+      const override = readThemeOverride();
+      setTheme(override?.theme ?? "system");
+      return;
+    }
+    if (uiTheme === "dark" || uiTheme === "light") {
+      clearThemeOverride();
       setTheme(uiTheme);
     }
   }, [basicLoading, uiTheme, setTheme]);
