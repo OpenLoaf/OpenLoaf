@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { TabActiveProvider } from "@/components/layout/TabActiveContext";
 import { WorkspaceProvider } from "@/components/workspace/WorkspaceProvider";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
 
 type PanelSide = "left" | "right";
 type ThemeSelection = "light" | "dark" | "system";
@@ -80,6 +81,20 @@ function ThemeSettingsBootstrap() {
     if (isLoading || appliedThemeRef.current) return;
     const nextTheme = normalizeThemeSelection(basic.uiTheme);
     if (!nextTheme) return;
+    if (nextTheme === "system") {
+      // 逻辑：系统模式优先读取当日覆盖，跨日自动失效。
+      const override = readThemeOverride();
+      const target = override?.theme ?? "system";
+      if (theme === target) {
+        appliedThemeRef.current = true;
+        return;
+      }
+      appliedThemeRef.current = true;
+      setTheme(target);
+      return;
+    }
+    // 逻辑：手动模式清理覆盖，避免影响下次系统切换。
+    clearThemeOverride();
     if (theme === nextTheme) {
       appliedThemeRef.current = true;
       return;

@@ -12,6 +12,7 @@ import type { UiEvent } from "@tenas-ai/api";
 import { usePrewarmPlate } from "@/hooks/use-prewarm-plate";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import AutoUpdateGate from "@/components/layout/AutoUpdateGate";
+import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
 
 type ThemeSelection = "light" | "dark" | "system";
 type FontSizeSelection = "small" | "medium" | "large" | "xlarge";
@@ -54,6 +55,20 @@ function ThemeSettingsBootstrap() {
     if (isLoading || appliedThemeRef.current) return;
     const nextTheme = normalizeThemeSelection(basic.uiTheme);
     if (!nextTheme) return;
+    if (nextTheme === "system") {
+      // 逻辑：系统模式优先读取当日覆盖，跨日自动失效。
+      const override = readThemeOverride();
+      const target = override?.theme ?? "system";
+      if (theme === target) {
+        appliedThemeRef.current = true;
+        return;
+      }
+      appliedThemeRef.current = true;
+      setTheme(target);
+      return;
+    }
+    // 逻辑：手动模式清理覆盖，避免影响下次系统切换。
+    clearThemeOverride();
     if (theme === nextTheme) {
       appliedThemeRef.current = true;
       return;
