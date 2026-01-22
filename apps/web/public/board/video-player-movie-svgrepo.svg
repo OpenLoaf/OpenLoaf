@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+	 viewBox="0 0 512 512" xml:space="preserve">
+<path style="fill:#2D2D2D;" d="M433.416,334.964l43.44,8.408v27.336L512,376.564v-241.12l-35.144,5.856v19.168l-43.44,8.408V88.1H0
+	v335.8h433.416V334.964z M359.032,112.804h36.32V133.3h-36.32V112.804z M295.232,112.804h36.32V133.3h-36.32V112.804z
+	 M231.424,112.804h36.32V133.3h-36.32L231.424,112.804L231.424,112.804z M167.624,112.804h36.32V133.3h-36.32V112.804z
+	 M103.824,112.804h36.32V133.3h-36.32V112.804z M40.024,112.804h36.32V133.3h-36.32C40.024,133.3,40.024,112.804,40.024,112.804z
+	 M76.344,399.204h-36.32v-20.496h36.32V399.204z M140.144,399.204h-36.32v-20.496h36.32V399.204z M203.944,399.204h-36.32v-20.496
+	h36.32V399.204z M267.744,399.204h-36.32v-20.496h36.32V399.204z M331.544,399.204h-36.32v-20.496h36.32V399.204z M395.352,399.204
+	h-36.32v-20.496h36.32V399.204z M40.024,363.124v-214.24h355.328v214.24H40.024z"/>
+<path style="fill:#DB2B42;" d="M395.352,148.884H40.024v214.24h355.328V148.884z M165.872,326.412V186.428l131.104,70
+	L165.872,326.412z"/>
+<g>
+	<rect x="40" y="112.804" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<rect x="103.824" y="112.804" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<rect x="167.624" y="112.804" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<rect x="231.424" y="112.804" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<rect x="295.232" y="112.804" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<rect x="359.032" y="112.804" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<rect x="40" y="378.724" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<rect x="103.824" y="378.724" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<rect x="167.624" y="378.724" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<rect x="231.424" y="378.724" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<rect x="295.232" y="378.724" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<rect x="359.032" y="378.724" style="fill:#FFFFFF;" width="36.32" height="20.496"/>
+	<polygon style="fill:#FFFFFF;" points="165.872,326.412 296.984,256.42 165.872,186.428 	"/>
+</g>
+</svg>

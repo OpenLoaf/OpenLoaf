@@ -3,6 +3,7 @@ import { GroupNodeDefinition, ImageGroupNodeDefinition } from "../nodes/GroupNod
 import { ImageGenerateNodeDefinition } from "../nodes/ImageGenerateNode";
 import { VideoGenerateNodeDefinition } from "../nodes/VideoGenerateNode";
 import { ImageNodeDefinition } from "../nodes/ImageNode";
+import { VideoNodeDefinition } from "../nodes/VideoNode";
 import { ImagePromptGenerateNodeDefinition } from "../nodes/ImagePromptGenerateNode";
 import { LinkNodeDefinition } from "../nodes/LinkNode";
 import { StrokeNodeDefinition } from "../nodes/StrokeNode";
@@ -11,6 +12,7 @@ import { TextNodeDefinition } from "../nodes/TextNode";
 /** Default node definitions registered for board canvases. */
 export const BOARD_NODE_DEFINITIONS = [
   ImageNodeDefinition,
+  VideoNodeDefinition,
   CalendarNodeDefinition,
   LinkNodeDefinition,
   StrokeNodeDefinition,

@@ -669,6 +669,7 @@ export function ChatInputBox({
           onRemoveAttachment={onRemoveAttachment}
           onReplaceMaskedAttachment={onReplaceMaskedAttachment}
           enableEdit={attachmentEditEnabled}
+          projectId={defaultProjectId}
         />
 
         <div

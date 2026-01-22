@@ -13,6 +13,12 @@ import { getStackedImageRect } from "../utils/image-insert";
 import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/ImageGenerateNode";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/ImagePromptGenerateNode";
 import { VIDEO_GENERATE_NODE_TYPE } from "../nodes/VideoGenerateNode";
+import { useBoardContext } from "../core/BoardProvider";
+import { VIDEO_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import {
+  ProjectFilePickerDialog,
+  type ProjectFilePickerSelection,
+} from "@/components/project/filesystem/components/ProjectFilePickerDialog";
 
 export interface BoardToolbarProps {
   /** Canvas engine instance. */
@@ -52,6 +58,7 @@ const TOOL_LABELS = {
   eraser: "橡皮",
   note: "便签",
   image: "图片",
+  video: "视频",
   calendar: "日历",
 } as const;
 
@@ -68,6 +75,7 @@ const TOOL_SHORTCUTS = {
 const INSERT_TOOL_LABELS: Record<string, string> = {
   note: TOOL_LABELS.note,
   image: TOOL_LABELS.image,
+  video: TOOL_LABELS.video,
   calendar: TOOL_LABELS.calendar,
 };
 
@@ -84,6 +92,7 @@ const SELECT_SVG_SRC = "/board/select-cursor-svgrepo-com.svg";
 const DRAG_SVG_SRC = "/board/drag-svgrepo-com.svg";
 const NOTE_SVG_SRC = "/board/notes-note-svgrepo-com.svg";
 const PICTURE_SVG_SRC = "/board/picture-photo-svgrepo-com.svg";
+const VIDEO_SVG_SRC = "/board/video-player-movie-svgrepo.svg";
 
 const prefixSvgIds = (svg: string, prefix: string) => {
   const safePrefix = prefix.replace(/:/g, "");
@@ -217,6 +226,16 @@ function ImageIcon({ size = 20, className }: IconProps) {
   );
 }
 
+function VideoIcon({ size = 20, className }: IconProps) {
+  return (
+    <InlineSvgFile
+      src={VIDEO_SVG_SRC}
+      className={className}
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
+  );
+}
+
 function PageIcon({ size = 20, className }: IconProps) {
   return (
     <InlineSvgFile
@@ -261,6 +280,14 @@ const INSERT_ITEMS: InsertItem[] = [
     description: "Image block.",
     icon: ImageIcon,
     size: [320, 220],
+    opensPicker: true,
+  },
+  {
+    id: "video",
+    title: "Video",
+    description: "Video block.",
+    icon: VideoIcon,
+    size: [360, 240],
     opensPicker: true,
   },
   {
@@ -313,6 +340,8 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const [insertPanelPinned, setInsertPanelPinned] = useState(false);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const { fileContext } = useBoardContext();
+  const [videoPickerOpen, setVideoPickerOpen] = useState(false);
   const isSelectTool = snapshot.activeToolId === "select";
   const isHandTool = snapshot.activeToolId === "hand";
   const isPenTool = snapshot.activeToolId === "pen" || snapshot.activeToolId === "highlighter";
@@ -545,6 +574,28 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     [engine, handleInsertRequest, insertImagePayloadsAtPoint]
   );
 
+  /** Open the project file picker for videos. */
+  const handlePickVideo = useCallback(() => {
+    if (isLocked) return;
+    setVideoPickerOpen(true);
+  }, [isLocked]);
+
+  const handleVideoSelected = useCallback(
+    (selection: ProjectFilePickerSelection) => {
+      if (!selection.fileRef) return;
+      handleInsertRequest({
+        id: "video",
+        type: "video",
+        props: {
+          sourcePath: selection.fileRef,
+          fileName: selection.entry.name,
+        },
+        size: [360, 240],
+      });
+    },
+    [handleInsertRequest]
+  );
+
   // 统一按钮尺寸（“宽松”密度）
   const iconSize = 20;
   /** 底部工具栏图标尺寸。 */
@@ -757,6 +808,10 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     return;
                   }
                   if (item.opensPicker) {
+                    if (item.id === "video") {
+                      handlePickVideo();
+                      return;
+                    }
                     handlePickImage();
                     return;
                   }
@@ -833,6 +888,15 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           multiple
           className="hidden"
           onChange={handleImageChange}
+        />
+        <ProjectFilePickerDialog
+          open={videoPickerOpen}
+          onOpenChange={setVideoPickerOpen}
+          title="选择视频文件"
+          allowedExtensions={VIDEO_EXTS}
+          defaultRootUri={fileContext?.rootUri}
+          defaultActiveUri={fileContext?.boardFolderUri}
+          onSelectFile={handleVideoSelected}
         />
       </div>
     </div>

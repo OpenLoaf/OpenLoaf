@@ -11,6 +11,7 @@ import ClockWidget from "./widgets/ClockWidget";
 import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
+import VideoWidget from "./widgets/VideoWidget";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
 import {
   formatScopedProjectPath,
@@ -49,6 +50,7 @@ function WidgetEntityPreview({ widgetKey }: { widgetKey: DesktopWidgetItem["widg
   if (widgetKey === "flip-clock") return <FlipClockWidget />;
   if (widgetKey === "quick-actions") return <QuickActionsWidget />;
   if (widgetKey === "3d-folder") return <ThreeDFolderWidget />;
+  if (widgetKey === "video") return <VideoWidget />;
   return <div className="text-sm text-muted-foreground">Widget</div>;
 }
 

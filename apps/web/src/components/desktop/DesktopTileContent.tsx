@@ -11,6 +11,7 @@ import ClockWidget from "./widgets/ClockWidget";
 import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
+import VideoWidget from "./widgets/VideoWidget";
 import type { DesktopIconKey } from "./types";
 
 interface DesktopTileContentProps {
@@ -150,6 +151,19 @@ export default function DesktopTileContent({ item }: DesktopTileContentProps) {
           folderUri={item.folderUri}
           hovered={isHovered}
         />
+      </div>
+    );
+  }
+
+  if (widgetKey === "video") {
+    return (
+      <div className="flex h-full w-full flex-col p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="truncate text-sm font-medium">{item.title}</div>
+        </div>
+        <div className="mt-3 min-h-0 flex-1">
+          <VideoWidget fileRef={item.videoFileRef} title={item.title} />
+        </div>
       </div>
     );
   }

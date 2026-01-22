@@ -7,6 +7,7 @@ export type FilePreviewViewer =
   | "pdf"
   | "doc"
   | "sheet"
+  | "video"
   | "file";
 
 export type FilePreviewItem = {

@@ -11,6 +11,7 @@ import PdfViewer from "@/components/file/PdfViewer";
 import DocViewer from "@/components/file/DocViewer";
 import SheetViewer from "@/components/file/SheetViewer";
 import FileViewer from "@/components/file/FileViewer";
+import VideoViewer from "@/components/file/VideoViewer";
 import { getImageDialogSize, type ImageMeta } from "@/lib/image/dialog-size";
 import { useFilePreviewStore, closeFilePreview } from "@/components/file/lib/file-preview-store";
 
@@ -63,7 +64,7 @@ export default function FilePreviewDialog() {
       <DialogContent
         className={
           isImage
-            ? `h-auto w-auto max-h-[80vh] max-w-none sm:max-w-none p-0 overflow-hidden flex flex-col gap-0 transition-opacity duration-200 border-0 bg-transparent shadow-none ${
+            ? `h-auto w-auto max-h-[80vh] max-w-none sm:max-w-none p-0 overflow-hidden flex flex-col gap-0 transition-opacity duration-200 border border-border/60 bg-transparent shadow-none ${
                 dialogSize ? "opacity-100" : "opacity-100 min-h-[200px] min-w-[320px]"
               }`
             : "h-[90vh] w-[90vw] max-w-none p-0 overflow-hidden"
@@ -155,6 +156,16 @@ export default function FilePreviewDialog() {
               projectId={currentItem.projectId}
               rootUri={currentItem.rootUri}
               readOnly
+            />
+          ) : null}
+
+          {payload.viewer === "video" ? (
+            <VideoViewer
+              uri={currentItem.uri}
+              openUri={currentItem.openUri}
+              name={currentItem.name}
+              projectId={currentItem.projectId}
+              rootUri={currentItem.rootUri}
             />
           ) : null}
 

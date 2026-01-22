@@ -66,7 +66,7 @@ export interface DesktopIconItem extends DesktopItemBase {
 export interface DesktopWidgetItem extends DesktopItemBase {
   kind: "widget";
   /** Widget implementation key (built-in for MVP). */
-  widgetKey: "clock" | "flip-clock" | "quick-actions" | "3d-folder";
+  widgetKey: "clock" | "flip-clock" | "quick-actions" | "3d-folder" | "video";
   /** Widget size in grid units (MVP uses presets). */
   size: DesktopWidgetSize;
   /** Widget layout constraints for resizing. */
@@ -75,6 +75,8 @@ export interface DesktopWidgetItem extends DesktopItemBase {
   flipClock?: DesktopFlipClockSettings;
   /** Folder selection reference (when widgetKey is 3d-folder). */
   folderUri?: string;
+  /** Video file reference (when widgetKey is video). */
+  videoFileRef?: string;
 }
 
 export type DesktopItem = DesktopIconItem | DesktopWidgetItem;

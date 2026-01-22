@@ -25,6 +25,8 @@ export type FileSystemEntryOpenHandlers = {
   onOpenDoc?: (entry: FileSystemEntry) => void;
   /** Open spreadsheet entries. */
   onOpenSpreadsheet?: (entry: FileSystemEntry) => void;
+  /** Open video entries. */
+  onOpenVideo?: (entry: FileSystemEntry) => void;
   /** Open board entries. */
   onOpenBoard?: (entry: FileSystemEntry) => void;
   /** Navigate into folders. */
@@ -96,6 +98,9 @@ export function handleFileSystemEntryOpen({
       return true;
     case "sheet":
       handlers.onOpenSpreadsheet?.(entry);
+      return true;
+    case "video":
+      handlers.onOpenVideo?.(entry);
       return true;
     case "file":
       // 逻辑：非预览类型统一提示是否使用系统默认程序打开。

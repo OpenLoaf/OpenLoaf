@@ -22,7 +22,7 @@ type DesktopFileItem = {
   id: string;
   kind: "icon" | "widget";
   title: string;
-  widgetKey?: "clock" | "flip-clock" | "quick-actions" | "3d-folder";
+  widgetKey?: "clock" | "flip-clock" | "quick-actions" | "3d-folder" | "video";
   size?: "1x1" | "2x2" | "4x2" | "4x3";
   constraints?: DesktopWidgetConstraints;
   pinned?: boolean;
@@ -84,6 +84,8 @@ export function serializeDesktopItems(items: DesktopItem[]): DesktopFilePayload 
         ? { showSeconds: item.flipClock?.showSeconds ?? true }
         : item.widgetKey === "3d-folder"
           ? { folderUri: item.folderUri }
+          : item.widgetKey === "video"
+            ? { videoFileRef: item.videoFileRef }
           : undefined;
 
     return {
@@ -151,6 +153,10 @@ export function deserializeDesktopItems(raw: string): DesktopItem[] | null {
           folderUri:
             item.widgetKey === "3d-folder" && typeof params.folderUri === "string"
               ? params.folderUri
+              : undefined,
+          videoFileRef:
+            item.widgetKey === "video" && typeof params.videoFileRef === "string"
+              ? params.videoFileRef
               : undefined,
           flipClock:
             item.widgetKey === "flip-clock"

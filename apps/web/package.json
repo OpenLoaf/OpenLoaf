@@ -105,6 +105,7 @@
     "docx-preview": "^0.3.7",
     "framer-motion": "^12.25.0",
     "gridstack": "^12.4.2",
+    "hls.js": "^1.5.17",
     "html-to-image": "^1.11.11",
     "html2canvas-pro": "^1.6.1",
     "lodash": "^4.17.21",

@@ -10,6 +10,7 @@ import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
 import { registerS3TestRoutes } from "@/modules/storage/s3TestRoutes";
 import { registerCloudModelRoutes } from "@/ai/models/cloudModelRoutes";
+import { registerHlsRoutes } from "@/modules/media/hlsRoutes";
 import { workspaceRouterImplementation } from "@/routers/workspace";
 import { tabRouterImplementation } from "@/routers/tab";
 import { chatRouterImplementation } from "@/routers/chat";
@@ -72,6 +73,7 @@ export function createApp() {
   registerAuthRoutes(app);
   registerCloudModelRoutes(app);
   registerS3TestRoutes(app);
+  registerHlsRoutes(app);
 
   app.use(
     "/trpc/*",

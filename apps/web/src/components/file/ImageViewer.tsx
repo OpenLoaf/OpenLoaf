@@ -912,29 +912,21 @@ export default function ImageViewer({
 
   if (isRelative && !shouldUseBinary && preview?.status === "error") {
     return (
-      <div className="flex h-full w-full items-center justify-center p-6">
-        <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-destructive/40 bg-destructive/5 px-6 py-5 text-center text-sm text-foreground shadow-sm">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
-          </div>
-          <div className="text-base font-medium text-destructive">图片预览失败</div>
-          <div className="text-xs text-muted-foreground">请检查文件路径或稍后重试</div>
-        </div>
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
+        <AlertTriangle className="h-8 w-8 text-destructive/70" />
+        <div className="text-base font-medium text-destructive">图片预览失败</div>
+        <div className="text-xs text-muted-foreground">请检查文件路径或稍后重试</div>
       </div>
     );
   }
 
   if (shouldUseBinary && imageQuery.isError && !placeholderSrc) {
     return (
-      <div className="flex h-full w-full items-center justify-center p-6">
-        <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-destructive/40 bg-destructive/5 px-6 py-5 text-center text-sm text-foreground shadow-sm">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
-          </div>
-          <div className="text-base font-medium text-destructive">图片加载失败</div>
-          <div className="text-xs text-muted-foreground">
-            {imageQuery.error?.message ?? "读取失败"}
-          </div>
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
+        <AlertTriangle className="h-8 w-8 text-destructive/70" />
+        <div className="text-base font-medium text-destructive">图片加载失败</div>
+        <div className="text-xs text-muted-foreground">
+          {imageQuery.error?.message ?? "读取失败"}
         </div>
       </div>
     );

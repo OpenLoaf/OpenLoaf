@@ -39,4 +39,10 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
     size: "4x3",
     constraints: { defaultW: 4, defaultH: 3, minW: 1, minH: 1, maxW: 12, maxH: 20 },
   },
+  {
+    widgetKey: "video",
+    title: "Video",
+    size: "4x3",
+    constraints: { defaultW: 4, defaultH: 3, minW: 2, minH: 2, maxW: 8, maxH: 6 },
+  },
 ];

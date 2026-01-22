@@ -21,6 +21,7 @@ type ChatImageAttachmentsProps = {
   onRemoveAttachment?: (attachmentId: string) => void;
   onReplaceMaskedAttachment?: (attachmentId: string, input: MaskedAttachmentInput) => void;
   enableEdit?: boolean;
+  projectId?: string;
 };
 
 /**
@@ -30,7 +31,7 @@ export const ChatImageAttachments = React.forwardRef<
   ChatImageAttachmentsHandle,
   ChatImageAttachmentsProps
 >(function ChatImageAttachments(
-  { attachments, onAddAttachments, onRemoveAttachment, onReplaceMaskedAttachment, enableEdit = true },
+  { attachments, onAddAttachments, onRemoveAttachment, onReplaceMaskedAttachment, enableEdit = true, projectId },
   ref
 ) {
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -80,10 +81,11 @@ export const ChatImageAttachments = React.forwardRef<
               title: previewTitle,
               saveName: previewAttachment.file.name,
               mediaType: previewAttachment.mediaType || previewAttachment.file.type,
+              projectId,
             },
           ]
         : [],
-    [previewAttachment, previewBaseUri, previewMaskUri, previewTitle]
+    [previewAttachment, previewBaseUri, previewMaskUri, previewTitle, projectId]
   );
 
   React.useEffect(() => {

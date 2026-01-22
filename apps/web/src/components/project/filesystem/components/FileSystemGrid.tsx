@@ -56,6 +56,8 @@ type FileSystemGridProps = {
   onOpenDoc?: (entry: FileSystemEntry) => void;
   /** Open spreadsheet entries in an external viewer. */
   onOpenSpreadsheet?: (entry: FileSystemEntry) => void;
+  /** Open video entries in an external viewer. */
+  onOpenVideo?: (entry: FileSystemEntry) => void;
   /** Open board entries in the board viewer. */
   onOpenBoard?: (entry: FileSystemEntry) => void;
   showEmptyActions?: boolean;
@@ -120,6 +122,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onOpenPdf,
   onOpenDoc,
   onOpenSpreadsheet,
+  onOpenVideo,
   onOpenBoard,
   showEmptyActions = true,
   onCreateDocument,
@@ -195,6 +198,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onOpenDocRef.current = onOpenDoc;
   const onOpenSpreadsheetRef = useRef(onOpenSpreadsheet);
   onOpenSpreadsheetRef.current = onOpenSpreadsheet;
+  const onOpenVideoRef = useRef(onOpenVideo);
+  onOpenVideoRef.current = onOpenVideo;
   const onOpenBoardRef = useRef(onOpenBoard);
   onOpenBoardRef.current = onOpenBoard;
   const onNavigateRef = useRef(onNavigate);
@@ -325,6 +330,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
           onOpenPdf: onOpenPdfRef.current,
           onOpenDoc: onOpenDocRef.current,
           onOpenSpreadsheet: onOpenSpreadsheetRef.current,
+          onOpenVideo: onOpenVideoRef.current,
           onOpenBoard: onOpenBoardRef.current,
           onNavigate: onNavigateRef.current,
         },

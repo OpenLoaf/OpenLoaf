@@ -187,6 +187,7 @@ export type ProjectFileSystemModel = {
   handleOpenPdf: (entry: FileSystemEntry) => void;
   handleOpenDoc: (entry: FileSystemEntry) => void;
   handleOpenSpreadsheet: (entry: FileSystemEntry) => void;
+  handleOpenVideo: (entry: FileSystemEntry) => void;
   handleOpenBoard: (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => void;
   handleOpenTerminal: (entry: FileSystemEntry) => void;
   handleOpenTerminalAtCurrent: () => void;
@@ -778,6 +779,19 @@ export function useProjectFileSystemModel({
 
   /** Open a spreadsheet file inside the current tab stack. */
   const handleOpenSpreadsheet = useCallback(
+    (entry: FileSystemEntry) => {
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId,
+        rootUri,
+      });
+    },
+    [activeTabId, projectId, rootUri]
+  );
+
+  /** Open a video file inside the current tab stack. */
+  const handleOpenVideo = useCallback(
     (entry: FileSystemEntry) => {
       openFile({
         entry,
@@ -1499,6 +1513,7 @@ export function useProjectFileSystemModel({
     handleOpenPdf,
     handleOpenDoc,
     handleOpenSpreadsheet,
+    handleOpenVideo,
     handleOpenBoard,
     handleOpenTerminal,
     handleOpenTerminalAtCurrent,

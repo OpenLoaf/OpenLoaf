@@ -17,6 +17,7 @@ import {
   MARKDOWN_EXTS,
   PDF_EXTS,
   SPREADSHEET_EXTS,
+  VIDEO_EXTS,
   isTextFallbackExt,
 } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import {
@@ -107,6 +108,7 @@ export function resolveFileViewerTarget(entry: FileSystemEntry): FileViewerTarge
   if (PDF_EXTS.has(ext)) return { viewer: "pdf", ext };
   if (DOC_EXTS.has(ext)) return { viewer: "doc", ext };
   if (SPREADSHEET_EXTS.has(ext)) return { viewer: "sheet", ext };
+  if (VIDEO_EXTS.has(ext)) return { viewer: "video", ext };
   return { viewer: "file", ext };
 }
 
@@ -302,6 +304,18 @@ export function buildStackItemForEntry(input: {
         params: {
           ...baseParams,
           rootUri: input.rootUri,
+          __customHeader: true,
+        },
+      };
+    case "video":
+      return {
+        id: input.entry.uri,
+        component: "video-viewer",
+        title: input.entry.name,
+        params: {
+          ...baseParams,
+          rootUri: input.rootUri,
+          projectId: input.projectId,
           __customHeader: true,
         },
       };

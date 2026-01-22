@@ -17,6 +17,7 @@ import MarkdownViewer from "@/components/file/MarkdownViewer";
 import PdfViewer from "@/components/file/PdfViewer";
 import DocViewer from "@/components/file/DocViewer";
 import SheetViewer from "@/components/file/SheetViewer";
+import VideoViewer from "@/components/file/VideoViewer";
 import BoardFileViewer from "@/components/board/BoardFileViewer";
 import TerminalViewer from "@/components/file/TerminalViewer";
 import DesktopWidgetLibraryPanel from "@/components/desktop/DesktopWidgetLibraryPanel";
@@ -49,6 +50,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "pdf-viewer": PdfViewer,
   "doc-viewer": DocViewer,
   "sheet-viewer": SheetViewer,
+  "video-viewer": VideoViewer,
   "board-viewer": BoardFileViewer,
   "terminal-viewer": TerminalViewer,
   "desktop-widget-library": DesktopWidgetLibraryPanel,
@@ -95,6 +97,8 @@ export const getPanelTitle = (componentName: string) => {
       return "DOC";
     case "sheet-viewer":
       return "Sheet";
+    case "video-viewer":
+      return "Video";
     case "board-viewer":
       return "Board";
     case "terminal-viewer":
