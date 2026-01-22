@@ -129,6 +129,8 @@ const GIT_LOG_SEPARATOR = "@@@";
 const GIT_LOG_FIELD_SEPARATOR = "\x1f";
 /** Cached git CLI availability. */
 let gitCliAvailable: boolean | null = null;
+/** Marker for appended gitignore template. */
+const GITIGNORE_TEMPLATE_MARKER = "# Tenas default .gitignore";
 
 /** Exec helper for git CLI. */
 const execFileAsync = promisify(execFile);
@@ -180,6 +182,104 @@ async function resolveGitRepoContext(
   }
 
   return null;
+}
+
+/** Normalize text content to LF and trim trailing whitespace. */
+function normalizeTextContent(raw: string): string {
+  return raw.replace(/\r\n/g, "\n").replace(/\s+$/g, "");
+}
+
+/** Resolve whether a gitignore content already contains the template marker. */
+function hasGitignoreTemplate(raw: string): boolean {
+  return raw.includes(GITIGNORE_TEMPLATE_MARKER);
+}
+
+/** Merge gitignore template into target path without overwriting existing content. */
+async function mergeGitignoreTemplate(input: {
+  rootPath: string;
+  templatePath: string;
+}): Promise<void> {
+  const gitignorePath = path.join(input.rootPath, ".gitignore");
+  let templateRaw = "";
+  try {
+    templateRaw = await fs.readFile(input.templatePath, "utf-8");
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    // 中文注释：模板不存在时跳过，避免影响项目初始化。
+    if (code === "ENOENT") return;
+    throw err;
+  }
+  const normalizedTemplate = normalizeTextContent(templateRaw);
+  if (!normalizedTemplate) return;
+
+  let existingRaw = "";
+  try {
+    existingRaw = await fs.readFile(gitignorePath, "utf-8");
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") throw err;
+  }
+  if (existingRaw && hasGitignoreTemplate(existingRaw)) {
+    return;
+  }
+
+  const normalizedExisting = normalizeTextContent(existingRaw);
+  const nextContent = normalizedExisting
+    ? `${normalizedExisting}\n\n${normalizedTemplate}\n`
+    : `${normalizedTemplate}\n`;
+  // 中文注释：保留原有 .gitignore 内容并追加模板。
+  await fs.writeFile(gitignorePath, nextContent, "utf-8");
+}
+
+/** Initialize a git repository with a default branch. */
+async function initGitRepository(input: {
+  rootPath: string;
+  defaultBranch: string;
+}): Promise<void> {
+  const defaultBranch = input.defaultBranch.trim() || "main";
+  if (await checkGitCliAvailable(input.rootPath)) {
+    try {
+      const args = ["init", "-b", defaultBranch];
+      await execFileAsync("git", args, { cwd: input.rootPath });
+      return;
+    } catch {
+      // 中文注释：git 旧版本不支持 -b 时回退处理。
+    }
+    try {
+      await execFileAsync("git", ["init"], { cwd: input.rootPath });
+      await execFileAsync("git", ["symbolic-ref", "HEAD", `refs/heads/${defaultBranch}`], {
+        cwd: input.rootPath,
+      });
+      return;
+    } catch {
+      // 中文注释：CLI 初始化失败时回退到 isomorphic-git。
+    }
+  }
+
+  await git.init({
+    fs: nodeFs,
+    dir: input.rootPath,
+    defaultBranch,
+  });
+}
+
+/** Ensure a project path is a git repository and has the gitignore template appended. */
+export async function ensureGitRepository(input: {
+  rootPath: string;
+  defaultBranch: string;
+  templatePath: string;
+}): Promise<void> {
+  const rootPath = input.rootPath.trim();
+  if (!rootPath) {
+    throw new Error("项目路径不能为空");
+  }
+  const existingRepo = await resolveGitRepoContext(rootPath, {
+    allowParentScan: true,
+  });
+  if (existingRepo) return;
+  // 中文注释：非 Git 项目时自动初始化仓库并追加模板。
+  await initGitRepository({ rootPath, defaultBranch: input.defaultBranch });
+  await mergeGitignoreTemplate({ rootPath, templatePath: input.templatePath });
 }
 
 /** Resolve current git branch name. */

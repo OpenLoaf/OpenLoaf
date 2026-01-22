@@ -20,5 +20,7 @@ export function useProjects(overrides?: ProjectsQueryOverrides): UseQueryResult<
     ...(overrides ?? {}),
     queryKey: queryOptions.queryKey,
     queryFn: queryOptions.queryFn,
+    staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   }) as UseQueryResult<ProjectNode[]>;
 }

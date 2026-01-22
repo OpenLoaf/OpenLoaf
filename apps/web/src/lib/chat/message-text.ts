@@ -2,6 +2,7 @@
 
 import { isToolPart } from "./message-parts";
 import { resolveToolDisplayName } from "./tool-name";
+import { normalizeFileMentionSpacing } from "@/components/chat/chat-input-utils";
 
 type AnyMessagePart = {
   type?: string;
@@ -20,11 +21,12 @@ type AnyMessagePart = {
  */
 export function getMessagePlainText(message: { parts?: unknown[] } | undefined): string {
   const parts = Array.isArray(message?.parts) ? (message!.parts as AnyMessagePart[]) : [];
-  return parts
+  const text = parts
     .filter((part) => part?.type === "text" && typeof part?.text === "string")
     .map((part) => String(part.text))
     .join("\n")
     .trim();
+  return normalizeFileMentionSpacing(text);
 }
 
 /**
@@ -48,7 +50,8 @@ export function getMessageTextWithToolCalls(message: { parts?: unknown[] } | und
     }
   }
 
-  return chunks.join("\n\n").trim();
+  const text = chunks.join("\n\n").trim();
+  return normalizeFileMentionSpacing(text);
 }
 
 /**

@@ -46,6 +46,10 @@ export const projectCreateToolDef = {
     title: z.string().nullable().optional().describe("项目标题（可选）"),
     folderName: z.string().nullable().optional().describe("项目目录名称（可选）"),
     icon: z.string().nullable().optional().describe("项目图标（可选）"),
+    enableVersionControl: z
+      .boolean()
+      .optional()
+      .describe("是否启用项目版本控制（默认开启）"),
   }),
   needsApproval: true,
   component: null,

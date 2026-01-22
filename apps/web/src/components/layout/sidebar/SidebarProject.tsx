@@ -49,11 +49,14 @@ export const SidebarProject = () => {
 
   const [isPlatformOpen, setIsPlatformOpen] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
   const [folderName, setFolderName] = useState("");
   const [isFolderNameSynced, setIsFolderNameSynced] = useState(true);
   const [useCustomPath, setUseCustomPath] = useState(false);
   const [customPath, setCustomPath] = useState("");
+  const [importPath, setImportPath] = useState("");
+  const [enableVersionControl, setEnableVersionControl] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [isImportBusy, setIsImportBusy] = useState(false);
 
@@ -67,6 +70,7 @@ export const SidebarProject = () => {
         title: title || undefined,
         folderName: folderNameValue || undefined,
         rootUri: useCustomPath ? customPath.trim() || undefined : undefined,
+        enableVersionControl,
       });
       toast.success("项目已创建");
       setCreateTitle("");
@@ -74,6 +78,7 @@ export const SidebarProject = () => {
       setIsFolderNameSynced(true);
       setUseCustomPath(false);
       setCustomPath("");
+      setEnableVersionControl(true);
       setIsCreateOpen(false);
       // 中文注释：创建后刷新项目列表，确保新项目立即出现。
       await projectListQuery.refetch();
@@ -139,17 +144,22 @@ export const SidebarProject = () => {
 
   /** Import an existing project into workspace config. */
   const handleImportProject = async () => {
-    const picked = await pickDirectory();
-    if (!picked) {
+    const path = importPath.trim();
+    if (!path) {
       toast.error("请选择项目目录");
       return;
     }
     try {
       setIsImportBusy(true);
       // 中文注释：导入时直接写入配置并刷新列表，避免多余弹窗。
-      await createProject.mutateAsync({ rootUri: picked });
+      await createProject.mutateAsync({
+        rootUri: path,
+        enableVersionControl,
+      });
       toast.success("项目已导入");
-      setIsCreateOpen(false);
+      setIsImportOpen(false);
+      setImportPath("");
+      setEnableVersionControl(true);
       await projectListQuery.refetch();
     } catch (err: any) {
       toast.error(err?.message ?? "导入失败");
@@ -203,7 +213,7 @@ export const SidebarProject = () => {
           <ContextMenuItem icon={FolderPlus} onClick={() => setIsCreateOpen(true)}>
             新建项目
           </ContextMenuItem>
-          <ContextMenuItem icon={FolderOpen} onClick={() => void handleImportProject()}>
+          <ContextMenuItem icon={FolderOpen} onClick={() => setIsImportOpen(true)}>
             导入项目
           </ContextMenuItem>
         </ContextMenuContent>
@@ -214,6 +224,7 @@ export const SidebarProject = () => {
         onOpenChange={(open) => {
           if (open) {
             setIsCreateOpen(true);
+            setEnableVersionControl(true);
             return;
           }
           setIsCreateOpen(false);
@@ -222,6 +233,7 @@ export const SidebarProject = () => {
           setIsFolderNameSynced(true);
           setUseCustomPath(false);
           setCustomPath("");
+          setEnableVersionControl(true);
         }}
       >
         <DialogContent>
@@ -313,6 +325,23 @@ export const SidebarProject = () => {
                 </div>
               </div>
             ) : null}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="project-version-control" className="text-right">
+                是否开启项目版本控制
+              </Label>
+              <div className="col-span-3 flex items-center gap-3">
+                <Switch
+                  id="project-version-control"
+                  checked={enableVersionControl}
+                  onCheckedChange={(checked) =>
+                    setEnableVersionControl(Boolean(checked))
+                  }
+                />
+                <span className="text-xs text-muted-foreground">
+                  默认启用，可随时关闭
+                </span>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>
@@ -322,6 +351,80 @@ export const SidebarProject = () => {
             </DialogClose>
             <Button onClick={handleCreateProject} disabled={isBusy}>
               创建
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isImportOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsImportOpen(true);
+            setEnableVersionControl(true);
+            setImportPath("");
+            return;
+          }
+          setIsImportOpen(false);
+          setImportPath("");
+          setEnableVersionControl(true);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>导入项目</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="project-import-path" className="text-right">
+                路径
+              </Label>
+              <div className="col-span-3 flex items-center gap-2">
+                <Input
+                  id="project-import-path"
+                  value={importPath}
+                  onChange={(event) => setImportPath(event.target.value)}
+                  placeholder="file://... 或 /path/to/project"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    const next = await pickDirectory(importPath);
+                    if (!next) return;
+                    setImportPath(next);
+                  }}
+                >
+                  选择
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="project-import-version-control" className="text-right">
+                是否开启项目版本控制
+              </Label>
+              <div className="col-span-3 flex items-center gap-3">
+                <Switch
+                  id="project-import-version-control"
+                  checked={enableVersionControl}
+                  onCheckedChange={(checked) =>
+                    setEnableVersionControl(Boolean(checked))
+                  }
+                />
+                <span className="text-xs text-muted-foreground">
+                  默认启用，可随时关闭
+                </span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" type="button">
+                取消
+              </Button>
+            </DialogClose>
+            <Button onClick={handleImportProject} disabled={isImportBusy}>
+              导入
             </Button>
           </DialogFooter>
         </DialogContent>

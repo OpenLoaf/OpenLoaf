@@ -19,7 +19,7 @@ export default function MessageAi({ message, className, isAnimating }: MessageAi
     <div className={cn("flex justify-start min-w-0", className)}>
       <div className="min-w-0 w-full space-y-2">
         <MessagePlan metadata={message.metadata} />
-        {renderMessageParts(message.parts as any[], { isAnimating })}
+        {renderMessageParts(message.parts as any[], { isAnimating, messageId: message.id })}
       </div>
     </div>
   );

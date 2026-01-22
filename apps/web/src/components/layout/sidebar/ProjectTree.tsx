@@ -50,11 +50,7 @@ import {
 import { trpc } from "@/utils/trpc";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { toast } from "sonner";
-import {
-  CODE_EXTS,
-  MARKDOWN_EXTS,
-  isTextFallbackExt,
-} from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import { buildStackItemForEntry } from "@/components/file/lib/open-file";
 import {
   BOARD_INDEX_FILE_NAME,
   ensureBoardFolderName,
@@ -65,7 +61,6 @@ import {
 import { Switch } from "@/components/ui/switch";
 import {
   getDisplayPathFromUri,
-  getRelativePathFromUri,
   getParentRelativePath,
   buildChildUri,
   normalizeRelativePath,
@@ -148,11 +143,13 @@ type ChildProjectTarget = {
   title: string;
   useCustomPath: boolean;
   customPath: string;
+  enableVersionControl: boolean;
 };
 
 type ImportChildTarget = {
   node: FileNode;
   path: string;
+  enableVersionControl: boolean;
 };
 
 
@@ -202,22 +199,6 @@ interface FileTreeNodeProps {
     node: FileNode,
     event: React.PointerEvent<HTMLElement>
   ) => void;
-}
-
-function resolveFileComponent(node: FileNode) {
-  if (node.kind === "file" && isBoardFolderName(node.name)) return "board-viewer";
-  const ext = node.ext?.toLowerCase();
-  if (!ext) return "code-viewer";
-  if (ext === "ttdoc") return "file-viewer";
-  if (ext === "ttcanvas") return "file-viewer";
-  if (ext === "ttskill") return "file-viewer";
-  if (ext === "pdf") return "pdf-viewer";
-  if (ext === "doc" || ext === "docx") return "doc-viewer";
-  if (ext === "xls" || ext === "xlsx" || ext === "csv" || ext === "tsv") return "sheet-viewer";
-  if (MARKDOWN_EXTS.has(ext)) return "markdown-viewer";
-  if (CODE_EXTS.has(ext)) return "code-viewer";
-  if (isTextFallbackExt(ext)) return "code-viewer";
-  return "file-viewer";
 }
 
 function buildNextUri(uri: string, nextName: string) {
@@ -697,7 +678,6 @@ export const PageTreeMenu = ({
 
   const openFileTab = (node: FileNode) => {
     if (!workspace?.id) return;
-    const component = resolveFileComponent(node);
     const baseId = `file:${node.uri}`;
     const displayName = isBoardFolderName(node.name)
       ? getBoardDisplayName(node.name)
@@ -712,24 +692,42 @@ export const PageTreeMenu = ({
       return;
     }
 
-    const resolvedUri =
-      component === "pdf-viewer" && node.projectId
-        ? (() => {
-            const rootUri = projectRootById.get(node.projectId);
-            if (!rootUri) return node.uri;
-            const relativePath = getRelativePathFromUri(rootUri, node.uri);
-            if (!relativePath) return node.uri;
-            return relativePath;
-          })()
-        : node.uri;
-
     const resolvedRootUri = projectRootById.get(node.projectId ?? "") ?? undefined;
-    const needsCustomHeader =
-      component === "pdf-viewer" ||
-      component === "doc-viewer" ||
-      component === "sheet-viewer" ||
-      component === "markdown-viewer";
-    const openUri = component === "board-viewer" ? undefined : node.uri;
+    if (isBoardFolderName(node.name)) {
+      addTab({
+        workspaceId: workspace.id,
+        createNew: true,
+        title: displayName,
+        icon: "📄",
+        leftWidthPercent: 70,
+        base: {
+          id: baseId,
+          component: "board-viewer",
+          params: {
+            // 逻辑：画布面板不显示“系统打开”按钮。
+            uri: node.uri,
+            boardFolderUri: node.uri,
+            boardFileUri: buildChildUri(node.uri, BOARD_INDEX_FILE_NAME),
+            projectId: node.projectId,
+            rootUri: resolvedRootUri,
+          },
+        },
+        chatParams: { projectId: node.projectId },
+      });
+      return;
+    }
+    const entry = {
+      uri: node.uri,
+      name: node.name,
+      kind: "file" as const,
+      ext: node.ext,
+    };
+    const stackItem = buildStackItemForEntry({
+      entry,
+      projectId: node.projectId ?? undefined,
+      rootUri: resolvedRootUri,
+    });
+    if (!stackItem) return;
     addTab({
       workspaceId: workspace.id,
       createNew: true,
@@ -738,25 +736,8 @@ export const PageTreeMenu = ({
       leftWidthPercent: 70,
       base: {
         id: baseId,
-        component,
-          params: {
-            uri: resolvedUri,
-            // 逻辑：画布面板不显示“系统打开”按钮。
-            openUri,
-            rootUri: resolvedRootUri,
-            ...(component === "board-viewer"
-              ? {
-                  boardFolderUri: node.uri,
-                  boardFileUri: buildChildUri(node.uri, BOARD_INDEX_FILE_NAME),
-                  projectId: node.projectId,
-                  rootUri: resolvedRootUri,
-                }
-              : null),
-            name: node.name,
-            ext: node.ext,
-          ...(needsCustomHeader ? { __customHeader: true } : {}),
-          ...(component === "pdf-viewer" ? { projectId: node.projectId } : {}),
-        },
+        component: stackItem.component,
+        params: stackItem.params,
       },
       chatParams: { projectId: node.projectId },
     });
@@ -869,16 +850,16 @@ export const PageTreeMenu = ({
       title: "",
       useCustomPath: false,
       customPath: "",
+      enableVersionControl: true,
     });
   };
 
   const openImportChildDialog = async (node: FileNode) => {
     if (node.kind !== "project") return;
-    const picked = await pickDirectory();
-    if (!picked) return;
     setImportChildTarget({
       node,
-      path: picked,
+      path: "",
+      enableVersionControl: true,
     });
   };
 
@@ -1035,6 +1016,7 @@ export const PageTreeMenu = ({
           ? createChildTarget.customPath.trim() || undefined
           : undefined,
         parentProjectId: createChildTarget.node.projectId,
+        enableVersionControl: createChildTarget.enableVersionControl,
       });
       toast.success("子项目已创建");
       setCreateChildTarget(null);
@@ -1063,6 +1045,7 @@ export const PageTreeMenu = ({
       await createProject.mutateAsync({
         rootUri: path,
         parentProjectId: importChildTarget.node.projectId,
+        enableVersionControl: importChildTarget.enableVersionControl,
       });
       toast.success("子项目已导入");
       setImportChildTarget(null);
@@ -1754,6 +1737,27 @@ export const PageTreeMenu = ({
                 </div>
               </div>
             ) : null}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="child-project-version-control" className="text-right">
+                是否开启项目版本控制
+              </Label>
+              <div className="col-span-3 flex items-center gap-3">
+                <Switch
+                  id="child-project-version-control"
+                  checked={createChildTarget?.enableVersionControl ?? true}
+                  onCheckedChange={(checked) =>
+                    setCreateChildTarget((prev) =>
+                      prev
+                        ? { ...prev, enableVersionControl: Boolean(checked) }
+                        : prev
+                    )
+                  }
+                />
+                <span className="text-xs text-muted-foreground">
+                  默认启用，可随时关闭
+                </span>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>
@@ -1809,6 +1813,27 @@ export const PageTreeMenu = ({
                 >
                   选择
                 </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="import-child-version-control" className="text-right">
+                是否开启项目版本控制
+              </Label>
+              <div className="col-span-3 flex items-center gap-3">
+                <Switch
+                  id="import-child-version-control"
+                  checked={importChildTarget?.enableVersionControl ?? true}
+                  onCheckedChange={(checked) =>
+                    setImportChildTarget((prev) =>
+                      prev
+                        ? { ...prev, enableVersionControl: Boolean(checked) }
+                        : prev
+                    )
+                  }
+                />
+                <span className="text-xs text-muted-foreground">
+                  默认启用，可随时关闭
+                </span>
               </div>
             </div>
           </div>

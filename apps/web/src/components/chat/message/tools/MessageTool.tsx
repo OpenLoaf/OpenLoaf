@@ -23,11 +23,14 @@ export default function MessageTool({
   part,
   className,
   variant = "default",
+  messageId,
 }: {
   part: AnyToolPart;
   className?: string;
   /** Rendering variant for nested tool output. */
   variant?: ToolVariant;
+  /** Message id for fetching tool output. */
+  messageId?: string;
 }) {
   const chat = useChatContext();
   const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
@@ -60,5 +63,7 @@ export default function MessageTool({
     return <CliThinkingTool part={resolvedPart} />;
   }
 
-  return <UnifiedTool part={resolvedPart} className={className} variant={variant} />;
+  return (
+    <UnifiedTool part={resolvedPart} className={className} variant={variant} messageId={messageId} />
+  );
 }

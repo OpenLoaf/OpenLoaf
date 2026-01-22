@@ -8,23 +8,14 @@ import { useProjects } from "@/hooks/use-projects";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
 import { trpc } from "@/utils/trpc";
-import {
-  CODE_EXTS,
-  DOC_EXTS,
-  IMAGE_EXTS,
-  MARKDOWN_EXTS,
-  PDF_EXTS,
-  SPREADSHEET_EXTS,
-  getEntryVisual,
-  isTextFallbackExt,
-} from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import { getEntryVisual, IMAGE_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import { openFile } from "@/components/file/lib/open-file";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 import {
   buildUriFromRoot,
   getDisplayPathFromUri,
   getEntryExt,
-  getRelativePathFromUri,
   normalizeProjectRelativePath,
   parseScopedProjectPath,
   type FileSystemEntry,
@@ -124,7 +115,6 @@ export default function ThreeDFolderWidget({
   const activeTabId = useTabs((state) => state.activeTabId);
   const tabs = useTabs((state) => state.tabs);
   const setActiveTab = useTabs((state) => state.setActiveTab);
-  const pushStackItem = useTabs((state) => state.pushStackItem);
   const addTab = useTabs((state) => state.addTab);
   const setTabBaseParams = useTabs((state) => state.setTabBaseParams);
   const resolvedTitle = React.useMemo(() => {
@@ -286,93 +276,20 @@ export default function ThreeDFolderWidget({
       }
       if (!project.uri) return;
 
-      const ext = (project.ext ?? "").toLowerCase();
-      const name = project.title;
-      const uri = project.uri;
-      const baseParams = {
-        uri,
-        openUri: uri,
-        name,
-        ext,
+      const entry: FileSystemEntry = {
+        uri: project.uri,
+        name: project.title,
+        kind: "file",
+        ext: project.ext,
+      };
+      openFile({
+        entry,
+        tabId: activeTabId,
         projectId: project.projectId,
         rootUri: project.rootUri,
-      };
-
-      if (IMAGE_EXTS.has(ext)) {
-        pushStackItem(activeTabId, {
-          id: uri,
-          component: "image-viewer",
-          title: name,
-          params: baseParams,
-        });
-        return;
-      }
-      if (MARKDOWN_EXTS.has(ext)) {
-        pushStackItem(activeTabId, {
-          id: uri,
-          component: "markdown-viewer",
-          title: name,
-          params: { ...baseParams, __customHeader: true },
-        });
-        return;
-      }
-      if (CODE_EXTS.has(ext) || isTextFallbackExt(ext)) {
-        pushStackItem(activeTabId, {
-          id: uri,
-          component: "code-viewer",
-          title: name,
-          params: baseParams,
-        });
-        return;
-      }
-      if (PDF_EXTS.has(ext)) {
-        if (!project.projectId || !project.rootUri) {
-          toast.error("未找到项目路径");
-          return;
-        }
-        const relativePath = getRelativePathFromUri(project.rootUri, uri);
-        if (!relativePath) {
-          toast.error("无法解析PDF路径");
-          return;
-        }
-        pushStackItem(activeTabId, {
-          id: uri,
-          component: "pdf-viewer",
-          title: name,
-          params: {
-            ...baseParams,
-            uri: relativePath,
-            __customHeader: true,
-          },
-        });
-        return;
-      }
-      if (DOC_EXTS.has(ext)) {
-        pushStackItem(activeTabId, {
-          id: uri,
-          component: "doc-viewer",
-          title: name,
-          params: { ...baseParams, __customHeader: true },
-        });
-        return;
-      }
-      if (SPREADSHEET_EXTS.has(ext)) {
-        pushStackItem(activeTabId, {
-          id: uri,
-          component: "sheet-viewer",
-          title: name,
-          params: { ...baseParams, __customHeader: true },
-        });
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: uri,
-        component: "file-viewer",
-        title: name,
-        params: baseParams,
       });
     },
-    [activeTabId, openFolderInFileSystem, pushStackItem]
+    [activeTabId, openFolderInFileSystem]
   );
 
   return (

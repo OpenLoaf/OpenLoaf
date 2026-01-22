@@ -32,7 +32,10 @@ import { getEntryVisual } from "./FileSystemEntryVisual";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import { openWithDefaultApp, shouldOpenOfficeWithSystem } from "../utils/entry-open";
+import {
+  openWithDefaultApp,
+  shouldOpenOfficeWithSystem,
+} from "@/components/file/lib/open-file";
 
 type FileSystemGitTreeProps = {
   /** Project root uri. */

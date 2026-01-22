@@ -5,13 +5,13 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/components/chat/ChatProvider";
 import { Button } from "@/components/ui/button";
-import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
 import { useProject } from "@/hooks/use-project";
 import {
   fetchBlobFromUri,
   isPreviewTooLargeError,
   resolveFileName,
 } from "@/lib/image/uri";
+import { createFileEntryFromUri, openFile } from "@/components/file/lib/open-file";
 import { setImageDragPayload } from "@/lib/image/drag";
 import {
   formatSize,
@@ -63,8 +63,6 @@ function buildFileRefText(value: string) {
 /** Render file part for AI messages. */
 export default function MessageFile({ url, mediaType, title, className }: MessageFileProps) {
   const [preview, setPreview] = React.useState<PreviewState | null>(null);
-  // 控制图片预览弹窗开关。
-  const [isPreviewOpen, setIsPreviewOpen] = React.useState(false);
   const isImage = isImageMediaType(mediaType);
   const shouldFetchPreview = isImage && isRelativePath(url);
   const fileRefText = React.useMemo(() => buildFileRefText(url), [url]);
@@ -164,15 +162,37 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
 
   if (!resolvedSrc) return null;
 
-  const saveName = title?.trim() || undefined;
-  const dialogTitle = saveName || "图片预览";
+  const resolvedName = title?.trim() || resolveFileName(url, mediaType);
+  const dialogTitle = resolvedName || "图片预览";
+  const entry = React.useMemo(
+    () =>
+      createFileEntryFromUri({
+        uri: url,
+        name: resolvedName || dialogTitle,
+        mediaType,
+      }),
+    [dialogTitle, mediaType, resolvedName, url]
+  );
 
   return (
     <>
       <button
         type="button"
         className={cn("text-left", className)}
-        onClick={() => setIsPreviewOpen(true)}
+        onClick={() => {
+          if (!entry) return;
+          openFile({
+            entry,
+            projectId,
+            rootUri: projectRootUri,
+            mode: "modal",
+            modal: {
+              showSave: true,
+              enableEdit: true,
+              saveDefaultDir: projectRootUri,
+            },
+          });
+        }}
       >
         <img
           src={resolvedSrc}
@@ -193,22 +213,6 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
           }}
         />
       </button>
-      <ImagePreviewDialog
-        open={isPreviewOpen}
-        onOpenChange={setIsPreviewOpen}
-        items={[
-          {
-            uri: url,
-            title: dialogTitle,
-            saveName,
-            mediaType,
-          },
-        ]}
-        activeIndex={0}
-        showSave
-        enableEdit
-        saveDefaultDir={projectRootUri}
-      />
     </>
   );
 }

@@ -477,6 +477,7 @@ export default function ChatProvider({
           anchor: { messageId: startMessageId, strategy: "self" },
           window: { limit: 50 },
           include: { messages: false, siblingNav: true },
+          includeToolOutput: false,
         })
       );
       setLeafMessageId(data.leafMessageId ?? null);
@@ -653,7 +654,11 @@ export default function ChatProvider({
   // 使用 tRPC 拉取“当前视图”（主链消息 + sibling 导航）
   const branchQuery = useQuery(
     {
-      ...trpc.chat.getChatView.queryOptions({ sessionId, window: { limit: 50 } }),
+      ...trpc.chat.getChatView.queryOptions({
+        sessionId,
+        window: { limit: 50 },
+        includeToolOutput: false,
+      }),
       enabled: shouldLoadHistory && chat.messages.length === 0,
       staleTime: Number.POSITIVE_INFINITY,
       refetchOnWindowFocus: false,
@@ -824,6 +829,7 @@ export default function ChatProvider({
           sessionId,
           anchor: { messageId: targetId, strategy: "latestLeafInSubtree" },
           window: { limit: 50 },
+          includeToolOutput: false,
         })
       );
       // 关键：切分支时，用服务端返回的“当前链快照”覆盖本地 messages（避免前端拼接导致重复渲染）
@@ -1014,6 +1020,7 @@ export default function ChatProvider({
       const viewInput: Parameters<typeof trpc.chat.getChatView.queryOptions>[0] = {
         sessionId,
         window: { limit: 50 },
+        includeToolOutput: false,
       };
       if (target.parentMessageId) {
         viewInput.anchor = { messageId: String(target.parentMessageId) };

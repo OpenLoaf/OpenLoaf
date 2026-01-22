@@ -31,6 +31,7 @@ import {
   getProjectGitBranches,
   getProjectGitCommits,
   getProjectGitInfo,
+  ensureGitRepository,
 } from "../services/projectGitService";
 import { moveProjectStorage } from "../services/projectStorageService";
 import { listProjectFilesChangedInRange } from "../services/projectFileChangeService";
@@ -117,6 +118,19 @@ async function fileExists(filePath: string): Promise<boolean> {
   } catch (err) {
     return (err as NodeJS.ErrnoException).code === "ENOENT" ? false : false;
   }
+}
+
+/** Resolve gitignore template path for auto git init. */
+async function resolveGitignoreTemplatePath(): Promise<string> {
+  const candidates = [
+    path.resolve(process.cwd(), "apps/server/src/assets/gitignore-template.txt"),
+    path.resolve(process.cwd(), "src/assets/gitignore-template.txt"),
+  ];
+  for (const candidate of candidates) {
+    if (await fileExists(candidate)) return candidate;
+  }
+  // 中文注释：优先使用仓库内模板路径，找不到时返回默认候选路径。
+  return candidates[0] ?? "";
 }
 
 /** Resolve a project root path from config by project id. */
@@ -350,6 +364,7 @@ export const projectRouter = t.router({
         icon: z.string().nullable().optional(),
         rootUri: z.string().optional(),
         parentProjectId: z.string().optional(),
+        enableVersionControl: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -390,6 +405,15 @@ export const projectRouter = t.router({
         await writeJsonAtomic(metaPath, config);
       } else if (!existingConfig.projects) {
         await writeJsonAtomic(metaPath, { ...existingConfig, projects: {} });
+      }
+      const enableVersionControl = input.enableVersionControl ?? true;
+      if (enableVersionControl) {
+        // 逻辑：仅在启用项目版本控制时初始化仓库。
+        await ensureGitRepository({
+          rootPath: projectRootPath,
+          defaultBranch: "main",
+          templatePath: await resolveGitignoreTemplatePath(),
+        });
       }
       if (!input.parentProjectId) {
         upsertActiveWorkspaceProject(projectId, projectRootUri);

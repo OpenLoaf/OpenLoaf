@@ -6,6 +6,7 @@ import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api
 import { useTabs } from "@/hooks/use-tabs";
 import { createBrowserTabId } from "@/hooks/tab-id";
 import { useChatContext } from "@/components/chat/ChatProvider";
+import { queryClient, trpc } from "@/utils/trpc";
 import ToolApprovalActions from "./shared/ToolApprovalActions";
 import ToolInfoCard from "./shared/ToolInfoCard";
 import {
@@ -78,12 +79,14 @@ export default function UnifiedTool({
   part,
   className,
   variant: _variant,
+  messageId,
 }: {
   part: AnyToolPart;
   className?: string;
   variant?: ToolVariant;
+  messageId?: string;
 }) {
-  const { tabId: contextTabId, subAgentStreams } = useChatContext();
+  const { tabId: contextTabId, subAgentStreams, sessionId, updateMessage } = useChatContext();
   const activeTabId = useTabs((s) => s.activeTabId);
   const tabId = contextTabId ?? activeTabId ?? undefined;
 
@@ -99,6 +102,51 @@ export default function UnifiedTool({
   const isStreaming = isToolStreaming(part);
   const actions =
     isApprovalRequested && approvalId ? <ToolApprovalActions approvalId={approvalId} /> : null;
+
+  const hasOutputPayload =
+    part.output != null ||
+    (typeof part.errorText === "string" && part.errorText.trim().length > 0);
+  const shouldFetchOutput =
+    Boolean(messageId && sessionId) && !hasOutputPayload && !isApprovalRequested;
+  const hasFetchedOutputRef = React.useRef(false);
+  const isFetchingOutputRef = React.useRef(false);
+  const [isOutputLoading, setIsOutputLoading] = React.useState(false);
+
+  const fetchToolOutput = React.useCallback(async () => {
+    if (!shouldFetchOutput || hasFetchedOutputRef.current || isFetchingOutputRef.current) return;
+    isFetchingOutputRef.current = true;
+    setIsOutputLoading(true);
+    try {
+      const data = await queryClient.fetchQuery(
+        trpc.chatmessage.findUniqueChatMessage.queryOptions({
+          where: { id: String(messageId) },
+          select: { id: true, parts: true },
+        }),
+      );
+      const targetParts = Array.isArray((data as any)?.parts) ? (data as any).parts : [];
+      if (!targetParts.length) return;
+      updateMessage(String(messageId), { parts: targetParts });
+      const toolCallId =
+        typeof part.toolCallId === "string" ? String(part.toolCallId) : "";
+      if (tabId && toolCallId) {
+        const toolPart = targetParts.find(
+          (p: any) => String(p?.toolCallId ?? "") === toolCallId,
+        );
+        if (toolPart) {
+          useTabs.getState().upsertToolPart(tabId, toolCallId, toolPart);
+          const hasOutput =
+            toolPart.output != null ||
+            (typeof toolPart.errorText === "string" && toolPart.errorText.trim().length > 0);
+          if (hasOutput) hasFetchedOutputRef.current = true;
+        }
+      }
+    } catch {
+      // no-op
+    } finally {
+      isFetchingOutputRef.current = false;
+      setIsOutputLoading(false);
+    }
+  }, [shouldFetchOutput, sessionId, messageId, updateMessage, part.toolCallId, tabId]);
 
   if (toolKind === "sub-agent") {
     const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
@@ -136,6 +184,10 @@ export default function UnifiedTool({
         outputTone={typeof effectiveErrorText === "string" && effectiveErrorText.trim() ? "error" : "default"}
         showOutput={showOutput}
         isStreaming={isStreaming}
+        outputLoading={isOutputLoading}
+        onOpenChange={(open) => {
+          if (open) void fetchToolOutput();
+        }}
       />
     );
   }
@@ -190,6 +242,10 @@ export default function UnifiedTool({
         outputTone={hasError ? "error" : "default"}
         showOutput={showOutput}
         isStreaming={isStreaming}
+        outputLoading={isOutputLoading}
+        onOpenChange={(open) => {
+          if (open) void fetchToolOutput();
+        }}
       />
     );
   }
@@ -212,6 +268,10 @@ export default function UnifiedTool({
       outputTone={hasErrorText || isRejected ? "error" : "default"}
       showOutput={showOutput}
       isStreaming={isStreaming}
+      outputLoading={isOutputLoading}
+      onOpenChange={(open) => {
+        if (open) void fetchToolOutput();
+      }}
     />
   );
 }

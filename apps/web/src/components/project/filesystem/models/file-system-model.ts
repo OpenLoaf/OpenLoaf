@@ -21,6 +21,7 @@ import {
 } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
+import { openFile } from "@/components/file/lib/open-file";
 import {
   BOARD_ASSETS_DIR_NAME,
   BOARD_INDEX_FILE_NAME,
@@ -712,194 +713,96 @@ export function useProjectFileSystemModel({
   /** Open an image file inside the current tab stack. */
   const handleOpenImage = useCallback(
     (entry: FileSystemEntry, thumbnailSrc?: string) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      pushStackItem(
-        activeTabId,
-        {
-          id: entry.uri,
-          component: "image-viewer",
-          title: entry.name,
-          params: {
-            uri: entry.uri,
-            openUri: entry.uri,
-            name: entry.name,
-            ext: entry.ext,
-            projectId,
-            thumbnailSrc,
-            rootUri,
-          },
-        }
-      );
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId,
+        rootUri,
+        thumbnailSrc,
+      });
     },
-    [activeTabId, projectId, pushStackItem, rootUri]
+    [activeTabId, projectId, rootUri]
   );
 
   /** Open a markdown file inside the current tab stack. */
   const handleOpenMarkdown = useCallback(
     (entry: FileSystemEntry) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "markdown-viewer",
-        title: entry.name,
-        params: {
-          uri: entry.uri,
-          openUri: entry.uri,
-          name: entry.name,
-          ext: entry.ext,
-          __customHeader: true,
-          rootUri,
-          projectId,
-        },
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId,
+        rootUri,
       });
     },
-    [activeTabId, pushStackItem, rootUri]
+    [activeTabId, projectId, rootUri]
   );
 
   /** Open a code file inside the current tab stack. */
   const handleOpenCode = useCallback(
     (entry: FileSystemEntry) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "code-viewer",
-        title: entry.name,
-        params: {
-          uri: entry.uri,
-          openUri: entry.uri,
-          name: entry.name,
-          ext: entry.ext,
-          rootUri,
-          projectId,
-        },
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId,
+        rootUri,
       });
     },
-    [activeTabId, pushStackItem, projectId, rootUri]
+    [activeTabId, projectId, rootUri]
   );
 
   /** Open a PDF file inside the current tab stack. */
   const handleOpenPdf = useCallback(
     (entry: FileSystemEntry) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      if (!projectId || !rootUri) {
-        toast.error("未找到项目路径");
-        return;
-      }
-      const relativePath = getRelativePathFromUri(rootUri ?? "", entry.uri);
-      if (!relativePath) {
-        toast.error("无法解析PDF路径");
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "pdf-viewer",
-        title: entry.name,
-        params: {
-          uri: relativePath,
-          openUri: entry.uri,
-          name: entry.name,
-          ext: entry.ext,
-          projectId,
-          rootUri,
-          __customHeader: true,
-        },
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId,
+        rootUri,
       });
     },
-    [activeTabId, projectId, pushStackItem, rootUri]
+    [activeTabId, projectId, rootUri]
   );
 
   /** Open a DOC file inside the current tab stack. */
   const handleOpenDoc = useCallback(
     (entry: FileSystemEntry) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "doc-viewer",
-        title: entry.name,
-        params: {
-          uri: entry.uri,
-          openUri: entry.uri,
-          name: entry.name,
-          ext: entry.ext,
-          rootUri,
-          __customHeader: true,
-        },
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId,
+        rootUri,
       });
     },
-    [activeTabId, pushStackItem, rootUri]
+    [activeTabId, projectId, rootUri]
   );
 
   /** Open a spreadsheet file inside the current tab stack. */
   const handleOpenSpreadsheet = useCallback(
     (entry: FileSystemEntry) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "sheet-viewer",
-        title: entry.name,
-        params: {
-          uri: entry.uri,
-          openUri: entry.uri,
-          name: entry.name,
-          ext: entry.ext,
-          rootUri,
-          __customHeader: true,
-        },
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId,
+        rootUri,
       });
     },
-    [activeTabId, pushStackItem]
+    [activeTabId, projectId, rootUri]
   );
 
   /** Open a board folder inside the current tab stack. */
   const handleOpenBoard = useCallback(
     (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      if (entry.kind !== "folder" || !isBoardFolderName(entry.name)) {
-        toast.error("当前画布目录无效");
-        return;
-      }
-      const boardFolderUri = entry.uri;
-      const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
-      const displayName = getBoardDisplayName(entry.name);
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "board-viewer",
-        title: displayName,
-        params: {
-          // 逻辑：画布不暴露系统打开入口，避免显示“系统打开”按钮。
-          uri: boardFolderUri,
-          boardFolderUri,
-          boardFileUri,
-          name: entry.name,
-          projectId,
-          rootUri,
-          __opaque: true,
-          ...(options?.pendingRename ? { __pendingRename: true } : {}),
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId,
+        rootUri,
+        board: {
+          pendingRename: options?.pendingRename,
         },
       });
     },
-    [activeTabId, projectId, pushStackItem, rootUri]
+    [activeTabId, projectId, rootUri]
   );
 
   /** Open a terminal inside the current tab stack. */

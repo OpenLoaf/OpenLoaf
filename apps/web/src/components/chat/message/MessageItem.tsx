@@ -11,11 +11,15 @@ import MessageHuman from "./MessageHuman";
 import MessageHumanAction from "./MessageHumanAction";
 import { useChatContext } from "../ChatProvider";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
+import { useTabs } from "@/hooks/use-tabs";
 import type { ChatAttachment } from "../chat-attachments";
 import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
 import type { ChatMessageKind } from "@tenas-ai/api";
 import { getMessagePlainText } from "@/lib/chat/message-text";
+import { normalizeFileMentionSpacing } from "@/components/chat/chat-input-utils";
 import CompactSummaryDivider from "./CompactSummaryDivider";
+import { isToolPart } from "@/lib/chat/message-parts";
+import { isApprovalPending } from "./tools/shared/tool-utils";
 
 type ChatMessage = UIMessage & { messageKind?: ChatMessageKind };
 
@@ -40,6 +44,7 @@ function MessageItem({
     siblingNav,
     projectId,
     workspaceId,
+    tabId,
   } = useChatContext();
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
@@ -70,6 +75,30 @@ function MessageItem({
     return messageHasVisibleContent(message);
   }, [message]);
 
+  const toolPartsByTab = useTabs((state) => (tabId ? state.toolPartsByTabId[tabId] : undefined));
+  const toolPartsInMessage = React.useMemo(() => {
+    const parts = Array.isArray(message.parts) ? message.parts : [];
+    return parts.filter((part) => isToolPart(part));
+  }, [message.parts]);
+  const hasPendingApprovalInMessage = React.useMemo(() => {
+    if (toolPartsInMessage.length === 0) return false;
+    for (const part of toolPartsInMessage) {
+      const toolCallId =
+        typeof (part as any)?.toolCallId === "string" ? String((part as any).toolCallId) : "";
+      const snapshot = toolCallId ? toolPartsByTab?.[toolCallId] : undefined;
+      const mergedPart = snapshot ? { ...(part as any), ...snapshot } : part;
+      if (isApprovalPending(mergedPart as any)) return true;
+    }
+    return false;
+  }, [toolPartsInMessage, toolPartsByTab]);
+  const hasPendingApprovalInTab = React.useMemo(() => {
+    if (!toolPartsByTab) return false;
+    return Object.values(toolPartsByTab).some((part) => isApprovalPending(part as any));
+  }, [toolPartsByTab]);
+  const shouldHideAiActionsForApproval =
+    hasPendingApprovalInMessage ||
+    (isLastAiMessage && toolPartsInMessage.length === 0 && hasPendingApprovalInTab);
+
   // 当消息本身没有可见内容时，如果它是“分支节点”，仍然要显示分支切换（否则切到边界会“消失”）。
   const shouldShowBranchNav = React.useMemo(() => {
     const id = String((message as any)?.id ?? "");
@@ -99,7 +128,9 @@ function MessageItem({
       const hasReadyAttachments = editAttachmentsRef.current.some(
         (item) => item.status === "ready"
       );
-      if (!value.trim() && !hasReadyAttachments) return;
+      // 中文注释：重发前规范化文件引用的空格，避免路径与后续文本粘连。
+      const normalizedValue = normalizeFileMentionSpacing(value);
+      if (!normalizedValue.trim() && !hasReadyAttachments) return;
       if (status === "error") clearError();
 
       const parts: Array<any> = [];
@@ -124,12 +155,12 @@ function MessageItem({
           }
         }
       }
-      if (value.trim()) {
-        parts.push({ type: "text", text: value });
+      if (normalizedValue.trim()) {
+        parts.push({ type: "text", text: normalizedValue });
       }
 
       // 关键：编辑重发 = 在同 parent 下创建新 sibling，并把 UI 切到新分支
-      resendUserMessage(message.id, value, parts);
+      resendUserMessage(message.id, normalizedValue, parts);
 
       setIsEditing(false);
     },
@@ -313,7 +344,9 @@ function MessageItem({
       ) : (
         <>
           <MessageAi message={message} isAnimating={isAnimating} />
-          {!hideAiActions && (hasVisibleContent || shouldShowBranchNav) && (
+          {!hideAiActions &&
+            !shouldHideAiActionsForApproval &&
+            (hasVisibleContent || shouldShowBranchNav) && (
             <div className={cn("mt-1", actionVisibility(isLastAiMessage))}>
               <MessageAiAction message={message} />
             </div>

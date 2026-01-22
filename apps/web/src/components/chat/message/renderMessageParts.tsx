@@ -90,6 +90,8 @@ export function renderMessageParts(
     renderText?: boolean;
     /** Whether to animate streaming text output. */
     isAnimating?: boolean;
+    /** Message id for tool expansion fetch. */
+    messageId?: string;
   },
 ) {
   const renderTools = options?.renderTools !== false;
@@ -180,11 +182,11 @@ export function renderMessageParts(
       return (
         <motion.div key={index} {...motionProps}>
           <MessageFile
-          key={index}
-          url={url}
-          mediaType={mediaType}
-          title={title}
-          className={MESSAGE_FILE_CLASSNAME}
+            key={index}
+            url={url}
+            mediaType={mediaType}
+            title={title}
+            className={MESSAGE_FILE_CLASSNAME}
           />
         </motion.div>
       );
@@ -194,14 +196,12 @@ export function renderMessageParts(
     if (isToolPart(part)) {
       if (!renderTools) return null;
       return (
-        <motion.div
-          key={part.toolCallId ?? `${part.type}-${index}`}
-          {...motionProps}
-        >
+        <motion.div key={part.toolCallId ?? `${part.type}-${index}`} {...motionProps}>
           <MessageTool
             part={part}
             className={options?.toolClassName}
             variant={options?.toolVariant}
+            messageId={options?.messageId}
           />
         </motion.div>
       );

@@ -47,6 +47,7 @@ import {
   buildMentionNode,
   getPlainTextValue,
   parseChatValue,
+  normalizeFileMentionSpacing,
   serializeChatValue,
 } from "./chat-input-utils";
 import {
@@ -928,7 +929,8 @@ export default function ChatInput({
     if (!canSubmit) return;
     // 切换 session 的历史加载期间禁止发送，避免 parentMessageId 与当前会话链不一致
     if (isHistoryLoading) return;
-    const textValue = value.trim();
+    // 中文注释：发送前规范化文件引用的空格，避免路径与后续文本粘连。
+    const textValue = normalizeFileMentionSpacing(value).trim();
     if (hasPendingAttachments) return;
     const readyImages = (attachments ?? []).filter((item) => {
       if (item.status !== "ready" || !item.remoteUrl) return false;

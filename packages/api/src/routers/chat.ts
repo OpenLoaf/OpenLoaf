@@ -151,6 +151,17 @@ function getPathPrefixes(path: string): string[] {
   return prefixes;
 }
 
+/** Strip tool output payloads from parts to reduce payload size. */
+function stripToolOutputs(parts: any[]): any[] {
+  return parts.map((part) => {
+    const type = typeof part?.type === "string" ? part.type : "";
+    const isTool = type.startsWith("tool-");
+    if (!isTool) return part;
+    const { output, ...rest } = part ?? {};
+    return rest;
+  });
+}
+
 /**
  * Load main-chain rows for a leaf node.
  * - Returns ordered rows (root -> leaf)
@@ -376,6 +387,8 @@ const getChatViewInputSchema = z.object({
       siblingNav: z.boolean().optional(),
     })
     .optional(),
+  /** 是否返回工具输出内容（默认 true；历史加载可关闭） */
+  includeToolOutput: z.boolean().optional(),
 });
 
 /** Resolve view leaf id from cursor. */
@@ -406,6 +419,7 @@ export const chatRouter = t.router({
     .query(async ({ ctx, input }) => {
       const includeMessages = input.include?.messages !== false;
       const includeSiblingNav = input.include?.siblingNav !== false;
+      const includeToolOutput = input.includeToolOutput !== false;
       const limit = input.window?.limit ?? DEFAULT_VIEW_LIMIT;
       const anchorStrategy = input.anchor?.strategy ?? "latestLeafInSubtree";
       const sessionRow = await ctx.prisma.chatSession.findUnique({
@@ -475,11 +489,13 @@ export const chatRouter = t.router({
       const messages: ChatUIMessage[] = [];
       if (includeMessages) {
         for (const row of renderableRows) {
+          const parts = Array.isArray(row.parts) ? row.parts : [];
+          const normalizedParts = includeToolOutput ? parts : stripToolOutputs(parts);
           messages.push({
             id: String(row.id),
             role: row.role,
             parentMessageId: row.parentMessageId ?? null,
-            parts: Array.isArray(row.parts) ? row.parts : [],
+            parts: normalizedParts,
             metadata: row.metadata ?? undefined,
             messageKind: row.messageKind ?? undefined,
             agent: (row.metadata as any)?.agent ?? undefined,

@@ -212,7 +212,9 @@ export function getToolStatusText(part: AnyToolPart): string {
 /** Resolve status tone for tool header. */
 export function getToolStatusTone(part: AnyToolPart): ToolStatusTone {
   if (typeof part.errorText === "string" && part.errorText.trim()) return "error";
-  if (part.state === "approval-requested") return "warning";
+  if (isApprovalPending(part)) return "warning";
+  if (part.state === "output-error" || part.state === "output-denied") return "error";
+  if (part.state === "output-available") return "success";
   if (part.output != null) return "success";
   return "default";
 }
@@ -226,7 +228,8 @@ export function getApprovalId(part: AnyToolPart): string | undefined {
 export function isApprovalPending(part: AnyToolPart): boolean {
   const approvalId = getApprovalId(part);
   const decided = part.approval?.approved === true || part.approval?.approved === false;
-  return part.state === "approval-requested" && Boolean(approvalId) && !decided;
+  if (!approvalId || decided) return false;
+  return part.state === "approval-requested" || part.state == null;
 }
 
 /** Count pending tool approvals in UI messages. */

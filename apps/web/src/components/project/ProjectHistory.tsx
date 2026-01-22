@@ -7,9 +7,9 @@ import {
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { MessageCircle } from "lucide-react";
 import { zhCN } from "date-fns/locale";
-import { toast } from "sonner";
 
 import MarkdownViewer from "@/components/file/MarkdownViewer";
+import { openFile } from "@/components/file/lib/open-file";
 import { FileSystemGrid } from "@/components/project/filesystem/components/FileSystemGrid";
 import { Calendar } from "@/components/ui/calendar";
 import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
@@ -106,7 +106,6 @@ const ProjectHistory = memo(function ProjectHistory({
     s.activeTabId ? s.getTabById(s.activeTabId) : undefined
   );
   const setTabChatSession = useTabs((s) => s.setTabChatSession);
-  const pushStackItem = useTabs((s) => s.pushStackItem);
   const activeChatSessionId = activeTab?.chatSessionId;
 
   const { sessionsByDay, sessionDates } = useMemo(() => {
@@ -210,148 +209,80 @@ const ProjectHistory = memo(function ProjectHistory({
   /** Open a markdown file from file changes. */
   const handleOpenMarkdown = useCallback(
     (entry: FileSystemEntry) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "markdown-viewer",
-        title: entry.name,
-        params: {
-          uri: entry.uri,
-          openUri: entry.uri,
-          name: entry.name,
-          ext: entry.ext,
-          __customHeader: true,
-          rootUri: projectRootUri,
-          projectId: scopeProjectId,
-        },
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId: scopeProjectId,
+        rootUri: projectRootUri,
       });
     },
-    [activeTabId, projectRootUri, pushStackItem, scopeProjectId]
+    [activeTabId, projectRootUri, scopeProjectId]
   );
 
   /** Open a code file from file changes. */
   const handleOpenCode = useCallback(
     (entry: FileSystemEntry) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "code-viewer",
-        title: entry.name,
-        params: {
-          uri: entry.uri,
-          openUri: entry.uri,
-          name: entry.name,
-          ext: entry.ext,
-          rootUri: projectRootUri,
-          projectId: scopeProjectId,
-        },
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId: scopeProjectId,
+        rootUri: projectRootUri,
       });
     },
-    [activeTabId, projectRootUri, pushStackItem, scopeProjectId]
+    [activeTabId, projectRootUri, scopeProjectId]
   );
 
   /** Open an image file from file changes. */
   const handleOpenImage = useCallback(
     (entry: FileSystemEntry, thumbnailSrc?: string) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "image-viewer",
-        title: entry.name,
-        params: {
-          uri: entry.uri,
-          openUri: entry.uri,
-          name: entry.name,
-          ext: entry.ext,
-          projectId: scopeProjectId,
-          rootUri: projectRootUri,
-          thumbnailSrc,
-        },
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId: scopeProjectId,
+        rootUri: projectRootUri,
+        thumbnailSrc,
       });
     },
-    [activeTabId, projectRootUri, pushStackItem, scopeProjectId]
+    [activeTabId, projectRootUri, scopeProjectId]
   );
 
   /** Open a PDF file from file changes. */
   const handleOpenPdf = useCallback(
     (entry: FileSystemEntry) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "pdf-viewer",
-        title: entry.name,
-        params: {
-          uri: entry.uri,
-          openUri: entry.uri,
-          name: entry.name,
-          ext: entry.ext,
-          projectId: scopeProjectId,
-          rootUri: projectRootUri,
-          __customHeader: true,
-        },
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId: scopeProjectId,
+        rootUri: projectRootUri,
       });
     },
-    [activeTabId, projectRootUri, pushStackItem, scopeProjectId]
+    [activeTabId, projectRootUri, scopeProjectId]
   );
 
   /** Open a DOC file from file changes. */
   const handleOpenDoc = useCallback(
     (entry: FileSystemEntry) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "doc-viewer",
-        title: entry.name,
-        params: {
-          uri: entry.uri,
-          openUri: entry.uri,
-          name: entry.name,
-          ext: entry.ext,
-          rootUri: projectRootUri,
-          __customHeader: true,
-        },
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId: scopeProjectId,
+        rootUri: projectRootUri,
       });
     },
-    [activeTabId, projectRootUri, pushStackItem]
+    [activeTabId, projectRootUri, scopeProjectId]
   );
 
   /** Open a spreadsheet file from file changes. */
   const handleOpenSpreadsheet = useCallback(
     (entry: FileSystemEntry) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
-      pushStackItem(activeTabId, {
-        id: entry.uri,
-        component: "sheet-viewer",
-        title: entry.name,
-        params: {
-          uri: entry.uri,
-          openUri: entry.uri,
-          name: entry.name,
-          ext: entry.ext,
-          rootUri: projectRootUri,
-          __customHeader: true,
-        },
+      openFile({
+        entry,
+        tabId: activeTabId,
+        projectId: scopeProjectId,
+        rootUri: projectRootUri,
       });
     },
-    [activeTabId, projectRootUri, pushStackItem]
+    [activeTabId, projectRootUri, scopeProjectId]
   );
 
   if (isLoading) {

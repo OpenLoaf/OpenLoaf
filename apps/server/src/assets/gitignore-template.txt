@@ -1,0 +1,40 @@
+# Tenas default .gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node/Next/Electron
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# Cache
+.cache/
+.eslintcache
+.stylelintcache
+.parcel-cache/
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+
+# Tenas
+.tenas-cache/

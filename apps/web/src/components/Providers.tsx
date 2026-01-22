@@ -13,6 +13,7 @@ import { usePrewarmPlate } from "@/hooks/use-prewarm-plate";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import AutoUpdateGate from "@/components/layout/AutoUpdateGate";
 import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
+import FilePreviewDialog from "@/components/file/FilePreviewDialog";
 
 type ThemeSelection = "light" | "dark" | "system";
 type FontSizeSelection = "small" | "medium" | "large" | "xlarge";
@@ -224,6 +225,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <AnimationSettingsBootstrap />
         <MotionSettingsBootstrap>
           {children}
+          <FilePreviewDialog />
           <AutoUpdateGate />
           {/* <ReactQueryDevtools initialIsOpen={false} /> */}
         </MotionSettingsBootstrap>

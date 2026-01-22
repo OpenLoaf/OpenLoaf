@@ -23,6 +23,8 @@ interface ToolInfoCardProps {
   outputText?: string;
   /** Output tone. */
   outputTone?: "default" | "error" | "muted";
+  /** Whether output is loading. */
+  outputLoading?: boolean;
   /** Whether to show output block. */
   showOutput?: boolean;
   /** Whether approval is requested. */
@@ -33,6 +35,8 @@ interface ToolInfoCardProps {
   isStreaming?: boolean;
   /** Header action nodes. */
   actions?: React.ReactNode;
+  /** Accordion open change handler. */
+  onOpenChange?: (open: boolean) => void;
   /** Extra class names for wrapper. */
   className?: string;
 }
@@ -45,11 +49,13 @@ export default function ToolInfoCard({
   inputText,
   outputText,
   outputTone = "default",
+  outputLoading = false,
   showOutput = true,
   isApprovalRequested,
   isRejected,
   isStreaming,
   actions,
+  onOpenChange,
   className,
 }: ToolInfoCardProps) {
   const containerClassName = isApprovalRequested
@@ -63,11 +69,13 @@ export default function ToolInfoCard({
         ["--tenas-thinking-border-fill" as any]: "var(--color-muted)",
       } as React.CSSProperties)
     : undefined;
-  const defaultOpen = isApprovalRequested || isRejected || outputTone === "error";
+  const defaultOpen = false;
   const statusIcon = isApprovalRequested ? (
     <span className="text-[12px] font-semibold text-amber-500" aria-hidden>
       ?
     </span>
+  ) : isRejected ? (
+    <X className="size-3 text-destructive" />
   ) : statusTone === "success" ? (
     <Check className="size-3 text-emerald-500" />
   ) : statusTone === "error" ? (
@@ -79,7 +87,13 @@ export default function ToolInfoCard({
 
   return (
     <div className={cn("flex ml-2 w-full min-w-0 max-w-full justify-start", className)}>
-      <Accordion type="single" collapsible defaultValue={defaultOpen ? "tool" : undefined} className="w-full">
+      <Accordion
+        type="single"
+        collapsible
+        defaultValue={defaultOpen ? "tool" : undefined}
+        onValueChange={(value) => onOpenChange?.(value === "tool")}
+        className="w-full"
+      >
         <AccordionItem
           value="tool"
           className={cn(
@@ -95,6 +109,9 @@ export default function ToolInfoCard({
                 <span className="shrink-0">{statusIcon}</span>
                 <span className="break-words text-foreground/70">{title}</span>
               </div>
+              {isRejected ? (
+                <span className="shrink-0 text-[10px] font-medium text-destructive">已拒绝</span>
+              ) : null}
             </div>
           </AccordionTrigger>
           {actions ? (
@@ -141,7 +158,7 @@ export default function ToolInfoCard({
                   {inputText}
                 </SyntaxHighlighter>
               </div>
-              {showOutput && outputText ? (
+              {showOutput && (outputText || outputLoading) ? (
                 <>
                   <Separator className="my-0.5 bg-border/60" />
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground/80">输出</div>
@@ -153,33 +170,37 @@ export default function ToolInfoCard({
                       outputTone === "default" && "text-foreground/70",
                     )}
                   >
-                    <SyntaxHighlighter
-                      style={oneDark as any}
-                      language={codeLanguage}
-                      PreTag="div"
-                      showLineNumbers={false}
-                      wrapLines
-                      wrapLongLines
-                      customStyle={{
-                        margin: 0,
-                        background: "transparent",
-                        padding: "0.2rem 0.4rem",
-                        fontSize: "10px",
-                        lineHeight: "1.5",
-                        fontFamily: "inherit",
-                        textShadow: "none",
-                        boxSizing: "border-box",
-                        display: "block",
-                        width: "100%",
-                        maxWidth: "100%",
-                        minWidth: 0,
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                      }}
-                      codeTagProps={{ style: { fontFamily: "inherit", textShadow: "none" } }}
-                    >
-                      {outputText}
-                    </SyntaxHighlighter>
+                    {outputLoading && !outputText ? (
+                      <div className="px-2 py-1 text-[10px] text-muted-foreground/80">加载中…</div>
+                    ) : (
+                      <SyntaxHighlighter
+                        style={oneDark as any}
+                        language={codeLanguage}
+                        PreTag="div"
+                        showLineNumbers={false}
+                        wrapLines
+                        wrapLongLines
+                        customStyle={{
+                          margin: 0,
+                          background: "transparent",
+                          padding: "0.2rem 0.4rem",
+                          fontSize: "10px",
+                          lineHeight: "1.5",
+                          fontFamily: "inherit",
+                          textShadow: "none",
+                          boxSizing: "border-box",
+                          display: "block",
+                          width: "100%",
+                          maxWidth: "100%",
+                          minWidth: 0,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                        }}
+                        codeTagProps={{ style: { fontFamily: "inherit", textShadow: "none" } }}
+                      >
+                        {outputText}
+                      </SyntaxHighlighter>
+                    )}
                   </div>
                 </>
               ) : null}

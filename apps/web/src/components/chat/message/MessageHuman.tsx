@@ -2,7 +2,11 @@
 
 import { type UIMessage } from "@ai-sdk/react";
 import React from "react";
-import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
+import {
+  closeFilePreview,
+  openFilePreview,
+  useFilePreviewStore,
+} from "@/components/file/lib/file-preview-store";
 import MaskedImage from "@/components/file/MaskedImage";
 import { useTabs } from "@/hooks/use-tabs";
 import { useProjects } from "@/hooks/use-projects";
@@ -179,6 +183,8 @@ export default function MessageHuman({
   const [imageState, setImageState] = React.useState<Record<string, ImagePreviewState>>({});
   const imageStateRef = React.useRef<Record<string, ImagePreviewState>>({});
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+  const previewSourceId = React.useId();
+  const activePreviewSourceId = useFilePreviewStore((state) => state.payload?.sourceId);
   const handleMentionPointerDown = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       handleChatMentionPointerDown(event, {
@@ -240,8 +246,49 @@ export default function MessageHuman({
       title: resolveFileName(part.url),
       saveName: resolveFileName(part.url),
       mediaType: part.mediaType,
+      projectId,
     }));
-  }, [previewableParts]);
+  }, [previewableParts, projectId]);
+
+  const handlePreviewIndexChange = React.useCallback(
+    (nextIndex: number) => {
+      const target = previewableParts[nextIndex];
+      if (!target) return;
+      setPreviewUrl(target.url);
+    },
+    [previewableParts]
+  );
+
+  React.useEffect(() => {
+    if (previewIndex < 0) {
+      if (activePreviewSourceId === previewSourceId) closeFilePreview();
+      return;
+    }
+    const currentItem = previewItems[previewIndex];
+    if (!currentItem) return;
+    openFilePreview({
+      viewer: "image",
+      sourceId: previewSourceId,
+      items: previewItems,
+      activeIndex: previewIndex,
+      showSave: false,
+      enableEdit: false,
+      onActiveIndexChange: handlePreviewIndexChange,
+    });
+  }, [
+    activePreviewSourceId,
+    handlePreviewIndexChange,
+    previewIndex,
+    previewItems,
+    previewSourceId,
+  ]);
+
+  React.useEffect(() => {
+    if (!activePreviewSourceId) return;
+    if (activePreviewSourceId === previewSourceId) return;
+    if (!previewUrl) return;
+    setPreviewUrl(null);
+  }, [activePreviewSourceId, previewSourceId, previewUrl]);
 
   React.useEffect(() => {
     let aborted = false;
@@ -300,15 +347,6 @@ export default function MessageHuman({
     if (!url) return;
     setPreviewUrl(url);
   }, []);
-
-  const handlePreviewIndexChange = React.useCallback(
-    (nextIndex: number) => {
-      const target = previewableParts[nextIndex];
-      if (!target) return;
-      setPreviewUrl(target.url);
-    },
-    [previewableParts]
-  );
 
   return (
     <div className={cn("flex justify-end min-w-0", className)}>
@@ -377,17 +415,6 @@ export default function MessageHuman({
             );
           })}
       </div>
-      <ImagePreviewDialog
-        open={previewIndex >= 0}
-        onOpenChange={(open) => {
-          if (!open) setPreviewUrl(null);
-        }}
-        items={previewItems}
-        activeIndex={previewIndex}
-        onActiveIndexChange={handlePreviewIndexChange}
-        showSave={false}
-        enableEdit={false}
-      />
     </div>
   );
 }

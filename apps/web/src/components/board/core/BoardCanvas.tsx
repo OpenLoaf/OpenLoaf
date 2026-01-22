@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
@@ -17,7 +17,11 @@ import {
 } from "../utils/board-export";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
+import {
+  closeFilePreview,
+  openFilePreview,
+  useFilePreviewStore,
+} from "@/components/file/lib/file-preview-store";
 import {
   buildChildUri,
   formatScopedProjectPath,
@@ -174,8 +178,9 @@ export function BoardCanvas({
   const showPerfOverlay = Boolean(basic.boardDebugEnabled);
   /** Guard for first-time node registration. */
   const nodesRegisteredRef = useRef(false);
-  /** Image preview payload for the fullscreen viewer. */
-  const [imagePreview, setImagePreview] = useState<ImagePreviewPayload | null>(null);
+  /** Preview source id for board modal coordination. */
+  const previewSourceId = useId();
+  const activePreviewSourceId = useFilePreviewStore((state) => state.payload?.sourceId);
   /** Sync callback provided by collaboration layer. */
   const [syncLogState, setSyncLogState] = useState<{
     canSyncLog: boolean;
@@ -215,13 +220,30 @@ export function BoardCanvas({
   }, [engine, nodes]);
 
   const openImagePreview = (payload: ImagePreviewPayload) => {
-    // 逻辑：节点请求预览时直接替换当前预览数据。
-    setImagePreview(payload);
+    // 逻辑：画布预览统一走全屏弹窗，避免节点内各自实现。
+    const previewUri = payload.originalSrc || payload.previewSrc;
+    if (!previewUri) return;
+    openFilePreview({
+      viewer: "image",
+      sourceId: previewSourceId,
+      items: [
+        {
+          uri: previewUri,
+          title: payload.fileName || "图片预览",
+          saveName: payload.fileName,
+          mediaType: payload.mimeType,
+        },
+      ],
+      activeIndex: 0,
+      showSave: false,
+      enableEdit: false,
+    });
   };
 
   const closeImagePreview = () => {
-    // 逻辑：关闭预览时清空当前预览数据。
-    setImagePreview(null);
+    // 逻辑：仅关闭由画布触发的预览，避免干扰其他弹窗。
+    if (activePreviewSourceId !== previewSourceId) return;
+    closeFilePreview();
   };
 
   /** Resolve the current board DOM element for exports. */
@@ -296,8 +318,6 @@ export function BoardCanvas({
   }, [saveBoardThumbnail]);
 
   // 逻辑：预览优先使用原图地址，缺失时回退到压缩预览。
-  const imagePreviewUri = imagePreview?.originalSrc || imagePreview?.previewSrc || "";
-
   return (
     <BoardProvider
       engine={engine}
@@ -345,27 +365,6 @@ export function BoardCanvas({
           onAutoLayout={scheduleAutoLayoutThumbnail}
         />
       </BoardCanvasInteraction>
-      <ImagePreviewDialog
-        open={Boolean(imagePreview)}
-        onOpenChange={(open) => {
-          if (!open) closeImagePreview();
-        }}
-        items={
-          imagePreview
-            ? [
-                {
-                  uri: imagePreviewUri,
-                  title: imagePreview.fileName || "图片预览",
-                  saveName: imagePreview.fileName,
-                  mediaType: imagePreview.mimeType,
-                },
-              ]
-            : []
-        }
-        activeIndex={0}
-        showSave={false}
-        enableEdit={false}
-      />
     </BoardProvider>
   );
 }

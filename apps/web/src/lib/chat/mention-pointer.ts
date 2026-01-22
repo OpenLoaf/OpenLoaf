@@ -6,15 +6,7 @@ import {
   parseScopedProjectPath,
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
-import {
-  CODE_EXTS,
-  DOC_EXTS,
-  IMAGE_EXTS,
-  MARKDOWN_EXTS,
-  PDF_EXTS,
-  SPREADSHEET_EXTS,
-  isTextFallbackExt,
-} from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import { openFile } from "@/components/file/lib/open-file";
 import { queryClient, trpc } from "@/utils/trpc";
 
 /** Shape of the project tree data used for root uri resolution. */
@@ -164,53 +156,16 @@ export function handleChatMentionPointerDown(
       });
       return;
     }
-    const ext = (entry?.ext ?? relativePath.split(".").pop() ?? "").toLowerCase();
-    const isImageExt = IMAGE_EXTS.has(ext);
-    const isCodeExt = CODE_EXTS.has(ext);
-    const isMarkdownExt = MARKDOWN_EXTS.has(ext);
-    const isPdfExt = PDF_EXTS.has(ext);
-    const isDocExt = DOC_EXTS.has(ext);
-    const isSheetExt = SPREADSHEET_EXTS.has(ext);
-    const isTextExt = isTextFallbackExt(ext);
-    if (
-      !isImageExt &&
-      !isCodeExt &&
-      !isMarkdownExt &&
-      !isPdfExt &&
-      !isDocExt &&
-      !isSheetExt &&
-      !isTextExt
-    ) {
-      return;
-    }
-    const fileName = entry?.name ?? relativePath.split("/").pop() ?? relativePath;
-    const component = isImageExt
-      ? "image-viewer"
-      : isMarkdownExt
-        ? "markdown-viewer"
-        : isCodeExt || isTextExt
-          ? "code-viewer"
-          : isPdfExt
-            ? "pdf-viewer"
-            : isDocExt
-              ? "doc-viewer"
-              : "sheet-viewer";
-    const stackUri = isPdfExt ? relativePath : uri;
-    const stackId = uri || stackUri;
-    pushStackItem(activeTabId, {
-      id: stackId,
-      sourceKey: stackId,
-      component,
-      title: fileName,
-      params: {
-        uri: stackUri,
-        openUri: uri,
-        name: fileName,
-        ext,
-        rootUri: isCodeExt || isTextExt ? rootUri : undefined,
-        projectId: isCodeExt || isTextExt || isPdfExt ? projectId : undefined,
-        __customHeader: isPdfExt || isDocExt || isSheetExt ? true : undefined,
+    openFile({
+      entry: entry ?? {
+        uri,
+        name: entry?.name ?? relativePath.split("/").pop() ?? relativePath,
+        kind: "file",
+        ext: entry?.ext ?? relativePath.split(".").pop() ?? undefined,
       },
+      tabId: activeTabId,
+      projectId,
+      rootUri,
     });
   })();
 }

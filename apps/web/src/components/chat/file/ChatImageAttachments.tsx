@@ -5,7 +5,11 @@ import { Loader2, X } from "lucide-react";
 import * as React from "react";
 import { CHAT_ATTACHMENT_ACCEPT_ATTR, formatFileSize } from "../chat-attachments";
 import type { ChatAttachment, MaskedAttachmentInput } from "../chat-attachments";
-import ImagePreviewDialog from "@/components/file/ImagePreviewDialog";
+import {
+  closeFilePreview,
+  openFilePreview,
+  useFilePreviewStore,
+} from "@/components/file/lib/file-preview-store";
 
 export type ChatImageAttachmentsHandle = {
   openPicker: () => void;
@@ -33,6 +37,8 @@ export const ChatImageAttachments = React.forwardRef<
   const [previewAttachmentId, setPreviewAttachmentId] = React.useState<
     string | null
   >(null);
+  const previewSourceId = React.useId();
+  const activePreviewSourceId = useFilePreviewStore((state) => state.payload?.sourceId);
 
   const previewableAttachments = React.useMemo(() => {
     return (attachments ?? []).filter((item) => item.status === "ready");
@@ -63,6 +69,55 @@ export const ChatImageAttachments = React.forwardRef<
     if (!previewAttachment?.mask) return "";
     return previewAttachment.mask.remoteUrl || previewAttachment.mask.objectUrl || "";
   }, [previewAttachment]);
+
+  const previewItems = React.useMemo(
+    () =>
+      previewAttachment
+        ? [
+            {
+              uri: previewBaseUri,
+              maskUri: previewMaskUri || undefined,
+              title: previewTitle,
+              saveName: previewAttachment.file.name,
+              mediaType: previewAttachment.mediaType || previewAttachment.file.type,
+            },
+          ]
+        : [],
+    [previewAttachment, previewBaseUri, previewMaskUri, previewTitle]
+  );
+
+  React.useEffect(() => {
+    if (!previewAttachment) {
+      if (activePreviewSourceId === previewSourceId) closeFilePreview();
+      return;
+    }
+    openFilePreview({
+      viewer: "image",
+      sourceId: previewSourceId,
+      items: previewItems,
+      activeIndex: 0,
+      showSave: false,
+      enableEdit,
+      onApplyMask: (input) => {
+        if (!previewAttachment || !onReplaceMaskedAttachment) return;
+        onReplaceMaskedAttachment(previewAttachment.id, input);
+      },
+    });
+  }, [
+    activePreviewSourceId,
+    enableEdit,
+    onReplaceMaskedAttachment,
+    previewAttachment,
+    previewItems,
+    previewSourceId,
+  ]);
+
+  React.useEffect(() => {
+    if (!activePreviewSourceId) return;
+    if (activePreviewSourceId === previewSourceId) return;
+    if (!previewAttachmentId) return;
+    setPreviewAttachmentId(null);
+  }, [activePreviewSourceId, previewAttachmentId, previewSourceId]);
 
   React.useEffect(() => {
     if (!previewAttachmentId) return;
@@ -192,32 +247,6 @@ export const ChatImageAttachments = React.forwardRef<
         </div>
       )}
 
-      <ImagePreviewDialog
-        open={Boolean(previewAttachment)}
-        onOpenChange={(open) => {
-          if (!open) setPreviewAttachmentId(null);
-        }}
-        items={
-          previewAttachment
-            ? [
-                {
-                  uri: previewBaseUri,
-                  maskUri: previewMaskUri || undefined,
-                  title: previewTitle,
-                  saveName: previewAttachment.file.name,
-                  mediaType: previewAttachment.mediaType || previewAttachment.file.type,
-                },
-              ]
-            : []
-        }
-        activeIndex={0}
-        showSave={false}
-        enableEdit={enableEdit}
-        onApplyMask={(input) => {
-          if (!previewAttachment || !onReplaceMaskedAttachment) return;
-          onReplaceMaskedAttachment(previewAttachment.id, input);
-        }}
-      />
     </>
   );
 });

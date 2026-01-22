@@ -9,7 +9,7 @@ import {
   TransformWrapper,
   type ReactZoomPanPinchRef,
 } from "react-zoom-pan-pinch";
-import { Download, Redo2, Sparkles, Trash2, Undo2, X } from "lucide-react";
+import { AlertTriangle, Download, Redo2, Sparkles, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/utils/trpc";
 import { useOptionalChatContext } from "@/components/chat/ChatProvider";
@@ -912,16 +912,30 @@ export default function ImageViewer({
 
   if (isRelative && !shouldUseBinary && preview?.status === "error") {
     return (
-      <div className="h-full w-full p-4 text-destructive">
-        图片预览失败
+      <div className="flex h-full w-full items-center justify-center p-6">
+        <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-destructive/40 bg-destructive/5 px-6 py-5 text-center text-sm text-foreground shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <div className="text-base font-medium text-destructive">图片预览失败</div>
+          <div className="text-xs text-muted-foreground">请检查文件路径或稍后重试</div>
+        </div>
       </div>
     );
   }
 
   if (shouldUseBinary && imageQuery.isError && !placeholderSrc) {
     return (
-      <div className="h-full w-full p-4 text-destructive">
-        {imageQuery.error?.message ?? "读取失败"}
+      <div className="flex h-full w-full items-center justify-center p-6">
+        <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-destructive/40 bg-destructive/5 px-6 py-5 text-center text-sm text-foreground shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <div className="text-base font-medium text-destructive">图片加载失败</div>
+          <div className="text-xs text-muted-foreground">
+            {imageQuery.error?.message ?? "读取失败"}
+          </div>
+        </div>
       </div>
     );
   }

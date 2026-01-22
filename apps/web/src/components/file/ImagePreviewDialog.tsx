@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import ImageViewer from "@/components/file/ImageViewer";
 import type { MaskedAttachmentInput } from "@/components/chat/chat-attachments";
-import { getImageDialogSize, type ImageMeta } from "@/lib/image/dialog-size";
+import {
+  closeFilePreview,
+  openFilePreview,
+  useFilePreviewStore,
+} from "@/components/file/lib/file-preview-store";
+import type { FilePreviewItem } from "@/components/file/lib/file-preview-types";
 
 export type ImagePreviewItem = {
   /** Base image uri. */
@@ -33,7 +34,7 @@ interface ImagePreviewDialogProps {
   onApplyMask?: (input: MaskedAttachmentInput) => void;
 }
 
-/** Render a unified image preview dialog with optional navigation. */
+/** Bridge the legacy image preview props to the shared preview dialog. */
 export default function ImagePreviewDialog({
   open,
   items,
@@ -45,101 +46,57 @@ export default function ImagePreviewDialog({
   saveDefaultDir,
   onApplyMask,
 }: ImagePreviewDialogProps) {
-  const currentItem = items[activeIndex] ?? null;
-  const canPrev = activeIndex > 0;
-  const canNext = activeIndex >= 0 && activeIndex < items.length - 1;
-  const [imageMeta, setImageMeta] = React.useState<ImageMeta | null>(null);
-  const [dialogSize, setDialogSize] = React.useState<{ width: number; height: number } | null>(
-    null
+  const sourceId = React.useId();
+  const activeSourceId = useFilePreviewStore((state) => state.payload?.sourceId);
+
+  const previewItems = React.useMemo<FilePreviewItem[]>(
+    () =>
+      items.map((item) => ({
+        uri: item.uri,
+        maskUri: item.maskUri,
+        title: item.title,
+        saveName: item.saveName,
+        mediaType: item.mediaType,
+      })),
+    [items]
   );
 
   React.useEffect(() => {
-    if (!open || !currentItem?.uri) {
-      setImageMeta(null);
-      setDialogSize(null);
+    if (!open) {
+      if (activeSourceId === sourceId) closeFilePreview();
       return;
     }
-    setImageMeta(null);
-    setDialogSize(null);
-  }, [currentItem?.uri, open]);
+    if (!previewItems.length) return;
+    openFilePreview({
+      viewer: "image",
+      sourceId,
+      items: previewItems,
+      activeIndex,
+      showSave,
+      enableEdit,
+      saveDefaultDir,
+      onApplyMask,
+      onActiveIndexChange,
+    });
+  }, [
+    activeIndex,
+    activeSourceId,
+    enableEdit,
+    onActiveIndexChange,
+    onApplyMask,
+    open,
+    previewItems,
+    saveDefaultDir,
+    showSave,
+    sourceId,
+  ]);
 
   React.useEffect(() => {
-    if (!imageMeta) return;
-    const update = () => {
-      setDialogSize(getImageDialogSize(imageMeta));
-    };
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, [imageMeta]);
+    if (!open) return;
+    if (!activeSourceId) return;
+    if (activeSourceId === sourceId) return;
+    onOpenChange(false);
+  }, [activeSourceId, onOpenChange, open, sourceId]);
 
-  if (!currentItem) return null;
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) onOpenChange(false);
-      }}
-    >
-      <DialogContent
-        className={`h-auto w-auto max-h-[80vh] max-w-none sm:max-w-none p-0 overflow-hidden flex flex-col gap-0 transition-opacity duration-200 ${
-          dialogSize ? "opacity-100" : "opacity-0 delay-100"
-        }`}
-        overlayClassName="bg-background/35 backdrop-blur-2xl"
-        style={dialogSize ? { width: dialogSize.width, height: dialogSize.height } : undefined}
-        showCloseButton={false}
-      >
-        <DialogTitle className="sr-only">图片预览</DialogTitle>
-        <div className="relative h-full w-full">
-          <ImageViewer
-            uri={currentItem.uri}
-            title={currentItem.title}
-            saveName={currentItem.saveName}
-            mediaType={currentItem.mediaType}
-            showHeader
-            showSave={showSave}
-            enableEdit={enableEdit}
-            initialMaskUri={currentItem.maskUri}
-            onImageMeta={(meta) => setImageMeta(meta)}
-            onApplyMask={onApplyMask}
-            onClose={() => onOpenChange(false)}
-            saveDefaultDir={saveDefaultDir}
-          />
-          {items.length > 1 ? (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-4">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="pointer-events-auto h-12 w-12 shrink-0 rounded-full bg-background/80 text-foreground shadow-md ring-1 ring-border/60 backdrop-blur-md hover:bg-background/90 disabled:opacity-30"
-                onClick={() => {
-                  if (!onActiveIndexChange || !canPrev) return;
-                  onActiveIndexChange(activeIndex - 1);
-                }}
-                disabled={!canPrev}
-                aria-label="上一张"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="pointer-events-auto h-12 w-12 shrink-0 rounded-full bg-background/80 text-foreground shadow-md ring-1 ring-border/60 backdrop-blur-md hover:bg-background/90 disabled:opacity-30"
-                onClick={() => {
-                  if (!onActiveIndexChange || !canNext) return;
-                  onActiveIndexChange(activeIndex + 1);
-                }}
-                disabled={!canNext}
-                aria-label="下一张"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+  return null;
 }
