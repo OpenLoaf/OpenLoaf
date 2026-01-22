@@ -3,7 +3,9 @@
 import * as React from "react";
 import ToolInfoCard from "./shared/ToolInfoCard";
 import {
+  getToolId,
   getToolStatusTone,
+  isToolStreaming,
   safeStringify,
 } from "./shared/tool-utils";
 
@@ -41,16 +43,20 @@ export default function CliThinkingTool({ part }: { part: CliThinkingToolPart })
     output: part.output,
     errorText: part.errorText,
   });
+  const isStreaming = isToolStreaming(part as any);
   const outputText = getCliOutputText(part);
   const hasError = typeof part.errorText === "string" && part.errorText.trim().length > 0;
 
   return (
     <ToolInfoCard
       title={title}
+      toolId={getToolId(part as any)}
       statusTone={statusTone}
       inputText=""
       outputText={hasError ? String(part.errorText ?? "") : outputText || safeStringify(part.output)}
       outputTone={hasError ? "error" : "default"}
+      showOutput={hasError || Boolean(outputText || part.output)}
+      isStreaming={isStreaming}
     />
   );
 }

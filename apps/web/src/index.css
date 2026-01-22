@@ -532,6 +532,15 @@ body {
   }
 }
 
+@keyframes tenas-tool-streaming-sweep {
+  0% {
+    background-position: 200% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 /* 子Agent 思考中扫描文字 */
 @keyframes tenas-thinking-scan {
   0% {
@@ -647,6 +656,75 @@ body {
   --tenas-thinking-border-alpha: 1;
   animation: tenas-thinking-border-flow 1.4s linear infinite;
 }
+
+.tenas-tool-streaming {
+  position: relative;
+  overflow: hidden;
+}
+
+.tenas-tool-streaming::before {
+  content: "";
+  position: absolute;
+  inset: -20% 0;
+  z-index: 0;
+  opacity: 0.2;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 82, 82, 0.6),
+    rgba(255, 196, 82, 0.6),
+    rgba(255, 235, 82, 0.6),
+    rgba(102, 255, 147, 0.6),
+    rgba(102, 212, 255, 0.6),
+    rgba(137, 120, 255, 0.6),
+    rgba(255, 120, 214, 0.6)
+  );
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  filter: blur(4px);
+  animation: tenas-tool-streaming-sweep 2.2s linear infinite;
+  will-change: background-position;
+  pointer-events: none;
+}
+
+.tenas-tool-streaming > * {
+  position: relative;
+  z-index: 1;
+}
+
+.tenas-rainbow-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.tenas-rainbow-sweep::before {
+  content: "";
+  position: absolute;
+  inset: -20% 0;
+  z-index: 0;
+  opacity: 0.22;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 82, 82, 0.7),
+    rgba(255, 196, 82, 0.7),
+    rgba(255, 235, 82, 0.7),
+    rgba(102, 255, 147, 0.7),
+    rgba(102, 212, 255, 0.7),
+    rgba(137, 120, 255, 0.7),
+    rgba(255, 120, 214, 0.7)
+  );
+  background-size: 200% 100%;
+  background-position: 200% 50%;
+  filter: blur(4px);
+  animation: tenas-tool-streaming-sweep 2.2s linear infinite;
+  will-change: background-position;
+  pointer-events: none;
+}
+
+.tenas-rainbow-sweep > * {
+  position: relative;
+  z-index: 1;
+}
+
 
 .project-shell {
   container-type: inline-size;

@@ -1,6 +1,7 @@
 "use client";
 
 import { Streamdown } from "streamdown";
+import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
@@ -94,11 +95,23 @@ export function renderMessageParts(
   const renderTools = options?.renderTools !== false;
   const renderText = options?.renderText !== false;
   const isAnimating = Boolean(options?.isAnimating);
+  const reduceMotion = useReducedMotion();
+  const motionProps = reduceMotion
+    ? undefined
+    : {
+        initial: { opacity: 0, y: 6 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.2, ease: "easeOut" },
+      };
   return (parts ?? []).map((part: any, index: number) => {
     if (part?.type === "text") {
       if (!renderText) return null;
       return (
-        <div key={index} className={cn(MESSAGE_TEXT_CLASSNAME, options?.textClassName)}>
+        <motion.div
+          key={index}
+          className={cn(MESSAGE_TEXT_CLASSNAME, options?.textClassName)}
+          {...motionProps}
+        >
           <Streamdown
             components={markdownComponents}
             parseIncompleteMarkdown
@@ -107,14 +120,18 @@ export function renderMessageParts(
           >
             {preprocessText(String(part.text ?? ""))}
           </Streamdown>
-        </div>
+        </motion.div>
       );
     }
 
     if (part?.type === "reasoning") {
       if (!renderText) return null;
       return (
-        <div key={index} className={cn(MESSAGE_REASONING_CLASSNAME, options?.textClassName)}>
+        <motion.div
+          key={index}
+          className={cn(MESSAGE_REASONING_CLASSNAME, options?.textClassName)}
+          {...motionProps}
+        >
           <Streamdown
             components={markdownComponents}
             parseIncompleteMarkdown
@@ -123,7 +140,7 @@ export function renderMessageParts(
           >
             {preprocessText(String(part.text ?? ""))}
           </Streamdown>
-        </div>
+        </motion.div>
       );
     }
 
@@ -132,7 +149,11 @@ export function renderMessageParts(
       const revisedText = part?.data?.text;
       if (!revisedText) return null;
       return (
-        <div key={index} className={cn(MESSAGE_REVISED_PROMPT_CLASSNAME, options?.textClassName)}>
+        <motion.div
+          key={index}
+          className={cn(MESSAGE_REVISED_PROMPT_CLASSNAME, options?.textClassName)}
+          {...motionProps}
+        >
           <div className="text-[11px] font-medium text-muted-foreground/80">改写提示词</div>
           <Streamdown
             components={markdownComponents}
@@ -142,7 +163,7 @@ export function renderMessageParts(
           >
             {preprocessText(String(revisedText))}
           </Streamdown>
-        </div>
+        </motion.div>
       );
     }
 
@@ -157,13 +178,15 @@ export function renderMessageParts(
             : undefined;
       if (!url) return null;
       return (
-        <MessageFile
+        <motion.div key={index} {...motionProps}>
+          <MessageFile
           key={index}
           url={url}
           mediaType={mediaType}
           title={title}
           className={MESSAGE_FILE_CLASSNAME}
-        />
+          />
+        </motion.div>
       );
     }
 
@@ -171,12 +194,16 @@ export function renderMessageParts(
     if (isToolPart(part)) {
       if (!renderTools) return null;
       return (
-        <MessageTool
+        <motion.div
           key={part.toolCallId ?? `${part.type}-${index}`}
-          part={part}
-          className={options?.toolClassName}
-          variant={options?.toolVariant}
-        />
+          {...motionProps}
+        >
+          <MessageTool
+            part={part}
+            className={options?.toolClassName}
+            variant={options?.toolVariant}
+          />
+        </motion.div>
       );
     }
 

@@ -17,7 +17,7 @@ export default function MessageThinking() {
         ease: "easeOut",
       }}
     >
-      <div className="max-w-[80%] px-3 py-2 rounded-lg bg-secondary text-secondary-foreground">
+      <div className="tenas-rainbow-sweep max-w-[80%] px-3 py-2 rounded-lg bg-secondary text-secondary-foreground mx-6 my-2">
         <div className="flex items-center gap-2 leading-4">
           <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-pulse" />
           <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-pulse delay-150" />

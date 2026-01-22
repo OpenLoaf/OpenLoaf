@@ -57,6 +57,24 @@ export function getToolName(part: AnyToolPart): string {
   });
 }
 
+/** Resolve tool id from part type/toolName. */
+export function getToolId(part: AnyToolPart): string {
+  if (typeof part.toolName === "string" && part.toolName.trim()) return part.toolName.trim();
+  if (typeof part.type === "string" && part.type.startsWith("tool-")) {
+    return part.type.slice("tool-".length);
+  }
+  return "";
+}
+
+/** Determine whether tool rendering should show streaming state. */
+export function isToolStreaming(part: { state?: string; streaming?: boolean }): boolean {
+  return (
+    part.streaming === true ||
+    part.state === "input-streaming" ||
+    part.state === "output-streaming"
+  );
+}
+
 /** Resolve actionName from tool input. */
 export function getToolActionName(part: AnyToolPart): string {
   const inputPayload = normalizeToolInput(part.input);

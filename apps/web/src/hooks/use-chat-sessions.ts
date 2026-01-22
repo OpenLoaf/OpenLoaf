@@ -25,6 +25,8 @@ export type ChatSessionListItem = {
   projectId: string | null;
   /** Project name resolved from tree. */
   projectName: string | null;
+  /** Session message count. */
+  messageCount: number;
 };
 
 /** Max sessions shown in recent section. */

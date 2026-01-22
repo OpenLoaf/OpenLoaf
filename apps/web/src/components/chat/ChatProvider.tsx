@@ -103,6 +103,7 @@ type SubAgentStreamState = {
   output: string;
   errorText?: string;
   state: "output-streaming" | "output-available" | "output-error";
+  streaming?: boolean;
 };
 
 function handleSubAgentDataPart(input: {
@@ -143,6 +144,7 @@ function handleSubAgentDataPart(input: {
           name: name || current.name,
           task: task || current.task,
           state: "output-streaming",
+          streaming: true,
         },
       };
     }
@@ -155,6 +157,7 @@ function handleSubAgentDataPart(input: {
           ...current,
           output: `${current.output}${delta}`,
           state: "output-streaming",
+          streaming: true,
         },
       };
     }
@@ -167,6 +170,7 @@ function handleSubAgentDataPart(input: {
           ...current,
           output: output || current.output,
           state: "output-available",
+          streaming: false,
         },
       };
     }
@@ -179,6 +183,7 @@ function handleSubAgentDataPart(input: {
           ...current,
           errorText: errorText || current.errorText,
           state: "output-error",
+          streaming: false,
         },
       };
     }

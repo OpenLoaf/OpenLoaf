@@ -54,6 +54,8 @@ export type ChatSessionSummary = {
   projectId: string | null;
   /** Project name resolved from tree. */
   projectName: string | null;
+  /** Session message count. */
+  messageCount: number;
 };
 
 const DEFAULT_VIEW_LIMIT = 50;
@@ -594,11 +596,26 @@ export const chatRouter = t.router({
         },
       });
 
+      const sessionIds = sessions.map((session) => session.id);
+      const messageCountBySession = new Map<string, number>();
+      if (sessionIds.length > 0) {
+        // 按会话聚合消息数量，供历史列表展示。
+        const messageCounts = await ctx.prisma.chatMessage.groupBy({
+          by: ["sessionId"],
+          where: { sessionId: { in: sessionIds } },
+          _count: { _all: true },
+        });
+        for (const row of messageCounts) {
+          messageCountBySession.set(row.sessionId, row._count._all);
+        }
+      }
+
       return sessions.map((session) => ({
         ...session,
         projectName: session.projectId
           ? projectTitleMap.get(session.projectId) ?? null
           : null,
+        messageCount: messageCountBySession.get(session.id) ?? 0,
       })) as ChatSessionSummary[];
     }),
 

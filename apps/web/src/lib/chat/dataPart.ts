@@ -43,6 +43,7 @@ function handleToolChunk({
         toolName: current?.toolName ?? "shell",
         title: current?.title ?? "CLI 输出",
         state: "output-streaming",
+        streaming: true,
         output: `${currentOutput}${delta}`,
       });
       break;
@@ -54,6 +55,14 @@ function handleToolChunk({
         toolName: dataPart.toolName,
         title: dataPart.title,
         state: "input-streaming",
+        streaming: true,
+      });
+      break;
+    }
+    case "tool-input-delta": {
+      upsertToolPartMerged(String(dataPart.toolCallId), {
+        state: "input-streaming",
+        streaming: true,
       });
       break;
     }
@@ -78,6 +87,7 @@ function handleToolChunk({
       upsertToolPartMerged(String(dataPart.toolCallId), {
         state: "output-available",
         output: dataPart.output,
+        streaming: false,
       });
       break;
     }
@@ -85,12 +95,14 @@ function handleToolChunk({
       upsertToolPartMerged(String(dataPart.toolCallId), {
         state: "output-error",
         errorText: dataPart.errorText,
+        streaming: false,
       });
       break;
     }
     case "tool-output-denied": {
       upsertToolPartMerged(String(dataPart.toolCallId), {
         state: "output-denied",
+        streaming: false,
       });
       break;
     }
@@ -103,6 +115,7 @@ function handleToolChunk({
         state: "output-error",
         input: dataPart.input,
         errorText: dataPart.errorText,
+        streaming: false,
       });
       break;
     }

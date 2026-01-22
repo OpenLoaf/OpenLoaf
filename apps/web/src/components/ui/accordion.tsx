@@ -26,10 +26,11 @@ function AccordionItem({
 function AccordionTrigger({
   className,
   children,
+  trailing,
   ...props
-}: React.ComponentProps<typeof AccordionPrimitive.Trigger>) {
+}: React.ComponentProps<typeof AccordionPrimitive.Trigger> & { trailing?: React.ReactNode }) {
   return (
-    <AccordionPrimitive.Header className="flex">
+    <AccordionPrimitive.Header className="flex items-start justify-between gap-2">
       <AccordionPrimitive.Trigger
         data-slot="accordion-trigger"
         className={cn(
@@ -41,6 +42,7 @@ function AccordionTrigger({
         {children}
         <ChevronDownIcon className="text-muted-foreground pointer-events-none size-4 shrink-0 translate-y-0.5 transition-transform duration-200" />
       </AccordionPrimitive.Trigger>
+      {trailing ? <div className="shrink-0">{trailing}</div> : null}
     </AccordionPrimitive.Header>
   )
 }

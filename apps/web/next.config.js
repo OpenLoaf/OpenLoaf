@@ -13,7 +13,7 @@ const nextConfig = {
     // inferring it from unrelated lockfiles on the machine.
     root: path.resolve(__dirname, "../.."),
     resolveAlias: {
-      "d3-path": d3PathEsmEntry,
+      "d3-path": "d3-path/src/index.js",
     },
   },
   webpack: (config) => {

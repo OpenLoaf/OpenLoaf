@@ -203,6 +203,8 @@ export async function ensureDevServices(args: {
           ...envBase,
           NODE_ENV: 'development',
           NEXT_PUBLIC_SERVER_URL: serverUrl,
+          // Turbopack 在 monorepo 下文件监听量较大，开启 polling 避免 EMFILE。
+          WATCHPACK_POLLING: 'true',
           // apps/web 用此标记开启 Electron 专属能力（IPC bridge 等）。
           NEXT_PUBLIC_ELECTRON: '1',
         },

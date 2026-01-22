@@ -31,12 +31,21 @@ export default function MessageTool({
 }) {
   const chat = useChatContext();
   const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
-  const cliToolSnapshot = useTabs((state) =>
+  const toolSnapshot = useTabs((state) =>
     toolCallId && chat.tabId ? state.toolPartsByTabId[chat.tabId]?.[toolCallId] : undefined,
   );
-  // 逻辑：CLI 输出走 data-stream 时，用 toolParts 合并覆盖 message part。
-  const resolvedPart =
-    cliToolSnapshot?.variant === "cli-thinking" ? { ...part, ...cliToolSnapshot } : part;
+  // 逻辑：tool streaming 状态以 toolParts 为准，覆盖 message part。
+  let resolvedPart = toolSnapshot ? { ...part, ...toolSnapshot } : part;
+  if (
+    chat.status === "ready" &&
+    (resolvedPart.state === "input-streaming" || resolvedPart.state === "output-streaming")
+  ) {
+    // 中文注释：会话已结束但数据库残留 streaming 状态时，强制终止流式显示。
+    resolvedPart = {
+      ...resolvedPart,
+      state: resolvedPart.state === "input-streaming" ? "input-available" : "output-available",
+    };
+  }
 
   if (resolvedPart.variant === "cli-thinking") {
     return <CliThinkingTool part={resolvedPart} />;

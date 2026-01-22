@@ -11,11 +11,14 @@ import ToolInfoCard from "./shared/ToolInfoCard";
 import {
   asPlainObject,
   getApprovalId,
+  getToolId,
   getToolName,
   getToolOutputState,
   getToolStatusTone,
+  isToolStreaming,
   isApprovalPending,
   normalizeToolInput,
+  safeStringify,
 } from "./shared/tool-utils";
 import type { AnyToolPart, ToolVariant } from "./shared/tool-utils";
 
@@ -91,6 +94,9 @@ export default function UnifiedTool({
   const approvalId = getApprovalId(part);
   const isApprovalRequested = isApprovalPending(part);
   const isRejected = part.approval?.approved === false;
+  const hasApproval = part.approval != null;
+  const showOutput = !hasApproval || part.approval?.approved === true;
+  const isStreaming = isToolStreaming(part);
   const actions =
     isApprovalRequested && approvalId ? <ToolApprovalActions approvalId={approvalId} /> : null;
 
@@ -107,12 +113,6 @@ export default function UnifiedTool({
 
     const name = typeof effectiveInput?.name === "string" ? effectiveInput.name : "SubAgent";
     const task = typeof effectiveInput?.task === "string" ? effectiveInput.task : "";
-    const statusText = getToolStatusText({
-      type: part.type,
-      state: effectiveState,
-      output: effectiveOutput,
-      errorText: effectiveErrorText,
-    });
     const statusTone = getToolStatusTone({
       type: part.type,
       state: effectiveState,
@@ -123,14 +123,19 @@ export default function UnifiedTool({
     const outputText = getRawOutputText(effectiveOutput, effectiveErrorText);
     const inputText = getRawInputText(effectiveInput);
 
+    const isStreaming = stream?.streaming === true || isToolStreaming(part);
+
     return (
       <ToolInfoCard
         title={title}
+        toolId={getToolId(part)}
         statusTone={statusTone}
         inputText={inputText || JSON.stringify({ name, task })}
         className={className}
         outputText={outputText}
         outputTone={typeof effectiveErrorText === "string" && effectiveErrorText.trim() ? "error" : "default"}
+        showOutput={showOutput}
+        isStreaming={isStreaming}
       />
     );
   }
@@ -166,6 +171,7 @@ export default function UnifiedTool({
     return (
       <ToolInfoCard
         title={title}
+        toolId={getToolId(part)}
         statusTone={statusTone}
         inputText={getRawInputText(part.input)}
         className={className}
@@ -182,17 +188,20 @@ export default function UnifiedTool({
         }
         outputText={getRawOutputText(part.output, part.errorText)}
         outputTone={hasError ? "error" : "default"}
+        showOutput={showOutput}
+        isStreaming={isStreaming}
       />
     );
   }
 
   const { hasErrorText } = getToolOutputState(part);
-  const outputText = getRawOutputText(part.output, part.errorText);
+  const outputText = getRawOutputText(part.output, part.errorText || safeStringify(part.output));
   const resolvedOutput = isRejected ? "已拒绝" : outputText;
 
   return (
     <ToolInfoCard
       title={title}
+      toolId={getToolId(part)}
       statusTone={statusTone}
       inputText={getRawInputText(part.input)}
       className={className}
@@ -201,6 +210,8 @@ export default function UnifiedTool({
       actions={actions}
       outputText={isApprovalRequested ? "" : resolvedOutput}
       outputTone={hasErrorText || isRejected ? "error" : "default"}
+      showOutput={showOutput}
+      isStreaming={isStreaming}
     />
   );
 }
