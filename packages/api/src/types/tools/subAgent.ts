@@ -12,6 +12,10 @@ export const subAgentToolDef = {
   description:
     "创建一个子Agent处理指定任务，并将执行过程与结果流式返回。适用于需要拆分任务、并行探索或执行长步骤的场景。当前仅支持 BrowserSubAgent。",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：启动子代理执行网页操作。"),
     name: z.enum(subAgentNames).describe("子Agent名称（当前仅支持 BrowserSubAgent）。"),
     task: z.string().describe("子Agent需要执行的任务描述。"),
   }),

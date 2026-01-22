@@ -17,6 +17,7 @@ import {
   formatSize,
   resolveFileUriFromRoot,
 } from "@/components/project/filesystem/utils/file-system-utils";
+import { FILE_DRAG_REF_MIME } from "@/components/project/filesystem/utils/file-system-utils";
 
 interface MessageFileProps {
   /** File URL to render. */
@@ -50,6 +51,15 @@ function isRelativePath(value: string) {
   return !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value);
 }
 
+/** Build a file reference string for drag payload. */
+function buildFileRefText(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (!isRelativePath(trimmed) && !trimmed.startsWith("@[")) return "";
+  if (trimmed.startsWith("@")) return trimmed;
+  return `@${trimmed}`;
+}
+
 /** Render file part for AI messages. */
 export default function MessageFile({ url, mediaType, title, className }: MessageFileProps) {
   const [preview, setPreview] = React.useState<PreviewState | null>(null);
@@ -57,6 +67,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
   const [isPreviewOpen, setIsPreviewOpen] = React.useState(false);
   const isImage = isImageMediaType(mediaType);
   const shouldFetchPreview = isImage && isRelativePath(url);
+  const fileRefText = React.useMemo(() => buildFileRefText(url), [url]);
   const chat = useChatContext();
   const projectId = chat.projectId;
   const projectQuery = useProject(projectId);
@@ -174,6 +185,11 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
             event.dataTransfer.effectAllowed = "copy";
             const fallbackName = title?.trim() || resolveFileName(url, mediaType);
             setImageDragPayload(event.dataTransfer, { baseUri: url, fileName: fallbackName });
+            // 中文注释：拖拽到输入框时附带文件引用，便于插入 @path 并在末尾补空格。
+            if (fileRefText) {
+              event.dataTransfer.setData(FILE_DRAG_REF_MIME, fileRefText);
+              event.dataTransfer.setData("text/plain", `${fileRefText} `);
+            }
           }}
         />
       </button>

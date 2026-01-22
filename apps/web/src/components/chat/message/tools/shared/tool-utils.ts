@@ -47,11 +47,21 @@ export type ToolStatusTone = "default" | "success" | "warning" | "error";
 
 /** Resolve tool display name. */
 export function getToolName(part: AnyToolPart): string {
+  const actionName = getToolActionName(part);
+  if (actionName) return actionName;
+
   return resolveToolDisplayName({
     title: part.title,
     toolName: part.toolName,
     type: part.type,
   });
+}
+
+/** Resolve actionName from tool input. */
+export function getToolActionName(part: AnyToolPart): string {
+  const inputPayload = normalizeToolInput(part.input);
+  const inputObject = asPlainObject(inputPayload);
+  return typeof inputObject?.actionName === "string" ? inputObject.actionName.trim() : "";
 }
 
 /** Normalize any value into displayable string. */

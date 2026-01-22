@@ -183,7 +183,7 @@ export async function ensureDevServices(args: {
   if (!webOk) {
     // 启动前端（apps/web）的 Next.js dev server。使用 `pnpm --filter web exec next dev`
     // 以避免依赖项目自定义 script 名称。
-    // dev 下强制走 webpack，避免 Turbopack 初始化卡住导致 Electron 停在 loading。
+    // dev 下强制走 Turbopack，加快 Next.js 开发态构建与热更新。
     managedWeb = spawnLogged(
       'web',
       pnpm,
@@ -193,7 +193,7 @@ export async function ensureDevServices(args: {
         'exec',
         'next',
         'dev',
-        '--webpack',
+        '--turbopack',
         `--port=${webPort}`,
         `--hostname=${webHost}`,
       ],

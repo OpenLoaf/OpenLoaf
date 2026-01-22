@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils";
-import { Eye, PlusCircle, History } from "lucide-react";
+import { Bug, PlusCircle, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -122,22 +122,22 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
       <div className="min-w-0 w-full truncate px-2 text-center text-sm font-medium">
         {sessionTitle.length > 0 ? sessionTitle : null}
       </div>
-      <div className="min-w-0 flex items-center justify-end gap-1">
+      <div className="min-w-0 flex items-center justify-end gap-0.5">
         {showPrefaceButton ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="View Preface"
+                aria-label="View Debug Context"
                 onClick={handleViewPreface}
                 disabled={prefaceLoading}
               >
-                <Eye size={20} />
+                <Bug size={20} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
-              查看 Preface
+              查看上下文调试信息
             </TooltipContent>
           </Tooltip>
         ) : null}

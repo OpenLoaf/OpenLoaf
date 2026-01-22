@@ -11,4 +11,9 @@ export const rules: Required<ModuleOptions>['rules'] = [
       },
     },
   },
+  // 图片资源走 webpack 资源模块，确保 renderer 可引用静态文件。
+  {
+    test: /\.(png|jpe?g|gif|svg)$/i,
+    type: 'asset/resource',
+  },
 ];

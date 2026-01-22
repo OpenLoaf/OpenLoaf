@@ -7,6 +7,10 @@ export const timeNowToolDef = {
   description:
     "获取当前服务器时间信息，包括格式化的时间字符串、Unix时间戳（毫秒）和时区。当需要了解当前时间或进行时间相关计算时调用此工具，可通过可选参数指定时区。",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：获取当前系统时间。"),
     timezone: z
       .string()
       .optional()

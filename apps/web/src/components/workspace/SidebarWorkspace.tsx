@@ -384,8 +384,8 @@ export const SidebarWorkspace = () => {
                   {displayAvatar ? (
                     <AvatarImage src={displayAvatar} alt={displayEmail ?? "User"} />
                   ) : null}
-                  <AvatarFallback>
-                    <img src="/head_s.png" alt="Tenas" className="size-full object-cover" />
+                  <AvatarFallback className="bg-transparent">
+                    <img src="/head_s.png" alt="Tenas" className="size-full object-contain" />
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0 text-left">

@@ -4,7 +4,12 @@ export const browserSnapshotToolDef = {
   id: "browser-snapshot",
   name: "浏览器快照",
   description: "获取当前可控页面的快照（URL/标题/可见文本/可交互元素）。",
-  parameters: z.object({}),
+  parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：获取页面快照。"),
+  }),
   component: null,
 } as const;
 
@@ -13,6 +18,10 @@ export const browserObserveToolDef = {
   name: "页面观察",
   description: "观察当前页面并返回快照，可用于寻找下一步动作线索。",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：观察页面寻找操作线索。"),
     task: z.string().describe("观察目标/关注点。"),
   }),
   component: null,
@@ -23,6 +32,10 @@ export const browserExtractToolDef = {
   name: "页面提取",
   description: "从当前页面提取与 query 相关的文本内容。",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：提取页面关键信息。"),
     query: z.string().describe("要提取的信息描述。"),
   }),
   component: null,
@@ -34,6 +47,10 @@ export const browserActToolDef = {
   description: "在当前页面执行一个结构化动作（click-css/click-text/type/fill/press/press-on/scroll）。",
   parameters: z
     .object({
+      actionName: z
+        .string()
+        .min(1)
+        .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：点击按钮或输入文本。"),
       action: z
         .enum(["click-css", "click-text", "type", "fill", "press", "press-on", "scroll"])
         .describe("动作类型。"),
@@ -74,6 +91,10 @@ export const browserWaitToolDef = {
   name: "页面等待",
   description: "等待页面满足条件后再返回。",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：等待页面加载完成。"),
     type: z.enum(["timeout", "load", "networkidle", "urlIncludes", "textIncludes"]),
     timeoutMs: z.number().int().min(0).optional().describe("最大等待时间（毫秒）。"),
     url: z.string().optional().describe("urlIncludes 的匹配片段。"),

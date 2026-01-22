@@ -3,7 +3,6 @@
 import * as React from "react";
 import ToolInfoCard from "./shared/ToolInfoCard";
 import {
-  getToolStatusText,
   getToolStatusTone,
   safeStringify,
 } from "./shared/tool-utils";
@@ -36,12 +35,6 @@ function getCliOutputText(part: CliThinkingToolPart): string {
  */
 export default function CliThinkingTool({ part }: { part: CliThinkingToolPart }) {
   const title = part.title || "CLI 输出";
-  const statusText = getToolStatusText({
-    type: "tool-cli",
-    state: part.state,
-    output: part.output,
-    errorText: part.errorText,
-  });
   const statusTone = getToolStatusTone({
     type: "tool-cli",
     state: part.state,
@@ -50,24 +43,14 @@ export default function CliThinkingTool({ part }: { part: CliThinkingToolPart })
   });
   const outputText = getCliOutputText(part);
   const hasError = typeof part.errorText === "string" && part.errorText.trim().length > 0;
-  const isStreaming = part.state === "output-streaming";
 
   return (
     <ToolInfoCard
-      title="cli-thinking"
-      action={title}
-      status={statusText}
+      title={title}
       statusTone={statusTone}
-      params={[
-        { label: "模式", value: "CLI" },
-        { label: "流式", value: isStreaming ? "是" : "否", tone: "muted" },
-      ]}
-      output={{
-        title: "输出",
-        rawText: hasError ? String(part.errorText ?? "") : outputText || safeStringify(part.output),
-        tone: hasError ? "error" : "default",
-        defaultOpen: true,
-      }}
+      inputText=""
+      outputText={hasError ? String(part.errorText ?? "") : outputText || safeStringify(part.output)}
+      outputTone={hasError ? "error" : "default"}
     />
   );
 }

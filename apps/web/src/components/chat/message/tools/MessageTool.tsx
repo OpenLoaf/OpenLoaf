@@ -1,19 +1,9 @@
 "use client";
 
 import { useTabs } from "@/hooks/use-tabs";
-import { OpenUrlTool } from "./OpenUrlTool";
-import { TestApprovalTool } from "./TestApprovalTool";
-import SubAgentTool from "./SubAgentTool";
 import CliThinkingTool from "./CliThinkingTool";
-import ShellTool from "./runtime/ShellTool";
-import ShellCommandTool from "./runtime/ShellCommandTool";
-import ExecCommandTool from "./runtime/ExecCommandTool";
-import WriteStdinTool from "./runtime/WriteStdinTool";
-import ReadFileTool from "./file/ReadFileTool";
-import ListDirTool from "./file/ListDirTool";
-import GrepFilesTool from "./file/GrepFilesTool";
+import UnifiedTool from "./UnifiedTool";
 import PlanTool from "./PlanTool";
-import GenericTool from "./shared/GenericTool";
 import { useChatContext } from "../../ChatProvider";
 import type { AnyToolPart, ToolVariant } from "./shared/tool-utils";
 
@@ -48,45 +38,18 @@ export default function MessageTool({
   const resolvedPart =
     cliToolSnapshot?.variant === "cli-thinking" ? { ...part, ...cliToolSnapshot } : part;
 
-  // open-url 使用专用组件，支持“流结束后手动点击打开左侧网页”。
-  if (resolvedPart.toolName === "open-url" || resolvedPart.type === "tool-open-url") {
-    return <OpenUrlTool part={resolvedPart} />;
-  }
-  if (resolvedPart.toolName === "test-approval" || resolvedPart.type === "tool-test-approval") {
-    return <TestApprovalTool part={resolvedPart} />;
-  }
-  if (resolvedPart.toolName === "sub-agent" || resolvedPart.type === "tool-sub-agent") {
-    return <SubAgentTool part={resolvedPart} />;
-  }
   if (resolvedPart.variant === "cli-thinking") {
     return <CliThinkingTool part={resolvedPart} />;
   }
   const toolKind = getToolKind(resolvedPart).toLowerCase();
 
-  if (toolKind === "shell" || toolKind.startsWith("shell-")) {
-    return <ShellTool part={resolvedPart} className={className} variant={variant} />;
-  }
-  if (toolKind === "shell-command" || toolKind.startsWith("shell-command-")) {
-    return <ShellCommandTool part={resolvedPart} className={className} variant={variant} />;
-  }
-  if (toolKind === "exec-command" || toolKind.startsWith("exec-command-")) {
-    return <ExecCommandTool part={resolvedPart} className={className} variant={variant} />;
-  }
-  if (toolKind === "write-stdin" || toolKind.startsWith("write-stdin-")) {
-    return <WriteStdinTool part={resolvedPart} className={className} variant={variant} />;
-  }
-  if (toolKind === "read-file") {
-    return <ReadFileTool part={resolvedPart} className={className} variant={variant} />;
-  }
-  if (toolKind === "list-dir") {
-    return <ListDirTool part={resolvedPart} className={className} variant={variant} />;
-  }
-  if (toolKind === "grep-files") {
-    return <GrepFilesTool part={resolvedPart} className={className} variant={variant} />;
-  }
   if (toolKind === "update-plan") {
     return <PlanTool part={resolvedPart} className={className} />;
   }
 
-  return <GenericTool part={resolvedPart} className={className} variant={variant} />;
+  if (toolKind === "cli-thinking") {
+    return <CliThinkingTool part={resolvedPart} />;
+  }
+
+  return <UnifiedTool part={resolvedPart} className={className} variant={variant} />;
 }

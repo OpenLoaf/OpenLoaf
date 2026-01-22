@@ -12,6 +12,9 @@ const nextConfig = {
     // Monorepo: ensure Next picks the workspace root (pnpm-lock.yaml) instead of
     // inferring it from unrelated lockfiles on the machine.
     root: path.resolve(__dirname, "../.."),
+    resolveAlias: {
+      "d3-path": d3PathEsmEntry,
+    },
   },
   webpack: (config) => {
     config.resolve = config.resolve || {};

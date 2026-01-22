@@ -14,6 +14,10 @@ Examples of valid command strings:
 - setting an env var: ["powershell.exe", "-Command", "$env:FOO='bar'; echo $env:FOO"]
 - running an inline Python script: ["powershell.exe", "-Command", "@'\\nprint('Hello, world!')\\n'@ | python -"]`,
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：列出目录内容。"),
     command: z.array(z.string()).min(1),
     workdir: z.string().optional(),
     timeoutMs: z.number().int().positive().optional(),
@@ -30,6 +34,10 @@ export const shellToolDefUnix = {
 - The arguments to \`shell\` will be passed to execvp(). Most terminal commands should be prefixed with ["bash", "-lc"].
 - Always set the \`workdir\` param when using the shell function. Do not use \`cd\` unless absolutely necessary.`,
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：查看当前目录内容。"),
     command: z.array(z.string()).min(1),
     workdir: z.string().optional(),
     timeoutMs: z.number().int().positive().optional(),
@@ -53,6 +61,10 @@ Examples of valid command strings:
 - setting an env var: "$env:FOO='bar'; echo $env:FOO"
 - running an inline Python script: "@'\\nprint('Hello, world!')\\n'@ | python -"`,
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：查询系统信息。"),
     command: z.string().min(1),
     workdir: z.string().optional(),
     login: z.boolean().optional(),
@@ -69,6 +81,10 @@ export const shellCommandToolDefUnix = {
   description: `Runs a shell command and returns its output.
 - Always set the \`workdir\` param when using the shell_command function. Do not use \`cd\` unless absolutely necessary.`,
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：执行命令获取信息。"),
     command: z.string().min(1),
     workdir: z.string().optional(),
     login: z.boolean().optional(),
@@ -84,6 +100,10 @@ export const execCommandToolDefWin = {
   name: "交互命令（Windows）",
   description: "Runs a command in a PTY, returning output or a session ID for ongoing interaction.",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：获取当前系统时间。"),
     cmd: z.string().min(1),
     workdir: z.string().optional(),
     shell: z.string().optional(),
@@ -102,6 +122,10 @@ export const execCommandToolDefUnix = {
   name: "交互命令（Unix）",
   description: "Runs a command in a PTY, returning output or a session ID for ongoing interaction.",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：获取当前系统时间。"),
     cmd: z.string().min(1),
     workdir: z.string().optional(),
     shell: z.string().optional(),
@@ -120,6 +144,10 @@ export const writeStdinToolDefWin = {
   name: "写入会话（Windows）",
   description: "Writes characters to an existing unified exec session and returns recent output.",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：向交互会话发送输入。"),
     sessionId: z.string().min(1),
     chars: z.string().optional(),
     yieldTimeMs: z.number().int().positive().optional(),
@@ -133,6 +161,10 @@ export const writeStdinToolDefUnix = {
   name: "写入会话（Unix）",
   description: "Writes characters to an existing unified exec session and returns recent output.",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：向交互会话发送输入。"),
     sessionId: z.string().min(1),
     chars: z.string().optional(),
     yieldTimeMs: z.number().int().positive().optional(),
@@ -147,6 +179,10 @@ export const readFileToolDef = {
   description:
     "Reads a local text file with 1-indexed line numbers, supporting slice and indentation-aware block modes. Only text files are supported (no Excel/Word/PDF).",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：读取配置文件内容。"),
     path: z.string().min(1),
     offset: z.number().int().min(1).optional(),
     limit: z.number().int().min(1).optional(),
@@ -166,6 +202,10 @@ export const listDirToolDef = {
   description:
     "Lists entries in a local directory with 1-indexed entry numbers and simple type labels.",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：列出目录内容。"),
     path: z.string().min(1),
     offset: z.number().int().min(1).optional(),
     limit: z.number().int().min(1).optional(),
@@ -180,6 +220,10 @@ export const grepFilesToolDef = {
   description:
     "Finds files whose contents match the pattern and lists them by modification time. Text files only; binary formats like Excel/Word/PDF are not supported.",
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：搜索包含指定内容的文件。"),
     pattern: z.string().min(1),
     include: z.string().optional(),
     path: z.string().optional(),
@@ -205,6 +249,10 @@ export const updatePlanToolDef = {
 Provide an optional explanation and a list of plan items, each with a step and status.
 At most one step can be in_progress at a time.`,
   parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：同步当前计划。"),
     explanation: z.string().optional().describe("Optional plan summary."),
     plan: z.array(planItemSchema).min(1).describe("Plan step list."),
   }),
