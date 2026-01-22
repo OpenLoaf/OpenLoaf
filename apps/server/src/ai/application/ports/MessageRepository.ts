@@ -3,8 +3,8 @@ import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 export type EnsurePrefaceInput = {
   /** Session id. */
   sessionId: string;
-  /** Preface message payload. */
-  message: TenasUIMessage;
+  /** Preface text content. */
+  text: string;
 };
 
 export type SaveMessageInput = {
@@ -17,8 +17,8 @@ export type SaveMessageInput = {
 };
 
 export interface MessageRepository {
-  /** Ensure session preface exists and return its id. */
-  ensurePreface(input: EnsurePrefaceInput): Promise<string | null>;
+  /** Ensure session preface text exists. */
+  ensurePreface(input: EnsurePrefaceInput): Promise<void>;
   /** Save a chat message node. */
   saveMessage(input: SaveMessageInput): Promise<void>;
 }

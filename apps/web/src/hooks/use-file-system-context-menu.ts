@@ -2,7 +2,6 @@
 
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -36,8 +35,6 @@ export type UseFileSystemContextMenuOptions = {
   selectedUris: Set<string>;
   /** Replace selection callback. */
   onReplaceSelection: (uris: string[]) => void;
-  /** Delay before clearing menu target after close. */
-  closeDelayMs?: number;
   /** Guard duration for accidental menu selection. */
   selectGuardMs?: number;
 };
@@ -68,7 +65,6 @@ export function useFileSystemContextMenu({
   entries,
   selectedUris,
   onReplaceSelection,
-  closeDelayMs = 200,
   selectGuardMs = 200,
 }: UseFileSystemContextMenuOptions): UseFileSystemContextMenuResult {
   /** Last entry uri that opened the menu. */
@@ -83,10 +79,6 @@ export function useFileSystemContextMenu({
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   /** Record the last menu open time for select guards. */
   const lastContextMenuOpenAtRef = useRef(0);
-  /** Store the pending menu target clear timeout. */
-  const menuTargetClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
 
   /** Resolve the menu entry snapshot used for rendering. */
   const menuContextEntry = useMemo(() => {
@@ -94,13 +86,6 @@ export function useFileSystemContextMenu({
     if (!menuTarget || menuTarget.type !== "entry") return null;
     return entries.find((entry) => entry.uri === menuTarget.uri) ?? null;
   }, [entries, menuTarget, menuTargetEntry]);
-
-  /** Clear any pending menu target cleanup timer. */
-  const clearMenuTargetTimeout = useCallback(() => {
-    if (!menuTargetClearTimeoutRef.current) return;
-    clearTimeout(menuTargetClearTimeoutRef.current);
-    menuTargetClearTimeoutRef.current = null;
-  }, []);
 
   /** Set menu target snapshot from a uri. */
   const setMenuTargetFromUri = useCallback((uri: string | null) => {
@@ -121,7 +106,6 @@ export function useFileSystemContextMenu({
   const handleGridContextMenuCapture = useCallback(
     (_event: ReactMouseEvent<HTMLDivElement>, payload: FileSystemContextMenuCapturePayload) => {
       lastContextMenuOpenAtRef.current = Date.now();
-      clearMenuTargetTimeout();
       const targetUri = payload.entry?.uri ?? payload.uri;
       setMenuTargetFromUri(targetUri ?? null);
       // 逻辑：缓存目标条目快照，避免目录切换时菜单内容闪动。
@@ -133,13 +117,7 @@ export function useFileSystemContextMenu({
         onReplaceSelection([targetUri]);
       }
     },
-    [
-      clearMenuTargetTimeout,
-      entries,
-      onReplaceSelection,
-      selectedUris,
-      setMenuTargetFromUri,
-    ]
+    [entries, onReplaceSelection, selectedUris, setMenuTargetFromUri]
   );
 
   /** Ignore menu selection triggered by the opening right-click release. */
@@ -165,12 +143,11 @@ export function useFileSystemContextMenu({
     [shouldIgnoreMenuSelect]
   );
 
-  /** Track menu open changes and clean up targets. */
+  /** Track menu open changes and preserve the target snapshot. */
   const handleContextMenuOpenChange = useCallback(
     (open: boolean) => {
       if (open) {
         lastContextMenuOpenAtRef.current = Date.now();
-        clearMenuTargetTimeout();
         if (!menuTarget) {
           setMenuTarget(
             contextTargetUri
@@ -187,16 +164,10 @@ export function useFileSystemContextMenu({
         return;
       }
       setIsContextMenuOpen(false);
-      clearMenuTargetTimeout();
-      // 关闭时延迟清理菜单目标，避免动画期间菜单内容闪动。
-      menuTargetClearTimeoutRef.current = setTimeout(() => {
-        setMenuTarget(null);
-        setMenuTargetEntry(null);
-        menuTargetClearTimeoutRef.current = null;
-      }, closeDelayMs);
+      // 逻辑：菜单关闭时保留目标快照，避免退出动画期间切换为空白菜单。
       setContextTargetUri(null);
     },
-    [clearMenuTargetTimeout, closeDelayMs, contextTargetUri, menuTarget]
+    [contextTargetUri, menuTarget]
   );
 
   /** Clear context target when the menu is not open. */
@@ -207,18 +178,11 @@ export function useFileSystemContextMenu({
 
   /** Reset context menu state for navigation changes. */
   const resetContextMenu = useCallback(() => {
-    clearMenuTargetTimeout();
     setMenuTarget(null);
     setContextTargetUri(null);
     setIsContextMenuOpen(false);
     setMenuTargetEntry(null);
-  }, [clearMenuTargetTimeout]);
-
-  useEffect(() => {
-    return () => {
-      clearMenuTargetTimeout();
-    };
-  }, [clearMenuTargetTimeout]);
+  }, []);
 
   return {
     menuContextEntry,

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useCallback } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
 import { ModelDialog } from "@/components/setting/menus/provider/ModelDialog";
 import { ProviderDialog } from "@/components/setting/menus/provider/ProviderDialog";
@@ -7,6 +9,7 @@ import { ProviderSection } from "@/components/setting/menus/provider/ProviderSec
 import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
 import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,12 +17,16 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { normalizeChatModelSource } from "@/lib/provider-models";
 import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@/components/animate-ui/components/radix/switch";
 import { toast } from "sonner";
+import { trpc } from "@/utils/trpc";
+import { useTabs } from "@/hooks/use-tabs";
 import {
   useProviderManagement,
   type ProviderEntry,
@@ -47,6 +54,8 @@ type ProviderManagementProps = {
 
 export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const { basic, setBasic } = useBasicConfig();
+  const autoSummaryHours = Array.from({ length: 25 }, (_, hour) => hour);
+  const [manualDate, setManualDate] = useState("");
 
   const modelResponseLanguage: ModelResponseLanguageId = basic.modelResponseLanguage;
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
@@ -60,6 +69,15 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     "de-DE": "Deutsch",
     "es-ES": "Español",
   };
+  const workspaceQuery = useQuery(trpc.workspace.getActive.queryOptions());
+  const workspaceId = workspaceQuery.data?.id ?? "";
+  const activeTabId = useTabs((state) => state.activeTabId);
+  const pushStackItem = useTabs((state) => state.pushStackItem);
+  const runSummaryForWorkspace = useMutation(
+    trpc.project.runSummaryForWorkspace.mutationOptions({
+      onSuccess: async () => {},
+    }),
+  );
   const {
     entries,
     dialogOpen,
@@ -147,6 +165,42 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     await deleteProviderModel(entry, modelId);
     toast.success("已删除模型");
   }
+
+  function handleToggleAutoSummaryHour(hour: number) {
+    const next = new Set(basic.autoSummaryHours ?? []);
+    if (next.has(hour)) {
+      next.delete(hour);
+    } else {
+      next.add(hour);
+    }
+    // 逻辑：排序后写回，保持配置稳定输出。
+    const sorted = Array.from(next).sort((a, b) => a - b);
+    void setBasic({ autoSummaryHours: sorted });
+  }
+
+  function handleRunSummaryForWorkspace() {
+    if (!workspaceId) {
+      toast.error("未找到工作空间");
+      return;
+    }
+    if (!manualDate) return;
+    runSummaryForWorkspace.mutate({ workspaceId, dateKey: manualDate });
+  }
+
+  const handleOpenHistoryPanel = useCallback(() => {
+    if (!activeTabId || !workspaceId) return;
+    pushStackItem(activeTabId, {
+      id: `summary-history:workspace:${workspaceId}`,
+      sourceKey: `summary-history:workspace:${workspaceId}`,
+      component: "scheduler-task-history",
+      title: "工作空间汇总历史",
+      params: { workspaceId, scope: "workspace" },
+    });
+  }, [activeTabId, pushStackItem, workspaceId]);
+
+  const autoSummaryLabel = (basic.autoSummaryHours ?? [])
+    .map((hour) => `${hour}时`)
+    .join("、");
 
   return (
     <div className={wrapperClassName}>
@@ -262,6 +316,113 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   }
                   aria-label="Model sound"
                 />
+              </div>
+            </TenasSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">资料自动总结</div>
+              <div className="text-xs text-muted-foreground">
+                自动总结项目资料并按计划生成记录
+              </div>
+            </div>
+
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+              <div className="origin-right scale-110">
+                <Switch
+                  checked={basic.autoSummaryEnabled}
+                  onCheckedChange={(checked) =>
+                    void setBasic({ autoSummaryEnabled: checked })
+                  }
+                  aria-label="Auto summary"
+                />
+              </div>
+            </TenasSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">自动总结时间</div>
+              <div className="text-xs text-muted-foreground">
+                选择一天内需要自动总结的小时
+              </div>
+            </div>
+
+            <TenasSettingsField className="w-full sm:w-[360px] shrink-0">
+              <div className="flex items-center justify-end gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {autoSummaryLabel || "-"}
+                </span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" disabled={!basic.autoSummaryEnabled}>
+                      设置
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-[280px]">
+                    <div className="grid grid-cols-5 gap-2">
+                      {autoSummaryHours.map((hour) => {
+                        const checked = (basic.autoSummaryHours ?? []).includes(hour);
+                        const id = `auto-summary-hour-${hour}`;
+                        return (
+                          <div key={hour} className="flex items-center gap-2">
+                            <Checkbox
+                              id={id}
+                              checked={checked}
+                              onCheckedChange={() => handleToggleAutoSummaryHour(hour)}
+                              disabled={!basic.autoSummaryEnabled}
+                            />
+                            <Label htmlFor={id} className="text-xs">
+                              {hour}
+                            </Label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </TenasSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">立即触发</div>
+              <div className="text-xs text-muted-foreground">
+                选择任意日期执行工作空间内的日汇总
+              </div>
+            </div>
+
+            <TenasSettingsField className="w-full sm:w-[360px] shrink-0">
+              <div className="flex items-center justify-end gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline">
+                      执行
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-[240px]">
+                    <div className="space-y-3">
+                      <input
+                        type="date"
+                        className="w-full rounded border border-border bg-background px-2 py-1 text-sm"
+                        value={manualDate}
+                        onChange={(event) => setManualDate(event.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleRunSummaryForWorkspace}
+                        disabled={!manualDate || runSummaryForWorkspace.isPending}
+                      >
+                        立即触发
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Button type="button" variant="ghost" onClick={handleOpenHistoryPanel}>
+                  历史面板
+                </Button>
               </div>
             </TenasSettingsField>
           </div>

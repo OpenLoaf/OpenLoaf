@@ -9,10 +9,9 @@ type UIMessage<D = unknown, DT = UIDataTypes, T = UITools> = {
   metadata?: any;
 };
 
-/** Chat message kind for compaction/preface handling. */
+/** Chat message kind for compaction handling. */
 export type ChatMessageKind =
   | "normal"
-  | "session_preface"
   | "compact_prompt"
   | "compact_summary";
 
@@ -52,7 +51,7 @@ export type TenasAgentInfo = {
 export interface TenasUIMessage extends UIMessage<unknown, TenasUIDataTypes, UITools> {
   /** 消息树：父消息 ID（根节点为 null） */
   parentMessageId: string | null;
-  /** Message kind for compaction/preface handling. */
+  /** Message kind for compaction handling. */
   messageKind?: ChatMessageKind;
   /** 产生该消息的 agent 信息（可选；流式阶段可能缺失） */
   agent?: TenasAgentInfo;

@@ -145,7 +145,7 @@ export const readFileToolDef = {
   id: "read-file",
   name: "读取文件",
   description:
-    "Reads a local file with 1-indexed line numbers, supporting slice and indentation-aware block modes.",
+    "Reads a local text file with 1-indexed line numbers, supporting slice and indentation-aware block modes. Only text files are supported (no Excel/Word/PDF).",
   parameters: z.object({
     path: z.string().min(1),
     offset: z.number().int().min(1).optional(),
@@ -178,7 +178,7 @@ export const grepFilesToolDef = {
   id: "grep-files",
   name: "搜索文件",
   description:
-    "Finds files whose contents match the pattern and lists them by modification time.",
+    "Finds files whose contents match the pattern and lists them by modification time. Text files only; binary formats like Excel/Word/PDF are not supported.",
   parameters: z.object({
     pattern: z.string().min(1),
     include: z.string().optional(),

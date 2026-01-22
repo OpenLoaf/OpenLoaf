@@ -60,6 +60,7 @@ export default function ShellTool({ part, className }: ShellToolProps) {
       actions={isApprovalRequested && approvalId ? <ToolApprovalActions approvalId={approvalId} /> : null}
       output={isApprovalRequested ? undefined : resolvedOutput}
       outputTone={hasErrorText || isRejected ? "error" : "default"}
+      codeStyle
     />
   );
 }

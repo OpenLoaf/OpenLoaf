@@ -1,4 +1,4 @@
-import { Bot, ChevronLeft, ChevronRight, Globe, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Globe, Plus, X } from "lucide-react";
 import { AnimatedTabs } from "@/components/ui/animated-tabs";
 import { useTabs } from "@/hooks/use-tabs";
 import { DEFAULT_TAB_INFO, type Tab } from "@tenas-ai/api/common";
@@ -438,7 +438,12 @@ export const HeaderTabs = () => {
       return (
         <>
           {tab.icon === "bot" ? (
-            <Bot className="h-3.5 w-3.5 mr-1.5 text-muted-foreground shrink-0" />
+            <img
+              src="/head_s.png"
+              alt=""
+              aria-hidden="true"
+              className="h-3.5 w-3.5 mr-1.5 shrink-0 object-contain"
+            />
           ) : (
             tab.icon && <span className="mr-1.5 shrink-0">{tab.icon}</span>
           )}
@@ -450,13 +455,13 @@ export const HeaderTabs = () => {
           ) : null}
           {!isPinned && (
             <span
-              className={`absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 transition-opacity delay-0 group-hover:delay-300 ${
+              className={`!absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 transition-opacity delay-0 group-hover:delay-300 ${
                 workspaceTabs.length <= 1
                   ? "opacity-0"
                   : "opacity-0 group-hover:opacity-100"
               } ${
                 isActive
-                  ? "group-hover:bg-background hover:bg-background"
+                  ? "group-hover:bg-background hover:bg-background dark:group-hover:bg-foreground/20 dark:hover:bg-foreground/20"
                   : "group-hover:bg-sidebar hover:bg-sidebar"
               } z-20 p-0 cursor-pointer flex items-center justify-center rounded-full`}
               onClick={(event) => {

@@ -17,8 +17,18 @@
   - `@[proj_parent]/docs/readme.md`
   - `@[proj_parent]/.tenas/chat/chat_xxx/20240101_000000.png`
 
-### 2) 相对路径（除“项目绝对路径”以外的所有无 scheme 路径）
-- **判定**：不匹配 `^@\\[[^\\]]+\\]/`，且不包含 URI scheme（`file://`/`http(s)`/`data:`/`blob:`）。
+### 1.5) 当前项目根路径别名（仅同项目）
+- **格式**：`@path/to/file`
+- **根目录**：当前项目根目录可表示为 `@`
+- **语义**：仅作为当前项目根目录的别名，解析时等同于项目相对路径。
+- **使用范围**：仅用于同项目引用，对外输出必须归一化为项目相对路径（去掉 `@`）。
+- **约束**：禁止使用 `@/` 或 `@\\` 前缀。
+- **示例**：
+  - `@docs/readme.md`
+  - `@excel/125_1.xls`
+
+### 2) 相对路径（除“项目绝对路径 / 当前项目根别名”以外的所有无 scheme 路径）
+- **判定**：不匹配 `^@\\[[^\\]]+\\]/` 且不匹配 `^@[^\\[]`，且不包含 URI scheme（`file://`/`http(s)`/`data:`/`blob:`）。
 - **子类型**：
   - **Board 相对路径**：推荐固定前缀 `.asset/`，表示相对当前 board 文件夹。
     - 示例：`.asset/20240101_000000.png`
@@ -37,6 +47,10 @@
 1) 若路径匹配 `@[projectId]/...` → 直接视为“项目绝对路径”。
 2) 若 `projectId` 与当前项目一致 → **降级为项目相对路径**（去掉 `@[projectId]/`）。
 3) `@[]` 必须保留，允许在服务端解析时临时去掉 `@`，但传输与持久化必须保留。
+
+### 规则 A-1：当前项目根路径别名
+- 若路径以 `@` 开头且不匹配 `@[projectId]/...` → 视为当前项目相对路径，解析时去掉 `@`。
+- `@/` 与 `@\\` 禁止使用。
 
 ### 规则 B：相对路径按上下文解析
 - **Board 场景**：`.asset/...` 视为“相对 board 目录”。
@@ -78,6 +92,7 @@
 
 ### 3) 统一判断与归一化
 - 绝对路径判定：`^@\\[[^\\]]+\\]/`
+- 当前项目根路径别名判定：`^@[^\\[]`（禁止 `@/` 与 `@\\`）
 - URI 判定：`^[a-zA-Z][a-zA-Z0-9+.-]*:`
 - 任何包含 `..` 的相对路径都视为非法。
 
@@ -87,6 +102,8 @@ if hasScheme(path):
   return URI
 if isProjectAbsolute(path):   # @[] 形式
   return ProjectAbsolute
+if isProjectRootAlias(path):  # @path 形式
+  return ProjectRelative
 if inBoardContext and isBoardRelative(path):  # .asset/ 或 ./
   return BoardRelative
 return ProjectRelative
@@ -105,6 +122,9 @@ return ProjectRelative
 2) 同项目内的路径（项目相对路径）  
 `docs/readme.md`
 
+2.5) 当前项目根路径别名  
+`@docs/readme.md`
+
 3) Chat 附件（项目相对路径）  
 `.tenas/chat/chat_20260116_175840_wda2jopd/20260116_175914_470.png`
 
@@ -119,4 +139,6 @@ return ProjectRelative
 - UI 内部选择、保存、事件传递必须使用 `@[projectId]/...` 或相对路径。
 - `@[projectId]/...` 必须保留 `@` 与 `[]`，禁止去掉或替换。
 - `@[projectId]/...` 仅用于跨项目引用；同项目必须降级为项目相对路径。
+- `@` 仅作为当前项目根目录别名输入，对外输出必须归一化为项目相对路径。
+- `@/` 与 `@\\` 禁止使用。
 - `.asset/...` 仅在 Board 语境使用；脱离 Board 语境前必须转换为项目路径。

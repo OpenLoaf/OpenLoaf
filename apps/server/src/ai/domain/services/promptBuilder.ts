@@ -17,7 +17,7 @@ function buildSkillsSummarySection(
 
   for (const summary of summaries) {
     lines.push(
-      `- ${summary.name} [${summary.scope}] ${summary.description} (path: \`${summary.path}\`)`,
+      `- ${summary.name} [${summary.scope}] ${summary.description} (command: \`/skill/${summary.name}\`, path: \`${summary.path}\`)`,
     );
   }
   return lines.join("\n");
@@ -108,10 +108,11 @@ export function buildMasterAgentSections(context: PromptContext): string[] {
       "# 输入中的文件引用（强制）",
       "- 用户输入里的 `@...` 代表文件引用，占位内容是项目内的相对路径。",
       "- 标准格式：`@path/to/file`（默认当前项目根目录）。",
+      "- 禁止使用 `@/` 或 `@\\`，必须写成 `@path` 而不是 `@/path`。",
       "- 跨项目格式：`@[projectId]/path`。",
       "- 可选行号范围：`@path/to/file:<start>-<end>`，表示关注指定行区间。",
       "- 系统插入的文件引用会优先使用当前会话的 projectId。",
-      "- 示例：`@[proj_6a5ba1eb-6c89-4bc6-a1a1-ca0ed1b2386d]/年货节主图.xlsx`。",
+      "- 示例：`@excel/125_1.xls`、`@[proj_6a5ba1eb-6c89-4bc6-a1a1-ca0ed1b2386d]/年货节主图.xlsx`。",
     ].join("\n"),
     [
       "# 任务分工（强制）",

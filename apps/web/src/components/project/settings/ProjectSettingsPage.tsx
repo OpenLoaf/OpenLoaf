@@ -5,10 +5,12 @@ import type { ComponentType } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { TenasSettingsLayout } from "@/components/ui/tenas/TenasSettingsLayout";
 import { TenasSettingsMenu } from "@/components/ui/tenas/TenasSettingsMenu";
-import { BarChart3, GitBranch, SlidersHorizontal, Sparkles } from "lucide-react";
+import { BarChart3, Bot, GitBranch, SlidersHorizontal, Sparkles } from "lucide-react";
 import { trpc } from "@/utils/trpc";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 
 import { ProjectBasicSettings } from "./menus/ProjectBasicSettings";
+import { ProjectAiSettings } from "./menus/ProjectAiSettings";
 import { ProjectGitSettings } from "./menus/ProjectGitSettings";
 import { ProjectSkillSettings } from "./menus/ProjectSkillSettings";
 import { ProjectStatsSettings } from "./menus/ProjectStatsSettings";
@@ -18,7 +20,7 @@ type ProjectSettingsPanelProps = {
   rootUri?: string;
 };
 
-type ProjectSettingsMenuKey = "basic" | "skills" | "stats" | "git";
+type ProjectSettingsMenuKey = "basic" | "ai" | "skills" | "stats" | "git";
 
 const BASE_MENU: Array<{
   key: ProjectSettingsMenuKey;
@@ -31,6 +33,12 @@ const BASE_MENU: Array<{
     label: "基础",
     Icon: SlidersHorizontal,
     Component: ProjectBasicSettings,
+  },
+  {
+    key: "ai",
+    label: "AI设置",
+    Icon: Bot,
+    Component: ProjectAiSettings,
   },
   {
     key: "skills",
@@ -123,6 +131,8 @@ export default function ProjectSettingsPage({
   const collapseRafRef = useRef<number | null>(null);
   const pendingWidthRef = useRef<number | null>(null);
   const lastCollapsedRef = useRef<boolean | null>(null);
+  const { basic } = useBasicConfig();
+  const shouldAnimate = basic.uiAnimationLevel !== "low";
 
   useEffect(() => {
     if (menuItems.some((item) => item.key === activeKey)) return;
@@ -184,7 +194,18 @@ export default function ProjectSettingsPage({
           onChange={(key) => setActiveKey(key as ProjectSettingsMenuKey)}
         />
       }
-      content={<ActiveComponent projectId={projectId} rootUri={rootUri} />}
+      content={
+        <div
+          key={activeKey}
+          className={
+            shouldAnimate
+              ? "settings-animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out"
+              : undefined
+          }
+        >
+          <ActiveComponent projectId={projectId} rootUri={rootUri} />
+        </div>
+      }
     />
   );
 }

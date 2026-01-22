@@ -1,15 +1,20 @@
 "use client";
 
-import { Loader } from "@/components/animate-ui/icons/loader";
+import Image from "next/image";
 
 export function LoadingScreen({ label = "Connecting to server..." }: { label?: string }) {
   return (
     <div className="grid h-svh place-items-center bg-background">
-      <div className="flex items-center gap-3 text-muted-foreground">
-        <Loader size={18} />
+      <div className="flex flex-col items-center gap-3 text-muted-foreground">
+        <Image
+          src="/head_s.png"
+          alt="Tenas logo"
+          width={40}
+          height={40}
+          className="h-10 w-10 motion-safe:animate-pulse"
+        />
         <span className="text-sm">{label}</span>
       </div>
     </div>
   );
 }
-

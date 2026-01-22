@@ -23,3 +23,28 @@ generator trpc {
 datasource db {
   provider = "sqlite" // 使用SQLite数据库
 }
+
+model SchedulerTaskRecord {
+  /// 任务 ID
+  id          String   @id
+  /// 项目 ID
+  projectId   String
+  /// 工作空间 ID
+  workspaceId String?
+  /// 任务类型
+  type        String
+  /// 涉及的日期列表（自然日）
+  dates       Json?
+  /// 相关记录数据
+  payload     Json?
+  /// 执行状态
+  status      String
+  /// 触发来源
+  triggeredBy String
+  /// 错误信息
+  error       String?
+  /// 创建时间
+  createdAt   DateTime @default(now())
+  /// 更新时间
+  updatedAt   DateTime @updatedAt
+}

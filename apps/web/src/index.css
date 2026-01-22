@@ -53,6 +53,32 @@
 @plugin "tailwind-scrollbar-hide";
 @import "tw-animate-css";
 
+/* 避免通用 enter keyframes 被覆盖，专用于设置页切换动画。 */
+@keyframes settings-enter {
+  0% {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(
+        var(--tw-enter-translate-x, 0),
+        var(--tw-enter-translate-y, 0),
+        0
+      )
+      scale3d(
+        var(--tw-enter-scale, 1),
+        var(--tw-enter-scale, 1),
+        var(--tw-enter-scale, 1)
+      )
+      rotate(var(--tw-enter-rotate, 0));
+    filter: blur(var(--tw-enter-blur, 0));
+  }
+}
+
+@layer utilities {
+  .settings-animate-in {
+    animation: settings-enter var(--tw-animation-duration, var(--tw-duration, 0.15s))
+      var(--tw-ease, ease) both;
+  }
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {

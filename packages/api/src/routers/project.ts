@@ -5,8 +5,10 @@ import { randomUUID } from "node:crypto";
 import { t, shieldedProcedure } from "../index";
 import {
   getProjectRootUri,
+  getProjectRootPath,
   getActiveWorkspace,
   getWorkspaceRootPath,
+  getWorkspaceRootPathById,
   removeActiveWorkspaceProject,
   resolveFilePathFromUri,
   setActiveWorkspaceProjectEntries,
@@ -23,12 +25,16 @@ import {
   readWorkspaceProjectTrees,
   type ProjectConfig,
 } from "../services/projectTreeService";
+import { requireSummaryRuntime } from "../services/summaryRuntime";
+import { listSchedulerTaskRecords } from "../services/schedulerTaskRecordService";
 import {
   getProjectGitBranches,
   getProjectGitCommits,
   getProjectGitInfo,
 } from "../services/projectGitService";
 import { moveProjectStorage } from "../services/projectStorageService";
+import { listProjectFilesChangedInRange } from "../services/projectFileChangeService";
+import { endOfDay, parseDateKey, startOfDay } from "../services/summaryDateUtils";
 
 /** File name for project homepage content. */
 const PAGE_HOME_FILE = "page-home.json";
@@ -37,6 +43,16 @@ const BOARD_SNAPSHOT_FILE = "board.snapshot.json";
 const DEFAULT_PROJECT_TITLE = "Untitled Project";
 /** Prefix for generated project ids. */
 const PROJECT_ID_PREFIX = "proj_";
+/** Cache directory name under root path. */
+const CACHE_DIR_NAME = ".tenas-cache";
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+type CacheScopeInput = {
+  /** Target project id. */
+  projectId?: string;
+  /** Target workspace id. */
+  workspaceId?: string;
+};
 
 /** Read JSON file safely, return null when missing. */
 async function readJsonFile(filePath: string): Promise<unknown | null> {
@@ -110,6 +126,54 @@ function resolveProjectRootPath(projectId: string): string {
     throw new Error("Project not found.");
   }
   return resolveFilePathFromUri(rootUri);
+}
+
+/** Resolve cache root path from project/workspace scope. */
+function resolveCacheRootPath(input: CacheScopeInput): string {
+  const projectId = input.projectId?.trim();
+  const workspaceId = input.workspaceId?.trim();
+  if (projectId) {
+    const rootPath = getProjectRootPath(projectId, workspaceId);
+    if (!rootPath) {
+      throw new Error("Project not found.");
+    }
+    return rootPath;
+  }
+  if (workspaceId) {
+    const rootPath = getWorkspaceRootPathById(workspaceId);
+    if (!rootPath) {
+      throw new Error("Workspace not found.");
+    }
+    return rootPath;
+  }
+  throw new Error("projectId or workspaceId is required.");
+}
+
+/** Compute directory size recursively. */
+async function getDirectorySizeBytes(dirPath: string): Promise<number> {
+  let entries: Array<import("node:fs").Dirent>;
+  try {
+    entries = await fs.readdir(dirPath, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  let total = 0;
+  for (const entry of entries) {
+    const entryPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      total += await getDirectorySizeBytes(entryPath);
+      continue;
+    }
+    if (entry.isFile()) {
+      try {
+        const stat = await fs.stat(entryPath);
+        total += stat.size;
+      } catch {
+        // 逻辑：单文件读取失败时忽略，继续统计其他项。
+      }
+    }
+  }
+  return total;
 }
 
 /** Append a child project entry into parent project.json. */
@@ -228,6 +292,48 @@ function getActiveWorkspaceProjects(): Record<string, string> {
   return getActiveWorkspace().projects ?? {};
 }
 
+/** Schema for cache management input. */
+const cacheScopeSchema = z
+  .object({
+    projectId: z.string().optional(),
+    workspaceId: z.string().optional(),
+  })
+  .refine((value) => Boolean(value.projectId || value.workspaceId), {
+    message: "projectId or workspaceId is required",
+  });
+
+/** Schema for project AI settings payload. */
+const aiSettingsSchema = z.object({
+  /** Whether project overrides are enabled. */
+  overrideEnabled: z.boolean().optional(),
+  /** Enable auto summary for docs. */
+  autoSummaryEnabled: z.boolean().optional(),
+  /** Selected hours for daily auto summary. */
+  autoSummaryHours: z.array(z.number().int().min(0).max(24)).optional(),
+});
+
+/** Normalize auto summary hours. */
+function normalizeAutoSummaryHours(raw: unknown): number[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  // 逻辑：过滤无效小时并去重排序。
+  return Array.from(
+    new Set(
+      raw
+        .filter((value) => typeof value === "number" && Number.isInteger(value))
+        .filter((value) => value >= 0 && value <= 24),
+    ),
+  ).sort((a, b) => a - b);
+}
+
+/** Normalize project AI settings payload. */
+function normalizeAiSettings(raw: z.infer<typeof aiSettingsSchema>) {
+  return {
+    overrideEnabled: typeof raw.overrideEnabled === "boolean" ? raw.overrideEnabled : undefined,
+    autoSummaryEnabled:
+      typeof raw.autoSummaryEnabled === "boolean" ? raw.autoSummaryEnabled : undefined,
+    autoSummaryHours: normalizeAutoSummaryHours(raw.autoSummaryHours),
+  };
+}
 
 export const projectRouter = t.router({
   /** List all project roots under workspace. */
@@ -531,6 +637,136 @@ export const projectRouter = t.router({
         rootUri: result.rootUri,
         unchanged: result.unchanged ?? false,
       };
+    }),
+
+  /** Get cache size for a project or workspace root. */
+  getCacheSize: shieldedProcedure
+    .input(cacheScopeSchema)
+    .query(async ({ input }) => {
+      const rootPath = resolveCacheRootPath(input);
+      const cachePath = path.join(rootPath, CACHE_DIR_NAME);
+      const bytes = await getDirectorySizeBytes(cachePath);
+      return { bytes };
+    }),
+
+  /** Clear cache for a project or workspace root. */
+  clearCache: shieldedProcedure
+    .input(cacheScopeSchema)
+    .mutation(async ({ input }) => {
+      const rootPath = resolveCacheRootPath(input);
+      const cachePath = path.join(rootPath, CACHE_DIR_NAME);
+      // 逻辑：强制删除缓存目录，不存在时不报错。
+      await fs.rm(cachePath, { recursive: true, force: true });
+      return { ok: true };
+    }),
+
+  /** Get AI settings for a project. */
+  getAiSettings: shieldedProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ input }) => {
+      const rootPath = resolveProjectRootPath(input.projectId);
+      const metaPath = getProjectMetaPath(rootPath);
+      const raw = (await readJsonFile(metaPath)) ?? {};
+      const parsed = projectConfigSchema.parse(raw);
+      return { aiSettings: parsed.aiSettings ?? null };
+    }),
+
+  /** Update AI settings for a project. */
+  setAiSettings: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        aiSettings: aiSettingsSchema,
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const rootPath = resolveProjectRootPath(input.projectId);
+      const metaPath = getProjectMetaPath(rootPath);
+      const raw = (await readJsonFile(metaPath)) ?? {};
+      const parsed = projectConfigSchema.parse(raw);
+      const normalized = normalizeAiSettings(input.aiSettings);
+      const next = projectConfigSchema.parse({
+        ...parsed,
+        aiSettings: normalized,
+      });
+      await writeJsonAtomic(metaPath, next);
+      return { aiSettings: next.aiSettings ?? null };
+    }),
+
+  /** List file changes for a specific date. */
+  listFileChangesForDate: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        dateKey: z.string().regex(DATE_KEY_PATTERN),
+        maxItems: z.number().int().min(1).max(500).optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const day = parseDateKey(input.dateKey);
+      // 中文注释：按本地时间对齐当天范围，返回最新文件变更列表。
+      const items = await listProjectFilesChangedInRange({
+        projectId: input.projectId,
+        from: startOfDay(day),
+        to: endOfDay(day),
+        maxItems: input.maxItems,
+      });
+      return { items };
+    }),
+
+  /** Run daily summary for a project by date. */
+  runSummaryForDay: shieldedProcedure
+    .input(z.object({ projectId: z.string(), dateKey: z.string().regex(DATE_KEY_PATTERN) }))
+    .mutation(async ({ input }) => {
+      const runtime = requireSummaryRuntime();
+      return runtime.runDailySummary({
+        projectId: input.projectId,
+        dateKey: input.dateKey,
+        triggeredBy: "manual",
+      });
+    }),
+
+  /** Run daily summary for all projects in a workspace by date. */
+  runSummaryForWorkspace: shieldedProcedure
+    .input(z.object({ workspaceId: z.string(), dateKey: z.string().regex(DATE_KEY_PATTERN) }))
+    .mutation(async ({ input }) => {
+      const runtime = requireSummaryRuntime();
+      return runtime.runDailySummaryForWorkspace({
+        workspaceId: input.workspaceId,
+        dateKey: input.dateKey,
+        triggeredBy: "manual",
+      });
+    }),
+
+  /** Get summary task status by id. */
+  getSummaryTaskStatus: shieldedProcedure
+    .input(z.object({ taskId: z.string() }))
+    .query(async ({ input }) => {
+      const runtime = requireSummaryRuntime();
+      return runtime.getTaskStatus({ taskId: input.taskId });
+    }),
+
+  /** List summary task statuses. */
+  listSummaryTaskStatus: shieldedProcedure
+    .input(z.object({ projectId: z.string().optional(), workspaceId: z.string().optional() }))
+    .query(async ({ input }) => {
+      const runtime = requireSummaryRuntime();
+      return runtime.listTaskStatus(input);
+    }),
+
+  /** List scheduler task records for history. */
+  listSchedulerTaskRecords: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string().optional(),
+        workspaceId: z.string().optional(),
+        statuses: z.array(z.string()).optional(),
+        page: z.number().int().min(1).optional(),
+        pageSize: z.number().int().min(1).max(200).optional(),
+      }),
+    )
+    .query(async ({ input }) => {
+      return listSchedulerTaskRecords(input);
     }),
 
   /** Get homepage data for a project. */

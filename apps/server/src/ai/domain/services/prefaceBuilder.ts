@@ -1,8 +1,6 @@
 import os from "node:os";
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
-import { generateId } from "ai";
-import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import {
   getActiveWorkspace,
   getProjectRootPath,
@@ -355,14 +353,14 @@ async function resolvePromptContext(input: {
   };
 }
 
-/** Build a session preface message for compaction context. */
-export async function buildSessionPrefaceMessage(input: {
+/** Build session preface text for chat context. */
+export async function buildSessionPrefaceText(input: {
   sessionId: string;
   workspaceId?: string;
   projectId?: string;
   selectedSkills: string[];
   parentProjectRootPaths: string[];
-}): Promise<TenasUIMessage> {
+}): Promise<string> {
   const context = await resolvePromptContext({
     workspaceId: input.workspaceId,
     projectId: input.projectId,
@@ -381,12 +379,5 @@ export async function buildSessionPrefaceMessage(input: {
     ].join("\n"),
     ...masterAgentSections,
   ];
-
-  return {
-    id: generateId(),
-    role: "user",
-    parentMessageId: null,
-    messageKind: "session_preface",
-    parts: [{ type: "text", text: sections.join("\n\n") }],
-  };
+  return sections.join("\n\n");
 }

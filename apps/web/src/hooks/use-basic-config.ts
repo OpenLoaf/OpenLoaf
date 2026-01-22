@@ -12,6 +12,8 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   modelResponseLanguage: "zh-CN",
   modelQuality: "medium",
   modelSoundEnabled: true,
+  autoSummaryEnabled: true,
+  autoSummaryHours: [0, 8, 12, 17],
   uiLanguage: "zh-CN",
   uiFontSize: "medium",
   // UI animation intensity.

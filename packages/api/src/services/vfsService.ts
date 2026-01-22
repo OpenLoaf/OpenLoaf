@@ -252,6 +252,21 @@ export function resolveScopedPath(input: {
   if (path.isAbsolute(raw)) {
     return path.resolve(raw);
   }
+  // 中文注释：兼容 @<path> 作为当前项目根目录别名前缀。
+  if (raw.startsWith("@") && !raw.startsWith("@[")) {
+    if (raw.startsWith("@/") || raw.startsWith("@\\")) {
+      throw new Error("Path alias '@/' is not allowed.");
+    }
+    const projectId = input.projectId?.trim();
+    const rootPath = projectId
+      ? getProjectRootPath(projectId, input.workspaceId)
+      : getWorkspaceRootPathById(input.workspaceId);
+    if (!rootPath) {
+      throw new Error(projectId ? "Project not found." : "Workspace not found.");
+    }
+    const normalizedRelative = normalizeRelativePath(raw.slice(1));
+    return path.resolve(rootPath, normalizedRelative);
+  }
   const scopeMatch = raw.match(PROJECT_SCOPE_REGEX);
   if (scopeMatch) {
     const scopedProjectId = scopeMatch[1]?.trim();

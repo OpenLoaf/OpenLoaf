@@ -3,7 +3,11 @@ import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import { logger } from "@/common/logger";
 import { setAssistantMessageId, setRequestContext } from "@/ai/shared/context/requestContext";
 import { loadMessageChain } from "@/ai/infrastructure/repositories/messageChainLoader";
-import { resolveRightmostLeafId, saveMessage } from "@/ai/infrastructure/repositories/messageStore";
+import {
+  resolveRightmostLeafId,
+  resolveSessionPrefaceText,
+  saveMessage,
+} from "@/ai/infrastructure/repositories/messageStore";
 import type { ChatImageRequestResult } from "@/ai/application/dto/chatImageTypes";
 import { replaceRelativeFileParts } from "@/ai/infrastructure/adapters/attachmentResolver";
 
@@ -211,18 +215,19 @@ export function buildModelChain(
   options?: {
     /** Whether to keep compact prompt in the model chain. */
     includeCompactPrompt?: boolean;
+    /** Preface text injected as the first user message. */
+    sessionPrefaceText?: string;
   },
 ): UIMessage[] {
   const fullChain = Array.isArray(messages) ? messages : [];
   if (fullChain.length === 0) return [];
   const includeCompactPrompt = Boolean(options?.includeCompactPrompt);
+  const sessionPrefaceText = String(options?.sessionPrefaceText ?? "").trim();
 
   let latestSummaryIndex = -1;
-  let sessionPreface: UIMessage | null = null;
   for (let i = 0; i < fullChain.length; i += 1) {
     const message = fullChain[i] as any;
     const kind = message?.messageKind;
-    if (kind === "session_preface") sessionPreface = fullChain[i]!;
     if (kind === "compact_summary") latestSummaryIndex = i;
   }
 
@@ -231,11 +236,15 @@ export function buildModelChain(
     ? baseSlice
     : baseSlice.filter((message: any) => message?.messageKind !== "compact_prompt");
 
-  if (!sessionPreface) return trimmed;
-  const withoutPreface = trimmed.filter(
-    (message: any) => message?.messageKind !== "session_preface",
-  );
-  return [sessionPreface, ...withoutPreface];
+  if (!sessionPrefaceText) return trimmed;
+  return [
+    {
+      id: "__session_preface__",
+      role: "user",
+      parts: [{ type: "text", text: sessionPrefaceText }],
+    } as UIMessage,
+    ...trimmed,
+  ];
 }
 
 /** Load message chain and replace file parts. */
@@ -255,6 +264,7 @@ export async function loadAndPrepareMessageChain(input: {
     sessionId: input.sessionId,
     leafMessageId: input.leafMessageId,
   });
+  const sessionPrefaceText = await resolveSessionPrefaceText(input.sessionId);
   logger.debug(
     {
       sessionId: input.sessionId,
@@ -266,6 +276,7 @@ export async function loadAndPrepareMessageChain(input: {
 
   const modelChain = buildModelChain(messages as UIMessage[], {
     includeCompactPrompt: input.includeCompactPrompt,
+    sessionPrefaceText,
   });
   const modelMessages = await replaceRelativeFileParts(modelChain as UIMessage[]);
   if (messages.length === 0) {

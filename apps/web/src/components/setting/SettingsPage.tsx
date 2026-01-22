@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useTabs } from "@/hooks/use-tabs";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 import {
   Bot,
   KeyRound,
@@ -108,6 +109,8 @@ export default function SettingsPage({
   const collapseRafRef = useRef<number | null>(null);
   const pendingWidthRef = useRef<number | null>(null);
   const lastCollapsedRef = useRef<boolean | null>(null);
+  const { basic } = useBasicConfig();
+  const shouldAnimate = basic.uiAnimationLevel !== "low";
 
   const setTabMinLeftWidth = useTabs((s) => s.setTabMinLeftWidth);
   const setTabBaseParams = useTabs((s) => s.setTabBaseParams);
@@ -236,7 +239,14 @@ export default function SettingsPage({
         />
       }
       content={
-        <div key={activeKey}>
+        <div
+          key={activeKey}
+          className={
+            shouldAnimate
+              ? "settings-animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out"
+              : undefined
+          }
+        >
           <ActiveComponent />
         </div>
       }

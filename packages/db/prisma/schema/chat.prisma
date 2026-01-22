@@ -4,6 +4,7 @@ model ChatSession {
   isUserRename Boolean       @default(false)
   isPin        Boolean       @default(false)
   errorMessage String? /// Error message for last failed request.
+  sessionPreface String? /// Session preface text for chat history and model context.
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   workspaceId  String? /// Workspace id.
@@ -28,7 +29,7 @@ model ChatMessage {
   path            String
   // 角色：与 AI SDK UIMessage.role 保持一致（小写）
   role            MessageRole @default(user)
-  // Message kind for preface/compaction handling.
+  // Message kind for compaction handling.
   messageKind     MessageKind @default(normal)
   // UIMessage.parts 原始数组（只存可渲染/可回放的 parts）
   parts           Json
@@ -53,7 +54,6 @@ enum MessageRole {
 
 enum MessageKind {
   normal
-  session_preface
   compact_prompt
   compact_summary
 }

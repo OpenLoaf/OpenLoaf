@@ -21,7 +21,7 @@ function isRenderableRow(row: {
   messageKind?: ChatMessageKind | null;
 }): boolean {
   const kind = row.messageKind ?? "normal";
-  if (kind === "session_preface" || kind === "compact_prompt") return false;
+  if (kind === "compact_prompt") return false;
   if (kind === "compact_summary") return true;
   if (row.role === "user") return true;
   const parts = row.parts;
@@ -61,14 +61,12 @@ async function resolveSessionPrefaceText(
   prisma: any,
   sessionId: string,
 ): Promise<string> {
-  const row = await prisma.chatMessage.findFirst({
-    where: { sessionId, messageKind: "session_preface" },
-    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
-    select: { parts: true },
+  const row = await prisma.chatSession.findUnique({
+    where: { id: sessionId },
+    select: { sessionPreface: true },
   });
-  if (!row) return "";
   // 逻辑：preface 为空时返回空字符串，避免前端误判成错误。
-  return extractTextFromParts(row.parts);
+  return typeof row?.sessionPreface === "string" ? row.sessionPreface : "";
 }
 
 async function resolveSessionRightmostLeafId(prisma: any, sessionId: string): Promise<string | null> {

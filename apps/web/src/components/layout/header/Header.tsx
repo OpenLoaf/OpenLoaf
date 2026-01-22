@@ -12,8 +12,6 @@ import { openSettingsTab } from "@/lib/globalShortcuts";
 
 import { HeaderTabs } from "./HeaderTabs";
 import { ModeToggle } from "./ModeToggle";
-import { AnimateIcon } from "@/components/animate-ui/icons/icon";
-import { Bot } from "@/components/animate-ui/icons/bot";
 import { StackDockMenuButton } from "./StackDockMenuButton";
 
 /** Format a shortcut string for tooltip display. */
@@ -180,9 +178,12 @@ export const Header = () => {
                     isChatCollapsed ? "rotate-180" : ""
                   }`}
                 /> */}
-                <AnimateIcon animate loop loopDelay={3000}>
-                  <Bot className={`h-4 w-4`} />
-                </AnimateIcon>
+                <img
+                  src="/head_s.png"
+                  alt=""
+                  aria-hidden="true"
+                  className="h-5 w-5 object-contain scale-[1.03] transition-transform duration-200 ease-out hover:rotate-8"
+                />
               </motion.div>
             </Button>
           </TooltipTrigger>

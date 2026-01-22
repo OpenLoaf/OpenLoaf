@@ -32,7 +32,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  formatSize,
+  getDisplayPathFromUri,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
 import { useTabs } from "@/hooks/use-tabs";
 import { buildProjectHierarchyIndex, filterProjectTree } from "@/lib/project-tree";
@@ -104,6 +107,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   );
   const project = projectData?.project;
   const tabs = useTabs((s) => s.tabs);
+  const activeTabId = useTabs((s) => s.activeTabId);
   const setTabTitle = useTabs((s) => s.setTabTitle);
   /** Track rename dialog open state. */
   const [renameOpen, setRenameOpen] = useState(false);
@@ -133,6 +137,8 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   const moveTimerRef = useRef<number | null>(null);
   /** Track chat clear dialog open state. */
   const [clearChatOpen, setClearChatOpen] = useState(false);
+  /** Track cache clear dialog open state. */
+  const [clearCacheOpen, setClearCacheOpen] = useState(false);
 
   const updateProject = useMutation(
     trpc.project.update.mutationOptions({
@@ -155,8 +161,40 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
     staleTime: 5000,
   });
 
+  const workspaceId = useMemo(() => {
+    const activeTab = tabs.find((tab) => tab.id === activeTabId);
+    const rawWorkspaceId = activeTab?.workspaceId ?? "";
+    if (!rawWorkspaceId || rawWorkspaceId === "unknown") return undefined;
+    return rawWorkspaceId;
+  }, [activeTabId, tabs]);
+
+  const cacheScope = useMemo(() => {
+    if (projectId) return { projectId };
+    if (workspaceId) return { workspaceId };
+    return null;
+  }, [projectId, workspaceId]);
+
+  const cacheQueryKey = useMemo(() => {
+    if (!cacheScope) return undefined;
+    return trpc.project.getCacheSize.queryOptions(cacheScope).queryKey;
+  }, [cacheScope]);
+
+  const cacheSizeQuery = useQuery({
+    ...trpc.project.getCacheSize.queryOptions(cacheScope ?? skipToken),
+    staleTime: 5000,
+  });
+
   const clearProjectChat = useMutation(
     trpc.chat.clearProjectChat.mutationOptions({}),
+  );
+
+  const clearProjectCache = useMutation(
+    trpc.project.clearCache.mutationOptions({
+      onSuccess: async () => {
+        if (!cacheQueryKey) return;
+        await queryClient.invalidateQueries({ queryKey: cacheQueryKey });
+      },
+    }),
   );
 
   const storagePath = useMemo(() => rootUri ?? "", [rootUri]);
@@ -174,6 +212,8 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
     "flex-1 text-right text-xs text-muted-foreground hover:text-foreground hover:underline disabled:cursor-default disabled:no-underline disabled:text-muted-foreground";
   const baseValueTruncateClass = `${baseValueClass} truncate`;
   const baseValueWrapClass = `${baseValueClass} break-all`;
+  /** Whether cache management is available. */
+  const canManageCache = Boolean(cacheScope);
   const projectTree = projectsQuery.data ?? [];
   const projectHierarchy = useMemo(
     () => buildProjectHierarchyIndex(projectTree),
@@ -465,6 +505,21 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
     }
   }, [projectId, clearProjectChat, queryClient]);
 
+  /** Clear project cache data. */
+  const handleClearProjectCache = useCallback(async () => {
+    if (!cacheScope) {
+      toast.error("缺少项目或工作区");
+      return;
+    }
+    try {
+      await clearProjectCache.mutateAsync(cacheScope);
+      toast.success("缓存已清空");
+      setClearCacheOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message ?? "清空失败");
+    }
+  }, [cacheScope, clearProjectCache]);
+
   return (
     <div className="space-y-4">
       <TenasSettingsGroup title="项目设置" cardProps={{ divided: true, padding: "x" }}>
@@ -642,6 +697,32 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               title="修改存储路径"
             >
               <FilePenLine className="size-4" />
+            </Button>
+          </TenasSettingsField>
+        </div>
+
+        <div className="flex flex-wrap items-start gap-2 py-3">
+          <div className="min-w-0 sm:w-56">
+            <div className="text-sm font-medium">缓存占用</div>
+            <div className="text-xs text-muted-foreground">
+              可随时清空，不影响项目数据
+            </div>
+          </div>
+
+          <TenasSettingsField className="gap-2">
+            <div className={baseValueTruncateClass}>
+              {cacheSizeQuery.isFetching
+                ? "计算中..."
+                : formatSize(cacheSizeQuery.data?.bytes)}
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={!canManageCache || clearProjectCache.isPending}
+              onClick={() => setClearCacheOpen(true)}
+            >
+              清空缓存
             </Button>
           </TenasSettingsField>
         </div>
@@ -865,6 +946,38 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               disabled={moveBusy}
             >
               {moveBusy ? "移动中..." : "确认移动"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={clearCacheOpen}
+        onOpenChange={(open) => {
+          if (!open && clearProjectCache.isPending) return;
+          setClearCacheOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认清空缓存</AlertDialogTitle>
+            <AlertDialogDescription>
+              将删除当前项目下的 .tenas-cache 目录，操作不可恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearProjectCache.isPending}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                void handleClearProjectCache();
+              }}
+              disabled={clearProjectCache.isPending}
+            >
+              {clearProjectCache.isPending ? "清空中..." : "确认清空"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

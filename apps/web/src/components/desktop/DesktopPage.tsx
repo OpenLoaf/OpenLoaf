@@ -228,7 +228,7 @@ export default function DesktopPage({
   );
 
   return (
-    <div className="h-full w-full overflow-hidden" title="Desktop" aria-label="Desktop">
+    <div className="h-full w-full overflow-hidden" aria-label="Desktop">
       <div className="h-full w-full bg-gradient-to-b from-background">
         <div className="h-full w-full" style={editMaxWidth ? { maxWidth: editMaxWidth, margin: "0 auto" } : undefined}>
           <DesktopGrid

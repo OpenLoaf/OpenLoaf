@@ -800,3 +800,29 @@ export async function getProjectGitCommits(input: {
     nextCursor,
   };
 }
+
+/** Get git commits for a project within a time range. */
+export async function getProjectGitCommitsInRange(input: {
+  projectId: string;
+  from: Date;
+  to: Date;
+}): Promise<ProjectGitCommit[]> {
+  const commits: ProjectGitCommit[] = [];
+  let cursor: string | null = null;
+  while (true) {
+    const page = await getProjectGitCommits({
+      projectId: input.projectId,
+      cursor,
+      pageSize: 50,
+    });
+    if (!page.isGitProject) return [];
+    for (const item of page.items) {
+      const authoredAt = new Date(item.authoredAt);
+      if (authoredAt < input.from) return commits;
+      if (authoredAt <= input.to) commits.push(item);
+    }
+    if (!page.nextCursor) break;
+    cursor = page.nextCursor;
+  }
+  return commits;
+}

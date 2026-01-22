@@ -86,6 +86,12 @@ contextBridge.exposeInMainWorld('tenasElectron', {
   // 移动文件/目录到系统回收站。
   trashItem: (payload: { uri: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('tenas:fs:trash-item', payload),
+  // 获取项目缓存目录大小。
+  getCacheSize: (payload: { rootUri?: string }): Promise<{ ok: true; bytes: number } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('tenas:cache:size', payload),
+  // 清空项目缓存目录。
+  clearCache: (payload: { rootUri?: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('tenas:cache:clear', payload),
   // 选择本地目录并返回完整路径。
   pickDirectory: (payload?: { defaultPath?: string }): Promise<
     { ok: true; path: string } | { ok: false }

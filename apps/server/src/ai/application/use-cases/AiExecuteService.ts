@@ -66,9 +66,10 @@ export class AiExecuteService {
       });
       if (skillMatches.length > 0) {
         const skillParts = buildSkillParts(skillMatches);
+        // 中文注释：将 skill 内容放在用户文本前，便于模型优先读取。
         const nextParts = [
-          ...filterNonSkillParts(lastMessage.parts ?? []),
           ...skillParts,
+          ...filterNonSkillParts(lastMessage.parts ?? []),
         ];
         enrichedLastMessage = {
           ...lastMessage,

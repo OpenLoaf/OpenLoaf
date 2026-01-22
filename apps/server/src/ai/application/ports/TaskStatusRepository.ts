@@ -14,4 +14,12 @@ export interface TaskStatusRepository {
   upsertStatus(record: TaskStatusRecord): Promise<void>;
   /** Read task status by id. */
   getStatus(taskId: string): Promise<TaskStatusRecord | null>;
+  /** List task statuses with optional filters. */
+  listStatuses?(
+    filter?: {
+      projectId?: string;
+      workspaceId?: string;
+      status?: TaskStatusValue[];
+    },
+  ): Promise<TaskStatusRecord[]>;
 }

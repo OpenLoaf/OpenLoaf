@@ -753,6 +753,9 @@ importers:
       hono:
         specifier: 'catalog:'
         version: 4.11.0
+      ignore:
+        specifier: ^7.0.5
+        version: 7.0.5
       isomorphic-git:
         specifier: ^1.32.0
         version: 1.36.1

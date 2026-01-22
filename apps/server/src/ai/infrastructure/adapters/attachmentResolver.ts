@@ -1,5 +1,6 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import { createHash } from "node:crypto";
 import sharp from "sharp";
 import type { UIMessage } from "ai";
 import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
@@ -430,6 +431,20 @@ async function resolveProjectFilePath(input: {
   /** Optional workspace id fallback. */
   workspaceId?: string;
 }): Promise<{ absPath: string; relativePath: string } | null> {
+  const resolved = await resolveProjectFilePathWithRoot(input);
+  if (!resolved) return null;
+  return { absPath: resolved.absPath, relativePath: resolved.relativePath };
+}
+
+/** Resolve a relative path into an absolute file path with root info. */
+async function resolveProjectFilePathWithRoot(input: {
+  /** Raw relative path string. */
+  path: string;
+  /** Optional project id override. */
+  projectId?: string;
+  /** Optional workspace id fallback. */
+  workspaceId?: string;
+}): Promise<{ absPath: string; relativePath: string; rootPath: string } | null> {
   const parsed = parseScopedRelativePath(input.path);
   if (!parsed) return null;
   const relativePath = normalizeRelativePath(parsed.relativePath);
@@ -445,7 +460,136 @@ async function resolveProjectFilePath(input: {
   if (targetPath !== rootPathResolved && !targetPath.startsWith(rootPathResolved + path.sep)) {
     return null;
   }
-  return { absPath: targetPath, relativePath };
+  return { absPath: targetPath, relativePath, rootPath: root.rootPath };
+}
+
+/** Build stable cache key for preview outputs. */
+function buildPreviewCacheKey(input: { relativePath: string; maxBytes?: number }): string {
+  const payload = JSON.stringify({
+    path: input.relativePath,
+    maxBytes: input.maxBytes ?? null,
+  });
+  return createHash("sha256").update(payload).digest("hex");
+}
+
+/** Resolve cache file paths for preview outputs. */
+function resolvePreviewCachePaths(rootPath: string, key: string): {
+  cacheDir: string;
+  dataPath: string;
+  metadataPath: string;
+} {
+  const cacheDir = path.join(rootPath, ".tenas-cache", "preview");
+  return {
+    cacheDir,
+    dataPath: path.join(cacheDir, `${key}.bin`),
+    metadataPath: path.join(cacheDir, `${key}.json`),
+  };
+}
+
+/** Resolve cache timestamp from file stats. */
+function resolveCacheTimestampMs(stat: { birthtimeMs: number; ctimeMs: number; mtimeMs: number }): number {
+  if (Number.isFinite(stat.birthtimeMs) && stat.birthtimeMs > 0) return stat.birthtimeMs;
+  if (Number.isFinite(stat.ctimeMs) && stat.ctimeMs > 0) return stat.ctimeMs;
+  return stat.mtimeMs;
+}
+
+type PreviewCacheMetadata = {
+  /** Cached media type. */
+  mediaType: string;
+  /** Source relative path. */
+  sourcePath?: string;
+  /** Source file modification time. */
+  sourceMtimeMs?: number;
+  /** Source file size in bytes. */
+  sourceSizeBytes?: number;
+  /** Cache generation time. */
+  generatedAtMs?: number;
+};
+
+/** Remove cached preview payload and metadata. */
+async function removePreviewCache(paths: { dataPath: string; metadataPath: string }): Promise<void> {
+  try {
+    await fs.unlink(paths.dataPath);
+  } catch {
+    // 逻辑：缓存文件不存在时忽略。
+  }
+  try {
+    await fs.unlink(paths.metadataPath);
+  } catch {
+    // 逻辑：元信息不存在时忽略。
+  }
+}
+
+/** Load cached preview payload if valid. */
+async function loadPreviewCache(input: {
+  /** Project/workspace root path. */
+  rootPath: string;
+  /** Relative file path. */
+  relativePath: string;
+  /** Optional target size. */
+  maxBytes?: number;
+  /** Source file modification time. */
+  sourceMtimeMs: number;
+}): Promise<{ buffer: Buffer; mediaType: string } | null> {
+  const key = buildPreviewCacheKey({ relativePath: input.relativePath, maxBytes: input.maxBytes });
+  const paths = resolvePreviewCachePaths(input.rootPath, key);
+  let stat: { birthtimeMs: number; ctimeMs: number; mtimeMs: number };
+  try {
+    stat = await fs.stat(paths.dataPath);
+  } catch {
+    return null;
+  }
+  const cacheTimeMs = resolveCacheTimestampMs(stat);
+  if (cacheTimeMs < input.sourceMtimeMs) {
+    // 逻辑：源文件更新后丢弃旧缓存。
+    await removePreviewCache(paths);
+    return null;
+  }
+  let metadata: PreviewCacheMetadata | null = null;
+  try {
+    const raw = await fs.readFile(paths.metadataPath, "utf8");
+    metadata = JSON.parse(raw) as PreviewCacheMetadata;
+  } catch {
+    // 逻辑：元信息损坏时清理缓存并回退重新生成。
+    await removePreviewCache(paths);
+    return null;
+  }
+  const buffer = await fs.readFile(paths.dataPath);
+  return {
+    buffer,
+    mediaType: metadata?.mediaType || "application/octet-stream",
+  };
+}
+
+/** Persist preview payload to cache. */
+async function savePreviewCache(input: {
+  /** Project/workspace root path. */
+  rootPath: string;
+  /** Relative file path. */
+  relativePath: string;
+  /** Optional target size. */
+  maxBytes?: number;
+  /** Source file modification time. */
+  sourceMtimeMs?: number;
+  /** Source file size in bytes. */
+  sourceSizeBytes?: number;
+  /** Preview payload buffer. */
+  buffer: Buffer;
+  /** Preview media type. */
+  mediaType: string;
+}): Promise<void> {
+  const key = buildPreviewCacheKey({ relativePath: input.relativePath, maxBytes: input.maxBytes });
+  const paths = resolvePreviewCachePaths(input.rootPath, key);
+  await fs.mkdir(paths.cacheDir, { recursive: true });
+  await fs.writeFile(paths.dataPath, input.buffer);
+  const metadata: PreviewCacheMetadata = {
+    mediaType: input.mediaType,
+    sourcePath: input.relativePath,
+    sourceMtimeMs: input.sourceMtimeMs,
+    sourceSizeBytes: input.sourceSizeBytes,
+    generatedAtMs: Date.now(),
+  };
+  await fs.writeFile(paths.metadataPath, JSON.stringify(metadata), "utf8");
 }
 
 /** Compress image buffer to chat constraints. */
@@ -673,7 +817,7 @@ export async function getFilePreview(input: {
   /** Target byte size for preview compression. */
   maxBytes?: number;
 }): Promise<FilePreviewResult | null> {
-  const resolved = await resolveProjectFilePath({
+  const resolved = await resolveProjectFilePathWithRoot({
     path: input.path,
     projectId: input.projectId,
     workspaceId: input.workspaceId,
@@ -682,7 +826,8 @@ export async function getFilePreview(input: {
   const filePath = resolved.absPath;
   const lowerPath = filePath.toLowerCase();
   // 逻辑：超出预览体积阈值时不返回内容，仅返回大小信息。
-  const sizeBytes = (await fs.stat(filePath)).size;
+  const sourceStat = await fs.stat(filePath);
+  const sizeBytes = sourceStat.size;
   if (sizeBytes > CHAT_ATTACHMENT_PREVIEW_MAX_BYTES) {
     return {
       kind: "too-large",
@@ -697,11 +842,35 @@ export async function getFilePreview(input: {
   }
   const format = resolveImageFormat("application/octet-stream", filePath);
   if (!format || !isSupportedImageMime(format.mediaType)) return null;
+  const cacheHit = await loadPreviewCache({
+    rootPath: resolved.rootPath,
+    relativePath: resolved.relativePath,
+    maxBytes: input.maxBytes,
+    sourceMtimeMs: sourceStat.mtimeMs,
+  });
+  if (cacheHit) {
+    const metadata = input.includeMetadata ? await resolveImageMetadataText(filePath) : null;
+    return {
+      kind: "ready",
+      buffer: cacheHit.buffer,
+      mediaType: cacheHit.mediaType,
+      metadata,
+    };
+  }
   const buffer = await fs.readFile(filePath);
   const compressed = input.maxBytes
     ? await compressImageBufferToTarget(buffer, format, { maxBytes: input.maxBytes })
     : await compressImageBuffer(buffer, format);
   const metadata = input.includeMetadata ? await resolveImageMetadataText(filePath) : null;
+  await savePreviewCache({
+    rootPath: resolved.rootPath,
+    relativePath: resolved.relativePath,
+    maxBytes: input.maxBytes,
+    sourceMtimeMs: sourceStat.mtimeMs,
+    sourceSizeBytes: sizeBytes,
+    buffer: compressed.buffer,
+    mediaType: compressed.mediaType,
+  });
   return {
     kind: "ready",
     buffer: compressed.buffer,

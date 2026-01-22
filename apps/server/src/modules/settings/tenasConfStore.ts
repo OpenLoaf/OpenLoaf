@@ -40,6 +40,8 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   modelResponseLanguage: "zh-CN",
   modelQuality: "medium",
   modelSoundEnabled: true,
+  autoSummaryEnabled: true,
+  autoSummaryHours: [0, 8, 12, 17],
   uiLanguage: "zh-CN",
   uiFontSize: "medium",
   // UI animation intensity.
@@ -109,6 +111,20 @@ function normalizeCliToolsConfig(raw: unknown, fallback: CliToolsConfig): CliToo
   return { codex, claudeCode, python };
 }
 
+/** Normalize auto summary hours for basic settings. */
+function normalizeAutoSummaryHours(raw: unknown, fallback: number[]): number[] {
+  if (!Array.isArray(raw)) return fallback;
+  // 逻辑：过滤无效小时并去重排序。
+  const hours = Array.from(
+    new Set(
+      raw
+        .filter((value) => typeof value === "number" && Number.isInteger(value))
+        .filter((value) => value >= 0 && value <= 24),
+    ),
+  ).sort((a, b) => a - b);
+  return hours;
+}
+
 function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicConf>): BasicConf {
   const source = raw ?? {};
   const fallbackSource = fallback ?? {};
@@ -163,6 +179,16 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.modelSoundEnabled === "boolean"
         ? fallbackSource.modelSoundEnabled
         : DEFAULT_BASIC_CONF.modelSoundEnabled;
+  const autoSummaryEnabled =
+    typeof source.autoSummaryEnabled === "boolean"
+      ? source.autoSummaryEnabled
+      : typeof fallbackSource.autoSummaryEnabled === "boolean"
+        ? fallbackSource.autoSummaryEnabled
+        : DEFAULT_BASIC_CONF.autoSummaryEnabled;
+  const autoSummaryHours = normalizeAutoSummaryHours(
+    source.autoSummaryHours,
+    normalizeAutoSummaryHours(fallbackSource.autoSummaryHours, DEFAULT_BASIC_CONF.autoSummaryHours),
+  );
   const uiLanguage =
     source.uiLanguage &&
     ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
@@ -315,6 +341,8 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     modelResponseLanguage,
     modelQuality,
     modelSoundEnabled,
+    autoSummaryEnabled,
+    autoSummaryHours,
     uiLanguage,
     uiFontSize,
     uiAnimationLevel,

@@ -255,7 +255,7 @@ function MessageItem({
     };
   }, [imageParts, isEditing, revokeAttachmentUrls]);
 
-  if (messageKind === "session_preface" || messageKind === "compact_prompt") {
+  if (messageKind === "compact_prompt") {
     return null;
   }
 

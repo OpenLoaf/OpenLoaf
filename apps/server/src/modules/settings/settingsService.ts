@@ -112,6 +112,20 @@ function normalizeCliToolsConfig(raw: unknown, fallback: CliToolsConfig): CliToo
   return { codex, claudeCode, python };
 }
 
+/** Normalize auto summary hours for basic settings. */
+function normalizeAutoSummaryHours(raw: unknown, fallback: number[]): number[] {
+  if (!Array.isArray(raw)) return fallback;
+  // 逻辑：过滤无效小时并去重排序。
+  const hours = Array.from(
+    new Set(
+      raw
+        .filter((value) => typeof value === "number" && Number.isInteger(value))
+        .filter((value) => value >= 0 && value <= 24),
+    ),
+  ).sort((a, b) => a - b);
+  return hours;
+}
+
 /** Normalize model map input. */
 function normalizeModelMap(value: unknown): Record<string, ModelDefinition> | null {
   if (!isRecord(value)) return null;
@@ -309,6 +323,14 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     typeof next.modelSoundEnabled === "boolean"
       ? next.modelSoundEnabled
       : current.modelSoundEnabled;
+  const autoSummaryEnabled =
+    typeof next.autoSummaryEnabled === "boolean"
+      ? next.autoSummaryEnabled
+      : current.autoSummaryEnabled;
+  const autoSummaryHours = normalizeAutoSummaryHours(
+    next.autoSummaryHours,
+    current.autoSummaryHours,
+  );
   const uiLanguage =
     typeof next.uiLanguage === "string" &&
     ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
@@ -390,6 +412,8 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     modelResponseLanguage: responseLanguage,
     modelQuality,
     modelSoundEnabled,
+    autoSummaryEnabled,
+    autoSummaryHours,
     uiLanguage,
     uiFontSize,
     uiAnimationLevel,

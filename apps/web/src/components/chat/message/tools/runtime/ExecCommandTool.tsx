@@ -55,6 +55,7 @@ export default function ExecCommandTool({ part, className }: ExecCommandToolProp
       actions={isApprovalRequested && approvalId ? <ToolApprovalActions approvalId={approvalId} /> : null}
       output={isApprovalRequested ? undefined : resolvedOutput}
       outputTone={hasErrorText || isRejected ? "error" : "default"}
+      codeStyle
     />
   );
 }

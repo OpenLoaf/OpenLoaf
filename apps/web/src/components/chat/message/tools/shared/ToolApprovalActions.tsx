@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { useChatContext } from "../../../ChatProvider";
+import { countPendingToolApprovals, hasRejectedToolApproval } from "./tool-utils";
 
 interface ToolApprovalActionsProps {
   /** Approval id to submit. */
@@ -19,9 +20,13 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
       // 中文注释：summary 内点击按钮不应触发折叠开关。
       event.preventDefault();
       event.stopPropagation();
+      const pendingBefore = countPendingToolApprovals(chat.messages ?? []);
+      const hasRejected = hasRejectedToolApproval(chat.messages ?? []);
       await chat.addToolApprovalResponse({ id: approvalId, approved: true });
-      // 中文注释：审批回应写入后需要触发 sendMessage，继续后续工具执行与生成。
-      await chat.sendMessage();
+      if (pendingBefore <= 1 && !hasRejected) {
+        // 中文注释：仅在最后一个审批完成后继续执行，避免多审批被一次通过。
+        await chat.sendMessage();
+      }
     },
     [chat, approvalId],
   );
@@ -32,7 +37,6 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
       event.preventDefault();
       event.stopPropagation();
       await chat.addToolApprovalResponse({ id: approvalId, approved: false });
-      await chat.sendMessage();
     },
     [chat, approvalId],
   );

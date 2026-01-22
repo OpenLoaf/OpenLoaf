@@ -70,6 +70,12 @@ declare global {
       openPath?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       showItemInFolder?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       trashItem?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      getCacheSize?: (payload: {
+        rootUri?: string;
+      }) => Promise<{ ok: true; bytes: number } | { ok: false; reason?: string }>;
+      clearCache?: (payload: {
+        rootUri?: string;
+      }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       pickDirectory?: (payload?: {
         defaultPath?: string;
       }) => Promise<{ ok: true; path: string } | { ok: false }>;

@@ -71,6 +71,10 @@ export const basicConfigSchema = z.object({
   modelResponseLanguage: modelResponseLanguageSchema,
   modelQuality: modelQualitySchema,
   modelSoundEnabled: z.boolean(),
+  /** Enable auto summary for docs. */
+  autoSummaryEnabled: z.boolean(),
+  /** Selected hours for daily auto summary. */
+  autoSummaryHours: z.array(z.number().int().min(0).max(24)),
   uiLanguage: uiLanguageSchema,
   uiFontSize: uiFontSizeSchema,
   // UI animation intensity.

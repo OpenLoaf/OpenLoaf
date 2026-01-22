@@ -56,6 +56,7 @@ export default function WriteStdinTool({ part, className }: WriteStdinToolProps)
       actions={isApprovalRequested && approvalId ? <ToolApprovalActions approvalId={approvalId} /> : null}
       output={isApprovalRequested ? undefined : resolvedOutput}
       outputTone={hasErrorText || isRejected ? "error" : "default"}
+      codeStyle
     />
   );
 }

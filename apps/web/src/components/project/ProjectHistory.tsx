@@ -1,10 +1,23 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { MessageCircle } from "lucide-react";
+import { zhCN } from "date-fns/locale";
+import { toast } from "sonner";
 
+import MarkdownViewer from "@/components/file/MarkdownViewer";
+import { FileSystemGrid } from "@/components/project/filesystem/components/FileSystemGrid";
 import { Calendar } from "@/components/ui/calendar";
 import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
 import { useTabs } from "@/hooks/use-tabs";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { cn } from "@/lib/utils";
+import { trpc } from "@/utils/trpc";
+import { type FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
 interface ProjectHistoryProps {
   isLoading: boolean;
@@ -14,6 +27,12 @@ interface ProjectHistoryHeaderProps {
   isLoading: boolean;
   pageTitle: string;
 }
+
+/** Fixed calendar size for the top-right cell. */
+const GRID_CALENDAR_WIDTH_PX = 290;
+const GRID_CALENDAR_HEIGHT_PX = 320;
+/** Gap size in pixels for grid spacing. */
+const GRID_GAP_PX = 10;
 
 /** Format date as day key for grouping. */
 function buildDateKey(date: Date): string {
@@ -32,13 +51,29 @@ function formatDateLabel(date: Date): string {
   });
 }
 
-/** Format time label for session rows. */
-function formatTimeLabel(value: string | Date): string {
-  return new Date(value).toLocaleTimeString("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+/** Resolve file name from a relative path. */
+function resolveEntryName(relativePath: string): string {
+  // 中文注释：提取路径的最后一段作为展示文件名。
+  const parts = relativePath.split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? relativePath;
+}
+
+/** Resolve file extension from a file name. */
+function resolveEntryExt(name: string): string {
+  // 中文注释：仅取最后一个点号之后的后缀，保持与文件系统一致。
+  const segments = name.split(".");
+  if (segments.length <= 1) return "";
+  return (segments[segments.length - 1] ?? "").toLowerCase();
+}
+
+/** Remove YAML front matter block from markdown content. */
+function stripYamlFrontMatter(content: string): string {
+  const trimmed = content.trimStart();
+  if (!trimmed.startsWith("---")) return content;
+  const match = trimmed.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  if (!match) return content;
+  // 中文注释：隐藏 YAML Front Matter，只保留正文内容。
+  return trimmed.slice(match[0].length);
 }
 
 /** Project history header. */
@@ -63,12 +98,15 @@ const ProjectHistory = memo(function ProjectHistory({
   isLoading,
 }: ProjectHistoryProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const { sessions, isLoading: isSessionsLoading } = useChatSessions();
+  const { sessions, isLoading: isSessionsLoading, scopeProjectId } = useChatSessions();
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const activeTabId = useTabs((s) => s.activeTabId);
   const activeTab = useTabs((s) =>
     s.activeTabId ? s.getTabById(s.activeTabId) : undefined
   );
   const setTabChatSession = useTabs((s) => s.setTabChatSession);
+  const pushStackItem = useTabs((s) => s.pushStackItem);
   const activeChatSessionId = activeTab?.chatSessionId;
 
   const { sessionsByDay, sessionDates } = useMemo(() => {
@@ -94,7 +132,7 @@ const ProjectHistory = memo(function ProjectHistory({
 
     for (const list of map.values()) {
       list.sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
     }
 
@@ -107,6 +145,56 @@ const ProjectHistory = memo(function ProjectHistory({
   // 当天零点，用于禁用未来日期。
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const summaryUri = scopeProjectId ? `.tenas/summary/${activeDateKey}.md` : "";
+  const summaryQuery = useQuery(
+    trpc.fs.readFile.queryOptions(
+      summaryUri && workspaceId && scopeProjectId
+        ? { workspaceId, projectId: scopeProjectId, uri: summaryUri }
+        : skipToken
+    )
+  );
+  const fileChangeQuery = useQuery(
+    trpc.project.listFileChangesForDate.queryOptions(
+      scopeProjectId
+        ? { projectId: scopeProjectId, dateKey: activeDateKey, maxItems: 200 }
+        : skipToken
+    )
+  );
+  const projectQuery = useQuery(
+    trpc.project.get.queryOptions(
+      scopeProjectId ? { projectId: scopeProjectId } : skipToken
+    )
+  );
+  const projectRootUri = projectQuery.data?.project?.rootUri;
+  // 中文注释：读取当日汇总的 Markdown 内容，不存在时回退为空。
+  const summaryContent = summaryQuery.data?.content ?? "";
+  const summaryBody = stripYamlFrontMatter(summaryContent);
+  const summaryMarkdown = summaryQuery.isLoading
+    ? "加载中…"
+    : summaryQuery.isError
+      ? summaryQuery.error?.message ?? "读取失败"
+      : summaryBody.trim() || "当天暂无总结";
+  const fileChanges = useMemo(() => {
+    const items = fileChangeQuery.data?.items ?? [];
+    // 中文注释：按更新时间倒序，优先展示最新变更。
+    return [...items].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }, [fileChangeQuery.data?.items]);
+  const fileChangeEntries = useMemo<FileSystemEntry[]>(
+    () =>
+      fileChanges.map((item) => {
+        const name = resolveEntryName(item.relativePath);
+        return {
+          uri: item.relativePath,
+          name,
+          kind: "file",
+          ext: resolveEntryExt(name),
+          updatedAt: item.updatedAt,
+        };
+      }),
+    [fileChanges]
+  );
 
   /** Select a chat session for the active tab and load its history. */
   const handleSessionSelect = useCallback(
@@ -119,30 +207,228 @@ const ProjectHistory = memo(function ProjectHistory({
     [activeChatSessionId, activeTabId, setTabChatSession]
   );
 
+  /** Open a markdown file from file changes. */
+  const handleOpenMarkdown = useCallback(
+    (entry: FileSystemEntry) => {
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: entry.uri,
+        component: "markdown-viewer",
+        title: entry.name,
+        params: {
+          uri: entry.uri,
+          openUri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+          __customHeader: true,
+          rootUri: projectRootUri,
+          projectId: scopeProjectId,
+        },
+      });
+    },
+    [activeTabId, projectRootUri, pushStackItem, scopeProjectId]
+  );
+
+  /** Open a code file from file changes. */
+  const handleOpenCode = useCallback(
+    (entry: FileSystemEntry) => {
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: entry.uri,
+        component: "code-viewer",
+        title: entry.name,
+        params: {
+          uri: entry.uri,
+          openUri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+          rootUri: projectRootUri,
+          projectId: scopeProjectId,
+        },
+      });
+    },
+    [activeTabId, projectRootUri, pushStackItem, scopeProjectId]
+  );
+
+  /** Open an image file from file changes. */
+  const handleOpenImage = useCallback(
+    (entry: FileSystemEntry, thumbnailSrc?: string) => {
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: entry.uri,
+        component: "image-viewer",
+        title: entry.name,
+        params: {
+          uri: entry.uri,
+          openUri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+          projectId: scopeProjectId,
+          rootUri: projectRootUri,
+          thumbnailSrc,
+        },
+      });
+    },
+    [activeTabId, projectRootUri, pushStackItem, scopeProjectId]
+  );
+
+  /** Open a PDF file from file changes. */
+  const handleOpenPdf = useCallback(
+    (entry: FileSystemEntry) => {
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: entry.uri,
+        component: "pdf-viewer",
+        title: entry.name,
+        params: {
+          uri: entry.uri,
+          openUri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+          projectId: scopeProjectId,
+          rootUri: projectRootUri,
+          __customHeader: true,
+        },
+      });
+    },
+    [activeTabId, projectRootUri, pushStackItem, scopeProjectId]
+  );
+
+  /** Open a DOC file from file changes. */
+  const handleOpenDoc = useCallback(
+    (entry: FileSystemEntry) => {
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: entry.uri,
+        component: "doc-viewer",
+        title: entry.name,
+        params: {
+          uri: entry.uri,
+          openUri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+          rootUri: projectRootUri,
+          __customHeader: true,
+        },
+      });
+    },
+    [activeTabId, projectRootUri, pushStackItem]
+  );
+
+  /** Open a spreadsheet file from file changes. */
+  const handleOpenSpreadsheet = useCallback(
+    (entry: FileSystemEntry) => {
+      if (!activeTabId) {
+        toast.error("未找到当前标签页");
+        return;
+      }
+      pushStackItem(activeTabId, {
+        id: entry.uri,
+        component: "sheet-viewer",
+        title: entry.name,
+        params: {
+          uri: entry.uri,
+          openUri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+          rootUri: projectRootUri,
+          __customHeader: true,
+        },
+      });
+    },
+    [activeTabId, projectRootUri, pushStackItem]
+  );
+
   if (isLoading) {
     return null;
   }
 
   return (
-    <div className="h-full flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-        <section>
+    <div className="h-full">
+      <div
+        className="relative grid h-full w-full"
+        style={{
+          gap: GRID_GAP_PX,
+          gridTemplateColumns: `minmax(0, 1fr) ${GRID_CALENDAR_WIDTH_PX}px`,
+          gridTemplateRows: `${GRID_CALENDAR_HEIGHT_PX}px minmax(0, 1fr)`,
+        }}
+      >
+        <section className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-card/60 p-4">
+          <div className="text-sm font-semibold text-foreground">当日文件变化</div>
+          <div className="mt-4 flex-1 min-h-0 overflow-auto">
+            {fileChangeQuery.isLoading ? (
+              <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+                加载中…
+              </div>
+            ) : fileChangeQuery.isError ? (
+              <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+                读取失败
+              </div>
+            ) : fileChangeEntries.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+                当天暂无文件变化
+              </div>
+            ) : (
+              <FileSystemGrid
+                entries={fileChangeEntries}
+                isLoading={false}
+                compact
+                projectId={scopeProjectId}
+                rootUri={projectRootUri}
+                parentUri={null}
+                currentUri={null}
+                showEmptyActions={false}
+                onOpenImage={handleOpenImage}
+                onOpenMarkdown={handleOpenMarkdown}
+                onOpenCode={handleOpenCode}
+                onOpenPdf={handleOpenPdf}
+                onOpenDoc={handleOpenDoc}
+                onOpenSpreadsheet={handleOpenSpreadsheet}
+              />
+            )}
+          </div>
+        </section>
+
+        <section className="flex h-full min-h-0 flex-col">
           <Calendar
             mode="single"
             required
             selected={selectedDate}
             onSelect={setSelectedDate}
             disabled={{ after: today }}
+            locale={zhCN}
             modifiers={{ hasHistory: sessionDates }}
             modifiersClassNames={{
               hasHistory:
-                "after:content-[''] after:absolute after:bottom-3 after:left-1/2 after:h-1.5 after:w-1.5 after:-translate-x-1/2 after:rounded-full after:bg-amber-400/80 dark:after:bg-amber-300/90 after:pointer-events-none after:z-10",
+                "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:h-1.5 after:w-1.5 after:-translate-x-1/2 after:rounded-full after:bg-amber-400/80 dark:after:bg-amber-300/90 after:pointer-events-none after:z-10",
             }}
-            className="w-full rounded-xl border border-border/60 bg-background/80 p-3"
+            className="h-full w-full rounded-xl border border-border/60 bg-background/80 p-3"
           />
         </section>
 
-        <section className="rounded-2xl border border-border/60 bg-card/60 p-4">
+        <section className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-card/60 p-4">
+          <div className="text-sm font-semibold text-foreground">当日总结</div>
+          <div className="mt-4 flex-1 min-h-0 overflow-hidden [&_.streamdown-viewer]:!bg-transparent [&_.streamdown-viewer]:!p-0">
+            <MarkdownViewer content={summaryMarkdown} />
+          </div>
+        </section>
+
+        <section className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-card/60 p-4">
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold text-foreground">历史列表</div>
             <div className="text-xs text-muted-foreground">
@@ -150,7 +436,7 @@ const ProjectHistory = memo(function ProjectHistory({
               {isSessionsLoading ? "加载中…" : `${activeSessions.length} 项`}
             </div>
           </div>
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 flex-1 space-y-2 overflow-auto">
             {isSessionsLoading ? (
               <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
                 加载中…
@@ -187,12 +473,6 @@ const ProjectHistory = memo(function ProjectHistory({
                         </span>
                       ) : null}
                     </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {formatTimeLabel(session.createdAt)} 创建
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {formatTimeLabel(session.updatedAt)}
                   </div>
                 </button>
               ))
@@ -200,11 +480,6 @@ const ProjectHistory = memo(function ProjectHistory({
           </div>
         </section>
       </div>
-
-      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border/60 bg-card/60 p-4">
-        <div className="text-sm font-semibold text-foreground">当日总结</div>
-        <div className="mt-4 flex-1" />
-      </section>
     </div>
   );
 });

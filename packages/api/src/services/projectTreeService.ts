@@ -26,6 +26,17 @@ export const projectConfigSchema = z
     projects: z.record(z.string(), z.string()).optional(),
     // Skill folder names to ignore for this project.
     ignoreSkills: z.array(z.string()).optional(),
+    /** AI settings overrides for this project. */
+    aiSettings: z
+      .object({
+        /** Whether project overrides are enabled. */
+        overrideEnabled: z.boolean().optional(),
+        /** Enable auto summary for docs. */
+        autoSummaryEnabled: z.boolean().optional(),
+        /** Selected hours for daily auto summary. */
+        autoSummaryHours: z.array(z.number().int().min(0).max(24)).optional(),
+      })
+      .optional(),
   })
   .passthrough();
 

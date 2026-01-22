@@ -14,6 +14,7 @@ import {
   clearSessionErrorMessage,
   normalizeSessionTitle,
   resolveRightmostLeafId,
+  resolveSessionPrefaceText,
   setSessionErrorMessage,
   updateSessionTitle,
 } from "@/ai/infrastructure/repositories/messageStore";
@@ -71,7 +72,8 @@ export class SummaryTitleUseCase {
     }
 
     const chain = await loadMessageChain({ sessionId, leafMessageId });
-    const modelChain = buildModelChain(chain as UIMessage[]);
+    const sessionPrefaceText = await resolveSessionPrefaceText(sessionId);
+    const modelChain = buildModelChain(chain as UIMessage[], { sessionPrefaceText });
     const modelMessages = await replaceRelativeFileParts(modelChain as UIMessage[]);
     if (modelMessages.length === 0) {
       return createCommandStreamResponse({

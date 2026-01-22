@@ -24,6 +24,51 @@ const DEFAULT_GREP_LIMIT = 100;
 const MAX_GREP_LIMIT = 2000;
 const GREP_TIMEOUT_MS = 30_000;
 
+/** Blocked binary extensions for read/grep file tools. */
+const BINARY_FILE_EXTENSIONS = new Set([
+  ".7z",
+  ".avi",
+  ".bin",
+  ".bmp",
+  ".bz2",
+  ".dat",
+  ".db",
+  ".dll",
+  ".dmg",
+  ".doc",
+  ".docx",
+  ".exe",
+  ".flac",
+  ".gif",
+  ".gz",
+  ".iso",
+  ".jar",
+  ".jpeg",
+  ".jpg",
+  ".mkv",
+  ".mov",
+  ".mp3",
+  ".mp4",
+  ".ogg",
+  ".otf",
+  ".pdf",
+  ".png",
+  ".ppt",
+  ".pptx",
+  ".psd",
+  ".rar",
+  ".so",
+  ".sqlite",
+  ".tar",
+  ".ttf",
+  ".wav",
+  ".webm",
+  ".webp",
+  ".xls",
+  ".xlsx",
+  ".xz",
+  ".zip",
+]);
 type ReadMode = "slice" | "indentation";
 
 type IndentationOptions = {
@@ -265,6 +310,10 @@ export const readFileTool = tool({
   }): Promise<string> => {
     const allowOutside = readBasicConf().toolAllowOutsideScope;
     const { absPath } = resolveToolPath({ target: filePath, allowOutside });
+    // 过滤常见二进制文件后缀，避免读取非文本文件内容。
+    if (hasBlockedBinaryExtension(absPath)) {
+      throw new Error("Only text files are supported; binary file extensions are not allowed.");
+    }
     const stat = await fs.stat(absPath);
     if (!stat.isFile()) throw new Error("Path is not a file.");
 
@@ -408,6 +457,21 @@ function formatDirEntry(entry: DirEntry): string {
   return `${indent}${name}`;
 }
 
+/** Check whether a path ends with a blocked binary extension. */
+function hasBlockedBinaryExtension(targetPath: string): boolean {
+  const ext = path.extname(targetPath).toLowerCase();
+  return Boolean(ext) && BINARY_FILE_EXTENSIONS.has(ext);
+}
+
+/** Check whether a glob/pattern mentions a blocked binary extension. */
+function hasBlockedBinaryExtensionInPattern(pattern: string): boolean {
+  const lowered = pattern.toLowerCase();
+  for (const ext of BINARY_FILE_EXTENSIONS) {
+    if (lowered.includes(ext)) return true;
+  }
+  return false;
+}
+
 /** Execute grep files tool with scope enforcement. */
 export const grepFilesTool = tool({
   description: grepFilesToolDef.description,
@@ -421,9 +485,16 @@ export const grepFilesTool = tool({
 
     const allowOutside = readBasicConf().toolAllowOutsideScope;
     const { basePath, cwd } = resolveGrepBase({ target: targetPath, allowOutside });
+    // 过滤常见二进制文件后缀，避免对非文本内容执行搜索。
+    if (hasBlockedBinaryExtension(basePath)) {
+      throw new Error("Only text files are supported; binary file extensions are not allowed.");
+    }
     await fs.stat(basePath);
 
     const includeValue = include?.trim() || undefined;
+    if (includeValue && hasBlockedBinaryExtensionInPattern(includeValue)) {
+      throw new Error("Only text files are supported; binary file extensions are not allowed.");
+    }
     const results = await runRgSearch({
       pattern: trimmedPattern,
       include: includeValue,

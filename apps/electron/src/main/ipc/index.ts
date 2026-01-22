@@ -19,6 +19,47 @@ import { createSpeechRecognitionManager } from '../speechRecognition';
 
 let ipcHandlersRegistered = false;
 
+/** Resolve a local filesystem path from a file:// URI or raw path. */
+function resolveLocalPath(input: string): string | null {
+  const raw = String(input ?? '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('file://')) {
+    try {
+      return fileURLToPath(raw);
+    } catch {
+      return null;
+    }
+  }
+  return raw;
+}
+
+/** Compute directory size recursively. */
+async function getDirectorySizeBytes(dirPath: string): Promise<number> {
+  let total = 0;
+  let entries: Array<import('node:fs').Dirent>;
+  try {
+    entries = await fs.readdir(dirPath, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const entry of entries) {
+    const nextPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      total += await getDirectorySizeBytes(nextPath);
+      continue;
+    }
+    if (entry.isFile()) {
+      try {
+        const stat = await fs.stat(nextPath);
+        total += stat.size;
+      } catch {
+        // 逻辑：单文件读取失败时忽略，继续统计其他项。
+      }
+    }
+  }
+  return total;
+}
+
 /**
  * Get CDP targetId for a given webContents using Electron's debugger API.
  */
@@ -216,6 +257,29 @@ export function registerIpcHandlers(args: { log: Logger }) {
       return { ok: true as const };
     } catch (error) {
       return { ok: false as const, reason: (error as Error)?.message ?? 'Trash failed' };
+    }
+  });
+
+  // 获取项目缓存目录大小（.tenas-cache）。
+  ipcMain.handle('tenas:cache:size', async (_event, payload: { rootUri?: string }) => {
+    const rootPath = resolveLocalPath(String(payload?.rootUri ?? ''));
+    if (!rootPath) return { ok: false as const, reason: 'Invalid root path' };
+    const cachePath = path.join(rootPath, '.tenas-cache');
+    const bytes = await getDirectorySizeBytes(cachePath);
+    return { ok: true as const, bytes };
+  });
+
+  // 清空项目缓存目录（.tenas-cache）。
+  ipcMain.handle('tenas:cache:clear', async (_event, payload: { rootUri?: string }) => {
+    const rootPath = resolveLocalPath(String(payload?.rootUri ?? ''));
+    if (!rootPath) return { ok: false as const, reason: 'Invalid root path' };
+    const cachePath = path.join(rootPath, '.tenas-cache');
+    try {
+      // 逻辑：强制删除缓存目录，不存在时不报错。
+      await fs.rm(cachePath, { recursive: true, force: true });
+      return { ok: true as const };
+    } catch (error) {
+      return { ok: false as const, reason: (error as Error)?.message ?? 'Clear cache failed' };
     }
   });
 

@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { generateId } from "ai";
 import { prisma } from "@tenas-ai/db";
 import type { MessageRole as DbMessageRole, Prisma } from "@tenas-ai/db/prisma/generated/client";
@@ -20,14 +19,11 @@ const PATH_SEGMENT_WIDTH = 2;
 const MAX_PATH_SEGMENT_SEQ = 99;
 /** Metadata keys that should never be persisted. */
 const FORBIDDEN_METADATA_KEYS = ["id", "sessionId", "parentMessageId", "path"] as const;
-/** Metadata key for session preface hash. */
-const PREFACE_HASH_KEY = "prefaceHash";
 
 /** Normalize message kind from unknown input. */
 function normalizeMessageKind(value: unknown): ChatMessageKind | null {
   if (value == null) return null;
   if (
-    value === "session_preface" ||
     value === "compact_prompt" ||
     value === "compact_summary"
   ) {
@@ -76,12 +72,12 @@ export async function resolveRightmostLeafId(sessionId: string): Promise<string 
   return row?.id ?? null;
 }
 
-/** Ensure a session preface message exists as the first node when session is empty. */
+/** Ensure session preface text exists for the chat session. */
 export async function ensureSessionPreface(input: {
   /** Session id. */
   sessionId: string;
-  /** Preface message payload. */
-  message: TenasUIMessage;
+  /** Preface text content. */
+  text: string;
   /** Created time override. */
   createdAt?: Date;
   /** Workspace id for session binding. */
@@ -90,58 +86,27 @@ export async function ensureSessionPreface(input: {
   projectId?: string;
   /** Board id for session binding. */
   boardId?: string;
-}): Promise<string | null> {
-  const prefaceHash = buildPrefaceHash(input.message);
-  const nextParts = normalizeParts(input.message.parts);
-  const nextMetadata = buildPrefaceMetadata(input.message, prefaceHash);
-  const existingPreface = await prisma.chatMessage.findFirst({
-    where: { sessionId: input.sessionId, messageKind: "session_preface" },
-    orderBy: [{ path: "asc" }],
-    select: { id: true, metadata: true },
-  });
-  if (existingPreface?.id) {
-    const storedHash = readPrefaceHash(existingPreface.metadata);
-    // 逻辑：hash 相同则跳过更新，避免重复写入。
-    if (storedHash && storedHash === prefaceHash) {
-      return existingPreface.id;
-    }
-    await prisma.chatMessage.update({
-      where: { id: existingPreface.id },
-      data: {
-        parts: nextParts as any,
-        metadata: (nextMetadata as Prisma.InputJsonValue) ?? undefined,
-        messageKind: "session_preface",
-      },
+}): Promise<void> {
+  const text = String(input.text ?? "").trim();
+  if (!text) return;
+
+  await prisma.$transaction(async (tx) => {
+    await ensureSession(tx, input.sessionId, {
+      workspaceId: input.workspaceId,
+      projectId: input.projectId,
+      boardId: input.boardId,
     });
-    return existingPreface.id;
-  }
-
-  const anyMessage = await prisma.chatMessage.findFirst({
-    where: { sessionId: input.sessionId },
-    select: { id: true },
+    const existing = await tx.chatSession.findUnique({
+      where: { id: input.sessionId },
+      select: { sessionPreface: true },
+    });
+    // 中文注释：内容未变化时跳过更新，避免重复写入。
+    if ((existing?.sessionPreface ?? "") === text) return;
+    await tx.chatSession.update({
+      where: { id: input.sessionId },
+      data: { sessionPreface: text },
+    });
   });
-  // 逻辑：已有历史时不强行插入 preface，避免破坏顺序。
-  if (anyMessage?.id) return null;
-
-  const prefaceMessage = {
-    ...input.message,
-    role: "user",
-    messageKind: "session_preface",
-    parts: nextParts as any,
-    metadata: nextMetadata,
-  } as TenasUIMessage;
-
-  const saved = await saveMessage({
-    sessionId: input.sessionId,
-    message: prefaceMessage,
-    parentMessageId: null,
-    createdAt: input.createdAt,
-    workspaceId: input.workspaceId,
-    projectId: input.projectId,
-    boardId: input.boardId,
-  });
-
-  return saved.id;
 }
 
 /** Save a compaction prompt message (user) for context trimming. */
@@ -222,6 +187,16 @@ export async function clearSessionErrorMessage(input: {
   });
 }
 
+/** Resolve stored session preface text for a chat session. */
+export async function resolveSessionPrefaceText(sessionId: string): Promise<string> {
+  const row = await prisma.chatSession.findUnique({
+    where: { id: sessionId },
+    select: { sessionPreface: true },
+  });
+  // 中文注释：未设置时返回空字符串，避免前端/模型链路误判为错误。
+  return typeof row?.sessionPreface === "string" ? row.sessionPreface : "";
+}
+
 /** Save a chat message node. */
 export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageResult> {
   const messageId = String((input.message as any)?.id ?? "").trim();
@@ -231,9 +206,9 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
   const role = normalizeRole((input.message as any)?.role);
   const parts = normalizeParts((input.message as any)?.parts);
   const metadata = sanitizeMetadata((input.message as any)?.metadata);
-  // 逻辑：preface/compact prompt 不参与会话标题生成。
+  // 逻辑：compact prompt 不参与会话标题生成。
   const title =
-    role === "user" && messageKind !== "session_preface" && messageKind !== "compact_prompt"
+    role === "user" && messageKind !== "compact_prompt"
       ? normalizeTitle(extractTitleTextFromParts(parts))
       : "";
   const workspaceId = normalizeOptionalId(input.workspaceId) ?? getWorkspaceId();
@@ -253,6 +228,13 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
       projectId,
       boardId,
     });
+    if (title) {
+      // 中文注释：首条用户消息到来后补写标题（不覆盖手动改名）。
+      await tx.chatSession.updateMany({
+        where: { id: input.sessionId, isUserRename: false, title: "新对话" },
+        data: { title },
+      });
+    }
 
     const existing = await tx.chatMessage.findUnique({
       where: { id: messageId },
@@ -353,26 +335,6 @@ function normalizeRole(role: unknown): DbMessageRole {
 function normalizeParts(parts: unknown): unknown[] {
   const arr = Array.isArray(parts) ? parts : [];
   return arr.filter((part) => !(part && typeof part === "object" && (part as any).type === "step-start"));
-}
-
-/** Build a stable hash for session preface content. */
-function buildPrefaceHash(message: TenasUIMessage): string {
-  const parts = normalizeParts(message.parts);
-  const payload = JSON.stringify(parts);
-  return createHash("sha256").update(payload).digest("hex");
-}
-
-/** Read stored preface hash from metadata. */
-function readPrefaceHash(metadata: unknown): string | null {
-  if (!isRecord(metadata)) return null;
-  const value = metadata[PREFACE_HASH_KEY];
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-/** Merge preface hash into metadata. */
-function buildPrefaceMetadata(message: TenasUIMessage, hash: string): Record<string, unknown> {
-  const base = sanitizeMetadata(message.metadata) ?? {};
-  return { ...base, [PREFACE_HASH_KEY]: hash };
 }
 
 /** Sanitize metadata fields before persistence. */

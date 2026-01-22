@@ -16,7 +16,7 @@ import {
 import { logger } from "@/common/logger";
 import { resolveParentProjectRootPaths } from "@/ai/utils/projectRoots";
 import { parseCommandAtStart } from "@/ai/domain/services/CommandParser";
-import { buildSessionPrefaceMessage } from "@/ai/domain/services/prefaceBuilder";
+import { buildSessionPrefaceText } from "@/ai/domain/services/prefaceBuilder";
 import { normalizePromptForImageEdit } from "@/ai/infrastructure/adapters/imageEditNormalizer";
 import { resolveImagePrompt, type GenerateImagePrompt } from "./imagePrompt";
 import {
@@ -213,7 +213,7 @@ export async function runChatStream(input: {
   const resolvedProjectId = getProjectId() ?? projectId ?? undefined;
   await ensureSessionPreface({
     sessionId,
-    message: await buildSessionPrefaceMessage({
+    text: await buildSessionPrefaceText({
       sessionId,
       workspaceId: resolvedWorkspaceId,
       projectId: resolvedProjectId,
@@ -473,7 +473,7 @@ export async function runChatImageRequest(input: {
   const resolvedProjectId = getProjectId() ?? projectId ?? undefined;
   await ensureSessionPreface({
     sessionId,
-    message: await buildSessionPrefaceMessage({
+    text: await buildSessionPrefaceText({
       sessionId,
       workspaceId: resolvedWorkspaceId,
       projectId: resolvedProjectId,

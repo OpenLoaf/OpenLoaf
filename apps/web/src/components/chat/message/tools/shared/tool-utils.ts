@@ -201,6 +201,42 @@ export function isApprovalPending(part: AnyToolPart): boolean {
   return part.state === "approval-requested" && Boolean(approvalId) && !decided;
 }
 
+/** Count pending tool approvals in UI messages. */
+export function countPendingToolApprovals(
+  messages: Array<{ parts?: unknown[] }>,
+): number {
+  let count = 0;
+  for (const message of messages) {
+    const parts = Array.isArray(message?.parts) ? message.parts : [];
+    for (const part of parts) {
+      const type = typeof part?.type === "string" ? part.type : "";
+      const isTool = type === "dynamic-tool" || type.startsWith("tool-");
+      if (!isTool) continue;
+      // 中文注释：只有审批中的工具才计数，避免误触发继续执行。
+      if (isApprovalPending(part as AnyToolPart)) count += 1;
+    }
+  }
+  return count;
+}
+
+/** Detect if any tool approval was rejected. */
+export function hasRejectedToolApproval(
+  messages: Array<{ parts?: unknown[] }>,
+): boolean {
+  for (const message of messages) {
+    const parts = Array.isArray(message?.parts) ? message.parts : [];
+    for (const part of parts) {
+      const type = typeof part?.type === "string" ? part.type : "";
+      const isTool = type === "dynamic-tool" || type.startsWith("tool-");
+      if (!isTool) continue;
+      const approval = (part as AnyToolPart).approval;
+      // 中文注释：任一工具被拒绝则阻止自动继续。
+      if (approval?.approved === false) return true;
+    }
+  }
+  return false;
+}
+
 /** Resolve output state for tool rendering. */
 export function getToolOutputState(part: AnyToolPart): ToolOutputState {
   const outputText = safeStringify(part.output);

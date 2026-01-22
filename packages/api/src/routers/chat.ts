@@ -28,7 +28,7 @@ export type ChatUIMessage = {
   parentMessageId: string | null;
   parts: any[];
   metadata?: any;
-  /** Message kind for compaction/preface handling. */
+  /** Message kind for compaction handling. */
   messageKind?: ChatMessageKind;
   /** 产生该消息的 agent 信息（便于 UI 直接读取） */
   agent?: any;
@@ -133,7 +133,7 @@ function isRenderableRow(row: {
   messageKind?: ChatMessageKind | null;
 }): boolean {
   const kind = row.messageKind ?? "normal";
-  if (kind === "session_preface" || kind === "compact_prompt") return false;
+  if (kind === "compact_prompt") return false;
   if (kind === "compact_summary") return true;
   if (row.role === "user") return true;
   const parts = row.parts;
@@ -406,11 +406,12 @@ export const chatRouter = t.router({
       const includeSiblingNav = input.include?.siblingNav !== false;
       const limit = input.window?.limit ?? DEFAULT_VIEW_LIMIT;
       const anchorStrategy = input.anchor?.strategy ?? "latestLeafInSubtree";
-      const sessionErrorMessage =
-        (await ctx.prisma.chatSession.findUnique({
-          where: { id: input.sessionId },
-          select: { errorMessage: true },
-        }))?.errorMessage ?? null;
+      const sessionRow = await ctx.prisma.chatSession.findUnique({
+        where: { id: input.sessionId },
+        select: { errorMessage: true, sessionPreface: true },
+      });
+      const sessionErrorMessage = sessionRow?.errorMessage ?? null;
+      const sessionPreface = sessionRow?.sessionPreface ?? "";
 
       const leafFromCursor = input.window?.cursor?.beforeMessageId
         ? await resolveLeafIdFromCursor({
