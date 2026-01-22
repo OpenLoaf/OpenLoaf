@@ -70,6 +70,7 @@ export default function ImagePreviewDialog({
     openFilePreview({
       viewer: "image",
       sourceId,
+      onClose: () => onOpenChange(false),
       items: previewItems,
       activeIndex,
       showSave,

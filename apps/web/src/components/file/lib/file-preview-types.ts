@@ -39,6 +39,8 @@ export type FilePreviewPayload = {
   viewer: FilePreviewViewer;
   /** Optional owner id for coordination. */
   sourceId?: string;
+  /** Callback when dialog closes. */
+  onClose?: () => void;
   /** Previewable items (images may include multiple). */
   items: FilePreviewItem[];
   /** Active item index. */

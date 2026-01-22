@@ -94,6 +94,7 @@ export const ChatImageAttachments = React.forwardRef<
     openFilePreview({
       viewer: "image",
       sourceId: previewSourceId,
+      onClose: () => setPreviewAttachmentId(null),
       items: previewItems,
       activeIndex: 0,
       showSave: false,

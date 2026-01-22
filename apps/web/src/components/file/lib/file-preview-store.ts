@@ -12,10 +12,15 @@ export type FilePreviewState = {
   closePreview: () => void;
 };
 
-export const useFilePreviewStore = create<FilePreviewState>((set) => ({
+export const useFilePreviewStore = create<FilePreviewState>((set, get) => ({
   payload: null,
   openPreview: (payload) => set({ payload }),
-  closePreview: () => set({ payload: null }),
+  closePreview: () => {
+    // 逻辑：关闭时先通知触发方清理本地预览状态，避免再次打开。
+    const payload = get().payload;
+    payload?.onClose?.();
+    set({ payload: null });
+  },
 }));
 
 /** Open the shared file preview dialog. */

@@ -63,7 +63,7 @@ export default function FilePreviewDialog() {
       <DialogContent
         className={
           isImage
-            ? `h-auto w-auto max-h-[80vh] max-w-none sm:max-w-none p-0 overflow-hidden flex flex-col gap-0 transition-opacity duration-200 ${
+            ? `h-auto w-auto max-h-[80vh] max-w-none sm:max-w-none p-0 overflow-hidden flex flex-col gap-0 transition-opacity duration-200 border-0 bg-transparent shadow-none ${
                 dialogSize ? "opacity-100" : "opacity-100 min-h-[200px] min-w-[320px]"
               }`
             : "h-[90vh] w-[90vw] max-w-none p-0 overflow-hidden"
@@ -71,14 +71,18 @@ export default function FilePreviewDialog() {
         overlayClassName="bg-background/35 backdrop-blur-2xl"
         style={isImage && dialogSize ? { width: dialogSize.width, height: dialogSize.height } : undefined}
         showCloseButton={false}
+        overlaySlot={
+          <button
+            type="button"
+            className="fixed right-5 top-5 z-[60] inline-flex h-10 w-10 items-center justify-center rounded-full bg-background/80 text-foreground shadow-md ring-1 ring-border/60 backdrop-blur hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            aria-label="关闭"
+            onClick={() => closeFilePreview()}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        }
       >
         <DialogTitle className="sr-only">文件预览</DialogTitle>
-        <DialogClose
-          className="fixed right-4 top-4 z-50 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/80 text-foreground shadow-md ring-1 ring-border/60 backdrop-blur hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          aria-label="关闭"
-        >
-          <X className="h-4 w-4" />
-        </DialogClose>
         <div className="relative h-full w-full">
           {payload.viewer === "image" ? (
             <ImageViewer

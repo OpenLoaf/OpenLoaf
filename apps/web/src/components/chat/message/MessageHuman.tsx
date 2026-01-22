@@ -269,6 +269,7 @@ export default function MessageHuman({
     openFilePreview({
       viewer: "image",
       sourceId: previewSourceId,
+      onClose: () => setPreviewUrl(null),
       items: previewItems,
       activeIndex: previewIndex,
       showSave: false,
