@@ -2,6 +2,7 @@ import { z } from "zod";
 import path from "node:path";
 import { promises as fs, type Dirent } from "node:fs";
 import sharp from "sharp";
+import { fileURLToPath } from "node:url";
 import { t, shieldedProcedure } from "../index";
 import { resolveScopedPath, resolveScopedRootPath, toRelativePath } from "../services/vfsService";
 
@@ -59,6 +60,11 @@ const fsSearchSchema = fsScopeSchema.extend({
 const fsCopySchema = fsScopeSchema.extend({
   from: z.string(),
   to: z.string(),
+});
+
+const fsImportLocalSchema = fsScopeSchema.extend({
+  uri: z.string(),
+  sourcePath: z.string(),
 });
 
 /** Schema for batch thumbnail requests. */
@@ -456,6 +462,32 @@ export const fsRouter = t.router({
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       const buffer = Buffer.from(input.contentBase64, "base64");
       await fs.writeFile(fullPath, buffer);
+      return { ok: true };
+    }),
+
+  /** Copy a local file into the scoped project directory. */
+  importLocalFile: shieldedProcedure
+    .input(fsImportLocalSchema)
+    .mutation(async ({ input }) => {
+      const fullPath = resolveFsTarget(input, input.uri);
+      let sourcePath = input.sourcePath.trim();
+      if (!sourcePath) throw new Error("Invalid sourcePath");
+      if (sourcePath.startsWith("file://")) {
+        try {
+          sourcePath = fileURLToPath(sourcePath);
+        } catch {
+          throw new Error("Invalid sourcePath");
+        }
+      }
+      if (!path.isAbsolute(sourcePath)) {
+        throw new Error("Invalid sourcePath");
+      }
+      const sourceStat = await fs.stat(sourcePath);
+      if (!sourceStat.isFile()) {
+        throw new Error("Source is not a file");
+      }
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.copyFile(sourcePath, fullPath);
       return { ok: true };
     }),
 

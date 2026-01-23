@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 type OpenBrowserWindowResult = { id: number };
 type OkResult = { ok: true };
@@ -104,12 +104,22 @@ contextBridge.exposeInMainWorld('tenasElectron', {
     filters?: Array<{ name: string; extensions: string[] }>;
   }): Promise<{ ok: true; path: string } | { ok: false; canceled?: boolean; reason?: string }> =>
     ipcRenderer.invoke('tenas:fs:save-file', payload),
+  // Start a local file/folder transfer into the workspace.
+  startTransfer: (payload: {
+    id: string;
+    sourcePath: string;
+    targetPath: string;
+    kind?: "file" | "folder";
+  }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('tenas:fs:transfer-start', payload),
   // Start OS speech recognition (macOS helper).
   startSpeechRecognition: (payload: { language?: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('tenas:speech:start', payload),
   // Stop OS speech recognition.
   stopSpeechRecognition: (): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('tenas:speech:stop'),
+  // Resolve local file path from a File object.
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 });
 
 // 主进程会推送 WebContentsView 的真实加载状态（dom-ready 等），这里转成 window 事件给 web UI 消费。
@@ -127,6 +137,36 @@ ipcRenderer.on('tenas:webcontents-view:window-open', (_event, detail) => {
   try {
     window.dispatchEvent(
       new CustomEvent('tenas:webcontents-view:window-open', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+ipcRenderer.on('tenas:fs:transfer-progress', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('tenas:fs:transfer-progress', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+ipcRenderer.on('tenas:fs:transfer-error', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('tenas:fs:transfer-error', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+ipcRenderer.on('tenas:fs:transfer-complete', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('tenas:fs:transfer-complete', { detail })
     );
   } catch {
     // ignore

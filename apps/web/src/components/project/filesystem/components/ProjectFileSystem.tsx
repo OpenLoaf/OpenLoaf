@@ -23,6 +23,7 @@ import { FileSystemColumns } from "./FileSystemColumns";
 import { FileSystemGrid } from "./FileSystemGrid";
 import { FileSystemList } from "./FileSystemList";
 import ProjectFileSystemTransferDialog from "./ProjectFileSystemTransferDialog";
+import ProjectFileSystemTransferBar from "./ProjectFileSystemTransferBar";
 import FileSystemGitTree from "./FileSystemGitTree";
 import {
   ProjectFileSystemHeader,
@@ -631,6 +632,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
         searchShortcutLabel={searchShortcutLabel}
       />
       <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <ProjectFileSystemTransferBar
+          transfer={model.transferProgress}
+          onRetry={model.handleRetryTransfer}
+        />
         <FileSystemContextMenu
           menuContextEntry={menuContextEntry}
           selectedEntries={selectedEntries}
@@ -734,6 +739,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                     dragProjectId={model.projectId}
                     dragRootUri={model.rootUri}
                     onNavigate={model.handleNavigate}
+                    onOpenEntry={model.handleOpenEntry}
                     onOpenImage={model.handleOpenImage}
                     onOpenMarkdown={model.handleOpenMarkdown}
                     onOpenCode={model.handleOpenCode}
@@ -785,6 +791,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   dragProjectId={model.projectId}
                   dragRootUri={model.rootUri}
                   onNavigate={model.handleNavigate}
+                  onOpenEntry={model.handleOpenEntry}
                   onOpenImage={model.handleOpenImage}
                   onOpenMarkdown={model.handleOpenMarkdown}
                   onOpenCode={model.handleOpenCode}
@@ -833,6 +840,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                   dragProjectId={model.projectId}
                   dragRootUri={model.rootUri}
                   onNavigate={model.handleNavigate}
+                  onOpenEntry={model.handleOpenEntry}
                   onOpenImage={model.handleOpenImage}
                   onOpenMarkdown={model.handleOpenMarkdown}
                   onOpenCode={model.handleOpenCode}

@@ -39,6 +39,21 @@ declare global {
     message: string;
     detail?: string;
   };
+  /** Transfer progress payload from Electron. */
+  type TenasTransferProgress = {
+    id: string;
+    currentName: string;
+    percent: number;
+  };
+  /** Transfer error payload from Electron. */
+  type TenasTransferError = {
+    id: string;
+    reason?: string;
+  };
+  /** Transfer complete payload from Electron. */
+  type TenasTransferComplete = {
+    id: string;
+  };
 
   interface Window {
     tenasElectron?: {
@@ -88,6 +103,15 @@ declare global {
         | { ok: true; path: string }
         | { ok: false; canceled?: boolean; reason?: string }
       >;
+      /** Start a local file/folder transfer into the workspace. */
+      startTransfer?: (payload: {
+        id: string;
+        sourcePath: string;
+        targetPath: string;
+        kind?: "file" | "folder";
+      }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      /** Resolve local file path from a File object. */
+      getPathForFile?: (file: File) => string;
       startSpeechRecognition?: (payload: {
         language?: string;
       }) => Promise<{ ok: true } | { ok: false; reason?: string }>;

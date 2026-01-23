@@ -9,7 +9,7 @@ import { MessageCircle } from "lucide-react";
 import { zhCN } from "date-fns/locale";
 
 import MarkdownViewer from "@/components/file/MarkdownViewer";
-import { openFile } from "@/components/file/lib/open-file";
+import { openFilePreview } from "@/components/file/lib/open-file";
 import { FileSystemGrid } from "@/components/project/filesystem/components/FileSystemGrid";
 import { Calendar } from "@/components/ui/calendar";
 import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
@@ -209,7 +209,7 @@ const ProjectHistory = memo(function ProjectHistory({
   /** Open a markdown file from file changes. */
   const handleOpenMarkdown = useCallback(
     (entry: FileSystemEntry) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId: scopeProjectId,
@@ -222,7 +222,7 @@ const ProjectHistory = memo(function ProjectHistory({
   /** Open a code file from file changes. */
   const handleOpenCode = useCallback(
     (entry: FileSystemEntry) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId: scopeProjectId,
@@ -235,7 +235,7 @@ const ProjectHistory = memo(function ProjectHistory({
   /** Open an image file from file changes. */
   const handleOpenImage = useCallback(
     (entry: FileSystemEntry, thumbnailSrc?: string) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId: scopeProjectId,
@@ -249,7 +249,7 @@ const ProjectHistory = memo(function ProjectHistory({
   /** Open a PDF file from file changes. */
   const handleOpenPdf = useCallback(
     (entry: FileSystemEntry) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId: scopeProjectId,
@@ -262,7 +262,7 @@ const ProjectHistory = memo(function ProjectHistory({
   /** Open a DOC file from file changes. */
   const handleOpenDoc = useCallback(
     (entry: FileSystemEntry) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId: scopeProjectId,
@@ -275,7 +275,7 @@ const ProjectHistory = memo(function ProjectHistory({
   /** Open a spreadsheet file from file changes. */
   const handleOpenSpreadsheet = useCallback(
     (entry: FileSystemEntry) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId: scopeProjectId,

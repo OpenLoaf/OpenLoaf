@@ -11,7 +11,7 @@ import {
   isPreviewTooLargeError,
   resolveFileName,
 } from "@/lib/image/uri";
-import { createFileEntryFromUri, openFile } from "@/components/file/lib/open-file";
+import { createFileEntryFromUri, openFilePreview } from "@/components/file/lib/open-file";
 import { setImageDragPayload } from "@/lib/image/drag";
 import {
   formatSize,
@@ -181,7 +181,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
         className={cn("text-left", className)}
         onClick={() => {
           if (!entry) return;
-          openFile({
+          openFilePreview({
             entry,
             projectId,
             rootUri: projectRootUri,

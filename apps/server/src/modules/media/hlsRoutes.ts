@@ -1,15 +1,20 @@
 import type { Hono } from "hono";
-import { getHlsManifest, getHlsSegment } from "./hlsService";
+import { getHlsManifest, getHlsSegment, isHlsQuality } from "./hlsService";
 
 /** Register HLS media routes. */
 export function registerHlsRoutes(app: Hono) {
   app.get("/media/hls/manifest", async (c) => {
     const path = c.req.query("path")?.trim() ?? "";
     const projectId = c.req.query("projectId")?.trim() ?? "";
+    const qualityRaw = c.req.query("quality")?.trim();
+    const quality = qualityRaw ? qualityRaw.toLowerCase() : undefined;
     if (!path || !projectId) {
       return c.json({ error: "Invalid manifest query" }, 400);
     }
-    const manifest = await getHlsManifest({ path, projectId });
+    if (quality && !isHlsQuality(quality)) {
+      return c.json({ error: "Invalid quality value" }, 400);
+    }
+    const manifest = await getHlsManifest({ path, projectId, quality });
     if (!manifest) {
       return c.json({ error: "Manifest not found" }, 404);
     }

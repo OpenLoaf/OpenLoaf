@@ -1,5 +1,6 @@
 "use client";
 
+import { type ReactNode } from "react";
 import { toast } from "sonner";
 import { useTabs } from "@/hooks/use-tabs";
 import {
@@ -25,10 +26,11 @@ import {
   getBoardDisplayName,
   isBoardFolderName,
 } from "@/lib/file-name";
-import { openFilePreview } from "./file-preview-store";
+import { openFilePreview as openFilePreviewDialog } from "./file-preview-store";
 import type { FilePreviewItem, FilePreviewPayload, FilePreviewViewer } from "./file-preview-types";
+import { renderFilePreviewContent } from "./open-file-preview";
 
-export type FileOpenMode = "stack" | "modal";
+export type FileOpenMode = "stack" | "modal" | "embed";
 
 export type FileOpenInput = {
   /** Target entry to open. */
@@ -47,6 +49,8 @@ export type FileOpenInput = {
   confirmOpen?: (message: string) => boolean;
   /** Optional folder navigation handler. */
   onNavigate?: (nextUri: string) => void;
+  /** Optional read only flag for embedded preview. */
+  readOnly?: boolean;
   /** Optional board open options. */
   board?: {
     /** Whether to mark board for pending rename. */
@@ -334,11 +338,11 @@ export function buildStackItemForEntry(input: {
   }
 }
 
-/** Open a file entry using stack or modal behavior. */
-export function openFile(input: FileOpenInput): boolean {
+/** Open a file entry with stack, modal, or embed behavior. */
+export function openFilePreview(input: FileOpenInput): boolean | ReactNode | null {
   const mode = input.mode ?? "stack";
   const boardEntry = resolveBoardFolderEntryFromIndexFile(input.entry);
-  if (boardEntry) {
+  if (boardEntry && mode !== "embed") {
     if (!input.tabId) {
       toast.error("未找到当前标签页");
       return true;
@@ -365,6 +369,14 @@ export function openFile(input: FileOpenInput): boolean {
   }
 
   if (input.entry.kind === "folder") {
+    if (mode === "embed") {
+      return renderFilePreviewContent({
+        entry: input.entry,
+        rootUri: input.rootUri,
+        projectId: input.projectId,
+        readOnly: input.readOnly,
+      });
+    }
     if (isBoardFolderName(input.entry.name)) {
       if (!input.tabId) {
         toast.error("未找到当前标签页");
@@ -399,6 +411,15 @@ export function openFile(input: FileOpenInput): boolean {
 
   if (input.entry.kind !== "file") return false;
 
+  if (mode === "embed") {
+    return renderFilePreviewContent({
+      entry: input.entry,
+      rootUri: input.rootUri,
+      projectId: input.projectId,
+      readOnly: input.readOnly,
+    });
+  }
+
   const target = resolveFileViewerTarget(input.entry);
   if (!target) return false;
 
@@ -420,7 +441,7 @@ export function openFile(input: FileOpenInput): boolean {
       thumbnailSrc: input.thumbnailSrc,
       modal: input.modal,
     });
-    openFilePreview(payload);
+    openFilePreviewDialog(payload);
     return true;
   }
 
@@ -438,4 +459,10 @@ export function openFile(input: FileOpenInput): boolean {
   if (!stackItem) return true;
   useTabs.getState().pushStackItem(input.tabId, stackItem);
   return true;
+}
+
+/** Open a file entry using stack or modal behavior (legacy wrapper). */
+export function openFile(input: FileOpenInput): boolean {
+  const result = openFilePreview(input);
+  return typeof result === "boolean" ? result : true;
 }

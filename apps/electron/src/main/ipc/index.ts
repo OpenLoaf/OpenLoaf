@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
-import { promises as fs } from 'node:fs';
+import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Logger } from '../logging/startupLogger';
@@ -18,6 +18,21 @@ import {
 import { createSpeechRecognitionManager } from '../speechRecognition';
 
 let ipcHandlersRegistered = false;
+
+type TransferStartPayload = {
+  id: string;
+  sourcePath: string;
+  targetPath: string;
+  kind?: 'file' | 'folder';
+};
+
+type TransferProgressPayload = {
+  id: string;
+  currentName: string;
+  percent: number;
+};
+
+const TRANSFER_PROGRESS_THROTTLE_MS = 120;
 
 /** Resolve a local filesystem path from a file:// URI or raw path. */
 function resolveLocalPath(input: string): string | null {
@@ -58,6 +73,115 @@ async function getDirectorySizeBytes(dirPath: string): Promise<number> {
     }
   }
   return total;
+}
+
+/** Build a throttled progress emitter for file transfers. */
+function createTransferProgressEmitter(
+  event: Electron.IpcMainInvokeEvent,
+  transferId: string
+) {
+  let lastSent = 0;
+  return (currentName: string, percent: number) => {
+    const now = Date.now();
+    // 中文注释：限制进度事件发送频率，避免渲染端过载。
+    if (percent < 100 && now - lastSent < TRANSFER_PROGRESS_THROTTLE_MS) return;
+    lastSent = now;
+    const payload: TransferProgressPayload = { id: transferId, currentName, percent };
+    event.sender.send('tenas:fs:transfer-progress', payload);
+  };
+}
+
+/** Copy a single file with progress reporting. */
+async function copyFileWithProgress(args: {
+  sourcePath: string;
+  targetPath: string;
+  onProgress: (currentName: string, percent: number) => void;
+}) {
+  const stat = await fs.stat(args.sourcePath);
+  if (!stat.isFile()) {
+    throw new Error('Source is not a file');
+  }
+  await fs.mkdir(path.dirname(args.targetPath), { recursive: true });
+  const total = stat.size;
+  let copied = 0;
+  const currentName = path.basename(args.sourcePath);
+  args.onProgress(currentName, total === 0 ? 100 : 0);
+  await new Promise<void>((resolve, reject) => {
+    const reader = createReadStream(args.sourcePath);
+    const writer = createWriteStream(args.targetPath);
+    reader.on('data', (chunk: Buffer) => {
+      // 中文注释：按读取块累计字节数，驱动单文件进度。
+      copied += chunk.length;
+      const percent = total === 0 ? 100 : Math.min(100, Math.round((copied / total) * 100));
+      args.onProgress(currentName, percent);
+    });
+    reader.on('error', reject);
+    writer.on('error', reject);
+    writer.on('close', resolve);
+    reader.pipe(writer);
+  });
+  args.onProgress(currentName, 100);
+}
+
+/** Copy a directory recursively with progress reporting. */
+async function copyDirectoryWithProgress(args: {
+  sourcePath: string;
+  targetPath: string;
+  onProgress: (currentName: string, percent: number) => void;
+}) {
+  const stat = await fs.stat(args.sourcePath);
+  if (!stat.isDirectory()) {
+    throw new Error('Source is not a directory');
+  }
+  const totalBytes = await getDirectorySizeBytes(args.sourcePath);
+  let copiedBytes = 0;
+  const baseName = path.basename(args.sourcePath);
+
+  const emitProgress = (currentName: string) => {
+    const percent =
+      totalBytes === 0 ? 100 : Math.min(100, Math.round((copiedBytes / totalBytes) * 100));
+    args.onProgress(currentName, percent);
+  };
+
+  const copyDir = async (sourceDir: string, targetDir: string) => {
+    await fs.mkdir(targetDir, { recursive: true });
+    let entries: Array<import('node:fs').Dirent>;
+    try {
+      entries = await fs.readdir(sourceDir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    if (entries.length === 0) {
+      emitProgress(baseName);
+    }
+    for (const entry of entries) {
+      const nextSource = path.join(sourceDir, entry.name);
+      const nextTarget = path.join(targetDir, entry.name);
+      if (entry.isDirectory()) {
+        await copyDir(nextSource, nextTarget);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const relativeName = path.relative(args.sourcePath, nextSource) || entry.name;
+      await fs.mkdir(path.dirname(nextTarget), { recursive: true });
+      await new Promise<void>((resolve, reject) => {
+        const reader = createReadStream(nextSource);
+        const writer = createWriteStream(nextTarget);
+        reader.on('data', (chunk: Buffer) => {
+          // 中文注释：按文件块累计总进度，统一映射到目录进度。
+          copiedBytes += chunk.length;
+          emitProgress(relativeName);
+        });
+        reader.on('error', reject);
+        writer.on('error', reject);
+        writer.on('close', resolve);
+        reader.pipe(writer);
+      });
+    }
+  };
+
+  await copyDir(args.sourcePath, args.targetPath);
+  emitProgress(baseName);
 }
 
 /**
@@ -361,6 +485,38 @@ export function registerIpcHandlers(args: { log: Logger }) {
     }
   );
 
+  // Copy a local file/folder into the workspace and report progress to renderer.
+  ipcMain.handle('tenas:fs:transfer-start', async (event, payload: TransferStartPayload) => {
+    const id = String(payload?.id ?? '').trim();
+    const sourcePath = resolveLocalPath(payload?.sourcePath ?? '');
+    const targetPath = resolveLocalPath(payload?.targetPath ?? '');
+    if (!id || !sourcePath || !targetPath) {
+      return { ok: false as const, reason: 'Invalid transfer payload' };
+    }
+    const emitProgress = createTransferProgressEmitter(event, id);
+    try {
+      const stat = await fs.stat(sourcePath);
+      if (stat.isDirectory()) {
+        await copyDirectoryWithProgress({
+          sourcePath,
+          targetPath,
+          onProgress: emitProgress,
+        });
+      } else {
+        await copyFileWithProgress({
+          sourcePath,
+          targetPath,
+          onProgress: emitProgress,
+        });
+      }
+      event.sender.send('tenas:fs:transfer-complete', { id });
+      return { ok: true as const };
+    } catch (error) {
+      const reason = (error as Error)?.message ?? 'Transfer failed';
+      event.sender.send('tenas:fs:transfer-error', { id, reason });
+      return { ok: false as const, reason };
+    }
+  });
 
   args.log('IPC handlers registered');
 }

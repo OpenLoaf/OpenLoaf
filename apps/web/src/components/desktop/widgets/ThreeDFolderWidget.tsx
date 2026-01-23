@@ -9,7 +9,7 @@ import { getPreviewEndpoint } from "@/lib/image/uri";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
 import { trpc } from "@/utils/trpc";
 import { getEntryVisual, IMAGE_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
-import { openFile } from "@/components/file/lib/open-file";
+import { openFilePreview } from "@/components/file/lib/open-file";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 import {
@@ -282,7 +282,7 @@ export default function ThreeDFolderWidget({
         kind: "file",
         ext: project.ext,
       };
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId: project.projectId,

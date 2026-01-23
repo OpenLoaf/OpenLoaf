@@ -23,18 +23,18 @@
   },
   "devDependencies": {
     "@tenas-ai/config": "workspace:*",
-    "prisma": "^7.0.1",
+    "prisma": "^7.3.0",
     "prisma-trpc-generator": "^3.0.1",
     "prisma-zod-generator": "^2.1.2",
-    "tsx": "^4.19.2"
+    "tsx": "^4.21.0"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "@prisma/adapter-libsql": "^7.3.0",
     "@prisma/client": "catalog:",
-    "@prisma/adapter-libsql": "^7.0.1",
     "dotenv": "catalog:",
-    "zod": "^4.1.11"
+    "zod": "^4.3.5"
   }
 }

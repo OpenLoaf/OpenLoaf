@@ -18,6 +18,8 @@ export interface VideoPlayerProps {
   className?: string;
   /** Error handler when playback fails. */
   onError?: (error: unknown) => void;
+  /** Optional callback when HLS instance is ready. */
+  onHlsReady?: (hls: Hls | null) => void;
 }
 
 function canPlayNativeHls(video: HTMLVideoElement) {
@@ -33,6 +35,7 @@ export default function VideoPlayer({
   muted,
   className,
   onError,
+  onHlsReady,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -40,6 +43,7 @@ export default function VideoPlayer({
     const video = videoRef.current;
     if (!video) return;
     if (!src) {
+      onHlsReady?.(null);
       video.removeAttribute("src");
       video.load();
       return;
@@ -47,17 +51,20 @@ export default function VideoPlayer({
 
     if (canPlayNativeHls(video)) {
       // 逻辑：Safari 等原生支持 HLS 时直接赋值。
+      onHlsReady?.(null);
       video.src = src;
       return;
     }
 
     if (!Hls.isSupported()) {
       // 逻辑：浏览器不支持 hls.js 时回退到原生播放。
+      onHlsReady?.(null);
       video.src = src;
       return;
     }
 
     const hls = new Hls({ enableWorker: true });
+    onHlsReady?.(hls);
     hls.attachMedia(video);
     hls.on(Hls.Events.MEDIA_ATTACHED, () => {
       hls.loadSource(src);
@@ -68,8 +75,9 @@ export default function VideoPlayer({
 
     return () => {
       hls.destroy();
+      onHlsReady?.(null);
     };
-  }, [onError, src]);
+  }, [onError, onHlsReady, src]);
 
   return (
     <video

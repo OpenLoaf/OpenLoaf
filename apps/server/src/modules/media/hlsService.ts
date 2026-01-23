@@ -12,6 +12,9 @@ export type HlsManifestResult = {
 };
 
 const HLS_CACHE_DIR = ".tenas-cache/hls";
+const HLS_QUALITIES = ["1080p", "720p", "source"] as const;
+
+export type HlsQuality = (typeof HLS_QUALITIES)[number];
 
 /** Normalize a relative path string. */
 function normalizeRelativePath(input: string): string {
@@ -21,6 +24,11 @@ function normalizeRelativePath(input: string): string {
 /** Return true when a path attempts to traverse parents. */
 function hasParentTraversal(value: string): boolean {
   return value.split("/").some((segment) => segment === "..");
+}
+
+/** Return true when the value is a supported HLS quality. */
+export function isHlsQuality(value?: string): value is HlsQuality {
+  return Boolean(value && HLS_QUALITIES.includes(value as HlsQuality));
 }
 
 /** Resolve an absolute file path under a project root. */
@@ -48,38 +56,87 @@ function buildCacheKey(input: { relativePath: string; stat: { size: number; mtim
   return createHash("sha256").update(payload).digest("hex");
 }
 
+/** Resolve the cache directory for a given quality. */
+function resolveQualityCacheDir(input: { baseDir: string; quality: HlsQuality }) {
+  return path.join(input.baseDir, input.quality);
+}
+
+/** Build ffmpeg output options for a given quality. */
+function buildHlsOutputOptions(input: { cacheDir: string; quality: HlsQuality }) {
+  const options: string[] = [
+    "-y",
+    "-preset",
+    "veryfast",
+    "-c:v",
+    "libx264",
+    "-c:a",
+    "aac",
+    "-movflags",
+    "faststart",
+    "-hls_time",
+    "4",
+    "-hls_playlist_type",
+    "vod",
+    "-hls_segment_filename",
+    path.join(input.cacheDir, "segment_%03d.ts"),
+  ];
+  if (input.quality === "1080p") {
+    // 逻辑：输出 1080p 时强制缩放到高度 1080。
+    options.splice(1, 0, "-vf", "scale=-2:1080");
+  }
+  if (input.quality === "720p") {
+    // 逻辑：输出 720p 时强制缩放到高度 720。
+    options.splice(1, 0, "-vf", "scale=-2:720");
+  }
+  return options;
+}
+
+/** Build a master playlist for multi-quality HLS. */
+function buildMasterPlaylist(input: { path: string; projectId: string }) {
+  const makeUrl = (quality: HlsQuality) => {
+    const query = new URLSearchParams({
+      path: input.path,
+      projectId: input.projectId,
+      quality,
+    });
+    return `/media/hls/manifest?${query.toString()}`;
+  };
+  const lines = [
+    "#EXTM3U",
+    "#EXT-X-VERSION:3",
+    `#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,NAME=\"1080P\"`,
+    makeUrl("1080p"),
+    `#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720,NAME=\"720P\"`,
+    makeUrl("720p"),
+    `#EXT-X-STREAM-INF:BANDWIDTH=8000000,NAME=\"原画\"`,
+    makeUrl("source"),
+  ];
+  return lines.join("\n");
+}
+
 /** Ensure HLS assets are generated for the given source. */
 async function ensureHlsAssets(input: {
   sourcePath: string;
-  cacheDir: string;
+  baseCacheDir: string;
+  quality: HlsQuality;
   sourceStat: { size: number; mtimeMs: number };
 }) {
-  const manifestPath = path.join(input.cacheDir, "index.m3u8");
+  const qualityCacheDir = resolveQualityCacheDir({
+    baseDir: input.baseCacheDir,
+    quality: input.quality,
+  });
+  const manifestPath = path.join(qualityCacheDir, "index.m3u8");
   const manifestStat = await fs.stat(manifestPath).catch(() => null);
   if (manifestStat && manifestStat.mtimeMs >= input.sourceStat.mtimeMs) {
     return manifestPath;
   }
-  await fs.mkdir(input.cacheDir, { recursive: true });
+  await fs.mkdir(qualityCacheDir, { recursive: true });
   // 逻辑：重新生成 HLS 时覆盖旧文件，保证片段与清单一致。
   await new Promise<void>((resolve, reject) => {
     ffmpeg(input.sourcePath)
-      .outputOptions([
-        "-y",
-        "-preset",
-        "veryfast",
-        "-c:v",
-        "libx264",
-        "-c:a",
-        "aac",
-        "-movflags",
-        "faststart",
-        "-hls_time",
-        "4",
-        "-hls_playlist_type",
-        "vod",
-        "-hls_segment_filename",
-        path.join(input.cacheDir, "segment_%03d.ts"),
-      ])
+      .outputOptions(
+        buildHlsOutputOptions({ cacheDir: qualityCacheDir, quality: input.quality })
+      )
       .output(manifestPath)
       .on("end", () => resolve())
       .on("error", (error) => reject(error))
@@ -89,23 +146,27 @@ async function ensureHlsAssets(input: {
 }
 
 /** Build a token for segment lookup. */
-function buildToken(input: { projectId: string; cacheKey: string }) {
-  return `${input.projectId}::${input.cacheKey}`;
+function buildToken(input: { projectId: string; cacheKey: string; quality: HlsQuality }) {
+  return `${input.projectId}::${input.cacheKey}::${input.quality}`;
 }
 
 /** Parse a segment token into project id and cache key. */
-export function parseSegmentToken(token: string): { projectId: string; cacheKey: string } | null {
+export function parseSegmentToken(
+  token: string
+): { projectId: string; cacheKey: string; quality: HlsQuality } | null {
   const parts = token.split("::");
-  if (parts.length !== 2) return null;
-  const [projectId, cacheKey] = parts.map((value) => value.trim());
-  if (!projectId || !cacheKey) return null;
-  return { projectId, cacheKey };
+  if (parts.length !== 3) return null;
+  const [projectId, cacheKey, qualityRaw] = parts.map((value) => value.trim());
+  if (!projectId || !cacheKey || !qualityRaw) return null;
+  if (!isHlsQuality(qualityRaw)) return null;
+  return { projectId, cacheKey, quality: qualityRaw };
 }
 
 /** Load HLS manifest content and rewrite segment urls. */
 export async function getHlsManifest(input: {
   path: string;
   projectId: string;
+  quality?: HlsQuality;
 }): Promise<HlsManifestResult | null> {
   const resolved = resolveProjectFilePath({ path: input.path, projectId: input.projectId });
   if (!resolved) return null;
@@ -116,14 +177,26 @@ export async function getHlsManifest(input: {
     relativePath: resolved.relativePath,
     stat: { size: sourceStat.size, mtimeMs: sourceStat.mtimeMs },
   });
-  const cacheDir = path.join(resolved.rootPath, HLS_CACHE_DIR, cacheKey);
+  const baseCacheDir = path.join(resolved.rootPath, HLS_CACHE_DIR, cacheKey);
+
+  if (!input.quality) {
+    return {
+      manifest: buildMasterPlaylist({
+        path: resolved.relativePath,
+        projectId: input.projectId,
+      }),
+      token: "",
+    };
+  }
+
   const manifestPath = await ensureHlsAssets({
     sourcePath: resolved.absPath,
-    cacheDir,
+    baseCacheDir,
+    quality: input.quality,
     sourceStat: { size: sourceStat.size, mtimeMs: sourceStat.mtimeMs },
   });
 
-  const token = buildToken({ projectId: input.projectId, cacheKey });
+  const token = buildToken({ projectId: input.projectId, cacheKey, quality: input.quality });
   const raw = await fs.readFile(manifestPath, "utf-8");
   const prefix = `/media/hls/segment/`;
   const lines = raw.split(/\r?\n/).map((line) => {
@@ -145,7 +218,13 @@ export async function getHlsSegment(input: {
   if (!rootPath) return null;
   if (!input.name || input.name.includes("/") || input.name.includes("\\")) return null;
   if (input.name.includes("..")) return null;
-  const segmentPath = path.join(rootPath, HLS_CACHE_DIR, parsed.cacheKey, input.name);
+  const segmentPath = path.join(
+    rootPath,
+    HLS_CACHE_DIR,
+    parsed.cacheKey,
+    parsed.quality,
+    input.name
+  );
   const buffer = await fs.readFile(segmentPath).catch(() => null);
   if (!buffer) return null;
   return new Uint8Array(buffer);

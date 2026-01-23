@@ -21,7 +21,7 @@ import {
 } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
-import { openFile } from "@/components/file/lib/open-file";
+import { openFilePreview } from "@/components/file/lib/open-file";
 import {
   BOARD_ASSETS_DIR_NAME,
   BOARD_INDEX_FILE_NAME,
@@ -118,6 +118,87 @@ const DEFAULT_MARKDOWN_TEMPLATE = [
   "## Next",
   "- Replace this template with your content.",
 ].join("\n");
+/** Upload threshold to switch to local copy in Electron. */
+const LARGE_FILE_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
+/** Electron-only file payload with path metadata. */
+type ElectronFile = File & { path?: string };
+/** Electron transfer payload sent to main process. */
+type ElectronTransferPayload = {
+  id: string;
+  sourcePath: string;
+  targetPath: string;
+  kind?: "file" | "folder";
+};
+/** Transfer progress state for renderer UI. */
+type ElectronTransferState = {
+  id: string;
+  currentName: string;
+  percent: number;
+  status: "running" | "failed";
+  payload: ElectronTransferPayload;
+  reason?: string;
+};
+
+/** Resolve a local file path from an Electron drag payload. */
+function resolveElectronFilePath(file: File): string | null {
+  const candidate = (file as ElectronFile).path;
+  if (typeof candidate !== "string") return null;
+  const trimmed = candidate.trim();
+  return trimmed ? trimmed : null;
+}
+
+/** Extract a base name from a path string. */
+function resolvePathBaseName(value: string): string {
+  const normalized = value.replace(/\\/g, "/");
+  const parts = normalized.split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? "";
+}
+
+/** Resolve local file paths from drag data (Electron). */
+function resolveElectronDropPaths(dataTransfer: DataTransfer): Map<string, string> {
+  const paths = new Map<string, string>();
+  const candidates = [
+    dataTransfer.getData("text/uri-list"),
+    dataTransfer.getData("text/plain"),
+  ]
+    .join("\n")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith("#"));
+  for (const raw of candidates) {
+    let resolved = raw;
+    if (raw.startsWith("file://")) {
+      try {
+        const url = new URL(raw);
+        resolved = decodeURIComponent(url.pathname);
+      } catch {
+        continue;
+      }
+    }
+    if (!resolved) continue;
+    const fileName = resolvePathBaseName(resolved);
+    if (!fileName) continue;
+    paths.set(fileName, resolved);
+  }
+  return paths;
+}
+
+/** Resolve folder names from drag data items (Electron). */
+function resolveElectronDropFolderNames(dataTransfer: DataTransfer): Set<string> {
+  const names = new Set<string>();
+  const items = Array.from(dataTransfer.items ?? []);
+  for (const item of items) {
+    if (item.kind !== "file") continue;
+    const entry = (item as DataTransferItem & {
+      webkitGetAsEntry?: () => { isDirectory?: boolean; name?: string } | null;
+    }).webkitGetAsEntry?.();
+    if (entry?.isDirectory && entry.name) {
+      names.add(entry.name);
+    }
+  }
+  return names;
+}
 
 export type ProjectFileSystemModelArgs = {
   projectId?: string;
@@ -156,6 +237,8 @@ export type ProjectFileSystemModel = {
   transferEntries: FileSystemEntry[];
   /** Active transfer mode. */
   transferMode: "copy" | "move" | "select";
+  /** Electron transfer progress state (if any). */
+  transferProgress: ElectronTransferState | null;
   isDragActive: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -189,6 +272,8 @@ export type ProjectFileSystemModel = {
   handleOpenSpreadsheet: (entry: FileSystemEntry) => void;
   handleOpenVideo: (entry: FileSystemEntry) => void;
   handleOpenBoard: (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => void;
+  /** Open an entry via the unified preview handler. */
+  handleOpenEntry: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
   handleOpenTerminal: (entry: FileSystemEntry) => void;
   handleOpenTerminalAtCurrent: () => void;
   renameEntry: (entry: FileSystemEntry, nextName: string) => Promise<string | null>;
@@ -201,7 +286,14 @@ export type ProjectFileSystemModel = {
   handleCreateMarkdown: () => Promise<{ uri: string; name: string } | null>;
   handleCreateBoard: () => Promise<void>;
   handlePaste: () => Promise<void>;
-  handleUploadFiles: (files: File[], targetUri?: string | null) => Promise<void>;
+  /** Retry the last failed Electron transfer. */
+  handleRetryTransfer: () => Promise<void>;
+  handleUploadFiles: (
+    files: File[],
+    targetUri?: string | null,
+    localPathByName?: Map<string, string>,
+    folderNames?: Set<string>
+  ) => Promise<void>;
   handleDrop: (event: DragEvent<HTMLDivElement>) => Promise<void>;
   handleDragEnter: (event: DragEvent<HTMLDivElement>) => void;
   handleDragOver: (event: DragEvent<HTMLDivElement>) => void;
@@ -363,6 +455,10 @@ export function useProjectFileSystemModel({
   const [transferMode, setTransferMode] = useState<"copy" | "move" | "select">(
     "copy"
   );
+  /** Current Electron transfer progress (if any). */
+  const [transferProgress, setTransferProgress] = useState<ElectronTransferState | null>(null);
+  /** Transfer progress ref for event handlers. */
+  const transferProgressRef = useRef<ElectronTransferState | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const trashRootUri = useMemo(
@@ -380,6 +476,67 @@ export function useProjectFileSystemModel({
   const writeFileMutation = useMutation(trpc.fs.writeFile.mutationOptions());
   const writeBinaryMutation = useMutation(trpc.fs.writeBinary.mutationOptions());
   const mkdirMutation = useMutation(trpc.fs.mkdir.mutationOptions());
+
+  /** Update Electron transfer progress state for UI. */
+  const updateTransferProgress = useCallback(
+    (
+      next:
+        | ElectronTransferState
+        | null
+        | ((prev: ElectronTransferState | null) => ElectronTransferState | null)
+    ) => {
+      setTransferProgress((prev) => {
+        const resolved = typeof next === "function" ? next(prev) : next;
+        transferProgressRef.current = resolved;
+        return resolved;
+      });
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!isElectron) return;
+    let hideTimer: number | null = null;
+    const handleProgress = (event: Event) => {
+      const detail = (event as CustomEvent<TenasTransferProgress>).detail;
+      if (!detail?.id) return;
+      updateTransferProgress((prev) => {
+        if (!prev || prev.id !== detail.id) return prev ?? null;
+        return {
+          ...prev,
+          currentName: detail.currentName ?? prev.currentName,
+          percent: Math.min(100, Math.max(0, detail.percent ?? prev.percent)),
+        };
+      });
+    };
+    const handleError = (event: Event) => {
+      const detail = (event as CustomEvent<TenasTransferError>).detail;
+      if (!detail?.id) return;
+      updateTransferProgress((prev) => {
+        if (!prev || prev.id !== detail.id) return prev ?? null;
+        return { ...prev, status: "failed", reason: detail.reason };
+      });
+    };
+    const handleComplete = (event: Event) => {
+      const detail = (event as CustomEvent<TenasTransferComplete>).detail;
+      if (!detail?.id) return;
+      updateTransferProgress((prev) => {
+        if (!prev || prev.id !== detail.id) return prev ?? null;
+        return { ...prev, percent: 100 };
+      });
+      if (hideTimer) window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => updateTransferProgress(null), 800);
+    };
+    window.addEventListener("tenas:fs:transfer-progress", handleProgress);
+    window.addEventListener("tenas:fs:transfer-error", handleError);
+    window.addEventListener("tenas:fs:transfer-complete", handleComplete);
+    return () => {
+      window.removeEventListener("tenas:fs:transfer-progress", handleProgress);
+      window.removeEventListener("tenas:fs:transfer-error", handleError);
+      window.removeEventListener("tenas:fs:transfer-complete", handleComplete);
+      if (hideTimer) window.clearTimeout(hideTimer);
+    };
+  }, [isElectron, updateTransferProgress]);
 
   /** Navigate to a target uri with trace logging. */
   const handleNavigate = useCallback(
@@ -711,10 +868,25 @@ export function useProjectFileSystemModel({
     }
   };
 
+  /** Open an entry via the unified preview handler. */
+  const handleOpenEntry = useCallback(
+    (entry: FileSystemEntry, thumbnailSrc?: string) => {
+      openFilePreview({
+        entry,
+        tabId: activeTabId,
+        projectId,
+        rootUri,
+        thumbnailSrc,
+        onNavigate: handleNavigate,
+      });
+    },
+    [activeTabId, handleNavigate, projectId, rootUri]
+  );
+
   /** Open an image file inside the current tab stack. */
   const handleOpenImage = useCallback(
     (entry: FileSystemEntry, thumbnailSrc?: string) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId,
@@ -728,7 +900,7 @@ export function useProjectFileSystemModel({
   /** Open a markdown file inside the current tab stack. */
   const handleOpenMarkdown = useCallback(
     (entry: FileSystemEntry) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId,
@@ -741,7 +913,7 @@ export function useProjectFileSystemModel({
   /** Open a code file inside the current tab stack. */
   const handleOpenCode = useCallback(
     (entry: FileSystemEntry) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId,
@@ -754,7 +926,7 @@ export function useProjectFileSystemModel({
   /** Open a PDF file inside the current tab stack. */
   const handleOpenPdf = useCallback(
     (entry: FileSystemEntry) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId,
@@ -767,7 +939,7 @@ export function useProjectFileSystemModel({
   /** Open a DOC file inside the current tab stack. */
   const handleOpenDoc = useCallback(
     (entry: FileSystemEntry) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId,
@@ -780,7 +952,7 @@ export function useProjectFileSystemModel({
   /** Open a spreadsheet file inside the current tab stack. */
   const handleOpenSpreadsheet = useCallback(
     (entry: FileSystemEntry) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId,
@@ -793,7 +965,7 @@ export function useProjectFileSystemModel({
   /** Open a video file inside the current tab stack. */
   const handleOpenVideo = useCallback(
     (entry: FileSystemEntry) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId,
@@ -806,7 +978,7 @@ export function useProjectFileSystemModel({
   /** Open a board folder inside the current tab stack. */
   const handleOpenBoard = useCallback(
     (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => {
-      openFile({
+      openFilePreview({
         entry,
         tabId: activeTabId,
         projectId,
@@ -1190,7 +1362,12 @@ export function useProjectFileSystemModel({
   };
 
   /** Upload files into the target directory. */
-  const handleUploadFiles = async (files: File[], targetUri = activeUri) => {
+  const handleUploadFiles = async (
+    files: File[],
+    targetUri = activeUri,
+    localPathByName?: Map<string, string>,
+    folderNames?: Set<string>
+  ) => {
     if (targetUri === null || files.length === 0) return;
     const targetEntries =
       activeUri !== null && targetUri === activeUri
@@ -1209,27 +1386,77 @@ export function useProjectFileSystemModel({
           );
     let uploadedCount = 0;
     for (const file of files) {
+      const isFolder = folderNames?.has(file.name) ?? false;
       const existingKind = targetEntries.get(file.name);
-      if (existingKind === "folder") {
-        toast.error(`已存在同名文件夹：${file.name}`);
-        continue;
-      }
-      if (existingKind === "file") {
-        // 中文注释：存在同名文件时弹窗确认是否覆盖。
-        const ok = window.confirm(`"${file.name}" 已存在，是否覆盖？`);
-        if (!ok) {
+      if (isFolder) {
+        if (existingKind) {
+          toast.error(`已存在同名文件夹：${file.name}`);
           continue;
+        }
+      } else {
+        if (existingKind === "folder") {
+          toast.error(`已存在同名文件夹：${file.name}`);
+          continue;
+        }
+        if (existingKind === "file") {
+          // 中文注释：存在同名文件时弹窗确认是否覆盖。
+          const ok = window.confirm(`"${file.name}" 已存在，是否覆盖？`);
+          if (!ok) {
+            continue;
+          }
         }
       }
       const nextUri = buildChildUri(targetUri, file.name);
-      const base64 = await readFileAsBase64(file);
-      await writeBinaryMutation.mutateAsync({
-        workspaceId,
-        projectId,
-        uri: nextUri,
-        contentBase64: base64,
+      const targetFileUri = resolveFileUriFromRoot(rootUri, nextUri);
+      // 中文注释：Electron 通过 preload bridge 获取真实文件路径（webUtils.getPathForFile）。
+      const localPathFromBridge =
+        isElectron && window.tenasElectron?.getPathForFile
+          ? window.tenasElectron.getPathForFile(file)
+          : null;
+      const localPath = isElectron
+        ? localPathByName?.get(file.name) ??
+          localPathFromBridge ??
+          resolveElectronFilePath(file)
+        : null;
+      const shouldTransferLocally =
+        Boolean(localPath) &&
+        Boolean(targetFileUri) &&
+        targetFileUri.startsWith("file://") &&
+        (isFolder ||
+          file.size >= LARGE_FILE_UPLOAD_THRESHOLD_BYTES ||
+          // 中文注释：兜底处理目录拖拽可能带来的 0 字节项。
+          file.size === 0);
+      console.log("[ProjectFileSystem] upload gate", {
+        isElectron,
+        name: file.name,
+        size: file.size,
+        path: localPath ?? "",
+        shouldTransferLocally,
+        isFolder,
       });
-      targetEntries.set(file.name, "file");
+      if (shouldTransferLocally) {
+        // 中文注释：Electron 下大文件/文件夹走本地复制，避免 base64 上传。
+        const transferPayload: ElectronTransferPayload = {
+          id: generateId(),
+          sourcePath: localPath ?? "",
+          targetPath: targetFileUri,
+          kind: isFolder ? "folder" : "file",
+        };
+        const result = await startElectronTransfer(transferPayload, file.name);
+        if (!result?.ok) {
+          toast.error("文件传输失败");
+          continue;
+        }
+      } else {
+        const base64 = await readFileAsBase64(file);
+        await writeBinaryMutation.mutateAsync({
+          workspaceId,
+          projectId,
+          uri: nextUri,
+          contentBase64: base64,
+        });
+      }
+      targetEntries.set(file.name, isFolder ? "folder" : "file");
       uploadedCount += 1;
     }
     if (uploadedCount > 0) {
@@ -1237,6 +1464,50 @@ export function useProjectFileSystemModel({
       toast.success("已添加文件");
     }
   };
+
+  /** Start an Electron transfer for a local file/folder. */
+  const startElectronTransfer = useCallback(
+    async (payload: ElectronTransferPayload, displayName: string) => {
+      if (!window.tenasElectron?.startTransfer) {
+        updateTransferProgress({
+          id: payload.id,
+          currentName: displayName,
+          percent: 0,
+          status: "failed",
+          payload,
+          reason: "Electron 传输不可用",
+        });
+        return { ok: false as const, reason: "Electron transfer unavailable" };
+      }
+      updateTransferProgress({
+        id: payload.id,
+        currentName: displayName,
+        percent: 0,
+        status: "running",
+        payload,
+      });
+      const result = await window.tenasElectron.startTransfer(payload);
+      if (!result?.ok) {
+        updateTransferProgress((prev) => {
+          if (!prev || prev.id !== payload.id) return prev ?? null;
+          return { ...prev, status: "failed", reason: result?.reason };
+        });
+      }
+      return result ?? { ok: false as const, reason: "Electron transfer failed" };
+    },
+    [updateTransferProgress]
+  );
+
+  /** Retry the last failed Electron transfer. */
+  const handleRetryTransfer = useCallback(async () => {
+    const snapshot = transferProgressRef.current;
+    if (!snapshot || snapshot.status !== "failed") return;
+    const nextPayload: ElectronTransferPayload = {
+      ...snapshot.payload,
+      id: generateId(),
+    };
+    await startElectronTransfer(nextPayload, snapshot.currentName);
+  }, [startElectronTransfer]);
 
   /** Import an image drag payload into the target folder. */
   const handleImportImagePayload = async (
@@ -1271,8 +1542,34 @@ export function useProjectFileSystemModel({
     }
     if (hasInternalRef) return;
     const files = Array.from(event.dataTransfer.files ?? []);
+    const localPathByName = isElectron
+      ? resolveElectronDropPaths(event.dataTransfer)
+      : undefined;
+    const folderNames = isElectron
+      ? resolveElectronDropFolderNames(event.dataTransfer)
+      : undefined;
+    if (isElectron) {
+      console.log("[ProjectFileSystem] drop payload", {
+        types: Array.from(event.dataTransfer.types ?? []),
+        textPlain: event.dataTransfer.getData("text/plain"),
+        uriList: event.dataTransfer.getData("text/uri-list"),
+        filesCount: files.length,
+        itemsCount: event.dataTransfer.items?.length ?? 0,
+      });
+    }
+    for (const file of files) {
+      console.log("[ProjectFileSystem] drop meta", {
+        isElectron,
+        name: file.name,
+        size: file.size,
+        path:
+          (localPathByName?.get(file.name) ??
+            resolveElectronFilePath(file) ??
+            ""),
+      });
+    }
     if (files.length === 0) return;
-    await handleUploadFiles(files);
+    await handleUploadFiles(files, activeUri, localPathByName, folderNames);
   };
 
   /** Toggle sort by name. */
@@ -1488,6 +1785,7 @@ export function useProjectFileSystemModel({
     transferDialogOpen,
     transferEntries,
     transferMode,
+    transferProgress,
     isDragActive,
     canUndo,
     canRedo,
@@ -1507,6 +1805,7 @@ export function useProjectFileSystemModel({
     handleOpenInFileManager,
     handleCopyPathAtCurrent,
     handleOpenInFileManagerAtCurrent,
+    handleOpenEntry,
     handleOpenImage,
     handleOpenMarkdown,
     handleOpenCode,
@@ -1527,6 +1826,7 @@ export function useProjectFileSystemModel({
     handleCreateMarkdown,
     handleCreateBoard,
     handlePaste,
+    handleRetryTransfer,
     handleUploadFiles,
     handleDrop,
     handleDragEnter,

@@ -13,6 +13,8 @@ import {
 
 /** Handlers for opening filesystem entries. */
 export type FileSystemEntryOpenHandlers = {
+  /** Open any entry using the unified preview handler. */
+  onOpenEntry?: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
   /** Open image entries. */
   onOpenImage?: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
   /** Open markdown entries. */
@@ -55,6 +57,10 @@ export function handleFileSystemEntryOpen({
   handlers,
   confirmOpen,
 }: FileSystemEntryOpenOptions): boolean {
+  if (handlers.onOpenEntry) {
+    handlers.onOpenEntry(entry, thumbnailSrc);
+    return true;
+  }
   // 逻辑：index.tnboard 视为画布目录入口，统一打开画布栈。
   const boardFolderEntry = resolveBoardFolderEntryFromIndexFile(entry);
   if (boardFolderEntry) {

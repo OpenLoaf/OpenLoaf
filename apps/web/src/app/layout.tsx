@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import "../index.css";
 import "@measured/puck/puck.css";
+import "@vidstack/react/player/styles/base.css";
+import "@vidstack/react/player/styles/default/theme.css";
+import "@vidstack/react/player/styles/default/layouts/video.css";
 import Providers from "@/components/Providers";
 import { Toaster } from "@/components/ui/sonner";
 import ServerConnectionGate from "@/components/layout/ServerConnectionGate";

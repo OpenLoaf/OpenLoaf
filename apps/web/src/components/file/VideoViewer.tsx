@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { VideoPlayer } from "@/components/ui/video-player";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -9,7 +10,6 @@ import {
   normalizeProjectRelativePath,
   parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
-import VideoPlayer from "@/components/file/VideoPlayer";
 
 interface VideoViewerProps {
   uri?: string;
@@ -40,7 +40,6 @@ export default function VideoViewer({
   panelKey,
   tabId,
 }: VideoViewerProps) {
-  const [error, setError] = useState<string | null>(null);
   const removeStackItem = useTabs((state) => state.removeStackItem);
   const displayTitle = name ?? uri ?? "Video";
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
@@ -107,17 +106,13 @@ export default function VideoViewer({
         />
       ) : null}
       <div className="flex-1 p-4">
-        <div className="flex h-full w-full items-center justify-center rounded-lg bg-muted/40">
-          {error ? (
-            <div className="text-sm text-destructive">{error}</div>
-          ) : (
-            <VideoPlayer
-              src={manifest.url}
-              className="h-full w-full rounded-lg bg-black"
-              controls
-              onError={() => setError("视频加载失败")}
-            />
-          )}
+        <div className="relative flex h-full w-full items-center justify-center rounded-lg bg-muted/40">
+          <VideoPlayer
+            src={manifest.url}
+            title={displayTitle}
+            className="h-full w-full rounded-lg bg-black"
+            controls
+          />
         </div>
       </div>
     </div>

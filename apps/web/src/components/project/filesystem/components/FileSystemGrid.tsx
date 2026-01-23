@@ -44,6 +44,8 @@ type FileSystemGridProps = {
   dragProjectId?: string;
   dragRootUri?: string;
   onNavigate?: (nextUri: string) => void;
+  /** Open entries using the unified preview handler. */
+  onOpenEntry?: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
   /** Open image entries in an external viewer. */
   onOpenImage?: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
   /** Open markdown entries in a markdown viewer. */
@@ -116,6 +118,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
   dragProjectId,
   dragRootUri,
   onNavigate,
+  onOpenEntry,
   onOpenImage,
   onOpenMarkdown,
   onOpenCode,
@@ -188,6 +191,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   onEntryDropRef.current = onEntryDrop;
   const onOpenImageRef = useRef(onOpenImage);
   onOpenImageRef.current = onOpenImage;
+  const onOpenEntryRef = useRef(onOpenEntry);
+  onOpenEntryRef.current = onOpenEntry;
   const onOpenMarkdownRef = useRef(onOpenMarkdown);
   onOpenMarkdownRef.current = onOpenMarkdown;
   const onOpenCodeRef = useRef(onOpenCode);
@@ -324,6 +329,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
         rootUri,
         thumbnailSrc,
         handlers: {
+          onOpenEntry: onOpenEntryRef.current,
           onOpenImage: onOpenImageRef.current,
           onOpenMarkdown: onOpenMarkdownRef.current,
           onOpenCode: onOpenCodeRef.current,

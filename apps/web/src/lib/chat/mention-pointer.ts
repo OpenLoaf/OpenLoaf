@@ -6,7 +6,7 @@ import {
   parseScopedProjectPath,
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
-import { openFile } from "@/components/file/lib/open-file";
+import { openFilePreview } from "@/components/file/lib/open-file";
 import { queryClient, trpc } from "@/utils/trpc";
 
 /** Shape of the project tree data used for root uri resolution. */
@@ -156,7 +156,7 @@ export function handleChatMentionPointerDown(
       });
       return;
     }
-    openFile({
+    openFilePreview({
       entry: entry ?? {
         uri,
         name: entry?.name ?? relativePath.split("/").pop() ?? relativePath,
