@@ -3,34 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import FileSystemGitTree from "./components/FileSystemGitTree";
 import type { FileSystemEntry } from "./utils/file-system-utils";
-import {
-  buildChildUri,
-  getEntryExt,
-  getRelativePathFromUri,
-} from "./utils/file-system-utils";
-import {
-  BOARD_INDEX_FILE_NAME,
-  getBoardDisplayName,
-  getDisplayFileName,
-  isBoardFolderName,
-} from "@/lib/file-name";
-import {
-  CODE_EXTS,
-  DOC_EXTS,
-  IMAGE_EXTS,
-  MARKDOWN_EXTS,
-  PDF_EXTS,
-  SPREADSHEET_EXTS,
-  isTextFallbackExt,
-} from "./components/FileSystemEntryVisual";
-import BoardFileViewer from "@/components/board/BoardFileViewer";
-import CodeViewer from "@/components/file/CodeViewer";
-import DocViewer from "@/components/file/DocViewer";
-import FileViewer from "@/components/file/FileViewer";
-import ImageViewer from "@/components/file/ImageViewer";
-import MarkdownViewer from "@/components/file/MarkdownViewer";
-import PdfViewer from "@/components/file/PdfViewer";
-import SheetViewer from "@/components/file/SheetViewer";
+import { openFilePreview } from "@/components/file/lib/open-file";
 
 interface FolderTreePreviewProps {
   rootUri?: string;
@@ -58,17 +31,6 @@ function resolveEntryNameFromUri(uri: string): string {
   } catch {
     return trimmed;
   }
-}
-
-/** Resolve a display label for the preview viewer. */
-function resolveViewerLabel(entry: FileSystemEntry): string {
-  if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
-    return getBoardDisplayName(entry.name);
-  }
-  if (entry.kind === "file") {
-    return getDisplayFileName(entry.name, getEntryExt(entry));
-  }
-  return entry.name;
 }
 
 /** Render a lightweight folder tree preview panel. */
@@ -118,115 +80,19 @@ export default function FolderTreePreview({
     if (!selectedEntry) {
       return <div className="h-full w-full p-4 text-muted-foreground">未选择文件</div>;
     }
-    const entry = selectedEntry;
-    const displayName = resolveViewerLabel(entry);
     const effectiveViewerRootUri = viewerRootUri ?? rootUri;
-    if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
-      const boardFolderUri = entry.uri;
-      const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
-      return (
-        <BoardFileViewer
-          boardFolderUri={boardFolderUri}
-          boardFileUri={boardFileUri}
-          projectId={projectId}
-          rootUri={effectiveViewerRootUri}
-        />
-      );
+    // 逻辑：文件树单击使用统一预览入口的嵌入模式。
+    const content = openFilePreview({
+      entry: selectedEntry,
+      projectId,
+      rootUri: effectiveViewerRootUri,
+      readOnly: true,
+      mode: "embed",
+    });
+    if (!content || typeof content === "boolean") {
+      return <div className="h-full w-full p-4 text-muted-foreground">无法预览</div>;
     }
-    if (entry.kind === "folder") {
-      return (
-        <div className="h-full w-full p-4 text-muted-foreground">
-          请选择文件以预览
-        </div>
-      );
-    }
-    const ext = getEntryExt(entry);
-    // 逻辑：先处理已知类型，再回退到通用预览。
-    if (IMAGE_EXTS.has(ext)) {
-      return (
-        <ImageViewer
-          uri={entry.uri}
-          name={displayName}
-          ext={ext}
-          projectId={projectId}
-        />
-      );
-    }
-    if (MARKDOWN_EXTS.has(ext)) {
-      return (
-        <MarkdownViewer
-          uri={entry.uri}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          rootUri={effectiveViewerRootUri}
-          projectId={projectId}
-        />
-      );
-    }
-    if (CODE_EXTS.has(ext) || isTextFallbackExt(ext)) {
-      return (
-        <CodeViewer
-          uri={entry.uri}
-          name={displayName}
-          ext={ext}
-          rootUri={effectiveViewerRootUri}
-          projectId={projectId}
-        />
-      );
-    }
-    if (PDF_EXTS.has(ext)) {
-      if (!projectId || !effectiveViewerRootUri) {
-        return <div className="h-full w-full p-4 text-destructive">未找到项目路径</div>;
-      }
-      const relativePath = getRelativePathFromUri(effectiveViewerRootUri, entry.uri);
-      if (!relativePath) {
-        return <div className="h-full w-full p-4 text-destructive">无法解析PDF路径</div>;
-      }
-      const pdfUri = relativePath;
-      return (
-        <PdfViewer
-          uri={pdfUri}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          projectId={projectId}
-          rootUri={effectiveViewerRootUri}
-        />
-      );
-    }
-    if (DOC_EXTS.has(ext)) {
-      return (
-        <DocViewer
-          uri={entry.uri}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          projectId={projectId}
-          rootUri={effectiveViewerRootUri}
-        />
-      );
-    }
-    if (SPREADSHEET_EXTS.has(ext)) {
-      return (
-        <SheetViewer
-          uri={entry.uri}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          projectId={projectId}
-          rootUri={effectiveViewerRootUri}
-        />
-      );
-    }
-    return (
-      <FileViewer
-        uri={entry.uri}
-        name={displayName}
-        ext={ext}
-        projectId={projectId}
-      />
-    );
+    return <>{content}</>;
   }, [projectId, rootUri, selectedEntry, viewerRootUri]);
 
   if (!rootUri) {

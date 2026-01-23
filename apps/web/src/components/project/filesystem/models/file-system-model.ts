@@ -844,7 +844,12 @@ export function useProjectFileSystemModel({
   /** Copy current directory path to clipboard. */
   const handleCopyPathAtCurrent = async () => {
     const targetUri = activeUri ?? normalizedRootUri ?? "";
-    await copyText(getDisplayPathFromUri(targetUri));
+    const resolvedUri = rootUri
+      ? targetUri
+        ? resolveFileUriFromRoot(rootUri, targetUri)
+        : rootUri
+      : targetUri;
+    await copyText(getDisplayPathFromUri(resolvedUri));
     toast.success("已复制路径");
   };
 
@@ -1399,6 +1404,8 @@ export function useProjectFileSystemModel({
           continue;
         }
         if (existingKind === "file") {
+          dragCounterRef.current = 0;
+          setIsDragActive(false);
           // 中文注释：存在同名文件时弹窗确认是否覆盖。
           const ok = window.confirm(`"${file.name}" 已存在，是否覆盖？`);
           if (!ok) {

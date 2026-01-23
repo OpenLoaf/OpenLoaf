@@ -8,15 +8,6 @@ import {
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import {
-  CODE_EXTS,
-  DOC_EXTS,
-  IMAGE_EXTS,
-  MARKDOWN_EXTS,
-  PDF_EXTS,
-  SPREADSHEET_EXTS,
-  isTextFallbackExt,
-} from "@/components/project/filesystem/components/FileSystemEntryVisual";
-import {
   BOARD_INDEX_FILE_NAME,
   getBoardDisplayName,
   getDisplayFileName,
@@ -30,6 +21,8 @@ import ImageViewer from "@/components/file/ImageViewer";
 import MarkdownViewer from "@/components/file/MarkdownViewer";
 import PdfViewer from "@/components/file/PdfViewer";
 import SheetViewer from "@/components/file/SheetViewer";
+import VideoViewer from "@/components/file/VideoViewer";
+import { resolveFileViewerTarget } from "./file-viewer-target";
 
 /** Resolve preview display label for an entry. */
 function resolvePreviewDisplayName(entry: FileSystemEntry): string {
@@ -74,79 +67,108 @@ export function renderFilePreviewContent(input: {
     return <div className="h-full w-full p-4 text-muted-foreground">请选择文件以预览</div>;
   }
 
-  // 逻辑：先匹配常见格式，再回退到通用预览。
-  if (IMAGE_EXTS.has(ext)) {
-    return <ImageViewer uri={entry.uri} name={displayName} ext={ext} projectId={projectId} />;
-  }
-  if (MARKDOWN_EXTS.has(ext)) {
+  const target = resolveFileViewerTarget(entry);
+  if (!target) {
     return (
-      <MarkdownViewer
-        uri={entry.uri}
-        openUri={entry.uri}
-        name={displayName}
-        ext={ext}
-        rootUri={rootUri}
-        projectId={projectId}
-      />
-    );
-  }
-  if (CODE_EXTS.has(ext) || isTextFallbackExt(ext)) {
-    return (
-      <CodeViewer
+      <FileViewer
         uri={entry.uri}
         name={displayName}
         ext={ext}
-        rootUri={rootUri}
         projectId={projectId}
+        rootUri={rootUri}
       />
     );
   }
-  if (PDF_EXTS.has(ext)) {
-    if (!projectId || !rootUri) {
-      return <div className="h-full w-full p-4 text-destructive">未找到项目路径</div>;
+  // 逻辑：和 stack 预览使用相同的 viewer 解析规则。
+  switch (target.viewer) {
+    case "image":
+      return <ImageViewer uri={entry.uri} name={displayName} ext={ext} projectId={projectId} />;
+    case "markdown":
+      return (
+        <MarkdownViewer
+          uri={entry.uri}
+          openUri={entry.uri}
+          name={displayName}
+          ext={ext}
+          rootUri={rootUri}
+          projectId={projectId}
+          readOnly={readOnly}
+        />
+      );
+    case "code":
+      return (
+        <CodeViewer
+          uri={entry.uri}
+          name={displayName}
+          ext={ext}
+          rootUri={rootUri}
+          projectId={projectId}
+          readOnly={readOnly}
+        />
+      );
+    case "pdf": {
+      if (!projectId || !rootUri) {
+        return <div className="h-full w-full p-4 text-destructive">未找到项目路径</div>;
+      }
+      // 逻辑：PDF 预览需要相对路径以匹配后端读取逻辑。
+      const relativePath = getRelativePathFromUri(rootUri, entry.uri);
+      if (!relativePath) {
+        return <div className="h-full w-full p-4 text-destructive">无法解析PDF路径</div>;
+      }
+      return (
+        <PdfViewer
+          uri={relativePath}
+          openUri={entry.uri}
+          name={displayName}
+          ext={ext}
+          projectId={projectId}
+          rootUri={rootUri}
+        />
+      );
     }
-    // 逻辑：PDF 预览需要相对路径以匹配后端读取逻辑。
-    const relativePath = getRelativePathFromUri(rootUri, entry.uri);
-    if (!relativePath) {
-      return <div className="h-full w-full p-4 text-destructive">无法解析PDF路径</div>;
-    }
-    return (
-      <PdfViewer
-        uri={relativePath}
-        openUri={entry.uri}
-        name={displayName}
-        ext={ext}
-        projectId={projectId}
-        rootUri={rootUri}
-      />
-    );
+    case "doc":
+      return (
+        <DocViewer
+          uri={entry.uri}
+          openUri={entry.uri}
+          name={displayName}
+          ext={ext}
+          projectId={projectId}
+          rootUri={rootUri}
+          readOnly={readOnly}
+        />
+      );
+    case "sheet":
+      return (
+        <SheetViewer
+          uri={entry.uri}
+          openUri={entry.uri}
+          name={displayName}
+          ext={ext}
+          projectId={projectId}
+          rootUri={rootUri}
+          readOnly={readOnly}
+        />
+      );
+    case "video":
+      return (
+        <VideoViewer
+          uri={entry.uri}
+          openUri={entry.uri}
+          name={displayName}
+          projectId={projectId}
+          rootUri={rootUri}
+        />
+      );
+    default:
+      return (
+        <FileViewer
+          uri={entry.uri}
+          name={displayName}
+          ext={ext}
+          projectId={projectId}
+          rootUri={rootUri}
+        />
+      );
   }
-  if (DOC_EXTS.has(ext)) {
-    return (
-      <DocViewer
-        uri={entry.uri}
-        openUri={entry.uri}
-        name={displayName}
-        ext={ext}
-        projectId={projectId}
-        rootUri={rootUri}
-        readOnly={readOnly}
-      />
-    );
-  }
-  if (SPREADSHEET_EXTS.has(ext)) {
-    return (
-      <SheetViewer
-        uri={entry.uri}
-        openUri={entry.uri}
-        name={displayName}
-        ext={ext}
-        projectId={projectId}
-        rootUri={rootUri}
-        readOnly={readOnly}
-      />
-    );
-  }
-
-  return <FileViewer uri={entry.uri} name={displayName} ext={ext} projectId={projectId} />;
 }

@@ -11,7 +11,7 @@ import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 
-import "./docx-preview.css";
+import "./style/docx-preview.css";
 
 interface DocViewerProps {
   uri?: string;

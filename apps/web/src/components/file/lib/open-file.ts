@@ -5,22 +5,12 @@ import { toast } from "sonner";
 import { useTabs } from "@/hooks/use-tabs";
 import {
   buildChildUri,
-  getEntryExt,
   getRelativePathFromUri,
   resolveBoardFolderEntryFromIndexFile,
   resolveFileUriFromRoot,
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
-import {
-  CODE_EXTS,
-  DOC_EXTS,
-  IMAGE_EXTS,
-  MARKDOWN_EXTS,
-  PDF_EXTS,
-  SPREADSHEET_EXTS,
-  VIDEO_EXTS,
-  isTextFallbackExt,
-} from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import { DOC_EXTS, SPREADSHEET_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import {
   BOARD_INDEX_FILE_NAME,
   getBoardDisplayName,
@@ -28,6 +18,8 @@ import {
 } from "@/lib/file-name";
 import { openFilePreview as openFilePreviewDialog } from "./file-preview-store";
 import type { FilePreviewItem, FilePreviewPayload, FilePreviewViewer } from "./file-preview-types";
+import { resolveFileViewerTarget } from "./file-viewer-target";
+export { resolveFileViewerTarget } from "./file-viewer-target";
 import { renderFilePreviewContent } from "./open-file-preview";
 
 export type FileOpenMode = "stack" | "modal" | "embed";
@@ -67,13 +59,6 @@ export type FileOpenInput = {
   };
 };
 
-export type FileViewerTarget = {
-  /** Viewer type resolved from entry. */
-  viewer: FilePreviewViewer;
-  /** Normalized extension. */
-  ext: string;
-};
-
 /** Document extensions handled by the built-in viewer. */
 const INTERNAL_DOC_EXTS = new Set<string>();
 /** Spreadsheet extensions handled by the built-in viewer. */
@@ -100,20 +85,6 @@ export function openWithDefaultApp(entry: FileSystemEntry, rootUri?: string): vo
       toast.error(res?.reason ?? "无法打开文件");
     }
   });
-}
-
-/** Resolve viewer target from a filesystem entry. */
-export function resolveFileViewerTarget(entry: FileSystemEntry): FileViewerTarget | null {
-  if (entry.kind !== "file") return null;
-  const ext = (getEntryExt(entry) || "").toLowerCase();
-  if (IMAGE_EXTS.has(ext)) return { viewer: "image", ext };
-  if (MARKDOWN_EXTS.has(ext)) return { viewer: "markdown", ext };
-  if (CODE_EXTS.has(ext) || isTextFallbackExt(ext)) return { viewer: "code", ext };
-  if (PDF_EXTS.has(ext)) return { viewer: "pdf", ext };
-  if (DOC_EXTS.has(ext)) return { viewer: "doc", ext };
-  if (SPREADSHEET_EXTS.has(ext)) return { viewer: "sheet", ext };
-  if (VIDEO_EXTS.has(ext)) return { viewer: "video", ext };
-  return { viewer: "file", ext };
 }
 
 /** Normalize a filename from a uri or fallback. */
@@ -190,6 +161,8 @@ function buildPreviewPayload(input: {
   rootUri?: string;
   /** Optional thumbnail for images. */
   thumbnailSrc?: string;
+  /** Whether the preview should be read-only. */
+  readOnly?: boolean;
   /** Optional modal overrides. */
   modal?: FileOpenInput["modal"];
 }): FilePreviewPayload {
@@ -207,6 +180,7 @@ function buildPreviewPayload(input: {
   };
   return {
     viewer: input.viewer,
+    readOnly: input.readOnly,
     items: [item],
     activeIndex: 0,
     showSave: input.modal?.showSave,
@@ -225,6 +199,8 @@ export function buildStackItemForEntry(input: {
   rootUri?: string;
   /** Optional thumbnail for images. */
   thumbnailSrc?: string;
+  /** Whether the preview should be read-only. */
+  readOnly?: boolean;
 }): { id: string; component: string; title: string; params: Record<string, unknown> } | null {
   const target = resolveFileViewerTarget(input.entry);
   if (!target) return null;
@@ -259,6 +235,7 @@ export function buildStackItemForEntry(input: {
           __customHeader: true,
           rootUri: input.rootUri,
           projectId: input.projectId,
+          readOnly: input.readOnly,
         },
       };
     case "code":
@@ -270,6 +247,7 @@ export function buildStackItemForEntry(input: {
           ...baseParams,
           rootUri: input.rootUri,
           projectId: input.projectId,
+          readOnly: input.readOnly,
         },
       };
     case "pdf":
@@ -298,6 +276,7 @@ export function buildStackItemForEntry(input: {
           ...baseParams,
           rootUri: input.rootUri,
           __customHeader: true,
+          readOnly: input.readOnly,
         },
       };
     case "sheet":
@@ -309,6 +288,7 @@ export function buildStackItemForEntry(input: {
           ...baseParams,
           rootUri: input.rootUri,
           __customHeader: true,
+          readOnly: input.readOnly,
         },
       };
     case "video":
@@ -320,6 +300,7 @@ export function buildStackItemForEntry(input: {
           ...baseParams,
           rootUri: input.rootUri,
           projectId: input.projectId,
+          thumbnailSrc: input.thumbnailSrc,
           __customHeader: true,
         },
       };
@@ -331,6 +312,7 @@ export function buildStackItemForEntry(input: {
         params: {
           ...baseParams,
           projectId: input.projectId,
+          rootUri: input.rootUri,
         },
       };
     default:
@@ -439,6 +421,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
       projectId: input.projectId,
       rootUri: input.rootUri,
       thumbnailSrc: input.thumbnailSrc,
+      readOnly: input.readOnly,
       modal: input.modal,
     });
     openFilePreviewDialog(payload);
@@ -455,6 +438,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
     projectId: input.projectId,
     rootUri: input.rootUri,
     thumbnailSrc: input.thumbnailSrc,
+    readOnly: input.readOnly,
   });
   if (!stackItem) return true;
   useTabs.getState().pushStackItem(input.tabId, stackItem);

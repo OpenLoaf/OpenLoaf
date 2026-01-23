@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { Play } from "lucide-react";
 import { FileIcon, defaultStyles } from "react-file-icon";
 import { isBoardFileExt, isBoardFolderName } from "@/lib/file-name";
 import { type FileSystemEntry } from "../utils/file-system-utils";
@@ -44,6 +45,7 @@ export const CODE_EXTS = new Set([
   "tsx",
   "jsx",
   "json",
+  "sql",
   "yml",
   "yaml",
   "toml",
@@ -407,13 +409,14 @@ const ImageThumbnail = memo(function ImageThumbnail({
   iconClassName?: string;
 }) {
   const style = resolveFileIconStyle(extension);
+  const wrapperClassName = `${sizeClassName} w-auto aspect-[4/3]`;
   return (
-    <div className={`${sizeClassName} overflow-hidden bg-muted/40`}>
+    <div className={`${wrapperClassName} overflow-hidden rounded-sm bg-muted/40`}>
       {src ? (
         <img
           src={src}
           alt={name}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-contain"
           loading="lazy"
           decoding="async"
         />
@@ -424,6 +427,48 @@ const ImageThumbnail = memo(function ImageThumbnail({
           <FileIcon extension={extension || undefined} {...style} />
         </div>
       )}
+    </div>
+  );
+});
+
+/** Render a thumbnail preview for video files. */
+const VideoThumbnail = memo(function VideoThumbnail({
+  src,
+  name,
+  extension,
+  sizeClassName = "h-11 w-11",
+  iconClassName = "h-full w-full p-2 text-muted-foreground",
+}: {
+  src?: string | null;
+  name: string;
+  extension?: string;
+  sizeClassName?: string;
+  iconClassName?: string;
+}) {
+  const style = resolveFileIconStyle(extension);
+  const wrapperClassName = `${sizeClassName} w-auto aspect-video`;
+  return (
+    <div className={`${wrapperClassName} relative overflow-hidden rounded-sm bg-muted/40`}>
+      {src ? (
+        <img
+          src={src}
+          alt={name}
+          className="h-full w-full object-contain"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : (
+        <div
+          className={`${iconClassName} flex items-center justify-center [&>svg]:h-full [&>svg]:w-full`}
+        >
+          <FileIcon extension={extension || undefined} {...style} />
+        </div>
+      )}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <span className="flex h-[40%] min-h-4 aspect-square items-center justify-center rounded-full border border-border bg-background/70 text-foreground">
+          <Play className="h-[55%] w-[55%] min-h-2.5 min-w-2.5 translate-x-[0.5px]" />
+        </span>
+      </div>
     </div>
   );
 });
@@ -480,6 +525,17 @@ export function getEntryVisual({
   if (IMAGE_EXTS.has(normalizedExt)) {
     return (
       <ImageThumbnail
+        src={thumbnailSrc}
+        name={name}
+        extension={normalizedExt}
+        sizeClassName={sizeClassName}
+        iconClassName={thumbnailIconClassName}
+      />
+    );
+  }
+  if (VIDEO_EXTS.has(normalizedExt)) {
+    return (
+      <VideoThumbnail
         src={thumbnailSrc}
         name={name}
         extension={normalizedExt}

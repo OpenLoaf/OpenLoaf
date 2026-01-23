@@ -32,10 +32,6 @@ import { getEntryVisual } from "./FileSystemEntryVisual";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import {
-  openWithDefaultApp,
-  shouldOpenOfficeWithSystem,
-} from "@/components/file/lib/open-file";
 
 type FileSystemGitTreeProps = {
   /** Project root uri. */
@@ -66,6 +62,10 @@ type FileSystemGitTreeProps = {
   onRenamingCancel?: () => void;
   /** Select an entry in the tree. */
   onSelectEntry: (entry: FileSystemEntry) => void;
+  /** Open an entry in embedded preview. */
+  onOpenEntry?: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
+  /** Open an entry in stack preview. */
+  onOpenEntryStack?: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
   /** Capture context menu target before opening. */
   onContextMenuCapture?: (
     event: ReactMouseEvent<HTMLDivElement>,
@@ -119,6 +119,10 @@ type FileSystemGitTreeNodeProps = {
   onToggle: (uri: string, nextOpen: boolean) => void;
   /** Select entry callback. */
   onSelectEntry: (entry: FileSystemEntry) => void;
+  /** Open entry in embedded preview. */
+  onOpenEntry?: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
+  /** Open entry in stack preview. */
+  onOpenEntryStack?: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
   /** Selected entry set. */
   selectedUris: Set<string>;
   /** Whether to include hidden entries. */
@@ -231,6 +235,8 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
   dragOverFolderUri,
   onToggle,
   onSelectEntry,
+  onOpenEntry,
+  onOpenEntryStack,
   selectedUris,
   showHidden,
   sortField,
@@ -325,6 +331,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
     (event: ReactMouseEvent<HTMLDivElement>) => {
       if (shouldBlockPointerEvent(event)) return;
       onSelectEntry(node.entry);
+      onOpenEntry?.(node.entry, node.thumbnailSrc);
       if (!node.isFolder) return;
       if (!canExpand) return;
       onToggle(node.entry.uri, !isExpanded);
@@ -334,25 +341,23 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
       isExpanded,
       node.entry,
       node.isFolder,
+      node.thumbnailSrc,
+      onOpenEntry,
       onSelectEntry,
       onToggle,
       shouldBlockPointerEvent,
     ]
   );
 
-  /** Handle double click for unsupported office files. */
+  /** Handle double click for stack preview. */
   const handleRowDoubleClick = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
       if (shouldBlockPointerEvent(event)) return;
       if (event.button !== 0) return;
       if (event.nativeEvent?.which && event.nativeEvent.which !== 1) return;
-      if (node.entry.kind !== "file") return;
-      const ext = getEntryExt(node.entry);
-      if (!shouldOpenOfficeWithSystem(ext)) return;
-      // 逻辑：无法内置处理的 Office 文件双击交给系统默认程序打开。
-      openWithDefaultApp(node.entry, rootUri);
+      onOpenEntryStack?.(node.entry, node.thumbnailSrc);
     },
-    [node.entry, shouldBlockPointerEvent]
+    [node.entry, node.thumbnailSrc, onOpenEntryStack, shouldBlockPointerEvent]
   );
 
   /** Handle drag start for a tree row. */
@@ -472,6 +477,8 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
                 dragOverFolderUri={dragOverFolderUri}
                 onToggle={onToggle}
                 onSelectEntry={onSelectEntry}
+                onOpenEntry={onOpenEntry}
+                onOpenEntryStack={onOpenEntryStack}
                 selectedUris={selectedUris}
                 showHidden={showHidden}
                 sortField={sortField}
@@ -517,6 +524,8 @@ export default function FileSystemGitTree({
   onRenamingSubmit,
   onRenamingCancel,
   onSelectEntry,
+  onOpenEntry,
+  onOpenEntryStack,
   onContextMenuCapture,
   onEntryDragStart,
   onEntryDrop,
@@ -683,6 +692,8 @@ export default function FileSystemGitTree({
         dragOverFolderUri={dragOverFolderUri}
         onToggle={handleToggle}
         onSelectEntry={onSelectEntry}
+        onOpenEntry={onOpenEntry}
+        onOpenEntryStack={onOpenEntryStack}
         selectedUris={selectedUris}
         showHidden={showHidden}
         sortField={sortField}

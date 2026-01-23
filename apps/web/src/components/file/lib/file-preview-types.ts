@@ -38,6 +38,8 @@ export type FilePreviewItem = {
 export type FilePreviewPayload = {
   /** Viewer type to render. */
   viewer: FilePreviewViewer;
+  /** Whether preview content should be read-only. */
+  readOnly?: boolean;
   /** Optional owner id for coordination. */
   sourceId?: string;
   /** Callback when dialog closes. */

@@ -111,6 +111,7 @@ export default function FilePreviewDialog() {
               ext={currentItem.ext}
               rootUri={currentItem.rootUri}
               projectId={currentItem.projectId}
+              readOnly={payload.readOnly}
             />
           ) : null}
 
@@ -121,6 +122,7 @@ export default function FilePreviewDialog() {
               ext={currentItem.ext}
               rootUri={currentItem.rootUri}
               projectId={currentItem.projectId}
+              readOnly={payload.readOnly}
             />
           ) : null}
 
@@ -143,7 +145,7 @@ export default function FilePreviewDialog() {
               ext={currentItem.ext}
               projectId={currentItem.projectId}
               rootUri={currentItem.rootUri}
-              readOnly
+              readOnly={payload.readOnly ?? true}
             />
           ) : null}
 
@@ -155,7 +157,7 @@ export default function FilePreviewDialog() {
               ext={currentItem.ext}
               projectId={currentItem.projectId}
               rootUri={currentItem.rootUri}
-              readOnly
+              readOnly={payload.readOnly ?? true}
             />
           ) : null}
 
@@ -166,6 +168,7 @@ export default function FilePreviewDialog() {
               name={currentItem.name}
               projectId={currentItem.projectId}
               rootUri={currentItem.rootUri}
+              thumbnailSrc={currentItem.thumbnailSrc}
             />
           ) : null}
 
@@ -175,6 +178,7 @@ export default function FilePreviewDialog() {
               name={currentItem.name}
               ext={currentItem.ext}
               projectId={currentItem.projectId}
+              rootUri={currentItem.rootUri}
             />
           ) : null}
 

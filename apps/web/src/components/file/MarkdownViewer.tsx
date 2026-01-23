@@ -13,8 +13,9 @@ import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 import CodeViewer, { type CodeViewerActions, type CodeViewerStatus } from "@/components/file/CodeViewer";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
+import { ReadFileErrorFallback } from "@/components/file/lib/read-file-error";
 
-import "./streamdown-viewer.css";
+import "./style/streamdown-viewer.css";
 
 type MarkdownViewerMode = "preview" | "edit";
 
@@ -29,6 +30,8 @@ interface MarkdownViewerProps {
   tabId?: string;
   rootUri?: string;
   projectId?: string;
+  /** Whether the viewer is read-only. */
+  readOnly?: boolean;
 }
 
 type MdxAttribute = { name?: string };
@@ -297,6 +300,7 @@ export default function MarkdownViewer({
   tabId,
   rootUri,
   projectId,
+  readOnly,
 }: MarkdownViewerProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
@@ -306,7 +310,9 @@ export default function MarkdownViewer({
       !hasInlineContent && uri && workspaceId ? { workspaceId, projectId, uri } : skipToken
     )
   );
-  const [mode, setMode] = useState<MarkdownViewerMode>(DEFAULT_MARKDOWN_MODE);
+  const resolvedDefaultMode: MarkdownViewerMode =
+    readOnly === false ? "edit" : DEFAULT_MARKDOWN_MODE;
+  const [mode, setMode] = useState<MarkdownViewerMode>(resolvedDefaultMode);
   /** 头部按钮需要的编辑器操作句柄。 */
   const codeActionsRef = useRef<CodeViewerActions | null>(null);
   /** 头部按钮状态。 */
@@ -316,9 +322,9 @@ export default function MarkdownViewer({
   const displayTitle = useMemo(() => name ?? uri ?? "Markdown", [name, uri]);
 
   useEffect(() => {
-    setMode(DEFAULT_MARKDOWN_MODE);
+    setMode(readOnly === false ? "edit" : DEFAULT_MARKDOWN_MODE);
     setCodeStatus(DEFAULT_CODE_STATUS);
-  }, [uri, inlineContent]);
+  }, [inlineContent, readOnly, uri]);
 
   if (!uri && !hasInlineContent) {
     return <div className="h-full w-full p-4 text-muted-foreground">未选择文件</div>;
@@ -348,7 +354,7 @@ export default function MarkdownViewer({
     // 逻辑：仅在 mdx 文件启用 mdx 解析，避免普通 markdown 报错。
     return isMdx ? [...basePlugins, remarkMdx, mdxPlaceholderPlugin] : basePlugins;
   }, [isMdx]);
-  const canEdit = !hasInlineContent;
+  const canEdit = !hasInlineContent && !readOnly;
   const isEditMode = canEdit && mode === "edit";
   const editorExt = ext ?? "md";
 
@@ -364,10 +370,22 @@ export default function MarkdownViewer({
 
   const previewContent = !hasInlineContent && fileQuery.isLoading ? (
     <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>
+  ) : !hasInlineContent && fileQuery.data?.tooLarge ? (
+    <ReadFileErrorFallback
+      uri={uri}
+      name={displayTitle}
+      projectId={projectId}
+      rootUri={rootUri}
+      tooLarge
+    />
   ) : !hasInlineContent && fileQuery.isError ? (
-    <div className="h-full w-full p-4 text-destructive">
-      {fileQuery.error?.message ?? "读取失败"}
-    </div>
+    <ReadFileErrorFallback
+      uri={uri}
+      name={displayTitle}
+      projectId={projectId}
+      rootUri={rootUri}
+      error={fileQuery.error}
+    />
   ) : (
     <>
       {frontMatter ? (
@@ -481,6 +499,7 @@ export default function MarkdownViewer({
                 visible={isEditMode}
                 actionsRef={codeActionsRef}
                 onStatusChange={setCodeStatus}
+                readOnly={readOnly}
               />
             </div>
             <div className={isEditMode ? "hidden" : "h-full overflow-auto"}>

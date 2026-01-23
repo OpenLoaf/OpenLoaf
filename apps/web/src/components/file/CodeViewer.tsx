@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
+import { ReadFileErrorFallback } from "@/components/file/lib/read-file-error";
 
 export type CodeViewerActions = {
   save: () => void;
@@ -33,6 +34,8 @@ interface CodeViewerProps {
   ext?: string;
   rootUri?: string;
   projectId?: string;
+  /** Whether the viewer should be read-only. */
+  readOnly?: boolean;
   /** Viewer mode for Monaco. */
   mode?: CodeViewerMode;
   /** Whether the editor is visible (used to trigger layout). */
@@ -79,9 +82,9 @@ function applyMonacoTheme(monaco: typeof Monaco, themeName: string) {
 }
 
 /** Resolve a Monaco language id from extension. */
-function getMonacoLanguageId(ext?: string): string {
+export function getMonacoLanguageId(ext?: string): string {
   const key = (ext ?? "").toLowerCase();
-  // 逻辑：保持与旧映射一致，未命中时降级为纯文本。
+  // 逻辑：保持与旧映射一致，未命中时降级为 bash。
   switch (key) {
     case "js":
     case "jsx":
@@ -93,6 +96,8 @@ function getMonacoLanguageId(ext?: string): string {
     case "jsonc":
     case "jsonl":
       return "json";
+    case "sql":
+      return "sql";
     case "yml":
     case "yaml":
       return "yaml";
@@ -130,9 +135,9 @@ function getMonacoLanguageId(ext?: string): string {
     case "txt":
     case "text":
     case "log":
-      return "plaintext";
+      return "shell";
     default:
-      return "plaintext";
+      return "shell";
   }
 }
 
@@ -143,7 +148,8 @@ export default function CodeViewer({
   ext,
   rootUri,
   projectId,
-  mode = DEFAULT_CODE_VIEWER_MODE,
+  readOnly,
+  mode,
   visible = true,
   actionsRef,
   onStatusChange,
@@ -198,8 +204,10 @@ export default function CodeViewer({
     () => fileQuery.data?.content ?? "",
     [fileQuery.data?.content]
   );
-  const isEditMode = mode === "edit";
-  const effectiveReadOnly = !isEditMode || isReadOnly;
+  const resolvedMode: CodeViewerMode =
+    mode ?? (readOnly === false ? "edit" : DEFAULT_CODE_VIEWER_MODE);
+  const isEditMode = resolvedMode === "edit";
+  const effectiveReadOnly = readOnly === true ? true : !isEditMode || isReadOnly;
   /** Monaco language id from extension. */
   const languageId = useMemo(() => getMonacoLanguageId(ext), [ext]);
   const { resolvedTheme } = useTheme();
@@ -530,8 +538,9 @@ export default function CodeViewer({
 
   /** Toggle read-only state in edit mode. */
   const handleToggleReadOnly = useCallback(() => {
+    if (readOnly) return;
     setIsReadOnly((prev) => !prev);
-  }, []);
+  }, [readOnly]);
 
   // 逻辑：向外部暴露保存/撤销/只读切换能力。
   useEffect(() => {
@@ -563,11 +572,27 @@ export default function CodeViewer({
     return <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>;
   }
 
+  if (fileQuery.data?.tooLarge) {
+    return (
+      <ReadFileErrorFallback
+        uri={uri}
+        name={name}
+        projectId={projectId}
+        rootUri={rootUri}
+        tooLarge
+      />
+    );
+  }
+
   if (fileQuery.isError) {
     return (
-      <div className="h-full w-full p-4 text-destructive">
-        {fileQuery.error?.message ?? "读取失败"}
-      </div>
+      <ReadFileErrorFallback
+        uri={uri}
+        name={name}
+        projectId={projectId}
+        rootUri={rootUri}
+        error={fileQuery.error}
+      />
     );
   }
 

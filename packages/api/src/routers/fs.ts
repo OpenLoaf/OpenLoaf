@@ -1,7 +1,9 @@
 import { z } from "zod";
 import path from "node:path";
 import { promises as fs, type Dirent } from "node:fs";
+import { createHash } from "node:crypto";
 import sharp from "sharp";
+import ffmpeg from "fluent-ffmpeg";
 import { fileURLToPath } from "node:url";
 import { t, shieldedProcedure } from "../index";
 import { resolveScopedPath, resolveScopedRootPath, toRelativePath } from "../services/vfsService";
@@ -25,6 +27,16 @@ const SEARCH_IGNORE_NAMES = new Set([
 const DEFAULT_SEARCH_LIMIT = 500;
 /** Default maximum depth for recursive search. */
 const DEFAULT_SEARCH_MAX_DEPTH = 12;
+/** Cache directory name for generated video thumbnails. */
+const VIDEO_THUMB_CACHE_DIR = ".tenas-cache/video-thumbs";
+/** Default thumbnail width for video previews. */
+const VIDEO_THUMB_WIDTH = 160;
+/** Default thumbnail height for video previews. */
+const VIDEO_THUMB_HEIGHT = 90;
+/** Supported video extensions for thumbnail generation. */
+const VIDEO_EXTENSIONS = new Set(["mp4", "mov", "m4v", "mkv", "webm", "avi"]);
+/** Maximum text file size for preview reads (50 MB). */
+const READ_FILE_MAX_BYTES = 50 * 1024 * 1024;
 
 /** Schema for workspace/project scope. */
 const fsScopeSchema = z.object({
@@ -113,6 +125,63 @@ function buildFileNode(input: {
     updatedAt: input.stat.mtime.toISOString(),
     isEmpty: isDir ? input.isEmpty : undefined,
   };
+}
+
+/** Return true when the file extension belongs to a supported video format. */
+function isVideoExt(ext: string) {
+  return VIDEO_EXTENSIONS.has(ext.toLowerCase());
+}
+
+/** Build a stable cache key for video thumbnails. */
+function buildVideoThumbnailKey(input: {
+  relativePath: string;
+  stat: { size: number; mtimeMs: number };
+}) {
+  const payload = JSON.stringify({
+    path: input.relativePath,
+    size: input.stat.size,
+    mtime: input.stat.mtimeMs,
+  });
+  return createHash("sha256").update(payload).digest("hex");
+}
+
+/** Generate a video thumbnail and return a data URL. */
+async function buildVideoThumbnail(input: {
+  sourcePath: string;
+  rootPath: string;
+  relativePath: string;
+  stat: { size: number; mtimeMs: number };
+}) {
+  const cacheDir = path.join(input.rootPath, VIDEO_THUMB_CACHE_DIR);
+  const cacheKey = buildVideoThumbnailKey({
+    relativePath: input.relativePath,
+    stat: input.stat,
+  });
+  const cachePath = path.join(cacheDir, `${cacheKey}.webp`);
+  const cacheStat = await fs.stat(cachePath).catch(() => null);
+  if (cacheStat && cacheStat.mtimeMs >= input.stat.mtimeMs) {
+    const cached = await fs.readFile(cachePath);
+    return `data:image/webp;base64,${cached.toString("base64")}`;
+  }
+  await fs.mkdir(cacheDir, { recursive: true });
+  const tempPath = path.join(cacheDir, `${cacheKey}.jpg`);
+  // 逻辑：视频首帧截图用于缩略图，避免等待完整转码。
+  await new Promise<void>((resolve, reject) => {
+    ffmpeg(input.sourcePath)
+      .seekInput(0.5)
+      .outputOptions(["-frames:v 1"])
+      .output(tempPath)
+      .on("end", () => resolve())
+      .on("error", (error) => reject(error))
+      .run();
+  });
+  const buffer = await sharp(tempPath)
+    .resize(VIDEO_THUMB_WIDTH, VIDEO_THUMB_HEIGHT, { fit: "cover" })
+    .webp({ quality: 50 })
+    .toBuffer();
+  await fs.writeFile(cachePath, buffer);
+  await fs.unlink(tempPath).catch(() => null);
+  return `data:image/webp;base64,${buffer.toString("base64")}`;
 }
 
 /** Resolve a filesystem path for the scoped input. */
@@ -302,6 +371,13 @@ export const fsRouter = t.router({
         // 只处理图片文件，减少无效 IO 与 sharp 解码开销。
         return isImageExt(ext);
       });
+      const videoFiles = entries.filter((entry) => {
+        if (!entry.isFile()) return false;
+        if (!includeHidden && entry.name.startsWith(".")) return false;
+        const ext = path.extname(entry.name).replace(/^\./, "");
+        // 只处理常见视频文件，避免无效的 ffmpeg 负载。
+        return isVideoExt(ext);
+      });
       const boardFolders = entries.filter((entry) => {
         if (!entry.isDirectory()) return false;
         if (!includeHidden && entry.name.startsWith(".")) return false;
@@ -343,16 +419,45 @@ export const fsRouter = t.router({
           }
         })
       );
+      const videoItems = await Promise.all(
+        videoFiles.map(async (entry) => {
+          try {
+            const entryPath = path.join(fullPath, entry.name);
+            const stat = await fs.stat(entryPath);
+            const relativePath = toRelativePath(rootPath, entryPath);
+            const dataUrl = await buildVideoThumbnail({
+              sourcePath: entryPath,
+              rootPath,
+              relativePath,
+              stat: { size: stat.size, mtimeMs: stat.mtimeMs },
+            });
+            return {
+              uri: relativePath,
+              dataUrl,
+            };
+          } catch {
+            return null;
+          }
+        })
+      );
       const mergedItems = [...items, ...boardItems].filter(
         (item): item is { uri: string; dataUrl: string } => Boolean(item)
       );
-      return { items: mergedItems };
+      const videoMerged = [...mergedItems, ...videoItems].filter(
+        (item): item is { uri: string; dataUrl: string } => Boolean(item)
+      );
+      return { items: videoMerged };
     }),
 
   /** Read a text file. */
   readFile: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
     const fullPath = resolveFsTarget(input, input.uri);
     try {
+      const stat = await fs.stat(fullPath);
+      // 逻辑：大文件不走文本预览，避免阻塞页面与传输超大 payload。
+      if (stat.size > READ_FILE_MAX_BYTES) {
+        return { content: "", tooLarge: true };
+      }
       const content = await fs.readFile(fullPath, "utf-8");
       return { content };
     } catch (error) {

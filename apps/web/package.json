@@ -8,6 +8,7 @@
     "prebuild": "node -e \"const fs=require('node:fs'); try{fs.rmSync('.next/lock')}catch{}\"",
     "build": "next build",
     "start": "next start",
+    "postinstall": "node scripts/copy-monaco-assets.mjs",
     "check-types": "pnpm exec tsc -p tsconfig.json --noEmit",
     "lint": "eslint src"
   },
@@ -20,6 +21,8 @@
     "@floating-ui/react": "^0.27.16",
     "@hocuspocus/provider": "^3.4.3",
     "@internationalized/date": "^3.10.1",
+    "@json-render/core": "^0.3.0",
+    "@json-render/react": "^0.2.0",
     "@lightenna/react-mermaid-diagram": "^1.0.22",
     "@lobehub/icons": "^4.0.3",
     "@measured/puck": "^0.20.2",

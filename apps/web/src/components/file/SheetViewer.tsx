@@ -80,6 +80,9 @@ type SheetWorkbook = {
   save: () => IWorkbookData;
 };
 
+/** 视图最少展示的列数，避免小表只有一列导致布局怪异。 */
+const MIN_VISIBLE_COLUMNS = 26;
+
 /** Locale map for Univer UI text. */
 const DEFAULT_LOCALES = {
   [LocaleType.ZH_CN]: mergeLocales(zhCN, uiZhCN, sheetsZhCN, sheetsUiZhCN, docsUiZhCN),
@@ -151,7 +154,7 @@ function buildWorksheetSnapshot(
     });
   });
   const rowCount = Math.max(rows.length, 1);
-  const columnCount = Math.max(maxColumn, 1);
+  const columnCount = Math.max(maxColumn, MIN_VISIBLE_COLUMNS);
   const sheetId = createUnitId("sheet");
   const snapshot = mergeWorksheetSnapshotWithDefault({
     id: sheetId,
@@ -290,7 +293,31 @@ function resolveSaveUri(uri: string, ext?: string): string {
 }
 
 /** Create a Univer instance for sheet editing. */
-function createSheetUniver(container: HTMLElement, isDark: boolean, readOnly: boolean): Univer {
+type UniverPluginSkipSet = Set<string>;
+
+/** Read debug skip list from URL query. */
+function resolveUniverSkipPlugins(): UniverPluginSkipSet {
+  // 逻辑：通过 URL query 控制跳过插件，便于快速定位问题。
+  if (typeof window === "undefined") return new Set();
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("univerSkip");
+  if (!raw) return new Set();
+  return new Set(
+    raw
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
+}
+
+function createSheetUniver(
+  container: HTMLElement,
+  isDark: boolean,
+  readOnly: boolean,
+  skipPlugins?: UniverPluginSkipSet
+): Univer {
+  // 诊断：定位初始化过程中触发异常的插件注册点。
+  console.info("[SheetViewer] createSheetUniver: start", { skipPlugins: [...(skipPlugins ?? [])] });
   const univer = new Univer({
     theme: defaultTheme,
     locale: LocaleType.ZH_CN,
@@ -298,33 +325,76 @@ function createSheetUniver(container: HTMLElement, isDark: boolean, readOnly: bo
     logLevel: LogLevel.SILENT,
     darkMode: isDark,
   });
-  univer.registerPlugin(UniverRenderEnginePlugin);
-  univer.registerPlugin(UniverUIPlugin, {
-    container,
-    header: !readOnly,
-    toolbar: !readOnly,
-    footer: true,
-    headerMenu: false,
-    contextMenu: true,
-    disableAutoFocus: true,
-  });
+  const shouldSkip = (key: string) => Boolean(skipPlugins?.has(key));
+  if (shouldSkip("render-engine")) {
+    console.info("[SheetViewer] skip UniverRenderEnginePlugin");
+  } else {
+    console.info("[SheetViewer] register UniverRenderEnginePlugin");
+    univer.registerPlugin(UniverRenderEnginePlugin);
+  }
+  if (shouldSkip("ui")) {
+    console.info("[SheetViewer] skip UniverUIPlugin");
+  } else {
+    console.info("[SheetViewer] register UniverUIPlugin");
+    univer.registerPlugin(UniverUIPlugin, {
+      container,
+      header: !readOnly,
+      toolbar: !readOnly,
+      footer: true,
+      headerMenu: false,
+      contextMenu: true,
+      disableAutoFocus: true,
+    });
+  }
   // Sheets UI 依赖 EditorService，需要提前注册 Docs UI 相关插件。
-  univer.registerPlugin(UniverDocsPlugin);
-  univer.registerPlugin(UniverDocsUIPlugin);
-  univer.registerPlugin(UniverSheetsPlugin);
-  univer.registerPlugin(UniverFormulaEnginePlugin);
-  univer.registerPlugin(UniverSheetsFormulaPlugin);
-  univer.registerPlugin(UniverSheetsUIPlugin, {
-    formulaBar: !readOnly,
-    // 逻辑：关闭“数字以文本存储”的提示弹窗。
-    disableForceStringAlert: true,
+  if (shouldSkip("docs")) {
+    console.info("[SheetViewer] skip UniverDocsPlugin");
+  } else {
+    console.info("[SheetViewer] register UniverDocsPlugin");
+    univer.registerPlugin(UniverDocsPlugin);
+  }
+  if (shouldSkip("docs-ui")) {
+    console.info("[SheetViewer] skip UniverDocsUIPlugin");
+  } else {
+    console.info("[SheetViewer] register UniverDocsUIPlugin");
+    univer.registerPlugin(UniverDocsUIPlugin);
+  }
+  if (shouldSkip("sheets")) {
+    console.info("[SheetViewer] skip UniverSheetsPlugin");
+  } else {
+    console.info("[SheetViewer] register UniverSheetsPlugin");
+    univer.registerPlugin(UniverSheetsPlugin);
+  }
+  if (shouldSkip("formula")) {
+    console.info("[SheetViewer] skip UniverFormulaEnginePlugin");
+  } else {
+    console.info("[SheetViewer] register UniverFormulaEnginePlugin");
+    univer.registerPlugin(UniverFormulaEnginePlugin);
+  }
+  if (shouldSkip("sheets-formula")) {
+    console.info("[SheetViewer] skip UniverSheetsFormulaPlugin");
+  } else {
+    console.info("[SheetViewer] register UniverSheetsFormulaPlugin");
+    univer.registerPlugin(UniverSheetsFormulaPlugin);
+  }
+  if (shouldSkip("sheets-ui")) {
+    console.info("[SheetViewer] skip UniverSheetsUIPlugin");
+  } else {
+    console.info("[SheetViewer] register UniverSheetsUIPlugin");
+    univer.registerPlugin(UniverSheetsUIPlugin, {
+      formulaBar: !readOnly,
+      // 逻辑：关闭“数字以文本存储”的提示弹窗。
+      disableForceStringAlert: true,
     footer: {
       sheetBar: true,
       statisticBar: true,
-      menus: true,
+      // 逻辑：隐藏底部菜单区，避免出现“切换网格线”按钮。
+      menus: false,
       zoomSlider: true,
     },
   });
+  }
+  console.info("[SheetViewer] createSheetUniver: done");
   return univer;
 }
 
@@ -450,7 +520,8 @@ export default function SheetViewer({
     container.replaceChildren(mountContainer);
 
     initializingRef.current = true;
-    const univer = createSheetUniver(mountContainer, isDark, isReadOnly);
+    const skipPlugins = resolveUniverSkipPlugins();
+    const univer = createSheetUniver(mountContainer, isDark, isReadOnly, skipPlugins);
     univerRef.current = univer;
     const workbook = univer.createUnit(
       UniverInstanceType.UNIVER_SHEET,

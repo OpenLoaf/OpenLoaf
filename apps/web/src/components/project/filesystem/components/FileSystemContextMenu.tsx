@@ -33,6 +33,8 @@ import type { FileSystemEntry } from "../utils/file-system-utils";
 /** Actions for file system context menu items. */
 /** Generic menu action signature. */
 type MenuAction = () => void | Promise<void>;
+/** Menu action with optional target uri. */
+type MenuTargetAction = (targetUri?: string | null) => void | Promise<void>;
 /** Menu action for a single entry. */
 type MenuEntryAction = (entry: FileSystemEntry) => void | Promise<void>;
 /** Menu action for multiple entries. */
@@ -66,8 +68,8 @@ export type FileSystemContextMenuActions = {
   deleteEntriesPermanent: MenuEntriesAction;
   /** Show entry info. */
   showInfo: MenuEntryAction;
-  /** Refresh the grid list. */
-  refreshList: MenuAction;
+  /** Refresh the grid list and thumbnails. */
+  refreshList: MenuTargetAction;
   /** Toggle hidden files visibility. */
   toggleHidden: MenuAction;
   /** Copy current directory path to clipboard. */
@@ -167,6 +169,17 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               >
                 彻底删除
               </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                icon={RotateCw}
+                onSelect={withMenuSelectGuard(() =>
+                  actions.refreshList(
+                    menuContextEntry?.kind === "folder" ? menuContextEntry.uri : undefined
+                  )
+                )}
+              >
+                刷新
+              </ContextMenuItem>
             </>
           ) : (
             <>
@@ -204,6 +217,16 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   在终端中打开
                 </ContextMenuItem>
               ) : null}
+              <ContextMenuItem
+                icon={RotateCw}
+                onSelect={withMenuSelectGuard(() =>
+                  actions.refreshList(
+                    menuContextEntry.kind === "folder" ? menuContextEntry.uri : undefined
+                  )
+                )}
+              >
+                刷新
+              </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
                 icon={Copy}
@@ -261,7 +284,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
           <>
             <ContextMenuItem
               icon={RotateCw}
-              onSelect={withMenuSelectGuard(actions.refreshList)}
+              onSelect={withMenuSelectGuard(() => actions.refreshList())}
             >
               刷新
             </ContextMenuItem>

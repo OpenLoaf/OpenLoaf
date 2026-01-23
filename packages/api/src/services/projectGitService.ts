@@ -860,13 +860,53 @@ export async function getProjectGitCommits(input: {
   }
 
   // 中文注释：cursor 作为 ref 定位起点，额外取一条判断是否还有下一页。
-  const logEntries = await git.log({
-    fs: nodeFs,
-    dir: repoContext.workdir,
-    gitdir: repoContext.gitdir,
-    ref,
-    depth,
-  });
+  let logEntries: git.ReadCommitResult[];
+  try {
+    logEntries = await git.log({
+      fs: nodeFs,
+      dir: repoContext.workdir,
+      gitdir: repoContext.gitdir,
+      ref,
+      depth,
+    });
+  } catch (error) {
+    // 中文注释：记录 ref/分支信息，便于定位 NotFoundError（例如 main 不存在）。
+    let branchNames: string[] = [];
+    try {
+      branchNames = await git.listBranches({
+        fs: nodeFs,
+        dir: repoContext.workdir,
+        gitdir: repoContext.gitdir,
+      });
+    } catch {
+      branchNames = [];
+    }
+    console.warn("[projectGitService] git.log failed", {
+      ref,
+      cursor,
+      requestedBranch,
+      currentBranch,
+      resolvedBranch,
+      workdir: repoContext.workdir,
+      gitdir: repoContext.gitdir,
+      branches: branchNames,
+      error,
+    });
+    const errorCode =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : null;
+    // 中文注释：当 ref 不存在时直接跳过，避免后台任务崩溃。
+    if (errorCode === "NotFoundError") {
+      return {
+        isGitProject: true,
+        branch: resolvedBranch,
+        items: [],
+        nextCursor: null,
+      };
+    }
+    throw error;
+  }
 
   const pageEntries = logEntries.slice(offset, offset + pageSize);
   const hasMore = logEntries.length > offset + pageSize;

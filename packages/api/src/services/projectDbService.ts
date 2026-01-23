@@ -44,6 +44,7 @@ export type ProjectDbClient = {
       select: { id: true; title: true };
     }) => Promise<Array<{ id: string; title: string }>>;
   };
+  $queryRaw: <T = unknown>(query: TemplateStringsArray, ...values: unknown[]) => Promise<T>;
   $transaction: <T>(operations: Promise<T>[]) => Promise<T[]>;
 };
 
@@ -155,26 +156,25 @@ export async function resolveProjectAncestorRootUris(
 ): Promise<string[]> {
   const normalizedId = projectId.trim();
   if (!normalizedId) return [];
-  const ancestors: string[] = [];
-  const visited = new Set<string>();
-  let cursorId: string | null = normalizedId;
-  let isFirst = true;
-
-  // 逻辑：从当前项目向上追溯 parentId，收集父级 rootUri，直到顶层或出现循环。
-  while (cursorId) {
-    if (visited.has(cursorId)) break;
-    visited.add(cursorId);
-    const row = await prisma.project.findFirst({
-      where: { id: cursorId, isDeleted: false },
-      select: { id: true, rootUri: true, parentId: true },
-    });
-    if (!row) break;
-    if (!isFirst && row.rootUri) ancestors.push(row.rootUri);
-    isFirst = false;
-    const nextParentId = row.parentId?.trim();
-    if (!nextParentId) break;
-    cursorId = nextParentId;
-  }
-
-  return ancestors;
+  const maxDepth = 64;
+  // 使用递归 CTE 一次性向上查询，避免逐级 N+1 查询。
+  const rows = await prisma.$queryRaw<Array<{ rootUri: string | null }>>`
+    WITH RECURSIVE ancestors(id, rootUri, parentId, depth) AS (
+      SELECT id, rootUri, parentId, 0
+      FROM Project
+      WHERE id = ${normalizedId} AND isDeleted = 0
+      UNION ALL
+      SELECT p.id, p.rootUri, p.parentId, a.depth + 1
+      FROM Project p
+      JOIN ancestors a ON p.id = TRIM(a.parentId)
+      WHERE p.isDeleted = 0
+        AND a.parentId IS NOT NULL
+        AND TRIM(a.parentId) != ''
+        AND a.depth < ${maxDepth}
+    )
+    SELECT rootUri
+    FROM ancestors
+    WHERE depth > 0 AND rootUri IS NOT NULL;
+  `;
+  return rows.flatMap((row) => (row.rootUri ? [row.rootUri] : []));
 }

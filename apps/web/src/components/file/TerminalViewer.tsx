@@ -19,7 +19,7 @@ import { useTerminalStatus } from "@/hooks/use-terminal-status";
 import { createTerminalTabId } from "@/hooks/tab-id";
 
 import "xterm/css/xterm.css";
-import "./terminal-viewer.css";
+import "./style/terminal-viewer.css";
 
 interface TerminalViewerProps {
   pwdUri?: string;

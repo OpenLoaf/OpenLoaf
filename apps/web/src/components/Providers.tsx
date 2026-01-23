@@ -6,6 +6,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "motion/react";
 import { queryClient } from "@/utils/trpc";
 import { useDisableContextMenu } from "@/lib/useDisableContextMenu";
+import "@/lib/monaco/monaco-loader";
 import { ThemeProvider } from "./ThemeProvider";
 import { handleUiEvent } from "@/lib/chat/uiEvent";
 import type { UiEvent } from "@tenas-ai/api";

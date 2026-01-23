@@ -10,13 +10,7 @@ import {
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import {
-  buildChildUri,
-  getEntryExt,
-  getParentRelativePath,
-  getRelativePathFromUri,
-  type FileSystemEntry,
-} from "../utils/file-system-utils";
+import { getParentRelativePath, type FileSystemEntry } from "../utils/file-system-utils";
 import { sortEntriesByType } from "../utils/entry-sort";
 import FileSystemContextMenu from "./FileSystemContextMenu";
 import { FileSystemColumns } from "./FileSystemColumns";
@@ -34,29 +28,8 @@ import { useProjectFileSystemModel } from "../models/file-system-model";
 import { useFileSystemContextMenu } from "@/hooks/use-file-system-context-menu";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileRename } from "@/hooks/use-file-rename";
-import {
-  CODE_EXTS,
-  DOC_EXTS,
-  IMAGE_EXTS,
-  MARKDOWN_EXTS,
-  PDF_EXTS,
-  SPREADSHEET_EXTS,
-  isTextFallbackExt,
-} from "./FileSystemEntryVisual";
-import {
-  BOARD_INDEX_FILE_NAME,
-  getBoardDisplayName,
-  getDisplayFileName,
-  isBoardFolderName,
-} from "@/lib/file-name";
-import BoardFileViewer from "@/components/board/BoardFileViewer";
-import CodeViewer from "@/components/file/CodeViewer";
-import DocViewer from "@/components/file/DocViewer";
-import FileViewer from "@/components/file/FileViewer";
-import ImageViewer from "@/components/file/ImageViewer";
-import MarkdownViewer from "@/components/file/MarkdownViewer";
-import PdfViewer from "@/components/file/PdfViewer";
-import SheetViewer from "@/components/file/SheetViewer";
+import { isBoardFolderName } from "@/lib/file-name";
+import { openFilePreview } from "@/components/file/lib/open-file";
 
 type ProjectFileSystemProps = {
   projectId?: string;
@@ -92,17 +65,6 @@ function resolveParentUriFromEntry(entry: FileSystemEntry): string | null {
   const parent = getParentRelativePath(entry.uri);
   // 逻辑：回退到父目录，保证工具栏操作落在可写目录。
   return parent;
-}
-
-/** Resolve a display label for the tree viewer. */
-function resolveTreeViewerLabel(entry: FileSystemEntry): string {
-  if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
-    return getBoardDisplayName(entry.name);
-  }
-  if (entry.kind === "file") {
-    return getDisplayFileName(entry.name, getEntryExt(entry));
-  }
-  return entry.name;
 }
 
 /** Resolve sort priority for file system entries. */
@@ -369,116 +331,18 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     if (!treeSelectedEntry) {
       return <div className="h-full w-full p-4 text-muted-foreground">未选择文件</div>;
     }
-    const entry = treeSelectedEntry;
-    const displayName = resolveTreeViewerLabel(entry);
-    if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
-      const boardFolderUri = entry.uri;
-      const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
-      return (
-        <BoardFileViewer
-          boardFolderUri={boardFolderUri}
-          boardFileUri={boardFileUri}
-          projectId={projectId}
-          rootUri={rootUri}
-        />
-      );
+    // 逻辑：树视图单击使用统一预览入口的嵌入模式。
+    const content = openFilePreview({
+      entry: treeSelectedEntry,
+      projectId,
+      rootUri,
+      readOnly: true,
+      mode: "embed",
+    });
+    if (!content || typeof content === "boolean") {
+      return <div className="h-full w-full p-4 text-muted-foreground">无法预览</div>;
     }
-    if (entry.kind === "folder") {
-      return (
-        <div className="h-full w-full p-4 text-muted-foreground">
-          请选择文件以预览
-        </div>
-      );
-    }
-    const ext = getEntryExt(entry);
-    // 逻辑：先匹配二进制类型，再回退到文本/默认预览。
-    if (IMAGE_EXTS.has(ext)) {
-      return (
-        <ImageViewer
-          uri={entry.uri}
-          name={displayName}
-          ext={ext}
-          projectId={projectId}
-        />
-      );
-    }
-    if (MARKDOWN_EXTS.has(ext)) {
-      return (
-        <MarkdownViewer
-          uri={entry.uri}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          rootUri={rootUri}
-          projectId={projectId}
-        />
-      );
-    }
-    if (CODE_EXTS.has(ext) || isTextFallbackExt(ext)) {
-      return (
-        <CodeViewer
-          uri={entry.uri}
-          name={displayName}
-          ext={ext}
-          rootUri={rootUri}
-          projectId={projectId}
-        />
-      );
-    }
-    if (PDF_EXTS.has(ext)) {
-      if (!projectId || !rootUri) {
-        return <div className="h-full w-full p-4 text-destructive">未找到项目路径</div>;
-      }
-      const relativePath = getRelativePathFromUri(rootUri, entry.uri);
-      if (!relativePath) {
-        return <div className="h-full w-full p-4 text-destructive">无法解析PDF路径</div>;
-      }
-      const pdfUri = relativePath;
-      return (
-        <PdfViewer
-          uri={pdfUri}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          projectId={projectId}
-          rootUri={rootUri}
-        />
-      );
-    }
-    if (DOC_EXTS.has(ext)) {
-      return (
-        <DocViewer
-          uri={entry.uri}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          projectId={projectId}
-          rootUri={rootUri}
-          readOnly
-        />
-      );
-    }
-    if (SPREADSHEET_EXTS.has(ext)) {
-      return (
-        <SheetViewer
-          uri={entry.uri}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          projectId={projectId}
-          rootUri={rootUri}
-          readOnly
-        />
-      );
-    }
-    return (
-      <FileViewer
-        uri={entry.uri}
-        name={displayName}
-        ext={ext}
-        projectId={projectId}
-      />
-    );
+    return <>{content}</>;
   }, [projectId, rootUri, treeSelectedEntry]);
   const treeViewerKey = treeSelectedEntry?.uri ?? "empty";
 
@@ -696,6 +560,8 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
                       onRenamingSubmit={handleRenamingSubmit}
                       onRenamingCancel={handleRenamingCancel}
                       onSelectEntry={handleTreeEntrySelect}
+                      onOpenEntry={handleTreeEntrySelect}
+                      onOpenEntryStack={model.handleOpenEntry}
                       onContextMenuCapture={handleGridContextMenuCapture}
                       onEntryDragStart={handleEntryDragStart}
                       onEntryDrop={handleEntryDrop}

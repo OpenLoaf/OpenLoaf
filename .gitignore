@@ -102,3 +102,4 @@ apps/electron/resources/speech/windows/publish
 .tenas/project.json
 .pnpm-store
 .pnpm-store/*
+apps/web/public/monaco/

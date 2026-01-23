@@ -296,6 +296,12 @@ importers:
       '@internationalized/date':
         specifier: ^3.10.1
         version: 3.10.1
+      '@json-render/core':
+        specifier: ^0.3.0
+        version: 0.3.0(zod@4.3.5)
+      '@json-render/react':
+        specifier: ^0.2.0
+        version: 0.2.0(react@19.1.2)(zod@4.3.5)
       '@lightenna/react-mermaid-diagram':
         specifier: ^1.0.22
         version: 1.0.22(mermaid@11.12.2)(react@19.1.2)
@@ -2311,6 +2317,21 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@json-render/core@0.2.0':
+    resolution: {integrity: sha512-LBKv4M5skz7JRpTn53g6qF/zj5u/xUhuCp6WtJn/ZTIxGEAogH8sn3Ql/Nk/O0sgbQHtriRmoJuI23/5fGCXPw==}
+    peerDependencies:
+      zod: ^4.0.0
+
+  '@json-render/core@0.3.0':
+    resolution: {integrity: sha512-/Om3SNSNkOOkcx07luCBizN8stDrpQ0haclo8iv+1U40WpTjNsJ5u4vt8GIrKMjr/Cdm+cCoV+PiwGEZ/m1yVQ==}
+    peerDependencies:
+      zod: ^4.0.0
+
+  '@json-render/react@0.2.0':
+    resolution: {integrity: sha512-4tdoMfc3t0Je+DMNsyJguz7aJkqfLhEY8/mvBchL9kweRfJHAZocT7doyqRCGAnCBtIXCKQ8YAbm0sb0Qr9OFw==}
+    peerDependencies:
+      react: ^19.0.0
 
   '@juggle/resize-observer@3.4.0':
     resolution: {integrity: sha512-dfLbk+PwWvFzSxwk3n5ySL0hfBog779o8h68wK/7/APo/7cgyWp5jcXockbxdk5kFRkbeXWm4Fbi9FrdN381sA==}
@@ -16260,6 +16281,21 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@json-render/core@0.2.0(zod@4.3.5)':
+    dependencies:
+      zod: 4.3.5
+
+  '@json-render/core@0.3.0(zod@4.3.5)':
+    dependencies:
+      zod: 4.3.5
+
+  '@json-render/react@0.2.0(react@19.1.2)(zod@4.3.5)':
+    dependencies:
+      '@json-render/core': 0.2.0(zod@4.3.5)
+      react: 19.1.2
+    transitivePeerDependencies:
+      - zod
 
   '@juggle/resize-observer@3.4.0': {}
 

@@ -10,16 +10,24 @@ import { toast } from "sonner";
 import {
   CommandType,
   CanceledError,
+  BooleanNumber,
   ICommandService,
+  IUniverInstanceService,
   LocaleType,
   LogLevel,
   mergeLocales,
-  RichTextValue,
+  NamedStyleType,
+  RichTextBuilder,
   ThemeService,
   Univer,
   UniverInstanceType,
+  type IDocumentBody,
   type IDocumentData,
   type IDisposable,
+  type IParagraph,
+  type IParagraphStyle,
+  type ITextRun,
+  type ITextStyle,
 } from "@univerjs/core";
 import { defaultTheme } from "@univerjs/design";
 import enUS from "@univerjs/design/locale/en-US";
@@ -71,6 +79,14 @@ const DEFAULT_LOCALES = {
   [LocaleType.ZH_CN]: mergeLocales(zhCN, uiZhCN, docsUiZhCN),
   [LocaleType.EN_US]: mergeLocales(enUS, uiEnUS, docsUiEnUS),
 };
+const DEFAULT_PARAGRAPH_STYLE =
+  RichTextBuilder.newEmptyData().body?.paragraphs?.[0]?.paragraphStyle;
+
+/** Clone paragraph style to avoid shared references across paragraphs. */
+function cloneParagraphStyle(style?: IParagraphStyle): IParagraphStyle | undefined {
+  if (!style) return undefined;
+  return JSON.parse(JSON.stringify(style)) as IParagraphStyle;
+}
 
 /** Convert base64 payload into ArrayBuffer for docx parsing. */
 function decodeBase64ToArrayBuffer(payload: string): ArrayBuffer {
@@ -104,20 +120,325 @@ function createUnitId(prefix: string): string {
 
 /** Normalize raw text into Univer document data. */
 function buildDocumentSnapshot(text: string, title: string): IDocumentData {
-  // 逻辑：使用 RichTextValue 自动补齐文档结构，确保数据可渲染。
+  // 逻辑：复用 Univer 默认文档模板，避免缺失样式导致渲染空白。
   const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const dataStream = `${normalized.split("\n").join("\r\n")}\r\n`;
-  const docData = RichTextValue.createByBody({ dataStream }).getData();
+  const body = buildDocumentBodyFromText(normalized);
+  const docData = RichTextBuilder.newEmptyData();
   docData.id = createUnitId("doc");
   docData.title = title;
   docData.locale = LocaleType.ZH_CN;
+  docData.body = body;
   return docData;
 }
 
-/** Extract plain text from a docx ArrayBuffer. */
-async function extractDocxText(buffer: ArrayBuffer): Promise<string> {
-  const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+type InlineStyle = {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+};
+
+/** Convert plain text into Univer document body. */
+function buildDocumentBodyFromText(text: string): IDocumentBody {
+  const normalized = text.trim().length
+    ? text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+    : "";
+  if (!normalized) {
+    return {
+      dataStream: "\r\n",
+      paragraphs: [
+        {
+          startIndex: 0,
+          paragraphStyle: cloneParagraphStyle(DEFAULT_PARAGRAPH_STYLE),
+        },
+      ],
+      sectionBreaks: [{ startIndex: 1 }],
+      textRuns: [],
+      customBlocks: [],
+      tables: [],
+      customRanges: [],
+      customDecorations: [],
+    };
+  }
+  const paragraphs: IParagraph[] = [];
+  let dataStream = "";
+  normalized.split("\n").forEach((line) => {
+    dataStream += line;
+    paragraphs.push({
+      startIndex: dataStream.length,
+      paragraphStyle: cloneParagraphStyle(DEFAULT_PARAGRAPH_STYLE),
+    });
+    dataStream += "\r";
+  });
+  dataStream += "\n";
+  return {
+    dataStream,
+    paragraphs,
+    sectionBreaks: [{ startIndex: dataStream.length - 1 }],
+    textRuns: [],
+    customBlocks: [],
+    tables: [],
+    customRanges: [],
+    customDecorations: [],
+  };
+}
+
+/** Extract HTML from a docx ArrayBuffer. */
+async function extractDocxHtml(buffer: ArrayBuffer): Promise<string> {
+  const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
   return result.value ?? "";
+}
+
+/** Convert HTML into Univer document body. */
+function buildDocumentBodyFromHtml(html: string): IDocumentBody {
+  // 逻辑：基于 DOMParser 提取结构化文本，输出 Univer 文档流。
+  const parser = new DOMParser();
+  const documentNode = parser.parseFromString(html, "text/html");
+  const paragraphs: IParagraph[] = [];
+  const textRuns: ITextRun[] = [];
+  let dataStream = "";
+  let lastChar = "";
+
+  const normalizeText = (text: string) => text.replace(/\s+/g, " ");
+
+  const buildTextStyle = (style?: InlineStyle): ITextStyle | undefined => {
+    if (!style || (!style.bold && !style.italic && !style.underline)) {
+      return undefined;
+    }
+    return {
+      bl: style.bold ? BooleanNumber.TRUE : undefined,
+      it: style.italic ? BooleanNumber.TRUE : undefined,
+      ul: style.underline ? { s: BooleanNumber.TRUE } : undefined,
+    };
+  };
+
+  const isSameTextStyle = (a?: ITextStyle, b?: ITextStyle) =>
+    a?.bl === b?.bl && a?.it === b?.it && a?.ul?.s === b?.ul?.s;
+
+  const pushTextRun = (start: number, end: number, style?: ITextStyle) => {
+    if (!style || end < start) return;
+    const last = textRuns[textRuns.length - 1];
+    if (last && last.ed === start && isSameTextStyle(last.ts, style)) {
+      last.ed = end;
+      return;
+    }
+    textRuns.push({ st: start, ed: end, ts: style });
+  };
+
+  const appendText = (text: string, style?: InlineStyle) => {
+    const normalized = normalizeText(text);
+    if (!normalized) return;
+    let value = normalized;
+    if (lastChar === "\r" || dataStream.length === 0) {
+      value = value.replace(/^\s+/, "");
+    }
+    if (lastChar === " " && value.startsWith(" ")) {
+      value = value.replace(/^\s+/, "");
+    }
+    if (!value) return;
+    const start = dataStream.length;
+    dataStream += value;
+    const end = dataStream.length;
+    lastChar = dataStream[dataStream.length - 1] ?? "";
+    pushTextRun(start, end, buildTextStyle(style));
+  };
+
+  const appendTab = () => {
+    if (dataStream.endsWith("\t")) return;
+    dataStream += "\t";
+    lastChar = "\t";
+  };
+
+  const pushParagraph = (paragraphStyle?: IParagraphStyle) => {
+    if (dataStream.endsWith("\r")) return;
+    const index = dataStream.length;
+    dataStream += "\r";
+    lastChar = "\r";
+    const nextStyle = cloneParagraphStyle(paragraphStyle ?? DEFAULT_PARAGRAPH_STYLE);
+    if (nextStyle) {
+      paragraphs.push({ startIndex: index, paragraphStyle: nextStyle });
+      return;
+    }
+    paragraphs.push({ startIndex: index });
+  };
+
+  const resolveParagraphStyle = (tagName: string): IParagraphStyle | undefined => {
+    switch (tagName) {
+      case "H1":
+        return { namedStyleType: NamedStyleType.HEADING_1 };
+      case "H2":
+        return { namedStyleType: NamedStyleType.HEADING_2 };
+      case "H3":
+        return { namedStyleType: NamedStyleType.HEADING_3 };
+      case "H4":
+        return { namedStyleType: NamedStyleType.HEADING_4 };
+      case "H5":
+        return { namedStyleType: NamedStyleType.HEADING_5 };
+      default:
+        return undefined;
+    }
+  };
+
+  const inlineTagToStyle = (tagName: string, style: InlineStyle): InlineStyle => {
+    switch (tagName) {
+      case "STRONG":
+      case "B":
+        return { ...style, bold: true };
+      case "EM":
+      case "I":
+        return { ...style, italic: true };
+      case "U":
+        return { ...style, underline: true };
+      default:
+        return style;
+    }
+  };
+
+  const walkInline = (
+    node: Node,
+    style: InlineStyle,
+    paragraphStyle?: IParagraphStyle
+  ) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      appendText(node.textContent ?? "", style);
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const element = node as HTMLElement;
+    const tagName = element.tagName.toUpperCase();
+    if (tagName === "BR") {
+      pushParagraph(paragraphStyle);
+      return;
+    }
+    const nextStyle = inlineTagToStyle(tagName, style);
+    const blockTags = new Set([
+      "P",
+      "DIV",
+      "H1",
+      "H2",
+      "H3",
+      "H4",
+      "H5",
+      "H6",
+      "LI",
+      "BLOCKQUOTE",
+      "TABLE",
+    ]);
+    if (blockTags.has(tagName)) {
+      walkBlock(element);
+      return;
+    }
+    element.childNodes.forEach((child) => walkInline(child, nextStyle, paragraphStyle));
+  };
+
+  const walkTable = (table: HTMLElement) => {
+    const rows = Array.from(table.querySelectorAll("tr"));
+    rows.forEach((row) => {
+      const cells = Array.from(row.querySelectorAll("th,td"));
+      cells.forEach((cell, index) => {
+        if (index > 0) appendTab();
+        cell.childNodes.forEach((child) => walkInline(child, {}, undefined));
+      });
+      pushParagraph();
+    });
+  };
+
+  const walkBlock = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      appendText(node.textContent ?? "", {});
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const element = node as HTMLElement;
+    const tagName = element.tagName.toUpperCase();
+    if (tagName === "TABLE") {
+      walkTable(element);
+      return;
+    }
+    const blockTags = new Set([
+      "P",
+      "DIV",
+      "H1",
+      "H2",
+      "H3",
+      "H4",
+      "H5",
+      "H6",
+      "LI",
+      "BLOCKQUOTE",
+    ]);
+    if (!blockTags.has(tagName)) {
+      element.childNodes.forEach((child) => walkInline(child, {}, undefined));
+      return;
+    }
+    const paragraphStyle = resolveParagraphStyle(tagName);
+    if (tagName === "LI") {
+      // 逻辑：列表项降级为文本前缀，避免复杂列表结构丢失内容。
+      appendText("• ", {});
+    }
+    element.childNodes.forEach((child) => walkInline(child, {}, paragraphStyle));
+    pushParagraph(paragraphStyle);
+  };
+
+  documentNode.body.childNodes.forEach((child) => walkBlock(child));
+
+  // 逻辑：确保文档以段落结束，避免渲染空文档。
+  if (dataStream.length > 0 && !dataStream.endsWith("\r")) {
+    pushParagraph();
+  }
+  if (dataStream.length === 0) {
+    return {
+      dataStream: "\r\n",
+      paragraphs: [
+        {
+          startIndex: 0,
+          paragraphStyle: cloneParagraphStyle(DEFAULT_PARAGRAPH_STYLE),
+        },
+      ],
+      sectionBreaks: [{ startIndex: 1 }],
+      textRuns: [],
+      customBlocks: [],
+      tables: [],
+      customRanges: [],
+      customDecorations: [],
+    };
+  }
+  // 逻辑：补齐段落分隔符后的 section break，确保渲染有页面上下文。
+  if (!dataStream.endsWith("\n")) {
+    dataStream += "\n";
+    lastChar = "\n";
+  }
+  const sectionBreaks = [{ startIndex: dataStream.length - 1 }];
+
+  return {
+    dataStream,
+    paragraphs: paragraphs.length ? paragraphs : undefined,
+    sectionBreaks,
+    textRuns: textRuns.length ? textRuns : undefined,
+    customBlocks: [],
+    tables: [],
+    customRanges: [],
+    customDecorations: [],
+  };
+}
+
+/** Build Univer document data from docx HTML. */
+function buildDocumentSnapshotFromHtml(html: string, title: string): IDocumentData {
+  // 逻辑：基于 HTML 生成文档快照，尽量保留标题与基础样式。
+  const body = buildDocumentBodyFromHtml(html);
+  // 逻辑：调试文档流生成结果，确认正文是否写入。
+  console.info("[DocViewer] doc body length", body.dataStream.length);
+  console.info(
+    "[DocViewer] doc body preview",
+    body.dataStream.slice(0, 200).replaceAll("\r", "\\r").replaceAll("\t", "\\t")
+  );
+  console.info("[DocViewer] doc paragraphs", body.paragraphs?.length ?? 0);
+  console.info("[DocViewer] doc textRuns", body.textRuns?.length ?? 0);
+  const docData = RichTextBuilder.newEmptyData();
+  docData.id = createUnitId("doc");
+  docData.title = title;
+  docData.locale = LocaleType.ZH_CN;
+  docData.body = body;
+  return docData;
 }
 
 /** Build a docx buffer from plain text. */
@@ -171,7 +492,7 @@ function resolveSaveUri(uri: string): string {
 }
 
 /** Create a Univer instance for doc editing. */
-function createDocUniver(container: HTMLElement, isDark: boolean): Univer {
+function createDocUniver(container: HTMLElement, isDark: boolean, readOnly: boolean): Univer {
   const univer = new Univer({
     theme: defaultTheme,
     locale: LocaleType.ZH_CN,
@@ -182,9 +503,9 @@ function createDocUniver(container: HTMLElement, isDark: boolean): Univer {
   univer.registerPlugin(UniverRenderEnginePlugin);
   univer.registerPlugin(UniverUIPlugin, {
     container,
-    header: true,
-    toolbar: true,
-    footer: true,
+    header: !readOnly,
+    toolbar: !readOnly,
+    footer: !readOnly,
     headerMenu: false,
     contextMenu: true,
     disableAutoFocus: true,
@@ -301,12 +622,19 @@ export default function DocViewer({
       setStatus("error");
       return;
     }
+    // 逻辑：调试 docx 载入数据，便于定位解析异常。
+    console.info("[DocViewer] docx payload length", payload.length);
     setStatus("loading");
     const run = async () => {
       try {
         const buffer = decodeBase64ToArrayBuffer(payload);
-        const text = await extractDocxText(buffer);
-        const nextSnapshot = buildDocumentSnapshot(text, displayTitle);
+        const html = await extractDocxHtml(buffer);
+        // 逻辑：调试 docx 转 HTML 输出，确认是否有正文内容。
+        console.info("[DocViewer] docx html length", html.length);
+        console.info("[DocViewer] docx html preview", html.slice(0, 200));
+        const nextSnapshot = html.trim()
+          ? buildDocumentSnapshotFromHtml(html, displayTitle)
+          : buildDocumentSnapshot("", displayTitle);
         setSnapshot(nextSnapshot);
         setIsDirty(false);
       } catch {
@@ -335,13 +663,21 @@ export default function DocViewer({
     container.replaceChildren(mountContainer);
 
     initializingRef.current = true;
-    const univer = createDocUniver(mountContainer, isDark);
+    const univer = createDocUniver(mountContainer, isDark, isReadOnly);
     univerRef.current = univer;
     const docModel = univer.createUnit(
       UniverInstanceType.UNIVER_DOC,
       snapshot
     ) as unknown as DocModel;
     docRef.current = docModel;
+    console.info("[DocViewer] model text length", docModel.getPlainText().length);
+    console.info("[DocViewer] model text preview", docModel.getPlainText().slice(0, 200));
+    const instanceService = univer.__getInjector().get(IUniverInstanceService);
+    const unitId = (docModel as { getUnitId?: () => string }).getUnitId?.();
+    if (unitId) {
+      instanceService.setCurrentUnitForType(unitId);
+      instanceService.focusUnit(unitId);
+    }
 
     const commandService = univer.__getInjector().get(ICommandService);
     commandDisposableRef.current = commandService.onCommandExecuted((commandInfo) => {
@@ -373,8 +709,12 @@ export default function DocViewer({
       window.setTimeout(() => {
         commandDisposable?.dispose();
         readOnlyDisposable?.dispose();
-        docModel?.dispose();
-        univerInstance?.dispose();
+        // 逻辑：优先释放 Univer 实例，避免内部依赖空 unit 时抛出 EmptyError。
+        if (univerInstance) {
+          univerInstance.dispose();
+        } else {
+          docModel?.dispose();
+        }
         mountContainer.remove();
       }, 0);
     };

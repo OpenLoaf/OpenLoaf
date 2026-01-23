@@ -28,10 +28,14 @@ const getFileIcon = (extension?: string) => {
     js: { color: "text-[oklch(0.8_0.18_90)]", icon: "◆" },
     css: { color: "text-[oklch(0.65_0.2_280)]", icon: "◈" },
     json: { color: "text-[oklch(0.75_0.15_85)]", icon: "{}" },
+    sql: { color: "text-[oklch(0.7_0.12_160)]", icon: "$" },
+    sh: { color: "text-[oklch(0.72_0.12_150)]", icon: "$" },
+    bash: { color: "text-[oklch(0.72_0.12_150)]", icon: "$" },
+    zsh: { color: "text-[oklch(0.72_0.12_150)]", icon: "$" },
     md: { color: "text-muted-foreground", icon: "◊" },
     svg: { color: "text-[oklch(0.7_0.15_160)]", icon: "◐" },
     png: { color: "text-[oklch(0.65_0.12_160)]", icon: "◑" },
-    default: { color: "text-muted-foreground", icon: "◇" },
+    default: { color: "text-[oklch(0.72_0.12_150)]", icon: "$" },
   }
   return iconMap[extension || "default"] || iconMap.default
 }

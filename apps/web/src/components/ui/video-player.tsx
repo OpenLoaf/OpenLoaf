@@ -14,6 +14,8 @@ type VideoPlayerProps = {
   autoPlay?: boolean;
   muted?: boolean;
   controls?: boolean;
+  /** Optional VTT URL for timeline thumbnails. */
+  thumbnails?: string;
   title?: string;
   className?: string;
 };
@@ -25,6 +27,7 @@ export function VideoPlayer({
   autoPlay,
   muted,
   controls = true,
+  thumbnails,
   title,
   className,
 }: VideoPlayerProps) {
@@ -86,15 +89,19 @@ export function VideoPlayer({
         <>
           <DefaultVideoLayout
             icons={defaultLayoutIcons}
+            thumbnails={thumbnails}
             slots={{
               title: null,
+              chapterTitle: null,
               googleCastButton: null,
               smallLayout: {
                 title: null,
+                chapterTitle: null,
                 googleCastButton: null,
               },
               largeLayout: {
                 title: null,
+                chapterTitle: null,
                 googleCastButton: null,
               },
             }}
