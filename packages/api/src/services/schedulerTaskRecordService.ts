@@ -1,4 +1,5 @@
 import { prisma } from "@tenas-ai/db";
+import type { Prisma } from "@tenas-ai/db/prisma/generated/client";
 
 export type SchedulerTaskRecordInput = {
   /** Task id. */
@@ -12,7 +13,7 @@ export type SchedulerTaskRecordInput = {
   /** Target dates. */
   dates?: string[] | null;
   /** Payload for related records. */
-  payload?: Record<string, unknown> | null;
+  payload?: Prisma.InputJsonValue | null;
   /** Task status. */
   status: string;
   /** Trigger source. */
@@ -38,14 +39,16 @@ export type SchedulerTaskRecordListInput = {
 export async function createSchedulerTaskRecord(
   input: SchedulerTaskRecordInput,
 ): Promise<void> {
+  const dates = input.dates ?? undefined;
+  const payload = input.payload ?? undefined;
   await prisma.schedulerTaskRecord.create({
     data: {
       id: input.id,
       projectId: input.projectId,
       workspaceId: input.workspaceId ?? null,
       type: input.type,
-      dates: input.dates ?? null,
-      payload: input.payload ?? null,
+      dates,
+      payload,
       status: input.status,
       triggeredBy: input.triggeredBy,
       error: input.error ?? null,

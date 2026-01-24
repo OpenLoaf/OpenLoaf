@@ -71,9 +71,15 @@ function extractPlanUpdate(metadata: unknown): UpdatePlanArgs | null {
     typeof (planUpdate as any).explanation === "string"
       ? (planUpdate as any).explanation.trim()
       : undefined;
+  const actionNameRaw =
+    typeof (planUpdate as any).actionName === "string"
+      ? (planUpdate as any).actionName.trim()
+      : "";
+  // 逻辑：缺失 actionName 时回退为默认值，保证结构完整。
+  const actionName = actionNameRaw || "同步计划";
 
   // 逻辑：只输出结构化后的 plan，避免 UI 处理异常输入。
-  return { explanation: explanation || undefined, plan: normalizedPlan };
+  return { actionName, explanation: explanation || undefined, plan: normalizedPlan };
 }
 
 /**

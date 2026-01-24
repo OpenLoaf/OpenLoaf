@@ -3,7 +3,6 @@
 import * as React from "react";
 import SessionItem, { type Session } from "./SessionItem";
 import { Separator } from "@/components/ui/separator";
-import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
 
 interface SessionListProps {
@@ -135,40 +134,34 @@ export default function SessionList({
   const groups = React.useMemo(() => groupSessions(sessions), [sessions]);
 
   return (
-    <ScrollArea.Root
-      className={`w-full ${className ?? ""}`}
+    <div
+      className={`w-full max-h-[min(80svh,var(--radix-popover-content-available-height))] overflow-auto show-scrollbar touch-auto ${className ?? ""}`}
     >
-      <ScrollArea.Viewport className="w-full max-h-[min(80svh,var(--radix-popover-content-available-height))] touch-auto [&>div]:!block [&>div]:!max-w-full [&>div]:!w-full">
-        {isLoading ? null : sessions.length === 0 ? (
-          <div className="px-2 py-3 text-sm text-muted-foreground">
-            暂无会话
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {groups.map((g, idx) => (
-              <div key={g.key} className="flex flex-col gap-1">
-                <div className="px-2 text-xs font-medium text-muted-foreground">
-                  {g.label}
-                </div>
-                {g.sessions.map((s) => (
-                  <SessionItem
-                    key={s.id}
-                    session={s}
-                    isActive={Boolean(activeSessionId && s.id === activeSessionId)}
-                    onSelect={onSelect}
-                    onMenuOpenChange={onMenuOpenChange}
-                  />
-                ))}
-                {idx < groups.length - 1 && <Separator className="my-1" />}
+      {isLoading ? null : sessions.length === 0 ? (
+        <div className="px-2 py-3 text-sm text-muted-foreground">
+          暂无会话
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 [&>div]:!block [&>div]:!max-w-full [&>div]:!w-full">
+          {groups.map((g, idx) => (
+            <div key={g.key} className="flex flex-col gap-1">
+              <div className="px-2 text-xs font-medium text-muted-foreground">
+                {g.label}
               </div>
-            ))}
-          </div>
-        )}
-      </ScrollArea.Viewport>
-      <ScrollArea.Scrollbar orientation="vertical" style={{ right: "-7px" }}>
-        <ScrollArea.Thumb />
-      </ScrollArea.Scrollbar>
-      <ScrollArea.Corner />
-    </ScrollArea.Root>
+              {g.sessions.map((s) => (
+                <SessionItem
+                  key={s.id}
+                  session={s}
+                  isActive={Boolean(activeSessionId && s.id === activeSessionId)}
+                  onSelect={onSelect}
+                  onMenuOpenChange={onMenuOpenChange}
+                />
+              ))}
+              {idx < groups.length - 1 && <Separator className="my-1" />}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 const SYNTAX_HIGHLIGHTER_CUSTOM_STYLE: React.CSSProperties = {
   margin: 0,
@@ -190,13 +189,15 @@ export default function MarkdownCodeBlock({
         </Button>
       </div>
 
-      <ScrollArea
-        className={cn("bg-muted/30 font-mono", collapsed && "hidden")}
-        viewportClassName="max-h-[450px]"
+      <div
+        className={cn(
+          "max-h-[450px] overflow-auto show-scrollbar bg-muted/30 font-mono",
+          collapsed && "hidden"
+        )}
         aria-hidden={collapsed}
       >
         <MemoSyntaxHighlighter code={code} language={normalizedLanguage} />
-      </ScrollArea>
+      </div>
     </div>
   );
 }

@@ -385,14 +385,15 @@ function createSheetUniver(
       formulaBar: !readOnly,
       // 逻辑：关闭“数字以文本存储”的提示弹窗。
       disableForceStringAlert: true,
-    footer: {
-      sheetBar: true,
-      statisticBar: true,
-      // 逻辑：隐藏底部菜单区，避免出现“切换网格线”按钮。
-      menus: false,
-      zoomSlider: true,
-    },
-  });
+      footer: {
+        // 逻辑：只读模式隐藏 sheet bar，避免出现新增 sheet 的按钮。
+        sheetBar: !readOnly,
+        statisticBar: true,
+        // 逻辑：隐藏底部菜单区，避免出现“切换网格线”按钮。
+        menus: false,
+        zoomSlider: true,
+      },
+    });
   }
   console.info("[SheetViewer] createSheetUniver: done");
   return univer;

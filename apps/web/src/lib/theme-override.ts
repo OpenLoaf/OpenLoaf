@@ -21,17 +21,19 @@ export function readThemeOverride(): ThemeOverride | null {
     const raw = window.localStorage.getItem(THEME_OVERRIDE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ThemeOverride>;
-    const isTheme = parsed.theme === "light" || parsed.theme === "dark";
-    const isDate = typeof parsed.date === "string";
+    const theme = parsed.theme;
+    const date = parsed.date;
+    const isTheme = theme === "light" || theme === "dark";
+    const isDate = typeof date === "string";
     if (!isTheme || !isDate) {
       clearThemeOverride();
       return null;
     }
-    if (parsed.date !== getTodayKey()) {
+    if (date !== getTodayKey()) {
       clearThemeOverride();
       return null;
     }
-    return { theme: parsed.theme, date: parsed.date };
+    return { theme, date };
   } catch {
     clearThemeOverride();
     return null;

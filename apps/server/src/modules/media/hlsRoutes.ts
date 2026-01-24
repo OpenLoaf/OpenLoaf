@@ -21,7 +21,12 @@ export function registerHlsRoutes(app: Hono) {
     if (quality && !isHlsQuality(quality)) {
       return c.json({ error: "Invalid quality value" }, 400);
     }
-    const manifest = await getHlsManifest({ path, projectId, quality });
+    const qualityValue = isHlsQuality(quality) ? quality : undefined;
+    const manifest = await getHlsManifest({
+      path,
+      projectId,
+      quality: qualityValue,
+    });
     if (!manifest) {
       return c.json({ error: "Manifest not found" }, 404);
     }

@@ -573,7 +573,7 @@ export async function getHlsThumbnails(input: {
 export async function getHlsSegment(input: {
   token: string;
   name: string;
-}): Promise<Uint8Array | null> {
+}): Promise<Uint8Array<ArrayBuffer> | null> {
   const parsed = parseSegmentToken(input.token);
   if (!parsed) return null;
   const rootPath = getProjectRootPath(parsed.projectId);
@@ -589,14 +589,18 @@ export async function getHlsSegment(input: {
   );
   const buffer = await fs.readFile(segmentPath).catch(() => null);
   if (!buffer) return null;
-  return new Uint8Array(buffer);
+  const arrayBuffer = buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  );
+  return new Uint8Array(arrayBuffer);
 }
 
 /** Load a cached thumbnail by token and name. */
 export async function getHlsThumbnail(input: {
   token: string;
   name: string;
-}): Promise<Uint8Array | null> {
+}): Promise<Uint8Array<ArrayBuffer> | null> {
   const parsed = parseThumbnailToken(input.token);
   if (!parsed) return null;
   const rootPath = getProjectRootPath(parsed.projectId);
@@ -612,5 +616,9 @@ export async function getHlsThumbnail(input: {
   );
   const buffer = await fs.readFile(thumbnailPath).catch(() => null);
   if (!buffer) return null;
-  return new Uint8Array(buffer);
+  const arrayBuffer = buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  );
+  return new Uint8Array(arrayBuffer);
 }

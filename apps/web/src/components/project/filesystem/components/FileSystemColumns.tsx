@@ -285,6 +285,8 @@ type FileSystemColumnsProps = {
   onOpenDoc?: (entry: FileSystemEntry) => void;
   /** Open spreadsheet entries in an external viewer. */
   onOpenSpreadsheet?: (entry: FileSystemEntry) => void;
+  /** Open video entries in an external viewer. */
+  onOpenVideo?: (entry: FileSystemEntry) => void;
   /** Open board entries in the board viewer. */
   onOpenBoard?: (entry: FileSystemEntry) => void;
   renderEntry?: (entry: FileSystemEntry, node: ReactNode) => ReactNode;
@@ -344,6 +346,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
   onOpenPdf,
   onOpenDoc,
   onOpenSpreadsheet,
+  onOpenVideo,
   onOpenBoard,
   renderEntry,
   onEntryClick,
@@ -448,6 +451,8 @@ const FileSystemColumns = memo(function FileSystemColumns({
   onOpenDocRef.current = onOpenDoc;
   const onOpenSpreadsheetRef = useRef(onOpenSpreadsheet);
   onOpenSpreadsheetRef.current = onOpenSpreadsheet;
+  const onOpenVideoRef = useRef(onOpenVideo);
+  onOpenVideoRef.current = onOpenVideo;
   const onOpenBoardRef = useRef(onOpenBoard);
   onOpenBoardRef.current = onOpenBoard;
   const onNavigateRef = useRef(onNavigate);
@@ -609,6 +614,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
           onOpenPdf: onOpenPdfRef.current,
           onOpenDoc: onOpenDocRef.current,
           onOpenSpreadsheet: onOpenSpreadsheetRef.current,
+          onOpenVideo: onOpenVideoRef.current,
           onOpenBoard: onOpenBoardRef.current,
           onNavigate: onNavigateRef.current,
         },

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MediaPlayer, MediaProvider } from "@vidstack/react";
+import type { PlayerSrc } from "@vidstack/react";
 import {
   defaultLayoutIcons,
   DefaultVideoLayout,
@@ -60,10 +61,11 @@ export function VideoPlayer({
   }, []);
 
   const mediaSrc = useMemo(
-    () => ({
-      src,
-      type: "application/vnd.apple.mpegurl",
-    }),
+    () =>
+      ({
+        src,
+        type: "application/vnd.apple.mpegurl",
+      }) as PlayerSrc,
     [src],
   );
 

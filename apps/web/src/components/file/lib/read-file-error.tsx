@@ -124,7 +124,9 @@ export function ReadFileErrorFallback({
       }
       // 逻辑：转成 blob 后触发浏览器下载，避免内联预览超大文本。
       const bytes = decodeBase64ToUint8Array(result.contentBase64);
-      const blob = new Blob([bytes], {
+      const blobData = new Uint8Array(bytes.byteLength);
+      blobData.set(bytes);
+      const blob = new Blob([blobData], {
         type: result.mime || "application/octet-stream",
       });
       const url = URL.createObjectURL(blob);

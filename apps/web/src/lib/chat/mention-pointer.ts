@@ -156,12 +156,16 @@ export function handleChatMentionPointerDown(
       });
       return;
     }
+    const fallbackName = relativePath.split("/").pop() ?? relativePath;
+    const fallbackExt = relativePath.includes(".") ? relativePath.split(".").pop() : undefined;
+    const entryName = entry?.name ?? fallbackName;
+    const entryExt = entry?.ext ?? fallbackExt;
     openFilePreview({
       entry: entry ?? {
         uri,
-        name: entry?.name ?? relativePath.split("/").pop() ?? relativePath,
+        name: entryName,
         kind: "file",
-        ext: entry?.ext ?? relativePath.split(".").pop() ?? undefined,
+        ext: entryExt,
       },
       tabId: activeTabId,
       projectId,

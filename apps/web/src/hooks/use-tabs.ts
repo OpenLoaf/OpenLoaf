@@ -41,6 +41,8 @@ export type ToolPartSnapshot = {
   input?: unknown;
   output?: unknown;
   errorText?: string;
+  /** Tool approval status. */
+  approval?: { id?: string; approved?: boolean; reason?: string };
 };
 
 export type ChatStatus = "ready" | "submitted" | "streaming" | "error";

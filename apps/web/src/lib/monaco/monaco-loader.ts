@@ -1,6 +1,7 @@
 "use client";
 
 import { loader } from "@monaco-editor/react";
+import type { Environment } from "monaco-editor";
 
 /** 本地 Monaco 静态资源路径。 */
 export const MONACO_ASSETS_PATH = "/monaco/vs";
@@ -9,9 +10,7 @@ export const MONACO_WORKER_MAIN_PATH = `${MONACO_ASSETS_PATH}/base/worker/worker
 
 declare global {
   interface Window {
-    MonacoEnvironment?: {
-      getWorkerUrl?: (moduleId: string, label: string) => string;
-    };
+    MonacoEnvironment?: Environment;
   }
 }
 

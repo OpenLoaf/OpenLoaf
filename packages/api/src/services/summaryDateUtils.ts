@@ -8,8 +8,14 @@ export function formatDateKey(date: Date): string {
 
 /** Parse YYYY-MM-DD into a Date at 00:00:00. */
 export function parseDateKey(value: string): Date {
-  const [year, month, day] = value.split("-").map((n) => Number(n));
-  return new Date(year, (month ?? 1) - 1, day ?? 1, 0, 0, 0, 0);
+  const [yearPart, monthPart, dayPart] = value.split("-").map((n) => Number(n));
+  const year =
+    typeof yearPart === "number" && Number.isFinite(yearPart) ? yearPart : 1970;
+  const month =
+    typeof monthPart === "number" && Number.isFinite(monthPart) ? monthPart : 1;
+  const day =
+    typeof dayPart === "number" && Number.isFinite(dayPart) ? dayPart : 1;
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
 /** Normalize to start of day. */

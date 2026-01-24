@@ -116,7 +116,7 @@
   "dependencies": {
     "@tenas-ai/config": "workspace:*",
     "electron-updater": "^6.7.3",
-    "pino": "^10.2.1",
+    "pino": "^10.3.0",
     "serve-handler": "^6.1.6"
   },
   "devDependencies": {

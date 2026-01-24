@@ -35,6 +35,6 @@
     "@prisma/adapter-libsql": "^7.3.0",
     "@prisma/client": "catalog:",
     "dotenv": "catalog:",
-    "zod": "^4.3.5"
+    "zod": "^4.3.6"
   }
 }

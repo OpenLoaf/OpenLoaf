@@ -29,11 +29,11 @@
     "dotenv": "catalog:",
     "hono": "catalog:",
     "ignore": "^7.0.5",
-    "isomorphic-git": "^1.36.1",
+    "isomorphic-git": "^1.36.2",
     "platejs": "^52.0.17",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "superjson": "^2.2.6",
-    "zod": "^4.3.5"
+    "zod": "^4.3.6"
   }
 }

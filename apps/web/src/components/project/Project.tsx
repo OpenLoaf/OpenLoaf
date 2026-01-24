@@ -1,6 +1,5 @@
 "use client";
 
-import * as ScrollArea from "@radix-ui/react-scroll-area";
 import {
   memo,
   startTransition,
@@ -475,8 +474,8 @@ export default function ProjectPage({
         </div>
       </div>
 
-      <ScrollArea.Root className="flex-1 min-h-0 w-full">
-        <ScrollArea.Viewport className="w-full h-full min-h-0 min-w-0 flex flex-col [&>div]:!min-w-0 [&>div]:!w-full [&>div]:!h-full [&>div]:!block">
+      <div className="flex-1 min-h-0 w-full overflow-auto show-scrollbar">
+        <div className="w-full h-full min-h-0 min-w-0 flex flex-col [&>div]:!min-w-0 [&>div]:!w-full [&>div]:!h-full [&>div]:!block">
           <div className="flex-1 min-h-0 w-full h-full">
             <div className="relative w-full h-full min-h-0">
               <div
@@ -560,12 +559,8 @@ export default function ProjectPage({
               </div>
             </div>
           </div>
-        </ScrollArea.Viewport>
-        <ScrollArea.Scrollbar orientation="vertical" style={{ right: "-7px" }}>
-          <ScrollArea.Thumb />
-        </ScrollArea.Scrollbar>
-        <ScrollArea.Corner />
-      </ScrollArea.Root>
+        </div>
+      </div>
     </div>
   );
 }

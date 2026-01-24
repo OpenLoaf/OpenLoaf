@@ -56,6 +56,9 @@ export class SummaryProjectUseCase {
         });
     const fromKey = input.dates[0];
     const toKey = input.dates[input.dates.length - 1];
+    if (!fromKey || !toKey) {
+      throw new Error("缺少汇总日期范围");
+    }
     const content = await generateRangeSummary({
       projectTitle: projectConfig.title ?? input.projectId,
       from: fromKey,

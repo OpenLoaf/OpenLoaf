@@ -240,7 +240,10 @@ export function countPendingToolApprovals(
   for (const message of messages) {
     const parts = Array.isArray(message?.parts) ? message.parts : [];
     for (const part of parts) {
-      const type = typeof part?.type === "string" ? part.type : "";
+      if (!part || typeof part !== "object") continue;
+      const type = typeof (part as { type?: unknown }).type === "string"
+        ? (part as { type?: string }).type ?? ""
+        : "";
       const isTool = type === "dynamic-tool" || type.startsWith("tool-");
       if (!isTool) continue;
       // 中文注释：只有审批中的工具才计数，避免误触发继续执行。
@@ -257,7 +260,10 @@ export function hasRejectedToolApproval(
   for (const message of messages) {
     const parts = Array.isArray(message?.parts) ? message.parts : [];
     for (const part of parts) {
-      const type = typeof part?.type === "string" ? part.type : "";
+      if (!part || typeof part !== "object") continue;
+      const type = typeof (part as { type?: unknown }).type === "string"
+        ? (part as { type?: string }).type ?? ""
+        : "";
       const isTool = type === "dynamic-tool" || type.startsWith("tool-");
       if (!isTool) continue;
       const approval = (part as AnyToolPart).approval;

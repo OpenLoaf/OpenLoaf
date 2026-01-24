@@ -45,7 +45,19 @@ export const SchedulerTaskHistoryStackPanel = memo(function SchedulerTaskHistory
   const total = historyQuery.data?.total ?? 0;
   const pageSize = historyQuery.data?.pageSize ?? 20;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const items = historyQuery.data?.items ?? [];
+  const items = useMemo(() => {
+    const raw = historyQuery.data?.items ?? [];
+    return raw.map((item) => ({
+      ...item,
+      dates: Array.isArray(item.dates)
+        ? item.dates.filter((value): value is string => typeof value === "string")
+        : null,
+      payload:
+        item.payload && typeof item.payload === "object" && !Array.isArray(item.payload)
+          ? (item.payload as Record<string, unknown>)
+          : null,
+    }));
+  }, [historyQuery.data?.items]);
   const scopeLabel = scope === "workspace" ? "工作空间" : "项目";
 
   function handlePrevPage() {

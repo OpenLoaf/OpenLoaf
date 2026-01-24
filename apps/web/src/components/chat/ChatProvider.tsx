@@ -23,6 +23,7 @@ import type { CodexOptions } from "@/lib/chat/codex-options";
 import type { ChatMessageKind } from "@tenas-ai/api";
 import { SUMMARY_HISTORY_COMMAND, SUMMARY_TITLE_COMMAND } from "@tenas-ai/api/common";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
+import { incrementChatPerf, startChatPerfLogger } from "@/lib/chat/chat-perf";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "./chat-attachments";
 import { createChatSessionId } from "@/lib/chat-session-id";
 
@@ -218,12 +219,6 @@ interface ChatContextType extends ReturnType<typeof useChat> {
   input: string;
   /** 设置输入框内容的方法 */
   setInput: (value: string) => void;
-  /** 用于触发消息列表滚动到底部的信号（自增即可） */
-  scrollToBottomToken: number;
-  /** 流式输出节拍，用于触发消息列表在输出中持续贴底 */
-  streamTick: number;
-  /** 用于触发消息列表滚动到指定消息的信号（自增即可） */
-  scrollToMessageToken: { messageId: string; token: number } | null;
   /** 是否正在加载/应用该 session 的历史消息 */
   isHistoryLoading: boolean;
   /** 创建新会话（清空消息并切换 id） */
@@ -350,12 +345,6 @@ export default function ChatProvider({
   addAttachments,
   addMaskedAttachment,
 }: ChatProviderProps) {
-  const [scrollToBottomToken, setScrollToBottomToken] = React.useState(0);
-  const [streamTick, setStreamTick] = React.useState(0);
-  const [scrollToMessageToken, setScrollToMessageToken] = React.useState<{
-    messageId: string;
-    token: number;
-  } | null>(null);
   const [leafMessageId, setLeafMessageId] = React.useState<string | null>(null);
   const [branchMessageIds, setBranchMessageIds] = React.useState<string[]>([]);
   const [siblingNav, setSiblingNav] = React.useState<
@@ -417,6 +406,11 @@ export default function ChatProvider({
     assistantReplyCountRef.current = 0;
     pendingInitialTitleRefreshRef.current = false;
   }, [sessionId]);
+
+  React.useEffect(() => {
+    // 中文注释：仅在开启调试开关时输出性能统计。
+    return startChatPerfLogger({ label: "chat", intervalMs: 1000 });
+  }, []);
 
   React.useEffect(() => {
     if (tabId) {
@@ -541,7 +535,7 @@ export default function ChatProvider({
       // 中文注释：每 5 次 assistant 回复触发 AI 自动标题。
       assistantReplyCountRef.current += 1;
       if (assistantReplyCountRef.current % 5 === 0 && !autoTitleMutation.isPending) {
-        autoTitleMutation.mutate({ sessionId });
+        autoTitleMutation.mutate({ sessionId } as any);
       }
     },
     [autoTitleMutation, queryClient, refreshBranchMeta, sessionId]
@@ -557,6 +551,7 @@ export default function ChatProvider({
       onData: (dataPart: any) => {
         // 关键：切换 session 后忽略旧流的 dataPart，避免 toolParts 被写回新会话 UI。
         if (sessionIdRef.current !== sessionId) return;
+        incrementChatPerf("chat.onData");
         if (handleOpenBrowserDataPart({ dataPart, fallbackTabId: tabId })) return;
         if (dataPart?.type === "data-session-title") {
           invalidateChatSessions(queryClient);
@@ -565,7 +560,6 @@ export default function ChatProvider({
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
         if (handleSubAgentDataPart({ dataPart, setSubAgentStreams })) return;
         handleChatDataPart({ dataPart, tabId, upsertToolPartMerged });
-        setStreamTick((prev) => prev + 1);
       },
     }),
     [
@@ -630,7 +624,6 @@ export default function ChatProvider({
       // 中文注释：切换会话前必须停止流式并清空本地状态，避免脏数据串流。
       chat.stop();
       chat.setMessages([]);
-      setStreamTick(0);
       pendingUserMessageIdRef.current = null;
       needsBranchMetaRefreshRef.current = false;
       pendingCompactRequestRef.current = null;
@@ -683,8 +676,6 @@ export default function ChatProvider({
         clearToolPartsForTab(tabId);
         syncToolPartsFromMessages({ tabId, messages });
       }
-      // 应用历史后，滚动到最底部显示最新消息
-      setScrollToBottomToken((n) => n + 1);
     }
     setLeafMessageId(data.leafMessageId ?? null);
     setBranchMessageIds(data.branchMessageIds ?? []);
@@ -704,8 +695,6 @@ export default function ChatProvider({
     // 中文注释：立即清空，避免 UI 闪回旧消息。
     stopAndResetSession(true);
     onSessionChange?.(createChatSessionId(), { loadHistory: false });
-    // 新会话也滚动到底部（此时通常为空，属于安全操作）
-    setScrollToBottomToken((n) => n + 1);
   }, [stopAndResetSession, onSessionChange]);
 
   const selectSession = React.useCallback(
@@ -713,8 +702,6 @@ export default function ChatProvider({
       // 中文注释：立即清空，避免 UI 闪回旧消息。
       stopAndResetSession(true);
       onSessionChange?.(nextSessionId, { loadHistory: true });
-      // 先触发一次滚动：避免短暂显示在顶部；历史加载后还会再触发一次
-      setScrollToBottomToken((n) => n + 1);
     },
     [stopAndResetSession, onSessionChange]
   );
@@ -803,9 +790,6 @@ export default function ChatProvider({
       pendingUserMessageIdRef.current = String(nextMessage.id);
 
       const result = (chat.sendMessage as any)(nextMessage, options);
-      // 关键：在下一帧触发滚动，确保 user 消息已渲染进 DOM，避免 pinned 被误判为 false，
-      // 从而导致流式输出期间不再自动跟随。
-      requestAnimationFrame(() => setScrollToBottomToken((n) => n + 1));
       return result;
     },
     [chat.sendMessage, chat.messages, leafMessageId]
@@ -842,14 +826,6 @@ export default function ChatProvider({
       setLeafMessageId(data?.leafMessageId ?? null);
       setBranchMessageIds(data?.branchMessageIds ?? []);
       setSiblingNav(data?.siblingNav ?? {});
-      // 关键：切分支是“浏览历史/对比内容”的交互，不应强制滚动到底部（否则会打断阅读）。
-      // 若用户本来就在底部，useChatScroll 的 pinned/ResizeObserver 机制会自然维持贴底体验。
-      // 但切到更短分支时，浏览器可能会把 scrollTop clamp 到新最大值，看起来像“跳到底部”。
-      // 这里用一个 token 通知 MessageList 定位到目标 sibling 节点，并抑制一次“贴底跟随”。
-      setScrollToMessageToken((prev) => ({
-        messageId: String(targetId),
-        token: (prev?.token ?? 0) + 1,
-      }));
     },
     [
       siblingNav,
@@ -910,7 +886,6 @@ export default function ChatProvider({
       // - 然后直接 regenerate()：服务端按 regenerate-message 复用该 user 节点生成新 assistant sibling
       pendingUserMessageIdRef.current = parentUserMessageId;
       needsBranchMetaRefreshRef.current = true;
-      setScrollToBottomToken((n) => n + 1);
       await (chat.regenerate as any)({ body: { retry: true } });
     },
     [
@@ -1065,9 +1040,6 @@ export default function ChatProvider({
         input,
         setInput,
         isHistoryLoading,
-        scrollToBottomToken,
-        streamTick,
-        scrollToMessageToken,
         newSession,
         selectSession,
         updateMessage,

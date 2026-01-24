@@ -288,6 +288,7 @@ export function buildStackItemForEntry(input: {
         params: {
           ...baseParams,
           rootUri: input.rootUri,
+          projectId: input.projectId,
           __customHeader: true,
           readOnly: input.readOnly,
         },

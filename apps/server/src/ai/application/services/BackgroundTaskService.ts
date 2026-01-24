@@ -90,11 +90,15 @@ export class BackgroundTaskService {
         });
       } else if (taskPlan.type === "summary-range" && taskPlan.dates?.length) {
         const dates = taskPlan.dates;
+        const [firstDate] = dates;
+        if (!firstDate) {
+          throw new Error("缺少汇总日期范围");
+        }
         // 逻辑：超过五天未汇总时走一次性汇总，覆盖整个日期范围。
         const result = await this.summaryProjectUseCase.execute({
           projectId: input.projectId,
           dates,
-          from: startOfDay(parseDateKey(dates[0])),
+          from: startOfDay(parseDateKey(firstDate)),
           to: input.now,
           triggeredBy: input.triggeredBy,
           timezone: input.timezone,

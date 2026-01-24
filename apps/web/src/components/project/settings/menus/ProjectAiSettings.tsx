@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
 import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
 import { Switch } from "@/components/animate-ui/components/radix/switch";

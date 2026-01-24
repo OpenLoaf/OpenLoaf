@@ -11,7 +11,6 @@ import {
   Hash,
   Image,
 } from "lucide-react";
-import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useChatContext } from "./ChatProvider";
 import { cn } from "@/lib/utils";
 import SelectMode from "./input/SelectMode";
@@ -679,36 +678,31 @@ export function ChatInputBox({
             attachments && attachments.length > 0 && "pt-2"
           )}
         >
-          <ScrollArea.Root className="w-full h-full">
-            <ScrollArea.Viewport className="w-full h-full min-h-0">
-              <Plate
-                editor={editor}
-                decorate={decorate}
-                renderLeaf={renderLeaf}
-                onValueChange={({ value: nextValue }) =>
-                  handleValueChange(nextValue)
-                }
-              >
-                <EditorContainer className="bg-transparent">
-                  <Editor
-                    variant="none"
-                    className={cn(
-                      "min-h-[56px] text-[13px] leading-5",
-                      isOverLimit && "text-destructive"
-                    )}
-                    placeholder={placeholder}
-                    onKeyDown={handleKeyDown}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
-                    data-tenas-chat-input="true"
-                  />
-                </EditorContainer>
-              </Plate>
-            </ScrollArea.Viewport>
-            <ScrollArea.Scrollbar orientation="vertical">
-              <ScrollArea.Thumb />
-            </ScrollArea.Scrollbar>
-          </ScrollArea.Root>
+          <div className="w-full h-full min-h-0 overflow-auto show-scrollbar">
+            <Plate
+              editor={editor}
+              decorate={decorate}
+              renderLeaf={renderLeaf}
+              onValueChange={({ value: nextValue }) =>
+                handleValueChange(nextValue)
+              }
+            >
+              <EditorContainer className="bg-transparent">
+                <Editor
+                  variant="none"
+                  className={cn(
+                    "min-h-[56px] text-[13px] leading-5",
+                    isOverLimit && "text-destructive"
+                  )}
+                  placeholder={placeholder}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  data-tenas-chat-input="true"
+                />
+              </EditorContainer>
+            </Plate>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-2 px-1.5 pb-1.5 shrink-0 min-w-0">
