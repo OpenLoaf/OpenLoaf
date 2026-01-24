@@ -60,9 +60,9 @@ export type FileOpenInput = {
 };
 
 /** Document extensions handled by the built-in viewer. */
-const INTERNAL_DOC_EXTS = new Set<string>();
+const INTERNAL_DOC_EXTS = new Set(["doc", "docx"]);
 /** Spreadsheet extensions handled by the built-in viewer. */
-const INTERNAL_SHEET_EXTS = new Set(["csv"]);
+const INTERNAL_SHEET_EXTS = new Set(SPREADSHEET_EXTS);
 
 /** Return true when the office file should open with the system default app. */
 export function shouldOpenOfficeWithSystem(ext: string): boolean {
@@ -275,6 +275,7 @@ export function buildStackItemForEntry(input: {
         params: {
           ...baseParams,
           rootUri: input.rootUri,
+          projectId: input.projectId,
           __customHeader: true,
           readOnly: input.readOnly,
         },
