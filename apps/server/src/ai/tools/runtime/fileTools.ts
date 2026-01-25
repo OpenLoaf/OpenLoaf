@@ -1,14 +1,13 @@
 import path from "node:path";
-import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { tool, zodSchema } from "ai";
 import {
-  grepFilesToolDef,
   listDirToolDef,
   readFileToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolPath, resolveToolWorkdir } from "@/ai/tools/runtime/toolScope";
+import { buildGitignoreMatcher } from "@/ai/tools/runtime/gitignoreMatcher";
 
 const MAX_LINE_LENGTH = 500;
 const DEFAULT_READ_LIMIT = 2000;
@@ -20,11 +19,7 @@ const INDENTATION_SPACES = 2;
 const DEFAULT_LIST_LIMIT = 25;
 const DEFAULT_LIST_DEPTH = 2;
 
-const DEFAULT_GREP_LIMIT = 100;
-const MAX_GREP_LIMIT = 2000;
-const GREP_TIMEOUT_MS = 30_000;
-
-/** Blocked binary extensions for read/grep file tools. */
+/** Blocked binary extensions for read file tools. */
 const BINARY_FILE_EXTENSIONS = new Set([
   ".7z",
   ".avi",
@@ -352,7 +347,7 @@ export const readFileTool = tool({
 export const listDirTool = tool({
   description: listDirToolDef.description,
   inputSchema: zodSchema(listDirToolDef.parameters),
-  execute: async ({ path: targetPath, offset, limit, depth }): Promise<string> => {
+  execute: async ({ path: targetPath, offset, limit, depth, ignoreGitignore }): Promise<string> => {
     const allowOutside = readBasicConf().toolAllowOutsideScope;
     const { absPath } = resolveToolPath({ target: targetPath, allowOutside });
     const stat = await fs.stat(absPath);
@@ -366,7 +361,10 @@ export const listDirTool = tool({
     if (resolvedLimit <= 0) throw new Error("limit must be greater than zero");
     if (resolvedDepth <= 0) throw new Error("depth must be greater than zero");
 
-    const entries = await collectDirEntries(absPath, resolvedDepth);
+    const ignoreMatcher = ignoreGitignore === false
+      ? null
+      : await buildGitignoreMatcher({ rootPath: absPath });
+    const entries = await collectDirEntries(absPath, resolvedDepth, ignoreMatcher);
     const output: string[] = [`Absolute path: ${absPath}`];
 
     if (entries.length === 0) {
@@ -396,7 +394,11 @@ export const listDirTool = tool({
 });
 
 /** Collect directory entries in BFS order with depth. */
-async function collectDirEntries(basePath: string, depth: number): Promise<DirEntry[]> {
+async function collectDirEntries(
+  basePath: string,
+  depth: number,
+  ignoreMatcher: import("ignore").Ignore | null,
+): Promise<DirEntry[]> {
   const entries: DirEntry[] = [];
   const queue: Array<{ dirPath: string; prefix: string; remaining: number }> = [
     { dirPath: basePath, prefix: "", remaining: depth },
@@ -410,8 +412,18 @@ async function collectDirEntries(basePath: string, depth: number): Promise<DirEn
     const collected: Array<{ entryPath: string; relativePath: string; entry: DirEntry; kind: DirEntryKind }> = [];
 
     for (const entry of dirEntries) {
+      // 固定过滤 .DS_Store 与 .tenas* 目录，避免噪声泄露到工具输出。
+      if (entry.name === ".DS_Store" || (entry.isDirectory() && entry.name.startsWith(".tenas"))) {
+        continue;
+      }
       const relativePath = current.prefix ? path.join(current.prefix, entry.name) : entry.name;
       const normalized = relativePath.split(path.sep).join("/");
+      if (ignoreMatcher) {
+        const ignoreTarget = entry.isDirectory() ? `${normalized}/` : normalized;
+        if (ignoreMatcher.ignores(ignoreTarget)) {
+          continue;
+        }
+      }
       const depthLevel = current.prefix ? current.prefix.split(path.sep).length : 0;
       const displayName = truncateLine(entry.name, MAX_ENTRY_LENGTH);
       const kind: DirEntryKind = entry.isDirectory()
@@ -461,155 +473,4 @@ function formatDirEntry(entry: DirEntry): string {
 function hasBlockedBinaryExtension(targetPath: string): boolean {
   const ext = path.extname(targetPath).toLowerCase();
   return Boolean(ext) && BINARY_FILE_EXTENSIONS.has(ext);
-}
-
-/** Check whether a glob/pattern mentions a blocked binary extension. */
-function hasBlockedBinaryExtensionInPattern(pattern: string): boolean {
-  const lowered = pattern.toLowerCase();
-  for (const ext of BINARY_FILE_EXTENSIONS) {
-    if (lowered.includes(ext)) return true;
-  }
-  return false;
-}
-
-/** Execute grep files tool with scope enforcement. */
-export const grepFilesTool = tool({
-  description: grepFilesToolDef.description,
-  inputSchema: zodSchema(grepFilesToolDef.parameters),
-  execute: async ({ pattern, include, path: targetPath, limit }): Promise<string> => {
-    const trimmedPattern = pattern.trim();
-    if (!trimmedPattern) throw new Error("pattern must not be empty");
-
-    const resolvedLimit = typeof limit === "number" ? limit : DEFAULT_GREP_LIMIT;
-    if (resolvedLimit <= 0) throw new Error("limit must be greater than zero");
-
-    const allowOutside = readBasicConf().toolAllowOutsideScope;
-    const { basePath, cwd } = resolveGrepBase({ target: targetPath, allowOutside });
-    // 过滤常见二进制文件后缀，避免对非文本内容执行搜索。
-    if (hasBlockedBinaryExtension(basePath)) {
-      throw new Error("Only text files are supported; binary file extensions are not allowed.");
-    }
-    await fs.stat(basePath);
-
-    const includeValue = include?.trim() || undefined;
-    if (includeValue && hasBlockedBinaryExtensionInPattern(includeValue)) {
-      throw new Error("Only text files are supported; binary file extensions are not allowed.");
-    }
-    const results = await runRgSearch({
-      pattern: trimmedPattern,
-      include: includeValue,
-      searchPath: basePath,
-      limit: Math.min(resolvedLimit, MAX_GREP_LIMIT),
-      cwd,
-    });
-
-    if (!results.length) return "No matches found.";
-    return results.join("\n");
-  },
-});
-
-type GrepBase = {
-  /** Base search path. */
-  basePath: string;
-  /** Working directory for rg. */
-  cwd: string;
-};
-
-/** Resolve base path and cwd for grep tool. */
-function resolveGrepBase(input: { target?: string; allowOutside: boolean }): GrepBase {
-  const { cwd } = resolveToolWorkdir({ allowOutside: input.allowOutside });
-  if (input.target) {
-    const resolved = resolveToolPath({ target: input.target, allowOutside: input.allowOutside });
-    return { basePath: resolved.absPath, cwd };
-  }
-  return { basePath: cwd, cwd };
-}
-
-type RgSearchInput = {
-  /** Regex pattern string. */
-  pattern: string;
-  /** Optional glob filter. */
-  include?: string;
-  /** Search path. */
-  searchPath: string;
-  /** Maximum results. */
-  limit: number;
-  /** Working directory. */
-  cwd: string;
-};
-
-/** Run a ripgrep search and return file paths. */
-async function runRgSearch(input: RgSearchInput): Promise<string[]> {
-  const args = [
-    "--files-with-matches",
-    "--sortr=modified",
-    "--regexp",
-    input.pattern,
-    "--no-messages",
-  ];
-  if (input.include) {
-    args.push("--glob", input.include);
-  }
-  args.push("--", input.searchPath);
-
-  const output = await runCommand("rg", args, input.cwd, GREP_TIMEOUT_MS);
-
-  if (output.exitCode === 1) return [];
-  if (output.exitCode !== 0) {
-    const stderr = output.stderr || "rg failed";
-    throw new Error(stderr);
-  }
-
-  const lines = output.stdout.split("\n").filter(Boolean);
-  return lines.slice(0, input.limit);
-}
-
-type CommandOutput = {
-  /** Exit code. */
-  exitCode: number | null;
-  /** Stdout content. */
-  stdout: string;
-  /** Stderr content. */
-  stderr: string;
-};
-
-/** Run a command with timeout and capture output. */
-function runCommand(
-  command: string,
-  args: string[],
-  cwd: string,
-  timeoutMs: number,
-): Promise<CommandOutput> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, stdio: "pipe" });
-    const stdoutChunks: string[] = [];
-    const stderrChunks: string[] = [];
-
-    child.stdout.setEncoding("utf-8");
-    child.stderr.setEncoding("utf-8");
-    child.stdout.on("data", (chunk) => stdoutChunks.push(String(chunk)));
-    child.stderr.on("data", (chunk) => stderrChunks.push(String(chunk)));
-
-    let timeoutId: NodeJS.Timeout | null = null;
-    if (timeoutMs > 0) {
-      timeoutId = setTimeout(() => {
-        child.kill("SIGTERM");
-        reject(new Error("rg timed out after 30 seconds"));
-      }, timeoutMs);
-    }
-
-    child.once("error", (error) => {
-      if (timeoutId) clearTimeout(timeoutId);
-      reject(new Error(`failed to launch rg: ${String(error)}. Ensure ripgrep is installed and on PATH.`));
-    });
-
-    child.once("exit", (code) => {
-      if (timeoutId) clearTimeout(timeoutId);
-      resolve({
-        exitCode: code,
-        stdout: stdoutChunks.join(""),
-        stderr: stderrChunks.join(""),
-      });
-    });
-  });
 }

@@ -123,6 +123,8 @@ export type ChatRequestBody = {
   imageSaveDir?: string;
   /** Selected skill names for this request. */
   selectedSkills?: string[];
+  /** 工具审批 payload（按 toolCallId 分组）。 */
+  toolApprovalPayloads?: Record<string, Record<string, unknown>>;
 };
 
 export type TokenUsage = {

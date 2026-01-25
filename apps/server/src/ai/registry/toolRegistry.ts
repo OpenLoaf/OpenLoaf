@@ -1,4 +1,5 @@
 import { openUrlTool } from "@/ai/tools/ui/openUrl";
+import { jsonRenderTool } from "@/ai/tools/ui/jsonRenderTool";
 import { timeNowTool } from "@/ai/tools/system/timeNowTool";
 import { testApprovalTool } from "@/ai/tools/test/testApprovalTool";
 import { subAgentTool } from "@/ai/tools/delegation/subAgentTool";
@@ -6,7 +7,7 @@ import { execCommandTool } from "@/ai/tools/runtime/execCommandTool";
 import { shellTool } from "@/ai/tools/runtime/shellTool";
 import { shellCommandTool } from "@/ai/tools/runtime/shellCommandTool";
 import { writeStdinTool } from "@/ai/tools/runtime/writeStdinTool";
-import { grepFilesTool, listDirTool, readFileTool } from "@/ai/tools/runtime/fileTools";
+import { listDirTool, readFileTool } from "@/ai/tools/runtime/fileTools";
 import { updatePlanTool } from "@/ai/tools/runtime/updatePlanTool";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
@@ -18,9 +19,9 @@ import {
 } from "@tenas-ai/api/types/tools/browserAutomation";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
+import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
 import {
-  grepFilesToolDef,
   listDirToolDef,
   readFileToolDef,
   shellCommandToolDefUnix,
@@ -59,6 +60,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [testApprovalToolDef.id]: {
     tool: testApprovalTool,
   },
+  [jsonRenderToolDef.id]: {
+    tool: jsonRenderTool,
+  },
   [subAgentToolDef.id]: {
     tool: subAgentTool,
   },
@@ -94,9 +98,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [listDirToolDef.id]: {
     tool: listDirTool,
-  },
-  [grepFilesToolDef.id]: {
-    tool: grepFilesTool,
   },
   [updatePlanToolDef.id]: {
     tool: updatePlanTool,

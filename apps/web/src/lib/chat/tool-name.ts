@@ -18,7 +18,6 @@ import {
 import {
   execCommandToolDefUnix,
   execCommandToolDefWin,
-  grepFilesToolDef,
   listDirToolDef,
   readFileToolDef,
   shellCommandToolDefUnix,
@@ -57,7 +56,6 @@ const TOOL_DEFS: ToolNameSource[] = [
   browserWaitToolDef,
   execCommandToolDefUnix,
   execCommandToolDefWin,
-  grepFilesToolDef,
   listDirToolDef,
   openUrlToolDef,
   projectCreateToolDef,

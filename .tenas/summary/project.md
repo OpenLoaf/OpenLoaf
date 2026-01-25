@@ -1,9 +1,9 @@
 ---
-summaryId: a91780a5-443e-45fa-b5bd-690b3b1267a2
+summaryId: 410b95c7-6369-4484-b668-b0944a2d9dd2
 projectId: proj_db60d7be-ba2c-4afe-8d93-3e27323e249e
 dates: []
-createdAt: 2026-01-25T04:05:55.574Z
-updatedAt: 2026-01-25T04:05:55.574Z
+createdAt: 2026-01-25T08:56:20.962Z
+updatedAt: 2026-01-25T08:56:20.962Z
 triggeredBy: scheduler
 ---
 # TenasAI 项目概览

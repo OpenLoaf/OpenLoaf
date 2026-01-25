@@ -42,6 +42,8 @@ export type AiExecuteRequest = {
   intent?: AiIntent;
   /** Response format. */
   responseMode?: AiResponseMode;
+  /** Tool approval payloads keyed by toolCallId. */
+  toolApprovalPayloads?: Record<string, Record<string, unknown>>;
 };
 
 export type AiCommandContext = {

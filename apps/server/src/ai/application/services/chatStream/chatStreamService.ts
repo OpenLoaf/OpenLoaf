@@ -193,6 +193,7 @@ export async function runChatStream(input: {
     projectId,
     boardId,
     selectedSkills,
+    toolApprovalPayloads: input.request.toolApprovalPayloads,
     requestSignal: input.requestSignal,
     messageId,
   });

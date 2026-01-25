@@ -39,15 +39,6 @@
    - `GenericTool.tsx`
    - MessageTool 未匹配时使用
 
-## 路由映射（MessageTool）
-- `shell-*` → `ShellTool`
-- `shell-command-*` → `ShellCommandTool`
-- `exec-command-*` → `ExecCommandTool`
-- `write-stdin-*` → `WriteStdinTool`
-- `read-file` → `ReadFileTool`
-- `list-dir` → `ListDirTool`
-- `grep-files` → `GrepFilesTool`
-- 其他 → `GenericTool`
 
 ## 审批与输出规则
 - `state === "approval-requested"`：仅展示审批按钮，不展示复制按钮与输出区域

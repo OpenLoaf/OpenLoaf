@@ -19,7 +19,7 @@ function GroupNodeView({ selected }: CanvasNodeViewProps<GroupNodeProps>) {
     <div className="relative h-full w-full">
       <div
         className={cn(
-          "pointer-events-none absolute -inset-1 rounded-sm border-2 border-dashed",
+          "pointer-events-none absolute -inset-4 rounded-sm border-[4px] border-dashed",
           selected
             ? "border-slate-600/90 dark:border-slate-200/90"
             : "border-slate-500/70 dark:border-slate-300/70"

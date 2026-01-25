@@ -4,6 +4,10 @@ import {
   BROWSER_SUB_AGENT_NAME,
   createBrowserSubAgent,
 } from "@/ai/agents/subagent/browserSubAgent";
+import {
+  DOCUMENT_ANALYSIS_SUB_AGENT_NAME,
+  createDocumentAnalysisSubAgent,
+} from "@/ai/agents/subagent/documentAnalysisSubAgent";
 import { getChatModel, getUiWriter } from "@/ai/shared/context/requestContext";
 
 /**
@@ -25,10 +29,10 @@ export const subAgentTool = tool({
       throw new Error("chat model is not available.");
     }
 
-    if (name !== BROWSER_SUB_AGENT_NAME) {
-      // 逻辑：仅允许已注册的 BrowserSubAgent，避免未知子Agent执行。
+    if (name !== BROWSER_SUB_AGENT_NAME && name !== DOCUMENT_ANALYSIS_SUB_AGENT_NAME) {
+      // 逻辑：仅允许已注册的子Agent，避免未知子Agent执行。
       throw new Error(
-        `unsupported sub-agent: ${name}. only ${BROWSER_SUB_AGENT_NAME} is allowed.`,
+        `unsupported sub-agent: ${name}. only ${BROWSER_SUB_AGENT_NAME} and ${DOCUMENT_ANALYSIS_SUB_AGENT_NAME} are allowed.`,
       );
     }
 
@@ -42,7 +46,10 @@ export const subAgentTool = tool({
       } as any);
     }
 
-    const agent = createBrowserSubAgent({ model });
+    const agent =
+      name === DOCUMENT_ANALYSIS_SUB_AGENT_NAME
+        ? createDocumentAnalysisSubAgent({ model })
+        : createBrowserSubAgent({ model });
     const result = await agent.stream({
       messages: buildSubAgentMessages({ task }) as any,
       abortSignal: options.abortSignal,

@@ -202,7 +202,7 @@ export const listDirToolDef = {
   id: "list-dir",
   name: "列出目录",
   description:
-    "Lists entries in a local directory with 1-indexed entry numbers and simple type labels.",
+    "Lists entries in a local directory with 1-indexed entry numbers and simple type labels. Ignores .gitignore by default unless ignoreGitignore=false.",
   parameters: z.object({
     actionName: z
       .string()
@@ -212,24 +212,7 @@ export const listDirToolDef = {
     offset: z.number().int().min(1).optional(),
     limit: z.number().int().min(1).optional(),
     depth: z.number().int().min(1).optional(),
-  }),
-  component: null,
-} as const;
-
-export const grepFilesToolDef = {
-  id: "grep-files",
-  name: "搜索文件",
-  description:
-    "Finds files whose contents match the pattern and lists them by modification time. Text files only; binary formats like Excel/Word/PDF are not supported.",
-  parameters: z.object({
-    actionName: z
-      .string()
-      .min(1)
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：搜索包含指定内容的文件。"),
-    pattern: z.string().min(1),
-    include: z.string().optional(),
-    path: z.string().optional(),
-    limit: z.number().int().min(1).optional(),
+    ignoreGitignore: z.boolean().optional().default(true),
   }),
   component: null,
 } as const;
@@ -238,8 +221,22 @@ const planStepStatusSchema = z
   .enum(["pending", "in_progress", "completed"])
   .describe("Plan step status: pending, in_progress, or completed.");
 
+/** Update-plan mode schema. */
+const planUpdateModeSchema = z.enum(["full", "patch"]).describe("Plan update mode.");
+
 const planItemSchema = z.object({
   step: z.string().min(1).describe("Plan step text."),
+  status: planStepStatusSchema.describe("Plan step status."),
+});
+
+const planPatchItemSchema = z.object({
+  index: z.number().int().min(1).describe("1-based index of the plan step."),
+  status: planStepStatusSchema.describe("Plan step status."),
+});
+
+const planUpdateItemSchema = z.object({
+  step: z.string().min(1).optional().describe("Plan step text."),
+  index: z.number().int().min(1).optional().describe("1-based index of the plan step."),
   status: planStepStatusSchema.describe("Plan step status."),
 });
 
@@ -249,15 +246,41 @@ export const updatePlanToolDef = {
   name: "更新计划",
   description: `Updates the task plan for the current assistant turn.
 Provide an optional explanation and a list of plan items, each with a step and status.
+When mode is patch, provide step index and status only.
 At most one step can be in_progress at a time.`,
-  parameters: z.object({
-    actionName: z
-      .string()
-      .min(1)
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：同步当前计划。"),
-    explanation: z.string().optional().describe("Optional plan summary."),
-    plan: z.array(planItemSchema).min(1).describe("Plan step list."),
-  }),
+  parameters: z
+    .object({
+      mode: planUpdateModeSchema.optional().default("full"),
+      actionName: z
+        .string()
+        .min(1)
+        .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：同步当前计划。"),
+      explanation: z.string().optional().describe("Optional plan summary."),
+      plan: z.array(planUpdateItemSchema).min(1).describe("Plan step list."),
+    })
+    .superRefine((value, ctx) => {
+      const mode = value.mode ?? "full";
+      for (let index = 0; index < value.plan.length; index += 1) {
+        const item = value.plan[index];
+        if (mode === "patch") {
+          if (typeof item.index !== "number") {
+            // 中文注释：patch 模式必须提供序号，用于定位更新项。
+            ctx.addIssue({
+              code: "custom",
+              path: ["plan", index, "index"],
+              message: "Patch mode requires plan item index.",
+            });
+          }
+        } else if (!item.step) {
+          // 中文注释：full 模式必须提供 step 文本。
+          ctx.addIssue({
+            code: "custom",
+            path: ["plan", index, "step"],
+            message: "Full mode requires plan item step.",
+          });
+        }
+      }
+    }),
   component: null,
 } as const;
 
@@ -266,6 +289,9 @@ export type PlanStepStatus = z.infer<typeof planStepStatusSchema>;
 
 /** Plan step item type for update-plan payloads. */
 export type PlanItem = z.infer<typeof planItemSchema>;
+
+/** Plan step patch item type for update-plan payloads. */
+export type PlanPatchItem = z.infer<typeof planPatchItemSchema>;
 
 /** Update-plan payload type for update-plan tool. */
 export type UpdatePlanArgs = z.infer<typeof updatePlanToolDef.parameters>;

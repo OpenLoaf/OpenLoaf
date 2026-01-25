@@ -1,8 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { Check, Circle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -83,8 +81,6 @@ export default function ToolInfoCard({
   ) : (
     <Circle className="size-3 text-muted-foreground/70" />
   );
-  const codeLanguage = "bash";
-
   return (
     <div className={cn("flex ml-2 w-full min-w-0 max-w-full justify-start", className)}>
       <Accordion
@@ -97,109 +93,59 @@ export default function ToolInfoCard({
         <AccordionItem
           value="tool"
           className={cn(
-            "w-full min-w-0 max-w-[90%] rounded-xl px-3 py-2 last:border-b",
+            "w-full min-w-0 max-w-[90%] rounded-lg px-3 py-1 last:border-b",
             containerClassName,
             isStreaming && "tenas-tool-streaming",
           )}
           style={containerStyle}
         >
-          <AccordionTrigger className="py-0.5 text-[11px] font-medium text-foreground/70 hover:no-underline">
+          <AccordionTrigger className="py-0.5 text-[10px] font-medium text-foreground/70 hover:no-underline">
             <div className="flex w-full items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="shrink-0">{statusIcon}</span>
                 <span className="break-words text-foreground/70">{title}</span>
               </div>
               {isRejected ? (
-                <span className="shrink-0 text-[10px] font-medium text-destructive">已拒绝</span>
+                <span className="shrink-0 text-[9px] font-medium text-destructive">已拒绝</span>
               ) : null}
             </div>
           </AccordionTrigger>
           {actions ? (
-            <div className="mt-0.5 flex w-full flex-wrap items-center justify-end gap-1.5 text-[10px] text-muted-foreground/80">
+            <div className="mt-0.5 flex w-full flex-wrap items-center justify-end gap-1.5 text-[9px] text-muted-foreground/80">
               {actions}
             </div>
           ) : null}
-          <AccordionContent className="pt-1.5 text-[11px] text-muted-foreground/70">
+          <AccordionContent className="pt-1.5 text-[10px] text-muted-foreground/70">
             <div className="mt-1.5 flex flex-col gap-1.5">
-              <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-muted-foreground/80">
+              <div className="flex items-center justify-between gap-2 text-[9px] uppercase tracking-wide text-muted-foreground/80">
                 <span>输入</span>
                 {toolId ? (
-                  <span className="truncate normal-case text-[10px] text-muted-foreground/70">
+                  <span className="truncate normal-case text-[9px] text-muted-foreground/70">
                     {toolId}
                   </span>
                 ) : null}
               </div>
-              <div className="show-scrollbar max-h-32 overflow-y-auto font-mono text-[10px]">
-                <SyntaxHighlighter
-                  style={oneDark as any}
-                  language={codeLanguage}
-                  PreTag="div"
-                  showLineNumbers={false}
-                  wrapLines
-                  wrapLongLines
-                  customStyle={{
-                    margin: 0,
-                    background: "transparent",
-                    padding: "0.2rem 0.4rem",
-                    fontSize: "10px",
-                    lineHeight: "1.5",
-                    fontFamily: "inherit",
-                    textShadow: "none",
-                    boxSizing: "border-box",
-                    display: "block",
-                    width: "100%",
-                    maxWidth: "100%",
-                    minWidth: 0,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                  codeTagProps={{ style: { fontFamily: "inherit", textShadow: "none" } }}
-                >
+              <div className="show-scrollbar max-h-32 overflow-y-auto text-[9px] text-muted-foreground/80">
+                <div className="px-2 py-1 whitespace-pre-wrap break-words">
                   {inputText}
-                </SyntaxHighlighter>
+                </div>
               </div>
               {showOutput && (outputText || outputLoading) ? (
                 <>
                   <Separator className="my-0.5 bg-border/60" />
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground/80">输出</div>
+                  <div className="text-[9px] uppercase tracking-wide text-muted-foreground/80">输出</div>
                   <div
                     className={cn(
-                      "show-scrollbar max-h-32 overflow-y-auto font-mono text-[10px]",
+                      "show-scrollbar max-h-32 overflow-y-auto text-[9px]",
                       outputTone === "error" && "text-destructive",
                       outputTone === "muted" && "text-muted-foreground",
                       outputTone === "default" && "text-foreground/70",
                     )}
                   >
                     {outputLoading && !outputText ? (
-                      <div className="px-2 py-1 text-[10px] text-muted-foreground/80">加载中…</div>
+                      <div className="px-2 py-1 text-[9px] text-muted-foreground/80">加载中…</div>
                     ) : (
-                      <SyntaxHighlighter
-                        style={oneDark as any}
-                        language={codeLanguage}
-                        PreTag="div"
-                        showLineNumbers={false}
-                        wrapLines
-                        wrapLongLines
-                        customStyle={{
-                          margin: 0,
-                          background: "transparent",
-                          padding: "0.2rem 0.4rem",
-                          fontSize: "10px",
-                          lineHeight: "1.5",
-                          fontFamily: "inherit",
-                          textShadow: "none",
-                          boxSizing: "border-box",
-                          display: "block",
-                          width: "100%",
-                          maxWidth: "100%",
-                          minWidth: 0,
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
-                        }}
-                        codeTagProps={{ style: { fontFamily: "inherit", textShadow: "none" } }}
-                      >
-                        {outputText}
-                      </SyntaxHighlighter>
+                      <div className="px-2 py-1 whitespace-pre-wrap break-words">{outputText}</div>
                     )}
                   </div>
                 </>

@@ -59,6 +59,7 @@ export class SummaryTitleUseCase {
       projectId: input.request.projectId,
       boardId: input.request.boardId,
       selectedSkills: [],
+      toolApprovalPayloads: input.request.toolApprovalPayloads,
       requestSignal: input.requestSignal,
       messageId: input.request.messageId,
     });

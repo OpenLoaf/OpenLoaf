@@ -4,10 +4,10 @@ import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { AgentFrame } from "@/ai/shared/context/requestContext";
 import { buildToolset } from "@/ai/registry/toolRegistry";
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
+import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
 import {
-  grepFilesToolDef,
   listDirToolDef,
   readFileToolDef,
   shellCommandToolDefUnix,
@@ -34,6 +34,7 @@ const writeStdinToolDef = isWindows ? writeStdinToolDefWin : writeStdinToolDefUn
 const MASTER_AGENT_TOOL_IDS = [
   timeNowToolDef.id,
   testApprovalToolDef.id,
+  jsonRenderToolDef.id,
   subAgentToolDef.id,
   shellToolDef.id,
   shellCommandToolDef.id,
@@ -41,7 +42,6 @@ const MASTER_AGENT_TOOL_IDS = [
   writeStdinToolDef.id,
   readFileToolDef.id,
   listDirToolDef.id,
-  grepFilesToolDef.id,
   updatePlanToolDef.id,
 ] as const;
 

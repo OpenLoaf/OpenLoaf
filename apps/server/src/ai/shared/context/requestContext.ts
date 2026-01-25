@@ -41,6 +41,8 @@ export type RequestContext = {
   planUpdate?: UpdatePlanArgs;
   /** Selected skills for this request. */
   selectedSkills?: string[];
+  /** Tool approval payloads keyed by toolCallId. */
+  toolApprovalPayloads?: Record<string, Record<string, unknown>>;
   /** Parent project root paths resolved from database. */
   parentProjectRootPaths?: string[];
   /** Agent frame stack for nested agents. */
@@ -162,6 +164,19 @@ export function getParentProjectRootPaths(): string[] | undefined {
 /** Get selected skills for this request. */
 export function getSelectedSkills(): string[] {
   return getRequestContext()?.selectedSkills ?? [];
+}
+
+/** Consume tool approval payload by toolCallId. */
+export function consumeToolApprovalPayload(
+  toolCallId: string,
+): Record<string, unknown> | undefined {
+  const ctx = getRequestContext();
+  if (!ctx?.toolApprovalPayloads) return undefined;
+  const payload = ctx.toolApprovalPayloads[toolCallId];
+  if (payload) {
+    delete ctx.toolApprovalPayloads[toolCallId];
+  }
+  return payload;
 }
 
 /** Sets the assistant message id for this request. */

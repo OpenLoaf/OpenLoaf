@@ -56,6 +56,8 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
   const responseMode = normalizeResponseMode(raw.responseMode);
   if (raw.responseMode && !responseMode) return { error: "responseMode is invalid" };
 
+  const toolApprovalPayloads = normalizeToolApprovalPayloads(raw.toolApprovalPayloads);
+
   return {
     request: {
       sessionId,
@@ -75,6 +77,7 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       imageSaveDir: toText(raw.imageSaveDir) || undefined,
       intent: intent ?? "chat",
       responseMode: responseMode ?? "stream",
+      toolApprovalPayloads,
     },
   };
 }
@@ -84,6 +87,37 @@ function normalizeParams(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined;
+}
+
+/** Normalize tool approval payloads input. */
+function normalizeToolApprovalPayloads(
+  value: unknown,
+): Record<string, Record<string, unknown>> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0) return undefined;
+  const normalized: Record<string, Record<string, unknown>> = {};
+  for (const [toolCallId, payload] of entries) {
+    if (!isSafeKey(toolCallId)) continue;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) continue;
+    const payloadEntries = Object.entries(payload as Record<string, unknown>);
+    if (payloadEntries.length === 0) {
+      normalized[toolCallId] = {};
+      continue;
+    }
+    const normalizedPayload: Record<string, unknown> = {};
+    for (const [key, val] of payloadEntries) {
+      if (!isSafeKey(key)) continue;
+      normalizedPayload[key] = val;
+    }
+    normalized[toolCallId] = normalizedPayload;
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+/** Check whether a key is safe for object assignment. */
+function isSafeKey(value: string): boolean {
+  return value !== "__proto__" && value !== "prototype" && value !== "constructor";
 }
 
 /** Normalize chat model source input. */
