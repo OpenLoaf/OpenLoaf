@@ -29,7 +29,11 @@ export function resolveFileViewerTarget(entry: FileSystemEntry): FileViewerTarge
   if (MARKDOWN_EXTS.has(ext)) return { viewer: "markdown", ext };
   if (CODE_EXTS.has(ext) || isTextFallbackExt(ext)) return { viewer: "code", ext };
   if (PDF_EXTS.has(ext)) return { viewer: "pdf", ext };
-  if (DOC_EXTS.has(ext)) return { viewer: "doc", ext };
+  if (DOC_EXTS.has(ext)) {
+    // 逻辑：doc 仅作为不可预览文件处理，避免误走 docx 解析链路。
+    if (ext === "docx") return { viewer: "doc", ext };
+    return { viewer: "file", ext };
+  }
   if (SPREADSHEET_EXTS.has(ext)) return { viewer: "sheet", ext };
   if (VIDEO_EXTS.has(ext)) return { viewer: "video", ext };
   return { viewer: "file", ext };

@@ -15,6 +15,7 @@ import {
   getExecSessionStatus,
   readExecOutput,
 } from "@/ai/tools/runtime/execSessionStore";
+import { needsApprovalForCommand } from "@/ai/tools/runtime/commandApproval";
 
 const execCommandToolDef = process.platform === "win32" ? execCommandToolDefWin : execCommandToolDefUnix;
 
@@ -62,7 +63,7 @@ function buildShellCommand(input: {
 export const execCommandTool = tool({
   description: execCommandToolDef.description,
   inputSchema: zodSchema(execCommandToolDef.parameters),
-  needsApproval: true,
+  needsApproval: ({ cmd }) => needsApprovalForCommand(cmd),
   execute: async ({
     cmd,
     workdir,

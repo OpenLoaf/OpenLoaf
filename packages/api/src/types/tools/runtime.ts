@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+// 中文注释：运行时工具的审批策略由 server 侧 tool 实现决定，API 定义只描述参数与展示信息。
+
 export const shellToolDefWin = {
   id: "shell-win",
   name: "Shell 命令（Windows/数组）",

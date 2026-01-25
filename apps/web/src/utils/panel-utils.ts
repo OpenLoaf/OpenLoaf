@@ -16,7 +16,7 @@ import CodeViewer from "@/components/file/CodeViewer";
 import MarkdownViewer from "@/components/file/MarkdownViewer";
 import PdfViewer from "@/components/file/PdfViewer";
 import DocViewer from "@/components/file/DocViewer";
-import SheetViewer from "@/components/file/SheetViewer";
+import ExcelViewer from "@/components/file/ExcelViewer";
 import VideoViewer from "@/components/file/VideoViewer";
 import BoardFileViewer from "@/components/board/BoardFileViewer";
 import TerminalViewer from "@/components/file/TerminalViewer";
@@ -49,7 +49,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "markdown-viewer": MarkdownViewer,
   "pdf-viewer": PdfViewer,
   "doc-viewer": DocViewer,
-  "sheet-viewer": SheetViewer,
+  "sheet-viewer": ExcelViewer,
   "video-viewer": VideoViewer,
   "board-viewer": BoardFileViewer,
   "terminal-viewer": TerminalViewer,

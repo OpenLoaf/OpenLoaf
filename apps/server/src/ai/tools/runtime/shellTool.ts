@@ -4,6 +4,7 @@ import { shellToolDefUnix, shellToolDefWin } from "@tenas-ai/api/types/tools/run
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/runtime/toolScope";
 import { buildExecEnv, formatStructuredOutput } from "@/ai/tools/runtime/execUtils";
+import { needsApprovalForCommand } from "@/ai/tools/runtime/commandApproval";
 
 const shellToolDef = process.platform === "win32" ? shellToolDefWin : shellToolDefUnix;
 
@@ -11,7 +12,7 @@ const shellToolDef = process.platform === "win32" ? shellToolDefWin : shellToolD
 export const shellTool = tool({
   description: shellToolDef.description,
   inputSchema: zodSchema(shellToolDef.parameters),
-  needsApproval: true,
+  needsApproval: ({ command }) => needsApprovalForCommand(command),
   execute: async ({ command, workdir, timeoutMs }): Promise<string> => {
     const resolvedCommand = command ?? [];
     const [commandBin, ...commandArgs] = resolvedCommand;

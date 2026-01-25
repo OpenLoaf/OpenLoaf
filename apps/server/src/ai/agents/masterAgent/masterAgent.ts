@@ -81,6 +81,7 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   return new ToolLoopAgent({
     model: input.model,
     instructions: readMasterAgentBasePrompt(),
+    // 中文注释：审批逻辑由工具实现的 needsApproval 控制，agent 只负责装配工具集。
     tools: buildToolset(toolIds),
   });
 }

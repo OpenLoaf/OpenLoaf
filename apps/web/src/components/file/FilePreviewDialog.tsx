@@ -9,7 +9,7 @@ import MarkdownViewer from "@/components/file/MarkdownViewer";
 import CodeViewer from "@/components/file/CodeViewer";
 import PdfViewer from "@/components/file/PdfViewer";
 import DocViewer from "@/components/file/DocViewer";
-import SheetViewer from "@/components/file/SheetViewer";
+import ExcelViewer from "@/components/file/ExcelViewer";
 import FileViewer from "@/components/file/FileViewer";
 import VideoViewer from "@/components/file/VideoViewer";
 import { getImageDialogSize, type ImageMeta } from "@/lib/image/dialog-size";
@@ -150,7 +150,7 @@ export default function FilePreviewDialog() {
           ) : null}
 
           {payload.viewer === "sheet" ? (
-            <SheetViewer
+            <ExcelViewer
               uri={currentItem.uri}
               openUri={currentItem.openUri}
               name={currentItem.name}

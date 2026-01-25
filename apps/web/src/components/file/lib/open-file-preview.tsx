@@ -20,7 +20,7 @@ import FileViewer from "@/components/file/FileViewer";
 import ImageViewer from "@/components/file/ImageViewer";
 import MarkdownViewer from "@/components/file/MarkdownViewer";
 import PdfViewer from "@/components/file/PdfViewer";
-import SheetViewer from "@/components/file/SheetViewer";
+import ExcelViewer from "@/components/file/ExcelViewer";
 import VideoViewer from "@/components/file/VideoViewer";
 import { resolveFileViewerTarget } from "./file-viewer-target";
 
@@ -140,7 +140,7 @@ export function renderFilePreviewContent(input: {
       );
     case "sheet":
       return (
-        <SheetViewer
+        <ExcelViewer
           uri={entry.uri}
           openUri={entry.uri}
           name={displayName}

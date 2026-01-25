@@ -16,6 +16,7 @@ import { DocxExportKit } from "@/components/editor/plugins/docx-export-kit";
 import { ListKit } from "@/components/editor/plugins/list-kit";
 import { BaseEditorKit } from "@/components/editor/editor-base-kit";
 import { getBlockType, setBlockType } from "@/components/editor/transforms";
+import { ReadFileErrorFallback } from "@/components/file/lib/read-file-error";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { resolveFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -162,6 +163,8 @@ export default function DocViewer({
   const [mode, setMode] = useState<DocViewerMode>(
     readOnly === false ? "edit" : DEFAULT_DOC_MODE
   );
+  /** Track import failure details for error fallback. */
+  const [parseError, setParseError] = useState<unknown>(null);
   /** Prevent dirty flag during initial load. */
   const initializingRef = useRef(true);
   /** Close current stack panel. */
@@ -216,6 +219,7 @@ export default function DocViewer({
     setStatus("idle");
     setIsDirty(false);
     setMode(readOnly === false ? "edit" : DEFAULT_DOC_MODE);
+    setParseError(null);
     initializingRef.current = true;
   }, [readOnly, uri]);
 
@@ -249,10 +253,12 @@ export default function DocViewer({
         if (canceled) return;
         setValue(editor, result.nodes as Value);
         setIsDirty(false);
+        setParseError(null);
         setStatus("ready");
       } catch (error) {
         if (canceled) return;
         console.error("[DocViewer] import docx failed", error);
+        setParseError(error);
         setStatus("error");
       } finally {
         if (!canceled) {
@@ -375,9 +381,15 @@ export default function DocViewer({
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {!shouldUseFs ? (
-          <div className="mx-4 mt-3 rounded-md border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">
-            暂不支持此地址
-          </div>
+          <ReadFileErrorFallback
+            uri={uri}
+            name={name}
+            projectId={projectId}
+            rootUri={rootUri}
+            message="暂不支持此地址"
+            description="请使用本地文件路径或下载后查看。"
+            className="mx-4 mt-3 rounded-md border border-border/60 bg-muted/40 p-3 text-sm"
+          />
         ) : null}
         {status === "loading" || fileQuery.isLoading ? (
           <div className="mx-4 mt-3 rounded-md border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">
@@ -385,9 +397,16 @@ export default function DocViewer({
           </div>
         ) : null}
         {status === "error" || fileQuery.isError ? (
-          <div className="mx-4 mt-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-            文档预览失败
-          </div>
+          <ReadFileErrorFallback
+            uri={uri}
+            name={name}
+            projectId={projectId}
+            rootUri={rootUri}
+            error={fileQuery.error ?? parseError ?? undefined}
+            message="文档预览失败"
+            description="请检查文件格式或权限后重试。"
+            className="mx-4 mt-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+          />
         ) : null}
 
         <div className="min-h-0 flex-1 overflow-hidden">

@@ -85,6 +85,7 @@ export const TOOL_NAME_BY_ID = TOOL_DEFS.reduce<Record<string, string>>((acc, de
 
 /** Resolve a display name for tool parts shown in the UI. */
 export function resolveToolDisplayName(target: ToolNameTarget): string {
+  // 中文注释：名称解析仅根据 tool 定义与消息字段，不涉及审批逻辑。
   if (target.title) return target.title;
   if (target.toolName) return TOOL_NAME_BY_ID[target.toolName] ?? target.toolName;
   if (target.type?.startsWith("tool-")) {

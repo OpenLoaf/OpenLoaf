@@ -34,6 +34,7 @@ const BINARY_PREVIEW_EXTS = new Set([
   "db",
   "der",
   "dmg",
+  "doc",
   "dll",
   "dylib",
   "ear",
