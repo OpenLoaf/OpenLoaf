@@ -22,7 +22,7 @@ import { getClipboardInsertPayload } from "../engine/clipboard";
 import { isBoardUiTarget } from "../utils/dom";
 import { toScreenPoint } from "../utils/coordinates";
 import { readImageDragPayload } from "@/lib/image/drag";
-import { FILE_DRAG_URI_MIME, FILE_DRAG_URIS_MIME } from "@/components/ui/tenas/drag-drop-types";
+import { FILE_DRAG_URI_MIME, FILE_DRAG_URIS_MIME } from "@tenas-ai/ui/tenas/drag-drop-types";
 import { fetchBlobFromUri, getPreviewEndpoint, resolveFileName } from "@/lib/image/uri";
 import { getStackedImageRect } from "../utils/image-insert";
 import type { ImagePreviewPayload } from "./BoardProvider";

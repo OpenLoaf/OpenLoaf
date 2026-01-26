@@ -2,20 +2,20 @@
 
 import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
-import { Switch } from "@/components/animate-ui/components/radix/switch";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@tenas-ai/ui/animate-ui/components/radix/switch";
+import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
 import { ThemeToggler } from "@/components/ThemeProvider";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { TenasAutoWidthInput } from "@/components/ui/tenas/TenasAutoWidthInput";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
+} from "@tenas-ai/ui/dropdown-menu";
+import { TenasAutoWidthInput } from "@tenas-ai/ui/tenas/TenasAutoWidthInput";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
 import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";

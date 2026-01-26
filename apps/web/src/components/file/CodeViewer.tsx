@@ -9,7 +9,7 @@ import type * as Monaco from "monaco-editor";
 import { Sparkles, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { useWorkspace } from "@/components/workspace/workspaceContext";

@@ -1,11 +1,11 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { ChevronRight } from "lucide-react";
 import * as React from "react";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 
 const STEP_UP_ROUTE = "/step-up";

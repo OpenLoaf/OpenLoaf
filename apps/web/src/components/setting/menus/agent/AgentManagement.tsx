@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
 import { AgentList } from "./AgentList";
 import { AgentDetailsDialog, DeleteAgentDialog } from "./AgentDialogs";
 

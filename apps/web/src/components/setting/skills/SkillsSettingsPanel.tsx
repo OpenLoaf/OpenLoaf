@@ -4,12 +4,12 @@ import { useCallback, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
 import { useTabs } from "@/hooks/use-tabs";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@tenas-ai/ui/button";
+import { Switch } from "@tenas-ai/ui/switch";
 import { Eye, FolderOpen, Trash2 } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useProject } from "@/hooks/use-project";
 import {

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { type UIMessage } from "@ai-sdk/react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { Check, Copy, Pencil, X } from "lucide-react";
 import MessageBranchNav from "./MessageBranchNav";
 import { getMessagePlainText } from "@/lib/chat/message-text";

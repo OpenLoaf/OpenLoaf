@@ -11,7 +11,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@tenas-ai/ui/input";
 import { useFlipLayout } from "@/lib/use-flip-layout";
 import {
   getBoardDisplayName,

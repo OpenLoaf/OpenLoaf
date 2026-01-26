@@ -3,19 +3,19 @@ import { skipToken, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
+import { Button } from "@tenas-ai/ui/button";
+import { Calendar } from "@tenas-ai/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
+import { Skeleton } from "@tenas-ai/ui/skeleton";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@tenas-ai/ui/select";
 import { CalendarDays } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 

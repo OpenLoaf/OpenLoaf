@@ -20,7 +20,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+} from "@tenas-ai/ui/context-menu";
 import {
   Dialog,
   DialogClose,
@@ -28,9 +28,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+} from "@tenas-ai/ui/dialog";
+import { Input } from "@tenas-ai/ui/input";
+import { Button } from "@tenas-ai/ui/button";
 
 // Get the initial letter for a site icon.
 function getInitial(title: string) {

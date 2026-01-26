@@ -567,6 +567,27 @@ export default function ChatProvider({
       : undefined);
 
   React.useEffect(() => {
+    if (!tabId) return;
+    // 中文注释：确保 tool parts 与消息同步，兼容部分运行环境不触发 onData 的场景。
+    syncToolPartsFromMessages({ tabId, messages: chat.messages as UIMessage[] });
+  }, [chat.messages, tabId]);
+
+  React.useEffect(() => {
+    if (!tabId) return;
+    if (chat.status === "ready") return;
+    const lastMessage = (chat.messages as any[])?.at(-1);
+    if (!lastMessage || lastMessage.role !== "assistant") return;
+    const parts = Array.isArray(lastMessage.parts) ? lastMessage.parts : [];
+    for (const part of parts) {
+      const type = typeof part?.type === "string" ? part.type : "";
+      const isTool =
+        type === "dynamic-tool" || type.startsWith("tool-") || typeof part?.toolName === "string";
+      if (!isTool) continue;
+      void frontendToolExecutorRef.current?.executeFromToolPart({ part, tabId });
+    }
+  }, [chat.messages, chat.status, tabId]);
+
+  React.useEffect(() => {
     const previousStatus = prevStatusRef.current;
     const wasStreaming =
       previousStatus === "submitted" || previousStatus === "streaming";

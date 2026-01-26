@@ -27,9 +27,9 @@ import {
   FILE_DRAG_REF_MIME,
   FILE_DRAG_URI_MIME,
   FILE_DRAG_MASK_URI_MIME,
-} from "@/components/ui/tenas/drag-drop-types";
+} from "@tenas-ai/ui/tenas/drag-drop-types";
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
-import { DragDropOverlay } from "@/components/ui/tenas/drag-drop-overlay";
+import { DragDropOverlay } from "@tenas-ai/ui/tenas/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
 import { useSettingsValues } from "@/hooks/use-settings";

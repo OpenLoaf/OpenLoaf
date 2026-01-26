@@ -5,7 +5,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuShortcut,
-} from "@/components/ui/context-menu";
+} from "@tenas-ai/ui/context-menu";
 import type { Tab } from "@tenas-ai/api/common";
 import type { ReactNode } from "react";
 

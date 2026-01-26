@@ -2,13 +2,10 @@
 
 范围：
 
-* `apps/server/src/routers/aiExecuteRoutes.ts`
+* `apps/server/src/ai/interface/routes/aiExecuteRoutes.ts`
 
-* `apps/server/src/ai/pipeline/*`
-
-* `apps/server/src/ai/application/services/chatStream/*`
-* `apps/server/src/ai/infrastructure/*`
-* `apps/server/src/ai/shared/context/*`
+* `apps/server/src/ai/chat/*`
+* `apps/server/src/ai/shared/*`
 
 本文档描述统一入口 `/ai/execute` 的完整链路（命令、技能、聊天流与图片请求）。
 
@@ -37,21 +34,21 @@
 
 关键模块：
 
-* 请求解析：`apps/server/src/routers/aiExecuteRoutes.ts`
+* 请求解析：`apps/server/src/ai/interface/routes/aiExecuteRoutes.ts`
 
-* 管线入口：`apps/server/src/ai/pipeline/aiPipeline.ts`
+* 管线入口：`apps/server/src/ai/chat/chatStreamService.ts`
 
-* 上下文与通用流程：`apps/server/src/ai/shared/context/requestContext.ts`、`apps/server/src/ai/application/services/chatStream/chatStreamHelpers.ts`
+* 上下文与通用流程：`apps/server/src/ai/shared/context/requestContext.ts`、`apps/server/src/ai/chat/chatStreamHelpers.ts`
 
-* 持久化：`apps/server/src/ai/infrastructure/repositories/messageStore.ts`
+* 持久化：`apps/server/src/ai/chat/repositories/messageStore.ts`
 
-* 消息链与附件：`apps/server/src/ai/infrastructure/repositories/messageChainLoader.ts`、`apps/server/src/ai/infrastructure/adapters/attachmentResolver.ts`
+* 消息链与附件：`apps/server/src/ai/chat/repositories/messageChainLoader.ts`、`apps/server/src/ai/image/attachmentResolver.ts`
 
-* 模型解析：`apps/server/src/ai/resolveChatModel.ts`、`apps/server/src/ai/application/services/chatStream/modelResolution.ts`
+* 模型解析：`apps/server/src/ai/models/resolveChatModel.ts`、`apps/server/src/ai/chat/modelResolution.ts`
 
-* 数据注入：`apps/server/src/ai/pipeline/messageConverter.ts`
+* 数据注入：`apps/server/src/ai/shared/messageConverter.ts`
 
-* 流式与 SSE：`apps/server/src/ai/application/services/chatStream/streamOrchestrator.ts`
+* 流式与 SSE：`apps/server/src/ai/chat/streamOrchestrator.ts`
 
 ### /summary-title（session command）
 
@@ -111,11 +108,11 @@
 
 关键入口：
 
-* 聊天模型：`apps/server/src/ai/resolveChatModel.ts`
+* 聊天模型：`apps/server/src/ai/models/resolveChatModel.ts`
 
-* 图片模型：`apps/server/src/ai/resolveImageModel.ts`
+* 图片模型：`apps/server/src/ai/models/resolveImageModel.ts`
 
-* 显式模型定义：`apps/server/src/ai/application/services/chatStream/modelResolution.ts`
+* 显式模型定义：`apps/server/src/ai/chat/modelResolution.ts`
 
 核心逻辑（通用）：
 

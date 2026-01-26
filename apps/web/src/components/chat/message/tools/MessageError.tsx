@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import { useChatContext } from "../../ChatProvider";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { Copy, RotateCcw } from "lucide-react";
 
 interface MessageErrorProps {

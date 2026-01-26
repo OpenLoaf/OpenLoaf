@@ -7,7 +7,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+} from "@tenas-ai/ui/context-menu";
 import { isBoardFolderName } from "@/lib/file-name";
 import {
   ArrowRightLeft,

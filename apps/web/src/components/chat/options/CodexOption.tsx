@@ -16,7 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@tenas-ai/ui/select";
 
 type CodexOptionProps = {
   /** Optional className for the container. */

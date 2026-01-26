@@ -2,7 +2,7 @@
 
 import { ColumnItemPlugin, ColumnPlugin } from '@platejs/layout/react';
 
-import { ColumnElement, ColumnGroupElement } from '@/components/ui/column-node';
+import { ColumnElement, ColumnGroupElement } from '@tenas-ai/ui/column-node';
 
 export const ColumnKit = [
   ColumnPlugin.withComponent(ColumnGroupElement),

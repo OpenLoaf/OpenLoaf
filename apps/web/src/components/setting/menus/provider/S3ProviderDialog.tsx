@@ -1,20 +1,20 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+} from "@tenas-ai/ui/dialog";
+import { Input } from "@tenas-ai/ui/input";
+import { Switch } from "@tenas-ai/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@tenas-ai/ui/dropdown-menu";
 import { Eye, EyeOff, ChevronDown } from "lucide-react";
 import {
   getDefaultS3Endpoint,

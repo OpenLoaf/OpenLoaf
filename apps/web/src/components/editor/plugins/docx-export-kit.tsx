@@ -3,21 +3,21 @@
 import { DocxExportPlugin } from '@platejs/docx-io';
 import { KEYS } from 'platejs';
 
-import { CalloutElementStatic } from '@/components/ui/callout-node-static';
+import { CalloutElementStatic } from '@tenas-ai/ui/callout-node-static';
 import {
   CodeBlockElementStatic,
   CodeLineElementStatic,
   CodeSyntaxLeafStatic,
-} from '@/components/ui/code-block-node-static';
+} from '@tenas-ai/ui/code-block-node-static';
 import {
   ColumnElementStatic,
   ColumnGroupElementStatic,
-} from '@/components/ui/column-node-static';
+} from '@tenas-ai/ui/column-node-static';
 import {
   EquationElementStatic,
   InlineEquationElementStatic,
-} from '@/components/ui/equation-node-static';
-import { TocElementStatic } from '@/components/ui/toc-node-static';
+} from '@tenas-ai/ui/equation-node-static';
+import { TocElementStatic } from '@tenas-ai/ui/toc-node-static';
 
 /** DocxExportKit provides export-time overrides for DOCX serialization. */
 export const DocxExportKit = [

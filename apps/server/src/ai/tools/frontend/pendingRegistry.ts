@@ -35,11 +35,13 @@ export function registerFrontendToolPending(input: {
   const timeoutMs = timeoutSec * 1000;
   const requestedAt = new Date().toISOString();
 
+  logger.debug({ toolCallId, timeoutSec }, "[frontend-tool] pending registered");
   return new Promise((resolve) => {
     const deadline = Date.now() + timeoutMs;
     const timer = setTimeout(() => {
       // 中文注释：超时后必须清理 pending，避免内存泄漏。
       pendingByToolCallId.delete(toolCallId);
+      logger.warn({ toolCallId }, "[frontend-tool] pending timeout");
       resolve({
         toolCallId,
         status: "timeout",
@@ -67,6 +69,7 @@ export function resolveFrontendToolPending(payload: FrontendToolAckPayload): boo
 
   clearTimeout(entry.timer);
   pendingByToolCallId.delete(toolCallId);
+  logger.debug({ toolCallId, status: payload.status }, "[frontend-tool] pending resolved");
   entry.resolve(payload);
   return true;
 }

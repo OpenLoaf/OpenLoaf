@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@tenas-ai/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@tenas-ai/ui/dialog";
 import ImageViewer from "@/components/file/ImageViewer";
 import MarkdownViewer from "@/components/file/MarkdownViewer";
 import CodeViewer from "@/components/file/CodeViewer";
@@ -18,14 +18,21 @@ import { useFilePreviewStore, closeFilePreview } from "@/components/file/lib/fil
 /** Calculate preview dialog size based on media dimensions and viewport limits. */
 function getVideoDialogSize(meta: { width: number; height: number }) {
   const padding = 32;
+  const minWidth = 576;
   const maxWidth = Math.floor(window.innerWidth * 0.9);
   const maxHeight = Math.floor(window.innerHeight * 0.9);
   const maxContentWidth = Math.max(maxWidth - padding, 1);
   const maxContentHeight = Math.max(maxHeight - padding, 1);
+  const minContentWidth = Math.min(minWidth, maxContentWidth);
   const clampedWidth = Math.min(meta.width, maxContentWidth);
   // 逻辑：按视频比例等比缩放，保持弹窗适配视窗范围。
   let contentHeight = Math.round((meta.height * clampedWidth) / meta.width);
   let contentWidth = clampedWidth;
+  // 逻辑：设置最小宽度避免控件进入小布局。
+  if (contentWidth < minContentWidth) {
+    contentWidth = minContentWidth;
+    contentHeight = Math.round((meta.height * contentWidth) / meta.width);
+  }
   if (contentHeight > maxContentHeight) {
     contentHeight = maxContentHeight;
     contentWidth = Math.round((meta.width * contentHeight) / meta.height);
@@ -223,6 +230,7 @@ export default function FilePreviewDialog() {
               thumbnailSrc={currentItem.thumbnailSrc}
               width={currentItem.width}
               height={currentItem.height}
+              forceLargeLayout
             />
           ) : null}
 

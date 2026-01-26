@@ -2,11 +2,19 @@ import { readFileSync } from "node:fs";
 import { ToolLoopAgent } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { AgentFrame } from "@/ai/shared/context/requestContext";
-import { buildToolset } from "@/ai/registry/toolRegistry";
+import { buildToolset } from "@/ai/tools/toolRegistry";
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
 import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
+import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
+import {
+  browserActToolDef,
+  browserExtractToolDef,
+  browserObserveToolDef,
+  browserSnapshotToolDef,
+  browserWaitToolDef,
+} from "@tenas-ai/api/types/tools/browserAutomation";
 import {
   listDirToolDef,
   readFileToolDef,
@@ -36,6 +44,12 @@ const MASTER_AGENT_TOOL_IDS = [
   testApprovalToolDef.id,
   jsonRenderToolDef.id,
   subAgentToolDef.id,
+  openUrlToolDef.id,
+  browserSnapshotToolDef.id,
+  browserObserveToolDef.id,
+  browserExtractToolDef.id,
+  browserActToolDef.id,
+  browserWaitToolDef.id,
   shellToolDef.id,
   shellCommandToolDef.id,
   execCommandToolDef.id,

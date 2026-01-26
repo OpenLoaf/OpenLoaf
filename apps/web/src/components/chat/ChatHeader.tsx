@@ -2,9 +2,9 @@
 
 import { cn } from "@/lib/utils";
 import { Bug, PlusCircle, History } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@tenas-ai/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import SessionList from "@/components/chat/session/SessionList";
 import * as React from "react";
 import { useChatContext } from "./ChatProvider";

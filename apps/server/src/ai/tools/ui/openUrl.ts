@@ -17,6 +17,14 @@ export const openUrlTool = tool({
     if (!toolCallId) throw new Error("toolCallId is required.");
     requireTabId();
     const waitTimeoutSec = normalizeTimeoutSec(timeoutSec);
-    return registerFrontendToolPending({ toolCallId, timeoutSec: waitTimeoutSec });
+    const result = await registerFrontendToolPending({
+      toolCallId,
+      timeoutSec: waitTimeoutSec,
+    });
+    if (result.status === "success") return result;
+    if (result.status === "timeout") {
+      throw new Error("open-url timeout");
+    }
+    throw new Error(result.errorText || "open-url failed");
   },
 });

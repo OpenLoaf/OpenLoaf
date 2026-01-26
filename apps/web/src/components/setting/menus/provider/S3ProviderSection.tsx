@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   Table,
   TableBody,
@@ -6,10 +6,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
-import { Switch } from "@/components/ui/switch";
+} from "@tenas-ai/ui/table";
+import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+import { Switch } from "@tenas-ai/ui/switch";
 import { Minus, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { truncateDisplay, type S3ProviderEntry } from "@/components/setting/menus/provider/use-provider-management";
 import type { Dispatch, SetStateAction } from "react";

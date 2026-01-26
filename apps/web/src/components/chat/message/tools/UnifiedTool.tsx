@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { createBrowserTabId } from "@/hooks/tab-id";

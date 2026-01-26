@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import SessionItem, { type Session } from "./SessionItem";
-import { Separator } from "@/components/ui/separator";
+import { Separator } from "@tenas-ai/ui/separator";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
 
 interface SessionListProps {

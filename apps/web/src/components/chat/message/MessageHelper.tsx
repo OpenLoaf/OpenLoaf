@@ -8,8 +8,8 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@/components/ui/empty";
-import { Button } from "@/components/ui/button";
+} from "@tenas-ai/ui/empty";
+import { Button } from "@tenas-ai/ui/button";
 import { useChatContext } from "../ChatProvider";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
 import { useAutoHeight } from "@/hooks/use-auto-height";

@@ -27,7 +27,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@tenas-ai/ui/select";
 import { useAutoResizeNode } from "./lib/use-auto-resize-node";
 import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
 import {

@@ -1,16 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
+} from "@tenas-ai/ui/dialog";
+import { Input } from "@tenas-ai/ui/input";
+import { Separator } from "@tenas-ai/ui/separator";
 import { cn } from "@/lib/utils";
 import type { AgentPanelState, AgentRow } from "./AgentManagement";
 

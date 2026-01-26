@@ -16,6 +16,18 @@ type UpdatePlanToolOutput = {
   };
 };
 
+type PlanUpdateItem = UpdatePlanArgs["plan"][number];
+
+/** Narrow full plan items to required shape. */
+function isPlanItem(item: PlanUpdateItem): item is PlanItem {
+  return typeof item.step === "string" && item.step.length > 0;
+}
+
+/** Narrow patch items to required shape. */
+function isPlanPatchItem(item: PlanUpdateItem): item is PlanPatchItem {
+  return Number.isInteger(item.index) && (item.index ?? 0) > 0;
+}
+
 /** Merge patch updates into a full plan snapshot. */
 function mergePlanWithPatch(basePlan: PlanItem[], patches: PlanPatchItem[]): PlanItem[] {
   const nextPlan = basePlan.map((item) => ({ ...item }));
@@ -40,10 +52,13 @@ export const updatePlanTool = tool({
     if (input.mode === "patch") {
       const currentPlanUpdate = getPlanUpdate();
       const basePlan =
-        currentPlanUpdate && currentPlanUpdate.mode !== "patch" ? currentPlanUpdate.plan : [];
+        currentPlanUpdate && currentPlanUpdate.mode !== "patch"
+          ? currentPlanUpdate.plan.filter(isPlanItem)
+          : [];
       // 中文注释：仅在已有完整 plan 时应用 patch，避免写入无效空计划。
       if (basePlan.length > 0) {
-        const nextPlan = mergePlanWithPatch(basePlan, input.plan as PlanPatchItem[]);
+        const patches = input.plan.filter(isPlanPatchItem);
+        const nextPlan = mergePlanWithPatch(basePlan, patches);
         setPlanUpdate({
           mode: "full",
           actionName: input.actionName,
@@ -59,7 +74,7 @@ export const updatePlanTool = tool({
       mode: "full",
       actionName: input.actionName,
       explanation: input.explanation,
-      plan: input.plan as PlanItem[],
+      plan: input.plan.filter(isPlanItem),
     });
     return { ok: true, data: { updated: true } };
   },

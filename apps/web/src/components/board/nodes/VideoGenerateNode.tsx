@@ -11,15 +11,15 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { filterModelOptionsByTags } from "./lib/image-generation";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@tenas-ai/ui/input";
+import { Textarea } from "@tenas-ai/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@tenas-ai/ui/select";
 
 /** Node type identifier for video generation. */
 export const VIDEO_GENERATE_NODE_TYPE = "video_generate";

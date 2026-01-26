@@ -6,10 +6,10 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+} from "@tenas-ai/ui/popover";
+import { Button } from "@tenas-ai/ui/button";
+import { Switch } from "@tenas-ai/ui/switch";
+import { Label } from "@tenas-ai/ui/label";
 import { cn } from "@/lib/utils";
 import { useTabs } from "@/hooks/use-tabs";
 import { useSettingsValues } from "@/hooks/use-settings";

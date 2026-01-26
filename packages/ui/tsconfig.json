@@ -1,0 +1,20 @@
+{
+  "extends": "@tenas-ai/config/tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@tenas-ai/ui": ["./src/index.ts"],
+      "@tenas-ai/ui/*": ["./src/*"]
+    },
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "composite": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["dist/**", "node_modules/**"]
+}

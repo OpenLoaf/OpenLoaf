@@ -4,7 +4,7 @@ import * as React from "react";
 import { motion } from "motion/react";
 import { Pin, PinOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { GlowingEffect } from "@tenas-ai/ui/glowing-effect";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import type { DesktopItem } from "./types";
 import DesktopTileContent from "./DesktopTileContent";

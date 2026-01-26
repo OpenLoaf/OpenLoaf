@@ -23,9 +23,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+} from "@tenas-ai/ui/select";
+import { Input } from "@tenas-ai/ui/input";
+import { Textarea } from "@tenas-ai/ui/textarea";
 import {
   IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
   IMAGE_GENERATE_MAX_INPUT_IMAGES,

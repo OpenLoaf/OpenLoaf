@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, SmilePlus } from "lucide-react";
 import { toast } from "sonner";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { EmojiPicker } from "@/components/ui/emoji-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
+import { Button } from "@tenas-ai/ui/button";
+import { EmojiPicker } from "@tenas-ai/ui/emoji-picker";
 
 interface ProjectTitleProps {
   isLoading: boolean;

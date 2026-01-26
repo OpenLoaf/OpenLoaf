@@ -3,7 +3,7 @@ import {
   FILE_DRAG_MASK_URI_MIME,
   FILE_DRAG_NAME_MIME,
   FILE_DRAG_URI_MIME,
-} from "@/components/ui/tenas/drag-drop-types";
+} from "@tenas-ai/ui/tenas/drag-drop-types";
 import { resolveFileName } from "@/lib/image/uri";
 
 export type ImageDragPayload = {

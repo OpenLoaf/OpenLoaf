@@ -2,7 +2,7 @@
 
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
 import { z } from "zod";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar } from "@tenas-ai/ui/calendar";
 
 export type CalendarNodeProps = Record<string, never>;
 

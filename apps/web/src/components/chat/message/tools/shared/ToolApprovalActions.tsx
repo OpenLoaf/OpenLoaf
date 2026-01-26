@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { useChatContext } from "../../../ChatProvider";
 import { useTabs } from "@/hooks/use-tabs";
 import { countPendingToolApprovals, hasRejectedToolApproval } from "./tool-utils";

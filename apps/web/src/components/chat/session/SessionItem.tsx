@@ -3,9 +3,9 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@tenas-ai/ui/button";
+import { Input } from "@tenas-ai/ui/input";
+import { Label } from "@tenas-ai/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogClose,
-} from "@/components/ui/dialog";
+} from "@tenas-ai/ui/dialog";
 import { MoreHorizontal, PencilLine, Pin, Trash2, Layers } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";

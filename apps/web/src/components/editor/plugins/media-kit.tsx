@@ -11,14 +11,14 @@ import {
 } from '@platejs/media/react';
 import { KEYS } from 'platejs';
 
-import { AudioElement } from '@/components/ui/media-audio-node';
-import { MediaEmbedElement } from '@/components/ui/media-embed-node';
-import { FileElement } from '@/components/ui/media-file-node';
-import { ImageElement } from '@/components/ui/media-image-node';
-import { PlaceholderElement } from '@/components/ui/media-placeholder-node';
-import { MediaPreviewDialog } from '@/components/ui/media-preview-dialog';
-import { MediaUploadToast } from '@/components/ui/media-upload-toast';
-import { VideoElement } from '@/components/ui/media-video-node';
+import { AudioElement } from '@tenas-ai/ui/media-audio-node';
+import { MediaEmbedElement } from '@tenas-ai/ui/media-embed-node';
+import { FileElement } from '@tenas-ai/ui/media-file-node';
+import { ImageElement } from '@tenas-ai/ui/media-image-node';
+import { PlaceholderElement } from '@tenas-ai/ui/media-placeholder-node';
+import { MediaPreviewDialog } from '@tenas-ai/ui/media-preview-dialog';
+import { MediaUploadToast } from '@tenas-ai/ui/media-upload-toast';
+import { VideoElement } from '@tenas-ai/ui/media-video-node';
 
 export const MediaKit = [
   ImagePlugin.configure({

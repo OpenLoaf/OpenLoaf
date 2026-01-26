@@ -10,7 +10,7 @@ import {
   shellToolDefWin,
 } from "@tenas-ai/api/types/tools/runtime";
 import { documentAnalysisSubAgentName } from "@tenas-ai/api/types/tools/subAgent";
-import { buildToolset } from "@/ai/registry/toolRegistry";
+import { buildToolset } from "@/ai/tools/toolRegistry";
 
 /** Document analysis sub-agent display name. */
 export const DOCUMENT_ANALYSIS_SUB_AGENT_NAME = documentAnalysisSubAgentName;

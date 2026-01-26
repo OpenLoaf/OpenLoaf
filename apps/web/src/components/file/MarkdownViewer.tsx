@@ -7,7 +7,7 @@ import type { BundledTheme } from "shiki";
 import remarkMdx from "remark-mdx";
 import { Eye, PencilLine, Save, Undo2 } from "lucide-react";
 import { StackHeader } from "@/components/layout/StackHeader";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";

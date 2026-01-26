@@ -30,7 +30,7 @@ export {
   FILE_DRAG_REF_MIME,
   FILE_DRAG_URI_MIME,
   FILE_DRAG_URIS_MIME,
-} from "@/components/ui/tenas/drag-drop-types";
+} from "@tenas-ai/ui/tenas/drag-drop-types";
 
 /** Scoped project path matcher like [projectId]/path/to/file or [projectId]/. */
 const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\](?:\/(.*))?$/;

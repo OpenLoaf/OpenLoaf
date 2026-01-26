@@ -1,7 +1,7 @@
 "use client";
 
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { AnimatedThemeToggle } from "@/components/ui/animated-theme-toggle";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+import { AnimatedThemeToggle } from "@tenas-ai/ui/animated-theme-toggle";
 
 /** Toggle theme and persist the selection. */
 export const ModeToggle = () => {

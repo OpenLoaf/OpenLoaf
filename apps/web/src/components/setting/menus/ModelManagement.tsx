@@ -1,22 +1,22 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@tenas-ai/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
-import { TenasAutoWidthInput } from "@/components/ui/tenas/TenasAutoWidthInput";
+import { TenasAutoWidthInput } from "@tenas-ai/ui/tenas/TenasAutoWidthInput";
 import { getModelLabel } from "@/lib/model-registry";
 
 export function ModelManagement() {

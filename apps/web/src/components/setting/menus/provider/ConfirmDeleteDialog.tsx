@@ -1,11 +1,11 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@tenas-ai/ui/dialog";
 
 type ConfirmDeleteDialogProps = {
   /** Dialog title. */

@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   Table,
   TableBody,
@@ -7,8 +7,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
+} from "@tenas-ai/ui/table";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
 import { getModelLabel } from "@/lib/model-registry";
 import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";

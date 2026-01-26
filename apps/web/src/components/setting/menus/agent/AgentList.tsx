@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@tenas-ai/ui/button";
+import { Input } from "@tenas-ai/ui/input";
 import { cn } from "@/lib/utils";
 import { Eye, PencilLine, Search, Trash2 } from "lucide-react";
 import type { AgentRow } from "./AgentManagement";

@@ -1,6 +1,6 @@
 "use client";
 
-import FlipClock from "@/components/ui/flip-clock";
+import FlipClock from "@tenas-ai/ui/flip-clock";
 
 interface FlipClockWidgetProps {
   /** Whether to show seconds. */

@@ -11,7 +11,7 @@ import { zhCN } from "date-fns/locale";
 import MarkdownViewer from "@/components/file/MarkdownViewer";
 import { openFilePreview } from "@/components/file/lib/open-file";
 import { FileSystemGrid } from "@/components/project/filesystem/components/FileSystemGrid";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar } from "@tenas-ai/ui/calendar";
 import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
 import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";

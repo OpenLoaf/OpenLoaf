@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   BROWSER_WINDOW_COMPONENT,
   BROWSER_WINDOW_PANEL_ID,
@@ -8,13 +8,13 @@ import {
 import { useTabs } from "@/hooks/use-tabs";
 import { Globe } from "lucide-react";
 import { memo } from "react";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { toast } from "sonner";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
 import { useBasicConfig } from "@/hooks/use-basic-config";
-import { Switch } from "@/components/ui/switch";
+import { Switch } from "@tenas-ai/ui/switch";
 
 /** Setup entry route. */
 const STEP_UP_ROUTE = "/step-up";

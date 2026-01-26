@@ -3,8 +3,8 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import { TenasSettingsLayout } from "@/components/ui/tenas/TenasSettingsLayout";
-import { TenasSettingsMenu } from "@/components/ui/tenas/TenasSettingsMenu";
+import { TenasSettingsLayout } from "@tenas-ai/ui/tenas/TenasSettingsLayout";
+import { TenasSettingsMenu } from "@tenas-ai/ui/tenas/TenasSettingsMenu";
 import { BarChart3, Bot, GitBranch, SlidersHorizontal, Sparkles } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";

@@ -6,7 +6,7 @@ import type { TCodeBlockElement } from 'platejs';
 import { NodeApi } from 'platejs';
 import { PlateElement, type PlateElementProps, useReadOnly } from 'platejs/react';
 
-import { CodeBlockElement } from '@/components/ui/code-block-node';
+import { CodeBlockElement } from '@tenas-ai/ui/code-block-node';
 
 import { MermaidBlock } from './MermaidBlock';
 

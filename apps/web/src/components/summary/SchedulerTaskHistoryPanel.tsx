@@ -7,7 +7,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@tenas-ai/ui/table";
 
 export type SchedulerTaskRecord = {
   /** Record id. */

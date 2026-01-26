@@ -1,7 +1,7 @@
 "use client";
 
 import { Play } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 
 export interface VideoWidgetProps {

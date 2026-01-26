@@ -11,7 +11,7 @@ import {
 } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   Dialog,
   DialogClose,
@@ -19,7 +19,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@tenas-ai/ui/dialog";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -27,13 +27,13 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+} from "@tenas-ai/ui/breadcrumb";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+} from "@tenas-ai/ui/context-menu";
 import { toast } from "sonner";
 import { PageTreePicker } from "@/components/layout/sidebar/ProjectTree";
 import { FileSystemGrid } from "./FileSystemGrid";

@@ -6,24 +6,24 @@ import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/Confirm
 import { ModelDialog } from "@/components/setting/menus/provider/ModelDialog";
 import { ProviderDialog } from "@/components/setting/menus/provider/ProviderDialog";
 import { ProviderSection } from "@/components/setting/menus/provider/ProviderSection";
-import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+import { Button } from "@tenas-ai/ui/button";
+import { Checkbox } from "@tenas-ai/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@tenas-ai/ui/dropdown-menu";
+import { Label } from "@tenas-ai/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
+import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
 import { normalizeChatModelSource } from "@/lib/provider-models";
 import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
-import { Switch } from "@/components/animate-ui/components/radix/switch";
+import { Switch } from "@tenas-ai/ui/animate-ui/components/radix/switch";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";

@@ -7,8 +7,8 @@ import { Text } from "slate";
 import type { RenderLeafProps } from "platejs";
 
 import { cn } from "@/lib/utils";
-import { Editor, EditorContainer } from "@/components/ui/editor";
-import { ParagraphElement } from "@/components/ui/paragraph-node";
+import { Editor, EditorContainer } from "@tenas-ai/ui/editor";
+import { ParagraphElement } from "@tenas-ai/ui/paragraph-node";
 import { MentionKit } from "@/components/editor/plugins/mention-kit";
 import { ClipboardKit } from "@/components/editor/plugins/clipboard-kit";
 import { parseChatValue } from "../chat-input-utils";

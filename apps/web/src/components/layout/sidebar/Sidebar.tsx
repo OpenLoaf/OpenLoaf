@@ -10,12 +10,12 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar";
+} from "@tenas-ai/ui/sidebar";
 import { CalendarDays, Inbox, LayoutTemplate, Search, Sparkles } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Search as SearchDialog } from "@/components/search/Search";
-import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { Kbd, KbdGroup } from "@tenas-ai/ui/kbd";
 import { AI_CHAT_TAB_INPUT } from "@tenas-ai/api/common";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useIsNarrowScreen } from "@/hooks/use-mobile";

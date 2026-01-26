@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@tenas-ai/ui/button";
+import { Switch } from "@tenas-ai/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@tenas-ai/ui/dropdown-menu";
 import { ArrowLeft, Globe, LogOut, Network } from "lucide-react";
 import {
   StepUpFinishStep,

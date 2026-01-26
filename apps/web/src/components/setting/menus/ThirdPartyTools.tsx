@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@tenas-ai/ui/button";
+import { Input } from "@tenas-ai/ui/input";
+import { Label } from "@tenas-ai/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -12,11 +12,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
+} from "@tenas-ai/ui/dialog";
+import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
 import { Claude, OpenAI } from "@lobehub/icons";
-import { Switch } from "@/components/animate-ui/components/radix/switch";
+import { Switch } from "@tenas-ai/ui/animate-ui/components/radix/switch";
 import { toast } from "sonner";
 import type { CliToolConfig, CliToolsConfig } from "@tenas-ai/api/types/basic";
 import { useBasicConfig } from "@/hooks/use-basic-config";

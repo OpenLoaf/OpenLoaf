@@ -1,6 +1,6 @@
 import { CalendarDays, Folder, Info, Settings } from "lucide-react";
 import { useMemo } from "react";
-import { ExpandableTabs } from "@/components/ui/expandable-tabs";
+import { ExpandableTabs } from "@tenas-ai/ui/expandable-tabs";
 
 /** Format a shortcut string for tooltip display. */
 function formatShortcutLabel(shortcut: string, isMac: boolean): string {

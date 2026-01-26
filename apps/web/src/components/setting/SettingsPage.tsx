@@ -6,7 +6,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@tenas-ai/ui/tooltip";
 import { useTabs } from "@/hooks/use-tabs";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import {
@@ -33,11 +33,11 @@ import { WorkspaceSettings } from "./menus/Workspace";
 import TestSetting from "./menus/TestSetting";
 import { SkillSettings } from "./menus/SkillSettings";
 import { ThirdPartyTools } from "./menus/ThirdPartyTools";
-import { TenasSettingsLayout } from "@/components/ui/tenas/TenasSettingsLayout";
+import { TenasSettingsLayout } from "@tenas-ai/ui/tenas/TenasSettingsLayout";
 import {
   TenasSettingsMenu,
   type TenasSettingsMenuItem,
-} from "@/components/ui/tenas/TenasSettingsMenu";
+} from "@tenas-ai/ui/tenas/TenasSettingsMenu";
 
 type SettingsMenuKey =
   | "basic"

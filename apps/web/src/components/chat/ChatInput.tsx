@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   ChevronUp,
   X,
@@ -28,7 +28,7 @@ import {
   FILE_DRAG_NAME_MIME,
   FILE_DRAG_URI_MIME,
   FILE_DRAG_MASK_URI_MIME,
-} from "@/components/ui/tenas/drag-drop-types";
+} from "@tenas-ai/ui/tenas/drag-drop-types";
 import { readImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import { buildMaskedPreviewUrl, resolveMaskFileName } from "@/lib/image/mask";
@@ -39,8 +39,8 @@ import { ClipboardKit } from "@/components/editor/plugins/clipboard-kit";
 import { ParagraphPlugin, Plate, usePlateEditor } from "platejs/react";
 import { Editor as SlateEditor, Text, type BaseEditor } from "slate";
 import type { RenderLeafProps } from "platejs";
-import { Editor, EditorContainer } from "@/components/ui/editor";
-import { ParagraphElement } from "@/components/ui/paragraph-node";
+import { Editor, EditorContainer } from "@tenas-ai/ui/editor";
+import { ParagraphElement } from "@tenas-ai/ui/paragraph-node";
 import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
 import {
   buildMentionNode,

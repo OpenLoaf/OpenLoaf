@@ -17,7 +17,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+} from "@tenas-ai/ui/breadcrumb";
 import {
   Dialog,
   DialogClose,
@@ -25,8 +25,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from "@tenas-ai/ui/dialog";
+import { Button } from "@tenas-ai/ui/button";
 import { PageTreePicker } from "@/components/layout/sidebar/ProjectTree";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useProjects } from "@/hooks/use-projects";

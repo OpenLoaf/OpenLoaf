@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useEditorRef } from 'platejs/react';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@tenas-ai/ui/button';
 import {
   Command,
   CommandEmpty,
@@ -24,7 +24,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command';
+} from '@tenas-ai/ui/command';
 import {
   Dialog,
   DialogContent,
@@ -32,13 +32,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+} from '@tenas-ai/ui/dialog';
+import { Input } from '@tenas-ai/ui/input';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
+} from '@tenas-ai/ui/popover';
 import { cn } from '@/lib/utils';
 
 import { aiChatPlugin } from './plugins/ai-kit';

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { motion, useAnimationControls } from "motion/react";
 import { Layers, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,8 +11,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+} from "@tenas-ai/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import { getPanelTitle } from "@/utils/panel-utils";
 import { BROWSER_WINDOW_COMPONENT, type DockItem } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";

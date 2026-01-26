@@ -2,8 +2,8 @@
 
 import { MentionInputPlugin, MentionPlugin } from '@platejs/mention/react';
 
-import { MentionInputElement } from '@/components/ui/mention-node';
-import { TenasMentionElement } from '@/components/ui/tenas/TenasMentionNode';
+import { MentionInputElement } from '@tenas-ai/ui/mention-node';
+import { TenasMentionElement } from '@tenas-ai/ui/tenas/TenasMentionNode';
 
 export const MentionKit = [
   MentionPlugin.configure({

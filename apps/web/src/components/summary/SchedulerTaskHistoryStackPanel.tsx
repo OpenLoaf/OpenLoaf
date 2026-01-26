@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button } from "@tenas-ai/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@tenas-ai/ui/dropdown-menu";
 import { SchedulerTaskHistoryPanel } from "@/components/summary/SchedulerTaskHistoryPanel";
 import { trpc } from "@/utils/trpc";
 

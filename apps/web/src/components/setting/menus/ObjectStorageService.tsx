@@ -3,15 +3,15 @@
 import { useRef, useState } from "react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { resolveServerUrl } from "@/utils/server-url";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@tenas-ai/ui/button";
+import { Input } from "@tenas-ai/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@tenas-ai/ui/dialog";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
 import { S3ProviderDialog } from "@/components/setting/menus/provider/S3ProviderDialog";
 import { S3ProviderSection } from "@/components/setting/menus/provider/S3ProviderSection";

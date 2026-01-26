@@ -1,9 +1,9 @@
 "use client";
 
 import { PanelLeft, PanelRight, Settings } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useSidebar } from "@/components/ui/sidebar";
+import { Button } from "@tenas-ai/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+import { useSidebar } from "@tenas-ai/ui/sidebar";
 import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { motion } from "motion/react";

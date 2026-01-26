@@ -1,6 +1,7 @@
 import type { Hono } from "hono";
 import { z } from "zod";
 import { resolveFrontendToolPending } from "@/ai/tools/frontend/pendingRegistry";
+import { logger } from "@/common/logger";
 
 const ackSchema = z.object({
   toolCallId: z.string().min(1),
@@ -27,8 +28,16 @@ export function registerFrontendToolAckRoutes(app: Hono) {
       return c.json({ ok: false, error: "Invalid payload" }, 400);
     }
 
+    logger.debug(
+      { toolCallId: parsed.data.toolCallId, status: parsed.data.status },
+      "[frontend-tool] ack received",
+    );
     const resolved = resolveFrontendToolPending(parsed.data);
     if (!resolved) {
+      logger.warn(
+        { toolCallId: parsed.data.toolCallId },
+        "[frontend-tool] ack toolCallId not pending",
+      );
       return c.json({ ok: false, error: "toolCallId not pending" }, 404);
     }
 

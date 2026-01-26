@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useMemo } from "react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@tenas-ai/ui/input";
 import {
   getBoardDisplayName,
   getDisplayFileName,

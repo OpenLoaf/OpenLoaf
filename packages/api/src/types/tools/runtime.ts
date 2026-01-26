@@ -262,6 +262,7 @@ At most one step can be in_progress at a time.`,
       const mode = value.mode ?? "full";
       for (let index = 0; index < value.plan.length; index += 1) {
         const item = value.plan[index];
+        if (!item) continue;
         if (mode === "patch") {
           if (typeof item.index !== "number") {
             // 中文注释：patch 模式必须提供序号，用于定位更新项。

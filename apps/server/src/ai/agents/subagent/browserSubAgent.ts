@@ -10,7 +10,7 @@ import {
   browserWaitToolDef,
 } from "@tenas-ai/api/types/tools/browserAutomation";
 import { browserSubAgentName } from "@tenas-ai/api/types/tools/subAgent";
-import { buildToolset } from "@/ai/registry/toolRegistry";
+import { buildToolset } from "@/ai/tools/toolRegistry";
 
 /** Browser sub-agent display name. */
 export const BROWSER_SUB_AGENT_NAME = browserSubAgentName;

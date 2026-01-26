@@ -9,7 +9,7 @@ import {
   CodeBlockElementStatic,
   CodeLineElementStatic,
   CodeSyntaxLeafStatic,
-} from '@/components/ui/code-block-node-static';
+} from '@tenas-ai/ui/code-block-node-static';
 
 // 记录 lowlight 初始化耗时，lowlight(all) 会注册所有语言，成本较高
 // eslint-disable-next-line no-console

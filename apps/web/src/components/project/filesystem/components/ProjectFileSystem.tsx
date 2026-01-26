@@ -23,7 +23,7 @@ import {
   ProjectFileSystemHeader,
   type ProjectBreadcrumbInfo,
 } from "./ProjectFileSystemHeader";
-import { DragDropOverlay } from "@/components/ui/tenas/drag-drop-overlay";
+import { DragDropOverlay } from "@tenas-ai/ui/tenas/drag-drop-overlay";
 import { useProjectFileSystemModel } from "../models/file-system-model";
 import { useFileSystemContextMenu } from "@/hooks/use-file-system-context-menu";
 import { useFileSelection } from "@/hooks/use-file-selection";

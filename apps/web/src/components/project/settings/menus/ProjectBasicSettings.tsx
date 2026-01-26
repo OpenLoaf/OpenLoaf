@@ -2,15 +2,15 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FilePenLine, PencilLine, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
+import { Button } from "@tenas-ai/ui/button";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
 import { useProject } from "@/hooks/use-project";
 import { useProjects } from "@/hooks/use-projects";
 import { trpc } from "@/utils/trpc";
 import { PageTreePicker } from "@/components/layout/sidebar/ProjectTree";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { EmojiPicker } from "@/components/ui/emoji-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
+import { EmojiPicker } from "@tenas-ai/ui/emoji-picker";
 import {
   Dialog,
   DialogClose,
@@ -19,9 +19,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@tenas-ai/ui/dialog";
+import { Input } from "@tenas-ai/ui/input";
+import { Label } from "@tenas-ai/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +31,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@tenas-ai/ui/alert-dialog";
 import {
   formatSize,
   getDisplayPathFromUri,

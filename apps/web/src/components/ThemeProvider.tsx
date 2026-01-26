@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
-import { ThemeToggler } from "@/components/animate-ui/primitives/effects/theme-toggler";
+import { ThemeToggler } from "@tenas-ai/ui/animate-ui/primitives/effects/theme-toggler";
 
 export function ThemeProvider({
   children,

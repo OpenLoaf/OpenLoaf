@@ -4,7 +4,7 @@ import React from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/components/chat/ChatProvider";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { useProject } from "@/hooks/use-project";
 import {
   fetchBlobFromUri,

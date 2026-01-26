@@ -7,7 +7,7 @@ import {
 } from '@platejs/code-block/react';
 import { all, createLowlight } from 'lowlight';
 
-import { CodeLineElement, CodeSyntaxLeaf } from '@/components/ui/code-block-node';
+import { CodeLineElement, CodeSyntaxLeaf } from '@tenas-ai/ui/code-block-node';
 import { TenasCodeBlockElement } from '@/components/editor/tenas/TenasCodeBlockElement';
 
 const lowlight = createLowlight(all);

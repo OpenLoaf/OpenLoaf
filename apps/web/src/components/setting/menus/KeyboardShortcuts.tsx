@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { Kbd, KbdGroup } from "@tenas-ai/ui/kbd";
 import { GLOBAL_SHORTCUTS } from "@/lib/globalShortcuts";
-import { TenasSettingsGroup } from "@/components/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@/components/ui/tenas/TenasSettingsField";
+import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
 
 const SHORTCUT_TRANSLATIONS: Record<string, { label: string; note?: string }> = {
   "sidebar.toggle": { label: "切换侧边栏" },

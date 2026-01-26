@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useProjects } from "@/hooks/use-projects";
-import { Input } from "@/components/ui/input";
+import { Input } from "@tenas-ai/ui/input";
 import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
 import type { DesktopWidgetItem } from "./types";
 import { desktopWidgetCatalog } from "./widget-catalog";

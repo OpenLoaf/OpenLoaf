@@ -17,10 +17,10 @@ import {
   type UITree,
 } from "@json-render/core";
 import { useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@tenas-ai/ui/button";
+import { Input } from "@tenas-ai/ui/input";
+import { Label } from "@tenas-ai/ui/label";
+import { Textarea } from "@tenas-ai/ui/textarea";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";

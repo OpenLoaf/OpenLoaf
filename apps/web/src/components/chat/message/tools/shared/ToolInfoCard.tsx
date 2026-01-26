@@ -3,8 +3,8 @@
 import * as React from "react";
 import { Check, Circle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Separator } from "@/components/ui/separator";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@tenas-ai/ui/accordion";
+import { Separator } from "@tenas-ai/ui/separator";
 
 export type ToolBadgeTone = "default" | "success" | "warning" | "error";
 
@@ -93,13 +93,13 @@ export default function ToolInfoCard({
         <AccordionItem
           value="tool"
           className={cn(
-            "w-full min-w-0 max-w-[90%] rounded-lg px-3 py-1 last:border-b",
+            "relative w-full min-w-0 max-w-[90%] rounded-lg px-3 py-1 last:border-b",
             containerClassName,
             isStreaming && "tenas-tool-streaming",
           )}
           style={containerStyle}
         >
-          <AccordionTrigger className="py-0.5 text-[10px] font-medium text-foreground/70 hover:no-underline [&>svg]:text-muted-foreground/30">
+          <AccordionTrigger className="py-0.5 pr-10 text-[10px] font-medium text-foreground/70 hover:no-underline [&>svg]:text-muted-foreground/30">
             <div className="flex w-full items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="shrink-0">{statusIcon}</span>
@@ -111,7 +111,7 @@ export default function ToolInfoCard({
             </div>
           </AccordionTrigger>
           {actions ? (
-            <div className="mt-0.5 flex w-full flex-wrap items-center justify-end gap-1.5 text-[9px] text-muted-foreground/80">
+            <div className="absolute right-7 top-1.5 flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground/80">
               {actions}
             </div>
           ) : null}

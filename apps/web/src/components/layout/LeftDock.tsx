@@ -8,7 +8,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import type { DockItem } from "@tenas-ai/api/common";
 import { StackHeader } from "./StackHeader";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@tenas-ai/ui/skeleton";
 import { trpc } from "@/utils/trpc";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -19,9 +19,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+} from "@tenas-ai/ui/dialog";
+import { Input } from "@tenas-ai/ui/input";
+import { Button } from "@tenas-ai/ui/button";
 import { toast } from "sonner";
 import { BoardPanelHeaderActions } from "@/components/board/BoardPanelHeaderActions";
 import {

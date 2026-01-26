@@ -1,12 +1,12 @@
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ChatModelSource } from "@tenas-ai/api/common";
-import type { AiExecuteRequest, AiIntent, AiResponseMode } from "@/ai/application/dto/aiTypes";
-import { AiModule } from "@/ai/composition/AiModule";
+import type { AiExecuteRequest, AiIntent, AiResponseMode } from "@/ai/chat/types";
+import { bootstrapAi } from "@/ai/bootstrap";
 import { logger } from "@/common/logger";
 import { toText } from "@/routers/route-utils";
 
-const controller = new AiModule().createAiExecuteController();
+const { aiExecuteController: controller } = bootstrapAi();
 
 /** Register unified AI execute route. */
 export function registerAiExecuteRoutes(app: Hono) {

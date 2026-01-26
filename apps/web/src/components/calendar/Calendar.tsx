@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar } from "@tenas-ai/ui/calendar";
 
 export default function CalendarPage({
   panelKey: _panelKey,

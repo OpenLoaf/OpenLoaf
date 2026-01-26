@@ -4,7 +4,7 @@ import * as React from "react";
 import { ChevronDown } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { cn } from "@/lib/utils";
 import type { ToolJsonDisplay, ToolVariant } from "./tool-utils";
 

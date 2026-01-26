@@ -8,7 +8,7 @@ import {
   resolvePriceTier,
   type ModelDefinition,
 } from "@tenas-ai/api/common";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { cn } from "@/lib/utils";
 import {
   BarChart3,
@@ -26,7 +26,7 @@ import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import MessageBranchNav from "./MessageBranchNav";
 import { getMessageTextWithToolCalls } from "@/lib/chat/message-text";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import { messageActionIconButtonClassName } from "./message-action-styles";
 import {
   AlertDialog,
@@ -38,7 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@tenas-ai/ui/alert-dialog";
 
 const TOKEN_K = 1000;
 const TOKEN_M = 1000 * 1000;

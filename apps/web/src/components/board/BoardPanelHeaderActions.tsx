@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo } from "react";
 import { Camera, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
 import type { DockItem } from "@tenas-ai/api/common";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useOptionalSidebar } from "@/components/ui/sidebar";
+import { Button } from "@tenas-ai/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+import { useOptionalSidebar } from "@tenas-ai/ui/sidebar";
 import {
   getBoardDisplayName,
   getDisplayFileName,

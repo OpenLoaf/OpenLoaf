@@ -9,16 +9,16 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
-} from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+} from "@tenas-ai/ui/sidebar";
+import { Button } from "@tenas-ai/ui/button";
+import { Switch } from "@tenas-ai/ui/switch";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+} from "@tenas-ai/ui/context-menu";
 import {
   Dialog,
   DialogClose,
@@ -26,9 +26,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@tenas-ai/ui/dialog";
+import { Input } from "@tenas-ai/ui/input";
+import { Label } from "@tenas-ai/ui/label";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { PageTreeMenu } from "./ProjectTree";
 import { toast } from "sonner";

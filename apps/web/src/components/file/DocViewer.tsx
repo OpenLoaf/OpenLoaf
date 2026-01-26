@@ -20,19 +20,19 @@ import { ReadFileErrorFallback } from "@/components/file/lib/read-file-error";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { resolveFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Editor, EditorContainer } from "@/components/ui/editor";
-import { EditorStatic } from "@/components/ui/editor-static";
-import { RedoToolbarButton, UndoToolbarButton } from "@/components/ui/history-toolbar-button";
-import { BulletedListToolbarButton, NumberedListToolbarButton } from "@/components/ui/list-toolbar-button";
-import { MarkToolbarButton } from "@/components/ui/mark-toolbar-button";
-import { Toolbar, ToolbarButton, ToolbarGroup } from "@/components/ui/toolbar";
+} from "@tenas-ai/ui/dropdown-menu";
+import { Editor, EditorContainer } from "@tenas-ai/ui/editor";
+import { EditorStatic } from "@tenas-ai/ui/editor-static";
+import { RedoToolbarButton, UndoToolbarButton } from "@tenas-ai/ui/history-toolbar-button";
+import { BulletedListToolbarButton, NumberedListToolbarButton } from "@tenas-ai/ui/list-toolbar-button";
+import { MarkToolbarButton } from "@tenas-ai/ui/mark-toolbar-button";
+import { Toolbar, ToolbarButton, ToolbarGroup } from "@tenas-ai/ui/toolbar";
 import { useTabs } from "@/hooks/use-tabs";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";

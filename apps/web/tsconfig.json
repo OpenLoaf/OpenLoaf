@@ -26,6 +26,12 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@tenas-ai/ui": [
+        "../../packages/ui/src/index.ts"
+      ],
+      "@tenas-ai/ui/*": [
+        "../../packages/ui/src/*"
       ]
     }
   },

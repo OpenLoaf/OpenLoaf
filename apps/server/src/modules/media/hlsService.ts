@@ -280,10 +280,11 @@ function buildMasterPlaylist(input: { path: string; projectId: string }) {
   const lines = [
     "#EXTM3U",
     "#EXT-X-VERSION:3",
-    `#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,NAME=\"1080P\"`,
-    makeUrl("1080p"),
+    // 逻辑：默认优先 720p，避免首次播放等待 1080p 转码完成。
     `#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720,NAME=\"720P\"`,
     makeUrl("720p"),
+    `#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,NAME=\"1080P\"`,
+    makeUrl("1080p"),
     `#EXT-X-STREAM-INF:BANDWIDTH=8000000,NAME=\"原画\"`,
     makeUrl("source"),
   ];

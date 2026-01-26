@@ -7,8 +7,8 @@ import {
   type SetStateAction,
 } from "react";
 import { ArrowLeftIcon, FileText, Folder, FolderOpen, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import { Button } from "@tenas-ai/ui/button";
+import { EmptyState } from "@tenas-ai/ui/empty-state";
 import { type FileSystemEntry } from "../utils/file-system-utils";
 
 type FileSystemEmptyStateProps = {

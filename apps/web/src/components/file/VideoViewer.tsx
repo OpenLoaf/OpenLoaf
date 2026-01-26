@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { VideoPlayer } from "@/components/ui/video-player";
+import { VideoPlayer } from "@tenas-ai/ui/video-player";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -21,6 +21,8 @@ interface VideoViewerProps {
   thumbnailSrc?: string;
   width?: number;
   height?: number;
+  /** Force the large layout to keep controls stable. */
+  forceLargeLayout?: boolean;
   panelKey?: string;
   tabId?: string;
 }
@@ -71,6 +73,7 @@ export default function VideoViewer({
   thumbnailSrc,
   width,
   height,
+  forceLargeLayout,
   panelKey,
   tabId,
 }: VideoViewerProps) {
@@ -109,12 +112,34 @@ export default function VideoViewer({
     if (!relativePath) return null;
 
     const quality = "720p";
-    return {
-      url: buildQualityManifestUrl({
+    const masterUrl = buildManifestUrl({
+      path: relativePath,
+      projectId: resolvedProjectId,
+    });
+    const qualityUrl = buildQualityManifestUrl({
+      path: relativePath,
+      projectId: resolvedProjectId,
+      quality,
+    });
+    const prewarmUrls = [
+      buildQualityManifestUrl({
         path: relativePath,
         projectId: resolvedProjectId,
-        quality,
+        quality: "1080p",
       }),
+      buildQualityManifestUrl({
+        path: relativePath,
+        projectId: resolvedProjectId,
+        quality: "source",
+      }),
+    ];
+    return {
+      // 逻辑：播放器使用 master 清单以支持分辨率切换。
+      url: masterUrl,
+      // 逻辑：仍用默认分辨率轮询转码完成，避免 HLS 读取到 202。
+      buildUrl: qualityUrl,
+      // 逻辑：后台预热其他清晰度，避免切换时阻塞。
+      prewarmUrls,
       progress: buildProgressUrl({
         path: relativePath,
         projectId: resolvedProjectId,
@@ -268,7 +293,7 @@ export default function VideoViewer({
   }, [isBuilding, manifest?.progress]);
 
   useEffect(() => {
-    if (!manifest?.url) {
+    if (!manifest?.url || !manifest?.buildUrl) {
       setPlaybackUrl(null);
       setIsBuilding(false);
       setBuildError(null);
@@ -280,13 +305,19 @@ export default function VideoViewer({
     setBuildProgress(0);
     const pollManifest = async () => {
       try {
-        const response = await fetch(manifest.url, { cache: "no-store" });
+        const response = await fetch(manifest.buildUrl, { cache: "no-store" });
         if (cancelled) return;
         if (response.status === 200) {
           setPlaybackUrl(manifest.url);
           setIsBuilding(false);
           setBuildError(null);
           setBuildProgress(100);
+          // 逻辑：触发其他清晰度转码，提升后续切换成功率。
+          manifest.prewarmUrls?.forEach((url) => {
+            void fetch(url, { cache: "no-store" }).catch(() => {
+              // 逻辑：预热失败不影响当前播放。
+            });
+          });
           return;
         }
         if (response.status === 202) {
@@ -311,7 +342,7 @@ export default function VideoViewer({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [manifest?.url]);
+  }, [manifest?.buildUrl, manifest?.url]);
 
   const canClose = Boolean(tabId && panelKey);
 
@@ -319,7 +350,7 @@ export default function VideoViewer({
     return <div className="h-full w-full p-4 text-muted-foreground">未选择视频</div>;
   }
 
-  if (!manifest?.url) {
+  if (!manifest?.url || !manifest?.buildUrl) {
     return (
       <div className="h-full w-full p-4 text-muted-foreground">
         无法解析视频路径
@@ -395,6 +426,7 @@ export default function VideoViewer({
             poster={thumbnailSrc ?? previewBackground ?? undefined}
             thumbnails={manifest.thumbnails}
             title={displayTitle}
+            smallLayoutWhen={forceLargeLayout ? false : undefined}
             className={cn(
               "max-h-full max-w-full rounded-lg bg-black",
               isPortrait === null

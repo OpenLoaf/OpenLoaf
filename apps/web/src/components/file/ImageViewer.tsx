@@ -10,7 +10,7 @@ import {
   type ReactZoomPanPinchRef,
 } from "react-zoom-pan-pinch";
 import { AlertTriangle, Download, Redo2, Sparkles, Trash2, Undo2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { trpc } from "@/utils/trpc";
 import { useOptionalChatContext } from "@/components/chat/ChatProvider";
 import { useBasicConfig } from "@/hooks/use-basic-config";

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { desktopWidgetCatalog } from "./widget-catalog";
 import type { DesktopItem } from "./types";

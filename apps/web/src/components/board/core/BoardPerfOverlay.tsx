@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBoardEngine } from "./BoardProvider";
 import { useBoardViewState } from "./useBoardViewState";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 
 type BoardPerfStats = {
   /** Total renderable node count. */

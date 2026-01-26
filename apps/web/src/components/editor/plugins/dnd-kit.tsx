@@ -5,7 +5,7 @@ import { DndProvider } from 'react-dnd';
 import { DndPlugin } from '@platejs/dnd';
 import { PlaceholderPlugin } from '@platejs/media/react';
 
-import { BlockDraggable } from '@/components/ui/block-draggable';
+import { BlockDraggable } from '@tenas-ai/ui/block-draggable';
 import { dndManager } from '@/lib/dnd-manager';
 
 export const DndKit = [

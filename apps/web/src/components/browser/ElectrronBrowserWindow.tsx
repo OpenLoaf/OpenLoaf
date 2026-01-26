@@ -14,7 +14,7 @@ import { BrowserProgressBar } from "@/components/browser/BrowserProgressBar";
 import { BrowserLoadingOverlay } from "@/components/browser/BrowserLoadingOverlay";
 import { BrowserErrorOverlay } from "@/components/browser/BrowserErrorOverlay";
 import { BrowserHome } from "@/components/browser/BrowserHome";
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import { normalizeUrl } from "@/components/browser/browser-utils";
 import {
   addFavoriteSite,
@@ -35,7 +35,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@/components/ui/empty";
+} from "@tenas-ai/ui/empty";
 import { Star, TriangleAlert } from "lucide-react";
 
 type ElectrronBrowserWindowProps = {

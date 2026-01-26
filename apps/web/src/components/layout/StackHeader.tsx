@@ -4,8 +4,8 @@ import * as React from "react";
 import { ExternalLink, Minus, RotateCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@tenas-ai/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import { resolveFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 
 /**

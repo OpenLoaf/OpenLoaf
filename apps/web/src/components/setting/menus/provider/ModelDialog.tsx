@@ -1,12 +1,12 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@tenas-ai/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+} from "@tenas-ai/ui/dialog";
+import { Input } from "@tenas-ai/ui/input";
 import type { ModelTag } from "@tenas-ai/api/common";
 import {
   MODEL_TAG_OPTIONS,

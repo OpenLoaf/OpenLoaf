@@ -3,7 +3,7 @@
 import * as React from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AnimatedFolder, type AnimatedFolderProject } from "@/components/ui/3d-folder";
+import { AnimatedFolder, type AnimatedFolderProject } from "@tenas-ai/ui/3d-folder";
 import { useProjects } from "@/hooks/use-projects";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";

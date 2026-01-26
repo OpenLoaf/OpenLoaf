@@ -12,7 +12,7 @@ import { toTPlatePlugin } from 'platejs/react';
 import {
   SuggestionLeaf,
   SuggestionLineBreak,
-} from '@/components/ui/suggestion-node';
+} from '@tenas-ai/ui/suggestion-node';
 
 import { discussionPlugin } from './discussion-kit';
 

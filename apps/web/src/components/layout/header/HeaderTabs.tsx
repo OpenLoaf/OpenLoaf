@@ -1,10 +1,10 @@
 import { ChevronLeft, ChevronRight, Globe, Plus, X } from "lucide-react";
-import { AnimatedTabs } from "@/components/ui/animated-tabs";
+import { AnimatedTabs } from "@tenas-ai/ui/animated-tabs";
 import { useTabs } from "@/hooks/use-tabs";
 import { DEFAULT_TAB_INFO, type Tab } from "@tenas-ai/api/common";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@tenas-ai/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import {
   startTransition,
   useCallback,

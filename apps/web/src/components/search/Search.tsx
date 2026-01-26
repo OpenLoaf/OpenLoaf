@@ -9,8 +9,8 @@ import {
   CommandItem,
   CommandList,
   CommandShortcut,
-} from "@/components/ui/command";
-import { Kbd, KbdGroup } from "@/components/ui/kbd";
+} from "@tenas-ai/ui/command";
+import { Kbd, KbdGroup } from "@tenas-ai/ui/kbd";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { AI_CHAT_TAB_INPUT } from "@tenas-ai/api/common";

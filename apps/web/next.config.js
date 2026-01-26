@@ -7,6 +7,7 @@ const d3PathEsmEntry = resolveFromWeb("d3-path");
 const nextConfig = {
   typedRoutes: true,
   reactCompiler: true,
+  transpilePackages: ["@tenas-ai/ui"],
   output: "export",
   turbopack: {
     // Monorepo: ensure Next picks the workspace root (pnpm-lock.yaml) instead of

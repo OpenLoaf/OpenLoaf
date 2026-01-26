@@ -17,7 +17,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar";
+} from "@tenas-ai/ui/sidebar";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { queryClient, trpc } from "@/utils/trpc";
 import {
@@ -27,9 +27,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+} from "@tenas-ai/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@tenas-ai/ui/avatar";
+import { Button } from "@tenas-ai/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -37,8 +37,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+} from "@tenas-ai/ui/dialog";
+import { Input } from "@tenas-ai/ui/input";
 import { resolveServerUrl } from "@/utils/server-url";
 
 function readCookie(name: string) {
