@@ -30,6 +30,8 @@ export type ChatImageRequest = {
   messageId?: string;
   /** Web client id. */
   clientId?: string;
+  /** Client timezone (IANA). */
+  timezone?: string;
   /** Tab id. */
   tabId?: string;
   /** Extra params. */
@@ -95,6 +97,7 @@ export const chatImageRequestSchema: z.ZodType<ChatImageRequest> = z
     id: z.string().min(1).optional(),
     messageId: z.string().min(1).optional(),
     clientId: z.string().min(1).optional(),
+    timezone: z.string().min(1).optional(),
     tabId: z.string().min(1).optional(),
     params: z.record(z.string(), z.unknown()).optional(),
     trigger: z.string().min(1).optional(),

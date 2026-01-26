@@ -21,12 +21,24 @@ const STROKE_COLORS = [
 /** 选中高亮的外扩距离（世界坐标）。 */
 const STROKE_HIGHLIGHT_GROW = 6;
 
-/** 将轮廓点转换为 SVG path 字符串。 */
+/** Build a smooth SVG path from stroke outline points. */
 function buildPath(points: [number, number][]): string {
   if (points.length === 0) return "";
   const [first, ...rest] = points;
   if (!first) return "";
-  const segments = rest.map(point => `L ${point[0]} ${point[1]}`);
+  if (points.length < 2) {
+    return `M ${first[0]} ${first[1]} Z`;
+  }
+  const segments: string[] = [];
+  // 逻辑：用二次贝塞尔连接轮廓点，避免急转弯出现直角折线。
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index];
+    const next = points[(index + 1) % points.length];
+    if (!current || !next) continue;
+    const midX = (current[0] + next[0]) / 2;
+    const midY = (current[1] + next[1]) / 2;
+    segments.push(`Q ${current[0]} ${current[1]} ${midX} ${midY}`);
+  }
   return `M ${first[0]} ${first[1]} ${segments.join(" ")} Z`;
 }
 

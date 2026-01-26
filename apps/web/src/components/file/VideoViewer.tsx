@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { VideoPlayer } from "@/components/ui/video-player";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
+import { cn } from "@/lib/utils";
 import {
   getRelativePathFromUri,
   normalizeProjectRelativePath,
@@ -77,6 +78,8 @@ export default function VideoViewer({
   const [buildError, setBuildError] = useState<string | null>(null);
   const [previewBackground, setPreviewBackground] = useState<string | null>(null);
   const [buildProgress, setBuildProgress] = useState(0);
+  const [isPortrait, setIsPortrait] = useState<boolean | null>(null);
+  const playerWrapperRef = useRef<HTMLDivElement | null>(null);
 
   const manifest = useMemo(() => {
     if (!uri) return null;
@@ -157,6 +160,77 @@ export default function VideoViewer({
       cancelled = true;
     };
   }, [manifest?.thumbnails, thumbnailSrc]);
+
+  useEffect(() => {
+    const posterSource = thumbnailSrc ?? previewBackground;
+    if (!posterSource) {
+      setIsPortrait(null);
+      return;
+    }
+    let cancelled = false;
+    const image = new Image();
+    image.decoding = "async";
+    image.src = posterSource;
+    const resolveOrientation = () => {
+      if (cancelled) return;
+      const width = image.naturalWidth || 1;
+      const height = image.naturalHeight || 1;
+      // 逻辑：根据缩略图比例推断横竖屏，决定播放器撑满方向。
+      setIsPortrait(height >= width);
+    };
+    if (image.decode) {
+      image
+        .decode()
+        .then(resolveOrientation)
+        .catch(() => {
+          if (cancelled) return;
+          setIsPortrait(null);
+        });
+    } else {
+      image.onload = resolveOrientation;
+      image.onerror = () => {
+        if (cancelled) return;
+        setIsPortrait(null);
+      };
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [previewBackground, thumbnailSrc]);
+
+  useEffect(() => {
+    const wrapper = playerWrapperRef.current;
+    if (!wrapper) return;
+    const applySizing = () => {
+      const video = wrapper.querySelector("video");
+      if (!video) return;
+      if (isPortrait === null) {
+        video.style.setProperty("width", "100%", "important");
+        video.style.setProperty("height", "100%", "important");
+        return;
+      }
+      if (isPortrait) {
+        // 逻辑：竖屏视频高度撑满，宽度自适应。
+        video.style.setProperty("height", "100%", "important");
+        video.style.setProperty("width", "auto", "important");
+        return;
+      }
+      // 逻辑：横屏视频宽度撑满，高度自适应。
+      video.style.setProperty("width", "100%", "important");
+      video.style.setProperty("height", "auto", "important");
+    };
+    applySizing();
+    const raf = requestAnimationFrame(applySizing);
+    const observer = new MutationObserver(() => {
+      // 逻辑：播放器内部 DOM 变动时重新注入尺寸样式，覆盖全局 video 规则。
+      applySizing();
+    });
+    observer.observe(wrapper, { childList: true, subtree: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      observer.disconnect();
+    };
+  }, [isPortrait, playbackUrl]);
 
   useEffect(() => {
     if (!isBuilding || !manifest?.progress) {
@@ -303,13 +377,23 @@ export default function VideoViewer({
         />
       ) : null}
       <div className="flex-1 p-4">
-        <div className="relative flex h-full w-full items-center justify-center rounded-lg bg-muted/40">
+        <div
+          ref={playerWrapperRef}
+          className="relative flex h-full w-full items-center justify-center rounded-lg bg-muted/40"
+        >
           <VideoPlayer
             src={playbackUrl}
             poster={thumbnailSrc ?? previewBackground ?? undefined}
             thumbnails={manifest.thumbnails}
             title={displayTitle}
-            className="h-full w-full rounded-lg bg-black"
+            className={cn(
+              "max-h-full max-w-full rounded-lg bg-black",
+              isPortrait === null
+                ? "h-full w-full [&_video]:h-full [&_video]:w-full"
+                : isPortrait
+                  ? "h-full w-auto [&_video]:h-full [&_video]:w-auto"
+                  : "w-full h-auto [&_video]:w-full [&_video]:h-auto"
+            )}
             controls
           />
         </div>

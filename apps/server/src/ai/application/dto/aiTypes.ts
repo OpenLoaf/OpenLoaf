@@ -30,6 +30,8 @@ export type AiExecuteRequest = {
   chatModelSource?: ChatModelSource;
   /** Stable client id for session. */
   clientId?: string;
+  /** Client timezone (IANA). */
+  timezone?: string;
   /** Board id for chat context. */
   boardId?: string;
   /** Workspace id for context lookup. */

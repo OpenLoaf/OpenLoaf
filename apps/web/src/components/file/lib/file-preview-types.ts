@@ -25,6 +25,10 @@ export type FilePreviewItem = {
   projectId?: string;
   /** Optional root uri for system open. */
   rootUri?: string;
+  /** Optional media width in pixels. */
+  width?: number;
+  /** Optional media height in pixels. */
+  height?: number;
   /** Optional thumbnail for image preview. */
   thumbnailSrc?: string;
   /** Optional media type for naming. */

@@ -34,6 +34,8 @@ export type PromptContext = {
   platform: string;
   /** Date string for prompt context. */
   date: string;
+  /** Client timezone for prompt context. */
+  timezone: string;
   /** Python runtime snapshot. */
   python: {
     /** Whether Python is installed. */

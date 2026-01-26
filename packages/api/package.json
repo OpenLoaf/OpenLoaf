@@ -22,6 +22,7 @@
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.11",
     "@ai-sdk/openai": "^3.0.18",
+    "@json-render/core": "^0.3.0",
     "@platejs/markdown": "^52.1.0",
     "@tenas-ai/db": "workspace:*",
     "@trpc/client": "catalog:",

@@ -86,6 +86,8 @@ export function initRequestContext(input: {
   cookies: Record<string, string>;
   /** Web client id for session association. */
   clientId?: string | null;
+  /** Client timezone (IANA). */
+  timezone?: string | null;
   /** Tab id for UI event targeting. */
   tabId?: string | null;
   /** Workspace id for request scope. */
@@ -109,6 +111,10 @@ export function initRequestContext(input: {
     sessionId: input.sessionId,
     cookies: input.cookies,
     clientId: input.clientId || undefined,
+    timezone:
+      typeof input.timezone === "string" && input.timezone.trim()
+        ? input.timezone.trim()
+        : undefined,
     tabId: input.tabId || undefined,
     workspaceId: input.workspaceId || undefined,
     projectId: input.projectId || undefined,

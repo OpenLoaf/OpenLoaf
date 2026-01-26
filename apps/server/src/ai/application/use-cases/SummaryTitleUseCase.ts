@@ -54,6 +54,7 @@ export class SummaryTitleUseCase {
       sessionId,
       cookies: input.cookies,
       clientId: input.request.clientId,
+      timezone: input.request.timezone,
       tabId: input.request.tabId,
       workspaceId: input.request.workspaceId,
       projectId: input.request.projectId,

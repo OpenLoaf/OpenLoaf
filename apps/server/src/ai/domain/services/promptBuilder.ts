@@ -82,6 +82,7 @@ export function buildMasterAgentSections(context: PromptContext): string[] {
       `- projectRootPath: ${context.project.rootPath}`,
       `- platform: ${context.platform}`,
       `- date: ${context.date}`,
+      `- timezone: ${context.timezone}`,
       `- accountId: ${context.account.id}`,
       `- accountName: ${context.account.name}`,
       `- accountEmail: ${context.account.email}`,

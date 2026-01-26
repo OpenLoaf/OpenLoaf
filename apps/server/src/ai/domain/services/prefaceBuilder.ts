@@ -15,6 +15,7 @@ import { getAuthSessionSnapshot } from "@/modules/auth/tokenStore";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { logger } from "@/common/logger";
 import { buildMasterAgentSections } from "@/ai/domain/services/promptBuilder";
+import { jsonRenderSystemPrompt } from "@tenas-ai/api/jsonRenderCatalog";
 
 /** Unknown value fallback. */
 const UNKNOWN_VALUE = "unknown";
@@ -261,6 +262,15 @@ function resolveResponseLanguage(): string {
   return language;
 }
 
+/** Resolve timezone string for prompt injection. */
+function resolveTimezone(value?: string): string {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (trimmed) return trimmed;
+  const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // 逻辑：未传入时区时回退到服务器时区。
+  return resolved || process.env.TZ || "UTC";
+}
+
 /** Resolve Python runtime snapshot. */
 async function resolvePythonRuntimeSnapshot(): Promise<PythonRuntimeSnapshot> {
   try {
@@ -324,6 +334,7 @@ async function resolvePromptContext(input: {
   projectId?: string;
   parentProjectRootPaths: string[];
   selectedSkills: string[];
+  timezone?: string;
 }): Promise<PromptContext> {
   const workspace = resolveWorkspaceSnapshot(input.workspaceId);
   const project = resolveProjectSnapshot(input.projectId);
@@ -331,6 +342,7 @@ async function resolvePromptContext(input: {
   const responseLanguage = resolveResponseLanguage();
   const platform = `${os.platform()} ${os.release()}`;
   const date = new Date().toDateString();
+  const timezone = resolveTimezone(input.timezone);
   const python = await resolvePythonRuntimeSnapshot();
   const { summaries, selectedSkills } = resolveFilteredSkillSummaries({
     workspaceId: input.workspaceId,
@@ -347,6 +359,7 @@ async function resolvePromptContext(input: {
     responseLanguage,
     platform,
     date,
+    timezone,
     python,
     skillSummaries: summaries,
     selectedSkills,
@@ -360,12 +373,14 @@ export async function buildSessionPrefaceText(input: {
   projectId?: string;
   selectedSkills: string[];
   parentProjectRootPaths: string[];
+  timezone?: string;
 }): Promise<string> {
   const context = await resolvePromptContext({
     workspaceId: input.workspaceId,
     projectId: input.projectId,
     parentProjectRootPaths: input.parentProjectRootPaths,
     selectedSkills: input.selectedSkills,
+    timezone: input.timezone,
   });
   const masterAgentSections = buildMasterAgentSections(context);
   const sections = [
@@ -378,6 +393,9 @@ export async function buildSessionPrefaceText(input: {
       `- projectRootPath: ${context.project.rootPath}`,
     ].join("\n"),
     ...masterAgentSections,
+    // 中文注释：注入 json-render catalog 提示词，保证模型输出遵循组件约束。
+    "## json-render catalog prompt",
+    jsonRenderSystemPrompt,
   ];
   return sections.join("\n\n");
 }

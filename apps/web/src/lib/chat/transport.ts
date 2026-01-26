@@ -6,6 +6,7 @@ import type { RefObject } from "react";
 import type { ChatRequestBody } from "@tenas-ai/api/types/message";
 import { getWebClientId } from "./streamClientId";
 import { resolveServerUrl } from "@/utils/server-url";
+import { getClientTimeZone } from "@/utils/time-zone";
 
 function stripTotalUsageFromMetadata(message: any) {
   if (!message || typeof message !== "object") return message;
@@ -60,6 +61,7 @@ export function createChatTransport({
         resolvedChatModelSource === "local" || resolvedChatModelSource === "cloud"
           ? resolvedChatModelSource
           : undefined;
+      const timezone = getClientTimeZone();
       const {
         chatModelId: _ignored,
         chatModelSource: _ignoredSource,
@@ -74,6 +76,7 @@ export function createChatTransport({
         ...basePayload,
         sessionId: id,
         clientId: clientId || undefined,
+        timezone,
         tabId,
         messageId,
         intent: "chat",

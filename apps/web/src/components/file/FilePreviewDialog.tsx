@@ -15,32 +15,59 @@ import VideoViewer from "@/components/file/VideoViewer";
 import { getImageDialogSize, type ImageMeta } from "@/lib/image/dialog-size";
 import { useFilePreviewStore, closeFilePreview } from "@/components/file/lib/file-preview-store";
 
+/** Calculate preview dialog size based on media dimensions and viewport limits. */
+function getVideoDialogSize(meta: { width: number; height: number }) {
+  const maxWidth = Math.floor(window.innerWidth * 0.9);
+  const maxHeight = Math.floor(window.innerHeight * 0.9);
+  const maxContentWidth = Math.max(maxWidth, 1);
+  const maxContentHeight = Math.max(maxHeight, 1);
+  const clampedWidth = Math.min(meta.width, maxContentWidth);
+  // 逻辑：按视频比例等比缩放，保持弹窗适配视窗范围。
+  let contentHeight = Math.round((meta.height * clampedWidth) / meta.width);
+  let contentWidth = clampedWidth;
+  if (contentHeight > maxContentHeight) {
+    contentHeight = maxContentHeight;
+    contentWidth = Math.round((meta.width * contentHeight) / meta.height);
+  }
+  return {
+    width: contentWidth,
+    height: contentHeight,
+  };
+}
+
 /** Render a shared file preview dialog with optional navigation. */
 export default function FilePreviewDialog() {
   const payload = useFilePreviewStore((state) => state.payload);
   const currentItem = payload?.items[payload.activeIndex] ?? null;
   const isImage = payload?.viewer === "image";
+  const isVideo = payload?.viewer === "video";
   const canPrev = Boolean(payload && payload.activeIndex > 0);
   const canNext = Boolean(payload && payload.activeIndex < (payload.items.length - 1));
   const [imageMeta, setImageMeta] = React.useState<ImageMeta | null>(null);
   const [dialogSize, setDialogSize] = React.useState<{ width: number; height: number } | null>(
     null
   );
+  const [videoDialogSize, setVideoDialogSize] = React.useState<
+    { width: number; height: number } | null
+  >(null);
 
   React.useEffect(() => {
     if (!payload || !currentItem?.uri) {
       setImageMeta(null);
       setDialogSize(null);
+      setVideoDialogSize(null);
       return;
     }
     if (!isImage) {
       setImageMeta(null);
       setDialogSize(null);
-      return;
+    }
+    if (!isVideo) {
+      setVideoDialogSize(null);
     }
     setImageMeta(null);
     setDialogSize(null);
-  }, [currentItem?.uri, isImage, payload]);
+  }, [currentItem?.uri, isImage, isVideo, payload]);
 
   React.useEffect(() => {
     if (!imageMeta) return;
@@ -51,6 +78,22 @@ export default function FilePreviewDialog() {
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, [imageMeta]);
+
+  React.useEffect(() => {
+    if (!isVideo) return;
+    const width = currentItem?.width;
+    const height = currentItem?.height;
+    if (!width || !height || width <= 0 || height <= 0) {
+      setVideoDialogSize(null);
+      return;
+    }
+    const update = () => {
+      setVideoDialogSize(getVideoDialogSize({ width, height }));
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [currentItem?.height, currentItem?.width, isVideo]);
 
   if (!payload || !currentItem) return null;
 
@@ -67,10 +110,18 @@ export default function FilePreviewDialog() {
             ? `h-auto w-auto max-h-[80vh] max-w-none sm:max-w-none p-0 overflow-hidden flex flex-col gap-0 transition-opacity duration-200 border border-border/60 bg-transparent shadow-none ${
                 dialogSize ? "opacity-100" : "opacity-100 min-h-[200px] min-w-[320px]"
               }`
-            : "h-[90vh] w-[90vw] max-w-none p-0 overflow-hidden"
+            : isVideo && videoDialogSize
+              ? "h-auto w-auto max-h-[90vh] max-w-none p-0 overflow-hidden transition-opacity duration-200"
+              : "h-[90vh] w-[90vw] max-w-none p-0 overflow-hidden"
         }
         overlayClassName="bg-background/35 backdrop-blur-2xl"
-        style={isImage && dialogSize ? { width: dialogSize.width, height: dialogSize.height } : undefined}
+        style={
+          isImage && dialogSize
+            ? { width: dialogSize.width, height: dialogSize.height }
+            : isVideo && videoDialogSize
+              ? { width: videoDialogSize.width, height: videoDialogSize.height }
+              : undefined
+        }
         showCloseButton={false}
         overlaySlot={
           <button

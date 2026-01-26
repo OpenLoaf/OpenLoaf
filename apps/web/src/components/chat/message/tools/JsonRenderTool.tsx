@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import {
-  JSONUIProvider,
+  ActionProvider,
+  DataProvider,
   Renderer,
+  VisibilityProvider,
   useDataBinding,
   type ComponentRegistry,
   type ComponentRenderProps,
@@ -20,14 +22,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { queryClient, trpc } from "@/utils/trpc";
+import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 import { useChatContext } from "../../ChatProvider";
 import type { AnyToolPart } from "./shared/tool-utils";
 import {
   asPlainObject,
   getApprovalId,
-  isApprovalPending,
   isToolStreaming,
   normalizeToolInput,
 } from "./shared/tool-utils";
@@ -99,18 +100,10 @@ function extractElementProps(raw: Record<string, unknown>): Record<string, unkno
   return flattened;
 }
 
-/** Normalize element type values for known aliases. */
+/** Normalize element type values for rendering. */
 function normalizeElementType(rawType: string): string {
   const trimmed = rawType.trim();
-  if (!trimmed) return "unknown";
-  const lowered = trimmed.toLowerCase();
-  const normalized = lowered.replace(/[_\s]+/g, "-");
-  const compact = normalized.replace(/-/g, "");
-  // 逻辑：把常见别名统一成 json-render 预期类型。
-  if (compact === "textfield") return "text";
-  if (compact === "textarea") return "textarea";
-  if (normalized === "text-area") return "textarea";
-  if (normalized === "text-field") return "text";
+  if (!trimmed) return "Unknown";
   return trimmed;
 }
 
@@ -124,7 +117,8 @@ function normalizeTree(rawTree: unknown): UITree | null {
   for (const [key, value] of Object.entries(rawElements)) {
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
     const rawElement = value as Record<string, unknown>;
-    const rawType = typeof rawElement.type === "string" ? rawElement.type : "unknown";
+    const rawType = typeof rawElement.type === "string" ? rawElement.type : "Unknown";
+    const props = extractElementProps(rawElement);
     const type = normalizeElementType(rawType);
     const children = Array.isArray(rawElement.children)
       ? rawElement.children.filter((child) => typeof child === "string")
@@ -138,7 +132,7 @@ function normalizeTree(rawTree: unknown): UITree | null {
     elements[key] = {
       key,
       type,
-      props: extractElementProps(rawElement),
+      props,
       ...(children && children.length > 0 ? { children } : {}),
       ...(parentKey !== undefined ? { parentKey } : {}),
       ...(visible !== undefined ? { visible } : {}),
@@ -200,8 +194,8 @@ function createRegistry(options: {
 }): ComponentRegistry {
   const { readOnly, disableActions, hideSubmit } = options;
 
-  /** Render a form container. */
-  function FormContainer({ element, children }: ComponentRenderProps) {
+  /** Render a layout container. */
+  function LayoutContainer({ element, children }: ComponentRenderProps) {
     const props = asPlainObject(element.props) ?? {};
     const title = resolveStringProp(props, ["title", "label"]);
     const description = resolveStringProp(props, ["description", "helperText"]);
@@ -220,6 +214,15 @@ function createRegistry(options: {
     );
   }
 
+  /** Render a text content block. */
+  function TextContent({ element }: ComponentRenderProps) {
+    const props = asPlainObject(element.props) ?? {};
+    const content =
+      resolveStringProp(props, ["content", "text", "label", "title"]) ?? "";
+    if (!content) return null;
+    return <div className="text-sm text-foreground">{content}</div>;
+  }
+
   /** Render a text input field. */
   function TextField({ element, loading }: ComponentRenderProps) {
     const props = asPlainObject(element.props) ?? {};
@@ -228,7 +231,7 @@ function createRegistry(options: {
     const helperText = resolveStringProp(props, ["helperText", "description"]);
     const inputType =
       resolveStringProp(props, ["inputType", "type"]) ??
-      (element.type !== "text" ? element.type : "text");
+      "text";
     const required = resolveBooleanProp(props, "required");
     const disabled = readOnly || resolveBooleanProp(props, "disabled") || Boolean(loading);
     const path = resolveFieldPath(element);
@@ -345,31 +348,13 @@ function createRegistry(options: {
   }
 
   return {
-    form: FormContainer,
-    Form: FormContainer,
-    group: FormContainer,
-    Group: FormContainer,
-    section: FormContainer,
-    Section: FormContainer,
-    text: TextField,
-    "text-field": TextField,
-    textField: TextField,
-    input: TextField,
-    email: TextField,
-    number: TextField,
-    password: TextField,
-    tel: TextField,
-    url: TextField,
-    Text: TextField,
-    Input: TextField,
-    Textarea: TextareaField,
-    textarea: TextareaField,
-    "text-area": TextareaField,
-    textArea: TextareaField,
-    button: ActionButton,
+    Card: LayoutContainer,
+    Section: LayoutContainer,
+    Form: LayoutContainer,
+    Text: TextContent,
+    TextField: TextField,
+    TextArea: TextareaField,
     Button: ActionButton,
-    submit: ActionButton,
-    cancel: ActionButton,
     fallback: Fallback,
   } as ComponentRegistry;
 }
@@ -378,11 +363,9 @@ function createRegistry(options: {
 export default function JsonRenderTool({
   part,
   className,
-  messageId,
 }: {
   part: AnyToolPart;
   className?: string;
-  /** Message id for fetching tool output after refresh. */
   messageId?: string;
 }) {
   const chat = useChatContext();
@@ -393,9 +376,7 @@ export default function JsonRenderTool({
   const hasOutput = part.output != null;
   const isReadonly =
     isRejected || isApproved || hasOutput || part.state === "output-available";
-  const isPending = isApprovalPending(part);
   const isStreaming = isToolStreaming(part);
-  const tabId = chat.tabId ?? undefined;
 
   const normalizedInput = normalizeToolInput(part.input);
   const inputObject = asPlainObject(normalizedInput) as JsonRenderInput | null;
@@ -471,14 +452,6 @@ export default function JsonRenderTool({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const isActionDisabled =
     isSubmitting || isReadonly || chat.status === "streaming" || chat.status === "submitted";
-  /** Whether output needs to be hydrated from DB. */
-  const shouldFetchOutput =
-    Boolean(messageId && chat.sessionId) && !hasOutput && !isPending;
-  /** Track whether output hydration already succeeded. */
-  const hasFetchedOutputRef = React.useRef(false);
-  /** Track output hydration request state. */
-  const isFetchingOutputRef = React.useRef(false);
-
   /** Persist data changes to the local ref. */
   const handleDataChange = React.useCallback((path: string, value: unknown) => {
     if (!path) return;
@@ -558,45 +531,6 @@ export default function JsonRenderTool({
     [handleSubmit, handleCancel],
   );
 
-  /** Fetch tool output from DB to rehydrate after refresh. */
-  const fetchToolOutput = React.useCallback(async () => {
-    if (!shouldFetchOutput || hasFetchedOutputRef.current || isFetchingOutputRef.current) return;
-    isFetchingOutputRef.current = true;
-    try {
-      const data = await queryClient.fetchQuery(
-        trpc.chatmessage.findUniqueChatMessage.queryOptions({
-          where: { id: String(messageId) },
-          select: { id: true, parts: true },
-        }),
-      );
-      const targetParts = Array.isArray((data as any)?.parts) ? (data as any).parts : [];
-      if (!targetParts.length) return;
-      chat.updateMessage(String(messageId), { parts: targetParts });
-      const resolvedToolCallId =
-        typeof part.toolCallId === "string" ? String(part.toolCallId) : "";
-      if (tabId && resolvedToolCallId) {
-        const toolPart = targetParts.find(
-          (candidate: any) => String(candidate?.toolCallId ?? "") === resolvedToolCallId,
-        );
-        if (toolPart) {
-          useTabs.getState().upsertToolPart(tabId, resolvedToolCallId, toolPart);
-          if (toolPart.output != null) {
-            hasFetchedOutputRef.current = true;
-          }
-        }
-      }
-    } catch {
-      // 逻辑：忽略读取失败，保持 UI 可用。
-    } finally {
-      isFetchingOutputRef.current = false;
-    }
-  }, [shouldFetchOutput, messageId, chat, tabId, part.toolCallId]);
-
-  React.useEffect(() => {
-    if (!shouldFetchOutput) return;
-    void fetchToolOutput();
-  }, [shouldFetchOutput, fetchToolOutput]);
-
   const registry = React.useMemo(
     () =>
       createRegistry({
@@ -620,20 +554,22 @@ export default function JsonRenderTool({
         <div className="flex flex-col gap-3 text-[10px] text-muted-foreground/70">
           <div className="flex flex-col gap-2">
             {tree ? (
-              <JSONUIProvider
+              <DataProvider
                 key={dataKey}
-                registry={registry}
                 initialData={dataSeed}
-                actionHandlers={actionHandlers}
                 onDataChange={handleDataChange}
               >
-                <Renderer
-                  tree={tree}
-                  registry={registry}
-                  loading={isSubmitting}
-                  fallback={registry.fallback}
-                />
-              </JSONUIProvider>
+                <VisibilityProvider>
+                  <ActionProvider handlers={actionHandlers}>
+                    <Renderer
+                      tree={tree}
+                      registry={registry}
+                      loading={isSubmitting}
+                      fallback={registry.fallback}
+                    />
+                  </ActionProvider>
+                </VisibilityProvider>
+              </DataProvider>
             ) : (
               <div className="text-[11px] text-muted-foreground/70">未提供表单结构。</div>
             )}

@@ -19,6 +19,8 @@ export type RequestContext = {
   cookies: Record<string, string>;
   /** Web client id for session association. */
   clientId?: string;
+  /** Client timezone (IANA). */
+  timezone?: string;
   /** Workspace id for this request. */
   workspaceId?: string;
   /** Project id for this request. */
@@ -94,6 +96,11 @@ export function getBoardId(): string | undefined {
 /** 获取 web clientId（用于会话隔离）。 */
 export function getClientId(): string | undefined {
   return getRequestContext()?.clientId;
+}
+
+/** Get client timezone (IANA). */
+export function getTimezone(): string | undefined {
+  return getRequestContext()?.timezone;
 }
 
 /** 获取当前应用 TabId（用于绑定 UI 操作目标）。 */

@@ -12,6 +12,7 @@ import { useCloudModels } from "@/hooks/use-cloud-models";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { normalizeImageOptions } from "@/lib/chat/image-options";
+import { getClientTimeZone } from "@/utils/time-zone";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import { getWorkspaceIdFromCookie } from "../core/boardSession";
 import { toast } from "sonner";
@@ -352,6 +353,7 @@ export function ImageGenerateNodeView({
           sessionId,
           messages: [userMessage],
           clientId: getWebClientId() || undefined,
+          timezone: getClientTimeZone(),
           workspaceId: resolvedWorkspaceId || undefined,
           projectId: boardFolderScope?.projectId ?? fileContext?.projectId ?? undefined,
           boardId: fileContext?.boardId ?? undefined,

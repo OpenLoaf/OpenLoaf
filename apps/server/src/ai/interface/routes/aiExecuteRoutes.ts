@@ -57,6 +57,7 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
   if (raw.responseMode && !responseMode) return { error: "responseMode is invalid" };
 
   const toolApprovalPayloads = normalizeToolApprovalPayloads(raw.toolApprovalPayloads);
+  const timezone = resolveTimezone(raw.timezone);
 
   return {
     request: {
@@ -65,6 +66,7 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       id: toText(raw.id) || undefined,
       messageId: toText(raw.messageId) || undefined,
       clientId: toText(raw.clientId) || undefined,
+      timezone,
       tabId: toText(raw.tabId) || undefined,
       params: normalizeParams(raw.params),
       trigger: toText(raw.trigger) || undefined,
@@ -133,4 +135,19 @@ function normalizeIntent(value: unknown): AiIntent | undefined {
 
 function normalizeResponseMode(value: unknown): AiResponseMode | undefined {
   return value === "stream" || value === "json" ? value : undefined;
+}
+
+/** Resolve timezone from request payload or server default. */
+function resolveTimezone(value: unknown): string {
+  const trimmed = toText(value);
+  if (trimmed) return trimmed;
+  return resolveServerTimezone();
+}
+
+/** Resolve server timezone (IANA) with fallback. */
+function resolveServerTimezone(): string {
+  const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (resolved) return resolved;
+  // 逻辑：Intl 缺失时回退到进程 TZ，再不行回退 UTC。
+  return process.env.TZ ?? "UTC";
 }

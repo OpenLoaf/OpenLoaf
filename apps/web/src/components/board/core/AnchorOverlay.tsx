@@ -31,6 +31,9 @@ type AnchorOverlayProps = {
 /** Render anchor handles above nodes for linking. */
 export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
   // 逻辑：视图变化时独立刷新锚点位置，避免全量快照重算。
+  if (snapshot.selectedIds.length > 1) {
+    return null;
+  }
   const engine = useBoardEngine();
   const viewState = useBoardViewState(engine);
   const groupPadding = getGroupOutlinePadding(viewState.viewport.zoom);

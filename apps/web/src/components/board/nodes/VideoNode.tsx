@@ -3,17 +3,15 @@ import type {
   CanvasNodeViewProps,
   CanvasToolbarContext,
 } from "../engine/types";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { z } from "zod";
 import { Play } from "lucide-react";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import { useBoardContext, type BoardFileContext } from "../core/BoardProvider";
 import {
-  isBoardRelativePath,
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
 } from "../core/boardFilePath";
-import { VideoNodeDetail } from "./VideoNodeDetail";
 
 export type VideoNodeProps = {
   /** Project-relative path for the video. */
@@ -58,9 +56,7 @@ export function VideoNodeView({
   element,
   selected,
 }: CanvasNodeViewProps<VideoNodeProps>) {
-  const { engine, fileContext } = useBoardContext();
-  const [showDetail, setShowDetail] = useState(false);
-  const isLocked = engine.isLocked() || element.locked === true;
+  const { fileContext } = useBoardContext();
 
   const projectRelativePath = useMemo(
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext),
@@ -81,6 +77,8 @@ export function VideoNodeView({
           openUri: resolvedPath,
           name: displayName,
           title: displayName,
+          width: element.props.naturalWidth,
+          height: element.props.naturalHeight,
           projectId: fileContext?.projectId,
           rootUri: fileContext?.rootUri,
         },
@@ -89,14 +87,14 @@ export function VideoNodeView({
       showSave: false,
       enableEdit: false,
     });
-  }, [displayName, fileContext?.projectId, fileContext?.rootUri, resolvedPath]);
-
-  useEffect(() => {
-    if (!selected || isLocked) {
-      // 逻辑：未选中或锁定时收起详情卡。
-      setShowDetail(false);
-    }
-  }, [isLocked, selected]);
+  }, [
+    displayName,
+    element.props.naturalHeight,
+    element.props.naturalWidth,
+    fileContext?.projectId,
+    fileContext?.rootUri,
+    resolvedPath,
+  ]);
 
   return (
     <div className="relative h-full w-full">
@@ -107,12 +105,6 @@ export function VideoNodeView({
           "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
           selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",
         ].join(" ")}
-        onPointerDownCapture={(event) => {
-          if (isLocked) return;
-          if (event.button !== 0) return;
-          // 逻辑：按下时展示详情卡，避免选中切换时丢失。
-          setShowDetail(true);
-        }}
         onDoubleClick={(event) => {
           event.stopPropagation();
           handleOpenPreview();
@@ -149,29 +141,6 @@ export function VideoNodeView({
         )}
       </div>
 
-      {showDetail ? (
-        <div
-          className="absolute left-1/2 top-full mt-3 -translate-x-1/2"
-          data-board-editor
-          onPointerDown={(event) => {
-            // 逻辑：阻止画布接管输入区域的拖拽与选择。
-            event.stopPropagation();
-          }}
-        >
-          <VideoNodeDetail
-            name={element.props.fileName || displayName}
-            path={
-              projectRelativePath ||
-              (!isBoardRelativePath(element.props.sourcePath)
-                ? element.props.sourcePath
-                : undefined)
-            }
-            duration={element.props.duration}
-            naturalWidth={element.props.naturalWidth}
-            naturalHeight={element.props.naturalHeight}
-          />
-        </div>
-      ) : null}
     </div>
   );
 }
