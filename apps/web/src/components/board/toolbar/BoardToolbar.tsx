@@ -2,13 +2,15 @@
 
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ComponentType, CSSProperties, ForwardRefExoticComponent } from "react";
-import { FolderOpen, Image as ImageLucide, Play, Sparkles } from "lucide-react";
+import type { DotLottie } from "@lottiefiles/dotlottie-react";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import { Image as ImageLucide, Play, Sparkles } from "lucide-react";
 import type { LucideProps } from "lucide-react";
 import { cn } from "@udecode/cn";
 
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasSnapshot } from "../engine/types";
-import { HoverPanel, IconBtn, PanelItem } from "../ui/ToolbarParts";
+import { HoverPanel, IconBtn, PanelItem, toolbarSurfaceClassName } from "../ui/ToolbarParts";
 import { getStackedImageRect } from "../utils/image-insert";
 import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/ImageGenerateNode";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/ImagePromptGenerateNode";
@@ -338,10 +340,13 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const [hoverGroup, setHoverGroup] = useState<string | null>(null);
   /** Whether the generate panel should stay pinned open. */
   const [insertPanelPinned, setInsertPanelPinned] = useState(false);
+  // 逻辑：记录生成面板的延迟关闭计时器，避免鼠标移出即消失。
+  const insertPanelHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const { fileContext } = useBoardContext();
   const [videoPickerOpen, setVideoPickerOpen] = useState(false);
+  const [folderLottie, setFolderLottie] = useState<DotLottie | null>(null);
   const isSelectTool = snapshot.activeToolId === "select";
   const isHandTool = snapshot.activeToolId === "hand";
   const isPenTool = snapshot.activeToolId === "pen" || snapshot.activeToolId === "highlighter";
@@ -390,6 +395,28 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     setHoverGroup(null);
     setInsertPanelPinned(false);
   }, [isLocked]);
+
+  useEffect(() => {
+    if (!folderLottie) return;
+    const handleComplete = () => {
+      // 逻辑：动画结束后停在最后一帧，避免恢复到起始状态。
+      folderLottie.pause();
+      folderLottie.setFrame(Math.max(0, folderLottie.totalFrames - 1));
+    };
+    folderLottie.addEventListener("complete", handleComplete);
+    return () => {
+      folderLottie.removeEventListener("complete", handleComplete);
+    };
+  }, [folderLottie]);
+
+  useEffect(() => {
+    return () => {
+      if (insertPanelHideTimerRef.current) {
+        clearTimeout(insertPanelHideTimerRef.current);
+        insertPanelHideTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!hoverGroup && !insertPanelPinned) return;
@@ -614,7 +641,8 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
       }}
       className={cn(
         "pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2",
-        "h-12 rounded-[14px] bg-background/80 px-2 ring-1 ring-border/80 backdrop-blur-md"
+        "h-12 rounded-[14px] px-2",
+        toolbarSurfaceClassName
       )}
     >
       <div className="relative flex h-full items-center gap-2">
@@ -831,11 +859,26 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           className="relative"
           onMouseEnter={() => {
             if (isLocked) return;
+            if (folderLottie) {
+              folderLottie.setFrame(0);
+              folderLottie.play();
+            }
+            if (insertPanelHideTimerRef.current) {
+              clearTimeout(insertPanelHideTimerRef.current);
+              insertPanelHideTimerRef.current = null;
+            }
             setHoverGroup("insert");
           }}
           onMouseLeave={() => {
             if (insertPanelPinned) return;
-            setHoverGroup(null);
+            if (insertPanelHideTimerRef.current) {
+              clearTimeout(insertPanelHideTimerRef.current);
+            }
+            // 逻辑：鼠标移出后延迟关闭，便于用户快速回移。
+            insertPanelHideTimerRef.current = setTimeout(() => {
+              setHoverGroup(null);
+              insertPanelHideTimerRef.current = null;
+            }, 2000);
           }}
         >
           <IconBtn
@@ -850,7 +893,16 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             className="group h-8 w-8"
             showTooltip={false}
           >
-            <FolderOpen size={toolbarIconSize} className={toolbarIconClassName} />
+            <DotLottieReact
+              src="/board/Folder.lottie"
+              loop={false}
+              autoplay={false}
+              dotLottieRefCallback={setFolderLottie}
+              className={cn(
+                "pointer-events-none h-[33px] w-[33px]",
+                "transition-transform duration-150 ease-out"
+              )}
+            />
           </IconBtn>
           <HoverPanel open={insertPanelOpen} className="w-max">
             <div className="flex items-center gap-2">

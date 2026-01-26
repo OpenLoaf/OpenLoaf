@@ -4,6 +4,11 @@ import { memo } from "react";
 import { Play } from "lucide-react";
 import { FileIcon, defaultStyles } from "react-file-icon";
 import { isBoardFileExt, isBoardFolderName } from "@/lib/file-name";
+import {
+  OFFICE_DOC_EXTS,
+  OFFICE_PRESENTATION_EXTS,
+  OFFICE_SHEET_EXTS,
+} from "@/lib/office-file-types";
 import { type FileSystemEntry } from "../utils/file-system-utils";
 
 export const IMAGE_EXTS = new Set([
@@ -21,9 +26,10 @@ export const IMAGE_EXTS = new Set([
 export const ARCHIVE_EXTS = new Set(["zip", "rar", "7z", "gz", "tar", "bz2", "xz"]);
 export const AUDIO_EXTS = new Set(["mp3", "wav", "flac", "ogg", "m4a", "aac"]);
 export const VIDEO_EXTS = new Set(["mp4", "mov", "avi", "mkv", "webm"]);
-export const SPREADSHEET_EXTS = new Set(["xls", "xlsx", "csv", "tsv", "numbers"]);
+export const SPREADSHEET_EXTS = OFFICE_SHEET_EXTS;
 export const PDF_EXTS = new Set(["pdf"]);
-export const DOC_EXTS = new Set(["doc", "docx"]);
+export const DOC_EXTS = OFFICE_DOC_EXTS;
+export const PRESENTATION_EXTS = OFFICE_PRESENTATION_EXTS;
 /** File extensions treated as markdown documents. */
 export const MARKDOWN_EXTS = new Set(["md", "mdc", "mdx", "markdown"]);
 /** File extensions treated as plain text for the code viewer fallback. */
@@ -79,6 +85,7 @@ export function isTextFallbackExt(ext?: string): boolean {
   if (VIDEO_EXTS.has(normalized)) return false;
   if (PDF_EXTS.has(normalized)) return false;
   if (DOC_EXTS.has(normalized)) return false;
+  if (PRESENTATION_EXTS.has(normalized)) return false;
   if (SPREADSHEET_EXTS.has(normalized)) return false;
   return true;
 }
@@ -95,6 +102,9 @@ function resolveFileIconStyle(extension?: string) {
   if (VIDEO_EXTS.has(normalized)) return { ...fallbackStyle, type: "video" };
   if (SPREADSHEET_EXTS.has(normalized)) {
     return { ...fallbackStyle, type: "spreadsheet" };
+  }
+  if (PRESENTATION_EXTS.has(normalized)) {
+    return { ...fallbackStyle, type: "presentation" };
   }
   if (MARKDOWN_EXTS.has(normalized)) return { ...fallbackStyle, type: "document" };
   if (CODE_EXTS.has(normalized)) return { ...fallbackStyle, type: "code" };

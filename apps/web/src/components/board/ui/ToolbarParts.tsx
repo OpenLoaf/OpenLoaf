@@ -4,6 +4,9 @@ import { useRef } from "react";
 import { cn } from "@udecode/cn";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
+const toolbarSurfaceClassName =
+  "bg-card/90 ring-1 ring-border/70 shadow-[0_10px_26px_rgba(15,23,42,0.18)] backdrop-blur-md";
+
 /** 仅图标的按钮组件（玻璃风格工具条中的按钮） */
 function IconBtn(props: {
   title: string;
@@ -94,7 +97,8 @@ function HoverPanel(props: {
       className={cn(
         "pointer-events-auto absolute bottom-full left-1/2 z-10 -translate-x-1/2 -translate-y-3",
         // 使用接近 AFFiNE 的上弹菜单风格
-        "rounded-xl bg-background/95 p-2 ring-1 ring-border/80",
+        "rounded-xl p-2",
+        toolbarSurfaceClassName,
         "transition-all duration-150 ease-out",
         open ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95",
         className
@@ -195,4 +199,4 @@ function PanelItem(props: {
   );
 }
 
-export { HoverPanel, IconBtn, PanelItem };
+export { HoverPanel, IconBtn, PanelItem, toolbarSurfaceClassName };

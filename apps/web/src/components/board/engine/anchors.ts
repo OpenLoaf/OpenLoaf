@@ -1,6 +1,5 @@
 import type { CanvasAnchor, CanvasAnchorMap, CanvasNodeElement, CanvasRect } from "./types";
 import type { NodeRegistry } from "./NodeRegistry";
-
 /** Resolve anchors for a node element. */
 function resolveAnchors(element: CanvasNodeElement, nodes: NodeRegistry): CanvasAnchor[] {
   const [x, y, w, h] = element.xywh;

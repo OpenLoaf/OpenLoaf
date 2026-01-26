@@ -9,7 +9,7 @@ import type {
   CanvasToolbarItem,
 } from "../engine/types";
 import { toScreenPoint } from "../utils/coordinates";
-import { PanelItem } from "./ToolbarParts";
+import { PanelItem, toolbarSurfaceClassName } from "./ToolbarParts";
 import { useBoardEngine } from "../core/BoardProvider";
 import { useBoardViewState } from "../core/useBoardViewState";
 
@@ -43,7 +43,8 @@ function SelectionToolbarContainer({
       data-node-toolbar
       className={cn(
         "pointer-events-auto nodrag nopan absolute z-20 -translate-x-1/2 rounded-md",
-        "bg-card p-2 ring-1 ring-border shadow-[0_8px_20px_rgba(15,23,42,0.12)]",
+        "p-2",
+        toolbarSurfaceClassName,
         offsetClass
       )}
       style={{ left: screen[0], top: screen[1] }}

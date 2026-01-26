@@ -16,6 +16,9 @@ import {
   getBoardDisplayName,
   isBoardFolderName,
 } from "@/lib/file-name";
+import { isOfficeFileExt } from "@/lib/office-file-types";
+import { openWithWps, resolveLocalPathFromUri } from "@/lib/open-wps";
+import { resolveServerUrl } from "@/utils/server-url";
 import { openFilePreview as openFilePreviewDialog } from "./file-preview-store";
 import type { FilePreviewItem, FilePreviewPayload, FilePreviewViewer } from "./file-preview-types";
 import { resolveFileViewerTarget } from "./file-viewer-target";
@@ -60,9 +63,9 @@ export type FileOpenInput = {
 };
 
 /** Document extensions handled by the built-in viewer. */
-const INTERNAL_DOC_EXTS = new Set(["doc", "docx"]);
+const INTERNAL_DOC_EXTS = new Set(["docx"]);
 /** Spreadsheet extensions handled by the built-in viewer. */
-const INTERNAL_SHEET_EXTS = new Set(SPREADSHEET_EXTS);
+const INTERNAL_SHEET_EXTS = new Set(["xlsx", "csv", "tsv"]);
 
 /** Return true when the office file should open with the system default app. */
 export function shouldOpenOfficeWithSystem(ext: string): boolean {
@@ -70,6 +73,13 @@ export function shouldOpenOfficeWithSystem(ext: string): boolean {
   if (DOC_EXTS.has(ext)) return !INTERNAL_DOC_EXTS.has(ext);
   if (SPREADSHEET_EXTS.has(ext)) return !INTERNAL_SHEET_EXTS.has(ext);
   return false;
+}
+
+/** Resolve office open mode from global dataset. */
+function resolveOfficeOpenMode(): "wps" | "office" {
+  const mode = document.documentElement.dataset.officeOpenMode;
+  // 逻辑：默认走 WPS，仅明确设置为 office 时切换。
+  return mode === "office" ? "office" : "wps";
 }
 
 /** Open a file via the system default handler. */
@@ -406,6 +416,37 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
 
   const target = resolveFileViewerTarget(input.entry);
   if (!target) return false;
+
+  const officeOpenMode = resolveOfficeOpenMode();
+  if (mode === "stack" && isOfficeFileExt(target.ext)) {
+    if (officeOpenMode === "office") {
+      openWithDefaultApp(input.entry, input.rootUri);
+      return true;
+    }
+    if (!window.tenasElectron) {
+      toast.error("网页版不支持打开本地文件");
+      return true;
+    }
+    if (!window.tenasElectron.startWpsServer) {
+      toast.error("未找到 WPS 服务");
+      return true;
+    }
+    const fileUri = resolveFileUriFromRoot(input.rootUri, input.entry.uri);
+    if (!fileUri.startsWith("file://")) {
+      toast.error("未找到本地文件路径");
+      return true;
+    }
+    const filePath = resolveLocalPathFromUri(fileUri);
+    const serverUrl = resolveServerUrl();
+    void window.tenasElectron.startWpsServer().then((res) => {
+      if (!res?.ok) {
+        toast.error(res?.reason ?? "WPS 服务启动失败");
+        return;
+      }
+      void openWithWps({ filePath, serverUrl, ext: target.ext });
+    });
+    return true;
+  }
 
   if (shouldOpenOfficeWithSystem(target.ext)) {
     const shouldOpen =

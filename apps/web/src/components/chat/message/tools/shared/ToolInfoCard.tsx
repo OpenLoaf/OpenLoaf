@@ -99,7 +99,7 @@ export default function ToolInfoCard({
           )}
           style={containerStyle}
         >
-          <AccordionTrigger className="py-0.5 text-[10px] font-medium text-foreground/70 hover:no-underline">
+          <AccordionTrigger className="py-0.5 text-[10px] font-medium text-foreground/70 hover:no-underline [&>svg]:text-muted-foreground/30">
             <div className="flex w-full items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="shrink-0">{statusIcon}</span>

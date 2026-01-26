@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useMemo, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { cn } from "@udecode/cn";
 import {
   LayoutGrid,
   Lock,
@@ -13,7 +14,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 
-import { IconBtn } from "../ui/ToolbarParts";
+import { IconBtn, toolbarSurfaceClassName } from "../ui/ToolbarParts";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasSnapshot } from "../engine/types";
 import { useBoardViewState } from "../core/useBoardViewState";
@@ -155,7 +156,12 @@ const BoardControls = memo(function BoardControls({
         event.stopPropagation();
       }}
     >
-      <div className="pointer-events-auto flex flex-col items-center gap-1 rounded-2xl bg-background/70 px-1.5 py-1 ring-1 ring-border backdrop-blur-md">
+      <div
+        className={cn(
+          "pointer-events-auto flex flex-col items-center gap-1 rounded-2xl px-1.5 py-1",
+          toolbarSurfaceClassName
+        )}
+      >
         <IconBtn
           title={undoTitle}
           onPointerDown={handleUndo}

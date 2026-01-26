@@ -8,6 +8,7 @@ import {
   IMAGE_EXTS,
   MARKDOWN_EXTS,
   PDF_EXTS,
+  PRESENTATION_EXTS,
   SPREADSHEET_EXTS,
   VIDEO_EXTS,
   isTextFallbackExt,
@@ -34,6 +35,7 @@ export function resolveFileViewerTarget(entry: FileSystemEntry): FileViewerTarge
     if (ext === "docx") return { viewer: "doc", ext };
     return { viewer: "file", ext };
   }
+  if (PRESENTATION_EXTS.has(ext)) return { viewer: "file", ext };
   if (SPREADSHEET_EXTS.has(ext)) return { viewer: "sheet", ext };
   if (VIDEO_EXTS.has(ext)) return { viewer: "video", ext };
   return { viewer: "file", ext };

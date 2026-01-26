@@ -97,7 +97,7 @@ import {
   setElementLocked,
   ungroupSelection,
 } from "./selection-actions";
-import { expandSelectionWithGroupChildren } from "./grouping";
+import { GROUP_OUTLINE_INSET, expandSelectionWithGroupChildren } from "./grouping";
 import { generateElementId } from "./id";
 
 /** Builder for image payloads. */
@@ -936,8 +936,14 @@ export class CanvasEngine {
         maxY = Math.max(maxY, y + nextH);
       });
       if (groupElement && groupElement.kind === "node") {
+        // 逻辑：组节点外扩尺寸，保证边框与交互范围一致。
         this.doc.updateElement(groupId, {
-          xywh: [minX, minY, maxX - minX, maxY - minY],
+          xywh: [
+            minX - GROUP_OUTLINE_INSET,
+            minY - GROUP_OUTLINE_INSET,
+            maxX - minX + GROUP_OUTLINE_INSET * 2,
+            maxY - minY + GROUP_OUTLINE_INSET * 2,
+          ],
         });
       }
     });
@@ -978,8 +984,14 @@ export class CanvasEngine {
         maxY = Math.max(maxY, nextY + h);
       });
       if (groupElement && groupElement.kind === "node") {
+        // 逻辑：组节点外扩尺寸，保证边框与交互范围一致。
         this.doc.updateElement(groupId, {
-          xywh: [minX, minY, maxX - minX, maxY - minY],
+          xywh: [
+            minX - GROUP_OUTLINE_INSET,
+            minY - GROUP_OUTLINE_INSET,
+            maxX - minX + GROUP_OUTLINE_INSET * 2,
+            maxY - minY + GROUP_OUTLINE_INSET * 2,
+          ],
         });
       }
     });

@@ -1,10 +1,15 @@
-import type { CanvasElement, CanvasNodeElement } from "./types";
+import type {
+  CanvasConnectorElement,
+  CanvasElement,
+  CanvasNodeElement,
+} from "./types";
 import type { CanvasDoc } from "./CanvasDoc";
 import type { SelectionManager } from "./SelectionManager";
 import { computeNodeBounds } from "./geometry";
 import {
   GROUP_NODE_TYPE,
   IMAGE_GROUP_NODE_TYPE,
+  GROUP_OUTLINE_INSET,
   getGroupMemberIds,
   getNodeGroupId,
   isGroupNodeType,
@@ -48,6 +53,13 @@ function groupSelection(deps: SelectionDeps, nodeIds: string[]): void {
   const groupZ = Number.isFinite(minZ) ? minZ - 1 : deps.getMinZIndex() - 1;
   const groupId = deps.generateId(groupType);
   const childIds = nodes.map(node => node.id);
+  // 逻辑：组节点外扩尺寸，保证边框与交互范围一致。
+  const paddedBounds = {
+    x: bounds.x - GROUP_OUTLINE_INSET,
+    y: bounds.y - GROUP_OUTLINE_INSET,
+    w: bounds.w + GROUP_OUTLINE_INSET * 2,
+    h: bounds.h + GROUP_OUTLINE_INSET * 2,
+  };
 
   // 逻辑：创建组节点，并将选中节点挂到组节点下。
   deps.doc.transact(() => {
@@ -55,7 +67,7 @@ function groupSelection(deps: SelectionDeps, nodeIds: string[]): void {
       id: groupId,
       kind: "node",
       type: groupType,
-      xywh: [bounds.x, bounds.y, bounds.w, bounds.h],
+      xywh: [paddedBounds.x, paddedBounds.y, paddedBounds.w, paddedBounds.h],
       zIndex: groupZ,
       props: {
         childIds,
@@ -65,6 +77,33 @@ function groupSelection(deps: SelectionDeps, nodeIds: string[]): void {
       const meta = { ...(node.meta ?? {}), groupId };
       deps.doc.updateElement(node.id, { meta });
     });
+
+    // 逻辑：合并组内节点指向同一外部节点的连线。
+    const childIdSet = new Set(childIds);
+    const mergeCandidates: CanvasConnectorElement[] = [];
+    const externalIds = new Set<string>();
+    deps.doc.getElements().forEach(element => {
+      if (element.kind !== "connector") return;
+      if (!("elementId" in element.source) || !("elementId" in element.target)) return;
+      const sourceId = element.source.elementId;
+      const targetId = element.target.elementId;
+      const sourceInGroup = childIdSet.has(sourceId);
+      const targetInGroup = childIdSet.has(targetId);
+      if (sourceInGroup === targetInGroup) return;
+      mergeCandidates.push(element);
+      externalIds.add(sourceInGroup ? targetId : sourceId);
+    });
+
+    if (externalIds.size === 1 && mergeCandidates.length > 0) {
+      const [keeper, ...toDelete] = mergeCandidates;
+      const sourceInGroup =
+        "elementId" in keeper.source && childIdSet.has(keeper.source.elementId);
+      const update: Partial<CanvasConnectorElement> = sourceInGroup
+        ? { source: { ...keeper.source, elementId: groupId } }
+        : { target: { ...keeper.target, elementId: groupId } };
+      deps.doc.updateElement(keeper.id, update);
+      toDelete.forEach(connector => deps.doc.deleteElement(connector.id));
+    }
   });
   deps.selection.setSelection([groupId]);
   deps.commitHistory();
@@ -88,8 +127,11 @@ function ungroupSelection(deps: SelectionDeps, selectedNodes: CanvasNodeElement[
 
   const elements = deps.doc.getElements();
   const nextSelection = new Set<string>();
+  const groupMembers = new Map<string, string[]>();
   groupIds.forEach(groupId => {
-    getGroupMemberIds(elements, groupId).forEach(id => nextSelection.add(id));
+    const memberIds = getGroupMemberIds(elements, groupId);
+    groupMembers.set(groupId, memberIds);
+    memberIds.forEach(id => nextSelection.add(id));
   });
 
   // 逻辑：移除选中节点所属的整个分组。
@@ -103,6 +145,62 @@ function ungroupSelection(deps: SelectionDeps, selectedNodes: CanvasNodeElement[
       const meta = Object.keys(nextMeta).length > 0 ? nextMeta : undefined;
       deps.doc.updateElement(element.id, { meta });
     });
+
+    // 逻辑：拆分组节点关联连线，按子节点展开。
+    elements.forEach(element => {
+      if (element.kind !== "connector") return;
+      if (!("elementId" in element.source) || !("elementId" in element.target)) return;
+      const sourceGroupId = groupIds.has(element.source.elementId)
+        ? element.source.elementId
+        : null;
+      const targetGroupId = groupIds.has(element.target.elementId)
+        ? element.target.elementId
+        : null;
+      if (!sourceGroupId && !targetGroupId) return;
+
+      const sourceMembers = sourceGroupId
+        ? groupMembers.get(sourceGroupId) ?? []
+        : [];
+      const targetMembers = targetGroupId
+        ? groupMembers.get(targetGroupId) ?? []
+        : [];
+
+      if (sourceGroupId && targetGroupId) {
+        if (sourceMembers.length === 0 || targetMembers.length === 0) return;
+        sourceMembers.forEach(sourceId => {
+          targetMembers.forEach(targetId => {
+            deps.doc.addElement({
+              ...element,
+              id: deps.generateId("connector"),
+              source: { ...element.source, elementId: sourceId },
+              target: { ...element.target, elementId: targetId },
+            });
+          });
+        });
+        deps.doc.deleteElement(element.id);
+        return;
+      }
+
+      const memberIds = sourceGroupId ? sourceMembers : targetMembers;
+      if (memberIds.length === 0) return;
+
+      memberIds.forEach(memberId => {
+        const nextSource = sourceGroupId
+          ? { ...element.source, elementId: memberId }
+          : element.source;
+        const nextTarget = targetGroupId
+          ? { ...element.target, elementId: memberId }
+          : element.target;
+        deps.doc.addElement({
+          ...element,
+          id: deps.generateId("connector"),
+          source: nextSource,
+          target: nextTarget,
+        });
+      });
+      deps.doc.deleteElement(element.id);
+    });
+
     groupIds.forEach(groupId => {
       deps.doc.deleteElement(groupId);
     });
