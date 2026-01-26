@@ -7,6 +7,8 @@ import { useCallback, useMemo } from "react";
 import { z } from "zod";
 import { Play } from "lucide-react";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
+import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useBoardContext, type BoardFileContext } from "../core/BoardProvider";
 import {
   resolveBoardFolderScope,
@@ -57,6 +59,8 @@ export function VideoNodeView({
   selected,
 }: CanvasNodeViewProps<VideoNodeProps>) {
   const { fileContext } = useBoardContext();
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
 
   const projectRelativePath = useMemo(
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext),
@@ -67,8 +71,13 @@ export function VideoNodeView({
   // 逻辑：优先使用文件选择器缓存的缩略图，避免画布内加载播放器。
   const posterSrc = element.props.posterPath?.trim() || "";
 
-  const handleOpenPreview = useCallback(() => {
+  const handleOpenPreview = useCallback(async () => {
     if (!resolvedPath) return;
+    const metadata = await fetchVideoMetadata({
+      workspaceId,
+      projectId: fileContext?.projectId,
+      uri: projectRelativePath || element.props.sourcePath,
+    });
     openFilePreview({
       viewer: "video",
       items: [
@@ -77,8 +86,8 @@ export function VideoNodeView({
           openUri: resolvedPath,
           name: displayName,
           title: displayName,
-          width: element.props.naturalWidth,
-          height: element.props.naturalHeight,
+          width: metadata?.width,
+          height: metadata?.height,
           projectId: fileContext?.projectId,
           rootUri: fileContext?.rootUri,
         },
@@ -89,11 +98,12 @@ export function VideoNodeView({
     });
   }, [
     displayName,
-    element.props.naturalHeight,
-    element.props.naturalWidth,
+    element.props.sourcePath,
     fileContext?.projectId,
     fileContext?.rootUri,
+    projectRelativePath,
     resolvedPath,
+    workspaceId,
   ]);
 
   return (
@@ -107,7 +117,7 @@ export function VideoNodeView({
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
-          handleOpenPreview();
+          void handleOpenPreview();
         }}
       >
         {posterSrc ? (

@@ -136,6 +136,10 @@ export default function MessageError({ error }: MessageErrorProps) {
           <span className="text-xs font-medium">{parsed.title}</span>
         </div>
         <p className="text-xs mt-1 break-words">{parsed.displayMessage}</p>
+        <div className="mt-2 text-[11px] text-destructive/90">
+          <div className="text-[11px] font-medium">错误详情</div>
+          <div className="mt-1 whitespace-pre-wrap break-words">{parsed.message}</div>
+        </div>
 
         <div className="mt-2 flex justify-end gap-2">
           <Button

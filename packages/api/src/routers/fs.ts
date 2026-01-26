@@ -30,9 +30,9 @@ const DEFAULT_SEARCH_MAX_DEPTH = 12;
 /** Cache directory name for generated video thumbnails. */
 const VIDEO_THUMB_CACHE_DIR = ".tenas-cache/video-thumbs";
 /** Default thumbnail width for video previews. */
-const VIDEO_THUMB_WIDTH = 160;
+const VIDEO_THUMB_WIDTH = 320;
 /** Default thumbnail height for video previews. */
-const VIDEO_THUMB_HEIGHT = 90;
+const VIDEO_THUMB_HEIGHT = 180;
 /** Supported video extensions for thumbnail generation. */
 const VIDEO_EXTENSIONS = new Set(["mp4", "mov", "m4v", "mkv", "webm", "avi"]);
 /** Maximum text file size for preview reads (50 MB). */
@@ -141,8 +141,46 @@ function buildVideoThumbnailKey(input: {
     path: input.relativePath,
     size: input.stat.size,
     mtime: input.stat.mtimeMs,
+    thumb: { width: VIDEO_THUMB_WIDTH, height: VIDEO_THUMB_HEIGHT },
   });
   return createHash("sha256").update(payload).digest("hex");
+}
+
+/** Probe video dimensions (rotation-aware) from the source file. */
+async function probeVideoDimensions(sourcePath: string) {
+  return new Promise<{ width: number; height: number } | null>((resolve) => {
+    ffmpeg.ffprobe(sourcePath, (error, data) => {
+      if (error) {
+        resolve(null);
+        return;
+      }
+      const streams = Array.isArray(data?.streams) ? data.streams : [];
+      const stream = streams.find((item) => item?.codec_type === "video");
+      const width = typeof stream?.width === "number" ? stream.width : 0;
+      const height = typeof stream?.height === "number" ? stream.height : 0;
+      if (!width || !height) {
+        resolve(null);
+        return;
+      }
+      const tagRotation = Number(stream?.tags?.rotate);
+      const sideRotation = Number(
+        stream?.side_data_list?.find((item: { rotation?: number }) => typeof item?.rotation === "number")
+          ?.rotation
+      );
+      const rotation = Number.isFinite(sideRotation)
+        ? sideRotation
+        : Number.isFinite(tagRotation)
+          ? tagRotation
+          : 0;
+      const normalized = ((rotation % 360) + 360) % 360;
+      // 逻辑：处理旋转元信息，确保宽高匹配实际显示方向。
+      if (normalized === 90 || normalized === 270) {
+        resolve({ width: height, height: width });
+        return;
+      }
+      resolve({ width, height });
+    });
+  });
 }
 
 /** Generate a video thumbnail and return a data URL. */
@@ -449,6 +487,16 @@ export const fsRouter = t.router({
       );
       return { items: videoMerged };
     }),
+
+  /** Probe video dimensions for a file entry. */
+  videoMetadata: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
+    const fullPath = resolveFsTarget(input, input.uri);
+    const meta = await probeVideoDimensions(fullPath);
+    return {
+      width: meta?.width ?? null,
+      height: meta?.height ?? null,
+    };
+  }),
 
   /** Read a text file. */
   readFile: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {

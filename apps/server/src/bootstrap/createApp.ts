@@ -6,6 +6,7 @@ import { cors } from "hono/cors";
 import { logger as honoLogger } from "hono/logger";
 import { registerAiExecuteRoutes } from "@/ai/interface/routes/aiExecuteRoutes";
 import { registerChatAttachmentRoutes } from "@/ai/interface/routes/chatAttachmentRoutes";
+import { registerFrontendToolAckRoutes } from "@/ai/interface/routes/frontendToolAckRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
 import { registerS3TestRoutes } from "@/modules/storage/s3TestRoutes";
@@ -69,6 +70,7 @@ export function createApp() {
 
   registerAiExecuteRoutes(app);
   registerChatAttachmentRoutes(app);
+  registerFrontendToolAckRoutes(app);
   registerFileSseRoutes(app);
   registerAuthRoutes(app);
   registerCloudModelRoutes(app);

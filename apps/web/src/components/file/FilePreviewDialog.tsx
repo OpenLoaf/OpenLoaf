@@ -17,10 +17,11 @@ import { useFilePreviewStore, closeFilePreview } from "@/components/file/lib/fil
 
 /** Calculate preview dialog size based on media dimensions and viewport limits. */
 function getVideoDialogSize(meta: { width: number; height: number }) {
+  const padding = 32;
   const maxWidth = Math.floor(window.innerWidth * 0.9);
   const maxHeight = Math.floor(window.innerHeight * 0.9);
-  const maxContentWidth = Math.max(maxWidth, 1);
-  const maxContentHeight = Math.max(maxHeight, 1);
+  const maxContentWidth = Math.max(maxWidth - padding, 1);
+  const maxContentHeight = Math.max(maxHeight - padding, 1);
   const clampedWidth = Math.min(meta.width, maxContentWidth);
   // 逻辑：按视频比例等比缩放，保持弹窗适配视窗范围。
   let contentHeight = Math.round((meta.height * clampedWidth) / meta.width);
@@ -30,8 +31,8 @@ function getVideoDialogSize(meta: { width: number; height: number }) {
     contentWidth = Math.round((meta.width * contentHeight) / meta.height);
   }
   return {
-    width: contentWidth,
-    height: contentHeight,
+    width: contentWidth + padding,
+    height: contentHeight + padding,
   };
 }
 
@@ -220,6 +221,8 @@ export default function FilePreviewDialog() {
               projectId={currentItem.projectId}
               rootUri={currentItem.rootUri}
               thumbnailSrc={currentItem.thumbnailSrc}
+              width={currentItem.width}
+              height={currentItem.height}
             />
           ) : null}
 

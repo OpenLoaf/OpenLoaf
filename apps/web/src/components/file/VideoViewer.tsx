@@ -19,6 +19,8 @@ interface VideoViewerProps {
   projectId?: string;
   rootUri?: string;
   thumbnailSrc?: string;
+  width?: number;
+  height?: number;
   panelKey?: string;
   tabId?: string;
 }
@@ -67,6 +69,8 @@ export default function VideoViewer({
   projectId: projectIdProp,
   rootUri,
   thumbnailSrc,
+  width,
+  height,
   panelKey,
   tabId,
 }: VideoViewerProps) {
@@ -162,6 +166,11 @@ export default function VideoViewer({
   }, [manifest?.thumbnails, thumbnailSrc]);
 
   useEffect(() => {
+    if (width && height) {
+      // 逻辑：优先使用视频元数据判断方向，避免缩略图比例误差。
+      setIsPortrait(height >= width);
+      return;
+    }
     const posterSource = thumbnailSrc ?? previewBackground;
     if (!posterSource) {
       setIsPortrait(null);
@@ -173,10 +182,10 @@ export default function VideoViewer({
     image.src = posterSource;
     const resolveOrientation = () => {
       if (cancelled) return;
-      const width = image.naturalWidth || 1;
-      const height = image.naturalHeight || 1;
+      const naturalWidth = image.naturalWidth || 1;
+      const naturalHeight = image.naturalHeight || 1;
       // 逻辑：根据缩略图比例推断横竖屏，决定播放器撑满方向。
-      setIsPortrait(height >= width);
+      setIsPortrait(naturalHeight >= naturalWidth);
     };
     if (image.decode) {
       image
@@ -196,7 +205,7 @@ export default function VideoViewer({
     return () => {
       cancelled = true;
     };
-  }, [previewBackground, thumbnailSrc]);
+  }, [height, previewBackground, thumbnailSrc, width]);
 
   useEffect(() => {
     const wrapper = playerWrapperRef.current;

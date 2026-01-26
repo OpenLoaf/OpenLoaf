@@ -9,7 +9,6 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import { generateId } from "ai";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { useTabs, type ChatStatus } from "@/hooks/use-tabs";
 import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
 import { createChatTransport } from "@/lib/chat/transport";
@@ -17,9 +16,12 @@ import { handleChatDataPart } from "@/lib/chat/dataPart";
 import { syncToolPartsFromMessages } from "@/lib/chat/toolParts";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { playNotificationSound } from "@/lib/notification-sound";
-import type { TenasUIDataTypes } from "@tenas-ai/api/types/message";
 import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
+import {
+  createFrontendToolExecutor,
+  registerDefaultFrontendToolHandlers,
+} from "@/lib/chat/frontend-tool-executor";
 import type { ChatMessageKind } from "@tenas-ai/api";
 import { SUMMARY_HISTORY_COMMAND, SUMMARY_TITLE_COMMAND } from "@tenas-ai/api/common";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
@@ -59,33 +61,6 @@ function isCommandAtStart(text: string, command: string): boolean {
   if (!trimmed.startsWith(command)) return false;
   const rest = trimmed.slice(command.length);
   return rest.length === 0 || /^\s/u.test(rest);
-}
-
-function handleOpenBrowserDataPart(input: { dataPart: any; fallbackTabId?: string }) {
-  if (input.dataPart?.type !== "data-open-browser") return false;
-  const data = input.dataPart?.data as TenasUIDataTypes["open-browser"] | undefined;
-  if (!data) return true;
-
-  const tabId = String(data.tabId || input.fallbackTabId || "");
-  if (!tabId) return true;
-
-  const viewKey = String(data.viewKey || "");
-  const url = String(data.url || "");
-  const title = typeof data.title === "string" ? data.title : undefined;
-
-  // 每个 Tab 的 stack 中只保留一个 browser 面板，新的 url 作为子标签追加并激活。
-  useTabs.getState().pushStackItem(
-    tabId,
-    {
-      component: BROWSER_WINDOW_COMPONENT,
-      id: BROWSER_WINDOW_PANEL_ID,
-      sourceKey: BROWSER_WINDOW_PANEL_ID,
-      params: { __customHeader: true, __open: { url, title, viewKey } },
-    } as any,
-    100,
-  );
-
-  return true;
 }
 
 type SubAgentDataPayload = {
@@ -463,6 +438,13 @@ export default function ChatProvider({
     return createChatTransport({ paramsRef, tabIdRef, chatModelIdRef, chatModelSourceRef });
   }, []);
 
+  const frontendToolExecutorRef = React.useRef<ReturnType<typeof createFrontendToolExecutor>>();
+  if (!frontendToolExecutorRef.current) {
+    const executor = createFrontendToolExecutor();
+    registerDefaultFrontendToolHandlers(executor);
+    frontendToolExecutorRef.current = executor;
+  }
+
   const refreshBranchMeta = React.useCallback(
     async (startMessageId: string) => {
       const data = await queryClient.fetchQuery(
@@ -552,7 +534,6 @@ export default function ChatProvider({
         // 关键：切换 session 后忽略旧流的 dataPart，避免 toolParts 被写回新会话 UI。
         if (sessionIdRef.current !== sessionId) return;
         incrementChatPerf("chat.onData");
-        if (handleOpenBrowserDataPart({ dataPart, fallbackTabId: tabId })) return;
         if (dataPart?.type === "data-session-title") {
           invalidateChatSessions(queryClient);
           return;
@@ -560,6 +541,7 @@ export default function ChatProvider({
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
         if (handleSubAgentDataPart({ dataPart, setSubAgentStreams })) return;
         handleChatDataPart({ dataPart, tabId, upsertToolPartMerged });
+        void frontendToolExecutorRef.current?.executeFromDataPart({ dataPart, tabId });
       },
     }),
     [

@@ -107,6 +107,16 @@ type DirEntry = {
   depth: number;
   /** Entry kind. */
   kind: DirEntryKind;
+  /** File size in bytes. */
+  sizeBytes?: number | null;
+};
+
+type DirStats = {
+  ignored: number;
+  dirCount: number;
+  fileCount: number;
+  symlinkCount: number;
+  otherCount: number;
 };
 
 /** Clamp a byte index to a UTF-8 boundary. */
@@ -364,8 +374,12 @@ export const listDirTool = tool({
     const ignoreMatcher = ignoreGitignore === false
       ? null
       : await buildGitignoreMatcher({ rootPath: absPath });
-    const entries = await collectDirEntries(absPath, resolvedDepth, ignoreMatcher);
+    const { entries, stats } = await collectDirEntries(absPath, resolvedDepth, ignoreMatcher);
     const output: string[] = [`Absolute path: ${absPath}`];
+    output.push(
+      `Ignored by .gitignore: ${stats.ignored}`,
+      `Directories: ${stats.dirCount}, Files: ${stats.fileCount}`,
+    );
 
     if (entries.length === 0) {
       return output.join("\n");
@@ -398,8 +412,15 @@ async function collectDirEntries(
   basePath: string,
   depth: number,
   ignoreMatcher: import("ignore").Ignore | null,
-): Promise<DirEntry[]> {
+): Promise<{ entries: DirEntry[]; stats: DirStats }> {
   const entries: DirEntry[] = [];
+  const stats: DirStats = {
+    ignored: 0,
+    dirCount: 0,
+    fileCount: 0,
+    symlinkCount: 0,
+    otherCount: 0,
+  };
   const queue: Array<{ dirPath: string; prefix: string; remaining: number }> = [
     { dirPath: basePath, prefix: "", remaining: depth },
   ];
@@ -421,6 +442,7 @@ async function collectDirEntries(
       if (ignoreMatcher) {
         const ignoreTarget = entry.isDirectory() ? `${normalized}/` : normalized;
         if (ignoreMatcher.ignores(ignoreTarget)) {
+          stats.ignored += 1;
           continue;
         }
       }
@@ -433,6 +455,14 @@ async function collectDirEntries(
           : entry.isFile()
             ? "file"
             : "other";
+      let sizeBytes: number | null | undefined;
+      if (kind === "file") {
+        try {
+          sizeBytes = (await fs.stat(path.join(current.dirPath, entry.name))).size;
+        } catch {
+          sizeBytes = null;
+        }
+      }
       collected.push({
         entryPath: path.join(current.dirPath, entry.name),
         relativePath,
@@ -442,6 +472,7 @@ async function collectDirEntries(
           displayName,
           depth: depthLevel,
           kind,
+          sizeBytes,
         },
       });
     }
@@ -450,13 +481,17 @@ async function collectDirEntries(
 
     for (const item of collected) {
       entries.push(item.entry);
+      if (item.kind === "directory") stats.dirCount += 1;
+      if (item.kind === "file") stats.fileCount += 1;
+      if (item.kind === "symlink") stats.symlinkCount += 1;
+      if (item.kind === "other") stats.otherCount += 1;
       if (item.kind === "directory" && current.remaining > 1) {
         queue.push({ dirPath: item.entryPath, prefix: item.relativePath, remaining: current.remaining - 1 });
       }
     }
   }
 
-  return entries;
+  return { entries, stats };
 }
 
 /** Format directory entry line. */
@@ -466,7 +501,16 @@ function formatDirEntry(entry: DirEntry): string {
   if (entry.kind === "directory") name += "/";
   if (entry.kind === "symlink") name += "@";
   if (entry.kind === "other") name += "?";
+  if (entry.kind === "file") {
+    const sizeLabel = formatBytesAsMb(entry.sizeBytes ?? 0);
+    name += ` (${sizeLabel})`;
+  }
   return `${indent}${name}`;
+}
+
+function formatBytesAsMb(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(2)} MB`;
 }
 
 /** Check whether a path ends with a blocked binary extension. */

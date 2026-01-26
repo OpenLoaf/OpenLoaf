@@ -17,6 +17,8 @@ import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/ImagePromptGenerateNod
 import { VIDEO_GENERATE_NODE_TYPE } from "../nodes/VideoGenerateNode";
 import { useBoardContext } from "../core/BoardProvider";
 import { VIDEO_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 import {
   ProjectFilePickerDialog,
   type ProjectFilePickerSelection,
@@ -95,6 +97,8 @@ const DRAG_SVG_SRC = "/board/drag-svgrepo-com.svg";
 const NOTE_SVG_SRC = "/board/notes-note-svgrepo-com.svg";
 const PICTURE_SVG_SRC = "/board/picture-photo-svgrepo-com.svg";
 const VIDEO_SVG_SRC = "/board/video-player-movie-svgrepo.svg";
+const DEFAULT_VIDEO_WIDTH = 16;
+const DEFAULT_VIDEO_HEIGHT = 9;
 
 /** Compute a fitted size that preserves the original aspect ratio. */
 const fitSize = (width: number, height: number, maxDimension: number): [number, number] => {
@@ -104,30 +108,6 @@ const fitSize = (width: number, height: number, maxDimension: number): [number, 
   }
   const scale = maxDimension / maxSide;
   return [Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale))];
-};
-
-/** Decode a data url poster and return its natural size. */
-const resolvePosterSize = async (posterSrc?: string) => {
-  const trimmed = posterSrc?.trim();
-  if (!trimmed) return null;
-  const image = new Image();
-  image.decoding = "async";
-  image.src = trimmed;
-  try {
-    if (image.decode) {
-      await image.decode();
-    } else {
-      await new Promise<void>((resolve, reject) => {
-        image.onload = () => resolve();
-        image.onerror = () => reject(new Error("Poster decode failed"));
-      });
-    }
-    const naturalWidth = image.naturalWidth || 1;
-    const naturalHeight = image.naturalHeight || 1;
-    return { naturalWidth, naturalHeight };
-  } catch {
-    return null;
-  }
 };
 
 const prefixSvgIds = (svg: string, prefix: string) => {
@@ -379,6 +359,8 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const { fileContext } = useBoardContext();
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id ?? "";
   const [videoPickerOpen, setVideoPickerOpen] = useState(false);
   const [folderLottie, setFolderLottie] = useState<DotLottie | null>(null);
   const isSelectTool = snapshot.activeToolId === "select";
@@ -644,10 +626,14 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const handleVideoSelected = useCallback(
     async (selection: ProjectFilePickerSelection) => {
       if (!selection.fileRef) return;
-      // 逻辑：优先使用缩略图尺寸作为视频节点的默认比例。
-      const posterSize = await resolvePosterSize(selection.thumbnailSrc);
-      const naturalWidth = posterSize?.naturalWidth ?? 16;
-      const naturalHeight = posterSize?.naturalHeight ?? 9;
+      const metadata = await fetchVideoMetadata({
+        workspaceId,
+        projectId: selection.projectId,
+        uri: selection.entry.uri,
+      });
+      // 逻辑：优先使用视频元数据计算比例，避免缩略图导致比例偏差。
+      const naturalWidth = metadata?.width ?? DEFAULT_VIDEO_WIDTH;
+      const naturalHeight = metadata?.height ?? DEFAULT_VIDEO_HEIGHT;
       const [nodeWidth, nodeHeight] = fitSize(naturalWidth, naturalHeight, 360);
       handleInsertRequest({
         id: "video",
@@ -662,7 +648,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         size: [nodeWidth, nodeHeight],
       });
     },
-    [handleInsertRequest]
+    [handleInsertRequest, workspaceId]
   );
 
   // 统一按钮尺寸（“宽松”密度）

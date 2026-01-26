@@ -1,6 +1,8 @@
 import { promises as fs } from "node:fs";
 import { readSummaryIndex, readSummaryMarkdown } from "@tenas-ai/api/services/summaryStorage";
-import { formatDateKey, listDateKeysInRange, parseDateKey, startOfDay } from "@tenas-ai/api/services/summaryDateUtils";
+import { formatDateKey, listDateKeysInRange, parseDateKey, startOfDay, endOfDay } from "@tenas-ai/api/services/summaryDateUtils";
+import { getProjectGitCommitsInRange } from "@tenas-ai/api/services/projectGitService";
+import { listProjectFilesChangedInRange } from "@tenas-ai/api/services/projectFileChangeService";
 import type { TaskStatusRepository } from "@/ai/application/ports/TaskStatusRepository";
 import { SummaryDayUseCase } from "@/ai/application/use-cases/SummaryDayUseCase";
 import { SummaryProjectUseCase } from "@/ai/application/use-cases/SummaryProjectUseCase";
@@ -74,6 +76,30 @@ export class BackgroundTaskService {
         status: "running",
         triggeredBy: input.triggeredBy,
       });
+
+      if (!input.forceDateKey && input.triggeredBy === "scheduler") {
+        const dateRange = resolveTaskDateRange(taskPlan, input.now);
+        if (dateRange) {
+          const hasChanges = await checkProjectHasChanges({
+            projectId: input.projectId,
+            from: dateRange.from,
+            to: dateRange.to,
+          });
+          // 逻辑：定时触发且无任何变更时直接跳过，避免重复总结。
+          if (!hasChanges) {
+            await updateSchedulerTaskRecord({
+              id: input.taskId,
+              status: "success",
+            });
+            await this.taskStatusRepo.upsertStatus({
+              taskId: input.taskId,
+              status: "completed",
+              metadata: { projectId: input.projectId, workspaceId: input.workspaceId },
+            });
+            return;
+          }
+        }
+      }
 
       if (input.forceDateKey) {
         // 逻辑：手动指定日期时强制覆盖该日总结。
@@ -235,4 +261,36 @@ function buildTaskPlan(input: {
     type: "summary-day",
     dates,
   };
+}
+
+/** Resolve task date range for change detection. */
+function resolveTaskDateRange(taskPlan: TaskPlan, now: Date): { from: Date; to: Date } | null {
+  const dates = taskPlan.dates ?? [];
+  const firstDate = dates[0];
+  const lastDate = dates[dates.length - 1];
+  if (!firstDate || !lastDate) return null;
+  const from = startOfDay(parseDateKey(firstDate));
+  const todayKey = formatDateKey(now);
+  const to = lastDate === todayKey ? now : endOfDay(parseDateKey(lastDate));
+  return { from, to };
+}
+
+/** Check whether project has changes in the given range. */
+async function checkProjectHasChanges(input: {
+  projectId: string;
+  from: Date;
+  to: Date;
+}): Promise<boolean> {
+  const commits = await getProjectGitCommitsInRange({
+    projectId: input.projectId,
+    from: input.from,
+    to: input.to,
+  });
+  if (commits.length) return true;
+  const fileChanges = await listProjectFilesChangedInRange({
+    projectId: input.projectId,
+    from: input.from,
+    to: input.to,
+  });
+  return fileChanges.length > 0;
 }
