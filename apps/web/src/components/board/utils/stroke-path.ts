@@ -9,8 +9,8 @@ type StrokePathOptions = {
 };
 
 const BASE_STROKE_OPTIONS: StrokeOptions = {
-  smoothing: 0.5,
-  streamline: 0.4,
+  smoothing: 0.7,
+  streamline: 0.2,
   simulatePressure: true,
 };
 

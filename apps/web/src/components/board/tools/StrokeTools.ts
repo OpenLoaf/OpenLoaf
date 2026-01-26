@@ -1,6 +1,9 @@
 import type { CanvasPoint, CanvasStrokePoint, CanvasStrokeTool } from "../engine/types";
 import type { CanvasTool, ToolContext } from "./ToolTypes";
 
+/** Minimum mouse movement in screen pixels before recording a stroke point. */
+const MOUSE_MOVE_THRESHOLD_PX = 1.2;
+
 class StrokeToolBase implements CanvasTool {
   /** Tool identifier. */
   readonly id: CanvasStrokeTool;
@@ -61,6 +64,16 @@ class StrokeToolBase implements CanvasTool {
       }
     } else if (this.straightLineType) {
       this.straightLineType = null;
+    }
+
+    if (ctx.event.pointerType === "mouse" && this.lastPoint) {
+      const zoom = ctx.engine.getViewState().viewport.zoom;
+      const dx = (nextPoint[0] - this.lastPoint[0]) * zoom;
+      const dy = (nextPoint[1] - this.lastPoint[1]) * zoom;
+      // 逻辑：鼠标抖动时忽略极小位移，减少锯齿感。
+      if (dx * dx + dy * dy < MOUSE_MOVE_THRESHOLD_PX * MOUSE_MOVE_THRESHOLD_PX) {
+        return;
+      }
     }
 
     const points = [...this.draggingPoints, nextPoint];

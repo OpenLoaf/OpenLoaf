@@ -17,6 +17,7 @@ import {
   MIN_ZOOM,
   SNAP_PIXEL,
 } from "../engine/constants";
+import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
 import { snapResizeRectSE } from "../utils/alignment-guides";
 import { SelectionToolbarContainer, ToolbarGroup } from "../ui/SelectionToolbar";
 import { useBoardContext } from "./BoardProvider";
@@ -69,7 +70,7 @@ export function SingleSelectionToolbar({
   const customItems = items ?? [];
   if (customItems.length === 0 && commonItems.length === 0) return null;
 
-  const bounds = computeSelectionBounds([element]);
+  const bounds = computeSelectionBounds([element], snapshot.viewport.zoom);
 
   return (
     <SelectionToolbarContainer
@@ -154,9 +155,9 @@ export function MultiSelectionToolbar({
     ? "column"
     : isUniformColumn
       ? "row"
-      : resolveAutoLayoutDirection(selectedNodes, layoutAxis);
+      : resolveAutoLayoutDirection(selectedNodes, layoutAxis, snapshot.viewport.zoom);
 
-  const bounds = computeSelectionBounds(selectedNodes);
+  const bounds = computeSelectionBounds(selectedNodes, snapshot.viewport.zoom);
 
   return (
     <SelectionToolbarContainer
@@ -225,7 +226,7 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
     return definition?.capabilities?.resizable !== false;
   });
 
-  const bounds = computeSelectionBounds(selectedElements);
+  const bounds = computeSelectionBounds(selectedElements, viewState.viewport.zoom);
   const { zoom, offset } = viewState.viewport;
   const left = bounds.x * zoom + offset[0];
   const top = bounds.y * zoom + offset[1];
@@ -663,13 +664,14 @@ function buildCommonToolbarItems(
 }
 
 /** Compute bounds for a list of selected elements. */
-function computeSelectionBounds(elements: CanvasElement[]): CanvasRect {
+function computeSelectionBounds(elements: CanvasElement[], zoom: number): CanvasRect {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
   elements.forEach(element => {
-    const [x, y, w, h] = element.xywh;
+    const bounds = resolveSelectionBounds(element, zoom);
+    const [x, y, w, h] = [bounds.x, bounds.y, bounds.w, bounds.h];
     minX = Math.min(minX, x);
     minY = Math.min(minY, y);
     maxX = Math.max(maxX, x + w);
@@ -679,6 +681,22 @@ function computeSelectionBounds(elements: CanvasElement[]): CanvasRect {
     return { x: 0, y: 0, w: 0, h: 0 };
   }
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+/** Resolve bounds for selection calculations. */
+function resolveSelectionBounds(element: CanvasElement, zoom: number): CanvasRect {
+  const [x, y, w, h] = element.xywh;
+  if (element.kind !== "node" || !isGroupNodeType(element.type)) {
+    return { x, y, w, h };
+  }
+  // 逻辑：组节点使用屏幕像素外扩，保证缩放下交互一致。
+  const padding = getGroupOutlinePadding(zoom);
+  return {
+    x: x - padding,
+    y: y - padding,
+    w: w + padding * 2,
+    h: h + padding * 2,
+  };
 }
 
 type LayoutAxis = "row" | "column" | "mixed";
@@ -709,10 +727,11 @@ function getSelectionLayoutAxis(nodes: CanvasNodeElement[]): LayoutAxis {
 /** Resolve which layout direction to apply when auto layout is requested. */
 function resolveAutoLayoutDirection(
   nodes: CanvasNodeElement[],
-  axis: LayoutAxis
+  axis: LayoutAxis,
+  zoom: number
 ): "row" | "column" {
   if (axis === "row" || axis === "column") return axis;
-  const bounds = computeSelectionBounds(nodes);
+  const bounds = computeSelectionBounds(nodes, zoom);
   return bounds.w >= bounds.h ? "row" : "column";
 }
 

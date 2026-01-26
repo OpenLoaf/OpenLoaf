@@ -15,6 +15,8 @@ import {
 import { sortElementsByZIndex } from "../engine/element-order";
 import {
   expandSelectionWithGroupChildren,
+  getGroupOutlinePadding,
+  isGroupNodeType,
   resolveGroupSelectionId,
 } from "../engine/grouping";
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
@@ -657,23 +659,32 @@ export class SelectTool implements CanvasTool {
   private pickNodesInRect(rect: CanvasRect, engine: CanvasEngine): string[] {
     const elements = engine.doc.getElements();
     const selectionIds = new Set<string>();
+    const { zoom } = engine.viewport.getState();
     elements.forEach(element => {
       if (element.kind !== "node") return;
       if (element.locked) return;
-      if (!this.rectsIntersect(rect, element)) return;
+      if (!this.rectsIntersect(rect, element, zoom)) return;
       selectionIds.add(resolveGroupSelectionId(elements, element));
     });
     return Array.from(selectionIds);
   }
 
   /** Check whether two rectangles intersect. */
-  private rectsIntersect(a: CanvasRect, b: { xywh: [number, number, number, number] }): boolean {
-    const [bx, by, bw, bh] = b.xywh;
+  private rectsIntersect(a: CanvasRect, element: CanvasNodeElement, zoom: number): boolean {
+    const [bx, by, bw, bh] = element.xywh;
+    const padding = isGroupNodeType(element.type)
+      ? getGroupOutlinePadding(zoom)
+      : 0;
     const aRight = a.x + a.w;
     const aBottom = a.y + a.h;
-    const bRight = bx + bw;
-    const bBottom = by + bh;
-    return a.x <= bRight && aRight >= bx && a.y <= bBottom && aBottom >= by;
+    const bRight = bx + bw + padding;
+    const bBottom = by + bh + padding;
+    return (
+      a.x <= bRight &&
+      aRight >= bx - padding &&
+      a.y <= bBottom &&
+      aBottom >= by - padding
+    );
   }
 
   /** Compute the bounding rect for the current drag group. */

@@ -14,6 +14,7 @@ import {
 } from "../engine/constants";
 import { toScreenPoint } from "../utils/coordinates";
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
+import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
 import { useBoardEngine } from "./BoardProvider";
 import { useBoardViewState } from "./useBoardViewState";
 
@@ -32,6 +33,7 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
   // 逻辑：视图变化时独立刷新锚点位置，避免全量快照重算。
   const engine = useBoardEngine();
   const viewState = useBoardViewState(engine);
+  const groupPadding = getGroupOutlinePadding(viewState.viewport.zoom);
   const hoverAnchor = snapshot.connectorHover;
   const selectedAnchors = getSelectedImageAnchors(snapshot);
   const hoverAnchors = getHoveredImageAnchors(snapshot);
@@ -65,7 +67,8 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
       className="pointer-events-none absolute inset-0 z-20"
     >
       {Array.from(uniqueAnchors.values()).map(anchor => {
-        const screen = toScreenPoint(anchor.point, viewState);
+        const adjustedPoint = resolveGroupAnchorPoint(anchor, snapshot, groupPadding);
+        const screen = toScreenPoint(adjustedPoint, viewState);
         const isHover =
           hoverAnchor?.elementId === anchor.elementId &&
           hoverAnchor.anchorId === anchor.anchorId;
@@ -160,6 +163,21 @@ function resolveAnchorScreenOffset(anchorId: string, distance: number): CanvasPo
     default:
       return [0, 0];
   }
+}
+
+/** Resolve anchor points for group nodes with outline padding. */
+function resolveGroupAnchorPoint(
+  anchor: CanvasAnchorHit,
+  snapshot: CanvasSnapshot,
+  padding: number
+): CanvasPoint {
+  const element = snapshot.elements.find(item => item.id === anchor.elementId);
+  if (!element || element.kind !== "node" || !isGroupNodeType(element.type)) {
+    return anchor.point;
+  }
+  // 逻辑：组节点锚点按外扩边框位置偏移，保持连线起点对齐。
+  const offset = resolveAnchorScreenOffset(anchor.anchorId, padding);
+  return [anchor.point[0] + offset[0], anchor.point[1] + offset[1]];
 }
 
 /** Collect anchors for selected large-anchor nodes. */

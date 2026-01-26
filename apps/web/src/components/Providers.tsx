@@ -112,20 +112,6 @@ function AnimationSettingsBootstrap() {
   return null;
 }
 
-/** Apply office open mode to the document root. */
-function OfficeOpenModeBootstrap() {
-  const { basic, isLoading } = useBasicConfig();
-
-  useEffect(() => {
-    if (isLoading) return;
-    const next = basic.appOfficeOpenMode === "office" ? "office" : "wps";
-    // 逻辑：写入全局属性，供非 React 模块读取。
-    document.documentElement.dataset.officeOpenMode = next;
-  }, [basic.appOfficeOpenMode, isLoading]);
-
-  return null;
-}
-
 export default function Providers({ children }: { children: React.ReactNode }) {
   useDisableContextMenu();
   // 中文注释：应用空闲时预热编辑器相关模块，降低首次打开时的卡顿峰值。
@@ -238,7 +224,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <ThemeSettingsBootstrap />
         <FontSizeSettingsBootstrap />
         <AnimationSettingsBootstrap />
-        <OfficeOpenModeBootstrap />
         <MotionSettingsBootstrap>
           {children}
           <FilePreviewDialog />

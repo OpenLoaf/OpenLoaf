@@ -306,6 +306,7 @@ export default function VideoViewer({
         <div className="relative flex h-full w-full items-center justify-center rounded-lg bg-muted/40">
           <VideoPlayer
             src={playbackUrl}
+            poster={thumbnailSrc ?? previewBackground ?? undefined}
             thumbnails={manifest.thumbnails}
             title={displayTitle}
             className="h-full w-full rounded-lg bg-black"

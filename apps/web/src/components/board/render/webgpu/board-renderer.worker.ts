@@ -15,7 +15,7 @@ import type {
   CanvasRect,
   CanvasViewportState,
 } from "../../engine/types";
-import { DEFAULT_NODE_SIZE } from "../../engine/constants";
+import { DEFAULT_NODE_SIZE, GROUP_OUTLINE_PADDING } from "../../engine/constants";
 import {
   buildConnectorPath,
   resolveConnectorEndpointsSmart,
@@ -25,6 +25,8 @@ const GRID_SIZE = 80;
 const TEXT_ATLAS_SIZE = 1024;
 const TEXT_FONT_FAMILY = "ui-sans-serif, system-ui, sans-serif";
 const TEXT_MAX_LENGTH = 120;
+/** Group node types that need outline padding for connector resolution. */
+const GROUP_NODE_TYPES = new Set(["group", "image-group"]);
 const PALETTE_KEYS: Array<keyof GpuPalette> = [
   "grid",
   "nodeFill",
@@ -553,12 +555,58 @@ function ensureImageTexture(src: string) {
   imageLoading.set(src, promise);
 }
 
-function getNodeBoundsMap(elements: GpuSceneSnapshot["elements"]) {
+/** Resolve group outline padding in canvas units. */
+function getGroupOutlinePadding(_zoom: number) {
+  return GROUP_OUTLINE_PADDING;
+}
+
+/** Resolve anchor offset based on its side id and padding. */
+function resolveAnchorOffset(anchorId: string, padding: number): CanvasPoint {
+  switch (anchorId) {
+    case "top":
+      return [0, -padding];
+    case "right":
+      return [padding, 0];
+    case "bottom":
+      return [0, padding];
+    case "left":
+      return [-padding, 0];
+    default:
+      return [0, 0];
+  }
+}
+
+/** Apply group outline padding to anchors for group nodes. */
+function applyGroupAnchorPadding(
+  anchors: GpuSceneSnapshot["anchors"],
+  elements: GpuSceneSnapshot["elements"],
+  padding: number
+) {
+  if (padding <= 0) return anchors;
+  const next = { ...anchors };
+  elements.forEach((element) => {
+    if (element.kind !== "node") return;
+    if (!GROUP_NODE_TYPES.has(element.type)) return;
+    const list = anchors[element.id];
+    if (!list) return;
+    // 逻辑：根据锚点方向应用外边距，保持分组连接端点对齐。
+    next[element.id] = list.map((anchor) => {
+      const offset = resolveAnchorOffset(anchor.id, padding);
+      return { ...anchor, point: [anchor.point[0] + offset[0], anchor.point[1] + offset[1]] };
+    });
+  });
+  return next;
+}
+
+/** Collect node bounds, optionally expanded for group outline padding. */
+function getNodeBoundsMap(elements: GpuSceneSnapshot["elements"], groupPadding: number) {
   const bounds: Record<string, CanvasRect | undefined> = {};
   elements.forEach((element) => {
     if (element.kind !== "node") return;
     const [x, y, w, h] = element.xywh;
-    bounds[element.id] = { x, y, w, h };
+    const padding = GROUP_NODE_TYPES.has(element.type) ? groupPadding : 0;
+    // 逻辑：分组节点扩展边界，保证连线计算匹配外轮廓。
+    bounds[element.id] = { x: x - padding, y: y - padding, w: w + padding * 2, h: h + padding * 2 };
   });
   return bounds;
 }
@@ -827,15 +875,17 @@ function trimText(value: string) {
 function buildSceneGeometry(
   scene: GpuSceneSnapshot,
   state: GpuStateSnapshot,
-  palette: GpuPalette,
-  renderNodes: boolean
+  view: ViewState
 ): SceneGeometry {
+  const { palette, renderNodes } = view;
   const rects: RectInstance[] = [];
   const lines: LineVertex[] = [];
   const textQuads: TextQuad[] = [];
   const imageQuads: ImageQuad[] = [];
   const atlas = textAtlas;
-  const boundsMap = getNodeBoundsMap(scene.elements);
+  const groupPadding = getGroupOutlinePadding(view.viewport.zoom);
+  const anchors = applyGroupAnchorPadding(scene.anchors, scene.elements, groupPadding);
+  const boundsMap = getNodeBoundsMap(scene.elements, groupPadding);
 
   const connectorElements = scene.elements.filter(
     (element): element is CanvasConnectorElement => element.kind === "connector"
@@ -844,7 +894,7 @@ function buildSceneGeometry(
     appendConnectorLines(
       connector,
       state,
-      scene.anchors,
+      anchors,
       connectorElements,
       boundsMap,
       lines,
@@ -856,7 +906,7 @@ function buildSceneGeometry(
     const resolved = resolveConnectorEndpointsSmart(
       draft.source,
       draft.target,
-      scene.anchors,
+      anchors,
       boundsMap
     );
     const { source, target } = resolved;
@@ -1124,7 +1174,7 @@ function buildSceneBuffers(
 ): SceneBuffers | null {
   if (!device || !textAtlas || !textTexture || !textSampler) return null;
   textAtlas.begin();
-  const geometry = buildSceneGeometry(scene, state, view.palette, view.renderNodes);
+  const geometry = buildSceneGeometry(scene, state, view);
   if (geometry.textQuads.length > 0) {
     device.queue.copyExternalImageToTexture(
       { source: textAtlas.canvas },

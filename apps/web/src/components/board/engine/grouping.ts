@@ -1,13 +1,18 @@
 import type { CanvasElement, CanvasNodeElement } from "./types";
+import { GROUP_OUTLINE_PADDING } from "./constants";
 
 const GROUP_NODE_TYPE = "group";
 const IMAGE_GROUP_NODE_TYPE = "image-group";
-/** Outline padding in px for group bounds. */
-const GROUP_OUTLINE_INSET = 22;
 const GROUP_NODE_TYPES = new Set<string>([GROUP_NODE_TYPE, IMAGE_GROUP_NODE_TYPE]);
 
 function isGroupNodeType(type: string): boolean {
   return GROUP_NODE_TYPES.has(type);
+}
+
+/** Resolve group outline padding in canvas units. */
+function getGroupOutlinePadding(_zoom: number): number {
+  // 逻辑：分组外扩保持固定画布尺寸，缩放不改变间距。
+  return GROUP_OUTLINE_PADDING;
 }
 
 function getNodeGroupId(element: CanvasNodeElement): string | null {
@@ -79,7 +84,7 @@ function expandSelectionWithGroupChildren(
 export {
   GROUP_NODE_TYPE,
   IMAGE_GROUP_NODE_TYPE,
-  GROUP_OUTLINE_INSET,
+  getGroupOutlinePadding,
   isGroupNodeType,
   getNodeGroupId,
   getGroupMemberIds,

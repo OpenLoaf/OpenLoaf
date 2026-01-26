@@ -23,7 +23,6 @@ import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
 type FontSizeKey = "small" | "medium" | "large" | "xlarge";
 type AnimationLevel = "low" | "medium" | "high";
 type LanguageId = "zh-CN" | "en-US" | "ja-JP" | "ko-KR" | "fr-FR" | "de-DE" | "es-ES";
-type OfficeOpenMode = "wps" | "office";
 
 export function BasicSettings() {
   const { theme, resolvedTheme, setTheme } = useTheme();
@@ -42,14 +41,8 @@ export function BasicSettings() {
   const uiTheme = basic.uiTheme;
   const uiThemeManual = basic.uiThemeManual;
   const toolAllowOutsideScope = Boolean(basic.toolAllowOutsideScope);
-  const officeOpenModeRaw = basic.appOfficeOpenMode;
-
   const [savedCustomRules, setSavedCustomRules] = useState("");
   const [customRules, setCustomRules] = useState("");
-  const [officeAvailability, setOfficeAvailability] = useState<{
-    wps: boolean;
-    office: boolean;
-  } | null>(null);
 
   const uiLanguage: LanguageId =
     uiLanguageRaw === "zh-CN" ||
@@ -80,39 +73,12 @@ export function BasicSettings() {
     typeof localStorageDirRaw === "string" ? localStorageDirRaw : "";
   const autoBackupDir =
     typeof autoBackupDirRaw === "string" ? autoBackupDirRaw : "";
-  const officeOpenMode: OfficeOpenMode =
-    officeOpenModeRaw === "office" || officeOpenModeRaw === "wps"
-      ? officeOpenModeRaw
-      : "wps";
-
   useEffect(() => {
     if (basicLoading) return;
     const next = typeof savedCustomRulesValue === "string" ? savedCustomRulesValue : "";
     setSavedCustomRules(next);
     setCustomRules(next);
   }, [basicLoading, savedCustomRulesValue]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!window.tenasElectron?.getOfficeInstallations) return;
-    let cancelled = false;
-    window.tenasElectron
-      .getOfficeInstallations()
-      .then((res) => {
-        if (cancelled) return;
-        setOfficeAvailability(res);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setOfficeAvailability({ wps: false, office: false });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const wpsAvailable = officeAvailability?.wps ?? true;
-  const officeAvailable = officeAvailability?.office ?? true;
 
   useEffect(() => {
     const px =
@@ -269,33 +235,6 @@ export function BasicSettings() {
                       <TabsList>
                         <TabsTrigger value="dark">淡色</TabsTrigger>
                         <TabsTrigger value="light">浅色</TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                  </TenasSettingsField>
-                </div>
-
-                <div className="flex flex-wrap items-start gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">文档打开方式</div>
-                    <div className="text-xs text-muted-foreground">
-                      双击 Office 文件时使用的应用
-                    </div>
-                  </div>
-
-                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
-                    <Tabs
-                      value={officeOpenMode}
-                      onValueChange={(next) =>
-                        void setBasic({ appOfficeOpenMode: next as OfficeOpenMode })
-                      }
-                    >
-                      <TabsList>
-                        <TabsTrigger value="wps" disabled={!wpsAvailable}>
-                          WPS
-                        </TabsTrigger>
-                        <TabsTrigger value="office" disabled={!officeAvailable}>
-                          Microsoft Office
-                        </TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </TenasSettingsField>

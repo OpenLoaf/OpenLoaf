@@ -2,6 +2,7 @@
 
 import { useTabs } from "@/hooks/use-tabs";
 import CliThinkingTool from "./CliThinkingTool";
+import JsonRenderTool from "./JsonRenderTool";
 import UnifiedTool from "./UnifiedTool";
 import PlanTool from "./PlanTool";
 import { useChatContext } from "../../ChatProvider";
@@ -61,6 +62,10 @@ export default function MessageTool({
 
   if (toolKind === "cli-thinking") {
     return <CliThinkingTool part={resolvedPart} />;
+  }
+
+  if (toolKind === "json-render") {
+    return <JsonRenderTool part={resolvedPart} className={className} messageId={messageId} />;
   }
 
   return (

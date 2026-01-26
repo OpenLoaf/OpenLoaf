@@ -15,6 +15,7 @@ import type {
 } from "../engine/types";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import { MIN_ZOOM_EPS } from "../engine/constants";
+import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
 
 type CanvasCullingStats = {
   /** Total renderable node count. */
@@ -76,18 +77,26 @@ function isRectVisible(rect: CanvasRect, bounds: CanvasRect): boolean {
 
 /** Return the bounding rect for a node element. */
 function getNodeBounds(
-  element: Extract<CanvasSnapshot["elements"][number], { kind: "node" }>
+  element: Extract<CanvasSnapshot["elements"][number], { kind: "node" }>,
+  groupPadding: number
 ): CanvasRect {
   const [x, y, w, h] = element.xywh;
-  if (!element.rotate) return { x, y, w, h };
+  const padding = isGroupNodeType(element.type) ? groupPadding : 0;
+  const paddedX = x - padding;
+  const paddedY = y - padding;
+  const paddedW = w + padding * 2;
+  const paddedH = h + padding * 2;
+  if (!element.rotate) {
+    return { x: paddedX, y: paddedY, w: paddedW, h: paddedH };
+  }
   const rad = (element.rotate * Math.PI) / 180;
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
   // 逻辑：旋转节点先转成包围盒，避免裁剪漏掉可见区域。
-  const halfW = (Math.abs(w * cos) + Math.abs(h * sin)) / 2;
-  const halfH = (Math.abs(w * sin) + Math.abs(h * cos)) / 2;
-  const cx = x + w / 2;
-  const cy = y + h / 2;
+  const halfW = (Math.abs(paddedW * cos) + Math.abs(paddedH * sin)) / 2;
+  const halfH = (Math.abs(paddedW * sin) + Math.abs(paddedH * cos)) / 2;
+  const cx = paddedX + paddedW / 2;
+  const cy = paddedY + paddedH / 2;
   return {
     x: cx - halfW,
     y: cy - halfH,
@@ -99,12 +108,13 @@ function getNodeBounds(
 /** Build a spatial index for node elements. */
 function buildGridIndex(
   elements: CanvasSnapshot["elements"],
-  cellSize: number
+  cellSize: number,
+  groupPadding: number
 ): GridIndex {
   const cells = new Map<string, Set<string>>();
   elements.forEach((element) => {
     if (element.kind !== "node") return;
-    const bounds = getNodeBounds(element);
+    const bounds = getNodeBounds(element, groupPadding);
     const minX = Math.floor(bounds.x / cellSize);
     const maxX = Math.floor((bounds.x + bounds.w) / cellSize);
     const minY = Math.floor(bounds.y / cellSize);
@@ -231,7 +241,8 @@ function CanvasDomLayerBase({
       return;
     }
     // 逻辑：文档变更时重建空间索引，避免拖拽/缩放重复全量扫描。
-    gridIndexRef.current = buildGridIndex(snapshot.elements, GRID_CELL_SIZE);
+    const groupPadding = getGroupOutlinePadding(viewStateRef.current.viewport.zoom);
+    gridIndexRef.current = buildGridIndex(snapshot.elements, GRID_CELL_SIZE, groupPadding);
     lastDocRevisionRef.current = snapshot.docRevision;
     setCullingView(viewStateRef.current);
   }, [snapshot.docRevision, snapshot.elements]);
@@ -251,6 +262,9 @@ function CanvasDomLayerBase({
           scheduleTransform(viewStateRef.current);
           zoomTimeoutRef.current = null;
         }, 160);
+        if (!gridIndexRef.current) {
+          setCullingView(next);
+        }
       }
       // 逻辑：视图变化优先更新 transform，并节流裁剪刷新。
       scheduleTransform(next);
@@ -280,6 +294,7 @@ function CanvasDomLayerBase({
   const viewportBounds = shouldCull
     ? getViewportBounds(cullingView.viewport, VIEWPORT_CULL_PADDING)
     : null;
+  const groupPadding = getGroupOutlinePadding(cullingView.viewport.zoom);
   const candidateIds =
     shouldCull && gridIndexRef.current && viewportBounds
       ? collectCandidateIds(gridIndexRef.current, viewportBounds)
@@ -307,7 +322,11 @@ function CanvasDomLayerBase({
     const View = definition.view;
     const [x, y, w, h] = element.xywh;
     // 逻辑：只渲染视窗附近的节点，减少 DOM 开销。
-    if (shouldCull && viewportBounds && !isRectVisible(getNodeBounds(element), viewportBounds)) {
+    if (
+      shouldCull &&
+      viewportBounds &&
+      !isRectVisible(getNodeBounds(element, groupPadding), viewportBounds)
+    ) {
       return;
     }
     visibleNodes += 1;
@@ -315,6 +334,11 @@ function CanvasDomLayerBase({
     const isDragging =
       snapshot.draggingId === element.id || (draggingGroup && selected);
     const isEditing = element.id === snapshot.editingNodeId;
+    const padding = isGroupNodeType(element.type) ? groupPadding : 0;
+    const paddedX = x - padding;
+    const paddedY = y - padding;
+    const paddedW = w + padding * 2;
+    const paddedH = h + padding * 2;
 
     nodeViews.push(
       <div
@@ -325,10 +349,10 @@ function CanvasDomLayerBase({
         data-selected={selected || undefined}
         className="pointer-events-auto absolute select-none"
         style={{
-          left: x,
-          top: y,
-          width: w,
-          height: h,
+          left: paddedX,
+          top: paddedY,
+          width: paddedW,
+          height: paddedH,
           transform: element.rotate ? `rotate(${element.rotate}deg)` : undefined,
           transformOrigin: "center",
         }}

@@ -68,7 +68,7 @@ import {
 import { buildClipboardState, buildPastedElements, getClipboardInsertPayload } from "./clipboard";
 import { buildImageNodePayloadFromFile, type ImageNodePayload } from "../utils/image";
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
-import { buildAnchorMap } from "./anchors";
+import { applyGroupAnchorPadding, buildAnchorMap } from "./anchors";
 import { computeAutoLayoutUpdates } from "./auto-layout";
 import {
   addStrokeElement as addStrokeElementToDoc,
@@ -97,7 +97,11 @@ import {
   setElementLocked,
   ungroupSelection,
 } from "./selection-actions";
-import { GROUP_OUTLINE_INSET, expandSelectionWithGroupChildren } from "./grouping";
+import {
+  expandSelectionWithGroupChildren,
+  getGroupOutlinePadding,
+  isGroupNodeType,
+} from "./grouping";
 import { generateElementId } from "./id";
 
 /** Builder for image payloads. */
@@ -525,7 +529,14 @@ export class CanvasEngine {
 
   /** Update the pen settings. */
   setPenSettings(settings: Partial<CanvasStrokeSettings>): void {
+    const prev = this.strokeSettings.penSettings;
     setPenSettings(this.strokeSettings, settings);
+    const next = this.strokeSettings.penSettings;
+    if (prev.size === next.size && prev.color === next.color && prev.opacity === next.opacity) {
+      return;
+    }
+    // 逻辑：画笔配置变化时刷新快照，驱动光标与 UI 同步。
+    this.emitChange();
   }
 
   /** Return the current highlighter settings. */
@@ -535,7 +546,14 @@ export class CanvasEngine {
 
   /** Update the highlighter settings. */
   setHighlighterSettings(settings: Partial<CanvasStrokeSettings>): void {
+    const prev = this.strokeSettings.highlighterSettings;
     setHighlighterSettings(this.strokeSettings, settings);
+    const next = this.strokeSettings.highlighterSettings;
+    if (prev.size === next.size && prev.color === next.color && prev.opacity === next.opacity) {
+      return;
+    }
+    // 逻辑：荧光笔配置变化时刷新快照，驱动光标与 UI 同步。
+    this.emitChange();
   }
 
   /** Resolve stroke settings for the requested tool. */
@@ -692,7 +710,8 @@ export class CanvasEngine {
     const elements = this.getOrderedElements().filter(
       element => element.kind === "node"
     ) as CanvasNodeElement[];
-    return findNodeAt(point, elements);
+    const { zoom } = this.viewport.getState();
+    return findNodeAt(point, elements, zoom);
   }
 
   /** Resolve the nearest edge-center anchor for a node. */
@@ -702,7 +721,8 @@ export class CanvasEngine {
   ): CanvasAnchorHit | null {
     const element = this.doc.getElementById(elementId);
     if (!element || element.kind !== "node") return null;
-    return getNearestEdgeAnchorHit(element, this.nodes, hint);
+    const { zoom } = this.viewport.getState();
+    return getNearestEdgeAnchorHit(element, this.nodes, hint, zoom);
   }
 
   /** Find the nearest connector endpoint hit. */
@@ -710,11 +730,11 @@ export class CanvasEngine {
     point: CanvasPoint,
     connectorIds?: string[]
   ): CanvasConnectorEndpointHit | null {
-    const anchors = this.getAnchorMap();
     const connectors = this.getOrderedElements().filter(
       element => element.kind === "connector"
     ) as CanvasConnectorElement[];
     const { zoom } = this.viewport.getState();
+    const anchors = this.getAnchorMapWithGroupPadding();
     return findConnectorEndpointHit(
       point,
       connectors,
@@ -733,7 +753,7 @@ export class CanvasEngine {
   ): void {
     const element = this.doc.getElementById(connectorId);
     if (!element || element.kind !== "connector") return;
-    const anchors = this.getAnchorMap();
+    const anchors = this.getAnchorMapWithGroupPadding();
     const normalizedEnd = normalizeConnectorEnd(end);
     const nextSource = role === "source" ? normalizedEnd : element.source;
     const nextTarget = role === "target" ? normalizedEnd : element.target;
@@ -936,14 +956,8 @@ export class CanvasEngine {
         maxY = Math.max(maxY, y + nextH);
       });
       if (groupElement && groupElement.kind === "node") {
-        // 逻辑：组节点外扩尺寸，保证边框与交互范围一致。
         this.doc.updateElement(groupId, {
-          xywh: [
-            minX - GROUP_OUTLINE_INSET,
-            minY - GROUP_OUTLINE_INSET,
-            maxX - minX + GROUP_OUTLINE_INSET * 2,
-            maxY - minY + GROUP_OUTLINE_INSET * 2,
-          ],
+          xywh: [minX, minY, maxX - minX, maxY - minY],
         });
       }
     });
@@ -984,14 +998,8 @@ export class CanvasEngine {
         maxY = Math.max(maxY, nextY + h);
       });
       if (groupElement && groupElement.kind === "node") {
-        // 逻辑：组节点外扩尺寸，保证边框与交互范围一致。
         this.doc.updateElement(groupId, {
-          xywh: [
-            minX - GROUP_OUTLINE_INSET,
-            minY - GROUP_OUTLINE_INSET,
-            maxX - minX + GROUP_OUTLINE_INSET * 2,
-            maxY - minY + GROUP_OUTLINE_INSET * 2,
-          ],
+          xywh: [minX, minY, maxX - minX, maxY - minY],
         });
       }
     });
@@ -1059,7 +1067,7 @@ export class CanvasEngine {
         offset,
         connectorStyle: this.connectorStyle,
         generateId: this.generateId.bind(this),
-        getAnchorMap: () => this.getAnchorMap(),
+        getAnchorMap: () => this.getAnchorMapWithGroupPadding(),
         getNodeBoundsById: this.getNodeBoundsById,
         getNodeById: (elementId: string) => {
           const element = this.doc.getElementById(elementId);
@@ -1269,7 +1277,7 @@ export class CanvasEngine {
 
   /** Add a new connector element to the document. */
   addConnectorElement(draft: CanvasConnectorDraft): void {
-    const anchors = this.getAnchorMap();
+    const anchors = this.getAnchorMapWithGroupPadding();
     const avoidRects =
       "elementId" in draft.source
         ? this.getConnectorAvoidRects(
@@ -1338,12 +1346,19 @@ export class CanvasEngine {
     return map;
   }
 
+  /** Build anchor positions with group padding applied. */
+  private getAnchorMapWithGroupPadding(): CanvasAnchorMap {
+    const { zoom } = this.viewport.getState();
+    const groupPadding = getGroupOutlinePadding(zoom);
+    return applyGroupAnchorPadding(this.getAnchorMap(), this.doc.getElements(), groupPadding);
+  }
+
   /** Find the nearest anchor within a hit radius. */
   findAnchorHit(
     point: CanvasPoint,
     exclude?: { elementId: string; anchorId: string }
   ): CanvasAnchorHit | null {
-    const anchors = this.getAnchorMap();
+    const anchors = this.getAnchorMapWithGroupPadding();
     const { zoom } = this.viewport.getState();
     return findAnchorHit(point, anchors, zoom, exclude);
   }
@@ -1366,7 +1381,11 @@ export class CanvasEngine {
     const element = this.doc.getElementById(elementId);
     if (!element || element.kind !== "node") return undefined;
     const [x, y, w, h] = element.xywh;
-    return { x, y, w, h };
+    // 逻辑：分组节点的连线计算需要包含外框 padding。
+    if (!isGroupNodeType(element.type)) return { x, y, w, h };
+    const { zoom } = this.viewport.getState();
+    const padding = getGroupOutlinePadding(zoom);
+    return { x: x - padding, y: y - padding, w: w + padding * 2, h: h + padding * 2 };
   };
 
   /** Gather bounds for nodes connected from the same source node. */
@@ -1460,7 +1479,7 @@ export class CanvasEngine {
   /** Pick the top-most element at the given world point. */
   pickElementAt(point: CanvasPoint): CanvasElement | null {
     const elements = this.getOrderedElements();
-    const anchors = this.getAnchorMap();
+    const anchors = this.getAnchorMapWithGroupPadding();
     const { zoom } = this.viewport.getState();
     return pickElementAt(
       point,

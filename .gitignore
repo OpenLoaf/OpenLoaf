@@ -103,3 +103,5 @@ apps/electron/resources/speech/windows/publish
 .pnpm-store
 .pnpm-store/*
 apps/web/public/monaco/
+apps/wps-doc
+apps/wps

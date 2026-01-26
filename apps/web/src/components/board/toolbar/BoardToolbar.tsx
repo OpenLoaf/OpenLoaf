@@ -96,6 +96,40 @@ const NOTE_SVG_SRC = "/board/notes-note-svgrepo-com.svg";
 const PICTURE_SVG_SRC = "/board/picture-photo-svgrepo-com.svg";
 const VIDEO_SVG_SRC = "/board/video-player-movie-svgrepo.svg";
 
+/** Compute a fitted size that preserves the original aspect ratio. */
+const fitSize = (width: number, height: number, maxDimension: number): [number, number] => {
+  const maxSide = Math.max(width, height);
+  if (maxSide <= maxDimension) {
+    return [Math.max(1, Math.round(width)), Math.max(1, Math.round(height))];
+  }
+  const scale = maxDimension / maxSide;
+  return [Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale))];
+};
+
+/** Decode a data url poster and return its natural size. */
+const resolvePosterSize = async (posterSrc?: string) => {
+  const trimmed = posterSrc?.trim();
+  if (!trimmed) return null;
+  const image = new Image();
+  image.decoding = "async";
+  image.src = trimmed;
+  try {
+    if (image.decode) {
+      await image.decode();
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("Poster decode failed"));
+      });
+    }
+    const naturalWidth = image.naturalWidth || 1;
+    const naturalHeight = image.naturalHeight || 1;
+    return { naturalWidth, naturalHeight };
+  } catch {
+    return null;
+  }
+};
+
 const prefixSvgIds = (svg: string, prefix: string) => {
   const safePrefix = prefix.replace(/:/g, "");
   return svg
@@ -608,16 +642,24 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   }, [isLocked]);
 
   const handleVideoSelected = useCallback(
-    (selection: ProjectFilePickerSelection) => {
+    async (selection: ProjectFilePickerSelection) => {
       if (!selection.fileRef) return;
+      // 逻辑：优先使用缩略图尺寸作为视频节点的默认比例。
+      const posterSize = await resolvePosterSize(selection.thumbnailSrc);
+      const naturalWidth = posterSize?.naturalWidth ?? 16;
+      const naturalHeight = posterSize?.naturalHeight ?? 9;
+      const [nodeWidth, nodeHeight] = fitSize(naturalWidth, naturalHeight, 360);
       handleInsertRequest({
         id: "video",
         type: "video",
         props: {
           sourcePath: selection.fileRef,
           fileName: selection.entry.name,
+          posterPath: selection.thumbnailSrc,
+          naturalWidth,
+          naturalHeight,
         },
-        size: [360, 240],
+        size: [nodeWidth, nodeHeight],
       });
     },
     [handleInsertRequest]
@@ -894,12 +936,12 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             showTooltip={false}
           >
             <DotLottieReact
-              src="/board/Folder.lottie"
+              src="/board/folders.lottie"
               loop={false}
               autoplay={false}
               dotLottieRefCallback={setFolderLottie}
               className={cn(
-                "pointer-events-none h-[33px] w-[33px]",
+                "pointer-events-none h-[44px] w-[44px]",
                 "transition-transform duration-150 ease-out"
               )}
             />

@@ -27,6 +27,7 @@ import {
 } from "./constants";
 import { LARGE_ANCHOR_NODE_TYPES } from "./anchorTypes";
 import type { NodeRegistry } from "./NodeRegistry";
+import { getGroupOutlinePadding, isGroupNodeType } from "./grouping";
 import { resolveConnectorEndpointsWithBounds } from "./connector-resolve";
 import {
   buildConnectorPath,
@@ -37,17 +38,23 @@ import {
 } from "../utils/connector-path";
 
 /** Find the top-most node element at the given world point. */
-function findNodeAt(point: CanvasPoint, nodes: CanvasNodeElement[]): CanvasNodeElement | null {
+function findNodeAt(
+  point: CanvasPoint,
+  nodes: CanvasNodeElement[],
+  zoom: number
+): CanvasNodeElement | null {
+  const groupPadding = getGroupOutlinePadding(zoom);
   // 反向遍历保证命中最上层元素。
   for (let i = nodes.length - 1; i >= 0; i -= 1) {
     const element = nodes[i];
     if (!element) continue;
     const [x, y, w, h] = element.xywh;
+    const padding = isGroupNodeType(element.type) ? groupPadding : 0;
     const within =
-      point[0] >= x &&
-      point[0] <= x + w &&
-      point[1] >= y &&
-      point[1] <= y + h;
+      point[0] >= x - padding &&
+      point[0] <= x + w + padding &&
+      point[1] >= y - padding &&
+      point[1] <= y + h + padding;
     if (within) return element;
   }
   return null;
@@ -57,18 +64,22 @@ function findNodeAt(point: CanvasPoint, nodes: CanvasNodeElement[]): CanvasNodeE
 function getNearestEdgeAnchorHit(
   element: CanvasNodeElement,
   nodes: NodeRegistry,
-  hint: CanvasPoint
+  hint: CanvasPoint,
+  zoom: number
 ): CanvasAnchorHit | null {
   const definition = nodes.getDefinition(element.type);
   const connectable = definition?.capabilities?.connectable ?? "auto";
   if (connectable === "none") return null;
   if (connectable !== "auto" && connectable !== "anchors") return null;
   const [x, y, w, h] = element.xywh;
+  const padding = isGroupNodeType(element.type)
+    ? getGroupOutlinePadding(zoom)
+    : 0;
   const edges = [
-    { id: "top", point: [x + w / 2, y] as CanvasPoint },
-    { id: "right", point: [x + w, y + h / 2] as CanvasPoint },
-    { id: "bottom", point: [x + w / 2, y + h] as CanvasPoint },
-    { id: "left", point: [x, y + h / 2] as CanvasPoint },
+    { id: "top", point: [x + w / 2, y - padding] as CanvasPoint },
+    { id: "right", point: [x + w + padding, y + h / 2] as CanvasPoint },
+    { id: "bottom", point: [x + w / 2, y + h + padding] as CanvasPoint },
+    { id: "left", point: [x - padding, y + h / 2] as CanvasPoint },
   ];
   const firstEdge = edges[0];
   if (!firstEdge) return null;
@@ -222,6 +233,7 @@ function findEdgeAnchorHit(
   const selectedEdgeOffset = (SELECTED_ANCHOR_EDGE_SIZE / 2 + SELECTED_ANCHOR_GAP) / zoomSafe;
   const selectedSideOffset = (SELECTED_ANCHOR_SIDE_SIZE / 2 + SELECTED_ANCHOR_GAP) / zoomSafe;
 
+  const groupPadding = getGroupOutlinePadding(zoom);
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const element = elements[i];
     if (!element) continue;
@@ -236,6 +248,7 @@ function findEdgeAnchorHit(
       const isActiveLargeAnchor = true;
       // 逻辑：选中图片节点使用偏移锚点，命中区域跟随视觉锚点位置。
       const [x, y, w, h] = element.xywh;
+      const padding = isGroupNodeType(element.type) ? groupPadding : 0;
       const sideOffset = isActiveLargeAnchor ? selectedSideOffset : 0;
       const edgeOffset = isActiveLargeAnchor ? selectedEdgeOffset : 0;
       const sideHitRadius = isActiveLargeAnchor
@@ -244,10 +257,10 @@ function findEdgeAnchorHit(
       const edgeHitRadius = isActiveLargeAnchor
         ? Math.max(hitRadius, selectedEdgeRadius)
         : hitRadius;
-      const leftX = x - sideOffset;
-      const rightX = x + w + sideOffset;
-      const topY = y - edgeOffset;
-      const bottomY = y + h + edgeOffset;
+      const leftX = x - padding - sideOffset;
+      const rightX = x + w + padding + sideOffset;
+      const topY = y - padding - edgeOffset;
+      const bottomY = y + h + padding + edgeOffset;
       const withinX =
         point[0] >= leftX - sideHitRadius && point[0] <= rightX + sideHitRadius;
       const withinY =

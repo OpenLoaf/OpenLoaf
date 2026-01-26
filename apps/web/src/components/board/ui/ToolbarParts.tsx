@@ -5,7 +5,7 @@ import { cn } from "@udecode/cn";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const toolbarSurfaceClassName =
-  "bg-card/90 ring-1 ring-border/70 shadow-[0_10px_26px_rgba(15,23,42,0.18)] backdrop-blur-md";
+  "bg-card/90 ring-1 ring-border/70 shadow-[0_10px_26px_rgba(15,23,42,0.18)] backdrop-blur-md cursor-default [&_*]:!cursor-default";
 
 /** 仅图标的按钮组件（玻璃风格工具条中的按钮） */
 function IconBtn(props: {

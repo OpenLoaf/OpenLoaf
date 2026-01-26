@@ -22,6 +22,8 @@ export const SELECTED_ANCHOR_SIDE_SIZE = 20;
 export const SELECTED_ANCHOR_SIDE_SIZE_HOVER = 24;
 /** Extra gap from node edge to selected anchors in screen pixels. */
 export const SELECTED_ANCHOR_GAP = 6;
+/** Group outline padding in canvas units. */
+export const GROUP_OUTLINE_PADDING = 20;
 
 export const MIN_ZOOM = 0.1;
 export const MIN_ZOOM_EPS = 0.0001;

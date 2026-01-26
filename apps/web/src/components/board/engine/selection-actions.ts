@@ -9,7 +9,6 @@ import { computeNodeBounds } from "./geometry";
 import {
   GROUP_NODE_TYPE,
   IMAGE_GROUP_NODE_TYPE,
-  GROUP_OUTLINE_INSET,
   getGroupMemberIds,
   getNodeGroupId,
   isGroupNodeType,
@@ -53,13 +52,6 @@ function groupSelection(deps: SelectionDeps, nodeIds: string[]): void {
   const groupZ = Number.isFinite(minZ) ? minZ - 1 : deps.getMinZIndex() - 1;
   const groupId = deps.generateId(groupType);
   const childIds = nodes.map(node => node.id);
-  // 逻辑：组节点外扩尺寸，保证边框与交互范围一致。
-  const paddedBounds = {
-    x: bounds.x - GROUP_OUTLINE_INSET,
-    y: bounds.y - GROUP_OUTLINE_INSET,
-    w: bounds.w + GROUP_OUTLINE_INSET * 2,
-    h: bounds.h + GROUP_OUTLINE_INSET * 2,
-  };
 
   // 逻辑：创建组节点，并将选中节点挂到组节点下。
   deps.doc.transact(() => {
@@ -67,7 +59,7 @@ function groupSelection(deps: SelectionDeps, nodeIds: string[]): void {
       id: groupId,
       kind: "node",
       type: groupType,
-      xywh: [paddedBounds.x, paddedBounds.y, paddedBounds.w, paddedBounds.h],
+      xywh: [bounds.x, bounds.y, bounds.w, bounds.h],
       zIndex: groupZ,
       props: {
         childIds,

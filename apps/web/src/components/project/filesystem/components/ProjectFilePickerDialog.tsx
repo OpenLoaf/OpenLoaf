@@ -43,6 +43,7 @@ import {
   type FileSystemEntry,
 } from "../utils/file-system-utils";
 import { sortEntriesByType } from "../utils/entry-sort";
+import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
 import { FileSystemGrid } from "./FileSystemGrid";
 
 export type ProjectFilePickerSelection = {
@@ -50,6 +51,8 @@ export type ProjectFilePickerSelection = {
   fileRef: string;
   /** Selected file entry. */
   entry: FileSystemEntry;
+  /** Optional cached thumbnail for the selected file. */
+  thumbnailSrc?: string;
   /** Project id for the selected file. */
   projectId?: string;
   /** Root uri for the selected project. */
@@ -160,6 +163,10 @@ export function ProjectFilePickerDialog({
     () => (activeRootUri ? projectIdByRootUri.get(activeRootUri) : undefined),
     [activeRootUri, projectIdByRootUri]
   );
+  const { thumbnailByUri } = useFolderThumbnails({
+    currentUri: activeUri,
+    projectId: activeProjectId,
+  });
 
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
@@ -266,12 +273,21 @@ export function ProjectFilePickerDialog({
       onSelectFile?.({
         fileRef,
         entry: target,
+        thumbnailSrc: thumbnailByUri.get(target.uri),
         projectId: activeProjectId,
         rootUri: activeRootUri ?? undefined,
       });
       onOpenChange(false);
     },
-    [activeProjectId, activeRootUri, onOpenChange, onSelectFile, resolveFileRefFromEntry, selectedFileEntry]
+    [
+      activeProjectId,
+      activeRootUri,
+      onOpenChange,
+      onSelectFile,
+      resolveFileRefFromEntry,
+      selectedFileEntry,
+      thumbnailByUri,
+    ]
   );
 
   const breadcrumbItems = useMemo(() => {

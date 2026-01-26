@@ -176,7 +176,8 @@ async function buildVideoThumbnail(input: {
       .run();
   });
   const buffer = await sharp(tempPath)
-    .resize(VIDEO_THUMB_WIDTH, VIDEO_THUMB_HEIGHT, { fit: "cover" })
+    // 逻辑：保持原视频比例缩放到目标框内，避免裁切成固定 16:9。
+    .resize(VIDEO_THUMB_WIDTH, VIDEO_THUMB_HEIGHT, { fit: "inside" })
     .webp({ quality: 50 })
     .toBuffer();
   await fs.writeFile(cachePath, buffer);

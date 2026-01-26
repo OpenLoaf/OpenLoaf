@@ -35,6 +35,84 @@ import { resolveBoardFolderScope, resolveProjectPathFromBoardUri } from "./board
 
 const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
 const EDITABLE_NODE_TYPES = new Set(["text", "image-generate", "image-prompt-generate"]);
+/** Cursor assets for board drawing tools. */
+const PEN_CURSOR_DOWN_URL = "/board/brush-cursor.svg";
+const PEN_CURSOR_UP_URL = "/board/brush-cursor-up.svg";
+const HIGHLIGHTER_CURSOR_DOWN_URL = "/board/highlighter-cursor.svg";
+const HIGHLIGHTER_CURSOR_UP_URL = "/board/highlighter-cursor-up.svg";
+const ERASER_CURSOR_DOWN_URL = "/board/eraser-cursor.svg";
+const ERASER_CURSOR_UP_URL = "/board/eraser-cursor-up.svg";
+/** Cursor hotspots aligned to tool tips. */
+const PEN_CURSOR_HOTSPOT: [number, number] = [18, 4];
+const HIGHLIGHTER_CURSOR_HOTSPOT: [number, number] = [14, 8];
+const ERASER_CURSOR_HOTSPOT: [number, number] = [22, 46];
+/** Cursor SVG text cache keyed by URL. */
+const CURSOR_SVG_CACHE = new Map<string, string>();
+/** Cursor SVG load promises keyed by URL. */
+const CURSOR_SVG_LOADING = new Map<string, Promise<void>>();
+/** Colored cursor data URL cache keyed by url/color/hotspot. */
+const CURSOR_DATA_CACHE = new Map<string, string>();
+
+/** Build a fallback cursor string for a static SVG url. */
+function buildCursorFallback(url: string, hotspot: [number, number], fallback: string): string {
+  return `url("${url}") ${hotspot[0]} ${hotspot[1]}, ${fallback}`;
+}
+
+/** Load and cache cursor SVG text. */
+function loadCursorSvg(url: string): Promise<void> {
+  if (CURSOR_SVG_CACHE.has(url)) return Promise.resolve();
+  const inflight = CURSOR_SVG_LOADING.get(url);
+  if (inflight) return inflight;
+  const request = fetch(url)
+    .then((res) => (res.ok ? res.text() : ""))
+    .then((text) => {
+      if (!text) return;
+      CURSOR_SVG_CACHE.set(url, text);
+    })
+    .catch(() => {});
+  CURSOR_SVG_LOADING.set(url, request);
+  return request;
+}
+
+/** Inject a color style into the root svg tag. */
+function injectSvgColor(svg: string, color: string): string {
+  if (svg.includes('style="')) {
+    return svg.replace(/<svg([^>]*?)style="([^"]*)"/, (match, attrs, style) => {
+      return `<svg${attrs}style="${style}; color: ${color};"`;
+    });
+  }
+  return svg.replace(/<svg([^>]*?)>/, `<svg$1 style="color: ${color};">`);
+}
+
+/** Build a data-url cursor string using the provided color. */
+function buildColoredCursor(
+  url: string,
+  svg: string,
+  color: string,
+  hotspot: [number, number],
+  fallback: string
+): string {
+  const cacheKey = `${url}|${color}|${hotspot[0]}|${hotspot[1]}|${fallback}`;
+  const cached = CURSOR_DATA_CACHE.get(cacheKey);
+  if (cached) return cached;
+  const coloredSvg = injectSvgColor(svg, color);
+  const encoded = encodeURIComponent(coloredSvg);
+  const cursor = `url("data:image/svg+xml;utf8,${encoded}") ${hotspot[0]} ${hotspot[1]}, ${fallback}`;
+  CURSOR_DATA_CACHE.set(cacheKey, cursor);
+  return cursor;
+}
+
+/** Resolve a colored cursor string when SVG text is available. */
+function resolveColoredCursor(
+  url: string,
+  color: string,
+  hotspot: [number, number],
+  fallback: string
+): string {
+  const svg = CURSOR_SVG_CACHE.get(url);
+  if (!svg) return buildCursorFallback(url, hotspot, fallback);
+  return buildColoredCursor(url, svg, color, hotspot, fallback);
+}
 
 type BoardCanvasInteractionProps = {
   /** Canvas engine instance. */
@@ -76,10 +154,16 @@ export function BoardCanvasInteraction({
   onOpenImagePreview,
 }: BoardCanvasInteractionProps) {
   const showUi = !uiHidden;
+  const penColor = engine.getPenSettings().color;
+  const highlighterColor = engine.getHighlighterSettings().color;
   /** Last pointer location inside the canvas, in world coordinates. */
   const lastPointerWorldRef = useRef<CanvasPoint | null>(null);
   /** Current cursor state applied to the canvas container. */
-  const cursorRef = useRef<"crosshair" | "grabbing" | "grab" | "default">("default");
+  const cursorRef = useRef<string>("default");
+  /** Whether the primary pointer is pressed. */
+  const isPointerDownRef = useRef(false);
+  /** Latest cursor applier used by async loaders. */
+  const applyCursorRef = useRef<() => void>(() => {});
   /** Track wheel gesture target to avoid mid-gesture handoff. */
   const wheelGestureRef = useRef<{ mode: "canvas" | "scroll" | null; ts: number }>({
     mode: null,
@@ -107,11 +191,36 @@ export function BoardCanvasInteraction({
   const resolveCursor = () => {
     const currentSnapshot = latestSnapshotRef.current;
     const viewState = engine.getViewState();
+    const isPointerDown = isPointerDownRef.current;
     if (currentSnapshot.pendingInsert) return "crosshair";
     if (currentSnapshot.activeToolId === "hand") {
       return viewState.panning ? "grabbing" : "grab";
     }
     if (currentSnapshot.draggingId) return "grabbing";
+    // 逻辑：画笔类工具使用带颜色的光标，保持与当前颜色一致。
+    if (currentSnapshot.activeToolId === "pen") {
+      return resolveColoredCursor(
+        isPointerDown ? PEN_CURSOR_DOWN_URL : PEN_CURSOR_UP_URL,
+        penColor,
+        PEN_CURSOR_HOTSPOT,
+        "crosshair"
+      );
+    }
+    if (currentSnapshot.activeToolId === "highlighter") {
+      return resolveColoredCursor(
+        isPointerDown ? HIGHLIGHTER_CURSOR_DOWN_URL : HIGHLIGHTER_CURSOR_UP_URL,
+        highlighterColor,
+        HIGHLIGHTER_CURSOR_HOTSPOT,
+        "crosshair"
+      );
+    }
+    if (currentSnapshot.activeToolId === "eraser") {
+      return buildCursorFallback(
+        isPointerDown ? ERASER_CURSOR_DOWN_URL : ERASER_CURSOR_UP_URL,
+        ERASER_CURSOR_HOTSPOT,
+        "auto"
+      );
+    }
     return "default";
   };
 
@@ -124,10 +233,29 @@ export function BoardCanvasInteraction({
     // 逻辑：直接更新 DOM 光标，避免视图变化触发全量渲染。
     container.style.cursor = nextCursor;
   };
+  applyCursorRef.current = applyCursor;
 
   useEffect(() => {
     applyCursor();
-  }, [snapshot.activeToolId, snapshot.draggingId, snapshot.pendingInsert]);
+  }, [snapshot.activeToolId, snapshot.draggingId, snapshot.pendingInsert, penColor, highlighterColor]);
+
+  useEffect(() => {
+    let active = true;
+    const preload = async () => {
+      // 逻辑：提前加载光标资源，避免首次切换时闪烁。
+      await Promise.all([
+        loadCursorSvg(PEN_CURSOR_DOWN_URL),
+        loadCursorSvg(PEN_CURSOR_UP_URL),
+        loadCursorSvg(HIGHLIGHTER_CURSOR_DOWN_URL),
+        loadCursorSvg(HIGHLIGHTER_CURSOR_UP_URL),
+      ]);
+      if (active) applyCursorRef.current();
+    };
+    void preload();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = engine.subscribeView(() => {
@@ -214,6 +342,24 @@ export function BoardCanvasInteraction({
       container.removeEventListener("wheel", handleWheelCapture, {
         capture: true,
       });
+    };
+  }, [showUi]);
+
+  useEffect(() => {
+    if (!showUi) return;
+    const handlePointerUp = (event: PointerEvent) => {
+      if (!event.isPrimary) return;
+      if (!isPointerDownRef.current) return;
+      isPointerDownRef.current = false;
+      applyCursorRef.current();
+    };
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    window.addEventListener("blur", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      window.removeEventListener("blur", handlePointerUp);
     };
   }, [showUi]);
 
@@ -462,6 +608,10 @@ export function BoardCanvasInteraction({
       onDrop={handleCanvasDrop}
       onPointerDown={(event) => {
         if (!showUi) return;
+        if (event.isPrimary && event.button === 0) {
+          isPointerDownRef.current = true;
+          applyCursorRef.current();
+        }
         const rawTarget = event.target as EventTarget | null;
         const target =
           rawTarget instanceof Element

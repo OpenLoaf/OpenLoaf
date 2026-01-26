@@ -1,5 +1,13 @@
-import type { CanvasAnchor, CanvasAnchorMap, CanvasNodeElement, CanvasRect } from "./types";
+import type {
+  CanvasAnchor,
+  CanvasAnchorMap,
+  CanvasElement,
+  CanvasNodeElement,
+  CanvasPoint,
+  CanvasRect,
+} from "./types";
 import type { NodeRegistry } from "./NodeRegistry";
+import { isGroupNodeType } from "./grouping";
 /** Resolve anchors for a node element. */
 function resolveAnchors(element: CanvasNodeElement, nodes: NodeRegistry): CanvasAnchor[] {
   const [x, y, w, h] = element.xywh;
@@ -46,4 +54,50 @@ function buildAnchorMap(elements: CanvasNodeElement[], nodes: NodeRegistry): Can
   return anchorMap;
 }
 
-export { resolveAnchors, buildAnchorMap };
+/** Apply outline padding to group anchors in world units. */
+function applyGroupAnchorPadding(
+  anchors: CanvasAnchorMap,
+  elements: CanvasElement[],
+  padding: number
+): CanvasAnchorMap {
+  if (padding <= 0) return anchors;
+  const groupIds = new Set(
+    elements
+      .filter((element): element is CanvasNodeElement => element.kind === "node")
+      .filter(element => isGroupNodeType(element.type))
+      .map(element => element.id)
+  );
+  if (groupIds.size === 0) return anchors;
+  const next: CanvasAnchorMap = { ...anchors };
+  groupIds.forEach(groupId => {
+    const list = anchors[groupId];
+    if (!list || list.length === 0) return;
+    // 逻辑：组节点锚点按外扩偏移，保持连线与边框一致。
+    next[groupId] = list.map(anchor => {
+      const offset = resolveGroupAnchorOffset(anchor.id, padding);
+      return {
+        ...anchor,
+        point: [anchor.point[0] + offset[0], anchor.point[1] + offset[1]],
+      };
+    });
+  });
+  return next;
+}
+
+/** Resolve the world-space offset for group anchors. */
+function resolveGroupAnchorOffset(anchorId: string, padding: number): CanvasPoint {
+  switch (anchorId) {
+    case "top":
+      return [0, -padding];
+    case "right":
+      return [padding, 0];
+    case "bottom":
+      return [0, padding];
+    case "left":
+      return [-padding, 0];
+    default:
+      return [0, 0];
+  }
+}
+
+export { resolveAnchors, buildAnchorMap, applyGroupAnchorPadding };

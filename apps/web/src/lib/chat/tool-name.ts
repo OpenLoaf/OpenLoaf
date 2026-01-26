@@ -15,6 +15,7 @@ import {
   projectListToolDef,
   projectUpdateToolDef,
 } from "@tenas-ai/api/types/tools/db";
+import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
 import {
   execCommandToolDefUnix,
   execCommandToolDefWin,
@@ -56,6 +57,7 @@ const TOOL_DEFS: ToolNameSource[] = [
   browserWaitToolDef,
   execCommandToolDefUnix,
   execCommandToolDefWin,
+  jsonRenderToolDef,
   listDirToolDef,
   openUrlToolDef,
   projectCreateToolDef,
