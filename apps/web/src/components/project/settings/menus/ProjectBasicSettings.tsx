@@ -38,6 +38,7 @@ import {
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { buildProjectHierarchyIndex, filterProjectTree } from "@/lib/project-tree";
 
 type ProjectBasicSettingsProps = {
@@ -317,8 +318,9 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
       setRenameBusy(true);
       await updateProject.mutateAsync({ projectId, title: nextTitle });
       const baseId = `project:${projectId}`;
+      const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
       tabs
-        .filter((tab) => tab.base?.id === baseId)
+        .filter((tab) => runtimeByTabId[tab.id]?.base?.id === baseId)
         .forEach((tab) => setTabTitle(tab.id, nextTitle));
       toast.success("重命名成功");
       setRenameOpen(false);

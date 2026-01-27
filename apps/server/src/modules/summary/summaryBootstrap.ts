@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { setSummaryRuntime } from "@tenas-ai/api/services/summaryRuntime";
 import { getProjectRootPath } from "@tenas-ai/api/services/vfsService";
 import { readWorkspaceProjectTrees, type ProjectNode } from "@tenas-ai/api/services/projectTreeService";
-import { SummaryScheduler } from "@/ai/summary/summaryScheduler";
+import { SummaryScheduler } from "@/ai/services/summary/summaryScheduler";
 
 /** Initialize summary scheduler and runtime. */
 export async function initSummaryScheduler(): Promise<void> {

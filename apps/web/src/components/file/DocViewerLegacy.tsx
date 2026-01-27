@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { renderAsync } from "docx-preview";
 import { StackHeader } from "@/components/layout/StackHeader";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -54,7 +54,7 @@ export default function DocViewer({
   /** Tracks the document render status. */
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   /** Close current stack panel. */
-  const removeStackItem = useTabs((s) => s.removeStackItem);
+  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
 
   /** Flags whether the viewer should load via fs.readBinary. */
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");

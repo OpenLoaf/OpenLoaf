@@ -110,13 +110,13 @@ export default function ToolInfoCard({
               ) : null}
             </div>
           </AccordionTrigger>
-          {actions ? (
-            <div className="absolute right-7 top-1.5 flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground/80">
-              {actions}
-            </div>
-          ) : null}
           <AccordionContent className="pt-1.5 text-[10px] text-muted-foreground/70">
             <div className="mt-1.5 flex flex-col gap-1.5">
+              {actions ? (
+                <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground/80">
+                  {actions}
+                </div>
+              ) : null}
               <div className="flex items-center justify-between gap-2 text-[9px] uppercase tracking-wide text-muted-foreground/80">
                 <span>输入</span>
                 {toolId ? (

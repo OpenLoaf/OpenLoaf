@@ -50,6 +50,7 @@ enum MessageRole {
   user
   assistant
   system
+  subagent
 }
 
 enum MessageKind {

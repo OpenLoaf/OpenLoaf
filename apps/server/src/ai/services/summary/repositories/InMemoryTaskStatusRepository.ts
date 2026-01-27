@@ -2,7 +2,7 @@ import type {
   TaskStatusRecord,
   TaskStatusRepository,
   TaskStatusValue,
-} from "@/ai/summary/TaskStatusRepository";
+} from "@/ai/services/summary/TaskStatusRepository";
 
 export class InMemoryTaskStatusRepository implements TaskStatusRepository {
   /** In-memory task status store. */

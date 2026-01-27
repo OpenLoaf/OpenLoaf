@@ -4,7 +4,8 @@ import * as React from "react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useTabView } from "@/hooks/use-tab-view";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import type { DockItem } from "@tenas-ai/api/common";
 import { StackHeader } from "./StackHeader";
@@ -213,11 +214,11 @@ function parseRenamePath(uri: string) {
 
 // Render the left dock contents for a tab.
 export function LeftDock({ tabId }: { tabId: string }) {
-  const tab = useTabs((s) => s.tabs.find((t) => t.id === tabId));
+  const tab = useTabView(tabId);
   const workspaceId = tab?.workspaceId ?? "";
-  const stackHidden = useTabs((s) => Boolean(s.stackHiddenByTabId[tabId]));
-  const activeStackItemId = useTabs((s) => s.activeStackItemIdByTabId[tabId]);
-  const removeStackItem = useTabs((s) => s.removeStackItem);
+  const stackHidden = Boolean(tab?.stackHidden);
+  const activeStackItemId = tab?.activeStackItemId;
+  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
   const queryClient = useQueryClient();
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
   const [renameDialog, setRenameDialog] = React.useState<{
@@ -234,7 +235,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
   // 只订阅面板渲染必需字段，避免切换 tab 时触发无关渲染。
   const base = tab?.base;
   const stack = tab?.stack ?? [];
-  // stack 的选中态不再依赖“最后一个=顶部”，而是由 activeStackItemIdByTabId 决定。
+  // stack 的选中态不再依赖“最后一个=顶部”，而是由 activeStackItemId 决定。
   const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
   const hasOverlay = Boolean(base) && stack.length > 0 && !stackHidden;
   const floating = Boolean(base);

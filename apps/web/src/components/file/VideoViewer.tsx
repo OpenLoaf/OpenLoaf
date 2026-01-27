@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { VideoPlayer } from "@tenas-ai/ui/video-player";
 import { StackHeader } from "@/components/layout/StackHeader";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { resolveServerUrl } from "@/utils/server-url";
 import { cn } from "@/lib/utils";
 import {
@@ -77,7 +77,7 @@ export default function VideoViewer({
   panelKey,
   tabId,
 }: VideoViewerProps) {
-  const removeStackItem = useTabs((state) => state.removeStackItem);
+  const removeStackItem = useTabRuntime((state) => state.removeStackItem);
   const displayTitle = name ?? uri ?? "Video";
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
@@ -103,7 +103,8 @@ export default function VideoViewer({
       const parsed = parseScopedProjectPath(trimmed);
       if (parsed) {
         relativePath = parsed.relativePath;
-        resolvedProjectId = resolvedProjectId ?? parsed.projectId;
+        // 逻辑：路径包含项目范围时优先使用路径中的 projectId。
+        resolvedProjectId = parsed.projectId ?? resolvedProjectId;
       } else {
         relativePath = normalizeProjectRelativePath(trimmed);
       }

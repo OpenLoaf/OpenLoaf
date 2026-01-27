@@ -7,12 +7,12 @@ import {
 import { resolveFilePathFromUri, getProjectRootPath } from "@tenas-ai/api/services/vfsService";
 import { getWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
-import { SummaryDayUseCase } from "@/ai/summary/SummaryDayUseCase";
-import { SummaryProjectUseCase } from "@/ai/summary/SummaryProjectUseCase";
-import { UpdateProjectSummaryUseCase } from "@/ai/summary/UpdateProjectSummaryUseCase";
-import { BackgroundTaskService } from "@/ai/summary/BackgroundTaskService";
-import { InMemoryTaskStatusRepository } from "@/ai/summary/repositories/InMemoryTaskStatusRepository";
-import { InProcessSchedulerAdapter } from "@/ai/summary/SchedulerAdapters";
+import { SummaryDayUseCase } from "@/ai/services/summary/SummaryDayUseCase";
+import { SummaryProjectUseCase } from "@/ai/services/summary/SummaryProjectUseCase";
+import { UpdateProjectSummaryUseCase } from "@/ai/services/summary/UpdateProjectSummaryUseCase";
+import { BackgroundTaskService } from "@/ai/services/summary/BackgroundTaskService";
+import { InMemoryTaskStatusRepository } from "@/ai/services/summary/repositories/InMemoryTaskStatusRepository";
+import { InProcessSchedulerAdapter } from "@/ai/services/summary/SchedulerAdapters";
 import { logger } from "@/common/logger";
 
 export class SummaryScheduler {

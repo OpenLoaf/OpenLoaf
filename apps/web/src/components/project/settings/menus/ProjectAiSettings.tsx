@@ -10,6 +10,7 @@ import { Button } from "@tenas-ai/ui/button";
 import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 
 type ProjectAiSettingsProps = {
   /** Project id for AI settings. */
@@ -51,7 +52,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
   );
   const [manualDate, setManualDate] = useState("");
   const activeTabId = useTabs((state) => state.activeTabId);
-  const pushStackItem = useTabs((state) => state.pushStackItem);
+  const pushStackItem = useTabRuntime((state) => state.pushStackItem);
 
   const aiSettings = aiSettingsQuery.data?.aiSettings ?? {};
   const overrideEnabled = aiSettings.overrideEnabled ?? false;

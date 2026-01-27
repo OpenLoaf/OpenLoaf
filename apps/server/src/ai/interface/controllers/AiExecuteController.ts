@@ -1,5 +1,5 @@
-import type { AiExecuteRequest } from "@/ai/chat/types";
-import { AiExecuteService } from "@/ai/chat/AiExecuteService";
+import type { AiExecuteRequest } from "@/ai/services/chat/types";
+import { AiExecuteService } from "@/ai/services/chat/AiExecuteService";
 
 type AiExecuteControllerDeps = {
   /** Execute service. */

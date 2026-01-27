@@ -12,6 +12,7 @@ import { getEntryVisual, IMAGE_EXTS } from "@/components/project/filesystem/comp
 import { openFilePreview } from "@/components/file/lib/open-file";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import {
   buildUriFromRoot,
   getDisplayPathFromUri,
@@ -116,7 +117,7 @@ export default function ThreeDFolderWidget({
   const tabs = useTabs((state) => state.tabs);
   const setActiveTab = useTabs((state) => state.setActiveTab);
   const addTab = useTabs((state) => state.addTab);
-  const setTabBaseParams = useTabs((state) => state.setTabBaseParams);
+  const setTabBaseParams = useTabRuntime((state) => state.setTabBaseParams);
   const resolvedTitle = React.useMemo(() => {
     // 中文注释：优先使用外部传入的标题，其次从目录路径提取显示名。
     if (title && title.trim().length > 0) return title.trim();
@@ -225,8 +226,10 @@ export default function ThreeDFolderWidget({
         return;
       }
       const baseId = `project:${input.projectId}`;
+      const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
       const existing = tabs.find(
-        (tab) => tab.workspaceId === workspaceId && tab.base?.id === baseId
+        (tab) =>
+          tab.workspaceId === workspaceId && runtimeByTabId[tab.id]?.base?.id === baseId
       );
       const projectNode = projectRoots.find((node) => node.projectId === input.projectId);
       const baseParams = {

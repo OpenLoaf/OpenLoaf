@@ -1,6 +1,6 @@
 import { CHAT_COMMANDS } from "@tenas-ai/api/common/chatCommands";
 import type { ChatCommandId } from "@tenas-ai/api/common/chatCommands";
-import type { AiCommandContext } from "@/ai/chat/types";
+import type { AiCommandContext } from "@/ai/services/chat/types";
 
 type CommandDef = {
   /** Stable command id. */

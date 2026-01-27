@@ -5,7 +5,7 @@ export type ChatImageMessageInput = {
   /** Message id. */
   id: string;
   /** Message role. */
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "subagent";
   /** Message parts. */
   parts: unknown[];
   /** Parent message id. */

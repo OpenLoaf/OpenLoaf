@@ -45,7 +45,7 @@ import docsUiZhCN from "@univerjs/docs-ui/locale/zh-CN";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@tenas-ai/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -436,7 +436,7 @@ export default function SheetViewer({
   /** Container element for Univer workbench. */
   const containerRef = useRef<HTMLDivElement | null>(null);
   /** Close current stack panel. */
-  const removeStackItem = useTabs((s) => s.removeStackItem);
+  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
   /** Resolve current theme for Univer dark mode. */
   const { resolvedTheme } = useTheme();
   /** Current Univer dark mode flag synced from theme. */

@@ -4,6 +4,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@tenas-ai/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { desktopWidgetCatalog } from "./widget-catalog";
 import type { DesktopItem } from "./types";
 import {
@@ -103,7 +104,7 @@ export default function DesktopEditToolbar({
   // 当前激活的 tab。
   const activeTabId = useTabs((s) => s.activeTabId);
   // 打开 stack 面板的方法。
-  const pushStackItem = useTabs((s) => s.pushStackItem);
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
 
   /** Open the desktop widget library stack panel. */
   const handleOpenWidgetLibrary = React.useCallback(() => {

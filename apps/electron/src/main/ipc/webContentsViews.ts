@@ -128,15 +128,21 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
 
   const wc = view.webContents;
 
+  // 中文注释：只跟踪主框架的加载状态，避免子 frame 加载造成 UI 闪烁。
+  let mainFrameLoading = false;
+  let mainFrameReady = false;
+
   emitViewStatus(win, key, {
     webContentsId: wc.id,
     url: wc.getURL() || undefined,
-    loading: wc.isLoading(),
+    loading: false,
     ...getNavigationState(wc),
     ready: false,
   });
 
   wc.on('did-start-loading', () => {
+    if (mainFrameReady) return;
+    if (!mainFrameLoading) mainFrameLoading = true;
     emitViewStatus(win, key, {
       webContentsId: wc.id,
       url: wc.getURL() || undefined,
@@ -150,9 +156,12 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
 
   // 用户选择以 dom-ready 作为“页面可展示”的 ready 信号。
   wc.on('dom-ready', () => {
+    mainFrameLoading = false;
+    mainFrameReady = true;
     emitViewStatus(win, key, {
       webContentsId: wc.id,
       url: wc.getURL() || undefined,
+      loading: false,
       ...getNavigationState(wc),
       ready: true,
       failed: undefined,
@@ -161,6 +170,8 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
   });
 
   wc.on('did-stop-loading', () => {
+    if (!mainFrameLoading) return;
+    mainFrameLoading = false;
     emitViewStatus(win, key, {
       webContentsId: wc.id,
       url: wc.getURL() || undefined,
@@ -172,6 +183,8 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
 
   wc.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
     if (!isMainFrame) return;
+    mainFrameLoading = false;
+    mainFrameReady = false;
     emitViewStatus(win, key, {
       webContentsId: wc.id,
       url: wc.getURL() || undefined,
@@ -184,9 +197,11 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
   });
 
   wc.on('did-navigate', (_event, url) => {
+    mainFrameReady = false;
     emitViewStatus(win, key, {
       webContentsId: wc.id,
       url,
+      loading: mainFrameLoading,
       ...getNavigationState(wc),
       ready: false,
       failed: undefined,
@@ -195,9 +210,12 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
   });
 
   wc.on('did-navigate-in-page', (_event, url) => {
+    mainFrameLoading = false;
+    mainFrameReady = true;
     emitViewStatus(win, key, {
       webContentsId: wc.id,
       url,
+      loading: false,
       ...getNavigationState(wc),
       // in-page navigation（hash/history）不一定触发 dom-ready，保持 ready=true。
       ready: true,
@@ -221,6 +239,35 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
       url: wc.getURL() || undefined,
       faviconUrl,
       ...getNavigationState(wc),
+      destroyed: false,
+    });
+  });
+
+  wc.on('did-start-navigation', (_event, url, _isInPlace, isMainFrame) => {
+    if (!isMainFrame) return;
+    mainFrameLoading = true;
+    mainFrameReady = false;
+    emitViewStatus(win, key, {
+      webContentsId: wc.id,
+      url,
+      loading: true,
+      ...getNavigationState(wc),
+      ready: false,
+      failed: undefined,
+      destroyed: false,
+    });
+  });
+
+  wc.on('did-frame-finish-load', (_event, isMainFrame) => {
+    if (!isMainFrame) return;
+    mainFrameLoading = false;
+    if (!mainFrameReady) mainFrameReady = true;
+    emitViewStatus(win, key, {
+      webContentsId: wc.id,
+      url: wc.getURL() || undefined,
+      loading: false,
+      ...getNavigationState(wc),
+      ready: mainFrameReady,
       destroyed: false,
     });
   });

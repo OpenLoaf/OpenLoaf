@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@tenas-ai/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { ReadFileErrorFallback } from "@/components/file/lib/read-file-error";
@@ -198,7 +199,7 @@ export default function CodeViewer({
   /** Active tab id for AI panel control. */
   const activeTabId = useTabs((s) => s.activeTabId);
   /** Collapse state setter for AI panel. */
-  const setTabRightChatCollapsed = useTabs((s) => s.setTabRightChatCollapsed);
+  const setTabRightChatCollapsed = useTabRuntime((s) => s.setTabRightChatCollapsed);
   /** Current file content string. */
   const fileContent = useMemo(
     () => fileQuery.data?.content ?? "",

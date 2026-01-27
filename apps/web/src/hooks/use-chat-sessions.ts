@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { skipToken, useQuery, type QueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabView } from "@/hooks/use-tab-view";
 
 /** Session list item used by chat UI. */
 export type ChatSessionListItem = {
@@ -62,7 +63,7 @@ function buildRecentSessions(sessions: ChatSessionListItem[]): ChatSessionListIt
 export function useChatSessions(input?: UseChatSessionsInput) {
   const activeTabId = useTabs((s) => s.activeTabId);
   const resolvedTabId = input?.tabId ?? activeTabId ?? undefined;
-  const tab = useTabs((s) => (resolvedTabId ? s.getTabById(resolvedTabId) : undefined));
+  const tab = useTabView(resolvedTabId);
   const workspaceId = normalizeOptionalId(tab?.workspaceId);
   // 只有项目页才按项目范围过滤会话。
   const isProjectTab = tab?.base?.component === "plant-page";

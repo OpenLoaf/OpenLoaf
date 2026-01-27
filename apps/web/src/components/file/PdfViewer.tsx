@@ -6,7 +6,7 @@ import { ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@tenas-ai/ui/button";
 import { StackHeader } from "@/components/layout/StackHeader";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { fetchBlobFromUri, isPreviewTooLargeError } from "@/lib/image/uri";
 import {
@@ -54,7 +54,7 @@ export default function PdfViewer({
   } | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1.1);
-  const removeStackItem = useTabs((s) => s.removeStackItem);
+  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
   const zoomFrameRef = useRef<number | null>(null);
   const pendingScaleRef = useRef(scale);
 

@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useTabs } from "./use-tabs";
+import { useTabRuntime } from "./use-tab-runtime";
+import { getTabViewById } from "./use-tab-view";
 import { upsertTabSnapshotNow } from "@/lib/tab-snapshot";
 
 /**
@@ -15,6 +17,7 @@ export function useTabSnapshotSync(input: {
   tabId: string | null | undefined;
 }) {
   const debounceTimerRef = React.useRef<number | null>(null);
+  const lastJsonRef = React.useRef<string>("");
 
   React.useEffect(() => {
     if (!input.enabled) return;
@@ -22,6 +25,7 @@ export function useTabSnapshotSync(input: {
     if (!input.tabId) return;
 
     const tabId = input.tabId;
+    lastJsonRef.current = "";
 
     // 发送一次“当前状态”，确保 server 缓存立刻可用。
     const sendNow = () => {
@@ -30,8 +34,18 @@ export function useTabSnapshotSync(input: {
 
     sendNow();
 
-    // MVP 不引入 subscribeWithSelector；订阅全量变化，但用 JSON 对比避免重复上报。
-    const unsubscribe = useTabs.subscribe(() => {
+    const scheduleSendIfChanged = () => {
+      const snapshot = getTabViewById(tabId);
+      if (!snapshot) return;
+      let json = "";
+      try {
+        json = JSON.stringify(snapshot);
+      } catch {
+        return;
+      }
+      if (json === lastJsonRef.current) return;
+      lastJsonRef.current = json;
+
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current);
       }
@@ -39,10 +53,15 @@ export function useTabSnapshotSync(input: {
         debounceTimerRef.current = null;
         sendNow();
       }, 200);
-    });
+    };
+
+    // 订阅 meta 与 runtime 的变化，避免无关 store 触发同步。
+    const unsubscribeTabs = useTabs.subscribe(scheduleSendIfChanged);
+    const unsubscribeRuntime = useTabRuntime.subscribe(scheduleSendIfChanged);
 
     return () => {
-      unsubscribe();
+      unsubscribeTabs();
+      unsubscribeRuntime();
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;

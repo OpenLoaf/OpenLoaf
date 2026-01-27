@@ -16,6 +16,8 @@ const INITIAL_TITLE_CHAR_LIMIT = 10;
 const PATH_SEGMENT_WIDTH = 2;
 /** Max siblings per parent. */
 const MAX_PATH_SEGMENT_SEQ = 99;
+/** Max leaf candidates to scan. */
+const LEAF_CANDIDATES = 50;
 /** Metadata keys that should never be persisted. */
 const FORBIDDEN_METADATA_KEYS = ["id", "sessionId", "parentMessageId", "path"] as const;
 
@@ -63,12 +65,13 @@ type SaveMessageResult = {
 
 /** Resolve rightmost leaf id for a session. */
 export async function resolveRightmostLeafId(sessionId: string): Promise<string | null> {
-  const row = await prisma.chatMessage.findFirst({
-    where: { sessionId },
+  const rows = await prisma.chatMessage.findMany({
+    where: { sessionId, role: { not: "subagent" } },
     orderBy: [{ path: "desc" }, { id: "desc" }],
+    take: LEAF_CANDIDATES,
     select: { id: true },
   });
-  return row?.id ?? null;
+  return rows[0]?.id ?? null;
 }
 
 /** Ensure session preface text exists for the chat session. */
@@ -326,7 +329,9 @@ export async function appendMessagePart(input: {
 
 /** Normalize message role. */
 function normalizeRole(role: unknown): DbMessageRole {
-  if (role === "assistant" || role === "system" || role === "user") return role;
+  if (role === "assistant" || role === "system" || role === "user" || role === "subagent") {
+    return role;
+  }
   return "user";
 }
 
@@ -565,7 +570,7 @@ type UIMessageLike = {
   /** Message id. */
   id: string;
   /** Message role. */
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "subagent";
   /** Message parts. */
   parts?: unknown[];
   /** Message metadata. */

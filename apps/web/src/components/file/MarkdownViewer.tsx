@@ -8,7 +8,7 @@ import remarkMdx from "remark-mdx";
 import { Eye, PencilLine, Save, Undo2 } from "lucide-react";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@tenas-ai/ui/button";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 import CodeViewer, { type CodeViewerActions, type CodeViewerStatus } from "@/components/file/CodeViewer";
@@ -317,7 +317,7 @@ export default function MarkdownViewer({
   const codeActionsRef = useRef<CodeViewerActions | null>(null);
   /** 头部按钮状态。 */
   const [codeStatus, setCodeStatus] = useState<CodeViewerStatus>(DEFAULT_CODE_STATUS);
-  const removeStackItem = useTabs((s) => s.removeStackItem);
+  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
   const displayTitle = useMemo(() => name ?? uri ?? "Markdown", [name, uri]);
 

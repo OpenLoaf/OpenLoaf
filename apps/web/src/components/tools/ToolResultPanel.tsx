@@ -2,8 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { useTabs } from "@/hooks/use-tabs";
-import type { ToolPartSnapshot } from "@/hooks/use-tabs";
+import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { resolveToolDisplayName } from "@/lib/chat/tool-name";
 
 function safeStringify(value: unknown) {
@@ -38,7 +37,7 @@ export default function ToolResultPanel({
   toolKey?: string;
   className?: string;
 }) {
-  const part = useTabs((s) =>
+  const part = useChatRuntime((s) =>
     tabId && toolKey ? s.toolPartsByTabId[tabId]?.[toolKey] : undefined,
   );
 

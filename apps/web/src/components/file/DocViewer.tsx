@@ -33,7 +33,7 @@ import { RedoToolbarButton, UndoToolbarButton } from "@tenas-ai/ui/history-toolb
 import { BulletedListToolbarButton, NumberedListToolbarButton } from "@tenas-ai/ui/list-toolbar-button";
 import { MarkToolbarButton } from "@tenas-ai/ui/mark-toolbar-button";
 import { Toolbar, ToolbarButton, ToolbarGroup } from "@tenas-ai/ui/toolbar";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 
@@ -168,7 +168,7 @@ export default function DocViewer({
   /** Prevent dirty flag during initial load. */
   const initializingRef = useRef(true);
   /** Close current stack panel. */
-  const removeStackItem = useTabs((s) => s.removeStackItem);
+  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
   /** Whether to render the stack header. */
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
   /** Current display title. */

@@ -5,6 +5,8 @@ import { Button } from "@tenas-ai/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import { useSidebar } from "@tenas-ai/ui/sidebar";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useTabView } from "@/hooks/use-tab-view";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { motion } from "motion/react";
 import type { CSSProperties } from "react";
@@ -50,10 +52,8 @@ export const Header = () => {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id;
   const activeTabId = useTabs((s) => s.activeTabId);
-  const activeTab = useTabs((s) =>
-    s.activeTabId ? s.tabs.find((t) => t.id === s.activeTabId) : undefined,
-  );
-  const setTabRightChatCollapsed = useTabs((s) => s.setTabRightChatCollapsed);
+  const activeTab = useTabView(activeTabId);
+  const setTabRightChatCollapsed = useTabRuntime((s) => s.setTabRightChatCollapsed);
 
   const isElectron =
     process.env.NEXT_PUBLIC_ELECTRON === "1" ||

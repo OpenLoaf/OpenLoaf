@@ -4,7 +4,7 @@ import { memo } from "react";
 import { BoardCanvas } from "./core/BoardCanvas";
 import { BOARD_NODE_DEFINITIONS } from "./core/board-nodes";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 
 export interface BoardFileViewerProps {
   /** Target board folder uri. */
@@ -33,20 +33,21 @@ const BoardFileViewer = memo(function BoardFileViewer({
   tabId,
 }: BoardFileViewerProps) {
   const { workspace } = useWorkspace();
-  const stackHidden = useTabs((state) =>
-    tabId ? Boolean(state.stackHiddenByTabId[tabId]) : false
+  const runtimeStack = useTabRuntime((state) =>
+    tabId ? state.runtimeByTabId[tabId]?.stack : undefined,
   );
-  const isStackItem = useTabs((state) => {
-    if (!tabId || !panelKey) return false;
-    const tab = state.tabs.find((item) => item.id === tabId);
-    return Boolean(tab?.stack?.some((item) => item.id === panelKey));
-  });
-  const activeStackId = useTabs((state) => {
-    if (!tabId) return "";
-    const tab = state.tabs.find((item) => item.id === tabId);
-    const stack = tab?.stack ?? [];
-    return state.activeStackItemIdByTabId[tabId] || stack.at(-1)?.id || "";
-  });
+  const runtimeActiveStackId = useTabRuntime((state) =>
+    tabId ? state.runtimeByTabId[tabId]?.activeStackItemId : undefined,
+  );
+  const stackHidden = useTabRuntime((state) =>
+    tabId ? Boolean(state.runtimeByTabId[tabId]?.stackHidden) : false,
+  );
+  const stack = Array.isArray(runtimeStack) ? runtimeStack : [];
+  const isStackItem = Boolean(panelKey && stack.some((item) => item.id === panelKey));
+  const activeStackId =
+    typeof runtimeActiveStackId === "string"
+      ? runtimeActiveStackId || stack.at(-1)?.id || ""
+      : stack.at(-1)?.id || "";
   const uiHidden = stackHidden && isStackItem && activeStackId === panelKey;
 
   if (!workspace?.id) {

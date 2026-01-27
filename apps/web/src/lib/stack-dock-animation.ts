@@ -1,7 +1,8 @@
 "use client";
 
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
+import type { TabRuntime } from "@/hooks/tab-types";
 
 /** Selector for the dock button anchor element. */
 const STACK_DOCK_BUTTON_SELECTOR = "[data-stack-dock-button]";
@@ -22,25 +23,18 @@ let currentCleanup: (() => void) | null = null;
 let minimizeSignalSeed = 0;
 const minimizeSignalByTabId = new Map<string, number>();
 
-type TabsStateSnapshot = Pick<
-  ReturnType<typeof useTabs.getState>,
-  "tabs" | "activeStackItemIdByTabId"
->;
-
 /** Resolve the active stack item for a tab. */
-function getActiveStackItem(state: TabsStateSnapshot, tabId: string) {
-  const tab = state.tabs.find((item) => item.id === tabId);
-  const stack = tab?.stack ?? [];
-  const activeId = state.activeStackItemIdByTabId[tabId] || stack.at(-1)?.id || "";
+function getActiveStackItem(runtime?: TabRuntime) {
+  const stack = runtime?.stack ?? [];
+  const activeId = runtime?.activeStackItemId || stack.at(-1)?.id || "";
   return stack.find((item) => item.id === activeId) ?? stack.at(-1);
 }
 
 /** Return true when the board stack is in full mode. */
-function isBoardStackFull(state: TabsStateSnapshot, tabId: string) {
-  const activeItem = getActiveStackItem(state, tabId);
+function isBoardStackFull(runtime?: TabRuntime) {
+  const activeItem = getActiveStackItem(runtime);
   if (activeItem?.component !== BOARD_VIEWER_COMPONENT) return false;
-  const tab = state.tabs.find((item) => item.id === tabId);
-  if (!tab?.rightChatCollapsed) return false;
+  if (!runtime?.rightChatCollapsed) return false;
   const leftOpen = getLeftSidebarOpen();
   return leftOpen === false;
 }
@@ -260,15 +254,16 @@ export async function animateStackRestore(tabId: string) {
 /** Request a minimize animation and hide the stack afterward. */
 export function requestStackMinimize(tabId: string) {
   if (!tabId) return;
-  const state = useTabs.getState();
-  if (state.stackHiddenByTabId[tabId]) return;
+  const state = useTabRuntime.getState();
+  const runtime = state.runtimeByTabId[tabId];
+  if (runtime?.stackHidden) return;
   // 逻辑：动画级别为低时直接隐藏，不执行最小化动画。
   if (getUiAnimationLevel() === "low") {
     state.setStackHidden(tabId, true);
     return;
   }
-  const shouldRestoreFull = isBoardStackFull(state, tabId);
-  const activeItem = getActiveStackItem(state, tabId);
+  const shouldRestoreFull = isBoardStackFull(runtime);
+  const activeItem = getActiveStackItem(runtime);
   if (activeItem?.component === BOARD_VIEWER_COMPONENT) {
     // 逻辑：最小化前记录画布全屏状态，供恢复时读取。
     state.setStackItemParams(tabId, activeItem.id, { __boardFull: shouldRestoreFull });

@@ -1,7 +1,7 @@
 "use client";
 
 import { trpcClient } from "@/utils/trpc";
-import { useTabs } from "@/hooks/use-tabs";
+import { getTabViewById } from "@/hooks/use-tab-view";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 
 type CacheKey = string;
@@ -20,7 +20,7 @@ export async function upsertTabSnapshotNow(input: {
   sessionId: string;
   tabId: string;
 }) {
-  const tab = useTabs.getState().getTabById(input.tabId);
+  const tab = getTabViewById(input.tabId);
   if (!tab) return;
 
   let json = "";
@@ -46,4 +46,3 @@ export async function upsertTabSnapshotNow(input: {
     tab,
   });
 }
-

@@ -11,6 +11,7 @@ import type { DesktopBreakpoint } from "@/components/desktop/desktop-breakpoints
 import type { DesktopItem } from "@/components/desktop/types";
 import { Button } from "@tenas-ai/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { areDesktopItemsEqual, cloneDesktopItems } from "@/components/desktop/desktop-history";
 
 // 组件库面板标识。
@@ -66,7 +67,7 @@ export default function DesktopDemoPage() {
   // 当前激活的 tab。
   const activeTabId = useTabs((s) => s.activeTabId);
   // 打开 stack 面板的方法。
-  const pushStackItem = useTabs((s) => s.pushStackItem);
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
 
   /** Update edit mode with snapshot handling. */
   const handleSetEditMode = React.useCallback((nextEditMode: boolean) => {

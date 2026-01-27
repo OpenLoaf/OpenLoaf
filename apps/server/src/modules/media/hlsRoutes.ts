@@ -13,9 +13,10 @@ export function registerHlsRoutes(app: Hono) {
   app.get("/media/hls/manifest", async (c) => {
     const path = c.req.query("path")?.trim() ?? "";
     const projectId = c.req.query("projectId")?.trim() ?? "";
+    const workspaceId = c.req.query("workspaceId")?.trim() ?? "";
     const qualityRaw = c.req.query("quality")?.trim();
     const quality = qualityRaw ? qualityRaw.toLowerCase() : undefined;
-    if (!path || !projectId) {
+    if (!path || (!projectId && !workspaceId)) {
       return c.json({ error: "Invalid manifest query" }, 400);
     }
     if (quality && !isHlsQuality(quality)) {
@@ -24,7 +25,8 @@ export function registerHlsRoutes(app: Hono) {
     const qualityValue = isHlsQuality(quality) ? quality : undefined;
     const manifest = await getHlsManifest({
       path,
-      projectId,
+      projectId: projectId || undefined,
+      workspaceId: workspaceId || undefined,
       quality: qualityValue,
     });
     if (!manifest) {
@@ -63,15 +65,21 @@ export function registerHlsRoutes(app: Hono) {
   app.get("/media/hls/progress", async (c) => {
     const path = c.req.query("path")?.trim() ?? "";
     const projectId = c.req.query("projectId")?.trim() ?? "";
+    const workspaceId = c.req.query("workspaceId")?.trim() ?? "";
     const qualityRaw = c.req.query("quality")?.trim();
     const quality = qualityRaw ? qualityRaw.toLowerCase() : undefined;
-    if (!path || !projectId || !quality) {
+    if (!path || !quality || (!projectId && !workspaceId)) {
       return c.json({ error: "Invalid progress query" }, 400);
     }
     if (!isHlsQuality(quality)) {
       return c.json({ error: "Invalid quality value" }, 400);
     }
-    const progress = await getHlsProgress({ path, projectId, quality });
+    const progress = await getHlsProgress({
+      path,
+      projectId: projectId || undefined,
+      workspaceId: workspaceId || undefined,
+      quality,
+    });
     if (!progress) {
       return c.json({ error: "Progress not found" }, 404);
     }
@@ -83,10 +91,15 @@ export function registerHlsRoutes(app: Hono) {
   app.get("/media/hls/thumbnails", async (c) => {
     const path = c.req.query("path")?.trim() ?? "";
     const projectId = c.req.query("projectId")?.trim() ?? "";
-    if (!path || !projectId) {
+    const workspaceId = c.req.query("workspaceId")?.trim() ?? "";
+    if (!path || (!projectId && !workspaceId)) {
       return c.json({ error: "Invalid thumbnails query" }, 400);
     }
-    const thumbnails = await getHlsThumbnails({ path, projectId });
+    const thumbnails = await getHlsThumbnails({
+      path,
+      projectId: projectId || undefined,
+      workspaceId: workspaceId || undefined,
+    });
     if (!thumbnails) {
       return c.json({ error: "Thumbnails not found" }, 404);
     }

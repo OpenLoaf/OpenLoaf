@@ -1,5 +1,5 @@
-import type { ChatImageRequest } from "@/ai/image/types";
-import { runChatImageRequest } from "@/ai/chat/chatStreamService";
+import type { ChatImageRequest } from "@/ai/services/image/types";
+import { runChatImageRequest } from "@/ai/services/chat/chatStreamService";
 
 type ImageRequestUseCaseInput = {
   /** Image request payload. */

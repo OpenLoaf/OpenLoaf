@@ -13,7 +13,7 @@ import {
   isBoardFolderName,
 } from "@/lib/file-name";
 import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { blobToBase64 } from "./utils/base64";
 import {
   captureBoardImageBlob,
@@ -100,17 +100,21 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
   const canToggleSidebar = Boolean(sidebar) || leftOpenFallback !== null;
   const setOpen = sidebar?.setOpen;
   const setOpenMobile = sidebar?.setOpenMobile;
-  const setTabRightChatCollapsed = useTabs((state) => state.setTabRightChatCollapsed);
-  const setStackItemParams = useTabs((state) => state.setStackItemParams);
-  const rightChatCollapsed = useTabs(
-    (state) => state.tabs.find((tab) => tab.id === tabId)?.rightChatCollapsed ?? false
+  const setTabRightChatCollapsed = useTabRuntime((state) => state.setTabRightChatCollapsed);
+  const setStackItemParams = useTabRuntime((state) => state.setStackItemParams);
+  const rightChatCollapsed = useTabRuntime(
+    (state) => state.runtimeByTabId[tabId]?.rightChatCollapsed ?? false,
   );
-  const activeStackItemId = useTabs((state) => {
-    const tab = state.tabs.find((target) => target.id === tabId);
-    const stack = tab?.stack ?? [];
-    return state.activeStackItemIdByTabId[tabId] ?? stack.at(-1)?.id ?? "";
-  });
-  const stackHidden = useTabs((state) => Boolean(state.stackHiddenByTabId[tabId]));
+  const runtimeStack = useTabRuntime((state) => state.runtimeByTabId[tabId]?.stack);
+  const runtimeActiveStackId = useTabRuntime(
+    (state) => state.runtimeByTabId[tabId]?.activeStackItemId,
+  );
+  const stackHidden = useTabRuntime((state) => Boolean(state.runtimeByTabId[tabId]?.stackHidden));
+  const stack = Array.isArray(runtimeStack) ? runtimeStack : [];
+  const activeStackItemId =
+    typeof runtimeActiveStackId === "string"
+      ? runtimeActiveStackId || stack.at(-1)?.id || ""
+      : stack.at(-1)?.id || "";
 
   /** Export the current board panel to an image. */
   const handleExportBoard = useCallback(async () => {

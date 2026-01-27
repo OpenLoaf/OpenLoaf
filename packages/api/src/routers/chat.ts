@@ -23,7 +23,7 @@ import type { ChatMessageKind } from "../types/message";
  */
 export type ChatUIMessage = {
   id: string;
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "subagent";
   /** 消息树：父消息 ID（根节点为 null） */
   parentMessageId: string | null;
   parts: any[];
@@ -137,6 +137,7 @@ function isRenderableRow(row: {
   const kind = row.messageKind ?? "normal";
   if (kind === "compact_prompt") return false;
   if (kind === "compact_summary") return true;
+  if (row.role === "subagent") return false;
   if (row.role === "user") return true;
   const parts = row.parts;
   return Array.isArray(parts) && parts.length > 0;
@@ -391,6 +392,18 @@ const getChatViewInputSchema = z.object({
   includeToolOutput: z.boolean().optional(),
 });
 
+const getSubAgentHistoryInputSchema = z.object({
+  sessionId: z.string().min(1),
+  toolCallId: z.string().min(1),
+});
+
+/** Match toolCallId in metadata. */
+function matchToolCallId(metadata: unknown, toolCallId: string): boolean {
+  if (!metadata || typeof metadata !== "object") return false;
+  const value = (metadata as Record<string, unknown>).toolCallId;
+  return typeof value === "string" && value === toolCallId;
+}
+
 /** Resolve view leaf id from cursor. */
 async function resolveLeafIdFromCursor({
   prisma,
@@ -618,7 +631,7 @@ export const chatRouter = t.router({
         // 按会话聚合消息数量，供历史列表展示。
         const messageCounts = await ctx.prisma.chatMessage.groupBy({
           by: ["sessionId"],
-          where: { sessionId: { in: sessionIds } },
+          where: { sessionId: { in: sessionIds }, role: { not: "subagent" } },
           _count: { _all: true },
         });
         for (const row of messageCounts) {
@@ -633,6 +646,41 @@ export const chatRouter = t.router({
           : null,
         messageCount: messageCountBySession.get(session.id) ?? 0,
       })) as ChatSessionSummary[];
+    }),
+
+  /**
+   * Get sub-agent history message by toolCallId (MVP).
+   */
+  getSubAgentHistory: shieldedProcedure
+    .input(getSubAgentHistoryInputSchema)
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.prisma.chatMessage.findMany({
+        where: { sessionId: input.sessionId, role: "subagent" },
+        orderBy: [{ createdAt: "asc" }],
+        select: {
+          id: true,
+          parentMessageId: true,
+          role: true,
+          parts: true,
+          metadata: true,
+          messageKind: true,
+        },
+      });
+
+      const match = rows.find((row: any) => matchToolCallId(row?.metadata, input.toolCallId));
+      return {
+        message: match
+          ? ({
+              id: String(match.id),
+              role: match.role,
+              parentMessageId: match.parentMessageId ?? null,
+              parts: Array.isArray(match.parts) ? match.parts : [],
+              metadata: match.metadata ?? undefined,
+              messageKind: match.messageKind ?? undefined,
+              agent: (match.metadata as any)?.agent ?? undefined,
+            } as ChatUIMessage)
+          : null,
+      };
     }),
 
   /**

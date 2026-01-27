@@ -1,11 +1,11 @@
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
-import type { ChatStreamRequest } from "@/ai/chat/types";
-import type { ChatImageMessageInput, ChatImageRequest } from "@/ai/image/types";
-import type { AiExecuteRequest } from "@/ai/chat/types";
-import { ChatStreamUseCase } from "@/ai/chat/ChatStreamUseCase";
-import { SummaryTitleUseCase } from "@/ai/summary/SummaryTitleUseCase";
-import { ImageRequestUseCase } from "@/ai/image/ImageRequestUseCase";
+import type { ChatStreamRequest } from "@/ai/services/chat/types";
+import type { ChatImageMessageInput, ChatImageRequest } from "@/ai/services/image/types";
+import type { AiExecuteRequest } from "@/ai/services/chat/types";
+import { ChatStreamUseCase } from "@/ai/services/chat/ChatStreamUseCase";
+import { SummaryTitleUseCase } from "@/ai/services/summary/SummaryTitleUseCase";
+import { ImageRequestUseCase } from "@/ai/services/image/ImageRequestUseCase";
 import {
   getProjectRootPath,
   getWorkspaceRootPath,

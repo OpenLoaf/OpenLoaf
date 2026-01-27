@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import type { DesktopItem } from "./types";
 import DesktopIconLabel from "./DesktopIconLabel";
 import ClockWidget from "./widgets/ClockWidget";
@@ -23,7 +24,7 @@ export default function DesktopTileContent({ item }: DesktopTileContentProps) {
   const { workspace } = useWorkspace();
   const tabs = useTabs((state) => state.tabs);
   const activeTabId = useTabs((state) => state.activeTabId);
-  const setTabBaseParams = useTabs((state) => state.setTabBaseParams);
+  const setTabBaseParams = useTabRuntime((state) => state.setTabBaseParams);
   const setSearchOpen = useGlobalOverlay((state) => state.setSearchOpen);
   const hoverBoundaryRef = React.useRef<HTMLDivElement | null>(null);
   const rafIdRef = React.useRef<number | null>(null);
@@ -46,7 +47,8 @@ export default function DesktopTileContent({ item }: DesktopTileContentProps) {
       const activeTab = tabs.find(
         (tab) => tab.id === activeTabId && tab.workspaceId === workspace.id
       );
-      if (!activeTab?.base?.id?.startsWith("project:")) {
+      const runtime = activeTab ? useTabRuntime.getState().runtimeByTabId[activeTab.id] : undefined;
+      if (!runtime?.base?.id?.startsWith("project:")) {
         toast.error("请先打开一个项目标签页");
         return;
       }

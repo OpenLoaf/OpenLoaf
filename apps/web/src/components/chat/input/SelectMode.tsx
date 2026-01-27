@@ -12,6 +12,7 @@ import { Switch } from "@tenas-ai/ui/switch";
 import { Label } from "@tenas-ai/ui/label";
 import { cn } from "@/lib/utils";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
@@ -100,7 +101,7 @@ export default function SelectMode({ className }: SelectModeProps) {
   const authBaseUrl = resolveServerUrl();
   const chatSession = useOptionalChatSession();
   const activeTabId = useTabs((s) => s.activeTabId);
-  const pushStackItem = useTabs((s) => s.pushStackItem);
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   // 逻辑：聊天场景优先使用上下文 tabId，非聊天场景回退到当前激活 tab。
   const tabId = chatSession?.tabId ?? activeTabId;
   const chatModelSource = normalizeChatModelSource(basic.chatSource);

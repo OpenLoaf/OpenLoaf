@@ -1,5 +1,6 @@
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { createBrowserTabId } from "@/hooks/tab-id";
 
 /** Build the browser view key for stack entries. */
@@ -48,7 +49,7 @@ export function openLinkInStack({ url, title, activeTabId }: OpenLinkInput) {
   });
 
   // 逻辑：统一复用浏览器 stack 打开行为，保证多入口一致。
-  state.pushStackItem(
+  useTabRuntime.getState().pushStackItem(
     tabId,
     {
       component: BROWSER_WINDOW_COMPONENT,

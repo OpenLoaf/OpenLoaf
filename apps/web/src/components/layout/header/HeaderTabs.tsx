@@ -1,7 +1,10 @@
 import { ChevronLeft, ChevronRight, Globe, Plus, X } from "lucide-react";
 import { AnimatedTabs } from "@tenas-ai/ui/animated-tabs";
 import { useTabs } from "@/hooks/use-tabs";
-import { DEFAULT_TAB_INFO, type Tab } from "@tenas-ai/api/common";
+import { useChatRuntime } from "@/hooks/use-chat-runtime";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { DEFAULT_TAB_INFO } from "@tenas-ai/api/common";
+import type { TabMeta } from "@/hooks/tab-types";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Button } from "@tenas-ai/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
@@ -56,8 +59,9 @@ export const HeaderTabs = () => {
   const tabs = useTabs((s) => s.tabs);
   const reorderTabs = useTabs((s) => s.reorderTabs);
   const setTabPinned = useTabs((s) => s.setTabPinned);
-  const chatStatusByTabId = useTabs((s) => s.chatStatusByTabId);
-  const dictationStatusByTabId = useTabs((s) => s.dictationStatusByTabId);
+  const chatStatusByTabId = useChatRuntime((s) => s.chatStatusByTabId);
+  const dictationStatusByTabId = useChatRuntime((s) => s.dictationStatusByTabId);
+  const runtimeByTabId = useTabRuntime((s) => s.runtimeByTabId);
   const { workspace: activeWorkspace } = useWorkspace();
   const activeWorkspaceId = activeWorkspace?.id ?? null;
   const activeWorkspaceIdRef = useRef<string | null>(null);
@@ -429,10 +433,11 @@ export const HeaderTabs = () => {
 
   /** Render tab content for the animated tabs. */
   const renderTab = useCallback(
-    (tab: Tab, isActive: boolean) => {
+    (tab: TabMeta, isActive: boolean) => {
+      const runtimeStack = runtimeByTabId[tab.id]?.stack;
       const hasBrowserWindow =
-        Array.isArray(tab.stack) &&
-        tab.stack.some((s) => s.component === "electron-browser-window");
+        Array.isArray(runtimeStack) &&
+        runtimeStack.some((s) => s.component === "electron-browser-window");
       const isPinned = Boolean(tab.isPin);
 
       return (
@@ -482,7 +487,7 @@ export const HeaderTabs = () => {
         </>
       );
     },
-    [closeTab, workspaceTabs]
+    [closeTab, runtimeByTabId, workspaceTabs]
   );
 
   useEffect(() => {

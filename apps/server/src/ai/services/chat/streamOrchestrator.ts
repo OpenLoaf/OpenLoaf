@@ -21,7 +21,7 @@ import {
   clearSessionErrorMessage,
   saveMessage,
   setSessionErrorMessage,
-} from "@/ai/chat/repositories/messageStore";
+} from "@/ai/services/chat/repositories/messageStore";
 import { buildTokenUsageMetadata, buildTimingMetadata, mergeAbortMetadata } from "./metadataBuilder";
 
 /** 构建错误 SSE 响应的输入。 */

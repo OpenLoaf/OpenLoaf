@@ -27,6 +27,7 @@ import { Switch } from "@tenas-ai/ui/animate-ui/components/radix/switch";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import {
   useProviderManagement,
   type ProviderEntry,
@@ -72,7 +73,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const workspaceQuery = useQuery(trpc.workspace.getActive.queryOptions());
   const workspaceId = workspaceQuery.data?.id ?? "";
   const activeTabId = useTabs((state) => state.activeTabId);
-  const pushStackItem = useTabs((state) => state.pushStackItem);
+  const pushStackItem = useTabRuntime((state) => state.pushStackItem);
   const runSummaryForWorkspace = useMutation(
     trpc.project.runSummaryForWorkspace.mutationOptions({
       onSuccess: async () => {},

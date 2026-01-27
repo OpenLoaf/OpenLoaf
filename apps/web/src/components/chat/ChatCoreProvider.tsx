@@ -5,7 +5,9 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import { generateId } from "ai";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { useTabs, type ToolPartSnapshot } from "@/hooks/use-tabs";
+import { useTabs } from "@/hooks/use-tabs";
+import { useChatRuntime, type ToolPartSnapshot } from "@/hooks/use-chat-runtime";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { createChatTransport } from "@/lib/chat/transport";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
@@ -224,8 +226,8 @@ export default function ChatCoreProvider({
   >({});
   const [stepThinking, setStepThinking] = React.useState(false);
   const [sessionErrorMessage, setSessionErrorMessage] = React.useState<string | null>(null);
-  const upsertToolPart = useTabs((s) => s.upsertToolPart);
-  const clearToolPartsForTab = useTabs((s) => s.clearToolPartsForTab);
+  const upsertToolPart = useChatRuntime((s) => s.upsertToolPart);
+  const clearToolPartsForTab = useChatRuntime((s) => s.clearToolPartsForTab);
   const queryClient = useQueryClient();
   const { basic } = useBasicConfig();
   const toolStream = useChatToolStream();
@@ -310,7 +312,7 @@ export default function ChatCoreProvider({
   const upsertToolPartMerged = React.useCallback(
     (key: string, next: Partial<Parameters<typeof upsertToolPart>[2]>) => {
       if (!tabId) return;
-      const current = useTabs.getState().toolPartsByTabId[tabId]?.[key];
+      const current = useChatRuntime.getState().toolPartsByTabId[tabId]?.[key];
       upsertToolPart(tabId, key, { ...current, ...next } as any);
     },
     [tabId, upsertToolPart]
@@ -394,6 +396,17 @@ export default function ChatCoreProvider({
         incrementChatPerf("chat.onData");
         if (dataPart?.type === "data-session-title") {
           invalidateChatSessions(queryClient);
+          const title =
+            typeof dataPart?.data?.title === "string" ? dataPart.data.title.trim() : "";
+          const sessionIdInData =
+            typeof dataPart?.data?.sessionId === "string" ? dataPart.data.sessionId : "";
+          if (title && tabId && (!sessionIdInData || sessionIdInData === sessionIdRef.current)) {
+            const tab = useTabs.getState().getTabById(tabId);
+            const hasBase = Boolean(useTabRuntime.getState().runtimeByTabId[tabId]?.base);
+            if (tab && !hasBase && tab.title !== title) {
+              useTabs.getState().setTabTitle(tabId, title);
+            }
+          }
           return;
         }
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
@@ -901,7 +914,7 @@ export default function ChatCoreProvider({
     chat.stop();
   }, [chat]);
 
-  const toolParts = useTabs((state) => {
+  const toolParts = useChatRuntime((state) => {
     if (!tabId) return EMPTY_TOOL_PARTS;
     return state.toolPartsByTabId[tabId] ?? EMPTY_TOOL_PARTS;
   });
@@ -917,7 +930,7 @@ export default function ChatCoreProvider({
   const markToolStreaming = React.useCallback(
     (toolCallId: string) => {
       if (!tabId) return;
-      const current = useTabs.getState().toolPartsByTabId[tabId]?.[toolCallId];
+      const current = useChatRuntime.getState().toolPartsByTabId[tabId]?.[toolCallId];
       upsertToolPart(tabId, toolCallId, {
         ...current,
         state: "output-streaming",

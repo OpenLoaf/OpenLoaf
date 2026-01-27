@@ -10,8 +10,10 @@ import {
 import { cn } from "@/lib/utils";
 import { Chat } from "@/components/chat/Chat";
 import { useTabs, LEFT_DOCK_MIN_PX } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useTabView } from "@/hooks/use-tab-view";
 import { LeftDock } from "./LeftDock";
-import type { Tab } from "@tenas-ai/api/common";
+import type { TabMeta } from "@/hooks/tab-types";
 import {
   bindPanelHost,
   hasPanel,
@@ -61,15 +63,12 @@ export function TabLayout({
   tabs,
   activeTabId,
 }: {
-  tabs: Tab[];
+  tabs: TabMeta[];
   activeTabId: string;
 }) {
-  const activeTab = React.useMemo(
-    () => tabs.find((tab) => tab.id === activeTabId) ?? null,
-    [tabs, activeTabId],
-  );
-  const stackHidden = useTabs((s) => Boolean(s.stackHiddenByTabId[activeTabId]));
-  const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
+  const activeTab = useTabView(activeTabId);
+  const stackHidden = Boolean(activeTab?.stackHidden);
+  const setTabLeftWidthPercent = useTabRuntime((s) => s.setTabLeftWidthPercent);
   // 逻辑：按 MotionConfig / 系统偏好关闭侧边栏切换动画。
   const reduceMotion = useReducedMotion();
 

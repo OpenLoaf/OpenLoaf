@@ -9,6 +9,7 @@ import {
 } from "@/components/file/lib/file-preview-store";
 import MaskedImage from "@/components/file/MaskedImage";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useProjects } from "@/hooks/use-projects";
 import { useChatSession } from "@/components/chat/context";
 import { setImageDragPayload } from "@/lib/image/drag";
@@ -179,7 +180,7 @@ export default function MessageHuman({
   const { data: projects = [] } = useProjects();
   const { projectId, workspaceId } = useChatSession();
   const activeTabId = useTabs((s) => s.activeTabId);
-  const pushStackItem = useTabs((s) => s.pushStackItem);
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const [imageState, setImageState] = React.useState<Record<string, ImagePreviewState>>({});
   const imageStateRef = React.useRef<Record<string, ImagePreviewState>>({});
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);

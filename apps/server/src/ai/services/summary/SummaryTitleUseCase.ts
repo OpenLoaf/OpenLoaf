@@ -1,15 +1,15 @@
 import { generateId, generateText, type UIMessage } from "ai";
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
-import type { AiExecuteRequest } from "@/ai/chat/types";
+import type { AiExecuteRequest } from "@/ai/services/chat/types";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
-import { resolveRequiredInputTags, resolvePreviousChatModelId } from "@/ai/chat/modelResolution";
-import { initRequestContext } from "@/ai/chat/chatStreamHelpers";
-import { replaceRelativeFileParts } from "@/ai/image/attachmentResolver";
-import { loadMessageChain } from "@/ai/chat/repositories/messageChainLoader";
-import { buildModelChain } from "@/ai/chat/chatStreamHelpers";
+import { resolveRequiredInputTags, resolvePreviousChatModelId } from "@/ai/services/chat/modelResolution";
+import { initRequestContext } from "@/ai/services/chat/chatStreamHelpers";
+import { replaceRelativeFileParts } from "@/ai/services/image/attachmentResolver";
+import { loadMessageChain } from "@/ai/services/chat/repositories/messageChainLoader";
+import { buildModelChain } from "@/ai/services/chat/chatStreamHelpers";
 import { setChatModel, setCodexOptions } from "@/ai/shared/context/requestContext";
-import { resolveCodexRequestOptions } from "@/ai/chat/messageOptionResolver";
+import { resolveCodexRequestOptions } from "@/ai/services/chat/messageOptionResolver";
 import {
   clearSessionErrorMessage,
   normalizeSessionTitle,
@@ -17,7 +17,7 @@ import {
   resolveSessionPrefaceText,
   setSessionErrorMessage,
   updateSessionTitle,
-} from "@/ai/chat/repositories/messageStore";
+} from "@/ai/services/chat/repositories/messageStore";
 import { logger } from "@/common/logger";
 import { buildModelMessages } from "@/ai/shared/messageConverter";
 

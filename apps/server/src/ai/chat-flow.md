@@ -4,7 +4,7 @@
 
 * `apps/server/src/ai/interface/routes/aiExecuteRoutes.ts`
 
-* `apps/server/src/ai/chat/*`
+* `apps/server/src/ai/services/chat/*`
 * `apps/server/src/ai/shared/*`
 
 本文档描述统一入口 `/ai/execute` 的完整链路（命令、技能、聊天流与图片请求）。
@@ -36,19 +36,19 @@
 
 * 请求解析：`apps/server/src/ai/interface/routes/aiExecuteRoutes.ts`
 
-* 管线入口：`apps/server/src/ai/chat/chatStreamService.ts`
+* 管线入口：`apps/server/src/ai/services/chat/chatStreamService.ts`
 
-* 上下文与通用流程：`apps/server/src/ai/shared/context/requestContext.ts`、`apps/server/src/ai/chat/chatStreamHelpers.ts`
+* 上下文与通用流程：`apps/server/src/ai/shared/context/requestContext.ts`、`apps/server/src/ai/services/chat/chatStreamHelpers.ts`
 
-* 持久化：`apps/server/src/ai/chat/repositories/messageStore.ts`
+* 持久化：`apps/server/src/ai/services/chat/repositories/messageStore.ts`
 
-* 消息链与附件：`apps/server/src/ai/chat/repositories/messageChainLoader.ts`、`apps/server/src/ai/image/attachmentResolver.ts`
+* 消息链与附件：`apps/server/src/ai/services/chat/repositories/messageChainLoader.ts`、`apps/server/src/ai/services/image/attachmentResolver.ts`
 
-* 模型解析：`apps/server/src/ai/models/resolveChatModel.ts`、`apps/server/src/ai/chat/modelResolution.ts`
+* 模型解析：`apps/server/src/ai/models/resolveChatModel.ts`、`apps/server/src/ai/services/chat/modelResolution.ts`
 
 * 数据注入：`apps/server/src/ai/shared/messageConverter.ts`
 
-* 流式与 SSE：`apps/server/src/ai/chat/streamOrchestrator.ts`
+* 流式与 SSE：`apps/server/src/ai/services/chat/streamOrchestrator.ts`
 
 ### /summary-title（session command）
 
@@ -112,7 +112,7 @@
 
 * 图片模型：`apps/server/src/ai/models/resolveImageModel.ts`
 
-* 显式模型定义：`apps/server/src/ai/chat/modelResolution.ts`
+* 显式模型定义：`apps/server/src/ai/services/chat/modelResolution.ts`
 
 核心逻辑（通用）：
 

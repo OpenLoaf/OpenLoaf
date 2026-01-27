@@ -3,10 +3,10 @@ import { readSummaryIndex, readSummaryMarkdown } from "@tenas-ai/api/services/su
 import { formatDateKey, listDateKeysInRange, parseDateKey, startOfDay, endOfDay } from "@tenas-ai/api/services/summaryDateUtils";
 import { getProjectGitCommitsInRange } from "@tenas-ai/api/services/projectGitService";
 import { listProjectFilesChangedInRange } from "@tenas-ai/api/services/projectFileChangeService";
-import type { TaskStatusRepository } from "@/ai/summary/TaskStatusRepository";
-import { SummaryDayUseCase } from "@/ai/summary/SummaryDayUseCase";
-import { SummaryProjectUseCase } from "@/ai/summary/SummaryProjectUseCase";
-import { UpdateProjectSummaryUseCase } from "@/ai/summary/UpdateProjectSummaryUseCase";
+import type { TaskStatusRepository } from "@/ai/services/summary/TaskStatusRepository";
+import { SummaryDayUseCase } from "@/ai/services/summary/SummaryDayUseCase";
+import { SummaryProjectUseCase } from "@/ai/services/summary/SummaryProjectUseCase";
+import { UpdateProjectSummaryUseCase } from "@/ai/services/summary/UpdateProjectSummaryUseCase";
 import {
   createSchedulerTaskRecord,
   updateSchedulerTaskRecord,

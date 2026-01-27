@@ -1,7 +1,8 @@
 "use client";
 
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { createBrowserTabId } from "@/hooks/tab-id";
 
 export type FrontendToolAckStatus = "success" | "failed" | "timeout";
@@ -75,7 +76,7 @@ function resolveToolName(part: any): string {
 
 function markToolStreaming(input: { tabId?: string; toolCallId: string }) {
   if (!input.tabId) return;
-  const state = useTabs.getState();
+  const state = useChatRuntime.getState();
   const current = state.toolPartsByTabId[input.tabId]?.[input.toolCallId];
   state.upsertToolPart(input.tabId, input.toolCallId, {
     ...current,
@@ -186,7 +187,7 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
     }
 
     const viewKey = createBrowserTabId();
-    useTabs.getState().pushStackItem(
+    useTabRuntime.getState().pushStackItem(
       tabId,
       {
         component: BROWSER_WINDOW_COMPONENT,

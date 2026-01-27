@@ -2,7 +2,7 @@
 
 import { type ReactNode } from "react";
 import { toast } from "sonner";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import {
   buildChildUri,
   getRelativePathFromUri,
@@ -334,7 +334,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
     const boardFolderUri = boardEntry.uri;
     const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
     const displayName = getBoardDisplayName(boardEntry.name);
-    useTabs.getState().pushStackItem(input.tabId, {
+    useTabRuntime.getState().pushStackItem(input.tabId, {
       id: boardFolderUri,
       component: "board-viewer",
       title: displayName,
@@ -369,7 +369,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
       const boardFolderUri = input.entry.uri;
       const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
       const displayName = getBoardDisplayName(input.entry.name);
-      useTabs.getState().pushStackItem(input.tabId, {
+      useTabRuntime.getState().pushStackItem(input.tabId, {
         id: boardFolderUri,
         component: "board-viewer",
         title: displayName,
@@ -443,7 +443,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
     readOnly: input.readOnly,
   });
   if (!stackItem) return true;
-  useTabs.getState().pushStackItem(input.tabId, stackItem);
+  useTabRuntime.getState().pushStackItem(input.tabId, stackItem);
   return true;
 }
 

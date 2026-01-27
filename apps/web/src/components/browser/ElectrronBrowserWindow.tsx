@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { BROWSER_WINDOW_PANEL_ID, type BrowserTab } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { upsertTabSnapshotNow } from "@/lib/tab-snapshot";
 import { StackHeader } from "@/components/layout/StackHeader";
@@ -55,7 +56,19 @@ export default function ElectrronBrowserWindow({
 }: ElectrronBrowserWindowProps) {
   const tabActive = useTabActive();
   const safeTabId = typeof tabId === "string" ? tabId : undefined;
-  const stackHidden = useTabs((s) => (safeTabId ? Boolean(s.stackHiddenByTabId[safeTabId]) : false));
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const runtimeStack = useTabRuntime((s) =>
+    safeTabId ? s.runtimeByTabId[safeTabId]?.stack : undefined,
+  );
+  const runtimeActiveStackId = useTabRuntime((s) =>
+    safeTabId ? s.runtimeByTabId[safeTabId]?.activeStackItemId : undefined,
+  );
+  const stackHidden = useTabRuntime((s) =>
+    safeTabId ? Boolean(s.runtimeByTabId[safeTabId]?.stackHidden) : false,
+  );
+  const stack = Array.isArray(runtimeStack) ? runtimeStack : [];
+  const activeStackItemId =
+    typeof runtimeActiveStackId === "string" ? runtimeActiveStackId : "";
 
   const tabs = Array.isArray(browserTabs) ? browserTabs : [];
   const activeId = activeBrowserTabId ?? tabs[0]?.id ?? "";
@@ -66,16 +79,14 @@ export default function ElectrronBrowserWindow({
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingUrl, setEditingUrl] = useState("");
 
-  const coveredByAnotherStackItem = useTabs((s) => {
+  const coveredByAnotherStackItem = useMemo(() => {
     if (!safeTabId) return false;
-    if (s.activeTabId !== safeTabId) return false;
-    const tab = s.tabs.find((t) => t.id === safeTabId);
-    const stack = tab?.stack ?? [];
+    if (activeTabId !== safeTabId) return false;
     if (!stack.some((item) => item.id === panelKey)) return false;
 
-    const activeStackId = s.activeStackItemIdByTabId[safeTabId] || stack.at(-1)?.id || "";
+    const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
     return Boolean(activeStackId) && activeStackId !== panelKey;
-  });
+  }, [activeStackItemId, activeTabId, panelKey, safeTabId, stack]);
   const [loading, setLoading] = useState(true);
   const [overlayBlocked, setOverlayBlocked] = useState(false);
   const overlayBlockedRef = useRef(false);
@@ -92,7 +103,7 @@ export default function ElectrronBrowserWindow({
   );
 
   const targetUrl = useMemo(() => activeUrl, [activeUrl]);
-  const showProgress = Boolean(targetUrl) && activeViewStatus?.ready !== true && !activeViewStatus?.failed;
+  const showProgress = Boolean(targetUrl) && loading && !activeViewStatus?.failed;
   const showHome = !targetUrl;
   const canGoBack = Boolean(activeViewStatus?.canGoBack);
   const canGoForward = Boolean(activeViewStatus?.canGoForward);
@@ -159,7 +170,7 @@ export default function ElectrronBrowserWindow({
     const normalizedTabs = Array.isArray(nextTabs) ? nextTabs : [];
     tabsRef.current = normalizedTabs;
     // 浏览器面板内的状态（tabs/active）统一写回到 tab.stack，作为单一事实来源。
-    useTabs.getState().setBrowserTabs(safeTabId, normalizedTabs, nextActiveId);
+    useTabRuntime.getState().setBrowserTabs(safeTabId, normalizedTabs, nextActiveId);
   };
 
   useEffect(() => {
@@ -258,7 +269,13 @@ export default function ElectrronBrowserWindow({
         setLoading(false);
         return;
       }
-      const nextLoading = detail.ready !== true;
+      // 优先信任 ready=true，其次用 loading 字段兜底，避免导航事件把 ready 拉回 false 后卡在 Loading。
+      const nextLoading =
+        detail.ready === true
+          ? false
+          : typeof detail.loading === "boolean"
+            ? detail.loading
+            : true;
       loadingRef.current = nextLoading;
       setLoading(nextLoading);
     };
@@ -313,7 +330,14 @@ export default function ElectrronBrowserWindow({
       return;
     }
     // 没有拿到状态前，默认按 loading 处理，避免页面“还没 ready”就被展示出来。
-    const nextLoading = cached ? cached.ready !== true : true;
+    // 复用 ready/loading 组合逻辑，避免已加载页面被误判为 loading。
+    const nextLoading = cached
+      ? cached.ready === true
+        ? false
+        : typeof cached.loading === "boolean"
+          ? cached.loading
+          : true
+      : true;
     loadingRef.current = nextLoading;
     setLoading(nextLoading);
   }, [activeViewKey, targetUrl]);
@@ -590,14 +614,14 @@ export default function ElectrronBrowserWindow({
       lastSentByKeyRef.current.clear();
     }
 
-    useTabs.getState().removeStackItem(safeTabId, panelKey);
+    useTabRuntime.getState().removeStackItem(safeTabId, panelKey);
   };
 
   const onRefreshPanel = () => {
     if (!safeTabId) return;
-    const state = useTabs.getState();
-    const tab = state.getTabById(safeTabId);
-    const item = tab?.stack?.find((x) => x.id === panelKey);
+    const state = useTabRuntime.getState();
+    const runtime = state.runtimeByTabId[safeTabId];
+    const item = runtime?.stack?.find((x) => x.id === panelKey);
     if (!item) return;
     const current = Number((item.params as any)?.__refreshKey ?? 0);
     state.pushStackItem(

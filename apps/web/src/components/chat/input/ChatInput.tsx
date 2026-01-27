@@ -58,6 +58,8 @@ import { trpc } from "@/utils/trpc";
 import { useQueryClient } from "@tanstack/react-query";
 import { useProjects } from "@/hooks/use-projects";
 import { useTabs } from "@/hooks/use-tabs";
+import { useChatRuntime } from "@/hooks/use-chat-runtime";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { handleChatMentionPointerDown, resolveProjectRootUri } from "@/lib/chat/mention-pointer";
 import { toast } from "sonner";
@@ -225,7 +227,7 @@ export function ChatInputBox({
   const { data: projects = [] } = useProjects();
   const queryClient = useQueryClient();
   const activeTabId = useTabs((s) => s.activeTabId);
-  const pushStackItem = useTabs((s) => s.pushStackItem);
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const plugins = useMemo(
     () => [
       ParagraphPlugin.withComponent(ParagraphElement),
@@ -868,7 +870,7 @@ export default function ChatInput({
   const { input, setInput, imageOptions, codexOptions, addMaskedAttachment } = useChatOptions();
   const { projectId, workspaceId, tabId } = useChatSession();
   const { basic } = useBasicConfig();
-  const setTabDictationStatus = useTabs((s) => s.setTabDictationStatus);
+  const setTabDictationStatus = useChatRuntime((s) => s.setTabDictationStatus);
   const dictationLanguage = basic.modelResponseLanguage;
   const dictationSoundEnabled = basic.appNotificationSoundEnabled;
   useEffect(() => {

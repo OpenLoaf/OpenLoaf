@@ -2,7 +2,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import ffmpeg from "fluent-ffmpeg";
-import { getProjectRootPath } from "@tenas-ai/api/services/vfsService";
+import {
+  getProjectRootPath,
+  getWorkspaceRootPathById,
+  resolveScopedPath,
+  toRelativePath,
+} from "@tenas-ai/api/services/vfsService";
 
 export type HlsManifestResult = {
   /** Manifest content with segment URLs. */
@@ -65,6 +70,9 @@ const hlsThumbnailTasks = new Map<string, Promise<string>>();
 
 export type HlsQuality = (typeof HLS_QUALITIES)[number];
 
+/** Scoped project path matcher like @[projectId]/path/to/file. */
+const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/;
+
 /** Normalize a relative path string. */
 function normalizeRelativePath(input: string): string {
   return input.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/^\/+/, "");
@@ -81,8 +89,8 @@ export function isHlsQuality(value?: string): value is HlsQuality {
 }
 
 /** Resolve an absolute file path under a project root. */
-function resolveProjectFilePath(input: { path: string; projectId: string }) {
-  const rootPath = getProjectRootPath(input.projectId);
+function resolveProjectFilePath(input: { path: string; projectId: string; workspaceId?: string }) {
+  const rootPath = getProjectRootPath(input.projectId, input.workspaceId);
   if (!rootPath) return null;
   const relativePath = normalizeRelativePath(input.path);
   if (!relativePath || hasParentTraversal(relativePath)) return null;
@@ -92,7 +100,55 @@ function resolveProjectFilePath(input: { path: string; projectId: string }) {
   if (absPath !== rootResolved && !absPath.startsWith(rootResolved + path.sep)) {
     return null;
   }
-  return { rootPath, absPath, relativePath };
+  return { rootPath: rootResolved, absPath, relativePath, projectId: input.projectId };
+}
+
+/** Resolve an absolute file path using workspace scoped rules. */
+function resolveScopedFilePath(input: {
+  path: string;
+  projectId?: string;
+  workspaceId?: string;
+}) {
+  const rawPath = input.path.trim();
+  if (!rawPath) return null;
+  const workspaceId = input.workspaceId?.trim();
+  const scopedMatch = rawPath.match(PROJECT_SCOPE_REGEX);
+  let projectId = input.projectId?.trim() ?? "";
+  if (scopedMatch?.[1]) {
+    // 逻辑：路径自带项目范围时优先使用它解析根目录。
+    projectId = scopedMatch[1].trim();
+  }
+  const resolvedTarget = scopedMatch?.[2]?.trim() ? scopedMatch[2].trim() : rawPath;
+
+  if (!workspaceId) {
+    if (!projectId) return null;
+    return resolveProjectFilePath({ path: resolvedTarget, projectId });
+  }
+
+  let absPath: string;
+  try {
+    absPath = resolveScopedPath({
+      workspaceId,
+      projectId: projectId || undefined,
+      target: rawPath,
+    });
+  } catch {
+    return null;
+  }
+
+  const rootPath = projectId
+    ? getProjectRootPath(projectId, workspaceId)
+    : getWorkspaceRootPathById(workspaceId);
+  if (!rootPath) return null;
+  const rootResolved = path.resolve(rootPath);
+  const absResolved = path.resolve(absPath);
+  // 逻辑：确保解析结果仍然位于工作区/项目根目录内。
+  if (absResolved !== rootResolved && !absResolved.startsWith(rootResolved + path.sep)) {
+    return null;
+  }
+  const relativePath = toRelativePath(rootResolved, absResolved);
+  if (!relativePath || hasParentTraversal(relativePath)) return null;
+  return { rootPath: rootResolved, absPath: absResolved, relativePath, projectId, workspaceId };
 }
 
 /** Build a stable cache key for HLS outputs. */
@@ -268,13 +324,15 @@ async function probeDurationSeconds(sourcePath: string) {
 }
 
 /** Build a master playlist for multi-quality HLS. */
-function buildMasterPlaylist(input: { path: string; projectId: string }) {
+function buildMasterPlaylist(input: {
+  path: string;
+  projectId?: string;
+  workspaceId?: string;
+}) {
   const makeUrl = (quality: HlsQuality) => {
-    const query = new URLSearchParams({
-      path: input.path,
-      projectId: input.projectId,
-      quality,
-    });
+    const query = new URLSearchParams({ path: input.path, quality });
+    if (input.projectId) query.set("projectId", input.projectId);
+    if (input.workspaceId) query.set("workspaceId", input.workspaceId);
     return `/media/hls/manifest?${query.toString()}`;
   };
   const lines = [
@@ -419,46 +477,94 @@ async function ensureThumbnailAssets(input: {
 }
 
 /** Build a token for segment lookup. */
-function buildToken(input: { projectId: string; cacheKey: string; quality: HlsQuality }) {
-  return `${input.projectId}::${input.cacheKey}::${input.quality}`;
+function buildToken(input: {
+  projectId?: string;
+  workspaceId?: string;
+  cacheKey: string;
+  quality: HlsQuality;
+}) {
+  if (input.workspaceId) {
+    return `${input.workspaceId}::${input.projectId ?? ""}::${input.cacheKey}::${
+      input.quality
+    }`;
+  }
+  return `${input.projectId ?? ""}::${input.cacheKey}::${input.quality}`;
 }
 
 /** Build a token for thumbnail lookup. */
-function buildThumbnailToken(input: { projectId: string; cacheKey: string }) {
-  return `${input.projectId}::${input.cacheKey}::thumbs`;
+function buildThumbnailToken(input: {
+  projectId?: string;
+  workspaceId?: string;
+  cacheKey: string;
+}) {
+  if (input.workspaceId) {
+    return `${input.workspaceId}::${input.projectId ?? ""}::${input.cacheKey}::thumbs`;
+  }
+  return `${input.projectId ?? ""}::${input.cacheKey}::thumbs`;
 }
 
 /** Parse a segment token into project id and cache key. */
-export function parseSegmentToken(
-  token: string
-): { projectId: string; cacheKey: string; quality: HlsQuality } | null {
-  const parts = token.split("::");
-  if (parts.length !== 3) return null;
-  const [projectId, cacheKey, qualityRaw] = parts.map((value) => value.trim());
-  if (!projectId || !cacheKey || !qualityRaw) return null;
-  if (!isHlsQuality(qualityRaw)) return null;
-  return { projectId, cacheKey, quality: qualityRaw };
+export function parseSegmentToken(token: string): {
+  projectId?: string;
+  workspaceId?: string;
+  cacheKey: string;
+  quality: HlsQuality;
+} | null {
+  const parts = token.split("::").map((value) => value.trim());
+  if (parts.length === 3) {
+    const [projectId, cacheKey, qualityRaw] = parts;
+    if (!projectId || !cacheKey || !qualityRaw) return null;
+    if (!isHlsQuality(qualityRaw)) return null;
+    return { projectId, cacheKey, quality: qualityRaw };
+  }
+  if (parts.length === 4) {
+    const [workspaceId, projectId, cacheKey, qualityRaw] = parts;
+    if (!workspaceId || !cacheKey || !qualityRaw) return null;
+    if (!isHlsQuality(qualityRaw)) return null;
+    return {
+      workspaceId,
+      projectId: projectId || undefined,
+      cacheKey,
+      quality: qualityRaw,
+    };
+  }
+  return null;
 }
 
 /** Parse a thumbnail token into project id and cache key. */
-export function parseThumbnailToken(
-  token: string
-): { projectId: string; cacheKey: string } | null {
-  const parts = token.split("::");
-  if (parts.length !== 3) return null;
-  const [projectId, cacheKey, marker] = parts.map((value) => value.trim());
-  if (!projectId || !cacheKey || !marker) return null;
-  if (marker !== "thumbs") return null;
-  return { projectId, cacheKey };
+export function parseThumbnailToken(token: string): {
+  projectId?: string;
+  workspaceId?: string;
+  cacheKey: string;
+} | null {
+  const parts = token.split("::").map((value) => value.trim());
+  if (parts.length === 3) {
+    const [projectId, cacheKey, marker] = parts;
+    if (!projectId || !cacheKey || !marker) return null;
+    if (marker !== "thumbs") return null;
+    return { projectId, cacheKey };
+  }
+  if (parts.length === 4) {
+    const [workspaceId, projectId, cacheKey, marker] = parts;
+    if (!workspaceId || !cacheKey || !marker) return null;
+    if (marker !== "thumbs") return null;
+    return { workspaceId, projectId: projectId || undefined, cacheKey };
+  }
+  return null;
 }
 
 /** Load HLS manifest content and rewrite segment urls. */
 export async function getHlsManifest(input: {
   path: string;
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
   quality?: HlsQuality;
 }): Promise<HlsManifestStatus | null> {
-  const resolved = resolveProjectFilePath({ path: input.path, projectId: input.projectId });
+  const resolved = resolveScopedFilePath({
+    path: input.path,
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+  });
   if (!resolved) return null;
   const sourceStat = await fs.stat(resolved.absPath).catch(() => null);
   if (!sourceStat || !sourceStat.isFile()) return null;
@@ -474,7 +580,8 @@ export async function getHlsManifest(input: {
       status: "ready",
       manifest: buildMasterPlaylist({
         path: resolved.relativePath,
-        projectId: input.projectId,
+        projectId: resolved.projectId,
+        workspaceId: resolved.workspaceId,
       }),
       token: "",
     };
@@ -502,7 +609,12 @@ export async function getHlsManifest(input: {
     return { status: "building" };
   }
 
-  const token = buildToken({ projectId: input.projectId, cacheKey, quality: input.quality });
+  const token = buildToken({
+    projectId: resolved.projectId,
+    workspaceId: resolved.workspaceId,
+    cacheKey,
+    quality: input.quality,
+  });
   const raw = await fs.readFile(manifestPath, "utf-8");
   const prefix = `/media/hls/segment/`;
   const lines = raw.split(/\r?\n/).map((line) => {
@@ -516,10 +628,15 @@ export async function getHlsManifest(input: {
 /** Load current HLS manifest generation progress. */
 export async function getHlsProgress(input: {
   path: string;
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
   quality: HlsQuality;
 }): Promise<HlsProgressResult | null> {
-  const resolved = resolveProjectFilePath({ path: input.path, projectId: input.projectId });
+  const resolved = resolveScopedFilePath({
+    path: input.path,
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+  });
   if (!resolved) return null;
   const sourceStat = await fs.stat(resolved.absPath).catch(() => null);
   if (!sourceStat || !sourceStat.isFile()) return null;
@@ -535,9 +652,14 @@ export async function getHlsProgress(input: {
 /** Load VTT thumbnails and rewrite thumbnail urls. */
 export async function getHlsThumbnails(input: {
   path: string;
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
 }): Promise<HlsThumbnailResult | null> {
-  const resolved = resolveProjectFilePath({ path: input.path, projectId: input.projectId });
+  const resolved = resolveScopedFilePath({
+    path: input.path,
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+  });
   if (!resolved) return null;
   const sourceStat = await fs.stat(resolved.absPath).catch(() => null);
   if (!sourceStat || !sourceStat.isFile()) return null;
@@ -556,7 +678,11 @@ export async function getHlsThumbnails(input: {
         sourceStat: { size: sourceStat.size, mtimeMs: sourceStat.mtimeMs },
       }),
   });
-  const token = buildThumbnailToken({ projectId: input.projectId, cacheKey });
+  const token = buildThumbnailToken({
+    projectId: resolved.projectId,
+    workspaceId: resolved.workspaceId,
+    cacheKey,
+  });
   const raw = await fs.readFile(vttPath, "utf-8");
   const prefix = `/media/hls/thumbnail/`;
   const lines = raw.split(/\r?\n/).map((line) => {
@@ -577,7 +703,13 @@ export async function getHlsSegment(input: {
 }): Promise<Uint8Array<ArrayBuffer> | null> {
   const parsed = parseSegmentToken(input.token);
   if (!parsed) return null;
-  const rootPath = getProjectRootPath(parsed.projectId);
+  const rootPath = parsed.workspaceId
+    ? parsed.projectId
+      ? getProjectRootPath(parsed.projectId, parsed.workspaceId)
+      : getWorkspaceRootPathById(parsed.workspaceId)
+    : parsed.projectId
+      ? getProjectRootPath(parsed.projectId)
+      : null;
   if (!rootPath) return null;
   if (!input.name || input.name.includes("/") || input.name.includes("\\")) return null;
   if (input.name.includes("..")) return null;
@@ -604,7 +736,13 @@ export async function getHlsThumbnail(input: {
 }): Promise<Uint8Array<ArrayBuffer> | null> {
   const parsed = parseThumbnailToken(input.token);
   if (!parsed) return null;
-  const rootPath = getProjectRootPath(parsed.projectId);
+  const rootPath = parsed.workspaceId
+    ? parsed.projectId
+      ? getProjectRootPath(parsed.projectId, parsed.workspaceId)
+      : getWorkspaceRootPathById(parsed.workspaceId)
+    : parsed.projectId
+      ? getProjectRootPath(parsed.projectId)
+      : null;
   if (!rootPath) return null;
   if (!input.name || input.name.includes("/") || input.name.includes("\\")) return null;
   if (input.name.includes("..")) return null;

@@ -4,80 +4,79 @@ import { getProjectRootPath } from "@tenas-ai/api/services/vfsService";
 import { readProjectConfig } from "@tenas-ai/api/services/projectTreeService";
 import { getProjectGitCommitsInRange } from "@tenas-ai/api/services/projectGitService";
 import { listProjectFilesChangedInRange } from "@tenas-ai/api/services/projectFileChangeService";
-import {
-  formatDateKey,
-  parseDateKey,
-  startOfDay,
-  endOfDay,
-} from "@tenas-ai/api/services/summaryDateUtils";
 import { writeSummaryMarkdown, appendSummaryIndex } from "@tenas-ai/api/services/summaryStorage";
-import { generateDailySummary } from "@/ai/summary/summaryGenerator";
+import { generateRangeSummary } from "@/ai/services/summary/summaryGenerator";
 
-type SummaryDayUseCaseInput = {
+type SummaryProjectUseCaseInput = {
   /** Project id. */
   projectId: string;
-  /** Date key for daily summary. */
-  dateKey: string;
+  /** Date keys covered by summary. */
+  dates: string[];
+  /** Range start time. */
+  from: Date;
+  /** Range end time. */
+  to: Date;
   /** Trigger source. */
   triggeredBy: "scheduler" | "manual" | "external";
   /** IANA timezone id. */
   timezone: string;
-  /** Optional previous summary for incremental updates. */
-  previousSummary?: string;
 };
 
-type SummaryDayResult = {
+type SummaryProjectResult = {
   /** Summary id. */
   summaryId: string;
   /** Summary file path. */
   filePath: string;
   /** Summary content. */
   content: string;
-  /** Date key. */
-  dateKey: string;
 };
 
-export class SummaryDayUseCase {
-  /** Execute day summary. */
-  async execute(input: SummaryDayUseCaseInput): Promise<SummaryDayResult> {
+export class SummaryProjectUseCase {
+  /** Execute project summary. */
+  async execute(input: SummaryProjectUseCaseInput): Promise<SummaryProjectResult> {
     const rootPath = getProjectRootPath(input.projectId);
     if (!rootPath) {
       throw new Error("项目不存在");
     }
+    if (!input.dates.length) {
+      throw new Error("缺少汇总日期范围");
+    }
     const projectConfig = await readProjectConfig(rootPath, input.projectId);
-    const dateKey = input.dateKey || formatDateKey(new Date());
-    const start = startOfDay(parseDateKey(dateKey));
-    const end = endOfDay(parseDateKey(dateKey));
     const commits = await getProjectGitCommitsInRange({
       projectId: input.projectId,
-      from: start,
-      to: end,
+      from: input.from,
+      to: input.to,
     });
     const fileChanges = commits.length
       ? []
       : await listProjectFilesChangedInRange({
           projectId: input.projectId,
-          from: start,
-          to: end,
+          from: input.from,
+          to: input.to,
         });
-    const content = await generateDailySummary({
+    const fromKey = input.dates[0];
+    const toKey = input.dates[input.dates.length - 1];
+    if (!fromKey || !toKey) {
+      throw new Error("缺少汇总日期范围");
+    }
+    const content = await generateRangeSummary({
       projectTitle: projectConfig.title ?? input.projectId,
-      dateKey,
+      from: fromKey,
+      to: toKey,
       commits,
       fileChanges,
-      previousSummary: input.previousSummary,
     });
 
     const summaryId = randomUUID();
     const nowIso = new Date().toISOString();
-    const fileName = `${dateKey}.md`;
+    const fileName = `${fromKey}_${toKey}.md`;
     const filePath = await writeSummaryMarkdown({
       rootPath,
       fileName,
       frontmatter: {
         summaryId,
         projectId: input.projectId,
-        dates: [dateKey],
+        dates: input.dates,
         createdAt: nowIso,
         updatedAt: nowIso,
         triggeredBy: input.triggeredBy,
@@ -85,11 +84,11 @@ export class SummaryDayUseCase {
       content,
     });
 
-    // 逻辑：单日汇总完成后写入索引，方便后续快速定位。
+    // 逻辑：一次性汇总完成后写入索引，记录覆盖日期列表。
     await appendSummaryIndex(rootPath, {
       projectId: input.projectId,
       filePath,
-      dates: [dateKey],
+      dates: input.dates,
       status: "success",
       triggeredBy: input.triggeredBy,
       timezone: input.timezone,
@@ -99,7 +98,6 @@ export class SummaryDayUseCase {
       summaryId,
       filePath: path.normalize(filePath),
       content,
-      dateKey,
     };
   }
 }

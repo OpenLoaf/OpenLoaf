@@ -1,7 +1,7 @@
 "use client";
 
 import type { UIMessage } from "@ai-sdk/react";
-import { useTabs } from "@/hooks/use-tabs";
+import { useChatRuntime } from "@/hooks/use-chat-runtime";
 
 // 关键：从 messages.parts 同步 tool 状态到 zustand（用于 ToolResultPanel 展示）
 export function syncToolPartsFromMessages({
@@ -12,7 +12,7 @@ export function syncToolPartsFromMessages({
   messages: UIMessage[];
 }) {
   if (!tabId) return;
-  const upsertToolPart = useTabs.getState().upsertToolPart;
+  const upsertToolPart = useChatRuntime.getState().upsertToolPart;
 
   for (const message of messages) {
     const messageId = typeof message.id === "string" ? message.id : "m";
@@ -23,7 +23,7 @@ export function syncToolPartsFromMessages({
       const isTool = type === "dynamic-tool" || type.startsWith("tool-");
       if (!isTool) continue;
       const toolKey = String(part.toolCallId ?? `${messageId}:${index}`);
-      const current = useTabs.getState().toolPartsByTabId[tabId]?.[toolKey];
+      const current = useChatRuntime.getState().toolPartsByTabId[tabId]?.[toolKey];
       upsertToolPart(tabId, toolKey, { ...current, ...part } as any);
     }
   }

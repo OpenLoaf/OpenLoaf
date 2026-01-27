@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, type ReactNode } from "react";
-import type { ToolPartSnapshot } from "@/hooks/use-tabs";
+import type { ToolPartSnapshot } from "@/hooks/use-chat-runtime";
 
 export type SubAgentStreamState = {
   toolCallId: string;

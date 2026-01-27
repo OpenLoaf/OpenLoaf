@@ -54,5 +54,11 @@ export function useChatToolStream() {
     []
   );
 
-  return { handleDataPart, syncFromMessages, executeFromToolPart };
+  const api = React.useMemo(
+    () => ({ handleDataPart, syncFromMessages, executeFromToolPart }),
+    [handleDataPart, syncFromMessages, executeFromToolPart]
+  );
+
+  // 保持返回对象引用稳定，避免依赖触发无限更新。
+  return api;
 }

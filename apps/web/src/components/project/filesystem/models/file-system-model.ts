@@ -20,6 +20,7 @@ import {
   TERMINAL_WINDOW_PANEL_ID,
 } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { resolveServerUrl } from "@/utils/server-url";
 import { openFilePreview } from "@/components/file/lib/open-file";
 import {
@@ -376,7 +377,7 @@ export function useProjectFileSystemModel({
   const queryClient = useQueryClient();
   const dragCounterRef = useRef(0);
   const activeTabId = useTabs((s) => s.activeTabId);
-  const pushStackItem = useTabs((s) => s.pushStackItem);
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const [sortField, setSortField] = useState<"name" | "mtime" | null>(initialSortField);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(initialSortOrder);
   const [searchValue, setSearchValue] = useState("");

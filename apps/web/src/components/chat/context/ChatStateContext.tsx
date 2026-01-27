@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, type ReactNode } from "react";
 import type { UIMessage } from "@ai-sdk/react";
-import type { ChatStatus } from "@/hooks/use-tabs";
+import type { ChatStatus } from "@/hooks/use-chat-runtime";
 
 export type ChatStateContextValue = {
   messages: UIMessage[];

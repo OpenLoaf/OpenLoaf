@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import { getPanelTitle } from "@/utils/panel-utils";
 import { BROWSER_WINDOW_COMPONENT, type DockItem } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getStackMinimizeSignal } from "@/lib/stack-dock-animation";
 
 // 保持空数组引用稳定，避免 useSyncExternalStore 报错。
@@ -53,19 +54,18 @@ function destroyBrowserViewsIfNeeded(item: DockItem) {
 
 export function StackDockMenuButton() {
   const activeTabId = useTabs((s) => s.activeTabId);
-  const stack = useTabs((s) => {
-    const tab = s.activeTabId ? s.tabs.find((t) => t.id === s.activeTabId) : undefined;
-    return tab?.stack ?? EMPTY_STACK;
-  });
+  const stack = useTabRuntime((s) =>
+    activeTabId ? s.runtimeByTabId[activeTabId]?.stack ?? EMPTY_STACK : EMPTY_STACK,
+  );
   const activeTabTitle = useTabs((s) => {
     const tab = s.activeTabId ? s.tabs.find((t) => t.id === s.activeTabId) : undefined;
     return String(tab?.title ?? "");
   });
-  const activeStackItemId = useTabs((s) =>
-    s.activeTabId ? s.activeStackItemIdByTabId[s.activeTabId] : "",
+  const activeStackItemId = useTabRuntime((s) =>
+    activeTabId ? s.runtimeByTabId[activeTabId]?.activeStackItemId ?? "" : "",
   );
-  const stackHidden = useTabs((s) =>
-    s.activeTabId ? Boolean(s.stackHiddenByTabId[s.activeTabId]) : false,
+  const stackHidden = useTabRuntime((s) =>
+    activeTabId ? Boolean(s.runtimeByTabId[activeTabId]?.stackHidden) : false,
   );
   const nudgeControls = useAnimationControls();
   const lastSignalRef = React.useRef(0);
@@ -92,23 +92,23 @@ export function StackDockMenuButton() {
 
   const openStackItem = (item: DockItem) => {
     // 恢复显示并切换到目标 item（不再重排 stack 数组）。
-    useTabs.getState().pushStackItem(activeTabId, item);
+    useTabRuntime.getState().pushStackItem(activeTabId, item);
   };
 
   const closeStackItem = (item: DockItem) => {
     destroyBrowserViewsIfNeeded(item);
-    useTabs.getState().removeStackItem(activeTabId, item.id);
+    useTabRuntime.getState().removeStackItem(activeTabId, item.id);
     // 如果关闭后 stack 为空，自动解除隐藏。
-    const nextTab = useTabs.getState().getTabById(activeTabId);
-    if ((nextTab?.stack ?? []).length === 0) {
-      useTabs.getState().setStackHidden(activeTabId, false);
+    const nextRuntime = useTabRuntime.getState().runtimeByTabId[activeTabId];
+    if ((nextRuntime?.stack ?? []).length === 0) {
+      useTabRuntime.getState().setStackHidden(activeTabId, false);
     }
   };
 
   const closeAll = () => {
     for (const item of stack) destroyBrowserViewsIfNeeded(item);
-    useTabs.getState().clearStack(activeTabId);
-    useTabs.getState().setStackHidden(activeTabId, false);
+    useTabRuntime.getState().clearStack(activeTabId);
+    useTabRuntime.getState().setStackHidden(activeTabId, false);
   };
 
   if (stackHidden && stack.length === 1) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTabs } from "@/hooks/use-tabs";
+import { useChatRuntime } from "@/hooks/use-chat-runtime";
 
 export function handleChatDataPart({
   dataPart,
@@ -33,7 +33,7 @@ function handleToolChunk({
       const delta = typeof payload?.delta === "string" ? payload.delta : "";
       if (!toolCallId || !delta) break;
       const toolKey = String(toolCallId);
-      const current = useTabs.getState().toolPartsByTabId[tabId]?.[toolKey];
+      const current = useChatRuntime.getState().toolPartsByTabId[tabId]?.[toolKey];
       const currentOutput = typeof current?.output === "string" ? current.output : "";
       // 逻辑：CLI delta 追加到当前输出，保证可实时刷新工具面板。
       upsertToolPartMerged(toolKey, {

@@ -13,6 +13,7 @@ import {
 } from "@tenas-ai/ui/sidebar";
 import { CalendarDays, Inbox, LayoutTemplate, Search, Sparkles } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Search as SearchDialog } from "@/components/search/Search";
 import { Kbd, KbdGroup } from "@tenas-ai/ui/kbd";
@@ -38,11 +39,12 @@ export const AppSidebar = ({
       if (!activeWorkspace) return;
 
       const state = useTabs.getState();
+      const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
       const existing = state.tabs.find((tab) => {
         if (tab.workspaceId !== activeWorkspace.id) return false;
-        if (tab.base?.id === input.baseId) return true;
+        if (runtimeByTabId[tab.id]?.base?.id === input.baseId) return true;
         // ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
-        if (input.component === "ai-chat" && !tab.base && tab.title === input.title) return true;
+        if (input.component === "ai-chat" && !runtimeByTabId[tab.id]?.base && tab.title === input.title) return true;
         return false;
       });
       if (existing) {

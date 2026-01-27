@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 
 export function DisableLinks() {
   useEffect(() => {
@@ -23,7 +24,8 @@ export function DisableLinks() {
       e.preventDefault();
       e.stopPropagation();
 
-      const { activeTabId, pushStackItem } = useTabs.getState();
+      const { activeTabId } = useTabs.getState();
+      const { pushStackItem } = useTabRuntime.getState();
 
       if (activeTabId) {
         // Use the text content as title, or fallback to href

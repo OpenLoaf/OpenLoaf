@@ -6,6 +6,7 @@ import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
 import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { Button } from "@tenas-ai/ui/button";
 import { Switch } from "@tenas-ai/ui/switch";
 import { Eye, FolderOpen, Trash2 } from "lucide-react";
@@ -195,7 +196,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const { workspace } = useWorkspace();
   const { data: projectData } = useProject(projectId);
   const activeTabId = useTabs((state) => state.activeTabId);
-  const pushStackItem = useTabs((state) => state.pushStackItem);
+  const pushStackItem = useTabRuntime((state) => state.pushStackItem);
   const workspaceId = workspace?.id ?? "";
   /** Skills root uri for system file manager open. */
   const skillsRootUri = useMemo(() => {

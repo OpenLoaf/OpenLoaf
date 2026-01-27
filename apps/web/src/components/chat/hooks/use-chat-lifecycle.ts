@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useTabSnapshotSync } from "@/hooks/use-tab-snapshot-sync";
-import { useTabs, type ChatStatus } from "@/hooks/use-tabs";
+import { useChatRuntime, type ChatStatus } from "@/hooks/use-chat-runtime";
 import { playNotificationSound } from "@/lib/notification-sound";
 import { startChatPerfLogger } from "@/lib/chat/chat-perf";
 
@@ -13,7 +13,7 @@ export function useChatLifecycle(input: {
   soundEnabled: boolean;
   snapshotEnabled: boolean;
 }) {
-  const setTabChatStatus = useTabs((s) => s.setTabChatStatus);
+  const setTabChatStatus = useChatRuntime((s) => s.setTabChatStatus);
   const prevStatusRef = React.useRef(input.status);
 
   React.useEffect(() => {

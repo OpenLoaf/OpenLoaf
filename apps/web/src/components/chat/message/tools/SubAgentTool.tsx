@@ -1,79 +1,159 @@
 "use client";
 
-import { useChatTools } from "../../context";
-import ToolInfoCard from "./shared/ToolInfoCard";
-import { getToolId, getToolName, getToolStatusTone } from "./shared/tool-utils";
+import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
+import { queryClient, trpc } from "@/utils/trpc";
+import { useChatActions, useChatSession, useChatTools } from "../../context";
+import { renderMessageParts } from "../renderMessageParts";
+import {
+  asPlainObject,
+  getToolName,
+  isToolStreaming,
+  normalizeToolInput,
+  safeStringify,
+  type AnyToolPart,
+} from "./shared/tool-utils";
 
-type SubAgentToolPart = {
-  type?: string;
-  toolName?: string;
-  title?: string;
-  state?: string;
-  toolCallId?: string;
-  input?: { name?: string; task?: string } | unknown;
-  output?: unknown;
-  errorText?: string;
+type SubAgentHistoryMessage = {
+  id: string;
+  parts: unknown[];
 };
 
-/** Resolve sub-agent display name. */
-function getSubAgentName(part: SubAgentToolPart): string {
-  const input = part.input as { name?: string } | undefined;
-  if (input && typeof input.name === "string" && input.name.trim()) return input.name.trim();
-  if (part.title && part.title.trim()) return part.title.trim();
-  return "SubAgent";
+/** Resolve display name from actionName or tool title. */
+function getActionName(part: AnyToolPart): string {
+  const input = normalizeToolInput(part.input);
+  const inputObject = asPlainObject(input);
+  if (typeof inputObject?.actionName === "string" && inputObject.actionName.trim()) {
+    return inputObject.actionName.trim();
+  }
+  return getToolName(part);
 }
 
-/** Resolve sub-agent task text. */
-function getSubAgentTask(part: SubAgentToolPart): string {
-  const input = part.input as { task?: string } | undefined;
-  if (input && typeof input.task === "string") return input.task;
-  return "";
+/** Format output payload for preview display. */
+function stringifyOutput(output: unknown): string {
+  if (typeof output === "string") return output;
+  if (output && typeof output === "object") {
+    const text = (output as { text?: unknown }).text;
+    if (typeof text === "string" && text.trim()) return text;
+  }
+  const raw = safeStringify(output);
+  return raw ? raw : "";
 }
 
 /**
- * Sub-agent tool renderer.
+ * Sub-agent tool renderer (no background).
  */
-export default function SubAgentTool({ part }: { part: SubAgentToolPart }) {
-  const { subAgentStreams } = useChatTools();
+export default function SubAgentTool({
+  part,
+  messageId,
+}: {
+  part: AnyToolPart;
+  messageId?: string;
+}) {
+  const { sessionId } = useChatSession();
+  const { updateMessage } = useChatActions();
+  const { subAgentStreams, toolParts, upsertToolPart } = useChatTools();
   const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
   const stream = toolCallId ? subAgentStreams[toolCallId] : undefined;
+  const toolSnapshot = toolCallId ? toolParts?.[toolCallId] : undefined;
+  const resolvedPart = toolSnapshot ? { ...part, ...toolSnapshot } : part;
+  const [isOpen, setIsOpen] = React.useState(false);
 
-  // 中文注释：以流式缓存为准，确保 delta 持续可见。
-  const effectiveInput = (stream?.name || stream?.task)
-    ? { name: stream?.name, task: stream?.task }
-    : part.input;
-  const effectiveOutput =
-    stream ? stream.output : typeof part.output === "string" ? part.output : "";
-  const effectiveErrorText = stream?.errorText || part.errorText;
-  const effectiveState = stream?.state || part.state;
+  const actionName = getActionName(resolvedPart);
+  const errorText = stream?.errorText || resolvedPart.errorText;
+  const outputRaw = stream ? stream.output : resolvedPart.output;
+  const outputText = stringifyOutput(outputRaw);
+  const displayText =
+    typeof errorText === "string" && errorText.trim()
+      ? errorText.trim()
+      : outputText;
+  const isStreaming = stream?.streaming === true || isToolStreaming(resolvedPart);
 
-  const name = getSubAgentName({ ...part, input: effectiveInput });
-  const task = getSubAgentTask({ ...part, input: effectiveInput });
-  const statusTone = getToolStatusTone({
-    type: part.type ?? "tool-sub-agent",
-    state: effectiveState,
-    errorText: effectiveErrorText,
-    output: effectiveOutput,
+  const hasOutputPayload =
+    resolvedPart.output != null ||
+    (typeof resolvedPart.errorText === "string" && resolvedPart.errorText.trim().length > 0);
+  const shouldFetchOutput = Boolean(messageId && sessionId && toolCallId) && !hasOutputPayload;
+  const hasFetchedOutputRef = React.useRef(false);
+  const isFetchingOutputRef = React.useRef(false);
+
+  const fetchToolOutput = React.useCallback(async () => {
+    if (!shouldFetchOutput || hasFetchedOutputRef.current || isFetchingOutputRef.current) return;
+    isFetchingOutputRef.current = true;
+    try {
+      const data = await queryClient.fetchQuery(
+        trpc.chatmessage.findUniqueChatMessage.queryOptions({
+          where: { id: String(messageId) },
+          select: { id: true, parts: true },
+        }),
+      );
+      const targetParts = Array.isArray((data as any)?.parts) ? (data as any).parts : [];
+      if (!targetParts.length) return;
+      updateMessage(String(messageId), { parts: targetParts });
+      if (toolCallId) {
+        const toolPart = targetParts.find(
+          (item: any) => String(item?.toolCallId ?? "") === toolCallId,
+        );
+        if (toolPart) {
+          upsertToolPart(toolCallId, toolPart);
+          const hasOutput =
+            toolPart.output != null ||
+            (typeof toolPart.errorText === "string" && toolPart.errorText.trim().length > 0);
+          if (hasOutput) hasFetchedOutputRef.current = true;
+        }
+      }
+    } finally {
+      isFetchingOutputRef.current = false;
+    }
+  }, [shouldFetchOutput, messageId, toolCallId, updateMessage, upsertToolPart]);
+
+  React.useEffect(() => {
+    if (!shouldFetchOutput) return;
+    void fetchToolOutput();
+  }, [shouldFetchOutput, fetchToolOutput]);
+
+  const historyQuery = useQuery({
+    ...trpc.chat.getSubAgentHistory.queryOptions({
+      sessionId: sessionId ?? "",
+      toolCallId,
+    }),
+    enabled: Boolean(isOpen && sessionId && toolCallId),
+    staleTime: Number.POSITIVE_INFINITY,
   });
-  const isStreaming = effectiveState === "output-streaming" || stream?.streaming === true;
-  const outputText = effectiveOutput;
-  const hasOutput = typeof outputText === "string" && outputText.length > 0;
-  const outputError =
-    typeof effectiveErrorText === "string" && effectiveErrorText.trim()
-      ? effectiveErrorText
-      : "";
-  const displayOutput = outputError || (typeof outputText === "string" ? outputText : "");
-  const outputTone = outputError ? "error" : "default";
+  const historyMessage = (historyQuery.data?.message ?? null) as SubAgentHistoryMessage | null;
 
   return (
-    <ToolInfoCard
-      title={getToolName(part as any)}
-      toolId={getToolId(part as any)}
-      statusTone={statusTone}
-      inputText={JSON.stringify({ name, task })}
-      outputText={displayOutput || (hasOutput ? String(outputText) : "")}
-      outputTone={outputTone}
-      isStreaming={isStreaming}
-    />
+    <div className={cn("ml-2 w-full min-w-0 max-w-full")}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="flex w-full flex-col items-start gap-1 text-left"
+      >
+        <div className="text-[10px] font-medium text-foreground/70">
+          {actionName || "SubAgent"}
+        </div>
+        {!isOpen ? (
+          <div className="whitespace-pre-wrap break-words text-[12px] text-foreground/80">
+            {displayText || (isStreaming ? "生成中…" : "")}
+          </div>
+        ) : null}
+      </button>
+
+      {isOpen ? (
+        <div className="mt-2 space-y-2">
+          {historyQuery.isLoading ? (
+            <div className="text-[11px] text-muted-foreground">加载中…</div>
+          ) : historyMessage ? (
+            <div className="space-y-2">
+              {renderMessageParts(historyMessage.parts as any[], {
+                messageId: historyMessage.id,
+              })}
+            </div>
+          ) : (
+            <div className="text-[11px] text-muted-foreground">暂无子代理记录</div>
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }

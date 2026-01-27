@@ -4,7 +4,7 @@ type UIDataTypes = Record<string, unknown>;
 type UITools = Record<string, unknown>;
 type UIMessage<D = unknown, DT = UIDataTypes, T = UITools> = {
   id: string;
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "subagent";
   parts: any[];
   metadata?: any;
 };

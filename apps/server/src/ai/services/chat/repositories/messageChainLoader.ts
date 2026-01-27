@@ -51,12 +51,14 @@ export async function loadMessageChain(input: {
     },
   });
 
-  return rows.map((row) => ({
-    id: row.id,
-    role: row.role as any,
-    parentMessageId: row.parentMessageId ?? null,
-    parts: (row.parts as any) ?? [],
-    metadata: (row.metadata as any) ?? undefined,
-    messageKind: (row as any).messageKind ?? "normal",
-  }));
+  return rows
+    .filter((row) => row.role !== "subagent")
+    .map((row) => ({
+      id: row.id,
+      role: row.role as any,
+      parentMessageId: row.parentMessageId ?? null,
+      parts: (row.parts as any) ?? [],
+      metadata: (row.metadata as any) ?? undefined,
+      messageKind: (row as any).messageKind ?? "normal",
+    }));
 }

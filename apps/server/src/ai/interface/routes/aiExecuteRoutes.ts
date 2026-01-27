@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ChatModelSource } from "@tenas-ai/api/common";
-import type { AiExecuteRequest, AiIntent, AiResponseMode } from "@/ai/chat/types";
+import type { AiExecuteRequest, AiIntent, AiResponseMode } from "@/ai/services/chat/types";
 import { bootstrapAi } from "@/ai/bootstrap";
 import { logger } from "@/common/logger";
 import { toText } from "@/routers/route-utils";

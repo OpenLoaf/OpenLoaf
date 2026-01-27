@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@tenas-ai/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
@@ -187,7 +187,7 @@ export default function ExcelViewer({
   /** Index of the active sheet. */
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
   /** Close current stack panel. */
-  const removeStackItem = useTabs((s) => s.removeStackItem);
+  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
   /** Resolve current theme for grid rendering. */
   const { resolvedTheme } = useTheme();
 

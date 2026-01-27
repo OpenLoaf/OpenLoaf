@@ -2,6 +2,7 @@
 
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -577,10 +578,13 @@ export const PageTreeMenu = ({
   /** Track whether next click should be ignored after pointer drag. */
   const suppressNextClickRef = useRef(false);
 
-  const activeTabParams = useMemo(() => {
-    const activeTab = tabs.find((tab) => tab.id === activeTabId);
-    return (activeTab?.base?.params ?? {}) as Record<string, unknown>;
-  }, [activeTabId, tabs]);
+  const activeRuntime = useTabRuntime((state) =>
+    activeTabId ? state.runtimeByTabId[activeTabId] : undefined,
+  );
+  const activeTabParams = useMemo(
+    () => (activeRuntime?.base?.params ?? {}) as Record<string, unknown>,
+    [activeRuntime?.base?.params],
+  );
   const activeUri = useMemo(() => {
     const rootUri = activeTabParams.rootUri;
     const uri = activeTabParams.uri;
@@ -634,7 +638,7 @@ export const PageTreeMenu = ({
   useEffect(() => {
     // 逻辑：激活带 projectId 的标签时，自动展开祖先项目，保证树结构可见。
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
-    const params = activeTab?.base?.params as any;
+    const params = activeRuntime?.base?.params as any;
     const projectId = params?.projectId ?? activeTab?.chatParams?.projectId;
     if (!projectId) return;
     const ancestorNodeKeys = ancestorNodeKeysByProjectId.get(projectId);
@@ -646,13 +650,15 @@ export const PageTreeMenu = ({
         return acc;
       }, {}),
     }));
-  }, [activeTabId, ancestorNodeKeysByProjectId, setExpandedNodes, tabs]);
+  }, [activeRuntime, activeTabId, ancestorNodeKeysByProjectId, setExpandedNodes, tabs]);
 
   const openProjectTab = (project: ProjectInfo) => {
     if (!workspace?.id) return;
     const baseId = `project:${project.projectId}`;
+    const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
     const existing = tabs.find(
-      (tab) => tab.workspaceId === workspace.id && tab.base?.id === baseId,
+      (tab) =>
+        tab.workspaceId === workspace.id && runtimeByTabId[tab.id]?.base?.id === baseId,
     );
     if (existing) {
       startTransition(() => {
@@ -682,8 +688,10 @@ export const PageTreeMenu = ({
     const displayName = isBoardFolderName(node.name)
       ? getBoardDisplayName(node.name)
       : getDisplayFileName(node.name, node.ext);
+    const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
     const existing = tabs.find(
-      (tab) => tab.workspaceId === workspace.id && tab.base?.id === baseId,
+      (tab) =>
+        tab.workspaceId === workspace.id && runtimeByTabId[tab.id]?.base?.id === baseId,
     );
     if (existing) {
       startTransition(() => {
@@ -883,8 +891,9 @@ export const PageTreeMenu = ({
         });
         // 逻辑：同步已打开的项目 Tab 标题，避免缓存导致 UI 不更新。
         const baseId = `project:${projectId}`;
+        const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
         tabs
-          .filter((tab) => tab.base?.id === baseId)
+          .filter((tab) => runtimeByTabId[tab.id]?.base?.id === baseId)
           .forEach((tab) => setTabTitle(tab.id, nextName));
         await queryClient.invalidateQueries({
           queryKey: trpc.project.get.queryOptions({ projectId }).queryKey,

@@ -3,6 +3,7 @@
 import { startTransition } from "react";
 import { create } from "zustand";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { AI_CHAT_TAB_INPUT } from "@tenas-ai/api/common";
 
 export type GlobalShortcutDefinition = {
@@ -69,12 +70,14 @@ function openSingletonTab(
   options?: { leftWidthPercent?: number; closeSearch?: boolean },
 ) {
   const { tabs, addTab, setActiveTab } = useTabs.getState();
+  const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
 
   const existing = tabs.find((tab) => {
     if (tab.workspaceId !== workspaceId) return false;
-    if (tab.base?.id === input.baseId) return true;
+    const runtime = runtimeByTabId[tab.id];
+    if (runtime?.base?.id === input.baseId) return true;
     // ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
-    if (input.component === "ai-chat" && !tab.base && tab.title === input.title) return true;
+    if (input.component === "ai-chat" && !runtime?.base && tab.title === input.title) return true;
     return false;
   });
   if (existing) {
@@ -100,10 +103,12 @@ function openSingletonTab(
 /** 打开设置页（单例 Tab）。 */
 export function openSettingsTab(workspaceId: string) {
   const { tabs, addTab, setActiveTab } = useTabs.getState();
+  const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
 
   const baseId = "base:settings";
   const existing = tabs.find(
-    (tab) => tab.workspaceId === workspaceId && tab.base?.id === baseId,
+    (tab) =>
+      tab.workspaceId === workspaceId && runtimeByTabId[tab.id]?.base?.id === baseId,
   );
   if (existing) {
     startTransition(() => {
@@ -151,13 +156,15 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
     const tabId = state.activeTabId;
     if (!tabId) return;
 
-    const tab = state.getTabById(tabId);
-    const stack = Array.isArray(tab?.stack) ? tab.stack : [];
-    const activeStackId = String(state.activeStackItemIdByTabId?.[tabId] ?? "");
-    const top = (activeStackId ? stack.find((i) => i.id === activeStackId) : undefined) ?? stack.at(-1);
+    const runtime = useTabRuntime.getState().runtimeByTabId[tabId];
+    const stack = Array.isArray(runtime?.stack) ? runtime!.stack : [];
+    const activeStackId = String(runtime?.activeStackItemId ?? "");
+    const top =
+      (activeStackId ? stack.find((i) => i.id === activeStackId) : undefined) ??
+      stack.at(-1);
 
     if (top) {
-      if (top.denyClose !== true) state.removeStackItem(tabId, top.id);
+      if (top.denyClose !== true) useTabRuntime.getState().removeStackItem(tabId, top.id);
       return;
     }
 
@@ -216,11 +223,11 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
     const state = useTabs.getState();
     const tabId = state.activeTabId;
     if (!tabId) return;
-    const tab = state.tabs.find((t) => t.id === tabId);
-    if (!tab?.base) return;
+    const runtime = useTabRuntime.getState().runtimeByTabId[tabId];
+    if (!runtime?.base) return;
 
     event.preventDefault();
-    state.setTabRightChatCollapsed(tabId, !tab.rightChatCollapsed);
+    useTabRuntime.getState().setTabRightChatCollapsed(tabId, !runtime.rightChatCollapsed);
     return;
   }
 

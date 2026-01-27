@@ -30,7 +30,7 @@ import {
 } from "@tenas-ai/ui/tenas/drag-drop-types";
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 import { DragDropOverlay } from "@tenas-ai/ui/tenas/drag-drop-overlay";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabView } from "@/hooks/use-tab-view";
 import { resolveServerUrl } from "@/utils/server-url";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { useChatModelSelection } from "./hooks/use-chat-model-selection";
@@ -107,7 +107,7 @@ export function Chat({
   ...params
 }: ChatProps) {
   const rawParams = React.useMemo(() => ({ ...params }), [params]);
-  const tab = useTabs((s) => (tabId ? s.getTabById(tabId) : undefined));
+  const tab = useTabView(tabId);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const dragCounterRef = React.useRef(0);
   const attachmentsRef = React.useRef<ChatAttachment[]>([]);

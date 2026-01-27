@@ -11,6 +11,8 @@ import { useChatActions, useChatSession, useChatState } from "./context";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useTabView } from "@/hooks/use-tab-view";
 import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessions";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { toast } from "sonner";
@@ -28,10 +30,10 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
   const [prefaceLoading, setPrefaceLoading] = React.useState(false);
   const menuLockRef = React.useRef(false);
   const { sessions, refetch: refetchSessions } = useChatSessions({ tabId });
-  const tab = useTabs((s) => (tabId ? s.tabs.find((t) => t.id === tabId) : undefined));
   const setTabTitle = useTabs((s) => s.setTabTitle);
-  const pushStackItem = useTabs((s) => s.pushStackItem);
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const { basic } = useBasicConfig();
+  const tabView = useTabView(tabId);
 
   const activeSession = React.useMemo(
     () => sessions.find((session) => session.id === activeSessionId),
@@ -39,8 +41,6 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
   );
   const sessionTitle = String(activeSession?.title ?? "").trim();
 
-  const tabTitle = String(tab?.title ?? "").trim();
-  const hasTabBase = Boolean(tab?.base);
   // 逻辑：仅在存在历史消息时显示 Preface 查看按钮。
   const showPrefaceButton = Boolean(basic.chatPrefaceEnabled) && messages.length > 0;
 
@@ -102,16 +102,6 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
       setPrefaceLoading(false);
     }
   }, [activeSessionId, prefaceLoading, pushStackItem, tabId]);
-
-  // Chat-only tab：让 Tab 标题跟随 chatSession.title（避免一直显示默认 “AI Chat”）
-  React.useEffect(() => {
-    if (!tabId) return;
-    if (!tab) return;
-    if (hasTabBase) return;
-    if (sessionTitle.length === 0) return;
-    if (tabTitle === sessionTitle) return;
-    setTabTitle(tabId, sessionTitle);
-  }, [tabId, tab, hasTabBase, sessionTitle, tabTitle, setTabTitle]);
 
   return (
     <div
@@ -202,6 +192,8 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
                 // 选中历史会话后：关闭弹层 + 切换会话并加载历史
                 setHistoryOpen(false);
                 menuLockRef.current = false;
+                const hasTabBase = Boolean(tabView?.base);
+                const tabTitle = String(tabView?.title ?? "").trim();
                 const selectedSessionMeta = sessions.find((item) => item.id === session.id);
                 const isSelectedUserRename = Boolean(selectedSessionMeta?.isUserRename);
                 // 无左侧 base 的 tab：如果历史会话还没被用户重命名/仍是默认标题，则用当前 tab title 覆盖它
@@ -215,6 +207,10 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
                     where: { id: session.id, isUserRename: false },
                     data: { title: tabTitle },
                   } as any);
+                }
+                if (tabId && !hasTabBase) {
+                  const nextTitle = session.name.trim();
+                  if (nextTitle) setTabTitle(tabId, nextTitle);
                 }
                 selectSession(session.id);
               }}

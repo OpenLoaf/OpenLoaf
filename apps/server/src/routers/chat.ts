@@ -23,6 +23,7 @@ function isRenderableRow(row: {
   const kind = row.messageKind ?? "normal";
   if (kind === "compact_prompt") return false;
   if (kind === "compact_summary") return true;
+  if (row.role === "subagent") return false;
   if (row.role === "user") return true;
   const parts = row.parts;
   return Array.isArray(parts) && parts.length > 0;

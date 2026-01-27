@@ -1,4 +1,4 @@
-import { AiExecuteService } from "@/ai/chat/AiExecuteService";
+import { AiExecuteService } from "@/ai/services/chat/AiExecuteService";
 import { AiExecuteController } from "@/ai/interface/controllers/AiExecuteController";
 
 type AiBootstrapResult = {

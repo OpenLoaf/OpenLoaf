@@ -2,7 +2,7 @@
 
 import type { UiEvent } from "@tenas-ai/api/types/event";
 import { UiEventKind } from "@tenas-ai/api/types/event";
-import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { queryClient } from "@/utils/trpc";
 
@@ -17,12 +17,12 @@ export function handleUiEvent(event: UiEvent | undefined) {
     [UiEventKind.PushStackItem]: (
       e: Extract<UiEvent, { kind: UiEventKind.PushStackItem }>,
     ) => {
-      useTabs.getState().pushStackItem(e.tabId, e.item, 100);
+      useTabRuntime.getState().pushStackItem(e.tabId, e.item, 100);
     },
     [UiEventKind.CloseStack]: (
       e: Extract<UiEvent, { kind: UiEventKind.CloseStack }>,
     ) => {
-      useTabs.getState().clearStack(e.tabId);
+      useTabRuntime.getState().clearStack(e.tabId);
     },
     [UiEventKind.RefreshPageTree]: () => {
       const queryKey = getProjectsQueryKey();
@@ -31,9 +31,8 @@ export function handleUiEvent(event: UiEvent | undefined) {
     [UiEventKind.RefreshBasePanel]: (
       e: Extract<UiEvent, { kind: UiEventKind.RefreshBasePanel }>,
     ) => {
-      const state = useTabs.getState();
-      const tab = state.tabs.find((t) => t.id === e.tabId);
-      const base = tab?.base;
+      const state = useTabRuntime.getState();
+      const base = state.runtimeByTabId[e.tabId]?.base;
       if (!base) return;
 
       const current = Number((base.params as any)?.__refreshKey ?? 0);

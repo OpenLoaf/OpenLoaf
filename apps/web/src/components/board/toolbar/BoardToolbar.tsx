@@ -2,9 +2,7 @@
 
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ComponentType, CSSProperties, ForwardRefExoticComponent } from "react";
-import type { DotLottie } from "@lottiefiles/dotlottie-react";
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
-import { Image as ImageLucide, Play, Sparkles } from "lucide-react";
+import { Play } from "lucide-react";
 import type { LucideProps } from "lucide-react";
 import { cn } from "@udecode/cn";
 
@@ -97,6 +95,11 @@ const DRAG_SVG_SRC = "/board/drag-svgrepo-com.svg";
 const NOTE_SVG_SRC = "/board/notes-note-svgrepo-com.svg";
 const PICTURE_SVG_SRC = "/board/picture-photo-svgrepo-com.svg";
 const VIDEO_SVG_SRC = "/board/video-player-movie-svgrepo.svg";
+const FOLDER_SVG_SRC = "/board/folder-svgrepo-com.svg";
+/** Svg source for the image prompt generate icon. */
+const IMAGE_PROMPT_SVG_SRC = "/board/converted_small.svg";
+/** Svg source for the image generate icon. */
+const IMAGE_GENERATE_SVG_SRC = "/board/pictures-svgrepo-com.svg";
 const DEFAULT_VIDEO_WIDTH = 16;
 const DEFAULT_VIDEO_HEIGHT = 9;
 
@@ -220,6 +223,28 @@ function HandIcon({ size = 20, className }: IconProps) {
   );
 }
 
+/** Render the image prompt generate icon for toolbar items. */
+function ImagePromptGenerateIcon({ size = 20, className }: IconProps) {
+  return (
+    <InlineSvgFile
+      src={IMAGE_PROMPT_SVG_SRC}
+      className={cn("inline-flex", className)}
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
+  );
+}
+
+/** Render the image generate icon for toolbar items. */
+function ImageGenerateIcon({ size = 20, className }: IconProps) {
+  return (
+    <InlineSvgFile
+      src={IMAGE_GENERATE_SVG_SRC}
+      className={cn("inline-flex", className)}
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
+  );
+}
+
 /** Render the calendar icon with shared sizing props. */
 function CalendarIcon(props: IconProps) {
   const { size = 20, className } = props;
@@ -323,7 +348,7 @@ const GENERATE_INSERT_ITEMS: InsertItem[] = [
     id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
     title: "图片提示词",
     description: "分析图片并生成描述",
-    icon: Sparkles,
+    icon: ImagePromptGenerateIcon,
     nodeType: IMAGE_PROMPT_GENERATE_NODE_TYPE,
     props: {},
     size: [320, 220],
@@ -332,7 +357,7 @@ const GENERATE_INSERT_ITEMS: InsertItem[] = [
     id: IMAGE_GENERATE_NODE_TYPE,
     title: "图片生成",
     description: "输入图片与文字生成新图",
-    icon: ImageLucide,
+    icon: ImageGenerateIcon,
     nodeType: IMAGE_GENERATE_NODE_TYPE,
     props: {},
     size: [320, 260],
@@ -362,7 +387,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const [videoPickerOpen, setVideoPickerOpen] = useState(false);
-  const [folderLottie, setFolderLottie] = useState<DotLottie | null>(null);
   const isSelectTool = snapshot.activeToolId === "select";
   const isHandTool = snapshot.activeToolId === "hand";
   const isPenTool = snapshot.activeToolId === "pen" || snapshot.activeToolId === "highlighter";
@@ -411,19 +435,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     setHoverGroup(null);
     setInsertPanelPinned(false);
   }, [isLocked]);
-
-  useEffect(() => {
-    if (!folderLottie) return;
-    const handleComplete = () => {
-      // 逻辑：动画结束后停在最后一帧，避免恢复到起始状态。
-      folderLottie.pause();
-      folderLottie.setFrame(Math.max(0, folderLottie.totalFrames - 1));
-    };
-    folderLottie.addEventListener("complete", handleComplete);
-    return () => {
-      folderLottie.removeEventListener("complete", handleComplete);
-    };
-  }, [folderLottie]);
 
   useEffect(() => {
     return () => {
@@ -655,9 +666,18 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const iconSize = 20;
   /** 底部工具栏图标尺寸。 */
   const toolbarIconSize = 22;
+  /** 中间插入工具图标尺寸（直接使用放大后的尺寸）。 */
+  const insertIconSize = 26;
   /** 底部工具栏图标 hover 放大样式。 */
   const toolbarIconClassName =
     "origin-center transition-transform duration-150 ease-out group-hover:scale-[1.2]";
+  /** 中间插入工具图标 hover 旋转样式。 */
+  const insertIconClassName =
+    "origin-center transition-transform duration-150 ease-out group-hover:-rotate-45";
+  /** 生成工具子面板圆弧半径。 */
+  const generateArcRadius = 72;
+  /** 生成工具子面板圆弧起止角度（度数）。 */
+  const generateArcRange: [number, number] = [-160, -20];
 
   return (
     <div
@@ -876,7 +896,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                 disabled={isLocked}
                 className="group h-8 w-8"
               >
-                <Icon size={toolbarIconSize} className={toolbarIconClassName} />
+                <Icon size={insertIconSize} className={insertIconClassName} />
               </IconBtn>
             );
           })}
@@ -887,10 +907,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           className="relative"
           onMouseEnter={() => {
             if (isLocked) return;
-            if (folderLottie) {
-              folderLottie.setFrame(0);
-              folderLottie.play();
-            }
             if (insertPanelHideTimerRef.current) {
               clearTimeout(insertPanelHideTimerRef.current);
               insertPanelHideTimerRef.current = null;
@@ -918,23 +934,32 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
               setInsertPanelPinned(true);
             }}
             disabled={isLocked}
-            className="group h-8 w-8"
+            className="group h-10 w-9 overflow-hidden"
             showTooltip={false}
           >
-            <DotLottieReact
-              src="/board/folders.lottie"
-              loop={false}
-              autoplay={false}
-              dotLottieRefCallback={setFolderLottie}
+            <InlineSvgFile
+              src={FOLDER_SVG_SRC}
               className={cn(
-                "pointer-events-none h-[44px] w-[44px]",
-                "transition-transform duration-150 ease-out"
+                "pointer-events-none",
+                "[&>svg]:fill-current",
+                "transition-transform duration-300 ease-in-out group-hover:translate-y-0",
+                "translate-y-2"
               )}
+              style={{ width: 28, height: 28, userSelect: "none", flexShrink: 0 }}
             />
           </IconBtn>
-          <HoverPanel open={insertPanelOpen} className="w-max">
-            <div className="flex items-center gap-2">
-              {GENERATE_INSERT_ITEMS.map(item => {
+          <HoverPanel
+            open={insertPanelOpen}
+            className="bg-transparent ring-0 shadow-none backdrop-blur-0 p-0"
+          >
+            <div
+              className="relative"
+              style={{
+                width: generateArcRadius * 2 + 40,
+                height: generateArcRadius + 48,
+              }}
+            >
+              {GENERATE_INSERT_ITEMS.map((item, index) => {
                 const Icon = item.icon;
                 const request: CanvasInsertRequest = {
                   id: item.id,
@@ -942,20 +967,55 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                   props: item.props ?? {},
                   size: item.size,
                 };
+                const totalItems = GENERATE_INSERT_ITEMS.length;
+                const [startAngle, endAngle] = generateArcRange;
+                // 逻辑：按圆弧角度计算每个子工具按钮的位置。
+                const angle =
+                  totalItems === 1
+                    ? (startAngle + endAngle) / 2
+                    : startAngle +
+                      ((endAngle - startAngle) * index) / (totalItems - 1);
+                const radians = (angle * Math.PI) / 180;
+                const offsetX = Math.cos(radians) * generateArcRadius;
+                const offsetY = Math.sin(radians) * generateArcRadius;
+                const delayStep = 60;
+                // 逻辑：展开从左到右依次出现，收起反向依次消失。
+                const transitionDelay = insertPanelOpen
+                  ? index * delayStep
+                  : (totalItems - 1 - index) * delayStep;
+
                 return (
-                  <PanelItem
+                  <div
                     key={item.id}
-                    title={item.title}
-                    active={pendingInsert?.id === item.id}
-                    onPointerDown={() => {
-                      if (isLocked) return;
-                      // 逻辑：选择后进入待插入模式，并关闭面板。
-                      handleInsertRequest(request);
-                      setInsertPanelPinned(false);
+                    className="absolute left-1/2 top-full"
+                    style={{
+                      transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`,
                     }}
                   >
-                    <Icon size={16} />
-                  </PanelItem>
+                    <div
+                      className={cn(
+                        "transition-all duration-200 ease-out",
+                        insertPanelOpen
+                          ? "opacity-100 translate-y-0 scale-100"
+                          : "opacity-0 translate-y-2 scale-95"
+                      )}
+                      style={{ transitionDelay: `${transitionDelay}ms` }}
+                    >
+                      <PanelItem
+                        title={item.title}
+                        active={pendingInsert?.id === item.id}
+                        onPointerDown={() => {
+                          if (isLocked) return;
+                          // 逻辑：选择后进入待插入模式，并关闭面板。
+                          handleInsertRequest(request);
+                          setInsertPanelPinned(false);
+                        }}
+                        className="text-[10px]"
+                      >
+                        <Icon size={32} />
+                      </PanelItem>
+                    </div>
+                  </div>
                 );
               })}
             </div>

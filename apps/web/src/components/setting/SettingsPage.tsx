@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from "@tenas-ai/ui/tooltip";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import {
   Bot,
@@ -112,8 +113,8 @@ export default function SettingsPage({
   const { basic } = useBasicConfig();
   const shouldAnimate = basic.uiAnimationLevel !== "low";
 
-  const setTabMinLeftWidth = useTabs((s) => s.setTabMinLeftWidth);
-  const setTabBaseParams = useTabs((s) => s.setTabBaseParams);
+  const setTabMinLeftWidth = useTabRuntime((s) => s.setTabMinLeftWidth);
+  const setTabBaseParams = useTabRuntime((s) => s.setTabBaseParams);
   const activeTabId = useTabs((s) => s.activeTabId);
   const isActiveTab = activeTabId === tabId;
 

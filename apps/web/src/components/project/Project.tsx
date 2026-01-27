@@ -13,6 +13,7 @@ import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useProject } from "@/hooks/use-project";
 import { useProjects } from "@/hooks/use-projects";
 import ProjectIndex, { ProjectIndexHeader } from "./index/ProjectIndex";
@@ -143,8 +144,8 @@ export default function ProjectPage({
   fileUri: externalFileUri,
 }: ProjectPageProps) {
   const tabActive = useTabActive();
-  const setTabLeftWidthPercent = useTabs((s) => s.setTabLeftWidthPercent);
-  const setTabBaseParams = useTabs((s) => s.setTabBaseParams);
+  const setTabLeftWidthPercent = useTabRuntime((s) => s.setTabLeftWidthPercent);
+  const setTabBaseParams = useTabRuntime((s) => s.setTabBaseParams);
   const setTabTitle = useTabs((s) => s.setTabTitle);
   const setTabIcon = useTabs((s) => s.setTabIcon);
   const appliedWidthRef = useRef(false);

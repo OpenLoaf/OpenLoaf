@@ -17,13 +17,13 @@ import { logger } from "@/common/logger";
 import { resolveParentProjectRootPaths } from "@/ai/shared/util";
 import { parseCommandAtStart } from "@/ai/tools/CommandParser";
 import { buildSessionPrefaceText } from "@/ai/shared/prefaceBuilder";
-import { normalizePromptForImageEdit } from "@/ai/image/imageEditNormalizer";
-import { resolveImagePrompt, type GenerateImagePrompt } from "@/ai/image/imagePrompt";
+import { normalizePromptForImageEdit } from "@/ai/services/image/imageEditNormalizer";
+import { resolveImagePrompt, type GenerateImagePrompt } from "@/ai/services/image/imagePrompt";
 import {
   resolveImageSaveDirectory,
   saveGeneratedImages,
   saveGeneratedImagesToDirectory,
-} from "@/ai/image/imageStorage";
+} from "@/ai/services/image/imageStorage";
 import {
   createChatImageErrorResult,
   formatImageErrorMessage,
@@ -38,15 +38,15 @@ import {
   resolvePreviousChatModelId,
   resolveRequiredInputTags,
 } from "./modelResolution";
-import type { ChatStreamRequest } from "@/ai/chat/types";
+import type { ChatStreamRequest } from "@/ai/services/chat/types";
 import {
   clearSessionErrorMessage,
   ensureSessionPreface,
   resolveRightmostLeafId,
   saveMessage,
   setSessionErrorMessage,
-} from "@/ai/chat/repositories/messageStore";
-import type { ChatImageRequest, ChatImageRequestResult } from "@/ai/image/types";
+} from "@/ai/services/chat/repositories/messageStore";
+import type { ChatImageRequest, ChatImageRequestResult } from "@/ai/services/image/types";
 import { buildTimingMetadata } from "./metadataBuilder";
 import {
   createChatStreamResponse,

@@ -6,6 +6,8 @@ import {
   TERMINAL_WINDOW_PANEL_ID,
 } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { Globe } from "lucide-react";
 import { memo } from "react";
 import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
@@ -29,9 +31,9 @@ const TestSetting = memo(function TestSetting() {
     const tab = id ? s.tabs.find((t) => t.id === id) : undefined;
     return tab?.stack?.length ?? 0;
   });
-  const pushStackItem = useTabs((s) => s.pushStackItem);
-  const clearStack = useTabs((s) => s.clearStack);
-  const upsertToolPart = useTabs((s) => s.upsertToolPart);
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const clearStack = useTabRuntime((s) => s.clearStack);
+  const upsertToolPart = useChatRuntime((s) => s.upsertToolPart);
 
   /** Terminal feature status reported by server. */
   const terminalStatus = useTerminalStatus();

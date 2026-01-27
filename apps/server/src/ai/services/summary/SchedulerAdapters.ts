@@ -1,4 +1,4 @@
-import type { ScheduleJobInput, SchedulerPort } from "@/ai/summary/SchedulerPort";
+import type { ScheduleJobInput, SchedulerPort } from "@/ai/services/summary/SchedulerPort";
 
 export class InProcessSchedulerAdapter implements SchedulerPort {
   /** Active timer handles. */

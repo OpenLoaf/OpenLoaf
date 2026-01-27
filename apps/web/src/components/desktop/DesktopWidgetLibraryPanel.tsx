@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useProjects } from "@/hooks/use-projects";
 import { Input } from "@tenas-ai/ui/input";
 import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
@@ -109,7 +110,7 @@ export default function DesktopWidgetLibraryPanel({
   tabId,
 }: DesktopWidgetLibraryPanelProps) {
   // 当前 tab 的 stack 删除方法。
-  const removeStackItem = useTabs((s) => s.removeStackItem);
+  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
   // 过滤关键字。
   const [query, setQuery] = React.useState("");
   // 项目列表（用于解析项目目录引用）。
