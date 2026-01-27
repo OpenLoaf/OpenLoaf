@@ -167,12 +167,13 @@ function buildPreviewPayload(input: {
   modal?: FileOpenInput["modal"];
 }): FilePreviewPayload {
   const previewUri = resolvePreviewUri(input.entry, input.rootUri, input.viewer);
+  const displayName = input.entry.name || resolveEntryName(input.entry.uri);
   const item: FilePreviewItem = {
     uri: previewUri,
     openUri: input.entry.uri,
-    name: input.entry.name,
-    title: input.entry.name,
-    saveName: input.entry.name,
+    name: displayName,
+    title: displayName,
+    saveName: displayName,
     ext: input.entry.ext,
     projectId: input.projectId,
     rootUri: input.rootUri,
@@ -181,7 +182,22 @@ function buildPreviewPayload(input: {
   return {
     viewer: input.viewer,
     readOnly: input.readOnly,
-    items: [item],
+    items:
+      input.viewer === "video"
+        ? [
+            {
+              ...item,
+              name: displayName,
+              title: displayName,
+            },
+          ]
+        : [
+            {
+              ...item,
+              name: "",
+              title: "",
+            },
+          ],
     activeIndex: 0,
     showSave: input.modal?.showSave,
     enableEdit: input.modal?.enableEdit,

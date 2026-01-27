@@ -3,7 +3,6 @@ import { ToolLoopAgent } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { AgentFrame } from "@/ai/shared/context/requestContext";
 import { buildToolset } from "@/ai/tools/toolRegistry";
-import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
 import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
@@ -41,7 +40,6 @@ const writeStdinToolDef = isWindows ? writeStdinToolDefWin : writeStdinToolDefUn
 /** Master agent tool ids. */
 const MASTER_AGENT_TOOL_IDS = [
   timeNowToolDef.id,
-  testApprovalToolDef.id,
   jsonRenderToolDef.id,
   subAgentToolDef.id,
   openUrlToolDef.id,

@@ -9,6 +9,7 @@ export type SubAgentStreamState = {
   task?: string;
   output: string;
   errorText?: string;
+  parts?: unknown[];
   state: "output-streaming" | "output-available" | "output-error";
   streaming?: boolean;
 };

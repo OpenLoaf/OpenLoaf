@@ -12,7 +12,7 @@ import {
 import { AlertTriangle, Download, Redo2, Sparkles, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@tenas-ai/ui/button";
 import { trpc } from "@/utils/trpc";
-import { useOptionalChatSession } from "@/components/chat/context";
+import { useOptionalChatOptions, useOptionalChatSession } from "@/components/chat/context";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useCloudModels } from "@/hooks/use-cloud-models";
@@ -219,7 +219,7 @@ export default function ImageViewer({
   // 记录容器尺寸，用于计算图片适配缩放。
   const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
   const [imageSize, setImageSize] = React.useState({ width: 0, height: 0 });
-  const [fitScale, setFitScale] = React.useState(1);
+  const fitScale = 1;
   // 保存中状态，避免重复触发。
   const [isSaving, setIsSaving] = React.useState(false);
   const [isAdjusting, setIsAdjusting] = React.useState(false);
@@ -236,6 +236,7 @@ export default function ImageViewer({
   const workspaceId = workspace?.id ?? "";
   const shouldUseBinary =
     Boolean(uri) && Boolean(workspaceId) && (shouldUseFs || isRelative);
+  const chat = useOptionalChatOptions();
   const chatSession = useOptionalChatSession();
   const projectId = projectIdProp ?? chatSession?.projectId;
   const { basic, setBasic } = useBasicConfig();
@@ -299,9 +300,13 @@ export default function ImageViewer({
   // 用 base64 构造 dataUrl，避免浏览器直接访问 file:// 资源。
   const dataUrl = isDataUrl || isBlob
     ? uri
-    : payload?.contentBase64 && payload?.mime
-      ? `data:${payload.mime};base64,${payload.contentBase64}`
-      : placeholderSrc;
+    : shouldUseBinary
+      ? payload?.contentBase64 && payload?.mime
+        ? `data:${payload.mime};base64,${payload.contentBase64}`
+        : placeholderSrc
+      : !isRelative && uri
+        ? uri
+        : placeholderSrc;
 
   const displayTitle = title || name || "图片预览";
   // 默认保存名按图片加载时刻生成，避免对话框内不断变化。
@@ -484,36 +489,6 @@ export default function ImageViewer({
     void applyInitialMask();
   }, [applyInitialMask, dataUrl, initialMaskUri, initialMaskTick]);
 
-  React.useEffect(() => {
-    if (!dataUrl) return;
-    if (!imageSize.width || !imageSize.height) return;
-    if (!containerSize.width || !containerSize.height) return;
-    const nextScale = Math.min(
-      containerSize.width / imageSize.width,
-      containerSize.height / imageSize.height,
-      1
-    );
-    setFitScale(nextScale);
-  }, [containerSize.height, containerSize.width, dataUrl, imageSize.height, imageSize.width]);
-
-  React.useEffect(() => {
-    if (!dataUrl) return;
-    if (!imageSize.width || !imageSize.height) return;
-    if (!containerSize.width || !containerSize.height) return;
-    const applyKey = `${dataUrl}:${containerSize.width}x${containerSize.height}:${imageSize.width}x${imageSize.height}`;
-    if (appliedRef.current === applyKey) return;
-    const instance = transformRef.current?.instance;
-    if (instance?.wrapperComponent && instance.contentComponent) {
-      const { positionX, positionY } = getCenterPosition(
-        fitScale,
-        instance.wrapperComponent,
-        instance.contentComponent
-      );
-      // 首次加载时按容器尺寸适配到完整显示。
-      transformRef.current?.setTransform(positionX, positionY, fitScale, 0);
-    }
-    appliedRef.current = applyKey;
-  }, [containerSize.height, containerSize.width, dataUrl, fitScale, imageSize.height, imageSize.width]);
 
   React.useEffect(() => {
     if (!isAdjusting) return;
@@ -935,7 +910,7 @@ export default function ImageViewer({
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       {showHeader ? (
-        <div className="flex h-12 items-center justify-between border-b border-border/60 px-4">
+        <div className="flex h-12 items-center justify-between border-b border-border/60 bg-background px-4">
           <div className="truncate text-sm font-medium text-foreground">
             {displayTitle}
           </div>
@@ -1019,22 +994,10 @@ export default function ImageViewer({
                 <span className="ml-1">{isAdjusting ? "完成" : "修改"}</span>
               </Button>
             ) : null}
-            {onClose ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                aria-label="关闭"
-                onClick={onClose}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            ) : null}
           </div>
         </div>
       ) : null}
-      <div ref={wrapperRef} className="flex-1 overflow-hidden p-1">
+      <div ref={wrapperRef} className="flex-1 overflow-hidden bg-background p-1">
         {dataUrl ? (
           showAdjustLayer ? (
             <div className="flex h-full w-full items-center justify-center">
@@ -1076,16 +1039,15 @@ export default function ImageViewer({
               </div>
             </div>
           ) : (
-            <TransformWrapper
-              ref={transformRef}
-              initialScale={fitScale}
-              minScale={fitScale}
-              maxScale={3}
-              centerOnInit
-              limitToBounds
-              wheel={{ smoothStep: 0.01 }}
-              pinch={{ step: 8 }}
-            >
+              <TransformWrapper
+                ref={transformRef}
+                initialScale={fitScale}
+                minScale={fitScale}
+                maxScale={3}
+                limitToBounds
+                wheel={{ smoothStep: 0.01 }}
+                pinch={{ step: 8 }}
+              >
               <TransformComponent
                 wrapperClass="h-full w-full"
                 contentClass="flex h-full w-full items-center justify-center"

@@ -39,3 +39,8 @@ export function useChatOptions() {
   }
   return context;
 }
+
+/** Return the chat options context if available. */
+export function useOptionalChatOptions() {
+  return useContext(ChatOptionsContext);
+}

@@ -677,7 +677,9 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   /** 生成工具子面板圆弧半径。 */
   const generateArcRadius = 72;
   /** 生成工具子面板圆弧起止角度（度数）。 */
-  const generateArcRange: [number, number] = [-160, -20];
+  const generateArcRange: [number, number] = [-130, -50];
+  /** 生成工具子面板整体下移偏移量。 */
+  const generateArcOffsetY = 30;
 
   return (
     <div
@@ -922,7 +924,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             insertPanelHideTimerRef.current = setTimeout(() => {
               setHoverGroup(null);
               insertPanelHideTimerRef.current = null;
-            }, 2000);
+            }, 300);
           }}
         >
           <IconBtn
@@ -950,13 +952,19 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           </IconBtn>
           <HoverPanel
             open={insertPanelOpen}
-            className="bg-transparent ring-0 shadow-none backdrop-blur-0 p-0"
+            className={cn(
+              "bg-transparent ring-0 shadow-none backdrop-blur-0 p-0",
+              insertPanelOpen
+                ? "opacity-100 scale-100"
+                : "opacity-100 scale-100 pointer-events-none"
+            )}
           >
             <div
               className="relative"
               style={{
                 width: generateArcRadius * 2 + 40,
                 height: generateArcRadius + 48,
+                transform: `translateY(${generateArcOffsetY}px)`,
               }}
             >
               {GENERATE_INSERT_ITEMS.map((item, index) => {
@@ -1010,7 +1018,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                           handleInsertRequest(request);
                           setInsertPanelPinned(false);
                         }}
-                        className="text-[10px]"
+                        className="text-[10px] text-slate-400"
                       >
                         <Icon size={32} />
                       </PanelItem>

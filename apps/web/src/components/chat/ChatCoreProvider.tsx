@@ -2,7 +2,7 @@
 
 import React, { type ReactNode } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
-import { generateId } from "ai";
+import { generateId, readUIMessageStream, type UIMessageChunk } from "ai";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
@@ -65,18 +65,25 @@ type SubAgentDataPayload = {
   delta?: string;
   output?: string;
   errorText?: string;
+  chunk?: UIMessageChunk;
 };
 
 function handleSubAgentDataPart(input: {
   dataPart: any;
   setSubAgentStreams?: React.Dispatch<React.SetStateAction<Record<string, SubAgentStreamState>>>;
+  enqueueSubAgentChunk?: (toolCallId: string, chunk: UIMessageChunk) => void;
+  closeSubAgentStream?: (
+    toolCallId: string,
+    state: "output-available" | "output-error",
+  ) => void;
 }) {
   const type = input.dataPart?.type;
   if (
     type !== "data-sub-agent-start" &&
     type !== "data-sub-agent-delta" &&
     type !== "data-sub-agent-end" &&
-    type !== "data-sub-agent-error"
+    type !== "data-sub-agent-error" &&
+    type !== "data-sub-agent-chunk"
   ) {
     return false;
   }
@@ -85,8 +92,21 @@ function handleSubAgentDataPart(input: {
   const toolCallId = typeof payload?.toolCallId === "string" ? payload?.toolCallId : "";
   if (!toolCallId) return true;
 
+  if (type === "data-sub-agent-chunk") {
+    const chunk = payload?.chunk;
+    if (!chunk) return true;
+    input.enqueueSubAgentChunk?.(toolCallId, chunk);
+    return true;
+  }
+
   const setSubAgentStreams = input.setSubAgentStreams;
   if (!setSubAgentStreams) return true;
+  if (type === "data-sub-agent-end") {
+    input.closeSubAgentStream?.(toolCallId, "output-available");
+  }
+  if (type === "data-sub-agent-error") {
+    input.closeSubAgentStream?.(toolCallId, "output-error");
+  }
 
   setSubAgentStreams((prev) => {
     const current = prev[toolCallId] ?? {
@@ -224,6 +244,9 @@ export default function ChatCoreProvider({
   const [subAgentStreams, setSubAgentStreams] = React.useState<
     Record<string, SubAgentStreamState>
   >({});
+  const subAgentStreamControllersRef = React.useRef(
+    new Map<string, ReadableStreamDefaultController<UIMessageChunk>>(),
+  );
   const [stepThinking, setStepThinking] = React.useState(false);
   const [sessionErrorMessage, setSessionErrorMessage] = React.useState<string | null>(null);
   const upsertToolPart = useChatRuntime((s) => s.upsertToolPart);
@@ -264,6 +287,115 @@ export default function ChatCoreProvider({
   // 关键：用于自动标题更新的回复计数与首条消息刷新。
   const assistantReplyCountRef = React.useRef(0);
   const pendingInitialTitleRefreshRef = React.useRef(false);
+
+  const ensureSubAgentStreamController = React.useCallback(
+    (toolCallId: string) => {
+      const existing = subAgentStreamControllersRef.current.get(toolCallId);
+      if (existing) return existing;
+
+      let controller: ReadableStreamDefaultController<UIMessageChunk> | null = null;
+      const stream = new ReadableStream<UIMessageChunk>({
+        start(controllerParam) {
+          controller = controllerParam;
+        },
+      });
+      if (!controller) return null;
+      subAgentStreamControllersRef.current.set(toolCallId, controller);
+
+      const messageStream = readUIMessageStream({
+        stream,
+      });
+
+      (async () => {
+        try {
+          for await (const message of messageStream as AsyncIterable<{
+            parts?: unknown[];
+          }>) {
+            setSubAgentStreams((prev) => {
+              const current = prev[toolCallId] ?? {
+                toolCallId,
+                output: "",
+                state: "output-streaming",
+              };
+              return {
+                ...prev,
+                [toolCallId]: {
+                  ...current,
+                  parts: Array.isArray(message.parts) ? message.parts : current.parts,
+                  state: "output-streaming",
+                  streaming: true,
+                },
+              };
+            });
+          }
+        } finally {
+          setSubAgentStreams((prev) => {
+            const current = prev[toolCallId];
+            if (!current) return prev;
+            return {
+              ...prev,
+              [toolCallId]: {
+                ...current,
+                streaming: false,
+              },
+            };
+          });
+        }
+      })();
+
+      return controller;
+    },
+    [setSubAgentStreams],
+  );
+
+  const enqueueSubAgentChunk = React.useCallback(
+    (toolCallId: string, chunk: UIMessageChunk) => {
+      const controller = ensureSubAgentStreamController(toolCallId);
+      if (!controller) return;
+      controller.enqueue(chunk);
+      const type = (chunk as any)?.type;
+      if (type === "finish" || type === "error" || type === "abort") {
+        controller.close();
+        subAgentStreamControllersRef.current.delete(toolCallId);
+        setSubAgentStreams((prev) => {
+          const current = prev[toolCallId];
+          if (!current) return prev;
+          return {
+            ...prev,
+            [toolCallId]: {
+              ...current,
+              streaming: false,
+              state: type === "error" || type === "abort" ? "output-error" : "output-available",
+            },
+          };
+        });
+      }
+    },
+    [ensureSubAgentStreamController, setSubAgentStreams],
+  );
+
+  const closeSubAgentStream = React.useCallback(
+    (toolCallId: string, state: "output-available" | "output-error") => {
+      const controller = subAgentStreamControllersRef.current.get(toolCallId);
+      if (controller) {
+        controller.close();
+        subAgentStreamControllersRef.current.delete(toolCallId);
+      }
+      setSubAgentStreams((prev) => {
+        const current = prev[toolCallId];
+        if (!current) return prev;
+        return {
+          ...prev,
+          [toolCallId]: {
+            ...current,
+            streaming: false,
+            state,
+          },
+        };
+      });
+    },
+    [setSubAgentStreams],
+  );
 
   React.useEffect(() => {
     assistantReplyCountRef.current = 0;
@@ -410,7 +542,15 @@ export default function ChatCoreProvider({
           return;
         }
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
-        if (handleSubAgentDataPart({ dataPart, setSubAgentStreams })) return;
+        if (
+          handleSubAgentDataPart({
+            dataPart,
+            setSubAgentStreams,
+            enqueueSubAgentChunk,
+            closeSubAgentStream,
+          })
+        )
+          return;
         toolStream.handleDataPart({ dataPart, tabId, upsertToolPartMerged });
       },
     }),
@@ -481,6 +621,10 @@ export default function ChatCoreProvider({
       setBranchMessageIds([]);
       setSiblingNav({});
       setSubAgentStreams({});
+      subAgentStreamControllersRef.current.forEach((controller) => {
+        controller.close();
+      });
+      subAgentStreamControllersRef.current.clear();
       setStepThinking(false);
       setSessionErrorMessage(null);
       if (clearTools && tabId) clearToolPartsForTab(tabId);

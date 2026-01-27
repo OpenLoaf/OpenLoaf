@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen } from 'electron';
+import { app, BrowserWindow, dialog, screen } from 'electron';
 import { resolveWindowIconPath } from '../resolveWindowIcon';
 import type { Logger } from '../logging/startupLogger';
 import type { ServiceManager } from '../services/serviceManager';
@@ -116,6 +116,42 @@ export async function createMainWindow(args: {
 
   bindWindowTitle(mainWindow);
   disableZoom(mainWindow);
+  let allowClose = false;
+  let quitConfirming = false;
+  const confirmQuit = () => {
+    if (quitConfirming) return false;
+    quitConfirming = true;
+    const response = dialog.showMessageBoxSync(mainWindow, {
+      type: 'question',
+      buttons: ['取消', '退出'],
+      defaultId: 1,
+      cancelId: 0,
+      title: '确认退出',
+      message: '确定要退出 Tenas 吗？',
+    });
+    quitConfirming = false;
+    if (response === 1) {
+      allowClose = true;
+      return true;
+    }
+    return false;
+  };
+  app.on('before-quit', (event) => {
+    if (allowClose) return;
+    // 中文注释：Cmd+Q 触发 before-quit，这里统一拦截并询问确认。
+    event.preventDefault();
+    if (confirmQuit()) {
+      app.quit();
+    }
+  });
+  mainWindow.on('close', (event) => {
+    if (allowClose) return;
+    // 中文注释：关闭主窗口时弹出确认框，避免误退出。
+    event.preventDefault();
+    if (confirmQuit()) {
+      app.quit();
+    }
+  });
   args.log('Window created. Loading loading screen...');
   await mainWindow.loadURL(args.entries.loadingWindow);
 

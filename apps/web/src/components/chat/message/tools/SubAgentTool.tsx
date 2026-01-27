@@ -41,6 +41,31 @@ function stringifyOutput(output: unknown): string {
   return raw ? raw : "";
 }
 
+function buildFallbackParts(input: {
+  output: unknown;
+  errorText?: string;
+}): unknown[] {
+  const errorText =
+    typeof input.errorText === "string" && input.errorText.trim()
+      ? input.errorText.trim()
+      : "";
+  if (errorText) {
+    return [{ type: "text", text: errorText, state: "done" }];
+  }
+  if (Array.isArray(input.output)) return input.output;
+  if (typeof input.output === "string" && input.output.trim()) {
+    return [{ type: "text", text: input.output, state: "done" }];
+  }
+  if (input.output && typeof input.output === "object") {
+    const text = (input.output as { text?: unknown }).text;
+    if (typeof text === "string" && text.trim()) {
+      return [{ type: "text", text: text.trim(), state: "done" }];
+    }
+  }
+  const raw = stringifyOutput(input.output);
+  return raw ? [{ type: "text", text: raw, state: "done" }] : [];
+}
+
 /**
  * Sub-agent tool renderer (no background).
  */
@@ -63,11 +88,6 @@ export default function SubAgentTool({
   const actionName = getActionName(resolvedPart);
   const errorText = stream?.errorText || resolvedPart.errorText;
   const outputRaw = stream ? stream.output : resolvedPart.output;
-  const outputText = stringifyOutput(outputRaw);
-  const displayText =
-    typeof errorText === "string" && errorText.trim()
-      ? errorText.trim()
-      : outputText;
   const isStreaming = stream?.streaming === true || isToolStreaming(resolvedPart);
 
   const hasOutputPayload =
@@ -121,6 +141,18 @@ export default function SubAgentTool({
     staleTime: Number.POSITIVE_INFINITY,
   });
   const historyMessage = (historyQuery.data?.message ?? null) as SubAgentHistoryMessage | null;
+  const streamParts = Array.isArray(stream?.parts) ? stream?.parts : undefined;
+  const historyParts =
+    isOpen && Array.isArray(historyMessage?.parts) ? historyMessage?.parts : undefined;
+  const fallbackParts = buildFallbackParts({ output: outputRaw, errorText });
+  const renderParts = streamParts ?? historyParts ?? fallbackParts;
+  const streamingParts =
+    renderParts.length === 0 && isStreaming ? [{ type: "text", text: "生成中…", state: "done" }] : renderParts;
+  const previewParts =
+    streamingParts.length > 0 ? [streamingParts[0]!] : [];
+  const renderMessageId = historyMessage?.id;
+
+  const shouldShowLoading = historyQuery.isLoading && (!streamParts || streamParts.length === 0);
 
   return (
     <div className={cn("ml-2 w-full min-w-0 max-w-full")}>
@@ -133,24 +165,27 @@ export default function SubAgentTool({
           {actionName || "SubAgent"}
         </div>
         {!isOpen ? (
-          <div className="whitespace-pre-wrap break-words text-[12px] text-foreground/80">
-            {displayText || (isStreaming ? "生成中…" : "")}
+          <div className="min-w-0 w-full max-w-full text-[12px] text-foreground/80">
+            {renderMessageParts(previewParts, { toolVariant: "nested", messageId: renderMessageId })}
           </div>
         ) : null}
       </button>
 
       {isOpen ? (
         <div className="mt-2 space-y-2">
-          {historyQuery.isLoading ? (
+          {shouldShowLoading ? (
             <div className="text-[11px] text-muted-foreground">加载中…</div>
           ) : historyMessage ? (
             <div className="space-y-2">
-              {renderMessageParts(historyMessage.parts as any[], {
-                messageId: historyMessage.id,
+              {renderMessageParts(streamingParts as any[], {
+                toolVariant: "nested",
+                messageId: renderMessageId,
               })}
             </div>
           ) : (
-            <div className="text-[11px] text-muted-foreground">暂无子代理记录</div>
+            <div className="space-y-2">
+              {renderMessageParts(streamingParts as any[], { toolVariant: "nested" })}
+            </div>
           )}
         </div>
       ) : null}

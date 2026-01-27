@@ -11,7 +11,6 @@ import type {
 } from "../../engine/types";
 
 export type GpuPalette = {
-  grid: [number, number, number, number];
   nodeFill: [number, number, number, number];
   nodeStroke: [number, number, number, number];
   nodeSelected: [number, number, number, number];
@@ -78,7 +77,6 @@ export type GpuViewMessage = {
   type: "view";
   viewport: CanvasViewportState;
   palette: GpuPalette;
-  hideGrid?: boolean;
   renderNodes?: boolean;
 };
 

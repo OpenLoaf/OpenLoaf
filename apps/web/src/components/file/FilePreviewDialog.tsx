@@ -3,7 +3,13 @@
 import * as React from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@tenas-ai/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogTitle } from "@tenas-ai/ui/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@tenas-ai/ui/dialog";
 import ImageViewer from "@/components/file/ImageViewer";
 import MarkdownViewer from "@/components/file/MarkdownViewer";
 import CodeViewer from "@/components/file/CodeViewer";
@@ -16,13 +22,14 @@ import { getImageDialogSize, type ImageMeta } from "@/lib/image/dialog-size";
 import { useFilePreviewStore, closeFilePreview } from "@/components/file/lib/file-preview-store";
 
 /** Calculate preview dialog size based on media dimensions and viewport limits. */
-function getVideoDialogSize(meta: { width: number; height: number }) {
+function getVideoDialogSize(meta: { width: number; height: number; hasHeader?: boolean }) {
   const padding = 32;
+  const headerHeight = meta.hasHeader ? 48 : 0;
   const minWidth = 576;
   const maxWidth = Math.floor(window.innerWidth * 0.9);
   const maxHeight = Math.floor(window.innerHeight * 0.9);
   const maxContentWidth = Math.max(maxWidth - padding, 1);
-  const maxContentHeight = Math.max(maxHeight - padding, 1);
+  const maxContentHeight = Math.max(maxHeight - padding - headerHeight, 1);
   const minContentWidth = Math.min(minWidth, maxContentWidth);
   const clampedWidth = Math.min(meta.width, maxContentWidth);
   // 逻辑：按视频比例等比缩放，保持弹窗适配视窗范围。
@@ -39,7 +46,7 @@ function getVideoDialogSize(meta: { width: number; height: number }) {
   }
   return {
     width: contentWidth + padding,
-    height: contentHeight + padding,
+    height: contentHeight + padding + headerHeight,
   };
 }
 
@@ -91,12 +98,25 @@ export default function FilePreviewDialog() {
     if (!isVideo) return;
     const width = currentItem?.width;
     const height = currentItem?.height;
+    const hasHeader = Boolean(currentItem?.title?.trim());
     if (!width || !height || width <= 0 || height <= 0) {
+      console.info("[FilePreviewDialog] video size missing", {
+        uri: currentItem?.uri,
+        width,
+        height,
+      });
       setVideoDialogSize(null);
       return;
     }
     const update = () => {
-      setVideoDialogSize(getVideoDialogSize({ width, height }));
+      const size = getVideoDialogSize({ width, height, hasHeader });
+      console.info("[FilePreviewDialog] video dialog size", {
+        uri: currentItem?.uri,
+        width,
+        height,
+        size,
+      });
+      setVideoDialogSize(size);
     };
     update();
     window.addEventListener("resize", update);
@@ -115,12 +135,12 @@ export default function FilePreviewDialog() {
       <DialogContent
         className={
           isImage
-            ? `h-auto w-auto max-h-[80vh] max-w-none sm:max-w-none p-0 overflow-hidden flex flex-col gap-0 transition-opacity duration-200 border border-border/60 bg-transparent shadow-none ${
+            ? `h-auto w-auto max-h-[80vh] max-w-none sm:max-w-none p-0 overflow-hidden grid gap-4 border border-border/60 bg-background shadow-lg data-[state=open]:animate-none data-[state=closed]:animate-none ${
                 dialogSize ? "opacity-100" : "opacity-100 min-h-[200px] min-w-[320px]"
               }`
             : isVideo && videoDialogSize
-              ? "h-auto w-auto max-h-[90vh] max-w-none p-0 overflow-hidden transition-opacity duration-200"
-              : "h-[90vh] w-[90vw] max-w-none p-0 overflow-hidden"
+              ? "h-auto w-auto max-h-[90vh] max-w-none sm:max-w-none p-0 overflow-hidden transition-opacity duration-200"
+              : "h-[90vh] w-[90vw] max-w-none sm:max-w-none p-0 overflow-hidden"
         }
         overlayClassName="bg-background/35 backdrop-blur-2xl"
         style={
@@ -143,6 +163,7 @@ export default function FilePreviewDialog() {
         }
       >
         <DialogTitle className="sr-only">文件预览</DialogTitle>
+        <DialogDescription className="sr-only">文件预览弹窗</DialogDescription>
         <div className="relative h-full w-full">
           {payload.viewer === "image" ? (
             <ImageViewer

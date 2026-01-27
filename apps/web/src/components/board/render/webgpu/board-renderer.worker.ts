@@ -21,14 +21,12 @@ import {
   resolveConnectorEndpointsSmart,
 } from "../../utils/connector-path";
 
-const GRID_SIZE = 80;
 const TEXT_ATLAS_SIZE = 1024;
 const TEXT_FONT_FAMILY = "ui-sans-serif, system-ui, sans-serif";
 const TEXT_MAX_LENGTH = 120;
 /** Group node types that need outline padding for connector resolution. */
 const GROUP_NODE_TYPES = new Set(["group", "image-group"]);
 const PALETTE_KEYS: Array<keyof GpuPalette> = [
-  "grid",
   "nodeFill",
   "nodeStroke",
   "nodeSelected",
@@ -111,7 +109,6 @@ type SceneGeometry = {
 type ViewState = {
   viewport: CanvasViewportState;
   palette: GpuPalette;
-  hideGrid: boolean;
   renderNodes: boolean;
 };
 
@@ -202,14 +199,8 @@ let latestState: GpuStateSnapshot | null = null;
 let latestView: ViewState | null = null;
 /** Cached GPU buffers for the current scene. */
 let sceneBuffers: SceneBuffers | null = null;
-/** Cached GPU buffer for grid lines. */
-let gridLineBuffer: GPUBuffer | null = null;
-/** Cached grid line vertex count. */
-let gridLineCount = 0;
 /** Dirty flag for scene geometry rebuild. */
 let sceneDirty = false;
-/** Dirty flag for grid geometry rebuild. */
-let gridDirty = false;
 /** Render scheduling guard. */
 let renderScheduled = false;
 let lastImageTextureCount = -1;
@@ -614,26 +605,6 @@ function getNodeBoundsMap(elements: GpuSceneSnapshot["elements"], groupPadding: 
 function appendLine(lines: LineVertex[], a: CanvasPoint, b: CanvasPoint, color: Vec4) {
   lines.push({ x: a[0], y: a[1], color });
   lines.push({ x: b[0], y: b[1], color });
-}
-
-function buildGridLines(viewport: CanvasViewportState, color: Vec4) {
-  const lines: LineVertex[] = [];
-  const zoom = viewport.zoom;
-  const [width, height] = viewport.size;
-  const left = -viewport.offset[0] / zoom;
-  const top = -viewport.offset[1] / zoom;
-  const right = (width - viewport.offset[0]) / zoom;
-  const bottom = (height - viewport.offset[1]) / zoom;
-  const startX = Math.floor(left / GRID_SIZE) * GRID_SIZE;
-  const startY = Math.floor(top / GRID_SIZE) * GRID_SIZE;
-
-  for (let x = startX; x <= right; x += GRID_SIZE) {
-    appendLine(lines, [x, top], [x, bottom], color);
-  }
-  for (let y = startY; y <= bottom; y += GRID_SIZE) {
-    appendLine(lines, [left, y], [right, y], color);
-  }
-  return lines;
 }
 
 function sampleBezier(points: CanvasPoint[], segments = 24) {
@@ -1142,28 +1113,10 @@ function destroySceneBuffers(buffers: SceneBuffers | null) {
   buffers.imageDraws.forEach(draw => draw.buffer.destroy());
 }
 
-/** Destroy cached grid buffer. */
-function destroyGridBuffer() {
-  if (gridLineBuffer) {
-    gridLineBuffer.destroy();
-    gridLineBuffer = null;
-  }
-  gridLineCount = 0;
-}
-
 /** Rebuild scene buffers from latest data. */
 function rebuildSceneBuffers(scene: GpuSceneSnapshot, state: GpuStateSnapshot, view: ViewState) {
   destroySceneBuffers(sceneBuffers);
   sceneBuffers = buildSceneBuffers(scene, state, view);
-}
-
-/** Rebuild grid buffers for the current view. */
-function rebuildGridBuffer(view: ViewState) {
-  destroyGridBuffer();
-  if (view.hideGrid) return;
-  const gridLines = buildGridLines(view.viewport, toColor(view.palette.grid));
-  gridLineBuffer = buildLineBuffer(gridLines);
-  gridLineCount = gridLines.length;
 }
 
 /** Build GPU buffers for the current scene. */
@@ -1209,12 +1162,6 @@ function renderFrame() {
     rebuildSceneBuffers(latestScene, latestState, latestView);
     sceneDirty = false;
   }
-  if (gridDirty) {
-    // 逻辑：视图或配色变化时重建网格线。
-    rebuildGridBuffer(latestView);
-    gridDirty = false;
-  }
-
   updateViewUniform(latestView.viewport);
 
   const encoder = device.createCommandEncoder();
@@ -1233,10 +1180,6 @@ function renderFrame() {
   if (linePipeline) {
     renderPass.setPipeline(linePipeline);
     renderPass.setBindGroup(0, viewBindGroup);
-    if (gridLineBuffer) {
-      renderPass.setVertexBuffer(0, gridLineBuffer);
-      renderPass.draw(gridLineCount, 1, 0, 0);
-    }
     if (sceneBuffers?.lineBuffer) {
       renderPass.setVertexBuffer(0, sceneBuffers.lineBuffer);
       renderPass.draw(sceneBuffers.lineCount, 1, 0, 0);
@@ -1518,7 +1461,6 @@ self.onmessage = (event: MessageEvent<GpuMessage>) => {
     canvasSize = message.size;
     dpr = message.dpr;
     configureContext();
-    gridDirty = true;
     scheduleRender();
     return;
   }
@@ -1538,20 +1480,15 @@ self.onmessage = (event: MessageEvent<GpuMessage>) => {
     const nextView: ViewState = {
       viewport: message.viewport,
       palette: message.palette,
-      hideGrid: Boolean(message.hideGrid),
       renderNodes: message.renderNodes !== false,
     };
     const prevView = latestView;
     const viewportChanged = !prevView || !isViewportEqual(prevView.viewport, nextView.viewport);
     const paletteChanged = !prevView || !isPaletteEqual(prevView.palette, nextView.palette);
-    const hideGridChanged = !prevView || prevView.hideGrid !== nextView.hideGrid;
     const renderNodesChanged = !prevView || prevView.renderNodes !== nextView.renderNodes;
     latestView = nextView;
     if (paletteChanged || renderNodesChanged) {
       sceneDirty = true;
-    }
-    if (paletteChanged || viewportChanged || hideGridChanged) {
-      gridDirty = true;
     }
     scheduleRender();
     return;
@@ -1562,9 +1499,7 @@ self.onmessage = (event: MessageEvent<GpuMessage>) => {
     latestView = null;
     destroySceneBuffers(sceneBuffers);
     sceneBuffers = null;
-    destroyGridBuffer();
     sceneDirty = false;
-    gridDirty = false;
     return;
   }
 };

@@ -43,9 +43,7 @@ export default function OpenUrlTool({
   const activeTabId = useTabs((s) => s.activeTabId);
   const tabId = contextTabId ?? activeTabId ?? undefined;
 
-  const finished = part.output != null || part.state === "output-available";
-  const hasError = typeof part.errorText === "string" && part.errorText.trim().length > 0;
-  const isDisabled = !tabId || !url || !finished || hasError;
+  const isDisabled = !tabId || !url;
 
   const onOpen = React.useCallback(() => {
     if (isDisabled) return;
@@ -67,8 +65,10 @@ export default function OpenUrlTool({
   }, [isDisabled, tabId, title, url]);
 
   return (
-    <div className={cn("ml-2 flex w-full min-w-0 max-w-full items-center gap-2", className)}>
-      <span className="shrink-0 text-[10px] font-medium text-foreground/80">{actionName}</span>
+    <div className={cn("ml-4 flex w-full min-w-0 max-w-full items-center gap-2", className)}>
+      <span className="shrink-0 text-[10px] font-medium text-muted-foreground/80">
+        {actionName}
+      </span>
       <button
         type="button"
         className="min-w-0 flex-1 truncate text-left text-[10px] text-muted-foreground/80 underline-offset-2 hover:underline disabled:cursor-not-allowed cursor-pointer"

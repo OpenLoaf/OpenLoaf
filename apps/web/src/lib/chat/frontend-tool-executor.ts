@@ -89,6 +89,8 @@ function markToolStreaming(input: { tabId?: string; toolCallId: string }) {
 export function createFrontendToolExecutor(): FrontendToolExecutor {
   const handlers = new Map<string, FrontendToolHandler>();
   const executed = new Set<string>();
+  // 逻辑：仅允许白名单工具进入执行路径，避免误处理审批类 tool。
+  const allowedToolNames = new Set<string>();
 
   const execute = async (input: {
     toolCallId: string;
@@ -99,6 +101,7 @@ export function createFrontendToolExecutor(): FrontendToolExecutor {
     const toolCallId = input.toolCallId.trim();
     const toolName = input.toolName.trim();
     if (!toolCallId || !toolName) return false;
+    if (!allowedToolNames.has(toolName)) return false;
     const handler = handlers.get(toolName);
     if (!handler) {
       console.warn("[frontend-tool] no handler for tool", { toolCallId, toolName });
@@ -140,6 +143,7 @@ export function createFrontendToolExecutor(): FrontendToolExecutor {
   return {
     register: (toolName, handler) => {
       handlers.set(toolName, handler);
+      allowedToolNames.add(toolName);
     },
     executeFromDataPart: async ({ dataPart, tabId }) => {
       if (dataPart?.type !== "tool-input-available") return false;

@@ -78,6 +78,14 @@ export function VideoNodeView({
       projectId: fileContext?.projectId,
       uri: projectRelativePath || element.props.sourcePath,
     });
+    console.info("[VideoNode] preview metadata", {
+      resolvedPath,
+      sourcePath: element.props.sourcePath,
+      projectRelativePath,
+      workspaceId,
+      projectId: fileContext?.projectId,
+      metadata,
+    });
     openFilePreview({
       viewer: "video",
       items: [

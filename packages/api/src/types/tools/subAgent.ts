@@ -4,15 +4,21 @@ import { z } from "zod";
 export const browserSubAgentName = "BrowserSubAgent" as const;
 /** Document analysis sub-agent display name. */
 export const documentAnalysisSubAgentName = "DocumentAnalysisSubAgent" as const;
+/** Test approval sub-agent display name. */
+export const testApprovalSubAgentName = "TestApprovalSubAgent" as const;
 /** Allowed sub-agent names. */
-export const subAgentNames = [browserSubAgentName, documentAnalysisSubAgentName] as const;
+export const subAgentNames = [
+  browserSubAgentName,
+  documentAnalysisSubAgentName,
+  testApprovalSubAgentName,
+] as const;
 
 /** Sub-agent tool definition. */
 export const subAgentToolDef = {
   id: "sub-agent",
   name: "子代理",
   description:
-    "创建一个子Agent处理指定任务，并将执行过程与结果流式返回。适用于需要拆分任务、并行探索或执行长步骤的场景。当前支持 BrowserSubAgent 与 DocumentAnalysisSubAgent。",
+    "创建一个子Agent处理指定任务，并将执行过程与结果流式返回。适用于需要拆分任务、并行探索或执行长步骤的场景。当前支持 BrowserSubAgent、DocumentAnalysisSubAgent 与 TestApprovalSubAgent。",
   parameters: z.object({
     actionName: z
       .string()
@@ -20,7 +26,9 @@ export const subAgentToolDef = {
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：启动子代理执行网页操作。"),
     name: z
       .enum(subAgentNames)
-      .describe("子Agent名称（当前支持 BrowserSubAgent 与 DocumentAnalysisSubAgent）。"),
+      .describe(
+        "子Agent名称（当前支持 BrowserSubAgent、DocumentAnalysisSubAgent 与 TestApprovalSubAgent）。",
+      ),
     task: z.string().describe("子Agent需要执行的任务描述。"),
   }),
   component: null,

@@ -57,25 +57,8 @@ export function BoardCanvasRender({
   const [gpuStats, setGpuStats] = useState({
     imageTextures: 0,
   });
-  /** Whether grid rendering is suppressed for export. */
-  const [exporting, setExporting] = useState(false);
   /** Node inspector target id. */
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const target = containerRef.current;
-    if (!target) return;
-    const handleExportEvent = (event: Event) => {
-      const detail = (event as CustomEvent<{ exporting?: boolean }>).detail;
-      if (typeof detail?.exporting !== "boolean") return;
-      // 逻辑：导出时临时关闭网格渲染，避免截图包含网格。
-      setExporting(detail.exporting);
-    };
-    target.addEventListener("tenas:board-export", handleExportEvent);
-    return () => {
-      target.removeEventListener("tenas:board-export", handleExportEvent);
-    };
-  }, [containerRef]);
 
   useEffect(() => {
     // 逻辑：主题切换时强制刷新画布渲染，确保连线颜色同步更新。
@@ -119,7 +102,6 @@ export function BoardCanvasRender({
       {showUi ? <MiniMapLayer engine={engine} snapshot={snapshot} /> : null}
       <CanvasSurface
         snapshot={snapshot}
-        hideGrid={exporting}
         onStats={showPerfOverlay ? setGpuStats : undefined}
       />
       {showUi ? (

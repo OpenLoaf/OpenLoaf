@@ -17,10 +17,18 @@ import type {
   CanvasNodeElement,
   CanvasPoint,
   CanvasSnapshot,
+  CanvasRect,
 } from "../engine/types";
 import { toScreenPoint } from "../utils/coordinates";
+import {
+  buildConnectorPath,
+  flattenConnectorPath,
+  resolveConnectorEndpointsSmart,
+} from "../utils/connector-path";
 import { useBoardEngine } from "../core/BoardProvider";
 import { useBoardViewState } from "../core/useBoardViewState";
+import { applyGroupAnchorPadding } from "../engine/anchors";
+import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
 
 type ConnectorActionPanelProps = {
   /** Snapshot used for positioning. */
@@ -40,19 +48,20 @@ function ConnectorActionPanel({
   onStyleChange,
   onDelete,
 }: ConnectorActionPanelProps) {
-  const [x, y, w, h] = connector.xywh;
-  const center: CanvasPoint = [x + w / 2, y + h / 2];
   // 逻辑：面板位置随视口变化实时更新。
   const engine = useBoardEngine();
   const viewState = useBoardViewState(engine);
+  const center = resolveConnectorCenter(connector, snapshot, viewState.viewport);
   const screen = toScreenPoint(center, viewState);
+  // 逻辑：工具栏上移，避免遮挡水平连线。
+  const offsetScreenY = 26;
   const currentStyle = connector.style ?? snapshot.connectorStyle;
 
   return (
     <div
       data-connector-action
       className="pointer-events-auto absolute z-30 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-slate-200/40 bg-background/90 px-2 py-1 shadow-[0_12px_28px_rgba(15,23,42,0.18)] backdrop-blur"
-      style={{ left: screen[0], top: screen[1] }}
+      style={{ left: screen[0], top: screen[1] - offsetScreenY }}
       onPointerDown={event => {
         // 逻辑：避免面板交互触发画布选择。
         event.stopPropagation();
@@ -110,6 +119,75 @@ function ConnectorActionPanel({
       </button>
     </div>
   );
+}
+
+/** Compute the center point of a connector path. */
+function resolveConnectorCenter(
+  connector: CanvasConnectorElement,
+  snapshot: CanvasSnapshot,
+  viewport: CanvasSnapshot["viewport"]
+): CanvasPoint {
+  const [x, y, w, h] = connector.xywh;
+  const fallback: CanvasPoint = [x + w / 2, y + h / 2];
+  const groupPadding = getGroupOutlinePadding(viewport.zoom);
+  const anchors = applyGroupAnchorPadding(snapshot.anchors, snapshot.elements, groupPadding);
+  const boundsMap: Record<string, CanvasRect | undefined> = {};
+
+  snapshot.elements.forEach((element) => {
+    if (element.kind !== "node") return;
+    const [nx, ny, nw, nh] = element.xywh;
+    const padding = isGroupNodeType(element.type) ? groupPadding : 0;
+    boundsMap[element.id] = {
+      x: nx - padding,
+      y: ny - padding,
+      w: nw + padding * 2,
+      h: nh + padding * 2,
+    };
+  });
+
+  const resolved = resolveConnectorEndpointsSmart(
+    connector.source,
+    connector.target,
+    anchors,
+    boundsMap,
+    { connectorStyle: connector.style ?? snapshot.connectorStyle }
+  );
+  if (!resolved.source || !resolved.target) return fallback;
+  const style = connector.style ?? snapshot.connectorStyle;
+  const path = buildConnectorPath(style, resolved.source, resolved.target, {
+    sourceAnchorId: resolved.sourceAnchorId,
+    targetAnchorId: resolved.targetAnchorId,
+  });
+  const polyline = flattenConnectorPath(path, 20);
+  const midpoint = resolvePolylineMidpoint(polyline);
+  return midpoint ?? fallback;
+}
+
+/** Resolve the midpoint of a polyline by length. */
+function resolvePolylineMidpoint(points: CanvasPoint[]): CanvasPoint | null {
+  if (points.length < 2) return null;
+  let total = 0;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const a = points[i];
+    const b = points[i + 1];
+    if (!a || !b) continue;
+    total += Math.hypot(b[0] - a[0], b[1] - a[1]);
+  }
+  if (total <= 0) return points[0] ?? null;
+  const target = total / 2;
+  let traveled = 0;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const a = points[i];
+    const b = points[i + 1];
+    if (!a || !b) continue;
+    const segment = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (traveled + segment >= target) {
+      const t = segment > 0 ? (target - traveled) / segment : 0;
+      return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    }
+    traveled += segment;
+  }
+  return points[points.length - 1] ?? null;
 }
 
 type ConnectorStyleButtonProps = {

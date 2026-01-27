@@ -47,6 +47,12 @@ type ElectrronBrowserWindowProps = {
   className?: string;
 };
 
+// Build a friendly loading label from a URL.
+const buildLoadingLabel = (url?: string) => {
+  if (!url) return "Loading…";
+  return "加载中…";
+};
+
 export default function ElectrronBrowserWindow({
   panelKey,
   tabId,
@@ -111,6 +117,8 @@ export default function ElectrronBrowserWindow({
   const canFavorite = Boolean(activeUrl);
   const [favoriteUrls, setFavoriteUrls] = useState<string[]>([]);
   const isFavorite = Boolean(activeUrl && favoriteUrls.includes(activeUrl));
+  const loadingUrl = activeViewStatus?.url ?? targetUrl;
+  const loadingText = useMemo(() => buildLoadingLabel(loadingUrl), [loadingUrl]);
 
   const ensuredTargetIdRef = useRef<Set<string>>(new Set());
   const tabsRef = useRef(tabs);
@@ -353,6 +361,10 @@ export default function ElectrronBrowserWindow({
   const lastSentByKeyRef = useRef<
     Map<string, { url: string; bounds: TenasViewBounds; visible: boolean }>
   >(new Map());
+  // 中文注释：记录 view 容器尺寸变化时间，用于等待动画稳定。
+  const layoutStabilityRef = useRef<
+    Map<string, { width: number; height: number; lastChangeAt: number }>
+  >(new Map());
 
   useEffect(() => {
     const api = window.tenasElectron;
@@ -426,6 +438,15 @@ export default function ElectrronBrowserWindow({
       if (!viewAlive) return;
 
       const rect = host.getBoundingClientRect();
+      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+      const size = {
+        width: Math.max(0, Math.round(rect.width)),
+        height: Math.max(0, Math.round(rect.height)),
+      };
+      const prevSize = layoutStabilityRef.current.get(activeViewKey);
+      if (!prevSize || prevSize.width !== size.width || prevSize.height !== size.height) {
+        layoutStabilityRef.current.set(activeViewKey, { ...size, lastChangeAt: now });
+      }
       const next: { url: string; bounds: TenasViewBounds; visible: boolean } =
         {
           url: targetUrl,
@@ -438,12 +459,21 @@ export default function ElectrronBrowserWindow({
           bounds: {
             x: Math.round(rect.left),
             y: Math.round(rect.top),
-            width: Math.max(0, Math.round(rect.width)),
-            height: Math.max(0, Math.round(rect.height)),
+            width: size.width,
+            height: size.height,
           },
         };
 
       const prev = lastSentByKeyRef.current.get(activeViewKey) ?? null;
+      const isFirstAttach = !prev;
+      const stableAt = layoutStabilityRef.current.get(activeViewKey)?.lastChangeAt ?? now;
+      // 中文注释：首次创建 view 时等待左栏动画稳定，避免 0 宽度下加载导致页面布局异常。
+      if (
+        isFirstAttach &&
+        (next.bounds.width === 0 || next.bounds.height === 0 || now - stableAt < 160)
+      ) {
+        return;
+      }
       const changed =
         !prev ||
         prev.url !== next.url ||
@@ -508,6 +538,7 @@ export default function ElectrronBrowserWindow({
         if (t?.viewKey) void api.destroyWebContentsView?.(String(t.viewKey));
       }
       lastSentByKeyRef.current.clear();
+      layoutStabilityRef.current.clear();
     };
   }, [isElectron]);
 
@@ -541,6 +572,7 @@ export default function ElectrronBrowserWindow({
     if (targetViewKey && isElectron) {
       console.log("[browser-tabs] close", { id, targetViewKey, hasViewKey: Boolean(closing?.viewKey) });
       lastSentByKeyRef.current.delete(targetViewKey);
+      layoutStabilityRef.current.delete(targetViewKey);
       viewStatusByKeyRef.current.delete(targetViewKey);
       if (activeViewKey === targetViewKey) {
         setActiveViewStatus(null);
@@ -736,7 +768,7 @@ export default function ElectrronBrowserWindow({
               requestStackMinimize(safeTabId);
             }}
           >
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 items-center ">
               <motion.div
                 className="flex shrink-0 items-center gap-1"
                 style={{ overflow: "hidden", pointerEvents: showNavigation ? "auto" : "none" }}
@@ -796,7 +828,20 @@ export default function ElectrronBrowserWindow({
               <BrowserHome onOpenUrl={onOpenUrl} />
             ) : (
               <>
-                <BrowserLoadingOverlay visible={loading} />
+                <BrowserLoadingOverlay
+                  visible={loading}
+                  text={loadingText}
+                  details={{
+                    title: activeViewStatus?.title,
+                    url: loadingUrl,
+                    faviconUrl: activeViewStatus?.faviconUrl,
+                    requestCount: activeViewStatus?.requestCount,
+                    finishedCount: activeViewStatus?.finishedCount,
+                    failedCount: activeViewStatus?.failedCount,
+                    totalBytes: activeViewStatus?.totalBytes,
+                    bytesPerSecond: activeViewStatus?.bytesPerSecond,
+                  }}
+                />
                 <BrowserErrorOverlay failed={activeViewStatus?.failed} />
               </>
             )}

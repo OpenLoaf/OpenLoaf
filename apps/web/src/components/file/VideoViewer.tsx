@@ -78,8 +78,9 @@ export default function VideoViewer({
   tabId,
 }: VideoViewerProps) {
   const removeStackItem = useTabRuntime((state) => state.removeStackItem);
-  const displayTitle = name ?? uri ?? "Video";
+  const displayTitle = name ?? "";
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
+  const shouldRenderInlineHeader = Boolean(!shouldRenderStackHeader && displayTitle);
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildError, setBuildError] = useState<string | null>(null);
@@ -416,6 +417,13 @@ export default function VideoViewer({
           }
           canClose={canClose}
         />
+      ) : null}
+      {shouldRenderInlineHeader ? (
+        <div className="flex h-12 items-center border-b border-border/60 bg-background px-4">
+          <div className="truncate text-sm font-medium text-foreground">
+            {displayTitle}
+          </div>
+        </div>
       ) : null}
       <div className="flex-1 p-4">
         <div

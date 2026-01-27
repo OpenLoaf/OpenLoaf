@@ -14,6 +14,10 @@ const shortcutBridgeInstalled = new WeakSet<WebContentsView>();
 const desiredUrlByView = new WeakMap<WebContentsView, string>();
 const viewStatusEmitterInstalled = new WeakSet<WebContentsView>();
 const windowOpenHandlerInstalled = new WeakSet<WebContentsView>();
+// 中文注释：标记网络统计监听器是否已安装，避免重复注册。
+const networkStatsEmitterInstalled = new WeakSet<WebContentsView>();
+// 中文注释：缓存每个 WebContentsView 的网络统计数据。
+const networkStatsByView = new WeakMap<WebContentsView, WebContentsViewNetworkStats>();
 
 type WebContentsViewLoadFailed = {
   errorCode: number;
@@ -32,8 +36,24 @@ export type WebContentsViewStatus = {
   loading?: boolean;
   ready?: boolean;
   failed?: WebContentsViewLoadFailed;
+  requestCount?: number;
+  finishedCount?: number;
+  failedCount?: number;
+  totalBytes?: number;
+  bytesPerSecond?: number;
   destroyed?: boolean;
   ts: number;
+};
+
+type WebContentsViewNetworkStats = {
+  requestCount: number;
+  finishedCount: number;
+  failedCount: number;
+  totalBytes: number;
+  bytesPerSecond: number;
+  lastBytes: number;
+  lastUpdatedAt: number;
+  pendingEmit?: NodeJS.Timeout;
 };
 
 export type WebContentsViewWindowOpen = {
@@ -42,6 +62,19 @@ export type WebContentsViewWindowOpen = {
   disposition?: string;
   frameName?: string;
 };
+
+/** Build a Chrome-like user agent for embedded views. */
+function getChromeUserAgent(): string {
+  const chromeVersion = process.versions.chrome ?? '120.0.0.0';
+  let platform = 'X11; Linux x86_64';
+  if (process.platform === 'darwin') {
+    platform = 'Macintosh; Intel Mac OS X 10_15_7';
+  } else if (process.platform === 'win32') {
+    platform = 'Windows NT 10.0; Win64; x64';
+  }
+  // 中文注释：拼接标准 Chrome UA，避免 Electron 标识影响站点判断。
+  return `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
+}
 
 const viewStatusByWindowId = new Map<number, Map<string, WebContentsViewStatus>>();
 
@@ -59,7 +92,7 @@ function getOrCreateStatusMapForWindow(win: BrowserWindow) {
 function emitViewStatus(
   win: BrowserWindow,
   key: string,
-  next: Omit<WebContentsViewStatus, 'key' | 'ts'> & Partial<Pick<WebContentsViewStatus, 'url' | 'title' | 'loading' | 'ready' | 'failed' | 'destroyed'>>
+  next: Partial<Omit<WebContentsViewStatus, 'key' | 'ts'>>
 ) {
   if (win.isDestroyed()) return;
   const map = getOrCreateStatusMapForWindow(win);
@@ -96,6 +129,168 @@ function emitWindowOpen(win: BrowserWindow, payload: WebContentsViewWindowOpen) 
   } catch {
     // ignore
   }
+}
+
+/**
+ * Get or create network stats holder for a WebContentsView.
+ */
+function getOrCreateNetworkStats(view: WebContentsView): WebContentsViewNetworkStats {
+  const existing = networkStatsByView.get(view);
+  if (existing) return existing;
+  const now = Date.now();
+  const stats: WebContentsViewNetworkStats = {
+    requestCount: 0,
+    finishedCount: 0,
+    failedCount: 0,
+    totalBytes: 0,
+    bytesPerSecond: 0,
+    lastBytes: 0,
+    lastUpdatedAt: now,
+  };
+  networkStatsByView.set(view, stats);
+  return stats;
+}
+
+/**
+ * Update speed stats based on current totals.
+ */
+function updateNetworkSpeed(stats: WebContentsViewNetworkStats, now: number) {
+  const deltaMs = now - stats.lastUpdatedAt;
+  if (deltaMs <= 0) return;
+  const deltaBytes = stats.totalBytes - stats.lastBytes;
+  const nextSpeed = Math.round((deltaBytes * 1000) / deltaMs);
+  stats.bytesPerSecond = Math.max(0, nextSpeed);
+  stats.lastBytes = stats.totalBytes;
+  stats.lastUpdatedAt = now;
+}
+
+/**
+ * Emit network stats for the given view key.
+ */
+function emitNetworkStats(
+  win: BrowserWindow,
+  key: string,
+  view: WebContentsView,
+  stats: WebContentsViewNetworkStats
+) {
+  emitViewStatus(win, key, {
+    webContentsId: view.webContents.id,
+    requestCount: stats.requestCount,
+    finishedCount: stats.finishedCount,
+    failedCount: stats.failedCount,
+    totalBytes: stats.totalBytes,
+    bytesPerSecond: stats.bytesPerSecond,
+  });
+}
+
+/**
+ * Throttle network stats emission to avoid flooding the renderer.
+ */
+function scheduleNetworkStatsEmit(
+  win: BrowserWindow,
+  key: string,
+  view: WebContentsView,
+  stats: WebContentsViewNetworkStats
+) {
+  if (stats.pendingEmit) return;
+  stats.pendingEmit = setTimeout(() => {
+    stats.pendingEmit = undefined;
+    emitNetworkStats(win, key, view, stats);
+  }, 200);
+}
+
+/**
+ * Reset network stats when a new main-frame navigation starts.
+ */
+function resetNetworkStats(win: BrowserWindow, key: string, view: WebContentsView) {
+  const stats = networkStatsByView.get(view);
+  if (!stats) return;
+  const now = Date.now();
+  stats.requestCount = 0;
+  stats.finishedCount = 0;
+  stats.failedCount = 0;
+  stats.totalBytes = 0;
+  stats.bytesPerSecond = 0;
+  stats.lastBytes = 0;
+  stats.lastUpdatedAt = now;
+  if (stats.pendingEmit) {
+    clearTimeout(stats.pendingEmit);
+    stats.pendingEmit = undefined;
+  }
+  emitNetworkStats(win, key, view, stats);
+}
+
+/**
+ * Install network stats emitter for a WebContentsView.
+ */
+function installNetworkStatsEmitter(win: BrowserWindow, key: string, view: WebContentsView) {
+  if (networkStatsEmitterInstalled.has(view)) return;
+  networkStatsEmitterInstalled.add(view);
+
+  const wc = view.webContents;
+  const stats = getOrCreateNetworkStats(view);
+  const dbg = wc.debugger;
+  let attachedHere = false;
+
+  const handleMessage = (
+    _event: Electron.DebuggerMessageEvent,
+    method: string,
+    params: Record<string, unknown>
+  ) => {
+    if (method === 'Network.requestWillBeSent') {
+      stats.requestCount += 1;
+      scheduleNetworkStatsEmit(win, key, view, stats);
+      return;
+    }
+    if (method === 'Network.loadingFinished') {
+      stats.finishedCount += 1;
+      const bytes = Number((params as { encodedDataLength?: number }).encodedDataLength ?? 0);
+      if (Number.isFinite(bytes) && bytes > 0) {
+        stats.totalBytes += bytes;
+        updateNetworkSpeed(stats, Date.now());
+      }
+      scheduleNetworkStatsEmit(win, key, view, stats);
+      return;
+    }
+    if (method === 'Network.loadingFailed') {
+      stats.failedCount += 1;
+      scheduleNetworkStatsEmit(win, key, view, stats);
+    }
+  };
+
+  try {
+    if (!dbg.isAttached()) {
+      dbg.attach('1.3');
+      attachedHere = true;
+    }
+    dbg.on('message', handleMessage);
+    void dbg.sendCommand('Network.enable').catch(() => {
+      // ignore
+    });
+    emitNetworkStats(win, key, view, stats);
+  } catch {
+    // ignore
+  }
+
+  wc.once('destroyed', () => {
+    if (stats.pendingEmit) {
+      clearTimeout(stats.pendingEmit);
+      stats.pendingEmit = undefined;
+    }
+    try {
+      dbg.removeListener('message', handleMessage);
+    } catch {
+      // ignore
+    }
+    if (attachedHere) {
+      try {
+        dbg.detach();
+      } catch {
+        // ignore
+      }
+    }
+    networkStatsByView.delete(view);
+  });
 }
 
 /**
@@ -243,8 +438,12 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
     });
   });
 
-  wc.on('did-start-navigation', (_event, url, _isInPlace, isMainFrame) => {
+  wc.on('did-start-navigation', (_event, url, isInPlace, isMainFrame) => {
     if (!isMainFrame) return;
+    if (!isInPlace) {
+      // 中文注释：新导航开始时重置网络统计，避免旧页面数据混入。
+      resetNetworkStats(win, key, view);
+    }
     mainFrameLoading = true;
     mainFrameReady = false;
     emitViewStatus(win, key, {
@@ -511,6 +710,11 @@ export function upsertWebContentsView(
         sandbox: true,
       },
     });
+    try {
+      view.webContents.setUserAgent(getChromeUserAgent());
+    } catch {
+      // ignore
+    }
     console.log('[webcontents-view] create', { key, url });
     map.set(key, view);
     win.contentView.addChildView(view);
@@ -521,6 +725,8 @@ export function upsertWebContentsView(
     installWindowOpenHandler(win, key, view);
     // 把 WebContentsView 的真实加载状态（dom-ready 等）推送到渲染端。
     installViewStatusEmitter(win, key, view);
+    // 中文注释：启用网络统计，供渲染端展示资源计数和网速。
+    installNetworkStatsEmitter(win, key, view);
   }
 
   try {

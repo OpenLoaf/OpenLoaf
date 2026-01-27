@@ -19,7 +19,8 @@ import { motion } from "motion/react";
 const SUGGESTIONS = [
   {
     label: "测试审批",
-    value: "测试审批：请调用 test-approval 工具（用于测试 needsApproval 的审批流程），然后等待我在工具卡片里点击允许/拒绝。",
+    value:
+      "测试审批：请调用 sub-agent，name 设为 TestApprovalSubAgent，先获取当前时间，再触发 test-approval，并等待我在工具卡片里点击允许/拒绝。",
   },
   {
     label: "打开淘宝搜索手机贴膜",

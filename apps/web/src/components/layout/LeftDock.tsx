@@ -346,7 +346,8 @@ export function LeftDock({ tabId }: { tabId: string }) {
                 key={item.id}
                 // stack 不再堆叠，只显示一个；其它 stack 保持挂载但隐藏，便于通过 Header 右上角按钮切换。
                 className={cn(
-                  "absolute inset-0 px-5 pt-6 pb-4",
+                  "absolute inset-0",
+                  base ? "px-5 pt-6 pb-4" : "px-2",
                   visible ? "block" : keepAlive ? "opacity-0" : "hidden"
                 )}
                 data-stack-panel={isActive ? tabId : undefined}

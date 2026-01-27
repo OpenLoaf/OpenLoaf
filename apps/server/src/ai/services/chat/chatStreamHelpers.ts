@@ -248,15 +248,45 @@ export function buildModelChain(
     ? baseSlice
     : baseSlice.filter((message: any) => message?.messageKind !== "compact_prompt");
 
-  if (!sessionPrefaceText) return trimmed;
+  const sanitized = stripPendingToolParts(trimmed);
+
+  if (!sessionPrefaceText) return sanitized;
   return [
     {
       id: "__session_preface__",
       role: "user",
       parts: [{ type: "text", text: sessionPrefaceText }],
     } as UIMessage,
-    ...trimmed,
+    ...sanitized,
   ];
+}
+
+/** Remove tool parts without results from the model chain. */
+function stripPendingToolParts(messages: UIMessage[]): UIMessage[] {
+  const next: UIMessage[] = [];
+  for (const message of messages) {
+    const parts = Array.isArray(message?.parts) ? message.parts : [];
+    if (parts.length === 0) {
+      next.push(message);
+      continue;
+    }
+    let changed = false;
+    const filtered = parts.filter((part) => {
+      if (!part || typeof part !== "object") return true;
+      const state = (part as any).state;
+      if (state !== "input-available") return true;
+      // 中文注释：input-available 表示工具还未产出结果，直接从模型链中移除。
+      changed = true;
+      return false;
+    });
+    if (!changed) {
+      next.push(message);
+      continue;
+    }
+    if (filtered.length === 0) continue;
+    next.push({ ...message, parts: filtered } as UIMessage);
+  }
+  return next;
 }
 
 /** Load message chain and replace file parts. */

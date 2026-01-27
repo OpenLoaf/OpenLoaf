@@ -76,19 +76,19 @@ export function buildAiDebugFetch(): typeof fetch | undefined {
       if (shouldLogBody) {
         const responseText = await response.clone().text();
         // 中文注释：响应体若为 JSON 字符串，尝试解析后再输出。
-        const parsedResponseBody = (() => {
-          try {
-            return JSON.parse(responseText);
-          } catch {
-            return responseText;
-          }
-        })();
+        // const parsedResponseBody = (() => {
+        //   try {
+        //     return JSON.parse(responseText);
+        //   } catch {
+        //     return responseText;
+        //   }
+        // })();
         log(
           {
             url,
             status: response.status,
             length: responseText.length,
-            body: parsedResponseBody,
+            body: responseText,
           },
           "[ai-debug] response body",
         );

@@ -11,14 +11,13 @@ import type {
 import { useBoardEngine } from "../core/BoardProvider";
 
 const PALETTE_LIGHT: GpuPalette = {
-  grid: [148, 163, 184, 0.2],
   nodeFill: [255, 255, 255, 1],
   nodeStroke: [226, 232, 240, 1],
   nodeSelected: [56, 189, 248, 1],
   text: [15, 23, 42, 1],
   textMuted: [100, 116, 139, 1],
   connector: [71, 85, 105, 1],
-  connectorSelected: [15, 23, 42, 1],
+  connectorSelected: [37, 99, 235, 1],
   connectorDraft: [100, 116, 139, 1],
   selectionFill: [37, 99, 235, 0.08],
   selectionStroke: [37, 99, 235, 0.6],
@@ -26,14 +25,13 @@ const PALETTE_LIGHT: GpuPalette = {
 };
 
 const PALETTE_DARK: GpuPalette = {
-  grid: [148, 163, 184, 0.12],
   nodeFill: [15, 23, 42, 1],
   nodeStroke: [51, 65, 85, 1],
   nodeSelected: [56, 189, 248, 1],
   text: [226, 232, 240, 1],
   textMuted: [148, 163, 184, 1],
   connector: [148, 163, 184, 1],
-  connectorSelected: [226, 232, 240, 1],
+  connectorSelected: [96, 165, 250, 1],
   connectorDraft: [148, 163, 184, 1],
   selectionFill: [37, 99, 235, 0.12],
   selectionStroke: [96, 165, 250, 0.7],
@@ -41,7 +39,6 @@ const PALETTE_DARK: GpuPalette = {
 };
 
 const PALETTE_KEYS: Array<keyof GpuPalette> = [
-  "grid",
   "nodeFill",
   "nodeStroke",
   "nodeSelected",
@@ -143,14 +140,12 @@ function isPaletteEqual(a: GpuPalette | null, b: GpuPalette): boolean {
 type CanvasSurfaceProps = {
   /** Current snapshot for rendering. */
   snapshot: CanvasSnapshot;
-  /** Hide background grid when rendering. */
-  hideGrid?: boolean;
   /** Receive GPU stats from the renderer. */
   onStats?: (stats: { imageTextures: number }) => void;
 };
 
 /** Render the canvas surface layer with WebGPU. */
-export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProps) {
+export function CanvasSurface({ snapshot, onStats }: CanvasSurfaceProps) {
   const engine = useBoardEngine();
   /** Latest view state for React-driven sizing. */
   const [viewState, setViewState] = useState(() => engine.getViewState());
@@ -161,12 +156,10 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
   const latestSnapshotRef = useRef(snapshot);
   /** Latest view state for GPU viewport updates. */
   const latestViewRef = useRef(viewState);
-  const latestHideGridRef = useRef(hideGrid ?? false);
   const lastDocRevisionRef = useRef<number | null>(null);
   const lastStateRef = useRef<GpuStateSnapshot | null>(null);
   const lastViewportRef = useRef<CanvasViewportState | null>(null);
   const lastPaletteRef = useRef<GpuPalette | null>(null);
-  const lastHideGridRef = useRef<boolean | null>(null);
   /** Latest stats callback for worker events. */
   const onStatsRef = useRef(onStats);
 
@@ -180,8 +173,6 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
     const palette = resolvePalette();
     const state = buildState(latestSnapshot);
     const docRevision = latestSnapshot.docRevision;
-    const hideGridValue = latestHideGridRef.current;
-
     if (lastDocRevisionRef.current !== docRevision) {
       worker.postMessage({
         type: "scene",
@@ -200,20 +191,17 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
 
     const viewChanged =
       !isViewportEqual(lastViewportRef.current, viewport) ||
-      !isPaletteEqual(lastPaletteRef.current, palette) ||
-      lastHideGridRef.current !== hideGridValue;
+      !isPaletteEqual(lastPaletteRef.current, palette);
 
     if (viewChanged) {
       worker.postMessage({
         type: "view",
         viewport,
         palette,
-        hideGrid: hideGridValue,
         renderNodes: RENDER_GPU_NODES,
       } satisfies GpuMessage);
       lastViewportRef.current = viewport;
       lastPaletteRef.current = palette;
-      lastHideGridRef.current = hideGridValue;
     }
   }, []);
 
@@ -229,10 +217,9 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
 
   useLayoutEffect(() => {
     latestSnapshotRef.current = snapshot;
-    latestHideGridRef.current = hideGrid ?? false;
     // 逻辑：DOM 提交后、绘制前刷新 GPU，避免连线落后一帧。
     flushFrame();
-  }, [flushFrame, hideGrid, snapshot]);
+  }, [flushFrame, snapshot]);
 
   useLayoutEffect(() => {
     const unsubscribe = engine.subscribeView(() => {
@@ -265,7 +252,6 @@ export function CanvasSurface({ snapshot, hideGrid, onStats }: CanvasSurfaceProp
         lastStateRef.current = null;
         lastViewportRef.current = null;
         lastPaletteRef.current = null;
-        lastHideGridRef.current = null;
         scheduleFrame();
         return;
       }

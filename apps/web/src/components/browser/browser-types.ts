@@ -11,6 +11,11 @@ export type TenasWebContentsViewStatus = {
   loading?: boolean;
   ready?: boolean;
   failed?: { errorCode: number; errorDescription: string; validatedURL: string };
+  requestCount?: number;
+  finishedCount?: number;
+  failedCount?: number;
+  totalBytes?: number;
+  bytesPerSecond?: number;
   destroyed?: boolean;
   ts: number;
 };
