@@ -9,10 +9,12 @@ import type {
 import type { ProviderDefinition } from "@tenas-ai/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { logger } from "@/common/logger";
-import { buildAiDebugFetch } from "@/ai/utils/ai-debug-fetch";
-import { downloadImageData } from "@/ai/utils/image-download";
-import { ensureOpenAiCompatibleBaseUrl } from "@/ai/utils/openai-url";
-import { readApiKey } from "@/ai/utils/provider-auth";
+import {
+  buildAiDebugFetch,
+  downloadImageData,
+  ensureOpenAiCompatibleBaseUrl,
+  readApiKey,
+} from "@/ai/shared/util";
 
 type OpenAiCompatibleImageModelInput = {
   /** 服务商配置。 */

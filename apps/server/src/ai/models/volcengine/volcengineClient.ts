@@ -9,7 +9,7 @@ import {
 
 const SIGNED_HEADERS = "host;x-date;x-content-sha256;content-type";
 
-export type VolcengineRequest = {
+type VolcengineRequest = {
   /** Request url. */
   url: string;
   /** HTTP method. */

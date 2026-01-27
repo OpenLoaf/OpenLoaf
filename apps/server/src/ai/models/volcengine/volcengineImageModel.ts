@@ -9,7 +9,7 @@ import type {
 import type { ModelDefinition, ProviderDefinition } from "@tenas-ai/api/common";
 import { Buffer } from "node:buffer";
 import { logger } from "@/common/logger";
-import { isRecord } from "@/ai/utils/type-guards";
+import { isRecord } from "@/ai/shared/util";
 import { buildVolcengineRequest } from "./volcengineClient";
 import { resolveVolcengineConfig } from "./volcengineConfig";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";

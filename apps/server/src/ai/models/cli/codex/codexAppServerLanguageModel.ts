@@ -18,7 +18,7 @@ import type {
 import { convertAsyncIteratorToReadableStream } from "@ai-sdk/provider-utils";
 import { createHash } from "crypto";
 import { logger } from "@/common/logger";
-import { isRecord } from "@/ai/utils/type-guards";
+import { isRecord } from "@/ai/shared/util";
 import {
   getCodexOptions,
   getProjectId,

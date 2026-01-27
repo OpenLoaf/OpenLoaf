@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { useChatContext } from "../ChatProvider";
+import { useChatState } from "../context";
 import MessageHelper from "./MessageHelper";
 import * as React from "react";
 import MessageItem from "./MessageItem";
@@ -19,14 +19,7 @@ interface MessageListProps {
 export default function MessageList({ className }: MessageListProps) {
   // 中文注释：统计渲染频率，用于定位流式渲染压力。
   incrementChatPerf("render.messageList");
-  const {
-    messages,
-    status,
-    error,
-    isHistoryLoading,
-    stepThinking,
-    sessionId,
-  } = useChatContext();
+  const { messages, status, error, isHistoryLoading, stepThinking } = useChatState();
 
   const lastHumanIndex = React.useMemo(
     () => (messages as any[]).findLastIndex((m) => m?.role === "user"),

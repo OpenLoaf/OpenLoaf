@@ -4,7 +4,7 @@ import type { ProjectFileChange } from "@tenas-ai/api/services/projectFileChange
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 
-export type SummaryGeneratorInput = {
+type SummaryGeneratorInput = {
   /** Project title for prompt context. */
   projectTitle: string;
   /** Date key for daily summary. */
@@ -17,7 +17,7 @@ export type SummaryGeneratorInput = {
   previousSummary?: string;
 };
 
-export type RangeSummaryGeneratorInput = {
+type RangeSummaryGeneratorInput = {
   /** Project title for prompt context. */
   projectTitle: string;
   /** Range start date key. */

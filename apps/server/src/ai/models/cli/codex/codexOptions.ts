@@ -15,7 +15,7 @@ export const DEFAULT_CODEX_MODE: CodexMode = "chat";
 export const DEFAULT_CODEX_REASONING_EFFORT: CodexReasoningEffort = "medium";
 
 /** Normalize codex mode from unknown input. */
-export function normalizeCodexMode(value: unknown): CodexMode | undefined {
+function normalizeCodexMode(value: unknown): CodexMode | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   if (trimmed === "chat" || trimmed === "agent" || trimmed === "agent_full_access") {
@@ -25,7 +25,7 @@ export function normalizeCodexMode(value: unknown): CodexMode | undefined {
 }
 
 /** Normalize codex reasoning effort from unknown input. */
-export function normalizeCodexReasoningEffort(
+function normalizeCodexReasoningEffort(
   value: unknown,
 ): CodexReasoningEffort | undefined {
   if (typeof value !== "string") return undefined;

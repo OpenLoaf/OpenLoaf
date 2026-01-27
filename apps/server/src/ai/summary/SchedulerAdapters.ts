@@ -24,15 +24,3 @@ export class InProcessSchedulerAdapter implements SchedulerPort {
     this.timers.delete(jobId);
   }
 }
-
-export class ExternalSchedulerAdapter implements SchedulerPort {
-  /** Schedule a job. */
-  async schedule(_input: ScheduleJobInput): Promise<void> {
-    // 中文注释：外部调度由外部系统触发，内部无需注册定时器。
-  }
-
-  /** Cancel a scheduled job. */
-  async cancel(_jobId: string): Promise<void> {
-    // 中文注释：外部调度不维护本地任务，直接忽略取消请求。
-  }
-}

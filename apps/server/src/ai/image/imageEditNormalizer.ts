@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import sharp from "sharp";
-import { downloadImageData } from "@/ai/utils/image-download";
+import { downloadImageData } from "@/ai/shared/util";
 import { loadProjectImageBuffer } from "./attachmentResolver";
 import {
   resolveActiveS3Storage,

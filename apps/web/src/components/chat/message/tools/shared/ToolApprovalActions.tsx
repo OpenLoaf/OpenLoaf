@@ -2,8 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@tenas-ai/ui/button";
-import { useChatContext } from "../../../ChatProvider";
-import { useTabs } from "@/hooks/use-tabs";
+import { useChatActions, useChatState, useChatTools } from "../../../context";
 import { countPendingToolApprovals, hasRejectedToolApproval } from "./tool-utils";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
@@ -15,25 +14,26 @@ interface ToolApprovalActionsProps {
 
 /** Render approval actions for a tool request. */
 export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsProps) {
-  const chat = useChatContext();
+  const { messages, status } = useChatState();
+  const { updateMessage, addToolApprovalResponse, sendMessage } = useChatActions();
+  const { toolParts, upsertToolPart } = useChatTools();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const toolSnapshot = useTabs((state) => {
-    const tabId = chat.tabId;
-    if (!tabId) return undefined;
-    const parts = state.toolPartsByTabId[tabId] ?? {};
-    return Object.values(parts).find((part) => part.approval?.id === approvalId);
-  });
+  const toolSnapshot = React.useMemo(
+    () => Object.values(toolParts).find((part) => part.approval?.id === approvalId),
+    [toolParts, approvalId]
+  );
   const isDecided =
     toolSnapshot?.approval?.approved === true || toolSnapshot?.approval?.approved === false;
-  const disabled = isSubmitting || isDecided || chat.status === "streaming" || chat.status === "submitted";
+  const disabled =
+    isSubmitting || isDecided || status === "streaming" || status === "submitted";
   const updateApprovalMutation = useMutation({
     ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
   });
 
   const updateApprovalInMessages = React.useCallback(
     (approved: boolean) => {
-      const messages = chat.messages ?? [];
-      for (const message of messages) {
+      const nextMessages = messages ?? [];
+      for (const message of nextMessages) {
         const parts = Array.isArray((message as any)?.parts) ? (message as any).parts : [];
         const hasTarget = parts.some((part: any) => part?.approval?.id === approvalId);
         if (!hasTarget) continue;
@@ -44,31 +44,27 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
             approval: { ...part.approval, approved },
           };
         });
-        chat.updateMessage(message.id, { parts: nextParts });
+        updateMessage(message.id, { parts: nextParts });
         return { messageId: message.id, nextParts };
       }
       return null;
     },
-    [chat, approvalId],
+    [messages, updateMessage, approvalId],
   );
 
   const updateApprovalSnapshot = React.useCallback(
     (approved: boolean) => {
-      const tabId = chat.tabId;
-      if (!tabId) return;
-      const state = useTabs.getState();
-      const toolParts = state.toolPartsByTabId[tabId] ?? {};
       for (const [toolCallId, part] of Object.entries(toolParts)) {
         if (part?.approval?.id !== approvalId) continue;
         // 中文注释：本地先更新审批状态，避免按钮和边框滞后。
-        state.upsertToolPart(tabId, toolCallId, {
+        upsertToolPart(toolCallId, {
           ...part,
           approval: { ...part.approval, approved },
         });
         break;
       }
     },
-    [chat.tabId, approvalId],
+    [toolParts, upsertToolPart, approvalId],
   );
 
   const handleApprove = React.useCallback(
@@ -80,19 +76,28 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
       setIsSubmitting(true);
       updateApprovalSnapshot(true);
       updateApprovalInMessages(true);
-      const pendingBefore = countPendingToolApprovals(chat.messages ?? []);
-      const hasRejected = hasRejectedToolApproval(chat.messages ?? []);
+      const pendingBefore = countPendingToolApprovals(messages ?? []);
+      const hasRejected = hasRejectedToolApproval(messages ?? []);
       try {
-        await chat.addToolApprovalResponse({ id: approvalId, approved: true });
+        await addToolApprovalResponse({ id: approvalId, approved: true });
         if (pendingBefore <= 1 && !hasRejected) {
           // 中文注释：仅在最后一个审批完成后继续执行，避免多审批被一次通过。
-          await chat.sendMessage();
+          await sendMessage(undefined as any);
         }
       } finally {
         setIsSubmitting(false);
       }
     },
-    [chat, approvalId, isSubmitting, isDecided, updateApprovalSnapshot],
+    [
+      approvalId,
+      isSubmitting,
+      isDecided,
+      updateApprovalSnapshot,
+      updateApprovalInMessages,
+      messages,
+      addToolApprovalResponse,
+      sendMessage,
+    ],
   );
 
   const handleReject = React.useCallback(
@@ -105,7 +110,7 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
       updateApprovalSnapshot(false);
       const approvalUpdate = updateApprovalInMessages(false);
       try {
-        await chat.addToolApprovalResponse({ id: approvalId, approved: false });
+        await addToolApprovalResponse({ id: approvalId, approved: false });
         if (approvalUpdate) {
           // 中文注释：拒绝审批后立即落库，避免刷新后仍显示“待审批”。
           try {
@@ -121,7 +126,15 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
         setIsSubmitting(false);
       }
     },
-    [chat, approvalId, isSubmitting, isDecided, updateApprovalSnapshot, updateApprovalMutation],
+    [
+      approvalId,
+      isSubmitting,
+      isDecided,
+      updateApprovalSnapshot,
+      updateApprovalInMessages,
+      addToolApprovalResponse,
+      updateApprovalMutation,
+    ],
   );
 
   return (

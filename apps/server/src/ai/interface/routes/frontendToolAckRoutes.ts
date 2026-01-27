@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 import { z } from "zod";
-import { resolveFrontendToolPending } from "@/ai/tools/frontend/pendingRegistry";
+import { resolveFrontendToolPending } from "@/ai/tools/pendingRegistry";
 import { logger } from "@/common/logger";
 
 const ackSchema = z.object({

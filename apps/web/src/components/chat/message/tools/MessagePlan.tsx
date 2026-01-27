@@ -2,9 +2,8 @@
 
 import * as React from "react";
 import type { PlanItem, PlanPatchItem } from "@tenas-ai/api/types/tools/runtime";
-import { useTabs } from "@/hooks/use-tabs";
 import { cn } from "@/lib/utils";
-import { useChatContext } from "../../ChatProvider";
+import { useChatTools } from "../../context";
 
 type PlanStatusMeta = {
   /** Plan status key. */
@@ -173,18 +172,15 @@ function findPlanToolParts(parts?: unknown[]) {
  * Render plan summary stored in message metadata.
  */
 export default function MessagePlan({ metadata, parts }: MessagePlanProps) {
-  const chat = useChatContext();
-  const toolPartsByTab = useTabs((state) =>
-    chat.tabId ? state.toolPartsByTabId[chat.tabId] : undefined,
-  );
+  const { toolParts } = useChatTools();
   const planToolParts = React.useMemo(() => {
     const items = findPlanToolParts(parts) ?? [];
     return items.map((part) => {
       const toolCallId = typeof part?.toolCallId === "string" ? part.toolCallId : "";
-      if (!toolCallId || !toolPartsByTab?.[toolCallId]) return part;
-      return { ...part, ...toolPartsByTab[toolCallId] };
+      if (!toolCallId || !toolParts?.[toolCallId]) return part;
+      return { ...part, ...toolParts[toolCallId] };
     });
-  }, [parts, toolPartsByTab]);
+  }, [parts, toolParts]);
   const planUpdate = React.useMemo(() => {
     const metadataPlan = extractPlanUpdateFromMetadata(metadata);
     let currentPlan = metadataPlan?.plan ?? null;

@@ -5,7 +5,7 @@ import { Button } from "@tenas-ai/ui/button";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { createBrowserTabId } from "@/hooks/tab-id";
-import { useChatContext } from "@/components/chat/ChatProvider";
+import { useChatActions, useChatSession, useChatTools } from "@/components/chat/context";
 import { queryClient, trpc } from "@/utils/trpc";
 import ToolApprovalActions from "./shared/ToolApprovalActions";
 import ToolInfoCard from "./shared/ToolInfoCard";
@@ -86,7 +86,9 @@ export default function UnifiedTool({
   variant?: ToolVariant;
   messageId?: string;
 }) {
-  const { tabId: contextTabId, subAgentStreams, sessionId, updateMessage } = useChatContext();
+  const { tabId: contextTabId, sessionId } = useChatSession();
+  const { subAgentStreams, upsertToolPart } = useChatTools();
+  const { updateMessage } = useChatActions();
   const activeTabId = useTabs((s) => s.activeTabId);
   const tabId = contextTabId ?? activeTabId ?? undefined;
 
@@ -133,7 +135,7 @@ export default function UnifiedTool({
           (p: any) => String(p?.toolCallId ?? "") === toolCallId,
         );
         if (toolPart) {
-          useTabs.getState().upsertToolPart(tabId, toolCallId, toolPart);
+          upsertToolPart(toolCallId, toolPart);
           const hasOutput =
             toolPart.output != null ||
             (typeof toolPart.errorText === "string" && toolPart.errorText.trim().length > 0);
@@ -146,7 +148,15 @@ export default function UnifiedTool({
       isFetchingOutputRef.current = false;
       setIsOutputLoading(false);
     }
-  }, [shouldFetchOutput, sessionId, messageId, updateMessage, part.toolCallId, tabId]);
+  }, [
+    shouldFetchOutput,
+    sessionId,
+    messageId,
+    updateMessage,
+    part.toolCallId,
+    tabId,
+    upsertToolPart,
+  ]);
 
   if (toolKind === "sub-agent") {
     const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";

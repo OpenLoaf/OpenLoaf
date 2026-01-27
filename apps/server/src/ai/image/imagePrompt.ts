@@ -18,7 +18,7 @@ export type PromptImageInput = {
   mediaType?: string;
 };
 
-export type ResolvedImagePrompt = {
+type ResolvedImagePrompt = {
   /** Prompt payload for AI SDK. */
   prompt: GenerateImagePrompt;
   /** Whether the prompt includes a mask. */

@@ -4,8 +4,7 @@ import type { MessageRole as DbMessageRole, Prisma } from "@tenas-ai/db/prisma/g
 import type { ChatMessageKind, TenasUIMessage } from "@tenas-ai/api";
 import { replaceFileTokensWithNames } from "@/common/chatTitle";
 import { getBoardId, getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";
-import { toNumberOrUndefined } from "@/ai/utils/number-utils";
-import { isRecord } from "@/ai/utils/type-guards";
+import { toNumberOrUndefined, isRecord } from "@/ai/shared/util";
 
 /** Max session title length. */
 const MAX_SESSION_TITLE_CHARS = 16;
@@ -33,7 +32,7 @@ function normalizeMessageKind(value: unknown): ChatMessageKind | null {
 }
 
 /** Input for saving a chat message. */
-export type SaveMessageInput = {
+type SaveMessageInput = {
   /** Session id. */
   sessionId: string;
   /** Message payload. */
@@ -53,7 +52,7 @@ export type SaveMessageInput = {
 };
 
 /** Result for saving a chat message. */
-export type SaveMessageResult = {
+type SaveMessageResult = {
   /** Message id. */
   id: string;
   /** Parent message id. */

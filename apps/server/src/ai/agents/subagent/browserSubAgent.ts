@@ -35,7 +35,7 @@ const DEFAULT_BROWSER_SUB_AGENT_SYSTEM_PROMPT = readFileSync(
   "utf8",
 ).trim();
 
-export type CreateBrowserSubAgentInput = {
+type CreateBrowserSubAgentInput = {
   /** Model instance for the sub-agent. */
   model: LanguageModelV3;
   /** Optional tool ids override. */

@@ -11,7 +11,7 @@ import {
   getWorkspaceRootPath,
   getWorkspaceRootPathById,
 } from "@tenas-ai/api/services/vfsService";
-import { resolveParentProjectRootPaths } from "@/ai/utils/projectRoots";
+import { resolveParentProjectRootPaths } from "@/ai/shared/util";
 import { CommandParser } from "@/ai/tools/CommandParser";
 import { SkillSelector, type SkillMatch } from "@/ai/tools/SkillSelector";
 

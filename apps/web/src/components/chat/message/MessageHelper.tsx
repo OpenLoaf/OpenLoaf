@@ -10,7 +10,7 @@ import {
   EmptyTitle,
 } from "@tenas-ai/ui/empty";
 import { Button } from "@tenas-ai/ui/button";
-import { useChatContext } from "../ChatProvider";
+import { useChatActions, useChatOptions, useChatSession } from "../context";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
 import { useAutoHeight } from "@/hooks/use-auto-height";
 import { MessageSquare } from "lucide-react";
@@ -104,7 +104,9 @@ const MIN_HELPER_HEIGHT = 420;
 const MIN_HELPER_HEIGHT_WITH_SESSIONS = 520;
 
 export default function MessageHelper() {
-  const { setInput, selectSession, tabId } = useChatContext();
+  const { setInput } = useChatOptions();
+  const { selectSession } = useChatActions();
+  const { tabId } = useChatSession();
   const { recentSessions } = useChatSessions({ tabId });
   const { ref: containerRef, height: containerHeight } = useAutoHeight([], {
     includeParentBox: false,

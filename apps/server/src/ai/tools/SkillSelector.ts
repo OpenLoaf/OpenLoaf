@@ -22,7 +22,7 @@ export type SkillMatch = {
   content: string;
 };
 
-export type SkillRoots = {
+type SkillRoots = {
   /** Project root path. */
   projectRoot?: string;
   /** Parent project roots. */

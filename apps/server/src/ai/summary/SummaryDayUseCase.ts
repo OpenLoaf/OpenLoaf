@@ -13,7 +13,7 @@ import {
 import { writeSummaryMarkdown, appendSummaryIndex } from "@tenas-ai/api/services/summaryStorage";
 import { generateDailySummary } from "@/ai/summary/summaryGenerator";
 
-export type SummaryDayUseCaseInput = {
+type SummaryDayUseCaseInput = {
   /** Project id. */
   projectId: string;
   /** Date key for daily summary. */
@@ -26,7 +26,7 @@ export type SummaryDayUseCaseInput = {
   previousSummary?: string;
 };
 
-export type SummaryDayResult = {
+type SummaryDayResult = {
   /** Summary id. */
   summaryId: string;
   /** Summary file path. */

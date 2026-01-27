@@ -1,6 +1,5 @@
 import type { TokenUsage } from "@tenas-ai/api/types/message";
-import { toNumberOrUndefined } from "@/ai/utils/number-utils";
-import { isRecord } from "@/ai/utils/type-guards";
+import { toNumberOrUndefined, isRecord } from "@/ai/shared/util";
 
 /** Build usage metadata from stream part. */
 export function buildTokenUsageMetadata(

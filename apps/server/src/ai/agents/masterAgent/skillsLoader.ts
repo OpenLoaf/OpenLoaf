@@ -164,7 +164,7 @@ export function readSkillContentFromPath(filePath: string): string {
   }
 }
 
-export function stripSkillFrontMatter(content: string): string {
+function stripSkillFrontMatter(content: string): string {
   const lines = content.split(/\r?\n/u);
   if (lines.length === 0) return "";
   const firstLine = lines[0] ?? "";

@@ -1,7 +1,7 @@
 import type { ProviderDefinition } from "@tenas-ai/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 
-export type QwenProviderConfig = {
+type QwenProviderConfig = {
   /** API base URL. */
   apiUrl: string;
   /** API key. */

@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
 import { normalizeCodexOptions, type CodexRequestOptions } from "@/ai/models/cli/codex/codexOptions";
-import { isRecord } from "@/ai/utils/type-guards";
+import { isRecord } from "@/ai/shared/util";
 
 /** Normalize image count into a safe integer range. */
 function normalizeImageCount(value: unknown): number | undefined {

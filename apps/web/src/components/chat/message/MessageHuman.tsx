@@ -10,7 +10,7 @@ import {
 import MaskedImage from "@/components/file/MaskedImage";
 import { useTabs } from "@/hooks/use-tabs";
 import { useProjects } from "@/hooks/use-projects";
-import { useChatContext } from "@/components/chat/ChatProvider";
+import { useChatSession } from "@/components/chat/context";
 import { setImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
 import { handleChatMentionPointerDown } from "@/lib/chat/mention-pointer";
@@ -24,7 +24,7 @@ import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
 import ChatMessageText from "./ChatMessageText";
 import MessageFile from "./tools/MessageFile";
-import { FILE_TOKEN_REGEX } from "../chat-input-utils";
+import { FILE_TOKEN_REGEX } from "../input/chat-input-utils";
 
 interface MessageHumanProps {
   message: UIMessage;
@@ -177,7 +177,7 @@ export default function MessageHuman({
   showText = true,
 }: MessageHumanProps) {
   const { data: projects = [] } = useProjects();
-  const { projectId, workspaceId } = useChatContext();
+  const { projectId, workspaceId } = useChatSession();
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabs((s) => s.pushStackItem);
   const [imageState, setImageState] = React.useState<Record<string, ImagePreviewState>>({});

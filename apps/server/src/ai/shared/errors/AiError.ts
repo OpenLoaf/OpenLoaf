@@ -1,6 +1,6 @@
 import type { ErrorCode } from "./ErrorCode";
 
-export type AiErrorContext = {
+type AiErrorContext = {
   /** Session id for the request. */
   sessionId?: string;
   /** Workspace id for the request. */

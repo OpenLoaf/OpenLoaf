@@ -7,7 +7,7 @@ import { generateText } from "ai";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 
-export type UpdateProjectSummaryInput = {
+type UpdateProjectSummaryInput = {
   /** Project id. */
   projectId: string;
   /** Source summary content. */

@@ -1,12 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  createModelRegistry,
-  createProviderRegistry,
-  type ModelDefinition,
-  type ProviderDefinition,
-} from "@tenas-ai/api/common";
+import type { ModelDefinition, ProviderDefinition } from "@tenas-ai/api/common";
 
 type RegistryCache = {
   /** Provider definitions. */
@@ -86,16 +81,4 @@ export function getModelDefinition(
   modelId: string,
 ): ModelDefinition | undefined {
   return loadRegistryCache().modelByKey.get(`${providerId}:${modelId}`);
-}
-
-/** Build model registry for filtering. */
-export function getModelRegistry() {
-  const { models } = loadRegistryCache();
-  return createModelRegistry(models);
-}
-
-/** Build provider registry for adapters. */
-export function getProviderRegistry() {
-  const { providers } = loadRegistryCache();
-  return createProviderRegistry(providers);
 }

@@ -9,9 +9,9 @@ import {
 import { logger } from "@/common/logger";
 
 /** Supported CLI tool ids. */
-export type CliToolId = "codex" | "claudeCode" | "python";
+type CliToolId = "codex" | "claudeCode" | "python";
 
-export type CliToolStatus = {
+type CliToolStatus = {
   /** Tool id. */
   id: CliToolId;
   /** Installation flag. */

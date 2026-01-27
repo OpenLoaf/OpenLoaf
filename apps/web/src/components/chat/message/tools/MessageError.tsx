@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import { useChatContext } from "../../ChatProvider";
+import { useChatActions, useChatState } from "../../context";
 import { Button } from "@tenas-ai/ui/button";
 import { Copy, RotateCcw } from "lucide-react";
 
@@ -102,7 +102,8 @@ function parseChatError(error: unknown): ParsedError {
 
 export default function MessageError({ error }: MessageErrorProps) {
   const reduceMotion = useReducedMotion();
-  const { regenerate, clearError, status } = useChatContext();
+  const { regenerate, clearError } = useChatActions();
+  const { status } = useChatState();
   const parsed = parseChatError(error);
 
   const handleRetry = () => {

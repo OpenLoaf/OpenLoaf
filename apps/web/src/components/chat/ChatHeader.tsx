@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import SessionList from "@/components/chat/session/SessionList";
 import * as React from "react";
-import { useChatContext } from "./ChatProvider";
+import { useChatActions, useChatSession, useChatState } from "./context";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
@@ -20,8 +20,9 @@ interface ChatHeaderProps {
 }
 
 export default function ChatHeader({ className }: ChatHeaderProps) {
-  const { id: activeSessionId, newSession, selectSession, messages, tabId } =
-    useChatContext();
+  const { sessionId: activeSessionId, tabId } = useChatSession();
+  const { newSession, selectSession } = useChatActions();
+  const { messages } = useChatState();
   const [historyOpen, setHistoryOpen] = React.useState(false);
   /** Preface button loading state. */
   const [prefaceLoading, setPrefaceLoading] = React.useState(false);
@@ -105,11 +106,12 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
   // Chat-only tab：让 Tab 标题跟随 chatSession.title（避免一直显示默认 “AI Chat”）
   React.useEffect(() => {
     if (!tabId) return;
+    if (!tab) return;
     if (hasTabBase) return;
     if (sessionTitle.length === 0) return;
     if (tabTitle === sessionTitle) return;
     setTabTitle(tabId, sessionTitle);
-  }, [tabId, hasTabBase, sessionTitle, tabTitle, setTabTitle]);
+  }, [tabId, tab, hasTabBase, sessionTitle, tabTitle, setTabTitle]);
 
   return (
     <div

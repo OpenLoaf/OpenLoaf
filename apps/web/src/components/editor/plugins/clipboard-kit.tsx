@@ -9,7 +9,7 @@ import {
   FILE_TOKEN_REGEX,
   normalizeSerializedForClipboard,
   serializeChatValue,
-} from '@/components/chat/chat-input-utils';
+} from '@/components/chat/input/chat-input-utils';
 
 export const ClipboardKit = [
   createPlatePlugin({

@@ -25,7 +25,7 @@ import {
 import { buildTokenUsageMetadata, buildTimingMetadata, mergeAbortMetadata } from "./metadataBuilder";
 
 /** 构建错误 SSE 响应的输入。 */
-export type ErrorStreamInput = {
+type ErrorStreamInput = {
   /** Session id. */
   sessionId: string;
   /** Assistant message id. */
@@ -37,7 +37,7 @@ export type ErrorStreamInput = {
 };
 
 /** 构建主聊天流响应的输入。 */
-export type ChatStreamResponseInput = {
+type ChatStreamResponseInput = {
   /** Session id. */
   sessionId: string;
   /** Assistant message id. */
@@ -59,7 +59,7 @@ export type ChatStreamResponseInput = {
 };
 
 /** 构建图片 SSE 响应的输入。 */
-export type ImageStreamResponseInput = {
+type ImageStreamResponseInput = {
   /** Session id. */
   sessionId: string;
   /** Assistant message id. */

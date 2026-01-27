@@ -14,7 +14,7 @@ import {
   getProjectId,
 } from "@/ai/shared/context/requestContext";
 import { logger } from "@/common/logger";
-import { resolveParentProjectRootPaths } from "@/ai/utils/projectRoots";
+import { resolveParentProjectRootPaths } from "@/ai/shared/util";
 import { parseCommandAtStart } from "@/ai/tools/CommandParser";
 import { buildSessionPrefaceText } from "@/ai/shared/prefaceBuilder";
 import { normalizePromptForImageEdit } from "@/ai/image/imageEditNormalizer";

@@ -6,7 +6,7 @@ import {
   type MasterAgentModelInfo,
 } from "@/ai/agents/masterAgent/masterAgent";
 
-export type MasterAgentRunnerInput = {
+type MasterAgentRunnerInput = {
   /** Model instance for the agent. */
   model: LanguageModelV3;
   /** Model metadata for the agent frame. */

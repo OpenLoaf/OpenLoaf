@@ -10,7 +10,7 @@ import type { ModelDefinition, ProviderDefinition } from "@tenas-ai/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { logger } from "@/common/logger";
 import { loadProjectImageBuffer } from "@/ai/image/attachmentResolver";
-import { downloadImageData } from "@/ai/utils/image-download";
+import { downloadImageData } from "@/ai/shared/util";
 import { resolveQwenConfig } from "./qwenConfig";
 import {
   buildQwenRequestPayload,

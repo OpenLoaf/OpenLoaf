@@ -1,11 +1,10 @@
 "use client";
 
-import { useTabs } from "@/hooks/use-tabs";
 import CliThinkingTool from "./CliThinkingTool";
 import JsonRenderTool from "./JsonRenderTool";
 import UnifiedTool from "./UnifiedTool";
 import PlanTool from "./PlanTool";
-import { useChatContext } from "../../ChatProvider";
+import { useChatState, useChatTools } from "../../context";
 import type { AnyToolPart, ToolVariant } from "./shared/tool-utils";
 
 /** Resolve tool key for routing. */
@@ -33,15 +32,14 @@ export default function MessageTool({
   /** Message id for fetching tool output. */
   messageId?: string;
 }) {
-  const chat = useChatContext();
+  const { status } = useChatState();
+  const { toolParts } = useChatTools();
   const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
-  const toolSnapshot = useTabs((state) =>
-    toolCallId && chat.tabId ? state.toolPartsByTabId[chat.tabId]?.[toolCallId] : undefined,
-  );
+  const toolSnapshot = toolCallId ? toolParts[toolCallId] : undefined;
   // 逻辑：tool streaming 状态以 toolParts 为准，覆盖 message part。
   let resolvedPart = toolSnapshot ? { ...part, ...toolSnapshot } : part;
   if (
-    chat.status === "ready" &&
+    status === "ready" &&
     (resolvedPart.state === "input-streaming" || resolvedPart.state === "output-streaming")
   ) {
     // 中文注释：会话已结束但数据库残留 streaming 状态时，强制终止流式显示。

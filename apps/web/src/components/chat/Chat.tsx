@@ -1,9 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import ChatProvider from "./ChatProvider";
+import ChatCoreProvider from "./ChatCoreProvider";
 import MessageList from "./message/MessageList";
-import ChatInput from "./ChatInput";
+import ChatInput from "./input/ChatInput";
 import ChatHeader from "./ChatHeader";
 import { generateId } from "ai";
 import * as React from "react";
@@ -11,13 +11,13 @@ import {
   CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES,
   formatFileSize,
   isSupportedImageFile,
-} from "./chat-attachments";
+} from "./input/chat-attachments";
 import type {
   ChatAttachment,
   ChatAttachmentInput,
   ChatAttachmentSource,
   MaskedAttachmentInput,
-} from "./chat-attachments";
+} from "./input/chat-attachments";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import { buildMaskedPreviewUrl, resolveMaskFileName } from "@/lib/image/mask";
 import { readImageDragPayload } from "@/lib/image/drag";
@@ -32,17 +32,8 @@ import { parseScopedProjectPath } from "@/components/project/filesystem/utils/fi
 import { DragDropOverlay } from "@tenas-ai/ui/tenas/drag-drop-overlay";
 import { useTabs } from "@/hooks/use-tabs";
 import { resolveServerUrl } from "@/utils/server-url";
-import { useSettingsValues } from "@/hooks/use-settings";
-import { useBasicConfig } from "@/hooks/use-basic-config";
-import { useCloudModels } from "@/hooks/use-cloud-models";
-import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { createChatSessionId } from "@/lib/chat-session-id";
-import {
-  supportsCode,
-  supportsImageEdit,
-  supportsImageInput,
-  supportsToolCall,
-} from "@/lib/model-capabilities";
+import { useChatModelSelection } from "./hooks/use-chat-model-selection";
 
 type ChatProps = {
   className?: string;
@@ -137,31 +128,17 @@ export function Chat({
     else delete (nextParams as any).projectId;
     return nextParams;
   }, [rawParams, workspaceId, projectId]);
-  const { basic } = useBasicConfig();
-  const { providerItems } = useSettingsValues();
-  const { models: cloudModels } = useCloudModels();
-  const chatModelSource = normalizeChatModelSource(basic.chatSource);
-  const modelOptions = React.useMemo(
-    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
-    [chatModelSource, providerItems, cloudModels],
-  );
-  const rawSelectedModelId =
-    typeof basic.modelDefaultChatModelId === "string"
-      ? basic.modelDefaultChatModelId.trim()
-      : "";
-  // 模型不存在时回退为 Auto，避免透传无效 modelId。
-  const selectedModel = modelOptions.find((option) => option.id === rawSelectedModelId);
-  const selectedModelId = selectedModel ? rawSelectedModelId : "";
-  const isAutoModel = !selectedModelId;
-  const isCodeModel = supportsCode(selectedModel);
-  const canAttachAll =
-    isAutoModel || supportsToolCall(selectedModel) || isCodeModel;
-  // 自动模式或支持图片输入/编辑时允许图片附件；工具调用仅在非代码模型时放开图片。
-  const canAttachImage =
-    isAutoModel ||
-    supportsImageInput(selectedModel) ||
-    supportsImageEdit(selectedModel) ||
-    (supportsToolCall(selectedModel) && !isCodeModel);
+  const {
+    chatModelSource,
+    selectedModelId,
+    selectedModel,
+    isAutoModel,
+    canAttachAll,
+    canAttachImage,
+    canImageGeneration,
+    canImageEdit,
+    isCodexProvider,
+  } = useChatModelSelection();
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
   const [isDragActive, setIsDragActive] = React.useState(false);
@@ -724,7 +701,7 @@ export function Chat({
   );
 
   return (
-    <ChatProvider
+    <ChatCoreProvider
       tabId={tabId}
       sessionId={effectiveSessionId}
       loadHistory={effectiveLoadHistory}
@@ -759,6 +736,11 @@ export function Chat({
           onReplaceMaskedAttachment={replaceMaskedAttachment}
           canAttachAll={canAttachAll}
           canAttachImage={canAttachImage}
+          model={selectedModel}
+          isAutoModel={isAutoModel}
+          canImageGeneration={canImageGeneration}
+          canImageEdit={canImageEdit}
+          isCodexProvider={isCodexProvider}
           onDropHandled={resetDragState}
         />
 
@@ -797,6 +779,6 @@ export function Chat({
           }
         />
       </div>
-    </ChatProvider>
+    </ChatCoreProvider>
   );
 }

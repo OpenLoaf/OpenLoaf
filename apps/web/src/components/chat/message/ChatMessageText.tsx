@@ -11,7 +11,7 @@ import { Editor, EditorContainer } from "@tenas-ai/ui/editor";
 import { ParagraphElement } from "@tenas-ai/ui/paragraph-node";
 import { MentionKit } from "@/components/editor/plugins/mention-kit";
 import { ClipboardKit } from "@/components/editor/plugins/clipboard-kit";
-import { parseChatValue } from "../chat-input-utils";
+import { parseChatValue } from "../input/chat-input-utils";
 
 const COMMAND_REGEX = /(^|\s)(\/[\w-]+)/g;
 

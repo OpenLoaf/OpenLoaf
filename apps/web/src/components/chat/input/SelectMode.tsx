@@ -22,7 +22,7 @@ import {
 } from "@/lib/provider-models";
 import { getModelLabel } from "@/lib/model-registry";
 import { resolveServerUrl } from "@/utils/server-url";
-import { useOptionalChatContext } from "../ChatProvider";
+import { useOptionalChatSession } from "../context";
 import { MODEL_TAG_LABELS, type ModelTag } from "@tenas-ai/api/common";
 
 interface SelectModeProps {
@@ -98,11 +98,11 @@ export default function SelectMode({ className }: SelectModeProps) {
   /** Selected tags for model filtering. */
   const [selectedTags, setSelectedTags] = useState<ModelTag[]>([]);
   const authBaseUrl = resolveServerUrl();
-  const chatContext = useOptionalChatContext();
+  const chatSession = useOptionalChatSession();
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabs((s) => s.pushStackItem);
   // 逻辑：聊天场景优先使用上下文 tabId，非聊天场景回退到当前激活 tab。
-  const tabId = chatContext?.tabId ?? activeTabId;
+  const tabId = chatSession?.tabId ?? activeTabId;
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const isCloudSource = chatModelSource === "cloud";
   const modelOptions = useMemo(

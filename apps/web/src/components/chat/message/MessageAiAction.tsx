@@ -21,7 +21,7 @@ import {
   ThumbsDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useChatContext } from "../ChatProvider";
+import { useChatActions, useChatSession, useChatState } from "../context";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import MessageBranchNav from "./MessageBranchNav";
@@ -265,15 +265,10 @@ export default function MessageAiAction({
   message: UIMessage;
   className?: string;
 }) {
-  const {
-    retryAssistantMessage,
-    clearError,
-    status,
-    updateMessage,
-    sendMessage,
-    leafMessageId,
-    deleteMessageSubtree,
-  } = useChatContext();
+  const { retryAssistantMessage, clearError, updateMessage, sendMessage, deleteMessageSubtree } =
+    useChatActions();
+  const { status } = useChatState();
+  const { leafMessageId } = useChatSession();
   const [isCopying, setIsCopying] = React.useState(false);
   const [compactOpen, setCompactOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -335,7 +330,7 @@ export default function MessageAiAction({
   const updateRatingMutation = useMutation({
     ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
     onSuccess: (result) => {
-      // 成功后，用服务端返回的 metadata 更新到 useChatContext（可能为 null）
+      // 中文注释：成功后用服务端返回的 metadata 回写到本地消息。
       updateMessage(message.id, { metadata: (result as any).metadata ?? null });
       toast.success("评价成功");
     },

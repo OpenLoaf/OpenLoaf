@@ -1,40 +1,3 @@
-export type MessageKind = "system" | "user" | "assistant" | "tool";
-
-export type ChatMessage = {
-  /** Message id. */
-  id: string;
-  /** Message kind. */
-  kind: MessageKind;
-  /** Message content. */
-  content: string;
-};
-
-export type ModelCandidate = {
-  /** Provider id. */
-  providerId: string;
-  /** Model id. */
-  modelId: string;
-  /** Optional score. */
-  score?: number;
-};
-
-export type ProjectSummary = {
-  /** Project id. */
-  projectId: string;
-  /** Summary content. */
-  summary: string;
-  /** Updated time. */
-  updatedAt: Date;
-};
-
-export type ScheduleJob = {
-  /** Job id. */
-  jobId: string;
-  /** Run time. */
-  runAt: Date;
-  /** Optional payload. */
-  payload?: Record<string, unknown>;
-};
 
 export type SkillSummary = {
   /** Skill id. */
@@ -43,7 +6,6 @@ export type SkillSummary = {
   summary: string;
 };
 
-export type TaskStatus = "pending" | "running" | "completed" | "failed";
 
 export type PromptContext = {
   /** Workspace snapshot for prompt building. */
@@ -105,46 +67,4 @@ export type PromptContext = {
   }>;
   /** Selected skill names for the prompt. */
   selectedSkills: string[];
-};
-
-export type AttachmentRef = {
-  /** Attachment path. */
-  path: string;
-  /** Optional media type. */
-  mediaType?: string;
-};
-
-export type ModelSelectionSpec = {
-  /** Optional preferred model id. */
-  preferredModelId?: string;
-  /** Required tags for model selection. */
-  requiredTags?: string[];
-};
-
-export type RequestScope = {
-  /** Session id for the request. */
-  sessionId: string;
-  /** Workspace id for the request. */
-  workspaceId?: string;
-  /** Project id for the request. */
-  projectId?: string;
-  /** Board id for the request. */
-  boardId?: string;
-  /** Client id for the request. */
-  clientId?: string;
-  /** Tab id for the request. */
-  tabId?: string;
-  /** Request correlation id. */
-  requestId?: string;
-  /** Selected skill names for the request. */
-  selectedSkills?: string[];
-  /** Parent project root paths for scope validation. */
-  parentProjectRootPaths?: string[];
-};
-
-export type ToolsetSpec = {
-  /** Included tool ids. */
-  include?: string[];
-  /** Excluded tool ids. */
-  exclude?: string[];
 };

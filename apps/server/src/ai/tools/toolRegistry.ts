@@ -1,14 +1,14 @@
-import { openUrlTool } from "@/ai/tools/ui/openUrl";
-import { jsonRenderTool } from "@/ai/tools/ui/jsonRenderTool";
-import { timeNowTool } from "@/ai/tools/system/timeNowTool";
-import { testApprovalTool } from "@/ai/tools/test/testApprovalTool";
-import { subAgentTool } from "@/ai/tools/delegation/subAgentTool";
-import { execCommandTool } from "@/ai/tools/runtime/execCommandTool";
-import { shellTool } from "@/ai/tools/runtime/shellTool";
-import { shellCommandTool } from "@/ai/tools/runtime/shellCommandTool";
-import { writeStdinTool } from "@/ai/tools/runtime/writeStdinTool";
-import { listDirTool, readFileTool } from "@/ai/tools/runtime/fileTools";
-import { updatePlanTool } from "@/ai/tools/runtime/updatePlanTool";
+import { openUrlTool } from "@/ai/tools/openUrl";
+import { jsonRenderTool } from "@/ai/tools/jsonRenderTool";
+import { timeNowTool } from "@/ai/tools/timeNowTool";
+import { testApprovalTool } from "@/ai/tools/testApprovalTool";
+import { subAgentTool } from "@/ai/tools/subAgentTool";
+import { execCommandTool } from "@/ai/tools/execCommandTool";
+import { shellTool } from "@/ai/tools/shellTool";
+import { shellCommandTool } from "@/ai/tools/shellCommandTool";
+import { writeStdinTool } from "@/ai/tools/writeStdinTool";
+import { listDirTool, readFileTool } from "@/ai/tools/fileTools";
+import { updatePlanTool } from "@/ai/tools/updatePlanTool";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -40,7 +40,7 @@ import {
   browserObserveTool,
   browserSnapshotTool,
   browserWaitTool,
-} from "@/ai/tools/browserAutomation/browserAutomationTools";
+} from "@/ai/tools/browserAutomationTools";
 
 type ToolEntry = {
   tool: any;
@@ -107,7 +107,7 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
 /**
  * Returns the tool instance by ToolDef.id (MVP).
  */
-export function getToolById(toolId: string): ToolEntry | undefined {
+function getToolById(toolId: string): ToolEntry | undefined {
   return TOOL_REGISTRY[toolId];
 }
 

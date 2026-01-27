@@ -12,7 +12,7 @@ import {
   updateSchedulerTaskRecord,
 } from "@tenas-ai/api/services/schedulerTaskRecordService";
 
-export type SummaryTaskInput = {
+type SummaryTaskInput = {
   /** Task id. */
   taskId: string;
   /** Project id. */

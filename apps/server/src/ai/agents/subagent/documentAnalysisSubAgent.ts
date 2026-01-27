@@ -35,7 +35,7 @@ const DEFAULT_DOCUMENT_ANALYSIS_SUB_AGENT_SYSTEM_PROMPT = readFileSync(
   "utf8",
 ).trim();
 
-export type CreateDocumentAnalysisSubAgentInput = {
+type CreateDocumentAnalysisSubAgentInput = {
   /** Model instance for the sub-agent. */
   model: LanguageModelV3;
   /** Optional tool ids override. */

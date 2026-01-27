@@ -12,14 +12,14 @@ import {
 import { AlertTriangle, Download, Redo2, Sparkles, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@tenas-ai/ui/button";
 import { trpc } from "@/utils/trpc";
-import { useOptionalChatContext } from "@/components/chat/ChatProvider";
+import { useOptionalChatSession } from "@/components/chat/context";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { buildStrokeOutline } from "@/components/board/utils/stroke-path";
 import type { CanvasStrokePoint, CanvasStrokeTool } from "@/components/board/engine/types";
-import type { MaskedAttachmentInput } from "@/components/chat/chat-attachments";
+import type { MaskedAttachmentInput } from "@/components/chat/input/chat-attachments";
 import { fetchBlobFromUri, loadImageFromUri } from "@/lib/image/uri";
 import { resolveMaskFileName } from "@/lib/image/mask";
 import { supportsImageEdit } from "@/lib/model-capabilities";
@@ -236,8 +236,8 @@ export default function ImageViewer({
   const workspaceId = workspace?.id ?? "";
   const shouldUseBinary =
     Boolean(uri) && Boolean(workspaceId) && (shouldUseFs || isRelative);
-  const chat = useOptionalChatContext();
-  const projectId = projectIdProp ?? chat?.projectId;
+  const chatSession = useOptionalChatSession();
+  const projectId = projectIdProp ?? chatSession?.projectId;
   const { basic, setBasic } = useBasicConfig();
   const { providerItems, s3ProviderItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();

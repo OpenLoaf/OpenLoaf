@@ -1,6 +1,6 @@
 "use client";
 
-import { useChatContext } from "../../ChatProvider";
+import { useChatTools } from "../../context";
 import ToolInfoCard from "./shared/ToolInfoCard";
 import { getToolId, getToolName, getToolStatusTone } from "./shared/tool-utils";
 
@@ -34,7 +34,7 @@ function getSubAgentTask(part: SubAgentToolPart): string {
  * Sub-agent tool renderer.
  */
 export default function SubAgentTool({ part }: { part: SubAgentToolPart }) {
-  const { subAgentStreams } = useChatContext();
+  const { subAgentStreams } = useChatTools();
   const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
   const stream = toolCallId ? subAgentStreams[toolCallId] : undefined;
 

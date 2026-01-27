@@ -2,7 +2,7 @@
 
 import { isToolPart } from "./message-parts";
 import { resolveToolDisplayName } from "./tool-name";
-import { normalizeFileMentionSpacing } from "@/components/chat/chat-input-utils";
+import { normalizeFileMentionSpacing } from "@/components/chat/input/chat-input-utils";
 
 type AnyMessagePart = {
   type?: string;

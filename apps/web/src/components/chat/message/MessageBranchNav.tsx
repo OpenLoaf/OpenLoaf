@@ -4,15 +4,17 @@ import * as React from "react";
 import { Button } from "@tenas-ai/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useChatContext } from "../ChatProvider";
+import { useChatActions, useChatSession, useChatState } from "../context";
 
 export default function MessageBranchNav({ messageId }: { messageId: string }) {
-  const { status, siblingNav, switchSibling } = useChatContext();
+  const { status } = useChatState();
+  const { siblingNav } = useChatSession();
+  const { switchSibling } = useChatActions();
 
   const isBusy = status === "submitted" || status === "streaming";
   const nav = siblingNav[messageId];
 
-  type SiblingNav = ReturnType<typeof useChatContext>["siblingNav"][string];
+  type SiblingNav = (typeof siblingNav)[string];
 
   // 消息列表只渲染“当前主链”，因此不再需要 branchMessageIds 作为额外判定；
   // 只要 siblingNav 提供了信息，就应显示（避免切分支时状态更新顺序导致短暂消失）。

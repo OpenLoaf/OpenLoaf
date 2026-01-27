@@ -1,7 +1,6 @@
 import type { ChatCommandId } from "@tenas-ai/api/common/chatCommands";
 import type { ChatModelSource } from "@tenas-ai/api/common/modelTypes";
 import type { ChatRequestBody, TenasUIMessage } from "@tenas-ai/api/types/message";
-import type { SkillMatch } from "@/ai/tools/SkillSelector";
 
 /** Chat stream request payload, based on ChatRequestBody with server-only fields. */
 export type ChatStreamRequest = ChatRequestBody & {
@@ -73,11 +72,4 @@ export type AiCommandContext = {
   rawText: string;
   /** Argument text after token. */
   argsText?: string;
-};
-
-export type AiSkillContext = {
-  /** Skill names requested by user. */
-  names: string[];
-  /** Resolved skills injected into prompt. */
-  matches: SkillMatch[];
 };

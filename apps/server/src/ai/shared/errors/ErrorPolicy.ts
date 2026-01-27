@@ -1,6 +1,6 @@
 import { mapErrorToMessage } from "./ErrorMapper";
 
-export type ErrorPolicyResult = {
+type ErrorPolicyResult = {
   /** HTTP status for the error. */
   status: number;
   /** User-facing error message. */

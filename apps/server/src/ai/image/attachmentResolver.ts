@@ -340,7 +340,7 @@ async function resolveChatAttachmentRoot(input: {
   return { rootPath: workspaceRootPath };
 }
 
-export type ChatBinaryAttachmentResult = {
+type ChatBinaryAttachmentResult = {
   /** Relative path for the saved attachment. */
   url: string;
   /** Media type for the attachment. */

@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { ChatModelSource } from "@tenas-ai/api/common";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 
@@ -56,7 +55,7 @@ export type ChatImageRequest = {
   selectedSkills?: string[];
 };
 
-export type ChatImageResponse = {
+type ChatImageResponse = {
   /** Session id. */
   sessionId: string;
   /** Assistant message payload. */
@@ -78,36 +77,3 @@ export type ChatImageRequestResult =
       /** Error message for client display. */
       error: string;
     };
-
-const chatImageMessageSchema = z
-  .object({
-    id: z.string().min(1),
-    role: z.enum(["system", "user", "assistant"]),
-    parts: z.array(z.unknown()),
-    parentMessageId: z.string().nullable().optional(),
-    metadata: z.unknown().optional(),
-    agent: z.unknown().optional(),
-  })
-  .passthrough();
-
-export const chatImageRequestSchema: z.ZodType<ChatImageRequest> = z
-  .object({
-    sessionId: z.string().min(1),
-    messages: z.array(chatImageMessageSchema).min(1),
-    id: z.string().min(1).optional(),
-    messageId: z.string().min(1).optional(),
-    clientId: z.string().min(1).optional(),
-    timezone: z.string().min(1).optional(),
-    tabId: z.string().min(1).optional(),
-    params: z.record(z.string(), z.unknown()).optional(),
-    trigger: z.string().min(1).optional(),
-    retry: z.boolean().optional(),
-    chatModelId: z.string().min(1),
-    chatModelSource: z.enum(["local", "cloud"]).optional(),
-    workspaceId: z.string().min(1).optional(),
-    projectId: z.string().min(1).optional(),
-    boardId: z.string().min(1).nullable().optional(),
-    imageSaveDir: z.string().min(1).optional(),
-    selectedSkills: z.array(z.string().min(1)).optional(),
-  })
-  .strict();

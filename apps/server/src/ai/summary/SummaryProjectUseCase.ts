@@ -7,7 +7,7 @@ import { listProjectFilesChangedInRange } from "@tenas-ai/api/services/projectFi
 import { writeSummaryMarkdown, appendSummaryIndex } from "@tenas-ai/api/services/summaryStorage";
 import { generateRangeSummary } from "@/ai/summary/summaryGenerator";
 
-export type SummaryProjectUseCaseInput = {
+type SummaryProjectUseCaseInput = {
   /** Project id. */
   projectId: string;
   /** Date keys covered by summary. */
@@ -22,7 +22,7 @@ export type SummaryProjectUseCaseInput = {
   timezone: string;
 };
 
-export type SummaryProjectResult = {
+type SummaryProjectResult = {
   /** Summary id. */
   summaryId: string;
   /** Summary file path. */

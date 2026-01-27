@@ -9,9 +9,11 @@ import { buildOpenAiCompatibleImageModel } from "@/ai/models/openaiCompatible/op
 import { qwenAdapter } from "@/ai/models/qwen/qwenAdapter";
 import { volcengineAdapter } from "@/ai/models/volcengine/volcengineAdapter";
 import { cliAdapter } from "@/ai/models/cli/cliAdapter";
-import { buildAiDebugFetch } from "@/ai/utils/ai-debug-fetch";
-import { ensureOpenAiCompatibleBaseUrl } from "@/ai/utils/openai-url";
-import { readApiKey } from "@/ai/utils/provider-auth";
+import {
+  buildAiDebugFetch,
+  ensureOpenAiCompatibleBaseUrl,
+  readApiKey,
+} from "@/ai/shared/util";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 
 type AdapterInput = {
@@ -25,7 +27,7 @@ type AdapterInput = {
   providerDefinition?: ProviderDefinition;
 };
 
-export type TextToImageInput = {
+type TextToImageInput = {
   /** Prompt text. */
   prompt: string;
   /** Optional image URLs. */
@@ -48,7 +50,7 @@ export type TextToImageInput = {
   seed?: number;
 };
 
-export type InpaintInput = {
+type InpaintInput = {
   /** Image URLs. */
   imageUrls?: string[];
   /** Base64 images. */
@@ -59,7 +61,7 @@ export type InpaintInput = {
   seed?: number;
 };
 
-export type MaterialExtractInput = {
+type MaterialExtractInput = {
   /** Image URLs. */
   imageUrls?: string[];
   /** Base64 images. */
@@ -76,7 +78,7 @@ export type MaterialExtractInput = {
   seed?: number;
 };
 
-export type VideoGenerateInput = {
+type VideoGenerateInput = {
   /** Prompt text. */
   prompt?: string;
   /** Image URLs. */

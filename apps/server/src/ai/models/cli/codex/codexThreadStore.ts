@@ -1,4 +1,4 @@
-export type CodexThreadCacheEntry = {
+type CodexThreadCacheEntry = {
   /** Codex thread id. */
   threadId: string;
   /** Latest model id bound to the thread. */
@@ -50,11 +50,6 @@ export function setCachedCodexThread(sessionId: string, entry: CodexThreadCacheE
   };
   codexThreadCache.set(sessionId, nextEntry);
   pruneCodexThreadCache();
-}
-
-/** Clear cached Codex thread for a chat session. */
-export function clearCachedCodexThread(sessionId: string): void {
-  codexThreadCache.delete(sessionId);
 }
 
 /** Clear all cached Codex threads. */

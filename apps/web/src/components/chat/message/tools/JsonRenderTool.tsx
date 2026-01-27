@@ -23,8 +23,7 @@ import { Label } from "@tenas-ai/ui/label";
 import { Textarea } from "@tenas-ai/ui/textarea";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
-import { useTabs } from "@/hooks/use-tabs";
-import { useChatContext } from "../../ChatProvider";
+import { useChatActions, useChatState, useChatTools } from "../../context";
 import type { AnyToolPart } from "./shared/tool-utils";
 import {
   asPlainObject,
@@ -368,7 +367,9 @@ export default function JsonRenderTool({
   className?: string;
   messageId?: string;
 }) {
-  const chat = useChatContext();
+  const { messages, status } = useChatState();
+  const { updateMessage, addToolApprovalResponse, sendMessage } = useChatActions();
+  const { toolParts, upsertToolPart } = useChatTools();
   const approvalId = getApprovalId(part);
   const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
   const isRejected = part.approval?.approved === false;
@@ -409,8 +410,8 @@ export default function JsonRenderTool({
   /** Update tool approval state in local messages. */
   const updateApprovalInMessages = React.useCallback(
     (approved: boolean) => {
-      const messages = chat.messages ?? [];
-      for (const message of messages) {
+      const nextMessages = messages ?? [];
+      for (const message of nextMessages) {
         const parts = Array.isArray((message as any)?.parts) ? (message as any).parts : [];
         const hasTarget = parts.some((candidate: any) => candidate?.approval?.id === approvalId);
         if (!hasTarget) continue;
@@ -421,37 +422,33 @@ export default function JsonRenderTool({
             approval: { ...candidate.approval, approved },
           };
         });
-        chat.updateMessage(message.id, { parts: nextParts });
+        updateMessage(message.id, { parts: nextParts });
         return { messageId: message.id, nextParts };
       }
       return null;
     },
-    [chat, approvalId],
+    [messages, updateMessage, approvalId],
   );
 
   /** Update tool approval state in tab snapshot. */
   const updateApprovalSnapshot = React.useCallback(
     (approved: boolean) => {
-      const tabId = chat.tabId;
-      if (!tabId) return;
-      const state = useTabs.getState();
-      const toolParts = state.toolPartsByTabId[tabId] ?? {};
       for (const [toolKey, toolPart] of Object.entries(toolParts)) {
         if (toolPart?.approval?.id !== approvalId) continue;
         // 逻辑：提前更新审批状态，避免按钮滞后。
-        state.upsertToolPart(tabId, toolKey, {
+        upsertToolPart(toolKey, {
           ...toolPart,
           approval: { ...toolPart.approval, approved },
         });
         break;
       }
     },
-    [chat.tabId, approvalId],
+    [toolParts, upsertToolPart, approvalId],
   );
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const isActionDisabled =
-    isSubmitting || isReadonly || chat.status === "streaming" || chat.status === "submitted";
+    isSubmitting || isReadonly || status === "streaming" || status === "submitted";
   /** Persist data changes to the local ref. */
   const handleDataChange = React.useCallback((path: string, value: unknown) => {
     if (!path) return;
@@ -470,10 +467,10 @@ export default function JsonRenderTool({
       updateApprovalInMessages(true);
       try {
         if (approvalId) {
-          await chat.addToolApprovalResponse({ id: approvalId, approved: true });
+          await addToolApprovalResponse({ id: approvalId, approved: true });
         }
         const payload = { ...dataRef.current };
-        await chat.sendMessage(undefined, {
+        await sendMessage(undefined as any, {
           body: { toolApprovalPayloads: { [toolCallId]: payload } },
         });
       } finally {
@@ -486,7 +483,8 @@ export default function JsonRenderTool({
       updateApprovalSnapshot,
       updateApprovalInMessages,
       approvalId,
-      chat,
+      addToolApprovalResponse,
+      sendMessage,
     ],
   );
 
@@ -498,7 +496,7 @@ export default function JsonRenderTool({
     const approvalUpdate = updateApprovalInMessages(false);
     try {
       if (approvalId) {
-        await chat.addToolApprovalResponse({ id: approvalId, approved: false });
+        await addToolApprovalResponse({ id: approvalId, approved: false });
       }
       if (approvalUpdate) {
         try {
@@ -519,7 +517,7 @@ export default function JsonRenderTool({
     updateApprovalSnapshot,
     updateApprovalInMessages,
     approvalId,
-    chat,
+    addToolApprovalResponse,
     updateApprovalMutation,
   ]);
 

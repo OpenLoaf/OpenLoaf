@@ -4,19 +4,18 @@ import type { UIMessage } from "@ai-sdk/react";
 import * as React from "react";
 import { generateId } from "ai";
 import { cn } from "@/lib/utils";
-import { ChatInputBox } from "../ChatInput";
+import { ChatInputBox } from "../input/ChatInput";
 import MessageAiAction from "./MessageAiAction";
 import MessageAi from "./MessageAi";
 import MessageHuman from "./MessageHuman";
 import MessageHumanAction from "./MessageHumanAction";
-import { useChatContext } from "../ChatProvider";
+import { useChatActions, useChatSession, useChatState, useChatTools } from "../context";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
-import { useTabs } from "@/hooks/use-tabs";
-import type { ChatAttachment } from "../chat-attachments";
+import type { ChatAttachment } from "../input/chat-attachments";
 import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
 import type { ChatMessageKind } from "@tenas-ai/api";
 import { getMessagePlainText } from "@/lib/chat/message-text";
-import { normalizeFileMentionSpacing } from "@/components/chat/chat-input-utils";
+import { normalizeFileMentionSpacing } from "@/components/chat/input/chat-input-utils";
 import CompactSummaryDivider from "./CompactSummaryDivider";
 import { isToolPart } from "@/lib/chat/message-parts";
 import { isApprovalPending } from "./tools/shared/tool-utils";
@@ -36,16 +35,10 @@ function MessageItem({
   isLastAiMessage,
   hideAiActions,
 }: MessageItemProps) {
-  const {
-    resendUserMessage,
-    status,
-    clearError,
-    branchMessageIds,
-    siblingNav,
-    projectId,
-    workspaceId,
-    tabId,
-  } = useChatContext();
+  const { resendUserMessage, clearError } = useChatActions();
+  const { status } = useChatState();
+  const { branchMessageIds, siblingNav, projectId, workspaceId, tabId } = useChatSession();
+  const { toolParts } = useChatTools();
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [editAttachments, setEditAttachments] = React.useState<ChatAttachment[]>([]);
@@ -75,7 +68,7 @@ function MessageItem({
     return messageHasVisibleContent(message);
   }, [message]);
 
-  const toolPartsByTab = useTabs((state) => (tabId ? state.toolPartsByTabId[tabId] : undefined));
+  const toolPartsByTab = toolParts;
   const toolPartsInMessage = React.useMemo(() => {
     const parts = Array.isArray(message.parts) ? message.parts : [];
     return parts.filter((part) => isToolPart(part));

@@ -69,7 +69,7 @@ export type MasterAgentModelInfo = {
   modelId: string;
 };
 
-export type CreateMasterAgentInput = {
+type CreateMasterAgentInput = {
   /** Model instance for the agent. */
   model: LanguageModelV3;
   /** Optional tool ids override. */

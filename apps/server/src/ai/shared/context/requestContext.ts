@@ -12,7 +12,7 @@ export type AgentFrame = {
   model?: { provider: string; modelId: string };
 };
 
-export type RequestContext = {
+type RequestContext = {
   /** Chat session id for this request. */
   sessionId: string;
   /** Cookie snapshot for this request. */
@@ -69,7 +69,7 @@ export function getSessionId(): string | undefined {
 }
 
 /** Get cookies (MVP: workspaceId can fall back to cookies). */
-export function getCookies(): Record<string, string> | undefined {
+function getCookies(): Record<string, string> | undefined {
   return getRequestContext()?.cookies;
 }
 
@@ -99,10 +99,6 @@ export function getClientId(): string | undefined {
 }
 
 /** Get client timezone (IANA). */
-export function getTimezone(): string | undefined {
-  return getRequestContext()?.timezone;
-}
-
 /** 获取当前应用 TabId（用于绑定 UI 操作目标）。 */
 export function getTabId(): string | undefined {
   return getRequestContext()?.tabId;
@@ -164,15 +160,6 @@ export function setParentProjectRootPaths(rootPaths?: string[]) {
 }
 
 /** Get parent project root paths for this request. */
-export function getParentProjectRootPaths(): string[] | undefined {
-  return getRequestContext()?.parentProjectRootPaths;
-}
-
-/** Get selected skills for this request. */
-export function getSelectedSkills(): string[] {
-  return getRequestContext()?.selectedSkills ?? [];
-}
-
 /** Consume tool approval payload by toolCallId. */
 export function consumeToolApprovalPayload(
   toolCallId: string,
@@ -194,10 +181,6 @@ export function setAssistantMessageId(messageId: string) {
 }
 
 /** Gets the assistant message id for this request. */
-export function getAssistantMessageId(): string | undefined {
-  return getRequestContext()?.assistantMessageId;
-}
-
 /**
  * Sets the latest plan update for this request.
  */
@@ -215,7 +198,7 @@ export function getPlanUpdate(): UpdatePlanArgs | undefined {
 }
 
 /** 获取 agent 栈（MVP：用于打标消息来源）。 */
-export function getAgentStack(): AgentFrame[] {
+function getAgentStack(): AgentFrame[] {
   const ctx = getRequestContext();
   if (!ctx) return [];
   if (!ctx.agentStack) ctx.agentStack = [];
@@ -223,11 +206,6 @@ export function getAgentStack(): AgentFrame[] {
 }
 
 /** 获取当前 agent frame（栈顶）。 */
-export function getCurrentAgentFrame(): AgentFrame | undefined {
-  const stack = getAgentStack();
-  return stack[stack.length - 1];
-}
-
 /** 入栈一个 agent frame（用于打标消息来源）。 */
 export function pushAgentFrame(frame: AgentFrame) {
   getAgentStack().push(frame);
