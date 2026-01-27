@@ -24,6 +24,11 @@ import {
   BaseLinkPreviewRouter,
   linkPreviewSchemas,
 } from "./routers/absLinkPreview";
+import {
+  webMetaRouter,
+  BaseWebMetaRouter,
+  webMetaSchemas,
+} from "./routers/absWebMeta";
 import { projectRouter } from "./routers/project";
 import {
   terminalRouter,
@@ -42,6 +47,7 @@ export const appRouterDefine = {
   settings: settingRouter,
   ai: aiRouter,
   linkPreview: linkPreviewRouter,
+  webMeta: webMetaRouter,
   terminal: terminalRouter,
 };
 
@@ -90,6 +96,7 @@ export { BaseAiRouter, aiSchemas };
 
 // Export link preview router components
 export { BaseLinkPreviewRouter, linkPreviewSchemas };
+export { BaseWebMetaRouter, webMetaSchemas };
 
 // Export terminal router components
 export { BaseTerminalRouter, terminalSchemas };

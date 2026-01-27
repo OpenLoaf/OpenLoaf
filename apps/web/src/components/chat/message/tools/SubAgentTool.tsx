@@ -83,7 +83,7 @@ export default function SubAgentTool({
   const stream = toolCallId ? subAgentStreams[toolCallId] : undefined;
   const toolSnapshot = toolCallId ? toolParts?.[toolCallId] : undefined;
   const resolvedPart = toolSnapshot ? { ...part, ...toolSnapshot } : part;
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = React.useState(true);
 
   const actionName = getActionName(resolvedPart);
   const errorText = stream?.errorText || resolvedPart.errorText;
@@ -161,32 +161,22 @@ export default function SubAgentTool({
         onClick={() => setIsOpen((prev) => !prev)}
         className="flex w-full flex-col items-start gap-1 text-left"
       >
-        <div className="text-[10px] font-medium text-foreground/70">
+        <div className="text-sm font-medium text-foreground/80">
           {actionName || "SubAgent"}
         </div>
-        {!isOpen ? (
-          <div className="min-w-0 w-full max-w-full text-[12px] text-foreground/80">
-            {renderMessageParts(previewParts, { toolVariant: "nested", messageId: renderMessageId })}
-          </div>
-        ) : null}
       </button>
 
       {isOpen ? (
         <div className="mt-2 space-y-2">
           {shouldShowLoading ? (
             <div className="text-[11px] text-muted-foreground">加载中…</div>
-          ) : historyMessage ? (
-            <div className="space-y-2">
-              {renderMessageParts(streamingParts as any[], {
-                toolVariant: "nested",
-                messageId: renderMessageId,
-              })}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {renderMessageParts(streamingParts as any[], { toolVariant: "nested" })}
-            </div>
-          )}
+          ) : null}
+          <div className="space-y-2">
+            {renderMessageParts(streamingParts as any[], {
+              toolVariant: "nested",
+              ...(renderMessageId ? { messageId: renderMessageId } : {}),
+            })}
+          </div>
         </div>
       ) : null}
     </div>

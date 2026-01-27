@@ -4,6 +4,7 @@ import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { createBrowserTabId } from "@/hooks/tab-id";
+import { resolveServerUrl } from "@/utils/server-url";
 
 export type FrontendToolAckStatus = "success" | "failed" | "timeout";
 
@@ -38,7 +39,10 @@ export type FrontendToolExecutor = {
   executeFromToolPart: (input: { part: any; tabId?: string }) => Promise<boolean>;
 };
 
-const ACK_ENDPOINT = "/ai/tools/ack";
+function resolveAckEndpoint(): string {
+  const baseUrl = resolveServerUrl();
+  return baseUrl ? `${baseUrl}/ai/tools/ack` : "/ai/tools/ack";
+}
 
 function normalizeUrl(raw: string): string {
   const value = raw.trim();
@@ -49,7 +53,7 @@ function normalizeUrl(raw: string): string {
 }
 
 async function postFrontendToolAck(payload: FrontendToolAckPayload): Promise<void> {
-  const response = await fetch(ACK_ENDPOINT, {
+  const response = await fetch(resolveAckEndpoint(), {
     method: "POST",
     headers: { "content-type": "application/json" },
     credentials: "include",

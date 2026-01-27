@@ -6,7 +6,7 @@ import { Button } from "@tenas-ai/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { desktopWidgetCatalog } from "./widget-catalog";
-import type { DesktopItem } from "./types";
+import type { DesktopItem, DesktopWidgetItem } from "./types";
 import {
   createLayoutByBreakpoint,
   getItemLayoutForBreakpoint,
@@ -27,6 +27,18 @@ type WidgetCreateOptions = {
   title?: string;
   /** Optional folder uri for 3d-folder widget. */
   folderUri?: string;
+  /** Optional web url for web-stack widget. */
+  webUrl?: string;
+  /** Optional web title for web-stack widget. */
+  webTitle?: string;
+  /** Optional web description for web-stack widget. */
+  webDescription?: string;
+  /** Optional web logo path for web-stack widget. */
+  webLogo?: string;
+  /** Optional web preview path for web-stack widget. */
+  webPreview?: string;
+  /** Optional web meta status for web-stack widget. */
+  webMetaStatus?: DesktopWidgetItem["webMetaStatus"];
 };
 
 /** Build a new widget item based on catalog metadata. */
@@ -60,6 +72,12 @@ function createWidgetItem(
     constraints,
     flipClock,
     folderUri: widgetKey === "3d-folder" ? options?.folderUri : undefined,
+    webUrl: widgetKey === "web-stack" ? options?.webUrl : undefined,
+    webTitle: widgetKey === "web-stack" ? options?.webTitle : undefined,
+    webDescription: widgetKey === "web-stack" ? options?.webDescription : undefined,
+    webLogo: widgetKey === "web-stack" ? options?.webLogo : undefined,
+    webPreview: widgetKey === "web-stack" ? options?.webPreview : undefined,
+    webMetaStatus: widgetKey === "web-stack" ? options?.webMetaStatus : undefined,
     layout,
     layoutByBreakpoint: createLayoutByBreakpoint(layout),
   };
@@ -128,6 +146,12 @@ export default function DesktopEditToolbar({
       const nextItem = createWidgetItem(detail.widgetKey, items, activeBreakpoint, {
         title: detail.title,
         folderUri: detail.folderUri,
+        webUrl: detail.webUrl,
+        webTitle: detail.webTitle,
+        webDescription: detail.webDescription,
+        webLogo: detail.webLogo,
+        webPreview: detail.webPreview,
+        webMetaStatus: detail.webMetaStatus,
       });
       if (!nextItem) return;
       onAddItem(nextItem);

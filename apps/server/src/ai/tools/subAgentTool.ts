@@ -16,6 +16,7 @@ import { saveMessage } from "@/ai/services/chat/repositories/messageStore";
 import { buildModelMessages } from "@/ai/shared/messageConverter";
 import { logger } from "@/common/logger";
 import { getChatModel, getSessionId, getUiWriter } from "@/ai/shared/context/requestContext";
+import { registerFrontendToolPending } from "@/ai/tools/pendingRegistry";
 
 /**
  * Builds sub-agent messages for streaming execution.
@@ -69,6 +70,48 @@ async function saveSubAgentHistory(input: {
     createdAt: input.createdAt,
     allowEmpty: true,
   });
+}
+
+/** Sub-agent approval gate metadata. */
+type ApprovalGate = {
+  approvalId: string;
+  toolCallId: string;
+  part: any;
+};
+
+/** Resolve approval gate from sub-agent parts. */
+function resolveApprovalGate(parts: unknown[]): ApprovalGate | null {
+  for (const part of parts) {
+    if (!part || typeof part !== "object") continue;
+    const approval = (part as { approval?: { id?: unknown; approved?: unknown } }).approval;
+    const approvalId = typeof approval?.id === "string" ? approval.id : "";
+    if (!approvalId) continue;
+    if (approval?.approved === true || approval?.approved === false) continue;
+    const toolCallId =
+      typeof (part as { toolCallId?: unknown }).toolCallId === "string"
+        ? String((part as { toolCallId?: string }).toolCallId)
+        : "";
+    if (!toolCallId) continue;
+    return { approvalId, toolCallId, part };
+  }
+  return null;
+}
+
+/** Update approval status on parts. */
+function applyApprovalDecision(input: {
+  parts: unknown[];
+  approvalId: string;
+  approved: boolean;
+}) {
+  for (const part of input.parts) {
+    if (!part || typeof part !== "object") continue;
+    const approval = (part as { approval?: { id?: unknown } }).approval;
+    const currentId = typeof approval?.id === "string" ? approval.id : "";
+    if (currentId !== input.approvalId) continue;
+    (part as any).approval = { ...approval, approved: input.approved };
+    // 逻辑：审批已响应，避免重复停在 approval-requested。
+    (part as any).state = "approval-responded";
+  }
 }
 
 /**
@@ -126,32 +169,43 @@ export const subAgentTool = tool({
           ? createTestApprovalSubAgent({ model })
           : createBrowserSubAgent({ model });
     const subAgentMessages = buildSubAgentMessages({ task }) as unknown as UIMessage[];
-    const modelMessages = await buildModelMessages(subAgentMessages, agent.tools);
-    const result = await agent.stream({
-      messages: modelMessages as any,
-      abortSignal: options.abortSignal,
-    });
-    logger.info(
-      {
-        toolCallId,
-        name,
-        hasWriter: Boolean(writer),
-      },
-      "[sub-agent] stream ready",
-    );
 
     let outputText = "";
     let responseParts: unknown[] = [];
-    const uiStream = result.toUIMessageStream({
-      originalMessages: subAgentMessages as any[],
-      generateMessageId: () => generateId(),
-      onFinish: ({ responseMessage }) => {
-        const parts = Array.isArray(responseMessage?.parts) ? responseMessage.parts : [];
-        responseParts = parts;
-      },
-    });
-    try {
-      // 逻辑：转发子Agent的 UIMessageChunk，让前端复用渲染逻辑。
+    let approvalGate: ApprovalGate | null = null;
+    let approvalWaitTimeoutSec = 60;
+
+    const runSubAgentStream = async () => {
+      const modelMessages = await buildModelMessages(subAgentMessages, agent.tools);
+      const result = await agent.stream({
+        messages: modelMessages as any,
+        abortSignal: options.abortSignal,
+      });
+      logger.info(
+        {
+          toolCallId,
+          name,
+          hasWriter: Boolean(writer),
+        },
+        "[sub-agent] stream ready",
+      );
+
+      const uiStream = result.toUIMessageStream({
+        originalMessages: subAgentMessages as any[],
+        generateMessageId: () => generateId(),
+        onFinish: ({ responseMessage }) => {
+          const parts = Array.isArray(responseMessage?.parts) ? responseMessage.parts : [];
+          responseParts = parts;
+          approvalGate = resolveApprovalGate(parts);
+          if (approvalGate) {
+            const timeoutValue = (approvalGate.part as { timeoutSec?: unknown }).timeoutSec;
+            if (Number.isFinite(timeoutValue)) {
+              approvalWaitTimeoutSec = Math.max(1, Math.floor(Number(timeoutValue)));
+            }
+          }
+        },
+      });
+
       const reader = uiStream.getReader();
       while (true) {
         const { value, done } = await reader.read();
@@ -173,6 +227,43 @@ export const subAgentTool = tool({
           type: "data-sub-agent-chunk",
           data: { toolCallId, chunk: value },
         } as any);
+      }
+    };
+    try {
+      // 逻辑：转发子Agent的 UIMessageChunk，让前端复用渲染逻辑。
+      await runSubAgentStream();
+
+      if (approvalGate) {
+        logger.info(
+          { toolCallId, approvalId: approvalGate.approvalId },
+          "[sub-agent] approval requested",
+        );
+        const ack = await registerFrontendToolPending({
+          toolCallId: approvalGate.approvalId,
+          timeoutSec: approvalWaitTimeoutSec,
+        });
+        if (ack.status !== "success") {
+          throw new Error(ack.errorText || "sub-agent approval failed");
+        }
+        const approved =
+          ack.output &&
+          typeof ack.output === "object" &&
+          (ack.output as { approved?: unknown }).approved === true;
+        applyApprovalDecision({
+          parts: responseParts,
+          approvalId: approvalGate.approvalId,
+          approved,
+        });
+        // 逻辑：将审批响应写回子代理上下文，继续执行工具。
+        subAgentMessages.push({
+          id: generateId(),
+          role: "assistant",
+          parts: responseParts as any[],
+        } as any);
+        outputText = "";
+        responseParts = [];
+        approvalGate = null;
+        await runSubAgentStream();
       }
     } catch (err) {
       const errorText = err instanceof Error ? err.message : "sub-agent failed";

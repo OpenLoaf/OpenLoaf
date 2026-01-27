@@ -26,6 +26,15 @@ type AutoUpdateStatus = {
   error?: string;
   ts: number;
 };
+type WebMetaCaptureResult = {
+  ok: boolean;
+  url: string;
+  title?: string;
+  description?: string;
+  logoPath?: string;
+  previewPath?: string;
+  error?: string;
+};
 
 /**
  * preload 运行在隔离上下文中，是我们向 web UI（apps/web）暴露安全 API 的唯一入口。
@@ -38,6 +47,9 @@ contextBridge.exposeInMainWorld('tenasElectron', {
   // 使用系统默认浏览器打开外部 URL。
   openExternal: (url: string): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('tenas:open-external', { url }),
+  // 抓取网页元数据与截图（仅 Electron 模式）。
+  fetchWebMeta: (payload: { url: string; rootUri: string }): Promise<WebMetaCaptureResult> =>
+    ipcRenderer.invoke('tenas:web-meta:fetch', payload),
   // 确保某个 viewKey 对应的 WebContentsView 已存在，并返回 cdpTargetId（供 server attach）。
   ensureWebContentsView: (args: { key: string; url: string }): Promise<{ ok: true; webContentsId: number; cdpTargetId?: string } | { ok: false }> =>
     ipcRenderer.invoke('tenas:webcontents-view:ensure', args),

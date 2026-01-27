@@ -22,7 +22,7 @@ type DesktopFileItem = {
   id: string;
   kind: "icon" | "widget";
   title: string;
-  widgetKey?: "clock" | "flip-clock" | "quick-actions" | "3d-folder" | "video";
+  widgetKey?: "clock" | "flip-clock" | "quick-actions" | "3d-folder" | "video" | "web-stack";
   size?: "1x1" | "2x2" | "4x2" | "4x3";
   constraints?: DesktopWidgetConstraints;
   pinned?: boolean;
@@ -86,7 +86,16 @@ export function serializeDesktopItems(items: DesktopItem[]): DesktopFilePayload 
           ? { folderUri: item.folderUri }
           : item.widgetKey === "video"
             ? { videoFileRef: item.videoFileRef }
-          : undefined;
+            : item.widgetKey === "web-stack"
+              ? {
+                  webUrl: item.webUrl,
+                  webTitle: item.webTitle,
+                  webDescription: item.webDescription,
+                  webLogo: item.webLogo,
+                  webPreview: item.webPreview,
+                  webMetaStatus: item.webMetaStatus,
+                }
+              : undefined;
 
     return {
       id: item.id,
@@ -157,6 +166,34 @@ export function deserializeDesktopItems(raw: string): DesktopItem[] | null {
           videoFileRef:
             item.widgetKey === "video" && typeof params.videoFileRef === "string"
               ? params.videoFileRef
+              : undefined,
+          webUrl:
+            item.widgetKey === "web-stack" && typeof params.webUrl === "string"
+              ? params.webUrl
+              : undefined,
+          webTitle:
+            item.widgetKey === "web-stack" && typeof params.webTitle === "string"
+              ? params.webTitle
+              : undefined,
+          webDescription:
+            item.widgetKey === "web-stack" && typeof params.webDescription === "string"
+              ? params.webDescription
+              : undefined,
+          webLogo:
+            item.widgetKey === "web-stack" && typeof params.webLogo === "string"
+              ? params.webLogo
+              : undefined,
+          webPreview:
+            item.widgetKey === "web-stack" && typeof params.webPreview === "string"
+              ? params.webPreview
+              : undefined,
+          webMetaStatus:
+            item.widgetKey === "web-stack" &&
+            (params.webMetaStatus === "idle" ||
+              params.webMetaStatus === "loading" ||
+              params.webMetaStatus === "ready" ||
+              params.webMetaStatus === "failed")
+              ? params.webMetaStatus
               : undefined,
           flipClock:
             item.widgetKey === "flip-clock"

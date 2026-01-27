@@ -58,6 +58,8 @@ type PreviewQueryInput = {
   path?: string;
   /** Project id query string. */
   projectId?: string;
+  /** Workspace id query string. */
+  workspaceId?: string;
   /** Include metadata query flag. */
   includeMetadata?: string;
   /** Max bytes query string. */
@@ -69,6 +71,8 @@ type PreviewQueryResult = {
   path?: string;
   /** Normalized project id. */
   projectId?: string;
+  /** Normalized workspace id. */
+  workspaceId?: string;
   /** Include metadata flag. */
   includeMetadata?: boolean;
   /** Max bytes limit. */
@@ -80,6 +84,8 @@ type PreviewRequestInput = {
   path?: string;
   /** Project id. */
   projectId?: string;
+  /** Workspace id. */
+  workspaceId?: string;
   /** Include metadata flag. */
   includeMetadata?: boolean;
   /** Max bytes limit. */
@@ -217,6 +223,7 @@ export class ChatAttachmentController {
   async preview(input: PreviewRequestInput): Promise<ChatAttachmentResponse> {
     const pathValue = input.path?.trim() ?? "";
     const projectId = input.projectId?.trim() || undefined;
+    const workspaceId = input.workspaceId?.trim() || undefined;
     const includeMetadata = Boolean(input.includeMetadata);
     const maxBytes = input.maxBytes;
     if (!pathValue) {
@@ -227,6 +234,7 @@ export class ChatAttachmentController {
       const preview = await getFilePreview({
         path: pathValue,
         projectId,
+        workspaceId,
         includeMetadata,
         maxBytes,
       });
@@ -282,6 +290,7 @@ export class ChatAttachmentController {
     return {
       path: query.path,
       projectId: query.projectId,
+      workspaceId: query.workspaceId,
       includeMetadata: query.includeMetadata === "1",
       maxBytes: parsePositiveInt(query.maxBytes),
     };

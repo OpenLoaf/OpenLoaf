@@ -18,6 +18,7 @@ import { chatRouterImplementation } from "@/routers/chat";
 import { settingsRouterImplementation } from "@/routers/settings";
 import { aiRouterImplementation } from "@/routers/ai";
 import { linkPreviewRouterImplementation } from "@/routers/linkPreview";
+import { webMetaRouterImplementation } from "@/routers/webMeta";
 import { terminalRouterImplementation } from "@/routers/terminal";
 import { logger } from "@/common/logger";
 
@@ -88,6 +89,7 @@ export function createApp() {
         settings: settingsRouterImplementation,
         ai: aiRouterImplementation,
         linkPreview: linkPreviewRouterImplementation,
+        webMeta: webMetaRouterImplementation,
         terminal: terminalRouterImplementation,
       }),
       createContext: (_opts, context) => createContext({ context }),

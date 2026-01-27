@@ -9,32 +9,21 @@ import type {
 } from "./gpu-protocol";
 import type {
   CanvasAlignmentGuide,
-  CanvasConnectorElement,
   CanvasNodeElement,
   CanvasPoint,
-  CanvasRect,
   CanvasViewportState,
 } from "../../engine/types";
-import { DEFAULT_NODE_SIZE, GROUP_OUTLINE_PADDING } from "../../engine/constants";
-import {
-  buildConnectorPath,
-  resolveConnectorEndpointsSmart,
-} from "../../utils/connector-path";
+import { DEFAULT_NODE_SIZE } from "../../engine/constants";
 
 const TEXT_ATLAS_SIZE = 1024;
 const TEXT_FONT_FAMILY = "ui-sans-serif, system-ui, sans-serif";
 const TEXT_MAX_LENGTH = 120;
-/** Group node types that need outline padding for connector resolution. */
-const GROUP_NODE_TYPES = new Set(["group", "image-group"]);
 const PALETTE_KEYS: Array<keyof GpuPalette> = [
   "nodeFill",
   "nodeStroke",
   "nodeSelected",
   "text",
   "textMuted",
-  "connector",
-  "connectorSelected",
-  "connectorDraft",
   "selectionFill",
   "selectionStroke",
   "guide",
@@ -546,164 +535,9 @@ function ensureImageTexture(src: string) {
   imageLoading.set(src, promise);
 }
 
-/** Resolve group outline padding in canvas units. */
-function getGroupOutlinePadding(_zoom: number) {
-  return GROUP_OUTLINE_PADDING;
-}
-
-/** Resolve anchor offset based on its side id and padding. */
-function resolveAnchorOffset(anchorId: string, padding: number): CanvasPoint {
-  switch (anchorId) {
-    case "top":
-      return [0, -padding];
-    case "right":
-      return [padding, 0];
-    case "bottom":
-      return [0, padding];
-    case "left":
-      return [-padding, 0];
-    default:
-      return [0, 0];
-  }
-}
-
-/** Apply group outline padding to anchors for group nodes. */
-function applyGroupAnchorPadding(
-  anchors: GpuSceneSnapshot["anchors"],
-  elements: GpuSceneSnapshot["elements"],
-  padding: number
-) {
-  if (padding <= 0) return anchors;
-  const next = { ...anchors };
-  elements.forEach((element) => {
-    if (element.kind !== "node") return;
-    if (!GROUP_NODE_TYPES.has(element.type)) return;
-    const list = anchors[element.id];
-    if (!list) return;
-    // 逻辑：根据锚点方向应用外边距，保持分组连接端点对齐。
-    next[element.id] = list.map((anchor) => {
-      const offset = resolveAnchorOffset(anchor.id, padding);
-      return { ...anchor, point: [anchor.point[0] + offset[0], anchor.point[1] + offset[1]] };
-    });
-  });
-  return next;
-}
-
-/** Collect node bounds, optionally expanded for group outline padding. */
-function getNodeBoundsMap(elements: GpuSceneSnapshot["elements"], groupPadding: number) {
-  const bounds: Record<string, CanvasRect | undefined> = {};
-  elements.forEach((element) => {
-    if (element.kind !== "node") return;
-    const [x, y, w, h] = element.xywh;
-    const padding = GROUP_NODE_TYPES.has(element.type) ? groupPadding : 0;
-    // 逻辑：分组节点扩展边界，保证连线计算匹配外轮廓。
-    bounds[element.id] = { x: x - padding, y: y - padding, w: w + padding * 2, h: h + padding * 2 };
-  });
-  return bounds;
-}
-
 function appendLine(lines: LineVertex[], a: CanvasPoint, b: CanvasPoint, color: Vec4) {
   lines.push({ x: a[0], y: a[1], color });
   lines.push({ x: b[0], y: b[1], color });
-}
-
-function sampleBezier(points: CanvasPoint[], segments = 24) {
-  if (points.length !== 4) return points;
-  const [p0, p1, p2, p3] = points as [CanvasPoint, CanvasPoint, CanvasPoint, CanvasPoint];
-  const out: CanvasPoint[] = [];
-  for (let i = 0; i <= segments; i += 1) {
-    const t = i / segments;
-    const mt = 1 - t;
-    const mt2 = mt * mt;
-    const t2 = t * t;
-    const x =
-      p0[0] * mt2 * mt +
-      3 * p1[0] * mt2 * t +
-      3 * p2[0] * mt * t2 +
-      p3[0] * t2 * t;
-    const y =
-      p0[1] * mt2 * mt +
-      3 * p1[1] * mt2 * t +
-      3 * p2[1] * mt * t2 +
-      p3[1] * t2 * t;
-    out.push([x, y]);
-  }
-  return out;
-}
-
-/** Collect bounds for nodes connected from the same source node. */
-function getConnectorAvoidRects(
-  connector: CanvasConnectorElement,
-  connectors: CanvasConnectorElement[],
-  boundsMap: Record<string, CanvasRect | undefined>
-): CanvasRect[] {
-  if (!("elementId" in connector.source)) return [];
-  const sourceId = connector.source.elementId;
-  const targetId = "elementId" in connector.target ? connector.target.elementId : undefined;
-  const avoidRects: CanvasRect[] = [];
-  connectors.forEach(other => {
-    if (other.id === connector.id) return;
-    if (!("elementId" in other.source)) return;
-    if (other.source.elementId !== sourceId) return;
-    if (!("elementId" in other.target)) return;
-    const otherTargetId = other.target.elementId;
-    if (!otherTargetId || otherTargetId === targetId) return;
-    const bounds = boundsMap[otherTargetId];
-    if (bounds) avoidRects.push(bounds);
-  });
-  return avoidRects;
-}
-
-function appendConnectorLines(
-  connector: CanvasConnectorElement,
-  state: GpuStateSnapshot,
-  anchors: GpuSceneSnapshot["anchors"],
-  connectors: CanvasConnectorElement[],
-  boundsMap: Record<string, CanvasRect | undefined>,
-  lines: LineVertex[],
-  palette: GpuPalette
-) {
-  const avoidRects = getConnectorAvoidRects(connector, connectors, boundsMap);
-  const resolved = resolveConnectorEndpointsSmart(
-    connector.source,
-    connector.target,
-    anchors,
-    boundsMap,
-    { avoidRects, connectorStyle: connector.style ?? state.connectorStyle }
-  );
-  const { source, target } = resolved;
-  if (!source || !target) return;
-  const style = connector.style ?? state.connectorStyle;
-  const path = buildConnectorPath(style, source, target, {
-    sourceAnchorId: resolved.sourceAnchorId,
-    targetAnchorId: resolved.targetAnchorId,
-  });
-  const isSelected = state.selectedIds.includes(connector.id);
-  const color = toColor(isSelected ? palette.connectorSelected : palette.connector);
-  const points = path.kind === "bezier" ? sampleBezier(path.points as CanvasPoint[]) : path.points;
-  for (let i = 0; i < points.length - 1; i += 1) {
-    appendLine(lines, points[i]!, points[i + 1]!, color);
-  }
-
-  if (points.length >= 2) {
-    const end = points[points.length - 1]!;
-    const prev = points[points.length - 2]!;
-    const dx = end[0] - prev[0];
-    const dy = end[1] - prev[1];
-    const len = Math.hypot(dx, dy) || 1;
-    const ux = dx / len;
-    const uy = dy / len;
-    const size = 10;
-    const angle = Math.PI / 7;
-    const sin = Math.sin(angle);
-    const cos = Math.cos(angle);
-    const lx = ux * cos - uy * sin;
-    const ly = ux * sin + uy * cos;
-    const rx = ux * cos + uy * sin;
-    const ry = -ux * sin + uy * cos;
-    appendLine(lines, end, [end[0] - lx * size, end[1] - ly * size], color);
-    appendLine(lines, end, [end[0] - rx * size, end[1] - ry * size], color);
-  }
 }
 
 function wrapText(text: string, maxWidth: number, ctx: OffscreenCanvasRenderingContext2D, maxLines: number) {
@@ -854,46 +688,6 @@ function buildSceneGeometry(
   const textQuads: TextQuad[] = [];
   const imageQuads: ImageQuad[] = [];
   const atlas = textAtlas;
-  const groupPadding = getGroupOutlinePadding(view.viewport.zoom);
-  const anchors = applyGroupAnchorPadding(scene.anchors, scene.elements, groupPadding);
-  const boundsMap = getNodeBoundsMap(scene.elements, groupPadding);
-
-  const connectorElements = scene.elements.filter(
-    (element): element is CanvasConnectorElement => element.kind === "connector"
-  );
-  connectorElements.forEach((connector) => {
-    appendConnectorLines(
-      connector,
-      state,
-      anchors,
-      connectorElements,
-      boundsMap,
-      lines,
-      palette
-    );
-  });
-  if (state.connectorDraft) {
-    const draft = state.connectorDraft;
-    const resolved = resolveConnectorEndpointsSmart(
-      draft.source,
-      draft.target,
-      anchors,
-      boundsMap
-    );
-    const { source, target } = resolved;
-    if (source && target) {
-      const style = draft.style ?? state.connectorStyle;
-      const path = buildConnectorPath(style, source, target, {
-        sourceAnchorId: resolved.sourceAnchorId,
-        targetAnchorId: resolved.targetAnchorId,
-      });
-      const color = toColor(palette.connectorDraft);
-      const points = path.kind === "bezier" ? sampleBezier(path.points as CanvasPoint[]) : path.points;
-      for (let i = 0; i < points.length - 1; i += 1) {
-        appendLine(lines, points[i]!, points[i + 1]!, color);
-      }
-    }
-  }
 
   if (renderNodes) {
     const selectedIds = new Set(state.selectedIds);

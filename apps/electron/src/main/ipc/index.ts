@@ -16,6 +16,7 @@ import {
   type UpsertWebContentsViewArgs,
 } from './webContentsViews';
 import { createSpeechRecognitionManager } from '../speechRecognition';
+import { captureWebMeta } from './captureWebMeta';
 
 let ipcHandlersRegistered = false;
 
@@ -252,6 +253,17 @@ export function registerIpcHandlers(args: { log: Logger }) {
       return { ok: false as const, reason: (error as Error)?.message ?? 'Open external failed' };
     }
   });
+
+  // 抓取网页元数据与截图（仅 Electron 模式）。
+  ipcMain.handle(
+    'tenas:web-meta:fetch',
+    async (_event, payload: { url: string; rootUri: string }) => {
+      return await captureWebMeta({
+        url: String(payload?.url ?? '').trim(),
+        rootUri: String(payload?.rootUri ?? '').trim(),
+      });
+    }
+  );
 
   // 调用系统语音识别（macOS helper）。渲染端通过事件接收识别文本。
   ipcMain.handle('tenas:speech:start', async (event, payload: { language?: string }) => {

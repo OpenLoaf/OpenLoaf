@@ -76,6 +76,8 @@ function handleSubAgentDataPart(input: {
     toolCallId: string,
     state: "output-available" | "output-error",
   ) => void;
+  tabId?: string;
+  upsertToolPart?: (tabId: string, toolCallId: string, next: ToolPartSnapshot) => void;
 }) {
   const type = input.dataPart?.type;
   if (
@@ -327,8 +329,34 @@ export default function ChatCoreProvider({
                 },
               };
             });
+
+            const tabId = tabIdRef.current ?? undefined;
+            if (tabId && Array.isArray(message.parts)) {
+              for (const part of message.parts) {
+                const toolCallIdValue =
+                  part && typeof part === "object" && typeof (part as any).toolCallId === "string"
+                    ? String((part as any).toolCallId)
+                    : "";
+                if (!toolCallIdValue) continue;
+                const type = typeof (part as any).type === "string" ? (part as any).type : "";
+                const toolName =
+                  typeof (part as any).toolName === "string" ? (part as any).toolName : undefined;
+                const isTool =
+                  toolName != null ||
+                  type === "dynamic-tool" ||
+                  (type && type.startsWith("tool-"));
+                if (!isTool) continue;
+                // 中文注释：将子代理 tool part 同步到 toolParts，复用现有审批与工具渲染逻辑。
+                upsertToolPart(tabId, toolCallIdValue, {
+                  ...(part as any),
+                  subAgentToolCallId: toolCallId,
+                } as any);
+              }
+            }
           }
         } finally {
+          // 中文注释：流结束后清理 controller，避免后续 enqueue 进入已关闭流。
+          subAgentStreamControllersRef.current.delete(toolCallId);
           setSubAgentStreams((prev) => {
             const current = prev[toolCallId];
             if (!current) return prev;
@@ -345,14 +373,20 @@ export default function ChatCoreProvider({
 
       return controller;
     },
-    [setSubAgentStreams],
+    [setSubAgentStreams, upsertToolPart],
   );
 
   const enqueueSubAgentChunk = React.useCallback(
     (toolCallId: string, chunk: UIMessageChunk) => {
       const controller = ensureSubAgentStreamController(toolCallId);
       if (!controller) return;
-      controller.enqueue(chunk);
+      try {
+        controller.enqueue(chunk);
+      } catch {
+        // 中文注释：已关闭的 stream 无法再写入，移除并等待后续重新创建。
+        subAgentStreamControllersRef.current.delete(toolCallId);
+        return;
+      }
       const type = (chunk as any)?.type;
       if (type === "finish" || type === "error" || type === "abort") {
         controller.close();
@@ -548,6 +582,8 @@ export default function ChatCoreProvider({
             setSubAgentStreams,
             enqueueSubAgentChunk,
             closeSubAgentStream,
+            tabId,
+            upsertToolPart,
           })
         )
           return;

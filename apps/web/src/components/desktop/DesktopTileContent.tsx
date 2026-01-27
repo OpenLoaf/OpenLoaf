@@ -13,6 +13,7 @@ import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
 import VideoWidget from "./widgets/VideoWidget";
+import WebStackWidget from "./widgets/WebStackWidget";
 import type { DesktopIconKey } from "./types";
 
 interface DesktopTileContentProps {
@@ -168,6 +169,10 @@ export default function DesktopTileContent({ item }: DesktopTileContentProps) {
         </div>
       </div>
     );
+  }
+
+  if (widgetKey === "web-stack" && item.kind === "widget") {
+    return <WebStackWidget item={item} />;
   }
 
   return (

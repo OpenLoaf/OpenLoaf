@@ -219,7 +219,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac")),
     []
   );
-  const searchShortcutLabel = isMac ? "⌘F" : "Ctrl F";
+  const searchShortcutLabel = isMac ? "⌘K" : "Ctrl K";
   const searchQuery = model.searchValue.trim();
   const isSearchVisible = model.isSearchOpen || searchQuery.length > 0;
   /** Manage rename state for file entries. */

@@ -138,10 +138,9 @@ export async function createMainWindow(args: {
   };
   app.on('before-quit', (event) => {
     if (allowClose) return;
-    // 中文注释：Cmd+Q 触发 before-quit，这里统一拦截并询问确认。
-    event.preventDefault();
-    if (confirmQuit()) {
-      app.quit();
+    // Cmd+Q 触发 before-quit：只有用户取消时才阻止退出。
+    if (!confirmQuit()) {
+      event.preventDefault();
     }
   });
   mainWindow.on('close', (event) => {

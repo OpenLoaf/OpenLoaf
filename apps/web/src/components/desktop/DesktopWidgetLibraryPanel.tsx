@@ -1,10 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useProjects } from "@/hooks/use-projects";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
+import { normalizeUrl } from "@/components/browser/browser-utils";
 import { Input } from "@tenas-ai/ui/input";
+import { Button } from "@tenas-ai/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@tenas-ai/ui/dialog";
 import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
 import type { DesktopWidgetItem } from "./types";
 import { desktopWidgetCatalog } from "./widget-catalog";
@@ -33,6 +43,18 @@ export type DesktopWidgetSelectedDetail = {
   title?: string;
   /** Optional folder uri for 3d-folder widget. */
   folderUri?: string;
+  /** Optional web url for web-stack widget. */
+  webUrl?: string;
+  /** Optional web title for web-stack widget. */
+  webTitle?: string;
+  /** Optional web description for web-stack widget. */
+  webDescription?: string;
+  /** Optional web logo path for web-stack widget. */
+  webLogo?: string;
+  /** Optional web preview path for web-stack widget. */
+  webPreview?: string;
+  /** Optional web meta status for web-stack widget. */
+  webMetaStatus?: DesktopWidgetItem["webMetaStatus"];
   /** Optional pointer X for placement start. */
   clientX?: number;
   /** Optional pointer Y for placement start. */
@@ -52,6 +74,13 @@ function WidgetEntityPreview({ widgetKey }: { widgetKey: DesktopWidgetItem["widg
   if (widgetKey === "quick-actions") return <QuickActionsWidget />;
   if (widgetKey === "3d-folder") return <ThreeDFolderWidget />;
   if (widgetKey === "video") return <VideoWidget />;
+  if (widgetKey === "web-stack") {
+    return (
+      <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
+        网页
+      </div>
+    );
+  }
   return <div className="text-sm text-muted-foreground">Widget</div>;
 }
 
@@ -115,14 +144,25 @@ export default function DesktopWidgetLibraryPanel({
   const [query, setQuery] = React.useState("");
   // 项目列表（用于解析项目目录引用）。
   const projectListQuery = useProjects();
+  const { workspace } = useWorkspace();
   const projectRoots = React.useMemo(
     () => flattenProjectTree(projectListQuery.data),
     [projectListQuery.data]
   );
+  const tabRuntime = useTabRuntime((s) => s.runtimeByTabId[tabId]);
+  const tabBaseParams = tabRuntime?.base?.params as Record<string, unknown> | undefined;
+  const projectRootUri =
+    typeof tabBaseParams?.rootUri === "string" ? String(tabBaseParams.rootUri) : undefined;
+  const defaultRootUri = projectRootUri || workspace?.rootUri;
   // 3D 文件夹选择对话框状态。
   const [isFolderDialogOpen, setIsFolderDialogOpen] = React.useState(false);
   const [pendingFolderWidget, setPendingFolderWidget] =
     React.useState<DesktopWidgetItem["widgetKey"] | null>(null);
+  // 网页组件创建对话框状态。
+  const [isWebDialogOpen, setIsWebDialogOpen] = React.useState(false);
+  const [webUrlInput, setWebUrlInput] = React.useState("");
+  const [webTitleInput, setWebTitleInput] = React.useState("");
+  const [webError, setWebError] = React.useState<string | null>(null);
 
   /** Resolve the selected folder into a scoped relative path. */
   const resolveFolderSelection = React.useCallback(
@@ -167,6 +207,54 @@ export default function DesktopWidgetLibraryPanel({
     }
   }, []);
 
+  /** Sync web dialog open state and reset inputs. */
+  const handleWebDialogOpenChange = React.useCallback((open: boolean) => {
+    setIsWebDialogOpen(open);
+    if (!open) {
+      setWebUrlInput("");
+      setWebTitleInput("");
+      setWebError(null);
+    }
+  }, []);
+
+  /** Create a web-stack widget after user input. */
+  const handleCreateWebWidget = React.useCallback(async () => {
+    setWebError(null);
+    const normalized = normalizeUrl(webUrlInput);
+    if (!normalized) {
+      setWebError("请输入有效网址");
+      return;
+    }
+    if (!defaultRootUri) {
+      setWebError("未找到工作区目录");
+      return;
+    }
+    let hostname = "";
+    try {
+      hostname = new URL(normalized).hostname;
+    } catch {
+      hostname = normalized;
+    }
+    const title = webTitleInput.trim() || hostname || "网页";
+    emitDesktopWidgetSelected({
+      tabId,
+      widgetKey: "web-stack",
+      title,
+      webUrl: normalized,
+      webMetaStatus: "loading",
+    });
+    removeStackItem(tabId, panelKey);
+    handleWebDialogOpenChange(false);
+  }, [
+    defaultRootUri,
+    handleWebDialogOpenChange,
+    panelKey,
+    removeStackItem,
+    tabId,
+    webTitleInput,
+    webUrlInput,
+  ]);
+
   /** Create a 3D folder widget after user selection. */
   const handleSelectFolder = React.useCallback(
     (targetUri: string) => {
@@ -190,6 +278,7 @@ export default function DesktopWidgetLibraryPanel({
     if (!q) return desktopWidgetCatalog;
     return desktopWidgetCatalog.filter((item) => item.title.toLowerCase().includes(q));
   }, [query]);
+  const canSubmitWeb = Boolean(normalizeUrl(webUrlInput));
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col gap-3 p-3">
@@ -210,6 +299,11 @@ export default function DesktopWidgetLibraryPanel({
                   setIsFolderDialogOpen(true);
                   return;
                 }
+                if (item.widgetKey === "web-stack") {
+                  // 中文注释：网页组件需要先填写 URL 与名称。
+                  setIsWebDialogOpen(true);
+                  return;
+                }
                 emitDesktopWidgetSelected({
                   tabId,
                   widgetKey: item.widgetKey,
@@ -225,6 +319,11 @@ export default function DesktopWidgetLibraryPanel({
                   // 中文注释：键盘操作需要弹出目录选择框。
                   setPendingFolderWidget(item.widgetKey);
                   setIsFolderDialogOpen(true);
+                  return;
+                }
+                if (item.widgetKey === "web-stack") {
+                  // 中文注释：键盘操作需要弹出网页信息输入框。
+                  setIsWebDialogOpen(true);
                   return;
                 }
                 emitDesktopWidgetSelected({
@@ -259,6 +358,43 @@ export default function DesktopWidgetLibraryPanel({
         selectTarget="folder"
         onSelectTarget={handleSelectFolder}
       />
+      <Dialog open={isWebDialogOpen} onOpenChange={handleWebDialogOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>添加网页组件</DialogTitle>
+            <DialogDescription>输入网页地址与名称，自动抓取 logo 与预览图。</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">网页地址</div>
+              <Input
+                value={webUrlInput}
+                onChange={(e) => setWebUrlInput(e.target.value)}
+                placeholder="https://example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">名称（可选）</div>
+              <Input
+                value={webTitleInput}
+                onChange={(e) => setWebTitleInput(e.target.value)}
+                placeholder="自定义名称"
+              />
+            </div>
+            {webError ? (
+              <div className="text-xs text-destructive">{webError}</div>
+            ) : null}
+          </div>
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="ghost" onClick={() => handleWebDialogOpenChange(false)}>
+              取消
+            </Button>
+            <Button type="button" onClick={handleCreateWebWidget} disabled={!canSubmitWeb}>
+              添加
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

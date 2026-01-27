@@ -59,6 +59,18 @@ declare global {
     tenasElectron?: {
       openBrowserWindow: (url: string) => Promise<{ id: number }>;
       openExternal?: (url: string) => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      fetchWebMeta?: (payload: {
+        url: string;
+        rootUri: string;
+      }) => Promise<{
+        ok: boolean;
+        url: string;
+        title?: string;
+        description?: string;
+        logoPath?: string;
+        previewPath?: string;
+        error?: string;
+      }>;
       ensureWebContentsView?: (args: {
         key: string;
         url: string;

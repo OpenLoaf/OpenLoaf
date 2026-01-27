@@ -183,9 +183,9 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
   const isBoardFull = !shouldCollapsePanels;
   const isActiveStackItem = activeStackItemId === item.id && !stackHidden;
   const shortcutLabel = useMemo(() => {
-    if (typeof navigator === "undefined") return "Cmd+F";
+    if (typeof navigator === "undefined") return "Cmd+K";
     const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
-    return isMac ? "Cmd+F" : "Ctrl+F";
+    return isMac ? "Cmd+K" : "Ctrl+K";
   }, []);
   const toggleLabel = canToggleSidebar
     ? isBoardFull
@@ -203,9 +203,9 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
       if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-      if (event.key.toLowerCase() !== "f") return;
+      if (event.key.toLowerCase() !== "k") return;
       if (isEditableTarget(event.target)) return;
-      // 逻辑：拦截 Command+F，切换画布全屏状态。
+      // 逻辑：拦截 Command+K，切换画布全屏状态。
       event.preventDefault();
       handleTogglePanels();
     };

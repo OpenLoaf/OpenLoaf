@@ -1,8 +1,5 @@
 import type {
   CanvasAlignmentGuide,
-  CanvasAnchorMap,
-  CanvasConnectorDraft,
-  CanvasConnectorStyle,
   CanvasElement,
   CanvasInsertRequest,
   CanvasPoint,
@@ -16,9 +13,6 @@ export type GpuPalette = {
   nodeSelected: [number, number, number, number];
   text: [number, number, number, number];
   textMuted: [number, number, number, number];
-  connector: [number, number, number, number];
-  connectorSelected: [number, number, number, number];
-  connectorDraft: [number, number, number, number];
   selectionFill: [number, number, number, number];
   selectionStroke: [number, number, number, number];
   guide: [number, number, number, number];
@@ -40,8 +34,6 @@ export type GpuResizeMessage = {
 export type GpuSceneSnapshot = {
   /** Renderable elements for GPU drawing. */
   elements: CanvasElement[];
-  /** Anchor map for connector routing. */
-  anchors: CanvasAnchorMap;
 };
 
 export type GpuStateSnapshot = {
@@ -49,10 +41,6 @@ export type GpuStateSnapshot = {
   selectedIds: string[];
   /** Node id currently in edit mode. */
   editingNodeId: string | null;
-  /** Draft connector for interactive linking. */
-  connectorDraft: CanvasConnectorDraft | null;
-  /** Active connector style for previews. */
-  connectorStyle: CanvasConnectorStyle;
   /** Pending insert request for ghost preview. */
   pendingInsert: CanvasInsertRequest | null;
   /** Pending insert cursor point in world space. */

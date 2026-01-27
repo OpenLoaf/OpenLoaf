@@ -16,9 +16,6 @@ const PALETTE_LIGHT: GpuPalette = {
   nodeSelected: [56, 189, 248, 1],
   text: [15, 23, 42, 1],
   textMuted: [100, 116, 139, 1],
-  connector: [71, 85, 105, 1],
-  connectorSelected: [37, 99, 235, 1],
-  connectorDraft: [100, 116, 139, 1],
   selectionFill: [37, 99, 235, 0.08],
   selectionStroke: [37, 99, 235, 0.6],
   guide: [37, 99, 235, 0.7],
@@ -30,9 +27,6 @@ const PALETTE_DARK: GpuPalette = {
   nodeSelected: [56, 189, 248, 1],
   text: [226, 232, 240, 1],
   textMuted: [148, 163, 184, 1],
-  connector: [148, 163, 184, 1],
-  connectorSelected: [96, 165, 250, 1],
-  connectorDraft: [148, 163, 184, 1],
   selectionFill: [37, 99, 235, 0.12],
   selectionStroke: [96, 165, 250, 0.7],
   guide: [96, 165, 250, 0.7],
@@ -44,9 +38,6 @@ const PALETTE_KEYS: Array<keyof GpuPalette> = [
   "nodeSelected",
   "text",
   "textMuted",
-  "connector",
-  "connectorSelected",
-  "connectorDraft",
   "selectionFill",
   "selectionStroke",
   "guide",
@@ -74,8 +65,6 @@ function buildState(snapshot: CanvasSnapshot): GpuStateSnapshot {
   return {
     selectedIds: snapshot.selectedIds,
     editingNodeId: snapshot.editingNodeId,
-    connectorDraft: snapshot.connectorDraft,
-    connectorStyle: snapshot.connectorStyle,
     pendingInsert: snapshot.pendingInsert,
     pendingInsertPoint: snapshot.pendingInsertPoint,
     selectionBox: snapshot.selectionBox,
@@ -98,8 +87,6 @@ function isStateEqual(a: GpuStateSnapshot | null, b: GpuStateSnapshot): boolean 
   return (
     isStringArrayEqual(a.selectedIds, b.selectedIds) &&
     a.editingNodeId === b.editingNodeId &&
-    a.connectorDraft === b.connectorDraft &&
-    a.connectorStyle === b.connectorStyle &&
     a.pendingInsert === b.pendingInsert &&
     a.pendingInsertPoint === b.pendingInsertPoint &&
     a.selectionBox === b.selectionBox &&
@@ -160,6 +147,7 @@ export function CanvasSurface({ snapshot, onStats }: CanvasSurfaceProps) {
   const lastStateRef = useRef<GpuStateSnapshot | null>(null);
   const lastViewportRef = useRef<CanvasViewportState | null>(null);
   const lastPaletteRef = useRef<GpuPalette | null>(null);
+  const lastRenderNodesRef = useRef<boolean | null>(null);
   /** Latest stats callback for worker events. */
   const onStatsRef = useRef(onStats);
 
@@ -178,7 +166,6 @@ export function CanvasSurface({ snapshot, onStats }: CanvasSurfaceProps) {
         type: "scene",
         scene: {
           elements: latestSnapshot.elements,
-          anchors: latestSnapshot.anchors,
         },
       } satisfies GpuMessage);
       lastDocRevisionRef.current = docRevision;
@@ -191,7 +178,8 @@ export function CanvasSurface({ snapshot, onStats }: CanvasSurfaceProps) {
 
     const viewChanged =
       !isViewportEqual(lastViewportRef.current, viewport) ||
-      !isPaletteEqual(lastPaletteRef.current, palette);
+      !isPaletteEqual(lastPaletteRef.current, palette) ||
+      lastRenderNodesRef.current !== RENDER_GPU_NODES;
 
     if (viewChanged) {
       worker.postMessage({
@@ -202,6 +190,7 @@ export function CanvasSurface({ snapshot, onStats }: CanvasSurfaceProps) {
       } satisfies GpuMessage);
       lastViewportRef.current = viewport;
       lastPaletteRef.current = palette;
+      lastRenderNodesRef.current = RENDER_GPU_NODES;
     }
   }, []);
 

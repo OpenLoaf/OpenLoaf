@@ -16,7 +16,7 @@ export type GlobalShortcutDefinition = {
 export const GLOBAL_SHORTCUTS: GlobalShortcutDefinition[] = [
   { id: "sidebar.toggle", label: "Toggle sidebar", keys: "Mod+Shift+B" },
   { id: "chat.toggle", label: "Toggle chat panel", keys: "Mod+B" },
-  { id: "search.toggle", label: "Search", keys: "Mod+K" },
+  { id: "search.toggle", label: "Search", keys: "Mod+F" },
   { id: "open.calendar", label: "Open Calendar", keys: "Mod+L" },
   { id: "open.inbox", label: "Open Inbox", keys: "Mod+I" },
   { id: "open.ai", label: "Open AI", keys: "Mod+T" },
@@ -213,7 +213,7 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
     }
   }
 
-  if (keyLower === "k" && withMod && !event.shiftKey && !event.altKey) {
+  if (keyLower === "f" && withMod && !event.shiftKey && !event.altKey) {
     event.preventDefault();
     overlay.toggleSearchOpen();
     return;

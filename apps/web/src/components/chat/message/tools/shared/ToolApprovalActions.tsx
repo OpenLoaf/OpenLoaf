@@ -6,6 +6,7 @@ import { useChatActions, useChatState, useChatTools } from "../../../context";
 import { countPendingToolApprovals, hasRejectedToolApproval } from "./tool-utils";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
+import { resolveServerUrl } from "@/utils/server-url";
 
 interface ToolApprovalActionsProps {
   /** Approval id to submit. */
@@ -24,8 +25,12 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
   );
   const isDecided =
     toolSnapshot?.approval?.approved === true || toolSnapshot?.approval?.approved === false;
+  // 逻辑：子代理审批会阻塞主流式，需允许在 streaming 状态下交互。
+  const isSubAgentApproval = Boolean(toolSnapshot?.subAgentToolCallId);
   const disabled =
-    isSubmitting || isDecided || status === "streaming" || status === "submitted";
+    isSubmitting ||
+    isDecided ||
+    (!isSubAgentApproval && (status === "streaming" || status === "submitted"));
   const updateApprovalMutation = useMutation({
     ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
   });
@@ -50,6 +55,30 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
       return null;
     },
     [messages, updateMessage, approvalId],
+  );
+
+  /** Submit approval ack for sub-agent flow. */
+  const postSubAgentApprovalAck = React.useCallback(
+    async (approved: boolean, subAgentToolCallId: string) => {
+      const baseUrl = resolveServerUrl();
+      const endpoint = baseUrl ? `${baseUrl}/ai/tools/ack` : "/ai/tools/ack";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          toolCallId: approvalId,
+          status: "success",
+          output: { approvalId, approved },
+          requestedAt: new Date().toISOString(),
+        }),
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(text || "sub-agent approval ack failed");
+      }
+    },
+    [approvalId],
   );
 
   const updateApprovalSnapshot = React.useCallback(
@@ -78,11 +107,20 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
       updateApprovalInMessages(true);
       const pendingBefore = countPendingToolApprovals(messages ?? []);
       const hasRejected = hasRejectedToolApproval(messages ?? []);
+      const subAgentToolCallId =
+        typeof toolSnapshot?.subAgentToolCallId === "string"
+          ? toolSnapshot.subAgentToolCallId
+          : "";
       try {
-        await addToolApprovalResponse({ id: approvalId, approved: true });
-        if (pendingBefore <= 1 && !hasRejected) {
-          // 中文注释：仅在最后一个审批完成后继续执行，避免多审批被一次通过。
-          await sendMessage(undefined as any);
+        if (subAgentToolCallId) {
+          // 中文注释：子代理审批走前端 ack 回传，阻塞子代理工具继续执行。
+          await postSubAgentApprovalAck(true, subAgentToolCallId);
+        } else {
+          await addToolApprovalResponse({ id: approvalId, approved: true });
+          if (pendingBefore <= 1 && !hasRejected) {
+            // 中文注释：仅在最后一个审批完成后继续执行，避免多审批被一次通过。
+            await sendMessage(undefined as any);
+          }
         }
       } finally {
         setIsSubmitting(false);
@@ -109,17 +147,26 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
       setIsSubmitting(true);
       updateApprovalSnapshot(false);
       const approvalUpdate = updateApprovalInMessages(false);
+      const subAgentToolCallId =
+        typeof toolSnapshot?.subAgentToolCallId === "string"
+          ? toolSnapshot.subAgentToolCallId
+          : "";
       try {
-        await addToolApprovalResponse({ id: approvalId, approved: false });
-        if (approvalUpdate) {
-          // 中文注释：拒绝审批后立即落库，避免刷新后仍显示“待审批”。
-          try {
-            await updateApprovalMutation.mutateAsync({
-              where: { id: approvalUpdate.messageId },
-              data: { parts: approvalUpdate.nextParts as any },
-            });
-          } catch {
-            // 中文注释：落库失败时保留本地状态，避免阻断拒绝流程。
+        if (subAgentToolCallId) {
+          // 中文注释：子代理审批走前端 ack 回传，阻塞子代理工具继续执行。
+          await postSubAgentApprovalAck(false, subAgentToolCallId);
+        } else {
+          await addToolApprovalResponse({ id: approvalId, approved: false });
+          if (approvalUpdate) {
+            // 中文注释：拒绝审批后立即落库，避免刷新后仍显示“待审批”。
+            try {
+              await updateApprovalMutation.mutateAsync({
+                where: { id: approvalUpdate.messageId },
+                data: { parts: approvalUpdate.nextParts as any },
+              });
+            } catch {
+              // 中文注释：落库失败时保留本地状态，避免阻断拒绝流程。
+            }
           }
         }
       } finally {
@@ -134,6 +181,8 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
       updateApprovalInMessages,
       addToolApprovalResponse,
       updateApprovalMutation,
+      postSubAgentApprovalAck,
+      toolSnapshot?.subAgentToolCallId,
     ],
   );
 

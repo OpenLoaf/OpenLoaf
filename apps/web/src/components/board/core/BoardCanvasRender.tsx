@@ -8,6 +8,7 @@ import BoardControls from "../controls/BoardControls";
 import BoardToolbar from "../toolbar/BoardToolbar";
 import { ConnectorActionPanel, NodeInspectorPanel } from "../ui/CanvasPanels";
 import { CanvasSurface } from "../render/CanvasSurface";
+import { SvgConnectorLayer } from "../render/SvgConnectorLayer";
 import { CanvasDomLayer } from "./CanvasDomLayer";
 import { BoardPerfOverlay } from "./BoardPerfOverlay";
 import { AnchorOverlay } from "./AnchorOverlay";
@@ -104,6 +105,7 @@ export function BoardCanvasRender({
         snapshot={snapshot}
         onStats={showPerfOverlay ? setGpuStats : undefined}
       />
+      <SvgConnectorLayer snapshot={snapshot} />
       {showUi ? (
         <CanvasDomLayer
           engine={engine}

@@ -12,15 +12,18 @@ export type PreviewTooLargeError = Error & {
 /** Resolve preview endpoint for a project-relative path. */
 export function getPreviewEndpoint(
   path: string,
-  options?: { projectId?: string; maxBytes?: number }
+  options?: { projectId?: string; workspaceId?: string; maxBytes?: number }
 ) {
   const apiBase = resolveServerUrl();
   const encodedPath = encodeURIComponent(path);
   const projectParam = options?.projectId ? `&projectId=${encodeURIComponent(options.projectId)}` : "";
+  const workspaceParam = options?.workspaceId
+    ? `&workspaceId=${encodeURIComponent(options.workspaceId)}`
+    : "";
   const maxBytesParam = options?.maxBytes ? `&maxBytes=${options.maxBytes}` : "";
   return apiBase
-    ? `${apiBase}/chat/attachments/preview?path=${encodedPath}${projectParam}${maxBytesParam}`
-    : `/chat/attachments/preview?path=${encodedPath}${projectParam}${maxBytesParam}`;
+    ? `${apiBase}/chat/attachments/preview?path=${encodedPath}${projectParam}${workspaceParam}${maxBytesParam}`
+    : `/chat/attachments/preview?path=${encodedPath}${projectParam}${workspaceParam}${maxBytesParam}`;
 }
 
 /** Check whether a uri is a relative path. */

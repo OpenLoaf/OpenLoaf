@@ -66,7 +66,7 @@ export interface DesktopIconItem extends DesktopItemBase {
 export interface DesktopWidgetItem extends DesktopItemBase {
   kind: "widget";
   /** Widget implementation key (built-in for MVP). */
-  widgetKey: "clock" | "flip-clock" | "quick-actions" | "3d-folder" | "video";
+  widgetKey: "clock" | "flip-clock" | "quick-actions" | "3d-folder" | "video" | "web-stack";
   /** Widget size in grid units (MVP uses presets). */
   size: DesktopWidgetSize;
   /** Widget layout constraints for resizing. */
@@ -77,6 +77,18 @@ export interface DesktopWidgetItem extends DesktopItemBase {
   folderUri?: string;
   /** Video file reference (when widgetKey is video). */
   videoFileRef?: string;
+  /** Web stack url (when widgetKey is web-stack). */
+  webUrl?: string;
+  /** Web stack display title (when widgetKey is web-stack). */
+  webTitle?: string;
+  /** Web stack description (when widgetKey is web-stack). */
+  webDescription?: string;
+  /** Web stack logo path under .tenas/desktop (when widgetKey is web-stack). */
+  webLogo?: string;
+  /** Web stack preview image path under .tenas/desktop (when widgetKey is web-stack). */
+  webPreview?: string;
+  /** Web stack metadata status (when widgetKey is web-stack). */
+  webMetaStatus?: "idle" | "loading" | "ready" | "failed";
 }
 
 export type DesktopItem = DesktopIconItem | DesktopWidgetItem;

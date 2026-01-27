@@ -45,4 +45,10 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
     size: "4x3",
     constraints: { defaultW: 4, defaultH: 3, minW: 2, minH: 2, maxW: 8, maxH: 6 },
   },
+  {
+    widgetKey: "web-stack",
+    title: "网页",
+    size: "4x2",
+    constraints: { defaultW: 4, defaultH: 2, minW: 1, minH: 1, maxW: 4, maxH: 4 },
+  },
 ];
