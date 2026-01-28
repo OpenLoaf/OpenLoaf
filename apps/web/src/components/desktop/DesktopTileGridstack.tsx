@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
-import { PencilLine, Pin, PinOff, RotateCw } from "lucide-react";
+import { Pin, PinOff, RotateCw } from "lucide-react";
+import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { cn } from "@/lib/utils";
 import { GlowingEffect } from "@tenas-ai/ui/glowing-effect";
 import { useBasicConfig } from "@/hooks/use-basic-config";
@@ -15,20 +16,12 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@tenas-ai/ui/context-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
-import { Button } from "@tenas-ai/ui/button";
 import type { DesktopItem } from "./types";
 import DesktopTileContent from "./DesktopTileContent";
 import DesktopTileDeleteButton from "./DesktopTileDeleteButton";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { createBrowserTabId } from "@/hooks/tab-id";
 
 interface DesktopTileGridstackProps {
   item: DesktopItem;
@@ -72,11 +65,14 @@ export default function DesktopTileGridstack({
   const enableGlow = !editMode && basic.uiAnimationLevel === "high";
   const widgetKey = item.kind === "widget" ? item.widgetKey : null;
   const webMetaFetchRef = React.useRef(false);
-  const [isWebEditOpen, setIsWebEditOpen] = React.useState(false);
-  const [webEditUrl, setWebEditUrl] = React.useState("");
-  const [webEditTitle, setWebEditTitle] = React.useState("");
-  const [webEditError, setWebEditError] = React.useState<string | null>(null);
   const tabParams = tabRuntime?.base?.params as Record<string, unknown> | undefined;
+  const projectId =
+    typeof tabParams?.projectId === "string"
+      ? String(tabParams.projectId)
+      : typeof activeTab?.chatParams?.projectId === "string"
+        ? String(activeTab.chatParams.projectId)
+        : undefined;
+  const workspaceId = workspace?.id ?? activeTab?.workspaceId;
   const projectRootUri =
     typeof tabParams?.rootUri === "string" ? String(tabParams.rootUri) : undefined;
   const defaultRootUri = projectRootUri || workspace?.rootUri;
@@ -176,39 +172,28 @@ export default function DesktopTileGridstack({
       return { ...current, webMetaStatus: "loading" };
     });
   }, [isWebStack, item.id, onUpdateItem]);
-
-  const handleOpenWebEdit = React.useCallback(() => {
+  const handleWebOpen = React.useCallback(() => {
     if (!isWebStack) return;
-    setWebEditUrl(item.webUrl ?? "");
-    setWebEditTitle(item.title ?? "");
-    setWebEditError(null);
-    setIsWebEditOpen(true);
-  }, [isWebStack, item.title, item.webUrl]);
-
-  const handleWebEditSubmit = React.useCallback(() => {
-    const normalized = normalizeUrl(webEditUrl);
-    if (!normalized) {
-      setWebEditError("请输入有效网址");
-      return;
-    }
-    const title = webEditTitle.trim() || item.title || "网页";
+    const normalizedUrl = normalizeUrl(item.webUrl ?? "");
+    if (!activeTabId || !normalizedUrl) return;
+    const tab = useTabs.getState().getTabById(activeTabId);
+    if (!tab) return;
+    const viewKey = createBrowserTabId();
+    useTabRuntime.getState().pushStackItem(
+      activeTabId,
+      {
+        id: BROWSER_WINDOW_PANEL_ID,
+        sourceKey: BROWSER_WINDOW_PANEL_ID,
+        component: BROWSER_WINDOW_COMPONENT,
+        params: { __customHeader: true, __open: { url: normalizedUrl, title: item.title, viewKey } },
+      } as any,
+      100
+    );
     onUpdateItem(item.id, (current) => {
       if (current.kind !== "widget" || current.widgetKey !== "web-stack") return current;
-      return {
-        ...current,
-        title,
-        webUrl: normalized,
-        webTitle: undefined,
-        webDescription: undefined,
-        webLogo: undefined,
-        webPreview: undefined,
-        webMetaStatus: "loading",
-      };
+      return { ...current, webMetaStatus: "loading" };
     });
-    setIsWebEditOpen(false);
-  }, [item.id, item.title, onUpdateItem, webEditTitle, webEditUrl]);
-
-  const canSubmitWebEdit = Boolean(normalizeUrl(webEditUrl));
+  }, [activeTabId, isWebStack, item.id, item.title, item.webUrl, onUpdateItem]);
 
   const tileBody = (
     <motion.div
@@ -277,10 +262,14 @@ export default function DesktopTileGridstack({
           className="opacity-100 mix-blend-multiply dark:opacity-70 dark:mix-blend-normal"
         />
       ) : null}
-      <div className={cn("relative h-full w-full", editMode ? "pointer-events-none" : "")}>
-        <DesktopTileContent item={item} />
-      </div>
-    </motion.div>
+        <div className={cn("relative h-full w-full", editMode ? "pointer-events-none" : "")}>
+          <DesktopTileContent
+            item={item}
+            webContext={{ projectId, workspaceId }}
+            onWebOpen={handleWebOpen}
+          />
+        </div>
+      </motion.div>
   );
 
   return (
@@ -358,59 +347,18 @@ export default function DesktopTileGridstack({
         <ContextMenu>
           <ContextMenuTrigger asChild>{tileBody}</ContextMenuTrigger>
           <ContextMenuContent className="w-44">
-            <ContextMenuItem
-              icon={RotateCw}
-              onClick={handleWebMetaRefresh}
-              disabled={!item.webUrl}
-            >
-              刷新
-            </ContextMenuItem>
-            <ContextMenuItem icon={PencilLine} onClick={handleOpenWebEdit}>
-              修改
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
-      ) : (
-        tileBody
-      )}
-      {isWebStack ? (
-        <Dialog open={isWebEditOpen} onOpenChange={setIsWebEditOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>修改网页</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-col gap-3">
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">网页地址</div>
-                <Input
-                  value={webEditUrl}
-                  onChange={(event) => setWebEditUrl(event.target.value)}
-                  placeholder="https://example.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">名称</div>
-                <Input
-                  value={webEditTitle}
-                  onChange={(event) => setWebEditTitle(event.target.value)}
-                  placeholder="自定义名称"
-                />
-              </div>
-              {webEditError ? (
-                <div className="text-xs text-destructive">{webEditError}</div>
-              ) : null}
-            </div>
-            <DialogFooter className="mt-4">
-              <Button type="button" variant="ghost" onClick={() => setIsWebEditOpen(false)}>
-                取消
-              </Button>
-              <Button type="button" onClick={handleWebEditSubmit} disabled={!canSubmitWebEdit}>
-                更新
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      ) : null}
+          <ContextMenuItem
+            icon={RotateCw}
+            onClick={handleWebMetaRefresh}
+            disabled={!item.webUrl}
+          >
+            刷新
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    ) : (
+      tileBody
+    )}
     </div>
   );
 }

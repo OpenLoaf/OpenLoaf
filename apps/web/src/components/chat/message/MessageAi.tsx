@@ -2,7 +2,7 @@
 
 import { type UIMessage } from "@ai-sdk/react";
 import { cn } from "@/lib/utils";
-import { renderMessageParts } from "./renderMessageParts";
+import MessageParts from "./MessageParts";
 import MessagePlan from "./tools/MessagePlan";
 
 interface MessageAiProps {
@@ -19,7 +19,10 @@ export default function MessageAi({ message, className, isAnimating }: MessageAi
     <div className={cn("flex justify-start min-w-0", className)}>
       <div className="min-w-0 w-full space-y-2">
         <MessagePlan metadata={message.metadata} parts={message.parts as unknown[]} />
-        {renderMessageParts(message.parts as any[], { isAnimating, messageId: message.id })}
+        <MessageParts
+          parts={message.parts as any[]}
+          options={{ isAnimating, messageId: message.id }}
+        />
       </div>
     </div>
   );

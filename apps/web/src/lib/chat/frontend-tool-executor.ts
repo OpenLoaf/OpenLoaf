@@ -5,6 +5,15 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { createBrowserTabId } from "@/hooks/tab-id";
 import { resolveServerUrl } from "@/utils/server-url";
+import { useTabs } from "@/hooks/use-tabs";
+import { queryClient } from "@/utils/trpc";
+import { getProjectsQueryKey } from "@/hooks/use-projects";
+import { buildProjectHierarchyIndex } from "@/lib/project-tree";
+import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
+import { createFileEntryFromUri } from "@/components/file/lib/open-file";
+import { recordRecentOpen } from "@/components/file/lib/recent-open";
+import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
 export type FrontendToolAckStatus = "success" | "failed" | "timeout";
 
@@ -50,6 +59,42 @@ function normalizeUrl(raw: string): string {
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value)) return value;
   if (/^localhost(:\d+)?(\/|$)/.test(value)) return `http://${value}`;
   return `https://${value}`;
+}
+
+/** Resolve file entry context from a file:// url. */
+function resolveFileEntryFromUrl(input: {
+  url: string;
+  tabId?: string;
+}): { entry: FileSystemEntry; workspaceId: string; projectId: string } | null {
+  if (!input.tabId) return null;
+  if (!input.url.startsWith("file://")) return null;
+
+  const tab = useTabs.getState().getTabById(input.tabId);
+  if (!tab?.workspaceId) return null;
+  const projectId =
+    typeof tab.chatParams?.projectId === "string" ? tab.chatParams.projectId : null;
+  if (!projectId) return null;
+
+  const projects =
+    (queryClient.getQueryData(getProjectsQueryKey()) as ProjectNode[] | undefined) ?? [];
+  if (!projects.length) return null;
+
+  const projectHierarchy = buildProjectHierarchyIndex(projects);
+  const rootUri = projectHierarchy.rootUriById.get(projectId);
+  if (!rootUri) return null;
+
+  // 逻辑：open-url 的 file:// url 需要映射回项目内相对路径。
+  const relativeUri = getRelativePathFromUri(rootUri, input.url);
+  if (!relativeUri) return null;
+
+  const entry = createFileEntryFromUri({ uri: relativeUri });
+  if (!entry) return null;
+
+  return {
+    entry,
+    workspaceId: tab.workspaceId,
+    projectId,
+  };
 }
 
 async function postFrontendToolAck(payload: FrontendToolAckPayload): Promise<void> {
@@ -205,6 +250,15 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
       } as any,
       100,
     );
+
+    const recent = resolveFileEntryFromUrl({ url: normalizedUrl, tabId });
+    if (recent) {
+      recordRecentOpen({
+        workspaceId: recent.workspaceId,
+        projectId: recent.projectId,
+        entry: recent.entry,
+      });
+    }
 
     return { status: "success", output: { url: normalizedUrl, viewKey } };
   });

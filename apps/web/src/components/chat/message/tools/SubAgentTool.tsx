@@ -1,17 +1,18 @@
 "use client";
 
 import * as React from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc } from "@/utils/trpc";
 import { useChatActions, useChatSession, useChatTools } from "../../context";
-import { renderMessageParts } from "../renderMessageParts";
+import MessageParts from "../MessageParts";
+import MessageThinking from "../MessageThinking";
 import {
   asPlainObject,
   getToolName,
   isToolStreaming,
   normalizeToolInput,
-  safeStringify,
   type AnyToolPart,
 } from "./shared/tool-utils";
 
@@ -30,21 +31,18 @@ function getActionName(part: AnyToolPart): string {
   return getToolName(part);
 }
 
-/** Format output payload for preview display. */
-function stringifyOutput(output: unknown): string {
-  if (typeof output === "string") return output;
-  if (output && typeof output === "object") {
-    const text = (output as { text?: unknown }).text;
-    if (typeof text === "string" && text.trim()) return text;
+/** Resolve sub-agent name from input or tool name. */
+function getSubAgentName(part: AnyToolPart): string {
+  const input = normalizeToolInput(part.input);
+  const inputObject = asPlainObject(input);
+  if (typeof inputObject?.subAgentName === "string" && inputObject.subAgentName.trim()) {
+    return inputObject.subAgentName.trim();
   }
-  const raw = safeStringify(output);
-  return raw ? raw : "";
+  return getToolName(part);
 }
 
-function buildFallbackParts(input: {
-  output: unknown;
-  errorText?: string;
-}): unknown[] {
+/** Build minimal fallback parts when only error text exists. */
+function buildFallbackParts(input: { errorText?: string }): unknown[] {
   const errorText =
     typeof input.errorText === "string" && input.errorText.trim()
       ? input.errorText.trim()
@@ -52,18 +50,7 @@ function buildFallbackParts(input: {
   if (errorText) {
     return [{ type: "text", text: errorText, state: "done" }];
   }
-  if (Array.isArray(input.output)) return input.output;
-  if (typeof input.output === "string" && input.output.trim()) {
-    return [{ type: "text", text: input.output, state: "done" }];
-  }
-  if (input.output && typeof input.output === "object") {
-    const text = (input.output as { text?: unknown }).text;
-    if (typeof text === "string" && text.trim()) {
-      return [{ type: "text", text: text.trim(), state: "done" }];
-    }
-  }
-  const raw = stringifyOutput(input.output);
-  return raw ? [{ type: "text", text: raw, state: "done" }] : [];
+  return [];
 }
 
 /**
@@ -86,8 +73,8 @@ export default function SubAgentTool({
   const [isOpen, setIsOpen] = React.useState(true);
 
   const actionName = getActionName(resolvedPart);
+  const subAgentName = getSubAgentName(resolvedPart);
   const errorText = stream?.errorText || resolvedPart.errorText;
-  const outputRaw = stream ? stream.output : resolvedPart.output;
   const isStreaming = stream?.streaming === true || isToolStreaming(resolvedPart);
 
   const hasOutputPayload =
@@ -144,38 +131,45 @@ export default function SubAgentTool({
   const streamParts = Array.isArray(stream?.parts) ? stream?.parts : undefined;
   const historyParts =
     isOpen && Array.isArray(historyMessage?.parts) ? historyMessage?.parts : undefined;
-  const fallbackParts = buildFallbackParts({ output: outputRaw, errorText });
+  const fallbackParts = buildFallbackParts({ errorText });
   const renderParts = streamParts ?? historyParts ?? fallbackParts;
   const streamingParts =
     renderParts.length === 0 && isStreaming ? [{ type: "text", text: "生成中…", state: "done" }] : renderParts;
-  const previewParts =
-    streamingParts.length > 0 ? [streamingParts[0]!] : [];
   const renderMessageId = historyMessage?.id;
-
   const shouldShowLoading = historyQuery.isLoading && (!streamParts || streamParts.length === 0);
+  const resolvedTitle =
+    actionName === subAgentName || !subAgentName
+      ? actionName || "SubAgent"
+      : `${actionName || "SubAgent"} ｜ ${subAgentName}`;
+  const ToggleIcon = isOpen ? ChevronDown : ChevronRight;
+  const contentTextClassName = "text-xs";
 
   return (
-    <div className={cn("ml-2 w-full min-w-0 max-w-full")}>
+    <div className={cn("ml-2 w-full min-w-0 max-w-full text-xs overflow-x-hidden")}>
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         className="flex w-full flex-col items-start gap-1 text-left"
       >
-        <div className="text-sm font-medium text-foreground/80">
-          {actionName || "SubAgent"}
+        <div className="flex w-full items-center gap-1.5 text-left text-xs font-medium text-muted-foreground">
+          <ToggleIcon className="size-3 shrink-0" aria-hidden />
+          <span className="truncate">{resolvedTitle}</span>
         </div>
       </button>
 
       {isOpen ? (
-        <div className="mt-2 space-y-2">
-          {shouldShowLoading ? (
-            <div className="text-[11px] text-muted-foreground">加载中…</div>
-          ) : null}
-          <div className="space-y-2">
-            {renderMessageParts(streamingParts as any[], {
-              toolVariant: "nested",
-              ...(renderMessageId ? { messageId: renderMessageId } : {}),
-            })}
+        <div className="mt-2 space-y-2 rounded-md bg-muted/20 p-2">
+          {shouldShowLoading ? <MessageThinking /> : null}
+          <div className="show-scrollbar max-h-64 space-y-2 overflow-y-auto overflow-x-hidden">
+            <MessageParts
+              parts={streamingParts as any[]}
+              options={{
+                toolVariant: "nested",
+                textClassName: contentTextClassName,
+                toolClassName: contentTextClassName,
+                ...(renderMessageId ? { messageId: renderMessageId } : {}),
+              }}
+            />
           </div>
         </div>
       ) : null}

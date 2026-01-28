@@ -21,6 +21,7 @@ import type { FilePreviewItem, FilePreviewPayload, FilePreviewViewer } from "./f
 import { resolveFileViewerTarget } from "./file-viewer-target";
 export { resolveFileViewerTarget } from "./file-viewer-target";
 import { renderFilePreviewContent } from "./open-file-preview";
+import { recordRecentOpen } from "./recent-open";
 
 export type FileOpenMode = "stack" | "modal" | "embed";
 
@@ -341,6 +342,14 @@ export function buildStackItemForEntry(input: {
 /** Open a file entry with stack, modal, or embed behavior. */
 export function openFilePreview(input: FileOpenInput): boolean | ReactNode | null {
   const mode = input.mode ?? "stack";
+  /** Record a file open for recent list updates. */
+  const recordFileOpen = () => {
+    recordRecentOpen({
+      tabId: input.tabId,
+      projectId: input.projectId,
+      entry: input.entry,
+    });
+  };
   const boardEntry = resolveBoardFolderEntryFromIndexFile(input.entry);
   if (boardEntry && mode !== "embed") {
     if (!input.tabId) {
@@ -412,6 +421,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
   if (input.entry.kind !== "file") return false;
 
   if (mode === "embed") {
+    recordFileOpen();
     return renderFilePreviewContent({
       entry: input.entry,
       rootUri: input.rootUri,
@@ -428,11 +438,13 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
       input.confirmOpen?.("此文件类型暂不支持预览，是否使用系统默认程序打开？") ??
       window.confirm("此文件类型暂不支持预览，是否使用系统默认程序打开？");
     if (!shouldOpen) return true;
+    recordFileOpen();
     openWithDefaultApp(input.entry, input.rootUri);
     return true;
   }
 
   if (mode === "modal") {
+    recordFileOpen();
     const payload = buildPreviewPayload({
       viewer: target.viewer,
       entry: input.entry,
@@ -459,6 +471,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
     readOnly: input.readOnly,
   });
   if (!stackItem) return true;
+  recordFileOpen();
   useTabRuntime.getState().pushStackItem(input.tabId, stackItem);
   return true;
 }

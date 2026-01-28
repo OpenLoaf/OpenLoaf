@@ -18,10 +18,16 @@ import type { DesktopIconKey } from "./types";
 
 interface DesktopTileContentProps {
   item: DesktopItem;
+  webContext?: { projectId?: string; workspaceId?: string };
+  onWebOpen?: () => void;
 }
 
 /** Render tile content (icon or widget) with shared layout styles. */
-export default function DesktopTileContent({ item }: DesktopTileContentProps) {
+export default function DesktopTileContent({
+  item,
+  webContext,
+  onWebOpen,
+}: DesktopTileContentProps) {
   const { workspace } = useWorkspace();
   const tabs = useTabs((state) => state.tabs);
   const activeTabId = useTabs((state) => state.activeTabId);
@@ -172,7 +178,14 @@ export default function DesktopTileContent({ item }: DesktopTileContentProps) {
   }
 
   if (widgetKey === "web-stack" && item.kind === "widget") {
-    return <WebStackWidget item={item} />;
+    return (
+      <WebStackWidget
+        item={item}
+        projectId={webContext?.projectId}
+        workspaceId={webContext?.workspaceId}
+        onOpen={onWebOpen}
+      />
+    );
   }
 
   return (

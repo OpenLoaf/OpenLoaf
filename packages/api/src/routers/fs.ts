@@ -6,7 +6,8 @@ import sharp from "sharp";
 import ffmpeg from "fluent-ffmpeg";
 import { fileURLToPath } from "node:url";
 import { t, shieldedProcedure } from "../index";
-import { resolveScopedPath, resolveScopedRootPath, toRelativePath } from "../services/vfsService";
+import { resolveFilePathFromUri, resolveScopedPath, resolveScopedRootPath, toRelativePath } from "../services/vfsService";
+import { readWorkspaceProjectTrees } from "../services/projectTreeService";
 
 /** Board folder prefix for server-side sorting. */
 const BOARD_FOLDER_PREFIX = "tnboard_";
@@ -63,6 +64,15 @@ const fsListSchema = fsScopeSchema.extend({
 /** Schema for folder search requests. */
 const fsSearchSchema = fsScopeSchema.extend({
   rootUri: z.string(),
+  query: z.string(),
+  includeHidden: z.boolean().optional(),
+  limit: z.number().int().min(1).max(2000).optional(),
+  maxDepth: z.number().int().min(0).max(50).optional(),
+});
+
+/** Schema for workspace search requests. */
+const fsSearchWorkspaceSchema = z.object({
+  workspaceId: z.string().trim().min(1),
   query: z.string(),
   includeHidden: z.boolean().optional(),
   limit: z.number().int().min(1).max(2000).optional(),
@@ -724,6 +734,93 @@ export const fsRouter = t.router({
     await visit(searchRootPath, 0);
     return { results };
   }),
+
+  /** Search across all projects in the workspace. */
+  searchWorkspace: shieldedProcedure
+    .input(fsSearchWorkspaceSchema)
+    .query(async ({ input }) => {
+      const query = input.query.trim().toLowerCase();
+      if (!query) return { results: [] };
+      const includeHidden = Boolean(input.includeHidden);
+      const limit = input.limit ?? DEFAULT_SEARCH_LIMIT;
+      const maxDepth = input.maxDepth ?? DEFAULT_SEARCH_MAX_DEPTH;
+      const projects = await readWorkspaceProjectTrees(input.workspaceId);
+      const results: Array<{
+        projectId: string;
+        projectTitle: string;
+        entry: ReturnType<typeof buildFileNode>;
+        relativePath: string;
+      }> = [];
+
+      const visitProject = async (
+        projectId: string,
+        projectTitle: string,
+        rootPath: string,
+        dirPath: string,
+        depth: number,
+      ) => {
+        if (results.length >= limit) return;
+        let entries: Dirent[];
+        try {
+          entries = await fs.readdir(dirPath, { withFileTypes: true });
+        } catch {
+          return;
+        }
+        for (const entry of entries) {
+          if (results.length >= limit) return;
+          if (entry.isSymbolicLink()) continue;
+          if (shouldSkipSearchEntry(entry.name, includeHidden)) continue;
+          const entryPath = path.join(dirPath, entry.name);
+          let stat: Awaited<ReturnType<typeof fs.stat>>;
+          try {
+            stat = await fs.stat(entryPath);
+          } catch {
+            continue;
+          }
+          const displayName =
+            entry.isDirectory() && isBoardFolderName(entry.name)
+              ? getBoardDisplayName(entry.name)
+              : entry.name;
+          if (displayName.toLowerCase().includes(query)) {
+            const isEmpty = stat.isDirectory()
+              ? await resolveFolderEmptyState(entryPath, includeHidden)
+              : undefined;
+            const node = buildFileNode({
+              name: entry.name,
+              fullPath: entryPath,
+              rootPath,
+              stat,
+              isEmpty,
+            });
+            results.push({
+              projectId,
+              projectTitle,
+              entry: node,
+              relativePath: node.uri,
+            });
+          }
+          if (entry.isDirectory() && depth < maxDepth) {
+            await visitProject(projectId, projectTitle, rootPath, entryPath, depth + 1);
+          }
+        }
+      };
+
+      for (const project of projects) {
+        if (results.length >= limit) break;
+        const rootUri = project.rootUri?.trim();
+        if (!rootUri) continue;
+        let rootPath: string;
+        try {
+          rootPath = resolveFilePathFromUri(rootUri);
+        } catch {
+          continue;
+        }
+        const projectTitle = project.title?.trim() || "未命名项目";
+        await visitProject(project.projectId, projectTitle, rootPath, rootPath, 0);
+      }
+
+      return { results };
+    }),
 });
 
 export type FsRouter = typeof fsRouter;

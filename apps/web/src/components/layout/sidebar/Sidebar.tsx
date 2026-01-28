@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@tenas-ai/ui/sidebar";
-import { CalendarDays, Inbox, LayoutTemplate, Search, Sparkles } from "lucide-react";
+import { CalendarDays, Inbox, LayoutTemplate, Mail, Search, Sparkles } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -27,12 +27,28 @@ export const AppSidebar = ({
   const { workspace: activeWorkspace } = useWorkspace();
   const addTab = useTabs((s) => s.addTab);
   const setActiveTab = useTabs((s) => s.setActiveTab);
+  const tabs = useTabs((s) => s.tabs);
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const runtimeByTabId = useTabRuntime((s) => s.runtimeByTabId);
   const searchOpen = useGlobalOverlay((s) => s.searchOpen);
   const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
   const isNarrow = useIsNarrowScreen(900);
 
   // 逻辑：窄屏直接隐藏侧边栏，避免占用可用空间。
   if (isNarrow) return null;
+
+  const activeTab =
+    activeWorkspace && activeTabId
+      ? tabs.find((tab) => tab.id === activeTabId && tab.workspaceId === activeWorkspace.id)
+      : null;
+  const activeBaseId = activeTab ? runtimeByTabId[activeTab.id]?.base?.id : undefined;
+  // 逻辑：ai-chat 的 base 会在 store 层被归一化为 undefined，需要用 title 兜底。
+  const isMenuActive = (input: { baseId?: string; title?: string; component?: string }) => {
+    if (!activeTab) return false;
+    if (input.baseId && activeBaseId === input.baseId) return true;
+    if (input.component === "ai-chat" && !activeBaseId && activeTab.title === input.title) return true;
+    return false;
+  };
 
   const openSingletonTab = useCallback(
     (input: { baseId: string; component: string; title: string; icon: string }) => {
@@ -99,6 +115,11 @@ export const AppSidebar = ({
             <SidebarMenuButton
               tooltip="模版"
               className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              isActive={isMenuActive({
+                baseId: "base:template",
+                component: "template-page",
+                title: "模版",
+              })}
               onClick={() =>
                 openSingletonTab({
                   baseId: "base:template",
@@ -123,6 +144,11 @@ export const AppSidebar = ({
             <SidebarMenuButton
               tooltip="日历"
               className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              isActive={isMenuActive({
+                baseId: "base:calendar",
+                component: "calendar-page",
+                title: "日历",
+              })}
               onClick={() =>
                 openSingletonTab({
                   baseId: "base:calendar",
@@ -147,6 +173,7 @@ export const AppSidebar = ({
             <SidebarMenuButton
               tooltip="AI"
               className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              isActive={isMenuActive(AI_CHAT_TAB_INPUT)}
               onClick={() => openSingletonTab(AI_CHAT_TAB_INPUT)}
               type="button"
             >
@@ -162,8 +189,36 @@ export const AppSidebar = ({
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
+              tooltip="邮箱"
+              className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              isActive={isMenuActive({
+                baseId: "base:mailbox",
+                component: "email-page",
+                title: "邮箱",
+              })}
+              onClick={() =>
+                openSingletonTab({
+                  baseId: "base:mailbox",
+                  component: "email-page",
+                  title: "邮箱",
+                  icon: "📧",
+                })
+              }
+              type="button"
+            >
+              <Mail />
+              <span className="flex-1 truncate">邮箱</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
               tooltip="收集箱"
               className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              isActive={isMenuActive({
+                baseId: "base:inbox",
+                component: "inbox-page",
+                title: "收集箱",
+              })}
               onClick={() =>
                 openSingletonTab({
                   baseId: "base:inbox",

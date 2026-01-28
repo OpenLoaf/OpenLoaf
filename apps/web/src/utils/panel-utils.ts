@@ -8,6 +8,7 @@ import ToolResultPanel from "@/components/tools/ToolResultPanel";
 import SettingsPage from "@/components/setting/SettingsPage";
 import { ProviderManagement } from "@/components/setting/menus/ProviderManagement";
 import CalendarPage from "@/components/calendar/Calendar";
+import EmailPage from "@/components/email/EmailPage";
 import InboxPage from "@/components/inbox/Inbox";
 import TemplatePage from "@/components/template/Template";
 import FileViewer from "@/components/file/FileViewer";
@@ -41,6 +42,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "settings-page": SettingsPage,
   "provider-management": ProviderManagement,
   "calendar-page": CalendarPage,
+  "email-page": EmailPage,
   "inbox-page": InboxPage,
   "template-page": TemplatePage,
   "file-viewer": FileViewer,
@@ -79,6 +81,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Provider Management";
     case "calendar-page":
       return "Calendar";
+    case "email-page":
+      return "Email";
     case "inbox-page":
       return "Inbox";
     case "template-page":

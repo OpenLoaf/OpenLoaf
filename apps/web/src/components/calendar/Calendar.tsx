@@ -1,8 +1,7 @@
 "use client";
 
-import * as React from "react";
-
-import { Calendar } from "@tenas-ai/ui/calendar";
+import type { IlamyCalendarProps } from "@ilamy/calendar";
+import { IlamyCalendar } from "@ilamy/calendar";
 
 export default function CalendarPage({
   panelKey: _panelKey,
@@ -11,17 +10,13 @@ export default function CalendarPage({
   panelKey: string;
   tabId: string;
 }) {
-  const [selected, setSelected] = React.useState<Date | undefined>(new Date());
+  const events: IlamyCalendarProps["events"] = [];
 
   return (
     <div className="h-full w-full p-4">
-      <div className="mb-3 text-sm text-muted-foreground">日历</div>
-      <Calendar
-        mode="single"
-        selected={selected}
-        onSelect={setSelected}
-        className="rounded-md border"
-      />
+      <div className="h-full min-h-0">
+        <IlamyCalendar events={events} headerClassName="justify-between" />
+      </div>
     </div>
   );
 }

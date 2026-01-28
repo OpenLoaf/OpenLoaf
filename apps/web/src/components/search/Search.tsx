@@ -15,10 +15,29 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabView } from "@/hooks/use-tab-view";
 import { useProjects } from "@/hooks/use-projects";
+import { useDebounce } from "@/hooks/use-debounce";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
 import { AI_CHAT_TAB_INPUT } from "@tenas-ai/api/common";
+import { trpc } from "@/utils/trpc";
+import { useQueries, skipToken, useQuery } from "@tanstack/react-query";
 import { CalendarDays, Inbox, LayoutTemplate, Sparkles } from "lucide-react";
 import { SearchInput } from "./SearchInput";
+import { getEntryVisual } from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import { openFilePreview } from "@/components/file/lib/open-file";
+import { isBoardFolderName } from "@/lib/file-name";
+import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  getRecentOpens,
+  RECENT_OPEN_EVENT,
+  type RecentOpenItem,
+} from "@/components/file/lib/recent-open";
+
+type SearchFileResult = {
+  entry: FileSystemEntry;
+  projectId: string;
+  projectTitle: string;
+  relativePath: string;
+};
 
 export function Search({
   open,
@@ -30,11 +49,22 @@ export function Search({
   const { workspace: activeWorkspace } = useWorkspace();
   const addTab = useTabs((s) => s.addTab);
   const setActiveTab = useTabs((s) => s.setActiveTab);
+  const setTabBaseParams = useTabRuntime((s) => s.setTabBaseParams);
   const activeTabId = useTabs((s) => s.activeTabId);
   const activeTab = useTabView(activeTabId ?? undefined);
   const { data: projects = [] } = useProjects();
   /** 当前搜索框输入值。 */
   const [searchValue, setSearchValue] = React.useState("");
+  /** 输入法合成状态。 */
+  const [isComposing, setIsComposing] = React.useState(false);
+  /** 已确认的搜索文本（用于请求）。 */
+  const [committedSearchValue, setCommittedSearchValue] = React.useState("");
+  /** 当前项目最近打开列表。 */
+  const [recentProjectItems, setRecentProjectItems] = React.useState<RecentOpenItem[]>([]);
+  /** 工作区最近打开列表。 */
+  const [recentWorkspaceItems, setRecentWorkspaceItems] = React.useState<RecentOpenItem[]>([]);
+  /** 防抖搜索关键字。 */
+  const debouncedSearchValue = useDebounce(committedSearchValue.trim(), 200);
   /** 当前搜索范围的项目 id。 */
   const [scopedProjectId, setScopedProjectId] = React.useState<string | null>(null);
   /** 标记用户是否手动清除了项目范围。 */
@@ -43,6 +73,22 @@ export function Search({
     () => buildProjectHierarchyIndex(projects),
     [projects],
   );
+  /** Refresh recent open lists for workspace and project scopes. */
+  const refreshRecentItems = React.useCallback(() => {
+    if (!activeWorkspace?.id) {
+      setRecentProjectItems([]);
+      setRecentWorkspaceItems([]);
+      return;
+    }
+    // 逻辑：只在弹层打开时刷新最近打开数据，避免无意义读写。
+    const recent = getRecentOpens({
+      workspaceId: activeWorkspace.id,
+      projectId: scopedProjectId,
+      limit: 5,
+    });
+    setRecentProjectItems(recent.project);
+    setRecentWorkspaceItems(recent.workspace);
+  }, [activeWorkspace?.id, scopedProjectId]);
   /** 当前激活 Tab 的面板参数。 */
   const activeBaseParams = activeTab?.base?.params as Record<string, unknown> | undefined;
   /** 当前激活 Tab 的聊天参数。 */
@@ -58,6 +104,81 @@ export function Search({
     if (!scopedProjectId) return null;
     return projectHierarchy.projectById.get(scopedProjectId)?.title ?? "未命名项目";
   }, [projectHierarchy, scopedProjectId]);
+  const scopedProjectRootUri = React.useMemo(() => {
+    if (!scopedProjectId) return null;
+    return projectHierarchy.rootUriById.get(scopedProjectId) ?? null;
+  }, [projectHierarchy, scopedProjectId]);
+  /** 是否触发搜索查询。 */
+  const searchEnabled = Boolean(debouncedSearchValue);
+  /** 缓存搜索结果，避免请求中列表闪烁。 */
+  const [cachedFileResults, setCachedFileResults] = React.useState<SearchFileResult[]>([]);
+  /** 项目范围内的搜索结果。 */
+  const projectSearchQuery = useQuery({
+    ...trpc.fs.search.queryOptions(
+      searchEnabled && scopedProjectId && scopedProjectRootUri && activeWorkspace?.id
+        ? {
+            workspaceId: activeWorkspace.id,
+            projectId: scopedProjectId,
+            rootUri: scopedProjectRootUri,
+            query: debouncedSearchValue,
+            includeHidden: false,
+            limit: 20,
+            maxDepth: 12,
+          }
+        : skipToken,
+    ),
+  });
+  /** 工作区范围内的搜索结果。 */
+  const workspaceSearchQuery = useQuery({
+    ...trpc.fs.searchWorkspace.queryOptions(
+      searchEnabled && !scopedProjectId && activeWorkspace?.id
+        ? {
+            workspaceId: activeWorkspace.id,
+            query: debouncedSearchValue,
+            includeHidden: false,
+            limit: 20,
+            maxDepth: 12,
+          }
+        : skipToken,
+    ),
+  });
+  /** 当前搜索最新返回的结果集合。 */
+  const latestFileResults = React.useMemo((): SearchFileResult[] => {
+    if (!searchEnabled) return [];
+    if (scopedProjectId) {
+      const results = projectSearchQuery.data?.results ?? [];
+      return results.map((entry) => ({
+        entry,
+        projectId: scopedProjectId,
+        projectTitle: scopedProjectTitle ?? "未命名项目",
+        relativePath: entry.uri,
+      }));
+    }
+    return workspaceSearchQuery.data?.results ?? [];
+  }, [
+    projectSearchQuery.data?.results,
+    scopedProjectId,
+    scopedProjectTitle,
+    searchEnabled,
+    workspaceSearchQuery.data?.results,
+  ]);
+  /** 当前搜索是否在请求中。 */
+  const isSearchFetching = Boolean(
+    searchEnabled &&
+      (scopedProjectId ? projectSearchQuery.isFetching : workspaceSearchQuery.isFetching),
+  );
+  /** 实际渲染用的结果集合。 */
+  const visibleFileResults = isSearchFetching ? cachedFileResults : latestFileResults;
+
+  React.useEffect(() => {
+    // 逻辑：搜索未开始时清空缓存，避免旧结果残留。
+    if (!searchEnabled) {
+      setCachedFileResults([]);
+      return;
+    }
+    if (isSearchFetching) return;
+    setCachedFileResults(latestFileResults);
+  }, [isSearchFetching, latestFileResults, searchEnabled]);
   const dispatchOverlay = React.useCallback((nextOpen: boolean) => {
     if (typeof window === "undefined") return;
     window.dispatchEvent(
@@ -79,6 +200,55 @@ export function Search({
     setScopedProjectId(null);
     setProjectCleared(true);
   }, []);
+  const keepAllFilter = React.useCallback(() => 1, []);
+  /** 打开项目的文件系统定位到指定目录。 */
+  const handleOpenProjectFileSystem = React.useCallback(
+    (projectId: string, projectTitle: string, rootUri: string, targetUri: string) => {
+      if (!activeWorkspace?.id) return;
+      const baseId = `project:${projectId}`;
+      const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
+      const existing = useTabs
+        .getState()
+        .tabs.find(
+          (tab) =>
+            tab.workspaceId === activeWorkspace.id &&
+            runtimeByTabId[tab.id]?.base?.id === baseId,
+        );
+      if (existing) {
+        React.startTransition(() => {
+          setActiveTab(existing.id);
+        });
+        setTabBaseParams(existing.id, {
+          projectTab: "files",
+          fileUri: targetUri,
+        });
+        handleOpenChange(false);
+        return;
+      }
+      addTab({
+        workspaceId: activeWorkspace.id,
+        createNew: true,
+        title: projectTitle || "未命名项目",
+        icon: projectHierarchy.projectById.get(projectId)?.icon ?? undefined,
+        leftWidthPercent: 90,
+        base: {
+          id: baseId,
+          component: "plant-page",
+          params: { projectId, rootUri, projectTab: "files", fileUri: targetUri },
+        },
+        chatParams: { projectId },
+      });
+      handleOpenChange(false);
+    },
+    [
+      activeWorkspace?.id,
+      addTab,
+      handleOpenChange,
+      projectHierarchy.projectById,
+      setActiveTab,
+      setTabBaseParams,
+    ],
+  );
 
   const openSingletonTab = React.useCallback(
     (input: { baseId: string; component: string; title: string; icon: string }) => {
@@ -124,8 +294,26 @@ export function Search({
     };
   }, [dispatchOverlay, open]);
   React.useEffect(() => {
+    if (!open) return;
+    refreshRecentItems();
+  }, [open, refreshRecentItems]);
+  React.useEffect(() => {
+    if (!open) return;
+    const handleRecentEvent = (event: Event) => {
+      const detail = (event as CustomEvent<{ workspaceId?: string }>).detail;
+      if (detail?.workspaceId && detail.workspaceId !== activeWorkspace?.id) return;
+      refreshRecentItems();
+    };
+    window.addEventListener(RECENT_OPEN_EVENT, handleRecentEvent);
+    return () => {
+      window.removeEventListener(RECENT_OPEN_EVENT, handleRecentEvent);
+    };
+  }, [activeWorkspace?.id, open, refreshRecentItems]);
+  React.useEffect(() => {
     if (!open) {
       setSearchValue("");
+      setCommittedSearchValue("");
+      setIsComposing(false);
       setScopedProjectId(null);
       setProjectCleared(false);
       return;
@@ -135,101 +323,286 @@ export function Search({
     setScopedProjectId(activeProjectId);
   }, [activeProjectId, open, projectCleared]);
 
+  /** 渲染文件搜索结果条目。 */
+  const renderFileResult = React.useCallback((result: SearchFileResult) => {
+      const projectTitle = result.projectTitle || "未命名项目";
+      const rootUri = projectHierarchy.rootUriById.get(result.projectId) ?? "";
+      const displayPath = result.relativePath || result.entry.uri;
+      const handleSelect = () => {
+        if (result.entry.kind === "folder" && !isBoardFolderName(result.entry.name)) {
+          handleOpenProjectFileSystem(result.projectId, projectTitle, rootUri, result.entry.uri);
+          return;
+        }
+        if (!activeTabId) return;
+        openFilePreview({
+          entry: result.entry,
+          tabId: activeTabId,
+          projectId: result.projectId,
+          rootUri,
+          mode: "stack",
+        });
+        handleOpenChange(false);
+      };
+      const itemValue = `${result.entry.name} ${displayPath} ${projectTitle}`;
+      const thumbnailSrc = thumbnailByKey.get(`${result.projectId}:${result.entry.uri}`);
+      return (
+        <CommandItem
+          key={`${result.projectId}:${result.entry.uri}`}
+          value={itemValue}
+          onSelect={handleSelect}
+        >
+          {getEntryVisual({
+            kind: result.entry.kind,
+            name: result.entry.name,
+            ext: result.entry.ext,
+            isEmpty: result.entry.isEmpty,
+            thumbnailSrc,
+            sizeClassName: "h-6 w-6",
+            thumbnailIconClassName: "h-full w-full p-1 text-muted-foreground",
+          })}
+          <div className="min-w-0 flex-1">
+            <div className="truncate">{result.entry.name}</div>
+            <div className="text-xs text-muted-foreground truncate">
+              {projectTitle} / {displayPath}
+            </div>
+          </div>
+        </CommandItem>
+      );
+    },
+    [activeTabId, handleOpenChange, handleOpenProjectFileSystem, projectHierarchy.rootUriById],
+  );
+  /** 是否展示空结果提示。 */
+  const showEmptyState = searchEnabled && !isSearchFetching && visibleFileResults.length === 0;
+  /** 搜索期间隐藏快捷入口。 */
+  const showQuickOpen = !searchValue.trim();
+  /** Build display results for recent open lists. */
+  const buildRecentResults = React.useCallback(
+    (items: RecentOpenItem[]): SearchFileResult[] => {
+      return items.flatMap((item) => {
+        if (!item.projectId) return [];
+        if (!projectHierarchy.rootUriById.get(item.projectId)) return [];
+        const entry: FileSystemEntry = {
+          uri: item.fileUri,
+          name: item.fileName,
+          kind: item.kind,
+          ext: item.ext ?? undefined,
+        };
+        const projectTitle =
+          projectHierarchy.projectById.get(item.projectId)?.title ?? "未命名项目";
+        return [
+          {
+            entry,
+            projectId: item.projectId,
+            projectTitle,
+            relativePath: item.fileUri,
+          },
+        ];
+      });
+    },
+    [projectHierarchy.projectById, projectHierarchy.rootUriById],
+  );
+  /** 当前项目最近打开结果。 */
+  const recentProjectResults = React.useMemo(
+    () => buildRecentResults(recentProjectItems),
+    [buildRecentResults, recentProjectItems],
+  );
+  /** 工作区最近打开结果。 */
+  const recentWorkspaceResults = React.useMemo(
+    () => buildRecentResults(recentWorkspaceItems),
+    [buildRecentResults, recentWorkspaceItems],
+  );
+  /** 需要请求缩略图的结果集合。 */
+  const thumbnailTargets = React.useMemo(() => {
+    if (searchEnabled) return visibleFileResults;
+    if (scopedProjectId) return recentProjectResults;
+    return recentWorkspaceResults;
+  }, [
+    recentProjectResults,
+    recentWorkspaceResults,
+    scopedProjectId,
+    searchEnabled,
+    visibleFileResults,
+  ]);
+  /** 按项目分组构建缩略图请求列表。 */
+  const thumbnailGroups = React.useMemo(() => {
+    if (!activeWorkspace?.id) return [];
+    const grouped = new Map<string, string[]>();
+    for (const result of thumbnailTargets) {
+      if (result.entry.kind !== "file") continue;
+      const list = grouped.get(result.projectId) ?? [];
+      list.push(result.entry.uri);
+      grouped.set(result.projectId, list);
+    }
+    return Array.from(grouped.entries()).map(([projectId, uris]) => ({
+      projectId,
+      uris: Array.from(new Set(uris)).slice(0, 50),
+    }));
+  }, [activeWorkspace?.id, thumbnailTargets]);
+  /** 请求可见文件的缩略图数据。 */
+  const thumbnailQueries = useQueries({
+    queries: thumbnailGroups.map((group) => {
+      const queryOptions = trpc.fs.thumbnails.queryOptions(
+        group.uris.length && activeWorkspace?.id
+          ? { workspaceId: activeWorkspace.id, projectId: group.projectId, uris: group.uris }
+          : skipToken,
+      );
+      return {
+        ...(queryOptions as Record<string, unknown>),
+        queryKey: queryOptions.queryKey,
+        queryFn: queryOptions.queryFn,
+        enabled: Boolean(group.uris.length) && Boolean(activeWorkspace?.id),
+        refetchOnWindowFocus: false,
+        staleTime: 5 * 60 * 1000,
+      };
+    }),
+  });
+  /** 建立缩略图查询结果索引。 */
+  const thumbnailByKey = React.useMemo(() => {
+    const map = new Map<string, string>();
+    thumbnailQueries.forEach((query, index) => {
+      const group = thumbnailGroups[index];
+      if (!group || !query?.data) return;
+      const items = (query.data as { items?: Array<{ uri: string; dataUrl: string }> }).items;
+      for (const item of items ?? []) {
+        map.set(`${group.projectId}:${item.uri}`, item.dataUrl);
+      }
+    });
+    return map;
+  }, [thumbnailGroups, thumbnailQueries]);
+  /** 搜索输入更新：输入法组合时只更新展示值，不触发查询。 */
+  const handleSearchValueChange = React.useCallback(
+    (nextValue: string) => {
+      setSearchValue(nextValue);
+      if (isComposing) return;
+      setCommittedSearchValue(nextValue);
+    },
+    [isComposing],
+  );
+  const handleCompositionStart = React.useCallback(() => {
+    setIsComposing(true);
+  }, []);
+  const handleCompositionEnd = React.useCallback(
+    (event: React.CompositionEvent<HTMLInputElement>) => {
+      const nextValue = event.currentTarget.value;
+      setSearchValue(nextValue);
+      setCommittedSearchValue(nextValue);
+      setIsComposing(false);
+    },
+    [],
+  );
+
   return (
     <CommandDialog
       open={open}
       onOpenChange={handleOpenChange}
       title="搜索"
       description="搜索并快速打开功能"
-      className="top-[25%] translate-y-[-25%] sm:max-w-xl"
+      className="top-[25%] translate-y-0 sm:max-w-xl max-h-[70vh]"
       overlayClassName="backdrop-blur-sm bg-black/30"
+      commandProps={{ shouldFilter: false, filter: keepAllFilter }}
     >
       <SearchInput
         value={searchValue}
-        onValueChange={setSearchValue}
+        onValueChange={handleSearchValueChange}
         placeholder="搜索…"
         projectTitle={scopedProjectTitle}
         onClearProject={handleClearProject}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
       />
-      <CommandList>
-        <CommandEmpty>暂无结果</CommandEmpty>
-        <CommandGroup heading="快速打开">
-          <CommandItem
-            value="calendar"
-            onSelect={() =>
-              openSingletonTab({
-                baseId: "base:calendar",
-                component: "calendar-page",
-                title: "日历",
-                icon: "🗓️",
-              })
-            }
-          >
-            <CalendarDays className="h-5 w-5" />
-            <span>日历</span>
-            <CommandShortcut>
-              <KbdGroup className="gap-1">
-                <Kbd>⌘</Kbd>
-                <Kbd>L</Kbd>
-              </KbdGroup>
-            </CommandShortcut>
-          </CommandItem>
-          <CommandItem
-            value="inbox"
-            onSelect={() =>
-              openSingletonTab({
-                baseId: "base:inbox",
-                component: "inbox-page",
-                title: "收集箱",
-                icon: "📥",
-              })
-            }
-          >
-            <Inbox className="h-5 w-5" />
-            <span>收集箱</span>
-            <CommandShortcut>
-              <KbdGroup className="gap-1">
-                <Kbd>⌘</Kbd>
-                <Kbd>I</Kbd>
-              </KbdGroup>
-            </CommandShortcut>
-          </CommandItem>
-          <CommandItem
-            value="ai"
-            onSelect={() =>
-              openSingletonTab(AI_CHAT_TAB_INPUT)
-            }
-          >
-            <Sparkles className="h-5 w-5" />
-            <span>AI助手</span>
-            <CommandShortcut>
-              <KbdGroup className="gap-1">
-                <Kbd>⌘</Kbd>
-                <Kbd>J</Kbd>
-              </KbdGroup>
-            </CommandShortcut>
-          </CommandItem>
-          <CommandItem
-            value="template"
-            onSelect={() =>
-              openSingletonTab({
-                baseId: "base:template",
-                component: "template-page",
-                title: "模版",
-                icon: "📄",
-              })
-            }
-          >
-            <LayoutTemplate className="h-5 w-5" />
-            <span>模版</span>
-            <CommandShortcut>
-              <KbdGroup className="gap-1">
-                <Kbd>⌘</Kbd>
-                <Kbd>T</Kbd>
-              </KbdGroup>
-            </CommandShortcut>
-          </CommandItem>
-        </CommandGroup>
+      <CommandList className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto show-scrollbar">
+        {showEmptyState ? <CommandEmpty>暂无结果</CommandEmpty> : null}
+        {visibleFileResults.length > 0 ? (
+          <CommandGroup heading="文件">
+            {visibleFileResults.map(renderFileResult)}
+          </CommandGroup>
+        ) : null}
+        {showQuickOpen ? (
+          <>
+            <CommandGroup heading="快速打开">
+              <CommandItem
+                value="calendar"
+                onSelect={() =>
+                  openSingletonTab({
+                    baseId: "base:calendar",
+                    component: "calendar-page",
+                    title: "日历",
+                    icon: "🗓️",
+                  })
+                }
+              >
+                <CalendarDays className="h-5 w-5" />
+                <span>日历</span>
+                <CommandShortcut>
+                  <KbdGroup className="gap-1">
+                    <Kbd>⌘</Kbd>
+                    <Kbd>L</Kbd>
+                  </KbdGroup>
+                </CommandShortcut>
+              </CommandItem>
+              <CommandItem
+                value="inbox"
+                onSelect={() =>
+                  openSingletonTab({
+                    baseId: "base:inbox",
+                    component: "inbox-page",
+                    title: "收集箱",
+                    icon: "📥",
+                  })
+                }
+              >
+                <Inbox className="h-5 w-5" />
+                <span>收集箱</span>
+                <CommandShortcut>
+                  <KbdGroup className="gap-1">
+                    <Kbd>⌘</Kbd>
+                    <Kbd>I</Kbd>
+                  </KbdGroup>
+                </CommandShortcut>
+              </CommandItem>
+              <CommandItem value="ai" onSelect={() => openSingletonTab(AI_CHAT_TAB_INPUT)}>
+                <Sparkles className="h-5 w-5" />
+                <span>AI助手</span>
+                <CommandShortcut>
+                  <KbdGroup className="gap-1">
+                    <Kbd>⌘</Kbd>
+                    <Kbd>J</Kbd>
+                  </KbdGroup>
+                </CommandShortcut>
+              </CommandItem>
+              <CommandItem
+                value="template"
+                onSelect={() =>
+                  openSingletonTab({
+                    baseId: "base:template",
+                    component: "template-page",
+                    title: "模版",
+                    icon: "📄",
+                  })
+                }
+              >
+                <LayoutTemplate className="h-5 w-5" />
+                <span>模版</span>
+                <CommandShortcut>
+                  <KbdGroup className="gap-1">
+                    <Kbd>⌘</Kbd>
+                    <Kbd>T</Kbd>
+                  </KbdGroup>
+                </CommandShortcut>
+              </CommandItem>
+            </CommandGroup>
+            {recentProjectResults.length > 0 ? (
+              <CommandGroup heading="最近打开（当前项目）">
+                {recentProjectResults.map(renderFileResult)}
+              </CommandGroup>
+            ) : null}
+            {!scopedProjectId && recentWorkspaceResults.length > 0 ? (
+              <CommandGroup heading="最近打开（工作区）">
+                {recentWorkspaceResults.map(renderFileResult)}
+              </CommandGroup>
+            ) : null}
+          </>
+        ) : null}
       </CommandList>
     </CommandDialog>
   );

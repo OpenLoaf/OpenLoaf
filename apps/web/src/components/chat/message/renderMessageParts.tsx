@@ -1,12 +1,11 @@
-"use client";
-
 import { Streamdown } from "streamdown";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
 import MessageFile from "./tools/MessageFile";
 import { isToolPart } from "@/lib/chat/message-parts";
+import type React from "react";
 
 type AnyMessagePart = {
   type?: string;
@@ -77,6 +76,7 @@ const MESSAGE_REMARK_REHYPE_OPTIONS = {
   allowDangerousHtml: false,
 };
 
+/** Render message parts into motion-wrapped elements. */
 export function renderMessageParts(
   parts: AnyMessagePart[],
   options?: {
@@ -92,19 +92,14 @@ export function renderMessageParts(
     isAnimating?: boolean;
     /** Message id for tool expansion fetch. */
     messageId?: string;
+    /** Motion props for entrance animation. */
+    motionProps?: React.ComponentProps<typeof motion.div>;
   },
 ) {
   const renderTools = options?.renderTools !== false;
   const renderText = options?.renderText !== false;
   const isAnimating = Boolean(options?.isAnimating);
-  const reduceMotion = useReducedMotion();
-  const motionProps = reduceMotion
-    ? undefined
-    : {
-        initial: { opacity: 0, y: 6 },
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.2 },
-      };
+  const motionProps = options?.motionProps;
   return (parts ?? []).map((part: any, index: number) => {
     if (part?.type === "text") {
       if (!renderText) return null;

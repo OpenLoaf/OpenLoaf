@@ -16,6 +16,10 @@ export type SearchInputProps = {
   projectTitle?: string | null;
   /** 清空项目范围。 */
   onClearProject?: () => void;
+  /** 输入法合成开始回调。 */
+  onCompositionStart?: (event: React.CompositionEvent<HTMLInputElement>) => void;
+  /** 输入法合成结束回调。 */
+  onCompositionEnd?: (event: React.CompositionEvent<HTMLInputElement>) => void;
 };
 
 /** Search 输入框：显示项目范围与分隔符。 */
@@ -25,6 +29,8 @@ export function SearchInput({
   placeholder,
   projectTitle,
   onClearProject,
+  onCompositionStart,
+  onCompositionEnd,
 }: SearchInputProps) {
   const hasProject = Boolean(projectTitle);
   const shouldHandleClear = hasProject && !value;
@@ -58,6 +64,8 @@ export function SearchInput({
         onValueChange={onValueChange}
         placeholder={placeholder}
         onKeyDown={handleKeyDown}
+        onCompositionStart={onCompositionStart}
+        onCompositionEnd={onCompositionEnd}
         className={cn(
           "placeholder:text-muted-foreground flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
           !hasProject && "pl-0",
