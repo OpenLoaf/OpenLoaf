@@ -41,6 +41,8 @@ type SaveMessageInput = {
   message: TenasUIMessage | UIMessageLike;
   /** Parent message id. */
   parentMessageId: string | null;
+  /** Optional path override for persistence. */
+  pathOverride?: string;
   /** Workspace id for session binding. */
   workspaceId?: string;
   /** Project id for session binding. */
@@ -208,6 +210,7 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
   const role = normalizeRole((input.message as any)?.role);
   const parts = normalizeParts((input.message as any)?.parts);
   const metadata = sanitizeMetadata((input.message as any)?.metadata);
+  const pathOverride = normalizeOptionalPath(input.pathOverride);
   // 逻辑：compact prompt 不参与会话标题生成。
   const title =
     role === "user" && messageKind !== "compact_prompt"
@@ -278,8 +281,10 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
     const parent = parentId ? await getParentNode(tx, input.sessionId, parentId) : null;
     if (parentId && !parent) throw new Error("parentMessageId not found in this session.");
 
-    const nextSiblingSeq = await getNextSiblingSeq(tx, input.sessionId, parentId);
-    const path = computePath(parent?.path ?? null, nextSiblingSeq);
+    // 逻辑：允许上层指定 path，避免子 Agent 与主 assistant 分叉。
+    const path =
+      pathOverride ??
+      computePath(parent?.path ?? null, await getNextSiblingSeq(tx, input.sessionId, parentId));
 
     const created = await tx.chatMessage.create({
       data: {
@@ -484,6 +489,13 @@ function normalizeOptionalId(value: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+/** Normalize optional path override. */
+function normalizeOptionalPath(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 /** Convert sequence into a fixed-width path segment. */
 function toPathSegment(seq: number): string {
   if (!Number.isInteger(seq) || seq <= 0) throw new Error("Invalid path segment seq.");
@@ -557,6 +569,38 @@ async function getNextSiblingSeq(
   const last = Number.parseInt(lastSeg, 10);
   if (!Number.isFinite(last) || last <= 0) return 1;
   return last + 1;
+}
+
+/** Resolve next path for a given parent. */
+export async function resolveNextMessagePath(input: {
+  /** Session id. */
+  sessionId: string;
+  /** Parent message id. */
+  parentMessageId: string | null;
+}): Promise<string> {
+  return prisma.$transaction(async (tx) => {
+    const parentId = input.parentMessageId ?? null;
+    const parent = parentId ? await getParentNode(tx, input.sessionId, parentId) : null;
+    if (parentId && !parent) throw new Error("parentMessageId not found in this session.");
+    // 逻辑：按当前父节点的最新兄弟序号计算下一条路径。
+    const nextSiblingSeq = await getNextSiblingSeq(tx, input.sessionId, parentId);
+    return computePath(parent?.path ?? null, nextSiblingSeq);
+  });
+}
+
+/** Resolve stored path by message id. */
+export async function resolveMessagePathById(input: {
+  /** Session id. */
+  sessionId: string;
+  /** Message id. */
+  messageId: string;
+}): Promise<string | null> {
+  const row = await prisma.chatMessage.findUnique({
+    where: { id: input.messageId },
+    select: { sessionId: true, path: true },
+  });
+  if (!row || row.sessionId !== input.sessionId) return null;
+  return row.path || null;
 }
 
 /** Compute materialized path for new node. */

@@ -114,6 +114,7 @@
     "email": "torykit@torykit.com"
   },
   "dependencies": {
+    "@tenas-ai/api": "workspace:*",
     "@tenas-ai/config": "workspace:*",
     "electron-updater": "^6.7.3",
     "pino": "^10.3.0",

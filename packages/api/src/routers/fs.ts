@@ -389,6 +389,20 @@ export const fsRouter = t.router({
       input.uris.map(async (uri) => {
         try {
           const fullPath = resolveFsTarget(input, uri);
+          const ext = path.extname(fullPath).replace(/^\./, "");
+          // 中文注释：视频缩略图走专用管线，避免 sharp 读取失败。
+          if (isVideoExt(ext)) {
+            const stat = await fs.stat(fullPath);
+            const relativePath = toRelativePath(rootPath, fullPath);
+            const dataUrl = await buildVideoThumbnail({
+              sourcePath: fullPath,
+              rootPath,
+              relativePath,
+              stat: { size: stat.size, mtimeMs: stat.mtimeMs },
+            });
+            return { uri: relativePath, dataUrl };
+          }
+          if (!isImageExt(ext)) return null;
           const buffer = await sharp(fullPath)
             .resize(40, 40, { fit: "cover" })
             .webp({ quality: 45 })

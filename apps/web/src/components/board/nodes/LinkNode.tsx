@@ -3,10 +3,13 @@ import type {
   CanvasNodeViewProps,
   CanvasToolbarContext,
 } from "../engine/types";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { z } from "zod";
 import { Copy, ExternalLink } from "lucide-react";
 import { openLinkInStack as openLinkInStackAction } from "./lib/link-actions";
+import { useBoardContext } from "../core/BoardProvider";
+import WebStackWidget from "@/components/desktop/widgets/WebStackWidget";
+import type { DesktopWidgetItem } from "@/components/desktop/types";
 
 export type LinkNodeProps = {
   /** Destination URL. */
@@ -21,6 +24,15 @@ export type LinkNodeProps = {
   imageSrc: string;
   /** Refresh token used to trigger reloads. */
   refreshToken: number;
+};
+
+const WEB_STACK_CONSTRAINTS: DesktopWidgetItem["constraints"] = {
+  defaultW: 4,
+  defaultH: 2,
+  minW: 1,
+  minH: 1,
+  maxW: 4,
+  maxH: 4,
 };
 
 /** Build toolbar items for link nodes. */
@@ -72,6 +84,7 @@ export function LinkNodeView({
   selected,
   onUpdate: _onUpdate,
 }: CanvasNodeViewProps<LinkNodeProps>) {
+  const { fileContext } = useBoardContext();
   const { url, title, description, imageSrc, logoSrc } = element.props;
   let displayHost = url;
   try {
@@ -80,7 +93,24 @@ export function LinkNodeView({
     // Keep the raw URL when parsing fails.
   }
   const displayTitle = title || displayHost || url;
-  const previewSrc = imageSrc || logoSrc;
+  const previewItem = useMemo<DesktopWidgetItem>(
+    () => ({
+      id: element.id,
+      kind: "widget",
+      widgetKey: "web-stack",
+      size: "4x2",
+      constraints: WEB_STACK_CONSTRAINTS,
+      title: displayTitle,
+      layout: { x: 0, y: 0, w: 4, h: 2 },
+      webUrl: url,
+      webTitle: title,
+      webDescription: description,
+      webLogo: logoSrc,
+      webPreview: imageSrc,
+      webMetaStatus: "ready",
+    }),
+    [description, displayTitle, element.id, imageSrc, logoSrc, title, url]
+  );
   /** Open the link in the current tab's browser stack. */
   const openLinkInStack = useCallback(() => {
     openLinkInStackAction({ url, title: displayTitle });
@@ -89,45 +119,21 @@ export function LinkNodeView({
   return (
     <div
       className={[
-        "h-full w-full rounded-sm border box-border",
-        "border-slate-200 bg-white text-slate-900",
-        "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
-        selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",
+        "h-full w-full",
+        selected ? "ring-2 ring-primary/30 shadow-[0_10px_24px_rgba(15,23,42,0.18)]" : "",
       ].join(" ")}
       onDoubleClick={(event) => {
         event.stopPropagation();
         openLinkInStack();
       }}
     >
-      <div className="flex h-full w-full">
-        <div className="h-full w-32 shrink-0 overflow-hidden rounded-l-xl bg-slate-100 dark:bg-slate-800">
-          {previewSrc ? (
-            <div className="flex h-full w-full items-center justify-center p-4">
-              <img
-                src={previewSrc}
-                alt={displayTitle}
-                className="max-h-full max-w-full object-contain"
-                draggable={false}
-              />
-            </div>
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
-              Preview
-            </div>
-          )}
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col justify-between p-3">
-          <div className="line-clamp-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
-            {displayTitle}
-          </div>
-          <div className="line-clamp-2 text-xs text-slate-600 dark:text-slate-300">
-            {description || displayHost}
-          </div>
-          <div className="line-clamp-1 text-[11px] text-slate-500 dark:text-slate-400">
-            {url}
-          </div>
-        </div>
-      </div>
+      {/* 中文注释：LinkNode 复用 WebStackWidget 预览卡片样式。 */}
+      <WebStackWidget
+        item={previewItem}
+        projectId={fileContext?.projectId}
+        workspaceId={fileContext?.workspaceId}
+        onOpen={openLinkInStack}
+      />
     </div>
   );
 }

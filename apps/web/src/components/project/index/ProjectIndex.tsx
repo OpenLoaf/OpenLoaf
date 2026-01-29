@@ -262,6 +262,28 @@ const ProjectIndex = React.memo(function ProjectIndex({
     []
   );
 
+  /** Update a single desktop item and persist it to desktop.tenas. */
+  const handleUpdateItemPersist = React.useCallback(
+    (itemId: string, updater: (item: DesktopItem) => DesktopItem) => {
+      let nextItems: DesktopItem[] | null = null;
+      setItems((prev) => {
+        const updated = prev.map((item) => (item.id === itemId ? updater(item) : item));
+        nextItems = updated;
+        return updated;
+      });
+      if (!desktopFileUri || !workspaceId || !nextItems) return;
+      // 中文注释：编辑对话框保存时立即持久化桌面布局。
+      const payload = serializeDesktopItems(nextItems);
+      void saveDesktopMutation.mutateAsync({
+        workspaceId,
+        projectId,
+        uri: desktopFileUri,
+        content: JSON.stringify(payload, null, 2),
+      });
+    },
+    [desktopFileUri, projectId, saveDesktopMutation, workspaceId]
+  );
+
   /** Undo the latest edit. */
   const handleUndo = React.useCallback(() => {
     const history = historyRef.current;
@@ -407,6 +429,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
         onViewBreakpointChange={setViewBreakpoint}
         onSetEditMode={handleSetEditMode}
         onUpdateItem={handleUpdateItem}
+        onPersistItemUpdate={handleUpdateItemPersist}
         onChangeItems={setItems}
         compactSignal={compactSignal}
         placementItemId={placementItemId}

@@ -5,7 +5,7 @@ import type { PlateElementProps } from 'platejs/react';
 
 import { PlateElement, useReadOnly } from 'platejs/react';
 
-import { Calendar } from '@tenas-ai/ui/calendar';
+import { Calendar } from '@tenas-ai/ui/date-picker';
 import {
   Popover,
   PopoverContent,

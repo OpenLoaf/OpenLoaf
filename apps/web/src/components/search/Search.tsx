@@ -25,7 +25,10 @@ import { SearchInput } from "./SearchInput";
 import { getEntryVisual } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import { openFilePreview } from "@/components/file/lib/open-file";
 import { isBoardFolderName } from "@/lib/file-name";
-import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  formatSize,
+  type FileSystemEntry,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import {
   getRecentOpens,
   RECENT_OPEN_EVENT,
@@ -37,6 +40,20 @@ type SearchFileResult = {
   projectId: string;
   projectTitle: string;
   relativePath: string;
+};
+
+const padTwoDigits = (value: number) => value.toString().padStart(2, "0");
+
+const formatSearchTimestamp = (value?: string) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const year = date.getFullYear() % 100;
+  const month = padTwoDigits(date.getMonth() + 1);
+  const day = padTwoDigits(date.getDate());
+  const hour = padTwoDigits(date.getHours());
+  const minute = padTwoDigits(date.getMinutes());
+  return `${padTwoDigits(year)}-${month}-${day} ${hour}:${minute}`;
 };
 
 export function Search({
@@ -323,58 +340,10 @@ export function Search({
     setScopedProjectId(activeProjectId);
   }, [activeProjectId, open, projectCleared]);
 
-  /** 渲染文件搜索结果条目。 */
-  const renderFileResult = React.useCallback((result: SearchFileResult) => {
-      const projectTitle = result.projectTitle || "未命名项目";
-      const rootUri = projectHierarchy.rootUriById.get(result.projectId) ?? "";
-      const displayPath = result.relativePath || result.entry.uri;
-      const handleSelect = () => {
-        if (result.entry.kind === "folder" && !isBoardFolderName(result.entry.name)) {
-          handleOpenProjectFileSystem(result.projectId, projectTitle, rootUri, result.entry.uri);
-          return;
-        }
-        if (!activeTabId) return;
-        openFilePreview({
-          entry: result.entry,
-          tabId: activeTabId,
-          projectId: result.projectId,
-          rootUri,
-          mode: "stack",
-        });
-        handleOpenChange(false);
-      };
-      const itemValue = `${result.entry.name} ${displayPath} ${projectTitle}`;
-      const thumbnailSrc = thumbnailByKey.get(`${result.projectId}:${result.entry.uri}`);
-      return (
-        <CommandItem
-          key={`${result.projectId}:${result.entry.uri}`}
-          value={itemValue}
-          onSelect={handleSelect}
-        >
-          {getEntryVisual({
-            kind: result.entry.kind,
-            name: result.entry.name,
-            ext: result.entry.ext,
-            isEmpty: result.entry.isEmpty,
-            thumbnailSrc,
-            sizeClassName: "h-6 w-6",
-            thumbnailIconClassName: "h-full w-full p-1 text-muted-foreground",
-          })}
-          <div className="min-w-0 flex-1">
-            <div className="truncate">{result.entry.name}</div>
-            <div className="text-xs text-muted-foreground truncate">
-              {projectTitle} / {displayPath}
-            </div>
-          </div>
-        </CommandItem>
-      );
-    },
-    [activeTabId, handleOpenChange, handleOpenProjectFileSystem, projectHierarchy.rootUriById],
-  );
   /** 是否展示空结果提示。 */
   const showEmptyState = searchEnabled && !isSearchFetching && visibleFileResults.length === 0;
   /** 搜索期间隐藏快捷入口。 */
-  const showQuickOpen = !searchValue.trim();
+  const showQuickOpen = open && !searchValue.trim();
   /** Build display results for recent open lists. */
   const buildRecentResults = React.useCallback(
     (items: RecentOpenItem[]): SearchFileResult[] => {
@@ -469,6 +438,89 @@ export function Search({
     });
     return map;
   }, [thumbnailGroups, thumbnailQueries]);
+  /** 渲染文件搜索结果条目。 */
+  const renderFileResult = React.useCallback(
+    (
+      result: SearchFileResult,
+      options?: {
+        /** 是否隐藏项目名称。 */
+        hideProjectTitle?: boolean;
+      },
+    ) => {
+      const projectTitle = result.projectTitle || "未命名项目";
+      const rootUri = projectHierarchy.rootUriById.get(result.projectId) ?? "";
+      const displayPath = result.relativePath || result.entry.uri;
+      const handleSelect = () => {
+        if (result.entry.kind === "folder" && !isBoardFolderName(result.entry.name)) {
+          handleOpenProjectFileSystem(result.projectId, projectTitle, rootUri, result.entry.uri);
+          return;
+        }
+        if (!activeTabId) return;
+        openFilePreview({
+          entry: result.entry,
+          tabId: activeTabId,
+          projectId: result.projectId,
+          rootUri,
+          mode: "stack",
+        });
+        handleOpenChange(false);
+      };
+      const itemValue = `${result.entry.name} ${displayPath} ${projectTitle}`;
+      const thumbnailSrc = thumbnailByKey.get(`${result.projectId}:${result.entry.uri}`);
+      const subtitle = options?.hideProjectTitle
+        ? displayPath
+        : `${projectTitle} / ${displayPath}`;
+      const sizeLabel =
+        result.entry.kind === "file" && result.entry.size !== undefined
+          ? formatSize(result.entry.size)
+          : null;
+      const updatedLabel = formatSearchTimestamp(result.entry.updatedAt);
+      const metaParts = [sizeLabel, updatedLabel].filter(Boolean);
+      const metaLabel = metaParts.length > 0 ? metaParts.join(" · ") : null;
+      return (
+        <CommandItem
+          key={`${result.projectId}:${result.entry.uri}`}
+          value={itemValue}
+          onSelect={handleSelect}
+        >
+          <div className="flex shrink-0 items-center justify-center [&>div]:!h-6 [&>div]:!w-6 [&>div]:!aspect-square [&>svg]:!h-6 [&>svg]:!w-6 [&_img]:!object-cover">
+            {getEntryVisual({
+              kind: result.entry.kind,
+              name: result.entry.name,
+              ext: result.entry.ext,
+              isEmpty: result.entry.isEmpty,
+              thumbnailSrc,
+              sizeClassName: "h-6 w-6",
+              thumbnailIconClassName: "h-full w-full p-1 text-muted-foreground",
+              forceSquare: true,
+            })}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <div className="min-w-0 flex-1 truncate">{result.entry.name}</div>
+              {metaLabel ? (
+                <div className="shrink-0 text-[11px] text-muted-foreground/70">{metaLabel}</div>
+              ) : null}
+            </div>
+            <div className="text-xs text-muted-foreground truncate">{subtitle}</div>
+          </div>
+        </CommandItem>
+      );
+    },
+    [
+      activeTabId,
+      handleOpenChange,
+      handleOpenProjectFileSystem,
+      projectHierarchy.rootUriById,
+      thumbnailByKey,
+    ],
+  );
+  /** 当前项目最近打开的标题。 */
+  const recentProjectHeading = React.useMemo(() => {
+    if (scopedProjectTitle?.trim()) return scopedProjectTitle;
+    if (recentProjectResults[0]?.projectTitle) return recentProjectResults[0].projectTitle;
+    return "当前项目";
+  }, [recentProjectResults, scopedProjectTitle]);
   /** 搜索输入更新：输入法组合时只更新展示值，不触发查询。 */
   const handleSearchValueChange = React.useCallback(
     (nextValue: string) => {
@@ -514,7 +566,7 @@ export function Search({
         {showEmptyState ? <CommandEmpty>暂无结果</CommandEmpty> : null}
         {visibleFileResults.length > 0 ? (
           <CommandGroup heading="文件">
-            {visibleFileResults.map(renderFileResult)}
+            {visibleFileResults.map((result) => renderFileResult(result))}
           </CommandGroup>
         ) : null}
         {showQuickOpen ? (
@@ -592,13 +644,15 @@ export function Search({
               </CommandItem>
             </CommandGroup>
             {recentProjectResults.length > 0 ? (
-              <CommandGroup heading="最近打开（当前项目）">
-                {recentProjectResults.map(renderFileResult)}
+              <CommandGroup heading={`最近打开（${recentProjectHeading}）`}>
+                {recentProjectResults.map((result) =>
+                  renderFileResult(result, { hideProjectTitle: true }),
+                )}
               </CommandGroup>
             ) : null}
             {!scopedProjectId && recentWorkspaceResults.length > 0 ? (
               <CommandGroup heading="最近打开（工作区）">
-                {recentWorkspaceResults.map(renderFileResult)}
+                {recentWorkspaceResults.map((result) => renderFileResult(result))}
               </CommandGroup>
             ) : null}
           </>

@@ -39,6 +39,10 @@ type RequestContext = {
   codexOptions?: CodexRequestOptions;
   /** Assistant message id for the current streaming response. */
   assistantMessageId?: string;
+  /** Assistant parent message id for the current streaming response. */
+  assistantParentMessageId?: string | null;
+  /** Assistant message path for the current streaming response. */
+  assistantMessagePath?: string;
   /** Latest plan update for the current request. */
   planUpdate?: UpdatePlanArgs;
   /** Selected skills for this request. */
@@ -181,6 +185,33 @@ export function setAssistantMessageId(messageId: string) {
 }
 
 /** Gets the assistant message id for this request. */
+export function getAssistantMessageId(): string | undefined {
+  return getRequestContext()?.assistantMessageId;
+}
+
+/** Sets the assistant parent message id for this request. */
+export function setAssistantParentMessageId(parentMessageId: string | null) {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.assistantParentMessageId = parentMessageId;
+}
+
+/** Gets the assistant parent message id for this request. */
+export function getAssistantParentMessageId(): string | null | undefined {
+  return getRequestContext()?.assistantParentMessageId;
+}
+
+/** Sets the assistant message path for this request. */
+export function setAssistantMessagePath(path: string) {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.assistantMessagePath = path;
+}
+
+/** Gets the assistant message path for this request. */
+export function getAssistantMessagePath(): string | undefined {
+  return getRequestContext()?.assistantMessagePath;
+}
 /**
  * Sets the latest plan update for this request.
  */

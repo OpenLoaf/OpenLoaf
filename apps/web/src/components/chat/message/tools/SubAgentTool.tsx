@@ -133,10 +133,11 @@ export default function SubAgentTool({
     isOpen && Array.isArray(historyMessage?.parts) ? historyMessage?.parts : undefined;
   const fallbackParts = buildFallbackParts({ errorText });
   const renderParts = streamParts ?? historyParts ?? fallbackParts;
-  const streamingParts =
-    renderParts.length === 0 && isStreaming ? [{ type: "text", text: "生成中…", state: "done" }] : renderParts;
+  const streamingParts = renderParts;
   const renderMessageId = historyMessage?.id;
-  const shouldShowLoading = historyQuery.isLoading && (!streamParts || streamParts.length === 0);
+  const shouldShowLoading =
+    (historyQuery.isLoading && (!streamParts || streamParts.length === 0)) ||
+    (isStreaming && renderParts.length === 0);
   const resolvedTitle =
     actionName === subAgentName || !subAgentName
       ? actionName || "SubAgent"

@@ -8,6 +8,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CanvasConnectorElement, CanvasElement, CanvasNodeElement } from "../engine/types";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import { buildImageNodePayloadFromFile } from "../utils/image";
+import { buildLinkNodePayloadFromUrl } from "../utils/link";
+import { fetchWebMeta } from "@/lib/web-meta";
 import { fileToBase64 } from "../utils/base64";
 import { readBoardDocPayload, writeBoardDocPayload } from "./boardYjsStore";
 import {
@@ -387,6 +389,37 @@ export function BoardCanvasCollab({
       engine.setImagePayloadBuilder(null);
     };
   }, [boardFolderUri, engine, saveBoardAssetFile, workspaceId]);
+
+  useEffect(() => {
+    if (!rootUri) {
+      engine.setLinkPayloadBuilder(null);
+      return;
+    }
+    const buildLinkPayload = async (url: string) => {
+      const payload = buildLinkNodePayloadFromUrl(url);
+      try {
+        const result = await fetchWebMeta({ url, rootUri });
+        if (!result.ok) return payload;
+        return {
+          ...payload,
+          props: {
+            ...payload.props,
+            title: result.title || payload.props.title,
+            description: result.description || payload.props.description,
+            logoSrc: result.logoPath ?? "",
+            imageSrc: result.previewPath ?? "",
+            refreshToken: payload.props.refreshToken + 1,
+          },
+        };
+      } catch {
+        return payload;
+      }
+    };
+    engine.setLinkPayloadBuilder(buildLinkPayload);
+    return () => {
+      engine.setLinkPayloadBuilder(null);
+    };
+  }, [engine, rootUri]);
 
   useEffect(() => {
     if (!workspaceId) return;

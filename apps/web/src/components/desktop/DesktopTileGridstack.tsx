@@ -2,20 +2,30 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
-import { Pin, PinOff, RotateCw } from "lucide-react";
+import { PencilLine, Pin, PinOff, RotateCw } from "lucide-react";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { cn } from "@/lib/utils";
 import { GlowingEffect } from "@tenas-ai/ui/glowing-effect";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { normalizeUrl } from "@/components/browser/browser-utils";
-import { fetchWebMeta } from "./web-meta-client";
+import { fetchWebMeta } from "@/lib/web-meta";
+import { Button } from "@tenas-ai/ui/button";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@tenas-ai/ui/context-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@tenas-ai/ui/dialog";
+import { Input } from "@tenas-ai/ui/input";
 import type { DesktopItem } from "./types";
 import DesktopTileContent from "./DesktopTileContent";
 import DesktopTileDeleteButton from "./DesktopTileDeleteButton";
@@ -29,6 +39,8 @@ interface DesktopTileGridstackProps {
   onEnterEditMode: () => void;
   /** Update a single desktop item. */
   onUpdateItem: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
+  /** Update a desktop item and persist changes when needed. */
+  onPersistItemUpdate?: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
   /** Remove a desktop item. */
   onDeleteItem: (itemId: string) => void;
   /** Request folder selection for 3d-folder widget. */
@@ -41,6 +53,7 @@ export default function DesktopTileGridstack({
   editMode,
   onEnterEditMode,
   onUpdateItem,
+  onPersistItemUpdate,
   onDeleteItem,
   onSelectFolder,
 }: DesktopTileGridstackProps) {
@@ -76,6 +89,11 @@ export default function DesktopTileGridstack({
   const projectRootUri =
     typeof tabParams?.rootUri === "string" ? String(tabParams.rootUri) : undefined;
   const defaultRootUri = projectRootUri || workspace?.rootUri;
+  // 网页组件修改对话框状态。
+  const [isWebDialogOpen, setIsWebDialogOpen] = React.useState(false);
+  const [webUrlInput, setWebUrlInput] = React.useState("");
+  const [webTitleInput, setWebTitleInput] = React.useState("");
+  const [webError, setWebError] = React.useState<string | null>(null);
 
   const clearLongPress = React.useCallback(() => {
     if (longPressTimerRef.current) {
@@ -121,12 +139,15 @@ export default function DesktopTileGridstack({
   const canFetchWebMeta =
     isWebStack && item.webMetaStatus === "loading" && Boolean(item.webUrl) && Boolean(defaultRootUri);
 
+  // 中文注释：元数据抓取结果需要持久化时优先使用持久化更新回调。
+  const applyWebMetaUpdate = onPersistItemUpdate ?? onUpdateItem;
+
   const runWebMetaFetch = React.useCallback(
     async (targetUrl: string) => {
       if (!defaultRootUri) return;
       const normalized = normalizeUrl(targetUrl);
       if (!normalized) {
-        onUpdateItem(item.id, (current) => {
+        applyWebMetaUpdate(item.id, (current) => {
           if (current.kind !== "widget" || current.widgetKey !== "web-stack") return current;
           return { ...current, webMetaStatus: "failed" };
         });
@@ -134,26 +155,26 @@ export default function DesktopTileGridstack({
       }
       try {
         const result = await fetchWebMeta({ url: normalized, rootUri: defaultRootUri });
-        onUpdateItem(item.id, (current) => {
+        applyWebMetaUpdate(item.id, (current) => {
           if (current.kind !== "widget" || current.widgetKey !== "web-stack") return current;
           if (current.webUrl && normalizeUrl(current.webUrl) !== normalized) return current;
           return {
             ...current,
             webTitle: result.title ?? current.webTitle,
             webDescription: result.description ?? current.webDescription,
-            webLogo: result.logoPath ?? current.webLogo,
+            webLogo: result.logoPath ?? undefined,
             webPreview: result.previewPath ?? current.webPreview,
             webMetaStatus: result.ok ? "ready" : "failed",
           };
         });
       } catch {
-        onUpdateItem(item.id, (current) => {
+        applyWebMetaUpdate(item.id, (current) => {
           if (current.kind !== "widget" || current.widgetKey !== "web-stack") return current;
           return { ...current, webMetaStatus: "failed" };
         });
       }
     },
-    [defaultRootUri, item.id, onUpdateItem]
+    [applyWebMetaUpdate, defaultRootUri, item.id]
   );
 
   React.useEffect(() => {
@@ -172,6 +193,70 @@ export default function DesktopTileGridstack({
       return { ...current, webMetaStatus: "loading" };
     });
   }, [isWebStack, item.id, onUpdateItem]);
+
+  /** Sync web edit dialog open state and input values. */
+  const handleWebDialogOpenChange = React.useCallback(
+    (open: boolean) => {
+      setIsWebDialogOpen(open);
+      if (open) {
+        if (!isWebStack || item.kind !== "widget") return;
+        setWebUrlInput(item.webUrl ?? "");
+        setWebTitleInput(item.title || item.webTitle || "");
+        setWebError(null);
+        return;
+      }
+      setWebError(null);
+    },
+    [isWebStack, item.kind, item.title, item.webTitle, item.webUrl]
+  );
+
+  /** Save web widget edits and trigger metadata refresh when url changes. */
+  const handleWebEditSubmit = React.useCallback(() => {
+    if (!isWebStack) return;
+    setWebError(null);
+    const normalized = normalizeUrl(webUrlInput);
+    if (!normalized) {
+      setWebError("请输入有效网址");
+      return;
+    }
+    if (!defaultRootUri) {
+      setWebError("未找到工作区目录");
+      return;
+    }
+    let hostname = "";
+    try {
+      hostname = new URL(normalized).hostname;
+    } catch {
+      hostname = normalized;
+    }
+    const nextTitle = webTitleInput.trim() || hostname || "网页";
+    const applyUpdate = onPersistItemUpdate ?? onUpdateItem;
+    applyUpdate(item.id, (current) => {
+      if (current.kind !== "widget" || current.widgetKey !== "web-stack") return current;
+      const currentNormalized = normalizeUrl(current.webUrl ?? "");
+      const shouldRefresh = normalized !== currentNormalized;
+      return {
+        ...current,
+        title: nextTitle,
+        webUrl: normalized,
+        webMetaStatus: shouldRefresh ? "loading" : current.webMetaStatus,
+        webTitle: shouldRefresh ? undefined : current.webTitle,
+        webDescription: shouldRefresh ? undefined : current.webDescription,
+        webLogo: shouldRefresh ? undefined : current.webLogo,
+        webPreview: shouldRefresh ? undefined : current.webPreview,
+      };
+    });
+    handleWebDialogOpenChange(false);
+  }, [
+    defaultRootUri,
+    handleWebDialogOpenChange,
+    isWebStack,
+    item.id,
+    onPersistItemUpdate,
+    onUpdateItem,
+    webTitleInput,
+    webUrlInput,
+  ]);
   const handleWebOpen = React.useCallback(() => {
     if (!isWebStack) return;
     const normalizedUrl = normalizeUrl(item.webUrl ?? "");
@@ -347,18 +432,60 @@ export default function DesktopTileGridstack({
         <ContextMenu>
           <ContextMenuTrigger asChild>{tileBody}</ContextMenuTrigger>
           <ContextMenuContent className="w-44">
-          <ContextMenuItem
-            icon={RotateCw}
-            onClick={handleWebMetaRefresh}
-            disabled={!item.webUrl}
-          >
-            刷新
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
-    ) : (
-      tileBody
-    )}
+            <ContextMenuItem icon={PencilLine} onClick={() => handleWebDialogOpenChange(true)}>
+              修改
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={RotateCw}
+              onClick={handleWebMetaRefresh}
+              disabled={!item.webUrl}
+            >
+              刷新
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      ) : (
+        tileBody
+      )}
+      {isWebStack ? (
+        <Dialog open={isWebDialogOpen} onOpenChange={handleWebDialogOpenChange}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>修改网页组件</DialogTitle>
+              <DialogDescription>输入网页地址与名称，自动抓取 logo 与预览图。</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-3">
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">网页地址</div>
+                <Input
+                  value={webUrlInput}
+                  onChange={(e) => setWebUrlInput(e.target.value)}
+                  placeholder="https://example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">名称（可选）</div>
+                <Input
+                  value={webTitleInput}
+                  onChange={(e) => setWebTitleInput(e.target.value)}
+                  placeholder="自定义名称"
+                />
+              </div>
+              {webError ? (
+                <div className="text-xs text-destructive">{webError}</div>
+              ) : null}
+            </div>
+            <DialogFooter className="mt-4">
+              <Button type="button" variant="ghost" onClick={() => handleWebDialogOpenChange(false)}>
+                取消
+              </Button>
+              <Button type="button" onClick={handleWebEditSubmit}>
+                保存
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   );
 }

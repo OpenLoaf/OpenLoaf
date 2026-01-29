@@ -401,15 +401,19 @@ const ImageThumbnail = memo(function ImageThumbnail({
   extension,
   sizeClassName = "h-11 w-11",
   iconClassName = "h-full w-full p-2 text-muted-foreground",
+  forceSquare = false,
 }: {
   src?: string | null;
   name: string;
   extension?: string;
   sizeClassName?: string;
   iconClassName?: string;
+  forceSquare?: boolean;
 }) {
   const style = resolveFileIconStyle(extension);
-  const wrapperClassName = `${sizeClassName} w-auto aspect-[4/3]`;
+  const wrapperClassName = forceSquare
+    ? `${sizeClassName} aspect-square`
+    : `${sizeClassName} w-auto aspect-[4/3]`;
   return (
     <div className={`${wrapperClassName} overflow-hidden rounded-sm bg-muted/40`}>
       {src ? (
@@ -438,15 +442,19 @@ const VideoThumbnail = memo(function VideoThumbnail({
   extension,
   sizeClassName = "h-11 w-11",
   iconClassName = "h-full w-full p-2 text-muted-foreground",
+  forceSquare = false,
 }: {
   src?: string | null;
   name: string;
   extension?: string;
   sizeClassName?: string;
   iconClassName?: string;
+  forceSquare?: boolean;
 }) {
   const style = resolveFileIconStyle(extension);
-  const wrapperClassName = `${sizeClassName} w-auto aspect-video`;
+  const wrapperClassName = forceSquare
+    ? `${sizeClassName} aspect-square`
+    : `${sizeClassName} w-auto aspect-video`;
   return (
     <div className={`${wrapperClassName} relative overflow-hidden rounded-sm bg-muted/40`}>
       {src ? (
@@ -465,8 +473,8 @@ const VideoThumbnail = memo(function VideoThumbnail({
         </div>
       )}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <span className="flex h-[40%] min-h-4 aspect-square items-center justify-center rounded-full border border-border bg-background/70 text-foreground">
-          <Play className="h-[55%] w-[55%] min-h-2.5 min-w-2.5 translate-x-[0.5px]" />
+        <span className="flex h-[34%] min-h-2 aspect-square items-center justify-center rounded-full border border-border bg-background/70 text-foreground">
+          <Play className="h-[50%] w-[50%] min-h-2 min-w-2 translate-x-[0.5px]" />
         </span>
       </div>
     </div>
@@ -494,6 +502,7 @@ export function getEntryVisual({
   thumbnailSrc,
   sizeClassName = "h-11 w-11",
   thumbnailIconClassName = "h-full w-full p-2 text-muted-foreground",
+  forceSquare = false,
 }: {
   kind: FileSystemEntry["kind"];
   name: string;
@@ -502,6 +511,7 @@ export function getEntryVisual({
   thumbnailSrc?: string;
   sizeClassName?: string;
   thumbnailIconClassName?: string;
+  forceSquare?: boolean;
 }) {
   if (kind === "folder" && isBoardFolderName(name)) {
     return <BoardThumbnail src={thumbnailSrc} name={name} sizeClassName={sizeClassName} />;
@@ -530,6 +540,7 @@ export function getEntryVisual({
         extension={normalizedExt}
         sizeClassName={sizeClassName}
         iconClassName={thumbnailIconClassName}
+        forceSquare={forceSquare}
       />
     );
   }
@@ -541,6 +552,7 @@ export function getEntryVisual({
         extension={normalizedExt}
         sizeClassName={sizeClassName}
         iconClassName={thumbnailIconClassName}
+        forceSquare={forceSquare}
       />
     );
   }

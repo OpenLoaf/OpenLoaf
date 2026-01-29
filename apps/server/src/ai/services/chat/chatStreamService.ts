@@ -10,6 +10,7 @@ import {
   setAbortSignal,
   setCodexOptions,
   setParentProjectRootPaths,
+  setAssistantParentMessageId,
   getWorkspaceId,
   getProjectId,
 } from "@/ai/shared/context/requestContext";
@@ -341,6 +342,7 @@ export async function runChatStream(input: {
     });
   }
   const parentMessageId = assistantParentUserId;
+  setAssistantParentMessageId(parentMessageId);
 
   let agentMetadata: Record<string, unknown> = {};
   let masterAgent: ReturnType<typeof createMasterAgentRunner>;

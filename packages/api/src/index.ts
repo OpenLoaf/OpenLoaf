@@ -97,6 +97,8 @@ export { BaseAiRouter, aiSchemas };
 // Export link preview router components
 export { BaseLinkPreviewRouter, linkPreviewSchemas };
 export { BaseWebMetaRouter, webMetaSchemas };
+export { parseWebMetadataFromHtml } from "./services/webMetaParser";
+export type { WebMetadata } from "./services/webMetaParser";
 
 // Export terminal router components
 export { BaseTerminalRouter, terminalSchemas };

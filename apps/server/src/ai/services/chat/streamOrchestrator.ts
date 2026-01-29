@@ -9,6 +9,7 @@ import type { ChatMessageKind, TokenUsage } from "@tenas-ai/api";
 import {
   getSessionId,
   getPlanUpdate,
+  getAssistantMessagePath,
   popAgentFrame,
   pushAgentFrame,
   setAbortSignal,
@@ -185,6 +186,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               const responseWithKind = input.assistantMessageKind
                 ? { ...(responseMessage as any), messageKind: input.assistantMessageKind }
                 : (responseMessage as any);
+              const assistantMessagePath = getAssistantMessagePath();
 
               await saveMessage({
                 sessionId: currentSessionId,
@@ -194,6 +196,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                   metadata: mergeAbortMetadata(mergedMetadata, { isAborted, finishReason }),
                 } as any,
                 parentMessageId: input.parentMessageId,
+                ...(assistantMessagePath ? { pathOverride: assistantMessagePath } : {}),
                 allowEmpty: isAborted,
                 createdAt: input.requestStartAt,
               });

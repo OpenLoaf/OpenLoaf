@@ -81,6 +81,14 @@ export default function ToolInfoCard({
   ) : (
     <Circle className="size-3 text-muted-foreground/70" />
   );
+  const headerActions = isApprovalRequested ? actions : null;
+  const contentActions = isApprovalRequested ? null : actions;
+
+  const triggerClassName = cn(
+    "py-0.5 text-[10px] font-medium text-foreground/70 hover:no-underline [&>svg]:text-muted-foreground/30",
+    headerActions ? "pr-2" : "pr-10",
+  );
+
   return (
     <div className={cn("flex ml-2 w-full min-w-0 max-w-full justify-start", className)}>
       <Accordion
@@ -99,22 +107,29 @@ export default function ToolInfoCard({
           )}
           style={containerStyle}
         >
-          <AccordionTrigger className="py-0.5 pr-10 text-[10px] font-medium text-foreground/70 hover:no-underline [&>svg]:text-muted-foreground/30">
-            <div className="flex w-full items-start justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0">{statusIcon}</span>
-                <span className="break-words text-foreground/70">{title}</span>
+          <AccordionTrigger className={triggerClassName}>
+            <div className="flex w-full flex-col gap-0.5">
+              <div className="flex w-full items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="shrink-0">{statusIcon}</span>
+                  <span className="break-words text-foreground/70">{title}</span>
+                </div>
+                {isRejected ? (
+                  <span className="shrink-0 text-[9px] font-medium text-destructive">已拒绝</span>
+                ) : null}
               </div>
-              {isRejected ? (
-                <span className="shrink-0 text-[9px] font-medium text-destructive">已拒绝</span>
+              {headerActions ? (
+                <div className="flex w-full justify-end text-[9px] text-muted-foreground/80">
+                  {headerActions}
+                </div>
               ) : null}
             </div>
           </AccordionTrigger>
           <AccordionContent className="pt-1.5 text-[10px] text-muted-foreground/70">
             <div className="mt-1.5 flex flex-col gap-1.5">
-              {actions ? (
+              {contentActions ? (
                 <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground/80">
-                  {actions}
+                  {contentActions}
                 </div>
               ) : null}
               <div className="flex items-center justify-between gap-2 text-[9px] uppercase tracking-wide text-muted-foreground/80">

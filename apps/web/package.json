@@ -20,7 +20,6 @@
     "@faker-js/faker": "^10.2.0",
     "@floating-ui/react": "^0.27.16",
     "@hocuspocus/provider": "^3.4.3",
-    "@ilamy/calendar": "^1.3.2",
     "@internationalized/date": "^3.10.1",
     "@json-render/core": "^0.3.0",
     "@json-render/react": "^0.2.0",

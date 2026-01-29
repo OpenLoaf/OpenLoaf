@@ -295,6 +295,7 @@ export default function DesktopDemoPage() {
           onViewBreakpointChange={setActiveBreakpoint}
           onSetEditMode={handleSetEditMode}
           onUpdateItem={handleUpdateItem}
+          onPersistItemUpdate={undefined}
           onChangeItems={setItems}
           compactSignal={compactSignal}
           placementItemId={placementItemId}

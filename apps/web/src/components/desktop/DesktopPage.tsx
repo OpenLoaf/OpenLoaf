@@ -15,6 +15,13 @@ import type { DesktopBreakpoint } from "./desktop-breakpoints";
 import { getBreakpointConfig } from "./desktop-breakpoints";
 import DesktopGrid from "./DesktopGrid";
 import { getDesktopIconByKey } from "./widgets/DesktopIconWidget";
+import { PencilLine } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@tenas-ai/ui/context-menu";
 
 /** Resolve edit-mode max width by breakpoint (lg is unconstrained). */
 function getEditMaxWidth(breakpoint: DesktopBreakpoint) {
@@ -140,6 +147,8 @@ interface DesktopPageProps {
   onSetEditMode: (nextEditMode: boolean) => void;
   /** Update a single desktop item. */
   onUpdateItem: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
+  /** Update a desktop item and persist changes when needed. */
+  onPersistItemUpdate?: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
   /** Update items order after a drag ends. */
   onChangeItems: (nextItems: DesktopItem[]) => void;
   /** Signal value for triggering compact. */
@@ -160,6 +169,7 @@ export default function DesktopPage({
   onViewBreakpointChange,
   onSetEditMode,
   onUpdateItem,
+  onPersistItemUpdate,
   onChangeItems,
   compactSignal,
   placementItemId,
@@ -227,30 +237,50 @@ export default function DesktopPage({
     [projectRoots]
   );
 
-  return (
-    <div className="h-full w-full overflow-hidden" aria-label="Desktop">
-      <div className="h-full w-full bg-gradient-to-b from-background">
-        <div className="h-full w-full" style={editMaxWidth ? { maxWidth: editMaxWidth, margin: "0 auto" } : undefined}>
-          <DesktopGrid
-            items={items}
-            editMode={editMode}
-            activeBreakpoint={activeBreakpoint}
-            onViewBreakpointChange={onViewBreakpointChange}
-            onSetEditMode={onSetEditMode}
-            onUpdateItem={onUpdateItem}
-            onChangeItems={onChangeItems}
-            onDeleteItem={(itemId) => onChangeItems(items.filter((item) => item.id !== itemId))}
-            onSelectFolder={(itemId) => {
-              setActiveFolderItemId(itemId);
-              setIsFolderDialogOpen(true);
-            }}
-            compactSignal={compactSignal}
-            placementItemId={placementItemId}
-            placementPointer={placementPointer}
-            onPlacementEnd={onPlacementEnd}
-          />
-        </div>
+  const desktopBody = (
+    <div className="min-h-full w-full bg-gradient-to-b from-background">
+      <div
+        className="min-h-full w-full"
+        style={editMaxWidth ? { maxWidth: editMaxWidth, margin: "0 auto" } : undefined}
+      >
+        <DesktopGrid
+          items={items}
+          editMode={editMode}
+          activeBreakpoint={activeBreakpoint}
+          onViewBreakpointChange={onViewBreakpointChange}
+          onSetEditMode={onSetEditMode}
+          onUpdateItem={onUpdateItem}
+          onPersistItemUpdate={onPersistItemUpdate}
+          onChangeItems={onChangeItems}
+          onDeleteItem={(itemId) => onChangeItems(items.filter((item) => item.id !== itemId))}
+          onSelectFolder={(itemId) => {
+            setActiveFolderItemId(itemId);
+            setIsFolderDialogOpen(true);
+          }}
+          compactSignal={compactSignal}
+          placementItemId={placementItemId}
+          placementPointer={placementPointer}
+          onPlacementEnd={onPlacementEnd}
+        />
       </div>
+    </div>
+  );
+
+  return (
+    <div className="h-full w-full overflow-auto" aria-label="Desktop">
+      {editMode ? (
+        desktopBody
+      ) : (
+        <ContextMenu>
+          {/* 中文注释：非编辑态在空白区域右键显示编辑入口。 */}
+          <ContextMenuTrigger asChild>{desktopBody}</ContextMenuTrigger>
+          <ContextMenuContent className="w-40">
+            <ContextMenuItem icon={PencilLine} onClick={() => onSetEditMode(true)}>
+              编辑
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      )}
       <ProjectFileSystemTransferDialog
         open={isFolderDialogOpen}
         onOpenChange={(open) => {

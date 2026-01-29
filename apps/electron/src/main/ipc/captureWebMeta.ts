@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { BrowserWindow } from "electron";
 import sharp from "sharp";
+import { parseWebMetadataFromHtml } from "@tenas-ai/api";
 
 const META_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -48,18 +49,32 @@ function buildWebMetaDir(rootPath: string, url: string): string {
   return path.join(rootPath, ".tenas", "desktop", hash);
 }
 
-/** Build a fallback icon URL from the page origin. */
-function buildFallbackIcon(url: string): string {
-  const origin = new URL(url).origin;
-  return `https://www.google.com/s2/favicons?sz=128&domain_url=${origin}`;
+type IconFetcher = (url: string) => Promise<Response>;
+
+/** Fetch icon bytes with Chromium network stack or data URLs. */
+async function fetchIconBuffer(iconUrl: string, fetcher: IconFetcher): Promise<Buffer | null> {
+  if (!iconUrl) return null;
+  if (iconUrl.startsWith("data:")) {
+    const match = iconUrl.match(/^data:(.*?)(;base64)?,(.*)$/);
+    if (!match) return null;
+    const isBase64 = Boolean(match[2]);
+    const data = match[3] ?? "";
+    return isBase64 ? Buffer.from(data, "base64") : Buffer.from(decodeURIComponent(data));
+  }
+  const response = await fetcher(iconUrl);
+  if (!response.ok) return null;
+  return Buffer.from(await response.arrayBuffer());
 }
 
 /** Download a remote icon and save as png. */
-async function downloadIconAsPng(iconUrl: string, targetPath: string): Promise<boolean> {
+async function downloadIconAsPng(
+  iconUrl: string,
+  targetPath: string,
+  fetcher: IconFetcher
+): Promise<boolean> {
   try {
-    const response = await fetch(iconUrl, { headers: { "user-agent": META_USER_AGENT } });
-    if (!response.ok) return false;
-    const buffer = Buffer.from(await response.arrayBuffer());
+    const buffer = await fetchIconBuffer(iconUrl, fetcher);
+    if (!buffer) return false;
     await sharp(buffer).png().toFile(targetPath);
     return true;
   } catch {
@@ -124,15 +139,16 @@ export async function captureWebMeta(input: WebMetaCaptureInput): Promise<WebMet
       wc.loadURL(url).catch(reject);
     });
 
-    const title = wc.getTitle() || "";
-    const description = await wc.executeJavaScript(
-      "document.querySelector('meta[name=\"description\"],meta[property=\"og:description\"]')?.content || ''",
-      true
-    );
+    const html = await wc.executeJavaScript("document.documentElement.outerHTML", true);
+    const parsedMeta = parseWebMetadataFromHtml(String(html ?? ""), url);
+    const title = parsedMeta.title || wc.getTitle() || "";
+    const description = parsedMeta.description || "";
 
-    const iconUrl = faviconUrl || buildFallbackIcon(url);
+    const iconUrl = faviconUrl || parsedMeta.iconUrl;
     const [logoOk, previewImage] = await Promise.all([
-      downloadIconAsPng(iconUrl, logoPath),
+      downloadIconAsPng(iconUrl, logoPath, (icon) =>
+        wc.session.fetch(icon, { headers: { "user-agent": META_USER_AGENT } })
+      ),
       wc.capturePage(),
     ]);
 

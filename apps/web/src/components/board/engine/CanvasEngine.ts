@@ -67,7 +67,7 @@ import {
 } from "./connectors";
 import { buildClipboardState, buildPastedElements, getClipboardInsertPayload } from "./clipboard";
 import { buildImageNodePayloadFromFile, type ImageNodePayload } from "../utils/image";
-import { buildLinkNodePayloadFromUrl } from "../utils/link";
+import { buildLinkNodePayloadFromUrl, type LinkNodePayload } from "../utils/link";
 import { applyGroupAnchorPadding, buildAnchorMap } from "./anchors";
 import { computeAutoLayoutUpdates } from "./auto-layout";
 import {
@@ -106,6 +106,8 @@ import { generateElementId } from "./id";
 
 /** Builder for image payloads. */
 type ImagePayloadBuilder = (file: File) => Promise<ImageNodePayload>;
+/** Builder for link payloads. */
+type LinkPayloadBuilder = (url: string) => Promise<LinkNodePayload>;
 
 /** Offset applied when inserting multiple images from paste. */
 const IMAGE_PASTE_STACK_OFFSET = 24;
@@ -185,6 +187,8 @@ export class CanvasEngine {
   private clipboard: CanvasClipboard | null = null;
   /** Optional image payload builder for file inserts. */
   private imagePayloadBuilder: ImagePayloadBuilder | null = null;
+  /** Optional link payload builder for URL inserts. */
+  private linkPayloadBuilder: LinkPayloadBuilder | null = null;
   /** Paste offset step counter. */
   private pasteCount = 0;
   /** Stroke tool settings state. */
@@ -1091,10 +1095,22 @@ export class CanvasEngine {
     this.imagePayloadBuilder = builder;
   }
 
+  /** Register a custom link payload builder for URL insertions. */
+  setLinkPayloadBuilder(builder: LinkPayloadBuilder | null): void {
+    this.linkPayloadBuilder = builder;
+  }
+
   /** Build an image payload using the registered builder if available. */
   async buildImagePayloadFromFile(file: File): Promise<ImageNodePayload> {
     const builder = this.imagePayloadBuilder ?? buildImageNodePayloadFromFile;
     return builder(file);
+  }
+
+  /** Build a link payload using the registered builder if available. */
+  private async buildLinkPayloadFromUrl(url: string): Promise<LinkNodePayload> {
+    const builder = this.linkPayloadBuilder;
+    if (builder) return await builder(url);
+    return buildLinkNodePayloadFromUrl(url);
   }
 
   /** Handle external clipboard payloads, with room for future node types. */
@@ -1115,7 +1131,7 @@ export class CanvasEngine {
     }
     const urlPayload = payloads.find((payload) => payload.kind === "url");
     if (urlPayload) {
-      this.insertLinkFromUrl(urlPayload.url);
+      await this.insertLinkFromUrl(urlPayload.url);
     }
   }
 
@@ -1142,8 +1158,8 @@ export class CanvasEngine {
   }
 
   /** Insert a link node from a URL and place it at the viewport center. */
-  private insertLinkFromUrl(url: string): void {
-    const payload = buildLinkNodePayloadFromUrl(url);
+  private async insertLinkFromUrl(url: string): Promise<void> {
+    const payload = await this.buildLinkPayloadFromUrl(url);
     const [width, height] = payload.size;
     const center = this.getViewportCenterWorld();
     this.addNodeElement("link", payload.props, [

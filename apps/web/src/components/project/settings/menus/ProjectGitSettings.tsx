@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
 import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
 import { Button } from "@tenas-ai/ui/button";
-import { Calendar } from "@tenas-ai/ui/calendar";
+import { Calendar } from "@tenas-ai/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
 import { Skeleton } from "@tenas-ai/ui/skeleton";
 import {

@@ -70,6 +70,8 @@ interface DesktopGridProps {
   onSetEditMode: (nextEditMode: boolean) => void;
   /** Update a single desktop item. */
   onUpdateItem: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
+  /** Update a desktop item and persist changes when needed. */
+  onPersistItemUpdate?: (itemId: string, updater: (item: DesktopItem) => DesktopItem) => void;
   onChangeItems: (nextItems: DesktopItem[]) => void;
   onDeleteItem: (itemId: string) => void;
   /** Request folder selection for 3d-folder widget. */
@@ -92,6 +94,7 @@ export default function DesktopGrid({
   onViewBreakpointChange,
   onSetEditMode,
   onUpdateItem,
+  onPersistItemUpdate,
   onChangeItems,
   onDeleteItem,
   onSelectFolder,
@@ -663,7 +666,7 @@ export default function DesktopGrid({
   }, [editMode, items, metrics.cols, resolvedBreakpoint]);
 
   return (
-    <div ref={wrapperRef} className="relative h-full w-full">
+    <div ref={wrapperRef} className="relative min-h-full w-full">
       <div
         className="grid-stack"
         ref={gridContainerRef}
@@ -683,6 +686,10 @@ export default function DesktopGrid({
                 else itemElByIdRef.current.delete(item.id);
               }}
               className="grid-stack-item"
+              onContextMenu={(event) => {
+                if (editMode) return;
+                event.stopPropagation();
+              }}
               style={
                 item.kind === "widget" && item.widgetKey === "3d-folder"
                   ? { overflow: "visible" }
@@ -713,15 +720,16 @@ export default function DesktopGrid({
               } as Record<string, unknown>)}
             >
               <div className="grid-stack-item-content !overflow-x-visible !overflow-y-visible bg-transparent">
-                <DesktopTileGridstack
-                  item={item}
-                  editMode={editMode}
-                  onEnterEditMode={() => onSetEditMode(true)}
-                  onUpdateItem={onUpdateItem}
-                  onDeleteItem={(itemId) => {
-                    const el = itemElByIdRef.current.get(itemId);
-                    if (el && gridRef.current) gridRef.current.removeWidget(el, false);
-                    onDeleteItem(itemId);
+              <DesktopTileGridstack
+                item={item}
+                editMode={editMode}
+                onEnterEditMode={() => onSetEditMode(true)}
+                onUpdateItem={onUpdateItem}
+                onPersistItemUpdate={onPersistItemUpdate}
+                onDeleteItem={(itemId) => {
+                  const el = itemElByIdRef.current.get(itemId);
+                  if (el && gridRef.current) gridRef.current.removeWidget(el, false);
+                  onDeleteItem(itemId);
                   }}
                   onSelectFolder={onSelectFolder}
                 />

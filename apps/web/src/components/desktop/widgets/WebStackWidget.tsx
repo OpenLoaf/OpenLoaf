@@ -33,6 +33,37 @@ export default function WebStackWidget({
   const [previewBuster, setPreviewBuster] = React.useState(0);
   const previousLoadingRef = React.useRef(isLoading);
 
+  const handleLogoLoad = React.useCallback(
+    (event: React.SyntheticEvent<HTMLImageElement>) => {
+      const img = event.currentTarget;
+      console.info("[WebStackWidget] favicon loaded", {
+        id: item.id,
+        url: normalizedUrl,
+        webLogo: item.webLogo,
+        logoSrc,
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+      });
+    },
+    [item.id, item.webLogo, logoSrc, normalizedUrl]
+  );
+
+  const handleLogoError = React.useCallback(
+    (event: React.SyntheticEvent<HTMLImageElement>) => {
+      const img = event.currentTarget;
+      console.warn("[WebStackWidget] favicon load failed", {
+        id: item.id,
+        url: normalizedUrl,
+        webLogo: item.webLogo,
+        logoSrc,
+        currentSrc: img.currentSrc,
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+      });
+    },
+    [item.id, item.webLogo, logoSrc, normalizedUrl]
+  );
+
   const layout = item.layout;
   const isMini = layout.w === 1 && layout.h === 1;
   const isTitleMode = layout.h === 1 && layout.w <= 4;
@@ -46,6 +77,25 @@ export default function WebStackWidget({
     }
     previousLoadingRef.current = isLoading;
   }, [isLoading, previewSrc]);
+
+  React.useEffect(() => {
+    if (!normalizedUrl) return;
+    console.info("[WebStackWidget] favicon state", {
+      id: item.id,
+      url: normalizedUrl,
+      webLogo: item.webLogo,
+      logoSrc,
+      webMetaStatus: item.webMetaStatus,
+    });
+    if (item.webMetaStatus === "ready" && !logoSrc) {
+      console.warn("[WebStackWidget] favicon missing after ready", {
+        id: item.id,
+        url: normalizedUrl,
+        webLogo: item.webLogo,
+        webMetaStatus: item.webMetaStatus,
+      });
+    }
+  }, [item.id, item.webLogo, item.webMetaStatus, logoSrc, normalizedUrl]);
 
   const previewSrcWithBust =
     previewSrc && previewBuster
@@ -74,7 +124,13 @@ export default function WebStackWidget({
         disabled={!normalizedUrl}
       >
         {logoSrc ? (
-          <img src={logoSrc} alt={displayTitle} className="h-10 w-10 rounded-2xl object-cover" />
+          <img
+            src={logoSrc}
+            alt={displayTitle}
+            className="h-10 w-10 rounded-2xl object-cover"
+            onLoad={handleLogoLoad}
+            onError={handleLogoError}
+          />
         ) : (
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-xs font-medium text-muted-foreground">
             {displayTitle.slice(0, 1).toUpperCase()}
@@ -99,7 +155,13 @@ export default function WebStackWidget({
         disabled={!normalizedUrl}
       >
         {logoSrc ? (
-          <img src={logoSrc} alt={displayTitle} className="h-9 w-9 rounded-xl object-cover" />
+          <img
+            src={logoSrc}
+            alt={displayTitle}
+            className="h-9 w-9 rounded-xl object-cover"
+            onLoad={handleLogoLoad}
+            onError={handleLogoError}
+          />
         ) : (
           <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-muted text-xs font-medium text-muted-foreground">
             {displayTitle.slice(0, 1).toUpperCase()}
@@ -144,14 +206,20 @@ export default function WebStackWidget({
         ) : null}
         <div className="relative z-10 w-full overflow-hidden rounded-b-2xl bg-background/80">
           <div className="absolute inset-px bg-background/60 backdrop-blur rounded-b-2xl" />
-          <div className="relative flex w-full items-center gap-3 p-3 ">
-            {logoSrc ? (
-              <img src={logoSrc} alt={displayTitle} className="h-9 w-9 rounded-xl object-cover" />
-            ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-muted text-xs font-medium text-muted-foreground">
-                {displayTitle.slice(0, 1).toUpperCase()}
-              </div>
-            )}
+        <div className="relative flex w-full items-center gap-3 p-3 ">
+          {logoSrc ? (
+            <img
+              src={logoSrc}
+              alt={displayTitle}
+              className="h-9 w-9 rounded-xl object-cover"
+              onLoad={handleLogoLoad}
+              onError={handleLogoError}
+            />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-muted text-xs font-medium text-muted-foreground">
+              {displayTitle.slice(0, 1).toUpperCase()}
+            </div>
+          )}
             <div className="min-w-0 flex-1 text-left">
               <div className="truncate text-sm font-medium text-foreground">{displayTitle}</div>
               <div className="truncate text-xs text-muted-foreground">

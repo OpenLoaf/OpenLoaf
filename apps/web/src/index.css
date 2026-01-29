@@ -50,7 +50,6 @@
 
 @source "./components/board/**/*.{ts,tsx}";
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
-@source "../../../node_modules/@ilamy/calendar/dist/**/*.{js,ts,tsx}";
 
 @plugin "tailwind-scrollbar-hide";
 @import "tw-animate-css";

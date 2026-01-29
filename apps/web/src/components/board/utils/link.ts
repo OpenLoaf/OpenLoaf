@@ -13,19 +13,15 @@ const DEFAULT_LINK_SIZE: [number, number] = [720, 120];
 export function buildLinkNodePayloadFromUrl(url: string): LinkNodePayload {
   const safeUrl = url.trim();
   let hostname = safeUrl;
-  let origin = safeUrl;
   try {
     const parsed = new URL(safeUrl);
     hostname = parsed.hostname;
-    origin = parsed.origin;
   } catch {
     // Fallback to raw text when URL parsing fails.
   }
 
   const displayHost = hostname.replace(/^www\./, "");
-  const logoSrc = hostname
-    ? `https://www.google.com/s2/favicons?sz=128&domain_url=${origin}`
-    : "";
+  const logoSrc = "";
   return {
     props: {
       url: safeUrl,

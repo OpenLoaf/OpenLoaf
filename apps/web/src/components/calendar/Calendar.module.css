@@ -1,0 +1,5 @@
+.calendarRoot :global([data-testid="ilamy-calendar"] > :nth-child(2) > div) {
+  transform: none !important;
+  transition: none !important;
+  opacity: 1 !important;
+}

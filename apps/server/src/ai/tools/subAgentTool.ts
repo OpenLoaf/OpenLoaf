@@ -12,10 +12,22 @@ import {
   TEST_APPROVAL_SUB_AGENT_NAME,
   createTestApprovalSubAgent,
 } from "@/ai/agents/subagent/testApprovalSubAgent";
-import { saveMessage } from "@/ai/services/chat/repositories/messageStore";
+import {
+  resolveMessagePathById,
+  resolveNextMessagePath,
+  saveMessage,
+} from "@/ai/services/chat/repositories/messageStore";
 import { buildModelMessages } from "@/ai/shared/messageConverter";
 import { logger } from "@/common/logger";
-import { getChatModel, getSessionId, getUiWriter } from "@/ai/shared/context/requestContext";
+import {
+  getAssistantMessageId,
+  getAssistantMessagePath,
+  getAssistantParentMessageId,
+  getChatModel,
+  getSessionId,
+  getUiWriter,
+  setAssistantMessagePath,
+} from "@/ai/shared/context/requestContext";
 import { registerFrontendToolPending } from "@/ai/tools/pendingRegistry";
 
 /**
@@ -52,6 +64,10 @@ async function saveSubAgentHistory(input: {
   task: string;
   parts: unknown[];
   createdAt: Date;
+  /** Optional path override for sub-agent history. */
+  pathOverride?: string;
+  /** Parent message id for aligning with assistant. */
+  parentMessageId?: string | null;
 }) {
   await saveMessage({
     sessionId: input.sessionId,
@@ -66,7 +82,8 @@ async function saveSubAgentHistory(input: {
         task: input.task,
       } satisfies SubAgentHistoryMetadata,
     } as any,
-    parentMessageId: null,
+    parentMessageId: input.parentMessageId ?? null,
+    ...(input.pathOverride ? { pathOverride: input.pathOverride } : {}),
     createdAt: input.createdAt,
     allowEmpty: true,
   });
@@ -143,6 +160,8 @@ export const subAgentTool = tool({
       throw new Error("toolCallId is required for sub-agent execution.");
     }
     const sessionId = getSessionId();
+    const assistantMessageId = getAssistantMessageId();
+    const assistantParentMessageId = getAssistantParentMessageId() ?? null;
     const startedAt = new Date();
     logger.info(
       {
@@ -274,6 +293,26 @@ export const subAgentTool = tool({
         } as any);
       }
       if (sessionId) {
+        let assistantMessagePath = getAssistantMessagePath();
+        if (!assistantMessagePath && assistantMessageId) {
+          assistantMessagePath = await resolveMessagePathById({
+            sessionId,
+            messageId: assistantMessageId,
+          });
+          if (assistantMessagePath) {
+            setAssistantMessagePath(assistantMessagePath);
+          }
+        }
+        if (!assistantMessagePath) {
+          // 逻辑：优先复用主 assistant 的路径，避免子 Agent 产生新分支。
+          assistantMessagePath = await resolveNextMessagePath({
+            sessionId,
+            parentMessageId: assistantParentMessageId,
+          });
+          if (assistantMessagePath) {
+            setAssistantMessagePath(assistantMessagePath);
+          }
+        }
         await saveSubAgentHistory({
           sessionId,
           toolCallId,
@@ -282,6 +321,8 @@ export const subAgentTool = tool({
           task,
           parts: [{ type: "text", text: errorText }],
           createdAt: startedAt,
+          pathOverride: assistantMessagePath ?? undefined,
+          parentMessageId: assistantParentMessageId,
         });
       }
       throw err;
@@ -295,6 +336,26 @@ export const subAgentTool = tool({
           : [];
 
     if (sessionId) {
+      let assistantMessagePath = getAssistantMessagePath();
+      if (!assistantMessagePath && assistantMessageId) {
+        assistantMessagePath = await resolveMessagePathById({
+          sessionId,
+          messageId: assistantMessageId,
+        });
+        if (assistantMessagePath) {
+          setAssistantMessagePath(assistantMessagePath);
+        }
+      }
+      if (!assistantMessagePath) {
+        // 逻辑：优先复用主 assistant 的路径，避免子 Agent 产生新分支。
+        assistantMessagePath = await resolveNextMessagePath({
+          sessionId,
+          parentMessageId: assistantParentMessageId,
+        });
+        if (assistantMessagePath) {
+          setAssistantMessagePath(assistantMessagePath);
+        }
+      }
       await saveSubAgentHistory({
         sessionId,
         toolCallId,
@@ -303,6 +364,8 @@ export const subAgentTool = tool({
         task,
         parts: finalizedParts,
         createdAt: startedAt,
+        pathOverride: assistantMessagePath ?? undefined,
+        parentMessageId: assistantParentMessageId,
       });
     }
 
