@@ -66,6 +66,8 @@ type ProjectFilePickerDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** Optional dialog title. */
   title?: string;
+  /** Hint text shown near the breadcrumb. */
+  filterHint?: string;
   /** Default root uri for the project tree. */
   defaultRootUri?: string;
   /** Default active folder uri for browsing. */
@@ -74,6 +76,8 @@ type ProjectFilePickerDialogProps = {
   allowedExtensions?: Set<string>;
   /** Callback when a file is selected. */
   onSelectFile?: (selection: ProjectFilePickerSelection) => void;
+  /** Callback when multiple files are selected. */
+  onSelectFiles?: (selection: ProjectFilePickerSelection[]) => void;
 };
 
 type ProjectTreeNode = ProjectNode;
@@ -113,10 +117,12 @@ export function ProjectFilePickerDialog({
   open,
   onOpenChange,
   title = "选择文件",
+  filterHint,
   defaultRootUri,
   defaultActiveUri,
   allowedExtensions,
   onSelectFile,
+  onSelectFiles,
 }: ProjectFilePickerDialogProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
@@ -206,8 +212,8 @@ export function ProjectFilePickerDialog({
     () => gridEntries.filter((entry) => selectedUris.has(entry.uri)),
     [gridEntries, selectedUris]
   );
-  const selectedFileEntry = useMemo(
-    () => selectedEntries.find((entry) => entry.kind === "file") ?? null,
+  const selectedFileEntries = useMemo(
+    () => selectedEntries.filter((entry) => entry.kind === "file"),
     [selectedEntries]
   );
 
@@ -263,20 +269,35 @@ export function ProjectFilePickerDialog({
 
   const handleConfirm = useCallback(
     (entry?: FileSystemEntry | null) => {
-      const target = entry ?? selectedFileEntry;
-      if (!target || target.kind !== "file") return;
-      const fileRef = resolveFileRefFromEntry(target);
-      if (!fileRef) {
+      const targetEntries = entry ? [entry] : selectedFileEntries;
+      if (targetEntries.length === 0) return;
+      const selections = targetEntries
+        .filter((target) => target.kind === "file")
+        .map((target) => {
+          const fileRef = resolveFileRefFromEntry(target);
+          if (!fileRef) return null;
+          return {
+            fileRef,
+            entry: target,
+            thumbnailSrc: thumbnailByUri.get(target.uri),
+            projectId: activeProjectId,
+            rootUri: activeRootUri ?? undefined,
+          } satisfies ProjectFilePickerSelection;
+        })
+        .filter((selection): selection is ProjectFilePickerSelection => Boolean(selection));
+      if (selections.length === 0) return;
+      if (selections.length !== targetEntries.length) {
         toast.error("无法解析文件路径");
         return;
       }
-      onSelectFile?.({
-        fileRef,
-        entry: target,
-        thumbnailSrc: thumbnailByUri.get(target.uri),
-        projectId: activeProjectId,
-        rootUri: activeRootUri ?? undefined,
-      });
+      if (selections.length === 1) {
+        onSelectFile?.(selections[0]);
+      } else {
+        onSelectFiles?.(selections);
+        if (!onSelectFiles) {
+          onSelectFile?.(selections[0]);
+        }
+      }
       onOpenChange(false);
     },
     [
@@ -284,8 +305,9 @@ export function ProjectFilePickerDialog({
       activeRootUri,
       onOpenChange,
       onSelectFile,
+      onSelectFiles,
       resolveFileRefFromEntry,
-      selectedFileEntry,
+      selectedFileEntries,
       thumbnailByUri,
     ]
   );
@@ -317,7 +339,7 @@ export function ProjectFilePickerDialog({
     return items;
   }, [activeRootUri, activeUri, projectOptions]);
 
-  const confirmDisabled = !selectedFileEntry;
+  const confirmDisabled = selectedFileEntries.length === 0;
 
   return (
     <Dialog
@@ -379,7 +401,7 @@ export function ProjectFilePickerDialog({
                 </BreadcrumbList>
               </Breadcrumb>
               <div className="text-[11px] text-muted-foreground">
-                仅显示可用视频文件
+                {filterHint ?? "仅显示可用文件"}
               </div>
             </div>
             <div className="flex-1 min-h-0">

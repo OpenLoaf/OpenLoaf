@@ -1078,6 +1078,7 @@ export class CanvasEngine {
           return element && element.kind === "node" ? element : undefined;
         },
         getNextZIndex: () => this.getNextZIndex(),
+        now: Date.now(),
       }
     );
 
@@ -1276,6 +1277,9 @@ export class CanvasEngine {
       type,
       xywh: nextXYWH,
       zIndex: this.getNextZIndex(),
+      meta: {
+        createdAt: Date.now(),
+      },
       props: {
         ...(definition.defaultProps as Record<string, unknown>),
         ...(props as Record<string, unknown>),

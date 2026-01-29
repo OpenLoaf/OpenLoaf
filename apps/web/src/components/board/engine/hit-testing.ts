@@ -27,7 +27,7 @@ import {
 } from "./constants";
 import { LARGE_ANCHOR_NODE_TYPES } from "./anchorTypes";
 import type { NodeRegistry } from "./NodeRegistry";
-import { getGroupOutlinePadding, isGroupNodeType } from "./grouping";
+import { getGroupOutlinePadding, getNodeGroupId, isGroupNodeType } from "./grouping";
 import { resolveConnectorEndpointsWithBounds } from "./connector-resolve";
 import {
   buildConnectorPath,
@@ -389,6 +389,24 @@ function pickElementAt(
         if (distance <= padding) return element;
         continue;
       }
+      if (isGroupNodeType(element.type)) {
+        const [x, y, w, h] = element.xywh;
+        const padding = getGroupOutlinePadding(zoom);
+        const within =
+          point[0] >= x - padding &&
+          point[0] <= x + w + padding &&
+          point[1] >= y - padding &&
+          point[1] <= y + h + padding;
+        if (within) {
+          const childHit = findGroupChildAt(point, elements, i - 1, element.id);
+          if (childHit) {
+            // 逻辑：命中组内子节点时优先返回子节点，避免组选中遮挡预览。
+            return childHit;
+          }
+          return element;
+        }
+        continue;
+      }
       const [x, y, w, h] = element.xywh;
       const within =
         point[0] >= x - nodeHitRadius &&
@@ -418,6 +436,25 @@ function pickElementAt(
       const distance = distanceToPolyline(point, polyline);
       if (distance <= connectorHitRadius) return element;
     }
+  }
+  return null;
+}
+
+/** Find the top-most child node inside a group at the given point. */
+function findGroupChildAt(
+  point: CanvasPoint,
+  elements: CanvasElement[],
+  startIndex: number,
+  groupId: string
+): CanvasNodeElement | null {
+  for (let i = startIndex; i >= 0; i -= 1) {
+    const element = elements[i];
+    if (!element || element.kind !== "node") continue;
+    if (getNodeGroupId(element) !== groupId) continue;
+    const [x, y, w, h] = element.xywh;
+    const within =
+      point[0] >= x && point[0] <= x + w && point[1] >= y && point[1] <= y + h;
+    if (within) return element;
   }
   return null;
 }

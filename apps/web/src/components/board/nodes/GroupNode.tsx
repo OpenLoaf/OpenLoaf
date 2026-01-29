@@ -4,7 +4,7 @@ import type {
   CanvasToolbarContext,
 } from "../engine/types";
 import { z } from "zod";
-import { Layers, LayoutGrid, Maximize2 } from "lucide-react";
+import { Columns2, Layers, Maximize2, Rows2 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import { GROUP_NODE_TYPE, IMAGE_GROUP_NODE_TYPE } from "../engine/grouping";
 
@@ -47,21 +47,21 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
     layoutItems.push({
       id: "layout-column",
       label: "纵向布局",
-      icon: <LayoutGrid size={14} className="rotate-90" />,
+      icon: <Rows2 size={14} />,
       onSelect: () => ctx.layoutGroup(groupId, "column"),
     });
   } else if (layoutAxis === "column") {
     layoutItems.push({
       id: "layout-row",
       label: "横向布局",
-      icon: <LayoutGrid size={14} />,
+      icon: <Columns2 size={14} />,
       onSelect: () => ctx.layoutGroup(groupId, "row"),
     });
   } else {
     layoutItems.push({
       id: "layout-row",
       label: "横向布局",
-      icon: <LayoutGrid size={14} />,
+      icon: <Columns2 size={14} />,
       onSelect: () => ctx.layoutGroup(groupId, "row"),
     });
   }

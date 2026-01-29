@@ -11,9 +11,19 @@ export const mainConfig: Configuration = {
   entry: './src/main/index.ts',
   // Put your normal webpack config below here
   // 中文注释：sharp 为原生模块，需走 Node 运行时加载，避免 webpack 打包导致 .node 无法解析。
-  externals: {
-    sharp: 'commonjs2 sharp',
-  },
+  externals: [
+    {
+      sharp: 'commonjs2 sharp',
+      libsql: 'commonjs2 libsql',
+    },
+    // 中文注释：libsql 使用动态加载的原生包，交给 Node 运行时解析 @libsql/*。
+    ({ request }, callback) => {
+      if (typeof request === 'string' && request.startsWith('@libsql/')) {
+        return callback(null, `commonjs2 ${request}`);
+      }
+      return callback();
+    },
+  ],
   module: {
     rules,
   },

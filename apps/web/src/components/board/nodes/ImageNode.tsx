@@ -11,7 +11,6 @@ import {
   Info,
   Play,
   Sparkles,
-  Type,
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
 import { buildImageNodePayloadFromUri } from "../utils/image";
@@ -189,17 +188,6 @@ const IMAGE_NODE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
       props: {},
     }),
   },
-  {
-    id: "text",
-    label: "文字",
-    description: "插入可编辑文本",
-    size: [280, 140],
-    icon: <Type size={14} />,
-    createNode: () => ({
-      type: "text",
-      props: { autoFocus: true, value: "" },
-    }),
-  },
 ];
 
 /** Render an image node using a compressed preview bitmap. */
@@ -221,6 +209,8 @@ export function ImageNodeView({
   const resolvedOriginal = projectRelativeOriginal || element.props.originalSrc;
   /** Local flag for displaying the inline detail panel. */
   const [showDetail, setShowDetail] = useState(false);
+  /** Root element ref for outside click detection. */
+  const rootRef = useRef<HTMLDivElement | null>(null);
   /** Whether the preview fetch is still in flight. */
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   /** Whether the img element is still loading. */
@@ -257,6 +247,21 @@ export function ImageNodeView({
       setShowDetail(false);
     }
   }, [isLocked, selected]);
+
+  useEffect(() => {
+    if (!showDetail) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (rootRef.current?.contains(target)) return;
+      // 逻辑：点击节点外部时关闭详情面板。
+      setShowDetail(false);
+    };
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [showDetail]);
 
   useEffect(() => {
     if (
@@ -356,7 +361,7 @@ export function ImageNodeView({
   }, [previewSrc]);
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full" ref={rootRef}>
       <div
         className={[
           "relative h-full w-full overflow-hidden rounded-sm box-border",

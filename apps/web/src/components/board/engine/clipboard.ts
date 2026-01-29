@@ -49,6 +49,8 @@ type PasteOptions = {
   getNodeById: (elementId: string) => CanvasNodeElement | undefined;
   /** Return next zIndex for ordering. */
   getNextZIndex: () => number;
+  /** Timestamp for created nodes. */
+  now: number;
 };
 
 type ClipboardParser = (event: ClipboardEvent) => ClipboardInsertPayload[] | null;
@@ -108,6 +110,7 @@ function buildPastedElements(clipboard: CanvasClipboard, options: PasteOptions) 
   const { nodes, connectors } = clipboard;
   const idMap = new Map<string, string>();
   const maxZ = options.getNextZIndex();
+  const createdAt = options.now;
 
   nodes.forEach(node => {
     idMap.set(node.id, options.generateId(node.type));
@@ -126,6 +129,7 @@ function buildPastedElements(clipboard: CanvasClipboard, options: PasteOptions) 
         delete nextMeta.groupId;
       }
     }
+    nextMeta.createdAt = createdAt;
     let nextProps = node.props as Record<string, unknown>;
     if (isGroupNodeType(node.type)) {
       const childIds = Array.isArray(nextProps.childIds)

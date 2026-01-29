@@ -347,7 +347,10 @@ function CanvasDomLayerBase({
         data-board-editor={isEditing || undefined}
         data-node-type={element.type}
         data-selected={selected || undefined}
-        className="pointer-events-auto absolute select-none"
+        className={cn(
+          "absolute select-none",
+          isGroupNodeType(element.type) ? "pointer-events-none" : "pointer-events-auto"
+        )}
         style={{
           left: paddedX,
           top: paddedY,

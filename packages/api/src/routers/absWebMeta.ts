@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { t, shieldedProcedure } from "../index";
+import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 
 /** Schema map for web meta procedures. */
 export const webMetaSchemas = {

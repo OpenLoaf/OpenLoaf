@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import sharp from "sharp";
 import ffmpeg from "fluent-ffmpeg";
 import { fileURLToPath } from "node:url";
-import { t, shieldedProcedure } from "../index";
+import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 import { resolveFilePathFromUri, resolveScopedPath, resolveScopedRootPath, toRelativePath } from "../services/vfsService";
 import { readWorkspaceProjectTrees } from "../services/projectTreeService";
 

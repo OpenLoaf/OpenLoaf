@@ -61,6 +61,9 @@ function groupSelection(deps: SelectionDeps, nodeIds: string[]): void {
       type: groupType,
       xywh: [bounds.x, bounds.y, bounds.w, bounds.h],
       zIndex: groupZ,
+      meta: {
+        createdAt: Date.now(),
+      },
       props: {
         childIds,
       },

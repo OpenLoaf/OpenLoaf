@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { t, shieldedProcedure } from "../index";
+import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 
 export const aiSchemas = {
   textToImage: {
@@ -46,8 +46,24 @@ export const aiSchemas = {
       seed: z.number().int().optional(),
       frames: z.number().int().optional(),
       aspectRatio: z.string().optional(),
+      workspaceId: z.string().optional(),
+      projectId: z.string().optional(),
     }),
     output: z.object({ taskId: z.string().min(1) }),
+  },
+  videoGenerateResult: {
+    input: z.object({
+      taskId: z.string().min(1),
+      workspaceId: z.string().optional(),
+      projectId: z.string().optional(),
+      saveDir: z.string().optional(),
+    }),
+    output: z.object({
+      status: z.enum(["in_queue", "generating", "done", "not_found", "expired", "failed"]),
+      videoUrl: z.string().optional(),
+      savedPath: z.string().optional(),
+      fileName: z.string().optional(),
+    }),
   },
 };
 
@@ -78,6 +94,12 @@ export abstract class BaseAiRouter {
       videoGenerate: shieldedProcedure
         .input(aiSchemas.videoGenerate.input)
         .output(aiSchemas.videoGenerate.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      videoGenerateResult: shieldedProcedure
+        .input(aiSchemas.videoGenerateResult.input)
+        .output(aiSchemas.videoGenerateResult.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

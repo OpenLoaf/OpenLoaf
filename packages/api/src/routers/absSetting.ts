@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { t, shieldedProcedure } from "../index";
+import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 import { basicConfigSchema, basicConfigUpdateSchema } from "../types/basic";
 
 const settingItemSchema = z.object({

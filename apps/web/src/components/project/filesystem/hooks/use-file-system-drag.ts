@@ -13,6 +13,7 @@ import {
   type FileSystemEntry,
   formatScopedProjectPath,
   FILE_DRAG_URIS_MIME,
+  getEntryExt,
   getRelativePathFromUri,
 } from "../utils/file-system-utils";
 
@@ -29,6 +30,7 @@ type UseFileSystemDragParams = {
   selectedUrisRef: MutableRefObject<Set<string> | undefined>;
   dragProjectIdRef: MutableRefObject<string | undefined>;
   dragRootUriRef: MutableRefObject<string | undefined>;
+  resolveThumbnailSrc?: (uri: string) => string | undefined;
   onEntryDragStartRef: MutableRefObject<
     | ((entry: FileSystemEntry, event: DragEvent<HTMLElement>) => void)
     | undefined
@@ -77,6 +79,7 @@ function useFileSystemDrag({
   selectedUrisRef,
   dragProjectIdRef,
   dragRootUriRef,
+  resolveThumbnailSrc,
   onEntryDragStartRef,
   onEntryDropRef,
   resolveEntryFromEvent,
@@ -85,6 +88,59 @@ function useFileSystemDrag({
 }: UseFileSystemDragParams): UseFileSystemDragResult {
   // 记录当前拖拽悬停的文件夹，用于高亮提示。
   const [dragOverFolderUri, setDragOverFolderUri] = useState<string | null>(null);
+
+  const buildThumbnailDragPreview = useCallback(
+    (entries: FileSystemEntry[], rect: DOMRect) => {
+      if (!resolveThumbnailSrc) return null;
+      const previewEntries = entries
+        .map((entry) => ({
+          entry,
+          src: resolveThumbnailSrc(entry.uri),
+          ext: getEntryExt(entry),
+        }))
+        .filter((item) => Boolean(item.src))
+        .slice(0, 3);
+      if (previewEntries.length === 0) return null;
+      const cardWidth = Math.round(Math.max(64, Math.min(120, rect.width)));
+      const cardHeight = Math.round(cardWidth * 0.75);
+      const offset = Math.round(cardWidth * 0.12);
+      const totalWidth = cardWidth + offset * (previewEntries.length - 1);
+      const totalHeight = cardHeight + offset * (previewEntries.length - 1);
+      const container = document.createElement("div");
+      container.style.position = "absolute";
+      container.style.top = "-9999px";
+      container.style.left = "-9999px";
+      container.style.pointerEvents = "none";
+      container.style.width = `${totalWidth}px`;
+      container.style.height = `${totalHeight}px`;
+      // 逻辑：使用缩略图构建拖拽预览，支持多选堆叠展示。
+      previewEntries.forEach((item, index) => {
+        const frame = document.createElement("div");
+        frame.style.position = "absolute";
+        frame.style.top = `${index * offset}px`;
+        frame.style.left = `${index * offset}px`;
+        frame.style.width = `${cardWidth}px`;
+        frame.style.height = `${cardHeight}px`;
+        frame.style.borderRadius = "6px";
+        frame.style.overflow = "hidden";
+        frame.style.background = "rgba(255, 255, 255, 0.92)";
+        frame.style.border = "1px solid rgba(0, 0, 0, 0.08)";
+        frame.style.boxShadow = "0 12px 24px rgba(0, 0, 0, 0.18)";
+        frame.style.zIndex = `${10 + index}`;
+        const image = document.createElement("img");
+        image.src = item.src ?? "";
+        image.alt = item.entry.name;
+        image.draggable = false;
+        image.style.width = "100%";
+        image.style.height = "100%";
+        image.style.objectFit = item.ext && item.ext === "svg" ? "contain" : "cover";
+        frame.appendChild(image);
+        container.appendChild(frame);
+      });
+      return container;
+    },
+    [resolveThumbnailSrc]
+  );
 
   /** Handle entry drag start without recreating per-card closures. */
   const handleEntryDragStart = useCallback(
@@ -95,28 +151,6 @@ function useFileSystemDrag({
       }
       const entry = resolveEntryFromEvent(event);
       if (!entry) return;
-      // 固定拖拽预览为单个卡片，避免浏览器用整行作为拖拽影像。
-      const dragPreview = event.currentTarget.cloneNode(true) as HTMLElement;
-      const rect = event.currentTarget.getBoundingClientRect();
-      dragPreview.style.position = "absolute";
-      dragPreview.style.top = "-9999px";
-      dragPreview.style.left = "-9999px";
-      dragPreview.style.pointerEvents = "none";
-      dragPreview.style.width = `${rect.width}px`;
-      dragPreview.style.height = `${rect.height}px`;
-      dragPreview.style.transform = "none";
-      dragPreview.style.opacity = "0.9";
-      document.body.appendChild(dragPreview);
-      if (event.dataTransfer?.setDragImage) {
-        event.dataTransfer.setDragImage(
-          dragPreview,
-          rect.width / 2,
-          rect.height / 2
-        );
-      }
-      requestAnimationFrame(() => {
-        dragPreview.remove();
-      });
       const currentEntries = entriesRef.current;
       const currentSelected = selectedUrisRef.current;
       const dragEntries =
@@ -126,6 +160,33 @@ function useFileSystemDrag({
           ? currentEntries.filter((item) => currentSelected.has(item.uri))
           : [entry];
       const normalizedEntries = dragEntries.length > 0 ? dragEntries : [entry];
+      const rect = event.currentTarget.getBoundingClientRect();
+      const dragPreview = buildThumbnailDragPreview(normalizedEntries, rect);
+      const fallbackPreview = event.currentTarget.cloneNode(true) as HTMLElement;
+      const previewElement = dragPreview ?? fallbackPreview;
+      // 逻辑：固定拖拽预览，避免浏览器用整行作为拖拽影像。
+      previewElement.style.position = "absolute";
+      previewElement.style.top = "-9999px";
+      previewElement.style.left = "-9999px";
+      previewElement.style.pointerEvents = "none";
+      previewElement.style.transform = "none";
+      previewElement.style.opacity = "0.95";
+      if (!dragPreview) {
+        previewElement.style.width = `${rect.width}px`;
+        previewElement.style.height = `${rect.height}px`;
+      }
+      document.body.appendChild(previewElement);
+      if (event.dataTransfer?.setDragImage) {
+        const previewRect = previewElement.getBoundingClientRect();
+        event.dataTransfer.setDragImage(
+          previewElement,
+          previewRect.width / 2,
+          previewRect.height / 2
+        );
+      }
+      requestAnimationFrame(() => {
+        previewElement.remove();
+      });
       const dragUris = normalizedEntries.map((item) =>
         resolveEntryDragUri(
           item,
@@ -149,6 +210,7 @@ function useFileSystemDrag({
       onEntryDragStartRef.current?.(entry, event);
     },
     [
+      buildThumbnailDragPreview,
       dragProjectIdRef,
       dragRootUriRef,
       entriesRef,

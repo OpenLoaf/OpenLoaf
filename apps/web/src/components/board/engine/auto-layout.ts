@@ -26,6 +26,8 @@ type LayoutNode = {
   xywh: [number, number, number, number];
   /** Whether this layout node is fixed. */
   locked: boolean;
+  /** Created timestamp used for ordering. */
+  createdAt: number;
   /** Whether this layout node represents a group. */
   isGroup: boolean;
   /** Child node ids when representing a group. */
@@ -79,6 +81,14 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
     return node.id;
   };
 
+  // 逻辑：自动布局按创建时间排序，保证新节点在更靠下的 y 轴位置。
+  const getElementCreatedAt = (node: CanvasNodeElement | undefined): number => {
+    const meta = node?.meta as Record<string, unknown> | undefined;
+    const createdAt = meta?.createdAt;
+    if (typeof createdAt !== "number" || !Number.isFinite(createdAt)) return 0;
+    return createdAt;
+  };
+
   const layoutNodes = new Map<string, LayoutNode>();
   nodes.forEach(node => {
     const layoutId = resolveLayoutId(node);
@@ -87,10 +97,16 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
     if (groupNode) {
       const childIds = groupMembersMap.get(layoutId) ?? [];
       const hasLockedChild = childIds.some(childId => nodeMap.get(childId)?.locked);
+      const childCreatedAt = childIds.map(childId => getElementCreatedAt(nodeMap.get(childId)));
+      const createdAt =
+        childCreatedAt.length > 0
+          ? Math.max(getElementCreatedAt(groupNode), ...childCreatedAt)
+          : getElementCreatedAt(groupNode);
       layoutNodes.set(layoutId, {
         id: layoutId,
         xywh: groupNode.xywh,
         locked: Boolean(groupNode.locked) || hasLockedChild,
+        createdAt,
         isGroup: true,
         childIds,
       });
@@ -100,6 +116,7 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
       id: layoutId,
       xywh: node.xywh,
       locked: Boolean(node.locked),
+      createdAt: getElementCreatedAt(node),
       isGroup: false,
       childIds: [],
     });
@@ -201,6 +218,11 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
       layerIndices.forEach(layer => {
         const ids = layerMap.get(layer) ?? [];
         const ordered = [...ids].sort((left, right) => {
+          const leftCreatedAt = componentNodes.get(left)?.createdAt ?? 0;
+          const rightCreatedAt = componentNodes.get(right)?.createdAt ?? 0;
+          if (leftCreatedAt !== rightCreatedAt) {
+            return leftCreatedAt - rightCreatedAt;
+          }
           const leftRect = componentNodes.get(left)?.xywh;
           const rightRect = componentNodes.get(right)?.xywh;
           if (!leftRect || !rightRect) return 0;
@@ -269,7 +291,11 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
       });
 
       const incomingMap = buildIncomingMap(componentNodes, componentEdges);
-      layerIndices.forEach(layer => {
+      const outgoingMap = buildOutgoingMap(componentNodes, componentEdges);
+      // 逻辑：横向布局时先布局末端层，保证父节点可参考子节点位置。
+      const orderedLayers =
+        direction === "horizontal" ? [...layerIndices].sort((a, b) => b - a) : layerIndices;
+      orderedLayers.forEach(layer => {
         const ids = layerOrders.get(layer) ?? [];
         if (ids.length === 0) return;
         const axis = layerAxis.get(layer) ?? axisMin;
@@ -304,13 +330,24 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
           });
           return;
         }
-        const desiredCenters = computeDesiredCentersForLayer(
-          ids,
-          componentNodes,
-          incomingMap,
-          direction,
-          layoutPositions
-        );
+        const desiredCenters =
+          direction === "horizontal"
+            ? computeDesiredCentersFromTargets(
+                ids,
+                componentNodes,
+                outgoingMap,
+                layers,
+                direction,
+                layer,
+                layoutPositions
+              )
+            : computeDesiredCentersForLayer(
+                ids,
+                componentNodes,
+                incomingMap,
+                direction,
+                layoutPositions
+              );
         const grouped = groupByDesiredCenter(ids, desiredCenters);
         let secondaryCursor = -Infinity;
         grouped.forEach(group => {
@@ -681,7 +718,12 @@ function reorderLayer(
 
   const unlocked = scores
     .filter(score => !layoutNodes.get(score.id)?.locked)
-    .sort((a, b) => a.barycenter - b.barycenter);
+    .sort((a, b) => {
+      if (a.barycenter !== b.barycenter) return a.barycenter - b.barycenter;
+      const leftCreatedAt = layoutNodes.get(a.id)?.createdAt ?? 0;
+      const rightCreatedAt = layoutNodes.get(b.id)?.createdAt ?? 0;
+      return leftCreatedAt - rightCreatedAt;
+    });
 
   const nextOrder = new Array(current.length);
   lockedPositions.forEach((id, index) => {
@@ -822,6 +864,22 @@ function buildIncomingMap(
   return incoming;
 }
 
+/** Build outgoing adjacency map. */
+function buildOutgoingMap(
+  layoutNodes: Map<string, LayoutNode>,
+  edges: LayoutEdge[]
+): Map<string, string[]> {
+  const outgoing = new Map<string, string[]>();
+  layoutNodes.forEach((_, id) => {
+    outgoing.set(id, []);
+  });
+  edges.forEach(edge => {
+    const fromBucket = outgoing.get(edge.from);
+    if (fromBucket) fromBucket.push(edge.to);
+  });
+  return outgoing;
+}
+
 function computeDesiredCentersForLayer(
   ids: string[],
   layoutNodes: Map<string, LayoutNode>,
@@ -847,6 +905,46 @@ function computeDesiredCentersForLayer(
       count += 1;
     });
     centers.set(id, count > 0 ? sum / count : getSecondaryCenter(node.xywh, direction));
+  });
+  return centers;
+}
+
+function computeDesiredCentersFromTargets(
+  ids: string[],
+  layoutNodes: Map<string, LayoutNode>,
+  outgoing: Map<string, string[]>,
+  layers: Map<string, number>,
+  direction: LayoutDirection,
+  currentLayer: number,
+  layoutPositions?: Map<string, [number, number]>
+): Map<string, number> {
+  const centers = new Map<string, number>();
+  ids.forEach(id => {
+    const node = layoutNodes.get(id);
+    if (!node) return;
+    const targets = outgoing.get(id) ?? [];
+    const nextTargets = targets.filter(targetId => (layers.get(targetId) ?? 0) > currentLayer);
+    if (nextTargets.length === 0) {
+      centers.set(id, getSecondaryCenterWithPosition(id, node, layoutPositions, direction));
+      return;
+    }
+    let sum = 0;
+    let count = 0;
+    nextTargets.forEach(targetId => {
+      const target = layoutNodes.get(targetId);
+      if (!target) return;
+      sum += getSecondaryCenterWithPosition(
+        targetId,
+        target,
+        layoutPositions,
+        direction
+      );
+      count += 1;
+    });
+    centers.set(
+      id,
+      count > 0 ? sum / count : getSecondaryCenterWithPosition(id, node, layoutPositions, direction)
+    );
   });
   return centers;
 }

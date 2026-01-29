@@ -2,7 +2,7 @@ import { z } from "zod";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { t, shieldedProcedure } from "../index";
+import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 import {
   getProjectRootUri,
   getProjectRootPath,

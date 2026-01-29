@@ -295,6 +295,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
     selectedUrisRef,
     dragProjectIdRef,
     dragRootUriRef,
+    resolveThumbnailSrc: (uri) => thumbnailByUri.get(uri),
     onEntryDragStartRef,
     onEntryDropRef,
     resolveEntryFromEvent,

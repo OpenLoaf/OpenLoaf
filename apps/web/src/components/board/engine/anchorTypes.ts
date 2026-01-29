@@ -4,6 +4,7 @@ export const LARGE_ANCHOR_NODE_TYPES = new Set([
   "image-group",
   "image",
   "image_prompt_generate",
+  "video",
   "text",
   "video_generate",
 ]);

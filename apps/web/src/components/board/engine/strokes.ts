@@ -77,6 +77,9 @@ function addStrokeElement(
     type: STROKE_NODE_TYPE,
     xywh,
     zIndex: 1,
+    meta: {
+      createdAt: Date.now(),
+    },
     props: {
       tool,
       points: localPoints,

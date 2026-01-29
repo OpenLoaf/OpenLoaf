@@ -87,6 +87,9 @@ importers:
 
   apps/electron:
     dependencies:
+      '@tenas-ai/api':
+        specifier: workspace:*
+        version: link:../../packages/api
       '@tenas-ai/config':
         specifier: workspace:*
         version: link:../../packages/config
