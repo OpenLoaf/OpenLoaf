@@ -65,6 +65,10 @@ import {
   buildConnectorEndpointUpdate,
   normalizeConnectorEnd,
 } from "./connectors";
+import {
+  type ConnectorAxisPreferenceMap,
+  buildSourceAxisPreferenceMap,
+} from "../utils/connector-path";
 import { buildClipboardState, buildPastedElements, getClipboardInsertPayload } from "./clipboard";
 import { buildImageNodePayloadFromFile, type ImageNodePayload } from "../utils/image";
 import { buildLinkNodePayloadFromUrl, type LinkNodePayload } from "../utils/link";
@@ -758,16 +762,7 @@ export class CanvasEngine {
     const element = this.doc.getElementById(connectorId);
     if (!element || element.kind !== "connector") return;
     const anchors = this.getAnchorMapWithGroupPadding();
-    const normalizedEnd = normalizeConnectorEnd(end);
-    const nextSource = role === "source" ? normalizedEnd : element.source;
-    const nextTarget = role === "target" ? normalizedEnd : element.target;
-    const avoidRects =
-      "elementId" in nextSource
-        ? this.getConnectorAvoidRects(
-            nextSource.elementId,
-            "elementId" in nextTarget ? nextTarget.elementId : undefined
-          )
-        : [];
+    const sourceAxisPreference = this.buildSourceAxisPreferenceMap();
     const { update } = buildConnectorEndpointUpdate(
       element,
       role,
@@ -775,7 +770,7 @@ export class CanvasEngine {
       anchors,
       this.connectorStyle,
       this.getNodeBoundsById,
-      { avoidRects }
+      { sourceAxisPreference }
     );
     this.doc.updateElement(connectorId, update);
   }
@@ -1298,20 +1293,14 @@ export class CanvasEngine {
   /** Add a new connector element to the document. */
   addConnectorElement(draft: CanvasConnectorDraft): void {
     const anchors = this.getAnchorMapWithGroupPadding();
-    const avoidRects =
-      "elementId" in draft.source
-        ? this.getConnectorAvoidRects(
-            draft.source.elementId,
-            "elementId" in draft.target ? draft.target.elementId : undefined
-          )
-        : [];
+    const sourceAxisPreference = this.buildSourceAxisPreferenceMap();
     const element = buildConnectorElement(
       draft,
       anchors,
       this.connectorStyle,
       this.getNodeBoundsById,
       this.generateId.bind(this),
-      { avoidRects }
+      { sourceAxisPreference }
     );
     if (!element) return;
     this.doc.addElement(element);
@@ -1408,21 +1397,15 @@ export class CanvasEngine {
     return { x: x - padding, y: y - padding, w: w + padding * 2, h: h + padding * 2 };
   };
 
-  /** Gather bounds for nodes connected from the same source node. */
-  private getConnectorAvoidRects(sourceId: string, excludeTargetId?: string): CanvasRect[] {
-    if (!sourceId) return [];
-    const avoidRects: CanvasRect[] = [];
-    this.doc.getElements().forEach(element => {
-      if (element.kind !== "connector") return;
-      if (!("elementId" in element.source)) return;
-      if (element.source.elementId !== sourceId) return;
-      if (!("elementId" in element.target)) return;
-      const targetId = element.target.elementId;
-      if (!targetId || targetId === excludeTargetId) return;
-      const bounds = this.getNodeBoundsById(targetId);
-      if (bounds) avoidRects.push(bounds);
-    });
-    return avoidRects;
+  /** Build axis preferences for connectors sharing the same source node. */
+  private buildSourceAxisPreferenceMap(): ConnectorAxisPreferenceMap {
+    const connectors = this.doc
+      .getElements()
+      .filter(
+        (element): element is CanvasConnectorElement => element.kind === "connector"
+      );
+    // 逻辑：源节点所有目标同侧时统一连线方向。
+    return buildSourceAxisPreferenceMap(connectors, this.getNodeBoundsById);
   }
 
   /** Compute the viewport center in world coordinates. */

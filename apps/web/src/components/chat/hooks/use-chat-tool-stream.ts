@@ -22,6 +22,12 @@ export function useChatToolStream() {
       tabId?: string;
       upsertToolPartMerged: (key: string, next: any) => void;
     }) => {
+      console.log(
+        "[chat-tool] handleDataPart",
+        input.dataPart?.type,
+        input.dataPart?.toolName,
+        input.dataPart?.toolCallId
+      );
       handleChatDataPart({
         dataPart: input.dataPart,
         tabId: input.tabId,

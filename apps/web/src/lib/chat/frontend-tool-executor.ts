@@ -195,6 +195,12 @@ export function createFrontendToolExecutor(): FrontendToolExecutor {
       allowedToolNames.add(toolName);
     },
     executeFromDataPart: async ({ dataPart, tabId }) => {
+      console.log(
+        "[frontend-tool] dataPart",
+        dataPart?.type,
+        dataPart?.toolName,
+        dataPart?.toolCallId
+      );
       if (dataPart?.type !== "tool-input-available") return false;
       const toolCallId = typeof dataPart.toolCallId === "string" ? dataPart.toolCallId : "";
       const toolName = typeof dataPart.toolName === "string" ? dataPart.toolName : "";

@@ -9,6 +9,7 @@ import type {
 } from "./gpu-protocol";
 import type {
   CanvasAlignmentGuide,
+  CanvasInsertRequest,
   CanvasNodeElement,
   CanvasPoint,
   CanvasViewportState,
@@ -676,6 +677,34 @@ function trimText(value: string) {
   return `${value.slice(0, TEXT_MAX_LENGTH - 3)}...`;
 }
 
+/** Resolve preview sources for pending insert. */
+function resolvePendingInsertPreviewStack(pendingInsert: CanvasInsertRequest): string[] {
+  const props = pendingInsert.props as {
+    previewStack?: unknown;
+    stackItems?: Array<{ props?: Record<string, unknown> }>;
+    previewSrc?: string;
+    originalSrc?: string;
+    posterPath?: string;
+  };
+  const stack = Array.isArray(props.previewStack)
+    ? props.previewStack.filter((item): item is string => typeof item === "string")
+    : [];
+  if (stack.length > 0) return stack.slice(0, 3);
+  if (Array.isArray(props.stackItems)) {
+    const sources = props.stackItems
+      .map((item) => {
+        const itemProps = item?.props as
+          | { previewSrc?: string; originalSrc?: string; posterPath?: string }
+          | undefined;
+        return itemProps?.previewSrc || itemProps?.originalSrc || itemProps?.posterPath || "";
+      })
+      .filter((src) => src.length > 0);
+    if (sources.length > 0) return sources.slice(0, 3);
+  }
+  const single = props.previewSrc || props.originalSrc || props.posterPath || "";
+  return single ? [single] : [];
+}
+
 /** Build geometry for the current scene and state. */
 function buildSceneGeometry(
   scene: GpuSceneSnapshot,
@@ -835,6 +864,35 @@ function buildSceneGeometry(
         v1: entry.v1,
         color: toColor(palette.textMuted),
       });
+    }
+    const previewStack = resolvePendingInsertPreviewStack(state.pendingInsert);
+    if (previewStack.length > 0) {
+      const maxStack = Math.min(3, previewStack.length);
+      const padding = 10;
+      const stackOffset = Math.round(
+        Math.max(6, Math.min(14, Math.min(w, h) * 0.08))
+      );
+      const availableW = Math.max(1, w - padding * 2 - stackOffset * (maxStack - 1));
+      const availableH = Math.max(1, h - padding * 2 - stackOffset * (maxStack - 1));
+      // 逻辑：待放置预览显示缩略图，支持多张叠加。
+      for (let index = 0; index < maxStack; index += 1) {
+        const imageSrc = previewStack[index];
+        if (!imageSrc) continue;
+        ensureImageTexture(imageSrc);
+        const asset = imageCache.get(imageSrc);
+        if (!asset) continue;
+        const aspect = asset.width / Math.max(asset.height, 1);
+        let drawW = availableW;
+        let drawH = availableW / aspect;
+        if (drawH > availableH) {
+          drawH = availableH;
+          drawW = drawH * aspect;
+        }
+        const offset = stackOffset * index;
+        const dx = x + padding + offset + (availableW - drawW) / 2;
+        const dy = y + padding + offset + (availableH - drawH) / 2;
+        imageQuads.push({ x: dx, y: dy, w: drawW, h: drawH, asset });
+      }
     }
   }
 

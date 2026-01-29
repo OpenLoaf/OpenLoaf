@@ -17,7 +17,33 @@ type PendingEntry = {
   requestedAt: string;
 };
 
+type EarlyAckEntry = {
+  payload: FrontendToolAckPayload;
+  timer: NodeJS.Timeout;
+  receivedAt: number;
+};
+
 const pendingByToolCallId = new Map<string, PendingEntry>();
+const earlyAckByToolCallId = new Map<string, EarlyAckEntry>();
+
+const EARLY_ACK_TTL_MS = 30_000;
+
+/** Store an early ack when pending hasn't been registered yet. */
+function storeEarlyAck(payload: FrontendToolAckPayload): boolean {
+  const toolCallId = payload.toolCallId.trim();
+  if (!toolCallId) return false;
+  if (earlyAckByToolCallId.has(toolCallId)) return false;
+
+  const receivedAt = Date.now();
+  const timer = setTimeout(() => {
+    // 中文注释：超时清理早到回执，避免长期占用内存。
+    earlyAckByToolCallId.delete(toolCallId);
+  }, EARLY_ACK_TTL_MS);
+
+  earlyAckByToolCallId.set(toolCallId, { payload, timer, receivedAt });
+  logger.warn({ toolCallId }, "[frontend-tool] ack arrived before pending; stored temporarily");
+  return true;
+}
 
 /** Register a pending frontend tool execution and await the ack. */
 export function registerFrontendToolPending(input: {
@@ -29,6 +55,14 @@ export function registerFrontendToolPending(input: {
 
   if (pendingByToolCallId.has(toolCallId)) {
     throw new Error(`toolCallId already pending: ${toolCallId}`);
+  }
+
+  const earlyAck = earlyAckByToolCallId.get(toolCallId);
+  if (earlyAck) {
+    clearTimeout(earlyAck.timer);
+    earlyAckByToolCallId.delete(toolCallId);
+    // 中文注释：先收到回执时，直接返回，避免进入等待超时。
+    return Promise.resolve(earlyAck.payload);
   }
 
   const timeoutSec = normalizeTimeoutSec(input.timeoutSec);
@@ -60,18 +94,23 @@ export function registerFrontendToolPending(input: {
 }
 
 /** Resolve a pending frontend tool execution by toolCallId. */
-export function resolveFrontendToolPending(payload: FrontendToolAckPayload): boolean {
+export function resolveFrontendToolPending(
+  payload: FrontendToolAckPayload,
+): "resolved" | "stored" | "missing" {
   const toolCallId = payload.toolCallId.trim();
-  if (!toolCallId) return false;
+  if (!toolCallId) return "missing";
 
   const entry = pendingByToolCallId.get(toolCallId);
-  if (!entry) return false;
+  if (!entry) {
+    const stored = storeEarlyAck(payload);
+    return stored ? "stored" : "missing";
+  }
 
   clearTimeout(entry.timer);
   pendingByToolCallId.delete(toolCallId);
   logger.debug({ toolCallId, status: payload.status }, "[frontend-tool] pending resolved");
   entry.resolve(payload);
-  return true;
+  return "resolved";
 }
 
 /** Normalize timeout seconds with guardrails. */

@@ -1,4 +1,4 @@
-import { LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Trash2, Unlock, Maximize2, MoveDiagonal2 } from "lucide-react";
+import { Columns2, LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Rows2, Trash2, Unlock, Maximize2, MoveDiagonal2 } from "lucide-react";
 import { useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type {
@@ -156,6 +156,11 @@ export function MultiSelectionToolbar({
     : isUniformColumn
       ? "row"
       : resolveAutoLayoutDirection(selectedNodes, layoutAxis, snapshot.viewport.zoom);
+  const layoutIcon = isUniformRow
+    ? <Rows2 size={14} />
+    : isUniformColumn
+      ? <Columns2 size={14} />
+      : <LayoutGrid size={14} />;
 
   const bounds = computeSelectionBounds(selectedNodes, snapshot.viewport.zoom);
 
@@ -184,7 +189,7 @@ export function MultiSelectionToolbar({
             {
               id: "layout",
               label: layoutLabel,
-              icon: <LayoutGrid size={14} />,
+              icon: layoutIcon,
               onSelect: () => engine.layoutSelection(layoutDirection),
             },
             {

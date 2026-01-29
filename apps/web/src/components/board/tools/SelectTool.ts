@@ -16,6 +16,7 @@ import { sortElementsByZIndex } from "../engine/element-order";
 import {
   expandSelectionWithGroupChildren,
   getGroupOutlinePadding,
+  getNodeGroupId,
   isGroupNodeType,
   resolveGroupSelectionId,
 } from "../engine/grouping";
@@ -62,6 +63,12 @@ export class SelectTool implements CanvasTool {
   private selectionPendingWorld: CanvasPoint | null = null;
   /** Selection update animation frame id. */
   private selectionFrameId: number | null = null;
+  /** Selection update throttle timeout id. */
+  private selectionThrottleTimeout: number | null = null;
+  /** Last selection update timestamp. */
+  private selectionLastUpdateTime = 0;
+  /** Minimum interval for selection update. */
+  private readonly selectionThrottleMs = 1000 / 30;
   /** Selection drag threshold in screen pixels. */
   private readonly selectionThreshold = SELECTION_BOX_THRESHOLD;
   /** Snap pixel threshold in screen space. */
@@ -585,13 +592,29 @@ export class SelectTool implements CanvasTool {
       ? this.mergeSelectionIds(this.selectionBaseIds, hits)
       : hits;
     const box = clearBox ? null : rect;
+    const currentSelection = engine.selection.getSelectedIds();
+    if (this.isSameSelectionSet(currentSelection, selectionIds)) {
+      engine.setSelectionBox(box);
+      return;
+    }
     engine.setSelectionBoxAndSelection(box, selectionIds);
   }
 
   /** Schedule rectangle selection updates for the next frame. */
   private scheduleSelectionUpdate(engine: CanvasEngine, endWorld: CanvasPoint): void {
     this.selectionPendingWorld = endWorld;
-    if (this.selectionFrameId !== null) return;
+    if (this.selectionFrameId !== null || this.selectionThrottleTimeout !== null) return;
+    const now = performance.now();
+    const delta = now - this.selectionLastUpdateTime;
+    if (delta < this.selectionThrottleMs) {
+      const wait = this.selectionThrottleMs - delta;
+      // 逻辑：框选刷新节流到固定帧率，避免拖拽时占用过高。
+      this.selectionThrottleTimeout = window.setTimeout(() => {
+        this.selectionThrottleTimeout = null;
+        this.scheduleSelectionUpdate(engine, endWorld);
+      }, wait);
+      return;
+    }
     this.selectionFrameId = window.requestAnimationFrame(() => {
       this.selectionFrameId = null;
       const pending = this.selectionPendingWorld;
@@ -600,6 +623,7 @@ export class SelectTool implements CanvasTool {
       if (!this.selectionStartWorld) return;
       // 逻辑：框选刷新合并到帧回调，降低高频指针事件的渲染压力。
       this.applySelectionUpdate(engine, pending, false);
+      this.selectionLastUpdateTime = performance.now();
     });
   }
 
@@ -608,6 +632,10 @@ export class SelectTool implements CanvasTool {
     if (this.selectionFrameId !== null) {
       window.cancelAnimationFrame(this.selectionFrameId);
       this.selectionFrameId = null;
+    }
+    if (this.selectionThrottleTimeout !== null) {
+      window.clearTimeout(this.selectionThrottleTimeout);
+      this.selectionThrottleTimeout = null;
     }
     this.selectionPendingWorld = null;
   }
@@ -657,14 +685,14 @@ export class SelectTool implements CanvasTool {
 
   /** Check elements intersecting with the selection rectangle. */
   private pickNodesInRect(rect: CanvasRect, engine: CanvasEngine): string[] {
-    const elements = engine.doc.getElements();
     const selectionIds = new Set<string>();
     const { zoom } = engine.viewport.getState();
-    elements.forEach(element => {
-      if (element.kind !== "node") return;
+    const queryRect = this.expandRect(rect, getGroupOutlinePadding(zoom));
+    const candidates = engine.doc.getNodeCandidatesInRect(queryRect);
+    candidates.forEach(element => {
       if (element.locked) return;
       if (!this.rectsIntersect(rect, element, zoom)) return;
-      selectionIds.add(resolveGroupSelectionId(elements, element));
+      selectionIds.add(this.resolveSelectionId(engine, element));
     });
     return Array.from(selectionIds);
   }
@@ -685,6 +713,35 @@ export class SelectTool implements CanvasTool {
       a.y <= bBottom &&
       aBottom >= by - padding
     );
+  }
+
+  /** Expand a rect by padding on all sides. */
+  private expandRect(rect: CanvasRect, padding: number): CanvasRect {
+    if (padding <= 0) return rect;
+    return {
+      x: rect.x - padding,
+      y: rect.y - padding,
+      w: rect.w + padding * 2,
+      h: rect.h + padding * 2,
+    };
+  }
+
+  /** Resolve the selection id for a node element. */
+  private resolveSelectionId(engine: CanvasEngine, element: CanvasNodeElement): string {
+    const groupId = getNodeGroupId(element);
+    if (!groupId) return element.id;
+    const groupNode = engine.doc.getElementById(groupId);
+    return groupNode && groupNode.kind === "node" ? groupId : element.id;
+  }
+
+  /** Check whether two selection sets contain the same ids. */
+  private isSameSelectionSet(left: string[], right: string[]): boolean {
+    if (left.length !== right.length) return false;
+    const rightSet = new Set(right);
+    for (const id of left) {
+      if (!rightSet.has(id)) return false;
+    }
+    return true;
   }
 
   /** Compute the bounding rect for the current drag group. */

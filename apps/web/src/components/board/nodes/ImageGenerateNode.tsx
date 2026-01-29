@@ -35,7 +35,9 @@ import {
 } from "./lib/image-generation";
 import { buildImageNodePayloadFromUri } from "../utils/image";
 import {
+  buildChildUri,
   formatScopedProjectPath,
+  getUniqueName,
   normalizeProjectRelativePath,
   parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
@@ -45,6 +47,8 @@ import {
   toBoardRelativePath,
 } from "../core/boardFilePath";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { resolveFileName } from "@/lib/image/uri";
+import { trpcClient } from "@/utils/trpc";
 
 /** Node type identifier for image generation. */
 export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
@@ -472,10 +476,59 @@ export function ImageGenerateNodeView({
                   GENERATED_IMAGE_NODE_GAP
                 : nodeY;
             const selectionSnapshot = engine.selection.getSelectedIds();
+            const assetNamePool = new Set<string>();
+            if (imageSaveDir && resolvedWorkspaceId && currentProjectId) {
+              try {
+                const list = await trpcClient.fs.list.query({
+                  workspaceId: resolvedWorkspaceId,
+                  projectId: currentProjectId,
+                  uri: imageSaveDir,
+                  includeHidden: true,
+                });
+                for (const entry of list.entries ?? []) {
+                  if (entry?.name) assetNamePool.add(entry.name);
+                }
+              } catch {
+                // 逻辑：读取资产目录失败时仍允许写入，交由后端覆盖处理。
+              }
+            }
+            const copyToBoardAssets = async (
+              sourceUrl: string,
+              fallbackName?: string
+            ): Promise<string> => {
+              if (!imageSaveDir || !resolvedWorkspaceId || !currentProjectId) {
+                return sourceUrl;
+              }
+              const parsed = parseScopedProjectPath(sourceUrl);
+              const relativeFrom = parsed?.relativePath
+                ? normalizeProjectRelativePath(parsed.relativePath)
+                : normalizeProjectRelativePath(sourceUrl);
+              if (!relativeFrom) return sourceUrl;
+              const resolvedName = (fallbackName || resolveFileName(relativeFrom)).trim();
+              const safeName = resolvedName.replace(/[\\/]/g, "-") || "image.png";
+              const uniqueName = getUniqueName(safeName, assetNamePool);
+              assetNamePool.add(uniqueName);
+              const targetRelative = normalizeProjectRelativePath(
+                buildChildUri(imageSaveDir, uniqueName)
+              );
+              try {
+                await trpcClient.fs.copy.mutate({
+                  workspaceId: resolvedWorkspaceId,
+                  projectId: currentProjectId,
+                  from: relativeFrom,
+                  to: targetRelative,
+                });
+                return targetRelative;
+              } catch {
+                // 逻辑：复制失败时回退原始路径，避免阻断创建节点。
+                return sourceUrl;
+              }
+            };
             let currentY = startY;
             for (const output of uniqueOutputs) {
               try {
-                const payload = await buildImageNodePayloadFromUri(output.url, {
+                const assetUrl = await copyToBoardAssets(output.url, output.fileName);
+                const payload = await buildImageNodePayloadFromUri(assetUrl, {
                   projectId: fileContext?.projectId,
                 });
                 const [outputW, outputH] = payload.size;

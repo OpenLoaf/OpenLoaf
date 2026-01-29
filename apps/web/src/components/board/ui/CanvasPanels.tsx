@@ -22,6 +22,7 @@ import type {
 import { toScreenPoint } from "../utils/coordinates";
 import {
   buildConnectorPath,
+  buildSourceAxisPreferenceMap,
   flattenConnectorPath,
   resolveConnectorEndpointsSmart,
 } from "../utils/connector-path";
@@ -145,12 +146,20 @@ function resolveConnectorCenter(
     };
   });
 
+  // 逻辑：同源子节点统一方向时，连接中心应保持一致。
+  const sourceAxisPreference = buildSourceAxisPreferenceMap(
+    snapshot.elements.filter(
+      (element): element is CanvasConnectorElement => element.kind === "connector"
+    ),
+    elementId => boundsMap[elementId]
+  );
+
   const resolved = resolveConnectorEndpointsSmart(
     connector.source,
     connector.target,
     anchors,
     boundsMap,
-    { connectorStyle: connector.style ?? snapshot.connectorStyle }
+    { sourceAxisPreference }
   );
   if (!resolved.source || !resolved.target) return fallback;
   const style = connector.style ?? snapshot.connectorStyle;

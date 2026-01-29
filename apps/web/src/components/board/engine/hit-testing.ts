@@ -8,7 +8,6 @@ import type {
   CanvasConnectorEnd,
   CanvasConnectorStyle,
   CanvasElement,
-  CanvasRect,
   CanvasNodeElement,
   CanvasPoint,
   StrokeNodeProps,
@@ -31,6 +30,7 @@ import { getGroupOutlinePadding, getNodeGroupId, isGroupNodeType } from "./group
 import { resolveConnectorEndpointsWithBounds } from "./connector-resolve";
 import {
   buildConnectorPath,
+  buildSourceAxisPreferenceMap,
   computeBounds,
   distanceToPolyline,
   flattenConnectorPath,
@@ -115,15 +115,19 @@ function findConnectorEndpointHit(
   const hitRadius = CONNECTOR_ENDPOINT_HIT_RADIUS / Math.max(zoom, MIN_ZOOM);
   let closest: CanvasConnectorEndpointHit | null = null;
   let closestDistance = hitRadius;
+  // 逻辑：连线方向统一策略需在命中阶段保持一致。
+  const sourceAxisPreference = buildSourceAxisPreferenceMap(
+    filtered,
+    getNodeBoundsById
+  );
 
   filtered.forEach(connector => {
-    const avoidRects = getConnectorAvoidRects(connector, connectors, getNodeBoundsById);
     const { source, target } = resolveConnectorEndpointsWithBounds(
       connector.source,
       connector.target,
       anchors,
       getNodeBoundsById,
-      { avoidRects, connectorStyle: connector.style ?? "curve" }
+      { sourceAxisPreference }
     );
     if (source) {
       const dist = Math.hypot(point[0] - source[0], point[1] - source[1]);
@@ -150,29 +154,6 @@ function findConnectorEndpointHit(
   });
 
   return closest;
-}
-
-/** Collect bounds for nodes connected from the same source node. */
-function getConnectorAvoidRects(
-  connector: CanvasConnectorElement,
-  connectors: CanvasConnectorElement[],
-  getNodeBoundsById: (elementId: string) => CanvasRect | undefined
-): CanvasRect[] {
-  if (!("elementId" in connector.source)) return [];
-  const sourceId = connector.source.elementId;
-  const targetId = "elementId" in connector.target ? connector.target.elementId : undefined;
-  const avoidRects: CanvasRect[] = [];
-  connectors.forEach(other => {
-    if (other.id === connector.id) return;
-    if (!("elementId" in other.source)) return;
-    if (other.source.elementId !== sourceId) return;
-    if (!("elementId" in other.target)) return;
-    const otherTargetId = other.target.elementId;
-    if (!otherTargetId || otherTargetId === targetId) return;
-    const bounds = getNodeBoundsById(otherTargetId);
-    if (bounds) avoidRects.push(bounds);
-  });
-  return avoidRects;
 }
 
 /** Find the nearest anchor within a hit radius. */
@@ -351,6 +332,11 @@ function pickElementAt(
   const connectorElements = elements.filter(
     (element): element is CanvasConnectorElement => element.kind === "connector"
   );
+  // 逻辑：统一连线方向后，命中计算需同步使用同一偏好。
+  const sourceAxisPreference = buildSourceAxisPreferenceMap(
+    connectorElements,
+    getNodeBoundsById
+  );
   const nodeHitRadius = 0;
   const connectorHitRadius = CONNECTOR_HIT_RADIUS / Math.max(zoom, MIN_ZOOM);
   const strokeHitRadius = STROKE_HIT_RADIUS / Math.max(zoom, MIN_ZOOM);
@@ -417,14 +403,13 @@ function pickElementAt(
       continue;
     }
     if (element.kind === "connector") {
-      const avoidRects = getConnectorAvoidRects(element, connectorElements, getNodeBoundsById);
       const { source, target, sourceAnchorId, targetAnchorId } =
         resolveConnectorEndpointsWithBounds(
           element.source,
           element.target,
           anchors,
           getNodeBoundsById,
-          { avoidRects, connectorStyle: element.style ?? connectorStyle }
+          { sourceAxisPreference }
         );
       if (!source || !target) continue;
       const style = element.style ?? connectorStyle;

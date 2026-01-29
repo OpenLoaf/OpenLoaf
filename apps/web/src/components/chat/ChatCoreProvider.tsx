@@ -560,6 +560,12 @@ export default function ChatCoreProvider({
         // 关键：切换 session 后忽略旧流的 dataPart，避免 toolParts 被写回新会话 UI。
         if (sessionIdRef.current !== sessionId) return;
         incrementChatPerf("chat.onData");
+        console.log(
+          "[chat] onData",
+          dataPart?.type,
+          dataPart?.toolName,
+          dataPart?.toolCallId
+        );
         if (dataPart?.type === "data-session-title") {
           invalidateChatSessions(queryClient);
           const title =
@@ -637,6 +643,10 @@ export default function ChatCoreProvider({
       const isTool =
         type === "dynamic-tool" || type.startsWith("tool-") || typeof part?.toolName === "string";
       if (!isTool) continue;
+      const toolName = typeof part?.toolName === "string" ? part.toolName : "";
+      const isFrontendTool = toolName === "open-url" || type === "tool-open-url";
+      // 中文注释：前端 UI 控制类工具不做历史重放，避免错误回放与输入缺失。
+      if (isFrontendTool) continue;
       void toolStream.executeFromToolPart({ part, tabId });
     }
   }, [chat.messages, chat.status, tabId, toolStream]);

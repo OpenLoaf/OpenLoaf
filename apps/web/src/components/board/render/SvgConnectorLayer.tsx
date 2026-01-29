@@ -1,18 +1,19 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import type {
   CanvasConnectorElement,
   CanvasPoint,
   CanvasRect,
   CanvasSnapshot,
+  CanvasViewState,
 } from "../engine/types";
 import { useBoardEngine } from "../core/BoardProvider";
-import { useBoardViewState } from "../core/useBoardViewState";
 import { applyGroupAnchorPadding } from "../engine/anchors";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
 import {
   buildConnectorPath,
+  buildSourceAxisPreferenceMap,
   flattenConnectorPath,
   resolveConnectorEndpointsSmart,
 } from "../utils/connector-path";
@@ -33,13 +34,16 @@ export const SvgConnectorLayer = memo(function SvgConnectorLayer({
   snapshot,
 }: SvgConnectorLayerProps) {
   const engine = useBoardEngine();
-  const viewState = useBoardViewState(engine);
-  // 逻辑：视口更新必须即时驱动 SVG，避免平移/缩放时连线延迟。
-  const viewport = viewState.viewport;
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const groupRef = useRef<SVGGElement | null>(null);
+  const pendingViewRef = useRef<CanvasViewState | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const initialView = engine.getViewState();
+  const viewport = initialView.viewport;
   const { elements, selectedIds, connectorHoverId, connectorDraft, connectorStyle } = snapshot;
 
   const { boundsMap, connectorElements } = useMemo(() => {
-    const groupPadding = getGroupOutlinePadding(viewport.zoom);
+    const groupPadding = getGroupOutlinePadding(1);
     const bounds: Record<string, CanvasRect | undefined> = {};
     elements.forEach((element) => {
       if (element.kind !== "node") return;
@@ -51,21 +55,25 @@ export const SvgConnectorLayer = memo(function SvgConnectorLayer({
         (element): element is CanvasConnectorElement => element.kind === "connector"
       ),
     };
-  }, [elements, viewport.zoom]);
+  }, [elements]);
 
   const anchors = useMemo(() => {
-    const groupPadding = getGroupOutlinePadding(viewport.zoom);
+    const groupPadding = getGroupOutlinePadding(1);
     return applyGroupAnchorPadding(snapshot.anchors, elements, groupPadding);
-  }, [elements, snapshot.anchors, viewport.zoom]);
+  }, [elements, snapshot.anchors]);
+
+  const sourceAxisPreference = useMemo(() => {
+    // 逻辑：当同源所有目标处于单侧时统一连线方向。
+    return buildSourceAxisPreferenceMap(connectorElements, elementId => boundsMap[elementId]);
+  }, [boundsMap, connectorElements]);
 
   const connectorItems = connectorElements.map((connector) => {
-    const avoidRects = getConnectorAvoidRects(connector, connectorElements, boundsMap);
     const resolved = resolveConnectorEndpointsSmart(
       connector.source,
       connector.target,
       anchors,
       boundsMap,
-      { avoidRects, connectorStyle: connector.style ?? connectorStyle }
+      { sourceAxisPreference }
     );
     if (!resolved.source || !resolved.target) return null;
     const style = connector.style ?? connectorStyle;
@@ -89,7 +97,8 @@ export const SvgConnectorLayer = memo(function SvgConnectorLayer({
       connectorDraft.source,
       connectorDraft.target,
       anchors,
-      boundsMap
+      boundsMap,
+      { sourceAxisPreference }
     );
     if (!resolved.source || !resolved.target) return null;
     const style = connectorDraft.style ?? connectorStyle;
@@ -100,15 +109,62 @@ export const SvgConnectorLayer = memo(function SvgConnectorLayer({
     return pathToSvg(path);
   }, [anchors, boundsMap, connectorDraft, connectorStyle]);
 
+  const applyView = useCallback((view: CanvasViewState) => {
+    const svg = svgRef.current;
+    const group = groupRef.current;
+    if (!svg || !group) return;
+    const { size, offset, zoom } = view.viewport;
+    svg.setAttribute("width", `${size[0]}`);
+    svg.setAttribute("height", `${size[1]}`);
+    svg.setAttribute("viewBox", `0 0 ${size[0]} ${size[1]}`);
+    group.setAttribute(
+      "transform",
+      `translate(${offset[0]} ${offset[1]}) scale(${zoom})`
+    );
+  }, []);
+
+  const scheduleViewUpdate = useCallback(
+    (view: CanvasViewState) => {
+      pendingViewRef.current = view;
+      if (rafRef.current !== null) return;
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = null;
+        if (!pendingViewRef.current) return;
+        applyView(pendingViewRef.current);
+      });
+    },
+    [applyView]
+  );
+
+  useEffect(() => {
+    const handleViewChange = () => {
+      // 逻辑：视图变化仅更新 SVG transform/尺寸，避免连线路径重算。
+      scheduleViewUpdate(engine.getViewState());
+    };
+    handleViewChange();
+    const unsubscribe = engine.subscribeView(handleViewChange);
+    return () => {
+      unsubscribe();
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [engine, scheduleViewUpdate]);
+
   return (
     <svg
+      ref={svgRef}
       className="pointer-events-none absolute inset-0"
       width={viewport.size[0]}
       height={viewport.size[1]}
       viewBox={`0 0 ${viewport.size[0]} ${viewport.size[1]}`}
       aria-hidden="true"
     >
-      <g transform={`translate(${viewport.offset[0]} ${viewport.offset[1]}) scale(${viewport.zoom})`}>
+      <g
+        ref={groupRef}
+        transform={`translate(${viewport.offset[0]} ${viewport.offset[1]}) scale(${viewport.zoom})`}
+      >
         {connectorItems.map((item) => {
           if (!item) return null;
           const baseStroke = item.selected ? CONNECTOR_STROKE_SELECTED : CONNECTOR_STROKE;
@@ -195,29 +251,6 @@ function getNodeBounds(
     w: halfW * 2,
     h: halfH * 2,
   };
-}
-
-/** Collect bounds for nodes connected from the same source node. */
-function getConnectorAvoidRects(
-  connector: CanvasConnectorElement,
-  connectors: CanvasConnectorElement[],
-  boundsMap: Record<string, CanvasRect | undefined>
-): CanvasRect[] {
-  if (!("elementId" in connector.source)) return [];
-  const sourceId = connector.source.elementId;
-  const targetId = "elementId" in connector.target ? connector.target.elementId : undefined;
-  const avoidRects: CanvasRect[] = [];
-  connectors.forEach((other) => {
-    if (other.id === connector.id) return;
-    if (!("elementId" in other.source)) return;
-    if (other.source.elementId !== sourceId) return;
-    if (!("elementId" in other.target)) return;
-    const otherTargetId = other.target.elementId;
-    if (!otherTargetId || otherTargetId === targetId) return;
-    const bounds = boundsMap[otherTargetId];
-    if (bounds) avoidRects.push(bounds);
-  });
-  return avoidRects;
 }
 
 /** Convert a connector path into SVG path data. */

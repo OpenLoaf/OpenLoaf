@@ -9,7 +9,6 @@ import { cn } from "@udecode/cn";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasSnapshot } from "../engine/types";
 import { HoverPanel, IconBtn, PanelItem, toolbarSurfaceClassName } from "../ui/ToolbarParts";
-import { getStackedImageRect } from "../utils/image-insert";
 import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/ImageGenerateNode";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/ImagePromptGenerateNode";
 import { VIDEO_GENERATE_NODE_TYPE } from "../nodes/VideoGenerateNode";
@@ -537,21 +536,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     [engine]
   );
 
-  /** Insert image payloads as stacked nodes around a center point. */
-  const insertImagePayloadsAtPoint = useCallback(
-    (
-      payloads: Array<{ props: Record<string, unknown>; size: [number, number] }>,
-      center: [number, number]
-    ) => {
-      payloads.forEach((payload, index) => {
-        const rect = getStackedImageRect(center, payload.size, index);
-        // 逻辑：批量插入图片时错位堆叠，避免完全重叠。
-        engine.addNodeElement("image", payload.props, rect);
-      });
-    },
-    [engine]
-  );
-
   useEffect(() => {
     if (!toolbarDragging) return;
     const handlePointerMove = (event: PointerEvent) => {
@@ -613,10 +597,14 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         IMAGE_EXTS.has(item.entry.name.split(".").pop()?.toLowerCase() ?? "")
       );
       if (imageSelections.length === 0) return;
-      if (imageSelections.length === 1) {
-        const payload = await buildImageNodePayloadFromUri(imageSelections[0].fileRef, {
-          projectId: imageSelections[0].projectId,
-        });
+      const payloads = [];
+      for (const item of imageSelections) {
+        payloads.push(
+          await buildImageNodePayloadFromUri(item.fileRef, { projectId: item.projectId })
+        );
+      }
+      if (payloads.length === 1) {
+        const payload = payloads[0]!;
         handleInsertRequest({
           id: "image",
           type: "image",
@@ -625,16 +613,33 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         });
         return;
       }
-      const center = engine.getViewportCenterWorld();
-      const payloads = [];
-      for (const item of imageSelections) {
-        payloads.push(
-          await buildImageNodePayloadFromUri(item.fileRef, { projectId: item.projectId })
-        );
-      }
-      insertImagePayloadsAtPoint(payloads, center);
+      const previewStack = payloads
+        .map((payload) => payload.props.previewSrc || payload.props.originalSrc || "")
+        .filter((src) => src.length > 0);
+      const stackItems = payloads.map((payload) => ({
+        type: "image",
+        props: payload.props,
+        size: payload.size,
+      }));
+      const [maxWidth, maxHeight] = payloads.reduce<[number, number]>(
+        (acc, payload) => [
+          Math.max(acc[0], payload.size[0]),
+          Math.max(acc[1], payload.size[1]),
+        ],
+        [0, 0]
+      );
+      // 逻辑：多选图片进入待放置模式，鼠标预览显示叠加缩略图。
+      handleInsertRequest({
+        id: "image",
+        type: "image",
+        props: {
+          previewStack,
+          stackItems,
+        },
+        size: [maxWidth, maxHeight],
+      });
     },
-    [engine, handleInsertRequest, insertImagePayloadsAtPoint]
+    [engine, handleInsertRequest]
   );
 
   /** Open the project file picker for videos. */
@@ -650,8 +655,8 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         VIDEO_EXTS.has(item.entry.name.split(".").pop()?.toLowerCase() ?? "")
       );
       if (videoSelections.length === 0) return;
-      const center = engine.getViewportCenterWorld();
-      for (const [index, item] of videoSelections.entries()) {
+      const payloads = [];
+      for (const item of videoSelections) {
         const metadata = await fetchVideoMetadata({
           workspaceId,
           projectId: item.projectId,
@@ -661,19 +666,48 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         const naturalWidth = metadata?.width ?? DEFAULT_VIDEO_WIDTH;
         const naturalHeight = metadata?.height ?? DEFAULT_VIDEO_HEIGHT;
         const [nodeWidth, nodeHeight] = fitSize(naturalWidth, naturalHeight, 360);
-        const rect = getStackedImageRect(center, [nodeWidth, nodeHeight], index);
-        engine.addNodeElement(
-          "video",
-          {
+        payloads.push({
+          type: "video",
+          props: {
             sourcePath: item.fileRef,
             fileName: item.entry.name,
             posterPath: item.thumbnailSrc,
             naturalWidth,
             naturalHeight,
           },
-          rect
-        );
+          size: [nodeWidth, nodeHeight] as [number, number],
+        });
       }
+      if (payloads.length === 1) {
+        const payload = payloads[0]!;
+        handleInsertRequest({
+          id: "video",
+          type: "video",
+          props: payload.props,
+          size: payload.size,
+        });
+        return;
+      }
+      const previewStack = payloads
+        .map((payload) => payload.props.posterPath || "")
+        .filter((src) => src.length > 0);
+      const [maxWidth, maxHeight] = payloads.reduce<[number, number]>(
+        (acc, payload) => [
+          Math.max(acc[0], payload.size[0]),
+          Math.max(acc[1], payload.size[1]),
+        ],
+        [0, 0]
+      );
+      // 逻辑：多选视频进入待放置模式，鼠标预览显示叠加缩略图。
+      handleInsertRequest({
+        id: "video",
+        type: "video",
+        props: {
+          previewStack,
+          stackItems: payloads,
+        },
+        size: [maxWidth, maxHeight],
+      });
     },
     [engine, workspaceId]
   );
@@ -700,7 +734,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     "origin-center transition-transform duration-150 ease-out group-hover:scale-[1.2]";
   /** 中间插入工具图标 hover 旋转样式。 */
   const insertIconClassName =
-    "origin-center transition-transform duration-150 ease-out group-hover:-rotate-45";
+    "origin-center transition-transform duration-150 ease-out group-hover:-rotate-15";
   /** 生成工具子面板圆弧半径。 */
   const generateArcRadius = 72;
   /** 生成工具子面板圆弧起止角度（度数）。 */
@@ -1062,6 +1096,8 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           title="选择图片文件"
           filterHint="仅显示可用图片文件"
           allowedExtensions={IMAGE_EXTS}
+          excludeBoardEntries
+          currentBoardFolderUri={fileContext?.boardFolderUri}
           defaultRootUri={fileContext?.rootUri}
           defaultActiveUri={defaultPickerActiveUri ?? fileContext?.boardFolderUri}
           onSelectFile={handleImageSelected}
@@ -1073,6 +1109,8 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           title="选择视频文件"
           filterHint="仅显示可用视频文件"
           allowedExtensions={VIDEO_EXTS}
+          excludeBoardEntries
+          currentBoardFolderUri={fileContext?.boardFolderUri}
           defaultRootUri={fileContext?.rootUri}
           defaultActiveUri={defaultPickerActiveUri ?? fileContext?.boardFolderUri}
           onSelectFile={handleVideoSelected}

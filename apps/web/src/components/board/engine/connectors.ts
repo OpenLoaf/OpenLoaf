@@ -7,10 +7,10 @@ import type {
   CanvasPoint,
   CanvasAnchorMap,
   CanvasRect,
-  CanvasNodeElement,
 } from "./types";
 import { resolveConnectorEndpointsWithBounds } from "./connector-resolve";
 import { computeConnectorBounds } from "./hit-testing";
+import type { ConnectorAxisPreferenceMap } from "../utils/connector-path";
 
 /** Normalize connector endpoint to store only element reference. */
 function normalizeConnectorEnd(end: CanvasConnectorEnd): CanvasConnectorEnd {
@@ -24,7 +24,7 @@ function buildConnectorElement(
   connectorStyle: CanvasConnectorStyle,
   getNodeBoundsById: (elementId: string) => CanvasRect | undefined,
   generateId: (prefix: string) => string,
-  options?: { avoidRects?: CanvasRect[] }
+  options?: { sourceAxisPreference?: ConnectorAxisPreferenceMap }
 ): CanvasConnectorElement | null {
   // 逻辑：新连线默认以节点自动锚点保存，移动时动态选择最短路径。
   const normalizedSource = normalizeConnectorEnd(draft.source);
@@ -35,7 +35,7 @@ function buildConnectorElement(
       normalizedTarget,
       anchors,
       getNodeBoundsById,
-      { avoidRects: options?.avoidRects, connectorStyle }
+      { sourceAxisPreference: options?.sourceAxisPreference }
     );
   if (!sourcePoint || !targetPoint) return null;
 
@@ -68,7 +68,7 @@ function buildConnectorEndpointUpdate(
   anchors: CanvasAnchorMap,
   connectorStyle: CanvasConnectorStyle,
   getNodeBoundsById: (elementId: string) => CanvasRect | undefined,
-  options?: { avoidRects?: CanvasRect[] }
+  options?: { sourceAxisPreference?: ConnectorAxisPreferenceMap }
 ): { update: Partial<CanvasConnectorElement>; sourcePoint?: CanvasPoint; targetPoint?: CanvasPoint } {
   // 逻辑：端点绑定到节点时不固化锚点，保持最短路径自动选择。
   const normalizedEnd = normalizeConnectorEnd(end);
@@ -80,7 +80,7 @@ function buildConnectorEndpointUpdate(
       nextTarget,
       anchors,
       getNodeBoundsById,
-      { avoidRects: options?.avoidRects, connectorStyle: element.style ?? connectorStyle }
+      { sourceAxisPreference: options?.sourceAxisPreference }
     );
   let nextXYWH: [number, number, number, number] | undefined;
   if (sourcePoint && targetPoint) {

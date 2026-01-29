@@ -1,11 +1,13 @@
 import type {
   CanvasAnchorMap,
   CanvasConnectorEnd,
-  CanvasConnectorStyle,
   CanvasPoint,
   CanvasRect,
 } from "./types";
-import { resolveConnectorEndpointsSmart } from "../utils/connector-path";
+import {
+  type ConnectorAxisPreferenceMap,
+  resolveConnectorEndpointsSmart,
+} from "../utils/connector-path";
 
 type NodeBoundsProvider = (id: string) => CanvasRect | undefined;
 
@@ -15,7 +17,7 @@ function resolveConnectorEndpointsWithBounds(
   target: CanvasConnectorEnd,
   anchors: CanvasAnchorMap,
   getNodeBounds: NodeBoundsProvider,
-  options?: { avoidRects?: CanvasRect[]; connectorStyle?: CanvasConnectorStyle }
+  options?: { sourceAxisPreference?: ConnectorAxisPreferenceMap }
 ): {
   source: CanvasPoint | null;
   target: CanvasPoint | null;

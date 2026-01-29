@@ -32,13 +32,18 @@ export function registerFrontendToolAckRoutes(app: Hono) {
       { toolCallId: parsed.data.toolCallId, status: parsed.data.status },
       "[frontend-tool] ack received",
     );
-    const resolved = resolveFrontendToolPending(parsed.data);
-    if (!resolved) {
+    const result = resolveFrontendToolPending(parsed.data);
+    if (result === "missing") {
       logger.warn(
         { toolCallId: parsed.data.toolCallId },
         "[frontend-tool] ack toolCallId not pending",
       );
       return c.json({ ok: false, error: "toolCallId not pending" }, 404);
+    }
+
+    // 中文注释：提前回执先缓存，避免前端误报 404。
+    if (result === "stored") {
+      return c.json({ ok: true, pending: true });
     }
 
     return c.json({ ok: true });

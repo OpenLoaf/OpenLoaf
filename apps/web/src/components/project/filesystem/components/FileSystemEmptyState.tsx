@@ -46,7 +46,9 @@ const FileSystemEmptyState = memo(function FileSystemEmptyState({
       <div className="flex w-full flex-col items-center gap-4">
         <EmptyState
           title="暂无文件"
-          description="创建一个文稿或画布开始工作。"
+          description={
+            showEmptyActions ? "创建一个文稿或画布开始工作。" : "当前目录暂无可选文件。"
+          }
           icons={[Folder, FileText, FolderOpen]}
           className="border-0 hover:border-0"
           actions={

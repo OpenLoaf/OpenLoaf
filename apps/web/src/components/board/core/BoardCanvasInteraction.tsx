@@ -33,7 +33,6 @@ import type { ImageNodeProps } from "../nodes/ImageNode";
 import type { LinkNodeProps } from "../nodes/LinkNode";
 import { resolveBoardFolderScope, resolveProjectPathFromBoardUri } from "./boardFilePath";
 
-const TEXT_NODE_DEFAULT_SIZE: [number, number] = [280, 140];
 const EDITABLE_NODE_TYPES = new Set(["text", "image-generate", "image-prompt-generate"]);
 /** Cursor assets for board drawing tools. */
 const PEN_CURSOR_DOWN_URL = "/board/brush-cursor.svg";
@@ -686,21 +685,6 @@ export function BoardCanvasInteraction({
         const hitElement = engine.pickElementAt(worldPoint);
         if (hitElement?.kind === "node") {
           handleNodeDoubleClick(hitElement);
-          return;
-        }
-        if (hitElement) return;
-        const [width, height] = TEXT_NODE_DEFAULT_SIZE;
-        // 逻辑：双击空白处创建文本节点并立即进入编辑。
-        const newNodeId = engine.addNodeElement(
-          "text",
-          {
-            autoFocus: true,
-            value: "",
-          },
-          [worldPoint[0] - width / 2, worldPoint[1] - height / 2, width, height]
-        );
-        if (newNodeId) {
-          engine.setEditingNodeId(newNodeId);
         }
       }}
     >

@@ -3,6 +3,13 @@ import type { CanvasPoint } from "../engine/types";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
 import { isBoardUiTarget } from "../utils/dom";
+import { IMAGE_NODE_STACK_OFFSET } from "../utils/image-insert";
+
+type PendingInsertStackItem = {
+  type: string;
+  props: Record<string, unknown>;
+  size?: [number, number];
+};
 
 /** Tool switch shortcuts keyed by lowercase key. */
 const TOOL_SHORTCUTS: Record<string, string> = {
@@ -76,6 +83,32 @@ export class ToolManager {
       }
       const hit = this.engine.pickElementAt(ctx.worldPoint);
       if (hit?.kind === "node") return;
+      const stackItems = (pendingInsert.props as { stackItems?: PendingInsertStackItem[] })
+        .stackItems;
+      if (Array.isArray(stackItems) && stackItems.length > 0) {
+        // 逻辑：多选待放置时按竖向队列插入多节点，避免堆叠。
+        const center: CanvasPoint = [ctx.worldPoint[0], ctx.worldPoint[1]];
+        const sizes = stackItems.map(
+          (item) => item.size ?? pendingInsert.size ?? DEFAULT_NODE_SIZE
+        );
+        const maxHeight = Math.max(...sizes.map((size) => size[1]), 0);
+        const slotHeight = maxHeight + IMAGE_NODE_STACK_OFFSET;
+        const startY = center[1] - ((stackItems.length - 1) * slotHeight) / 2;
+        stackItems.forEach((item, index) => {
+          const size = sizes[index] ?? DEFAULT_NODE_SIZE;
+          const [width, height] = size;
+          const x = center[0] - width / 2;
+          const y = startY + index * slotHeight - height / 2;
+          this.engine.addNodeElement(item.type, item.props, [
+            x,
+            y,
+            width,
+            height,
+          ]);
+        });
+        this.engine.setPendingInsert(null);
+        return;
+      }
       const [width, height] = pendingInsert.size ?? DEFAULT_NODE_SIZE;
       const [x, y] = ctx.worldPoint;
       this.engine.addNodeElement(pendingInsert.type, pendingInsert.props, [

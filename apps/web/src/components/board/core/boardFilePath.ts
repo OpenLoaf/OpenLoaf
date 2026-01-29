@@ -18,9 +18,11 @@ export type BoardFolderScope = {
 /** Scheme matcher for absolute URIs. */
 const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 /** Board asset folder prefix (preferred). */
-const BOARD_ASSET_PREFIX = ".asset";
+const BOARD_ASSET_PREFIX = "asset";
 /** Legacy board asset folder prefix. */
-const LEGACY_ASSET_PREFIX = "assets";
+const LEGACY_ASSET_PREFIX = ".asset";
+/** Older board asset folder prefix. */
+const LEGACY_ASSET_PREFIX_V2 = "assets";
 
 /** Normalize a relative path string. */
 export function normalizeRelativePath(value: string): string {
@@ -43,7 +45,9 @@ export function isBoardRelativePath(value: string): boolean {
     normalized === BOARD_ASSET_PREFIX ||
     normalized.startsWith(`${BOARD_ASSET_PREFIX}/`) ||
     normalized === LEGACY_ASSET_PREFIX ||
-    normalized.startsWith(`${LEGACY_ASSET_PREFIX}/`)
+    normalized.startsWith(`${LEGACY_ASSET_PREFIX}/`) ||
+    normalized === LEGACY_ASSET_PREFIX_V2 ||
+    normalized.startsWith(`${LEGACY_ASSET_PREFIX_V2}/`)
   );
 }
 

@@ -231,16 +231,6 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
         layerOrders.set(layer, ordered);
       });
 
-      const layerSizes = new Map<number, number>();
-      layerIndices.forEach(layer => {
-        const ids = layerOrders.get(layer) ?? [];
-        const size = ids
-          .map(id => componentNodes.get(id))
-          .filter((node): node is LayoutNode => Boolean(node))
-          .reduce((max, node) => Math.max(max, getPrimarySize(node.xywh, direction)), 0);
-        layerSizes.set(layer, size);
-      });
-
       // 逻辑：使用重心排序减少交叉，正反向各跑数次。
       for (let pass = 0; pass < 3; pass += 1) {
         for (let i = 1; i < layerIndices.length; i += 1) {
@@ -269,28 +259,13 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
         }
       }
 
-      const layerAxis = new Map<number, number>();
-      let cursor = axisMin;
-      layerIndices.forEach(layer => {
-        const ids = layerOrders.get(layer) ?? [];
-        const size = layerSizes.get(layer) ?? 0;
-        const lockedPositions = ids
-          .map(id => componentNodes.get(id))
-          .filter((node): node is LayoutNode => Boolean(node?.locked))
-          .map(node => getPrimaryAxis(node.xywh, direction));
-        if (lockedPositions.length > 0) {
-          const sum = lockedPositions.reduce((acc, value) => acc + value, 0);
-          const axis = sum / lockedPositions.length;
-          layerAxis.set(layer, axis);
-          // 逻辑：锁定层保持位置，但推进游标，避免后续层重叠。
-          cursor = Math.max(cursor, axis + size + LAYER_GAP);
-          return;
-        }
-        layerAxis.set(layer, cursor);
-        cursor += size + LAYER_GAP;
-      });
-
       const incomingMap = buildIncomingMap(componentNodes, componentEdges);
+      const primaryPositions = computePrimaryPositions(
+        order,
+        incomingMap,
+        componentNodes,
+        direction
+      );
       const outgoingMap = buildOutgoingMap(componentNodes, componentEdges);
       // 逻辑：横向布局时先布局末端层，保证父节点可参考子节点位置。
       const orderedLayers =
@@ -298,7 +273,6 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
       orderedLayers.forEach(layer => {
         const ids = layerOrders.get(layer) ?? [];
         if (ids.length === 0) return;
-        const axis = layerAxis.get(layer) ?? axisMin;
         const lockedSpans = ids
           .map(id => componentNodes.get(id))
           .filter((node): node is LayoutNode => Boolean(node?.locked))
@@ -323,6 +297,7 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
             // 逻辑：避开锁定节点占用的区间，保证不会穿插。
             const size = direction === "horizontal" ? h : w;
             const placedSecondary = findNextAvailable(cursor, size, lockedSpans);
+            const axis = primaryPositions.get(id) ?? getPrimaryAxis(node.xywh, direction);
             const nextX = direction === "horizontal" ? axis : placedSecondary;
             const nextY = direction === "horizontal" ? placedSecondary : axis;
             layoutPositions.set(id, [nextX, nextY]);
@@ -368,6 +343,7 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
             const node = componentNodes.get(id);
             if (!node || node.locked) return;
             const size = sizes[index] ?? 0;
+            const axis = primaryPositions.get(id) ?? getPrimaryAxis(node.xywh, direction);
             const nextX = direction === "horizontal" ? axis : cursor;
             const nextY = direction === "horizontal" ? cursor : axis;
             layoutPositions.set(id, [nextX, nextY]);
@@ -677,6 +653,37 @@ function assignLayers(
   });
 
   return layer;
+}
+
+/** Compute primary axis positions per node based on predecessors. */
+function computePrimaryPositions(
+  order: string[],
+  incomingMap: Map<string, string[]>,
+  layoutNodes: Map<string, LayoutNode>,
+  direction: LayoutDirection
+): Map<string, number> {
+  const positions = new Map<string, number>();
+  order.forEach(id => {
+    const node = layoutNodes.get(id);
+    if (!node) return;
+    const currentAxis = getPrimaryAxis(node.xywh, direction);
+    if (node.locked) {
+      positions.set(id, currentAxis);
+      return;
+    }
+    // 逻辑：主轴位置仅依赖前驱节点宽度与间距，避免受同层最大宽度影响。
+    const preds = incomingMap.get(id) ?? [];
+    let maxAxis = -Infinity;
+    preds.forEach(predId => {
+      const pred = layoutNodes.get(predId);
+      if (!pred) return;
+      const predAxis = positions.get(predId) ?? getPrimaryAxis(pred.xywh, direction);
+      const predSize = getPrimarySize(pred.xywh, direction);
+      maxAxis = Math.max(maxAxis, predAxis + predSize + LAYER_GAP);
+    });
+    positions.set(id, Number.isFinite(maxAxis) ? maxAxis : currentAxis);
+  });
+  return positions;
 }
 
 /** Reorder a layer based on neighbor barycenters. */

@@ -33,18 +33,19 @@ import { useProjects } from "@/hooks/use-projects";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { trpc } from "@/utils/trpc";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import { isBoardFileExt, isBoardFolderName } from "@/lib/file-name";
 import {
-  IGNORE_NAMES,
   formatScopedProjectPath,
   getDisplayPathFromUri,
+  getEntryExt,
   getParentRelativePath,
   getRelativePathFromUri,
-  getEntryExt,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
 import { sortEntriesByType } from "../utils/entry-sort";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
 import { FileSystemGrid } from "./FileSystemGrid";
+import { filterFilePickerEntries } from "../utils/filter-file-picker-entries";
 
 export type ProjectFilePickerSelection = {
   /** Project-scoped file ref. */
@@ -74,10 +75,16 @@ type ProjectFilePickerDialogProps = {
   defaultActiveUri?: string;
   /** Optional set of allowed extensions. */
   allowedExtensions?: Set<string>;
+  /** Whether to hide board entries from the picker. */
+  excludeBoardEntries?: boolean;
+  /** Current board folder uri (absolute). */
+  currentBoardFolderUri?: string;
   /** Callback when a file is selected. */
   onSelectFile?: (selection: ProjectFilePickerSelection) => void;
   /** Callback when multiple files are selected. */
   onSelectFiles?: (selection: ProjectFilePickerSelection[]) => void;
+  /** Callback for importing files from the local computer. */
+  onImportFromComputer?: () => void;
 };
 
 type ProjectTreeNode = ProjectNode;
@@ -121,8 +128,11 @@ export function ProjectFilePickerDialog({
   defaultRootUri,
   defaultActiveUri,
   allowedExtensions,
+  excludeBoardEntries = false,
+  currentBoardFolderUri,
   onSelectFile,
   onSelectFiles,
+  onImportFromComputer,
 }: ProjectFilePickerDialogProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
@@ -183,18 +193,22 @@ export function ProjectFilePickerDialog({
   );
 
   const gridEntries = useMemo(() => {
-    const entries = ((listQuery.data?.entries ?? []) as FileSystemEntry[]).filter(
-      (entry) => !IGNORE_NAMES.has(entry.name)
-    );
-    const filtered = allowedExtensions
-      ? entries.filter((entry) => {
-          if (entry.kind === "folder") return true;
-          const ext = getEntryExt(entry);
-          return allowedExtensions.has(ext);
-        })
-      : entries;
+    const entries = (listQuery.data?.entries ?? []) as FileSystemEntry[];
+    const filtered = filterFilePickerEntries(entries, {
+      excludeBoardEntries,
+      currentBoardFolderUri: currentBoardFolderUri
+        ? getRelativePathFromUri(activeRootUri ?? "", currentBoardFolderUri)
+        : undefined,
+      currentDirectoryUri: activeUri ?? undefined,
+    });
     return sortEntriesByType(filtered);
-  }, [allowedExtensions, listQuery.data?.entries]);
+  }, [
+    activeRootUri,
+    activeUri,
+    currentBoardFolderUri,
+    excludeBoardEntries,
+    listQuery.data?.entries,
+  ]);
 
   const parentUri = useMemo(() => {
     if (activeUri === null) return null;
@@ -215,6 +229,19 @@ export function ProjectFilePickerDialog({
   const selectedFileEntries = useMemo(
     () => selectedEntries.filter((entry) => entry.kind === "file"),
     [selectedEntries]
+  );
+
+  const isEntrySelectable = useCallback(
+    (entry: FileSystemEntry) => {
+      if (entry.kind === "folder" && isBoardFolderName(entry.name)) return false;
+      if (entry.kind === "file" && isBoardFileExt(getEntryExt(entry))) return false;
+      if (entry.kind === "folder") return true;
+      if (!allowedExtensions) return true;
+      const ext = getEntryExt(entry);
+      // 逻辑：未匹配扩展名的文件可见但不可选。
+      return allowedExtensions.has(ext);
+    },
+    [allowedExtensions]
   );
 
   const handleSelectProject = (uri: string) => {
@@ -340,6 +367,16 @@ export function ProjectFilePickerDialog({
   }, [activeRootUri, activeUri, projectOptions]);
 
   const confirmDisabled = selectedFileEntries.length === 0;
+  const shouldShowImportButton = typeof onImportFromComputer === "function";
+
+  const handleImportFromComputer = useCallback(() => {
+    if (!onImportFromComputer) return;
+    // 中文注释：先关闭弹窗再触发系统文件选择框，避免焦点冲突。
+    onOpenChange(false);
+    window.setTimeout(() => {
+      onImportFromComputer();
+    }, 0);
+  }, [onImportFromComputer, onOpenChange]);
 
   return (
     <Dialog
@@ -412,23 +449,34 @@ export function ProjectFilePickerDialog({
                 rootUri={activeRootUri ?? undefined}
                 currentUri={activeUri}
                 projectId={activeProjectId ?? undefined}
+                showEmptyActions={false}
                 onNavigate={handleNavigate}
                 selectedUris={selectedUris}
                 onEntryClick={handleEntryClick}
                 onSelectionChange={handleSelectionChange}
                 resolveSelectionMode={resolveSelectionMode}
+                isEntrySelectable={isEntrySelectable}
                 onOpenVideo={(entry) => handleConfirm(entry)}
               />
             </div>
           </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="ghost">取消</Button>
-          </DialogClose>
-          <Button type="button" disabled={confirmDisabled} onClick={() => handleConfirm()}>
-            确认选择
-          </Button>
+        <DialogFooter className="flex w-full items-center justify-between">
+          {shouldShowImportButton ? (
+            <Button type="button" variant="ghost" onClick={handleImportFromComputer}>
+              从计算机中导入
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-2">
+            <DialogClose asChild>
+              <Button type="button" variant="ghost">取消</Button>
+            </DialogClose>
+            <Button type="button" disabled={confirmDisabled} onClick={() => handleConfirm()}>
+              确认选择
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
