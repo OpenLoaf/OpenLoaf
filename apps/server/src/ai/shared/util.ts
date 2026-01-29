@@ -66,9 +66,9 @@ export function buildAiDebugFetch(): typeof fetch | undefined {
     // 仅输出请求头，避免打印正文。
     log({ url, headers: headerRecord }, "[ai-debug] request headers");
     // 仅在可读字符串场景输出请求体。
-    if (body) {
-      log({ url, body: parsedBody }, "[ai-debug] request body");
-    }
+    // if (body) {
+    //   log({ url, body: body }, "[ai-debug] request body");
+    // }
     const response = await fetch(input, init);
     try {
       const contentType = response.headers.get("content-type") ?? "";

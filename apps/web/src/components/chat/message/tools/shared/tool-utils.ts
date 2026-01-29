@@ -17,6 +17,8 @@ export type AnyToolPart = {
   state?: string;
   /** Tool input payload. */
   input?: unknown;
+  /** Raw input payload when input is not yet parsed. */
+  rawInput?: unknown;
   /** Tool output payload. */
   output?: unknown;
   /** Tool error text. */

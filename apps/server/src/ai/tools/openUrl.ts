@@ -12,10 +12,16 @@ import {
 export const openUrlTool = tool({
   description: openUrlToolDef.description,
   inputSchema: zodSchema(openUrlToolDef.parameters),
-  execute: async ({ timeoutSec }, options) => {
+  execute: async (input, options) => {
     const toolCallId = options.toolCallId;
     if (!toolCallId) throw new Error("toolCallId is required.");
     requireTabId();
+    const timeoutSec = typeof (input as { timeoutSec?: unknown })?.timeoutSec === "number"
+      ? (input as { timeoutSec?: number }).timeoutSec
+      : undefined;
+    const url = typeof (input as { url?: unknown })?.url === "string"
+      ? String((input as { url?: string }).url)
+      : "";
     const waitTimeoutSec = normalizeTimeoutSec(timeoutSec);
     const result = await registerFrontendToolPending({
       toolCallId,

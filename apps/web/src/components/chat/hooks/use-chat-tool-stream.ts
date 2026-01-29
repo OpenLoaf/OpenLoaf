@@ -22,12 +22,6 @@ export function useChatToolStream() {
       tabId?: string;
       upsertToolPartMerged: (key: string, next: any) => void;
     }) => {
-      console.log(
-        "[chat-tool] handleDataPart",
-        input.dataPart?.type,
-        input.dataPart?.toolName,
-        input.dataPart?.toolCallId
-      );
       handleChatDataPart({
         dataPart: input.dataPart,
         tabId: input.tabId,
@@ -60,9 +54,18 @@ export function useChatToolStream() {
     []
   );
 
+  const handleToolCall = React.useCallback(
+    (input: { toolCall: any; tabId?: string }) => {
+      return (
+        executorRef.current?.executeFromToolCall(input) ?? Promise.resolve(false)
+      );
+    },
+    []
+  );
+
   const api = React.useMemo(
-    () => ({ handleDataPart, syncFromMessages, executeFromToolPart }),
-    [handleDataPart, syncFromMessages, executeFromToolPart]
+    () => ({ handleDataPart, syncFromMessages, executeFromToolPart, handleToolCall }),
+    [handleDataPart, syncFromMessages, executeFromToolPart, handleToolCall]
   );
 
   // 保持返回对象引用稳定，避免依赖触发无限更新。

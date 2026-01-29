@@ -343,7 +343,14 @@ function normalizeRole(role: unknown): DbMessageRole {
 /** Filter message parts for persistence. */
 function normalizeParts(parts: unknown): unknown[] {
   const arr = Array.isArray(parts) ? parts : [];
-  return arr.filter((part) => !(part && typeof part === "object" && (part as any).type === "step-start"));
+  return arr.filter((part) => {
+    if (!part || typeof part !== "object") return true;
+    const record = part as any;
+    if (record.type === "step-start") return false;
+    // 中文注释：过滤流式输出的临时片段，避免落库保存不完整内容。
+    if (record.state === "streaming") return false;
+    return true;
+  });
 }
 
 /** Sanitize metadata fields before persistence. */

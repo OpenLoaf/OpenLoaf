@@ -162,22 +162,22 @@ const GlowingEffect = memo(
                   var(--black),
                   var(--black) calc(25% / var(--repeating-conic-gradient-times))
                 )`
-                  : `radial-gradient(circle, #ff4fd4 16%, #ff4fd400 30%),
-                radial-gradient(circle at 40% 40%, #ffd166 12%, #ffd16600 24%),
-                radial-gradient(circle at 60% 60%, #7bff63 16%, #7bff6300 30%), 
-                radial-gradient(circle at 40% 60%, #4dd7ff 16%, #4dd7ff00 30%),
+                  : `radial-gradient(circle, #dd7bbb 10%, #dd7bbb00 20%),
+                radial-gradient(circle at 40% 40%, #d79f1e 5%, #d79f1e00 15%),
+                radial-gradient(circle at 60% 60%, #5a922c 10%, #5a922c00 20%), 
+                radial-gradient(circle at 40% 60%, #4c7894 10%, #4c789400 20%),
                 repeating-conic-gradient(
                   from 236.84deg at 50% 50%,
-                  #ff4fd4 0%,
-                  #ffd166 calc(25% / var(--repeating-conic-gradient-times)),
-                  #7bff63 calc(50% / var(--repeating-conic-gradient-times)), 
-                  #4dd7ff calc(75% / var(--repeating-conic-gradient-times)),
-                  #ff4fd4 calc(100% / var(--repeating-conic-gradient-times))
+                  #dd7bbb 0%,
+                  #d79f1e calc(25% / var(--repeating-conic-gradient-times)),
+                  #5a922c calc(50% / var(--repeating-conic-gradient-times)), 
+                  #4c7894 calc(75% / var(--repeating-conic-gradient-times)),
+                  #dd7bbb calc(100% / var(--repeating-conic-gradient-times))
                 )`,
             } as CSSProperties
           }
           className={cn(
-            "pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] opacity-100 transition-opacity",
+            "pointer-events-none absolute inset-0 rounded-[inherit] opacity-100 transition-opacity",
             glow && "opacity-100",
             blur > 0 && "blur-[var(--blur)] ",
             className,

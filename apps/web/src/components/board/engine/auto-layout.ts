@@ -267,91 +267,111 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
         direction
       );
       const outgoingMap = buildOutgoingMap(componentNodes, componentEdges);
-      // 逻辑：横向布局时先布局末端层，保证父节点可参考子节点位置。
-      const orderedLayers =
-        direction === "horizontal" ? [...layerIndices].sort((a, b) => b - a) : layerIndices;
-      orderedLayers.forEach(layer => {
-        const ids = layerOrders.get(layer) ?? [];
-        if (ids.length === 0) return;
-        const lockedSpans = ids
-          .map(id => componentNodes.get(id))
-          .filter((node): node is LayoutNode => Boolean(node?.locked))
-          .map(node => getSpan(node.xywh, direction))
-          .sort((a, b) => a.start - b.start);
-        if (lockedSpans.length > 0) {
-          let cursor = ids
+      const resolveSubtreeSpan = createSubtreeSecondarySpanResolver(
+        componentNodes,
+        outgoingMap,
+        direction,
+        layoutPositions
+      );
+      const resolveSubtreeSize = (id: string): number => {
+        const span = resolveSubtreeSpan(id);
+        return Math.max(0, span.end - span.start);
+      };
+      const resolveEffectiveSize = (id: string, node: LayoutNode | undefined): number => {
+        if (!node) return 0;
+        const nodeSize = direction === "horizontal" ? node.xywh[3] : node.xywh[2];
+        const childCount = (outgoingMap.get(id) ?? []).length;
+        if (childCount === 0) return nodeSize;
+        const subtreeSize = resolveSubtreeSize(id);
+        return Math.max(nodeSize, subtreeSize);
+      };
+      const resolveEffectiveSpan = (id: string, node: LayoutNode | undefined) => {
+        if (!node) return { start: 0, end: 0 };
+        const rect = getRectWithPosition(id, node, layoutPositions);
+        const center = getSecondaryCenter(rect, direction);
+        const size = resolveEffectiveSize(id, node);
+        return { start: center - size / 2, end: center + size / 2 };
+      };
+      // 逻辑：横向布局按父到子层级处理，子节点对齐父节点中心。
+      const orderedLayers = layerIndices;
+      const layoutSecondary = () => {
+        orderedLayers.forEach(layer => {
+          const ids = layerOrders.get(layer) ?? [];
+          if (ids.length === 0) return;
+          const lockedSpans = ids
             .map(id => componentNodes.get(id))
-            .filter((node): node is LayoutNode => Boolean(node))
-            .reduce((min, node) => Math.min(min, getSecondaryAxis(node.xywh, direction)), Infinity);
-          if (!Number.isFinite(cursor)) cursor = 0;
-          ids.forEach(id => {
-            const node = componentNodes.get(id);
-            if (!node) return;
-            const [x, y, w, h] = node.xywh;
-            if (node.locked) {
-              layoutPositions.set(id, [x, y]);
-              const span = getSpan(node.xywh, direction);
-              cursor = Math.max(cursor, span.end + NODE_GAP);
-              return;
-            }
-            // 逻辑：避开锁定节点占用的区间，保证不会穿插。
-            const size = direction === "horizontal" ? h : w;
-            const placedSecondary = findNextAvailable(cursor, size, lockedSpans);
-            const axis = primaryPositions.get(id) ?? getPrimaryAxis(node.xywh, direction);
-            const nextX = direction === "horizontal" ? axis : placedSecondary;
-            const nextY = direction === "horizontal" ? placedSecondary : axis;
-            layoutPositions.set(id, [nextX, nextY]);
-            cursor = placedSecondary + size + NODE_GAP;
-          });
-          return;
-        }
-        const desiredCenters =
-          direction === "horizontal"
-            ? computeDesiredCentersFromTargets(
-                ids,
-                componentNodes,
-                outgoingMap,
-                layers,
-                direction,
-                layer,
-                layoutPositions
-              )
-            : computeDesiredCentersForLayer(
-                ids,
-                componentNodes,
-                incomingMap,
-                direction,
-                layoutPositions
-              );
-        const grouped = groupByDesiredCenter(ids, desiredCenters);
-        let secondaryCursor = -Infinity;
-        grouped.forEach(group => {
-          const sizes = group.map(id => {
-            const node = componentNodes.get(id);
-            return node ? (direction === "horizontal" ? node.xywh[3] : node.xywh[2]) : 0;
-          });
-          const totalSize =
-            sizes.reduce((acc, value) => acc + value, 0) + NODE_GAP * Math.max(group.length - 1, 0);
-          const desiredCenter = desiredCenters.get(group[0]) ?? 0;
-          // 逻辑：多子节点先整体居中，再做最小间距分布。
-          let start = desiredCenter - totalSize / 2;
-          if (Number.isFinite(secondaryCursor)) {
-            start = Math.max(start, secondaryCursor + NODE_GAP);
+            .filter((node): node is LayoutNode => Boolean(node?.locked))
+            .map(node => resolveEffectiveSpan(node.id, node))
+            .sort((a, b) => a.start - b.start);
+          if (lockedSpans.length > 0) {
+            let cursor = ids
+              .map(id => componentNodes.get(id))
+              .filter((node): node is LayoutNode => Boolean(node))
+              .reduce((min, node) => Math.min(min, getSecondaryAxis(node.xywh, direction)), Infinity);
+            if (!Number.isFinite(cursor)) cursor = 0;
+            ids.forEach(id => {
+              const node = componentNodes.get(id);
+              if (!node) return;
+              const [x, y, w, h] = node.xywh;
+              if (node.locked) {
+                layoutPositions.set(id, [x, y]);
+                const span = resolveEffectiveSpan(id, node);
+                cursor = Math.max(cursor, span.end + NODE_GAP);
+                return;
+              }
+              // 逻辑：避开锁定节点占用的区间，保证不会穿插。
+              const size = resolveEffectiveSize(id, node);
+              const placedSecondary = findNextAvailable(cursor, size, lockedSpans);
+              const axis = primaryPositions.get(id) ?? getPrimaryAxis(node.xywh, direction);
+              const nodeSize = direction === "horizontal" ? h : w;
+              const centeredSecondary = placedSecondary + (size - nodeSize) / 2;
+              const nextX = direction === "horizontal" ? axis : centeredSecondary;
+              const nextY = direction === "horizontal" ? centeredSecondary : axis;
+              layoutPositions.set(id, [nextX, nextY]);
+              cursor = placedSecondary + size + NODE_GAP;
+            });
+            return;
           }
-          let cursor = start;
-          group.forEach((id, index) => {
-            const node = componentNodes.get(id);
-            if (!node || node.locked) return;
-            const size = sizes[index] ?? 0;
-            const axis = primaryPositions.get(id) ?? getPrimaryAxis(node.xywh, direction);
-            const nextX = direction === "horizontal" ? axis : cursor;
-            const nextY = direction === "horizontal" ? cursor : axis;
-            layoutPositions.set(id, [nextX, nextY]);
-            cursor += size + NODE_GAP;
+          const desiredCenters = computeDesiredCentersForLayer(
+            ids,
+            componentNodes,
+            incomingMap,
+            direction,
+            layoutPositions
+          );
+          const grouped = groupByPrimaryParent(ids, incomingMap, desiredCenters);
+          grouped.forEach(group => {
+            if (group.length === 0) return;
+            const parentId = (incomingMap.get(group[0]) ?? [])[0];
+            const parentNode = parentId ? componentNodes.get(parentId) : undefined;
+            const parentCenter = parentNode
+              ? getSecondaryCenterWithPosition(parentId, parentNode, layoutPositions, direction)
+              : desiredCenters.get(group[0]) ?? 0;
+            const sizes = group.map(id => resolveEffectiveSize(id, componentNodes.get(id)));
+            const totalSize =
+              sizes.reduce((acc, value) => acc + value, 0) +
+              NODE_GAP * Math.max(group.length - 1, 0);
+            let cursor = parentCenter - totalSize / 2;
+            group.forEach((id, index) => {
+              const node = componentNodes.get(id);
+              if (!node || node.locked) return;
+              const size = sizes[index] ?? 0;
+              const axis = primaryPositions.get(id) ?? getPrimaryAxis(node.xywh, direction);
+              const nodeSize = direction === "horizontal" ? node.xywh[3] : node.xywh[2];
+              const centeredSecondary = cursor + (size - nodeSize) / 2;
+              const nextX = direction === "horizontal" ? axis : centeredSecondary;
+              const nextY = direction === "horizontal" ? centeredSecondary : axis;
+              layoutPositions.set(id, [nextX, nextY]);
+              cursor += size + NODE_GAP;
+            });
           });
-          secondaryCursor = cursor - NODE_GAP;
         });
-      });
+      };
+
+      layoutSecondary();
+      if (direction === "horizontal") {
+        layoutSecondary();
+      }
 
       const originalCenter = computeComponentSecondaryCenter(
         componentIds,
@@ -417,6 +437,40 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
     const rect = computeComponentRect(component.nodeIds, layoutNodes, layoutPositions);
     componentRects.set(component.id, rect);
   });
+
+  // 逻辑：非锁定组件按次轴自上而下紧凑排列，并对齐到统一 x。
+  const stackableComponents = componentEntries
+    .filter(component => !component.locked)
+    .map(component => ({
+      id: component.id,
+      nodeIds: component.nodeIds,
+      rect: componentRects.get(component.id),
+    }))
+    .filter((entry): entry is { id: string; nodeIds: string[]; rect: RectTuple } => Boolean(entry.rect))
+    .sort((left, right) => left.rect[1] - right.rect[1]);
+
+  if (stackableComponents.length > 0) {
+    const anchorX = stackableComponents[0].rect[0];
+    let cursorY: number | null = null;
+    stackableComponents.forEach(component => {
+      const rect = component.rect;
+      const nextX = anchorX;
+      const nextY = cursorY ?? rect[1];
+      const deltaX = nextX - rect[0];
+      const deltaY = nextY - rect[1];
+      if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
+        component.nodeIds.forEach(nodeId => {
+          const node = layoutNodes.get(nodeId);
+          if (!node) return;
+          const [x, y, w, h] = getRectWithPosition(node);
+          layoutPositions.set(nodeId, [x + deltaX, y + deltaY]);
+        });
+      }
+      const nextRect: RectTuple = [nextX, nextY, rect[2], rect[3]];
+      componentRects.set(component.id, nextRect);
+      cursorY = nextY + rect[3] + NODE_GAP;
+    });
+  }
 
   const obstacleRects = new Map<string, RectTuple>();
   componentEntries.forEach(component => {
@@ -887,6 +941,52 @@ function buildOutgoingMap(
   return outgoing;
 }
 
+/** Resolve rect with optional layout position applied. */
+function getRectWithPosition(
+  id: string,
+  node: LayoutNode,
+  layoutPositions?: Map<string, [number, number]>
+): RectTuple {
+  const pos = layoutPositions?.get(id);
+  const [x, y, w, h] = node.xywh;
+  return pos ? [pos[0], pos[1], w, h] : [x, y, w, h];
+}
+
+/** Create a resolver for subtree secondary span (node + all downstream nodes). */
+function createSubtreeSecondarySpanResolver(
+  layoutNodes: Map<string, LayoutNode>,
+  outgoing: Map<string, string[]>,
+  direction: LayoutDirection,
+  layoutPositions?: Map<string, [number, number]>
+): (id: string) => { start: number; end: number } {
+  const cache = new Map<string, { start: number; end: number }>();
+  const visiting = new Set<string>();
+
+  const resolve = (id: string): { start: number; end: number } => {
+    const cached = cache.get(id);
+    if (cached) return cached;
+    const node = layoutNodes.get(id);
+    const baseRect = node ? getRectWithPosition(id, node, layoutPositions) : [0, 0, 0, 0];
+    let span = getSpan(baseRect as RectTuple, direction);
+    if (visiting.has(id)) return span;
+    visiting.add(id);
+    const targets = outgoing.get(id) ?? [];
+    targets.forEach(targetId => {
+      if (!layoutNodes.has(targetId)) return;
+      const childSpan = resolve(targetId);
+      span = {
+        start: Math.min(span.start, childSpan.start),
+        end: Math.max(span.end, childSpan.end),
+      };
+    });
+    visiting.delete(id);
+    cache.set(id, span);
+    return span;
+  };
+
+  return resolve;
+}
+
 function computeDesiredCentersForLayer(
   ids: string[],
   layoutNodes: Map<string, LayoutNode>,
@@ -920,6 +1020,8 @@ function computeDesiredCentersFromTargets(
   ids: string[],
   layoutNodes: Map<string, LayoutNode>,
   outgoing: Map<string, string[]>,
+  incoming: Map<string, string[]>,
+  resolveSubtreeSpan: (id: string) => { start: number; end: number },
   layers: Map<string, number>,
   direction: LayoutDirection,
   currentLayer: number,
@@ -932,26 +1034,24 @@ function computeDesiredCentersFromTargets(
     const targets = outgoing.get(id) ?? [];
     const nextTargets = targets.filter(targetId => (layers.get(targetId) ?? 0) > currentLayer);
     if (nextTargets.length === 0) {
-      centers.set(id, getSecondaryCenterWithPosition(id, node, layoutPositions, direction));
+      const sources = incoming.get(id) ?? [];
+      if (sources.length === 0) {
+        centers.set(id, getSecondaryCenterWithPosition(id, node, layoutPositions, direction));
+        return;
+      }
+      let sum = 0;
+      let count = 0;
+      sources.forEach(sourceId => {
+        const source = layoutNodes.get(sourceId);
+        if (!source) return;
+        sum += getSecondaryCenterWithPosition(sourceId, source, layoutPositions, direction);
+        count += 1;
+      });
+      centers.set(id, count > 0 ? sum / count : getSecondaryCenter(node.xywh, direction));
       return;
     }
-    let sum = 0;
-    let count = 0;
-    nextTargets.forEach(targetId => {
-      const target = layoutNodes.get(targetId);
-      if (!target) return;
-      sum += getSecondaryCenterWithPosition(
-        targetId,
-        target,
-        layoutPositions,
-        direction
-      );
-      count += 1;
-    });
-    centers.set(
-      id,
-      count > 0 ? sum / count : getSecondaryCenterWithPosition(id, node, layoutPositions, direction)
-    );
+    const span = resolveSubtreeSpan(id);
+    centers.set(id, (span.start + span.end) / 2);
   });
   return centers;
 }
@@ -987,6 +1087,36 @@ function groupByDesiredCenter(
   });
   if (current.length > 0) groups.push(current);
   return groups;
+}
+
+function groupByPrimaryParent(
+  ids: string[],
+  incoming: Map<string, string[]>,
+  desiredCenters: Map<string, number>
+): string[][] {
+  const groupsByParent = new Map<string, string[]>();
+  ids.forEach(id => {
+    const sources = incoming.get(id) ?? [];
+    const parentId = sources[0] ?? `__root__${id}`;
+    const bucket = groupsByParent.get(parentId) ?? [];
+    bucket.push(id);
+    groupsByParent.set(parentId, bucket);
+  });
+
+  const groups = Array.from(groupsByParent.values()).map(group =>
+    group.sort((left, right) => {
+      const leftCenter = desiredCenters.get(left) ?? 0;
+      const rightCenter = desiredCenters.get(right) ?? 0;
+      if (leftCenter !== rightCenter) return leftCenter - rightCenter;
+      return left.localeCompare(right);
+    })
+  );
+
+  return groups.sort((left, right) => {
+    const leftCenter = desiredCenters.get(left[0] ?? "") ?? 0;
+    const rightCenter = desiredCenters.get(right[0] ?? "") ?? 0;
+    return leftCenter - rightCenter;
+  });
 }
 
 /** Build clusters for unlinked nodes using expanded bounding boxes. */

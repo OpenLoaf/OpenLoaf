@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Circle, X } from "lucide-react";
+import { Check, Circle, Copy, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@tenas-ai/ui/accordion";
 import { Separator } from "@tenas-ai/ui/separator";
@@ -83,10 +83,52 @@ export default function ToolInfoCard({
   );
   const headerActions = isApprovalRequested ? actions : null;
   const contentActions = isApprovalRequested ? null : actions;
+  const outputTextRef = React.useRef(outputText);
+  const [isOutputCopied, setIsOutputCopied] = React.useState(false);
+  const copyResetTimeoutRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    outputTextRef.current = outputText;
+  }, [outputText]);
+
+  React.useEffect(() => {
+    return () => {
+      if (copyResetTimeoutRef.current != null) {
+        window.clearTimeout(copyResetTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  /** Copy output text to clipboard. */
+  const handleCopyOutput = React.useCallback(async () => {
+    const text = outputTextRef.current;
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // 中文注释：剪贴板不可用时，降级使用隐藏输入框拷贝。
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+    setIsOutputCopied(true);
+    if (copyResetTimeoutRef.current != null) {
+      window.clearTimeout(copyResetTimeoutRef.current);
+    }
+    copyResetTimeoutRef.current = window.setTimeout(() => {
+      setIsOutputCopied(false);
+    }, 1200);
+  }, []);
 
   const triggerClassName = cn(
     "py-0.5 text-[10px] font-medium text-foreground/70 hover:no-underline [&>svg]:text-muted-foreground/30",
-    headerActions ? "pr-2" : "pr-10",
+    headerActions ? "pr-2" : undefined,
   );
 
   return (
@@ -108,7 +150,7 @@ export default function ToolInfoCard({
           style={containerStyle}
         >
           <AccordionTrigger className={triggerClassName}>
-            <div className="flex w-full flex-col gap-0.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <div className="flex w-full items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="shrink-0">{statusIcon}</span>
@@ -148,7 +190,21 @@ export default function ToolInfoCard({
               {showOutput && (outputText || outputLoading) ? (
                 <>
                   <Separator className="my-0.5 bg-border/60" />
-                  <div className="text-[9px] uppercase tracking-wide text-muted-foreground/80">输出</div>
+                  <div className="flex items-center justify-between text-[9px] uppercase tracking-wide text-muted-foreground/80">
+                    <span>输出</span>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-[9px] normal-case text-muted-foreground/80 hover:text-foreground/80"
+                      onClick={handleCopyOutput}
+                      aria-label={isOutputCopied ? "已复制" : "复制输出内容"}
+                    >
+                      {isOutputCopied ? (
+                        <Check className="size-3 text-emerald-500" />
+                      ) : (
+                        <Copy className="size-3" />
+                      )}
+                    </button>
+                  </div>
                   <div
                     className={cn(
                       "show-scrollbar max-h-32 overflow-y-auto text-[9px]",

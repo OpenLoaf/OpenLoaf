@@ -5,6 +5,7 @@ import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { testApprovalSubAgentName } from "@tenas-ai/api/types/tools/subAgent";
 import { buildToolset } from "@/ai/tools/toolRegistry";
+import { createToolCallRepair } from "@/ai/agents/repairToolCall";
 
 /** Test approval sub-agent display name. */
 export const TEST_APPROVAL_SUB_AGENT_NAME = testApprovalSubAgentName;
@@ -52,5 +53,6 @@ export function createTestApprovalSubAgent(input: CreateTestApprovalSubAgentInpu
     model: input.model,
     instructions: buildTestApprovalSubAgentSystemPrompt(),
     tools: buildToolset(toolIds),
+    experimental_repairToolCall: createToolCallRepair(),
   });
 }

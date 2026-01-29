@@ -53,7 +53,8 @@ function fitToElements(
 
   const scaleX = size[0] / targetWidth;
   const scaleY = size[1] / targetHeight;
-  const nextZoom = Math.min(scaleX, scaleY);
+  const limits = viewport.getZoomLimits();
+  const nextZoom = clampZoom(Math.min(scaleX, scaleY), limits.min, limits.max);
   const centerX = minX + width / 2;
   const centerY = minY + height / 2;
   const offset: CanvasPoint = [

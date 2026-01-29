@@ -154,12 +154,14 @@ export default function UnifiedTool({
   const outputText = getRawOutputText(part.output, part.errorText || safeStringify(part.output));
   const resolvedOutput = isRejected ? "已拒绝" : outputText;
 
+  const inputPayload = part.input ?? part.rawInput;
+
   return (
     <ToolInfoCard
       title={title}
       toolId={getToolId(part)}
       statusTone={statusTone}
-      inputText={getRawInputText(part.input)}
+      inputText={getRawInputText(inputPayload)}
       className={className}
       isApprovalRequested={isApprovalRequested}
       isRejected={isRejected}

@@ -12,6 +12,7 @@ import { buildProjectHierarchyIndex } from "@/lib/project-tree";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { createFileEntryFromUri } from "@/components/file/lib/open-file";
 import { recordRecentOpen } from "@/components/file/lib/recent-open";
+import { waitForWebContentsViewReady } from "@/lib/chat/open-url-ack";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
 import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
@@ -46,6 +47,7 @@ export type FrontendToolExecutor = {
   register: (toolName: string, handler: FrontendToolHandler) => void;
   executeFromDataPart: (input: { dataPart: any; tabId?: string }) => Promise<boolean>;
   executeFromToolPart: (input: { part: any; tabId?: string }) => Promise<boolean>;
+  executeFromToolCall: (input: { toolCall: any; tabId?: string }) => Promise<boolean>;
 };
 
 function resolveAckEndpoint(): string {
@@ -195,17 +197,18 @@ export function createFrontendToolExecutor(): FrontendToolExecutor {
       allowedToolNames.add(toolName);
     },
     executeFromDataPart: async ({ dataPart, tabId }) => {
-      console.log(
-        "[frontend-tool] dataPart",
-        dataPart?.type,
-        dataPart?.toolName,
-        dataPart?.toolCallId
-      );
       if (dataPart?.type !== "tool-input-available") return false;
       const toolCallId = typeof dataPart.toolCallId === "string" ? dataPart.toolCallId : "";
       const toolName = typeof dataPart.toolName === "string" ? dataPart.toolName : "";
       if (!toolCallId || !toolName) return false;
       return execute({ toolCallId, toolName, payload: dataPart.input, tabId });
+    },
+    executeFromToolCall: async ({ toolCall, tabId }) => {
+      const toolCallId = typeof toolCall?.toolCallId === "string" ? toolCall.toolCallId : "";
+      const toolName = typeof toolCall?.toolName === "string" ? toolCall.toolName : "";
+      if (!toolCallId || !toolName) return false;
+      if (toolCall?.invalid === true) return false;
+      return execute({ toolCallId, toolName, payload: toolCall.input, tabId });
     },
     executeFromToolPart: async ({ part, tabId }) => {
       const toolCallId = typeof part?.toolCallId === "string" ? part.toolCallId : "";
@@ -264,6 +267,18 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
         projectId: recent.projectId,
         entry: recent.entry,
       });
+    }
+    // 中文注释：仅在 Electron 环境等待加载结束，网页端直接回执避免阻塞。
+    if (typeof window !== "undefined" && window.tenasElectron) {
+      const readyResult = await waitForWebContentsViewReady(viewKey);
+      if (readyResult?.status === "failed") {
+        const failed = readyResult.detail.failed;
+        return {
+          status: "failed",
+          output: { url: normalizedUrl, viewKey },
+          errorText: failed?.errorDescription || "open-url failed",
+        };
+      }
     }
 
     return { status: "success", output: { url: normalizedUrl, viewKey } };

@@ -7,7 +7,7 @@ import { execCommandTool } from "@/ai/tools/execCommandTool";
 import { shellTool } from "@/ai/tools/shellTool";
 import { shellCommandTool } from "@/ai/tools/shellCommandTool";
 import { writeStdinTool } from "@/ai/tools/writeStdinTool";
-import { listDirTool, readFileTool } from "@/ai/tools/fileTools";
+import { listDirTool, readFileTool, writeFileTool } from "@/ai/tools/fileTools";
 import { updatePlanTool } from "@/ai/tools/updatePlanTool";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
@@ -24,6 +24,7 @@ import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
 import {
   listDirToolDef,
   readFileToolDef,
+  writeFileToolDef,
   shellCommandToolDefUnix,
   shellCommandToolDefWin,
   shellToolDefUnix,
@@ -95,6 +96,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [readFileToolDef.id]: {
     tool: readFileTool,
+  },
+  [writeFileToolDef.id]: {
+    tool: writeFileTool,
   },
   [listDirToolDef.id]: {
     tool: listDirTool,

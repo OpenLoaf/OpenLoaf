@@ -11,6 +11,7 @@ import {
 } from "@tenas-ai/api/types/tools/runtime";
 import { documentAnalysisSubAgentName } from "@tenas-ai/api/types/tools/subAgent";
 import { buildToolset } from "@/ai/tools/toolRegistry";
+import { createToolCallRepair } from "@/ai/agents/repairToolCall";
 
 /** Document analysis sub-agent display name. */
 export const DOCUMENT_ANALYSIS_SUB_AGENT_NAME = documentAnalysisSubAgentName;
@@ -64,5 +65,6 @@ export function createDocumentAnalysisSubAgent(
     model: input.model,
     instructions: buildDocumentAnalysisSubAgentSystemPrompt(),
     tools: buildToolset(toolIds),
+    experimental_repairToolCall: createToolCallRepair(),
   });
 }

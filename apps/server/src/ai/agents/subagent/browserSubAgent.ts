@@ -11,6 +11,7 @@ import {
 } from "@tenas-ai/api/types/tools/browserAutomation";
 import { browserSubAgentName } from "@tenas-ai/api/types/tools/subAgent";
 import { buildToolset } from "@/ai/tools/toolRegistry";
+import { createToolCallRepair } from "@/ai/agents/repairToolCall";
 
 /** Browser sub-agent display name. */
 export const BROWSER_SUB_AGENT_NAME = browserSubAgentName;
@@ -62,5 +63,6 @@ export function createBrowserSubAgent(input: CreateBrowserSubAgentInput) {
     model: input.model,
     instructions: buildBrowserSubAgentSystemPrompt(),
     tools: buildToolset(toolIds),
+    experimental_repairToolCall: createToolCallRepair(),
   });
 }

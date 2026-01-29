@@ -198,6 +198,22 @@ export const readFileToolDef = {
   component: null,
 } as const;
 
+export const writeFileToolDef = {
+  id: "write-file",
+  name: "写入文件",
+  description:
+    "Writes text content to a file under the current project or workspace directory.",
+  parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：写入 markdown 文件。"),
+    path: z.string().min(1).describe("目标文件路径（相对当前项目/工作空间）。"),
+    content: z.string().describe("要写入的文本内容。"),
+  }),
+  component: null,
+} as const;
+
 export const listDirToolDef = {
   id: "list-dir",
   name: "列出目录",

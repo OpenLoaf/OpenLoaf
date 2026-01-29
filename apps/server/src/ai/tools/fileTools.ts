@@ -4,10 +4,13 @@ import { tool, zodSchema } from "ai";
 import {
   listDirToolDef,
   readFileToolDef,
+  writeFileToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolPath, resolveToolWorkdir } from "@/ai/tools/toolScope";
 import { buildGitignoreMatcher } from "@/ai/tools/gitignoreMatcher";
+import { getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";
+import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
 
 const MAX_LINE_LENGTH = 500;
 const DEFAULT_READ_LIMIT = 2000;
@@ -118,6 +121,41 @@ type DirStats = {
   symlinkCount: number;
   otherCount: number;
 };
+
+/** Check whether a target path stays inside a root path. */
+function isPathInside(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+/** Resolve a write target path within the current project/workspace root. */
+function resolveWriteTargetPath(targetPath: string): { absPath: string; rootPath: string } {
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) throw new Error("workspaceId is required.");
+  const projectId = getProjectId();
+  const rootPath = projectId
+    ? getProjectRootPath(projectId, workspaceId)
+    : getWorkspaceRootPathById(workspaceId);
+  if (!rootPath) {
+    throw new Error(projectId ? "Project not found." : "Workspace not found.");
+  }
+
+  const trimmed = targetPath.trim();
+  if (!trimmed) throw new Error("path is required.");
+  if (trimmed.startsWith("file:")) throw new Error("file:// URIs are not allowed.");
+  if (trimmed.startsWith("@[")) throw new Error("Project-scoped paths are not allowed.");
+  const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  if (!normalized.trim()) throw new Error("path is required.");
+
+  const resolvedRoot = path.resolve(rootPath);
+  const absPath = path.isAbsolute(normalized)
+    ? path.resolve(normalized)
+    : path.resolve(resolvedRoot, normalized);
+  if (!isPathInside(resolvedRoot, absPath)) {
+    throw new Error("Path is outside the current project/workspace scope.");
+  }
+  return { absPath, rootPath: resolvedRoot };
+}
 
 /** Clamp a byte index to a UTF-8 boundary. */
 function clampUtf8End(buffer: Buffer, index: number): number {
@@ -350,6 +388,23 @@ export const readFileTool = tool({
     const endIndex = Math.min(startIndex + resolvedLimit - 1, records.length - 1);
     const slice = records.slice(startIndex, endIndex + 1).map(formatLineRecord);
     return slice.join("\n");
+  },
+});
+
+/** Execute write file tool with project/workspace scope enforcement. */
+export const writeFileTool = tool({
+  description: writeFileToolDef.description,
+  inputSchema: zodSchema(writeFileToolDef.parameters),
+  execute: async ({ path: filePath, content }): Promise<string> => {
+    const { absPath, rootPath } = resolveWriteTargetPath(filePath);
+    const dirPath = path.dirname(absPath);
+    // 逻辑：写入前确保目录存在，并限制在当前项目/工作区范围内。
+    await fs.mkdir(dirPath, { recursive: true });
+    const existing = await fs.stat(absPath).catch(() => null);
+    if (existing?.isDirectory()) throw new Error("Path is a directory.");
+    await fs.writeFile(absPath, content, "utf-8");
+    const relative = path.relative(rootPath, absPath) || path.basename(absPath);
+    return `Wrote file: ${relative}`;
   },
 });
 

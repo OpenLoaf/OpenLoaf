@@ -6,6 +6,7 @@ import {
   browserSnapshotToolDef,
   browserWaitToolDef,
 } from "@tenas-ai/api/types/tools/browserAutomation";
+import { logger } from "@/common/logger";
 import { getClientId, getSessionId } from "@/ai/shared/context/requestContext";
 import { requireTabId } from "@/common/tabContext";
 import { sendCdpCommand } from "@/modules/browser/cdpClient";
@@ -15,6 +16,49 @@ import { getActiveBrowserTargetId, tabSnapshotStore } from "@/modules/tab/TabSna
 const MAX_TEXT_LENGTH = 10_000;
 // 交互元素快照上限，优先覆盖弹窗/菜单等场景。
 const MAX_SNAPSHOT_ELEMENTS = 120;
+
+type SnapshotElement = {
+  /** 元素选择器 */
+  selector: string;
+  /** 可见文本 */
+  text: string;
+  /** 标签名 */
+  tag: string;
+};
+
+type SnapshotFrame = {
+  /** iframe 地址 */
+  src: string;
+  /** iframe name 或 id */
+  name?: string;
+  /** iframe 标题 */
+  title?: string;
+  /** iframe 宽度 */
+  width?: number;
+  /** iframe 高度 */
+  height?: number;
+  /** 访问状态 */
+  status: "same-origin" | "cross-origin";
+  /** 同源文本内容 */
+  text?: string;
+  /** 同源可交互元素 */
+  elements?: SnapshotElement[];
+};
+
+type SnapshotPayload = {
+  /** 当前页面 URL */
+  url: string;
+  /** 当前页面标题 */
+  title: string;
+  /** 文档就绪状态 */
+  readyState: string;
+  /** 可见文本 */
+  text: string;
+  /** 可交互元素 */
+  elements: SnapshotElement[];
+  /** iframe 信息 */
+  frames?: SnapshotFrame[];
+};
 
 /** Ensure sessionId is available for tab snapshot lookup. */
 function requireSessionId(): string {
@@ -57,7 +101,16 @@ async function evalInTarget<T>(targetId: string, expression: string): Promise<T>
   };
 
   if (result?.exceptionDetails) {
-    throw new Error(result.exceptionDetails.text ?? "Runtime.evaluate failed");
+    const detail = result.exceptionDetails as {
+      text?: string;
+      exception?: { description?: string; stack?: string };
+    };
+    const description = detail.exception?.description ?? detail.text ?? "Runtime.evaluate failed";
+    // 中文注释：打印更完整的异常细节，便于排查页面脚本报错原因。
+    logger.warn({ targetId, description }, "[browser] Runtime.evaluate failed");
+    const stack = detail.exception?.stack ?? "";
+    const errorMessage = stack ? `${description}\n${stack}` : description;
+    throw new Error(errorMessage);
   }
 
   return result?.result?.value as T;
@@ -114,22 +167,82 @@ async function submitClosestForm(targetId: string, selector: string) {
   );
 }
 
+/** Merge main document and iframe snapshots with shared limits. */
+export function mergeSnapshotData(
+  payload: SnapshotPayload,
+  limits: { maxTextLength: number; maxElements: number },
+): SnapshotPayload {
+  // 合并主文档与 iframe 内容，统一预算，保持顺序。
+  const frames = payload.frames ?? [];
+  let remainingText = limits.maxTextLength;
+  const textChunks: string[] = [];
+  const pushText = (value?: string) => {
+    if (!value || remainingText <= 0) return;
+    const slice = value.slice(0, remainingText);
+    if (!slice) return;
+    textChunks.push(slice);
+    remainingText -= slice.length;
+  };
+  pushText(payload.text);
+  for (const frame of frames) {
+    if (remainingText <= 0) break;
+    if (frame.status === "same-origin") pushText(frame.text);
+  }
+
+  const mergedElements: SnapshotElement[] = [];
+  const pushElements = (items?: SnapshotElement[]) => {
+    if (!items || mergedElements.length >= limits.maxElements) return;
+    for (const item of items) {
+      if (mergedElements.length >= limits.maxElements) break;
+      mergedElements.push(item);
+    }
+  };
+  pushElements(payload.elements);
+  for (const frame of frames) {
+    if (mergedElements.length >= limits.maxElements) break;
+    if (frame.status === "same-origin") pushElements(frame.elements);
+  }
+
+  return {
+    ...payload,
+    text: textChunks.join("\n"),
+    elements: mergedElements,
+    frames,
+  };
+}
+
 /** Build a minimal snapshot expression to run in the browser context. */
 function buildSnapshotExpression() {
   return `(() => {
-    const body = document.body;
-    const text = (body && (body.innerText || body.textContent) || '').toString();
-    const limited = text.length > ${MAX_TEXT_LENGTH} ? text.slice(0, ${MAX_TEXT_LENGTH}) : text;
-    const elements = (() => {
-      const maxElements = ${MAX_SNAPSHOT_ELEMENTS};
-      const interactiveSelector = 'a,button,input,select,textarea,[role="button"],[role="link"],[role="menuitem"],[role="option"]';
+    const maxTextLength = ${MAX_TEXT_LENGTH};
+    const maxElements = ${MAX_SNAPSHOT_ELEMENTS};
+    const interactiveSelector = 'a,button,input,select,textarea,[role="button"],[role="link"],[role="menuitem"],[role="option"]';
+    const getText = (doc) => {
+      const body = doc && doc.body;
+      const text = (body && (body.innerText || body.textContent) || '').toString();
+      return text.length > maxTextLength ? text.slice(0, maxTextLength) : text;
+    };
+    const pickElements = (doc) => {
       const picked = [];
       const seen = new Set();
+      const view = (doc && doc.defaultView) || window;
+      const escapeCss = (value) => {
+        if (!value) return '';
+        if (view && view.CSS && typeof view.CSS.escape === 'function') return view.CSS.escape(value);
+        // 中文注释：避免正则字面量在字符串中失效，手动转义特殊字符。
+        const specials = ' !"#$%&\\\'()*+,./:;<=>?@[\\\\]^{|}~';
+        let out = '';
+        for (let i = 0; i < value.length; i += 1) {
+          const ch = value[i];
+          out += specials.indexOf(ch) !== -1 ? '\\\\' + ch : ch;
+        }
+        return out;
+      };
       const isVisible = (el) => {
         if (!el || typeof el.getClientRects !== 'function') return false;
         const rects = el.getClientRects();
         if (!rects || rects.length === 0) return false;
-        const style = window.getComputedStyle(el);
+        const style = view && typeof view.getComputedStyle === 'function' ? view.getComputedStyle(el) : null;
         if (!style) return true;
         return style.visibility !== 'hidden' && style.display !== 'none';
       };
@@ -164,32 +277,61 @@ function buildSnapshotExpression() {
           }
         }
       };
-      const modalRoots = Array.from(
-        document.querySelectorAll('[role="dialog"],[aria-modal="true"],[role="menu"],[role="listbox"]'),
-      );
+      const modalRoots = doc
+        ? Array.from(doc.querySelectorAll('[role="dialog"],[aria-modal="true"],[role="menu"],[role="listbox"]'))
+        : [];
       for (const root of modalRoots) {
         walk(root);
         if (picked.length >= maxElements) break;
       }
-      if (picked.length < maxElements) {
-        walk(document);
+      if (picked.length < maxElements && doc) {
+        walk(doc);
       }
-      return picked;
-    })().map((el) => {
+      return picked.map((el) => {
         const tag = (el.tagName || '').toLowerCase();
         const label = (el.innerText || el.value || el.getAttribute('aria-label') || '').toString().trim().slice(0, 80);
         let selector = '';
-        if (el.id) selector = '#' + CSS.escape(el.id);
-        else if (el.name) selector = tag + '[name="' + CSS.escape(el.name) + '"]';
+        if (el.id) selector = '#' + escapeCss(el.id);
+        else if (el.name) selector = tag + '[name="' + escapeCss(el.name) + '"]';
         else selector = tag;
         return { selector, text: label, tag };
       });
+    };
+    const frames = [];
+    const frameEls = Array.from(document.querySelectorAll('iframe'));
+    for (const frame of frameEls) {
+      const info = {
+        src: frame.getAttribute('src') || '',
+        name: frame.getAttribute('name') || frame.id || '',
+        title: frame.getAttribute('title') || '',
+        width: frame.clientWidth || frame.offsetWidth || 0,
+        height: frame.clientHeight || frame.offsetHeight || 0,
+      };
+      try {
+        const frameDoc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+        if (frameDoc && frameDoc.body) {
+          frames.push({
+            ...info,
+            status: 'same-origin',
+            text: getText(frameDoc),
+            elements: pickElements(frameDoc),
+          });
+          continue;
+        }
+      } catch (err) {
+        // ignore cross-origin access
+      }
+      frames.push({ ...info, status: 'cross-origin' });
+    }
+    const text = getText(document);
+    const elements = pickElements(document);
     return {
       url: location.href,
       title: document.title,
       readyState: document.readyState,
-      text: limited,
+      text,
       elements,
+      frames,
     };
   })()`;
 }
@@ -209,8 +351,8 @@ export const browserSnapshotTool = tool({
   inputSchema: zodSchema(browserSnapshotToolDef.parameters),
   execute: async () => {
     const targetId = pickActiveTargetId();
-    const data = await evalInTarget(targetId, buildSnapshotExpression());
-    return { ok: true, data };
+    const data = await evalInTarget<SnapshotPayload>(targetId, buildSnapshotExpression());
+    return { ok: true, data: mergeSnapshotData(data, { maxTextLength: MAX_TEXT_LENGTH, maxElements: MAX_SNAPSHOT_ELEMENTS }) };
   },
 });
 
@@ -219,8 +361,14 @@ export const browserObserveTool = tool({
   inputSchema: zodSchema(browserObserveToolDef.parameters),
   execute: async ({ task }) => {
     const targetId = pickActiveTargetId();
-    const data = await evalInTarget(targetId, buildSnapshotExpression());
-    return { ok: true, data: { task, snapshot: data } };
+    const data = await evalInTarget<SnapshotPayload>(targetId, buildSnapshotExpression());
+    return {
+      ok: true,
+      data: {
+        task,
+        snapshot: mergeSnapshotData(data, { maxTextLength: MAX_TEXT_LENGTH, maxElements: MAX_SNAPSHOT_ELEMENTS }),
+      },
+    };
   },
 });
 

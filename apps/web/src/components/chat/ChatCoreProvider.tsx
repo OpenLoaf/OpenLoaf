@@ -555,17 +555,14 @@ export default function ChatCoreProvider({
       // 关键：不要用 useChat 的自动续接，保持流程可控。
       resume: false,
       transport,
+      onToolCall: (payload: { toolCall: any }) => {
+        void toolStream.handleToolCall({ toolCall: payload.toolCall, tabId });
+      },
       onFinish,
       onData: (dataPart: any) => {
         // 关键：切换 session 后忽略旧流的 dataPart，避免 toolParts 被写回新会话 UI。
         if (sessionIdRef.current !== sessionId) return;
         incrementChatPerf("chat.onData");
-        console.log(
-          "[chat] onData",
-          dataPart?.type,
-          dataPart?.toolName,
-          dataPart?.toolCallId
-        );
         if (dataPart?.type === "data-session-title") {
           invalidateChatSessions(queryClient);
           const title =

@@ -1,6 +1,15 @@
 "use client";
 
-import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import type { ComponentType, CSSProperties, ForwardRefExoticComponent } from "react";
 import { Play } from "lucide-react";
 import type { LucideProps } from "lucide-react";
@@ -13,6 +22,7 @@ import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/ImageGenerateNode";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/ImagePromptGenerateNode";
 import { VIDEO_GENERATE_NODE_TYPE } from "../nodes/VideoGenerateNode";
 import { useBoardContext } from "../core/BoardProvider";
+import { fileToBase64 } from "../utils/base64";
 import {
   IMAGE_EXTS,
   VIDEO_EXTS,
@@ -27,7 +37,11 @@ import {
 import {
   getParentRelativePath,
   getRelativePathFromUri,
+  buildChildUri,
+  getUniqueName,
 } from "@/components/project/filesystem/utils/file-system-utils";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { trpcClient } from "@/utils/trpc";
 
 export interface BoardToolbarProps {
   /** Canvas engine instance. */
@@ -109,6 +123,12 @@ const IMAGE_PROMPT_SVG_SRC = "/board/converted_small.svg";
 const IMAGE_GENERATE_SVG_SRC = "/board/pictures-svgrepo-com.svg";
 const DEFAULT_VIDEO_WIDTH = 16;
 const DEFAULT_VIDEO_HEIGHT = 9;
+
+type PendingInsertStackItem = {
+  type: string;
+  props: Record<string, unknown>;
+  size?: [number, number];
+};
 
 /** Compute a fitted size that preserves the original aspect ratio. */
 const fitSize = (width: number, height: number, maxDimension: number): [number, number] => {
@@ -394,6 +414,8 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const [videoPickerOpen, setVideoPickerOpen] = useState(false);
+  const imageImportInputRef = useRef<HTMLInputElement | null>(null);
+  const videoImportInputRef = useRef<HTMLInputElement | null>(null);
   const isSelectTool = snapshot.activeToolId === "select";
   const isHandTool = snapshot.activeToolId === "hand";
   const isPenTool = snapshot.activeToolId === "pen" || snapshot.activeToolId === "highlighter";
@@ -421,6 +443,14 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     moved: boolean;
   } | null>(null);
   const [toolbarDragging, setToolbarDragging] = useState(false);
+  const imageAcceptAttr = useMemo(
+    () => Array.from(IMAGE_EXTS).map((ext) => `.${ext}`).join(","),
+    []
+  );
+  const videoAcceptAttr = useMemo(
+    () => Array.from(VIDEO_EXTS).map((ext) => `.${ext}`).join(","),
+    []
+  );
 
   useEffect(() => {
     // 逻辑：同步画笔配置到画布引擎，保持绘制体验一致。
@@ -508,6 +538,95 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     [engine, isLocked, pendingInsert?.id]
   );
 
+  /** Persist a file into the board assets folder. */
+  const saveBoardAssetFile = useCallback(
+    async (file: File, fallbackName: string) => {
+      if (!workspaceId || !fileContext?.boardFolderUri) return "";
+      const assetsFolderUri = buildChildUri(
+        fileContext.boardFolderUri,
+        BOARD_ASSETS_DIR_NAME
+      );
+      await trpcClient.fs.mkdir.mutate({
+        workspaceId,
+        projectId: fileContext?.projectId,
+        uri: assetsFolderUri,
+        recursive: true,
+      });
+      const existing = await trpcClient.fs.list.query({
+        workspaceId,
+        projectId: fileContext?.projectId,
+        uri: assetsFolderUri,
+      });
+      const existingNames = new Set((existing.entries ?? []).map((entry) => entry.name));
+      const safeName = (file.name || fallbackName).replace(/[\\/]/g, "-") || fallbackName;
+      const uniqueName = getUniqueName(safeName, existingNames);
+      const targetUri = buildChildUri(assetsFolderUri, uniqueName);
+      const contentBase64 = await fileToBase64(file);
+      await trpcClient.fs.writeBinary.mutate({
+        workspaceId,
+        projectId: fileContext?.projectId,
+        uri: targetUri,
+        contentBase64,
+      });
+      return `${BOARD_ASSETS_DIR_NAME}/${uniqueName}`;
+    },
+    [fileContext?.boardFolderUri, fileContext?.projectId, workspaceId]
+  );
+
+  /** Build a preview poster from a local video file. */
+  const buildVideoPosterFromFile = useCallback(async (file: File) => {
+    if (typeof document === "undefined") return null;
+    return await new Promise<{ posterSrc: string; width: number; height: number } | null>(
+      (resolve) => {
+        const video = document.createElement("video");
+        const url = URL.createObjectURL(file);
+        const cleanup = () => {
+          URL.revokeObjectURL(url);
+          video.removeAttribute("src");
+          video.load();
+        };
+        const capture = () => {
+          const width = video.videoWidth || 0;
+          const height = video.videoHeight || 0;
+          if (!width || !height) {
+            cleanup();
+            resolve(null);
+            return;
+          }
+          // 逻辑：限制预览尺寸，避免超大视频导致内存飙升。
+          const [previewWidth, previewHeight] = fitSize(width, height, 640);
+          const canvas = document.createElement("canvas");
+          canvas.width = previewWidth;
+          canvas.height = previewHeight;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, previewWidth, previewHeight);
+          }
+          const posterSrc = ctx ? canvas.toDataURL("image/jpeg", 0.82) : "";
+          cleanup();
+          resolve({ posterSrc, width, height });
+        };
+        video.preload = "metadata";
+        video.muted = true;
+        video.playsInline = true;
+        video.onloadeddata = capture;
+        video.onerror = () => {
+          cleanup();
+          resolve(null);
+        };
+        video.src = url;
+      }
+    );
+  }, []);
+
+  /** Trigger the hidden file input. */
+  const openImportDialog = useCallback((inputRef: React.RefObject<HTMLInputElement | null>) => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.value = "";
+    input.click();
+  }, []);
+
 
   const getWorldPointFromEvent = useCallback(
     (event: PointerEvent | React.PointerEvent<HTMLButtonElement>) => {
@@ -588,6 +707,153 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     if (isLocked) return;
     setImagePickerOpen(true);
   }, [isLocked]);
+
+  const handleImportImageFromComputer = useCallback(() => {
+    if (isLocked) return;
+    openImportDialog(imageImportInputRef);
+  }, [isLocked, openImportDialog]);
+
+  const handleImportVideoFromComputer = useCallback(() => {
+    if (isLocked) return;
+    openImportDialog(videoImportInputRef);
+  }, [isLocked, openImportDialog]);
+
+  /** Insert images from local files into the canvas. */
+  const handleImportImageFiles = useCallback(
+    async (files: File[]) => {
+      const imageFiles = files.filter((file) => {
+        if (file.type.startsWith("image/")) return true;
+        const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+        return IMAGE_EXTS.has(ext);
+      });
+      if (imageFiles.length === 0) return;
+      const payloads = [];
+      for (const file of imageFiles) {
+        payloads.push(await engine.buildImagePayloadFromFile(file));
+      }
+      if (payloads.length === 1) {
+        const payload = payloads[0]!;
+        handleInsertRequest({
+          id: "image",
+          type: "image",
+          props: payload.props,
+          size: payload.size,
+        });
+        return;
+      }
+      const previewStack = payloads
+        .map((payload) => payload.props.previewSrc || payload.props.originalSrc || "")
+        .filter((src) => src.length > 0);
+      const stackItems = payloads.map((payload) => ({
+        type: "image",
+        props: payload.props,
+        size: payload.size,
+      }));
+      const [maxWidth, maxHeight] = payloads.reduce<[number, number]>(
+        (acc, payload) => [
+          Math.max(acc[0], payload.size[0]),
+          Math.max(acc[1], payload.size[1]),
+        ],
+        [0, 0]
+      );
+      // 逻辑：本地导入多图进入待放置模式，鼠标预览显示叠加缩略图。
+      handleInsertRequest({
+        id: "image",
+        type: "image",
+        props: {
+          previewStack,
+          stackItems,
+        },
+        size: [maxWidth, maxHeight],
+      });
+    },
+    [engine, handleInsertRequest]
+  );
+
+  /** Insert videos from local files into the canvas. */
+  const handleImportVideoFiles = useCallback(
+    async (files: File[]) => {
+      const videoFiles = files.filter((file) => {
+        if (file.type.startsWith("video/")) return true;
+        const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+        return VIDEO_EXTS.has(ext);
+      });
+      if (videoFiles.length === 0) return;
+      const items: PendingInsertStackItem[] = [];
+      for (const file of videoFiles) {
+        const relativePath = await saveBoardAssetFile(file, "video.mp4");
+        if (!relativePath) continue;
+        const poster = await buildVideoPosterFromFile(file);
+        const naturalWidth = poster?.width ?? DEFAULT_VIDEO_WIDTH;
+        const naturalHeight = poster?.height ?? DEFAULT_VIDEO_HEIGHT;
+        const [nodeWidth, nodeHeight] = fitSize(naturalWidth, naturalHeight, 360);
+        items.push({
+          type: "video",
+          props: {
+            sourcePath: relativePath,
+            fileName: file.name,
+            posterPath: poster?.posterSrc || undefined,
+            naturalWidth,
+            naturalHeight,
+          },
+          size: [nodeWidth, nodeHeight],
+        });
+      }
+      if (items.length === 0) return;
+      if (items.length === 1) {
+        const item = items[0]!;
+        handleInsertRequest({
+          id: "video",
+          type: "video",
+          props: item.props,
+          size: item.size,
+        });
+        return;
+      }
+      const previewStack = items
+        .map((item) => {
+          const props = item.props as { posterPath?: string };
+          return props.posterPath || "";
+        })
+        .filter((src) => src.length > 0);
+      const [maxWidth, maxHeight] = items.reduce<[number, number]>(
+        (acc, item) => [
+          Math.max(acc[0], item.size?.[0] ?? 0),
+          Math.max(acc[1], item.size?.[1] ?? 0),
+        ],
+        [0, 0]
+      );
+      // 逻辑：本地导入多视频进入待放置模式，鼠标预览显示叠加缩略图。
+      handleInsertRequest({
+        id: "video",
+        type: "video",
+        props: {
+          previewStack,
+          stackItems: items,
+        },
+        size: [maxWidth, maxHeight],
+      });
+    },
+    [buildVideoPosterFromFile, handleInsertRequest, saveBoardAssetFile]
+  );
+
+  const handleImportImageInputChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files ?? []);
+      if (files.length === 0) return;
+      await handleImportImageFiles(files);
+    },
+    [handleImportImageFiles]
+  );
+
+  const handleImportVideoInputChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files ?? []);
+      if (files.length === 0) return;
+      await handleImportVideoFiles(files);
+    },
+    [handleImportVideoFiles]
+  );
 
   /** Handle inserting selected image entries. */
   const handleImageSelected = useCallback(
@@ -1094,7 +1360,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           open={imagePickerOpen}
           onOpenChange={setImagePickerOpen}
           title="选择图片文件"
-          filterHint="仅显示可用图片文件"
+          filterHint="非图片文件将置灰"
           allowedExtensions={IMAGE_EXTS}
           excludeBoardEntries
           currentBoardFolderUri={fileContext?.boardFolderUri}
@@ -1102,12 +1368,13 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           defaultActiveUri={defaultPickerActiveUri ?? fileContext?.boardFolderUri}
           onSelectFile={handleImageSelected}
           onSelectFiles={handleImageSelected}
+          onImportFromComputer={handleImportImageFromComputer}
         />
         <ProjectFilePickerDialog
           open={videoPickerOpen}
           onOpenChange={setVideoPickerOpen}
           title="选择视频文件"
-          filterHint="仅显示可用视频文件"
+          filterHint="非视频文件将置灰"
           allowedExtensions={VIDEO_EXTS}
           excludeBoardEntries
           currentBoardFolderUri={fileContext?.boardFolderUri}
@@ -1115,6 +1382,23 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           defaultActiveUri={defaultPickerActiveUri ?? fileContext?.boardFolderUri}
           onSelectFile={handleVideoSelected}
           onSelectFiles={handleVideoSelected}
+          onImportFromComputer={handleImportVideoFromComputer}
+        />
+        <input
+          ref={imageImportInputRef}
+          type="file"
+          accept={imageAcceptAttr}
+          multiple
+          className="hidden"
+          onChange={handleImportImageInputChange}
+        />
+        <input
+          ref={videoImportInputRef}
+          type="file"
+          accept={videoAcceptAttr}
+          multiple
+          className="hidden"
+          onChange={handleImportVideoInputChange}
         />
       </div>
     </div>

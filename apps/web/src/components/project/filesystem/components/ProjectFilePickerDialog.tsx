@@ -461,15 +461,15 @@ export function ProjectFilePickerDialog({
             </div>
           </div>
         </div>
-        <DialogFooter className="flex w-full items-center justify-between">
+        <DialogFooter className="flex w-full items-center justify-start gap-3">
           {shouldShowImportButton ? (
             <Button type="button" variant="ghost" onClick={handleImportFromComputer}>
-              从计算机中导入
+              从计算机导入
             </Button>
           ) : (
             <span />
           )}
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             <DialogClose asChild>
               <Button type="button" variant="ghost">取消</Button>
             </DialogClose>

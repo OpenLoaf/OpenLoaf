@@ -3,6 +3,7 @@ import { ToolLoopAgent } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { AgentFrame } from "@/ai/shared/context/requestContext";
 import { buildToolset } from "@/ai/tools/toolRegistry";
+import { createToolCallRepair } from "@/ai/agents/repairToolCall";
 import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
@@ -17,6 +18,7 @@ import {
 import {
   listDirToolDef,
   readFileToolDef,
+  writeFileToolDef,
   shellCommandToolDefUnix,
   shellCommandToolDefWin,
   shellToolDefUnix,
@@ -53,6 +55,7 @@ const MASTER_AGENT_TOOL_IDS = [
   execCommandToolDef.id,
   writeStdinToolDef.id,
   readFileToolDef.id,
+  writeFileToolDef.id,
   listDirToolDef.id,
   updatePlanToolDef.id,
 ] as const;
@@ -95,6 +98,7 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
     instructions: readMasterAgentBasePrompt(),
     // 中文注释：审批逻辑由工具实现的 needsApproval 控制，agent 只负责装配工具集。
     tools: buildToolset(toolIds),
+    experimental_repairToolCall: createToolCallRepair(),
   });
 }
 

@@ -344,7 +344,7 @@ export default function DesktopTileGridstack({
           proximity={120}
           inactiveZone={0}
           borderWidth={3}
-          className="opacity-100 mix-blend-multiply dark:opacity-70 dark:mix-blend-normal"
+          className="opacity-95 mix-blend-multiply brightness-110 dark:opacity-85 dark:mix-blend-normal"
         />
       ) : null}
         <div className={cn("relative h-full w-full", editMode ? "pointer-events-none" : "")}>
