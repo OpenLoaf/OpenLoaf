@@ -136,6 +136,14 @@ function buildVolcenginePayload(modelId: string, input: ProviderRequestInput) {
 
   if (input.kind === "videoGenerate") {
     const payload = input.payload;
+    const parameters = payload.parameters ?? {};
+    // 中文注释：即梦使用 frames 计数，按秒数换算为 24 * n + 1。
+    const durationValue =
+      typeof parameters.duration === "number" ? parameters.duration : undefined;
+    const frames =
+      typeof durationValue === "number" ? Math.round(durationValue * 24 + 1) : payload.frames;
+    const aspectRatio =
+      typeof parameters.aspectRatio === "string" ? parameters.aspectRatio : payload.aspectRatio;
     // 中文注释：文生视频必须有 prompt，图生视频必须有首帧图。
     if (!payload.prompt && !payload.imageUrls?.length && !payload.binaryDataBase64?.length) {
       throw new Error("视频生成需要 prompt 或首帧图片");
@@ -146,8 +154,8 @@ function buildVolcenginePayload(modelId: string, input: ProviderRequestInput) {
       image_urls: payload.imageUrls,
       binary_data_base64: payload.binaryDataBase64,
       seed: payload.seed,
-      frames: payload.frames,
-      aspect_ratio: payload.aspectRatio,
+      frames,
+      aspect_ratio: aspectRatio,
     };
   }
 

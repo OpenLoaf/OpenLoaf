@@ -67,6 +67,106 @@
           "output": 0
         }
       ]
+    },
+    {
+      "id": "wan2.6-i2v-flash",
+      "name": "万相 2.6 图生视频 Flash",
+      "familyId": "wan2.6-i2v",
+      "providerId": "qwen",
+      "icon": "Qwen",
+      "tags": [
+        "video_generation"
+      ],
+      "maxContextK": 0,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        {
+          "minContextK": 0,
+          "input": 0,
+          "inputCache": 0,
+          "output": 0
+        }
+      ],
+      "parameters": {
+        "features": [
+          "prompt",
+          "image_url_only"
+        ],
+        "fields": [
+          {
+            "key": "resolution",
+            "title": "分辨率",
+            "type": "select",
+            "values": [
+              "1080P",
+              "720P"
+            ],
+            "default": "1080P",
+            "request": false
+          },
+          {
+            "key": "duration",
+            "title": "时长",
+            "type": "number",
+            "unit": "秒",
+            "min": 2,
+            "max": 15,
+            "default": 5,
+            "request": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "wan2.6-i2v",
+      "name": "万相 2.6 图生视频",
+      "familyId": "wan2.6-i2v",
+      "providerId": "qwen",
+      "icon": "Qwen",
+      "tags": [
+        "video_generation"
+      ],
+      "maxContextK": 0,
+      "priceStrategyId": "tiered_token",
+      "currencySymbol": "¥",
+      "priceTiers": [
+        {
+          "minContextK": 0,
+          "input": 0,
+          "inputCache": 0,
+          "output": 0
+        }
+      ],
+      "parameters": {
+        "features": [
+          "prompt",
+          "image_url_only"
+        ],
+        "fields": [
+          {
+            "key": "resolution",
+            "title": "分辨率",
+            "type": "select",
+            "values": [
+              "1080P",
+              "720P"
+            ],
+            "default": "1080P",
+            "request": false
+          },
+          {
+            "key": "duration",
+            "title": "时长",
+            "type": "number",
+            "unit": "秒",
+            "min": 2,
+            "max": 15,
+            "default": 5,
+            "request": true
+          }
+        ]
+      }
     }
   ]
 }

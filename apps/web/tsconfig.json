@@ -28,7 +28,7 @@
         "./src/*"
       ],
       "@tenas-ai/ui": [
-        "../../packages/ui/src/index.ts"
+        "../../packages/ui/src"
       ],
       "@tenas-ai/ui/*": [
         "../../packages/ui/src/*"

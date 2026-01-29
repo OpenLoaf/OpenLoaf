@@ -2,7 +2,7 @@ import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@tenas-ai/api";
 import { runProviderRequest } from "@/ai/models/providerRequestRunner";
 import { getProviderDefinition } from "@/ai/models/modelRegistry";
 import { loadProjectImageBuffer } from "@/ai/services/image/attachmentResolver";
-import { fetchVolcengineVideoResult } from "@/ai/services/video/videoGeneration";
+import { fetchQwenVideoResult, fetchVolcengineVideoResult } from "@/ai/services/video/videoGeneration";
 import {
   resolveVideoSaveDirectory,
   saveGeneratedVideoFromUrl,
@@ -21,6 +21,13 @@ const VOLCENGINE_MODEL_IDS = {
 
 const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 
+type ParsedChatModelId = {
+  /** Provider profile id. */
+  profileId: string;
+  /** Model id. */
+  modelId: string;
+};
+
 /** Resolve provider entry that enables the target model. */
 function resolveProviderEntry(
   entries: ProviderSettingEntry[],
@@ -30,6 +37,46 @@ function resolveProviderEntry(
   return entries.find(
     (entry) => entry.providerId === providerId && Boolean(entry.models[modelId]),
   );
+}
+
+/** Parse chat model id to provider profile id and model id. */
+function parseChatModelId(chatModelId: string): ParsedChatModelId | null {
+  const separatorIndex = chatModelId.indexOf(":");
+  if (separatorIndex <= 0 || separatorIndex >= chatModelId.length - 1) return null;
+  const profileId = chatModelId.slice(0, separatorIndex).trim();
+  const modelId = chatModelId.slice(separatorIndex + 1).trim();
+  if (!profileId || !modelId) return null;
+  return { profileId, modelId };
+}
+
+/** Resolve parameters with defaults and required checks. */
+function resolveVideoParameters(input: {
+  /** Raw parameters from request. */
+  parameters?: Record<string, string | number | boolean>;
+  /** Parameter definitions for model. */
+  definitions?: { key: string; request: boolean; default?: string | number | boolean }[];
+}) {
+  const raw = input.parameters ?? {};
+  const definitions = input.definitions ?? [];
+  if (definitions.length === 0) return raw;
+  const resolved: Record<string, string | number | boolean> = {};
+  for (const definition of definitions) {
+    const value = raw[definition.key];
+    const hasValue =
+      value !== undefined && value !== null && !(typeof value === "string" && !value.trim());
+    if (hasValue) {
+      resolved[definition.key] = value;
+      continue;
+    }
+    if (definition.default !== undefined) {
+      resolved[definition.key] = definition.default;
+      continue;
+    }
+    if (definition.request) {
+      throw new Error(`缺少必填参数: ${definition.key}`);
+    }
+  }
+  return resolved;
 }
 
 export class AiRouterImpl extends BaseAiRouter {
@@ -73,15 +120,49 @@ export class AiRouterImpl extends BaseAiRouter {
         .input(aiSchemas.videoGenerate.input)
         .output(aiSchemas.videoGenerate.output)
         .mutation(async ({ input }) => {
+          const providers = await getProviderSettings();
+          const chatModelIdRaw = typeof input.chatModelId === "string" ? input.chatModelId : "";
+          const parsedChatModelId = chatModelIdRaw ? parseChatModelId(chatModelIdRaw) : null;
+          const fallbackProviderEntry = resolveProviderEntry(
+            providers,
+            VOLCENGINE_PROVIDER_ID,
+            VOLCENGINE_MODEL_IDS.videoGenerate,
+          );
+          const providerEntry = parsedChatModelId
+            ? providers.find((entry) => entry.id === parsedChatModelId.profileId)
+            : fallbackProviderEntry;
+          if (!providerEntry) {
+            throw new Error("未找到可用的服务商模型配置");
+          }
+          const providerId = providerEntry.providerId;
+          const modelId = parsedChatModelId?.modelId ?? VOLCENGINE_MODEL_IDS.videoGenerate;
+          const modelDefinition =
+            providerEntry.models[modelId] ?? getModelDefinition(providerId, modelId);
+          const features = modelDefinition?.parameters?.features ?? [];
+          const allowsPrompt = features.includes("prompt");
+          const imageUrlOnly = features.includes("image_url_only");
+          const maxImages = features.includes("last_frame_support") ? 2 : 1;
+          const parameters = resolveVideoParameters({
+            parameters: input.parameters,
+            definitions: modelDefinition?.parameters?.fields,
+          });
+
           const imageUrls = Array.isArray(input.imageUrls) ? input.imageUrls : [];
           const remoteUrls: string[] = [];
           const binaryDataBase64: string[] = Array.isArray(input.binaryDataBase64)
             ? [...input.binaryDataBase64]
             : [];
+          if (imageUrlOnly && binaryDataBase64.length > 0) {
+            throw new Error("当前模型仅支持公网图片 URL");
+          }
           for (const imageUrl of imageUrls) {
-            if (!imageUrl || SCHEME_REGEX.test(imageUrl)) {
-              if (imageUrl) remoteUrls.push(imageUrl);
+            if (!imageUrl) continue;
+            if (SCHEME_REGEX.test(imageUrl)) {
+              remoteUrls.push(imageUrl);
               continue;
+            }
+            if (imageUrlOnly) {
+              throw new Error("当前模型仅支持公网图片 URL");
             }
             const loaded = await loadProjectImageBuffer({
               path: imageUrl,
@@ -95,15 +176,25 @@ export class AiRouterImpl extends BaseAiRouter {
           const normalizedImageUrls = remoteUrls.length > 0 ? remoteUrls : undefined;
           const normalizedBinaryData =
             binaryDataBase64.length > 0 ? binaryDataBase64 : undefined;
+          const imageCount =
+            (normalizedImageUrls?.length ?? 0) + (normalizedBinaryData?.length ?? 0);
+          if (imageCount > maxImages) {
+            throw new Error(`最多支持 ${maxImages} 张图片输入`);
+          }
+
           const result = await runProviderRequest({
-            providerId: VOLCENGINE_PROVIDER_ID,
-            modelId: VOLCENGINE_MODEL_IDS.videoGenerate,
+            providerId,
+            modelId,
             input: {
               kind: "videoGenerate",
               payload: {
-                ...input,
+                prompt: allowsPrompt ? input.prompt : undefined,
                 imageUrls: normalizedImageUrls,
                 binaryDataBase64: normalizedBinaryData,
+                seed: input.seed,
+                frames: input.frames,
+                aspectRatio: input.aspectRatio,
+                parameters,
               },
             },
           });
@@ -114,22 +205,37 @@ export class AiRouterImpl extends BaseAiRouter {
         .output(aiSchemas.videoGenerateResult.output)
         .mutation(async ({ input }) => {
           const providers = await getProviderSettings();
-          const providerEntry = resolveProviderEntry(
+          const chatModelIdRaw =
+            typeof input.chatModelId === "string" ? input.chatModelId.trim() : "";
+          const parsedChatModelId = chatModelIdRaw ? parseChatModelId(chatModelIdRaw) : null;
+          const fallbackProviderEntry = resolveProviderEntry(
             providers,
             VOLCENGINE_PROVIDER_ID,
             VOLCENGINE_MODEL_IDS.videoGenerate,
           );
+          const providerEntry = parsedChatModelId
+            ? providers.find((entry) => entry.id === parsedChatModelId.profileId)
+            : fallbackProviderEntry;
           if (!providerEntry) {
             throw new Error("未找到可用的服务商模型配置");
           }
-          const providerDefinition = getProviderDefinition(VOLCENGINE_PROVIDER_ID);
+          const providerId = providerEntry.providerId;
+          const providerDefinition = getProviderDefinition(providerId);
+          const modelId = parsedChatModelId?.modelId ?? VOLCENGINE_MODEL_IDS.videoGenerate;
 
-          const result = await fetchVolcengineVideoResult({
-            provider: providerEntry,
-            providerDefinition,
-            modelId: VOLCENGINE_MODEL_IDS.videoGenerate,
-            taskId: input.taskId,
-          });
+          const result =
+            providerId === "qwen"
+              ? await fetchQwenVideoResult({
+                  provider: providerEntry,
+                  providerDefinition,
+                  taskId: input.taskId,
+                })
+              : await fetchVolcengineVideoResult({
+                  provider: providerEntry,
+                  providerDefinition,
+                  modelId,
+                  taskId: input.taskId,
+                });
           if (result.status !== "done") {
             return {
               status: result.status || "failed",

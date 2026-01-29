@@ -123,6 +123,7 @@ const IMAGE_PROMPT_SVG_SRC = "/board/converted_small.svg";
 const IMAGE_GENERATE_SVG_SRC = "/board/pictures-svgrepo-com.svg";
 const DEFAULT_VIDEO_WIDTH = 16;
 const DEFAULT_VIDEO_HEIGHT = 9;
+const DEFAULT_VIDEO_NODE_MAX = 420;
 
 type PendingInsertStackItem = {
   type: string;
@@ -786,7 +787,11 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         const poster = await buildVideoPosterFromFile(file);
         const naturalWidth = poster?.width ?? DEFAULT_VIDEO_WIDTH;
         const naturalHeight = poster?.height ?? DEFAULT_VIDEO_HEIGHT;
-        const [nodeWidth, nodeHeight] = fitSize(naturalWidth, naturalHeight, 360);
+        const [nodeWidth, nodeHeight] = fitSize(
+          naturalWidth,
+          naturalHeight,
+          DEFAULT_VIDEO_NODE_MAX
+        );
         items.push({
           type: "video",
           props: {
@@ -931,7 +936,11 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         // 逻辑：优先使用视频元数据计算比例，避免缩略图导致比例偏差。
         const naturalWidth = metadata?.width ?? DEFAULT_VIDEO_WIDTH;
         const naturalHeight = metadata?.height ?? DEFAULT_VIDEO_HEIGHT;
-        const [nodeWidth, nodeHeight] = fitSize(naturalWidth, naturalHeight, 360);
+        const [nodeWidth, nodeHeight] = fitSize(
+          naturalWidth,
+          naturalHeight,
+          DEFAULT_VIDEO_NODE_MAX
+        );
         payloads.push({
           type: "video",
           props: {

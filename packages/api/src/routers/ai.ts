@@ -46,6 +46,8 @@ export const aiSchemas = {
       seed: z.number().int().optional(),
       frames: z.number().int().optional(),
       aspectRatio: z.string().optional(),
+      parameters: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+      chatModelId: z.string().optional(),
       workspaceId: z.string().optional(),
       projectId: z.string().optional(),
     }),
@@ -54,6 +56,7 @@ export const aiSchemas = {
   videoGenerateResult: {
     input: z.object({
       taskId: z.string().min(1),
+      chatModelId: z.string().optional(),
       workspaceId: z.string().optional(),
       projectId: z.string().optional(),
       saveDir: z.string().optional(),

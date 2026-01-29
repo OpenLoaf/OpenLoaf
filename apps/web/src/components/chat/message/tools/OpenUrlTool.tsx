@@ -65,19 +65,21 @@ export default function OpenUrlTool({
   }, [isDisabled, tabId, title, url]);
 
   return (
-    <div className={cn("ml-4 flex w-full min-w-0 max-w-full items-center gap-2", className)}>
-      <span className="shrink-0 text-[10px] font-medium text-muted-foreground/80">
-        {actionName}
-      </span>
-      <button
-        type="button"
-        className="min-w-0 flex-1 truncate text-left text-[10px] text-muted-foreground/80 underline-offset-2 hover:underline disabled:cursor-not-allowed cursor-pointer"
-        title={url}
-        disabled={isDisabled}
-        onClick={onOpen}
-      >
-        {url || "-"}
-      </button>
+    <div className={cn("ml-2 flex w-full min-w-0 max-w-full justify-start", className)}>
+      <div className="w-full min-w-0 max-w-[90%]">
+        <div className="flex w-full min-w-0 flex-col gap-0.5">
+          <span className="text-[11px] font-medium text-muted-foreground/80">{actionName}</span>
+          <button
+            type="button"
+            className="min-w-0 text-left text-[10px] text-muted-foreground/80 underline-offset-2 hover:underline disabled:cursor-not-allowed cursor-pointer whitespace-normal break-words"
+            title={url}
+            disabled={isDisabled}
+            onClick={onOpen}
+          >
+            {url || "-"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

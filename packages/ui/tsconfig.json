@@ -6,7 +6,7 @@
     "rootDir": "src",
     "baseUrl": ".",
     "paths": {
-      "@tenas-ai/ui": ["./src/index.ts"],
+      "@tenas-ai/ui": ["./src"],
       "@tenas-ai/ui/*": ["./src/*"]
     },
     "declaration": true,

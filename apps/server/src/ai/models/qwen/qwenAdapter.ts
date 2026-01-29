@@ -9,6 +9,7 @@ import { resolveQwenConfig } from "./qwenConfig";
 import {
   buildQwenRequestPayload,
   buildQwenRequestUrl,
+  buildQwenVideoRequestUrl,
   type QwenRequestInput,
 } from "./qwenRequest";
 import { buildQwenImageModel } from "./qwenImageModel";
@@ -37,6 +38,7 @@ export const qwenAdapter: ProviderAdapter = {
   buildRequest: ({ provider, providerDefinition, modelId, input }): ProviderRequest | null => {
     const config = resolveQwenConfig({ provider, providerDefinition });
     const payload = input.payload as QwenRequestInput;
+    const isVideoModel = modelId === "wan2.6-i2v-flash" || modelId === "wan2.6-i2v";
     const promptLength =
       typeof payload?.prompt === "string"
         ? payload.prompt.length
@@ -49,7 +51,9 @@ export const qwenAdapter: ProviderAdapter = {
         : Array.isArray(payload?.binaryDataBase64)
           ? payload.binaryDataBase64.length
           : 0;
-    const requestUrl = buildQwenRequestUrl(config.apiUrl);
+    const requestUrl = isVideoModel
+      ? buildQwenVideoRequestUrl(config.apiUrl)
+      : buildQwenRequestUrl(config.apiUrl);
     logger.debug(
       {
         modelId,
@@ -66,11 +70,11 @@ export const qwenAdapter: ProviderAdapter = {
       Authorization: `Bearer ${config.apiKey}`,
     };
     // 中文注释：wan2.5 仅支持异步调用，需要添加异步请求头。
-    if (modelId === "wan2.5") {
+    if (modelId === "wan2.5" || isVideoModel) {
       headers["X-DashScope-Async"] = "enable";
     }
     return {
-      url: buildQwenRequestUrl(config.apiUrl),
+      url: requestUrl,
       method: "POST",
       headers,
       body,

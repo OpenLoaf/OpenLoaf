@@ -91,6 +91,8 @@ type VideoGenerateInput = {
   frames?: number;
   /** Optional aspect ratio. */
   aspectRatio?: string;
+  /** Optional model parameters. */
+  parameters?: Record<string, string | number | boolean>;
 };
 
 export type ProviderRequestInput =

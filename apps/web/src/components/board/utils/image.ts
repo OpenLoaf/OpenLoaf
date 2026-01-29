@@ -21,7 +21,7 @@ export type ImageNodePayload = {
 };
 
 const DEFAULT_PREVIEW_MAX = 1024;
-const DEFAULT_NODE_MAX = 420;
+const DEFAULT_NODE_MAX = 480;
 const DEFAULT_PREVIEW_QUALITY = 0.82;
 
 /** Read a blob as a data url string. */

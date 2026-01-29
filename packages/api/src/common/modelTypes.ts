@@ -13,6 +13,37 @@ export type ModelTag =
   | "web_search"
   | "speech_generation";
 
+export type ModelParameterFeature =
+  | "prompt"
+  | "image_url_only"
+  | "audio_url_only"
+  | "last_frame_support";
+
+export type ModelParameterType = "select" | "number" | "boolean" | "text";
+
+export type ModelParameterDefinition = {
+  /** Parameter key for request. */
+  key: string;
+  /** Display title for UI. */
+  title: string;
+  /** Parameter input type. */
+  type: ModelParameterType;
+  /** Display unit. */
+  unit?: string;
+  /** Selectable values for select type. */
+  values?: Array<string | number | boolean>;
+  /** Min value for number type. */
+  min?: number;
+  /** Max value for number type. */
+  max?: number;
+  /** Step for number type. */
+  step?: number;
+  /** Default value for parameter. */
+  default?: string | number | boolean;
+  /** Whether the parameter is required. */
+  request: boolean;
+};
+
 // 标签显示文案映射。
 export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
   text_generation: "文字生成",
@@ -60,6 +91,13 @@ export type ModelDefinition = {
   priceTiers: PriceTier[];
   /** Currency symbol for price display. */
   currencySymbol?: string;
+  /** Parameter definitions for the model. */
+  parameters?: {
+    /** Feature flags for canvas behaviors. */
+    features: ModelParameterFeature[];
+    /** Field definitions for UI and validation. */
+    fields: ModelParameterDefinition[];
+  };
 };
 
 export type ProviderDefinition = {

@@ -13,6 +13,8 @@ export type QwenRequestInput = {
   height?: number;
   /** Random seed. */
   seed?: number;
+  /** Video parameters. */
+  parameters?: Record<string, string | number | boolean>;
 };
 
 type QwenContentPart = { image: string } | { text: string };
@@ -34,12 +36,22 @@ type QwenImageOutput = {
 
 /** Qwen generation endpoint path. */
 const QWEN_GENERATION_PATH = "/services/aigc/multimodal-generation/generation";
+/** Qwen video generation endpoint path. */
+const QWEN_VIDEO_GENERATION_PATH = "/services/aigc/video-generation/video-synthesis";
 
 /** Build Qwen API request URL. */
 export function buildQwenRequestUrl(baseUrl: string) {
   const url = new URL(baseUrl);
   const basePath = url.pathname.replace(/\/$/, "");
   url.pathname = `${basePath}${QWEN_GENERATION_PATH}`;
+  return url.toString();
+}
+
+/** Build Qwen video API request URL. */
+export function buildQwenVideoRequestUrl(baseUrl: string) {
+  const url = new URL(baseUrl);
+  const basePath = url.pathname.replace(/\/$/, "");
+  url.pathname = `${basePath}${QWEN_VIDEO_GENERATION_PATH}`;
   return url.toString();
 }
 
@@ -126,6 +138,23 @@ export function buildQwenRequestPayload(modelId: string, input: QwenRequestInput
       },
       parameters: cleanPayload({
         size,
+        seed: input.seed,
+      }),
+    });
+  }
+
+  if (modelId === "wan2.6-i2v-flash" || modelId === "wan2.6-i2v") {
+    if (images.length === 0) throw new Error("Qwen 视频生成需要首帧图片");
+    const params = input.parameters ?? {};
+    return cleanPayload({
+      model: modelId,
+      input: cleanPayload({
+        prompt,
+        img_url: images[0],
+      }),
+      parameters: cleanPayload({
+        resolution: params.resolution,
+        duration: params.duration,
         seed: input.seed,
       }),
     });

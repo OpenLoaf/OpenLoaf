@@ -2,7 +2,11 @@ import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types"
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { z } from "zod";
 import { Copy, Play, RotateCcw, Square } from "lucide-react";
-import type { ModelTag } from "@tenas-ai/api/common";
+import type {
+  ModelParameterDefinition,
+  ModelParameterFeature,
+  ModelTag,
+} from "@tenas-ai/api/common";
 import { toast } from "sonner";
 
 import { useBoardContext } from "../core/BoardProvider";
@@ -37,18 +41,8 @@ import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 
 /** Node type identifier for video generation. */
 export const VIDEO_GENERATE_NODE_TYPE = "video_generate";
-/** Default duration in seconds. */
-const VIDEO_GENERATE_DEFAULT_DURATION = 4;
-/** Minimum duration in seconds. */
-const VIDEO_GENERATE_MIN_DURATION = 1;
-/** Maximum duration in seconds. */
-const VIDEO_GENERATE_MAX_DURATION = 10;
-/** Preset aspect ratios for video generation. */
-const VIDEO_GENERATE_RATIO_OPTIONS = ["16:9", "4:3", "1:1", "3:4", "9:16", "21:9"];
-/** Default aspect ratio preset. */
-const VIDEO_GENERATE_DEFAULT_RATIO = "16:9";
-/** Maximum number of input images supported by video generation. */
-const VIDEO_GENERATE_MAX_INPUT_IMAGES = 1;
+/** Maximum number of input images supported by video generation by default. */
+const VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES = 1;
 /** Default width for video nodes when metadata is missing. */
 const DEFAULT_VIDEO_WIDTH = 16;
 /** Default height for video nodes when metadata is missing. */
@@ -71,10 +65,12 @@ export type VideoGenerateNodeProps = {
   chatModelId?: string;
   /** Prompt text entered in the node. */
   promptText?: string;
-  /** Duration in seconds. */
+  /** Legacy duration in seconds. */
   durationSeconds?: number;
-  /** Aspect ratio preset value. */
+  /** Legacy aspect ratio preset value. */
   aspectRatio?: string;
+  /** Model parameters. */
+  parameters?: Record<string, string | number | boolean>;
   /** Generated video path. */
   resultVideo?: string;
   /** Error text for failed runs. */
@@ -87,6 +83,7 @@ const VideoGenerateNodeSchema = z.object({
   promptText: z.string().optional(),
   durationSeconds: z.number().optional(),
   aspectRatio: z.string().optional(),
+  parameters: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
   resultVideo: z.string().optional(),
   errorText: z.string().optional(),
 });
@@ -99,26 +96,35 @@ function normalizeTextValue(value?: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-/** Normalize the duration within supported bounds. */
-function normalizeDurationSeconds(value: number | undefined) {
-  if (!Number.isFinite(value)) return VIDEO_GENERATE_DEFAULT_DURATION;
-  const rounded = Math.round(value as number);
-  // 逻辑：限制在允许范围内，避免无效时长。
-  return Math.min(Math.max(rounded, VIDEO_GENERATE_MIN_DURATION), VIDEO_GENERATE_MAX_DURATION);
+/** Check whether a parameter value is empty. */
+function isEmptyParamValue(value: unknown) {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "string") return value.trim() === "";
+  return false;
 }
 
-/** Normalize aspect ratio preset. */
-function normalizeAspectRatio(value: string | undefined) {
-  const trimmed = typeof value === "string" ? value.trim() : "";
-  return VIDEO_GENERATE_RATIO_OPTIONS.includes(trimmed)
-    ? trimmed
-    : VIDEO_GENERATE_DEFAULT_RATIO;
+/** Resolve parameter defaults based on model definition. */
+function resolveParameterDefaults(
+  fields: ModelParameterDefinition[],
+  input: Record<string, string | number | boolean> | undefined
+) {
+  const raw = input ?? {};
+  const resolved: Record<string, string | number | boolean> = { ...raw };
+  let changed = false;
+  for (const field of fields) {
+    const value = raw[field.key];
+    if (!isEmptyParamValue(value)) continue;
+    if (field.default !== undefined) {
+      resolved[field.key] = field.default;
+      changed = true;
+    }
+  }
+  return { resolved, changed };
 }
 
-/** Resolve frames count from duration seconds. */
-function resolveFrameCount(durationSeconds: number) {
-  // 逻辑：即梦视频仅支持 5s(121) 与 10s(241)，按时长向上归一。
-  return durationSeconds <= 5 ? 121 : 241;
+/** Check whether a url is public http(s). */
+function isPublicUrl(value: string) {
+  return /^https?:\/\//i.test(value);
 }
 
 /** Render the video generation node. */
@@ -175,6 +181,24 @@ export function VideoGenerateNodeView({
     return candidates[0]?.id ?? "";
   }, [candidates, defaultModelId, selectedModelId]);
 
+  const selectedModelOption = useMemo(
+    () => candidates.find((item) => item.id === effectiveModelId),
+    [candidates, effectiveModelId]
+  );
+  const parameterFields = useMemo(
+    () => selectedModelOption?.modelDefinition?.parameters?.fields ?? [],
+    [selectedModelOption]
+  );
+  const parameterFeatures = useMemo<ModelParameterFeature[]>(
+    () => selectedModelOption?.modelDefinition?.parameters?.features ?? [],
+    [selectedModelOption]
+  );
+  const allowsPrompt = parameterFeatures.includes("prompt");
+  const imageUrlOnly = parameterFeatures.includes("image_url_only");
+  const maxInputImages = parameterFeatures.includes("last_frame_support")
+    ? 2
+    : VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES;
+
   useEffect(() => {
     // 逻辑：当默认模型可用时自动写入节点，避免用户每次重复选择。
     if (!effectiveModelId) return;
@@ -184,16 +208,29 @@ export function VideoGenerateNodeView({
 
   const errorText = element.props.errorText ?? "";
   const localPromptText = normalizeTextValue(element.props.promptText);
-  const durationSeconds = normalizeDurationSeconds(element.props.durationSeconds);
-  const selectedAspectRatio =
-    typeof element.props.aspectRatio === "string" ? element.props.aspectRatio.trim() : "";
-  const aspectRatio = normalizeAspectRatio(element.props.aspectRatio);
-
+  const rawParameters =
+    element.props.parameters && typeof element.props.parameters === "object"
+      ? element.props.parameters
+      : undefined;
+  const resolvedParameterResult = useMemo(
+    () => resolveParameterDefaults(parameterFields, rawParameters),
+    [parameterFields, rawParameters]
+  );
+  const resolvedParameters = resolvedParameterResult.resolved;
   useEffect(() => {
-    // 逻辑：未设置比例时写入默认值，避免发送空参数。
-    if (!aspectRatio || selectedAspectRatio) return;
-    onUpdate({ aspectRatio });
-  }, [aspectRatio, onUpdate, selectedAspectRatio]);
+    // 逻辑：补齐参数默认值，避免发送空参数。
+    if (!resolvedParameterResult.changed) return;
+    onUpdate({ parameters: resolvedParameterResult.resolved });
+  }, [onUpdate, resolvedParameterResult]);
+
+  const missingRequiredParameters = useMemo(() => {
+    return parameterFields.filter((field) => {
+      if (!field.request) return false;
+      const value = resolvedParameters[field.key];
+      return isEmptyParamValue(value);
+    });
+  }, [parameterFields, resolvedParameters]);
+  const hasMissingRequiredParameters = missingRequiredParameters.length > 0;
 
   /** Throttle timestamp for focus-driven viewport moves. */
   const focusThrottleRef = useRef(0);
@@ -236,15 +273,15 @@ export function VideoGenerateNodeView({
     }
   }
 
-  const upstreamPromptText = inputTextSegments.join("\n").trim();
-  const sanitizedLocalPrompt = localPromptText.trim();
+  const upstreamPromptText = allowsPrompt ? inputTextSegments.join("\n").trim() : "";
+  const sanitizedLocalPrompt = allowsPrompt ? localPromptText.trim() : "";
   // 逻辑：合并上游与本地提示词，保证两者都参与生成。
-  const promptText = [upstreamPromptText, sanitizedLocalPrompt]
-    .filter(Boolean)
-    .join("\n");
-  const hasPrompt = Boolean(promptText);
-  const overflowCount = Math.max(0, inputImageNodes.length - VIDEO_GENERATE_MAX_INPUT_IMAGES);
-  const limitedInputImages = inputImageNodes.slice(0, VIDEO_GENERATE_MAX_INPUT_IMAGES);
+  const promptText = allowsPrompt
+    ? [upstreamPromptText, sanitizedLocalPrompt].filter(Boolean).join("\n")
+    : "";
+  const hasPrompt = allowsPrompt ? Boolean(promptText) : true;
+  const overflowCount = Math.max(0, inputImageNodes.length - maxInputImages);
+  const limitedInputImages = inputImageNodes.slice(0, maxInputImages);
   const resolvedImages: Array<{ url: string; mediaType: string }> = [];
   let invalidImageCount = 0;
 
@@ -257,6 +294,10 @@ export function VideoGenerateNodeView({
       rootUri: fileContext?.rootUri,
     });
     if (!resolvedUri) {
+      invalidImageCount += 1;
+      continue;
+    }
+    if (imageUrlOnly && !isPublicUrl(resolvedUri)) {
       invalidImageCount += 1;
       continue;
     }
@@ -276,6 +317,7 @@ export function VideoGenerateNodeView({
     if (errorText) return "error";
     if (!effectiveModelId || candidates.length === 0) return "needs_model";
     if (!hasPrompt && !hasAnyImageInput) return "needs_prompt";
+    if (hasMissingRequiredParameters) return "missing_parameters";
     if (hasTooManyImages) return "too_many_images";
     if (hasInvalidImages) return "invalid_image";
     if (resultVideo) return "done";
@@ -286,6 +328,7 @@ export function VideoGenerateNodeView({
     errorText,
     hasAnyImageInput,
     hasInvalidImages,
+    hasMissingRequiredParameters,
     hasPrompt,
     hasTooManyImages,
     isRunning,
@@ -295,6 +338,7 @@ export function VideoGenerateNodeView({
   const canRun =
     !isRunning &&
     (hasPrompt || hasAnyImageInput) &&
+    !hasMissingRequiredParameters &&
     !hasTooManyImages &&
     !hasInvalidImages &&
     candidates.length > 0 &&
@@ -302,13 +346,13 @@ export function VideoGenerateNodeView({
     !engine.isLocked() &&
     !element.locked;
 
-  /** Handle duration edits. */
-  const handleDurationChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const next = normalizeDurationSeconds(Number(event.target.value));
-      onUpdate({ durationSeconds: next });
+  /** Update a parameter value. */
+  const handleParameterChange = useCallback(
+    (key: string, value: string | number | boolean) => {
+      const next = { ...resolvedParameters, [key]: value };
+      onUpdate({ parameters: next });
     },
-    [onUpdate]
+    [onUpdate, resolvedParameters]
   );
 
   const handleCopyError = useCallback(async () => {
@@ -375,9 +419,16 @@ export function VideoGenerateNodeView({
         return;
       }
 
+      if (hasMissingRequiredParameters) {
+        engine.doc.updateNodeProps(nodeId, {
+          errorText: "请先填写必填参数",
+        });
+        return;
+      }
+
       if (hasTooManyImages) {
         engine.doc.updateNodeProps(nodeId, {
-          errorText: `最多支持 ${VIDEO_GENERATE_MAX_INPUT_IMAGES} 张图片输入`,
+          errorText: `最多支持 ${maxInputImages} 张图片输入`,
         });
         return;
       }
@@ -407,17 +458,16 @@ export function VideoGenerateNodeView({
         errorText: "",
         resultVideo: "",
         chatModelId,
-        aspectRatio,
       });
 
       try {
-        const frames = resolveFrameCount(durationSeconds);
         const imageUrls = resolvedImages.map((image) => image.url);
+        const requestParameters = parameterFields.length > 0 ? resolvedParameters : undefined;
         const result = await trpcClient.ai.videoGenerate.mutate({
           prompt: hasPrompt ? promptText : undefined,
           imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-          frames,
-          aspectRatio: hasAnyImageInput ? undefined : aspectRatio,
+          parameters: requestParameters,
+          chatModelId,
           workspaceId: resolvedWorkspaceId || undefined,
           projectId: currentProjectId || undefined,
         });
@@ -432,6 +482,7 @@ export function VideoGenerateNodeView({
           }
           const status = await trpcClient.ai.videoGenerateResult.mutate({
             taskId: result.taskId,
+            chatModelId,
             workspaceId: resolvedWorkspaceId || undefined,
             projectId: currentProjectId || undefined,
             saveDir: videoSaveDir || undefined,
@@ -570,19 +621,21 @@ export function VideoGenerateNodeView({
       }
     },
     [
-      aspectRatio,
       currentProjectId,
-      durationSeconds,
       engine,
       element.id,
       hasAnyImageInput,
       hasInvalidImages,
+      hasMissingRequiredParameters,
       hasPrompt,
       hasTooManyImages,
       promptText,
+      resolvedParameters,
+      parameterFields.length,
       resolvedImages,
       resolvedWorkspaceId,
       videoSaveDir,
+      maxInputImages,
     ]
   );
 
@@ -608,6 +661,8 @@ export function VideoGenerateNodeView({
         ? "需要配置模型"
       : viewStatus === "needs_prompt"
         ? "需要提示词"
+      : viewStatus === "missing_parameters"
+        ? "参数未填写"
       : viewStatus === "too_many_images"
         ? "图片数量过多"
       : viewStatus === "invalid_image"
@@ -618,14 +673,25 @@ export function VideoGenerateNodeView({
     if (viewStatus === "needs_prompt") {
       return { tone: "warn", text: "需要输入提示词或连接图片后才能生成视频。" };
     }
+    if (viewStatus === "missing_parameters") {
+      const requiredText = missingRequiredParameters
+        .map((field) => field.title || field.key)
+        .join("、");
+      return { tone: "warn", text: `请先填写必填参数：${requiredText}` };
+    }
     if (viewStatus === "too_many_images") {
       return {
         tone: "warn",
-        text: `最多支持 ${VIDEO_GENERATE_MAX_INPUT_IMAGES} 张图片输入，已连接 ${inputImageNodes.length} 张。`,
+        text: `最多支持 ${maxInputImages} 张图片输入，已连接 ${inputImageNodes.length} 张。`,
       };
     }
     if (viewStatus === "invalid_image") {
-      return { tone: "warn", text: "存在无法访问的图片地址，请检查输入。" };
+      return {
+        tone: "warn",
+        text: imageUrlOnly
+          ? "当前模型仅支持公网图片 URL，请确认图片已上传并使用公网地址。"
+          : "存在无法访问的图片地址，请检查输入。",
+      };
     }
     if (viewStatus === "needs_model") {
       return { tone: "warn", text: "未找到支持「视频生成」的模型，请先在设置中配置。" };
@@ -637,11 +703,20 @@ export function VideoGenerateNodeView({
       return { tone: "info", text: "正在准备生成视频，请稍等…" };
     }
     if (viewStatus === "done") return null;
-    if (!hasAnyImageInput) {
+    if (!hasAnyImageInput && allowsPrompt) {
       return { tone: "info", text: "未连接图片，将以纯文本生成视频。" };
     }
     return { tone: "info", text: "准备就绪，点击运行即可生成视频。" };
-  }, [errorText, hasAnyImageInput, inputImageNodes.length, viewStatus]);
+  }, [
+    allowsPrompt,
+    errorText,
+    hasAnyImageInput,
+    imageUrlOnly,
+    inputImageNodes.length,
+    maxInputImages,
+    missingRequiredParameters,
+    viewStatus,
+  ]);
 
   const containerClassName = [
     "relative flex w-full flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
@@ -745,67 +820,165 @@ export function VideoGenerateNodeView({
             </Select>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">时长</div>
-          <Input
-            type="number"
-            min={VIDEO_GENERATE_MIN_DURATION}
-            max={VIDEO_GENERATE_MAX_DURATION}
-            value={durationSeconds}
-            disabled={engine.isLocked() || element.locked}
-            onChange={handleDurationChange}
-            className="h-7 w-16 px-2 text-[11px]"
-          />
-          <div className="text-[11px] text-slate-400 dark:text-slate-500">秒</div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">比例</div>
-          <Select
-            value={aspectRatio}
-            onValueChange={(value) => {
-              onUpdate({ aspectRatio: value });
-            }}
-            disabled={isRunning}
-          >
-            <SelectTrigger className="h-7 w-20 px-2 text-[11px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="text-[11px]">
-              {VIDEO_GENERATE_RATIO_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option} className="text-[11px]">
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {parameterFields.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {parameterFields.map((field) => {
+              const value = resolvedParameters[field.key];
+              const valueString = value === undefined ? "" : String(value);
+              const disabled = engine.isLocked() || element.locked || isRunning;
+              if (field.type === "select") {
+                const options = Array.isArray(field.values) ? field.values : [];
+                return (
+                  <div className="flex items-center gap-2" key={field.key}>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {field.title}
+                    </div>
+                    <Select
+                      value={valueString}
+                      onValueChange={(nextValue) => {
+                        const matched = options.find(
+                          (option) => String(option) === nextValue
+                        );
+                        handleParameterChange(field.key, matched ?? nextValue);
+                      }}
+                      disabled={disabled}
+                    >
+                      <SelectTrigger className="h-7 w-24 px-2 text-[11px]">
+                        <SelectValue placeholder="请选择" />
+                      </SelectTrigger>
+                      <SelectContent className="text-[11px]">
+                        {options.map((option) => (
+                          <SelectItem
+                            key={`${field.key}-${String(option)}`}
+                            value={String(option)}
+                            className="text-[11px]"
+                          >
+                            {String(option)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              }
+              if (field.type === "number") {
+                const numericValue =
+                  typeof value === "number"
+                    ? value
+                    : typeof value === "string" && value.trim()
+                      ? Number(value)
+                      : "";
+                return (
+                  <div className="flex items-center gap-2" key={field.key}>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {field.title}
+                    </div>
+                    <Input
+                      type="number"
+                      min={typeof field.min === "number" ? field.min : undefined}
+                      max={typeof field.max === "number" ? field.max : undefined}
+                      step={typeof field.step === "number" ? field.step : undefined}
+                      value={Number.isFinite(numericValue as number) ? numericValue : ""}
+                      disabled={disabled}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                        const raw = event.target.value;
+                        const nextValue =
+                          raw.trim() === "" ? "" : Number.parseFloat(raw);
+                        handleParameterChange(
+                          field.key,
+                          Number.isFinite(nextValue) ? nextValue : ""
+                        );
+                      }}
+                      className="h-7 w-16 px-2 text-[11px]"
+                    />
+                    {field.unit ? (
+                      <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                        {field.unit}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }
+              if (field.type === "boolean") {
+                return (
+                  <div className="flex items-center gap-2" key={field.key}>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {field.title}
+                    </div>
+                    <Select
+                      value={valueString}
+                      onValueChange={(nextValue) => {
+                        handleParameterChange(field.key, nextValue === "true");
+                      }}
+                      disabled={disabled}
+                    >
+                      <SelectTrigger className="h-7 w-20 px-2 text-[11px]">
+                        <SelectValue placeholder="请选择" />
+                      </SelectTrigger>
+                      <SelectContent className="text-[11px]">
+                        <SelectItem value="true" className="text-[11px]">
+                          是
+                        </SelectItem>
+                        <SelectItem value="false" className="text-[11px]">
+                          否
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              }
+              return (
+                <div className="flex items-center gap-2" key={field.key}>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {field.title}
+                  </div>
+                  <Input
+                    type="text"
+                    value={valueString}
+                    disabled={disabled}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                      handleParameterChange(field.key, event.target.value);
+                    }}
+                    className="h-7 w-40 px-2 text-[11px]"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
         <div className="space-y-1">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-              <span>提示词</span>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                {localPromptText.length}/500
-              </span>
-            </div>
-            {upstreamPromptText ? (
-              <div className="rounded-md border border-slate-200/70 bg-white/70 px-1.5 py-[1px] text-[10px] leading-[14px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300">
-                已加载上游提示词
+          {allowsPrompt ? (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>提示词</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                    {localPromptText.length}/500
+                  </span>
+                </div>
+                {upstreamPromptText ? (
+                  <div className="rounded-md border border-slate-200/70 bg-white/70 px-1.5 py-[1px] text-[10px] leading-[14px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300">
+                    已加载上游提示词
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
-          <div className="min-w-0 space-y-1">
-            <Textarea
-              value={localPromptText}
-              maxLength={500}
-              placeholder="输入补充提示词（最多 500 字）"
-              onChange={(event) => {
-                const next = event.target.value.slice(0, 500);
-                onUpdate({ promptText: next });
-              }}
-              onFocus={handlePromptFocus}
-              data-board-scroll
-              className="min-h-[88px] px-2 py-1 text-[12px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[12px]"
-              disabled={engine.isLocked() || element.locked || isRunning}
-            />
-          </div>
+              <div className="min-w-0 space-y-1">
+                <Textarea
+                  value={localPromptText}
+                  maxLength={500}
+                  placeholder="输入补充提示词（最多 500 字）"
+                  onChange={(event) => {
+                    const next = event.target.value.slice(0, 500);
+                    onUpdate({ promptText: next });
+                  }}
+                  onFocus={handlePromptFocus}
+                  data-board-scroll
+                  className="min-h-[88px] px-2 py-1 text-[12px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[12px]"
+                  disabled={engine.isLocked() || element.locked || isRunning}
+                />
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -852,8 +1025,6 @@ export const VideoGenerateNodeDefinition: CanvasNodeDefinition<VideoGenerateNode
   schema: VideoGenerateNodeSchema,
   defaultProps: {
     promptText: "",
-    durationSeconds: VIDEO_GENERATE_DEFAULT_DURATION,
-    aspectRatio: VIDEO_GENERATE_DEFAULT_RATIO,
     resultVideo: "",
   },
   view: VideoGenerateNodeView,
