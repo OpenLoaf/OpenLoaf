@@ -311,6 +311,30 @@ export function Search({
     };
   }, [dispatchOverlay, open]);
   React.useEffect(() => {
+    // 逻辑：仅在高动画等级时对弹窗高度变化做过渡。
+    if (!open) return;
+    if (typeof document === "undefined") return;
+    const animationLevel = document.documentElement.dataset.uiAnimationLevel;
+    const list = document.querySelector<HTMLElement>(".search-commandlist-size-animate");
+    if (!list) return;
+    if (animationLevel !== "high") {
+      list.style.removeProperty("height");
+      list.style.removeProperty("transition");
+      return;
+    }
+    list.style.height = `${list.getBoundingClientRect().height}px`;
+    list.style.transition = "height 220ms ease";
+    const observer = new ResizeObserver(() => {
+      list.style.height = `${list.scrollHeight}px`;
+    });
+    observer.observe(list);
+    return () => {
+      observer.disconnect();
+      list.style.removeProperty("height");
+      list.style.removeProperty("transition");
+    };
+  }, [open]);
+  React.useEffect(() => {
     if (!open) return;
     refreshRecentItems();
   }, [open, refreshRecentItems]);
@@ -549,7 +573,8 @@ export function Search({
       onOpenChange={handleOpenChange}
       title="搜索"
       description="搜索并快速打开功能"
-      className="top-[25%] translate-y-0 sm:max-w-xl max-h-[70vh]"
+      className="top-[25%] max-h-[70vh] translate-y-0 sm:max-w-xl search-dialog-glow"
+      showCloseButton={false}
       overlayClassName="backdrop-blur-sm bg-black/30"
       commandProps={{ shouldFilter: false, filter: keepAllFilter }}
     >
@@ -562,7 +587,7 @@ export function Search({
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}
       />
-      <CommandList className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto show-scrollbar">
+      <CommandList className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto show-scrollbar search-commandlist-size-animate">
         {showEmptyState ? <CommandEmpty>暂无结果</CommandEmpty> : null}
         {visibleFileResults.length > 0 ? (
           <CommandGroup heading="文件">

@@ -2,6 +2,7 @@ import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@tenas-ai/api";
 import { runProviderRequest } from "@/ai/models/providerRequestRunner";
 import { getProviderDefinition } from "@/ai/models/modelRegistry";
 import { loadProjectImageBuffer } from "@/ai/services/image/attachmentResolver";
+import { resolveImageInputBuffer, uploadImagesToS3 } from "@/ai/services/image/imageStorage";
 import { fetchQwenVideoResult, fetchVolcengineVideoResult } from "@/ai/services/video/videoGeneration";
 import {
   resolveVideoSaveDirectory,
@@ -152,30 +153,63 @@ export class AiRouterImpl extends BaseAiRouter {
           const binaryDataBase64: string[] = Array.isArray(input.binaryDataBase64)
             ? [...input.binaryDataBase64]
             : [];
-          if (imageUrlOnly && binaryDataBase64.length > 0) {
-            throw new Error("当前模型仅支持公网图片 URL");
-          }
-          for (const imageUrl of imageUrls) {
-            if (!imageUrl) continue;
-            if (SCHEME_REGEX.test(imageUrl)) {
-              remoteUrls.push(imageUrl);
-              continue;
+          let normalizedImageUrls: string[] | undefined;
+          let normalizedBinaryData: string[] | undefined;
+
+          if (imageUrlOnly) {
+            const sessionId = input.workspaceId || input.projectId || "video";
+            const resolvedInputs: Array<{ buffer: Buffer; mediaType: string; baseName: string }> =
+              [];
+            for (const imageUrl of imageUrls) {
+              if (!imageUrl) continue;
+              if (SCHEME_REGEX.test(imageUrl)) {
+                remoteUrls.push(imageUrl);
+                continue;
+              }
+              const resolved = await resolveImageInputBuffer({
+                data: imageUrl,
+                fallbackName: "image",
+                projectId: input.projectId,
+                workspaceId: input.workspaceId,
+              });
+              resolvedInputs.push(resolved);
             }
-            if (imageUrlOnly) {
-              throw new Error("当前模型仅支持公网图片 URL");
+            for (const base64 of binaryDataBase64) {
+              if (!base64) continue;
+              const resolved = await resolveImageInputBuffer({
+                data: `data:image/png;base64,${base64}`,
+                fallbackName: "image",
+              });
+              resolvedInputs.push(resolved);
             }
-            const loaded = await loadProjectImageBuffer({
-              path: imageUrl,
-              projectId: input.projectId,
-              workspaceId: input.workspaceId,
+            const uploadedUrls = await uploadImagesToS3({
+              images: resolvedInputs,
+              sessionId,
             });
-            if (loaded) {
-              binaryDataBase64.push(loaded.buffer.toString("base64"));
+            normalizedImageUrls =
+              remoteUrls.length > 0 ? [...remoteUrls, ...uploadedUrls] : uploadedUrls;
+            normalizedImageUrls = normalizedImageUrls.length > 0 ? normalizedImageUrls : undefined;
+            normalizedBinaryData = undefined;
+          } else {
+            for (const imageUrl of imageUrls) {
+              if (!imageUrl) continue;
+              if (SCHEME_REGEX.test(imageUrl)) {
+                remoteUrls.push(imageUrl);
+                continue;
+              }
+              const loaded = await loadProjectImageBuffer({
+                path: imageUrl,
+                projectId: input.projectId,
+                workspaceId: input.workspaceId,
+              });
+              if (loaded) {
+                binaryDataBase64.push(loaded.buffer.toString("base64"));
+              }
             }
+            normalizedImageUrls = remoteUrls.length > 0 ? remoteUrls : undefined;
+            normalizedBinaryData =
+              binaryDataBase64.length > 0 ? binaryDataBase64 : undefined;
           }
-          const normalizedImageUrls = remoteUrls.length > 0 ? remoteUrls : undefined;
-          const normalizedBinaryData =
-            binaryDataBase64.length > 0 ? binaryDataBase64 : undefined;
           const imageCount =
             (normalizedImageUrls?.length ?? 0) + (normalizedBinaryData?.length ?? 0);
           if (imageCount > maxImages) {

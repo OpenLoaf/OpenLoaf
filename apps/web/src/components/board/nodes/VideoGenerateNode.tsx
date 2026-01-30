@@ -83,7 +83,7 @@ const VideoGenerateNodeSchema = z.object({
   promptText: z.string().optional(),
   durationSeconds: z.number().optional(),
   aspectRatio: z.string().optional(),
-  parameters: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+  parameters: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   resultVideo: z.string().optional(),
   errorText: z.string().optional(),
 });
@@ -122,10 +122,6 @@ function resolveParameterDefaults(
   return { resolved, changed };
 }
 
-/** Check whether a url is public http(s). */
-function isPublicUrl(value: string) {
-  return /^https?:\/\//i.test(value);
-}
 
 /** Render the video generation node. */
 export function VideoGenerateNodeView({
@@ -194,7 +190,6 @@ export function VideoGenerateNodeView({
     [selectedModelOption]
   );
   const allowsPrompt = parameterFeatures.includes("prompt");
-  const imageUrlOnly = parameterFeatures.includes("image_url_only");
   const maxInputImages = parameterFeatures.includes("last_frame_support")
     ? 2
     : VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES;
@@ -294,10 +289,6 @@ export function VideoGenerateNodeView({
       rootUri: fileContext?.rootUri,
     });
     if (!resolvedUri) {
-      invalidImageCount += 1;
-      continue;
-    }
-    if (imageUrlOnly && !isPublicUrl(resolvedUri)) {
       invalidImageCount += 1;
       continue;
     }
@@ -688,9 +679,7 @@ export function VideoGenerateNodeView({
     if (viewStatus === "invalid_image") {
       return {
         tone: "warn",
-        text: imageUrlOnly
-          ? "当前模型仅支持公网图片 URL，请确认图片已上传并使用公网地址。"
-          : "存在无法访问的图片地址，请检查输入。",
+        text: "存在无法访问的图片地址，请检查输入。",
       };
     }
     if (viewStatus === "needs_model") {
@@ -711,7 +700,6 @@ export function VideoGenerateNodeView({
     allowsPrompt,
     errorText,
     hasAnyImageInput,
-    imageUrlOnly,
     inputImageNodes.length,
     maxInputImages,
     missingRequiredParameters,

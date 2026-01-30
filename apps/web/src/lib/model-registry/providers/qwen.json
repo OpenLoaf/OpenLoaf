@@ -102,7 +102,7 @@
               "1080P",
               "720P"
             ],
-            "default": "1080P",
+            "default": "720P",
             "request": false
           },
           {
@@ -152,7 +152,7 @@
               "1080P",
               "720P"
             ],
-            "default": "1080P",
+            "default": "720P",
             "request": false
           },
           {

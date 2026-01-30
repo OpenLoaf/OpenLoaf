@@ -10,8 +10,10 @@ import {
 import { readBasicConf, readS3Providers } from "@/modules/settings/tenasConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
 import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
+import { downloadImageData } from "@/ai/shared/util";
 import {
   injectPngMetadata,
+  loadProjectImageBuffer,
   resolveMetadataSidecarPath,
   saveChatImageAttachment,
   serializeImageMetadata,
@@ -67,6 +69,107 @@ export function resolveImageExtension(mediaType: string): string {
   if (mediaType === "image/jpeg") return "jpg";
   if (mediaType === "image/webp") return "webp";
   return "png";
+}
+
+/** Check whether the input string is a relative path. */
+function isRelativePath(value: string): boolean {
+  return !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value);
+}
+
+/** Resolve image input into buffer + meta for upload. */
+export async function resolveImageInputBuffer(input: {
+  /** Raw input data. */
+  data: string | Buffer | Uint8Array | ArrayBuffer;
+  /** Optional media type hint. */
+  mediaType?: string;
+  /** Fallback base name for storage. */
+  fallbackName: string;
+  /** Optional project id for local resolution. */
+  projectId?: string;
+  /** Optional workspace id for local resolution. */
+  workspaceId?: string;
+  /** Optional abort signal. */
+  abortSignal?: AbortSignal;
+}): Promise<{ buffer: Buffer; mediaType: string; baseName: string }> {
+  const mediaTypeHint = input.mediaType?.trim() || "";
+  const fallbackName = sanitizeFileName(input.fallbackName);
+  if (typeof input.data === "string") {
+    const raw = input.data.trim();
+    const dataUrlType = raw.startsWith("data:") ? resolveMediaTypeFromDataUrl(raw) : "";
+    const resolvedType = dataUrlType || mediaTypeHint || "image/png";
+    if (isRelativePath(raw)) {
+      const payload = await loadProjectImageBuffer({
+        path: raw,
+        projectId: input.projectId,
+        workspaceId: input.workspaceId,
+        mediaType: resolvedType,
+      });
+      if (!payload) {
+        throw new Error("图片读取失败");
+      }
+      return {
+        buffer: payload.buffer,
+        mediaType: payload.mediaType,
+        baseName: resolveBaseNameFromUrl(raw, fallbackName),
+      };
+    }
+    const bytes = await downloadImageData(raw, input.abortSignal);
+    return {
+      buffer: Buffer.from(bytes),
+      mediaType: resolvedType,
+      baseName: resolveBaseNameFromUrl(raw, fallbackName),
+    };
+  }
+  if (Buffer.isBuffer(input.data)) {
+    return {
+      buffer: input.data,
+      mediaType: mediaTypeHint || "image/png",
+      baseName: fallbackName,
+    };
+  }
+  if (input.data instanceof Uint8Array) {
+    return {
+      buffer: Buffer.from(input.data),
+      mediaType: mediaTypeHint || "image/png",
+      baseName: fallbackName,
+    };
+  }
+  if (input.data instanceof ArrayBuffer) {
+    return {
+      buffer: Buffer.from(input.data),
+      mediaType: mediaTypeHint || "image/png",
+      baseName: fallbackName,
+    };
+  }
+  throw new Error("图片输入格式不支持");
+}
+
+/** Upload image buffers to S3 and return public URLs. */
+export async function uploadImagesToS3(input: {
+  /** Resolved images. */
+  images: Array<{ buffer: Buffer; mediaType: string; baseName: string }>;
+  /** Session id for temp storage. */
+  sessionId: string;
+}): Promise<string[]> {
+  const storage = resolveActiveS3Storage();
+  if (!storage) {
+    throw new Error("需要配置 S3 存储服务");
+  }
+  const urls: string[] = [];
+  for (const image of input.images) {
+    const baseName = sanitizeFileName(image.baseName || "image");
+    const ext = resolveImageExtension(image.mediaType);
+    const fileName = `${baseName}.${ext}`;
+    const key = `ai-temp/video/${input.sessionId}/${fileName}`;
+    const result = await storage.putObject({
+      key,
+      body: image.buffer,
+      contentType: image.mediaType,
+      contentLength: image.buffer.byteLength,
+    });
+    urls.push(result.url);
+  }
+  return urls;
 }
 
 /** Supported image extensions for directory inference. */

@@ -46,7 +46,7 @@ export const aiSchemas = {
       seed: z.number().int().optional(),
       frames: z.number().int().optional(),
       aspectRatio: z.string().optional(),
-      parameters: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+      parameters: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
       chatModelId: z.string().optional(),
       workspaceId: z.string().optional(),
       projectId: z.string().optional(),
