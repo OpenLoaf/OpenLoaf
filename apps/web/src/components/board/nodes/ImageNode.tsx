@@ -18,6 +18,7 @@ import { ImageNodeDetail } from "./ImageNodeDetail";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./ImagePromptGenerateNode";
 import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
 import { VIDEO_GENERATE_NODE_TYPE } from "./VideoGenerateNode";
+import { NodeFrame } from "./NodeFrame";
 import type { BoardFileContext } from "../core/BoardProvider";
 import {
   isBoardRelativePath,
@@ -361,7 +362,7 @@ export function ImageNodeView({
   }, [previewSrc]);
 
   return (
-    <div className="relative h-full w-full" ref={rootRef}>
+    <NodeFrame ref={rootRef}>
       <div
         className={[
           "relative h-full w-full overflow-hidden rounded-sm box-border",
@@ -424,7 +425,7 @@ export function ImageNodeView({
           />
         </div>
       ) : null}
-    </div>
+    </NodeFrame>
   );
 }
 

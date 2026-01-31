@@ -1,6 +1,8 @@
 import { useDraggable } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import type { CSSProperties } from 'react'
-import { memo } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
 import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
 import { cn } from '@tenas-ai/ui/calendar/lib/utils'
@@ -75,14 +77,51 @@ function DraggableEventUnmemoized({
 		disableDragAndDrop: state.disableDragAndDrop,
 	}))
 
-	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+	const eventMeta = event.data as
+		| { readOnly?: boolean; isSubscribed?: boolean }
+		| undefined
+	const isReadOnly =
+		eventMeta?.readOnly === true || eventMeta?.isSubscribed === true
+	const isDragDisabled = disableDrag || disableDragAndDrop || isReadOnly
+
+	const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({
 		id: elementId,
 		data: {
 			event,
 			type: 'calendar-event',
 		},
-		disabled: disableDrag || disableDragAndDrop,
+		disabled: isDragDisabled,
 	})
+	const nodeRef = useRef<HTMLDivElement | null>(null)
+	const [dragRect, setDragRect] = useState<DOMRect | null>(null)
+	const dragTransform = transform ? CSS.Translate.toString(transform) : undefined
+
+	useEffect(() => {
+		if (!isDragging) {
+			setDragRect(null)
+			return
+		}
+		const node = nodeRef.current
+		if (!node) {
+			return
+		}
+		setDragRect(node.getBoundingClientRect())
+	}, [isDragging])
+
+	const overlayStyle =
+		isDragging && dragRect
+			? {
+					position: 'fixed',
+					top: dragRect.top,
+					left: dragRect.left,
+					width: dragRect.width,
+					height: dragRect.height,
+					transform: dragTransform,
+					zIndex: 9999,
+					pointerEvents: 'none',
+					opacity: 0.85,
+				}
+			: undefined
 
 	// Default event content to render if custom renderEvent is not provided
 	const DefaultEventContent = () => {
@@ -137,31 +176,43 @@ function DraggableEventUnmemoized({
 	}
 
 	return (
-		<div
-			className={cn(
-				'truncate h-full w-full',
-				'cursor-default',
-				isDragging &&
-					!(disableDrag || disableDragAndDrop) &&
-					'shadow-lg',
-				className
-			)}
-			onClick={(e) => {
-				e.stopPropagation()
-				onEventClick(event)
-			}}
-			onDoubleClick={(e) => {
-				e.stopPropagation()
-				onEventDoubleClick?.(event)
-			}}
-			ref={setNodeRef}
-			style={style}
-			{...attributes}
-			{...listeners}
-		>
-			{/* Use custom renderEvent from context if available, otherwise use default */}
-			{renderEvent ? renderEvent(event) : <DefaultEventContent />}
-		</div>
+		<>
+			<div
+				className={cn(
+					'truncate h-full w-full',
+					'cursor-default',
+					isDragging && !isDragDisabled && 'shadow-lg',
+					className
+				)}
+				onClick={(e) => {
+					e.stopPropagation()
+					onEventClick(event)
+				}}
+				onDoubleClick={(e) => {
+					e.stopPropagation()
+					onEventDoubleClick?.(event)
+				}}
+				ref={(node) => {
+					nodeRef.current = node
+					setNodeRef(node)
+				}}
+				style={style}
+				{...attributes}
+				{...listeners}
+			>
+				{/* Use custom renderEvent from context if available, otherwise use default */}
+				{renderEvent ? renderEvent(event) : <DefaultEventContent />}
+			</div>
+			{isDragging &&
+				overlayStyle &&
+				typeof document !== 'undefined' &&
+				createPortal(
+					<div style={overlayStyle}>
+						{renderEvent ? renderEvent(event) : <DefaultEventContent />}
+					</div>,
+					document.body
+				)}
+		</>
 	)
 }
 

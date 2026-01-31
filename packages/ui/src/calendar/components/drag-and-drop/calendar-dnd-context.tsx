@@ -19,7 +19,6 @@ import type { RecurrenceEditScope } from '@tenas-ai/ui/calendar/features/recurre
 import { isRecurringEvent } from '@tenas-ai/ui/calendar/features/recurrence/utils/recurrence-handler'
 import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
 import { getUpdatedEvent } from './dnd-utils'
-import { EventDragOverlay } from './event-drag-overlay'
 
 interface CalendarDndContextProps {
 	children: React.ReactNode
@@ -27,9 +26,6 @@ interface CalendarDndContextProps {
 
 export function CalendarDndContext({ children }: CalendarDndContextProps) {
 	const activeEventRef = useRef<CalendarEvent>(null)
-	const dragOverlayRef = useRef<{
-		setActiveEvent: (event: { event: CalendarEvent; width?: number; height?: number } | null) => void
-	}>(null)
 
 	const { updateEvent, updateRecurringEvent, disableDragAndDrop } =
 		useSmartCalendarContext((context) => ({
@@ -123,13 +119,15 @@ export function CalendarDndContext({ children }: CalendarDndContextProps) {
 
 		// Set the active event based on the event data
 		if (active.data.current?.type === 'calendar-event') {
-			const rect = active.rect?.current?.translated ?? active.rect?.current
-			dragOverlayRef.current?.setActiveEvent({
-				event: active.data.current.event,
-				width: rect?.width,
-				height: rect?.height,
-			})
-			activeEventRef.current = active.data.current.event
+			const activeEvent = active.data.current.event as CalendarEvent
+			const meta = activeEvent?.data as
+				| { readOnly?: boolean; isSubscribed?: boolean }
+				| undefined
+			if (meta?.readOnly === true || meta?.isSubscribed === true) {
+				activeEventRef.current = null
+				return
+			}
+			activeEventRef.current = activeEvent
 		}
 	}
 
@@ -142,7 +140,6 @@ export function CalendarDndContext({ children }: CalendarDndContextProps) {
 
 		// Clear the active event reference
 		activeEventRef.current = null
-		dragOverlayRef.current?.setActiveEvent(null)
 	}
 
 	const handleDragCancel = (_event: DragCancelEvent) => {
@@ -164,7 +161,6 @@ export function CalendarDndContext({ children }: CalendarDndContextProps) {
 				sensors={sensors}
 			>
 				{children}
-				<EventDragOverlay ref={dragOverlayRef} />
 			</DndContext>
 
 			{/* Recurring event edit dialog */}

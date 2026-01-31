@@ -36,8 +36,6 @@ export function normalizeImageOptions(
   const count = normalizeImageCount(value.n);
   const size = normalizeImageSize(value.size);
   const aspectRatio = size ? undefined : normalizeAspectRatio(value.aspectRatio);
-  const seed =
-    typeof value.seed === "number" && Number.isFinite(value.seed) ? value.seed : undefined;
   const quality =
     typeof value.providerOptions?.openai?.quality === "string"
       ? value.providerOptions.openai.quality.trim()
@@ -46,37 +44,36 @@ export function normalizeImageOptions(
     typeof value.providerOptions?.openai?.style === "string"
       ? value.providerOptions.openai.style.trim()
       : "";
-  const volcengineRaw = value.providerOptions?.volcengine;
-  const volcengineCandidate =
-    typeof volcengineRaw === "object" && volcengineRaw
+  const qwenRaw = value.providerOptions?.qwen;
+  const qwenCandidate =
+    typeof qwenRaw === "object" && qwenRaw
       ? {
-          ...(typeof (volcengineRaw as any).scale === "number" &&
-          Number.isFinite((volcengineRaw as any).scale)
-            ? { scale: (volcengineRaw as any).scale }
+          ...(typeof (qwenRaw as any).negative_prompt === "string" &&
+          (qwenRaw as any).negative_prompt.trim()
+            ? { negative_prompt: (qwenRaw as any).negative_prompt.trim() }
             : {}),
-          ...(typeof (volcengineRaw as any).forceSingle === "boolean"
-            ? { forceSingle: (volcengineRaw as any).forceSingle }
+          ...(typeof (qwenRaw as any).prompt_extend === "boolean"
+            ? { prompt_extend: (qwenRaw as any).prompt_extend }
             : {}),
-          ...(typeof (volcengineRaw as any).minRatio === "number" &&
-          Number.isFinite((volcengineRaw as any).minRatio)
-            ? { minRatio: (volcengineRaw as any).minRatio }
+          ...(typeof (qwenRaw as any).watermark === "boolean"
+            ? { watermark: (qwenRaw as any).watermark }
             : {}),
-          ...(typeof (volcengineRaw as any).maxRatio === "number" &&
-          Number.isFinite((volcengineRaw as any).maxRatio)
-            ? { maxRatio: (volcengineRaw as any).maxRatio }
+          ...(typeof (qwenRaw as any).enable_interleave === "boolean"
+            ? { enable_interleave: (qwenRaw as any).enable_interleave }
             : {}),
-          ...(typeof (volcengineRaw as any).size === "number" &&
-          Number.isFinite((volcengineRaw as any).size)
-            ? { size: (volcengineRaw as any).size }
+          ...(typeof (qwenRaw as any).stream === "boolean"
+            ? { stream: (qwenRaw as any).stream }
+            : {}),
+          ...(typeof (qwenRaw as any).max_images === "number" &&
+          Number.isFinite((qwenRaw as any).max_images)
+            ? { max_images: (qwenRaw as any).max_images }
             : {}),
         }
       : undefined;
-  const volcengine =
-    volcengineCandidate && Object.keys(volcengineCandidate).length > 0
-      ? volcengineCandidate
-      : undefined;
+  const qwen =
+    qwenCandidate && Object.keys(qwenCandidate).length > 0 ? qwenCandidate : undefined;
   const providerOptions =
-    quality || style || volcengine
+    quality || style || qwen
       ? {
           ...(quality || style
             ? {
@@ -86,11 +83,11 @@ export function normalizeImageOptions(
                 },
               }
             : {}),
-          ...(volcengine ? { volcengine } : {}),
+          ...(qwen ? { qwen } : {}),
         }
       : undefined;
 
-  if (count === undefined && !size && !aspectRatio && seed === undefined && !providerOptions) {
+  if (count === undefined && !size && !aspectRatio && !providerOptions) {
     return undefined;
   }
 
@@ -98,7 +95,6 @@ export function normalizeImageOptions(
     ...(count !== undefined ? { n: count } : {}),
     ...(size ? { size } : {}),
     ...(aspectRatio ? { aspectRatio } : {}),
-    ...(seed !== undefined ? { seed } : {}),
     ...(providerOptions ? { providerOptions } : {}),
   };
 }

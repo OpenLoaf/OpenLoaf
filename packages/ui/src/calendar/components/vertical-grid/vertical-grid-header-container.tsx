@@ -36,7 +36,7 @@ const NoMemoVerticalGridHeaderContainer: React.FC<
 			{allDayRow && (
 				<div
 					className={cn(
-						'flex w-full border-b min-h-12 h-full',
+						'flex w-full border-b min-h-20 h-20',
 						classes?.allDay
 					)}
 					data-testid="vertical-grid-all-day"

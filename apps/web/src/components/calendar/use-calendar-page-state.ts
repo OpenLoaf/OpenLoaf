@@ -1,39 +1,75 @@
 import type { IlamyCalendarProps } from "@tenas-ai/ui/calendar";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "@tenas-ai/ui/calendar/lib/configs/dayjs-config";
+import { trpc } from "@/utils/trpc";
 import {
   createSystemEvent,
   createSystemReminder,
   deleteSystemEvent,
   deleteSystemReminder,
-  getSystemEvents,
-  getSystemReminderLists,
-  getSystemReminders,
-  getSystemCalendars,
   requestCalendarPermission,
+  setCalendarSyncRange,
   subscribeSystemCalendarChanges,
+  syncSystemCalendars,
   updateSystemEvent,
   updateSystemReminder,
 } from "@/lib/calendar/electron-calendar";
 
 type CalendarPermissionState = TenasCalendarPermissionState;
 type CalendarRange = TenasCalendarRange;
-type SystemCalendarEvent = TenasCalendarEvent;
-type SystemCalendarItem = TenasCalendarItem;
 type CalendarEvent = NonNullable<IlamyCalendarProps["events"]>[number];
 type CalendarKind = "event" | "reminder";
+type CalendarSourceFilter = "all" | "local" | "system";
+
+type CalendarSource = {
+  id: string;
+  workspaceId: string;
+  provider: string;
+  kind: "calendar" | "reminder";
+  externalId?: string | null;
+  title: string;
+  color?: string | null;
+  readOnly: boolean;
+  isSubscribed: boolean;
+};
+
+type CalendarItemRecord = {
+  id: string;
+  workspaceId: string;
+  sourceId: string;
+  kind: CalendarKind;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  startAt: string;
+  endAt: string;
+  allDay: boolean;
+  recurrenceRule?: unknown | null;
+  completedAt?: string | null;
+  externalId?: string | null;
+  sourceUpdatedAt?: string | null;
+  deletedAt?: string | null;
+};
+
+function isEventReadOnly(event: CalendarEvent): boolean {
+  const meta = event.data as { readOnly?: boolean; isSubscribed?: boolean } | undefined;
+  return meta?.readOnly === true || meta?.isSubscribed === true;
+}
 
 type CalendarPageStateParams = {
-  toSystemEvent: (event: CalendarEvent) => SystemCalendarEvent;
+  workspaceId?: string;
+  toSystemEvent: (event: CalendarEvent) => TenasCalendarEvent;
   getEventKind: (event: CalendarEvent) => CalendarKind;
+  sourceFilter?: CalendarSourceFilter;
 };
 
 type CalendarPageStateResult = {
-  systemEvents: SystemCalendarEvent[];
-  systemReminders: SystemCalendarEvent[];
-  calendars: SystemCalendarItem[];
-  reminderLists: SystemCalendarItem[];
+  systemEvents: CalendarItemRecord[];
+  systemReminders: CalendarItemRecord[];
+  calendars: CalendarSource[];
+  reminderLists: CalendarSource[];
   selectedCalendarIds: Set<string>;
   selectedReminderListIds: Set<string>;
   permissionState: CalendarPermissionState;
@@ -50,6 +86,7 @@ type CalendarPageStateResult = {
   handleToggleCalendar: (calendarId: string) => void;
   handleSelectAllCalendars: () => void;
   handleClearCalendars: () => void;
+  setSelectedCalendarIds: Dispatch<SetStateAction<Set<string>>>;
   setSelectedReminderListIds: Dispatch<SetStateAction<Set<string>>>;
   toggleReminderCompleted: (event: CalendarEvent) => Promise<void>;
 };
@@ -89,130 +126,240 @@ function playReminderSound() {
 }
 
 export function useCalendarPageState({
+  workspaceId,
   toSystemEvent,
   getEventKind,
+  sourceFilter = "all",
 }: CalendarPageStateParams): CalendarPageStateResult {
-  const [systemEvents, setSystemEvents] = useState<SystemCalendarEvent[]>([]);
-  const [systemReminders, setSystemReminders] = useState<SystemCalendarEvent[]>([]);
-  const [calendars, setCalendars] = useState<SystemCalendarItem[]>([]);
-  const [reminderLists, setReminderLists] = useState<SystemCalendarItem[]>([]);
+  const queryClient = useQueryClient();
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<Set<string>>(new Set());
-  const [selectedReminderListIds, setSelectedReminderListIds] = useState<Set<string>>(new Set());
+  const [selectedReminderListIds, setSelectedReminderListIds] = useState<Set<string>>(
+    new Set()
+  );
   const [permissionState, setPermissionState] = useState<CalendarPermissionState>("prompt");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [activeRange, setActiveRange] = useState<CalendarRange>(() => buildDefaultRange());
   const pendingRangeRef = useRef<CalendarRange | null>(null);
   const rangeUpdateScheduledRef = useRef(false);
+  const initialSyncRef = useRef(false);
+  const permissionRequestedRef = useRef(false);
+  const syncInFlightRef = useRef(false);
+  const syncQueuedRef = useRef(false);
+  const lastSyncAtRef = useRef(0);
 
-  const selectedCalendarIdList = useMemo(() => Array.from(selectedCalendarIds), [selectedCalendarIds]);
-  const selectedReminderListIdList = useMemo(
-    () => Array.from(selectedReminderListIds),
-    [selectedReminderListIds]
+  const sourcesQuery = useQuery(
+    trpc.calendar.listSources.queryOptions(
+      workspaceId ? { workspaceId } : skipToken,
+    ),
   );
 
-  const refreshEvents = useCallback(async (range: CalendarRange) => {
-    setIsLoading(true);
-    const result = await getSystemEvents(range);
-    if (result.ok) {
-      setSystemEvents(result.data);
-      setErrorMessage(null);
-    } else {
-      setErrorMessage(result.reason);
+  const sources = (sourcesQuery.data ?? []) as CalendarSource[];
+  const calendars = useMemo(
+    () => sources.filter((source) => source.kind === "calendar"),
+    [sources],
+  );
+  const reminderLists = useMemo(
+    () => sources.filter((source) => source.kind === "reminder"),
+    [sources],
+  );
+  const filteredCalendars = useMemo(() => {
+    if (sourceFilter === "local") {
+      return calendars.filter((source) => source.provider === "local");
     }
-    setIsLoading(false);
-  }, []);
+    if (sourceFilter === "system") {
+      return calendars.filter((source) => source.provider !== "local");
+    }
+    return calendars;
+  }, [calendars, sourceFilter]);
+  const filteredReminderLists = useMemo(() => {
+    if (sourceFilter === "local") {
+      return reminderLists.filter((source) => source.provider === "local");
+    }
+    if (sourceFilter === "system") {
+      return reminderLists.filter((source) => source.provider !== "local");
+    }
+    return reminderLists;
+  }, [reminderLists, sourceFilter]);
+  const allowedSourceIds = useMemo(() => {
+    const ids = new Set<string>();
+    filteredCalendars.forEach((source) => ids.add(source.id));
+    filteredReminderLists.forEach((source) => ids.add(source.id));
+    return ids;
+  }, [filteredCalendars, filteredReminderLists]);
 
-  const refreshCalendars = useCallback(async () => {
-    const result = await getSystemCalendars();
-    if (result.ok) {
-      setCalendars(result.data);
-      setSelectedCalendarIds((prev) => {
-        if (prev.size === 0) {
-          return new Set(result.data.map((item) => item.id));
-        }
-        const next = new Set<string>();
-        for (const item of result.data) {
-          if (prev.has(item.id)) next.add(item.id);
-        }
-        if (next.size === 0 && result.data.length > 0) {
-          return new Set(result.data.map((item) => item.id));
-        }
-        return next;
-      });
-      setErrorMessage(null);
-    } else {
-      setErrorMessage(result.reason);
-    }
-  }, []);
+  const selectedCalendarIdList = useMemo(
+    () => Array.from(selectedCalendarIds),
+    [selectedCalendarIds],
+  );
+  const selectedReminderListIdList = useMemo(
+    () => Array.from(selectedReminderListIds),
+    [selectedReminderListIds],
+  );
 
-  const refreshReminderLists = useCallback(async () => {
-    const result = await getSystemReminderLists();
-    if (result.ok) {
-      setReminderLists(result.data);
-      setSelectedReminderListIds((prev) => {
-        if (prev.size === 0) {
-          return new Set(result.data.map((item) => item.id));
-        }
-        const next = new Set<string>();
-        for (const item of result.data) {
-          if (prev.has(item.id)) next.add(item.id);
-        }
-        if (next.size === 0 && result.data.length > 0) {
-          return new Set(result.data.map((item) => item.id));
-        }
-        return next;
-      });
-      setErrorMessage(null);
-    } else if (result.code !== "unsupported") {
-      setErrorMessage(result.reason);
-    }
-  }, []);
+  const activeSourceIds = useMemo(
+    () =>
+      [...selectedCalendarIdList, ...selectedReminderListIdList].filter((id) =>
+        allowedSourceIds.has(id)
+      ),
+    [allowedSourceIds, selectedCalendarIdList, selectedReminderListIdList],
+  );
 
-  const refreshReminders = useCallback(async (range: CalendarRange) => {
-    const result = await getSystemReminders(range);
-    if (result.ok) {
-      setSystemReminders(result.data);
-      setErrorMessage(null);
-    } else if (result.code !== "unsupported") {
-      setErrorMessage(result.reason);
+  const itemsQuery = useQuery(
+    trpc.calendar.listItems.queryOptions(
+      workspaceId && activeSourceIds.length > 0
+        ? { workspaceId, range: activeRange, sourceIds: activeSourceIds }
+        : skipToken,
+    ),
+  );
+
+  const items = (itemsQuery.data ?? []) as CalendarItemRecord[];
+  const systemEvents = useMemo(
+    () => items.filter((item) => item.kind === "event"),
+    [items],
+  );
+  const systemReminders = useMemo(
+    () => items.filter((item) => item.kind === "reminder"),
+    [items],
+  );
+
+  const isLoading = sourcesQuery.isLoading || itemsQuery.isLoading;
+
+  useEffect(() => {
+    if (sourcesQuery.error) {
+      setErrorMessage(sourcesQuery.error.message ?? "日历数据加载失败。");
     }
-  }, []);
+  }, [sourcesQuery.error]);
+
+  useEffect(() => {
+    if (itemsQuery.error) {
+      setErrorMessage(itemsQuery.error.message ?? "日历事件加载失败。");
+    }
+  }, [itemsQuery.error]);
+
+  useEffect(() => {
+    setSelectedCalendarIds((prev) => {
+      if (calendars.length === 0) return new Set();
+      if (prev.size === 0) {
+        return new Set(calendars.map((item) => item.id));
+      }
+      const next = new Set<string>();
+      for (const item of calendars) {
+        if (prev.has(item.id)) next.add(item.id);
+      }
+      if (next.size === 0) {
+        return new Set(calendars.map((item) => item.id));
+      }
+      return next;
+    });
+  }, [calendars]);
+
+  useEffect(() => {
+    setSelectedReminderListIds((prev) => {
+      if (reminderLists.length === 0) return new Set();
+      if (prev.size === 0) {
+        return new Set(reminderLists.map((item) => item.id));
+      }
+      const next = new Set<string>();
+      for (const item of reminderLists) {
+        if (prev.has(item.id)) next.add(item.id);
+      }
+      if (next.size === 0) {
+        return new Set(reminderLists.map((item) => item.id));
+      }
+      return next;
+    });
+  }, [reminderLists]);
+
+  const triggerSync = useCallback(
+    async (reason: "enter" | "permission" | "watch") => {
+      if (!workspaceId) return;
+      if (reason !== "permission" && permissionState !== "granted") return;
+      const now = Date.now();
+      if (reason === "watch" && now - lastSyncAtRef.current < 1500) {
+        // 逻辑：过滤过密的系统变更事件，避免同步风暴。
+        return;
+      }
+      if (syncInFlightRef.current) {
+        syncQueuedRef.current = true;
+        return;
+      }
+      syncInFlightRef.current = true;
+      try {
+        const result = await syncSystemCalendars({ workspaceId, range: activeRange });
+        if (!result.ok) return;
+        lastSyncAtRef.current = Date.now();
+        queryClient.invalidateQueries({
+          queryKey: trpc.calendar.listSources.queryOptions({ workspaceId }).queryKey,
+        });
+        if (activeSourceIds.length > 0) {
+          queryClient.invalidateQueries({
+            queryKey: trpc.calendar.listItems.queryOptions({
+              workspaceId,
+              range: activeRange,
+              sourceIds: activeSourceIds,
+            }).queryKey,
+          });
+        }
+      } finally {
+        syncInFlightRef.current = false;
+        if (syncQueuedRef.current) {
+          syncQueuedRef.current = false;
+          void triggerSync("watch");
+        }
+      }
+    },
+    [activeRange, activeSourceIds, permissionState, queryClient, workspaceId]
+  );
 
   const handleRequestPermission = useCallback(async () => {
-    setIsLoading(true);
     const result = await requestCalendarPermission();
     if (!result.ok) {
       setPermissionState("unsupported");
       setErrorMessage(result.reason);
-      setIsLoading(false);
       return;
     }
     setPermissionState(result.data);
-    if (result.data === "granted") {
-      await refreshCalendars();
-      await refreshReminderLists();
-      await refreshEvents(activeRange);
-      await refreshReminders(activeRange);
-    } else {
+    if (result.data !== "granted") {
       setErrorMessage("未授权系统日历访问权限。");
+      return;
     }
-    setIsLoading(false);
-  }, [activeRange, refreshCalendars, refreshEvents, refreshReminderLists, refreshReminders]);
+    setErrorMessage(null);
+    if (workspaceId) {
+      await triggerSync("permission");
+    }
+  }, [triggerSync, workspaceId]);
 
   useEffect(() => {
+    permissionRequestedRef.current = false;
+  }, [workspaceId]);
+
+  useEffect(() => {
+    if (permissionState !== "prompt") return;
+    if (permissionRequestedRef.current) return;
+    permissionRequestedRef.current = true;
     void handleRequestPermission();
-  }, [handleRequestPermission]);
+  }, [handleRequestPermission, permissionState]);
 
   useEffect(() => {
-    if (permissionState !== "granted") return;
+    if (!workspaceId) return;
+    // 逻辑：进入日历页面时触发一次同步。
+    if (!initialSyncRef.current) {
+      initialSyncRef.current = true;
+      void triggerSync("enter");
+    }
+  }, [triggerSync, workspaceId]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    void setCalendarSyncRange({ workspaceId, range: activeRange });
+  }, [activeRange, workspaceId]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
     return subscribeSystemCalendarChanges(() => {
-      void refreshCalendars();
-      void refreshReminderLists();
-      void refreshEvents(activeRange);
-      void refreshReminders(activeRange);
+      void triggerSync("watch");
     });
-  }, [activeRange, permissionState, refreshCalendars, refreshEvents, refreshReminderLists, refreshReminders]);
+  }, [triggerSync, workspaceId]);
 
   const handleDateChange = useCallback((date: dayjs.Dayjs) => {
     const range = buildRangeFromDate(date);
@@ -224,141 +371,268 @@ export function useCalendarPageState({
       const nextRange = pendingRangeRef.current;
       if (!nextRange) return;
       setActiveRange(nextRange);
-      if (permissionState === "granted") {
-        void refreshEvents(nextRange);
-        void refreshReminders(nextRange);
-      }
     });
-  }, [permissionState, refreshEvents, refreshReminders]);
+  }, []);
+
+  const sourceById = useMemo(() => {
+    const map = new Map<string, CalendarSource>();
+    sources.forEach((source) => map.set(source.id, source));
+    return map;
+  }, [sources]);
+
+  const createItemMutation = useMutation(
+    trpc.calendar.createItem.mutationOptions({
+      onSuccess: () => {
+        if (!workspaceId) return;
+        queryClient.invalidateQueries({
+          queryKey: trpc.calendar.listItems.queryOptions({
+            workspaceId,
+            range: activeRange,
+            sourceIds: activeSourceIds,
+          }).queryKey,
+        });
+      },
+      onError: (error) => {
+        setErrorMessage(error.message || "新增日历事件失败。");
+      },
+    }),
+  );
+
+  const updateItemMutation = useMutation(
+    trpc.calendar.updateItem.mutationOptions({
+      onSuccess: () => {
+        if (!workspaceId) return;
+        queryClient.invalidateQueries({
+          queryKey: trpc.calendar.listItems.queryOptions({
+            workspaceId,
+            range: activeRange,
+            sourceIds: activeSourceIds,
+          }).queryKey,
+        });
+      },
+      onError: (error) => {
+        setErrorMessage(error.message || "更新日历事件失败。");
+      },
+    }),
+  );
+
+  const deleteItemMutation = useMutation(
+    trpc.calendar.deleteItem.mutationOptions({
+      onSuccess: () => {
+        if (!workspaceId) return;
+        queryClient.invalidateQueries({
+          queryKey: trpc.calendar.listItems.queryOptions({
+            workspaceId,
+            range: activeRange,
+            sourceIds: activeSourceIds,
+          }).queryKey,
+        });
+      },
+      onError: (error) => {
+        setErrorMessage(error.message || "删除日历事件失败。");
+      },
+    }),
+  );
+
+  const toggleReminderMutation = useMutation(
+    trpc.calendar.toggleReminderCompleted.mutationOptions({
+      onSuccess: () => {
+        if (!workspaceId) return;
+        queryClient.invalidateQueries({
+          queryKey: trpc.calendar.listItems.queryOptions({
+            workspaceId,
+            range: activeRange,
+            sourceIds: activeSourceIds,
+          }).queryKey,
+        });
+      },
+      onError: (error) => {
+        setErrorMessage(error.message || "更新提醒事项失败。");
+      },
+    }),
+  );
+
+  const buildBasePayload = useCallback(
+    (event: CalendarEvent) => {
+      const meta = event.data as {
+        calendarId?: string;
+        recurrence?: string;
+        completed?: boolean;
+        completedAt?: string | null;
+        externalId?: string | null;
+        sourceUpdatedAt?: string | null;
+      } | undefined;
+      const kind = getEventKind(event);
+      return {
+        sourceId: meta?.calendarId ?? "",
+        kind,
+        title: event.title,
+        description: event.description ?? null,
+        location: event.location ?? null,
+        startAt: event.start.toISOString(),
+        endAt: event.end.toISOString(),
+        allDay: event.allDay,
+        recurrenceRule: meta?.recurrence ?? null,
+        completedAt: meta?.completedAt ?? (meta?.completed ? new Date().toISOString() : null),
+        externalId: meta?.externalId ?? null,
+        sourceUpdatedAt: meta?.sourceUpdatedAt ?? null,
+      };
+    },
+    [getEventKind],
+  );
 
   const handleEventAdd = useCallback((event: CalendarEvent) => {
-    if (permissionState !== "granted") return;
+    if (!workspaceId) return;
     void (async () => {
+      const meta = event.data as { calendarId?: string } | undefined;
+      const sourceId = meta?.calendarId ?? "";
+      if (!sourceId) return;
+      const source = sourceById.get(sourceId);
+      if (!source) return;
+      if (source.readOnly || source.isSubscribed) return;
+
       const kind = getEventKind(event);
-      const payload = toSystemEvent(event);
-      const fallbackCalendarId =
-        kind === "reminder"
-          ? selectedReminderListIdList[0] ?? reminderLists[0]?.id
-          : selectedCalendarIdList[0] ?? calendars[0]?.id;
-      const result =
-        kind === "reminder"
-          ? await createSystemReminder({
-              title: payload.title,
-              start: payload.start,
-              end: payload.end,
-              allDay: payload.allDay,
-              description: payload.description,
-              location: payload.location,
-              color: payload.color,
-              calendarId: payload.calendarId ?? fallbackCalendarId,
-              recurrence: payload.recurrence,
-            })
-          : await createSystemEvent({
-              title: payload.title,
-              start: payload.start,
-              end: payload.end,
-              allDay: payload.allDay,
-              description: payload.description,
-              location: payload.location,
-              color: payload.color,
-              calendarId: payload.calendarId ?? fallbackCalendarId,
-              recurrence: payload.recurrence,
-            });
-      if (result.ok) {
-        if (kind === "reminder") {
-          setSystemReminders((prev) => [...prev, result.data]);
-        } else {
-          setSystemEvents((prev) => [...prev, result.data]);
+      if (source.provider !== "local") {
+        const externalId = (event.data as { externalId?: string | null } | undefined)
+          ?.externalId;
+        if (!externalId) {
+          setErrorMessage("未找到系统事件 ID。");
+          return;
         }
-      } else {
-        setErrorMessage(result.reason);
-        // 逻辑：写入失败时刷新回系统状态，避免 UI 与系统不一致。
-        await refreshEvents(activeRange);
-        await refreshReminders(activeRange);
+        const systemEvent = toSystemEvent({
+          ...event,
+          data: { ...(event.data ?? {}), sourceExternalId: source.externalId },
+        });
+        const { id: _id, ...createPayload } = systemEvent;
+        const result =
+          kind === "reminder"
+            ? await createSystemReminder(createPayload)
+            : await createSystemEvent(createPayload);
+        if (!result.ok) {
+          setErrorMessage(result.reason);
+          return;
+        }
+        const itemPayload = {
+          sourceId,
+          kind,
+          title: result.data.title,
+          description: result.data.description ?? null,
+          location: result.data.location ?? null,
+          startAt: result.data.start,
+          endAt: result.data.end,
+          allDay: Boolean(result.data.allDay),
+          recurrenceRule: result.data.recurrence ?? null,
+          completedAt: result.data.completed ? new Date().toISOString() : null,
+          externalId: result.data.id,
+          sourceUpdatedAt: new Date().toISOString(),
+        };
+        try {
+          await createItemMutation.mutateAsync({ workspaceId, item: itemPayload });
+        } catch {
+          // 逻辑：错误已由 mutation onError 处理。
+        }
+        return;
+      }
+
+      const payload = buildBasePayload(event);
+      if (!payload.sourceId) return;
+      try {
+        await createItemMutation.mutateAsync({ workspaceId, item: payload });
+      } catch {
+        // 逻辑：错误已由 mutation onError 处理。
       }
     })();
-  }, [activeRange, calendars, getEventKind, permissionState, refreshEvents, refreshReminders, reminderLists, selectedCalendarIdList, selectedReminderListIdList, toSystemEvent]);
-
-  const toggleReminderCompleted = useCallback(async (event: CalendarEvent) => {
-    const payload = toSystemEvent(event);
-    const currentCompleted = (event.data as { completed?: boolean } | undefined)?.completed === true;
-    const result = await updateSystemReminder({ ...payload, completed: !currentCompleted });
-    if (result.ok) {
-      setSystemReminders((prev) =>
-        prev.map((item) => (item.id === result.data.id ? result.data : item))
-      );
-      playReminderSound();
-    } else {
-      setErrorMessage(result.reason);
-      await refreshReminders(activeRange);
-    }
-  }, [activeRange, refreshReminders, toSystemEvent]);
+  }, [buildBasePayload, createItemMutation, getEventKind, sourceById, toSystemEvent, workspaceId]);
 
   const handleEventUpdate = useCallback((event: CalendarEvent) => {
-    if (permissionState !== "granted") return;
+    if (!workspaceId) return;
+    if (isEventReadOnly(event)) return;
     void (async () => {
+      const meta = event.data as { calendarId?: string } | undefined;
+      const sourceId = meta?.calendarId ?? "";
+      if (!sourceId) return;
+      const source = sourceById.get(sourceId);
+      if (!source) return;
+
       const kind = getEventKind(event);
-      if (kind === "reminder") {
-        // 逻辑：输出拖拽更新时的日期信息，排查提醒事项日期回退。
-        console.info("[calendar] update-reminder", {
-          id: event.id,
-          start: event.start.toISOString(),
-          end: event.end.toISOString(),
-          allDay: event.allDay,
-          calendarId: (event.data as { calendarId?: string } | undefined)?.calendarId,
+      if (source.provider !== "local") {
+        const systemEvent = toSystemEvent({
+          ...event,
+          data: { ...(event.data ?? {}), sourceExternalId: source.externalId },
         });
-      }
-      const result =
-        kind === "reminder"
-          ? await updateSystemReminder(toSystemEvent(event))
-          : await updateSystemEvent(toSystemEvent(event));
-      if (result.ok) {
-        if (kind === "reminder") {
-          setSystemReminders((prev) => {
-            const nextEvents = prev.some((item) => item.id === event.id)
-              ? prev.map((item) => (item.id === event.id ? result.data : item))
-              : [...prev, result.data];
-            return nextEvents;
-          });
-        } else {
-          setSystemEvents((prev) => {
-            const nextEvents = prev.some((item) => item.id === event.id)
-              ? prev.map((item) => (item.id === event.id ? result.data : item))
-              : [...prev, result.data];
-            return nextEvents;
-          });
+        const result =
+          kind === "reminder"
+            ? await updateSystemReminder(systemEvent)
+            : await updateSystemEvent(systemEvent);
+        if (!result.ok) {
+          setErrorMessage(result.reason);
+          return;
         }
-      } else {
-        setErrorMessage(result.reason);
-        // 逻辑：更新失败时刷新回系统状态。
-        await refreshEvents(activeRange);
-        await refreshReminders(activeRange);
+        const itemPayload = {
+          id: String(event.id),
+          sourceId,
+          kind,
+          title: result.data.title,
+          description: result.data.description ?? null,
+          location: result.data.location ?? null,
+          startAt: result.data.start,
+          endAt: result.data.end,
+          allDay: Boolean(result.data.allDay),
+          recurrenceRule: result.data.recurrence ?? null,
+          completedAt: result.data.completed ? new Date().toISOString() : null,
+          externalId: result.data.id,
+          sourceUpdatedAt: new Date().toISOString(),
+          deletedAt: null,
+        };
+        try {
+          await updateItemMutation.mutateAsync({ workspaceId, item: itemPayload });
+        } catch {
+          // 逻辑：错误已由 mutation onError 处理。
+        }
+        return;
+      }
+
+      const payload = buildBasePayload(event);
+      try {
+        await updateItemMutation.mutateAsync({
+          workspaceId,
+          item: { ...payload, id: String(event.id) },
+        });
+      } catch {
+        // 逻辑：错误已由 mutation onError 处理。
       }
     })();
-  }, [activeRange, getEventKind, permissionState, refreshEvents, refreshReminders, toSystemEvent]);
+  }, [buildBasePayload, getEventKind, sourceById, toSystemEvent, updateItemMutation, workspaceId]);
 
   const handleEventDelete = useCallback((event: CalendarEvent) => {
-    if (permissionState !== "granted") return;
+    if (!workspaceId) return;
+    if (isEventReadOnly(event)) return;
     void (async () => {
-      const kind = getEventKind(event);
-      const result =
-        kind === "reminder"
-          ? await deleteSystemReminder({ id: String(event.id) })
-          : await deleteSystemEvent({ id: String(event.id) });
-      if (result.ok) {
-        if (kind === "reminder") {
-          setSystemReminders((prev) => prev.filter((item) => item.id !== event.id));
-        } else {
-          setSystemEvents((prev) => prev.filter((item) => item.id !== event.id));
+      const meta = event.data as { calendarId?: string; externalId?: string | null } | undefined;
+      const sourceId = meta?.calendarId ?? "";
+      if (!sourceId) return;
+      const source = sourceById.get(sourceId);
+      if (!source) return;
+      if (source.provider !== "local" && meta?.externalId) {
+        const result =
+          getEventKind(event) === "reminder"
+            ? await deleteSystemReminder({ id: meta.externalId })
+            : await deleteSystemEvent({ id: meta.externalId });
+        if (!result.ok) {
+          setErrorMessage(result.reason);
+          return;
         }
-      } else {
-        setErrorMessage(result.reason);
-        // 逻辑：删除失败时刷新回系统状态。
-        await refreshEvents(activeRange);
-        await refreshReminders(activeRange);
+      } else if (source.provider !== "local") {
+        setErrorMessage("未找到系统事件 ID。");
+        return;
+      }
+      try {
+        await deleteItemMutation.mutateAsync({ workspaceId, id: String(event.id) });
+      } catch {
+        // 逻辑：错误已由 mutation onError 处理。
       }
     })();
-  }, [activeRange, getEventKind, permissionState, refreshEvents, refreshReminders]);
+  }, [deleteItemMutation, getEventKind, sourceById, workspaceId]);
 
   const handleToggleCalendar = useCallback((calendarId: string) => {
     setSelectedCalendarIds((prev) => {
@@ -379,6 +653,47 @@ export function useCalendarPageState({
   const handleClearCalendars = useCallback(() => {
     setSelectedCalendarIds(new Set());
   }, []);
+
+  const toggleReminderCompleted = useCallback(async (event: CalendarEvent) => {
+    if (!workspaceId) return;
+    const meta = event.data as {
+      calendarId?: string;
+      externalId?: string | null;
+      completed?: boolean;
+    } | undefined;
+    const currentCompleted = meta?.completed === true;
+    const sourceId = meta?.calendarId ?? "";
+    const source = sourceId ? sourceById.get(sourceId) : undefined;
+    if (source && source.provider !== "local" && meta?.externalId) {
+      const systemEvent = toSystemEvent({
+        ...event,
+        data: {
+          ...(event.data ?? {}),
+          sourceExternalId: source.externalId,
+          completed: !currentCompleted,
+        },
+      });
+      const result = await updateSystemReminder(systemEvent);
+      if (!result.ok) {
+        setErrorMessage(result.reason);
+        return;
+      }
+    } else if (source && source.provider !== "local") {
+      setErrorMessage("未找到系统事件 ID。");
+      return;
+    }
+    try {
+      await toggleReminderMutation.mutateAsync({
+        workspaceId,
+        id: String(event.id),
+        completed: !currentCompleted,
+      });
+    } catch {
+      // 逻辑：错误已由 mutation onError 处理。
+      return;
+    }
+    playReminderSound();
+  }, [sourceById, toSystemEvent, toggleReminderMutation, workspaceId]);
 
   return {
     systemEvents,
@@ -401,6 +716,7 @@ export function useCalendarPageState({
     handleToggleCalendar,
     handleSelectAllCalendars,
     handleClearCalendars,
+    setSelectedCalendarIds,
     setSelectedReminderListIds,
     toggleReminderCompleted,
   };

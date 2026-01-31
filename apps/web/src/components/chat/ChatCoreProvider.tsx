@@ -16,6 +16,7 @@ import type { ChatMessageKind } from "@tenas-ai/api";
 import { SUMMARY_HISTORY_COMMAND, SUMMARY_TITLE_COMMAND } from "@tenas-ai/api/common";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
 import { incrementChatPerf } from "@/lib/chat/chat-perf";
+import { handleSubAgentToolParts } from "@/lib/chat/sub-agent-tool-parts";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "./input/chat-attachments";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { getMessagePlainText } from "@/lib/chat/message-text";
@@ -332,26 +333,14 @@ export default function ChatCoreProvider({
 
             const tabId = tabIdRef.current ?? undefined;
             if (tabId && Array.isArray(message.parts)) {
-              for (const part of message.parts) {
-                const toolCallIdValue =
-                  part && typeof part === "object" && typeof (part as any).toolCallId === "string"
-                    ? String((part as any).toolCallId)
-                    : "";
-                if (!toolCallIdValue) continue;
-                const type = typeof (part as any).type === "string" ? (part as any).type : "";
-                const toolName =
-                  typeof (part as any).toolName === "string" ? (part as any).toolName : undefined;
-                const isTool =
-                  toolName != null ||
-                  type === "dynamic-tool" ||
-                  (type && type.startsWith("tool-"));
-                if (!isTool) continue;
-                // 中文注释：将子代理 tool part 同步到 toolParts，复用现有审批与工具渲染逻辑。
-                upsertToolPart(tabId, toolCallIdValue, {
-                  ...(part as any),
-                  subAgentToolCallId: toolCallId,
-                } as any);
-              }
+              // 中文注释：同步子代理 tool part，并触发前端工具执行（例如 open-url）。
+              handleSubAgentToolParts({
+                parts: message.parts,
+                tabId,
+                subAgentToolCallId: toolCallId,
+                upsertToolPart,
+                executeToolPart: toolStream.executeFromToolPart,
+              });
             }
           }
         } finally {
@@ -373,7 +362,7 @@ export default function ChatCoreProvider({
 
       return controller;
     },
-    [setSubAgentStreams, upsertToolPart],
+    [setSubAgentStreams, toolStream, upsertToolPart],
   );
 
   const enqueueSubAgentChunk = React.useCallback(

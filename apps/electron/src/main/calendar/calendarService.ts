@@ -6,7 +6,13 @@ import type { Logger } from "../logging/startupLogger";
 
 type CalendarPermissionState = "granted" | "denied" | "prompt" | "unsupported";
 type CalendarRange = { start: string; end: string };
-type CalendarItem = { id: string; title: string; color?: string; readOnly?: boolean };
+type CalendarItem = {
+  id: string;
+  title: string;
+  color?: string;
+  readOnly?: boolean;
+  isSubscribed?: boolean;
+};
 type CalendarEvent = {
   id: string;
   title: string;

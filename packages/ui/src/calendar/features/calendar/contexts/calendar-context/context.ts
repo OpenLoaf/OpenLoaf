@@ -59,6 +59,7 @@ export interface CalendarContextType {
 	stickyViewHeader: boolean
 	viewHeaderClassName: string
 	headerComponent?: React.ReactNode // Optional custom header component
+	headerLeadingSlot?: React.ReactNode // Optional leading slot in header
 	headerClassName?: string // Optional custom header class
 	sidebar?: React.ReactNode // Optional sidebar component
 	sidebarClassName?: string // Optional sidebar class

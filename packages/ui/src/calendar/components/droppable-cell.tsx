@@ -36,11 +36,18 @@ export function DroppableCell({
 	'data-testid': dataTestId,
 	disabled = false,
 }: DroppableCellProps) {
-	const { onCellClick, disableDragAndDrop, disableCellClick, classesOverride } =
+	const {
+		onCellClick,
+		disableDragAndDrop,
+		disableCellClick,
+		openEventOnCellDoubleClick,
+		classesOverride,
+	} =
 		useSmartCalendarContext((state) => ({
 			onCellClick: state.onCellClick,
 			disableDragAndDrop: state.disableDragAndDrop,
 			disableCellClick: state.disableCellClick,
+			openEventOnCellDoubleClick: state.openEventOnCellDoubleClick,
 			classesOverride: state.classesOverride,
 		}))
 
@@ -57,10 +64,14 @@ export function DroppableCell({
 		disabled: disableDragAndDrop || disabled,
 	})
 
-	const handleCellClick = (e: React.MouseEvent) => {
+	const handleCellAction = (e: React.MouseEvent) => {
 		e.stopPropagation()
 
 		if (disableCellClick || disabled) {
+			return
+		}
+
+		if (openEventOnCellDoubleClick && e.type !== 'dblclick') {
 			return
 		}
 
@@ -84,11 +95,14 @@ export function DroppableCell({
 				'droppable-cell',
 				className,
 				isOver && !disableDragAndDrop && !disabled && 'bg-accent',
-				disableCellClick || disabled ? 'cursor-default' : 'cursor-pointer',
+				disableCellClick || disabled || openEventOnCellDoubleClick
+					? 'cursor-default'
+					: 'cursor-pointer',
 				disabled && (classesOverride?.disabledCell || DISABLED_CELL_CLASSNAME)
 			)}
 			data-testid={dataTestId}
-			onClick={handleCellClick}
+			onClick={handleCellAction}
+			onDoubleClick={handleCellAction}
 			ref={setNodeRef}
 			style={style}
 		>

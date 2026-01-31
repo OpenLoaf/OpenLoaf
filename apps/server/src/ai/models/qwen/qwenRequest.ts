@@ -89,6 +89,21 @@ function resolveSize(input: QwenRequestInput, separator: string) {
   return `${input.width}${separator}${input.height}`;
 }
 
+/** 按需挑选参数，避免透传无关字段。 */
+function pickParameters(
+  parameters: Record<string, string | number | boolean> | undefined,
+  keys: string[],
+) {
+  if (!parameters) return undefined;
+  const picked: Record<string, string | number | boolean> = {};
+  for (const key of keys) {
+    const value = parameters[key];
+    if (value === undefined) continue;
+    picked[key] = value;
+  }
+  return Object.keys(picked).length > 0 ? picked : undefined;
+}
+
 /** Build Qwen message content array. */
 function buildContent(images: string[], prompt: string): QwenContentPart[] {
   const content: QwenContentPart[] = images.map((image) => ({ image }));
@@ -100,6 +115,7 @@ function buildContent(images: string[], prompt: string): QwenContentPart[] {
 export function buildQwenRequestPayload(modelId: string, input: QwenRequestInput) {
   const prompt = resolvePrompt(input);
   const images = resolveImages(input);
+  const rawParameters = input.parameters;
 
   if (modelId === "qwen-image-edit-plus") {
     if (!prompt) throw new Error("Qwen 图像编辑需要提示词");
@@ -137,6 +153,92 @@ export function buildQwenRequestPayload(modelId: string, input: QwenRequestInput
         ],
       },
       parameters: cleanPayload({
+        size,
+        seed: input.seed,
+      }),
+    });
+  }
+
+  if (modelId === "qwen-image-plus" || modelId === "qwen-image") {
+    if (!prompt) throw new Error("Qwen 文生图需要提示词");
+    if (images.length > 0) throw new Error("Qwen 文生图不支持输入图片");
+    const size = resolveSize(input, "*");
+    const parameters = pickParameters(rawParameters, [
+      "negative_prompt",
+      "prompt_extend",
+      "watermark",
+    ]);
+    return cleanPayload({
+      model: modelId,
+      input: {
+        messages: [
+          {
+            role: "user",
+            content: [{ text: prompt }],
+          },
+        ],
+      },
+      parameters: cleanPayload({
+        ...(parameters ?? {}),
+        size,
+      }),
+    });
+  }
+
+  if (modelId === "wan2.6-t2i") {
+    if (!prompt) throw new Error("Qwen 文生图需要提示词");
+    if (images.length > 0) throw new Error("Qwen 文生图不支持输入图片");
+    const size = resolveSize(input, "*");
+    const parameters = pickParameters(rawParameters, [
+      "negative_prompt",
+      "prompt_extend",
+      "watermark",
+      "n",
+    ]);
+    return cleanPayload({
+      model: modelId,
+      input: {
+        messages: [
+          {
+            role: "user",
+            content: [{ text: prompt }],
+          },
+        ],
+      },
+      parameters: cleanPayload({
+        ...(parameters ?? {}),
+        size,
+        seed: input.seed,
+      }),
+    });
+  }
+
+  if (modelId === "wan2.6-image") {
+    if (!prompt) throw new Error("Qwen 图像生成需要提示词");
+    const size = resolveSize(input, "*");
+    const enableInterleave = rawParameters?.enable_interleave === true;
+    const imageLimit = enableInterleave ? 1 : 4;
+    const parameters = pickParameters(rawParameters, [
+      "negative_prompt",
+      "prompt_extend",
+      "watermark",
+      "n",
+      "enable_interleave",
+      "max_images",
+      "stream",
+    ]);
+    return cleanPayload({
+      model: modelId,
+      input: {
+        messages: [
+          {
+            role: "user",
+            content: buildContent(images.slice(0, imageLimit), prompt),
+          },
+        ],
+      },
+      parameters: cleanPayload({
+        ...(parameters ?? {}),
         size,
         seed: input.seed,
       }),

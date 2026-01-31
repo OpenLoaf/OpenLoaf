@@ -55,6 +55,29 @@ import {
   createImageStreamResponse,
 } from "./streamOrchestrator";
 
+/** Max seed value supported by Volcengine image models. */
+const VOLCENGINE_IMAGE_SEED_MAX = 99_999_999;
+
+/** Normalize image seed to the provider-supported range. */
+function normalizeImageSeed(value: number, providerId?: string): number {
+  const safeValue = Math.trunc(value);
+  if (providerId !== "volcengine") return safeValue;
+  const min = -VOLCENGINE_IMAGE_SEED_MAX;
+  const max = VOLCENGINE_IMAGE_SEED_MAX;
+  // 逻辑：即梦限制 seed 范围，超出时裁剪到允许区间。
+  return Math.min(Math.max(safeValue, min), max);
+}
+
+/** Generate a random seed for image models. */
+function generateImageSeed(providerId?: string): number {
+  if (providerId === "volcengine") {
+    // 逻辑：即梦 seed 范围较小，按允许区间生成。
+    return Math.floor(Math.random() * (VOLCENGINE_IMAGE_SEED_MAX + 1));
+  }
+  // 逻辑：取 0-2147483647 的整数，避免超出模型支持范围。
+  return Math.floor(Math.random() * 2147483648);
+}
+
 type ImageModelRequest = {
   /** Session id. */
   sessionId: string;
@@ -644,8 +667,13 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
   const safeCount = maxImagesPerCall
     ? Math.min(Math.max(1, requestedCount), maxImagesPerCall)
     : Math.max(1, requestedCount);
-  const { n: _ignoredCount, size: rawSize, aspectRatio: rawAspectRatio, ...restImageOptions } =
-    imageOptions ?? {};
+  const {
+    n: _ignoredCount,
+    size: rawSize,
+    aspectRatio: rawAspectRatio,
+    seed: rawSeed,
+    ...restImageOptions
+  } = imageOptions ?? {};
   // 中文注释：SDK 需要 size 为 "{number}x{number}" 模板字面量类型，运行时仍用正则兜底。
   const safeSize =
     typeof rawSize === "string" && /^\d+x\d+$/u.test(rawSize)
@@ -656,6 +684,12 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     typeof rawAspectRatio === "string" && /^\d+:\d+$/u.test(rawAspectRatio)
       ? (rawAspectRatio as `${number}:${number}`)
       : undefined;
+  const providerId = resolved.modelInfo.provider;
+  const seedCandidate =
+    typeof rawSeed === "number" && Number.isFinite(rawSeed)
+      ? rawSeed
+      : generateImageSeed(providerId);
+  const safeSeed = normalizeImageSeed(seedCandidate, providerId);
   const result = await generateImage({
     model: resolved.model,
     prompt,
@@ -663,6 +697,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     ...(restImageOptions ?? {}),
     ...(safeSize ? { size: safeSize } : {}),
     ...(safeAspectRatio ? { aspectRatio: safeAspectRatio } : {}),
+    seed: safeSeed,
     abortSignal: input.abortSignal,
   });
   const revisedPrompt = resolveRevisedPrompt(result.providerMetadata);

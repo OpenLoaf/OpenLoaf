@@ -1,16 +1,16 @@
 ---
-summaryId: 32533b60-65f7-434f-a2a2-c5a685c7e11b
+summaryId: 97992a79-d35d-4eb0-8193-eea816f55105
 projectId: proj_db60d7be-ba2c-4afe-8d93-3e27323e249e
 dates: []
-createdAt: 2026-01-30T08:09:15.852Z
-updatedAt: 2026-01-30T08:09:15.852Z
+createdAt: 2026-01-31T08:00:34.359Z
+updatedAt: 2026-01-31T08:00:34.359Z
 triggeredBy: scheduler
 ---
 # TenasAI 项目概览
 
 ## 项目基础信息
 - **项目名称**: TenasAI
-- **最新更新**: 2026-01-30
+- **最新更新**: 2026-01-31
 - **核心贡献者**: zz@hexems.com
 
 ## 稳定结论

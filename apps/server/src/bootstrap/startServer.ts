@@ -3,6 +3,7 @@ import { createApp } from "./createApp";
 import { logger } from "@/common/logger";
 import { attachTerminalWebSocket } from "@/modules/terminal/terminalWebSocket";
 import { attachBoardCollabWebSocket } from "@/modules/board/boardCollabWebSocket";
+import { startEmailIdleManager } from "@/modules/email/emailIdleManager";
 
 /**
  * 启动 HTTP server（MVP）：
@@ -31,6 +32,7 @@ export function startServer() {
     logger.info({ hostname, port: actualPort }, `Server listening on http://${hostname}:${actualPort}`);
     // 启动完成后输出统一成功日志，便于启动脚本/监控识别。
     logger.info({ hostname, port: actualPort }, "Server started successfully");
+    void startEmailIdleManager();
   });
 
   return { app, server };

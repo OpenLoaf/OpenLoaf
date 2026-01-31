@@ -13,6 +13,10 @@ interface VerticalGridProps {
 	variant?: 'regular' | 'resource'
 	classes?: { header?: string; body?: string; allDay?: string }
 	allDayRow?: React.ReactNode
+	scrollEnabled?: boolean
+	cellClassName?: string
+	subCellClassName?: string
+	fillHeight?: boolean
 	/**
 	 * Optional array of minute slots by which the hour is divided
 	 * e.g., [0, 15, 30, 45] for quarter-hour slots
@@ -28,9 +32,14 @@ export const VerticalGrid: React.FC<VerticalGridProps> = ({
 	classes,
 	allDayRow,
 	cellSlots,
+	scrollEnabled = true,
+	cellClassName,
+	subCellClassName,
+	fillHeight,
 }) => {
 	const isResourceCalendar = variant === 'resource'
 	const isRegularCalendar = !isResourceCalendar
+	const shouldFillHeight = fillHeight ?? !scrollEnabled
 
 	const header = children && (
 		<VerticalGridHeaderContainer
@@ -41,46 +50,63 @@ export const VerticalGrid: React.FC<VerticalGridProps> = ({
 		</VerticalGridHeaderContainer>
 	)
 
+	const content = (
+		<>
+			{/* header row for resource calendar inside scroll area */}
+			{isResourceCalendar && header}
+			{/* Calendar area with scroll */}
+			<div
+				className={cn(
+					'flex flex-1 w-fit',
+					isResourceCalendar && BODY_HEIGHT,
+					classes?.body
+				)}
+				data-testid="vertical-grid-body"
+			>
+				{/* Day columns with time slots */}
+				{columns.map((column, index) => (
+					<VerticalGridCol
+						key={`${column.id}-${index}`}
+						{...column}
+						cellClassName={cellClassName}
+						cellSlots={cellSlots}
+						gridType={gridType}
+						isLastColumn={index === columns.length - 1}
+						subCellClassName={subCellClassName}
+						fillHeight={shouldFillHeight}
+					/>
+				))}
+			</div>
+		</>
+	)
+
 	return (
-		<div className="h-full" data-testid="vertical-grid-container">
+		<div className="flex flex-col h-full" data-testid="vertical-grid-container">
 			{/* header row */}
 			{isRegularCalendar && header}
-
-			<ScrollArea
-				className={cn(
-					'h-full',
-					isRegularCalendar && 'overflow-auto',
-					isRegularCalendar && BODY_HEIGHT // scroll area becomes body in regular calendar
-				)}
-				data-testid="vertical-grid-scroll"
-				viewPortProps={{ className: '*:flex! *:flex-col! *:min-h-full' }}
-			>
-				{/* header row for resource calendar inside scroll area */}
-				{isResourceCalendar && header}
-				{/* Calendar area with scroll */}
-				<div
+			{scrollEnabled ? (
+				<ScrollArea
 					className={cn(
-						'flex flex-1 w-fit',
-						isResourceCalendar && BODY_HEIGHT,
-						classes?.body
+						'h-full',
+						isRegularCalendar && 'overflow-auto',
+						isRegularCalendar && BODY_HEIGHT // scroll area becomes body in regular calendar
 					)}
-					data-testid="vertical-grid-body"
+					data-testid="vertical-grid-scroll"
+					viewPortProps={{ className: '*:flex! *:flex-col! *:min-h-full' }}
 				>
-					{/* Day columns with time slots */}
-					{columns.map((column, index) => (
-						<VerticalGridCol
-							key={`${column.id}-${index}`}
-							{...column}
-							cellSlots={cellSlots}
-							gridType={gridType}
-							isLastColumn={index === columns.length - 1}
-						/>
-					))}
+					{content}
+					<ScrollBar className="z-30" /> {/* vertical scrollbar */}
+					<ScrollBar className="z-30" orientation="horizontal" />{' '}
+					{/* horizontal scrollbar */}
+				</ScrollArea>
+			) : (
+				<div
+					className={cn('flex flex-col flex-1 min-h-0 overflow-hidden')}
+					data-testid="vertical-grid-scroll"
+				>
+					{content}
 				</div>
-				<ScrollBar className="z-30" /> {/* vertical scrollbar */}
-				<ScrollBar className="z-30" orientation="horizontal" />{' '}
-				{/* horizontal scrollbar */}
-			</ScrollArea>
+			)}
 		</div>
 	)
 }

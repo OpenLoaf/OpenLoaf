@@ -45,6 +45,27 @@ function parseSize(value: string | undefined): { width?: number; height?: number
   return { width, height };
 }
 
+/** 解析 Qwen 扩展参数。 */
+function resolveQwenProviderOptions(
+  options: ImageModelV3CallOptions,
+): Record<string, string | number | boolean> | undefined {
+  const raw = (options.providerOptions as Record<string, unknown> | undefined)?.qwen;
+  if (!raw || typeof raw !== "object") return undefined;
+  const entries = Object.entries(raw).filter(([, value]) =>
+    typeof value === "string" || typeof value === "number" || typeof value === "boolean",
+  );
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(entries) as Record<string, string | number | boolean>;
+}
+
+/** 解析模型可用的最大出图数量。 */
+function resolveQwenMaxImages(modelId: string) {
+  if (modelId === "qwen-image-edit-plus") return 6;
+  if (modelId === "wan2.6-t2i") return 4;
+  if (modelId === "wan2.6-image") return 4;
+  return 1;
+}
+
 /** Check whether the url is http/https. */
 function isHttpUrl(url: string): boolean {
   return HTTP_URL_REGEX.test(url);
@@ -161,12 +182,26 @@ async function buildQwenRequestInput(options: ImageModelV3CallOptions): Promise<
   const prompt = typeof options.prompt === "string" ? options.prompt : "";
   const size = parseSize(options.size);
   const images = await resolveQwenImageInputs(options);
+  const qwenOptions = resolveQwenProviderOptions(options);
+  const count =
+    typeof (options as { n?: number }).n === "number" &&
+    Number.isFinite((options as { n?: number }).n)
+      ? (options as { n?: number }).n
+      : undefined;
+  const parameters =
+    qwenOptions || count !== undefined
+      ? {
+          ...(qwenOptions ?? {}),
+          ...(count !== undefined ? { n: count } : {}),
+        }
+      : undefined;
   return {
     prompt,
     width: size.width,
     height: size.height,
     seed: options.seed,
     ...(images.length > 0 ? { imageUrls: images } : {}),
+    ...(parameters ? { parameters } : {}),
   };
 }
 
@@ -179,7 +214,7 @@ class QwenImageModel implements ImageModelV3 {
   readonly specificationVersion = "v3";
   readonly provider: string;
   readonly modelId: string;
-  readonly maxImagesPerCall = 1;
+  readonly maxImagesPerCall: number;
 
   private readonly input: QwenImageModelInput;
 
@@ -187,6 +222,7 @@ class QwenImageModel implements ImageModelV3 {
     this.input = input;
     this.provider = input.provider.providerId;
     this.modelId = input.modelId;
+    this.maxImagesPerCall = resolveQwenMaxImages(input.modelId);
   }
 
   /** 调用 Qwen 图像接口。 */
@@ -213,12 +249,16 @@ class QwenImageModel implements ImageModelV3 {
       },
       "[qwen] image request",
     );
+    const enableInterleave =
+      requestInput.parameters?.enable_interleave === true;
+    const streamEnabled = requestInput.parameters?.stream === true;
     const response = await fetch(requestUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.apiKey}`,
         ...filterHeaders(options.headers),
+        ...(enableInterleave && streamEnabled ? { "X-DashScope-Sse": "enable" } : {}),
       },
       body: JSON.stringify(payload),
       signal: options.abortSignal,

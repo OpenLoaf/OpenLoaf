@@ -45,6 +45,7 @@ export const ResourceCalendarProvider: React.FC<
 	renderEvent,
 	onEventClick,
 	onCellClick,
+	openEventOnCellDoubleClick = false,
 	onViewChange,
 	onEventAdd,
 	onEventUpdate,
@@ -274,6 +275,7 @@ export const ResourceCalendarProvider: React.FC<
 			// Override handlers
 			onEventClick: handleEventClick,
 			onCellClick: handleDateClick,
+			openEventOnCellDoubleClick,
 
 			// Pass through header props
 			headerComponent,
@@ -292,6 +294,7 @@ export const ResourceCalendarProvider: React.FC<
 			timezone,
 			disableCellClick,
 			disableEventClick,
+			openEventOnCellDoubleClick,
 			disableDragAndDrop,
 			dayMaxEvents,
 			eventSpacing,
@@ -327,6 +330,7 @@ export const ResourceCalendarProvider: React.FC<
 			timezone,
 			disableCellClick,
 			disableEventClick,
+			openEventOnCellDoubleClick,
 			disableDragAndDrop,
 			dayMaxEvents,
 			eventSpacing,

@@ -73,6 +73,8 @@ declare global {
     color?: string;
     /** Whether the calendar is read-only. */
     readOnly?: boolean;
+    /** Whether the calendar is subscribed. */
+    isSubscribed?: boolean;
   };
   /** Normalized event shape used by UI calendar. */
   type TenasCalendarEvent = {
@@ -189,6 +191,14 @@ declare global {
         requestPermission: () => Promise<TenasCalendarResult<TenasCalendarPermissionState>>;
         /** List available system calendars. */
         getCalendars: () => Promise<TenasCalendarResult<TenasCalendarItem[]>>;
+        /** Update calendar sync range for system pull. */
+        setSyncRange?: (
+          payload: { workspaceId: string; range?: TenasCalendarRange }
+        ) => Promise<{ ok: true } | { ok: false; reason?: string }>;
+        /** Trigger immediate system calendar sync. */
+        syncNow?: (
+          payload: { workspaceId: string; range?: TenasCalendarRange }
+        ) => Promise<{ ok: true } | { ok: false; reason?: string }>;
         /** Query events within a time range. */
         getEvents: (
           range: TenasCalendarRange

@@ -38,7 +38,7 @@ const CalendarContent: React.FC = () => {
 		<div className="flex w-full h-full" data-testid="ilamy-calendar">
 			{sidebar && isSidebarOpen && (
 				<aside
-					className={cn('h-full w-64 shrink-0', sidebarClassName)}
+					className={cn('h-full w-56 shrink-0', sidebarClassName)}
 					data-testid="calendar-sidebar"
 				>
 					{sidebar}

@@ -128,6 +128,8 @@ internal sealed class Program
                 Title = calendar.DisplayName ?? string.Empty,
                 Color = ToHex(calendar.Color),
                 ReadOnly = calendar.OtherAppWriteAccess == AppointmentCalendarOtherAppWriteAccess.None,
+                // 逻辑：Windows API 未提供订阅日历标识，先返回 false。
+                IsSubscribed = false,
             });
         }
 
@@ -506,6 +508,8 @@ internal sealed class Program
         public string? Color { get; set; }
         /// <summary>Whether the calendar is read-only.</summary>
         public bool? ReadOnly { get; set; }
+        /// <summary>Whether the calendar is a subscribed calendar.</summary>
+        public bool? IsSubscribed { get; set; }
     }
 
     private sealed class DeletePayload

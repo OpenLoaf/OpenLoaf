@@ -50,6 +50,8 @@ export type BoardCanvasProps = {
   boardFolderUri?: string;
   /** Board file URI used for file persistence. */
   boardFileUri?: string;
+  /** Tab id for panel refresh behavior. */
+  tabId?: string;
   /** Panel key for identifying board instances. */
   panelKey?: string;
   /** Hide interactive overlays when the panel is minimized. */
@@ -122,6 +124,7 @@ export function BoardCanvas({
   boardId,
   boardFolderUri,
   boardFileUri,
+  tabId,
   panelKey,
   uiHidden,
   className,
@@ -349,10 +352,12 @@ export function BoardCanvas({
         containerRef={containerRef}
         projectId={projectId}
         rootUri={rootUri}
+        tabId={tabId}
         panelKey={panelKey}
         uiHidden={uiHidden}
         className={className}
         boardFolderUri={boardFolderUri}
+        onAutoLayout={scheduleAutoLayoutThumbnail}
         onOpenImagePreview={openImagePreview}
       >
         <BoardCanvasRender

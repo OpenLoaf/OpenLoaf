@@ -42,6 +42,7 @@ export interface CalendarProviderProps {
 	stickyViewHeader?: boolean
 	viewHeaderClassName?: string
 	headerComponent?: ReactNode // Optional custom header component
+	headerLeadingSlot?: ReactNode // Optional leading slot in header
 	headerClassName?: string // Optional custom header class
 	sidebar?: ReactNode
 	defaultSidebarOpen?: boolean
@@ -87,6 +88,7 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 	stickyViewHeader = true,
 	viewHeaderClassName = '',
 	headerComponent,
+	headerLeadingSlot,
 	headerClassName,
 	sidebar,
 	defaultSidebarOpen = true,
@@ -141,6 +143,14 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 		[calendarEngine]
 	)
 
+	/** Check whether a calendar event is read-only. */
+	const isEventReadOnly = useCallback((event: CalendarEvent) => {
+		const meta = event.data as
+			| { readOnly?: boolean; isSubscribed?: boolean }
+			| undefined
+		return meta?.readOnly === true || meta?.isSubscribed === true
+	}, [])
+
 	// Custom handlers that call external callbacks
 	const handleEventClick = useCallback(
 		(event: CalendarEvent) => {
@@ -152,10 +162,19 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 				return
 			}
 			if (!openEventOnDoubleClick) {
+				if (isEventReadOnly(event)) {
+					return
+				}
 				editEvent(event)
 			}
 		},
-		[disableEventClick, onEventClick, editEvent, openEventOnDoubleClick]
+		[
+			disableEventClick,
+			onEventClick,
+			editEvent,
+			openEventOnDoubleClick,
+			isEventReadOnly,
+		]
 	)
 
 	const handleEventDoubleClick = useCallback(
@@ -168,10 +187,19 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 				return
 			}
 			if (openEventOnDoubleClick) {
+				if (isEventReadOnly(event)) {
+					return
+				}
 				editEvent(event)
 			}
 		},
-		[disableEventClick, onEventDoubleClick, editEvent, openEventOnDoubleClick]
+		[
+			disableEventClick,
+			onEventDoubleClick,
+			editEvent,
+			openEventOnDoubleClick,
+			isEventReadOnly,
+		]
 	)
 
 	const handleDateClick = useCallback(
@@ -232,6 +260,7 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 			stickyViewHeader,
 			viewHeaderClassName,
 			headerComponent,
+			headerLeadingSlot,
 			headerClassName,
 			sidebar,
 			sidebarClassName,
@@ -264,6 +293,7 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 			stickyViewHeader,
 			viewHeaderClassName,
 			headerComponent,
+			headerLeadingSlot,
 			headerClassName,
 			sidebar,
 			sidebarClassName,

@@ -128,11 +128,18 @@ export default function ToolInfoCard({
 
   const triggerClassName = cn(
     "py-0.5 text-[10px] font-medium text-foreground/70 hover:no-underline [&>svg]:text-muted-foreground/30",
-    headerActions ? "pr-2" : undefined,
   );
+  const headerActionsSlot = headerActions ? (
+    <div className="flex shrink-0 items-center text-[9px] text-muted-foreground/80">
+      {headerActions}
+    </div>
+  ) : null;
+  const headerActionsPlaceholder = headerActions ? (
+    <div className="h-4 w-full" aria-hidden />
+  ) : null;
 
   return (
-    <div className={cn("flex ml-2 w-full min-w-0 max-w-full justify-start", className)}>
+    <div className={cn("flex ml-3 w-full min-w-0 max-w-full justify-start", className)}>
       <Accordion
         type="single"
         collapsible
@@ -149,7 +156,7 @@ export default function ToolInfoCard({
           )}
           style={containerStyle}
         >
-          <AccordionTrigger className={triggerClassName}>
+          <AccordionTrigger className={triggerClassName} trailing={headerActionsSlot ?? undefined}>
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <div className="flex w-full items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
@@ -160,11 +167,7 @@ export default function ToolInfoCard({
                   <span className="shrink-0 text-[9px] font-medium text-destructive">已拒绝</span>
                 ) : null}
               </div>
-              {headerActions ? (
-                <div className="flex w-full justify-end text-[9px] text-muted-foreground/80">
-                  {headerActions}
-                </div>
-              ) : null}
+              {headerActionsPlaceholder}
             </div>
           </AccordionTrigger>
           <AccordionContent className="pt-1.5 text-[10px] text-muted-foreground/70">

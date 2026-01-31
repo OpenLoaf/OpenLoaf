@@ -28,13 +28,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@tenas-ai/ui/select";
-import { useAutoResizeNode } from "./lib/use-auto-resize-node";
 import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
 import {
   filterModelOptionsByTags,
   runChatSseRequest,
 } from "./lib/image-generation";
 import { resolveBoardFolderScope, resolveProjectPathFromBoardUri } from "../core/boardFilePath";
+import { NodeFrame } from "./NodeFrame";
 
 /** Node type identifier for image prompt generation. */
 export const IMAGE_PROMPT_GENERATE_NODE_TYPE = "image_prompt_generate";
@@ -68,10 +68,10 @@ export const IMAGE_PROMPT_TEXT = `你是一位顶级图像视觉分析师，精�
 4. **图像生成优化**：分层构图、色彩精确、氛围强烈。
 5. **纯中文**：专业视觉语言，无口语化。输出纯文本，禁止输出markdown格式，代码块，标签，序号等。`;
 
-/** Minimum height for image prompt node. */
-const IMAGE_PROMPT_GENERATE_MIN_HEIGHT = 0;
 /** Maximum height for prompt output before scrolling. */
 const IMAGE_PROMPT_GENERATE_RESULT_MAX_HEIGHT = 180;
+/** Minimum height for image prompt node. */
+const IMAGE_PROMPT_GENERATE_MIN_HEIGHT = 0;
 
 export type ImagePromptGenerateNodeProps = {
   /** Selected chatModelId (profileId:modelId). */
@@ -154,11 +154,6 @@ export function ImagePromptGenerateNodeView({
   const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
   const errorText = element.props.errorText ?? "";
   const resultText = element.props.resultText ?? "";
-  const { containerRef } = useAutoResizeNode({
-    engine,
-    elementId: element.id,
-    minHeight: IMAGE_PROMPT_GENERATE_MIN_HEIGHT,
-  });
   // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
   let inputImageId = "";
   let inputImageOriginalSrc = "";
@@ -372,7 +367,7 @@ export function ImagePromptGenerateNodeView({
   }, [candidates.length, errorText, hasValidInput, isRunning, resultText]);
 
   const containerClassName = [
-    "relative flex w-full flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
     "bg-[radial-gradient(180px_circle_at_top_right,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_15%_85%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
     "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
     "dark:bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_left,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
@@ -408,15 +403,14 @@ export function ImagePromptGenerateNodeView({
   }, [resultText]);
 
   return (
-    <div
-      ref={containerRef}
-      className={containerClassName}
+    <NodeFrame
       onPointerDown={(event) => {
         // 逻辑：点击节点本体保持选中。
         event.stopPropagation();
         onSelect();
       }}
     >
+      <div className={containerClassName}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="relative flex h-8 w-8 items-center justify-center overflow-visible text-slate-500 dark:text-slate-300">
@@ -545,7 +539,8 @@ export function ImagePromptGenerateNodeView({
           </div>
         </div>
       ) : null}
-    </div>
+      </div>
+    </NodeFrame>
   );
 }
 

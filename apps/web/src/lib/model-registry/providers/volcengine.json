@@ -35,41 +35,11 @@
         ],
         "fields": [
           {
-            "key": "n",
-            "title": "数量",
-            "type": "number",
-            "min": 1,
-            "max": 1,
-            "default": 1,
-            "request": false
-          },
-          {
             "key": "size",
             "title": "尺寸",
             "type": "text",
-            "request": false
-          },
-          {
-            "key": "seed",
-            "title": "随机种子",
-            "type": "number",
-            "min": 0,
-            "step": 1,
-            "request": false
-          },
-          {
-            "key": "providerOptions.volcengine.scale",
-            "title": "提示词强度",
-            "type": "number",
-            "min": 0,
-            "max": 1,
-            "step": 0.05,
-            "request": false
-          },
-          {
-            "key": "providerOptions.volcengine.forceSingle",
-            "title": "强制单张",
-            "type": "boolean",
+            "default": "2048x2048",
+            "description": "输出尺寸，格式 宽x高（像素）。宽高乘积需在 1024*1024 到 4096*4096 之间。",
             "request": false
           }
         ]
@@ -103,41 +73,11 @@
         ],
         "fields": [
           {
-            "key": "n",
-            "title": "数量",
-            "type": "number",
-            "min": 1,
-            "max": 1,
-            "default": 1,
-            "request": false
-          },
-          {
             "key": "size",
             "title": "尺寸",
             "type": "text",
-            "request": false
-          },
-          {
-            "key": "seed",
-            "title": "随机种子",
-            "type": "number",
-            "min": 0,
-            "step": 1,
-            "request": false
-          },
-          {
-            "key": "providerOptions.volcengine.scale",
-            "title": "提示词强度",
-            "type": "number",
-            "min": 0,
-            "max": 1,
-            "step": 0.05,
-            "request": false
-          },
-          {
-            "key": "providerOptions.volcengine.forceSingle",
-            "title": "强制单张",
-            "type": "boolean",
+            "default": "2048x2048",
+            "description": "输出尺寸，格式 宽x高（像素）。宽高乘积需在 1024*1024 到 4096*4096 之间。",
             "request": false
           }
         ]

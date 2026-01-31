@@ -29,6 +29,21 @@ export type ImageGenerateOptions = {
       /** Image area size (width * height). */
       size?: number;
     };
+    /** Qwen image options. */
+    qwen?: {
+      /** Negative prompt text. */
+      negative_prompt?: string;
+      /** Whether to extend prompt. */
+      prompt_extend?: boolean;
+      /** Whether to add watermark. */
+      watermark?: boolean;
+      /** Enable interleave mode (wan2.6-image). */
+      enable_interleave?: boolean;
+      /** Stream response (wan2.6-image). */
+      stream?: boolean;
+      /** Max images for interleave mode (wan2.6-image). */
+      max_images?: number;
+    };
   };
 };
 

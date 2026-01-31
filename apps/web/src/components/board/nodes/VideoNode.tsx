@@ -14,6 +14,7 @@ import {
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
 } from "../core/boardFilePath";
+import { NodeFrame } from "./NodeFrame";
 
 export type VideoNodeProps = {
   /** Project-relative path for the video. */
@@ -115,7 +116,7 @@ export function VideoNodeView({
   ]);
 
   return (
-    <div className="relative h-full w-full">
+    <NodeFrame>
       <div
         className={[
           "flex h-full w-full items-center justify-center rounded-sm border box-border",
@@ -159,7 +160,7 @@ export function VideoNodeView({
         )}
       </div>
 
-    </div>
+    </NodeFrame>
   );
 }
 

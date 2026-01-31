@@ -66,19 +66,6 @@ type VolcengineImageResult = {
   status?: string;
 };
 
-type VolcengineProviderOptions = {
-  /** Prompt influence scale. */
-  scale?: number;
-  /** Force single image output. */
-  forceSingle?: boolean;
-  /** Minimum aspect ratio. */
-  minRatio?: number;
-  /** Maximum aspect ratio. */
-  maxRatio?: number;
-  /** Image area size. */
-  size?: number;
-};
-
 /** Volcengine image model builder input. */
 type VolcengineImageModelInput = {
   /** Provider settings entry. */
@@ -158,55 +145,6 @@ async function submitVolcengineImageTask(input: {
   return taskId;
 }
 
-/** Resolve Volcengine-specific options from provider options. */
-function resolveVolcengineProviderOptions(options: ImageModelV3CallOptions): VolcengineProviderOptions {
-  const raw = (options.providerOptions as Record<string, unknown> | undefined)?.volcengine;
-  if (!isRecord(raw)) return {};
-  const scaleRaw = typeof raw.scale === "number" ? raw.scale : undefined;
-  const scale =
-    scaleRaw != null && Number.isFinite(scaleRaw) && scaleRaw >= 0 && scaleRaw <= 1
-      ? scaleRaw
-      : undefined;
-  const minRatioRaw =
-    typeof raw.minRatio === "number"
-      ? raw.minRatio
-      : typeof raw.min_ratio === "number"
-        ? raw.min_ratio
-        : undefined;
-  const minRatio =
-    minRatioRaw != null && Number.isFinite(minRatioRaw) && minRatioRaw >= 1 / 16 && minRatioRaw < 16
-      ? minRatioRaw
-      : undefined;
-  const maxRatioRaw =
-    typeof raw.maxRatio === "number"
-      ? raw.maxRatio
-      : typeof raw.max_ratio === "number"
-        ? raw.max_ratio
-        : undefined;
-  const maxRatio =
-    maxRatioRaw != null && Number.isFinite(maxRatioRaw) && maxRatioRaw >= 1 / 16 && maxRatioRaw < 16
-      ? maxRatioRaw
-      : undefined;
-  const sizeRaw = typeof raw.size === "number" ? raw.size : undefined;
-  const size =
-    sizeRaw != null && Number.isFinite(sizeRaw) && sizeRaw > 0
-      ? Math.floor(sizeRaw)
-      : undefined;
-  const forceSingleRaw =
-    typeof raw.forceSingle === "boolean"
-      ? raw.forceSingle
-      : typeof raw.force_single === "boolean"
-        ? raw.force_single
-        : undefined;
-  return {
-    ...(scale != null ? { scale } : {}),
-    ...(forceSingleRaw != null ? { forceSingle: forceSingleRaw } : {}),
-    ...(minRatio != null ? { minRatio } : {}),
-    ...(maxRatio != null ? { maxRatio } : {}),
-    ...(size != null ? { size } : {}),
-  };
-}
-
 /** Build log-friendly body for Volcengine requests. */
 function buildVolcengineLogBody(payload: Record<string, unknown>): Record<string, unknown> {
   const logBody: Record<string, unknown> = { ...payload };
@@ -279,11 +217,7 @@ function buildVolcengineImagePayload(
 ): Record<string, unknown> {
   const reqKey = modelId;
   const { width, height } = parseSize(options.size);
-  const providerOptions = resolveVolcengineProviderOptions(options);
-
   if (modelId === "jimeng_t2i_v40" || modelId === "jimeng_t2i_v31") {
-    const forceSingle = providerOptions.forceSingle ?? (options.n <= 1 ? true : undefined);
-    const sizeArea = width && height ? undefined : providerOptions.size;
     // 中文注释：最多支持 10 张输入图片，超出部分直接忽略。
     const { imageUrls, binaryDataBase64 } = resolveImageInputs(
       options.files?.slice(0, MAX_VOLCENGINE_IMAGE_INPUTS),
@@ -293,11 +227,6 @@ function buildVolcengineImagePayload(
       prompt: options.prompt,
       width,
       height,
-      ...(sizeArea != null ? { size: sizeArea } : {}),
-      scale: providerOptions.scale,
-      min_ratio: providerOptions.minRatio,
-      max_ratio: providerOptions.maxRatio,
-      force_single: forceSingle,
       seed: options.seed,
       image_urls: imageUrls,
       binary_data_base64: binaryDataBase64,

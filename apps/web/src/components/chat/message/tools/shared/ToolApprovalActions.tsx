@@ -188,10 +188,24 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button type="button" size="sm" variant="default" disabled={disabled} onClick={handleApprove}>
+      <Button
+        type="button"
+        size="sm"
+        variant="default"
+        className="h-6 px-2 text-[10px]"
+        disabled={disabled}
+        onClick={handleApprove}
+      >
         允许
       </Button>
-      <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={handleReject}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-6 px-2 text-[10px]"
+        disabled={disabled}
+        onClick={handleReject}
+      >
         拒绝
       </Button>
     </div>

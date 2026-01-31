@@ -44,6 +44,8 @@ struct CalendarItemPayload: Codable {
     let color: String?
     /// Whether the calendar is read-only.
     let readOnly: Bool?
+    /// Whether the calendar is a subscribed calendar.
+    let isSubscribed: Bool?
 }
 
 struct CalendarEventResult: Codable {
@@ -180,7 +182,8 @@ struct CalendarHelper {
                 id: calendar.calendarIdentifier,
                 title: calendar.title,
                 color: hexStringFrom(color: calendar.cgColor),
-                readOnly: !calendar.allowsContentModifications
+                readOnly: !calendar.allowsContentModifications,
+                isSubscribed: calendar.type == .subscription
             )
         }
         writeSuccess(payloads)
@@ -197,7 +200,8 @@ struct CalendarHelper {
                 id: calendar.calendarIdentifier,
                 title: calendar.title,
                 color: hexStringFrom(color: calendar.cgColor),
-                readOnly: !calendar.allowsContentModifications
+                readOnly: !calendar.allowsContentModifications,
+                isSubscribed: calendar.type == .subscription
             )
         }
         writeSuccess(payloads)

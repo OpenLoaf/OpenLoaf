@@ -10,6 +10,7 @@ import { openLinkInStack as openLinkInStackAction } from "./lib/link-actions";
 import { useBoardContext } from "../core/BoardProvider";
 import WebStackWidget from "@/components/desktop/widgets/WebStackWidget";
 import type { DesktopWidgetItem } from "@/components/desktop/types";
+import { NodeFrame } from "./NodeFrame";
 
 export type LinkNodeProps = {
   /** Destination URL. */
@@ -117,9 +118,8 @@ export function LinkNodeView({
   }, [displayTitle, url]);
 
   return (
-    <div
+    <NodeFrame
       className={[
-        "h-full w-full",
         selected ? "ring-2 ring-primary/30 shadow-[0_10px_24px_rgba(15,23,42,0.18)]" : "",
       ].join(" ")}
       onDoubleClick={(event) => {
@@ -134,7 +134,7 @@ export function LinkNodeView({
         workspaceId={fileContext?.workspaceId}
         onOpen={openLinkInStack}
       />
-    </div>
+    </NodeFrame>
   );
 }
 

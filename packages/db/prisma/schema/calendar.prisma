@@ -1,0 +1,44 @@
+model CalendarSource {
+  id           String   @id /// 记录 ID
+  workspaceId  String /// 工作空间 ID
+  provider     String /// 数据来源（local/macos/windows）
+  kind         String /// 源类型（calendar/reminder）
+  externalId   String? /// 系统日历 ID
+  title        String /// 日历标题
+  color        String? /// 日历颜色
+  readOnly     Boolean  @default(false) /// 是否只读
+  isSubscribed Boolean  @default(false) /// 是否订阅日历
+  createdAt    DateTime @default(now()) /// 创建时间
+  updatedAt    DateTime @updatedAt /// 更新时间
+
+  items CalendarItem[]
+
+  @@index([workspaceId])
+  @@unique([workspaceId, provider, kind, externalId])
+}
+
+model CalendarItem {
+  id              String   @id /// 记录 ID
+  workspaceId     String /// 工作空间 ID
+  sourceId        String /// 日历源 ID
+  kind            String /// 类型（event/reminder）
+  title           String /// 标题
+  description     String? /// 描述
+  location        String? /// 位置
+  startAt         DateTime /// 开始时间
+  endAt           DateTime /// 结束时间
+  allDay          Boolean  @default(false) /// 是否全天
+  recurrenceRule  Json? /// 重复规则
+  completedAt     DateTime? /// 完成时间（提醒事项）
+  externalId      String? /// 系统事件 ID
+  sourceUpdatedAt DateTime? /// 系统更新时间
+  deletedAt       DateTime? /// 软删除时间
+  createdAt       DateTime @default(now()) /// 创建时间
+  updatedAt       DateTime @updatedAt /// 更新时间
+
+  source CalendarSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, startAt])
+  @@index([workspaceId, sourceId])
+  @@unique([workspaceId, sourceId, externalId])
+}

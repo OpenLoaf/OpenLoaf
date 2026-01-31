@@ -20,6 +20,8 @@ import { aiRouterImplementation } from "@/routers/ai";
 import { linkPreviewRouterImplementation } from "@/routers/linkPreview";
 import { webMetaRouterImplementation } from "@/routers/webMeta";
 import { terminalRouterImplementation } from "@/routers/terminal";
+import { emailRouterImplementation } from "@/routers/email";
+import { calendarRouterImplementation } from "@/routers/calendar";
 import { logger } from "@/common/logger";
 
 const defaultCorsOrigins = [
@@ -91,6 +93,8 @@ export function createApp() {
         linkPreview: linkPreviewRouterImplementation,
         webMeta: webMetaRouterImplementation,
         terminal: terminalRouterImplementation,
+        email: emailRouterImplementation,
+        calendar: calendarRouterImplementation,
       }),
       createContext: (_opts, context) => createContext({ context }),
       onError: ({ error, path, input, type }) => {

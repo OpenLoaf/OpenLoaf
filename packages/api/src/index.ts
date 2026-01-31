@@ -19,6 +19,8 @@ import {
   settingSchemas,
 } from "./routers/absSetting";
 import { aiRouter, BaseAiRouter, aiSchemas } from "./routers/ai";
+import { emailRouter, BaseEmailRouter, emailSchemas } from "./routers/email";
+import { calendarRouter, BaseCalendarRouter, calendarSchemas } from "./routers/calendar";
 import {
   linkPreviewRouter,
   BaseLinkPreviewRouter,
@@ -49,6 +51,8 @@ export const appRouterDefine = {
   linkPreview: linkPreviewRouter,
   webMeta: webMetaRouter,
   terminal: terminalRouter,
+  email: emailRouter,
+  calendar: calendarRouter,
 };
 
 export const appRouter = t.router({
@@ -102,6 +106,12 @@ export type { WebMetadata } from "./services/webMetaParser";
 
 // Export terminal router components
 export { BaseTerminalRouter, terminalSchemas };
+
+// Export email router components
+export { BaseEmailRouter, emailSchemas };
+
+// Export calendar router components
+export { BaseCalendarRouter, calendarSchemas };
 
 // export const t = initTRPC.context<Context>().create({
 // });

@@ -244,7 +244,16 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
       return { status: "failed", errorText: "tabId is required." };
     }
     if (!normalizedUrl) {
-      console.warn("[frontend-tool] open-url missing url");
+      // 逻辑：记录原始 input，方便排查子代理传参缺失的问题。
+      console.warn("[frontend-tool] open-url missing url", {
+        input,
+        rawUrl: url,
+      });
+      // 逻辑：console 对象可能被覆盖，追加字符串化输出保证可见。
+      console.warn(
+        "[frontend-tool] open-url missing url payload",
+        JSON.stringify({ input, rawUrl: url }),
+      );
       return { status: "failed", errorText: "url is required." };
     }
 

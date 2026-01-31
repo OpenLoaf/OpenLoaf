@@ -132,3 +132,23 @@ export function subscribeSystemCalendarChanges(
   }
   return getCalendarApi()!.subscribeChanges(handler);
 }
+
+/** Update system calendar sync range. */
+export async function setCalendarSyncRange(
+  payload: { workspaceId: string; range?: CalendarRange }
+): Promise<{ ok: true } | { ok: false; reason?: string }> {
+  if (!isElectronEnv() || !getCalendarApi()?.setSyncRange) {
+    return { ok: false, reason: "当前仅支持桌面端日历。" };
+  }
+  return await getCalendarApi()!.setSyncRange!(payload);
+}
+
+/** Trigger immediate system calendar sync. */
+export async function syncSystemCalendars(
+  payload: { workspaceId: string; range?: CalendarRange }
+): Promise<{ ok: true } | { ok: false; reason?: string }> {
+  if (!isElectronEnv() || !getCalendarApi()?.syncNow) {
+    return { ok: false, reason: "当前仅支持桌面端日历。" };
+  }
+  return await getCalendarApi()!.syncNow!(payload);
+}

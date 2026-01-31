@@ -18,6 +18,7 @@ import {
 import { createSpeechRecognitionManager } from '../speechRecognition';
 import { captureWebMeta } from './captureWebMeta';
 import { createCalendarService } from '../calendar/calendarService';
+import { createCalendarSync } from '../calendar/calendarSync';
 import { resolveWindowIconInfo } from '../resolveWindowIcon';
 
 let ipcHandlersRegistered = false;
@@ -248,6 +249,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   ipcHandlersRegistered = true;
   const speechManager = createSpeechRecognitionManager({ log: args.log });
   const calendarService = createCalendarService({ log: args.log });
+  const calendarSync = createCalendarSync({ log: args.log, calendarService });
 
   // 提供应用版本号给渲染端展示。
   ipcMain.handle('tenas:app:version', async () => app.getVersion());
@@ -315,6 +317,31 @@ export function registerIpcHandlers(args: { log: Logger }) {
   // 获取系统提醒事项列表。
   ipcMain.handle('tenas:calendar:list-reminders', async () => {
     return await calendarService.listReminders();
+  });
+
+  // 设置系统日历同步范围（页面进入/切换后更新）。
+  ipcMain.handle('tenas:calendar:set-sync-range', async (_event, payload: {
+    workspaceId: string;
+    range?: { start: string; end: string };
+  }) => {
+    const workspaceId = String(payload?.workspaceId ?? '').trim();
+    if (!workspaceId) return { ok: false as const, reason: 'workspaceId required' };
+    calendarSync.setSyncContext({ workspaceId, viewRange: payload?.range });
+    calendarSync.startTimer();
+    return { ok: true as const };
+  });
+
+  // 立即触发系统日历同步。
+  ipcMain.handle('tenas:calendar:sync', async (_event, payload: {
+    workspaceId: string;
+    range?: { start: string; end: string };
+  }) => {
+    const workspaceId = String(payload?.workspaceId ?? '').trim();
+    if (!workspaceId) return { ok: false as const, reason: 'workspaceId required' };
+    calendarSync.setSyncContext({ workspaceId, viewRange: payload?.range });
+    calendarSync.startTimer();
+    await calendarSync.syncNow({ workspaceId, viewRange: payload?.range });
+    return { ok: true as const };
   });
 
   // 获取系统日历事件。

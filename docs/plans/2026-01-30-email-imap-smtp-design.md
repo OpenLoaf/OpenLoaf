@@ -1,12 +1,12 @@
 # 邮件功能方案（Email v1）
 
 ## 目标与范围
-首版实现通用 IMAP/SMTP 收发邮件，使用应用专用密码；支持多 workspace 的邮箱账号管理与邮件展示。账号配置与同步状态写入 `apps/server/workspace/email.json`，密码写入 `apps/server/.env`，邮件缓存落库到 SQLite（DB 可重置且能重建）。
+首版实现通用 IMAP/SMTP 收发邮件，使用应用专用密码；支持多 workspace 的邮箱账号管理与邮件展示。账号配置与同步状态写入 workspace 根目录的 `email.json`，密码写入 `apps/server/.env`，邮件缓存落库到 SQLite（DB 可重置且能重建）。
 
 ## 存储设计
 
 ### email.json（集中存放账号与同步状态）
-路径：`apps/server/workspace/email.json`
+路径：`<workspaceRoot>/email.json`
 
 ```json
 {
@@ -32,7 +32,7 @@
 ```
 
 说明：
-- `email.json` 本身放在 workspace 目录下，因此不再包含 workspace 包裹层级。
+- `email.json` 放在 workspace 根目录下，因此不再包含 workspace 包裹层级。
 - `envKey` 仍建议包含 `workspaceId`，用于避免多 workspace 场景下的环境变量冲突。
 
 ### .env（保存密码）
@@ -82,7 +82,7 @@ model EmailMessage {
 
 ### 目录建议
 ```
-apps/server/src/email/
+apps/server/src/modules/email/
   emailConfigStore.ts   // 读写 email.json
   emailEnvStore.ts      // 读写 .env 密码
   imapSyncService.ts
@@ -139,5 +139,5 @@ apps/server/src/email/
 4) 实现 IMAP 同步服务
 5) 实现 SMTP 发送服务
 6) 实现 API 层
-7) 前端 EmailPage 接入闭环
+7) 前端 EmailPage 接入闭环（正文优先使用 `bodyHtml`）
 8) 增加同步错误提示与重试策略

@@ -26,6 +26,8 @@ export type ModelParameterDefinition = {
   key: string;
   /** Display title for UI. */
   title: string;
+  /** Helper text for UI. */
+  description?: string;
   /** Parameter input type. */
   type: ModelParameterType;
   /** Display unit. */

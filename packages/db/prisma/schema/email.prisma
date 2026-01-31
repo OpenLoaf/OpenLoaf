@@ -1,0 +1,45 @@
+model EmailMessage {
+  id           String   @id /// 记录 ID
+  workspaceId  String /// 工作空间 ID
+  accountEmail String /// 邮箱账号
+  mailboxPath  String /// 邮件夹路径（IMAP mailbox）
+  uid          Int /// IMAP UID
+
+  messageId    String? /// 邮件 Message-Id
+  subject      String? /// 主题
+  from         Json /// 发件人信息
+  to           Json /// 收件人信息
+  cc           Json? /// 抄送信息
+  bcc          Json? /// 密送信息
+  date         DateTime? /// 邮件时间
+  flags        Json? /// IMAP flags
+  snippet      String? /// 正文摘要
+
+  bodyHtml     String? /// HTML 正文（已清洗）
+  bodyText     String? /// 纯文本正文
+  attachments  Json? /// 附件元信息
+  rawRfc822    String? /// 原始邮件内容
+
+  size         Int? /// 邮件大小（字节）
+  createdAt    DateTime @default(now()) /// 创建时间
+  updatedAt    DateTime @updatedAt /// 更新时间
+
+  @@unique([workspaceId, accountEmail, mailboxPath, uid])
+  @@index([workspaceId, accountEmail, date])
+}
+
+model EmailMailbox {
+  id           String   @id /// 记录 ID
+  workspaceId  String /// 工作空间 ID
+  accountEmail String /// 邮箱账号
+  path         String /// 邮件夹完整路径
+  name         String /// 邮件夹显示名称
+  parentPath   String? /// 父级路径
+  delimiter    String? /// IMAP 分隔符
+  attributes   Json? /// IMAP 属性
+  createdAt    DateTime @default(now()) /// 创建时间
+  updatedAt    DateTime @updatedAt /// 更新时间
+
+  @@unique([workspaceId, accountEmail, path])
+  @@index([workspaceId, accountEmail, parentPath])
+}

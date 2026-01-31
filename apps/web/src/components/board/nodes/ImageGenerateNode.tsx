@@ -27,6 +27,7 @@ import {
 } from "@tenas-ai/ui/select";
 import { Input } from "@tenas-ai/ui/input";
 import { Textarea } from "@tenas-ai/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@tenas-ai/ui/card";
 import {
   IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
   IMAGE_GENERATE_MAX_INPUT_IMAGES,
@@ -34,6 +35,7 @@ import {
   filterImageGenerationModelOptions,
   runChatSseRequest,
 } from "./lib/image-generation";
+import { resolveRightStackPlacement } from "../utils/output-placement";
 import { buildImageNodePayloadFromUri } from "../utils/image";
 import {
   buildChildUri,
@@ -50,13 +52,14 @@ import {
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import { resolveFileName } from "@/lib/image/uri";
 import { trpcClient } from "@/utils/trpc";
+import { NodeFrame } from "./NodeFrame";
 
 /** Node type identifier for image generation. */
 export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
 /** Gap between generated image nodes. */
 const GENERATED_IMAGE_NODE_GAP = 32;
 /** Extra horizontal gap for the first generated image node. */
-const GENERATED_IMAGE_NODE_FIRST_GAP = 64;
+const GENERATED_IMAGE_NODE_FIRST_GAP = 120;
 /** Default aspect ratio when none is specified. */
 const IMAGE_GENERATE_DEFAULT_RATIO = "4:3";
 
@@ -137,9 +140,11 @@ function buildImageOptionsFromParameters(
     n?: number;
     size?: string;
     aspectRatio?: string;
-    seed?: number;
     providerOptions?: Record<string, Record<string, string | number | boolean>>;
   } = {};
+  let widthValue: number | undefined;
+  let heightValue: number | undefined;
+  let sizeValue: string | undefined;
   for (const [key, value] of Object.entries(parameters)) {
     if (isEmptyParamValue(value)) continue;
     if (key === "n") {
@@ -148,16 +153,21 @@ function buildImageOptionsFromParameters(
       continue;
     }
     if (key === "size") {
-      options.size = typeof value === "string" ? value.trim() : String(value);
+      sizeValue = typeof value === "string" ? value.trim() : String(value);
+      continue;
+    }
+    if (key === "width") {
+      const numeric = typeof value === "number" ? value : Number(value);
+      if (Number.isFinite(numeric)) widthValue = numeric;
+      continue;
+    }
+    if (key === "height") {
+      const numeric = typeof value === "number" ? value : Number(value);
+      if (Number.isFinite(numeric)) heightValue = numeric;
       continue;
     }
     if (key === "aspectRatio") {
       options.aspectRatio = typeof value === "string" ? value.trim() : String(value);
-      continue;
-    }
-    if (key === "seed") {
-      const numeric = typeof value === "number" ? value : Number(value);
-      if (Number.isFinite(numeric)) options.seed = numeric;
       continue;
     }
     if (key.startsWith("providerOptions.")) {
@@ -167,6 +177,11 @@ function buildImageOptionsFromParameters(
       if (!options.providerOptions[providerId]) options.providerOptions[providerId] = {};
       options.providerOptions[providerId][optionKey] = value;
     }
+  }
+  if (Number.isFinite(widthValue) && Number.isFinite(heightValue)) {
+    options.size = `${widthValue}x${heightValue}`;
+  } else if (sizeValue) {
+    options.size = sizeValue;
   }
   if (options.n === undefined) options.n = fallback.outputCount;
   if (
@@ -574,7 +589,7 @@ export function ImageGenerateNodeView({
         if (!controller.signal.aborted && streamedImagePayloads.length > 0) {
           const sourceNode = engine.doc.getElementById(nodeId);
           if (sourceNode && sourceNode.kind === "node") {
-            const [nodeX, nodeY, nodeW] = sourceNode.xywh;
+            const [nodeX, nodeY, nodeW, nodeH] = sourceNode.xywh;
             const seenUrls = new Set<string>();
             const uniqueOutputs = streamedImagePayloads.filter((output) => {
               const key = output.url.trim();
@@ -593,25 +608,6 @@ export function ImageGenerateNodeView({
               }
               return [...nodes, target];
             }, [] as Array<typeof sourceNode>);
-            const firstOutput = existingOutputs.reduce((current, target) => {
-              if (!current) return target;
-              const [currentX, currentY] = current.xywh;
-              const [targetX, targetY] = target.xywh;
-              if (targetY < currentY) return target;
-              if (targetY === currentY && targetX < currentX) return target;
-              return current;
-            }, null as typeof sourceNode | null);
-            const baseX = firstOutput
-              ? firstOutput.xywh[0]
-              : nodeX + nodeW + GENERATED_IMAGE_NODE_FIRST_GAP;
-            const startY =
-              existingOutputs.length > 0
-                ? existingOutputs.reduce((maxY, target) => {
-                    const bottom = target.xywh[1] + target.xywh[3];
-                    return Math.max(maxY, bottom);
-                  }, firstOutput ? firstOutput.xywh[1] + firstOutput.xywh[3] : nodeY) +
-                  GENERATED_IMAGE_NODE_GAP
-                : nodeY;
             const selectionSnapshot = engine.selection.getSelectedIds();
             const assetNamePool = new Set<string>();
             if (imageSaveDir && resolvedWorkspaceId && currentProjectId) {
@@ -661,37 +657,67 @@ export function ImageGenerateNodeView({
                 return sourceUrl;
               }
             };
-            let currentY = startY;
+            // 逻辑：预先获取图片尺寸，确保输出节点按源节点中心对齐。
+            const preparedOutputs: Array<{
+              payload: Awaited<ReturnType<typeof buildImageNodePayloadFromUri>>;
+            }> = [];
             for (const output of uniqueOutputs) {
               try {
                 const assetUrl = await copyToBoardAssets(output.url, output.fileName);
                 const payload = await buildImageNodePayloadFromUri(assetUrl, {
                   projectId: fileContext?.projectId,
                 });
-                const [outputW, outputH] = payload.size;
-                const xywh: [number, number, number, number] = [
-                  baseX,
-                  currentY,
-                  outputW,
-                  outputH,
-                ];
-                // 逻辑：生成图片后先解析尺寸，再创建 ImageNode 并补齐连线。
-                const imageNodeId = engine.addNodeElement(
-                  "image",
-                  payload.props satisfies ImageNodeProps,
-                  xywh
-                );
-                if (imageNodeId) {
-                  engine.addConnectorElement({
-                    source: { elementId: nodeId },
-                    target: { elementId: imageNodeId },
-                    style: engine.getConnectorStyle(),
-                  });
-                }
-                currentY += outputH + GENERATED_IMAGE_NODE_GAP;
+                preparedOutputs.push({ payload });
               } catch {
                 // 逻辑：读取图片失败时跳过输出，避免生成错误尺寸节点。
               }
+            }
+            if (preparedOutputs.length === 0) {
+              if (selectionSnapshot.length > 0) {
+                engine.selection.setSelection(selectionSnapshot);
+              }
+              return;
+            }
+            const placement = resolveRightStackPlacement(
+              [nodeX, nodeY, nodeW, nodeH],
+              existingOutputs.map((target) => target.xywh),
+              {
+                sideGap: GENERATED_IMAGE_NODE_FIRST_GAP,
+                stackGap: GENERATED_IMAGE_NODE_GAP,
+                outputHeights: preparedOutputs.map((item) => item.payload.size[1]),
+              }
+            );
+            if (!placement) {
+              if (selectionSnapshot.length > 0) {
+                engine.selection.setSelection(selectionSnapshot);
+              }
+              return;
+            }
+            const baseX = placement.baseX;
+            let currentY = placement.startY;
+            for (const item of preparedOutputs) {
+              const payload = item.payload;
+              const [outputW, outputH] = payload.size;
+              const xywh: [number, number, number, number] = [
+                baseX,
+                currentY,
+                outputW,
+                outputH,
+              ];
+              // 逻辑：生成图片后先解析尺寸，再创建 ImageNode 并补齐连线。
+              const imageNodeId = engine.addNodeElement(
+                "image",
+                payload.props satisfies ImageNodeProps,
+                xywh
+              );
+              if (imageNodeId) {
+                engine.addConnectorElement({
+                  source: { elementId: nodeId },
+                  target: { elementId: imageNodeId },
+                  style: engine.getConnectorStyle(),
+                });
+              }
+              currentY += outputH + GENERATED_IMAGE_NODE_GAP;
             }
             if (selectionSnapshot.length > 0) {
               // 逻辑：恢复用户原有选中，避免输出节点打断当前操作。
@@ -767,7 +793,7 @@ export function ImageGenerateNodeView({
   ]);
 
   const containerClassName = [
-    "relative flex w-full flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
     "bg-[radial-gradient(180px_circle_at_top_left,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_85%_15%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
     "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
     "dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
@@ -815,7 +841,7 @@ export function ImageGenerateNodeView({
     if (!hasAnyImageInput) {
       return { tone: "info", text: "未连接图片，将以纯文本生成。" };
     }
-    return { tone: "info", text: "准备就绪，点击运行即可生成图片。" };
+    return null;
   }, [
     errorText,
     hasAnyImageInput,
@@ -899,14 +925,14 @@ export function ImageGenerateNodeView({
   const isAdvancedOpen = selected;
 
   return (
-    <div
-      className={containerClassName}
+    <NodeFrame
       onPointerDown={(event) => {
         // 逻辑：点击节点本体保持选中。
         event.stopPropagation();
         onSelect();
       }}
     >
+      <div className={containerClassName}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="relative flex h-8 w-8 items-center justify-center overflow-visible text-slate-500 dark:text-slate-300">
@@ -964,7 +990,7 @@ export function ImageGenerateNodeView({
         </div>
       </div>
 
-      <div className="mt-1 flex flex-col gap-2" data-board-editor>
+      <div className="mt-1 flex min-h-0 flex-1 flex-col gap-2" data-board-editor>
         <div className="flex items-center gap-2">
           <div className="text-[11px] text-slate-500 dark:text-slate-400">模型</div>
           <div className="min-w-0 flex-1">
@@ -997,7 +1023,7 @@ export function ImageGenerateNodeView({
             </Select>
           </div>
         </div>
-        <div className="space-y-1">
+        <div className="flex min-h-0 flex-1 flex-col gap-1">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
               <span>提示词</span>
@@ -1011,7 +1037,7 @@ export function ImageGenerateNodeView({
               </div>
             ) : null}
           </div>
-          <div className="min-w-0 space-y-1">
+          <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-1">
             <Textarea
               value={localPromptText}
               maxLength={500}
@@ -1022,7 +1048,7 @@ export function ImageGenerateNodeView({
               }}
               onFocus={handlePromptFocus}
               data-board-scroll
-              className="min-h-[88px] px-2 py-1 text-[12px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[12px]"
+              className="h-full min-h-[88px] flex-1 overflow-y-auto px-2 py-1 text-[13px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[13px]"
               disabled={engine.isLocked() || element.locked || isRunning}
             />
           </div>
@@ -1045,7 +1071,7 @@ export function ImageGenerateNodeView({
                 复制
               </span>
             </button>
-            <pre className="whitespace-pre-wrap break-words pr-14 font-sans">
+            <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words pr-14 font-sans">
               {statusHint.text}
             </pre>
           </div>
@@ -1063,28 +1089,41 @@ export function ImageGenerateNodeView({
         )
       ) : null}
       {isAdvancedOpen && parameterFields.length > 0 ? (
-        <div
-          className="absolute left-full top-0 z-20 ml-2 w-64 rounded-xl border border-slate-200/80 bg-white/95 p-3 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
+        <Card
+          className="absolute left-full top-0 z-20 ml-2 w-72 gap-3 border-slate-200/80 bg-white/95 py-3 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
           data-board-editor
           onPointerDown={(event) => {
             event.stopPropagation();
           }}
         >
-          <div className="mb-2 text-[12px] font-semibold text-slate-600 dark:text-slate-200">
-            高级选项
-          </div>
-          <div className="flex flex-col gap-2">
+          <CardHeader className="border-b border-slate-200/70 px-4 pb-2 pt-0 dark:border-slate-700/70">
+            <CardTitle className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">
+              高级选项
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-2 pt-0">
+            <div className="flex flex-col gap-3">
             {parameterFields.map((field) => {
               const value = resolvedParameters[field.key];
               const valueString = value === undefined ? "" : String(value);
               const disabled = engine.isLocked() || element.locked || isRunning;
+              const label = (
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-300">
+                    {field.title}
+                  </div>
+                  {field.description ? (
+                    <div className="text-[10px] leading-[14px] text-slate-400 dark:text-slate-500">
+                      {field.description}
+                    </div>
+                  ) : null}
+                </div>
+              );
               if (field.type === "select") {
                 const options = Array.isArray(field.values) ? field.values : [];
                 return (
-                  <div className="flex items-center gap-2" key={field.key}>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {field.title}
-                    </div>
+                  <div className="flex items-start gap-3" key={field.key}>
+                    {label}
                     <Select
                       value={valueString}
                       onValueChange={(nextValue) => {
@@ -1095,7 +1134,7 @@ export function ImageGenerateNodeView({
                       }}
                       disabled={disabled}
                     >
-                      <SelectTrigger className="h-7 w-24 px-2 text-[11px]">
+                      <SelectTrigger className="h-7 w-28 px-2 text-[11px]">
                         <SelectValue placeholder="请选择" />
                       </SelectTrigger>
                       <SelectContent className="text-[11px]">
@@ -1121,42 +1160,40 @@ export function ImageGenerateNodeView({
                       ? Number(value)
                       : "";
                 return (
-                  <div className="flex items-center gap-2" key={field.key}>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {field.title}
+                  <div className="flex items-start gap-3" key={field.key}>
+                    {label}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Input
+                        type="number"
+                        min={typeof field.min === "number" ? field.min : undefined}
+                        max={typeof field.max === "number" ? field.max : undefined}
+                        step={typeof field.step === "number" ? field.step : undefined}
+                        value={Number.isFinite(numericValue as number) ? numericValue : ""}
+                        disabled={disabled}
+                        onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                          const raw = event.target.value;
+                          const nextValue =
+                            raw.trim() === "" ? "" : Number.parseFloat(raw);
+                          handleParameterChange(
+                            field.key,
+                            Number.isFinite(nextValue) ? nextValue : ""
+                          );
+                        }}
+                        className="h-7 w-20 px-2 text-[11px]"
+                      />
+                      {field.unit ? (
+                        <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                          {field.unit}
+                        </div>
+                      ) : null}
                     </div>
-                    <Input
-                      type="number"
-                      min={typeof field.min === "number" ? field.min : undefined}
-                      max={typeof field.max === "number" ? field.max : undefined}
-                      step={typeof field.step === "number" ? field.step : undefined}
-                      value={Number.isFinite(numericValue as number) ? numericValue : ""}
-                      disabled={disabled}
-                      onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                        const raw = event.target.value;
-                        const nextValue =
-                          raw.trim() === "" ? "" : Number.parseFloat(raw);
-                        handleParameterChange(
-                          field.key,
-                          Number.isFinite(nextValue) ? nextValue : ""
-                        );
-                      }}
-                      className="h-7 w-16 px-2 text-[11px]"
-                    />
-                    {field.unit ? (
-                      <div className="text-[11px] text-slate-400 dark:text-slate-500">
-                        {field.unit}
-                      </div>
-                    ) : null}
                   </div>
                 );
               }
               if (field.type === "boolean") {
                 return (
-                  <div className="flex items-center gap-2" key={field.key}>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {field.title}
-                    </div>
+                  <div className="flex items-start gap-3" key={field.key}>
+                    {label}
                     <Select
                       value={valueString}
                       onValueChange={(nextValue) => {
@@ -1164,7 +1201,7 @@ export function ImageGenerateNodeView({
                       }}
                       disabled={disabled}
                     >
-                      <SelectTrigger className="h-7 w-20 px-2 text-[11px]">
+                      <SelectTrigger className="h-7 w-24 px-2 text-[11px]">
                         <SelectValue placeholder="请选择" />
                       </SelectTrigger>
                       <SelectContent className="text-[11px]">
@@ -1180,10 +1217,8 @@ export function ImageGenerateNodeView({
                 );
               }
               return (
-                <div className="flex items-center gap-2" key={field.key}>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {field.title}
-                  </div>
+                <div className="flex items-start gap-3" key={field.key}>
+                  {label}
                   <Input
                     type="text"
                     value={valueString}
@@ -1191,15 +1226,17 @@ export function ImageGenerateNodeView({
                     onChange={(event: ChangeEvent<HTMLInputElement>) => {
                       handleParameterChange(field.key, event.target.value);
                     }}
-                    className="h-7 w-40 px-2 text-[11px]"
+                    className="h-7 w-28 px-2 text-[11px] shrink-0"
                   />
                 </div>
               );
             })}
-          </div>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
-    </div>
+      </div>
+    </NodeFrame>
   );
 }
 

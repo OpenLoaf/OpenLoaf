@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon, Menu, Plus } from 'lucide-react'
+import { Menu, PanelLeft, Plus } from 'lucide-react'
 import type React from 'react'
 import { useMemo, useState } from 'react'
 import { Button } from '@tenas-ai/ui/calendar/components/ui/button'
@@ -27,6 +27,7 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 		today,
 		openEventForm,
 		headerComponent,
+		headerLeadingSlot,
 		headerClassName,
 		sidebar,
 		isSidebarOpen,
@@ -42,6 +43,7 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 		today: ctx.today,
 		openEventForm: ctx.openEventForm,
 		headerComponent: ctx.headerComponent,
+		headerLeadingSlot: ctx.headerLeadingSlot,
 		headerClassName: ctx.headerClassName,
 		sidebar: ctx.sidebar,
 		isSidebarOpen: ctx.isSidebarOpen,
@@ -117,8 +119,12 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 						size="icon"
 						variant="ghost"
 					>
-						<CalendarIcon
-							className={cn('h-4 w-4', sidebar ? '' : 'opacity-50')}
+						<PanelLeft
+							className={cn(
+								'h-4 w-4 transition-transform duration-200',
+								!isSidebarOpen ? 'rotate-180' : '',
+								sidebar ? '' : 'opacity-50'
+							)}
 						/>
 					</Button>
 					<TitleContent />
@@ -131,6 +137,9 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 
 				<div className="flex flex-wrap justify-start @xl/base-header:justify-center gap-1 @4xl/base-header:justify-end overflow-x-auto">
 					<div className="hidden @md/base-header:flex items-center justify-start gap-1">
+						{headerLeadingSlot ? (
+							<div className="flex items-center">{headerLeadingSlot}</div>
+						) : null}
 						<ViewControls
 							className="justify-end"
 							currentView={view}
@@ -143,6 +152,9 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 					</div>
 
 					<div className="flex items-center justify-end gap-1 @md/base-header:hidden">
+						{headerLeadingSlot ? (
+							<div className="flex items-center">{headerLeadingSlot}</div>
+						) : null}
 						<NewEventButton />
 						<Popover onOpenChange={setMobileMenuOpen} open={mobileMenuOpen}>
 							<PopoverTrigger asChild>

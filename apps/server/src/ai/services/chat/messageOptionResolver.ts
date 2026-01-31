@@ -42,57 +42,63 @@ function normalizeOpenAiOptions(value: unknown): { quality?: string; style?: str
 }
 
 /** Normalize Volcengine image provider options. */
-function normalizeVolcengineOptions(
-  value: unknown,
-): {
-  scale?: number;
-  forceSingle?: boolean;
-  minRatio?: number;
-  maxRatio?: number;
-  size?: number;
+function normalizeVolcengineOptions(_value: unknown): undefined {
+  return undefined;
+}
+
+/** Normalize Qwen image provider options. */
+function normalizeQwenOptions(value: unknown): {
+  negative_prompt?: string;
+  prompt_extend?: boolean;
+  watermark?: boolean;
+  enable_interleave?: boolean;
+  stream?: boolean;
+  max_images?: number;
 } | undefined {
   if (!isRecord(value)) return undefined;
-  const scale = typeof value.scale === "number" && Number.isFinite(value.scale) ? value.scale : undefined;
-  const forceSingleRaw =
-    typeof value.forceSingle === "boolean"
-      ? value.forceSingle
-      : typeof value.force_single === "boolean"
-        ? value.force_single
+  const negativePrompt =
+    typeof value.negative_prompt === "string" ? value.negative_prompt.trim() : "";
+  const promptExtend =
+    typeof value.prompt_extend === "boolean"
+      ? value.prompt_extend
+      : typeof value.promptExtend === "boolean"
+        ? value.promptExtend
         : undefined;
-  const minRatioRaw =
-    typeof value.minRatio === "number"
-      ? value.minRatio
-      : typeof value.min_ratio === "number"
-        ? value.min_ratio
+  const watermark =
+    typeof value.watermark === "boolean" ? value.watermark : undefined;
+  const enableInterleave =
+    typeof value.enable_interleave === "boolean"
+      ? value.enable_interleave
+      : typeof value.enableInterleave === "boolean"
+        ? value.enableInterleave
         : undefined;
-  const maxRatioRaw =
-    typeof value.maxRatio === "number"
-      ? value.maxRatio
-      : typeof value.max_ratio === "number"
-        ? value.max_ratio
+  const stream =
+    typeof value.stream === "boolean" ? value.stream : undefined;
+  const maxImages =
+    typeof value.max_images === "number"
+      ? value.max_images
+      : typeof value.maxImages === "number"
+        ? value.maxImages
         : undefined;
-  const size = typeof value.size === "number" && Number.isFinite(value.size) ? value.size : undefined;
-  const forceSingle =
-    forceSingleRaw !== undefined ? forceSingleRaw : undefined;
-  const minRatio =
-    minRatioRaw !== undefined && Number.isFinite(minRatioRaw) ? minRatioRaw : undefined;
-  const maxRatio =
-    maxRatioRaw !== undefined && Number.isFinite(maxRatioRaw) ? maxRatioRaw : undefined;
   if (
-    scale === undefined &&
-    forceSingle === undefined &&
-    minRatio === undefined &&
-    maxRatio === undefined &&
-    size === undefined
+    !negativePrompt &&
+    promptExtend === undefined &&
+    watermark === undefined &&
+    enableInterleave === undefined &&
+    stream === undefined &&
+    maxImages === undefined
   ) {
     return undefined;
   }
   return {
-    ...(scale !== undefined ? { scale } : {}),
-    ...(forceSingle !== undefined ? { forceSingle } : {}),
-    ...(minRatio !== undefined ? { minRatio } : {}),
-    ...(maxRatio !== undefined ? { maxRatio } : {}),
-    ...(size !== undefined ? { size } : {}),
+    ...(negativePrompt ? { negative_prompt: negativePrompt } : {}),
+    ...(promptExtend !== undefined ? { prompt_extend: promptExtend } : {}),
+    ...(watermark !== undefined ? { watermark } : {}),
+    ...(enableInterleave !== undefined ? { enable_interleave: enableInterleave } : {}),
+    ...(stream !== undefined ? { stream } : {}),
+    ...(maxImages !== undefined && Number.isFinite(maxImages)
+      ? { max_images: maxImages }
+      : {}),
   };
 }
 
@@ -143,22 +149,22 @@ export function resolveImageGenerateOptions(
   const count = normalizeImageCount(rawOptions.n);
   const size = normalizeSize(rawOptions.size);
   const aspectRatio = size ? undefined : normalizeAspectRatio(rawOptions.aspectRatio);
-  const seed =
-    typeof rawOptions.seed === "number" && Number.isFinite(rawOptions.seed) ? rawOptions.seed : undefined;
   const providerOptionsRaw = isRecord(rawOptions.providerOptions)
     ? rawOptions.providerOptions
     : undefined;
   const openaiOptions = normalizeOpenAiOptions(providerOptionsRaw?.openai);
   const volcengineOptions = normalizeVolcengineOptions(providerOptionsRaw?.volcengine);
+  const qwenOptions = normalizeQwenOptions(providerOptionsRaw?.qwen);
   const providerOptions =
-    openaiOptions || volcengineOptions
+    openaiOptions || volcengineOptions || qwenOptions
       ? {
           ...(openaiOptions ? { openai: openaiOptions } : {}),
           ...(volcengineOptions ? { volcengine: volcengineOptions } : {}),
+          ...(qwenOptions ? { qwen: qwenOptions } : {}),
         }
       : undefined;
 
-  if (count === undefined && !size && !aspectRatio && seed === undefined && !providerOptions) {
+  if (count === undefined && !size && !aspectRatio && !providerOptions) {
     return undefined;
   }
 
@@ -166,7 +172,6 @@ export function resolveImageGenerateOptions(
     ...(count !== undefined ? { n: count } : {}),
     ...(size ? { size } : {}),
     ...(aspectRatio ? { aspectRatio } : {}),
-    ...(seed !== undefined ? { seed } : {}),
     ...(providerOptions ? { providerOptions } : {}),
   };
 }

@@ -1086,6 +1086,11 @@ export class CanvasEngine {
     this.commitHistory();
   }
 
+  /** Check whether the internal clipboard has content. */
+  hasClipboard(): boolean {
+    return Boolean(this.clipboard);
+  }
+
   /** Register a custom image payload builder for file insertions. */
   setImagePayloadBuilder(builder: ImagePayloadBuilder | null): void {
     this.imagePayloadBuilder = builder;

@@ -68,6 +68,7 @@ const BoardFileViewer = memo(function BoardFileViewer({
         boardFileUri={boardFileUri}
         projectId={projectId}
         rootUri={rootUri}
+        tabId={tabId}
         panelKey={panelKey}
         uiHidden={uiHidden}
         nodes={BOARD_NODE_DEFINITIONS}

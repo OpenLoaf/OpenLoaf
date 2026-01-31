@@ -17,6 +17,7 @@ import { useCloudModels } from "@/hooks/use-cloud-models";
 import { filterModelOptionsByTags } from "./lib/image-generation";
 import { Input } from "@tenas-ai/ui/input";
 import { Textarea } from "@tenas-ai/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@tenas-ai/ui/card";
 import {
   Select,
   SelectContent,
@@ -34,11 +35,21 @@ import {
 } from "../core/boardFilePath";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import { LOADING_NODE_TYPE } from "./LoadingNode";
+import { NodeFrame } from "./NodeFrame";
+import { resolveRightStackPlacement } from "../utils/output-placement";
 
 /** Node type identifier for video generation. */
 export const VIDEO_GENERATE_NODE_TYPE = "video_generate";
 /** Maximum number of input images supported by video generation by default. */
 const VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES = 1;
+/** Gap between generated video nodes. */
+const VIDEO_GENERATE_NODE_GAP = 32;
+/** Extra horizontal gap for the first generated video node. */
+const VIDEO_GENERATE_NODE_FIRST_GAP = 120;
+/** Default width for generated video placeholders. */
+const VIDEO_GENERATE_OUTPUT_WIDTH = 320;
+/** Default height for generated video placeholders. */
+const VIDEO_GENERATE_OUTPUT_HEIGHT = 180;
 
 
 export type VideoGenerateNodeProps = {
@@ -211,7 +222,7 @@ export function VideoGenerateNodeView({
   const resolveOutputPlacement = useCallback(() => {
     const sourceNode = engine.doc.getElementById(element.id);
     if (!sourceNode || sourceNode.kind !== "node") return null;
-    const [nodeX, nodeY, nodeW] = sourceNode.xywh;
+    const [nodeX, nodeY, nodeW, nodeH] = sourceNode.xywh;
     const existingOutputs = engine.doc.getElements().reduce((nodes, item) => {
       if (item.kind !== "connector") return nodes;
       if (!("elementId" in item.source)) return nodes;
@@ -223,23 +234,17 @@ export function VideoGenerateNodeView({
       }
       return [...nodes, target];
     }, [] as Array<typeof sourceNode>);
-    const firstOutput = existingOutputs.reduce((current, target) => {
-      if (!current) return target;
-      const [currentX, currentY] = current.xywh;
-      const [targetX, targetY] = target.xywh;
-      if (targetY < currentY) return target;
-      if (targetY === currentY && targetX < currentX) return target;
-      return current;
-    }, null as typeof sourceNode | null);
-    const baseX = firstOutput ? firstOutput.xywh[0] : nodeX + nodeW + 64;
-    const startY =
-      existingOutputs.length > 0
-        ? existingOutputs.reduce((maxY, target) => {
-            const bottom = target.xywh[1] + target.xywh[3];
-            return Math.max(maxY, bottom);
-          }, firstOutput ? firstOutput.xywh[1] + firstOutput.xywh[3] : nodeY) + 32
-        : nodeY;
-    return { baseX, startY };
+    const placement = resolveRightStackPlacement(
+      [nodeX, nodeY, nodeW, nodeH],
+      existingOutputs.map((target) => target.xywh),
+      {
+        sideGap: VIDEO_GENERATE_NODE_FIRST_GAP,
+        stackGap: VIDEO_GENERATE_NODE_GAP,
+        outputHeights: [VIDEO_GENERATE_OUTPUT_HEIGHT],
+      }
+    );
+    if (!placement) return null;
+    return { baseX: placement.baseX, startY: placement.startY };
   }, [element.id, engine.doc]);
 
   const clearLoadingNode = useCallback(() => {
@@ -504,7 +509,12 @@ export function VideoGenerateNodeView({
               projectId: currentProjectId || undefined,
               saveDir: videoSaveDir || undefined,
             },
-            [placement.baseX, placement.startY, 320, 180]
+            [
+              placement.baseX,
+              placement.startY,
+              VIDEO_GENERATE_OUTPUT_WIDTH,
+              VIDEO_GENERATE_OUTPUT_HEIGHT,
+            ]
           );
           if (loadingNodeId) {
             engine.addConnectorElement({
@@ -638,7 +648,7 @@ export function VideoGenerateNodeView({
     if (!hasAnyImageInput && allowsPrompt) {
       return { tone: "info", text: "未连接图片，将以纯文本生成视频。" };
     }
-    return { tone: "info", text: "准备就绪，点击运行即可生成视频。" };
+    return null;
   }, [
     allowsPrompt,
     errorText,
@@ -650,7 +660,7 @@ export function VideoGenerateNodeView({
   ]);
 
   const containerClassName = [
-    "relative flex w-full flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
     "bg-[radial-gradient(180px_circle_at_top_left,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_85%_15%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
     "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
     "dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
@@ -664,14 +674,14 @@ export function VideoGenerateNodeView({
   ].join(" ");
 
   return (
-    <div
-      className={containerClassName}
+    <NodeFrame
       onPointerDown={(event) => {
         // 逻辑：点击节点本体保持选中。
         event.stopPropagation();
         onSelect();
       }}
     >
+      <div className={containerClassName}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="relative flex h-8 w-8 items-center justify-center text-slate-500 dark:text-slate-300">
@@ -722,7 +732,7 @@ export function VideoGenerateNodeView({
         </div>
       </div>
 
-      <div className="mt-1 flex flex-col gap-2" data-board-editor>
+      <div className="mt-1 flex min-h-0 flex-1 flex-col gap-2" data-board-editor>
         <div className="flex items-center gap-2">
           <div className="text-[11px] text-slate-500 dark:text-slate-400">模型</div>
           <div className="min-w-0 flex-1">
@@ -751,7 +761,7 @@ export function VideoGenerateNodeView({
             </Select>
           </div>
         </div>
-        <div className="space-y-1">
+        <div className="flex min-h-0 flex-1 flex-col gap-1">
           {allowsPrompt ? (
             <>
               <div className="flex items-center justify-between gap-2">
@@ -767,7 +777,7 @@ export function VideoGenerateNodeView({
                   </div>
                 ) : null}
               </div>
-              <div className="min-w-0 space-y-1">
+              <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-1">
                 <Textarea
                   value={localPromptText}
                   maxLength={500}
@@ -778,7 +788,7 @@ export function VideoGenerateNodeView({
                   }}
                   onFocus={handlePromptFocus}
                   data-board-scroll
-                  className="min-h-[88px] px-2 py-1 text-[12px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[12px]"
+                  className="h-full min-h-[88px] flex-1 overflow-y-auto px-2 py-1 text-[13px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[13px]"
                   disabled={engine.isLocked() || element.locked || isRunning}
                 />
               </div>
@@ -821,28 +831,41 @@ export function VideoGenerateNodeView({
         )
       ) : null}
       {isAdvancedOpen && parameterFields.length > 0 ? (
-        <div
-          className="absolute left-full top-0 z-20 ml-2 w-64 rounded-xl border border-slate-200/80 bg-white/95 p-3 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
+        <Card
+          className="absolute left-full top-0 z-20 ml-2 w-72 gap-3 border-slate-200/80 bg-white/95 py-3 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
           data-board-editor
           onPointerDown={(event) => {
             event.stopPropagation();
           }}
         >
-          <div className="mb-2 text-[12px] font-semibold text-slate-600 dark:text-slate-200">
-            高级选项
-          </div>
-          <div className="flex flex-col gap-2">
+          <CardHeader className="border-b border-slate-200/70 px-4 pb-2 pt-0 dark:border-slate-700/70">
+            <CardTitle className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">
+              高级选项
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-2 pt-0">
+            <div className="flex flex-col gap-3">
             {parameterFields.map((field) => {
               const value = resolvedParameters[field.key];
               const valueString = value === undefined ? "" : String(value);
               const disabled = engine.isLocked() || element.locked || isRunning;
+              const label = (
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-300">
+                    {field.title}
+                  </div>
+                  {field.description ? (
+                    <div className="text-[10px] leading-[14px] text-slate-400 dark:text-slate-500">
+                      {field.description}
+                    </div>
+                  ) : null}
+                </div>
+              );
               if (field.type === "select") {
                 const options = Array.isArray(field.values) ? field.values : [];
                 return (
-                  <div className="flex items-center gap-2" key={field.key}>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {field.title}
-                    </div>
+                  <div className="flex items-start gap-3" key={field.key}>
+                    {label}
                     <Select
                       value={valueString}
                       onValueChange={(nextValue) => {
@@ -853,7 +876,7 @@ export function VideoGenerateNodeView({
                       }}
                       disabled={disabled}
                     >
-                      <SelectTrigger className="h-7 w-24 px-2 text-[11px]">
+                      <SelectTrigger className="h-7 w-28 px-2 text-[11px]">
                         <SelectValue placeholder="请选择" />
                       </SelectTrigger>
                       <SelectContent className="text-[11px]">
@@ -879,42 +902,40 @@ export function VideoGenerateNodeView({
                       ? Number(value)
                       : "";
                 return (
-                  <div className="flex items-center gap-2" key={field.key}>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {field.title}
+                  <div className="flex items-start gap-3" key={field.key}>
+                    {label}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Input
+                        type="number"
+                        min={typeof field.min === "number" ? field.min : undefined}
+                        max={typeof field.max === "number" ? field.max : undefined}
+                        step={typeof field.step === "number" ? field.step : undefined}
+                        value={Number.isFinite(numericValue as number) ? numericValue : ""}
+                        disabled={disabled}
+                        onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                          const raw = event.target.value;
+                          const nextValue =
+                            raw.trim() === "" ? "" : Number.parseFloat(raw);
+                          handleParameterChange(
+                            field.key,
+                            Number.isFinite(nextValue) ? nextValue : ""
+                          );
+                        }}
+                        className="h-7 w-20 px-2 text-[11px]"
+                      />
+                      {field.unit ? (
+                        <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                          {field.unit}
+                        </div>
+                      ) : null}
                     </div>
-                    <Input
-                      type="number"
-                      min={typeof field.min === "number" ? field.min : undefined}
-                      max={typeof field.max === "number" ? field.max : undefined}
-                      step={typeof field.step === "number" ? field.step : undefined}
-                      value={Number.isFinite(numericValue as number) ? numericValue : ""}
-                      disabled={disabled}
-                      onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                        const raw = event.target.value;
-                        const nextValue =
-                          raw.trim() === "" ? "" : Number.parseFloat(raw);
-                        handleParameterChange(
-                          field.key,
-                          Number.isFinite(nextValue) ? nextValue : ""
-                        );
-                      }}
-                      className="h-7 w-16 px-2 text-[11px]"
-                    />
-                    {field.unit ? (
-                      <div className="text-[11px] text-slate-400 dark:text-slate-500">
-                        {field.unit}
-                      </div>
-                    ) : null}
                   </div>
                 );
               }
               if (field.type === "boolean") {
                 return (
-                  <div className="flex items-center gap-2" key={field.key}>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {field.title}
-                    </div>
+                  <div className="flex items-start gap-3" key={field.key}>
+                    {label}
                     <Select
                       value={valueString}
                       onValueChange={(nextValue) => {
@@ -922,7 +943,7 @@ export function VideoGenerateNodeView({
                       }}
                       disabled={disabled}
                     >
-                      <SelectTrigger className="h-7 w-20 px-2 text-[11px]">
+                      <SelectTrigger className="h-7 w-24 px-2 text-[11px]">
                         <SelectValue placeholder="请选择" />
                       </SelectTrigger>
                       <SelectContent className="text-[11px]">
@@ -938,10 +959,8 @@ export function VideoGenerateNodeView({
                 );
               }
               return (
-                <div className="flex items-center gap-2" key={field.key}>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {field.title}
-                  </div>
+                <div className="flex items-start gap-3" key={field.key}>
+                  {label}
                   <Input
                     type="text"
                     value={valueString}
@@ -949,15 +968,17 @@ export function VideoGenerateNodeView({
                     onChange={(event: ChangeEvent<HTMLInputElement>) => {
                       handleParameterChange(field.key, event.target.value);
                     }}
-                    className="h-7 w-40 px-2 text-[11px]"
+                    className="h-7 w-28 px-2 text-[11px] shrink-0"
                   />
                 </div>
               );
             })}
-          </div>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
-    </div>
+      </div>
+    </NodeFrame>
   );
 }
 

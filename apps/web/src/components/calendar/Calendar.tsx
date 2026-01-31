@@ -4,7 +4,7 @@ import type { IlamyCalendarProps } from "@tenas-ai/ui/calendar";
 import { IlamyCalendar } from "@tenas-ai/ui/calendar";
 import styles from "./Calendar.module.css";
 import { useBasicConfig } from "@/hooks/use-basic-config";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dayjs from "@tenas-ai/ui/calendar/lib/configs/dayjs-config";
 import { Button } from "@tenas-ai/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@tenas-ai/ui/calendar/components/ui/dialog";
@@ -27,37 +27,89 @@ import "dayjs/locale/es";
 import { CALENDAR_LOCALE_BY_LANGUAGE, CALENDAR_TRANSLATIONS, type LanguageId } from "./calendar-i18n";
 import { CalendarFilterPanel } from "./calendar-filter-panel";
 import { useCalendarPageState } from "./use-calendar-page-state";
+import { useProjects } from "@/hooks/use-projects";
+import { buildProjectHierarchyIndex } from "@/lib/project-tree";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 type SystemCalendarEvent = TenasCalendarEvent;
-type SystemCalendarItem = TenasCalendarItem;
-type CalendarEvent = NonNullable<IlamyCalendarProps["events"]>[number];
 type CalendarKind = "event" | "reminder";
+type CalendarSourceFilter = "all" | "local" | "system";
+type CalendarSource = {
+  id: string;
+  workspaceId: string;
+  provider: string;
+  kind: "calendar" | "reminder";
+  externalId?: string | null;
+  title: string;
+  color?: string | null;
+  readOnly: boolean;
+  isSubscribed: boolean;
+};
+type CalendarItemRecord = {
+  id: string;
+  workspaceId: string;
+  sourceId: string;
+  kind: CalendarKind;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  startAt: string;
+  endAt: string;
+  allDay: boolean;
+  recurrenceRule?: unknown | null;
+  completedAt?: string | null;
+  externalId?: string | null;
+  sourceUpdatedAt?: string | null;
+  deletedAt?: string | null;
+};
+type CalendarEvent = NonNullable<IlamyCalendarProps["events"]>[number];
 
 /** Convert system event payload into calendar UI event. */
 function toCalendarEvent(
-  event: SystemCalendarEvent,
+  event: CalendarItemRecord,
   calendarColorMap: Map<string, string>,
+  calendarAccessMap: Map<string, { readOnly: boolean; isSubscribed: boolean }>,
+  sourceMap: Map<string, CalendarSource>,
   kind: CalendarKind
 ): CalendarEvent {
-  const backgroundColor =
-    event.color ?? (event.calendarId ? calendarColorMap.get(event.calendarId) : undefined);
+  const backgroundColor = calendarColorMap.get(event.sourceId);
   const textColor = backgroundColor ? getReadableTextColor(backgroundColor) : undefined;
+  const access = calendarAccessMap.get(event.sourceId);
+  const source = sourceMap.get(event.sourceId);
+  const start = dayjs(event.startAt);
+  let end = dayjs(event.endAt);
+  let isAllDay = event.allDay;
+  if (kind === "reminder") {
+    const endInvalid = end.isSame(start) || end.isBefore(start);
+    if (endInvalid) {
+      // 逻辑：提醒事项没有有效结束时间时按当天处理，避免被渲染成跨天块。
+      end = start.endOf("day");
+      isAllDay = true;
+    }
+  }
   return {
     id: event.id,
     title: event.title,
-    start: dayjs(event.start),
-    end: dayjs(event.end),
-    allDay: event.allDay,
-    description: event.description,
-    location: event.location,
+    start,
+    end,
+    allDay: isAllDay,
+    description: event.description ?? undefined,
+    location: event.location ?? undefined,
     color: textColor,
     backgroundColor,
     data: {
-      calendarId: event.calendarId,
-      recurrence: event.recurrence,
-      source: "system",
+      calendarId: event.sourceId,
+      recurrence:
+        typeof event.recurrenceRule === "string" ? event.recurrenceRule : undefined,
+      source: "db",
       kind,
-      completed: event.completed === true,
+      completed: Boolean(event.completedAt),
+      completedAt: event.completedAt ?? null,
+      externalId: event.externalId ?? undefined,
+      sourceExternalId: source?.externalId ?? undefined,
+      provider: source?.provider ?? undefined,
+      readOnly: access?.readOnly ?? false,
+      isSubscribed: access?.isSubscribed ?? false,
     },
   };
 }
@@ -65,12 +117,14 @@ function toCalendarEvent(
 /** Convert calendar UI event into system event payload. */
 function toSystemEvent(event: CalendarEvent): SystemCalendarEvent {
   const meta = event.data as {
-    calendarId?: string;
+    sourceExternalId?: string;
+    externalId?: string;
     recurrence?: string;
     completed?: boolean;
     kind?: CalendarKind;
   } | undefined;
-  const calendarId = meta?.calendarId?.trim();
+  const calendarId = meta?.sourceExternalId?.trim();
+  const externalId = meta?.externalId?.trim();
   const recurrence = meta?.recurrence?.trim();
   const isReminder = meta?.kind === "reminder";
   let start = event.start;
@@ -84,7 +138,7 @@ function toSystemEvent(event: CalendarEvent): SystemCalendarEvent {
     end = anchor.add(1, "day");
   }
   return {
-    id: String(event.id),
+    id: externalId || String(event.id),
     title: event.title,
     start: start.toISOString(),
     end: end.toISOString(),
@@ -116,11 +170,24 @@ function getReadableTextColor(background: string): string {
 }
 
 /** Build calendar color map with fallback palette for missing colors. */
-function buildCalendarColorMap(calendars: SystemCalendarItem[]): Map<string, string> {
+function buildCalendarColorMap(calendars: CalendarSource[]): Map<string, string> {
   const palette = ["#60A5FA", "#34D399", "#FBBF24", "#F87171", "#A78BFA", "#F472B6"];
   const map = new Map<string, string>();
   calendars.forEach((item, index) => {
     map.set(item.id, item.color ?? palette[index % palette.length]);
+  });
+  return map;
+}
+
+/** Build calendar access map to mark read-only and subscribed calendars. */
+function buildCalendarAccessMap(
+  calendars: CalendarSource[]
+): Map<string, { readOnly: boolean; isSubscribed: boolean }> {
+  const map = new Map<string, { readOnly: boolean; isSubscribed: boolean }>();
+  calendars.forEach((item) => {
+    const isSubscribed = item.isSubscribed === true;
+    const readOnly = item.readOnly === true || isSubscribed;
+    map.set(item.id, { readOnly, isSubscribed });
   });
   return map;
 }
@@ -135,8 +202,8 @@ function SystemEventFormDialog({
   defaultCalendarId,
 }: {
   props: EventFormProps;
-  calendars: SystemCalendarItem[];
-  reminderLists: SystemCalendarItem[];
+  calendars: CalendarSource[];
+  reminderLists: CalendarSource[];
   uiLanguage: LanguageId;
   translations: IlamyCalendarProps["translations"];
   defaultCalendarId: string;
@@ -205,31 +272,35 @@ function SystemEventFormDialog({
 
   return (
     <Dialog onOpenChange={props.onClose} open={Boolean(props.open)}>
-      <DialogContent className="flex flex-col h-[90vh] w-[90vw] max-w-[520px] p-4 sm:p-6 overflow-hidden gap-3">
+      <DialogContent className="flex min-h-0 flex-col w-[90vw] max-w-[520px] max-h-[90vh] p-4 sm:p-6 overflow-hidden gap-3">
         <DialogHeader className="shrink-0">
-          <DialogTitle className="text-base sm:text-lg">
-            {props.selectedEvent?.id ? translations?.editEvent : translations?.createEvent}
-          </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">
-            {props.selectedEvent?.id
-              ? translations?.editEventDetails
-              : translations?.addNewEvent}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex items-center justify-between rounded-md border border-slate-200 bg-white/70 px-3 py-2">
-          <div className="flex flex-col">
-            <span className="text-xs font-medium text-slate-700">
-              {uiLanguage === "zh-CN" ? "提醒事项" : "Reminder"}
-            </span>
-            <span className="text-[11px] text-slate-500">
-              {uiLanguage === "zh-CN" ? "关闭则为日历事件" : "Off for calendar event"}
-            </span>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <DialogTitle className="text-base sm:text-lg">
+                {props.selectedEvent?.id ? translations?.editEvent : translations?.createEvent}
+              </DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                {props.selectedEvent?.id
+                  ? translations?.editEventDetails
+                  : translations?.addNewEvent}
+              </DialogDescription>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white/70 px-3 py-2 sm:justify-end">
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-slate-700">
+                  {uiLanguage === "zh-CN" ? "提醒事项" : "Reminder"}
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  {uiLanguage === "zh-CN" ? "关闭则为日历事件" : "Off for calendar event"}
+                </span>
+              </div>
+              <Switch
+                checked={eventKind === "reminder"}
+                onCheckedChange={(checked) => setEventKind(checked ? "reminder" : "event")}
+              />
+            </div>
           </div>
-          <Switch
-            checked={eventKind === "reminder"}
-            onCheckedChange={(checked) => setEventKind(checked ? "reminder" : "event")}
-          />
-        </div>
+        </DialogHeader>
         <div className="grid gap-2">
           <span className="text-xs font-medium text-slate-700">
             {uiLanguage === "zh-CN"
@@ -274,6 +345,8 @@ export default function CalendarPage({
   tabId: string;
 }) {
   const { basic } = useBasicConfig();
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id;
   const uiLanguageRaw = basic.uiLanguage;
   // 逻辑：未知语言回退到 zh-CN。
   const uiLanguage: LanguageId =
@@ -288,6 +361,28 @@ export default function CalendarPage({
       : "zh-CN";
   const calendarLocale = CALENDAR_LOCALE_BY_LANGUAGE[uiLanguage];
   const calendarTranslations = CALENDAR_TRANSLATIONS[uiLanguage];
+  const { data: projectTree = [] } = useProjects();
+  const projectHierarchy = useMemo(
+    () => buildProjectHierarchyIndex(projectTree),
+    [projectTree]
+  );
+  const projectIdList = useMemo(
+    () => Array.from(projectHierarchy.projectById.keys()),
+    [projectHierarchy]
+  );
+  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const projectSelectionInitializedRef = useRef(false);
+  const [sourceFilter, setSourceFilter] = useState<CalendarSourceFilter>("all");
+
+  useEffect(() => {
+    if (projectSelectionInitializedRef.current) return;
+    if (projectIdList.length === 0) return;
+    // 逻辑：首次载入项目时默认全选，避免空筛选。
+    setSelectedProjectIds(new Set(projectIdList));
+    projectSelectionInitializedRef.current = true;
+  }, [projectIdList]);
 
   const {
     systemEvents,
@@ -297,7 +392,6 @@ export default function CalendarPage({
     selectedCalendarIds,
     selectedReminderListIds,
     permissionState,
-    errorMessage,
     isLoading,
     selectedCalendarIdList,
     selectedReminderListIdList,
@@ -309,84 +403,177 @@ export default function CalendarPage({
     handleToggleCalendar,
     handleSelectAllCalendars,
     handleClearCalendars,
+    setSelectedCalendarIds,
     setSelectedReminderListIds,
     toggleReminderCompleted,
-  } = useCalendarPageState({ toSystemEvent, getEventKind });
+  } = useCalendarPageState({ workspaceId, toSystemEvent, getEventKind, sourceFilter });
+
+  const handleSelectAllProjects = useCallback(() => {
+    setSelectedProjectIds(new Set(projectIdList));
+  }, [projectIdList]);
+
+  const handleClearProjects = useCallback(() => {
+    setSelectedProjectIds(new Set());
+  }, []);
+
+  const handleToggleProject = useCallback(
+    (projectId: string) => {
+      const descendants = projectHierarchy.descendantsById.get(projectId);
+      const targetIds = [projectId, ...(descendants ? Array.from(descendants) : [])];
+      setSelectedProjectIds((prev) => {
+        const next = new Set(prev);
+        const shouldSelect = targetIds.some((id) => !next.has(id));
+        if (shouldSelect) {
+          targetIds.forEach((id) => next.add(id));
+        } else {
+          targetIds.forEach((id) => next.delete(id));
+        }
+        return next;
+      });
+    },
+    [projectHierarchy]
+  );
 
   const calendarColorMap = useMemo(() => buildCalendarColorMap(calendars), [calendars]);
 
   const reminderColorMap = useMemo(() => buildCalendarColorMap(reminderLists), [reminderLists]);
+  const calendarAccessMap = useMemo(() => buildCalendarAccessMap(calendars), [calendars]);
+  const reminderAccessMap = useMemo(() => buildCalendarAccessMap(reminderLists), [reminderLists]);
+  const filteredCalendars = useMemo(() => {
+    if (sourceFilter === "local") {
+      return calendars.filter((source) => source.provider === "local");
+    }
+    if (sourceFilter === "system") {
+      return calendars.filter((source) => source.provider !== "local");
+    }
+    return calendars;
+  }, [calendars, sourceFilter]);
+  const filteredReminderLists = useMemo(() => {
+    if (sourceFilter === "local") {
+      return reminderLists.filter((source) => source.provider === "local");
+    }
+    if (sourceFilter === "system") {
+      return reminderLists.filter((source) => source.provider !== "local");
+    }
+    return reminderLists;
+  }, [reminderLists, sourceFilter]);
+  const sourceMap = useMemo(() => {
+    const map = new Map<string, CalendarSource>();
+    calendars.forEach((source) => map.set(source.id, source));
+    reminderLists.forEach((source) => map.set(source.id, source));
+    return map;
+  }, [calendars, reminderLists]);
 
   const visibleEvents = useMemo(() => {
-    const hasSelection = selectedCalendarIds.size > 0;
-    const filtered = systemEvents.filter((event) => {
-      if (!hasSelection) return true;
-      if (!event.calendarId) return true;
-      return selectedCalendarIds.has(event.calendarId);
-    });
-    const eventResults = filtered.map((event) =>
-      toCalendarEvent(event, calendarColorMap, "event")
+    const eventResults = systemEvents.map((event) =>
+      toCalendarEvent(event, calendarColorMap, calendarAccessMap, sourceMap, "event")
     );
 
-    const reminderHasSelection = selectedReminderListIds.size > 0;
-    const reminderFiltered = systemReminders.filter((reminder) => {
-      if (!reminderHasSelection) return false;
-      if (!reminder.calendarId) return true;
-      return selectedReminderListIds.has(reminder.calendarId);
-    });
-
-    const reminderResults = [...reminderFiltered]
+    const reminderResults = [...systemReminders]
       .sort((a, b) => {
-        const aCompleted = a.completed === true;
-        const bCompleted = b.completed === true;
+        const aCompleted = Boolean(a.completedAt);
+        const bCompleted = Boolean(b.completedAt);
         if (aCompleted !== bCompleted) return aCompleted ? 1 : -1;
-        return a.start.localeCompare(b.start);
+        return a.startAt.localeCompare(b.startAt);
       })
-      .map((reminder) => toCalendarEvent(reminder, reminderColorMap, "reminder"));
+      .map((reminder) =>
+        toCalendarEvent(reminder, reminderColorMap, reminderAccessMap, sourceMap, "reminder")
+      );
 
     return [...eventResults, ...reminderResults];
   }, [
     calendarColorMap,
+    calendarAccessMap,
     reminderColorMap,
-    selectedCalendarIds,
-    selectedReminderListIds,
+    reminderAccessMap,
     systemEvents,
     systemReminders,
+    sourceMap,
   ]);
 
+  const handleSelectAllCalendarsFiltered = useCallback(() => {
+    if (sourceFilter === "all") {
+      handleSelectAllCalendars();
+      return;
+    }
+    setSelectedCalendarIds((prev) => {
+      const next = new Set(prev);
+      filteredCalendars.forEach((calendar) => next.add(calendar.id));
+      return next;
+    });
+  }, [filteredCalendars, handleSelectAllCalendars, setSelectedCalendarIds, sourceFilter]);
+
+  const handleClearCalendarsFiltered = useCallback(() => {
+    if (sourceFilter === "all") {
+      handleClearCalendars();
+      return;
+    }
+    setSelectedCalendarIds((prev) => {
+      const next = new Set(prev);
+      filteredCalendars.forEach((calendar) => next.delete(calendar.id));
+      return next;
+    });
+  }, [filteredCalendars, handleClearCalendars, setSelectedCalendarIds, sourceFilter]);
+
+  const handleSelectAllRemindersFiltered = useCallback(() => {
+    if (sourceFilter === "all") {
+      setSelectedReminderListIds(new Set(reminderLists.map((item) => item.id)));
+      return;
+    }
+    setSelectedReminderListIds((prev) => {
+      const next = new Set(prev);
+      filteredReminderLists.forEach((list) => next.add(list.id));
+      return next;
+    });
+  }, [filteredReminderLists, reminderLists, setSelectedReminderListIds, sourceFilter]);
+
+  const handleClearRemindersFiltered = useCallback(() => {
+    if (sourceFilter === "all") {
+      setSelectedReminderListIds(new Set());
+      return;
+    }
+    setSelectedReminderListIds((prev) => {
+      const next = new Set(prev);
+      filteredReminderLists.forEach((list) => next.delete(list.id));
+      return next;
+    });
+  }, [filteredReminderLists, setSelectedReminderListIds, sourceFilter]);
+
   const handleEventClick = useCallback(() => null, []);
+  const hasSystemCalendars = useMemo(
+    () => calendars.some((source) => source.provider !== "local"),
+    [calendars]
+  );
+  const hasSystemReminders = useMemo(
+    () => reminderLists.some((source) => source.provider !== "local"),
+    [reminderLists]
+  );
+  const hasSystemSources = hasSystemCalendars || hasSystemReminders;
+  const shouldShowImportButton = !hasSystemSources && permissionState !== "unsupported";
 
   return (
-    <div className={`h-full w-full p-4 ${styles.calendarRoot}`}>
+    <div className={`h-full w-full p-0 ${styles.calendarRoot}`}>
       <div className="h-full min-h-0 flex flex-col gap-3">
-        {(permissionState !== "granted" || errorMessage) && (
-          <div className="rounded-md border border-amber-400/40 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex flex-col gap-1">
-                <span className="font-medium">系统日历未就绪</span>
-                <span className="text-xs text-amber-800/80">
-                  {errorMessage ?? "请授权系统日历权限以同步事件。"}
-                </span>
-              </div>
+        <IlamyCalendar
+          events={visibleEvents}
+          headerClassName="justify-between"
+          headerLeadingSlot={
+            shouldShowImportButton ? (
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleRequestPermission}
                 disabled={isLoading}
               >
-                重新授权
+                导入系统日历
               </Button>
-            </div>
-          </div>
-        )}
-        <IlamyCalendar
-          events={visibleEvents}
-          headerClassName="justify-between"
+            ) : undefined
+          }
           locale={calendarLocale}
           translations={calendarTranslations}
-          disableCellClick
-          disableEventClick={permissionState !== "granted"}
-          disableDragAndDrop={permissionState !== "granted"}
+          openEventOnCellDoubleClick
+          disableEventClick={false}
+          disableDragAndDrop={false}
           onDateChange={handleDateChange}
           onEventAdd={handleEventAdd}
           onEventUpdate={handleEventUpdate}
@@ -394,7 +581,12 @@ export default function CalendarPage({
           onEventClick={handleEventClick}
           openEventOnDoubleClick
           renderEvent={(event) => {
-            const meta = event.data as { kind?: CalendarKind; completed?: boolean } | undefined;
+            const meta = event.data as {
+              kind?: CalendarKind;
+              completed?: boolean;
+              readOnly?: boolean;
+              isSubscribed?: boolean;
+            } | undefined;
             if (meta?.kind !== "reminder") {
               return (
                 <div
@@ -408,12 +600,14 @@ export default function CalendarPage({
               );
             }
             const isCompleted = meta?.completed === true;
+            const isReadOnly = meta?.readOnly === true || meta?.isSubscribed === true;
             return (
               <div
-                className="h-full w-full px-1 text-left overflow-clip relative rounded-sm flex items-center gap-1"
+                className={`h-full w-full px-1 text-left overflow-clip relative rounded-sm flex items-center gap-1 ${
+                  isCompleted ? "text-muted-foreground" : "text-foreground"
+                }`}
                 style={{
                   backgroundColor: "transparent",
-                  color: isCompleted ? "rgba(15, 23, 42, 0.55)" : "rgb(15, 23, 42)",
                 }}
               >
                 <span
@@ -423,9 +617,11 @@ export default function CalendarPage({
                     opacity: isCompleted ? 0.65 : 1,
                   }}
                   role="button"
+                  aria-disabled={isReadOnly}
                   aria-label="完成提醒事项"
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (isReadOnly) return;
                     void toggleReminderCompleted(event);
                   }}
                 >
@@ -441,21 +637,27 @@ export default function CalendarPage({
           }}
           sidebar={
             <CalendarFilterPanel
-              calendars={calendars}
-              reminderLists={reminderLists}
+              calendars={filteredCalendars}
+              reminderLists={filteredReminderLists}
+              projects={projectTree}
+              projectIdList={projectIdList}
+              projectDescendantsById={projectHierarchy.descendantsById}
               calendarColorMap={calendarColorMap}
               reminderColorMap={reminderColorMap}
               permissionState={permissionState}
+              sourceFilter={sourceFilter}
+              hasSystemCalendars={hasSystemCalendars}
+              hasSystemReminders={hasSystemReminders}
               selectedCalendarIds={selectedCalendarIds}
               selectedReminderListIds={selectedReminderListIds}
+              selectedProjectIds={selectedProjectIds}
               className="h-full overflow-auto"
+              onSourceFilterChange={setSourceFilter}
               onToggleCalendar={handleToggleCalendar}
-              onSelectAllCalendars={handleSelectAllCalendars}
-              onClearCalendars={handleClearCalendars}
-              onSelectAllReminders={() =>
-                setSelectedReminderListIds(new Set(reminderLists.map((item) => item.id)))
-              }
-              onClearReminders={() => setSelectedReminderListIds(new Set())}
+              onSelectAllCalendars={handleSelectAllCalendarsFiltered}
+              onClearCalendars={handleClearCalendarsFiltered}
+              onSelectAllReminders={handleSelectAllRemindersFiltered}
+              onClearReminders={handleClearRemindersFiltered}
               onToggleReminder={(calendarId) =>
                 setSelectedReminderListIds((prev) => {
                   const next = new Set(prev);
@@ -467,6 +669,9 @@ export default function CalendarPage({
                   return next;
                 })
               }
+              onSelectAllProjects={handleSelectAllProjects}
+              onClearProjects={handleClearProjects}
+              onToggleProject={handleToggleProject}
             />
           }
           sidebarClassName="h-full"

@@ -2,8 +2,10 @@
 
 import {
   useEffect,
+  useCallback,
   useMemo,
   useRef,
+  useState,
   type RefObject,
   type DragEvent,
   type PointerEvent as ReactPointerEvent,
@@ -32,6 +34,9 @@ import { openLinkInStack as openLinkInStackAction, resolveLinkTitle } from "../n
 import type { ImageNodeProps } from "../nodes/ImageNode";
 import type { LinkNodeProps } from "../nodes/LinkNode";
 import { resolveBoardFolderScope, resolveProjectPathFromBoardUri } from "./boardFilePath";
+import { buildLinkNodePayloadFromUrl } from "../utils/link";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { BoardContextMenu } from "./BoardContextMenu";
 
 const EDITABLE_NODE_TYPES = new Set(["text", "image-generate", "image-prompt-generate"]);
 /** Cursor assets for board drawing tools. */
@@ -51,6 +56,87 @@ const CURSOR_SVG_CACHE = new Map<string, string>();
 const CURSOR_SVG_LOADING = new Map<string, Promise<void>>();
 /** Colored cursor data URL cache keyed by url/color/hotspot. */
 const CURSOR_DATA_CACHE = new Map<string, string>();
+
+type ClipboardPastePayload = {
+  images: File[];
+  url?: string;
+};
+
+// Logs clipboard data for paste diagnostics.
+const logPasteClipboardPayload = (event: ClipboardEvent) => {
+  const clipboardData = event.clipboardData;
+  if (!clipboardData) return;
+  const files = Array.from(clipboardData.files ?? []);
+  const items = Array.from(clipboardData.items ?? []);
+  const textPlain = clipboardData.getData("text/plain") ?? "";
+  const textHtml = clipboardData.getData("text/html") ?? "";
+  const textUriList = clipboardData.getData("text/uri-list") ?? "";
+  const previewLimit = 240;
+  const textPlainPreview =
+    textPlain.length > previewLimit ? `${textPlain.slice(0, previewLimit)}...` : textPlain;
+  const textHtmlPreview =
+    textHtml.length > previewLimit ? `${textHtml.slice(0, previewLimit)}...` : textHtml;
+  const textUriListPreview =
+    textUriList.length > previewLimit
+      ? `${textUriList.slice(0, previewLimit)}...`
+      : textUriList;
+  // 逻辑：打印剪贴板内容，便于定位 Paste 粘贴格式。
+  console.info("[board] paste payload", {
+    types: Array.from(clipboardData.types ?? []),
+    items: items.map((item) => item.type),
+    files: files.map((file) => ({
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    })),
+    textPlain: textPlainPreview,
+    textPlainLength: textPlain.length,
+    textHtml: textHtmlPreview,
+    textHtmlLength: textHtml.length,
+    textUriList: textUriListPreview,
+    textUriListLength: textUriList.length,
+  });
+};
+
+/** Resolve a pasteable payload from the system clipboard. */
+async function readClipboardPayload(): Promise<ClipboardPastePayload | null> {
+  const images: File[] = [];
+  let url: string | undefined;
+
+  if (navigator.clipboard?.read) {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        for (const type of item.types) {
+          if (!type.startsWith("image/")) continue;
+          const blob = await item.getType(type);
+          const extension = type.split("/")[1]?.replace("+xml", "") || "png";
+          const file = new File([blob], `clipboard-${Date.now()}.${extension}`, {
+            type,
+          });
+          images.push(file);
+        }
+      }
+    } catch {
+      // 逻辑：读取权限不足时忽略，回退到文本检测。
+    }
+  }
+
+  if (navigator.clipboard?.readText) {
+    try {
+      const text = await navigator.clipboard.readText();
+      const trimmed = text.trim();
+      if (trimmed && !/[\r\n]/.test(trimmed) && /^https?:\/\//i.test(trimmed)) {
+        url = trimmed;
+      }
+    } catch {
+      // 逻辑：读取失败时忽略，仅使用已解析的图片。
+    }
+  }
+
+  if (images.length === 0 && !url) return null;
+  return { images, url };
+}
 
 /** Build a fallback cursor string for a static SVG url. */
 function buildCursorFallback(url: string, hotspot: [number, number], fallback: string): string {
@@ -124,6 +210,8 @@ type BoardCanvasInteractionProps = {
   projectId?: string;
   /** Project root uri for file resolution. */
   rootUri?: string;
+  /** Tab id for panel refresh behavior. */
+  tabId?: string;
   /** Panel key for identifying board instances. */
   panelKey?: string;
   /** Hide interactive overlays when the panel is minimized. */
@@ -132,6 +220,8 @@ type BoardCanvasInteractionProps = {
   className?: string;
   /** Board folder uri for attachment resolution. */
   boardFolderUri?: string;
+  /** Auto layout callback for thumbnail capture. */
+  onAutoLayout?: () => void;
   /** Rendered canvas layers. */
   children?: ReactNode;
   /** Handler for image preview. */
@@ -145,14 +235,17 @@ export function BoardCanvasInteraction({
   containerRef,
   projectId,
   rootUri,
+  tabId,
   panelKey,
   uiHidden,
   className,
   boardFolderUri,
+  onAutoLayout,
   children,
   onOpenImagePreview,
 }: BoardCanvasInteractionProps) {
   const showUi = !uiHidden;
+  const setStackItemParams = useTabRuntime((state) => state.setStackItemParams);
   const penColor = engine.getPenSettings().color;
   const highlighterColor = engine.getHighlighterSettings().color;
   /** Last pointer location inside the canvas, in world coordinates. */
@@ -161,6 +254,13 @@ export function BoardCanvasInteraction({
   const cursorRef = useRef<string>("default");
   /** Whether the primary pointer is pressed. */
   const isPointerDownRef = useRef(false);
+  /** Last right-click location inside the canvas, in world coordinates. */
+  const lastContextMenuWorldRef = useRef<CanvasPoint | null>(null);
+  /** Context menu screen position. */
+  const [contextMenuPoint, setContextMenuPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   /** Latest cursor applier used by async loaders. */
   const applyCursorRef = useRef<() => void>(() => {});
   /** Track wheel gesture target to avoid mid-gesture handoff. */
@@ -172,10 +272,21 @@ export function BoardCanvasInteraction({
   const nodePickerRef = useRef<HTMLDivElement | null>(null);
   /** Latest snapshot ref for cursor changes. */
   const latestSnapshotRef = useRef(snapshot);
+  const [pasteAvailable, setPasteAvailable] = useState(false);
 
   useEffect(() => {
     latestSnapshotRef.current = snapshot;
   }, [snapshot]);
+
+  /** Close the context menu. */
+  const handleCloseContextMenu = () => {
+    setContextMenuPoint(null);
+  };
+
+  /** Fit view for context menu. */
+  const handleFitView = useCallback(() => {
+    engine.fitToElements();
+  }, [engine]);
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!showUi) return;
@@ -222,6 +333,12 @@ export function BoardCanvasInteraction({
     }
     return "default";
   };
+
+  const updatePasteAvailability = useCallback(async () => {
+    const hasInternalClipboard = engine.hasClipboard();
+    const payload = await readClipboardPayload();
+    setPasteAvailable(Boolean(payload) || hasInternalClipboard);
+  }, [engine]);
 
   const applyCursor = () => {
     const nextCursor = resolveCursor();
@@ -274,6 +391,7 @@ export function BoardCanvasInteraction({
       if (!container) return;
       const activeElement = document.activeElement;
       if (!activeElement || !container.contains(activeElement)) return;
+      logPasteClipboardPayload(event);
       const payloads = getClipboardInsertPayload(event);
       if (!payloads || payloads.length === 0) return;
       const imagePayloads = payloads.filter(
@@ -403,6 +521,51 @@ export function BoardCanvasInteraction({
       // 逻辑：批量插入图片时错位堆叠，避免完全重叠。
       engine.addNodeElement("image", payload.props, rect);
     }
+  };
+
+  const handlePasteFromContextMenu = async () => {
+    if (engine.isLocked()) return;
+    const payload = await readClipboardPayload();
+    const pastePoint =
+      lastContextMenuWorldRef.current ??
+      lastPointerWorldRef.current ??
+      engine.getViewportCenterWorld();
+    if (payload?.images.length) {
+      await insertImageFilesAtPoint(payload.images, pastePoint);
+      return;
+    }
+    if (payload?.url) {
+      const linkPayload = buildLinkNodePayloadFromUrl(payload.url);
+      const [width, height] = linkPayload.size;
+      // 逻辑：以菜单触发点为中心插入链接节点。
+      engine.addNodeElement("link", linkPayload.props, [
+        pastePoint[0] - width / 2,
+        pastePoint[1] - height / 2,
+        width,
+        height,
+      ]);
+      return;
+    }
+    if (engine.hasClipboard()) {
+      engine.pasteClipboard();
+    }
+  };
+
+  /** Trigger auto layout behavior consistent with toolbar. */
+  const handleAutoLayout = () => {
+    engine.autoLayoutBoard();
+    // 逻辑：自动布局后通知上层调度缩略图截取。
+    onAutoLayout?.();
+  };
+
+  /** Refresh the board panel to match header refresh behavior. */
+  const handlePanelRefresh = () => {
+    if (tabId && panelKey) {
+      // 逻辑：通过 __refreshKey 触发 panel remount，保持与右上角刷新一致。
+      setStackItemParams(tabId, panelKey, { __refreshKey: Date.now() });
+      return;
+    }
+    engine.refreshView();
   };
 
   const handleCanvasDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -595,108 +758,143 @@ export function BoardCanvasInteraction({
   };
 
   return (
-    <div
-      ref={containerRef}
-      data-board-canvas
-      data-board-panel={panelKey}
-      className={cn("relative h-full w-full overflow-hidden outline-none", className)}
-      tabIndex={showUi ? 0 : -1}
-      aria-hidden={showUi ? undefined : true}
-      onPointerMove={handlePointerMove}
-      onDragOver={handleCanvasDragOver}
-      onDrop={handleCanvasDrop}
-      onPointerDown={(event) => {
-        if (!showUi) return;
-        if (event.isPrimary && event.button === 0) {
-          isPointerDownRef.current = true;
-          applyCursorRef.current();
-        }
-        const rawTarget = event.target as EventTarget | null;
-        const target =
-          rawTarget instanceof Element
-            ? rawTarget
-            : rawTarget instanceof Node
-              ? rawTarget.parentElement
-              : null;
-        if (!target?.closest("[data-board-editor]")) {
-          // 逻辑：非文本编辑区域点击时才抢占画布焦点，避免打断输入。
-          containerRef.current?.focus();
-        }
-        const rect = containerRef.current?.getBoundingClientRect();
-        const worldPoint =
-          rect && containerRef.current
-            ? engine.screenToWorld([event.clientX - rect.left, event.clientY - rect.top])
-            : null;
-        if (worldPoint) {
-          lastPointerWorldRef.current = worldPoint;
-        }
-        const hitElement = worldPoint ? engine.pickElementAt(worldPoint) : null;
-        const isUiTarget = target
-          ? isBoardUiTarget(target, [
-              "[data-connector-drop-panel]",
-              "[data-resize-handle]",
-              "[data-multi-resize-handle]",
-            ])
-          : false;
-        if (snapshot.editingNodeId && !isUiTarget) {
-          const isEditingTarget =
-            hitElement?.kind === "node" && hitElement.id === snapshot.editingNodeId;
-          if (!isEditingTarget) {
-            // 逻辑：点击编辑节点外部时退出编辑态。
-            engine.setEditingNodeId(null);
+    <>
+      <div
+        ref={containerRef}
+        data-board-canvas
+        data-board-panel={panelKey}
+        data-allow-context-menu
+        className={cn("relative h-full w-full overflow-hidden outline-none", className)}
+        tabIndex={showUi ? 0 : -1}
+        aria-hidden={showUi ? undefined : true}
+        onPointerMove={handlePointerMove}
+        onDragOver={handleCanvasDragOver}
+        onDrop={handleCanvasDrop}
+        onContextMenu={(event) => {
+          if (!showUi) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const rect = containerRef.current?.getBoundingClientRect();
+          if (!rect) return;
+          // 逻辑：记录右键位置，保证“粘贴”落点与菜单一致。
+          lastContextMenuWorldRef.current = engine.screenToWorld([
+            event.clientX - rect.left,
+            event.clientY - rect.top,
+          ]);
+          setContextMenuPoint({ x: event.clientX, y: event.clientY });
+          void updatePasteAvailability();
+        }}
+        onPointerDown={(event) => {
+          if (!showUi) return;
+          if (contextMenuPoint) {
+            // 逻辑：左键按下时关闭右键菜单。
+            setContextMenuPoint(null);
           }
-        }
-        const shouldClear =
-          snapshot.activeToolId === "select" &&
-          !snapshot.pendingInsert &&
-          !snapshot.toolbarDragging &&
-          !event.shiftKey &&
-          target &&
-          hitElement?.kind !== "connector" &&
-          hitElement?.kind !== "node" &&
-          !isUiTarget;
-        if (shouldClear) {
-          // 逻辑：空白点击时清空选区，避免残留高亮。
-          engine.selection.clear();
-        }
-      }}
-      onDoubleClick={(event) => {
-        if (!showUi) return;
-        const rawTarget = event.target as EventTarget | null;
-        const target =
-          rawTarget instanceof Element
-            ? rawTarget
-            : rawTarget instanceof Node
-              ? rawTarget.parentElement
+          if (event.isPrimary && event.button === 0) {
+            isPointerDownRef.current = true;
+            applyCursorRef.current();
+          }
+          const rawTarget = event.target as EventTarget | null;
+          const target =
+            rawTarget instanceof Element
+              ? rawTarget
+              : rawTarget instanceof Node
+                ? rawTarget.parentElement
+                : null;
+          if (!target?.closest("[data-board-editor]")) {
+            // 逻辑：非文本编辑区域点击时才抢占画布焦点，避免打断输入。
+            containerRef.current?.focus();
+          }
+          const rect = containerRef.current?.getBoundingClientRect();
+          const worldPoint =
+            rect && containerRef.current
+              ? engine.screenToWorld([event.clientX - rect.left, event.clientY - rect.top])
               : null;
-        if (!target) return;
-        if (snapshot.activeToolId !== "select") return;
-        if (snapshot.pendingInsert || snapshot.toolbarDragging) return;
-        if (engine.isLocked()) return;
-        if (isBoardUiTarget(target, ["[data-connector-drop-panel]"])) {
-          return;
-        }
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        const worldPoint = engine.screenToWorld([
-          event.clientX - rect.left,
-          event.clientY - rect.top,
-        ]);
-        const hitElement = engine.pickElementAt(worldPoint);
-        if (hitElement?.kind === "node") {
-          handleNodeDoubleClick(hitElement);
-        }
-      }}
-    >
-      {children}
-      <ConnectorDropPanel
-        engine={engine}
-        snapshot={snapshot}
-        templates={availableTemplates}
-        onSelect={handleTemplateSelect}
-        panelRef={nodePickerRef}
-      />
-    </div>
+          if (worldPoint) {
+            lastPointerWorldRef.current = worldPoint;
+          }
+          const hitElement = worldPoint ? engine.pickElementAt(worldPoint) : null;
+          const isUiTarget = target
+            ? isBoardUiTarget(target, [
+                "[data-connector-drop-panel]",
+                "[data-resize-handle]",
+                "[data-multi-resize-handle]",
+              ])
+            : false;
+          if (snapshot.editingNodeId && !isUiTarget) {
+            const isEditingTarget =
+              hitElement?.kind === "node" && hitElement.id === snapshot.editingNodeId;
+            if (!isEditingTarget) {
+              // 逻辑：点击编辑节点外部时退出编辑态。
+              engine.setEditingNodeId(null);
+            }
+          }
+          const shouldClear =
+            snapshot.activeToolId === "select" &&
+            !snapshot.pendingInsert &&
+            !snapshot.toolbarDragging &&
+            !event.shiftKey &&
+            target &&
+            hitElement?.kind !== "connector" &&
+            hitElement?.kind !== "node" &&
+            !isUiTarget;
+          if (shouldClear) {
+            // 逻辑：空白点击时清空选区，避免残留高亮。
+            engine.selection.clear();
+          }
+        }}
+        onDoubleClick={(event) => {
+          if (!showUi) return;
+          const rawTarget = event.target as EventTarget | null;
+          const target =
+            rawTarget instanceof Element
+              ? rawTarget
+              : rawTarget instanceof Node
+                ? rawTarget.parentElement
+                : null;
+          if (!target) return;
+          if (snapshot.activeToolId !== "select") return;
+          if (snapshot.pendingInsert || snapshot.toolbarDragging) return;
+          if (engine.isLocked()) return;
+          if (isBoardUiTarget(target, ["[data-connector-drop-panel]"])) {
+            return;
+          }
+          const rect = containerRef.current?.getBoundingClientRect();
+          if (!rect) return;
+          const worldPoint = engine.screenToWorld([
+            event.clientX - rect.left,
+            event.clientY - rect.top,
+          ]);
+          const hitElement = engine.pickElementAt(worldPoint);
+          if (hitElement?.kind === "node") {
+            handleNodeDoubleClick(hitElement);
+          }
+        }}
+      >
+        {children}
+        <ConnectorDropPanel
+          engine={engine}
+          snapshot={snapshot}
+          templates={availableTemplates}
+          onSelect={handleTemplateSelect}
+          panelRef={nodePickerRef}
+        />
+      </div>
+      {contextMenuPoint ? (
+        <BoardContextMenu
+          point={contextMenuPoint}
+          onClose={handleCloseContextMenu}
+          onAutoLayout={handleAutoLayout}
+          onFitView={handleFitView}
+          onRefresh={handlePanelRefresh}
+          onPaste={() => {
+            void handlePasteFromContextMenu();
+          }}
+          pasteAvailable={pasteAvailable}
+          pasteDisabled={engine.isLocked()}
+        />
+      ) : null}
+    </>
   );
 }
 

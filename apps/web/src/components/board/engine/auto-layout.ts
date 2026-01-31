@@ -81,12 +81,22 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
     return node.id;
   };
 
-  // 逻辑：自动布局按创建时间排序，保证新节点在更靠下的 y 轴位置。
+  const elementOrder = new Map<string, number>();
+  let elementOrderIndex = 0;
+  elements.forEach(element => {
+    if (element.kind !== "node") return;
+    elementOrder.set(element.id, elementOrderIndex);
+    elementOrderIndex += 1;
+  });
+
+  /** Resolve createdAt for layout ordering. */
   const getElementCreatedAt = (node: CanvasNodeElement | undefined): number => {
+    // 逻辑：自动布局按创建时间排序；缺失时回退到元素插入顺序，保证新节点靠下。
     const meta = node?.meta as Record<string, unknown> | undefined;
     const createdAt = meta?.createdAt;
-    if (typeof createdAt !== "number" || !Number.isFinite(createdAt)) return 0;
-    return createdAt;
+    if (typeof createdAt === "number" && Number.isFinite(createdAt)) return createdAt;
+    if (!node) return 0;
+    return elementOrder.get(node.id) ?? 0;
   };
 
   const layoutNodes = new Map<string, LayoutNode>();

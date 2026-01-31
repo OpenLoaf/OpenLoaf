@@ -22,7 +22,7 @@ const NoMemoAllDayRow: React.FC<AllDayRowProps> = ({
 		id: `allday-col-${day.toISOString()}-${index}`,
 		day,
 		gridType: 'day' as const,
-		className: cn('h-full min-h-12 border-r last:border-r-0', classes?.cell),
+		className: cn('h-full min-h-20 border-r last:border-r-0', classes?.cell),
 	}))
 
 	return (

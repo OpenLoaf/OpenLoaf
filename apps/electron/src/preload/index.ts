@@ -37,7 +37,13 @@ type WebMetaCaptureResult = {
 };
 type CalendarPermissionState = "granted" | "denied" | "prompt" | "unsupported";
 type CalendarRange = { start: string; end: string };
-type CalendarItem = { id: string; title: string; color?: string; readOnly?: boolean };
+type CalendarItem = {
+  id: string;
+  title: string;
+  color?: string;
+  readOnly?: boolean;
+  isSubscribed?: boolean;
+};
 type CalendarEvent = {
   id: string;
   title: string;
@@ -164,6 +170,10 @@ contextBridge.exposeInMainWorld('tenasElectron', {
       ipcRenderer.invoke('tenas:calendar:list-calendars'),
     getReminderLists: (): Promise<CalendarResult<CalendarItem[]>> =>
       ipcRenderer.invoke('tenas:calendar:list-reminders'),
+    setSyncRange: (payload: { workspaceId: string; range?: CalendarRange }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+      ipcRenderer.invoke('tenas:calendar:set-sync-range', payload),
+    syncNow: (payload: { workspaceId: string; range?: CalendarRange }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+      ipcRenderer.invoke('tenas:calendar:sync', payload),
     getEvents: (range: CalendarRange): Promise<CalendarResult<CalendarEvent[]>> =>
       ipcRenderer.invoke('tenas:calendar:get-events', range),
     getReminders: (range: CalendarRange): Promise<CalendarResult<CalendarEvent[]>> =>

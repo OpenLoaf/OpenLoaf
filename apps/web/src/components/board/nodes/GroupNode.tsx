@@ -7,6 +7,7 @@ import { z } from "zod";
 import { Columns2, Layers, Maximize2, Rows2 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import { GROUP_NODE_TYPE, IMAGE_GROUP_NODE_TYPE } from "../engine/grouping";
+import { NodeFrame } from "./NodeFrame";
 
 export type GroupNodeProps = {
   /** Child node ids stored for grouping semantics. */
@@ -16,7 +17,7 @@ export type GroupNodeProps = {
 /** Render a transparent group container. */
 function GroupNodeView({ selected }: CanvasNodeViewProps<GroupNodeProps>) {
   return (
-    <div className="relative h-full w-full">
+    <NodeFrame>
       <div
         className={cn(
           "pointer-events-none absolute inset-0 rounded-sm border-[4px] border-dashed",
@@ -25,7 +26,7 @@ function GroupNodeView({ selected }: CanvasNodeViewProps<GroupNodeProps>) {
             : "border-slate-500/70 dark:border-slate-300/70"
         )}
       />
-    </div>
+    </NodeFrame>
   );
 }
 

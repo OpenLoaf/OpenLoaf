@@ -210,6 +210,10 @@ export interface IlamyCalendarProps {
 	 */
 	headerComponent?: React.ReactNode
 	/**
+	 * Optional slot rendered before view controls in the header.
+	 */
+	headerLeadingSlot?: React.ReactNode
+	/**
 	 * Custom class name for the calendar header.
 	 * Useful for applying custom styles to the header.
 	 */
