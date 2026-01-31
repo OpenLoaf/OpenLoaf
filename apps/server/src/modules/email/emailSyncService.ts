@@ -4,6 +4,7 @@ import sanitizeHtml from "sanitize-html";
 
 import type { PrismaClient } from "@tenas-ai/db";
 import { logger } from "@/common/logger";
+import { ensureSeenFlag, hasSeenFlag, normalizeEmailFlags } from "./emailFlags";
 import { readEmailConfigFile, writeEmailConfigFile } from "./emailConfigStore";
 import { getEmailEnvValue } from "./emailEnvStore";
 
@@ -268,42 +269,6 @@ async function parseMessages(imap: Imap, uids: number[]) {
   });
 
   return Promise.all(tasks);
-}
-
-/** Normalize flags array. */
-function normalizeFlags(value: unknown): string[] {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item).trim()).filter(Boolean);
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return [];
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        return parsed.map((item) => String(item).trim()).filter(Boolean);
-      }
-    } catch {
-      // 逻辑：忽略 JSON 解析失败，按字符串处理。
-    }
-    return [trimmed];
-  }
-  return [];
-}
-
-/** Check if flags contain Seen. */
-function hasSeenFlag(flags: string[]): boolean {
-  return flags.some((flag) => {
-    const normalized = flag.trim().toUpperCase();
-    return normalized === "\\SEEN" || normalized === "SEEN";
-  });
-}
-
-/** Ensure Seen flag exists. */
-function ensureSeenFlag(flags: string[]): string[] {
-  if (hasSeenFlag(flags)) return flags;
-  return [...flags, "\\Seen"];
 }
 
 /** Add flags to IMAP message. */
@@ -665,7 +630,7 @@ export async function markEmailMessageRead(input: {
       mailboxPath: row.mailboxPath,
       uid: row.uid,
     };
-    const existingFlags = normalizeFlags(row.flags);
+    const existingFlags = normalizeEmailFlags(row.flags);
     if (hasSeenFlag(existingFlags)) {
       return;
     }

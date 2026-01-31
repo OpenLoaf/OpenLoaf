@@ -52,6 +52,11 @@ const listMailboxStatsInputSchema = z.object({
   accountEmail: z.string().min(1),
 });
 
+/** List unread count input. */
+const listUnreadCountInputSchema = z.object({
+  workspaceId: z.string().min(1),
+});
+
 const syncMailboxInputSchema = z.object({
   workspaceId: z.string().min(1),
   accountEmail: z.string().min(1),
@@ -94,6 +99,11 @@ const emailMailboxSchema = z.object({
 
 const mailboxStatsSchema = z.object({
   mailbox: z.string(),
+  count: z.number().int(),
+});
+
+/** Unread count payload. */
+const unreadCountSchema = z.object({
   count: z.number().int(),
 });
 
@@ -143,6 +153,10 @@ export const emailSchemas = {
   listMailboxStats: {
     input: listMailboxStatsInputSchema,
     output: z.array(mailboxStatsSchema),
+  },
+  listUnreadCount: {
+    input: listUnreadCountInputSchema,
+    output: unreadCountSchema,
   },
   syncMailbox: {
     input: syncMailboxInputSchema,
@@ -197,6 +211,12 @@ export abstract class BaseEmailRouter {
       listMailboxStats: shieldedProcedure
         .input(emailSchemas.listMailboxStats.input)
         .output(emailSchemas.listMailboxStats.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      listUnreadCount: shieldedProcedure
+        .input(emailSchemas.listUnreadCount.input)
+        .output(emailSchemas.listUnreadCount.output)
         .query(async () => {
           throw new Error("Not implemented in base class");
         }),

@@ -166,6 +166,100 @@ const afterMark = await caller.listMessages({
 });
 assert.equal(afterMark[0]?.unread, false);
 
+await caller.addAccount({
+  workspaceId,
+  emailAddress: "user2@example.com",
+  label: "Personal",
+  imap: { host: "imap.personal.com", port: 993, tls: true },
+  smtp: { host: "smtp.personal.com", port: 465, tls: true },
+  password: "secret",
+});
+
+await prisma.emailMailbox.create({
+  data: {
+    id: "mailbox-2",
+    workspaceId,
+    accountEmail: "user2@example.com",
+    path: "INBOX",
+    name: "收件箱",
+    parentPath: null,
+    delimiter: "/",
+    attributes: ["\\Inbox"],
+  },
+});
+
+await prisma.emailMessage.create({
+  data: {
+    id: "msg-2",
+    workspaceId,
+    accountEmail: "user@example.com",
+    mailboxPath: "INBOX",
+    uid: 2,
+    subject: "Unread 1",
+    from: {
+      value: [{ address: "bob@example.com", name: "Bob" }],
+      text: "Bob <bob@example.com>",
+    },
+    to: {
+      value: [{ address: "user@example.com", name: "User" }],
+      text: "User <user@example.com>",
+    },
+    date: new Date("2026-01-30T01:00:00Z"),
+    flags: [],
+    snippet: "Unread message",
+    bodyHtml: "<p>Unread</p>",
+  },
+});
+
+await prisma.emailMessage.create({
+  data: {
+    id: "msg-3",
+    workspaceId,
+    accountEmail: "user2@example.com",
+    mailboxPath: "INBOX",
+    uid: 1,
+    subject: "Unread 2",
+    from: {
+      value: [{ address: "carol@example.com", name: "Carol" }],
+      text: "Carol <carol@example.com>",
+    },
+    to: {
+      value: [{ address: "user2@example.com", name: "User2" }],
+      text: "User2 <user2@example.com>",
+    },
+    date: new Date("2026-01-30T02:00:00Z"),
+    flags: [],
+    snippet: "Unread message",
+    bodyHtml: "<p>Unread</p>",
+  },
+});
+
+await prisma.emailMessage.create({
+  data: {
+    id: "msg-4",
+    workspaceId,
+    accountEmail: "user2@example.com",
+    mailboxPath: "INBOX",
+    uid: 2,
+    subject: "Seen",
+    from: {
+      value: [{ address: "dan@example.com", name: "Dan" }],
+      text: "Dan <dan@example.com>",
+    },
+    to: {
+      value: [{ address: "user2@example.com", name: "User2" }],
+      text: "User2 <user2@example.com>",
+    },
+    date: new Date("2026-01-30T03:00:00Z"),
+    flags: ["\\Seen"],
+    snippet: "Seen message",
+    bodyHtml: "<p>Seen</p>",
+  },
+});
+
+const unreadCount = await caller.listUnreadCount({ workspaceId });
+assert.equal(unreadCount.count, 2);
+
 const detail = await caller.getMessage({ workspaceId, id: "msg-1" });
 assert.equal(detail.subject, "Hello");
 assert.equal(detail.bodyHtml, "<p>Hi</p>");

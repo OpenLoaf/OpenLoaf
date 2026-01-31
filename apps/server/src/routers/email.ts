@@ -13,6 +13,7 @@ import {
   shouldAutoSyncOnAdd,
   syncRecentMailboxMessages,
 } from "@/modules/email/emailSyncService";
+import { hasSeenFlag, normalizeEmailFlags } from "@/modules/email/emailFlags";
 import { logger } from "@/common/logger";
 
 type EmailAccountView = {
@@ -253,6 +254,22 @@ export class EmailRouterImpl extends BaseEmailRouter {
             mailbox: row.mailboxPath,
             count: row._count._all,
           }));
+        }),
+
+      listUnreadCount: shieldedProcedure
+        .input(emailSchemas.listUnreadCount.input)
+        .output(emailSchemas.listUnreadCount.output)
+        .query(async ({ input, ctx }) => {
+          const rows = await ctx.prisma.emailMessage.findMany({
+            where: { workspaceId: input.workspaceId },
+            select: { flags: true },
+          });
+          // 逻辑：以 \\Seen 为已读标记，未包含则视为未读。
+          const count = rows.reduce((total, row) => {
+            const flags = normalizeEmailFlags(row.flags);
+            return hasSeenFlag(flags) ? total : total + 1;
+          }, 0);
+          return { count };
         }),
 
       syncMailbox: shieldedProcedure

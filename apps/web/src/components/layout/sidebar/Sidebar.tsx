@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useCallback } from "react";
+import { useQuery, skipToken } from "@tanstack/react-query";
 import { SidebarProject } from "@/components/layout/sidebar/SidebarProject";
 import { SidebarWorkspace } from "../../workspace/SidebarWorkspace";
 import {
@@ -20,6 +21,8 @@ import { Kbd, KbdGroup } from "@tenas-ai/ui/kbd";
 import { AI_CHAT_TAB_INPUT } from "@tenas-ai/api/common";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useIsNarrowScreen } from "@/hooks/use-mobile";
+import { trpc } from "@/utils/trpc";
+import { Badge } from "@tenas-ai/ui/calendar/components/ui/badge";
 
 export const AppSidebar = ({
   ...props
@@ -33,6 +36,14 @@ export const AppSidebar = ({
   const searchOpen = useGlobalOverlay((s) => s.searchOpen);
   const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
   const isNarrow = useIsNarrowScreen(900);
+  // 未读邮件数量查询。
+  const unreadCountQuery = useQuery(
+    trpc.email.listUnreadCount.queryOptions(
+      activeWorkspace ? { workspaceId: activeWorkspace.id } : skipToken,
+    ),
+  );
+  // 逻辑：未读数量统一按 workspace 汇总，避免跨账号漏计。
+  const unreadCount = unreadCountQuery.data?.count ?? 0;
 
   // 逻辑：窄屏直接隐藏侧边栏，避免占用可用空间。
   if (isNarrow) return null;
@@ -208,6 +219,11 @@ export const AppSidebar = ({
             >
               <Mail />
               <span className="flex-1 truncate">邮箱</span>
+              {unreadCount > 0 ? (
+                <Badge className="ml-auto min-w-[1.5rem] justify-center" size="sm">
+                  {unreadCount}
+                </Badge>
+              ) : null}
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

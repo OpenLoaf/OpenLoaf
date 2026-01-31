@@ -555,6 +555,10 @@ export default function EmailPage({
             mailbox: activeMailbox,
           }).queryKey,
         });
+        // 逻辑：标记已读后同步刷新侧边栏未读数。
+        queryClient.invalidateQueries({
+          queryKey: trpc.email.listUnreadCount.queryOptions({ workspaceId }).queryKey,
+        });
       },
     }),
   );

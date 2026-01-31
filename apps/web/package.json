@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_OPTIONS=--conditions=development next dev --port=3001",
+    "dev": "cross-env NODE_OPTIONS=--conditions=development next dev --port=3001",
     "scan": "next dev --port=3001 & npx react-scan@latest localhost:3001",
     "prebuild": "node -e \"const fs=require('node:fs'); try{fs.rmSync('.next/lock')}catch{}\"",
     "build": "next build",
