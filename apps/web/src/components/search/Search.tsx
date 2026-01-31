@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   CommandDialog,
-  CommandEmpty,
   CommandGroup,
   CommandItem,
   CommandList,
@@ -86,6 +85,9 @@ export function Search({
   const [scopedProjectId, setScopedProjectId] = React.useState<string | null>(null);
   /** 标记用户是否手动清除了项目范围。 */
   const [projectCleared, setProjectCleared] = React.useState(false);
+  /** 关闭动画期间保持内容渲染，避免先消失列表。 */
+  const [isClosing, setIsClosing] = React.useState(false);
+  const closeResetTimerRef = React.useRef<number | null>(null);
   const projectHierarchy = React.useMemo(
     () => buildProjectHierarchyIndex(projects),
     [projects],
@@ -218,6 +220,54 @@ export function Search({
     setProjectCleared(true);
   }, []);
   const keepAllFilter = React.useCallback(() => 1, []);
+  const openSingletonTab = React.useCallback(
+    (input: { baseId: string; component: string; title: string; icon: string }) => {
+      if (!activeWorkspace) return;
+
+      const state = useTabs.getState();
+      const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
+      const existing = state.tabs.find((tab) => {
+        if (tab.workspaceId !== activeWorkspace.id) return false;
+        if (runtimeByTabId[tab.id]?.base?.id === input.baseId) return true;
+        // ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
+        if (input.component === "ai-chat" && !runtimeByTabId[tab.id]?.base && tab.title === input.title) return true;
+        return false;
+      });
+      if (existing) {
+        React.startTransition(() => {
+          setActiveTab(existing.id);
+        });
+        handleOpenChange(false);
+        return;
+      }
+
+      addTab({
+        workspaceId: activeWorkspace.id,
+        createNew: true,
+        title: input.title,
+        icon: input.icon,
+        leftWidthPercent: 70,
+        base: {
+          id: input.baseId,
+          component: input.component,
+        },
+      });
+      handleOpenChange(false);
+    },
+    [activeWorkspace, addTab, handleOpenChange, setActiveTab],
+  );
+  /** Trigger AI chat with current search query. */
+  const handleAiFallback = React.useCallback(() => {
+    const query = committedSearchValue.trim() || searchValue.trim();
+    if (!query) return;
+    openSingletonTab(AI_CHAT_TAB_INPUT);
+    // 逻辑：等待 ChatInput 挂载后再触发发送。
+    window.setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("tenas:chat-send-message", { detail: { text: query } })
+      );
+    }, 180);
+  }, [committedSearchValue, openSingletonTab, searchValue]);
   /** 打开项目的文件系统定位到指定目录。 */
   const handleOpenProjectFileSystem = React.useCallback(
     (projectId: string, projectTitle: string, rootUri: string, targetUri: string) => {
@@ -267,73 +317,12 @@ export function Search({
     ],
   );
 
-  const openSingletonTab = React.useCallback(
-    (input: { baseId: string; component: string; title: string; icon: string }) => {
-      if (!activeWorkspace) return;
-
-      const state = useTabs.getState();
-      const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
-      const existing = state.tabs.find((tab) => {
-        if (tab.workspaceId !== activeWorkspace.id) return false;
-        if (runtimeByTabId[tab.id]?.base?.id === input.baseId) return true;
-        // ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
-        if (input.component === "ai-chat" && !runtimeByTabId[tab.id]?.base && tab.title === input.title) return true;
-        return false;
-      });
-      if (existing) {
-        React.startTransition(() => {
-          setActiveTab(existing.id);
-        });
-        handleOpenChange(false);
-        return;
-      }
-
-      addTab({
-        workspaceId: activeWorkspace.id,
-        createNew: true,
-        title: input.title,
-        icon: input.icon,
-        leftWidthPercent: 70,
-        base: {
-          id: input.baseId,
-          component: input.component,
-        },
-      });
-      handleOpenChange(false);
-    },
-    [activeWorkspace, addTab, handleOpenChange, setActiveTab],
-  );
-
   React.useEffect(() => {
     dispatchOverlay(open);
     return () => {
       if (open) dispatchOverlay(false);
     };
   }, [dispatchOverlay, open]);
-  React.useEffect(() => {
-    // 逻辑：仅在高动画等级时对弹窗高度变化做过渡。
-    if (!open) return;
-    if (typeof document === "undefined") return;
-    const animationLevel = document.documentElement.dataset.uiAnimationLevel;
-    const list = document.querySelector<HTMLElement>(".search-commandlist-size-animate");
-    if (!list) return;
-    if (animationLevel !== "high") {
-      list.style.removeProperty("height");
-      list.style.removeProperty("transition");
-      return;
-    }
-    list.style.height = `${list.getBoundingClientRect().height}px`;
-    list.style.transition = "height 220ms ease";
-    const observer = new ResizeObserver(() => {
-      list.style.height = `${list.scrollHeight}px`;
-    });
-    observer.observe(list);
-    return () => {
-      observer.disconnect();
-      list.style.removeProperty("height");
-      list.style.removeProperty("transition");
-    };
-  }, [open]);
   React.useEffect(() => {
     if (!open) return;
     refreshRecentItems();
@@ -352,22 +341,60 @@ export function Search({
   }, [activeWorkspace?.id, open, refreshRecentItems]);
   React.useEffect(() => {
     if (!open) {
-      setSearchValue("");
-      setCommittedSearchValue("");
-      setIsComposing(false);
-      setScopedProjectId(null);
-      setProjectCleared(false);
+      // 逻辑：等弹窗关闭动画结束后再清理状态，避免列表先消失导致闪断。
+      if (closeResetTimerRef.current) {
+        window.clearTimeout(closeResetTimerRef.current);
+      }
+      setIsClosing(true);
+      closeResetTimerRef.current = window.setTimeout(() => {
+        setSearchValue("");
+        setCommittedSearchValue("");
+        setIsComposing(false);
+        setScopedProjectId(null);
+        setProjectCleared(false);
+        setIsClosing(false);
+        closeResetTimerRef.current = null;
+      }, 200);
       return;
+    }
+    if (closeResetTimerRef.current) {
+      window.clearTimeout(closeResetTimerRef.current);
+      closeResetTimerRef.current = null;
+    }
+    if (isClosing) {
+      setIsClosing(false);
     }
     if (projectCleared) return;
     // 逻辑：搜索开启时同步当前项目范围。
     setScopedProjectId(activeProjectId);
-  }, [activeProjectId, open, projectCleared]);
+  }, [activeProjectId, isClosing, open, projectCleared]);
+  React.useEffect(() => {
+    return () => {
+      if (closeResetTimerRef.current) {
+        window.clearTimeout(closeResetTimerRef.current);
+      }
+    };
+  }, []);
 
   /** 是否展示空结果提示。 */
   const showEmptyState = searchEnabled && !isSearchFetching && visibleFileResults.length === 0;
+  /** AI 搜索兜底项的命令值。 */
+  const aiFallbackValue = React.useMemo(
+    () => `ai ${committedSearchValue}`,
+    [committedSearchValue],
+  );
+  /** 当前 AI 兜底展示的搜索文本。 */
+  const aiFallbackQuery = React.useMemo(() => {
+    const rawValue = searchValue.trim() || committedSearchValue.trim();
+    if (!rawValue) return "";
+    // 逻辑：展示部分输入，过长时截断避免占满行。
+    const maxLength = 18;
+    return rawValue.length > maxLength
+      ? `${rawValue.slice(0, maxLength)}…`
+      : rawValue;
+  }, [committedSearchValue, searchValue]);
   /** 搜索期间隐藏快捷入口。 */
-  const showQuickOpen = open && !searchValue.trim();
+  const showQuickOpen = (open || isClosing) && !searchValue.trim();
   /** Build display results for recent open lists. */
   const buildRecentResults = React.useCallback(
     (items: RecentOpenItem[]): SearchFileResult[] => {
@@ -573,10 +600,14 @@ export function Search({
       onOpenChange={handleOpenChange}
       title="搜索"
       description="搜索并快速打开功能"
-      className="top-[25%] max-h-[70vh] translate-y-0 sm:max-w-xl search-dialog-glow"
+      className="top-[25%] max-h-[70vh] translate-y-0 sm:max-w-xl tenas-thinking-border tenas-thinking-border-on border-transparent"
       showCloseButton={false}
-      overlayClassName="backdrop-blur-sm bg-black/30"
-      commandProps={{ shouldFilter: false, filter: keepAllFilter }}
+      overlayClassName="backdrop-blur-sm bg-black/60"
+      commandProps={{
+        shouldFilter: false,
+        filter: keepAllFilter,
+        value: showEmptyState ? aiFallbackValue : undefined,
+      }}
     >
       <SearchInput
         value={searchValue}
@@ -587,8 +618,21 @@ export function Search({
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}
       />
-      <CommandList className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto show-scrollbar search-commandlist-size-animate">
-        {showEmptyState ? <CommandEmpty>暂无结果</CommandEmpty> : null}
+      <CommandList className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto show-scrollbar">
+        {showEmptyState ? (
+          <CommandGroup>
+            <CommandItem
+              value={aiFallbackValue}
+              onSelect={handleAiFallback}
+            >
+              <Sparkles className="h-5 w-5" />
+              {aiFallbackQuery ? `让 AI 回答「${aiFallbackQuery}」` : "让 AI 回答"}
+              <CommandShortcut>
+                <Kbd>↵</Kbd>
+              </CommandShortcut>
+            </CommandItem>
+          </CommandGroup>
+        ) : null}
         {visibleFileResults.length > 0 ? (
           <CommandGroup heading="文件">
             {visibleFileResults.map((result) => renderFileResult(result))}

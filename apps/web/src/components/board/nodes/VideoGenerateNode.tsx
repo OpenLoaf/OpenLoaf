@@ -27,38 +27,19 @@ import {
 import { trpcClient } from "@/utils/trpc";
 import { getWorkspaceIdFromCookie } from "../core/boardSession";
 import type { ImageNodeProps } from "./ImageNode";
-import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
-import {
-  formatScopedProjectPath,
-  normalizeProjectRelativePath,
-  parseScopedProjectPath,
-} from "@/components/project/filesystem/utils/file-system-utils";
+import { normalizeProjectRelativePath } from "@/components/project/filesystem/utils/file-system-utils";
 import {
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
 } from "../core/boardFilePath";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { LOADING_NODE_TYPE } from "./LoadingNode";
 
 /** Node type identifier for video generation. */
 export const VIDEO_GENERATE_NODE_TYPE = "video_generate";
 /** Maximum number of input images supported by video generation by default. */
 const VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES = 1;
-/** Default width for video nodes when metadata is missing. */
-const DEFAULT_VIDEO_WIDTH = 16;
-/** Default height for video nodes when metadata is missing. */
-const DEFAULT_VIDEO_HEIGHT = 9;
-/** Max dimension for generated video node size. */
-const VIDEO_NODE_MAX_DIMENSION = 360;
 
-/** Compute a fitted size that preserves aspect ratio. */
-const fitSize = (width: number, height: number, maxDimension: number): [number, number] => {
-  const maxSide = Math.max(width, height);
-  if (maxSide <= maxDimension) {
-    return [Math.max(1, Math.round(width)), Math.max(1, Math.round(height))];
-  }
-  const scale = maxDimension / maxSide;
-  return [Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale))];
-};
 
 export type VideoGenerateNodeProps = {
   /** Selected chat model id (profileId:modelId). */
@@ -227,10 +208,64 @@ export function VideoGenerateNodeView({
   }, [parameterFields, resolvedParameters]);
   const hasMissingRequiredParameters = missingRequiredParameters.length > 0;
 
+  const resolveOutputPlacement = useCallback(() => {
+    const sourceNode = engine.doc.getElementById(element.id);
+    if (!sourceNode || sourceNode.kind !== "node") return null;
+    const [nodeX, nodeY, nodeW] = sourceNode.xywh;
+    const existingOutputs = engine.doc.getElements().reduce((nodes, item) => {
+      if (item.kind !== "connector") return nodes;
+      if (!("elementId" in item.source)) return nodes;
+      if (item.source.elementId !== element.id) return nodes;
+      if (!("elementId" in item.target)) return nodes;
+      const target = engine.doc.getElementById(item.target.elementId);
+      if (!target || target.kind !== "node" || target.type !== "video") {
+        return nodes;
+      }
+      return [...nodes, target];
+    }, [] as Array<typeof sourceNode>);
+    const firstOutput = existingOutputs.reduce((current, target) => {
+      if (!current) return target;
+      const [currentX, currentY] = current.xywh;
+      const [targetX, targetY] = target.xywh;
+      if (targetY < currentY) return target;
+      if (targetY === currentY && targetX < currentX) return target;
+      return current;
+    }, null as typeof sourceNode | null);
+    const baseX = firstOutput ? firstOutput.xywh[0] : nodeX + nodeW + 64;
+    const startY =
+      existingOutputs.length > 0
+        ? existingOutputs.reduce((maxY, target) => {
+            const bottom = target.xywh[1] + target.xywh[3];
+            return Math.max(maxY, bottom);
+          }, firstOutput ? firstOutput.xywh[1] + firstOutput.xywh[3] : nodeY) + 32
+        : nodeY;
+    return { baseX, startY };
+  }, [element.id, engine.doc]);
+
+  const clearLoadingNode = useCallback(() => {
+    if (!loadingNodeIdRef.current) return;
+    const connectorIds = engine.doc
+      .getElements()
+      .filter((item) => item.kind === "connector")
+      .filter((item) => {
+        const sourceId = "elementId" in item.source ? item.source.elementId : null;
+        const targetId = "elementId" in item.target ? item.target.elementId : null;
+        return sourceId === loadingNodeIdRef.current || targetId === loadingNodeIdRef.current;
+      })
+      .map((item) => item.id);
+    if (connectorIds.length > 0) {
+      engine.doc.deleteElements(connectorIds);
+    }
+    engine.doc.deleteElement(loadingNodeIdRef.current);
+    loadingNodeIdRef.current = null;
+  }, [engine.doc]);
+
   /** Throttle timestamp for focus-driven viewport moves. */
   const focusThrottleRef = useRef(0);
   /** Abort controller for the active request. */
   const abortControllerRef = useRef<AbortController | null>(null);
+  /** Loading node id for the current generation. */
+  const loadingNodeIdRef = useRef<string | null>(null);
   /** Runtime running flag for this node. */
   const [isRunning, setIsRunning] = useState(false);
   /** Workspace id used for requests. */
@@ -372,10 +407,11 @@ export function VideoGenerateNodeView({
   const stopVideoGenerate = useCallback(() => {
     // 逻辑：先结束运行态再中止请求，避免 UI 卡死。
     setIsRunning(false);
+    clearLoadingNode();
     if (!abortControllerRef.current) return;
     abortControllerRef.current.abort();
     abortControllerRef.current = null;
-  }, []);
+  }, [clearLoadingNode]);
 
   useEffect(() => {
     return () => {
@@ -385,6 +421,8 @@ export function VideoGenerateNodeView({
       abortControllerRef.current = null;
     };
   }, []);
+
+  const isAdvancedOpen = selected;
 
   /** Run a video generation request and poll result. */
   const runVideoGenerate = useCallback(
@@ -452,6 +490,34 @@ export function VideoGenerateNodeView({
       });
 
       try {
+        const placement = resolveOutputPlacement();
+        if (placement) {
+          const selectionSnapshot = engine.selection.getSelectedIds();
+          const loadingNodeId = engine.addNodeElement(
+            LOADING_NODE_TYPE,
+            {
+              taskType: "video_generate",
+              sourceNodeId: nodeId,
+              promptText: promptText,
+              chatModelId,
+              workspaceId: resolvedWorkspaceId || undefined,
+              projectId: currentProjectId || undefined,
+              saveDir: videoSaveDir || undefined,
+            },
+            [placement.baseX, placement.startY, 320, 180]
+          );
+          if (loadingNodeId) {
+            engine.addConnectorElement({
+              source: { elementId: nodeId },
+              target: { elementId: loadingNodeId },
+              style: engine.getConnectorStyle(),
+            });
+          }
+          if (selectionSnapshot.length > 0) {
+            engine.selection.setSelection(selectionSnapshot);
+          }
+          loadingNodeIdRef.current = loadingNodeId ?? null;
+        }
         const imageUrls = resolvedImages.map((image) => image.url);
         const requestParameters = parameterFields.length > 0 ? resolvedParameters : undefined;
         const result = await trpcClient.ai.videoGenerate.mutate({
@@ -465,139 +531,14 @@ export function VideoGenerateNodeView({
         if (!result?.taskId) {
           throw new Error("视频任务提交失败");
         }
-
-        const maxAttempts = 40;
-        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-          if (controller.signal.aborted) {
-            throw new Error("请求已取消");
-          }
-          const status = await trpcClient.ai.videoGenerateResult.mutate({
+        if (loadingNodeIdRef.current) {
+          engine.doc.updateNodeProps(loadingNodeIdRef.current, {
             taskId: result.taskId,
-            chatModelId,
-            workspaceId: resolvedWorkspaceId || undefined,
-            projectId: currentProjectId || undefined,
-            saveDir: videoSaveDir || undefined,
           });
-
-          if (status.status === "done") {
-            const savedPath = status.savedPath?.trim() || "";
-            const scopedPath = (() => {
-              if (!savedPath) return "";
-              const parsed = parseScopedProjectPath(savedPath);
-              if (parsed) return savedPath;
-              if (!currentProjectId) return savedPath;
-              const relative = normalizeProjectRelativePath(savedPath);
-              return formatScopedProjectPath({
-                projectId: currentProjectId,
-                currentProjectId,
-                relativePath: relative,
-                includeAt: true,
-              });
-            })();
-            if (!scopedPath) {
-              throw new Error("视频保存失败");
-            }
-
-            engine.doc.updateNodeProps(nodeId, { resultVideo: scopedPath });
-
-            const sourceNode = engine.doc.getElementById(nodeId);
-            if (sourceNode && sourceNode.kind === "node") {
-              const [nodeX, nodeY, nodeW] = sourceNode.xywh;
-              const existingOutputs = engine.doc.getElements().reduce((nodes, item) => {
-                if (item.kind !== "connector") return nodes;
-                if (!("elementId" in item.source)) return nodes;
-                if (item.source.elementId !== nodeId) return nodes;
-                if (!("elementId" in item.target)) return nodes;
-                const target = engine.doc.getElementById(item.target.elementId);
-                if (!target || target.kind !== "node" || target.type !== "video") {
-                  return nodes;
-                }
-                return [...nodes, target];
-              }, [] as Array<typeof sourceNode>);
-              const firstOutput = existingOutputs.reduce((current, target) => {
-                if (!current) return target;
-                const [currentX, currentY] = current.xywh;
-                const [targetX, targetY] = target.xywh;
-                if (targetY < currentY) return target;
-                if (targetY === currentY && targetX < currentX) return target;
-                return current;
-              }, null as typeof sourceNode | null);
-              const baseX = firstOutput
-                ? firstOutput.xywh[0]
-                : nodeX + nodeW + 64;
-              const startY =
-                existingOutputs.length > 0
-                  ? existingOutputs.reduce((maxY, target) => {
-                      const bottom = target.xywh[1] + target.xywh[3];
-                      return Math.max(maxY, bottom);
-                    }, firstOutput ? firstOutput.xywh[1] + firstOutput.xywh[3] : nodeY) + 32
-                  : nodeY;
-              const selectionSnapshot = engine.selection.getSelectedIds();
-              const relativePath =
-                parseScopedProjectPath(scopedPath)?.relativePath ??
-                normalizeProjectRelativePath(savedPath);
-              const [metadata, thumbnailResult] = await Promise.all([
-                fetchVideoMetadata({
-                  workspaceId: resolvedWorkspaceId || "",
-                  projectId: currentProjectId,
-                  uri: scopedPath,
-                }),
-                // 逻辑：生成后尝试拉取缩略图，让视频节点展示封面。
-                resolvedWorkspaceId && currentProjectId && relativePath
-                  ? trpcClient.fs.thumbnails.query({
-                      workspaceId: resolvedWorkspaceId,
-                      projectId: currentProjectId,
-                      uris: [relativePath],
-                    })
-                  : Promise.resolve(null),
-              ]);
-              const posterPath =
-                thumbnailResult?.items?.find((item) => item.uri === relativePath)?.dataUrl ?? "";
-              const naturalWidth = metadata?.width ?? DEFAULT_VIDEO_WIDTH;
-              const naturalHeight = metadata?.height ?? DEFAULT_VIDEO_HEIGHT;
-              const [width, height] = fitSize(
-                naturalWidth,
-                naturalHeight,
-                VIDEO_NODE_MAX_DIMENSION
-              );
-              const videoNodeId = engine.addNodeElement(
-                "video",
-                {
-                  sourcePath: scopedPath,
-                  fileName: status.fileName,
-                  posterPath: posterPath || undefined,
-                  naturalWidth,
-                  naturalHeight,
-                },
-                [baseX, startY, width, height]
-              );
-              if (videoNodeId) {
-                engine.addConnectorElement({
-                  source: { elementId: nodeId },
-                  target: { elementId: videoNodeId },
-                  style: engine.getConnectorStyle(),
-                });
-              }
-              if (selectionSnapshot.length > 0) {
-                engine.selection.setSelection(selectionSnapshot);
-              }
-            }
-            return;
-          }
-
-          if (
-            status.status === "not_found" ||
-            status.status === "expired" ||
-            status.status === "failed"
-          ) {
-            throw new Error("生成视频失败");
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 2000));
         }
-
-        throw new Error("视频生成超时");
+        return;
       } catch (error) {
+        clearLoadingNode();
         if (!controller.signal.aborted) {
           engine.doc.updateNodeProps(nodeId, {
             errorText: error instanceof Error ? error.message : "生成视频失败",
@@ -627,6 +568,8 @@ export function VideoGenerateNodeView({
       resolvedWorkspaceId,
       videoSaveDir,
       maxInputImages,
+      clearLoadingNode,
+      resolveOutputPlacement,
     ]
   );
 
@@ -808,7 +751,86 @@ export function VideoGenerateNodeView({
             </Select>
           </div>
         </div>
-        {parameterFields.length > 0 ? (
+        <div className="space-y-1">
+          {allowsPrompt ? (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>提示词</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                    {localPromptText.length}/500
+                  </span>
+                </div>
+                {upstreamPromptText ? (
+                  <div className="rounded-md border border-slate-200/70 bg-white/70 px-1.5 py-[1px] text-[10px] leading-[14px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300">
+                    已加载上游提示词
+                  </div>
+                ) : null}
+              </div>
+              <div className="min-w-0 space-y-1">
+                <Textarea
+                  value={localPromptText}
+                  maxLength={500}
+                  placeholder="输入补充提示词（最多 500 字）"
+                  onChange={(event) => {
+                    const next = event.target.value.slice(0, 500);
+                    onUpdate({ promptText: next });
+                  }}
+                  onFocus={handlePromptFocus}
+                  data-board-scroll
+                  className="min-h-[88px] px-2 py-1 text-[12px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[12px]"
+                  disabled={engine.isLocked() || element.locked || isRunning}
+                />
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      {statusHint ? (
+        statusHint.tone === "error" ? (
+          <div className="relative rounded-md border border-rose-200/70 bg-rose-50 p-2 text-[11px] leading-4 text-rose-600 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+            <button
+              type="button"
+              className="absolute right-2 top-2 rounded-md border border-rose-200/70 bg-background px-2 py-0.5 text-[10px] text-rose-600 hover:bg-rose-50 dark:border-rose-900/50 dark:text-rose-200 dark:hover:bg-rose-950/60"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={handleCopyError}
+            >
+              <span className="inline-flex items-center gap-1">
+                <Copy size={10} />
+                复制
+              </span>
+            </button>
+            <pre className="whitespace-pre-wrap break-words pr-14 font-sans">
+              {statusHint.text}
+            </pre>
+          </div>
+        ) : (
+          <div
+            className={[
+              "rounded-md border px-2 py-1 text-[11px] leading-4",
+              statusHint.tone === "warn"
+                ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+                : "border-slate-200/70 bg-slate-50 text-slate-600 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-200",
+            ].join(" ")}
+          >
+            {statusHint.text}
+          </div>
+        )
+      ) : null}
+      {isAdvancedOpen && parameterFields.length > 0 ? (
+        <div
+          className="absolute left-full top-0 z-20 ml-2 w-64 rounded-xl border border-slate-200/80 bg-white/95 p-3 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
+          data-board-editor
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <div className="mb-2 text-[12px] font-semibold text-slate-600 dark:text-slate-200">
+            高级选项
+          </div>
           <div className="flex flex-col gap-2">
             {parameterFields.map((field) => {
               const value = resolvedParameters[field.key];
@@ -933,75 +955,7 @@ export function VideoGenerateNodeView({
               );
             })}
           </div>
-        ) : null}
-        <div className="space-y-1">
-          {allowsPrompt ? (
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                  <span>提示词</span>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                    {localPromptText.length}/500
-                  </span>
-                </div>
-                {upstreamPromptText ? (
-                  <div className="rounded-md border border-slate-200/70 bg-white/70 px-1.5 py-[1px] text-[10px] leading-[14px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300">
-                    已加载上游提示词
-                  </div>
-                ) : null}
-              </div>
-              <div className="min-w-0 space-y-1">
-                <Textarea
-                  value={localPromptText}
-                  maxLength={500}
-                  placeholder="输入补充提示词（最多 500 字）"
-                  onChange={(event) => {
-                    const next = event.target.value.slice(0, 500);
-                    onUpdate({ promptText: next });
-                  }}
-                  onFocus={handlePromptFocus}
-                  data-board-scroll
-                  className="min-h-[88px] px-2 py-1 text-[12px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[12px]"
-                  disabled={engine.isLocked() || element.locked || isRunning}
-                />
-              </div>
-            </>
-          ) : null}
         </div>
-      </div>
-
-      {statusHint ? (
-        statusHint.tone === "error" ? (
-          <div className="relative rounded-md border border-rose-200/70 bg-rose-50 p-2 text-[11px] leading-4 text-rose-600 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
-            <button
-              type="button"
-              className="absolute right-2 top-2 rounded-md border border-rose-200/70 bg-background px-2 py-0.5 text-[10px] text-rose-600 hover:bg-rose-50 dark:border-rose-900/50 dark:text-rose-200 dark:hover:bg-rose-950/60"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-              }}
-              onClick={handleCopyError}
-            >
-              <span className="inline-flex items-center gap-1">
-                <Copy size={10} />
-                复制
-              </span>
-            </button>
-            <pre className="whitespace-pre-wrap break-words pr-14 font-sans">
-              {statusHint.text}
-            </pre>
-          </div>
-        ) : (
-          <div
-            className={[
-              "rounded-md border px-2 py-1 text-[11px] leading-4",
-              statusHint.tone === "warn"
-                ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
-                : "border-slate-200/70 bg-slate-50 text-slate-600 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-200",
-            ].join(" ")}
-          >
-            {statusHint.text}
-          </div>
-        )
       ) : null}
     </div>
   );

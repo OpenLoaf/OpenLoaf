@@ -33,6 +33,12 @@ import {
 import { readImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import {
+  clearProjectFileDragSession,
+  getProjectFileDragSession,
+  matchProjectFileDragSession,
+  setProjectFileDragSession,
+} from "@/lib/project-file-drag-session";
+import {
   IGNORE_NAMES,
   buildChildUri,
   buildUriFromRoot,
@@ -304,7 +310,7 @@ export type ProjectFileSystemModel = {
     target: FileSystemEntry
   ) => Promise<void>;
   handleEntryDragStart: (
-    entry: FileSystemEntry,
+    entries: FileSystemEntry[],
     event: DragEvent<HTMLElement>
   ) => void;
   handleEntryDrop: (
@@ -378,6 +384,39 @@ export function useProjectFileSystemModel({
   const dragCounterRef = useRef(0);
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+
+  /** Install drag session cleanup hooks for Electron. */
+  useEffect(() => {
+    if (!isElectron) return;
+    const handleDragEnd = () => {
+      clearProjectFileDragSession("dragend");
+    };
+    const handleBlur = () => {
+      clearProjectFileDragSession("window-blur");
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        clearProjectFileDragSession("visibility-hidden");
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        clearProjectFileDragSession("escape");
+      }
+    };
+    window.addEventListener("dragend", handleDragEnd);
+    window.addEventListener("drop", handleDragEnd);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("dragend", handleDragEnd);
+      window.removeEventListener("drop", handleDragEnd);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isElectron]);
   const [sortField, setSortField] = useState<"name" | "mtime" | null>(initialSortField);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(initialSortOrder);
   const [searchValue, setSearchValue] = useState("");
@@ -538,6 +577,19 @@ export function useProjectFileSystemModel({
       if (hideTimer) window.clearTimeout(hideTimer);
     };
   }, [isElectron, updateTransferProgress]);
+
+  useEffect(() => {
+    if (!isElectron) return;
+    const handleDragLog = (event: Event) => {
+      const detail = (event as CustomEvent<{ [key: string]: unknown }>).detail;
+      // 中文注释：打印主进程回传的拖拽诊断信息，便于定位 IPC 是否送达。
+      console.log("[drag-out] main log", detail);
+    };
+    window.addEventListener("tenas:fs:drag-log", handleDragLog);
+    return () => {
+      window.removeEventListener("tenas:fs:drag-log", handleDragLog);
+    };
+  }, [isElectron]);
 
   /** Navigate to a target uri with trace logging. */
   const handleNavigate = useCallback(
@@ -1542,6 +1594,23 @@ export function useProjectFileSystemModel({
     event.preventDefault();
     dragCounterRef.current = 0;
     setIsDragActive(false);
+    if (isElectron) {
+      const session = matchProjectFileDragSession(event.dataTransfer);
+      if (session && session.projectId === projectId) {
+        // 中文注释：Electron 原生拖拽回落到应用内时按内部移动处理。
+        const targetUri = activeUri ?? "";
+        const moved = await moveEntriesByUris(
+          session.fileRefs.length > 0 ? session.fileRefs : session.entryUris,
+          {
+            uri: targetUri,
+            name: resolvePathBaseName(targetUri),
+            kind: "folder",
+          }
+        );
+        clearProjectFileDragSession("drop-background");
+        return;
+      }
+    }
     const hasInternalRef = event.dataTransfer.types.includes(FILE_DRAG_REF_MIME);
     const imagePayload = readImageDragPayload(event.dataTransfer);
     if (imagePayload && !hasInternalRef) {
@@ -1606,6 +1675,11 @@ export function useProjectFileSystemModel({
     target: FileSystemEntry,
     options?: { targetNames?: Set<string> }
   ): Promise<HistoryAction | null> => {
+    const sourceParentUri = getEntryParentUri(source);
+    if (sourceParentUri !== null && sourceParentUri === target.uri) {
+      // 中文注释：拖回原目录时视为无操作，避免重复重命名。
+      return null;
+    }
     if (source.kind === "folder" && source.uri === target.uri) return null;
     if (source.uri === target.uri) return null;
     if (isSubPath(source.uri, target.uri)) {
@@ -1636,6 +1710,86 @@ export function useProjectFileSystemModel({
     return { kind: "rename", from: source.uri, to: targetUri };
   };
 
+  /** Move multiple entries into the target folder by raw uris. */
+  const moveEntriesByUris = useCallback(
+    async (rawSourceUris: string[], target: FileSystemEntry): Promise<number> => {
+      if (!workspaceId || !projectId) return 0;
+      const uniqueSourceUris = Array.from(
+        new Set(
+          rawSourceUris.filter(
+            (item): item is string => typeof item === "string" && item.length > 0
+          )
+        )
+      );
+      if (uniqueSourceUris.length === 0) return 0;
+      const targetList = await queryClient.fetchQuery(
+        trpc.fs.list.queryOptions({
+          workspaceId,
+          projectId,
+          uri: target.uri,
+          includeHidden: showHidden,
+        })
+      );
+      const targetNames = new Set(
+        (targetList.entries ?? []).map((entry) => entry.name)
+      );
+      const actions: HistoryAction[] = [];
+      for (const rawSourceUri of uniqueSourceUris) {
+        let sourceUri = rawSourceUri;
+        const parsed = parseScopedProjectPath(rawSourceUri);
+        if (parsed) {
+          const sourceProjectId = parsed.projectId ?? projectId;
+          if (
+            !sourceProjectId ||
+            !projectId ||
+            sourceProjectId !== projectId ||
+            !rootUri
+          ) {
+            toast.error("无法移动跨项目文件");
+            return 0;
+          }
+          sourceUri = buildUriFromRoot(rootUri, parsed.relativePath);
+        }
+        let source = fileEntries.find((item) => item.uri === sourceUri);
+        if (!source) {
+          const stat = await queryClient.fetchQuery(
+            trpc.fs.stat.queryOptions({ workspaceId, projectId, uri: sourceUri })
+          );
+          source = {
+            uri: stat.uri,
+            name: stat.name,
+            kind: stat.kind,
+            ext: stat.ext,
+            size: stat.size,
+            updatedAt: stat.updatedAt,
+          } as FileSystemEntry;
+        }
+        const action = await moveEntryToFolder(source, target, { targetNames });
+        if (action) actions.push(action);
+      }
+      if (actions.length === 0) return 0;
+      // 中文注释：多选拖拽合并历史记录，撤回时一次恢复。
+      if (actions.length === 1) {
+        pushHistory(actions[0]);
+      } else {
+        pushHistory({ kind: "batch", actions });
+      }
+      refreshList();
+      return actions.length;
+    },
+    [
+      fileEntries,
+      moveEntryToFolder,
+      projectId,
+      queryClient,
+      refreshList,
+      rootUri,
+      showHidden,
+      workspaceId,
+      pushHistory,
+    ]
+  );
+
   /** Move a file/folder into another folder. */
   const handleMoveToFolder = async (
     source: FileSystemEntry,
@@ -1651,6 +1805,11 @@ export function useProjectFileSystemModel({
   const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
+    if (isElectron) {
+      const session = getProjectFileDragSession();
+      // 中文注释：Electron 原生拖拽进入时 DataTransfer 可能为空，优先使用 session 判断。
+      if (session && session.projectId === projectId) return;
+    }
     dragCounterRef.current += 1;
     setIsDragActive(true);
   };
@@ -1659,12 +1818,22 @@ export function useProjectFileSystemModel({
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
+    if (isElectron) {
+      const session = getProjectFileDragSession();
+      // 中文注释：Electron 原生拖拽进入时 DataTransfer 可能为空，优先使用 session 判断。
+      if (session && session.projectId === projectId) return;
+    }
   };
 
   /** Track drag leave for upload overlay. */
   const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (event.dataTransfer.types.includes(FILE_DRAG_REF_MIME)) return;
+    if (isElectron) {
+      const session = getProjectFileDragSession();
+      // 中文注释：Electron 原生拖拽进入时 DataTransfer 可能为空，优先使用 session 判断。
+      if (session && session.projectId === projectId) return;
+    }
     dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
     if (dragCounterRef.current === 0) {
       setIsDragActive(false);
@@ -1673,11 +1842,60 @@ export function useProjectFileSystemModel({
 
   /** Prepare drag payload for entry moves. */
   const handleEntryDragStart = (
-    entry: FileSystemEntry,
+    entries: FileSystemEntry[],
     event: DragEvent<HTMLElement>
   ) => {
-    if (!rootUri || !projectId) return;
-    const relativePath = getRelativePathFromUri(rootUri ?? "", entry.uri);
+    const primaryEntry = entries[0];
+    if (isElectron && window.tenasElectron?.startDrag) {
+      // 中文注释：Electron 原生拖拽需要阻止 HTML5 dragstart，避免拖拽卡死。
+      event.preventDefault();
+      const dragUris = entries
+        .map((item) => {
+          if (rootUri) {
+            const fileUri = resolveFileUriFromRoot(rootUri, item.uri);
+            return getDisplayPathFromUri(fileUri);
+          }
+          return getDisplayPathFromUri(item.uri);
+        })
+        .filter((item) => item.length > 0);
+      console.log("[drag-out] renderer startDrag", {
+        isElectron,
+        hasApi: Boolean(window.tenasElectron?.startDrag),
+        dragUris,
+      });
+      if (dragUris.length > 0) {
+        const effectiveProjectId = projectId ?? "";
+        const sessionFileRefs =
+          effectiveProjectId && rootUri
+            ? entries
+                .map((item) => {
+                  const relativePath = getRelativePathFromUri(rootUri, item.uri);
+                  if (!relativePath) return "";
+                  return formatScopedProjectPath({
+                    projectId: effectiveProjectId,
+                    relativePath,
+                    includeAt: true,
+                  });
+                })
+                .filter((item): item is string => Boolean(item))
+            : [];
+        if (effectiveProjectId) {
+          setProjectFileDragSession({
+            id: generateId(),
+            projectId: effectiveProjectId,
+            rootUri,
+            entryUris: entries.map((item) => item.uri),
+            fileRefs: sessionFileRefs,
+            localPaths: dragUris,
+            createdAt: Date.now(),
+          });
+        }
+        window.tenasElectron.startDrag({ uris: dragUris });
+      }
+      return;
+    }
+    if (!primaryEntry || !rootUri || !projectId) return;
+    const relativePath = getRelativePathFromUri(rootUri ?? "", primaryEntry.uri);
     if (!relativePath) return;
     event.dataTransfer.setData(
       FILE_DRAG_REF_MIME,
@@ -1700,77 +1918,43 @@ export function useProjectFileSystemModel({
         const ok = await handleImportImagePayload(target.uri, imagePayload);
         return ok ? 1 : 0;
       }
-      return 0;
     }
-    // 中文注释：支持多选拖拽，优先读取 uri 列表。
-    const rawSourceUris = (() => {
+    let rawSourceUris: string[] = [];
+    if (hasInternalRef) {
+      // 中文注释：支持多选拖拽，优先读取 uri 列表。
       const payload = event.dataTransfer.getData(FILE_DRAG_URIS_MIME);
       if (payload) {
         try {
           const parsed = JSON.parse(payload);
           if (Array.isArray(parsed)) {
-            return parsed.filter(
+            rawSourceUris = parsed.filter(
               (item): item is string => typeof item === "string" && item.length > 0
             );
           }
         } catch {
-          return [];
+          rawSourceUris = [];
         }
       }
-      const rawSourceUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
-      return rawSourceUri ? [rawSourceUri] : [];
-    })();
+      if (rawSourceUris.length === 0) {
+        const rawSourceUri = event.dataTransfer.getData(FILE_DRAG_URI_MIME);
+        rawSourceUris = rawSourceUri ? [rawSourceUri] : [];
+      }
+    }
+    let usedSession = false;
+    if (rawSourceUris.length === 0 && isElectron) {
+      const session = matchProjectFileDragSession(event.dataTransfer);
+      if (session && session.projectId === projectId) {
+        rawSourceUris =
+          session.fileRefs.length > 0 ? session.fileRefs : session.entryUris;
+        usedSession = true;
+      }
+    }
     if (rawSourceUris.length === 0) return 0;
-    const uniqueSourceUris = Array.from(new Set(rawSourceUris));
-    const targetList = await queryClient.fetchQuery(
-      trpc.fs.list.queryOptions({
-        workspaceId,
-        projectId,
-        uri: target.uri,
-        includeHidden: showHidden,
-      })
-    );
-    const targetNames = new Set(
-      (targetList.entries ?? []).map((entry) => entry.name)
-    );
-    const actions: HistoryAction[] = [];
-    for (const rawSourceUri of uniqueSourceUris) {
-      let sourceUri = rawSourceUri;
-      const parsed = parseScopedProjectPath(rawSourceUri);
-      if (parsed) {
-        const sourceProjectId = parsed.projectId ?? projectId;
-        if (!sourceProjectId || !projectId || sourceProjectId !== projectId || !rootUri) {
-          toast.error("无法移动跨项目文件");
-          return 0;
-        }
-        sourceUri = buildUriFromRoot(rootUri, parsed.relativePath);
-      }
-      let source = fileEntries.find((item) => item.uri === sourceUri);
-      if (!source) {
-        const stat = await queryClient.fetchQuery(
-          trpc.fs.stat.queryOptions({ workspaceId, projectId, uri: sourceUri })
-        );
-        source = {
-          uri: stat.uri,
-          name: stat.name,
-          kind: stat.kind,
-          ext: stat.ext,
-          size: stat.size,
-          updatedAt: stat.updatedAt,
-        } as FileSystemEntry;
-      }
-      const action = await moveEntryToFolder(source, target, { targetNames });
-      if (action) actions.push(action);
+    const moved = await moveEntriesByUris(rawSourceUris, target);
+    if (usedSession) {
+      clearProjectFileDragSession("drop-entry");
     }
-    if (actions.length === 0) return 0;
-    // 中文注释：多选拖拽合并历史记录，撤回时一次恢复。
-    if (actions.length === 1) {
-      pushHistory(actions[0]);
-    } else {
-      pushHistory({ kind: "batch", actions });
-    }
-    refreshList();
-    return actions.length;
+    return moved;
   };
 
   return {

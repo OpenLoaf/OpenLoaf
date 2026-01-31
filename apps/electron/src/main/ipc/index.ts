@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell } from 'electron';
 import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +17,8 @@ import {
 } from './webContentsViews';
 import { createSpeechRecognitionManager } from '../speechRecognition';
 import { captureWebMeta } from './captureWebMeta';
+import { createCalendarService } from '../calendar/calendarService';
+import { resolveWindowIconInfo } from '../resolveWindowIcon';
 
 let ipcHandlersRegistered = false;
 
@@ -34,6 +36,9 @@ type TransferProgressPayload = {
 };
 
 const TRANSFER_PROGRESS_THROTTLE_MS = 120;
+// 中文注释：兜底拖拽图标，保证 macOS 上 icon 非空。
+const FALLBACK_DRAG_ICON_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+AP7n2U8VQAAAABJRU5ErkJggg==';
 
 /** Resolve a local filesystem path from a file:// URI or raw path. */
 function resolveLocalPath(input: string): string | null {
@@ -185,6 +190,24 @@ async function copyDirectoryWithProgress(args: {
   emitProgress(baseName);
 }
 
+/** Resolve a drag icon for the given paths (async). */
+async function resolveDragIcon(paths: string[]): Promise<Electron.NativeImage> {
+  const primaryPath = paths[0];
+  if (primaryPath) {
+    try {
+      const fileIcon = await app.getFileIcon(primaryPath);
+      if (!fileIcon.isEmpty()) return fileIcon;
+    } catch {
+      // 中文注释：获取文件图标失败时回退到应用图标。
+    }
+  }
+  const windowIcon = resolveWindowIconInfo();
+  if (windowIcon?.image && !windowIcon.image.isEmpty()) {
+    return windowIcon.image;
+  }
+  return nativeImage.createFromDataURL(FALLBACK_DRAG_ICON_DATA_URL);
+}
+
 /**
  * Get CDP targetId for a given webContents using Electron's debugger API.
  */
@@ -224,6 +247,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   if (ipcHandlersRegistered) return;
   ipcHandlersRegistered = true;
   const speechManager = createSpeechRecognitionManager({ log: args.log });
+  const calendarService = createCalendarService({ log: args.log });
 
   // 提供应用版本号给渲染端展示。
   ipcMain.handle('tenas:app:version', async () => app.getVersion());
@@ -276,6 +300,71 @@ export function registerIpcHandlers(args: { log: Logger }) {
   // 停止系统语音识别。
   ipcMain.handle('tenas:speech:stop', async () => {
     return await speechManager.stop('user');
+  });
+
+  // 系统日历权限请求。
+  ipcMain.handle('tenas:calendar:permission', async () => {
+    return await calendarService.requestPermission();
+  });
+
+  // 获取系统日历列表。
+  ipcMain.handle('tenas:calendar:list-calendars', async () => {
+    return await calendarService.listCalendars();
+  });
+
+  // 获取系统提醒事项列表。
+  ipcMain.handle('tenas:calendar:list-reminders', async () => {
+    return await calendarService.listReminders();
+  });
+
+  // 获取系统日历事件。
+  ipcMain.handle('tenas:calendar:get-events', async (_event, payload: { start: string; end: string }) => {
+    return await calendarService.getEvents(payload);
+  });
+
+  // 获取系统提醒事项。
+  ipcMain.handle('tenas:calendar:get-reminders', async (_event, payload: { start: string; end: string }) => {
+    return await calendarService.getReminders(payload);
+  });
+
+  // 创建系统日历事件。
+  ipcMain.handle('tenas:calendar:create-event', async (_event, payload) => {
+    return await calendarService.createEvent(payload);
+  });
+
+  // 创建系统提醒事项。
+  ipcMain.handle('tenas:calendar:create-reminder', async (_event, payload) => {
+    return await calendarService.createReminder(payload);
+  });
+
+  // 更新系统日历事件。
+  ipcMain.handle('tenas:calendar:update-event', async (_event, payload) => {
+    return await calendarService.updateEvent(payload);
+  });
+
+  // 更新系统提醒事项。
+  ipcMain.handle('tenas:calendar:update-reminder', async (_event, payload) => {
+    return await calendarService.updateReminder(payload);
+  });
+
+  // 删除系统日历事件。
+  ipcMain.handle('tenas:calendar:delete-event', async (_event, payload: { id: string }) => {
+    return await calendarService.deleteEvent(payload);
+  });
+
+  // 删除系统提醒事项。
+  ipcMain.handle('tenas:calendar:delete-reminder', async (_event, payload: { id: string }) => {
+    return await calendarService.deleteReminder(payload);
+  });
+
+  // 启动系统日历变化监听。
+  ipcMain.handle('tenas:calendar:watch', async (event) => {
+    return calendarService.startWatching(event.sender);
+  });
+
+  // 停止系统日历变化监听。
+  ipcMain.handle('tenas:calendar:unwatch', async (event) => {
+    return calendarService.stopWatching(event.sender);
   });
 
   // 在调用方的 BrowserWindow 内创建/更新 WebContentsView（用于嵌入式浏览面板）。
@@ -444,6 +533,71 @@ export function registerIpcHandlers(args: { log: Logger }) {
       return { ok: false as const };
     }
     return { ok: true as const, path: result.filePaths[0] };
+  });
+
+  // Handle native OS drag requests from renderer.
+  const handleStartDrag = async (
+    event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent,
+    payload: { uris?: string[] }
+  ) => {
+    const rawUris = Array.isArray(payload?.uris) ? payload?.uris : [];
+    const paths = rawUris
+      .map((uri) => resolveLocalPath(String(uri ?? '')))
+      .filter((item): item is string => Boolean(item));
+    // 中文注释：将主进程收到的信息回传到渲染端，便于定位 IPC 链路问题。
+    event.sender.send('tenas:fs:drag-log', {
+      stage: 'received',
+      senderId: event.sender.id,
+      senderUrl: event.sender.getURL(),
+      rawUris,
+      paths,
+    });
+    if (paths.length === 0) {
+      return { ok: false as const, reason: 'Invalid drag payload' };
+    }
+    const dragSessionId = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const icon = await resolveDragIcon(paths);
+    event.sender.send('tenas:fs:drag-log', {
+      stage: 'pre-start',
+      dragSessionId,
+      dragCount: paths.length,
+    });
+    if (paths.length === 1) {
+      event.sender.startDrag({ file: paths[0], icon });
+    } else {
+      event.sender.startDrag({ files: paths, icon });
+    }
+    event.sender.send('tenas:fs:drag-log', {
+      stage: 'started',
+      dragSessionId,
+      dragPaths: paths,
+    });
+    // 中文注释：通过延迟日志确认主进程事件循环是否被拖拽阻塞。
+    setTimeout(() => {
+      event.sender.send('tenas:fs:drag-log', {
+        stage: 'tick',
+        dragSessionId,
+        afterMs: 500,
+      });
+    }, 500);
+    setTimeout(() => {
+      event.sender.send('tenas:fs:drag-log', {
+        stage: 'tick',
+        dragSessionId,
+        afterMs: 2000,
+      });
+    }, 2000);
+    return { ok: true as const };
+  };
+
+  // Start OS drag for local project entries (send).
+  ipcMain.on('tenas:fs:start-drag', (event, payload: { uris?: string[] }) => {
+    void handleStartDrag(event, payload);
+  });
+
+  // Start OS drag for local project entries (invoke).
+  ipcMain.handle('tenas:fs:start-drag', async (event, payload: { uris?: string[] }) => {
+    return await handleStartDrag(event, payload);
   });
 
   // Show save dialog and write file content.

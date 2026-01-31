@@ -35,6 +35,22 @@ type WebMetaCaptureResult = {
   previewPath?: string;
   error?: string;
 };
+type CalendarPermissionState = "granted" | "denied" | "prompt" | "unsupported";
+type CalendarRange = { start: string; end: string };
+type CalendarItem = { id: string; title: string; color?: string; readOnly?: boolean };
+type CalendarEvent = {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay?: boolean;
+  description?: string;
+  location?: string;
+  color?: string;
+  calendarId?: string;
+  recurrence?: string;
+};
+type CalendarResult<T> = { ok: true; data: T } | { ok: false; reason: string; code?: string };
 
 /**
  * preload 运行在隔离上下文中，是我们向 web UI（apps/web）暴露安全 API 的唯一入口。
@@ -108,6 +124,14 @@ contextBridge.exposeInMainWorld('tenasElectron', {
   pickDirectory: (payload?: { defaultPath?: string }): Promise<
     { ok: true; path: string } | { ok: false }
   > => ipcRenderer.invoke('tenas:fs:pick-directory', payload),
+  // Start OS drag from renderer selection.
+  startDrag: (payload: { uris: string[] }): void => {
+    console.log('[drag-out] preload send', {
+      url: window.location?.href ?? '',
+      count: payload?.uris?.length ?? 0,
+    });
+    ipcRenderer.send('tenas:fs:start-drag', payload);
+  },
   // Show save dialog and write base64 payload to file.
   saveFile: (payload: {
     contentBase64: string;
@@ -132,6 +156,43 @@ contextBridge.exposeInMainWorld('tenasElectron', {
     ipcRenderer.invoke('tenas:speech:stop'),
   // Resolve local file path from a File object.
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  // System calendar access.
+  calendar: {
+    requestPermission: (): Promise<CalendarResult<CalendarPermissionState>> =>
+      ipcRenderer.invoke('tenas:calendar:permission'),
+    getCalendars: (): Promise<CalendarResult<CalendarItem[]>> =>
+      ipcRenderer.invoke('tenas:calendar:list-calendars'),
+    getReminderLists: (): Promise<CalendarResult<CalendarItem[]>> =>
+      ipcRenderer.invoke('tenas:calendar:list-reminders'),
+    getEvents: (range: CalendarRange): Promise<CalendarResult<CalendarEvent[]>> =>
+      ipcRenderer.invoke('tenas:calendar:get-events', range),
+    getReminders: (range: CalendarRange): Promise<CalendarResult<CalendarEvent[]>> =>
+      ipcRenderer.invoke('tenas:calendar:get-reminders', range),
+    createEvent: (payload: Omit<CalendarEvent, "id">): Promise<CalendarResult<CalendarEvent>> =>
+      ipcRenderer.invoke('tenas:calendar:create-event', payload),
+    createReminder: (payload: Omit<CalendarEvent, "id">): Promise<CalendarResult<CalendarEvent>> =>
+      ipcRenderer.invoke('tenas:calendar:create-reminder', payload),
+    updateEvent: (payload: CalendarEvent): Promise<CalendarResult<CalendarEvent>> =>
+      ipcRenderer.invoke('tenas:calendar:update-event', payload),
+    updateReminder: (payload: CalendarEvent): Promise<CalendarResult<CalendarEvent>> =>
+      ipcRenderer.invoke('tenas:calendar:update-reminder', payload),
+    deleteEvent: (payload: { id: string }): Promise<CalendarResult<{ id: string }>> =>
+      ipcRenderer.invoke('tenas:calendar:delete-event', payload),
+    deleteReminder: (payload: { id: string }): Promise<CalendarResult<{ id: string }>> =>
+      ipcRenderer.invoke('tenas:calendar:delete-reminder', payload),
+    subscribeChanges: (handler: (detail: { source: "system" }) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, detail: { source: "system" }) => {
+        handler(detail);
+      };
+      ipcRenderer.on('tenas:calendar:changed', listener);
+      // 逻辑：首次订阅时告知主进程开始监听系统日历。
+      ipcRenderer.invoke('tenas:calendar:watch').catch(() => null);
+      return () => {
+        ipcRenderer.removeListener('tenas:calendar:changed', listener);
+        ipcRenderer.invoke('tenas:calendar:unwatch').catch(() => null);
+      };
+    },
+  },
 });
 
 // 主进程会推送 WebContentsView 的真实加载状态（dom-ready 等），这里转成 window 事件给 web UI 消费。
@@ -159,6 +220,16 @@ ipcRenderer.on('tenas:fs:transfer-progress', (_event, detail) => {
   try {
     window.dispatchEvent(
       new CustomEvent('tenas:fs:transfer-progress', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+ipcRenderer.on('tenas:fs:drag-log', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('tenas:fs:drag-log', { detail })
     );
   } catch {
     // ignore

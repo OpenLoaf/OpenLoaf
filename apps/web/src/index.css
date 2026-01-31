@@ -79,44 +79,6 @@
       var(--tw-ease, ease) both;
   }
 
-  .search-dialog-glow {
-    isolation: isolate;
-    overflow: visible;
-    border-color: transparent;
-  }
-  .search-dialog-glow::before {
-    content: "";
-    position: absolute;
-    inset: -20px;
-    border-radius: calc(var(--radius-lg) + 20px);
-    background: conic-gradient(
-      from 90deg at 50% 50%,
-      #402fb5 0%,
-      #cf30aa 35%,
-      #4d9bf5 60%,
-      #7f5cff 85%,
-      #402fb5 100%
-    );
-    opacity: 0.4;
-    filter: blur(18px);
-    box-shadow: 0 0 34px rgba(64, 47, 181, 0.25);
-    z-index: -1;
-    animation: search-dialog-breathe 2.8s ease-in-out infinite,
-      search-dialog-hue 12s linear infinite;
-  }
-  .search-dialog-glow::after {
-    content: "";
-    position: absolute;
-    inset: 1px;
-    border-radius: calc(var(--radius-lg) - 1px);
-    background: var(--background);
-    z-index: 0;
-  }
-  .search-dialog-glow [data-slot="command"],
-  .search-dialog-glow [data-slot="dialog-close"] {
-    position: relative;
-    z-index: 1;
-  }
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -510,33 +472,18 @@ body {
   initial-value: 0;
 }
 
+@property --tenas-thinking-border-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
 @keyframes tenas-thinking-border-flow {
   0% {
-    background-position: 0 0, 0% 50%;
+    --tenas-thinking-border-angle: 0deg;
   }
   100% {
-    background-position: 0 0, 200% 50%;
-  }
-}
-
-@keyframes search-dialog-hue {
-  0% {
-    filter: blur(10px) hue-rotate(0deg);
-  }
-  100% {
-    filter: blur(10px) hue-rotate(360deg);
-  }
-}
-
-@keyframes search-dialog-breathe {
-  0%,
-  100% {
-    opacity: 0.32;
-    box-shadow: 0 0 20px rgba(64, 47, 181, 0.2);
-  }
-  50% {
-    opacity: 0.6;
-    box-shadow: 0 0 36px rgba(207, 48, 170, 0.32);
+    --tenas-thinking-border-angle: 360deg;
   }
 }
 
@@ -641,10 +588,11 @@ body {
 .tenas-thinking-border {
   --tenas-thinking-border-alpha: 0;
   /* 关键：用双背景 + background-clip 实现“挖空”，避免 mask 在圆角处产生锯齿 */
+  border: 3px solid transparent;
   background:
     linear-gradient(var(--tenas-thinking-border-fill, var(--color-background)), var(--tenas-thinking-border-fill, var(--color-background))) padding-box,
-    linear-gradient(
-      90deg,
+    conic-gradient(
+      from var(--tenas-thinking-border-angle),
       hsl(0 100% 60% / var(--tenas-thinking-border-alpha)),
       hsl(30 100% 60% / var(--tenas-thinking-border-alpha)),
       hsl(60 100% 60% / var(--tenas-thinking-border-alpha)),
@@ -655,14 +603,19 @@ body {
       hsl(330 100% 60% / var(--tenas-thinking-border-alpha)),
       hsl(0 100% 60% / var(--tenas-thinking-border-alpha))
     ) border-box;
-  background-size: auto, 200% 200%;
-  background-position: 0 0, 0% 50%;
+  background-clip: padding-box, border-box;
+  background-origin: border-box;
   transition: --tenas-thinking-border-alpha 200ms ease-out;
 }
 
 .tenas-thinking-border-on {
   --tenas-thinking-border-alpha: 1;
-  animation: tenas-thinking-border-flow 1.4s linear infinite;
+  animation: tenas-thinking-border-flow 3s linear infinite;
+}
+
+.tenas-thinking-border-static {
+  --tenas-thinking-border-alpha: 1;
+  animation: none;
 }
 
 .tenas-tool-streaming {

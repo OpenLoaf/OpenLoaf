@@ -5,6 +5,33 @@ import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
 import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
 import { cn } from '@tenas-ai/ui/calendar/lib/utils'
 
+/** Check whether the value is a CSS color string. */
+const isCssColorValue = (value?: string) => {
+	if (!value) return false
+	return (
+		value.startsWith('#') ||
+		value.startsWith('rgb(') ||
+		value.startsWith('rgba(') ||
+		value.startsWith('hsl(') ||
+		value.startsWith('hsla(')
+	)
+}
+
+/** Resolve className/style for event colors. */
+const resolveEventColor = (
+	value: string | undefined,
+	fallbackClass: string,
+	styleKey: 'backgroundColor' | 'color'
+) => {
+	if (!value) {
+		return { className: fallbackClass, style: {} as CSSProperties }
+	}
+	if (isCssColorValue(value)) {
+		return { className: '', style: { [styleKey]: value } as CSSProperties }
+	}
+	return { className: value, style: {} as CSSProperties }
+}
+
 const getBorderRadiusClass = (
 	isTruncatedStart: boolean,
 	isTruncatedEnd: boolean
@@ -34,13 +61,19 @@ function DraggableEventUnmemoized({
 	event: CalendarEvent
 	disableDrag?: boolean
 }) {
-	const { onEventClick, renderEvent, disableEventClick, disableDragAndDrop } =
-		useSmartCalendarContext((state) => ({
-			onEventClick: state.onEventClick,
-			renderEvent: state.renderEvent,
-			disableEventClick: state.disableEventClick,
-			disableDragAndDrop: state.disableDragAndDrop,
-		}))
+	const {
+		onEventClick,
+		onEventDoubleClick,
+		renderEvent,
+		disableEventClick,
+		disableDragAndDrop,
+	} = useSmartCalendarContext((state) => ({
+		onEventClick: state.onEventClick,
+		onEventDoubleClick: state.onEventDoubleClick,
+		renderEvent: state.renderEvent,
+		disableEventClick: state.disableEventClick,
+		disableDragAndDrop: state.disableDragAndDrop,
+	}))
 
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 		id: elementId,
@@ -61,15 +94,22 @@ function DraggableEventUnmemoized({
 		const isTruncatedStart = enhancedEvent.isTruncatedStart
 		const isTruncatedEnd = enhancedEvent.isTruncatedEnd
 
+		const background = resolveEventColor(
+			event.backgroundColor,
+			'bg-blue-500',
+			'backgroundColor'
+		)
+		const textColor = resolveEventColor(event.color, 'text-white', 'color')
+
 		return (
 			<div
 				className={cn(
-					event.backgroundColor || 'bg-blue-500',
-					event.color || 'text-white',
+					background.className,
+					textColor.className,
 					'h-full w-full px-1 border-[1.5px] border-card text-left overflow-clip relative',
 					getBorderRadiusClass(isTruncatedStart, isTruncatedEnd)
 				)}
-				style={{ backgroundColor: event.backgroundColor, color: event.color }}
+				style={{ ...background.style, ...textColor.style }}
 			>
 				{/* Left continuation indicator */}
 				{isTruncatedStart && (
@@ -100,19 +140,19 @@ function DraggableEventUnmemoized({
 		<div
 			className={cn(
 				'truncate h-full w-full',
-				disableDrag || disableDragAndDrop
-					? disableEventClick
-						? 'cursor-default'
-						: 'cursor-pointer'
-					: 'cursor-grab',
+				'cursor-default',
 				isDragging &&
 					!(disableDrag || disableDragAndDrop) &&
-					'cursor-grabbing shadow-lg',
+					'shadow-lg',
 				className
 			)}
 			onClick={(e) => {
 				e.stopPropagation()
 				onEventClick(event)
+			}}
+			onDoubleClick={(e) => {
+				e.stopPropagation()
+				onEventDoubleClick?.(event)
 			}}
 			ref={setNodeRef}
 			style={style}

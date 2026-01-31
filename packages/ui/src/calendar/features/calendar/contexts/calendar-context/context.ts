@@ -47,7 +47,9 @@ export interface CalendarContextType {
 	findParentRecurringEvent: (event: CalendarEvent) => CalendarEvent | null
 	renderEvent?: (event: CalendarEvent) => React.ReactNode
 	onEventClick: (event: CalendarEvent) => void
+	onEventDoubleClick?: (event: CalendarEvent) => void
 	onCellClick: (info: CellClickInfo) => void
+	openEventOnCellDoubleClick?: boolean
 	currentLocale?: string
 	disableCellClick?: boolean
 	disableEventClick?: boolean
@@ -58,6 +60,11 @@ export interface CalendarContextType {
 	viewHeaderClassName: string
 	headerComponent?: React.ReactNode // Optional custom header component
 	headerClassName?: string // Optional custom header class
+	sidebar?: React.ReactNode // Optional sidebar component
+	sidebarClassName?: string // Optional sidebar class
+	isSidebarOpen: boolean
+	setSidebarOpen: (open: boolean) => void
+	toggleSidebar: () => void
 	businessHours?: BusinessHours | BusinessHours[]
 	renderEventForm?: (props: EventFormProps) => React.ReactNode
 	// Translation function

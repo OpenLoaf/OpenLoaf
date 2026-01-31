@@ -54,6 +54,57 @@ declare global {
   type TenasTransferComplete = {
     id: string;
   };
+  /** Calendar permission state from system. */
+  type TenasCalendarPermissionState = "granted" | "denied" | "prompt" | "unsupported";
+  /** Calendar time range for event queries (ISO strings). */
+  type TenasCalendarRange = {
+    /** Inclusive start time in ISO 8601 format. */
+    start: string;
+    /** Exclusive end time in ISO 8601 format. */
+    end: string;
+  };
+  /** Calendar metadata shown in the UI. */
+  type TenasCalendarItem = {
+    /** System calendar id. */
+    id: string;
+    /** Display title for the calendar. */
+    title: string;
+    /** Optional calendar color in hex. */
+    color?: string;
+    /** Whether the calendar is read-only. */
+    readOnly?: boolean;
+  };
+  /** Normalized event shape used by UI calendar. */
+  type TenasCalendarEvent = {
+    /** System event id. */
+    id: string;
+    /** Event title. */
+    title: string;
+    /** Event start time in ISO 8601 format. */
+    start: string;
+    /** Event end time in ISO 8601 format. */
+    end: string;
+    /** Whether the event is all-day. */
+    allDay?: boolean;
+    /** Event description. */
+    description?: string;
+    /** Event location. */
+    location?: string;
+    /** Event color. */
+    color?: string;
+    /** Owning calendar id. */
+    calendarId?: string;
+    /** Recurrence rule string if present. */
+    recurrence?: string;
+    /** Event kind. */
+    kind?: "event" | "reminder";
+    /** Whether reminder is completed. */
+    completed?: boolean;
+  };
+  /** Calendar API result wrapper. */
+  type TenasCalendarResult<T> =
+    | { ok: true; data: T }
+    | { ok: false; reason: string; code?: string };
 
   interface Window {
     tenasElectron?: {
@@ -106,6 +157,10 @@ declare global {
       pickDirectory?: (payload?: {
         defaultPath?: string;
       }) => Promise<{ ok: true; path: string } | { ok: false }>;
+      /** Start OS drag for a list of local file/folder URIs. */
+      startDrag?: (payload: {
+        uris: string[];
+      }) => void;
       saveFile?: (payload: {
         contentBase64: string;
         defaultDir?: string;
@@ -128,6 +183,51 @@ declare global {
         language?: string;
       }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       stopSpeechRecognition?: () => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      /** Calendar API (system calendars). */
+      calendar?: {
+        /** Request calendar permission from OS. */
+        requestPermission: () => Promise<TenasCalendarResult<TenasCalendarPermissionState>>;
+        /** List available system calendars. */
+        getCalendars: () => Promise<TenasCalendarResult<TenasCalendarItem[]>>;
+        /** Query events within a time range. */
+        getEvents: (
+          range: TenasCalendarRange
+        ) => Promise<TenasCalendarResult<TenasCalendarEvent[]>>;
+        /** Create a new calendar event. */
+        createEvent: (
+          payload: Omit<TenasCalendarEvent, "id">
+        ) => Promise<TenasCalendarResult<TenasCalendarEvent>>;
+        /** Update an existing calendar event. */
+        updateEvent: (
+          payload: TenasCalendarEvent
+        ) => Promise<TenasCalendarResult<TenasCalendarEvent>>;
+        /** Delete a calendar event by id. */
+        deleteEvent: (
+          payload: { id: string }
+        ) => Promise<TenasCalendarResult<{ id: string }>>;
+        /** Subscribe to system calendar changes. */
+        subscribeChanges: (
+          handler: (detail: { source: "system" }) => void
+        ) => () => void;
+        /** List reminder calendars (macOS only). */
+        getReminderLists?: () => Promise<TenasCalendarResult<TenasCalendarItem[]>>;
+        /** Query reminder items within a time range (macOS only). */
+        getReminders?: (
+          range: TenasCalendarRange
+        ) => Promise<TenasCalendarResult<TenasCalendarEvent[]>>;
+        /** Create a reminder item (macOS only). */
+        createReminder?: (
+          payload: Omit<TenasCalendarEvent, "id">
+        ) => Promise<TenasCalendarResult<TenasCalendarEvent>>;
+        /** Update a reminder item (macOS only). */
+        updateReminder?: (
+          payload: TenasCalendarEvent
+        ) => Promise<TenasCalendarResult<TenasCalendarEvent>>;
+        /** Delete a reminder item by id (macOS only). */
+        deleteReminder?: (
+          payload: { id: string }
+        ) => Promise<TenasCalendarResult<{ id: string }>>;
+      };
     };
   }
 }

@@ -1,6 +1,6 @@
 import type React from 'react'
 import type { ReactNode } from 'react'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { EventFormProps } from '@tenas-ai/ui/calendar/components/event-form/event-form'
 import type { BusinessHours, CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
 import type {
@@ -23,7 +23,9 @@ export interface CalendarProviderProps {
 	initialDate?: dayjs.Dayjs
 	renderEvent?: (event: CalendarEvent) => ReactNode
 	onEventClick?: (event: CalendarEvent) => void
+	onEventDoubleClick?: (event: CalendarEvent) => void
 	onCellClick?: (info: CellClickInfo) => void
+	openEventOnCellDoubleClick?: boolean
 	onViewChange?: (view: CalendarView) => void
 	onEventAdd?: (event: CalendarEvent) => void
 	onEventUpdate?: (event: CalendarEvent) => void
@@ -33,6 +35,7 @@ export interface CalendarProviderProps {
 	timezone?: string
 	disableCellClick?: boolean
 	disableEventClick?: boolean
+	openEventOnDoubleClick?: boolean
 	disableDragAndDrop?: boolean
 	dayMaxEvents: number
 	eventSpacing?: number
@@ -40,6 +43,10 @@ export interface CalendarProviderProps {
 	viewHeaderClassName?: string
 	headerComponent?: ReactNode // Optional custom header component
 	headerClassName?: string // Optional custom header class
+	sidebar?: ReactNode
+	defaultSidebarOpen?: boolean
+	onSidebarOpenChange?: (open: boolean) => void
+	sidebarClassName?: string
 	businessHours?: BusinessHours | BusinessHours[]
 	renderEventForm?: (props: EventFormProps) => ReactNode
 	// Translation options - provide either translations object OR translator function
@@ -61,7 +68,9 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 	initialDate,
 	renderEvent,
 	onEventClick,
+	onEventDoubleClick,
 	onCellClick,
+	openEventOnCellDoubleClick = false,
 	onViewChange,
 	onEventAdd,
 	onEventUpdate,
@@ -71,6 +80,7 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 	timezone,
 	disableCellClick,
 	disableEventClick,
+	openEventOnDoubleClick = false,
 	disableDragAndDrop,
 	dayMaxEvents,
 	eventSpacing = GAP_BETWEEN_ELEMENTS,
@@ -78,6 +88,10 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 	viewHeaderClassName = '',
 	headerComponent,
 	headerClassName,
+	sidebar,
+	defaultSidebarOpen = true,
+	onSidebarOpenChange,
+	sidebarClassName,
 	businessHours,
 	renderEventForm,
 	translations,
@@ -87,6 +101,20 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 	renderCurrentTimeIndicator,
 	hideNonBusinessHours = false,
 }) => {
+	const [isSidebarOpen, setIsSidebarOpen] = useState(defaultSidebarOpen)
+	const handleSetSidebarOpen = useCallback(
+		(open: boolean) => {
+			setIsSidebarOpen(open)
+			if (onSidebarOpenChange) {
+				onSidebarOpenChange(open)
+			}
+		},
+		[onSidebarOpenChange]
+	)
+	const toggleSidebar = useCallback(() => {
+		handleSetSidebarOpen(!isSidebarOpen)
+	}, [handleSetSidebarOpen, isSidebarOpen])
+
 	// Use the calendar engine
 	const calendarEngine = useCalendarEngine({
 		events,
@@ -121,11 +149,29 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 			}
 			if (onEventClick) {
 				onEventClick(event)
-			} else {
+				return
+			}
+			if (!openEventOnDoubleClick) {
 				editEvent(event)
 			}
 		},
-		[disableEventClick, onEventClick, editEvent]
+		[disableEventClick, onEventClick, editEvent, openEventOnDoubleClick]
+	)
+
+	const handleEventDoubleClick = useCallback(
+		(event: CalendarEvent) => {
+			if (disableEventClick) {
+				return
+			}
+			if (onEventDoubleClick) {
+				onEventDoubleClick(event)
+				return
+			}
+			if (openEventOnDoubleClick) {
+				editEvent(event)
+			}
+		},
+		[disableEventClick, onEventDoubleClick, editEvent, openEventOnDoubleClick]
 	)
 
 	const handleDateClick = useCallback(
@@ -172,11 +218,14 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 			findParentRecurringEvent: calendarEngine.findParentRecurringEvent,
 			renderEvent,
 			onEventClick: handleEventClick,
+			onEventDoubleClick: handleEventDoubleClick,
 			onCellClick: handleDateClick,
+			openEventOnCellDoubleClick,
 			locale,
 			timezone,
 			disableCellClick,
 			disableEventClick,
+			openEventOnDoubleClick,
 			disableDragAndDrop,
 			dayMaxEvents,
 			eventSpacing,
@@ -184,6 +233,11 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 			viewHeaderClassName,
 			headerComponent,
 			headerClassName,
+			sidebar,
+			sidebarClassName,
+			isSidebarOpen,
+			setSidebarOpen: handleSetSidebarOpen,
+			toggleSidebar,
 			businessHours,
 			renderEventForm,
 			t: calendarEngine.t,
@@ -196,11 +250,14 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 			calendarEngine,
 			renderEvent,
 			handleEventClick,
+			handleEventDoubleClick,
 			handleDateClick,
+			openEventOnCellDoubleClick,
 			locale,
 			timezone,
 			disableCellClick,
 			disableEventClick,
+			openEventOnDoubleClick,
 			disableDragAndDrop,
 			dayMaxEvents,
 			eventSpacing,
@@ -208,6 +265,11 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 			viewHeaderClassName,
 			headerComponent,
 			headerClassName,
+			sidebar,
+			sidebarClassName,
+			isSidebarOpen,
+			handleSetSidebarOpen,
+			toggleSidebar,
 			businessHours,
 			renderEventForm,
 			timeFormat,

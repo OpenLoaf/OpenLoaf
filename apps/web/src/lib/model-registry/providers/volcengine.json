@@ -28,7 +28,52 @@
           "inputCache": 0,
           "output": 0
         }
-      ]
+      ],
+      "parameters": {
+        "features": [
+          "prompt"
+        ],
+        "fields": [
+          {
+            "key": "n",
+            "title": "数量",
+            "type": "number",
+            "min": 1,
+            "max": 1,
+            "default": 1,
+            "request": false
+          },
+          {
+            "key": "size",
+            "title": "尺寸",
+            "type": "text",
+            "request": false
+          },
+          {
+            "key": "seed",
+            "title": "随机种子",
+            "type": "number",
+            "min": 0,
+            "step": 1,
+            "request": false
+          },
+          {
+            "key": "providerOptions.volcengine.scale",
+            "title": "提示词强度",
+            "type": "number",
+            "min": 0,
+            "max": 1,
+            "step": 0.05,
+            "request": false
+          },
+          {
+            "key": "providerOptions.volcengine.forceSingle",
+            "title": "强制单张",
+            "type": "boolean",
+            "request": false
+          }
+        ]
+      }
     },
     {
       "id": "jimeng_t2i_v31",
@@ -51,7 +96,52 @@
           "inputCache": 0,
           "output": 0
         }
-      ]
+      ],
+      "parameters": {
+        "features": [
+          "prompt"
+        ],
+        "fields": [
+          {
+            "key": "n",
+            "title": "数量",
+            "type": "number",
+            "min": 1,
+            "max": 1,
+            "default": 1,
+            "request": false
+          },
+          {
+            "key": "size",
+            "title": "尺寸",
+            "type": "text",
+            "request": false
+          },
+          {
+            "key": "seed",
+            "title": "随机种子",
+            "type": "number",
+            "min": 0,
+            "step": 1,
+            "request": false
+          },
+          {
+            "key": "providerOptions.volcengine.scale",
+            "title": "提示词强度",
+            "type": "number",
+            "min": 0,
+            "max": 1,
+            "step": 0.05,
+            "request": false
+          },
+          {
+            "key": "providerOptions.volcengine.forceSingle",
+            "title": "强制单张",
+            "type": "boolean",
+            "request": false
+          }
+        ]
+      }
     },
     {
       "id": "jimeng_image2image_dream_inpaint",

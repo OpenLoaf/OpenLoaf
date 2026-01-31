@@ -7,9 +7,11 @@ import { ResourceDayView } from '@tenas-ai/ui/calendar/features/resource-calenda
 import { ResourceMonthView } from '@tenas-ai/ui/calendar/features/resource-calendar/components/month-view'
 import { ResourceWeekView } from '@tenas-ai/ui/calendar/features/resource-calendar/components/week-view'
 import { useResourceCalendarContext } from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
+import { cn } from '@tenas-ai/ui/calendar/lib/utils'
 
 export const ResourceCalendarBody: React.FC = () => {
-	const { view } = useResourceCalendarContext()
+	const { view, sidebar, sidebarClassName, isSidebarOpen } =
+		useResourceCalendarContext()
 
 	const viewMap = {
 		month: <ResourceMonthView key="month" />,
@@ -18,27 +20,34 @@ export const ResourceCalendarBody: React.FC = () => {
 	}
 
 	return (
-		<div
-			className="flex flex-col w-full h-full"
-			data-testid="ilamy-resource-calendar"
-		>
-			<Header className="p-1" />
-
-			{/* Calendar Body with AnimatedSection for view transitions */}
-			<CalendarDndContext>
-				<AnimatedSection
-					className="w-full h-[calc(100%-3.5rem)] @container/calendar-body"
-					direction="horizontal"
-					transitionKey={view}
+		<div className="flex w-full h-full" data-testid="ilamy-resource-calendar">
+			{sidebar && isSidebarOpen && (
+				<aside
+					className={cn('h-full w-64 shrink-0', sidebarClassName)}
+					data-testid="calendar-sidebar"
 				>
-					<div className="border h-full w-full" data-testid="calendar-body">
-						{viewMap[view]}
-					</div>
-				</AnimatedSection>
-			</CalendarDndContext>
+					{sidebar}
+				</aside>
+			)}
+			<div className="flex flex-col w-full h-full min-w-0">
+				<Header className="p-1" />
 
-			{/* Event Form Dialog */}
-			<EventFormDialog />
+				{/* Calendar Body with AnimatedSection for view transitions */}
+				<CalendarDndContext>
+					<AnimatedSection
+						className="w-full h-[calc(100%-3.5rem)] @container/calendar-body"
+						direction="horizontal"
+						transitionKey={view}
+					>
+						<div className="border h-full w-full" data-testid="calendar-body">
+							{viewMap[view]}
+						</div>
+					</AnimatedSection>
+				</CalendarDndContext>
+
+				{/* Event Form Dialog */}
+				<EventFormDialog />
+			</div>
 		</div>
 	)
 }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import { z } from "zod";
 import { Copy, Play, RotateCcw, Square } from "lucide-react";
 import { generateId } from "ai";
+import type { ModelParameterDefinition } from "@tenas-ai/api/common";
 
 import { useBoardContext } from "../core/BoardProvider";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
@@ -56,8 +57,6 @@ export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
 const GENERATED_IMAGE_NODE_GAP = 32;
 /** Extra horizontal gap for the first generated image node. */
 const GENERATED_IMAGE_NODE_FIRST_GAP = 64;
-/** Preset aspect ratios for image generation. */
-const IMAGE_GENERATE_RATIO_OPTIONS = ["1:1", "4:3", "3:4", "16:9", "9:16"];
 /** Default aspect ratio when none is specified. */
 const IMAGE_GENERATE_DEFAULT_RATIO = "4:3";
 
@@ -71,6 +70,8 @@ export type ImageGenerateNodeProps = {
   aspectRatio?: string;
   /** Requested output image count. */
   outputCount?: number;
+  /** Model parameters. */
+  parameters?: Record<string, string | number | boolean>;
   /** Generated image urls. */
   resultImages?: string[];
   /** Error text for failed runs. */
@@ -83,6 +84,7 @@ const ImageGenerateNodeSchema = z.object({
   promptText: z.string().optional(),
   aspectRatio: z.string().optional(),
   outputCount: z.number().optional(),
+  parameters: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   resultImages: z.array(z.string()).optional(),
   errorText: z.string().optional(),
 });
@@ -98,6 +100,84 @@ function normalizeOutputCount(value: number | undefined) {
   const rounded = Math.round(value as number);
   // 逻辑：限制在允许范围内，避免无效请求数量。
   return Math.min(Math.max(rounded, 1), IMAGE_GENERATE_MAX_OUTPUT_IMAGES);
+}
+
+/** Check whether a parameter value is empty. */
+function isEmptyParamValue(value: unknown) {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "string") return value.trim() === "";
+  return false;
+}
+
+/** Resolve parameter defaults based on model definition. */
+function resolveParameterDefaults(
+  fields: ModelParameterDefinition[],
+  input: Record<string, string | number | boolean> | undefined
+) {
+  const raw = input ?? {};
+  const resolved: Record<string, string | number | boolean> = { ...raw };
+  let changed = false;
+  for (const field of fields) {
+    const value = raw[field.key];
+    if (!isEmptyParamValue(value)) continue;
+    if (field.default !== undefined) {
+      resolved[field.key] = field.default;
+      changed = true;
+    }
+  }
+  return { resolved, changed };
+}
+
+/** Map parameter values into image generate options. */
+function buildImageOptionsFromParameters(
+  parameters: Record<string, string | number | boolean>,
+  fallback: { outputCount: number; aspectRatio?: string; allowAspectRatio: boolean }
+) {
+  const options: {
+    n?: number;
+    size?: string;
+    aspectRatio?: string;
+    seed?: number;
+    providerOptions?: Record<string, Record<string, string | number | boolean>>;
+  } = {};
+  for (const [key, value] of Object.entries(parameters)) {
+    if (isEmptyParamValue(value)) continue;
+    if (key === "n") {
+      const numeric = typeof value === "number" ? value : Number(value);
+      if (Number.isFinite(numeric)) options.n = numeric;
+      continue;
+    }
+    if (key === "size") {
+      options.size = typeof value === "string" ? value.trim() : String(value);
+      continue;
+    }
+    if (key === "aspectRatio") {
+      options.aspectRatio = typeof value === "string" ? value.trim() : String(value);
+      continue;
+    }
+    if (key === "seed") {
+      const numeric = typeof value === "number" ? value : Number(value);
+      if (Number.isFinite(numeric)) options.seed = numeric;
+      continue;
+    }
+    if (key.startsWith("providerOptions.")) {
+      const [, providerId, optionKey] = key.split(".");
+      if (!providerId || !optionKey) continue;
+      if (!options.providerOptions) options.providerOptions = {};
+      if (!options.providerOptions[providerId]) options.providerOptions[providerId] = {};
+      options.providerOptions[providerId][optionKey] = value;
+    }
+  }
+  if (options.n === undefined) options.n = fallback.outputCount;
+  if (
+    !options.size &&
+    !options.aspectRatio &&
+    fallback.aspectRatio &&
+    fallback.allowAspectRatio
+  ) {
+    options.aspectRatio = fallback.aspectRatio;
+  }
+  return options;
 }
 
 /** Render the image generation node. */
@@ -152,11 +232,26 @@ export function ImageGenerateNodeView({
   const outputImages = Array.isArray(element.props.resultImages)
     ? element.props.resultImages
     : [];
-  const outputCount = normalizeOutputCount(element.props.outputCount);
+  const rawParameters =
+    element.props.parameters && typeof element.props.parameters === "object"
+      ? element.props.parameters
+      : undefined;
+  const rawOutputCount = rawParameters?.n;
+  const outputCount = normalizeOutputCount(
+    typeof rawOutputCount === "number"
+      ? rawOutputCount
+      : typeof rawOutputCount === "string"
+        ? Number(rawOutputCount)
+        : element.props.outputCount
+  );
   const localPromptText =
     typeof element.props.promptText === "string" ? element.props.promptText : "";
   const selectedAspectRatio =
-    typeof element.props.aspectRatio === "string" ? element.props.aspectRatio.trim() : "";
+    typeof rawParameters?.aspectRatio === "string"
+      ? rawParameters.aspectRatio.trim()
+      : typeof element.props.aspectRatio === "string"
+        ? element.props.aspectRatio.trim()
+        : "";
 
   // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
   const inputImageNodes: ImageNodeProps[] = [];
@@ -245,6 +340,34 @@ export function ImageGenerateNodeView({
     return candidates[0]?.id ?? "";
   }, [candidates, defaultModelId, selectedModelId]);
 
+  const selectedModelOption = useMemo(
+    () => candidates.find((item) => item.id === effectiveModelId),
+    [candidates, effectiveModelId]
+  );
+  const parameterFields = useMemo(
+    () => selectedModelOption?.modelDefinition?.parameters?.fields ?? [],
+    [selectedModelOption]
+  );
+  const resolvedParameterResult = useMemo(
+    () => resolveParameterDefaults(parameterFields, rawParameters),
+    [parameterFields, rawParameters]
+  );
+  const resolvedParameters = resolvedParameterResult.resolved;
+  useEffect(() => {
+    // 逻辑：补齐参数默认值，避免发送空参数。
+    if (!resolvedParameterResult.changed) return;
+    onUpdate({ parameters: resolvedParameterResult.resolved });
+  }, [onUpdate, resolvedParameterResult]);
+
+  const missingRequiredParameters = useMemo(() => {
+    return parameterFields.filter((field) => {
+      if (!field.request) return false;
+      const value = resolvedParameters[field.key];
+      return isEmptyParamValue(value);
+    });
+  }, [parameterFields, resolvedParameters]);
+  const hasMissingRequiredParameters = missingRequiredParameters.length > 0;
+
   const effectiveAspectRatio = useMemo(() => {
     if (selectedAspectRatio) return selectedAspectRatio;
     return IMAGE_GENERATE_DEFAULT_RATIO;
@@ -260,8 +383,9 @@ export function ImageGenerateNodeView({
   useEffect(() => {
     // 逻辑：未设置比例时写入默认值，避免发送空参数。
     if (!effectiveAspectRatio || selectedAspectRatio) return;
+    if (parameterFields.length > 0) return;
     onUpdate({ aspectRatio: effectiveAspectRatio });
-  }, [effectiveAspectRatio, onUpdate, selectedAspectRatio]);
+  }, [effectiveAspectRatio, onUpdate, parameterFields, selectedAspectRatio]);
 
   /** Stop the current image generation request. */
   const stopImageGenerate = useCallback(() => {
@@ -305,6 +429,13 @@ export function ImageGenerateNodeView({
         return;
       }
 
+      if (hasMissingRequiredParameters) {
+        engine.doc.updateNodeProps(nodeId, {
+          errorText: "请先填写必填参数",
+        });
+        return;
+      }
+
       if (hasTooManyImages) {
         engine.doc.updateNodeProps(nodeId, {
           errorText: `最多支持 ${IMAGE_GENERATE_MAX_INPUT_IMAGES} 张图片输入`,
@@ -341,10 +472,16 @@ export function ImageGenerateNodeView({
           url: image.url,
           mediaType: image.mediaType,
         }));
-        const normalizedOptions = normalizeImageOptions({
-          n: outputCount,
-          aspectRatio: effectiveAspectRatio,
-        });
+        const normalizedOptions = normalizeImageOptions(
+          buildImageOptionsFromParameters(resolvedParameters, {
+            outputCount,
+            aspectRatio: effectiveAspectRatio,
+            allowAspectRatio:
+              parameterFields.some((field) => field.key === "aspectRatio") ||
+              (parameterFields.length === 0 &&
+                !["custom", "openai"].includes(selectedModelOption?.providerId ?? "")),
+          })
+        );
         const metadata = normalizedOptions ? { imageOptions: normalizedOptions } : undefined;
         const userMessage: TenasUIMessage = {
           id: messageId,
@@ -593,13 +730,17 @@ export function ImageGenerateNodeView({
       currentProjectId,
       effectiveAspectRatio,
       hasInvalidImages,
+      hasMissingRequiredParameters,
       hasPrompt,
       hasTooManyImages,
       imageSaveDir,
       outputCount,
+      parameterFields,
       promptText,
+      resolvedParameters,
       resolvedImages,
       resolvedWorkspaceId,
+      selectedModelOption?.providerId,
     ]
   );
 
@@ -607,6 +748,7 @@ export function ImageGenerateNodeView({
     // 逻辑：运行态以 SSE 请求为准，不写入节点，避免刷新后卡死。
     if (isRunning) return "running";
     if (!hasPrompt) return "needs_prompt";
+    if (hasMissingRequiredParameters) return "missing_parameters";
     if (hasTooManyImages) return "too_many_images";
     if (hasInvalidImages) return "invalid_image";
     if (candidates.length === 0) return "needs_model";
@@ -617,6 +759,7 @@ export function ImageGenerateNodeView({
     candidates.length,
     errorText,
     hasInvalidImages,
+    hasMissingRequiredParameters,
     hasPrompt,
     hasTooManyImages,
     isRunning,
@@ -640,6 +783,12 @@ export function ImageGenerateNodeView({
   const statusHint = useMemo(() => {
     if (viewStatus === "needs_prompt") {
       return { tone: "warn", text: "需要输入或连接提示词后才能生成图片。" };
+    }
+    if (viewStatus === "missing_parameters") {
+      const requiredText = missingRequiredParameters
+        .map((field) => field.title || field.key)
+        .join("、");
+      return { tone: "warn", text: `请先填写必填参数：${requiredText}` };
     }
     if (viewStatus === "too_many_images") {
       return {
@@ -667,11 +816,18 @@ export function ImageGenerateNodeView({
       return { tone: "info", text: "未连接图片，将以纯文本生成。" };
     }
     return { tone: "info", text: "准备就绪，点击运行即可生成图片。" };
-  }, [errorText, hasAnyImageInput, inputImageNodes.length, viewStatus]);
+  }, [
+    errorText,
+    hasAnyImageInput,
+    inputImageNodes.length,
+    missingRequiredParameters,
+    viewStatus,
+  ]);
 
   const canRun =
     !isRunning &&
     hasPrompt &&
+    !hasMissingRequiredParameters &&
     !hasTooManyImages &&
     !hasInvalidImages &&
     candidates.length > 0 &&
@@ -679,13 +835,13 @@ export function ImageGenerateNodeView({
     !engine.isLocked() &&
     !element.locked;
 
-  /** Handle output count edits. */
-  const handleOutputCountChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const next = normalizeOutputCount(Number(event.target.value));
-      onUpdate({ outputCount: next });
+  /** Update a parameter value. */
+  const handleParameterChange = useCallback(
+    (key: string, value: string | number | boolean) => {
+      const next = { ...resolvedParameters, [key]: value };
+      onUpdate({ parameters: next });
     },
-    [onUpdate]
+    [onUpdate, resolvedParameters]
   );
 
   const handleCopyError = useCallback(async () => {
@@ -725,18 +881,22 @@ export function ImageGenerateNodeView({
     viewStatus === "running"
       ? "生成中…"
       : viewStatus === "done"
-        ? "已完成"
-        : viewStatus === "error"
-          ? "生成失败"
-          : viewStatus === "needs_model"
-            ? "需要配置模型"
-            : viewStatus === "needs_prompt"
-              ? "需要提示词"
-              : viewStatus === "too_many_images"
-                ? "图片数量过多"
-                : viewStatus === "invalid_image"
-                  ? "图片地址不可用"
-                  : "待运行";
+      ? "已完成"
+      : viewStatus === "error"
+        ? "生成失败"
+      : viewStatus === "needs_model"
+        ? "需要配置模型"
+      : viewStatus === "needs_prompt"
+        ? "需要提示词"
+      : viewStatus === "missing_parameters"
+        ? "参数未填写"
+      : viewStatus === "too_many_images"
+        ? "图片数量过多"
+      : viewStatus === "invalid_image"
+        ? "图片地址不可用"
+      : "待运行";
+
+  const isAdvancedOpen = selected;
 
   return (
     <div
@@ -837,44 +997,6 @@ export function ImageGenerateNodeView({
             </Select>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">
-            数量
-          </div>
-          <Input
-            type="number"
-            min={1}
-            max={IMAGE_GENERATE_MAX_OUTPUT_IMAGES}
-            value={outputCount}
-            disabled={engine.isLocked() || element.locked}
-            onChange={handleOutputCountChange}
-            className="h-7 w-16 px-2 text-[11px]"
-          />
-          <div className="text-[11px] text-slate-400 dark:text-slate-500">
-            张
-          </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">
-            比例
-          </div>
-          <Select
-            value={effectiveAspectRatio}
-            onValueChange={(value) => {
-              onUpdate({ aspectRatio: value });
-            }}
-            disabled={isRunning}
-          >
-            <SelectTrigger className="h-7 w-16 px-2 text-[11px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="text-[11px]">
-              {IMAGE_GENERATE_RATIO_OPTIONS.map((ratio) => (
-                <SelectItem key={ratio} value={ratio} className="text-[11px]">
-                  {ratio}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
@@ -939,6 +1061,143 @@ export function ImageGenerateNodeView({
             {statusHint.text}
           </div>
         )
+      ) : null}
+      {isAdvancedOpen && parameterFields.length > 0 ? (
+        <div
+          className="absolute left-full top-0 z-20 ml-2 w-64 rounded-xl border border-slate-200/80 bg-white/95 p-3 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
+          data-board-editor
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <div className="mb-2 text-[12px] font-semibold text-slate-600 dark:text-slate-200">
+            高级选项
+          </div>
+          <div className="flex flex-col gap-2">
+            {parameterFields.map((field) => {
+              const value = resolvedParameters[field.key];
+              const valueString = value === undefined ? "" : String(value);
+              const disabled = engine.isLocked() || element.locked || isRunning;
+              if (field.type === "select") {
+                const options = Array.isArray(field.values) ? field.values : [];
+                return (
+                  <div className="flex items-center gap-2" key={field.key}>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {field.title}
+                    </div>
+                    <Select
+                      value={valueString}
+                      onValueChange={(nextValue) => {
+                        const matched = options.find(
+                          (option) => String(option) === nextValue
+                        );
+                        handleParameterChange(field.key, matched ?? nextValue);
+                      }}
+                      disabled={disabled}
+                    >
+                      <SelectTrigger className="h-7 w-24 px-2 text-[11px]">
+                        <SelectValue placeholder="请选择" />
+                      </SelectTrigger>
+                      <SelectContent className="text-[11px]">
+                        {options.map((option) => (
+                          <SelectItem
+                            key={`${field.key}-${String(option)}`}
+                            value={String(option)}
+                            className="text-[11px]"
+                          >
+                            {String(option)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              }
+              if (field.type === "number") {
+                const numericValue =
+                  typeof value === "number"
+                    ? value
+                    : typeof value === "string" && value.trim()
+                      ? Number(value)
+                      : "";
+                return (
+                  <div className="flex items-center gap-2" key={field.key}>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {field.title}
+                    </div>
+                    <Input
+                      type="number"
+                      min={typeof field.min === "number" ? field.min : undefined}
+                      max={typeof field.max === "number" ? field.max : undefined}
+                      step={typeof field.step === "number" ? field.step : undefined}
+                      value={Number.isFinite(numericValue as number) ? numericValue : ""}
+                      disabled={disabled}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                        const raw = event.target.value;
+                        const nextValue =
+                          raw.trim() === "" ? "" : Number.parseFloat(raw);
+                        handleParameterChange(
+                          field.key,
+                          Number.isFinite(nextValue) ? nextValue : ""
+                        );
+                      }}
+                      className="h-7 w-16 px-2 text-[11px]"
+                    />
+                    {field.unit ? (
+                      <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                        {field.unit}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }
+              if (field.type === "boolean") {
+                return (
+                  <div className="flex items-center gap-2" key={field.key}>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {field.title}
+                    </div>
+                    <Select
+                      value={valueString}
+                      onValueChange={(nextValue) => {
+                        handleParameterChange(field.key, nextValue === "true");
+                      }}
+                      disabled={disabled}
+                    >
+                      <SelectTrigger className="h-7 w-20 px-2 text-[11px]">
+                        <SelectValue placeholder="请选择" />
+                      </SelectTrigger>
+                      <SelectContent className="text-[11px]">
+                        <SelectItem value="true" className="text-[11px]">
+                          是
+                        </SelectItem>
+                        <SelectItem value="false" className="text-[11px]">
+                          否
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              }
+              return (
+                <div className="flex items-center gap-2" key={field.key}>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {field.title}
+                  </div>
+                  <Input
+                    type="text"
+                    value={valueString}
+                    disabled={disabled}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                      handleParameterChange(field.key, event.target.value);
+                    }}
+                    className="h-7 w-40 px-2 text-[11px]"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
       ) : null}
     </div>
   );

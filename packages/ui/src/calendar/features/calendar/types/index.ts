@@ -102,10 +102,20 @@ export interface IlamyCalendarProps {
 	 */
 	onEventClick?: (event: CalendarEvent) => void
 	/**
+	 * Callback when an event is double-clicked.
+	 * Provides the double-clicked event object.
+	 */
+	onEventDoubleClick?: (event: CalendarEvent) => void
+	/**
 	 * Callback when a calendar cell is clicked.
 	 * Provides cell information including start/end dates and optional resourceId.
 	 */
 	onCellClick?: (info: CellClickInfo) => void
+	/**
+	 * Whether to open event form only on double click for calendar cells.
+	 * When enabled, single click will not open the event form.
+	 */
+	openEventOnCellDoubleClick?: boolean
 	/**
 	 * Callback when the calendar view changes (month, week, day, year).
 	 * Useful for syncing with external state or analytics.
@@ -162,6 +172,11 @@ export interface IlamyCalendarProps {
 	 */
 	disableEventClick?: boolean
 	/**
+	 * Whether to open event form only on double click.
+	 * When enabled, single click will only trigger onEventClick.
+	 */
+	openEventOnDoubleClick?: boolean
+	/**
 	 * Whether to disable drag-and-drop functionality for calendar events.
 	 * Useful for read-only views or when drag-and-drop is not needed.
 	 */
@@ -199,6 +214,22 @@ export interface IlamyCalendarProps {
 	 * Useful for applying custom styles to the header.
 	 */
 	headerClassName?: string
+	/**
+	 * Optional sidebar content rendered to the left of the calendar.
+	 */
+	sidebar?: React.ReactNode
+	/**
+	 * Whether the sidebar is open by default.
+	 */
+	defaultSidebarOpen?: boolean
+	/**
+	 * Optional callback when sidebar open state changes.
+	 */
+	onSidebarOpenChange?: (open: boolean) => void
+	/**
+	 * Custom class name for the sidebar container.
+	 */
+	sidebarClassName?: string
 	/**
 	 * Configuration for business hours.
 	 * Defines the working hours to be highlighted on the calendar.

@@ -28,6 +28,9 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 		openEventForm,
 		headerComponent,
 		headerClassName,
+		sidebar,
+		isSidebarOpen,
+		toggleSidebar,
 		t,
 		firstDayOfWeek,
 		currentDate,
@@ -40,6 +43,9 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 		openEventForm: ctx.openEventForm,
 		headerComponent: ctx.headerComponent,
 		headerClassName: ctx.headerClassName,
+		sidebar: ctx.sidebar,
+		isSidebarOpen: ctx.isSidebarOpen,
+		toggleSidebar: ctx.toggleSidebar,
 		t: ctx.t,
 		firstDayOfWeek: ctx.firstDayOfWeek,
 		currentDate: ctx.currentDate,
@@ -97,7 +103,24 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 				)}
 			>
 				<div className="flex flex-wrap items-center justify-center gap-1 @2xl/base-header:justify-start">
-					<CalendarIcon className="h-5 w-5" />
+					<Button
+						aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+						aria-pressed={isSidebarOpen}
+						className="h-7 w-7"
+						disabled={!sidebar}
+						onClick={() => {
+							if (!sidebar) {
+								return
+							}
+							toggleSidebar()
+						}}
+						size="icon"
+						variant="ghost"
+					>
+						<CalendarIcon
+							className={cn('h-4 w-4', sidebar ? '' : 'opacity-50')}
+						/>
+					</Button>
 					<TitleContent />
 					{!isTodayInView && (
 						<Button onClick={today} size="sm" variant="outline">

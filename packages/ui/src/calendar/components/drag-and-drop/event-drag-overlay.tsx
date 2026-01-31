@@ -5,6 +5,33 @@ import { useImperativeHandle, useState } from 'react'
 import { cn } from '@tenas-ai/ui/calendar/lib/utils'
 import type { CalendarEvent } from '../types'
 
+/** Check whether the value is a CSS color string. */
+const isCssColorValue = (value?: string) => {
+	if (!value) return false
+	return (
+		value.startsWith('#') ||
+		value.startsWith('rgb(') ||
+		value.startsWith('rgba(') ||
+		value.startsWith('hsl(') ||
+		value.startsWith('hsla(')
+	)
+}
+
+/** Resolve className/style for event colors. */
+const resolveEventColor = (
+	value: string | undefined,
+	fallbackClass: string,
+	styleKey: 'backgroundColor' | 'color'
+) => {
+	if (!value) {
+		return { className: fallbackClass, style: {} }
+	}
+	if (isCssColorValue(value)) {
+		return { className: '', style: { [styleKey]: value } }
+	}
+	return { className: value, style: {} }
+}
+
 interface EventDragOverlayProps {
 	ref: React.Ref<{ setActiveEvent: (event: DragOverlayEvent | null) => void }>
 }
@@ -42,7 +69,7 @@ export const EventDragOverlay: React.FC<EventDragOverlayProps> = ({ ref }) => {
 		<DragOverlay modifiers={[snapCenterToCursor]}>
 			{activeEvent && (
 				<div
-					className="cursor-grab truncate shadow-lg"
+					className="truncate shadow-lg"
 					// 逻辑：尽量使用原事件尺寸，减少拖拽影子与真实事件的差异。
 					style={{
 						width: activeEvent.width ? Math.round(activeEvent.width) : undefined,
@@ -51,8 +78,13 @@ export const EventDragOverlay: React.FC<EventDragOverlayProps> = ({ ref }) => {
 				>
 					<div
 						className={cn(
-							activeEvent.event.backgroundColor || 'bg-blue-500',
-							activeEvent.event.color || 'text-white',
+							resolveEventColor(
+								activeEvent.event.backgroundColor,
+								'bg-blue-500',
+								'backgroundColor'
+							).className,
+							resolveEventColor(activeEvent.event.color, 'text-white', 'color')
+								.className,
 							'h-full w-full px-1 border-[1.5px] border-card text-left overflow-clip relative',
 							getBorderRadiusClass(
 								Boolean(
@@ -66,8 +98,13 @@ export const EventDragOverlay: React.FC<EventDragOverlayProps> = ({ ref }) => {
 							)
 						)}
 						style={{
-							backgroundColor: activeEvent.event.backgroundColor,
-							color: activeEvent.event.color,
+							...resolveEventColor(
+								activeEvent.event.backgroundColor,
+								'bg-blue-500',
+								'backgroundColor'
+							).style,
+							...resolveEventColor(activeEvent.event.color, 'text-white', 'color')
+								.style,
 						}}
 					>
 						<p className="text-[10px] font-semibold sm:text-xs mt-0.5">

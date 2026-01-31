@@ -1748,7 +1748,7 @@ export const PageTreeMenu = ({
             ) : null}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="child-project-version-control" className="text-right">
-                是否开启项目版本控制
+                项目版本控制
               </Label>
               <div className="col-span-3 flex items-center gap-3">
                 <Switch
@@ -1826,7 +1826,7 @@ export const PageTreeMenu = ({
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="import-child-version-control" className="text-right">
-                是否开启项目版本控制
+                项目版本控制
               </Label>
               <div className="col-span-3 flex items-center gap-3">
                 <Switch

@@ -25,6 +25,10 @@
         "to": "speech"
       },
       {
+        "from": "resources/calendar",
+        "to": "calendar"
+      },
+      {
         "from": "resources/icon.icns",
         "to": "icon.icns"
       },
@@ -77,7 +81,9 @@
       "icon": "resources/icon.icns",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "语音输入需要访问麦克风。",
-        "NSSpeechRecognitionUsageDescription": "语音输入需要使用系统语音识别。"
+        "NSSpeechRecognitionUsageDescription": "语音输入需要使用系统语音识别。",
+        "NSCalendarsUsageDescription": "日历同步需要访问系统日历。",
+        "NSRemindersUsageDescription": "提醒事项同步需要访问系统提醒事项。"
       }
     },
     "win": {
@@ -95,9 +101,10 @@
     ]
   },
   "scripts": {
-    "predesktop": "node scripts/fixElectronInstall.mjs && pnpm run build:speech-helper",
+    "predesktop": "node scripts/fixElectronInstall.mjs && pnpm run build:speech-helper && pnpm run build:calendar-helper",
     "desktop": "electron-forge start",
     "build:speech-helper": "node scripts/buildSpeechHelper.mjs",
+    "build:calendar-helper": "node scripts/buildCalendarHelper.mjs",
     "package": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package",
     "package:noproxy": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u all_proxy -u ALL_PROXY -u no_proxy -u NO_PROXY electron-forge package",
     "make": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge make",

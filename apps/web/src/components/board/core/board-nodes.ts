@@ -8,6 +8,7 @@ import { ImagePromptGenerateNodeDefinition } from "../nodes/ImagePromptGenerateN
 import { LinkNodeDefinition } from "../nodes/LinkNode";
 import { StrokeNodeDefinition } from "../nodes/StrokeNode";
 import { TextNodeDefinition } from "../nodes/TextNode";
+import { LoadingNodeDefinition } from "../nodes/LoadingNode";
 
 /** Default node definitions registered for board canvases. */
 export const BOARD_NODE_DEFINITIONS = [
@@ -20,6 +21,7 @@ export const BOARD_NODE_DEFINITIONS = [
   ImagePromptGenerateNodeDefinition,
   ImageGenerateNodeDefinition,
   VideoGenerateNodeDefinition,
+  LoadingNodeDefinition,
   GroupNodeDefinition,
   ImageGroupNodeDefinition,
 ];

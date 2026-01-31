@@ -91,7 +91,7 @@ type FileSystemGridProps = {
     event: DragEvent<HTMLElement>
   ) => void;
   onEntryDragStart?: (
-    entry: FileSystemEntry,
+    entries: FileSystemEntry[],
     event: DragEvent<HTMLElement>
   ) => void;
   renamingUri?: string | null;

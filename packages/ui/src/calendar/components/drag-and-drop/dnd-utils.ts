@@ -25,6 +25,14 @@ export const getUpdatedEvent = (
 		const { date } = over.data.current
 
 		newStart = dayjs(date)
+		if (!activeEvent.allDay) {
+			// 逻辑：非全天事件拖拽到日期格时保留原始时间。
+			newStart = newStart
+				.hour(activeEvent.start.hour())
+				.minute(activeEvent.start.minute())
+				.second(activeEvent.start.second())
+				.millisecond(activeEvent.start.millisecond())
+		}
 	}
 
 	const eventDuration = activeEvent.end.diff(activeEvent.start, 'second')
@@ -32,7 +40,8 @@ export const getUpdatedEvent = (
 	// Create new end time by adding the original duration
 	let newEnd = newStart.add(eventDuration, 'second')
 
-	if (newEnd.isSame(newEnd.startOf('day'))) {
+	const updatesAllDay = isTimeCell ? false : allDay === true ? true : activeEvent.allDay
+	if (updatesAllDay && newEnd.isSame(newEnd.startOf('day'))) {
 		// If the new end time is at midnight, set it to 24 hours of partial day
 		newEnd = newEnd.subtract(1, 'day').endOf('day')
 	}
@@ -42,7 +51,8 @@ export const getUpdatedEvent = (
 		start: newStart,
 		end: newEnd,
 		resourceId,
-		allDay: isTimeCell ? false : (allDay ?? activeEvent.allDay),
+		// 逻辑：非时间格拖拽默认保持原来的全天状态，仅当目标格标记为全天时才切换为全天。
+		allDay: updatesAllDay,
 	}
 	return { activeEvent, updates }
 }

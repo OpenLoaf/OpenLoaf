@@ -21,10 +21,11 @@ import {
 	GAP_BETWEEN_ELEMENTS,
 	WEEK_DAYS_NUMBER_MAP,
 } from '@tenas-ai/ui/calendar/lib/constants'
-import { normalizeEvents, safeDate } from '@tenas-ai/ui/calendar/lib/utils'
+import { cn, normalizeEvents, safeDate } from '@tenas-ai/ui/calendar/lib/utils'
 
 const CalendarContent: React.FC = () => {
-	const { view, dayMaxEvents } = useCalendarContext()
+	const { view, dayMaxEvents, sidebar, sidebarClassName, isSidebarOpen } =
+		useCalendarContext()
 
 	const viewMap = {
 		month: <MonthView dayMaxEvents={dayMaxEvents} key="month" />,
@@ -34,21 +35,31 @@ const CalendarContent: React.FC = () => {
 	}
 
 	return (
-		<div className="flex flex-col w-full h-full" data-testid="ilamy-calendar">
-			<Header className="p-1" />
-			{/* Calendar Body with AnimatePresence for view transitions */}
-			<CalendarDndContext>
-				<AnimatedSection
-					className="w-full h-[calc(100%-3.5rem)]"
-					direction="horizontal"
-					transitionKey={view}
+		<div className="flex w-full h-full" data-testid="ilamy-calendar">
+			{sidebar && isSidebarOpen && (
+				<aside
+					className={cn('h-full w-64 shrink-0', sidebarClassName)}
+					data-testid="calendar-sidebar"
 				>
-					<div className="border h-full w-full" data-testid="calendar-body">
-						{viewMap[view]}
-					</div>
-				</AnimatedSection>
-			</CalendarDndContext>
-			<EventFormDialog />
+					{sidebar}
+				</aside>
+			)}
+			<div className="flex flex-col w-full h-full min-w-0">
+				<Header className="p-1" />
+				{/* Calendar Body with AnimatePresence for view transitions */}
+				<CalendarDndContext>
+					<AnimatedSection
+						className="w-full h-[calc(100%-3.5rem)]"
+						direction="horizontal"
+						transitionKey={view}
+					>
+						<div className="border h-full w-full" data-testid="calendar-body">
+							{viewMap[view]}
+						</div>
+					</AnimatedSection>
+				</CalendarDndContext>
+				<EventFormDialog />
+			</div>
 		</div>
 	)
 }

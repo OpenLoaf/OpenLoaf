@@ -82,7 +82,7 @@ const NoMemoVerticalGridCol: React.FC<VerticalGridColProps> = ({
 						return (
 							<GridCell
 								className={cn(
-									'hover:bg-accent relative z-10 h-[60px] cursor-pointer border-b',
+									'hover:bg-accent relative z-10 h-[60px] border-b',
 									minute === 60 ? '' : 'border-dashed h-[15px] min-h-[15px]',
 									isLastColumn ? 'border-r-0' : 'border-r'
 								)}

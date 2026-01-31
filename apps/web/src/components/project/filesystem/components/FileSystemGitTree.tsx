@@ -77,7 +77,7 @@ type FileSystemGitTreeProps = {
   dragRootUri?: string;
   /** Triggered when a drag starts. */
   onEntryDragStart?: (
-    entry: FileSystemEntry,
+    entries: FileSystemEntry[],
     event: ReactDragEvent<HTMLElement>
   ) => void;
   /** Triggered when dropping onto a folder. */

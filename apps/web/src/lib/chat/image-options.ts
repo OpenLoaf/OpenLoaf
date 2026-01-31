@@ -46,13 +46,47 @@ export function normalizeImageOptions(
     typeof value.providerOptions?.openai?.style === "string"
       ? value.providerOptions.openai.style.trim()
       : "";
-  const providerOptions =
-    quality || style
+  const volcengineRaw = value.providerOptions?.volcengine;
+  const volcengineCandidate =
+    typeof volcengineRaw === "object" && volcengineRaw
       ? {
-          openai: {
-            ...(quality ? { quality } : {}),
-            ...(style ? { style } : {}),
-          },
+          ...(typeof (volcengineRaw as any).scale === "number" &&
+          Number.isFinite((volcengineRaw as any).scale)
+            ? { scale: (volcengineRaw as any).scale }
+            : {}),
+          ...(typeof (volcengineRaw as any).forceSingle === "boolean"
+            ? { forceSingle: (volcengineRaw as any).forceSingle }
+            : {}),
+          ...(typeof (volcengineRaw as any).minRatio === "number" &&
+          Number.isFinite((volcengineRaw as any).minRatio)
+            ? { minRatio: (volcengineRaw as any).minRatio }
+            : {}),
+          ...(typeof (volcengineRaw as any).maxRatio === "number" &&
+          Number.isFinite((volcengineRaw as any).maxRatio)
+            ? { maxRatio: (volcengineRaw as any).maxRatio }
+            : {}),
+          ...(typeof (volcengineRaw as any).size === "number" &&
+          Number.isFinite((volcengineRaw as any).size)
+            ? { size: (volcengineRaw as any).size }
+            : {}),
+        }
+      : undefined;
+  const volcengine =
+    volcengineCandidate && Object.keys(volcengineCandidate).length > 0
+      ? volcengineCandidate
+      : undefined;
+  const providerOptions =
+    quality || style || volcengine
+      ? {
+          ...(quality || style
+            ? {
+                openai: {
+                  ...(quality ? { quality } : {}),
+                  ...(style ? { style } : {}),
+                },
+              }
+            : {}),
+          ...(volcengine ? { volcengine } : {}),
         }
       : undefined;
 

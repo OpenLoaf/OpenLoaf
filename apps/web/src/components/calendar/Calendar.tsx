@@ -4,7 +4,19 @@ import type { IlamyCalendarProps } from "@tenas-ai/ui/calendar";
 import { IlamyCalendar } from "@tenas-ai/ui/calendar";
 import styles from "./Calendar.module.css";
 import { useBasicConfig } from "@/hooks/use-basic-config";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import dayjs from "@tenas-ai/ui/calendar/lib/configs/dayjs-config";
+import { Button } from "@tenas-ai/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@tenas-ai/ui/calendar/components/ui/dialog";
+import { EventForm, type EventFormProps } from "@tenas-ai/ui/calendar/components/event-form/event-form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@tenas-ai/ui/calendar/components/ui/select";
+import { Switch } from "@tenas-ai/ui/switch";
 import "dayjs/locale/zh-cn";
 import "dayjs/locale/en";
 import "dayjs/locale/ja";
@@ -12,730 +24,247 @@ import "dayjs/locale/ko";
 import "dayjs/locale/fr";
 import "dayjs/locale/de";
 import "dayjs/locale/es";
+import { CALENDAR_LOCALE_BY_LANGUAGE, CALENDAR_TRANSLATIONS, type LanguageId } from "./calendar-i18n";
+import { CalendarFilterPanel } from "./calendar-filter-panel";
+import { useCalendarPageState } from "./use-calendar-page-state";
 
-type LanguageId = "zh-CN" | "en-US" | "ja-JP" | "ko-KR" | "fr-FR" | "de-DE" | "es-ES";
-// Storage key for calendar events.
-const CALENDAR_EVENTS_STORAGE_KEY = "tenas:calendar-events";
+type SystemCalendarEvent = TenasCalendarEvent;
+type SystemCalendarItem = TenasCalendarItem;
+type CalendarEvent = NonNullable<IlamyCalendarProps["events"]>[number];
+type CalendarKind = "event" | "reminder";
 
-// Read events from localStorage.
-const readStoredEvents = (): IlamyCalendarProps["events"] => {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  const raw = window.localStorage.getItem(CALENDAR_EVENTS_STORAGE_KEY);
-  if (!raw) {
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
+/** Convert system event payload into calendar UI event. */
+function toCalendarEvent(
+  event: SystemCalendarEvent,
+  calendarColorMap: Map<string, string>,
+  kind: CalendarKind
+): CalendarEvent {
+  const backgroundColor =
+    event.color ?? (event.calendarId ? calendarColorMap.get(event.calendarId) : undefined);
+  const textColor = backgroundColor ? getReadableTextColor(backgroundColor) : undefined;
+  return {
+    id: event.id,
+    title: event.title,
+    start: dayjs(event.start),
+    end: dayjs(event.end),
+    allDay: event.allDay,
+    description: event.description,
+    location: event.location,
+    color: textColor,
+    backgroundColor,
+    data: {
+      calendarId: event.calendarId,
+      recurrence: event.recurrence,
+      source: "system",
+      kind,
+      completed: event.completed === true,
+    },
+  };
+}
 
-// Persist events to localStorage.
-const writeStoredEvents = (nextEvents: IlamyCalendarProps["events"]) => {
-  if (typeof window === "undefined") {
-    return;
+/** Convert calendar UI event into system event payload. */
+function toSystemEvent(event: CalendarEvent): SystemCalendarEvent {
+  const meta = event.data as {
+    calendarId?: string;
+    recurrence?: string;
+    completed?: boolean;
+    kind?: CalendarKind;
+  } | undefined;
+  const calendarId = meta?.calendarId?.trim();
+  const recurrence = meta?.recurrence?.trim();
+  const isReminder = meta?.kind === "reminder";
+  let start = event.start;
+  let end = event.end;
+  if (isReminder && event.allDay) {
+    // 逻辑：提醒事项的全天日期用本地日期字符串作为锚点，避免时区换算导致的日期回退。
+    const localStart = dayjs(event.start).local();
+    const dateLabel = localStart.format("YYYY-MM-DD");
+    const anchor = dayjs(`${dateLabel}T12:00:00`);
+    start = anchor;
+    end = anchor.add(1, "day");
   }
-  window.localStorage.setItem(
-    CALENDAR_EVENTS_STORAGE_KEY,
-    JSON.stringify(nextEvents ?? [])
+  return {
+    id: String(event.id),
+    title: event.title,
+    start: start.toISOString(),
+    end: end.toISOString(),
+    allDay: event.allDay,
+    description: event.description,
+    location: event.location,
+    color: undefined,
+    calendarId: calendarId || undefined,
+    recurrence: recurrence || undefined,
+    completed: meta?.completed,
+  };
+}
+
+/** Resolve event kind from UI payload. */
+function getEventKind(event: CalendarEvent): CalendarKind {
+  const meta = event.data as { kind?: CalendarKind } | undefined;
+  return meta?.kind === "reminder" ? "reminder" : "event";
+}
+
+/** Pick a readable text color for a given background hex color. */
+function getReadableTextColor(background: string): string {
+  const hex = background.replace("#", "");
+  if (hex.length !== 6) return "#111827";
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? "#111827" : "#ffffff";
+}
+
+/** Build calendar color map with fallback palette for missing colors. */
+function buildCalendarColorMap(calendars: SystemCalendarItem[]): Map<string, string> {
+  const palette = ["#60A5FA", "#34D399", "#FBBF24", "#F87171", "#A78BFA", "#F472B6"];
+  const map = new Map<string, string>();
+  calendars.forEach((item, index) => {
+    map.set(item.id, item.color ?? palette[index % palette.length]);
+  });
+  return map;
+}
+
+/** Render calendar event form with system calendar selection. */
+function SystemEventFormDialog({
+  props,
+  calendars,
+  reminderLists,
+  uiLanguage,
+  translations,
+  defaultCalendarId,
+}: {
+  props: EventFormProps;
+  calendars: SystemCalendarItem[];
+  reminderLists: SystemCalendarItem[];
+  uiLanguage: LanguageId;
+  translations: IlamyCalendarProps["translations"];
+  defaultCalendarId: string;
+}) {
+  const initialKind = (props.selectedEvent?.data as { kind?: CalendarKind } | undefined)?.kind;
+  const [eventKind, setEventKind] = useState<CalendarKind>(initialKind ?? "event");
+  const [reminderTimeEnabled, setReminderTimeEnabled] = useState(
+    props.selectedEvent?.allDay === false && initialKind === "reminder"
   );
-};
+  const [calendarId, setCalendarId] = useState(defaultCalendarId);
 
-const CALENDAR_LOCALE_BY_LANGUAGE: Record<LanguageId, string> = {
-  "zh-CN": "zh-cn",
-  "en-US": "en",
-  "ja-JP": "ja",
-  "ko-KR": "ko",
-  "fr-FR": "fr",
-  "de-DE": "de",
-  "es-ES": "es",
-};
+  useEffect(() => {
+    setCalendarId(defaultCalendarId);
+  }, [defaultCalendarId]);
 
-const CALENDAR_TRANSLATIONS: Record<LanguageId, IlamyCalendarProps["translations"]> = {
-  "zh-CN": {
-    today: "今天",
-    create: "创建",
-    new: "新建",
-    update: "更新",
-    delete: "删除",
-    cancel: "取消",
-    export: "导出",
-    event: "事件",
-    events: "事件",
-    newEvent: "新建事件",
-    title: "标题",
-    description: "描述",
-    location: "地点",
-    allDay: "全天",
-    startDate: "开始日期",
-    endDate: "结束日期",
-    startTime: "开始时间",
-    endTime: "结束时间",
-    color: "颜色",
-    createEvent: "创建事件",
-    editEvent: "编辑事件",
-    addNewEvent: "为日历添加新事件",
-    editEventDetails: "编辑事件详情",
-    eventTitlePlaceholder: "事件标题",
-    eventDescriptionPlaceholder: "事件描述（可选）",
-    eventLocationPlaceholder: "事件地点（可选）",
-    repeat: "重复",
-    repeats: "重复",
-    customRecurrence: "自定义重复",
-    daily: "每天",
-    weekly: "每周",
-    monthly: "每月",
-    yearly: "每年",
-    interval: "间隔",
-    repeatOn: "重复于",
-    never: "从不",
-    count: "次数",
-    every: "每",
-    ends: "结束",
-    after: "之后",
-    occurrences: "次",
-    on: "于",
-    editRecurringEvent: "编辑重复事件",
-    deleteRecurringEvent: "删除重复事件",
-    editRecurringEventQuestion: "是重复事件。你想如何编辑？",
-    deleteRecurringEventQuestion: "是重复事件。你想如何删除？",
-    thisEvent: "仅此事件",
-    thisEventDescription: "只修改这一条",
-    thisAndFollowingEvents: "此及之后",
-    thisAndFollowingEventsDescription: "修改该次及之后所有",
-    allEvents: "全部事件",
-    allEventsDescription: "修改整个重复系列",
-    onlyChangeThis: "仅修改这次",
-    changeThisAndFuture: "修改这次及以后",
-    changeEntireSeries: "修改整个系列",
-    onlyDeleteThis: "仅删除这次",
-    deleteThisAndFuture: "删除这次及以后",
-    deleteEntireSeries: "删除整个系列",
-    month: "月",
-    week: "周",
-    day: "日",
-    year: "年",
-    more: "更多",
-    resources: "资源",
-    resource: "资源",
-    time: "时间",
-    date: "日期",
-    noResourcesVisible: "无可见资源",
-    addResourcesOrShowExisting: "添加资源或显示现有资源",
-    sunday: "星期日",
-    monday: "星期一",
-    tuesday: "星期二",
-    wednesday: "星期三",
-    thursday: "星期四",
-    friday: "星期五",
-    saturday: "星期六",
-    sun: "日",
-    mon: "一",
-    tue: "二",
-    wed: "三",
-    thu: "四",
-    fri: "五",
-    sat: "六",
-    january: "一月",
-    february: "二月",
-    march: "三月",
-    april: "四月",
-    may: "五月",
-    june: "六月",
-    july: "七月",
-    august: "八月",
-    september: "九月",
-    october: "十月",
-    november: "十一月",
-    december: "十二月",
-  },
-  "en-US": {
-    today: "Today",
-    create: "Create",
-    new: "New",
-    update: "Update",
-    delete: "Delete",
-    cancel: "Cancel",
-    export: "Export",
-    event: "Event",
-    events: "Events",
-    newEvent: "New Event",
-    title: "Title",
-    description: "Description",
-    location: "Location",
-    allDay: "All day",
-    startDate: "Start Date",
-    endDate: "End Date",
-    startTime: "Start Time",
-    endTime: "End Time",
-    color: "Color",
-    createEvent: "Create Event",
-    editEvent: "Edit Event",
-    addNewEvent: "Add a new event to your calendar",
-    editEventDetails: "Edit your event details",
-    eventTitlePlaceholder: "Event title",
-    eventDescriptionPlaceholder: "Event description (optional)",
-    eventLocationPlaceholder: "Event location (optional)",
-    repeat: "Repeat",
-    repeats: "Repeats",
-    customRecurrence: "Custom recurrence",
-    daily: "Daily",
-    weekly: "Weekly",
-    monthly: "Monthly",
-    yearly: "Yearly",
-    interval: "Interval",
-    repeatOn: "Repeat on",
-    never: "Never",
-    count: "Count",
-    every: "Every",
-    ends: "Ends",
-    after: "After",
-    occurrences: "occurrences",
-    on: "On",
-    editRecurringEvent: "Edit recurring event",
-    deleteRecurringEvent: "Delete recurring event",
-    editRecurringEventQuestion: "is a recurring event. How would you like to edit it?",
-    deleteRecurringEventQuestion: "is a recurring event. How would you like to delete it?",
-    thisEvent: "This event",
-    thisEventDescription: "Only change this specific occurrence",
-    thisAndFollowingEvents: "This and following events",
-    thisAndFollowingEventsDescription: "Edit this and all future occurrences",
-    allEvents: "All events",
-    allEventsDescription: "Edit the entire recurring series",
-    onlyChangeThis: "Only change this specific occurrence",
-    changeThisAndFuture: "Change this and all future occurrences",
-    changeEntireSeries: "Change the entire recurring series",
-    onlyDeleteThis: "Only delete this specific occurrence",
-    deleteThisAndFuture: "Delete this and all future occurrences",
-    deleteEntireSeries: "Delete the entire recurring series",
-    month: "Month",
-    week: "Week",
-    day: "Day",
-    year: "Year",
-    more: "more",
-    resources: "Resources",
-    resource: "Resource",
-    time: "Time",
-    date: "Date",
-    noResourcesVisible: "No resources visible",
-    addResourcesOrShowExisting: "Add resources or show existing ones",
-    sunday: "Sunday",
-    monday: "Monday",
-    tuesday: "Tuesday",
-    wednesday: "Wednesday",
-    thursday: "Thursday",
-    friday: "Friday",
-    saturday: "Saturday",
-    sun: "Sun",
-    mon: "Mon",
-    tue: "Tue",
-    wed: "Wed",
-    thu: "Thu",
-    fri: "Fri",
-    sat: "Sat",
-    january: "January",
-    february: "February",
-    march: "March",
-    april: "April",
-    may: "May",
-    june: "June",
-    july: "July",
-    august: "August",
-    september: "September",
-    october: "October",
-    november: "November",
-    december: "December",
-  },
-  "ja-JP": {
-    today: "今日",
-    create: "作成",
-    new: "新規",
-    update: "更新",
-    delete: "削除",
-    cancel: "キャンセル",
-    export: "エクスポート",
-    event: "予定",
-    events: "予定",
-    newEvent: "新しい予定",
-    title: "タイトル",
-    description: "説明",
-    location: "場所",
-    allDay: "終日",
-    startDate: "開始日",
-    endDate: "終了日",
-    startTime: "開始時刻",
-    endTime: "終了時刻",
-    color: "色",
-    createEvent: "予定を作成",
-    editEvent: "予定を編集",
-    addNewEvent: "カレンダーに新しい予定を追加",
-    editEventDetails: "予定の詳細を編集",
-    eventTitlePlaceholder: "予定のタイトル",
-    eventDescriptionPlaceholder: "予定の説明（任意）",
-    eventLocationPlaceholder: "場所（任意）",
-    repeat: "繰り返し",
-    repeats: "繰り返し",
-    customRecurrence: "カスタム繰り返し",
-    daily: "毎日",
-    weekly: "毎週",
-    monthly: "毎月",
-    yearly: "毎年",
-    interval: "間隔",
-    repeatOn: "繰り返す日",
-    never: "なし",
-    count: "回数",
-    every: "毎",
-    ends: "終了",
-    after: "後",
-    occurrences: "回",
-    on: "に",
-    editRecurringEvent: "繰り返し予定を編集",
-    deleteRecurringEvent: "繰り返し予定を削除",
-    editRecurringEventQuestion: "は繰り返し予定です。どう編集しますか？",
-    deleteRecurringEventQuestion: "は繰り返し予定です。どう削除しますか？",
-    thisEvent: "この予定のみ",
-    thisEventDescription: "この回のみ変更",
-    thisAndFollowingEvents: "この回と以降",
-    thisAndFollowingEventsDescription: "この回以降の全てを変更",
-    allEvents: "すべての予定",
-    allEventsDescription: "繰り返し全体を変更",
-    onlyChangeThis: "この回のみ変更",
-    changeThisAndFuture: "この回と以降を変更",
-    changeEntireSeries: "シリーズ全体を変更",
-    onlyDeleteThis: "この回のみ削除",
-    deleteThisAndFuture: "この回と以降を削除",
-    deleteEntireSeries: "シリーズ全体を削除",
-    month: "月",
-    week: "週",
-    day: "日",
-    year: "年",
-    more: "もっと見る",
-    resources: "リソース",
-    resource: "リソース",
-    time: "時間",
-    date: "日付",
-    noResourcesVisible: "表示できるリソースがありません",
-    addResourcesOrShowExisting: "リソースを追加するか既存を表示してください",
-    sunday: "日曜日",
-    monday: "月曜日",
-    tuesday: "火曜日",
-    wednesday: "水曜日",
-    thursday: "木曜日",
-    friday: "金曜日",
-    saturday: "土曜日",
-    sun: "日",
-    mon: "月",
-    tue: "火",
-    wed: "水",
-    thu: "木",
-    fri: "金",
-    sat: "土",
-    january: "1月",
-    february: "2月",
-    march: "3月",
-    april: "4月",
-    may: "5月",
-    june: "6月",
-    july: "7月",
-    august: "8月",
-    september: "9月",
-    october: "10月",
-    november: "11月",
-    december: "12月",
-  },
-  "ko-KR": {
-    today: "오늘",
-    create: "만들기",
-    new: "새로 만들기",
-    update: "업데이트",
-    delete: "삭제",
-    cancel: "취소",
-    export: "내보내기",
-    event: "일정",
-    events: "일정",
-    newEvent: "새 일정",
-    title: "제목",
-    description: "설명",
-    location: "장소",
-    allDay: "하루 종일",
-    startDate: "시작 날짜",
-    endDate: "종료 날짜",
-    startTime: "시작 시간",
-    endTime: "종료 시간",
-    color: "색상",
-    createEvent: "일정 만들기",
-    editEvent: "일정 편집",
-    addNewEvent: "캘린더에 새 일정을 추가하세요",
-    editEventDetails: "일정 세부정보 편집",
-    eventTitlePlaceholder: "일정 제목",
-    eventDescriptionPlaceholder: "일정 설명(선택)",
-    eventLocationPlaceholder: "장소(선택)",
-    repeat: "반복",
-    repeats: "반복",
-    customRecurrence: "사용자 지정 반복",
-    daily: "매일",
-    weekly: "매주",
-    monthly: "매월",
-    yearly: "매년",
-    interval: "간격",
-    repeatOn: "반복 요일",
-    never: "안 함",
-    count: "횟수",
-    every: "매",
-    ends: "종료",
-    after: "이후",
-    occurrences: "회",
-    on: "에",
-    editRecurringEvent: "반복 일정 편집",
-    deleteRecurringEvent: "반복 일정 삭제",
-    editRecurringEventQuestion: "은(는) 반복 일정입니다. 어떻게 편집할까요?",
-    deleteRecurringEventQuestion: "은(는) 반복 일정입니다. 어떻게 삭제할까요?",
-    thisEvent: "이 일정만",
-    thisEventDescription: "이 회차만 변경",
-    thisAndFollowingEvents: "이후 일정 포함",
-    thisAndFollowingEventsDescription: "이 회차 이후 모두 변경",
-    allEvents: "전체 일정",
-    allEventsDescription: "반복 전체를 변경",
-    onlyChangeThis: "이 회차만 변경",
-    changeThisAndFuture: "이 회차 및 이후 변경",
-    changeEntireSeries: "시리즈 전체 변경",
-    onlyDeleteThis: "이 회차만 삭제",
-    deleteThisAndFuture: "이 회차 및 이후 삭제",
-    deleteEntireSeries: "시리즈 전체 삭제",
-    month: "월",
-    week: "주",
-    day: "일",
-    year: "년",
-    more: "더보기",
-    resources: "리소스",
-    resource: "리소스",
-    time: "시간",
-    date: "날짜",
-    noResourcesVisible: "표시할 리소스가 없습니다",
-    addResourcesOrShowExisting: "리소스를 추가하거나 기존 리소스를 표시하세요",
-    sunday: "일요일",
-    monday: "월요일",
-    tuesday: "화요일",
-    wednesday: "수요일",
-    thursday: "목요일",
-    friday: "금요일",
-    saturday: "토요일",
-    sun: "일",
-    mon: "월",
-    tue: "화",
-    wed: "수",
-    thu: "목",
-    fri: "금",
-    sat: "토",
-    january: "1월",
-    february: "2월",
-    march: "3월",
-    april: "4월",
-    may: "5월",
-    june: "6월",
-    july: "7월",
-    august: "8월",
-    september: "9월",
-    october: "10월",
-    november: "11월",
-    december: "12월",
-  },
-  "fr-FR": {
-    today: "Aujourd'hui",
-    create: "Créer",
-    new: "Nouveau",
-    update: "Mettre à jour",
-    delete: "Supprimer",
-    cancel: "Annuler",
-    export: "Exporter",
-    event: "Événement",
-    events: "Événements",
-    newEvent: "Nouvel événement",
-    title: "Titre",
-    description: "Description",
-    location: "Lieu",
-    allDay: "Toute la journée",
-    startDate: "Date de début",
-    endDate: "Date de fin",
-    startTime: "Heure de début",
-    endTime: "Heure de fin",
-    color: "Couleur",
-    createEvent: "Créer un événement",
-    editEvent: "Modifier l'événement",
-    addNewEvent: "Ajouter un nouvel événement à votre calendrier",
-    editEventDetails: "Modifier les détails de l'événement",
-    eventTitlePlaceholder: "Titre de l'événement",
-    eventDescriptionPlaceholder: "Description de l'événement (optionnelle)",
-    eventLocationPlaceholder: "Lieu de l'événement (optionnel)",
-    repeat: "Répéter",
-    repeats: "Répète",
-    customRecurrence: "Récurrence personnalisée",
-    daily: "Quotidien",
-    weekly: "Hebdomadaire",
-    monthly: "Mensuel",
-    yearly: "Annuel",
-    interval: "Intervalle",
-    repeatOn: "Répéter le",
-    never: "Jamais",
-    count: "Nombre",
-    every: "Chaque",
-    ends: "Se termine",
-    after: "Après",
-    occurrences: "occurrences",
-    on: "Le",
-    editRecurringEvent: "Modifier l'événement récurrent",
-    deleteRecurringEvent: "Supprimer l'événement récurrent",
-    editRecurringEventQuestion: "est un événement récurrent. Comment souhaitez-vous le modifier ?",
-    deleteRecurringEventQuestion: "est un événement récurrent. Comment souhaitez-vous le supprimer ?",
-    thisEvent: "Cet événement",
-    thisEventDescription: "Modifier uniquement cette occurrence",
-    thisAndFollowingEvents: "Cet événement et les suivants",
-    thisAndFollowingEventsDescription: "Modifier cette occurrence et toutes les suivantes",
-    allEvents: "Tous les événements",
-    allEventsDescription: "Modifier toute la série récurrente",
-    onlyChangeThis: "Modifier uniquement cette occurrence",
-    changeThisAndFuture: "Modifier cette occurrence et les futures",
-    changeEntireSeries: "Modifier toute la série",
-    onlyDeleteThis: "Supprimer uniquement cette occurrence",
-    deleteThisAndFuture: "Supprimer cette occurrence et les futures",
-    deleteEntireSeries: "Supprimer toute la série",
-    month: "Mois",
-    week: "Semaine",
-    day: "Jour",
-    year: "Année",
-    more: "plus",
-    resources: "Ressources",
-    resource: "Ressource",
-    time: "Heure",
-    date: "Date",
-    noResourcesVisible: "Aucune ressource visible",
-    addResourcesOrShowExisting: "Ajoutez des ressources ou affichez les existantes",
-    sunday: "Dimanche",
-    monday: "Lundi",
-    tuesday: "Mardi",
-    wednesday: "Mercredi",
-    thursday: "Jeudi",
-    friday: "Vendredi",
-    saturday: "Samedi",
-    sun: "Dim",
-    mon: "Lun",
-    tue: "Mar",
-    wed: "Mer",
-    thu: "Jeu",
-    fri: "Ven",
-    sat: "Sam",
-    january: "Janvier",
-    february: "Février",
-    march: "Mars",
-    april: "Avril",
-    may: "Mai",
-    june: "Juin",
-    july: "Juillet",
-    august: "Août",
-    september: "Septembre",
-    october: "Octobre",
-    november: "Novembre",
-    december: "Décembre",
-  },
-  "de-DE": {
-    today: "Heute",
-    create: "Erstellen",
-    new: "Neu",
-    update: "Aktualisieren",
-    delete: "Löschen",
-    cancel: "Abbrechen",
-    export: "Exportieren",
-    event: "Ereignis",
-    events: "Ereignisse",
-    newEvent: "Neues Ereignis",
-    title: "Titel",
-    description: "Beschreibung",
-    location: "Ort",
-    allDay: "Ganztägig",
-    startDate: "Startdatum",
-    endDate: "Enddatum",
-    startTime: "Startzeit",
-    endTime: "Endzeit",
-    color: "Farbe",
-    createEvent: "Ereignis erstellen",
-    editEvent: "Ereignis bearbeiten",
-    addNewEvent: "Fügen Sie Ihrem Kalender ein neues Ereignis hinzu",
-    editEventDetails: "Ereignisdetails bearbeiten",
-    eventTitlePlaceholder: "Ereignistitel",
-    eventDescriptionPlaceholder: "Ereignisbeschreibung (optional)",
-    eventLocationPlaceholder: "Ereignisort (optional)",
-    repeat: "Wiederholen",
-    repeats: "Wiederholt",
-    customRecurrence: "Benutzerdefinierte Wiederholung",
-    daily: "Täglich",
-    weekly: "Wöchentlich",
-    monthly: "Monatlich",
-    yearly: "Jährlich",
-    interval: "Intervall",
-    repeatOn: "Wiederholen am",
-    never: "Nie",
-    count: "Anzahl",
-    every: "Jede",
-    ends: "Endet",
-    after: "Nach",
-    occurrences: "Vorkommen",
-    on: "Am",
-    editRecurringEvent: "Serientermin bearbeiten",
-    deleteRecurringEvent: "Serientermin löschen",
-    editRecurringEventQuestion: "ist ein Serientermin. Wie möchten Sie ihn bearbeiten?",
-    deleteRecurringEventQuestion: "ist ein Serientermin. Wie möchten Sie ihn löschen?",
-    thisEvent: "Dieses Ereignis",
-    thisEventDescription: "Nur dieses Vorkommen ändern",
-    thisAndFollowingEvents: "Dieses und folgende",
-    thisAndFollowingEventsDescription: "Dieses und alle folgenden ändern",
-    allEvents: "Alle Ereignisse",
-    allEventsDescription: "Die gesamte Serie ändern",
-    onlyChangeThis: "Nur dieses Vorkommen ändern",
-    changeThisAndFuture: "Dieses und zukünftige ändern",
-    changeEntireSeries: "Ganze Serie ändern",
-    onlyDeleteThis: "Nur dieses Vorkommen löschen",
-    deleteThisAndFuture: "Dieses und zukünftige löschen",
-    deleteEntireSeries: "Ganze Serie löschen",
-    month: "Monat",
-    week: "Woche",
-    day: "Tag",
-    year: "Jahr",
-    more: "mehr",
-    resources: "Ressourcen",
-    resource: "Ressource",
-    time: "Zeit",
-    date: "Datum",
-    noResourcesVisible: "Keine Ressourcen sichtbar",
-    addResourcesOrShowExisting: "Ressourcen hinzufügen oder vorhandene anzeigen",
-    sunday: "Sonntag",
-    monday: "Montag",
-    tuesday: "Dienstag",
-    wednesday: "Mittwoch",
-    thursday: "Donnerstag",
-    friday: "Freitag",
-    saturday: "Samstag",
-    sun: "So",
-    mon: "Mo",
-    tue: "Di",
-    wed: "Mi",
-    thu: "Do",
-    fri: "Fr",
-    sat: "Sa",
-    january: "Januar",
-    february: "Februar",
-    march: "März",
-    april: "April",
-    may: "Mai",
-    june: "Juni",
-    july: "Juli",
-    august: "August",
-    september: "September",
-    october: "Oktober",
-    november: "November",
-    december: "Dezember",
-  },
-  "es-ES": {
-    today: "Hoy",
-    create: "Crear",
-    new: "Nuevo",
-    update: "Actualizar",
-    delete: "Eliminar",
-    cancel: "Cancelar",
-    export: "Exportar",
-    event: "Evento",
-    events: "Eventos",
-    newEvent: "Nuevo evento",
-    title: "Título",
-    description: "Descripción",
-    location: "Ubicación",
-    allDay: "Todo el día",
-    startDate: "Fecha de inicio",
-    endDate: "Fecha de fin",
-    startTime: "Hora de inicio",
-    endTime: "Hora de fin",
-    color: "Color",
-    createEvent: "Crear evento",
-    editEvent: "Editar evento",
-    addNewEvent: "Agregar un nuevo evento a tu calendario",
-    editEventDetails: "Editar detalles del evento",
-    eventTitlePlaceholder: "Título del evento",
-    eventDescriptionPlaceholder: "Descripción del evento (opcional)",
-    eventLocationPlaceholder: "Ubicación del evento (opcional)",
-    repeat: "Repetir",
-    repeats: "Repite",
-    customRecurrence: "Recurrencia personalizada",
-    daily: "Diario",
-    weekly: "Semanal",
-    monthly: "Mensual",
-    yearly: "Anual",
-    interval: "Intervalo",
-    repeatOn: "Repetir en",
-    never: "Nunca",
-    count: "Cantidad",
-    every: "Cada",
-    ends: "Termina",
-    after: "Después",
-    occurrences: "ocurrencias",
-    on: "En",
-    editRecurringEvent: "Editar evento recurrente",
-    deleteRecurringEvent: "Eliminar evento recurrente",
-    editRecurringEventQuestion: "es un evento recurrente. ¿Cómo deseas editarlo?",
-    deleteRecurringEventQuestion: "es un evento recurrente. ¿Cómo deseas eliminarlo?",
-    thisEvent: "Este evento",
-    thisEventDescription: "Solo cambiar esta ocurrencia",
-    thisAndFollowingEvents: "Este y los siguientes",
-    thisAndFollowingEventsDescription: "Editar esta y todas las futuras",
-    allEvents: "Todos los eventos",
-    allEventsDescription: "Editar toda la serie recurrente",
-    onlyChangeThis: "Solo cambiar esta ocurrencia",
-    changeThisAndFuture: "Cambiar esta y las futuras",
-    changeEntireSeries: "Cambiar toda la serie",
-    onlyDeleteThis: "Solo eliminar esta ocurrencia",
-    deleteThisAndFuture: "Eliminar esta y las futuras",
-    deleteEntireSeries: "Eliminar toda la serie",
-    month: "Mes",
-    week: "Semana",
-    day: "Día",
-    year: "Año",
-    more: "más",
-    resources: "Recursos",
-    resource: "Recurso",
-    time: "Hora",
-    date: "Fecha",
-    noResourcesVisible: "No hay recursos visibles",
-    addResourcesOrShowExisting: "Agrega recursos o muestra los existentes",
-    sunday: "Domingo",
-    monday: "Lunes",
-    tuesday: "Martes",
-    wednesday: "Miércoles",
-    thursday: "Jueves",
-    friday: "Viernes",
-    saturday: "Sábado",
-    sun: "Dom",
-    mon: "Lun",
-    tue: "Mar",
-    wed: "Mié",
-    thu: "Jue",
-    fri: "Vie",
-    sat: "Sáb",
-    january: "Enero",
-    february: "Febrero",
-    march: "Marzo",
-    april: "Abril",
-    may: "Mayo",
-    june: "Junio",
-    july: "Julio",
-    august: "Agosto",
-    september: "Septiembre",
-    october: "Octubre",
-    november: "Noviembre",
-    december: "Diciembre",
-  },
-};
+  useEffect(() => {
+    if (initialKind) {
+      setEventKind(initialKind);
+    }
+  }, [initialKind]);
+
+  useEffect(() => {
+    if (eventKind !== "reminder") {
+      setReminderTimeEnabled(false);
+      return;
+    }
+    if (props.selectedEvent?.id) {
+      setReminderTimeEnabled(props.selectedEvent.allDay === false);
+    }
+  }, [eventKind, props.selectedEvent]);
+
+  const handleAdd = (event: CalendarEvent) => {
+    const nextEvent = {
+      ...event,
+      data: { ...(event.data ?? {}), calendarId, kind: eventKind },
+    };
+    props.onAdd?.(nextEvent);
+  };
+
+  const handleUpdate = (event: CalendarEvent) => {
+    const nextEvent = {
+      ...event,
+      data: { ...(event.data ?? {}), calendarId, kind: eventKind },
+    };
+    props.onUpdate?.(nextEvent);
+  };
+
+  const listSource = eventKind === "reminder" ? reminderLists : calendars;
+  const listDefaultId = listSource[0]?.id ?? "";
+
+  useEffect(() => {
+    if (!calendarId && listDefaultId) {
+      setCalendarId(listDefaultId);
+    }
+  }, [calendarId, listDefaultId]);
+
+  useEffect(() => {
+    if (props.selectedEvent?.id) return;
+    if (eventKind === "reminder" && reminderLists.length > 0) {
+      setCalendarId(reminderLists[0].id);
+    }
+    if (eventKind === "event" && calendars.length > 0) {
+      setCalendarId(calendars[0].id);
+    }
+  }, [calendars, eventKind, props.selectedEvent?.id, reminderLists]);
+
+  return (
+    <Dialog onOpenChange={props.onClose} open={Boolean(props.open)}>
+      <DialogContent className="flex flex-col h-[90vh] w-[90vw] max-w-[520px] p-4 sm:p-6 overflow-hidden gap-3">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="text-base sm:text-lg">
+            {props.selectedEvent?.id ? translations?.editEvent : translations?.createEvent}
+          </DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
+            {props.selectedEvent?.id
+              ? translations?.editEventDetails
+              : translations?.addNewEvent}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex items-center justify-between rounded-md border border-slate-200 bg-white/70 px-3 py-2">
+          <div className="flex flex-col">
+            <span className="text-xs font-medium text-slate-700">
+              {uiLanguage === "zh-CN" ? "提醒事项" : "Reminder"}
+            </span>
+            <span className="text-[11px] text-slate-500">
+              {uiLanguage === "zh-CN" ? "关闭则为日历事件" : "Off for calendar event"}
+            </span>
+          </div>
+          <Switch
+            checked={eventKind === "reminder"}
+            onCheckedChange={(checked) => setEventKind(checked ? "reminder" : "event")}
+          />
+        </div>
+        <div className="grid gap-2">
+          <span className="text-xs font-medium text-slate-700">
+            {uiLanguage === "zh-CN"
+              ? eventKind === "reminder"
+                ? "提醒事项列表"
+                : "日历类型"
+              : "Calendar"}
+          </span>
+          <Select value={calendarId} onValueChange={setCalendarId} disabled={listSource.length === 0}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={uiLanguage === "zh-CN" ? "选择日历" : "Select calendar"} />
+            </SelectTrigger>
+            <SelectContent>
+              {listSource.map((calendar) => (
+                <SelectItem key={calendar.id} value={calendar.id}>
+                  {calendar.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <EventForm
+          selectedEvent={props.selectedEvent}
+          onClose={props.onClose}
+          onAdd={handleAdd}
+          onUpdate={handleUpdate}
+          onDelete={props.onDelete}
+          eventType={eventKind}
+          reminderTimeEnabled={reminderTimeEnabled}
+          onReminderTimeEnabledChange={setReminderTimeEnabled}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function CalendarPage({
   panelKey: _panelKey,
@@ -757,59 +286,209 @@ export default function CalendarPage({
     uiLanguageRaw === "es-ES"
       ? uiLanguageRaw
       : "zh-CN";
-  // 逻辑：首次加载时从 localStorage 恢复事件列表。
-  const [events, setEvents] = useState<IlamyCalendarProps["events"]>([]);
   const calendarLocale = CALENDAR_LOCALE_BY_LANGUAGE[uiLanguage];
   const calendarTranslations = CALENDAR_TRANSLATIONS[uiLanguage];
 
-  useEffect(() => {
-    setEvents(readStoredEvents());
-  }, []);
+  const {
+    systemEvents,
+    systemReminders,
+    calendars,
+    reminderLists,
+    selectedCalendarIds,
+    selectedReminderListIds,
+    permissionState,
+    errorMessage,
+    isLoading,
+    selectedCalendarIdList,
+    selectedReminderListIdList,
+    handleRequestPermission,
+    handleDateChange,
+    handleEventAdd,
+    handleEventUpdate,
+    handleEventDelete,
+    handleToggleCalendar,
+    handleSelectAllCalendars,
+    handleClearCalendars,
+    setSelectedReminderListIds,
+    toggleReminderCompleted,
+  } = useCalendarPageState({ toSystemEvent, getEventKind });
 
-  // Save event after creation.
-  const handleEventAdd = useCallback((event: NonNullable<IlamyCalendarProps["events"]>[number]) => {
-    setEvents((prev) => {
-      const nextEvents = [...(prev ?? []), event];
-      // 逻辑：新增后同步写入本地缓存。
-      writeStoredEvents(nextEvents);
-      return nextEvents;
-    });
-  }, []);
+  const calendarColorMap = useMemo(() => buildCalendarColorMap(calendars), [calendars]);
 
-  // Save event after update.
-  const handleEventUpdate = useCallback((event: NonNullable<IlamyCalendarProps["events"]>[number]) => {
-    setEvents((prev) => {
-      const currentEvents = prev ?? [];
-      const nextEvents = currentEvents.some((item) => item.id === event.id)
-        ? currentEvents.map((item) => (item.id === event.id ? event : item))
-        : [...currentEvents, event];
-      // 逻辑：更新后同步写入本地缓存。
-      writeStoredEvents(nextEvents);
-      return nextEvents;
-    });
-  }, []);
+  const reminderColorMap = useMemo(() => buildCalendarColorMap(reminderLists), [reminderLists]);
 
-  // Save event after deletion.
-  const handleEventDelete = useCallback((event: NonNullable<IlamyCalendarProps["events"]>[number]) => {
-    setEvents((prev) => {
-      const nextEvents = (prev ?? []).filter((item) => item.id !== event.id);
-      // 逻辑：删除后同步写入本地缓存。
-      writeStoredEvents(nextEvents);
-      return nextEvents;
+  const visibleEvents = useMemo(() => {
+    const hasSelection = selectedCalendarIds.size > 0;
+    const filtered = systemEvents.filter((event) => {
+      if (!hasSelection) return true;
+      if (!event.calendarId) return true;
+      return selectedCalendarIds.has(event.calendarId);
     });
-  }, []);
+    const eventResults = filtered.map((event) =>
+      toCalendarEvent(event, calendarColorMap, "event")
+    );
+
+    const reminderHasSelection = selectedReminderListIds.size > 0;
+    const reminderFiltered = systemReminders.filter((reminder) => {
+      if (!reminderHasSelection) return false;
+      if (!reminder.calendarId) return true;
+      return selectedReminderListIds.has(reminder.calendarId);
+    });
+
+    const reminderResults = [...reminderFiltered]
+      .sort((a, b) => {
+        const aCompleted = a.completed === true;
+        const bCompleted = b.completed === true;
+        if (aCompleted !== bCompleted) return aCompleted ? 1 : -1;
+        return a.start.localeCompare(b.start);
+      })
+      .map((reminder) => toCalendarEvent(reminder, reminderColorMap, "reminder"));
+
+    return [...eventResults, ...reminderResults];
+  }, [
+    calendarColorMap,
+    reminderColorMap,
+    selectedCalendarIds,
+    selectedReminderListIds,
+    systemEvents,
+    systemReminders,
+  ]);
+
+  const handleEventClick = useCallback(() => null, []);
 
   return (
     <div className={`h-full w-full p-4 ${styles.calendarRoot}`}>
-      <div className="h-full min-h-0">
+      <div className="h-full min-h-0 flex flex-col gap-3">
+        {(permissionState !== "granted" || errorMessage) && (
+          <div className="rounded-md border border-amber-400/40 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <span className="font-medium">系统日历未就绪</span>
+                <span className="text-xs text-amber-800/80">
+                  {errorMessage ?? "请授权系统日历权限以同步事件。"}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRequestPermission}
+                disabled={isLoading}
+              >
+                重新授权
+              </Button>
+            </div>
+          </div>
+        )}
         <IlamyCalendar
-          events={events}
+          events={visibleEvents}
           headerClassName="justify-between"
           locale={calendarLocale}
           translations={calendarTranslations}
+          disableCellClick
+          disableEventClick={permissionState !== "granted"}
+          disableDragAndDrop={permissionState !== "granted"}
+          onDateChange={handleDateChange}
           onEventAdd={handleEventAdd}
           onEventUpdate={handleEventUpdate}
           onEventDelete={handleEventDelete}
+          onEventClick={handleEventClick}
+          openEventOnDoubleClick
+          renderEvent={(event) => {
+            const meta = event.data as { kind?: CalendarKind; completed?: boolean } | undefined;
+            if (meta?.kind !== "reminder") {
+              return (
+                <div
+                  className="h-full w-full px-1 border-[1.5px] border-card text-left overflow-clip relative rounded-sm flex items-center"
+                  style={{ backgroundColor: event.backgroundColor, color: event.color }}
+                >
+                  <span className="text-[10px] font-semibold sm:text-xs">
+                    {event.title}
+                  </span>
+                </div>
+              );
+            }
+            const isCompleted = meta?.completed === true;
+            return (
+              <div
+                className="h-full w-full px-1 text-left overflow-clip relative rounded-sm flex items-center gap-1"
+                style={{
+                  backgroundColor: "transparent",
+                  color: isCompleted ? "rgba(15, 23, 42, 0.55)" : "rgb(15, 23, 42)",
+                }}
+              >
+                <span
+                  className={`inline-flex h-2 w-2 items-center justify-center rounded-full border border-current cursor-default`}
+                  style={{
+                    color: event.backgroundColor ?? "rgb(59, 130, 246)",
+                    opacity: isCompleted ? 0.65 : 1,
+                  }}
+                  role="button"
+                  aria-label="完成提醒事项"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void toggleReminderCompleted(event);
+                  }}
+                >
+                  {isCompleted && (
+                    <span className="h-1 w-1 rounded-full bg-current" />
+                  )}
+                </span>
+                <span className="text-[10px] font-semibold sm:text-xs">
+                  {event.title}
+                </span>
+              </div>
+            );
+          }}
+          sidebar={
+            <CalendarFilterPanel
+              calendars={calendars}
+              reminderLists={reminderLists}
+              calendarColorMap={calendarColorMap}
+              reminderColorMap={reminderColorMap}
+              permissionState={permissionState}
+              selectedCalendarIds={selectedCalendarIds}
+              selectedReminderListIds={selectedReminderListIds}
+              className="h-full overflow-auto"
+              onToggleCalendar={handleToggleCalendar}
+              onSelectAllCalendars={handleSelectAllCalendars}
+              onClearCalendars={handleClearCalendars}
+              onSelectAllReminders={() =>
+                setSelectedReminderListIds(new Set(reminderLists.map((item) => item.id)))
+              }
+              onClearReminders={() => setSelectedReminderListIds(new Set())}
+              onToggleReminder={(calendarId) =>
+                setSelectedReminderListIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(calendarId)) {
+                    next.delete(calendarId);
+                  } else {
+                    next.add(calendarId);
+                  }
+                  return next;
+                })
+              }
+            />
+          }
+          sidebarClassName="h-full"
+          renderEventForm={(props) => {
+            const selectedMeta = props.selectedEvent?.data as { calendarId?: string; kind?: CalendarKind } | undefined;
+            const kind = selectedMeta?.kind === "reminder" ? "reminder" : "event";
+            const fallbackId =
+              kind === "reminder"
+                ? selectedReminderListIdList[0] ?? reminderLists[0]?.id
+                : selectedCalendarIdList[0] ?? calendars[0]?.id;
+            const defaultCalendarId = selectedMeta?.calendarId ?? fallbackId ?? "";
+            return (
+              <SystemEventFormDialog
+                props={props}
+                calendars={calendars}
+                reminderLists={reminderLists}
+                uiLanguage={uiLanguage}
+                translations={calendarTranslations}
+                defaultCalendarId={defaultCalendarId}
+              />
+            );
+          }}
         />
       </div>
     </div>

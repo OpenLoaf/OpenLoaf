@@ -9,6 +9,7 @@ import { Input } from '@tenas-ai/ui/calendar/components/ui/input'
 import { Label } from '@tenas-ai/ui/calendar/components/ui/label'
 import { ScrollArea } from '@tenas-ai/ui/calendar/components/ui/scroll-area'
 import { TimePicker } from '@tenas-ai/ui/calendar/components/ui/time-picker'
+import { Switch } from '@tenas-ai/ui/switch'
 import { isBusinessDay } from '@tenas-ai/ui/calendar/features/calendar/utils/business-hours'
 import {
 	buildDateTime,
@@ -83,6 +84,14 @@ const COLOR_OPTIONS = [
 	},
 ]
 
+/** Extract background/text class tokens from color option. */
+const extractColorTokens = (value: string) => {
+	const tokens = value.split(' ')
+	const bg = tokens.find((token) => token.startsWith('bg-'))
+	const text = tokens.find((token) => token.startsWith('text-'))
+	return { backgroundClass: bg, textClass: text }
+}
+
 export interface EventFormProps {
 	open?: boolean
 	selectedEvent?: CalendarEvent | null
@@ -90,6 +99,12 @@ export interface EventFormProps {
 	onUpdate?: (event: CalendarEvent) => void
 	onDelete?: (event: CalendarEvent) => void
 	onClose: () => void
+	/** Event type for special rendering (event/reminder). */
+	eventType?: 'event' | 'reminder'
+	/** Whether reminder time range is enabled. */
+	reminderTimeEnabled?: boolean
+	/** Handle reminder time range toggle. */
+	onReminderTimeEnabledChange?: (enabled: boolean) => void
 }
 
 export const EventForm: React.FC<EventFormProps> = ({
@@ -98,6 +113,9 @@ export const EventForm: React.FC<EventFormProps> = ({
 	onUpdate,
 	onDelete,
 	onAdd,
+	eventType = 'event',
+	reminderTimeEnabled,
+	onReminderTimeEnabledChange,
 }) => {
 	const {
 		dialogState,
@@ -115,6 +133,8 @@ export const EventForm: React.FC<EventFormProps> = ({
 			timeFormat: context.timeFormat,
 		}))
 
+	const isReminder = eventType === 'reminder'
+	const reminderTimeEnabledSafe = reminderTimeEnabled ?? false
 	const start = selectedEvent?.start ?? dayjs()
 	const end = selectedEvent?.end ?? dayjs().add(1, 'hour')
 
@@ -152,6 +172,9 @@ export const EventForm: React.FC<EventFormProps> = ({
 	const handleStartDateChange = (date: Date | undefined) => {
 		setStartDate(date)
 		if (date && dayjs(date).isAfter(dayjs(endDate))) {
+			setEndDate(date)
+		}
+		if (date && isReminder && reminderTimeEnabledSafe === false) {
 			setEndDate(date)
 		}
 	}
@@ -195,6 +218,16 @@ export const EventForm: React.FC<EventFormProps> = ({
 		}
 	}, [isAllDay])
 
+	useEffect(() => {
+		if (!isReminder) return
+		if (reminderTimeEnabledSafe === false) {
+			setIsAllDay(true)
+			setEndDate(startDate)
+		} else if (reminderTimeEnabledSafe === true) {
+			setIsAllDay(false)
+		}
+	}, [isReminder, reminderTimeEnabledSafe, startDate])
+
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault()
 
@@ -210,7 +243,9 @@ export const EventForm: React.FC<EventFormProps> = ({
 			description: formValues.description,
 			location: formValues.location,
 			allDay: isAllDay,
-			color: selectedColor,
+			color: extractColorTokens(selectedColor).textClass ?? selectedColor,
+			backgroundColor:
+				extractColorTokens(selectedColor).backgroundClass ?? selectedColor,
 			rrule: rrule || undefined,
 		}
 
@@ -299,20 +334,40 @@ export const EventForm: React.FC<EventFormProps> = ({
 							/>
 						</div>
 
-						<div className="flex items-center space-x-2">
-							<Checkbox
-								checked={isAllDay}
-								id="allDay"
-								onCheckedChange={(checked) => setIsAllDay(checked === true)}
-							/>
-							<Label className="text-xs sm:text-sm" htmlFor="allDay">
-								{t('allDay')}
-							</Label>
-						</div>
+						{!isReminder && (
+							<div className="flex items-center space-x-2">
+								<Checkbox
+									checked={isAllDay}
+									id="allDay"
+									onCheckedChange={(checked) => setIsAllDay(checked === true)}
+								/>
+								<Label className="text-xs sm:text-sm" htmlFor="allDay">
+									{t('allDay')}
+								</Label>
+							</div>
+						)}
 
-						<div className="grid grid-cols-2 gap-2 sm:gap-4">
+						{isReminder && (
+							<div className="flex items-center justify-between rounded-md border border-slate-200 bg-white/70 px-3 py-2">
+								<div className="flex flex-col">
+									<span className="text-xs font-medium text-slate-700">时间范围</span>
+									<span className="text-[11px] text-slate-500">
+										开启后可设置开始与结束时间
+									</span>
+								</div>
+								<Switch
+									checked={reminderTimeEnabledSafe === true}
+									id="reminderTimeEnabled"
+									onCheckedChange={(checked) =>
+										onReminderTimeEnabledChange?.(checked === true)
+									}
+								/>
+							</div>
+						)}
+
+						{isReminder && reminderTimeEnabledSafe === false ? (
 							<div>
-								<Label className="text-xs sm:text-sm">{t('startDate')}</Label>
+								<Label className="text-xs sm:text-sm">日期</Label>
 								<DatePicker
 									className="mt-1"
 									closeOnSelect
@@ -321,19 +376,32 @@ export const EventForm: React.FC<EventFormProps> = ({
 									onChange={handleStartDateChange}
 								/>
 							</div>
-							<div>
-								<Label className="text-xs sm:text-sm">{t('endDate')}</Label>
-								<DatePicker
-									className="mt-1"
-									closeOnSelect
-									date={endDate}
-									disabled={disabledDateMatcher}
-									onChange={handleEndDateChange}
-								/>
+						) : (
+							<div className="grid grid-cols-2 gap-2 sm:gap-4">
+								<div>
+									<Label className="text-xs sm:text-sm">{t('startDate')}</Label>
+									<DatePicker
+										className="mt-1"
+										closeOnSelect
+										date={startDate}
+										disabled={disabledDateMatcher}
+										onChange={handleStartDateChange}
+									/>
+								</div>
+								<div>
+									<Label className="text-xs sm:text-sm">{t('endDate')}</Label>
+									<DatePicker
+										className="mt-1"
+										closeOnSelect
+										date={endDate}
+										disabled={disabledDateMatcher}
+										onChange={handleEndDateChange}
+									/>
+								</div>
 							</div>
-						</div>
+						)}
 
-						{!isAllDay && (
+						{!(isReminder && reminderTimeEnabledSafe === false) && !isAllDay && (
 							<div className="grid grid-cols-2 gap-2 sm:gap-4">
 								<div>
 									<Label className="text-xs sm:text-sm">{t('startTime')}</Label>
@@ -362,25 +430,27 @@ export const EventForm: React.FC<EventFormProps> = ({
 							</div>
 						)}
 
-						<div className="grid gap-1 sm:gap-2">
-							<Label className="text-xs sm:text-sm">{t('color')}</Label>
-							<div className="flex flex-wrap gap-2">
-								{COLOR_OPTIONS.map((color) => (
-									<Button
-										aria-label={color.label}
-										className={cn(
-											`${color.value} h-6 w-6 rounded-full sm:h-8 sm:w-8`,
-											selectedColor === color.value &&
-												'ring-2 ring-black ring-offset-1 sm:ring-offset-2'
-										)}
-										key={color.value}
-										onClick={() => setSelectedColor(color.value)}
-										type="button"
-										variant="ghost"
-									/>
-								))}
+						{!isReminder && (
+							<div className="grid gap-1 sm:gap-2">
+								<Label className="text-xs sm:text-sm">{t('color')}</Label>
+								<div className="flex flex-wrap gap-2">
+									{COLOR_OPTIONS.map((color) => (
+										<Button
+											aria-label={color.label}
+											className={cn(
+												`${color.value} h-6 w-6 rounded-full sm:h-8 sm:w-8`,
+												selectedColor === color.value &&
+													'ring-2 ring-black ring-offset-1 sm:ring-offset-2'
+											)}
+											key={color.value}
+											onClick={() => setSelectedColor(color.value)}
+											type="button"
+											variant="ghost"
+										/>
+									))}
+								</div>
 							</div>
-						</div>
+						)}
 
 						<div className="grid gap-1 sm:gap-2">
 							<Label className="text-xs sm:text-sm" htmlFor="location">
@@ -397,7 +467,9 @@ export const EventForm: React.FC<EventFormProps> = ({
 						</div>
 
 						{/* Recurrence Section */}
-						<RecurrenceEditor onChange={handleRRuleChange} value={rrule} />
+						{!isReminder && (
+							<RecurrenceEditor onChange={handleRRuleChange} value={rrule} />
+						)}
 					</div>
 				</ScrollArea>
 

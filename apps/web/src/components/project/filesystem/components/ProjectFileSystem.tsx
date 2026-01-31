@@ -394,11 +394,15 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   /** Preserve selection when starting a drag action. */
   const handleEntryDragStart = useCallback(
-    (entry: FileSystemEntry, event: ReactDragEvent<HTMLElement>) => {
-      ensureSelected(entry.uri);
-      model.handleEntryDragStart(entry, event);
+    (entries: FileSystemEntry[], event: ReactDragEvent<HTMLElement>) => {
+      const primaryEntry = entries[0];
+      if (primaryEntry && !selectedUris.has(primaryEntry.uri)) {
+        // 中文注释：拖拽未选中项时替换选择，避免错误合并多选。
+        replaceSelection([primaryEntry.uri]);
+      }
+      model.handleEntryDragStart(entries, event);
     },
-    [ensureSelected, model]
+    [model, replaceSelection, selectedUris]
   );
 
   /** Sync selection to the drop target after a successful move. */

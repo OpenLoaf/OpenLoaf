@@ -26,7 +26,37 @@
           "inputCache": 0,
           "output": 0
         }
-      ]
+      ],
+      "parameters": {
+        "features": [
+          "prompt"
+        ],
+        "fields": [
+          {
+            "key": "n",
+            "title": "数量",
+            "type": "number",
+            "min": 1,
+            "max": 1,
+            "default": 1,
+            "request": false
+          },
+          {
+            "key": "size",
+            "title": "尺寸",
+            "type": "text",
+            "request": false
+          },
+          {
+            "key": "seed",
+            "title": "随机种子",
+            "type": "number",
+            "min": 0,
+            "step": 1,
+            "request": false
+          }
+        ]
+      }
     },
     {
       "id": "wan2.5",
@@ -46,7 +76,37 @@
           "inputCache": 0,
           "output": 0
         }
-      ]
+      ],
+      "parameters": {
+        "features": [
+          "prompt"
+        ],
+        "fields": [
+          {
+            "key": "n",
+            "title": "数量",
+            "type": "number",
+            "min": 1,
+            "max": 1,
+            "default": 1,
+            "request": false
+          },
+          {
+            "key": "size",
+            "title": "尺寸",
+            "type": "text",
+            "request": false
+          },
+          {
+            "key": "seed",
+            "title": "随机种子",
+            "type": "number",
+            "min": 0,
+            "step": 1,
+            "request": false
+          }
+        ]
+      }
     },
     {
       "id": "z-image-turbo",
@@ -66,7 +126,37 @@
           "inputCache": 0,
           "output": 0
         }
-      ]
+      ],
+      "parameters": {
+        "features": [
+          "prompt"
+        ],
+        "fields": [
+          {
+            "key": "n",
+            "title": "数量",
+            "type": "number",
+            "min": 1,
+            "max": 1,
+            "default": 1,
+            "request": false
+          },
+          {
+            "key": "size",
+            "title": "尺寸",
+            "type": "text",
+            "request": false
+          },
+          {
+            "key": "seed",
+            "title": "随机种子",
+            "type": "number",
+            "min": 0,
+            "step": 1,
+            "request": false
+          }
+        ]
+      }
     },
     {
       "id": "wan2.6-i2v-flash",

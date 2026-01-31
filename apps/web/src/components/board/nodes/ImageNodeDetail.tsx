@@ -173,6 +173,7 @@ export function ImageNodeDetail({
         "relative h-[94px] w-[360px] rounded-xl border border-border bg-card shadow-lg",
         className
       )}
+      data-board-editor
     >
       <div className="flex h-full flex-col gap-1 px-2 pt-2 pb-2">
         <div className="text-[11px] font-medium text-muted-foreground/80">

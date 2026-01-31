@@ -327,7 +327,7 @@ export const SidebarProject = () => {
             ) : null}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="project-version-control" className="text-right">
-                是否开启项目版本控制
+                项目版本控制
               </Label>
               <div className="col-span-3 flex items-center gap-3">
                 <Switch
@@ -401,7 +401,7 @@ export const SidebarProject = () => {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="project-import-version-control" className="text-right">
-                是否开启项目版本控制
+                项目版本控制
               </Label>
               <div className="col-span-3 flex items-center gap-3">
                 <Switch

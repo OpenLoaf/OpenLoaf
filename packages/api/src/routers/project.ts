@@ -68,11 +68,17 @@ async function readJsonFile(filePath: string): Promise<unknown | null> {
 
 /** Build a safe folder name from user input. */
 function toSafeFolderName(title: string): string {
-  const normalized = title.trim().toLowerCase();
-  const slug = normalized
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "project";
+  const normalized = title.trim();
+  // 中文注释：保留中文等 Unicode 字符，替换非法文件名字符与路径分隔符。
+  const sanitized = normalized
+    .replace(/[\\\/\0]/g, "-")
+    .replace(/[<>:"|?*]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^\.+/, "")
+    .replace(/\.+$/, "")
+    .trim();
+  return sanitized || "project";
 }
 
 /** Resolve a unique project root directory under workspace. */
@@ -369,8 +375,11 @@ export const projectRouter = t.router({
     )
     .mutation(async ({ input }) => {
       const workspaceRootPath = getWorkspaceRootPath();
-      const title = input.title?.trim() || DEFAULT_PROJECT_TITLE;
-      const folderName = toSafeFolderName(input.folderName?.trim() || title);
+      const rawTitle = input.title?.trim() ?? "";
+      const rawFolderName = input.folderName?.trim() ?? "";
+      // 中文注释：显示名称为空时，优先用文件夹名称兜底，避免落到默认 project-*。
+      const resolvedTitle = rawTitle || rawFolderName || DEFAULT_PROJECT_TITLE;
+      const folderName = toSafeFolderName(rawFolderName || resolvedTitle);
       let projectRootPath: string;
       let existingConfig: ProjectConfig | null = null;
       if (input.rootUri?.trim()) {
@@ -390,12 +399,12 @@ export const projectRouter = t.router({
       const projectId = existingConfig?.projectId ?? `${PROJECT_ID_PREFIX}${randomUUID()}`;
       const fallbackTitle = input.rootUri
         ? path.basename(projectRootPath)
-        : title;
+        : resolvedTitle;
       const config = projectConfigSchema.parse(
         existingConfig ?? {
           schema: 1,
           projectId,
-          title: input.title?.trim() || fallbackTitle,
+          title: rawTitle || fallbackTitle,
           icon: input.icon ?? undefined,
           projects: {},
         }

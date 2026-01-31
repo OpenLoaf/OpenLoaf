@@ -32,6 +32,10 @@ import {
 import { readImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import { buildMaskedPreviewUrl, resolveMaskFileName } from "@/lib/image/mask";
+import {
+  clearProjectFileDragSession,
+  matchProjectFileDragSession,
+} from "@/lib/project-file-drag-session";
 import type { Value } from "platejs";
 import { setValue } from "platejs";
 import { MentionKit } from "@/components/editor/plugins/mention-kit";
@@ -511,6 +515,17 @@ export function ChatInputBox({
 
   const handleDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>) => {
     console.debug("[ChatInput] drop payload", formatDragData(event.dataTransfer));
+    const session = matchProjectFileDragSession(event.dataTransfer);
+    if (
+      session &&
+      session.projectId === defaultProjectId &&
+      session.fileRefs.length > 0
+    ) {
+      // 中文注释：拖拽来自项目文件系统时优先插入文件引用。
+      await handleProjectFileRefsInsert(session.fileRefs);
+      clearProjectFileDragSession("chat-drop");
+      return;
+    }
     const imagePayload = readImageDragPayload(event.dataTransfer);
     if (imagePayload) {
       if (!canAttachImage && !canAttachAll) return;
@@ -901,6 +916,7 @@ export default function ChatInput({
   // 有图片编辑时隐藏比例选项。
   const hasMaskedAttachment = (attachments ?? []).some((item) => item.mask);
 
+  /** Handle input submit triggered by UI actions. */
   const handleSubmit = async (value: string) => {
     const canSubmit = status === "ready" || status === "error";
     if (!canSubmit) return;
@@ -956,6 +972,21 @@ export default function ChatInput({
     setInput("");
     onClearAttachments?.();
   };
+
+  useEffect(() => {
+    /** Handle AI request forwarded from Search dialog. */
+    const handleSearchAiRequest = (event: Event) => {
+      const detail = (event as CustomEvent<{ text?: string }>).detail;
+      const nextValue = detail?.text?.trim();
+      if (!nextValue) return;
+      // 逻辑：复用统一的发送逻辑，保证校验一致。
+      void handleSubmit(nextValue);
+    };
+    window.addEventListener("tenas:chat-send-message", handleSearchAiRequest);
+    return () => {
+      window.removeEventListener("tenas:chat-send-message", handleSearchAiRequest);
+    };
+  }, [handleSubmit]);
 
   return (
     <>

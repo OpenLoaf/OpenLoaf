@@ -32,7 +32,7 @@ type UseFileSystemDragParams = {
   dragRootUriRef: MutableRefObject<string | undefined>;
   resolveThumbnailSrc?: (uri: string) => string | undefined;
   onEntryDragStartRef: MutableRefObject<
-    | ((entry: FileSystemEntry, event: DragEvent<HTMLElement>) => void)
+    | ((entries: FileSystemEntry[], event: DragEvent<HTMLElement>) => void)
     | undefined
   >;
   onEntryDropRef: MutableRefObject<
@@ -194,6 +194,15 @@ function useFileSystemDrag({
           dragRootUriRef.current
         )
       );
+      const isElectron = typeof window !== "undefined" && Boolean(window.tenasElectron?.startDrag);
+      console.log("[drag-out] renderer dragstart", {
+        isElectron,
+        hasApi: Boolean(window.tenasElectron?.startDrag),
+      });
+      if (isElectron) {
+        onEntryDragStartRef.current?.(normalizedEntries, event);
+        return;
+      }
       const dragUri = dragUris[0];
       setImageDragPayload(event.dataTransfer, {
         baseUri: dragUri,
@@ -207,7 +216,7 @@ function useFileSystemDrag({
       }
       // 允许在应用内复制到聊天，同时支持文件管理中的移动操作。
       event.dataTransfer.effectAllowed = "copyMove";
-      onEntryDragStartRef.current?.(entry, event);
+      onEntryDragStartRef.current?.(normalizedEntries, event);
     },
     [
       buildThumbnailDragPreview,

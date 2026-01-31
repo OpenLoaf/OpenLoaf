@@ -61,6 +61,10 @@ export const ResourceCalendarProvider: React.FC<
 	viewHeaderClassName = '',
 	headerComponent,
 	headerClassName,
+	sidebar,
+	defaultSidebarOpen = true,
+	onSidebarOpenChange,
+	sidebarClassName,
 	translations,
 	translator,
 	renderResource,
@@ -72,6 +76,20 @@ export const ResourceCalendarProvider: React.FC<
 	renderCurrentTimeIndicator,
 	hideNonBusinessHours = false,
 }) => {
+	const [isSidebarOpen, setIsSidebarOpen] = useState(defaultSidebarOpen)
+	const handleSetSidebarOpen = useCallback(
+		(open: boolean) => {
+			setIsSidebarOpen(open)
+			if (onSidebarOpenChange) {
+				onSidebarOpenChange(open)
+			}
+		},
+		[onSidebarOpenChange]
+	)
+	const toggleSidebar = useCallback(() => {
+		handleSetSidebarOpen(!isSidebarOpen)
+	}, [handleSetSidebarOpen, isSidebarOpen])
+
 	// Resource-specific state
 	const [currentResources] = useState<Resource[]>(resources)
 	const [visibleResources, setVisibleResources] = useState<
@@ -260,6 +278,11 @@ export const ResourceCalendarProvider: React.FC<
 			// Pass through header props
 			headerComponent,
 			headerClassName,
+			sidebar,
+			sidebarClassName,
+			isSidebarOpen,
+			setSidebarOpen: handleSetSidebarOpen,
+			toggleSidebar,
 
 			// Pass through other props
 			renderEvent,
@@ -311,6 +334,11 @@ export const ResourceCalendarProvider: React.FC<
 			viewHeaderClassName,
 			headerComponent,
 			headerClassName,
+			sidebar,
+			sidebarClassName,
+			isSidebarOpen,
+			handleSetSidebarOpen,
+			toggleSidebar,
 			businessHours,
 			timeFormat,
 			classesOverride,
