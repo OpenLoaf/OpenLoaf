@@ -1,6 +1,7 @@
 "use client";
 
-import { LayoutGrid, RotateCw, Clipboard, Maximize2 } from "lucide-react";
+import { LayoutGrid, RotateCw, Clipboard, Maximize2, Minimize2, Scan } from "lucide-react";
+import type { ReactElement, MouseEvent as ReactMouseEvent } from "react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -9,12 +10,16 @@ import {
 } from "@tenas-ai/ui/context-menu";
 
 export type BoardContextMenuProps = {
-  /** Screen position for the menu. */
-  point: { x: number; y: number };
-  /** Close handler. */
-  onClose: () => void;
+  /** Trigger element for the context menu. */
+  children: ReactElement;
+  /** Whether the trigger is disabled. */
+  triggerDisabled?: boolean;
   /** Auto layout handler. */
   onAutoLayout: () => void;
+  /** Fullscreen toggle handler. */
+  onToggleFullscreen: () => void;
+  /** Whether the board is in fullscreen mode. */
+  isFullscreen: boolean;
   /** Fit view handler. */
   onFitView: () => void;
   /** Refresh handler. */
@@ -25,45 +30,53 @@ export type BoardContextMenuProps = {
   pasteAvailable: boolean;
   /** Whether paste action is disabled. */
   pasteDisabled?: boolean;
+  /** Context menu trigger handler. */
+  onContextMenu?: (event: ReactMouseEvent) => void;
 };
 
 /** Render the board context menu. */
 export function BoardContextMenu({
-  point,
-  onClose,
+  children,
+  triggerDisabled = false,
   onAutoLayout,
+  onToggleFullscreen,
   onFitView,
   onRefresh,
   onPaste,
   pasteAvailable,
   pasteDisabled = false,
+  isFullscreen,
+  onContextMenu,
 }: BoardContextMenuProps) {
   return (
-    <ContextMenu open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <ContextMenuTrigger asChild>
-        <span
-          data-board-context-menu
-          className="fixed z-50 h-1 w-1"
-          style={{ left: point.x, top: point.y }}
-        />
+    <ContextMenu>
+      <ContextMenuTrigger asChild disabled={triggerDisabled} onContextMenu={onContextMenu}>
+        {children}
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
         <ContextMenuItem
-          icon={Maximize2}
+          icon={isFullscreen ? Minimize2 : Maximize2}
           onSelect={() => {
-            // 逻辑：右键菜单内触发全屏适配视图。
-            onFitView();
-            onClose();
+            // 逻辑：右键菜单内切换左右面板，进入/退出全屏。
+            onToggleFullscreen();
           }}
         >
-          全屏
+          {isFullscreen ? "退出全屏" : "全屏显示"}
+        </ContextMenuItem>
+        <ContextMenuItem
+          icon={Scan}
+          onSelect={() => {
+            // 逻辑：右键菜单内最大化视图，仅调整画布视野。
+            onFitView();
+          }}
+        >
+          最大化视图
         </ContextMenuItem>
         <ContextMenuItem
           icon={LayoutGrid}
           onSelect={() => {
             // 逻辑：右键菜单内自动布局，保持与工具栏行为一致。
             onAutoLayout();
-            onClose();
           }}
         >
           自动布局
@@ -73,7 +86,6 @@ export function BoardContextMenu({
           onSelect={() => {
             // 逻辑：右键菜单内刷新视图，避免残留选区显示异常。
             onRefresh();
-            onClose();
           }}
         >
           重新加载
@@ -85,7 +97,6 @@ export function BoardContextMenu({
             // 逻辑：优先走 ContextMenu 选择，避免被画布捕获 click。
             if (pasteDisabled || !pasteAvailable) return;
             onPaste();
-            onClose();
           }}
         >
           粘贴

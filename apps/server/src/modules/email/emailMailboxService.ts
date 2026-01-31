@@ -16,6 +16,23 @@ type EmailMailboxEntry = {
   attributes: string[];
 };
 
+/** Normalize mailbox attributes for matching. */
+function normalizeMailboxAttributes(attributes: string[]): string[] {
+  return attributes.map((attr) => attr.trim().toUpperCase());
+}
+
+/** Resolve mailbox sort weight. */
+function resolveMailboxSort(entry: EmailMailboxEntry): number {
+  const attributes = normalizeMailboxAttributes(entry.attributes);
+  const path = entry.path.toLowerCase();
+  if (attributes.includes("\\INBOX") || entry.path.toUpperCase() === "INBOX") return 0;
+  if (attributes.includes("\\DRAFTS") || path.includes("draft")) return 10;
+  if (attributes.includes("\\SENT") || path.includes("sent")) return 20;
+  if (attributes.includes("\\JUNK") || attributes.includes("\\SPAM") || path.includes("junk") || path.includes("spam")) return 30;
+  if (attributes.includes("\\TRASH") || path.includes("trash") || path.includes("deleted")) return 40;
+  return 100;
+}
+
 /** Check if IMAP operations should be skipped. */
 function shouldSkipImapOperations(): boolean {
   const raw = process.env[SKIP_IMAP_ENV_KEY];
@@ -176,10 +193,13 @@ export async function syncEmailMailboxes(input: {
     await connectImap(imap);
     logger.debug({ accountEmail: normalizedEmail }, "email imap ready");
     const boxes = await fetchImapMailboxes(imap);
-    const entries = flattenMailboxes(boxes).sort((a, b) =>
-      a.path.localeCompare(b.path),
-    );
+    const entries = flattenMailboxes(boxes).sort((a, b) => {
+      const sortDiff = resolveMailboxSort(a) - resolveMailboxSort(b);
+      if (sortDiff !== 0) return sortDiff;
+      return a.path.localeCompare(b.path);
+    });
     for (const entry of entries) {
+      const sort = resolveMailboxSort(entry);
       await input.prisma.emailMailbox.upsert({
         where: {
           workspaceId_accountEmail_path: {
@@ -197,6 +217,7 @@ export async function syncEmailMailboxes(input: {
           parentPath: entry.parentPath,
           delimiter: entry.delimiter ?? null,
           attributes: entry.attributes,
+          sort,
         },
         update: {
           name: entry.name,

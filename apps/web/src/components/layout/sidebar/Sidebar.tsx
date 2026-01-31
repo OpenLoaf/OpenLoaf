@@ -220,7 +220,10 @@ export const AppSidebar = ({
               <Mail />
               <span className="flex-1 truncate">邮箱</span>
               {unreadCount > 0 ? (
-                <Badge className="ml-auto min-w-[1.5rem] justify-center" size="sm">
+                <Badge
+                  className="ml-auto min-w-[1.25rem] justify-center px-1.5 py-0.5 text-[10px] leading-[1]"
+                  size="sm"
+                >
                   {unreadCount}
                 </Badge>
               ) : null}

@@ -37,6 +37,7 @@ model EmailMailbox {
   parentPath   String? /// 父级路径
   delimiter    String? /// IMAP 分隔符
   attributes   Json? /// IMAP 属性
+  sort         Int      @default(999) /// 排序值（越小越靠前）
   createdAt    DateTime @default(now()) /// 创建时间
   updatedAt    DateTime @updatedAt /// 更新时间
 

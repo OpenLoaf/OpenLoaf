@@ -37,6 +37,8 @@ import { resolveBoardFolderScope, resolveProjectPathFromBoardUri } from "./board
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { BoardContextMenu } from "./BoardContextMenu";
+import { useOptionalSidebar } from "@tenas-ai/ui/sidebar";
+import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
 
 const EDITABLE_NODE_TYPES = new Set(["text", "image-generate", "image-prompt-generate"]);
 /** Cursor assets for board drawing tools. */
@@ -246,6 +248,22 @@ export function BoardCanvasInteraction({
 }: BoardCanvasInteractionProps) {
   const showUi = !uiHidden;
   const setStackItemParams = useTabRuntime((state) => state.setStackItemParams);
+  const setTabRightChatCollapsed = useTabRuntime((state) => state.setTabRightChatCollapsed);
+  const rightChatCollapsed = useTabRuntime(
+    (state) => state.runtimeByTabId[tabId ?? ""]?.rightChatCollapsed ?? false,
+  );
+  const sidebar = useOptionalSidebar();
+  const isMobile = sidebar?.isMobile ?? false;
+  const open = sidebar?.open ?? false;
+  const openMobile = sidebar?.openMobile ?? false;
+  const leftOpenFallback = getLeftSidebarOpen();
+  const leftOpen = sidebar
+    ? isMobile
+      ? openMobile
+      : open
+    : leftOpenFallback ?? false;
+  const setOpen = sidebar?.setOpen;
+  const setOpenMobile = sidebar?.setOpenMobile;
   const penColor = engine.getPenSettings().color;
   const highlighterColor = engine.getHighlighterSettings().color;
   /** Last pointer location inside the canvas, in world coordinates. */
@@ -256,11 +274,6 @@ export function BoardCanvasInteraction({
   const isPointerDownRef = useRef(false);
   /** Last right-click location inside the canvas, in world coordinates. */
   const lastContextMenuWorldRef = useRef<CanvasPoint | null>(null);
-  /** Context menu screen position. */
-  const [contextMenuPoint, setContextMenuPoint] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
   /** Latest cursor applier used by async loaders. */
   const applyCursorRef = useRef<() => void>(() => {});
   /** Track wheel gesture target to avoid mid-gesture handoff. */
@@ -278,15 +291,44 @@ export function BoardCanvasInteraction({
     latestSnapshotRef.current = snapshot;
   }, [snapshot]);
 
-  /** Close the context menu. */
-  const handleCloseContextMenu = () => {
-    setContextMenuPoint(null);
-  };
-
   /** Fit view for context menu. */
   const handleFitView = useCallback(() => {
     engine.fitToElements();
   }, [engine]);
+
+  const isFullscreen = !leftOpen && rightChatCollapsed;
+
+  /** Toggle board fullscreen via sidebars. */
+  const handleToggleFullscreen = useCallback(() => {
+    if (!tabId) return;
+    const shouldCollapse = leftOpen || !rightChatCollapsed;
+    // 逻辑：任一侧可见时进入专注模式，收起左右栏；否则恢复显示。
+    const nextLeftOpen = !shouldCollapse;
+    if (sidebar) {
+      if (isMobile) {
+        setOpenMobile?.(nextLeftOpen);
+      } else {
+        setOpen?.(nextLeftOpen);
+      }
+    } else {
+      emitSidebarOpenRequest(nextLeftOpen);
+    }
+    setTabRightChatCollapsed(tabId, shouldCollapse);
+    if (panelKey) {
+      setStackItemParams(tabId, panelKey, { __boardFull: shouldCollapse });
+    }
+  }, [
+    isMobile,
+    leftOpen,
+    panelKey,
+    rightChatCollapsed,
+    setOpen,
+    setOpenMobile,
+    setStackItemParams,
+    setTabRightChatCollapsed,
+    sidebar,
+    tabId,
+  ]);
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!showUi) return;
@@ -759,20 +801,20 @@ export function BoardCanvasInteraction({
 
   return (
     <>
-      <div
-        ref={containerRef}
-        data-board-canvas
-        data-board-panel={panelKey}
-        data-allow-context-menu
-        className={cn("relative h-full w-full overflow-hidden outline-none", className)}
-        tabIndex={showUi ? 0 : -1}
-        aria-hidden={showUi ? undefined : true}
-        onPointerMove={handlePointerMove}
-        onDragOver={handleCanvasDragOver}
-        onDrop={handleCanvasDrop}
+      <BoardContextMenu
+        triggerDisabled={!showUi}
+        onToggleFullscreen={handleToggleFullscreen}
+        onAutoLayout={handleAutoLayout}
+        onFitView={handleFitView}
+        isFullscreen={isFullscreen}
+        onRefresh={handlePanelRefresh}
+        onPaste={() => {
+          void handlePasteFromContextMenu();
+        }}
+        pasteAvailable={pasteAvailable}
+        pasteDisabled={engine.isLocked()}
         onContextMenu={(event) => {
           if (!showUi) return;
-          event.preventDefault();
           event.stopPropagation();
           const rect = containerRef.current?.getBoundingClientRect();
           if (!rect) return;
@@ -781,15 +823,22 @@ export function BoardCanvasInteraction({
             event.clientX - rect.left,
             event.clientY - rect.top,
           ]);
-          setContextMenuPoint({ x: event.clientX, y: event.clientY });
           void updatePasteAvailability();
         }}
-        onPointerDown={(event) => {
-          if (!showUi) return;
-          if (contextMenuPoint) {
-            // 逻辑：左键按下时关闭右键菜单。
-            setContextMenuPoint(null);
-          }
+      >
+        <div
+          ref={containerRef}
+          data-board-canvas
+          data-board-panel={panelKey}
+          data-allow-context-menu
+          className={cn("relative h-full w-full overflow-hidden outline-none", className)}
+          tabIndex={showUi ? 0 : -1}
+          aria-hidden={showUi ? undefined : true}
+          onPointerMove={handlePointerMove}
+          onDragOver={handleCanvasDragOver}
+          onDrop={handleCanvasDrop}
+          onPointerDown={(event) => {
+            if (!showUi) return;
           if (event.isPrimary && event.button === 0) {
             isPointerDownRef.current = true;
             applyCursorRef.current();
@@ -842,58 +891,45 @@ export function BoardCanvasInteraction({
             // 逻辑：空白点击时清空选区，避免残留高亮。
             engine.selection.clear();
           }
-        }}
-        onDoubleClick={(event) => {
-          if (!showUi) return;
-          const rawTarget = event.target as EventTarget | null;
-          const target =
-            rawTarget instanceof Element
-              ? rawTarget
-              : rawTarget instanceof Node
-                ? rawTarget.parentElement
-                : null;
-          if (!target) return;
-          if (snapshot.activeToolId !== "select") return;
-          if (snapshot.pendingInsert || snapshot.toolbarDragging) return;
-          if (engine.isLocked()) return;
-          if (isBoardUiTarget(target, ["[data-connector-drop-panel]"])) {
-            return;
-          }
-          const rect = containerRef.current?.getBoundingClientRect();
-          if (!rect) return;
-          const worldPoint = engine.screenToWorld([
-            event.clientX - rect.left,
-            event.clientY - rect.top,
-          ]);
-          const hitElement = engine.pickElementAt(worldPoint);
-          if (hitElement?.kind === "node") {
-            handleNodeDoubleClick(hitElement);
-          }
-        }}
-      >
-        {children}
-        <ConnectorDropPanel
-          engine={engine}
-          snapshot={snapshot}
-          templates={availableTemplates}
-          onSelect={handleTemplateSelect}
-          panelRef={nodePickerRef}
-        />
-      </div>
-      {contextMenuPoint ? (
-        <BoardContextMenu
-          point={contextMenuPoint}
-          onClose={handleCloseContextMenu}
-          onAutoLayout={handleAutoLayout}
-          onFitView={handleFitView}
-          onRefresh={handlePanelRefresh}
-          onPaste={() => {
-            void handlePasteFromContextMenu();
           }}
-          pasteAvailable={pasteAvailable}
-          pasteDisabled={engine.isLocked()}
-        />
-      ) : null}
+          onDoubleClick={(event) => {
+            if (!showUi) return;
+            const rawTarget = event.target as EventTarget | null;
+            const target =
+              rawTarget instanceof Element
+                ? rawTarget
+                : rawTarget instanceof Node
+                  ? rawTarget.parentElement
+                  : null;
+            if (!target) return;
+            if (snapshot.activeToolId !== "select") return;
+            if (snapshot.pendingInsert || snapshot.toolbarDragging) return;
+            if (engine.isLocked()) return;
+            if (isBoardUiTarget(target, ["[data-connector-drop-panel]"])) {
+              return;
+            }
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const worldPoint = engine.screenToWorld([
+              event.clientX - rect.left,
+              event.clientY - rect.top,
+            ]);
+            const hitElement = engine.pickElementAt(worldPoint);
+            if (hitElement?.kind === "node") {
+              handleNodeDoubleClick(hitElement);
+            }
+          }}
+        >
+          {children}
+          <ConnectorDropPanel
+            engine={engine}
+            snapshot={snapshot}
+            templates={availableTemplates}
+            onSelect={handleTemplateSelect}
+            panelRef={nodePickerRef}
+          />
+        </div>
+      </BoardContextMenu>
     </>
   );
 }

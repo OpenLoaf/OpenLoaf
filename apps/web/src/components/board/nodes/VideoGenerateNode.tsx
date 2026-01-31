@@ -583,15 +583,17 @@ export function VideoGenerateNodeView({
     ]
   );
 
-  const handlePromptFocus = useCallback(() => {
+  /** Focus viewport to the node when the node is interacted with. */
+  const handleNodeFocus = useCallback(() => {
     const now = Date.now();
     if (now - focusThrottleRef.current < 300) return;
     focusThrottleRef.current = now;
     if (engine.getViewState().panning) return;
+    // 逻辑：节点点击后自动聚焦到画布视口，避免在视野外编辑。
     // 逻辑：引擎实例可能来自旧热更新，缺少方法时直接跳过。
     if (typeof engine.focusViewportToRect !== "function") return;
     const [x, y, w, h] = element.xywh;
-    engine.focusViewportToRect({ x, y, w, h }, { padding: 320, durationMs: 280 });
+    engine.focusViewportToRect({ x, y, w, h }, { padding: 240, durationMs: 280 });
   }, [engine, element.xywh]);
 
   const statusLabel =
@@ -679,6 +681,11 @@ export function VideoGenerateNodeView({
         // 逻辑：点击节点本体保持选中。
         event.stopPropagation();
         onSelect();
+      }}
+      onDoubleClick={(event) => {
+        // 逻辑：双击节点聚焦视口，避免单击误触发。
+        event.stopPropagation();
+        handleNodeFocus();
       }}
     >
       <div className={containerClassName}>
@@ -786,7 +793,6 @@ export function VideoGenerateNodeView({
                     const next = event.target.value.slice(0, 500);
                     onUpdate({ promptText: next });
                   }}
-                  onFocus={handlePromptFocus}
                   data-board-scroll
                   className="h-full min-h-[88px] flex-1 overflow-y-auto px-2 py-1 text-[13px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[13px]"
                   disabled={engine.isLocked() || element.locked || isRunning}

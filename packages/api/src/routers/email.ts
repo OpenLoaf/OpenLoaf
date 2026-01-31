@@ -35,6 +35,8 @@ const listMessagesInputSchema = z.object({
   workspaceId: z.string().min(1),
   accountEmail: z.string().min(1),
   mailbox: z.string().min(1),
+  cursor: z.string().nullable().optional(),
+  pageSize: z.number().int().min(1).max(200).nullable().optional(),
 });
 
 const listMailboxesInputSchema = z.object({
@@ -47,6 +49,12 @@ const markMessageReadInputSchema = z.object({
   id: z.string().min(1),
 });
 
+const setMessageFlaggedInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  id: z.string().min(1),
+  flagged: z.boolean(),
+});
+
 const listMailboxStatsInputSchema = z.object({
   workspaceId: z.string().min(1),
   accountEmail: z.string().min(1),
@@ -55,6 +63,48 @@ const listMailboxStatsInputSchema = z.object({
 /** List unread count input. */
 const listUnreadCountInputSchema = z.object({
   workspaceId: z.string().min(1),
+});
+
+/** List mailbox unread stats input. */
+const listMailboxUnreadStatsInputSchema = z.object({
+  workspaceId: z.string().min(1),
+});
+
+/** Unified mailbox scope. */
+const unifiedMailboxScopeSchema = z.enum([
+  "all-inboxes",
+  "flagged",
+  "drafts",
+  "sent",
+  "mailbox",
+]);
+
+/** Unified messages input. */
+const listUnifiedMessagesInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  scope: unifiedMailboxScopeSchema,
+  accountEmail: z.string().min(1).optional(),
+  mailbox: z.string().min(1).optional(),
+  cursor: z.string().nullable().optional(),
+  pageSize: z.number().int().min(1).max(200).nullable().optional(),
+});
+
+/** Unified unread stats input. */
+const listUnifiedUnreadStatsInputSchema = z.object({
+  workspaceId: z.string().min(1),
+});
+
+/** Update mailbox sorts input. */
+const updateMailboxSortsInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  accountEmail: z.string().min(1),
+  parentPath: z.string().nullable().optional(),
+  sorts: z.array(
+    z.object({
+      mailboxPath: z.string().min(1),
+      sort: z.number().int(),
+    }),
+  ),
 });
 
 const syncMailboxInputSchema = z.object({
@@ -78,6 +128,16 @@ const getMessageInputSchema = z.object({
   id: z.string().min(1),
 });
 
+const setPrivateSenderInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  senderEmail: z.string().min(1),
+});
+
+const removePrivateSenderInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  senderEmail: z.string().min(1),
+});
+
 const emailMessageSummarySchema = z.object({
   id: z.string(),
   accountEmail: z.string(),
@@ -87,6 +147,8 @@ const emailMessageSummarySchema = z.object({
   preview: z.string(),
   time: z.string().optional(),
   unread: z.boolean(),
+  hasAttachments: z.boolean(),
+  isPrivate: z.boolean(),
 });
 
 const emailMailboxSchema = z.object({
@@ -95,6 +157,7 @@ const emailMailboxSchema = z.object({
   parentPath: z.string().nullable().optional(),
   delimiter: z.string().optional(),
   attributes: z.array(z.string()),
+  sort: z.number().int().optional(),
 });
 
 const mailboxStatsSchema = z.object({
@@ -102,9 +165,29 @@ const mailboxStatsSchema = z.object({
   count: z.number().int(),
 });
 
+const emailMessagePageSchema = z.object({
+  items: z.array(emailMessageSummarySchema),
+  nextCursor: z.string().nullable(),
+});
+
 /** Unread count payload. */
 const unreadCountSchema = z.object({
   count: z.number().int(),
+});
+
+/** Mailbox unread stats payload. */
+const mailboxUnreadStatsSchema = z.object({
+  accountEmail: z.string(),
+  mailboxPath: z.string(),
+  unreadCount: z.number().int(),
+});
+
+/** Unified unread stats payload. */
+const unifiedUnreadStatsSchema = z.object({
+  allInboxes: z.number().int(),
+  flagged: z.number().int(),
+  drafts: z.number().int(),
+  sent: z.number().int(),
 });
 
 const emailMessageDetailSchema = z.object({
@@ -127,6 +210,8 @@ const emailMessageDetailSchema = z.object({
     }),
   ),
   flags: z.array(z.string()),
+  fromAddress: z.string().optional(),
+  isPrivate: z.boolean(),
 });
 
 export const emailSchemas = {
@@ -140,7 +225,7 @@ export const emailSchemas = {
   },
   listMessages: {
     input: listMessagesInputSchema,
-    output: z.array(emailMessageSummarySchema),
+    output: emailMessagePageSchema,
   },
   listMailboxes: {
     input: listMailboxesInputSchema,
@@ -150,6 +235,10 @@ export const emailSchemas = {
     input: markMessageReadInputSchema,
     output: syncMailboxOutputSchema,
   },
+  setMessageFlagged: {
+    input: setMessageFlaggedInputSchema,
+    output: syncMailboxOutputSchema,
+  },
   listMailboxStats: {
     input: listMailboxStatsInputSchema,
     output: z.array(mailboxStatsSchema),
@@ -157,6 +246,22 @@ export const emailSchemas = {
   listUnreadCount: {
     input: listUnreadCountInputSchema,
     output: unreadCountSchema,
+  },
+  listMailboxUnreadStats: {
+    input: listMailboxUnreadStatsInputSchema,
+    output: z.array(mailboxUnreadStatsSchema),
+  },
+  listUnifiedMessages: {
+    input: listUnifiedMessagesInputSchema,
+    output: emailMessagePageSchema,
+  },
+  listUnifiedUnreadStats: {
+    input: listUnifiedUnreadStatsInputSchema,
+    output: unifiedUnreadStatsSchema,
+  },
+  updateMailboxSorts: {
+    input: updateMailboxSortsInputSchema,
+    output: syncMailboxOutputSchema,
   },
   syncMailbox: {
     input: syncMailboxInputSchema,
@@ -169,6 +274,14 @@ export const emailSchemas = {
   getMessage: {
     input: getMessageInputSchema,
     output: emailMessageDetailSchema,
+  },
+  setPrivateSender: {
+    input: setPrivateSenderInputSchema,
+    output: syncMailboxOutputSchema,
+  },
+  removePrivateSender: {
+    input: removePrivateSenderInputSchema,
+    output: syncMailboxOutputSchema,
   },
 };
 
@@ -208,6 +321,12 @@ export abstract class BaseEmailRouter {
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),
+      setMessageFlagged: shieldedProcedure
+        .input(emailSchemas.setMessageFlagged.input)
+        .output(emailSchemas.setMessageFlagged.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
       listMailboxStats: shieldedProcedure
         .input(emailSchemas.listMailboxStats.input)
         .output(emailSchemas.listMailboxStats.output)
@@ -218,6 +337,30 @@ export abstract class BaseEmailRouter {
         .input(emailSchemas.listUnreadCount.input)
         .output(emailSchemas.listUnreadCount.output)
         .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      listMailboxUnreadStats: shieldedProcedure
+        .input(emailSchemas.listMailboxUnreadStats.input)
+        .output(emailSchemas.listMailboxUnreadStats.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      listUnifiedMessages: shieldedProcedure
+        .input(emailSchemas.listUnifiedMessages.input)
+        .output(emailSchemas.listUnifiedMessages.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      listUnifiedUnreadStats: shieldedProcedure
+        .input(emailSchemas.listUnifiedUnreadStats.input)
+        .output(emailSchemas.listUnifiedUnreadStats.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      updateMailboxSorts: shieldedProcedure
+        .input(emailSchemas.updateMailboxSorts.input)
+        .output(emailSchemas.updateMailboxSorts.output)
+        .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),
       syncMailbox: shieldedProcedure
@@ -236,6 +379,18 @@ export abstract class BaseEmailRouter {
         .input(emailSchemas.getMessage.input)
         .output(emailSchemas.getMessage.output)
         .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      setPrivateSender: shieldedProcedure
+        .input(emailSchemas.setPrivateSender.input)
+        .output(emailSchemas.setPrivateSender.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      removePrivateSender: shieldedProcedure
+        .input(emailSchemas.removePrivateSender.input)
+        .output(emailSchemas.removePrivateSender.output)
+        .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),
     });

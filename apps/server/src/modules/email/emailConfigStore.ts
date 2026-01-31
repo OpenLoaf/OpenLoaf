@@ -77,6 +77,7 @@ const EmailAccountSchema = z.object({
 /** Schema for email.json file. */
 const EmailConfigFileSchema = z.object({
   emailAccounts: z.array(EmailAccountSchema).default([]).describe("Email account list."),
+  privateSenders: z.array(z.string()).default([]).describe("Private sender emails."),
 });
 
 export type EmailConfigFile = z.infer<typeof EmailConfigFileSchema>;
@@ -93,6 +94,12 @@ function resolveWorkspaceConfig(workspaceId?: string): Workspace {
     throw new Error("Workspace not found.");
   }
   return workspace;
+}
+
+/** Normalize private sender email. */
+function normalizePrivateSender(email: string): string {
+  // 逻辑：统一大小写并去除首尾空格，确保匹配一致。
+  return email.trim().toLowerCase();
 }
 
 /** Resolve email.json path for the workspace. */
@@ -144,4 +151,59 @@ export function writeEmailConfigFile(payload: EmailConfigFile, workspaceId?: str
   writeFileSync(tmpPath, JSON.stringify(normalized, null, 2), "utf-8");
   renameSync(tmpPath, filePath);
   cachedEmailConfigByPath.set(filePath, normalized);
+}
+
+/** List private senders stored in email.json. */
+export function listPrivateSenders(workspaceId?: string): string[] {
+  const config = readEmailConfigFile(workspaceId);
+  return config.privateSenders?.map((sender) => normalizePrivateSender(sender)) ?? [];
+}
+
+/** Add a private sender to email.json. */
+export function addPrivateSender(input: {
+  workspaceId?: string;
+  senderEmail: string;
+}): EmailConfigFile {
+  const normalized = normalizePrivateSender(input.senderEmail);
+  if (!normalized) {
+    throw new Error("发件人地址不能为空。");
+  }
+  const config = readEmailConfigFile(input.workspaceId);
+  const existing = new Set(
+    (config.privateSenders ?? []).map((sender) => normalizePrivateSender(sender)),
+  );
+  if (!existing.has(normalized)) {
+    existing.add(normalized);
+    const next = {
+      ...config,
+      privateSenders: Array.from(existing),
+    };
+    writeEmailConfigFile(next, input.workspaceId);
+    return next;
+  }
+  return config;
+}
+
+/** Remove a private sender from email.json. */
+export function removePrivateSender(input: {
+  workspaceId?: string;
+  senderEmail: string;
+}): EmailConfigFile {
+  const normalized = normalizePrivateSender(input.senderEmail);
+  if (!normalized) {
+    throw new Error("发件人地址不能为空。");
+  }
+  const config = readEmailConfigFile(input.workspaceId);
+  const nextSenders = (config.privateSenders ?? []).filter(
+    (sender) => normalizePrivateSender(sender) !== normalized,
+  );
+  if (nextSenders.length === (config.privateSenders ?? []).length) {
+    return config;
+  }
+  const next = {
+    ...config,
+    privateSenders: nextSenders,
+  };
+  writeEmailConfigFile(next, input.workspaceId);
+  return next;
 }

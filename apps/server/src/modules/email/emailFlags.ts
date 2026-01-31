@@ -29,9 +29,31 @@ export function hasSeenFlag(flags: string[]): boolean {
   });
 }
 
+/** Check if flags contain given flag. */
+export function hasFlag(flags: string[], target: string): boolean {
+  const normalizedTarget = target.trim().toUpperCase();
+  return flags.some((flag) => {
+    const normalized = flag.trim().toUpperCase();
+    return normalized === normalizedTarget || normalized === `\\${normalizedTarget}`;
+  });
+}
+
 /** Ensure Seen flag exists. */
 export function ensureSeenFlag(flags: string[]): string[] {
   // 逻辑：幂等补齐已读标记。
   if (hasSeenFlag(flags)) return flags;
   return [...flags, "\\Seen"];
+}
+
+/** Ensure Flagged flag exists. */
+export function ensureFlaggedFlag(flags: string[]): string[] {
+  // 逻辑：幂等补齐星标标记。
+  if (hasFlag(flags, "FLAGGED")) return flags;
+  return [...flags, "\\Flagged"];
+}
+
+/** Remove Flagged flag if present. */
+export function removeFlaggedFlag(flags: string[]): string[] {
+  // 逻辑：过滤掉所有形式的星标标记。
+  return flags.filter((flag) => !hasFlag([flag], "FLAGGED"));
 }
