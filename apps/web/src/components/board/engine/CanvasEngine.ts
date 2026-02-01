@@ -1,4 +1,5 @@
 import { CanvasDoc } from "./CanvasDoc";
+import { toast } from "sonner";
 import type {
   CanvasAnchorHit,
   CanvasAnchorMap,
@@ -31,6 +32,9 @@ import {
   DEFAULT_NODE_SIZE,
   HISTORY_MAX_SIZE,
   LAYOUT_GAP,
+  MINDMAP_FIRST_LEVEL_HORIZONTAL_SPACING,
+  MINDMAP_NODE_HORIZONTAL_SPACING,
+  MINDMAP_NODE_VERTICAL_SPACING,
   MIN_ZOOM_EPS,
   PASTE_OFFSET_STEP,
   PAN_SOFT_PADDING_MIN,
@@ -74,6 +78,7 @@ import { buildImageNodePayloadFromFile, type ImageNodePayload } from "../utils/i
 import { buildLinkNodePayloadFromUrl, type LinkNodePayload } from "../utils/link";
 import { applyGroupAnchorPadding, buildAnchorMap } from "./anchors";
 import { computeAutoLayoutUpdates } from "./auto-layout";
+import { MINDMAP_META, computeMindmapLayout, type MindmapLayoutDirection } from "./mindmap-layout";
 import {
   addStrokeElement as addStrokeElementToDoc,
   eraseStrokesAt as eraseStrokesAtDoc,
@@ -145,6 +150,12 @@ export class CanvasEngine {
   private connectorHoverId: string | null = null;
   /** Active connector style for new links. */
   private connectorStyle: CanvasConnectorStyle = "curve";
+  /** Whether new connectors use dashed strokes. */
+  private connectorDashed = false;
+  /** Active mindmap layout direction. */
+  private mindmapLayoutDirection: MindmapLayoutDirection = "right";
+  /** Last toast timestamp for cycle warning. */
+  private lastCycleToastAt = 0;
   /** Pending connector drop for node creation. */
   private connectorDrop: CanvasConnectorDrop | null = null;
   /** Pending insert request for one-shot placement. */
@@ -492,6 +503,7 @@ export class CanvasEngine {
       nodeHoverId: this.nodeHoverId,
       connectorHoverId: this.connectorHoverId,
       connectorStyle: this.connectorStyle,
+      connectorDashed: this.connectorDashed,
       connectorDrop: this.connectorDrop,
       pendingInsert: this.pendingInsert,
       pendingInsertPoint: this.pendingInsertPoint,
@@ -625,6 +637,11 @@ export class CanvasEngine {
     return this.connectorStyle;
   }
 
+  /** Return whether new connectors are dashed. */
+  getConnectorDashed(): boolean {
+    return this.connectorDashed;
+  }
+
   /** Update the active connector style. */
   setConnectorStyle(
     style: CanvasConnectorStyle,
@@ -654,6 +671,62 @@ export class CanvasEngine {
         this.doc.updateElement(id, { style });
       });
     });
+  }
+
+  /** Update the active connector dashed state. */
+  setConnectorDashed(
+    dashed: boolean,
+    options?: { applyToSelection?: boolean }
+  ): void {
+    this.connectorDashed = dashed;
+    const applyToSelection = options?.applyToSelection ?? true;
+    if (!applyToSelection) {
+      this.emitChange();
+      return;
+    }
+
+    // 逻辑：选中连线时同步更新虚线状态，未选中则只改默认样式。
+    const selectedIds = this.selection.getSelectedIds();
+    const connectorIds = selectedIds.filter(id => {
+      const element = this.doc.getElementById(id);
+      return element?.kind === "connector";
+    });
+
+    if (connectorIds.length === 0) {
+      this.emitChange();
+      return;
+    }
+
+    this.doc.transact(() => {
+      connectorIds.forEach(id => {
+        this.doc.updateElement(id, { dashed });
+      });
+    });
+  }
+
+  /** Update connector color for selection. */
+  setConnectorColor(color: string, options?: { applyToSelection?: boolean }): void {
+    const applyToSelection = options?.applyToSelection ?? true;
+    if (!applyToSelection) {
+      this.emitChange();
+      return;
+    }
+
+    const selectedIds = this.selection.getSelectedIds();
+    const connectorIds = selectedIds.filter(id => {
+      const element = this.doc.getElementById(id);
+      return element?.kind === "connector";
+    });
+    if (connectorIds.length === 0) {
+      this.emitChange();
+      return;
+    }
+    this.doc.transact(() => {
+      connectorIds.forEach(id => {
+        this.doc.updateElement(id, { color });
+      });
+    });
+    this.autoLayoutMindmap();
   }
 
   /** Return the current connector draft. */
@@ -761,6 +834,24 @@ export class CanvasEngine {
   ): void {
     const element = this.doc.getElementById(connectorId);
     if (!element || element.kind !== "connector") return;
+    if ("elementId" in end) {
+      const sourceId =
+        role === "source"
+          ? end.elementId
+          : "elementId" in element.source
+            ? element.source.elementId
+            : null;
+      const targetId =
+        role === "target"
+          ? end.elementId
+          : "elementId" in element.target
+            ? element.target.elementId
+            : null;
+      if (sourceId && targetId && this.wouldCreateCycle(sourceId, targetId)) {
+        this.notifyCycleBlocked();
+        return;
+      }
+    }
     const anchors = this.getAnchorMapWithGroupPadding();
     const sourceAxisPreference = this.buildSourceAxisPreferenceMap();
     const { update } = buildConnectorEndpointUpdate(
@@ -1017,6 +1108,7 @@ export class CanvasEngine {
       this.selection.getSelectedIds()
     );
     deleteSelection(this.getSelectionDeps(), selectionIds);
+    this.autoLayoutMindmap();
   }
 
   /** Copy selected nodes (and internal connectors) to clipboard. */
@@ -1084,6 +1176,7 @@ export class CanvasEngine {
     });
     this.selection.setSelection(selectionIds);
     this.commitHistory();
+    this.autoLayoutMindmap();
   }
 
   /** Check whether the internal clipboard has content. */
@@ -1194,6 +1287,466 @@ export class CanvasEngine {
     );
   }
 
+  /** Update the global mindmap layout direction. */
+  setMindmapLayoutDirection(direction: MindmapLayoutDirection): void {
+    this.mindmapLayoutDirection = direction;
+    this.autoLayoutMindmap();
+    this.emitChange();
+  }
+
+  /** Return the current mindmap layout direction. */
+  getMindmapLayoutDirection(): MindmapLayoutDirection {
+    return this.mindmapLayoutDirection;
+  }
+
+  /** Auto layout all nodes using the mindmap tree. */
+  autoLayoutMindmap(): void {
+    if (this.locked) return;
+    const elements = this.doc.getElements();
+    const { updates, nodeMeta, ghostPlans } = computeMindmapLayout(
+      elements,
+      this.mindmapLayoutDirection
+    );
+    if (updates.length === 0 && nodeMeta.size === 0 && ghostPlans.length === 0) return;
+
+    const ghostNodes = elements.filter(
+      (element): element is CanvasNodeElement =>
+        element.kind === "node" && this.getMindmapFlag(element, MINDMAP_META.ghost)
+    );
+    const ghostConnectors = elements.filter(
+      (element): element is CanvasConnectorElement =>
+        element.kind === "connector"
+        && this.getMindmapFlag(element, MINDMAP_META.ghostConnector)
+    );
+    const ghostByParent = new Map<string, CanvasNodeElement>();
+    ghostNodes.forEach(node => {
+      const parentId = this.getMindmapString(node, MINDMAP_META.ghostParentId);
+      if (parentId) ghostByParent.set(parentId, node);
+    });
+    const ghostConnectorByParent = new Map<string, CanvasConnectorElement>();
+    ghostConnectors.forEach(connector => {
+      const parentId = this.getMindmapString(connector, MINDMAP_META.ghostConnectorParentId);
+      if (parentId) ghostConnectorByParent.set(parentId, connector);
+    });
+    const activeGhostParents = new Set(ghostPlans.map(plan => plan.parentId));
+    const ghostsToDelete = ghostNodes.filter(node => {
+      const parentId = this.getMindmapString(node, MINDMAP_META.ghostParentId);
+      return !parentId || !activeGhostParents.has(parentId);
+    });
+    const ghostConnectorsToDelete = ghostConnectors.filter(connector => {
+      const parentId = this.getMindmapString(connector, MINDMAP_META.ghostConnectorParentId);
+      return !parentId || !activeGhostParents.has(parentId);
+    });
+    const anchors = this.getAnchorMapWithGroupPadding();
+    const sourceAxisPreference = this.buildSourceAxisPreferenceMap();
+
+    let hasChanges = false;
+    this.doc.transact(() => {
+      updates.forEach(update => {
+        const element = this.doc.getElementById(update.id);
+        if (!element || element.kind !== "node") return;
+        const [x, y, w, h] = element.xywh;
+        const [nx, ny, nw, nh] = update.xywh;
+        if (x === nx && y === ny && w === nw && h === nh) return;
+        this.doc.updateElement(update.id, { xywh: update.xywh });
+        hasChanges = true;
+      });
+
+      nodeMeta.forEach((meta, nodeId) => {
+        const element = this.doc.getElementById(nodeId);
+        if (!element || element.kind !== "node") return;
+        const patch: Record<string, unknown | undefined> = {
+          [MINDMAP_META.hidden]: meta.hidden || undefined,
+          [MINDMAP_META.childCount]: meta.childCount,
+          [MINDMAP_META.multiParent]: meta.multiParent || undefined,
+          [MINDMAP_META.branchColor]: meta.branchColor,
+        };
+        if (meta.multiParent && this.getMindmapFlag(element, MINDMAP_META.collapsed)) {
+          patch[MINDMAP_META.collapsed] = undefined;
+        }
+        if (this.updateMindmapMeta(element, patch)) {
+          hasChanges = true;
+        }
+      });
+
+      ghostPlans.forEach(plan => {
+        const existing = ghostByParent.get(plan.parentId);
+        const parent = this.doc.getElementById(plan.parentId);
+        if (parent && parent.kind === "node") {
+          const parentBounds = this.getNodeBoundsById(plan.parentId) ?? {
+            x: parent.xywh[0],
+            y: parent.xywh[1],
+            w: parent.xywh[2],
+            h: parent.xywh[3],
+          };
+          const parentCenterX = parentBounds.x + parentBounds.w / 2;
+          const parentCenterY = parentBounds.y + parentBounds.h / 2;
+          const targetX = plan.xywh[0] + plan.xywh[2] / 2;
+          const targetY = plan.xywh[1] + plan.xywh[3] / 2;
+          const sourcePoint: CanvasPoint = [
+            targetX >= parentCenterX ? parentBounds.x + parentBounds.w : parentBounds.x,
+            parentCenterY,
+          ];
+          const draft: CanvasConnectorDraft = {
+            source: { point: sourcePoint },
+            target: { point: [targetX, targetY] },
+            style: this.connectorStyle,
+            dashed: this.connectorDashed,
+            color: plan.branchColor,
+          };
+          const nextConnector = buildConnectorElement(
+            draft,
+            anchors,
+            this.connectorStyle,
+            this.getNodeBoundsById,
+            this.generateId.bind(this),
+            { sourceAxisPreference }
+          );
+          if (nextConnector) {
+            const existingConnector = ghostConnectorByParent.get(plan.parentId);
+            const connectorMeta = {
+              ...(existingConnector?.meta ?? {}),
+              [MINDMAP_META.ghostConnector]: true,
+              [MINDMAP_META.ghostConnectorParentId]: plan.parentId,
+            };
+            if (existingConnector) {
+              this.doc.updateElement(existingConnector.id, {
+                source: nextConnector.source,
+                target: nextConnector.target,
+                xywh: nextConnector.xywh,
+                style: nextConnector.style,
+                color: nextConnector.color,
+                dashed: nextConnector.dashed,
+                meta: connectorMeta,
+                locked: true,
+              });
+              hasChanges = true;
+            } else {
+              this.doc.addElement({
+                ...nextConnector,
+                meta: connectorMeta,
+                locked: true,
+              });
+              hasChanges = true;
+            }
+          }
+        }
+        if (existing) {
+          const nextValue = `+${plan.count}`;
+          const existingProps = existing.props as Record<string, unknown>;
+          const currentValue =
+            typeof existingProps.value === "string" ? existingProps.value : "";
+          const currentCollapsedHeight =
+            typeof existingProps.collapsedHeight === "number"
+              ? existingProps.collapsedHeight
+              : undefined;
+          if (currentValue !== nextValue || currentCollapsedHeight !== plan.xywh[3]) {
+            this.doc.updateElement(existing.id, {
+              props: {
+                value: nextValue,
+                autoFocus: false,
+                collapsedHeight: plan.xywh[3],
+              },
+            });
+            hasChanges = true;
+          }
+          const [x, y, w, h] = existing.xywh;
+          const [nx, ny, nw, nh] = plan.xywh;
+          if (x !== nx || y !== ny || w !== nw || h !== nh) {
+            this.doc.updateElement(existing.id, { xywh: plan.xywh });
+            hasChanges = true;
+          }
+          const metaPatch: Record<string, unknown | undefined> = {
+            [MINDMAP_META.ghost]: true,
+            [MINDMAP_META.ghostParentId]: plan.parentId,
+            [MINDMAP_META.ghostCount]: plan.count,
+            [MINDMAP_META.branchColor]: plan.branchColor,
+          };
+          if (this.updateMindmapMeta(existing, metaPatch)) {
+            hasChanges = true;
+          }
+          return;
+        }
+
+        const ghostId = this.generateId("text");
+        this.doc.addElement({
+          id: ghostId,
+          kind: "node",
+          type: "text",
+          xywh: plan.xywh,
+          zIndex: this.getNextZIndex(),
+          locked: true,
+          meta: {
+            [MINDMAP_META.ghost]: true,
+            [MINDMAP_META.ghostParentId]: plan.parentId,
+            [MINDMAP_META.ghostCount]: plan.count,
+            [MINDMAP_META.branchColor]: plan.branchColor,
+            createdAt: Date.now(),
+          },
+          props: {
+            value: `+${plan.count}`,
+            autoFocus: false,
+            collapsedHeight: plan.xywh[3],
+          },
+        });
+        hasChanges = true;
+      });
+
+      ghostsToDelete.forEach(node => {
+        this.doc.deleteElement(node.id);
+        hasChanges = true;
+      });
+      ghostConnectorsToDelete.forEach(connector => {
+        this.doc.deleteElement(connector.id);
+        hasChanges = true;
+      });
+    });
+
+    if (hasChanges) {
+      this.commitHistory();
+    }
+  }
+
+  /** Create a new child text node for mindmap editing. */
+  createMindmapChild(parentId: string): string | null {
+    if (this.locked) return null;
+    const parent = this.doc.getElementById(parentId);
+    if (!parent || parent.kind !== "node") return null;
+    if (this.getMindmapFlag(parent, MINDMAP_META.ghost)) return null;
+
+    const parentHasParent = this.getMindmapInboundConnectors(parentId).length > 0;
+    const spacingX = parentHasParent
+      ? MINDMAP_NODE_HORIZONTAL_SPACING
+      : MINDMAP_FIRST_LEVEL_HORIZONTAL_SPACING;
+    const [x, y, w] = parent.xywh;
+    const [defaultW, defaultH] = DEFAULT_NODE_SIZE;
+    const offsetX =
+      this.mindmapLayoutDirection === "left"
+        ? -(spacingX + defaultW)
+        : w + spacingX;
+    const nextXYWH: [number, number, number, number] = [
+      x + offsetX,
+      y,
+      defaultW,
+      defaultH,
+    ];
+    const childId = this.addNodeElement(
+      "text",
+      { value: "", autoFocus: true },
+      nextXYWH,
+      { skipHistory: true, skipMindmapLayout: true }
+    );
+    if (!childId) return null;
+
+    this.addConnectorElement(
+      {
+        source: { elementId: parentId },
+        target: { elementId: childId },
+        style: this.connectorStyle,
+        dashed: this.connectorDashed,
+      },
+      { skipHistory: true, skipLayout: true, select: false }
+    );
+    this.selection.setSelection([childId]);
+    this.commitHistory();
+    this.autoLayoutMindmap();
+    return childId;
+  }
+
+  /** Create a new sibling text node for mindmap editing. */
+  createMindmapSibling(nodeId: string): string | null {
+    if (this.locked) return null;
+    const element = this.doc.getElementById(nodeId);
+    if (!element || element.kind !== "node") return null;
+    if (this.getMindmapFlag(element, MINDMAP_META.ghost)) return null;
+
+    const inbound = this.getMindmapInboundConnectors(nodeId);
+    if (inbound.length === 0) {
+      const [x, y, , h] = element.xywh;
+      const [defaultW, defaultH] = DEFAULT_NODE_SIZE;
+      const nextXYWH: [number, number, number, number] = [
+        x,
+        y + h + MINDMAP_NODE_VERTICAL_SPACING,
+        defaultW,
+        defaultH,
+      ];
+      const siblingId = this.addNodeElement(
+        "text",
+        { value: "", autoFocus: true },
+        nextXYWH,
+        { skipHistory: true, skipMindmapLayout: true }
+      );
+      if (!siblingId) return null;
+      this.selection.setSelection([siblingId]);
+      this.commitHistory();
+      this.autoLayoutMindmap();
+      return siblingId;
+    }
+
+    const parentId =
+      "elementId" in inbound[0].source ? inbound[0].source.elementId : null;
+    if (!parentId) return null;
+    return this.createMindmapChild(parentId);
+  }
+
+  /** Promote a node to its parent level in the mindmap tree. */
+  promoteMindmapNode(nodeId: string): void {
+    if (this.locked) return;
+    const inbound = this.getMindmapInboundConnectors(nodeId);
+    if (inbound.length !== 1) return;
+    const connector = inbound[0];
+    if (!("elementId" in connector.source)) return;
+    const parentId = connector.source.elementId;
+    const parentInbound = this.getMindmapInboundConnectors(parentId);
+
+    this.doc.transact(() => {
+      if (parentInbound.length === 0) {
+        this.doc.deleteElement(connector.id);
+        return;
+      }
+      const grandParentId =
+        "elementId" in parentInbound[0].source
+          ? parentInbound[0].source.elementId
+          : null;
+      if (!grandParentId) return;
+      if (this.wouldCreateCycle(grandParentId, nodeId)) {
+        this.notifyCycleBlocked();
+        return;
+      }
+      const anchors = this.getAnchorMapWithGroupPadding();
+      const sourceAxisPreference = this.buildSourceAxisPreferenceMap();
+      const { update } = buildConnectorEndpointUpdate(
+        connector,
+        "source",
+        { elementId: grandParentId },
+        anchors,
+        this.connectorStyle,
+        this.getNodeBoundsById,
+        { sourceAxisPreference }
+      );
+      this.doc.updateElement(connector.id, update);
+    });
+    this.commitHistory();
+    this.autoLayoutMindmap();
+  }
+
+  /** Toggle the collapsed state of a mindmap node. */
+  toggleMindmapCollapse(nodeId: string, options?: { expand?: boolean }): void {
+    if (this.locked) return;
+    const element = this.doc.getElementById(nodeId);
+    if (!element || element.kind !== "node") return;
+    if (this.getMindmapFlag(element, MINDMAP_META.multiParent)) return;
+    const isCollapsed = this.getMindmapFlag(element, MINDMAP_META.collapsed);
+    const nextCollapsed = options?.expand ? false : !isCollapsed;
+    const changed = this.updateMindmapMeta(element, {
+      [MINDMAP_META.collapsed]: nextCollapsed ? true : undefined,
+    });
+    if (!changed) return;
+    this.commitHistory();
+    this.autoLayoutMindmap();
+  }
+
+  /** Reparent a node to a new parent in the mindmap tree. */
+  reparentMindmapNode(nodeId: string, newParentId: string): void {
+    if (this.locked) return;
+    if (nodeId === newParentId) return;
+    const node = this.doc.getElementById(nodeId);
+    const parent = this.doc.getElementById(newParentId);
+    if (!node || node.kind !== "node") return;
+    if (!parent || parent.kind !== "node") return;
+    if (this.getMindmapFlag(node, MINDMAP_META.ghost)) return;
+    if (this.getMindmapFlag(parent, MINDMAP_META.ghost)) return;
+    if (this.wouldCreateCycle(newParentId, nodeId)) {
+      this.notifyCycleBlocked();
+      return;
+    }
+
+    const inbound = this.getMindmapInboundConnectors(nodeId);
+    const connectorToReuse = inbound[0] ?? null;
+    const extraConnectors = inbound.slice(1);
+    const anchors = this.getAnchorMapWithGroupPadding();
+    const sourceAxisPreference = this.buildSourceAxisPreferenceMap();
+
+    this.doc.transact(() => {
+      extraConnectors.forEach(connector => {
+        this.doc.deleteElement(connector.id);
+      });
+
+      if (connectorToReuse) {
+        const { update } = buildConnectorEndpointUpdate(
+          connectorToReuse,
+          "source",
+          { elementId: newParentId },
+          anchors,
+          this.connectorStyle,
+          this.getNodeBoundsById,
+          { sourceAxisPreference }
+        );
+        this.doc.updateElement(connectorToReuse.id, update);
+      } else {
+        const draft: CanvasConnectorDraft = {
+          source: { elementId: newParentId },
+          target: { elementId: nodeId },
+          style: this.connectorStyle,
+          dashed: this.connectorDashed,
+        };
+        const connector = buildConnectorElement(
+          draft,
+          anchors,
+          this.connectorStyle,
+          this.getNodeBoundsById,
+          this.generateId.bind(this),
+          { sourceAxisPreference }
+        );
+        if (connector) {
+          this.doc.addElement(connector);
+        }
+      }
+    });
+    this.commitHistory();
+    this.autoLayoutMindmap();
+  }
+
+  /** Remove a mindmap node and reattach its children when possible. */
+  removeMindmapNode(nodeId: string): void {
+    if (this.locked) return;
+    const element = this.doc.getElementById(nodeId);
+    if (!element || element.kind !== "node") return;
+    if (this.getMindmapFlag(element, MINDMAP_META.ghost)) return;
+    const inbound = this.getMindmapInboundConnectors(nodeId);
+    const outbound = this.getMindmapOutboundConnectors(nodeId);
+    const parentId =
+      inbound.length > 0 && "elementId" in inbound[0].source
+        ? inbound[0].source.elementId
+        : null;
+    const anchors = this.getAnchorMapWithGroupPadding();
+    const sourceAxisPreference = this.buildSourceAxisPreferenceMap();
+
+    this.doc.transact(() => {
+      inbound.forEach(connector => this.doc.deleteElement(connector.id));
+      if (parentId) {
+        outbound.forEach(connector => {
+          const { update } = buildConnectorEndpointUpdate(
+            connector,
+            "source",
+            { elementId: parentId },
+            anchors,
+            this.connectorStyle,
+            this.getNodeBoundsById,
+            { sourceAxisPreference }
+          );
+          this.doc.updateElement(connector.id, update);
+        });
+      } else {
+        outbound.forEach(connector => this.doc.deleteElement(connector.id));
+      }
+      this.doc.deleteElement(nodeId);
+    });
+    this.selection.clear();
+    this.commitHistory();
+    this.autoLayoutMindmap();
+  }
+
   /** Auto layout all nodes on the board. */
   autoLayoutBoard(): void {
     if (this.locked) return;
@@ -1254,7 +1807,8 @@ export class CanvasEngine {
   addNodeElement<P extends Record<string, unknown>>(
     type: string,
     props: Partial<P>,
-    xywh?: [number, number, number, number]
+    xywh?: [number, number, number, number],
+    options?: { skipMindmapLayout?: boolean; skipHistory?: boolean }
   ): string | null {
     const definition = this.nodes.getDefinition(type);
     if (!definition) return null;
@@ -1291,16 +1845,34 @@ export class CanvasEngine {
       // 逻辑：自动聚焦的文本节点直接进入编辑态。
       this.editingNodeId = id;
     }
-    this.commitHistory();
+    if (!options?.skipHistory) {
+      this.commitHistory();
+    }
+    if (!options?.skipMindmapLayout) {
+      this.autoLayoutMindmap();
+    }
     return id;
   }
 
   /** Add a new connector element to the document. */
-  addConnectorElement(draft: CanvasConnectorDraft): void {
+  addConnectorElement(
+    draft: CanvasConnectorDraft,
+    options?: { skipHistory?: boolean; skipLayout?: boolean; select?: boolean }
+  ): void {
+    const sourceId = "elementId" in draft.source ? draft.source.elementId : null;
+    const targetId = "elementId" in draft.target ? draft.target.elementId : null;
+    if (sourceId && targetId && this.wouldCreateCycle(sourceId, targetId)) {
+      this.notifyCycleBlocked();
+      return;
+    }
     const anchors = this.getAnchorMapWithGroupPadding();
     const sourceAxisPreference = this.buildSourceAxisPreferenceMap();
+    const normalizedDraft: CanvasConnectorDraft = {
+      ...draft,
+      dashed: draft.dashed ?? this.connectorDashed,
+    };
     const element = buildConnectorElement(
-      draft,
+      normalizedDraft,
       anchors,
       this.connectorStyle,
       this.getNodeBoundsById,
@@ -1310,8 +1882,15 @@ export class CanvasEngine {
     if (!element) return;
     this.doc.addElement(element);
     // 逻辑：创建连线后默认选中，便于调整样式。
-    this.selection.setSelection([element.id]);
-    this.commitHistory();
+    if (options?.select ?? true) {
+      this.selection.setSelection([element.id]);
+    }
+    if (!options?.skipHistory) {
+      this.commitHistory();
+    }
+    if (!options?.skipLayout) {
+      this.autoLayoutMindmap();
+    }
   }
 
   /** Add a new stroke node to the document. */
@@ -1353,7 +1932,12 @@ export class CanvasEngine {
     }
     const nodes = this.doc
       .getElements()
-      .filter((element): element is CanvasNodeElement => element.kind === "node");
+      .filter(
+        (element): element is CanvasNodeElement =>
+          element.kind === "node" &&
+          !this.getMindmapFlag(element, MINDMAP_META.hidden) &&
+          !this.getMindmapFlag(element, MINDMAP_META.ghost)
+      );
     const map = buildAnchorMap(nodes, this.nodes);
     this.anchorMapCache = map;
     this.anchorMapDirty = false;
@@ -1540,22 +2124,185 @@ export class CanvasEngine {
     this.emitViewChange();
   }
 
+  /** Read a boolean mindmap meta flag. */
+  private getMindmapFlag(element: CanvasElement | null, key: string): boolean {
+    if (!element?.meta) return false;
+    return Boolean((element.meta as Record<string, unknown>)[key]);
+  }
+
+  /** Read a string mindmap meta value. */
+  private getMindmapString(element: CanvasElement | null, key: string): string | undefined {
+    if (!element?.meta) return undefined;
+    const raw = (element.meta as Record<string, unknown>)[key];
+    return typeof raw === "string" ? raw : undefined;
+  }
+
+  /** Merge mindmap meta updates into a node. */
+  private updateMindmapMeta(
+    element: CanvasNodeElement,
+    patch: Record<string, unknown | undefined>
+  ): boolean {
+    const current = (element.meta ?? {}) as Record<string, unknown>;
+    const next = { ...current };
+    let changed = false;
+    Object.entries(patch).forEach(([key, value]) => {
+      if (value === undefined) {
+        if (key in next) {
+          delete next[key];
+          changed = true;
+        }
+        return;
+      }
+      if (next[key] !== value) {
+        next[key] = value;
+        changed = true;
+      }
+    });
+    if (!changed) return false;
+    const meta = Object.keys(next).length > 0 ? next : undefined;
+    this.doc.updateElement(element.id, { meta });
+    return true;
+  }
+
+  /** Notify when a cycle connection is blocked. */
+  private notifyCycleBlocked(): void {
+    const now = Date.now();
+    if (now - this.lastCycleToastAt < 600) return;
+    this.lastCycleToastAt = now;
+    toast.error("禁止连接形成环");
+  }
+
+  /** Check whether a new connector would create a cycle. */
+  private wouldCreateCycle(sourceId: string, targetId: string): boolean {
+    if (sourceId === targetId) return true;
+    const elements = this.doc.getElements();
+    const ghostIds = new Set(
+      elements
+        .filter(
+          (element): element is CanvasNodeElement =>
+            element.kind === "node" && this.getMindmapFlag(element, MINDMAP_META.ghost)
+        )
+        .map(element => element.id)
+    );
+    const adjacency = new Map<string, string[]>();
+    elements.forEach(element => {
+      if (element.kind !== "connector") return;
+      if (!("elementId" in element.source) || !("elementId" in element.target)) return;
+      const from = element.source.elementId;
+      const to = element.target.elementId;
+      if (ghostIds.has(from) || ghostIds.has(to)) return;
+      const bucket = adjacency.get(from) ?? [];
+      bucket.push(to);
+      adjacency.set(from, bucket);
+    });
+
+    // 逻辑：从目标节点出发，能回到源节点则形成环。
+    const stack = [targetId];
+    const visited = new Set<string>();
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (!current) continue;
+      if (current === sourceId) return true;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      const next = adjacency.get(current) ?? [];
+      next.forEach(nodeId => {
+        if (!visited.has(nodeId)) stack.push(nodeId);
+      });
+    }
+    return false;
+  }
+
+  /** Check whether a node id refers to a mindmap ghost node. */
+  private isMindmapGhostId(nodeId: string): boolean {
+    const element = this.doc.getElementById(nodeId);
+    return (
+      Boolean(element) &&
+      element?.kind === "node" &&
+      this.getMindmapFlag(element, MINDMAP_META.ghost)
+    );
+  }
+
+  /** Return inbound connectors for mindmap operations. */
+  private getMindmapInboundConnectors(nodeId: string): CanvasConnectorElement[] {
+    const result: CanvasConnectorElement[] = [];
+    this.doc.getElements().forEach(element => {
+      if (element.kind !== "connector") return;
+      if (!("elementId" in element.source) || !("elementId" in element.target)) return;
+      if (element.target.elementId !== nodeId) return;
+      if (this.isMindmapGhostId(element.source.elementId)) return;
+      result.push(element);
+    });
+    return result;
+  }
+
+  /** Return outbound connectors for mindmap operations. */
+  private getMindmapOutboundConnectors(nodeId: string): CanvasConnectorElement[] {
+    const result: CanvasConnectorElement[] = [];
+    this.doc.getElements().forEach(element => {
+      if (element.kind !== "connector") return;
+      if (!("elementId" in element.source) || !("elementId" in element.target)) return;
+      if (element.source.elementId !== nodeId) return;
+      if (this.isMindmapGhostId(element.target.elementId)) return;
+      result.push(element);
+    });
+    return result;
+  }
+
   /** Return elements sorted by zIndex with stable fallback. */
   private getOrderedElements(): CanvasElement[] {
     if (!this.orderedElementsDirty && this.orderedElementsCache) {
       return this.orderedElementsCache;
     }
     const sorted = sortElementsByZIndex(this.doc.getElements());
+    const hiddenNodeIds = new Set(
+      sorted
+        .filter(
+          (element): element is CanvasNodeElement =>
+            element.kind === "node" && this.getMindmapFlag(element, MINDMAP_META.hidden)
+        )
+        .map(element => element.id)
+    );
+    const ghostNodeIds = new Set(
+      sorted
+        .filter(
+          (element): element is CanvasNodeElement =>
+            element.kind === "node" && this.getMindmapFlag(element, MINDMAP_META.ghost)
+        )
+        .map(element => element.id)
+    );
+    const filtered = sorted.filter(element => {
+      if (element.kind === "node") {
+        return !hiddenNodeIds.has(element.id);
+      }
+      if (element.kind === "connector") {
+        if (
+          "elementId" in element.source &&
+          (hiddenNodeIds.has(element.source.elementId) ||
+            ghostNodeIds.has(element.source.elementId))
+        ) {
+          return false;
+        }
+        if (
+          "elementId" in element.target &&
+          (hiddenNodeIds.has(element.target.elementId) ||
+            ghostNodeIds.has(element.target.elementId))
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
     const selectedIds = this.selection.getSelectedIds();
     // 逻辑：选中节点临时置顶显示，但不修改原始 zIndex。
     const elements =
       selectedIds.length === 0
-        ? sorted
+        ? filtered
         : (() => {
             const selectedSet = new Set(selectedIds);
             const base: CanvasElement[] = [];
             const selected: CanvasElement[] = [];
-            sorted.forEach(element => {
+            filtered.forEach(element => {
               if (element.kind === "node" && selectedSet.has(element.id)) {
                 selected.push(element);
               } else {
@@ -1574,7 +2321,9 @@ export class CanvasEngine {
     if (!this.elementsBoundsDirty) {
       return { bounds: this.elementsBoundsCache, count: this.elementsBoundsCount };
     }
-    const elements = this.doc.getElements();
+    const elements = this.getOrderedElements().filter(
+      (element): element is CanvasNodeElement => element.kind === "node"
+    );
     this.elementsBoundsCache = computeElementsBounds(elements);
     this.elementsBoundsCount = elements.length;
     this.elementsBoundsDirty = false;

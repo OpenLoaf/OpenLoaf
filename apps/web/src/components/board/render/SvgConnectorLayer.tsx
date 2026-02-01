@@ -11,6 +11,7 @@ import type {
 import { useBoardEngine } from "../core/BoardProvider";
 import { applyGroupAnchorPadding } from "../engine/anchors";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
+import { MINDMAP_META } from "../engine/mindmap-layout";
 import {
   buildConnectorPath,
   buildSourceAxisPreferenceMap,
@@ -40,7 +41,14 @@ export const SvgConnectorLayer = memo(function SvgConnectorLayer({
   const rafRef = useRef<number | null>(null);
   const initialView = engine.getViewState();
   const viewport = initialView.viewport;
-  const { elements, selectedIds, connectorHoverId, connectorDraft, connectorStyle } = snapshot;
+  const {
+    elements,
+    selectedIds,
+    connectorHoverId,
+    connectorDraft,
+    connectorStyle,
+    connectorDashed,
+  } = snapshot;
 
   const { boundsMap, connectorElements } = useMemo(() => {
     const groupPadding = getGroupOutlinePadding(1);
@@ -62,6 +70,19 @@ export const SvgConnectorLayer = memo(function SvgConnectorLayer({
     return applyGroupAnchorPadding(snapshot.anchors, elements, groupPadding);
   }, [elements, snapshot.anchors]);
 
+  const branchColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    elements.forEach(element => {
+      if (element.kind !== "node") return;
+      const meta = element.meta as Record<string, unknown> | undefined;
+      const color = meta?.[MINDMAP_META.branchColor];
+      if (typeof color === "string") {
+        map.set(element.id, color);
+      }
+    });
+    return map;
+  }, [elements]);
+
   const sourceAxisPreference = useMemo(() => {
     // 逻辑：当同源所有目标处于单侧时统一连线方向。
     return buildSourceAxisPreferenceMap(connectorElements, elementId => boundsMap[elementId]);
@@ -82,12 +103,18 @@ export const SvgConnectorLayer = memo(function SvgConnectorLayer({
       targetAnchorId: resolved.targetAnchorId,
     });
     const points = flattenConnectorPath(path);
+    const inheritedColor =
+      "elementId" in connector.source
+        ? branchColorMap.get(connector.source.elementId)
+        : undefined;
     return {
       id: connector.id,
       path: pathToSvg(path),
       arrowPath: buildArrowPath(points),
       selected: selectedIds.includes(connector.id),
       hovered: connectorHoverId === connector.id,
+      color: connector.color ?? inheritedColor,
+      dashed: connector.dashed ?? false,
     };
   });
 
@@ -106,8 +133,11 @@ export const SvgConnectorLayer = memo(function SvgConnectorLayer({
       sourceAnchorId: resolved.sourceAnchorId,
       targetAnchorId: resolved.targetAnchorId,
     });
-    return pathToSvg(path);
-  }, [anchors, boundsMap, connectorDraft, connectorStyle]);
+    return {
+      path: pathToSvg(path),
+      dashed: connectorDraft.dashed ?? connectorDashed,
+    };
+  }, [anchors, boundsMap, connectorDashed, connectorDraft, connectorStyle]);
 
   const applyView = useCallback((view: CanvasViewState) => {
     const svg = svgRef.current;
@@ -170,39 +200,45 @@ export const SvgConnectorLayer = memo(function SvgConnectorLayer({
           const baseStroke = item.selected ? CONNECTOR_STROKE_SELECTED : CONNECTOR_STROKE;
           const hoverStroke =
             item.hovered && !item.selected ? CONNECTOR_STROKE_HOVER : undefined;
-          const baseColor = item.selected
+          const baseColor = item.color ?? "var(--canvas-connector)";
+          const strokeColor = item.selected
             ? "var(--canvas-connector-selected)"
-            : "var(--canvas-connector)";
-          const hoverColor = "var(--canvas-connector-selected)";
+            : item.hovered
+              ? "var(--canvas-connector-selected)"
+              : baseColor;
+          const dashPattern = item.dashed ? "6 6" : undefined;
           return (
             <g key={item.id}>
               {hoverStroke ? (
                 <path
                   d={item.path}
                   fill="none"
-                  stroke={hoverColor}
+                  stroke="var(--canvas-connector-selected)"
                   strokeOpacity={0.5}
                   strokeWidth={hoverStroke}
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  strokeDasharray={dashPattern}
                 />
               ) : null}
               <path
                 d={item.path}
                 fill="none"
-                stroke={baseColor}
+                stroke={strokeColor}
                 strokeWidth={baseStroke}
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                strokeDasharray={dashPattern}
               />
               {item.arrowPath ? (
                 <path
                   d={item.arrowPath}
                   fill="none"
-                  stroke={baseColor}
+                  stroke={strokeColor}
                   strokeWidth={baseStroke}
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  strokeDasharray={dashPattern}
                 />
               ) : null}
             </g>
@@ -210,12 +246,13 @@ export const SvgConnectorLayer = memo(function SvgConnectorLayer({
         })}
         {draftItem ? (
           <path
-            d={draftItem}
+            d={draftItem.path}
             fill="none"
             stroke="var(--canvas-connector-draft)"
             strokeWidth={CONNECTOR_STROKE}
             strokeLinecap="round"
             strokeLinejoin="round"
+            strokeDasharray={draftItem.dashed ? "6 6" : undefined}
           />
         ) : null}
       </g>

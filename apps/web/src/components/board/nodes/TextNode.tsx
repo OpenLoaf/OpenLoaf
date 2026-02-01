@@ -13,6 +13,7 @@ import { z } from "zod";
 import { Play } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
 import { VIDEO_GENERATE_NODE_TYPE } from "./VideoGenerateNode";
+import { MINDMAP_META } from "../engine/mindmap-layout";
 
 /** Text value stored on the text node. */
 export type TextNodeValue = string;
@@ -149,12 +150,26 @@ export function TextNodeView({
   onSelect,
   onUpdate,
 }: CanvasNodeViewProps<TextNodeProps>) {
+  const meta = element.meta as Record<string, unknown> | undefined;
+  const branchColor =
+    typeof meta?.[MINDMAP_META.branchColor] === "string"
+      ? (meta?.[MINDMAP_META.branchColor] as string)
+      : undefined;
+  const isGhost = Boolean(meta?.[MINDMAP_META.ghost]);
+  const ghostParentId =
+    typeof meta?.[MINDMAP_META.ghostParentId] === "string"
+      ? (meta?.[MINDMAP_META.ghostParentId] as string)
+      : undefined;
+  const ghostCount =
+    typeof meta?.[MINDMAP_META.ghostCount] === "number"
+      ? (meta?.[MINDMAP_META.ghostCount] as number)
+      : 0;
   /** Engine instance used for lock checks. */
   const { engine } = useBoardContext();
   /** Whether the node is locked for edits. */
   const isLocked = engine.isLocked() || element.locked;
   /** Local edit mode state. */
-  const [isEditing, setIsEditing] = useState(Boolean(editing));
+  const [isEditing, setIsEditing] = useState(Boolean(editing) && !isGhost);
   /** One-shot focus flag for entering edit mode. */
   const [shouldFocus, setShouldFocus] = useState(false);
   /** Container ref for focus boundary checks. */
@@ -188,6 +203,7 @@ export function TextNodeView({
   const [isOverflowing, setIsOverflowing] = useState(false);
 
   useEffect(() => {
+    if (isGhost) return;
     if (normalizedValue === lastValueRef.current) return;
     if (!isEditing) {
       // 逻辑：非编辑状态同步外部文本，避免覆盖输入。
@@ -197,13 +213,15 @@ export function TextNodeView({
     }
     // 逻辑：编辑中仅更新缓存，避免覆盖当前输入。
     lastValueRef.current = normalizedValue;
-  }, [isEditing, normalizedValue]);
+  }, [isEditing, isGhost, normalizedValue]);
 
   useEffect(() => {
+    if (isGhost) return;
     autoFocusConsumedRef.current = false;
-  }, [element.id]);
+  }, [element.id, isGhost]);
 
   useEffect(() => {
+    if (isGhost) return;
     if (!editing) {
       if (isEditing) {
         // 逻辑：外部结束编辑时同步退出状态。
@@ -216,9 +234,10 @@ export function TextNodeView({
       setIsEditing(true);
       setShouldFocus(true);
     }
-  }, [editing, isEditing]);
+  }, [editing, isEditing, isGhost]);
 
   useEffect(() => {
+    if (isGhost) return;
     if (!element.props.autoFocus || autoFocusConsumedRef.current) return;
     autoFocusConsumedRef.current = true;
     // 逻辑：自动创建的文本节点需要直接进入编辑并清除标记。
@@ -226,16 +245,18 @@ export function TextNodeView({
     setIsEditing(true);
     setShouldFocus(true);
     onUpdate({ autoFocus: false });
-  }, [element.props.autoFocus, onSelect, onUpdate]);
+  }, [element.props.autoFocus, isGhost, onSelect, onUpdate]);
 
   useEffect(() => {
+    if (isGhost) return;
     if (!selected && isEditing && !editing) {
       // 逻辑：选中失效且未处于外部编辑时结束本地编辑。
       setIsEditing(false);
     }
-  }, [editing, isEditing, selected]);
+  }, [editing, isEditing, isGhost, selected]);
 
   useEffect(() => {
+    if (isGhost) return;
     if (!shouldFocus || !isEditing) return;
     const timeout = window.setTimeout(() => {
       const textarea = textareaRef.current;
@@ -247,11 +268,12 @@ export function TextNodeView({
     }, 0);
     // 逻辑：编辑器挂载后立即清理聚焦标记，避免重复触发。
     return () => window.clearTimeout(timeout);
-  }, [isEditing, shouldFocus]);
+  }, [isEditing, isGhost, shouldFocus]);
 
   useEffect(() => {
+    if (isGhost) return;
     isEditingRef.current = isEditing;
-  }, [isEditing]);
+  }, [isEditing, isGhost]);
 
   /** Assign textarea ref and sync measurement target. */
   const setTextareaRef = useCallback((node: HTMLTextAreaElement | null) => {
@@ -351,6 +373,7 @@ export function TextNodeView({
   }, [element.xywh, isEditing]);
 
   useEffect(() => {
+    if (isGhost) return;
     if (isEditing) {
       if (!wasEditingRef.current) {
         const collapsedHeight =
@@ -378,10 +401,12 @@ export function TextNodeView({
     expandToContent,
     fitToContentIfNeeded,
     isEditing,
+    isGhost,
     onUpdate,
   ]);
 
   useEffect(() => {
+    if (isGhost) return;
     if (isEditing) return;
     const currentHeight = element.xywh[3];
     if (
@@ -392,69 +417,76 @@ export function TextNodeView({
       // 逻辑：非编辑态更新折叠高度，保持与手动调整一致。
       onUpdate({ collapsedHeight: currentHeight });
     }
-  }, [element.props.collapsedHeight, element.xywh, isEditing, onUpdate]);
+  }, [element.props.collapsedHeight, element.xywh, isEditing, isGhost, onUpdate]);
 
   useEffect(() => {
+    if (isGhost) return;
     updateOverflowState();
-  }, [draftText, element.xywh, isEditing, updateOverflowState]);
+  }, [draftText, element.xywh, isEditing, isGhost, updateOverflowState]);
 
   useEffect(() => {
+    if (isGhost) return;
     if (!isEditing && resizeRafRef.current !== null) {
       window.cancelAnimationFrame(resizeRafRef.current);
       resizeRafRef.current = null;
     }
-  }, [isEditing]);
+  }, [isEditing, isGhost]);
 
   useEffect(() => {
+    if (isGhost) return;
     const content = contentRef.current;
     if (!content) return;
     const observer = new ResizeObserver(() => updateOverflowState());
     observer.observe(content);
     return () => observer.disconnect();
-  }, [updateOverflowState]);
+  }, [isGhost, updateOverflowState]);
 
   useEffect(() => {
+    if (isGhost) return;
     return () => {
       if (resizeRafRef.current !== null) {
         window.cancelAnimationFrame(resizeRafRef.current);
       }
     };
-  }, []);
+  }, [isGhost]);
 
   /** Enter edit mode on node double click. */
   const handleDoubleClick = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
       event.stopPropagation();
-      if (isLocked) return;
+      if (isLocked || isGhost) return;
       // 逻辑：双击进入编辑时保持节点选中状态。
       onSelect();
       setIsEditing(true);
       setShouldFocus(true);
       engine.setEditingNodeId(element.id);
     },
-    [element.id, engine, isLocked, onSelect]
+    [element.id, engine, isGhost, isLocked, onSelect]
   );
 
   /** Exit edit mode when text input loses focus. */
   const handleEditorBlur = useCallback(() => {
+    if (isGhost) return;
     // 逻辑：焦点移出文本输入后结束编辑。
     isEditingRef.current = false;
     setIsEditing(false);
     engine.setEditingNodeId(null);
-  }, [engine]);
+  }, [engine, isGhost]);
 
   /** Stop pointer events from bubbling to the canvas while editing. */
   const handleEditorPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLTextAreaElement>) => {
+      if (isGhost) return;
       // 逻辑：编辑状态下阻止画布工具接管指针事件。
       event.stopPropagation();
     },
-    []
+    [isGhost]
   );
 
   /** Sync text changes into node props. */
   const handleTextChange = useCallback(
     (event: ReactChangeEvent<HTMLTextAreaElement>) => {
+      if (isGhost) return;
       const nextValue = event.target.value;
       setDraftText(nextValue);
       if (nextValue === lastValueRef.current) return;
@@ -465,7 +497,7 @@ export function TextNodeView({
         expandToContent();
       }
     },
-    [expandToContent, isEditing, onUpdate]
+    [expandToContent, isEditing, isGhost, onUpdate]
   );
 
   const containerClasses = [
@@ -478,6 +510,26 @@ export function TextNodeView({
       ? "dark:border-sky-400 dark:shadow-[0_6px_14px_rgba(0,0,0,0.35)]"
       : "",
   ].join(" ");
+
+  const containerStyle =
+    !isEditing && branchColor ? ({ borderColor: branchColor } as const) : undefined;
+  if (isGhost) {
+    return (
+      <button
+        type="button"
+        className="flex h-full w-full items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-medium text-slate-600 shadow-sm transition hover:bg-slate-50"
+        style={branchColor ? { borderColor: branchColor, color: branchColor } : undefined}
+        onPointerDown={event => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!ghostParentId) return;
+          engine.toggleMindmapCollapse(ghostParentId, { expand: true });
+        }}
+      >
+        +{ghostCount}
+      </button>
+    );
+  }
 
   if (isEditing) {
     return (
@@ -509,6 +561,7 @@ export function TextNodeView({
     <div
       ref={containerRef}
       className={containerClasses}
+      style={containerStyle}
       onDoubleClick={handleDoubleClick}
     >
       <div ref={setContentDivRef} className={TEXT_VIEW_CLASSNAME}>

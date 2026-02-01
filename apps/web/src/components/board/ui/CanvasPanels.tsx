@@ -30,6 +30,7 @@ import { useBoardEngine } from "../core/BoardProvider";
 import { useBoardViewState } from "../core/useBoardViewState";
 import { applyGroupAnchorPadding } from "../engine/anchors";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
+import { MINDMAP_BRANCH_COLORS } from "../engine/constants";
 
 type ConnectorActionPanelProps = {
   /** Snapshot used for positioning. */
@@ -38,6 +39,10 @@ type ConnectorActionPanelProps = {
   connector: CanvasConnectorElement;
   /** Apply a new connector style. */
   onStyleChange: (style: CanvasConnectorStyle) => void;
+  /** Apply a new connector color. */
+  onColorChange: (color: string) => void;
+  /** Toggle connector dashed style. */
+  onDashedChange: (dashed: boolean) => void;
   /** Delete the selected connector. */
   onDelete: () => void;
 };
@@ -47,6 +52,8 @@ function ConnectorActionPanel({
   snapshot,
   connector,
   onStyleChange,
+  onColorChange,
+  onDashedChange,
   onDelete,
 }: ConnectorActionPanelProps) {
   // 逻辑：面板位置随视口变化实时更新。
@@ -57,6 +64,7 @@ function ConnectorActionPanel({
   // 逻辑：工具栏上移，避免遮挡水平连线。
   const offsetScreenY = 26;
   const currentStyle = connector.style ?? snapshot.connectorStyle;
+  const currentDashed = connector.dashed ?? false;
 
   return (
     <div
@@ -104,6 +112,46 @@ function ConnectorActionPanel({
         >
           <Sparkles size={14} />
         </ConnectorStyleButton>
+      </div>
+      <span className="mx-1 h-4 w-px bg-border" />
+      <div className="flex items-center gap-1">
+        {MINDMAP_BRANCH_COLORS.map(color => {
+          const isActive = connector.color === color;
+          return (
+            <button
+              key={color}
+              type="button"
+              onPointerDown={event => {
+                event.preventDefault();
+                event.stopPropagation();
+                onColorChange(color);
+              }}
+              className={cn(
+                "h-6 w-6 rounded-full border border-slate-200/60",
+                isActive ? "ring-2 ring-slate-400/70 ring-offset-2 ring-offset-background" : ""
+              )}
+              style={{ backgroundColor: color }}
+              title={`连线颜色 ${color}`}
+            />
+          );
+        })}
+        <button
+          type="button"
+          onPointerDown={event => {
+            event.preventDefault();
+            event.stopPropagation();
+            onDashedChange(!currentDashed);
+          }}
+          className={cn(
+            "inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200/60 text-slate-600",
+            currentDashed
+              ? "bg-slate-100 text-slate-900 ring-2 ring-slate-400/70 ring-offset-2 ring-offset-background"
+              : "hover:bg-slate-100/70"
+          )}
+          title="虚线"
+        >
+          <span className="block w-4 border-t-2 border-dashed border-current" />
+        </button>
       </div>
       <span className="mx-1 h-4 w-px bg-border" />
       <button

@@ -12,6 +12,7 @@ import {
   SELECTION_BOX_THRESHOLD,
   SNAP_PIXEL,
 } from "../engine/constants";
+import { MINDMAP_META } from "../engine/mindmap-layout";
 import { sortElementsByZIndex } from "../engine/element-order";
 import {
   expandSelectionWithGroupChildren,
@@ -140,6 +141,7 @@ export class SelectTool implements CanvasTool {
             source: { elementId: edgeHit.elementId, anchorId: edgeHit.anchorId },
             target: { point: ctx.worldPoint },
             style: ctx.engine.getConnectorStyle(),
+            dashed: ctx.engine.getConnectorDashed(),
           });
           ctx.engine.setConnectorHover(edgeHit);
           return;
@@ -284,6 +286,7 @@ export class SelectTool implements CanvasTool {
             },
             target: { elementId: targetNode.id },
             style: ctx.engine.getConnectorStyle(),
+            dashed: ctx.engine.getConnectorDashed(),
           });
           return;
         }
@@ -299,6 +302,7 @@ export class SelectTool implements CanvasTool {
         },
         target: { point: ctx.worldPoint },
         style: ctx.engine.getConnectorStyle(),
+        dashed: ctx.engine.getConnectorDashed(),
       });
       return;
     }
@@ -455,6 +459,7 @@ export class SelectTool implements CanvasTool {
       ctx.engine.setDraggingElementId(null);
       ctx.engine.setConnectorHover(null);
       ctx.engine.commitHistory();
+      ctx.engine.autoLayoutMindmap();
       this.connectorDragId = null;
       this.connectorDragRole = null;
       return;
@@ -477,7 +482,25 @@ export class SelectTool implements CanvasTool {
       ctx.engine.setDraggingElementId(null);
     }
     ctx.engine.setAlignmentGuides([]);
-    if (this.dragActivated && this.draggingIds.length > 0) {
+    let didReparent = false;
+    if (this.dragActivated && this.draggingIds.length === 1) {
+      const draggedId = this.draggingIds[0];
+      const draggedElement = ctx.engine.doc.getElementById(draggedId);
+      const draggedMeta = draggedElement?.meta as Record<string, unknown> | undefined;
+      const isGhost = Boolean(draggedMeta?.[MINDMAP_META.ghost]);
+      if (draggedElement?.kind === "node" && draggedElement.type === "text" && !isGhost) {
+        const target = ctx.engine.findNodeAt(ctx.worldPoint);
+        if (target && target.id !== draggedId) {
+          const targetMeta = target.meta as Record<string, unknown> | undefined;
+          const targetIsGhost = Boolean(targetMeta?.[MINDMAP_META.ghost]);
+          if (!targetIsGhost) {
+            ctx.engine.reparentMindmapNode(draggedId, target.id);
+            didReparent = true;
+          }
+        }
+      }
+    }
+    if (this.dragActivated && this.draggingIds.length > 0 && !didReparent) {
       ctx.engine.commitHistory();
     }
     this.draggingId = null;
@@ -531,6 +554,45 @@ export class SelectTool implements CanvasTool {
           engine.groupSelection();
         }
         return;
+      }
+    }
+
+    const selectedIds = engine.selection.getSelectedIds();
+    const selectedElement =
+      selectedIds.length === 1 ? engine.doc.getElementById(selectedIds[0]) : null;
+    const selectedMeta = selectedElement?.meta as Record<string, unknown> | undefined;
+    const isGhost = Boolean(selectedMeta?.[MINDMAP_META.ghost]);
+    const isTextNode =
+      selectedElement?.kind === "node" && selectedElement.type === "text";
+    const canMindmapEdit =
+      isTextNode &&
+      !isGhost &&
+      !engine.isLocked() &&
+      !selectedElement?.locked;
+
+    if (canMindmapEdit) {
+      if (key === "tab") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          engine.promoteMindmapNode(selectedElement!.id);
+        } else {
+          engine.createMindmapChild(selectedElement!.id);
+        }
+        return;
+      }
+      if (key === "enter") {
+        event.preventDefault();
+        engine.createMindmapSibling(selectedElement!.id);
+        return;
+      }
+      if (event.key === "Backspace") {
+        const props = selectedElement!.props as Record<string, unknown>;
+        const value = typeof props.value === "string" ? props.value : "";
+        if (value.trim().length === 0) {
+          event.preventDefault();
+          engine.removeMindmapNode(selectedElement!.id);
+          return;
+        }
       }
     }
 
@@ -653,6 +715,8 @@ export class SelectTool implements CanvasTool {
     for (let i = elements.length - 1; i >= 0; i -= 1) {
       const element = elements[i];
       if (!element || element.kind !== "node") continue;
+      const meta = element.meta as Record<string, unknown> | undefined;
+      if (meta?.[MINDMAP_META.hidden] || meta?.[MINDMAP_META.ghost]) continue;
       if (!LARGE_ANCHOR_NODE_TYPES.has(element.type)) continue;
       if (element.locked) continue;
       if (selectedIds.includes(element.id)) continue;
@@ -691,6 +755,8 @@ export class SelectTool implements CanvasTool {
     const candidates = engine.doc.getNodeCandidatesInRect(queryRect);
     candidates.forEach(element => {
       if (element.locked) return;
+      const meta = element.meta as Record<string, unknown> | undefined;
+      if (meta?.[MINDMAP_META.hidden] || meta?.[MINDMAP_META.ghost]) return;
       if (!this.rectsIntersect(rect, element, zoom)) return;
       selectionIds.add(this.resolveSelectionId(engine, element));
     });

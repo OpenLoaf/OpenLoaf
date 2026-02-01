@@ -1177,8 +1177,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           </IconBtn>
         </div>
 
-        <span className="h-8 w-px bg-border/80" />
-
         {/* 右侧：一次性插入 */}
         <div className="flex items-center gap-2">
           {INSERT_ITEMS.map(item => {

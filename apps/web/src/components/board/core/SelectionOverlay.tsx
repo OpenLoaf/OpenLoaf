@@ -7,6 +7,7 @@ import type {
   CanvasPoint,
   CanvasRect,
   CanvasSnapshot,
+  CanvasToolbarItem,
   CanvasViewportState,
 } from "../engine/types";
 import { CanvasEngine } from "../engine/CanvasEngine";
@@ -17,6 +18,7 @@ import {
   MIN_ZOOM,
   SNAP_PIXEL,
 } from "../engine/constants";
+import { MINDMAP_META } from "../engine/mindmap-layout";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
 import { snapResizeRectSE } from "../utils/alignment-guides";
 import { SelectionToolbarContainer, ToolbarGroup } from "../ui/SelectionToolbar";
@@ -67,8 +69,15 @@ export function SingleSelectionToolbar({
     showBringToFront: hasOverlap && !isTopMost,
     showSendToBack: hasOverlap && isTopMost && !isBottomMost,
   });
+  const mindmapLayoutItems = buildMindmapLayoutItems(engine, element, snapshot);
   const customItems = items ?? [];
-  if (customItems.length === 0 && commonItems.length === 0) return null;
+  if (
+    customItems.length === 0
+    && commonItems.length === 0
+    && mindmapLayoutItems.length === 0
+  ) {
+    return null;
+  }
 
   const bounds = computeSelectionBounds([element], snapshot.viewport.zoom);
 
@@ -83,8 +92,17 @@ export function SingleSelectionToolbar({
     >
       <div className="flex items-center gap-1">
         <ToolbarGroup
+          items={mindmapLayoutItems}
+          showDivider={
+            mindmapLayoutItems.length > 0
+            && (customItems.length > 0 || commonItems.length > 0)
+          }
+        />
+        <ToolbarGroup
           items={customItems}
-          showDivider={customItems.length > 0 && commonItems.length > 0}
+          showDivider={
+            customItems.length > 0 && commonItems.length > 0
+          }
         />
         <ToolbarGroup items={commonItems} />
       </div>
@@ -103,6 +121,16 @@ type MultiSelectionToolbarProps = {
 
 /** Tolerance in px when checking layout spacing/alignment. */
 const LAYOUT_SPACING_TOLERANCE = 2;
+type MindmapLayoutDirection = "right" | "left" | "balanced";
+const MINDMAP_LAYOUT_ITEMS: Array<{
+  id: MindmapLayoutDirection;
+  label: string;
+  title: string;
+}> = [
+  { id: "right", label: "右", title: "右向" },
+  { id: "left", label: "左", title: "左向" },
+  { id: "balanced", label: "均", title: "均衡" },
+];
 
 /** Render a toolbar for multi-selected nodes. */
 export function MultiSelectionToolbar({
@@ -771,6 +799,35 @@ function hasUniformSpacing(
   // 逻辑：需要主轴间距一致且交叉轴对齐。
   if (maxCross - minCross > tolerance) return false;
   return maxGap - minGap <= tolerance;
+}
+
+/** Build mindmap layout controls for root nodes. */
+function buildMindmapLayoutItems(
+  engine: CanvasEngine,
+  element: CanvasNodeElement,
+  snapshot: CanvasSnapshot
+): CanvasToolbarItem[] {
+  const meta = element.meta as Record<string, unknown> | undefined;
+  if (Boolean(meta?.[MINDMAP_META.ghost])) return [];
+  const inbound = snapshot.elements.filter(item => {
+    if (item.kind !== "connector") return false;
+    if (!("elementId" in item.target)) return false;
+    return item.target.elementId === element.id;
+  });
+  // 逻辑：仅根节点显示布局切换按钮。
+  if (inbound.length > 0) return [];
+  const active = engine.getMindmapLayoutDirection();
+  return MINDMAP_LAYOUT_ITEMS.map(option => ({
+    id: `mindmap-layout-${option.id}`,
+    label: option.title,
+    active: active === option.id,
+    icon: (
+      <span className="text-[10px] font-medium leading-none">
+        {option.label}
+      </span>
+    ),
+    onSelect: () => engine.setMindmapLayoutDirection(option.id),
+  }));
 }
 
 /** Check whether the selected node overlaps any other node. */
