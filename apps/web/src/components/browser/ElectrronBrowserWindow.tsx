@@ -107,9 +107,35 @@ export default function ElectrronBrowserWindow({
         navigator.userAgent.includes("Electron")),
     []
   );
+  // 中文注释：记录当前是否离线。
+  const [isOffline, setIsOffline] = useState(() => {
+    if (typeof navigator === "undefined") return false;
+    return !navigator.onLine;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Update offline state from navigator.onLine.
+    const handleNetworkChange = () => {
+      setIsOffline(!navigator.onLine);
+    };
+    handleNetworkChange();
+    window.addEventListener("online", handleNetworkChange);
+    window.addEventListener("offline", handleNetworkChange);
+    return () => {
+      window.removeEventListener("online", handleNetworkChange);
+      window.removeEventListener("offline", handleNetworkChange);
+    };
+  }, []);
 
   const targetUrl = useMemo(() => activeUrl, [activeUrl]);
-  const showProgress = Boolean(targetUrl) && loading && !activeViewStatus?.failed;
+  const isPageReady = activeViewStatus?.ready === true;
+  // 中文注释：加载失败或离线且页面未 ready 时显示错误提示。
+  const errorVisible =
+    Boolean(activeViewStatus?.failed) ||
+    (isOffline && Boolean(targetUrl) && !isPageReady);
+  const showProgress = Boolean(targetUrl) && loading && !errorVisible;
+  const showLoadingOverlay = loading && !errorVisible;
   const showHome = !targetUrl;
   const canGoBack = Boolean(activeViewStatus?.canGoBack);
   const canGoForward = Boolean(activeViewStatus?.canGoForward);
@@ -245,6 +271,10 @@ export default function ElectrronBrowserWindow({
   useEffect(() => {
     loadingRef.current = loading;
   }, [loading]);
+  const errorVisibleRef = useRef(errorVisible);
+  useEffect(() => {
+    errorVisibleRef.current = errorVisible;
+  }, [errorVisible]);
 
   useEffect(() => {
     if (!isElectron) return;
@@ -453,6 +483,7 @@ export default function ElectrronBrowserWindow({
           visible:
             visible &&
             !loadingRef.current &&
+            !errorVisibleRef.current &&
             !stackHidden &&
             !overlayBlockedRef.current &&
             !coveredByAnotherStackItemRef.current,
@@ -829,7 +860,7 @@ export default function ElectrronBrowserWindow({
             ) : (
               <>
                 <BrowserLoadingOverlay
-                  visible={loading}
+                  visible={showLoadingOverlay}
                   text={loadingText}
                   details={{
                     title: activeViewStatus?.title,
@@ -842,7 +873,12 @@ export default function ElectrronBrowserWindow({
                     bytesPerSecond: activeViewStatus?.bytesPerSecond,
                   }}
                 />
-                <BrowserErrorOverlay failed={activeViewStatus?.failed} />
+                <BrowserErrorOverlay
+                  failed={activeViewStatus?.failed}
+                  isOffline={isOffline}
+                  url={loadingUrl}
+                  onRetry={onRefreshPanel}
+                />
               </>
             )}
             {overlayBlocked || coveredByAnotherStackItem ? (

@@ -184,6 +184,9 @@ importers:
       '@tenas-ai/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@tenas-saas/sdk':
+        specifier: link:/Users/zhao/Documents/01.Code/Hex/Tenas-saas/packages/sdk
+        version: link:../../../Tenas-saas/packages/sdk
       '@trpc/server':
         specifier: 'catalog:'
         version: 11.8.1(typescript@5.9.3)

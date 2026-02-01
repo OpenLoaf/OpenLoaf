@@ -5,7 +5,8 @@ import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegi
 import { PROVIDER_ADAPTERS } from "@/ai/models/providerAdapters";
 import { buildCliProviderEntries } from "@/ai/models/cli/cliProviderEntry";
 import { getAccessToken } from "@/modules/auth/tokenStore";
-import { ensureAccessTokenFresh, getSaasBaseUrl } from "@/modules/auth/authRoutes";
+import { ensureAccessTokenFresh } from "@/modules/auth/authRoutes";
+import { fetchModelList, getSaasBaseUrl } from "@/modules/saas";
 
 type ResolvedChatModel = {
   model: LanguageModelV3;
@@ -288,17 +289,14 @@ async function resolveCloudChatModel(_input: {
   if (!accessToken) {
     throw new Error("未登录云端账号");
   }
-  const saasBaseUrl = getSaasBaseUrl();
-  if (!saasBaseUrl) {
+  let saasBaseUrl: string;
+  try {
+    saasBaseUrl = getSaasBaseUrl();
+  } catch {
     throw new Error("云端地址未配置");
   }
-  const response = await fetch(`${saasBaseUrl}/api/llm/models`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const payload = (await response.json().catch(() => null)) as CloudModelListResponse | null;
-  if (!response.ok || !payload || payload.success !== true || !Array.isArray(payload.data)) {
+  const payload = (await fetchModelList()) as CloudModelListResponse | null;
+  if (!payload || payload.success !== true || !Array.isArray(payload.data)) {
     throw new Error("云端模型列表获取失败");
   }
   const providers = buildCloudProviderEntries({

@@ -9,6 +9,8 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuSkeleton,
+  SidebarMenuSub,
 } from "@tenas-ai/ui/sidebar";
 import { Button } from "@tenas-ai/ui/button";
 import { Switch } from "@tenas-ai/ui/switch";
@@ -35,6 +37,56 @@ import { toast } from "sonner";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { ClipboardCopy, FolderOpen, FolderPlus, RotateCw } from "lucide-react";
 
+/** Project tree loading skeleton. */
+const ProjectTreeSkeleton = () => (
+  <div className="flex flex-col gap-1 px-1 py-1">
+    <SidebarMenuSkeleton
+      showIcon
+      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+    />
+    <SidebarMenuSub className="mx-1 px-1">
+      <SidebarMenuSkeleton
+        showIcon
+        className="h-7 [&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+      />
+      <SidebarMenuSkeleton
+        showIcon
+        className="h-7 [&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+      />
+      <SidebarMenuSkeleton
+        showIcon
+        className="h-7 [&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+      />
+    </SidebarMenuSub>
+    <SidebarMenuSkeleton
+      showIcon
+      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+    />
+    <SidebarMenuSkeleton
+      showIcon
+      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+    />
+    <SidebarMenuSub className="mx-1 px-1">
+      <SidebarMenuSkeleton
+        showIcon
+        className="h-7 [&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+      />
+      <SidebarMenuSkeleton
+        showIcon
+        className="h-7 [&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+      />
+      <SidebarMenuSkeleton
+        showIcon
+        className="h-7 [&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+      />
+    </SidebarMenuSub>
+    <SidebarMenuSkeleton
+      showIcon
+      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+    />
+  </div>
+);
+
 export const SidebarProject = () => {
   // 当前项目列表查询。
   const projectListQuery = useProjects();
@@ -59,6 +111,8 @@ export const SidebarProject = () => {
   const [enableVersionControl, setEnableVersionControl] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [isImportBusy, setIsImportBusy] = useState(false);
+  /** Tracks manual refresh loading state. */
+  const [isManualRefresh, setIsManualRefresh] = useState(false);
 
   /** Create a new project and refresh list. */
   const handleCreateProject = async () => {
@@ -92,10 +146,13 @@ export const SidebarProject = () => {
   /** Refresh project list. */
   const handleRefreshProjects = async () => {
     try {
+      // 中文注释：手动刷新时强制显示骨架屏，避免旧数据闪烁。
+      setIsManualRefresh(true);
       await projectListQuery.refetch();
-      toast.success("项目列表已刷新");
     } catch (err: any) {
       toast.error(err?.message ?? "刷新失败");
+    } finally {
+      setIsManualRefresh(false);
     }
   };
 
@@ -187,11 +244,15 @@ export const SidebarProject = () => {
                 </CollapsiblePrimitive.Trigger>
                 <CollapsiblePrimitive.Content className="data-[state=closed]:overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down data-[state=open]:overflow-visible">
                   <SidebarMenu>
-                    <PageTreeMenu
-                      projects={projects}
-                      expandedNodes={expandedNodes}
-                      setExpandedNodes={setExpandedNodes}
-                    />
+                    {projectListQuery.isLoading || isManualRefresh ? (
+                      <ProjectTreeSkeleton />
+                    ) : (
+                      <PageTreeMenu
+                        projects={projects}
+                        expandedNodes={expandedNodes}
+                        setExpandedNodes={setExpandedNodes}
+                      />
+                    )}
                   </SidebarMenu>
                 </CollapsiblePrimitive.Content>
               </SidebarGroup>

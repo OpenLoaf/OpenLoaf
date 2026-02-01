@@ -472,6 +472,12 @@ body {
   initial-value: 0;
 }
 
+@property --tenas-thinking-border-base {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
 @property --tenas-thinking-border-angle {
   syntax: "<angle>";
   inherits: true;
@@ -587,8 +593,11 @@ body {
 
 .tenas-thinking-border {
   --tenas-thinking-border-alpha: 0;
+  /* 基础边框颜色单独抽出，聚焦/错误态只需覆盖变量即可。 */
+  --tenas-thinking-border-base: var(--color-border);
+  --tenas-thinking-border-width: 2px;
   /* 关键：用双背景 + background-clip 实现“挖空”，避免 mask 在圆角处产生锯齿 */
-  border: 3px solid transparent;
+  border: var(--tenas-thinking-border-width) solid transparent;
   background:
     linear-gradient(var(--tenas-thinking-border-fill, var(--color-background)), var(--tenas-thinking-border-fill, var(--color-background))) padding-box,
     conic-gradient(
@@ -602,10 +611,19 @@ body {
       hsl(270 100% 65% / var(--tenas-thinking-border-alpha)),
       hsl(330 100% 60% / var(--tenas-thinking-border-alpha)),
       hsl(0 100% 60% / var(--tenas-thinking-border-alpha))
-    ) border-box;
-  background-clip: padding-box, border-box;
+    ) border-box,
+    linear-gradient(var(--tenas-thinking-border-base), var(--tenas-thinking-border-base)) border-box;
+  background-clip: padding-box, border-box, border-box;
   background-origin: border-box;
   transition: --tenas-thinking-border-alpha 200ms ease-out;
+}
+
+.tenas-thinking-border-focus {
+  --tenas-thinking-border-base: var(--color-primary);
+}
+
+.tenas-thinking-border-danger {
+  --tenas-thinking-border-base: var(--color-destructive);
 }
 
 .tenas-thinking-border-on {

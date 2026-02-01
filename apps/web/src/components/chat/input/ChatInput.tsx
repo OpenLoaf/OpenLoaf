@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { FocusEvent, ReactNode } from "react";
 import { Button } from "@tenas-ai/ui/button";
 import {
   ChevronUp,
@@ -281,6 +281,25 @@ export function ChatInputBox({
   };
 
   const [isFocused, setIsFocused] = useState(false);
+  /** Focus tracking container ref. */
+  const inputContainerRef = useRef<HTMLDivElement | null>(null);
+  /** Keep focus state while any element inside the input container is focused. */
+  const handleContainerFocus = useCallback(() => {
+    // 中文注释：输入区域内任意元素获得焦点时，保持面板处于聚焦状态。
+    setIsFocused(true);
+  }, [setIsFocused]);
+  /** Clear focus state only when focus leaves the input container. */
+  const handleContainerBlur = useCallback(
+    (event: FocusEvent<HTMLDivElement>) => {
+      const nextTarget = event.relatedTarget as Node | null;
+      if (nextTarget && inputContainerRef.current?.contains(nextTarget)) {
+        // 中文注释：焦点仍在输入区域内，不应关闭面板。
+        return;
+      }
+      setIsFocused(false);
+    },
+    [setIsFocused]
+  );
   const canSubmit = Boolean(onSubmit) && !submitDisabled && !isOverLimit;
   // 流式生成时按钮变为“停止”，不应被 submitDisabled 禁用
   const isSendDisabled = isLoading
@@ -624,19 +643,21 @@ export function ChatInputBox({
 
   return (
     <div
+      ref={inputContainerRef}
       className={cn(
-        "relative shrink-0 rounded-xl bg-background border transition-all duration-200 flex flex-col",
+        "relative shrink-0 rounded-xl bg-background transition-all duration-200 flex flex-col",
         variant === "default" ? "mt-4 max-h-[30%]" : "max-h-none",
-        isFocused ? "border-primary ring-1 ring-primary/20" : "border-border",
-        isOverLimit &&
-          "border-destructive ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20",
         "tenas-thinking-border",
+        isFocused && "tenas-thinking-border-focus",
+        isOverLimit && "tenas-thinking-border-danger",
         // SSE 请求进行中（含非流式）或语音输入中：给输入框加边框流动动画。
         (isStreaming || isListening) &&
           !isOverLimit &&
-          "tenas-thinking-border-on border-transparent",
+          "tenas-thinking-border-on",
         className
       )}
+      onFocusCapture={handleContainerFocus}
+      onBlurCapture={handleContainerBlur}
       onPointerDownCapture={handleMentionPointerDown}
       onDragOver={(event) => {
         const hasImageDrag =
@@ -713,8 +734,6 @@ export function ChatInputBox({
                   )}
                   placeholder={placeholder}
                   onKeyDown={handleKeyDown}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
                   data-tenas-chat-input="true"
                 />
               </EditorContainer>

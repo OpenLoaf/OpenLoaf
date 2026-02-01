@@ -48,6 +48,7 @@ import {
 import { Input } from "@tenas-ai/ui/input";
 import { Label } from "@tenas-ai/ui/label";
 import { Switch } from "@tenas-ai/ui/switch";
+import { Textarea } from "@tenas-ai/ui/textarea";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { trpc } from "@/utils/trpc";
 import { dndManager } from "@/lib/dnd-manager";
@@ -122,6 +123,14 @@ type EmailMessageDetail = {
   fromAddress?: string;
   /** Private sender flag. */
   isPrivate: boolean;
+};
+
+type ForwardDraft = {
+  to: string;
+  cc: string;
+  bcc: string;
+  subject: string;
+  body: string;
 };
 
 type EmailMailboxView = {
@@ -301,6 +310,39 @@ function isSentMailboxView(mailbox: EmailMailboxView): boolean {
   const attributes = normalizeMailboxAttributes(mailbox.attributes ?? []);
   const path = mailbox.path.toLowerCase();
   return attributes.includes("\\SENT") || path.includes("sent");
+}
+
+/** Build forward subject line. */
+function buildForwardSubject(subject: string): string {
+  const trimmed = subject.trim();
+  if (!trimmed) return "Fwd: （无主题）";
+  if (/^fwd:/i.test(trimmed)) return trimmed;
+  return `Fwd: ${trimmed}`;
+}
+
+/** Build forward body content. */
+function buildForwardBody(input: {
+  from: string;
+  to: string;
+  cc: string;
+  time: string;
+  subject: string;
+  bodyText: string;
+}): string {
+  const lines = [
+    "",
+    "",
+    "---------- 转发邮件 ----------",
+    `发件人: ${input.from || "—"}`,
+    `日期: ${input.time || "—"}`,
+    `主题: ${input.subject || "—"}`,
+    `收件人: ${input.to || "—"}`,
+  ];
+  if (input.cc) {
+    lines.push(`抄送: ${input.cc}`);
+  }
+  lines.push("", input.bodyText || "");
+  return lines.join("\n");
 }
 
 /** Check if mailbox is selectable. */
@@ -594,6 +636,9 @@ export default function EmailPage({
   const [searchKeyword, setSearchKeyword] = React.useState("");
   // 当前选中的邮件 ID。
   const [activeMessageId, setActiveMessageId] = React.useState<string | null>(null);
+  // 转发编辑状态。
+  const [isForwarding, setIsForwarding] = React.useState(false);
+  const [forwardDraft, setForwardDraft] = React.useState<ForwardDraft | null>(null);
   // 收藏状态的本地覆盖，用于提升操作反馈速度。
   const [flagOverrides, setFlagOverrides] = React.useState<Record<string, boolean>>(
     {},
@@ -767,6 +812,12 @@ export default function EmailPage({
     if (!activeMessageId) return null;
     return visibleMessages.find((message) => message.id === activeMessageId) ?? null;
   }, [activeMessageId, visibleMessages]);
+
+  React.useEffect(() => {
+    // 逻辑：切换邮件时退出转发编辑。
+    setIsForwarding(false);
+    setForwardDraft(null);
+  }, [activeMessageId]);
 
   const mailboxUnreadMap = React.useMemo(() => {
     const map = new Map<string, number>();
@@ -1586,6 +1637,36 @@ export default function EmailPage({
     });
   }
 
+  /** Start forward editing. */
+  function handleStartForward() {
+    if (!activeMessage) return;
+    const bodyText = messageDetail?.bodyText || activeMessage.preview || "";
+    const nextDraft: ForwardDraft = {
+      to: "",
+      cc: "",
+      bcc: "",
+      subject: buildForwardSubject(detailSubject || ""),
+      body: buildForwardBody({
+        from: detailFrom,
+        to: detailTo,
+        cc: hasCc ? detailCc : "",
+        time: detailTime,
+        subject: detailSubject || "—",
+        bodyText,
+      }),
+    };
+    // 逻辑：进入转发编辑并写入默认内容。
+    setForwardDraft(nextDraft);
+    setIsForwarding(true);
+  }
+
+  /** Cancel forward editing. */
+  function handleCancelForward() {
+    // 逻辑：退出转发编辑并清空草稿。
+    setIsForwarding(false);
+    setForwardDraft(null);
+  }
+
   function handleSetPrivateSender() {
     if (!workspaceId || !detailFromAddress) return;
     setPrivateSenderMutation.mutate({
@@ -1861,145 +1942,273 @@ export default function EmailPage({
 
         <section className="flex min-w-0 flex-1 flex-col bg-card min-h-0">
           {activeMessage ? (
-            <>
-              <div className="border-b border-border bg-background px-4 py-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    {isPrivate ? (
-                      <Lock className="h-3.5 w-3.5 text-[var(--brand)]" />
-                    ) : null}
-                    <span className="truncate">{detailSubject}</span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                    <div className="min-w-0 space-y-0.5 text-[11px] leading-4">
-                      <ContextMenu>
-                        <ContextMenuTrigger asChild>
-                          <div className="flex items-center gap-1 truncate">
-                            {isPrivate ? (
-                              <Lock className="h-3 w-3 text-[var(--brand)]" />
-                            ) : null}
-                            <span className="truncate">{detailFrom}</span>
-                          </div>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent className="w-40">
-                          <ContextMenuItem
-                            onClick={handleSetPrivateSender}
-                            disabled={!detailFromAddress || isPrivate}
-                          >
-                            设为私密发件人
-                          </ContextMenuItem>
-                          <ContextMenuItem
-                            onClick={handleRemovePrivateSender}
-                            disabled={!detailFromAddress || !isPrivate}
-                          >
-                            取消私密发件人
-                          </ContextMenuItem>
-                        </ContextMenuContent>
-                      </ContextMenu>
-                      <div className="truncate">{detailTime}</div>
-                    </div>
-                    <div className="flex items-center gap-1 text-[11px]">
+            isForwarding && forwardDraft ? (
+              <>
+                <div className="border-b border-border bg-background px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-foreground">转发</div>
+                    <div className="flex items-center gap-2 text-[11px]">
                       <Button
                         type="button"
-                        variant="outline"
                         size="sm"
-                        className="h-7 gap-1 px-2 text-[11px]"
+                        className="h-7 px-3 text-[11px]"
+                        disabled
+                        title="暂未接入发送能力"
                       >
-                        <Reply className="h-3 w-3" />
-                        回复
+                        发送
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="h-7 gap-1 px-2 text-[11px]"
+                        className="h-7 px-2 text-[11px]"
+                        onClick={handleCancelForward}
                       >
-                        <Forward className="h-3 w-3" />
-                        转发
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className={`h-7 gap-1 px-2 text-[11px] ${
-                          isFlagged ? "border-[var(--brand)]/40 text-[var(--brand)]" : ""
-                        }`}
-                        onClick={handleToggleFlagged}
-                      >
-                        <Star
-                          className={`h-3 w-3 ${
-                            isFlagged ? "fill-[var(--brand)]" : ""
-                          }`}
-                        />
-                        收藏
+                        取消
                       </Button>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-                <div className="border-b border-border px-4 py-3 text-xs text-muted-foreground">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="shrink-0">收件人</span>
-                    <span className="min-w-0 truncate text-sm font-medium text-foreground">
-                      {detailTo}
-                    </span>
-                  </div>
-                  {hasCc ? (
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0">收件人</span>
+                      <Input
+                        value={forwardDraft.to}
+                        onChange={(event) =>
+                          setForwardDraft((prev) =>
+                            prev ? { ...prev, to: event.target.value } : prev,
+                          )
+                        }
+                        placeholder="输入收件人"
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
                       <span className="shrink-0">抄送</span>
-                      <span className="min-w-0 truncate">{detailCc}</span>
+                      <Input
+                        value={forwardDraft.cc}
+                        onChange={(event) =>
+                          setForwardDraft((prev) =>
+                            prev ? { ...prev, cc: event.target.value } : prev,
+                          )
+                        }
+                        placeholder="抄送"
+                        className="h-7 text-xs"
+                      />
                     </div>
-                  ) : null}
-                  {hasBcc ? (
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2">
                       <span className="shrink-0">密送</span>
-                      <span className="min-w-0 truncate">{detailBcc}</span>
+                      <Input
+                        value={forwardDraft.bcc}
+                        onChange={(event) =>
+                          setForwardDraft((prev) =>
+                            prev ? { ...prev, bcc: event.target.value } : prev,
+                          )
+                        }
+                        placeholder="密送"
+                        className="h-7 text-xs"
+                      />
                     </div>
-                  ) : null}
-                </div>
-                <div className="border-b border-border px-8 py-4 text-sm leading-6 text-foreground">
-                  {messageDetailQuery.isLoading ? (
-                    <div className="text-xs text-muted-foreground">
-                      正在加载邮件详情...
-                    </div>
-                  ) : messageDetail?.bodyHtml ? (
-                    <div
-                      className="prose prose-sm max-w-none text-foreground prose-img:max-w-full"
-                      dangerouslySetInnerHTML={{ __html: messageDetail.bodyHtml }}
-                    />
-                  ) : (
-                    <p className="break-words">
-                      {messageDetail?.bodyText || activeMessage.preview || "暂无正文"}
-                    </p>
-                  )}
-                </div>
-                {shouldShowAttachments ? (
-                  <div className="border-b border-border px-4 py-3">
-                    <div className="text-xs text-muted-foreground">附件</div>
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      {messageDetailQuery.isLoading ? (
-                        <span className="text-xs text-muted-foreground">附件加载中...</span>
-                      ) : (
-                        messageDetail?.attachments?.map((attachment, index) => {
-                          const sizeLabel = formatAttachmentSize(attachment.size);
-                          return (
-                            <span
-                              key={`${attachment.filename ?? "attachment"}-${index}`}
-                              className="rounded-md border border-border bg-background px-2 py-1"
-                            >
-                              {attachment.filename ?? "未命名附件"}
-                              {sizeLabel ? ` · ${sizeLabel}` : ""}
-                            </span>
-                          );
-                        })
-                      )}
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0">主题</span>
+                      <Input
+                        value={forwardDraft.subject}
+                        onChange={(event) =>
+                          setForwardDraft((prev) =>
+                            prev ? { ...prev, subject: event.target.value } : prev,
+                          )
+                        }
+                        placeholder="主题"
+                        className="h-7 text-xs"
+                      />
                     </div>
                   </div>
-                ) : null}
-              </div>
-            </>
+                </div>
+
+                <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+                  <div className="border-b border-border px-4 py-3">
+                    <Textarea
+                      value={forwardDraft.body}
+                      onChange={(event) =>
+                        setForwardDraft((prev) =>
+                          prev ? { ...prev, body: event.target.value } : prev,
+                        )
+                      }
+                      className="min-h-[260px] text-xs leading-5"
+                    />
+                  </div>
+                  {shouldShowAttachments ? (
+                    <div className="border-b border-border px-4 py-3">
+                      <div className="text-xs text-muted-foreground">附件</div>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        {messageDetailQuery.isLoading ? (
+                          <span className="text-xs text-muted-foreground">
+                            附件加载中...
+                          </span>
+                        ) : (
+                          messageDetail?.attachments?.map((attachment, index) => {
+                            const sizeLabel = formatAttachmentSize(attachment.size);
+                            return (
+                              <span
+                                key={`${attachment.filename ?? "attachment"}-${index}`}
+                                className="rounded-md border border-border bg-background px-2 py-1"
+                              >
+                                {attachment.filename ?? "未命名附件"}
+                                {sizeLabel ? ` · ${sizeLabel}` : ""}
+                              </span>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="border-b border-border bg-background px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      {isPrivate ? (
+                        <Lock className="h-3.5 w-3.5 text-[var(--brand)]" />
+                      ) : null}
+                      <span className="truncate">{detailSubject}</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <div className="min-w-0 space-y-0.5 text-[11px] leading-4">
+                        <ContextMenu>
+                          <ContextMenuTrigger asChild>
+                            <div className="flex items-center gap-1 truncate">
+                              {isPrivate ? (
+                                <Lock className="h-3 w-3 text-[var(--brand)]" />
+                              ) : null}
+                              <span className="truncate">{detailFrom}</span>
+                            </div>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="w-40">
+                            <ContextMenuItem
+                              onClick={handleSetPrivateSender}
+                              disabled={!detailFromAddress || isPrivate}
+                            >
+                              设为私密发件人
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={handleRemovePrivateSender}
+                              disabled={!detailFromAddress || !isPrivate}
+                            >
+                              取消私密发件人
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
+                        <div className="truncate">{detailTime}</div>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px]">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 px-2 text-[11px]"
+                        >
+                          <Reply className="h-3 w-3" />
+                          回复
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 px-2 text-[11px]"
+                          onClick={handleStartForward}
+                        >
+                          <Forward className="h-3 w-3" />
+                          转发
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className={`h-7 gap-1 px-2 text-[11px] ${
+                            isFlagged
+                              ? "border-[var(--brand)]/40 text-[var(--brand)]"
+                              : ""
+                          }`}
+                          onClick={handleToggleFlagged}
+                        >
+                          <Star
+                            className={`h-3 w-3 ${
+                              isFlagged ? "fill-[var(--brand)]" : ""
+                            }`}
+                          />
+                          收藏
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+                  <div className="border-b border-border px-4 py-3 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="shrink-0">收件人</span>
+                      <span className="min-w-0 truncate text-sm font-medium text-foreground">
+                        {detailTo}
+                      </span>
+                    </div>
+                    {hasCc ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="shrink-0">抄送</span>
+                        <span className="min-w-0 truncate">{detailCc}</span>
+                      </div>
+                    ) : null}
+                    {hasBcc ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="shrink-0">密送</span>
+                        <span className="min-w-0 truncate">{detailBcc}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="border-b border-border px-8 py-4 text-sm leading-6 text-foreground">
+                    {messageDetailQuery.isLoading ? (
+                      <div className="text-xs text-muted-foreground">
+                        正在加载邮件详情...
+                      </div>
+                    ) : messageDetail?.bodyHtml ? (
+                      <div
+                        className="prose prose-sm max-w-none text-foreground prose-img:max-w-full"
+                        dangerouslySetInnerHTML={{ __html: messageDetail.bodyHtml }}
+                      />
+                    ) : (
+                      <p className="break-words">
+                        {messageDetail?.bodyText || activeMessage.preview || "暂无正文"}
+                      </p>
+                    )}
+                  </div>
+                  {shouldShowAttachments ? (
+                    <div className="border-b border-border px-4 py-3">
+                      <div className="text-xs text-muted-foreground">附件</div>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        {messageDetailQuery.isLoading ? (
+                          <span className="text-xs text-muted-foreground">
+                            附件加载中...
+                          </span>
+                        ) : (
+                          messageDetail?.attachments?.map((attachment, index) => {
+                            const sizeLabel = formatAttachmentSize(attachment.size);
+                            return (
+                              <span
+                                key={`${attachment.filename ?? "attachment"}-${index}`}
+                                className="rounded-md border border-border bg-background px-2 py-1"
+                              >
+                                {attachment.filename ?? "未命名附件"}
+                                {sizeLabel ? ` · ${sizeLabel}` : ""}
+                              </span>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            )
           ) : (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
               选择一封邮件以查看详情

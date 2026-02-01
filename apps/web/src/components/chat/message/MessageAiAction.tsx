@@ -398,7 +398,7 @@ export default function MessageAiAction({
   }, [clearError, isBusy, sendMessage, status]);
 
   return (
-    <div className={cn("group flex ml-1 select-none items-center justify-start gap-0.5", className)}>
+    <div className={cn("group flex select-none items-center justify-start gap-0.5", className)}>
       <Button
         type="button"
         variant="ghost"

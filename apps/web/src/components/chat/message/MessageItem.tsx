@@ -287,7 +287,7 @@ function MessageItem({
     const summaryText = getMessagePlainText(message);
     // 中文注释：压缩摘要消息用分隔条展示，并支持点击展开。
     return (
-      <div className="group my-0.5 px-4" data-message-id={message.id}>
+      <div className="group my-0.5 px-2" data-message-id={message.id}>
         <CompactSummaryDivider summary={summaryText} />
       </div>
     );
@@ -295,7 +295,7 @@ function MessageItem({
 
   return (
     <div
-      className={cn("group my-0.5 px-4", message.role === "user" && "pr-5")}
+      className={cn("group my-0.5 px-2", message.role === "user" && "pr-5")}
       data-message-id={message.id}
     >
       {message.role === "user" ? (

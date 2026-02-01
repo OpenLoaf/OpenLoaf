@@ -1,7 +1,14 @@
 import type { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { getEnvString } from "@tenas-ai/config";
+import type { AuthRefreshResponse } from "@tenas-saas/sdk";
 import { logger } from "@/common/logger";
+import {
+  buildSaasLoginUrl,
+  fetchBalance,
+  getSaasBaseUrl as getSaasBaseUrlCore,
+  mapSaasError,
+  refreshAccessToken as refreshAccessTokenViaSaas,
+} from "@/modules/saas";
 import {
   applyTokenExchangeResult,
   clearAuthSession,
@@ -45,7 +52,7 @@ type RefreshTokenResponse = {
 export function registerAuthRoutes(app: Hono): void {
   app.get("/auth/login-url", (c) => {
     try {
-      const authorizeUrl = buildLoginUrl();
+      const authorizeUrl = buildSaasLoginUrl(getServerPort());
       return c.json({ authorizeUrl } satisfies LoginUrlResponse);
     } catch (error) {
       logger.error({ err: error }, "Failed to build SaaS login url");
@@ -104,23 +111,8 @@ export function registerAuthRoutes(app: Hono): void {
     if (!accessToken) {
       return c.json({ error: "auth_required" }, 401);
     }
-    const saasBaseUrl = getSaasBaseUrl();
-    if (!saasBaseUrl) {
-      return c.json({ error: "saas_url_missing" }, 500);
-    }
     try {
-      const response = await fetch(`${saasBaseUrl}/api/llm/balance`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        // SaaS 返回非 2xx 时记录状态码便于排查。
-        logger.warn({ status: response.status, payload }, "SaaS balance request failed");
-        // Hono JSON 响应需要 ContentfulStatusCode，透传 fetch 状态码。
-        return c.json({ error: "saas_request_failed" }, response.status as ContentfulStatusCode);
-      }
+      const payload = await fetchBalance();
       const snapshot = getAuthSessionSnapshot();
       const safePayload = isRecord(payload) ? payload : {};
       return c.json({
@@ -134,6 +126,22 @@ export function registerAuthRoutes(app: Hono): void {
           : undefined,
       });
     } catch (error) {
+      if (error instanceof Error && error.message === "saas_url_missing") {
+        return c.json({ error: "saas_url_missing" }, 500);
+      }
+      const mapped = mapSaasError(error);
+      if (mapped) {
+        if (mapped.code === "saas_request_failed") {
+          // 逻辑：透传 SaaS 状态码并记录 payload 便于排查。
+          logger.warn(
+            { status: mapped.status, payload: mapped.payload },
+            "SaaS balance request failed",
+          );
+        } else {
+          logger.error({ err: error, detail: mapped }, "SaaS balance request failed");
+        }
+        return c.json({ error: "saas_request_failed" }, mapped.status as ContentfulStatusCode);
+      }
       logger.error({ err: error }, "SaaS balance request failed");
       return c.json({ error: "saas_request_failed" }, 502);
     }
@@ -188,62 +196,43 @@ export async function ensureAccessTokenFresh(): Promise<void> {
 async function refreshAccessToken(input: {
   refreshToken: string;
 }): Promise<RefreshTokenResponse> {
-  const saasBaseUrl = getSaasBaseUrl();
-  if (!saasBaseUrl) {
-    throw new Error("saas_url_missing");
-  }
-  const response = await fetch(`${saasBaseUrl}/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken: input.refreshToken }),
-  });
-  if (!response.ok) {
-    throw new Error(`saas_refresh_failed_${response.status}`);
-  }
-  const payload = (await response.json()) as Partial<
-    RefreshTokenResponse & {
-      access_token?: string;
-      refresh_token?: string;
-      expires_in?: number;
-      user?: {
-        email?: string;
-        name?: string;
-        avatarUrl?: string;
-        avatar_url?: string;
-      };
+  let payload: AuthRefreshResponse;
+  try {
+    payload = await refreshAccessTokenViaSaas(input.refreshToken);
+  } catch (error) {
+    const mapped = mapSaasError(error);
+    if (mapped) {
+      // 逻辑：保持原有错误码语义，避免前端展示变化。
+      if (mapped.code === "saas_invalid_payload") {
+        throw new Error("saas_refresh_invalid");
+      }
+      if (mapped.code === "saas_network_failed") {
+        throw new Error("saas_refresh_failed_network");
+      }
+      throw new Error(`saas_refresh_failed_${mapped.status}`);
     }
-  >;
-  const accessToken = payload.accessToken ?? payload.access_token;
-  if (!accessToken) {
+    throw error;
+  }
+  if (!payload || typeof payload !== "object") {
     throw new Error("saas_refresh_invalid");
   }
-  return {
-    accessToken,
-    refreshToken: payload.refreshToken ?? payload.refresh_token,
-    expiresIn: payload.expiresIn ?? payload.expires_in,
-    user: payload.user
-      ? {
-          email: payload.user.email ?? undefined,
-          name: payload.user.name ?? undefined,
-          avatarUrl: payload.user.avatarUrl ?? payload.user.avatar_url ?? undefined,
-        }
-      : undefined,
-  };
-}
-
-/**
- * Build the SaaS login URL for system browser.
- */
-function buildLoginUrl(): string {
-  const saasAuthBaseUrl = getSaasAuthBaseUrl();
-  if (!saasAuthBaseUrl) {
-    throw new Error("saas_auth_url_missing");
+  if ("accessToken" in payload && typeof payload.accessToken === "string") {
+    return {
+      accessToken: payload.accessToken,
+      refreshToken: payload.refreshToken ?? undefined,
+      user: payload.user
+        ? {
+            email: payload.user.email ?? undefined,
+            name: payload.user.name ?? undefined,
+            avatarUrl: payload.user.avatarUrl ?? undefined,
+          }
+        : undefined,
+    };
   }
-  const port = getServerPort();
-  const url = new URL(`${saasAuthBaseUrl}/login`);
-  url.searchParams.set("from", "electron");
-  url.searchParams.set("port", String(port));
-  return url.toString();
+  if ("message" in payload && typeof payload.message === "string") {
+    throw new Error(`saas_refresh_failed_${payload.message}`);
+  }
+  throw new Error("saas_refresh_invalid");
 }
 
 /**
@@ -397,20 +386,10 @@ function renderCallbackPage(message: string): string {
  * Resolve SaaS base URL from env.
  */
 export function getSaasBaseUrl(): string | null {
-  const value = getEnvString(process.env, "TENAS_SAAS_URL");
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  return trimmed.replace(/\/$/, "");
-}
-
-/**
- * Resolve SaaS auth base URL from env.
- */
-function getSaasAuthBaseUrl(): string | null {
-  const value = getEnvString(process.env, "TENAS_SAAS_AUTH_URL");
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  return trimmed.replace(/\/$/, "");
+  try {
+    return getSaasBaseUrlCore();
+  } catch {
+    // 逻辑：保持旧行为，缺失时返回 null。
+    return null;
+  }
 }

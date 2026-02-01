@@ -23,6 +23,7 @@
     "@hono/node-server": "^1.19.9",
     "@hono/trpc-server": "^0.4.2",
     "@openai/codex-sdk": "^0.79.0",
+    "@tenas-saas/sdk": "link:/Users/zhao/Documents/01.Code/Hex/Tenas-saas/packages/sdk",
     "@tenas-ai/api": "workspace:*",
     "@tenas-ai/config": "workspace:*",
     "@tenas-ai/db": "workspace:*",
