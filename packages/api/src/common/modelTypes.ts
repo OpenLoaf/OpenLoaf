@@ -61,17 +61,6 @@ export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
   speech_generation: "语音生成",
 };
 
-export type PriceTier = {
-  /** Minimum context window (K) for this tier. */
-  minContextK: number;
-  /** Input token price per 1M. */
-  input: number;
-  /** Cached input token price per 1M. */
-  inputCache: number;
-  /** Output token price per 1M. */
-  output: number;
-};
-
 export type ModelDefinition = {
   /** Unique model id. */
   id: string;
@@ -85,14 +74,8 @@ export type ModelDefinition = {
   icon?: string;
   /** Tags for filtering. */
   tags: ModelTag[];
-  /** Max context window (K) used for pricing tier selection. */
+  /** Max context window (K). */
   maxContextK: number;
-  /** Pricing strategy id. */
-  priceStrategyId: string;
-  /** Pricing tiers for the strategy. */
-  priceTiers: PriceTier[];
-  /** Currency symbol for price display. */
-  currencySymbol?: string;
   /** Parameter definitions for the model. */
   parameters?: {
     /** Feature flags for canvas behaviors. */
@@ -115,33 +98,4 @@ export type ProviderDefinition = {
   authConfig?: Record<string, unknown>;
   /** Provider models (optional). */
   models?: ModelDefinition[];
-};
-
-export type Usage = {
-  /** Current context size (K). */
-  contextK: number;
-  /** Input tokens (non-cached). */
-  inputTokens: number;
-  /** Cached input tokens. */
-  inputCacheTokens: number;
-  /** Output tokens. */
-  outputTokens: number;
-};
-
-export type PriceResult = {
-  /** Input cost. */
-  inputCost: number;
-  /** Cached input cost. */
-  inputCacheCost: number;
-  /** Output cost. */
-  outputCost: number;
-  /** Total cost. */
-  total: number;
-};
-
-export type PricingStrategy = {
-  /** Strategy id. */
-  id: string;
-  /** Estimate price cost by usage. */
-  estimate: (definition: ModelDefinition, usage: Usage) => PriceResult;
 };

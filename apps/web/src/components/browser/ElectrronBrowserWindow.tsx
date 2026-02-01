@@ -115,7 +115,7 @@ export default function ElectrronBrowserWindow({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Update offline state from navigator.onLine.
+    // 中文注释：通过 navigator.onLine 同步离线状态。
     const handleNetworkChange = () => {
       setIsOffline(!navigator.onLine);
     };
@@ -275,6 +275,22 @@ export default function ElectrronBrowserWindow({
   useEffect(() => {
     errorVisibleRef.current = errorVisible;
   }, [errorVisible]);
+  // 中文注释：记录最近的调试日志时间，避免刷屏。
+  const debugThrottleRef = useRef<Map<string, number>>(new Map());
+
+  // Log suspicious browser view states for debugging.
+  const logBrowserDebug = (
+    reason: string,
+    payload: Record<string, unknown>,
+  ) => {
+    const viewKey = String(payload.viewKey ?? "unknown");
+    const key = `${reason}:${viewKey}`;
+    const now = Date.now();
+    const last = debugThrottleRef.current.get(key) ?? 0;
+    if (now - last < 2000) return;
+    debugThrottleRef.current.set(key, now);
+    console.warn("[browser-debug]", { reason, ...payload });
+  };
 
   useEffect(() => {
     if (!isElectron) return;
@@ -305,6 +321,12 @@ export default function ElectrronBrowserWindow({
       if (detail.failed) {
         loadingRef.current = false;
         setLoading(false);
+        logBrowserDebug("load-failed", {
+          viewKey: detail.key,
+          targetUrl,
+          status: detail,
+          isOffline,
+        });
         return;
       }
       // 优先信任 ready=true，其次用 loading 字段兜底，避免导航事件把 ready 拉回 false 后卡在 Loading。
@@ -316,6 +338,28 @@ export default function ElectrronBrowserWindow({
             : true;
       loadingRef.current = nextLoading;
       setLoading(nextLoading);
+
+      // 中文注释：出现“loading=false 但 ready 仍为 false”的可疑状态时记录日志。
+      if (
+        targetUrl &&
+        nextLoading === false &&
+        detail.ready !== true &&
+        !detail.failed &&
+        !detail.destroyed
+      ) {
+        logBrowserDebug("ready-false-loading-false", {
+          viewKey: detail.key,
+          targetUrl,
+          status: detail,
+          isOffline,
+          errorVisible: errorVisibleRef.current,
+          overlayBlocked: overlayBlockedRef.current,
+          coveredByAnotherStackItem: coveredByAnotherStackItemRef.current,
+          stackHidden,
+          tabActive: tabActiveRef.current,
+          lastSent: lastSentByKeyRef.current.get(detail.key) ?? null,
+        });
+      }
     };
 
     window.addEventListener("tenas:webcontents-view:status", handleStatus);
@@ -379,6 +423,27 @@ export default function ElectrronBrowserWindow({
     loadingRef.current = nextLoading;
     setLoading(nextLoading);
   }, [activeViewKey, targetUrl]);
+
+  useEffect(() => {
+    if (!targetUrl) return;
+    if (loading) return;
+    if (errorVisible) return;
+    if (!activeViewStatus || activeViewStatus.ready !== true) {
+      // 中文注释：加载结束但未 ready 且没有错误提示时记录日志。
+      logBrowserDebug("loading-false-ready-false", {
+        viewKey: activeViewKey,
+        targetUrl,
+        status: activeViewStatus,
+        isOffline,
+        errorVisible,
+        overlayBlocked: overlayBlockedRef.current,
+        coveredByAnotherStackItem: coveredByAnotherStackItemRef.current,
+        stackHidden,
+        tabActive: tabActiveRef.current,
+        lastSent: lastSentByKeyRef.current.get(activeViewKey) ?? null,
+      });
+    }
+  }, [activeViewKey, activeViewStatus, errorVisible, isOffline, loading, targetUrl, stackHidden]);
 
   const tabActiveRef = useRef(tabActive);
   useEffect(() => {

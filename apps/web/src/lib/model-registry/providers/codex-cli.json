@@ -17,17 +17,7 @@
         "code",
         "image_input"
       ],
-      "maxContextK": 128,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "$",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ]
+      "maxContextK": 128
     }
   ]
 }

@@ -8,7 +8,6 @@ import {
 } from "@/lib/model-registry";
 import {
   MODEL_TAG_LABELS,
-  resolvePriceTier,
   type ModelDefinition,
   type ModelTag,
 } from "@tenas-ai/api/common";
@@ -196,22 +195,6 @@ function formatAuthConfigDisplay(authConfig: Record<string, unknown> | undefined
     }
   }
   return truncateDisplay(JSON.stringify(masked), 48);
-}
-
-/**
- * Format price label for a model definition.
- */
-function formatModelPriceLabel(definition?: ModelDefinition): string {
-  if (!definition) return "-";
-  // 逻辑：按 1M tokens 输出价格结构，匹配当前定价策略。
-  const tier = resolvePriceTier(definition, 0);
-  if (!tier) return "-";
-  if (!Number.isFinite(tier.input) || !Number.isFinite(tier.output) || !Number.isFinite(tier.inputCache)) {
-    return "-";
-  }
-  const symbol = definition.currencySymbol ?? "";
-  const pricePrefix = symbol ? `${symbol}` : "";
-  return `输入 ${pricePrefix}${tier.input} / 缓存 ${pricePrefix}${tier.inputCache} / 输出 ${pricePrefix}${tier.output}`;
 }
 
 /** Normalize model map from settings payload. */
@@ -492,14 +475,6 @@ export function useProviderManagement() {
   const [draftModelTags, setDraftModelTags] = useState<ModelTag[]>([]);
   /** Track draft model context window. */
   const [draftModelContextK, setDraftModelContextK] = useState("0");
-  /** Track draft model currency symbol. */
-  const [draftModelCurrencySymbol, setDraftModelCurrencySymbol] = useState("");
-  /** Track draft model input price. */
-  const [draftModelInputPrice, setDraftModelInputPrice] = useState("");
-  /** Track draft model cached input price. */
-  const [draftModelInputCachePrice, setDraftModelInputCachePrice] = useState("");
-  /** Track draft model output price. */
-  const [draftModelOutputPrice, setDraftModelOutputPrice] = useState("");
   /** Track draft model validation errors. */
   const [modelError, setModelError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -643,10 +618,6 @@ export function useProviderManagement() {
     setDraftModelName("");
     setDraftModelTags([]);
     setDraftModelContextK("0");
-    setDraftModelCurrencySymbol("");
-    setDraftModelInputPrice("");
-    setDraftModelInputCachePrice("");
-    setDraftModelOutputPrice("");
     setModelDialogOpen(true);
   }
 
@@ -654,7 +625,6 @@ export function useProviderManagement() {
    * Open edit model dialog and hydrate the draft fields.
    */
   function openModelEditDialog(model: ModelDefinition) {
-    const tier = resolvePriceTier(model, 0);
     setModelError(null);
     setEditingModelEntry(null);
     setEditingModelId(model.id);
@@ -663,10 +633,6 @@ export function useProviderManagement() {
     setDraftModelName(model.name ?? "");
     setDraftModelTags(model.tags ?? []);
     setDraftModelContextK(Number.isFinite(model.maxContextK) ? String(model.maxContextK) : "0");
-    setDraftModelCurrencySymbol(model.currencySymbol ?? "");
-    setDraftModelInputPrice(tier ? String(tier.input ?? 0) : "");
-    setDraftModelInputCachePrice(tier ? String(tier.inputCache ?? 0) : "");
-    setDraftModelOutputPrice(tier ? String(tier.output ?? 0) : "");
     setModelDialogOpen(true);
   }
 
@@ -706,33 +672,20 @@ export function useProviderManagement() {
       setModelError("请输入有效的上下文长度");
       return;
     }
-    const inputPrice = Number.parseFloat(draftModelInputPrice || "0");
-    const inputCachePrice = Number.parseFloat(draftModelInputCachePrice || "0");
-    const outputPrice = Number.parseFloat(draftModelOutputPrice || "0");
-    if (!Number.isFinite(inputPrice) || !Number.isFinite(inputCachePrice) || !Number.isFinite(outputPrice)) {
-      setModelError("请输入有效的价格");
-      return;
-    }
-    const currencySymbol = draftModelCurrencySymbol.trim();
     const baseModel = editingModelSnapshot ?? {};
+    const baseModelRest = { ...(baseModel as ModelDefinition) };
+    // 中文注释：移除历史价格字段，避免旧配置回写。
+    delete (baseModelRest as { priceStrategyId?: string }).priceStrategyId;
+    delete (baseModelRest as { priceTiers?: unknown }).priceTiers;
+    delete (baseModelRest as { currencySymbol?: string }).currencySymbol;
     const newModel: ModelDefinition = {
-      ...(baseModel as ModelDefinition),
+      ...(baseModelRest as ModelDefinition),
       id: modelId,
       name: modelName || undefined,
       familyId: modelId,
       providerId: draftProvider,
       tags: draftModelTags,
       maxContextK,
-      priceStrategyId: "tiered_token",
-      priceTiers: [
-        {
-          minContextK: 0,
-          input: inputPrice,
-          inputCache: inputCachePrice,
-          output: outputPrice,
-        },
-      ],
-      currencySymbol: currencySymbol || undefined,
     };
     if (editingModelEntry) {
       const nextModels = {
@@ -960,14 +913,6 @@ export function useProviderManagement() {
     setDraftModelTags,
     draftModelContextK,
     setDraftModelContextK,
-    draftModelCurrencySymbol,
-    setDraftModelCurrencySymbol,
-    draftModelInputPrice,
-    setDraftModelInputPrice,
-    draftModelInputCachePrice,
-    setDraftModelInputCachePrice,
-    draftModelOutputPrice,
-    setDraftModelOutputPrice,
     draftS3ProviderId,
     setDraftS3ProviderId,
     draftS3Name,
@@ -1017,7 +962,6 @@ export function useProviderManagement() {
 export {
   copyToClipboard,
   formatAuthConfigDisplay,
-  formatModelPriceLabel,
   formatS3CredentialDisplay,
   getDefaultApiUrl,
   getDefaultModelIds,

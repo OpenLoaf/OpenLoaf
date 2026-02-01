@@ -26,6 +26,8 @@ interface MessageItemProps {
   message: ChatMessage;
   isLastHumanMessage?: boolean;
   isLastAiMessage?: boolean;
+  /** Whether this assistant message should show actions by default. */
+  isLastAiActionMessage?: boolean;
   hideAiActions?: boolean;
 }
 
@@ -33,6 +35,7 @@ function MessageItem({
   message,
   isLastHumanMessage,
   isLastAiMessage,
+  isLastAiActionMessage,
   hideAiActions,
 }: MessageItemProps) {
   const { resendUserMessage, clearError } = useChatActions();
@@ -167,6 +170,7 @@ function MessageItem({
         ? "opacity-100"
         : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
     );
+  const showAiActionsAlways = isLastAiActionMessage ?? isLastAiMessage;
 
   const revokeAttachmentUrls = React.useCallback((items: ChatAttachment[]) => {
     for (const item of items) {
@@ -340,7 +344,7 @@ function MessageItem({
           {!hideAiActions &&
             !shouldHideAiActionsForApproval &&
             (hasVisibleContent || shouldShowBranchNav) && (
-            <div className={cn("mt-1", actionVisibility(isLastAiMessage))}>
+            <div className={cn("mt-1", actionVisibility(showAiActionsAlways))}>
               <MessageAiAction message={message} />
             </div>
           )}

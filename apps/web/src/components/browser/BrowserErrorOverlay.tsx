@@ -11,11 +11,11 @@ export function BrowserErrorOverlay({
   onRetry,
 }: {
   failed?: TenasWebContentsViewStatus["failed"];
-  // Offline state from navigator.onLine.
+  // 中文注释：来自 navigator.onLine 的离线状态。
   isOffline?: boolean;
-  // Current URL to display in the overlay.
+  // 中文注释：用于展示的 URL。
   url?: string;
-  // Retry handler for reloading.
+  // 中文注释：重试回调。
   onRetry?: () => void;
 }) {
   const showOffline = Boolean(isOffline);
