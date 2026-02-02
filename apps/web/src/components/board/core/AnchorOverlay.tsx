@@ -5,6 +5,7 @@ import type {
   CanvasSnapshot,
 } from "../engine/types";
 import { cn } from "@udecode/cn";
+import { Fragment } from "react";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import {
   SELECTED_ANCHOR_EDGE_SIZE,
@@ -102,32 +103,44 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
           Boolean(collapseTarget)
           && collapseTarget!.anchorId === anchor.anchorId
           && useSelectedStyle;
+        const anchorCenter: CanvasPoint = [
+          screen[0] + offset[0],
+          screen[1] + offset[1],
+        ];
+        const buttonSize = 20;
+        const buttonGap = 6;
+        const buttonDistance = baseSize / 2 + buttonGap + buttonSize / 2;
+        const buttonOffset = resolveAnchorScreenOffset(
+          anchor.anchorId,
+          buttonDistance
+        );
         return (
-          <div
-            key={`${anchor.elementId}-${anchor.anchorId}`}
-            className={cn(
-              "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
-              isHover
-                ? "bg-[var(--canvas-connector-anchor-hover)]"
-                : "bg-[var(--canvas-connector-anchor)]",
-              "border-[var(--canvas-connector-handle-fill)]"
-            )}
-            style={{
-              left: screen[0] + offset[0],
-              top: screen[1] + offset[1],
-              width: size,
-              height: size,
-              marginLeft: -size / 2,
-              marginTop: -size / 2,
-            }}
-          >
-            {isSideAnchor && useSelectedStyle ? (
-              <Plus
-                size={iconSize}
-                className="text-[var(--canvas-connector-handle-fill)]"
-                strokeWidth={2.2}
-              />
-            ) : null}
+          <Fragment key={`${anchor.elementId}-${anchor.anchorId}`}>
+            <div
+              className={cn(
+                "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
+                isHover
+                  ? "bg-[var(--canvas-connector-anchor-hover)]"
+                  : "bg-[var(--canvas-connector-anchor)]",
+                "border-[var(--canvas-connector-handle-fill)]"
+              )}
+              style={{
+                left: anchorCenter[0],
+                top: anchorCenter[1],
+                width: size,
+                height: size,
+                marginLeft: -size / 2,
+                marginTop: -size / 2,
+              }}
+            >
+              {isSideAnchor && useSelectedStyle ? (
+                <Plus
+                  size={iconSize}
+                  className="text-[var(--canvas-connector-handle-fill)]"
+                  strokeWidth={2.2}
+                />
+              ) : null}
+            </div>
             {showCollapse ? (
               <button
                 type="button"
@@ -135,21 +148,12 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
                   "pointer-events-auto absolute flex h-5 w-5 items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm",
                   "border-slate-200 hover:bg-slate-50"
                 )}
-                style={(() => {
-                  const buttonSize = 20;
-                  const gap = 6;
-                  const distance = offsetDistance + baseSize / 2 + gap + buttonSize / 2;
-                  const buttonOffset = resolveAnchorScreenOffset(
-                    anchor.anchorId,
-                    distance
-                  );
-                  return {
-                    left: buttonOffset[0],
-                    top: buttonOffset[1],
-                    marginLeft: -buttonSize / 2,
-                    marginTop: -buttonSize / 2,
-                  } as const;
-                })()}
+                style={{
+                  left: anchorCenter[0] + buttonOffset[0],
+                  top: anchorCenter[1] + buttonOffset[1],
+                  marginLeft: -buttonSize / 2,
+                  marginTop: -buttonSize / 2,
+                }}
                 onPointerDown={event => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -164,7 +168,7 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
                 )}
               </button>
             ) : null}
-          </div>
+          </Fragment>
         );
       })}
     </div>
@@ -242,6 +246,7 @@ function getMindmapCollapseTargets(
   const targets = new Map<string, MindmapCollapseTarget>();
   snapshot.elements.forEach(element => {
     if (element.kind !== "node") return;
+    if (!snapshot.selectedIds.includes(element.id)) return;
     const meta = element.meta as Record<string, unknown> | undefined;
     if (Boolean(meta?.[MINDMAP_META.ghost])) return;
     if (Boolean(meta?.[MINDMAP_META.multiParent])) return;

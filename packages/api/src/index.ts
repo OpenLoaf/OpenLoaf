@@ -75,11 +75,13 @@ export * from "./types/basic";
 export * from "./types/event";
 export * from "./types/message";
 export * from "./types/image";
+export * from "./types/saasMedia";
 export * from "./types/toolResult";
 export * from "./types/setting";
 export * from "./types/storage";
 export * from "./types/boardCollab";
 export * from "./common";
+export * from "./common/mediaModelTypes";
 export * from "./markdown/block-markdown";
 export * from "./services/vfsService";
 
