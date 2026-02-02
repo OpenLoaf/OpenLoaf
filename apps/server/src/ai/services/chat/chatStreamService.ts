@@ -192,6 +192,8 @@ export async function runChatStream(input: {
   cookies: Record<string, string>;
   /** Raw request signal. */
   requestSignal: AbortSignal;
+  /** SaaS access token from request header. */
+  saasAccessToken?: string;
 }): Promise<Response> {
   const {
     sessionId,
@@ -405,6 +407,7 @@ export async function runChatStream(input: {
       chatModelSource,
       requiredTags,
       preferredChatModelId,
+      saasAccessToken: input.saasAccessToken,
     });
     masterAgent = createMasterAgentRunner({
       model: resolved.model,
@@ -459,6 +462,8 @@ export async function runChatImageRequest(input: {
   cookies: Record<string, string>;
   /** Raw request signal. */
   requestSignal: AbortSignal;
+  /** SaaS access token from request header. */
+  saasAccessToken?: string;
 }): Promise<ChatImageRequestResult> {
   const {
     sessionId,

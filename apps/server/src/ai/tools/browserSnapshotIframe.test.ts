@@ -36,9 +36,9 @@ assert.ok(merged.text.includes("root-text"));
 assert.ok(merged.text.includes("frame-text"));
 assert.ok(merged.text.indexOf("root-text") < merged.text.indexOf("frame-text"));
 assert.equal(merged.elements.length, 2);
-assert.equal(merged.frames.length, 2);
-assert.equal(merged.frames[1].status, "cross-origin");
-assert.equal(merged.frames[1].text, undefined);
+assert.equal(merged.frames?.length, 2);
+assert.equal(merged.frames?.[1]?.status, "cross-origin");
+assert.equal(merged.frames?.[1]?.text, undefined);
 
 const limitedText = mergeSnapshotData(baseSnapshot, { maxTextLength: 9, maxElements: 10 });
 assert.equal(limitedText.text, "root-text");

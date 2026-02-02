@@ -592,7 +592,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
     if (paths.length === 1) {
       event.sender.startDrag({ file: paths[0], icon });
     } else {
-      event.sender.startDrag({ files: paths, icon });
+      event.sender.startDrag({ file: paths[0], files: paths, icon });
     }
     event.sender.send('tenas:fs:drag-log', {
       stage: 'started',

@@ -358,7 +358,8 @@ assert.equal(unreadCount.count, 4);
 
 const mailboxUnreadStats = await caller.listMailboxUnreadStats({ workspaceId });
 const inboxStats = mailboxUnreadStats.find(
-  (stat) => stat.accountEmail === "user@example.com" && stat.mailboxPath === "INBOX",
+  (stat: { accountEmail: string; mailboxPath: string }) =>
+    stat.accountEmail === "user@example.com" && stat.mailboxPath === "INBOX",
 );
 assert.equal(inboxStats?.unreadCount, 1);
 
@@ -378,7 +379,9 @@ const unifiedFlagged = await caller.listUnifiedMessages({
   workspaceId,
   scope: "flagged",
 });
-assert.ok(unifiedFlagged.items.some((item) => item.subject === "Flagged"));
+assert.ok(
+  unifiedFlagged.items.some((item: { subject: string }) => item.subject === "Flagged"),
+);
 
 const detail = await caller.getMessage({ workspaceId, id: "msg-1" });
 assert.equal(detail.subject, "Hello");

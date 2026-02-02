@@ -1,7 +1,8 @@
-import type { ModelTag } from "@tenas-ai/api/common";
+import type { MediaModelDefinition, ModelTag } from "@tenas-ai/api/common";
 
 import type { ProviderModelOption } from "@/lib/provider-models";
 import { resolveServerUrl } from "@/utils/server-url";
+import { getAccessToken } from "@/lib/saas-auth";
 
 /** Shared helpers for image generation nodes (SSE/model selection). */
 /** Default output count for image generation nodes. */
@@ -31,10 +32,12 @@ function extractSseData(chunk: string): string | null {
 
 /** Stream SSE events from the unified AI endpoint. */
 export async function runChatSseRequest({ payload, signal, onEvent }: ChatSseRequest) {
+  const token = await getAccessToken();
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
   const response = await fetch(`${resolveServerUrl()}/ai/execute`, {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders },
     body: JSON.stringify(payload),
     signal,
   });
@@ -138,4 +141,88 @@ export function resolveImageGenerationRequiredTags(input: {
     requiredTags.push("image_input");
   }
   return requiredTags;
+}
+
+/** Check whether a model has a specific media tag. */
+function hasMediaTag(model: MediaModelDefinition, tag: string): boolean {
+  const tags = Array.isArray(model.tags) ? model.tags : [];
+  return tags.includes(tag);
+}
+
+/** Filter image media models based on input/output requirements. */
+export function filterImageMediaModels(
+  models: MediaModelDefinition[],
+  input: { imageCount: number; hasMask: boolean; outputCount: number },
+) {
+  return models.filter((model) => {
+    const tags = Array.isArray(model.tags) ? model.tags : [];
+    const inputCaps = model.capabilities?.input;
+    const outputCaps = model.capabilities?.output;
+    if (tags.length > 0 && !hasMediaTag(model, "image_generation")) return false;
+    if (input.hasMask) {
+      if (inputCaps?.supportsMask === false) return false;
+      if (tags.length > 0 && !hasMediaTag(model, "image_edit")) return false;
+    }
+    if (input.imageCount > 1) {
+      if (inputCaps?.maxImages !== undefined && inputCaps.maxImages < input.imageCount) {
+        return false;
+      }
+      if (tags.length > 0 && !hasMediaTag(model, "image_multi_input")) return false;
+    } else if (input.imageCount === 1) {
+      if (
+        tags.length > 0 &&
+        !hasMediaTag(model, "image_input") &&
+        !hasMediaTag(model, "image_multi_input")
+      ) {
+        return false;
+      }
+    }
+    if (input.outputCount > 1 && outputCaps?.supportsMulti === false) return false;
+    return true;
+  });
+}
+
+/** Filter video media models based on input/output requirements. */
+export function filterVideoMediaModels(
+  models: MediaModelDefinition[],
+  input: {
+    imageCount: number;
+    hasReference: boolean;
+    hasStartEnd: boolean;
+    withAudio: boolean;
+  },
+) {
+  return models.filter((model) => {
+    const tags = Array.isArray(model.tags) ? model.tags : [];
+    const inputCaps = model.capabilities?.input;
+    const outputCaps = model.capabilities?.output;
+    if (tags.length > 0 && !hasMediaTag(model, "video_generation")) return false;
+    if (input.hasReference) {
+      if (inputCaps?.supportsReferenceVideo === false) return false;
+      if (tags.length > 0 && !hasMediaTag(model, "video_reference")) return false;
+    }
+    if (input.hasStartEnd) {
+      if (inputCaps?.supportsStartEnd === false) return false;
+      if (tags.length > 0 && !hasMediaTag(model, "video_start_end")) return false;
+    }
+    if (input.imageCount > 1) {
+      if (inputCaps?.maxImages !== undefined && inputCaps.maxImages < input.imageCount) {
+        return false;
+      }
+      if (tags.length > 0 && !hasMediaTag(model, "image_multi_input")) return false;
+    } else if (input.imageCount === 1) {
+      if (
+        tags.length > 0 &&
+        !hasMediaTag(model, "image_input") &&
+        !hasMediaTag(model, "image_multi_input")
+      ) {
+        return false;
+      }
+    }
+    if (input.withAudio) {
+      if (outputCaps?.supportsAudio === false) return false;
+      if (tags.length > 0 && !hasMediaTag(model, "video_audio_output")) return false;
+    }
+    return true;
+  });
 }

@@ -15,6 +15,7 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import AutoUpdateGate from "@/components/layout/AutoUpdateGate";
 import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
 import FilePreviewDialog from "@/components/file/FilePreviewDialog";
+import LocalAuthGate from "@/components/local-auth/LocalAuthGate";
 
 type ThemeSelection = "light" | "dark" | "system";
 type FontSizeSelection = "small" | "medium" | "large" | "xlarge";
@@ -225,9 +226,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <FontSizeSettingsBootstrap />
         <AnimationSettingsBootstrap />
         <MotionSettingsBootstrap>
-          {children}
-          <FilePreviewDialog />
-          <AutoUpdateGate />
+          <LocalAuthGate>
+            {children}
+            <FilePreviewDialog />
+            <AutoUpdateGate />
+          </LocalAuthGate>
           {/* <ReactQueryDevtools initialIsOpen={false} /> */}
         </MotionSettingsBootstrap>
       </QueryClientProvider>

@@ -1,1 +1,1 @@
-export { fetchBalance, fetchModelList } from "./client";
+export { fetchModelList } from "./client";

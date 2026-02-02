@@ -34,6 +34,7 @@ import { WorkspaceSettings } from "./menus/Workspace";
 import TestSetting from "./menus/TestSetting";
 import { SkillSettings } from "./menus/SkillSettings";
 import { ThirdPartyTools } from "./menus/ThirdPartyTools";
+import LocalAccess from "./menus/LocalAccess";
 import { TenasSettingsLayout } from "@tenas-ai/ui/tenas/TenasSettingsLayout";
 import {
   TenasSettingsMenu,
@@ -42,6 +43,7 @@ import {
 
 type SettingsMenuKey =
   | "basic"
+  | "localAccess"
   | "about"
   | "keys"
   | "storage"
@@ -69,6 +71,7 @@ const MENU: Array<{
   Component: ComponentType;
 }> = [
   { key: "basic", label: "基础", Icon: SlidersHorizontal, Component: BasicSettings },
+  { key: "localAccess", label: "本地访问", Icon: KeyRound, Component: LocalAccess },
   { key: "workspace", label: "工作空间", Icon: Building2, Component: WorkspaceSettings },
   { key: "skills", label: "技能", Icon: Wand2Icon, Component: SkillSettings },
   { key: "thirdPartyTools", label: "第三方工具", Icon: Terminal, Component: ThirdPartyTools },
@@ -179,7 +182,11 @@ export default function SettingsPage({
 
   const menuGroups = useMemo(() => {
     const byKey = new Map(MENU.map((item) => [item.key, item]));
-    const group1 = [byKey.get("basic"), byKey.get("workspace")].filter(Boolean);
+    const group1 = [
+      byKey.get("basic"),
+      byKey.get("localAccess"),
+      byKey.get("workspace"),
+    ].filter(Boolean);
     const group2 = [
       byKey.get("skills"),
       byKey.get("thirdPartyTools"),

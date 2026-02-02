@@ -1,4 +1,4 @@
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ChatModelSource } from "@tenas-ai/api/common";
 import type { AiExecuteRequest, AiIntent, AiResponseMode } from "@/ai/services/chat/types";
@@ -7,6 +7,14 @@ import { logger } from "@/common/logger";
 import { toText } from "@/routers/route-utils";
 
 const { aiExecuteController: controller } = bootstrapAi();
+
+/** Extract bearer token from request headers. */
+function resolveBearerToken(c: Context): string | null {
+  const authHeader = c.req.header("authorization") ?? c.req.header("Authorization");
+  if (!authHeader) return null;
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
 
 /** Register unified AI execute route. */
 export function registerAiExecuteRoutes(app: Hono) {
@@ -31,10 +39,12 @@ export function registerAiExecuteRoutes(app: Hono) {
     );
 
     const cookies = getCookie(c) || {};
+    const saasAccessToken = resolveBearerToken(c);
     return controller.execute({
       request: parsed.request,
       cookies,
       requestSignal: c.req.raw.signal,
+      saasAccessToken: saasAccessToken ?? undefined,
     });
   });
 }

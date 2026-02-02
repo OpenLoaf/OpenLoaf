@@ -42,12 +42,17 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
   const groupPadding = getGroupOutlinePadding(viewState.viewport.zoom);
   const mindmapLayoutDirection = engine.getMindmapLayoutDirection();
   const hoverAnchor = snapshot.connectorHover;
+  const hoverNodeId = snapshot.nodeHoverId;
   const selectedAnchors = getSelectedImageAnchors(snapshot);
   const hoverAnchors = getHoveredImageAnchors(snapshot);
   if (!hoverAnchor && selectedAnchors.length === 0 && hoverAnchors.length === 0) {
     return null;
   }
-  const collapseTargets = getMindmapCollapseTargets(snapshot, mindmapLayoutDirection);
+  const collapseTargets = getMindmapCollapseTargets(
+    snapshot,
+    mindmapLayoutDirection,
+    hoverNodeId
+  );
 
   const anchors: AnchorOverlayItem[] = [];
   selectedAnchors.forEach(anchor => {
@@ -77,6 +82,11 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
       {Array.from(uniqueAnchors.values()).map(anchor => {
         const adjustedPoint = resolveGroupAnchorPoint(anchor, snapshot, groupPadding);
         const screen = toScreenPoint(adjustedPoint, viewState);
+        const element = snapshot.elements.find(
+          (item): item is CanvasNodeElement =>
+            item.kind === "node" && item.id === anchor.elementId
+        );
+        const isTextNode = element?.type === "text";
         const isHover =
           hoverAnchor?.elementId === anchor.elementId &&
           hoverAnchor.anchorId === anchor.anchorId;
@@ -110,37 +120,38 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
         const buttonSize = 20;
         const buttonGap = 6;
         const buttonDistance = baseSize / 2 + buttonGap + buttonSize / 2;
-        const buttonOffset = resolveAnchorScreenOffset(
-          anchor.anchorId,
-          buttonDistance
-        );
+        const buttonOffset: CanvasPoint = isTextNode
+          ? [0, 0]
+          : resolveAnchorScreenOffset(anchor.anchorId, buttonDistance);
         return (
           <Fragment key={`${anchor.elementId}-${anchor.anchorId}`}>
-            <div
-              className={cn(
-                "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
-                isHover
-                  ? "bg-[var(--canvas-connector-anchor-hover)]"
-                  : "bg-[var(--canvas-connector-anchor)]",
-                "border-[var(--canvas-connector-handle-fill)]"
-              )}
-              style={{
-                left: anchorCenter[0],
-                top: anchorCenter[1],
-                width: size,
-                height: size,
-                marginLeft: -size / 2,
-                marginTop: -size / 2,
-              }}
-            >
-              {isSideAnchor && useSelectedStyle ? (
-                <Plus
-                  size={iconSize}
-                  className="text-[var(--canvas-connector-handle-fill)]"
-                  strokeWidth={2.2}
-                />
-              ) : null}
-            </div>
+            {!isTextNode ? (
+              <div
+                className={cn(
+                  "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
+                  isHover
+                    ? "bg-[var(--canvas-connector-anchor-hover)]"
+                    : "bg-[var(--canvas-connector-anchor)]",
+                  "border-[var(--canvas-connector-handle-fill)]"
+                )}
+                style={{
+                  left: anchorCenter[0],
+                  top: anchorCenter[1],
+                  width: size,
+                  height: size,
+                  marginLeft: -size / 2,
+                  marginTop: -size / 2,
+                }}
+              >
+                {isSideAnchor && useSelectedStyle ? (
+                  <Plus
+                    size={iconSize}
+                    className="text-[var(--canvas-connector-handle-fill)]"
+                    strokeWidth={2.2}
+                  />
+                ) : null}
+              </div>
+            ) : null}
             {showCollapse ? (
               <button
                 type="button"
@@ -241,7 +252,8 @@ type MindmapCollapseTarget = {
 /** Collect mindmap collapse anchors for nodes with children. */
 function getMindmapCollapseTargets(
   snapshot: CanvasSnapshot,
-  layoutDirection: MindmapLayoutDirection
+  layoutDirection: MindmapLayoutDirection,
+  hoverNodeId?: string | null
 ): Map<string, MindmapCollapseTarget> {
   const targets = new Map<string, MindmapCollapseTarget>();
   snapshot.elements.forEach(element => {
@@ -263,6 +275,29 @@ function getMindmapCollapseTargets(
     const collapsed = Boolean(meta?.[MINDMAP_META.collapsed]);
     targets.set(element.id, { anchorId, collapsed });
   });
+  if (hoverNodeId && !snapshot.selectedIds.includes(hoverNodeId)) {
+    const element = snapshot.elements.find(
+      (item): item is CanvasNodeElement =>
+        item.kind === "node" && item.id === hoverNodeId
+    );
+    if (!element || element.type !== "text") return targets;
+    const meta = element.meta as Record<string, unknown> | undefined;
+    if (Boolean(meta?.[MINDMAP_META.ghost])) return targets;
+    if (Boolean(meta?.[MINDMAP_META.multiParent])) return targets;
+    const childCount =
+      typeof meta?.[MINDMAP_META.childCount] === "number"
+        ? (meta?.[MINDMAP_META.childCount] as number)
+        : 0;
+    if (childCount <= 0) return targets;
+    // 逻辑：文本节点悬停时也需要显示折叠按钮。
+    const anchorId = resolveMindmapCollapseAnchor(
+      element,
+      snapshot,
+      layoutDirection
+    );
+    const collapsed = Boolean(meta?.[MINDMAP_META.collapsed]);
+    targets.set(element.id, { anchorId, collapsed });
+  }
   return targets;
 }
 

@@ -4,7 +4,7 @@ import {
   BaseEmailRouter,
   emailSchemas,
 } from "@tenas-ai/api";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@tenas-ai/db";
 import { addEmailAccount } from "@/modules/email/emailAccountService";
 import {
   addPrivateSender,
@@ -283,11 +283,13 @@ async function fetchMessageRowsPage(input: {
 }
 
 /** Normalize attachment metadata list. */
-function normalizeAttachments(value: unknown): Array<{
+type AttachmentMeta = {
   filename?: string;
   contentType?: string;
   size?: number;
-}> {
+};
+
+function normalizeAttachments(value: unknown): AttachmentMeta[] {
   if (!Array.isArray(value)) return [];
   return value
     .map((item) => {
@@ -302,12 +304,10 @@ function normalizeAttachments(value: unknown): Array<{
         typeof (item as any).size === "number" && Number.isFinite((item as any).size)
           ? (item as any).size
           : undefined;
-      return { filename, contentType, size };
+      const next: AttachmentMeta = { filename, contentType, size };
+      return next;
     })
-    .filter(
-      (item): item is { filename?: string; contentType?: string; size?: number } =>
-        Boolean(item),
-    );
+    .filter((item): item is AttachmentMeta => item !== null);
 }
 
 export class EmailRouterImpl extends BaseEmailRouter {
@@ -617,7 +617,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
             }));
 
           if (!mailboxTargets.length) {
-            return [];
+            return { items: [], nextCursor: null };
           }
 
           const { rows, nextCursor } = await fetchMessageRowsPage({

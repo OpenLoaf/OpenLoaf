@@ -1,4 +1,4 @@
-import type { AuthRefreshResponse } from "@tenas-saas/sdk";
+import type { AuthRefreshResponse } from "@tenas-saas/sdk/server";
 import { getSaasClient } from "../../client";
 
 /** Refresh access token via SaaS SDK. */

@@ -111,7 +111,7 @@ export function getEmailConfigPath(workspaceId?: string): string {
 
 /** Ensure email.json exists with default payload. */
 function ensureDefaultEmailConfigFile(workspaceId?: string): EmailConfigFile {
-  const payload: EmailConfigFile = { emailAccounts: [] };
+  const payload: EmailConfigFile = { emailAccounts: [], privateSenders: [] };
   writeEmailConfigFile(payload, workspaceId);
   return payload;
 }

@@ -116,6 +116,14 @@ async function openMailbox(imap: Imap, mailboxPath: string): Promise<void> {
   });
 }
 
+/** Safely invoke IMAP idle when available. */
+function tryImapIdle(imap: Imap): void {
+  const idle = (imap as Imap & { idle?: () => void }).idle;
+  if (typeof idle === "function") {
+    idle.call(imap);
+  }
+}
+
 /** Build a worker key. */
 function buildWorkerKey(workspaceId: string, accountEmail: string): string {
   return `${workspaceId}:${normalizeEmailAddress(accountEmail)}`;
@@ -282,7 +290,7 @@ class EmailIdleManager {
       worker.status = "idle";
       worker.reconnectDelayMs = RECONNECT_BASE_MS;
       try {
-        imap.idle();
+        tryImapIdle(imap);
         logger.info({ accountEmail: normalizedEmail }, "email idle ready");
       } catch (error) {
         worker.lastError = error instanceof Error ? error.message : "IMAP idle error";
@@ -337,7 +345,7 @@ class EmailIdleManager {
       }
       if (worker.imap) {
         try {
-          worker.imap.idle();
+          tryImapIdle(worker.imap);
         } catch {
           // ignore
         }

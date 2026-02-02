@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 
 import { setWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
 import type { Workspace } from "@tenas-ai/api";
+import type { EmailConfigFile } from "../emailConfigStore";
 
 let emailConfig: typeof import("../emailConfigStore");
 try {
@@ -38,7 +39,7 @@ const initial = readEmailConfigFile(workspace.id);
 assert.deepEqual(initial.emailAccounts, []);
 assert.ok(existsSync(configPath));
 
-const payload = {
+const payload: EmailConfigFile = {
   emailAccounts: [
     {
       emailAddress: "user@example.com",
@@ -57,6 +58,7 @@ const payload = {
       status: { lastSyncAt: "2026-01-30T12:00:00Z", lastError: null },
     },
   ],
+  privateSenders: [],
 };
 
 writeEmailConfigFile(payload, workspace.id);

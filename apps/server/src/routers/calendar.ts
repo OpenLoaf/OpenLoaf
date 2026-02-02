@@ -40,6 +40,26 @@ type CalendarItemRow = {
   updatedAt: Date;
 };
 
+type CalendarItemView = {
+  id: string;
+  workspaceId: string;
+  sourceId: string;
+  kind: "event" | "reminder";
+  title: string;
+  description: string | null;
+  location: string | null;
+  startAt: string;
+  endAt: string;
+  allDay: boolean;
+  recurrenceRule: unknown | null;
+  completedAt: string | null;
+  externalId: string | null;
+  sourceUpdatedAt: string | null;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 /** Build calendar source response payload. */
 function toCalendarSourceView(row: CalendarSourceRow) {
   return {
@@ -58,7 +78,7 @@ function toCalendarSourceView(row: CalendarSourceRow) {
 }
 
 /** Build calendar item response payload. */
-function toCalendarItemView(row: CalendarItemRow) {
+function toCalendarItemView(row: CalendarItemRow): CalendarItemView {
   return {
     id: row.id,
     workspaceId: row.workspaceId,
@@ -279,14 +299,18 @@ export class CalendarRouterImpl extends BaseCalendarRouter {
           const rangeStart = new Date(input.range.start);
           const rangeEnd = new Date(input.range.end);
 
-          const sourceOps = input.sources.map((source) =>
-            ctx.prisma.calendarSource.upsert({
+          const sourceOps = input.sources.map((source) => {
+            const externalId = source.externalId ?? "";
+            if (!externalId) {
+              throw new Error("Calendar source externalId is required.");
+            }
+            return ctx.prisma.calendarSource.upsert({
               where: {
                 workspaceId_provider_kind_externalId: {
                   workspaceId: input.workspaceId,
                   provider: input.provider,
                   kind: source.kind,
-                  externalId: source.externalId ?? null,
+                  externalId,
                 },
               },
               create: {
@@ -294,7 +318,7 @@ export class CalendarRouterImpl extends BaseCalendarRouter {
                 workspaceId: input.workspaceId,
                 provider: input.provider,
                 kind: source.kind,
-                externalId: source.externalId ?? null,
+                externalId,
                 title: source.title,
                 color: source.color ?? null,
                 readOnly: source.readOnly ?? false,
@@ -306,8 +330,8 @@ export class CalendarRouterImpl extends BaseCalendarRouter {
                 readOnly: source.readOnly ?? false,
                 isSubscribed: source.isSubscribed ?? false,
               },
-            }),
-          );
+            });
+          });
 
           const sources = await ctx.prisma.$transaction(sourceOps);
           const sourceIdByExternalId = new Map<string, string>();

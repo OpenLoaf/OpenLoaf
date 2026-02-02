@@ -1,6 +1,6 @@
 import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@tenas-ai/api";
 import { runProviderRequest } from "@/ai/models/providerRequestRunner";
-import { getProviderDefinition } from "@/ai/models/modelRegistry";
+import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegistry";
 import { loadProjectImageBuffer } from "@/ai/services/image/attachmentResolver";
 import { resolveImageInputBuffer, uploadImagesToS3 } from "@/ai/services/image/imageStorage";
 import { fetchQwenVideoResult, fetchVolcengineVideoResult } from "@/ai/services/video/videoGeneration";
@@ -78,6 +78,49 @@ function resolveVideoParameters(input: {
     }
   }
   return resolved;
+}
+
+type VideoTaskStatus =
+  | "in_queue"
+  | "generating"
+  | "done"
+  | "not_found"
+  | "expired"
+  | "failed";
+
+/** Normalize video task status to API union. */
+function normalizeVideoTaskStatus(status?: string | null): VideoTaskStatus {
+  const normalized = (status ?? "").trim().toLowerCase();
+  if (!normalized) return "failed";
+  if (normalized === "done" || normalized === "success" || normalized === "succeeded") {
+    return "done";
+  }
+  if (
+    normalized === "running" ||
+    normalized === "generating" ||
+    normalized === "processing"
+  ) {
+    return "generating";
+  }
+  if (
+    normalized === "queued" ||
+    normalized === "queue" ||
+    normalized === "pending" ||
+    normalized === "in_queue"
+  ) {
+    return "in_queue";
+  }
+  if (normalized === "not_found") return "not_found";
+  if (normalized === "expired") return "expired";
+  if (
+    normalized === "failed" ||
+    normalized === "error" ||
+    normalized === "canceled" ||
+    normalized === "cancelled"
+  ) {
+    return "failed";
+  }
+  return "failed";
 }
 
 export class AiRouterImpl extends BaseAiRouter {
@@ -270,9 +313,10 @@ export class AiRouterImpl extends BaseAiRouter {
                   modelId,
                   taskId: input.taskId,
                 });
-          if (result.status !== "done") {
+          const normalizedStatus = normalizeVideoTaskStatus(result.status);
+          if (normalizedStatus !== "done") {
             return {
-              status: result.status || "failed",
+              status: normalizedStatus,
               videoUrl: result.videoUrl || undefined,
             };
           }

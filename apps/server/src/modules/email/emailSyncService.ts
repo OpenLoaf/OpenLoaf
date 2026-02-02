@@ -1,8 +1,8 @@
 import Imap from "imap";
 import { simpleParser } from "mailparser";
-import sanitizeHtml from "sanitize-html";
+import sanitizeHtml, { type IOptions } from "sanitize-html";
 
-import type { PrismaClient } from "@tenas-ai/db";
+import { Prisma, type PrismaClient } from "@tenas-ai/db";
 import { logger } from "@/common/logger";
 import {
   ensureFlaggedFlag,
@@ -25,7 +25,7 @@ export const DEFAULT_INITIAL_SYNC_LIMIT = 50;
 const CLOSE_TIMEOUT_MS = 5000;
 
 /** Sanitize options for HTML email content. */
-const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+const SANITIZE_OPTIONS: IOptions = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
   allowedAttributes: {
     a: ["href", "name", "target", "rel"],
@@ -34,6 +34,14 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedSchemes: ["http", "https", "cid"],
   allowProtocolRelative: false,
 };
+
+/** Normalize nullable JSON payload for Prisma. */
+function toNullableJsonValue(
+  value: unknown,
+): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput {
+  if (value === undefined || value === null) return Prisma.DbNull;
+  return value as Prisma.InputJsonValue;
+}
 
 /** Check if auto sync on add is enabled. */
 export function shouldAutoSyncOnAdd(): boolean {
@@ -241,12 +249,19 @@ async function parseMessages(imap: Imap, uids: number[]) {
           const bodyHtml = parsed.html
             ? sanitizeHtml(String(parsed.html), SANITIZE_OPTIONS)
             : undefined;
-          const attachments = parsed.attachments?.map((attachment) => ({
+          const attachments = parsed.attachments?.map(
+            (attachment: {
+              filename?: string;
+              contentType?: string;
+              size?: number;
+              cid?: string;
+            }) => ({
             filename: attachment.filename ?? undefined,
             contentType: attachment.contentType ?? undefined,
             size: typeof attachment.size === "number" ? attachment.size : undefined,
             cid: attachment.cid ?? undefined,
-          }));
+          }),
+          );
           resolve({
             uid,
             flags,
@@ -516,32 +531,32 @@ export async function syncRecentMailboxMessages(input: {
           uid: message.uid,
           messageId: message.messageId ?? null,
           subject: message.subject ?? null,
-          from: message.from ?? {},
-          to: message.to ?? {},
-          cc: message.cc ?? null,
-          bcc: message.bcc ?? null,
+          from: (message.from ?? {}) as Prisma.InputJsonValue,
+          to: (message.to ?? {}) as Prisma.InputJsonValue,
+          cc: toNullableJsonValue(message.cc),
+          bcc: toNullableJsonValue(message.bcc),
           date: message.date ?? null,
           flags: message.flags ?? [],
           snippet: message.snippet ?? null,
           bodyHtml: message.bodyHtml ?? null,
           bodyText: message.bodyText ?? null,
-          attachments: message.attachments ?? null,
+          attachments: toNullableJsonValue(message.attachments),
           rawRfc822: message.raw ?? null,
           size: message.size ?? null,
         },
         update: {
           messageId: message.messageId ?? null,
           subject: message.subject ?? null,
-          from: message.from ?? {},
-          to: message.to ?? {},
-          cc: message.cc ?? null,
-          bcc: message.bcc ?? null,
+          from: (message.from ?? {}) as Prisma.InputJsonValue,
+          to: (message.to ?? {}) as Prisma.InputJsonValue,
+          cc: toNullableJsonValue(message.cc),
+          bcc: toNullableJsonValue(message.bcc),
           date: message.date ?? null,
           flags: message.flags ?? [],
           snippet: message.snippet ?? null,
           bodyHtml: message.bodyHtml ?? null,
           bodyText: message.bodyText ?? null,
-          attachments: message.attachments ?? null,
+          attachments: toNullableJsonValue(message.attachments),
           rawRfc822: message.raw ?? null,
           size: message.size ?? null,
         },

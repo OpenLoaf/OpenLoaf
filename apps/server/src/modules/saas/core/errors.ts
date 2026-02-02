@@ -1,4 +1,4 @@
-import { SaaSHttpError, SaaSNetworkError, SaaSSchemaError } from "@tenas-saas/sdk";
+import { SaaSHttpError, SaaSNetworkError, SaaSSchemaError } from "@tenas-saas/sdk/server";
 
 /** Normalized SaaS error payload for API responses. */
 export type SaasErrorResult = {

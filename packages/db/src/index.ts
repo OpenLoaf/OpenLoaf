@@ -4,7 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { PrismaClient } from "../prisma/generated/client";
+import { Prisma, PrismaClient } from "../prisma/generated/client";
+export { Prisma };
+export type { PrismaClient };
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import dotenv from "dotenv";
 

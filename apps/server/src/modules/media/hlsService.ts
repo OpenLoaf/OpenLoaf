@@ -100,7 +100,13 @@ function resolveProjectFilePath(input: { path: string; projectId: string; worksp
   if (absPath !== rootResolved && !absPath.startsWith(rootResolved + path.sep)) {
     return null;
   }
-  return { rootPath: rootResolved, absPath, relativePath, projectId: input.projectId };
+  return {
+    rootPath: rootResolved,
+    absPath,
+    relativePath,
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+  };
 }
 
 /** Resolve an absolute file path using workspace scoped rules. */

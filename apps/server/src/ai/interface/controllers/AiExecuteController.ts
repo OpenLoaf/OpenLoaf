@@ -14,6 +14,7 @@ export class AiExecuteController {
     request: AiExecuteRequest;
     cookies: Record<string, string>;
     requestSignal: AbortSignal;
+    saasAccessToken?: string;
   }) {
     // 逻辑：控制器只做编排，避免掺入业务逻辑。
     return this.deps.executeService.execute(input);

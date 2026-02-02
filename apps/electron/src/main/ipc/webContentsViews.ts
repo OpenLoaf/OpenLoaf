@@ -233,9 +233,10 @@ function installNetworkStatsEmitter(win: BrowserWindow, key: string, view: WebCo
   let attachedHere = false;
 
   const handleMessage = (
-    _event: Electron.DebuggerMessageEvent,
+    _event: Electron.Event,
     method: string,
-    params: Record<string, unknown>
+    params: Record<string, unknown>,
+    _sessionId?: string
   ) => {
     if (method === 'Network.requestWillBeSent') {
       stats.requestCount += 1;
