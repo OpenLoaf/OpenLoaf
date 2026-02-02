@@ -11,14 +11,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 interface Tab {
   title: string;
   icon: LucideIcon;
-  type?: never;
+  type?: "tab";
 }
 
 /** Visual separator definition. */
 interface Separator {
   type: "separator";
-  title?: never;
-  icon?: never;
+  title?: undefined;
+  icon?: undefined;
 }
 
 type TabItem = Tab | Separator;

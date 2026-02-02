@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import type { CreatePlateEditorOptions } from 'platejs/react';
+import type { CreatePlateEditorOptions, PlateEditor } from 'platejs/react';
 
 import { getCommentKey, getDraftCommentKey } from '@platejs/comment';
 import { CommentPlugin, useCommentId } from '@platejs/comment/react';
@@ -54,6 +54,14 @@ export type TComment = {
   discussionId: string;
   isEdited: boolean;
   userId: string;
+};
+
+type CommentEditorHandle = PlateEditor & {
+  tf: {
+    replaceNodes: (...args: any[]) => void;
+    reset: () => void;
+    focus: () => void;
+  };
 };
 
 export function Comment(props: {
@@ -149,10 +157,11 @@ export function Comment(props: {
       value: initialValue,
     },
     [initialValue]
-  );
+  ) as CommentEditorHandle | null;
 
   const onCancel = () => {
     setEditingId(null);
+    if (!commentEditor) return;
     commentEditor.tf.replaceNodes(initialValue, {
       at: [],
       children: true,
@@ -160,6 +169,10 @@ export function Comment(props: {
   };
 
   const onSave = () => {
+    if (!commentEditor) {
+      setEditingId(null);
+      return;
+    }
     void updateComment({
       id: comment.id,
       contentRich: commentEditor.children,
@@ -218,8 +231,9 @@ export function Comment(props: {
 
             <CommentMoreDropdown
               onCloseAutoFocus={() => {
+                if (!commentEditor) return;
                 setTimeout(() => {
-                  commentEditor.tf.focus({ edge: 'endEditor' });
+                  commentEditor.tf.focus();
                 }, 0);
               }}
               onRemoveComment={() => {
@@ -444,7 +458,7 @@ export function CommentCreateForm({
         : '',
     [commentValue]
   );
-  const commentEditor = useCommentEditor();
+  const commentEditor = useCommentEditor() as CommentEditorHandle | null;
 
   React.useEffect(() => {
     if (commentEditor && focusOnMount) {
@@ -453,7 +467,7 @@ export function CommentCreateForm({
   }, [commentEditor, focusOnMount]);
 
   const onAddComment = React.useCallback(async () => {
-    if (!commentValue) return;
+    if (!commentValue || !commentEditor) return;
 
     commentEditor.tf.reset();
 
@@ -558,7 +572,7 @@ export function CommentCreateForm({
       );
       editor.tf.unsetNodes([getDraftCommentKey()], { at: path });
     });
-  }, [commentValue, commentEditor.tf, discussionId, editor, discussions]);
+  }, [commentValue, commentEditor?.tf, discussionId, editor, discussions]);
 
   return (
     <div className={cn('flex w-full', className)}>

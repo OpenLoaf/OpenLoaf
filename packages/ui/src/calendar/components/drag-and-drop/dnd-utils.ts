@@ -12,17 +12,23 @@ export const getUpdatedEvent = (
 		return null
 	}
 
-	const isTimeCell = over.data.current?.type === 'time-cell'
-	const { resourceId, allDay } = over.data.current || {}
+	const overData = over.data.current
+	if (!overData) {
+		return null
+	}
+	const isTimeCell = overData.type === 'time-cell'
+	const { resourceId, allDay } = overData
 	let newStart
 
 	if (isTimeCell) {
-		const { date, hour = 0, minute = 0 } = over.data.current
+		if (!overData.date) return null
+		const { date, hour = 0, minute = 0 } = overData
 
 		// Create new start time based on the drop target
 		newStart = dayjs(date).hour(hour).minute(minute)
 	} else {
-		const { date } = over.data.current
+		if (!overData.date) return null
+		const { date } = overData
 
 		newStart = dayjs(date)
 		if (!activeEvent.allDay) {

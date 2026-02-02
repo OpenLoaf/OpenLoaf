@@ -108,7 +108,7 @@ function DraggableEventUnmemoized({
 		setDragRect(node.getBoundingClientRect())
 	}, [isDragging])
 
-	const overlayStyle =
+	const overlayStyle: React.CSSProperties | undefined =
 		isDragging && dragRect
 			? {
 					position: 'fixed',
@@ -146,8 +146,11 @@ function DraggableEventUnmemoized({
 					background.className,
 					textColor.className,
 					'h-full w-full px-1 border-[1.5px] border-card text-left overflow-clip relative',
-					getBorderRadiusClass(isTruncatedStart, isTruncatedEnd)
-				)}
+						getBorderRadiusClass(
+							Boolean(isTruncatedStart),
+							Boolean(isTruncatedEnd)
+						)
+					)}
 				style={{ ...background.style, ...textColor.style }}
 			>
 				{/* Left continuation indicator */}
